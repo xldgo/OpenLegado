@@ -10,13 +10,15 @@ import '../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
+import '../providers/explore/explore_dependencies.dart';
+import '../domain/contracts/book_source_debug_service.dart';
+import '../domain/models/book_source_debug_event.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
 
 /// 书源调试页面
 ///
-/// 输入书源 URL 和搜索关键词，调用 bridge 的 webbookSearch API，
+/// 输入书源 URL 和搜索关键词，调用独立书源调试服务，
 /// 实时显示调试日志输出，支持按日志级别过滤。
 class SourceDebugScreen extends ConsumerStatefulWidget {
   /// 可选：从外部传入书源 URL 预填
@@ -34,6 +36,9 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
   final _logScrollCtrl = ScrollController();
 
   bool _running = false;
+  int _debugGeneration = 0;
+  BookSourceDebugService? _activeDebug;
+  StreamIterator<BookSourceDebugEvent>? _debugIterator;
   final List<_DebugLogEntry> _logs = [];
 
   /// 当前启用的日志级别过滤（全部启用时显示所有）
@@ -49,6 +54,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
 
   @override
   void dispose() {
+    unawaited(_cancelDebug());
     _sourceUrlCtrl.dispose();
     _keywordCtrl.dispose();
     _logScrollCtrl.dispose();
@@ -92,6 +98,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
   }
 
   Future<void> _runDebug() async {
+    if (_running) return;
     final l10n = context.l10n;
     final sourceUrl = _sourceUrlCtrl.text.trim();
     final keyword = _keywordCtrl.text.trim();
@@ -112,57 +119,52 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
 
     _appendLog(l10n.debugStarting);
 
-    StreamSubscription<Map<String, dynamic>>? sub;
+    final generation = ++_debugGeneration;
+    StreamIterator<BookSourceDebugEvent>? iterator;
     try {
-      final api = ref.read(bookApiProvider);
-      sub = api
-          .debugBookSourceStream(sourceUrl, keyword)
-          .listen(
-            (item) {
-              if (!mounted) return;
-              final state = item['state'] is int
-                  ? item['state'] as int
-                  : int.tryParse('${item['state']}') ?? 1;
-              final msg = (item['msg'] ?? '').toString();
-              if (msg.isEmpty) return;
-              final level = state < 0
-                  ? _DebugLogLevel.error
-                  : state >= 1000
-                  ? _DebugLogLevel.success
-                  : _DebugLogLevel.info;
-              _appendLog(msg, level: level);
-            },
-            onError: (Object e) {
-              if (!mounted) return;
-              _appendLog(
-                l10n.debugException(_errMsg(e)),
-                level: _DebugLogLevel.error,
-              );
-            },
-            onDone: () {
-              if (!mounted) return;
-              setState(() => _running = false);
-            },
-            cancelOnError: true,
-          );
-      await sub.asFuture<void>();
+      final service = ref.read(bookSourceDebugServiceProvider);
+      _activeDebug = service;
+      iterator = StreamIterator(service.debug(sourceUrl, keyword));
+      _debugIterator = iterator;
+      while (await iterator.moveNext()) {
+        if (!mounted || generation != _debugGeneration) break;
+        final event = iterator.current;
+        if (event.message.isEmpty) continue;
+        final level = event.state < 0
+            ? _DebugLogLevel.error
+            : event.state >= 1000
+            ? _DebugLogLevel.success
+            : _DebugLogLevel.info;
+        _appendLog(event.message, level: level);
+      }
     } catch (e) {
-      _appendLog(l10n.debugException(_errMsg(e)), level: _DebugLogLevel.error);
+      if (generation == _debugGeneration) {
+        _appendLog(
+          l10n.debugException(_errMsg(e)),
+          level: _DebugLogLevel.error,
+        );
+      }
     } finally {
-      await sub?.cancel();
-      if (mounted) {
-        setState(() => _running = false);
+      await iterator?.cancel();
+      if (generation == _debugGeneration) {
+        _activeDebug = null;
+        _debugIterator = null;
+        if (mounted) setState(() => _running = false);
       }
     }
   }
 
   Future<void> _cancelDebug() async {
+    _debugGeneration++;
+    final service = _activeDebug;
+    final iterator = _debugIterator;
+    _activeDebug = null;
+    _debugIterator = null;
     try {
-      await ref.read(bookApiProvider).cancelDebugBookSource();
+      await service?.cancel();
     } catch (_) {}
-    if (mounted) {
-      setState(() => _running = false);
-    }
+    await iterator?.cancel();
+    if (mounted) setState(() => _running = false);
   }
 
   @override

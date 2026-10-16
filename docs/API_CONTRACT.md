@@ -1,5 +1,47 @@
 # API 契约文档（BookApi 接口基准）
 
+## 换源与封面搜索Dart边界（2026-10-16，实施前冻结）
+
+SourceSwitchService负责七项换源能力；候选搜索返回List<SourceMatch>，流返回SourceSwitchBatch，
+其matches为Rust排序后的完整快照，保留源名、错误、完成数、总数和终批标记。普通/预拉换源
+分别调用原FRB并返回Book，bookUrl必须与请求的稳定主键一致，新源详情地址由originBookUrl承载。
+取消调用发起换源的服务实例；评分/删除写入成功后更新展示。JSON仅在正式数据适配器处理，
+坏结构不冒充空结果，换源失败不回退候选URL作为成功结果。Rust事务、预拉与取消协议保持。
+CoverSearchService返回既有CoverCandidate，并保留按封面规则搜索URL列表的能力；
+CoverRuleRepository接管外观设置中以方法引用传入的读取/保存/删除，使用CoverRule类型，保留
+enabledCookieJar未展示字段。四项均有生产调用，随本批迁移，不删除底层或功能入口。
+正式/Mock各自共享应用装配，保留空列表与错误语义；
+Mock换源更新同一书架记录并保留进度，不宣称执行真实规则/目录事务或验证预拉缓存。
+根十二项活动方法移除，54→42；Rust/FRB能力不删除。
+
+编写者：Codex + Bridge｜2026-10-16
+
+## 发现与书源执行Dart边界（2026-10-16，实施前冻结）
+
+ExploreService负责分类、分页书籍、动作与UI脚本；返回现有ExploreCategory/SearchBook及
+ExploreActionResult。ExploreStateRepository负责infoMap写入、默认值和Map<String,String>快照。
+BookSourceQueryService按BookSource与实际pageUrl读取详情/目录，返回Book/List<BookChapter>；
+目录另传稳定bookUrl作为归属主键，保留tocUrl/bookName提示，不因查询而落库。
+BookSourceDebugService返回BookSourceDebugEvent流并取消既有全局调试；Dart仅管理订阅和当前实例。
+应用装配与四个Provider共享正式/Mock实例。响应JSON和字段归一化在数据层，正式实现注入既有
+平台interceptResult，不能移除WebView拦截。经典登录继续保留既有Session协议，只迁移动作求值入口。
+根十一项活动方法和无消费者的webbookSearch/webbookContent旧壳移除，67→54；不改Rust/FRB、
+数据库、发现分页、当前书源取址及书籍合并语义。
+
+编写者：Codex + Bridge｜2026-10-16
+
+## 自动任务Dart边界（2026-10-16，实施前冻结）
+
+AutoTaskRepository负责规则列表、创建、更新、删除和按ID查询，输入/输出使用已有AutoTaskRule，
+保留脚本、登录设置、排序及运行字段。AutoTaskService负责构建书籍任务、批量cron、导入准备、
+执行、脚本规范化、刷新许可、书籍任务匹配和下次时间；执行接受协议对象和可选taskId，
+适配原有两项FRB方法并返回AutoTaskExecutionResult，JSON编码/解码在数据层完成。
+页面与调度器使用同一装配和窄Provider，调度器只接规则仓储、任务服务和开关读取回调。
+根十四方法及空part移除，81→67。导入/启停/修改须保留完整规则；写入失败不计入导入成功。
+保留当前调度和执行协议行为，既有协议/实际动作缺口单独登记；不改Rust/FRB/数据库或后台机制。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 媒体能力Dart边界（2026-10-16，实施前冻结）
 
 BookImageRepository接管saveImageCache/getImageCache/fetchImageWithDecode，网络解码返回Uint8List，
@@ -78,6 +120,7 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-16 | **自动任务Dart边界冻结**：五项CRUD迁入AutoTaskRepository，九项计算/执行迁入AutoTaskService（执行合并为可选taskId），复用完整AutoTaskRule，结果类型化、编解码归数据层。管理页、调试和调度器使用窄依赖；编辑保留ID及完整字段，导入失败不计成功。根十四项及空part移除，81→67；Rust/FRB及实际执行协议不变，业务缺口单列Active。 |
 | 2026-10-16 | **媒体Dart边界冻结**：图片三项迁入BookImageRepository，音频缓存四项及下载/取消两项分别迁入AudioCacheRepository和AudioCacheDownloadService；音频取址/进度/模式四项迁入AudioBookService，弹幕两项迁入VideoDanmakuService。图片返回字节，音频返回类型化结果/毫秒整数/ReadConfig，数据层处理JSON；根旧十五项及无消费者的audioResolvePlayBook包装移除，97→81。Rust/FRB、数据库及播放生命周期不变。 |
 | 2026-10-16 | **全局缓存与数据库维护Dart边界冻结**：CacheRepository接管五项全局统计与清理，DatabaseMaintenanceService接管VACUUM，CacheService返回CacheStats；设置页使用窄Provider，统计失败可重试、清理拒绝不报成功，根BookApi 128→122。Rust/FRB和实际缓存清理范围不变，见§2.16。 |
 | 2026-10-16 | **应用日志Dart边界冻结**：appLog五项迁入AppLogRepository，列表返回共享AppLogEntry，JSON解码归数据层；正式/Mock实现共用应用装配实例，搜索与换源写入失败不阻断业务。根旧五项移除，BookApi 133→128；Rust/FRB及崩溃采集备份不变，见§2.38。 |

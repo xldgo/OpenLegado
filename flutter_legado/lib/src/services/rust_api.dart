@@ -1,3 +1,12 @@
+import '../domain/contracts/cover_rule_repository.dart';
+import '../domain/contracts/source_switch_service.dart';
+import '../domain/contracts/cover_search_service.dart';
+import '../domain/contracts/explore_service.dart';
+import '../domain/contracts/explore_state_repository.dart';
+import '../domain/contracts/book_source_query_service.dart';
+import '../domain/contracts/book_source_debug_service.dart';
+import '../domain/contracts/auto_task_repository.dart';
+import '../domain/contracts/auto_task_service.dart';
 import '../domain/contracts/book_image_repository.dart';
 import '../domain/contracts/audio_cache_repository.dart';
 import '../domain/contracts/audio_cache_download_service.dart';
@@ -51,18 +60,15 @@ import '../domain/contracts/http_tts_repository.dart';
 import '../domain/contracts/http_tts_synthesizer.dart';
 
 import '../bridge/rust_lib.dart' as bridge;
-import '../models/models.dart';
 import 'book_api.dart';
 export '../data/bridge/rust_api_exception.dart';
 import 'platform_bridge_service.dart';
 
 part 'rust_api_decode.part.dart';
 part 'rust_api_sources.part.dart';
-part 'rust_api_search_rss.part.dart';
 part 'rust_api_reader_data.part.dart';
 part 'rust_api_discovery_cache.part.dart';
 part 'rust_api_media_format.part.dart';
-part 'rust_api_sync_tools.part.dart';
 
 // ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：RustApi 按域拆为 mixin 组合，
 // 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
@@ -75,15 +81,22 @@ class RustApi
     with
         RustApiDecode,
         RustApiSources,
-        RustApiSearchRss,
         RustApiReaderData,
         RustApiDiscoveryCache,
-        RustApiMediaFormat,
-        RustApiSyncTools
+        RustApiMediaFormat
     implements BookApi, ReadingConfigSync, ThemeConfigSync {
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required SourceSwitchService sourceSwitchService,
+    required CoverSearchService coverSearchService,
+    required CoverRuleRepository coverRuleRepository,
+    required ExploreService exploreService,
+    required ExploreStateRepository exploreStateRepository,
+    required BookSourceQueryService bookSourceQueryService,
+    required BookSourceDebugService bookSourceDebugService,
+    required AutoTaskRepository autoTaskRepository,
+    required AutoTaskService autoTaskService,
     required BookImageRepository bookImageRepository,
     required AudioCacheRepository audioCacheRepository,
     required AudioCacheDownloadService audioCacheDownloadService,
@@ -129,6 +142,15 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    sourceSwitchService,
+    coverSearchService,
+    coverRuleRepository,
+    exploreService,
+    exploreStateRepository,
+    bookSourceQueryService,
+    bookSourceDebugService,
+    autoTaskRepository,
+    autoTaskService,
     bookImageRepository,
     audioCacheRepository,
     audioCacheDownloadService,
@@ -174,6 +196,15 @@ class RustApi
   );
 
   RustApi._(
+    this.sourceSwitchService,
+    this.coverSearchService,
+    this.coverRuleRepository,
+    this.exploreService,
+    this.exploreStateRepository,
+    this.bookSourceQueryService,
+    this.bookSourceDebugService,
+    this.autoTaskRepository,
+    this.autoTaskService,
     this.bookImageRepository,
     this.audioCacheRepository,
     this.audioCacheDownloadService,
@@ -217,6 +248,26 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final SourceSwitchService sourceSwitchService;
+  @override
+  final CoverSearchService coverSearchService;
+  @override
+  final CoverRuleRepository coverRuleRepository;
+  @override
+  final ExploreService exploreService;
+  @override
+  final ExploreStateRepository exploreStateRepository;
+  @override
+  final BookSourceQueryService bookSourceQueryService;
+  @override
+  final BookSourceDebugService bookSourceDebugService;
+
+  @override
+  final AutoTaskRepository autoTaskRepository;
+  @override
+  final AutoTaskService autoTaskService;
 
   @override
   final BookImageRepository bookImageRepository;

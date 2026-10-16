@@ -1,4 +1,5 @@
 import '../../widgets/eye_protection_settings.dart';
+import '../../providers/cover_provider.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
 // ThemeConfigFragment（24 项）：启动图标/欢迎页样式/沉浸式状态栏/沉浸式导航栏/
 // 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
@@ -1215,14 +1216,15 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
   /// 封面规则配置对话框（契约 §2.4 F4；对齐原版 CoverRuleConfigDialog）
   Future<void> _showCoverRuleConfigDialog() async {
-    final api = ref.read(bookApiProvider);
+    final repository = ref.read(coverRuleRepositoryProvider);
+    final search = ref.read(coverSearchServiceProvider);
     await showDialog<void>(
       context: context,
       builder: (_) => CoverRuleConfigDialog(
-        loadRule: api.getCoverRule,
-        saveRule: api.saveCoverRule,
-        deleteRule: api.deleteCoverRule,
-        onSearch: api.searchCoverRules,
+        loadRule: repository.getCoverRule,
+        saveRule: repository.saveCoverRule,
+        deleteRule: repository.deleteCoverRule,
+        onSearch: search.searchCoverRules,
       ),
     );
   }

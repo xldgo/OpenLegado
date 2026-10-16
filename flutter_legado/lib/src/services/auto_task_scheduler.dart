@@ -4,16 +4,17 @@
 // 串行批次、jobFinished(retry) 退避重试语义。应用内 Timer 调度（非真后台
 // WorkManager，进程被杀后不执行，属诚实边界）。 — QoderCN
 import 'dart:async';
-import 'dart:convert';
 
 import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'book_api.dart';
+import '../domain/contracts/auto_task_repository.dart';
+import '../domain/contracts/auto_task_service.dart';
+import '../models/misc.dart';
 
-/// 定时任务应用内调度器（全局单例，服务层无依赖注入）
+/// 定时任务应用内调度器（应用装配注入窄依赖）
 ///
 /// 与 Kotlin 原版组件的对应关系：
 /// | Kotlin 原版                            | 本实现                                |
@@ -34,10 +35,13 @@ import 'book_api.dart';
 /// - 设置页开关：开启 → [refresh]，关闭 → [cancelAll]（settings_screen）
 /// - 应用自后台恢复：[didChangeAppLifecycleState] resumed → [refresh]
 class AutoTaskScheduler with WidgetsBindingObserver {
-  AutoTaskScheduler._();
+  AutoTaskScheduler({int Function()? nowMs}) : _nowMs = nowMs ?? _systemNowMs;
+
+  static int _systemNowMs() => DateTime.now().millisecondsSinceEpoch;
+  final int Function() _nowMs;
 
   /// 全局单例（对齐 PlatformBridgeService.instance 模式）
-  static final AutoTaskScheduler instance = AutoTaskScheduler._();
+  static final AutoTaskScheduler instance = AutoTaskScheduler();
 
   /// 失败退避重试间隔（对齐 Kotlin RETRY_BACKOFF_MS = 60_000）
   static const Duration _retryBackoff = Duration(minutes: 1);
@@ -45,10 +49,9 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   /// 首次运行宽限期（对齐 AutoTaskSchedulePolicy.FIRST_RUN_GRACE_MS）
   static const Duration _firstRunGrace = Duration(minutes: 5);
 
-  /// config 键：定时服务总开关（对齐 PreferKey.autoTaskService）
-  static const String _prefKey = 'autoTaskService';
-
-  BookApi? _api;
+  AutoTaskRepository? _repository;
+  AutoTaskService? _service;
+  Future<bool> Function()? _readEnabled;
 
   /// 当前挂起的调度 Timer（对标 JobScheduler pending job）
   Timer? _timer;
@@ -67,10 +70,16 @@ class AutoTaskScheduler with WidgetsBindingObserver {
 
   /// 装配入口（app.dart initState，参考 PlatformBridgeService.navigatorKey）
   ///
-  /// 注入 BookApi 并注册生命周期观察（后台恢复时重算调度），
+  /// 注入规则仓储、任务服务与开关读取，并注册生命周期观察（后台恢复时重算调度），
   /// 随后执行一次 [refresh]（对齐原版 App.kt 启动触发点）。
-  void attach(BookApi api) {
-    _api = api;
+  void attach({
+    required AutoTaskRepository repository,
+    required AutoTaskService service,
+    required Future<bool> Function() readEnabled,
+  }) {
+    _repository = repository;
+    _service = service;
+    _readEnabled = readEnabled;
     WidgetsBinding.instance.addObserver(this);
     _bindJobChannel();
     refresh();
@@ -115,10 +124,10 @@ class AutoTaskScheduler with WidgetsBindingObserver {
 
   /// 是否处于开启状态（读持久化开关，对齐 getPrefBoolean(autoTaskService)）
   Future<bool> _isEnabled() async {
-    final api = _api;
-    if (api == null) return false;
+    final readEnabled = _readEnabled;
+    if (readEnabled == null) return false;
     try {
-      return await api.getConfig(_prefKey) == 'true';
+      return await readEnabled();
     } catch (_) {
       return false;
     }
@@ -138,8 +147,9 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   ///（对标 nextAfterBatchAt），否则以各任务 lastRunAt / 宽限期为基准
   ///（对标 nextDueAt）。开关关闭或无可调度任务时取消挂起 Timer。
   Future<void> refresh({bool afterBatch = false}) async {
-    final api = _api;
-    if (api == null) return;
+    final repository = _repository;
+    final service = _service;
+    if (repository == null || service == null) return;
     final generation = ++_generation;
     try {
       if (!await _isEnabled()) {
@@ -148,10 +158,15 @@ class AutoTaskScheduler with WidgetsBindingObserver {
         await _cancelNativeSchedule();
         return;
       }
-      final rules = await api.autoTaskListRules();
+      final rules = await repository.listRules();
       if (generation != _generation) return; // 已被更新的 refresh 取代
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final runAt = await _nextRunAt(api, rules, now, afterBatch: afterBatch);
+      final now = _nowMs();
+      final runAt = await _nextRunAt(
+        service,
+        rules,
+        now,
+        afterBatch: afterBatch,
+      );
       if (generation != _generation) return;
       _timer?.cancel();
       _timer = null;
@@ -176,20 +191,20 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   /// - 常规：lastRunAt > 0 时取 lastRunAt，否则 now - 宽限期（首次运行）
   /// 返回 null 表示无可调度任务（全部禁用 / cron 无效）。
   Future<int?> _nextRunAt(
-    BookApi api,
-    List<Map<String, dynamic>> rules,
+    AutoTaskService service,
+    List<AutoTaskRule> rules,
     int now, {
     required bool afterBatch,
   }) async {
     int? min;
     for (final rule in rules) {
       if (!_ruleEnabled(rule)) continue;
-      final cron = (rule['cron'] as String? ?? '').trim();
+      final cron = (rule.cron ?? '').trim();
       if (cron.isEmpty) continue;
       final base = afterBatch ? now : _baseTime(rule, now);
       int nextDue;
       try {
-        nextDue = await api.autoTaskNextDueAt(cron: cron, fromMs: base);
+        nextDue = await service.nextDueAt(cron: cron, fromMs: base);
       } catch (_) {
         continue;
       }
@@ -203,19 +218,19 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   /// 筛出到期任务（对标 AutoTaskSchedulePolicy.dueRules）
   ///
   /// 判定：nextTimeAfter(base) <= now，base 规则同 [_nextRunAt] 常规分支。
-  Future<List<Map<String, dynamic>>> _dueRules(
-    BookApi api,
-    List<Map<String, dynamic>> rules,
+  Future<List<AutoTaskRule>> _dueRules(
+    AutoTaskService service,
+    List<AutoTaskRule> rules,
     int now,
   ) async {
-    final due = <Map<String, dynamic>>[];
+    final due = <AutoTaskRule>[];
     for (final rule in rules) {
       if (!_ruleEnabled(rule)) continue;
-      final cron = (rule['cron'] as String? ?? '').trim();
+      final cron = (rule.cron ?? '').trim();
       if (cron.isEmpty) continue;
       int nextDue;
       try {
-        nextDue = await api.autoTaskNextDueAt(
+        nextDue = await service.nextDueAt(
           cron: cron,
           fromMs: _baseTime(rule, now),
         );
@@ -228,30 +243,24 @@ class AutoTaskScheduler with WidgetsBindingObserver {
   }
 
   /// 基准时间（对标 baseTime：lastRunAt>0 取之，否则 now - 宽限期）
-  int _baseTime(Map<String, dynamic> rule, int now) {
-    final raw = rule['lastRunAt'] ?? rule['last_run_at'] ?? 0;
-    final lastRunAt = raw is int ? raw : int.tryParse('$raw') ?? 0;
-    return lastRunAt > 0 ? lastRunAt : now - _firstRunGrace.inMilliseconds;
-  }
+  int _baseTime(AutoTaskRule rule, int now) =>
+      rule.lastRunAt > 0 ? rule.lastRunAt : now - _firstRunGrace.inMilliseconds;
 
-  /// 任务启用判定（兼容 isEnabled / enable 两种字段风格）
-  bool _ruleEnabled(Map<String, dynamic> rule) {
-    final enabled = rule['isEnabled'] ?? rule['enable'] ?? true;
-    return enabled == true;
-  }
+  bool _ruleEnabled(AutoTaskRule rule) => rule.enable;
 
   /// Timer 到点回调：执行一批到期任务（对标 onStartJob）
   Future<void> _onTimer() async {
     // executionLock 语义：已有批次执行中则跳过本次触发
     if (_running) return;
-    final api = _api;
-    if (api == null) return;
+    final repository = _repository;
+    final service = _service;
+    if (repository == null || service == null) return;
     _running = true;
     try {
       if (!await _isEnabled()) return;
-      final rules = await api.autoTaskListRules();
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final due = await _dueRules(api, rules, now);
+      final rules = await repository.listRules();
+      final now = _nowMs();
+      final due = await _dueRules(service, rules, now);
       if (due.isEmpty) {
         // 无到期任务：按批次后策略重排下一轮（对标 shouldRetry 分支）
         await refresh(afterBatch: true);
@@ -260,18 +269,15 @@ class AutoTaskScheduler with WidgetsBindingObserver {
       for (final rule in due) {
         // 单任务失败不影响整批（对标 runTask 逐任务 try/catch 持久化）
         try {
-          final id = (rule['id'] ?? '').toString();
-          final protocolJson = jsonEncode({
-            'action': rule['comment'] ?? 'noop',
+          final id = rule.id;
+          final protocol = <String, dynamic>{
+            'action': rule.comment ?? 'noop',
             'taskId': id,
-          });
-          await api.autoTaskExecuteWithId(
-            protocolJson: protocolJson,
-            taskId: id,
-          );
-          debugPrint('[AutoTaskScheduler] 任务执行完成: ${rule['name']}');
+          };
+          await service.execute(protocol: protocol, taskId: id);
+          debugPrint('[AutoTaskScheduler] 任务执行完成: ${rule.name}');
         } catch (e) {
-          debugPrint('[AutoTaskScheduler] 任务执行失败: ${rule['name']} — $e');
+          debugPrint('[AutoTaskScheduler] 任务执行失败: ${rule.name} — $e');
         }
       }
       // 批次完成：以当前时间为基准调度下一轮（对标 refresh(afterBatch=true)）

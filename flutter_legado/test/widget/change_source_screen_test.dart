@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/models/source_switch_batch.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -25,49 +27,52 @@ void main() {
     when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => []);
-    when(() => mockApi.updateSearchBookScore(any(), any()))
+    when(() => mockApi.sourceSwitchService.updateSearchBookScore(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.deleteSearchBook(any())).thenAnswer((_) async {});
+    when(() => mockApi.sourceSwitchService.deleteSearchBook(any()))
+        .thenAnswer((_) async {});
     when(() => mockApi.bookSourceRepository.disableBookSource(any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.switchSource(any(), any(), any()))
-        .thenAnswer((_) async => '{"bookUrl":"https://b.com/book"}');
+    when(() => mockApi.sourceSwitchService.switchSource(any(), any(), any()))
+        .thenAnswer(
+          (_) async => const Book(
+            bookUrl: 'https://book.com/1',
+            origin: 'https://b.com',
+            originBookUrl: 'https://b.com/book',
+          ),
+        );
   });
 
-  Map<String, dynamic> rawMatch({
+  SourceMatch rawMatch({
     required String sourceUrl,
     required String sourceName,
     required String bookUrl,
     int bookScore = 0,
-  }) => {
+  }) => SourceMatch.fromJson({
     'source_url': sourceUrl,
     'source_name': sourceName,
     'book_url': bookUrl,
     'book_name': '斗破苍穹',
     'author': '天蚕土豆',
     'book_score': bookScore,
-  };
+  });
 
   /// T6 流式批次（契约 §2.4：matches 全量快照 + x/y 进度）
-  Map<String, dynamic> makeBatch({
-    required List<Map<String, dynamic>> matches,
+  SourceSwitchBatch makeBatch({
+    required List<SourceMatch> matches,
     int finished = 1,
     int total = 1,
-  }) => {
-    'source_index': 0,
-    'source_url': '',
-    'source_name': '',
-    'error': null,
-    'finished_count': finished,
-    'total_count': total,
-    'is_last': true,
-    'matches': matches,
-  };
+  }) => SourceSwitchBatch(
+    finishedCount: finished,
+    totalCount: total,
+    isLast: true,
+    matches: matches,
+  );
 
   /// stub searchSourceStream（named 参数全 any，匹配 notifier 的实际调用）
-  void stubSearchStream(Stream<Map<String, dynamic>> stream) {
+  void stubSearchStream(Stream<SourceSwitchBatch> stream) {
     when(
-      () => mockApi.searchSourceStream(
+      () => mockApi.sourceSwitchService.searchSourceStream(
         any(),
         any(),
         sourceUrls: any(named: 'sourceUrls'),
@@ -254,8 +259,12 @@ void main() {
       await tester.tap(find.byTooltip('赞').first);
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.updateSearchBookScore('https://a.com/book', 1))
-          .called(1);
+      verify(
+        () => mockApi.sourceSwitchService.updateSearchBookScore(
+          'https://a.com/book',
+          1,
+        ),
+      ).called(1);
     });
 
     testWidgets('长按显示五项操作菜单', (tester) async {

@@ -97,29 +97,4 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
   /// 设置独立 MCP 服务端口（契约 §2.22.5，Task #74）
   @override
   Future<void> setMcpPort(int port) => bridge.setMcpPort(port: port);
-
-  /// 封面规则测试搜索（契约 §2.4.8，Task #74）
-  ///
-  /// Rust 返回裸 JSON Array（§1.4 铁律），解析为字符串列表；
-  /// 空结果 `[]` 解析为空列表（非异常）。
-  @override
-  Future<List<String>> searchCoverRules(String name) async {
-    final json = await bridge.searchCoverRules(name: name);
-    final decoded = jsonDecode(json);
-    if (decoded is! List) return [];
-    return decoded.map((e) => e.toString()).toList();
-  }
-
-  @override
-  Future<Map<String, dynamic>> getCoverRule() async {
-    final json = await bridge.getCoverRule();
-    return _decodeMap(json, 'getCoverRule');
-  }
-
-  @override
-  Future<bool> saveCoverRule(Map<String, dynamic> rule) =>
-      bridge.saveCoverRule(ruleJson: jsonEncode(rule));
-
-  @override
-  Future<bool> deleteCoverRule() => bridge.deleteCoverRule();
 }

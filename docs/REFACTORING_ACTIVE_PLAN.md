@@ -1,5 +1,60 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-SWITCH-BOUNDARY-20261016：换源与封面搜索整域拆分（P1）
+
+- 授权与基线：用户同意下一批方案；feature/ui-reader-selection / 0c94b4d37，保留此前74条未提交路径（72份文件、两项删除），开始快照位于忽略目录build/source-switch-boundary-qa/。同一分支、Codex直接执行、不使用子代理，不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批整域拆分与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实网络、Rust事务/预拉及设备复验后置。
+- 范围：SourceSwitchService接管非流式/流式候选搜索、普通/预拉换源、取消、评分与删除七项，返回SourceMatch、SourceSwitchBatch和Book；CoverSearchService接管封面候选及规则搜索；CoverRuleRepository接管读取/保存/删除配置，使用CoverRule类型。迁移换源页、阅读器自动换源、章节换源面板、书架批量换源、封面页和外观封面规则编辑。根十二项活动方法移除，目标54→42，不留转发。
+- 审计修正：首轮搜索仅匹配函数调用，遗漏外观设置通过api.getCoverRule等方法引用传给CoverRuleConfigDialog的四项消费者；静态分析发现后改为迁移仓储/搜索入口，保留全部现有能力，不执行原先误判的功能删除。
+- 边界：JSON编解码集中在数据层，保留排序、分组、进度全量快照、预拉参数与原生取消；换源返回稳定bookUrl和新源originBookUrl，禁止坏响应回退为候选URL后提示成功。Mock与书架共用书籍存储，保持进度；不模拟真实规则抓取或预拉命中。不修改Rust、FFI生成物、数据库、依赖、平台或UI布局。
+- 验收：FRB参数/错误/坏响应与稳定主键；Mock共享状态、候选评分/删除、窄Provider独立替换；换源进度/失败/取消、封面搜索、批量换源及既有阅读器换源回归。仅相关行为测试、完整静态分析、格式与差异检查；真实网络/native/设备后置。
+- 实现：三个窄接口、正式/Mock共六份实现、SourceSwitchBatch/CoverRule模型和三个独立Provider接通应用装配。候选/批次/换源返回类型化数据，消费者不再解码JSON；换源页、自动换源、单章换源、书架批量换源、封面页和外观规则编辑全部迁移。根十二项旧方法移除，两个空search_rss part及其引用删除，清理已无调用的_decodeList辅助方法；语法树复核BookApi为42项。
+- 行为与边界：遵循当前Rust的SourceSwitchResponse对象，不继续接受旧裸列表包装。保留Rust候选顺序、全部搜索增强参数、完整进度快照与单源错误；普通/预拉通道分别调用原FRB，不增加二次抓取。事务返回Book并校验稳定主键；坏结果向上报错，不用候选URL伪造成功。自动换源采用返回的源信息并保留会话原文位置；取消使用发起换源的服务实例。Mock与原书架共用记录，评分/删除可由后续查询观察；不模拟原生事务、预拉命中或网络规则。
+- 封面规则：四项原能力完整保留并迁移，配置使用CoverRule；编辑保存保留未展示的enabledCookieJar，保存/删除返回false时不再关闭对话框冒充成功。查询与配置分别由CoverSearchService/CoverRuleRepository负责，封面Provider位于独立入口，不依赖换源页目录。不改编辑器布局、存储格式或Rust实现。
+- 验证结果：flutter test --no-pub相关46份测试533项全部通过（38秒），包含前两批自动任务/发现/媒体与本批换源/封面/外观/阅读器回归。新增四份行为测试和批量换源用例覆盖FRB Mock参数/顺序/坏响应、稳定主键、流取消传递、共享Mock、独立注入、发起实例取消、单本失败不中断批次、单章查询不切整书，以及规则编辑/搜索/保存失败/删除失败/隐藏字段保留。完整flutter analyze --no-pub无问题（12.4秒），三批105份Dart格式零差异，git diff --check通过；先行185项、23项、15项不重复累计。
+- 失败记录：首轮分析发现遗漏的四个方法引用、取消表达式的可空类型推断、旧阅读器测试替身仍覆写根方法，以及初始化形式/括号/未使用辅助方法共11项，均已修正。最终分析发现新增测试一项括号lint，补齐后复验无问题；无未解决测试失败，不将编译失败轮次计入通过数。最初误判的四项功能删除已撤回，实际交付是完整迁移。
+- 证据与保护：最终测试清单和日志位于flutter_legado/build/source-switch-boundary-{test-manifest.txt,regression-final.log,analysis-final.log}；忽略目录build/source-switch-boundary-qa/保存开始快照、前批交集差异和最终清单。本批45条路径，与此前74条未提交路径交集8条，其余64份文件字节未变、两项删除保持，交集仅增加装配、文档和测试。Codex直接实现与自查，不使用子代理或声称独立审查；Rust、生成文件、数据库、依赖、平台、CI与版本未改，未提交/推送/触发CI或构建安装。
+
+编写者：Codex｜2026-10-16
+
+### EXPLORE-SOURCE-BOUNDARY-20261016：发现与书源执行整域拆分（P1）
+
+- 授权与基线：用户同意下一批方案；feature/ui-reader-selection / 0c94b4d37，保留自动任务批次32条未提交路径（含两项删除），快照在忽略目录build/explore-source-boundary-qa/。同一分支、Codex直接执行、不使用子代理，不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批整域拆分与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实网络、原生库与设备复验后置。
+- 范围：ExploreService承接分类解析、书籍分页、动作与UI脚本四项；ExploreStateRepository承接infoMap三项；BookSourceQueryService承接详情和目录两项，返回Book/List<BookChapter>，保留当前书源取址与稳定主键区分；BookSourceDebugService承接调试流/取消两项，返回类型化日志。无消费者的webbookSearch/webbookContent两项Dart旧壳删除，保留底层Rust/FRB，根十三项移除，67→54。
+- 约束：保留发现分类缓存/默认值、分页/去重、自定义布局、登录动作和平台WebView拦截；详情首屏补全与后台刷新合并规则不变，未入架查询不落库。JSON响应在数据层解码，现有BookSource序列化和Rust字段归一化集中适配器。调试取消使用发起时实例并释放订阅，不增加原生句柄，不修改Rust、数据库、依赖或平台。
+- 验收：正式适配器参数、错误、字段映射与平台桥接；Mock共享状态及独立Provider替换；已有发现布局/分页/重试/登录、书籍详情/目录与类型位回归，以及调试流/取消交互。只运行相关测试与静态分析；真实网络、原生库和设备后置。
+- 实现：四份契约及各自正式/Mock实现、ExploreActionResult/BookSourceDebugEvent、四个窄Provider和应用装配完成。迁移发现分类/分页、自定义控件状态与动作、经典登录动作、书架URL导入、详情补全/刷新、在线目录和调试页。十三项根方法及重复part实现移除，不留转发；原文到模型的字段映射移至查询服务，根接口语法树复核54项。剩余章节购买与书源回调保留原part，不扩张本批范围。
+- 行为：发现页保留源身份、相对URL解析和类型位；详情/目录继续先执行既有平台拦截，再解码为模型。URL导入补齐原先直接Book.fromJson丢失的snake_case字段和书源身份；章节保留分卷/VIP等字段，归属稳定主键。详情独立查询失败时保留现有字段，不丢弃并行成功的目录；未入架查询只展示、不写库。经典登录的TTS Session协议不变，发现动作继续由现有平台桥接回放。调试页持有发起服务实例，停止/离页取消原生任务并释放订阅，迟到日志不回写。
+- 验证结果：flutter test --no-pub相关34份测试393项全部通过（15秒），含前批自动任务/媒体及本批发现/详情/目录/登录回归。新增四份行为测试覆盖FRB Mock参数、字段归一化、平台拦截、坏响应/异常、共享Mock、独立注入、未入架不落库、详情失败保留并行目录，以及调试日志/正常结束/停止/离页/错误；现有发现控件测试增加平台复制动作回放与分类刷新。完整flutter analyze --no-pub无问题（15秒），两批70份Dart格式零差异，git diff --check通过；首轮及单独复验不重复累计。
+- 失败记录：迁移测试最初仍断言JSON字符串，改为断言完整BookSource；发现路由测试补齐SharedPreferences测试环境。新增测试修正Flutter binding初始化、简介双份渲染的断言、异步错误fixture及平台剪贴板stub；调试流取消的已完成Future需在Widget测试中刷新真实异步队列。首轮发现的五项机械lint已修正；最终组合与分析均通过，无遗留失败。
+- 证据与保护：测试清单和日志位于flutter_legado/build/explore-source-boundary-{test-manifest.txt,regression-final.log,analysis-final.log}；忽略目录build/explore-source-boundary-qa/保存开始快照、重叠差异和最终增量清单。本批50条路径，与前批32条未提交路径交集8条，其余22份文件字节未变、两项删除保持；交集仅增加本批装配、文档和测试。Codex直接实现与自查，不使用子代理或声称独立审查。Rust、FRB/模型生成物、数据库、依赖、平台、CI和版本未改；两批均未提交/推送，未触发CI或构建安装。
+
+编写者：Codex｜2026-10-16
+
+### AUTO-TASK-BOUNDARY-20261016：自动任务整域拆分（P1）
+
+- 授权与基线：用户要求提交媒体批次后继续下一部分；feature/ui-reader-selection / 0c94b4d37，开始工作区干净。同一分支、Codex直接执行、不使用子代理，不推送/触发CI/构建安装，版本保持2.0.373+374。本批完成后留待审核，不自动追加提交。
+- 状态：本批整域拆分与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实Rust执行、网络与后台设备验证后置。
+- 范围：AutoTaskRepository承接五项规则CRUD，复用共享AutoTaskRule完整模型；AutoTaskService承接九项构建/批量cron/导入准备/执行/脚本及调度计算能力，其中两种执行合并为可选taskId入口。任务页、Notifier、调试面板、书籍更新任务入口与调度器改用窄依赖；根十四项及空part移除，81→67。
+- 约束：JSON编解码移至数据层，执行返回类型化结果；页面保留布局及已有导入/导出/编辑流程，修改名称、cron和启停须保留完整脚本、登录字段、排序和运行记录。调度Timer、原生Job通道、串行执行锁、首次宽限与退避保持。真实执行协议缺口另记，不在本批重写Rust执行器、后台服务、配置存储或数据库。
+- 验收：正式适配器参数/错误/坏响应；完整规则往返、Mock共享CRUD、窄Provider独立替换；Notifier错误与写入失败、批量导入计数、页面编辑与调试、调度器实际Timer触发。相关测试、完整静态分析、格式与差异检查通过；真实Rust/网络/设备后置。
+- 实现：两份契约、各自正式/Mock实现、两个窄Provider及应用装配完成。复用完整AutoTaskRule；AutoTask展示模型从状态文件移入共享模型并保留原规则，修改名称/cron/启停不丢脚本、登录、排序与运行字段。执行返回AutoTaskExecutionResult；调试协议组装移出Widget，调度器仅接仓储、服务、开关回调和时钟，不再持有BookApi。根十四项与两份空sync_tools part删除，根接口67项。
+- 明确行为：适配当前Rust数据库camelCase与纯计算结构snake_case，导入准备传入真实排序/运行值，批量cron和匹配结果合回数据库专属字段；这是现有双结构协议的映射，不新增历史数据迁移。普通编辑更新原ID，不先删再建；创建、删除及导入失败不报成功，列表失败保留最近状态。Mock规则按ID覆盖并排序，更新不存在规则报错；Mock任务计算/执行仍保留无真实执行器的占位边界，不声称完整模拟Rust业务。
+- 验证结果：flutter test --no-pub相关13份测试210项通过（6秒），其中三份新增测试22项覆盖实际FRB Mock参数与字段、坏响应/异常、共享规则和独立注入、Timer到期/禁用/取消/单任务失败继续，以及页面完整规则编辑、删除失败、部分导入计数和调试结果。迁移后的模型/Notifier、装配、书籍详情、设置服务开关及前批媒体回归通过。完整flutter analyze --no-pub无问题（14.7秒），28份Dart格式检查与git diff --check通过；先行116项和重试轮次不重复累计。
+- 失败与证据：首轮提取协议代码有残留括号，格式阶段已修复；首轮分析5项机械lint已修正。新增页面测试最初使用错误的菜单tooltip，按实际“更多操作”修正，4项复验及最终组合通过。日志为flutter_legado/build/auto-task-boundary-{existing-initial,new-initial,widget-retry,regression-final,analysis-initial,analysis-final}.log，测试清单为同目录auto-task-boundary-test-manifest.txt；忽略目录build/auto-task-boundary-qa/保存最终差异与摘要。
+- 交付边界：Codex直接实现与自查，不使用子代理或声称独立审查；媒体批次已按用户要求提交为0c94b4d37，本批留待审核，不自动追加提交。Rust、FRB/模型生成物、数据库、依赖、原生平台、CI和应用版本未变，未推送/触发CI/构建安装。执行协议及占位动作缺口见下一项，不以类型化或Mock成功关闭。
+
+编写者：Codex｜2026-10-16
+
+### AUTO-TASK-EXECUTION-GAPS-20261016：自动任务执行协议与业务动作缺口（P1，后续完善）
+
+- 状态：静态核查确认，后续单独处理，不混入当前接口拆分。
+- 协议：AutoTaskNotifier.runNow和AutoTaskScheduler将comment/taskType作为action并附taskId，Rust TaskProtocol要求RefreshToc/Backup等枚举及params；自动生成的书籍更新脚本使用另一套业务JSON。调试面板另有协议拼装，三条执行路径未统一，类型化返回不代表真实业务执行已打通。
+- 动作：Rust核心AutoTaskRunner中刷新目录、缓存新增章节、更新书源与备份仍有占位成功实现；Custom经FFI走真实JS。执行结果未统一持久化运行状态。后续须先冻结统一执行契约，复用真实业务服务并以数据库/文件/固定HTTP样本证明副作用，不能以Mock成功或日志文字关闭问题。
+
+编写者：Codex｜2026-10-16
+
 ### MEDIA-BOUNDARY-20261016：媒体能力整域拆分（P1）
 
 - 授权与基线：用户要求下一步媒体；feature/ui-reader-selection / 8f1c84c34，开始工作区干净。Codex直接执行、不使用子代理、不新建分支、不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。

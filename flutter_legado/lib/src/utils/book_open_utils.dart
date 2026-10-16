@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -398,7 +396,7 @@ class BookOpenUtils {
     );
   }
 
-  /// 合并 webbookInfo 返回的详情到 book（WebBookInfo 为 snake_case，需手动映射，
+  /// 合并数据层已解码的详情到 book（原始字段映射由查询服务处理，
   /// 不能直接 Book.fromJson 否则 cover_url/toc_url 等丢失）。
   /// - refresh=false（默认）：仅补全当前缺失字段（首屏补全语义）。
   /// - refresh=true（U7 进入刷新）：更新式合并——刷新非空值覆盖现有字段
@@ -408,27 +406,23 @@ class BookOpenUtils {
   ///   走 [bookFetchUrl]，即当前书源详情页），守卫降级为纵深防御：正常书籍页
   ///   解析必得书名（ruleBookInfo.name）；name 缺失即视为「未解析到书籍页」，
   ///   本次刷新整体跳过——宁可保留旧值，也不用错页结果覆盖。
-  static Book mergeWebInfo(Book book, String infoJson, {bool refresh = false}) {
-    final decoded = jsonDecode(infoJson);
-    if (decoded is! Map) return book;
-    String? pick(String key) {
-      final v = decoded[key];
-      return (v is String && v.isNotEmpty) ? v : null;
-    }
+  static Book mergeWebInfo(Book book, Book info, {bool refresh = false}) {
+    String? nonEmpty(String? value) =>
+        value != null && value.isNotEmpty ? value : null;
 
     if (refresh) {
-      final freshName = pick('name');
+      final freshName = nonEmpty(info.name);
       if (freshName == null) return book;
-      final freshCover = pick('cover_url');
-      final freshIntro = pick('intro');
-      final freshWord = pick('word_count');
-      final freshLast = pick('last_chapter');
-      final freshKind = pick('kind');
-      final freshToc = pick('toc_url');
-      final freshAuthor = pick('author');
+      final freshCover = nonEmpty(info.coverUrl);
+      final freshIntro = nonEmpty(info.intro);
+      final freshWord = nonEmpty(info.wordCount);
+      final freshLast = nonEmpty(info.latestChapterTitle);
+      final freshKind = nonEmpty(info.kind);
+      final freshToc = nonEmpty(info.tocUrl);
+      final freshAuthor = nonEmpty(info.author);
       // [P2-15 ②] 详情解析 type 回流：非零覆盖媒体位（JS 写值胜出），
       // 零值/缺键保留现有值（对齐上方 refresh 更新式合并的非空覆盖口径）
-      final freshType = (decoded['type'] as num?)?.toInt() ?? 0;
+      final freshType = info.bookType;
       return book.copyWith(
         coverUrl: freshCover ?? book.coverUrl,
         intro: freshIntro ?? book.intro,
@@ -448,45 +442,27 @@ class BookOpenUtils {
     final hasLast =
         book.latestChapterTitle != null && book.latestChapterTitle!.isNotEmpty;
     final hasKind = book.kind != null && book.kind!.isNotEmpty;
-    final tocUrl = pick('toc_url');
-    final name = pick('name');
-    final author = pick('author');
+    final tocUrl = nonEmpty(info.tocUrl);
+    final name = nonEmpty(info.name);
+    final author = nonEmpty(info.author);
     // [P2-15 ②] type 非「补全缺失」语义：详情解析是书籍模式权威来源
     // （二合一文本源入架时 bookType=8，详情 JS 写 64 → 必须覆盖切漫画
     // 模式），故非零新值同样覆盖媒体位；零值/缺键保留现有值
-    final freshType = (decoded['type'] as num?)?.toInt() ?? 0;
+    final freshType = info.bookType;
     return book.copyWith(
-      coverUrl: hasCover ? book.coverUrl : pick('cover_url'),
-      intro: hasIntro ? book.intro : pick('intro'),
+      coverUrl: hasCover ? book.coverUrl : nonEmpty(info.coverUrl),
+      intro: hasIntro ? book.intro : nonEmpty(info.intro),
       // [fix 2026-08-15] tocUrl 用详情解析出的权威值优先（七猫发现列表
       // book.tocUrl 默认=bookUrl，详情 qmBookInfo 生成真实 chapter-list URL）
       tocUrl: tocUrl ?? book.tocUrl,
-      wordCount: hasWord ? book.wordCount : pick('word_count'),
+      wordCount: hasWord ? book.wordCount : nonEmpty(info.wordCount),
       latestChapterTitle: hasLast
           ? book.latestChapterTitle
-          : pick('last_chapter'),
-      kind: hasKind ? book.kind : pick('kind'),
+          : nonEmpty(info.latestChapterTitle),
+      kind: hasKind ? book.kind : nonEmpty(info.kind),
       name: book.name.isNotEmpty ? book.name : (name ?? book.name),
       author: book.author.isNotEmpty ? book.author : (author ?? book.author),
       bookType: mergeBookType(book.bookType, freshType),
     );
-  }
-
-  /// 解析 webbookChapters 返回的 WebChapter 数组（snake_case）
-  static List<BookChapter> parseWebChapters(String json, String bookUrl) {
-    final decoded = jsonDecode(json);
-    if (decoded is! List) return const [];
-    return [
-      for (final e in decoded)
-        if (e is Map)
-          BookChapter(
-            index: (e['index'] as num?)?.toInt() ?? 0,
-            title: e['title']?.toString() ?? '',
-            url: e['url']?.toString() ?? '',
-            bookUrl: bookUrl,
-            isVolume: e['is_volume'] == true,
-            isVip: e['is_vip'] == true,
-          ),
-    ];
   }
 }

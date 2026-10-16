@@ -1,4 +1,5 @@
 import '../domain/contracts/source_login_session.dart';
+import '../domain/models/explore_action_result.dart';
 import '../l10n/app_localization.dart';
 import 'app_menu.dart';
 
@@ -32,7 +33,7 @@ import '../utils/error_message.dart';
 /// — DeepSeek Harness + UI（2026-08-14 登录表单对齐）
 class ClassicLoginDialog extends StatefulWidget {
   final SourceLoginRepository? repository;
-  final Future<Map<String, dynamic>> Function({
+  final Future<ExploreActionResult> Function({
     required String sourceJson,
     required String actionJs,
   })?
@@ -264,14 +265,20 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
   /// 执行动作 JS 并回放中途 UI（toast/浏览器等，对齐 handleButtonClick）
   Future<bool> _runAction(String action) async {
     final script = _composeScript(action);
-    final result = widget.session != null
-        ? await widget.session!.execute(script)
-        : await widget.evaluateAction!(
-            sourceJson: jsonEncode(source.toJson()),
-            actionJs: script,
-          );
-    final actions = result['actions'];
-    if (actions is List && actions.isNotEmpty) {
+    final List<dynamic> actions;
+    final session = widget.session;
+    if (session != null) {
+      final result = await session.execute(script);
+      final values = result['actions'];
+      actions = values is List ? values : const [];
+    } else {
+      final result = await widget.evaluateAction!(
+        sourceJson: jsonEncode(source.toJson()),
+        actionJs: script,
+      );
+      actions = result.actions;
+    }
+    if (actions.isNotEmpty) {
       await PlatformBridgeService.instance.dispatchActions(actions);
     }
     return true;

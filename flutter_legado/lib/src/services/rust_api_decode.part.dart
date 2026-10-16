@@ -6,10 +6,6 @@ mixin RustApiDecode {
   // [审计修复 §4.2] jsonDecode 守卫：类型不符时抛带上下文的 FormatException，
   // 避免 Rust 返回结构漂移时直接 TypeError 崩溃（契约 §1.4 历史教训） — QoderCN
 
-  /// 解码 JSON 数组，类型不符时抛带方法上下文的 [FormatException]
-  List<dynamic> _decodeList(String json, String method) =>
-      decodeRustJsonList(json, method);
-
   /// 解码 JSON 对象，类型不符时抛带方法上下文的 [FormatException]
   Map<String, dynamic> _decodeMap(String json, String method) =>
       decodeRustJsonMap(json, method);

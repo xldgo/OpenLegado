@@ -51,8 +51,10 @@ void main() {
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => [kaixinSource]);
     when(
-      () =>
-          mockApi.exploreParseUrl(any(), sourceJson: any(named: 'sourceJson')),
+      () => mockApi.exploreService.parseCategories(
+        any(),
+        source: any(named: 'source'),
+      ),
     ).thenAnswer(
       (_) async => [
         // [真机 FFI 形态等价] 真机 Rust 纯文本 :: 解析返回 type=""（空串），
@@ -71,11 +73,12 @@ void main() {
         ),
       ],
     );
-    when(() => mockApi.exploreFetchBooks(any(), any(), any())).thenAnswer(
-      (_) async => const [
-        SearchBook(bookUrl: 'http://b/1', name: '书1', author: '作者1'),
-      ],
-    );
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
+        .thenAnswer(
+          (_) async => const [
+            SearchBook(bookUrl: 'http://b/1', name: '书1', author: '作者1'),
+          ],
+        );
   });
 
   /// 真实装配：真实 exploreNotifierProvider（由 ExploreScreen 内 ref.watch 驱动）

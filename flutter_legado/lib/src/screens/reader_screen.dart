@@ -1,3 +1,4 @@
+import '../providers/change_source/source_switch_dependencies.dart';
 import '../providers/book_content_provider.dart';
 import '../providers/reader/reader_settings_provider.dart';
 import '../domain/models/reader_interaction_settings.dart';
@@ -1256,11 +1257,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _doAutoChangeSource(Book book) async {
     _autoSwitching = true;
     try {
-      final api = ref.read(bookApiProvider);
-      final matches = (await api.searchSource(
-        book.name,
-        book.author,
-      )).map(SourceMatch.fromJson).toList();
+      final service = ref.read(sourceSwitchServiceProvider);
+      final matches = await service.searchSource(book.name, book.author);
       SourceMatch? target;
       for (final m in matches) {
         if (m.sourceUrl.isNotEmpty && m.sourceUrl != book.origin) {
@@ -1274,29 +1272,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             .showSnackBar(const SnackBar(content: Text('自动换源：无可用替代书源')));
         return;
       }
-      final updatedJson = await api.switchSource(
+      final switched = await service.switchSource(
         book.bookUrl,
         target.sourceUrl,
         target.bookUrl,
       );
-      var newBookUrl = target.bookUrl;
-      try {
-        final decoded = jsonDecode(updatedJson);
-        if (decoded is Map<String, dynamic>) {
-          final url = decoded['bookUrl'] as String?;
-          if (url != null && url.isNotEmpty) newBookUrl = url;
-        }
-      } catch (_) {
-        // 解析失败回退候选项 bookUrl（与换源页同策略）
-      }
       if (!mounted) return;
-      final updated = book.copyWith(
-        bookUrl: newBookUrl,
-        origin: target.sourceUrl,
-        originName: target.sourceName,
-        // [P2-8 审查 P1-1] 自动换源后内存对象须带上新源详情页地址，
-        // 否则后续任意一次「保存阅读设置」会用缺该字段的 Book 覆盖 DB 列
-        originBookUrl: target.bookUrl,
+      // 采用事务返回的源信息，保留当前阅读会话的原文位置。
+      final updated = switched.copyWith(
+        durChapterIndex: book.durChapterIndex,
+        durChapterPos: book.durChapterPos,
+        durChapterTitle: book.durChapterTitle,
       );
       final notifier = ref.read(readerNotifierProvider.notifier);
       notifier.updateCurrentBook(updated);

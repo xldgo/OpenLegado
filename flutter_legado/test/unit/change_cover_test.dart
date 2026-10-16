@@ -55,10 +55,14 @@ void main() {
     });
 
     test('searchCovers 解析真实契约返回（含尺寸缺省兜底）', () async {
-      when(() => mockApi.searchCover(any())).thenAnswer(
+      when(() => mockApi.coverSearchService.searchCover(any())).thenAnswer(
         (_) async => [
-          {'url': 'https://a.com/1.jpg', 'width': 240, 'height': 320},
-          {'url': 'https://a.com/2.jpg'},
+          const CoverCandidate(
+            url: 'https://a.com/1.jpg',
+            width: 240,
+            height: 320,
+          ),
+          const CoverCandidate(url: 'https://a.com/2.jpg'),
         ],
       );
 
@@ -70,11 +74,12 @@ void main() {
       expect(state.candidates.first.url, equals('https://a.com/1.jpg'));
       expect(state.candidates.first.width, equals(240));
       expect(state.candidates[1].width, isZero);
-      verify(() => mockApi.searchCover('chapter')).called(1);
+      verify(() => mockApi.coverSearchService.searchCover('chapter')).called(1);
     });
 
     test('searchCovers 无候选返回空列表（非异常）', () async {
-      when(() => mockApi.searchCover(any())).thenAnswer((_) async => []);
+      when(() => mockApi.coverSearchService.searchCover(any()))
+          .thenAnswer((_) async => []);
 
       await readNotifier().searchCovers('novel');
 
@@ -85,7 +90,8 @@ void main() {
     });
 
     test('searchCovers 异常时兜底并记录 error', () async {
-      when(() => mockApi.searchCover(any())).thenThrow(Exception('网络错误'));
+      when(() => mockApi.coverSearchService.searchCover(any()))
+          .thenThrow(Exception('网络错误'));
 
       await readNotifier().searchCovers('novel');
 
@@ -99,7 +105,7 @@ void main() {
       await readNotifier().searchCovers('   ');
 
       expect(readState().candidates, isEmpty);
-      verifyNever(() => mockApi.searchCover(any()));
+      verifyNever(() => mockApi.coverSearchService.searchCover(any()));
     });
   });
 }

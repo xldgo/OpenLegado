@@ -1,3 +1,21 @@
+import '../domain/contracts/cover_rule_repository.dart';
+import '../data/repositories/mock_cover_rule_repository.dart';
+import '../domain/contracts/source_switch_service.dart';
+import '../domain/contracts/cover_search_service.dart';
+import '../data/services/mock_source_switch_service.dart';
+import '../data/services/mock_cover_search_service.dart';
+import '../domain/contracts/explore_service.dart';
+import '../domain/contracts/explore_state_repository.dart';
+import '../domain/contracts/book_source_query_service.dart';
+import '../domain/contracts/book_source_debug_service.dart';
+import '../data/services/mock_explore_service.dart';
+import '../data/repositories/mock_explore_state_repository.dart';
+import '../data/services/mock_book_source_query_service.dart';
+import '../data/services/mock_book_source_debug_service.dart';
+import '../data/repositories/mock_auto_task_repository.dart';
+import '../data/services/mock_auto_task_service.dart';
+import '../domain/contracts/auto_task_repository.dart';
+import '../domain/contracts/auto_task_service.dart';
 import '../data/repositories/mock_book_image_repository.dart';
 import '../data/repositories/mock_audio_cache_repository.dart';
 import '../data/services/mock_audio_cache_download_service.dart';
@@ -93,11 +111,9 @@ import 'book_api.dart';
 
 part 'mock_book_api_store.part.dart';
 part 'mock_book_api_sources.part.dart';
-part 'mock_book_api_search_rss.part.dart';
 part 'mock_book_api_reader_data.part.dart';
 part 'mock_book_api_discovery_cache.part.dart';
 part 'mock_book_api_media_format.part.dart';
-part 'mock_book_api_sync_tools.part.dart';
 
 // ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：MockBookApi 按域拆为 mixin 组合，
 // 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
@@ -133,12 +149,30 @@ class MockBookApi
     with
         MockBookApiStore,
         MockBookApiSources,
-        MockBookApiSearchRss,
         MockBookApiReaderData,
         MockBookApiDiscoveryCache,
-        MockBookApiMediaFormat,
-        MockBookApiSyncTools
+        MockBookApiMediaFormat
     implements BookApi {
+  @override
+  late final SourceSwitchService sourceSwitchService;
+  @override
+  late final CoverSearchService coverSearchService;
+  @override
+  late final CoverRuleRepository coverRuleRepository;
+  @override
+  late final ExploreService exploreService;
+  @override
+  late final ExploreStateRepository exploreStateRepository;
+  @override
+  late final BookSourceQueryService bookSourceQueryService;
+  @override
+  late final BookSourceDebugService bookSourceDebugService;
+
+  @override
+  late final AutoTaskRepository autoTaskRepository;
+  @override
+  late final AutoTaskService autoTaskService;
+
   @override
   late final BookImageRepository bookImageRepository;
   @override
@@ -210,6 +244,15 @@ class MockBookApi
   late final CacheDownloadService cacheDownloadService;
 
   MockBookApi({
+    SourceSwitchService? sourceSwitchService,
+    CoverSearchService? coverSearchService,
+    CoverRuleRepository? coverRuleRepository,
+    ExploreService? exploreService,
+    ExploreStateRepository? exploreStateRepository,
+    BookSourceQueryService? bookSourceQueryService,
+    BookSourceDebugService? bookSourceDebugService,
+    AutoTaskRepository? autoTaskRepository,
+    AutoTaskService? autoTaskService,
     BookImageRepository? bookImageRepository,
     AudioCacheRepository? audioCacheRepository,
     AudioCacheDownloadService? audioCacheDownloadService,
@@ -288,6 +331,19 @@ class MockBookApi
           chapters: _chaptersCache,
           contents: _contentCache,
         );
+    this.exploreService = exploreService ?? const MockExploreService();
+    this.exploreStateRepository =
+        exploreStateRepository ?? MockExploreStateRepository();
+    this.bookSourceQueryService =
+        bookSourceQueryService ?? const MockBookSourceQueryService();
+    this.bookSourceDebugService =
+        bookSourceDebugService ?? const MockBookSourceDebugService();
+    String allocateTaskId() => 'mock-task-${_nextId++}';
+    this.autoTaskRepository =
+        autoTaskRepository ??
+        MockAutoTaskRepository(allocateId: allocateTaskId);
+    this.autoTaskService =
+        autoTaskService ?? MockAutoTaskService(allocateId: allocateTaskId);
     this.bookImageRepository = bookImageRepository ?? MockBookImageRepository();
     final audioCacheStore = MockAudioCacheStore();
     this.audioCacheRepository =
@@ -345,7 +401,16 @@ class MockBookApi
     this.searchService = searchService ?? const MockSearchService();
     this.searchHistoryRepository =
         searchHistoryRepository ?? MockSearchHistoryRepository();
+    this.coverRuleRepository = coverRuleRepository ?? MockCoverRuleRepository();
     _initMockData();
+    this.sourceSwitchService =
+        sourceSwitchService ??
+        MockSourceSwitchService(
+          bookshelf: bookshelfRepository,
+          sources: bookSourceRepository,
+        );
+    this.coverSearchService =
+        coverSearchService ?? const MockCoverSearchService();
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/source_switch_batch.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -94,36 +96,34 @@ void main() {
         container.read(changeSourceNotifierProvider.notifier);
 
     /// 构造一条候选结果 Map（snake_case，对齐 Rust SourceMatch）
-    Map<String, dynamic> rawMatch(String url, String name, double score) => {
-      'source_url': url,
-      'source_name': name,
-      'book_url': '$url/book',
-      'book_name': '斗破苍穹',
-      'author': '天蚕土豆',
-      'score': score,
-    };
+    SourceMatch rawMatch(String url, String name, double score) =>
+        SourceMatch.fromJson({
+          'source_url': url,
+          'source_name': name,
+          'book_url': '$url/book',
+          'book_name': '斗破苍穹',
+          'author': '天蚕土豆',
+          'score': score,
+        });
 
     /// 构造一个 T6 流式批次（契约 §2.4：matches 全量快照 + x/y 进度）
-    Map<String, dynamic> makeBatch({
-      required List<Map<String, dynamic>> matches,
+    SourceSwitchBatch makeBatch({
+      required List<SourceMatch> matches,
       int finished = 1,
       int total = 1,
       String sourceName = '',
-    }) => {
-      'source_index': 0,
-      'source_url': '',
-      'source_name': sourceName,
-      'error': null,
-      'finished_count': finished,
-      'total_count': total,
-      'is_last': true,
-      'matches': matches,
-    };
+    }) => SourceSwitchBatch(
+      sourceName: sourceName,
+      finishedCount: finished,
+      totalCount: total,
+      isLast: true,
+      matches: matches,
+    );
 
     /// stub searchSourceStream（named 参数全 any，匹配 notifier 的实际调用）
-    void stubSearchStream(Stream<Map<String, dynamic>> stream) {
+    void stubSearchStream(Stream<SourceSwitchBatch> stream) {
       when(
-        () => mockApi.searchSourceStream(
+        () => mockApi.sourceSwitchService.searchSourceStream(
           any(),
           any(),
           sourceUrls: any(named: 'sourceUrls'),
@@ -150,11 +150,12 @@ void main() {
         }
         stubSearchStream(
           Stream.fromIterable([
-            {
-              ...makeBatch(matches: [], finished: 1, total: 2),
-              'error': '源失败',
-              'is_last': false,
-            },
+            SourceSwitchBatch(
+              finishedCount: 1,
+              totalCount: 2,
+              error: '源失败',
+              isLast: false,
+            ),
             makeBatch(
               matches: [rawMatch('https://a', '成功源', 90)],
               finished: 2,
@@ -186,49 +187,52 @@ void main() {
       expect(state.isApplying, isFalse);
     });
 
-    test('search 经 BookApi.searchSourceStream 逐批解析为 SourceMatch 列表', () async {
-      // T6：逐源批次——首批仅 A 源命中，末批双源全量快照（直接替换展示）
-      stubSearchStream(
-        Stream.fromIterable([
-          makeBatch(
-            matches: [rawMatch('https://a.com', 'A源', 90)],
-            finished: 1,
-            total: 2,
-          ),
-          makeBatch(
-            matches: [
-              rawMatch('https://a.com', 'A源', 90),
-              rawMatch('https://b.com', 'B源', 70),
-            ],
-            finished: 2,
-            total: 2,
-          ),
-        ]),
-      );
+    test(
+      'search 经 SourceSwitchService.searchSourceStream 逐批解析为 SourceMatch 列表',
+      () async {
+        // T6：逐源批次——首批仅 A 源命中，末批双源全量快照（直接替换展示）
+        stubSearchStream(
+          Stream.fromIterable([
+            makeBatch(
+              matches: [rawMatch('https://a.com', 'A源', 90)],
+              finished: 1,
+              total: 2,
+            ),
+            makeBatch(
+              matches: [
+                rawMatch('https://a.com', 'A源', 90),
+                rawMatch('https://b.com', 'B源', 70),
+              ],
+              finished: 2,
+              total: 2,
+            ),
+          ]),
+        );
 
-      await readNotifier().search('斗破苍穹', '天蚕土豆');
+        await readNotifier().search('斗破苍穹', '天蚕土豆');
 
-      final state = readState();
-      expect(state.isLoading, isFalse);
-      expect(state.error, isNull);
-      expect(state.results.length, equals(2));
-      expect(state.results.first.sourceUrl, equals('https://a.com'));
-      expect(state.results.first.sourceName, equals('A源'));
-      expect(state.results.first.score, equals(90));
-      // mocktail 调用匹配为严格相等：notifier 实际传齐 5 个 named 参数，
-      // verify/stub 必须逐一列出（与 stubSearchStream 同口径）
-      verify(
-        () => mockApi.searchSourceStream(
-          '斗破苍穹',
-          '天蚕土豆',
-          sourceUrls: any(named: 'sourceUrls'),
-          loadInfo: any(named: 'loadInfo'),
-          loadToc: any(named: 'loadToc'),
-          loadWordCount: any(named: 'loadWordCount'),
-          forceRefresh: any(named: 'forceRefresh'),
-        ),
-      ).called(1);
-    });
+        final state = readState();
+        expect(state.isLoading, isFalse);
+        expect(state.error, isNull);
+        expect(state.results.length, equals(2));
+        expect(state.results.first.sourceUrl, equals('https://a.com'));
+        expect(state.results.first.sourceName, equals('A源'));
+        expect(state.results.first.score, equals(90));
+        // mocktail 调用匹配为严格相等：notifier 实际传齐 5 个 named 参数，
+        // verify/stub 必须逐一列出（与 stubSearchStream 同口径）
+        verify(
+          () => mockApi.sourceSwitchService.searchSourceStream(
+            '斗破苍穹',
+            '天蚕土豆',
+            sourceUrls: any(named: 'sourceUrls'),
+            loadInfo: any(named: 'loadInfo'),
+            loadToc: any(named: 'loadToc'),
+            loadWordCount: any(named: 'loadWordCount'),
+            forceRefresh: any(named: 'forceRefresh'),
+          ),
+        ).called(1);
+      },
+    );
     test('分组搜索：分号/全角逗号组名的源不被 Dart 预过滤剔除（审计 D1）', () async {
       when(() => mockApi.bookSourceRepository.getEnabledBookSources())
           .thenAnswer(
@@ -251,7 +255,7 @@ void main() {
 
       final captured =
           verify(
-                () => mockApi.searchSourceStream(
+                () => mockApi.sourceSwitchService.searchSourceStream(
                   any(),
                   any(),
                   sourceUrls: captureAny(named: 'sourceUrls'),
@@ -289,7 +293,7 @@ void main() {
 
     test('search 异常时记录 error 并清除加载态', () async {
       when(
-        () => mockApi.searchSourceStream(
+        () => mockApi.sourceSwitchService.searchSourceStream(
           any(),
           any(),
           sourceUrls: any(named: 'sourceUrls'),
@@ -311,7 +315,7 @@ void main() {
     test('search 进行中时重复调用被忽略', () async {
       var callCount = 0;
       when(
-        () => mockApi.searchSourceStream(
+        () => mockApi.sourceSwitchService.searchSourceStream(
           any(),
           any(),
           sourceUrls: any(named: 'sourceUrls'),
@@ -338,10 +342,21 @@ void main() {
       expect(callCount, equals(1));
     });
 
-    test('applySource 经 BookApi.switchSourcePrefetch 回写并返回新 bookUrl'
+    test('applySource 经 SourceSwitchService.switchSourcePrefetch 返回稳定主键'
         '（2026-09-24 换源预拉缓存）', () async {
-      when(() => mockApi.switchSourcePrefetch(any(), any(), any()))
-          .thenAnswer((_) async => '{"bookUrl":"https://new.com/book/1"}');
+      when(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer(
+        (_) async => const Book(
+          bookUrl: 'https://old.com/book',
+          origin: 'https://new.com',
+          originBookUrl: 'https://new.com/fallback',
+        ),
+      );
       const match = SourceMatch(
         sourceUrl: 'https://new.com',
         sourceName: '新源',
@@ -353,10 +368,10 @@ void main() {
         bookUrl: 'https://old.com/book',
       );
 
-      expect(newUrl, equals('https://new.com/book/1'));
+      expect(newUrl, equals('https://old.com/book'));
       expect(readState().applyingUrl, isNull);
       verify(
-        () => mockApi.switchSourcePrefetch(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
           'https://old.com/book',
           'https://new.com',
           'https://new.com/fallback',
@@ -366,8 +381,19 @@ void main() {
 
     test('applySource 选中走预拉缓存通道：不直接调用 switchSource'
         '（命中零二次抓取的 Dart 侧 call-count 断言）', () async {
-      when(() => mockApi.switchSourcePrefetch(any(), any(), any()))
-          .thenAnswer((_) async => '{"bookUrl":"https://new.com/book/1"}');
+      when(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer(
+        (_) async => const Book(
+          bookUrl: 'https://old.com/book',
+          origin: 'https://new.com',
+          originBookUrl: 'https://new.com/fallback',
+        ),
+      );
       const match = SourceMatch(
         sourceUrl: 'https://new.com',
         sourceName: '新源',
@@ -376,31 +402,46 @@ void main() {
 
       await readNotifier().applySource(match, bookUrl: 'https://old.com/book');
 
-      verify(() => mockApi.switchSourcePrefetch(any(), any(), any())).called(1);
+      verify(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
+          any(),
+          any(),
+          any(),
+        ),
+      ).called(1);
       // 命中预拉缓存 → Rust 侧零网络直接落地；Dart 侧不得再走旧通道
-      verifyNever(() => mockApi.switchSource(any(), any(), any()));
+      verifyNever(
+        () => mockApi.sourceSwitchService.switchSource(any(), any(), any()),
+      );
     });
 
-    test('applySource 返回 JSON 无 bookUrl 时回退到候选项 bookUrl', () async {
-      when(() => mockApi.switchSourcePrefetch(any(), any(), any()))
-          .thenAnswer((_) async => '{}');
+    test('applySource 解码失败时不回退候选地址，释放运行态', () async {
+      when(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((_) async => throw const FormatException('无有效书籍主键'));
       const match = SourceMatch(
         sourceUrl: 'https://new.com',
-        sourceName: '新源',
         bookUrl: 'https://new.com/fallback',
       );
-
-      final newUrl = await readNotifier().applySource(
-        match,
-        bookUrl: 'https://old.com/book',
+      await expectLater(
+        readNotifier().applySource(match, bookUrl: 'https://old.com/book'),
+        throwsFormatException,
       );
-
-      expect(newUrl, equals('https://new.com/fallback'));
+      expect(readState().isApplying, isFalse);
     });
 
     test('applySource 异常时清除 applyingUrl 并重新抛出', () async {
-      when(() => mockApi.switchSourcePrefetch(any(), any(), any()))
-          .thenThrow(Exception('切换失败'));
+      when(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenThrow(Exception('切换失败'));
       const match = SourceMatch(sourceUrl: 'https://new.com');
 
       await expectLater(
@@ -412,11 +453,16 @@ void main() {
     });
 
     test('applySource 进行中时再次调用抛出 StateError', () async {
-      when(() => mockApi.switchSourcePrefetch(any(), any(), any()))
-          .thenAnswer((_) async {
-            await Future<void>.delayed(const Duration(milliseconds: 20));
-            return '{}';
-          });
+      when(
+        () => mockApi.sourceSwitchService.switchSourcePrefetch(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        return const Book(bookUrl: 'https://old.com/book');
+      });
       const match = SourceMatch(sourceUrl: 'https://new.com');
 
       final f1 = readNotifier().applySource(match, bookUrl: 'https://old.com');
@@ -431,12 +477,14 @@ void main() {
       await f1;
     });
 
-    test('cancelApply 经 BookApi.cancelSwitchSourceApply'
+    test('cancelApply 经 SourceSwitchService.cancelSwitchSourceApply'
         '（2026-09-24 换源预拉缓存，对齐上游 cancelChangeSource）', () async {
-      when(() => mockApi.cancelSwitchSourceApply()).thenAnswer((_) async {});
+      when(() => mockApi.sourceSwitchService.cancelSwitchSourceApply())
+          .thenAnswer((_) async {});
 
       await readNotifier().cancelApply();
-      verify(() => mockApi.cancelSwitchSourceApply()).called(1);
+      verify(() => mockApi.sourceSwitchService.cancelSwitchSourceApply())
+          .called(1);
     });
 
     test('search 批次携带 source_name 时进度文案对齐上游'
@@ -480,7 +528,7 @@ void main() {
     });
 
     test('search 进行中逐批记录 progressLastSourceName，终态清空', () async {
-      final controller = StreamController<Map<String, dynamic>>();
+      final controller = StreamController<SourceSwitchBatch>();
       stubSearchStream(controller.stream);
       String? midSourceName;
       int? midFinished;
@@ -547,8 +595,9 @@ void main() {
     });
 
     test('updateBookScore 经 BookApi 持久化并更新本地 bookScore', () async {
-      when(() => mockApi.updateSearchBookScore(any(), any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockApi.sourceSwitchService.updateSearchBookScore(any(), any()),
+      ).thenAnswer((_) async {});
       stubSearchStream(
         Stream.value(makeBatch(matches: [rawMatch('https://a.com', 'A源', 90)])),
       );
@@ -559,7 +608,9 @@ void main() {
       await readNotifier().updateBookScore(bookUrl, 1);
 
       expect(readState().results.first.bookScore, equals(1));
-      verify(() => mockApi.updateSearchBookScore(bookUrl, 1)).called(1);
+      verify(
+        () => mockApi.sourceSwitchService.updateSearchBookScore(bookUrl, 1),
+      ).called(1);
     });
 
     test('moveToTop / moveToBottom 本地重排', () async {
@@ -586,7 +637,8 @@ void main() {
     });
 
     test('deleteSearchBookItem 移除列表项', () async {
-      when(() => mockApi.deleteSearchBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.sourceSwitchService.deleteSearchBook(any()))
+          .thenAnswer((_) async {});
       stubSearchStream(
         Stream.value(
           makeBatch(
@@ -607,7 +659,8 @@ void main() {
 
       expect(removed, isNotNull);
       expect(readState().results.length, equals(1));
-      verify(() => mockApi.deleteSearchBook(any())).called(1);
+      verify(() => mockApi.sourceSwitchService.deleteSearchBook(any()))
+          .called(1);
     });
   });
 }

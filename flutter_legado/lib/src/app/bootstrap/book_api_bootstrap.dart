@@ -1,3 +1,12 @@
+import '../../data/repositories/rust_cover_rule_repository.dart';
+import '../../data/services/rust_source_switch_service.dart';
+import '../../data/services/rust_cover_search_service.dart';
+import '../../data/services/rust_explore_service.dart';
+import '../../data/repositories/rust_explore_state_repository.dart';
+import '../../data/services/rust_book_source_query_service.dart';
+import '../../data/services/rust_book_source_debug_service.dart';
+import '../../data/repositories/rust_auto_task_repository.dart';
+import '../../data/services/rust_auto_task_service.dart';
 import '../../data/repositories/rust_book_image_repository.dart';
 import '../../data/repositories/rust_audio_cache_repository.dart';
 import '../../data/services/rust_audio_cache_download_service.dart';
@@ -65,6 +74,19 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    sourceSwitchService: const RustSourceSwitchService(),
+    coverSearchService: const RustCoverSearchService(),
+    coverRuleRepository: const RustCoverRuleRepository(),
+    exploreService: RustExploreService(
+      interceptResult: PlatformBridgeService.instance.interceptResult,
+    ),
+    exploreStateRepository: const RustExploreStateRepository(),
+    bookSourceQueryService: RustBookSourceQueryService(
+      interceptResult: PlatformBridgeService.instance.interceptResult,
+    ),
+    bookSourceDebugService: const RustBookSourceDebugService(),
+    autoTaskRepository: const RustAutoTaskRepository(),
+    autoTaskService: const RustAutoTaskService(),
     bookImageRepository: const RustBookImageRepository(),
     audioCacheRepository: const RustAudioCacheRepository(),
     audioCacheDownloadService: const RustAudioCacheDownloadService(),

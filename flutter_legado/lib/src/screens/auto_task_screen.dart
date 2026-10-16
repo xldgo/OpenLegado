@@ -1,3 +1,5 @@
+import '../models/misc.dart';
+import '../providers/auto_task/auto_task_dependencies.dart';
 import '../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -69,7 +71,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     final newTask = widget.initialNewTask;
     if (newTask != null && newTask.isNotEmpty) {
       await _showBookUpdateTaskDialog(
-        Map<String, dynamic>.from(newTask),
+        AutoTaskRule.fromJson(newTask),
         isNew: true,
       );
     }
@@ -82,11 +84,11 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
   /// 该路径经 deleteTask+createTask(AutoTask) 会用占位脚本覆盖真实
   /// script，改为提示稍后重试；任务不存在时照常提示 — Qoder
   Future<void> _openEditForTaskId(String taskId) async {
-    Map<String, dynamic>? raw;
+    AutoTaskRule? raw;
     var listFailed = false;
     try {
-      final rules = await ref.read(bookApiProvider).autoTaskListRules();
-      raw = rules.where((r) => r['id']?.toString() == taskId).firstOrNull;
+      final rules = await ref.read(autoTaskRepositoryProvider).listRules();
+      raw = rules.where((r) => r.id == taskId).firstOrNull;
     } catch (_) {
       // FFI 不可用：标记读取失败，不走模型化编辑避免洗掉 script
       listFailed = true;
@@ -119,7 +121,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
   /// 确认回传值而非 controller，消除退场动画期间 dispose 引发的
   /// 框架断言红屏；保留任务名非空与 cron 合法性校验（errorText 回显） — Qoder
   Future<void> _showBookUpdateTaskDialog(
-    Map<String, dynamic> rule, {
+    AutoTaskRule rule, {
     required bool isNew,
   }) async {
     // [fix Task#45 | 2026-08-09] 确认时校验 cron（Med1）：非法时
@@ -127,23 +129,21 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     final confirmed = await showDialog<_BookUpdateTaskDialogResult>(
       context: context,
       builder: (_) => _BookUpdateTaskDialog(
-        initialName: (rule['name'] ?? '').toString(),
-        initialCron: (rule['cron'] ?? '').toString(),
+        initialName: rule.name,
+        initialCron: rule.cron ?? '',
         isNew: isNew,
         cronValidator: _isCronValid,
       ),
     );
     if (confirmed == null || !mounted) return;
     // 仅回写 name/cron，script 等其余字段原样保留
-    final updated = Map<String, dynamic>.from(rule)
-      ..['name'] = confirmed.name
-      ..['cron'] = confirmed.cron;
+    final updated = rule.copyWith(name: confirmed.name, cron: confirmed.cron);
     // [fix Task#45 | 2026-08-09] 按 Raw 返回值提示（M6）：失败时
     // 不再误报成功，且不重同步调度器 — Qoder
     final notifier = ref.read(autoTaskNotifierProvider.notifier);
     final ok = isNew
-        ? await notifier.createTaskRaw(jsonEncode(updated))
-        : await notifier.updateTaskRaw(jsonEncode(updated));
+        ? await notifier.createRule(updated)
+        : await notifier.updateRule(updated);
     if (!mounted) return;
     if (ok) {
       _resyncScheduler();
@@ -447,7 +447,13 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     );
 
     if (result != null && context.mounted) {
-      await ref.read(autoTaskNotifierProvider.notifier).createTask(result);
+      final ok = await ref
+          .read(autoTaskNotifierProvider.notifier)
+          .createTask(result);
+      if (!ok) {
+        if (context.mounted) _snack(context, '保存失败');
+        return;
+      }
       _resyncScheduler();
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -617,9 +623,10 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     );
 
     if (result != null && context.mounted) {
-      await ref.read(autoTaskNotifierProvider.notifier).deleteTask(task.id);
-      if (context.mounted) {
-        await ref.read(autoTaskNotifierProvider.notifier).createTask(result);
+      final ok = await ref
+          .read(autoTaskNotifierProvider.notifier)
+          .updateRule(result.toRule());
+      if (context.mounted && ok) {
         _resyncScheduler();
         if (context.mounted) {
           ScaffoldMessenger.of(context)
@@ -741,7 +748,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     final localTasks = ref
         .read(autoTaskNotifierProvider)
         .tasks
-        .map((t) => t.toJson())
+        .map((t) => t.toRule())
         .toList();
     // FFI 合并（合并本地运行时状态）；不可用时退化为原始解析结果
     final merged = await notifier.prepareImportedTasks(
@@ -750,8 +757,8 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     );
     // [UI-fix v2.0.2 | 2026-08-06] 空 id 补充拼接循环下标，避免同一循环内
     // microsecondsSinceEpoch 重复导致 id 碰撞 — Qoder
-    final validTasks = (merged ?? imported)
-        .map(AutoTask.fromJson)
+    final validTasks = (merged ?? imported.map(AutoTaskRule.fromJson).toList())
+        .map(AutoTask.fromRule)
         .where((t) => t.name.isNotEmpty)
         .toList();
     final baseId = DateTime.now().microsecondsSinceEpoch;
@@ -790,8 +797,7 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
     var count = 0;
     for (final task in newTasks) {
       try {
-        await notifier.createTask(task);
-        count++;
+        if (await notifier.createTask(task)) count++;
       } catch (_) {
         // 单条失败不阻断整体导入
       }
@@ -859,9 +865,11 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              provider.deleteTask(task.id).then((_) => _resyncScheduler());
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text('已删除任务: ${task.name}')));
+              provider.deleteTask(task.id).then((ok) {
+                if (!context.mounted) return;
+                if (ok) _resyncScheduler();
+                _snack(context, ok ? '已删除任务: ${task.name}' : '删除失败');
+              });
             },
             child: const Text('删除'),
           ),

@@ -94,47 +94,4 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
     }
     _configs['mcpPort'] = port.toString();
   }
-
-  /// 封面规则测试搜索（契约 §2.4.8，Task #74）
-  ///
-  /// Mock：短延迟后返回 1-2 个示例 URL。
-  @override
-  Future<List<String>> searchCoverRules(String name) async {
-    await Future.delayed(const Duration(milliseconds: 80));
-    final encoded = Uri.encodeComponent(name);
-    return [
-      'https://mock.cover.example/$encoded/cover_1.jpg',
-      'https://mock.cover.example/$encoded/cover_2.jpg',
-    ];
-  }
-
-  Map<String, dynamic> _mockCoverRule = {
-    'enable': true,
-    'searchUrl': 'https://mock.cover.example/search?q={{key}}',
-    'coverRule': '\$.cover',
-  };
-
-  @override
-  Future<Map<String, dynamic>> getCoverRule() async {
-    await Future.delayed(const Duration(milliseconds: 20));
-    return Map<String, dynamic>.from(_mockCoverRule);
-  }
-
-  @override
-  Future<bool> saveCoverRule(Map<String, dynamic> rule) async {
-    await Future.delayed(const Duration(milliseconds: 20));
-    _mockCoverRule = Map<String, dynamic>.from(rule);
-    return true;
-  }
-
-  @override
-  Future<bool> deleteCoverRule() async {
-    await Future.delayed(const Duration(milliseconds: 20));
-    _mockCoverRule = {
-      'enable': true,
-      'searchUrl': 'https://mock.cover.example/search?q={{key}}',
-      'coverRule': '\$.cover',
-    };
-    return true;
-  }
 }

@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
-import '../../models/models.dart';
-import '../providers.dart';
+import '../cover_provider.dart';
 import 'change_cover_state.dart';
 
 export 'change_cover_state.dart';
@@ -11,15 +10,14 @@ export 'change_cover_state.dart';
 ///
 /// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律）：
 /// - 网络封面搜索的数据获取由本 Notifier 负责，UI 层不再内联制造假数据。
-/// - 封面候选经 `BookApi.searchCover` 委托 Rust（多书源搜索提取封面 URL，
-///   契约见 API_CONTRACT.md §3 需求 3），返回项经 [CoverCandidate.fromJson]
-///   解析（width/height 未知时为 0，渲染不依赖尺寸）。
+/// - 封面候选经 `CoverSearchService.searchCover` 委托 Rust（多书源搜索提取封面 URL，
+///   契约见 API_CONTRACT.md §3 需求 3），数据层返回类型化候选（width/height 未知时为 0，渲染不依赖尺寸）。
 /// - 本地选图为纯 UI 编排（FilePicker），不经过本 Notifier。
 class ChangeCoverNotifier extends Notifier<ChangeCoverState> {
   @override
   ChangeCoverState build() => const ChangeCoverState();
 
-  /// 按书名搜索网络封面候选（经 BookApi.searchCover 委托 Rust）
+  /// 按书名搜索网络封面候选（经 CoverSearchService.searchCover 委托 Rust）
   ///
   /// 空字符串 / 纯空白被忽略；无候选时 Rust 返回空列表（非异常）。
   Future<void> searchCovers(String bookName) async {
@@ -27,11 +25,9 @@ class ChangeCoverNotifier extends Notifier<ChangeCoverState> {
     if (keyword.isEmpty) return;
     state = state.copyWith(isSearching: true, error: null);
     try {
-      final raw = await ref.read(bookApiProvider).searchCover(keyword);
-      final candidates = raw
-          .whereType<Map<String, dynamic>>()
-          .map(CoverCandidate.fromJson)
-          .toList();
+      final candidates = await ref
+          .read(coverSearchServiceProvider)
+          .searchCover(keyword);
       state = state.copyWith(candidates: candidates, isSearching: false);
     } catch (e) {
       state = state.copyWith(error: _mapError(e), isSearching: false);

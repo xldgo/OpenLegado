@@ -218,28 +218,37 @@ void main() {
     });
 
     test('searchSource 返回换源结果', () async {
-      final results = await api.searchSource('斗破苍穹', '天蚕土豆');
+      final results = await api.sourceSwitchService.searchSource(
+        '斗破苍穹',
+        '天蚕土豆',
+      );
       expect(results.length, 3);
     });
 
-    test('switchSource 返回新书 URL', () async {
-      final url = await api.switchSource('old', 'source', 'new_url');
-      expect(url, 'new_url');
-    });
-
-    test('switchSourcePrefetch 直通 switchSource 并计数'
-        '（2026-09-24 换源预拉缓存：命中/未命中语义由 Rust 侧承担，'
-        'mock 仅记录调用供单测断言 call count）', () async {
-      final before = api.prefetchApplyCallCount;
-      final url = await api.switchSourcePrefetch('old', 'source', 'new_url');
-      expect(url, 'new_url');
-      expect(api.prefetchApplyCallCount, before + 1);
-    });
-
-    test('cancelSwitchSourceApply 计数且无副作用', () async {
-      final before = api.cancelApplyCallCount;
-      await api.cancelSwitchSourceApply();
-      expect(api.cancelApplyCallCount, before + 1);
+    test('普通及预拉Mock换源共享书架并保留主键与进度', () async {
+      const original = Book(
+        bookUrl: 'stable',
+        name: '书',
+        durChapterIndex: 5,
+        durChapterPos: 80,
+      );
+      await api.bookshelfRepository.addBook(original);
+      final first = await api.sourceSwitchService.switchSource(
+        'stable',
+        'source-a',
+        'page-a',
+      );
+      final second = await api.sourceSwitchService.switchSourcePrefetch(
+        'stable',
+        'source-b',
+        'page-b',
+      );
+      expect(first.bookUrl, 'stable');
+      expect(second.originBookUrl, 'page-b');
+      expect(second.durChapterIndex, 5);
+      expect(second.durChapterPos, 80);
+      expect(await api.bookshelfRepository.getBook('stable'), second);
+      await api.sourceSwitchService.cancelSwitchSourceApply();
     });
   });
 
@@ -487,24 +496,24 @@ void main() {
 
   group('自动任务', () {
     test('autoTaskBuildBookUpdateTask 返回任务', () async {
-      final task = await api.autoTaskBuildBookUpdateTask(
+      final task = await api.autoTaskService.buildBookUpdateTask(
         bookUrl: 'mock://book/1',
         bookName: '斗破苍穹',
         bookAuthor: '天蚕土豆',
         name: '更新任务',
       );
-      expect(task['name'], '更新任务');
-      expect(task['cron'], isNotEmpty);
+      expect(task.name, '更新任务');
+      expect(task.cron, isNotEmpty);
     });
 
     test('autoTaskNormalizeScript 去除前缀', () async {
-      final result = await api.autoTaskNormalizeScript(script: '@js:alert(1)');
+      final result = await api.autoTaskService.normalizeScript('@js:alert(1)');
       expect(result, 'alert(1)');
     });
 
     test('autoTaskNextDueAt 返回未来时间', () async {
       final now = DateTime.now().millisecondsSinceEpoch;
-      final next = await api.autoTaskNextDueAt(
+      final next = await api.autoTaskService.nextDueAt(
         cron: '0 0 8 * * *',
         fromMs: now,
       );
@@ -545,7 +554,7 @@ void main() {
 
   group('发现页操作', () {
     test('exploreParseUrl 解析分类', () async {
-      final categories = await api.exploreParseUrl(
+      final categories = await api.exploreService.parseCategories(
         '玄幻::http://a.com\n都市::http://b.com',
       );
       expect(categories.length, 2);
@@ -553,7 +562,11 @@ void main() {
     });
 
     test('exploreFetchBooks 返回书籍列表', () async {
-      final books = await api.exploreFetchBooks('{}', 'http://a.com', 1);
+      final books = await api.exploreService.fetchBooks(
+        const BookSource(),
+        'http://a.com',
+        1,
+      );
       expect(books.length, 10);
     });
   });

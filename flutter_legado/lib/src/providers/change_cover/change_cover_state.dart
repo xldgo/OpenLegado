@@ -6,7 +6,7 @@ part 'change_cover_state.freezed.dart';
 
 /// 更换封面页状态
 ///
-/// 由 [ChangeCoverNotifier] 管理：网络封面搜索经 `BookApi.searchCover` 委托 Rust
+/// 由 [ChangeCoverNotifier] 管理：网络封面搜索经 `CoverSearchService.searchCover` 委托 Rust
 /// （Rust 轨交付前以 Mock 数据先行驱动），本地选图为纯 UI 编排不经过本状态。
 @freezed
 abstract class ChangeCoverState with _$ChangeCoverState {

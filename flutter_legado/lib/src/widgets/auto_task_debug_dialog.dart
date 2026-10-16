@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../providers/auto_task/auto_task_notifier.dart';
-import '../providers/providers.dart';
+import '../models/misc.dart';
+import '../providers/auto_task/auto_task_dependencies.dart';
+import '../domain/models/auto_task_protocol.dart';
 import '../services/auto_task_scheduler.dart';
 
 /// 定时任务调试 Dialog（对标原版 `AutoTaskDebugActivity` + `Debug.Callback`）
@@ -76,14 +77,15 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
     emit('type=${widget.task.taskType} cron=${widget.task.cron}');
 
     try {
-      final api = ref.read(bookApiProvider);
-      Map<String, dynamic>? rule;
+      final repository = ref.read(autoTaskRepositoryProvider);
+      final service = ref.read(autoTaskServiceProvider);
+      AutoTaskRule? rule;
       try {
-        rule = await api.autoTaskFindRuleById(id: widget.task.id);
+        rule = await repository.findRuleById(widget.task.id);
       } catch (_) {}
       if (gen != _runGen) return;
 
-      final script = rule?['script']?.toString() ?? '';
+      final script = rule?.script ?? '';
       if (script.isNotEmpty) {
         final preview = script.length > 120
             ? '${script.substring(0, 120)}…'
@@ -91,19 +93,22 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
         emit('script: $preview');
       }
 
-      final protocolJson = _buildProtocolJson(widget.task, rule);
+      final protocol = buildAutoTaskDebugProtocol(
+        widget.task.taskType,
+        rule?.script,
+      );
       emit('Executing…');
 
-      final result = await api.autoTaskExecuteWithId(
-        protocolJson: protocolJson,
+      final result = await service.execute(
+        protocol: protocol,
         taskId: widget.task.id,
       );
       if (gen != _runGen) return;
 
-      final success = result['success'] as bool? ?? false;
-      final message = result['message']?.toString() ?? '';
-      final duration = result['duration_ms'] ?? result['durationMs'];
-      final details = result['details']?.toString();
+      final success = result.success;
+      final message = result.message;
+      final duration = result.durationMs;
+      final details = result.details;
 
       if (success) {
         emit('Task completed');
@@ -114,7 +119,7 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
       // 对齐 AutoTaskDebugActivity：追加 result.log 分行（流式写入 UI）
       final logBody = (details != null && details.isNotEmpty)
           ? details
-          : '[${success ? 'OK' : 'FAIL'}] Elapsed: ${duration ?? '-'}ms'
+          : '[${success ? 'OK' : 'FAIL'}] Elapsed: ${duration}ms'
                 '${message.isEmpty ? '' : '\n- $message'}';
       for (final line in logBody.split('\n')) {
         if (line.trim().isEmpty) continue;
@@ -137,56 +142,6 @@ class _AutoTaskDebugDialogState extends ConsumerState<AutoTaskDebugDialog> {
         setState(() => _running = false);
       }
     }
-  }
-
-  /// 构建 TaskProtocol JSON（对齐 Rust `TaskAction` 外部标签）
-  String _buildProtocolJson(AutoTask task, Map<String, dynamic>? rule) {
-    final script = rule?['script']?.toString().trim() ?? '';
-    if (script.startsWith('{')) {
-      try {
-        final map = jsonDecode(script);
-        if (map is Map && map.containsKey('action')) {
-          // 已是协议或含 action 的脚本 JSON
-          if (map['params'] is Map ||
-              map['action'] is Map ||
-              map['action'] is String) {
-            // 若仅有 Kotlin 风格业务 JSON，仍尝试原样交给执行器
-            return script;
-          }
-        }
-      } catch (_) {}
-    }
-
-    switch (task.taskType) {
-      case 'refreshToc':
-        return jsonEncode({
-          'action': 'RefreshToc',
-          'params': _paramsFromScript(script),
-        });
-      case 'updateSources':
-        return jsonEncode({'action': 'UpdateSources', 'params': {}});
-      case 'backup':
-        return jsonEncode({'action': 'Backup', 'params': {}});
-      default:
-        final js = script.isNotEmpty ? script : task.taskType;
-        return jsonEncode({
-          'action': {'Custom': js},
-          'params': {},
-        });
-    }
-  }
-
-  Map<String, String> _paramsFromScript(String script) {
-    if (!script.startsWith('{')) return {};
-    try {
-      final map = jsonDecode(script);
-      if (map is! Map) return {};
-      final bookUrl = map['bookUrl'] ?? map['book_url'];
-      if (bookUrl != null && bookUrl.toString().isNotEmpty) {
-        return {'bookUrl': bookUrl.toString()};
-      }
-    } catch (_) {}
-    return {};
   }
 
   @override

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../models/book_chapter.dart';
 import '../../models/source_match.dart';
 import '../../providers/providers.dart';
+import '../../providers/change_source/source_switch_dependencies.dart';
 import '../../providers/reader/reader_notifier.dart';
 import '../../services/book_api.dart';
 import '../../utils/error_message.dart';
@@ -100,9 +101,10 @@ class _ChangeChapterSourceSheetState
       _toc = const [];
     });
     try {
-      final raw = await _api.searchSource(widget.bookName, widget.author);
-      final matches = raw
-          .map((e) => SourceMatch.fromJson(Map<String, dynamic>.from(e)))
+      final results = await ref
+          .read(sourceSwitchServiceProvider)
+          .searchSource(widget.bookName, widget.author);
+      final matches = results
           .where((m) => m.bookUrl.isNotEmpty && m.sourceUrl.isNotEmpty)
           .toList();
       if (!mounted) return;

@@ -263,7 +263,13 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // [UI-fix v2.0.3 | 2026-08-08] 定时任务应用内调度器启动装配
     //（Task #146，对齐原版 App.kt 启动时 AutoTaskScheduler.refresh；
     // 引擎已在 main.dart 先行初始化，此处可直接注入 BookApi） — QoderCN
-    AutoTaskScheduler.instance.attach(ref.read(bookApiProvider));
+    final taskApi = ref.read(bookApiProvider);
+    AutoTaskScheduler.instance.attach(
+      repository: taskApi.autoTaskRepository,
+      service: taskApi.autoTaskService,
+      readEnabled: () async =>
+          await taskApi.getConfig('autoTaskService') == 'true',
+    );
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 复用欢迎页导航门控，避免初始导入弹窗被欢迎页的路由替换关闭。

@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
@@ -52,12 +53,15 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => [c8Source]);
     when(
-      () =>
-          mockApi.exploreParseUrl(any(), sourceJson: any(named: 'sourceJson')),
+      () => mockApi.exploreService.parseCategories(
+        any(),
+        source: any(named: 'source'),
+      ),
     ).thenAnswer(
       (_) async => [
         const ExploreCategory(title: '排行榜', style: wideStyle),
@@ -77,11 +81,12 @@ void main() {
         const ExploreCategory(title: '都市', url: 'https://c8.test/tag/dushi'),
       ],
     );
-    when(() => mockApi.exploreFetchBooks(any(), any(), any())).thenAnswer(
-      (_) async => const [
-        SearchBook(bookUrl: 'http://book.com/1', name: '书1', author: '作者1'),
-      ],
-    );
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
+        .thenAnswer(
+          (_) async => const [
+            SearchBook(bookUrl: 'http://book.com/1', name: '书1', author: '作者1'),
+          ],
+        );
   });
 
   Widget buildApp() {
@@ -241,7 +246,11 @@ void main() {
 
     // 抓取 URL 即 chip 的分类 URL（点击链路参数不变；captureAny 捕获实参）
     final captured = verify(
-      () => mockApi.exploreFetchBooks(captureAny(), captureAny(), captureAny()),
+      () => mockApi.exploreService.fetchBooks(
+        captureAny(),
+        captureAny(),
+        captureAny(),
+      ),
     ).captured;
     expect(captured, hasLength(3));
     expect(captured[1], 'https://c8.test/rank/dianfeng');

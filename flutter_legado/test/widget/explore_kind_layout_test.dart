@@ -1,10 +1,12 @@
 // ExploreKindLayout widget 测试：style 驱动的 wide/cell 布局
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/models/explore_action_result.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/explore_kind_layout.dart';
 
@@ -17,20 +19,19 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.exploreInfoMapPut(any(), any(), any()))
-        .thenAnswer((_) async {});
-    when(() => mockApi.exploreInfoMapEnsureDefault(any(), any(), any()))
+    when(() => mockApi.exploreStateRepository.put(any(), any(), any()))
         .thenAnswer((_) async {});
     when(
-      () => mockApi.exploreEvalAction(
+      () => mockApi.exploreStateRepository.ensureDefault(any(), any(), any()),
+    ).thenAnswer((_) async {});
+    when(
+      () => mockApi.exploreService.evaluateAction(
         sourceJson: any(named: 'sourceJson'),
         actionJs: any(named: 'actionJs'),
       ),
-    ).thenAnswer(
-      (_) async => {'raw': '', 'actions': <dynamic>[], 'refreshExplore': false},
-    );
+    ).thenAnswer((_) async => ExploreActionResult());
     when(
-      () => mockApi.exploreEvalUiJs(
+      () => mockApi.exploreService.evaluateUiJs(
         sourceJson: any(named: 'sourceJson'),
         jsStr: any(named: 'jsStr'),
       ),
@@ -147,10 +148,65 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     verify(
-      () => mockApi.exploreEvalAction(
+      () => mockApi.exploreService.evaluateAction(
         sourceJson: sourceJson,
         actionJs: 'java.refreshExplore()',
       ),
     ).called(1);
+  });
+
+  testWidgets('类型化动作仍回放平台操作并刷新分类', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    when(
+      () => mockApi.exploreService.evaluateAction(
+        sourceJson: sourceJson,
+        actionJs: 'copyAndRefresh()',
+      ),
+    ).thenAnswer(
+      (_) async => ExploreActionResult(
+        actions: const [
+          {'action': 'copyText', 'text': '发现动作结果'},
+        ],
+        refreshExplore: true,
+      ),
+    );
+    var refreshes = 0;
+    await tester.pumpWidget(
+      wrap(
+        ExploreKindLayout(
+          sourceUrl: sourceUrl,
+          sourceJson: sourceJson,
+          categories: const [
+            ExploreCategory(
+              title: '执行动作',
+              type: 'button',
+              action: 'copyAndRefresh()',
+            ),
+          ],
+          onRefreshCategories: () async {
+            refreshes++;
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('执行动作'));
+    await tester.pumpAndSettle();
+    expect(copied, '发现动作结果');
+    expect(refreshes, 1);
   });
 }

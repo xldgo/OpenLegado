@@ -1,3 +1,12 @@
+import '../domain/contracts/cover_rule_repository.dart';
+import '../domain/contracts/source_switch_service.dart';
+import '../domain/contracts/cover_search_service.dart';
+import '../domain/contracts/explore_service.dart';
+import '../domain/contracts/explore_state_repository.dart';
+import '../domain/contracts/book_source_query_service.dart';
+import '../domain/contracts/book_source_debug_service.dart';
+import '../domain/contracts/auto_task_repository.dart';
+import '../domain/contracts/auto_task_service.dart';
 import '../domain/contracts/book_image_repository.dart';
 import '../domain/contracts/audio_cache_repository.dart';
 import '../domain/contracts/audio_cache_download_service.dart';
@@ -37,7 +46,6 @@ import '../domain/contracts/source_checker.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
-import '../models/models.dart';
 import '../domain/contracts/bookmark_repository.dart';
 import '../domain/contracts/read_record_repository.dart';
 import '../domain/contracts/http_tts_repository.dart';
@@ -50,6 +58,15 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  SourceSwitchService get sourceSwitchService;
+  CoverSearchService get coverSearchService;
+  CoverRuleRepository get coverRuleRepository;
+  ExploreService get exploreService;
+  ExploreStateRepository get exploreStateRepository;
+  BookSourceQueryService get bookSourceQueryService;
+  BookSourceDebugService get bookSourceDebugService;
+  AutoTaskRepository get autoTaskRepository;
+  AutoTaskService get autoTaskService;
   BookImageRepository get bookImageRepository;
   AudioCacheRepository get audioCacheRepository;
   AudioCacheDownloadService get audioCacheDownloadService;
@@ -223,77 +240,6 @@ abstract class BookApi {
   /// 取消 WebView 请求（空结果唤醒）
   Future<bool> cancelWebviewRequest(String key);
 
-  // ========== 换源与封面搜索 ==========
-
-  /// 搜索可替换的书源
-  ///
-  /// [sourceUrls] 可选：仅搜指定书源；null/空=搜全部启用源
-  /// （留项#12，Task #131，加法式新增，契约见 API_CONTRACT.md §2.4）
-  Future<List<Map<String, dynamic>>> searchSource(
-    String bookName,
-    String author, {
-    List<String>? sourceUrls,
-    bool loadInfo = false,
-    bool loadToc = false,
-    bool loadWordCount = false,
-    bool forceRefresh = false,
-  });
-
-  /// 换源搜索流式版（T6 / 契约 §2.4 `searchSourceStream`）
-  ///
-  /// 每完成一个书源推送一批次 Map，字段：`source_index` / `source_url` /
-  /// `source_name` / `error`(String?) / `finished_count` / `total_count` /
-  /// `is_last` / `matches`（当前已过滤评分候选全量快照）。
-  /// DB 复用推单批即结束；enrich 开启时末批为增强后重排快照。
-  Stream<Map<String, dynamic>> searchSourceStream(
-    String bookName,
-    String author, {
-    List<String>? sourceUrls,
-    bool loadInfo = false,
-    bool loadToc = false,
-    bool loadWordCount = false,
-    bool forceRefresh = false,
-  });
-
-  /// 搜索书籍封面候选列表
-  ///
-  /// 按书名搜索网络封面候选（API_CONTRACT.md §3 需求 3，用于 `change_cover_screen`）。
-  /// 每个元素字段：`url`（封面地址，必需）/ `width`（像素，未知填 0）/ `height`（像素，未知填 0）。
-  /// 无候选时返回空列表（非异常）。
-  Future<List<Map<String, dynamic>>> searchCover(String bookName);
-
-  /// 切换书源
-  Future<String> switchSource(
-    String bookUrl,
-    String newSourceUrl,
-    String newBookUrl,
-  );
-
-  /// 切换书源（预拉缓存版，2026-09-24 加法式；对齐上游「换源感知等待」方案）
-  ///
-  /// 搜索期已按开关预拉候选详情/目录（有界并发 + 单候选 60s 超时 + 单失败
-  /// 隔离）：命中预拉缓存 → 缓存详情+目录直接用（**零网络**，选中即落地）；
-  /// 未命中 → 现场抓取（执行链与 [switchSource] 一致，且可在提交前经
-  /// [cancelSwitchSourceApply] 取消——DB 零变更）。
-  /// 返回更新后的书籍 JSON（与 [switchSource] 相同）。
-  Future<String> switchSourcePrefetch(
-    String bookUrl,
-    String newSourceUrl,
-    String newBookUrl,
-  );
-
-  /// 取消进行中的「换源（预拉缓存版）」应用（对齐上游 `cancelChangeSource`）
-  ///
-  /// apply 代数 +1 并 bump 目录刷新代数：未提交的 apply 在提交前比对代数
-  /// 即中止（DB 零变更），在途目录分页链在下一页边界中止。
-  Future<void> cancelSwitchSourceApply();
-
-  /// 更新换源列表项用户评分（-1/0/1，对标原版 SourceConfig 书维度评分）
-  Future<void> updateSearchBookScore(String bookUrl, int score);
-
-  /// 删除换源列表项（按 bookUrl，对标换源页长按「删除」）
-  Future<void> deleteSearchBook(String bookUrl);
-
   // ========== 阅读器操作 ==========
 
   /// 设置阅读器繁简转换类型并持久化
@@ -364,84 +310,6 @@ abstract class BookApi {
     int bookType = 0,
   });
 
-  // ========== WebBook 操作 ==========
-
-  /// 搜索书籍（书源规则驱动）
-  Future<String> webbookSearch(String sourceJson, String query, int page);
-
-  /// 获取书籍详情
-  Future<String> webbookInfo(String sourceJson, String bookUrl);
-
-  /// 获取章节列表
-  ///
-  /// [tocUrl] / [bookName] 可选：发现/搜索已带入时传给 Rust，跳过重复拉详情页。
-  Future<String> webbookChapters(
-    String sourceJson,
-    String bookUrl, {
-    String tocUrl = '',
-    String bookName = '',
-  });
-
-  /// 获取章节正文
-  Future<String> webbookContent(String sourceJson, String chapterJson);
-
-  /// 流式书源调试（对齐 Kotlin Debug.Callback.printLog）
-  ///
-  /// 每条 Map：`state`（int）/ `msg`（String）。
-  /// `state=-1` 失败、`1000` 完成。
-  Stream<Map<String, dynamic>> debugBookSourceStream(
-    String sourceUrl,
-    String key,
-  );
-
-  /// 取消正在进行的书源调试
-  Future<void> cancelDebugBookSource();
-
-  // ========== 发现页操作 ==========
-
-  /// 解析 exploreUrl 为分类列表
-  ///
-  /// [sourceJson] — `@js:` / `<js>` exploreUrl 必填书源 JSON
-  Future<List<ExploreCategory>> exploreParseUrl(
-    String exploreUrl, {
-    String sourceJson = '',
-  });
-
-  /// 抓取发现分类的书籍列表
-  Future<List<SearchBook>> exploreFetchBooks(
-    String sourceJson,
-    String url,
-    int page,
-  );
-
-  /// 写入发现 infoMap（toggle/select 控件，对标 Android InfoMap）
-  Future<void> exploreInfoMapPut(String sourceUrl, String key, String value);
-
-  /// 初始化发现 infoMap 默认值（键不存在时写入）
-  Future<void> exploreInfoMapEnsureDefault(
-    String sourceUrl,
-    String key,
-    String defaultValue,
-  );
-
-  /// 读取发现 infoMap 快照（JSON 对象；UI 回显 toggle/select/text 已存值，
-  /// 对齐原版 InfoMap 持久化语义）。加法式新增（2026-08-14 发现页修复 B①）。
-  Future<String> exploreInfoMapSnapshot(String sourceUrl);
-
-  /// 执行发现页控件 action JS（对标 Android evalButtonClick）
-  ///
-  /// 返回 map：`raw` / `actions` / `refreshExplore`。
-  Future<Map<String, dynamic>> exploreEvalAction({
-    required String sourceJson,
-    required String actionJs,
-  });
-
-  /// 执行发现页 viewName 动态标题 JS（对标 Android evalUiJs）
-  Future<String> exploreEvalUiJs({
-    required String sourceJson,
-    required String jsStr,
-  });
-
   // ========== 规则解析 ==========
 
   /// 使用规则解析内容
@@ -497,90 +365,4 @@ abstract class BookApi {
   /// 报 Internal）；port≤0：停止独立服务。Rust 侧持久化到 `config:mcpPort`
   ///（回读经既有 [getConfig]）。
   Future<void> setMcpPort(int port);
-
-  /// 按书名执行启用封面规则搜封面（契约 §2.4.8，Task #74 加法式新增）
-  ///
-  /// 返回候选封面 URL 列表（Rust 裸 JSON Array 解析，§1.4 铁律）；
-  /// 无启用规则或全部失败返回空列表（非异常）。
-  Future<List<String>> searchCoverRules(String name);
-
-  /// 读取封面规则配置（契约 §2.4 F4，对齐 BookCover.getCoverRule）
-  ///
-  /// 返回 `{enable, searchUrl, coverRule}`；表空时回退默认规则。
-  Future<Map<String, dynamic>> getCoverRule();
-
-  /// 保存封面规则（契约 §2.4 F4，对齐 BookCover.saveCoverRule）
-  Future<bool> saveCoverRule(Map<String, dynamic> rule);
-
-  /// 删除封面规则配置（契约 §2.4 F4，对齐 BookCover.delCoverRule）
-  Future<bool> deleteCoverRule();
-
-  // ========== 自动任务（auto_task FFI） ==========
-
-  /// 构建书籍更新定时任务
-  Future<Map<String, dynamic>> autoTaskBuildBookUpdateTask({
-    required String bookUrl,
-    required String bookName,
-    required String bookAuthor,
-    required String name,
-  });
-
-  /// 批量更新 cron 表达式
-  Future<List<Map<String, dynamic>>> autoTaskUpdateCronBatch({
-    required String rulesJson,
-    required String idsJson,
-    required String cron,
-  });
-
-  /// 准备导入任务
-  Future<List<Map<String, dynamic>>> autoTaskPrepareImported({
-    required String localTasksJson,
-    required String importedJson,
-  });
-
-  /// 执行任务协议
-  Future<Map<String, dynamic>> autoTaskExecute({required String protocolJson});
-
-  /// 带任务 ID 执行任务协议
-  Future<Map<String, dynamic>> autoTaskExecuteWithId({
-    required String protocolJson,
-    required String taskId,
-  });
-
-  /// 规范化脚本
-  Future<String> autoTaskNormalizeScript({required String script});
-
-  /// 判断书籍是否允许刷新目录
-  Future<bool> autoTaskCanRefreshBookToc({
-    required bool canUpdate,
-    required bool respectCanUpdate,
-  });
-
-  /// 查找书籍更新任务
-  Future<Map<String, dynamic>?> autoTaskFindBookUpdateTask({
-    required String tasksJson,
-    required String bookUrl,
-    required String bookName,
-    required String bookAuthor,
-  });
-
-  /// 解析 cron 表达式计算下次执行时间
-  Future<int> autoTaskNextDueAt({required String cron, required int fromMs});
-
-  // ========== 自动任务数据库 CRUD ==========
-
-  /// 列出所有自动任务规则（按 customOrder 排序）
-  Future<List<Map<String, dynamic>>> autoTaskListRules();
-
-  /// 创建自动任务规则（返回任务 ID）
-  Future<String> autoTaskCreateRule({required String ruleJson});
-
-  /// 更新自动任务规则
-  Future<void> autoTaskUpdateRule({required String ruleJson});
-
-  /// 删除自动任务规则
-  Future<void> autoTaskDeleteRule({required String id});
-
-  /// 根据 ID 查询自动任务规则
-  Future<Map<String, dynamic>?> autoTaskFindRuleById({required String id});
 }

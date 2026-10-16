@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../services/book_api.dart';
+import '../../domain/contracts/explore_state_repository.dart';
+import 'explore_dependencies.dart';
 import '../providers.dart';
 import '../../features/book_sources/book_sources.dart';
 import 'explore_state.dart';
@@ -108,10 +107,11 @@ class ExploreNotifier extends Notifier<ExploreState> {
       loadingCategories: {...state.loadingCategories, url},
     );
     try {
-      final api = ref.read(bookApiProvider);
-      final rawCategories = await api.exploreParseUrl(
+      final service = ref.read(exploreServiceProvider);
+      final repository = ref.read(exploreStateRepositoryProvider);
+      final rawCategories = await service.parseCategories(
         exploreUrl,
-        sourceJson: jsonEncode(source.toJson()),
+        source: source,
       );
       // [C8 真机 P1 | full-stack-engineer] 真机 FFI 纯文本 :: 解析返回
       // type=""（Rust 侧 ..ExploreCategory::default() 得空串，且
@@ -121,7 +121,11 @@ class ExploreNotifier extends Notifier<ExploreState> {
       // Android ExploreKind），此处（UI 唯一数据入口）统一把空 type
       // 规整为 'url'，不改落库源数据。
       final categories = _normalizeExploreCategoryTypes(rawCategories);
-      await _initExploreInfoMapDefaults(api, source.bookSourceUrl, categories);
+      await _initExploreInfoMapDefaults(
+        repository,
+        source.bookSourceUrl,
+        categories,
+      );
       state = state.copyWith(
         categoriesCache: {...state.categoriesCache, url: categories},
         loadingCategories: {...state.loadingCategories}..remove(url),
@@ -230,7 +234,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
 
   /// 为 toggle/select 控件初始化 infoMap 默认值（对标 Android ExploreAdapter）
   Future<void> _initExploreInfoMapDefaults(
-    BookApi api,
+    ExploreStateRepository repository,
     String sourceUrl,
     List<ExploreCategory> categories,
   ) async {
@@ -239,11 +243,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
       final chars = category.chars;
       if (chars == null || chars.isEmpty) continue;
       final defaultValue = category.defaultValue ?? chars.first;
-      await api.exploreInfoMapEnsureDefault(
-        sourceUrl,
-        category.title,
-        defaultValue,
-      );
+      await repository.ensureDefault(sourceUrl, category.title, defaultValue);
     }
   }
 }

@@ -1,13 +1,14 @@
 import '../app_log_repository_provider.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../providers.dart';
+import '../../domain/contracts/source_switch_service.dart';
+import 'source_switch_dependencies.dart';
+import '../../features/book_sources/book_source_repository_provider.dart';
 import 'change_source_state.dart';
 
 export 'change_source_state.dart';
@@ -15,21 +16,25 @@ export 'change_source_state.dart';
 /// 换源页 Riverpod Notifier
 ///
 /// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §0.2 铁律）：
-/// - 调用 BookApi.searchSourceStream → 逐批接收 Rust 已评分排序的候选快照 → 更新 immutable State
-/// - 调用 BookApi.switchSource 完成书源切换并回写 Rust
+/// - 调用 SourceSwitchService.searchSourceStream → 逐批接收 Rust 已评分排序的候选快照 → 更新 immutable State
+/// - 调用 SourceSwitchService.switchSource 完成书源切换并回写 Rust
 /// - 管理 UI 状态（loading/error/results/applying 四态）
 /// - 禁止包含匹配/评分/排序逻辑（由 Rust SourceMatcher 完成）
 class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
   /// 搜索序列号：仅最新一轮的批次允许更新状态（seq guard，与
   /// SearchNotifier._searchSeq 同构；旧流丢弃即触发 Rust 侧 sink 关闭取消）
   int _searchSeq = 0;
+  SourceSwitchService? _applyingService;
 
   @override
-  ChangeSourceState build() => const ChangeSourceState();
+  ChangeSourceState build() {
+    ref.onDispose(() => _searchSeq++);
+    return const ChangeSourceState();
+  }
 
   /// 搜索可替换书源（T6 流式：逐源渐进渲染）
   ///
-  /// 消费 [BookApi.searchSourceStream] 的逐源批次：每批 `matches` 为当前已
+  /// 消费 [SourceSwitchService.searchSourceStream] 的逐源批次：每批 `matches` 为当前已
   /// 过滤评分候选的**全量快照**，直接替换展示；`finished_count`/`total_count`
   /// 驱动 x/y 进度文案。单源失败仅 AppLog 留痕（对齐 SearchNotifier），
   /// 末批错误且无结果时才置 error 态。
@@ -60,8 +65,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
       List<String>? sourceUrls;
       if (group.isNotEmpty) {
         final sources = await ref
-            .read(bookApiProvider)
-            .bookSourceRepository
+            .read(bookSourceRepositoryProvider)
             .getEnabledBookSources();
         sourceUrls = sources
             .where((s) {
@@ -94,8 +98,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
         try {
           searchingCount =
               (await ref
-                      .read(bookApiProvider)
-                      .bookSourceRepository
+                      .read(bookSourceRepositoryProvider)
                       .getEnabledBookSources())
                   .length;
         } catch (_) {
@@ -109,7 +112,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
       String? terminalError;
       await for (final batch
           in ref
-              .read(bookApiProvider)
+              .read(sourceSwitchServiceProvider)
               .searchSourceStream(
                 bookName,
                 author,
@@ -119,8 +122,8 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
                 loadWordCount: loadWordCount,
                 forceRefresh: forceRefresh,
               )) {
-        if (seq != _searchSeq) return;
-        final batchError = batch['error'] as String?;
+        if (!ref.mounted || seq != _searchSeq) return;
+        final batchError = batch.error;
         if (batchError != null && batchError.isNotEmpty) {
           // 单源失败静默不弹 UI、仅 AppLog 留痕（对齐 SearchNotifier 批次
           // error 处理）；末批错误记为终态错误，无结果时展示
@@ -131,26 +134,22 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
                   .appLogPush(
                     level: 'message',
                     message:
-                        '换源搜索出错\n${(batch['source_name'] as String?) ?? '未知书源'}: $batchError',
+                        '换源搜索出错\n${batch.sourceName.isEmpty ? '未知书源' : batch.sourceName}: $batchError',
                   ),
             ).catchError((_) {}),
           );
-          if (batch['is_last'] == true) terminalError = batchError;
+          if (batch.isLast) terminalError = batchError;
         }
-        final matches = ((batch['matches'] as List<dynamic>?) ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(SourceMatch.fromJson)
-            .toList();
         state = state.copyWith(
-          results: matches,
-          progressFinished: (batch['finished_count'] as int?) ?? 0,
-          progressTotal: (batch['total_count'] as int?) ?? searchingCount,
+          results: batch.matches,
+          progressFinished: batch.finishedCount,
+          progressTotal: batch.totalCount,
           // 2026-09-24 换源感知等待：记录最后完成的源名（对齐上游
           // changeSourceProgress 的 (count, name) 发射，Dialog L286-298）
-          progressLastSourceName: batch['source_name'] as String?,
+          progressLastSourceName: batch.sourceName,
         );
       }
-      if (seq != _searchSeq) return;
+      if (!ref.mounted || seq != _searchSeq) return;
       state = state.copyWith(
         error: (terminalError != null && state.results.isEmpty)
             ? terminalError
@@ -162,7 +161,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
         progressLastSourceName: null,
       );
     } catch (e) {
-      if (seq != _searchSeq) return;
+      if (!ref.mounted || seq != _searchSeq) return;
       state = state.copyWith(
         error: _mapError(e),
         isLoading: false,
@@ -174,12 +173,12 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
     }
   }
 
-  /// 应用选中的书源，返回切换后的新 bookUrl
+  /// 应用选中的书源，返回切换后仍保持的书籍主键
   ///
-  /// 经 [BookApi.switchSourcePrefetch]（预拉缓存版，2026-09-24 换源感知
+  /// 经 [SourceSwitchService.switchSourcePrefetch]（预拉缓存版，2026-09-24 换源感知
   /// 等待）回写 Rust：命中搜索期预拉缓存 → 零网络直接落地；未命中 →
-  /// 现场抓取（可经 [cancelApply] 取消）。解析返回 JSON 取出新 bookUrl，
-  /// 解析失败时回退到候选项 [SourceMatch.bookUrl]。切换失败时抛出异常，
+  /// 现场抓取（可经 [cancelApply] 取消）。返回数据层解码的稳定书籍主键，
+  /// 失败时原样抛出异常，
   /// 由 UI 侧展示错误提示。
   Future<String> applySource(
     SourceMatch match, {
@@ -189,25 +188,18 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
       throw StateError('已有换源操作进行中');
     }
     state = state.copyWith(applyingUrl: match.sourceUrl);
+    final service = ref.read(sourceSwitchServiceProvider);
+    _applyingService = service;
     try {
-      final updatedJson = await ref
-          .read(bookApiProvider)
-          .switchSourcePrefetch(bookUrl, match.sourceUrl, match.bookUrl);
-      var newBookUrl = match.bookUrl;
-      try {
-        final decoded = jsonDecode(updatedJson);
-        if (decoded is Map<String, dynamic>) {
-          final url = decoded['bookUrl'] as String?;
-          if (url != null && url.isNotEmpty) newBookUrl = url;
-        }
-      } catch (_) {
-        // 解析失败时回退到候选项的 bookUrl
-      }
-      state = state.copyWith(applyingUrl: null);
-      return newBookUrl;
-    } catch (e) {
-      state = state.copyWith(applyingUrl: null);
-      rethrow;
+      final updated = await service.switchSourcePrefetch(
+        bookUrl,
+        match.sourceUrl,
+        match.bookUrl,
+      );
+      return updated.bookUrl;
+    } finally {
+      _applyingService = null;
+      if (ref.mounted) state = state.copyWith(applyingUrl: null);
     }
   }
 
@@ -216,8 +208,11 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
   ///
   /// Rust 侧 apply 代数 +1 并 bump 目录刷新代数：未提交的 apply 在提交前
   /// 代数比对即中止（DB 零变更），在途目录分页链在下一页边界中止。
-  Future<void> cancelApply() =>
-      ref.read(bookApiProvider).cancelSwitchSourceApply();
+  Future<void> cancelApply() {
+    final SourceSwitchService service =
+        _applyingService ?? ref.read(sourceSwitchServiceProvider);
+    return service.cancelSwitchSourceApply();
+  }
 
   /// 统一错误映射
   String _mapError(Object e) {
@@ -227,7 +222,9 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
 
   /// 更新换源列表项用户评分（-1/0/1），持久化后同步本地状态
   Future<void> updateBookScore(String bookUrl, int score) async {
-    await ref.read(bookApiProvider).updateSearchBookScore(bookUrl, score);
+    await ref
+        .read(sourceSwitchServiceProvider)
+        .updateSearchBookScore(bookUrl, score);
     final results = [...state.results];
     final idx = results.indexWhere((r) => r.bookUrl == bookUrl);
     if (idx < 0) return;
@@ -258,8 +255,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
   /// 禁用书源并从列表移除
   Future<void> disableAndRemove(SourceMatch match) async {
     await ref
-        .read(bookApiProvider)
-        .bookSourceRepository
+        .read(bookSourceRepositoryProvider)
         .disableBookSource(match.sourceUrl);
     state = state.copyWith(
       results: state.results.where((r) => r.bookUrl != match.bookUrl).toList(),
@@ -268,7 +264,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
 
   /// 删除换源列表项；返回被删项（供 UI 判断是否当前源）
   Future<SourceMatch?> deleteSearchBookItem(String bookUrl) async {
-    await ref.read(bookApiProvider).deleteSearchBook(bookUrl);
+    await ref.read(sourceSwitchServiceProvider).deleteSearchBook(bookUrl);
     final results = List<SourceMatch>.from(state.results);
     final idx = results.indexWhere((r) => r.bookUrl == bookUrl);
     if (idx < 0) return null;

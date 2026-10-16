@@ -36,6 +36,67 @@ void main() {
     const bookA = Book(bookUrl: 'url-a', name: '书A');
     const bookB = Book(bookUrl: 'url-b', name: '书B');
 
+    test('批量换源跳过本地及同源书，单本失败不阻断其余书籍', () async {
+      const first = Book(
+        bookUrl: 'first',
+        name: '甲',
+        author: '作者',
+        origin: 'old',
+      );
+      const failed = Book(bookUrl: 'failed', name: '乙', origin: 'old');
+      const same = Book(bookUrl: 'same', name: '同源', origin: 'target');
+      const local = Book(
+        bookUrl: 'local',
+        name: '本地',
+        origin: BookType.localTag,
+      );
+      stubBooks([first, failed, same, local]);
+      when(
+        () => mockApi.searchService.preciseSearch(
+          '甲',
+          '作者',
+          sourceUrls: ['target'],
+        ),
+      ).thenAnswer((_) async => const SearchBook(bookUrl: 'target-page'));
+      when(
+        () => mockApi.searchService.preciseSearch(
+          '乙',
+          '',
+          sourceUrls: ['target'],
+        ),
+      ).thenThrow(StateError('无候选'));
+      when(
+        () => mockApi.sourceSwitchService.switchSource(
+          'first',
+          'target',
+          'target-page',
+        ),
+      ).thenAnswer(
+        (_) async =>
+            first.copyWith(origin: 'target', originBookUrl: 'target-page'),
+      );
+      await readNotifier().load();
+      readNotifier().selectAll();
+      final progress = <String>[];
+      final result = await readNotifier().switchSelectedSource(
+        'target',
+        onProgress: (_, _, name) => progress.add(name),
+      );
+      expect(result, (1, 2));
+      expect(progress, ['甲', '乙']);
+      verify(
+        () => mockApi.sourceSwitchService.switchSource(
+          'first',
+          'target',
+          'target-page',
+        ),
+      ).called(1);
+      verifyNever(
+        () => mockApi.sourceSwitchService.switchSource('failed', any(), any()),
+      );
+      expect(readState().isBusy, isFalse);
+    });
+
     test('初始状态为空', () {
       final state = readState();
       expect(state.books, isEmpty);

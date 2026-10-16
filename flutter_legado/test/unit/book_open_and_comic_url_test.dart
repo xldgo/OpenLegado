@@ -231,7 +231,7 @@ url
       );
       final merged = BookOpenUtils.mergeWebInfo(
         book,
-        '{"name":"二合一书","type":64}',
+        const Book(name: '二合一书', bookType: 64),
       );
       expect(merged.bookType & BookOpenUtils.typeMask, BookType.image);
       const source = BookSource(
@@ -253,7 +253,7 @@ url
         name: '漫画书',
         bookType: BookType.image,
       );
-      final merged = BookOpenUtils.mergeWebInfo(book, '{"name":"漫画书"}');
+      final merged = BookOpenUtils.mergeWebInfo(book, const Book(name: '漫画书'));
       expect(merged.bookType, BookType.image);
     });
   });

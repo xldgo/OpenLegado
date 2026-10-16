@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/models/explore_action_result.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/widgets/classic_login_dialog.dart';
 
@@ -36,13 +37,11 @@ void main() {
     when(() => mockApi.sourceLoginRepository.putLoginHeader(any(), any()))
         .thenAnswer((_) async {});
     when(
-      () => mockApi.exploreEvalAction(
+      () => mockApi.exploreService.evaluateAction(
         sourceJson: any(named: 'sourceJson'),
         actionJs: any(named: 'actionJs'),
       ),
-    ).thenAnswer(
-      (_) async => {'raw': '', 'actions': <dynamic>[], 'refreshExplore': false},
-    );
+    ).thenAnswer((_) async => ExploreActionResult());
     container = ProviderContainer(
       overrides: [bookApiProvider.overrideWithValue(mockApi)],
     );
@@ -90,7 +89,8 @@ void main() {
                           .sourceLoginRepository,
                       evaluateAction: container
                           .read(bookApiProvider)
-                          .exploreEvalAction,
+                          .exploreService
+                          .evaluateAction,
                       source: source,
                     ),
                   ),
@@ -129,7 +129,7 @@ void main() {
 
     final captured =
         verify(
-              () => mockApi.exploreEvalAction(
+              () => mockApi.exploreService.evaluateAction(
                 sourceJson: any(named: 'sourceJson'),
                 actionJs: captureAny(named: 'actionJs'),
               ),
@@ -164,7 +164,7 @@ void main() {
     // login.apply(this) 脚本已执行
     final captured =
         verify(
-              () => mockApi.exploreEvalAction(
+              () => mockApi.exploreService.evaluateAction(
                 sourceJson: any(named: 'sourceJson'),
                 actionJs: captureAny(named: 'actionJs'),
               ),

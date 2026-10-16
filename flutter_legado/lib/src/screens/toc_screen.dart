@@ -1,3 +1,4 @@
+import '../providers/explore/explore_dependencies.dart';
 import '../providers/media_provider.dart';
 import '../domain/models/book_highlight.dart';
 import '../providers/highlight_repository_provider.dart';
@@ -7,7 +8,6 @@ import '../widgets/app_menu.dart';
 import '../features/bookmarks/bookmarks.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -567,14 +567,16 @@ class _TocScreenState extends ConsumerState<TocScreen>
     if (source == null) return const [];
     try {
       // [P2-8] 取址同详情页刷新：当前书源详情页（originBookUrl 优先、
-      // 空回退 bookUrl）；parseWebChapters 第二参仍为稳定主键 bookUrl
-      final chJson = await api.webbookChapters(
-        jsonEncode(source.toJson()),
-        BookOpenUtils.bookFetchUrl(_book),
-        tocUrl: _book.tocUrl,
-        bookName: _book.name,
-      );
-      return BookOpenUtils.parseWebChapters(chJson, _book.bookUrl);
+      // 空回退 bookUrl）；章节归属仍传稳定主键 bookUrl
+      return await ref
+          .read(bookSourceQueryServiceProvider)
+          .getChapters(
+            source,
+            BookOpenUtils.bookFetchUrl(_book),
+            bookUrl: _book.bookUrl,
+            tocUrl: _book.tocUrl,
+            bookName: _book.name,
+          );
     } catch (e) {
       debugPrint('webbookChapters 错误: ${_errMsg(e)}');
       return const [];

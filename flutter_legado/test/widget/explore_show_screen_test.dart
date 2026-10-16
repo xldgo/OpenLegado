@@ -33,20 +33,21 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.exploreFetchBooks(any(), any(), any())).thenAnswer(
-      (_) async => [
-        const SearchBook(
-          bookUrl: 'http://book.com/1',
-          name: '书1',
-          author: '作者1',
-        ),
-        const SearchBook(
-          bookUrl: 'http://book.com/2',
-          name: '书2',
-          author: '作者2',
-        ),
-      ],
-    );
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
+        .thenAnswer(
+          (_) async => [
+            const SearchBook(
+              bookUrl: 'http://book.com/1',
+              name: '书1',
+              author: '作者1',
+            ),
+            const SearchBook(
+              bookUrl: 'http://book.com/2',
+              name: '书2',
+              author: '作者2',
+            ),
+          ],
+        );
   });
 
   testWidgets('顶栏展示第 1 页并可打开页码选择器', (tester) async {
@@ -98,7 +99,7 @@ void main() {
   });
 
   testWidgets('无已加载书籍时点「加入书架」提示', (tester) async {
-    when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
         .thenAnswer((_) async => <SearchBook>[]);
 
     await tester.pumpWidget(

@@ -1,10 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../providers.dart';
+import 'explore_dependencies.dart';
 import 'explore_show_state.dart';
 
 export 'explore_show_state.dart';
@@ -15,7 +13,7 @@ export 'explore_show_state.dart';
 /// 页面销毁（pop）时自动释放（对标原 ExploreShowProvider 每屏独立实例语义）。
 ///
 /// 职责严格限定（对齐 ExploreShowViewModel.kt）：
-/// - 调用 BookApi.exploreFetchBooks → 接收纯数据 → 累积去重更新 State
+/// - 调用 ExploreService → 接收纯数据 → 累积去重更新 State
 /// - 管理分页状态（page/displayPage/hasMore/loading/error）
 /// - 禁止包含业务计算（书籍抓取/解析由 Rust 完成）
 class ExploreShowNotifier extends Notifier<ExploreShowState> {
@@ -47,10 +45,9 @@ class ExploreShowNotifier extends Notifier<ExploreShowState> {
     final fetchPage = state.page;
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
-      final sourceJson = jsonEncode(source.toJson());
-      final newBooks = await api.exploreFetchBooks(
-        sourceJson,
+      final service = ref.read(exploreServiceProvider);
+      final newBooks = await service.fetchBooks(
+        source,
         state.categoryUrl,
         fetchPage,
       );

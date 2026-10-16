@@ -60,7 +60,7 @@ Future<bool> showSourceLogin(
       barrierDismissible: false,
       builder: (_) => ClassicLoginDialog(
         repository: api.sourceLoginRepository,
-        evaluateAction: api.exploreEvalAction,
+        evaluateAction: api.exploreService.evaluateAction,
         source: source,
       ),
     );

@@ -9,8 +9,6 @@
 //
 // 编写：全栈工程师子代理 ｜ 2026-09-17
 
-import 'dart:convert';
-
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/utils/book_open_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,7 +42,7 @@ void main() {
 
   /// WebBookInfo 的 FFI 返回为 snake_case（name/author/cover_url/intro/
   /// word_count/last_chapter/toc_url/kind）
-  String webInfoJson({
+  Book webInfo({
     String? name = '新书名',
     String? author = '新作者',
     String? tocUrl = 'https://new.example.com/book/9/chapters',
@@ -54,16 +52,16 @@ void main() {
     String? lastChapter = '第五百章',
     String? kind = '轻小说',
   }) {
-    return jsonEncode({
-      'name': name,
-      'author': author,
-      'cover_url': coverUrl,
-      'intro': intro,
-      'word_count': wordCount,
-      'last_chapter': lastChapter,
-      'toc_url': tocUrl,
-      'kind': kind,
-    });
+    return Book(
+      name: name ?? '',
+      author: author ?? '',
+      tocUrl: tocUrl ?? '',
+      coverUrl: coverUrl,
+      intro: intro,
+      wordCount: wordCount,
+      latestChapterTitle: lastChapter,
+      kind: kind,
+    );
   }
 
   group('BookOpenUtils.bookFetchUrl（书籍页取址）', () {
@@ -105,11 +103,7 @@ void main() {
         tocUrl: 'https://old.example.com/book/1/toc', // 旧值（换源前残留）
         intro: '旧简介',
       );
-      final merged = BookOpenUtils.mergeWebInfo(
-        book,
-        webInfoJson(),
-        refresh: true,
-      );
+      final merged = BookOpenUtils.mergeWebInfo(book, webInfo(), refresh: true);
       // 覆盖式合并：新值覆盖全部字段，含把换源前残留的 tocUrl 刷正
       expect(merged.name, '新书名');
       expect(merged.author, '新作者');
@@ -131,7 +125,7 @@ void main() {
       );
       final merged = BookOpenUtils.mergeWebInfo(
         book,
-        webInfoJson(name: null), // 错页/未解析到书籍页
+        webInfo(name: null), // 错页/未解析到书籍页
         refresh: true,
       );
       expect(merged.name, book.name);
@@ -154,7 +148,7 @@ void main() {
       );
       final merged = BookOpenUtils.mergeWebInfo(
         book,
-        webInfoJson(coverUrl: null, intro: null, kind: null),
+        webInfo(coverUrl: null, intro: null, kind: null),
       );
       expect(merged.coverUrl, 'https://old.example.com/cover/1.png');
       expect(merged.intro, '旧简介');
@@ -165,7 +159,7 @@ void main() {
 
     test('缺失字段被新值补全', () {
       final book = buildBook();
-      final merged = BookOpenUtils.mergeWebInfo(book, webInfoJson());
+      final merged = BookOpenUtils.mergeWebInfo(book, webInfo());
       expect(merged.name, '旧书名');
       expect(merged.author, '旧作者'); // 非空保留
       expect(merged.coverUrl, 'https://new.example.com/cover/9.png');

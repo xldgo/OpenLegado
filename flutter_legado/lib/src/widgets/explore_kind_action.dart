@@ -4,7 +4,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/providers.dart';
+import '../providers/explore/explore_dependencies.dart';
 import '../services/platform_bridge_service.dart';
 
 /// 发现页控件 JS action 与中途 UI 回放
@@ -27,17 +27,17 @@ class ExploreKindActionRunner {
     required String action,
     Future<void> Function()? onRefreshCategories,
   }) async {
-    final api = ref.read(bookApiProvider);
+    final service = ref.read(exploreServiceProvider);
     try {
-      final result = await api.exploreEvalAction(
+      final result = await service.evaluateAction(
         sourceJson: sourceJson,
         actionJs: action,
       );
-      final actions = result['actions'];
-      if (actions is List && actions.isNotEmpty) {
+      final actions = result.actions;
+      if (actions.isNotEmpty) {
         await PlatformBridgeService.instance.dispatchActions(actions);
       }
-      if (result['refreshExplore'] == true) {
+      if (result.refreshExplore) {
         await onRefreshCategories?.call();
       }
     } catch (e, stack) {

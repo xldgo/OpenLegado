@@ -1,3 +1,4 @@
+import '../providers/explore/explore_dependencies.dart';
 import '../providers/chapter_cache_provider.dart';
 import '../features/privacy/privacy_controller.dart';
 import '../widgets/app_menu.dart';

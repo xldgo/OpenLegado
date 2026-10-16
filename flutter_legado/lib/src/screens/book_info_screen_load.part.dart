@@ -97,7 +97,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
       if (book != null && chapters.isEmpty && _isOnlineBook(book)) {
         var b = book;
         if (source != null) {
-          final sourceJson = jsonEncode(source.toJson());
+          final query = ref.read(bookSourceQueryServiceProvider);
           if (mounted) {
             setState(() {
               _networkLoading = true;
@@ -111,49 +111,54 @@ extension _BookInfoLoad on _BookInfoScreenState {
           try {
             if (hasTocUrl && !needInfo) {
               // 对齐原版 upBook：已有 tocUrl 且元数据齐全 → 直接 loadChapter
-              chapters = await _fetchWebChaptersOnline(
-                api,
-                b,
-                sourceJson: sourceJson,
-              );
+              chapters = await _fetchWebChaptersOnline(api, b, source: source);
             } else if (hasTocUrl && needInfo) {
               // 详情与目录并行（tocUrl 已知，目录不必等 info）
               final tParallel = Stopwatch()..start();
               // [P2-8] 取址：当前书源详情页地址（originBookUrl 优先、空回退
               // bookUrl），避免换源后「旧源地址 + 当前书源规则」错页解析
-              final infoFuture = api.webbookInfo(
-                sourceJson,
+              // 详情解码移入数据层后，失败也不能丢弃独立抓取成功的目录。
+              final infoFuture = query
+                  .getBookInfo(source, BookOpenUtils.bookFetchUrl(b))
+                  .then<Book?>(
+                    (info) => info,
+                    onError: (Object error, StackTrace stack) {
+                      debugPrint('详情补全失败，保留现有字段: ${_errMsg(error)}');
+                      return null;
+                    },
+                  );
+              final tocFuture = query.getChapters(
+                source,
                 BookOpenUtils.bookFetchUrl(b),
-              );
-              final tocFuture = api.webbookChapters(
-                sourceJson,
-                BookOpenUtils.bookFetchUrl(b),
+                bookUrl: b.bookUrl,
                 tocUrl: b.tocUrl,
                 bookName: b.name,
               );
-              final results = await Future.wait([infoFuture, tocFuture]);
+              final results = await Future.wait<Object?>([
+                infoFuture,
+                tocFuture,
+              ]);
               debugPrint(
                 '[BookInfo] 并行 info+toc ${tParallel.elapsedMilliseconds}ms',
               );
-              try {
-                b = BookOpenUtils.mergeWebInfo(b, results[0]);
-              } catch (e) {
-                debugPrint('webbookInfo 补全失败: ${_errMsg(e)}');
+              final info = results[0] as Book?;
+              if (info != null) {
+                b = BookOpenUtils.mergeWebInfo(b, info);
               }
-              chapters = BookOpenUtils.parseWebChapters(results[1], b.bookUrl);
+              chapters = results[1] as List<BookChapter>;
             } else {
               // tocUrl 缺失：先 info 补 tocUrl，再拉目录
               if (needInfo) {
                 try {
                   final tInfo = Stopwatch()..start();
-                  final infoJson = await api.webbookInfo(
-                    sourceJson,
+                  final freshInfo = await query.getBookInfo(
+                    source,
                     BookOpenUtils.bookFetchUrl(b),
                   );
                   debugPrint(
                     '[BookInfo] webbookInfo ${tInfo.elapsedMilliseconds}ms',
                   );
-                  b = BookOpenUtils.mergeWebInfo(b, infoJson);
+                  b = BookOpenUtils.mergeWebInfo(b, freshInfo);
                   if (mounted) setState(() => _loadedBook = b);
                   unawaited(_extractCoverSeed(b));
                 } catch (e) {
@@ -170,7 +175,7 @@ extension _BookInfoLoad on _BookInfoScreenState {
                 chapters = await _fetchWebChaptersOnline(
                   api,
                   b,
-                  sourceJson: sourceJson,
+                  source: source,
                 );
               }
               debugPrint(
@@ -216,19 +221,19 @@ extension _BookInfoLoad on _BookInfoScreenState {
         // 聚合行「评分 · 分类 · N章 · 字数 · 完结态」完整渲染（缺项由聚合行省略）；
         // 失败则保留现有字段，不影响已上屏内容。
         var b = book;
-        final sourceJson = jsonEncode(source.toJson());
+        final query = ref.read(bookSourceQueryServiceProvider);
         if (mounted) setState(() => _networkLoading = true);
         try {
           final tInfo = Stopwatch()..start();
           // [P2-8] 根因修复：U7 后台刷新取当前书源详情页地址（originBookUrl
           // 优先、空回退 bookUrl），换源后不再「旧源地址 + 新源规则」错页
           // 解析写坏 tocUrl；守卫（mergeWebInfo refresh 守卫）保留为纵深防御
-          final infoJson = await api.webbookInfo(
-            sourceJson,
+          final freshInfo = await query.getBookInfo(
+            source,
             BookOpenUtils.bookFetchUrl(b),
           );
           debugPrint('[BookInfo] U7 后台 info 刷新 ${tInfo.elapsedMilliseconds}ms');
-          b = BookOpenUtils.mergeWebInfo(b, infoJson, refresh: true);
+          b = BookOpenUtils.mergeWebInfo(b, freshInfo, refresh: true);
           // 已入库书：刷新字段回写 DB（对标原版 bookDao.replace / inBookshelf
           // update）；未入库仅展示不落库（对齐原版 loadChapter !inBookshelf）
           if (inShelf) {
@@ -354,20 +359,18 @@ extension _BookInfoLoad on _BookInfoScreenState {
   Future<List<BookChapter>> _fetchWebChaptersOnline(
     BookApi api,
     Book book, {
-    String? sourceJson,
+    BookSource? source,
   }) async {
-    final encoded =
-        sourceJson ??
-        jsonEncode((await _findSourceByOrigin(api, book.origin))?.toJson());
-    if (encoded.isEmpty || encoded == 'null') return const [];
-    // [P2-8] 取址同 webbookInfo：当前书源详情页（originBookUrl 优先）；
-    // parseWebChapters 第二参仍传稳定主键 bookUrl（章节记录挂主键下）
-    final chJson = await api.webbookChapters(
-      encoded,
-      BookOpenUtils.bookFetchUrl(book),
-      tocUrl: book.tocUrl,
-      bookName: book.name,
-    );
-    return BookOpenUtils.parseWebChapters(chJson, book.bookUrl);
+    final resolved = source ?? await _findSourceByOrigin(api, book.origin);
+    if (resolved == null) return const [];
+    return ref
+        .read(bookSourceQueryServiceProvider)
+        .getChapters(
+          resolved,
+          BookOpenUtils.bookFetchUrl(book),
+          bookUrl: book.bookUrl,
+          tocUrl: book.tocUrl,
+          bookName: book.name,
+        );
   }
 }

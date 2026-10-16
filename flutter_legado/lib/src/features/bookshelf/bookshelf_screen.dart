@@ -1,3 +1,4 @@
+import '../../providers/explore/explore_dependencies.dart';
 import '../privacy/privacy_gate.dart';
 import 'bookshelf_repositories.dart';
 import '../../widgets/app_menu.dart';
@@ -1260,8 +1261,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         final source = _matchSource(sources, url);
         Book? book;
         if (source != null) {
-          final json = await api.webbookInfo(jsonEncode(source.toJson()), url);
-          book = Book.fromJson(jsonDecode(json) as Map<String, dynamic>);
+          book = await ref
+              .read(bookSourceQueryServiceProvider)
+              .getBookInfo(source, url);
         }
         // 无匹配书源时按输入书名创建裸 WebBook 入库（任务要求；
         // Kotlin 原版此处报「没有匹配的书源」，Flutter 侧放宽为兑底入库）

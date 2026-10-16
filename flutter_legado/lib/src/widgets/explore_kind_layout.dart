@@ -8,14 +8,13 @@ library;
 import '../l10n/app_localization.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
+import '../providers/explore/explore_dependencies.dart';
 import 'explore_kind_action.dart';
 import 'md3_picker_sheet.dart';
 
@@ -27,14 +26,11 @@ Future<String?> _loadStoredInfoMapValue(
   String key,
 ) async {
   try {
-    final json = await ref
-        .read(bookApiProvider)
-        .exploreInfoMapSnapshot(sourceUrl);
-    final map = jsonDecode(json);
-    if (map is Map<String, dynamic>) {
-      final v = map[key]?.toString();
-      return (v != null && v.isNotEmpty) ? v : null;
-    }
+    final map = await ref
+        .read(exploreStateRepositoryProvider)
+        .snapshot(sourceUrl);
+    final value = map[key];
+    return value != null && value.isNotEmpty ? value : null;
   } catch (_) {}
   return null;
 }
@@ -310,8 +306,8 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
     setState(() => _loading = true);
     try {
       final text = await ref
-          .read(bookApiProvider)
-          .exploreEvalUiJs(sourceJson: widget.sourceJson, jsStr: viewName);
+          .read(exploreServiceProvider)
+          .evaluateUiJs(sourceJson: widget.sourceJson, jsStr: viewName);
       if (!mounted) return;
       setState(() {
         _label = text.isEmpty ? 'null' : text;
@@ -445,8 +441,8 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
   Future<void> _afterValueChanged() async {
     final value = _chars[_index];
     await ref
-        .read(bookApiProvider)
-        .exploreInfoMapPut(widget.sourceUrl, widget.category.title, value);
+        .read(exploreStateRepositoryProvider)
+        .put(widget.sourceUrl, widget.category.title, value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
@@ -569,8 +565,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     setState(() => _index = next);
     final value = _chars[next];
     await ref
-        .read(bookApiProvider)
-        .exploreInfoMapPut(widget.sourceUrl, widget.category.title, value);
+        .read(exploreStateRepositoryProvider)
+        .put(widget.sourceUrl, widget.category.title, value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
@@ -711,8 +707,8 @@ class _TextChipState extends ConsumerState<_TextChip> {
   void _onTextChanged() {
     final text = _controller.text;
     ref
-        .read(bookApiProvider)
-        .exploreInfoMapPut(widget.sourceUrl, widget.category.title, text);
+        .read(exploreStateRepositoryProvider)
+        .put(widget.sourceUrl, widget.category.title, text);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     _debounce?.cancel();

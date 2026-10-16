@@ -77,7 +77,7 @@ void main() {
     for (final fails in [false, true]) {
       test('销毁后丢弃迟到的${fails ? '错误' : '结果'}', () async {
         final pending = Completer<List<SearchBook>>();
-        when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+        when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
             .thenAnswer((_) => pending.future);
 
         final subscription = spawn();
@@ -99,7 +99,7 @@ void main() {
 
   group('ExploreShowNotifier 初始状态', () {
     test('由 args 初始化书源/分类信息', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => []);
 
       spawn();
@@ -111,7 +111,7 @@ void main() {
     });
 
     test('title 显示分类名 - 书源名', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => []);
 
       spawn();
@@ -123,7 +123,7 @@ void main() {
 
   group('ExploreShowNotifier fetchBooks', () {
     test('成功加载书籍并递增页码', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => makeBooks(5));
 
       spawn();
@@ -142,7 +142,7 @@ void main() {
         const SearchBook(bookUrl: '', name: '书B', author: '作者2'),
         const SearchBook(bookUrl: '', name: '书C', author: '作者3'),
       ];
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => books);
 
       spawn();
@@ -152,7 +152,7 @@ void main() {
     });
 
     test('返回空列表时 hasMore 设为 false', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => []);
 
       spawn();
@@ -165,7 +165,7 @@ void main() {
       final books1 = makeBooks(3, startId: 1);
       final books2 = makeBooks(3, startId: 2);
       var callCount = 0;
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async {
             callCount++;
             return callCount == 1 ? books1 : books2;
@@ -183,7 +183,7 @@ void main() {
     });
 
     test('加载失败设置错误并保留 hasMore（可重试）', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenThrow(Exception('网络超时'));
 
       spawn();
@@ -196,7 +196,7 @@ void main() {
     });
 
     test('hasMore 为 false 时不再请求', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => []);
 
       spawn();
@@ -204,7 +204,8 @@ void main() {
 
       await readNotifier().fetchBooks(); // 守卫：hasMore=false 直接返回
 
-      verify(() => mockApi.exploreFetchBooks(any(), any(), any())).called(1);
+      verify(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
+          .called(1);
     });
   });
 
@@ -215,18 +216,18 @@ void main() {
         categoryName: 'x',
         categoryUrl: '',
       );
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async => []);
 
       spawn(emptyArgs);
       await pumpInit();
 
-      verifyNever(() => mockApi.exploreFetchBooks(any(), any(), any()));
+      verifyNever(() => mockApi.exploreService.fetchBooks(any(), any(), any()));
     });
 
     test('refresh 清空列表重新加载并重置页码', () async {
       var callCount = 0;
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((_) async {
             callCount++;
             return makeBooks(2, startId: callCount * 10);
@@ -245,7 +246,7 @@ void main() {
     });
 
     test('skipToPage 跳页后仅展示目标页数据', () async {
-      when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+      when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
           .thenAnswer((invocation) async {
             final page = invocation.positionalArguments[2] as int;
             return makeBooks(3, startId: page * 10);

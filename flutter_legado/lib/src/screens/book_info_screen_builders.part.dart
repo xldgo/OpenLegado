@@ -683,7 +683,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     );
     if (!mounted) return;
     if (existing != null) {
-      final id = existing['id']?.toString() ?? '';
+      final id = existing.id;
       await Navigator.pushNamed(
         context,
         AppRoutes.autoTasks,
@@ -707,7 +707,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     await Navigator.pushNamed(
       context,
       AppRoutes.autoTasks,
-      arguments: <String, dynamic>{'newTask': built},
+      arguments: <String, dynamic>{'newTask': built.toJson()},
     );
   }
 

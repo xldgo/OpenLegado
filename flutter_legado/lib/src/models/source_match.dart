@@ -5,7 +5,7 @@ part 'source_match.g.dart';
 
 /// 换源匹配结果（镜像 Rust 侧 `SourceMatch`，snake_case 序列化）
 ///
-/// 由 `BookApi.searchSource` 返回的 Map 解析而来。Rust 侧
+/// 由换源服务的数据适配器解码。Rust 侧
 /// `SourceMatcher::rank_candidates` 已完成评分与排序（按 [score] 降序），
 /// UI 侧直接按返回顺序渲染，不再重排（对齐 UI_RESTRUCTURE_PLAN.md §0.2/§0.3）。
 @freezed

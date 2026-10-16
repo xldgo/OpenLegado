@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../l10n/app_localization.dart';
+import '../../../domain/models/cover_rule.dart';
 
 import 'package:flutter/services.dart';
 
@@ -11,8 +12,8 @@ import '../../../widgets/settings_widgets.dart';
 /// 封面规则配置对话框（对齐原版 CoverRuleConfigDialog + 测试搜索）
 /// F4 | 2026-08-13 — Auto + UI
 class CoverRuleConfigDialog extends StatefulWidget {
-  final Future<Map<String, dynamic>> Function() loadRule;
-  final Future<bool> Function(Map<String, dynamic> rule) saveRule;
+  final Future<CoverRule> Function() loadRule;
+  final Future<bool> Function(CoverRule rule) saveRule;
   final Future<bool> Function() deleteRule;
   final Future<List<String>> Function(String name) onSearch;
 
@@ -35,6 +36,7 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
       TextEditingController();
   late final TextEditingController _nameController = TextEditingController();
   bool _enable = true;
+  bool? _enabledCookieJar;
   bool _loading = true;
   bool _saving = false;
   bool _searching = false;
@@ -63,9 +65,10 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
       final rule = await widget.loadRule();
       if (!mounted) return;
       setState(() {
-        _enable = rule['enable'] == true || rule['enable'] == 1;
-        _searchUrlController.text = '${rule['searchUrl'] ?? ''}';
-        _coverRuleController.text = '${rule['coverRule'] ?? ''}';
+        _enable = rule.enable;
+        _enabledCookieJar = rule.enabledCookieJar;
+        _searchUrlController.text = rule.searchUrl;
+        _coverRuleController.text = rule.coverRule;
         _loading = false;
       });
     } catch (e) {
@@ -90,11 +93,15 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
       _error = null;
     });
     try {
-      await widget.saveRule({
-        'enable': _enable,
-        'searchUrl': searchUrl,
-        'coverRule': coverRule,
-      });
+      final saved = await widget.saveRule(
+        CoverRule(
+          enable: _enable,
+          searchUrl: searchUrl,
+          coverRule: coverRule,
+          enabledCookieJar: _enabledCookieJar,
+        ),
+      );
+      if (!saved) throw StateError('规则未保存');
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
@@ -112,7 +119,7 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
       _error = null;
     });
     try {
-      await widget.deleteRule();
+      if (!await widget.deleteRule()) throw StateError('规则未删除');
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {

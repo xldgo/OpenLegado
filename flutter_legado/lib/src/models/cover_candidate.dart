@@ -3,12 +3,10 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'cover_candidate.freezed.dart';
 part 'cover_candidate.g.dart';
 
-/// 网络封面候选项（镜像未来 Rust `searchCover` 返回项，snake_case 序列化）
+/// 网络封面候选项（对应Rust封面搜索结果）
 ///
-/// 由 `BookApi.searchCover(bookName)` 返回的 Map 解析而来（契约见
-/// API_CONTRACT.md §3 需求 3）。Rust 轨交付前，`ChangeCoverNotifier` 以 Mock
-/// 数据先行驱动该模型；交付后将 Notifier 内 Mock 切换为 `searchCover` 调用即可，
-/// 模型字段即为冻结契约。
+/// 由CoverSearchService的数据适配器解码，页面不处理传输JSON。
+/// 尺寸未知时为0，保持现有渲染语义。
 @freezed
 abstract class CoverCandidate with _$CoverCandidate {
   const factory CoverCandidate({

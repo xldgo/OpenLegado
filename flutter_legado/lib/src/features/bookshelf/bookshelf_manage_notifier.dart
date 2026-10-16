@@ -1,10 +1,11 @@
 import 'bookshelf_repositories.dart';
+import '../../providers/change_source/source_switch_dependencies.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../bridge/ffi.dart';
 import '../../models/models.dart';
-import '../../providers/providers.dart';
+import '../search/search_access_providers.dart';
 import 'bookshelf_manage_state.dart';
 
 export 'bookshelf_manage_state.dart';
@@ -131,19 +132,24 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
     if (targets.isEmpty) return (0, 0);
     state = state.copyWith(isBusy: true, error: null);
     try {
-      final api = ref.read(bookApiProvider);
+      final search = ref.read(searchServiceProvider);
+      final switchService = ref.read(sourceSwitchServiceProvider);
       var success = 0;
       for (var i = 0; i < targets.length; i++) {
         final book = targets[i];
         onProgress?.call(i + 1, targets.length, book.name);
         try {
           // 对标 Kotlin preciseSearchAwait（FFI preciseSearch）
-          final hit = await api.searchService.preciseSearch(
+          final hit = await search.preciseSearch(
             book.name,
             book.author,
             sourceUrls: [targetSourceUrl],
           );
-          await api.switchSource(book.bookUrl, targetSourceUrl, hit.bookUrl);
+          await switchService.switchSource(
+            book.bookUrl,
+            targetSourceUrl,
+            hit.bookUrl,
+          );
           success++;
         } catch (_) {
           // 单本失败不中断批次（对齐原版批间容错）

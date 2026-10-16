@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/contracts/source_switch_service.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_service.dart';
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
@@ -167,12 +168,21 @@ class _AutoSourceReader extends _ScreenReader {
 }
 
 class _AutoSourceApi extends MockBookApi {
+  _AutoSourceApi() : this._(_AutoSourceService());
+  _AutoSourceApi._(this._switch) : super(sourceSwitchService: _switch);
+  final _AutoSourceService _switch;
+  int get searches => _switch.searches;
+  List<(String, String, String)> get switches => _switch.switches;
+  set matches(List<Map<String, dynamic>> values) =>
+      _switch.matches = values.map(SourceMatch.fromJson).toList();
+}
+
+class _AutoSourceService extends Fake implements SourceSwitchService {
   int searches = 0;
   final switches = <(String, String, String)>[];
-  List<Map<String, dynamic>> matches = [];
-
+  List<SourceMatch> matches = [];
   @override
-  Future<List<Map<String, dynamic>>> searchSource(
+  Future<List<SourceMatch>> searchSource(
     String bookName,
     String author, {
     List<String>? sourceUrls,
@@ -186,13 +196,18 @@ class _AutoSourceApi extends MockBookApi {
   }
 
   @override
-  Future<String> switchSource(
+  Future<Book> switchSource(
     String bookUrl,
     String newSourceUrl,
     String newBookUrl,
   ) async {
     switches.add((bookUrl, newSourceUrl, newBookUrl));
-    return '{"bookUrl":"https://new.test/book"}';
+    return Book(
+      bookUrl: bookUrl,
+      origin: newSourceUrl,
+      originName: '新书源',
+      originBookUrl: newBookUrl,
+    );
   }
 }
 
@@ -424,7 +439,7 @@ void main() {
         'https://new.test/detail',
       ),
     ]);
-    expect(reader.openedBook?.bookUrl, 'https://new.test/book');
+    expect(reader.openedBook?.bookUrl, 'https://original.test/book');
     expect(reader.openedBook?.origin, 'https://new.test');
     expect(reader.openedBook?.originBookUrl, 'https://new.test/detail');
     expect(find.text('章节加载失败，已自动换源：新书源'), findsOneWidget);

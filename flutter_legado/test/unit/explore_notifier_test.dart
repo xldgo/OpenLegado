@@ -387,9 +387,9 @@ void main() {
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => []);
       when(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).thenAnswer(
         (_) async => const [
@@ -426,9 +426,9 @@ void main() {
 
       expect(readState().categoriesFor('https://s2.com'), isEmpty);
       verifyNever(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       );
     });
@@ -437,9 +437,9 @@ void main() {
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => []);
       when(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).thenAnswer((_) async => const [ExploreCategory(title: '玄幻', url: 'u')]);
       container.read(exploreNotifierProvider);
@@ -449,9 +449,9 @@ void main() {
       await readNotifier().loadCategories(source);
 
       verify(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).called(1);
     });
@@ -460,9 +460,9 @@ void main() {
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => []);
       when(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).thenThrow(Exception('解析失败'));
       container.read(exploreNotifierProvider);
@@ -482,9 +482,9 @@ void main() {
           .thenAnswer((_) async => []);
       var calls = 0;
       when(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).thenAnswer((_) async {
         calls++;
@@ -505,13 +505,13 @@ void main() {
       expect(calls, 2);
     });
 
-    test('@js: 书源传递 sourceJson', () async {
+    test('@js: 分类服务收到完整书源', () async {
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => []);
       when(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).thenAnswer(
         (_) async => const [ExploreCategory(title: '热门', url: '/hot')],
@@ -528,29 +528,29 @@ void main() {
       await readNotifier().loadCategories(jsSource);
 
       final captured = verify(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           captureAny(),
-          sourceJson: captureAny(named: 'sourceJson'),
+          source: captureAny(named: 'source'),
         ),
       ).captured;
       expect(captured[0], jsSource.exploreUrl);
-      expect(captured[1], contains('"bookSourceUrl"'));
-      expect(captured[1], contains('https://js.example.com'));
+      expect(captured[1], same(jsSource));
     });
 
     test('reloadCategories 强制重新解析', () async {
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => []);
       when(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).thenAnswer(
         (_) async => const [ExploreCategory(title: '榜单', url: '/rank')],
       );
-      when(() => mockApi.exploreInfoMapEnsureDefault(any(), any(), any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockApi.exploreStateRepository.ensureDefault(any(), any(), any()),
+      ).thenAnswer((_) async {});
       container.read(exploreNotifierProvider);
       await pumpInit();
 
@@ -564,9 +564,9 @@ void main() {
       await readNotifier().reloadCategories(source);
 
       verify(
-        () => mockApi.exploreParseUrl(
+        () => mockApi.exploreService.parseCategories(
           any(),
-          sourceJson: any(named: 'sourceJson'),
+          source: any(named: 'source'),
         ),
       ).called(2);
     });

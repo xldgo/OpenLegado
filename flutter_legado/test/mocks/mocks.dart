@@ -1,5 +1,18 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/cover_rule_repository.dart';
+
+import 'package:flutter_legado/src/domain/contracts/source_switch_service.dart';
+import 'package:flutter_legado/src/domain/contracts/cover_search_service.dart';
+
+import 'package:flutter_legado/src/domain/contracts/explore_service.dart';
+import 'package:flutter_legado/src/domain/contracts/explore_state_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/book_source_query_service.dart';
+import 'package:flutter_legado/src/domain/contracts/book_source_debug_service.dart';
+
+import 'package:flutter_legado/src/domain/contracts/auto_task_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/auto_task_service.dart';
+
 import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/audio_cache_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/audio_cache_download_service.dart';
@@ -163,7 +176,49 @@ class AudioBookServiceMock extends Mock implements AudioBookService {}
 
 class VideoDanmakuServiceMock extends Mock implements VideoDanmakuService {}
 
+class AutoTaskRepositoryMock extends Mock implements AutoTaskRepository {}
+
+class AutoTaskServiceMock extends Mock implements AutoTaskService {}
+
+class ExploreServiceMock extends Mock implements ExploreService {}
+
+class ExploreStateRepositoryMock extends Mock
+    implements ExploreStateRepository {}
+
+class BookSourceQueryServiceMock extends Mock
+    implements BookSourceQueryService {}
+
+class BookSourceDebugServiceMock extends Mock
+    implements BookSourceDebugService {}
+
+class CoverRuleRepositoryMock extends Mock implements CoverRuleRepository {}
+
+class SourceSwitchServiceMock extends Mock implements SourceSwitchService {}
+
+class CoverSearchServiceMock extends Mock implements CoverSearchService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final SourceSwitchService sourceSwitchService = SourceSwitchServiceMock();
+  @override
+  final CoverSearchService coverSearchService = CoverSearchServiceMock();
+  @override
+  final CoverRuleRepository coverRuleRepository = CoverRuleRepositoryMock();
+  @override
+  final ExploreService exploreService = ExploreServiceMock();
+  @override
+  final ExploreStateRepository exploreStateRepository =
+      ExploreStateRepositoryMock();
+  @override
+  final BookSourceQueryService bookSourceQueryService =
+      BookSourceQueryServiceMock();
+  @override
+  final BookSourceDebugService bookSourceDebugService =
+      BookSourceDebugServiceMock();
+  @override
+  final AutoTaskRepository autoTaskRepository = AutoTaskRepositoryMock();
+  @override
+  final AutoTaskService autoTaskService = AutoTaskServiceMock();
   @override
   final BookImageRepository bookImageRepository = BookImageRepositoryMock();
   @override
@@ -484,6 +539,7 @@ class FakeUri extends Fake implements Uri {}
 
 /// 注册所有 fallback 值（在 setUpAll 中调用）
 void registerFallbacks() {
+  registerFallbackValue(const AutoTaskRule());
   registerFallbackValue(const ReadConfig());
   registerFallbackValue(const RuleSub());
   registerFallbackValue(const BookHighlight());
