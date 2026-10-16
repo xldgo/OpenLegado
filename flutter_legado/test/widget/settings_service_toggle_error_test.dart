@@ -85,7 +85,7 @@ void main() {
       tester,
     ) async {
       stubConfigs();
-      when(() => mockApi.setMcpPort(any())).thenAnswer(
+      when(() => mockApi.localServerService.setMcpPort(any())).thenAnswer(
         (_) async => throw const BridgeError(
           message:
               '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
@@ -121,7 +121,7 @@ void main() {
 
     testWidgets('BridgeError 无 message → 兜底文案（不留空）', (tester) async {
       stubConfigs();
-      when(() => mockApi.setMcpPort(any()))
+      when(() => mockApi.localServerService.setMcpPort(any()))
           .thenAnswer((_) async => throw const BridgeError(message: ''));
 
       await tester.pumpWidget(wrap());
@@ -140,7 +140,7 @@ void main() {
 
     testWidgets('端口占用失败同样可读（Internal 文案不丢）', (tester) async {
       stubConfigs(mcpPort: '1236');
-      when(() => mockApi.setMcpPort(any())).thenAnswer(
+      when(() => mockApi.localServerService.setMcpPort(any())).thenAnswer(
         (_) async => throw const BridgeError(
           message: '独立 MCP 服务端口 1236 绑定失败: Address already in use',
         ),
@@ -199,7 +199,9 @@ void main() {
   group('Web 服务开关失败态', () {
     testWidgets('SnackBar 显示 BridgeError.message 原文（同批修复）', (tester) async {
       stubConfigs();
-      when(() => mockApi.startServer(port: any(named: 'port'))).thenAnswer(
+      when(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      ).thenAnswer(
         (_) async =>
             throw const BridgeError(message: 'Web 服务启动失败：数据库未初始化，请先调用 db_open'),
       );

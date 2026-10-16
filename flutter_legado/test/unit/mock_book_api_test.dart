@@ -600,17 +600,17 @@ void main() {
 
   group('服务器管理', () {
     test('startServer/getServerStatus 状态一致', () async {
-      await api.startServer(port: 8080);
-      final status = await api.getServerStatus();
-      expect(status, contains('running'));
-      expect(status, contains('8080'));
+      await api.localServerService.startServer(port: 8080);
+      final status = await api.localServerService.getServerStatus();
+      expect(status.running, isTrue);
+      expect(status.port, 8080);
     });
 
     test('stopServer 停止后状态为 stopped', () async {
-      await api.startServer();
-      await api.stopServer();
-      final status = await api.getServerStatus();
-      expect(status, 'stopped');
+      await api.localServerService.startServer();
+      await api.localServerService.stopServer();
+      final status = await api.localServerService.getServerStatus();
+      expect(status.running, isFalse);
     });
   });
 

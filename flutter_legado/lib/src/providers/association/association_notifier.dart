@@ -15,7 +15,7 @@ import '../../models/misc.dart';
 import '../../models/rss_source.dart';
 import '../../services/book_api.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
-import '../../services/bridge_http.dart';
+import '../network_provider.dart';
 import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
 import '../../domain/models/import_result.dart';
@@ -62,11 +62,9 @@ class AssociationNotifier extends Notifier<AssociationState> {
   Future<void> loadFromUrl(String url, {ImportType? typeHint}) async {
     state = state.copyWith(isLoading: true, error: null, items: []);
     try {
-      final response = await bridgeHttpGet(
-        _api,
-        url,
-        timeout: const Duration(seconds: 30),
-      );
+      final response = await ref
+          .read(networkServiceProvider)
+          .httpGet(url, timeout: const Duration(seconds: 30));
       if (!response.isSuccess) {
         state = state.copyWith(
           error: 'HTTP 请求失败：状态码 ${response.statusCode}',

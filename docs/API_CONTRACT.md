@@ -1,5 +1,23 @@
 # API 契约文档（BookApi 接口基准）
 
+## 网络、规则执行与本地服务Dart边界（2026-10-16，实施前冻结）
+
+NetworkService承接文本GET/POST、二进制GET与自定义hosts应用；请求继续使用Rust共享客户端，
+返回HttpTextResponse/HttpBytesResponse，状态码、正文与最终URL由数据层解码。二进制请求头
+由适配器编码，保留调用方显式超时、非2xx状态与错误传播；hosts仍接收现有编辑配置文本。
+LocalServerService承接Web启动/停止/状态/端口保存及MCP端口应用，状态返回LocalServerStatus，
+不把坏响应当作服务已停止。普通设置仍负责原配置读取与开关持久化，保留Web保活的原调用顺序。
+RuleExecutionService承接规则解析、JS执行与引擎版本；正式JS执行注入原平台拦截器，版本探测
+失败仍返回unknown。Mock不执行真实网络、规则或服务，仅保留既有内存语义；hosts、服务端口
+和运行标记与根配置共享同一Map。三类能力均可经独立Provider替换。
+导入与漫画下载直接消费类型化服务，删除旧bridge_http包装与数据层响应模型；书单URL导入
+使用HTTP正文并检查状态码，不再将整个传输JSON误当书单。根十二方法与两个空media_format
+part移除，42→30；不修改Rust、FRB生成物、数据库、依赖、平台接线或应用版本。
+端口配置写入返回false时上抛失败，不提示引擎同步成功。书单输入对话框自身管理控制器，
+避免提交后退出动画仍引用已释放对象；保留原布局、本地文件入口和取消行为。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 换源与封面搜索Dart边界（2026-10-16，实施前冻结）
 
 SourceSwitchService负责七项换源能力；候选搜索返回List<SourceMatch>，流返回SourceSwitchBatch，

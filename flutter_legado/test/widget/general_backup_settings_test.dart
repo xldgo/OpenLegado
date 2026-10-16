@@ -137,7 +137,8 @@ void main() {
   testWidgets('端口保存失败不调用 Rust 服务，成功后才应用新端口', (tester) async {
     final api = MockRustApi();
     when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.setServerPort(any())).thenAnswer((_) async {});
+    when(() => api.localServerService.setServerPort(any()))
+        .thenAnswer((_) async {});
     await open(tester, const OtherSettingsScreen(), api: api, tall: true);
     Future<void> choosePort() async {
       final row = tester
@@ -152,7 +153,7 @@ void main() {
 
     storage.writeFailure = true;
     await choosePort();
-    verifyNever(() => api.setServerPort(any()));
+    verifyNever(() => api.localServerService.setServerPort(any()));
     expect(find.text('端口保存失败，请重试'), findsOneWidget);
     expect(
       container.read(generalSettingsRepositoryProvider).current.webPort,
@@ -160,7 +161,7 @@ void main() {
     );
     storage.writeFailure = false;
     await choosePort();
-    verify(() => api.setServerPort(4321)).called(1);
+    verify(() => api.localServerService.setServerPort(4321)).called(1);
     expect(storage.values['webPort'], 4321);
     expect(tester.takeException(), isNull);
   });

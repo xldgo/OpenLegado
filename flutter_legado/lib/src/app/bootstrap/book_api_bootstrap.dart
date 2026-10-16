@@ -1,3 +1,6 @@
+import '../../data/services/rust_network_service.dart';
+import '../../data/services/rust_local_server_service.dart';
+import '../../data/services/rust_rule_execution_service.dart';
 import '../../data/repositories/rust_cover_rule_repository.dart';
 import '../../data/services/rust_source_switch_service.dart';
 import '../../data/services/rust_cover_search_service.dart';
@@ -74,6 +77,11 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    networkService: const RustNetworkService(),
+    localServerService: const RustLocalServerService(),
+    ruleExecutionService: RustRuleExecutionService(
+      interceptResult: PlatformBridgeService.instance.interceptResult,
+    ),
     sourceSwitchService: const RustSourceSwitchService(),
     coverSearchService: const RustCoverSearchService(),
     coverRuleRepository: const RustCoverRuleRepository(),

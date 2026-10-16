@@ -1,3 +1,6 @@
+import '../domain/contracts/network_service.dart';
+import '../domain/contracts/local_server_service.dart';
+import '../domain/contracts/rule_execution_service.dart';
 import '../domain/contracts/cover_rule_repository.dart';
 import '../domain/contracts/source_switch_service.dart';
 import '../domain/contracts/cover_search_service.dart';
@@ -58,6 +61,9 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  NetworkService get networkService;
+  LocalServerService get localServerService;
+  RuleExecutionService get ruleExecutionService;
   SourceSwitchService get sourceSwitchService;
   CoverSearchService get coverSearchService;
   CoverRuleRepository get coverRuleRepository;
@@ -309,60 +315,4 @@ abstract class BookApi {
     String? result,
     int bookType = 0,
   });
-
-  // ========== 规则解析 ==========
-
-  /// 使用规则解析内容
-  Future<String> parseRule(String content, String rule, String ruleType);
-
-  // ========== 网络操作 ==========
-
-  /// HTTP GET 请求
-  Future<String> httpGet(String url);
-
-  /// HTTP POST 请求
-  Future<String> httpPost(String url, String body);
-
-  /// HTTP GET 二进制响应（F3-14）
-  ///
-  /// 返回 JSON `{"status": int, "bodyBase64": string, "url": string}`。
-  /// [headersJson] 为空时不附加请求头；否则为 JSON 对象字符串。
-  Future<String> httpGetBytes(String url, {String headersJson = ''});
-
-  // ========== JS 引擎 ==========
-
-  /// 执行 JS 脚本
-  Future<String> evalJs(String script);
-
-  /// 获取 JS 引擎版本
-  Future<String> getJsEngineVersion();
-
-  // ========== 服务器管理 ==========
-
-  /// 启动服务器
-  Future<void> startServer({int port = 1122});
-
-  /// 停止服务器
-  Future<void> stopServer();
-
-  /// 获取服务器状态
-  Future<String> getServerStatus();
-
-  /// 设置服务器端口
-  Future<void> setServerPort(int port);
-
-  /// 设置自定义 hosts 映射（契约 §2.20.3，Task #74 加法式新增）
-  ///
-  /// [hostsJson] 为 JSON 对象 `域名 → 单 IP 字符串或 IP 数组`（对齐原版
-  /// `AppConfig.hostMap`）；空串/空对象 = 清除映射恢复系统 DNS。
-  /// 应用后网络层 DNS 即时生效，Rust 侧持久化到 `config:customHosts`
-  ///（回读经既有 [getConfig]）。非法 JSON/非对象 → Internal 错误。
-  Future<void> setCustomHosts(String hostsJson);
-
-  /// 设置独立 MCP 服务端口（契约 §2.22.5，Task #74 加法式新增）
-  ///
-  /// port>0：启动/重启独立 MCP 服务（合法区间 1024..65530，越界或占用
-  /// 报 Internal）；port≤0：停止独立服务。Rust 侧持久化到 `config:mcpPort`
-  ///（回读经既有 [getConfig]）。
-  Future<void> setMcpPort(int port);
 }

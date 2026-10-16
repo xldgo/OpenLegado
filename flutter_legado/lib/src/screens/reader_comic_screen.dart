@@ -12,7 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../services/bridge_http.dart';
+import '../providers/network_provider.dart';
+import '../domain/contracts/network_service.dart';
 
 import '../models/models.dart';
 import '../providers/providers.dart';
@@ -2402,7 +2403,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
     if (_enableEInk) {
       return _EpaperNetworkImage(
-        api: ref.read(bookApiProvider),
+        network: ref.read(networkServiceProvider),
         url: url,
         headers: _imageHeaders,
         threshold: _eInkThreshold,
@@ -3354,7 +3355,7 @@ class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
 /// 无书源时的网络图电子纸渲染
 class _EpaperNetworkImage extends StatefulWidget {
   const _EpaperNetworkImage({
-    required this.api,
+    required this.network,
     required this.url,
     required this.headers,
     required this.threshold,
@@ -3362,7 +3363,7 @@ class _EpaperNetworkImage extends StatefulWidget {
     this.fit = BoxFit.fitWidth,
   });
 
-  final BookApi api;
+  final NetworkService network;
   final String url;
   final Map<String, String>? headers;
   final int threshold;
@@ -3407,8 +3408,7 @@ class _EpaperNetworkImageState extends State<_EpaperNetworkImage> {
       _error = null;
     });
     try {
-      final res = await bridgeHttpGetBytes(
-        widget.api,
+      final res = await widget.network.httpGetBytes(
         widget.url,
         headers: widget.headers,
         timeout: const Duration(seconds: 30),

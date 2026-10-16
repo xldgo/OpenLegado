@@ -1,3 +1,9 @@
+import '../domain/contracts/network_service.dart';
+import '../domain/contracts/local_server_service.dart';
+import '../domain/contracts/rule_execution_service.dart';
+import '../data/services/mock_network_service.dart';
+import '../data/services/mock_local_server_service.dart';
+import '../data/services/mock_rule_execution_service.dart';
 import '../domain/contracts/cover_rule_repository.dart';
 import '../data/repositories/mock_cover_rule_repository.dart';
 import '../domain/contracts/source_switch_service.dart';
@@ -113,7 +119,6 @@ part 'mock_book_api_store.part.dart';
 part 'mock_book_api_sources.part.dart';
 part 'mock_book_api_reader_data.part.dart';
 part 'mock_book_api_discovery_cache.part.dart';
-part 'mock_book_api_media_format.part.dart';
 
 // ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：MockBookApi 按域拆为 mixin 组合，
 // 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
@@ -150,9 +155,15 @@ class MockBookApi
         MockBookApiStore,
         MockBookApiSources,
         MockBookApiReaderData,
-        MockBookApiDiscoveryCache,
-        MockBookApiMediaFormat
+        MockBookApiDiscoveryCache
     implements BookApi {
+  @override
+  late final NetworkService networkService;
+  @override
+  late final LocalServerService localServerService;
+  @override
+  late final RuleExecutionService ruleExecutionService;
+
   @override
   late final SourceSwitchService sourceSwitchService;
   @override
@@ -244,6 +255,9 @@ class MockBookApi
   late final CacheDownloadService cacheDownloadService;
 
   MockBookApi({
+    NetworkService? networkService,
+    LocalServerService? localServerService,
+    RuleExecutionService? ruleExecutionService,
     SourceSwitchService? sourceSwitchService,
     CoverSearchService? coverSearchService,
     CoverRuleRepository? coverRuleRepository,
@@ -291,6 +305,12 @@ class MockBookApi
     SearchService? searchService,
     SearchHistoryRepository? searchHistoryRepository,
   }) {
+    this.networkService =
+        networkService ?? MockNetworkService(configs: _configs);
+    this.localServerService =
+        localServerService ?? MockLocalServerService(configs: _configs);
+    this.ruleExecutionService =
+        ruleExecutionService ?? const MockRuleExecutionService();
     this.cacheRepository = cacheRepository ?? const MockCacheRepository();
     this.databaseMaintenanceService =
         databaseMaintenanceService ?? const MockDatabaseMaintenanceService();

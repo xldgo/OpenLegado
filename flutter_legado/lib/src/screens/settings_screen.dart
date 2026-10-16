@@ -1,3 +1,6 @@
+import '../providers/local_server_provider.dart';
+import '../domain/models/local_server_status.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -46,6 +49,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// iOS 后台保活不可用（start 失败回退「仅前台可用」时，卡片副题提示）
   bool _webKeepAliveUnavailable = false;
   String _webServiceStatus = '';
+
+  String _describeServerStatus(LocalServerStatus status) =>
+      status.running ? 'running on port ${status.port}' : 'stopped';
   int _mcpPort = 0;
 
   /// Web 书源访问令牌（config:jsSourceApiToken）是否已配置。
@@ -110,9 +116,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _mcpTokenConfigured = (mcpToken ?? '').trim().isNotEmpty;
       });
       if (_webService) {
-        final status = await api.getServerStatus();
+        final status = await ref
+            .read(localServerServiceProvider)
+            .getServerStatus();
         if (!mounted) return;
-        setState(() => _webServiceStatus = status);
+        setState(() => _webServiceStatus = _describeServerStatus(status));
       }
       if (_autoTaskService) {
         AutoTaskScheduler.instance.refresh();
@@ -164,23 +172,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_webServiceBusy) return;
     setState(() => _webServiceBusy = true);
     final api = ref.read(bookApiProvider);
+    final server = ref.read(localServerServiceProvider);
     try {
       if (v) {
         // 启动端口取用户配置（PrefKeys.webPort），越界按 1122 兜底
         final port = await _readWebPort();
-        await api.startServer(port: port);
-        final status = await api.getServerStatus();
+        await server.startServer(port: port);
+        final status = await server.getServerStatus();
         // 服务成功即接保活（iOS 专用；其它平台 no-op）
         final keepAlive = await WebKeepAliveService.instance.start();
         await api.setConfig('webService', 'true');
         if (!mounted) return;
         setState(() {
           _webService = true;
-          _webServiceStatus = status;
+          _webServiceStatus = _describeServerStatus(status);
           _webKeepAliveUnavailable = keepAlive == WebKeepAliveStatus.failed;
         });
       } else {
-        await api.stopServer();
+        await server.stopServer();
         // 服务停止必须同步停保活（否则静音音轨会让进程继续存活）
         await WebKeepAliveService.instance.stop();
         await api.setConfig('webService', 'false');
@@ -222,18 +231,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _toggleMcpService(bool v) async {
     if (_mcpServiceBusy) return;
     setState(() => _mcpServiceBusy = true);
-    final api = ref.read(bookApiProvider);
+    final server = ref.read(localServerServiceProvider);
     try {
       if (v) {
         final port = _mcpPort > 0 ? _mcpPort : 1236;
-        await api.setMcpPort(port);
+        await server.setMcpPort(port);
         if (!mounted) return;
         setState(() {
           _mcpService = true;
           _mcpPort = port;
         });
       } else {
-        await api.setMcpPort(0);
+        await server.setMcpPort(0);
         if (!mounted) return;
         setState(() {
           _mcpService = false;

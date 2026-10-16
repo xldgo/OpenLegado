@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### NETWORK-SERVER-BOUNDARY-20261016：网络、规则执行与本地服务整域拆分（P1）
+
+- 授权与基线：用户要求继续BookApi拆分；feature/ui-reader-selection / a490ba24d，工作区干净。同一分支、Codex直接执行，不使用子代理，不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批拆分与本地验证完成，用户于2026-10-16明确授权本地提交，提交以Git记录为准；不推送或触发CI；真实网络、Rust服务端口绑定和设备后台保活后置。
+- 范围：NetworkService承接三项HTTP请求与hosts应用，RuleExecutionService承接规则/JS/版本三项，LocalServerService承接Web四项及MCP端口一项。迁移书源与关联导入、规则/RSS/任务URL导入、书单导入、漫画二进制下载和两处设置页；根十二方法及两个空media_format part移除，42→30。
+- 边界：复用Rust共享客户端与原服务生命周期；JSON/base64在数据层解码，状态和响应类型化。保留JS平台拦截、版本失败unknown、配置端口、Web保活及开关保存顺序。Mock共享原配置Map，不模拟真实请求或服务。配置CRUD及其他未迁移领域不扩张；不改Rust/FFI、数据库、依赖、版本或UI布局。
+- 验收：FRB参数/异常/坏响应、二进制请求头与解码、超时、Mock状态共享与独立注入；导入成功/HTTP失败、设置端口和Web/MCP启停回归。仅运行相关测试、完整Flutter静态分析、格式与差异检查，不运行全量CI或native设备验证。
+- 实现：三个窄接口、正式/Mock共六份实现、HTTP文本/字节响应与LocalServerStatus以及三个独立Provider接通装配。导入、漫画电子纸网络下载和设置页迁移；源码指纹、Rust/FRB及数据库均不变。JSON/base64解析集中数据层；删除bridge_http包装、旧BridgeHttpResponse和两份空media_format part。语法树复核根BookApi为30项。
+- 行为修正：书单URL导入解析HTTP正文而非整个传输JSON，非2xx不继续搜索/写入；坏HTTP/服务状态响应上抛，不伪造空正文或stopped。Web端口底层保存false视为引擎同步失败。实际导入交互暴露原控制器在关闭动画前释放的问题，改由私有对话框State持有并在dispose释放；界面与本地文件能力保留。Mock仅保留原内存语义，无真实网络、脚本计算或端口绑定。
+- 验证结果：flutter test --no-pub相关27份测试290项全部通过（20秒），含三份新增测试31项，覆盖真实FRB Mock参数、正文/重定向URL/非2xx、请求头/base64、超时/异常/坏结构、JS平台拦截与版本失败unknown、端口拒绝、Mock共享配置、独立Provider，以及实际书单URL成功/HTTP失败。既有任务/书源导入、规则订阅/替换、Web保活/MCP错误、端口保存、远程设置及漫画解码/缓存/缩放回归通过；先行轮次不重复累计。完整flutter analyze --no-pub无问题（23.4秒），格式与差异检查通过。
+- 失败与修正：首轮分析发现三项初始化形式、旧根未使用导入和Mock的library指令顺序，及未迁移测试旧调用，均修正。新增异常测试将同步Mock抛错直接传入expectLater，改为函数断言；书单测试最初未返回addBook要求的Book，补齐后复现并修复真实控制器生命周期错误。最终无遗留失败，不将失败轮次计为通过。
+- 证据与边界：测试清单及最终日志位于flutter_legado/build/network-server-boundary-{test-manifest.txt,regression-final.log,analysis-final.log}；忽略目录build/network-server-boundary-qa/保存实现与范围清单。Codex直接实现与自查，不使用子代理或声称独立审查；未修改Rust、生成代码、依赖、数据库、原生平台、CI或版本，未提交/推送/触发CI或构建安装。真实网络/服务/设备后台行为未验证。
+
+编写者：Codex｜2026-10-16
+
 ### SOURCE-SWITCH-BOUNDARY-20261016：换源与封面搜索整域拆分（P1）
 
 - 授权与基线：用户同意下一批方案；feature/ui-reader-selection / 0c94b4d37，保留此前74条未提交路径（72份文件、两项删除），开始快照位于忽略目录build/source-switch-boundary-qa/。同一分支、Codex直接执行、不使用子代理，不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。

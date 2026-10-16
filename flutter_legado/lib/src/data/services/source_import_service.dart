@@ -5,10 +5,10 @@ import '../../domain/contracts/book_source_repository.dart';
 import '../../domain/models/import_result.dart';
 import '../../domain/models/source_preview.dart';
 import '../../domain/services/source_import_parser.dart';
-import '../bridge/bridge_http_response.dart';
+import '../../domain/models/http_response.dart';
 
 /// 文本 GET 沿用宿主的网络栈与显式超时。— Codex + Bridge
-typedef SourceImportTextFetcher = Future<BridgeHttpResponse> Function(
+typedef SourceImportTextFetcher = Future<HttpTextResponse> Function(
   String url, {
   required Duration timeout,
 });

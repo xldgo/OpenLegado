@@ -13,8 +13,7 @@ import '../widgets/legado_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../services/bridge_http.dart';
-import '../providers/providers.dart';
+import '../providers/network_provider.dart';
 
 import '../models/models.dart';
 import '../providers/rule_sub/rule_sub_notifier.dart';
@@ -483,9 +482,8 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
 
   /// 拉取订阅 URL 并解析为 JSON 数组（对象包装时收拢为单元素数组）
   Future<List<dynamic>> _fetchJsonArray(String url) async {
-    final api = ref.read(bookApiProvider);
-    final response = await bridgeHttpGet(
-      api,
+    final network = ref.read(networkServiceProvider);
+    final response = await network.httpGet(
       url,
       timeout: const Duration(seconds: 30),
     );

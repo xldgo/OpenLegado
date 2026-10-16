@@ -1,3 +1,4 @@
+import '../../providers/network_provider.dart';
 import '../../providers/explore/explore_dependencies.dart';
 import '../privacy/privacy_gate.dart';
 import 'bookshelf_repositories.dart';
@@ -1312,58 +1313,11 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 导入书单对话框（对标 Kotlin importBookshelfAlert：
   /// url/json 输入框 + 选择 txt/json 文件）
   Future<void> _showImportBookshelfDialog() async {
-    final ctrl = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final input = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.l10n.importBookList),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: ctrl,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: context.l10n.bookListInputHint,
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () async {
-                  final picked = await FilePicker.pickFile(
-                    type: FileType.custom,
-                    allowedExtensions: const ['txt', 'json'],
-                  );
-                  final path = picked?.path;
-                  if (path != null) {
-                    try {
-                      ctrl.text = await File(path).readAsString();
-                    } catch (e) {
-                      debugPrint('读取书单文件失败: $e');
-                    }
-                  }
-                },
-                child: Text(context.l10n.chooseBookListFile),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(context.l10n.importAction),
-          ),
-        ],
-      ),
+      builder: (_) => const _BookshelfImportDialog(),
     );
-    final input = ctrl.text.trim();
-    ctrl.dispose();
-    if (confirmed != true || input.isEmpty || !mounted) return;
+    if (input == null || input.isEmpty || !mounted) return;
     await _importBookshelf(input);
   }
 
@@ -1376,7 +1330,13 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     var content = input;
     if (content.startsWith('http://') || content.startsWith('https://')) {
       try {
-        content = (await api.httpGet(content)).trim();
+        final response = await ref
+            .read(networkServiceProvider)
+            .httpGet(content);
+        if (!response.isSuccess) {
+          throw StateError('HTTP ${response.statusCode}');
+        }
+        content = response.body.trim();
       } catch (e) {
         if (mounted) {
           messenger.showSnackBar(
@@ -1654,4 +1614,68 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
+}
+
+/// 控制器与对话框同生命周期，关闭动画结束后由State释放。— Codex + UI
+class _BookshelfImportDialog extends StatefulWidget {
+  const _BookshelfImportDialog();
+
+  @override
+  State<_BookshelfImportDialog> createState() => _BookshelfImportDialogState();
+}
+
+class _BookshelfImportDialogState extends State<_BookshelfImportDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(context.l10n.importBookList),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _controller,
+          maxLines: 4,
+          decoration: InputDecoration(hintText: context.l10n.bookListInputHint),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () async {
+              final picked = await FilePicker.pickFile(
+                type: FileType.custom,
+                allowedExtensions: const ['txt', 'json'],
+              );
+              final path = picked?.path;
+              if (path != null) {
+                try {
+                  final content = await File(path).readAsString();
+                  if (mounted) _controller.text = content;
+                } catch (e) {
+                  debugPrint('读取书单文件失败: $e');
+                }
+              }
+            },
+            child: Text(context.l10n.chooseBookListFile),
+          ),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: Text(context.l10n.cancel),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _controller.text.trim()),
+        child: Text(context.l10n.importAction),
+      ),
+    ],
+  );
 }

@@ -41,12 +41,19 @@ void main() {
     expect(await api.getVersion(), isNotEmpty);
     expect(await api.bookmarkRepository.getAllBookmarks(), isEmpty);
     expect(
-      jsonDecode(await api.evalJs('java.getThemeConfig()')),
+      jsonDecode(
+        await api.ruleExecutionService.evalJs('java.getThemeConfig()'),
+      ),
       (await source.readThemeConfig()).fields,
     );
-    expect(await api.evalJs('java.getThemeMode()'), 'dark');
     expect(
-      jsonDecode(await api.evalJs('java.getReadBookConfig()')),
+      await api.ruleExecutionService.evalJs('java.getThemeMode()'),
+      'dark',
+    );
+    expect(
+      jsonDecode(
+        await api.ruleExecutionService.evalJs('java.getReadBookConfig()'),
+      ),
       (await source.readReadBookConfig()).fields,
     );
 
@@ -54,8 +61,9 @@ void main() {
     await prefs.setDouble('reader_font_size', 28.0);
     await readingConfigSyncFor(api).refreshReadBookConfig();
     expect(
-      (jsonDecode(await api.evalJs('java.getReadBookConfig()'))
-          as Map)['textSize'],
+      (jsonDecode(
+        await api.ruleExecutionService.evalJs('java.getReadBookConfig()'),
+      ) as Map)['textSize'],
       28,
     );
     // 若再次加载 FRB，生成运行时会拒绝重复初始化；Bootstrap 必须直接返回。

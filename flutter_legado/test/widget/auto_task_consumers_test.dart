@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/http_response.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -101,8 +103,14 @@ void main() {
     const second = AutoTaskRule(id: '2', name: '失败任务', script: 'b()');
     final imported = jsonEncode([original.toJson(), second.toJson()]);
     rules = [];
-    when(() => api.httpGet('https://example.test/tasks'))
-        .thenAnswer((_) async => jsonEncode({'status': 200, 'body': imported}));
+    when(
+      () => api.networkService.httpGet(
+        'https://example.test/tasks',
+        timeout: const Duration(seconds: 15),
+      ),
+    ).thenAnswer(
+      (_) async => HttpTextResponse(statusCode: 200, body: imported),
+    );
     when(
       () => service.prepareImportedTasks(
         localTasks: any(named: 'localTasks'),

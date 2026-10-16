@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/local_server_status.dart';
+
 // 设置枢纽菜单 / 其他设置页 widget 测试
 //
 // 对齐 2026-08-13「我的」设置树（pref_main / pref_config_other）：
@@ -169,12 +171,14 @@ void main() {
       final startedPorts = <int>[];
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(() => mockApi.startServer(port: any(named: 'port')))
-          .thenAnswer((inv) async {
-            startedPorts.add(inv.namedArguments[#port] as int);
-          });
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 8080');
+      when(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      ).thenAnswer((inv) async {
+        startedPorts.add(inv.namedArguments[#port] as int);
+      });
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 8080),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -203,12 +207,14 @@ void main() {
       final startedPorts = <int>[];
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(() => mockApi.startServer(port: any(named: 'port')))
-          .thenAnswer((inv) async {
-            startedPorts.add(inv.namedArguments[#port] as int);
-          });
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      ).thenAnswer((inv) async {
+        startedPorts.add(inv.namedArguments[#port] as int);
+      });
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -236,12 +242,14 @@ void main() {
       final startedPorts = <int>[];
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(() => mockApi.startServer(port: any(named: 'port')))
-          .thenAnswer((inv) async {
-            startedPorts.add(inv.namedArguments[#port] as int);
-          });
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      ).thenAnswer((inv) async {
+        startedPorts.add(inv.namedArguments[#port] as int);
+      });
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -290,11 +298,14 @@ void main() {
 
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(() => mockApi.startServer(port: any(named: 'port')))
+      when(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      ).thenAnswer((_) async {});
+      when(() => mockApi.localServerService.stopServer())
           .thenAnswer((_) async {});
-      when(() => mockApi.stopServer()).thenAnswer((_) async {});
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -348,10 +359,12 @@ void main() {
 
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
       when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-      when(() => mockApi.startServer(port: any(named: 'port')))
-          .thenAnswer((_) async {});
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      ).thenAnswer((_) async {});
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();

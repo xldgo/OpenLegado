@@ -8,7 +8,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
-import 'package:flutter_legado/src/data/bridge/bridge_http_response.dart';
+import 'package:flutter_legado/src/domain/models/http_response.dart';
 import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/services/source_import_parser.dart';
@@ -28,7 +28,7 @@ const _source =
 void main() {
   late _RepositoryMock repository;
   late SourceImportService service;
-  late BridgeHttpResponse response;
+  late HttpTextResponse response;
   String? fileText;
   final fetched = <({String url, Duration timeout})>[];
   final readPaths = <String>[];
@@ -41,7 +41,7 @@ void main() {
     readPaths.clear();
     replaced.clear();
     imported.clear();
-    response = const BridgeHttpResponse(statusCode: 200, body: _source);
+    response = const HttpTextResponse(statusCode: 200, body: _source);
     fileText = _source;
     when(() => repository.importBookSources(any())).thenAnswer((inv) async {
       imported.add(inv.positionalArguments.first as String);
@@ -89,7 +89,7 @@ void main() {
     });
 
     test('HTTP 失败直接报告原状态，不尝试解析或写入', () async {
-      response = const BridgeHttpResponse(statusCode: 503, body: '不是 JSON');
+      response = const HttpTextResponse(statusCode: 503, body: '不是 JSON');
       await expectLater(
         service.fetchSourcesFromUrl('https://import.test'),
         throwsA(
@@ -120,7 +120,7 @@ void main() {
     });
 
     test('无效预览 JSON 不执行任何写入', () async {
-      response = const BridgeHttpResponse(statusCode: 200, body: '[]');
+      response = const HttpTextResponse(statusCode: 200, body: '[]');
       await expectLater(
         service.fetchSourcesFromUrl('https://import.test'),
         throwsFormatException,
@@ -238,7 +238,7 @@ void main() {
 
   group('失败与异常边界', () {
     test('URL HTTP 失败保留状态提示和单位', () async {
-      response = const BridgeHttpResponse(statusCode: 404, body: 'not JSON');
+      response = const HttpTextResponse(statusCode: 404, body: 'not JSON');
       final result = await service.importFromUrl(
         'https://import.test',
         unit: '条目',
@@ -326,9 +326,9 @@ void main() {
     );
     addTearDown(container.dispose);
     for (final api in [first, second]) {
-      when(
-        () => api.httpGet(any()),
-      ).thenAnswer((_) async => jsonEncode({'status': 200, 'body': _source}));
+      when(() => api.networkService.httpGet(any())).thenAnswer(
+        (_) async => const HttpTextResponse(statusCode: 200, body: _source),
+      );
       when(
         () => api.replaceRuleService.applyReplaceRulesToSource(
           any(),
@@ -347,9 +347,10 @@ void main() {
     await source.importService.importFromUrl('https://second.test');
     await association.importService.importFromJson(_source);
     await inFlight.importFromJson(_source);
-    verify(() => first.httpGet('https://first.test')).called(1);
-    verifyNever(() => first.httpGet('https://second.test'));
-    verify(() => second.httpGet('https://second.test')).called(1);
+    verify(() => first.networkService.httpGet('https://first.test')).called(1);
+    verifyNever(() => first.networkService.httpGet('https://second.test'));
+    verify(() => second.networkService.httpGet('https://second.test'))
+        .called(1);
     verify(() => first.bookSourceRepository.importBookSources(any())).called(2);
     verify(() => second.bookSourceRepository.importBookSources(any()))
         .called(2);

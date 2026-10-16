@@ -1,5 +1,9 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/network_service.dart';
+import 'package:flutter_legado/src/domain/contracts/local_server_service.dart';
+import 'package:flutter_legado/src/domain/contracts/rule_execution_service.dart';
+
 import 'package:flutter_legado/src/domain/contracts/cover_rule_repository.dart';
 
 import 'package:flutter_legado/src/domain/contracts/source_switch_service.dart';
@@ -197,7 +201,19 @@ class SourceSwitchServiceMock extends Mock implements SourceSwitchService {}
 
 class CoverSearchServiceMock extends Mock implements CoverSearchService {}
 
+class NetworkServiceMock extends Mock implements NetworkService {}
+
+class LocalServerServiceMock extends Mock implements LocalServerService {}
+
+class RuleExecutionServiceMock extends Mock implements RuleExecutionService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final NetworkService networkService = NetworkServiceMock();
+  @override
+  final LocalServerService localServerService = LocalServerServiceMock();
+  @override
+  final RuleExecutionService ruleExecutionService = RuleExecutionServiceMock();
   @override
   final SourceSwitchService sourceSwitchService = SourceSwitchServiceMock();
   @override

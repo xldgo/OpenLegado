@@ -1,3 +1,6 @@
+import '../domain/contracts/network_service.dart';
+import '../domain/contracts/local_server_service.dart';
+import '../domain/contracts/rule_execution_service.dart';
 import '../domain/contracts/cover_rule_repository.dart';
 import '../domain/contracts/source_switch_service.dart';
 import '../domain/contracts/cover_search_service.dart';
@@ -50,8 +53,6 @@ import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
 
-import 'dart:convert';
-
 import '../data/bridge/runtime_configuration.dart';
 import '../data/bridge/rust_json_decode.dart';
 import '../domain/contracts/bookmark_repository.dart';
@@ -68,7 +69,6 @@ part 'rust_api_decode.part.dart';
 part 'rust_api_sources.part.dart';
 part 'rust_api_reader_data.part.dart';
 part 'rust_api_discovery_cache.part.dart';
-part 'rust_api_media_format.part.dart';
 
 // ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：RustApi 按域拆为 mixin 组合，
 // 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
@@ -78,16 +78,14 @@ part 'rust_api_media_format.part.dart';
 /// 所有数据库操作通过 flutter_rust_bridge 生成的桥接函数调用 Rust 侧。
 /// 尚未在 Rust FFI 中暴露的方法使用 Dart 侧 fallback 实现。
 class RustApi
-    with
-        RustApiDecode,
-        RustApiSources,
-        RustApiReaderData,
-        RustApiDiscoveryCache,
-        RustApiMediaFormat
+    with RustApiDecode, RustApiSources, RustApiReaderData, RustApiDiscoveryCache
     implements BookApi, ReadingConfigSync, ThemeConfigSync {
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required NetworkService networkService,
+    required LocalServerService localServerService,
+    required RuleExecutionService ruleExecutionService,
     required SourceSwitchService sourceSwitchService,
     required CoverSearchService coverSearchService,
     required CoverRuleRepository coverRuleRepository,
@@ -142,6 +140,9 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    networkService,
+    localServerService,
+    ruleExecutionService,
     sourceSwitchService,
     coverSearchService,
     coverRuleRepository,
@@ -196,6 +197,9 @@ class RustApi
   );
 
   RustApi._(
+    this.networkService,
+    this.localServerService,
+    this.ruleExecutionService,
     this.sourceSwitchService,
     this.coverSearchService,
     this.coverRuleRepository,
@@ -248,6 +252,13 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final NetworkService networkService;
+  @override
+  final LocalServerService localServerService;
+  @override
+  final RuleExecutionService ruleExecutionService;
 
   @override
   final SourceSwitchService sourceSwitchService;

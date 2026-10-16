@@ -17,8 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../providers/auto_task/auto_task_notifier.dart';
-import '../providers/providers.dart';
-import '../services/bridge_http.dart';
+import '../providers/network_provider.dart';
 import '../services/auto_task_scheduler.dart';
 import '../widgets/auto_task_debug_dialog.dart';
 import '../widgets/custom_refresh_indicator.dart';
@@ -701,9 +700,8 @@ class _AutoTaskScreenState extends ConsumerState<AutoTaskScreen> {
   Future<void> _importOnline(BuildContext context, String url) async {
     _snack(context, '正在获取任务配置…');
     try {
-      final api = ref.read(bookApiProvider);
-      final resp = await bridgeHttpGet(
-        api,
+      final network = ref.read(networkServiceProvider);
+      final resp = await network.httpGet(
         url,
         timeout: const Duration(seconds: 15),
       );

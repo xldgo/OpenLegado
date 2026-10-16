@@ -14,13 +14,12 @@ import '../widgets/app_scaffold.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../services/bridge_http.dart';
+import '../providers/network_provider.dart';
 
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/replace_rule/replace_rule_notifier.dart';
 import '../routes.dart';
 import '../widgets/help/help_assets.dart';
@@ -532,9 +531,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      final api = ref.read(bookApiProvider);
-      final response = await bridgeHttpGet(
-        api,
+      final network = ref.read(networkServiceProvider);
+      final response = await network.httpGet(
         url,
         timeout: const Duration(seconds: 30),
       );

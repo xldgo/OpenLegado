@@ -1,3 +1,6 @@
+import '../providers/local_server_provider.dart';
+import '../providers/network_provider.dart';
+
 // [UI-fix v2.0.5 | 2026-08-08] 其他设置页对齐原版 pref_config_other.xml +
 // OtherConfigFragment（33 项）：语言 + 主界面分组（自动刷新/仅更新已读/
 // 默认进入阅读/显示发现/显示订阅/默认首页）+ 其他分组（本地密码/UserAgent/
@@ -5,7 +8,7 @@
 // 预下载/替换净化默认/媒体按钮 ×3/自动清除过期/加书架提示/变种更新/漫画界面/
 // Web 端口/缓存管理/线程数/文本菜单/记录日志 ×3）。
 // 显示发现/显示订阅/默认首页经 MainPrefsNotifier 接通首页底栏；
-// Web 端口经 BookApi.setServerPort 接通；尚未接线的开关只读展示并标记待实现；
+// Web 端口经 LocalServerService.setServerPort 接通；尚未接线的开关只读展示并标记待实现；
 // Android 专属项持久化并以灰字"仅 Android 生效"标注；
 // customHosts/mcpPort 已于 Task #74 接线（契约 §2.20.3/§2.22.5，
 // 回读经 BookApi.getConfig 读 Rust 持久化 config:customHosts/config:mcpPort）；
@@ -640,7 +643,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   }
 
   /// Web 服务端口设置（对齐原版 webPort 1024~60000；
-  /// 经 BookApi.setServerPort 写入引擎配置，重启 Web 服务后生效）
+  /// 经 LocalServerService.setServerPort 写入引擎配置，重启 Web 服务后生效）
   Future<void> _showWebPortDialog() async {
     final value = await _showNumberInputDialog(
       title: 'Web 服务端口',
@@ -659,7 +662,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     if (!mounted) return;
     // 行为接通：同步到 Rust 引擎配置（对齐原版 webPort 变更重启 WebService）
     try {
-      await ref.read(bookApiProvider).setServerPort(value);
+      await ref.read(localServerServiceProvider).setServerPort(value);
       _toast('端口已保存，重启 Web 服务后生效');
     } catch (e) {
       debugPrint('OtherSettingsScreen 设置 Web 端口异常: $e');
@@ -698,7 +701,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     // 保证服务异常后可用同端口重启
     if (value == null || !mounted) return;
     try {
-      await ref.read(bookApiProvider).setMcpPort(value);
+      await ref.read(localServerServiceProvider).setMcpPort(value);
       if (!mounted) return;
       setState(() => _mcpPort = value);
       _toast(value > 0 ? 'MCP 端口已保存：$value（独立服务已重启）' : '独立 MCP 服务已停止');
@@ -722,7 +725,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     if (trimmed.isEmpty) {
       // 空内容=清除映射恢复系统 DNS（契约 §2.20.3）
       try {
-        await ref.read(bookApiProvider).setCustomHosts('');
+        await ref.read(networkServiceProvider).setCustomHosts('');
         if (!mounted) return;
         setState(() => _customHostsJson = '');
         _toast('自定义 hosts 已清除');
@@ -745,7 +748,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       return;
     }
     try {
-      await ref.read(bookApiProvider).setCustomHosts(trimmed);
+      await ref.read(networkServiceProvider).setCustomHosts(trimmed);
       if (!mounted) return;
       setState(() => _customHostsJson = trimmed);
       _toast('自定义 hosts 已保存（${decoded.length} 条）');

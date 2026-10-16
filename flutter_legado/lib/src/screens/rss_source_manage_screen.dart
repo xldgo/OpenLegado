@@ -17,13 +17,12 @@ import '../widgets/source_selection_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../services/bridge_http.dart';
+import '../providers/network_provider.dart';
 
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import '../providers/rss/rss_notifier.dart' show syncDefaultRssSources;
 import '../routes.dart';
 import '../widgets/confirm_dialog.dart';
@@ -1078,9 +1077,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      final api = ref.read(bookApiProvider);
-      final response = await bridgeHttpGet(
-        api,
+      final network = ref.read(networkServiceProvider);
+      final response = await network.httpGet(
         url,
         timeout: const Duration(seconds: 30),
       );
