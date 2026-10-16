@@ -352,6 +352,8 @@ mod quickjs_engine {
         deadline_ns: Arc<AtomicU64>,
         /// 超时中断标志
         interrupted: Arc<AtomicBool>,
+        variables: crate::host_api::variable_bindings::BoundVariables,
+        http: Arc<crate::http_resources::HttpResources>,
     }
 
     // rquickjs Runtime + Context 在启用 "parallel" feature 后是 Send + Sync
@@ -363,6 +365,24 @@ mod quickjs_engine {
         ///
         /// 初始化运行时设置内存上限和超时中断，随后注册所有宿主 API。
         pub fn new(config: SandboxConfig) -> Result<Self, LegadoError> {
+            Self::new_with_capabilities(config, None, None, None, None)
+        }
+
+        /// 新建使用明确变量能力的 VM。回调只持有数据，不反向持有 VM 或资源缓存。
+        pub fn new_with_variables(
+            config: SandboxConfig,
+            variables: crate::variables::VariableScope,
+        ) -> Result<Self, LegadoError> {
+            Self::new_with_capabilities(config, Some(variables), None, None, None)
+        }
+
+        pub(crate) fn new_with_capabilities(
+            config: SandboxConfig,
+            variables: Option<crate::variables::VariableScope>,
+            source_login: Option<Arc<dyn crate::source_login::SourceLoginStore>>,
+            http: Option<Arc<crate::http_resources::HttpResources>>,
+            host: Option<Arc<crate::host_resources::JsHostResources>>,
+        ) -> Result<Self, LegadoError> {
             // 创建运行时
             let runtime = rquickjs::Runtime::new()
                 .map_err(|e| LegadoError::JsEngine(format!("Failed to create Runtime: {}", e)))?;
@@ -394,11 +414,30 @@ mod quickjs_engine {
             let context = rquickjs::Context::full(&runtime)
                 .map_err(|e| LegadoError::JsEngine(format!("Failed to create Context: {}", e)))?;
 
-            // 注册宿主 API（编解码等），根据沙箱配置门控文件 API
+            // 回调仅持有本 VM 的能力槽，不持有 VM 或根资源。
+            use crate::host_api::variable_bindings::BoundVariables;
+            let has_source_login = source_login.is_some();
+            let variables = BoundVariables::with_source_login(
+                variables.unwrap_or_else(|| {
+                    Arc::new(crate::variables::VariableStore::default()).unscoped()
+                }),
+                source_login,
+            );
             let api_cfg = config.clone();
+            let http = http.unwrap_or_default();
+            let host = host.unwrap_or_default();
             context.with(|ctx| {
-                quickjs_impl::register_all_apis(&ctx, &api_cfg)
-                    .map_err(|e| LegadoError::JsEngine(format!("Failed to register APIs: {}", e)))
+                ctx.globals()
+                    .set("__legadoHasSourceLoginStore", has_source_login)
+                    .map_err(|e| LegadoError::JsEngine(format!("登录能力标记注册失败: {e}")))?;
+                quickjs_impl::register_all_apis_with_binding(
+                    &ctx,
+                    &api_cfg,
+                    variables.clone(),
+                    http.clone(),
+                    host.clone(),
+                )
+                .map_err(|e| LegadoError::JsEngine(format!("Failed to register APIs: {}", e)))
             })?;
 
             // 应用沙箱安全限制
@@ -409,12 +448,79 @@ mod quickjs_engine {
             })?;
 
             Ok(Self {
+                http,
                 runtime,
                 context,
                 config,
                 epoch,
                 deadline_ns,
                 interrupted,
+                variables,
+            })
+        }
+
+        /// 本 VM 捕获的网络数据能力，不包含 VM 或缓存所有者。
+        pub fn http_resources(&self) -> &Arc<crate::http_resources::HttpResources> {
+            &self.http
+        }
+
+        /// 能力切换和求值处于同一上下文锁；退出时恢复，保存的旧函数也跟随本次能力。
+        pub fn eval_with_variables(
+            &self,
+            code: &str,
+            bindings: &[(&str, JsValue)],
+            variables: &crate::variables::VariableScope,
+        ) -> LegadoResult<String> {
+            self.eval_internal(code, bindings, Some(variables))
+        }
+
+        /// 保留 compiled 路径原有求值选项，同时显式绑定本次流程。
+        pub fn execute_compiled_with_variables(
+            &self,
+            script: &CompiledScript,
+            bindings: &[(&str, JsValue)],
+            variables: &crate::variables::VariableScope,
+        ) -> LegadoResult<String> {
+            self.execute_compiled_internal(script, bindings, Some(variables))
+        }
+
+        fn eval_internal(
+            &self,
+            code: &str,
+            bindings: &[(&str, JsValue)],
+            variables: Option<&crate::variables::VariableScope>,
+        ) -> LegadoResult<String> {
+            self.context.with(|ctx| {
+                // 排队等待不消耗本次执行预算，也不重置正在执行的另一次调用。
+                self.reset_deadline();
+                let _binding = variables.map(|scope| self.variables.bind(scope));
+                Self::inject_bindings(&ctx, bindings)?;
+                // 对齐 Rhino 非严格全局求值；函数裸调用时 this 仍是 globalThis。
+                let mut options = rquickjs::context::EvalOptions::default();
+                options.strict = false;
+                options.global = true;
+                match ctx.eval_with_options::<rquickjs::Value, _>(code, options) {
+                    Ok(result) => Ok(Self::result_to_string(&ctx, &result)),
+                    Err(_) => Err(LegadoError::JsEngine(self.exception_message(&ctx))),
+                }
+            })
+        }
+
+        fn execute_compiled_internal(
+            &self,
+            script: &CompiledScript,
+            bindings: &[(&str, JsValue)],
+            variables: Option<&crate::variables::VariableScope>,
+        ) -> LegadoResult<String> {
+            self.context.with(|ctx| {
+                self.reset_deadline();
+                let _binding = variables.map(|scope| self.variables.bind(scope));
+                Self::inject_bindings(&ctx, bindings)?;
+                // 保持 compiled 原来的 ctx.eval 选项与错误转换，不改为普通非严格求值。
+                let result = ctx
+                    .eval::<rquickjs::Value, _>(script.source.as_str())
+                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+                Ok(Self::result_to_string(&ctx, &result))
             })
         }
 
@@ -603,26 +709,7 @@ mod quickjs_engine {
 
     impl JsEngine for QuickJsEngine {
         fn eval(&self, code: &str) -> LegadoResult<String> {
-            self.reset_deadline();
-            self.context.with(|ctx| {
-                // 非严格模式（对齐 Android Rhino 书源生态）：
-                // rquickjs 默认 EvalOptions.strict=true，脚本内函数裸调用时
-                // this=undefined，书山等聚合源 jsLib 函数常用 `let { source } = this`
-                // 访问书源 → Cannot convert undefined or null to object；
-                // 非严格下裸调用 this=globalThis（source/java 已挂全局）✅
-                // — DeepSeek Harness + Bridge（发现页修复：书山聚合 ERROR 根治）
-                // non-exhaustive struct：Default 后逐字段修改（rquickjs 限制）
-                let mut options = rquickjs::context::EvalOptions::default();
-                options.strict = false;
-                options.global = true;
-                // 异常消息提取：rquickjs 的 Display 仅输出 "Exception generated
-                // by QuickJS"（泛化），真实 message 需从 ctx.catch() 取（对齐
-                // 原版 Rhino 异常文案，便于书源规则排错）— Reasonix
-                match ctx.eval_with_options::<rquickjs::Value, _>(code, options) {
-                    Ok(result) => Ok(Self::result_to_string(&ctx, &result)),
-                    Err(_) => Err(LegadoError::JsEngine(self.exception_message(&ctx))),
-                }
-            })
+            self.eval_internal(code, &[], None)
         }
 
         fn eval_with_bindings(
@@ -630,23 +717,12 @@ mod quickjs_engine {
             code: &str,
             bindings: &[(&str, JsValue)],
         ) -> LegadoResult<String> {
-            self.reset_deadline();
-            self.context.with(|ctx| {
-                Self::inject_bindings(&ctx, bindings)?;
-                // non-exhaustive struct：Default 后逐字段修改（rquickjs 限制）
-                let mut options = rquickjs::context::EvalOptions::default();
-                options.strict = false;
-                options.global = true;
-                match ctx.eval_with_options::<rquickjs::Value, _>(code, options) {
-                    Ok(result) => Ok(Self::result_to_string(&ctx, &result)),
-                    Err(_) => Err(LegadoError::JsEngine(self.exception_message(&ctx))),
-                }
-            })
+            self.eval_internal(code, bindings, None)
         }
 
         fn eval_bytes(&self, code: &str, bindings: &[(&str, JsValue)]) -> LegadoResult<Vec<u8>> {
-            self.reset_deadline();
             self.context.with(|ctx| {
+                self.reset_deadline();
                 Self::inject_bindings(&ctx, bindings)?;
                 // non-exhaustive struct：Default 后逐字段修改（rquickjs 限制）
                 let mut options = rquickjs::context::EvalOptions::default();
@@ -673,13 +749,7 @@ mod quickjs_engine {
         }
 
         fn execute_compiled(&self, script: &CompiledScript) -> LegadoResult<String> {
-            self.reset_deadline();
-            self.context.with(|ctx| {
-                let result = ctx
-                    .eval::<rquickjs::Value, _>(script.source.as_str())
-                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
-                Ok(Self::result_to_string(&ctx, &result))
-            })
+            self.execute_compiled_internal(script, &[], None)
         }
 
         fn execute_compiled_with_bindings(
@@ -687,14 +757,7 @@ mod quickjs_engine {
             script: &CompiledScript,
             bindings: &[(&str, JsValue)],
         ) -> LegadoResult<String> {
-            self.reset_deadline();
-            self.context.with(|ctx| {
-                Self::inject_bindings(&ctx, bindings)?;
-                let result = ctx
-                    .eval::<rquickjs::Value, _>(script.source.as_str())
-                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
-                Ok(Self::result_to_string(&ctx, &result))
-            })
+            self.execute_compiled_internal(script, bindings, None)
         }
     }
 }

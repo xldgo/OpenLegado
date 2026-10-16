@@ -14,7 +14,7 @@ Legado：Rust + Flutter 跨平台阅读器，与 Android 原版（gedoor/legado�
 | `app/`（另备原版工程） | Kotlin Android 原版参考模块；本仓库不分发，语义对照时另备完整原版工程 |
 | `modules/book/`、`modules/rhino/`、`modules/web/`（另备原版工程） | Android 原版参考子模块（书源、Rhino JS 引擎、Web 辅助）；本仓库不分发 |
 | `flutter_legado/` | Flutter UI（Windows 构建主模块），`lib/` 为 Dart 源码 |
-| `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-fetcher / legado-ffi / legado-js / legado-net / legado-parser / legado-server） |
+| `rust/` | Rust 工作区（legado-book / legado-core / legado-db / legado-engine / legado-fetcher / legado-ffi / legado-js / legado-layout / legado-net / legado-parser / legado-server） |
 | `docs/` | 项目文档（计划、报告、规范、API 契约） |
 
 ## 验证命令

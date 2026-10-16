@@ -388,43 +388,48 @@ async fn call_search_books(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-    if query.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "query parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            if query.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "query parameter is required".to_string(),
+                });
+            }
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookRepository::new(conn);
 
-    let all_books = repo.find_all().map_err(db_err)?;
-    // 匹配语义委托共享服务（P2-2，与 REST /api/search 同一实现）；
-    // MCP 响应字段（origin/latest_chapter）保持本入口原有组装不变。
-    let matched = legado_core::shelf_search::match_shelf_books(&all_books, query);
+            let all_books = repo.find_all().map_err(db_err)?;
+            // 匹配语义委托共享服务（P2-2，与 REST /api/search 同一实现）；
+            // MCP 响应字段（origin/latest_chapter）保持本入口原有组装不变。
+            let matched = legado_core::shelf_search::match_shelf_books(&all_books, query);
 
-    let results: Vec<serde_json::Value> = matched
-        .iter()
-        .map(|b| {
-            serde_json::json!({
-                "book_url": b.book_url,
-                "name": b.name,
-                "author": b.author,
-                "origin": b.origin,
-                "latest_chapter": b.latest_chapter_title,
-            })
+            let results: Vec<serde_json::Value> = matched
+                .iter()
+                .map(|b| {
+                    serde_json::json!({
+                        "book_url": b.book_url,
+                        "name": b.name,
+                        "author": b.author,
+                        "origin": b.origin,
+                        "latest_chapter": b.latest_chapter_title,
+                    })
+                })
+                .collect();
+
+            let text = if results.is_empty() {
+                format!("No books found matching: {}", query)
+            } else {
+                serde_json::to_string_pretty(&results).unwrap_or_default()
+            };
+
+            Ok(mcp_text(text))
         })
-        .collect();
-
-    let text = if results.is_empty() {
-        format!("No books found matching: {}", query)
-    } else {
-        serde_json::to_string_pretty(&results).unwrap_or_default()
-    };
-
-    Ok(mcp_text(text))
+        .await
+        .map_err(db_err)?
 }
 
 /// 获取章节列表：查询 chapters 表
@@ -432,39 +437,44 @@ async fn call_get_chapters(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
-    if book_url.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "book_url parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
+            if book_url.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "book_url parameter is required".to_string(),
+                });
+            }
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookChapterRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookChapterRepository::new(conn);
 
-    let chapters = repo.find_by_book_url(book_url).map_err(db_err)?;
+            let chapters = repo.find_by_book_url(book_url).map_err(db_err)?;
 
-    let results: Vec<serde_json::Value> = chapters
-        .iter()
-        .map(|ch| {
-            serde_json::json!({
-                "index": ch.index,
-                "title": ch.title,
-                "url": ch.url,
-                "is_volume": ch.is_volume,
-            })
+            let results: Vec<serde_json::Value> = chapters
+                .iter()
+                .map(|ch| {
+                    serde_json::json!({
+                        "index": ch.index,
+                        "title": ch.title,
+                        "url": ch.url,
+                        "is_volume": ch.is_volume,
+                    })
+                })
+                .collect();
+
+            let text = if results.is_empty() {
+                format!("No chapters found for book: {}", book_url)
+            } else {
+                serde_json::to_string_pretty(&results).unwrap_or_default()
+            };
+
+            Ok(mcp_text(text))
         })
-        .collect();
-
-    let text = if results.is_empty() {
-        format!("No chapters found for book: {}", book_url)
-    } else {
-        serde_json::to_string_pretty(&results).unwrap_or_default()
-    };
-
-    Ok(mcp_text(text))
+        .await
+        .map_err(db_err)?
 }
 
 /// 阅读章节内容：从缓存中读取
@@ -472,77 +482,86 @@ async fn call_read_chapter(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let chapter_url = args
-        .get("chapter_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if chapter_url.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "chapter_url parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let chapter_url = args
+                .get("chapter_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if chapter_url.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "chapter_url parameter is required".to_string(),
+                });
+            }
 
-    // book_url 为可选参数（Task #19）：提供时按复合键精确查找，避免串本
-    let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
+            // book_url 为可选参数（Task #19）：提供时按复合键精确查找，避免串本
+            let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::CacheBookRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::CacheBookRepository::new(conn);
 
-    // 提供 book_url 时用 (book_url, chapter_url) 复合键；缺省时回退旧行为（仅按
-    // chapter_url 单键）以兼容旧调用——此时若多本书共用同 chapter_url 会读到任意一本，
-    // 调用方应尽量传入 book_url。
-    let cached = if book_url.is_empty() {
-        repo.get_by_chapter_url(chapter_url).map_err(db_err)?
-    } else {
-        repo.get_by_book_and_chapter_url(book_url, chapter_url)
-            .map_err(db_err)?
-    };
+            // 提供 book_url 时用 (book_url, chapter_url) 复合键；缺省时回退旧行为（仅按
+            // chapter_url 单键）以兼容旧调用——此时若多本书共用同 chapter_url 会读到任意一本，
+            // 调用方应尽量传入 book_url。
+            let cached = if book_url.is_empty() {
+                repo.get_by_chapter_url(chapter_url).map_err(db_err)?
+            } else {
+                repo.get_by_book_and_chapter_url(book_url, chapter_url)
+                    .map_err(db_err)?
+            };
 
-    match cached {
-        Some(cached) => {
-            let text = format!("【{}】\n\n{}", cached.chapter_title, cached.content);
-            Ok(mcp_text(text))
-        }
-        None => Ok(mcp_text(format!(
-            "Chapter content not cached: {}",
-            chapter_url
-        ))),
-    }
+            match cached {
+                Some(cached) => {
+                    let text = format!("【{}】\n\n{}", cached.chapter_title, cached.content);
+                    Ok(mcp_text(text))
+                }
+                None => Ok(mcp_text(format!(
+                    "Chapter content not cached: {}",
+                    chapter_url
+                ))),
+            }
+        })
+        .await
+        .map_err(db_err)?
 }
 
 /// 获取书架：查询 books 表所有书籍
 async fn call_get_bookshelf(state: &AppState) -> Result<serde_json::Value, JsonRpcError> {
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookRepository::new(conn);
+    state
+        .with_database(move |db| {
+            let conn = db.connection();
+            let repo = legado_db::BookRepository::new(conn);
 
-    let books = repo.find_all().map_err(db_err)?;
+            let books = repo.find_all().map_err(db_err)?;
 
-    let results: Vec<serde_json::Value> = books
-        .iter()
-        .map(|b| {
-            serde_json::json!({
-                "book_url": b.book_url,
-                "name": b.name,
-                "author": b.author,
-                "origin": b.origin,
-                "total_chapters": b.total_chapter_num,
-                "latest_chapter": b.latest_chapter_title,
-                "dur_chapter_index": b.dur_chapter_index,
-                "dur_chapter_title": b.dur_chapter_title,
-            })
+            let results: Vec<serde_json::Value> = books
+                .iter()
+                .map(|b| {
+                    serde_json::json!({
+                        "book_url": b.book_url,
+                        "name": b.name,
+                        "author": b.author,
+                        "origin": b.origin,
+                        "total_chapters": b.total_chapter_num,
+                        "latest_chapter": b.latest_chapter_title,
+                        "dur_chapter_index": b.dur_chapter_index,
+                        "dur_chapter_title": b.dur_chapter_title,
+                    })
+                })
+                .collect();
+
+            let text = if results.is_empty() {
+                "Bookshelf is empty".to_string()
+            } else {
+                serde_json::to_string_pretty(&results).unwrap_or_default()
+            };
+
+            Ok(mcp_text(text))
         })
-        .collect();
-
-    let text = if results.is_empty() {
-        "Bookshelf is empty".to_string()
-    } else {
-        serde_json::to_string_pretty(&results).unwrap_or_default()
-    };
-
-    Ok(mcp_text(text))
+        .await
+        .map_err(db_err)?
 }
 
 /// 添加到书架：INSERT 到 books 表
@@ -550,38 +569,43 @@ async fn call_add_to_bookshelf(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
-    let book_name = args.get("book_name").and_then(|v| v.as_str()).unwrap_or("");
-    let author = args.get("author").and_then(|v| v.as_str()).unwrap_or("");
-    let source_url = args
-        .get("source_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
+            let book_name = args.get("book_name").and_then(|v| v.as_str()).unwrap_or("");
+            let author = args.get("author").and_then(|v| v.as_str()).unwrap_or("");
+            let source_url = args
+                .get("source_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
-    if book_url.is_empty() || book_name.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "book_url and book_name are required".to_string(),
-        });
-    }
+            if book_url.is_empty() || book_name.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "book_url and book_name are required".to_string(),
+                });
+            }
 
-    let book = legado_core::models::Book {
-        book_url: book_url.to_string(),
-        name: book_name.to_string(),
-        author: author.to_string(),
-        origin: source_url.to_string(),
-        ..legado_core::models::Book::default()
-    };
+            let book = legado_core::models::Book {
+                book_url: book_url.to_string(),
+                name: book_name.to_string(),
+                author: author.to_string(),
+                origin: source_url.to_string(),
+                ..legado_core::models::Book::default()
+            };
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookRepository::new(conn);
-    repo.insert(&book).map_err(db_err)?;
+            let conn = db.connection();
+            let repo = legado_db::BookRepository::new(conn);
+            repo.insert(&book).map_err(db_err)?;
 
-    Ok(mcp_text(format!(
-        "Book '{}' added to bookshelf successfully",
-        book_name
-    )))
+            Ok(mcp_text(format!(
+                "Book '{}' added to bookshelf successfully",
+                book_name
+            )))
+        })
+        .await
+        .map_err(db_err)?
 }
 
 /// 列出所有书源
@@ -589,41 +613,46 @@ async fn call_list_sources(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let enabled_only = args
-        .get("enabled_only")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let enabled_only = args
+                .get("enabled_only")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookSourceRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookSourceRepository::new(conn);
 
-    let sources = if enabled_only {
-        repo.find_enabled().map_err(db_err)?
-    } else {
-        repo.find_all().map_err(db_err)?
-    };
+            let sources = if enabled_only {
+                repo.find_enabled().map_err(db_err)?
+            } else {
+                repo.find_all().map_err(db_err)?
+            };
 
-    let results: Vec<serde_json::Value> = sources
-        .iter()
-        .map(|s| {
-            serde_json::json!({
-                "url": s.book_source_url,
-                "name": s.book_source_name,
-                "group": s.book_source_group,
-                "type": s.book_source_type,
-                "enabled": s.enabled,
-            })
+            let results: Vec<serde_json::Value> = sources
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "url": s.book_source_url,
+                        "name": s.book_source_name,
+                        "group": s.book_source_group,
+                        "type": s.book_source_type,
+                        "enabled": s.enabled,
+                    })
+                })
+                .collect();
+
+            let text = if results.is_empty() {
+                "No book sources found".to_string()
+            } else {
+                serde_json::to_string_pretty(&results).unwrap_or_default()
+            };
+
+            Ok(mcp_text(text))
         })
-        .collect();
-
-    let text = if results.is_empty() {
-        "No book sources found".to_string()
-    } else {
-        serde_json::to_string_pretty(&results).unwrap_or_default()
-    };
-
-    Ok(mcp_text(text))
+        .await
+        .map_err(db_err)?
 }
 
 /// 获取单个书源详情
@@ -631,28 +660,33 @@ async fn call_get_source(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let source_url = args
-        .get("source_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if source_url.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "source_url parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let source_url = args
+                .get("source_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if source_url.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "source_url parameter is required".to_string(),
+                });
+            }
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookSourceRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookSourceRepository::new(conn);
 
-    match repo.find_by_url(source_url).map_err(db_err)? {
-        Some(source) => {
-            let json = serde_json::to_string_pretty(&source).unwrap_or_default();
-            Ok(mcp_text(json))
-        }
-        None => Ok(mcp_text(format!("Source not found: {}", source_url))),
-    }
+            match repo.find_by_url(source_url).map_err(db_err)? {
+                Some(source) => {
+                    let json = serde_json::to_string_pretty(&source).unwrap_or_default();
+                    Ok(mcp_text(json))
+                }
+                None => Ok(mcp_text(format!("Source not found: {}", source_url))),
+            }
+        })
+        .await
+        .map_err(db_err)?
 }
 
 /// 更新书源配置
@@ -660,45 +694,50 @@ async fn call_update_source(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let source_url = args
-        .get("source_url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    if source_url.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "source_url parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let source_url = args
+                .get("source_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if source_url.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "source_url parameter is required".to_string(),
+                });
+            }
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookSourceRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookSourceRepository::new(conn);
 
-    let mut source = repo
-        .find_by_url(source_url)
+            let mut source = repo
+                .find_by_url(source_url)
+                .map_err(db_err)?
+                .ok_or_else(|| JsonRpcError {
+                    code: -32000,
+                    message: format!("Source not found: {}", source_url),
+                })?;
+
+            if let Some(name) = args.get("name").and_then(|v| v.as_str()) {
+                source.book_source_name = name.to_string();
+            }
+            if let Some(enabled) = args.get("enabled").and_then(|v| v.as_bool()) {
+                source.enabled = enabled;
+            }
+            if let Some(group) = args.get("group").and_then(|v| v.as_str()) {
+                source.book_source_group = Some(group.to_string());
+            }
+
+            repo.update(&source).map_err(db_err)?;
+
+            Ok(mcp_text(format!(
+                "Source '{}' updated successfully",
+                source.book_source_name
+            )))
+        })
+        .await
         .map_err(db_err)?
-        .ok_or_else(|| JsonRpcError {
-            code: -32000,
-            message: format!("Source not found: {}", source_url),
-        })?;
-
-    if let Some(name) = args.get("name").and_then(|v| v.as_str()) {
-        source.book_source_name = name.to_string();
-    }
-    if let Some(enabled) = args.get("enabled").and_then(|v| v.as_bool()) {
-        source.enabled = enabled;
-    }
-    if let Some(group) = args.get("group").and_then(|v| v.as_str()) {
-        source.book_source_group = Some(group.to_string());
-    }
-
-    repo.update(&source).map_err(db_err)?;
-
-    Ok(mcp_text(format!(
-        "Source '{}' updated successfully",
-        source.book_source_name
-    )))
 }
 
 /// 获取阅读进度
@@ -706,36 +745,41 @@ async fn call_get_reading_progress(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
-    if book_url.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "book_url parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let book_url = args.get("book_url").and_then(|v| v.as_str()).unwrap_or("");
+            if book_url.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "book_url parameter is required".to_string(),
+                });
+            }
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookRepository::new(conn);
 
-    match repo.find_by_url(book_url).map_err(db_err)? {
-        Some(book) => {
-            let progress = serde_json::json!({
-                "book_url": book.book_url,
-                "name": book.name,
-                "author": book.author,
-                "dur_chapter_index": book.dur_chapter_index,
-                "dur_chapter_title": book.dur_chapter_title,
-                "dur_chapter_pos": book.dur_chapter_pos,
-                "total_chapters": book.total_chapter_num,
-                "latest_chapter_title": book.latest_chapter_title,
-            });
-            Ok(mcp_text(
-                serde_json::to_string_pretty(&progress).unwrap_or_default(),
-            ))
-        }
-        None => Ok(mcp_text(format!("Book not found: {}", book_url))),
-    }
+            match repo.find_by_url(book_url).map_err(db_err)? {
+                Some(book) => {
+                    let progress = serde_json::json!({
+                        "book_url": book.book_url,
+                        "name": book.name,
+                        "author": book.author,
+                        "dur_chapter_index": book.dur_chapter_index,
+                        "dur_chapter_title": book.dur_chapter_title,
+                        "dur_chapter_pos": book.dur_chapter_pos,
+                        "total_chapters": book.total_chapter_num,
+                        "latest_chapter_title": book.latest_chapter_title,
+                    });
+                    Ok(mcp_text(
+                        serde_json::to_string_pretty(&progress).unwrap_or_default(),
+                    ))
+                }
+                None => Ok(mcp_text(format!("Book not found: {}", book_url))),
+            }
+        })
+        .await
+        .map_err(db_err)?
 }
 
 /// 获取书签列表
@@ -743,47 +787,52 @@ async fn call_get_bookmarks(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let book_name = args.get("book_name").and_then(|v| v.as_str());
-    let book_author = args.get("book_author").and_then(|v| v.as_str());
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let book_name = args.get("book_name").and_then(|v| v.as_str());
+            let book_author = args.get("book_author").and_then(|v| v.as_str());
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookmarkRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookmarkRepository::new(conn);
 
-    // 台账 §5.14-2（评审 S2）：显式传 book_author 时按书名+作者双键查询，
-    // 规避同名异书书签混入；未传 author 时保持旧行为（仅按书名），
-    // 对既有调用方加法式兼容。
-    let bookmarks = match book_name {
-        Some(name) if !name.is_empty() => match book_author {
-            Some(author) => repo.get_by_book_and_author(name, author).map_err(db_err)?,
-            None => repo.get_by_book(name).map_err(db_err)?,
-        },
-        _ => repo.find_all().map_err(db_err)?,
-    };
+            // 台账 §5.14-2（评审 S2）：显式传 book_author 时按书名+作者双键查询，
+            // 规避同名异书书签混入；未传 author 时保持旧行为（仅按书名），
+            // 对既有调用方加法式兼容。
+            let bookmarks = match book_name {
+                Some(name) if !name.is_empty() => match book_author {
+                    Some(author) => repo.get_by_book_and_author(name, author).map_err(db_err)?,
+                    None => repo.get_by_book(name).map_err(db_err)?,
+                },
+                _ => repo.find_all().map_err(db_err)?,
+            };
 
-    let results: Vec<serde_json::Value> = bookmarks
-        .iter()
-        .map(|bm| {
-            serde_json::json!({
-                "id": bm.id,
-                "book_name": bm.book_name,
-                "book_author": bm.book_author,
-                "chapter_index": bm.chapter_index,
-                "chapter_name": bm.chapter_name,
-                "book_text": bm.book_text,
-                "content": bm.content,
-                "time": bm.time,
-            })
+            let results: Vec<serde_json::Value> = bookmarks
+                .iter()
+                .map(|bm| {
+                    serde_json::json!({
+                        "id": bm.id,
+                        "book_name": bm.book_name,
+                        "book_author": bm.book_author,
+                        "chapter_index": bm.chapter_index,
+                        "chapter_name": bm.chapter_name,
+                        "book_text": bm.book_text,
+                        "content": bm.content,
+                        "time": bm.time,
+                    })
+                })
+                .collect();
+
+            let text = if results.is_empty() {
+                "No bookmarks found".to_string()
+            } else {
+                serde_json::to_string_pretty(&results).unwrap_or_default()
+            };
+
+            Ok(mcp_text(text))
         })
-        .collect();
-
-    let text = if results.is_empty() {
-        "No bookmarks found".to_string()
-    } else {
-        serde_json::to_string_pretty(&results).unwrap_or_default()
-    };
-
-    Ok(mcp_text(text))
+        .await
+        .map_err(db_err)?
 }
 
 /// 添加书签
@@ -791,65 +840,70 @@ async fn call_add_bookmark(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let book_name = args.get("book_name").and_then(|v| v.as_str()).unwrap_or("");
-    if book_name.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "book_name parameter is required".to_string(),
-        });
-    }
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let book_name = args.get("book_name").and_then(|v| v.as_str()).unwrap_or("");
+            if book_name.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "book_name parameter is required".to_string(),
+                });
+            }
 
-    let book_text = args.get("book_text").and_then(|v| v.as_str()).unwrap_or("");
-    if book_text.is_empty() {
-        return Err(JsonRpcError {
-            code: -32602,
-            message: "book_text parameter is required".to_string(),
-        });
-    }
+            let book_text = args.get("book_text").and_then(|v| v.as_str()).unwrap_or("");
+            if book_text.is_empty() {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "book_text parameter is required".to_string(),
+                });
+            }
 
-    let bookmark = legado_core::models::Bookmark {
-        book_name: book_name.to_string(),
-        book_author: args
-            .get("book_author")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        chapter_index: args
-            .get("chapter_index")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32,
-        chapter_pos: args
-            .get("chapter_pos")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32,
-        chapter_name: args
-            .get("chapter_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        book_text: book_text.to_string(),
-        content: args
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        time: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0),
-        ..legado_core::models::Bookmark::default()
-    };
+            let bookmark = legado_core::models::Bookmark {
+                book_name: book_name.to_string(),
+                book_author: args
+                    .get("book_author")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                chapter_index: args
+                    .get("chapter_index")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0) as i32,
+                chapter_pos: args
+                    .get("chapter_pos")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0) as i32,
+                chapter_name: args
+                    .get("chapter_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                book_text: book_text.to_string(),
+                content: args
+                    .get("content")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                time: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(0),
+                ..legado_core::models::Bookmark::default()
+            };
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::BookmarkRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::BookmarkRepository::new(conn);
 
-    let id = repo.insert(&bookmark).map_err(db_err)?;
+            let id = repo.insert(&bookmark).map_err(db_err)?;
 
-    Ok(mcp_text(format!(
-        "Bookmark added successfully (id: {})",
-        id
-    )))
+            Ok(mcp_text(format!(
+                "Bookmark added successfully (id: {})",
+                id
+            )))
+        })
+        .await
+        .map_err(db_err)?
 }
 
 /// 获取替换规则
@@ -857,44 +911,49 @@ async fn call_get_replace_rules(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let enabled_only = args
-        .get("enabled_only")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let enabled_only = args
+                .get("enabled_only")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
 
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::ReplaceRuleRepository::new(conn);
+            let conn = db.connection();
+            let repo = legado_db::ReplaceRuleRepository::new(conn);
 
-    let rules = if enabled_only {
-        repo.get_enabled_rules().map_err(db_err)?
-    } else {
-        repo.find_all().map_err(db_err)?
-    };
+            let rules = if enabled_only {
+                repo.get_enabled_rules().map_err(db_err)?
+            } else {
+                repo.find_all().map_err(db_err)?
+            };
 
-    let results: Vec<serde_json::Value> = rules
-        .iter()
-        .map(|r| {
-            serde_json::json!({
-                "id": r.id,
-                "name": r.name,
-                "group": r.group,
-                "pattern": r.pattern,
-                "replacement": r.replacement,
-                "is_enabled": r.is_enabled,
-                "is_regex": r.is_regex,
-                "scope": r.scope,
-            })
+            let results: Vec<serde_json::Value> = rules
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.id,
+                        "name": r.name,
+                        "group": r.group,
+                        "pattern": r.pattern,
+                        "replacement": r.replacement,
+                        "is_enabled": r.is_enabled,
+                        "is_regex": r.is_regex,
+                        "scope": r.scope,
+                    })
+                })
+                .collect();
+
+            let text = if results.is_empty() {
+                "No replace rules found".to_string()
+            } else {
+                serde_json::to_string_pretty(&results).unwrap_or_default()
+            };
+
+            Ok(mcp_text(text))
         })
-        .collect();
-
-    let text = if results.is_empty() {
-        "No replace rules found".to_string()
-    } else {
-        serde_json::to_string_pretty(&results).unwrap_or_default()
-    };
-
-    Ok(mcp_text(text))
+        .await
+        .map_err(db_err)?
 }
 
 // ─── 上游 #452-#456 新增 5 类工具实现 ─────────────────────
@@ -987,10 +1046,16 @@ async fn call_eval_js(
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
     if let Some(ref url) = source_url {
-        let db = state.db.lock().await;
-        let conn = db.connection();
-        let repo = legado_db::BookSourceRepository::new(conn);
-        if repo.find_by_url(url).map_err(db_err)?.is_none() {
+        let url = url.clone();
+        let exists = state
+            .with_database(move |db| {
+                legado_db::BookSourceRepository::new(db.connection()).find_by_url(&url)
+            })
+            .await
+            .map_err(db_err)?
+            .map_err(db_err)?
+            .is_some();
+        if !exists {
             return Err(rpc_err("未找到书源，请检查书源地址"));
         }
     }
@@ -999,10 +1064,14 @@ async fn call_eval_js(
     let js = js.to_string();
     let started = std::time::Instant::now();
     // spawn_blocking 包裹同步 JS 求值，避免阻塞/嵌套 runtime
-    let outcome =
-        tokio::task::spawn_blocking(move || eval_js_blocking(&js, &base_url, timeout_sec))
-            .await
-            .map_err(|e| rpc_err(format!("JS 求值任务异常: {e}")))?;
+    let resources = state.engine.js_resources().for_source("mcp", &base_url, "");
+    let task = state.task().map_err(db_err)?;
+    let outcome = tokio::task::spawn_blocking(move || {
+        let _task = task;
+        eval_js_blocking(&resources, &js, &base_url, timeout_sec)
+    })
+    .await
+    .map_err(|e| rpc_err(format!("JS 求值任务异常: {e}")))?;
     let elapsed_ms = started.elapsed().as_millis();
 
     match outcome {
@@ -1023,6 +1092,7 @@ async fn call_eval_js(
 /// JS 求值的阻塞线程实现（在 spawn_blocking 中执行）
 #[cfg(not(feature = "quickjs"))]
 fn eval_js_blocking(
+    _resources: &legado_js::JsResources,
     _js: &str,
     _base_url: &str,
     _timeout_sec: i64,
@@ -1031,8 +1101,12 @@ fn eval_js_blocking(
 }
 
 #[cfg(feature = "quickjs")]
-fn eval_js_blocking(js: &str, base_url: &str, timeout_sec: i64) -> Result<Option<String>, String> {
-    use legado_js::QuickJsEngine;
+fn eval_js_blocking(
+    resources: &legado_js::JsResources,
+    js: &str,
+    base_url: &str,
+    timeout_sec: i64,
+) -> Result<Option<String>, String> {
     use legado_js::engine::JsEngine;
     use legado_js::sandbox::SandboxConfig;
 
@@ -1041,7 +1115,9 @@ fn eval_js_blocking(js: &str, base_url: &str, timeout_sec: i64) -> Result<Option
         max_execution_time: std::time::Duration::from_secs(timeout_sec as u64),
         ..Default::default()
     };
-    let engine = QuickJsEngine::new(sandbox).map_err(|e| format!("JS 引擎初始化失败: {e}"))?;
+    let engine = resources
+        .create_engine(sandbox)
+        .map_err(|e| format!("JS 引擎初始化失败: {e}"))?;
     // 绑定书源运行时身份（对齐 Kotlin 书源 evalJS 的环境变量）
     let bindings: Vec<(&str, legado_js::JsValue)> = vec![
         ("baseUrl", legado_js::JsValue::String(base_url.to_string())),
@@ -1066,59 +1142,38 @@ async fn call_get_cookies(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let url = args
-        .get("url")
-        .and_then(|v| v.as_str())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| rpc_err("参数 url 不能为空"))?;
+    let args = args.clone();
+    state
+        .with_database(move |db| {
+            let url = args
+                .get("url")
+                .and_then(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| rpc_err("参数 url 不能为空"))?;
 
-    let domain = get_sub_domain(&url);
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let repo = legado_db::CookieRepository::new(conn);
-    let cookie = repo
-        .get_by_tag(&domain)
+            let domain = get_sub_domain(&url);
+
+            let conn = db.connection();
+            let repo = legado_db::CookieRepository::new(conn);
+            let cookie = repo
+                .get_by_tag(&domain)
+                .map_err(db_err)?
+                .unwrap_or_default();
+
+            let text = if cookie.trim().is_empty() {
+                "（该域名没有 Cookie）".to_string()
+            } else {
+                truncate_text(&cookie, MCP_TEXT_LIMIT)
+            };
+            Ok(mcp_text(text))
+        })
+        .await
         .map_err(db_err)?
-        .unwrap_or_default();
-
-    let text = if cookie.trim().is_empty() {
-        "（该域名没有 Cookie）".to_string()
-    } else {
-        truncate_text(&cookie, MCP_TEXT_LIMIT)
-    };
-    Ok(mcp_text(text))
 }
 
-/// 进程内 Cookie 行删除串行锁（C 守卫，与 FFI 侧 `COOKIE_PERSIST_RW_LOCK`
-/// 对应）
-///
-/// [正确性 2026-09-24] 删除侧（`clear_cookies` 工具）纳入与写方同一
-/// 保护域：取 D（按域写通道，`legado_net::cookie_store::domain_write_lock`）
-/// 与 C（本锁：进程内 cookie 行读-改-写串行化）、P（DB 池），全局锁序
-/// D→C→P（链状无环）。当前进程 cookie 行尚无生产写方（server 的 cookie
-/// 层是 DB 持久层；JS 宿主 store 的属域 cookie 经共享 fetcher 请求路径
-/// 只读合并，不落库、无 DB 行写入方），
-/// 本锁是删除侧按保护域纪律应持有的位置：未来引入 server 侧写方（如 JS
-/// cookie 持久化下沉）时，其 RMW 必须也落在本锁内，否则删行可被夹在
-/// RMW 中间、旧视图写回复活已删行（FFI 侧红态回归
-/// `test_clear_cookie_concurrent_rmw_no_resurrection`；本工具红态回归
-/// `test_clear_cookies_concurrent_rmw_no_resurrection`）。
-///
-/// 跨进程 caveat：进程内锁不覆盖另一进程（server ↔ app FFI 进程）的写方，
-/// 跨进程竞态回落到数据库行级语句原子性。
-static COOKIE_DELETE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-/// 清除书源 Cookie（#453，对齐 Kotlin clear_cookies）
-///
-/// 清除指定 URL 所属二级域名的持久层 Cookie。
-/// 差距说明：Kotlin 端同时清除持久、会话与 WebView Cookie；
-/// Rust server 无会话/WebView 层，仅清除持久层。
-///
-/// [正确性 2026-09-24] 删除侧纳入 D+C 保护域（与 FFI `clear_cookie` 修复
-/// 同一纪律）：阻塞段（取 D 锁 + C 守卫 + DB 删行）移入
-/// [`tokio::task::spawn_blocking`]，避免阻塞 async runtime（同
-/// [`call_eval_js`] 先例）；`state` 改传 `Arc`（move 进阻塞闭包）。
+/// 清除当前引擎的持久层、共享 HTTP jar 及已注册的宿主 Cookie 镜像。
+/// 同步的域通道等待和数据库操作在阻塞任务中完成。
 async fn call_clear_cookies(
     state: Arc<AppState>,
     args: &serde_json::Value,
@@ -1132,12 +1187,14 @@ async fn call_clear_cookies(
 
     let domain = get_sub_domain(&url);
     // D（按域写通道，最外层）→ C（行级 RMW 串行）→ P（DB 池）
+    let task = state.task().map_err(db_err)?;
     let outcome: Result<(), JsonRpcError> = tokio::task::spawn_blocking(move || {
-        let _d = legado_net::cookie_store::domain_write_lock(&domain);
-        let _c = COOKIE_DELETE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        let db = state.db.blocking_lock();
-        let repo = legado_db::CookieRepository::new(db.connection());
-        repo.delete_by_tag(&domain).map_err(db_err)
+        let _task = task;
+        state
+            .engine
+            .network()
+            .clear_cookie_domain(&domain)
+            .map_err(db_err)
     })
     .await
     .map_err(|e| rpc_err(format!("Cookie 清除任务异常: {e}")))?;
@@ -1156,37 +1213,42 @@ async fn call_debug_source(
     state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
-    let url = args
-        .get("url")
-        .and_then(|v| v.as_str())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| rpc_err("参数 url 不能为空"))?;
-    let key = args
-        .get("key")
-        .and_then(|v| v.as_str())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| rpc_err("参数 key 不能为空"))?;
+    let args = args.clone();
+    let debugger = state.services.debugger.clone();
+    state
+        .with_database(move |db| {
+            let url = args
+                .get("url")
+                .and_then(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| rpc_err("参数 url 不能为空"))?;
+            let key = args
+                .get("key")
+                .and_then(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| rpc_err("参数 key 不能为空"))?;
 
-    // 校验书源存在（对齐 Kotlin：未找到书源直接报错）
-    let source_name = {
-        let db = state.db.lock().await;
-        let conn = db.connection();
-        let repo = legado_db::BookSourceRepository::new(conn);
-        match repo.find_by_url(&url).map_err(db_err)? {
-            Some(source) => source.book_source_name.clone(),
-            None => return Err(rpc_err("未找到书源，请检查书源地址")),
-        }
-    };
+            // 校验书源存在（对齐 Kotlin：未找到书源直接报错）
+            let source_name = {
+                let conn = db.connection();
+                let repo = legado_db::BookSourceRepository::new(conn);
+                match repo.find_by_url(&url).map_err(db_err)? {
+                    Some(source) => source.book_source_name.clone(),
+                    None => return Err(rpc_err("未找到书源，请检查书源地址")),
+                }
+            };
 
-    let debugger = crate::handlers::debug::get_debugger();
-    let session_id = debugger.create_session(&url, &source_name, &key);
+            let session_id = debugger.create_session(&url, &source_name, &key);
 
-    Ok(mcp_text(format!(
-        "调试会话已创建：{session_id}\n书源：{source_name}（{url}）\n关键词：{key}\n\
-         说明：Rust 侧暂无自动调试管线，步骤日志由外部注入，可用 get_debug_progress 查询进度"
-    )))
+            Ok(mcp_text(format!(
+                "调试会话已创建：{session_id}\n书源：{source_name}（{url}）\n关键词：{key}\n\
+             说明：Rust 侧暂无自动调试管线，步骤日志由外部注入，可用 get_debug_progress 查询进度"
+            )))
+        })
+        .await
+        .map_err(db_err)?
 }
 
 /// 查询调试会话进度（#455，对齐 Kotlin 调试进度通知，简化为查询模式）
@@ -1195,7 +1257,7 @@ async fn call_debug_source(
 /// 差距说明：Kotlin 端通过 MCP logging/progress 通知主动推送；
 /// Rust 简化为客户端轮询查询。
 async fn call_get_debug_progress(
-    _state: &AppState,
+    state: &AppState,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, JsonRpcError> {
     let session_id = args
@@ -1205,7 +1267,7 @@ async fn call_get_debug_progress(
         .filter(|s| !s.is_empty())
         .ok_or_else(|| rpc_err("参数 session_id 不能为空"))?;
 
-    let debugger = crate::handlers::debug::get_debugger();
+    let debugger = &state.services.debugger;
     match debugger.get_session(&session_id) {
         Some(session) => {
             let log = debugger.get_log(&session_id);
@@ -1257,24 +1319,27 @@ async fn call_check_sources(
         .filter(|s| !s.is_empty());
 
     // 读取书源（任一 URL 未找到即报错，对齐 Kotlin）
-    let sources = {
-        let db = state.db.lock().await;
-        let conn = db.connection();
-        let repo = legado_db::BookSourceRepository::new(conn);
-        let mut found = Vec::with_capacity(urls.len());
-        for url in &urls {
-            match repo.find_by_url(url).map_err(db_err)? {
-                Some(source) => found.push(source),
-                None => return Err(rpc_err(format!("未找到书源: {url}"))),
+    let sources = state
+        .with_database(move |db| {
+            let conn = db.connection();
+            let repo = legado_db::BookSourceRepository::new(conn);
+            let mut found = Vec::with_capacity(urls.len());
+            for url in &urls {
+                match repo.find_by_url(url).map_err(db_err)? {
+                    Some(source) => found.push(source),
+                    None => return Err(rpc_err(format!("未找到书源: {url}"))),
+                }
             }
-        }
-        found
-    };
+            Ok::<_, JsonRpcError>(found)
+        })
+        .await
+        .map_err(db_err)??;
 
     // 构建校验器（复用 source_checker；失败时以错误结果兜底）
-    let client =
-        legado_net::client::LegadoClient::new(legado_net::client::LegadoClientConfig::default())
-            .map_err(|e| rpc_err(format!("创建网络客户端失败: {e}")))?;
+    let client = state
+        .network_client()
+        .await
+        .map_err(|e| rpc_err(format!("创建网络客户端失败: {e}")))?;
     let config = legado_net::source_checker::CheckerConfig {
         keyword: keyword.unwrap_or_else(|| "我的".to_string()),
         ..legado_net::source_checker::CheckerConfig::default()
@@ -1438,16 +1503,12 @@ async fn call_read_help_doc(args: &serde_json::Value) -> Result<serde_json::Valu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicBool;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(AtomicBool::new(false)),
-            download_manager: Mutex::new(legado_core::download_manager::DownloadManager::new(3)),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[test]
@@ -1586,7 +1647,7 @@ mod tests {
         let state = make_test_state();
         // 预置持久层 Cookie（tag 为二级域名，与工具实现一致）
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = legado_db::CookieRepository::new(db.connection());
             repo.upsert("example.com", "session=abc123").unwrap();
         }
@@ -1634,7 +1695,7 @@ mod tests {
         let state = make_test_state();
         // 以存储侧键（ETLD+1 / IP 自身）预置持久层
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = legado_db::CookieRepository::new(db.connection());
             repo.upsert("a.com.cn", "site=alice").unwrap();
             repo.upsert("192.168.1.10", "lan=local").unwrap();
@@ -1674,7 +1735,7 @@ mod tests {
         )
         .await;
         assert!(resp.0.error.is_none());
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = legado_db::CookieRepository::new(db.connection());
         assert!(repo.get_by_tag("a.com.cn").unwrap().is_none());
         assert!(repo.get_by_tag("192.168.1.10").unwrap().is_some());
@@ -1710,7 +1771,7 @@ mod tests {
 
         // 预置持久行（写方旧视图来源）
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = legado_db::CookieRepository::new(db.connection());
             repo.upsert(DK, "s=1").unwrap();
         }
@@ -1720,22 +1781,20 @@ mod tests {
         let state_writer = state.clone();
         let writer = std::thread::spawn(move || {
             // 写方保护域（D）：与生产 jar 写回路径同一把锁
-            let _d = legado_net::cookie_store::domain_write_lock(DK);
-            let _ = captured_tx.send(());
-            // 绿态：删除侧阻塞在 D 上 → 此处必然超时；红态：删除已完成
-            let _ = go_rx.recv_timeout(std::time::Duration::from_secs(2));
-            // 旧视图落库（独立线程无 tokio runtime 上下文 →
-            // 自建当前线程 runtime 取 db 锁）
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            rt.block_on(async move {
-                let db = state_writer.db.lock().await;
-                let repo = legado_db::CookieRepository::new(db.connection());
-                repo.upsert(DK, "s=1").unwrap();
+            legado_net::cookie_store::write_coordinator(
+                state_writer.engine.network().cookie_store(),
+            )
+            .with_domain(DK, || {
+                let _ = captured_tx.send(());
+                // 绿态：删除侧阻塞在 D 上 → 此处必然超时；红态：删除已完成
+                let _ = go_rx.recv_timeout(std::time::Duration::from_secs(2));
+                // 独立阻塞线程直接短借池连接，不创建额外运行时。
+                let db = state_writer.database().unwrap();
+                legado_db::CookieRepository::new(db.connection())
+                    .upsert(DK, "s=1")
+                    .unwrap();
+                // 闭包返回后释放域写通道。
             });
-            // 放 D（guard drop）
         });
         captured_rx.recv().expect("写方应完成视图捕获（持 D）");
 
@@ -1758,7 +1817,7 @@ mod tests {
         let _ = go_tx.send(());
         writer.join().expect("写方线程不应 panic");
 
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = legado_db::CookieRepository::new(db.connection());
         assert!(
             repo.get_by_tag(DK).unwrap().is_none(),
@@ -1771,7 +1830,7 @@ mod tests {
         let state = make_test_state();
         // 预置一个书源
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = legado_db::BookSourceRepository::new(db.connection());
             repo.insert(&legado_core::models::BookSource {
                 book_source_url: "https://src-debug.com".to_string(),

@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use legado_core::{LegadoError, LegadoResult};
 use legado_db::{RuleSubRecord, RuleSubRepository};
-use legado_net::{RuleSubscription, fetch_subscription, merge_subscription, should_update};
+use legado_net::{RuleSubscription, merge_subscription, should_update};
 
 use crate::db_state::with_database;
 
@@ -153,7 +153,12 @@ pub fn check_sub_update_db(id: i64) -> LegadoResult<CheckUpdateResponse> {
         sub_type: sub.sub_type.clone(),
     };
 
-    let response = match crate::runtime::block_on(fetch_subscription(&subscription)) {
+    let response = match crate::runtime::block_on(
+        legado_net::rule_update_client::fetch_subscription_with_hosts(
+            &subscription,
+            crate::engine_holder::network().custom_hosts().clone(),
+        ),
+    ) {
         Ok(remote_json) => {
             let remote_version = extract_version(&remote_json);
             let has_update = match &remote_version {
@@ -201,7 +206,12 @@ pub fn apply_sub_update_db(id: i64) -> LegadoResult<ApplyUpdateResponse> {
         sub_type: sub.sub_type.clone(),
     };
 
-    let remote_json = match crate::runtime::block_on(fetch_subscription(&subscription)) {
+    let remote_json = match crate::runtime::block_on(
+        legado_net::rule_update_client::fetch_subscription_with_hosts(
+            &subscription,
+            crate::engine_holder::network().custom_hosts().clone(),
+        ),
+    ) {
         Ok(content) => content,
         Err(e) => {
             return Ok(ApplyUpdateResponse {

@@ -353,7 +353,7 @@ pub(crate) fn search_dict_rule(rule: &DictRule, key: &str) -> Result<String, Str
 fn build_request(rule: &DictRule, key: &str) -> Result<AnalyzeUrl, String> {
     let tag = engine_tag(&rule.name);
     // Kotlin AnalyzeUrl 构造时把 key 绑定进 JS 作用域，此处经前置注入等价实现
-    let executor = DictScopeExecutor::new(base_js_executor(&tag), key, &rule.url_rule);
+    let executor = DictScopeExecutor::new(&tag, key, &rule.url_rule);
     let mut vars = HashMap::new();
     vars.insert("key".to_string(), key.to_string());
     vars.insert("word".to_string(), key.to_string());
@@ -471,7 +471,7 @@ fn apply_show_rule(
                     .map_err(|e| format!("showRule 选择器解析失败: {e}"))?
             };
 
-            let executor = DictScopeExecutor::new(base_js_executor(&tag), key, &intermediate);
+            let executor = DictScopeExecutor::new(&tag, key, &intermediate);
             executor.execute_js(js_code)
         }
     }
@@ -480,7 +480,7 @@ fn apply_show_rule(
 /// 构建规则解析器（注入字典作用域 JS 执行器，使 showRule 中的
 /// `result` / `key` 绑定可用；无 quickjs 时 JS 规则降级报错）
 fn build_analyzer(content: &str, base_url: &str, tag: &str, key: &str) -> AnalyzeRule {
-    let executor = DictScopeExecutor::new(base_js_executor(tag), key, content);
+    let executor = DictScopeExecutor::new(tag, key, content);
     AnalyzeRule::with_js_executor(
         content.to_string(),
         base_url.to_string(),
@@ -495,17 +495,6 @@ fn engine_tag(rule_name: &str) -> String {
     format!("dict:{rule_name}")
 }
 
-/// 取底层 JS 执行器（quickjs 特性开启时为引擎池适配器，否则 None）
-#[cfg(feature = "quickjs")]
-fn base_js_executor(tag: &str) -> Option<Arc<dyn JsExecutor>> {
-    Some(Arc::new(crate::js_executor::QuickJsExecutor::new(tag)))
-}
-
-#[cfg(not(feature = "quickjs"))]
-fn base_js_executor(_tag: &str) -> Option<Arc<dyn JsExecutor>> {
-    None
-}
-
 /// 字典规则 JS 作用域执行器
 ///
 /// 对标 Kotlin `AnalyzeUrl.evalJS` / `AnalyzeRule.evalJS` 的脚本绑定
@@ -516,10 +505,29 @@ fn base_js_executor(_tag: &str) -> Option<Arc<dyn JsExecutor>> {
 struct DictScopeExecutor {
     base: Option<Arc<dyn JsExecutor>>,
     prelude: String,
+    variables: legado_parser::VariableReader,
 }
 
 impl DictScopeExecutor {
-    fn new(base: Option<Arc<dyn JsExecutor>>, key: &str, result: &str) -> Self {
+    fn new(tag: &str, key: &str, result: &str) -> Self {
+        Self::with_resources(&crate::engine_holder::js_resources(), tag, key, result)
+    }
+
+    fn with_resources(
+        resources: &legado_js::JsResources,
+        tag: &str,
+        key: &str,
+        result: &str,
+    ) -> Self {
+        // 用途、规则标签与查询词分别保存，避免拼接身份碰撞。
+        let resources = resources.for_source("dictionary", tag, key);
+        let variables = resources.variable_reader();
+        #[cfg(feature = "quickjs")]
+        let base = Some(Arc::new(
+            crate::js_executor::QuickJsExecutor::new(tag).with_resources(resources),
+        ) as Arc<dyn JsExecutor>);
+        #[cfg(not(feature = "quickjs"))]
+        let base = None;
         // [能力对账批次 2 | #702/#850] var → globalThis 属性注入（不注册全局
         // var 条目，与规则块顶层 let 声明不再冲突；读路径等价）
         let prelude = format!(
@@ -528,11 +536,19 @@ impl DictScopeExecutor {
             js_string_literal(key),
             js_string_literal(result),
         );
-        Self { base, prelude }
+        Self {
+            base,
+            prelude,
+            variables,
+        }
     }
 }
 
 impl JsExecutor for DictScopeExecutor {
+    fn read_variable(&self, key: &str) -> Option<String> {
+        (self.variables)(key)
+    }
+
     fn execute_js(&self, js_code: &str) -> Result<String, String> {
         match &self.base {
             Some(base) => base.execute_js(&format!("{}{}", self.prelude, js_code)),
@@ -644,6 +660,51 @@ mod tests {
     }
 
     /// 规则查询路径：data: URI urlRule（免网络）+ 空 showRule 直返 body
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn dict_cached_scope_follows_rule_and_word_without_cross_engine_variables() {
+        let resources = legado_js::JsResources::default();
+        let a = DictScopeExecutor::with_resources(&resources, "same-rule", "甲", "body-a");
+        let b = DictScopeExecutor::with_resources(&resources, "same-rule", "乙", "body-b");
+        a.execute_js("globalThis.savedRead=java.__lgStoreGet; java.__lgStorePut('key','a')")
+            .unwrap();
+        b.execute_js("java.__lgStorePut('key','b')").unwrap();
+        assert_eq!(
+            a.execute_js("key + ':' + savedRead('key')").unwrap(),
+            "甲:a"
+        );
+        assert_eq!(
+            b.execute_js("key + ':' + savedRead('key')").unwrap(),
+            "乙:b"
+        );
+        let other = DictScopeExecutor::with_resources(
+            &legado_js::JsResources::default(),
+            "same-rule",
+            "甲",
+            "other",
+        );
+        assert_eq!(other.execute_js("java.__lgStoreGet('key')").unwrap(), "");
+        let parser = AnalyzeRule::with_js_executor(String::new(), String::new(), Arc::new(a));
+        assert_eq!(parser.get_string("@get:{key}").unwrap(), "a");
+    }
+
+    #[test]
+    fn dict_reader_is_explicit_even_without_a_js_executor() {
+        let store = Arc::new(legado_js::variables::VariableStore::default());
+        let scope = store.fresh_flow("dict");
+        scope.put_flow_variable("key", "value").unwrap();
+        let executor = DictScopeExecutor {
+            base: None,
+            prelude: String::new(),
+            variables: scope.reader(),
+        };
+        assert_eq!(executor.read_variable("key").as_deref(), Some("value"));
+        assert!(
+            executor.execute_js("1").is_err(),
+            "仅注入读者不能开启 JS 执行"
+        );
+    }
+
     #[test]
     fn test_lookup_data_uri_rule() {
         let _db_guard = crate::db_state::ensure_test_db();

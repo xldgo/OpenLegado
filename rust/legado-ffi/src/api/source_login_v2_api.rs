@@ -82,8 +82,7 @@ fn json_param_to_string(value: &serde_json::Value) -> String {
 /// **登录结果持久化**（对齐 Kotlin `SourceLoginV2Delegate.dispatch`：
 /// `command.loginJson?.let { source.putLoginInfo(it) }`）：
 /// 返回命令含 `login` 时自动把 login JSON 写入 `source_login_cache`
-/// （`userInfo_<url>`），并同步 JS `variable_store` 中写入的
-/// `loginHeader_<url>`/`userInfo_<url>`，保证后续请求可消费登录态。
+/// （`userInfo_<url>`）；JS 登录键直接访问同一服务，不再复制旧变量快照。
 /// — DeepSeek Harness + Bridge
 pub fn eval_login_action_v2(source_json: &str, user_input_json: &str) -> LegadoResult<String> {
     let source: BookSource = serde_json::from_str(source_json)?;
@@ -101,15 +100,13 @@ pub fn eval_login_action_v2(source_json: &str, user_input_json: &str) -> LegadoR
             crate::api::source_login_cache::put_login_info(&source.book_source_url, &login_json)?;
         }
     }
-    // 2) 同步 JS variable_store → source_login_cache（loginHeader/userInfo）
-    crate::api::source_login_cache::sync_login_cache_from_js(&source.book_source_url);
 
     Ok(result.unwrap_or_default())
 }
 
 // ─── QuickJS 求值接入 ──────────────────────────────────────────
 
-/// 启用 quickjs：以书源 URL 分桶复用全局引擎池执行 V2 脚本
+/// 启用 quickjs：独立 VM 使用本实例登录能力执行 V2 脚本
 #[cfg(feature = "quickjs")]
 fn eval_with_quickjs<F>(source: &BookSource, eval: F) -> LegadoResult<Option<String>>
 where
@@ -303,6 +300,40 @@ mod tests {
         );
 
         crate::api::source_login_cache::remove_login_info(source_url).unwrap();
+    }
+
+    #[test]
+    fn login_command_wins_over_js_intermediate_value_without_old_global_copy() {
+        let _lock = crate::test_support::lock_global_store();
+        let url = "https://login-v2-command-order.test";
+        let key = format!("userInfo_{url}");
+        crate::engine_holder::js_resources()
+            .variables()
+            .set_variable(&key, "old-global")
+            .unwrap();
+        let source = serde_json::json!({
+            "bookSourceUrl": url, "loginUi": login_ui_v2::MARKER,
+            "mainJs": format!("function loginAction(action,state,form) {{ put('userInfo_{url}','intermediate'); return {{login:{{token:'command'}},close:true}}; }}")
+        });
+        eval_login_action_v2(&source.to_string(), r#"{"action":"submit"}"#).unwrap();
+        let info = crate::api::source_login_cache::get_login_info(url).unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&info).unwrap()["token"],
+            "command"
+        );
+        assert_eq!(
+            crate::engine_holder::js_resources()
+                .variables()
+                .get_variable(&key)
+                .unwrap()
+                .as_deref(),
+            Some("old-global")
+        );
+        crate::api::source_login_cache::remove_login_info(url).unwrap();
+        crate::engine_holder::js_resources()
+            .variables()
+            .remove_variable(&key)
+            .unwrap();
     }
 
     #[test]

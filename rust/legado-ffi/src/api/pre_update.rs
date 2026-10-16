@@ -75,6 +75,9 @@ fn run_pre_update_js_inner(source: &BookSource, book: &mut Book, js: &str) -> Le
     );
 
     let executor = crate::js_executor::QuickJsExecutor::new(&source.book_source_url)
+        .with_resources(
+            crate::engine_holder::js_resources().for_book(&source.book_source_url, &book.book_url),
+        )
         .with_js_lib(source.js_lib.clone());
 
     let eval_out = legado_js::host_api::pre_update_hooks::with_hooks(re_get, refresh, || {
@@ -134,11 +137,13 @@ fn refresh_toc_url_native(source: &BookSource, book: &mut Book) -> LegadoResult<
     // 与 webbook_info 的 book_url 键同族），防上一流程残留 scope 串读/误清。
     // reGetBook 钩子（re_get_book_native）经 precise_search 后落到本函数
     // 收口；precise_search 自身不加 begin（mid-flow 调用方，见其文档）。
-    crate::api::web_book::begin_book_flow(book.book_page_fetch_url());
-    let engine = crate::api::web_book::build_engine()?;
+    let engine =
+        crate::api::web_book::real_fetcher_for_book(&source.book_source_url, &book.book_url)?;
     // [P2-8] 取址：优先 originBookUrl（当前书源详情页），为空回退 bookUrl
     let fetch_url = book.book_page_fetch_url();
-    let info = crate::runtime::block_on(async { engine.get_book_info(source, fetch_url).await })?;
+    let info = crate::runtime::block_on(async {
+        legado_core::web_book::BookSourceFetcher::get_book_info(&engine, source, fetch_url).await
+    })?;
     apply_web_info_to_book(book, &info);
     Ok(())
 }

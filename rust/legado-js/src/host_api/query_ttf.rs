@@ -5,7 +5,7 @@
 //! - cmap 表（format 0 / 4 / 6）→ `unicode → glyphId` 映射（多子表按记录顺序、先到先得）
 //! - loca + maxp + glyf 表 → 字形轮廓签名（简单字形为相对坐标序列，复合字形为组件描述）
 //! - 最终建立 `unicode → 轮廓签名` 与 `轮廓签名 → unicode` 双向映射，
-//!   供 [`super::font_api::replace_font`] 在错误字体与正确字体之间按轮廓反查字符。
+//!   供 [`super::font_api::FontResources::replace_font`] 在错误字体与正确字体之间按轮廓反查字符。
 //!
 //! 说明：防爬字体的核心是 cmap 被重新洗牌，字符的**轮廓数据不变**，
 //! 因此替换必须经由"轮廓签名"对齐两个字体，而非直接映射码点。

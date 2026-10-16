@@ -3,14 +3,18 @@
 //!
 //! 把 legado-js 的 QuickJS 执行器适配为 legado-parser 期望的
 //! [`legado_parser::JsExecutor`]，供书源规则 `@js:` / `<js>` / `{{JS}}`
-//! 模板执行。全部以 `#[cfg(feature = "quickjs")]` 门控：feature 关闭时构造
-//! 退化为 `AnalyzeRule::new`（不注入执行器，静默降级），与 legado-ffi
-//! 原实现逐字一致。
+//! 模板执行。JS 执行以 `quickjs` 门控；默认档不注入 JS 执行器，仍显式注入变量读者。
 //!
-//! 宿主侧（legado-ffi `js_executor`）对同名函数做 re-export，保证调用方
-//! 路径与签名零改动，全栈单一实现。
+//! 宿主侧（legado-ffi `js_executor`）用薄适配注入根实例的 JsResources，
+//! 规则与模板算法只保留本 crate 一份实现。
 
 use legado_parser::{AnalyzeRule, AnalyzeUrl};
+
+/// 无 VM 档仍须跟随显式能力；未迁移消费者保持原来的读者。
+#[cfg(not(feature = "quickjs"))]
+fn variable_reader(resources: &legado_js::JsResources) -> legado_parser::VariableReader {
+    resources.variable_reader()
+}
 
 /// 从书源 jsLib 提取 `var host = [...];`（大灰狼等聚合源 explore 依赖）
 ///
@@ -50,12 +54,14 @@ pub fn extract_js_lib_host_decl(js_lib: &str) -> Option<String> {
 /// 构建失败 → 无结果。对齐原版：每次 JS 执行前先 eval 书源 jsLib。
 #[cfg(feature = "quickjs")]
 pub fn construct_analyzer_with_js_lib(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     content: String,
     base_url: String,
     source_tag: &str,
     js_lib: Option<&str>,
 ) -> AnalyzeRule {
     let executor = legado_js::executor::QuickJsExecutor::new(source_tag)
+        .with_resources(resources.clone())
         .with_js_lib(js_lib.map(|s| s.to_string()));
     AnalyzeRule::with_js_executor(content, base_url, std::sync::Arc::new(executor))
 }
@@ -63,12 +69,13 @@ pub fn construct_analyzer_with_js_lib(
 /// 非 quickjs 构建下的降级实现
 #[cfg(not(feature = "quickjs"))]
 pub fn construct_analyzer_with_js_lib(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     content: String,
     base_url: String,
     _source_tag: &str,
     _js_lib: Option<&str>,
 ) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url)
+    AnalyzeRule::new(content, base_url).with_variable_reader(variable_reader(resources))
 }
 
 /// 构造规则解析器：注入书源 jsLib + 书源上下文 setup（source/cookie 绑定）
@@ -81,6 +88,7 @@ pub fn construct_analyzer_with_js_lib(
 /// — DeepSeek Harness + Bridge（2026-08-14 发现页修复：书山空列表）
 #[cfg(feature = "quickjs")]
 pub fn construct_analyzer_with_source_context(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     content: String,
     base_url: String,
     source_tag: &str,
@@ -88,6 +96,7 @@ pub fn construct_analyzer_with_source_context(
     setup_script: Option<String>,
 ) -> AnalyzeRule {
     let executor = legado_js::executor::QuickJsExecutor::new(source_tag)
+        .with_resources(resources.clone())
         .with_js_lib(js_lib.map(|s| s.to_string()))
         .with_setup_script(setup_script);
     AnalyzeRule::with_js_executor(content, base_url, std::sync::Arc::new(executor))
@@ -96,13 +105,14 @@ pub fn construct_analyzer_with_source_context(
 /// 非 quickjs 构建下的降级实现
 #[cfg(not(feature = "quickjs"))]
 pub fn construct_analyzer_with_source_context(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     content: String,
     base_url: String,
     _source_tag: &str,
     _js_lib: Option<&str>,
     _setup_script: Option<String>,
 ) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url)
+    AnalyzeRule::new(content, base_url).with_variable_reader(variable_reader(resources))
 }
 
 /// 目录分页共享上下文（循环不变部分收敛）
@@ -123,12 +133,14 @@ pub type TocPageContext = std::sync::Arc<dyn legado_parser::JsExecutor>;
 /// [`construct_analyzer_with_js_lib`] 同谱的执行器（无 setup 绑定）。
 #[cfg(feature = "quickjs")]
 pub fn build_toc_page_context(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     source_tag: &str,
     js_lib: Option<&str>,
     setup_script: Option<String>,
 ) -> TocPageContext {
     std::sync::Arc::new(
         legado_js::executor::QuickJsExecutor::new(source_tag)
+            .with_resources(resources.clone())
             .with_js_lib(js_lib.map(|s| s.to_string()))
             .with_setup_script(setup_script),
     )
@@ -149,30 +161,29 @@ pub fn construct_toc_page_analyzer(
 
 /// 非 quickjs 构建下的降级实现
 ///
-/// 该档无 JS 执行器（[`AnalyzeRule::new`] 原样降级），共享上下文为占位的
-/// 零大小类型（刻意非单元值，规避 `clippy::let_unit_value`）；签名与
-/// quickjs 档一致，调用方按档无感。
+/// 该档无 JS 执行器，但目录每页仍携带同一实例的变量读取能力。
 #[cfg(not(feature = "quickjs"))]
-pub struct TocPageContext;
+pub struct TocPageContext(legado_parser::VariableReader);
 
-/// 非 quickjs 档：无执行器上下文
+/// 非 quickjs 档：只持有变量读者，不创建 VM。
 #[cfg(not(feature = "quickjs"))]
 pub fn build_toc_page_context(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     _source_tag: &str,
     _js_lib: Option<&str>,
     _setup_script: Option<String>,
 ) -> TocPageContext {
-    TocPageContext
+    TocPageContext(variable_reader(resources))
 }
 
 /// 非 quickjs 档：原样降级
 #[cfg(not(feature = "quickjs"))]
 pub fn construct_toc_page_analyzer(
-    _ctx: &TocPageContext,
+    ctx: &TocPageContext,
     content: String,
     base_url: String,
 ) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url)
+    AnalyzeRule::new(content, base_url).with_variable_reader(ctx.0.clone())
 }
 
 /// 构建搜索 URL（携带书源 jsLib + 书源上下文 setup）
@@ -182,6 +193,7 @@ pub fn construct_toc_page_analyzer(
 /// 仅注入 jsLib 无 setup → source 未定义 → URL 构建失败 → 搜索结果为空。
 /// — 聚合/上下文书源搜索修复（2026-08-17）
 pub fn build_search_url_with_setup(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     template: &str,
     keyword: &str,
     page: i32,
@@ -203,7 +215,15 @@ pub fn build_search_url_with_setup(
         variables.insert("page".to_string(), page.to_string());
         variables.insert("baseUrl".to_string(), source_tag.to_string());
         variables.insert("searchKey".to_string(), keyword.to_string());
-        match search_url_with_js(&pre, &variables, page, source_tag, js_lib, setup_script) {
+        match search_url_with_js(
+            resources,
+            &pre,
+            &variables,
+            page,
+            source_tag,
+            js_lib,
+            setup_script,
+        ) {
             Ok(analyzed) => return analyzed,
             Err(e) => {
                 // @js:/<js> 主模板失败时禁止字面回退（否则会把脚本文本当 URL
@@ -326,6 +346,7 @@ pub fn sanitize_js_lib_for_quickjs(js_lib: &str) -> String {
 /// 等依赖（爱下电子等源）；对齐原版 AnalyzeUrl.kt evalJS 的 source 绑定。
 #[cfg(feature = "quickjs")]
 fn search_url_with_js(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     template: &str,
     variables: &std::collections::HashMap<String, String>,
     page: i32,
@@ -334,6 +355,7 @@ fn search_url_with_js(
     setup_script: Option<String>,
 ) -> legado_core::LegadoResult<AnalyzeUrl> {
     let executor = legado_js::executor::QuickJsExecutor::new(source_tag)
+        .with_resources(resources.clone())
         .with_js_lib(js_lib.map(|s| s.to_string()))
         .with_setup_script(setup_script);
     AnalyzeUrl::parse_with_js(template, variables, page, &executor)
@@ -342,6 +364,7 @@ fn search_url_with_js(
 /// 未启用 quickjs：降级为标准 parse（简单变量查找，复杂表达式保留原样）
 #[cfg(not(feature = "quickjs"))]
 fn search_url_with_js(
+    _resources: &std::sync::Arc<legado_js::JsResources>,
     template: &str,
     variables: &std::collections::HashMap<String, String>,
     page: i32,
@@ -350,4 +373,80 @@ fn search_url_with_js(
     _setup_script: Option<String>,
 ) -> legado_core::LegadoResult<AnalyzeUrl> {
     AnalyzeUrl::parse(template, variables, page)
+}
+
+#[cfg(test)]
+mod scoped_variable_tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[test]
+    fn rule_and_toc_parsers_keep_the_book_anchor_in_both_feature_modes() {
+        let resources = Arc::new(legado_js::JsResources::default());
+        let a = resources.for_book("source-a", "same-book");
+        let b = resources.for_book("source-b", "same-book");
+        a.variable_scope()
+            .unwrap()
+            .set_book_variable("same-book", "key", "a")
+            .unwrap();
+        b.variable_scope()
+            .unwrap()
+            .set_book_variable("same-book", "key", "b")
+            .unwrap();
+        let rule = construct_analyzer_with_js_lib(&a, String::new(), String::new(), "tag", None);
+        let contextual = construct_analyzer_with_source_context(
+            &b,
+            String::new(),
+            String::new(),
+            "tag",
+            None,
+            None,
+        );
+        let toc = build_toc_page_context(&a, "tag", None, None);
+        assert_eq!(rule.get_string("@get:{key}").unwrap(), "a");
+        assert_eq!(contextual.get_string("@get:{key}").unwrap(), "b");
+        for page in ["first-page", "second-page"] {
+            let parser = construct_toc_page_analyzer(&toc, String::new(), page.to_string());
+            assert_eq!(parser.get_string("@get:{key}").unwrap(), "a");
+            #[cfg(not(feature = "quickjs"))]
+            assert!(
+                parser.js_executor().is_none(),
+                "无 JS 档不能为变量读取偷偷启用 VM"
+            );
+        }
+        a.variable_scope()
+            .unwrap()
+            .put_flow_variable("key", "flow-a")
+            .unwrap();
+        assert_eq!(
+            construct_toc_page_analyzer(&toc, String::new(), String::new())
+                .get_string("@get:{key}")
+                .unwrap(),
+            "flow-a"
+        );
+        assert_eq!(contextual.get_string("@get:{key}").unwrap(), "b");
+    }
+
+    #[test]
+    fn toc_context_does_not_keep_vm_resources_alive() {
+        let resources = Arc::new(legado_js::JsResources::default());
+        let weak_root = Arc::downgrade(&resources);
+        let weak_store = Arc::downgrade(&resources.variables());
+        let view = resources.for_book("source", "book");
+        view.variable_scope()
+            .unwrap()
+            .set_book_variable("book", "key", "value")
+            .unwrap();
+        let context = build_toc_page_context(&view, "tag", None, None);
+        drop((view, resources));
+        assert!(weak_root.upgrade().is_none(), "目录上下文不持有根资源");
+        assert_eq!(
+            construct_toc_page_analyzer(&context, String::new(), String::new())
+                .get_string("@get:{key}")
+                .unwrap(),
+            "value"
+        );
+        drop(context);
+        assert!(weak_store.upgrade().is_none());
+    }
 }

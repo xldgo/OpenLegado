@@ -1,9 +1,8 @@
-//! `#[cfg(test)]` 测试支撑：全局变量 store / 桥读取器 / flow scope 的进程级状态锁
+//! `#[cfg(test)]` 测试支撑：全局变量 store / flow scope 的进程级状态锁
 //!
 //! `legado_js::host_api::variable_store` 的全局变量表、
-//! `legado_parser::set_global_variable_reader` 注册的 `@get` 回退读取器、
 //! flow scope（`lgflow::` 会话层）都是进程级全局状态：本 crate 的测试
-//! 二进制内多线程并行执行时，任何「写全局表 / 清 flow scope / 重注册读取器」
+//! 二进制内多线程并行执行时，任何「写全局表 / 清 flow scope」
 //! 的测试都会踩掉并行测试正在读的数据（P2-9 ③ / P2-1 事故，CI 35712966198
 //! `test_shoujixiaoshuo_tocurl_bridge_before_after` 串表翻车即此）。
 //!
@@ -59,15 +58,10 @@ pub(crate) fn lock_global_store() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|p| p.into_inner())
 }
 
-/// 共享 HTTP 客户端池（`http_state::shared_client` 单例 + quickjs 档
-/// `legado-js` 四池）的进程级状态锁。
+/// FFI 根网络资源的测试锁；显式装配的独立引擎不使用此锁。
 ///
-/// 池是全局单例：任何「构建 / reset / 指针稳定性断言」类测试与并发运行的
-/// 其他池触碰者互踩（reset 把槽位置 None → 他侧 `shared_client()` 惰性
-/// 重建 → 指针相等断言误判 / 并发构建竞态）。项 B/B1 新增
-/// `webview_api::submit_webview_result_with_cookies`（落库后
-/// `reset_shared_client_pools` 同步 JS 桥共享客户端内存 CookieStore）
-/// 引入第二组池触碰测试，须串行。
+/// 仍操作根资源的客户端构造、reset 和指针断言需要串行，避免其他用例重建客户端。
+/// JS 四池已归属各自 HttpResources，WebView 回流只修改同一 jar，不再重置这些池。
 ///
 /// **全局锁序不变式（2026-09-26 项 B 扩）**：锁获取为**相对顺序**约束
 /// （非强制全取）：模块级 `TEST_LOCK`（若有）最外层 →

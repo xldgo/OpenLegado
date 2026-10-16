@@ -10,9 +10,9 @@
 //! 直接 eval。
 //!
 //! 本实现（对齐 + 降级差异已文档化）：
-//! - **URL 值** → 经共享客户端 [`network::shared_client_for_url`] 拉取
+//! - **URL 值** → 经共享客户端 [`crate::http_resources::HttpResources::client_for_url`] 拉取
 //!   （回环 URL 走 `no_proxy` 直连池，生产池不变；逐请求 30s 超时；内容
-//!   上限 2MB）→ 进程级 LRU 缓存（`md5(url)` 键，容量 64，**无 TTL**，
+//!   上限 2MB）→ 实例 LRU 缓存（`md5(url)` 键，容量 64，**无 TTL**，
 //!   进程重启丢失，对齐上游 aCache 内存语义）→ 返回拼接脚本由调用方 eval；
 //! - **拉取失败** → 可读错误（上游「下载jsLib-{url}失败」措辞）+
 //!   [`capability_ledger::record_jslib_load_failure`] 台账登记，**跳过该
@@ -26,16 +26,12 @@
 
 #![cfg(feature = "quickjs")]
 
-use std::num::NonZeroUsize;
-use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
-
-use lru::LruCache;
 
 use crate::host_api::capability_ledger;
 use crate::host_api::encoding;
-use crate::host_api::network::shared_client_for_url;
 use crate::host_api::runtime_bridge::block_on;
+use crate::http_resources::HttpResources;
 use legado_net::LegadoRequest;
 
 /// jsLib 拉取超时（逐请求，覆盖共享客户端池级 60s 默认）
@@ -44,11 +40,8 @@ const JSLIB_FETCH_TIMEOUT: Duration = Duration::from_millis(30_000);
 /// jsLib 内容上限（2MB）：超限视为异常资源，按失败处理
 const MAX_JSLIB_CONTENT_LEN: usize = 2 * 1024 * 1024;
 
-/// 进程级 jsLib 内容缓存容量（按 `md5(url)` 键，无 TTL）
-const JSLIB_CACHE_CAPACITY: usize = 64;
-
 /// 可注入的 jsLib 拉取器：`url → 内容`；错误串须可读（进台账与日志）
-pub type JsLibFetcher = dyn Fn(&str) -> Result<String, String> + Send + Sync;
+pub type JsLibFetcher<'a> = dyn Fn(&str) -> Result<String, String> + Send + Sync + 'a;
 
 /// 解析 URL 映射形态的 jsLib（`{"crypto":"https://…/crypto-js.min.js"}`）。
 ///
@@ -73,33 +66,16 @@ pub fn parse_js_lib_url_map(js_lib: &str) -> Option<Vec<(String, String)>> {
     Some(out)
 }
 
-/// 进程级 jsLib 内容缓存（`md5(url)` 键，无 TTL；进程重启即失，
-/// 对齐上游 aCache 内存缓存语义）
-fn jslib_cache() -> &'static Mutex<LruCache<String, String>> {
-    static CACHE: OnceLock<Mutex<LruCache<String, String>>> = OnceLock::new();
-    CACHE.get_or_init(|| {
-        let cap = NonZeroUsize::new(JSLIB_CACHE_CAPACITY).unwrap_or(NonZeroUsize::new(16).unwrap());
-        Mutex::new(LruCache::new(cap))
-    })
-}
-
-/// 测试用：清空进程级 jsLib 内容缓存（缓存为进程全局，跨测试并行安全须
-/// 先清再断言命中计数）
-#[doc(hidden)]
-pub fn reset_jslib_cache_for_test() {
-    if let Ok(mut c) = jslib_cache().lock() {
-        c.clear();
-    }
-}
-
 /// 生产默认 fetcher：共享客户端拉取（回环池/生产池按 URL 分流），
 /// 逐请求 [`JSLIB_FETCH_TIMEOUT`]，非 2xx 与 [`MAX_JSLIB_CONTENT_LEN`]
 /// 超限均按失败返回（错误串带上游「下载jsLib-{url}失败」措辞）。
 ///
 /// 注：内容上限是**生产 fetcher 边界**——注入 fetcher（测试）按可信内容
 /// 处理，不再复检尺寸。
-pub fn default_js_lib_fetcher(url: &str) -> Result<String, String> {
-    let client = shared_client_for_url(url).map_err(|e| format!("下载jsLib-{url}失败: {e}"))?;
+pub fn default_js_lib_fetcher(http: &HttpResources, url: &str) -> Result<String, String> {
+    let client = http
+        .client_for_url(url, false)
+        .map_err(|e| format!("下载jsLib-{url}失败: {e}"))?;
     let mut req = LegadoRequest::get(url);
     req.timeout = Some(JSLIB_FETCH_TIMEOUT);
     let resp = block_on(client.send(&req)).map_err(|e| format!("下载jsLib-{url}失败: {e}"))?;
@@ -118,7 +94,7 @@ pub fn default_js_lib_fetcher(url: &str) -> Result<String, String> {
 /// 解析 URL 映射 jsLib 为可 eval 脚本。
 ///
 /// 逐条目：
-/// - `http(s)://` 值 → `fetch(url)`（进程缓存命中则不拉取）；失败 →
+/// - `http(s)://` 值 → `fetch(url)`（实例缓存命中则不拉取）；失败 →
 ///   记日志 + [`capability_ledger::record_jslib_load_failure`]（上游措辞
 ///   由 fetcher 错误串携带）+ **跳过该条**（降级继续：仅依赖该 jsLib 的
 ///   规则受影响，整源规则继续求值——与上游整源抛错的差异为有意降级，
@@ -129,9 +105,10 @@ pub fn default_js_lib_fetcher(url: &str) -> Result<String, String> {
 /// `// {键名}` 注释便于排障）；全部失败/空映射返回 `None`（调用方按
 /// 未提供 jsLib 处理）。
 pub fn resolve_js_lib_url_map(
+    http: &HttpResources,
     js_lib: &str,
     source_tag: &str,
-    fetch: &JsLibFetcher,
+    fetch: &JsLibFetcher<'_>,
 ) -> Option<String> {
     let entries = parse_js_lib_url_map(js_lib)?;
     let mut parts: Vec<String> = Vec::new();
@@ -144,20 +121,15 @@ pub fn resolve_js_lib_url_map(
             }
             continue;
         }
-        // 进程缓存（md5(url) 键，无 TTL）：命中不重拉——缓存属加载器
+        // 实例缓存（md5(url) 键，无 TTL）：命中不重拉——缓存属加载器
         // 职责，注入 fetcher 保持纯函数（测试可直接断言拉取计数）
         let key = encoding::md5_encode(v);
-        let cached = jslib_cache()
-            .lock()
-            .ok()
-            .and_then(|mut c| c.get(&key).cloned());
+        let cached = http.cached_js_lib(&key);
         match cached {
             Some(body) => parts.push(format!("// {name}\n{body}")),
             None => match (fetch)(v) {
                 Ok(body) => {
-                    if let Ok(mut c) = jslib_cache().lock() {
-                        c.put(key, body.clone());
-                    }
+                    http.cache_js_lib(key, body.clone());
                     parts.push(format!("// {name}\n{body}"));
                 }
                 Err(e) => {
@@ -250,7 +222,7 @@ mod tests {
     }
 
     /// e2e（回环 mock，无真实网络）：URL 映射拉取 → eval → 导出可用；
-    /// 第二次解析同 URL 命中进程缓存（mock 计数不变）
+    /// 第二次解析同 URL 命中实例缓存（mock 计数不变）
     #[test]
     fn test_jslib_url_map_fetch_eval_and_cache() {
         // 毒锁恢复（并行测试中另一用例 panic 持锁不致整组报废）
@@ -258,7 +230,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         capability_ledger::reset_jslib_load_failures();
-        reset_jslib_cache_for_test();
+        let http = HttpResources::default();
 
         let counter = Arc::new(AtomicUsize::new(0));
         let body =
@@ -266,8 +238,10 @@ mod tests {
         let addr = spawn_jslib_mock(body, &counter);
         let jslib = format!(r#"{{"crypto":"http://{addr}/crypto.js"}}"#);
 
-        let script = resolve_js_lib_url_map(&jslib, "capb1_jslib", &default_js_lib_fetcher)
-            .expect("URL 映射 jsLib 解析应成功");
+        let script = resolve_js_lib_url_map(&http, &jslib, "capb1_jslib", &|url| {
+            default_js_lib_fetcher(&http, url)
+        })
+        .expect("URL 映射 jsLib 解析应成功");
         assert_eq!(counter.load(Ordering::SeqCst), 1, "首次应拉取一次");
 
         // eval 进裸引擎，导出可用
@@ -277,8 +251,10 @@ mod tests {
         assert_eq!(engine.eval("crypto.hexLen('abcd')").expect("调用"), "4");
 
         // 缓存命中：同 URL 二次解析不重拉
-        let script2 = resolve_js_lib_url_map(&jslib, "capb1_jslib", &default_js_lib_fetcher)
-            .expect("缓存命中后解析仍应成功");
+        let script2 = resolve_js_lib_url_map(&http, &jslib, "capb1_jslib", &|url| {
+            default_js_lib_fetcher(&http, url)
+        })
+        .expect("缓存命中后解析仍应成功");
         assert_eq!(script, script2);
         assert_eq!(counter.load(Ordering::SeqCst), 1, "缓存命中不得重拉");
     }
@@ -287,6 +263,7 @@ mod tests {
     /// 非 URL 条目照常拼接（整源不炸）
     #[test]
     fn test_jslib_fetch_failure_ledger_and_partial() {
+        let http = HttpResources::default();
         let _ledger = capability_ledger::LEDGER_TEST_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());
@@ -294,8 +271,10 @@ mod tests {
 
         // 回环 127.0.0.1:1 必拒绝连接（无监听），不发真实外网请求
         let jslib = r#"{"bad":"http://127.0.0.1:1/never.js","good":"var ok42 = 42;"}"#;
-        let script = resolve_js_lib_url_map(jslib, "capb1_jslib_fail", &default_js_lib_fetcher)
-            .expect("单条失败不得阻断其余条目（降级继续）");
+        let script = resolve_js_lib_url_map(&http, jslib, "capb1_jslib_fail", &|url| {
+            default_js_lib_fetcher(&http, url)
+        })
+        .expect("单条失败不得阻断其余条目（降级继续）");
         assert!(
             script.contains("var ok42 = 42;"),
             "非 URL 条目应原样拼接: {script}"

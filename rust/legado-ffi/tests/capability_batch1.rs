@@ -6,8 +6,8 @@
 //!   `cookie.getKey("https://qidian.com", "_csrfToken")`）：域归属读键
 //!   （ETLD+1 / 多段 TLD / IP 字面量），miss → 空串不抛错；无 key 形态返回全域串。
 //! - **cap 2 `cache.putMemory / getFromMemory / deleteMemory`**（语料 #20 Linpx /
-//!   #36 微信读书二合一 / #101 漫蛙 / #266）：进程级内存缓存（独立命名空间，
-//!   与磁盘 cache 表分离，无 TTL，跨引擎共享，重启丢失），miss → 显式 null。
+//!   #36 微信读书二合一 / #101 漫蛙 / #266）：宿主实例内存缓存（独立命名空间，
+//!   与磁盘 cache 表分离，无 TTL，同宿主书源 VM 间共享，重启丢失），miss → 显式 null。
 //! - **cap 3 远程 jsLib 加载器**（语料 #463 月色书屋 / #658 / #674 / #915：
 //!   `jsLib: {"crypto": "https://…/crypto-js.min.js"}`）：URL 映射经共享客户端
 //!   拉取 → 进程缓存（md5(url) 键，无 TTL）→ eval；失败记台账降级继续
@@ -31,16 +31,6 @@ use legado_ffi::legado_js::QuickJsEngine;
 use legado_ffi::legado_js::engine::JsEngine;
 use legado_ffi::legado_js::sandbox::SandboxConfig;
 
-/// 生产同源引擎（与 capability_sweep 干跑同一形态）
-fn make_engine() -> QuickJsEngine {
-    QuickJsEngine::new(
-        SandboxConfig::default()
-            .with_allow_script_run(true)
-            .with_memory_limit(64 * 1024 * 1024),
-    )
-    .expect("引擎创建失败")
-}
-
 /// 最小书源（仅 URL + 名称；setup 脚本所需其余字段走 Default）
 fn make_source(url: &str, name: &str) -> BookSource {
     BookSource {
@@ -52,7 +42,20 @@ fn make_source(url: &str, name: &str) -> BookSource {
 
 /// 建引擎 + 应用书源 setup 脚本（cookie / cache 全局即书源实际可见形态）
 fn engine_with_source(url: &str, name: &str) -> (QuickJsEngine, String) {
-    let engine = make_engine();
+    engine_with_resources(&legado_ffi::legado_js::JsResources::default(), url, name)
+}
+fn engine_with_resources(
+    resources: &legado_ffi::legado_js::JsResources,
+    url: &str,
+    name: &str,
+) -> (QuickJsEngine, String) {
+    let engine = resources
+        .create_engine(
+            SandboxConfig::default()
+                .with_allow_script_run(true)
+                .with_memory_limit(64 * 1024 * 1024),
+        )
+        .expect("引擎创建失败");
     let source = make_source(url, name);
     let setup = book_source_js_setup_script(&source).expect("setup 脚本生成失败");
     engine
@@ -238,24 +241,32 @@ fn test_cache_memory_roundtrip_e2e() {
     );
 }
 
-/// 跨引擎共享（上游 CacheManager 为进程级内存，书源间共享同一键空间；
-/// 引擎 A put → 销毁 → 引擎 B get 命中；重启丢失语义由进程级 OnceLock 结构保证）
+/// 同一应用实例的多个书源 VM 共享缓存；另一个应用实例使用独立数据能力。
+
 #[test]
 fn test_cache_memory_cross_context() {
+    let resources = legado_ffi::legado_js::JsResources::default();
     {
-        let (engine_a, _s) = engine_with_source("https://capb1c2.example.com/", "cap2 引擎A");
+        let (engine_a, _s) =
+            engine_with_resources(&resources, "https://capb1c2.example.com/", "cap2 引擎A");
         engine_a
             .eval("cache.putMemory('capb1cross', 'from_a')")
             .expect("引擎A putMemory eval 失败");
-    } // 引擎 A 销毁（setup 脚本作用域随引擎回收；进程级内存缓存保留）
+    } // 引擎 A 销毁（setup 脚本作用域随引擎回收；所属宿主内存缓存保留）
 
-    let (engine_b, _s) = engine_with_source("https://capb1c3.example.com/", "cap2 引擎B");
+    let (engine_b, _s) =
+        engine_with_resources(&resources, "https://capb1c3.example.com/", "cap2 引擎B");
     assert_eq!(
         engine_b
             .eval("cache.getFromMemory('capb1cross')")
             .expect("eval 失败"),
         "from_a",
-        "进程级内存缓存跨引擎共享"
+        "同一宿主的不同书源 VM 共享内存缓存"
+    );
+    let (other, _) = engine_with_source("https://other.example.com/", "独立宿主");
+    assert_eq!(
+        other.eval("cache.getFromMemory('capb1cross')").unwrap(),
+        "null"
     );
     engine_b
         .eval("cache.deleteMemory('capb1cross')")

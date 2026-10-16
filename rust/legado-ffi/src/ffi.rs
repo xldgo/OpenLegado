@@ -137,7 +137,11 @@ pub mod ffi {
     /// 书山聚合等源登录时登记该设备，正文请求需携带匹配的 X-Device-Id
     /// 才返回明文；Flutter 侧启动时读取系统 ANDROID_ID 后调用。
     pub fn set_device_id(device_id: String) {
-        legado_js::host_api::device_id::set_device_id(&device_id);
+        crate::engine_holder::js_resources()
+            .host_resources()
+            .config
+            .device
+            .set_device_id(&device_id);
     }
 
     /// 注入主题配置 JSON（UI_MD3_ALIGNMENT_PLAN.md Batch 0 R1）
@@ -146,7 +150,10 @@ pub mod ffi {
     /// `legado_js::host_api::config_api::get_theme_config` 同形；
     /// JS 书源 `getThemeConfig()` 优先返回注入值。
     pub fn set_theme_config(theme_json: String) {
-        legado_js::host_api::config_api::set_injected_theme_config(&theme_json);
+        crate::engine_holder::js_resources()
+            .host_resources()
+            .config
+            .set_injected_theme_config(&theme_json);
     }
 
     /// 注入主题模式（UI_MD3_ALIGNMENT_PLAN.md Batch 0 R2 + R 批 R3）
@@ -155,7 +162,10 @@ pub mod ffi {
     /// Flutter 侧 `setThemeMode` 时调用，JS 书源 `getThemeMode()` 感知
     ///（"0"→auto，"1"→light，"2"→dark）。
     pub fn set_theme_mode(mode: String) {
-        legado_js::host_api::config_api::set_injected_theme_mode(&mode);
+        crate::engine_holder::js_resources()
+            .host_resources()
+            .config
+            .set_injected_theme_mode(&mode);
     }
 
     /// 注入阅读配置 JSON（LAYOUT_MOTION_AUDIT R 批 R4）
@@ -164,7 +174,10 @@ pub mod ffi {
     /// `legado_js::host_api::config_api::get_read_book_config` 同形；
     /// JS 书源 `getReadBookConfig()` 优先返回注入值。
     pub fn set_read_book_config(read_json: String) {
-        legado_js::host_api::config_api::set_injected_read_book_config(&read_json);
+        crate::engine_holder::js_resources()
+            .host_resources()
+            .config
+            .set_injected_read_book_config(&read_json);
     }
 
     /// 注入 JS 磁盘缓存目录（P2-15 剩项：cache.* 落应用私有存储）
@@ -175,7 +188,10 @@ pub mod ffi {
     /// 目录（未注入时回落 `<temp_dir>/legado-js-cache`，磁盘缓存随系统
     /// temp 清理而丢失）。
     pub fn set_cache_dir(dir: String) {
-        legado_js::host_api::cache_store::set_cache_dir(&dir);
+        crate::engine_holder::js_resources()
+            .host_resources()
+            .cache
+            .set_cache_dir(&dir);
     }
 
     /// 注入图片磁盘缓存目录（P4-2a，契约 §1.6.1/§2.46）
@@ -208,36 +224,15 @@ pub mod ffi {
 
     /// 打开数据库并初始化全局连接
     pub fn db_open(path: String) -> Result<(), BridgeError> {
-        // 已初始化时跳过冗余的 Database::open（含迁移检查 + 池构建）
-        if crate::db_state::is_initialized() {
-            eprintln!("[legado-ffi] 数据库已初始化，忽略重复 db_open 调用");
-            return Ok(());
-        }
-        // 记录 DB 文件路径（Task #76：独立 MCP 服务等二次连接池
-        // 场景复用同一文件，避免硬编码相对路径）
-        crate::db_state::record_db_path(&path);
-        let db = legado_db::init_database(&path)?;
-        crate::db_state::init_database(db)?;
-        // 上游同步（2026-09-23 用户裁决）：JS 写 cookie 落库持久化——注册
-        // 基于 CookieRepository 的持久化下沉并启动全量回填（内存优先、
-        // miss 回落；幂等：下沉 first-wins，回填按键合并不覆盖内存值）
-        crate::http_state::register_js_cookie_sink();
-        // 设计项 A（2026-09-26，JS 桥共享客户端 cookie 持久化）：注入 DB
-        // 持久化后端到 legado-js 池客户端钩子（first-wins）并兜底重置已
-        // 构建池——正常时序本调用先于一切 JS 执行（池尚未构建）。仅
-        // quickjs 档（池机制在该档的 network 模块内）；零 FFI 方法变更
-        // （不加/不改导出函数签名）
-        #[cfg(feature = "quickjs")]
-        {
-            crate::http_state::register_js_client_cookie_persistence();
-            // 批 2 写侧门控：注册书源 enabledCookieJar 查询——JS 桥按当前
-            // 书源开关决定是否补 COOKIE_JAR_HEADER 标记（读侧不受影响）
-            crate::http_state::register_js_source_cookie_jar_lookup();
-        }
-        // 启动时恢复配置（契约 §2.20.3 / §2.22.5，Task #73）：
-        // 读回 customHosts 映射与独立 MCP 端口，尽力而为（失败仅记日志）
-        crate::api::net_api::restore_custom_hosts();
-        crate::api::server_api::restore_mcp_port();
+        crate::engine_holder::initialize(
+            || legado_engine::EngineContext::open(&path),
+            || {
+                // 启动时恢复配置（契约 §2.20.3 / §2.22.5，Task #73）：
+                // 读回 customHosts 映射与独立 MCP 端口，尽力而为（失败仅记日志）
+                crate::api::net_api::restore_custom_hosts();
+                crate::api::server_api::restore_mcp_port();
+            },
+        )?;
         Ok(())
     }
 
@@ -1490,7 +1485,8 @@ pub mod ffi {
         } else {
             rule
         };
-        let analyzer = legado_parser::AnalyzeRule::new(content, String::new());
+        let analyzer = legado_parser::AnalyzeRule::new(content, String::new())
+            .with_variable_reader(crate::engine_holder::js_resources().variable_reader());
         let results = analyzer.get_strings(&effective_rule)?;
         Ok(serde_json::to_string(&serde_json::json!({
             "results": results,
@@ -1505,10 +1501,11 @@ pub mod ffi {
     pub fn js_eval(script: String) -> Result<String, BridgeError> {
         use legado_js::JsEngine;
         use legado_js::SandboxConfig;
-        use legado_js::engine::QuickJsEngine;
-        let engine = QuickJsEngine::new(SandboxConfig::default()).map_err(|e| BridgeError {
-            message: e.to_string(),
-        })?;
+        let engine = crate::engine_holder::js_resources()
+            .create_engine(SandboxConfig::default())
+            .map_err(|e| BridgeError {
+                message: e.to_string(),
+            })?;
         let result = engine.eval(&script)?;
         Ok(result)
     }
@@ -1848,7 +1845,8 @@ pub mod ffi {
         order: i32,
         is_private: Option<bool>,
     ) -> Result<i64, BridgeError> {
-        let id = crate::api::book_group_api::add_book_group(&group_name, &cover, order, is_private)?;
+        let id =
+            crate::api::book_group_api::add_book_group(&group_name, &cover, order, is_private)?;
         Ok(id)
     }
 
@@ -1860,7 +1858,13 @@ pub mod ffi {
         order: i32,
         is_private: Option<bool>,
     ) -> Result<bool, BridgeError> {
-        let ok = crate::api::book_group_api::update_book_group(id, &group_name, &cover, order, is_private)?;
+        let ok = crate::api::book_group_api::update_book_group(
+            id,
+            &group_name,
+            &cover,
+            order,
+            is_private,
+        )?;
         Ok(ok)
     }
 
@@ -3177,6 +3181,12 @@ pub fn privacy_verify_password(password: String) -> Result<bool, BridgeError> {
     Ok(crate::api::privacy_api::verify_password(&password)?)
 }
 /// 修改或清除密码必须验证旧凭据。
-pub fn privacy_set_password(current_password: String, password: String) -> Result<bool, BridgeError> {
-    Ok(crate::api::privacy_api::set_password(&current_password, &password)?)
+pub fn privacy_set_password(
+    current_password: String,
+    password: String,
+) -> Result<bool, BridgeError> {
+    Ok(crate::api::privacy_api::set_password(
+        &current_password,
+        &password,
+    )?)
 }

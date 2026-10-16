@@ -1,40 +1,18 @@
-//! 全局数据库状态管理
+//! FFI 数据库访问入口，资源与文件身份由同一个 EngineContext 持有。
 //!
-//! FFI 层持有一个全局 r2d2 连接池，通过 `OnceLock` 管理。
-//! 由 `ffi::Bridge::db_open` 初始化，各 API 模块通过 `with_database` 访问。
-//!
-//! 连接池保证：
-//! - 多线程可并发调用 `with_database`，每次获取独立的池连接
-//! - `Pool` 是 `Send + Sync`，无需 `Mutex` 保护
-//! - 当 `Database`（per-call 包装器）被 drop 时，连接自动归还到池中
+//! 本模块只委托数据库能力，不另外保存连接池或可单独改写的路径。
 
-use std::sync::OnceLock;
-
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
-
-use legado_core::{LegadoError, LegadoResult};
+use legado_core::LegadoResult;
 use legado_db::Database;
+use legado_engine::EngineContext;
 
-/// 全局连接池（线程安全，内部使用 Arc 共享）
-static DB_POOL: OnceLock<Pool<SqliteConnectionManager>> = OnceLock::new();
-
-/// 全局 DB 文件路径（db_open 时记录，Task #76）
-///
-/// 供独立 MCP 服务等二次连接池场景复用同一 DB 文件（WAL 并发安全），
-/// 避免硬编码相对路径在 Android cwd 不可写/桌面双库数据漂移。
-static DB_PATH: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
-
-/// 记录 DB 文件路径（由 db_open 在初始化前调用）
-pub fn record_db_path(path: &str) {
-    if let Ok(mut guard) = DB_PATH.lock() {
-        *guard = Some(path.to_string());
-    }
-}
-
-/// 获取当前 DB 文件路径（未记录时返回 None）
+/// 返回已成功初始化的数据库文件路径；内存库没有文件路径。
 pub fn current_db_path() -> Option<String> {
-    DB_PATH.lock().ok().and_then(|guard| guard.clone())
+    crate::engine_holder::current()
+        .ok()?
+        .storage()
+        .path()
+        .map(|path| path.to_string_lossy().into_owned())
 }
 
 /// 解析本地书籍的真实文件路径（[iOS 视角F C1] 加法式，不改 FFI 契约）。
@@ -72,62 +50,58 @@ pub fn resolve_local_book_path(book_url: &str) -> String {
     }
 }
 
-/// 初始化全局数据库连接池（由 `ffi::Bridge::db_open` 调用）
-///
-/// 从 `Database` 实例中提取连接池并存储到全局状态。
-/// 仅首次调用生效，后续调用记录警告并返回 Ok（避免冗余的 Database::open 开销）。
+/// 接收宿主已打开的数据库；首个成功实例生效，重复初始化不切换库。
+/// 路径从该数据库连接读取，与池同时发布；初始连接立即归还。
 pub fn init_database(db: Database) -> LegadoResult<()> {
-    // 已初始化时跳过，避免重复构建池的开销
-    if DB_POOL.get().is_some() {
-        eprintln!("[legado-ffi] 数据库已初始化，忽略重复调用");
-        return Ok(());
-    }
-    let pool = db.pool().clone();
-    DB_POOL.set(pool).ok(); // First-wins，上方已记录日志
+    crate::engine_holder::initialize(|| Ok(EngineContext::from_database(db)), || {})?;
     Ok(())
 }
 
-/// 检查全局数据库是否已初始化
 pub fn is_initialized() -> bool {
-    DB_POOL.get().is_some()
+    crate::engine_holder::is_initialized()
 }
 
-/// 从全局连接池构造 `Database`（复用主应用连接池，不新建第二连接池）
-///
-/// §二.8 双 DB 修复（P2）：Web 服务 / 独立 MCP 服务与主应用复用同一
-/// r2d2 全局池——单池、单文件身份，消除跨池写-写 BUSY 面与启动重跑
-/// 迁移（对齐原版 `WebService` 同进程直查 Room 单例的语义基线）。
-///
-/// 未初始化（未调用 `db_open`）时返回可读错误。
-/// 注意：返回的 `Database` 持有池中一条连接（生产文件池 max_size=16），
-/// 调用方需自行管理其生命周期。
-pub fn database_from_pool() -> LegadoResult<Database> {
-    let pool = DB_POOL
-        .get()
-        .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?;
-    Database::from_pool(pool)
-}
-
-/// 以不可变方式访问数据库，执行闭包
-///
-/// 每次调用从连接池获取独立连接，包装为 `Database`，支持多线程并发访问。
-/// 闭包结束后 `Database` 被 drop，连接自动归还到池中。
+/// 一次操作始终使用同一个引擎实例，不在闭包中重新查全局状态。
 pub fn with_database<F, R>(f: F) -> LegadoResult<R>
 where
     F: FnOnce(&Database) -> LegadoResult<R>,
 {
-    let db = database_from_pool()?;
-    f(&db)
+    crate::engine_holder::current()?.storage().with_database(f)
+}
+
+/// Windows 会复用进程号；独占创建新文件，不能打开上次测试留下的同名库。
+#[cfg(test)]
+fn fresh_test_database_path() -> std::path::PathBuf {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("测试环境时间早于纪元")
+        .as_nanos();
+    for sequence in 0..100 {
+        let path = std::env::temp_dir().join(format!(
+            "legado_ffi_shared_test_{}_{stamp}_{sequence}.db",
+            std::process::id()
+        ));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(_) => return path,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("无法创建独立测试库: {error}"),
+        }
+    }
+    panic!("测试库文件名持续冲突");
 }
 
 /// 测试专用：确保全局数据库已初始化，并获取测试串行锁守卫
 ///
 /// # 并行竞态修复（Task #98 缺口#8）
-/// 所有 DB 测试共享同一个内存数据库（`Once` 初始化的全局连接池）。
+/// 现有 DB 测试仍共享同一个文件数据库（`Once` 初始化的全局连接池）。
 /// 此前并行测试对共享库插入固定 ID/名称，互相碰撞（UNIQUE 冲突、
 /// 全局启用规则/阅读记录交叉污染）导致 flaky。
 ///
-/// 修复方式：保留共享内存库，改为返回测试互斥锁守卫。
+/// 修复方式：保留共享文件库，返回测试互斥锁守卫。
 /// 调用方必须将守卫绑定到局部变量（如 `let _db_guard = ensure_test_db();`），
 /// 守卫存活至测试结束才释放，从而让 DB 测试串行执行；
 /// 不涉及 DB 的测试不受影响，cargo test 并行模式依旧生效。
@@ -145,13 +119,9 @@ pub fn ensure_test_db() -> std::sync::MutexGuard<'static, ()> {
     /// 测试串行锁：所有共享内存库的 DB 测试须持锁执行
     static TEST_DB_LOCK: Mutex<()> = Mutex::new(());
     INIT.call_once(|| {
-        // 共享测试库使用**文件库**（临时目录、进程内唯一）而非 :memory:：
-        // §二.8 P2 单池化后，server 启动会长期持有共享池的一条连接，
-        // 而 :memory: 池容量固定为 1（每条连接是独立内存库，无法扩容共享），
-        // 会导致主侧 with_database 饿死（connection_timeout 10s 超时）。
-        // 文件池容量 16，主侧仍有余量。
-        let path =
-            std::env::temp_dir().join(format!("legado_ffi_shared_test_{}.db", std::process::id()));
+        // 现有 FFI 测试仍复用进程唯一文件池，以支持并行服务/同步回调。
+        // Server 已不长期借连接；按实例隔离这些旧测试在后续批次完成。
+        let path = fresh_test_database_path();
         let path_str = path.to_str().expect("测试 DB 路径含非 UTF-8 字符");
         let db = legado_db::init_database(path_str).expect("Failed to init test database");
         init_database(db).expect("Failed to set global database");
@@ -166,6 +136,18 @@ pub fn ensure_test_db() -> std::sync::MutexGuard<'static, ()> {
 #[cfg(test)]
 mod tests {
     use super::resolve_local_book_path;
+
+    #[test]
+    fn test_database_paths_are_exclusively_created_without_reusing_old_content() {
+        let first = super::fresh_test_database_path();
+        std::fs::write(&first, "旧测试内容").unwrap();
+        let second = super::fresh_test_database_path();
+        assert_ne!(first, second);
+        assert_eq!(std::fs::read_to_string(&first).unwrap(), "旧测试内容");
+        assert_eq!(std::fs::metadata(&second).unwrap().len(), 0);
+        std::fs::remove_file(&first).unwrap();
+        std::fs::remove_file(&second).unwrap();
+    }
 
     /// [iOS 视角F C1] 透传语义：Web URL 与绝对路径一律原样返回
     /// （两个分支都在读取全局 DB 路径之前返回，可并行安全）

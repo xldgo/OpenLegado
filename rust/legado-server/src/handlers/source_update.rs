@@ -163,7 +163,7 @@ pub async fn check_updates(State(state): State<Arc<AppState>>) -> Result<Json<Va
     let builder = legado_net::tls::client_builder()
         .timeout(std::time::Duration::from_secs(30))
         .tls_danger_accept_invalid_certs(true)
-        .dns_resolver(legado_net::custom_hosts::resolver());
+        .dns_resolver(state.engine.network().custom_hosts().resolver());
     let client = (if repos.iter().all(|r| is_loopback_repo_url(&r.url)) {
         builder.no_proxy()
     } else {
@@ -173,11 +173,9 @@ pub async fn check_updates(State(state): State<Arc<AppState>>) -> Result<Json<Va
     .map_err(|e| legado_core::LegadoError::Network(format!("创建 HTTP 客户端失败: {e}")))?;
 
     // 获取本地书源列表
-    let local_sources = {
-        let db = state.db.lock().await;
-        let repo = BookSourceRepository::new(db.connection());
-        repo.find_all()?
-    };
+    let local_sources = state
+        .with_database(|db| BookSourceRepository::new(db.connection()).find_all())
+        .await??;
 
     let mut results: Vec<UpdateCheckResult> = Vec::new();
 
@@ -206,7 +204,7 @@ pub async fn execute_update(
     let client = legado_net::tls::client_builder()
         .timeout(std::time::Duration::from_secs(60))
         .tls_danger_accept_invalid_certs(true)
-        .dns_resolver(legado_net::custom_hosts::resolver())
+        .dns_resolver(state.engine.network().custom_hosts().resolver())
         .build()
         .map_err(|e| legado_core::LegadoError::Network(format!("创建 HTTP 客户端失败: {e}")))?;
 
@@ -234,12 +232,14 @@ pub async fn execute_update(
         .map_err(|e| legado_core::LegadoError::Internal(format!("解析书源 JSON 失败: {e}")))?;
 
     // 获取本地书源 URL 集合
-    let local_urls: std::collections::HashSet<String> = {
-        let db = state.db.lock().await;
-        let repo = BookSourceRepository::new(db.connection());
-        let sources = repo.find_all()?;
-        sources.into_iter().map(|s| s.book_source_url).collect()
-    };
+    let local_urls: std::collections::HashSet<String> = state
+        .with_database(|db| {
+            let sources = BookSourceRepository::new(db.connection()).find_all()?;
+            Ok::<_, legado_core::LegadoError>(
+                sources.into_iter().map(|s| s.book_source_url).collect(),
+            )
+        })
+        .await??;
 
     let mut updated = 0usize;
     let mut added = 0usize;
@@ -275,8 +275,13 @@ pub async fn execute_update(
         let import_json = serde_json::to_string(&sources_to_import)
             .map_err(|e| legado_core::LegadoError::Internal(format!("序列化书源失败: {e}")))?;
 
-        let db = state.db.lock().await;
-        match RoomImporter::import_book_sources(db.connection(), &import_json) {
+        let imported = state
+            .with_database(move |db| {
+                RoomImporter::import_book_sources(db.connection(), &import_json)
+            })
+            .await
+            .and_then(|result| result);
+        match imported {
             Ok(count) => {
                 // 整批写库成功后按本次实际导入书源（含 concurrentRate）刷新
                 // server registry；写库失败不刷新（避免未落库配置提前生效）
@@ -289,7 +294,7 @@ pub async fn execute_update(
                         .get("concurrentRate")
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
-                    crate::handlers::web_book::refresh_source_rate_limit(url, rate);
+                    state.engine.rate_limiter().refresh(url, rate);
                 }
                 // 区分新增和更新
                 for item in &sources_to_import {
@@ -459,23 +464,18 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::routes::create_router;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]
     async fn test_list_repos() {
         let state = make_test_state();
-        let app = create_router(state);
+        let app = create_router(state.clone());
 
         let resp = app
             .oneshot(
@@ -559,7 +559,7 @@ mod tests {
         // 本地库播种：Mock A lastUpdateTime=1000 < 远程 2000 → 应判定需更新；
         // Mock New1 / Mock New2 本地不存在 → 应计为新增
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             RoomImporter::import_book_sources(
                 db.connection(),
                 r#"[{"bookSourceUrl":"https://mock-a.example/","bookSourceName":"Mock A","lastUpdateTime":1000}]"#,
@@ -596,7 +596,7 @@ mod tests {
             },
         ]);
 
-        let app = create_router(state);
+        let app = create_router(state.clone());
         let resp = app
             .oneshot(
                 Request::builder()
@@ -658,7 +658,7 @@ mod tests {
     #[tokio::test]
     async fn test_execute_update_invalid_url() {
         let state = make_test_state();
-        let app = create_router(state);
+        let app = create_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "repo_url": "http://invalid.localhost.test/nonexistent.json",
@@ -696,7 +696,7 @@ mod tests {
 
         // 本地已有旧率书源，并让 server registry 对其建立 limiter（窗口已用 1 次）
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             RoomImporter::import_book_sources(
                 db.connection(),
                 &json!([{
@@ -713,9 +713,7 @@ mod tests {
             concurrent_rate: Some("1/10000".to_string()),
             ..BookSource::default()
         };
-        crate::handlers::web_book::rate_limiter()
-            .acquire(&stale)
-            .await;
+        state.engine.rate_limiter().acquire(&stale).await;
 
         // 回环仓库返回同 URL 新率 3/10000（只更新已有书源）
         let remote = json!([{
@@ -727,7 +725,7 @@ mod tests {
         .to_string();
         let addr = spawn_source_repo_mock(4, vec![("/repo.json".to_string(), remote)]);
 
-        let app = create_router(state);
+        let app = create_router(state.clone());
         let body = serde_json::to_string(&json!({
             "repo_url": format!("http://{addr}/repo.json"),
             "only_update_existing": false
@@ -749,7 +747,7 @@ mod tests {
         // 刷新后：旧快照 acquire 立即放行
         let passed = tokio::time::timeout(
             Duration::from_millis(300),
-            crate::handlers::web_book::rate_limiter().acquire(&stale),
+            state.engine.rate_limiter().acquire(&stale),
         )
         .await;
         assert!(

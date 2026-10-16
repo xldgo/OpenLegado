@@ -39,31 +39,34 @@ pub async fn search_books(
     State(state): State<Arc<AppState>>,
     Json(req): Json<SearchRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = legado_db::repository::book_repository::BookRepository::new(db.connection());
-    let all_books = repo.find_all()?;
+    state
+        .with_database(move |db| {
+            let repo = legado_db::repository::book_repository::BookRepository::new(db.connection());
+            let all_books = repo.find_all()?;
 
-    // 匹配语义委托共享服务（P2-2，与 MCP search_books 同一实现）；
-    // 响应组装保持本入口原有字段与包装不变。
-    let matched = legado_core::shelf_search::match_shelf_books(&all_books, &req.keyword);
-    let results: Vec<Value> = matched
-        .iter()
-        .map(|book| {
-            json!({
-                "book_url": book.book_url,
-                "name": book.name,
-                "author": book.author,
-                "intro": book.intro,
-                "cover_url": book.cover_url,
-            })
+            // 匹配语义委托共享服务（P2-2，与 MCP search_books 同一实现）；
+            // 响应组装保持本入口原有字段与包装不变。
+            let matched = legado_core::shelf_search::match_shelf_books(&all_books, &req.keyword);
+            let results: Vec<Value> = matched
+                .iter()
+                .map(|book| {
+                    json!({
+                        "book_url": book.book_url,
+                        "name": book.name,
+                        "author": book.author,
+                        "intro": book.intro,
+                        "cover_url": book.cover_url,
+                    })
+                })
+                .collect();
+
+            Ok(Json(json!({
+                "results": results,
+                "total": results.len(),
+                "keyword": req.keyword,
+            })))
         })
-        .collect();
-
-    Ok(Json(json!({
-        "results": results,
-        "total": results.len(),
-        "keyword": req.keyword,
-    })))
+        .await?
 }
 
 /// POST /api/search/cancel — 取消正在进行的搜索
@@ -78,8 +81,6 @@ mod tests {
     use axum::body::Body;
     use axum::http::StatusCode;
     use axum::http::{Method, Request};
-    use std::sync::atomic::AtomicBool;
-    use tokio::sync::Mutex;
     use tower::ServiceExt;
 
     use crate::routes::create_router;
@@ -90,13 +91,9 @@ mod tests {
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]
@@ -105,7 +102,7 @@ mod tests {
 
         // 插入测试数据
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = BookRepository::new(db.connection());
             repo.insert(&Book {
                 book_url: "u1".to_string(),

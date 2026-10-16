@@ -19,13 +19,16 @@ pub async fn get_chapters(
     State(state): State<Arc<AppState>>,
     Path(book_url): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = BookChapterRepository::new(db.connection());
-    let chapters = repo.find_by_book_url(&book_url)?;
-    Ok(Json(json!({
-        "chapters": chapters,
-        "total": chapters.len(),
-    })))
+    state
+        .with_database(move |db| {
+            let repo = BookChapterRepository::new(db.connection());
+            let chapters = repo.find_by_book_url(&book_url)?;
+            Ok(Json(json!({
+                "chapters": chapters,
+                "total": chapters.len(),
+            })))
+        })
+        .await?
 }
 
 /// GET /api/books/:id/chapters/:index/content — 获取指定章节内容
@@ -41,56 +44,63 @@ pub async fn get_chapter_content(
     Path((book_url, index)): Path<(String, i32)>,
 ) -> Result<Json<Value>, ApiError> {
     // 1. DB 查询（章节 → 书籍 → 书源），查完即释放锁，避免持锁发起网络抓取
-    let (chapter, source) = {
-        let db = state.db.lock().await;
+    let prepared = {
+        let book_url = book_url.clone();
+        state
+            .with_database(move |db| {
+                let ch_repo = BookChapterRepository::new(db.connection());
+                let chapter = match ch_repo.find_by_book_url_and_index(&book_url, index)? {
+                    Some(c) => c,
+                    None => {
+                        return Ok(std::ops::ControlFlow::Break(Json(json!({
+                            "error": "chapter not found",
+                            "book_url": book_url,
+                            "index": index,
+                        }))));
+                    }
+                };
 
-        let ch_repo = BookChapterRepository::new(db.connection());
-        let chapter = match ch_repo.find_by_book_url_and_index(&book_url, index)? {
-            Some(c) => c,
-            None => {
-                return Ok(Json(json!({
-                    "error": "chapter not found",
-                    "book_url": book_url,
-                    "index": index,
-                })));
-            }
-        };
+                let book_repo = BookRepository::new(db.connection());
+                let book = match book_repo.find_by_url(&book_url)? {
+                    Some(b) => b,
+                    None => {
+                        return Ok(std::ops::ControlFlow::Break(Json(json!({
+                            "error": "book not found",
+                            "book_url": book_url,
+                        }))));
+                    }
+                };
 
-        let book_repo = BookRepository::new(db.connection());
-        let book = match book_repo.find_by_url(&book_url)? {
-            Some(b) => b,
-            None => {
-                return Ok(Json(json!({
-                    "error": "book not found",
-                    "book_url": book_url,
-                })));
-            }
-        };
+                // 本地书（origin 为空或 loc_book）无网络书源可抓
+                if book.origin.is_empty() || book.origin == book_type::LOCAL_TAG {
+                    return Ok(std::ops::ControlFlow::Break(Json(json!({
+                        "error": "book has no associated web source",
+                        "book_url": book_url,
+                        "origin": book.origin,
+                    }))));
+                }
 
-        // 本地书（origin 为空或 loc_book）无网络书源可抓
-        if book.origin.is_empty() || book.origin == book_type::LOCAL_TAG {
-            return Ok(Json(json!({
-                "error": "book has no associated web source",
-                "book_url": book_url,
-                "origin": book.origin,
-            })));
-        }
-
-        let src_repo = BookSourceRepository::new(db.connection());
-        match src_repo.find_by_url(&book.origin)? {
-            Some(s) => (chapter, s),
-            None => {
-                return Ok(Json(json!({
-                    "error": "book source not found",
-                    "book_url": book_url,
-                    "origin": book.origin,
-                })));
-            }
-        }
+                let src_repo = BookSourceRepository::new(db.connection());
+                match src_repo.find_by_url(&book.origin)? {
+                    Some(s) => Ok::<_, ApiError>(std::ops::ControlFlow::Continue((chapter, s))),
+                    None => Ok(std::ops::ControlFlow::Break(Json(json!({
+                        "error": "book source not found",
+                        "book_url": book_url,
+                        "origin": book.origin,
+                    })))),
+                }
+            })
+            .await??
+    };
+    let (chapter, source) = match prepared {
+        std::ops::ControlFlow::Break(response) => return Ok(response),
+        std::ops::ControlFlow::Continue(value) => value,
     };
 
     // 2. 复用 web_book 同款正文抓取链路（含分页；[P5 尾项] 注入面含 AppState DB 闭包）
-    let engine = crate::handlers::web_book::build_engine(&state).map_err(ApiError::from)?;
+    let engine = crate::handlers::web_book::build_engine(&state)
+        .await
+        .map_err(ApiError::from)?;
     let web_chapter = WebChapter::new(chapter.index, chapter.title.clone(), chapter.url.clone());
     let content = engine
         .get_content(&source, &web_chapter)
@@ -119,21 +129,16 @@ mod tests {
     use legado_db::repository::Repository;
     use legado_db::repository::book_chapter_repository::BookChapterRepository;
     use legado_db::repository::book_repository::BookRepository;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     async fn seed_data(state: &Arc<AppState>) {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let book_repo = BookRepository::new(db.connection());
         let book = Book {
             book_url: "book1".to_string(),
@@ -167,7 +172,7 @@ mod tests {
     /// Task #135：插入带书源的在线书（origin 指向已入库书源），章节 URL
     /// 指向不可达地址以便离线验证抓取失败路径（连接拒绝，不依赖外部网络）
     async fn seed_online_book(state: &Arc<AppState>) {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
 
         let src_repo = BookSourceRepository::new(db.connection());
         src_repo
@@ -266,7 +271,7 @@ mod tests {
         // Task #135：书籍 origin 指向未入库书源 → 200 + "book source not found"
         let state = make_test_state();
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let book_repo = BookRepository::new(db.connection());
             book_repo
                 .insert(&Book {

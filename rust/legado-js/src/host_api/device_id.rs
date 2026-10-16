@@ -1,32 +1,33 @@
-//! 全局设备 ID（Android ID）注入
-//!
-//! 对齐 Kotlin AppConst.androidId（Settings.Secure.ANDROID_ID）：书山聚合等
-//! 源登录时登记该设备、正文请求需携带匹配的 X-Device-Id 才返回明文。
-//! Flutter 侧经 FFI 读取真实设备 ID 后调用 set_device_id 注入（进程级）。
-
-use std::sync::{OnceLock, RwLock};
-
-fn device_id_store() -> &'static RwLock<Option<String>> {
-    static STORE: OnceLock<RwLock<Option<String>>> = OnceLock::new();
-    STORE.get_or_init(|| RwLock::new(None))
+//! 设备身份归属宿主数据能力，不使用进程级可替换槽。
+use std::sync::RwLock;
+#[derive(Default)]
+pub struct DeviceIdentity {
+    value: RwLock<Option<String>>,
 }
-
-/// 注入真实设备 ID（Flutter 启动时经 FFI 调用）
-pub fn set_device_id(id: &str) {
-    let id = id.trim().to_string();
-    if !id.is_empty() && id != "null" {
-        *device_id_store().write().unwrap_or_else(|p| p.into_inner()) = Some(id);
+impl DeviceIdentity {
+    pub fn set_device_id(&self, id: &str) {
+        let id = id.trim();
+        if !id.is_empty() && id != "null" {
+            *self.value.write().unwrap_or_else(|p| p.into_inner()) = Some(id.into());
+        }
+    }
+    pub fn device_id(&self) -> Option<String> {
+        self.value.read().unwrap_or_else(|p| p.into_inner()).clone()
     }
 }
-
-/// 读取设备 ID（无注入时返回空）
-pub fn device_id() -> Option<String> {
-    device_id_store()
-        .read()
-        .unwrap_or_else(|p| p.into_inner())
-        .clone()
+#[cfg(test)]
+fn test_identity() -> &'static DeviceIdentity {
+    static IDENTITY: std::sync::OnceLock<DeviceIdentity> = std::sync::OnceLock::new();
+    IDENTITY.get_or_init(Default::default)
 }
-
+#[cfg(test)]
+fn set_device_id(id: &str) {
+    test_identity().set_device_id(id);
+}
+#[cfg(test)]
+fn device_id() -> Option<String> {
+    test_identity().device_id()
+}
 #[cfg(test)]
 mod tests {
     use super::*;

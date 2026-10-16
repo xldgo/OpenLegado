@@ -17,6 +17,7 @@ pub mod cache_api;
 pub mod cache_download_api;
 /// [cbz 批 B | 2026-10-03] CBZ 本地漫画页读取（E9 参考版扩展，用户已授权）
 pub mod cbz_api;
+pub(crate) mod chapter_content;
 pub mod config_api;
 pub mod cover_api;
 pub mod dict_api;
@@ -33,6 +34,7 @@ pub mod log_api;
 pub mod net_api;
 pub mod pay_action_api;
 pub mod pre_update;
+pub mod privacy_api;
 pub mod read_aloud_voice_api;
 pub mod read_record_api;
 pub mod reader;
@@ -56,7 +58,6 @@ pub mod source_login_v2_api;
 pub mod source_rate_limit;
 pub mod source_switch;
 pub mod tts_cache_api;
-pub mod privacy_api;
 pub mod tts_speak_api;
 pub mod txt_search_api;
 pub mod verification_api;
@@ -75,3 +76,6 @@ mod s0_fixture_tests;
 mod toc_no_rederive_tests;
 
 pub mod cloud_tts_api;
+
+#[cfg(test)]
+mod source_task_fixture;

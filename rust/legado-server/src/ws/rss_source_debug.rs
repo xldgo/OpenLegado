@@ -69,9 +69,18 @@ impl RssSourceDebugMessage {
 /// 客户端发送 RSS 源信息，服务端流式返回调试日志。
 pub async fn ws_rss_source_debug(
     ws: WebSocketUpgrade,
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(handle_rss_source_debug)
+    ws.on_upgrade(move |socket| async move {
+        let Ok(task) = state.task() else {
+            return;
+        };
+        tokio::select! {
+            biased;
+            _ = task.cancelled() => {},
+            _ = handle_rss_source_debug(socket) => {},
+        }
+    })
 }
 
 async fn handle_rss_source_debug(mut socket: WebSocket) {

@@ -9,10 +9,9 @@
 //!   legado-server `/sources/check-batch` 的语义）
 //!
 //! 与 server 端点的差异：批量校验采用串行执行（对齐 Kotlin 原版），
-//! 避免对书源站产生并发压力；支持全局取消（对齐 Kotlin `CheckSource.stop`）。
+//! 避免对书源站产生并发压力；支持宿主内取消（对齐 Kotlin `CheckSource.stop`）。
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -21,10 +20,8 @@ use legado_core::{LegadoError, LegadoResult};
 use legado_db::BookSourceRepository;
 use legado_net::source_checker::{CheckResult, CheckerConfig, SourceChecker};
 
-use crate::db_state::with_database;
-
-/// 批量校验全局取消标志（对齐搜索链路 `SEARCH_CANCELLED` 模式）
-static CHECK_CANCELLED: AtomicBool = AtomicBool::new(false);
+use legado_db::repository::Repository;
+use legado_engine::{NetworkContext, Operation, StorageContext};
 
 // ─── 配置 DTO ─────────────────────────────────────────────────────────────────
 
@@ -66,12 +63,12 @@ fn parse_config(config_json: &str) -> LegadoResult<CheckerConfig> {
     })
 }
 
-/// 创建共享 HTTP 客户端上的书源检查器
-fn create_checker(config: CheckerConfig) -> LegadoResult<SourceChecker> {
-    // shared_client 内部为 Arc 全共享结构，clone 廉价；
-    // 校验链路复用全局连接池与 Cookie 存储（对齐搜索/取章链路）
-    let client = Arc::new(crate::http_state::shared_client()?);
-    Ok(SourceChecker::with_config(client, config))
+/// 客户端与取消作用域在入口固定，不从异步回调重新发现宿主。
+fn create_checker(network: &NetworkContext, config: CheckerConfig) -> LegadoResult<SourceChecker> {
+    Ok(SourceChecker::with_config(
+        Arc::new(network.client()?),
+        config,
+    ))
 }
 
 // ─── 单本校验 ─────────────────────────────────────────────────────────────────
@@ -86,10 +83,19 @@ pub fn check_source(source_json: &str, config_json: &str) -> LegadoResult<CheckR
     let source: BookSource = serde_json::from_str(source_json)
         .map_err(|e| LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
     let config = parse_config(config_json)?;
-    let checker = create_checker(config)?;
-    Ok(crate::runtime::block_on(async move {
-        checker.check_full(&source).await
-    }))
+    let task = crate::engine_holder::task_group()
+        .begin()
+        .map_err(|e| LegadoError::Ffi(format!("书源校验任务不可用: {e}")))?;
+    let checker = create_checker(&crate::engine_holder::network(), config)?;
+    crate::runtime::block_on(async move {
+        let result = tokio::select! {
+            biased;
+            _ = task.cancelled() => return Err(LegadoError::Ffi("书源校验已取消".into())),
+            result = checker.check_full(&source) => result,
+        };
+        task.with_active(|| result)
+            .ok_or_else(|| LegadoError::Ffi("书源校验已取消".into()))
+    })
 }
 
 // ─── 批量流式校验 ─────────────────────────────────────────────────────────────
@@ -136,31 +142,39 @@ pub async fn run_check_sources_stream<F>(
     F: FnMut(String) -> Result<(), String>,
 {
     // 书源加载失败时以空流结束（Dart 侧表现为无结果）
-    let sources = load_check_sources(&source_urls_json).unwrap_or_default();
-    run_check_sources_stream_inner(sources, &config_json, &mut on_result).await;
+    let slot = crate::engine_holder::source_checks();
+    let Ok(operation) = slot.start() else {
+        return;
+    };
+    let _guard = operation.guard();
+    let storage = crate::engine_holder::current()
+        .ok()
+        .map(|engine| engine.storage().clone());
+    let network = crate::engine_holder::network();
+    let sources = load_check_sources(storage.as_ref(), &source_urls_json).unwrap_or_default();
+    run_checks(sources, &config_json, &operation, &network, &mut on_result).await;
 }
 
 /// 批量校验内层实现（直接接收书源列表，便于测试注入）
 ///
 /// 串行逐个校验并回推 [`CheckProgress`] JSON；`on_result` 返回 `Err`
 /// 或取消标志置位时提前终止。
-async fn run_check_sources_stream_inner<F>(
+async fn run_checks<F>(
     sources: Vec<Option<BookSource>>,
     config_json: &str,
+    operation: &Arc<Operation>,
+    network: &NetworkContext,
     mut on_result: F,
 ) where
     F: FnMut(String) -> Result<(), String>,
 {
-    // 新一轮校验重置取消标志
-    CHECK_CANCELLED.store(false, Ordering::SeqCst);
-
     let total = sources.len();
     if total == 0 {
         return;
     }
 
     let config = parse_config(config_json).unwrap_or_default();
-    let checker = match create_checker(config) {
+    let checker = match create_checker(network, config) {
         Ok(c) => c,
         Err(e) => {
             log::error!("书源校验：共享 HTTP 客户端初始化失败: {e}");
@@ -170,12 +184,16 @@ async fn run_check_sources_stream_inner<F>(
 
     // 串行逐个校验（对齐 Kotlin CheckSourceService，避免对书源站并发压力）
     for (index, source) in sources.into_iter().enumerate() {
-        if CHECK_CANCELLED.load(Ordering::SeqCst) {
+        if !operation.is_active() {
             break;
         }
 
         let result = match source {
-            Some(ref src) => checker.check_full(src).await,
+            Some(ref src) => tokio::select! {
+                biased;
+                _ = operation.task().cancelled() => break,
+                result = checker.check_full(src) => result,
+            },
             // 书源不存在：对齐 Kotlin source == null 分支，推送失败结果
             None => CheckResult {
                 source_url: String::new(),
@@ -204,8 +222,13 @@ async fn run_check_sources_stream_inner<F>(
 
         if let Ok(json) = serde_json::to_string(&progress) {
             // sink 关闭（Err）时提前终止
-            if on_result(json).is_err() {
-                break;
+            match operation.publish(|| on_result(json)) {
+                Some(Ok(())) => {}
+                Some(Err(_)) => {
+                    operation.cancel();
+                    break;
+                }
+                None => break,
             }
         }
     }
@@ -213,7 +236,7 @@ async fn run_check_sources_stream_inner<F>(
 
 /// 取消正在进行的批量校验（对齐 Kotlin `CheckSource.stop`）
 pub fn cancel_check_sources() {
-    CHECK_CANCELLED.store(true, Ordering::SeqCst);
+    crate::engine_holder::source_checks().cancel();
 }
 
 // ─── 内部实现 ─────────────────────────────────────────────────────────────────
@@ -224,29 +247,48 @@ pub fn cancel_check_sources() {
 /// （对齐 Kotlin `CheckSourceService` 直接按 URL 取完整书源）。
 /// 空串/空数组表示校验全部书源；列表中不存在的 URL 以 `None` 占位，
 /// 保持推送顺序与请求列表一致。
-fn load_check_sources(source_urls_json: &str) -> LegadoResult<Vec<Option<BookSource>>> {
-    if source_urls_json.trim().is_empty() {
-        return all_sources_as_options();
-    }
-    let urls: Vec<String> = serde_json::from_str(source_urls_json)
-        .map_err(|e| LegadoError::Ffi(format!("书源 URL 列表解析失败: {e}")))?;
-    if urls.is_empty() {
-        return all_sources_as_options();
-    }
-    with_database(|db| {
+fn load_check_sources(
+    storage: Option<&StorageContext>,
+    source_urls_json: &str,
+) -> LegadoResult<Vec<Option<BookSource>>> {
+    let urls: Vec<String> = if source_urls_json.trim().is_empty() {
+        Vec::new()
+    } else {
+        serde_json::from_str(source_urls_json)
+            .map_err(|e| LegadoError::Ffi(format!("书源 URL 列表解析失败: {e}")))?
+    };
+    let storage = storage
+        .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?;
+    storage.with_database(|db| {
         let repo = BookSourceRepository::new(db.connection());
-        let mut sources = Vec::with_capacity(urls.len());
-        for url in &urls {
-            sources.push(repo.find_by_url(url)?);
+        if urls.is_empty() {
+            return Ok(repo.find_all()?.into_iter().map(Some).collect());
         }
-        Ok(sources)
+        urls.iter().map(|url| repo.find_by_url(url)).collect()
     })
 }
 
-/// 全部书源以 `Some` 包装返回（空列表语义：校验全部）
-fn all_sources_as_options() -> LegadoResult<Vec<Option<BookSource>>> {
-    let all = crate::api::source::list_sources()?;
-    Ok(all.into_iter().map(Some).collect())
+#[cfg(test)]
+async fn run_check_sources_stream_inner<F>(
+    sources: Vec<Option<BookSource>>,
+    config: &str,
+    on_result: F,
+) where
+    F: FnMut(String) -> Result<(), String>,
+{
+    let slot = Arc::new(legado_engine::OperationSlot::new(
+        legado_engine::TaskGroup::default(),
+    ));
+    let operation = slot.start().unwrap();
+    let _guard = operation.guard();
+    run_checks(
+        sources,
+        config,
+        &operation,
+        &NetworkContext::default(),
+        on_result,
+    )
+    .await;
 }
 
 // ─── 测试 ─────────────────────────────────────────────────────────────────────
@@ -255,13 +297,7 @@ fn all_sources_as_options() -> LegadoResult<Vec<Option<BookSource>>> {
 mod tests {
     use super::*;
 
-    /// 流式测试共享全局取消标志 `CHECK_CANCELLED`，并行执行会互相
-    /// 置位/重置导致不稳定，故串行化所有流式测试。
-    /// 使用 tokio 异步锁：其守卫为 Send，可跨 `.await` 全程持有。
-    async fn lock_stream_tests() -> tokio::sync::MutexGuard<'static, ()> {
-        static STREAM_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-        STREAM_TEST_LOCK.lock().await
-    }
+    use std::sync::atomic::Ordering;
 
     /// 构造无 searchUrl 的书源（校验走纯错误路径，无需网络）
     fn make_source_no_search(url: &str, name: &str) -> BookSource {
@@ -343,7 +379,6 @@ mod tests {
     /// 串行推送：顺序、进度字段与 is_last 标记
     #[tokio::test]
     async fn test_check_sources_stream_order_and_progress() {
-        let _guard = lock_stream_tests().await;
         let sources = vec![
             Some(make_source_no_search("https://a.example.com", "源A")),
             Some(make_source_no_search("https://b.example.com", "源B")),
@@ -377,7 +412,6 @@ mod tests {
     /// 不存在的书源（None 占位）推送失败结果而非跳过，保持序号连续
     #[tokio::test]
     async fn test_check_sources_stream_missing_source() {
-        let _guard = lock_stream_tests().await;
         let sources = vec![
             Some(make_source_no_search("https://a.example.com", "源A")),
             None,
@@ -403,7 +437,6 @@ mod tests {
     /// sink 关闭（回调返回 Err）时应提前终止
     #[tokio::test]
     async fn test_check_sources_stream_sink_closed() {
-        let _guard = lock_stream_tests().await;
         let sources = vec![
             Some(make_source_no_search("https://a.example.com", "源A")),
             Some(make_source_no_search("https://b.example.com", "源B")),
@@ -425,7 +458,6 @@ mod tests {
     /// 空列表：不推送任何进度
     #[tokio::test]
     async fn test_check_sources_stream_empty() {
-        let _guard = lock_stream_tests().await;
         let count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count_cb = count.clone();
         run_check_sources_stream_inner(Vec::new(), "", move |_json| {
@@ -436,10 +468,9 @@ mod tests {
         assert_eq!(count.load(Ordering::SeqCst), 0);
     }
 
-    /// 取消标志：校验过程中置位后不再推送后续结果
+    /// 回调明确取消此流后不再推送后续结果
     #[tokio::test]
     async fn test_check_sources_stream_cancel() {
-        let _guard = lock_stream_tests().await;
         let sources = vec![
             Some(make_source_no_search("https://a.example.com", "源A")),
             Some(make_source_no_search("https://b.example.com", "源B")),
@@ -449,11 +480,10 @@ mod tests {
         let collected = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let collected_cb = collected.clone();
 
-        // 第一条回调中触发取消，后续书源不应再推送
+        // 回调以错误结束此流，取消在发布门控外处理。
         run_check_sources_stream_inner(sources, "", move |json| {
             collected_cb.lock().unwrap().push(json);
-            cancel_check_sources();
-            Ok(())
+            Err("收到首条后取消此流".into())
         })
         .await;
 
@@ -463,7 +493,7 @@ mod tests {
     /// URL 列表解析失败应报错
     #[test]
     fn test_load_check_sources_invalid_json() {
-        assert!(load_check_sources("{bad").is_err());
+        assert!(load_check_sources(None, "{bad").is_err());
     }
 
     /// CheckProgress 序列化字段契约（snake_case）
@@ -500,6 +530,122 @@ mod tests {
             "\"total_time_ms\"",
         ] {
             assert!(json.contains(field), "缺少字段 {field}: {json}");
+        }
+    }
+    #[tokio::test]
+    async fn cancelled_real_check_cannot_resume_when_a_replacement_starts() {
+        use super::super::source_task_fixture::Fixture;
+        use legado_engine::{EngineContext, OperationSlot};
+        use std::time::Duration;
+        let mut fixture = Fixture::new(1, true, |_| "<a href='/book'>测试书</a>".into());
+        let engine = EngineContext::in_memory().unwrap();
+        let slot = Arc::new(OperationSlot::new(engine.tasks().clone()));
+        let old = slot.start().unwrap();
+        let _guard = old.guard();
+        let mut source = make_source_no_search(&fixture.url, "旧源");
+        source.search_url = Some(format!("{}/search", fixture.url));
+        let mut messages = Vec::new();
+        let mut future = Box::pin(run_checks(
+            vec![Some(source)],
+            "",
+            &old,
+            engine.network(),
+            |json| {
+                messages.push(json);
+                Ok(())
+            },
+        ));
+        tokio::select! { _ = fixture.request() => {}, _ = &mut future => panic!("请求应处于等待中") }
+        slot.cancel();
+        let new = slot.start().unwrap();
+        tokio::time::timeout(Duration::from_secs(2), future)
+            .await
+            .unwrap();
+        old.finish();
+        assert!(messages.is_empty());
+        assert!(new.is_active());
+        let mut fresh = Vec::new();
+        run_checks(vec![None], "", &new, engine.network(), |json| {
+            fresh.push(json);
+            Ok(())
+        })
+        .await;
+        assert_eq!(fresh.len(), 1);
+        fixture.release.send(()).unwrap();
+        fixture.worker.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn independent_real_checks_use_their_own_cookie_and_cancellation_scope() {
+        use super::super::source_task_fixture::Fixture;
+        use legado_engine::{EngineContext, OperationSlot};
+        let mut fixture = Fixture::new(2, false, |_| "<a href='/book'>测试书</a>".into());
+        let first = EngineContext::in_memory().unwrap();
+        let second = EngineContext::in_memory().unwrap();
+        let mut results = Vec::new();
+        for (engine, identity) in [(&first, "first"), (&second, "second")] {
+            engine
+                .network()
+                .set_cookie("127.0.0.1", &format!("identity={identity}"))
+                .unwrap();
+            let slot = Arc::new(OperationSlot::new(engine.tasks().clone()));
+            let operation = slot.start().unwrap();
+            let _guard = operation.guard();
+            let mut source = make_source_no_search(&fixture.url, identity);
+            source.search_url = Some(format!("{}/search", fixture.url));
+            run_checks(
+                vec![Some(source)],
+                r#"{"check_toc":false,"check_content":false}"#,
+                &operation,
+                engine.network(),
+                |json| {
+                    results.push(json);
+                    Ok(())
+                },
+            )
+            .await;
+            assert!(
+                fixture
+                    .request()
+                    .await
+                    .contains(&format!("identity={identity}"))
+            );
+        }
+        for json in results {
+            assert!(
+                serde_json::from_str::<CheckProgress>(&json)
+                    .unwrap()
+                    .result
+                    .all_ok()
+            );
+        }
+        fixture.worker.join().unwrap();
+    }
+
+    #[test]
+    fn check_source_loading_uses_only_the_captured_storage_and_keeps_missing_entries() {
+        use legado_engine::EngineContext;
+        for name in ["甲库", "乙库"] {
+            let engine = EngineContext::in_memory().unwrap();
+            let mut source = make_source_no_search("https://same-source.test", name);
+            source.enabled = false;
+            engine
+                .storage()
+                .with_database(|db| BookSourceRepository::new(db.connection()).insert(&source))
+                .unwrap();
+            let loaded = load_check_sources(
+                Some(engine.storage()),
+                r#"["https://same-source.test","missing"]"#,
+            )
+            .unwrap();
+            assert_eq!(loaded[0].as_ref().unwrap().book_source_name, name);
+            assert!(loaded[1].is_none());
+            assert_eq!(
+                load_check_sources(Some(engine.storage()), "[]")
+                    .unwrap()
+                    .len(),
+                1
+            );
         }
     }
 }

@@ -67,3 +67,7 @@ pub use ssl_config::SslConfig;
 pub use url_template::{ParsedUrl, UrlOption, parse_url_template};
 pub use user_agent::{UserAgentMiddleware, UserAgentRotator};
 pub use verification::{VerificationFlightRegistry, VerificationResult};
+
+// 请求级 Cookie 写入门控与共享 reqwest 适配。
+pub mod cookie_writes;
+mod response_cookies;

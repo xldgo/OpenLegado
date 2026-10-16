@@ -24,7 +24,6 @@ pub mod encoding;
 pub mod env;
 pub mod file_utils;
 pub mod font_api;
-pub mod global_headers;
 pub mod html_format;
 #[cfg(feature = "quickjs")]
 pub mod html_parse;
@@ -44,6 +43,7 @@ pub mod platform;
 pub mod pre_update_hooks;
 pub mod query_ttf;
 pub mod regex_utils;
+pub(crate) mod resource_files;
 #[cfg(feature = "quickjs")]
 pub mod runtime_bridge;
 pub mod source_callback;
@@ -52,7 +52,8 @@ pub mod string_utils;
 pub mod symmetric_crypto;
 pub mod time_utils;
 pub mod ui_action_queue;
-pub mod variable_store;
+#[cfg(feature = "quickjs")]
+pub(crate) mod variable_bindings;
 
 #[cfg(feature = "quickjs")]
 pub mod quickjs_impl;

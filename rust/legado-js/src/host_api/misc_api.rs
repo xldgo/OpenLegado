@@ -3,41 +3,6 @@
 //! 对应 Kotlin 端 `JsExtensions` 中的 connect / getSource / getTag / ajaxTestAll /
 //! toUrl / toast / logType 等方法。
 
-/// connect - HTTP GET with headers，返回响应体
-///
-/// 对应 Kotlin: `connect(urlStr, header)` -> StrResponse
-/// 简化实现：使用 legado-net 执行 GET 请求。
-#[cfg(feature = "quickjs")]
-pub fn connect(url: &str, header: &str) -> String {
-    use crate::host_api::runtime_bridge::block_on;
-    use std::collections::HashMap;
-
-    let headers: Option<HashMap<String, String>> = if header.is_empty() {
-        None
-    } else {
-        serde_json::from_str(header).ok()
-    };
-
-    block_on(async {
-        // 进程级共享池（2026-09-24 性能专项：不再每调用新建客户端/连接池；
-        // 回环 URL 经 no_proxy 直连池，真实主机走默认池，语义不变）
-        let client = match crate::host_api::network::shared_client_for_url(url) {
-            Ok(c) => c,
-            Err(e) => return format!("[ERROR] {}", e),
-        };
-        match client.get(url, headers).await {
-            Ok(resp) => resp.body,
-            Err(e) => format!("[ERROR] {}", e),
-        }
-    })
-}
-
-/// connect 的非 quickjs fallback
-#[cfg(not(feature = "quickjs"))]
-pub fn connect(_url: &str, _header: &str) -> String {
-    "[ERROR] connect requires quickjs feature".to_string()
-}
-
 /// getSource - 从 DB 获取书源 JSON
 ///
 /// 对应 Kotlin: `getSource()` -> BaseSource?
@@ -72,7 +37,7 @@ pub fn get_tag(tag_name: &str) -> String {
 /// 对应 Kotlin: `ajaxTestAll(urlList, timeout)` -> Array<StrResponse>
 /// 简化实现：对每个 URL 执行 GET 请求，返回 JSON 数组结果
 #[cfg(feature = "quickjs")]
-pub fn ajax_test_all(urls: &str) -> String {
+pub fn ajax_test_all(http: &crate::http_resources::HttpResources, urls: &str) -> String {
     use crate::host_api::runtime_bridge::block_on;
 
     let url_list: Vec<String> = serde_json::from_str(urls).unwrap_or_else(|_| {
@@ -86,8 +51,8 @@ pub fn ajax_test_all(urls: &str) -> String {
         let mut results = Vec::new();
 
         for url in &url_list {
-            // 进程级共享池（2026-09-24 性能专项：不再每调用新建客户端/连接池）
-            let Ok(client) = crate::host_api::network::shared_client_for_url(url) else {
+            // 使用本资源连接池，不读取进程级网络注册槽。
+            let Ok(client) = http.client_for_url(url, false) else {
                 results.push(serde_json::json!({
                     "url": url,
                     "statusCode": 0,

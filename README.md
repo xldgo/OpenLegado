@@ -10,13 +10,16 @@ Legado（阅读）是一款免费开源的小说阅读器，正在从 Android �
 ## 项目结构
 
 ```
-├── rust/               # Rust 核心引擎（8 个 crate）
-│   ├── legado-core/    # 公共基础层（数据模型、错误、加密、排版）
+├── rust/               # Rust 核心引擎（11 个 crate）
+│   ├── legado-core/    # 公共基础层（数据模型、错误、加密）
 │   ├── legado-parser/  # 书源规则解析（CSS/XPath/JsonPath/Regex）
 │   ├── legado-net/     # HTTP 网络引擎（reqwest + 中间件）
 │   ├── legado-js/      # JavaScript 沙箱（QuickJS）
 │   ├── legado-book/    # 书籍格式解析（EPUB/TXT/MOBI/PDF）
 │   ├── legado-db/      # SQLite 数据库（rusqlite）
+│   ├── legado-layout/  # 纯计算排版内核
+│   ├── legado-fetcher/ # 共享书源抓取与规则编排
+│   ├── legado-engine/  # 资源装配、实例状态与任务生命周期
 │   ├── legado-ffi/     # FFI 出口（flutter_rust_bridge）
 │   └── legado-server/  # HTTP 服务（axum）
 ├── flutter_legado/     # Flutter UI 层（62 个 Screen 页面）

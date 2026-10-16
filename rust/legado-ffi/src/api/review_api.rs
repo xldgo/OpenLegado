@@ -121,18 +121,17 @@ pub fn review_get_summary(source_json: &str, request_json: &str) -> LegadoResult
         )));
     }
 
-    let probe = crate::js_executor::construct_analyzer(
-        String::new(),
-        String::new(),
-        &source.book_source_url,
-    );
-    let executor = probe.js_executor();
     let base_url = if response.url.is_empty() {
         final_url.clone()
     } else {
         response.url.clone()
     };
-    let summary = legado_parser::parse_summary_with(&response.body, rule, &base_url, executor)
+    let analyzer = crate::js_executor::construct_analyzer(
+        response.body.clone(),
+        base_url.clone(),
+        &source.book_source_url,
+    );
+    let summary = legado_parser::review_rule_parser::parse_summary_with_analyzer(rule, &analyzer)
         .unwrap_or_default();
 
     // JSON 对象键须为字符串
@@ -319,23 +318,20 @@ pub fn review_get_detail(source_json: &str, request_json: &str, page: i32) -> Le
         )));
     }
 
-    let probe = crate::js_executor::construct_analyzer(
-        String::new(),
-        String::new(),
-        &source.book_source_url,
-    );
-    let executor = probe.js_executor();
     let base_url = if response.url.is_empty() {
         final_url.clone()
     } else {
         response.url.clone()
     };
-    let detail_page = legado_parser::parse_detail_page_with(
-        &response.body,
+    let analyzer = crate::js_executor::construct_analyzer(
+        response.body.clone(),
+        base_url.clone(),
+        &source.book_source_url,
+    );
+    let detail_page = legado_parser::review_rule_parser::parse_detail_page_with_analyzer(
         rule,
         next_page_rule,
-        &base_url,
-        executor,
+        &analyzer,
     );
 
     let has_reply_url = !rule
@@ -527,18 +523,18 @@ pub fn review_get_replies(
     }
 
     // 解析回复列表（quickjs 特性下注入 JS 执行器以支持 @js: 规则）
-    let probe = crate::js_executor::construct_analyzer(
-        String::new(),
-        String::new(),
-        &source.book_source_url,
-    );
-    let executor = probe.js_executor();
     let base_url = if response.url.is_empty() {
         final_url.clone()
     } else {
         response.url.clone()
     };
-    let replies = legado_parser::parse_reply_page_with(&response.body, rule, &base_url, executor)?;
+    let analyzer = crate::js_executor::construct_analyzer(
+        response.body.clone(),
+        base_url.clone(),
+        &source.book_source_url,
+    );
+    let replies =
+        legado_parser::review_rule_parser::parse_reply_page_with_analyzer(rule, &analyzer)?;
 
     // 分页：回复非空时按 page+1 重新渲染 URL 规则得到下一页 URL；
     // 若 URL 不随页码变化（无分页占位符）则返回 null。

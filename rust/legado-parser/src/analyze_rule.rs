@@ -14,40 +14,8 @@ use crate::regex_engine::RegexEngine;
 use crate::rule_analyzer::RuleAnalyzer;
 use crate::xpath::XPathParser;
 
-// ─── P2-9 ③：全局变量兜底读取器（进程级）──────────────────────────────────────
-/// 全局变量兜底读取器（进程级，由 FFI 层注册，指向 `legado-js` 的
-/// `host_api::variable_store` 全局 store）。
-///
-/// P2-9 ③：JS 宿主 `java.put`/`java.get` 读写的是**进程级全局**变量表
-/// （`legado_js::host_api::variable_store`），而规则 `@get:{k}` 读的是
-/// **analyzer 本地**变量（`AnalyzeRule::variables`）——两者此前无桥，导致
-/// 「JS 写变量、规则 `@get` 读」的书源（小米阅读 / 就去看网 / 手机小说等）
-/// `@get` 恒空（如 手机小说 `tocUrl` 回退 book_url → 错目录页）。
-///
-/// 设计：legado-parser 不能依赖 legado-js（循环依赖），故以 FFI 层注入的
-/// 进程级读取器桥接。[`AnalyzeRule::get`] 在**本地查找（localBindings →
-/// bookName/title 特例 → variables）全部失败后**才兜底读本读取器——不改动
-/// 既有优先级，全局 store 仅作最后兜底（作用域语义取舍见交付报告 ③）。
-///
-/// 用 `Mutex<Option<...>>`（而非 `OnceLock`）以便测试注入/复位；生产由
-/// FFI 层注册一次（幂等，最后一次为准）。
-///
-/// 读取器闭包类型（命中返回 `Some(value)`、未命中 `None`）抽出为别名，
-/// 避免 `Arc<dyn Fn(...) + Send + Sync>` 在静态与函数签名两处触发
-/// clippy::type_complexity。
-pub type GlobalVariableReader = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
-
-static GLOBAL_VAR_FALLBACK: Mutex<Option<GlobalVariableReader>> = Mutex::new(None);
-
-/// 注册（或替换）全局变量兜底读取器；传 `None` 复位（测试用）。
-///
-/// 读取器签名 `Fn(&str) -> Option<String>`：命中返回 `Some(value)`，未命中返回
-/// `None`（与既有优先级一致，空值在 `get` 内仍按「未命中」处理）。
-pub fn set_global_variable_reader(reader: Option<GlobalVariableReader>) {
-    if let Ok(mut guard) = GLOBAL_VAR_FALLBACK.lock() {
-        *guard = reader;
-    }
-}
+/// 当前解析器的外部变量读取能力；不注册为进程状态。
+pub type VariableReader = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 /// JavaScript 执行器 trait
 ///
@@ -56,6 +24,11 @@ pub fn set_global_variable_reader(reader: Option<GlobalVariableReader>) {
 pub trait JsExecutor: Send + Sync {
     /// 执行 JavaScript 代码，返回结果字符串
     fn execute_js(&self, js_code: &str) -> Result<String, String>;
+
+    /// 当前执行会话提供的变量读取能力；未注入时不访问外部状态。
+    fn read_variable(&self, _key: &str) -> Option<String> {
+        None
+    }
 
     /// 执行 JavaScript 代码并预置 `result` 变量绑定（上游 AnalyzeUrl.evalJS
     /// 的 `bindings["result"] = result` 口径——URL 选项 `{"js": ...}` 与 bodyJs
@@ -107,6 +80,7 @@ pub struct AnalyzeRule {
     json_element_mode: bool,
     /// 可选的 JS 执行器（通过回调注入模式解决跨 crate 循环依赖）
     js_executor: Option<Arc<dyn JsExecutor>>,
+    variable_reader: Option<VariableReader>,
     /// JS 执行时的注入上下文（对齐原版 AnalyzeRule.evalJS bindings：
     /// result/src/baseUrl 自动注入；chapter/title/source 等由调用方补充）
     js_bindings: Vec<(String, String)>,
@@ -141,6 +115,7 @@ impl AnalyzeRule {
             is_json,
             json_element_mode: false,
             js_executor: None,
+            variable_reader: None,
             js_bindings: Vec::new(),
             variables: Arc::new(Mutex::new(HashMap::new())),
             local_bindings: Arc::new(Mutex::new(HashMap::new())),
@@ -158,6 +133,17 @@ impl AnalyzeRule {
         let mut rule = Self::new(content, base_url);
         rule.js_executor = Some(executor);
         rule
+    }
+
+    /// 显式注入当前实例的兜底读者；本地绑定与变量仍优先。
+    pub fn with_variable_reader(mut self, reader: VariableReader) -> Self {
+        self.variable_reader = Some(reader);
+        self
+    }
+
+    /// 克隆当前显式读者，供外部内容条目解析保留变量能力。
+    pub(crate) fn variable_reader(&self) -> Option<VariableReader> {
+        self.variable_reader.clone()
     }
 
     /// 追加 JS 注入变量（对齐原版 evalJS bindings：chapter/title/source 等）
@@ -218,15 +204,16 @@ impl AnalyzeRule {
         {
             return v.clone();
         }
-        // P2-9 ③：全局 store 兜底（最后 resort）——本地 localBindings /
-        // bookName·title 特例 / variables 全部未命中（或本地值为空）后，才读
-        // 进程级全局 store（JS `java.put` 写入处）。不改动既有优先级：全局
-        // store 是最低优先级兜底，本地有非空值时永不落到此。
-        if let Ok(guard) = GLOBAL_VAR_FALLBACK.lock()
-            && let Some(reader) = guard.as_ref()
-            && let Some(v) = reader(key)
-        {
-            return v;
+        // 外部能力只来自当前解析器或其执行器，不读取进程级注册槽位。
+        let value = match &self.variable_reader {
+            Some(reader) => reader(key),
+            None => self
+                .js_executor
+                .as_ref()
+                .and_then(|executor| executor.read_variable(key)),
+        };
+        if let Some(value) = value {
+            return value;
         }
         String::new()
     }
@@ -281,6 +268,7 @@ impl AnalyzeRule {
     fn share_variable_store_into(&self, child: &mut AnalyzeRule) {
         child.variables = Arc::clone(&self.variables);
         child.local_bindings = Arc::clone(&self.local_bindings);
+        child.variable_reader = self.variable_reader.clone();
         child.redirect_url = self.redirect_url.clone();
     }
 
@@ -4429,48 +4417,94 @@ mod tests {
         );
     }
 
-    // ─── [P2-6f4 | 台账 0917] 已闭合 {{…}} 跨度内的 JS 标记是参数文本 ──────
-
-    // ─── [P2-9 ③] 全局变量兜底读取器（get 最后 resort）──────────────────────
-
-    // 全局读取器是进程级状态：注册/复位类测试串行化，避免与同 crate 其它
-    // 调 `get()` 的测试并发交错（读取器按 key 命中，key 用独立前缀）。
-    // 锁已提升至 crate 级 `#[cfg(test)]` 共享模块 `crate::test_support`
-    // （GLOBAL_READER_TEST_LOCK / lock_global_reader），供本 crate 所有
-    // 测试模块共享同一把锁。
-
-    /// P2-9 ③：`@get:{k}` 本地未命中 → 兜底读全局 store（FFI 层注入的
-    /// 读取器）；本地有值时优先级不变（本地恒胜）；未注册读取器时维持
-    /// 修复前行为（空串）。
     #[test]
-    fn test_get_falls_back_to_global_reader() {
-        let _lock = crate::test_support::lock_global_reader();
-        // 模拟 FFI 层接线：全局 store 读取器（命中 p29_global_k → 固定值）
-        set_global_variable_reader(Some(std::sync::Arc::new(|key: &str| -> Option<String> {
-            (key == "p29_global_k").then(|| "p29_global_v".to_string())
-        })));
-        struct ResetReader;
-        impl Drop for ResetReader {
-            fn drop(&mut self) {
-                set_global_variable_reader(None);
+    fn external_reader_is_instance_scoped_and_local_values_take_precedence() {
+        let one = AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(Arc::new(|key| (key == "shared").then(|| "one".into())));
+        let two = AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(Arc::new(|key| (key == "shared").then(|| "two".into())));
+        assert_eq!(one.get("shared"), "one");
+        assert_eq!(two.get("shared"), "two");
+        assert_eq!(
+            AnalyzeRule::new(String::new(), String::new()).get("shared"),
+            ""
+        );
+        assert_eq!(one.get("missing"), "");
+        one.put("shared", "local");
+        assert_eq!(one.get("shared"), "local");
+        one.set_local("shared", "binding");
+        assert_eq!(one.get("shared"), "binding");
+        assert_eq!(two.get("shared"), "two");
+    }
+
+    #[test]
+    fn child_parser_inherits_reader_without_overriding_local_values() {
+        struct SessionExecutor;
+        impl JsExecutor for SessionExecutor {
+            fn execute_js(&self, _code: &str) -> Result<String, String> {
+                Ok(String::new())
+            }
+            fn read_variable(&self, key: &str) -> Option<String> {
+                (key == "shared").then(|| "session".into())
             }
         }
-        let _reset = ResetReader;
-
-        // 本地变量表为空 → 兜底命中全局值
         let analyzer =
-            AnalyzeRule::new("<div>x</div>".to_string(), "http://example.com".to_string());
-        assert_eq!(analyzer.get("p29_global_k"), "p29_global_v");
-        // 读取器未提供的 key → 空串（修复前语义不变）
-        assert_eq!(analyzer.get("p29_never_exists"), "");
-        // 本地优先级不变：本地变量非空恒胜全局 store
-        analyzer.put("p29_global_k", "local_v");
-        assert_eq!(analyzer.get("p29_global_k"), "local_v");
+            AnalyzeRule::with_js_executor(String::new(), String::new(), Arc::new(SessionExecutor));
+        assert_eq!(analyzer.get("shared"), "session");
+        let analyzer = analyzer
+            .with_variable_reader(Arc::new(|key| (key == "shared").then(|| "explicit".into())));
+        let mut child = AnalyzeRule::new(String::new(), String::new());
+        analyzer.share_variable_store_into(&mut child);
+        child.set_js_executor(analyzer.js_executor().unwrap());
+        assert_eq!(child.get_string("@get:{shared}").unwrap(), "explicit");
+        analyzer.put("shared", "local");
+        assert_eq!(child.get_string("@get:{shared}").unwrap(), "local");
+        let analyzer = analyzer.with_variable_reader(Arc::new(|_| None));
+        analyzer.clear_variables();
+        assert_eq!(analyzer.get("shared"), "", "显式读者未命中不回读其他会话");
+        assert_eq!(
+            child.get("shared"),
+            "explicit",
+            "父解析器更换读者不影响已有子解析器"
+        );
+    }
 
-        // 复位读取器 → 本地未命中不再兜底（修复前行为）
-        set_global_variable_reader(None);
-        let analyzer2 = AnalyzeRule::new(String::new(), String::new());
-        assert_eq!(analyzer2.get("p29_global_k"), "");
+    #[test]
+    fn parallel_parsers_do_not_replace_each_others_reader() {
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let handles: Vec<_> = ["one", "two"]
+            .into_iter()
+            .map(|value| {
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let parser = AnalyzeRule::new(String::new(), String::new())
+                        .with_variable_reader(Arc::new(move |key| {
+                            (key == "shared").then(|| value.to_string())
+                        }));
+                    barrier.wait();
+                    for _ in 0..10 {
+                        assert_eq!(parser.get_string("@get:{shared}").unwrap(), value);
+                    }
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn dropping_parser_releases_reader_capture() {
+        let state = Arc::new(String::from("owned"));
+        let weak = Arc::downgrade(&state);
+        let parser = AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(Arc::new(move |_| Some((*state).clone())));
+        assert_eq!(parser.get_string("@get:{shared}").unwrap(), "owned");
+        drop(parser);
+        assert!(
+            weak.upgrade().is_none(),
+            "子解析结束后不得有全局槽位持有读者"
+        );
     }
 
     /// 已闭合 `{{…}}` 跨度**内**的 `@js:`/`<js>` 是 JS 表达式参数文本（模板

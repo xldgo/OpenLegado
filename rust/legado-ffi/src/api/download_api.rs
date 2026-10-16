@@ -1,19 +1,16 @@
 //! 下载管理器 FFI API
 //!
 //! 暴露 legado-core::download_manager 的 DownloadManager 到 Flutter 端。
-//! 使用全局 OnceLock + Mutex 管理 DownloadManager 实例。
+//! 只处理既有队列模型；实际章节缓存下载由独立实例服务执行。
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use legado_core::download_manager::{DownloadManager, PRELOAD_TRIGGER_THRESHOLD, PreloadStrategy};
 use legado_core::models::{DownloadStatus, DownloadTask};
 use legado_core::{LegadoError, LegadoResult};
 
-/// 全局 DownloadManager 实例
-static DOWNLOAD_MANAGER: OnceLock<Mutex<DownloadManager>> = OnceLock::new();
-
-fn get_manager() -> &'static Mutex<DownloadManager> {
-    DOWNLOAD_MANAGER.get_or_init(|| Mutex::new(DownloadManager::new(3)))
+fn get_manager() -> Arc<Mutex<DownloadManager>> {
+    crate::engine_holder::download_manager()
 }
 
 fn with_manager<F, R>(f: F) -> LegadoResult<R>

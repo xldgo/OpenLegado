@@ -280,3 +280,15 @@ flutter run -d windows --dart-define=USE_MOCK=true
 
 **最后更新**: 2026-09-27
 **维护者**: Legado 开发团队
+
+
+### Rust 引擎装配与宿主边界（2026-10-16）
+
+`legado-engine` 汇集存储、网络、限流、JS 数据资源与任务作用域，FFI 和 Server 共享注入实例。
+FFI 根边界保留首次成功初始化的契约；业务闭包捕获窄数据能力，不反向持有根引擎。
+Web/MCP 监听状态及 Tokio runtime 由宿主拥有；停止端口和等待实际任务结束是两个独立事实。
+任务组有界关闭超时须报告仍有工作，不能提前清空登记或宣称同步 JS 已被强杀。
+本次内部重构不更改 FRB 方法、JSON、生成绑定、依赖与应用版本。
+真实 Flutter 应用使用新 Rust 实现前仍需重建 native 产物；Rust 单测不替代设备验收。
+
+— Codex，2026-10-16

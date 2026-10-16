@@ -150,20 +150,23 @@ pub struct TtsEngine {
 pub async fn list_engines(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<TtsEngine>>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = HttpTtsRepository::new(db.connection());
-    let list = repo.find_enabled()?;
-    let engines = list
-        .into_iter()
-        .map(|t| TtsEngine {
-            id: t.id,
-            name: t.name,
-            url_template: t.url,
-            content_type: t.content_type.unwrap_or_default(),
-            is_enabled: t.is_enabled,
+    state
+        .with_database(move |db| {
+            let repo = HttpTtsRepository::new(db.connection());
+            let list = repo.find_enabled()?;
+            let engines = list
+                .into_iter()
+                .map(|t| TtsEngine {
+                    id: t.id,
+                    name: t.name,
+                    url_template: t.url,
+                    content_type: t.content_type.unwrap_or_default(),
+                    is_enabled: t.is_enabled,
+                })
+                .collect();
+            Ok(Json(engines))
         })
-        .collect();
-    Ok(Json(engines))
+        .await?
 }
 
 /// POST /api/tts/synthesize — 使用指定引擎 ID 合成语音
@@ -184,21 +187,24 @@ pub async fn synthesize_by_id(
 ) -> Result<Json<TtsResponse>, ApiError> {
     // 从数据库查找引擎配置
     let engine_url = {
-        let db = state.db.lock().await;
-        let repo = HttpTtsRepository::new(db.connection());
-        let engine = repo.find_by_id(req.engine_id)?.ok_or_else(|| {
-            ApiError(LegadoError::Internal(format!(
-                "TTS 引擎不存在: id={}",
-                req.engine_id
-            )))
-        })?;
-        if !engine.is_enabled {
-            return Err(ApiError(LegadoError::Internal(format!(
-                "TTS 引擎已禁用: id={}",
-                req.engine_id
-            ))));
-        }
-        engine.url
+        state
+            .with_database(move |db| {
+                let repo = HttpTtsRepository::new(db.connection());
+                let engine = repo.find_by_id(req.engine_id)?.ok_or_else(|| {
+                    ApiError(LegadoError::Internal(format!(
+                        "TTS 引擎不存在: id={}",
+                        req.engine_id
+                    )))
+                })?;
+                if !engine.is_enabled {
+                    return Err(ApiError(LegadoError::Internal(format!(
+                        "TTS 引擎已禁用: id={}",
+                        req.engine_id
+                    ))));
+                }
+                Ok::<_, ApiError>(engine.url)
+            })
+            .await??
     };
 
     // 构建 TTS URL：替换 {speakText} 占位符

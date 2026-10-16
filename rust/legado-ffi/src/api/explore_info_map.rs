@@ -3,87 +3,23 @@
 //! 发现分类的 toggle/select/text 控件会读写 infoMap；抓取书籍时
 //! `AnalyzeUrl` 须携带同一 infoMap 才能与原版请求 URL 一致。
 
+use legado_core::LegadoResult;
 use std::collections::HashMap;
-use std::sync::{OnceLock, RwLock};
-
-use legado_core::{LegadoError, LegadoResult};
-use legado_db::CacheRepository;
-
-/// 内存缓存：source_url → (key → value)
-fn memory_store() -> &'static RwLock<HashMap<String, HashMap<String, String>>> {
-    static STORE: OnceLock<RwLock<HashMap<String, HashMap<String, String>>>> = OnceLock::new();
-    STORE.get_or_init(|| RwLock::new(HashMap::new()))
-}
-
-fn cache_key(source_url: &str) -> String {
-    format!("infoMap_{source_url}")
-}
-
-/// 从 DB 加载 infoMap 到内存（若内存尚无条目）
-fn load_from_db(source_url: &str) -> HashMap<String, String> {
-    let key = cache_key(source_url);
-    let json = crate::db_state::with_database(|db| {
-        let repo = CacheRepository::new(db.connection());
-        repo.get(&key)
-    })
-    .ok()
-    .flatten()
-    .unwrap_or_default();
-
-    if json.is_empty() {
-        return HashMap::new();
-    }
-    serde_json::from_str(&json).unwrap_or_default()
-}
-
-/// 持久化 infoMap 到 DB（对标 Android InfoMap.saveNow；DB 未初始化时仅内存）
-pub fn persist(source_url: &str, map: &HashMap<String, String>) -> LegadoResult<()> {
-    let key = cache_key(source_url);
-    let json = serde_json::to_string(map).map_err(LegadoError::Serialization)?;
-    if let Err(e) = crate::db_state::with_database(|db| {
-        let repo = CacheRepository::new(db.connection());
-        repo.put(&key, &json, 0)
-    }) {
-        eprintln!("[explore] infoMap 持久化降级（仅内存）: {e}");
-    }
-    Ok(())
-}
 
 /// 获取书源 infoMap 快照（内存优先，回退 DB）
 pub fn snapshot(source_url: &str) -> LegadoResult<HashMap<String, String>> {
-    {
-        let store = memory_store().read().unwrap_or_else(|p| p.into_inner());
-        if let Some(map) = store.get(source_url) {
-            return Ok(map.clone());
-        }
-    }
-
-    let loaded = load_from_db(source_url);
-    let mut store = memory_store().write().unwrap_or_else(|p| p.into_inner());
-    store.insert(source_url.to_string(), loaded.clone());
-    Ok(loaded)
+    Ok(crate::engine_holder::source_info_map().snapshot(source_url))
 }
 
 /// 写入单个键（对标 Android infoMap[title] = value）
 pub fn put(source_url: &str, key: &str, value: &str) -> LegadoResult<()> {
-    let mut map = snapshot(source_url)?;
-    map.insert(key.to_string(), value.to_string());
-    {
-        let mut store = memory_store().write().unwrap_or_else(|p| p.into_inner());
-        store.insert(source_url.to_string(), map.clone());
-    }
-    persist(source_url, &map)
+    crate::engine_holder::source_info_map().put(source_url, key, value);
+    Ok(())
 }
 
 /// 若键不存在则写入默认值（toggle/select 初始化）
 pub fn ensure_default(source_url: &str, key: &str, default: &str) -> LegadoResult<()> {
-    let mut map = snapshot(source_url)?;
-    if !map.contains_key(key) {
-        map.insert(key.to_string(), default.to_string());
-        let mut store = memory_store().write().unwrap_or_else(|p| p.into_inner());
-        store.insert(source_url.to_string(), map.clone());
-        persist(source_url, &map)?;
-    }
+    crate::engine_holder::source_info_map().ensure_default(source_url, key, default);
     Ok(())
 }
 

@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 legado-core = { path = "../legado-core" }
 legado-db = { path = "../legado-db" }
+legado-engine = { path = "../legado-engine" }
 legado-net = { path = "../legado-net" }
 legado-book = { path = "../legado-book" }
 # MCP eval_js 工具依赖的书源 JS 引擎（quickjs 为可选透传 feature）
@@ -31,7 +32,7 @@ tracing-subscriber = "0.3"
 default = []
 # 透传 legado-js 的 quickjs feature：启用后 MCP eval_js 工具可真实执行 JS 脚本；
 # 同步透传 legado-fetcher/quickjs（书源 JS 分派/loginCheckJs 真执行）
-quickjs = ["legado-js/quickjs", "legado-fetcher/quickjs"]
+quickjs = ["legado-js/quickjs", "legado-fetcher/quickjs", "legado-engine/quickjs"]
 
 [dev-dependencies]
 tokio-tungstenite = "0.30"
