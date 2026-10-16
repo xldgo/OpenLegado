@@ -81,7 +81,7 @@ Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地�
   Tooling CI 的 `check` 与所需平台检查一起设为必需检查。
 - Rust 树仅排除已核对的宿主驱动脚本 `build-ios.sh`、`gen_rar5_fixture.py`，它们分别选择
   iOS 和 Rust 验证。新 Rust 脚本默认仍视为共享编译输入。`third_party/**` 保守选择全部消费者。
-  详细指纹口径见 [工具说明](PYTHON_FFI_TOOLING_20261010.md)。
+  详细指纹口径见 [工具说明](过期文档/PYTHON_FFI_TOOLING_20261010.md)。
 
 重命名按删除旧路径、新增新路径处理，两侧模块都检查。手动范围覆盖自动差异选择。
 

@@ -52,10 +52,10 @@ flutter test
 
 详细开发指南见 [rust/DEVELOPMENT.md](rust/DEVELOPMENT.md) 与 [AGENTS.md](AGENTS.md)。
 Python 指纹与 Android FFI 只读校验的命令和迁移边界见
-[工程工具说明](docs/PYTHON_FFI_TOOLING_20261010.md)。
+[工程工具说明](docs/过期文档/PYTHON_FFI_TOOLING_20261010.md)。
 Android Rust/APK 构建统一使用 `python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64`，
-其参数与清理范围见 [Android 构建入口](docs/PYTHON_ANDROID_CLEANUP_20261011.md)。
-Android Release 的分 ABI APK 校验与收集复用同一工具，命令见 [Release 工具说明](docs/PYTHON_ANDROID_RELEASE_20261011.md)。
+其参数与清理范围见 [Android 构建入口](docs/过期文档/PYTHON_ANDROID_CLEANUP_20261011.md)。
+Android Release 的分 ABI APK 校验与收集复用同一工具，命令见 [Release 工具说明](docs/过期文档/PYTHON_ANDROID_RELEASE_20261011.md)。
 Windows 使用 `python scripts/dev.py build windows --profile debug` 构建，
 `python scripts/dev.py run windows --profile debug` 启动开发会话；参数见 [Windows 工具说明](docs/PYTHON_WINDOWS_TOOLING_20261011.md)。
 iOS 正式静态库使用 `python scripts/dev.py build ffi ios --target device --profile release`；
@@ -80,7 +80,7 @@ iOS 图标兼容处理、plist 诊断和 IPA 打包也使用该 Python 入口；
 
 [Dependabot](.github/dependabot.yml) 每周检查 Actions、Rust Cargo 和 Flutter pub，每月检查 Flutter Android Gradle；普通版本更新 PR 指向 `dev`，小版本更新分组，FRB 由专项配套升级。安全更新仍针对默认分支，不新增自动合并规则。首次使用自动审查与 stale 豁免前，请在仓库创建 `review`、`confirmed`、`in-progress` 标签；新平台和语言的路径标签由标签工作流按需创建。
 
-工作流与现有脚本的当前进度、审查及验证证据统一记录于 [Active 计划](docs/REFACTORING_ACTIVE_PLAN.md)，自动化配置与检查方法见 [自动化整理证据](docs/CI_AUTOMATION_REVIEW_20261010.md)。Dependabot 配置和默认分支上的定时/Issue 自动化需在用户审核、提交并进入默认分支后生效。
+工作流与现有脚本的当前进度、审查及验证证据统一记录于 [Active 计划](docs/REFACTORING_ACTIVE_PLAN.md)，自动化配置与检查方法见 [自动化整理证据](docs/过期文档/CI_AUTOMATION_REVIEW_20261010.md)。Dependabot 配置和默认分支上的定时/Issue 自动化需在用户审核、提交并进入默认分支后生效。
 
 编写者：Codex 主代理｜2026-10-10
 
