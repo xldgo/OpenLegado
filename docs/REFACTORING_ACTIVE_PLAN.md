@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### MEDIA-BOUNDARY-20261016：媒体能力整域拆分（P1）
+
+- 授权与基线：用户要求下一步媒体；feature/ui-reader-selection / 8f1c84c34，开始工作区干净。Codex直接执行、不使用子代理、不新建分支、不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。
+- 状态：本批整域拆分与本地验证完成，用户已明确授权本地提交，提交以Git记录为准；不推送或触发CI，真实网络、原生播放器与设备复验后置。
+- 范围：BookImageRepository承接图片读写与解码加载三项；AudioCacheRepository承接四项查询/清理，AudioCacheDownloadService承接下载/取消，两者共享Mock缓存状态；AudioBookService承接取址/进度读写/播放模式四项；VideoDanmakuService承接查询/解析两项。共迁移十五项并清理无生产消费者的audioResolvePlayBook，目标根BookApi 97→81。
+- 行为边界：保留图片缓存失败回退在线、音频缓存读面降级及写面上抛、现有取消代数、缓存事件、进度防抖和会话归属、媒体通知和TTS播放生命周期。图片返回字节，音频媒体/下载返回类型化结果，进度使用毫秒整数，播放模式使用ReadConfig；传输JSON在数据层编解码。不改Rust/FRB、数据库、依赖、原生平台和UI布局。
+- 验收：正式适配器参数/解码/降级与异常、Mock共享与幂等、独立Provider注入；覆盖封面/漫画缓存和预载、音频离线下载/取消/目录徽标、播放与进度/模式、视频弹幕相关行为。批末统一相关测试、静态分析和格式/差异检查；真实网络、原生播放器和设备复验后置。
+- 实现：五份契约、各自正式/Mock实现、类型化音频媒体及下载结果、五个窄Provider和应用装配已接通。漫画渲染与预载直接使用图片仓储，封面和存图复用同一字节接口；音频下载与目录缓存状态、播放取址/毫秒进度/模式、视频弹幕消费者已迁移。根十五项旧方法和未使用的audioResolvePlayBook移除，不保留转发；删除空的mock_book_api_content_ext.part.dart及引用，语法树复核根接口81项。
+- 行为与边界：传输JSON/base64在数据层处理；图片字节长度、下载状态及必要字段非法时抛错，缓存/弹幕按原规则降级；无音频进度返回0。共享Mock读写与书籍隔离保持，不复制真实网络、文件或XML引擎。音频会话、取消、进度节流及播放控制未重构；数据库、Rust/FRB及原生协议未修改。
+- 验证结果：flutter test --no-pub相关40份测试483项通过（24秒），其中新增两份19项覆盖FRB参数/异常/坏响应、共享缓存/幂等/隔离、字节副本、窄Provider和装配；既有漫画预载/缓存/存图/CBZ、音频离线下载取消/目录徽标/进度/模式、系统及HTTP朗读、视频悬浮窗和弹幕渲染回归通过。完整flutter analyze --no-pub无问题（18秒），70份Dart格式检查无差异，git diff --check通过。先行、重试和重复组合不重复累计。
+- 失败与证据：迁移首轮分析发现旧返回类型、未使用变量及视频StatefulWidget错误使用ref，均已修正；首轮视频测试替身缺少弹幕服务、首轮新增测试误用ReadConfig字段名，修正后通过，未修改视频错误界面布局。日志为flutter_legado/build/media-boundary-{existing-initial,video-retry,new-initial,new-retry,regression-final,regression-complete,analysis-initial,analysis-second,analysis-final}.log，最终测试清单在同目录media-boundary-test-manifest.txt；忽略目录build/media-boundary-qa/保存最终差异及文件摘要。
+- 交付：Codex直接实现与自查，不使用子代理或声称独立审查；不改依赖、生成物、原生平台、CI和应用版本，未提交/推送/触发CI/构建安装。不以Mock测试宣称真实SQLite、网络下载、原生库加载或设备播放已验收。
+
+编写者：Codex｜2026-10-16
+
 ### BOOK-CONTENT-BOUNDARY-20261016：书籍内容整域拆分（P1）
 
 - 授权与基线：用户要求加快整域迁移，并优先书籍内容；feature/ui-reader-selection / 938e228ec，开始工作区干净。Codex直接执行、不使用子代理、不新建分支、不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。

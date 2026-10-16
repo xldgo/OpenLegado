@@ -28,10 +28,6 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
   Future<String> httpPost(String url, String body) async =>
       '{"status": "ok", "mock": true}';
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async =>
-      '{"base64": "", "len": 0}';
-
   // ========== JS 引擎 ==========
 
   @override
@@ -141,50 +137,4 @@ mixin MockBookApiMediaFormat on MockBookApiStore implements BookApi {
     };
     return true;
   }
-
-  // ========== 音频播放 ==========
-
-  @override
-  Future<Map<String, dynamic>> getAudioChapterMedia(
-    String bookUrl,
-    int chapterIndex,
-  ) async {
-    final chapters = await readingRepository.getChapters(bookUrl);
-    if (chapterIndex < 0 || chapterIndex >= chapters.length) {
-      return {'error': 'Invalid chapter index'};
-    }
-    final chapter = chapters[chapterIndex];
-    final isVolume = chapter.isVolume;
-    // Mock：直链章 URL 即 mediaUrl（对齐正文规则为空回退）
-    final mediaUrl = isVolume
-        ? ''
-        : ((chapter.resourceUrl?.trim().isNotEmpty ?? false)
-              ? chapter.resourceUrl!.trim()
-              : chapter.url.trim());
-    return {
-      'chapterIndex': chapterIndex,
-      'title': chapter.title,
-      'mediaUrl': mediaUrl,
-      'url': chapter.url,
-      'resourceUrl': chapter.resourceUrl,
-      'isVolume': isVolume,
-      'fromCache': false,
-      'sourceUrl': '',
-    };
-  }
-
-  @override
-  Future<Map<String, dynamic>?> getAudioProgress(
-    String bookUrl,
-    int chapterIndex,
-  ) async {
-    return {'position': 0, 'chapterIndex': chapterIndex};
-  }
-
-  @override
-  Future<void> saveAudioProgress(
-    String bookUrl,
-    int chapterIndex,
-    int positionMs,
-  ) async {}
 }

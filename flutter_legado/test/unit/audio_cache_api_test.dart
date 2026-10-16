@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
 // B1/B2 音频章节文件缓存数据链定向测试（契约 §2.47 读面 + §2.48 写入面）
 //
 // 覆盖 Dart 侧可验证面：
@@ -14,8 +15,6 @@
 //
 // [B1 | 2026-10-04] 新增（契约 §2.47 audio_cache FFI）。
 // [B2 | 2026-10-03] 扩展（契约 §2.48 写入面两方法）。
-
-import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,7 +38,7 @@ void main() {
 
     test('空态：audioCacheQuery 恒 false，空 chapterUrl 也不抛', () async {
       expect(
-        await api.audioCacheQuery(
+        await api.audioCacheRepository.audioCacheQuery(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -49,7 +48,7 @@ void main() {
       );
       // 原版 ifBlank 语义：chapterUrl 为空退回标题；Mock 无缓存仍恒 false
       expect(
-        await api.audioCacheQuery(
+        await api.audioCacheRepository.audioCacheQuery(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: '',
@@ -60,9 +59,12 @@ void main() {
     });
 
     test('空态：audioCacheList 空数组；清理幂等返回 0', () async {
-      expect(await api.audioCacheList(bookUrl: bookUrl), isEmpty);
       expect(
-        await api.audioCacheClearChapter(
+        await api.audioCacheRepository.audioCacheList(bookUrl: bookUrl),
+        isEmpty,
+      );
+      expect(
+        await api.audioCacheRepository.audioCacheClearChapter(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -70,22 +72,28 @@ void main() {
         ),
         0,
       );
-      expect(await api.audioCacheClearBook(bookUrl: bookUrl), 0);
-      expect(await api.audioCacheClearBook(bookUrl: bookUrl), 0);
+      expect(
+        await api.audioCacheRepository.audioCacheClearBook(bookUrl: bookUrl),
+        0,
+      );
+      expect(
+        await api.audioCacheRepository.audioCacheClearBook(bookUrl: bookUrl),
+        0,
+      );
     });
 
     test('download 幂等：installed → already_cached；读面随写入态一致', () async {
-      final first = await api.audioCacheDownload(
+      final first = await api.audioCacheDownloadService.audioCacheDownload(
         bookUrl: bookUrl,
         chapterIndex: 0,
         chapterUrl: chapterUrl,
         chapterTitle: chapterTitle,
         playUrl: playUrl,
       );
-      expect(jsonDecode(first)['status'], 'installed');
-      expect(jsonDecode(first)['extension'], 'mp3');
+      expect(first.status, AudioCacheDownloadStatus.installed);
+      expect(first.extension, 'mp3');
       expect(
-        await api.audioCacheQuery(
+        await api.audioCacheRepository.audioCacheQuery(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -93,20 +101,23 @@ void main() {
         ),
         isTrue,
       );
-      expect(await api.audioCacheList(bookUrl: bookUrl), <int>[0]);
+      expect(
+        await api.audioCacheRepository.audioCacheList(bookUrl: bookUrl),
+        <int>[0],
+      );
 
-      final second = await api.audioCacheDownload(
+      final second = await api.audioCacheDownloadService.audioCacheDownload(
         bookUrl: bookUrl,
         chapterIndex: 0,
         chapterUrl: chapterUrl,
         chapterTitle: chapterTitle,
         playUrl: playUrl,
       );
-      expect(jsonDecode(second)['status'], 'already_cached');
+      expect(second.status, AudioCacheDownloadStatus.alreadyCached);
 
       // 清理 → 返回数据文件数 1，再清 0；读面回落 false/空
       expect(
-        await api.audioCacheClearChapter(
+        await api.audioCacheRepository.audioCacheClearChapter(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -115,7 +126,7 @@ void main() {
         1,
       );
       expect(
-        await api.audioCacheQuery(
+        await api.audioCacheRepository.audioCacheQuery(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -123,40 +134,51 @@ void main() {
         ),
         isFalse,
       );
-      expect(await api.audioCacheCancel(), isFalse, reason: 'mock 无在途下载');
+      expect(
+        await api.audioCacheDownloadService.audioCacheCancel(),
+        isFalse,
+        reason: 'mock 无在途下载',
+      );
     });
   });
 
   group('BookApi 接口面（编译期签名形状 + 走接口调用）', () {
     test('Mock 实现可经 BookApi 接口调用全部方法且类型正确', () async {
       final BookApi api = MockBookApi();
-      final bool hit = await api.audioCacheQuery(
+      final bool hit = await api.audioCacheRepository.audioCacheQuery(
         bookUrl: bookUrl,
         chapterIndex: 0,
         chapterUrl: chapterUrl,
         chapterTitle: chapterTitle,
       );
-      final List<int> indexes = await api.audioCacheList(bookUrl: bookUrl);
-      final int clearedChapter = await api.audioCacheClearChapter(
+      final List<int> indexes = await api.audioCacheRepository.audioCacheList(
         bookUrl: bookUrl,
-        chapterIndex: 0,
-        chapterUrl: chapterUrl,
-        chapterTitle: chapterTitle,
       );
-      final int clearedBook = await api.audioCacheClearBook(bookUrl: bookUrl);
-      final String downloadResult = await api.audioCacheDownload(
-        bookUrl: bookUrl,
-        chapterIndex: 0,
-        chapterUrl: chapterUrl,
-        chapterTitle: chapterTitle,
-        playUrl: playUrl,
-      );
-      final bool cancelled = await api.audioCacheCancel();
+      final int clearedChapter = await api.audioCacheRepository
+          .audioCacheClearChapter(
+            bookUrl: bookUrl,
+            chapterIndex: 0,
+            chapterUrl: chapterUrl,
+            chapterTitle: chapterTitle,
+          );
+      final int clearedBook = await api.audioCacheRepository
+          .audioCacheClearBook(bookUrl: bookUrl);
+      final AudioCacheDownloadResult downloadResult = await api
+          .audioCacheDownloadService
+          .audioCacheDownload(
+            bookUrl: bookUrl,
+            chapterIndex: 0,
+            chapterUrl: chapterUrl,
+            chapterTitle: chapterTitle,
+            playUrl: playUrl,
+          );
+      final bool cancelled = await api.audioCacheDownloadService
+          .audioCacheCancel();
       expect(hit, isFalse);
       expect(indexes, isEmpty);
       expect(clearedChapter, 0);
       expect(clearedBook, 0);
-      expect(jsonDecode(downloadResult)['status'], 'installed');
+      expect(downloadResult.status, AudioCacheDownloadStatus.installed);
       expect(cancelled, isFalse);
     });
   });
@@ -167,7 +189,7 @@ void main() {
 
     test('读面四方法降级为 false/空/0，不抛 FFI 异常', () async {
       expect(
-        await api.audioCacheQuery(
+        await api.audioCacheRepository.audioCacheQuery(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -175,9 +197,12 @@ void main() {
         ),
         isFalse,
       );
-      expect(await api.audioCacheList(bookUrl: bookUrl), isEmpty);
       expect(
-        await api.audioCacheClearChapter(
+        await api.audioCacheRepository.audioCacheList(bookUrl: bookUrl),
+        isEmpty,
+      );
+      expect(
+        await api.audioCacheRepository.audioCacheClearChapter(
           bookUrl: bookUrl,
           chapterIndex: 0,
           chapterUrl: chapterUrl,
@@ -185,13 +210,16 @@ void main() {
         ),
         0,
       );
-      expect(await api.audioCacheClearBook(bookUrl: bookUrl), 0);
+      expect(
+        await api.audioCacheRepository.audioCacheClearBook(bookUrl: bookUrl),
+        0,
+      );
     });
 
     test('写入面两方法上抛不降级（有意区别于读面）', () async {
       await expectLater(
-        Future<String>.sync(
-          () => api.audioCacheDownload(
+        Future<AudioCacheDownloadResult>.sync(
+          () => api.audioCacheDownloadService.audioCacheDownload(
             bookUrl: bookUrl,
             chapterIndex: 0,
             chapterUrl: chapterUrl,
@@ -202,7 +230,9 @@ void main() {
         throwsA(anything),
       );
       await expectLater(
-        Future<bool>.sync(() => api.audioCacheCancel()),
+        Future<bool>.sync(
+          () => api.audioCacheDownloadService.audioCacheCancel(),
+        ),
         throwsA(anything),
       );
     });

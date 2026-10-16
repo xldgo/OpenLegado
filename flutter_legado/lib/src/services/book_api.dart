@@ -1,3 +1,8 @@
+import '../domain/contracts/book_image_repository.dart';
+import '../domain/contracts/audio_cache_repository.dart';
+import '../domain/contracts/audio_cache_download_service.dart';
+import '../domain/contracts/audio_book_service.dart';
+import '../domain/contracts/video_danmaku_service.dart';
 import '../domain/contracts/local_book_service.dart';
 import '../domain/contracts/book_archive_service.dart';
 import '../domain/contracts/book_export_service.dart';
@@ -45,6 +50,12 @@ import '../domain/contracts/http_tts_synthesizer.dart';
 /// - [RustApi]：真实 FFI 实现（需要 Rust DLL）
 /// - MockBookApi：纯 Dart Mock 实现（无 DLL 可跑，UI 轨开发用）
 abstract class BookApi {
+  BookImageRepository get bookImageRepository;
+  AudioCacheRepository get audioCacheRepository;
+  AudioCacheDownloadService get audioCacheDownloadService;
+  AudioBookService get audioBookService;
+  VideoDanmakuService get videoDanmakuService;
+
   LocalBookService get localBookService;
   BookArchiveService get bookArchiveService;
   BookExportService get bookExportService;
@@ -328,104 +339,6 @@ abstract class BookApi {
   /// 获取所有配置
   Future<Map<String, String>> getAllConfigs();
 
-  // ========== 图片磁盘缓存（对齐原版 BookHelp.saveImage/getImage，契约 §2.46） ==========
-
-  /// 将图片字节落盘缓存（对齐原版 `BookHelp.writeImage`，契约 §2.46）
-  ///
-  /// [bookUrl] 书 URL（缓存目录按书隔离）；[url] 图片 URL（文件名 =
-  /// MD5(url) 中段 16 字符 + 后缀，对齐原版 `MD5Utils.md5Encode16`）；
-  /// [bytes] 图片原始字节。成功返回 `true`；写盘失败/输入非法返回
-  /// `false`（静默降级，**不抛异常**——缓存失败不影响在线加载）。
-  /// [P4-2a | 2026-09-29] 加法式新增（契约 §2.46 image_cache FFI）。
-  Future<bool> saveImageCache({
-    required String bookUrl,
-    required String url,
-    required List<int> bytes,
-  });
-
-  /// 读取图片磁盘缓存（对齐原版 `BookHelp.getImage`/`isImageExist` 本地优先
-  /// 语义，契约 §2.46）
-  ///
-  /// 命中返回图片字节；未命中或读失败返回 `null`（调用方降级走网络加载，
-  /// 对齐原版 `MangaVH.mangaImagePath` L31-34 本地优先语义）。
-  /// [P4-2a | 2026-09-29] 加法式新增（契约 §2.46 image_cache FFI）。
-  Future<List<int>?> getImageCache(String bookUrl, String url);
-
-  // ========== 音频章节文件缓存（对齐原版 AudioCacheManager，契约 §2.47） ==========
-
-  /// 查询某章音频是否已缓存（只读、幂等，契约 §2.47 `audioCacheQuery`）
-  ///
-  /// 键规则严格对齐原版 `AudioCacheKey.from`：
-  /// `md5Encode16(chapterUrl.ifBlank { chapterTitle })`（MD5 小写 hex 中段
-  /// 16 字符、UTF-8、不 trim、大小写敏感；不含 bookUrl）。命中 = 键匹配
-  /// **且** `.complete` 标记存在 **且** 音频文件 size > 0。
-  /// 目录不存在/无权限/解析异常一律返回 `false`（失败降级，**不抛异常**
-  /// ——缓存是加速器不是数据源）。[chapterIndex] 不参与键计算（对齐原版），
-  /// 仅为与清理面保持同形签名。
-  /// [B1 | 2026-10-04] 加法式新增（契约 §2.47 audio_cache FFI）。
-  Future<bool> audioCacheQuery({
-    required String bookUrl,
-    required int chapterIndex,
-    required String chapterUrl,
-    required String chapterTitle,
-  });
-
-  /// 列出该书已缓存音频章节的下标数组（只读、幂等，契约 §2.47 `audioCacheList`）
-  ///
-  /// 扫描 `{缓存根}/book_{md5_16(bookUrl)}` 内五段式文件名，仅收录通过
-  /// `.complete` + size>0 校验的条目，章节下标去重升序；无缓存/失败返回空数组。
-  /// [B1 | 2026-10-04] 加法式新增（契约 §2.47 audio_cache FFI）。
-  Future<List<int>> audioCacheList({required String bookUrl});
-
-  /// 清理某章音频缓存（幂等，契约 §2.47 `audioCacheClearChapter`）
-  ///
-  /// 只删该章键下的音频文件与 `.complete` 标记，不触碰同目录其他章节；
-  /// 返回实际删除的文件数（含标记）；不存在/已删返回 `0`，不抛异常。
-  /// [B1 | 2026-10-04] 加法式新增（契约 §2.47 audio_cache FFI）。
-  Future<int> audioCacheClearChapter({
-    required String bookUrl,
-    required int chapterIndex,
-    required String chapterUrl,
-    required String chapterTitle,
-  });
-
-  /// 清理该书全部音频缓存（幂等，契约 §2.47 `audioCacheClearBook`）
-  ///
-  /// 删除书级目录内全部文件（含标记）并尝试移除目录，返回实际删除的文件数；
-  /// 不存在返回 `0`，不跨书、不抛异常。
-  /// [B1 | 2026-10-04] 加法式新增（契约 §2.47 audio_cache FFI）。
-  Future<int> audioCacheClearBook({required String bookUrl});
-
-  // ========== 音频章节预下载写入面（对齐原版 AudioCacheService + AudioCacheManager，契约 §2.48） ==========
-
-  /// 单章音频预下载安装（幂等，契约 §2.48 `audioCacheDownload`）
-  ///
-  /// Rust 全权执行下载安装（对齐 `AudioCacheManager.cacheChapter:132-199`）：
-  /// 已提交缓存（key16 + `.complete` + size>0）直接返回 `already_cached` 不重下；
-  /// 否则以 [playUrl] 经 AnalyzeUrl + 书源 headers/cookie/重试/限流语义**流式**
-  /// 下载（字节零穿越 FFI），安装为五段式文件名 + `.complete` 标记。
-  /// [chapterUrl]/[chapterTitle] 参与缓存键计算（同 [audioCacheQuery]）。
-  /// 返回 JSON：`{"status":"installed"|"already_cached","path":…,"sizeBytes":N,
-  /// "extension":…}`。**失败上抛异常不降级**（写入是显式用户动作，错误须驱动
-  /// 调用方循环 failCount——有意区别于 §2.47 只读面的降级风格）。
-  /// [B2 | 2026-10-03] 加法式新增（契约 §2.48 audio_cache 写入面）。
-  Future<String> audioCacheDownload({
-    required String bookUrl,
-    required int chapterIndex,
-    required String chapterUrl,
-    required String chapterTitle,
-    required String playUrl,
-  });
-
-  /// 取消在途音频预下载（契约 §2.48 `audioCacheCancel`）
-  ///
-  /// 进程级取消代数 +1：在途下载在流式块边界中止并删除部分文件（对齐原版
-  /// 服务 stop 语义单槽化）。返回 `true` = 置位时快照到在途下载（尽力提示，
-  /// 不作同步保证）；`false` = 当前无在途。调用方循环侧取消 = 调用本方法 +
-  /// 停止发起后续章节调用。
-  /// [B2 | 2026-10-03] 加法式新增（契约 §2.48 audio_cache 写入面）。
-  Future<bool> audioCacheCancel();
-
   // ========== 章节购买 ==========
 
   /// 执行章节购买动作（契约 §2.43.2，对照 Kotlin ReadBookActivity.payAction）
@@ -548,13 +461,6 @@ abstract class BookApi {
   /// [headersJson] 为空时不附加请求头；否则为 JSON 对象字符串。
   Future<String> httpGetBytes(String url, {String headersJson = ''});
 
-  /// 图片下载 + imageDecode 解码（返回 JSON：{ base64, len }）
-  ///
-  /// 对齐原版 ImageUtils.decodeImageStream：漫画/图片站图片 bytes 经书源
-  /// imageDecode JS（配合 jsLib）解密后才可显示；无 imageDecode 规则时
-  /// 返回原始图片 base64。[sourceJson] 为书源 JSON（单对象）。
-  Future<String> fetchImageWithDecode(String url, String sourceJson);
-
   // ========== JS 引擎 ==========
 
   /// 执行 JS 脚本
@@ -608,53 +514,6 @@ abstract class BookApi {
 
   /// 删除封面规则配置（契约 §2.4 F4，对齐 BookCover.delCoverRule）
   Future<bool> deleteCoverRule();
-
-  // ========== 音频播放 ==========
-
-  /// 获取章节媒体信息
-  ///
-  /// 音频书取址（对齐 `AudioPlay` → `WebBook.getContent`）。
-  /// 返回 Map 含 `mediaUrl`（可播地址）/ `url` / `isVolume` / `fromCache` 等，见契约 §2.26。
-  Future<Map<String, dynamic>> getAudioChapterMedia(
-    String bookUrl,
-    int chapterIndex,
-  );
-
-  /// 获取音频播放进度
-  Future<Map<String, dynamic>?> getAudioProgress(
-    String bookUrl,
-    int chapterIndex,
-  );
-
-  /// 保存音频播放进度
-  Future<void> saveAudioProgress(
-    String bookUrl,
-    int chapterIndex,
-    int positionMs,
-  );
-
-  // ========== 视频弹幕 ==========
-
-  /// 查询某章弹幕数据（契约 §2.49，V-B1 视频弹幕数据链）
-  ///
-  /// 只读、幂等：读章节 variable 列 `danmaku` 键（对齐原版
-  /// `BookChapter.putDanmaku`）；`<10000` 字符直返原文（B 站 XML 或
-  /// 内联文本），`≥10000` 字符走大数据文件读回（`RuleBigDataHelp` 同构）。
-  /// 无记录 / 书或章不在 DB / 读失败 → `null`（降级不抛——弹幕是增强层
-  /// 不是数据源）。写入侧在 Rust 抓取链内部完成（媒体分支副内容捕获），
-  /// 不经本接口。
-  Future<String?> getVideoDanmaku({
-    required String bookUrl,
-    required int chapterIndex,
-  });
-
-  /// 解析 B 站弹幕 XML 为结构化弹幕项（契约 §2.50，V-B2 视频弹幕解析）
-  ///
-  /// 纯函数（Rust 侧 `parse_video_danmaku`）：`<d p="时间秒,类型,字号,颜色,...">`
-  /// → [VideoDanmakuItem] 列表（按 timeMs 升序）；类型 2/3/8 静默丢弃对齐原版；
-  /// type7 保留 JSON 属性原文（V-B2 不渲染，登记边界）；解析失败/非 XML/空
-  /// → `null`（对齐原版 SAX 失败→null 静默无弹幕）。Dart 侧仅 JSON 解码。
-  Future<List<VideoDanmakuItem>?> parseVideoDanmaku({required String raw});
 
   // ========== 自动任务（auto_task FFI） ==========
 
@@ -724,15 +583,4 @@ abstract class BookApi {
 
   /// 根据 ID 查询自动任务规则
   Future<Map<String, dynamic>?> autoTaskFindRuleById({required String id});
-
-  // ========== 音频播放模式（audio FFI） ==========
-
-  /// 将播放模式写入 readConfig JSON
-  Future<String> audioWithPlayMode({String? readConfig, required int playMode});
-
-  /// 解析听书书籍
-  Future<Map<String, dynamic>?> audioResolvePlayBook({
-    String? requestedBookUrl,
-    String? cachedBookJson,
-  });
 }

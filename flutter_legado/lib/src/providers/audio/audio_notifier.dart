@@ -1,3 +1,5 @@
+import '../../domain/contracts/audio_book_service.dart';
+import '../media_provider.dart';
 import '../../domain/contracts/reading_repository.dart';
 import '../reading_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
@@ -200,6 +202,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   BookApi? _apiCache;
   late ReadingRepository _reading;
+  late AudioBookService _audioBook;
 
   // Riverpod 3 销毁回调不能再访问 Ref/state；只供退出保存使用。
   AudioState? _stateForDispose;
@@ -413,6 +416,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   @override
   AudioState build() {
     _apiCache = ref.read(bookApiProvider);
+    _audioBook = ref.read(audioBookServiceProvider);
     _reading = ref.read(readingRepositoryProvider);
     final initialState = AudioState(config: TtsConfig());
     _stateForDispose = initialState;
@@ -1058,10 +1062,13 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       if (token != _playToken || _disposed) return;
       var index = state.currentIndex;
       while (index < state.chapters.length) {
-        final media = await _api.getAudioChapterMedia(state.bookUrl, index);
+        final media = await _audioBook.getAudioChapterMedia(
+          state.bookUrl,
+          index,
+        );
         if (token != _playToken || _disposed) return;
-        final isVolume = media['isVolume'] == true;
-        final mediaUrl = (media['mediaUrl'] as String?)?.trim() ?? '';
+        final isVolume = media.isVolume;
+        final mediaUrl = media.mediaUrl.trim();
         if (isVolume || mediaUrl.isEmpty) {
           if (index + 1 >= state.chapters.length) {
             state = state.copyWith(
@@ -1076,7 +1083,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
           state = state.copyWith(currentIndex: index);
           continue;
         }
-        final lyric = (media['lyric'] as String?)?.trim();
+        final lyric = media.lyric?.trim();
         state = state.copyWith(
           currentIndex: index,
           mediaUrl: mediaUrl,
@@ -1099,8 +1106,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         // 恢复进度；从头播放时再套用片头跳过
         var restoredPos = 0;
         try {
-          final progress = await _api.getAudioProgress(state.bookUrl, index);
-          restoredPos = (progress?['position'] as num?)?.toInt() ?? 0;
+          final progress = await _audioBook.getAudioProgress(
+            state.bookUrl,
+            index,
+          );
+          restoredPos = progress;
           if (restoredPos > 1500 && token == _playToken && !_disposed) {
             if (_isNearChapterEnd(restoredPos)) {
               // [P1 辅修] 历史污染值/完成值按「本章已播完」处理：不 seek，
@@ -2963,13 +2973,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final book = await _bookForUrl(bookUrl);
       if (book == null) return;
       final cfg = book.readConfig;
-      final mergedJson = await _api.audioWithPlayMode(
-        readConfig: cfg == null ? null : jsonEncode(cfg.toJson()),
+      final merged = await _audioBook.audioWithPlayMode(
+        readConfig: cfg,
         playMode: mode.index,
       );
-      final decoded = jsonDecode(mergedJson);
-      if (decoded is! Map<String, dynamic>) return;
-      final updated = book.copyWith(readConfig: ReadConfig.fromJson(decoded));
+      final updated = book.copyWith(readConfig: merged);
       _book = updated;
       await _api.bookshelfRepository.updateBook(updated);
     } catch (e) {
@@ -3064,7 +3072,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _lastProgressSaveKey = key;
     _lastProgressSavedPosMs = position;
     try {
-      await _api.saveAudioProgress(bookUrl, chapterIndex, position);
+      await _audioBook.saveAudioProgress(bookUrl, chapterIndex, position);
     } catch (e) {
       debugPrint('保存音频进度失败: $e');
     }
@@ -3076,7 +3084,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (bookUrl.isEmpty) return;
     final chapterIndex = state.currentIndex;
     try {
-      await _api.saveAudioProgress(bookUrl, chapterIndex, 0);
+      await _audioBook.saveAudioProgress(bookUrl, chapterIndex, 0);
       _lastProgressSaveKey = '$bookUrl:$chapterIndex';
       _lastProgressSavedPosMs = 0;
     } catch (e) {
@@ -3101,11 +3109,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       final api = _apiCache;
       if (api == null) return;
       unawaited(
-        api.saveAudioProgress(s.bookUrl, s.currentIndex, position).catchError((
-          Object e,
-        ) {
-          debugPrint('退出时保存音频进度失败: $e');
-        }),
+        _audioBook
+            .saveAudioProgress(s.bookUrl, s.currentIndex, position)
+            .catchError((Object e) {
+              debugPrint('退出时保存音频进度失败: $e');
+            }),
       );
     } catch (e) {
       debugPrint('退出时保存音频进度失败: $e');

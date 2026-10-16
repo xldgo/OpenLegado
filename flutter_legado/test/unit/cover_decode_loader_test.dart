@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/book_source_fixture.dart';
 
 import 'dart:convert';
@@ -173,6 +177,13 @@ Uint8List _tinyJpeg() => Uint8List.fromList([
 
 /// 可控延迟的 fetchImageWithDecode Mock
 class _SlowDecodeApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   _SlowDecodeApi({this.delay = const Duration(milliseconds: 80)});
 
   final Duration delay;
@@ -180,8 +191,7 @@ class _SlowDecodeApi extends MockBookApi {
   int peakConcurrent = 0;
   int _inflight = 0;
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     fetchCount++;
     _inflight++;
     if (_inflight > peakConcurrent) peakConcurrent = _inflight;

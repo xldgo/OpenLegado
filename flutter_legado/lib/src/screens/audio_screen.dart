@@ -1,3 +1,4 @@
+import '../providers/media_provider.dart';
 import '../widgets/reader/read_aloud_timer_sheet.dart';
 import '../widgets/app_menu.dart';
 
@@ -794,19 +795,17 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       return;
     }
     try {
-      final api = ref.read(bookApiProvider);
       final audio = ref.read(audioNotifierProvider);
       // 优先当前已解析的播放地址，避免重复取址
       var url = audio.mediaUrl.trim();
       if (url.isEmpty) {
-        final media = await api.getAudioChapterMedia(
-          bookUrl,
-          audio.currentIndex,
-        );
-        url = (media['mediaUrl'] as String?)?.trim() ?? '';
+        final media = await ref
+            .read(audioBookServiceProvider)
+            .getAudioChapterMedia(bookUrl, audio.currentIndex);
+        url = media.mediaUrl.trim();
         if (url.isEmpty) {
-          final resource = (media['resourceUrl'] as String?)?.trim() ?? '';
-          final chapterUrl = (media['url'] as String?)?.trim() ?? '';
+          final resource = media.resourceUrl?.trim() ?? '';
+          final chapterUrl = media.url.trim();
           url = resource.isNotEmpty ? resource : chapterUrl;
         }
       }
@@ -975,7 +974,9 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     int start,
     int end,
   ) async {
-    final api = ref.read(bookApiProvider);
+    final cache = ref.read(audioCacheRepositoryProvider);
+    final downloads = ref.read(audioCacheDownloadServiceProvider);
+    final audio = ref.read(audioBookServiceProvider);
     final bookUrl = widget.effectiveBookUrl;
     final token = ++_audioCacheRunToken;
     setState(() {
@@ -1003,7 +1004,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       // already_cached 兜底，最多多一次取址）。
       var cached = false;
       try {
-        cached = await api.audioCacheQuery(
+        cached = await cache.audioCacheQuery(
           bookUrl: bookUrl,
           chapterIndex: index,
           chapterUrl: chapter.url,
@@ -1020,9 +1021,9 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       try {
         // playUrl 取内容链（与播放链同源：AudioPlay.kt:458 WebBook.getContent →
         // 我方 getAudioChapterMedia.mediaUrl，含缓存命中路径与空源回退）
-        final media = await api.getAudioChapterMedia(bookUrl, index);
-        final playUrl = (media['mediaUrl'] as String? ?? '').trim();
-        await api.audioCacheDownload(
+        final media = await audio.getAudioChapterMedia(bookUrl, index);
+        final playUrl = media.mediaUrl.trim();
+        await downloads.audioCacheDownload(
           bookUrl: bookUrl,
           chapterIndex: index,
           chapterUrl: chapter.url,
@@ -1066,7 +1067,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     _audioCacheRunToken++;
     if (mounted) setState(() => _audioCacheRunning = false);
     try {
-      await ref.read(bookApiProvider).audioCacheCancel();
+      await ref.read(audioCacheDownloadServiceProvider).audioCacheCancel();
     } catch (e) {
       debugPrint('[audio-cache] 取消在途下载失败：$e');
     }
@@ -1090,12 +1091,14 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     }
     if (chapter == null) return;
     // 返回数据文件删除数：>0 → 已清除；0 → 本章没有缓存（幂等语义）
-    final removed = await api.audioCacheClearChapter(
-      bookUrl: bookUrl,
-      chapterIndex: currentIndex,
-      chapterUrl: chapter.url,
-      chapterTitle: chapter.title,
-    );
+    final removed = await ref
+        .read(audioCacheRepositoryProvider)
+        .audioCacheClearChapter(
+          bookUrl: bookUrl,
+          chapterIndex: currentIndex,
+          chapterUrl: chapter.url,
+          chapterTitle: chapter.title,
+        );
     if (removed > 0) {
       _snack('已清除本章缓存');
     } else {

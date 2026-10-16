@@ -162,31 +162,4 @@ mixin RustApiSyncTools on RustApiDecode implements BookApi {
     if (json.isEmpty || json == 'null') return null;
     return _decodeMap(json, 'bookApi');
   }
-
-  // ========== 音频播放模式（audio FFI） ==========
-
-  /// 将播放模式写入 readConfig JSON（返回更新后的 JSON）
-  ///
-  /// 对应 Kotlin `String?.withAudioPlayMode`。
-  @override
-  Future<String> audioWithPlayMode({
-    String? readConfig,
-    required int playMode,
-  }) => bridge.audioWithPlayMode(readConfig: readConfig, playMode: playMode);
-
-  /// 解析听书书籍（返回 Book JSON，未找到返回 null）
-  ///
-  /// 请求 URL 为空时返回缓存书籍；缓存匹配时直接返回；否则按 URL 查库。
-  @override
-  Future<Map<String, dynamic>?> audioResolvePlayBook({
-    String? requestedBookUrl,
-    String? cachedBookJson,
-  }) async {
-    final json = await bridge.audioResolvePlayBook(
-      requestedBookUrl: requestedBookUrl,
-      cachedBookJson: cachedBookJson,
-    );
-    if (json.isEmpty || json == 'null') return null;
-    return _decodeMap(json, 'bookApi');
-  }
 }

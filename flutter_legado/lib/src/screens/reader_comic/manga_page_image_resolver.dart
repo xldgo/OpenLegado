@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../services/book_api.dart';
@@ -60,7 +59,7 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
   }
   // 2. 磁盘缓存命中（对齐 _DecodedComicImage 的本地优先语义）
   try {
-    final disk = await api.getImageCache(bookUrl, url);
+    final disk = await api.bookImageRepository.getImageCache(bookUrl, url);
     if (disk != null && disk.isNotEmpty && looksLikeImageBytes(disk)) {
       final bytes = disk is Uint8List ? disk : Uint8List.fromList(disk);
       return MangaPageImageBytes(bytes, _imageSuffixOf(bytes));
@@ -71,11 +70,11 @@ Future<MangaPageImageBytes?> resolveMangaPageImageBytes({
   // 3. FFI 解码回退（无 sourceJson 时不旁路直连，直接放弃）
   if (sourceJson == null) return null;
   try {
-    final json = await api.fetchImageWithDecode(url, sourceJson);
-    final decoded = jsonDecode(json) as Map<String, dynamic>;
-    final b64 = decoded['base64'] as String? ?? '';
-    if (b64.isEmpty) return null;
-    final bytes = base64Decode(b64);
+    final bytes = await api.bookImageRepository.fetchImageWithDecode(
+      url,
+      sourceJson,
+    );
+    if (bytes.isEmpty) return null;
     if (!looksLikeImageBytes(bytes)) return null;
     return MangaPageImageBytes(
       Uint8List.fromList(bytes),

@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -35,6 +39,14 @@ const _kPngBase64 =
 
 /// 页面适配测试 Mock：可注入配置（翻页模式/适配类型），记录配置写入
 class _ScaleMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -113,8 +125,7 @@ class _ScaleMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
@@ -132,8 +143,8 @@ class _ScaleMockApi extends MockBookApi {
     required int chapterPos,
   }) async {}
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async => null;
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async =>
+      null;
 }
 
 /// 打开漫画设置面板（控制栏 → 底栏「翻页设置」键 [P4-3 M1]）

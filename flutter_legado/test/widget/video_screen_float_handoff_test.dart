@@ -17,6 +17,7 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/providers.dart';
 import 'package:flutter_legado/src/screens/video_screen.dart';
 import 'package:flutter_legado/src/services/book_api.dart';
+import 'package:flutter_legado/src/data/services/mock_video_danmaku_service.dart';
 import 'package:flutter_legado/src/services/video_float_window.dart';
 import 'package:flutter_legado/src/utils/video_progress.dart';
 import 'package:flutter_legado/src/widgets/video_float_window_button.dart';
@@ -118,6 +119,9 @@ class _FakeFloatBridge extends VideoFloatWindowBridge {
 }
 
 class _FakeBookApi implements BookApi {
+  @override
+  final videoDanmakuService = const MockVideoDanmakuService();
+
   late final _fixtureReading = TestReadingRepository(
     getChapters: _readingGetChapters,
     fetchChapterContent: _readingFetchChapterContent,
@@ -159,12 +163,6 @@ class _FakeBookApi implements BookApi {
     String chapterUrl,
     String sourceUrl,
   ) async => 'https://cdn.example/v1.m3u8';
-
-  @override
-  Future<String?> getVideoDanmaku({
-    required String bookUrl,
-    required int chapterIndex,
-  }) async => null;
 
   Future<void> _readingUpdateReadingProgress({
     required String bookUrl,

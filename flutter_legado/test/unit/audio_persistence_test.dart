@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 
 // A2/A3 听书偏好持久化与进度写入测试（音频轨道 A2/A3 批）
@@ -10,7 +11,6 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // - 流媒体播放中按位置增量 ≥5s 节流写 audio_progress
 // - 章节播完自动切章前 / stop / pause / 容器销毁时写进度
 // - TTS 模式不写流媒体进度键（键语义为毫秒播放位置）
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -57,17 +57,17 @@ void main() {
     );
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getAudioChapterMedia(any(), any()))
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
           final index = invocation.positionalArguments[1] as int;
-          return {
+          return AudioChapterMedia.fromJson({
             'mediaUrl': 'https://cdn.example.com/$index.mp3',
             'isVolume': false,
-          };
+          });
         });
-    when(() => mockApi.getAudioProgress(any(), any()))
-        .thenAnswer((_) async => null);
-    when(() => mockApi.saveAudioProgress(any(), any(), any()))
+    when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => 0);
+    when(() => mockApi.audioBookService.saveAudioProgress(any(), any(), any()))
         .thenAnswer((_) async {});
 
     await readNotifier().loadChapters('url');
@@ -82,18 +82,16 @@ void main() {
       Map<String, dynamic>? mergedJson;
       Book? savedBook;
       when(
-        () => mockApi.audioWithPlayMode(
+        () => mockApi.audioBookService.audioWithPlayMode(
           readConfig: any(named: 'readConfig'),
           playMode: any(named: 'playMode'),
         ),
       ).thenAnswer((invocation) async {
-        final raw = invocation.namedArguments[#readConfig] as String?;
-        final map = raw == null || raw.isEmpty
-            ? <String, dynamic>{}
-            : jsonDecode(raw) as Map<String, dynamic>;
+        final raw = invocation.namedArguments[#readConfig] as ReadConfig?;
+        final map = raw?.toJson() ?? <String, dynamic>{};
         map['playMode'] = invocation.namedArguments[#playMode];
         mergedJson = map;
-        return jsonEncode(map);
+        return ReadConfig.fromJson(map);
       });
       when(() => mockApi.bookshelfRepository.updateBook(any()))
           .thenAnswer((invocation) async {
@@ -117,7 +115,7 @@ void main() {
       expect(savedBook?.readConfig?.playMode, 2);
       expect(savedBook?.readConfig?.openCredits, 15);
       verify(
-        () => mockApi.audioWithPlayMode(
+        () => mockApi.audioBookService.audioWithPlayMode(
           readConfig: any(named: 'readConfig'),
           playMode: 2,
         ),
@@ -201,7 +199,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 2000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 2000))
+          .called(1);
 
       // 增量不足 5s：不写（上一次 verify 已消费记录，此后不得有新的写调用）
       fakePlayer.emitProgress(
@@ -209,7 +208,9 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verifyNever(() => mockApi.saveAudioProgress('url', 0, any()));
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress('url', 0, any()),
+      );
 
       // 增量超过 5s：写
       fakePlayer.emitProgress(
@@ -217,7 +218,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 8000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 8000))
+          .called(1);
 
       readNotifier().stop();
     });
@@ -230,7 +232,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 2000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 2000))
+          .called(1);
 
       fakePlayer.emitProgress(
         const Duration(seconds: 4),
@@ -243,8 +246,11 @@ void main() {
       await tester.pump();
 
       expect(readState().currentIndex, 1);
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
-      verifyNever(() => mockApi.saveAudioProgress('url', 1, any()));
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress('url', 1, any()),
+      );
 
       readNotifier().stop();
     });
@@ -257,7 +263,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 6000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 6000))
+          .called(1);
 
       fakePlayer.emitProgress(
         const Duration(seconds: 7),
@@ -267,7 +274,8 @@ void main() {
 
       readNotifier().stop();
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 7000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 7000))
+          .called(1);
     });
 
     testWidgets('pause 前写入当前进度（既有行为回归）', (tester) async {
@@ -278,7 +286,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 3000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 3000))
+          .called(1);
 
       fakePlayer.emitProgress(
         const Duration(seconds: 4),
@@ -288,7 +297,8 @@ void main() {
 
       readNotifier().pause();
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
     });
 
     testWidgets('容器销毁（onDispose）尽力写入当前进度', (tester) async {
@@ -299,7 +309,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 3000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 3000))
+          .called(1);
 
       fakePlayer.emitProgress(
         const Duration(seconds: 4),
@@ -309,7 +320,8 @@ void main() {
 
       container.dispose();
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
     });
 
     testWidgets('TTS 模式完成/停止不写流媒体进度键（键语义为毫秒）', (tester) async {
@@ -344,7 +356,9 @@ void main() {
       readNotifier().stop();
       await tester.pump();
 
-      verifyNever(() => mockApi.saveAudioProgress(any(), any(), any()));
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress(any(), any(), any()),
+      );
     });
   });
 }

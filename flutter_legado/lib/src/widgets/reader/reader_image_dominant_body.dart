@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../providers/media_provider.dart';
 import '../../screens/reader_comic_screen.dart' show ComicImageDecodeCache;
 import '../../utils/comic_image_utils.dart';
 import '../app_progress_indicator.dart';
@@ -264,7 +265,7 @@ class _FfiComicImageState extends ConsumerState<_FfiComicImage> {
     if (hit != null) return hit;
     try {
       await ComicImageDecodeCache.preload(
-        api: ref.read(bookApiProvider),
+        images: ref.read(bookImageRepositoryProvider),
         url: widget.url,
         sourceJson: widget.sourceJson,
         bookSourceUrl: widget.bookSourceUrl,

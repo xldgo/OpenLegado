@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // A4 批：定时停止（分钟倒计时 + 按章停止）计时下沉 AudioNotifier 测试
 //
@@ -61,17 +62,17 @@ void main() {
     );
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getAudioChapterMedia(any(), any()))
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
           final index = invocation.positionalArguments[1] as int;
-          return {
+          return AudioChapterMedia.fromJson({
             'mediaUrl': 'https://cdn.example.com/$index.mp3',
             'isVolume': false,
-          };
+          });
         });
-    when(() => mockApi.getAudioProgress(any(), any()))
-        .thenAnswer((_) async => null);
-    when(() => mockApi.saveAudioProgress(any(), any(), any()))
+    when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => 0);
+    when(() => mockApi.audioBookService.saveAudioProgress(any(), any(), any()))
         .thenAnswer((_) async {});
 
     await readNotifier().loadChapters('url');
@@ -224,7 +225,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 3000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 3000))
+          .called(1);
       fakePlayer.emitProgress(
         const Duration(seconds: 4),
         const Duration(minutes: 3),
@@ -240,8 +242,11 @@ void main() {
       expect(readState().currentIndex, 0);
       expect(readNotifier().isSleepTimerActive, isFalse);
       // 停止时 force 写当前章进度（A3 复用）
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
-      verifyNever(() => mockApi.saveAudioProgress('url', 1, any()));
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress('url', 1, any()),
+      );
     });
 
     testWidgets('流媒体：按章停止 2 = 第一章完成计数并切章，第二章完成才停', (tester) async {
@@ -315,7 +320,9 @@ void main() {
       expect(readState().state, PlayerState.idle);
       expect(readState().currentIndex, 0);
       expect(readNotifier().isSleepTimerActive, isFalse);
-      verifyNever(() => mockApi.saveAudioProgress(any(), any(), any()));
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress(any(), any(), any()),
+      );
     });
   });
 
@@ -330,18 +337,19 @@ void main() {
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
       when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.getAudioChapterMedia(any(), any()))
+      when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
           .thenAnswer((invocation) async {
             final index = invocation.positionalArguments[1] as int;
-            return {
+            return AudioChapterMedia.fromJson({
               'mediaUrl': 'https://cdn.example.com/$index.mp3',
               'isVolume': false,
-            };
+            });
           });
-      when(() => mockApi.getAudioProgress(any(), any()))
-          .thenAnswer((_) async => null);
-      when(() => mockApi.saveAudioProgress(any(), any(), any()))
-          .thenAnswer((_) async {});
+      when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(
+        () => mockApi.audioBookService.saveAudioProgress(any(), any(), any()),
+      ).thenAnswer((_) async {});
 
       // 预载章节，保证页面 initState 不重复 load（渲染路径确定性）
       await readNotifier().loadChapters('url');
@@ -392,7 +400,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 3000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 3000))
+          .called(1);
 
       // 4s 增量被节流（未写库），确保到点停止时确有新位置可写
       fakePlayer.emitProgress(
@@ -410,7 +419,8 @@ void main() {
 
       expect(readState().state, PlayerState.idle);
       expect(readNotifier().isSleepTimerActive, isFalse);
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
     });
   });
 

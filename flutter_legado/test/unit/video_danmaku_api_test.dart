@@ -31,14 +31,17 @@ void main() {
     test('空态无弹幕 → null（降级语义）', () async {
       final api = MockBookApi();
       expect(
-        await api.getVideoDanmaku(bookUrl: bookUrl, chapterIndex: 0),
+        await api.videoDanmakuService.getVideoDanmaku(
+          bookUrl: bookUrl,
+          chapterIndex: 0,
+        ),
         isNull,
       );
     });
 
     test('经 BookApi 接口调用返回 String?（编译期签名形状）', () async {
       final BookApi api = MockBookApi();
-      final String? danmaku = await api.getVideoDanmaku(
+      final String? danmaku = await api.videoDanmakuService.getVideoDanmaku(
         bookUrl: bookUrl,
         chapterIndex: 3,
       );
@@ -50,7 +53,7 @@ void main() {
     test('getVideoDanmaku 降级 null，不抛 FFI 异常', () async {
       final api = createBookApi(useMock: false);
       expect(
-        await api.getVideoDanmaku(
+        await api.videoDanmakuService.getVideoDanmaku(
           bookUrl: 'https://example.com/book',
           chapterIndex: 0,
         ),
@@ -63,16 +66,17 @@ void main() {
     test('mock 解析固定 null（不在 Dart 复制 XML 语义）', () async {
       final api = MockBookApi();
       expect(
-        await api.parseVideoDanmaku(raw: '<i><d p="1,1,25,0">a</d></i>'),
+        await api.videoDanmakuService.parseVideoDanmaku(
+          raw: '<i><d p="1,1,25,0">a</d></i>',
+        ),
         isNull,
       );
     });
 
     test('经 BookApi 接口调用返回 List<VideoDanmakuItem>?（签名形状）', () async {
       final BookApi api = MockBookApi();
-      final List<VideoDanmakuItem>? items = await api.parseVideoDanmaku(
-        raw: '<i/>',
-      );
+      final List<VideoDanmakuItem>? items = await api.videoDanmakuService
+          .parseVideoDanmaku(raw: '<i/>');
       expect(items, isNull);
     });
   });
@@ -81,7 +85,9 @@ void main() {
     test('parseVideoDanmaku 降级 null，不抛 FFI 异常', () async {
       final api = createBookApi(useMock: false);
       expect(
-        await api.parseVideoDanmaku(raw: '<i><d p="1,1,25,0">a</d></i>'),
+        await api.videoDanmakuService.parseVideoDanmaku(
+          raw: '<i><d p="1,1,25,0">a</d></i>',
+        ),
         isNull,
       );
     });

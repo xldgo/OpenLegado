@@ -112,7 +112,7 @@ void main() {
 
     // 目录不存在 → false
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: index,
         chapterUrl: _kChapterUrl,
@@ -124,7 +124,7 @@ void main() {
     // 无 `.complete` 标记 → false
     await writeCacheFile(name, marker: false);
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: index,
         chapterUrl: _kChapterUrl,
@@ -138,7 +138,7 @@ void main() {
     await File('${bookDir().path}$sep$name').writeAsBytes(const <int>[]);
     await File('${bookDir().path}$sep$name.complete').writeAsString('1\nx\nx');
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: index,
         chapterUrl: _kChapterUrl,
@@ -151,7 +151,7 @@ void main() {
     await File('${bookDir().path}$sep$name')
         .writeAsBytes(List<int>.filled(8, 7));
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: index,
         chapterUrl: _kChapterUrl,
@@ -159,9 +159,12 @@ void main() {
       ),
       isTrue,
     );
-    expect(await api.audioCacheList(bookUrl: _kBookUrl), <int>[1]);
     expect(
-      await api.audioCacheList(bookUrl: 'other-book'),
+      await api.audioCacheRepository.audioCacheList(bookUrl: _kBookUrl),
+      <int>[1],
+    );
+    expect(
+      await api.audioCacheRepository.audioCacheList(bookUrl: 'other-book'),
       isEmpty,
       reason: '书级目录按 md5_16(bookUrl) 隔离，不得跨书命中',
     );
@@ -170,7 +173,7 @@ void main() {
   test('chapterUrl 空白时退回 chapterTitle（原版 ifBlank 语义）', () async {
     await writeCacheFile(dataName(7, _kTitleKey16, 'audio'), marker: true);
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: 7,
         chapterUrl: '   ',
@@ -180,7 +183,7 @@ void main() {
       reason: '空白 chapterUrl 应按标题计算键并命中',
     );
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: 7,
         chapterUrl: '中文',
@@ -198,7 +201,7 @@ void main() {
     await writeCacheFile(target, marker: true);
     await writeCacheFile(other, marker: true);
 
-    final deleted = await api.audioCacheClearChapter(
+    final deleted = await api.audioCacheRepository.audioCacheClearChapter(
       bookUrl: _kBookUrl,
       chapterIndex: 1,
       chapterUrl: _kChapterUrl,
@@ -206,7 +209,7 @@ void main() {
     );
     expect(deleted, 1, reason: '仅统计数据文件（契约 §2.47 口径修正；.complete 照删不计）');
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: 1,
         chapterUrl: _kChapterUrl,
@@ -215,7 +218,7 @@ void main() {
       isFalse,
     );
     expect(
-      await api.audioCacheQuery(
+      await api.audioCacheRepository.audioCacheQuery(
         bookUrl: _kBookUrl,
         chapterIndex: 2,
         chapterUrl: '   ',
@@ -227,7 +230,7 @@ void main() {
 
     // 幂等：再次清理返回 0
     expect(
-      await api.audioCacheClearChapter(
+      await api.audioCacheRepository.audioCacheClearChapter(
         bookUrl: _kBookUrl,
         chapterIndex: 1,
         chapterUrl: _kChapterUrl,
@@ -241,18 +244,25 @@ void main() {
     await writeCacheFile(dataName(1, _kKey16, 'mp3'), marker: true);
     await writeCacheFile(dataName(3, _kTitleKey16, 'm4a'), marker: true);
     expect(
-      await api.audioCacheClearBook(bookUrl: _kBookUrl),
+      await api.audioCacheRepository.audioCacheClearBook(bookUrl: _kBookUrl),
       2,
       reason: '仅统计数据文件（.complete 照删不计，契约 §2.47 口径修正）',
     );
     expect(bookDir().existsSync(), isFalse, reason: '书目录应一并移除');
-    expect(await api.audioCacheList(bookUrl: _kBookUrl), isEmpty);
-    expect(await api.audioCacheClearBook(bookUrl: _kBookUrl), 0, reason: '幂等');
+    expect(
+      await api.audioCacheRepository.audioCacheList(bookUrl: _kBookUrl),
+      isEmpty,
+    );
+    expect(
+      await api.audioCacheRepository.audioCacheClearBook(bookUrl: _kBookUrl),
+      0,
+      reason: '幂等',
+    );
   });
 
   test('B2 写入面 FFI 可达：取消无在途返回 false（同步语义）', () async {
     expect(
-      await api.audioCacheCancel(),
+      await api.audioCacheDownloadService.audioCacheCancel(),
       isFalse,
       reason: '运行时测试无在途下载，置位应返回 false',
     );
@@ -262,7 +272,7 @@ void main() {
     // 本运行时测试未 db_open 注入书籍/书源夹具：写入面必须上抛
     // （契约 §2.48 有意区别于 §2.47 读面降级）
     await expectLater(
-      api.audioCacheDownload(
+      api.audioCacheDownloadService.audioCacheDownload(
         bookUrl: 'no-such-book',
         chapterIndex: 0,
         chapterUrl: 'hello',

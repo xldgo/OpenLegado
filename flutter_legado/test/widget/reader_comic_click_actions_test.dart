@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -111,6 +115,14 @@ BookSource _buildComicSource() {
 /// [P4-3 M4 批2] 新增 [isVolume] 注入（0 图卷章分隔页用例）+
 /// [setConfigCalls] 记录（面板持久化接线断言）
 class _ClickActionsMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -201,8 +213,7 @@ class _ClickActionsMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
@@ -225,8 +236,7 @@ class _ClickActionsMockApi extends MockBookApi {
     progressCalls.add([chapterIndex, chapterPos]);
   }
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async {
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async {
     imageCacheCalls++;
     return diskBytes;
   }

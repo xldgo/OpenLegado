@@ -1,5 +1,21 @@
 # API 契约文档（BookApi 接口基准）
 
+## 媒体能力Dart边界（2026-10-16，实施前冻结）
+
+BookImageRepository接管saveImageCache/getImageCache/fetchImageWithDecode，网络解码返回Uint8List，
+保留缓存写失败false、读取失败null和在线回退；传输base64由数据层处理。
+AudioCacheRepository接管四项缓存查询/清理，AudioCacheDownloadService接管下载/取消，
+下载返回AudioCacheDownloadResult（installed/alreadyCached、path/sizeBytes/extension），
+只接受现有installed/already_cached协议；取消含义及读面降级、写面上抛不变。
+AudioBookService接管getAudioChapterMedia/getAudioProgress/saveAudioProgress/audioWithPlayMode，
+取址返回AudioChapterMedia，进度返回毫秒整数（无记录0），播放模式传入/返回ReadConfig，
+由适配器与现有Rust JSON协议转换。VideoDanmakuService复用VideoDanmakuItem及既有查询/解析降级。
+正式/Mock共用应用装配，音频Mock下载与读面共享单一状态；不在Mock复制XML解析或真实播放器。
+根十五项活动方法与无生产调用的audioResolvePlayBook旧包装移除，97→81，不保留转发壳。
+不改Rust/FRB/数据库/取消机制和TTS生命周期；JSON坏响应不能变成写入成功，辅助增强仍按原契约降级。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 书籍内容Dart边界（2026-10-16，实施前冻结）
 
 LocalBookService接管importLocalBook与cbzReadPage，导入仍返回Book，CBZ返回Uint8List，
@@ -62,6 +78,7 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 
 | 日期 | 内容 |
 |------|------|
+| 2026-10-16 | **媒体Dart边界冻结**：图片三项迁入BookImageRepository，音频缓存四项及下载/取消两项分别迁入AudioCacheRepository和AudioCacheDownloadService；音频取址/进度/模式四项迁入AudioBookService，弹幕两项迁入VideoDanmakuService。图片返回字节，音频返回类型化结果/毫秒整数/ReadConfig，数据层处理JSON；根旧十五项及无消费者的audioResolvePlayBook包装移除，97→81。Rust/FRB、数据库及播放生命周期不变。 |
 | 2026-10-16 | **全局缓存与数据库维护Dart边界冻结**：CacheRepository接管五项全局统计与清理，DatabaseMaintenanceService接管VACUUM，CacheService返回CacheStats；设置页使用窄Provider，统计失败可重试、清理拒绝不报成功，根BookApi 128→122。Rust/FRB和实际缓存清理范围不变，见§2.16。 |
 | 2026-10-16 | **应用日志Dart边界冻结**：appLog五项迁入AppLogRepository，列表返回共享AppLogEntry，JSON解码归数据层；正式/Mock实现共用应用装配实例，搜索与换源写入失败不阻断业务。根旧五项移除，BookApi 133→128；Rust/FRB及崩溃采集备份不变，见§2.38。 |
 | 2026-10-16 | **词典Dart边界冻结**：dictLookup迁入DictionaryService，返回DictEntry；七项规则访问迁入DictRuleRepository，列表返回补齐id的DictRule，排序接受ID列表。查询、管理和关联导入统一使用现有dictRules表，删除config:dict_rules第二份权威及版本标记，不迁移旧配置。BookApi 141→133，Rust/FRB/数据库不变，见§2.45与§3词典说明。 |

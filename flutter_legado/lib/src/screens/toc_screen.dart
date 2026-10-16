@@ -1,3 +1,4 @@
+import '../providers/media_provider.dart';
 import '../domain/models/book_highlight.dart';
 import '../providers/highlight_repository_provider.dart';
 import '../providers/chapter_cache_provider.dart';
@@ -281,7 +282,6 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 两者均无变化时跳过 setState（避免每秒无谓整行重建）；查询失败保留旧态。
   Future<void> _pollCachedUrls() async {
     try {
-      final api = ref.read(bookApiProvider);
       final entries = await ref
           .read(chapterCacheRepositoryProvider)
           .listCachedChapters(_book.bookUrl);
@@ -328,8 +328,11 @@ class _TocScreenState extends ConsumerState<TocScreen>
       Set<int> audioCached = _audioCachedIndices;
       if (_isAudioBook && !_isLocal) {
         try {
-          audioCached = (await api.audioCacheList(bookUrl: _book.bookUrl))
-              .toSet();
+          audioCached =
+              (await ref
+                      .read(audioCacheRepositoryProvider)
+                      .audioCacheList(bookUrl: _book.bookUrl))
+                  .toSet();
         } catch (_) {
           audioCached = _audioCachedIndices;
         }
@@ -489,8 +492,11 @@ class _TocScreenState extends ConsumerState<TocScreen>
         } catch (_) {}
         if (_isAudioBook) {
           try {
-            audioCached = (await api.audioCacheList(bookUrl: _book.bookUrl))
-                .toSet();
+            audioCached =
+                (await ref
+                        .read(audioCacheRepositoryProvider)
+                        .audioCacheList(bookUrl: _book.bookUrl))
+                    .toSet();
           } catch (_) {
             // 查询失败降级为空集，不阻断目录展示（后续 1s 轮询自愈）
           }

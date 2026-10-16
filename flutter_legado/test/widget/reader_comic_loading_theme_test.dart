@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -74,6 +78,13 @@ List<BookChapter> _chapters(String baseUrl) => [
 /// 足够长可断言。[tag] 隔离静态解码缓存（ComicImageDecodeCache 以
 /// bookSourceUrl+url 为键），避免 dark/light 两用例互相命中缓存。
 class _SlowDecodeMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -129,8 +140,7 @@ class _SlowDecodeMockApi extends MockBookApi {
     return '<img src="https://cdn.example.com/p43unify/ring-$tag/ch1/0.jpg">';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     // 300ms 延迟（fake 时钟）：加载环态可被断言
     await Future<void>.delayed(const Duration(milliseconds: 300));
     return jsonEncode({'base64': _kPngBase64, 'len': 68});

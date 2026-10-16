@@ -1,3 +1,8 @@
+import '../domain/contracts/book_image_repository.dart';
+import '../domain/contracts/audio_cache_repository.dart';
+import '../domain/contracts/audio_cache_download_service.dart';
+import '../domain/contracts/audio_book_service.dart';
+import '../domain/contracts/video_danmaku_service.dart';
 import '../domain/contracts/local_book_service.dart';
 import '../domain/contracts/book_archive_service.dart';
 import '../domain/contracts/book_export_service.dart';
@@ -37,8 +42,6 @@ import '../domain/contracts/bookshelf_repository.dart';
 import '../domain/contracts/book_group_repository.dart';
 
 import 'dart:convert';
-
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../data/bridge/runtime_configuration.dart';
 import '../data/bridge/rust_json_decode.dart';
@@ -81,6 +84,12 @@ class RustApi
   @override
   CloudTtsRepository get cloudTtsRepository => const RustCloudTtsRepository();
   factory RustApi({
+    required BookImageRepository bookImageRepository,
+    required AudioCacheRepository audioCacheRepository,
+    required AudioCacheDownloadService audioCacheDownloadService,
+    required AudioBookService audioBookService,
+    required VideoDanmakuService videoDanmakuService,
+
     required LocalBookService localBookService,
     required BookArchiveService bookArchiveService,
     required BookExportService bookExportService,
@@ -120,6 +129,11 @@ class RustApi
     required BackupRepository backupRepository,
     required WebDavService webDavService,
   }) => RustApi._(
+    bookImageRepository,
+    audioCacheRepository,
+    audioCacheDownloadService,
+    audioBookService,
+    videoDanmakuService,
     localBookService,
     bookArchiveService,
     bookExportService,
@@ -160,6 +174,11 @@ class RustApi
   );
 
   RustApi._(
+    this.bookImageRepository,
+    this.audioCacheRepository,
+    this.audioCacheDownloadService,
+    this.audioBookService,
+    this.videoDanmakuService,
     this.localBookService,
     this.bookArchiveService,
     this.bookExportService,
@@ -198,6 +217,17 @@ class RustApi
     this.backupRepository,
     this.webDavService,
   );
+
+  @override
+  final BookImageRepository bookImageRepository;
+  @override
+  final AudioCacheRepository audioCacheRepository;
+  @override
+  final AudioCacheDownloadService audioCacheDownloadService;
+  @override
+  final AudioBookService audioBookService;
+  @override
+  final VideoDanmakuService videoDanmakuService;
 
   @override
   final LocalBookService localBookService;

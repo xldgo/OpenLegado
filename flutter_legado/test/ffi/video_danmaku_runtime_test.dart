@@ -182,7 +182,7 @@ void main() {
       );
 
       // 4. 查询：读回副内容原文
-      final danmaku = await api.getVideoDanmaku(
+      final danmaku = await api.videoDanmakuService.getVideoDanmaku(
         bookUrl: bookUrl,
         chapterIndex: 0,
       );
@@ -195,13 +195,19 @@ void main() {
         danmaku,
       );
       expect(
-        await api.getVideoDanmaku(bookUrl: bookUrl, chapterIndex: 0),
+        await api.videoDanmakuService.getVideoDanmaku(
+          bookUrl: bookUrl,
+          chapterIndex: 0,
+        ),
         danmaku,
       );
 
       // 无记录/书不在 DB → null 降级（不抛）
       expect(
-        await api.getVideoDanmaku(bookUrl: '$base/ghost', chapterIndex: 0),
+        await api.videoDanmakuService.getVideoDanmaku(
+          bookUrl: '$base/ghost',
+          chapterIndex: 0,
+        ),
         isNull,
       );
     } finally {
@@ -220,7 +226,7 @@ void main() {
           '</i>';
 
       // RustApi 通道：JSON → 模型列表（升序、类型过滤、字段口径）
-      final items = await api.parseVideoDanmaku(raw: xml);
+      final items = await api.videoDanmakuService.parseVideoDanmaku(raw: xml);
       expect(items, isNotNull, reason: '真实 DLL 应返回解析结果');
       expect(items!.length, 2, reason: 'type2 应静默丢弃');
       final first = items.first;
@@ -240,8 +246,11 @@ void main() {
       expect(decoded.first['text'], '滚动');
 
       // 非 XML / 空 → null（对齐原版 SAX 无容错）
-      expect(await api.parseVideoDanmaku(raw: '不是XML'), isNull);
-      expect(await api.parseVideoDanmaku(raw: ''), isNull);
+      expect(
+        await api.videoDanmakuService.parseVideoDanmaku(raw: '不是XML'),
+        isNull,
+      );
+      expect(await api.videoDanmakuService.parseVideoDanmaku(raw: ''), isNull);
     },
   );
 }

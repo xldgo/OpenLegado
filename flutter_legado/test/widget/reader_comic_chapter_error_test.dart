@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -76,6 +80,13 @@ Book _e4Book({int chapterIndex = 0}) {
 /// - 记录 getBook / getChapters / fetchChapterContent 调用计数，用于甄别
 ///   「章级重试」（只重拉章节正文）与「书级重试」（重拉书籍信息 + 目录）。
 class _ChapterErrorMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -168,8 +179,7 @@ class _ChapterErrorMockApi extends MockBookApi {
     return count <= queue.length ? queue[count - 1] : queue.last;
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 

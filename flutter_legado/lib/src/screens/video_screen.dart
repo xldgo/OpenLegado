@@ -1,3 +1,5 @@
+import '../providers/media_provider.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -499,8 +501,7 @@ class _VideoScreenState extends State<VideoScreen> {
       if (preset != null) {
         // [V-B3] 悬浮窗回全屏：URL/位置/header 已交回，仅补弹幕数据后直接续播
         if (!mounted || _handedToFloat) return;
-        final api = _readApi();
-        await _loadDanmakuForChapter(api, index);
+        await _loadDanmakuForChapter(index);
         if (!mounted || _handedToFloat) return;
         await _startFromTarget(preset);
         if (mounted && !_handedToFloat) {
@@ -524,12 +525,14 @@ class _VideoScreenState extends State<VideoScreen> {
   /// 无记录/读失败/解析失败一律降级为空列表（弹幕是增强层）；[raw] 非空
   /// 即显示开关（对齐原版 VideoPlayer.kt:266-272：原文非空但解析失败时
   /// 开关仍在、画面无弹幕）。
-  Future<void> _loadDanmakuForChapter(BookApi api, int index) async {
+  Future<void> _loadDanmakuForChapter(int index) async {
     final book = widget.book;
     if (book == null) return;
+    final danmaku = ProviderScope.containerOf(context)
+        .read(videoDanmakuServiceProvider);
     String? raw;
     try {
-      raw = await api.getVideoDanmaku(
+      raw = await danmaku.getVideoDanmaku(
         bookUrl: book.bookUrl,
         chapterIndex: index,
       );
@@ -546,7 +549,7 @@ class _VideoScreenState extends State<VideoScreen> {
     }
     List<VideoDanmakuItem>? items;
     try {
-      items = await api.parseVideoDanmaku(raw: raw);
+      items = await danmaku.parseVideoDanmaku(raw: raw);
     } catch (_) {
       items = null;
     }
@@ -592,7 +595,7 @@ class _VideoScreenState extends State<VideoScreen> {
             )
           : await api.readingRepository.getChapterContent(book.bookUrl, index);
       // [V-B2] 弹幕与正文同链加载：§2.49 原文 → §2.50 Rust 解析
-      await _loadDanmakuForChapter(api, index);
+      await _loadDanmakuForChapter(index);
       final target = resolveVideoPlayTarget(
         content: content,
         chapterUrl: chapter.url,

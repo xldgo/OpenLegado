@@ -1,3 +1,8 @@
+import '../../data/repositories/rust_book_image_repository.dart';
+import '../../data/repositories/rust_audio_cache_repository.dart';
+import '../../data/services/rust_audio_cache_download_service.dart';
+import '../../data/services/rust_audio_book_service.dart';
+import '../../data/services/rust_video_danmaku_service.dart';
 import '../../data/services/rust_local_book_service.dart';
 import '../../data/services/rust_book_archive_service.dart';
 import '../../data/services/rust_book_export_service.dart';
@@ -60,6 +65,11 @@ BookApi createBookApi({
             configurationSource ?? SettingsRuntimeConfiguration(),
       );
   return RustApi(
+    bookImageRepository: const RustBookImageRepository(),
+    audioCacheRepository: const RustAudioCacheRepository(),
+    audioCacheDownloadService: const RustAudioCacheDownloadService(),
+    audioBookService: const RustAudioBookService(),
+    videoDanmakuService: const RustVideoDanmakuService(),
     localBookService: const RustLocalBookService(),
     bookArchiveService: const RustBookArchiveService(),
     bookExportService: const RustBookExportService(),

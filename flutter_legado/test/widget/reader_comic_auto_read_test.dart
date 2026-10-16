@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -44,6 +48,14 @@ const _kPngBase64 =
 /// 自动翻页测试 Mock：可注入配置（翻页模式/速度档）、章节数，
 /// 记录进度写入与配置写入
 class _AutoReadMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -130,8 +142,7 @@ class _AutoReadMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
@@ -151,8 +162,8 @@ class _AutoReadMockApi extends MockBookApi {
     progressCalls.add([chapterIndex, chapterPos]);
   }
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async => null;
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async =>
+      null;
 }
 
 /// [W2-fix ⑬] 当前测试表面逻辑尺寸的**正中点**：九区点击按「视口 3×3

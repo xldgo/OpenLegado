@@ -18,6 +18,8 @@ import '../models/models.dart';
 import '../providers/providers.dart';
 import '../routes.dart';
 import '../services/book_api.dart';
+import '../domain/contracts/book_image_repository.dart';
+import '../providers/media_provider.dart';
 import '../services/platform_bridge_service.dart';
 import '../services/system_brightness.dart';
 import '../utils/comic_image_utils.dart';
@@ -1598,8 +1600,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final book = _book;
     if (source == null || book == null || !mounted) return;
     try {
-      final api = ref.read(bookApiProvider);
-      final diskHit = await api.getImageCache(_activeBookUrl, url);
+      final images = ref.read(bookImageRepositoryProvider);
+      final diskHit = await images.getImageCache(_activeBookUrl, url);
       if (diskHit != null &&
           diskHit.isNotEmpty &&
           looksLikeImageBytes(diskHit)) {
@@ -1611,7 +1613,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         return;
       }
       await ComicImageDecodeCache.preload(
-        api: api,
+        images: images,
         url: url,
         sourceJson: jsonEncode(source.toJson()),
         bookSourceUrl: book.origin,
@@ -1620,7 +1622,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       final loaded = ComicImageDecodeCache.get(book.origin, url);
       if (loaded != null) {
         try {
-          await api.saveImageCache(
+          await images.saveImageCache(
             bookUrl: _activeBookUrl,
             url: url,
             bytes: loaded,
@@ -2784,17 +2786,14 @@ class ComicImageDecodeCache {
 
   /// 预加载：调用 FFI 并写入缓存（已命中则跳过）
   static Future<void> preload({
-    required BookApi api,
+    required BookImageRepository images,
     required String url,
     required String sourceJson,
     required String bookSourceUrl,
   }) async {
     if (_cache.containsKey(keyOf(bookSourceUrl, url))) return;
-    final json = await api.fetchImageWithDecode(url, sourceJson);
-    final decoded = jsonDecode(json) as Map<String, dynamic>;
-    final b64 = decoded['base64'] as String? ?? '';
-    if (b64.isEmpty) return;
-    final bytes = base64Decode(b64);
+    final bytes = await images.fetchImageWithDecode(url, sourceJson);
+    if (bytes.isEmpty) return;
     if (!looksLikeImageBytes(bytes)) return;
     put(bookSourceUrl, url, bytes);
   }
@@ -2971,11 +2970,11 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
       _error = null;
     });
     try {
-      final api = ref.read(bookApiProvider);
+      final images = ref.read(bookImageRepositoryProvider);
       // [P4-2a | 契约 §2.46] 图片磁盘缓存优先（对齐原版 MangaVH.mangaImagePath
       // 本地优先语义）：命中 → 直接本地字节渲染，跳过网络解码链；未命中/
       // 读失败降级走下方网络链路（读失败已由 Rust 侧降级 null，不影响在线）。
-      final cached = await api.getImageCache(widget.bookUrl, widget.url);
+      final cached = await images.getImageCache(widget.bookUrl, widget.url);
       if (cached != null && cached.isNotEmpty && looksLikeImageBytes(cached)) {
         final cachedBytes = cached is Uint8List
             ? cached
@@ -2993,16 +2992,13 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
         await _applyEpaperIfNeeded(cachedBytes);
         return;
       }
-      final json = await api.fetchImageWithDecode(
+      final bytes = await images.fetchImageWithDecode(
         widget.url,
         widget.sourceJson,
       );
-      final decoded = jsonDecode(json) as Map<String, dynamic>;
-      final b64 = decoded['base64'] as String? ?? '';
-      if (b64.isEmpty) {
+      if (bytes.isEmpty) {
         throw Exception('解码结果为空（imageDecode 未返回有效图片数据）');
       }
-      final bytes = base64Decode(b64);
       if (!looksLikeImageBytes(bytes)) {
         throw Exception('解码结果不是有效图片（可能 imageDecode/createSymmetricCrypto 失败）');
       }
@@ -3010,7 +3006,7 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
       ComicImageDecodeCache.put(widget.bookSourceUrl, widget.url, bytes);
       // [P4-2a] 网络成功后回写磁盘缓存：fire-and-forget，写失败静默降级
       // （不影响在线加载，对齐原版 saveImage catch 仅记日志不抛异常语义）
-      unawaited(_saveDiskCache(api, bytes));
+      unawaited(_saveDiskCache(images, bytes));
       setState(() {
         _bytes = bytes;
         _loading = false;
@@ -3031,9 +3027,12 @@ class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
   /// 写盘失败/输入非法时 `saveImageCache` 返回 false（Rust 侧静默降级），
   /// 此处再兜底捕获任何异常——缓存是加速器不是数据源，失败必须不影响
   /// 在线加载（对齐原版 `BookHelp.saveImage` catch 仅记日志语义）。
-  Future<void> _saveDiskCache(BookApi api, List<int> bytes) async {
+  Future<void> _saveDiskCache(
+    BookImageRepository images,
+    List<int> bytes,
+  ) async {
     try {
-      await api.saveImageCache(
+      await images.saveImageCache(
         bookUrl: widget.bookUrl,
         url: widget.url,
         bytes: bytes,

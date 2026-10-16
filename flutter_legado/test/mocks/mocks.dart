@@ -1,5 +1,11 @@
 library;
 
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/audio_cache_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/audio_cache_download_service.dart';
+import 'package:flutter_legado/src/domain/contracts/audio_book_service.dart';
+import 'package:flutter_legado/src/domain/contracts/video_danmaku_service.dart';
+
 import 'package:flutter_legado/src/domain/contracts/local_book_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_archive_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_export_service.dart';
@@ -146,7 +152,30 @@ class BookExportServiceMock extends Mock implements BookExportService {}
 
 class ReviewServiceMock extends Mock implements ReviewService {}
 
+class BookImageRepositoryMock extends Mock implements BookImageRepository {}
+
+class AudioCacheRepositoryMock extends Mock implements AudioCacheRepository {}
+
+class AudioCacheDownloadServiceMock extends Mock
+    implements AudioCacheDownloadService {}
+
+class AudioBookServiceMock extends Mock implements AudioBookService {}
+
+class VideoDanmakuServiceMock extends Mock implements VideoDanmakuService {}
+
 class MockRustApi extends Mock implements RustApi {
+  @override
+  final BookImageRepository bookImageRepository = BookImageRepositoryMock();
+  @override
+  final AudioCacheRepository audioCacheRepository = AudioCacheRepositoryMock();
+  @override
+  final AudioCacheDownloadService audioCacheDownloadService =
+      AudioCacheDownloadServiceMock();
+  @override
+  final AudioBookService audioBookService = AudioBookServiceMock();
+  @override
+  final VideoDanmakuService videoDanmakuService = VideoDanmakuServiceMock();
+
   @override
   final LocalBookService localBookService = LocalBookServiceMock();
   @override
@@ -455,6 +484,7 @@ class FakeUri extends Fake implements Uri {}
 
 /// 注册所有 fallback 值（在 setUpAll 中调用）
 void registerFallbacks() {
+  registerFallbackValue(const ReadConfig());
   registerFallbackValue(const RuleSub());
   registerFallbackValue(const BookHighlight());
   registerFallbackValue(const HighlightRule());

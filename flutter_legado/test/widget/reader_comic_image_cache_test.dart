@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -39,6 +43,13 @@ BookSource _buildComicSource() {
 /// 测试专用 MockBookApi：注入漫画书 + 含 img 的章节正文 + 解码返回；
 /// 网络下载链路计数用于断言「磁盘命中不再走网络」。
 class _ComicCacheMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -95,8 +106,7 @@ class _ComicCacheMockApi extends MockBookApi {
     return '<p><img src="$_kImageUrl"></p>';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
@@ -126,7 +136,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(decodeCalls, [contains(_kImageUrl)], reason: '冷启动应走一次网络解码');
     // 屏幕侧 fire-and-forget 的 saveImageCache 应已落地（mock 内存 Map 模拟）
-    final saved = await api.getImageCache(_kBookUrl, _kImageUrl);
+    final saved = await api.bookImageRepository.getImageCache(
+      _kBookUrl,
+      _kImageUrl,
+    );
     expect(saved, isNotNull, reason: '加载成功后应写入图片磁盘缓存');
 
     // ── 会话 2：清内存缓存（模拟应用重启）→ 磁盘命中，不再走网络 ──

@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -19,6 +23,13 @@ const _kPngBase64 =
 
 /// 模拟设备实测：DB 无章节（getChapters=[]），须 refreshToc 自愈后才能出图
 class _EmptyTocThenRefreshApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -91,8 +102,7 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
     return '<img src="https://pic.example.com/a.jpeg">';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     // 确保 sourceJson 含 imageDecode（对齐真实书源序列化）
     expect(sourceJson, contains('imageDecode'));

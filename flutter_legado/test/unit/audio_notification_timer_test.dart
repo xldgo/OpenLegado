@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 
 // 书名为主标题、章节为次标题；定时使用独立字段。— Codex + UI
@@ -169,17 +170,17 @@ void main() {
     );
     when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.getAudioChapterMedia(any(), any()))
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
           final index = invocation.positionalArguments[1] as int;
-          return {
+          return AudioChapterMedia.fromJson({
             'mediaUrl': 'https://cdn.example.com/$index.mp3',
             'isVolume': false,
-          };
+          });
         });
-    when(() => mockApi.getAudioProgress(any(), any()))
-        .thenAnswer((_) async => null);
-    when(() => mockApi.saveAudioProgress(any(), any(), any()))
+    when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => 0);
+    when(() => mockApi.audioBookService.saveAudioProgress(any(), any(), any()))
         .thenAnswer((_) async {});
 
     await readNotifier().initMediaSession(bookName: bookName);

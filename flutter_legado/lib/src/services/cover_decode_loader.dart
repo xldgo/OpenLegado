@@ -353,16 +353,14 @@ class CoverDecodeLoader {
     _inflight[key] = completer.future;
     try {
       final sourceForFfi = patchedSourceJson.isEmpty ? '{}' : patchedSourceJson;
-      final resp = await api.fetchImageWithDecode(coverUrl, sourceForFfi);
-      final decoded = jsonDecode(resp) as Map<String, dynamic>;
-      final b64 = decoded['base64'] as String?;
+      final raw = await api.bookImageRepository.fetchImageWithDecode(
+        coverUrl,
+        sourceForFfi,
+      );
       Uint8List? bytes;
-      if (b64 != null && b64.isNotEmpty) {
-        final raw = base64Decode(b64);
-        if (looksLikeImageBytes(raw)) {
-          putCached(originOrEmpty, coverUrl, raw);
-          bytes = raw;
-        }
+      if (raw.isNotEmpty && looksLikeImageBytes(raw)) {
+        putCached(originOrEmpty, coverUrl, raw);
+        bytes = raw;
       }
       if (!completer.isCompleted) completer.complete(bytes);
       if (isCancelled()) return null;

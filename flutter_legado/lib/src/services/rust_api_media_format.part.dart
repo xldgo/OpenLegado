@@ -28,11 +28,6 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
   Future<String> httpPost(String url, String body) =>
       bridge.httpPost(url: url, body: body);
 
-  /// 图片下载 + imageDecode 解码（返回 JSON：{ base64, len }）— Reasonix
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) =>
-      bridge.fetchImageWithDecode(url: url, sourceJson: sourceJson);
-
   // ========== JS 引擎 ==========
 
   /// 执行 JS 脚本
@@ -127,49 +122,4 @@ mixin RustApiMediaFormat on RustApiDecode implements BookApi {
 
   @override
   Future<bool> deleteCoverRule() => bridge.deleteCoverRule();
-
-  // ========== 音频播放 ==========
-
-  /// 获取章节媒体信息（音频书取址，契约 §2.26）
-  ///
-  /// 对齐原版 `AudioPlay` → `WebBook.getContent`：经 FFI `audioGetChapterMedia`
-  /// 解析可播 `mediaUrl`。返回含 `mediaUrl` / `url` / `isVolume` / `fromCache` 等。
-  @override
-  Future<Map<String, dynamic>> getAudioChapterMedia(
-    String bookUrl,
-    int chapterIndex,
-  ) async {
-    final json = await bridge.audioGetChapterMedia(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-    );
-    return (jsonDecode(json) as Map<String, dynamic>).cast<String, dynamic>();
-  }
-
-  /// 获取音频播放进度
-  @override
-  Future<Map<String, dynamic>?> getAudioProgress(
-    String bookUrl,
-    int chapterIndex,
-  ) async {
-    final pos = await bridge.audioGetProgress(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-    );
-    return {'position': pos.toInt(), 'chapterIndex': chapterIndex};
-  }
-
-  /// 保存音频播放进度
-  @override
-  Future<void> saveAudioProgress(
-    String bookUrl,
-    int chapterIndex,
-    int positionMs,
-  ) async {
-    await bridge.audioSaveProgress(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-      position: positionMs,
-    );
-  }
 }

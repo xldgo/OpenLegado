@@ -1,3 +1,13 @@
+import '../data/repositories/mock_book_image_repository.dart';
+import '../data/repositories/mock_audio_cache_repository.dart';
+import '../data/services/mock_audio_cache_download_service.dart';
+import '../data/services/mock_audio_book_service.dart';
+import '../data/services/mock_video_danmaku_service.dart';
+import '../domain/contracts/book_image_repository.dart';
+import '../domain/contracts/audio_cache_repository.dart';
+import '../domain/contracts/audio_cache_download_service.dart';
+import '../domain/contracts/audio_book_service.dart';
+import '../domain/contracts/video_danmaku_service.dart';
 import '../data/services/mock_local_book_service.dart';
 import '../data/services/mock_book_archive_service.dart';
 import '../data/services/mock_book_export_service.dart';
@@ -88,7 +98,6 @@ part 'mock_book_api_reader_data.part.dart';
 part 'mock_book_api_discovery_cache.part.dart';
 part 'mock_book_api_media_format.part.dart';
 part 'mock_book_api_sync_tools.part.dart';
-part 'mock_book_api_content_ext.part.dart';
 
 // ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：MockBookApi 按域拆为 mixin 组合，
 // 各 mixin 方法原样搬移、合集实现 BookApi，零行为变更。
@@ -128,9 +137,19 @@ class MockBookApi
         MockBookApiReaderData,
         MockBookApiDiscoveryCache,
         MockBookApiMediaFormat,
-        MockBookApiSyncTools,
-        MockBookApiContentExt
+        MockBookApiSyncTools
     implements BookApi {
+  @override
+  late final BookImageRepository bookImageRepository;
+  @override
+  late final AudioCacheRepository audioCacheRepository;
+  @override
+  late final AudioCacheDownloadService audioCacheDownloadService;
+  @override
+  late final AudioBookService audioBookService;
+  @override
+  late final VideoDanmakuService videoDanmakuService;
+
   @override
   late final LocalBookService localBookService;
   @override
@@ -191,6 +210,12 @@ class MockBookApi
   late final CacheDownloadService cacheDownloadService;
 
   MockBookApi({
+    BookImageRepository? bookImageRepository,
+    AudioCacheRepository? audioCacheRepository,
+    AudioCacheDownloadService? audioCacheDownloadService,
+    AudioBookService? audioBookService,
+    VideoDanmakuService? videoDanmakuService,
+
     LocalBookService? localBookService,
     BookArchiveService? bookArchiveService,
     BookExportService? bookExportService,
@@ -263,6 +288,19 @@ class MockBookApi
           chapters: _chaptersCache,
           contents: _contentCache,
         );
+    this.bookImageRepository = bookImageRepository ?? MockBookImageRepository();
+    final audioCacheStore = MockAudioCacheStore();
+    this.audioCacheRepository =
+        audioCacheRepository ??
+        MockAudioCacheRepository(store: audioCacheStore);
+    this.audioCacheDownloadService =
+        audioCacheDownloadService ??
+        MockAudioCacheDownloadService(store: audioCacheStore);
+    this.audioBookService =
+        audioBookService ??
+        MockAudioBookService(reading: this.readingRepository);
+    this.videoDanmakuService =
+        videoDanmakuService ?? const MockVideoDanmakuService();
     this.localBookService =
         localBookService ?? MockLocalBookService(store: _bookshelfStore);
     this.bookArchiveService =

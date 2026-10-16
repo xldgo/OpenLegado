@@ -580,16 +580,8 @@ void main() {
 
   group('音频播放模式', () {
     test('audioWithPlayMode 写入配置', () async {
-      final result = await api.audioWithPlayMode(playMode: 2);
-      expect(result, contains('"playMode":2'));
-    });
-
-    test('audioResolvePlayBook 解析书籍', () async {
-      final result = await api.audioResolvePlayBook(
-        requestedBookUrl: 'mock://book/1',
-      );
-      expect(result, isNotNull);
-      expect(result!['name'], '示例书籍 01');
+      final result = await api.audioBookService.audioWithPlayMode(playMode: 2);
+      expect(result.playMode, 2);
     });
   });
 

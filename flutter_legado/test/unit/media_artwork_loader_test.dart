@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -12,11 +16,17 @@ import 'package:flutter_legado/src/services/cover_decode_loader.dart';
 import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 class _CoverApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   _CoverApi(this.bytes);
   final Uint8List bytes;
   final requests = <({String url, String source})>[];
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     requests.add((url: url, source: sourceJson));
     return jsonEncode({'base64': base64Encode(bytes), 'len': bytes.length});
   }

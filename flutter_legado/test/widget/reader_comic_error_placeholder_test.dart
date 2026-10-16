@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -68,6 +72,13 @@ Finder _assetFinder() {
 /// `_buildImageErrorPlaceholder` 展示重试形态；解码异常文案本身不驻留，
 /// 落定态为固定文案「图片加载失败」+ 重试）。
 class _FailingDecodeMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -123,8 +134,7 @@ class _FailingDecodeMockApi extends MockBookApi {
     return '<img src="$imageSrc">';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     throw StateError('图片解码失败（模拟）');
   }
 }

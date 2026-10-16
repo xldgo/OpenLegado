@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
 // 缺陷回归：朗读条定时停止下沉 AudioNotifier（双计时冲突，2026-10-04）
 //
 // 修复前（两套定时互不感知）：
@@ -61,17 +62,17 @@ void main() {
     );
     when(() => api.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => api.getAudioChapterMedia(any(), any()))
+    when(() => api.audioBookService.getAudioChapterMedia(any(), any()))
         .thenAnswer((invocation) async {
           final index = invocation.positionalArguments[1] as int;
-          return {
+          return AudioChapterMedia.fromJson({
             'mediaUrl': 'https://cdn.example.com/$index.mp3',
             'isVolume': false,
-          };
+          });
         });
-    when(() => api.getAudioProgress(any(), any()))
-        .thenAnswer((_) async => null);
-    when(() => api.saveAudioProgress(any(), any(), any()))
+    when(() => api.audioBookService.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => 0);
+    when(() => api.audioBookService.saveAudioProgress(any(), any(), any()))
         .thenAnswer((_) async {});
   });
 

@@ -1,3 +1,7 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
@@ -42,6 +46,14 @@ const _kPngBase64 =
 
 /// M5 测试 Mock：3 章 × 3 图；记录配置写入
 class _M5MockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   late final _fixtureReading = TestReadingRepository(
     delegate: super.readingRepository,
     getChapters: _readingGetChapters,
@@ -122,8 +134,7 @@ class _M5MockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
@@ -141,8 +152,8 @@ class _M5MockApi extends MockBookApi {
     required int chapterPos,
   }) async {}
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async => null;
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async =>
+      null;
 }
 
 /// 建屏（单页模式：页脚「页数N/3」为最可靠落点断言；

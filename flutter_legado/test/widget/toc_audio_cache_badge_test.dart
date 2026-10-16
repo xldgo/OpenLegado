@@ -136,11 +136,14 @@ void main() {
         .thenAnswer((_) async => const <int>[]);
     // 恒 stub（即便预期零调用），确保 verify/计数断言不会因 MissingStub
     // 抛错吞掉而失真
-    when(() => mockApi.audioCacheList(bookUrl: any(named: 'bookUrl')))
-        .thenAnswer((_) async {
-          audioListCalls++;
-          return audioCachedByCall != null ? audioCachedByCall() : audioCached;
-        });
+    when(
+      () => mockApi.audioCacheRepository.audioCacheList(
+        bookUrl: any(named: 'bookUrl'),
+      ),
+    ).thenAnswer((_) async {
+      audioListCalls++;
+      return audioCachedByCall != null ? audioCachedByCall() : audioCached;
+    });
     when(
       () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
     ).thenAnswer((_) async => []);
