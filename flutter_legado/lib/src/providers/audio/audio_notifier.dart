@@ -12,6 +12,8 @@ import '../../domain/contracts/audio_playback_settings_repository.dart';
 import '../../domain/contracts/read_aloud_selection_repository.dart';
 import '../../domain/contracts/audio_book_service.dart';
 import '../../domain/contracts/reading_repository.dart';
+import '../../data/services/chapter_content_service.dart';
+import '../chapter_content_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 import '../../domain/contracts/cloud_tts_provider.dart';
 
@@ -139,30 +141,6 @@ const int kStreamRestoreNearEndToleranceMs = 1000;
 /// 这是 P1 级联跳章的根因修复。[P1 竞态修复 | 2026-10-03]
 typedef StreamChapterTag = ({String bookUrl, int chapterIndex});
 
-/// 本地书籍 URL 判定（扩展名白名单）
-///
-/// 镜像 Rust `reader::is_local_book`（rust/legado-ffi/src/api/reader.rs）：
-/// 该函数正是 Rust 侧选择「本地解析」还是「在线返回章节 URL JSON 元数据」
-/// 的判据。朗读取正文据此选链路：
-/// - 本地书：维持 [ReadingRepository.getChapterContent]（本地解析 + 净化，行为不变；
-///   `getChapterContentFull` 的本地分支不做「相对可迁移标识 → 真实路径」
-///   还原，见 Rust `get_chapter_content_inner` 与 `get_chapter_content_full`
-///   本地分支差异，故不切换）；
-/// - 在线书：[ReadingRepository.getChapterContentFull]（DB 缓存 → 联网抓取 → 净化，
-///   始终返回纯正文；`getChapterContent` 在线分支只返回含 chapter_url /
-///   need_fetch 的 URL JSON 占位元数据，送进 TTS 就是读 JSON）。
-bool isLocalBookUrl(String bookUrl) {
-  final lower = bookUrl.toLowerCase();
-  return lower.endsWith('.epub') ||
-      lower.endsWith('.txt') ||
-      lower.endsWith('.text') ||
-      lower.endsWith('.mobi') ||
-      lower.endsWith('.azw') ||
-      lower.endsWith('.azw3') ||
-      lower.endsWith('.pdf') ||
-      lower.endsWith('.cbz');
-}
-
 /// 听书播放器 Riverpod Notifier
 ///
 /// 双路径：
@@ -211,6 +189,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     readAloudVoiceRepositoryProvider,
   );
   late ReadingRepository _reading;
+  late ChapterContentService _chapterContent;
   late TtsCacheRepository _ttsCache;
   late AudioBookService _audioBook;
 
@@ -430,6 +409,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _selections = ref.read(readAloudSelectionRepositoryProvider);
     _audioBook = ref.read(audioBookServiceProvider);
     _reading = ref.read(readingRepositoryProvider);
+    _chapterContent = ref.read(chapterContentServiceProvider);
     final initialState = AudioState(config: TtsConfig());
     _stateForDispose = initialState;
     listenSelf((previous, next) {
@@ -1267,7 +1247,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final key = '$bookUrl\u0001$chapterIndex';
     final inFlight = _inFlightChapterContent[key];
     if (inFlight != null) return inFlight;
-    final future = _fetchChapterContent(bookUrl, chapterIndex).then((content) {
+    final future = _chapterContent.read(bookUrl, chapterIndex).then((content) {
       _cacheFetchedChapterContent(bookUrl, chapterIndex, content);
       return content;
     });
@@ -1277,14 +1257,6 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     } finally {
       _inFlightChapterContent.remove(key);
     }
-  }
-
-  /// 按书籍类型选正文链路（本地书保持原链路，在线书走 full 取纯正文）
-  Future<String> _fetchChapterContent(String bookUrl, int chapterIndex) {
-    if (isLocalBookUrl(bookUrl)) {
-      return _reading.getChapterContent(bookUrl, chapterIndex);
-    }
-    return _reading.getChapterContentFull(bookUrl, chapterIndex);
   }
 
   /// 抓取结果写回章节缓存
@@ -1606,7 +1578,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final chapters = List<AudioChapter>.of(state.chapters);
     final units = List<String>.of(_paragraphs);
     final remaining = _cloudEngine.remainingRequests;
-    final reading = _reading;
+    final contentService = _chapterContent;
     final key = jsonEncode([
       bookUrl,
       index,
@@ -1648,9 +1620,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         if (!_synthesisQueue.isWindowCurrent(key)) return;
         final text = chapters[i].text.isNotEmpty
             ? chapters[i].text
-            : await (isLocalBookUrl(bookUrl)
-                  ? reading.getChapterContent(bookUrl, i)
-                  : reading.getChapterContentFull(bookUrl, i));
+            : await contentService.read(bookUrl, i);
         if (!_synthesisQueue.isWindowCurrent(key)) return;
         final nextUnits = splitReadAloudContent(
           text,
@@ -1683,7 +1653,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     final chapters = List<AudioChapter>.of(state.chapters);
     final paragraphs = List<String>.of(_paragraphs);
     final paragraphIndex = _paragraphIndex;
-    final reading = _reading;
+    final contentService = _chapterContent;
     final key = jsonEncode([
       bookUrl,
       index,
@@ -1732,9 +1702,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         final chapter = chapters[i];
         final text = chapter.text.isNotEmpty
             ? chapter.text
-            : await (isLocalBookUrl(bookUrl)
-                  ? reading.getChapterContent(bookUrl, i)
-                  : reading.getChapterContentFull(bookUrl, i));
+            : await contentService.read(bookUrl, i);
         if (!_synthesisQueue.isWindowCurrent(key)) return;
         final units = _contentUnits(text, i);
         yield [for (var p = 0; p < units.length; p++) cue(units[p].text, i, p)];

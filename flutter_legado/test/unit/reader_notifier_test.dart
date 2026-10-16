@@ -11,12 +11,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/reading_provider.dart';
+import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
 import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
 import '../mocks/mocks.dart';
+
+class ReaderChapterContent extends Mock implements ChapterContentService {}
 
 void main() {
   late MockRustApi mockApi;
@@ -76,6 +80,43 @@ void main() {
       ),
     ).thenAnswer((_) async {});
   }
+
+  test('本地阅读与朗读共用可还原相对路径的正文入口', () async {
+    stubOpenBook();
+    const url = 'books/本地书.epub';
+    when(() => mockApi.readingRepository.getChapterContent(url, any()))
+        .thenAnswer((_) async => '相对路径本地正文');
+    await readNotifier().openBook(
+      testBook.copyWith(bookUrl: url, origin: BookType.localTag),
+    );
+    expect(readState().chapterContent, '相对路径本地正文');
+    verify(() => mockApi.readingRepository.getChapterContent(url, 0)).called(1);
+    verifyNever(
+      () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+    );
+  });
+
+  test('正文服务可单独注入，目录与进度继续由阅读仓储提供', () async {
+    stubOpenBook();
+    final content = ReaderChapterContent();
+    when(() => content.read(testBook.bookUrl, any()))
+        .thenAnswer((_) async => '独立正文服务');
+    final isolated = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        chapterContentServiceProvider.overrideWithValue(content),
+      ]),
+    );
+    addTearDown(isolated.dispose);
+    final reader = isolated.read(readerNotifierProvider.notifier);
+    await reader.openBook(testBook);
+    expect(isolated.read(readerNotifierProvider).chapterContent, '独立正文服务');
+    await reader.goToChapter(1);
+    verify(() => content.read(testBook.bookUrl, 1)).called(1);
+    verifyNever(
+      () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+    );
+  });
 
   test('目录、正文及进度只使用注入的阅读仓储', () async {
     final reading = ReadingRepositoryMock();

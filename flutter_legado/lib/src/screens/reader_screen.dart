@@ -1,6 +1,6 @@
 import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 
-import '../providers/reading_provider.dart';
+import '../providers/chapter_content_provider.dart';
 import '../features/book_sources/book_source_repository_provider.dart';
 import '../providers/change_source/source_switch_dependencies.dart';
 import '../providers/book_content_provider.dart';
@@ -460,6 +460,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ///
   /// 对齐计划 Phase 2.7：前后各 2 章的 API 调用编排，实现翻页无等待感。
   /// 此处仅决定「何时预载」，文本解析/净化/替换由 Rust 内部完成。
+  /// 获取策略统一交给正文服务，本地书保留相对文件路径还原。
   ///
   /// [F1-hunt F5 | 2026-09-24] getChapterContent → getChapterContentFull
   /// （缓存+网络合并，与阅读器章节加载 / ReaderPageView 相邻章预载同
@@ -481,8 +482,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (next < chapters.length) {
         unawaited(
           ref
-              .read(readingRepositoryProvider)
-              .getChapterContentFull(book.bookUrl, next)
+              .read(chapterContentServiceProvider)
+              .read(book.bookUrl, next)
               .catchError((_) => ''),
         );
       }
@@ -490,8 +491,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (prev >= 0) {
         unawaited(
           ref
-              .read(readingRepositoryProvider)
-              .getChapterContentFull(book.bookUrl, prev)
+              .read(chapterContentServiceProvider)
+              .read(book.bookUrl, prev)
               .catchError((_) => ''),
         );
       }

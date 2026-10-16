@@ -28,8 +28,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
 
 import '../mocks/mocks.dart';
+
+class AudioChapterContent extends Mock implements ChapterContentService {}
 
 void main() {
   late MockRustApi mockApi;
@@ -94,6 +98,36 @@ void main() {
   const engineUrl = 'https://tts.example.com/?text={{text}}';
 
   group('在线书朗读取纯正文（P0）', () {
+    testWidgets('朗读可独立注入正文服务，合成与章节缓存使用同一结果', (tester) async {
+      stubChapters();
+      stubAudioSpeak();
+      final content = AudioChapterContent();
+      when(() => content.read(onlineBookUrl, 0))
+          .thenAnswer((_) async => '注入的朗读正文。');
+      final isolated = ProviderContainer(
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
+          streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+          chapterContentServiceProvider.overrideWithValue(content),
+        ]),
+      );
+      addTearDown(isolated.dispose);
+      final notifier = isolated.read(audioNotifierProvider.notifier);
+      await notifier.loadChapters(onlineBookUrl);
+      notifier.updateConfig(engineUrl: engineUrl);
+      await notifier.play();
+      expect(speakTexts, ['注入的朗读正文。']);
+      expect(isolated.read(audioNotifierProvider).chapters[0].text, '注入的朗读正文。');
+      verify(() => content.read(onlineBookUrl, 0)).called(1);
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+      );
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContent(any(), any()),
+      );
+      notifier.stop();
+    });
+
     testWidgets('在线书：送合成的是纯正文，不读 URL JSON、不触发旧链路', (tester) async {
       stubChapters();
       stubAudioSpeak();

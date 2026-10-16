@@ -368,8 +368,8 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
     final chapterIndex = state.currentChapterIndex;
     try {
       final content = await ref
-          .read(readingRepositoryProvider)
-          .getChapterContentFull(book.bookUrl, chapterIndex);
+          .read(chapterContentServiceProvider)
+          .read(book.bookUrl, chapterIndex);
       if (content.isEmpty) {
         if (context.mounted) _snack(context, '暂无正文可反转');
         return;

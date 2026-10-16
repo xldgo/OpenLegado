@@ -496,8 +496,12 @@ void main() {
       addTearDown(container.dispose);
       when(() => mockApi.readingRepository.getChapters(any()))
           .thenAnswer((_) async => _localToc);
-      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
-          .thenAnswer((_) async => '本地正文');
+      when(
+        () => mockApi.readingRepository.getChapterContent(
+          _localBook.bookUrl,
+          any(),
+        ),
+      ).thenAnswer((_) async => '本地正文');
       when(
         () => mockApi.readingRepository.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
@@ -509,6 +513,9 @@ void main() {
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_localBook);
       expect(container.read(readerNotifierProvider).chapterContent, '本地正文');
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+      );
 
       await tester.pumpWidget(wrapMenuPanel(container));
       await tester.pumpAndSettle();

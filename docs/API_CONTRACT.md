@@ -1,5 +1,18 @@
 # API 契约文档
 
+## 纯正文加载Dart边界（2026-10-16，实施前冻结）
+
+ChapterContentService仅依赖ReadingRepository与ChapterCacheRepository，read(bookUrl,
+chapterIndex)返回阅读/朗读正文：按Rust当前扩展名白名单，本地书使用getChapterContent，
+在线书使用getChapterContentFull；保留原路径还原、缓存、净化和平台拦截链路。
+refresh显式接收bookUrl、chapterIndex、chapterUrl和sourceUrl，先清当前章缓存再抓取，
+错误原样传播；是否允许刷新、空正文处理、页面旧正文及加载/播放状态由现有会话管理。
+ReaderNotifier、阅读器预取/边界预览/反转和AudioNotifier正文读取/HTTP及云端预取共用
+注入服务；会话去重、内存正文与预合成队列继续由原所有者管理，不建立第二份持久缓存。
+漫画、音频书、视频、原始正文及书内搜索保留各自协议；Rust/FRB和存储格式不变。
+
+编写者：Codex + Bridge｜2026-10-16
+
 ## 详情与目录加载Dart边界（2026-10-16，实施前冻结）
 
 BookDetailService仅通过BookshelfRepository、ReadingRepository、BookSourceRepository和

@@ -185,8 +185,12 @@ void main() {
           ),
         ],
       );
-      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
-          .thenAnswer((_) async => '本地正文');
+      when(
+        () => mockApi.readingRepository.getChapterContent(
+          localBook.bookUrl,
+          any(),
+        ),
+      ).thenAnswer((_) async => '本地正文');
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(localBook);
 
@@ -222,8 +226,10 @@ void main() {
           ),
         ],
       );
-      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
-          .thenAnswer((_) async => '云端正文');
+      when(
+        () =>
+            mockApi.readingRepository.getChapterContent(davBook.bookUrl, any()),
+      ).thenAnswer((_) async => '云端正文');
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(davBook);
 

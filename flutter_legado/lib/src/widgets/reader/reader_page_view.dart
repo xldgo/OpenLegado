@@ -1,4 +1,4 @@
-import '../../providers/reading_provider.dart';
+import '../../providers/chapter_content_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 
 import '../../providers/reader/reader_settings_provider.dart';
@@ -1671,12 +1671,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     try {
       if (book == null || config == null) return;
       if (target < 0 || target >= state.chapters.length) return;
-      // [UI_SYNC_REFACTOR S6 修] 必须用 getChapterContentFull（缓存+网络合并，
-      // 与阅读器章节加载同链路）——getChapterContent 仅读本地缓存不取网，
-      // 预载会挂住（真机探针实证：PRELOAD start 后无任何返回）— Qoder
+      // 与当前章共用正文服务，在线未缓存时联网，本地保留路径还原。
       final content = await ref
-          .read(readingRepositoryProvider)
-          .getChapterContentFull(book.bookUrl, target);
+          .read(chapterContentServiceProvider)
+          .read(book.bookUrl, target);
       if (!mounted) return;
       // 发起后章节已切换或已换源（bookUrl 变）则作废
       final live = ref.read(readerNotifierProvider);

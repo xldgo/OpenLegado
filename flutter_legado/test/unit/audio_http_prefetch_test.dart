@@ -185,6 +185,28 @@ void main() {
     expect(player.playedLocalFiles, hasLength(2));
     expect(synthesis.cache.contains('后续段一。'), isTrue);
   });
+  test('本地正文与HTTP后续章预取都使用可还原文件路径的入口', () async {
+    const local = 'books/本地小说.txt';
+    when(() => api.readingRepository.getChapterContent(local, any()))
+        .thenAnswer(
+          (call) async => [
+            '当前段。\n本地后续段。',
+            '本地下一章。',
+            '窗口外。',
+          ][call.positionalArguments[1] as int],
+        );
+    await notifier().loadChapters(local);
+    notifier().updateConfig(engineId: 1, engineUrl: 'https://tts');
+    await notifier().play();
+    await flush();
+    expect(synthesis.inputs, ['当前段。', '本地后续段。', '本地下一章。']);
+    verify(() => api.readingRepository.getChapterContent(local, 1)).called(1);
+    verifyNever(
+      () => api.readingRepository.getChapterContentFull(any(), any()),
+    );
+    expect(player.playedLocalFiles, hasLength(1));
+    notifier().stop();
+  });
   test('停止取消预合成，不加载窗口外章节，保留模式清理保护当前章', () async {
     synthesis.block = Completer<void>();
     await start();

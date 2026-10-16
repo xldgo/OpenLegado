@@ -1,4 +1,5 @@
 import '../../app/bootstrap/application_dependencies.dart';
+import '../../providers/chapter_content_provider.dart';
 import '../../domain/models/source_action_result.dart';
 import '../../providers/reader/reader_settings_provider.dart';
 import '../../l10n/app_localization.dart';

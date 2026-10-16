@@ -1,6 +1,6 @@
 export 'reader_state.dart';
 import '../../features/bookshelf/bookshelf_repositories.dart';
-import '../chapter_cache_provider.dart';
+import '../chapter_content_provider.dart';
 
 import 'dart:async';
 import 'dart:ui' show Color;
@@ -694,15 +694,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final chapter = state.chapters[idx];
     state = state.copyWith(isLoading: true, error: null);
     try {
-      // [STAGE3-C2B] 1) 先失效当前章缓存（≡ 上游 delContent：只删本章
-      // 行，同书他章缓存不受影响）
-      await ref
-          .read(chapterCacheRepositoryProvider)
-          .clearChapterCache(book.bookUrl, idx);
-      // 2) 联网抓取（缓存已失效，缓存优先不再拦截，必取站点新内容）
+      // 服务保持先失效当前章、再抓取；加载状态和失败时的旧正文由此会话持有。
       final content = await ref
-          .read(readingRepositoryProvider)
-          .fetchChapterContent(book.bookUrl, chapter.url, book.origin);
+          .read(chapterContentServiceProvider)
+          .refresh(
+            bookUrl: book.bookUrl,
+            chapterIndex: idx,
+            chapterUrl: chapter.url,
+            sourceUrl: book.origin,
+          );
       if (content.trim().isEmpty) {
         // 空正文视为抓取失败：保留旧正文（当前章缓存行已失效，
         // 他章不受影响，无整书清理）
@@ -976,8 +976,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// 加载当前章节正文
   ///
-  /// 统一调用 getChapterContentFull：本地书籍直接解析返回，在线书籍自动
-  /// 从网络抓取并返回净化后的正文，始终返回纯正文字符串（无 JSON 元数据）。
+  /// 经统一服务选择本地路径还原或在线缓存/联网链路，返回净化后的纯正文。
   ///
   /// [F1-hunt F2 | 2026-09-24] 代际守卫（_loadSeq）：快速连点翻页时
   /// 多个加载并发在途，旧加载的结果返回时若已有更新的加载发起，则丢弃
@@ -995,8 +994,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final index = state.currentChapterIndex;
     try {
       final content = await ref
-          .read(readingRepositoryProvider)
-          .getChapterContentFull(book.bookUrl, index);
+          .read(chapterContentServiceProvider)
+          .read(book.bookUrl, index);
       if (seq != _loadSeq) return false; // 已被更新的加载取代，丢弃旧结果
       state = state.copyWith(chapterContent: content, error: null);
       return true;

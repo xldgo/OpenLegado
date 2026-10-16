@@ -11,6 +11,8 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
+import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
 
 final sources = List.generate(
   3,
@@ -64,7 +66,50 @@ class _ReaderWithPageRequest extends _Reader {
   ReaderState build() => super.build().copyWith(currentChapterPos: 35);
 }
 
+class _Content extends Fake implements ChapterContentService {
+  final requests = <(String, int)>[];
+
+  @override
+  Future<String> read(String bookUrl, int index) async {
+    requests.add((bookUrl, index));
+    return sources[index];
+  }
+}
+
 void main() {
+  testWidgets('边界预览通过注入的正文服务取得后续章并完成布局', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final content = _Content();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: mergeTestOverrides([
+          ..._Api().overrides,
+          readerNotifierProvider.overrideWith(_Reader.new),
+          chapterContentServiceProvider.overrideWithValue(content),
+        ]),
+        child: MaterialApp(
+          builder: readerLayoutTestBuilder,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 320,
+              height: 500,
+              child: ReaderPageView(paragraphSpacing: 8),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(content.requests, [('layout-fixture', 1)]);
+    expect(
+      tester
+          .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+          .chapterNextPage,
+      isNotNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('当前布局中的显式跳页等待分批页面就绪，再派生原文锚点', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();

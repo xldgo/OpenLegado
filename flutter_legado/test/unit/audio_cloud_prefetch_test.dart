@@ -180,6 +180,27 @@ void main() {
     expect(notifier().currentParagraphIndex, 1);
     expect(synth.remote, hasLength(4));
   });
+  test('本地正文与云端后续章预取共用本地路径解析入口', () async {
+    const local = 'books/本地小说.epub';
+    when(() => api.readingRepository.getChapterContent(local, any()))
+        .thenAnswer(
+          (call) async => [
+            '本地当前。\n本地后续。',
+            '本地下一章。',
+            '窗口外。',
+          ][call.positionalArguments[1] as int],
+        );
+    await notifier().loadChapters(local);
+    await notifier().setGlobalTtsEngine('cloud://ali');
+    await notifier().play();
+    await flush();
+    expect(synth.remote, ['本地当前。', '本地后续。', '本地下一章。']);
+    verify(() => api.readingRepository.getChapterContent(local, 1)).called(1);
+    verifyNever(
+      () => api.readingRepository.getChapterContentFull(any(), any()),
+    );
+    expect(player.playedLocalFiles, hasLength(1));
+  });
   test('正在预合成的下一片提升为前台不重复请求，停止取消并保持位置', () async {
     synth.block = true;
     await notifier().play();
