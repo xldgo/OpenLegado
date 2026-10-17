@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-use legado_db::repository::rule_sub_repository::RuleSubRepository;
+use legado_engine::rule_subscription_service::{
+    self as service, PreparedUpdate, RuleSubscriptionService,
+};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -71,10 +73,7 @@ pub struct ApplyUpdateResult {
 pub async fn list_subs(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
     state
         .with_database(move |db| {
-            let subs = {
-                let repo = RuleSubRepository::new(db.connection());
-                repo.find_all()?
-            };
+            let subs = RuleSubscriptionService::new(db).list_subs()?;
 
             let items: Vec<SubInfo> = subs
                 .iter()
@@ -107,10 +106,12 @@ pub async fn check_update(
     let target = body.url.clone();
     let subs = state
         .with_database(move |db| {
-            let repo = RuleSubRepository::new(db.connection());
+            let subscriptions = RuleSubscriptionService::new(db);
             match target {
-                Some(url) => Ok::<_, ApiError>(repo.find_by_url(&url)?.map(|sub| vec![sub])),
-                None => Ok(Some(repo.get_enabled_subs()?)),
+                Some(url) => {
+                    Ok::<_, ApiError>(subscriptions.find_by_url(&url)?.map(|sub| vec![sub]))
+                }
+                None => Ok(Some(subscriptions.enabled_subs()?)),
             }
         })
         .await??;
@@ -123,44 +124,15 @@ pub async fn check_update(
     let mut results: Vec<CheckUpdateResult> = Vec::new();
 
     for sub in &subs {
-        let subscription = legado_net::RuleSubscription {
+        let result =
+            service::check_update(sub, state.engine.network().custom_hosts().clone()).await;
+        results.push(CheckUpdateResult {
             url: sub.url.clone(),
             name: sub.name.clone(),
-            sub_type: sub.sub_type.clone(),
-        };
-
-        match legado_net::rule_update_client::fetch_subscription_with_hosts(
-            &subscription,
-            state.engine.network().custom_hosts().clone(),
-        )
-        .await
-        {
-            Ok(remote_json) => {
-                // 尝试从远程 JSON 中提取版本信息
-                let remote_version = extract_version(&remote_json);
-                let has_update = match &remote_version {
-                    Some(rv) => rv != &sub.version,
-                    None => !remote_json.is_empty(),
-                };
-
-                results.push(CheckUpdateResult {
-                    url: sub.url.clone(),
-                    name: sub.name.clone(),
-                    has_update,
-                    remote_version,
-                    error: None,
-                });
-            }
-            Err(e) => {
-                results.push(CheckUpdateResult {
-                    url: sub.url.clone(),
-                    name: sub.name.clone(),
-                    has_update: false,
-                    remote_version: None,
-                    error: Some(e),
-                });
-            }
-        }
+            has_update: result.has_update,
+            remote_version: result.remote_version,
+            error: result.error,
+        });
     }
 
     Ok(Json(json!({ "results": results })))
@@ -175,7 +147,7 @@ pub async fn apply_update(
 ) -> Result<Json<Value>, ApiError> {
     let target = body.url.clone();
     let sub = state
-        .with_database(move |db| RuleSubRepository::new(db.connection()).find_by_url(&target))
+        .with_database(move |db| RuleSubscriptionService::new(db).find_by_url(&target))
         .await??;
 
     let sub = match sub {
@@ -188,85 +160,33 @@ pub async fn apply_update(
         }
     };
 
-    let subscription = legado_net::RuleSubscription {
-        url: sub.url.clone(),
-        name: sub.name.clone(),
-        sub_type: sub.sub_type.clone(),
-    };
-
-    let remote_json = match legado_net::rule_update_client::fetch_subscription_with_hosts(
-        &subscription,
-        state.engine.network().custom_hosts().clone(),
-    )
-    .await
-    {
-        Ok(content) => content,
-        Err(e) => {
-            return Ok(Json(json!({
-                "success": false,
-                "error": format!("拉取订阅失败: {e}"),
-            })));
+    let prepared =
+        service::prepare_update(&sub, state.engine.network().custom_hosts().clone()).await;
+    if let PreparedUpdate::FetchFailed(error) = prepared {
+        return Ok(Json(json!({ "success": false, "error": error })));
+    }
+    if let Some(update) = prepared.version_update().cloned() {
+        // 保留Web原策略：内部回写错误忽略，仅外层调度错误记日志。
+        if let Err(error) = state
+            .with_database(move |db| {
+                let _ = RuleSubscriptionService::new(db).update_version(&update);
+            })
+            .await
+        {
+            tracing::warn!("更新订阅版本失败（已忽略）: {error}");
         }
-    };
-
-    // 使用空本地 JSON 进行合并（简化版：全量导入）
-    let merge_result = legado_net::merge_subscription("[]", &remote_json, &sub.sub_type);
-
-    let result = match merge_result {
-        Ok(mr) => {
-            // 更新订阅版本和时间
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as i64;
-
-            let new_version = extract_version(&remote_json).unwrap_or_default();
-            {
-                if let Err(error) = state
-                    .with_database(move |db| {
-                        let _ = RuleSubRepository::new(db.connection()).update_version(
-                            sub.id,
-                            &new_version,
-                            now,
-                        );
-                    })
-                    .await
-                {
-                    tracing::warn!("更新订阅版本失败（已忽略）: {error}");
-                }
-            }
-
-            ApplyUpdateResult {
-                url: sub.url.clone(),
-                success: true,
-                items_added: mr.added,
-                items_updated: mr.updated,
-                items_removed: mr.removed,
-                error: None,
-            }
-        }
-        Err(e) => ApplyUpdateResult {
-            url: sub.url.clone(),
-            success: false,
-            items_added: 0,
-            items_updated: 0,
-            items_removed: 0,
-            error: Some(e),
-        },
+    }
+    let response = prepared.into_response(&sub);
+    let result = ApplyUpdateResult {
+        url: response.url,
+        success: response.success,
+        items_added: response.items_added,
+        items_updated: response.items_updated,
+        items_removed: response.items_removed,
+        error: response.error,
     };
 
     Ok(Json(json!(result)))
-}
-
-/// 尝试从 JSON 内容中提取版本信息
-fn extract_version(json_str: &str) -> Option<String> {
-    // 尝试解析为对象并查找 version 字段
-    if let Ok(obj) = serde_json::from_str::<Value>(json_str)
-        && let Some(v) = obj.get("version").and_then(|v| v.as_str())
-    {
-        return Some(v.to_string());
-    }
-    None
 }
 
 #[cfg(test)]
@@ -278,8 +198,8 @@ mod tests {
     use axum::routing::{get, post};
     use tower::ServiceExt;
 
-    use legado_db::Database;
     use legado_db::repository::rule_sub_repository::RuleSubRecord;
+    use legado_db::{Database, RuleSubRepository};
 
     fn make_test_state() -> Arc<AppState> {
         let db = Database::open_in_memory().unwrap();
@@ -410,14 +330,150 @@ mod tests {
         let json: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["success"], false);
     }
-
-    #[test]
-    fn test_extract_version() {
-        assert_eq!(
-            extract_version(r#"{"version": "1.2.3", "data": []}"#),
-            Some("1.2.3".to_string())
+    #[tokio::test]
+    async fn shared_update_service_preserves_web_scope_shapes_and_ignored_write_errors() {
+        async fn post_json(app: Router, path: &str, value: Value) -> Value {
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri(path)
+                        .header("content-type", "application/json")
+                        .body(Body::from(value.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            serde_json::from_slice(&body).unwrap()
+        }
+        // 直接使用已有Axum路由机制提供本地响应，不引入独立宿主或通信协议。
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let remote = Router::new()
+            .route("/valid", get(|| async { r#"[{"name":"规则"}]"# }))
+            .route("/invalid", get(|| async { "not-json" }));
+        let worker = tokio::spawn(async move {
+            axum::serve(listener, remote).await.unwrap();
+        });
+        let state = make_test_state();
+        let good_url = format!("{base}/valid");
+        let invalid_url = format!("{base}/invalid");
+        let failed_url = "unsupported-scheme://subscription";
+        let id = {
+            let db = state.database().unwrap();
+            let repo = RuleSubRepository::new(db.connection());
+            let mut id = 0;
+            for (url, enabled) in [
+                (good_url.clone(), true),
+                (invalid_url.clone(), false),
+                (failed_url.into(), false),
+            ] {
+                let inserted = repo
+                    .insert(&RuleSubRecord {
+                        url,
+                        name: "订阅".into(),
+                        sub_type: "replaceRule".into(),
+                        is_enabled: enabled,
+                        version: "before".into(),
+                        // Web原来不计算间隔，指定禁用订阅检查也不能引入溢出。
+                        last_update: if enabled { 7 } else { i64::MAX },
+                        update_interval: if enabled { 0 } else { 12 },
+                        ..Default::default()
+                    })
+                    .unwrap();
+                if enabled {
+                    id = inserted;
+                }
+            }
+            id
+        };
+        let app = make_router(state.clone());
+        let checked = post_json(app.clone(), "/api/rule-update/check", json!({})).await;
+        assert_eq!(checked["results"].as_array().unwrap().len(), 1);
+        assert_eq!(checked["results"][0]["url"], good_url);
+        assert_eq!(checked["results"][0]["has_update"], true);
+        assert!(checked["results"][0].get("dueForUpdate").is_none());
+        let merged_error = post_json(
+            app.clone(),
+            "/api/rule-update/apply",
+            json!({"url": invalid_url}),
+        )
+        .await;
+        assert_eq!(merged_error.as_object().unwrap().len(), 6);
+        assert_eq!(merged_error["success"], false);
+        assert_eq!(merged_error["items_added"], 0);
+        assert!(
+            merged_error["error"]
+                .as_str()
+                .unwrap()
+                .contains("解析远程 JSON 失败")
         );
-        assert_eq!(extract_version(r#"[{"a": 1}]"#), None);
-        assert_eq!(extract_version("not json"), None);
+        let fetch_error = post_json(
+            app.clone(),
+            "/api/rule-update/apply",
+            json!({"url": failed_url}),
+        )
+        .await;
+        assert_eq!(fetch_error.as_object().unwrap().len(), 2);
+        assert_eq!(fetch_error["success"], false);
+        assert!(
+            fetch_error["error"]
+                .as_str()
+                .unwrap()
+                .starts_with("拉取订阅失败:")
+        );
+        {
+            let db = state.database().unwrap();
+            db.connection().execute_batch("CREATE TRIGGER deny_web_subscription_version BEFORE UPDATE OF version ON ruleSubs BEGIN SELECT RAISE(FAIL, 'web-subscription-write'); END;").unwrap();
+        }
+        let applied = post_json(
+            app.clone(),
+            "/api/rule-update/apply",
+            json!({"url": good_url, "silent": true}),
+        )
+        .await;
+        assert_eq!(applied.as_object().unwrap().len(), 6);
+        assert_eq!(applied["success"], true);
+        assert_eq!(applied["items_added"], 1);
+        assert!(applied["error"].is_null());
+        {
+            let db = state.database().unwrap();
+            let saved = RuleSubRepository::new(db.connection())
+                .find_by_id(id)
+                .unwrap()
+                .unwrap();
+            assert_eq!(saved.version, "before");
+            assert_eq!(saved.last_update, 7);
+            db.connection()
+                .execute_batch("DROP TRIGGER deny_web_subscription_version;")
+                .unwrap();
+        }
+        // 移除故障后验证实际回写，防止跳过更新也通过失败分支断言。
+        let applied = post_json(
+            app.clone(),
+            "/api/rule-update/apply",
+            json!({"url": good_url}),
+        )
+        .await;
+        assert_eq!(applied["success"], true);
+        {
+            let db = state.database().unwrap();
+            let saved = RuleSubRepository::new(db.connection())
+                .find_by_id(id)
+                .unwrap()
+                .unwrap();
+            assert_eq!(saved.version, "");
+            assert!(saved.last_update > 7);
+        }
+        let checked = post_json(app, "/api/rule-update/check", json!({"url": invalid_url})).await;
+        assert_eq!(checked["results"].as_array().unwrap().len(), 1);
+        assert_eq!(checked["results"][0]["url"], invalid_url);
+        assert_eq!(checked["results"][0]["has_update"], true);
+        worker.abort();
+        let _ = worker.await;
     }
 }

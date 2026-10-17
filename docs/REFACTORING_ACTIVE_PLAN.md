@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### RULE-SUB-SERVICE-20261017：规则订阅应用服务与双宿主去重（P1）
+
+- 授权与基线：用户批准完整订阅服务计划；feature/rust-ffi-modernization / 67bc009b1，worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。
+- 范围：Engine的RuleSubscriptionService在宿主数据库闭包内借用连接，承接CRUD/排序/查询与版本回写；公共异步函数只消费订阅快照和所属CustomHosts，统一拉取、版本比较及合并准备。FFI保留ID入口、同步等待、DTO；Web保留URL/启用集合入口、异步数据库调度/任务保护与原响应格式，不借连接跨await或重入连接池。
+- 行为冻结：复用Net的30秒超时、UA后缀、TLS与Hosts策略；检查间隔仅返回判定，不擅自阻止实际拉取。网络/合并失败作为结果字段，缺订阅与数据库错误按宿主原策略返回；FFI版本回写严格失败，Web仍忽略内部回写错误并仅记录外层调度错误。ID保存/全字段/排序/启停及Web部分失败响应形状保持；FFI签名/DTO/生成绑定、schema、版本和依赖不变。
+- 已知边界：现有apply只合并统计并更新订阅版本/时间，未导入目标实体表；本批不改变，继续归属既有RULE-SUB-UPDATE-GAPS-20261016，不将服务迁移当成功能缺口修复。
+- 验证：保留原DB/FFI/Web测试；复用现有HTTP夹具，补必要的实例归属、成功/失败结果与两端持久化失败策略测试。Engine/FFI/Server相关Rust回归、default/QuickJS严格Clippy、正式Windows DLL及原真实FRB订阅用例。不新增测试宿主、设备/性能验证；单代理自查，无独立外审如实记录。
+- 实现：Engine统一存储门面、远程比较与PreparedUpdate；FFI仅保留原7项函数的数据库/同步等待装配及严格回写，原结果类型路径重导出。Web三条路由复用服务，保留state.with_database任务保护、集合/URL选择、snake_case字段和两种失败响应。间隔计算限定FFI包装，Web不引入原先没有的时间计算。
+- 测试与复核：原FFI6项、Web4项保留，原Web版本提取1项随实现迁入Engine；新增Engine2/FFI1/Web1共4项，验证完整字段/ID保存/排序/启停/连接归属、所属Hosts的5次真实HTTP、未到间隔仍检查、版本/空文本/坏JSON、UA后缀、准备结果及失败阶段。SQL触发器验证FFI严格回写错误、Web忽略错误且故障移除后确实回写；Web还覆盖显式查询禁用订阅和不计算极大时间戳的间隔。原Check/Apply字段与注释逐段相同；比较仅辅助人工复核，不计行为测试。
+- 复验记录：首轮QuickJS Engine95/FFI557/Server209共861项通过，42项既有忽略。自查拆分Web/FFI间隔计算后，第二轮FFI556通过/1失败，失败为既有reading_queries_keep_time_units_sessions_and_deletion的database is locked。新增DDL测试已补齐store→pool→DB锁序避免额外共享干扰；阅读逻辑和断言未改，该用例单独复验通过。锁冲突根因尚未确认，不宣称已修复共享库并发隔离；最终完整复验结果另记。
+- 最终Rust验证：第三轮同样16线程完整QuickJS库Engine95/FFI557/Server209共861项通过，42项既有忽略；default定向Engine6/FFI41/Server6共53项通过，Net原合并/间隔测试10项通过。三crate两档全目标Clippy -D warnings通过，无lint放行；限定Rust格式与git diff --check通过。未改阅读相关实现/测试，不将一次隔离与完整复验通过当作共享数据库并发根因已解决。
+- 正式接线：Python正式入口重建Windows Debug QuickJS DLL通过，构建输入/源码指纹与源库/复制库摘要及只读校验通过。原business_transport_runtime_test的规则订阅定向1项真实FRB通过，覆盖完整配置、排序、真实HTTP检查与合并统计及不存在ID报错；未改Dart用例、生成绑定、数据库或版本，不运行全量Flutter/应用构建/设备测试。
+- 证据与限制：build/rule-sub-service/{check-initial,tests-quickjs,tests-quickjs-final,tests-reading-isolated,tests-quickjs-final2,tests-default,tests-net,clippy-default,clippy-quickjs,native-build,native-verify,native-runtime,native-verify-final}.log；type-review.json仅辅助人工复核。第二轮FFI锁冲突不计整轮通过；第三轮全量通过，锁冲突根因仍未确认。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论；实体实际导入缺口未销账。
+- 状态：规则订阅服务和双宿主去重、本地验证完成，按授权整批本地提交；保留当前worktree/分支，不推送或合并。
+
+编写者：Codex｜2026-10-17
+
 ### IMAGE-SERVICE-20261017：图片下载解密与磁盘缓存服务下沉（P1）
 
 - 授权与基线：用户批准图片服务/缓存完整批次；feature/rust-ffi-modernization / 947baf057，worktree干净。Codex单代理，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。

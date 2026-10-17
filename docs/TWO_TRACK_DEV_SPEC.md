@@ -521,3 +521,28 @@ Dart仓储对空字节的既有处理不变。同类失败保持进程级一次�
 状态和验证结果仅维护于Active计划。
 
 编写者：Codex｜2026-10-17
+
+
+### 规则订阅服务与双宿主边界（2026-10-17）
+
+`legado-engine/rule_subscription_service`集中订阅存储操作与更新准备。
+RuleSubscriptionService在宿主数据库闭包内借用连接，不持根EngineContext或自行获取第二条连接；
+FFI沿用with_database，Web沿用AppState.with_database的阻塞调度和任务取消保护。
+同步操作完成后仅把RuleSubRecord快照带到异步网络阶段，不持连接或服务跨await。
+
+公共异步check_update只做远程版本比较，FFI专用check_update_with_interval额外执行原间隔判定，
+保留尚未到期仍然实际拉取的行为；Web不新增该计算或返回字段。
+网络继续显式消费所属CustomHosts并复用Net原客户端、超时、TLS和UA后缀策略，不切换共享Cookie客户端。
+服务不保存Runtime或用block_on嵌套进入Web运行时，FFI同步等待由宿主负责。
+
+PreparedUpdate区分FetchFailed、MergeFailed与Ready，Ready保存原合并结果和待回写版本元数据。
+FFI严格传播版本写入错误，Web保持内部写入错误忽略、外层调度错误记录日志；该差异由宿主决定。
+FFI检查/应用结果类型从原模块重导出，现有DTO映射不变；Web继续保留snake_case字段、
+缺订阅形状及网络失败仅success/error的响应，不因共享业务结果而暴露额外字段。
+
+prepare_update仍对空本地数组执行原合并算法，只生成统计并回写订阅版本/时间，未导入目标实体表。
+该已知功能缺口继续归属Active中的RULE-SUB-UPDATE-GAPS-20261016，不以本批架构收口销账。
+不新增订阅能力、自动任务、导入/事务/取消策略，不改FFI签名/DTO/生成绑定、UI、schema或依赖版本。
+状态与证据仅维护于Active计划。
+
+编写者：Codex｜2026-10-17
