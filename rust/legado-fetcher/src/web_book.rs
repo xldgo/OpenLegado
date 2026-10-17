@@ -4247,7 +4247,19 @@ pub async fn webbook_search(
     query: &str,
     page: i32,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    serde_json::to_string(
+        &webbook_search_entity(deps, serde_json::from_str(source_json)?, query, page).await?,
+    )
+    .map_err(LegadoError::Serialization)
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_search_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    query: &str,
+    page: i32,
+) -> LegadoResult<Vec<WebSearchResult>> {
     // P2-9 ③：搜索流程入口（键 = 书源 URL；换源清全局变量表，防跨书污染）
     let deps = deps.for_source("search", &source.book_source_url, query);
 
@@ -4264,13 +4276,13 @@ pub async fn webbook_search(
         .await
         .map_err(|e| LegadoError::Internal(format!("JS 搜索任务异常: {e}")))??;
         let results = convert_js_search_results(values, &source.book_source_url);
-        return serde_json::to_string(&results).map_err(LegadoError::Serialization);
+        return Ok(results);
     }
 
     // 规则书源路径（现有逻辑不变）
     let engine = build_engine(deps);
     let results: Vec<WebSearchResult> = engine.search(&source, query, page).await?;
-    serde_json::to_string(&results).map_err(LegadoError::Serialization)
+    Ok(results)
 }
 
 /// webbook_info 核心（P2-12 变量链，2026-09-18；生产入口 [`webbook_info`]
@@ -4309,7 +4321,18 @@ pub async fn webbook_info(
     source_json: &str,
     book_url: &str,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    serde_json::to_string(
+        &webbook_info_entity(deps, serde_json::from_str(source_json)?, book_url).await?,
+    )
+    .map_err(LegadoError::Serialization)
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_info_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    book_url: &str,
+) -> LegadoResult<WebBookInfo> {
     // P2-9 ③：详情流程入口（键 = bookUrl 原样；换书清全局变量表）
     let deps = deps.for_book(&source.book_source_url, book_url);
 
@@ -4365,7 +4388,7 @@ pub async fn webbook_info(
         };
         // P2-9 ②：记录 book 元信息（目录/正文阶段 `book` 绑定扩面反查用）
         record_book_meta_from_info(&deps, &source.book_source_url, book_url, &info);
-        return serde_json::to_string(&info).map_err(LegadoError::Serialization);
+        return Ok(info);
     }
 
     // 规则书源路径（P2-12 变量链见 webbook_info_with_fetcher；
@@ -4375,7 +4398,7 @@ pub async fn webbook_info(
         webbook_info_with_fetcher(fetcher.deps(), &source, book_url, &fetcher).await?;
     // P2-9 ②：记录 book 元信息（目录/正文阶段 `book` 绑定扩面反查用）
     record_book_meta_from_info(fetcher.deps(), &source.book_source_url, book_url, &info);
-    serde_json::to_string(&info).map_err(LegadoError::Serialization)
+    Ok(info)
 }
 
 /// 获取章节列表
@@ -4391,7 +4414,27 @@ pub async fn webbook_chapters(
     toc_url: &str,
     book_name: &str,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    serde_json::to_string(
+        &webbook_chapters_entity(
+            deps,
+            serde_json::from_str(source_json)?,
+            book_url,
+            toc_url,
+            book_name,
+        )
+        .await?,
+    )
+    .map_err(LegadoError::Serialization)
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_chapters_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    book_url: &str,
+    toc_url: &str,
+    book_name: &str,
+) -> LegadoResult<Vec<WebChapter>> {
     // P2-9 ③：目录流程入口（键 = bookUrl，与详情同键 → 同书变量保留，
     // 换书清空）
     let deps = deps.for_book(&source.book_source_url, book_url);
@@ -4447,7 +4490,7 @@ pub async fn webbook_chapters(
             "",
             &chapters,
         );
-        return serde_json::to_string(&chapters).map_err(LegadoError::Serialization);
+        return Ok(chapters);
     }
 
     // 规则书源路径（P2-12 变量链见 webbook_chapters_with_fetcher）
@@ -4461,7 +4504,7 @@ pub async fn webbook_chapters(
         &fetcher,
     )
     .await?;
-    serde_json::to_string(&chapters).map_err(LegadoError::Serialization)
+    Ok(chapters)
 }
 
 /// webbook_chapters 核心（P2-12 变量链，2026-09-18；生产入口
@@ -4506,8 +4549,20 @@ pub async fn webbook_content(
     source_json: &str,
     chapter_json: &str,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
-    let chapter: WebChapter = serde_json::from_str(chapter_json)?;
+    webbook_content_entity(
+        deps,
+        serde_json::from_str(source_json)?,
+        serde_json::from_str(chapter_json)?,
+    )
+    .await
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_content_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    chapter: WebChapter,
+) -> LegadoResult<String> {
     let deps = deps_for_chapter(&deps, &source, &chapter);
     // P2-9 ③：正文无 bookUrl 入参，不触发生命周期清理（同书变量原样带到
     // 正文阶段）；仅确保兜底读取器已注册（深链直进正文时兜底亦生效）

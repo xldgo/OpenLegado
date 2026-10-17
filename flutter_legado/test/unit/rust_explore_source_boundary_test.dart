@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter_legado/src/bridge/content_dto.dart';
+import 'package:flutter_legado/src/bridge/transfer_dto.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -20,81 +24,111 @@ void main() {
     ruleBookInfo: BookInfoRule(name: 'h1'),
   );
   final sourceJson = jsonEncode(source.toJson());
-  final intercepted = <String>[];
-  Future<String> intercept(String raw) async {
-    intercepted.add(raw);
-    return raw;
-  }
-
-  late RustExploreService explore;
-  late RustBookSourceQueryService query;
+  const explore = RustExploreService();
+  const query = RustBookSourceQueryService();
   const state = RustExploreStateRepository();
   const debug = RustBookSourceDebugService();
+  setUpAll(() {
+    registerFallbackValue(bookSourceToDto(source));
+  });
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
-    intercepted.clear();
-    explore = RustExploreService(interceptResult: intercept);
-    query = RustBookSourceQueryService(interceptResult: intercept);
   });
   tearDown(RustLib.dispose);
-
-  test('分类将完整书源交给Rust，保留动态布局字段及无书源调用', () async {
-    const expression = '@js:categories()';
+  test('分类保留控件、空选项过滤、全部Flex样式与可空书源', () async {
     when(
       () => bridge.crateFfiFfiExploreParseUrl(
-        exploreUrl: expression,
-        sourceJson: sourceJson,
+        exploreUrl: '@js:categories()',
+        source: any(named: 'source'),
       ),
     ).thenAnswer(
-      (_) async => '[{"title":"类型","type":"toggle","chars":["男","女"],"default":"女","action":"refreshExplore()","style":{"layout_flexBasisPercent":1}}]',
+      (_) async => [
+        const ExploreCategoryDto(
+          title: '类型',
+          url: null,
+          kind: 'toggle',
+          action: 'refreshExplore()',
+          chars: ['男', null, '', '女'],
+          defaultValue: '女',
+          viewName: '标题JS',
+          style: FlexChildStyleDto(
+            layoutFlexGrow: 2,
+            layoutFlexShrink: 0,
+            layoutAlignSelf: 'center',
+            layoutFlexBasisPercent: 1,
+            layoutWrapBefore: true,
+            layoutJustifySelf: 'end',
+          ),
+        ),
+      ],
     );
     when(
       () => bridge.crateFfiFfiExploreParseUrl(
         exploreUrl: '分类::/list',
-        sourceJson: '',
+        source: null,
       ),
-    ).thenAnswer((_) async => '[{"title":"分类","url":"/list"}]');
-    final category = (await explore.parseCategories(
-      expression,
+    ).thenAnswer(
+      (_) async => [
+        const ExploreCategoryDto(
+          title: '分类',
+          url: '/list',
+          kind: 'url',
+          action: null,
+          chars: null,
+          defaultValue: null,
+          viewName: null,
+          style: null,
+        ),
+      ],
+    );
+    final c = (await explore.parseCategories(
+      '@js:categories()',
       source: source,
     )).single;
-    expect(category.title, '类型');
-    expect(category.type, 'toggle');
-    expect(category.chars, ['男', '女']);
-    expect(category.defaultValue, '女');
-    expect(category.action, 'refreshExplore()');
-    expect(category.style!.layoutFlexBasisPercent, 1);
+    expect(c.title, '类型');
+    expect(c.type, 'toggle');
+    expect(c.chars, ['男', '女']);
+    expect(c.defaultValue, '女');
+    expect(c.action, 'refreshExplore()');
+    expect(c.viewName, '标题JS');
+    expect(c.style!.layoutFlexGrow, 2);
+    expect(c.style!.layoutFlexShrink, 0);
+    expect(c.style!.layoutAlignSelf, 'center');
+    expect(c.style!.layoutFlexBasisPercent, 1);
+    expect(c.style!.layoutWrapBefore, true);
+    expect(c.style!.layoutJustifySelf, 'end');
     expect((await explore.parseCategories('分类::/list')).single.url, '/list');
+    final v =
+        verify(
+              () => bridge.crateFfiFfiExploreParseUrl(
+                exploreUrl: '@js:categories()',
+                source: captureAny(named: 'source'),
+              ),
+            ).captured.single
+            as BookSourceDto;
+    expect(v.bookSourceUrl, source.bookSourceUrl);
+    expect(v.header, source.header);
+    expect(v.ruleBookInfo!.name, 'h1');
   });
-
-  test('发现分页归一化URL、别名和类型位，保留空链接', () async {
+  test('发现保留URL补全、当前源名称、空链接及书籍类型', () async {
     when(
       () => bridge.crateFfiFfiExploreFetchBooks(
-        sourceJson: sourceJson,
+        source: any(named: 'source'),
         url: '/rank',
         page: 3,
       ),
     ).thenAnswer(
-      (_) async => jsonEncode([
-        {
-          'book_url': '../book/1',
-          'cover_url': '//images.test/1',
-          'name': '书',
-          'word_count': '10万',
-          'latest_chapter': '最新章',
-          'toc_url': '/toc',
-          'type': 64,
-        },
-        {
-          'bookUrl': '/book/2',
-          'origin': 'https://other.test',
-          'originName': '结果源',
-          'coverUrl': 'data:image/png;base64,AQ==',
-          'type': '32',
-        },
-        {'name': '没有地址'},
-      ]),
+      (_) async => [
+        _search('../book/1', '//images.test/1', 64, ''),
+        _search(
+          '/book/2',
+          'data:image/png;base64,AQ==',
+          32,
+          'https://other.test',
+        ),
+        _search('', null, 0, ''),
+      ],
     );
     final books = await explore.fetchBooks(source, '/rank', 3);
     expect(books[0].bookUrl, 'https://source.test/book/1');
@@ -103,148 +137,98 @@ void main() {
     expect(books[0].originName, source.bookSourceName);
     expect(books[0].wordCount, '10万');
     expect(books[0].latestChapterTitle, '最新章');
-    expect(books[0].tocUrl, '/toc');
     expect(books[0].bookType, 64);
     expect(books[1].bookUrl, 'https://other.test/book/2');
-    expect(books[1].originName, '结果源');
     expect(books[1].coverUrl, startsWith('data:'));
     expect(books[1].bookType, 32);
     expect(books[2].bookUrl, '');
     expect(books[2].coverUrl, isNull);
-    expect(intercepted, hasLength(1));
   });
-
-  test('平台拦截先于发现、详情及目录解码', () async {
-    const payload = '{"action":"webView","url":"https://source.test"}';
-    when(
-      () => bridge.crateFfiFfiExploreFetchBooks(
-        sourceJson: sourceJson,
-        url: '/rank',
-        page: 1,
-      ),
-    ).thenAnswer((_) async => payload);
+  test('详情与目录直接消费实体快照，保留当前书源和稳定章节归属', () async {
     when(
       () => bridge.crateFfiFfiWebbookInfo(
-        sourceJson: sourceJson,
-        bookUrl: 'page',
-      ),
-    ).thenAnswer((_) async => payload);
-    when(
-      () => bridge.crateFfiFfiWebbookChapters(
-        sourceJson: sourceJson,
-        bookUrl: 'page',
-        tocUrl: '',
-        bookName: '',
-      ),
-    ).thenAnswer((_) async => payload);
-    final replies = [
-      '[{"name":"发现"}]',
-      '{"name":"详情"}',
-      '[{"title":"目录","index":2}]',
-    ].iterator;
-    Future<String> replay(String raw) async {
-      expect(raw, payload);
-      expect(replies.moveNext(), isTrue);
-      return replies.current;
-    }
-
-    expect(
-      (await RustExploreService(
-        interceptResult: replay,
-      ).fetchBooks(source, '/rank', 1)).single.name,
-      '发现',
-    );
-    final replayQuery = RustBookSourceQueryService(interceptResult: replay);
-    expect((await replayQuery.getBookInfo(source, 'page')).name, '详情');
-    final chapter = (await replayQuery.getChapters(
-      source,
-      'page',
-      bookUrl: 'stable',
-    )).single;
-    expect(chapter.title, '目录');
-    expect(chapter.bookUrl, 'stable');
-  });
-
-  test('详情解码snake_case字段，书源身份和类型位不丢失', () async {
-    when(
-      () => bridge.crateFfiFfiWebbookInfo(
-        sourceJson: sourceJson,
-        bookUrl: 'https://current.test/9',
-      ),
-    ).thenAnswer(
-      (_) async => '{"book_url":"https://resolved.test/9","name":"详情","author":"作者","cover_url":"cover","intro":"简介","word_count":"20万","last_chapter":"第三章","toc_url":"toc","kind":"小说","type":64}',
-    );
-    final book = await query.getBookInfo(source, 'https://current.test/9');
-    expect(book.bookUrl, 'https://resolved.test/9');
-    expect(book.origin, source.bookSourceUrl);
-    expect(book.originName, source.bookSourceName);
-    expect(book.coverUrl, 'cover');
-    expect(book.wordCount, '20万');
-    expect(book.latestChapterTitle, '第三章');
-    expect(book.tocUrl, 'toc');
-    expect(book.bookType, 64);
-    expect(book.kind, '小说');
-    expect(book.intro, '简介');
-  });
-
-  test('详情缺省地址使用请求页面，camelCase字段保持原值', () async {
-    when(
-      () => bridge.crateFfiFfiWebbookInfo(
-        sourceJson: sourceJson,
+        source: any(named: 'source'),
         bookUrl: 'page',
       ),
     ).thenAnswer(
-      (_) async => '{"name":"书","coverUrl":"c","wordCount":"w","latestChapterTitle":"l","tocUrl":"t"}',
+      (_) async => const WebBookInfoDto(
+        name: '详情',
+        author: '作者',
+        coverUrl: 'cover',
+        intro: '简介',
+        categories: ['小说'],
+        lastChapter: '最新章',
+        bookUrl: 'resolved',
+        tocUrl: 'toc',
+        wordCount: '20万',
+        kind: '小说',
+        variable: '{"v":1}',
+        bookType: 64,
+      ),
     );
     final book = await query.getBookInfo(source, 'page');
-    expect(book.bookUrl, 'page');
-    expect(
-      [book.coverUrl, book.wordCount, book.latestChapterTitle, book.tocUrl],
-      ['c', 'w', 'l', 't'],
-    );
-    expect(book.bookType, 0);
-  });
-
-  test('目录用当前页面抓取，章节归属稳定主键并保留收费/分卷字段', () async {
+    expect(book.bookUrl, 'resolved');
+    expect(book.origin, source.bookSourceUrl);
+    expect(book.originName, source.bookSourceName);
+    expect(book.bookType, 64);
+    expect(book.coverUrl, 'cover');
+    expect(book.kind, '小说');
+    expect(book.wordCount, '20万');
+    expect(book.latestChapterTitle, '最新章');
+    expect(book.tocUrl, 'toc');
+    expect(book.variable, '{"v":1}');
     when(
       () => bridge.crateFfiFfiWebbookChapters(
-        sourceJson: sourceJson,
-        bookUrl: 'current-page',
-        tocUrl: 'current-toc',
+        source: any(named: 'source'),
+        bookUrl: 'page',
+        tocUrl: 'toc',
         bookName: '书',
       ),
     ).thenAnswer(
-      (_) async => '[{"index":4,"title":"卷一","url":"chapter","bookUrl":"wrong","is_volume":true,"is_vip":true,"is_pay":true,"resource_url":"audio"}]',
+      (_) async => [
+        const WebChapterDto(
+          index: 4,
+          title: '卷一',
+          url: 'chapter',
+          isVip: true,
+          isVolume: true,
+          variable: '{"k":"v"}',
+          wordCount: '1万',
+        ),
+      ],
     );
     final chapter = (await query.getChapters(
       source,
-      'current-page',
-      bookUrl: 'stable-book',
-      tocUrl: 'current-toc',
+      'page',
+      bookUrl: 'stable',
+      tocUrl: 'toc',
       bookName: '书',
     )).single;
-    expect(chapter.bookUrl, 'stable-book');
+    expect(chapter.bookUrl, 'stable');
     expect(chapter.index, 4);
-    expect(chapter.url, 'chapter');
-    expect(chapter.isVolume, isTrue);
-    expect(chapter.isVip, isTrue);
-    expect(chapter.isPay, isTrue);
-    expect(chapter.resourceUrl, 'audio');
+    expect(chapter.title, '卷一');
+    expect(chapter.isVip, true);
+    expect(chapter.isVolume, true);
+    expect(chapter.wordCount, '1万');
+    expect(chapter.variable, '{"k":"v"}');
   });
-
-  test('动作返回独立只读结果，UI脚本保持原文传入与返回', () async {
+  test('动作返回类型化外壳，内部平台动作仍为脚本协议文档', () async {
     when(
       () => bridge.crateFfiFfiExploreEvalAction(
         sourceJson: sourceJson,
         actionJs: 'run()',
       ),
     ).thenAnswer(
-      (_) async => '{"raw":"ok","actions":[{"action":"copyText","text":"文字"}],"refreshExplore":true}',
+      (_) async => const ExploreActionDto(
+        raw: 'ok',
+        actionsJson: '[{"action":"copyText","text":"文字"}]',
+        refreshExplore: true,
+      ),
     );
     when(
       () => bridge.crateFfiFfiExploreEvalUiJs(
         sourceJson: sourceJson,
-        jsStr: 'infoMap.get("选项")',
+        jsStr: 'title()',
       ),
     ).thenAnswer((_) async => '值');
     final result = await explore.evaluateAction(
@@ -253,17 +237,40 @@ void main() {
     );
     expect(result.raw, 'ok');
     expect(result.actions.single, {'action': 'copyText', 'text': '文字'});
-    expect(result.refreshExplore, isTrue);
+    expect(result.refreshExplore, true);
     expect(() => result.actions.clear(), throwsUnsupportedError);
     expect(
-      await explore.evaluateUiJs(
-        sourceJson: sourceJson,
-        jsStr: 'infoMap.get("选项")',
-      ),
+      await explore.evaluateUiJs(sourceJson: sourceJson, jsStr: 'title()'),
       '值',
     );
   });
-
+  test('类型化空结果合法，底层错误仍上抛', () async {
+    when(
+      () => bridge.crateFfiFfiExploreFetchBooks(
+        source: any(named: 'source'),
+        url: 'u',
+        page: 1,
+      ),
+    ).thenAnswer((_) async => []);
+    when(
+      () => bridge.crateFfiFfiWebbookChapters(
+        source: any(named: 'source'),
+        bookUrl: 'b',
+        tocUrl: '',
+        bookName: '',
+      ),
+    ).thenAnswer((_) async => []);
+    expect(await explore.fetchBooks(source, 'u', 1), isEmpty);
+    expect(await query.getChapters(source, 'b', bookUrl: 'stable'), isEmpty);
+    final error = StateError('解析失败');
+    when(
+      () => bridge.crateFfiFfiWebbookInfo(
+        source: any(named: 'source'),
+        bookUrl: 'b',
+      ),
+    ).thenThrow(error);
+    await expectLater(query.getBookInfo(source, 'b'), throwsA(same(error)));
+  });
   test('infoMap读写沿用Rust状态与字符串值', () async {
     when(
       () => bridge.crateFfiFfiExploreInfoMapPut(
@@ -308,40 +315,6 @@ void main() {
     });
   }
 
-  test('坏列表和目录元素不能当作查询成功', () async {
-    when(
-      () => bridge.crateFfiFfiExploreParseUrl(exploreUrl: 'u', sourceJson: ''),
-    ).thenAnswer((_) async => '{}');
-    when(
-      () => bridge.crateFfiFfiExploreFetchBooks(
-        sourceJson: sourceJson,
-        url: 'u',
-        page: 1,
-      ),
-    ).thenAnswer((_) async => '{}');
-    when(
-      () => bridge.crateFfiFfiWebbookInfo(sourceJson: sourceJson, bookUrl: 'b'),
-    ).thenAnswer((_) async => '[]');
-    when(
-      () => bridge.crateFfiFfiWebbookChapters(
-        sourceJson: sourceJson,
-        bookUrl: 'b',
-        tocUrl: '',
-        bookName: '',
-      ),
-    ).thenAnswer((_) async => '[1]');
-    await expectLater(explore.parseCategories('u'), throwsFormatException);
-    await expectLater(
-      explore.fetchBooks(source, 'u', 1),
-      throwsFormatException,
-    );
-    await expectLater(query.getBookInfo(source, 'b'), throwsFormatException);
-    await expectLater(
-      query.getChapters(source, 'b', bookUrl: 'stable'),
-      throwsFormatException,
-    );
-  });
-
   test('调试流映射状态与文本，沿用原生取消', () async {
     when(
       () => bridge.crateFfiFfiDebugBookSourceStream(sourceUrl: 's', key: 'k'),
@@ -376,22 +349,22 @@ void main() {
     );
     await expectLater(debug.debug('error', 'k'), emitsError(same(error)));
   });
-
-  test('查询及动作异常不替换成空结果', () async {
-    final error = StateError('解析失败');
-    when(
-      () => bridge.crateFfiFfiWebbookInfo(sourceJson: sourceJson, bookUrl: 'b'),
-    ).thenThrow(error);
-    when(
-      () => bridge.crateFfiFfiExploreEvalAction(
-        sourceJson: sourceJson,
-        actionJs: 'run()',
-      ),
-    ).thenThrow(error);
-    await expectLater(query.getBookInfo(source, 'b'), throwsA(same(error)));
-    await expectLater(
-      explore.evaluateAction(sourceJson: sourceJson, actionJs: 'run()'),
-      throwsA(same(error)),
-    );
-  });
 }
+
+WebSearchResultDto _search(
+  String url,
+  String? cover,
+  int type,
+  String origin,
+) => WebSearchResultDto(
+  name: '书',
+  author: '作者',
+  bookUrl: url,
+  coverUrl: cover,
+  intro: '简介',
+  latestChapter: '最新章',
+  sourceUrl: origin,
+  kind: '小说',
+  wordCount: '10万',
+  bookType: type,
+);

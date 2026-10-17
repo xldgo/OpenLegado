@@ -33,6 +33,12 @@
 - 续批验证：最终QuickJS FFI库587项通过、42项既有忽略；默认FFI库511项通过、21项既有忽略。默认工作区与QuickJS相关三包的全目标严格Clippy通过。43份相关Flutter单元/Widget文件343项通过；完整flutter analyze --no-pub无问题。4份真实Windows DLL测试18项通过，含新增标注/规则/分组3项、阅读记录跨年会话与删除、80组上游布局、搜索/校验/换源及流取消回归。独立target的正式Python native重建与最终只读指纹/摘要门禁通过，双方绑定保持2.13.0，hash为-1366931245。
 - 续批失败与整改：首轮Dart编译发现show是Dart关键字、生成属性实际名为show_，映射与夹具已修正，未改字段语义。移除依赖坏JSON/未知条目的测试，替换为类型化字段、空结果、底层错误和i32范围行为；原删除/错误断言保留。生成器过滤build_runner导致其他领域的已提交生成文件被删除，已精确恢复HEAD字节，未覆盖手写修改。最终日志为忽略目录build/ffi-phase3的reading-{codegen,rust-quick-final,rust-default-final,clippy-quick-final,clippy-default-final,flutter-final,ffi-runtime,analysis-closed,native-final}，实际回归入口见reading-regression-files.txt。仅自查，无独立审查、Android/iOS、设备profile或应用安装；依赖、锁文件、数据库和应用版本不变。
 
+- 后续四批：用户明确授权按网络/书源查询、朗读媒体、下载与交互流、其余业务接口及清理四批顺序推进，每批验证后本地提交。阅读域已提交678d5f01c；第1批网络/书源查询实现与本地验证完成并按授权提交，随后继续第2批朗读媒体。继续同worktree、SSE与2.13.0，不使用子代理、不推送/CI/安装，不做依赖或版本升级。各批结果在此更新，不以阶段进度作为停止理由。
+
+- 后续第1批实现：新增content_dto专用边界模块，网络文本/字节、WebBook抓取结果、发现控件/Flex样式和段评上下文/递归响应直接传输。Fetcher和宿主JSON入口委托实体执行链，不把完整响应先序列化再反解；已有配置文档及动态JS动作内容保留协议解析边界。书源详情/目录的无效根级平台拦截依赖移除，正文继续使用TextResponseDto。页面与存储不变。
+- 后续第1批验证：QuickJS下Fetcher156/FFI587共743项、默认Fetcher132/FFI511共643项通过；FFI忽略项分别42/21。22份Flutter文件176项通过，三份仓储定向35项含在组合内；完整分析无问题。真实Windows DLL的4份文件13项通过，新增实际HTTP字节完整域/重定向/Header/POST、书源详情/目录/发现、规则段评数量及JS递归回复往返。两档全目标严格Clippy、格式与差异检查通过；正式Python独立native重建和最终只读指纹/摘要通过。
+- 后续第1批整改与边界：新实体入口编译期间修正JS摘要Vec到Map、测试上下文及DTO参数；Clippy冗余Ok/问号已去除。旧测试中原Rust结果不可能携带的别名/额外字段和根级平台动作假响应，改为实际DTO字段、错误、空列表及协议动作测试；原真实行为断言保留。日志为忽略目录build/ffi-phase3的content-{codegen,rust-quick,rust-default,clippy-quick-final,clippy-default,flutter-regression,analysis-final,native-final,native-tests-final}；回归文件集合为content-regression-files.txt。无子代理/独立外审、CI、Android/iOS或安装，不宣称零拷贝或设备性能收益。
+
 ### COMIC-SETTINGS-ACTIONS-20261017：漫画设置与图片操作边界（P1）
 
 - 授权与基线：用户确认继续下一批；feature/ui-reader-selection / cececdba4，工作区干净。Codex单代理，不新建分支；本批验证后本地提交一次，不推送/触发CI/构建安装，版本2.0.373+374不变。

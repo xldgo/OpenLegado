@@ -1,9 +1,7 @@
-import 'dart:convert';
-
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/review_service.dart';
 import '../../domain/models/review.dart';
-import '../bridge/book_content_decode.dart';
+import '../bridge/content_dto_mapping.dart';
 
 /// 段评规则和分页请求直接使用现有Rust能力。— Codex + Bridge
 final class RustReviewService implements ReviewService {
@@ -12,21 +10,26 @@ final class RustReviewService implements ReviewService {
   Future<ReviewSummary> reviewGetSummary(
     String sourceJson,
     Map<String, dynamic> request,
-  ) async => decodeReviewSummary(
-    await bridge.reviewGetSummary(
+  ) async {
+    final value = await bridge.reviewGetSummary(
       sourceJson: sourceJson,
-      requestJson: jsonEncode(request),
-    ),
-  );
+      request: reviewRequestToDto(request),
+    );
+    return ReviewSummary(
+      counts: Map.fromEntries(value.counts.entries.where((e) => e.value > 0)),
+      keys: value.keys,
+    );
+  }
+
   @override
   Future<ReviewPage> reviewGetDetail(
     String sourceJson,
     Map<String, dynamic> request,
     int page,
-  ) async => decodeReviewPage(
+  ) async => reviewPageFromDto(
     await bridge.reviewGetDetail(
       sourceJson: sourceJson,
-      requestJson: jsonEncode(request),
+      request: reviewRequestToDto(request),
       page: page,
     ),
   );
@@ -35,10 +38,10 @@ final class RustReviewService implements ReviewService {
     String sourceJson,
     Map<String, dynamic> request,
     int page,
-  ) async => decodeReviewPage(
+  ) async => reviewPageFromDto(
     await bridge.reviewGetReplies(
       sourceJson: sourceJson,
-      requestJson: jsonEncode(request),
+      request: reviewRequestToDto(request),
       page: page,
     ),
   );

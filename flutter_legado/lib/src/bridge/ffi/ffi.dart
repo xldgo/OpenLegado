@@ -3,6 +3,7 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../content_dto.dart';
 import '../ffi.dart';
 import '../frb_generated.dart';
 import '../transfer_dto.dart';
@@ -944,21 +945,20 @@ Future<void> deleteSearchBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiDeleteSearchBook(bookUrl: bookUrl);
 
 /// HTTP GET 请求，返回 JSON 格式的响应
-Future<String> httpGet({required String url}) =>
+Future<HttpTextResponseDto> httpGet({required String url}) =>
     RustLib.instance.api.crateFfiFfiHttpGet(url: url);
 
 /// HTTP POST 请求，返回 JSON 格式的响应
-Future<String> httpPost({required String url, required String body}) =>
-    RustLib.instance.api.crateFfiFfiHttpPost(url: url, body: body);
+Future<HttpTextResponseDto> httpPost({
+  required String url,
+  required String body,
+}) => RustLib.instance.api.crateFfiFfiHttpPost(url: url, body: body);
 
 /// HTTP GET 二进制响应（返回 JSON：status/bodyBase64/url）
-Future<String> httpGetBytes({
+Future<HttpBytesResponseDto> httpGetBytes({
   required String url,
-  required String headersJson,
-}) => RustLib.instance.api.crateFfiFfiHttpGetBytes(
-  url: url,
-  headersJson: headersJson,
-);
+  Map<String, String>? headers,
+}) => RustLib.instance.api.crateFfiFfiHttpGetBytes(url: url, headers: headers);
 
 /// 图片下载 + imageDecode 解码（返回原始字节）
 ///
@@ -981,12 +981,12 @@ Future<Uint8List> fetchImageWithDecode({
 /// `source_json` — BookSource JSON 字符串
 /// `query` — 搜索关键词
 /// `page` — 页码（从 1 开始）
-Future<String> webbookSearch({
-  required String sourceJson,
+Future<List<WebSearchResultDto>> webbookSearch({
+  required BookSourceDto source,
   required String query,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiWebbookSearch(
-  sourceJson: sourceJson,
+  source: source,
   query: query,
   page: page,
 );
@@ -997,11 +997,11 @@ Future<String> webbookSearch({
 ///
 /// `source_json` — BookSource JSON 字符串
 /// `book_url` — 书籍详情页 URL
-Future<String> webbookInfo({
-  required String sourceJson,
+Future<WebBookInfoDto> webbookInfo({
+  required BookSourceDto source,
   required String bookUrl,
 }) => RustLib.instance.api.crateFfiFfiWebbookInfo(
-  sourceJson: sourceJson,
+  source: source,
   bookUrl: bookUrl,
 );
 
@@ -1011,13 +1011,13 @@ Future<String> webbookInfo({
 ///
 /// `source_json` — BookSource JSON 字符串
 /// `book_url` — 书籍详情页 URL
-Future<String> webbookChapters({
-  required String sourceJson,
+Future<List<WebChapterDto>> webbookChapters({
+  required BookSourceDto source,
   required String bookUrl,
   required String tocUrl,
   required String bookName,
 }) => RustLib.instance.api.crateFfiFfiWebbookChapters(
-  sourceJson: sourceJson,
+  source: source,
   bookUrl: bookUrl,
   tocUrl: tocUrl,
   bookName: bookName,
@@ -1029,23 +1029,23 @@ Future<String> webbookChapters({
 ///
 /// `source_json` — BookSource JSON 字符串
 /// `chapter_json` — WebChapter JSON 字符串
-Future<String> webbookContent({
-  required String sourceJson,
-  required String chapterJson,
+Future<TextResponseDto> webbookContent({
+  required BookSourceDto source,
+  required WebChapterDto chapter,
 }) => RustLib.instance.api.crateFfiFfiWebbookContent(
-  sourceJson: sourceJson,
-  chapterJson: chapterJson,
+  source: source,
+  chapter: chapter,
 );
 
 /// 解析 exploreUrl 为分类列表（返回 JSON 数组）
 ///
 /// `explore_url` — 书源的 exploreUrl 字段
-Future<String> exploreParseUrl({
+Future<List<ExploreCategoryDto>> exploreParseUrl({
   required String exploreUrl,
-  required String sourceJson,
+  BookSourceDto? source,
 }) => RustLib.instance.api.crateFfiFfiExploreParseUrl(
   exploreUrl: exploreUrl,
-  sourceJson: sourceJson,
+  source: source,
 );
 
 /// 抓取发现分类的书籍列表（返回 WebSearchResult JSON 数组）
@@ -1053,12 +1053,12 @@ Future<String> exploreParseUrl({
 /// `source_json` — BookSource JSON 字符串
 /// `url` — 分类 URL
 /// `page` — 页码（从 1 开始）
-Future<String> exploreFetchBooks({
-  required String sourceJson,
+Future<List<WebSearchResultDto>> exploreFetchBooks({
+  required BookSourceDto source,
   required String url,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiExploreFetchBooks(
-  sourceJson: sourceJson,
+  source: source,
   url: url,
   page: page,
 );
@@ -1093,7 +1093,7 @@ Future<String> exploreInfoMapSnapshot({required String sourceUrl}) => RustLib
     .crateFfiFfiExploreInfoMapSnapshot(sourceUrl: sourceUrl);
 
 /// 执行发现页控件 action JS（返回 ExploreEvalActionResult JSON）
-Future<String> exploreEvalAction({
+Future<ExploreActionDto> exploreEvalAction({
   required String sourceJson,
   required String actionJs,
 }) => RustLib.instance.api.crateFfiFfiExploreEvalAction(
@@ -2068,25 +2068,25 @@ Future<void> downloadUpdateProgress({
 ///
 /// 返回 JSON `{"counts":{"1":5},"keys":{"1":"paraData"}}`。
 /// `request_json` 支持 chapterUrl；可选 book/chapter。
-Future<String> reviewGetSummary({
+Future<ReviewSummaryDto> reviewGetSummary({
   required String sourceJson,
-  required String requestJson,
+  required ReviewRequestDto request,
 }) => RustLib.instance.api.crateFfiFfiReviewGetSummary(
   sourceJson: sourceJson,
-  requestJson: requestJson,
+  request: request,
 );
 
 /// 段评详情分页（P2-9，对标 ReviewDetailDialog + parseDetailPage）
 ///
 /// 返回 JSON `{"items":[...],"nextPageUrl":String?,"hasReplyUrl":bool}`。
 /// `request_json` 支持 paraIndex/paraData/chapterUrl/detailUrl。
-Future<String> reviewGetDetail({
+Future<ReviewPageDto> reviewGetDetail({
   required String sourceJson,
-  required String requestJson,
+  required ReviewRequestDto request,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiReviewGetDetail(
   sourceJson: sourceJson,
-  requestJson: requestJson,
+  request: request,
   page: page,
 );
 
@@ -2094,13 +2094,13 @@ Future<String> reviewGetDetail({
 ///
 /// 返回 JSON 对象字符串 `{"items": [回复列表], "nextPageUrl": String?}`。
 /// `request_json` 支持字段：reviewId/paraIndex/paraData/chapterUrl/replyUrl。
-Future<String> reviewGetReplies({
+Future<ReviewPageDto> reviewGetReplies({
   required String sourceJson,
-  required String requestJson,
+  required ReviewRequestDto request,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiReviewGetReplies(
   sourceJson: sourceJson,
-  requestJson: requestJson,
+  request: request,
   page: page,
 );
 

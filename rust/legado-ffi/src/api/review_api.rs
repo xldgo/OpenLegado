@@ -9,6 +9,77 @@ use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
 use legado_parser::{AnalyzeUrl, RequestMethod};
 
+use crate::content_dto::{ReviewPageDto, ReviewRequestDto, ReviewSummaryDto};
+
+/// 规则模板与 JS 正文共享上下文，实体不经过 JSON 往返。
+#[derive(Debug, Clone, Default)]
+pub struct ReviewRequest {
+    pub chapter_url: String,
+    pub para_index: String,
+    pub para_data: String,
+    pub detail_url: String,
+    pub reply_url: String,
+    pub review_id: String,
+    pub book: Option<legado_core::models::Book>,
+    pub chapter: Option<legado_core::models::BookChapter>,
+}
+impl From<ReviewRequestDto> for ReviewRequest {
+    fn from(v: ReviewRequestDto) -> Self {
+        Self {
+            chapter_url: v.chapter_url,
+            para_index: v.para_index,
+            para_data: v.para_data,
+            detail_url: v.detail_url,
+            reply_url: v.reply_url,
+            review_id: v.review_id,
+            book: v.book.map(Into::into),
+            chapter: v.chapter.map(Into::into),
+        }
+    }
+}
+impl ReviewRequest {
+    fn field(&self, key: &str) -> String {
+        match key {
+            "chapterUrl" => &self.chapter_url,
+            "paraIndex" => &self.para_index,
+            "paraData" => &self.para_data,
+            "detailUrl" => &self.detail_url,
+            "replyUrl" => &self.reply_url,
+            "reviewId" => &self.review_id,
+            _ => "",
+        }
+        .to_string()
+    }
+    fn parse(raw: &str) -> LegadoResult<Self> {
+        let v: serde_json::Value = serde_json::from_str(raw)?;
+        let field = |k: &str| {
+            v.get(k)
+                .map(|v| match v {
+                    serde_json::Value::Null => String::new(),
+                    serde_json::Value::String(s) => s.clone(),
+                    v => v.to_string(),
+                })
+                .unwrap_or_default()
+        };
+        Ok(Self {
+            chapter_url: field("chapterUrl"),
+            para_index: field("paraIndex"),
+            para_data: field("paraData"),
+            detail_url: field("detailUrl"),
+            reply_url: field("replyUrl"),
+            review_id: field("reviewId"),
+            book: v
+                .get("book")
+                .map(|b| serde_json::from_value(b.clone()))
+                .transpose()?,
+            chapter: v
+                .get("chapter")
+                .map(|b| serde_json::from_value(b.clone()))
+                .transpose()?,
+        })
+    }
+}
+
 // ─── 书源段评摘要 / 详情 / 回复（对齐原版 ruleReview）─────────────────────────
 
 /// 段评摘要（对标 `ReadBookActivity.loadReviewSummary*`）
@@ -22,18 +93,23 @@ use legado_parser::{AnalyzeUrl, RequestMethod};
 /// - `source_json`: BookSource JSON（含 ruleReview / mainJs）
 /// - `request_json`: `chapterUrl`；可选 `book` / `chapter` JSON 对象
 pub fn review_get_summary(source_json: &str, request_json: &str) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
-    let request: serde_json::Value = serde_json::from_str(request_json)
-        .map_err(|e| LegadoError::Internal(format!("摘要请求参数解析失败: {e}")))?;
+    let result = review_get_summary_entity(
+        serde_json::from_str(source_json)?,
+        ReviewRequest::parse(request_json)?,
+    )?;
+    serde_json::to_string(&result).map_err(LegadoError::Serialization)
+}
 
+/// 类型化入口共用原规则和 JS 执行链。
+pub fn review_get_summary_entity(
+    source: BookSource,
+    request: ReviewRequest,
+) -> LegadoResult<ReviewSummaryDto> {
     if source.is_js_source() {
         return js_review_get_summary(&source, &request);
     }
 
-    let empty = || {
-        serde_json::to_string(&serde_json::json!({"counts": {}, "keys": {}}))
-            .map_err(LegadoError::Serialization)
-    };
+    let empty = || Ok(ReviewSummaryDto::default());
 
     let rule = match source.rule_review.as_ref() {
         Some(r) => r,
@@ -69,11 +145,7 @@ pub fn review_get_summary(source_json: &str, request_json: &str) -> LegadoResult
         return empty();
     }
 
-    let chapter_url = request
-        .get("chapterUrl")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let chapter_url = request.chapter_url.clone();
 
     let analyze_url = AnalyzeUrl::parse(&summary_url, &HashMap::new(), 1)?;
     let final_url = {
@@ -134,42 +206,21 @@ pub fn review_get_summary(source_json: &str, request_json: &str) -> LegadoResult
     let summary = legado_parser::review_rule_parser::parse_summary_with_analyzer(rule, &analyzer)
         .unwrap_or_default();
 
-    // JSON 对象键须为字符串
-    let counts: serde_json::Map<String, serde_json::Value> = summary
-        .counts
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
-        .collect();
-    let keys: serde_json::Map<String, serde_json::Value> = summary
-        .keys
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
-        .collect();
-    serde_json::to_string(&serde_json::json!({"counts": counts, "keys": keys}))
-        .map_err(LegadoError::Serialization)
+    Ok(ReviewSummaryDto {
+        counts: summary.counts,
+        keys: summary.keys,
+    })
 }
 
-fn js_review_get_summary(source: &BookSource, request: &serde_json::Value) -> LegadoResult<String> {
-    let book: legado_core::models::Book = request
-        .get("book")
-        .map(|v| serde_json::from_value(v.clone()))
-        .transpose()
-        .map_err(|e| LegadoError::Internal(format!("book 参数解析失败: {e}")))?
-        .unwrap_or_default();
-    let mut chapter: legado_core::models::BookChapter = request
-        .get("chapter")
-        .map(|v| serde_json::from_value(v.clone()))
-        .transpose()
-        .map_err(|e| LegadoError::Internal(format!("chapter 参数解析失败: {e}")))?
-        .unwrap_or_default();
+fn js_review_get_summary(
+    source: &BookSource,
+    request: &ReviewRequest,
+) -> LegadoResult<ReviewSummaryDto> {
+    let book = request.book.clone().unwrap_or_default();
+    let mut chapter = request.chapter.clone().unwrap_or_default();
     if chapter.url.is_empty() {
-        chapter.url = request
-            .get("chapterUrl")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
+        chapter.url = request.chapter_url.clone();
     }
-
     let mut orchestrator = crate::api::web_book::build_js_orchestrator(source)?
         .ok_or_else(|| LegadoError::Internal("JS 书源 mainJs 为空，无法加载段评摘要".into()))?;
 
@@ -179,18 +230,10 @@ fn js_review_get_summary(source: &BookSource, request: &serde_json::Value) -> Le
             .map_err(|e| LegadoError::Internal(format!("JS 段评摘要任务异常: {e}")))?
     })?;
 
-    let counts: serde_json::Map<String, serde_json::Value> = summary
-        .counts
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
-        .collect();
-    let keys: serde_json::Map<String, serde_json::Value> = summary
-        .keys
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
-        .collect();
-    serde_json::to_string(&serde_json::json!({"counts": counts, "keys": keys}))
-        .map_err(LegadoError::Serialization)
+    Ok(ReviewSummaryDto {
+        counts: summary.counts.into_iter().collect(),
+        keys: summary.keys.into_iter().collect(),
+    })
 }
 
 /// 段评详情分页（对标 `ReviewDetailDialog.loadDetailPage`）
@@ -203,9 +246,22 @@ fn js_review_get_summary(source: &BookSource, request: &serde_json::Value) -> Le
 /// # 返回
 /// `{"items":[...],"nextPageUrl":String?,"hasReplyUrl":bool}`
 pub fn review_get_detail(source_json: &str, request_json: &str, page: i32) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    let result = review_get_detail_entity(
+        serde_json::from_str(source_json)?,
+        ReviewRequest::parse(request_json)?,
+        page,
+    )?;
+    serde_json::to_string(&result).map_err(LegadoError::Serialization)
+}
+
+/// 类型化入口共用原规则和 JS 执行链。
+pub fn review_get_detail_entity(
+    source: BookSource,
+    request: ReviewRequest,
+    page: i32,
+) -> LegadoResult<ReviewPageDto> {
     if source.is_js_source() {
-        return js_review_get_detail(&source, request_json, page);
+        return js_review_get_detail(&source, &request, page);
     }
 
     let rule = source
@@ -231,18 +287,7 @@ pub fn review_get_detail(source_json: &str, request_json: &str, page: i32) -> Le
         ));
     }
 
-    let request: serde_json::Value = serde_json::from_str(request_json)
-        .map_err(|e| LegadoError::Internal(format!("详情请求参数解析失败: {e}")))?;
-    let field = |key: &str| -> String {
-        request
-            .get(key)
-            .and_then(|v| match v {
-                serde_json::Value::String(s) => Some(s.clone()),
-                serde_json::Value::Null => None,
-                other => Some(other.to_string()),
-            })
-            .unwrap_or_default()
-    };
+    let field = |key: &str| request.field(key);
     let para_index = field("paraIndex");
     let para_data = field("paraData");
     let chapter_url = field("chapterUrl");
@@ -353,27 +398,19 @@ pub fn review_get_detail(source_json: &str, request_json: &str, page: i32) -> Le
             .trim()
             .is_empty();
 
-    let payload = serde_json::json!({
-        "items": detail_page.items,
-        "nextPageUrl": detail_page.next_page_url,
-        "hasReplyUrl": has_reply_url,
-    });
-    serde_json::to_string(&payload).map_err(LegadoError::Serialization)
+    Ok(ReviewPageDto {
+        items: detail_page.items.into_iter().map(Into::into).collect(),
+        next_page_url: detail_page.next_page_url,
+        has_reply_url,
+    })
 }
 
 fn js_review_get_detail(
     source: &BookSource,
-    request_json: &str,
+    request: &ReviewRequest,
     page: i32,
-) -> LegadoResult<String> {
-    // 复用回复路径的 JS getReviewDetail 分派（同契约响应，附加 hasReplyUrl=false）
-    let result = js_review_get_replies(source, request_json, page)?;
-    let mut payload: serde_json::Value = serde_json::from_str(&result)
-        .map_err(|e| LegadoError::Internal(format!("JS 详情响应包装失败: {e}")))?;
-    if let Some(obj) = payload.as_object_mut() {
-        obj.insert("hasReplyUrl".into(), serde_json::json!(false));
-    }
-    serde_json::to_string(&payload).map_err(LegadoError::Serialization)
+) -> LegadoResult<ReviewPageDto> {
+    js_review_get_replies(source, request, page)
 }
 
 /// 按需加载段评回复
@@ -407,12 +444,24 @@ pub fn review_get_replies(
     request_json: &str,
     page: i32,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    let result = review_get_replies_entity(
+        serde_json::from_str(source_json)?,
+        ReviewRequest::parse(request_json)?,
+        page,
+    )?;
+    serde_json::to_string(&result).map_err(LegadoError::Serialization)
+}
 
+/// 类型化入口共用原规则和 JS 执行链。
+pub fn review_get_replies_entity(
+    source: BookSource,
+    request: ReviewRequest,
+    page: i32,
+) -> LegadoResult<ReviewPageDto> {
     // JS 书源分支（Task #134）：复用 JS 编排器调用 getReviewDetail 实现按需加载，
     // 移除旧版"暂不支持"降级（对标 Kotlin ReviewDetailDialog 的 isJsSource 分支）
     if source.is_js_source() {
-        return js_review_get_replies(&source, request_json, page);
+        return js_review_get_replies(&source, &request, page);
     }
 
     let rule = source
@@ -438,18 +487,7 @@ pub fn review_get_replies(
         ));
     }
 
-    let request: serde_json::Value = serde_json::from_str(request_json)
-        .map_err(|e| LegadoError::Internal(format!("回复请求参数解析失败: {e}")))?;
-    let field = |key: &str| -> String {
-        request
-            .get(key)
-            .and_then(|v| match v {
-                serde_json::Value::String(s) => Some(s.clone()),
-                serde_json::Value::Null => None,
-                other => Some(other.to_string()),
-            })
-            .unwrap_or_default()
-    };
+    let field = |key: &str| request.field(key);
     let review_id = field("reviewId");
     let para_index = field("paraIndex");
     let para_data = field("paraData");
@@ -554,11 +592,11 @@ pub fn review_get_replies(
             .filter(|u| !u.is_empty() && u != &final_url)
     };
 
-    let payload = serde_json::json!({
-        "items": replies,
-        "nextPageUrl": next_page_url,
-    });
-    serde_json::to_string(&payload).map_err(LegadoError::Serialization)
+    Ok(ReviewPageDto {
+        items: replies.into_iter().map(Into::into).collect(),
+        next_page_url,
+        has_reply_url: false,
+    })
 }
 
 /// JS 书源段评回复按需加载（Task #134），对标 Kotlin
@@ -572,47 +610,16 @@ pub fn review_get_replies(
 /// - `paraIndex` / `paraData` / `chapterUrl`：与规则路径同义。
 fn js_review_get_replies(
     source: &BookSource,
-    request_json: &str,
+    request: &ReviewRequest,
     page: i32,
-) -> LegadoResult<String> {
-    let request: serde_json::Value = serde_json::from_str(request_json)
-        .map_err(|e| LegadoError::Internal(format!("回复请求参数解析失败: {e}")))?;
-
-    let para_index = request
-        .get("paraIndex")
-        .and_then(|v| {
-            v.as_i64()
-                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-        })
-        .unwrap_or(0) as i32;
-    let para_data = request
-        .get("paraData")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let chapter_url = request
-        .get("chapterUrl")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-
-    // Book/Chapter 上下文：优先调用方提供的字段，缺失时用默认值
-    let book: legado_core::models::Book = request
-        .get("book")
-        .map(|v| serde_json::from_value(v.clone()))
-        .transpose()
-        .map_err(|e| LegadoError::Internal(format!("book 参数解析失败: {e}")))?
-        .unwrap_or_default();
-    let mut chapter: legado_core::models::BookChapter = request
-        .get("chapter")
-        .map(|v| serde_json::from_value(v.clone()))
-        .transpose()
-        .map_err(|e| LegadoError::Internal(format!("chapter 参数解析失败: {e}")))?
-        .unwrap_or_default();
+) -> LegadoResult<ReviewPageDto> {
+    let book = request.book.clone().unwrap_or_default();
+    let mut chapter = request.chapter.clone().unwrap_or_default();
     if chapter.url.is_empty() {
-        chapter.url = chapter_url;
+        chapter.url = request.chapter_url.clone();
     }
-
+    let para_index = request.para_index.parse::<i64>().unwrap_or(0) as i32;
+    let para_data = request.para_data.clone();
     let mut orchestrator = crate::api::web_book::build_js_orchestrator(source)?
         .ok_or_else(|| LegadoError::Internal("JS 书源 mainJs 为空，无法加载段评回复".into()))?;
 
@@ -627,11 +634,11 @@ fn js_review_get_replies(
 
     // 转换为与规则路径兼容的响应格式（camelCase 契约，API_CONTRACT.md 已登记）
     let items = convert_js_review_items(detail_page.items);
-    let payload = serde_json::json!({
-        "items": items,
-        "nextPageUrl": detail_page.next_page_url,
-    });
-    serde_json::to_string(&payload).map_err(LegadoError::Serialization)
+    Ok(ReviewPageDto {
+        items: items.into_iter().map(Into::into).collect(),
+        next_page_url: detail_page.next_page_url,
+        has_reply_url: false,
+    })
 }
 
 /// js_source_review 条目 → review_rule_parser camelCase 响应条目转换（Task #134）
@@ -748,7 +755,7 @@ mod tests {
             main_js: Some("   ".into()),
             ..Default::default()
         };
-        let err = js_review_get_replies(&source, "{}", 1).unwrap_err();
+        let err = js_review_get_replies(&source, &ReviewRequest::default(), 1).unwrap_err();
         assert!(err.to_string().contains("mainJs"));
     }
 

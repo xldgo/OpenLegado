@@ -272,6 +272,53 @@ pub fn webbook_content(source_json: &str, chapter_json: &str) -> LegadoResult<St
     ))
 }
 
+pub fn webbook_search_entity(
+    source: BookSource,
+    query: &str,
+    page: i32,
+) -> LegadoResult<Vec<legado_core::web_book::WebSearchResult>> {
+    runtime::block_on(legado_fetcher::web_book::webbook_search_entity(
+        ffi_deps()?,
+        source,
+        query,
+        page,
+    ))
+}
+pub fn webbook_info_entity(
+    source: BookSource,
+    book_url: &str,
+) -> LegadoResult<legado_core::web_book::WebBookInfo> {
+    runtime::block_on(legado_fetcher::web_book::webbook_info_entity(
+        ffi_deps()?,
+        source,
+        book_url,
+    ))
+}
+pub fn webbook_chapters_entity(
+    source: BookSource,
+    book_url: &str,
+    toc_url: &str,
+    book_name: &str,
+) -> LegadoResult<Vec<legado_core::web_book::WebChapter>> {
+    runtime::block_on(legado_fetcher::web_book::webbook_chapters_entity(
+        ffi_deps()?,
+        source,
+        book_url,
+        toc_url,
+        book_name,
+    ))
+}
+pub fn webbook_content_entity(
+    source: BookSource,
+    chapter: legado_core::web_book::WebChapter,
+) -> LegadoResult<String> {
+    runtime::block_on(legado_fetcher::web_book::webbook_content_entity(
+        ffi_deps()?,
+        source,
+        chapter,
+    ))
+}
+
 // ─── 宿主态测试助手（仅测试编译：包装层测试经宿主注入面驱动）──────────────────
 
 /// 以宿主注入面走「变量链」详情获取（单测可注入脚本化 fetcher）

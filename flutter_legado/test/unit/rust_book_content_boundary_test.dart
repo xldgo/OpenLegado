@@ -1,4 +1,8 @@
 import 'dart:typed_data';
+
+import 'package:flutter_legado/src/bridge/content_dto.dart';
+import 'package:flutter_legado/src/data/bridge/content_dto_mapping.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -18,6 +22,9 @@ void main() {
   const archive = RustBookArchiveService();
   const exporter = RustBookExportService();
   const reviews = RustReviewService();
+  setUpAll(() {
+    registerFallbackValue(reviewRequestToDto({}));
+  });
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
@@ -37,7 +44,7 @@ void main() {
     when(
       () => bridge.crateFfiFfiReviewGetSummary(
         sourceJson: 's',
-        requestJson: '{}',
+        request: reviewRequestToDto({}),
       ),
     ).thenThrow(error);
     await expectLater(local.importLocalBook('p'), throwsA(same(error)));
@@ -285,62 +292,93 @@ void main() {
     );
   });
 
-  test('段评摘要、详情、回复请求上下文和页码透传', () async {
+  test('类型化段评保持上下文、递归回复、计数和分页', () async {
     when(
       () => bridge.crateFfiFfiReviewGetSummary(
         sourceJson: 's',
-        requestJson: '{"chapterUrl":"c"}',
+        request: any(named: 'request'),
       ),
-    ).thenAnswer((_) async => ' {"counts":{"2":3,"3":0},"keys":{"2":"k"}}');
+    ).thenAnswer(
+      (_) async => const ReviewSummaryDto(counts: {2: 3, 3: 0}, keys: {2: 'k'}),
+    );
     when(
       () => bridge.crateFfiFfiReviewGetDetail(
         sourceJson: 's',
-        requestJson: '{"paraIndex":2,"detailUrl":"next"}',
+        request: any(named: 'request'),
         page: 2,
       ),
     ).thenAnswer(
-      (_) async => ' {"items":[{"id":"1","content":"正文段评","replies":[{"content":"嵌套回复"}]}],"nextPageUrl":"next2","hasReplyUrl":true}',
+      (_) async => ReviewPageDto(
+        items: [
+          _item('正文', [_item('嵌套', [])]),
+        ],
+        nextPageUrl: 'next2',
+        hasReplyUrl: true,
+      ),
     );
     when(
       () => bridge.crateFfiFfiReviewGetReplies(
         sourceJson: 's',
-        requestJson: '{"reviewId":"1"}',
+        request: any(named: 'request'),
         page: 1,
       ),
-    ).thenAnswer((_) async => ' {"items":[],"nextPageUrl":null}');
+    ).thenAnswer(
+      (_) async =>
+          const ReviewPageDto(items: [], nextPageUrl: null, hasReplyUrl: false),
+    );
     final summary = await reviews.reviewGetSummary('s', {'chapterUrl': 'c'});
     expect(summary.counts, {2: 3});
     expect(summary.keys, {2: 'k'});
     final page = await reviews.reviewGetDetail('s', {
       'paraIndex': 2,
+      'paraData': '数据😀',
       'detailUrl': 'next',
     }, 2);
-    expect(page.items.single.replies.single.content, '嵌套回复');
-    expect(page.hasReplyUrl, isTrue);
+    expect(page.items.single.replies.single.content, '嵌套');
+    expect(page.hasReplyUrl, true);
     expect(page.nextPageUrl, 'next2');
+    final request =
+        verify(
+              () => bridge.crateFfiFfiReviewGetDetail(
+                sourceJson: 's',
+                request: captureAny(named: 'request'),
+                page: 2,
+              ),
+            ).captured.single
+            as ReviewRequestDto;
+    expect(request.paraIndex, '2');
+    expect(request.paraData, '数据😀');
+    expect(request.detailUrl, 'next');
     expect(
       (await reviews.reviewGetReplies('s', {'reviewId': '1'}, 1)).items,
       isEmpty,
     );
+    final failure = StateError('规则失败');
+    when(
+      () => bridge.crateFfiFfiReviewGetDetail(
+        sourceJson: 's',
+        request: any(named: 'request'),
+        page: 1,
+      ),
+    ).thenThrow(failure);
+    await expectLater(
+      reviews.reviewGetDetail('s', {}, 1),
+      throwsA(same(failure)),
+    );
   });
-
-  for (final payload in [
-    '{}',
-    '{"items":[null]}',
-    '{"items":[],"nextPageUrl":2}',
-  ]) {
-    test('段评坏响应不当空列表：$payload', () async {
-      when(
-        () => bridge.crateFfiFfiReviewGetDetail(
-          sourceJson: 's',
-          requestJson: '{}',
-          page: 1,
-        ),
-      ).thenAnswer((_) async => payload);
-      await expectLater(
-        reviews.reviewGetDetail('s', {}, 1),
-        throwsFormatException,
-      );
-    });
-  }
 }
+
+ReviewDetailItemDto _item(String text, List<ReviewDetailItemDto> replies) =>
+    ReviewDetailItemDto(
+      id: '1',
+      avatar: 'avatar',
+      name: '名字',
+      badges: ['标识'],
+      content: text,
+      imageUrl: 'image',
+      audioUrl: 'audio',
+      time: '今天',
+      likeCount: 5,
+      replyCount: 2,
+      replies: replies,
+    );

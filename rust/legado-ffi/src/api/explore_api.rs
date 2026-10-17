@@ -3,7 +3,7 @@
 //! 为 Flutter/Dart 提供发现页分类解析和书籍抓取能力。
 //! 对标 Android 端 ExploreShowActivity / ExploreShowViewModel。
 //!
-//! 所有复杂类型通过 JSON String 传递，避免 frb 为外部类型生成绑定。
+//! 实体执行入口与 JSON 协议适配分开，保持原脚本与发现控件行为。
 
 use std::collections::HashMap;
 
@@ -28,11 +28,19 @@ pub struct ExploreEvalActionResult {
 
 /// 执行发现页 button/toggle/select/text 的 action JS（对标 Android evalButtonClick）
 pub fn explore_eval_action(source_json: &str, action_js: &str) -> LegadoResult<String> {
+    serde_json::to_string(&explore_eval_action_result(source_json, action_js)?)
+        .map_err(LegadoError::Serialization)
+}
+
+pub fn explore_eval_action_result(
+    source_json: &str,
+    action_js: &str,
+) -> LegadoResult<ExploreEvalActionResult> {
     let source: BookSource = serde_json::from_str(source_json)?;
     #[cfg(feature = "quickjs")]
     {
         let result = eval_explore_action_js(action_js, &source)?;
-        serde_json::to_string(&result).map_err(LegadoError::Serialization)
+        Ok(result)
     }
     #[cfg(not(feature = "quickjs"))]
     {
@@ -80,13 +88,23 @@ pub fn explore_info_map_ensure_default(
 ///
 /// 返回 `ExploreCategory` JSON 数组字符串
 pub fn explore_parse_url(explore_url: &str, source_json: &str) -> LegadoResult<String> {
-    let source = parse_source_for_explore_optional(source_json)?;
-    let rule_str = resolve_explore_rule_str(explore_url, source_json, source.as_ref())?;
+    serde_json::to_string(&explore_parse_url_entity(
+        explore_url,
+        parse_source_for_explore_optional(source_json)?,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+pub fn explore_parse_url_entity(
+    explore_url: &str,
+    source: Option<BookSource>,
+) -> LegadoResult<Vec<ExploreCategory>> {
+    let rule_str = resolve_explore_rule_str(explore_url, "", source.as_ref())?;
     let categories: Vec<ExploreCategory> = parse_explore_url(&rule_str);
     if let Some(src) = source.as_ref() {
         init_info_map_defaults(&src.book_source_url, &categories);
     }
-    serde_json::to_string(&categories).map_err(LegadoError::Serialization)
+    Ok(categories)
 }
 
 /// 为 toggle/select 分类初始化 infoMap 默认值
@@ -146,6 +164,17 @@ pub fn explore_fetch_books(source_json: &str, url: &str, page: i32) -> LegadoRes
     explore_fetch_books_with_deps(source_json, url, page, deps, info, None)
 }
 
+/// 已解析源的正式 FFI 入口，JSON 宿主继续委托相同执行链。
+pub fn explore_fetch_books_entity(
+    source: BookSource,
+    url: &str,
+    page: i32,
+) -> LegadoResult<Vec<WebSearchResult>> {
+    let deps = crate::api::web_book::ffi_deps()?;
+    let info = explore_info_map::snapshot(&source.book_source_url).unwrap_or_default();
+    explore_fetch_books_entity_with_deps(source, url, page, deps, info, None)
+}
+
 /// 调试等长任务传入固定依赖；各分支不再读取宿主根槽位。
 pub(crate) fn explore_fetch_books_with_deps(
     source_json: &str,
@@ -155,7 +184,25 @@ pub(crate) fn explore_fetch_books_with_deps(
     info_map: HashMap<String, String>,
     task: Option<legado_engine::TaskHandle>,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    let results = explore_fetch_books_entity_with_deps(
+        serde_json::from_str(source_json)?,
+        url,
+        page,
+        deps,
+        info_map,
+        task,
+    )?;
+    serde_json::to_string(&results).map_err(LegadoError::Serialization)
+}
+
+pub(crate) fn explore_fetch_books_entity_with_deps(
+    source: BookSource,
+    url: &str,
+    page: i32,
+    deps: legado_fetcher::deps::FetcherDeps,
+    info_map: HashMap<String, String>,
+    task: Option<legado_engine::TaskHandle>,
+) -> LegadoResult<Vec<WebSearchResult>> {
     if url.is_empty() {
         return Err(LegadoError::Internal("发现分类 URL 为空".into()));
     }
@@ -185,7 +232,7 @@ pub(crate) fn explore_fetch_books_with_deps(
         })?;
         let results =
             crate::api::web_book::convert_js_search_results(values, &source.book_source_url);
-        return serde_json::to_string(&results).map_err(LegadoError::Serialization);
+        return Ok(results);
     }
 
     // 规则书源路径
@@ -193,7 +240,7 @@ pub(crate) fn explore_fetch_books_with_deps(
         explore_books_async(&source, url, page, &deps, &info_map).await
     })?;
 
-    serde_json::to_string(&results).map_err(LegadoError::Serialization)
+    Ok(results)
 }
 
 // ─── exploreUrl @js: 解析 ─────────────────────────────────────────────────────

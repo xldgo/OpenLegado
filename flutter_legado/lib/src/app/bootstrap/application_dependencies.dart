@@ -401,9 +401,7 @@ final sourceSwitchServiceProvider = Provider<SourceSwitchService>(
 final exploreServiceProvider = Provider<ExploreService>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockExploreServiceProvider)
-      : RustExploreService(
-          interceptResult: PlatformBridgeService.instance.interceptResult,
-        ),
+      : RustExploreService(),
 );
 final exploreStateRepositoryProvider = Provider<ExploreStateRepository>(
   (ref) => ref.watch(mockModeProvider)
@@ -413,9 +411,7 @@ final exploreStateRepositoryProvider = Provider<ExploreStateRepository>(
 final bookSourceQueryServiceProvider = Provider<BookSourceQueryService>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockBookSourceQueryServiceProvider)
-      : RustBookSourceQueryService(
-          interceptResult: PlatformBridgeService.instance.interceptResult,
-        ),
+      : RustBookSourceQueryService(),
 );
 final bookSourceDebugServiceProvider = Provider<BookSourceDebugService>(
   (ref) => ref.watch(mockModeProvider)

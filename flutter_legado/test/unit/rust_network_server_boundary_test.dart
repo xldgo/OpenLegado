@@ -1,5 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter_legado/src/bridge/content_dto.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -19,114 +21,91 @@ void main() {
     RustLib.initMock(api: bridge);
   });
   tearDown(RustLib.dispose);
-
-  test('GET与POST保留状态、中文正文和重定向URL，POST不改写请求体', () async {
+  test('GET与POST直接返回状态、中文正文和最终URL，不改写请求体', () async {
     when(() => bridge.crateFfiFfiHttpGet(url: 'https://old.test')).thenAnswer(
-      (_) async => '{"status":404,"body":"未找到","url":"https://final.test"}',
+      (_) async => const HttpTextResponseDto(
+        status: 404,
+        body: '未找到',
+        url: 'https://final.test',
+      ),
     );
     when(
       () => bridge.crateFfiFfiHttpPost(url: 'https://post.test', body: 'a=中文'),
     ).thenAnswer(
-      (_) async => '{"status":201,"body":"已保存","url":"https://post.test"}',
+      (_) async => const HttpTextResponseDto(
+        status: 201,
+        body: '已保存',
+        url: 'https://post.test',
+      ),
     );
     final get = await network.httpGet('https://old.test');
     expect(get.statusCode, 404);
     expect(get.body, '未找到');
     expect(get.url, 'https://final.test');
-    expect(get.isSuccess, isFalse);
+    expect(get.isSuccess, false);
     final post = await network.httpPost('https://post.test', 'a=中文');
-    expect(post.isSuccess, isTrue);
+    expect(post.isSuccess, true);
     expect(post.body, '已保存');
     verify(
       () => bridge.crateFfiFfiHttpPost(url: 'https://post.test', body: 'a=中文'),
     ).called(1);
   });
-
-  test('二进制请求头只在适配器编码，原始字节及响应URL不丢失', () async {
+  test('请求头直接传映射，完整字节域与空正文不经base64', () async {
+    final bytes = Uint8List.fromList(List.generate(256, (i) => i));
     when(
       () => bridge.crateFfiFfiHttpGetBytes(
-        url: 'https://image.test',
-        headersJson: '{"Referer":"https://book.test"}',
+        url: 'image',
+        headers: {'Referer': 'book'},
       ),
     ).thenAnswer(
-      (_) async => jsonEncode({
-        'status': 200,
-        'bodyBase64': base64Encode([0, 128, 255]),
-        'url': 'https://cdn.test',
-      }),
+      (_) async => HttpBytesResponseDto(status: 200, bytes: bytes, url: 'cdn'),
     );
-    final result = await network.httpGetBytes(
-      'https://image.test',
-      headers: {'Referer': 'https://book.test'},
+    final reply = await network.httpGetBytes(
+      'image',
+      headers: {'Referer': 'book'},
     );
-    expect(result.bytes, [0, 128, 255]);
-    expect(result.url, 'https://cdn.test');
-    expect(result.isSuccess, isTrue);
-  });
-
-  test('空请求头保持空串；合法空正文可返回，缺URL保留请求地址', () async {
-    when(() => bridge.crateFfiFfiHttpGetBytes(url: 'u', headersJson: ''))
-        .thenAnswer((_) async => '{"status":204,"bodyBase64":""}');
+    expect(reply.bytes, bytes);
+    expect(reply.url, 'cdn');
+    expect(reply.isSuccess, true);
+    when(
+      () => bridge.crateFfiFfiHttpGetBytes(url: 'empty', headers: null),
+    ).thenAnswer(
+      (_) async =>
+          HttpBytesResponseDto(status: 204, bytes: Uint8List(0), url: 'empty'),
+    );
     for (final headers in [null, <String, String>{}]) {
-      final result = await network.httpGetBytes('u', headers: headers);
-      expect(result.bytes, isEmpty);
-      expect(result.statusCode, 204);
-      expect(result.url, 'u');
+      expect(
+        (await network.httpGetBytes('empty', headers: headers)).bytes,
+        isEmpty,
+      );
     }
-    verify(() => bridge.crateFfiFfiHttpGetBytes(url: 'u', headersJson: ''))
+    verify(() => bridge.crateFfiFfiHttpGetBytes(url: 'empty', headers: null))
         .called(2);
   });
-
-  for (final payload in [
-    '[]',
-    '{}',
-    '{"status":200}',
-    '{"status":"200","body":"x"}',
-    '{"status":200,"body":null}',
-    '{"status":200,"body":"x","url":3}',
-  ]) {
-    test('拒绝坏文本响应：$payload', () async {
-      when(() => bridge.crateFfiFfiHttpGet(url: 'u'))
-          .thenAnswer((_) async => payload);
-      await expectLater(network.httpGet('u'), throwsFormatException);
-    });
-  }
-  for (final payload in [
-    '{}',
-    '{"status":200}',
-    '{"status":200,"bodyBase64":"%"}',
-    '{"status":true,"bodyBase64":""}',
-  ]) {
-    test('拒绝坏二进制响应：$payload', () async {
-      when(() => bridge.crateFfiFfiHttpGetBytes(url: 'u', headersJson: ''))
-          .thenAnswer((_) async => payload);
-      await expectLater(network.httpGetBytes('u'), throwsFormatException);
-    });
-  }
-  test('显式超时生效，不发起额外重试请求', () async {
-    final pending = Completer<String>();
+  test('超时不隐式重试，迟到响应不改变结果', () async {
+    final pending = Completer<HttpTextResponseDto>();
     when(() => bridge.crateFfiFfiHttpGet(url: 'slow'))
         .thenAnswer((_) => pending.future);
     await expectLater(
       network.httpGet('slow', timeout: const Duration(milliseconds: 1)),
       throwsA(isA<TimeoutException>()),
     );
-    pending.complete('{"status":200,"body":"迟到"}');
+    pending.complete(
+      const HttpTextResponseDto(status: 200, body: '迟到', url: 'slow'),
+    );
     verify(() => bridge.crateFfiFfiHttpGet(url: 'slow')).called(1);
   });
-  test('网络异常与hosts失败原样向上传递，不伪造空响应', () async {
-    final error = StateError('共享客户端不可用');
+  test('文本与字节异常均向上传递，hosts保持原协议', () async {
+    final error = StateError('网络失败');
     when(() => bridge.crateFfiFfiHttpGet(url: 'u')).thenThrow(error);
+    when(() => bridge.crateFfiFfiHttpGetBytes(url: 'u', headers: null))
+        .thenThrow(error);
     when(() => bridge.crateFfiFfiSetCustomHosts(hostsJson: '{}'))
         .thenThrow(error);
     await expectLater(network.httpGet('u'), throwsA(same(error)));
+    await expectLater(network.httpGetBytes('u'), throwsA(same(error)));
     await expectLater(() => network.setCustomHosts('{}'), throwsA(same(error)));
-    when(() => bridge.crateFfiFfiSetCustomHosts(hostsJson: ''))
-        .thenAnswer((_) async {});
-    await network.setCustomHosts('');
-    verify(() => bridge.crateFfiFfiSetCustomHosts(hostsJson: '')).called(1);
   });
-
   test('服务控制保持端口和调用次数，状态使用真实字段', () async {
     when(() => bridge.crateFfiFfiServerStart(port: 4321))
         .thenAnswer((_) async => 'started');

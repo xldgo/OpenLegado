@@ -6,6 +6,8 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'content_dto.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -94,6 +96,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Map<int, String> dco_decode_Map_i_32_String_None(dynamic raw);
 
   @protected
+  Map<int, int> dco_decode_Map_i_32_i_32_None(dynamic raw);
+
+  @protected
   LayoutSession
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
     dynamic raw,
@@ -176,6 +181,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CaptchaInfoDto dco_decode_box_autoadd_captcha_info_dto(dynamic raw);
 
   @protected
+  ChapterDto dco_decode_box_autoadd_chapter_dto(dynamic raw);
+
+  @protected
   ContentRuleDto dco_decode_box_autoadd_content_rule_dto(dynamic raw);
 
   @protected
@@ -186,6 +194,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  FlexChildStyleDto dco_decode_box_autoadd_flex_child_style_dto(dynamic raw);
 
   @protected
   HighlightRuleDto dco_decode_box_autoadd_highlight_rule_dto(dynamic raw);
@@ -227,6 +238,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RedirectInfoDto dco_decode_box_autoadd_redirect_info_dto(dynamic raw);
 
   @protected
+  ReviewRequestDto dco_decode_box_autoadd_review_request_dto(dynamic raw);
+
+  @protected
   ReviewRuleDto dco_decode_box_autoadd_review_rule_dto(dynamic raw);
 
   @protected
@@ -253,6 +267,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt dco_decode_box_autoadd_usize(dynamic raw);
+
+  @protected
+  WebChapterDto dco_decode_box_autoadd_web_chapter_dto(dynamic raw);
 
   @protected
   LayoutParagraphDto dco_decode_box_layout_paragraph_dto(dynamic raw);
@@ -285,6 +302,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
 
   @protected
+  ExploreActionDto dco_decode_explore_action_dto(dynamic raw);
+
+  @protected
+  ExploreCategoryDto dco_decode_explore_category_dto(dynamic raw);
+
+  @protected
   ExploreRuleDto dco_decode_explore_rule_dto(dynamic raw);
 
   @protected
@@ -294,7 +317,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_64(dynamic raw);
 
   @protected
+  FlexChildStyleDto dco_decode_flex_child_style_dto(dynamic raw);
+
+  @protected
   HighlightRuleDto dco_decode_highlight_rule_dto(dynamic raw);
+
+  @protected
+  HttpBytesResponseDto dco_decode_http_bytes_response_dto(dynamic raw);
+
+  @protected
+  HttpTextResponseDto dco_decode_http_text_response_dto(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -391,6 +423,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
 
   @protected
+  List<ExploreCategoryDto> dco_decode_list_explore_category_dto(dynamic raw);
+
+  @protected
   List<HighlightRuleDto> dco_decode_list_highlight_rule_dto(dynamic raw);
 
   @protected
@@ -414,6 +449,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<LayoutValueDto> dco_decode_list_layout_value_dto(dynamic raw);
+
+  @protected
+  List<String?> dco_decode_list_opt_String(dynamic raw);
 
   @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
@@ -445,6 +483,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<(int, int)> dco_decode_list_record_i_32_i_32(dynamic raw);
+
+  @protected
   List<(int, String)> dco_decode_list_record_i_32_string(dynamic raw);
 
   @protected
@@ -460,10 +501,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<(String, String)> dco_decode_list_record_string_string(dynamic raw);
 
   @protected
+  List<ReviewDetailItemDto> dco_decode_list_review_detail_item_dto(dynamic raw);
+
+  @protected
   List<SearchBookDto> dco_decode_list_search_book_dto(dynamic raw);
 
   @protected
   List<SourceMatchDto> dco_decode_list_source_match_dto(dynamic raw);
+
+  @protected
+  List<WebChapterDto> dco_decode_list_web_chapter_dto(dynamic raw);
+
+  @protected
+  List<WebSearchResultDto> dco_decode_list_web_search_result_dto(dynamic raw);
+
+  @protected
+  Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -475,10 +528,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BookInfoRuleDto? dco_decode_opt_box_autoadd_book_info_rule_dto(dynamic raw);
 
   @protected
+  BookSourceDto? dco_decode_opt_box_autoadd_book_source_dto(dynamic raw);
+
+  @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
   CaptchaInfoDto? dco_decode_opt_box_autoadd_captcha_info_dto(dynamic raw);
+
+  @protected
+  ChapterDto? dco_decode_opt_box_autoadd_chapter_dto(dynamic raw);
 
   @protected
   ContentRuleDto? dco_decode_opt_box_autoadd_content_rule_dto(dynamic raw);
@@ -491,6 +550,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  FlexChildStyleDto? dco_decode_opt_box_autoadd_flex_child_style_dto(
+    dynamic raw,
+  );
 
   @protected
   int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
@@ -535,6 +599,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? dco_decode_opt_box_autoadd_usize(dynamic raw);
 
   @protected
+  List<String?>? dco_decode_opt_list_opt_String(dynamic raw);
+
+  @protected
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
@@ -559,6 +626,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReadRecordSessionDto dco_decode_read_record_session_dto(dynamic raw);
 
   @protected
+  (int, int) dco_decode_record_i_32_i_32(dynamic raw);
+
+  @protected
   (int, String) dco_decode_record_i_32_string(dynamic raw);
 
   @protected
@@ -577,7 +647,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RedirectInfoDto dco_decode_redirect_info_dto(dynamic raw);
 
   @protected
+  ReviewDetailItemDto dco_decode_review_detail_item_dto(dynamic raw);
+
+  @protected
+  ReviewPageDto dco_decode_review_page_dto(dynamic raw);
+
+  @protected
+  ReviewRequestDto dco_decode_review_request_dto(dynamic raw);
+
+  @protected
   ReviewRuleDto dco_decode_review_rule_dto(dynamic raw);
+
+  @protected
+  ReviewSummaryDto dco_decode_review_summary_dto(dynamic raw);
 
   @protected
   SearchBookDto dco_decode_search_book_dto(dynamic raw);
@@ -623,6 +705,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  WebBookInfoDto dco_decode_web_book_info_dto(dynamic raw);
+
+  @protected
+  WebChapterDto dco_decode_web_chapter_dto(dynamic raw);
+
+  @protected
+  WebSearchResultDto dco_decode_web_search_result_dto(dynamic raw);
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
@@ -683,6 +774,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Map<int, String> sse_decode_Map_i_32_String_None(
     SseDeserializer deserializer,
   );
+
+  @protected
+  Map<int, int> sse_decode_Map_i_32_i_32_None(SseDeserializer deserializer);
 
   @protected
   LayoutSession
@@ -783,6 +877,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ChapterDto sse_decode_box_autoadd_chapter_dto(SseDeserializer deserializer);
+
+  @protected
   ContentRuleDto sse_decode_box_autoadd_content_rule_dto(
     SseDeserializer deserializer,
   );
@@ -797,6 +894,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  FlexChildStyleDto sse_decode_box_autoadd_flex_child_style_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   HighlightRuleDto sse_decode_box_autoadd_highlight_rule_dto(
@@ -850,6 +952,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ReviewRequestDto sse_decode_box_autoadd_review_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReviewRuleDto sse_decode_box_autoadd_review_rule_dto(
     SseDeserializer deserializer,
   );
@@ -880,6 +987,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
+  WebChapterDto sse_decode_box_autoadd_web_chapter_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LayoutParagraphDto sse_decode_box_layout_paragraph_dto(
@@ -918,6 +1030,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
 
   @protected
+  ExploreActionDto sse_decode_explore_action_dto(SseDeserializer deserializer);
+
+  @protected
+  ExploreCategoryDto sse_decode_explore_category_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ExploreRuleDto sse_decode_explore_rule_dto(SseDeserializer deserializer);
 
   @protected
@@ -927,7 +1047,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
+  FlexChildStyleDto sse_decode_flex_child_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   HighlightRuleDto sse_decode_highlight_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  HttpBytesResponseDto sse_decode_http_bytes_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HttpTextResponseDto sse_decode_http_text_response_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -1054,6 +1189,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
 
   @protected
+  List<ExploreCategoryDto> sse_decode_list_explore_category_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<HighlightRuleDto> sse_decode_list_highlight_rule_dto(
     SseDeserializer deserializer,
   );
@@ -1093,6 +1233,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<String?> sse_decode_list_opt_String(SseDeserializer deserializer);
+
+  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
@@ -1128,6 +1271,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<(int, int)> sse_decode_list_record_i_32_i_32(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<(int, String)> sse_decode_list_record_i_32_string(
     SseDeserializer deserializer,
   );
@@ -1149,12 +1297,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReviewDetailItemDto> sse_decode_list_review_detail_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<SearchBookDto> sse_decode_list_search_book_dto(
     SseDeserializer deserializer,
   );
 
   @protected
   List<SourceMatchDto> sse_decode_list_source_match_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebChapterDto> sse_decode_list_web_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebSearchResultDto> sse_decode_list_web_search_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, String>? sse_decode_opt_Map_String_String_None(
     SseDeserializer deserializer,
   );
 
@@ -1170,10 +1338,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BookSourceDto? sse_decode_opt_box_autoadd_book_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   CaptchaInfoDto? sse_decode_opt_box_autoadd_captcha_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterDto? sse_decode_opt_box_autoadd_chapter_dto(
     SseDeserializer deserializer,
   );
 
@@ -1192,6 +1370,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  FlexChildStyleDto? sse_decode_opt_box_autoadd_flex_child_style_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
@@ -1250,6 +1433,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? sse_decode_opt_box_autoadd_usize(SseDeserializer deserializer);
 
   @protected
+  List<String?>? sse_decode_opt_list_opt_String(SseDeserializer deserializer);
+
+  @protected
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
@@ -1284,6 +1470,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  (int, int) sse_decode_record_i_32_i_32(SseDeserializer deserializer);
+
+  @protected
   (int, String) sse_decode_record_i_32_string(SseDeserializer deserializer);
 
   @protected
@@ -1306,7 +1495,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RedirectInfoDto sse_decode_redirect_info_dto(SseDeserializer deserializer);
 
   @protected
+  ReviewDetailItemDto sse_decode_review_detail_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewPageDto sse_decode_review_page_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewRequestDto sse_decode_review_request_dto(SseDeserializer deserializer);
+
+  @protected
   ReviewRuleDto sse_decode_review_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewSummaryDto sse_decode_review_summary_dto(SseDeserializer deserializer);
 
   @protected
   SearchBookDto sse_decode_search_book_dto(SseDeserializer deserializer);
@@ -1360,6 +1563,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WebBookInfoDto sse_decode_web_book_info_dto(SseDeserializer deserializer);
+
+  @protected
+  WebChapterDto sse_decode_web_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  WebSearchResultDto sse_decode_web_search_result_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   void sse_encode_AnyhowException(
@@ -1430,6 +1644,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_Map_i_32_String_None(
     Map<int, String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_i_32_i_32_None(
+    Map<int, int> self,
     SseSerializer serializer,
   );
 
@@ -1551,6 +1771,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_chapter_dto(
+    ChapterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_content_rule_dto(
     ContentRuleDto self,
     SseSerializer serializer,
@@ -1567,6 +1793,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_flex_child_style_dto(
+    FlexChildStyleDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_highlight_rule_dto(
@@ -1632,6 +1864,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_review_request_dto(
+    ReviewRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_review_rule_dto(
     ReviewRuleDto self,
     SseSerializer serializer,
@@ -1669,6 +1907,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_web_chapter_dto(
+    WebChapterDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_layout_paragraph_dto(
@@ -1725,6 +1969,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_explore_action_dto(
+    ExploreActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_explore_category_dto(
+    ExploreCategoryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_explore_rule_dto(
     ExploreRuleDto self,
     SseSerializer serializer,
@@ -1737,8 +1993,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_flex_child_style_dto(
+    FlexChildStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_highlight_rule_dto(
     HighlightRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_bytes_response_dto(
+    HttpBytesResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_text_response_dto(
+    HttpTextResponseDto self,
     SseSerializer serializer,
   );
 
@@ -1908,6 +2182,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_explore_category_dto(
+    List<ExploreCategoryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_highlight_rule_dto(
     List<HighlightRuleDto> self,
     SseSerializer serializer,
@@ -1954,6 +2234,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<LayoutValueDto> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_opt_String(List<String?> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_f_32_strict(
@@ -2007,6 +2290,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_record_i_32_i_32(
+    List<(int, int)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_record_i_32_string(
     List<(int, String)> self,
     SseSerializer serializer,
@@ -2031,6 +2320,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_review_detail_item_dto(
+    List<ReviewDetailItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_search_book_dto(
     List<SearchBookDto> self,
     SseSerializer serializer,
@@ -2039,6 +2334,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_source_match_dto(
     List<SourceMatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_chapter_dto(
+    List<WebChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_search_result_dto(
+    List<WebSearchResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_Map_String_String_None(
+    Map<String, String>? self,
     SseSerializer serializer,
   );
 
@@ -2058,11 +2371,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_book_source_dto(
+    BookSourceDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_captcha_info_dto(
     CaptchaInfoDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_chapter_dto(
+    ChapterDto? self,
     SseSerializer serializer,
   );
 
@@ -2083,6 +2408,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_flex_child_style_dto(
+    FlexChildStyleDto? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
@@ -2151,6 +2482,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_usize(BigInt? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_list_opt_String(
+    List<String?>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_list_prim_u_8_strict(
     Uint8List? self,
     SseSerializer serializer,
@@ -2193,6 +2530,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_record_i_32_i_32((int, int) self, SseSerializer serializer);
+
+  @protected
   void sse_encode_record_i_32_string(
     (int, String) self,
     SseSerializer serializer,
@@ -2223,7 +2563,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_review_detail_item_dto(
+    ReviewDetailItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_review_page_dto(ReviewPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_review_request_dto(
+    ReviewRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_review_rule_dto(ReviewRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_review_summary_dto(
+    ReviewSummaryDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_search_book_dto(SearchBookDto self, SseSerializer serializer);
@@ -2287,6 +2648,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_web_book_info_dto(
+    WebBookInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_chapter_dto(WebChapterDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_web_search_result_dto(
+    WebSearchResultDto self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class

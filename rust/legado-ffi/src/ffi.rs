@@ -122,10 +122,10 @@ fn to_json<T: serde::Serialize>(value: &T) -> Result<String, BridgeError> {
 /// 对齐原版 `WebBook.kt` 的 Dispatchers.IO 语义：网络 + quickjs JS 解析在后台线程执行，
 /// FFI 入口立即返回，不阻塞 Dart 主 isolate。
 /// 内部的 block_on 从非 runtime 工作线程发起（阻塞池线程），与既有并发模型一致、无嵌套死锁风险。
-async fn run_webbook_blocking(
+async fn run_webbook_blocking<T: Send + 'static>(
     name: &'static str,
-    f: impl FnOnce() -> LegadoResult<String> + Send + 'static,
-) -> Result<String, BridgeError> {
+    f: impl FnOnce() -> LegadoResult<T> + Send + 'static,
+) -> Result<T, BridgeError> {
     let result = tokio::task::spawn_blocking(f)
         .await
         .map_err(|e| BridgeError {
@@ -146,6 +146,7 @@ async fn run_webbook_blocking(
 pub mod ffi {
     use super::BridgeError;
     use super::to_json;
+    use crate::content_dto::*;
     use crate::frb_generated::StreamSink;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
@@ -1313,35 +1314,30 @@ pub mod ffi {
 
     // ─── HTTP 工具 ────────────────────────────────────────────
 
-    /// HTTP GET 请求，返回 JSON 格式的响应
-    pub fn http_get(url: String) -> Result<String, BridgeError> {
+    /// HTTP GET 请求，返回类型化文本响应
+    pub fn http_get(url: String) -> Result<HttpTextResponseDto, BridgeError> {
         let response = crate::runtime::block_on(async {
             let client = crate::http_state::shared_client()?;
             client.get(&url, None).await
         })?;
-        Ok(serde_json::to_string(&serde_json::json!({
-            "status": response.status,
-            "body": response.body,
-            "url": response.url,
-        }))?)
+        Ok(response.into())
     }
 
-    /// HTTP POST 请求，返回 JSON 格式的响应
-    pub fn http_post(url: String, body: String) -> Result<String, BridgeError> {
+    /// HTTP POST 请求，返回类型化文本响应
+    pub fn http_post(url: String, body: String) -> Result<HttpTextResponseDto, BridgeError> {
         let response = crate::runtime::block_on(async {
             let client = crate::http_state::shared_client()?;
             client.post(&url, &body, None).await
         })?;
-        Ok(serde_json::to_string(&serde_json::json!({
-            "status": response.status,
-            "body": response.body,
-            "url": response.url,
-        }))?)
+        Ok(response.into())
     }
 
-    /// HTTP GET 二进制响应（返回 JSON：status/bodyBase64/url）
-    pub fn http_get_bytes(url: String, headers_json: String) -> Result<String, BridgeError> {
-        Ok(crate::api::net_api::http_get_bytes(&url, &headers_json)?)
+    /// HTTP GET 二进制响应（SSE 字节直传）
+    pub fn http_get_bytes(
+        url: String,
+        headers: Option<std::collections::HashMap<String, String>>,
+    ) -> Result<HttpBytesResponseDto, BridgeError> {
+        Ok(crate::api::net_api::http_get_bytes(&url, headers)?.into())
     }
 
     /// 图片下载 + imageDecode 解码（返回原始字节）
@@ -1360,104 +1356,119 @@ pub mod ffi {
 
     // ─── WebBook 书源规则驱动链路 ────────────────────────────────────────────
 
-    /// 搜索书籍（书源规则驱动，返回 JSON 数组）
+    /// 搜索书籍（书源规则驱动，返回类型化数组）
     ///
     /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
     ///
-    /// `source_json` — BookSource JSON 字符串
+    /// `source` — 已解析的 BookSourceDto
     /// `query` — 搜索关键词
     /// `page` — 页码（从 1 开始）
     pub async fn webbook_search(
-        source_json: String,
+        source: BookSourceDto,
         query: String,
         page: i32,
-    ) -> Result<String, BridgeError> {
-        super::run_webbook_blocking("webbook_search", move || {
-            crate::api::web_book::webbook_search(&source_json, &query, page)
+    ) -> Result<Vec<WebSearchResultDto>, BridgeError> {
+        let value = super::run_webbook_blocking("webbook_search", move || {
+            crate::api::web_book::webbook_search_entity(source.into(), &query, page)
         })
-        .await
+        .await?;
+        Ok(value.into_iter().map(Into::into).collect())
     }
 
-    /// 获取书籍详情（返回 WebBookInfo JSON）
+    /// 获取书籍详情（返回类型化抓取结果）
     ///
     /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
     ///
-    /// `source_json` — BookSource JSON 字符串
+    /// `source` — 已解析的 BookSourceDto
     /// `book_url` — 书籍详情页 URL
     pub async fn webbook_info(
-        source_json: String,
+        source: BookSourceDto,
         book_url: String,
-    ) -> Result<String, BridgeError> {
-        super::run_webbook_blocking("webbook_info", move || {
-            crate::api::web_book::webbook_info(&source_json, &book_url)
+    ) -> Result<WebBookInfoDto, BridgeError> {
+        let value = super::run_webbook_blocking("webbook_info", move || {
+            crate::api::web_book::webbook_info_entity(source.into(), &book_url)
         })
-        .await
+        .await?;
+        Ok(value.into())
     }
 
-    /// 获取章节列表（返回 JSON 数组）
+    /// 获取章节列表（返回类型化数组）
     ///
     /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
     ///
-    /// `source_json` — BookSource JSON 字符串
+    /// `source` — 已解析的 BookSourceDto
     /// `book_url` — 书籍详情页 URL
     pub async fn webbook_chapters(
-        source_json: String,
+        source: BookSourceDto,
         book_url: String,
         toc_url: String,
         book_name: String,
-    ) -> Result<String, BridgeError> {
-        super::run_webbook_blocking("webbook_chapters", move || {
-            crate::api::web_book::webbook_chapters(&source_json, &book_url, &toc_url, &book_name)
+    ) -> Result<Vec<WebChapterDto>, BridgeError> {
+        let value = super::run_webbook_blocking("webbook_chapters", move || {
+            crate::api::web_book::webbook_chapters_entity(
+                source.into(),
+                &book_url,
+                &toc_url,
+                &book_name,
+            )
         })
-        .await
+        .await?;
+        Ok(value.into_iter().map(Into::into).collect())
     }
 
     /// 获取章节正文内容
     ///
     /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
     ///
-    /// `source_json` — BookSource JSON 字符串
-    /// `chapter_json` — WebChapter JSON 字符串
+    /// `source` — 已解析的 BookSourceDto
+    /// `chapter` — 类型化章节字段
     pub async fn webbook_content(
-        source_json: String,
-        chapter_json: String,
-    ) -> Result<String, BridgeError> {
-        super::run_webbook_blocking("webbook_content", move || {
-            crate::api::web_book::webbook_content(&source_json, &chapter_json)
+        source: BookSourceDto,
+        chapter: WebChapterDto,
+    ) -> Result<TextResponseDto, BridgeError> {
+        let value = super::run_webbook_blocking("webbook_content", move || {
+            crate::api::web_book::webbook_content_entity(source.into(), chapter.into())
         })
-        .await
+        .await?;
+        Ok(value.into())
     }
 
     // ─── 发现页 ───────────────────────────────────────────────
 
-    /// 解析 exploreUrl 为分类列表（返回 JSON 数组）
+    /// 解析 exploreUrl 为类型化分类列表
     ///
     /// `explore_url` — 书源的 exploreUrl 字段
     pub fn explore_parse_url(
         explore_url: String,
-        source_json: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::explore_api::explore_parse_url(
-            &explore_url,
-            &source_json,
-        )?)
+        source: Option<BookSourceDto>,
+    ) -> Result<Vec<ExploreCategoryDto>, BridgeError> {
+        Ok(
+            crate::api::explore_api::explore_parse_url_entity(
+                &explore_url,
+                source.map(Into::into),
+            )?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        )
     }
 
-    /// 抓取发现分类的书籍列表（返回 WebSearchResult JSON 数组）
+    /// 抓取发现分类的书籍列表（返回类型化数组）
     ///
-    /// `source_json` — BookSource JSON 字符串
+    /// `source` — 已解析的 BookSourceDto
     /// `url` — 分类 URL
     /// `page` — 页码（从 1 开始）
     pub fn explore_fetch_books(
-        source_json: String,
+        source: BookSourceDto,
         url: String,
         page: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::explore_api::explore_fetch_books(
-            &source_json,
-            &url,
-            page,
-        )?)
+    ) -> Result<Vec<WebSearchResultDto>, BridgeError> {
+        Ok(
+            crate::api::explore_api::explore_fetch_books_entity(source.into(), &url, page)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
     }
 
     /// 写入发现 infoMap 键值（toggle/select 控件）
@@ -1495,11 +1506,13 @@ pub mod ffi {
     pub fn explore_eval_action(
         source_json: String,
         action_js: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::explore_api::explore_eval_action(
-            &source_json,
-            &action_js,
-        )?)
+    ) -> Result<ExploreActionDto, BridgeError> {
+        let result = crate::api::explore_api::explore_eval_action_result(&source_json, &action_js)?;
+        Ok(ExploreActionDto {
+            raw: result.raw,
+            actions_json: serde_json::to_string(&result.actions)?,
+            refresh_explore: result.refresh_explore,
+        })
     }
 
     /// 执行发现页 viewName 动态标题 JS
@@ -2696,11 +2709,11 @@ pub mod ffi {
     /// `request_json` 支持 chapterUrl；可选 book/chapter。
     pub fn review_get_summary(
         source_json: String,
-        request_json: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::review_api::review_get_summary(
-            &source_json,
-            &request_json,
+        request: ReviewRequestDto,
+    ) -> Result<ReviewSummaryDto, BridgeError> {
+        Ok(crate::api::review_api::review_get_summary_entity(
+            serde_json::from_str(&source_json)?,
+            request.into(),
         )?)
     }
 
@@ -2710,12 +2723,12 @@ pub mod ffi {
     /// `request_json` 支持 paraIndex/paraData/chapterUrl/detailUrl。
     pub fn review_get_detail(
         source_json: String,
-        request_json: String,
+        request: ReviewRequestDto,
         page: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::review_api::review_get_detail(
-            &source_json,
-            &request_json,
+    ) -> Result<ReviewPageDto, BridgeError> {
+        Ok(crate::api::review_api::review_get_detail_entity(
+            serde_json::from_str(&source_json)?,
+            request.into(),
             page,
         )?)
     }
@@ -2726,12 +2739,12 @@ pub mod ffi {
     /// `request_json` 支持字段：reviewId/paraIndex/paraData/chapterUrl/replyUrl。
     pub fn review_get_replies(
         source_json: String,
-        request_json: String,
+        request: ReviewRequestDto,
         page: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::review_api::review_get_replies(
-            &source_json,
-            &request_json,
+    ) -> Result<ReviewPageDto, BridgeError> {
+        Ok(crate::api::review_api::review_get_replies_entity(
+            serde_json::from_str(&source_json)?,
+            request.into(),
             page,
         )?)
     }

@@ -24,6 +24,11 @@ import 'package:flutter_legado/src/data/services/rust_source_checker.dart';
 import 'package:flutter_legado/src/data/services/rust_source_switch_service.dart';
 import 'package:flutter_legado/src/data/repositories/rust_reading_repository.dart';
 
+import 'package:flutter_legado/src/data/services/rust_network_service.dart';
+import 'package:flutter_legado/src/data/services/rust_book_source_query_service.dart';
+import 'package:flutter_legado/src/data/services/rust_explore_service.dart';
+import 'package:flutter_legado/src/data/services/rust_review_service.dart';
+
 void _golden(Object? actual, Object? expected, String path) {
   if (actual is num && expected is num) {
     expect(
@@ -284,6 +289,27 @@ void main() {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final base = 'http://127.0.0.1:${server.port}';
     final subscription = server.listen((request) async {
+      if (request.uri.path == '/redirect') {
+        await request.response.redirect(Uri.parse('$base/bytes'));
+        return;
+      }
+      if (request.uri.path == '/bytes') {
+        expect(request.headers.value('x-check'), 'bytes');
+        request.response.add(List.generate(256, (i) => i));
+        await request.response.close();
+        return;
+      }
+      if (request.method == 'POST') {
+        request.response.write(await utf8.decoder.bind(request).join());
+        await request.response.close();
+        return;
+      }
+      if (request.uri.path == '/review') {
+        request.response.headers.contentType = ContentType.json;
+        request.response.write('{"data":[{"idx":1,"cnt":5}]}');
+        await request.response.close();
+        return;
+      }
       request.response.headers.contentType = ContentType.html;
       request.response.write(switch (request.uri.path) {
         '/search' =>
@@ -321,6 +347,78 @@ void main() {
         'ruleContent': {'content': 'class.content@text'},
       });
       await bridge.sourceAdd(source: bookSourceToDto(source));
+      const network = RustNetworkService();
+      final binary = await network.httpGetBytes(
+        '$base/redirect',
+        headers: {'x-check': 'bytes'},
+      );
+      expect(binary.bytes, List.generate(256, (i) => i));
+      expect(binary.url, '$base/bytes');
+      expect(binary.statusCode, 200);
+      expect((await network.httpPost('$base/post', '正文😀')).body, '正文😀');
+      expect((await network.httpGet('$base/book')).body, contains('类型化小说'));
+      const query = RustBookSourceQueryService();
+      final info = await query.getBookInfo(source, '$base/book');
+      expect(info.name, '类型化小说');
+      expect(info.origin, base);
+      expect(
+        (await query.getChapters(
+          source,
+          '$base/book',
+          bookUrl: 'stable',
+        )).single.bookUrl,
+        'stable',
+      );
+      final exploreSource = BookSource.fromJson({
+        ...source.toJson(),
+        'ruleExplore': source.toJson()['ruleSearch'],
+      });
+      const explore = RustExploreService();
+      expect(
+        (await explore.parseCategories(
+          '分类::$base/search',
+          source: source,
+        )).single.title,
+        '分类',
+      );
+      expect(
+        (await explore.fetchBooks(
+          exploreSource,
+          '$base/search',
+          1,
+        )).single.name,
+        '类型化小说',
+      );
+      final reviewSource = BookSource.fromJson({
+        ...source.toJson(),
+        'ruleReview': {
+          'enabled': true,
+          'reviewSummaryUrl': '$base/review',
+          'summaryListRule': r'$.data',
+          'summaryParagraphIndexRule': r'$.idx',
+          'summaryCountRule': r'$.cnt',
+        },
+      });
+      const reviews = RustReviewService();
+      expect(
+        (await reviews.reviewGetSummary(jsonEncode(reviewSource.toJson()), {
+          'chapterUrl': '$base/chapter',
+        })).counts,
+        {1: 5},
+      );
+      final jsReview = BookSource(
+        bookSourceUrl: base,
+        mainJs: r'function getReviewDetail(chapter,book,paraIndex,paraData,page) { return JSON.stringify({items:[{id:"c1",content:paraData+":"+paraIndex,replies:[{id:"r1",content:"回复"}]}],nextPageUrl:page<2?"more":null}); }',
+      );
+      final reviewPage = await reviews.reviewGetDetail(
+        jsonEncode(jsReview.toJson()),
+        {'paraIndex': 3, 'paraData': '内容😀'},
+        1,
+      );
+      expect(reviewPage.items.single.content, '内容😀:3');
+      expect(reviewPage.items.single.replies.single.content, '回复');
+      expect(reviewPage.nextPageUrl, 'more');
+
       const search = RustSearchService();
       final found = await search.searchBooks('类型化小说', sourceUrls: [base]);
       expect(found.single.book.name, '类型化小说');

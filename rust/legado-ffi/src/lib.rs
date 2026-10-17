@@ -12,6 +12,7 @@
 mod frb_generated;
 
 pub mod api;
+pub mod content_dto;
 pub mod db_state;
 mod engine_holder;
 pub mod error;

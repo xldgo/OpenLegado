@@ -2238,6 +2238,23 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 
 编写者：Codex + Bridge｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 后续第1批网络与书源查询冻结
+
+- httpGet/httpPost 返回 HttpTextResponseDto(status/body/url)；httpGetBytes 接收可空字符串请求头映射，
+  返回 HttpBytesResponseDto(status/bytes/url)，移除 bodyBase64；共用客户端、重定向、错误与超时行为不变。
+- webbookSearch/Info/Chapters/Content 接收 BookSourceDto，分别返回 WebSearchResultDto 列表、
+  WebBookInfoDto、WebChapterDto 列表和 TextResponseDto；正文接收 WebChapterDto。
+  这些是抓取结果字段，不把部分详情伪装成已持久化的完整 BookDto；原平台回传语义保持。
+- exploreParseUrl 接收可空 BookSourceDto，返回含全部控件及 Flex 样式的 ExploreCategoryDto；
+  exploreFetchBooks 接收实体并返回 WebSearchResultDto 列表。动态脚本的配置文档仍在原解析边界读取。
+- 段评请求为 ReviewRequestDto(chapterUrl/paraIndex/paraData/detailUrl/replyUrl/reviewId/book/chapter)，
+  book/chapter 为可空实体，规则变量保持原字符串语义；响应为 ReviewSummaryDto(counts/keys) 与
+  ReviewPageDto(items/nextPageUrl/hasReplyUrl)，条目递归保留全部图片、音频、计数与回复字段。
+  现有段评服务和发现控件提供的书源配置文档保留 JSON 输入解析一次，不由 Dart 复制 Rust 导入规则。
+- 共享核心的 HTTP/Server JSON 适配只在边界序列化，正式 FFI 使用实体执行链；不改数据库、UI和JS协议。
+
+编写者：Codex + Bridge｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、
