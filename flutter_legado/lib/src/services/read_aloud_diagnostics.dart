@@ -58,11 +58,19 @@ final class ReadAloudDiagnostics extends ChangeNotifier
 
   Future<void> start() => _control(() async {
     if (_enabled) return;
+    await _writes;
     final dir = Directory(
       '${(await _directory()).path}/read_aloud_diagnostics',
     );
     await dir.create(recursive: true);
-    _file = File('${dir.path}/events.jsonl');
+    final file = File('${dir.path}/events.jsonl');
+    final previous = File('${file.path}.previous');
+    // 新采集不继承旧会话；先完成清理再打开开关，失败时不混写。
+    if (await previous.exists()) await previous.delete();
+    await file.writeAsString('', mode: FileMode.write, flush: false);
+    _file = file;
+    _pending.clear();
+    _bufferBytes = 0;
     _session = DateTime.now().microsecondsSinceEpoch;
     _sequence = _pulses = _dropped = 0;
     _frames = _slowFrames = _maxBuildUs = _maxRasterUs = 0;

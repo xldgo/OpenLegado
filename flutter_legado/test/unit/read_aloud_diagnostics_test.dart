@@ -62,8 +62,45 @@ void main() {
     final events = (await getLog().readAsLines()).map(
       (line) => jsonDecode(line)['event'],
     );
-    expect(events, contains('old.job.begin'));
+    expect(events, isNot(contains('old.job.begin')));
     expect(events, isNot(contains('old.job.end')));
+  });
+
+  test('重新开启清理旧会话和轮转文件，导出仅包含本轮记录', () async {
+    await diagnostics.start();
+    diagnostics.event('old.capture');
+    await diagnostics.stop();
+    final previous = File('${getLog().path}.previous');
+    await getLog().copy(previous.path);
+    await diagnostics.start();
+    final session = diagnostics.session;
+    diagnostics.event('new.capture');
+    expect(await previous.exists(), isFalse);
+    final exported = await diagnostics.export();
+    final records = (await exported!.readAsLines())
+        .map((line) => jsonDecode(line) as Map<String, dynamic>)
+        .toList();
+    expect(records.map((record) => record['session']), everyElement(session));
+    expect(records.map((record) => record['event']), contains('new.capture'));
+    expect(
+      records.map((record) => record['event']),
+      isNot(contains('old.capture')),
+    );
+  });
+
+  test('采集期间重复开启保留当前记录，不清空文件或更换会话', () async {
+    await diagnostics.start();
+    final session = diagnostics.session;
+    diagnostics.event('before.restart');
+    await diagnostics.flush();
+    await diagnostics.start();
+    expect(diagnostics.session, session);
+    await diagnostics.stop();
+    final events = (await getLog().readAsLines())
+        .map((line) => jsonDecode(line)['event'])
+        .toList();
+    expect(events, contains('before.restart'));
+    expect(events.where((event) => event == 'capture.start'), hasLength(1));
   });
 
   test('突发事件有界，超过容量不会无限堆积或阻断调用', () async {
