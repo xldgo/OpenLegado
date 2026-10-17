@@ -19,8 +19,10 @@ pub mod ffi;
 pub mod http_state;
 pub mod js_executor;
 mod layout_bridge;
+pub mod layout_dto;
 pub mod runtime;
 mod service_host;
+pub mod transfer_dto;
 
 /// 测试支撑：全局变量 store / 桥读取器 / flow scope 的进程级状态锁
 /// （仅测试编译；供本 crate 所有测试模块共享同一把锁串行防串表）。

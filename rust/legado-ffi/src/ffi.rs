@@ -3,29 +3,18 @@
 //! 所有 `pub fn` 会被 frb codegen 自动生成为 Dart bindings。
 //! 函数内部调用 `crate::api::*` 的业务逻辑。
 //!
-//! **注意**: 所有复杂类型（Book, BookSource 等）均通过 JSON String 传递，
-//! 避免 frb codegen 为外部 crate 的类型生成绑定。
+//! 复杂业务载荷逐域迁移为专用 DTO；未迁移的接口暂时使用 JSON String。
 //!
 //! 运行代码生成:
 //!   cd flutter_legado && flutter_rust_bridge_codegen generate
 
 use legado_core::error::{LegadoError, LegadoResult};
 
-/// 创建阅读布局会话；平台测量与书籍数据库操作相互独立。
-pub fn reader_layout_begin(config_json: String) -> Result<String, BridgeError> {
-    crate::layout_bridge::begin(&config_json)
-}
-/// 批量推送已测量内容块，返回新增的最终页面。
-pub fn reader_layout_push(session_id: String, blocks_json: String) -> Result<String, BridgeError> {
-    crate::layout_bridge::push(&session_id, &blocks_json)
-}
-/// 收尾并释放会话，返回末页。
-pub fn reader_layout_finish(session_id: String) -> Result<String, BridgeError> {
-    crate::layout_bridge::finish(&session_id)
-}
-/// 取消会话；重复取消不产生副作用。
-pub fn reader_layout_cancel(session_id: String) -> Result<(), BridgeError> {
-    crate::layout_bridge::cancel(&session_id)
+pub use crate::layout_bridge::LayoutSession;
+use crate::layout_dto::LayoutConfigDto;
+/// 创建独立排版句柄；配置按结构传递。
+pub fn reader_layout_begin(config: LayoutConfigDto) -> Result<LayoutSession, BridgeError> {
+    LayoutSession::begin(config)
 }
 
 /// 单次 TTS 请求的取消句柄；同步取消不排在耗时合成线程之后。
@@ -47,6 +36,41 @@ pub fn tts_request_new() -> TtsRequest {
     TtsRequest {
         inner: std::sync::Arc::new(Default::default()),
         lease: std::sync::Mutex::new(None),
+    }
+}
+
+/// 一次流调用的独立取消凭据；旧订阅取消不会查询/取消新的宿主槽。
+#[flutter_rust_bridge::frb(opaque)]
+pub struct StreamRequest {
+    cancelled: std::sync::atomic::AtomicBool,
+    changed: tokio::sync::Notify,
+}
+impl StreamRequest {
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn cancel(&self) {
+        self.cancelled
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.changed.notify_waiters();
+    }
+}
+impl StreamRequest {
+    async fn wait_cancelled(&self) {
+        loop {
+            let changed = self.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if self.cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                return;
+            }
+            changed.await;
+        }
+    }
+}
+#[flutter_rust_bridge::frb(sync)]
+pub fn stream_request_new() -> StreamRequest {
+    StreamRequest {
+        cancelled: std::sync::atomic::AtomicBool::new(false),
+        changed: tokio::sync::Notify::new(),
     }
 }
 
@@ -115,7 +139,7 @@ async fn run_webbook_blocking(
 /// flutter_rust_bridge 桥接定义
 ///
 /// 所有 `pub fn` 会被 frb codegen 自动生成为 Dart 方法。
-/// 复杂类型通过 JSON String 传递，避免 frb 为外部类型生成绑定。
+/// 核心实体与请求使用边界 DTO；导入导出及动态脚本内容保留 JSON。
 #[allow(clippy::needless_question_mark)] // frb codegen 生成的桥接代码触发，非手写问题
 #[allow(clippy::too_many_arguments)] // 同上：frb 桥接函数参数 >7 属对外 API 表面
 #[flutter_rust_bridge::frb]
@@ -123,6 +147,12 @@ pub mod ffi {
     use super::BridgeError;
     use super::to_json;
     use crate::frb_generated::StreamSink;
+    use crate::transfer_dto::{
+        AnnotatedCandidateDto, BookDto, BookSourceDto, BookmarkDto, ChangeSourceBatchDto,
+        ChapterListDto, CheckProgressDto, CheckResultDto, ReadRecordDetailDto, SearchBookDto,
+        SearchSourceBatchDto, SourceCheckConfigDto, SourceSwitchResponseDto,
+        SwitchSearchOptionsDto, TextResponseDto,
+    };
 
     // ─── 基础 ─────────────────────────────────────────────────
 
@@ -238,22 +268,22 @@ pub mod ffi {
 
     // ─── 书架管理 ─────────────────────────────────────────────
 
-    /// 获取书架上所有书籍（JSON 数组）
-    pub fn bookshelf_list() -> Result<String, BridgeError> {
-        let books = crate::api::bookshelf::list_books()?;
-        to_json(&books)
+    /// 获取书架上所有书籍的类型化快照。
+    pub fn bookshelf_list() -> Result<Vec<BookDto>, BridgeError> {
+        Ok(crate::api::bookshelf::list_books()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
-    /// 添加书籍到书架（传入 JSON 字符串），返回书籍信息（JSON）
-    pub fn bookshelf_add(book_json: String) -> Result<String, BridgeError> {
-        let book = crate::api::bookshelf::add_book(&book_json)?;
-        to_json(&book)
+    /// 添加书籍到书架，返回类型化书籍快照。
+    pub fn bookshelf_add(book: BookDto) -> Result<BookDto, BridgeError> {
+        Ok(crate::api::bookshelf::add_book_entity(book.into())?.into())
     }
 
-    /// 更新书籍信息（传入 JSON 字符串）
-    pub fn bookshelf_update(book_json: String) -> Result<(), BridgeError> {
-        crate::api::bookshelf::update_book(&book_json)?;
-        Ok(())
+    /// 更新类型化书籍快照。
+    pub fn bookshelf_update(book: BookDto) -> Result<(), BridgeError> {
+        Ok(crate::api::bookshelf::update_book_entity(book.into())?)
     }
 
     /// 按 bookUrl 删除书籍
@@ -262,10 +292,9 @@ pub mod ffi {
         Ok(())
     }
 
-    /// 按 bookUrl 获取书籍详情（JSON，可能为 null）
-    pub fn bookshelf_get(book_url: String) -> Result<String, BridgeError> {
-        let book = crate::api::bookshelf::get_book(&book_url)?;
-        to_json(&book)
+    /// 按 bookUrl 获取书籍详情；不存在时返回 None。
+    pub fn bookshelf_get(book_url: String) -> Result<Option<BookDto>, BridgeError> {
+        Ok(crate::api::bookshelf::get_book(&book_url)?.map(Into::into))
     }
 
     /// 批量导入书籍（JSON 数组），返回成功导入的数量
@@ -292,27 +321,29 @@ pub mod ffi {
     // ─── 书源管理 ─────────────────────────────────────────────
 
     /// 获取所有书源列表（JSON 数组）
-    pub fn source_list() -> Result<String, BridgeError> {
-        let sources = crate::api::source::list_sources()?;
-        to_json(&sources)
+    pub fn source_list() -> Result<Vec<BookSourceDto>, BridgeError> {
+        Ok(crate::api::source::list_sources()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
-    /// 获取所有启用的书源（JSON 数组）
-    pub fn source_list_enabled() -> Result<String, BridgeError> {
-        let sources = crate::api::source::list_enabled_sources()?;
-        to_json(&sources)
+    /// 获取所有启用书源的类型化快照。
+    pub fn source_list_enabled() -> Result<Vec<BookSourceDto>, BridgeError> {
+        Ok(crate::api::source::list_enabled_sources()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
-    /// 添加书源（传入 JSON 字符串），返回书源信息（JSON）
-    pub fn source_add(source_json: String) -> Result<String, BridgeError> {
-        let source = crate::api::source::add_source(&source_json)?;
-        to_json(&source)
+    /// 添加类型化书源。，返回书源信息（JSON）
+    pub fn source_add(source: BookSourceDto) -> Result<BookSourceDto, BridgeError> {
+        Ok(crate::api::source::add_source_entity(source.into())?.into())
     }
 
-    /// 更新书源（传入 JSON 字符串）
-    pub fn source_update(source_json: String) -> Result<(), BridgeError> {
-        crate::api::source::update_source(&source_json)?;
-        Ok(())
+    /// 更新类型化书源。
+    pub fn source_update(source: BookSourceDto) -> Result<(), BridgeError> {
+        Ok(crate::api::source::update_source_entity(source.into())?)
     }
 
     /// 按 URL 删除书源
@@ -394,9 +425,11 @@ pub mod ffi {
     /// `source_json` — BookSource JSON（字段名对齐 Android 原版 camelCase）
     /// `config_json` — 可选校验配置 JSON（keyword/step_timeout_ms/check_search/
     /// check_toc/check_content/detect_captcha/detect_redirect），空串用默认配置
-    pub fn source_check(source_json: String, config_json: String) -> Result<String, BridgeError> {
-        let result = crate::api::source_check_api::check_source(&source_json, &config_json)?;
-        to_json(&result)
+    pub fn source_check(
+        source: BookSourceDto,
+        config: SourceCheckConfigDto,
+    ) -> Result<CheckResultDto, BridgeError> {
+        Ok(crate::api::source_check_api::check_source_entity(source.into(), config.into())?.into())
     }
 
     /// 批量校验书源（串行逐个回推进度，Stream<String>）
@@ -405,20 +438,17 @@ pub mod ffi {
     /// `source_name` / `result`（CheckResult）。流在所有书源完成、
     /// 取消或 sink 关闭后自然结束。
     ///
-    /// `source_urls_json` — 待校验书源 URL 的 JSON 数组；为空则校验全部书源
-    /// `config_json` — 可选校验配置 JSON，空串用默认配置
-    /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧表现为 `Stream<String>`
+    /// `source_urls` — 待校验书源 URL 列表；为空则校验全部书源
+    /// `config` — 类型化校验配置，缺省字段沿用默认值
+    /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
     pub async fn source_check_stream(
-        source_urls_json: String,
-        config_json: String,
-        sink: StreamSink<String>,
+        source_urls: Vec<String>,
+        config: SourceCheckConfigDto,
+        request: &super::StreamRequest,
+        sink: StreamSink<CheckProgressDto>,
     ) -> Result<(), BridgeError> {
-        crate::api::source_check_api::run_check_sources_stream(
-            source_urls_json,
-            config_json,
-            |item| sink.add(item).map_err(|e| e.to_string()),
-        )
-        .await;
+        tokio::select! {biased; _=request.wait_cancelled()=>{},
+        _=crate::api::source_check_api::run_check_sources_selected(source_urls,config.into(),|event|sink.add(event.into()).map_err(|e|e.to_string()))=>{}}
         Ok(())
     }
 
@@ -466,7 +496,7 @@ pub mod ffi {
     /// UI 拿到事件后弹验证码对话框，用户输入经 [`verification_submit`]
     /// 回传；关闭对话框调 [`verification_cancel`]。流在 sink 关闭后结束。
     ///
-    /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧表现为 `Stream<String>`
+    /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
     pub async fn verification_request_stream(sink: StreamSink<String>) -> Result<(), BridgeError> {
         crate::api::verification_api::run_verification_request_stream(|event| {
             sink.add(event).map_err(|e| e.to_string())
@@ -643,47 +673,54 @@ pub mod ffi {
 
     // ─── 搜索 ─────────────────────────────────────────────────
 
-    /// 搜索书籍（返回 JSON 数组）
+    /// 搜索书籍，返回类型化 SearchBook 快照。
     ///
     /// `keyword` — 搜索关键词
-    /// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
+    /// `source_urls` — 指定搜索的书源 URL 列表；为空则搜索所有启用的书源
     ///
     /// 序列化契约：返回原版 `SearchBook` camelCase 结构（name/originName/bookUrl/…），
     /// 与 Dart 侧 `SearchBook.fromJson` 字段一一对应。
     /// 另附加阅读记录标识字段 `hasReadRecord` / `readRecordAuthor`（#424，
     /// 加法式扩展，Dart 侧 jsonDecode 兼容）。
-    pub fn search_books(keyword: String, source_urls_json: String) -> Result<String, BridgeError> {
-        let results = crate::api::search::search_books(&keyword, &source_urls_json)?;
-        let books: Vec<legado_core::models::SearchBook> = results
-            .into_iter()
-            .map(crate::api::search::result_to_search_book)
-            .collect();
-        to_json(&books)
+    pub fn search_books(
+        keyword: String,
+        source_urls: Vec<String>,
+    ) -> Result<Vec<SearchBookDto>, BridgeError> {
+        Ok(
+            crate::api::search::search_books_selected(&keyword, &source_urls)?
+                .into_iter()
+                .map(crate::api::search::result_to_search_book)
+                .map(Into::into)
+                .collect(),
+        )
     }
 
     /// 精确搜索（对齐原版 `WebBook.preciseSearchAwait`）
     ///
-    /// 返回首个 name+author 完全匹配的 SearchBook JSON；未命中抛 BridgeError。
-    /// `source_urls_json` 语义同 `searchBooks`（空=全部启用源）。
+    /// 返回首个 name+author 完全匹配的 SearchBookDto；未命中抛 BridgeError。
+    /// 源列表语义同 searchBooks（空=全部启用源）。
     pub fn precise_search(
         name: String,
         author: String,
-        source_urls_json: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::search::precise_search(
-            &name,
-            &author,
-            &source_urls_json,
-        )?)
+        source_urls: Vec<String>,
+    ) -> Result<SearchBookDto, BridgeError> {
+        Ok(crate::api::search::precise_search_selected(&name, &author, &source_urls)?.into())
     }
 
-    /// 多源并行搜索（返回 JSON 数组）
+    /// 多源并行搜索，返回保留既有字段的候选快照。
     ///
     /// `query` — 搜索关键词
-    /// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
-    pub fn search_multi(query: String, source_urls_json: String) -> Result<String, BridgeError> {
-        let json_str = crate::api::search::multi_source_search(&query, &source_urls_json)?;
-        Ok(json_str)
+    /// `source_urls` — 指定搜索的书源 URL 列表；为空则搜索所有启用的书源
+    pub fn search_multi(
+        query: String,
+        source_urls: Vec<String>,
+    ) -> Result<Vec<AnnotatedCandidateDto>, BridgeError> {
+        Ok(
+            crate::api::search::multi_source_search_selected(&query, &source_urls)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
     }
 
     /// 取消正在进行的搜索
@@ -706,22 +743,21 @@ pub mod ffi {
     /// 多源渐进式（流式）搜索
     ///
     /// 与 [`search_multi`] 不同：每完成一个书源即通过 `StreamSink` 推送一个结果批次
-    /// （JSON 字符串），UI 侧可逐源渲染，无需等待最慢书源。流在所有书源完成后自然结束。
+    /// （类型化批次），UI 可逐源渲染；流在所有书源完成后自然结束。
     ///
     /// `query` — 搜索关键词
-    /// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
+    /// `source_urls` — 指定搜索的书源 URL 列表；为空则搜索所有启用的书源
     /// `page` — 页码（批次B G-B-01 透传；Dart 侧同关键词翻页递增、新关键词重置为 1）
-    /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧表现为 `Stream<String>`
+    /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
     pub async fn search_multi_stream(
         query: String,
-        source_urls_json: String,
+        source_urls: Vec<String>,
         page: i32,
-        sink: StreamSink<String>,
+        request: &super::StreamRequest,
+        sink: StreamSink<SearchSourceBatchDto>,
     ) -> Result<(), BridgeError> {
-        crate::api::search::run_multi_stream(query, source_urls_json, page, |batch| {
-            sink.add(batch).map_err(|e| e.to_string())
-        })
-        .await;
+        tokio::select! {biased; _=request.wait_cancelled()=>{},
+        _=crate::api::search::run_multi_stream_selected(query,source_urls,page,|event|sink.add(event.into()).map_err(|e|e.to_string()))=>{}}
         Ok(())
     }
 
@@ -739,10 +775,13 @@ pub mod ffi {
 
     // ─── 阅读 ─────────────────────────────────────────────────
 
-    /// 获取书籍的章节列表（JSON）
-    pub fn reader_get_chapters(book_url: String) -> Result<String, BridgeError> {
-        let resp = crate::api::reader::get_chapters(&book_url)?;
-        to_json(&resp)
+    /// 获取类型化章节列表。
+    pub fn reader_get_chapters(book_url: String) -> Result<ChapterListDto, BridgeError> {
+        let result = crate::api::reader::get_chapters(&book_url)?;
+        Ok(ChapterListDto {
+            total: result.total,
+            chapters: result.chapters.into_iter().map(Into::into).collect(),
+        })
     }
 
     /// 获取章节正文内容
@@ -772,24 +811,27 @@ pub mod ffi {
     /// 一次调用获取章节正文（合并 reader_get_content + reader_fetch_content）
     ///
     /// 本地书籍直接解析返回；在线书籍自动从网络抓取并返回净化后的正文。
-    /// 始终返回纯正文字符串，不返回 JSON 元数据。
+    /// 结果明确区分正文与平台动作，不传递 JSON 元数据字符串。
     pub fn reader_get_content_full(
         book_url: String,
         chapter_index: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::reader::get_chapter_content_full(
-            &book_url,
-            chapter_index,
-        )?)
+    ) -> Result<TextResponseDto, BridgeError> {
+        Ok(crate::api::reader::get_chapter_content_full(&book_url, chapter_index)?.into())
     }
 
-    /// 从网络刷新书籍目录（返回 JSON 章节列表）
+    /// 从网络刷新书籍目录，返回类型化章节列表。
     ///
     /// `book_url` — 书籍详情页 URL
     /// `source_url` — 书源 URL
-    pub fn reader_refresh_toc(book_url: String, source_url: String) -> Result<String, BridgeError> {
-        let resp = crate::api::reader::refresh_toc(&book_url, &source_url)?;
-        to_json(&resp)
+    pub fn reader_refresh_toc(
+        book_url: String,
+        source_url: String,
+    ) -> Result<ChapterListDto, BridgeError> {
+        let value = crate::api::reader::refresh_toc(&book_url, &source_url)?;
+        Ok(ChapterListDto {
+            total: value.total,
+            chapters: value.chapters.into_iter().map(Into::into).collect(),
+        })
     }
 
     /// 获取章节正文内容（在线抓取，带 DB 缓存，返回真实正文文本）
@@ -801,12 +843,8 @@ pub mod ffi {
         book_url: String,
         chapter_url: String,
         source_url: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::reader::fetch_chapter_content(
-            &book_url,
-            &chapter_url,
-            &source_url,
-        )?)
+    ) -> Result<TextResponseDto, BridgeError> {
+        Ok(crate::api::reader::fetch_chapter_content(&book_url, &chapter_url, &source_url)?.into())
     }
 
     /// 设置阅读器繁简转换类型并持久化（0=不转换 / 1=繁转简 t2s / 2=简转繁 s2t）
@@ -1169,52 +1207,49 @@ pub mod ffi {
 
     // ─── 换源 ───────────────────────────────────────────────
 
-    /// 搜索可替换的书源（返回 JSON 格式的匹配结果列表）
+    /// 搜索可替换的书源，返回类型化匹配结果。
     ///
     /// `book_name` — 当前书籍名称
     /// `author` — 当前作者
-    /// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；
+    /// `source_urls` — 指定搜索的书源 URL 列表；
     /// 空串/空数组=搜全部启用源（留项#12/Task #131，加法式新增）
     pub fn source_switch_search(
         book_name: String,
         author: String,
-        source_urls_json: String,
-        options_json: String,
-    ) -> Result<String, BridgeError> {
-        let resp = crate::api::source_switch::search_alternative_sources(
-            &book_name,
-            &author,
-            &source_urls_json,
-            &options_json,
-        )?;
-        to_json(&resp)
+        source_urls: Vec<String>,
+        options: SwitchSearchOptionsDto,
+    ) -> Result<SourceSwitchResponseDto, BridgeError> {
+        Ok(
+            crate::api::source_switch::search_alternative_sources_selected(
+                &book_name,
+                &author,
+                &source_urls,
+                options.into(),
+            )?
+            .into(),
+        )
     }
 
     /// 换源搜索流式（T6 / 契约 §2.4 `searchSourceStream`）
     ///
-    /// 每完成一个书源推送一批次事件（JSON 字符串）：`matches` = 当前已过滤评分候选
+    /// 每完成一个书源推送类型化事件：matches 为当前已过滤评分候选
     /// **全量快照**，进度由 finished_count/total_count 承载；DB 复用路径推单批即结束；
     /// enrich 开启时搜索阶段结束后再推一批 enriched+重排快照（不阻塞首批到达）。
     /// 旧 [`source_switch_search`] 保留兼容（共享执行链）。
     pub async fn source_switch_search_stream(
         book_name: String,
         author: String,
-        source_urls_json: String,
-        options_json: String,
-        sink: StreamSink<String>,
+        source_urls: Vec<String>,
+        options: SwitchSearchOptionsDto,
+        request: &super::StreamRequest,
+        sink: StreamSink<ChangeSourceBatchDto>,
     ) -> Result<(), BridgeError> {
-        crate::api::source_switch::run_change_source_stream(
-            book_name,
-            author,
-            source_urls_json,
-            options_json,
-            |batch| sink.add(batch).map_err(|e| e.to_string()),
-        )
-        .await;
+        tokio::select! {biased; _=request.wait_cancelled()=>{},
+        _=crate::api::source_switch::run_change_source_stream_selected(book_name,author,source_urls,options.into(),|event|sink.add(event.into()).map_err(|e|e.to_string()))=>{}}
         Ok(())
     }
 
-    /// 切换到新书源（返回更新后的书籍 JSON）
+    /// 切换到新书源，返回类型化书籍快照。
     ///
     /// `book_url` — 当前书籍的 bookUrl
     /// `new_source_url` — 新书源的 URL
@@ -1223,12 +1258,13 @@ pub mod ffi {
         book_url: String,
         new_source_url: String,
         new_book_url: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::source_switch::switch_book_source(
+    ) -> Result<BookDto, BridgeError> {
+        Ok(crate::api::source_switch::switch_book_source_entity(
             &book_url,
             &new_source_url,
             &new_book_url,
-        )?)
+        )?
+        .into())
     }
 
     /// 切换到新书源（预拉缓存版，2026-09-24 加法式；契约 §2.4 `switchSourcePrefetch`）
@@ -1241,12 +1277,15 @@ pub mod ffi {
         book_url: String,
         new_source_url: String,
         new_book_url: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::source_switch::switch_book_source_prefetch(
-            &book_url,
-            &new_source_url,
-            &new_book_url,
-        )?)
+    ) -> Result<BookDto, BridgeError> {
+        Ok(
+            crate::api::source_switch::switch_book_source_prefetch_entity(
+                &book_url,
+                &new_source_url,
+                &new_book_url,
+            )?
+            .into(),
+        )
     }
 
     /// 取消进行中的「换源（预拉缓存版）」应用（2026-09-24 加法式；
@@ -1304,16 +1343,16 @@ pub mod ffi {
         Ok(crate::api::net_api::http_get_bytes(&url, &headers_json)?)
     }
 
-    /// 图片下载 + imageDecode 解码（返回 JSON：{ base64, len }）
+    /// 图片下载 + imageDecode 解码（返回原始字节）
     ///
     /// 对齐原版 ImageUtils.decodeImageStream：漫画/图片站图片 bytes 经
     /// 书源 imageDecode JS（配合 jsLib）解密后才可显示；无 imageDecode
-    /// 规则时返回原始图片 base64。`source_json` 为书源 JSON（单对象）。
+    /// 规则时返回原始图片字节。`source_json` 为书源 JSON（单对象）。
     /// 防盗链 header 取书源 header + 兜底 Referer。— Reasonix
     pub fn fetch_image_with_decode(
         url: String,
         source_json: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<Vec<u8>, BridgeError> {
         let result = crate::api::image_api::fetch_image_with_decode(&url, &source_json)?;
         Ok(result)
     }
@@ -1521,23 +1560,23 @@ pub mod ffi {
 
     // ─── 书签管理 ─────────────────────────────────────────────
 
-    /// 获取书籍的所有书签（JSON 数组）
-    pub fn bookmark_get_all(book_name: String) -> Result<String, BridgeError> {
+    /// 获取书籍的所有书签（强类型列表）
+    pub fn bookmark_get_all(book_name: String) -> Result<Vec<BookmarkDto>, BridgeError> {
         let bookmarks = crate::api::bookmark_api::get_bookmarks(&book_name)?;
-        to_json(&bookmarks)
+        Ok(bookmarks.into_iter().map(BookmarkDto::from).collect())
     }
 
-    /// 按书名+作者获取某本书的所有书签（裸 JSON 数组，契约 §2.7
+    /// 按书名+作者获取某本书的所有书签（强类型列表，契约 §2.7
     /// getBookmarksByBook，台账 §5.14-2，Task #63 加法式新增）
     ///
     /// 对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入；
-    /// 既有 bookmark_get_all（仅按书名）签名保持不变。
+    /// 仅按书名的 bookmark_get_all 也返回相同的 DTO 列表。
     pub fn get_bookmarks_by_book(
         book_name: String,
         book_author: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<Vec<BookmarkDto>, BridgeError> {
         let bookmarks = crate::api::bookmark_api::get_bookmarks_by_book(&book_name, &book_author)?;
-        to_json(&bookmarks)
+        Ok(bookmarks.into_iter().map(BookmarkDto::from).collect())
     }
 
     /// 添加书签，返回书签 id
@@ -1563,8 +1602,8 @@ pub mod ffi {
     }
 
     /// 按 id 原子更新书签，保留原记录的 id 和创建时间。— Codex + Bridge
-    pub fn bookmark_update(bookmark_json: String) -> Result<(), BridgeError> {
-        let bookmark: legado_core::models::Bookmark = serde_json::from_str(&bookmark_json)?;
+    pub fn bookmark_update(bookmark: BookmarkDto) -> Result<(), BridgeError> {
+        let bookmark = bookmark.into();
         crate::api::bookmark_api::update_bookmark(&bookmark)?;
         Ok(())
     }
@@ -1575,16 +1614,16 @@ pub mod ffi {
         Ok(())
     }
 
-    /// 搜索书签（JSON 数组）
-    pub fn bookmark_search(keyword: String) -> Result<String, BridgeError> {
+    /// 搜索书签（强类型列表）
+    pub fn bookmark_search(keyword: String) -> Result<Vec<BookmarkDto>, BridgeError> {
         let bookmarks = crate::api::bookmark_api::search_bookmarks(&keyword)?;
-        to_json(&bookmarks)
+        Ok(bookmarks.into_iter().map(BookmarkDto::from).collect())
     }
 
-    /// 获取所有书签（JSON 数组）
-    pub fn bookmark_list() -> Result<String, BridgeError> {
+    /// 获取所有书签（强类型列表）
+    pub fn bookmark_list() -> Result<Vec<BookmarkDto>, BridgeError> {
         let bookmarks = crate::api::bookmark_api::get_all_bookmarks()?;
-        to_json(&bookmarks)
+        Ok(bookmarks.into_iter().map(BookmarkDto::from).collect())
     }
 
     // ─── 替换规则管理 ─────────────────────────────────────────
@@ -1778,16 +1817,16 @@ pub mod ffi {
         )?)
     }
 
-    /// 按年查询每日单书阅读明细列表（JSON 数组）
-    pub fn read_record_detail_list(year: i32) -> Result<String, BridgeError> {
+    /// 按年查询每日单书阅读明细列表（强类型 DTO）
+    pub fn read_record_detail_list(year: i32) -> Result<Vec<ReadRecordDetailDto>, BridgeError> {
         let details = crate::api::read_record_api::get_read_record_details(year)?;
-        to_json(&details)
+        Ok(details)
     }
 
-    /// 查询全量历史每日单书阅读明细列表（JSON 数组）
-    pub fn read_record_all_detail_list() -> Result<String, BridgeError> {
+    /// 查询全量历史每日单书阅读明细列表（强类型 DTO）
+    pub fn read_record_all_detail_list() -> Result<Vec<ReadRecordDetailDto>, BridgeError> {
         let details = crate::api::read_record_api::get_all_read_record_details()?;
-        to_json(&details)
+        Ok(details)
     }
 
     /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
@@ -1962,41 +2001,21 @@ pub mod ffi {
         Ok(crate::api::cache_api::shrink_database())
     }
 
-    /// 写入图片磁盘缓存（P4-2a，API_CONTRACT §2.46）
-    ///
-    /// 对齐原版 `BookHelp.saveImage`/`writeImage`：`bytes_base64` 为图片字节的
-    /// base64（Dart 侧编码）；落盘路径 = `{注入缓存根}/sanitize(bookUrl)/images/
-    /// {md5_mid16(url)}.{suffix}`（md5 中段 16 字符对齐 `MD5Utils.md5Encode16`）。
-    /// base64 解码失败 → `Err`（Ffi）；目录创建/写盘 IO 失败 → 降级 `Ok(false)`
-    /// （静默 + 一次性日志，**不抛异常**——缓存失败不影响在线加载）。
+    /// 写入图片原始字节；缓存 I/O 失败仍返回 false。
     pub fn save_image_cache(
         book_url: String,
         url: String,
-        bytes_base64: String,
+        bytes: Vec<u8>,
     ) -> Result<bool, BridgeError> {
-        use base64::Engine as _;
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(&bytes_base64)
-            .map_err(|e| BridgeError {
-                message: format!("save_image_cache: base64 解码失败: {e}"),
-            })?;
         Ok(crate::api::image_cache_api::save_image_cache(
             &book_url, &url, &bytes,
         ))
     }
 
-    /// 读取图片磁盘缓存（P4-2a，API_CONTRACT §2.46）
-    ///
-    /// 命中返回图片字节的 base64（Dart 侧解码）；未命中 / 读盘失败均降级
-    /// `Ok(None)`（读失败一次性日志），调用方一律回落网络加载——对齐原版
-    /// `BookHelp.getImage`/`isImageExist` 的「本地存在才用，否则走网络」语义。
-    pub fn get_image_cache(book_url: String, url: String) -> Result<Option<String>, BridgeError> {
-        use base64::Engine as _;
-        let Some(bytes) = crate::api::image_cache_api::get_image_cache(&book_url, &url) else {
-            return Ok(None);
-        };
-        Ok(Some(
-            base64::engine::general_purpose::STANDARD.encode(bytes),
+    /// 命中返回图片原始字节；未命中或读取失败仍为 None。
+    pub fn get_image_cache(book_url: String, url: String) -> Result<Option<Vec<u8>>, BridgeError> {
+        Ok(crate::api::image_cache_api::get_image_cache(
+            &book_url, &url,
         ))
     }
 
@@ -2817,7 +2836,7 @@ pub mod ffi {
         crate::api::archive_import_api::is_archive_file(&file_path)
     }
 
-    /// 读取 CBZ 本地漫画单页图片字节（返回 JSON：{ base64, len }）
+    /// 读取 CBZ 本地漫画单页图片原始字节
     ///
     /// [cbz 批 B | 2026-10-03] E9 参考版扩展（用户已授权），加法式新增，
     /// 与 `fetch_image_with_decode` 同返回形态。配合阅读链路：
@@ -2826,7 +2845,7 @@ pub mod ffi {
     ///
     /// - `path` — 本地书 `bookUrl`（绝对路径，或相对可迁移标识）
     /// - `entry` — ZIP 条目名（兼容带/不带 `cbz://` 前缀）
-    pub fn cbz_read_page(path: String, entry: String) -> Result<String, BridgeError> {
+    pub fn cbz_read_page(path: String, entry: String) -> Result<Vec<u8>, BridgeError> {
         Ok(crate::api::cbz_api::cbz_read_page(&path, &entry)?)
     }
 
@@ -3189,4 +3208,31 @@ pub fn privacy_set_password(
         &current_password,
         &password,
     )?)
+}
+
+#[cfg(test)]
+mod stream_request_tests {
+    use super::*;
+    #[tokio::test]
+    async fn cancellation_before_or_after_wait_does_not_miss_notification() {
+        let first = stream_request_new();
+        first.cancel();
+        first.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(1), first.wait_cancelled())
+            .await
+            .unwrap();
+        let old = stream_request_new();
+        let current = stream_request_new();
+        let waited = old.wait_cancelled();
+        tokio::pin!(waited);
+        tokio::select! {
+            _=&mut waited=>panic!("未取消的凭据不能提前结束"),
+            _=tokio::time::sleep(std::time::Duration::from_millis(1))=>{}
+        }
+        old.cancel();
+        tokio::time::timeout(std::time::Duration::from_secs(1), waited)
+            .await
+            .unwrap();
+        assert!(!current.cancelled.load(std::sync::atomic::Ordering::Acquire));
+    }
 }

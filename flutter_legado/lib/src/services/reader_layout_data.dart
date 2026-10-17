@@ -32,16 +32,20 @@ class ReaderGlyphColumns {
         value['count'] is! int ||
         (value['count'] as int) < 0 ||
         value['text'] is! String ||
-        value['geometry'] is! String ||
-        value['positions'] is! String ||
+        (value['geometry'] is! String && value['geometry'] is! Uint8List) ||
+        (value['positions'] is! String && value['positions'] is! Uint8List) ||
         value['extras'] is! Map<String, dynamic> ||
         styles is! List ||
         styles.any((style) => style is! Map<String, dynamic>)) {
       throw const FormatException('阅读布局字形缓冲无效');
     }
     final count = value['count'] as int;
-    final geometryBytes = base64Decode(value['geometry'] as String);
-    final positionBytes = base64Decode(value['positions'] as String);
+    final geometryBytes = value['geometry'] is Uint8List
+        ? value['geometry'] as Uint8List
+        : base64Decode(value['geometry'] as String);
+    final positionBytes = value['positions'] is Uint8List
+        ? value['positions'] as Uint8List
+        : base64Decode(value['positions'] as String);
     if (geometryBytes.length != count * 20 ||
         positionBytes.length != count * 16) {
       throw const FormatException('阅读布局字形缓冲长度无效');

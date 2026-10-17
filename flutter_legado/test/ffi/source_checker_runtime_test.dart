@@ -49,14 +49,11 @@ void main() {
       'check_content': false,
     });
     await api.bookSourceRepository.addBookSource(source);
-    final result = await checker.checkSource(
-      jsonEncode(source.toJson()),
-      configJson: config,
-    );
+    final result = await checker.checkSource(source, configJson: config);
     expect(result['source_url'], source.bookSourceUrl);
     expect(result, containsPair('total_time_ms', isA<num>()));
     await expectLater(
-      checker.checkSource('坏 JSON'),
+      checker.checkSource(source, configJson: '坏 JSON'),
       throwsA(isA<BridgeError>()),
     );
     final events = await checker.checkSourcesStream([

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../domain/contracts/source_checker.dart';
 import '../../models/book_source.dart';
 import '../repositories/mock_book_source_repository.dart';
@@ -32,16 +30,12 @@ final class MockSourceChecker implements SourceChecker {
 
   @override
   Future<Map<String, dynamic>> checkSource(
-    String sourceJson, {
+    BookSource source, {
     String? configJson,
   }) async {
     // Mock 占位：模拟校验耗时后返回全部通过
     await Future.delayed(const Duration(milliseconds: 300));
-    final dynamic decoded = jsonDecode(sourceJson);
-    final url = decoded is Map<String, dynamic>
-        ? (decoded['bookSourceUrl'] ?? '') as String
-        : '';
-    return _mockCheckResult(url);
+    return _mockCheckResult(source.bookSourceUrl);
   }
 
   @override

@@ -6,25 +6,14 @@
 //! 独立成模块：一模块一职责（与既有 `image_api`/`txt_search_api` 同布局），
 //! 且不触碰 archive 导入路径（零回归面）。
 //!
-//! 契约惯例：返回 JSON `{base64, len}`，与 `fetchImageWithDecode` 同形态。
+//! 字节直接返回给 FRB，不经 base64/JSON。
 
-use base64::Engine as _;
 use legado_book::cbz::CbzFile;
 use legado_core::{LegadoError, LegadoResult};
-use serde::{Deserialize, Serialize};
 
 use crate::db_state::resolve_local_book_path;
 
-/// CBZ 漫画页读取结果（JSON 形态对齐 `fetchImageWithDecode` 的 `{base64,len}`）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CbzPageData {
-    /// 图片原始字节的 base64（标准字母表，含 padding）
-    pub base64: String,
-    /// 图片原始字节数
-    pub len: usize,
-}
-
-/// 读取 CBZ 漫画单页图片字节（返回 JSON `{base64, len}`）
+/// 读取 CBZ 漫画单页图片字节（直接返回字节）
 ///
 /// - `path`：本地书 `bookUrl` 形态——绝对路径原样；相对可迁移标识经
 ///   [`resolve_local_book_path`] 解析（与阅读链路同语义）。
@@ -32,7 +21,7 @@ pub struct CbzPageData {
 ///   自动剥离），中文/空格条目名原样匹配，不做 URL 编解码。
 ///
 /// 错误：文件不存在 / ZIP 解析失败 / 条目不存在 / 包内无图片条目。
-pub fn cbz_read_page(path: &str, entry: &str) -> LegadoResult<String> {
+pub fn cbz_read_page(path: &str, entry: &str) -> LegadoResult<Vec<u8>> {
     let real_path = resolve_local_book_path(path);
     let cbz = CbzFile::open(&real_path)?;
     // 「无图片条目」是无效漫画包（与 CbzFile::get_chapters 同口径，消息一致）
@@ -41,12 +30,7 @@ pub fn cbz_read_page(path: &str, entry: &str) -> LegadoResult<String> {
             "CBZ 内未找到图片条目: {real_path}"
         )));
     }
-    let bytes = cbz.read_entry(entry)?;
-    let data = CbzPageData {
-        base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
-        len: bytes.len(),
-    };
-    Ok(serde_json::to_string(&data)?)
+    cbz.read_entry(entry)
 }
 
 #[cfg(test)]
@@ -73,16 +57,6 @@ mod tests {
         cbz_path.to_string_lossy().into_owned()
     }
 
-    fn decode(json: &str) -> (Vec<u8>, usize) {
-        let v: serde_json::Value = serde_json::from_str(json).unwrap();
-        let len = v["len"].as_u64().unwrap() as usize;
-        let b64 = v["base64"].as_str().unwrap();
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(b64)
-            .unwrap();
-        (bytes, len)
-    }
-
     /// b) 字节正确 + 带/不带 `cbz://` 前缀等价 + 中文/空格条目名 + 非图片条目可读
     #[test]
     fn cbz_read_page_bytes_and_prefix_compat() {
@@ -98,8 +72,9 @@ mod tests {
 
         // 带 cbz:// 前缀（getChapterContent 产出的伪 URL 形态）
         let with_prefix = cbz_read_page(&path, "cbz://01 封面.jpg").unwrap();
-        let (bytes, len) = decode(&with_prefix);
-        assert_eq!(bytes, b"cover-bytes");
+        let bytes = &with_prefix;
+        let len = bytes.len();
+        assert_eq!(bytes.as_slice(), b"cover-bytes");
         assert_eq!(len, bytes.len());
         assert_eq!(len, 11);
 
@@ -108,7 +83,8 @@ mod tests {
         assert_eq!(with_prefix, without_prefix);
 
         // 第二页（自然排序第 2 项）字节正确
-        let (bytes2, len2) = decode(&cbz_read_page(&path, "cbz://page2.png").unwrap());
+        let bytes2 = cbz_read_page(&path, "cbz://page2.png").unwrap();
+        let len2 = bytes2.len();
         assert_eq!(bytes2, b"page-two");
         assert_eq!(len2, 8);
 

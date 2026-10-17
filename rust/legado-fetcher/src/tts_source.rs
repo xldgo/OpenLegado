@@ -312,14 +312,14 @@ pub fn source_headers(
                 .map_err(|_| LegadoError::Parser("TTS 请求头必须为字符串值 JSON 对象".into()))?,
         );
     }
-    if let Some(login) = store.load(&config.source_key())?.get("loginHeader") {
-        if !login.trim().is_empty() {
-            merge_headers(
-                &mut headers,
-                serde_json::from_str(login)
-                    .map_err(|_| LegadoError::Parser("TTS 登录请求头不是有效 JSON 对象".into()))?,
-            );
-        }
+    if let Some(login) = store.load(&config.source_key())?.get("loginHeader")
+        && !login.trim().is_empty()
+    {
+        merge_headers(
+            &mut headers,
+            serde_json::from_str(login)
+                .map_err(|_| LegadoError::Parser("TTS 登录请求头不是有效 JSON 对象".into()))?,
+        );
     }
     Ok(headers)
 }

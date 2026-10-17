@@ -148,9 +148,9 @@ mod tests {
         bookmark.content = "新备注".to_string();
         bookmark.chapter_pos = 20;
 
-        crate::ffi::ffi::bookmark_update(serde_json::to_string(&bookmark).unwrap()).unwrap();
+        crate::ffi::ffi::bookmark_update(bookmark.clone().into()).unwrap();
         bookmark.content = "再次更新".to_string();
-        crate::ffi::ffi::bookmark_update(serde_json::to_string(&bookmark).unwrap()).unwrap();
+        crate::ffi::ffi::bookmark_update(bookmark.clone().into()).unwrap();
 
         let found = get_bookmarks(name).unwrap();
         assert_eq!(found.len(), 1);
@@ -167,12 +167,19 @@ mod tests {
         let name = "bm_更新拒绝_9";
         let id = add_bookmark(name, "作者", 0, 10, "第一章", "正文", "原备注").unwrap();
         let original = get_bookmarks(name).unwrap().remove(0);
-        assert!(crate::ffi::ffi::bookmark_update("{".to_string()).is_err());
+        assert!(
+            crate::ffi::ffi::bookmark_update(
+                Bookmark {
+                    id: 0,
+                    ..original.clone()
+                }
+                .into()
+            )
+            .is_err()
+        );
         let mut missing = original.clone();
         missing.id = -1;
-        assert!(
-            crate::ffi::ffi::bookmark_update(serde_json::to_string(&missing).unwrap()).is_err()
-        );
+        assert!(crate::ffi::ffi::bookmark_update(missing.into()).is_err());
 
         let found = get_bookmarks(name).unwrap();
         assert_eq!(found.len(), 1);

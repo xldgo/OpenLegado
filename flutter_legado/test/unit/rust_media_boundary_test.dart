@@ -21,6 +21,7 @@ void main() {
   const downloads = RustAudioCacheDownloadService();
   const audio = RustAudioBookService();
   const video = RustVideoDanmakuService();
+  setUpAll(() => registerFallbackValue(Uint8List(0)));
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
@@ -32,27 +33,28 @@ void main() {
       () => bridge.crateFfiFfiSaveImageCache(
         bookUrl: 'b',
         url: 'u',
-        bytesBase64: 'AQID',
+        bytes: any(named: 'bytes'),
       ),
     ).thenAnswer((_) async => true);
     when(() => bridge.crateFfiFfiGetImageCache(bookUrl: 'b', url: 'u'))
-        .thenAnswer((_) async => 'AQID');
+        .thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
     when(
       () => bridge.crateFfiFfiFetchImageWithDecode(url: 'u', sourceJson: 's'),
-    ).thenAnswer((_) async => ' {"base64":"AQID","len":3}');
+    ).thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
     expect(
       await image.saveImageCache(bookUrl: 'b', url: 'u', bytes: [1, 2, 3]),
       isTrue,
     );
     expect(await image.getImageCache('b', 'u'), [1, 2, 3]);
     expect(await image.fetchImageWithDecode('u', 's'), [1, 2, 3]);
-    verify(
+    final written = verify(
       () => bridge.crateFfiFfiSaveImageCache(
         bookUrl: 'b',
         url: 'u',
-        bytesBase64: 'AQID',
+        bytes: captureAny(named: 'bytes'),
       ),
-    ).called(1);
+    ).captured.single;
+    expect(written, [1, 2, 3]);
   });
   test('缓存读写异常保留null/false降级，在线失败上抛', () async {
     final error = StateError('不可读');
@@ -60,11 +62,11 @@ void main() {
       () => bridge.crateFfiFfiSaveImageCache(
         bookUrl: 'b',
         url: 'u',
-        bytesBase64: 'AQ==',
+        bytes: any(named: 'bytes'),
       ),
     ).thenThrow(error);
     when(() => bridge.crateFfiFfiGetImageCache(bookUrl: 'b', url: 'u'))
-        .thenAnswer((_) async => '***');
+        .thenThrow(error);
     when(
       () => bridge.crateFfiFfiFetchImageWithDecode(url: 'u', sourceJson: 's'),
     ).thenThrow(error);
@@ -78,21 +80,19 @@ void main() {
       throwsA(same(error)),
     );
   });
-  for (final payload in [
-    '{}',
-    '{"base64":"AQID","len":2}',
-    '{"base64":2,"len":3}',
-  ]) {
-    test('在线图片坏传输不伪造有效字节：$payload', () async {
-      when(
-        () => bridge.crateFfiFfiFetchImageWithDecode(url: 'u', sourceJson: 's'),
-      ).thenAnswer((_) async => payload);
-      await expectLater(
-        image.fetchImageWithDecode('u', 's'),
-        throwsFormatException,
-      );
-    });
-  }
+  test('图片字节覆盖完整字节域，缓存未命中与空缓存保持null', () async {
+    final bytes = Uint8List.fromList(List.generate(256, (i) => i));
+    when(
+      () => bridge.crateFfiFfiFetchImageWithDecode(url: 'u', sourceJson: 's'),
+    ).thenAnswer((_) async => bytes);
+    expect(await image.fetchImageWithDecode('u', 's'), same(bytes));
+    when(() => bridge.crateFfiFfiGetImageCache(bookUrl: 'b', url: 'u'))
+        .thenAnswer((_) async => null);
+    expect(await image.getImageCache('b', 'u'), isNull);
+    when(() => bridge.crateFfiFfiGetImageCache(bookUrl: 'b', url: 'u'))
+        .thenAnswer((_) async => Uint8List(0));
+    expect(await image.getImageCache('b', 'u'), isNull);
+  });
   test('下载结果类型化，取消透传既有布尔结果', () async {
     when(
       () => bridge.crateFfiFfiAudioCacheDownload(

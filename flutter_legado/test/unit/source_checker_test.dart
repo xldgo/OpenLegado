@@ -1,7 +1,6 @@
 import 'package:flutter_legado/src/data/bridge/mock_app_runtime.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -141,9 +140,9 @@ void main() {
       );
     });
 
-    test('Mock 单源结果和宽松非对象输入保持', () async {
+    test('Mock 单源结果和空实体处理保持', () async {
       final checker = MockSourceChecker(store: MockBookSourceStore());
-      final result = await checker.checkSource(jsonEncode(_source.toJson()));
+      final result = await checker.checkSource(_source);
       expect(result['source_url'], 'fixture://a');
       expect(result['search_ok'], isTrue);
       expect(result['toc_ok'], isTrue);
@@ -155,8 +154,7 @@ void main() {
         'matched_keyword': null,
       });
       expect(result['redirect'], isNull);
-      expect((await checker.checkSource('[]'))['source_url'], '');
-      await expectLater(checker.checkSource('bad JSON'), throwsFormatException);
+      expect((await checker.checkSource(const BookSource()))['source_url'], '');
     });
 
     test('Mock 空列表包含禁用源，顺序与未知源展示保持', () async {

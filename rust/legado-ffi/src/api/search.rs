@@ -286,9 +286,15 @@ impl legado_core::SourceSearcher for WebSourceSearcher {
 /// `keyword` — 搜索关键词
 /// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
 pub fn search_books(keyword: &str, source_urls_json: &str) -> LegadoResult<Vec<SearchResult>> {
+    search_books_selected(keyword, &parse_source_urls(source_urls_json)?)
+}
+pub fn search_books_selected(
+    keyword: &str,
+    source_urls: &[String],
+) -> LegadoResult<Vec<SearchResult>> {
     // 搜索变量按来源/关键词取得显式作用域，不共享“当前流程”单槽。
     // 获取待搜索的书源
-    let sources = load_search_sources(source_urls_json)?;
+    let sources = load_search_sources_selected(source_urls)?;
     if sources.is_empty() {
         return Ok(Vec::new());
     }
@@ -367,6 +373,18 @@ pub fn search_books(keyword: &str, source_urls_json: &str) -> LegadoResult<Vec<S
 /// 精搜独立登记任务，不替换 UI 搜索；每个来源使用自己的显式 JS 流程。
 /// 单源错误继续跳过；根取消立即结束，名称/作者匹配仍采用原来的完全相等规则。
 pub fn precise_search(name: &str, author: &str, source_urls_json: &str) -> LegadoResult<String> {
+    serde_json::to_string(&precise_search_selected(
+        name,
+        author,
+        &parse_source_urls(source_urls_json)?,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+pub fn precise_search_selected(
+    name: &str,
+    author: &str,
+    source_urls: &[String],
+) -> LegadoResult<CoreSearchBook> {
     let name = name.trim();
     if name.is_empty() {
         return Err(LegadoError::Parser("精确搜索书名不能为空".into()));
@@ -378,7 +396,7 @@ pub fn precise_search(name: &str, author: &str, source_urls_json: &str) -> Legad
     let storage = crate::engine_holder::current()
         .ok()
         .map(|engine| engine.storage().clone());
-    let sources = load_search_sources_from(storage.as_ref(), source_urls_json)?;
+    let sources = load_search_sources_selected_from(storage.as_ref(), source_urls)?;
     if sources.is_empty() {
         return Err(LegadoError::Network("没有可用书源".into()));
     }
@@ -395,7 +413,7 @@ async fn precise_search_owned(
     name: &str,
     author: &str,
     sources: Vec<BookSource>,
-) -> LegadoResult<String> {
+) -> LegadoResult<CoreSearchBook> {
     let task = context.task.clone().expect("精搜入口必须登记任务");
     let _guard = task.guard();
     let search = async {
@@ -416,7 +434,7 @@ async fn precise_search_owned(
             context.ensure_active()?;
             for item in items {
                 if item.book_name == name && (author.is_empty() || item.author == author) {
-                    return Ok(serde_json::to_string(&result_to_search_book(item))?);
+                    return Ok(result_to_search_book(item));
                 }
             }
         }
@@ -440,15 +458,25 @@ async fn precise_search_owned(
 ///
 /// 返回 JSON 字符串格式的搜索结果数组。
 pub fn multi_source_search(query: &str, source_urls_json: &str) -> LegadoResult<String> {
+    serde_json::to_string(&multi_source_search_selected(
+        query,
+        &parse_source_urls(source_urls_json)?,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+pub(crate) fn multi_source_search_selected(
+    query: &str,
+    source_urls: &[String],
+) -> LegadoResult<Vec<AnnotatedCandidate>> {
     // 本次操作固定资源与会话，逐源变量不依赖进程当前流程。
     // P0-3：为本次搜索创建独立会话（取代并取消上一会话），不再重置全局标志
     let session = begin_search()?;
     let _run = SearchRun(session.clone());
 
-    let sources = load_search_sources(source_urls_json)?;
+    let sources = load_search_sources_selected(source_urls)?;
     if sources.is_empty() {
         clear_current_session_if_same(&session); // 7.5：空源早退亦清理会话
-        return Ok("[]".to_string());
+        return Ok(Vec::new());
     }
     let precision = crate::api::config_api::get_config("precisionSearch")
         .map(|v| v == "true")
@@ -499,7 +527,7 @@ pub fn multi_source_search(query: &str, source_urls_json: &str) -> LegadoResult<
 
     // 7.4：已取消则丢弃累积结果（一次性入口语义，防旧搜索残留）
     if session.is_cancelled() {
-        return Ok("[]".to_string());
+        return Ok(Vec::new());
     }
 
     // [审计 D3 | SearchModel.insert] 一次性入口同样落库 searchBooks，供换源
@@ -510,7 +538,7 @@ pub fn multi_source_search(query: &str, source_urls_json: &str) -> LegadoResult<
         .with_current(|| persist_search_books(context.storage.as_ref(), &core_books))
         .is_none()
     {
-        return Ok("[]".to_string());
+        return Ok(Vec::new());
     }
 
     // 批量附加阅读记录标识后序列化（不修改 core 的 SearchResult 结构，通过加法式
@@ -522,7 +550,7 @@ pub fn multi_source_search(query: &str, source_urls_json: &str) -> LegadoResult<
         .map(|c| build_annotated_candidate(c, &index))
         .collect();
 
-    serde_json::to_string(&annotated).map_err(LegadoError::Serialization)
+    Ok(annotated)
 }
 
 /// 取消正在进行的搜索（P0-3：作用于当前会话，不再全局污染后续搜索）
@@ -659,6 +687,29 @@ pub async fn run_multi_stream<F>(
 ) where
     F: FnMut(String) -> Result<(), String>,
 {
+    run_multi_stream_typed(query, source_urls_json, page, |batch| {
+        on_batch(serde_json::to_string(&batch).map_err(|e| e.to_string())?)
+    })
+    .await;
+}
+
+pub async fn run_multi_stream_typed<F>(query: String, json: String, page: i32, callback: F)
+where
+    F: FnMut(SearchSourceBatch) -> Result<(), String>,
+{
+    let Ok(urls) = parse_source_urls(&json) else {
+        return;
+    };
+    run_multi_stream_selected(query, urls, page, callback).await;
+}
+pub async fn run_multi_stream_selected<F>(
+    query: String,
+    source_urls: Vec<String>,
+    page: i32,
+    mut on_batch: F,
+) where
+    F: FnMut(SearchSourceBatch) -> Result<(), String>,
+{
     // 所有源使用本次会话捕获的数据能力，回调只向原所属实例提交。
     // P0-3：为本次搜索创建独立会话（取代并取消上一会话），不再重置全局标志
     let session = match begin_search() {
@@ -671,7 +722,7 @@ pub async fn run_multi_stream<F>(
     let _run = SearchRun(session.clone());
 
     // 书源加载失败时以空流结束（Dart 侧表现为无结果）
-    let sources = load_search_sources(&source_urls_json).unwrap_or_default();
+    let sources = load_search_sources_selected(&source_urls).unwrap_or_default();
     if sources.is_empty() {
         clear_current_session_if_same(&session); // 7.5：空源早退亦清理会话
         return;
@@ -753,20 +804,7 @@ pub async fn run_multi_stream<F>(
                         error_class: error_class.to_string(),
                     };
 
-                    // [S0-D | 任务 B 2026-09-19] serialize 计时点（env 门控 LEGADO_SEARCH_PHASE_TIMING）：
-                    // 批次序列化段，输出携带会话标识 + 书源 URL（计划要求可关联）
-                    let t_serialize = std::time::Instant::now();
-                    let json = serde_json::to_string(&batch).map_err(|e| e.to_string())?;
-                    if std::env::var_os("LEGADO_SEARCH_PHASE_TIMING").is_some() {
-                        eprintln!(
-                            "[phase] serialize={}ms session={} src={}",
-                            t_serialize.elapsed().as_millis(),
-                            session_cb.session_id,
-                            batch.source_url
-                        );
-                    }
-                    // sink 关闭（Err）时提前终止
-                    on_batch(json)
+                    on_batch(batch)
                 })
                 .unwrap_or(Ok(()))
         },
@@ -803,6 +841,7 @@ pub(crate) struct SourceBatchOutcome<T> {
 /// - **暂停**：门控发生在派发下一个源之前（调度层），未请求源不占用任何并发许可；已派发任务继续
 ///   完成（软挂起，对齐原版 SearchModel workingState 调度前门控）。
 /// - **超时**：单源搜索超过 `per_source_timeout` 判为超时错误。
+///
 /// 换源旧入口仍使用显式布尔能力；正式搜索使用可通知的登记任务能力。
 pub(crate) trait BatchCancellation: Sync {
     fn is_cancelled(&self) -> bool;
@@ -1169,7 +1208,7 @@ fn annotate_results(results: &mut [SearchResult], index: &ReadRecordIndex) {
 /// `hasReadRecord` / `readRecordAuthor` / `originOrder`（Dart 侧 jsonDecode 兼容；
 /// originOrder [STAGE4-P36] 补齐，与 `search_books` / `run_multi_stream` 输出对齐）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct AnnotatedCandidate {
+pub(crate) struct AnnotatedCandidate {
     /// 书籍名称
     pub book_name: String,
     /// 作者
@@ -1235,6 +1274,7 @@ fn build_annotated_candidate(c: SearchResult, index: &ReadRecordIndex) -> Annota
 /// `source_urls_json` 为空字符串或空数组（`[]`）均表示「搜索所有启用的书源」；
 /// Dart 侧无筛选条件时传 `'[]'`，与原版「未选分组/书源即搜全部」语义对齐。
 /// 留项#12（Task #131）：提升为 pub(crate) 供 source_switch 换源搜索复用同一过滤语义。
+#[cfg(test)]
 pub(crate) fn load_search_sources(source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
     let storage = crate::engine_holder::current()
         .ok()
@@ -1242,16 +1282,31 @@ pub(crate) fn load_search_sources(source_urls_json: &str) -> LegadoResult<Vec<Bo
     load_search_sources_from(storage.as_ref(), source_urls_json)
 }
 
+pub(crate) fn parse_source_urls(json: &str) -> LegadoResult<Vec<String>> {
+    if json.is_empty() {
+        Ok(Vec::new())
+    } else {
+        serde_json::from_str(json)
+            .map_err(|error| LegadoError::Ffi(format!("书源 URL 列表解析失败: {error}")))
+    }
+}
+#[cfg(test)]
 pub(crate) fn load_search_sources_from(
     storage: Option<&StorageContext>,
-    source_urls_json: &str,
+    json: &str,
 ) -> LegadoResult<Vec<BookSource>> {
-    let urls: Vec<String> = if source_urls_json.is_empty() {
-        Vec::new()
-    } else {
-        serde_json::from_str(source_urls_json)
-            .map_err(|error| LegadoError::Ffi(format!("书源 URL 列表解析失败: {error}")))?
-    };
+    load_search_sources_selected_from(storage, &parse_source_urls(json)?)
+}
+pub(crate) fn load_search_sources_selected(urls: &[String]) -> LegadoResult<Vec<BookSource>> {
+    let storage = crate::engine_holder::current()
+        .ok()
+        .map(|e| e.storage().clone());
+    load_search_sources_selected_from(storage.as_ref(), urls)
+}
+pub(crate) fn load_search_sources_selected_from(
+    storage: Option<&StorageContext>,
+    urls: &[String],
+) -> LegadoResult<Vec<BookSource>> {
     let storage = storage
         .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?;
     let all = storage
@@ -6200,7 +6255,7 @@ mod standalone_task_tests {
         )
         .await
         .unwrap();
-        let book: serde_json::Value = serde_json::from_str(&result).unwrap();
+        let book = serde_json::to_value(result).unwrap();
         assert_eq!(book["name"], "目标书");
         assert_eq!(book["author"], "目标作者");
         assert_eq!(book["bookUrl"], format!("{}/book/hit", fixture.url));

@@ -52,8 +52,13 @@ fn merge_source_fields(repo: &BookRepository<'_>, book: &mut Book) -> LegadoResu
 }
 
 pub fn add_book(book_json: &str) -> LegadoResult<Book> {
-    let mut book: Book = serde_json::from_str(book_json)
+    let book: Book = serde_json::from_str(book_json)
         .map_err(|e| legado_core::LegadoError::Ffi(format!("Book JSON 解析失败: {e}")))?;
+    add_book_entity(book)
+}
+
+/// 实体入口与 JSON 宿主共用同一写入及后置处理。
+pub fn add_book_entity(mut book: Book) -> LegadoResult<Book> {
     with_database(|db| {
         let repo = BookRepository::new(db.connection());
         // Task#125 P0：用原地 UPDATE 语义的 upsert，避免对已存在的临时书
@@ -66,8 +71,13 @@ pub fn add_book(book_json: &str) -> LegadoResult<Book> {
 
 /// 更新书籍信息（JSON 序列化传入）
 pub fn update_book(book_json: &str) -> LegadoResult<()> {
-    let mut book: Book = serde_json::from_str(book_json)
+    let book: Book = serde_json::from_str(book_json)
         .map_err(|e| legado_core::LegadoError::Ffi(format!("Book JSON 解析失败: {e}")))?;
+    update_book_entity(book)
+}
+
+/// 实体入口与 JSON 宿主共用同一写入及后置处理。
+pub fn update_book_entity(mut book: Book) -> LegadoResult<()> {
     with_database(|db| {
         let repo = BookRepository::new(db.connection());
         merge_source_fields(&repo, &mut book)?; // [B-2] 陈旧快照不得撤销换源结果

@@ -12,7 +12,6 @@
 
 use std::collections::HashMap;
 
-use base64::Engine as _;
 use legado_core::LegadoError;
 use legado_core::LegadoResult;
 use legado_core::models::BookSource;
@@ -195,15 +194,15 @@ fn split_composite_image_url(url: &str) -> (String, HashMap<String, String>) {
     (url.to_string(), HashMap::new())
 }
 
-/// 下载图片（带书源 header 防盗链）并按 imageDecode 解码，返回 base64
+/// 下载图片（带书源 header 防盗链）并按 imageDecode 解码，返回原始字节
 ///
-/// source_json：书源 JSON（单对象）。无 imageDecode 时返回原始图片 base64。
+/// source_json：书源 JSON（单对象）。无 imageDecode 时返回原始图片字节。
 ///
 /// 支持原版 `url,{json headers}` 复合格式（favcomic 等漫画站图片 URL 内嵌
 /// 防盗链 header，对齐原版 AnalyzeUrl.kt analyzeUrl 切首个 `,` 前为 URL、
 /// 后部解析为 headerMap）：URL 含 `,{...}` 时经 [`split_composite_image_url`]
 /// 拆分，内嵌 headers 与书源 header 合并后请求 — Reasonix
-pub fn fetch_image_with_decode(url: &str, source_json: &str) -> LegadoResult<String> {
+pub fn fetch_image_with_decode(url: &str, source_json: &str) -> LegadoResult<Vec<u8>> {
     let source: BookSource = serde_json::from_str(source_json)
         .map_err(|e| LegadoError::Ffi(format!("书源 JSON 解析失败: {e}")))?;
 
@@ -261,8 +260,7 @@ pub fn fetch_image_with_decode(url: &str, source_json: &str) -> LegadoResult<Str
             decoded.iter().take(4).copied().collect::<Vec<_>>()
         )));
     }
-    let b64 = base64::engine::general_purpose::STANDARD.encode(&decoded);
-    Ok(serde_json::json!({ "base64": b64, "len": decoded.len() }).to_string())
+    Ok(decoded)
 }
 
 /// JPEG/PNG/GIF/WEBP 魔数探测（漫画页几乎只用这些）
@@ -737,12 +735,7 @@ decryptImage(result);"#;
         assert!(!img_url.is_empty(), "正文无 img URL");
 
         // 下载 + 解码
-        let json = fetch_image_with_decode(&img_url, &source_json).unwrap();
-        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-        let b64 = v["base64"].as_str().unwrap_or_default();
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(b64)
-            .unwrap();
+        let bytes = fetch_image_with_decode(&img_url, &source_json).unwrap();
         println!(
             "===== [decoded] len={} head={:02X?} url={}",
             bytes.len(),

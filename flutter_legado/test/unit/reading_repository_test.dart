@@ -3,6 +3,7 @@ import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/data/repositories/mock_reading_repository.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 import 'package:flutter_legado/src/data/repositories/rust_reading_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -13,41 +14,15 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('目录解码', () {
-    test('接受既有对象与裸数组，保留章节字段及顺序', () {
-      const items = '[{"url":"chapter","title":"目录","index":2,"isVip":true}]';
-      final chapters = decodeReadingChapters(items, 'getChapters');
-      expect(chapters, [
-        const BookChapter(url: 'chapter', title: '目录', index: 2, isVip: true),
-      ]);
-      expect(
-        decodeReadingChapters('{"total":1,"chapters":$items}', 'refreshToc'),
-        chapters,
-      );
-    });
-    test('合法空目录成功，不将错误响应当空目录', () {
-      expect(decodeReadingChapters('[]', 'getChapters'), isEmpty);
-      expect(decodeReadingChapters('{"chapters":[]}', 'refreshToc'), isEmpty);
-    });
-    for (final json in [
-      '{}',
-      '{"chapters":null}',
-      '{"chapters":{}}',
-      'null',
-      'true',
-      '"网络失败"',
-      '[null]',
-      '[3]',
-      '[{"index":"错误序号"}]',
-      '{',
-    ]) {
-      test('非法目录报错：$json', () {
-        expect(
-          () => decodeReadingChapters(json, 'refreshToc'),
-          throwsFormatException,
-        );
-      });
-    }
+  test('类型化目录保留章节字段、顺序与合法空列表', () {
+    const chapter = BookChapter(
+      url: 'chapter😀',
+      title: '目录',
+      index: 2,
+      isVip: true,
+    );
+    expect([bookChapterFromDto(bookChapterToDto(chapter))], [chapter]);
+    expect(<BookChapter>[].map(bookChapterToDto).toList(), isEmpty);
   });
 
   test('Mock正文保存后所有读取入口使用同一缓存', () async {

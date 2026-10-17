@@ -1,21 +1,20 @@
-import 'dart:convert';
-
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/reading_repository.dart';
 import '../../models/book_chapter.dart';
+import '../bridge/entity_dto_mapping.dart';
+import '../bridge/transport_request_mapping.dart';
 
 /// 直接复用既有FRB，平台载荷由应用装配的处理器执行。— Codex + Bridge
 final class RustReadingRepository implements ReadingRepository {
-  const RustReadingRepository({required this._interceptResult});
+  const RustReadingRepository({required this.dispatchAction});
 
-  final Future<String> Function(String) _interceptResult;
+  final Future<String> Function(Map<String, dynamic>) dispatchAction;
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async =>
-      decodeReadingChapters(
-        await bridge.readerGetChapters(bookUrl: bookUrl),
-        'getChapters',
-      );
+      (await bridge.readerGetChapters(bookUrl: bookUrl)).chapters
+          .map(bookChapterFromDto)
+          .toList();
 
   @override
   Future<String> getChapterContent(String bookUrl, int chapterIndex) =>
@@ -29,11 +28,12 @@ final class RustReadingRepository implements ReadingRepository {
   Future<String> getChapterContentFull(
     String bookUrl,
     int chapterIndex,
-  ) async => _interceptResult(
+  ) async => resolveTextResponse(
     await bridge.readerGetContentFull(
       bookUrl: bookUrl,
       chapterIndex: chapterIndex,
     ),
+    dispatchAction,
   );
 
   @override
@@ -41,12 +41,13 @@ final class RustReadingRepository implements ReadingRepository {
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
-  ) async => _interceptResult(
+  ) async => resolveTextResponse(
     await bridge.readerFetchContent(
       bookUrl: bookUrl,
       chapterUrl: chapterUrl,
       sourceUrl: sourceUrl,
     ),
+    dispatchAction,
   );
 
   @override
@@ -78,32 +79,8 @@ final class RustReadingRepository implements ReadingRepository {
   Future<List<BookChapter>> refreshToc(
     String bookUrl,
     String sourceUrl,
-  ) async => decodeReadingChapters(
-    await _interceptResult(
-      await bridge.readerRefreshToc(bookUrl: bookUrl, sourceUrl: sourceUrl),
-    ),
-    'refreshToc',
-  );
-}
-
-/// 目录支持既有对象或列表；错误响应不得当成合法空目录。
-List<BookChapter> decodeReadingChapters(String json, String method) {
-  final dynamic decoded = jsonDecode(json);
-  final dynamic chapters = decoded is Map<String, dynamic>
-      ? decoded['chapters']
-      : decoded;
-  if (chapters is! List) {
-    throw FormatException('$method：目录必须是数组或包含chapters数组的对象');
-  }
-  return chapters.indexed.map((entry) {
-    final (index, chapter) = entry;
-    if (chapter is! Map<String, dynamic>) {
-      throw FormatException('$method：目录第${index + 1}项必须是对象');
-    }
-    try {
-      return BookChapter.fromJson(chapter);
-    } catch (error) {
-      throw FormatException('$method：目录第${index + 1}项字段无效（$error）');
-    }
-  }).toList();
+  ) async => (await bridge.readerRefreshToc(
+    bookUrl: bookUrl,
+    sourceUrl: sourceUrl,
+  )).chapters.map(bookChapterFromDto).toList();
 }

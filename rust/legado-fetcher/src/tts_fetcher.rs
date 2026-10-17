@@ -212,24 +212,29 @@ pub async fn fetch_tts_audio_with_executor(
         context,
         cache_dir,
         custom_executor,
-        default_store(),
-        RATES
-            .get_or_init(|| Arc::new(RateLimiterRegistry::new()))
-            .clone(),
+        TtsFetchResources {
+            store: default_store(),
+            rates: RATES
+                .get_or_init(|| Arc::new(RateLimiterRegistry::new()))
+                .clone(),
+        },
         &TtsCancellation::default(),
     )
     .await
 }
 
 /// 宿主注入登录存储、共享限流表和独立请求取消句柄。
+pub struct TtsFetchResources {
+    pub store: Arc<dyn TtsSourceStore>,
+    pub rates: Arc<RateLimiterRegistry>,
+}
 pub async fn fetch_tts_audio_controlled(
     client: &LegadoClient,
     config: &HttpTtsConfig,
     context: &TtsSpeakContext<'_>,
     cache_dir: &Path,
     custom_executor: Option<&dyn JsExecutor>,
-    store: Arc<dyn TtsSourceStore>,
-    rates: Arc<RateLimiterRegistry>,
+    resources: TtsFetchResources,
     cancellation: &TtsCancellation,
 ) -> LegadoResult<TtsFetchResult> {
     cancellation
@@ -239,23 +244,21 @@ pub async fn fetch_tts_audio_controlled(
             context,
             cache_dir,
             custom_executor,
-            store,
-            rates,
+            resources,
             cancellation,
         ))
         .await
 }
-
 async fn fetch_tts_audio_inner(
     client: &LegadoClient,
     config: &HttpTtsConfig,
     context: &TtsSpeakContext<'_>,
     cache_dir: &Path,
     custom_executor: Option<&dyn JsExecutor>,
-    store: Arc<dyn TtsSourceStore>,
-    rates: Arc<RateLimiterRegistry>,
+    resources: TtsFetchResources,
     cancellation: &TtsCancellation,
 ) -> LegadoResult<TtsFetchResult> {
+    let TtsFetchResources { store, rates } = resources;
     let text = context.speak_text.trim();
     if text.is_empty() {
         return Err(LegadoError::ContentEmpty("朗读文本为空".into()));
@@ -1074,8 +1077,10 @@ mod tests {
             &TtsSpeakContext::new("正文", 10, None, None, None),
             &dir,
             None,
-            store.clone(),
-            Arc::new(RateLimiterRegistry::new()),
+            TtsFetchResources {
+                store: store.clone(),
+                rates: Arc::new(RateLimiterRegistry::new()),
+            },
             &TtsCancellation::default(),
         )
         .await
@@ -1184,8 +1189,10 @@ mod tests {
             &context,
             &dir,
             None,
-            default_store(),
-            rates,
+            TtsFetchResources {
+                store: default_store(),
+                rates,
+            },
             &cancellation,
         );
         let cancelling = async {
@@ -1217,8 +1224,10 @@ mod tests {
                 &context,
                 &dir,
                 None,
-                default_store(),
-                Arc::new(RateLimiterRegistry::new()),
+                TtsFetchResources {
+                    store: default_store(),
+                    rates: Arc::new(RateLimiterRegistry::new())
+                },
                 &cancellation
             ),
             stop_after_accept
@@ -1256,8 +1265,10 @@ mod tests {
                 &TtsSpeakContext::new(text, 10, None, None, None),
                 &dir,
                 None,
-                store.clone(),
-                Arc::new(RateLimiterRegistry::new()),
+                TtsFetchResources {
+                    store: store.clone(),
+                    rates: Arc::new(RateLimiterRegistry::new()),
+                },
                 &TtsCancellation::default(),
             )
             .await
@@ -1306,8 +1317,10 @@ mod tests {
             &context,
             &dir,
             None,
-            store.clone(),
-            rates.clone(),
+            TtsFetchResources {
+                store: store.clone(),
+                rates: rates.clone(),
+            },
             &TtsCancellation::default(),
         )
         .await
@@ -1328,8 +1341,10 @@ mod tests {
             &context,
             &dir,
             None,
-            store.clone(),
-            rates.clone(),
+            TtsFetchResources {
+                store: store.clone(),
+                rates: rates.clone(),
+            },
             &TtsCancellation::default(),
         )
         .await
@@ -1352,8 +1367,10 @@ mod tests {
             &context,
             &dir,
             None,
-            store,
-            rates,
+            TtsFetchResources {
+                store: store,
+                rates,
+            },
             &TtsCancellation::default(),
         )
         .await

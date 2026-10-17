@@ -26,6 +26,9 @@ import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
+import 'package:flutter_legado/src/data/bridge/managed_rust_stream.dart';
+import 'package:flutter_legado/src/data/bridge/stream_dto_mapping.dart';
+import 'package:flutter_legado/src/data/bridge/transport_request_mapping.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
@@ -94,6 +97,38 @@ Future<_CollectResult> _collect(
   return result;
 }
 
+Stream<String> _sourceCheckStream({
+  required String sourceUrlsJson,
+  required String configJson,
+}) => managedRustStream(
+  (request) => bridge.sourceCheckStream(
+    sourceUrls: (jsonDecode(sourceUrlsJson) as List).cast<String>(),
+    config: sourceCheckConfig(configJson),
+    request: request,
+  ),
+).map((value) => jsonEncode(checkProgressFromDto(value)));
+
+Stream<String> _searchMultiStream({
+  required String query,
+  required String sourceUrlsJson,
+  required int page,
+}) =>
+    managedRustStream(
+      (request) => bridge.searchMultiStream(
+        query: query,
+        sourceUrls: (jsonDecode(sourceUrlsJson) as List).cast<String>(),
+        page: page,
+        request: request,
+      ),
+    ).map(
+      (value) => jsonEncode({
+        'source_url': value.sourceUrl,
+        'is_last': value.isLast,
+        'finished_count': value.finishedCount.toInt(),
+        'books': value.books.map((b) => searchBookFromDto(b).toJson()).toList(),
+      }),
+    );
+
 void main() {
   // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
   // CI（ubuntu/macOS）无产物：注册阶段整体跳过（仅留占位用例可见）
@@ -127,7 +162,7 @@ void main() {
     test('sourceCheckStream：订阅→进度事件→正常结束', () async {
       // 不存在的 URL 以 None 占位并推送失败进度（无网络依赖，确定性）
       final r = await _collect(
-        bridge.sourceCheckStream(
+        _sourceCheckStream(
           sourceUrlsJson: jsonEncode(['test://stream-check-nonexistent']),
           configJson: '',
         ),
@@ -149,7 +184,7 @@ void main() {
       // 第一轮：订阅后立即取消。取消检查点位于源间（Rust 侧单测覆盖 break
       // 语义）；此处验证取消调用经真实 wire 成功返回且流生命周期不受破坏。
       final cancelled = await _collect(
-        bridge.sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
+        _sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
         afterSubscribe: () => bridge.sourceCheckCancel(),
       );
       expect(cancelled.completed, isTrue);
@@ -158,7 +193,7 @@ void main() {
       // 第二轮：不取消 → 全部事件完整到达。证明取消标志在新一轮开始时被
       // 重置（source_check_api.rs L155），取消不残留污染后续会话。
       final rerun = await _collect(
-        bridge.sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
+        _sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
       );
       expect(rerun.completed, isTrue);
       expect(rerun.error, isNull);
@@ -272,7 +307,7 @@ void main() {
       );
       expect(imported, greaterThanOrEqualTo(1));
       final r = await _collect(
-        bridge.searchMultiStream(
+        _searchMultiStream(
           query: '测试关键词',
           sourceUrlsJson: jsonEncode([fakeUrl]),
           page: 1,

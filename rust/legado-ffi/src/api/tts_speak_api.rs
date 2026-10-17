@@ -129,9 +129,7 @@ impl TtsOperation {
             tokio::select! {
                 biased;
                 _ = self.task.cancelled() => Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())),
-                result = legado_fetcher::tts_fetcher::fetch_tts_audio_controlled(
-                    &client, &self.config, &context, &self.cache_dir, None, self.store, self.rates, cancellation,
-                ) => result,
+                result = legado_fetcher::tts_fetcher::fetch_tts_audio_controlled(&client, &self.config, &context, &self.cache_dir, None, legado_fetcher::tts_fetcher::TtsFetchResources {store: self.store, rates: self.rates}, cancellation) => result,
             }
         })?;
         cancellation.check()?;

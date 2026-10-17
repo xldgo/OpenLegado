@@ -202,6 +202,13 @@ impl SwitchContext {
     }
 }
 
+/// 换源提交的稳定主键与目标地址。— Codex
+struct SwitchCommitTarget<'a> {
+    book_url: &'a str,
+    source_url: &'a str,
+    detail_url: &'a str,
+}
+
 /// 换源搜索高级选项（对齐 AppConfig changeSourceLoad* 三开关）
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SwitchSearchOptions {
@@ -329,18 +336,33 @@ pub struct ChangeSourceBatch {
 pub async fn run_change_source_stream<F>(
     book_name: String,
     author: String,
+    urls: String,
+    options: String,
+    mut on_batch: F,
+) where
+    F: FnMut(String) -> Result<(), String>,
+{
+    run_change_source_stream_typed(book_name, author, urls, options, |batch| {
+        on_batch(serde_json::to_string(&batch).map_err(|e| e.to_string())?)
+    })
+    .await;
+}
+
+pub async fn run_change_source_stream_typed<F>(
+    book_name: String,
+    author: String,
     source_urls_json: String,
     options_json: String,
     on_batch: F,
 ) where
-    F: FnMut(String) -> Result<(), String>,
+    F: FnMut(ChangeSourceBatch) -> Result<(), String>,
 {
     let Ok(context) = SwitchContext::host().start_search() else {
         return;
     };
     let _guard = context.operation.as_ref().unwrap().guard();
     context
-        .run_change_source_stream(book_name, author, source_urls_json, options_json, on_batch)
+        .run_change_source_stream_typed(book_name, author, source_urls_json, options_json, on_batch)
         .await
 }
 
@@ -375,10 +397,23 @@ pub fn switch_book_source(
     new_source_url: &str,
     new_book_url: &str,
 ) -> LegadoResult<String> {
+    serde_json::to_string(&switch_book_source_entity(
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+pub fn switch_book_source_entity(
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<Book> {
     let context = SwitchContext::host().start_apply()?;
     let _guard = context.operation.as_ref().unwrap().guard();
     let fetcher = context.fetcher_for_book(new_source_url, new_book_url)?;
-    context.switch_book_source_with(&fetcher, book_url, new_source_url, new_book_url)
+    context.switch_book_source_entity_with(&fetcher, book_url, new_source_url, new_book_url)
 }
 
 /// [T5] 变量合并：候选搜索期变量（searchBooks 行）为先，详情页导出变量
@@ -492,7 +527,13 @@ fn switch_book_source_with<F: BookSourceFetcher>(
 ) -> LegadoResult<String> {
     let context = SwitchContext::host().start_apply()?;
     let _guard = context.operation.as_ref().unwrap().guard();
-    context.switch_book_source_with(fetcher, book_url, new_source_url, new_book_url)
+    serde_json::to_string(&context.switch_book_source_entity_with(
+        fetcher,
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
 }
 
 /// 换源（预拉缓存版，2026-09-24 加法式；FFI `source_switch_apply_prefetch`）
@@ -514,10 +555,28 @@ pub fn switch_book_source_prefetch(
     new_source_url: &str,
     new_book_url: &str,
 ) -> LegadoResult<String> {
+    serde_json::to_string(&switch_book_source_prefetch_entity(
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+pub fn switch_book_source_prefetch_entity(
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<Book> {
     let context = SwitchContext::host().start_apply()?;
     let _guard = context.operation.as_ref().unwrap().guard();
     let fetcher = context.fetcher_for_book(new_source_url, new_book_url)?;
-    context.switch_book_source_prefetch_with(&fetcher, book_url, new_source_url, new_book_url)
+    context.switch_book_source_prefetch_entity_with(
+        &fetcher,
+        book_url,
+        new_source_url,
+        new_book_url,
+    )
 }
 
 /// 换源核心（预拉缓存版，fetcher 注入便于单测以 Mock 验证命中零抓取/
@@ -531,7 +590,13 @@ fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
 ) -> LegadoResult<String> {
     let context = SwitchContext::host().start_apply()?;
     let _guard = context.operation.as_ref().unwrap().guard();
-    context.switch_book_source_prefetch_with(fetcher, book_url, new_source_url, new_book_url)
+    serde_json::to_string(&context.switch_book_source_prefetch_entity_with(
+        fetcher,
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
 }
 
 /// 解析换源场景待搜索的书源列表（留项#12，Task #131/Task #145）
@@ -542,6 +607,7 @@ fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
 /// Task #145：追加按 config `searchGroup` 的原生分组过滤（零 FFI 签名变更，
 /// Rust 内部读 config，对齐原版 ChangeBookSourceViewModel L197-206 读取
 /// `AppConfig.searchGroup` 后走 `getEnabledPartByGroup` 的行为）。
+#[cfg(test)]
 #[cfg(test)]
 pub(crate) fn resolve_switch_sources(source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
     SwitchContext::host().resolve_switch_sources(source_urls_json)
@@ -760,20 +826,43 @@ fn sync_source_score_delta(origin: &str, pre_score: i32, new_score: i32) {
 }
 
 impl SwitchContext {
+    #[cfg(test)]
+    fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
+        &self,
+        fetcher: &F,
+        book_url: &str,
+        source_url: &str,
+        detail_url: &str,
+    ) -> LegadoResult<String> {
+        serde_json::to_string(
+            &self.switch_book_source_prefetch_entity_with(
+                fetcher, book_url, source_url, detail_url,
+            )?,
+        )
+        .map_err(LegadoError::Serialization)
+    }
+
     fn search_alternative_sources(
+        &self,
+        name: &str,
+        author: &str,
+        json: &str,
+        options: &str,
+    ) -> LegadoResult<SourceSwitchResponse> {
+        self.search_alternative_sources_selected(
+            name,
+            author,
+            &crate::api::search::parse_source_urls(json)?,
+            self.resolve_switch_options(options),
+        )
+    }
+    fn search_alternative_sources_selected(
         &self,
         book_name: &str,
         author: &str,
-        source_urls_json: &str,
-        options_json: &str,
+        source_urls: &[String],
+        options: SwitchSearchOptions,
     ) -> LegadoResult<SourceSwitchResponse> {
-        let options = self.resolve_switch_options(options_json);
-
-        // 对齐上游 startSearch() 入口清空 tocMap/bookMap（L279-281）：新一轮
-        // 搜索会话作废旧会话预拉，防选中读到陈旧目录
-
-        // 对齐原版 ChangeBookSourceViewModel.searchDataFlow：
-        // 先 getDbSearchBooks；非空则直接展示，仅空列表或强制刷新才全量搜索。
         if !options.force_refresh {
             if let Some(matches) = self.try_load_change_source_from_db(book_name, author, &options)
             {
@@ -788,7 +877,7 @@ impl SwitchContext {
             self.clear_search_books_for_change(book_name, author);
         }
 
-        let sources = self.resolve_switch_sources(source_urls_json)?;
+        let sources = self.resolve_switch_sources_selected(source_urls)?;
         if sources.is_empty() {
             return Ok(SourceSwitchResponse {
                 book_name: book_name.to_string(),
@@ -866,35 +955,70 @@ impl SwitchContext {
     /// 推送一个换源流批次事件；返回 `Err`（sink 关闭）时由调用方决定终止
     fn push_change_source_batch(
         &self,
-        on_batch: &mut impl FnMut(String) -> Result<(), String>,
+        on_batch: &mut impl FnMut(ChangeSourceBatch) -> Result<(), String>,
         batch: ChangeSourceBatch,
     ) -> Result<(), String> {
-        let json = serde_json::to_string(&batch).map_err(|e| e.to_string())?;
         let result = self
-            .publish(|| on_batch(json))
+            .publish(|| on_batch(batch))
             .unwrap_or_else(|| Err("换源已取消".into()));
-        if result.is_err() {
-            if let Some(operation) = &self.operation {
-                operation.cancel();
-            }
+        if result.is_err()
+            && let Some(operation) = &self.operation
+        {
+            operation.cancel();
         }
         result
     }
 
+    #[cfg(test)]
     async fn run_change_source_stream<F>(
         &self,
-        book_name: String,
+        name: String,
         author: String,
-        source_urls_json: String,
-        options_json: String,
-        mut on_batch: F,
+        urls: String,
+        options: String,
+        mut callback: F,
     ) where
         F: FnMut(String) -> Result<(), String>,
     {
+        self.run_change_source_stream_typed(name, author, urls, options, |batch| {
+            callback(serde_json::to_string(&batch).map_err(|e| e.to_string())?)
+        })
+        .await;
+    }
+
+    async fn run_change_source_stream_typed<F>(
+        &self,
+        name: String,
+        author: String,
+        json: String,
+        options: String,
+        callback: F,
+    ) where
+        F: FnMut(ChangeSourceBatch) -> Result<(), String>,
+    {
+        let Ok(urls) = crate::api::search::parse_source_urls(&json) else {
+            return;
+        };
+        self.run_change_source_stream_selected(
+            name,
+            author,
+            urls,
+            self.resolve_switch_options(&options),
+            callback,
+        )
+        .await;
+    }
+    async fn run_change_source_stream_selected<F>(
+        &self,
+        book_name: String,
+        author: String,
+        source_urls: Vec<String>,
+        options: SwitchSearchOptions,
+        mut on_batch: F,
+    ) where
+        F: FnMut(ChangeSourceBatch) -> Result<(), String>,
+    {
         use std::sync::atomic::AtomicBool;
-
-        let options = self.resolve_switch_options(&options_json);
-
         // 对齐上游 startSearch() 入口清空 tocMap/bookMap（L279-281）：新一轮
         // 搜索会话作废旧会话预拉，防选中读到陈旧目录
 
@@ -925,7 +1049,7 @@ impl SwitchContext {
             self.clear_search_books_for_change(&book_name, &author);
         }
 
-        let sources = match self.resolve_switch_sources(&source_urls_json) {
+        let sources = match self.resolve_switch_sources_selected(&source_urls) {
             Ok(s) => s,
             Err(e) => {
                 let _ = self.push_change_source_batch(
@@ -1273,12 +1397,15 @@ impl SwitchContext {
         &self,
         book: &mut Book,
         source: &BookSource,
-        book_url: &str,
-        new_source_url: &str,
-        new_book_url: &str,
+        target: SwitchCommitTarget<'_>,
         info: WebBookInfo,
         web_chapters: Vec<WebChapter>,
-    ) -> LegadoResult<String> {
+    ) -> LegadoResult<Book> {
+        let SwitchCommitTarget {
+            book_url,
+            source_url: new_source_url,
+            detail_url: new_book_url,
+        } = target;
         use legado_db::BookRepository;
         use legado_db::repository::Repository;
 
@@ -1419,16 +1546,16 @@ impl SwitchContext {
         })
         .ok_or_else(|| LegadoError::Internal("换源已取消".into()))??;
 
-        serde_json::to_string(&book).map_err(LegadoError::Serialization)
+        Ok(book.clone())
     }
 
-    fn switch_book_source_with<F: BookSourceFetcher>(
+    fn switch_book_source_entity_with<F: BookSourceFetcher>(
         &self,
         fetcher: &F,
         book_url: &str,
         new_source_url: &str,
         new_book_url: &str,
-    ) -> LegadoResult<String> {
+    ) -> LegadoResult<Book> {
         // Task #21 修复：换源目标详情页 URL 为空时提前返回可读错误。
         // 否则空 URL 会传入 get_chapters（步骤 2b），触发解析器抛出令人困惑的
         // "bookUrl不能为空"（web_book.rs get_chapters 空值校验）。
@@ -1527,21 +1654,23 @@ impl SwitchContext {
         self.commit_source_switch(
             &mut book,
             &source,
-            book_url,
-            new_source_url,
-            new_book_url,
+            SwitchCommitTarget {
+                book_url,
+                source_url: new_source_url,
+                detail_url: new_book_url,
+            },
             info,
             web_chapters,
         )
     }
 
-    fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
+    fn switch_book_source_prefetch_entity_with<F: BookSourceFetcher>(
         &self,
         fetcher: &F,
         book_url: &str,
         new_source_url: &str,
         new_book_url: &str,
-    ) -> LegadoResult<String> {
+    ) -> LegadoResult<Book> {
         // Task #21 同款兜底防御（与旧路径同一文案/同一前置）
         if new_book_url.trim().is_empty() {
             return Err(LegadoError::Parser(
@@ -1641,17 +1770,23 @@ impl SwitchContext {
         self.commit_source_switch(
             &mut book,
             &source,
-            book_url,
-            new_source_url,
-            new_book_url,
+            SwitchCommitTarget {
+                book_url,
+                source_url: new_source_url,
+                detail_url: new_book_url,
+            },
             info,
             web_chapters,
         )
     }
 
-    fn resolve_switch_sources(&self, source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
+    #[cfg(test)]
+    fn resolve_switch_sources(&self, json: &str) -> LegadoResult<Vec<BookSource>> {
+        self.resolve_switch_sources_selected(&crate::api::search::parse_source_urls(json)?)
+    }
+    fn resolve_switch_sources_selected(&self, urls: &[String]) -> LegadoResult<Vec<BookSource>> {
         let sources =
-            crate::api::search::load_search_sources_from(self.storage.as_ref(), source_urls_json)?;
+            crate::api::search::load_search_sources_selected_from(self.storage.as_ref(), urls)?;
         Ok(self.filter_sources_by_search_group(sources))
     }
 
@@ -2064,6 +2199,37 @@ impl SwitchContext {
             });
         });
     }
+}
+
+pub fn search_alternative_sources_selected(
+    name: &str,
+    author: &str,
+    urls: &[String],
+    options: SwitchSearchOptions,
+) -> LegadoResult<SourceSwitchResponse> {
+    let context = SwitchContext::host().start_search()?;
+    let _guard = context.operation.as_ref().unwrap().guard();
+    let result = context.search_alternative_sources_selected(name, author, urls, options);
+    context
+        .publish(|| result)
+        .unwrap_or_else(|| Err(LegadoError::Internal("换源已取消".into())))
+}
+pub async fn run_change_source_stream_selected<F>(
+    name: String,
+    author: String,
+    urls: Vec<String>,
+    options: SwitchSearchOptions,
+    callback: F,
+) where
+    F: FnMut(ChangeSourceBatch) -> Result<(), String>,
+{
+    let Ok(context) = SwitchContext::host().start_search() else {
+        return;
+    };
+    let _guard = context.operation.as_ref().unwrap().guard();
+    context
+        .run_change_source_stream_selected(name, author, urls, options, callback)
+        .await;
 }
 
 #[cfg(test)]

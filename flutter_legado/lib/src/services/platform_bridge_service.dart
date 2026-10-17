@@ -157,11 +157,19 @@ class PlatformBridgeService {
   Future<String> interceptResult(String raw) async {
     final payload = parsePayload(raw);
     if (payload == null) return raw;
+    return interceptPayload(payload, fallback: raw);
+  }
+
+  /// 类型化桥接直接分发动作；异常保留既有载荷回退语义。— Codex + Bridge
+  Future<String> interceptPayload(
+    Map<String, dynamic> payload, {
+    String? fallback,
+  }) async {
     try {
       return await dispatchPayload(payload);
     } catch (e, stack) {
       debugPrint('[PlatformBridge] 执行载荷失败：$e\n$stack');
-      return raw;
+      return fallback ?? jsonEncode(payload);
     }
   }
 

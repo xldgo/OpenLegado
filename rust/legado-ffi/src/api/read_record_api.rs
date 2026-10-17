@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use legado_core::LegadoResult;
-use legado_db::{ReadRecordDetail, ReadRecordRepository};
+use legado_db::ReadRecordRepository;
 
 use crate::db_state::with_database;
 
@@ -21,28 +21,7 @@ pub struct ReadRecordDto {
     pub device_id: String,
 }
 
-/// 单书每日阅读明细 DTO（camelCase 序列化，包含 bookName, author, date, readTime, lastRead）
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ReadRecordDetailDto {
-    pub book_name: String,
-    pub author: String,
-    pub date: String,
-    pub read_time: i64,
-    pub last_read: i64,
-}
-
-impl From<ReadRecordDetail> for ReadRecordDetailDto {
-    fn from(d: ReadRecordDetail) -> Self {
-        Self {
-            book_name: d.book_name,
-            author: d.author,
-            date: d.date,
-            read_time: d.read_time,
-            last_read: d.last_read,
-        }
-    }
-}
+pub use crate::transfer_dto::ReadRecordDetailDto;
 
 /// 获取所有阅读记录（按 readTime 降序）
 pub fn get_read_records() -> LegadoResult<Vec<ReadRecordDto>> {
@@ -125,13 +104,15 @@ pub fn record_reading_time_with_session(
 ) -> LegadoResult<i64> {
     with_database(|db| {
         ReadRecordRepository::new(db.connection()).record_reading_time_with_session(
-            book_name,
-            author,
-            read_time_ms,
-            start_time_ms,
-            end_time_ms,
-            book_url,
-            chapter_index,
+            legado_db::repository::read_record_repository::ReadingSessionInput {
+                book_name,
+                author,
+                read_time_ms,
+                start_time_ms,
+                end_time_ms,
+                book_url,
+                chapter_index,
+            },
         )
     })
 }

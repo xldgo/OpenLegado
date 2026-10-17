@@ -1,8 +1,10 @@
+import '../../models/book_source.dart';
+
 /// 书源校验能力；不拥有配置、页面状态或数据库初始化。— Codex + UI
 abstract interface class SourceChecker {
   /// 校验单个书源（搜索→详情→目录→正文四步 + 验证码/重定向检测）
   ///
-  /// [sourceJson] — BookSource JSON（字段名对齐 Android 原版 camelCase）
+  /// [source] — 已由书源导入或仓储解析的实体，不重复序列化。
   /// [configJson] — 可选校验配置 JSON：`keyword` / `step_timeout_ms` /
   /// `check_search` / `check_toc` / `check_content` / `detect_captcha` /
   /// `detect_redirect`，全部可选，缺省用默认配置。
@@ -12,7 +14,7 @@ abstract interface class SourceChecker {
   /// `total_time_ms` / `captcha`（detected/captcha_type/matched_keyword）/
   /// `redirect`（redirected/original_url/final_url/is_login_redirect）。
   Future<Map<String, dynamic>> checkSource(
-    String sourceJson, {
+    BookSource source, {
     String? configJson,
   });
 

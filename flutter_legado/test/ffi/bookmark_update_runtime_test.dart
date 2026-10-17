@@ -4,7 +4,9 @@ library;
 @Timeout(Duration(minutes: 3))
 import 'dart:io';
 
+import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
+import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
@@ -64,11 +66,29 @@ void main() {
     expect(after.singleWhere((b) => b.id == other.id), untouched);
   });
 
-  test('非法 JSON 与不存在的目标均失败，原记录完整保留', () async {
+  test('强类型更新不存在的目标失败，原记录完整保留', () async {
     final before = await repository.getAllBookmarks();
     await expectLater(
-      bridge.bookmarkUpdate(bookmarkJson: '{'),
-      throwsA(anything),
+      bridge.bookmarkUpdate(
+        bookmark: BookmarkDto(
+          id: 9007199254740993,
+          time: 9007199254740993,
+          bookName: '不存在😀',
+          bookAuthor: '',
+          chapterIndex: 0,
+          chapterPos: 0,
+          chapterName: '',
+          bookText: '',
+          content: '',
+        ),
+      ),
+      throwsA(
+        isA<BridgeError>().having(
+          (error) => error.message,
+          '精确 i64 ID',
+          contains('9007199254740993'),
+        ),
+      ),
     );
     await expectLater(
       repository.updateBookmark(const Bookmark(id: -1, content: '不存在')),
@@ -79,13 +99,25 @@ void main() {
 
   test('窄接口查询隔离同名书，搜索及删除仍访问同一原生存储', () async {
     final first = await repository.addBookmark(
-      const Bookmark(bookName: '双键测试', bookAuthor: '甲', content: '甲的唯一备注'),
+      const Bookmark(
+        bookName: '双键测试',
+        bookAuthor: '甲',
+        content: '甲的唯一备注',
+        bookText: '甲😀e\u0301乙',
+        chapterPos: 3,
+        chapterName: '',
+      ),
     );
     final second = await repository.addBookmark(
       const Bookmark(bookName: '双键测试', bookAuthor: '乙', content: '乙的唯一备注'),
     );
     final byAuthor = await repository.getBookmarksByBook('双键测试', '甲');
     expect(byAuthor.map((b) => b.id), [first.id]);
+    expect(byAuthor.single.bookText, '甲😀e\u0301乙');
+    expect(byAuthor.single.chapterPos, 3);
+    expect(byAuthor.single.chapterName, isEmpty);
+    final raw = await bridge.bookmarkGetAll(bookName: '双键测试');
+    expect(raw.map((b) => b.id).toSet(), {first.id, second.id});
     expect(
       (await repository.getBookmarksByBook('双键测试', '乙')).map((b) => b.id),
       [second.id],

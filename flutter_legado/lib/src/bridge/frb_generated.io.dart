@@ -10,8 +10,12 @@ import 'dart:ffi' as ffi;
 import 'ffi.dart';
 import 'ffi/ffi.dart';
 import 'frb_generated.dart';
+import 'layout_bridge.dart';
+import 'layout_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
+
+import 'transfer_dto.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustLibApiImplPlatform({
@@ -22,11 +26,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_LayoutSessionPtr => wire
+      ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSessionPtr;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_StreamRequestPtr => wire
+      ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequestPtr;
+
+  CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_TtsRequestPtr => wire
       ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequestPtr;
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  LayoutSession
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  StreamRequest
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    dynamic raw,
+  );
 
   @protected
   TtsRequest
@@ -35,8 +59,47 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  LayoutSession
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  StreamRequest
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    dynamic raw,
+  );
+
+  @protected
   TtsRequest
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    dynamic raw,
+  );
+
+  @protected
+  Map<String, String> dco_decode_Map_String_String_None(dynamic raw);
+
+  @protected
+  Map<String, LayoutCastProfileDto>
+  dco_decode_Map_String_layout_cast_profile_dto_None(dynamic raw);
+
+  @protected
+  Map<String, LayoutValueDto> dco_decode_Map_String_layout_value_dto_None(
+    dynamic raw,
+  );
+
+  @protected
+  Map<int, String> dco_decode_Map_i_32_String_None(dynamic raw);
+
+  @protected
+  LayoutSession
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  StreamRequest
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
     dynamic raw,
   );
 
@@ -50,13 +113,68 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw);
 
   @protected
+  RustStreamSink<ChangeSourceBatchDto>
+  dco_decode_StreamSink_change_source_batch_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<CheckProgressDto> dco_decode_StreamSink_check_progress_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<SearchSourceBatchDto>
+  dco_decode_StreamSink_search_source_batch_dto_Sse(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  AnnotatedCandidateDto dco_decode_annotated_candidate_dto(dynamic raw);
+
+  @protected
+  BookDto dco_decode_book_dto(dynamic raw);
+
+  @protected
+  BookInfoRuleDto dco_decode_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookSourceDto dco_decode_book_source_dto(dynamic raw);
+
+  @protected
+  BookmarkDto dco_decode_bookmark_dto(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  BookDto dco_decode_box_autoadd_book_dto(dynamic raw);
+
+  @protected
+  BookInfoRuleDto dco_decode_box_autoadd_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookSourceDto dco_decode_box_autoadd_book_source_dto(dynamic raw);
+
+  @protected
+  BookmarkDto dco_decode_box_autoadd_bookmark_dto(dynamic raw);
+
+  @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CaptchaInfoDto dco_decode_box_autoadd_captcha_info_dto(dynamic raw);
+
+  @protected
+  ContentRuleDto dco_decode_box_autoadd_content_rule_dto(dynamic raw);
+
+  @protected
+  ExploreRuleDto dco_decode_box_autoadd_explore_rule_dto(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_i_32(dynamic raw);
@@ -65,13 +183,98 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
+  LayoutBackgroundImageDto dco_decode_box_autoadd_layout_background_image_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutConfigDto dco_decode_box_autoadd_layout_config_dto(dynamic raw);
+
+  @protected
+  LayoutInlineParagraphDto dco_decode_box_autoadd_layout_inline_paragraph_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutPageUnderlineDto dco_decode_box_autoadd_layout_page_underline_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutValueDto dco_decode_box_autoadd_layout_value_dto(dynamic raw);
+
+  @protected
+  PlatformActionDto dco_decode_box_autoadd_platform_action_dto(dynamic raw);
+
+  @protected
+  ReadConfigDto dco_decode_box_autoadd_read_config_dto(dynamic raw);
+
+  @protected
+  RedirectInfoDto dco_decode_box_autoadd_redirect_info_dto(dynamic raw);
+
+  @protected
+  ReviewRuleDto dco_decode_box_autoadd_review_rule_dto(dynamic raw);
+
+  @protected
+  SearchRuleDto dco_decode_box_autoadd_search_rule_dto(dynamic raw);
+
+  @protected
+  SourceCheckConfigDto dco_decode_box_autoadd_source_check_config_dto(
+    dynamic raw,
+  );
+
+  @protected
+  SwitchSearchOptionsDto dco_decode_box_autoadd_switch_search_options_dto(
+    dynamic raw,
+  );
+
+  @protected
+  TocRuleDto dco_decode_box_autoadd_toc_rule_dto(dynamic raw);
+
+  @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  BigInt dco_decode_box_autoadd_usize(dynamic raw);
+
+  @protected
+  LayoutParagraphDto dco_decode_box_layout_paragraph_dto(dynamic raw);
+
+  @protected
+  LayoutTextStyleDto dco_decode_box_layout_text_style_dto(dynamic raw);
+
+  @protected
   BridgeError dco_decode_bridge_error(dynamic raw);
+
+  @protected
+  CaptchaInfoDto dco_decode_captcha_info_dto(dynamic raw);
+
+  @protected
+  ChangeSourceBatchDto dco_decode_change_source_batch_dto(dynamic raw);
+
+  @protected
+  ChapterDto dco_decode_chapter_dto(dynamic raw);
+
+  @protected
+  ChapterListDto dco_decode_chapter_list_dto(dynamic raw);
+
+  @protected
+  CheckProgressDto dco_decode_check_progress_dto(dynamic raw);
+
+  @protected
+  CheckResultDto dco_decode_check_result_dto(dynamic raw);
+
+  @protected
+  ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
+
+  @protected
+  ExploreRuleDto dco_decode_explore_rule_dto(dynamic raw);
+
+  @protected
+  double dco_decode_f_32(dynamic raw);
 
   @protected
   double dco_decode_f_64(dynamic raw);
@@ -83,19 +286,174 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  LayoutAlignmentDto dco_decode_layout_alignment_dto(dynamic raw);
+
+  @protected
+  LayoutBackgroundImageDto dco_decode_layout_background_image_dto(dynamic raw);
+
+  @protected
+  LayoutBlockDto dco_decode_layout_block_dto(dynamic raw);
+
+  @protected
+  LayoutBreakModeDto dco_decode_layout_break_mode_dto(dynamic raw);
+
+  @protected
+  LayoutCastOptionsDto dco_decode_layout_cast_options_dto(dynamic raw);
+
+  @protected
+  LayoutCastProfileDto dco_decode_layout_cast_profile_dto(dynamic raw);
+
+  @protected
+  LayoutConfigDto dco_decode_layout_config_dto(dynamic raw);
+
+  @protected
+  LayoutDecorationKindDto dco_decode_layout_decoration_kind_dto(dynamic raw);
+
+  @protected
+  LayoutElementDto dco_decode_layout_element_dto(dynamic raw);
+
+  @protected
+  LayoutImageScaleDto dco_decode_layout_image_scale_dto(dynamic raw);
+
+  @protected
+  LayoutInlineItemDto dco_decode_layout_inline_item_dto(dynamic raw);
+
+  @protected
+  LayoutInlineParagraphDto dco_decode_layout_inline_paragraph_dto(dynamic raw);
+
+  @protected
+  LayoutPageDto dco_decode_layout_page_dto(dynamic raw);
+
+  @protected
+  LayoutPageUnderlineDto dco_decode_layout_page_underline_dto(dynamic raw);
+
+  @protected
+  LayoutParagraphDecorationDto dco_decode_layout_paragraph_decoration_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutParagraphDto dco_decode_layout_paragraph_dto(dynamic raw);
+
+  @protected
+  LayoutReplyDto dco_decode_layout_reply_dto(dynamic raw);
+
+  @protected
+  LayoutTextStyleDto dco_decode_layout_text_style_dto(dynamic raw);
+
+  @protected
+  LayoutValueDto dco_decode_layout_value_dto(dynamic raw);
+
+  @protected
+  LayoutValueKind dco_decode_layout_value_kind(dynamic raw);
+
+  @protected
+  List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<AnnotatedCandidateDto> dco_decode_list_annotated_candidate_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<BookDto> dco_decode_list_book_dto(dynamic raw);
+
+  @protected
+  List<BookSourceDto> dco_decode_list_book_source_dto(dynamic raw);
+
+  @protected
+  List<BookmarkDto> dco_decode_list_bookmark_dto(dynamic raw);
+
+  @protected
+  List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
+
+  @protected
+  List<LayoutBlockDto> dco_decode_list_layout_block_dto(dynamic raw);
+
+  @protected
+  List<LayoutElementDto> dco_decode_list_layout_element_dto(dynamic raw);
+
+  @protected
+  List<LayoutInlineItemDto> dco_decode_list_layout_inline_item_dto(dynamic raw);
+
+  @protected
+  List<LayoutPageDto> dco_decode_list_layout_page_dto(dynamic raw);
+
+  @protected
+  List<LayoutParagraphDecorationDto>
+  dco_decode_list_layout_paragraph_decoration_dto(dynamic raw);
+
+  @protected
+  List<LayoutTextStyleDto> dco_decode_list_layout_text_style_dto(dynamic raw);
+
+  @protected
+  List<LayoutValueDto> dco_decode_list_layout_value_dto(dynamic raw);
+
+  @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
+
+  @protected
   Int32List dco_decode_list_prim_i_32_strict(dynamic raw);
 
   @protected
   Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
 
   @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<ReadRecordDetailDto> dco_decode_list_read_record_detail_dto(dynamic raw);
+
+  @protected
+  List<(int, String)> dco_decode_list_record_i_32_string(dynamic raw);
+
+  @protected
+  List<(String, LayoutCastProfileDto)>
+  dco_decode_list_record_string_layout_cast_profile_dto(dynamic raw);
+
+  @protected
+  List<(String, LayoutValueDto)> dco_decode_list_record_string_layout_value_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<(String, String)> dco_decode_list_record_string_string(dynamic raw);
+
+  @protected
+  List<SearchBookDto> dco_decode_list_search_book_dto(dynamic raw);
+
+  @protected
+  List<SourceMatchDto> dco_decode_list_source_match_dto(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  BookDto? dco_decode_opt_box_autoadd_book_dto(dynamic raw);
+
+  @protected
+  BookInfoRuleDto? dco_decode_opt_box_autoadd_book_info_rule_dto(dynamic raw);
+
+  @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CaptchaInfoDto? dco_decode_opt_box_autoadd_captcha_info_dto(dynamic raw);
+
+  @protected
+  ContentRuleDto? dco_decode_opt_box_autoadd_content_rule_dto(dynamic raw);
+
+  @protected
+  ExploreRuleDto? dco_decode_opt_box_autoadd_explore_rule_dto(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
 
   @protected
   int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
@@ -104,10 +462,103 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
+  LayoutBackgroundImageDto?
+  dco_decode_opt_box_autoadd_layout_background_image_dto(dynamic raw);
+
+  @protected
+  LayoutPageUnderlineDto? dco_decode_opt_box_autoadd_layout_page_underline_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutValueDto? dco_decode_opt_box_autoadd_layout_value_dto(dynamic raw);
+
+  @protected
+  ReadConfigDto? dco_decode_opt_box_autoadd_read_config_dto(dynamic raw);
+
+  @protected
+  RedirectInfoDto? dco_decode_opt_box_autoadd_redirect_info_dto(dynamic raw);
+
+  @protected
+  ReviewRuleDto? dco_decode_opt_box_autoadd_review_rule_dto(dynamic raw);
+
+  @protected
+  SearchRuleDto? dco_decode_opt_box_autoadd_search_rule_dto(dynamic raw);
+
+  @protected
+  TocRuleDto? dco_decode_opt_box_autoadd_toc_rule_dto(dynamic raw);
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_usize(dynamic raw);
+
+  @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  PlatformActionDto dco_decode_platform_action_dto(dynamic raw);
+
+  @protected
+  PlatformActionKind dco_decode_platform_action_kind(dynamic raw);
+
+  @protected
+  ReadConfigDto dco_decode_read_config_dto(dynamic raw);
+
+  @protected
+  ReadRecordDetailDto dco_decode_read_record_detail_dto(dynamic raw);
+
+  @protected
+  (int, String) dco_decode_record_i_32_string(dynamic raw);
+
+  @protected
+  (String, LayoutCastProfileDto)
+  dco_decode_record_string_layout_cast_profile_dto(dynamic raw);
+
+  @protected
+  (String, LayoutValueDto) dco_decode_record_string_layout_value_dto(
+    dynamic raw,
+  );
+
+  @protected
+  (String, String) dco_decode_record_string_string(dynamic raw);
+
+  @protected
+  RedirectInfoDto dco_decode_redirect_info_dto(dynamic raw);
+
+  @protected
+  ReviewRuleDto dco_decode_review_rule_dto(dynamic raw);
+
+  @protected
+  SearchBookDto dco_decode_search_book_dto(dynamic raw);
+
+  @protected
+  SearchRuleDto dco_decode_search_rule_dto(dynamic raw);
+
+  @protected
+  SearchSourceBatchDto dco_decode_search_source_batch_dto(dynamic raw);
+
+  @protected
+  SourceCheckConfigDto dco_decode_source_check_config_dto(dynamic raw);
+
+  @protected
+  SourceMatchDto dco_decode_source_match_dto(dynamic raw);
+
+  @protected
+  SourceSwitchResponseDto dco_decode_source_switch_response_dto(dynamic raw);
+
+  @protected
+  SwitchSearchOptionsDto dco_decode_switch_search_options_dto(dynamic raw);
+
+  @protected
+  TextResponseDto dco_decode_text_response_dto(dynamic raw);
+
+  @protected
+  TocRuleDto dco_decode_toc_rule_dto(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -131,14 +582,71 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  LayoutSession
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StreamRequest
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   TtsRequest
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
     SseDeserializer deserializer,
   );
 
   @protected
+  LayoutSession
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StreamRequest
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   TtsRequest
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, String> sse_decode_Map_String_String_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, LayoutCastProfileDto>
+  sse_decode_Map_String_layout_cast_profile_dto_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, LayoutValueDto> sse_decode_Map_String_layout_value_dto_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<int, String> sse_decode_Map_i_32_String_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutSession
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StreamRequest
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
     SseDeserializer deserializer,
   );
 
@@ -154,13 +662,84 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<ChangeSourceBatchDto>
+  sse_decode_StreamSink_change_source_batch_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<CheckProgressDto> sse_decode_StreamSink_check_progress_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<SearchSourceBatchDto>
+  sse_decode_StreamSink_search_source_batch_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  AnnotatedCandidateDto sse_decode_annotated_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookDto sse_decode_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookInfoRuleDto sse_decode_book_info_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  BookSourceDto sse_decode_book_source_dto(SseDeserializer deserializer);
+
+  @protected
+  BookmarkDto sse_decode_bookmark_dto(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  BookDto sse_decode_box_autoadd_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookInfoRuleDto sse_decode_box_autoadd_book_info_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookSourceDto sse_decode_box_autoadd_book_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookmarkDto sse_decode_box_autoadd_bookmark_dto(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CaptchaInfoDto sse_decode_box_autoadd_captcha_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ContentRuleDto sse_decode_box_autoadd_content_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExploreRuleDto sse_decode_box_autoadd_explore_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
@@ -169,13 +748,118 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  LayoutBackgroundImageDto sse_decode_box_autoadd_layout_background_image_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutConfigDto sse_decode_box_autoadd_layout_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutInlineParagraphDto sse_decode_box_autoadd_layout_inline_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutPageUnderlineDto sse_decode_box_autoadd_layout_page_underline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutValueDto sse_decode_box_autoadd_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PlatformActionDto sse_decode_box_autoadd_platform_action_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadConfigDto sse_decode_box_autoadd_read_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedirectInfoDto sse_decode_box_autoadd_redirect_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewRuleDto sse_decode_box_autoadd_review_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchRuleDto sse_decode_box_autoadd_search_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceCheckConfigDto sse_decode_box_autoadd_source_check_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SwitchSearchOptionsDto sse_decode_box_autoadd_switch_search_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TocRuleDto sse_decode_box_autoadd_toc_rule_dto(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
+  LayoutParagraphDto sse_decode_box_layout_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutTextStyleDto sse_decode_box_layout_text_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BridgeError sse_decode_bridge_error(SseDeserializer deserializer);
+
+  @protected
+  CaptchaInfoDto sse_decode_captcha_info_dto(SseDeserializer deserializer);
+
+  @protected
+  ChangeSourceBatchDto sse_decode_change_source_batch_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterDto sse_decode_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  ChapterListDto sse_decode_chapter_list_dto(SseDeserializer deserializer);
+
+  @protected
+  CheckProgressDto sse_decode_check_progress_dto(SseDeserializer deserializer);
+
+  @protected
+  CheckResultDto sse_decode_check_result_dto(SseDeserializer deserializer);
+
+  @protected
+  ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  ExploreRuleDto sse_decode_explore_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_32(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
@@ -187,19 +871,232 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
+  LayoutAlignmentDto sse_decode_layout_alignment_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutBackgroundImageDto sse_decode_layout_background_image_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutBlockDto sse_decode_layout_block_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutBreakModeDto sse_decode_layout_break_mode_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutCastOptionsDto sse_decode_layout_cast_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutCastProfileDto sse_decode_layout_cast_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutConfigDto sse_decode_layout_config_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutDecorationKindDto sse_decode_layout_decoration_kind_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutElementDto sse_decode_layout_element_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutImageScaleDto sse_decode_layout_image_scale_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutInlineItemDto sse_decode_layout_inline_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutInlineParagraphDto sse_decode_layout_inline_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutPageDto sse_decode_layout_page_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutPageUnderlineDto sse_decode_layout_page_underline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutParagraphDecorationDto sse_decode_layout_paragraph_decoration_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutParagraphDto sse_decode_layout_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutReplyDto sse_decode_layout_reply_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutTextStyleDto sse_decode_layout_text_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutValueDto sse_decode_layout_value_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutValueKind sse_decode_layout_value_kind(SseDeserializer deserializer);
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<AnnotatedCandidateDto> sse_decode_list_annotated_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookDto> sse_decode_list_book_dto(SseDeserializer deserializer);
+
+  @protected
+  List<BookSourceDto> sse_decode_list_book_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookmarkDto> sse_decode_list_bookmark_dto(SseDeserializer deserializer);
+
+  @protected
+  List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  List<LayoutBlockDto> sse_decode_list_layout_block_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutElementDto> sse_decode_list_layout_element_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutInlineItemDto> sse_decode_list_layout_inline_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutPageDto> sse_decode_list_layout_page_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutParagraphDecorationDto>
+  sse_decode_list_layout_paragraph_decoration_dto(SseDeserializer deserializer);
+
+  @protected
+  List<LayoutTextStyleDto> sse_decode_list_layout_text_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutValueDto> sse_decode_list_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
+
+  @protected
   Int32List sse_decode_list_prim_i_32_strict(SseDeserializer deserializer);
 
   @protected
   Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
 
   @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<ReadRecordDetailDto> sse_decode_list_read_record_detail_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(int, String)> sse_decode_list_record_i_32_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, LayoutCastProfileDto)>
+  sse_decode_list_record_string_layout_cast_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, LayoutValueDto)> sse_decode_list_record_string_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, String)> sse_decode_list_record_string_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchBookDto> sse_decode_list_search_book_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SourceMatchDto> sse_decode_list_source_match_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  BookDto? sse_decode_opt_box_autoadd_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookInfoRuleDto? sse_decode_opt_box_autoadd_book_info_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CaptchaInfoDto? sse_decode_opt_box_autoadd_captcha_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ContentRuleDto? sse_decode_opt_box_autoadd_content_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExploreRuleDto? sse_decode_opt_box_autoadd_explore_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
   int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
@@ -208,10 +1105,135 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  LayoutBackgroundImageDto?
+  sse_decode_opt_box_autoadd_layout_background_image_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutPageUnderlineDto? sse_decode_opt_box_autoadd_layout_page_underline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutValueDto? sse_decode_opt_box_autoadd_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadConfigDto? sse_decode_opt_box_autoadd_read_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedirectInfoDto? sse_decode_opt_box_autoadd_redirect_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewRuleDto? sse_decode_opt_box_autoadd_review_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchRuleDto? sse_decode_opt_box_autoadd_search_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TocRuleDto? sse_decode_opt_box_autoadd_toc_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  PlatformActionDto sse_decode_platform_action_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PlatformActionKind sse_decode_platform_action_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadConfigDto sse_decode_read_config_dto(SseDeserializer deserializer);
+
+  @protected
+  ReadRecordDetailDto sse_decode_read_record_detail_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (int, String) sse_decode_record_i_32_string(SseDeserializer deserializer);
+
+  @protected
+  (String, LayoutCastProfileDto)
+  sse_decode_record_string_layout_cast_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (String, LayoutValueDto) sse_decode_record_string_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (String, String) sse_decode_record_string_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedirectInfoDto sse_decode_redirect_info_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewRuleDto sse_decode_review_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchBookDto sse_decode_search_book_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchRuleDto sse_decode_search_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchSourceBatchDto sse_decode_search_source_batch_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceCheckConfigDto sse_decode_source_check_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceMatchDto sse_decode_source_match_dto(SseDeserializer deserializer);
+
+  @protected
+  SourceSwitchResponseDto sse_decode_source_switch_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SwitchSearchOptionsDto sse_decode_switch_search_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TextResponseDto sse_decode_text_response_dto(SseDeserializer deserializer);
+
+  @protected
+  TocRuleDto sse_decode_toc_rule_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -239,6 +1261,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    StreamRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
     TtsRequest self,
     SseSerializer serializer,
@@ -246,8 +1282,60 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    StreamRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
     TtsRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_String_None(
+    Map<String, String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_layout_cast_profile_dto_None(
+    Map<String, LayoutCastProfileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_layout_value_dto_None(
+    Map<String, LayoutValueDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_i_32_String_None(
+    Map<int, String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    StreamRequest self,
     SseSerializer serializer,
   );
 
@@ -265,13 +1353,97 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_change_source_batch_dto_Sse(
+    RustStreamSink<ChangeSourceBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_check_progress_dto_Sse(
+    RustStreamSink<CheckProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_search_source_batch_dto_Sse(
+    RustStreamSink<SearchSourceBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_annotated_candidate_dto(
+    AnnotatedCandidateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_book_dto(BookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_info_rule_dto(
+    BookInfoRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_book_source_dto(BookSourceDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_bookmark_dto(BookmarkDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_book_dto(BookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_book_info_rule_dto(
+    BookInfoRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_book_source_dto(
+    BookSourceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_bookmark_dto(
+    BookmarkDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_captcha_info_dto(
+    CaptchaInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_content_rule_dto(
+    ContentRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_explore_rule_dto(
+    ExploreRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
@@ -283,13 +1455,154 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_layout_background_image_dto(
+    LayoutBackgroundImageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_config_dto(
+    LayoutConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_inline_paragraph_dto(
+    LayoutInlineParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_page_underline_dto(
+    LayoutPageUnderlineDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_value_dto(
+    LayoutValueDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_platform_action_dto(
+    PlatformActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_read_config_dto(
+    ReadConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_redirect_info_dto(
+    RedirectInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_review_rule_dto(
+    ReviewRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_search_rule_dto(
+    SearchRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_source_check_config_dto(
+    SourceCheckConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_switch_search_options_dto(
+    SwitchSearchOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_toc_rule_dto(
+    TocRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_layout_paragraph_dto(
+    LayoutParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_layout_text_style_dto(
+    LayoutTextStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_bridge_error(BridgeError self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_captcha_info_dto(
+    CaptchaInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_source_batch_dto(
+    ChangeSourceBatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_chapter_dto(ChapterDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_chapter_list_dto(
+    ChapterListDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_progress_dto(
+    CheckProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_result_dto(
+    CheckResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_content_rule_dto(
+    ContentRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_explore_rule_dto(
+    ExploreRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_f_32(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
@@ -299,6 +1612,201 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_layout_alignment_dto(
+    LayoutAlignmentDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_background_image_dto(
+    LayoutBackgroundImageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_block_dto(
+    LayoutBlockDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_break_mode_dto(
+    LayoutBreakModeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_cast_options_dto(
+    LayoutCastOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_cast_profile_dto(
+    LayoutCastProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_config_dto(
+    LayoutConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_decoration_kind_dto(
+    LayoutDecorationKindDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_element_dto(
+    LayoutElementDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_image_scale_dto(
+    LayoutImageScaleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_inline_item_dto(
+    LayoutInlineItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_inline_paragraph_dto(
+    LayoutInlineParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_page_dto(LayoutPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_layout_page_underline_dto(
+    LayoutPageUnderlineDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_paragraph_decoration_dto(
+    LayoutParagraphDecorationDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_paragraph_dto(
+    LayoutParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_reply_dto(
+    LayoutReplyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_text_style_dto(
+    LayoutTextStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_value_dto(
+    LayoutValueDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_value_kind(
+    LayoutValueKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_annotated_candidate_dto(
+    List<AnnotatedCandidateDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_dto(List<BookDto> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_book_source_dto(
+    List<BookSourceDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_bookmark_dto(
+    List<BookmarkDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_chapter_dto(
+    List<ChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_block_dto(
+    List<LayoutBlockDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_element_dto(
+    List<LayoutElementDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_inline_item_dto(
+    List<LayoutInlineItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_page_dto(
+    List<LayoutPageDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_paragraph_decoration_dto(
+    List<LayoutParagraphDecorationDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_text_style_dto(
+    List<LayoutTextStyleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_value_dto(
+    List<LayoutValueDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_prim_i_32_strict(
@@ -313,8 +1821,53 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_detail_dto(
+    List<ReadRecordDetailDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_i_32_string(
+    List<(int, String)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_layout_cast_profile_dto(
+    List<(String, LayoutCastProfileDto)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_layout_value_dto(
+    List<(String, LayoutValueDto)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_string(
+    List<(String, String)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_book_dto(
+    List<SearchBookDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_source_match_dto(
+    List<SourceMatchDto> self,
     SseSerializer serializer,
   );
 
@@ -322,7 +1875,43 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_book_dto(
+    BookDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_book_info_rule_dto(
+    BookInfoRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_captcha_info_dto(
+    CaptchaInfoDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_content_rule_dto(
+    ContentRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_explore_rule_dto(
+    ExploreRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
@@ -334,10 +1923,166 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_layout_background_image_dto(
+    LayoutBackgroundImageDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_layout_page_underline_dto(
+    LayoutPageUnderlineDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_layout_value_dto(
+    LayoutValueDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_read_config_dto(
+    ReadConfigDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_redirect_info_dto(
+    RedirectInfoDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_review_rule_dto(
+    ReviewRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_search_rule_dto(
+    SearchRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_toc_rule_dto(
+    TocRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_usize(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_platform_action_dto(
+    PlatformActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_platform_action_kind(
+    PlatformActionKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_config_dto(ReadConfigDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_read_record_detail_dto(
+    ReadRecordDetailDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_i_32_string(
+    (int, String) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_layout_cast_profile_dto(
+    (String, LayoutCastProfileDto) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_layout_value_dto(
+    (String, LayoutValueDto) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_string(
+    (String, String) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_redirect_info_dto(
+    RedirectInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_review_rule_dto(ReviewRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_book_dto(SearchBookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_rule_dto(SearchRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_source_batch_dto(
+    SearchSourceBatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_check_config_dto(
+    SourceCheckConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_match_dto(
+    SourceMatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_switch_response_dto(
+    SourceSwitchResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_switch_search_options_dto(
+    SwitchSearchOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_text_response_dto(
+    TextResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_toc_rule_dto(TocRuleDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);
@@ -371,6 +2116,74 @@ class RustLibWire implements BaseWire {
   /// The symbols are looked up in [dynamicLibrary].
   RustLibWire(ffi.DynamicLibrary dynamicLibrary)
     : _lookup = dynamicLibrary.lookup;
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSessionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_flutter_legado_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession',
+      );
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession =
+      _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSessionPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSessionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_flutter_legado_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession',
+      );
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession =
+      _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSessionPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequestPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_flutter_legado_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest',
+      );
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest =
+      _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequestPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequestPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_flutter_legado_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest',
+      );
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest =
+      _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequestPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   void
   rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(

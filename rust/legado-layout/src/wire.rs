@@ -29,16 +29,16 @@ pub struct WireColumns {
 #[derive(Serialize)]
 pub struct WirePage {
     #[serde(flatten)]
-    metadata: serde_json::Map<String, Value>,
-    elements: Vec<WireElement>,
+    pub metadata: serde_json::Map<String, Value>,
+    pub elements: Vec<WireElement>,
 }
 #[derive(Serialize)]
 #[serde(untagged)]
-enum WireElement {
+pub enum WireElement {
     Text(usize),
     Other(Box<Element>),
 }
-pub fn pack_pages(pages: Vec<Page>) -> WirePages {
+fn pack_raw(pages: Vec<Page>) -> WirePages {
     let mut result = WirePages {
         pages: vec![],
         text_styles: vec![],
@@ -65,10 +65,41 @@ pub fn pack_pages(pages: Vec<Page>) -> WirePages {
             .collect();
         result.pages.push(WirePage { metadata, elements });
     }
+    result
+}
+
+/// 旧 JSON 基准宿主使用同一打包实现；应用 FFI 使用二进制列。
+pub fn pack_pages(pages: Vec<Page>) -> WirePages {
+    let mut result = pack_raw(pages);
     result.glyphs.geometry = STANDARD.encode(std::mem::take(&mut result.glyphs.geometry_bytes));
     result.glyphs.positions = STANDARD.encode(std::mem::take(&mut result.glyphs.position_bytes));
     result
 }
+
+pub struct BinaryWirePages {
+    pub pages: Vec<WirePage>,
+    pub text_styles: Vec<Arc<TextStyle>>,
+    pub count: usize,
+    pub text: String,
+    pub geometry: Vec<u8>,
+    pub positions: Vec<u8>,
+    pub extras: serde_json::Map<String, Value>,
+}
+
+/// 字形缓冲直接移动到桥接层，不生成 base64。
+pub fn pack_pages_binary(pages: Vec<Page>) -> BinaryWirePages {
+    let result = pack_raw(pages);
+    BinaryWirePages {
+        pages: result.pages,
+        text_styles: result.text_styles,
+        count: result.glyphs.count,
+        text: result.glyphs.text,
+        geometry: result.glyphs.geometry_bytes,
+        positions: result.glyphs.position_bytes,
+        extras: result.glyphs.extras,
+    }
+}
+
 fn pack_element(
     mut element: Element,
     indices: &mut HashMap<usize, usize>,

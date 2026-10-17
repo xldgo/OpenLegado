@@ -4,15 +4,21 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 
 import '../bridge/ffi.dart' as bridge;
+import '../bridge/layout_bridge.dart' as native;
+import '../bridge/layout_dto.dart' as dto;
+import '../data/bridge/layout_dto_mapping.dart';
 import 'reader_layout_data.dart';
 import '../widgets/reader/layout_diagnostics.dart';
 
 /// 传输适配器只处理批量协议；断行和分页只有 Rust 一个实现。
 abstract interface class ReaderLayoutTransport {
-  Future<String> begin(String configJson);
-  Future<String> push(String sessionId, String blocksJson);
-  Future<String> finish(String sessionId);
-  Future<void> cancel(String sessionId);
+  Future<ReaderLayoutReply> begin(Map<String, Object?> config);
+  Future<ReaderLayoutReply> push(
+    Object sessionId,
+    List<Map<String, Object?>> blocks,
+  );
+  Future<ReaderLayoutReply> finish(Object sessionId);
+  Future<void> cancel(Object sessionId);
 }
 
 /// 测试与宿主可注入传输层，生产缺省仍只调用 Rust；不提供 Dart 算法回退。
@@ -31,20 +37,62 @@ class ReaderLayoutTransportScope extends InheritedWidget {
       transport != oldWidget.transport;
 }
 
+class _NativeLayoutHandle {
+  final native.LayoutSession session;
+  bool disposed = false;
+  _NativeLayoutHandle(this.session);
+  void release() {
+    if (!disposed) {
+      disposed = true;
+      session.dispose();
+    }
+  }
+}
+
 class NativeReaderLayoutTransport implements ReaderLayoutTransport {
   const NativeReaderLayoutTransport();
   @override
-  Future<String> begin(String configJson) =>
-      bridge.readerLayoutBegin(configJson: configJson);
+  Future<ReaderLayoutReply> begin(Map<String, Object?> config) async {
+    final session = await bridge.readerLayoutBegin(config: configToDto(config));
+    final handle = _NativeLayoutHandle(session);
+    return ReaderLayoutReply._(handle, const [], 0);
+  }
+
   @override
-  Future<String> push(String sessionId, String blocksJson) =>
-      bridge.readerLayoutPush(sessionId: sessionId, blocksJson: blocksJson);
+  Future<ReaderLayoutReply> push(
+    Object sessionId,
+    List<Map<String, Object?>> blocks,
+  ) async {
+    final handle = sessionId as _NativeLayoutHandle;
+    if (handle.disposed) throw const ReaderLayoutCancelled();
+    final reply = await handle.session.push(
+      blocks: blocks.map(blockToDto).toList(),
+    );
+    return ReaderLayoutReply.fromNative(reply, handle);
+  }
+
   @override
-  Future<String> finish(String sessionId) =>
-      bridge.readerLayoutFinish(sessionId: sessionId);
+  Future<ReaderLayoutReply> finish(Object sessionId) async {
+    final handle = sessionId as _NativeLayoutHandle;
+    if (handle.disposed) throw const ReaderLayoutCancelled();
+    try {
+      return ReaderLayoutReply.fromNative(
+        await handle.session.finish(),
+        handle,
+      );
+    } finally {
+      handle.release();
+    }
+  }
+
   @override
-  Future<void> cancel(String sessionId) =>
-      bridge.readerLayoutCancel(sessionId: sessionId);
+  Future<void> cancel(Object sessionId) async {
+    final handle = sessionId as _NativeLayoutHandle;
+    if (!handle.disposed) {
+      handle.session.cancel();
+      handle.release();
+    }
+  }
 }
 
 class ReaderLayoutCancelled implements Exception {
@@ -54,17 +102,55 @@ class ReaderLayoutCancelled implements Exception {
 }
 
 class ReaderLayoutReply {
-  final String sessionId;
+  final Object sessionId;
   final List<Map<String, dynamic>> pages;
   final int rustMicroseconds;
   ReaderLayoutReply._(this.sessionId, this.pages, this.rustMicroseconds);
 
-  factory ReaderLayoutReply.decode(String encoded) {
-    final value = jsonDecode(encoded);
+  factory ReaderLayoutReply.fromNative(
+    dto.LayoutReplyDto value,
+    Object handle,
+  ) => ReaderLayoutReply.fromMap({
+    'schemaVersion': 1,
+    'sessionId': handle,
+    'rustMicros': value.rustMicros.toInt(),
+    'pages': value.pages
+        .map(
+          (page) => <String, dynamic>{
+            ...page.metadata.map(
+              (key, value) => MapEntry(key, layoutValueFromDto(value)),
+            ),
+            'elements': page.elements
+                .map(
+                  (element) =>
+                      element.glyphIndex?.toInt() ??
+                      layoutValueFromDto(element.other!),
+                )
+                .toList(),
+          },
+        )
+        .toList(),
+    'textStyles': value.textStyles.map(textStyleFromDto).toList(),
+    'glyphs': <String, dynamic>{
+      'count': value.count.toInt(),
+      'text': value.text,
+      'geometry': value.geometry,
+      'positions': value.positions,
+      'extras': value.extras.map(
+        (key, value) => MapEntry(key, layoutValueFromDto(value)),
+      ),
+    },
+  });
+
+  factory ReaderLayoutReply.decode(String encoded) =>
+      ReaderLayoutReply.fromMap(jsonDecode(encoded));
+
+  factory ReaderLayoutReply.fromMap(Object? value) {
     if (value is! Map<String, dynamic> ||
         value['schemaVersion'] != 1 ||
-        value['sessionId'] is! String ||
-        (value['sessionId'] as String).isEmpty ||
+        value['sessionId'] == null ||
+        (value['sessionId'] is String &&
+            (value['sessionId'] as String).isEmpty) ||
         value['pages'] is! List ||
         value['rustMicros'] is! int ||
         (value['rustMicros'] as int) < 0) {
@@ -86,7 +172,7 @@ class ReaderLayoutReply {
       pages.add(Map.unmodifiable(page));
     }
     return ReaderLayoutReply._(
-      value['sessionId'] as String,
+      value['sessionId'] as Object,
       List.unmodifiable(pages),
       value['rustMicros'] as int,
     );
@@ -97,7 +183,7 @@ class ReaderLayoutReply {
 class ReaderLayoutSession {
   final ReaderLayoutTransport transport;
   final ReaderLayoutDiagnostics? diagnostics;
-  late final Future<String> _identifier;
+  late final Future<Object> _identifier;
   Future<void> _tail = Future.value();
   Future<void>? _cancellation;
   bool _cancelled = false;
@@ -117,9 +203,8 @@ class ReaderLayoutSession {
   bool get cancelled => _cancelled;
   bool get closed => _closed;
 
-  Future<String> _begin(Map<String, Object?> config) async {
-    final payload = _encode({'schemaVersion': 1, 'config': config});
-    final reply = await _request(() => transport.begin(payload));
+  Future<Object> _begin(Map<String, Object?> config) async {
+    final reply = await _request(() => transport.begin(config));
     if (reply.pages.isNotEmpty) {
       await transport.cancel(reply.sessionId);
       throw const FormatException('阅读布局 begin 不应返回页面');
@@ -134,8 +219,7 @@ class ReaderLayoutSession {
     return _enqueue(() async {
       final id = await _identifier;
       _checkActive();
-      final payload = _encode({'schemaVersion': 1, 'blocks': blocks});
-      final reply = await _request(() => transport.push(id, payload));
+      final reply = await _request(() => transport.push(id, blocks));
       _checkReply(reply, id);
       return reply;
     });
@@ -179,7 +263,7 @@ class ReaderLayoutSession {
     if (_cancelled || _closed) throw const ReaderLayoutCancelled();
   }
 
-  void _checkReply(ReaderLayoutReply reply, String id) {
+  void _checkReply(ReaderLayoutReply reply, Object id) {
     _checkActive();
     if (reply.sessionId != id) {
       throw const FormatException('阅读布局返回了其他会话的页面');
@@ -189,7 +273,7 @@ class ReaderLayoutSession {
   Future<void> cancel() {
     _cancelled = true;
     return _cancellation ??= () async {
-      String id;
+      Object id;
       try {
         id = await _identifier;
       } catch (_) {
@@ -201,26 +285,15 @@ class ReaderLayoutSession {
     }();
   }
 
-  String _encode(Map<String, Object?> value) {
+  Future<ReaderLayoutReply> _request(
+    Future<ReaderLayoutReply> Function() call,
+  ) async {
     final timer = diagnostics == null ? null : (Stopwatch()..start());
-    final encoded = jsonEncode(value);
-    if (timer != null) {
-      diagnostics!.encodingMicroseconds += timer.elapsedMicroseconds;
-    }
-    return encoded;
-  }
-
-  Future<ReaderLayoutReply> _request(Future<String> Function() call) async {
-    final timer = diagnostics == null ? null : (Stopwatch()..start());
-    final encoded = await call();
+    final reply = await call();
     if (timer != null) {
       diagnostics!.ffiCalls++;
       diagnostics!.callMicroseconds += timer.elapsedMicroseconds;
-      timer.reset();
-    }
-    final reply = ReaderLayoutReply.decode(encoded);
-    if (timer != null) {
-      diagnostics!.decodingMicroseconds += timer.elapsedMicroseconds;
+      // 类型化传输的字段映射计入调用总耗时；不再伪造 JSON 编解码阶段。
       diagnostics!.rustMicroseconds += reply.rustMicroseconds;
     }
     return reply;

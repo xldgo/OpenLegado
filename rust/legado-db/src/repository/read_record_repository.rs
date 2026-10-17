@@ -108,6 +108,17 @@ pub fn merge_read_record_authors(current: &str, incoming: &str) -> String {
 }
 
 /// 阅读记录数据访问层
+/// 一次累计阅读写入的会话上下文。— Codex
+pub struct ReadingSessionInput<'a> {
+    pub book_name: &'a str,
+    pub author: &'a str,
+    pub read_time_ms: i64,
+    pub start_time_ms: Option<i64>,
+    pub end_time_ms: Option<i64>,
+    pub book_url: &'a str,
+    pub chapter_index: i32,
+}
+
 pub struct ReadRecordRepository<'a> {
     pub(super) conn: &'a Connection,
 }
@@ -289,7 +300,7 @@ impl<'a> ReadRecordRepository<'a> {
 
     /// 删除指定书籍的阅读记录
     pub fn delete_by_book_name(&self, book_name: &str) -> LegadoResult<bool> {
-        return self.delete_records(book_name, None);
+        self.delete_records(book_name, None)
     }
 
     fn delete_records(&self, book_name: &str, author: Option<&str>) -> LegadoResult<bool> {
@@ -441,27 +452,32 @@ impl<'a> ReadRecordRepository<'a> {
         end_time_ms: Option<i64>,
     ) -> LegadoResult<i64> {
         self.record_reading_time_with_session(
-            book_name,
-            author,
-            read_time_ms,
-            start_time_ms,
-            end_time_ms,
-            "",
-            0,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name,
+                author,
+                read_time_ms,
+                start_time_ms,
+                end_time_ms,
+                book_url: "",
+                chapter_index: 0,
+            },
         )
     }
 
     /// 本次新增时段与累计/每日明细原子提交，不补造旧会话。
     pub fn record_reading_time_with_session(
         &self,
-        book_name: &str,
-        author: &str,
-        read_time_ms: i64,
-        start_time_ms: Option<i64>,
-        end_time_ms: Option<i64>,
-        book_url: &str,
-        chapter_index: i32,
+        input: ReadingSessionInput<'_>,
     ) -> LegadoResult<i64> {
+        let ReadingSessionInput {
+            book_name,
+            author,
+            read_time_ms,
+            start_time_ms,
+            end_time_ms,
+            book_url,
+            chapter_index,
+        } = input;
         if read_time_ms < 0 {
             return Err(LegadoError::Internal("累计阅读时长不能为负数".into()));
         }

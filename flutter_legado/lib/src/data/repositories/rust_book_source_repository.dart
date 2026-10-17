@@ -1,9 +1,7 @@
-import 'dart:convert';
-
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/book_source_repository.dart';
 import '../../models/book_source.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/entity_dto_mapping.dart';
 
 /// 直接复用现有 FRB；变更后通知由装配点提供。— Codex + Bridge
 final class RustBookSourceRepository implements BookSourceRepository {
@@ -13,37 +11,27 @@ final class RustBookSourceRepository implements BookSourceRepository {
   /// 获取所有书源
   @override
   Future<List<BookSource>> getBookSources() async {
-    final json = await bridge.sourceList();
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list
-        .map((e) => BookSource.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (await bridge.sourceList()).map(bookSourceFromDto).toList();
   }
 
   /// 获取所有启用的书源
   @override
   Future<List<BookSource>> getEnabledBookSources() async {
-    final json = await bridge.sourceListEnabled();
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list
-        .map((e) => BookSource.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (await bridge.sourceListEnabled()).map(bookSourceFromDto).toList();
   }
 
   /// 添加书源
   @override
   Future<BookSource> addBookSource(BookSource source) async {
-    final json = await bridge.sourceAdd(
-      sourceJson: jsonEncode(source.toJson()),
-    );
+    final value = await bridge.sourceAdd(source: bookSourceToDto(source));
     _onSourcesChanged();
-    return BookSource.fromJson(decodeRustJsonMap(json, 'bookApi'));
+    return bookSourceFromDto(value);
   }
 
   /// 更新书源
   @override
   Future<void> updateBookSource(BookSource source) async {
-    await bridge.sourceUpdate(sourceJson: jsonEncode(source.toJson()));
+    await bridge.sourceUpdate(source: bookSourceToDto(source));
     _onSourcesChanged();
   }
 

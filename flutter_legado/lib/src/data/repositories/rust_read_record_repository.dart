@@ -1,6 +1,7 @@
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 import '../../bridge/ffi/ffi.dart' as bridge;
+import '../../bridge/transfer_dto.dart' as dto;
 import '../../domain/contracts/read_record_repository.dart';
 import '../../domain/contracts/read_record_changes.dart';
 import '../../models/misc.dart';
@@ -66,21 +67,24 @@ final class RustReadRecordRepository
     return decodeRustJsonList(json, 'bookApi').cast<Map<String, dynamic>>();
   }
 
-  @override
-  Future<List<ReadRecordDetail>> getReadRecordDetails(int year) async {
-    final json = await bridge.readRecordDetailList(year: year);
-    return decodeRustJsonList(json, 'readRecord')
-        .map((item) => ReadRecordDetail.fromJson(item as Map<String, dynamic>))
-        .toList();
-  }
+  ReadRecordDetail _detailFromDto(dto.ReadRecordDetailDto value) =>
+      ReadRecordDetail(
+        bookName: value.bookName,
+        author: value.author,
+        date: value.date,
+        readTime: value.readTime,
+        lastRead: value.lastRead,
+      );
 
   @override
-  Future<List<ReadRecordDetail>> getAllReadRecordDetails() async {
-    final json = await bridge.readRecordAllDetailList();
-    return decodeRustJsonList(json, 'readRecord')
-        .map((item) => ReadRecordDetail.fromJson(item as Map<String, dynamic>))
-        .toList();
-  }
+  Future<List<ReadRecordDetail>> getReadRecordDetails(int year) async =>
+      (await bridge.readRecordDetailList(year: year))
+          .map(_detailFromDto)
+          .toList();
+
+  @override
+  Future<List<ReadRecordDetail>> getAllReadRecordDetails() async =>
+      (await bridge.readRecordAllDetailList()).map(_detailFromDto).toList();
 
   @override
   Future<List<ReadRecordSession>> getReadRecordSessions() async {

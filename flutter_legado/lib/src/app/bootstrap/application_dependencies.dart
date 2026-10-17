@@ -304,7 +304,7 @@ final readingRepositoryProvider = Provider<ReadingRepository>(
   (ref) => ref.watch(mockModeProvider)
       ? ref.watch(mockReadingRepositoryProvider)
       : RustReadingRepository(
-          interceptResult: PlatformBridgeService.instance.interceptResult,
+          dispatchAction: PlatformBridgeService.instance.interceptPayload,
         ),
 );
 final replaceRuleRepositoryProvider = Provider<ReplaceRuleRepository>(

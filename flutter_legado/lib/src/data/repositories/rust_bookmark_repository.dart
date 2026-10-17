@@ -1,30 +1,48 @@
-import 'dart:convert';
-
 import '../../bridge/ffi/ffi.dart' as bridge;
+import '../../bridge/transfer_dto.dart' as dto;
 import '../../domain/contracts/bookmark_repository.dart';
 import '../../models/misc.dart';
-import '../bridge/rust_json_decode.dart';
 
 /// 直接调用已有 FRB；运行时与数据库由应用启动流程初始化。— Codex + Bridge
 final class RustBookmarkRepository implements BookmarkRepository {
   const RustBookmarkRepository();
 
-  List<Bookmark> _decode(String json) => decodeRustJsonList(
-    json,
-    'bookApi',
-  ).map((item) => Bookmark.fromJson(item as Map<String, dynamic>)).toList();
+  Bookmark _fromDto(dto.BookmarkDto value) => Bookmark(
+    id: value.id,
+    time: value.time,
+    bookName: value.bookName,
+    bookAuthor: value.bookAuthor,
+    chapterIndex: value.chapterIndex,
+    chapterPos: value.chapterPos,
+    chapterName: value.chapterName,
+    bookText: value.bookText,
+    content: value.content,
+  );
+
+  dto.BookmarkDto _toDto(Bookmark value) => dto.BookmarkDto(
+    id: value.id,
+    time: value.time,
+    bookName: value.bookName,
+    bookAuthor: value.bookAuthor,
+    chapterIndex: value.chapterIndex,
+    chapterPos: value.chapterPos,
+    chapterName: value.chapterName,
+    bookText: value.bookText,
+    content: value.content,
+  );
 
   @override
   Future<List<Bookmark>> getAllBookmarks() async =>
-      _decode(await bridge.bookmarkList());
+      (await bridge.bookmarkList()).map(_fromDto).toList();
 
   @override
   Future<List<Bookmark>> getBookmarksByBook(
     String bookName,
     String bookAuthor,
-  ) async => _decode(
-    await bridge.getBookmarksByBook(bookName: bookName, bookAuthor: bookAuthor),
-  );
+  ) async => (await bridge.getBookmarksByBook(
+    bookName: bookName,
+    bookAuthor: bookAuthor,
+  )).map(_fromDto).toList();
 
   @override
   Future<Bookmark> addBookmark(Bookmark bookmark) async {
@@ -42,12 +60,12 @@ final class RustBookmarkRepository implements BookmarkRepository {
 
   @override
   Future<void> updateBookmark(Bookmark bookmark) =>
-      bridge.bookmarkUpdate(bookmarkJson: jsonEncode(bookmark.toJson()));
+      bridge.bookmarkUpdate(bookmark: _toDto(bookmark));
 
   @override
   Future<void> deleteBookmark(int id) => bridge.bookmarkDelete(bookmarkId: id);
 
   @override
   Future<List<Bookmark>> searchBookmarks(String keyword) async =>
-      _decode(await bridge.bookmarkSearch(keyword: keyword));
+      (await bridge.bookmarkSearch(keyword: keyword)).map(_fromDto).toList();
 }

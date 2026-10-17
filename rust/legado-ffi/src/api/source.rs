@@ -20,7 +20,12 @@ pub fn list_sources() -> LegadoResult<Vec<BookSource>> {
 /// 添加书源（JSON 序列化传入）
 pub fn add_source(source_json: &str) -> LegadoResult<BookSource> {
     let source: BookSource = serde_json::from_str(source_json)
-        .map_err(|e| LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
+        .map_err(|e| legado_core::LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
+    add_source_entity(source)
+}
+
+/// 实体入口与 JSON 宿主共用同一写入及后置处理。
+pub fn add_source_entity(source: BookSource) -> LegadoResult<BookSource> {
     let saved = with_database(|db| {
         let repo = BookSourceRepository::new(db.connection());
         repo.insert(&source)?;
@@ -38,7 +43,12 @@ pub fn add_source(source_json: &str) -> LegadoResult<BookSource> {
 /// 更新书源
 pub fn update_source(source_json: &str) -> LegadoResult<()> {
     let source: BookSource = serde_json::from_str(source_json)
-        .map_err(|e| LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
+        .map_err(|e| legado_core::LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
+    update_source_entity(source)
+}
+
+/// 实体入口与 JSON 宿主共用同一写入及后置处理。
+pub fn update_source_entity(source: BookSource) -> LegadoResult<()> {
     with_database(|db| {
         let repo = BookSourceRepository::new(db.connection());
         repo.update(&source)

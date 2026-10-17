@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -68,7 +69,7 @@ void main() {
         path: '目录/书.cbz',
         entry: 'cbz://封面.png',
       ),
-    ).thenAnswer((_) async => ' {"base64":"AQID","len":3}');
+    ).thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
     final book = await local.importLocalBook('目录/书.cbz');
     expect(book.name, '漫画');
     expect(await local.cbzReadPage(path: '目录/书.cbz', entry: 'cbz://封面.png'), [
@@ -97,20 +98,15 @@ void main() {
       await expectLater(local.importLocalBook('p'), throwsA(isA<Exception>()));
     });
   }
-  for (final payload in [
-    '{}',
-    '{"base64":"AQID","len":2}',
-    '{"base64":"***","len":3}',
-  ]) {
-    test('CBZ损坏载荷拒绝：$payload', () async {
-      when(() => bridge.crateFfiFfiCbzReadPage(path: 'p', entry: 'e'))
-          .thenAnswer((_) async => payload);
-      await expectLater(
-        local.cbzReadPage(path: 'p', entry: 'e'),
-        throwsFormatException,
-      );
-    });
-  }
+  test('CBZ字节直传不改变完整字节域或伪造空包内容', () async {
+    final bytes = Uint8List.fromList(List.generate(256, (i) => i));
+    when(() => bridge.crateFfiFfiCbzReadPage(path: 'p', entry: 'e'))
+        .thenAnswer((_) async => bytes);
+    expect(await local.cbzReadPage(path: 'p', entry: 'e'), same(bytes));
+    when(() => bridge.crateFfiFfiCbzReadPage(path: 'p', entry: 'e'))
+        .thenAnswer((_) async => Uint8List(0));
+    expect(await local.cbzReadPage(path: 'p', entry: 'e'), isEmpty);
+  });
 
   test('ZIP/RAR列表、密码和解包参数一致，返回文件路径', () async {
     when(() => bridge.crateFfiFfiArchiveListZipFiles(zipPath: 'z'))

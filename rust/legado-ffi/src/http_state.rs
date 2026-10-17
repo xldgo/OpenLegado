@@ -204,28 +204,25 @@ mod tests {
         })
         .expect("插入关闭源");
 
-        assert_eq!(
+        assert!(
             crate::engine_holder::js_resources()
                 .http_resources()
                 .request_for(Some(TAG_ON))
                 .cookie_jar_enabled,
-            true,
             "开启源应解析为 Some(true)"
         );
-        assert_eq!(
-            crate::engine_holder::js_resources()
+        assert!(
+            !crate::engine_holder::js_resources()
                 .http_resources()
                 .request_for(Some(TAG_OFF))
                 .cookie_jar_enabled,
-            false,
             "关闭源应解析为 Some(false)"
         );
-        assert_eq!(
-            crate::engine_holder::js_resources()
+        assert!(
+            !crate::engine_holder::js_resources()
                 .http_resources()
                 .request_for(Some("https://jsgate-lookup-missing.test/"))
                 .cookie_jar_enabled,
-            false,
             "库中不存在 → None（JS 桥按关）"
         );
     }

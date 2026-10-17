@@ -4,34 +4,22 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'frb_generated.dart';
+import 'layout_bridge.dart';
+import 'layout_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`
+// These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`, `wait_cancelled`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`, `from`, `from`
 
-/// 创建阅读布局会话；平台测量与书籍数据库操作相互独立。
-Future<String> readerLayoutBegin({required String configJson}) =>
-    RustLib.instance.api.crateFfiReaderLayoutBegin(configJson: configJson);
-
-/// 批量推送已测量内容块，返回新增的最终页面。
-Future<String> readerLayoutPush({
-  required String sessionId,
-  required String blocksJson,
-}) => RustLib.instance.api.crateFfiReaderLayoutPush(
-  sessionId: sessionId,
-  blocksJson: blocksJson,
-);
-
-/// 收尾并释放会话，返回末页。
-Future<String> readerLayoutFinish({required String sessionId}) =>
-    RustLib.instance.api.crateFfiReaderLayoutFinish(sessionId: sessionId);
-
-/// 取消会话；重复取消不产生副作用。
-Future<void> readerLayoutCancel({required String sessionId}) =>
-    RustLib.instance.api.crateFfiReaderLayoutCancel(sessionId: sessionId);
+/// 创建独立排版句柄；配置按结构传递。
+Future<LayoutSession> readerLayoutBegin({required LayoutConfigDto config}) =>
+    RustLib.instance.api.crateFfiReaderLayoutBegin(config: config);
 
 TtsRequest ttsRequestNew() => RustLib.instance.api.crateFfiTtsRequestNew();
+
+StreamRequest streamRequestNew() =>
+    RustLib.instance.api.crateFfiStreamRequestNew();
 
 /// 是否已设置隐私密码，不导出凭据。
 Future<bool> privacyHasPassword() =>
@@ -49,6 +37,11 @@ Future<bool> privacySetPassword({
   currentPassword: currentPassword,
   password: password,
 );
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<StreamRequest>>
+abstract class StreamRequest implements RustOpaqueInterface {
+  void cancel();
+}
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TtsRequest>>
 abstract class TtsRequest implements RustOpaqueInterface {

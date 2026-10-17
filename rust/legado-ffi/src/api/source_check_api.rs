@@ -83,6 +83,9 @@ pub fn check_source(source_json: &str, config_json: &str) -> LegadoResult<CheckR
     let source: BookSource = serde_json::from_str(source_json)
         .map_err(|e| LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
     let config = parse_config(config_json)?;
+    check_source_entity(source, config)
+}
+pub fn check_source_entity(source: BookSource, config: CheckerConfig) -> LegadoResult<CheckResult> {
     let task = crate::engine_holder::task_group()
         .begin()
         .map_err(|e| LegadoError::Ffi(format!("书源校验任务不可用: {e}")))?;
@@ -134,12 +137,47 @@ pub struct CheckProgress {
 ///
 /// 配合 [`cancel_check_sources`] 可提前中止。供 flutter_rust_bridge 的
 /// `StreamSink` 绑定使用（在 ffi.rs 中将 `on_result` 接到 `sink.add`）。
-pub async fn run_check_sources_stream<F>(
-    source_urls_json: String,
-    config_json: String,
+pub async fn run_check_sources_stream<F>(urls: String, config: String, mut on_result: F)
+where
+    F: FnMut(String) -> Result<(), String>,
+{
+    run_check_sources_stream_typed(urls, config, |value| {
+        on_result(serde_json::to_string(&value).map_err(|e| e.to_string())?)
+    })
+    .await;
+}
+
+#[cfg(test)]
+async fn run_checks<F>(
+    sources: Vec<Option<BookSource>>,
+    config: &str,
+    operation: &Arc<Operation>,
+    network: &NetworkContext,
     mut on_result: F,
 ) where
     F: FnMut(String) -> Result<(), String>,
+{
+    run_checks_typed(sources, config, operation, network, |value| {
+        on_result(serde_json::to_string(&value).map_err(|e| e.to_string())?)
+    })
+    .await;
+}
+
+pub async fn run_check_sources_stream_typed<F>(json: String, config: String, callback: F)
+where
+    F: FnMut(CheckProgress) -> Result<(), String>,
+{
+    let Ok(urls) = crate::api::search::parse_source_urls(json.trim()) else {
+        return;
+    };
+    run_check_sources_selected(urls, parse_config(&config).unwrap_or_default(), callback).await;
+}
+pub async fn run_check_sources_selected<F>(
+    source_urls: Vec<String>,
+    config: CheckerConfig,
+    mut on_result: F,
+) where
+    F: FnMut(CheckProgress) -> Result<(), String>,
 {
     // 书源加载失败时以空流结束（Dart 侧表现为无结果）
     let slot = crate::engine_holder::source_checks();
@@ -151,29 +189,47 @@ pub async fn run_check_sources_stream<F>(
         .ok()
         .map(|engine| engine.storage().clone());
     let network = crate::engine_holder::network();
-    let sources = load_check_sources(storage.as_ref(), &source_urls_json).unwrap_or_default();
-    run_checks(sources, &config_json, &operation, &network, &mut on_result).await;
+    let sources = load_check_sources_selected(storage.as_ref(), &source_urls).unwrap_or_default();
+    run_checks_config(sources, config, &operation, &network, &mut on_result).await;
 }
 
 /// 批量校验内层实现（直接接收书源列表，便于测试注入）
 ///
 /// 串行逐个校验并回推 [`CheckProgress`] JSON；`on_result` 返回 `Err`
 /// 或取消标志置位时提前终止。
-async fn run_checks<F>(
+#[cfg(test)]
+async fn run_checks_typed<F>(
     sources: Vec<Option<BookSource>>,
-    config_json: &str,
+    json: &str,
+    operation: &Arc<Operation>,
+    network: &NetworkContext,
+    callback: F,
+) where
+    F: FnMut(CheckProgress) -> Result<(), String>,
+{
+    run_checks_config(
+        sources,
+        parse_config(json).unwrap_or_default(),
+        operation,
+        network,
+        callback,
+    )
+    .await;
+}
+async fn run_checks_config<F>(
+    sources: Vec<Option<BookSource>>,
+    config: CheckerConfig,
     operation: &Arc<Operation>,
     network: &NetworkContext,
     mut on_result: F,
 ) where
-    F: FnMut(String) -> Result<(), String>,
+    F: FnMut(CheckProgress) -> Result<(), String>,
 {
     let total = sources.len();
     if total == 0 {
         return;
     }
 
-    let config = parse_config(config_json).unwrap_or_default();
     let checker = match create_checker(network, config) {
         Ok(c) => c,
         Err(e) => {
@@ -220,9 +276,9 @@ async fn run_checks<F>(
             result,
         };
 
-        if let Ok(json) = serde_json::to_string(&progress) {
+        {
             // sink 关闭（Err）时提前终止
-            match operation.publish(|| on_result(json)) {
+            match operation.publish(|| on_result(progress)) {
                 Some(Ok(())) => {}
                 Some(Err(_)) => {
                     operation.cancel();
@@ -247,16 +303,20 @@ pub fn cancel_check_sources() {
 /// （对齐 Kotlin `CheckSourceService` 直接按 URL 取完整书源）。
 /// 空串/空数组表示校验全部书源；列表中不存在的 URL 以 `None` 占位，
 /// 保持推送顺序与请求列表一致。
+#[cfg(test)]
 fn load_check_sources(
     storage: Option<&StorageContext>,
-    source_urls_json: &str,
+    json: &str,
 ) -> LegadoResult<Vec<Option<BookSource>>> {
-    let urls: Vec<String> = if source_urls_json.trim().is_empty() {
-        Vec::new()
-    } else {
-        serde_json::from_str(source_urls_json)
-            .map_err(|e| LegadoError::Ffi(format!("书源 URL 列表解析失败: {e}")))?
-    };
+    load_check_sources_selected(
+        storage,
+        &crate::api::search::parse_source_urls(json.trim())?,
+    )
+}
+fn load_check_sources_selected(
+    storage: Option<&StorageContext>,
+    urls: &[String],
+) -> LegadoResult<Vec<Option<BookSource>>> {
     let storage = storage
         .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?;
     storage.with_database(|db| {

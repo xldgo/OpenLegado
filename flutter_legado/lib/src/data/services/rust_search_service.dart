@@ -1,11 +1,9 @@
-import 'dart:convert';
-
 import '../../bridge/rust_lib.dart' as bridge;
-import '../bridge/rust_json_decode.dart';
 import '../../domain/contracts/search_service.dart';
 import '../../domain/models/search_batch.dart';
 import '../../models/models.dart';
-import '../bridge/search_batch_decode.dart';
+import '../bridge/stream_dto_mapping.dart';
+import '../bridge/managed_rust_stream.dart';
 
 /// 原搜索访问实现独立迁移，不重建或初始化运行时。— Codex + Bridge
 final class RustSearchService implements SearchService {
@@ -21,19 +19,18 @@ final class RustSearchService implements SearchService {
     String keyword, {
     List<String>? sourceUrls,
   }) async {
-    final urlsJson = sourceUrls != null ? jsonEncode(sourceUrls) : '[]';
-    final json = await bridge.searchBooks(
+    final books = await bridge.searchBooks(
       keyword: keyword,
-      sourceUrlsJson: urlsJson,
+      sourceUrls: sourceUrls ?? [],
     );
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list.map((e) {
-      final map = e as Map<String, dynamic>;
-      return SearchResult.fromSearchBook(
-        SearchBook.fromJson(map),
-        hasReadRecord: map['hasReadRecord'] == true,
-      );
-    }).toList();
+    return books
+        .map(
+          (value) => SearchResult.fromSearchBook(
+            searchBookFromDto(value),
+            hasReadRecord: value.hasReadRecord,
+          ),
+        )
+        .toList();
   }
 
   /// 精确搜索（对齐原版 `WebBook.preciseSearchAwait`）
@@ -43,14 +40,13 @@ final class RustSearchService implements SearchService {
     String author, {
     List<String>? sourceUrls,
   }) async {
-    final urlsJson = sourceUrls != null ? jsonEncode(sourceUrls) : '[]';
-    final json = await bridge.preciseSearch(
-      name: name,
-      author: author,
-      sourceUrlsJson: urlsJson,
+    return searchBookFromDto(
+      await bridge.preciseSearch(
+        name: name,
+        author: author,
+        sourceUrls: sourceUrls ?? [],
+      ),
     );
-    final map = jsonDecode(json) as Map<String, dynamic>;
-    return SearchBook.fromJson(map);
   }
 
   /// 多源并行搜索
@@ -59,13 +55,29 @@ final class RustSearchService implements SearchService {
     String query, {
     List<String>? sourceUrls,
   }) async {
-    final urlsJson = sourceUrls != null ? jsonEncode(sourceUrls) : '[]';
-    final json = await bridge.searchMulti(
-      query: query,
-      sourceUrlsJson: urlsJson,
-    );
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list.map((e) => e as Map<String, dynamic>).toList();
+    return (await bridge.searchMulti(
+          query: query,
+          sourceUrls: sourceUrls ?? [],
+        ))
+        .map(
+          (v) => <String, dynamic>{
+            'book_name': v.bookName,
+            'author': v.author,
+            'cover_url': v.coverUrl,
+            'intro': v.intro,
+            'latest_chapter': v.latestChapter,
+            'source_url': v.sourceUrl,
+            'source_name': v.sourceName,
+            'book_url': v.bookUrl,
+            'relevance_score': v.relevanceScore,
+            'originOrder': v.originOrder,
+            'hasReadRecord': v.hasReadRecord,
+            if (v.readRecordAuthor != null)
+              'readRecordAuthor': v.readRecordAuthor,
+            if (v.variable != null) 'variable': v.variable,
+          },
+        )
+        .toList();
   }
 
   /// 多源渐进式（流式）搜索
@@ -78,13 +90,14 @@ final class RustSearchService implements SearchService {
     List<String>? sourceUrls,
     int page = 1,
   }) {
-    final urlsJson = sourceUrls != null ? jsonEncode(sourceUrls) : '[]';
-    return bridge
-        .searchMultiStream(query: query, sourceUrlsJson: urlsJson, page: page)
-        .map(
-          (batch) =>
-              decodeSearchBatch(decodeRustJsonMap(batch, 'searchMultiStream')),
-        );
+    return managedRustStream(
+      (request) => bridge.searchMultiStream(
+        query: query,
+        sourceUrls: sourceUrls ?? [],
+        page: page,
+        request: request,
+      ),
+    ).map(searchBatchFromDto);
   }
 
   /// 取消搜索

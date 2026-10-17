@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/bridge/ffi.dart' show StreamRequest;
+import 'package:flutter_legado/src/bridge/transfer_dto.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -12,6 +16,30 @@ import 'package:flutter_legado/src/models/models.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
 
+class _StreamRequest extends Mock implements StreamRequest {}
+
+SourceMatchDto _dto(SourceMatch v) => SourceMatchDto(
+  sourceUrl: v.sourceUrl,
+  sourceName: v.sourceName,
+  bookUrl: v.bookUrl,
+  bookName: v.bookName,
+  author: v.author,
+  latestChapter: v.latestChapter,
+  wordCount: v.wordCount,
+  score: v.score,
+  chapterWordCountText: v.chapterWordCountText,
+  chapterWordCount: v.chapterWordCount,
+  respondTime: v.respondTime,
+  originOrder: v.originOrder,
+  bookScore: v.bookScore,
+  variable: null,
+);
+Map<String, bool> _options(SwitchSearchOptionsDto v) => {
+  'loadInfo': v.loadInfo,
+  'loadToc': v.loadToc,
+  'loadWordCount': v.loadWordCount,
+  'forceRefresh': v.forceRefresh,
+};
 void main() {
   late _Bridge bridge;
   const service = RustSourceSwitchService();
@@ -42,35 +70,50 @@ void main() {
     variable: '{"token":"value"}',
     readConfig: ReadConfig(pageAnim: 1),
   );
+  setUpAll(() {
+    registerFallbackValue(_StreamRequest());
+    registerFallbackValue(
+      const SwitchSearchOptionsDto(
+        loadInfo: false,
+        loadToc: false,
+        loadWordCount: false,
+        forceRefresh: false,
+      ),
+    );
+  });
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
+    when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_StreamRequest());
   });
   tearDown(RustLib.dispose);
 
-  test('非流式搜索保留过滤和预拉参数、完整候选字段及Rust顺序', () async {
+  test('非流式搜索按类型透传选项，保留完整候选与Rust顺序', () async {
     when(
       () => bridge.crateFfiFfiSourceSwitchSearch(
         bookName: '书',
         author: '作者',
-        sourceUrlsJson: '["s","t"]',
-        optionsJson: any(named: 'optionsJson'),
+        sourceUrls: ['s', 't'],
+        options: any(named: 'options'),
       ),
     ).thenAnswer((call) async {
-      expect(jsonDecode(call.namedArguments[#optionsJson] as String), {
-        'loadInfo': true,
-        'loadToc': true,
-        'loadWordCount': true,
-        'forceRefresh': true,
-      });
-      return jsonEncode({
-        'book_name': '书',
-        'author': '作者',
-        'matches': [
-          match.toJson(),
-          match.copyWith(score: 99, bookUrl: 'other').toJson(),
+      expect(
+        _options(call.namedArguments[#options] as SwitchSearchOptionsDto),
+        {
+          'loadInfo': true,
+          'loadToc': true,
+          'loadWordCount': true,
+          'forceRefresh': true,
+        },
+      );
+      return SourceSwitchResponseDto(
+        bookName: '书',
+        author: '作者',
+        matches: [
+          _dto(match),
+          _dto(match.copyWith(score: 99, bookUrl: 'other')),
         ],
-      });
+      );
     });
     final result = await service.searchSource(
       '书',
@@ -84,28 +127,31 @@ void main() {
     expect(result.first, match);
     expect(result.last.score, 99);
   });
-
-  test('默认搜索传空源列表和关闭的增强选项', () async {
+  test('默认搜索传空源列表与显式关闭选项，合法空候选正常返回', () async {
     when(
       () => bridge.crateFfiFfiSourceSwitchSearch(
         bookName: '书',
         author: '',
-        sourceUrlsJson: '[]',
-        optionsJson: any(named: 'optionsJson'),
+        sourceUrls: [],
+        options: any(named: 'options'),
       ),
     ).thenAnswer((call) async {
       expect(
-        (jsonDecode(call.namedArguments[#optionsJson] as String) as Map).values,
+        _options(call.namedArguments[#options] as SwitchSearchOptionsDto)
+            .values,
         everyElement(false),
       );
-      return '{"matches":[]}';
+      return const SourceSwitchResponseDto(
+        bookName: '书',
+        author: '',
+        matches: [],
+      );
     });
     expect(await service.searchSource('书', ''), isEmpty);
   });
-
-  test('流式快照保留进度、错误及终批，订阅取消传递给桥接流', () async {
+  test('流式快照保留进度与单源错误，取消传给原流', () async {
     var cancelled = false;
-    final events = StreamController<String>(
+    final events = StreamController<ChangeSourceBatchDto>(
       onCancel: () {
         cancelled = true;
       },
@@ -115,16 +161,20 @@ void main() {
       () => bridge.crateFfiFfiSourceSwitchSearchStream(
         bookName: '书',
         author: '作者',
-        sourceUrlsJson: '["s"]',
-        optionsJson: any(named: 'optionsJson'),
+        sourceUrls: ['s'],
+        options: any(named: 'options'),
+        request: any(named: 'request'),
       ),
     ).thenAnswer((call) {
-      expect(jsonDecode(call.namedArguments[#optionsJson] as String), {
-        'loadInfo': true,
-        'loadToc': false,
-        'loadWordCount': true,
-        'forceRefresh': true,
-      });
+      expect(
+        _options(call.namedArguments[#options] as SwitchSearchOptionsDto),
+        {
+          'loadInfo': true,
+          'loadToc': false,
+          'loadWordCount': true,
+          'forceRefresh': true,
+        },
+      );
       return events.stream;
     });
     final next = service
@@ -138,45 +188,40 @@ void main() {
         )
         .first;
     events.add(
-      jsonEncode({
-        'source_index': 2,
-        'source_url': 's',
-        'source_name': '源',
-        'error': '单源失败',
-        'finished_count': 3,
-        'total_count': 4,
-        'is_last': true,
-        'matches': [match.toJson()],
-      }),
+      ChangeSourceBatchDto(
+        sourceIndex: BigInt.from(2),
+        sourceUrl: 's',
+        sourceName: '源',
+        error: '单源失败',
+        finishedCount: BigInt.from(3),
+        totalCount: BigInt.from(4),
+        isLast: true,
+        matches: [_dto(match)],
+      ),
     );
     final batch = await next;
     expect(batch.matches, [match]);
     expect(batch.sourceIndex, 2);
-    expect(batch.sourceUrl, 's');
-    expect(batch.sourceName, '源');
     expect(batch.error, '单源失败');
     expect([batch.finishedCount, batch.totalCount], [3, 4]);
-    expect(batch.isLast, isTrue);
-    expect(cancelled, isTrue);
+    expect(batch.isLast, true);
+    expect(cancelled, true);
     expect(() => batch.matches.clear(), throwsUnsupportedError);
   });
-
-  for (final payload in ['[]', '{}', '{"matches":null}', '{"matches":[1]}']) {
-    test('坏候选结构不冒充空结果：$payload', () async {
-      when(
-        () => bridge.crateFfiFfiSourceSwitchSearch(
-          bookName: '书',
-          author: '',
-          sourceUrlsJson: '[]',
-          optionsJson: any(named: 'optionsJson'),
-        ),
-      ).thenAnswer((_) async => payload);
-      await expectLater(service.searchSource('书', ''), throwsFormatException);
-    });
-  }
-
+  test('原生候选查询失败不回退为空结果', () async {
+    final error = StateError('查询失败');
+    when(
+      () => bridge.crateFfiFfiSourceSwitchSearch(
+        bookName: '书',
+        author: '',
+        sourceUrls: [],
+        options: any(named: 'options'),
+      ),
+    ).thenThrow(error);
+    await expectLater(service.searchSource('书', ''), throwsA(same(error)));
+  });
   for (final prefetch in [false, true]) {
-    test('换源预拉=$prefetch分派到独立FRB，返回完整书籍与稳定主键', () async {
+    test('换源预拉=$prefetch分派正确入口并保留完整书籍', () async {
       if (prefetch) {
         when(
           () => bridge.crateFfiFfiSourceSwitchApplyPrefetch(
@@ -184,7 +229,7 @@ void main() {
             newSourceUrl: 's',
             newBookUrl: 'page',
           ),
-        ).thenAnswer((_) async => jsonEncode(switched.toJson()));
+        ).thenAnswer((_) async => bookToDto(switched));
       } else {
         when(
           () => bridge.crateFfiFfiSourceSwitchApply(
@@ -192,7 +237,7 @@ void main() {
             newSourceUrl: 's',
             newBookUrl: 'page',
           ),
-        ).thenAnswer((_) async => jsonEncode(switched.toJson()));
+        ).thenAnswer((_) async => bookToDto(switched));
       }
       final book = prefetch
           ? await service.switchSourcePrefetch('stable', 's', 'page')
@@ -209,21 +254,15 @@ void main() {
       }
     });
   }
-
-  for (final payload in [
-    'not json',
-    '[]',
-    '{}',
-    '{"bookUrl":"candidate-page"}',
-  ]) {
-    test('坏换源结果不回退候选地址：$payload', () async {
+  for (final id in ['', 'candidate-page']) {
+    test('类型化结果的错误主键$id仍被拒绝', () async {
       when(
         () => bridge.crateFfiFfiSourceSwitchApplyPrefetch(
           bookUrl: 'stable',
           newSourceUrl: 's',
           newBookUrl: 'page',
         ),
-      ).thenAnswer((_) async => payload);
+      ).thenAnswer((_) async => bookToDto(switched.copyWith(bookUrl: id)));
       await expectLater(
         service.switchSourcePrefetch('stable', 's', 'page'),
         throwsFormatException,

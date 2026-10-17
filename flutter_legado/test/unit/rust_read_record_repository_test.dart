@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_read_record_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -147,22 +148,41 @@ void main() {
     );
   });
 
-  test('按年和全量明细从 JSON 保留作者与毫秒，失败不缓存', () async {
-    const json =
-        '[{"bookName":"同名","author":"作者","date":"2026-01-01","readTime":1500,"lastRead":123}]';
+  test('按年和全量明细使用 DTO，保留作者与大毫秒数，失败不缓存', () async {
+    final details = [
+      ReadRecordDetailDto(
+        bookName: '同名😀',
+        author: '作者',
+        date: '2026-01-01',
+        readTime: 9007199254740993,
+        lastRead: 9223372036854775806,
+      ),
+    ];
     when(() => bridge.crateFfiFfiReadRecordDetailList(year: 2026))
-        .thenAnswer((_) async => json);
+        .thenAnswer((_) async => details);
     when(() => bridge.crateFfiFfiReadRecordAllDetailList())
-        .thenAnswer((_) async => json);
+        .thenAnswer((_) async => details);
     final yearly = await repository.getReadRecordDetails(2026);
+    expect(yearly.single.bookName, '同名😀');
     expect(yearly.single.author, '作者');
-    expect(yearly.single.readTime, 1500);
+    expect(yearly.single.readTime, 9007199254740993);
+    expect(yearly.single.lastRead, 9223372036854775806);
     expect(await repository.getAllReadRecordDetails(), yearly);
+    final failure = StateError('明细查询失败');
     when(() => bridge.crateFfiFfiReadRecordAllDetailList())
-        .thenAnswer((_) async => '{}');
+        .thenAnswer((_) async => throw failure);
     await expectLater(
       repository.getAllReadRecordDetails(),
-      throwsFormatException,
+      throwsA(same(failure)),
+    );
+    when(() => bridge.crateFfiFfiReadRecordDetailList(year: 2027))
+        .thenAnswer((_) async => []);
+    expect(await repository.getReadRecordDetails(2027), isEmpty);
+    when(() => bridge.crateFfiFfiReadRecordDetailList(year: 2026))
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getReadRecordDetails(2026),
+      throwsA(same(failure)),
     );
   });
 

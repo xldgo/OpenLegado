@@ -33,6 +33,7 @@ use legado_core::{LegadoError, LegadoResult};
 ///   「抓取书籍页」路径优先用本列，为空回退 bookUrl，Migration108To109）
 /// - v110：httpTTS 补 `speed` 与 `synthesisThreadCount` 列（批次 T1：对齐上游
 ///   HttpTTS 实体的源级语速与合成并发上限，保留 pauseDuration/isEnabled，Migration109To110）
+///
 /// v111：新增独立音色目录，不回填旧源目录。
 pub const SCHEMA_VERSION: u32 = 112;
 
@@ -84,7 +85,8 @@ pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
         .map_err(|e| LegadoError::Database(format!("创建 ruleSubs 表失败: {e}")))?;
     conn.execute_batch(CREATE_CACHES)
         .map_err(|e| LegadoError::Database(format!("创建 caches 表失败: {e}")))?;
-    conn.execute_batch(CREATE_CLOUD_TTS_ENGINES).map_err(|e|LegadoError::Database(e.to_string()))?;
+    conn.execute_batch(CREATE_CLOUD_TTS_ENGINES)
+        .map_err(|e| LegadoError::Database(e.to_string()))?;
     conn.execute_batch(CREATE_READ_ALOUD_VOICES)
         .map_err(|e| LegadoError::Database(e.to_string()))?;
     conn.execute_batch(CREATE_HTTP_TTS)

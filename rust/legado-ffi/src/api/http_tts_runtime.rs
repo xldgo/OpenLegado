@@ -191,10 +191,10 @@ fn login_with_store(
 ) -> LegadoResult<String> {
     use legado_parser::JsExecutor;
     let key = config.source_key();
-    let executor = legado_fetcher::tts_source::TtsJsExecutor::new(&config, store.clone());
+    let executor = legado_fetcher::tts_source::TtsJsExecutor::new(config, store.clone());
     match operation {
         "headers" => Ok(serde_json::to_string(
-            &legado_fetcher::tts_source::source_headers(&config, &executor, store.as_ref())?,
+            &legado_fetcher::tts_source::source_headers(config, &executor, store.as_ref())?,
         )?),
         "info" | "header" => Ok(store
             .load(&key)?
@@ -233,7 +233,7 @@ fn login_with_store(
         "ui" => {
             if legado_core::login_ui_v2::is_v2(config.login_ui.as_deref()) {
                 let script =
-                    legado_core::login_ui_v2::build_login_ui_v2_script(&login_script(&config)?);
+                    legado_core::login_ui_v2::build_login_ui_v2_script(&login_script(config)?);
                 executor
                     .execute_js(&format!(
                         "globalThis.__loginState={};\n{script}",
@@ -243,7 +243,7 @@ fn login_with_store(
             } else if let Some(rule) = config.login_ui.as_deref() {
                 if let Some(code) = legado_core::login_ui_v2::extract_inline_js(Some(rule)) {
                     executor
-                        .execute_js(&format!("{}\n{code}", login_script(&config)?))
+                        .execute_js(&format!("{}\n{code}", login_script(config)?))
                         .map_err(LegadoError::JsEngine)
                 } else {
                     Ok(rule.to_string())
@@ -264,7 +264,7 @@ fn login_with_store(
                 other => other.to_string(),
             };
             let script =
-                legado_core::login_ui_v2::build_login_action_v2_script(&login_script(&config)?);
+                legado_core::login_ui_v2::build_login_action_v2_script(&login_script(config)?);
             let code = format!(
                 "globalThis.__loginAction={};globalThis.__loginState={};globalThis.__loginForm={};\n{script}",
                 serde_json::to_string(action)?,

@@ -30,14 +30,10 @@ class RustLayoutTestTransport implements ReaderLayoutTransport {
   }
 
   @override
-  Future<String> begin(String configJson) async {
+  Future<ReaderLayoutReply> begin(Map<String, Object?> config) async {
     final id = 'test-${_sequence++}';
-    _sessions[id] = {
-      'config': jsonDecode(configJson)['config'],
-      'blocks': <dynamic>[],
-      'emitted': 0,
-    };
-    return jsonEncode({
+    _sessions[id] = {'config': config, 'blocks': <dynamic>[], 'emitted': 0};
+    return ReaderLayoutReply.fromMap({
       'schemaVersion': 1,
       'sessionId': id,
       'pages': [],
@@ -48,7 +44,7 @@ class RustLayoutTestTransport implements ReaderLayoutTransport {
         'text': '',
         'geometry': '',
         'positions': '',
-        'extras': {},
+        'extras': <String, dynamic>{},
       },
     });
   }
@@ -88,24 +84,25 @@ class RustLayoutTestTransport implements ReaderLayoutTransport {
   }
 
   @override
-  Future<String> push(String sessionId, String blocksJson) async {
-    (_sessions[sessionId]!['blocks'] as List).addAll(
-      jsonDecode(blocksJson)['blocks'] as List,
-    );
-    return _run(sessionId, false);
+  Future<ReaderLayoutReply> push(
+    Object sessionId,
+    List<Map<String, Object?>> blocks,
+  ) async {
+    (_sessions[sessionId]!['blocks'] as List).addAll(blocks as List);
+    return ReaderLayoutReply.decode(_run(sessionId as String, false));
   }
 
   @override
-  Future<String> finish(String sessionId) async {
+  Future<ReaderLayoutReply> finish(Object sessionId) async {
     try {
-      return _run(sessionId, true);
+      return ReaderLayoutReply.decode(_run(sessionId as String, true));
     } finally {
       _sessions.remove(sessionId);
     }
   }
 
   @override
-  Future<void> cancel(String sessionId) async => _sessions.remove(sessionId);
+  Future<void> cancel(Object sessionId) async => _sessions.remove(sessionId);
 }
 
 /// 异步排版之后再挂载原测试界面，不把 Future 当成同步页面列表。

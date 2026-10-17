@@ -11,15 +11,16 @@ import 'package:flutter_legado/src/widgets/reader/reader_layout_element.dart';
 
 class _Transport implements ReaderLayoutTransport {
   final calls = <String>[];
-  final beginResult = Completer<String>();
-  final pending = <Completer<String>>[];
+  final beginResult = Completer<ReaderLayoutReply>();
+  final pending = <Completer<ReaderLayoutReply>>[];
   bool deferPush = false;
-  String reply({String id = '会话', List<Object> pages = const []}) =>
-      jsonEncode({
+  ReaderLayoutReply reply({String id = '会话', List<Object> pages = const []}) =>
+      ReaderLayoutReply.fromMap({
         'schemaVersion': 1,
         'sessionId': id,
         'pages': [
-          for (final page in pages) {...page as Map, 'elements': []},
+          for (final page in pages)
+            <String, dynamic>{...page as Map, 'elements': []},
         ],
         'rustMicros': 10,
         'textStyles': [],
@@ -28,28 +29,31 @@ class _Transport implements ReaderLayoutTransport {
           'text': '',
           'geometry': '',
           'positions': '',
-          'extras': {},
+          'extras': <String, dynamic>{},
         },
       });
   @override
-  Future<String> begin(String configJson) {
+  Future<ReaderLayoutReply> begin(Map<String, Object?> config) {
     calls.add('begin');
-    expect(jsonDecode(configJson)['schemaVersion'], 1);
+    expect(config, isA<Map<String, Object?>>());
     return beginResult.future;
   }
 
   @override
-  Future<String> push(String sessionId, String blocksJson) {
+  Future<ReaderLayoutReply> push(
+    Object sessionId,
+    List<Map<String, Object?>> blocks,
+  ) {
     calls.add('push');
-    expect(jsonDecode(blocksJson)['blocks'], isList);
+    expect(blocks, isList);
     if (!deferPush) return Future.value(reply());
-    final completion = Completer<String>();
+    final completion = Completer<ReaderLayoutReply>();
     pending.add(completion);
     return completion.future;
   }
 
   @override
-  Future<String> finish(String sessionId) async {
+  Future<ReaderLayoutReply> finish(Object sessionId) async {
     calls.add('finish');
     return reply(
       pages: [
@@ -59,7 +63,7 @@ class _Transport implements ReaderLayoutTransport {
   }
 
   @override
-  Future<void> cancel(String sessionId) async {
+  Future<void> cancel(Object sessionId) async {
     calls.add('cancel');
   }
 }
@@ -316,7 +320,7 @@ void main() {
       throwsFormatException,
     );
   });
-  test('开启诊断时分别统计编码、调用、解码与 Rust 计时', () async {
+  test('类型化调用记录调用总耗时与 Rust 计时，JSON 编解码计时为零', () async {
     final transport = _Transport();
     final diagnostics = ReaderLayoutDiagnostics();
     final session = ReaderLayoutSession(
@@ -330,5 +334,7 @@ void main() {
     expect(diagnostics.ffiCalls, 3);
     expect(diagnostics.rustMicroseconds, 30);
     expect(diagnostics.measurementCalls, 0);
+    expect(diagnostics.encodingMicroseconds, 0);
+    expect(diagnostics.decodingMicroseconds, 0);
   });
 }

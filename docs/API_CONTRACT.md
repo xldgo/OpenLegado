@@ -750,6 +750,8 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 
 ### 1.4 已知双兼容点（重要警告）
 
+> 2026-10-17 强类型补充：本节 JSON 裸数组约束仅适用于尚未迁移的 JSON 接口；已冻结的 DTO 列表直接传输，不先转换 JSON。书签与每日阅读明细见 §2.7。
+
 以下方法的 Rust 侧返回为 **Map 包装结构**（非裸 List），Dart 侧已做兼容处理（提取内部字段）：
 
 | 方法 | Rust 返回结构 | 提取字段 | 历史事故 |
@@ -1108,7 +1110,42 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 > ℹ️ **本地书白名单与 CBZ 懒加载链路（2026-10-03 批 B）**：`reader::is_local_book` 后缀白名单 = `.epub / .txt / .text / .mobi / .azw / .azw3 / .pdf / .cbz`（本次新增 `.cbz`）；`.zip` **不在**白名单（保持压缩容器语义，走 §2.34 导入路径，行为不变）。`.cbz` 命中白名单后：`getChapters` 首次调用懒解析（`LocalBook` → `CbzFile`，整包 1 章、章节 `url` 置空）并入库（含 B-13b 派生字段同步）；`getChapterContent` 返回 `cbz://<条目名>` 行列表（自然排序、仅图片条目）；图片字节经 §2.34 `cbzReadPage` 按条目读取。
 
+> **FFI-TRANSPORT-20261017 / P2 冻结**（覆盖后文四个图片接口的历史 base64 约定）：`cbz_read_page(path, entry)` 与
+> `fetch_image_with_decode(url, source_json)` 改为 `Result<Vec<u8>, BridgeError>`，
+> `get_image_cache(book_url, url)` 改为 `Result<Option<Vec<u8>>, BridgeError>`，
+> `save_image_cache(book_url, url, bytes: Vec<u8>)` 保留 bool 结果。Dart 参数/结果为 Uint8List；
+> 删除上述传输的 base64/len JSON，不修改图片解密、CBZ 路径/条目、缓存键与 I/O 降级。
+> 空缓存仍视为未命中，在线/CBZ 错误抛出；音频继续落盘，封面规则与字体不扩参。
+> 沿用 SSE codec，只声明二进制直传，不宣称零拷贝；未增加新的图片格式或大小策略。
+>
+> 编写者：Codex + Bridge｜2026-10-17
+
 ### 2.7 书签操作（7 个方法）
+
+> **FFI-TRANSPORT-20261017 / P1 冻结（2026-10-17）**：本批以强类型 FRB 替换书签和每日阅读明细的内部 JSON 载荷。
+> Flutter 领域 Repository、DB schema、导入/导出及 REST JSON 不变。以下新约定覆盖本节历史 JSON 传输说明。
+>
+> - `BookmarkDto`：`id: i64`、`time: i64`、`bookName: String`、`bookAuthor: String`、
+>   `chapterIndex: i32`、`chapterPos: i32`、`chapterName: String`、`bookText: String`、`content: String`。
+>   字符串均不可空，允许空串；ID 和时间在 native Dart 使用精确 64 位 int，时间单位毫秒。
+>   chapterPos 保持已有章内 UTF-16 偏移语义，不增加转换、裁剪或默认值。
+> - `bookmark_get_all(book_name)`、`get_bookmarks_by_book(book_name, book_author)`、
+>   `bookmark_list()`、`bookmark_search(keyword)` 返回 `Result<Vec<BookmarkDto>, BridgeError>`，
+>   Dart 为 `Future<List<BookmarkDto>>`。空查询返回空列表，顺序、过滤和错误沿用原实现。
+> - `bookmark_update(bookmark: BookmarkDto)` 返回 `Result<(), BridgeError>`；
+>   原地更新并保留数据库原 id/time，缺失目标或写入错误抛出，失败不改记录。
+>   移除 bookmark_json 参数及对应 JSON 解析，新增/删除仍使用现有标量参数及 i64 ID。
+> - `ReadRecordDetailDto`：`bookName: String`、`author: String`、`date: String`、
+>   `readTime: i64`、`lastRead: i64`；时间单位毫秒，date 沿用本地日期 YYYY-MM-DD。
+>   `read_record_detail_list(year: i32)`、`read_record_all_detail_list()` 返回
+>   `Result<Vec<ReadRecordDetailDto>, BridgeError>`，Dart 为 `Future<List<ReadRecordDetailDto>>`。
+>   维持原有跨设备汇总、年份过滤和日期顺序，不暴露 deviceId 或推造历史明细。
+> - DTO 位于 legado-ffi 的传输模块，Rust 与既有实体直接转换；Dart data 层映射到既有领域模型，
+>   页面不导入生成 DTO。更新未修改的其他阅读记录接口继续沿用现有 JSON。
+> - Rust/Dart 绑定同次生成并重建 native，旧 DLL 不兼容新绑定；本批不保留 JSON 双接口。
+>   同步验证大 i64、Unicode/空串、更新保留时间、错误传播与真实跨桥接调用。
+>
+> 编写者：Codex + Bridge｜2026-10-17
 
 > **书签直接适配接线冻结（2026-10-13）**：`BookmarkRepository` 暴露全部查询、
 > 书名与作者双键查询、新增、原子更新、删除及搜索六项操作。`RustBookmarkRepository`
@@ -1127,11 +1164,11 @@ setStringList落盘；不扩展共享快照承载实体列表、凭据或可变�
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `bookmarkGetAll({required String bookName})`（仅 FRB） | bookName | `Future<String>` | 仅按书名返回裸 JSON 数组；Rust/FRB 导出保留，旧 BookApi.getBookmarks 已删除，应用使用领域接口的双键查询。 |
-| `getBookmarksByBook(String bookName, String bookAuthor)` | bookName, bookAuthor | `Future<List<Bookmark>>` | 按书名+作者获取某本书的所有书签（对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入）；返回书签列表（遵守 §1.4 裸数组铁律）。既有 Rust/FRB 双键查询签名不变；Dart 调用迁至 BookmarkRepository（历史来源：台账 §5.14-2，Task #63） |
+| `bookmarkGetAll({required String bookName})`（仅 FRB） | bookName | `Future<List<BookmarkDto>>` | 仅按书名返回强类型列表；Rust/FRB 导出保留，旧 BookApi.getBookmarks 已删除，应用使用领域接口的双键查询。 |
+| `getBookmarksByBook(String bookName, String bookAuthor)` | bookName, bookAuthor | `Future<List<Bookmark>>` | 按书名+作者获取某本书的所有书签（对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入）；返回书签领域列表（FRB 传输改为 List<BookmarkDto>，不经过 JSON）；Dart 调用迁至 BookmarkRepository（历史来源：台账 §5.14-2，Task #63） |
 | `getAllBookmarks()` | 无 | `Future<List<Bookmark>>` | 获取所有书签 |
 | `addBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<Bookmark>` | 添加书签 |
-| `updateBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<void>` | 通过 FRB `bookmark_update(bookmark_json)` 原子更新已有书签；保留 id 与原有创建时间 time。非法 JSON、目标不存在或写入失败抛错，失败保留原记录，不执行删除后新增。 |
+| `updateBookmark(Bookmark bookmark)` | bookmark: Bookmark 对象 | `Future<void>` | 通过 FRB `bookmark_update(bookmark: BookmarkDto)` 原子更新已有书签；保留 id 与原有创建时间 time。目标不存在或写入失败抛错，失败保留原记录，不执行删除后新增。 |
 | `deleteBookmark(int id)` | id | `Future<void>` | 删除书签 |
 | `searchBookmarks(String keyword)` | keyword | `Future<List<Bookmark>>` | 搜索书签 |
 
@@ -1213,7 +1250,7 @@ Rust导出、参数、返回和数据库格式保持。
 > 在同一事务更新受影响日期的总秒数；清空累计、每日明细、日总数与会话四表。正式与 Mock 写入成功后发布变更通知，
 > 统计数据 Provider 订阅通知并跟随 Repository 替换；搜索过滤不作为统计数据源。
 > `putReadRecord` 对接 `readRecordRecordTime(bookName, author, readTimeMs, startTimeMs, endTimeMs, bookUrl, chapterIndex)`；
-> 两个明细查询对接 `readRecordDetailList(year)` / `readRecordAllDetailList()`。
+> 两个明细查询对接 `readRecordDetailList(year)` / `readRecordAllDetailList()`；2026-10-17 P1 改为强类型列表，字段与映射见 §2.7 冻结说明。
 > 不补造历史每日明细；没有明细的累计值只参与“总”时长，不推算日历或排行。
 
 
@@ -2171,3 +2208,95 @@ WebView 同时接受书源 Repository 与可选 TTS 会话，TTS 读写通过会
 schema v112 保留阅读记录明细与两个朗读目录/元数据表，不覆盖任一建表。
 
 编写者：Codex｜2026-10-14
+
+
+### FFI-TRANSPORT-20261017 / P3 核心实体冻结
+
+本次内部 DTO 同步替换书架 CRUD、书源 CRUD/列表与已有目录查询载荷；领域接口、JSON 导入导出、REST、数据库与页面行为保持。
+DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保持 null 与空值区别，i64 保持 native 精确整型）：
+
+> - `ReadConfigDto`：`reverse_toc: bool`, `page_anim: Option<i32>`, `re_segment: bool`, `image_style: Option<String>`, `use_replace_rule: Option<bool>`, `del_tag: i64`, `tts_engine: Option<String>`, `split_long_chapter: bool`, `read_simulating: bool`, `start_date: Option<String>`, `start_chapter: Option<i32>`, `daily_chapters: i32`, `open_credits: i32`, `close_credits: i32`, `play_mode: i32`, `play_speed: f32`, `use_global_audio_skip: bool`, `manga_scroll_mode: Option<i32>`, `webtoon_side_padding_dp: Option<i32>`。
+> - `BookDto`：`book_url: String`, `toc_url: String`, `origin_book_url: String`, `is_private: bool`, `origin: String`, `origin_name: String`, `name: String`, `author: String`, `kind: Option<String>`, `custom_tag: Option<String>`, `cover_url: Option<String>`, `custom_cover_url: Option<String>`, `intro: Option<String>`, `custom_intro: Option<String>`, `charset: Option<String>`, `book_type: i32`, `group: i64`, `latest_chapter_title: Option<String>`, `latest_chapter_time: i64`, `last_check_time: i64`, `last_check_count: i32`, `total_chapter_num: i32`, `dur_chapter_title: Option<String>`, `dur_chapter_index: i32`, `dur_volume_index: i32`, `chapter_in_volume_index: i32`, `dur_chapter_pos: i32`, `dur_chapter_time: i64`, `word_count: Option<String>`, `can_update: bool`, `order: i32`, `origin_order: i32`, `variable: Option<String>`, `read_config: Option<ReadConfigDto>`, `sync_time: i64`, `info_html: Option<String>`, `toc_html: Option<String>`, `download_urls: Option<String>`, `cover_origin: Option<String>`。
+> - `ChapterDto`：`url: String`, `title: String`, `is_volume: bool`, `base_url: String`, `book_url: String`, `index: i32`, `is_vip: bool`, `is_pay: bool`, `resource_url: Option<String>`, `tag: Option<String>`, `word_count: Option<String>`, `start: Option<i64>`, `end: Option<i64>`, `start_fragment_id: Option<String>`, `end_fragment_id: Option<String>`, `variable: Option<String>`, `img_url: Option<String>`。
+> - `BookSourceDto`：`book_source_url: String`, `book_source_name: String`, `book_source_group: Option<String>`, `book_source_type: i32`, `book_url_pattern: Option<String>`, `custom_order: i32`, `enabled: bool`, `enabled_explore: bool`, `js_lib: Option<String>`, `enabled_cookie_jar: Option<bool>`, `concurrent_rate: Option<String>`, `header: Option<String>`, `login_url: Option<String>`, `login_ui: Option<String>`, `login_check_js: Option<String>`, `cover_decode_js: Option<String>`, `book_source_comment: Option<String>`, `variable_comment: Option<String>`, `variable: String`, `last_update_time: i64`, `respond_time: i64`, `weight: i32`, `explore_url: Option<String>`, `explore_screen: Option<String>`, `rule_explore: Option<ExploreRuleDto>`, `search_url: Option<String>`, `rule_search: Option<SearchRuleDto>`, `rule_book_info: Option<BookInfoRuleDto>`, `rule_toc: Option<TocRuleDto>`, `rule_content: Option<ContentRuleDto>`, `rule_review: Option<ReviewRuleDto>`, `main_js: Option<String>`, `event_listener: bool`, `custom_button: bool`。
+> - `ExploreRuleDto`：`book_list: Option<String>`, `name: Option<String>`, `author: Option<String>`, `intro: Option<String>`, `kind: Option<String>`, `last_chapter: Option<String>`, `update_time: Option<String>`, `book_url: Option<String>`, `cover_url: Option<String>`, `word_count: Option<String>`。
+> - `SearchRuleDto`：`check_key_word: Option<String>`, `book_list: Option<String>`, `name: Option<String>`, `author: Option<String>`, `intro: Option<String>`, `kind: Option<String>`, `last_chapter: Option<String>`, `update_time: Option<String>`, `book_url: Option<String>`, `cover_url: Option<String>`, `word_count: Option<String>`。
+> - `BookInfoRuleDto`：`init: Option<String>`, `name: Option<String>`, `author: Option<String>`, `intro: Option<String>`, `kind: Option<String>`, `last_chapter: Option<String>`, `update_time: Option<String>`, `cover_url: Option<String>`, `toc_url: Option<String>`, `word_count: Option<String>`, `can_re_name: Option<String>`, `download_urls: Option<String>`。
+> - `TocRuleDto`：`pre_update_js: Option<String>`, `chapter_list: Option<String>`, `chapter_name: Option<String>`, `chapter_url: Option<String>`, `format_js: Option<String>`, `is_volume: Option<String>`, `is_vip: Option<String>`, `is_pay: Option<String>`, `update_time: Option<String>`, `next_toc_url: Option<String>`。
+> - `ContentRuleDto`：`content: Option<String>`, `sub_content: Option<String>`, `title: Option<String>`, `next_content_url: Option<String>`, `web_js: Option<String>`, `source_regex: Option<String>`, `replace_regex: Option<String>`, `image_style: Option<String>`, `image_decode: Option<String>`, `pay_action: Option<String>`, `call_back_js: Option<String>`。
+> - `ReviewRuleDto`：`review_url: Option<String>`, `avatar_rule: Option<String>`, `content_rule: Option<String>`, `post_time_rule: Option<String>`, `review_quote_url: Option<String>`, `vote_up_url: Option<String>`, `vote_down_url: Option<String>`, `post_review_url: Option<String>`, `post_quote_url: Option<String>`, `delete_url: Option<String>`, `enabled: bool`, `review_summary_url: Option<String>`, `summary_list_rule: Option<String>`, `summary_paragraph_index_rule: Option<String>`, `summary_paragraph_data_rule: Option<String>`, `summary_count_rule: Option<String>`, `review_detail_url: Option<String>`, `review_detail_next_page_url: Option<String>`, `detail_list_rule: Option<String>`, `detail_id_rule: Option<String>`, `detail_avatar_rule: Option<String>`, `detail_name_rule: Option<String>`, `detail_badge_rule: Option<String>`, `detail_content_rule: Option<String>`, `reply_list_rule: Option<String>`, `reply_id_rule: Option<String>`, `reply_avatar_rule: Option<String>`, `reply_name_rule: Option<String>`, `reply_badge_rule: Option<String>`, `reply_content_rule: Option<String>`。
+
+- `bookshelf_list() -> Vec<BookDto>`；`bookshelf_get(book_url) -> Option<BookDto>`；
+  `bookshelf_add(book: BookDto) -> BookDto`；`bookshelf_update(book: BookDto) -> ()`。
+- `source_list/source_list_enabled -> Vec<BookSourceDto>`；`source_add(source: BookSourceDto) -> BookSourceDto`；
+  `source_update(source: BookSourceDto) -> ()`。沿用写库后刷新同一限速器的顺序。
+- `reader_get_chapters(book_url) -> ChapterListDto { total:i32, chapters:Vec<ChapterDto> }`。
+  网络刷新/平台动作响应仍有拦截协议，不在纯目录读取时混为一个无错误分支的列表。
+- JSON 解析入口为 Server/导入保留，并转发到同一实体实现；FRB 路径直接转换，不借 JSON 中转。
+  书籍更新继续调用既有 source 字段防回退合并，DTO 本身不增加业务默认值或静默修复。
+- Dart data 层只映射现有领域字段，不以生成类型替换 UI 模型；Rust 内部完整实体字段保留可表达能力。
+
+编写者：Codex + Bridge｜2026-10-17
+
+### FFI-TRANSPORT-20261017 / P3 流冻结
+
+搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、
+StreamSink<CheckProgressDto>、StreamSink<ChangeSourceBatchDto>；结果字段逐项对应既有批次，
+嵌套 SearchBookDto、SourceMatchDto、CheckResultDto、CaptchaInfoDto 和 RedirectInfoDto 直接传输。
+搜索保留按源结果批次/hasMore/已读信息，换源仍为累积排序快照；单源错误和终批语义不变。
+三个流显式接受独立 opaque StreamRequest；Dart 取消订阅先取消该句柄，再解除订阅并 dispose。
+句柄取消能打断没有产出事件的等待；发送失败依旧取消原执行会话。保留旧业务取消/暂停接口，
+不使用它们处理旧订阅取消，避免误杀新任务。底层已有 TaskGroup/阻塞凭据继续跟踪真实寿命。
+Rust 内部仍需 JSON 的测试/HTTP 适配器仅在边界序列化，与 FRB 类型化驱动共用唯一实现。
+不承诺 StreamSink 自动背压或强杀同步 JS，不将所有短查询改为流。
+
+编写者：Codex + Bridge｜2026-10-17
+
+### FFI-TRANSPORT-20261017 / P4 排版会话冻结
+
+`reader_layout_begin(config: LayoutConfigDto) -> LayoutSession`；移除基于 session_id 的
+reader_layout_push/finish/cancel 导出；改为 opaque LayoutSession 的 push(blocks:Vec<LayoutBlockDto>)、
+finish() 与同步 cancel()。push/finish 返回 LayoutReplyDto，不持有全局字符串会话表。
+配置、段落、行内项、块和样式以字段/枚举快照表达；上游既有可扩展装饰元数据使用受限的
+LayoutValue 类型树，不编码 JSON 字符串。低频装饰仍映射现有领域 Map，不重写排版算法。
+输出保留共享样式与字形列：geometry/positions 改为 Vec<u8>，不退回逐字对象或 base64。
+会话上限仍为8、单批32块/250000行内项；以16MiB估算内存预算替代JSON字符预算。
+finish/失败释放会话容量；取消幂等并及时设置独立标志，竞争中的计算完成前不提前释放容量。
+Dart finally显式取消/释放，GC仅兜底；已关闭对象不能push/finish。原阅读位置、分页与布局规则不变。
+
+编写者：Codex + Bridge｜2026-10-17
+
+#### P3/P4 数值与诊断补充
+
+- 桥接沿用底层 f32/f64 类型；f32 传到 Dart double 时会呈现二进制精度（如 1.7 约为
+  1.7000000477），不承诺十进制字符串格式的逐位一致，测试按 f32 误差验证。
+- 排版诊断的 callMicroseconds 包含 Dart DTO 字段映射、FRB 往返和返回列适配；Rust 计时单列保留。
+  已移除 JSON 编解码，旧 encoding/decoding 计时为零；不能将新旧 call 指标当作同一阶段直接比较。
+
+### FFI-TRANSPORT-20261017 / 剩余主链路冻结
+
+本轮继续在同一worktree完成既定现代化主链路，上一轮的P1～P4局部完成不作为整阶段关闭。
+- 搜索/精搜/非流式多源查询与三个流均接收 Vec<String> 源列表；校验配置为 SourceCheckConfigDto
+  的七个可空字段（keyword/stepTimeoutMs/checkSearch/checkToc/checkContent/detectCaptcha/detectRedirect）。
+  单源校验接收 BookSourceDto，返回 CheckResultDto；流配置默认和顺序保持。
+- 换源选项为 SwitchSearchOptionsDto 的四个布尔字段（loadInfo/loadToc/loadWordCount/forceRefresh）；
+  非流查询返回 SourceSwitchResponseDto，apply/applyPrefetch 返回 BookDto，复用原事务和取消。
+- 普通搜索返回 Vec<SearchBookDto>（沿用原FFI输出的SearchBook字段）；多源查询返回 AnnotatedCandidateDto
+  （原候选/阅读标识/评分全部字段）；精搜返回 SearchBookDto。Server/HTTP适配自行序列化，执行链不重复。
+- readerRefreshToc 返回 ChapterListDto。正文网络入口返回 TextResponseDto：普通正文或明确的
+  PlatformActionDto；正文 String 保持原文，不把任意以花括号开头的小说文本误判成动作。
+  平台动作转换集中在 Rust 边界，Dart 直接分发已有动作处理器；需要WebView结果时保留当前回传语义。
+  UI、数据库、导入导出与JS脚本内容不改。
+
+编写者：Codex + Bridge｜2026-10-17
+
+PlatformActionDto 固定十二类动作，与既有 supportedActions 对齐；参数字段为 url/html/js/title/mimeType/text/message/result/cookie/sourceRegex/overrideUrlRegex/sourceKey/tag 的可空字符串、isFloat/isRule/cacheFirst布尔值及归一后的delayTimeMs整数；未知动作保持普通文本。
+
+本轮“剩余主链路冻结”替代此前P3流输入字符串及目录刷新平台拦截的描述。三个流的配置和源列表
+现在均为类型化入参；refreshToc仅返回ChapterListDto，平台动作只在确实可返回动作的正文入口分派。
+HTTP/Server所需JSON格式仍由其入口适配，FRB执行链不借JSON序列化返回实体。
+
+单源校验领域接口同步收口为 checkSource(BookSource source, {String? configJson})，不再把已有实体
+序列化后交给Dart重新解析。这避免复制Rust导入的宽松反序列化规则及缺键/null语义；用户书源JSON
+仍由既有导入路径解析。Mock与所有调用方同步；配置JSON是现有设置文档格式，仅在数据适配器
+解析一次后转换SourceCheckConfigDto。批量校验的源列表接口不改。

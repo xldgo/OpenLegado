@@ -250,23 +250,27 @@ mod tests {
         let repo = ReadRecordRepository::new(&conn);
         let end = time(13, 12, 0);
         repo.record_reading_time_with_session(
-            "甲",
-            "作者",
-            60000,
-            Some(end - 60000),
-            Some(end),
-            "book://1",
-            3,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name: "甲",
+                author: "作者",
+                read_time_ms: 60000,
+                start_time_ms: Some(end - 60000),
+                end_time_ms: Some(end),
+                book_url: "book://1",
+                chapter_index: 3,
+            },
         )
         .unwrap();
         repo.record_reading_time_with_session(
-            "甲",
-            "作者",
-            60000,
-            Some(end - 60000),
-            Some(end),
-            "book://1",
-            3,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name: "甲",
+                author: "作者",
+                read_time_ms: 60000,
+                start_time_ms: Some(end - 60000),
+                end_time_ms: Some(end),
+                book_url: "book://1",
+                chapter_index: 3,
+            },
         )
         .unwrap();
         let sessions = repo.list_read_sessions().unwrap();
@@ -284,13 +288,15 @@ mod tests {
         let start = time(13, 23, 59);
         let end = time(14, 0, 1);
         repo.record_reading_time_with_session(
-            "甲",
-            "作者",
-            end - start,
-            Some(start),
-            Some(end),
-            "b",
-            1,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name: "甲",
+                author: "作者",
+                read_time_ms: end - start,
+                start_time_ms: Some(start),
+                end_time_ms: Some(end),
+                book_url: "b",
+                chapter_index: 1,
+            },
         )
         .unwrap();
         assert!(repo.delete_read_detail("甲", "作者", "2026-10-13").unwrap());
@@ -315,23 +321,27 @@ mod tests {
         let repo = ReadRecordRepository::new(&conn);
         let end = time(13, 12, 0);
         repo.record_reading_time_with_session(
-            "同名",
-            "甲",
-            1000,
-            Some(end - 1000),
-            Some(end),
-            "a",
-            1,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name: "同名",
+                author: "甲",
+                read_time_ms: 1000,
+                start_time_ms: Some(end - 1000),
+                end_time_ms: Some(end),
+                book_url: "a",
+                chapter_index: 1,
+            },
         )
         .unwrap();
         repo.record_reading_time_with_session(
-            "同名",
-            "乙",
-            3000,
-            Some(end),
-            Some(end + 2000),
-            "b",
-            2,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name: "同名",
+                author: "乙",
+                read_time_ms: 3000,
+                start_time_ms: Some(end),
+                end_time_ms: Some(end + 2000),
+                book_url: "b",
+                chapter_index: 2,
+            },
         )
         .unwrap();
         repo.delete_by_book_and_author("同名", "甲").unwrap();
@@ -349,13 +359,15 @@ mod tests {
         let end = time(13, 12, 0);
         assert!(
             repo.record_reading_time_with_session(
-                "甲",
-                "作者",
-                1000,
-                Some(end - 1000),
-                Some(end),
-                "a",
-                1
+                crate::repository::read_record_repository::ReadingSessionInput {
+                    book_name: "甲",
+                    author: "作者",
+                    read_time_ms: 1000,
+                    start_time_ms: Some(end - 1000),
+                    end_time_ms: Some(end),
+                    book_url: "a",
+                    chapter_index: 1
+                }
             )
             .is_err()
         );
@@ -368,13 +380,15 @@ mod tests {
         let repo = ReadRecordRepository::new(&conn);
         let end = time(13, 12, 0);
         repo.record_reading_time_with_session(
-            "甲",
-            "作者",
-            1000,
-            Some(end - 1000),
-            Some(end),
-            "a",
-            1,
+            crate::repository::read_record_repository::ReadingSessionInput {
+                book_name: "甲",
+                author: "作者",
+                read_time_ms: 1000,
+                start_time_ms: Some(end - 1000),
+                end_time_ms: Some(end),
+                book_url: "a",
+                chapter_index: 1,
+            },
         )
         .unwrap();
         let first = repo.list_read_sessions().unwrap()[0].id;

@@ -1,5 +1,33 @@
 # Legado 后续重构执行计划（Active）
 
+### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
+
+- 授权与基线：用户要求从主目录最新提交创建 worktree，分析方案后授权开始。基线 feature/ui-reader-selection / 361cced7e；工作区 build/worktrees/rust-ffi-modernization，分支 feature/rust-ffi-modernization。主目录并行 UI 修改保留，不带入或覆盖；Codex 直接执行，不使用子代理。后续按用户授权 rebase 至主目录 1b871c3c4，已恢复原全部改动；stash 95d0feb27 作为恢复备份保留。
+- 状态：本轮既定范围的实现与本地验证已完成，用户已授权提交当前成果并继续阅读域迁移，提交以Git记录为准。P1～P4 与后续补齐的搜索/换源/校验/目录/正文主链路均已迁移；默认工作区及 QuickJS 相关三包的全目标严格 Clippy 已通过，前轮基线阻断已修复。P2 保留 SSE 字节直传，不宣称零拷贝。设备完整 profile、Android/iOS 验证和独立审查未执行，不视为全平台验收或全部领域 JSON 淘汰。方法与范围见 [实施方案](FFI_TRANSPORT_MODERNIZATION_20261017.md)，本条为唯一状态入口；下述早期结果与失败为过程记录，以本条末尾收口结果为准。
+- P1 契约：API_CONTRACT §2.7 先行冻结 BookmarkDto 九字段、ReadRecordDetailDto 五字段；七个既有 FFI 导出改用强类型入参/结果，函数不增不删。书签新增/删除保留标量参数，更新仍保留数据库原 id/time；阅读明细保持毫秒、作者、日期排序和年份语义。其余 JSON 接口、导入导出与存储格式不变。
+- P1 实现：新增 rust/legado-ffi/src/transfer_dto.rs，实体与 DTO 直接转换；既有明细 DTO 移入传输模块并保留服务端序列化。正式 RustBookmarkRepository 和 RustReadRecordRepository 直接映射生成 DTO，不经 JSON 往返。领域契约、页面和 Mock 不变；同次 FRB 2.13.0 生成双方绑定，新 hash 为 -319340783，旧原生库不能配用。
+- P1 回归：QuickJS FFI 全库 581 项通过/42 项既有忽略；默认 FFI 全库 505 项通过/21 项既有忽略。相关十二份 Flutter 单元/Widget 测试 102 项通过，新增四项仓储映射/写入/错误测试包含其中。完整 flutter analyze --no-pub 无问题；五份手写 Dart 与五份 Rust 格式检查及 git diff --check 通过。
+- P1 真实接线：Python 正式入口在当前 worktree 独立 rust/target 构建并校验 Windows Debug QuickJS DLL，未替换主目录 DLL；两个真实宿主 FFI 测试文件共四项通过，覆盖精确大 i64 入参、Unicode/UTF-16 偏移、书签查询/搜索/原子更新、失败保留及跨年每日明细。不是 Android/iOS 或应用设备验收，不宣称端到端性能提升。
+- 失败与修正：初轮静态检查发现真实测试引用错误的生成异常模块，已改正确导入；初轮 Rust 编译发现既有书签测试仍传旧 JSON，改为类型化更新及非法目标验证。首轮独立 native 构建期间修正了测试源码，指纹门禁正确拒绝发布；代码稳定后重跑，DLL 构建/校验与真实调用均通过。没有绕过门禁或降低业务断言。
+- P2 实现：契约先行冻结 CBZ/在线图片结果 Vec<u8>、缓存读 Option<Vec<u8>> 和写入 Vec<u8>；移除两端四条通路的 base64/len JSON，保持 JS 解密、复合 URL/header、路径/条目、缓存键与缓存失败 null/false。Dart 继续使用原领域接口；保留 async 错误边界。沿用 SSE，仅称字节直传，不称零拷贝；无新增大小/格式策略，音频和其他网络/导出 JSON 不变。
+- P2 验证：当前 QuickJS FFI 库 581 项通过/42 项既有忽略，默认档 505 项通过/21 项既有忽略；真实回环漫画/图片解密集成七项通过；七份 Flutter 图片/CBZ/漫画测试 54 项通过；完整分析无问题（12.5秒）。新独立 DLL 经指纹/摘要校验，三份真实 FFI 文件共七项通过（含 P1 四项及新增三项），验证完整字节域、1 MiB 数据、中文/空格/前缀 CBZ 条目、缺条目失败、HTTP 字节与 header/Referer。十份手写 Dart、八份 Rust 格式和差异检查通过；未测吞吐/内存和局部 codec 收益，不以测试耗时作产品性能结论。
+- P2 修正：首轮两个 Dart 错误传播用例发现移除 JSON 时连带去掉 async，导致同步异常不能保持原 Future 错误语义；已恢复 async 并原样保留错误断言，最终54项全过。CBZ/图片原来仅用于字符串载荷的坏 JSON 测试已替换为实际字节/空数据测试，损坏 CBZ、网络失败、无效解密及缓存错误仍有真实行为回归。
+- 证据与边界：本地诊断输出位于忽略目录 build/ffi-transport-p1/，最终日志为 codegen-final、rust-quickjs-final、rust-default-final、flutter-tests、flutter-analyze-final、native-build-final、ffi-runtime；P2 输出为 codegen-p2、p2-rust-quick、p2-rust-default、p2-comic-fixture、p2-flutter-final、p2-analyze-final、p2-native、p2-ffi-runtime。仅自行复核，无独立外部审查；依赖/锁文件、数据库和应用版本不变。未提交/推送、未触发 CI、未构建安装 Flutter 应用或合入主目录。
+
+- P3 实现：BookDto/ReadConfigDto、ChapterListDto/ChapterDto 和 BookSourceDto/六类嵌套规则贯通已有 FRB 与 Dart data 适配器；复用实体层书架防回退合并与书源写库后刷新限速器，JSON 导入/导出、REST 和网络刷新目录的平台拦截协议不变。搜索、校验、换源事件直接推送 DTO；HTTP/旧测试适配只在边界序列化，共用执行链；每次订阅独占 StreamRequest，取消旧订阅不查询新的当前槽。
+- P4 实现：LayoutSession 直接拥有分页状态，移除字符串 ID 表与三个旧函数导出；配置、六种块、五类行内项和样式按 DTO/Enum 传递，低频元数据为类型树。保留共享字形列，数值缓冲改为字节数组；测试宿主 JSON 仅供独立核心/Widget 夹具，不参与正式 FFI。容量8、批次32块/250000项、16MiB估算预算、深度限制和取消保护保留；完成、失败、取消与 Drop 归还许可，竞争中的计算结束前不提前释放。TtsRequest 既有同步取消与缓存租约继续复用；持久化任务 ID 不当作内存句柄删除。
+- P3/P4 验证：QuickJS FFI 全库582项通过/42项既有忽略；默认 FFI 全库506项通过/21项忽略，相关默认集成测试及 layout 两项所有权/八项上游对齐测试通过。最终转换简化后四项排版句柄/全样本字段往返测试重验通过。24份相关 Flutter 单元/Widget 文件233项通过；最终完整 flutter analyze 无问题。新 DTO 的 f32 按既有底层精度验证，不将十进制输出格式差异冒充数据丢失。
+- 最终真实接线：生成器2.13.0同步生成双方，hash -1366931245；最终轮跳过重复 build_runner（Freezed 生成物已就绪），没有升级依赖。独立 Windows Debug QuickJS DLL 经正式 Python 指纹/摘要门禁通过；八份定向文件32项通过，其中22项真实 FFI、10项布局服务测试。原生句柄处理80组上游输入的页面逐字段/数值误差比较通过；包含无首个事件、HTTP响应尚未返回时取消并关闭真实搜索流，以及旧订阅取消、新校验继续、实体/图片/CBZ/书签/阅读记录回归。尚未安装或构建 Flutter 应用。
+- 性能与边界：同一 release 进程、相同1538页、交替顺序/预热1轮/有效25轮，旧JSON打包P50/P95为13704/15191µs，新二进制打包为7290/8425µs；新值不含FRB和Dart适配，不据此宣称首屏/整章/内存收益。数值缓冲与完整JSON大小口径不同，不作RSS差值。PDE/SSE在full_dep=false时覆盖局部codec注解，未扩大为全局CST/DCO接线；具体取舍见专题方法。新诊断call包含字段映射和结果适配，旧JSON编解码计时归零。
+- 失败与整改：过滤生成时其他领域Freezed文件被删除，已从当前基线精确恢复；修正大小写默认值、行内枚举映射、Float32List参数和测试夹具的Map类型。新增真实测试修正f32比较与根模块句柄导入，保留全部业务断言；最终组合32项与完整分析均通过。Clippy新增DTO的冗余字段/转换已修正，严格检查仍被基线HTTP TTS借用、换源参数数目、文档缩进及测试断言等阻断；未添加allow或修改无关模块掩盖。
+- 当前证据：忽略目录 build/ffi-phase3 的 rust-quick-final、rust-default-layout、layout-tests-final、flutter-regression、ffi-all-final、analysis-final、native-verified-final、codegen-final、wire-benchmark-final 与 clippy-own-lib；flutter-regression-files.txt保存实际文件集合。仅Codex单代理自查，无外部独立审查或真实CI。主目录工作区仍干净；39份Dart格式、限定改动文件的Rust格式（skip_children=true）与git diff --check通过，最终native只读复验通过。递归Rust格式检查另命中未改动的privacy_api等基线格式差异，未据此扩展修改。未提交/推送/合并，依赖、锁文件、数据库与应用版本不变。
+
+- 主链路收口：搜索/精搜/多源查询的源列表、返回实体，换源查询的四项选项/候选和两种应用结果，单源校验实体/配置/结果及批量配置均类型化。目录查询/刷新直接返回 ChapterListDto；正文返回 TextResponseDto 区分原文与十二类平台动作，沿用既有执行器与回传。Server/测试 JSON 适配共用原执行链，导入/导出/JS/REST 与配置文档格式不改；单源校验窄接口改为接收 BookSource，避免在 Dart 复制 Rust 书源导入规则，Mock与调用方同步。
+- 严格检查整改：HTTP TTS 冗余借用、换源/阅读记录/合成资源参数分组、测试锁跨 await、文档及布尔断言问题均已修正，无 lint allow 或跳过。`cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo clippy -p legado-js -p legado-ffi -p legado-server --features quickjs --all-targets -- -D warnings` 均通过；参数分组仅内部 Rust API，不改阅读时长等对外 FFI 签名。
+- 收口回归：`cargo test -p legado-ffi -p legado-db -p legado-fetcher --lib --features quickjs` 共1100项通过（DB360、Fetcher156、FFI584，42项既有忽略）；默认 FFI 库508项通过、21项既有忽略。27份相关 Flutter 单元/Widget文件246项通过，完整 `flutter analyze --no-pub` 无问题。9份真实 DLL 测试26项通过，包含80组上游布局的页面字段比较、全部新增主链路的本地真实HTTP、流关闭/取消，以及既有实体、图片、CBZ、阅读明细与视频弹幕回归；不将组合与定向重跑次数叠加。
+- 收口真实产物：FRB runtime/codegen保持2.13.0，同次生成双方绑定；当前hash为-1366931245。正式Python入口在本worktree独立target重建Windows Debug QuickJS DLL，构建与最终只读指纹/摘要门禁均通过，主目录native未替换。真实测试首轮因本地夹具用相对目录链接不符合既有轻量校验器而失败，修正为绝对链接后通过，未改生产解析器或放宽断言；最终分析前清理测试未用导入。
+- 最终证据与边界：忽略目录build/ffi-phase3中的continued-rust-tests、continued-rust-default、continued-clippy-default-final、continued-clippy-quick-final、continued-flutter-final、continued-ffi-final、continued-analysis-final、continued-native-final和continued-codegen-final为本轮输出。限定改动文件的格式与git diff --check通过；主目录工作区干净，恢复stash仍保留。仅Codex单代理实现及自行审查，无独立外部审查、CI、Android/iOS、设备profile或Flutter应用构建安装。未提交/推送/合并，依赖/锁文件、数据库schema/存储和应用版本不变。
+
 ### COMIC-SETTINGS-ACTIONS-20261017：漫画设置与图片操作边界（P1）
 
 - 授权与基线：用户确认继续下一批；feature/ui-reader-selection / cececdba4，工作区干净。Codex单代理，不新建分支；本批验证后本地提交一次，不推送/触发CI/构建安装，版本2.0.373+374不变。

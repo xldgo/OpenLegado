@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/bridge/transfer_dto.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
+import 'package:flutter_legado/src/models/book_chapter.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_reading_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,31 +11,40 @@ class _Bridge extends Mock implements RustLibApi {}
 void main() {
   late _Bridge bridge;
   late RustReadingRepository repository;
-  late List<String> intercepted;
+  late List<Map<String, dynamic>> intercepted;
 
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
     intercepted = [];
     repository = RustReadingRepository(
-      interceptResult: (raw) async {
-        intercepted.add(raw);
-        return raw.startsWith('载荷:') ? raw.substring(3) : raw;
+      dispatchAction: (payload) async {
+        intercepted.add(payload);
+        return payload['result'] as String? ?? '';
       },
     );
   });
   tearDown(RustLib.dispose);
 
-  test('读取目录直接解码，刷新目录先执行平台载荷', () async {
-    when(() => bridge.crateFfiFfiReaderGetChapters(bookUrl: 'book'))
-        .thenAnswer((_) async => '{"chapters":[{"title":"本地目录"}]}');
+  test('读取与刷新目录直接映射类型化列表，不调用平台动作', () async {
+    when(() => bridge.crateFfiFfiReaderGetChapters(bookUrl: 'book')).thenAnswer(
+      (_) async => ChapterListDto(
+        total: 1,
+        chapters: [bookChapterToDto(const BookChapter(title: '本地目录'))],
+      ),
+    );
     when(
       () => bridge.crateFfiFfiReaderRefreshToc(bookUrl: 'book', sourceUrl: '源'),
-    ).thenAnswer((_) async => '载荷:[{"title":"网络目录"}]');
+    ).thenAnswer(
+      (_) async => ChapterListDto(
+        total: 1,
+        chapters: [bookChapterToDto(const BookChapter(title: '网络目录'))],
+      ),
+    );
     expect((await repository.getChapters('book')).single.title, '本地目录');
     expect(intercepted, isEmpty);
     expect((await repository.refreshToc('book', '源')).single.title, '网络目录');
-    expect(intercepted, ['载荷:[{"title":"网络目录"}]']);
+    expect(intercepted, isEmpty);
     verify(() => bridge.crateFfiFfiReaderGetChapters(bookUrl: 'book'))
         .called(1);
     verify(
@@ -57,26 +69,26 @@ void main() {
     expect(intercepted, isEmpty);
   });
 
-  test('完整正文和网络正文均返回平台载荷处理后的内容', () async {
+  test('普通正文直接返回，不触发平台动作', () async {
     when(
       () => bridge.crateFfiFfiReaderGetContentFull(
         bookUrl: 'book',
         chapterIndex: 2,
       ),
-    ).thenAnswer((_) async => '载荷:完整正文');
+    ).thenAnswer((_) async => const TextResponseDto.text('完整正文'));
     when(
       () => bridge.crateFfiFfiReaderFetchContent(
         bookUrl: 'book',
         chapterUrl: 'chapter',
         sourceUrl: '源',
       ),
-    ).thenAnswer((_) async => '载荷:网络正文');
+    ).thenAnswer((_) async => const TextResponseDto.text('网络正文'));
     expect(await repository.getChapterContentFull('book', 2), '完整正文');
     expect(
       await repository.fetchChapterContent('book', 'chapter', '源'),
       '网络正文',
     );
-    expect(intercepted, ['载荷:完整正文', '载荷:网络正文']);
+    expect(intercepted, isEmpty);
   });
 
   test('正文写入保留原参数，空chapterUrl仍由Rust回填', () async {
@@ -148,27 +160,43 @@ void main() {
     expect(intercepted, isEmpty);
   });
 
-  test('平台执行失败原样传播，不当作成功正文或空目录', () async {
+  test('显式平台动作使用真实处理结果，失败仍向上报告', () async {
     when(
-      () => bridge.crateFfiFfiReaderRefreshToc(bookUrl: 'book', sourceUrl: '源'),
-    ).thenAnswer((_) async => '载荷');
+      () => bridge.crateFfiFfiReaderGetContentFull(
+        bookUrl: 'book',
+        chapterIndex: 2,
+      ),
+    ).thenAnswer(
+      (_) async => const TextResponseDto.platformAction(
+        PlatformActionDto(
+          action: PlatformActionKind.webView,
+          result: '真实正文',
+          url: 'https://example.test',
+          isFloat: false,
+          isRule: false,
+          cacheFirst: false,
+          delayTimeMs: 0,
+        ),
+      ),
+    );
+    expect(await repository.getChapterContentFull('book', 2), '真实正文');
+    expect(intercepted.single['action'], 'webView');
+    expect(intercepted.single['url'], 'https://example.test');
     final error = StateError('平台执行失败');
     repository = RustReadingRepository(
-      interceptResult: (_) async => throw error,
+      dispatchAction: (_) async => throw error,
     );
-    await expectLater(repository.refreshToc('book', '源'), throwsA(same(error)));
+    await expectLater(
+      repository.getChapterContentFull('book', 2),
+      throwsA(same(error)),
+    );
   });
-
-  for (final invalid in ['{}', '{"chapters":null}', '[null]']) {
-    test('刷新后的错误目录不回退为空列表：$invalid', () async {
-      when(
-        () =>
-            bridge.crateFfiFfiReaderRefreshToc(bookUrl: 'book', sourceUrl: '源'),
-      ).thenAnswer((_) async => invalid);
-      await expectLater(
-        repository.refreshToc('book', '源'),
-        throwsFormatException,
-      );
-    });
-  }
+  test('目录原生错误不冒充空目录', () async {
+    final error = StateError('目录失败');
+    when(
+      () => bridge.crateFfiFfiReaderRefreshToc(bookUrl: 'book', sourceUrl: '源'),
+    ).thenThrow(error);
+    await expectLater(repository.refreshToc('book', '源'), throwsA(same(error)));
+    expect(intercepted, isEmpty);
+  });
 }

@@ -625,24 +625,26 @@ mod tests {
             let logs = Arc::new(Mutex::new(Vec::new()));
             let run = run_for_engine(&engine, &slot, &fixture.url, logs.clone());
             run_debug(run, "关键字".into()).await;
-            let logs = logs.lock().unwrap();
-            assert!(
-                logs.iter().any(|log| log["state"] == 1000),
-                "没有完成正文调试: {logs:?}"
-            );
-            assert!(
-                logs.iter()
-                    .any(|log| log["msg"].as_str().unwrap().contains(name))
-            );
-            let expected = if identity == "first" {
-                "甲实例正文"
-            } else {
-                "乙实例正文"
-            };
-            assert!(
-                logs.iter()
-                    .any(|log| log["msg"].as_str().unwrap().contains(expected))
-            );
+            {
+                let logs = logs.lock().unwrap();
+                assert!(
+                    logs.iter().any(|log| log["state"] == 1000),
+                    "没有完成正文调试: {logs:?}"
+                );
+                assert!(
+                    logs.iter()
+                        .any(|log| log["msg"].as_str().unwrap().contains(name))
+                );
+                let expected = if identity == "first" {
+                    "甲实例正文"
+                } else {
+                    "乙实例正文"
+                };
+                assert!(
+                    logs.iter()
+                        .any(|log| log["msg"].as_str().unwrap().contains(expected))
+                );
+            }
             for _ in 0..4 {
                 assert!(
                     fixture
