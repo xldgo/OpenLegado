@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### SEARCH-SERVICE-20261017：搜索业务服务下沉（P1）
+
+- 授权与基线：用户授权执行已确认计划；沿用feature/rust-ffi-modernization / 7533a6546，工作区干净。Codex单代理，当前worktree内实施，整批验证后本地提交，不推送、合并、远程CI、WSL或设备安装。
+- 范围：普通/精确/流式与单源搜索、解析过滤、阅读记录标记及结果持久化下沉现有legado-engine；复用source_batches/source_catalog和Fetcher能力。FFI保留宿主能力注入与协议适配，换源复用Engine搜索和候选转换，移除对FFI搜索执行器的依赖。
+- 不变项：对外FFI签名/DTO、生成绑定、32并发/普通每源30秒超时、单源错误分类与返回顺序；普通搜索替换旧会话，精确搜索独立登记，暂停只阻止后续派发。无数据库、版本、外部依赖版本或可见行为变更。
+- 验收：现有搜索/换源回归、必要的独立服务隔离验证，两档严格Clippy及正式DLL/既有真实FRB冒烟；不扩展测试宿主或性能/CI成本工作。提交前单代理自查，独立外审与平台验证未执行时明确列示。回滚为独立撤销本批服务/接线提交。
+
+- 实现：SearchService使用显式SearchResources；model/records/source分别承接实体、记录索引与持久化、单源HTTP/JS/规则执行。原FFI类型路径继续重导出，FFI保留文档转换/宿主资源装配；换源直接调用Engine执行器并共用候选转换。JS登录头、source绑定及书籍变量装配移至既有宿主抓取适配模块，不在异步执行期间重新发现全局实例。运行时由宿主持有，服务仅借Handle；没有新增crate/依赖边、生成绑定或数据迁移。
+- 已验证：Engine+FFI QuickJS库测试620通过（Engine26、FFI594）、42项既有忽略；新增两项服务测试覆盖独立实例的配置/阅读记录/普通与流式搜索/落库及精搜不替换普通会话、取消/暂停/根析构隔离。原搜索测试保留，仅更新迁移路径及上下文只读访问；未新增测试宿主或源码字符串断言。
+- 整改：首轮新夹具在Windows接受连接后仍为非阻塞，偶发WouldBlock导致精搜失败；显式切换为阻塞连接后整库通过。Clippy发现候选转换的冗余字段写法及无生产消费者的旧单源宿主包装，分别改用字段简写和测试期入口；不修改搜索策略或增加lint放行。17个搬迁函数已对照原实现，保持算法与字段，仅更新路径/可见性/格式。
+- 最终验证：default及QuickJS两档Engine/FFI全目标严格Clippy通过；正式Python入口在本worktree独立target重建Windows Debug QuickJS DLL，构建、指纹及源库/复制库摘要校验通过。既有真实FRB冒烟12项通过，覆盖普通/精确/多源/流式搜索、换源搜索增强和应用、订阅结束/取消等；原搜索104个测试入口保留。限定文件格式及git diff --check通过，DTO、生成文件、Cargo锁文件及应用版本未改。
+- 证据与边界：build/search-service/{rust-quick-final,clippy-quick-final,clippy-default-final,native-build,native-runtime}.log。原始夹具失败和初轮Clippy日志保留供追溯，不计通过；对cfg导入、候选字段简写及测试期旧包装的整改未改产品策略。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS或设备性能结论，不声称已做全平台验收。
+- 状态：本批搜索服务提取、换源复用及本地验证完成，按授权整批本地提交。仍在原worktree/分支，不推送或合并；后续任务另行确定。
+
+编写者：Codex｜2026-10-17
+
 ### SOURCE-SWITCH-SERVICE-20261017：换源业务服务下沉（P1）
 
 - 授权与基线：用户同意先集成当前三项成果，再提取换源服务。feature/ui-reader-selection已从01d4dfc35本地快进至b6de32040；主目录仍停在debug/tts-diagnostics-20261017 / 80880bef8，原未跟踪文件保留。沿用既有feature/rust-ffi-modernization worktree，Codex单代理，不新建分支、不推送/远程CI/WSL或设备安装。

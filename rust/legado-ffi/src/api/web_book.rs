@@ -25,8 +25,7 @@ pub use legado_fetcher::web_book::RealBookSourceFetcher;
 
 // ─── 兄弟模块引用收口（re-export：原 `api::web_book` 路径与签名不变）──────────
 pub(crate) use legado_fetcher::web_book::{
-    chapter_url_variables, convert_js_search_results, matches_book_url_pattern,
-    merge_variables_json,
+    chapter_url_variables, convert_js_search_results, merge_variables_json,
 };
 
 pub(crate) fn build_js_orchestrator(
@@ -372,6 +371,41 @@ pub(crate) fn parse_source_headers(
     real_fetcher()
         .ok()
         .and_then(|f| f.parse_source_headers(source))
+}
+
+/// 搜索和换源共享原有登录头、书源JS上下文与书籍变量装配。
+pub(crate) fn search_deps(
+    mut deps: FetcherDeps,
+    storage: Option<legado_engine::StorageContext>,
+    login: Arc<legado_engine::SourceLoginCache>,
+    info: Arc<legado_engine::SourceInfoMap>,
+) -> FetcherDeps {
+    let headers = login.clone();
+    deps.login_header = Some(Arc::new(move |source| headers.get_login_header(source)));
+    deps.source_context = Some(Arc::new(move |source| {
+        crate::api::source_js_bindings::book_source_js_setup_script_with_login_cache(
+            source, &login, &info,
+        )
+        .ok()
+    }));
+    let database = storage.clone();
+    deps.book_variable = Some(Arc::new(move |book| {
+        database
+            .as_ref()?
+            .with_database(|db| {
+                let repo = legado_db::BookRepository::new(db.connection());
+                Ok(match repo.find_by_url(book)? {
+                    Some(book) => book.variable,
+                    None => repo
+                        .find_by_origin_book_url(book)?
+                        .and_then(|book| book.variable),
+                })
+            })
+            .ok()
+            .flatten()
+            .filter(|value| !value.trim().is_empty())
+    }));
+    deps
 }
 
 #[cfg(test)]

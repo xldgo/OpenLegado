@@ -320,14 +320,22 @@ Web/MCP 监听状态及 Tokio runtime 由宿主拥有；停止端口和等待实
 
 测试分层更新：Codex｜2026-10-17
 
-### 换源应用服务边界（2026-10-17）
+### 搜索与换源应用服务边界（2026-10-17）
+
+`legado-engine/search_service`接管单源请求与解析、普通/精确/流式搜索、结果转换、
+阅读记录标记及持久化，内部按model/records/source划分；SearchResources显式注入
+存储、网络、SearchTasks、TaskGroup、宿主运行时Handle与FetcherDeps装配函数。
+普通搜索替换旧会话，精确搜索独立登记；旧会话不能写库或向新会话发布结果。
+服务不访问FFI当前实例、不持根EngineContext、不创建运行时；宿主保留JS绑定装配与协议转换。
+FFI入口和DTO/生成绑定不变；动态文档格式仍在适配边界解析，不引入另一套传输协议。
 
 `legado-engine/source_switch_service`接管换源过滤/评分、增强、预取、变量合并和事务提交；
-内部按search/enrich/repository/apply分工。服务使用显式SwitchResources，单源搜索通过
-SwitchSearcher注入，既有普通搜索实现继续由FFI适配，不反向依赖FFI或持有根EngineContext。
-运行时由宿主持有，服务只借Handle；操作槽及TaskGroup保持实例归属，迟到结果仍受发布门控。
-`source_batches`是普通搜索和换源共用的唯一调度实现，`source_catalog`共用启用源筛选。
-本批不移动搜索领域其他业务，不改变DTO/生成绑定/数据库或应用行为；旧Rust路径重导出服务类型。
+内部按search/enrich/repository/apply分工。SwitchSearcher由宿主注入并直接调用Engine单源搜索，
+候选转换共用result_to_candidate，不再调用FFI搜索执行器。运行时由宿主持有，服务只借Handle；
+操作槽及TaskGroup保持实例归属，迟到结果仍受发布门控。
+`source_batches`是普通搜索和换源共用的唯一调度实现，`source_catalog`共用启用源筛选；
+保持32并发、普通搜索每源30秒及换源每源60秒超时，不因服务提取改变限流、暂停和错误策略。
 评分同步先归还查询连接，再更新同一实例的config缓存，支持单连接内存实例。
+本次不改数据库、外部依赖版本或应用行为；真实Flutter使用前仍需重建native产物。
 
 编写者：Codex｜2026-10-17

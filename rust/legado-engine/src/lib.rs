@@ -6,6 +6,7 @@ mod cache_downloads;
 mod media;
 mod network;
 mod operations;
+pub mod search_service;
 mod search_tasks;
 pub mod source_batches;
 pub mod source_catalog;

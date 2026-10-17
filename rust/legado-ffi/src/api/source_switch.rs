@@ -1,9 +1,10 @@
 //! 换源宿主适配：捕获显式资源、复用单源搜索并转换旧文档入口。
 use crate::runtime;
-use legado_core::{LegadoError, LegadoResult, models::Book, source_matcher::SearchCandidate};
+use legado_core::{LegadoError, LegadoResult, models::Book};
 #[cfg(test)]
 use legado_core::{
     models::{BookChapter, BookSource},
+    source_matcher::SearchCandidate,
     source_matcher::SourceMatch,
     web_book::{BookSourceFetcher, WebBookInfo, WebChapter},
 };
@@ -69,18 +70,21 @@ impl SwitchContext {
                 .with_js_resources(search_js.clone())
                 .with_web_book_state(search_web_book.clone());
             deps.rate_limiter = rate.clone();
-            let mut context = super::search::SearchContext::assemble(
-                deps,
+            let mut context = legado_engine::search_service::SearchContext::new(
+                super::web_book::search_deps(
+                    deps,
+                    search_storage.clone(),
+                    login.clone(),
+                    info.clone(),
+                ),
                 search_storage.clone(),
-                login.clone(),
-                info.clone(),
             );
             if let Some(task) = request.task {
                 context = context.with_task(task);
             }
             Box::pin(async move {
                 let source = request.source;
-                let results = super::search::search_single_source_with_context(
+                let results = legado_engine::search_service::search_single_source_with_context(
                     &context,
                     &source,
                     &request.keyword,
@@ -90,20 +94,8 @@ impl SwitchContext {
                 .await?;
                 Ok(results
                     .into_iter()
-                    .map(|r| SearchCandidate {
-                        source_url: r.source_url,
-                        source_name: r.source_name,
-                        book_url: r.book_url,
-                        book_name: r.book_name,
-                        author: r.author,
-                        latest_chapter: r.latest_chapter,
-                        word_count: r.word_count,
-                        chapter_word_count_text: None,
-                        chapter_word_count: -1,
-                        respond_time: -1,
-                        origin_order: source.custom_order,
-                        book_score: 0,
-                        variable: r.variable,
+                    .map(|r| {
+                        legado_engine::search_service::result_to_candidate(r, source.custom_order)
                     })
                     .collect())
             })
