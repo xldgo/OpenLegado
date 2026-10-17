@@ -2321,6 +2321,15 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 
 编写者：Codex｜2026-10-17
 
+### BACKUP-RSS-BOOL-20261017 / RSS 备份完整性
+
+备份文件仍为版本1，不改变FFI签名、数据库结构或恢复统计字段。RSS导出和恢复统一复用
+RssSourceRepository完整44字段；布尔字段输出JSON布尔值，enabledCookieJar为空时显式写null，
+避免反序列化缺省值覆盖空值。导出遇到行解析错误必须失败，不得静默生成缺记录的备份；
+恢复遇到无效RSS条目沿用逐条跳过策略，但记录错误，不补历史整数布尔兼容层。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

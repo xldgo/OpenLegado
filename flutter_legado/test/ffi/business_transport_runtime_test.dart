@@ -246,6 +246,8 @@ void main() {
     expect(log.message, '本机日志\n下一行');
     expect(log.timestamp, greaterThan(0));
     expect(await logs.appLogExport(), contains('本机日志'));
+    const rss = RustRssSourceRepository();
+    final originals = await rss.getRssSources();
     final path = '${root.absolute.path}/backup.json';
     expect(await bridge.backupCreate(path: path), path);
     final files = await bridge.backupList(dir: root.absolute.path);
@@ -255,19 +257,16 @@ void main() {
       File(path).resolveSymbolicLinksSync(),
     );
     expect(files.single.size, BigInt.from(await File(path).length()));
+    // 清空目标表后恢复原始备份，防止旧行掩盖字段丢失。
+    for (final source in originals) {
+      await rss.deleteRssSource(source.sourceUrl);
+    }
+    expect(await rss.getRssSources(), isEmpty);
     final stats = await bridge.backupRestore(path: path);
     expect(stats.books, BigInt.one);
     expect(stats.replaceRules, BigInt.one);
-    // 既有SQL备份把布尔值写为0/1，RSS恢复会跳过；本轮不改备份文档格式。
-    // 用符合既有实体契约的布尔字段文档验证非零RSS统计真实穿过wire。
-    final standard =
-        jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
-    standard['rssSources'] = jsonDecode(
-      await const RustRssSourceRepository().exportRssSources(),
-    );
-    final standardPath = '${root.absolute.path}/standard.json';
-    await File(standardPath).writeAsString(jsonEncode(standard));
-    final standardStats = await bridge.backupRestore(path: standardPath);
-    expect(standardStats.rssSources, BigInt.from(2));
+    expect(stats.rssSources, BigInt.from(originals.length));
+    final restored = await rss.getRssSources();
+    expect(restored, originals);
   });
 }

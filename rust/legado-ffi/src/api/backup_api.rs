@@ -13,7 +13,7 @@ use legado_core::{LegadoError, LegadoResult};
 use legado_db::repository::Repository;
 use legado_db::{
     BookRepository, BookSourceRepository, BookmarkRepository, ReadRecordRepository,
-    ReplaceRuleRepository,
+    ReplaceRuleRepository, RssSourceRepository,
 };
 
 use crate::db_state::with_database;
@@ -107,7 +107,7 @@ pub fn backup_create(path: &str) -> LegadoResult<String> {
             .filter_map(|s| serde_json::to_value(&s).ok())
             .collect();
 
-        // 收集 RSS 源（直接 SQL 查询）
+        // RSS 备份沿用实体字段类型与完整仓储映射。
         let rss_sources = collect_rss_sources(conn)?;
 
         // 收集阅读记录
@@ -223,14 +223,15 @@ pub fn restore_backup(path: &str) -> LegadoResult<RestoreStats> {
         }
 
         // 恢复 RSS 源
-        for value in &backup.rss_sources {
-            if let Ok(source) = serde_json::from_value::<RssSource>(value.clone()) {
-                match insert_rss_source(conn, &source) {
+        for (index, value) in backup.rss_sources.iter().enumerate() {
+            match serde_json::from_value::<RssSource>(value.clone()) {
+                Ok(source) => match insert_rss_source(conn, &source) {
                     Ok(()) => stats.rss_sources += 1,
                     Err(e) => {
-                        log::warn!("恢复 RSS 源失败（已跳过）: {} - {e}", source.source_url)
+                        log::warn!("恢复 RSS 源第{}项失败（已跳过）: {e}", index + 1)
                     }
-                }
+                },
+                Err(e) => log::warn!("解析 RSS 源第{}项失败（已跳过）: {e}", index + 1),
             }
         }
 
@@ -420,66 +421,95 @@ pub fn import_old_data(dir: &str) -> LegadoResult<String> {
         .map_err(|e| LegadoError::Internal(format!("统计序列化失败: {e}")))
 }
 
-/// 收集 RSS 源（直接 SQL）
+/// 导出完整实体；空 Cookie 标志显式保留，避免缺省值改变语义。
 fn collect_rss_sources(conn: &rusqlite::Connection) -> LegadoResult<Vec<serde_json::Value>> {
-    let mut stmt = conn
-        .prepare("SELECT * FROM rssSources ORDER BY customOrder ASC")
-        .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
-
-    let columns: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
-
-    let rows = stmt
-        .query_map([], |row| {
-            let mut map = serde_json::Map::new();
-            for (i, col) in columns.iter().enumerate() {
-                let val: rusqlite::types::Value =
-                    row.get(i).unwrap_or(rusqlite::types::Value::Null);
-                let json_val = match val {
-                    rusqlite::types::Value::Null => serde_json::Value::Null,
-                    rusqlite::types::Value::Integer(v) => serde_json::Value::Number(v.into()),
-                    rusqlite::types::Value::Real(v) => serde_json::Number::from_f64(v)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
-                    rusqlite::types::Value::Text(v) => serde_json::Value::String(v),
-                    rusqlite::types::Value::Blob(v) => {
-                        use base64::Engine;
-                        serde_json::Value::String(
-                            base64::engine::general_purpose::STANDARD.encode(&v),
-                        )
-                    }
-                };
-                map.insert(col.clone(), json_val);
+    RssSourceRepository::new(conn)
+        .find_all()
+        .map_err(LegadoError::Database)?
+        .into_iter()
+        .map(|source| {
+            let mut value = serde_json::to_value(&source)?;
+            if source.enabled_cookie_jar.is_none() {
+                value["enabledCookieJar"] = serde_json::Value::Null;
             }
-            Ok(serde_json::Value::Object(map))
+            Ok(value)
         })
-        .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
-
-    Ok(rows.filter_map(|r| r.ok()).collect())
+        .collect()
 }
 
-/// 插入 RSS 源（直接 SQL）
+/// 与普通 RSS 写入共用完整字段映射。
 fn insert_rss_source(conn: &rusqlite::Connection, source: &RssSource) -> LegadoResult<()> {
-    conn.execute(
-        "INSERT OR REPLACE INTO rssSources (sourceUrl, sourceName, sourceIcon, sourceGroup,
-            enabled, customOrder, type)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        rusqlite::params![
-            source.source_url,
-            source.source_name,
-            source.source_icon,
-            source.source_group,
-            source.enabled,
-            source.custom_order,
-            source.rss_type,
-        ],
-    )
-    .map_err(|e| LegadoError::Database(format!("插入 RSS 源失败: {e}")))?;
-    Ok(())
+    RssSourceRepository::new(conn)
+        .insert(source)
+        .map(|_| ())
+        .map_err(LegadoError::Database)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn rss_fixture() -> RssSource {
+        serde_json::from_str(r#"{
+            "sourceUrl":"https://backup.test/rss", "sourceName":"完整源😀", "sourceIcon":"icon",
+            "sourceGroup":"group", "sourceComment":"comment", "enabled":true,
+            "variableComment":"variable", "jsLib":"var x=1;", "enabledCookieJar":true,
+            "concurrentRate":"1000", "header":"{\"X-Test\":\"value\"}",
+            "loginUrl":"login()", "loginUi":"[]", "loginCheckJs":"result", "coverDecodeJs":"result",
+            "sortUrl":"sort", "singleUrl":true, "articleStyle":4,
+            "ruleArticles":"article", "ruleNextPage":"next", "ruleTitle":"title", "rulePubDate":"date",
+            "ruleDescription":"description", "ruleImage":"image", "ruleLink":"link", "ruleContent":"content",
+            "contentWhitelist":"allow", "contentBlacklist":"deny", "shouldOverrideUrlLoading":"override",
+            "style":"css", "enableJs":false, "loadWithBaseUrl":false, "injectJs":"inject",
+            "preloadJs":"preload", "startHtml":"html", "startStyle":"style", "startJs":"script",
+            "showWebLog":true, "lastUpdateTime":9007199254740993, "customOrder":7,
+            "type":2, "preload":true, "cacheFirst":true, "searchUrl":"search"
+        }"#).unwrap()
+    }
+
+    #[test]
+    fn rss_backup_serializes_entity_booleans_and_keeps_nullable_cookie_flag() {
+        let db = legado_db::init_in_memory_database().unwrap();
+        let repo = legado_db::RssSourceRepository::new(db.connection());
+        let mut source = rss_fixture();
+        for flag in [Some(true), Some(false), None] {
+            source.enabled_cookie_jar = flag;
+            repo.insert(&source).unwrap();
+            let rows = collect_rss_sources(db.connection()).unwrap();
+            let mut expected = serde_json::to_value(&source).unwrap();
+            expected["enabledCookieJar"] = serde_json::to_value(flag).unwrap();
+            assert_eq!(rows, vec![expected]);
+            let restored: RssSource = serde_json::from_value(rows[0].clone()).unwrap();
+            assert_eq!(restored.enabled_cookie_jar, flag);
+        }
+    }
+
+    #[test]
+    fn rss_backup_rejects_unreadable_rows_instead_of_dropping_sources() {
+        let db = legado_db::init_in_memory_database().unwrap();
+        RssSourceRepository::new(db.connection())
+            .insert(&rss_fixture())
+            .unwrap();
+        db.connection()
+            .execute("UPDATE rssSources SET articleStyle = 'invalid'", [])
+            .unwrap();
+        assert!(collect_rss_sources(db.connection()).is_err());
+    }
+
+    #[test]
+    fn rss_restore_to_empty_database_preserves_all_entity_fields() {
+        let db = legado_db::init_in_memory_database().unwrap();
+        let source = rss_fixture();
+        insert_rss_source(db.connection(), &source).unwrap();
+        let rows = legado_db::RssSourceRepository::new(db.connection())
+            .find_all()
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            serde_json::to_value(&rows[0]).unwrap(),
+            serde_json::to_value(&source).unwrap()
+        );
+    }
 
     #[test]
     fn test_backup_create_and_restore() {

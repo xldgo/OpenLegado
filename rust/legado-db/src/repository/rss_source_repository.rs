@@ -37,12 +37,10 @@ impl<'a> RssSourceRepository<'a> {
             )
             .map_err(|e| format!("准备查询失败: {e}"))?;
 
-        let sources = stmt
-            .query_map([], row_to_rss_source)
+        stmt.query_map([], row_to_rss_source)
             .map_err(|e| format!("查询失败: {e}"))?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(sources)
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| format!("RSS 源行解析失败: {e}"))
     }
 
     /// 根据 URL 查询 RSS 源
