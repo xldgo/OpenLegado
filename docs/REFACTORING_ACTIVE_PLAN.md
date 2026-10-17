@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### IMAGE-SERVICE-20261017：图片下载解密与磁盘缓存服务下沉（P1）
+
+- 授权与基线：用户批准图片服务/缓存完整批次；feature/rust-ffi-modernization / 947baf057，worktree干净。Codex单代理，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。
+- 范围：ImageService承接复合URL、请求头/Cookie、下载/状态与JS解密，显式注入网络、JS资源和宿主Handle；ImageCacheService承接路径与磁盘读写，显式接收根目录。FFI保留书源文档解析、资源与缓存根目录装配；CBZ已薄化，不扩面。
+- 行为冻结：每图独立VM、jsLib失败继续、解密失败/空值回退原图，下载入口对有规则却无法识别图片的结果继续报错；src保留完整复合URL。缓存env/注入/temp优先级、文件命名、读写失败降级及进程一次告警保持；下载与缓存保持独立。FFI签名/DTO/生成绑定、schema、版本及外部依赖版本不变。
+- 验证：保留原图片/缓存行为测试，复用既有HTTP夹具与comic_content_fixture，补必要的资源/目录隔离用例；default/QuickJS相关Rust回归及严格Clippy、正式Windows DLL/指纹摘要、既有image_bytes_runtime_test。无新测试宿主；单代理自查，无独立外审如实记录。
+- 实现：ImageService只持JsResources，下载额外接收所属NetworkContext与宿主Handle；ImageCacheService持根目录快照，承接键/路径与IO。原19项图片/缓存测试保留，其中16项随实现迁入Engine、3项宿主测试继续留FFI；新增3项验证解密错误/空值回退、4次真实HTTP的网络/JS Cookie归属与完整src/实际解密结果、相同键的独立缓存根与空文件/读写错误，原目录注入测试增加切换与覆盖槽优先级断言。
+- 复核：6项纯函数忽略空白逐段比较一致；5项业务函数的差异仅为显式资源、宿主文档解析迁出、self调用与Rustfmt。缓存告警仍为进程级诊断，目录/内容不放全局。仅Engine声明已有md5 0.8.1直接依赖，Cargo.lock仅增加该依赖边，不新增外部包或升级版本。
+- 初始整改：全目标编译首轮提示新测试2处Cookie Result未处理，已显式处理；首轮QuickJS回归Engine91通过/1失败，原因为新夹具未开库却调用显式持久化Cookie入口。改为在独立NetworkContext内存jar预置Cookie，不改变生产持久化或失败语义；解密结果增加实际字节变化断言，防止原图回退误通过。搬迁比较仅辅助人工复核，不计行为测试。
+- Rust验证：整改后QuickJS完整库Engine92/FFI556共648项通过，42项既有忽略；原comic_content_fixture全部7项通过，包含离线漫画正文链、复合头/XOR解密、无规则字节原样、非图片拒绝及HTTP错误。default定向Engine13/FFI3共16项通过；其中暴露默认档空测试模块的未用导入，已把宿主JS测试模块限定为QuickJS。最终两档Engine/FFI全目标Clippy -D warnings通过，无新增lint放行；限定Rust文件格式检查通过。
+- 正式接线：Python正式入口重建Windows Debug QuickJS DLL成功，构建输入/源码指纹与源库/复制库摘要、只读校验通过。既有image_bytes_runtime_test全部3项真实FRB通过：1MiB完整字节域缓存、未命中/空值、CBZ中文空格/前缀与缺条目、真实HTTP请求头/Referer和返回字节。不运行全量Flutter或应用构建，不新增Dart测试/宿主协议。
+- 证据与限制：build/image-service/{check-initial,tests-quickjs,tests-quickjs-final,tests-default,tests-comic,clippy-default,clippy-quickjs,native-build,native-verify,native-runtime,native-verify-final}.log；move-comparison.json与move-review.diff仅辅助搬迁复核。初次夹具失败已修复，最终行为测试均通过；真实51漫画离线密文夹具存在且参与回归，既有外网用例保持忽略。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论。
+- 状态：图片获取/解密与缓存服务迁移、本地验证完成，按授权整批本地提交；保留当前worktree/分支，不推送或合并。
+
+编写者：Codex｜2026-10-17
+
 ### RSS-SERVICE-20261017：RSS应用服务与数据映射收口（P1）
 
 - 授权与基线：用户授权执行RSS完整批次；feature/rust-ffi-modernization / a22fffa2a，worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。

@@ -11,7 +11,7 @@
 //! - `saveImage` L347：`isImageExist` 命中即跳过；下载失败仅记 AppLog **不抛异常**
 //! - `MangaVH.mangaImagePath` L31-34：本地优先——缓存文件存在取本地，否则走网络
 //!
-//! 本书加法式简化（主代理批准）：
+//! 宿主装配约定（业务读写由Engine执行）：
 //! - 缓存根目录经 [`set_cache_dir`] 进程注入（FFI `set_image_cache_dir`，§1.6.1，
 //!   与 JS 缓存 `legado_js::host_api::cache_store::set_cache_dir` 同型；Dart 启动
 //!   注入应用私有缓存目录下 `image_cache` 子目录）。解析优先级对齐 cache_store：
@@ -23,8 +23,6 @@
 //!   不抛异常——缓存是加速器不是数据源，失败必须不影响在线加载（对齐原版
 //!   saveImage catch 仅记日志语义）。
 
-use std::fs;
-use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
@@ -36,22 +34,10 @@ pub const CACHE_DIR_ENV: &str = "LEGADO_IMAGE_CACHE_DIR";
 /// 缺省回落根目录（未注入且无 env 时）
 const DEFAULT_ROOT: &str = "legado-image-cache";
 
-/// 图片子目录名（对齐原版 `cacheImageFolderName = "images"`）
-const IMAGES_DIR: &str = "images";
-
-/// 书目录名最大字符数（截断后追加 md5_8 防碰撞）
-const BOOK_DIR_MAX_CHARS: usize = 64;
-
 /// `cfg(test)` 显式测试覆盖槽（整体旁路 env 分支：并行测试不得操作
 /// 进程级环境变量——对齐 cache_store 的 [`crate`] 先例）
 #[cfg(test)]
 static TEST_DIR_OVERRIDE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
-
-/// 写盘失败一次性告警（避免逐条刷屏）
-static WRITE_FAIL_WARNED: AtomicBool = AtomicBool::new(false);
-
-/// 读盘失败一次性告警
-static READ_FAIL_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// 回落系统 temp 目录时的一次性告警（对齐 cache_store [`DEFAULT_DIR_WARNED`] 先例，
 /// 契约 §1.6.1/§2.46「未注入时回落 `<temp_dir>/legado-image-cache`（一次性告警）」）
@@ -98,113 +84,15 @@ fn cache_root() -> PathBuf {
     root
 }
 
-/// 书目录名（对齐原版 `book.getFolderName()` 的「书级隔离目录」语义，
-/// 键由 folderName 换为 bookUrl）：非法文件名字符替换 `_`，截断
-/// [`BOOK_DIR_MAX_CHARS`] 字符后追加 `_{md5_8(bookUrl)}` 防截断碰撞。
-fn book_dir_name(book_url: &str) -> String {
-    let sanitized: String = book_url
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let truncated: String = sanitized.chars().take(BOOK_DIR_MAX_CHARS).collect();
-    let digest = format!("{:x}", md5::compute(book_url));
-    format!("{truncated}_{}", &digest[0..8])
+/// 每次操作重新解析目录，使后续宿主注入即时生效。
+fn host_service() -> legado_engine::image_cache_service::ImageCacheService {
+    legado_engine::image_cache_service::ImageCacheService::new(cache_root())
 }
-
-/// 图片文件后缀（对齐原版 `UrlUtil.getSuffix(src, "jpg")`）：
-/// URL 去 query/fragment 后末段 `.` 之后部分，须匹配 `[a-zA-Z0-9]`
-/// 且长度 ≤5，否则缺省 `jpg`。
-fn image_suffix(url: &str) -> String {
-    let without_query = url.split('?').next().unwrap_or("");
-    let without_frag = without_query.split('#').next().unwrap_or("");
-    let last_segment = without_frag.rsplit('/').next().unwrap_or("");
-    let suffix = match last_segment.rfind('.') {
-        Some(i) => &last_segment[i + 1..],
-        None => "",
-    };
-    if suffix.is_empty() || suffix.len() > 5 || !suffix.chars().all(|c| c.is_ascii_alphanumeric()) {
-        "jpg".to_string()
-    } else {
-        suffix.to_string()
-    }
-}
-
-/// 图片缓存文件路径（对齐原版 `BookHelp.getImage` L392 路径结构）：
-/// `{root}/{book_dir_name(bookUrl)}/images/{md5_mid16(url)}.{suffix}`
-///
-/// `md5_mid16` = MD5 小写 hex 的 `[8..24]` 中段 16 字符（原版
-/// `MD5Utils.md5Encode16` = `substring(8, 24)`，逐字节对齐）。
-fn image_file_path(book_url: &str, url: &str) -> PathBuf {
-    let hex = format!("{:x}", md5::compute(url));
-    let mid16 = &hex[8..24];
-    cache_root()
-        .join(book_dir_name(book_url))
-        .join(IMAGES_DIR)
-        .join(format!("{mid16}.{}", image_suffix(url)))
-}
-
-/// 写入图片缓存（对齐原版 `BookHelp.writeImage` L399）
-///
-/// 成功返回 `true`；目录创建失败/写盘失败返回 `false`（静默降级 +
-/// 一次性日志，**不抛异常**——缓存失败不影响在线加载）。
 pub fn save_image_cache(book_url: &str, url: &str, bytes: &[u8]) -> bool {
-    let file = image_file_path(book_url, url);
-    if let Some(parent) = file.parent()
-        && let Err(e) = fs::create_dir_all(parent)
-    {
-        if WRITE_FAIL_WARNED
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
-        {
-            log::warn!(
-                "[image_cache] 目录创建失败 {parent:?}: {e}（降级：本次不落盘，不影响在线加载；同类失败后续不再逐条记日志）"
-            );
-        }
-        return false;
-    }
-    match fs::write(&file, bytes) {
-        Ok(()) => true,
-        Err(e) => {
-            if WRITE_FAIL_WARNED
-                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                .is_ok()
-            {
-                log::warn!(
-                    "[image_cache] 写盘失败 {file:?}: {e}（降级：本次不落盘，不影响在线加载；同类失败后续不再逐条记日志）"
-                );
-            }
-            false
-        }
-    }
+    host_service().save_image_cache(book_url, url, bytes)
 }
-
-/// 读取图片缓存（对齐原版 `BookHelp.getImage`/`isImageExist` 的本地优先语义）
-///
-/// 命中返回图片字节；未命中返回 `None`；读失败（非 NotFound 的 IO 错误）
-/// 降级 `None`（静默 + 一次性日志）——调用方一律回落网络加载。
 pub fn get_image_cache(book_url: &str, url: &str) -> Option<Vec<u8>> {
-    let file = image_file_path(book_url, url);
-    match fs::read(&file) {
-        Ok(bytes) => Some(bytes),
-        Err(e) if matches!(e.kind(), io::ErrorKind::NotFound) => None,
-        Err(e) => {
-            if READ_FAIL_WARNED
-                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                .is_ok()
-            {
-                log::warn!(
-                    "[image_cache] 读盘失败 {file:?}: {e}（降级：按未命中处理走网络加载；同类失败后续不再逐条记日志）"
-                );
-            }
-            None
-        }
-    }
+    host_service().get_image_cache(book_url, url)
 }
 
 // ─── 测试 ─────────────────────────────────────────────────────────────────────
@@ -212,8 +100,8 @@ pub fn get_image_cache(book_url: &str, url: &str) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
     use std::sync::atomic::AtomicUsize;
+    use std::{fs, path::Path};
 
     /// 测试串行锁：`INJECTED_DIR`/`TEST_DIR_OVERRIDE` 为进程级状态，
     /// 并行测试互踩 → 触碰进程级目录状态的测试先持锁（对齐 cache_store 先例）
@@ -245,133 +133,6 @@ mod tests {
         }
     }
 
-    // 存/取/命中：roundtrip
-    #[test]
-    fn save_get_roundtrip() {
-        let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let root = unique_root("roundtrip");
-        set_test_root(&root);
-        let bytes: Vec<u8> = (0..256u16).map(|i| (i % 251) as u8).collect();
-        assert!(
-            save_image_cache("https://a.com/book/1", "https://cdn.com/p1.webp", &bytes),
-            "写入应成功"
-        );
-        let got = get_image_cache("https://a.com/book/1", "https://cdn.com/p1.webp");
-        assert_eq!(got.as_deref(), Some(bytes.as_slice()), "命中应返回原字节");
-        let _ = fs::remove_dir_all(&root);
-        clear_test_root();
-    }
-
-    // 未命中：全新目录 get 返回 None
-    #[test]
-    fn get_miss_returns_none() {
-        let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let root = unique_root("miss");
-        set_test_root(&root);
-        assert!(
-            get_image_cache("https://a.com/book/9", "https://cdn.com/x.jpg").is_none(),
-            "未写入应未命中"
-        );
-        let _ = fs::remove_dir_all(&root);
-        clear_test_root();
-    }
-
-    // MD5 命名：文件落在 {root}/{bookdir}/images/{md5_mid16(url)}.{suffix}
-    #[test]
-    fn md5_naming_layout() {
-        let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let root = unique_root("md5");
-        set_test_root(&root);
-        let url = "https://cdn.com/img/page-001.webp?v=2";
-        assert!(save_image_cache("https://a.com/book/7", url, b"png-bytes"));
-        let hex = format!("{:x}", md5::compute(url));
-        let expected = root
-            .join(book_dir_name("https://a.com/book/7"))
-            .join(IMAGES_DIR)
-            .join(format!("{}.webp", &hex[8..24]));
-        assert!(
-            expected.exists(),
-            "文件应落在 MD5 中段 16 字符命名路径：{expected:?}"
-        );
-        assert_eq!(fs::read(&expected).unwrap(), b"png-bytes");
-        let _ = fs::remove_dir_all(&root);
-        clear_test_root();
-    }
-
-    // 后缀推导（对齐原版 UrlUtil.getSuffix(src, "jpg")）
-    #[test]
-    fn suffix_rules() {
-        assert_eq!(image_suffix("https://x.com/a/b.webp?q=1"), "webp");
-        assert_eq!(image_suffix("https://x.com/a/b.PNG"), "PNG");
-        assert_eq!(image_suffix("https://x.com/a/b?sig=abc.def"), "jpg");
-        assert_eq!(image_suffix("https://x.com/a/b"), "jpg");
-        assert_eq!(image_suffix("https://x.com/a/b.gif#frag"), "gif");
-        // 后缀 >5 字符（5 字符合法）或含非法字符 → 缺省 jpg
-        assert_eq!(image_suffix("https://x.com/a/b.tiffy"), "tiffy");
-        assert_eq!(image_suffix("https://x.com/a/b.tiffy6"), "jpg");
-        assert_eq!(image_suffix("https://x.com/a/b.tar.gz"), "gz");
-        assert_eq!(image_suffix("https://x.com/a/b.a_b"), "jpg");
-        // 末段以 . 结尾（空后缀）→ 缺省 jpg
-        assert_eq!(image_suffix("https://x.com/a/b."), "jpg");
-    }
-
-    // 写失败降级：根目录被普通文件占用 → create_dir_all 失败
-    #[test]
-    fn write_fail_degrades_to_false() {
-        let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let root = unique_root("writefail");
-        fs::create_dir_all(root.parent().unwrap()).unwrap();
-        fs::write(&root, b"i-am-a-file").unwrap();
-        set_test_root(&root);
-        assert!(
-            !save_image_cache("https://a.com/book/2", "https://cdn.com/y.jpg", b"x"),
-            "根目录被文件占用时写入应降级 false（不抛异常）"
-        );
-        assert!(
-            get_image_cache("https://a.com/book/2", "https://cdn.com/y.jpg").is_none(),
-            "写失败后读取应未命中"
-        );
-        fs::remove_file(&root).ok();
-    }
-
-    // 路径隔离：不同 bookUrl 互不串缓存
-    #[test]
-    fn path_isolation_by_book_url() {
-        let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let root = unique_root("isolation");
-        set_test_root(&root);
-        let url = "https://cdn.com/same.jpg";
-        assert!(save_image_cache("https://a.com/book/A", url, b"bookA"));
-        assert_eq!(
-            get_image_cache("https://a.com/book/A", url).as_deref(),
-            Some(b"bookA".as_slice()),
-            "书 A 应命中自己的缓存"
-        );
-        assert!(
-            get_image_cache("https://a.com/book/B", url).is_none(),
-            "书 B 不得读到书 A 的缓存（目录按 bookUrl 隔离）"
-        );
-        // 两书目录名不同且各自含 md5_8 后缀
-        assert_ne!(
-            book_dir_name("https://a.com/book/A"),
-            book_dir_name("https://a.com/book/B")
-        );
-        let _ = fs::remove_dir_all(&root);
-        clear_test_root();
-    }
-
-    // 超长 bookUrl：截断 + md5_8 后缀保证不同 URL 不同目录
-    #[test]
-    fn long_book_url_truncation_isolated() {
-        let long_a = "https://site.example/very/long/path/".to_string() + &"a".repeat(200);
-        let long_b = long_a.replace('a', "b");
-        assert_ne!(
-            book_dir_name(&long_a),
-            book_dir_name(&long_b),
-            "截断后 md5_8 后缀必须区分仅尾部不同的 bookUrl"
-        );
-    }
-
     // set_cache_dir 注入：后续读写落注入目录
     #[test]
     fn injected_dir_used() {
@@ -391,13 +152,38 @@ mod tests {
             Some(b"z".as_slice())
         );
         // 书目录名 = 净化+截断+md5_8 后缀（与 image_file_path 同一构造器）
-        let book_dir = root
-            .join(book_dir_name("https://a.com/book/3"))
-            .join(IMAGES_DIR);
+        let book_dir = host_service()
+            .image_file_path("https://a.com/book/3", "https://cdn.com/z.jpg")
+            .parent()
+            .unwrap()
+            .to_path_buf();
         assert!(
             book_dir.exists(),
             "文件应落在注入根目录下的书级目录：{book_dir:?}"
         );
+        // 下一次操作重新装配目录；切换后不能读到旧根目录内容。
+        let next = unique_root("reinjected");
+        set_cache_dir(next.to_str().unwrap());
+        assert!(get_image_cache("https://a.com/book/3", "https://cdn.com/z.jpg").is_none());
+        assert!(save_image_cache(
+            "https://a.com/book/3",
+            "https://cdn.com/z.jpg",
+            b"next"
+        ));
+        let override_root = unique_root("override");
+        set_test_root(&override_root);
+        assert!(get_image_cache("https://a.com/book/3", "https://cdn.com/z.jpg").is_none());
+        clear_test_root();
+        assert_eq!(
+            get_image_cache("https://a.com/book/3", "https://cdn.com/z.jpg").unwrap(),
+            b"next"
+        );
+        set_cache_dir(root.to_str().unwrap());
+        assert_eq!(
+            get_image_cache("https://a.com/book/3", "https://cdn.com/z.jpg").unwrap(),
+            b"z"
+        );
+        let _ = fs::remove_dir_all(next);
         // 复位注入槽为 None（不污染其他测试）
         crate::engine_holder::media().set_image_directory(None);
         clear_test_root();

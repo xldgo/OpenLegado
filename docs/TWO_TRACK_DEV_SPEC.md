@@ -496,3 +496,28 @@ RSS源44字段映射统一在DB仓储，find_all保持坏行报错供备份使�
 本批不改FRB签名、DTO、生成绑定、schema、版本或音频/TTS。状态与证据仅在Active计划维护。
 
 编写者：Codex｜2026-10-17
+
+
+### 图片获取与缓存服务边界（2026-10-17）
+
+`legado-engine/image_service`负责复合URL、书源/内嵌请求头优先级、默认UA/Referer、
+Cookie写回标记、图片下载状态与imageDecode。ImageService只持所属JsResources，
+下载另外接收NetworkContext与宿主Handle，不保存根EngineContext或查找FFI全局。
+FFI继续解析书源JSON文档、装配既有资源与持久运行时，FRB签名和字节返回不变。
+
+解密每图创建独立VM，保留source上下文和完整复合URL的src绑定，避免const/let重复声明。
+可选jsLib加载失败仍尝试内联规则；规则失败/空结果回退原字节，下载入口对配置了解密规则
+却仍无可识别图片签名的结果报原错误。签名检查不是完整图片格式解码验证。
+
+`image_cache_service`只持调用时注入的根目录，负责书级目录/MD5中段文件名、后缀和文件IO。
+目录选择留在宿主，保持非空LEGADO_IMAGE_CACHE_DIR > MediaState注入目录 > 临时目录；
+每次FFI操作重新装配目录快照，后续注入影响下一次操作，不改变进行中的操作归属。
+MediaState现有音频/TTS字段不改。MD5直接复用仓库已有0.8.1，只有Engine依赖关系增加。
+
+读失败/不存在返回None，写失败返回false；成功读取空文件仍返回Some(empty)，
+Dart仓储对空字节的既有处理不变。同类失败保持进程级一次告警，不作为目录或内容状态。
+缓存键/目录命名与已有文件兼容；下载和缓存仍为独立操作，不新增自动缓存、清理、重试、
+取消或格式检查。已薄化CBZ接口不变；当前字节仍使用SSE，不宣称零拷贝。
+状态和验证结果仅维护于Active计划。
+
+编写者：Codex｜2026-10-17

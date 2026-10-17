@@ -9,6 +9,8 @@ mod cache_downloads;
 pub mod cover_service;
 pub mod dictionary_service;
 pub mod explore_service;
+pub mod image_cache_service;
+pub mod image_service;
 mod media;
 mod network;
 mod operations;
