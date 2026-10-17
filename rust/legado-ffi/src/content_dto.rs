@@ -244,3 +244,36 @@ pub struct ExploreActionDto {
     pub actions_json: String,
     pub refresh_explore: bool,
 }
+
+impl From<ReviewRequestDto> for legado_engine::review_service::ReviewRequest {
+    fn from(v: ReviewRequestDto) -> Self {
+        Self {
+            chapter_url: v.chapter_url,
+            para_index: v.para_index,
+            para_data: v.para_data,
+            detail_url: v.detail_url,
+            reply_url: v.reply_url,
+            review_id: v.review_id,
+            book: v.book.map(Into::into),
+            chapter: v.chapter.map(Into::into),
+        }
+    }
+}
+
+impl From<legado_engine::review_service::ReviewSummary> for ReviewSummaryDto {
+    fn from(value: legado_engine::review_service::ReviewSummary) -> Self {
+        Self {
+            counts: value.counts,
+            keys: value.keys,
+        }
+    }
+}
+impl From<legado_engine::review_service::ReviewPage> for ReviewPageDto {
+    fn from(value: legado_engine::review_service::ReviewPage) -> Self {
+        Self {
+            items: value.items.into_iter().map(Into::into).collect(),
+            next_page_url: value.next_page_url,
+            has_reply_url: value.has_reply_url,
+        }
+    }
+}

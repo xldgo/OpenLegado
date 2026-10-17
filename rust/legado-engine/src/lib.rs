@@ -8,6 +8,7 @@ mod media;
 mod network;
 mod operations;
 pub mod reading_service;
+pub mod review_service;
 pub mod search_service;
 mod search_tasks;
 pub mod source_batches;
@@ -20,6 +21,8 @@ mod source_switch;
 pub mod source_switch_service;
 mod storage;
 mod tasks;
+#[cfg(test)]
+mod test_http_fixture;
 
 pub use cache_downloads::{CacheDownloadTask, CacheDownloads, ChapterDownload};
 pub use media::{AudioTransfer, MediaState};

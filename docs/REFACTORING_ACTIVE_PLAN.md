@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### REVIEW-SERVICE-20261017：段评应用服务下沉（P1）
+
+- 授权与基线：用户授权已确认段评服务计划；feature/rust-ffi-modernization / 072a60690，当前worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL或设备安装，音频与TTS继续暂缓。
+- 范围：legado-engine承接摘要、详情分页、回复加载、HTTP请求及JS编排；请求实体与服务结果独立于FFI DTO，FFI仅保留JSON文档/DTO映射与宿主装配。显式注入网络、JS资源及宿主Handle，不持根EngineContext或自建Runtime。
+- 行为冻结：缺失/禁用摘要返回空，详情/回复缺规则保留原错误；保留页码钳制、直连URL优先、相对地址、请求头/Cookie写回标记、JS上下文/嵌套回复及结果空值序列化。解析器与JS规则作用域沿用原实现，不新增任务取消/限流/登录策略或改变UI/排版。
+- 验收：保留既有段评测试，必要时增加真实HTTP与JS的实例隔离验证；default/QuickJS严格Clippy、相关Rust回归、正式Windows DLL/指纹/摘要及既有真实FRB段评回归。FFI签名/DTO字段/生成绑定、数据库、应用/依赖版本不变，不增加测试宿主。按用户要求单代理自查，如实记录无独立外审；独立撤销本批即可回滚。
+- 实现：ReviewService按model/rules/js划分请求与应用结果、规则HTTP和JS编排，显式接收NetworkContext/JsResources/Handle；FFI仅保留宿主装配、原JSON文档解析和DTO映射。摘要复用Parser模型，页面应用结果在边界映射回原DTO，保留nextPageUrl与条目可空字段的序列化形状。原9项段评测试全部保留，2项私有测试迁入Engine，7项仍验证FFI入口。
+- Rust验证：QuickJS库Engine47/FFI582共629项通过，42项既有忽略；default定向Engine3/FFI11共14项通过。新增2项用既有真实HTTP和QuickJS验证独立网络/Cookie/规则执行器、POST原始请求体和头覆盖、直连URL、页码/下一页、书籍章节上下文与嵌套回复；服务不强持根Engine。两档Engine/FFI全目标严格Clippy、限定文件格式及差异检查通过，7个搬迁函数逐段核对一致。
+- 整改与边界：初轮编译发现原FFI编排器包装无消费者，核查后删除，不增加lint放行。新JS用例初次误将脚本book/chapter当对象，按现有JSON字符串协议修正夹具后完整库通过，未修改生产参数协议或放宽旧断言。既有本地HTTP夹具提升为同crate测试辅助，完整读取Content-Length请求体验证POST，不新增宿主/协议；原调试测试继续使用同一夹具。
+- 正式接线：Python正式入口在本worktree独立target重建Windows Debug QuickJS DLL，构建/源码指纹/源库与复制库摘要及最终只读校验通过。既有真实FRB文件4项通过，含规则段评摘要、JS详情/嵌套回复、Unicode段落参数，以及原搜索/校验/目录/换源回归；没有新增Dart用例或改写生成绑定。
+- 证据与限制：build/review-service/{rust-review-initial,rust-isolation,rust-quick-final,rust-review-default,clippy-quick,clippy-default,native-build,native-runtime,native-verify-final}.log；move-comparison.json仅为代码复核，不替代实际行为测试。初轮新JS夹具失败不计通过；后续完整库已通过。仅Codex单代理实现与自查，无独立外审、远程CI、Android/iOS、设备或性能结论；未重复全量Flutter分析。Cargo锁文件、数据库、应用/依赖版本、段评UI/排版和音频/TTS业务不变。
+- 状态：本批服务迁移与本地验证完成，按授权整批本地提交；当前worktree/分支继续保留，不推送或合并。音频相关服务保持暂缓，后续范围另行确定。
+
+编写者：Codex｜2026-10-17
+
 ### SOURCE-DEBUG-SERVICE-20261017：书源调试服务下沉（P1）
 
 - 授权与基线：用户明确暂缓音频相关服务，授权迁移书源调试；feature/rust-ffi-modernization / 2dcb1e5ee，worktree干净。Codex单代理，当前分支内完成整批后本地提交，不推送/合并/远程CI/WSL或设备安装。

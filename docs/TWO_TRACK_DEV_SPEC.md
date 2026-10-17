@@ -393,3 +393,24 @@ FFI保留宿主JS绑定/目录能力装配、类型重导出和流事件适配�
 本批不改FRB签名、DTO/生成绑定、数据库、版本或音频/TTS业务，状态与证据只记Active计划。
 
 编写者：Codex｜2026-10-17
+
+
+### 段评应用服务边界（2026-10-17）
+
+`legado-engine/review_service`以model/rules/js分离请求与应用结果、HTTP规则和JS编排。
+ReviewResources只接收所属NetworkContext、JsResources与宿主Handle，不保存根EngineContext，
+不自建运行时或在请求/解析中重新发现FFI全局实例。规则解析复用Fetcher的JS分析器适配，
+mainJs复用原编排器；两者保留原source作用域和JSON字符串形式的book/chapter脚本参数。
+
+摘要缺失/禁用仍返回空，详情与回复缺规则仍报原错误；保留规则路径page下限、直连URL优先、
+相对地址、请求头覆盖、CookieJar内部标记、回复分页和嵌套条目转换。原JS路径的页码处理保持。
+本批未新增取消、限流、登录校验或关闭保证，也未调整段评UI、排版与Server的本地评论功能。
+
+请求实体和应用结果不依赖FFI DTO；摘要复用Parser模型，页面保留has_reply_url应用信息。
+FFI保留JSON文档解析与DTO转换；可空条目字段及nextPageUrl仍由原DTO序列化，避免直接使用
+Parser的skip_serializing_if改变既有文档形状。签名、DTO字段、生成绑定与存储不变。
+
+测试复用同crate的本地HTTP夹具；共同辅助仅在cfg(test)编译，POST按Content-Length完整读取，
+不增加外部宿主或独立RPC协议。实现状态与验证限制只记Active计划。
+
+编写者：Codex｜2026-10-17

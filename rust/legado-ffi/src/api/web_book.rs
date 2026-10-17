@@ -26,15 +26,6 @@ pub use legado_fetcher::web_book::RealBookSourceFetcher;
 // ─── 兄弟模块引用收口（re-export：原 `api::web_book` 路径与签名不变）──────────
 pub(crate) use legado_fetcher::web_book::{chapter_url_variables, merge_variables_json};
 
-pub(crate) fn build_js_orchestrator(
-    source: &BookSource,
-) -> LegadoResult<Option<legado_js::js_source::js_source_book::JsSourceBookOrchestrator>> {
-    legado_fetcher::web_book::build_js_orchestrator(
-        &crate::engine_holder::js_resources().for_source("source", &source.book_source_url, ""),
-        source,
-    )
-}
-
 // ─── 宿主注入面组装 ───────────────────────────────────────────────────────────
 
 /// 按 bookUrl 读用户书籍变量（DB `books.variable`，P1-1 两路反查）

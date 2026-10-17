@@ -1,6 +1,5 @@
-mod fixture;
 use super::*;
-use fixture::Fixture;
+use crate::test_http_fixture::Fixture;
 use legado_db::repository::Repository;
 
 #[test]

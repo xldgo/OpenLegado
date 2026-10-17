@@ -1,4 +1,4 @@
-//! 校验/调试使用真实本地 HTTP 响应；不访问外网或进程宿主状态。
+//! 服务测试复用真实本地HTTP响应；不访问外网或进程宿主状态。
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, mpsc};
@@ -54,6 +54,17 @@ impl Fixture {
                     data.push(byte[0]);
                     assert!(data.len() < 16384);
                 }
+                let headers = String::from_utf8(data.clone()).unwrap();
+                let body_length = headers
+                    .lines()
+                    .filter_map(|line| line.split_once(':'))
+                    .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                    .map(|(_, value)| value.trim().parse::<usize>().unwrap())
+                    .unwrap_or(0);
+                assert!(body_length <= 16384, "夹具请求体超出上限");
+                let mut request_body = vec![0; body_length];
+                socket.read_exact(&mut request_body).unwrap();
+                data.extend_from_slice(&request_body);
                 let data = String::from_utf8(data).unwrap();
                 let response = body(&data);
                 let _ = request.send(data);
