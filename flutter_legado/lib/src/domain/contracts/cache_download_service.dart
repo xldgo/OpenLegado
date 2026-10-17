@@ -11,6 +11,9 @@ abstract interface class CacheDownloadService {
   Future<CacheDownloadTask> cacheDownloadProgress(int taskId);
   Future<bool> cacheDownloadCancel(int taskId);
   Future<List<CacheDownloadTask>> cacheDownloadList();
+
+  /// 初始快照及后续变化；退订不取消后台下载。
+  Stream<List<CacheDownloadTask>> watchTasks();
   Future<List<int>> listDownloadingChapters(String bookUrl);
   Future<List<int>> listFailedChapters(String bookUrl);
 }

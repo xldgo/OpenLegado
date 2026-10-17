@@ -7,6 +7,7 @@ import '../content_dto.dart';
 import '../ffi.dart';
 import '../frb_generated.dart';
 import '../media_dto.dart';
+import '../task_dto.dart';
 import '../transfer_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -237,12 +238,14 @@ Future<void> sourceCheckCancel() =>
 /// 关键字分流：绝对 URL→详情；`::`→发现；`++`→目录；`--`→正文；否则搜索。
 ///
 /// `source_url` — 已入库书源 URL；`key` — 调试关键字
-Stream<String> debugBookSourceStream({
+Stream<DebugLogDto> debugBookSourceStream({
   required String sourceUrl,
   required String key,
+  required StreamRequest request,
 }) => RustLib.instance.api.crateFfiFfiDebugBookSourceStream(
   sourceUrl: sourceUrl,
   key: key,
+  request: request,
 );
 
 /// 取消正在进行的书源调试
@@ -259,8 +262,10 @@ Future<void> debugBookSourceCancel() =>
 /// 回传；关闭对话框调 [`verification_cancel`]。流在 sink 关闭后结束。
 ///
 /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
-Stream<String> verificationRequestStream() =>
-    RustLib.instance.api.crateFfiFfiVerificationRequestStream();
+Stream<VerificationRequestDto> verificationRequestStream({
+  required StreamRequest request,
+}) =>
+    RustLib.instance.api.crateFfiFfiVerificationRequestStream(request: request);
 
 /// 提交验证码结果，唤醒 JS 等待方（对齐 Kotlin `setResult`）
 ///
@@ -276,7 +281,7 @@ Future<bool> verificationCancel({required String key}) =>
     RustLib.instance.api.crateFfiFfiVerificationCancel(key: key);
 
 /// 当前进行中的验证码请求列表（JSON 数组，供拉取式消费/调试）
-Future<String> verificationPending() =>
+Future<List<VerificationRequestDto>> verificationPending() =>
     RustLib.instance.api.crateFfiFfiVerificationPending();
 
 /// 订阅 WebView DOM 执行请求事件流（长期存活，Stream\<String\>）
@@ -290,8 +295,9 @@ Future<String> verificationPending() =>
 /// default` 空串），旧端忽略未知字段不破坏反序列化。
 /// UI 执行后经 [`webview_submit`] / [`webview_submit_result_with_cookies`]
 /// 回传；超时/取消调 [`webview_cancel`]。
-Stream<String> webviewRequestStream() =>
-    RustLib.instance.api.crateFfiFfiWebviewRequestStream();
+Stream<WebViewRequestDto> webviewRequestStream({
+  required StreamRequest request,
+}) => RustLib.instance.api.crateFfiFfiWebviewRequestStream(request: request);
 
 /// 提交 WebView 执行结果，唤醒 Rust 等待方
 Future<bool> webviewSubmit({required String key, required String result}) =>
@@ -307,11 +313,11 @@ Future<bool> webviewSubmit({required String key, required String result}) =>
 Future<bool> webviewSubmitResultWithCookies({
   required String key,
   required String result,
-  required String cookiesJson,
+  required Map<String, String> cookies,
 }) => RustLib.instance.api.crateFfiFfiWebviewSubmitResultWithCookies(
   key: key,
   result: result,
-  cookiesJson: cookiesJson,
+  cookies: cookies,
 );
 
 /// 取消 WebView 请求（以空结果唤醒）
@@ -319,7 +325,7 @@ Future<bool> webviewCancel({required String key}) =>
     RustLib.instance.api.crateFfiFfiWebviewCancel(key: key);
 
 /// 当前进行中的 WebView 请求列表（JSON 数组）
-Future<String> webviewPending() =>
+Future<List<WebViewRequestDto>> webviewPending() =>
     RustLib.instance.api.crateFfiFfiWebviewPending();
 
 /// 判定书源登录 UI 是否为 V2 动态状态协议
@@ -1653,7 +1659,7 @@ Future<bool> saveChapterContent({
 /// `start_chapter` / `end_chapter` 含端点；负值按 0、超出按末章截断。
 /// 对标 Kotlin CacheActivity：复用正文抓取链路 + 任务表/取消令牌。
 /// 同一本书已有进行中任务时复用返回既有 ID（契约 §2.43.3）。
-Future<String> cacheDownloadStart({
+Future<BigInt> cacheDownloadStart({
   required String bookUrl,
   required int startChapter,
   required int endChapter,
@@ -1663,34 +1669,29 @@ Future<String> cacheDownloadStart({
   endChapter: endChapter,
 );
 
-/// 查询批量下载任务进度（JSON：taskId/bookUrl/status/total/completed/failed；
-/// 未知任务 status=notFound）
-Future<String> cacheDownloadProgress({required PlatformInt64 taskId}) =>
+Future<CacheDownloadTaskDto> cacheDownloadProgress({required BigInt taskId}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadProgress(taskId: taskId);
 
-/// 取消批量下载任务（对照书源校验流取消机制）；未知任务返回 false
-Future<bool> cacheDownloadCancel({required PlatformInt64 taskId}) =>
+Future<bool> cacheDownloadCancel({required BigInt taskId}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadCancel(taskId: taskId);
 
-/// 列出所有批量下载任务（JSON 数组，按任务 ID 升序）
-Future<String> cacheDownloadList() =>
+Future<List<CacheDownloadTaskDto>> cacheDownloadList() =>
     RustLib.instance.api.crateFfiFfiCacheDownloadList();
 
-/// P2-29（API_CONTRACT §2.43.7）：该书当前在途下载章节 index 的 JSON 整型数组
-/// （升序、0-based；无活跃任务为空数组 `[]`）。只读：纯任务表读 +
-/// 落库恢复回读，零写入。
-Future<String> cacheDownloadRunningChapters({required String bookUrl}) =>
+Future<Int32List> cacheDownloadRunningChapters({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadRunningChapters(
       bookUrl: bookUrl,
     );
 
-/// P2-29c 后续（API_CONTRACT §2.43.8）：该书批量下载**已失败**章节 index
-/// 的 JSON 整型数组（升序、0-based；无失败为空数组 `[]`）。只读：
-/// 纯任务表读 + `ensure_restored` 落库恢复回读，零写入。
-Future<String> cacheDownloadFailedChapters({required String bookUrl}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiCacheDownloadFailedChapters(bookUrl: bookUrl);
+Future<Int32List> cacheDownloadFailedChapters({required String bookUrl}) =>
+    RustLib.instance.api.crateFfiFfiCacheDownloadFailedChapters(
+      bookUrl: bookUrl,
+    );
+
+/// 先订阅后读取，避免初始快照与新进度之间丢失通知；不取消后台下载。
+Stream<List<CacheDownloadTaskDto>> cacheDownloadStream({
+  required StreamRequest request,
+}) => RustLib.instance.api.crateFfiFfiCacheDownloadStream(request: request);
 
 /// 执行章节购买动作（对照 Kotlin ReadBookActivity.payAction）
 ///
@@ -2045,11 +2046,11 @@ Future<String> downloadAddTask({
 );
 
 /// 获取下载统计信息（JSON）
-Future<String> downloadGetStats() =>
+Future<DownloadStatsDto> downloadGetStats() =>
     RustLib.instance.api.crateFfiFfiDownloadGetStats();
 
 /// 获取指定书籍的下载任务（JSON 数组）
-Future<String> downloadListByBook({required String bookUrl}) =>
+Future<List<DownloadTaskDto>> downloadListByBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiDownloadListByBook(bookUrl: bookUrl);
 
 /// 暂停所有下载

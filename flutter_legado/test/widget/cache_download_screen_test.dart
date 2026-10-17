@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/providers/chapter_cache_provider.dart';
 import 'package:flutter_legado/src/domain/models/cache_download_task.dart';
@@ -20,6 +22,11 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    when(() => mockApi.cacheDownloadService.watchTasks()).thenAnswer(
+      (_) => Stream.fromFuture(
+        Future.sync(() => mockApi.cacheDownloadService.cacheDownloadList()),
+      ),
+    );
     container = ProviderContainer(
       overrides: [
         cacheDownloadServiceProvider.overrideWithValue(
@@ -36,6 +43,47 @@ void main() {
       child: MaterialApp(home: child),
     );
   }
+
+  testWidgets('进度事件即时刷新，退订不取消下载且不继续查询', (tester) async {
+    var stopped = false;
+    final events = StreamController<List<CacheDownloadTask>>(
+      onCancel: () => stopped = true,
+    );
+    when(() => mockApi.cacheDownloadService.watchTasks())
+        .thenAnswer((_) => events.stream);
+    await tester.pumpWidget(wrap(const CacheDownloadScreen()));
+    events.add(const [
+      CacheDownloadTask(
+        taskId: 8,
+        bookUrl: '事件书',
+        status: 'running',
+        total: 10,
+        completed: 1,
+        failed: 0,
+      ),
+    ]);
+    await tester.pump();
+    expect(find.textContaining('下载中 · 1/10'), findsOneWidget);
+    events.add(const [
+      CacheDownloadTask(
+        taskId: 8,
+        bookUrl: '事件书',
+        status: 'completed',
+        total: 10,
+        completed: 10,
+        failed: 0,
+      ),
+    ]);
+    await tester.pump();
+    expect(find.textContaining('已完成 · 10/10'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    verifyNever(() => mockApi.cacheDownloadService.cacheDownloadList());
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(stopped, isTrue);
+    verifyNever(() => mockApi.cacheDownloadService.cacheDownloadCancel(any()));
+    unawaited(events.close());
+    await tester.pump();
+  });
 
   testWidgets('缓存下载队列 无任务时显示空态', (tester) async {
     when(() => mockApi.cacheDownloadService.cacheDownloadList())

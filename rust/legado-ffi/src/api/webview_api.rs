@@ -11,14 +11,10 @@ use legado_core::webview_channel::{self, WebViewRequest};
 
 const STREAM_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
-pub fn serialize_event(request: &WebViewRequest) -> String {
-    serde_json::to_string(request).unwrap_or_default()
-}
-
 /// WebView 请求事件流（长期存活）
 pub async fn run_webview_request_stream<F>(mut on_event: F)
 where
-    F: FnMut(String) -> Result<(), String>,
+    F: FnMut(WebViewRequest) -> Result<(), String>,
 {
     use std::sync::mpsc::RecvTimeoutError;
 
@@ -36,7 +32,7 @@ where
         rx = next_rx;
         match item {
             Ok(request) => {
-                if on_event(serialize_event(&request)).is_err() {
+                if on_event(request).is_err() {
                     break;
                 }
             }
@@ -73,27 +69,36 @@ pub fn submit_webview_result(key: &str, result: &str) -> bool {
 /// 旧 [`submit_webview_result`] 冻结不动（旧端忽略未知字段 / 不做 cookie
 /// 回流，本方法纯加法式）。返回是否命中进行中的请求（同旧方法语义）。
 pub fn submit_webview_result_with_cookies(key: &str, result: &str, cookies_json: &str) -> bool {
-    let trimmed = cookies_json.trim();
-    if !trimmed.is_empty() && trimmed != "{}" {
-        match serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(trimmed) {
-            Ok(entries) => {
-                for (raw_key, value) in entries {
-                    let cookie_str = match value.as_str() {
-                        Some(s) if !s.trim().is_empty() => s.to_string(),
-                        _ => continue,
-                    };
-                    // P2-19：域键一律 ETLD+1 归一（quickjs 档 http(s) URL →
-                    // 域名键；默认档 → trim 原串，与 JS 侧写侧口径恒等）
-                    let domain_key = legado_net::cookie_store::normalize_cookie_key(&raw_key);
-                    if domain_key.is_empty() {
-                        continue;
-                    }
-                    crate::http_state::persist_cookie_row_merged(&domain_key, &cookie_str);
-                }
-            }
-            Err(e) => {
-                log::warn!("WebView cookie 回流：cookies_json 解析失败（跳过持久化）: {e}");
-            }
+    let cookies = if cookies_json.trim().is_empty() {
+        Default::default()
+    } else {
+        serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(cookies_json)
+            .map(|values| {
+                values
+                    .into_iter()
+                    .filter_map(|(key, value)| value.as_str().map(|v| (key, v.to_owned())))
+                    .collect()
+            })
+            .unwrap_or_else(|error| {
+                log::warn!("WebView cookie 回流解析失败：{error}");
+                Default::default()
+            })
+    };
+    submit_webview_result_with_cookie_map(key, result, cookies)
+}
+
+pub fn submit_webview_result_with_cookie_map(
+    key: &str,
+    result: &str,
+    cookies: std::collections::HashMap<String, String>,
+) -> bool {
+    for (raw_key, cookie) in cookies {
+        if cookie.trim().is_empty() {
+            continue;
+        }
+        let domain = legado_net::cookie_store::normalize_cookie_key(&raw_key);
+        if !domain.is_empty() {
+            crate::http_state::persist_cookie_row_merged(&domain, &cookie);
         }
     }
     webview_channel::submit_webview_result(key, result)
@@ -103,9 +108,8 @@ pub fn cancel_webview_request(key: &str) -> bool {
     webview_channel::cancel_webview_request(key)
 }
 
-pub fn pending_requests_json() -> String {
-    let pending = webview_channel::webview_manager().pending();
-    serde_json::to_string(&pending).unwrap_or_else(|_| "[]".to_string())
+pub fn pending_requests() -> Vec<WebViewRequest> {
+    webview_channel::webview_manager().pending()
 }
 
 #[cfg(test)]

@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter_legado/src/bridge/task_dto.dart';
+import 'package:flutter_legado/src/bridge/ffi.dart' as controls;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -15,6 +18,13 @@ import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
 
+class _Request extends Fake implements controls.StreamRequest {
+  @override
+  void cancel() {}
+  @override
+  void dispose() {}
+}
+
 void main() {
   late _Bridge bridge;
   const editor = RustBookSourceEditService();
@@ -26,9 +36,11 @@ void main() {
     loginUi: '{"version":2}',
     loginUrl: 'script',
   );
+  setUpAll(() => registerFallbackValue(_Request()));
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
+    when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_Request());
   });
   tearDown(RustLib.dispose);
 
@@ -145,9 +157,21 @@ void main() {
     await expectLater(failed.loadUi(source, {}), throwsA(same(error)));
   });
   test('验证码流保留身份、展示与时间字段，提交/取消保持未命中含义', () async {
-    when(() => bridge.crateFfiFfiVerificationRequestStream()).thenAnswer(
+    when(
+      () => bridge.crateFfiFfiVerificationRequestStream(
+        request: any(named: 'request'),
+      ),
+    ).thenAnswer(
       (_) => Stream.value(
-        '{"key":"v1","source_url":"s","source_name":"源","image_url":"img","title":"验证","use_browser":true,"created_at_ms":123}',
+        VerificationRequestDto(
+          key: 'v1',
+          sourceUrl: 's',
+          sourceName: '源',
+          imageUrl: 'img',
+          title: '验证',
+          useBrowser: true,
+          createdAtMs: BigInt.from(123),
+        ),
       ),
     );
     final request = await verification.verificationRequestStream().single;
@@ -165,25 +189,29 @@ void main() {
     expect(await verification.submitVerificationResult('v1', '1234'), isTrue);
     expect(await verification.cancelVerificationRequest('v1'), isFalse);
   });
-  test('WebView流保留全部执行字段，Cookie只在提交适配器编码', () async {
-    when(() => bridge.crateFfiFfiWebviewRequestStream()).thenAnswer(
+  test('WebView流保留全部执行字段，Cookie直接使用域映射', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewRequestStream(
+        request: any(named: 'request'),
+      ),
+    ).thenAnswer(
       (_) => Stream.value(
-        jsonEncode({
-          'key': 'w',
-          'action': 'webViewGetSource',
-          'html': 'html',
-          'url': 'url',
-          'js': 'js',
-          'source_regex': 'source',
-          'override_url_regex': 'override',
-          'cache_first': true,
-          'delay_time': 50,
-          'is_rule': true,
-          'result': 'input',
-          'source_key': 'origin',
-          'cookie': 'sid=x',
-          'created_at_ms': 456,
-        }),
+        WebViewRequestDto(
+          key: 'w',
+          action: 'webViewGetSource',
+          html: 'html',
+          url: 'url',
+          js: 'js',
+          sourceRegex: 'source',
+          overrideUrlRegex: 'override',
+          cacheFirst: true,
+          delayTime: 50,
+          isRule: true,
+          result: 'input',
+          sourceKey: 'origin',
+          cookie: 'sid=x',
+          createdAtMs: BigInt.from(456),
+        ),
       ),
     );
     final request = await web.webviewRequestStream().single;
@@ -209,14 +237,14 @@ void main() {
       () => bridge.crateFfiFfiWebviewSubmitResultWithCookies(
         key: 'w',
         result: 'out',
-        cookiesJson: '{"https://source.test":"sid=y"}',
+        cookies: {'https://source.test': 'sid=y'},
       ),
     ).thenAnswer((_) async => true);
     when(
       () => bridge.crateFfiFfiWebviewSubmitResultWithCookies(
         key: 'w',
         result: 'out',
-        cookiesJson: '',
+        cookies: {},
       ),
     ).thenAnswer((_) async => false);
     when(
@@ -234,22 +262,57 @@ void main() {
     expect(await web.submitWebviewResult('w', '[ERROR] failed'), isTrue);
     expect(await web.cancelWebviewRequest('w'), isFalse);
   });
-  for (final payload in ['[]', '{}', '{"key":""}']) {
-    test('两类通道坏身份作为流错误，不创建无主请求：$payload', () async {
-      when(() => bridge.crateFfiFfiVerificationRequestStream())
-          .thenAnswer((_) => Stream.value(payload));
-      when(() => bridge.crateFfiFfiWebviewRequestStream())
-          .thenAnswer((_) => Stream.value(payload));
-      await expectLater(
-        verification.verificationRequestStream().toList(),
-        throwsFormatException,
-      );
-      await expectLater(
-        web.webviewRequestStream().toList(),
-        throwsFormatException,
-      );
-    });
-  }
+  test('两类通道拒绝无身份DTO，不创建无主请求', () async {
+    when(
+      () => bridge.crateFfiFfiVerificationRequestStream(
+        request: any(named: 'request'),
+      ),
+    ).thenAnswer(
+      (_) => Stream.value(
+        VerificationRequestDto(
+          key: '',
+          sourceUrl: '',
+          sourceName: '',
+          imageUrl: '',
+          title: '',
+          useBrowser: false,
+          createdAtMs: BigInt.zero,
+        ),
+      ),
+    );
+    when(
+      () => bridge.crateFfiFfiWebviewRequestStream(
+        request: any(named: 'request'),
+      ),
+    ).thenAnswer(
+      (_) => Stream.value(
+        WebViewRequestDto(
+          key: '',
+          action: '',
+          html: '',
+          url: '',
+          js: '',
+          sourceRegex: '',
+          overrideUrlRegex: '',
+          cacheFirst: false,
+          delayTime: 0,
+          isRule: false,
+          result: '',
+          sourceKey: '',
+          cookie: '',
+          createdAtMs: BigInt.zero,
+        ),
+      ),
+    );
+    await expectLater(
+      verification.verificationRequestStream().toList(),
+      throwsFormatException,
+    );
+    await expectLater(
+      web.webviewRequestStream().toList(),
+      throwsFormatException,
+    );
+  });
   test('Cookie清除走原共享网络入口，原生异常保持', () async {
     const network = RustNetworkService();
     when(() => bridge.crateFfiFfiClearCookie(url: 'https://source.test/path'))

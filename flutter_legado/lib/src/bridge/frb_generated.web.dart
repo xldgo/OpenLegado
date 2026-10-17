@@ -20,6 +20,7 @@ import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
+import 'task_dto.dart';
 import 'transfer_dto.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
@@ -118,9 +119,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw);
-
-  @protected
   RustStreamSink<ChangeSourceBatchDto>
   dco_decode_StreamSink_change_source_batch_dto_Sse(dynamic raw);
 
@@ -130,8 +128,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<DebugLogDto> dco_decode_StreamSink_debug_log_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<List<CacheDownloadTaskDto>>
+  dco_decode_StreamSink_list_cache_download_task_dto_Sse(dynamic raw);
+
+  @protected
   RustStreamSink<SearchSourceBatchDto>
   dco_decode_StreamSink_search_source_batch_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<VerificationRequestDto>
+  dco_decode_StreamSink_verification_request_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<WebViewRequestDto>
+  dco_decode_StreamSink_web_view_request_dto_Sse(dynamic raw);
 
   @protected
   String dco_decode_String(dynamic raw);
@@ -317,6 +332,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BridgeError dco_decode_bridge_error(dynamic raw);
 
   @protected
+  CacheDownloadStatusDto dco_decode_cache_download_status_dto(dynamic raw);
+
+  @protected
+  CacheDownloadTaskDto dco_decode_cache_download_task_dto(dynamic raw);
+
+  @protected
   CaptchaInfoDto dco_decode_captcha_info_dto(dynamic raw);
 
   @protected
@@ -351,6 +372,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
+
+  @protected
+  DebugLogDto dco_decode_debug_log_dto(dynamic raw);
+
+  @protected
+  DownloadStatsDto dco_decode_download_stats_dto(dynamic raw);
+
+  @protected
+  DownloadStatusDto dco_decode_download_status_dto(dynamic raw);
+
+  @protected
+  DownloadTaskDto dco_decode_download_task_dto(dynamic raw);
 
   @protected
   ExploreActionDto dco_decode_explore_action_dto(dynamic raw);
@@ -474,6 +507,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BookmarkDto> dco_decode_list_bookmark_dto(dynamic raw);
 
   @protected
+  List<CacheDownloadTaskDto> dco_decode_list_cache_download_task_dto(
+    dynamic raw,
+  );
+
+  @protected
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
 
   @protected
@@ -483,6 +521,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CloudVoiceDescriptorDto> dco_decode_list_cloud_voice_descriptor_dto(
     dynamic raw,
   );
+
+  @protected
+  List<DownloadTaskDto> dco_decode_list_download_task_dto(dynamic raw);
 
   @protected
   List<ExploreCategoryDto> dco_decode_list_explore_category_dto(dynamic raw);
@@ -587,10 +628,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TtsCacheEntryDto> dco_decode_list_tts_cache_entry_dto(dynamic raw);
 
   @protected
+  List<VerificationRequestDto> dco_decode_list_verification_request_dto(
+    dynamic raw,
+  );
+
+  @protected
   List<WebChapterDto> dco_decode_list_web_chapter_dto(dynamic raw);
 
   @protected
   List<WebSearchResultDto> dco_decode_list_web_search_result_dto(dynamic raw);
+
+  @protected
+  List<WebViewRequestDto> dco_decode_list_web_view_request_dto(dynamic raw);
 
   @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
@@ -807,6 +856,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  VerificationRequestDto dco_decode_verification_request_dto(dynamic raw);
+
+  @protected
   WebBookInfoDto dco_decode_web_book_info_dto(dynamic raw);
 
   @protected
@@ -814,6 +866,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebSearchResultDto dco_decode_web_search_result_dto(dynamic raw);
+
+  @protected
+  WebViewRequestDto dco_decode_web_view_request_dto(dynamic raw);
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
@@ -897,11 +952,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  RustStreamSink<String> sse_decode_StreamSink_String_Sse(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   RustStreamSink<ChangeSourceBatchDto>
   sse_decode_StreamSink_change_source_batch_dto_Sse(
     SseDeserializer deserializer,
@@ -913,10 +963,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<DebugLogDto> sse_decode_StreamSink_debug_log_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<CacheDownloadTaskDto>>
+  sse_decode_StreamSink_list_cache_download_task_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<SearchSourceBatchDto>
   sse_decode_StreamSink_search_source_batch_dto_Sse(
     SseDeserializer deserializer,
   );
+
+  @protected
+  RustStreamSink<VerificationRequestDto>
+  sse_decode_StreamSink_verification_request_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<WebViewRequestDto>
+  sse_decode_StreamSink_web_view_request_dto_Sse(SseDeserializer deserializer);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -1152,6 +1223,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BridgeError sse_decode_bridge_error(SseDeserializer deserializer);
 
   @protected
+  CacheDownloadStatusDto sse_decode_cache_download_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CacheDownloadTaskDto sse_decode_cache_download_task_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   CaptchaInfoDto sse_decode_captcha_info_dto(SseDeserializer deserializer);
 
   @protected
@@ -1198,6 +1279,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  DebugLogDto sse_decode_debug_log_dto(SseDeserializer deserializer);
+
+  @protected
+  DownloadStatsDto sse_decode_download_stats_dto(SseDeserializer deserializer);
+
+  @protected
+  DownloadStatusDto sse_decode_download_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  DownloadTaskDto sse_decode_download_task_dto(SseDeserializer deserializer);
 
   @protected
   ExploreActionDto sse_decode_explore_action_dto(SseDeserializer deserializer);
@@ -1359,6 +1454,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BookmarkDto> sse_decode_list_bookmark_dto(SseDeserializer deserializer);
 
   @protected
+  List<CacheDownloadTaskDto> sse_decode_list_cache_download_task_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
 
   @protected
@@ -1368,6 +1468,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CloudVoiceDescriptorDto> sse_decode_list_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<DownloadTaskDto> sse_decode_list_download_task_dto(
     SseDeserializer deserializer,
   );
 
@@ -1520,12 +1625,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<VerificationRequestDto> sse_decode_list_verification_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<WebChapterDto> sse_decode_list_web_chapter_dto(
     SseDeserializer deserializer,
   );
 
   @protected
   List<WebSearchResultDto> sse_decode_list_web_search_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebViewRequestDto> sse_decode_list_web_view_request_dto(
     SseDeserializer deserializer,
   );
 
@@ -1804,6 +1919,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
+  VerificationRequestDto sse_decode_verification_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   WebBookInfoDto sse_decode_web_book_info_dto(SseDeserializer deserializer);
 
   @protected
@@ -1811,6 +1931,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebSearchResultDto sse_decode_web_search_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewRequestDto sse_decode_web_view_request_dto(
     SseDeserializer deserializer,
   );
 
@@ -1914,12 +2039,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_StreamSink_String_Sse(
-    RustStreamSink<String> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_StreamSink_change_source_batch_dto_Sse(
     RustStreamSink<ChangeSourceBatchDto> self,
     SseSerializer serializer,
@@ -1932,8 +2051,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_debug_log_dto_Sse(
+    RustStreamSink<DebugLogDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_cache_download_task_dto_Sse(
+    RustStreamSink<List<CacheDownloadTaskDto>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_search_source_batch_dto_Sse(
     RustStreamSink<SearchSourceBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_verification_request_dto_Sse(
+    RustStreamSink<VerificationRequestDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_web_view_request_dto_Sse(
+    RustStreamSink<WebViewRequestDto> self,
     SseSerializer serializer,
   );
 
@@ -2223,6 +2366,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bridge_error(BridgeError self, SseSerializer serializer);
 
   @protected
+  void sse_encode_cache_download_status_dto(
+    CacheDownloadStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cache_download_task_dto(
+    CacheDownloadTaskDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_captcha_info_dto(
     CaptchaInfoDto self,
     SseSerializer serializer,
@@ -2288,6 +2443,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_content_rule_dto(
     ContentRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_debug_log_dto(DebugLogDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_download_stats_dto(
+    DownloadStatsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_download_status_dto(
+    DownloadStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_download_task_dto(
+    DownloadTaskDto self,
     SseSerializer serializer,
   );
 
@@ -2505,6 +2681,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_cache_download_task_dto(
+    List<CacheDownloadTaskDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_chapter_dto(
     List<ChapterDto> self,
     SseSerializer serializer,
@@ -2519,6 +2701,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_cloud_voice_descriptor_dto(
     List<CloudVoiceDescriptorDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_download_task_dto(
+    List<DownloadTaskDto> self,
     SseSerializer serializer,
   );
 
@@ -2709,6 +2897,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_verification_request_dto(
+    List<VerificationRequestDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_web_chapter_dto(
     List<WebChapterDto> self,
     SseSerializer serializer,
@@ -2717,6 +2911,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_web_search_result_dto(
     List<WebSearchResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_view_request_dto(
+    List<WebViewRequestDto> self,
     SseSerializer serializer,
   );
 
@@ -3060,6 +3260,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_usize(BigInt self, SseSerializer serializer);
 
   @protected
+  void sse_encode_verification_request_dto(
+    VerificationRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_web_book_info_dto(
     WebBookInfoDto self,
     SseSerializer serializer,
@@ -3071,6 +3277,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_web_search_result_dto(
     WebSearchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_request_dto(
+    WebViewRequestDto self,
     SseSerializer serializer,
   );
 }

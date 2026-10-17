@@ -17,7 +17,7 @@ import '../../../widgets/loading_indicator.dart';
 
 /// 缓存下载队列页（对齐原版 CacheActivity 进度列表）
 ///
-/// 轮询下载服务 展示批量缓存下载任务：
+/// 订阅下载快照展示批量缓存下载任务：
 /// 任务状态（下载中/已完成/已取消/失败）、已完成/总数进度条、取消按钮。
 /// [UI-fix v2.0.16 | 2026-08-10] 此前无下载队列页，且阅读页缓存按钮仅登记
 /// 内存任务不执行下载 — Reasonix
@@ -33,21 +33,40 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
   List<CacheDownloadTask> _tasks = [];
   bool _loading = true;
   String? _error;
-  Timer? _timer;
+  StreamSubscription<List<CacheDownloadTask>>? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
-    // 任务轮询（2s，页面可见期间保持实时；原版经 EventBus 实时刷新，
-    // 重构版无事件总线，以轻量本地查询轮询等价实现）
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _refresh());
+    _subscription = ref
+        .read(cacheDownloadServiceProvider)
+        .watchTasks()
+        .listen(
+          _acceptTasks,
+          onError: (Object error) {
+            if (mounted) {
+              setState(() {
+                _loading = false;
+                _error = '缓存下载队列加载失败';
+              });
+            }
+          },
+        );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    unawaited(_subscription?.cancel());
     super.dispose();
+  }
+
+  void _acceptTasks(List<CacheDownloadTask> tasks) {
+    if (!mounted) return;
+    setState(() {
+      _tasks = tasks;
+      _loading = false;
+      _error = null;
+    });
   }
 
   Future<void> _refresh() async {
@@ -55,12 +74,7 @@ class _CacheDownloadScreenState extends ConsumerState<CacheDownloadScreen> {
       final tasks = await ref
           .read(cacheDownloadServiceProvider)
           .cacheDownloadList();
-      if (!mounted) return;
-      setState(() {
-        _tasks = tasks;
-        _error = null;
-        _loading = false;
-      });
+      _acceptTasks(tasks);
     } catch (_) {
       // 查询失败保留最近一次成功结果，首次失败提供重试。
       if (!mounted) return;

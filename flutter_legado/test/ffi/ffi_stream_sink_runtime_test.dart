@@ -129,6 +129,15 @@ Stream<String> _searchMultiStream({
       }),
     );
 
+Stream<String> _debugStream({required String sourceUrl, required String key}) =>
+    managedRustStream(
+      (request) => bridge.debugBookSourceStream(
+        sourceUrl: sourceUrl,
+        key: key,
+        request: request,
+      ),
+    ).map((v) => jsonEncode({'state': v.state, 'msg': v.msg}));
+
 void main() {
   // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
   // CI（ubuntu/macOS）无产物：注册阶段整体跳过（仅留占位用例可见）
@@ -204,10 +213,7 @@ void main() {
 
     test('debugBookSourceStream：订阅→失败事件(state=-1)→正常结束', () async {
       final r = await _collect(
-        bridge.debugBookSourceStream(
-          sourceUrl: 'test://stream-debug-nonexistent',
-          key: '搜索词',
-        ),
+        _debugStream(sourceUrl: 'test://stream-debug-nonexistent', key: '搜索词'),
       );
       expect(r.error, isNull);
       expect(r.completed, isTrue);
@@ -221,15 +227,13 @@ void main() {
       const url = 'test://stream-debug-cancel';
       // 第一轮：发起后立即取消（SESSION_ID 自增使旧会话失效），流干净结束
       final cancelled = await _collect(
-        bridge.debugBookSourceStream(sourceUrl: url, key: 'k'),
+        _debugStream(sourceUrl: url, key: 'k'),
         afterSubscribe: () => bridge.debugBookSourceCancel(),
       );
       expect(cancelled.completed, isTrue);
       expect(cancelled.error, isNull);
       // 第二轮：取消后再跑仍正常产出事件，会话机制未被破坏
-      final rerun = await _collect(
-        bridge.debugBookSourceStream(sourceUrl: url, key: 'k'),
-      );
+      final rerun = await _collect(_debugStream(sourceUrl: url, key: 'k'));
       expect(rerun.completed, isTrue);
       expect(rerun.error, isNull);
       expect(rerun.events, isNotEmpty);
@@ -240,14 +244,17 @@ void main() {
     test('verificationRequestStream：长期存活+pending/submit/cancel 配套', () async {
       var ended = false;
       Object? streamError;
-      final sub = bridge.verificationRequestStream().listen(
-        (_) {},
-        onDone: () => ended = true,
-        onError: (Object e) {
-          ended = true;
-          streamError = e;
-        },
-      );
+      final sub =
+          managedRustStream(
+            (request) => bridge.verificationRequestStream(request: request),
+          ).listen(
+            (_) {},
+            onDone: () => ended = true,
+            onError: (Object e) {
+              ended = true;
+              streamError = e;
+            },
+          );
       // 等待超过 Rust 侧轮询周期（STREAM_POLL_INTERVAL=1s）×2，
       // 证明接收循环存活且未误结束（无请求时不推事件属预期行为）
       await Future<void>.delayed(const Duration(milliseconds: 2300));
@@ -255,40 +262,42 @@ void main() {
       expect(ended, isFalse, reason: '长期存活流不应在订阅后立即结束');
       // 配套 API 经真实 wire 工作
       final pending = await bridge.verificationPending();
-      expect(jsonDecode(pending), isEmpty);
+      expect(pending, isEmpty);
       expect(
         await bridge.verificationSubmit(key: 'no-such-key', code: '1234'),
         false,
       );
       expect(await bridge.verificationCancel(key: 'no-such-key'), false);
-      // 长期存活流空闲时底层 async* 生成器停在端口等待点，取消 Future
-      // 永不完成（FRB RustStreamSink 语义，非本项目缺陷），故不等待取消
-      unawaited(sub.cancel());
+      // 独立取消凭据唤醒Rust，即使空闲也能完成退订。
+      await sub.cancel().timeout(const Duration(seconds: 3));
     });
 
     test('webviewRequestStream：长期存活+pending/submit/cancel 配套', () async {
       var ended = false;
       Object? streamError;
-      final sub = bridge.webviewRequestStream().listen(
-        (_) {},
-        onDone: () => ended = true,
-        onError: (Object e) {
-          ended = true;
-          streamError = e;
-        },
-      );
+      final sub =
+          managedRustStream(
+            (request) => bridge.webviewRequestStream(request: request),
+          ).listen(
+            (_) {},
+            onDone: () => ended = true,
+            onError: (Object e) {
+              ended = true;
+              streamError = e;
+            },
+          );
       await Future<void>.delayed(const Duration(milliseconds: 2300));
       expect(streamError, isNull);
       expect(ended, isFalse);
       final pending = await bridge.webviewPending();
-      expect(jsonDecode(pending), isEmpty);
+      expect(pending, isEmpty);
       expect(
         await bridge.webviewSubmit(key: 'no-such-key', result: '{}'),
         false,
       );
       expect(await bridge.webviewCancel(key: 'no-such-key'), false);
-      // 同上：长期存活流取消 Future 不完成，不等待（见 verification 用例说明）
-      unawaited(sub.cancel());
+      // 退订不提交/取消验证码或WebView业务请求。
+      await sub.cancel().timeout(const Duration(seconds: 3));
     });
 
     test('searchMultiStream：订阅→逐源批次事件→正常结束', () async {

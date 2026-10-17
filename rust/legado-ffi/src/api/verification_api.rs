@@ -28,7 +28,7 @@ const STREAM_POLL_INTERVAL: Duration = Duration::from_secs(1);
 /// JS 钩子侧只能拿到书源 URL（线程上下文），名称由 FFI 层查库补全
 /// （对齐 Kotlin `VerificationCodeActivity` 的 `sourceName` extra）；
 /// 查库失败（如数据库未初始化）时保持空字符串。
-pub fn serialize_event(mut request: VerificationRequest) -> String {
+pub fn enrich_event(mut request: VerificationRequest) -> VerificationRequest {
     if request.source_name.is_empty()
         && !request.source_url.is_empty()
         && let Ok(Some(source)) = with_database(|db| {
@@ -37,7 +37,7 @@ pub fn serialize_event(mut request: VerificationRequest) -> String {
     {
         request.source_name = source.book_source_name;
     }
-    serde_json::to_string(&request).unwrap_or_default()
+    request
 }
 
 /// 验证码请求事件流（长期存活，直到 `on_event` 返回 Err / 通道断开）
@@ -52,7 +52,7 @@ pub fn serialize_event(mut request: VerificationRequest) -> String {
 ///（在 ffi.rs 中将 `on_event` 接到 `sink.add`）。
 pub async fn run_verification_request_stream<F>(mut on_event: F)
 where
-    F: FnMut(String) -> Result<(), String>,
+    F: FnMut(VerificationRequest) -> Result<(), String>,
 {
     use std::sync::mpsc::RecvTimeoutError;
 
@@ -72,7 +72,7 @@ where
         rx = next_rx;
         match item {
             Ok(request) => {
-                if on_event(serialize_event(request)).is_err() {
+                if on_event(enrich_event(request)).is_err() {
                     break;
                 }
             }
@@ -100,9 +100,12 @@ pub fn cancel_verification_request(key: &str) -> bool {
 }
 
 /// 当前进行中的验证码请求列表（JSON 数组，供拉取式消费/调试）
-pub fn pending_requests_json() -> String {
-    let pending = verification_channel::verification_manager().pending();
-    serde_json::to_string(&pending).unwrap_or_else(|_| "[]".to_string())
+pub fn pending_requests() -> Vec<VerificationRequest> {
+    verification_channel::verification_manager()
+        .pending()
+        .into_iter()
+        .map(enrich_event)
+        .collect()
 }
 
 // ─── 测试 ─────────────────────────────────────────────────────────────────────
@@ -149,11 +152,7 @@ mod tests {
         let url_match = image_url.to_string();
         let stream_done = tokio::spawn(async move {
             let mut submitted_key: Option<String> = None;
-            run_verification_request_stream(|json| {
-                let req: VerificationRequest = match serde_json::from_str(&json) {
-                    Ok(r) => r,
-                    Err(_) => return Ok(()),
-                };
+            run_verification_request_stream(|req| {
                 if req.image_url == url_match {
                     submitted_key = Some(req.key.clone());
                     // 提交后返回 Err 结束流（模拟 sink 关闭）
@@ -237,7 +236,7 @@ mod tests {
             use_browser: false,
             created_at_ms: 123,
         };
-        let json = serialize_event(req);
+        let json = serde_json::to_string(&enrich_event(req)).unwrap();
         for field in [
             "\"key\"",
             "\"source_url\"",
@@ -254,8 +253,7 @@ mod tests {
     /// pending_requests_json 返回合法 JSON 数组
     #[test]
     fn test_pending_requests_json() {
-        let json = pending_requests_json();
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(parsed.is_array());
+        let pending = pending_requests();
+        assert!(pending.iter().all(|v| !v.key.is_empty()));
     }
 }

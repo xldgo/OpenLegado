@@ -17,7 +17,6 @@ library;
 /// 前置条件：先在 rust/ 下构建 DLL
 /// （cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
@@ -78,10 +77,7 @@ void main() {
       final json = await bridge.cacheDownloadFailedChapters(
         bookUrl: noTaskBook,
       );
-      expect(json, '[]', reason: '无失败应返回空 JSON 数组');
-      final decoded = jsonDecode(json);
-      expect(decoded, isA<List<dynamic>>(), reason: '应为 JSON 数组');
-      expect(decoded, isEmpty);
+      expect(json, isEmpty);
     });
 
     test(
@@ -98,7 +94,7 @@ void main() {
         final json = await bridge.cacheDownloadFailedChapters(
           bookUrl: noTaskBook,
         );
-        expect(json, '[]', reason: '查询为纯读，重复调用不得改写任务快照');
+        expect(json, isEmpty, reason: '查询为纯读，重复调用不得改写任务快照');
       },
     );
   });

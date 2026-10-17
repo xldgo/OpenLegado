@@ -149,6 +149,7 @@ pub mod ffi {
     use crate::content_dto::*;
     use crate::frb_generated::StreamSink;
     use crate::media_dto::*;
+    use crate::task_dto::*;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
         ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
@@ -473,12 +474,14 @@ pub mod ffi {
     pub async fn debug_book_source_stream(
         source_url: String,
         key: String,
-        sink: StreamSink<String>,
+        request: &super::StreamRequest,
+        sink: StreamSink<DebugLogDto>,
     ) -> Result<(), BridgeError> {
-        crate::api::source_debug_api::run_debug_book_source_stream(source_url, key, move |item| {
-            sink.add(item).map_err(|e| e.to_string())
-        })
-        .await;
+        tokio::select! { biased; _ = request.wait_cancelled() => {},
+            _ = crate::api::source_debug_api::run_debug_book_source_stream(source_url, key, move |item| {
+                sink.add(item.into()).map_err(|e| e.to_string())
+            }) => {}
+        }
         Ok(())
     }
 
@@ -500,11 +503,15 @@ pub mod ffi {
     /// 回传；关闭对话框调 [`verification_cancel`]。流在 sink 关闭后结束。
     ///
     /// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
-    pub async fn verification_request_stream(sink: StreamSink<String>) -> Result<(), BridgeError> {
-        crate::api::verification_api::run_verification_request_stream(|event| {
-            sink.add(event).map_err(|e| e.to_string())
-        })
-        .await;
+    pub async fn verification_request_stream(
+        request: &super::StreamRequest,
+        sink: StreamSink<VerificationRequestDto>,
+    ) -> Result<(), BridgeError> {
+        tokio::select! { biased; _ = request.wait_cancelled() => {},
+            _ = crate::api::verification_api::run_verification_request_stream(|event| {
+                sink.add(event.into()).map_err(|e| e.to_string())
+            }) => {}
+        }
         Ok(())
     }
 
@@ -528,8 +535,11 @@ pub mod ffi {
     }
 
     /// 当前进行中的验证码请求列表（JSON 数组，供拉取式消费/调试）
-    pub fn verification_pending() -> Result<String, BridgeError> {
-        Ok(crate::api::verification_api::pending_requests_json())
+    pub fn verification_pending() -> Result<Vec<VerificationRequestDto>, BridgeError> {
+        Ok(crate::api::verification_api::pending_requests()
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     // ─── BackstageWebView DOM 执行通道（SOURCE_DIFF P1，加法式新增） ─
@@ -545,11 +555,15 @@ pub mod ffi {
     /// default` 空串），旧端忽略未知字段不破坏反序列化。
     /// UI 执行后经 [`webview_submit`] / [`webview_submit_result_with_cookies`]
     /// 回传；超时/取消调 [`webview_cancel`]。
-    pub async fn webview_request_stream(sink: StreamSink<String>) -> Result<(), BridgeError> {
-        crate::api::webview_api::run_webview_request_stream(|event| {
-            sink.add(event).map_err(|e| e.to_string())
-        })
-        .await;
+    pub async fn webview_request_stream(
+        request: &super::StreamRequest,
+        sink: StreamSink<WebViewRequestDto>,
+    ) -> Result<(), BridgeError> {
+        tokio::select! { biased; _ = request.wait_cancelled() => {},
+            _ = crate::api::webview_api::run_webview_request_stream(|event| {
+                sink.add(event.into()).map_err(|e| e.to_string())
+            }) => {}
+        }
         Ok(())
     }
 
@@ -570,13 +584,9 @@ pub mod ffi {
     pub fn webview_submit_result_with_cookies(
         key: String,
         result: String,
-        cookies_json: String,
+        cookies: std::collections::HashMap<String, String>,
     ) -> Result<bool, BridgeError> {
-        Ok(crate::api::webview_api::submit_webview_result_with_cookies(
-            &key,
-            &result,
-            &cookies_json,
-        ))
+        Ok(crate::api::webview_api::submit_webview_result_with_cookie_map(&key, &result, cookies))
     }
 
     /// 取消 WebView 请求（以空结果唤醒）
@@ -585,8 +595,11 @@ pub mod ffi {
     }
 
     /// 当前进行中的 WebView 请求列表（JSON 数组）
-    pub fn webview_pending() -> Result<String, BridgeError> {
-        Ok(crate::api::webview_api::pending_requests_json())
+    pub fn webview_pending() -> Result<Vec<WebViewRequestDto>, BridgeError> {
+        Ok(crate::api::webview_api::pending_requests()
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     // ─── 登录 UI V2 动态状态协议（#402/#488，加法式新增） ─────────
@@ -2210,48 +2223,64 @@ pub mod ffi {
         book_url: String,
         start_chapter: i32,
         end_chapter: i32,
-    ) -> Result<String, BridgeError> {
-        let task_id = crate::api::cache_download_api::cache_download_start(
+    ) -> Result<u64, BridgeError> {
+        Ok(crate::api::cache_download_api::cache_download_start(
             &book_url,
             start_chapter,
             end_chapter,
-        )?;
-        Ok(task_id.to_string())
+        )?)
     }
-
-    /// 查询批量下载任务进度（JSON：taskId/bookUrl/status/total/completed/failed；
-    /// 未知任务 status=notFound）
-    pub fn cache_download_progress(task_id: i64) -> Result<String, BridgeError> {
-        let task = crate::api::cache_download_api::cache_download_progress(task_id as u64)?;
-        to_json(&task)
+    pub fn cache_download_progress(task_id: u64) -> Result<CacheDownloadTaskDto, BridgeError> {
+        Ok(crate::api::cache_download_api::cache_download_progress(task_id)?.try_into()?)
     }
-
-    /// 取消批量下载任务（对照书源校验流取消机制）；未知任务返回 false
-    pub fn cache_download_cancel(task_id: i64) -> Result<bool, BridgeError> {
-        let ok = crate::api::cache_download_api::cache_download_cancel(task_id as u64)?;
-        Ok(ok)
+    pub fn cache_download_cancel(task_id: u64) -> Result<bool, BridgeError> {
+        Ok(crate::api::cache_download_api::cache_download_cancel(
+            task_id,
+        )?)
     }
-
-    /// 列出所有批量下载任务（JSON 数组，按任务 ID 升序）
-    pub fn cache_download_list() -> Result<String, BridgeError> {
-        let tasks = crate::api::cache_download_api::cache_download_list()?;
-        to_json(&tasks)
+    pub fn cache_download_list() -> Result<Vec<CacheDownloadTaskDto>, BridgeError> {
+        crate::api::cache_download_api::cache_download_list()?
+            .into_iter()
+            .map(|v| v.try_into().map_err(Into::into))
+            .collect()
     }
-
-    /// P2-29（API_CONTRACT §2.43.7）：该书当前在途下载章节 index 的 JSON 整型数组
-    /// （升序、0-based；无活跃任务为空数组 `[]`）。只读：纯任务表读 +
-    /// 落库恢复回读，零写入。
-    pub fn cache_download_running_chapters(book_url: String) -> Result<String, BridgeError> {
-        let indices = crate::api::cache_download_api::cache_download_running_chapters(&book_url)?;
-        to_json(&indices)
+    pub fn cache_download_running_chapters(book_url: String) -> Result<Vec<i32>, BridgeError> {
+        Ok(crate::api::cache_download_api::cache_download_running_chapters(&book_url)?)
     }
-
-    /// P2-29c 后续（API_CONTRACT §2.43.8）：该书批量下载**已失败**章节 index
-    /// 的 JSON 整型数组（升序、0-based；无失败为空数组 `[]`）。只读：
-    /// 纯任务表读 + `ensure_restored` 落库恢复回读，零写入。
-    pub fn cache_download_failed_chapters(book_url: String) -> Result<String, BridgeError> {
-        let indices = crate::api::cache_download_api::cache_download_failed_chapters(&book_url)?;
-        to_json(&indices)
+    pub fn cache_download_failed_chapters(book_url: String) -> Result<Vec<i32>, BridgeError> {
+        Ok(crate::api::cache_download_api::cache_download_failed_chapters(&book_url)?)
+    }
+    /// 先订阅后读取，避免初始快照与新进度之间丢失通知；不取消后台下载。
+    pub async fn cache_download_stream(
+        request: &super::StreamRequest,
+        sink: StreamSink<Vec<CacheDownloadTaskDto>>,
+    ) -> Result<(), BridgeError> {
+        let engine = crate::engine_holder::current()?;
+        let service = crate::engine_holder::cache_downloads()?;
+        let task = engine.tasks().begin().map_err(|e| BridgeError {
+            message: e.to_string(),
+        })?;
+        drop(engine);
+        let mut changed = service.subscribe();
+        let _guard = task.guard();
+        loop {
+            if task.is_cancelled() || request.cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                break;
+            }
+            let service = service.clone();
+            let values = super::run_webbook_blocking("下载快照", move || service.list()).await?;
+            let values: Result<Vec<CacheDownloadTaskDto>, _> =
+                values.into_iter().map(TryInto::try_into).collect();
+            if sink.add(values?).is_err() {
+                break;
+            }
+            tokio::select! { biased;
+                _ = request.wait_cancelled() => break,
+                _ = task.cancelled() => break,
+                update = changed.changed() => { if update.is_err() { break; } }
+            }
+        }
+        Ok(())
     }
 
     // ─── 章节购买动作（Task #136 R6，API_CONTRACT §2.43.2）─────
@@ -2697,13 +2726,13 @@ pub mod ffi {
     }
 
     /// 获取下载统计信息（JSON）
-    pub fn download_get_stats() -> Result<String, BridgeError> {
-        Ok(crate::api::download_api::download_get_stats()?)
+    pub fn download_get_stats() -> Result<DownloadStatsDto, BridgeError> {
+        Ok(crate::api::download_api::download_stats()?)
     }
 
     /// 获取指定书籍的下载任务（JSON 数组）
-    pub fn download_list_by_book(book_url: String) -> Result<String, BridgeError> {
-        Ok(crate::api::download_api::download_list_by_book(&book_url)?)
+    pub fn download_list_by_book(book_url: String) -> Result<Vec<DownloadTaskDto>, BridgeError> {
+        Ok(crate::api::download_api::download_tasks(&book_url)?)
     }
 
     /// 暂停所有下载

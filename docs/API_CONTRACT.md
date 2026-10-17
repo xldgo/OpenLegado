@@ -2276,6 +2276,29 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 
 编写者：Codex + Bridge｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 后续第3批任务与交互事件冻结
+
+本批只替换内部传输和观察机制，不改变下载执行器、持久化格式、请求键或既有界面布局。
+
+- `cache_download_start` 返回 u64 任务标识；progress/list 返回 `CacheDownloadTaskDto`/列表，字段为
+  taskId:u64、bookUrl:String、status:CacheDownloadStatusDto、total/completed/failed:i32。
+  状态穷举 running/completed/cancelled/failed/notFound；未知任务沿用 notFound，章节集合直接返回 Vec<i32>。
+- 新增 `cache_download_stream(request:&StreamRequest,sink:StreamSink<Vec<CacheDownloadTaskDto>>)`：
+  先订阅变化再读取初始快照，之后由实例下载服务的变更通知推送最新完整快照，允许合并快速中间进度，终态必可观察。
+  无变化时不轮询；订阅在显式取消、宿主任务组关闭或 sink 失败时结束。取消观察不取消下载，下载取消仍调用原任务接口。
+  Flutter下载服务增加watchTasks，缓存队列及离线缓存页用订阅替代2秒任务轮询；离开页面仅取消订阅。
+- 队列元数据 `download_get_stats/list_by_book` 返回 DownloadStatsDto/Vec<DownloadTaskDto>，保持原公开字段；
+  DownloadStatusDto穷举pending/downloading/completed/failed/paused，error仍为独立可空字段。
+  该旧队列不是实际章节下载执行器，不新增伪执行流。
+- 调试流 `DebugLogDto(state:i32,msg:String)`；验证码 `VerificationRequestDto` 保留原七字段；
+  WebView `WebViewRequestDto` 保留原十四字段及DOM/JS/result/cookie文本，pending返回相同DTO列表。
+  三条流均接收独立StreamRequest，由Dart订阅取消同步通知Rust；调试取消只终止原调试操作，
+  验证码/WebView退订不提交或取消用户请求。WebView Cookie回流改为Map<String,String>，仍先合并落库后唤醒。
+- 索引/状态映射由适配器完成，未知JSON状态等不再作为运行时协议；大小使用u64→BigInt，
+  不把业务任务ID改成临时资源句柄。仍使用SSE，不宣称零拷贝。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

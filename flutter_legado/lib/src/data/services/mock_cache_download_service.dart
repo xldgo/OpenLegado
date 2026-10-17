@@ -26,6 +26,8 @@ class MockCacheDownloadService implements CacheDownloadService {
   @override
   Future<List<CacheDownloadTask>> cacheDownloadList() async => const [];
   @override
+  Stream<List<CacheDownloadTask>> watchTasks() => Stream.value(const []);
+  @override
   Future<List<int>> listDownloadingChapters(String bookUrl) async => const [];
   @override
   Future<List<int>> listFailedChapters(String bookUrl) async => const [];

@@ -35,7 +35,7 @@ fn format_elapsed(start: Instant) -> String {
 }
 
 /// 日志、数据及凭据属于原会话；回调不重新发现当前宿主或日志槽。
-type DebugEmitter = Box<dyn FnMut(String) -> Result<(), String> + Send>;
+type DebugEmitter = Box<dyn FnMut(DebugLogItem) -> Result<(), String> + Send>;
 
 struct DebugRun {
     source_url: String,
@@ -69,7 +69,7 @@ fn preview(text: &str, max: usize) -> String {
 /// 流式调试书源；阻塞 worker 即使入口被丢弃也持有原任务凭据。
 pub async fn run_debug_book_source_stream<F>(source_url: String, key: String, on_log: F)
 where
-    F: FnMut(String) -> Result<(), String> + Send + 'static,
+    F: FnMut(DebugLogItem) -> Result<(), String> + Send + 'static,
 {
     let slot = crate::engine_holder::source_debug();
     let Ok(operation) = slot.start() else {
@@ -91,7 +91,14 @@ where
     run_debug(run, key).await;
 }
 
+struct CancelDebugOnDrop(Arc<Operation>);
+impl Drop for CancelDebugOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
 async fn run_debug(run: Arc<DebugRun>, key: String) {
+    let _cancel = CancelDebugOnDrop(run.operation.clone());
     let _guard = run.operation.guard();
     let worker = run.clone();
     let join = tokio::task::spawn_blocking(move || {
@@ -115,10 +122,9 @@ impl DebugRun {
                 msg.into()
             },
         };
-        let outcome = self.operation.publish(|| {
-            let json = serde_json::to_string(&item).unwrap_or_default();
-            self.on_log.lock().unwrap_or_else(|p| p.into_inner())(json)
-        });
+        let outcome = self
+            .operation
+            .publish(|| self.on_log.lock().unwrap_or_else(|p| p.into_inner())(item));
         if matches!(outcome, Some(Err(_))) {
             self.operation.cancel();
         }
@@ -566,10 +572,10 @@ mod tests {
             storage: Some(engine.storage().clone()),
             deps: Some(crate::api::web_book::deps_for_engine(engine)),
             info: engine.source_info_map().clone(),
-            on_log: Mutex::new(Box::new(move |json| {
+            on_log: Mutex::new(Box::new(move |item| {
                 logs.lock()
                     .unwrap()
-                    .push(serde_json::from_str(&json).unwrap());
+                    .push(serde_json::to_value(item).unwrap());
                 Ok(())
             })),
         })

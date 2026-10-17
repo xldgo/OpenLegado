@@ -74,6 +74,20 @@ pub fn download_add_task(
     })
 }
 
+/// 类型化查询与原JSON消费者共享同一个队列。
+pub fn download_tasks(book: &str) -> LegadoResult<Vec<crate::task_dto::DownloadTaskDto>> {
+    with_manager(|mgr| {
+        Ok(mgr
+            .tasks_by_book(book)
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    })
+}
+pub fn download_stats() -> LegadoResult<crate::task_dto::DownloadStatsDto> {
+    with_manager(|mgr| Ok(mgr.stats().into()))
+}
+
 /// 获取下载统计信息（摘要）
 pub fn download_list_tasks() -> LegadoResult<String> {
     download_get_stats()

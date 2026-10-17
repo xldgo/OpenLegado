@@ -92,6 +92,7 @@ pub struct CacheDownloads {
     /// 顺序化运行快照与取消终态；不持状态表锁进入 SQL。
     checkpoint: Mutex<()>,
     state: Mutex<State>,
+    changed: tokio::sync::watch::Sender<()>,
 }
 
 impl CacheDownloads {
@@ -113,7 +114,13 @@ impl CacheDownloads {
                 next: 1,
                 records: HashMap::new(),
             }),
+            changed: tokio::sync::watch::channel(()).0,
         }
+    }
+
+    /// 只订阅变化，不持有或取消执行凭据；订阅后应读取一次完整快照。
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<()> {
+        self.changed.subscribe()
     }
 
     fn persist(&self, row: &Checkpoint) -> LegadoResult<()> {
@@ -158,6 +165,7 @@ impl CacheDownloads {
         if let Err(error) = self.persist(&row) {
             log::warn!("缓存下载快照保存失败: {error}");
         }
+        self.changed.send_replace(());
     }
 
     fn finish_cancelled(&self, record: &Record) {
@@ -174,6 +182,7 @@ impl CacheDownloads {
         if let Err(error) = self.persist(&row) {
             log::warn!("取消断点保存失败: {error}");
         }
+        self.changed.send_replace(());
     }
 
     fn restore_locked(self: &Arc<Self>) -> LegadoResult<()> {
@@ -372,6 +381,7 @@ impl CacheDownloads {
                     .records
                     .insert(id, record.clone());
                 self.launch(id, record, handle.clone())?;
+                self.changed.send_replace(());
                 Ok(id)
             })
             .ok_or_else(|| LegadoError::Ffi("任务组已关闭".into()))?
@@ -583,6 +593,48 @@ mod tests {
             assert!(Instant::now() < deadline, "下载未退出");
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+
+    #[test]
+    fn observation_changes_do_not_own_download_cancellation() {
+        let engine = EngineContext::in_memory().unwrap();
+        seed(&engine);
+        let (release, gate) = std::sync::mpsc::channel();
+        let gate = Mutex::new(gate);
+        let service = Arc::new(CacheDownloads::new(
+            engine.storage().clone(),
+            engine.tasks().clone(),
+            Arc::new(move |_, _, _| {
+                gate.lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(5))
+                    .unwrap();
+                Ok(())
+            }),
+        ));
+        let mut first = service.subscribe();
+        let second = service.subscribe();
+        let id = service.start("book", 0, 0).unwrap();
+        assert!(first.has_changed().unwrap());
+        first.borrow_and_update();
+        assert_eq!(service.progress(id).unwrap().status, "running");
+        drop(second);
+        assert_eq!(service.progress(id).unwrap().status, "running");
+        release.send(()).unwrap();
+        assert_eq!(wait(&service, id).status, "completed");
+        assert!(first.has_changed().unwrap());
+        first.borrow_and_update();
+        assert!(!first.has_changed().unwrap());
+        assert_eq!(
+            service
+                .list()
+                .unwrap()
+                .iter()
+                .find(|v| v.task_id == id)
+                .unwrap()
+                .completed,
+            1
+        );
     }
 
     #[test]

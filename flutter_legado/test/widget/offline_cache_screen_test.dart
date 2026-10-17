@@ -23,6 +23,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    when(()=>mockApi.cacheDownloadService.watchTasks()).thenAnswer((_)=>Stream.fromFuture(Future.sync(()=>mockApi.cacheDownloadService.cacheDownloadList())));
     container = ProviderContainer(
       overrides: mergeTestOverrides([...mockApi.overrides]),
     );

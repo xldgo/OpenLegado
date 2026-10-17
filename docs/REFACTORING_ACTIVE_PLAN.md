@@ -2,6 +2,9 @@
 
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
+- 后续第3批完成：基于c718a11a8迁移下载快照与实例变更观察、调试/验证码/WebView事件；契约先冻结，保留业务任务ID，退订不取消下载。缓存两页使用变更订阅，离线页代数拒绝迟到查询覆盖；已有JSON事件适配器删除，Cookie域映射仍先持久化再唤醒。没有把旧纯内存下载元数据队列包装为实际下载执行器。
+- 第3批验证：QuickJS Engine21/FFI588项、默认Engine21/FFI512项通过（FFI忽略42/21）；两档全目标严格Clippy、完整Flutter分析通过。9份定向回归61项通过，补充事件即时刷新/退订用例后3份18项通过。新DLL经正式Python构建及最终只读指纹/摘要；三份真实文件11项均已通过（组合首轮10通过1失败，旧空数组字符串断言修正后该文件2项复验通过）。覆盖本地30章下载完成通知/业务状态保留、队列实体、调试及长期流空闲取消；没有设备或性能结论。证据为build/ffi-phase3/task-{codegen,rust-quick,rust-default,clippy-quick,clippy-default,flutter-regression,ui-final,analysis-final,native,native-tests,native-final-retest}。单代理自查，无独立外审/CI/应用安装；本批提交后继续第4批。
+
 - 授权与基线：用户要求从主目录最新提交创建 worktree，分析方案后授权开始。基线 feature/ui-reader-selection / 361cced7e；工作区 build/worktrees/rust-ffi-modernization，分支 feature/rust-ffi-modernization。主目录并行 UI 修改保留，不带入或覆盖；Codex 直接执行，不使用子代理。后续按用户授权 rebase 至主目录 1b871c3c4，已恢复原全部改动；stash 95d0feb27 作为恢复备份保留。
 - 状态：首批已按用户授权提交为e4c907a02；阅读域续批的实现与本地验证也已完成，阅读域续批按用户授权提交；后续四批可在验证后分别提交，不推送或触发CI。P1～P4 与后续补齐的搜索/换源/校验/目录/正文主链路均已迁移；默认工作区及 QuickJS 相关三包的全目标严格 Clippy 已通过，前轮基线阻断已修复。P2 保留 SSE 字节直传，不宣称零拷贝。设备完整 profile、Android/iOS 验证和独立审查未执行，不视为全平台验收或全部领域 JSON 淘汰。方法与范围见 [实施方案](FFI_TRANSPORT_MODERNIZATION_20261017.md)，本条为唯一状态入口；下述早期结果与失败为过程记录，以本条末尾收口结果为准。
 - P1 契约：API_CONTRACT §2.7 先行冻结 BookmarkDto 九字段、ReadRecordDetailDto 五字段；七个既有 FFI 导出改用强类型入参/结果，函数不增不删。书签新增/删除保留标量参数，更新仍保留数据库原 id/time；阅读明细保持毫秒、作者、日期排序和年份语义。其余 JSON 接口、导入导出与存储格式不变。

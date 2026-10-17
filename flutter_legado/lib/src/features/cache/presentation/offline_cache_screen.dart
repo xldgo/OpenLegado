@@ -34,8 +34,7 @@ import '../../../widgets/loading_indicator.dart';
 /// 顶栏菜单提供全部缓存（download_all）、缓存当前章节之后
 /// （download_after）、停止全部下载与下载队列入口。
 ///
-/// 缓存章节数与任务状态 2s 轮询刷新（原版经 EventBus 实时刷新，
-/// 重构版无事件总线，以轻量本地轮询等价实现，与队列页一致）。
+/// 下载变化驱动快照与缓存章节数刷新，退出页面只取消观察。
 ///
 /// [UI-fix v2.0.17 | 2026-08-11] 补齐 CacheActivity 对齐缺口：缓存管理
 /// 独立页（书籍列表/缓存进度/单本导出入口）与缓存下载
@@ -67,27 +66,38 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
   List<_BookEntry> _entries = [];
   bool _loading = true;
   String? _error;
-  Timer? _timer;
+  StreamSubscription<List<CacheDownloadTask>>? _subscription;
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
-    // 2s 轮询（与队列页一致；原版经 EventBus 实时刷新）
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted) _refresh();
-    });
+    _subscription = ref
+        .read(cacheDownloadServiceProvider)
+        .watchTasks()
+        .listen(
+          (tasks) => _refresh(tasks),
+          onError: (Object error) {
+            if (mounted) {
+              setState(() {
+                _loading = false;
+                _error = '离线缓存加载失败';
+              });
+            }
+          },
+        );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    unawaited(_subscription?.cancel());
     _searchController.dispose();
     super.dispose();
   }
 
   /// 加载书架书籍 + 每本缓存章节数 + 进行中任务
-  Future<void> _refresh() async {
+  Future<void> _refresh([List<CacheDownloadTask>? snapshot]) async {
+    final generation = ++_generation;
     try {
       final books = await ref.read(bookshelfRepositoryProvider).getBooks();
       // 原版 initBookData 过滤音频书（音频书缓存走听书链路）
@@ -98,7 +108,10 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       // 任务快照：bookUrl → 进行中任务（对齐原版 CacheBook.cacheBookMap）
       final tasks = <String, CacheDownloadTask>{};
       for (final task
-          in await ref.read(cacheDownloadServiceProvider).cacheDownloadList()) {
+          in snapshot ??
+              await ref
+                  .read(cacheDownloadServiceProvider)
+                  .cacheDownloadList()) {
         if (task.isRunning) tasks[task.bookUrl] = task;
       }
 
@@ -111,14 +124,14 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
                 .length;
         entries.add(_BookEntry(book, cached, tasks[book.bookUrl]));
       }
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _entries = entries;
         _error = null;
         _loading = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _loading = false;
         _error = '离线缓存加载失败';

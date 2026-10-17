@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter_legado/src/bridge/task_dto.dart';
+import 'package:flutter_legado/src/bridge/ffi.dart' as controls;
+
 import 'package:flutter_legado/src/bridge/content_dto.dart';
 import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
@@ -15,6 +18,13 @@ import 'package:flutter_legado/src/models/models.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
 
+class _Request extends Fake implements controls.StreamRequest {
+  @override
+  void cancel() {}
+  @override
+  void dispose() {}
+}
+
 void main() {
   late _Bridge bridge;
   const source = BookSource(
@@ -29,11 +39,13 @@ void main() {
   const state = RustExploreStateRepository();
   const debug = RustBookSourceDebugService();
   setUpAll(() {
+    registerFallbackValue(_Request());
     registerFallbackValue(bookSourceToDto(source));
   });
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
+    when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_Request());
   });
   tearDown(RustLib.dispose);
   test('分类保留控件、空选项过滤、全部Flex样式与可空书源', () async {
@@ -317,12 +329,16 @@ void main() {
 
   test('调试流映射状态与文本，沿用原生取消', () async {
     when(
-      () => bridge.crateFfiFfiDebugBookSourceStream(sourceUrl: 's', key: 'k'),
+      () => bridge.crateFfiFfiDebugBookSourceStream(
+        sourceUrl: 's',
+        key: 'k',
+        request: any(named: 'request'),
+      ),
     ).thenAnswer(
       (_) => Stream.fromIterable([
-        '{"state":1,"msg":"开始"}',
-        '{"state":-1,"msg":"失败"}',
-        '{"state":1000,"msg":"完成"}',
+        const DebugLogDto(state: 1, msg: '开始'),
+        const DebugLogDto(state: -1, msg: '失败'),
+        const DebugLogDto(state: 1000, msg: '完成'),
       ]),
     );
     when(() => bridge.crateFfiFfiDebugBookSourceCancel())
@@ -334,19 +350,15 @@ void main() {
     verify(() => bridge.crateFfiFfiDebugBookSourceCancel()).called(1);
   });
 
-  test('调试流格式错误及原生异常向上传递', () async {
-    when(
-      () => bridge.crateFfiFfiDebugBookSourceStream(sourceUrl: 'bad', key: 'k'),
-    ).thenAnswer((_) => Stream.value('[]'));
+  test('调试流原生异常向上传递', () async {
     final error = StateError('原生调试失败');
     when(
-      () =>
-          bridge.crateFfiFfiDebugBookSourceStream(sourceUrl: 'error', key: 'k'),
+      () => bridge.crateFfiFfiDebugBookSourceStream(
+        sourceUrl: 'error',
+        key: 'k',
+        request: any(named: 'request'),
+      ),
     ).thenAnswer((_) => Stream.error(error));
-    await expectLater(
-      debug.debug('bad', 'k'),
-      emitsError(isA<FormatException>()),
-    );
     await expectLater(debug.debug('error', 'k'), emitsError(same(error)));
   });
 }
