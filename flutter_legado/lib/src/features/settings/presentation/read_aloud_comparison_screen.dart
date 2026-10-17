@@ -78,7 +78,8 @@ class _ReadAloudComparisonScreenState
   @override
   Widget build(BuildContext context) {
     final comparison =
-        widget.comparison ?? ref.watch(readAloudComparisonProvider);
+        widget.comparison ??
+        ref.watch<ReadAloudComparison>(readAloudComparisonProvider);
     if (!identical(_comparison, comparison)) {
       _comparison = comparison;
       WidgetsBinding.instance.addPostFrameCallback((_) {
