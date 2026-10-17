@@ -57,7 +57,13 @@ final class ReadAloudSynthesisQueue {
   ) {
     final key = _key(request);
     final existing = _jobs
-        .where((j) => j.key == key && !j.cancel.isCancelled && !j.foreground)
+        .where(
+          (j) =>
+              j.key == key &&
+              !j.cancel.isCancelled &&
+              !j.foreground &&
+              !j.result.isCompleted,
+        )
         .firstOrNull;
     final job = existing ?? _Job(key, request, _window);
     job.foreground = true;
@@ -160,8 +166,8 @@ final class ReadAloudSynthesisQueue {
           if (result is HttpTtsNoAudio && !job.foreground) {
             _log(result.synthesisError ?? '没有音频');
           }
-          job.result.complete(result);
           if (job.foreground && audio != null) audio = null; // 租约交给播放器。
+          job.result.complete(result);
         }
       }
     } catch (error, stack) {
@@ -202,6 +208,7 @@ final class ReadAloudSynthesisQueue {
     }
     cancelBackground();
     _windowKey = key;
+
     final generation = _window;
     unawaited(_fill(chapters, generation));
   }
@@ -214,6 +221,7 @@ final class ReadAloudSynthesisQueue {
     try {
       await for (final requests in chapters) {
         if (generation != _window) return;
+
         var failures = 0;
         // 工作数量有界：每批最多并发上限，不为整章创建成千上万个 Future。
         for (var start = 0; start < requests.length; start += _limit) {

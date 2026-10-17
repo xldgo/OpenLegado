@@ -338,6 +338,7 @@ class _FloatingCapsuleState extends State<_FloatingCapsule>
   }
 
   void _sync({bool resetTimer = true}) {
+    // 旋转动画保留：只把它的重建范围收窄到封面一层，不再带动整棵胶囊。
     if (!widget.hidden &&
         !widget.inFlight &&
         _foreground &&
@@ -485,9 +486,9 @@ class _FloatingCapsuleState extends State<_FloatingCapsule>
             child: ListenableBuilder(
               listenable: widget.notifier,
               builder: (context, _) => AnimatedBuilder(
+                // 旋转只驱动封面自身，不再参与整棵胶囊的重建（发热治理）。
                 animation: Listenable.merge([
                   _expansion,
-                  _rotation,
                   _movement,
                   _edgeRetraction,
                 ]),
@@ -609,8 +610,8 @@ class _FloatingCapsuleState extends State<_FloatingCapsule>
                                           customBorder: const CircleBorder(),
                                           onTap: _coverTap,
                                           child: ClipOval(
-                                            child: Transform.rotate(
-                                              angle: coverRotation,
+                                            child: AnimatedBuilder(
+                                              animation: _rotation,
                                               child: RepaintBoundary(
                                                 key: _coverImageKey,
                                                 child: FittedBox(
@@ -618,6 +619,11 @@ class _FloatingCapsuleState extends State<_FloatingCapsule>
                                                   child: cover,
                                                 ),
                                               ),
+                                              builder: (context, rotated) =>
+                                                  Transform.rotate(
+                                                    angle: coverRotation,
+                                                    child: rotated,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -660,46 +666,55 @@ class _FloatingCapsuleState extends State<_FloatingCapsule>
                                                         : _togglePause,
                                                   ),
                                                   const SizedBox(width: 4),
-                                                  SizedBox(
-                                                    width: 48,
-                                                    height: 48,
-                                                    child: Stack(
-                                                      alignment:
-                                                          Alignment.center,
-                                                      children: [
-                                                        SizedBox(
-                                                          width: 40,
-                                                          height: 40,
-                                                          child: CircularProgressIndicator(
-                                                            value: progress
-                                                                .clamp(0, 1),
-                                                            strokeWidth: 2,
-                                                            color: foreground
-                                                                .withValues(
-                                                                  alpha: 0.6,
-                                                                ),
-                                                            backgroundColor:
-                                                                foreground
+                                                  // 进度环是确定值（非自转动画），只在段落变化时更新；
+                                                  // 折叠态整段不构建，展开动画期间限定在独立重绘边界内。
+                                                  if (expansion > 0)
+                                                    SizedBox(
+                                                      width: 48,
+                                                      height: 48,
+                                                      child: Stack(
+                                                        alignment:
+                                                            Alignment.center,
+                                                        children: [
+                                                          RepaintBoundary(
+                                                            child: SizedBox(
+                                                              width: 40,
+                                                              height: 40,
+                                                              child: CircularProgressIndicator(
+                                                                value: progress
+                                                                    .clamp(
+                                                                      0,
+                                                                      1,
+                                                                    ),
+                                                                strokeWidth: 2,
+                                                                color: foreground
                                                                     .withValues(
                                                                       alpha:
-                                                                          0.15,
+                                                                          0.6,
                                                                     ),
+                                                                backgroundColor:
+                                                                    foreground
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.15,
+                                                                        ),
+                                                              ),
+                                                            ),
                                                           ),
-                                                        ),
-                                                        IconButton(
-                                                          tooltip: strings
-                                                              .readAloudStop,
-                                                          color: foreground,
-                                                          icon: const Icon(
-                                                            Icons.close,
+                                                          IconButton(
+                                                            tooltip: strings
+                                                                .readAloudStop,
+                                                            color: foreground,
+                                                            icon: const Icon(
+                                                              Icons.close,
+                                                            ),
+                                                            onPressed: widget
+                                                                .notifier
+                                                                .stop,
                                                           ),
-                                                          onPressed: widget
-                                                              .notifier
-                                                              .stop,
-                                                        ),
-                                                      ],
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
                                                 ],
                                               ),
                                             ),
