@@ -376,3 +376,20 @@ Engine仅新增对已有legado-book/legado-parser的workspace依赖边，外部�
 正式应用使用前须重建native；实现状态与验证边界只记Active计划。
 
 编写者：Codex｜2026-10-17
+
+
+### 书源调试应用服务边界（2026-10-17）
+
+`legado-engine/source_debug_service`负责关键字分流、搜索/发现/详情/目录/正文串联和日志。
+SourceDebugResources显式接收可选存储、抓取工厂、infoMap、操作槽、宿主Handle及ExploreService；
+只保存窄资源快照，不持根EngineContext，不新建运行时或在执行中回查FFI全局槽。
+搜索/详情/目录/正文继续复用Fetcher，发现直接消费所属ExploreService与本次deps/infoMap/任务。
+文档解析与日志展示规则原样保留，不借迁移更改调试协议或补全Server的独立调试端点。
+
+操作槽按实例替换会话；回调失败仍在退出发布门控后取消，避免重入锁。
+入口丢弃停止本次发布，实际阻塞worker仍持凭据直到工作结束；不宣称同步JS或HTTP被强杀。
+FFI保留宿主JS绑定/目录能力装配、类型重导出和流事件适配；调试与校验操作槽仍相互独立。
+原HTTP/JS和会话测试随服务迁移，媒体副内容的迟到落库门禁留在FFI层复验真实宿主注入。
+本批不改FRB签名、DTO/生成绑定、数据库、版本或音频/TTS业务，状态与证据只记Active计划。
+
+编写者：Codex｜2026-10-17

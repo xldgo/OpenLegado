@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-DEBUG-SERVICE-20261017：书源调试服务下沉（P1）
+
+- 授权与基线：用户明确暂缓音频相关服务，授权迁移书源调试；feature/rust-ffi-modernization / 2dcb1e5ee，worktree干净。Codex单代理，当前分支内完成整批后本地提交，不推送/合并/远程CI/WSL或设备安装。
+- 范围：现有legado-engine承接五类关键字入口、搜索/发现/详情/目录/正文调试编排、日志格式与会话发布门控；FFI仅捕获实例资源与事件适配，发现路径直接复用ExploreService，网络解析仍复用Fetcher。
+- 行为冻结：保留关键字优先级、日志文本/顺序/状态码/时间戳、首本首章与预览规则、替换/取消/sink关闭/阻塞worker退出语义。资源按入口快照注入，不反向持根EngineContext或新建Runtime。音频/TTS、数据库schema、FFI签名/DTO/生成绑定、应用及依赖版本不改。
+- 验收与回滚：保留既有调试真实HTTP/JS和生命周期断言，迁入所属服务测试；必要时仅补公开入口验证。default/QuickJS严格Clippy、相关Rust回归、正式Windows DLL及既有真实FRB流回归。不增加测试宿主、设备或性能项目；独立撤销本批即可回滚。用户禁止子代理，采用单代理自查，如实记录无独立外审。
+- 实现：SourceDebugService显式接收窄资源，内部DebugRun保存入口快照；日志/分流/搜索/发现/详情/目录/正文编排迁入Engine。发现直接调用所属ExploreService，保留原JSON文档解析和日志顺序，FFI重导出原事件类型并仅装配宿主JS/存储/抓取/操作槽。未新增根引擎强引用或Runtime，未改Server独立调试端点。
+- 行为核对：14个日志/关键字/内容函数逐段对照原实现保持一致；四个异步抓取同步等待改用注入Handle，发现使用同一入口deps/infoMap/任务。原11项测试全部保留，其中10项随私有会话迁入Engine，媒体迟到落库/原根析构测试留在FFI验证正式依赖装配。五路真实HTTP入口改走公开服务，另补1项公开cancel/sink关闭与双实例隔离测试；未增测试宿主或协议。
+- 最终验证：Engine43与FFI584共627项QuickJS库测试通过，42项既有忽略；Engine/FFI的default与QuickJS两档全目标严格Clippy通过。正式Python入口独立target重建Windows Debug QuickJS DLL，构建/源码指纹/源库与复制库摘要及最终只读校验通过。两份既有真实FRB回归12项通过，含调试失败事件、取消后流结束与下轮正常、搜索/校验/换源/目录/正文和长期流退订。限定文件格式与git diff --check通过。
+- 证据与限制：build/source-debug-service/{rust-debug-initial,rust-quick-final,clippy-quick,clippy-default,native-build,native-runtime,native-verify-final}.log；搬迁复核为move-comparison.json，后者仅代码复核记录，不充当行为测试。仅Codex单代理实现与自查，无独立外审、远程CI、Android/iOS或设备/性能验收；未重复全量Flutter分析，未改Dart、生成绑定、Cargo锁文件、数据库、应用版本或音频/TTS业务。
+- 状态：本批服务迁移与本地验证完成，按授权整批本地提交；保持当前worktree/分支，不推送或合并。音频相关服务继续暂缓，后续范围另行确定。
+
+编写者：Codex｜2026-10-17
+
 ### READING-SERVICE-20261017：目录正文与缓存服务下沉（P1）
 
 - 授权与基线：用户授权执行已确认的完整阅读服务批次；feature/rust-ffi-modernization / b6e7d5a9c，worktree干净。Codex单代理，原分支内实施，整批验证后本地提交；不推送/合并/远程CI/WSL或设备安装。
