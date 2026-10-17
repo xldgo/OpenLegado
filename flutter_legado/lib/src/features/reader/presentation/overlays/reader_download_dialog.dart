@@ -1,10 +1,10 @@
-import '../../providers/chapter_cache_provider.dart';
+import '../../../../providers/chapter_cache_provider.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../models/models.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../../../../models/models.dart';
+import '../../application/reader_notifier.dart';
 
 /// 阅读器「离线缓存」章节范围选择对话框（两个阅读顶栏共享实现）
 ///

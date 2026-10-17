@@ -1,23 +1,23 @@
-import '../../providers/reader/reader_settings_provider.dart';
-import '../../domain/models/reader_theme_mode.dart';
-import '../../domain/models/reader_style.dart';
-import '../../domain/models/reader_text_layout_settings.dart';
+import '../../application/reader_settings_provider.dart';
+import '../../../../domain/models/reader_theme_mode.dart';
+import '../../../../domain/models/reader_style.dart';
+import '../../../../domain/models/reader_text_layout_settings.dart';
 
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../l10n/app_localization.dart';
-import '../../providers/reader/reader_notifier.dart';
-import '../../providers/ui_settings/ui_settings_notifier.dart';
-import '../../providers/ui_settings/eye_protection_notifier.dart';
-import '../../routes.dart';
-import '../../screens/reader_config_panel.dart';
-import '../app_scaffold.dart';
-import '../legado_app_bar.dart';
-import '../settings_widgets.dart';
-import '../eye_protection_settings.dart';
+import '../../../../l10n/app_localization.dart';
+import '../../application/reader_notifier.dart';
+import '../../../../providers/ui_settings/ui_settings_notifier.dart';
+import '../../../../providers/ui_settings/eye_protection_notifier.dart';
+import '../../../../routes.dart';
+import 'reader_config_panel.dart';
+import '../../../../widgets/app_scaffold.dart';
+import '../../../../widgets/legado_app_bar.dart';
+import '../../../../widgets/settings_widgets.dart';
+import '../../../../widgets/eye_protection_settings.dart';
 import 'reader_tip_config_sheet.dart';
 
 part 'reader_settings_sheet_font_panel.part.dart';

@@ -24,9 +24,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
-import 'package:flutter_legado/src/screens/reader_screen.dart';
+import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/routes.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
 

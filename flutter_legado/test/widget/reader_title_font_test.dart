@@ -25,7 +25,7 @@ import 'package:flutter_legado/src/screens/font_screen.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 import '../fixtures/reader_settings_repository.dart';
 

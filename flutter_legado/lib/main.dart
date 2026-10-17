@@ -16,7 +16,7 @@ import 'src/platform/app_environment.dart';
 import 'src/app/bootstrap/app_settings_factory.dart';
 import 'src/app/bootstrap/settings_runtime_configuration.dart';
 import 'src/app/session/reader_theme_session.dart';
-import 'src/providers/reader/reader_settings_provider.dart';
+import 'src/features/reader/application/reader_settings_provider.dart';
 import 'src/data/repositories/app_appearance_settings_repository.dart';
 import 'src/data/repositories/app_backup_settings_repository.dart';
 import 'src/providers/app_settings_provider.dart';

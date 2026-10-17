@@ -1,7 +1,7 @@
 import '../../providers/chapter_content_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 
-import '../../providers/reader/reader_settings_provider.dart';
+import '../../features/reader/application/reader_settings_provider.dart';
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_strings.dart';
 import '../../models/models.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../../features/reader/application/reader_notifier.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../providers/audio/read_aloud_preferences.dart';
 import '../../routes.dart';

@@ -21,7 +21,7 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/settings_widgets.dart';
 import '../widgets/help/help_assets.dart';
 import '../widgets/help/show_help.dart';
-import '../widgets/reader/reader_settings_sheet.dart';
+import '../features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 /// 我的页面（枢纽菜单）
 ///

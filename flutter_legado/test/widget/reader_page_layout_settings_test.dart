@@ -11,10 +11,10 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/domain/models/reader_page_layout_settings.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
-import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_padding_config_sheet.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_tip_config_sheet.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_padding_config_sheet.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_tip_config_sheet.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../fixtures/home_settings_storage.dart';

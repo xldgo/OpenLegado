@@ -9,11 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/font_screen.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 import '../fixtures/reader_settings_repository.dart';
 

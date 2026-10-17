@@ -54,7 +54,7 @@ import 'package:flutter_legado/src/screens/other_settings_screen.dart';
 import 'package:flutter_legado/src/screens/qrcode_screen.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_config_panel.dart';
 import 'package:flutter_legado/src/screens/remote_book_screen.dart';
 import 'package:flutter_legado/src/screens/replace_rules_screen.dart';
 import 'package:flutter_legado/src/screens/rss_article_detail_screen.dart';

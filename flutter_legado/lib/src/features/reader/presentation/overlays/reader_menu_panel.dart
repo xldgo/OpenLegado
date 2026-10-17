@@ -1,9 +1,9 @@
-import '../../app/bootstrap/application_dependencies.dart';
-import '../../providers/chapter_content_provider.dart';
-import '../../domain/models/source_action_result.dart';
-import '../../providers/reader/reader_settings_provider.dart';
-import '../../l10n/app_localization.dart';
-import '../app_menu.dart';
+import '../../../../app/bootstrap/application_dependencies.dart';
+import '../../../../providers/chapter_content_provider.dart';
+import '../../../../domain/models/source_action_result.dart';
+import '../../application/reader_settings_provider.dart';
+import '../../../../l10n/app_localization.dart';
+import '../../../../widgets/app_menu.dart';
 
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
@@ -14,20 +14,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import 'package:flutter/services.dart';
 
-import '../../models/models.dart';
-import '../../features/book_sources/book_sources.dart';
-import '../../providers/sync/sync_notifier.dart';
-import '../../utils/source_login_entry.dart';
-import '../../screens/webview_login_screen.dart';
-import '../help/help_assets.dart';
-import '../help/show_help.dart';
-import 'change_chapter_source_sheet.dart';
+import '../../../../models/models.dart';
+import '../../../book_sources/book_sources.dart';
+import '../../../../providers/sync/sync_notifier.dart';
+import '../../../../utils/source_login_entry.dart';
+import '../../../../screens/webview_login_screen.dart';
+import '../../../../widgets/help/help_assets.dart';
+import '../../../../widgets/help/show_help.dart';
+import '../../../../widgets/reader/change_chapter_source_sheet.dart';
 import 'reader_brightness_control.dart';
-import '../../providers/reader/reader_notifier.dart';
-import '../../providers/ui_settings/ui_settings_notifier.dart';
-import '../../routes.dart';
-import 'change_source_flow.dart';
-import 'reader_chapter_link.dart';
+import '../../application/reader_notifier.dart';
+import '../../../../providers/ui_settings/ui_settings_notifier.dart';
+import '../../../../routes.dart';
+import '../../../../widgets/reader/change_source_flow.dart';
+import '../../../../widgets/reader/reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
 import 'reader_content_edit_dialog.dart';
 

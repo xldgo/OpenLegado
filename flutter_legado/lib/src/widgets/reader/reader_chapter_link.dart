@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/book_chapter.dart';
-import '../../providers/reader/reader_settings_provider.dart';
+import '../../features/reader/application/reader_settings_provider.dart';
 import '../../routes.dart';
 
 /// 章节导航只接受网页地址；相对路径使用章节目录的原始地址补全。

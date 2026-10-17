@@ -1,13 +1,13 @@
-import '../../providers/reader/reader_settings_provider.dart';
-import '../../domain/models/reader_page_layout_settings.dart';
+import '../../application/reader_settings_provider.dart';
+import '../../../../domain/models/reader_page_layout_settings.dart';
 
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../l10n/app_localization.dart';
-import '../settings_widgets.dart';
+import '../../../../l10n/app_localization.dart';
+import '../../../../widgets/settings_widgets.dart';
 
 /// 页面边距配置（对标原版 PaddingConfigDialog + dialog_read_padding.xml）
 ///

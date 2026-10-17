@@ -8,6 +8,7 @@
 
 - 当前任务、优先级、状态和进度：只查看 [REFACTORING_ACTIVE_PLAN.md](REFACTORING_ACTIVE_PLAN.md)。
 - Rust 资源归属、生命周期和双宿主接线方案：[RUST_ENGINE_CONTEXT_PLAN_20261016.md](RUST_ENGINE_CONTEXT_PLAN_20261016.md)；进度仍只维护于 Active。
+- 页面职责拆分与 Feature-first 批次边界：[FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md](FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md)；进度仍只维护于 Active。
 - Agent 派发、实施、验证、证据和关闭：遵循 [REFACTORING_WORKFLOW.md](REFACTORING_WORKFLOW.md)。
 - 通用开发规范（优先级分类、验证流程、Git 提交规范、Windows 编码）：[DEVELOPMENT_CONVENTIONS.md](DEVELOPMENT_CONVENTIONS.md)。
 - 本文件不维护测试数字、分支负责人或第二份阶段状态，避免旧基线被误认为当前结果。

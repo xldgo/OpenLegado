@@ -17,7 +17,7 @@ import 'package:flutter_legado/src/domain/models/appearance_settings.dart';
 import 'package:flutter_legado/src/features/appearance/appearance_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

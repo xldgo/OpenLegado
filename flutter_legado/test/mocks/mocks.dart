@@ -65,6 +65,7 @@ import 'package:flutter_legado/src/domain/contracts/rss_star_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/chapter_cache_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/cache_download_service.dart';
 import 'package:flutter_legado/src/domain/contracts/reading_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
 
 import 'package:flutter_legado/src/domain/contracts/backup_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_service.dart';
@@ -91,7 +92,7 @@ import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/book_group_repository.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_menu_panel.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
@@ -235,6 +236,8 @@ class ConfigRepositoryMock extends Mock implements ConfigRepository {}
 
 class AppRuntimeMock extends Mock implements AppRuntime {}
 
+class ReadRecordRepositoryMock extends Mock implements ReadRecordRepository {}
+
 class MockRustApi extends Mock implements TestApi {
   @override
   final ConfigRepository configRepository = ConfigRepositoryMock();
@@ -349,6 +352,8 @@ class MockRustApi extends Mock implements TestApi {
   @override
   final WebDavService webDavService = WebDavServiceMock();
   MockRustApi() {
+    // 阅读会话显式装配记录仓储；具体记录行为仍由各测试独立配置。
+    when(() => readRecordRepository).thenReturn(ReadRecordRepositoryMock());
     // 普通夹具给出默认跟随配置，避免无关播放测试进入旧Preferences迁移。
     // 设置/迁移用例按需覆盖为实际数据、空值或读取失败。
     when(() => configRepository.getConfig(any())).thenAnswer(

@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 void main() {
   testWidgets('阅读快捷面板进入完整设置，再进入翻页与操作', (tester) async {

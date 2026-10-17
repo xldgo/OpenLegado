@@ -9,7 +9,7 @@ import 'general_settings_provider.dart';
 import 'locale_settings_provider.dart';
 import 'main_prefs_notifier.dart';
 import 'read_record_settings_provider.dart';
-import 'reader/reader_settings_provider.dart';
+import '../features/reader/application/reader_settings_provider.dart';
 import 'theme/system_bar_notifier.dart';
 import 'theme/theme_colors_notifier.dart';
 import 'theme/theme_notifier.dart';

@@ -28,7 +28,7 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../providers/auto_task/auto_task_notifier.dart';
 import '../features/bookshelf/bookshelf.dart';
-import '../providers/reader/reader_notifier.dart';
+import '../features/reader/application/reader_notifier.dart';
 import '../providers/sync/sync_notifier.dart';
 import '../routes.dart';
 import '../providers/ui_settings/ui_settings_notifier.dart';

@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../models/book_chapter.dart';
 import '../../models/source_match.dart';
 import '../../providers/change_source/source_switch_dependencies.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../../features/reader/application/reader_notifier.dart';
 import '../../utils/error_message.dart';
 import '../app_progress_indicator.dart';
 import '../app_search_field.dart';

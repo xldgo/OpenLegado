@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../settings_widgets.dart';
+import '../../../../widgets/settings_widgets.dart';
 
-import '../../services/system_brightness.dart';
+import '../../../../services/system_brightness.dart';
 
 /// 设置页与阅读底栏共用的亮度控件。
 class ReaderBrightnessControl extends StatefulWidget {

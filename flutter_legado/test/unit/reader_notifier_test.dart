@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 
 import '../fixtures/app_test_api.dart';
@@ -13,8 +15,8 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/reading_provider.dart';
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
 import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
@@ -153,6 +155,39 @@ void main() {
       ),
     ).called(greaterThanOrEqualTo(1));
     verifyZeroInteractions(mockApi.readingRepository);
+  });
+
+  test('Provider重建释放旧会话，迟到正文不能覆盖重新打开的书籍', () async {
+    stubOpenBook();
+    final content = ReaderChapterContent();
+    final entered = Completer<void>();
+    final pending = Completer<String>();
+    var calls = 0;
+    when(() => content.read(testBook.bookUrl, 0)).thenAnswer((_) {
+      if (calls++ == 0) {
+        entered.complete();
+        return pending.future;
+      }
+      return Future.value('重建后的正文');
+    });
+    final isolated = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        chapterContentServiceProvider.overrideWithValue(content),
+      ]),
+    );
+    addTearDown(isolated.dispose);
+    final opening = isolated
+        .read(readerNotifierProvider.notifier)
+        .openBook(testBook);
+    await entered.future;
+    isolated.invalidate(readerNotifierProvider);
+    await isolated.read(readerNotifierProvider.notifier).openBook(testBook);
+    pending.complete('过期正文');
+    await opening;
+    expect(isolated.read(readerNotifierProvider).chapterContent, '重建后的正文');
+    expect(isolated.read(readerNotifierProvider).isLoading, isFalse);
+    expect(calls, 2);
   });
 
   test('保存并重新开书恢复原文锚点，历史页码和目录跳转不冒充锚点', () async {

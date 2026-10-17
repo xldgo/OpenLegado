@@ -26,7 +26,7 @@ import '../../bridge/ffi.dart' show BridgeError;
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../reader/application/reader_notifier.dart';
 import '../../routes.dart';
 import '../../services/local_book_store.dart';
 import '../../utils/book_open_utils.dart';

@@ -3,7 +3,7 @@ import '../../domain/models/reader_status_strip_settings.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../providers/reader/reader_notifier.dart';
+import '../../features/reader/application/reader_notifier.dart';
 import 'reader_page_chrome.dart';
 
 /// 隐藏控制栏时顶部的状态提示栏（电量/时间/进度/章节名）

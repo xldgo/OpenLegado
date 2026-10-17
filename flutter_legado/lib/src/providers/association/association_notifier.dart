@@ -21,7 +21,7 @@ import '../network_provider.dart';
 import '../../app/bootstrap/source_import_factory.dart';
 import '../../data/services/source_import_service.dart';
 import '../../domain/models/import_result.dart';
-import '../reader/reader_settings_provider.dart';
+import '../../features/reader/application/reader_settings_provider.dart';
 import 'association_state.dart';
 
 /// 关联导入 Riverpod Notifier

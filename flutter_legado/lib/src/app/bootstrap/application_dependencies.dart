@@ -75,7 +75,7 @@ import '../../domain/contracts/privacy_credential_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/app_settings_provider.dart';
-import '../../providers/reader/reader_settings_provider.dart';
+import '../../features/reader/application/reader_settings_provider.dart';
 import '../../data/repositories/rust_privacy_credential_repository.dart';
 import '../../domain/contracts/app_log_repository.dart';
 import '../../domain/contracts/webdav_service.dart';

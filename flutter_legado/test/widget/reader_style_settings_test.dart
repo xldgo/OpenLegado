@@ -13,11 +13,11 @@ import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/domain/models/reader_theme_mode.dart';
 import 'package:flutter_legado/src/domain/models/reader_style.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/reader/reader_settings_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/screens/reader_screen.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../fixtures/home_settings_storage.dart';

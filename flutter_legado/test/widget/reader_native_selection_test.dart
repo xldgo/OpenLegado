@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/reader/reader_state.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_state.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_controller.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';

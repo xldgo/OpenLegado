@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../../../providers/reader/reader_state.dart';
+import '../../../features/reader/application/reader_state.dart';
 import 'page_direction.dart';
 import 'page_snapshot.dart';
 import 'page_snapshot_cache.dart';

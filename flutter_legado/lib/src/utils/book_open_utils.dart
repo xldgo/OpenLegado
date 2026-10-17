@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/reader/reader_notifier.dart';
+import '../features/reader/application/reader_notifier.dart';
 import '../routes.dart';
 import '../services/platform_bridge_service.dart';
 

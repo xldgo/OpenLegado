@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'providers/reader/reader_notifier.dart';
+import 'features/reader/application/reader_notifier.dart';
 import 'features/privacy/privacy_screen.dart';
 import 'features/privacy/privacy_gate.dart';
 
@@ -34,7 +34,7 @@ import 'screens/import_screen.dart';
 import 'screens/qrcode_screen.dart';
 import 'features/search/search.dart';
 import 'features/read_records/read_records.dart';
-import 'screens/reader_screen.dart';
+import 'features/reader/presentation/reader_screen.dart';
 import 'screens/reader_comic_screen.dart';
 import 'screens/remote_book_screen.dart';
 import 'screens/replace_rules_screen.dart';

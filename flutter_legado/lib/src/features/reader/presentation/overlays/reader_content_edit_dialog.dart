@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../l10n/app_localization.dart';
+import '../../../../l10n/app_localization.dart';
 
 /// 控制器随编辑器离场而释放，关闭动画期间输入框仍可访问它。
 class ReaderContentEditDialog extends StatefulWidget {

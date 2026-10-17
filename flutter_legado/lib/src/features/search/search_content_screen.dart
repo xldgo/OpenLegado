@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../reader/application/reader_notifier.dart';
 import '../../widgets/app_progress_indicator.dart';
 import '../../widgets/empty_state.dart';
 

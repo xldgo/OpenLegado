@@ -9,7 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../features/bookmarks/bookmarks.dart';
 import '../../providers/highlight_repository_provider.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../../features/reader/application/reader_notifier.dart';
 import '../../routes.dart';
 import '../../l10n/app_localization.dart';
 import '../../domain/contracts/highlight_repository.dart';

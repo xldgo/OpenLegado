@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../l10n/app_localization.dart';
+import '../../../../l10n/app_localization.dart';
 
 /// 菜单颜色使用独立日夜值；零值表示沿用默认颜色。
 class ReaderMenuColorDialog extends StatefulWidget {

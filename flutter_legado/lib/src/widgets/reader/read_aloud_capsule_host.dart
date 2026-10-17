@@ -13,7 +13,7 @@ import '../../l10n/app_localization.dart';
 import '../../models/book.dart';
 import '../../providers/audio/audio_notifier.dart';
 import '../../providers/audio/read_aloud_capsule.dart';
-import '../../providers/reader/reader_notifier.dart';
+import '../../features/reader/application/reader_notifier.dart';
 import '../../routes.dart';
 import '../../services/platform_bridge_service.dart';
 import '../book_cover.dart';

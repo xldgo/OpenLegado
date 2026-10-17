@@ -1,11 +1,11 @@
-import '../providers/reader/reader_settings_provider.dart';
-import '../domain/models/reader_text_layout_settings.dart';
-import '../domain/models/reader_page_layout_settings.dart';
-import '../domain/models/reader_screen_settings.dart';
-import '../domain/models/reader_auto_page_turn_settings.dart';
-import '../domain/models/reader_interaction_settings.dart';
-import '../domain/models/reader_menu_theme_settings.dart';
-import '../domain/models/reader_brightness_control_settings.dart';
+import '../../application/reader_settings_provider.dart';
+import '../../../../domain/models/reader_text_layout_settings.dart';
+import '../../../../domain/models/reader_page_layout_settings.dart';
+import '../../../../domain/models/reader_screen_settings.dart';
+import '../../../../domain/models/reader_auto_page_turn_settings.dart';
+import '../../../../domain/models/reader_interaction_settings.dart';
+import '../../../../domain/models/reader_menu_theme_settings.dart';
+import '../../../../domain/models/reader_brightness_control_settings.dart';
 
 import 'dart:async';
 
@@ -13,16 +13,16 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../l10n/app_localization.dart';
-import '../providers/reading_content_provider.dart';
-import '../providers/reader/reader_notifier.dart';
-import '../routes.dart';
-import '../widgets/reader/reader_brightness_control.dart';
-import '../widgets/reader/reader_menu_color_dialog.dart';
-import '../widgets/reader/reader_padding_config_sheet.dart';
-import '../widgets/reader/reader_tip_config_sheet.dart';
-import '../widgets/settings_widgets.dart';
-import '../widgets/app_menu.dart';
+import '../../../../l10n/app_localization.dart';
+import '../../../../providers/reading_content_provider.dart';
+import '../../application/reader_notifier.dart';
+import '../../../../routes.dart';
+import 'reader_brightness_control.dart';
+import 'reader_menu_color_dialog.dart';
+import 'reader_padding_config_sheet.dart';
+import 'reader_tip_config_sheet.dart';
+import '../../../../widgets/settings_widgets.dart';
+import '../../../../widgets/app_menu.dart';
 part 'reader_config_panel_builders.part.dart';
 
 // 构建方法保留为页面 part；配置模型、存储与共享状态独立于页面。

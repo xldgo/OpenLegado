@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/providers/reader/reader_state.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_state.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/page_direction.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/page_turn_controller.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';

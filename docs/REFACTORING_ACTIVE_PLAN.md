@@ -1,5 +1,24 @@
 # Legado 后续重构执行计划（Active）
 
+### FEATURE-FIRST-PAGES-20261017：页面解构与 Feature-first 规范化（P1）
+
+- 授权与基线：用户确认规划并开始任务，随后授权完成01/02/03三批、每批验证后本地提交一次。feature/ui-reader-selection / afe49a7ff，开始时工作区干净；Codex直接执行、不使用子代理、不新建分支、不推送/触发CI/构建安装，版本2.0.373+374不变。本次明确授权替代此前“不自动提交”边界。
+- 方案：[页面解构方案](FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md)。顺序为B1文本阅读器、B2书籍详情、B3目录、B4漫画阅读器、B5长尾归拢；每批先提取职责，再迁移路径，共享领域/数据/平台和依赖组装保持独立。
+- 状态：B1本地实现及回归完成，按本轮授权提交；B2/B3随后依序实施。会话、页面/浮层/专属状态、段评/预取、自动换源及退出判定已拆分，正文视口独立为ReaderContentViewport。ReaderNotifier保留唯一ReaderState、设置/菜单和分页派生信息；页面保留系统显示、手势、导航、硬件按键和定时器的UI生命周期，不为目标行数强行提取转发层。缺少设备与独立审查，提交交付仅指本地实现及测试。
+- 实现边界：新增features/reader/application中的会话控制器与宿主端口；首次会话操作时装配显式依赖，同一Provider周期复用实例，Provider释放/重建时使旧请求失效并清理引用。保留开书/章节加载的原代际及刷新/换源重入守卫；刷新纳入正文发布代际，切书或切章后的旧刷新不覆盖当前正文。原文锚点与计时只有一份实现，不创建平行ReaderUiState，不改变持久化键。
+- 本地验证：31份相关单元与Widget测试共354项通过，含16项不使用Provider的控制器测试及1项新增Provider重建测试；覆盖开书/导航/刷新/换源/原文锚点/阅读记录、布局缓存和重排、阅读菜单命中及滑动等。另2份原生选区及快速连续翻页回归31项通过，两组不重叠，共33份385项。完整flutter analyze --no-pub无问题，6份改动Dart格式检查、git diff --check、方案链接与新文件UTF-8检查通过。
+- 失败与修正：首轮机械提取误识别同名调用，产生缺失/重复方法，编译与静态检查发现后修正。显式依赖装配暴露旧MockRustApi记录仓储缺省空值，夹具补充类型化替身，没有增加生产回退。首次组合中覆盖build的纯表现替身没有初始化会话，已改为按需装配并补Provider重建测试，最终354项全部通过；失败轮次不作为通过证据。
+- 证据与限制：本地输出位于忽略目录flutter_legado/build/reader-session-{regression-final,analysis-final,lifecycle,controller,interactions}.log，文件清单为reader-session-regression-files.txt。Codex直接实现与自查，无子代理、独立审查、设备、应用构建安装或真实CI运行；本地测试不作为native/数据库或真机验收，不自动提交/推送。方案文档及docs/README入口已同步。
+- B1b实现：按用户“继续任务”授权保留B1a未提交成果；新增ReaderControlsOverlay，组合阅读菜单、经典朗读条和脱离跟随后的定位操作，阅读位置计算及动作仍由页面回调提供。17个文件迁入features/reader的application/presentation/overlays，同步路由、共享注入及测试引用，不保留旧导出壳。正文排版、选区、翻页和共享音频能力未移动；PR标签规则改用新Feature路径，CI工作流不改。15个纯迁移文件除指令路径外正文相同，Freezed生成物逐字节不变。
+- B1b验证：48份相关单元与Widget测试537项通过（52秒），包含B1a回归和新增8项浮层交互，覆盖实际设置弹层的Navigator、菜单回调/进度、恢复朗读跟随、加载禁用、其他书籍/音频/图片正文隔离，以及经典朗读条与菜单切换。完整flutter analyze --no-pub无问题（22.8秒）；85份相关手写Dart格式检查、git diff --check、源代码旧路径引用检查及方案链接/UTF-8检查通过。归档脚本中的历史旧路径保留，不作为运行入口。
+- B1b失败与限制：新增夹具先因缺少AudioState.config编译失败，随后设置打开用例因未声明亮度平台能力等待超时；补齐播放配置和明确不支持的亮度通道替身后，独立8项及最终537项通过，没有改生产行为规避测试。证据位于忽略目录flutter_legado/build/reader-feature-qa/，包括migration.json、initial-regression.log、overlay-tests{,-after}.log、regression-final.log、analysis-final.log及regression-files.txt。Codex直接实现和自查，没有独立审查、设备、应用构建安装、提交、推送或真实CI；版本2.0.373+374不变。
+- B1c实现：ReaderChapterCoordinator接管加载完成观察、前后各两章预取与段评规则/摘要请求，ReaderReviewState只有一份不可变摘要并绑定书籍/书源/章节；状态监听触发，不在Widget构建中调度副作用。同章普通状态变化不重复预取，切书同索引仍识别为新章节，切章/换源拒绝旧摘要；预取失败用显式try/await/catch保持静默，不伪造正文。ReaderSourceRecoveryController接管共享自动换源开关、三次尝试上限、首个非同源候选及重开和登录源查找，页面只处理弹层及提示，无Ref或Context注入控制器。
+- B1d实现：ReaderExitController接管DB在架判定、返回入架偏好、临时书清理、确认入架及保存后退出；页面提供已有BookshelfNotifier入架动作与确认/提示/导航回调，确认框独立为reader_add_to_shelf_dialog.dart。沿用未入架取消/确认/关闭提示的三路语义与重入保护，设置读取失败留页重试，临时记录清理失败不阻断退出，不改变Repository或持久化格式。
+- B1c/d验证：52份相关测试568项通过（45秒），包含此前537项与新增31项：章节/恢复控制器21项、退出控制器9项、真实阅读页段评点击与切章1项。原有自动换源67项定向组合及退出确认交互另行通过，不重复累计。覆盖段评原始请求、不可变摘要、实际角标/详情参数、合法预取范围、重复通知、迟到结果、候选顺序、重入/重试、入架失败及重试、进度保存与退出顺序。完整flutter analyze --no-pub无问题（21.6秒）；Feature内30份Dart格式检查、git diff --check、迁移落点/Freezed字节及UTF-8复核通过。
+- B1c/d失败与限制：初始独立测试误在const表达式访问模型字段，已修正；预取失败测试暴露catchError返回类型不匹配，改为显式await/catch，失败仍静默。真实角标Widget用例初次同时命中测量和可点击Widget，改为hitTestable定位真实交互，无删减语义断言。静态检查的构造初始化、花括号、空感知元素和未用导入已修正。证据位于忽略目录flutter_legado/build/reader-feature-qa/的chapter-*、exit-*、reader-boundaries-final.log、reader-boundaries-analysis-final.log与reader-boundaries-files.txt。Codex单代理实现和自查，未独立审查、构建安装、设备验收、提交、推送或触发CI；保留全部此前成果，版本2.0.373+374不变。
+
+编写者：Codex｜2026-10-17
+
 ### AUDIO-SELECTION-PREFERENCES-20261017：引擎选择与书级播放偏好拆分（P1）
 
 - 授权与基线：用户确认开始上一轮整批方案；feature/ui-reader-selection / f6a48e5e7，开始工作区干净，保留已合入Rust上下文重构。Codex直接执行，不使用子代理、不新建分支、不自动提交/推送/触发CI/构建安装，版本保持2.0.373+374。

@@ -26,7 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../providers/general_settings_provider.dart';
-import '../providers/reader/reader_settings_provider.dart';
+import '../features/reader/application/reader_settings_provider.dart';
 import '../routes.dart';
 import '../services/audio_cache_events.dart';
 import '../services/bookmark_export.dart';

@@ -1,10 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../models/models.dart';
-import '../../domain/models/page_turn_mode.dart';
+import '../../../models/models.dart';
+import '../../../domain/models/page_turn_mode.dart';
 
-export '../../domain/models/page_turn_mode.dart';
+export '../../../domain/models/page_turn_mode.dart';
 
 part 'reader_state.freezed.dart';
 
