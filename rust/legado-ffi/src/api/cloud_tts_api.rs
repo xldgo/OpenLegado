@@ -13,26 +13,7 @@ pub fn delete(id: &str) -> LegadoResult<bool> {
 pub fn voices(provider: CloudTtsProviderType) -> Vec<CloudTtsVoiceDescriptor> {
     cloud_tts_provider(provider).voices()
 }
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct CloudSpeechInput {
-    pub text: String,
-    pub credential_key: String,
-    #[serde(default)]
-    pub voice_id: Option<String>,
-    #[serde(default)]
-    pub voice_options: Option<legado_db::repository::cloud_tts_repository::CloudVoiceOptions>,
-}
-impl From<crate::media_dto::CloudSpeechInputDto> for CloudSpeechInput {
-    fn from(v: crate::media_dto::CloudSpeechInputDto) -> Self {
-        Self {
-            text: v.text,
-            credential_key: v.credential_key,
-            voice_id: v.voice_id,
-            voice_options: v.voice_options.map(Into::into),
-        }
-    }
-}
+pub use legado_engine::tts_service::CloudSpeechInput;
 pub fn speak(
     id: &str,
     api_key: String,
@@ -40,70 +21,6 @@ pub fn speak(
     cancellation: &legado_fetcher::tts_control::TtsCancellation,
 ) -> LegadoResult<legado_fetcher::cloud_tts::CloudTtsSynthesisResult> {
     cancellation.check()?;
-    let context = crate::engine_holder::current()?;
-    let task = context
-        .tasks()
-        .begin()
-        .map_err(|e| legado_core::LegadoError::Ffi(e.to_string()))?;
-    let _guard = task.guard();
-    let storage = context.storage().clone();
-    let media = context.media().clone();
-    let hosts = context.network().custom_hosts().clone();
-    let directory = media.tts_directory();
-    drop(context);
-    let mut metadata =
-        storage.with_database(|db| CloudTtsRepository::new(db.connection()).get(id))?;
-    if input.credential_key != metadata.credential_key {
-        return Err(legado_core::LegadoError::Ffi(
-            "云端凭据在读取期间已变更，请重试".into(),
-        ));
-    }
-    if input.voice_id.is_some() && input.voice_options.is_some() {
-        return Err(legado_core::LegadoError::Ffi(
-            "不能同时指定音色记录和试听草稿".into(),
-        ));
-    }
-    if let Some(id) = input.voice_id {
-        let voice = storage.with_database(|db| {
-            legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(
-                db.connection(),
-            )
-            .get(&id)
-        })?;
-        if voice.engine_type != "cloud_tts"
-            || voice.engine_id != metadata.id
-            || !voice.enabled
-            || !voice.available
-            || voice.excluded
-        {
-            return Err(legado_core::LegadoError::Ffi(
-                "音色不属于该引擎或不可用".into(),
-            ));
-        }
-        let mut traits: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(&voice.traits_json)?;
-        traits.insert("voiceId".into(), serde_json::json!(voice.speaker_id));
-        metadata.options_json = serde_json::to_string(&traits)?;
-    } else if let Some(options) = input.voice_options {
-        metadata.options_json = serde_json::to_string(&options)?;
-    }
-    let request = metadata.request(input.text)?;
-    let engine = metadata.engine(api_key);
-    let transport = media.cloud_transport(hosts)?;
-    let result = crate::runtime::block_on(async {
-        tokio::select! {
-            biased;
-            _ = task.cancelled() => Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())),
-            result = legado_fetcher::cloud_tts::synthesize_cloud_tts_with_publish(
-                cloud_tts_provider(metadata.provider), transport.as_ref(), &engine, &request,
-                &directory, cancellation, |cache, key, extension, bytes| {
-                    task.with_active(|| { cancellation.check()?; cache.put(key, extension, bytes) })
-                        .unwrap_or_else(|| Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())))
-                },
-            ) => result,
-        }
-    })?;
-    cancellation.check()?;
-    task.with_active(|| Ok(result))
-        .unwrap_or_else(|| Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())))
+    let service = crate::engine_holder::current()?.tts_service();
+    crate::runtime::block_on(service.cloud_speak(id, api_key, input, cancellation))
 }

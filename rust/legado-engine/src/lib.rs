@@ -2,6 +2,8 @@
 //!
 //! 数据库、书源限流、网络、抓取及 VM 缓存按实例共享；任务作用域与业务服务显式接收所属实例的数据能力。
 
+pub mod audio_book_service;
+pub mod audio_cache_service;
 pub mod auto_task_service;
 pub mod backup_service;
 pub mod book_export_service;
@@ -38,6 +40,7 @@ mod storage;
 mod tasks;
 #[cfg(test)]
 mod test_http_fixture;
+pub mod tts_service;
 pub mod webdav_service;
 
 pub use cache_downloads::{CacheDownloadTask, CacheDownloads, ChapterDownload};
@@ -123,6 +126,19 @@ impl EngineContext {
     ) -> Self {
         self.download_manager = manager;
         self
+    }
+
+    /// 捕获朗读服务所需能力；操作不持有根引擎，不自建运行时。
+    pub fn tts_service(&self) -> tts_service::TtsService {
+        tts_service::TtsService::new(tts_service::TtsResources {
+            storage: self.storage.clone(),
+            media: self.media.clone(),
+            network: self.network.clone(),
+            rates: self.rate_limiter.clone(),
+            js: self.js.clone(),
+            login: self.source_login.clone(),
+            tasks: self.tasks.clone(),
+        })
     }
 
     pub fn media(&self) -> &Arc<MediaState> {

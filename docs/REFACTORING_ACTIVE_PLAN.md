@@ -1,5 +1,24 @@
 # Legado 后续重构执行计划（Active）
 
+### MEDIA-ENGINE-SERVICES-20261018：朗读与音频服务边界收口（P1）
+
+- 授权与基线：用户解除音频/TTS暂缓并同意顺序；当前feature/rust-ffi-modernization，已将主目录6da9692ab合入为b6d7ef26f，仅在本worktree工作，单代理，整批验证后本地提交，不推送/安装/远程CI或修改主目录。
+- 阶段1：HTTP TTS配置快照、来源状态与登录、受控合成及云端凭据/音色校验迁入Engine；FFI只装配宿主、执行运行时和映射DTO，保留正式签名、取消句柄与播放租约。
+- 阶段2：音频书取址和文件缓存/下载编排收口；保留当前取址顺序、歌词/正文缓存、完成标记、分片锁、取消及失败策略，薄CRUD不为搬迁而搬迁。
+- 行为边界：保留最新主目录播放队列与缓存I/O修复；不改系统TTS、播放器、媒体会话、平台焦点、预合成规则、schema、依赖、生成绑定或应用版本。其他已后置的替换规则/订阅/自动任务/自动过期功能不扩入。
+- 验证：相关Rust服务与原FFI回归、default/QuickJS严格Clippy、正式Windows DLL指纹/摘要及现有真实FRB音频/TTS用例；必要时补实例隔离与取消发布行为，避免新增宿主/协议、重复全量CI或设备测试。仅单代理自查，不冒称独立外审、Android/iOS或性能验收。
+- 集成：主目录6da9692ab合入当前worktree为b6d7ef26f；仅API契约和Active文档冲突，合并保留双方完整记录。主目录播放队列、缓存探测及写盘调整、排版测试去重和换源测试修复随基线保留，主目录未提交文档未修改。
+- 实现：Engine新增tts_service（source/http/cloud）、AudioBookService和AudioCacheService/AudioDownloadContext。HTTP来源状态/登录及合成操作、云端凭据引用/音色归属校验、音频书歌词/缓存/取址和文件下载/安装交给实例能力；不持根引擎，HTTP/云端用宿主驱动的Future，音频同步下载/取址接收宿主Runtime Handle，不自建生产Runtime。FFI保留环境发现、任务/Fetcher能力装配、租约交付及DTO映射；进度、云配置等薄仓储和朗读缓存薄接口保留原位。
+- 行为复核：HTTP入口仍先检查取消再查库，保留来源键、语速、Cookie/登录设施和路径快照；云端保持凭据引用/互斥音色参数/音色可用性检查和缓存发布门控。音频书保持卷章/内容缓存/无源回退/真实抓取顺序、歌词直存优先及大数据回退、原始URL不净化、缓存写失败告警；规则目录从捕获的存储与宿主覆盖解析。音频文件保持原命名/标记/临时文件清理/重试/大小校验/失败清理/取消规则；下载目录固定所属媒体能力，原进程级16分片文件锁与正则缓存保留，未改成每个服务独立锁。
+- Rust验证：最终QuickJS库Engine144/FFI524共668项通过、42项既有忽略；default库Engine127/FFI457共584项通过、21项既有忽略。Engine/FFI两档全目标Clippy -D warnings、限定Rust格式检查通过，无新增lint放行。原HTTP合成及来源状态实例回归随实现迁移，缓存原算法/并发/取消回归随实现迁入Engine测试模块；新增两项云端真实HTTP/凭据与目录隔离/缓存命中/根关闭取消用例、一项音频书真实取址/登录头/歌词/缓存隔离用例，没有新外部宿主或通信协议。
+- 整改：首轮迁移遗漏测试类型导入，补全并删除失去调用方的web_book转导出；新增云端夹具的Windows路径规范化及临时存储能力寿命断言已修正，音频书新增测试字符串语法已修正。失败不计通过，未修改生产取消/缓存/网络策略以迁就测试。
+- Flutter与边界：按现有锁文件恢复依赖，未升级包；四个既有播放控制/预合成队列/播放列表文件共71项通过。正式FFI声明/生成绑定及schema/依赖/版本均未改，不需要codegen；由pub get改写但无语义差异的平台插件登记文件已恢复。原共享FFI测试数据库偶发锁冲突不在本批销账，旧缓存测试的模块内共享夹具仍保留，不宣称全体测试已实例化并行。
+- 证据与限制：build/media-engine-services/下tts-initial.log、tts-service.log、media-quick.log为初轮过程（含失败）；rust-quick.log、rust-default.log、clippy-quick-final.log、clippy-default.log、audio-book.log、playback-regression.log为最终本地验证记录，相关命令退出码均为0。仅Codex单代理自查，没有独立外审、远程CI、Android/iOS、设备或性能验收，不重复全量Flutter测试。
+- 正式接线：Python正式入口只重建一次Windows Debug QuickJS DLL，构建输入/源码指纹、源库与复制库摘要及构建后/最终只读校验通过。复用HTTP合成/配置、云端、阿里云、MiMo及音频缓存六个既有真实FRB文件共11项通过，覆盖本机HTTP/SSE合成、参数/鉴权、缓存命中及租约、无效流/错误、目录/标记/清理和下载失败传播；没有新Dart测试或外部宿主。音频书实际取址及下载成功/取消由上述Rust真实HTTP用例覆盖，不冒称设备播放验收。证据：native-build.log、native-runtime.log、native-verify-final.log，最终退出码均为0。
+- 状态：本批HTTP/云端服务与音频书/文件缓存迁移、本地集中验证完成，与代码整批本地提交，不追加回填提交；保持当前worktree/分支，不推送、不合并回主目录。可独立回滚服务批次，主目录基线修复不随本批撤销；系统TTS/媒体会话及其他后置功能缺口未扩改。
+
+编写者：Codex｜2026-10-18
+
 ### RUST-BOUNDARY-NEXT-20261018：安全收口、集成准备与固定结果类型化（P1）
 
 - 授权与基线：用户同意后续计划并要求先修问题、持续推进；feature/rust-ffi-modernization / 5b68a4ea0，工作区干净。沿用当前worktree，单代理实现/自查，完整批次本地提交，不推送、合并主目录、改写历史、远程CI、WSL或安装；音频/TTS及此前明确后置的功能缺口继续暂缓。

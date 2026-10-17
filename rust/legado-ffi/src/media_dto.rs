@@ -402,3 +402,31 @@ pub struct AudioCacheDownloadDto {
     pub size_bytes: u64,
     pub extension: String,
 }
+
+impl From<CloudSpeechInputDto> for legado_engine::tts_service::CloudSpeechInput {
+    fn from(v: crate::media_dto::CloudSpeechInputDto) -> Self {
+        Self {
+            text: v.text,
+            credential_key: v.credential_key,
+            voice_id: v.voice_id,
+            voice_options: v.voice_options.map(Into::into),
+        }
+    }
+}
+
+impl From<legado_engine::audio_cache_service::AudioCacheDownload> for AudioCacheDownloadDto {
+    fn from(v: legado_engine::audio_cache_service::AudioCacheDownload) -> Self {
+        use legado_engine::audio_cache_service::AudioCacheDownloadStatus;
+        Self {
+            status: match v.status {
+                AudioCacheDownloadStatus::Installed => AudioCacheDownloadStatusDto::Installed,
+                AudioCacheDownloadStatus::AlreadyCached => {
+                    AudioCacheDownloadStatusDto::AlreadyCached
+                }
+            },
+            path: v.path,
+            size_bytes: v.size_bytes,
+            extension: v.extension,
+        }
+    }
+}
