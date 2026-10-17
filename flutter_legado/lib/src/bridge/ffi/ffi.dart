@@ -6,6 +6,7 @@
 import '../content_dto.dart';
 import '../ffi.dart';
 import '../frb_generated.dart';
+import '../media_dto.dart';
 import '../transfer_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -944,17 +945,17 @@ Future<void> updateSearchBookScore({
 Future<void> deleteSearchBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiDeleteSearchBook(bookUrl: bookUrl);
 
-/// HTTP GET 请求，返回 JSON 格式的响应
+/// HTTP GET 请求，返回类型化文本响应
 Future<HttpTextResponseDto> httpGet({required String url}) =>
     RustLib.instance.api.crateFfiFfiHttpGet(url: url);
 
-/// HTTP POST 请求，返回 JSON 格式的响应
+/// HTTP POST 请求，返回类型化文本响应
 Future<HttpTextResponseDto> httpPost({
   required String url,
   required String body,
 }) => RustLib.instance.api.crateFfiFfiHttpPost(url: url, body: body);
 
-/// HTTP GET 二进制响应（返回 JSON：status/bodyBase64/url）
+/// HTTP GET 二进制响应（SSE 字节直传）
 Future<HttpBytesResponseDto> httpGetBytes({
   required String url,
   Map<String, String>? headers,
@@ -974,11 +975,11 @@ Future<Uint8List> fetchImageWithDecode({
   sourceJson: sourceJson,
 );
 
-/// 搜索书籍（书源规则驱动，返回 JSON 数组）
+/// 搜索书籍（书源规则驱动，返回类型化数组）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `query` — 搜索关键词
 /// `page` — 页码（从 1 开始）
 Future<List<WebSearchResultDto>> webbookSearch({
@@ -991,11 +992,11 @@ Future<List<WebSearchResultDto>> webbookSearch({
   page: page,
 );
 
-/// 获取书籍详情（返回 WebBookInfo JSON）
+/// 获取书籍详情（返回类型化抓取结果）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `book_url` — 书籍详情页 URL
 Future<WebBookInfoDto> webbookInfo({
   required BookSourceDto source,
@@ -1005,11 +1006,11 @@ Future<WebBookInfoDto> webbookInfo({
   bookUrl: bookUrl,
 );
 
-/// 获取章节列表（返回 JSON 数组）
+/// 获取章节列表（返回类型化数组）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `book_url` — 书籍详情页 URL
 Future<List<WebChapterDto>> webbookChapters({
   required BookSourceDto source,
@@ -1027,8 +1028,8 @@ Future<List<WebChapterDto>> webbookChapters({
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
-/// `chapter_json` — WebChapter JSON 字符串
+/// `source` — 已解析的 BookSourceDto
+/// `chapter` — 类型化章节字段
 Future<TextResponseDto> webbookContent({
   required BookSourceDto source,
   required WebChapterDto chapter,
@@ -1037,7 +1038,7 @@ Future<TextResponseDto> webbookContent({
   chapter: chapter,
 );
 
-/// 解析 exploreUrl 为分类列表（返回 JSON 数组）
+/// 解析 exploreUrl 为类型化分类列表
 ///
 /// `explore_url` — 书源的 exploreUrl 字段
 Future<List<ExploreCategoryDto>> exploreParseUrl({
@@ -1048,9 +1049,9 @@ Future<List<ExploreCategoryDto>> exploreParseUrl({
   source: source,
 );
 
-/// 抓取发现分类的书籍列表（返回 WebSearchResult JSON 数组）
+/// 抓取发现分类的书籍列表（返回类型化数组）
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `url` — 分类 URL
 /// `page` — 页码（从 1 开始）
 Future<List<WebSearchResultDto>> exploreFetchBooks({
@@ -1576,7 +1577,7 @@ Future<int> audioCacheClearBook({required String bookUrl}) =>
 /// `run_webbook_blocking` 先例（§2.17 webbook*）。
 /// 失败 **Err 上抛不降级**（有意区别于 §2.47 读面：写入是显式用户动作，
 /// 错误须驱动 Dart 循环 failCount）。
-Future<String> audioCacheDownload({
+Future<AudioCacheDownloadDto> audioCacheDownload({
   required String bookUrl,
   required int chapterIndex,
   required String chapterUrl,
@@ -1716,15 +1717,20 @@ Future<bool> configSet({required String key, required String value}) =>
 Future<String> configGetAll() => RustLib.instance.api.crateFfiFfiConfigGetAll();
 
 /// 获取所有 HTTP TTS 源（JSON 数组）
-Future<String> httpTtsList() => RustLib.instance.api.crateFfiFfiHttpTtsList();
+Future<List<HttpTtsConfigDto>> httpTtsList() =>
+    RustLib.instance.api.crateFfiFfiHttpTtsList();
 
 /// 添加或覆盖 HTTP TTS 源（完整 JSON），返回最终 ID
-Future<PlatformInt64> httpTtsAdd({required String httpTtsJson}) =>
-    RustLib.instance.api.crateFfiFfiHttpTtsAdd(httpTtsJson: httpTtsJson);
+Future<PlatformInt64> httpTtsAdd({required HttpTtsConfigDto tts}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsAdd(tts: tts);
 
 /// 按 ID 原地更新 HTTP TTS 源（完整 JSON）
-Future<bool> httpTtsUpdate({required String httpTtsJson}) =>
-    RustLib.instance.api.crateFfiFfiHttpTtsUpdate(httpTtsJson: httpTtsJson);
+Future<bool> httpTtsUpdate({required HttpTtsConfigDto tts}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsUpdate(tts: tts);
+
+/// 文档导入保留内嵌音色目录，与普通实体保存分开。
+Future<int> httpTtsImport({required String document}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsImport(document: document);
 
 /// 删除 HTTP TTS 源
 Future<bool> httpTtsDelete({required PlatformInt64 id}) =>
@@ -1742,7 +1748,7 @@ Future<bool> httpTtsSetEnabled({
 /// 返回合成结果 JSON（camelCase）：
 /// `{"audioPath": "...", "fromCache": false, "contentType": "audio/mpeg"}`
 /// 缓存命中时不发起网络请求。
-Future<String> ttsSpeak({
+Future<TtsSpeakDto> ttsSpeak({
   required PlatformInt64 engineId,
   required TtsRequest request,
   required String text,
@@ -1759,41 +1765,43 @@ Future<String> ttsSpeak({
 );
 
 /// 云端元数据，不返回平台凭据。
-Future<String> cloudTtsList() => RustLib.instance.api.crateFfiFfiCloudTtsList();
+Future<List<CloudTtsMetadataDto>> cloudTtsList() =>
+    RustLib.instance.api.crateFfiFfiCloudTtsList();
 
-Future<void> cloudTtsSave({required String engineJson}) =>
-    RustLib.instance.api.crateFfiFfiCloudTtsSave(engineJson: engineJson);
+Future<void> cloudTtsSave({required CloudTtsMetadataDto engine}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsSave(engine: engine);
 
 Future<bool> cloudTtsDelete({required String id}) =>
     RustLib.instance.api.crateFfiFfiCloudTtsDelete(id: id);
 
-Future<String> cloudTtsVoices({required String provider}) =>
-    RustLib.instance.api.crateFfiFfiCloudTtsVoices(provider: provider);
+Future<List<CloudVoiceDescriptorDto>> cloudTtsVoices({
+  required CloudTtsProviderDto provider,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsVoices(provider: provider);
 
 /// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
-Future<String> cloudTtsSpeak({
+Future<TtsSpeakDto> cloudTtsSpeak({
   required String engineId,
   required String apiKey,
-  required String requestJson,
+  required CloudSpeechInputDto input,
   required TtsRequest request,
 }) => RustLib.instance.api.crateFfiFfiCloudTtsSpeak(
   engineId: engineId,
   apiKey: apiKey,
-  requestJson: requestJson,
+  input: input,
   request: request,
 );
 
 /// 全量音色目录，包括用户排除项。
-Future<String> readAloudVoiceList() =>
+Future<List<ReadAloudVoiceDto>> readAloudVoiceList() =>
     RustLib.instance.api.crateFfiFfiReadAloudVoiceList();
 
 /// 同步当前设备引擎音色，不覆盖用户标记。
 Future<void> readAloudVoiceSyncSystem({
   required String engineId,
-  required String entriesJson,
+  required List<SystemVoiceEntryDto> entries,
 }) => RustLib.instance.api.crateFfiFfiReadAloudVoiceSyncSystem(
   engineId: engineId,
-  entriesJson: entriesJson,
+  entries: entries,
 );
 
 /// 修改用户启用与排除状态。
@@ -1808,8 +1816,8 @@ Future<bool> readAloudVoiceSetFlags({
 );
 
 /// 保存用户音色配置，稳定身份由数据库核对。
-Future<void> readAloudVoiceSave({required String voiceJson}) =>
-    RustLib.instance.api.crateFfiFfiReadAloudVoiceSave(voiceJson: voiceJson);
+Future<void> readAloudVoiceSave({required ReadAloudVoiceDto voice}) =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceSave(voice: voice);
 
 /// 仅删除用户保存的音色；源目录使用排除标记。
 Future<bool> readAloudVoiceDelete({required String id}) =>
@@ -1818,17 +1826,18 @@ Future<bool> readAloudVoiceDelete({required String id}) =>
 /// 登记朗读缓存的书章段索引。
 Future<void> ttsCacheRecord({
   required String audioPath,
-  required String contextJson,
+  required TtsCacheContextDto context,
 }) => RustLib.instance.api.crateFfiFfiTtsCacheRecord(
   audioPath: audioPath,
-  contextJson: contextJson,
+  context: context,
 );
 
 /// 只读列出已发布音频缓存。
-Future<String> ttsCacheList() => RustLib.instance.api.crateFfiFfiTtsCacheList();
+Future<List<TtsCacheEntryDto>> ttsCacheList() =>
+    RustLib.instance.api.crateFfiFfiTtsCacheList();
 
 /// 清理缓存，保留活动请求、播放租约及明确指定的当前章。
-Future<String> ttsCacheClear({
+Future<TtsCacheClearResultDto> ttsCacheClear({
   String? name,
   BigInt? beforeTimestampMs,
   String? keepBookUrl,
@@ -1878,7 +1887,7 @@ Future<bool> audioSaveProgress({
 /// 音频章节取址（契约 §2.26 getAudioChapterMedia）
 ///
 /// 对齐原版 `AudioPlay` → `WebBook.getContent`：返回可播 `mediaUrl` 等元数据 JSON。
-Future<String> audioGetChapterMedia({
+Future<AudioChapterMediaDto> audioGetChapterMedia({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiAudioGetChapterMedia(

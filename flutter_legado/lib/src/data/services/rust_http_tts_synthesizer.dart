@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../domain/contracts/tts_cache_repository.dart';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -33,7 +31,7 @@ class RustHttpTtsSynthesizer implements HttpTtsSynthesizer {
     cancellation?.addListener(cancel);
     try {
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
-      final raw = await bridge.ttsSpeak(
+      final result = await bridge.ttsSpeak(
         engineId: engineId,
         request: request,
         text: text,
@@ -42,25 +40,21 @@ class RustHttpTtsSynthesizer implements HttpTtsSynthesizer {
         emotionTag: emotionTag,
       );
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
-      final result = (jsonDecode(raw) as Map<String, dynamic>)
-          .cast<String, dynamic>();
-      final path = (result['audioPath'] as String?)?.trim() ?? '';
+      final path = result.audioPath.trim();
       debugPrint(
         'ttsSpeak 合成完成: audioPath=$path '
-        'fromCache=${result['fromCache']} contentType=${result['contentType']}',
+        'fromCache=${result.fromCache} contentType=${result.contentType}',
       );
       if (path.isEmpty) {
         return const HttpTtsNoAudio(HttpTtsNoAudioReason.emptyResult);
       }
-      // 路径合法，诊断字段缺失或类型异常不改变播放判定。
+      // 播放判定仍以有效路径为准，诊断信息由类型化结果承载。
       transferred = true;
       return HttpTtsAudio(
         lease: _RustAudioLease(request),
         audioPath: path,
-        fromCache: result['fromCache'] is bool ? result['fromCache'] : null,
-        contentType: result['contentType'] is String
-            ? result['contentType']
-            : null,
+        fromCache: result.fromCache,
+        contentType: result.contentType,
       );
     } catch (error) {
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();

@@ -1,28 +1,42 @@
 //! 云端配置与合成薄接口；平台凭据仅在调用时临时传入。
 use legado_core::{LegadoResult, cloud_tts::*};
 use legado_db::repository::cloud_tts_repository::{CloudTtsMetadata, CloudTtsRepository};
-pub fn list() -> LegadoResult<String> {
-    crate::db_state::with_database(|db| {
-        Ok(serde_json::to_string(
-            &CloudTtsRepository::new(db.connection()).list()?,
-        )?)
-    })
+pub fn list() -> LegadoResult<Vec<CloudTtsMetadata>> {
+    crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).list())
 }
-pub fn save(json: &str) -> LegadoResult<()> {
-    let metadata: CloudTtsMetadata = serde_json::from_str(json)?;
+pub fn save(metadata: CloudTtsMetadata) -> LegadoResult<()> {
     crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).save(&metadata))
 }
 pub fn delete(id: &str) -> LegadoResult<bool> {
     crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).delete(id))
 }
-pub fn voices(provider: &str) -> LegadoResult<String> {
-    let kind: CloudTtsProviderType = serde_json::from_value(serde_json::json!(provider))?;
-    Ok(serde_json::to_string(&cloud_tts_provider(kind).voices())?)
+pub fn voices(provider: CloudTtsProviderType) -> Vec<CloudTtsVoiceDescriptor> {
+    cloud_tts_provider(provider).voices()
+}
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CloudSpeechInput {
+    pub text: String,
+    pub credential_key: String,
+    #[serde(default)]
+    pub voice_id: Option<String>,
+    #[serde(default)]
+    pub voice_options: Option<legado_db::repository::cloud_tts_repository::CloudVoiceOptions>,
+}
+impl From<crate::media_dto::CloudSpeechInputDto> for CloudSpeechInput {
+    fn from(v: crate::media_dto::CloudSpeechInputDto) -> Self {
+        Self {
+            text: v.text,
+            credential_key: v.credential_key,
+            voice_id: v.voice_id,
+            voice_options: v.voice_options.map(Into::into),
+        }
+    }
 }
 pub fn speak(
     id: &str,
     api_key: String,
-    json: &str,
+    input: CloudSpeechInput,
     cancellation: &legado_fetcher::tts_control::TtsCancellation,
 ) -> LegadoResult<legado_fetcher::cloud_tts::CloudTtsSynthesisResult> {
     cancellation.check()?;
@@ -39,17 +53,6 @@ pub fn speak(
     drop(context);
     let mut metadata =
         storage.with_database(|db| CloudTtsRepository::new(db.connection()).get(id))?;
-    #[derive(serde::Deserialize)]
-    #[serde(rename_all = "camelCase", deny_unknown_fields)]
-    struct Input {
-        text: String,
-        credential_key: String,
-        #[serde(default)]
-        voice_id: Option<String>,
-        #[serde(default)]
-        voice_options: Option<legado_db::repository::cloud_tts_repository::CloudVoiceOptions>,
-    }
-    let input: Input = serde_json::from_str(json)?;
     if input.credential_key != metadata.credential_key {
         return Err(legado_core::LegadoError::Ffi(
             "云端凭据在读取期间已变更，请重试".into(),

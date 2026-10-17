@@ -148,6 +148,7 @@ pub mod ffi {
     use super::to_json;
     use crate::content_dto::*;
     use crate::frb_generated::StreamSink;
+    use crate::media_dto::*;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
         ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
@@ -2117,7 +2118,7 @@ pub mod ffi {
         chapter_url: String,
         chapter_title: String,
         play_url: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<AudioCacheDownloadDto, BridgeError> {
         super::run_webbook_blocking("audio_cache_download", move || {
             crate::api::audio_cache_api::audio_cache_download(
                 &book_url,
@@ -2288,21 +2289,32 @@ pub mod ffi {
     // ─── HTTP TTS 朗读源 ───────────────────────────────────
 
     /// 获取所有 HTTP TTS 源（JSON 数组）
-    pub fn http_tts_list() -> Result<String, BridgeError> {
-        let list = crate::api::http_tts_api::get_http_tts_list()?;
-        to_json(&list)
+    pub fn http_tts_list() -> Result<Vec<HttpTtsConfigDto>, BridgeError> {
+        Ok(crate::api::http_tts_api::get_http_tts_list()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 添加或覆盖 HTTP TTS 源（完整 JSON），返回最终 ID
-    pub fn http_tts_add(http_tts_json: String) -> Result<i64, BridgeError> {
-        let id = crate::api::http_tts_api::add_http_tts_json(&http_tts_json)?;
-        Ok(id)
+    pub fn http_tts_add(tts: HttpTtsConfigDto) -> Result<i64, BridgeError> {
+        Ok(crate::api::http_tts_api::add_http_tts_entity(
+            tts.into(),
+            Default::default(),
+        )?)
     }
 
     /// 按 ID 原地更新 HTTP TTS 源（完整 JSON）
-    pub fn http_tts_update(http_tts_json: String) -> Result<bool, BridgeError> {
-        let ok = crate::api::http_tts_api::update_http_tts_json(&http_tts_json)?;
-        Ok(ok)
+    pub fn http_tts_update(tts: HttpTtsConfigDto) -> Result<bool, BridgeError> {
+        Ok(crate::api::http_tts_api::update_http_tts_entity(
+            tts.into(),
+            Default::default(),
+        )?)
+    }
+
+    /// 文档导入保留内嵌音色目录，与普通实体保存分开。
+    pub fn http_tts_import(document: String) -> Result<i32, BridgeError> {
+        Ok(crate::api::http_tts_api::import_http_tts_json(&document)?)
     }
 
     /// 删除 HTTP TTS 源
@@ -2331,7 +2343,7 @@ pub mod ffi {
         tone_id: Option<String>,
         speaker_name: Option<String>,
         emotion_tag: Option<String>,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<TtsSpeakDto, BridgeError> {
         let cache = crate::api::tts_cache_api::cache()?;
         let _activity = cache.activity();
         let dto = crate::api::tts_speak_api::tts_speak_controlled(
@@ -2345,31 +2357,39 @@ pub mod ffi {
         request.inner.check()?;
         *request.lease.lock().unwrap_or_else(|e| e.into_inner()) =
             Some(cache.pin(std::path::Path::new(&dto.audio_path))?);
-        to_json(&dto)
+        Ok(dto)
     }
 
     /// 云端元数据，不返回平台凭据。
-    pub fn cloud_tts_list() -> Result<String, BridgeError> {
-        Ok(crate::api::cloud_tts_api::list()?)
+    pub fn cloud_tts_list() -> Result<Vec<CloudTtsMetadataDto>, BridgeError> {
+        Ok(crate::api::cloud_tts_api::list()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
-    pub fn cloud_tts_save(engine_json: String) -> Result<(), BridgeError> {
-        Ok(crate::api::cloud_tts_api::save(&engine_json)?)
+    pub fn cloud_tts_save(engine: CloudTtsMetadataDto) -> Result<(), BridgeError> {
+        Ok(crate::api::cloud_tts_api::save(engine.into())?)
     }
     pub fn cloud_tts_delete(id: String) -> Result<bool, BridgeError> {
         Ok(crate::api::cloud_tts_api::delete(&id)?)
     }
-    pub fn cloud_tts_voices(provider: String) -> Result<String, BridgeError> {
-        Ok(crate::api::cloud_tts_api::voices(&provider)?)
+    pub fn cloud_tts_voices(
+        provider: CloudTtsProviderDto,
+    ) -> Result<Vec<CloudVoiceDescriptorDto>, BridgeError> {
+        Ok(crate::api::cloud_tts_api::voices(provider.into())
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
     /// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
     pub fn cloud_tts_speak(
         engine_id: String,
         api_key: String,
-        request_json: String,
+        input: CloudSpeechInputDto,
         request: &super::TtsRequest,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<TtsSpeakDto, BridgeError> {
         let result =
-            crate::api::cloud_tts_api::speak(&engine_id, api_key, &request_json, &request.inner)?;
+            crate::api::cloud_tts_api::speak(&engine_id, api_key, input.into(), &request.inner)?;
         request.inner.check()?;
         let dto = crate::api::tts_speak_api::TtsSpeakDto {
             audio_path: result.audio_path.to_string_lossy().to_string(),
@@ -2377,21 +2397,24 @@ pub mod ffi {
             content_type: result.content_type,
         };
         *request.lease.lock().unwrap_or_else(|e| e.into_inner()) = Some(result.lease);
-        to_json(&dto)
+        Ok(dto)
     }
 
     /// 全量音色目录，包括用户排除项。
-    pub fn read_aloud_voice_list() -> Result<String, BridgeError> {
-        Ok(crate::api::read_aloud_voice_api::list()?)
+    pub fn read_aloud_voice_list() -> Result<Vec<ReadAloudVoiceDto>, BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::list()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
     /// 同步当前设备引擎音色，不覆盖用户标记。
     pub fn read_aloud_voice_sync_system(
         engine_id: String,
-        entries_json: String,
+        entries: Vec<SystemVoiceEntryDto>,
     ) -> Result<(), BridgeError> {
         Ok(crate::api::read_aloud_voice_api::sync_system(
             &engine_id,
-            &entries_json,
+            entries.into_iter().map(Into::into).collect(),
         )?)
     }
     /// 修改用户启用与排除状态。
@@ -2406,8 +2429,8 @@ pub mod ffi {
     }
 
     /// 保存用户音色配置，稳定身份由数据库核对。
-    pub fn read_aloud_voice_save(voice_json: String) -> Result<(), BridgeError> {
-        Ok(crate::api::read_aloud_voice_api::save(&voice_json)?)
+    pub fn read_aloud_voice_save(voice: ReadAloudVoiceDto) -> Result<(), BridgeError> {
+        Ok(crate::api::read_aloud_voice_api::save(voice.into())?)
     }
     /// 仅删除用户保存的音色；源目录使用排除标记。
     pub fn read_aloud_voice_delete(id: String) -> Result<bool, BridgeError> {
@@ -2415,15 +2438,21 @@ pub mod ffi {
     }
 
     /// 登记朗读缓存的书章段索引。
-    pub fn tts_cache_record(audio_path: String, context_json: String) -> Result<(), BridgeError> {
+    pub fn tts_cache_record(
+        audio_path: String,
+        context: TtsCacheContextDto,
+    ) -> Result<(), BridgeError> {
         Ok(crate::api::tts_cache_api::record(
             &audio_path,
-            &context_json,
+            context.into(),
         )?)
     }
     /// 只读列出已发布音频缓存。
-    pub fn tts_cache_list() -> Result<String, BridgeError> {
-        Ok(crate::api::tts_cache_api::list()?)
+    pub fn tts_cache_list() -> Result<Vec<TtsCacheEntryDto>, BridgeError> {
+        Ok(crate::api::tts_cache_api::list()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
     /// 清理缓存，保留活动请求、播放租约及明确指定的当前章。
     pub fn tts_cache_clear(
@@ -2431,13 +2460,14 @@ pub mod ffi {
         before_timestamp_ms: Option<u64>,
         keep_book_url: Option<String>,
         keep_chapter_index: Option<u32>,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<TtsCacheClearResultDto, BridgeError> {
         Ok(crate::api::tts_cache_api::clear(
             name,
             before_timestamp_ms,
             keep_book_url,
             keep_chapter_index,
-        )?)
+        )?
+        .into())
     }
 
     /// HTTP TTS 登录操作：ID 查库，复用登录存储与经典/V2 控件协议。
@@ -2481,9 +2511,8 @@ pub mod ffi {
     pub fn audio_get_chapter_media(
         book_url: String,
         chapter_index: i32,
-    ) -> Result<String, BridgeError> {
-        let dto = crate::api::audio_api::get_audio_chapter_media(&book_url, chapter_index)?;
-        to_json(&dto)
+    ) -> Result<AudioChapterMediaDto, BridgeError> {
+        Ok(crate::api::audio_api::get_audio_chapter_media(&book_url, chapter_index)?.into())
     }
 
     // ─── 备份/恢复 ───────────────────────────────────────

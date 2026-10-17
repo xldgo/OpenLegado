@@ -21,6 +21,7 @@ pub mod http_state;
 pub mod js_executor;
 mod layout_bridge;
 pub mod layout_dto;
+pub mod media_dto;
 pub mod runtime;
 mod service_host;
 pub mod transfer_dto;

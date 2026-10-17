@@ -14,6 +14,7 @@ import 'ffi/ffi.dart';
 import 'frb_generated.dart';
 import 'layout_bridge.dart';
 import 'layout_dto.dart';
+import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 
@@ -137,6 +138,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnnotatedCandidateDto dco_decode_annotated_candidate_dto(dynamic raw);
 
   @protected
+  AudioCacheDownloadDto dco_decode_audio_cache_download_dto(dynamic raw);
+
+  @protected
+  AudioCacheDownloadStatusDto dco_decode_audio_cache_download_status_dto(
+    dynamic raw,
+  );
+
+  @protected
+  AudioChapterMediaDto dco_decode_audio_chapter_media_dto(dynamic raw);
+
+  @protected
   BookDto dco_decode_book_dto(dynamic raw);
 
   @protected
@@ -182,6 +194,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChapterDto dco_decode_box_autoadd_chapter_dto(dynamic raw);
 
   @protected
+  CloudSpeechInputDto dco_decode_box_autoadd_cloud_speech_input_dto(
+    dynamic raw,
+  );
+
+  @protected
+  CloudTtsMetadataDto dco_decode_box_autoadd_cloud_tts_metadata_dto(
+    dynamic raw,
+  );
+
+  @protected
+  CloudVoiceOptionsDto dco_decode_box_autoadd_cloud_voice_options_dto(
+    dynamic raw,
+  );
+
+  @protected
   ContentRuleDto dco_decode_box_autoadd_content_rule_dto(dynamic raw);
 
   @protected
@@ -198,6 +225,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   HighlightRuleDto dco_decode_box_autoadd_highlight_rule_dto(dynamic raw);
+
+  @protected
+  HttpTtsConfigDto dco_decode_box_autoadd_http_tts_config_dto(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_i_32(dynamic raw);
@@ -230,6 +260,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformActionDto dco_decode_box_autoadd_platform_action_dto(dynamic raw);
 
   @protected
+  ReadAloudVoiceDto dco_decode_box_autoadd_read_aloud_voice_dto(dynamic raw);
+
+  @protected
   ReadConfigDto dco_decode_box_autoadd_read_config_dto(dynamic raw);
 
   @protected
@@ -256,6 +289,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TocRuleDto dco_decode_box_autoadd_toc_rule_dto(dynamic raw);
+
+  @protected
+  TtsCacheContextDto dco_decode_box_autoadd_tts_cache_context_dto(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -297,6 +333,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckResultDto dco_decode_check_result_dto(dynamic raw);
 
   @protected
+  CloudSpeechInputDto dco_decode_cloud_speech_input_dto(dynamic raw);
+
+  @protected
+  CloudTtsMetadataDto dco_decode_cloud_tts_metadata_dto(dynamic raw);
+
+  @protected
+  CloudTtsProviderDto dco_decode_cloud_tts_provider_dto(dynamic raw);
+
+  @protected
+  CloudVoiceDescriptorDto dco_decode_cloud_voice_descriptor_dto(dynamic raw);
+
+  @protected
+  CloudVoiceOptionsDto dco_decode_cloud_voice_options_dto(dynamic raw);
+
+  @protected
   ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
 
   @protected
@@ -325,6 +376,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   HttpTextResponseDto dco_decode_http_text_response_dto(dynamic raw);
+
+  @protected
+  HttpTtsConfigDto dco_decode_http_tts_config_dto(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -421,10 +475,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
 
   @protected
+  List<CloudTtsMetadataDto> dco_decode_list_cloud_tts_metadata_dto(dynamic raw);
+
+  @protected
+  List<CloudVoiceDescriptorDto> dco_decode_list_cloud_voice_descriptor_dto(
+    dynamic raw,
+  );
+
+  @protected
   List<ExploreCategoryDto> dco_decode_list_explore_category_dto(dynamic raw);
 
   @protected
   List<HighlightRuleDto> dco_decode_list_highlight_rule_dto(dynamic raw);
+
+  @protected
+  List<HttpTtsConfigDto> dco_decode_list_http_tts_config_dto(dynamic raw);
 
   @protected
   List<LayoutBlockDto> dco_decode_list_layout_block_dto(dynamic raw);
@@ -465,6 +530,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<ReadAloudVoiceDto> dco_decode_list_read_aloud_voice_dto(dynamic raw);
 
   @protected
   List<ReadRecordDailyDto> dco_decode_list_read_record_daily_dto(dynamic raw);
@@ -508,6 +576,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<SourceMatchDto> dco_decode_list_source_match_dto(dynamic raw);
 
   @protected
+  List<SystemVoiceEntryDto> dco_decode_list_system_voice_entry_dto(dynamic raw);
+
+  @protected
+  List<TtsCacheContextDto> dco_decode_list_tts_cache_context_dto(dynamic raw);
+
+  @protected
+  List<TtsCacheEntryDto> dco_decode_list_tts_cache_entry_dto(dynamic raw);
+
+  @protected
   List<WebChapterDto> dco_decode_list_web_chapter_dto(dynamic raw);
 
   @protected
@@ -536,6 +613,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChapterDto? dco_decode_opt_box_autoadd_chapter_dto(dynamic raw);
+
+  @protected
+  CloudVoiceOptionsDto? dco_decode_opt_box_autoadd_cloud_voice_options_dto(
+    dynamic raw,
+  );
 
   @protected
   ContentRuleDto? dco_decode_opt_box_autoadd_content_rule_dto(dynamic raw);
@@ -607,6 +689,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformActionKind dco_decode_platform_action_kind(dynamic raw);
+
+  @protected
+  ReadAloudVoiceDto dco_decode_read_aloud_voice_dto(dynamic raw);
 
   @protected
   ReadConfigDto dco_decode_read_config_dto(dynamic raw);
@@ -681,10 +766,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SwitchSearchOptionsDto dco_decode_switch_search_options_dto(dynamic raw);
 
   @protected
+  SystemVoiceEntryDto dco_decode_system_voice_entry_dto(dynamic raw);
+
+  @protected
   TextResponseDto dco_decode_text_response_dto(dynamic raw);
 
   @protected
   TocRuleDto dco_decode_toc_rule_dto(dynamic raw);
+
+  @protected
+  TtsCacheClearResultDto dco_decode_tts_cache_clear_result_dto(dynamic raw);
+
+  @protected
+  TtsCacheContextDto dco_decode_tts_cache_context_dto(dynamic raw);
+
+  @protected
+  TtsCacheEntryDto dco_decode_tts_cache_entry_dto(dynamic raw);
+
+  @protected
+  TtsSpeakDto dco_decode_tts_speak_dto(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -825,6 +925,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  AudioCacheDownloadDto sse_decode_audio_cache_download_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AudioCacheDownloadStatusDto sse_decode_audio_cache_download_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AudioChapterMediaDto sse_decode_audio_chapter_media_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BookDto sse_decode_book_dto(SseDeserializer deserializer);
 
   @protected
@@ -878,6 +993,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChapterDto sse_decode_box_autoadd_chapter_dto(SseDeserializer deserializer);
 
   @protected
+  CloudSpeechInputDto sse_decode_box_autoadd_cloud_speech_input_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsMetadataDto sse_decode_box_autoadd_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceOptionsDto sse_decode_box_autoadd_cloud_voice_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ContentRuleDto sse_decode_box_autoadd_content_rule_dto(
     SseDeserializer deserializer,
   );
@@ -900,6 +1030,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   HighlightRuleDto sse_decode_box_autoadd_highlight_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HttpTtsConfigDto sse_decode_box_autoadd_http_tts_config_dto(
     SseDeserializer deserializer,
   );
 
@@ -940,6 +1075,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ReadAloudVoiceDto sse_decode_box_autoadd_read_aloud_voice_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReadConfigDto sse_decode_box_autoadd_read_config_dto(
     SseDeserializer deserializer,
   );
@@ -976,6 +1116,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TocRuleDto sse_decode_box_autoadd_toc_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  TtsCacheContextDto sse_decode_box_autoadd_tts_cache_context_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
@@ -1025,6 +1170,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckResultDto sse_decode_check_result_dto(SseDeserializer deserializer);
 
   @protected
+  CloudSpeechInputDto sse_decode_cloud_speech_input_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsMetadataDto sse_decode_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsProviderDto sse_decode_cloud_tts_provider_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceDescriptorDto sse_decode_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceOptionsDto sse_decode_cloud_voice_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
 
   @protected
@@ -1061,6 +1231,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   HttpTextResponseDto sse_decode_http_text_response_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  HttpTtsConfigDto sse_decode_http_tts_config_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -1187,12 +1360,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
 
   @protected
+  List<CloudTtsMetadataDto> sse_decode_list_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<CloudVoiceDescriptorDto> sse_decode_list_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ExploreCategoryDto> sse_decode_list_explore_category_dto(
     SseDeserializer deserializer,
   );
 
   @protected
   List<HighlightRuleDto> sse_decode_list_highlight_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HttpTtsConfigDto> sse_decode_list_http_tts_config_dto(
     SseDeserializer deserializer,
   );
 
@@ -1247,6 +1435,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<ReadAloudVoiceDto> sse_decode_list_read_aloud_voice_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<ReadRecordDailyDto> sse_decode_list_read_record_daily_dto(
@@ -1310,6 +1503,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<SystemVoiceEntryDto> sse_decode_list_system_voice_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<TtsCacheContextDto> sse_decode_list_tts_cache_context_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<TtsCacheEntryDto> sse_decode_list_tts_cache_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<WebChapterDto> sse_decode_list_web_chapter_dto(
     SseDeserializer deserializer,
   );
@@ -1350,6 +1558,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChapterDto? sse_decode_opt_box_autoadd_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceOptionsDto? sse_decode_opt_box_autoadd_cloud_voice_options_dto(
     SseDeserializer deserializer,
   );
 
@@ -1447,6 +1660,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ReadAloudVoiceDto sse_decode_read_aloud_voice_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReadConfigDto sse_decode_read_config_dto(SseDeserializer deserializer);
 
   @protected
@@ -1539,10 +1757,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SystemVoiceEntryDto sse_decode_system_voice_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   TextResponseDto sse_decode_text_response_dto(SseDeserializer deserializer);
 
   @protected
   TocRuleDto sse_decode_toc_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  TtsCacheClearResultDto sse_decode_tts_cache_clear_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsCacheContextDto sse_decode_tts_cache_context_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsCacheEntryDto sse_decode_tts_cache_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  TtsSpeakDto sse_decode_tts_speak_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -1706,6 +1945,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_audio_cache_download_dto(
+    AudioCacheDownloadDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audio_cache_download_status_dto(
+    AudioCacheDownloadStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audio_chapter_media_dto(
+    AudioChapterMediaDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_book_dto(BookDto self, SseSerializer serializer);
 
   @protected
@@ -1775,6 +2032,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_cloud_speech_input_dto(
+    CloudSpeechInputDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cloud_tts_metadata_dto(
+    CloudTtsMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cloud_voice_options_dto(
+    CloudVoiceOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_content_rule_dto(
     ContentRuleDto self,
     SseSerializer serializer,
@@ -1801,6 +2076,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_highlight_rule_dto(
     HighlightRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_http_tts_config_dto(
+    HttpTtsConfigDto self,
     SseSerializer serializer,
   );
 
@@ -1850,6 +2131,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_read_aloud_voice_dto(
+    ReadAloudVoiceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_read_config_dto(
     ReadConfigDto self,
     SseSerializer serializer,
@@ -1894,6 +2181,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_toc_rule_dto(
     TocRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_tts_cache_context_dto(
+    TtsCacheContextDto self,
     SseSerializer serializer,
   );
 
@@ -1961,6 +2254,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_cloud_speech_input_dto(
+    CloudSpeechInputDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_tts_metadata_dto(
+    CloudTtsMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_tts_provider_dto(
+    CloudTtsProviderDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_voice_descriptor_dto(
+    CloudVoiceDescriptorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_voice_options_dto(
+    CloudVoiceOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_content_rule_dto(
     ContentRuleDto self,
     SseSerializer serializer,
@@ -2011,6 +2334,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_http_text_response_dto(
     HttpTextResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_tts_config_dto(
+    HttpTtsConfigDto self,
     SseSerializer serializer,
   );
 
@@ -2180,6 +2509,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_cloud_tts_metadata_dto(
+    List<CloudTtsMetadataDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cloud_voice_descriptor_dto(
+    List<CloudVoiceDescriptorDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_explore_category_dto(
     List<ExploreCategoryDto> self,
     SseSerializer serializer,
@@ -2188,6 +2529,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_highlight_rule_dto(
     List<HighlightRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_http_tts_config_dto(
+    List<HttpTtsConfigDto> self,
     SseSerializer serializer,
   );
 
@@ -2264,6 +2611,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_aloud_voice_dto(
+    List<ReadAloudVoiceDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_read_record_daily_dto(
     List<ReadRecordDailyDto> self,
     SseSerializer serializer,
@@ -2336,6 +2689,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_system_voice_entry_dto(
+    List<SystemVoiceEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tts_cache_context_dto(
+    List<TtsCacheContextDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tts_cache_entry_dto(
+    List<TtsCacheEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_web_chapter_dto(
     List<WebChapterDto> self,
     SseSerializer serializer,
@@ -2386,6 +2757,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_chapter_dto(
     ChapterDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_cloud_voice_options_dto(
+    CloudVoiceOptionsDto? self,
     SseSerializer serializer,
   );
 
@@ -2500,6 +2877,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_platform_action_kind(
     PlatformActionKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_aloud_voice_dto(
+    ReadAloudVoiceDto self,
     SseSerializer serializer,
   );
 
@@ -2621,6 +3004,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_system_voice_entry_dto(
+    SystemVoiceEntryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_text_response_dto(
     TextResponseDto self,
     SseSerializer serializer,
@@ -2628,6 +3017,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_toc_rule_dto(TocRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tts_cache_clear_result_dto(
+    TtsCacheClearResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tts_cache_context_dto(
+    TtsCacheContextDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tts_cache_entry_dto(
+    TtsCacheEntryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tts_speak_dto(TtsSpeakDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);

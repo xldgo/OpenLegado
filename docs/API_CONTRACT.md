@@ -2255,6 +2255,27 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 
 编写者：Codex + Bridge｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 后续第2批朗读媒体冻结
+
+- HTTP TTS 列表/普通新增/更新采用十六字段 HttpTtsConfigDto；JSON 导入独立为
+  httpTtsImport(document)→条数，保留数组 loginUi、源内 speakersJson/emotionsJson 和逐条写入行为。
+  导出继续生成原 JSON 文档，限流器刷新、并发归一、音色目录同步与原事务共用实现。
+- ttsSpeak/cloudTtsSpeak 返回 TtsSpeakDto(audioPath/fromCache/contentType)，不传音频字节；
+  TtsRequest 的取消、活动保护及文件租约归属不变。
+- 云端元数据、音色描述与试听参数分别为 CloudTtsMetadataDto、CloudVoiceDescriptorDto、
+  CloudSpeechInputDto/CloudVoiceOptionsDto；供应商枚举仅映射现有三种，不新增供应商。
+  明文 API Key 仍只作为调用参数，不进入元数据或持久化；凭据版本与音色归属检查不变。
+- 音色目录和设备同步使用 ReadAloudVoiceDto/SystemVoiceEntryDto；traitsJson 与
+  emotionCatalogJson 为原有配置文档，不在传输层重新解释。
+- TTS 缓存上下文/列表/清理使用 TtsCacheContextDto/TtsCacheEntryDto/TtsCacheClearResultDto，
+  时间、大小、索引的有符号/无符号范围与原协议相同；活动请求与播放租约保护保留。
+- 音频章节媒体采用 AudioChapterMediaDto；预下载返回 AudioCacheDownloadDto，状态为
+  installed/already_cached 枚举。仍由 Rust 下载落盘，保留取消、失败清理和缓存命中规则。
+- 页面、仓储领域接口、数据库、缓存文件和配置文档格式不改。无效整型范围与非有限浮点
+  在直接编码前拒绝，不能用类型化掩盖原 JSON 路径会拒绝的值。
+
+编写者：Codex + Bridge｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

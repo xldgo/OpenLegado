@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/http_tts_repository.dart';
 import '../../models/models.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/media_dto_mapping.dart';
 
 /// HTTP 引擎配置直接访问既有 FRB，不承担初始化或朗读。— Codex + Bridge
 final class RustHttpTtsRepository implements HttpTtsRepository {
@@ -14,11 +14,7 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
   /// 获取所有 HTTP TTS 配置
   @override
   Future<List<HttpTts>> getHttpTts() async {
-    final json = await bridge.httpTtsList();
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list
-        .map((e) => HttpTts.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (await bridge.httpTtsList()).map(httpTtsFromDto).toList();
   }
 
   /// 添加 HTTP TTS 配置（保存完整字段，返回携带最终 ID 的对象）
@@ -30,9 +26,7 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
         kMaxHttpTtsSynthesisThreadCount,
       ),
     );
-    final id = await bridge.httpTtsAdd(
-      httpTtsJson: jsonEncode(normalized.toJson()),
-    );
+    final id = await bridge.httpTtsAdd(tts: httpTtsToDto(normalized));
     return normalized.copyWith(id: id.toInt());
   }
 
@@ -45,9 +39,7 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
         kMaxHttpTtsSynthesisThreadCount,
       ),
     );
-    final updated = await bridge.httpTtsUpdate(
-      httpTtsJson: jsonEncode(normalized.toJson()),
-    );
+    final updated = await bridge.httpTtsUpdate(tts: httpTtsToDto(normalized));
     if (!updated) {
       throw StateError('HTTP TTS 引擎不存在: id=${tts.id}');
     }
@@ -62,28 +54,7 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
   /// 导入 HTTP TTS 配置（解析 JSON 数组，完整保留全字段及数组 loginUi）
   @override
   Future<int> importHttpTts(String json) async {
-    final list = decodeRustJsonList(json, 'bookApi');
-    var count = 0;
-    for (final item in list) {
-      if (item is! Map) {
-        throw const FormatException('HTTP TTS 导入条目不是 JSON 对象');
-      }
-      final parsed = HttpTts.fromJson(Map<String, dynamic>.from(item));
-      if (parsed.name.isEmpty || parsed.url.isEmpty) continue;
-      final normalized = parsed.copyWith(
-        synthesisThreadCount: parsed.synthesisThreadCount.clamp(
-          1,
-          kMaxHttpTtsSynthesisThreadCount,
-        ),
-      );
-      final payload = normalized.toJson();
-      for (final key in ['speakersJson', 'emotionsJson']) {
-        if (item.containsKey(key)) payload[key] = item[key];
-      }
-      await bridge.httpTtsAdd(httpTtsJson: jsonEncode(payload));
-      count++;
-    }
-    return count;
+    return bridge.httpTtsImport(document: json);
   }
 
   /// 导出 HTTP TTS 配置（返回 JSON 数组）

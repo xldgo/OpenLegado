@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter_legado/src/bridge/media_dto.dart' as dto;
+
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_book_image_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_audio_cache_repository.dart';
@@ -103,7 +105,12 @@ void main() {
         playUrl: 'p',
       ),
     ).thenAnswer(
-      (_) async => ' {"status":"installed","path":"cache/2.mp3","sizeBytes":4096,"extension":"mp3"}',
+      (_) async => dto.AudioCacheDownloadDto(
+        status: dto.AudioCacheDownloadStatusDto.installed,
+        path: 'cache/2.mp3',
+        sizeBytes: BigInt.from(4096),
+        extension_: 'mp3',
+      ),
     );
     when(() => bridge.crateFfiFfiAudioCacheCancel())
         .thenAnswer((_) async => true);
@@ -128,41 +135,34 @@ void main() {
       ),
     ).called(1);
   });
-  for (final status in ['already_cached', 'unknown']) {
-    test('安装状态$status按明确协议处理', () async {
-      when(
-        () => bridge.crateFfiFfiAudioCacheDownload(
-          bookUrl: 'b',
-          chapterIndex: 0,
-          chapterUrl: 'c',
-          chapterTitle: 't',
-          playUrl: 'p',
-        ),
-      ).thenAnswer(
-        (_) async => jsonEncode({
-          'status': status,
-          'path': 'p',
-          'sizeBytes': 1,
-          'extension': 'mp3',
-        }),
-      );
-      final operation = downloads.audioCacheDownload(
+  test('已缓存状态使用枚举，不重新下载', () async {
+    when(
+      () => bridge.crateFfiFfiAudioCacheDownload(
         bookUrl: 'b',
         chapterIndex: 0,
         chapterUrl: 'c',
         chapterTitle: 't',
         playUrl: 'p',
-      );
-      if (status == 'unknown') {
-        await expectLater(operation, throwsFormatException);
-      } else {
-        expect(
-          (await operation).status,
-          AudioCacheDownloadStatus.alreadyCached,
-        );
-      }
-    });
-  }
+      ),
+    ).thenAnswer(
+      (_) async => dto.AudioCacheDownloadDto(
+        status: dto.AudioCacheDownloadStatusDto.alreadyCached,
+        path: 'p',
+        sizeBytes: BigInt.one,
+        extension_: 'mp3',
+      ),
+    );
+    expect(
+      (await downloads.audioCacheDownload(
+        bookUrl: 'b',
+        chapterIndex: 0,
+        chapterUrl: 'c',
+        chapterTitle: 't',
+        playUrl: 'p',
+      )).status,
+      AudioCacheDownloadStatus.alreadyCached,
+    );
+  });
   test('缓存查询与清理原样传入章节键并返回真实计数', () async {
     when(
       () => bridge.crateFfiFfiAudioCacheQuery(
@@ -204,31 +204,6 @@ void main() {
       2,
     );
     expect(await cache.audioCacheClearBook(bookUrl: 'b'), 4);
-  });
-
-  test('下载坏安装字段不能作为成功结果', () async {
-    when(
-      () => bridge.crateFfiFfiAudioCacheDownload(
-        bookUrl: 'b',
-        chapterIndex: 0,
-        chapterUrl: 'c',
-        chapterTitle: 't',
-        playUrl: 'p',
-      ),
-    ).thenAnswer(
-      (_) async =>
-          '{"status":"installed","path":"p","sizeBytes":"1","extension":"mp3"}',
-    );
-    await expectLater(
-      downloads.audioCacheDownload(
-        bookUrl: 'b',
-        chapterIndex: 0,
-        chapterUrl: 'c',
-        chapterTitle: 't',
-        playUrl: 'p',
-      ),
-      throwsFormatException,
-    );
   });
 
   test('缓存读面失败沿用降级，下载和取消失败向上传递', () async {
@@ -299,7 +274,17 @@ void main() {
       () =>
           bridge.crateFfiFfiAudioGetChapterMedia(bookUrl: 'b', chapterIndex: 2),
     ).thenAnswer(
-      (_) async => ' {"mediaUrl":"p","chapterIndex":2,"isVolume":false,"fromCache":true,"lyric":"词"}',
+      (_) async => const dto.AudioChapterMediaDto(
+        chapterIndex: 2,
+        title: '章',
+        mediaUrl: 'p',
+        chapterUrl: 'chapter',
+        resourceUrl: 'resource',
+        isVolume: false,
+        fromCache: true,
+        lyric: '词',
+        sourceUrl: 'source',
+      ),
     );
     when(
       () => bridge.crateFfiFfiAudioGetProgress(bookUrl: 'b', chapterIndex: 2),
@@ -342,14 +327,11 @@ void main() {
     when(
       () =>
           bridge.crateFfiFfiAudioGetChapterMedia(bookUrl: 'b', chapterIndex: 0),
-    ).thenAnswer((_) async => '{}');
+    ).thenThrow(StateError('取址失败'));
     when(
       () => bridge.crateFfiFfiAudioGetProgress(bookUrl: 'b', chapterIndex: 0),
     ).thenThrow(StateError('进度失败'));
-    await expectLater(
-      audio.getAudioChapterMedia('b', 0),
-      throwsFormatException,
-    );
+    await expectLater(audio.getAudioChapterMedia('b', 0), throwsStateError);
     await expectLater(audio.getAudioProgress('b', 0), throwsStateError);
   });
   test('弹幕读取和解析保留现有模型与失败降级', () async {

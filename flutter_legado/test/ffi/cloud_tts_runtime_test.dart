@@ -9,6 +9,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' as controls;
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
+import 'package:flutter_legado/src/bridge/media_dto.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/rust_cloud_tts_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_tts_cache_repository.dart';
@@ -95,7 +96,12 @@ void main() {
         bridge.cloudTtsSpeak(
           engineId: engine.id,
           apiKey: 'local-fixture-secret',
-          requestJson: jsonEncode({'text': '旧凭据', 'credentialKey': oldKey}),
+          input: CloudSpeechInputDto(
+            text: '旧凭据',
+            credentialKey: oldKey,
+            voiceId: null,
+            voiceOptions: null,
+          ),
           request: request,
         ),
         throwsA(anything),

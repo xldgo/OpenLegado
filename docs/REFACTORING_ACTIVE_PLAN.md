@@ -39,6 +39,9 @@
 - 后续第1批验证：QuickJS下Fetcher156/FFI587共743项、默认Fetcher132/FFI511共643项通过；FFI忽略项分别42/21。22份Flutter文件176项通过，三份仓储定向35项含在组合内；完整分析无问题。真实Windows DLL的4份文件13项通过，新增实际HTTP字节完整域/重定向/Header/POST、书源详情/目录/发现、规则段评数量及JS递归回复往返。两档全目标严格Clippy、格式与差异检查通过；正式Python独立native重建和最终只读指纹/摘要通过。
 - 后续第1批整改与边界：新实体入口编译期间修正JS摘要Vec到Map、测试上下文及DTO参数；Clippy冗余Ok/问号已去除。旧测试中原Rust结果不可能携带的别名/额外字段和根级平台动作假响应，改为实际DTO字段、错误、空列表及协议动作测试；原真实行为断言保留。日志为忽略目录build/ffi-phase3的content-{codegen,rust-quick,rust-default,clippy-quick-final,clippy-default,flutter-regression,analysis-final,native-final,native-tests-final}；回归文件集合为content-regression-files.txt。无子代理/独立外审、CI、Android/iOS或安装，不宣称零拷贝或设备性能收益。
 
+- 后续第2批：以16cdf1c0e为起点完成朗读媒体类型化。十六字段HTTP源、两类合成结果、云端/音色/缓存与音频元数据改为DTO；独立文档导入保留内嵌音色目录和数组loginUi，普通编辑仍保留原地更新、目录标志及限流刷新。现有三类供应商、取消、凭据核对及文件租约不变，无新增云服务。
+- 后续第2批验证：QuickJS FFI588项/42忽略、默认FFI512项/21忽略，58份Flutter回归602项及定向29项通过；完整分析、两档全目标严格Clippy通过。正式Python独立DLL重建、最终只读指纹/摘要通过；7份真实FFI文件12项通过，覆盖HTTP全字段含64位数值、三类云供应商、音色、缓存租约/取消及音频缓存。单代理差异复核，无独立审查/远程CI/设备验证，不宣称零拷贝；证据在忽略目录build/ffi-phase3的media-{codegen,rust-quick-final,rust-default,clippy-quick,clippy-default,flutter-regression,analysis-final,native,native-tests}，回归清单media-regression-files.txt。按授权提交后继续第3批，版本及依赖不变，不推送。
+
 ### COMIC-SETTINGS-ACTIONS-20261017：漫画设置与图片操作边界（P1）
 
 - 授权与基线：用户确认继续下一批；feature/ui-reader-selection / cececdba4，工作区干净。Codex单代理，不新建分支；本批验证后本地提交一次，不推送/触发CI/构建安装，版本2.0.373+374不变。

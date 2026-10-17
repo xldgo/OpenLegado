@@ -45,6 +45,7 @@
 //!   `removeCachedChapter:92-105` 的 `withLock`），FFI 侧 async 化
 //!   （spawn_blocking）后清理可等比等待在途下载且不阻塞 UI isolate
 
+use crate::media_dto::{AudioCacheDownloadDto, AudioCacheDownloadStatusDto};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::{self, Write};
@@ -818,9 +819,9 @@ pub fn audio_cache_download(
     chapter_url: &str,
     chapter_title: &str,
     play_url: &str,
-) -> LegadoResult<String> {
+) -> LegadoResult<AudioCacheDownloadDto> {
     let client = crate::http_state::shared_client()?;
-    audio_cache_download_with_client(
+    audio_cache_download_result_with_client(
         &client,
         book_url,
         chapter_index,
@@ -831,6 +832,7 @@ pub fn audio_cache_download(
 }
 
 /// [`audio_cache_download`] 的客户端注入版（测试经本地回环服务器驱动）
+#[cfg(test)]
 fn audio_cache_download_with_client(
     client: &LegadoClient,
     book_url: &str,
@@ -839,13 +841,32 @@ fn audio_cache_download_with_client(
     chapter_title: &str,
     play_url: &str,
 ) -> LegadoResult<String> {
+    Ok(serde_json::to_string(
+        &audio_cache_download_result_with_client(
+            client,
+            book_url,
+            chapter_index,
+            chapter_url,
+            chapter_title,
+            play_url,
+        )?,
+    )?)
+}
+fn audio_cache_download_result_with_client(
+    client: &LegadoClient,
+    book_url: &str,
+    chapter_index: i32,
+    chapter_url: &str,
+    chapter_title: &str,
+    play_url: &str,
+) -> LegadoResult<AudioCacheDownloadDto> {
     if kotlin_is_blank(book_url) {
         return Err(LegadoError::Ffi("书籍 URL 为空".into()));
     }
     let engine = crate::engine_holder::current()?;
     let context = AudioDownloadContext::for_engine(&engine, cache_root())?;
     drop(engine);
-    audio_cache_download_in(
+    audio_cache_download_result_in(
         &context,
         client,
         book_url,
@@ -857,6 +878,7 @@ fn audio_cache_download_with_client(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 fn audio_cache_download_in(
     context: &AudioDownloadContext,
     client: &LegadoClient,
@@ -866,6 +888,25 @@ fn audio_cache_download_in(
     chapter_title: &str,
     play_url: &str,
 ) -> LegadoResult<String> {
+    Ok(serde_json::to_string(&audio_cache_download_result_in(
+        context,
+        client,
+        book_url,
+        chapter_index,
+        chapter_url,
+        chapter_title,
+        play_url,
+    )?)?)
+}
+fn audio_cache_download_result_in(
+    context: &AudioDownloadContext,
+    client: &LegadoClient,
+    book_url: &str,
+    chapter_index: i32,
+    chapter_url: &str,
+    chapter_title: &str,
+    play_url: &str,
+) -> LegadoResult<AudioCacheDownloadDto> {
     let _guard = context.task.guard();
     // ① 前置校验
     if kotlin_is_blank(book_url) {
@@ -908,13 +949,12 @@ fn audio_cache_download_in(
         let extension = parse_cache_file_name(&name)
             .map(|p| p.extension)
             .unwrap_or_else(|| "audio".to_string());
-        return Ok(serde_json::json!({
-            "status": "already_cached",
-            "path": dir.join(&name).to_string_lossy(),
-            "sizeBytes": meta.len(),
-            "extension": extension,
-        })
-        .to_string());
+        return Ok(AudioCacheDownloadDto {
+            status: AudioCacheDownloadStatusDto::AlreadyCached,
+            path: dir.join(&name).to_string_lossy().into_owned(),
+            size_bytes: meta.len(),
+            extension,
+        });
     }
 
     // ③ 目录就绪 + 陈旧未提交文件清理
@@ -1078,13 +1118,12 @@ fn audio_cache_download_in(
             return Err(e);
         }
     };
-    Ok(serde_json::json!({
-        "status": "installed",
-        "path": final_path.to_string_lossy(),
-        "sizeBytes": installed_size,
-        "extension": extension,
+    Ok(AudioCacheDownloadDto {
+        status: AudioCacheDownloadStatusDto::Installed,
+        path: final_path.to_string_lossy().into_owned(),
+        size_bytes: installed_size,
+        extension,
     })
-    .to_string())
 }
 
 /// 暂存文件安装（对齐原版 `installStagedFile:232-264`）：优先同目录 rename，

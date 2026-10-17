@@ -1,6 +1,6 @@
-import 'dart:convert';
-
 import '../../bridge/ffi.dart' as controls;
+import '../../bridge/media_dto.dart';
+import '../bridge/media_dto_mapping.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../domain/contracts/cloud_tts_credential_store.dart';
@@ -35,26 +35,27 @@ final class RustCloudTtsSynthesizer implements CloudTtsSynthesizer {
     void cancel() => request.cancel();
     cancellation?.addListener(cancel);
     try {
-      final raw = await bridge.cloudTtsSpeak(
+      final result = await bridge.cloudTtsSpeak(
         engineId: engineId,
         apiKey: apiKey,
-        requestJson: jsonEncode({
-          'text': text,
-          'credentialKey': engine.credentialKey,
-          'voiceId': ?voiceId,
-          'voiceOptions': ?voiceOptions,
-        }),
+        input: CloudSpeechInputDto(
+          text: text,
+          credentialKey: engine.credentialKey,
+          voiceId: voiceId,
+          voiceOptions: voiceOptions == null
+              ? null
+              : cloudVoiceOptionsToDto(voiceOptions),
+        ),
         request: request,
       );
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
-      final result = jsonDecode(raw) as Map<String, dynamic>;
-      final path = result['audioPath'] as String;
+      final path = result.audioPath;
       if (path.isEmpty) throw StateError('云端合成没有返回音频');
       transferred = true;
       return HttpTtsAudio(
         audioPath: path,
-        fromCache: result['fromCache'] as bool,
-        contentType: result['contentType'] as String,
+        fromCache: result.fromCache,
+        contentType: result.contentType,
         lease: _Lease(request),
       );
     } catch (_) {

@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
+import '../bridge/media_dto_mapping.dart';
 
 /// 目录权威状态位于 Rust 数据库。— Codex + Bridge
 final class RustReadAloudVoiceRepository implements ReadAloudVoiceRepository {
@@ -10,14 +9,12 @@ final class RustReadAloudVoiceRepository implements ReadAloudVoiceRepository {
   bool get supportsCatalog => true;
   @override
   Future<List<ReadAloudVoice>> list() async =>
-      (jsonDecode(await bridge.readAloudVoiceList()) as List)
-          .map(
-            (j) => ReadAloudVoice.fromJson(Map<String, dynamic>.from(j as Map)),
-          )
+      (await bridge.readAloudVoiceList())
+          .map(readAloudVoiceFromDto)
           .toList(growable: false);
   @override
   Future<void> save(ReadAloudVoice voice) =>
-      bridge.readAloudVoiceSave(voiceJson: jsonEncode(voice.toJson()));
+      bridge.readAloudVoiceSave(voice: readAloudVoiceToDto(voice));
   @override
   Future<void> delete(String id) async {
     if (!await bridge.readAloudVoiceDelete(id: id)) throw StateError('用户音色不存在');
@@ -29,7 +26,7 @@ final class RustReadAloudVoiceRepository implements ReadAloudVoiceRepository {
     List<SystemVoiceCatalogEntry> entries,
   ) => bridge.readAloudVoiceSyncSystem(
     engineId: engineId,
-    entriesJson: jsonEncode(entries.map((e) => e.toJson()).toList()),
+    entries: entries.map(systemVoiceToDto).toList(),
   );
   @override
   Future<void> setFlags(

@@ -41,7 +41,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1366931245;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1305630254;
 
 // Section: executor
 
@@ -3278,11 +3278,11 @@ fn wire__crate__ffi__ffi__cloud_tts_save_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_engine_json = <String>::sse_decode(&mut deserializer);
+            let api_engine = <crate::media_dto::CloudTtsMetadataDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::cloud_tts_save(api_engine_json)?;
+                    let output_ok = crate::ffi::ffi::cloud_tts_save(api_engine)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -3313,7 +3313,7 @@ fn wire__crate__ffi__ffi__cloud_tts_speak_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_engine_id = <String>::sse_decode(&mut deserializer);
             let api_api_key = <String>::sse_decode(&mut deserializer);
-            let api_request_json = <String>::sse_decode(&mut deserializer);
+            let api_input = <crate::media_dto::CloudSpeechInputDto>::sse_decode(&mut deserializer);
             let api_request = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TtsRequest>,
             >>::sse_decode(&mut deserializer);
@@ -3339,7 +3339,7 @@ fn wire__crate__ffi__ffi__cloud_tts_speak_impl(
                     let output_ok = crate::ffi::ffi::cloud_tts_speak(
                         api_engine_id,
                         api_api_key,
-                        api_request_json,
+                        api_input,
                         &*api_request_guard,
                     )?;
                     std::result::Result::Ok(output_ok)
@@ -3370,7 +3370,8 @@ fn wire__crate__ffi__ffi__cloud_tts_voices_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_provider = <String>::sse_decode(&mut deserializer);
+            let api_provider =
+                <crate::media_dto::CloudTtsProviderDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
@@ -5118,11 +5119,11 @@ fn wire__crate__ffi__ffi__http_tts_add_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_http_tts_json = <String>::sse_decode(&mut deserializer);
+            let api_tts = <crate::media_dto::HttpTtsConfigDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::http_tts_add(api_http_tts_json)?;
+                    let output_ok = crate::ffi::ffi::http_tts_add(api_tts)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -5156,6 +5157,39 @@ fn wire__crate__ffi__ffi__http_tts_delete_impl(
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
                     let output_ok = crate::ffi::ffi::http_tts_delete(api_id)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__ffi__ffi__http_tts_import_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "http_tts_import",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_document = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::ffi::BridgeError>((move || {
+                    let output_ok = crate::ffi::ffi::http_tts_import(api_document)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -5286,11 +5320,11 @@ fn wire__crate__ffi__ffi__http_tts_update_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_http_tts_json = <String>::sse_decode(&mut deserializer);
+            let api_tts = <crate::media_dto::HttpTtsConfigDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::http_tts_update(api_http_tts_json)?;
+                    let output_ok = crate::ffi::ffi::http_tts_update(api_tts)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -5920,11 +5954,11 @@ fn wire__crate__ffi__ffi__read_aloud_voice_save_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_voice_json = <String>::sse_decode(&mut deserializer);
+            let api_voice = <crate::media_dto::ReadAloudVoiceDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::read_aloud_voice_save(api_voice_json)?;
+                    let output_ok = crate::ffi::ffi::read_aloud_voice_save(api_voice)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -5993,14 +6027,13 @@ fn wire__crate__ffi__ffi__read_aloud_voice_sync_system_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_engine_id = <String>::sse_decode(&mut deserializer);
-            let api_entries_json = <String>::sse_decode(&mut deserializer);
+            let api_entries =
+                <Vec<crate::media_dto::SystemVoiceEntryDto>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::read_aloud_voice_sync_system(
-                        api_engine_id,
-                        api_entries_json,
-                    )?;
+                    let output_ok =
+                        crate::ffi::ffi::read_aloud_voice_sync_system(api_engine_id, api_entries)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -10201,12 +10234,11 @@ fn wire__crate__ffi__ffi__tts_cache_record_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_audio_path = <String>::sse_decode(&mut deserializer);
-            let api_context_json = <String>::sse_decode(&mut deserializer);
+            let api_context = <crate::media_dto::TtsCacheContextDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok =
-                        crate::ffi::ffi::tts_cache_record(api_audio_path, api_context_json)?;
+                    let output_ok = crate::ffi::ffi::tts_cache_record(api_audio_path, api_context)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -11512,6 +11544,61 @@ impl SseDecode for crate::transfer_dto::AnnotatedCandidateDto {
     }
 }
 
+impl SseDecode for crate::media_dto::AudioCacheDownloadDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_status =
+            <crate::media_dto::AudioCacheDownloadStatusDto>::sse_decode(deserializer);
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_sizeBytes = <u64>::sse_decode(deserializer);
+        let mut var_extension_ = <String>::sse_decode(deserializer);
+        return crate::media_dto::AudioCacheDownloadDto {
+            status: var_status,
+            path: var_path,
+            size_bytes: var_sizeBytes,
+            extension: var_extension_,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::AudioCacheDownloadStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::media_dto::AudioCacheDownloadStatusDto::Installed,
+            1 => crate::media_dto::AudioCacheDownloadStatusDto::AlreadyCached,
+            _ => unreachable!("Invalid variant for AudioCacheDownloadStatusDto: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::AudioChapterMediaDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_chapterIndex = <i32>::sse_decode(deserializer);
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_mediaUrl = <String>::sse_decode(deserializer);
+        let mut var_chapterUrl = <String>::sse_decode(deserializer);
+        let mut var_resourceUrl = <Option<String>>::sse_decode(deserializer);
+        let mut var_isVolume = <bool>::sse_decode(deserializer);
+        let mut var_fromCache = <bool>::sse_decode(deserializer);
+        let mut var_lyric = <Option<String>>::sse_decode(deserializer);
+        let mut var_sourceUrl = <String>::sse_decode(deserializer);
+        return crate::media_dto::AudioChapterMediaDto {
+            chapter_index: var_chapterIndex,
+            title: var_title,
+            media_url: var_mediaUrl,
+            chapter_url: var_chapterUrl,
+            resource_url: var_resourceUrl,
+            is_volume: var_isVolume,
+            from_cache: var_fromCache,
+            lyric: var_lyric,
+            source_url: var_sourceUrl,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::BookDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -11967,6 +12054,102 @@ impl SseDecode for crate::transfer_dto::CheckResultDto {
     }
 }
 
+impl SseDecode for crate::media_dto::CloudSpeechInputDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_text = <String>::sse_decode(deserializer);
+        let mut var_credentialKey = <String>::sse_decode(deserializer);
+        let mut var_voiceId = <Option<String>>::sse_decode(deserializer);
+        let mut var_voiceOptions =
+            <Option<crate::media_dto::CloudVoiceOptionsDto>>::sse_decode(deserializer);
+        return crate::media_dto::CloudSpeechInputDto {
+            text: var_text,
+            credential_key: var_credentialKey,
+            voice_id: var_voiceId,
+            voice_options: var_voiceOptions,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::CloudTtsMetadataDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_provider = <crate::media_dto::CloudTtsProviderDto>::sse_decode(deserializer);
+        let mut var_baseUrl = <String>::sse_decode(deserializer);
+        let mut var_model = <String>::sse_decode(deserializer);
+        let mut var_optionsJson = <String>::sse_decode(deserializer);
+        let mut var_region = <String>::sse_decode(deserializer);
+        let mut var_appId = <String>::sse_decode(deserializer);
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_createdAt = <i64>::sse_decode(deserializer);
+        let mut var_updatedAt = <i64>::sse_decode(deserializer);
+        let mut var_credentialKey = <String>::sse_decode(deserializer);
+        return crate::media_dto::CloudTtsMetadataDto {
+            id: var_id,
+            name: var_name,
+            provider: var_provider,
+            base_url: var_baseUrl,
+            model: var_model,
+            options_json: var_optionsJson,
+            region: var_region,
+            app_id: var_appId,
+            enabled: var_enabled,
+            created_at: var_createdAt,
+            updated_at: var_updatedAt,
+            credential_key: var_credentialKey,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::CloudTtsProviderDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::media_dto::CloudTtsProviderDto::OpenAiSpeech,
+            1 => crate::media_dto::CloudTtsProviderDto::Mimo,
+            2 => crate::media_dto::CloudTtsProviderDto::AlibabaCloud,
+            _ => unreachable!("Invalid variant for CloudTtsProviderDto: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::CloudVoiceDescriptorDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_displayName = <String>::sse_decode(deserializer);
+        let mut var_styles = <Vec<String>>::sse_decode(deserializer);
+        let mut var_sampleRate = <Option<u32>>::sse_decode(deserializer);
+        return crate::media_dto::CloudVoiceDescriptorDto {
+            id: var_id,
+            display_name: var_displayName,
+            styles: var_styles,
+            sample_rate: var_sampleRate,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::CloudVoiceOptionsDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_voiceId = <Option<String>>::sse_decode(deserializer);
+        let mut var_style = <Option<String>>::sse_decode(deserializer);
+        let mut var_instructions = <Option<String>>::sse_decode(deserializer);
+        let mut var_speed = <Option<f64>>::sse_decode(deserializer);
+        let mut var_format = <Option<String>>::sse_decode(deserializer);
+        return crate::media_dto::CloudVoiceOptionsDto {
+            voice_id: var_voiceId,
+            style: var_style,
+            instructions: var_instructions,
+            speed: var_speed,
+            format: var_format,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::ContentRuleDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -12150,6 +12333,46 @@ impl SseDecode for crate::content_dto::HttpTextResponseDto {
             status: var_status,
             body: var_body,
             url: var_url,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::HttpTtsConfigDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <i64>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_url = <String>::sse_decode(deserializer);
+        let mut var_contentType = <Option<String>>::sse_decode(deserializer);
+        let mut var_pauseDuration = <i32>::sse_decode(deserializer);
+        let mut var_concurrentRate = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginUrl = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginUi = <Option<String>>::sse_decode(deserializer);
+        let mut var_header = <Option<String>>::sse_decode(deserializer);
+        let mut var_jsLib = <Option<String>>::sse_decode(deserializer);
+        let mut var_enabledCookieJar = <Option<bool>>::sse_decode(deserializer);
+        let mut var_loginCheckJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_speed = <Option<i32>>::sse_decode(deserializer);
+        let mut var_synthesisThreadCount = <i32>::sse_decode(deserializer);
+        let mut var_lastUpdateTime = <i64>::sse_decode(deserializer);
+        let mut var_isEnabled = <bool>::sse_decode(deserializer);
+        return crate::media_dto::HttpTtsConfigDto {
+            id: var_id,
+            name: var_name,
+            url: var_url,
+            content_type: var_contentType,
+            pause_duration: var_pauseDuration,
+            concurrent_rate: var_concurrentRate,
+            login_url: var_loginUrl,
+            login_ui: var_loginUi,
+            header: var_header,
+            js_lib: var_jsLib,
+            enabled_cookie_jar: var_enabledCookieJar,
+            login_check_js: var_loginCheckJs,
+            speed: var_speed,
+            synthesis_thread_count: var_synthesisThreadCount,
+            last_update_time: var_lastUpdateTime,
+            is_enabled: var_isEnabled,
         };
     }
 }
@@ -12907,6 +13130,34 @@ impl SseDecode for Vec<crate::transfer_dto::ChapterDto> {
     }
 }
 
+impl SseDecode for Vec<crate::media_dto::CloudTtsMetadataDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::CloudTtsMetadataDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::media_dto::CloudVoiceDescriptorDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::CloudVoiceDescriptorDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::content_dto::ExploreCategoryDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -12928,6 +13179,20 @@ impl SseDecode for Vec<crate::transfer_dto::HighlightRuleDto> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::transfer_dto::HighlightRuleDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::media_dto::HttpTtsConfigDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::HttpTtsConfigDto>::sse_decode(
                 deserializer,
             ));
         }
@@ -13084,6 +13349,20 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::media_dto::ReadAloudVoiceDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::ReadAloudVoiceDto>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -13251,6 +13530,48 @@ impl SseDecode for Vec<crate::transfer_dto::SourceMatchDto> {
     }
 }
 
+impl SseDecode for Vec<crate::media_dto::SystemVoiceEntryDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::SystemVoiceEntryDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::media_dto::TtsCacheContextDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::TtsCacheContextDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::media_dto::TtsCacheEntryDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::media_dto::TtsCacheEntryDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::content_dto::WebChapterDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -13369,6 +13690,19 @@ impl SseDecode for Option<crate::transfer_dto::ChapterDto> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::transfer_dto::ChapterDto>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::media_dto::CloudVoiceOptionsDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::media_dto::CloudVoiceOptionsDto>::sse_decode(
+                deserializer,
+            ));
         } else {
             return None;
         }
@@ -13677,6 +14011,42 @@ impl SseDecode for crate::transfer_dto::PlatformActionKind {
             10 => crate::transfer_dto::PlatformActionKind::CopyText,
             11 => crate::transfer_dto::PlatformActionKind::ClearTtsCache,
             _ => unreachable!("Invalid variant for PlatformActionKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::ReadAloudVoiceDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_engineType = <String>::sse_decode(deserializer);
+        let mut var_engineId = <String>::sse_decode(deserializer);
+        let mut var_speakerId = <String>::sse_decode(deserializer);
+        let mut var_displayName = <String>::sse_decode(deserializer);
+        let mut var_traitsJson = <String>::sse_decode(deserializer);
+        let mut var_emotionCatalogJson = <String>::sse_decode(deserializer);
+        let mut var_managedBy = <String>::sse_decode(deserializer);
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_available = <bool>::sse_decode(deserializer);
+        let mut var_excluded = <bool>::sse_decode(deserializer);
+        let mut var_revision = <i64>::sse_decode(deserializer);
+        let mut var_createdAt = <i64>::sse_decode(deserializer);
+        let mut var_updatedAt = <i64>::sse_decode(deserializer);
+        return crate::media_dto::ReadAloudVoiceDto {
+            id: var_id,
+            engine_type: var_engineType,
+            engine_id: var_engineId,
+            speaker_id: var_speakerId,
+            display_name: var_displayName,
+            traits_json: var_traitsJson,
+            emotion_catalog_json: var_emotionCatalogJson,
+            managed_by: var_managedBy,
+            enabled: var_enabled,
+            available: var_available,
+            excluded: var_excluded,
+            revision: var_revision,
+            created_at: var_createdAt,
+            updated_at: var_updatedAt,
         };
     }
 }
@@ -14208,6 +14578,20 @@ impl SseDecode for crate::transfer_dto::SwitchSearchOptionsDto {
     }
 }
 
+impl SseDecode for crate::media_dto::SystemVoiceEntryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_speakerId = <String>::sse_decode(deserializer);
+        let mut var_displayName = <String>::sse_decode(deserializer);
+        let mut var_traitsJson = <String>::sse_decode(deserializer);
+        return crate::media_dto::SystemVoiceEntryDto {
+            speaker_id: var_speakerId,
+            display_name: var_displayName,
+            traits_json: var_traitsJson,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::TextResponseDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -14253,6 +14637,73 @@ impl SseDecode for crate::transfer_dto::TocRuleDto {
             is_pay: var_isPay,
             update_time: var_updateTime,
             next_toc_url: var_nextTocUrl,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::TtsCacheClearResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_removedFiles = <u64>::sse_decode(deserializer);
+        let mut var_removedBytes = <u64>::sse_decode(deserializer);
+        let mut var_skippedFiles = <u64>::sse_decode(deserializer);
+        return crate::media_dto::TtsCacheClearResultDto {
+            removed_files: var_removedFiles,
+            removed_bytes: var_removedBytes,
+            skipped_files: var_skippedFiles,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::TtsCacheContextDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_bookUrl = <String>::sse_decode(deserializer);
+        let mut var_bookName = <String>::sse_decode(deserializer);
+        let mut var_chapterIndex = <u32>::sse_decode(deserializer);
+        let mut var_chapterTitle = <String>::sse_decode(deserializer);
+        let mut var_paragraphIndex = <u32>::sse_decode(deserializer);
+        let mut var_text = <String>::sse_decode(deserializer);
+        return crate::media_dto::TtsCacheContextDto {
+            book_url: var_bookUrl,
+            book_name: var_bookName,
+            chapter_index: var_chapterIndex,
+            chapter_title: var_chapterTitle,
+            paragraph_index: var_paragraphIndex,
+            text: var_text,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::TtsCacheEntryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_sizeBytes = <u64>::sse_decode(deserializer);
+        let mut var_modifiedAtMs = <u64>::sse_decode(deserializer);
+        let mut var_protected = <bool>::sse_decode(deserializer);
+        let mut var_contexts =
+            <Vec<crate::media_dto::TtsCacheContextDto>>::sse_decode(deserializer);
+        return crate::media_dto::TtsCacheEntryDto {
+            name: var_name,
+            size_bytes: var_sizeBytes,
+            modified_at_ms: var_modifiedAtMs,
+            protected: var_protected,
+            contexts: var_contexts,
+        };
+    }
+}
+
+impl SseDecode for crate::media_dto::TtsSpeakDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_audioPath = <String>::sse_decode(deserializer);
+        let mut var_fromCache = <bool>::sse_decode(deserializer);
+        let mut var_contentType = <String>::sse_decode(deserializer);
+        return crate::media_dto::TtsSpeakDto {
+            audio_path: var_audioPath,
+            from_cache: var_fromCache,
+            content_type: var_contentType,
         };
     }
 }
@@ -14632,292 +15083,293 @@ fn pde_ffi_dispatcher_primary_impl(
         143 => wire__crate__ffi__ffi__http_post_impl(port, ptr, rust_vec_len, data_len),
         144 => wire__crate__ffi__ffi__http_tts_add_impl(port, ptr, rust_vec_len, data_len),
         145 => wire__crate__ffi__ffi__http_tts_delete_impl(port, ptr, rust_vec_len, data_len),
-        146 => wire__crate__ffi__ffi__http_tts_list_impl(port, ptr, rust_vec_len, data_len),
-        147 => wire__crate__ffi__ffi__http_tts_login_impl(port, ptr, rust_vec_len, data_len),
-        148 => wire__crate__ffi__ffi__http_tts_set_enabled_impl(port, ptr, rust_vec_len, data_len),
-        149 => wire__crate__ffi__ffi__http_tts_update_impl(port, ptr, rust_vec_len, data_len),
-        150 => wire__crate__ffi__ffi__import_detect_format_impl(port, ptr, rust_vec_len, data_len),
-        151 => wire__crate__ffi__ffi__import_local_book_impl(port, ptr, rust_vec_len, data_len),
-        152 => wire__crate__ffi__ffi__import_old_data_impl(port, ptr, rust_vec_len, data_len),
-        153 => wire__crate__ffi__ffi__import_parse_metadata_impl(port, ptr, rust_vec_len, data_len),
-        154 => wire__crate__ffi__ffi__init_impl(port, ptr, rust_vec_len, data_len),
-        155 => wire__crate__ffi__ffi__js_eval_impl(port, ptr, rust_vec_len, data_len),
-        156 => wire__crate__ffi__ffi__js_source_extract_impl(port, ptr, rust_vec_len, data_len),
-        157 => wire__crate__ffi__ffi__js_source_stamp_last_update_time_impl(
+        146 => wire__crate__ffi__ffi__http_tts_import_impl(port, ptr, rust_vec_len, data_len),
+        147 => wire__crate__ffi__ffi__http_tts_list_impl(port, ptr, rust_vec_len, data_len),
+        148 => wire__crate__ffi__ffi__http_tts_login_impl(port, ptr, rust_vec_len, data_len),
+        149 => wire__crate__ffi__ffi__http_tts_set_enabled_impl(port, ptr, rust_vec_len, data_len),
+        150 => wire__crate__ffi__ffi__http_tts_update_impl(port, ptr, rust_vec_len, data_len),
+        151 => wire__crate__ffi__ffi__import_detect_format_impl(port, ptr, rust_vec_len, data_len),
+        152 => wire__crate__ffi__ffi__import_local_book_impl(port, ptr, rust_vec_len, data_len),
+        153 => wire__crate__ffi__ffi__import_old_data_impl(port, ptr, rust_vec_len, data_len),
+        154 => wire__crate__ffi__ffi__import_parse_metadata_impl(port, ptr, rust_vec_len, data_len),
+        155 => wire__crate__ffi__ffi__init_impl(port, ptr, rust_vec_len, data_len),
+        156 => wire__crate__ffi__ffi__js_eval_impl(port, ptr, rust_vec_len, data_len),
+        157 => wire__crate__ffi__ffi__js_source_extract_impl(port, ptr, rust_vec_len, data_len),
+        158 => wire__crate__ffi__ffi__js_source_stamp_last_update_time_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        158 => {
+        159 => {
             wire__crate__ffi__ffi__js_source_syntax_check_impl(port, ptr, rust_vec_len, data_len)
         }
-        159 => wire__crate__ffi__ffi__looks_like_curl_impl(port, ptr, rust_vec_len, data_len),
-        160 => wire__crate__ffi__ffi__parse_rule_impl(port, ptr, rust_vec_len, data_len),
-        161 => wire__crate__ffi__ffi__parse_video_danmaku_impl(port, ptr, rust_vec_len, data_len),
-        162 => wire__crate__ffi__ffi__precise_search_impl(port, ptr, rust_vec_len, data_len),
-        163 => wire__crate__ffi__privacy_has_password_impl(port, ptr, rust_vec_len, data_len),
-        164 => wire__crate__ffi__privacy_set_password_impl(port, ptr, rust_vec_len, data_len),
-        165 => wire__crate__ffi__privacy_verify_password_impl(port, ptr, rust_vec_len, data_len),
-        166 => {
+        160 => wire__crate__ffi__ffi__looks_like_curl_impl(port, ptr, rust_vec_len, data_len),
+        161 => wire__crate__ffi__ffi__parse_rule_impl(port, ptr, rust_vec_len, data_len),
+        162 => wire__crate__ffi__ffi__parse_video_danmaku_impl(port, ptr, rust_vec_len, data_len),
+        163 => wire__crate__ffi__ffi__precise_search_impl(port, ptr, rust_vec_len, data_len),
+        164 => wire__crate__ffi__privacy_has_password_impl(port, ptr, rust_vec_len, data_len),
+        165 => wire__crate__ffi__privacy_set_password_impl(port, ptr, rust_vec_len, data_len),
+        166 => wire__crate__ffi__privacy_verify_password_impl(port, ptr, rust_vec_len, data_len),
+        167 => {
             wire__crate__ffi__ffi__read_aloud_voice_delete_impl(port, ptr, rust_vec_len, data_len)
         }
-        167 => wire__crate__ffi__ffi__read_aloud_voice_list_impl(port, ptr, rust_vec_len, data_len),
-        168 => wire__crate__ffi__ffi__read_aloud_voice_save_impl(port, ptr, rust_vec_len, data_len),
-        169 => wire__crate__ffi__ffi__read_aloud_voice_set_flags_impl(
+        168 => wire__crate__ffi__ffi__read_aloud_voice_list_impl(port, ptr, rust_vec_len, data_len),
+        169 => wire__crate__ffi__ffi__read_aloud_voice_save_impl(port, ptr, rust_vec_len, data_len),
+        170 => wire__crate__ffi__ffi__read_aloud_voice_set_flags_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        170 => wire__crate__ffi__ffi__read_aloud_voice_sync_system_impl(
+        171 => wire__crate__ffi__ffi__read_aloud_voice_sync_system_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        171 => wire__crate__ffi__ffi__read_record_all_detail_list_impl(
+        172 => wire__crate__ffi__ffi__read_record_all_detail_list_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        172 => wire__crate__ffi__ffi__read_record_clear_impl(port, ptr, rust_vec_len, data_len),
-        173 => {
+        173 => wire__crate__ffi__ffi__read_record_clear_impl(port, ptr, rust_vec_len, data_len),
+        174 => {
             wire__crate__ffi__ffi__read_record_daily_list_impl(port, ptr, rust_vec_len, data_len)
         }
-        174 => wire__crate__ffi__ffi__read_record_delete_impl(port, ptr, rust_vec_len, data_len),
-        175 => wire__crate__ffi__ffi__read_record_delete_with_author_impl(
+        175 => wire__crate__ffi__ffi__read_record_delete_impl(port, ptr, rust_vec_len, data_len),
+        176 => wire__crate__ffi__ffi__read_record_delete_with_author_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        176 => {
+        177 => {
             wire__crate__ffi__ffi__read_record_detail_delete_impl(port, ptr, rust_vec_len, data_len)
         }
-        177 => {
+        178 => {
             wire__crate__ffi__ffi__read_record_detail_list_impl(port, ptr, rust_vec_len, data_len)
         }
-        178 => wire__crate__ffi__ffi__read_record_list_impl(port, ptr, rust_vec_len, data_len),
-        179 => {
+        179 => wire__crate__ffi__ffi__read_record_list_impl(port, ptr, rust_vec_len, data_len),
+        180 => {
             wire__crate__ffi__ffi__read_record_record_time_impl(port, ptr, rust_vec_len, data_len)
         }
-        180 => {
+        181 => {
             wire__crate__ffi__ffi__read_record_session_list_impl(port, ptr, rust_vec_len, data_len)
         }
-        181 => wire__crate__ffi__ffi__read_record_sessions_delete_impl(
+        182 => wire__crate__ffi__ffi__read_record_sessions_delete_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        182 => wire__crate__ffi__ffi__read_record_upsert_impl(port, ptr, rust_vec_len, data_len),
-        183 => wire__crate__ffi__ffi__reader_can_remove_same_title_impl(
+        183 => wire__crate__ffi__ffi__read_record_upsert_impl(port, ptr, rust_vec_len, data_len),
+        184 => wire__crate__ffi__ffi__reader_can_remove_same_title_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        184 => wire__crate__ffi__ffi__reader_fetch_content_impl(port, ptr, rust_vec_len, data_len),
-        185 => wire__crate__ffi__ffi__reader_get_chapters_impl(port, ptr, rust_vec_len, data_len),
-        186 => wire__crate__ffi__ffi__reader_get_chinese_convert_impl(
+        185 => wire__crate__ffi__ffi__reader_fetch_content_impl(port, ptr, rust_vec_len, data_len),
+        186 => wire__crate__ffi__ffi__reader_get_chapters_impl(port, ptr, rust_vec_len, data_len),
+        187 => wire__crate__ffi__ffi__reader_get_chinese_convert_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        187 => wire__crate__ffi__ffi__reader_get_content_impl(port, ptr, rust_vec_len, data_len),
-        188 => {
+        188 => wire__crate__ffi__ffi__reader_get_content_impl(port, ptr, rust_vec_len, data_len),
+        189 => {
             wire__crate__ffi__ffi__reader_get_content_full_impl(port, ptr, rust_vec_len, data_len)
         }
-        189 => {
+        190 => {
             wire__crate__ffi__ffi__reader_get_content_raw_impl(port, ptr, rust_vec_len, data_len)
         }
-        190 => wire__crate__ffi__ffi__reader_get_same_title_removed_impl(
+        191 => wire__crate__ffi__ffi__reader_get_same_title_removed_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        191 => wire__crate__ffi__reader_layout_begin_impl(port, ptr, rust_vec_len, data_len),
-        192 => wire__crate__ffi__ffi__reader_refresh_toc_impl(port, ptr, rust_vec_len, data_len),
-        193 => wire__crate__ffi__ffi__reader_set_chinese_convert_impl(
+        192 => wire__crate__ffi__reader_layout_begin_impl(port, ptr, rust_vec_len, data_len),
+        193 => wire__crate__ffi__ffi__reader_refresh_toc_impl(port, ptr, rust_vec_len, data_len),
+        194 => wire__crate__ffi__ffi__reader_set_chinese_convert_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        194 => wire__crate__ffi__ffi__reader_toggle_same_title_removed_impl(
+        195 => wire__crate__ffi__ffi__reader_toggle_same_title_removed_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        195 => {
+        196 => {
             wire__crate__ffi__ffi__reader_update_progress_impl(port, ptr, rust_vec_len, data_len)
         }
-        196 => wire__crate__ffi__ffi__replace_rule_add_impl(port, ptr, rust_vec_len, data_len),
-        197 => wire__crate__ffi__ffi__replace_rule_delete_impl(port, ptr, rust_vec_len, data_len),
-        198 => wire__crate__ffi__ffi__replace_rule_enabled_impl(port, ptr, rust_vec_len, data_len),
-        199 => wire__crate__ffi__ffi__replace_rule_list_impl(port, ptr, rust_vec_len, data_len),
-        200 => wire__crate__ffi__ffi__replace_rule_preview_impl(port, ptr, rust_vec_len, data_len),
-        201 => {
+        197 => wire__crate__ffi__ffi__replace_rule_add_impl(port, ptr, rust_vec_len, data_len),
+        198 => wire__crate__ffi__ffi__replace_rule_delete_impl(port, ptr, rust_vec_len, data_len),
+        199 => wire__crate__ffi__ffi__replace_rule_enabled_impl(port, ptr, rust_vec_len, data_len),
+        200 => wire__crate__ffi__ffi__replace_rule_list_impl(port, ptr, rust_vec_len, data_len),
+        201 => wire__crate__ffi__ffi__replace_rule_preview_impl(port, ptr, rust_vec_len, data_len),
+        202 => {
             wire__crate__ffi__ffi__replace_rule_set_enabled_impl(port, ptr, rust_vec_len, data_len)
         }
-        202 => wire__crate__ffi__ffi__replace_rule_update_impl(port, ptr, rust_vec_len, data_len),
-        203 => wire__crate__ffi__ffi__review_get_detail_impl(port, ptr, rust_vec_len, data_len),
-        204 => wire__crate__ffi__ffi__review_get_replies_impl(port, ptr, rust_vec_len, data_len),
-        205 => wire__crate__ffi__ffi__review_get_summary_impl(port, ptr, rust_vec_len, data_len),
-        206 => wire__crate__ffi__ffi__rss_add_source_impl(port, ptr, rust_vec_len, data_len),
-        207 => wire__crate__ffi__ffi__rss_clear_articles_impl(port, ptr, rust_vec_len, data_len),
-        208 => {
+        203 => wire__crate__ffi__ffi__replace_rule_update_impl(port, ptr, rust_vec_len, data_len),
+        204 => wire__crate__ffi__ffi__review_get_detail_impl(port, ptr, rust_vec_len, data_len),
+        205 => wire__crate__ffi__ffi__review_get_replies_impl(port, ptr, rust_vec_len, data_len),
+        206 => wire__crate__ffi__ffi__review_get_summary_impl(port, ptr, rust_vec_len, data_len),
+        207 => wire__crate__ffi__ffi__rss_add_source_impl(port, ptr, rust_vec_len, data_len),
+        208 => wire__crate__ffi__ffi__rss_clear_articles_impl(port, ptr, rust_vec_len, data_len),
+        209 => {
             wire__crate__ffi__ffi__rss_clear_read_records_impl(port, ptr, rust_vec_len, data_len)
         }
-        209 => wire__crate__ffi__ffi__rss_delete_source_impl(port, ptr, rust_vec_len, data_len),
-        210 => wire__crate__ffi__ffi__rss_fetch_articles_impl(port, ptr, rust_vec_len, data_len),
-        211 => wire__crate__ffi__ffi__rss_is_read_impl(port, ptr, rust_vec_len, data_len),
-        212 => wire__crate__ffi__ffi__rss_is_read_by_title_impl(port, ptr, rust_vec_len, data_len),
-        213 => wire__crate__ffi__ffi__rss_list_read_records_impl(port, ptr, rust_vec_len, data_len),
-        214 => wire__crate__ffi__ffi__rss_list_read_records_by_origin_impl(
+        210 => wire__crate__ffi__ffi__rss_delete_source_impl(port, ptr, rust_vec_len, data_len),
+        211 => wire__crate__ffi__ffi__rss_fetch_articles_impl(port, ptr, rust_vec_len, data_len),
+        212 => wire__crate__ffi__ffi__rss_is_read_impl(port, ptr, rust_vec_len, data_len),
+        213 => wire__crate__ffi__ffi__rss_is_read_by_title_impl(port, ptr, rust_vec_len, data_len),
+        214 => wire__crate__ffi__ffi__rss_list_read_records_impl(port, ptr, rust_vec_len, data_len),
+        215 => wire__crate__ffi__ffi__rss_list_read_records_by_origin_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        215 => wire__crate__ffi__ffi__rss_list_sources_impl(port, ptr, rust_vec_len, data_len),
-        216 => wire__crate__ffi__ffi__rss_mark_read_impl(port, ptr, rust_vec_len, data_len),
-        217 => wire__crate__ffi__ffi__rss_read_record_count_impl(port, ptr, rust_vec_len, data_len),
-        218 => wire__crate__ffi__ffi__rss_star_add_impl(port, ptr, rust_vec_len, data_len),
-        219 => wire__crate__ffi__ffi__rss_star_delete_impl(port, ptr, rust_vec_len, data_len),
-        220 => wire__crate__ffi__ffi__rss_star_is_starred_impl(port, ptr, rust_vec_len, data_len),
-        221 => wire__crate__ffi__ffi__rss_star_list_impl(port, ptr, rust_vec_len, data_len),
-        222 => wire__crate__ffi__ffi__rss_update_source_impl(port, ptr, rust_vec_len, data_len),
-        223 => wire__crate__ffi__ffi__rule_sub_apply_update_impl(port, ptr, rust_vec_len, data_len),
-        224 => wire__crate__ffi__ffi__rule_sub_check_update_impl(port, ptr, rust_vec_len, data_len),
-        225 => wire__crate__ffi__ffi__rule_sub_delete_impl(port, ptr, rust_vec_len, data_len),
-        226 => wire__crate__ffi__ffi__rule_sub_list_impl(port, ptr, rust_vec_len, data_len),
-        227 => wire__crate__ffi__ffi__rule_sub_save_impl(port, ptr, rust_vec_len, data_len),
-        228 => wire__crate__ffi__ffi__rule_sub_set_enabled_impl(port, ptr, rust_vec_len, data_len),
-        229 => wire__crate__ffi__ffi__rule_sub_update_order_impl(port, ptr, rust_vec_len, data_len),
-        230 => wire__crate__ffi__ffi__save_chapter_content_impl(port, ptr, rust_vec_len, data_len),
-        231 => wire__crate__ffi__ffi__save_cover_rule_impl(port, ptr, rust_vec_len, data_len),
-        232 => wire__crate__ffi__ffi__save_image_cache_impl(port, ptr, rust_vec_len, data_len),
-        233 => wire__crate__ffi__ffi__search_books_impl(port, ptr, rust_vec_len, data_len),
-        234 => wire__crate__ffi__ffi__search_cancel_impl(port, ptr, rust_vec_len, data_len),
-        235 => wire__crate__ffi__ffi__search_cover_impl(port, ptr, rust_vec_len, data_len),
-        236 => wire__crate__ffi__ffi__search_cover_rules_impl(port, ptr, rust_vec_len, data_len),
-        237 => wire__crate__ffi__ffi__search_history_add_impl(port, ptr, rust_vec_len, data_len),
-        238 => {
+        216 => wire__crate__ffi__ffi__rss_list_sources_impl(port, ptr, rust_vec_len, data_len),
+        217 => wire__crate__ffi__ffi__rss_mark_read_impl(port, ptr, rust_vec_len, data_len),
+        218 => wire__crate__ffi__ffi__rss_read_record_count_impl(port, ptr, rust_vec_len, data_len),
+        219 => wire__crate__ffi__ffi__rss_star_add_impl(port, ptr, rust_vec_len, data_len),
+        220 => wire__crate__ffi__ffi__rss_star_delete_impl(port, ptr, rust_vec_len, data_len),
+        221 => wire__crate__ffi__ffi__rss_star_is_starred_impl(port, ptr, rust_vec_len, data_len),
+        222 => wire__crate__ffi__ffi__rss_star_list_impl(port, ptr, rust_vec_len, data_len),
+        223 => wire__crate__ffi__ffi__rss_update_source_impl(port, ptr, rust_vec_len, data_len),
+        224 => wire__crate__ffi__ffi__rule_sub_apply_update_impl(port, ptr, rust_vec_len, data_len),
+        225 => wire__crate__ffi__ffi__rule_sub_check_update_impl(port, ptr, rust_vec_len, data_len),
+        226 => wire__crate__ffi__ffi__rule_sub_delete_impl(port, ptr, rust_vec_len, data_len),
+        227 => wire__crate__ffi__ffi__rule_sub_list_impl(port, ptr, rust_vec_len, data_len),
+        228 => wire__crate__ffi__ffi__rule_sub_save_impl(port, ptr, rust_vec_len, data_len),
+        229 => wire__crate__ffi__ffi__rule_sub_set_enabled_impl(port, ptr, rust_vec_len, data_len),
+        230 => wire__crate__ffi__ffi__rule_sub_update_order_impl(port, ptr, rust_vec_len, data_len),
+        231 => wire__crate__ffi__ffi__save_chapter_content_impl(port, ptr, rust_vec_len, data_len),
+        232 => wire__crate__ffi__ffi__save_cover_rule_impl(port, ptr, rust_vec_len, data_len),
+        233 => wire__crate__ffi__ffi__save_image_cache_impl(port, ptr, rust_vec_len, data_len),
+        234 => wire__crate__ffi__ffi__search_books_impl(port, ptr, rust_vec_len, data_len),
+        235 => wire__crate__ffi__ffi__search_cancel_impl(port, ptr, rust_vec_len, data_len),
+        236 => wire__crate__ffi__ffi__search_cover_impl(port, ptr, rust_vec_len, data_len),
+        237 => wire__crate__ffi__ffi__search_cover_rules_impl(port, ptr, rust_vec_len, data_len),
+        238 => wire__crate__ffi__ffi__search_history_add_impl(port, ptr, rust_vec_len, data_len),
+        239 => {
             wire__crate__ffi__ffi__search_history_by_prefix_impl(port, ptr, rust_vec_len, data_len)
         }
-        239 => wire__crate__ffi__ffi__search_history_clear_impl(port, ptr, rust_vec_len, data_len),
-        240 => wire__crate__ffi__ffi__search_history_delete_impl(port, ptr, rust_vec_len, data_len),
-        241 => wire__crate__ffi__ffi__search_history_list_impl(port, ptr, rust_vec_len, data_len),
-        242 => wire__crate__ffi__ffi__search_multi_impl(port, ptr, rust_vec_len, data_len),
-        243 => wire__crate__ffi__ffi__search_multi_stream_impl(port, ptr, rust_vec_len, data_len),
-        244 => wire__crate__ffi__ffi__search_pause_impl(port, ptr, rust_vec_len, data_len),
-        245 => wire__crate__ffi__ffi__search_resume_impl(port, ptr, rust_vec_len, data_len),
-        246 => wire__crate__ffi__ffi__server_start_impl(port, ptr, rust_vec_len, data_len),
-        247 => wire__crate__ffi__ffi__server_status_impl(port, ptr, rust_vec_len, data_len),
-        248 => wire__crate__ffi__ffi__server_stop_impl(port, ptr, rust_vec_len, data_len),
-        249 => wire__crate__ffi__ffi__set_audio_cache_dir_impl(port, ptr, rust_vec_len, data_len),
-        250 => wire__crate__ffi__ffi__set_cache_dir_impl(port, ptr, rust_vec_len, data_len),
-        251 => wire__crate__ffi__ffi__set_custom_hosts_impl(port, ptr, rust_vec_len, data_len),
-        252 => wire__crate__ffi__ffi__set_device_id_impl(port, ptr, rust_vec_len, data_len),
-        253 => wire__crate__ffi__ffi__set_image_cache_dir_impl(port, ptr, rust_vec_len, data_len),
-        254 => wire__crate__ffi__ffi__set_mcp_port_impl(port, ptr, rust_vec_len, data_len),
-        255 => wire__crate__ffi__ffi__set_read_book_config_impl(port, ptr, rust_vec_len, data_len),
-        256 => wire__crate__ffi__ffi__set_source_variable_impl(port, ptr, rust_vec_len, data_len),
-        257 => wire__crate__ffi__ffi__set_theme_config_impl(port, ptr, rust_vec_len, data_len),
-        258 => wire__crate__ffi__ffi__set_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        259 => wire__crate__ffi__ffi__source_add_impl(port, ptr, rust_vec_len, data_len),
-        260 => wire__crate__ffi__ffi__source_call_back_btn_impl(port, ptr, rust_vec_len, data_len),
-        261 => wire__crate__ffi__ffi__source_check_impl(port, ptr, rust_vec_len, data_len),
-        262 => wire__crate__ffi__ffi__source_check_cancel_impl(port, ptr, rust_vec_len, data_len),
-        263 => wire__crate__ffi__ffi__source_check_stream_impl(port, ptr, rust_vec_len, data_len),
-        264 => wire__crate__ffi__ffi__source_delete_impl(port, ptr, rust_vec_len, data_len),
-        265 => wire__crate__ffi__ffi__source_disable_impl(port, ptr, rust_vec_len, data_len),
-        266 => wire__crate__ffi__ffi__source_enable_impl(port, ptr, rust_vec_len, data_len),
-        267 => wire__crate__ffi__ffi__source_export_impl(port, ptr, rust_vec_len, data_len),
-        268 => {
+        240 => wire__crate__ffi__ffi__search_history_clear_impl(port, ptr, rust_vec_len, data_len),
+        241 => wire__crate__ffi__ffi__search_history_delete_impl(port, ptr, rust_vec_len, data_len),
+        242 => wire__crate__ffi__ffi__search_history_list_impl(port, ptr, rust_vec_len, data_len),
+        243 => wire__crate__ffi__ffi__search_multi_impl(port, ptr, rust_vec_len, data_len),
+        244 => wire__crate__ffi__ffi__search_multi_stream_impl(port, ptr, rust_vec_len, data_len),
+        245 => wire__crate__ffi__ffi__search_pause_impl(port, ptr, rust_vec_len, data_len),
+        246 => wire__crate__ffi__ffi__search_resume_impl(port, ptr, rust_vec_len, data_len),
+        247 => wire__crate__ffi__ffi__server_start_impl(port, ptr, rust_vec_len, data_len),
+        248 => wire__crate__ffi__ffi__server_status_impl(port, ptr, rust_vec_len, data_len),
+        249 => wire__crate__ffi__ffi__server_stop_impl(port, ptr, rust_vec_len, data_len),
+        250 => wire__crate__ffi__ffi__set_audio_cache_dir_impl(port, ptr, rust_vec_len, data_len),
+        251 => wire__crate__ffi__ffi__set_cache_dir_impl(port, ptr, rust_vec_len, data_len),
+        252 => wire__crate__ffi__ffi__set_custom_hosts_impl(port, ptr, rust_vec_len, data_len),
+        253 => wire__crate__ffi__ffi__set_device_id_impl(port, ptr, rust_vec_len, data_len),
+        254 => wire__crate__ffi__ffi__set_image_cache_dir_impl(port, ptr, rust_vec_len, data_len),
+        255 => wire__crate__ffi__ffi__set_mcp_port_impl(port, ptr, rust_vec_len, data_len),
+        256 => wire__crate__ffi__ffi__set_read_book_config_impl(port, ptr, rust_vec_len, data_len),
+        257 => wire__crate__ffi__ffi__set_source_variable_impl(port, ptr, rust_vec_len, data_len),
+        258 => wire__crate__ffi__ffi__set_theme_config_impl(port, ptr, rust_vec_len, data_len),
+        259 => wire__crate__ffi__ffi__set_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        260 => wire__crate__ffi__ffi__source_add_impl(port, ptr, rust_vec_len, data_len),
+        261 => wire__crate__ffi__ffi__source_call_back_btn_impl(port, ptr, rust_vec_len, data_len),
+        262 => wire__crate__ffi__ffi__source_check_impl(port, ptr, rust_vec_len, data_len),
+        263 => wire__crate__ffi__ffi__source_check_cancel_impl(port, ptr, rust_vec_len, data_len),
+        264 => wire__crate__ffi__ffi__source_check_stream_impl(port, ptr, rust_vec_len, data_len),
+        265 => wire__crate__ffi__ffi__source_delete_impl(port, ptr, rust_vec_len, data_len),
+        266 => wire__crate__ffi__ffi__source_disable_impl(port, ptr, rust_vec_len, data_len),
+        267 => wire__crate__ffi__ffi__source_enable_impl(port, ptr, rust_vec_len, data_len),
+        268 => wire__crate__ffi__ffi__source_export_impl(port, ptr, rust_vec_len, data_len),
+        269 => {
             wire__crate__ffi__ffi__source_get_login_header_impl(port, ptr, rust_vec_len, data_len)
         }
-        269 => wire__crate__ffi__ffi__source_get_login_info_impl(port, ptr, rust_vec_len, data_len),
-        270 => wire__crate__ffi__ffi__source_import_impl(port, ptr, rust_vec_len, data_len),
-        271 => wire__crate__ffi__ffi__source_is_login_ui_v2_impl(port, ptr, rust_vec_len, data_len),
-        272 => wire__crate__ffi__ffi__source_list_impl(port, ptr, rust_vec_len, data_len),
-        273 => wire__crate__ffi__ffi__source_list_enabled_impl(port, ptr, rust_vec_len, data_len),
-        274 => {
+        270 => wire__crate__ffi__ffi__source_get_login_info_impl(port, ptr, rust_vec_len, data_len),
+        271 => wire__crate__ffi__ffi__source_import_impl(port, ptr, rust_vec_len, data_len),
+        272 => wire__crate__ffi__ffi__source_is_login_ui_v2_impl(port, ptr, rust_vec_len, data_len),
+        273 => wire__crate__ffi__ffi__source_list_impl(port, ptr, rust_vec_len, data_len),
+        274 => wire__crate__ffi__ffi__source_list_enabled_impl(port, ptr, rust_vec_len, data_len),
+        275 => {
             wire__crate__ffi__ffi__source_login_action_v2_impl(port, ptr, rust_vec_len, data_len)
         }
-        275 => wire__crate__ffi__ffi__source_login_ui_v2_impl(port, ptr, rust_vec_len, data_len),
-        276 => wire__crate__ffi__ffi__source_login_v1_impl(port, ptr, rust_vec_len, data_len),
-        277 => {
+        276 => wire__crate__ffi__ffi__source_login_ui_v2_impl(port, ptr, rust_vec_len, data_len),
+        277 => wire__crate__ffi__ffi__source_login_v1_impl(port, ptr, rust_vec_len, data_len),
+        278 => {
             wire__crate__ffi__ffi__source_put_login_header_impl(port, ptr, rust_vec_len, data_len)
         }
-        278 => wire__crate__ffi__ffi__source_put_login_info_impl(port, ptr, rust_vec_len, data_len),
-        279 => wire__crate__ffi__ffi__source_switch_apply_impl(port, ptr, rust_vec_len, data_len),
-        280 => wire__crate__ffi__ffi__source_switch_apply_cancel_impl(
+        279 => wire__crate__ffi__ffi__source_put_login_info_impl(port, ptr, rust_vec_len, data_len),
+        280 => wire__crate__ffi__ffi__source_switch_apply_impl(port, ptr, rust_vec_len, data_len),
+        281 => wire__crate__ffi__ffi__source_switch_apply_cancel_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        281 => wire__crate__ffi__ffi__source_switch_apply_prefetch_impl(
+        282 => wire__crate__ffi__ffi__source_switch_apply_prefetch_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        282 => wire__crate__ffi__ffi__source_switch_search_impl(port, ptr, rust_vec_len, data_len),
-        283 => wire__crate__ffi__ffi__source_switch_search_stream_impl(
+        283 => wire__crate__ffi__ffi__source_switch_search_impl(port, ptr, rust_vec_len, data_len),
+        284 => wire__crate__ffi__ffi__source_switch_search_stream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        284 => wire__crate__ffi__ffi__source_update_impl(port, ptr, rust_vec_len, data_len),
-        286 => wire__crate__ffi__ffi__tts_cache_clear_impl(port, ptr, rust_vec_len, data_len),
-        287 => wire__crate__ffi__ffi__tts_cache_list_impl(port, ptr, rust_vec_len, data_len),
-        288 => wire__crate__ffi__ffi__tts_cache_record_impl(port, ptr, rust_vec_len, data_len),
-        290 => wire__crate__ffi__ffi__tts_set_cache_dir_impl(port, ptr, rust_vec_len, data_len),
-        291 => wire__crate__ffi__ffi__tts_speak_impl(port, ptr, rust_vec_len, data_len),
-        292 => wire__crate__ffi__ffi__txt_search_impl(port, ptr, rust_vec_len, data_len),
-        293 => wire__crate__ffi__ffi__txt_search_count_impl(port, ptr, rust_vec_len, data_len),
-        294 => wire__crate__ffi__ffi__txt_search_in_chapter_impl(port, ptr, rust_vec_len, data_len),
-        295 => wire__crate__ffi__ffi__txt_search_regex_impl(port, ptr, rust_vec_len, data_len),
-        296 => {
+        285 => wire__crate__ffi__ffi__source_update_impl(port, ptr, rust_vec_len, data_len),
+        287 => wire__crate__ffi__ffi__tts_cache_clear_impl(port, ptr, rust_vec_len, data_len),
+        288 => wire__crate__ffi__ffi__tts_cache_list_impl(port, ptr, rust_vec_len, data_len),
+        289 => wire__crate__ffi__ffi__tts_cache_record_impl(port, ptr, rust_vec_len, data_len),
+        291 => wire__crate__ffi__ffi__tts_set_cache_dir_impl(port, ptr, rust_vec_len, data_len),
+        292 => wire__crate__ffi__ffi__tts_speak_impl(port, ptr, rust_vec_len, data_len),
+        293 => wire__crate__ffi__ffi__txt_search_impl(port, ptr, rust_vec_len, data_len),
+        294 => wire__crate__ffi__ffi__txt_search_count_impl(port, ptr, rust_vec_len, data_len),
+        295 => wire__crate__ffi__ffi__txt_search_in_chapter_impl(port, ptr, rust_vec_len, data_len),
+        296 => wire__crate__ffi__ffi__txt_search_regex_impl(port, ptr, rust_vec_len, data_len),
+        297 => {
             wire__crate__ffi__ffi__update_search_book_score_impl(port, ptr, rust_vec_len, data_len)
         }
-        297 => wire__crate__ffi__ffi__verification_cancel_impl(port, ptr, rust_vec_len, data_len),
-        298 => wire__crate__ffi__ffi__verification_pending_impl(port, ptr, rust_vec_len, data_len),
-        299 => wire__crate__ffi__ffi__verification_request_stream_impl(
+        298 => wire__crate__ffi__ffi__verification_cancel_impl(port, ptr, rust_vec_len, data_len),
+        299 => wire__crate__ffi__ffi__verification_pending_impl(port, ptr, rust_vec_len, data_len),
+        300 => wire__crate__ffi__ffi__verification_request_stream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        300 => wire__crate__ffi__ffi__verification_submit_impl(port, ptr, rust_vec_len, data_len),
-        301 => wire__crate__ffi__ffi__version_impl(port, ptr, rust_vec_len, data_len),
-        302 => wire__crate__ffi__ffi__webbook_chapters_impl(port, ptr, rust_vec_len, data_len),
-        303 => wire__crate__ffi__ffi__webbook_content_impl(port, ptr, rust_vec_len, data_len),
-        304 => wire__crate__ffi__ffi__webbook_info_impl(port, ptr, rust_vec_len, data_len),
-        305 => wire__crate__ffi__ffi__webbook_search_impl(port, ptr, rust_vec_len, data_len),
-        306 => wire__crate__ffi__ffi__webdav_delete_impl(port, ptr, rust_vec_len, data_len),
-        307 => wire__crate__ffi__ffi__webdav_download_impl(port, ptr, rust_vec_len, data_len),
-        308 => wire__crate__ffi__ffi__webdav_download_file_impl(port, ptr, rust_vec_len, data_len),
-        309 => wire__crate__ffi__ffi__webdav_full_sync_impl(port, ptr, rust_vec_len, data_len),
-        310 => wire__crate__ffi__ffi__webdav_list_dir_impl(port, ptr, rust_vec_len, data_len),
-        311 => wire__crate__ffi__ffi__webdav_upload_impl(port, ptr, rust_vec_len, data_len),
-        312 => wire__crate__ffi__ffi__webdav_upload_file_impl(port, ptr, rust_vec_len, data_len),
-        313 => wire__crate__ffi__ffi__webview_cancel_impl(port, ptr, rust_vec_len, data_len),
-        314 => wire__crate__ffi__ffi__webview_pending_impl(port, ptr, rust_vec_len, data_len),
-        315 => {
+        301 => wire__crate__ffi__ffi__verification_submit_impl(port, ptr, rust_vec_len, data_len),
+        302 => wire__crate__ffi__ffi__version_impl(port, ptr, rust_vec_len, data_len),
+        303 => wire__crate__ffi__ffi__webbook_chapters_impl(port, ptr, rust_vec_len, data_len),
+        304 => wire__crate__ffi__ffi__webbook_content_impl(port, ptr, rust_vec_len, data_len),
+        305 => wire__crate__ffi__ffi__webbook_info_impl(port, ptr, rust_vec_len, data_len),
+        306 => wire__crate__ffi__ffi__webbook_search_impl(port, ptr, rust_vec_len, data_len),
+        307 => wire__crate__ffi__ffi__webdav_delete_impl(port, ptr, rust_vec_len, data_len),
+        308 => wire__crate__ffi__ffi__webdav_download_impl(port, ptr, rust_vec_len, data_len),
+        309 => wire__crate__ffi__ffi__webdav_download_file_impl(port, ptr, rust_vec_len, data_len),
+        310 => wire__crate__ffi__ffi__webdav_full_sync_impl(port, ptr, rust_vec_len, data_len),
+        311 => wire__crate__ffi__ffi__webdav_list_dir_impl(port, ptr, rust_vec_len, data_len),
+        312 => wire__crate__ffi__ffi__webdav_upload_impl(port, ptr, rust_vec_len, data_len),
+        313 => wire__crate__ffi__ffi__webdav_upload_file_impl(port, ptr, rust_vec_len, data_len),
+        314 => wire__crate__ffi__ffi__webview_cancel_impl(port, ptr, rust_vec_len, data_len),
+        315 => wire__crate__ffi__ffi__webview_pending_impl(port, ptr, rust_vec_len, data_len),
+        316 => {
             wire__crate__ffi__ffi__webview_request_stream_impl(port, ptr, rust_vec_len, data_len)
         }
-        316 => wire__crate__ffi__ffi__webview_submit_impl(port, ptr, rust_vec_len, data_len),
-        317 => wire__crate__ffi__ffi__webview_submit_result_with_cookies_impl(
+        317 => wire__crate__ffi__ffi__webview_submit_impl(port, ptr, rust_vec_len, data_len),
+        318 => wire__crate__ffi__ffi__webview_submit_result_with_cookies_impl(
             port,
             ptr,
             rust_vec_len,
@@ -14938,8 +15390,8 @@ fn pde_ffi_dispatcher_sync_impl(
         1 => wire__crate__layout_bridge__LayoutSession_cancel_impl(ptr, rust_vec_len, data_len),
         4 => wire__crate__ffi__StreamRequest_cancel_impl(ptr, rust_vec_len, data_len),
         5 => wire__crate__ffi__TtsRequest_cancel_impl(ptr, rust_vec_len, data_len),
-        285 => wire__crate__ffi__stream_request_new_impl(ptr, rust_vec_len, data_len),
-        289 => wire__crate__ffi__tts_request_new_impl(ptr, rust_vec_len, data_len),
+        286 => wire__crate__ffi__stream_request_new_impl(ptr, rust_vec_len, data_len),
+        290 => wire__crate__ffi__tts_request_new_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -15020,6 +15472,78 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::AnnotatedCandidateDt
     for crate::transfer_dto::AnnotatedCandidateDto
 {
     fn into_into_dart(self) -> crate::transfer_dto::AnnotatedCandidateDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::AudioCacheDownloadDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.status.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+            self.size_bytes.into_into_dart().into_dart(),
+            self.extension.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::AudioCacheDownloadDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::AudioCacheDownloadDto>
+    for crate::media_dto::AudioCacheDownloadDto
+{
+    fn into_into_dart(self) -> crate::media_dto::AudioCacheDownloadDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::AudioCacheDownloadStatusDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Installed => 0.into_dart(),
+            Self::AlreadyCached => 1.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::AudioCacheDownloadStatusDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::AudioCacheDownloadStatusDto>
+    for crate::media_dto::AudioCacheDownloadStatusDto
+{
+    fn into_into_dart(self) -> crate::media_dto::AudioCacheDownloadStatusDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::AudioChapterMediaDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.chapter_index.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.media_url.into_into_dart().into_dart(),
+            self.chapter_url.into_into_dart().into_dart(),
+            self.resource_url.into_into_dart().into_dart(),
+            self.is_volume.into_into_dart().into_dart(),
+            self.from_cache.into_into_dart().into_dart(),
+            self.lyric.into_into_dart().into_dart(),
+            self.source_url.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::AudioChapterMediaDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::AudioChapterMediaDto>
+    for crate::media_dto::AudioChapterMediaDto
+{
+    fn into_into_dart(self) -> crate::media_dto::AudioChapterMediaDto {
         self
     }
 }
@@ -15419,6 +15943,129 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::CheckResultDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudSpeechInputDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.text.into_into_dart().into_dart(),
+            self.credential_key.into_into_dart().into_dart(),
+            self.voice_id.into_into_dart().into_dart(),
+            self.voice_options.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::CloudSpeechInputDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::CloudSpeechInputDto>
+    for crate::media_dto::CloudSpeechInputDto
+{
+    fn into_into_dart(self) -> crate::media_dto::CloudSpeechInputDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudTtsMetadataDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.provider.into_into_dart().into_dart(),
+            self.base_url.into_into_dart().into_dart(),
+            self.model.into_into_dart().into_dart(),
+            self.options_json.into_into_dart().into_dart(),
+            self.region.into_into_dart().into_dart(),
+            self.app_id.into_into_dart().into_dart(),
+            self.enabled.into_into_dart().into_dart(),
+            self.created_at.into_into_dart().into_dart(),
+            self.updated_at.into_into_dart().into_dart(),
+            self.credential_key.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::CloudTtsMetadataDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::CloudTtsMetadataDto>
+    for crate::media_dto::CloudTtsMetadataDto
+{
+    fn into_into_dart(self) -> crate::media_dto::CloudTtsMetadataDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudTtsProviderDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::OpenAiSpeech => 0.into_dart(),
+            Self::Mimo => 1.into_dart(),
+            Self::AlibabaCloud => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::CloudTtsProviderDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::CloudTtsProviderDto>
+    for crate::media_dto::CloudTtsProviderDto
+{
+    fn into_into_dart(self) -> crate::media_dto::CloudTtsProviderDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudVoiceDescriptorDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.display_name.into_into_dart().into_dart(),
+            self.styles.into_into_dart().into_dart(),
+            self.sample_rate.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::CloudVoiceDescriptorDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::CloudVoiceDescriptorDto>
+    for crate::media_dto::CloudVoiceDescriptorDto
+{
+    fn into_into_dart(self) -> crate::media_dto::CloudVoiceDescriptorDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudVoiceOptionsDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.voice_id.into_into_dart().into_dart(),
+            self.style.into_into_dart().into_dart(),
+            self.instructions.into_into_dart().into_dart(),
+            self.speed.into_into_dart().into_dart(),
+            self.format.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::CloudVoiceOptionsDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::CloudVoiceOptionsDto>
+    for crate::media_dto::CloudVoiceOptionsDto
+{
+    fn into_into_dart(self) -> crate::media_dto::CloudVoiceOptionsDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::ContentRuleDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -15621,6 +16268,41 @@ impl flutter_rust_bridge::IntoIntoDart<crate::content_dto::HttpTextResponseDto>
     for crate::content_dto::HttpTextResponseDto
 {
     fn into_into_dart(self) -> crate::content_dto::HttpTextResponseDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::HttpTtsConfigDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.url.into_into_dart().into_dart(),
+            self.content_type.into_into_dart().into_dart(),
+            self.pause_duration.into_into_dart().into_dart(),
+            self.concurrent_rate.into_into_dart().into_dart(),
+            self.login_url.into_into_dart().into_dart(),
+            self.login_ui.into_into_dart().into_dart(),
+            self.header.into_into_dart().into_dart(),
+            self.js_lib.into_into_dart().into_dart(),
+            self.enabled_cookie_jar.into_into_dart().into_dart(),
+            self.login_check_js.into_into_dart().into_dart(),
+            self.speed.into_into_dart().into_dart(),
+            self.synthesis_thread_count.into_into_dart().into_dart(),
+            self.last_update_time.into_into_dart().into_dart(),
+            self.is_enabled.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::HttpTtsConfigDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::HttpTtsConfigDto>
+    for crate::media_dto::HttpTtsConfigDto
+{
+    fn into_into_dart(self) -> crate::media_dto::HttpTtsConfigDto {
         self
     }
 }
@@ -16382,6 +17064,39 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::PlatformActionKind>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::ReadAloudVoiceDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.engine_type.into_into_dart().into_dart(),
+            self.engine_id.into_into_dart().into_dart(),
+            self.speaker_id.into_into_dart().into_dart(),
+            self.display_name.into_into_dart().into_dart(),
+            self.traits_json.into_into_dart().into_dart(),
+            self.emotion_catalog_json.into_into_dart().into_dart(),
+            self.managed_by.into_into_dart().into_dart(),
+            self.enabled.into_into_dart().into_dart(),
+            self.available.into_into_dart().into_dart(),
+            self.excluded.into_into_dart().into_dart(),
+            self.revision.into_into_dart().into_dart(),
+            self.created_at.into_into_dart().into_dart(),
+            self.updated_at.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::ReadAloudVoiceDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::ReadAloudVoiceDto>
+    for crate::media_dto::ReadAloudVoiceDto
+{
+    fn into_into_dart(self) -> crate::media_dto::ReadAloudVoiceDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::ReadConfigDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -16898,6 +17613,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::SwitchSearchOptionsD
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::SystemVoiceEntryDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.speaker_id.into_into_dart().into_dart(),
+            self.display_name.into_into_dart().into_dart(),
+            self.traits_json.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::SystemVoiceEntryDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::SystemVoiceEntryDto>
+    for crate::media_dto::SystemVoiceEntryDto
+{
+    fn into_into_dart(self) -> crate::media_dto::SystemVoiceEntryDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::TextResponseDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -16950,6 +17687,96 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::TocRuleDto>
     for crate::transfer_dto::TocRuleDto
 {
     fn into_into_dart(self) -> crate::transfer_dto::TocRuleDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::TtsCacheClearResultDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.removed_files.into_into_dart().into_dart(),
+            self.removed_bytes.into_into_dart().into_dart(),
+            self.skipped_files.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::TtsCacheClearResultDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::TtsCacheClearResultDto>
+    for crate::media_dto::TtsCacheClearResultDto
+{
+    fn into_into_dart(self) -> crate::media_dto::TtsCacheClearResultDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::TtsCacheContextDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.book_url.into_into_dart().into_dart(),
+            self.book_name.into_into_dart().into_dart(),
+            self.chapter_index.into_into_dart().into_dart(),
+            self.chapter_title.into_into_dart().into_dart(),
+            self.paragraph_index.into_into_dart().into_dart(),
+            self.text.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::TtsCacheContextDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::TtsCacheContextDto>
+    for crate::media_dto::TtsCacheContextDto
+{
+    fn into_into_dart(self) -> crate::media_dto::TtsCacheContextDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::TtsCacheEntryDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.name.into_into_dart().into_dart(),
+            self.size_bytes.into_into_dart().into_dart(),
+            self.modified_at_ms.into_into_dart().into_dart(),
+            self.protected.into_into_dart().into_dart(),
+            self.contexts.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::media_dto::TtsCacheEntryDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::TtsCacheEntryDto>
+    for crate::media_dto::TtsCacheEntryDto
+{
+    fn into_into_dart(self) -> crate::media_dto::TtsCacheEntryDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::media_dto::TtsSpeakDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.audio_path.into_into_dart().into_dart(),
+            self.from_cache.into_into_dart().into_dart(),
+            self.content_type.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::media_dto::TtsSpeakDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::TtsSpeakDto>
+    for crate::media_dto::TtsSpeakDto
+{
+    fn into_into_dart(self) -> crate::media_dto::TtsSpeakDto {
         self
     }
 }
@@ -17211,6 +18038,47 @@ impl SseEncode for crate::transfer_dto::AnnotatedCandidateDto {
     }
 }
 
+impl SseEncode for crate::media_dto::AudioCacheDownloadDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::media_dto::AudioCacheDownloadStatusDto>::sse_encode(self.status, serializer);
+        <String>::sse_encode(self.path, serializer);
+        <u64>::sse_encode(self.size_bytes, serializer);
+        <String>::sse_encode(self.extension, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::AudioCacheDownloadStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::media_dto::AudioCacheDownloadStatusDto::Installed => 0,
+                crate::media_dto::AudioCacheDownloadStatusDto::AlreadyCached => 1,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::media_dto::AudioChapterMediaDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.chapter_index, serializer);
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.media_url, serializer);
+        <String>::sse_encode(self.chapter_url, serializer);
+        <Option<String>>::sse_encode(self.resource_url, serializer);
+        <bool>::sse_encode(self.is_volume, serializer);
+        <bool>::sse_encode(self.from_cache, serializer);
+        <Option<String>>::sse_encode(self.lyric, serializer);
+        <String>::sse_encode(self.source_url, serializer);
+    }
+}
+
 impl SseEncode for crate::transfer_dto::BookDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -17469,6 +18337,75 @@ impl SseEncode for crate::transfer_dto::CheckResultDto {
     }
 }
 
+impl SseEncode for crate::media_dto::CloudSpeechInputDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.text, serializer);
+        <String>::sse_encode(self.credential_key, serializer);
+        <Option<String>>::sse_encode(self.voice_id, serializer);
+        <Option<crate::media_dto::CloudVoiceOptionsDto>>::sse_encode(
+            self.voice_options,
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::media_dto::CloudTtsMetadataDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <crate::media_dto::CloudTtsProviderDto>::sse_encode(self.provider, serializer);
+        <String>::sse_encode(self.base_url, serializer);
+        <String>::sse_encode(self.model, serializer);
+        <String>::sse_encode(self.options_json, serializer);
+        <String>::sse_encode(self.region, serializer);
+        <String>::sse_encode(self.app_id, serializer);
+        <bool>::sse_encode(self.enabled, serializer);
+        <i64>::sse_encode(self.created_at, serializer);
+        <i64>::sse_encode(self.updated_at, serializer);
+        <String>::sse_encode(self.credential_key, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::CloudTtsProviderDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::media_dto::CloudTtsProviderDto::OpenAiSpeech => 0,
+                crate::media_dto::CloudTtsProviderDto::Mimo => 1,
+                crate::media_dto::CloudTtsProviderDto::AlibabaCloud => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::media_dto::CloudVoiceDescriptorDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.display_name, serializer);
+        <Vec<String>>::sse_encode(self.styles, serializer);
+        <Option<u32>>::sse_encode(self.sample_rate, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::CloudVoiceOptionsDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<String>>::sse_encode(self.voice_id, serializer);
+        <Option<String>>::sse_encode(self.style, serializer);
+        <Option<String>>::sse_encode(self.instructions, serializer);
+        <Option<f64>>::sse_encode(self.speed, serializer);
+        <Option<String>>::sse_encode(self.format, serializer);
+    }
+}
+
 impl SseEncode for crate::transfer_dto::ContentRuleDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -17582,6 +18519,28 @@ impl SseEncode for crate::content_dto::HttpTextResponseDto {
         <u16>::sse_encode(self.status, serializer);
         <String>::sse_encode(self.body, serializer);
         <String>::sse_encode(self.url, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::HttpTtsConfigDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.url, serializer);
+        <Option<String>>::sse_encode(self.content_type, serializer);
+        <i32>::sse_encode(self.pause_duration, serializer);
+        <Option<String>>::sse_encode(self.concurrent_rate, serializer);
+        <Option<String>>::sse_encode(self.login_url, serializer);
+        <Option<String>>::sse_encode(self.login_ui, serializer);
+        <Option<String>>::sse_encode(self.header, serializer);
+        <Option<String>>::sse_encode(self.js_lib, serializer);
+        <Option<bool>>::sse_encode(self.enabled_cookie_jar, serializer);
+        <Option<String>>::sse_encode(self.login_check_js, serializer);
+        <Option<i32>>::sse_encode(self.speed, serializer);
+        <i32>::sse_encode(self.synthesis_thread_count, serializer);
+        <i64>::sse_encode(self.last_update_time, serializer);
+        <bool>::sse_encode(self.is_enabled, serializer);
     }
 }
 
@@ -18178,6 +19137,26 @@ impl SseEncode for Vec<crate::transfer_dto::ChapterDto> {
     }
 }
 
+impl SseEncode for Vec<crate::media_dto::CloudTtsMetadataDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::CloudTtsMetadataDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::media_dto::CloudVoiceDescriptorDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::CloudVoiceDescriptorDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::content_dto::ExploreCategoryDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -18194,6 +19173,16 @@ impl SseEncode for Vec<crate::transfer_dto::HighlightRuleDto> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::transfer_dto::HighlightRuleDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::media_dto::HttpTtsConfigDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::HttpTtsConfigDto>::sse_encode(item, serializer);
         }
     }
 }
@@ -18318,6 +19307,16 @@ impl SseEncode for Vec<u8> {
     }
 }
 
+impl SseEncode for Vec<crate::media_dto::ReadAloudVoiceDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::ReadAloudVoiceDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::transfer_dto::ReadRecordDailyDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -18438,6 +19437,36 @@ impl SseEncode for Vec<crate::transfer_dto::SourceMatchDto> {
     }
 }
 
+impl SseEncode for Vec<crate::media_dto::SystemVoiceEntryDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::SystemVoiceEntryDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::media_dto::TtsCacheContextDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::TtsCacheContextDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::media_dto::TtsCacheEntryDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::media_dto::TtsCacheEntryDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::content_dto::WebChapterDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -18534,6 +19563,16 @@ impl SseEncode for Option<crate::transfer_dto::ChapterDto> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::transfer_dto::ChapterDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::media_dto::CloudVoiceOptionsDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::media_dto::CloudVoiceOptionsDto>::sse_encode(value, serializer);
         }
     }
 }
@@ -18785,6 +19824,26 @@ impl SseEncode for crate::transfer_dto::PlatformActionKind {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::media_dto::ReadAloudVoiceDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.engine_type, serializer);
+        <String>::sse_encode(self.engine_id, serializer);
+        <String>::sse_encode(self.speaker_id, serializer);
+        <String>::sse_encode(self.display_name, serializer);
+        <String>::sse_encode(self.traits_json, serializer);
+        <String>::sse_encode(self.emotion_catalog_json, serializer);
+        <String>::sse_encode(self.managed_by, serializer);
+        <bool>::sse_encode(self.enabled, serializer);
+        <bool>::sse_encode(self.available, serializer);
+        <bool>::sse_encode(self.excluded, serializer);
+        <i64>::sse_encode(self.revision, serializer);
+        <i64>::sse_encode(self.created_at, serializer);
+        <i64>::sse_encode(self.updated_at, serializer);
     }
 }
 
@@ -19104,6 +20163,15 @@ impl SseEncode for crate::transfer_dto::SwitchSearchOptionsDto {
     }
 }
 
+impl SseEncode for crate::media_dto::SystemVoiceEntryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.speaker_id, serializer);
+        <String>::sse_encode(self.display_name, serializer);
+        <String>::sse_encode(self.traits_json, serializer);
+    }
+}
+
 impl SseEncode for crate::transfer_dto::TextResponseDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -19136,6 +20204,47 @@ impl SseEncode for crate::transfer_dto::TocRuleDto {
         <Option<String>>::sse_encode(self.is_pay, serializer);
         <Option<String>>::sse_encode(self.update_time, serializer);
         <Option<String>>::sse_encode(self.next_toc_url, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::TtsCacheClearResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u64>::sse_encode(self.removed_files, serializer);
+        <u64>::sse_encode(self.removed_bytes, serializer);
+        <u64>::sse_encode(self.skipped_files, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::TtsCacheContextDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.book_url, serializer);
+        <String>::sse_encode(self.book_name, serializer);
+        <u32>::sse_encode(self.chapter_index, serializer);
+        <String>::sse_encode(self.chapter_title, serializer);
+        <u32>::sse_encode(self.paragraph_index, serializer);
+        <String>::sse_encode(self.text, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::TtsCacheEntryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.name, serializer);
+        <u64>::sse_encode(self.size_bytes, serializer);
+        <u64>::sse_encode(self.modified_at_ms, serializer);
+        <bool>::sse_encode(self.protected, serializer);
+        <Vec<crate::media_dto::TtsCacheContextDto>>::sse_encode(self.contexts, serializer);
+    }
+}
+
+impl SseEncode for crate::media_dto::TtsSpeakDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.audio_path, serializer);
+        <bool>::sse_encode(self.from_cache, serializer);
+        <String>::sse_encode(self.content_type, serializer);
     }
 }
 

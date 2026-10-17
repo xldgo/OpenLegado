@@ -29,16 +29,26 @@ pub fn add_http_tts(name: &str, url: &str) -> LegadoResult<i64> {
 
 /// 添加或覆盖完整 HTTP TTS 源 JSON，返回最终 ID
 pub fn add_http_tts_json(http_tts_json: &str) -> LegadoResult<i64> {
-    let tts: HttpTts = serde_json::from_str(http_tts_json)?;
+    let value: serde_json::Value = serde_json::from_str(http_tts_json)?;
+    add_http_tts_entity(
+        serde_json::from_value(value.clone())?,
+        legado_core::tts_catalog::parse(&value),
+    )
+}
+
+/// 实体与文档导入共用事务、目录同步及限流刷新。
+pub fn add_http_tts_entity(
+    tts: HttpTts,
+    catalog: legado_core::tts_catalog::CatalogDraft,
+) -> LegadoResult<i64> {
     let id = with_database(|db| {
         let tx = db
             .connection()
             .unchecked_transaction()
             .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
         let id = HttpTtsRepository::new(&tx).insert_entity(&tts)?;
-        let draft = legado_core::tts_catalog::parse(&serde_json::from_str(http_tts_json)?);
         legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx)
-            .sync_http(id, &draft, tts.last_update_time)?;
+            .sync_http(id, &catalog, tts.last_update_time)?;
         tx.commit()
             .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
         Ok(id)
@@ -60,7 +70,18 @@ pub fn update_http_tts(id: i64, name: &str, url: &str) -> LegadoResult<bool> {
 
 /// 按 ID 原地更新完整 HTTP TTS 源 JSON
 pub fn update_http_tts_json(http_tts_json: &str) -> LegadoResult<bool> {
-    let tts: HttpTts = serde_json::from_str(http_tts_json)?;
+    let value: serde_json::Value = serde_json::from_str(http_tts_json)?;
+    update_http_tts_entity(
+        serde_json::from_value(value.clone())?,
+        legado_core::tts_catalog::parse(&value),
+    )
+}
+
+/// 实体与文档导入共用事务、目录同步及限流刷新。
+pub fn update_http_tts_entity(
+    tts: HttpTts,
+    catalog: legado_core::tts_catalog::CatalogDraft,
+) -> LegadoResult<bool> {
     let updated = with_database(|db| {
         let tx = db
             .connection()
@@ -68,9 +89,8 @@ pub fn update_http_tts_json(http_tts_json: &str) -> LegadoResult<bool> {
             .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
         let updated = HttpTtsRepository::new(&tx).update_entity(&tts)?;
         if updated {
-            let draft = legado_core::tts_catalog::parse(&serde_json::from_str(http_tts_json)?);
             legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx)
-                .sync_http(tts.id, &draft, tts.last_update_time)?;
+                .sync_http(tts.id, &catalog, tts.last_update_time)?;
         }
         tx.commit()
             .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
@@ -83,6 +103,21 @@ pub fn update_http_tts_json(http_tts_json: &str) -> LegadoResult<bool> {
         );
     }
     Ok(updated)
+}
+
+/// 导入仍是 JSON 文档边界，逐项写入，不丢失内嵌目录。
+pub fn import_http_tts_json(raw: &str) -> LegadoResult<i32> {
+    let items: Vec<serde_json::Value> = serde_json::from_str(raw)?;
+    let mut count = 0;
+    for item in items {
+        let tts: HttpTts = serde_json::from_value(item.clone())?;
+        if tts.name.is_empty() || tts.url.is_empty() {
+            continue;
+        }
+        add_http_tts_entity(tts, legado_core::tts_catalog::parse(&item))?;
+        count += 1;
+    }
+    Ok(count)
 }
 
 /// 删除 HTTP TTS 源
@@ -170,11 +205,17 @@ mod tests {
             "isEnabled": false
         }"#;
 
-        let id = crate::ffi::ffi::http_tts_add(input_json.to_string()).unwrap();
+        let id = crate::ffi::ffi::http_tts_add(
+            serde_json::from_str::<HttpTts>(input_json).unwrap().into(),
+        )
+        .unwrap();
         assert_eq!(id, -1029);
 
-        let list_json = crate::ffi::ffi::http_tts_list().unwrap();
-        let list: Vec<serde_json::Value> = serde_json::from_str(&list_json).unwrap();
+        let list: Vec<serde_json::Value> = crate::ffi::ffi::http_tts_list()
+            .unwrap()
+            .into_iter()
+            .map(|item| serde_json::to_value(HttpTts::from(item)).unwrap())
+            .collect();
         let item = list
             .iter()
             .find(|v| v.get("id").and_then(|i| i.as_i64()) == Some(-1029))
@@ -200,8 +241,7 @@ mod tests {
         updated.name = "测试全字段引擎-已改".to_string();
         updated.speed = Some(25);
         updated.synthesis_thread_count = 3;
-        let ok =
-            crate::ffi::ffi::http_tts_update(serde_json::to_string(&updated).unwrap()).unwrap();
+        let ok = crate::ffi::ffi::http_tts_update(updated.clone().into()).unwrap();
         assert!(ok);
 
         let after_list = get_http_tts_list().unwrap();
@@ -217,13 +257,12 @@ mod tests {
         // 更新不存在 ID 返回 false，且不改变已有记录
         let mut missing = updated.clone();
         missing.id = -999999;
-        let missing_ok =
-            crate::ffi::ffi::http_tts_update(serde_json::to_string(&missing).unwrap()).unwrap();
+        let missing_ok = crate::ffi::ffi::http_tts_update(missing.into()).unwrap();
         assert!(!missing_ok);
 
         // 非法 JSON 抛错
-        assert!(crate::ffi::ffi::http_tts_add("{".to_string()).is_err());
-        assert!(crate::ffi::ffi::http_tts_update("{".to_string()).is_err());
+        assert!(crate::ffi::ffi::http_tts_import("{".to_string()).is_err());
+        assert!(crate::ffi::ffi::http_tts_import("[null]".to_string()).is_err());
 
         assert!(delete_http_tts(-1029).unwrap());
     }
@@ -238,16 +277,40 @@ mod tests {
         add_http_tts_json(&raw).unwrap();
         update_http_tts_json(r#"{"id":-98124,"name":"改名","url":"https://new"}"#).unwrap();
         let rows: Vec<legado_db::repository::read_aloud_voice_repository::ReadAloudVoice> =
-            serde_json::from_str(&super::super::read_aloud_voice_api::list().unwrap()).unwrap();
+            super::super::read_aloud_voice_api::list().unwrap();
         let voice = rows.iter().find(|v| v.id == id).unwrap();
         assert!(!voice.enabled);
         assert!(voice.excluded);
         assert!(voice.emotion_catalog_json.contains("happy"));
         delete_http_tts(-98124).unwrap();
-        let rows: Vec<serde_json::Value> =
-            serde_json::from_str(&super::super::read_aloud_voice_api::list().unwrap()).unwrap();
-        assert!(rows.iter().all(|v| v["id"] != id));
+        let rows = super::super::read_aloud_voice_api::list().unwrap();
+        assert!(rows.iter().all(|v| v.id != id));
     }
+    #[test]
+    fn document_import_skips_empty_and_keeps_committed_items_on_later_error() {
+        let _guard = crate::db_state::ensure_test_db();
+        let raw = r#"[{"name":"","url":"https://unused"},{"id":-98126,"name":"已提交","url":"https://tts","loginUi":[{"name":"密钥"}],"speakersJson":"[{\"speakerName\":\"中文\",\"toneID\":\"zh\"}]"},null,{"id":-98127,"name":"不应执行","url":"https://tts"}]"#;
+        assert!(crate::ffi::ffi::http_tts_import(raw.to_owned()).is_err());
+        let rows = get_http_tts_list().unwrap();
+        let saved = rows.iter().find(|v| v.id == -98126).unwrap();
+        assert_eq!(saved.login_ui.as_deref(), Some(r#"[{"name":"密钥"}]"#));
+        assert!(!rows.iter().any(|v| v.id == -98127));
+        let voices = super::super::read_aloud_voice_api::list().unwrap();
+        assert!(
+            voices
+                .iter()
+                .any(|v| v.engine_id == "-98126" && v.speaker_id == "zh")
+        );
+        assert_eq!(
+            crate::ffi::ffi::http_tts_import(
+                r#"[{"name":"","url":"https://unused"},{"name":"没有地址"}]"#.to_owned()
+            )
+            .unwrap(),
+            0
+        );
+        delete_http_tts(-98126).unwrap();
+    }
+
     #[test]
     fn catalog_save_failure_rolls_back_source() {
         let _guard = crate::db_state::ensure_test_db();

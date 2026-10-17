@@ -7,22 +7,10 @@
 
 use std::path::PathBuf;
 
-use serde::Serialize;
-
 use legado_core::LegadoResult;
 use legado_fetcher::TtsSpeakContext;
 
-/// TTS 合成结果 DTO（camelCase 对齐 Dart 侧解析约定，见 API_CONTRACT §2.42）
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TtsSpeakDto {
-    /// 本地音频文件绝对路径
-    pub audio_path: String,
-    /// 是否缓存命中（true 时未发起网络请求）
-    pub from_cache: bool,
-    /// 音频 MIME 类型
-    pub content_type: String,
-}
+pub use crate::media_dto::TtsSpeakDto;
 
 /// 获取当前宿主的 TTS 音频缓存目录；已开始的合成保留其入口快照。
 pub fn tts_cache_dir() -> PathBuf {

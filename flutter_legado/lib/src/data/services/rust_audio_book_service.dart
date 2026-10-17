@@ -5,6 +5,7 @@ import '../../domain/contracts/audio_book_service.dart';
 import '../../domain/models/audio_media.dart';
 import '../../models/book.dart';
 import '../bridge/rust_json_decode.dart';
+import '../bridge/media_dto_mapping.dart';
 
 /// 音频取址、进度与播放模式的薄适配。— Codex + Bridge
 final class RustAudioBookService implements AudioBookService {
@@ -14,17 +15,12 @@ final class RustAudioBookService implements AudioBookService {
     String bookUrl,
     int chapterIndex,
   ) async {
-    final map = decodeRustJsonMap(
+    return audioChapterMediaFromDto(
       await bridge.audioGetChapterMedia(
         bookUrl: bookUrl,
         chapterIndex: chapterIndex,
       ),
-      'getAudioChapterMedia',
     );
-    if (map['mediaUrl'] is! String || map['isVolume'] is! bool) {
-      throw const FormatException('音频媒体响应无效');
-    }
-    return AudioChapterMedia.fromJson(map);
   }
 
   @override

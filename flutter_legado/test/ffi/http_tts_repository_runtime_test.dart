@@ -40,9 +40,23 @@ void main() {
     const input = HttpTts(
       name: '真实引擎',
       url: 'http://example.test/?text={{text}}',
+      contentType: 'audio/wav',
+      pauseDuration: 120,
+      concurrentRate: '1000',
+      loginUrl: 'login()',
+      loginUi: '[{"name":"Key"}]',
+      header: '{"X-Test":"1"}',
+      jsLib: 'var a=1;',
+      enabledCookieJar: true,
+      loginCheckJs: 'result',
+      speed: 12,
+      synthesisThreadCount: 4,
+      lastUpdateTime: 9007199254740993,
+      isEnabled: false,
     );
     final added = await repository.addHttpTts(input);
     expect(added.id, greaterThan(0));
+    expect((await repository.getHttpTts()).single, added);
     expect((await repository.getHttpTts()).single.name, input.name);
     final updated = added.copyWith(
       name: '修改引擎',

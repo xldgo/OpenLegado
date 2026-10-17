@@ -6,23 +6,17 @@ use legado_core::{
 pub fn cache() -> LegadoResult<std::sync::Arc<TtsCache>> {
     TtsCache::open(&super::tts_speak_api::tts_cache_dir())
 }
-pub fn record(path: &str, context_json: &str) -> LegadoResult<()> {
-    let context: CacheContext = serde_json::from_str(context_json)?;
+pub fn record(path: &str, context: CacheContext) -> LegadoResult<()> {
     cache()?.record(std::path::Path::new(path), context)
 }
-pub fn list() -> LegadoResult<String> {
-    Ok(serde_json::to_string(&cache()?.list()?)?)
+pub fn list() -> LegadoResult<Vec<legado_core::tts_cache::CacheEntry>> {
+    cache()?.list()
 }
 pub fn clear(
     name: Option<String>,
     before: Option<u64>,
     keep_book: Option<String>,
     keep_chapter: Option<u32>,
-) -> LegadoResult<String> {
-    Ok(serde_json::to_string(&cache()?.clear(
-        name.as_deref(),
-        before,
-        keep_book.as_deref(),
-        keep_chapter,
-    )?)?)
+) -> LegadoResult<legado_core::tts_cache::ClearResult> {
+    cache()?.clear(name.as_deref(), before, keep_book.as_deref(), keep_chapter)
 }
