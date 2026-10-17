@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart' as audio;
@@ -11,6 +10,19 @@ class _Native extends Fake implements audio.AudioPlayer {
   final events = StreamController<audio.PlaybackEvent>.broadcast(sync: true);
   final positions = StreamController<Duration>.broadcast(sync: true);
   final errors = StreamController<audio.PlayerException>.broadcast(sync: true);
+  final sequences = StreamController<audio.SequenceState>.broadcast(sync: true);
+  final discontinuities =
+      StreamController<audio.PositionDiscontinuity>.broadcast(sync: true);
+  final states = StreamController<audio.ProcessingState>.broadcast(sync: true);
+  @override
+  audio.PlaybackEvent playbackEvent = audio.PlaybackEvent();
+  @override
+  Stream<audio.SequenceState> get sequenceStateStream => sequences.stream;
+  @override
+  Stream<audio.PositionDiscontinuity> get positionDiscontinuityStream =>
+      discontinuities.stream;
+  @override
+  Stream<audio.ProcessingState> get processingStateStream => states.stream;
   @override
   List<audio.IndexedAudioSource> sequence = [];
   @override
@@ -23,14 +35,13 @@ class _Native extends Fake implements audio.AudioPlayer {
   Duration position = Duration.zero;
   @override
   Duration duration = const Duration(seconds: 1);
-  int loads = 0, plays = 0, stops = 0, clears = 0, pauses = 0;
+  int loads = 0, plays = 0, stops = 0, clears = 0, pauses = 0, appends = 0;
   @override
   double speed = 1;
   Completer<void>? loadGate;
   Completer<void>? appendGate;
   final seeks = <(Duration?, int?)>[];
   Object? loadError;
-  bool reportRemovalIndex = true;
   @override
   Stream<audio.PlaybackEvent> get playbackEventStream => events.stream;
   @override
@@ -45,18 +56,34 @@ class _Native extends Fake implements audio.AudioPlayer {
     shuffleModeEnabled: false,
     loopMode: audio.LoopMode.off,
   );
-  void emit() => events.add(
-    audio.PlaybackEvent(
+  void emit() {
+    playbackEvent = audio.PlaybackEvent(
       currentIndex: currentIndex,
       processingState: processingState,
       duration: duration,
-    ),
-  );
-  void transition(int index) {
+      updatePosition: position,
+      updateTime: playbackEvent.updateTime.add(const Duration(milliseconds: 1)),
+    );
+    sequences.add(sequenceState);
+    states.add(processingState);
+    events.add(playbackEvent);
+  }
+
+  void transition(int index, {bool natural = true, bool resetPosition = true}) {
+    final previous = playbackEvent;
     currentIndex = index;
-    position = Duration.zero;
+    if (resetPosition) position = Duration.zero;
     processingState = audio.ProcessingState.ready;
     emit();
+    discontinuities.add(
+      audio.PositionDiscontinuity(
+        natural
+            ? audio.PositionDiscontinuityReason.autoAdvance
+            : audio.PositionDiscontinuityReason.seek,
+        previous,
+        playbackEvent,
+      ),
+    );
   }
 
   void finish() {
@@ -84,22 +111,11 @@ class _Native extends Fake implements audio.AudioPlayer {
   }
 
   @override
-  Future<void> addAudioSource(audio.AudioSource source) async {
-    sequence.addAll(source.sequence);
+  Future<void> addAudioSources(List<audio.AudioSource> sources) async {
+    appends++;
+    sequence.addAll(sources.expand((source) => source.sequence));
     emit();
     await appendGate?.future;
-  }
-
-  @override
-  Future<void> removeAudioSourceRange(int start, int end) async {
-    // 模拟真实插件：Dart来源列表先改，原生索引稍后到达。
-    sequence.removeRange(start, end);
-    emit();
-    await Future<void>.delayed(Duration.zero);
-    if (reportRemovalIndex) {
-      currentIndex = (currentIndex ?? 0) - (end - start);
-      emit();
-    }
   }
 
   @override
@@ -154,6 +170,9 @@ class _Native extends Fake implements audio.AudioPlayer {
     await events.close();
     await positions.close();
     await errors.close();
+    await sequences.close();
+    await discontinuities.close();
+    await states.close();
   }
 }
 
@@ -168,12 +187,14 @@ void main() {
   late _Native native;
   late ReadAloudAudioPlayer player;
   late List<Object> started, ended, failures;
+  late List<(Duration, Object)> progress;
   setUp(() {
     native = _Native();
     player = ReadAloudAudioPlayer(createPlayer: () => native);
     started = [];
     ended = [];
     failures = [];
+    progress = [];
   });
   tearDown(() => player.dispose());
   Future<void> start(Object tag) => player.startPlaylist(
@@ -181,15 +202,15 @@ void main() {
     speed: 1.5,
     onStarted: started.add,
     onCompleted: ended.add,
-    onProgress: (_, _, _) {},
+    onProgress: (position, _, tag) => progress.add((position, tag)),
     onError: failures.add,
   );
   test('追加文件不重建或重新装载播放器，换项通知与最终完成均只消费一次', () async {
     final a = Object(), b = Object();
     await start(a);
-    await player.appendPlaylist(
+    await player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: b),
-    );
+    ]);
     expect(native.loads, 1);
     expect(native.plays, 1);
     expect(native.sequence.length, 2);
@@ -198,13 +219,49 @@ void main() {
     native.emit();
     expect(started, [a, b]);
     expect(ended, [a]);
-    await player.discardPlayedItems();
-    expect(native.sequence.length, 1);
+    expect(native.sequence.length, 2);
     expect(player.currentTag, same(b));
     native.finish();
     native.finish();
     expect(ended, [a, b]);
     expect(failures, isEmpty);
+  });
+  test('一次批量追加保持顺序，不重新装载或定位当前音频', () async {
+    final a = Object(), b = Object(), c = Object();
+    await start(a);
+    native.position = const Duration(milliseconds: 400);
+    await player.appendPlaylist([
+      AudioPlaylistItem(path: '/b.wav', tag: b),
+      AudioPlaylistItem(path: '/c.wav', tag: c),
+    ]);
+    expect(native.appends, 1);
+    expect(native.sequence.map((source) => source.tag), [a, b, c]);
+    expect(native.loads, 1);
+    expect(native.seeks, isEmpty);
+    expect(native.position.inMilliseconds, 400);
+    await player.appendPlaylist([]);
+    expect(native.appends, 1);
+  });
+  test('位置采样不触发换项，新项不继承旧项位置，主动定位不误报自然完成', () async {
+    final a = Object(), b = Object();
+    await start(a);
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
+    native.position = const Duration(milliseconds: 900);
+    native.emit();
+    progress.clear();
+    native.currentIndex = 1;
+    native.positions.add(native.position);
+    expect(started, [a]);
+    expect(ended, isEmpty);
+    expect(progress, isEmpty);
+    native.transition(1, natural: false, resetPosition: false);
+    expect(started, [a, b]);
+    expect(ended, isEmpty);
+    expect(progress, isEmpty);
+    native.position = const Duration(milliseconds: 20);
+    native.emit();
+    expect(progress.single.$1.inMilliseconds, 20);
+    expect(progress.single.$2, same(b));
   });
   test('队列到尾后的迟到音频重新起播，暂停期间追加不自动播放', () async {
     final a = Object(), b = Object();
@@ -212,9 +269,9 @@ void main() {
     native.finish();
     await player.pause();
     final plays = native.plays;
-    await player.appendPlaylist(
+    await player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: b),
-    );
+    ]);
     expect(native.plays, plays);
     expect(player.currentTag, same(a));
     await player.resume();
@@ -228,9 +285,9 @@ void main() {
     native.finish();
     final plays = native.plays;
     native.appendGate = Completer<void>();
-    final append = player.appendPlaylist(
+    final append = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: b),
-    );
+    ]);
     await flush();
     native.transition(1);
     native.position = const Duration(milliseconds: 350);
@@ -248,12 +305,12 @@ void main() {
     await start(a);
     native.finish();
     final plays = native.plays;
-    final first = player.appendPlaylist(
+    final first = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: b),
-    );
-    final second = player.appendPlaylist(
+    ]);
+    final second = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/c.wav', tag: c),
-    );
+    ]);
     await Future.wait([first, second]);
     expect(native.seeks, [(Duration.zero, 1)]);
     expect(native.plays, plays + 1);
@@ -267,9 +324,9 @@ void main() {
     native.finish();
     final plays = native.plays;
     native.appendGate = Completer<void>();
-    final append = player.appendPlaylist(
+    final append = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: Object()),
-    );
+    ]);
     await flush();
     await player.pause();
     native.appendGate!.complete();
@@ -283,9 +340,9 @@ void main() {
     native.finish();
     final plays = native.plays;
     native.appendGate = Completer<void>();
-    final append = player.appendPlaylist(
+    final append = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: Object()),
-    );
+    ]);
     await flush();
     final stop = player.stop();
     native.appendGate!.complete();
@@ -304,9 +361,9 @@ void main() {
     native.finish();
     final plays = native.plays;
     native.appendGate = Completer<void>();
-    final append = player.appendPlaylist(
+    final append = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: Object()),
-    );
+    ]);
     await flush();
     native.processingState = audio.ProcessingState.buffering;
     native.appendGate!.complete();
@@ -321,9 +378,9 @@ void main() {
     native.finish();
     final plays = native.plays;
     native.appendGate = Completer<void>();
-    final append = player.appendPlaylist(
+    final append = player.appendPlaylist([
       AudioPlaylistItem(path: '/cache/b.wav', tag: b),
-    );
+    ]);
     await flush();
     native.transition(1);
     native.finish();
@@ -368,47 +425,17 @@ void main() {
     expect(failures, [same(failure)]);
     expect(native.currentIndex, 0);
   });
-  test('裁去已播文件时忽略来源列表和原生索引不同步的中间态', () async {
-    final a = Object(), b = Object(), c = Object();
-    await start(a);
-    await player.appendPlaylist(AudioPlaylistItem(path: '/b.wav', tag: b));
-    await player.appendPlaylist(AudioPlaylistItem(path: '/c.wav', tag: c));
-    native.transition(1);
-    await player.discardPlayedItems();
-    expect(started, [a, b]);
-    expect(player.currentTag, same(b));
-    native.transition(1);
-    expect(started, [a, b, c]);
-    native.finish();
-    expect(ended, [a, b, c]);
-  });
   test('平台逐项完成不当作队尾，追加不能跳到新尾项而漏播已排正文', () async {
     final a = Object(), b = Object(), c = Object();
     await start(a);
-    await player.appendPlaylist(AudioPlaylistItem(path: '/b.wav', tag: b));
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
     native.finish();
     expect(player.playlistFinished, isFalse);
-    await player.appendPlaylist(AudioPlaylistItem(path: '/c.wav', tag: c));
+    await player.appendPlaylist([AudioPlaylistItem(path: '/c.wav', tag: c)]);
     expect(player.currentTag, same(a));
     expect(ended, isEmpty);
     native.transition(1);
     expect(started, [a, b]);
-  });
-  test('WinRT删前项不回传新索引，显式保存当前位置并校正，不能跳过当前片', () async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    native.reportRemovalIndex = false;
-    final a = Object(), b = Object(), c = Object();
-    await start(a);
-    await player.appendPlaylist(AudioPlaylistItem(path: '/b.wav', tag: b));
-    await player.appendPlaylist(AudioPlaylistItem(path: '/c.wav', tag: c));
-    native.transition(1);
-    native.position = const Duration(milliseconds: 100);
-    await player.discardPlayedItems();
-    expect(started, [a, b]);
-    expect(player.currentTag, same(b));
-    expect(native.currentIndex, 0);
-    expect(native.position.inMilliseconds, 100);
   });
   test('网络音频和本地试听共用原生后端，切换清空旧源且保持同一对象', () async {
     final tag = Object();

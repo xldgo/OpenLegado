@@ -6,7 +6,7 @@ import '../../../services/stream_audio_player.dart';
 import '../../../services/read_aloud_diagnostics.dart';
 import 'read_aloud_engine.dart';
 
-/// 只编排当前文件及至多两个后续文件，章节、定时和选择仍归协调层。— Codex + UI
+/// 前方至多准备两项；本章历史来源及租约随原生停止统一释放。— Codex + UI
 final class FileReadAloudPlaylist {
   FileReadAloudPlaylist({required this.player, required this.synthesize});
   final StreamAudioPlayer player;
@@ -18,12 +18,19 @@ final class FileReadAloudPlaylist {
   AudioPlaylistPlayer get _native => player as AudioPlaylistPlayer;
   List<ReadAloudPlaylistCue> _cues = [];
   final _audio = <int, HttpTtsAudio>{};
+  final _ready = <int>[];
   ReadAloudSession? _session;
   void Function(ReadAloudPlaylistCue)? _onCue;
   HttpTtsCancellation? _pending;
-  int _generation = 0, _current = 0, _next = 0, _progressBase = 0;
+  int _generation = 0,
+      _current = 0,
+      _next = 0,
+      _queuedNext = 0,
+      _progressBase = 0;
   bool _loaded = false, _paused = false;
   Object? _fillOwner;
+  Object? _appendOwner;
+  Timer? _appendTimer;
   Object? _failure;
   Future<void> _pauseBarrier = Future.value();
 
@@ -62,6 +69,7 @@ final class FileReadAloudPlaylist {
     _onCue = onCueStarted;
     _current = 0;
     _next = 0;
+    _queuedNext = 0;
     _progressBase = cues.first.sourceOffset;
     _failure = null;
     _paused = false;
@@ -104,6 +112,7 @@ final class FileReadAloudPlaylist {
     }
     if (!_valid(generation)) return ReadAloudStart.cancelled;
     _next = 1;
+    _queuedNext = 1;
     _loaded = true;
     _pump();
     return ReadAloudStart.started;
@@ -121,37 +130,15 @@ final class FileReadAloudPlaylist {
       'paragraph': _cues[index].paragraphIndex,
       'tag': identityHashCode(tag),
       'retained': _audio.length,
-      'queuedNext': _next,
+      'preparedNext': _next,
+      'queuedNext': _queuedNext,
+      'ready': _ready.length,
       'totalCues': _cues.length,
     });
     _onCue?.call(_cues[index]);
     if (!_valid(generation)) return;
     _session?.reportProgress(_cues[index].sourceOffset - _progressBase);
-    unawaited(_retire(generation));
-  }
-
-  Future<void> _retire(int generation) async {
-    // 换项可能发生在出队确认期间，只释放本次请求前已经播完的文件。
-    final before = _current;
-    final trace = ReadAloudDiagnostics.instance.begin('playlist.retire', {
-      'playlist': identityHashCode(this),
-      'cue': before,
-      'retained': _audio.length,
-    });
-    try {
-      await _native.discardPlayedItems();
-      if (generation != _generation) return;
-      final indices = _audio.keys.where((i) => i < before).toList();
-      final retiring = [for (final index in indices) _audio.remove(index)!];
-      for (final audio in retiring) {
-        await audio.lease?.release();
-      }
-      if (_valid(generation)) _pump();
-    } catch (error) {
-      if (_valid(generation)) _session?.fail(error);
-    } finally {
-      trace?.finish({'retained': _audio.length, 'currentCue': _current});
-    }
+    _pump();
   }
 
   void _ended(Object tag, int generation) {
@@ -165,7 +152,17 @@ final class FileReadAloudPlaylist {
             _cues[index].request.text.length,
       );
       _session?.complete();
-    } else if (_failure != null && _native.playlistFinished) {
+    } else {
+      _maybeFail(generation);
+    }
+  }
+
+  void _maybeFail(int generation) {
+    if (_valid(generation) &&
+        _failure != null &&
+        _native.playlistFinished &&
+        _ready.isEmpty &&
+        _appendOwner == null) {
       _failAtNext(generation);
     }
   }
@@ -173,7 +170,7 @@ final class FileReadAloudPlaylist {
   void _failAtNext(int generation) {
     if (!_valid(generation) || _failure == null) return;
     // 已播完的片不重播，失败位置是下一份尚未入队的正文。
-    final next = _next.clamp(0, _cues.length - 1);
+    final next = _queuedNext.clamp(0, _cues.length - 1);
     _current = next;
     _onCue?.call(_cues[next]);
     _session?.reportProgress(_cues[next].sourceOffset - _progressBase);
@@ -187,7 +184,7 @@ final class FileReadAloudPlaylist {
         _failure != null ||
         !_valid(_generation) ||
         _next >= _cues.length ||
-        _audio.length >= 3) {
+        _next - _current - 1 >= 2) {
       return;
     }
     final owner = Object();
@@ -197,25 +194,19 @@ final class FileReadAloudPlaylist {
       try {
         while (_valid(generation) &&
             _next < _cues.length &&
-            _audio.length < 3) {
+            _next - _current - 1 < 2) {
           final index = _next;
-          final cue = _cues[index];
           final result = await _synthesize(index, generation);
           if (result == null || !_valid(generation)) return;
           _audio[index] = result;
-          // 追加失败也可能已有原生引用，租约保留到队列停止后统一释放。
-          await _native.appendPlaylist(
-            AudioPlaylistItem(path: result.audioPath, tag: cue),
-          );
-          if (generation != _generation) return;
-          // 原生追加已经提交：即使此刻暂停，续播也必须从后一个未排队项继续。
+          _ready.add(index);
           _next = index + 1;
-          if (!_valid(generation)) return;
+          _scheduleAppend();
         }
       } catch (error) {
         if (_valid(generation)) {
           _failure = error;
-          if (_native.playlistFinished) _failAtNext(generation);
+          _maybeFail(generation);
         }
       } finally {
         if (identical(_fillOwner, owner)) {
@@ -224,6 +215,55 @@ final class FileReadAloudPlaylist {
         }
       }
     }());
+  }
+
+  void _scheduleAppend() {
+    if (!_loaded ||
+        !_valid(_generation) ||
+        _ready.isEmpty ||
+        _appendOwner != null ||
+        _appendTimer != null) {
+      return;
+    }
+    // 仅合并本轮已就绪的音频，不为凑批次等待后续合成，也不延迟首项。
+    _appendTimer = Timer(Duration.zero, () {
+      _appendTimer = null;
+      unawaited(_appendReady(_generation));
+    });
+  }
+
+  Future<void> _appendReady(int generation) async {
+    if (!_valid(generation) || _appendOwner != null || _ready.isEmpty) return;
+    final owner = Object();
+    _appendOwner = owner;
+    final indices = List.of(_ready);
+    _ready.clear();
+    try {
+      // 追加失败也可能已有原生引用，全部租约保留到停止确认之后。
+      await _native.appendPlaylist([
+        for (final index in indices)
+          AudioPlaylistItem(path: _audio[index]!.audioPath, tag: _cues[index]),
+      ]);
+      if (generation != _generation) return;
+      // 暂停期间原生仍可能提交成功，续播不得再次追加同一批正文。
+      _queuedNext = indices.last + 1;
+    } catch (error) {
+      if (generation == _generation) {
+        _failure = error;
+        _loaded = false;
+        _pending?.cancel();
+        _session?.fail(error);
+      }
+    } finally {
+      if (identical(_appendOwner, owner)) {
+        _appendOwner = null;
+        if (_valid(generation)) {
+          _scheduleAppend();
+          _pump();
+          _maybeFail(generation);
+        }
+      }
+    }
   }
 
   Future<void> pause() {
@@ -252,6 +292,7 @@ final class FileReadAloudPlaylist {
     }
     if (_native.playlistFinished && tag != null) _ended(tag, generation);
     _pump();
+    _scheduleAppend();
     return ReadAloudStart.started;
   }
 
@@ -261,12 +302,16 @@ final class FileReadAloudPlaylist {
     _session = null;
     _pending?.cancel();
     _pending = null;
+    _appendTimer?.cancel();
+    _appendTimer = null;
     _loaded = _paused = false;
     _failure = null;
     _pauseBarrier = Future.value();
     final retiring = List.of(_audio.values);
     _audio.clear();
+    _ready.clear();
     _fillOwner = null;
+    _appendOwner = null;
     _cues = [];
     await (playbackStopped ?? player.stop());
     for (final result in retiring) {

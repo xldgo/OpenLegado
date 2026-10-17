@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as audio;
 
 import 'audio_playlist_player.dart';
@@ -33,6 +32,8 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   Object? _singleTag;
   String? _singleUrl;
   final _completed = Set<Object>.identity();
+  final _pendingCompleted = Set<Object>.identity();
+  DateTime? _positionBaseline;
   Future<void> _mutations = Future.value();
   void Function(Object)? _started, _ended, _failed;
   void Function(Duration, Duration, Object)? _progress;
@@ -76,11 +77,13 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   Object? get currentPlaylistTag => _queueMode ? _active : null;
   bool get _itemFinished {
     final player = _native;
+    final event = player?.playbackEvent;
     return _queueMode &&
         player != null &&
-        player.processingState == audio.ProcessingState.completed &&
-        (player.duration ?? Duration.zero) > Duration.zero &&
-        player.position >= player.duration!;
+        event != null &&
+        event.processingState == audio.ProcessingState.completed &&
+        event.currentIndex == player.currentIndex &&
+        (event.duration ?? Duration.zero) > Duration.zero;
   }
 
   @override
@@ -133,7 +136,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       } finally {
         _editing = false;
       }
-      _sync(generation);
+      _syncStructure(generation);
     });
     // 已返回的操作仍向调用方报错，后续清理不被旧失败阻断。
     _mutations = next.catchError((Object _) {});
@@ -150,19 +153,85 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     );
   }
 
-  void _sync(int generation) {
-    _diagnostics.count('player.sync');
+  void _complete(Object tag, int generation) {
+    if (generation == _generation && _queueMode && _completed.add(tag)) {
+      _ended?.call(tag);
+    }
+  }
+
+  void _syncStructure(int generation) {
     if (generation != _generation || !_queueMode || _editing) return;
     final player = _native!;
     final tag = player.sequenceState.currentSource?.tag;
     if (tag == null) return;
+    final completed = List.of(_pendingCompleted);
+    _pendingCompleted.clear();
+    for (final previous in completed) {
+      if (!identical(previous, tag)) _complete(previous, generation);
+      if (generation != _generation || !_queueMode) return;
+    }
+    if (!identical(_active, tag)) {
+      _trace('player.item_changed', {
+        'previousTag': _active == null ? null : identityHashCode(_active!),
+      });
+      _active = tag;
+      // 换项事件可能仍带上一项的位置和时长，先等待下一份原生位置基点。
+      _positionBaseline = player.playbackEvent.updateTime;
+      _started?.call(tag);
+    }
+    if (generation != _generation || !_queueMode) return;
+    if (completed.any((item) => identical(item, tag)) || playlistFinished) {
+      _complete(tag, generation);
+    }
+  }
+
+  void _onDiscontinuity(audio.PositionDiscontinuity change, int generation) {
+    if (generation != _generation || !_queueMode) return;
+    if (change.reason == audio.PositionDiscontinuityReason.autoAdvance) {
+      final sequence = _native!.sequence;
+      final index = change.previousEvent.currentIndex;
+      // 本章来源只追加，索引不会因删除历史项而指向另一份正文。
+      if (index != null && index >= 0 && index < sequence.length) {
+        final tag = sequence[index].tag;
+        if (tag != null) _pendingCompleted.add(tag);
+      }
+    }
+    _syncStructure(generation);
+  }
+
+  void _onProcessingState(int generation) {
+    if (generation != _generation || !_queueMode) return;
+    if (playlistFinished) {
+      final tag = _native!.sequenceState.currentSource?.tag;
+      if (tag != null) _pendingCompleted.add(tag);
+    }
+    _syncStructure(generation);
+  }
+
+  void _publishProgress(int generation) {
+    _diagnostics.count('player.sync');
+    if (generation != _generation || !_queueMode || _editing) return;
+    final player = _native!;
+    final event = player.playbackEvent;
+    final tag = player.sequenceState.currentSource?.tag;
+    if (tag == null ||
+        !identical(tag, _active) ||
+        event.currentIndex != player.currentIndex) {
+      return;
+    }
+    final baseline = _positionBaseline;
+    if (baseline != null) {
+      if (!event.updateTime.isAfter(baseline)) return;
+      _positionBaseline = null;
+    }
+    final position = player.position;
     if (_diagnostics.enabled) {
       if (_lastDiagnosticSession != _diagnostics.session) {
         _lastDiagnosticSession = _diagnostics.session;
         _lastDiagnosticTag = null;
         _lastDiagnosticSample = 0;
       }
-      final positionMs = player.position.inMilliseconds;
+      final positionMs = position.inMilliseconds;
       if (identical(_lastDiagnosticTag, tag) &&
           positionMs + 200 < _lastDiagnosticPosition) {
         _trace('player.position_backwards', {
@@ -177,21 +246,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         _trace('player.sample');
       }
     }
-    if (!identical(_active, tag)) {
-      _trace('player.item_changed', {
-        'previousTag': _active == null ? null : identityHashCode(_active!),
-      });
-      final previous = _active;
-      _active = tag;
-      if (previous != null && _completed.add(previous)) _ended?.call(previous);
-      if (generation != _generation || !_queueMode) return;
-      _started?.call(tag);
-    }
-    if (generation != _generation || !_queueMode) return;
-    _progress?.call(player.position, player.duration ?? Duration.zero, tag);
-    if (playlistFinished && _completed.add(tag)) {
-      _ended?.call(tag);
-    }
+    _progress?.call(position, event.duration ?? Duration.zero, tag);
   }
 
   @override
@@ -240,13 +295,20 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       'file': ReadAloudDiagnostics.fileKey(source.uri.toString()),
     });
     _subscriptions.addAll([
+      player.sequenceStateStream.listen((_) => _syncStructure(generation)),
+      player.positionDiscontinuityStream.listen(
+        (change) => _onDiscontinuity(change, generation),
+      ),
+      player.processingStateStream.listen(
+        (_) => _onProcessingState(generation),
+      ),
       player.playbackEventStream.listen((_) {
         _diagnostics.count('player.playback_event');
-        _sync(generation);
+        _publishProgress(generation);
       }),
       player.positionStream.listen((_) {
         _diagnostics.count('player.position_event');
-        _sync(generation);
+        _publishProgress(generation);
       }),
       player.errorStream.listen((error) {
         if (generation == _generation && _queueMode) _failed?.call(error);
@@ -269,20 +331,27 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   }
 
   @override
-  Future<void> appendPlaylist(AudioPlaylistItem item) {
+  Future<void> appendPlaylist(List<AudioPlaylistItem> items) {
+    if (items.isEmpty) return Future.value();
+    final sources = [
+      for (final item in items)
+        audio.AudioSource.uri(_fileUri(item.path), tag: item.tag),
+    ];
     final generation = _generation;
     return _mutate(generation, () async {
       final player = _native!;
       _trace('player.append.begin', {
-        'addedTag': identityHashCode(item.tag),
-        'addedFile': ReadAloudDiagnostics.fileKey(item.path),
+        'addedCount': items.length,
+        'addedTags': items.map((item) => identityHashCode(item.tag)).toList(),
+        'addedFiles': items
+            .map((item) => ReadAloudDiagnostics.fileKey(item.path))
+            .toList(),
       });
       final endedTag = playlistFinished
           ? player.sequenceState.currentSource?.tag
           : null;
-      await player.addAudioSource(
-        audio.AudioSource.uri(_fileUri(item.path), tag: item.tag),
-      );
+      if (endedTag != null) _pendingCompleted.add(endedTag);
+      await player.addAudioSources(sources);
       _trace('player.append.end');
       if (generation != _generation || !_queueMode || !_playRequested) return;
       // 追加期间原生可能已经换项，旧的队尾状态不能用来重置新音频。
@@ -305,34 +374,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       await player.seek(Duration.zero, index: nextIndex);
       if (generation == _generation && _queueMode && _playRequested) {
         _play(generation);
-      }
-    });
-  }
-
-  @override
-  Future<void> discardPlayedItems() {
-    final generation = _generation;
-    return _mutate(generation, () async {
-      final player = _native!;
-      final before = player.currentIndex ?? 0;
-      if (before <= 0) return;
-      final removed = player.sequence.take(before).map((e) => e.tag).toList();
-      final position = player.position;
-      _trace('player.discard.begin', {'removeBefore': before});
-      await player.removeAudioSourceRange(0, before);
-      _trace('player.discard.end');
-      if (generation != _generation || !_queueMode) return;
-      if (defaultTargetPlatform == TargetPlatform.windows) {
-        // WinRT 删除前项不发布新的索引；显式保留当前片位置并同步索引，避免误认下一片。
-        _trace('player.seek', {
-          'reason': 'windows_remove',
-          'targetIndex': 0,
-          'targetMs': position.inMilliseconds,
-        });
-        await player.seek(position, index: 0);
-      }
-      for (final tag in removed) {
-        _completed.remove(tag);
       }
     });
   }
@@ -418,7 +459,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _singleTag = tag;
     if (_itemFinished) _completed.remove(_active);
     await resume();
-    _sync(generation);
+    _syncStructure(generation);
     return generation == _generation && identical(_singleTag, tag);
   }
 
@@ -434,10 +475,12 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _playRequested = false;
     _queueMode = false;
     _active = null;
+    _positionBaseline = null;
     _single = false;
     _singleTag = null;
     _singleUrl = null;
     _completed.clear();
+    _pendingCompleted.clear();
     _started = _ended = _failed = null;
     _progress = null;
     final subscriptions = List.of(_subscriptions);

@@ -31,10 +31,10 @@ session是一次手动采集的身份；generation是播放会话代次。Dart�
 | 事件 | 作用 |
 |---|---|
 | player.load.request/done、play、pause、resume、stop、speed | 应用显式播放操作 |
-| player.append.begin/end、discard.begin/end | 追加、移除前后的项数/索引/位置/状态 |
-| player.seek | 显式定位及原因，含恢复下一项、Windows索引补偿和用户定位 |
+| player.append.begin/end | 批量追加前后的项数/索引/位置/状态，addedCount及匿名标签/文件列表 |
+| player.seek | 显式定位及原因，含队尾恢复下一项、暂停恢复和用户定位 |
 | player.item_changed、sample、position_backwards | 当前音频身份、每秒状态和同一标签位置后退超过200ms的线索 |
-| playlist.cue_started、retire.begin/end | 正文段落/分片编号与缓存租约保留量 |
+| playlist.cue_started | 正文段落/分片、租约保留量、准备位置preparedNext与提交位置queuedNext |
 | native.event | iOS音频项时间不连续、结束、停顿、失败、中断、路由变化及原生时间 |
 | synthesis.window_start/cancel、chapter_batch | 窗口代次、每章实际分片数、并发和待处理量 |
 | synthesis.job.begin/end | 前后台归属、取消、结果、缓存命中和端到端任务耗时 |
@@ -51,6 +51,11 @@ session是一次手动采集的身份；generation是播放会话代次。Dart�
   结合discard/append前后位置判断相关性。通知本身不能证明由哪一个插件内部方法触发。
 - 新item出现：检查是否同文件被再次装载，避免把正常换到下一段的位置归零当成回退。
 - 两侧位置都正常但听到重复：保留对应音频文件单独试听；日志不包含音频内容，无法排除合成产物自身重复。
+
+章节队列调整后播放期间不再产生discard或retire事件；这些名称仅用于解释旧诊断包。
+retained表示本章仍持有的全部租约，不等于前方待播项数，历史项增长不代表预合成窗口扩大。
+批量追加完成回调前queuedNext可能暂时落后于已观察到的原生索引，应结合append.end判断。
+位置采样不再触发换项，新项等待下一份原生位置基点，不能将换项附近短暂无段内采样认定为停播。
 
 原生通过AVPlayerItem公开通知被动观察，不修改just_audio、运行时方法或播放行为。
 不读取AVQueuePlayer私有字段，未覆盖插件每一次内部方法调用；也不保证所有很短的跳转
