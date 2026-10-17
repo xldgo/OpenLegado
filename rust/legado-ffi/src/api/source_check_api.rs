@@ -1,6 +1,6 @@
 //! 书源校验 API（Task #87）
 //!
-//! 对 `legado-net::source_checker::SourceChecker` 的纯 FFI 包装，
+//! 对Engine书源校验服务的宿主与协议适配，
 //! 暴露单本校验与批量流式校验，供 Flutter 书源校验页面接入。
 //!
 //! - 单本校验：[`check_source`]（搜索→详情→目录→正文四步 + 验证码/重定向检测）
@@ -11,17 +11,37 @@
 //! 与 server 端点的差异：批量校验采用串行执行（对齐 Kotlin 原版），
 //! 避免对书源站产生并发压力；支持宿主内取消（对齐 Kotlin `CheckSource.stop`）。
 
+#[cfg(test)]
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
+#[cfg(test)]
 use legado_db::BookSourceRepository;
-use legado_net::source_checker::{CheckResult, CheckerConfig, SourceChecker};
+use legado_net::source_checker::{CheckResult, CheckerConfig};
 
+#[cfg(test)]
 use legado_db::repository::Repository;
+#[cfg(test)]
+use legado_engine::source_check_service::{load_check_sources_selected, run_checks_config};
+#[cfg(test)]
 use legado_engine::{NetworkContext, Operation, StorageContext};
+
+fn host_service() -> legado_engine::source_check_service::SourceCheckService {
+    use legado_engine::source_check_service::{SourceCheckResources, SourceCheckService};
+    let storage = crate::engine_holder::current()
+        .ok()
+        .map(|engine| engine.storage().clone());
+    SourceCheckService::new(SourceCheckResources {
+        storage,
+        network: crate::engine_holder::network(),
+        tasks: crate::engine_holder::task_group(),
+        slot: crate::engine_holder::source_checks(),
+        runtime: crate::runtime::get_runtime().handle().clone(),
+    })
+}
 
 // ─── 配置 DTO ─────────────────────────────────────────────────────────────────
 
@@ -63,14 +83,6 @@ fn parse_config(config_json: &str) -> LegadoResult<CheckerConfig> {
     })
 }
 
-/// 客户端与取消作用域在入口固定，不从异步回调重新发现宿主。
-fn create_checker(network: &NetworkContext, config: CheckerConfig) -> LegadoResult<SourceChecker> {
-    Ok(SourceChecker::with_config(
-        Arc::new(network.client()?),
-        config,
-    ))
-}
-
 // ─── 单本校验 ─────────────────────────────────────────────────────────────────
 
 /// 校验单个书源（搜索→详情→目录→正文四步 + 验证码/重定向检测）
@@ -86,19 +98,7 @@ pub fn check_source(source_json: &str, config_json: &str) -> LegadoResult<CheckR
     check_source_entity(source, config)
 }
 pub fn check_source_entity(source: BookSource, config: CheckerConfig) -> LegadoResult<CheckResult> {
-    let task = crate::engine_holder::task_group()
-        .begin()
-        .map_err(|e| LegadoError::Ffi(format!("书源校验任务不可用: {e}")))?;
-    let checker = create_checker(&crate::engine_holder::network(), config)?;
-    crate::runtime::block_on(async move {
-        let result = tokio::select! {
-            biased;
-            _ = task.cancelled() => return Err(LegadoError::Ffi("书源校验已取消".into())),
-            result = checker.check_full(&source) => result,
-        };
-        task.with_active(|| result)
-            .ok_or_else(|| LegadoError::Ffi("书源校验已取消".into()))
-    })
+    host_service().check_source_entity(source, config)
 }
 
 // ─── 批量流式校验 ─────────────────────────────────────────────────────────────
@@ -111,19 +111,7 @@ pub fn check_source_entity(source: BookSource, config: CheckerConfig) -> LegadoR
 /// - `is_last` — 是否为最后一条（`index == total - 1`）
 /// - `source_name` — 书源名称（便于 UI 展示）
 /// - `result` — 该书源的 [`CheckResult`] 完整结构
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CheckProgress {
-    /// 当前书源索引（从 0 开始）
-    pub index: usize,
-    /// 书源总数
-    pub total: usize,
-    /// 是否为最后一条
-    pub is_last: bool,
-    /// 书源名称
-    pub source_name: String,
-    /// 该书源的校验结果
-    pub result: CheckResult,
-}
+pub use legado_engine::source_check_service::CheckProgress;
 
 /// 批量校验书源（串行），逐个回推进度
 ///
@@ -175,28 +163,15 @@ where
 pub async fn run_check_sources_selected<F>(
     source_urls: Vec<String>,
     config: CheckerConfig,
-    mut on_result: F,
+    on_result: F,
 ) where
     F: FnMut(CheckProgress) -> Result<(), String>,
 {
-    // 书源加载失败时以空流结束（Dart 侧表现为无结果）
-    let slot = crate::engine_holder::source_checks();
-    let Ok(operation) = slot.start() else {
-        return;
-    };
-    let _guard = operation.guard();
-    let storage = crate::engine_holder::current()
-        .ok()
-        .map(|engine| engine.storage().clone());
-    let network = crate::engine_holder::network();
-    let sources = load_check_sources_selected(storage.as_ref(), &source_urls).unwrap_or_default();
-    run_checks_config(sources, config, &operation, &network, &mut on_result).await;
+    host_service()
+        .run_check_sources_selected(source_urls, config, on_result)
+        .await
 }
 
-/// 批量校验内层实现（直接接收书源列表，便于测试注入）
-///
-/// 串行逐个校验并回推 [`CheckProgress`] JSON；`on_result` 返回 `Err`
-/// 或取消标志置位时提前终止。
 #[cfg(test)]
 async fn run_checks_typed<F>(
     sources: Vec<Option<BookSource>>,
@@ -216,83 +191,10 @@ async fn run_checks_typed<F>(
     )
     .await;
 }
-async fn run_checks_config<F>(
-    sources: Vec<Option<BookSource>>,
-    config: CheckerConfig,
-    operation: &Arc<Operation>,
-    network: &NetworkContext,
-    mut on_result: F,
-) where
-    F: FnMut(CheckProgress) -> Result<(), String>,
-{
-    let total = sources.len();
-    if total == 0 {
-        return;
-    }
-
-    let checker = match create_checker(network, config) {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("书源校验：共享 HTTP 客户端初始化失败: {e}");
-            return;
-        }
-    };
-
-    // 串行逐个校验（对齐 Kotlin CheckSourceService，避免对书源站并发压力）
-    for (index, source) in sources.into_iter().enumerate() {
-        if !operation.is_active() {
-            break;
-        }
-
-        let result = match source {
-            Some(ref src) => tokio::select! {
-                biased;
-                _ = operation.task().cancelled() => break,
-                result = checker.check_full(src) => result,
-            },
-            // 书源不存在：对齐 Kotlin source == null 分支，推送失败结果
-            None => CheckResult {
-                source_url: String::new(),
-                search_ok: false,
-                toc_ok: false,
-                content_ok: false,
-                search_error: Some("书源不存在".to_string()),
-                toc_error: Some("skipped".to_string()),
-                content_error: Some("skipped".to_string()),
-                total_time_ms: 0,
-                captcha: None,
-                redirect: None,
-            },
-        };
-
-        let progress = CheckProgress {
-            index,
-            total,
-            is_last: index + 1 >= total,
-            source_name: source
-                .as_ref()
-                .map(|s| s.book_source_name.clone())
-                .unwrap_or_default(),
-            result,
-        };
-
-        {
-            // sink 关闭（Err）时提前终止
-            match operation.publish(|| on_result(progress)) {
-                Some(Ok(())) => {}
-                Some(Err(_)) => {
-                    operation.cancel();
-                    break;
-                }
-                None => break,
-            }
-        }
-    }
-}
 
 /// 取消正在进行的批量校验（对齐 Kotlin `CheckSource.stop`）
 pub fn cancel_check_sources() {
-    crate::engine_holder::source_checks().cancel();
+    host_service().cancel_check_sources()
 }
 
 // ─── 内部实现 ─────────────────────────────────────────────────────────────────
@@ -312,20 +214,6 @@ fn load_check_sources(
         storage,
         &crate::api::search::parse_source_urls(json.trim())?,
     )
-}
-fn load_check_sources_selected(
-    storage: Option<&StorageContext>,
-    urls: &[String],
-) -> LegadoResult<Vec<Option<BookSource>>> {
-    let storage = storage
-        .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?;
-    storage.with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        if urls.is_empty() {
-            return Ok(repo.find_all()?.into_iter().map(Some).collect());
-        }
-        urls.iter().map(|url| repo.find_by_url(url)).collect()
-    })
 }
 
 #[cfg(test)]

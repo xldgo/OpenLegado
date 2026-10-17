@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### EXPLORE-CHECK-SERVICE-20261017：发现与书源校验服务下沉（P1）
+
+- 授权与基线：用户授权执行下一批完整计划；feature/rust-ffi-modernization / 65b4e812e，worktree干净，Codex单代理，不新建分支。验证后整批本地提交，不推送/合并/远程CI/WSL或设备安装。
+- 范围：在现有legado-engine提取ExploreService与SourceCheckService，接管分类/控件脚本、分页抓取/解析、所属实例infoMap以及单源/批量校验编排。FFI保留宿主资源与JS绑定装配、JSON文档和DTO适配。无宿主依赖的jsLib降级加载移至Fetcher并保留原路径重导出。
+- 行为冻结：发现文本/JS分类、默认值、infoMap读写、请求/登录校验/解析和平台动作顺序保持；校验继续串行、包含禁用源、缺失URL占位、取消/迟到发布和sink关闭规则不变。核查确认既有校验没有DB结果回写，本次不新增该行为。FFI/生成绑定、数据库、应用版本和外部依赖版本不变；仅在移动实现确需时增加已有锁定包或workspace crate依赖边。
+- 验收与回滚：复用现有发现/校验与真实FRB回归，仅补服务实例隔离/生命周期的必要验证；两档全目标严格Clippy、正式Windows DLL和指纹/摘要。单代理自查，独立外审、远程CI与设备限制如实记录；可独立撤销本批。状态见下方最终验证记录。
+
+- 实现：ExploreService管理分类/控件脚本、infoMap默认值与写回，Fetcher/explore管理请求和解析，explore_url管理URL变量与JS求值，explore_js集中既有降级加载。SourceCheckService管理独立单源任务与串行批次，FFI只保留宿主能力、文档适配与原类型重导出。JS绑定通过捕获的登录/infoMap装配函数提供；自带deps的调试入口继续沿用自己的资源与任务，不借机更换上下文。
+- Rust验证：Engine29、Fetcher156、FFI594共779项通过，FFI42项既有忽略。新增3项服务测试覆盖infoMap默认值不覆盖用户值、独立数据库持久化、JS登录/控件/动作与data URI抓取、根析构只关闭所属动作任务，以及禁用/缺失源顺序、sink关闭和实例取消隔离。原发现35、校验16、绑定5项测试入口均保留，不增加源码文本断言或测试宿主。
+- 整改：提取时原始JS字符串中的独立花括号导致临时截断，已恢复全部原测试模块和脚本；修正实体类型与QuickJS专用测试导入的cfg归属、去除迁移后未用的旧重导出。全目标严格Clippy另命中既有tts_fetcher测试的store: store，最小修改为等价字段简写，不改TTS逻辑或添加lint放行。jsLib四函数与校验三函数对照原实现，仅可见性/格式变化。
+- 最终验证：default与QuickJS两档Engine/Fetcher/FFI全目标严格Clippy通过；没有增加workspace或外部依赖边，Cargo锁文件、数据库及生成绑定不变。正式Python入口在本worktree独立target重建Windows Debug QuickJS DLL，构建与指纹/摘要通过；既有真实FRB两份文件12项通过，覆盖发现分类/列表、校验及取消、搜索与换源和StreamSink。限定文件格式与git diff --check通过。
+- 证据与边界：build/explore-check-service/{rust-quick,clippy-quick-final,clippy-default-final,native-build,native-runtime,native-verify-final}.log。初轮编译截断与导入错误日志保留，修正后实际行为测试通过；本轮没有新增Dart测试或重新执行全量Flutter分析。Codex单代理自查，无独立外审、远程CI、Android/iOS或设备性能结论。
+- 状态：本批发现/校验服务提取及本地验证完成，按授权整批本地提交；当前worktree/分支保留，不推送或合并。后续阅读域任务另行确认。
+
+编写者：Codex｜2026-10-17
+
 ### SEARCH-SERVICE-20261017：搜索业务服务下沉（P1）
 
 - 授权与基线：用户授权执行已确认计划；沿用feature/rust-ffi-modernization / 7533a6546，工作区干净。Codex单代理，当前worktree内实施，整批验证后本地提交，不推送、合并、远程CI、WSL或设备安装。

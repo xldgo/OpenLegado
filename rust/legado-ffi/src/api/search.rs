@@ -1,6 +1,7 @@
 //! 搜索宿主适配：捕获资源、转换文档协议并委托Engine搜索服务。
 use crate::runtime;
-pub(crate) use legado_core::book_help::format_book_word_count as word_count_format;
+#[cfg(test)]
+use legado_core::book_help::format_book_word_count as word_count_format;
 use legado_core::{
     LegadoError, LegadoResult,
     models::{BookSource, SearchBook as CoreSearchBook},
@@ -28,7 +29,8 @@ use legado_engine::source_batches::{SourceBatchOutcome, drive_source_batches};
 use legado_engine::source_catalog::load_search_sources_selected_from;
 #[cfg(test)]
 use legado_engine::{SearchSession, StorageContext};
-pub(crate) use legado_fetcher::book_type::book_type_of_source;
+#[cfg(test)]
+use legado_fetcher::book_type::book_type_of_source;
 use legado_fetcher::deps::FetcherDeps;
 #[cfg(test)]
 use legado_fetcher::{book_type, web_book::book_list_elements_or_default};

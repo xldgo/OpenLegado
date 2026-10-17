@@ -3,6 +3,7 @@
 //! 数据库、书源限流、网络、抓取及 VM 缓存按实例共享；任务作用域已建立，正式任务接线与剩余宿主状态继续收口。
 
 mod cache_downloads;
+pub mod explore_service;
 mod media;
 mod network;
 mod operations;
@@ -10,6 +11,7 @@ pub mod search_service;
 mod search_tasks;
 pub mod source_batches;
 pub mod source_catalog;
+pub mod source_check_service;
 mod source_info_map;
 mod source_login;
 mod source_switch;

@@ -339,3 +339,20 @@ FFI入口和DTO/生成绑定不变；动态文档格式仍在适配边界解析�
 本次不改数据库、外部依赖版本或应用行为；真实Flutter使用前仍需重建native产物。
 
 编写者：Codex｜2026-10-17
+
+### 发现与书源校验应用服务边界（2026-10-17）
+
+`legado-engine/explore_service`接管分类/控件脚本、所属实例infoMap默认值与写回、
+发现分页抓取的同步驱动；显式接收JsResources、SourceInfoMap、TaskGroup、宿主Handle
+及source绑定装配函数，不回查FFI根实例、不另建运行时。平台动作仍使用既有收集队列。
+`legado-fetcher/explore`负责发现HTTP/data URI、登录校验、规则解析和字段处理；
+`explore_url`负责携带infoMap/page的URL求值，setup由捕获的FetcherDeps提供；
+`explore_js`集中原jsLib降级加载，保留URL映射/完整脚本/sanitize/前缀/host声明的顺序。
+FFI保留实体与文档适配、原路径重导出及宿主JS绑定装配；调试入口可继续传入自己的deps/任务。
+
+`legado-engine/source_check_service`显式接收存储、网络、TaskGroup、OperationSlot与Handle，
+保留单源独立任务和批量串行校验；选中禁用源仍校验，缺失URL保留占位与索引。
+替换/取消/关闭回调受原操作发布门控保护，不新增数据库结果回写或更换底层SourceChecker。
+本批不改FRB签名、DTO/生成绑定、外部依赖、数据库或可见行为；完整状态只记Active计划。
+
+编写者：Codex｜2026-10-17

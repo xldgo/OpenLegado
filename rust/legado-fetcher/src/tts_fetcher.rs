@@ -1368,7 +1368,7 @@ mod tests {
             &dir,
             None,
             TtsFetchResources {
-                store: store,
+                store,
                 rates,
             },
             &TtsCancellation::default(),
