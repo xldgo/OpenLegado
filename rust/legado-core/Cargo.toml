@@ -4,6 +4,7 @@ version = "0.2.0"
 edition.workspace = true
 
 [dependencies]
+# 阅读状态消费排版结果的原文页范围类型，不在 core 内执行排版。
 legado-layout = { path = "../legado-layout" }
 serde = { workspace = true }
 serde_json = { workspace = true }

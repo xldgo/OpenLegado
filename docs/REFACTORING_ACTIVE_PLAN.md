@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### CORE-LAYOUT-DEPENDENCY-20261018：排版依赖核实与模块文档纠正（P2）
+
+- 授权与基线：用户要求先核实并清理core的layout依赖，单独本地提交后继续替换规则服务任务；feature/rust-ffi-modernization / 5878cb0da，工作区干净。不推送、不改主目录。
+- 核实：reader_state生产代码通过legado_layout::model::SourceRange保存页范围，并在update_layout及位置查找中使用；并非无用依赖。legado-layout为无平台的纯计算库，不能仅按名称视为Flutter表现层。直接删除依赖将破坏现有阅读状态编译，本次保留真实依赖，不复制公共类型或扩大到阅读模型重构。
+- 修改：删除lib.rs中不存在的layout模块文档链接，改为说明reader_state及独立layout的页范围类型；Cargo依赖旁注明用途。未改源码行为、公共接口、锁文件、schema、版本或依赖版本。
+- 验证：现有reader_state测试42项通过，cargo doc --no-deps成功且不再报告layout链接；文档仍有7条其他既有警告，本次未扩修。证据：build/core-layout-dependency/{reader-state,doc}.log。git diff --check通过，单代理核对，无独立外审。
+- 状态：依赖误报已澄清，过时模块说明已纠正；按授权单独本地提交后继续替换规则服务，不推送。
+
+编写者：Codex｜2026-10-18
+
 ### BOOK-SOURCE-SERVICE-20261017：书源管理与保存后限速同步收口（P1）
 
 - 授权与基线：用户批准完整书源服务批次；feature/rust-ffi-modernization / e6f955ead，worktree干净。Codex单代理，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS和后置功能缺口不扩入。

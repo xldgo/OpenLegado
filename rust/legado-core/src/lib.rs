@@ -8,7 +8,7 @@
 //! - [`search_engine`] — 多源并行搜索引擎框架
 //! - [`web_book`] — 网络书籍访问层（搜索→详情→目录→正文）
 //! - [`content_processor`] — 内容净化与替换规则处理
-//! - [`layout`] — 文本排版引擎（分页/分行）
+//! - [`reader_state`] — 阅读状态与原文位置；页范围类型来自独立的 `legado-layout`
 //! - [`types`] — 通用类型定义（PageInfo, FfiString）
 //!
 //! # Examples
