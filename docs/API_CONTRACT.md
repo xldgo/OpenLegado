@@ -2384,6 +2384,19 @@ legado-book::txt_search及legado-core::audio的通用算法和行为测试继续
 
 编写者：Codex｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 动态协议边界冻结
+
+source_is_login_ui_v2/source_login_ui_v2/source_login_action_v2的source入参改为既有BookSourceDto，
+直接转换完整BookSource，移除实体的Dart编码/Rust反解。执行仍使用同一源码快照，
+state_json/user_input_json及动态UI/命令结果保留原JSON协议：stateJson字符串/对象、formJson、
+未知字段、null/空结果和平台拦截先于解码的顺序不变；login命令仍先写入同一登录缓存再返回。
+Rust内部三项执行入口直接接收BookSource引用，旧JSON仅允许在真实测试fixture边界解析，
+不保留生产环境双版本实体入口。
+JS通用返回、登录V1/凭据文档、替换规则预览、WebDAV书架/书源文件与配置保持各自协议。
+固定诊断/同步外壳与动态文档不等同；本批不将其余尚未迁移接口声称为已类型化。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

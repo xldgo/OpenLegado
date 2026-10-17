@@ -333,17 +333,17 @@ Future<List<WebViewRequestDto>> webviewPending() =>
 /// 判定书源登录 UI 是否为 V2 动态状态协议
 ///
 /// `source_json` — BookSource JSON
-Future<bool> sourceIsLoginUiV2({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiSourceIsLoginUiV2(sourceJson: sourceJson);
+Future<bool> sourceIsLoginUiV2({required BookSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiSourceIsLoginUiV2(source: source);
 
 /// 执行 loginUi v2 脚本，返回动态 UI 描述 JSON（`{"rows":[...]}`）
 ///
-/// `source_json` — BookSource JSON；`state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
+/// `source` — 完整书源快照；`state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
 Future<String> sourceLoginUiV2({
-  required String sourceJson,
+  required BookSourceDto source,
   required String stateJson,
 }) => RustLib.instance.api.crateFfiFfiSourceLoginUiV2(
-  sourceJson: sourceJson,
+  source: source,
   stateJson: stateJson,
 );
 
@@ -352,10 +352,10 @@ Future<String> sourceLoginUiV2({
 /// `source_json` — BookSource JSON
 /// `user_input_json` — `{"action":"...","stateJson":"...","formJson":{...}}`
 Future<String> sourceLoginActionV2({
-  required String sourceJson,
+  required BookSourceDto source,
   required String userInputJson,
 }) => RustLib.instance.api.crateFfiFfiSourceLoginActionV2(
-  sourceJson: sourceJson,
+  source: source,
   userInputJson: userInputJson,
 );
 

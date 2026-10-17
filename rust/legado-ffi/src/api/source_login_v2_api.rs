@@ -17,27 +17,25 @@ use legado_core::{LegadoError, LegadoResult, login_ui_v2};
 
 /// 判定书源登录 UI 是否为 V2 动态状态协议
 ///
-/// `source_json` — BookSource JSON
-pub fn is_login_ui_v2(source_json: &str) -> LegadoResult<bool> {
-    let source: BookSource = serde_json::from_str(source_json)?;
-    Ok(login_ui_v2::is_v2(source.login_ui.as_deref()))
+/// `source` — 完整书源实体快照
+pub fn is_login_ui_v2(source: &BookSource) -> bool {
+    login_ui_v2::is_v2(source.login_ui.as_deref())
 }
 
 /// 执行 loginUi v2 脚本，返回动态 UI 描述 JSON（`{ "rows": [...] }`）
 ///
-/// - `source_json` — BookSource JSON
+/// - `source` — 完整书源实体快照
 /// - `state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
 ///
 /// JS 返回 null/undefined 时返回空字符串（对齐 Kotlin 返回 null → 渲染失败提示）。
-pub fn eval_login_ui_v2(source_json: &str, state_json: &str) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+pub fn eval_login_ui_v2(source: &BookSource, state_json: &str) -> LegadoResult<String> {
     let state = if state_json.trim().is_empty() {
         "{}"
     } else {
         state_json
     };
-    let result = eval_with_quickjs(&source, |eval_js| {
-        login_ui_v2::eval_login_ui_v2(&source, state, eval_js)
+    let result = eval_with_quickjs(source, |eval_js| {
+        login_ui_v2::eval_login_ui_v2(source, state, eval_js)
     })?;
     Ok(result.unwrap_or_default())
 }
@@ -74,7 +72,7 @@ fn json_param_to_string(value: &serde_json::Value) -> String {
 
 /// 执行 loginAction v2 动作，返回命令 JSON（state/error/login/close）
 ///
-/// - `source_json` — BookSource JSON
+/// - `source` — 完整书源实体快照
 /// - `user_input_json` — [`LoginActionV2Request`] JSON（action/stateJson/formJson）
 ///
 /// JS 返回 null/undefined（无命令）时返回空字符串。
@@ -84,13 +82,12 @@ fn json_param_to_string(value: &serde_json::Value) -> String {
 /// 返回命令含 `login` 时自动把 login JSON 写入 `source_login_cache`
 /// （`userInfo_<url>`）；JS 登录键直接访问同一服务，不再复制旧变量快照。
 /// — DeepSeek Harness + Bridge
-pub fn eval_login_action_v2(source_json: &str, user_input_json: &str) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+pub fn eval_login_action_v2(source: &BookSource, user_input_json: &str) -> LegadoResult<String> {
     let request: LoginActionV2Request = serde_json::from_str(user_input_json)?;
     let state = json_param_to_string(&request.state_json);
     let form = json_param_to_string(&request.form_json);
-    let result = eval_with_quickjs(&source, |eval_js| {
-        login_ui_v2::eval_login_action_v2(&source, &request.action, &state, &form, eval_js)
+    let result = eval_with_quickjs(source, |eval_js| {
+        login_ui_v2::eval_login_action_v2(source, &request.action, &state, &form, eval_js)
     })?;
 
     // 1) login 命令 → putLoginInfo 落库（对齐 SourceLoginV2Delegate.kt:268-274）
@@ -180,6 +177,17 @@ where
 #[cfg(all(test, feature = "quickjs"))]
 mod tests {
     use super::*;
+
+    // 仅测试fixture保留JSON文档输入；生产入口直接接收实体。
+    fn is_login_ui_v2(document: &str) -> LegadoResult<bool> {
+        Ok(super::is_login_ui_v2(&serde_json::from_str(document)?))
+    }
+    fn eval_login_ui_v2(document: &str, state: &str) -> LegadoResult<String> {
+        super::eval_login_ui_v2(&serde_json::from_str(document)?, state)
+    }
+    fn eval_login_action_v2(document: &str, request: &str) -> LegadoResult<String> {
+        super::eval_login_action_v2(&serde_json::from_str(document)?, request)
+    }
 
     /// 对齐 Kotlin `LoginUiV2EngineTest`：mainJs 提供 loginUi/loginAction 的 JS 单文件书源
     fn v2_source_json() -> String {

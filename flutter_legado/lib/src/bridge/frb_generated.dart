@@ -1095,19 +1095,19 @@ abstract class RustLibApi extends BaseApi {
 
   Future<int> crateFfiFfiSourceImport({required String jsonArray});
 
-  Future<bool> crateFfiFfiSourceIsLoginUiV2({required String sourceJson});
+  Future<bool> crateFfiFfiSourceIsLoginUiV2({required BookSourceDto source});
 
   Future<List<BookSourceDto>> crateFfiFfiSourceList();
 
   Future<List<BookSourceDto>> crateFfiFfiSourceListEnabled();
 
   Future<String> crateFfiFfiSourceLoginActionV2({
-    required String sourceJson,
+    required BookSourceDto source,
     required String userInputJson,
   });
 
   Future<String> crateFfiFfiSourceLoginUiV2({
-    required String sourceJson,
+    required BookSourceDto source,
     required String stateJson,
   });
 
@@ -10085,12 +10085,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "source_import", argNames: ["jsonArray"]);
 
   @override
-  Future<bool> crateFfiFfiSourceIsLoginUiV2({required String sourceJson}) {
+  Future<bool> crateFfiFfiSourceIsLoginUiV2({required BookSourceDto source}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(sourceJson, serializer);
+          sse_encode_box_autoadd_book_source_dto(source, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -10103,7 +10103,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSourceIsLoginUiV2ConstMeta,
-        argValues: [sourceJson],
+        argValues: [source],
         apiImpl: this,
       ),
     );
@@ -10112,7 +10112,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiSourceIsLoginUiV2ConstMeta =>
       const TaskConstMeta(
         debugName: "source_is_login_ui_v2",
-        argNames: ["sourceJson"],
+        argNames: ["source"],
       );
 
   @override
@@ -10171,14 +10171,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<String> crateFfiFfiSourceLoginActionV2({
-    required String sourceJson,
+    required BookSourceDto source,
     required String userInputJson,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(sourceJson, serializer);
+          sse_encode_box_autoadd_book_source_dto(source, serializer);
           sse_encode_String(userInputJson, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -10192,7 +10192,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSourceLoginActionV2ConstMeta,
-        argValues: [sourceJson, userInputJson],
+        argValues: [source, userInputJson],
         apiImpl: this,
       ),
     );
@@ -10201,19 +10201,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiSourceLoginActionV2ConstMeta =>
       const TaskConstMeta(
         debugName: "source_login_action_v2",
-        argNames: ["sourceJson", "userInputJson"],
+        argNames: ["source", "userInputJson"],
       );
 
   @override
   Future<String> crateFfiFfiSourceLoginUiV2({
-    required String sourceJson,
+    required BookSourceDto source,
     required String stateJson,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(sourceJson, serializer);
+          sse_encode_box_autoadd_book_source_dto(source, serializer);
           sse_encode_String(stateJson, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -10227,7 +10227,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSourceLoginUiV2ConstMeta,
-        argValues: [sourceJson, stateJson],
+        argValues: [source, stateJson],
         apiImpl: this,
       ),
     );
@@ -10235,7 +10235,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateFfiFfiSourceLoginUiV2ConstMeta => const TaskConstMeta(
     debugName: "source_login_ui_v2",
-    argNames: ["sourceJson", "stateJson"],
+    argNames: ["source", "stateJson"],
   );
 
   @override

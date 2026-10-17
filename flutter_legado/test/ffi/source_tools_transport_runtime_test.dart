@@ -2,10 +2,12 @@ library;
 
 @Timeout(Duration(minutes: 3))
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 import 'package:flutter_legado/src/data/repositories/rust_book_source_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookshelf_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_cover_rule_repository.dart';
@@ -13,6 +15,7 @@ import 'package:flutter_legado/src/data/services/rust_book_source_edit_service.d
 import 'package:flutter_legado/src/data/services/rust_cover_search_service.dart';
 import 'package:flutter_legado/src/data/services/rust_source_action_service.dart';
 import 'package:flutter_legado/src/data/services/rust_audio_book_service.dart';
+import 'package:flutter_legado/src/data/services/rust_source_login_v2_service.dart';
 import 'package:flutter_legado/src/domain/models/cover_rule.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -137,5 +140,51 @@ void main() {
     expect(await audio.getAudioProgress('audio-book', 7), 9007199254740993);
     final config = await audio.audioWithPlayMode(playMode: 2);
     expect(config.toJson()['playMode'], 2);
+  });
+  test('登录V2实体直传，动态状态和表单保真并先持久化登录结果', () async {
+    final source = BookSource(
+      bookSourceUrl: 'https://login-wire.test',
+      bookSourceName: '登录源😀',
+      loginUi: '{"version":2}',
+      header: '{"X-Trace":"keep"}',
+      enabledCookieJar: false,
+      mainJs: '''function loginUi(state){return {rows:[{type:'text',key:'account',name:source.bookSourceName,value:source.header}]};}
+function loginAction(action,state,form){if(action==='noop')return;return {login:{token:form.account,extra:form.extra},state:{step:state.step,unknown:state.unknown},close:true};}''',
+    );
+    final intercepted = <String>[];
+    final service = RustSourceLoginV2Service(
+      interceptResult: (raw) async {
+        intercepted.add(raw);
+        return raw;
+      },
+    );
+    expect(await service.isLoginUiV2(source), isTrue);
+    final ui = await service.loadUi(source, {'step': 1});
+    expect(ui.rows.single.name, source.bookSourceName);
+    expect(ui.rows.single.value, source.header);
+    const unknown = {
+      'values': [true, null, '😀'],
+    };
+    final result = await service.execute(
+      source,
+      action: 'submit',
+      state: {'step': 2, 'unknown': unknown},
+      form: {'account': '甲', 'extra': unknown},
+    );
+    expect(result.close, isTrue);
+    expect(result.state, {'step': 2, 'unknown': unknown});
+    expect(result.login, {'token': '甲', 'extra': unknown});
+    expect(
+      jsonDecode(
+        await bridge.sourceGetLoginInfo(sourceUrl: source.bookSourceUrl),
+      ),
+      result.login,
+    );
+    expect(intercepted, hasLength(2));
+    final noop = await bridge.sourceLoginActionV2(
+      source: bookSourceToDto(source),
+      userInputJson: '{"action":"noop"}',
+    );
+    expect(noop, isEmpty);
   });
 }

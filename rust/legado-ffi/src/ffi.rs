@@ -610,36 +610,36 @@ pub mod ffi {
 
     /// 判定书源登录 UI 是否为 V2 动态状态协议
     ///
-    /// `source_json` — BookSource JSON
-    pub fn source_is_login_ui_v2(source_json: String) -> Result<bool, BridgeError> {
+    /// `source` — 完整书源实体快照
+    pub fn source_is_login_ui_v2(source: BookSourceDto) -> Result<bool, BridgeError> {
         Ok(crate::api::source_login_v2_api::is_login_ui_v2(
-            &source_json,
-        )?)
+            &source.into(),
+        ))
     }
 
     /// 执行 loginUi v2 脚本，返回动态 UI 描述 JSON（`{"rows":[...]}`）
     ///
-    /// `source_json` — BookSource JSON；`state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
+    /// `source` — 完整书源快照；`state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
     pub fn source_login_ui_v2(
-        source_json: String,
+        source: BookSourceDto,
         state_json: String,
     ) -> Result<String, BridgeError> {
         Ok(crate::api::source_login_v2_api::eval_login_ui_v2(
-            &source_json,
+            &source.into(),
             &state_json,
         )?)
     }
 
     /// 执行 loginAction v2 动作，返回命令 JSON（state/error/login/close）
     ///
-    /// `source_json` — BookSource JSON
+    /// `source` — 完整书源实体快照
     /// `user_input_json` — `{"action":"...","stateJson":"...","formJson":{...}}`
     pub fn source_login_action_v2(
-        source_json: String,
+        source: BookSourceDto,
         user_input_json: String,
     ) -> Result<String, BridgeError> {
         Ok(crate::api::source_login_v2_api::eval_login_action_v2(
-            &source_json,
+            &source.into(),
             &user_input_json,
         )?)
     }

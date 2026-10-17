@@ -1,4 +1,5 @@
 import 'package:flutter_legado/src/bridge/source_tools_dto.dart';
+import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 
 import 'dart:convert';
@@ -39,7 +40,10 @@ void main() {
     loginUi: '{"version":2}',
     loginUrl: 'script',
   );
-  setUpAll(() => registerFallbackValue(_Request()));
+  setUpAll(() {
+    registerFallbackValue(_Request());
+    registerFallbackValue(bookSourceToDto(source));
+  });
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
@@ -101,21 +105,25 @@ void main() {
             : '{"state":{"step":2},"error":{"account":"错误"},"login":{"token":"value"},"close":true}';
       },
     );
-    final sourceJson = jsonEncode(source.toJson());
-    when(() => bridge.crateFfiFfiSourceIsLoginUiV2(sourceJson: sourceJson))
+    final sourceDto = bookSourceToDto(source);
+    when(() => bridge.crateFfiFfiSourceIsLoginUiV2(source: sourceDto))
         .thenAnswer((_) async => true);
     when(
       () => bridge.crateFfiFfiSourceLoginUiV2(
-        sourceJson: sourceJson,
+        source: sourceDto,
         stateJson: '{"step":1}',
       ),
     ).thenAnswer((_) async => 'ui');
     when(
       () => bridge.crateFfiFfiSourceLoginActionV2(
-        sourceJson: sourceJson,
+        source: sourceDto,
         userInputJson: any(named: 'userInputJson'),
       ),
     ).thenAnswer((call) async {
+      expect(
+        bookSourceFromDto(call.namedArguments[#source] as BookSourceDto),
+        source,
+      );
       final input =
           jsonDecode(call.namedArguments[#userInputJson] as String) as Map;
       expect(input['action'], 'login');
@@ -142,7 +150,7 @@ void main() {
   test('V2坏响应不当空表单，平台拦截错误不吞掉', () async {
     when(
       () => bridge.crateFfiFfiSourceLoginUiV2(
-        sourceJson: any(named: 'sourceJson'),
+        source: any(named: 'source'),
         stateJson: '{}',
       ),
     ).thenAnswer((_) async => 'raw');

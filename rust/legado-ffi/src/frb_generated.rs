@@ -9651,11 +9651,11 @@ fn wire__crate__ffi__ffi__source_is_login_ui_v2_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::transfer_dto::BookSourceDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::source_is_login_ui_v2(api_source_json)?;
+                    let output_ok = crate::ffi::ffi::source_is_login_ui_v2(api_source)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -9748,15 +9748,13 @@ fn wire__crate__ffi__ffi__source_login_action_v2_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::transfer_dto::BookSourceDto>::sse_decode(&mut deserializer);
             let api_user_input_json = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::source_login_action_v2(
-                        api_source_json,
-                        api_user_input_json,
-                    )?;
+                    let output_ok =
+                        crate::ffi::ffi::source_login_action_v2(api_source, api_user_input_json)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -9785,13 +9783,13 @@ fn wire__crate__ffi__ffi__source_login_ui_v2_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::transfer_dto::BookSourceDto>::sse_decode(&mut deserializer);
             let api_state_json = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
                     let output_ok =
-                        crate::ffi::ffi::source_login_ui_v2(api_source_json, api_state_json)?;
+                        crate::ffi::ffi::source_login_ui_v2(api_source, api_state_json)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
