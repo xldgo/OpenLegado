@@ -14,6 +14,11 @@ Future<void> _drain() async {
   }
 }
 
+Future<void> _waitForAppend() async {
+  await Future<void>.delayed(const Duration(milliseconds: 500));
+  await _drain();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory root;
@@ -100,13 +105,14 @@ void main() {
     );
   });
 
-  test('动态组从三项开始，每次换段补一项，前方维持两项且不重新装载', () async {
+  test('动态组从三项开始，换段500毫秒后补一项，前方维持两项且不重新装载', () async {
     await comparison.start(ReadAloudComparisonMode.dynamic);
     expect(player.items.map((i) => i.tag), [0, 1, 2]);
     expect(player.appendBatches, isEmpty);
     for (var i = 1; i <= 5; i++) {
       player.advance();
-      await _drain();
+      expect(player.items.length, i + 2);
+      await _waitForAppend();
       expect(player.items.length, i + 3);
       expect(player.items.length - player.current - 1, 2);
     }
@@ -116,12 +122,68 @@ void main() {
     expect(player.nativeResumes, 0);
   });
 
+  testWidgets('新段开始499毫秒不追加，500毫秒时才追加', (tester) async {
+    await tester.runAsync(
+      () => comparison.start(ReadAloudComparisonMode.dynamic),
+    );
+    player.advance();
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(player.appendBatches, isEmpty);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(player.appendBatches.single.single.tag, 3);
+    await tester.runAsync(() => comparison.stop());
+  });
+
+  testWidgets('等待期间再次换段，从新段重新等待500毫秒', (tester) async {
+    await tester.runAsync(
+      () => comparison.start(ReadAloudComparisonMode.dynamic),
+    );
+    player.advance();
+    await tester.pump(const Duration(milliseconds: 300));
+    player.advance();
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(player.appendBatches, isEmpty);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(player.appendBatches.map((b) => b.single.tag), [3, 4]);
+    await tester.runAsync(() => comparison.stop());
+  });
+
+  testWidgets('等待追加期间停止，500毫秒后也不追加', (tester) async {
+    await tester.runAsync(
+      () => comparison.start(ReadAloudComparisonMode.dynamic),
+    );
+    player.advance();
+    await tester.pump(const Duration(milliseconds: 499));
+    await tester.runAsync(() => comparison.stop());
+    await tester.pump(const Duration(milliseconds: 501));
+    expect(player.appendBatches, isEmpty);
+  });
+
+  testWidgets('追加等待返回时换段，后续追加仍须等待新段500毫秒', (tester) async {
+    await tester.runAsync(
+      () => comparison.start(ReadAloudComparisonMode.dynamic),
+    );
+    player.appendGate = Completer<void>();
+    player.advance();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(player.appendBatches, hasLength(1));
+    player.advance();
+    player.appendGate!.complete();
+    await tester.pump();
+    expect(player.appendBatches, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(player.appendBatches, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(player.appendBatches.map((b) => b.single.tag), [3, 4]);
+    await tester.runAsync(() => comparison.stop());
+  });
+
   test('快速换段只异步唤醒补充，按已确认项目读取储备', () async {
     await comparison.start(ReadAloudComparisonMode.dynamic);
     player.advance();
     player.advance();
     expect(player.appendBatches, isEmpty);
-    await _drain();
+    await _waitForAppend();
     expect(player.items.map((i) => i.tag), [0, 1, 2, 3, 4]);
     expect(player.starts, 1);
     expect(comparison.currentIndex, 2);
@@ -199,7 +261,7 @@ void main() {
     await comparison.start(ReadAloudComparisonMode.dynamic);
     player.appendError = StateError('注入追加失败');
     player.advance();
-    await _drain();
+    await _waitForAppend();
     await comparison.stop();
     expect(comparison.error, contains('追加音频失败'));
     expect(comparison.running, isFalse);

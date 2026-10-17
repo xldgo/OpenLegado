@@ -141,6 +141,7 @@ final class ReadAloudComparison extends ChangeNotifier {
       _event('start', {
         'speed': 1,
         'preparation': 'plugin_default',
+        'appendDelayMs': selected == ReadAloudComparisonMode.dynamic ? 500 : 0,
         'samples': [
           for (var i = 0; i < files.length; i++)
             {
@@ -172,6 +173,8 @@ final class ReadAloudComparison extends ChangeNotifier {
           _event('item_started', {'index': currentIndex, 'queued': _next});
           status = '正在播放第${currentIndex + 1}/${files.length}段';
           _changed();
+          _fillTimer?.cancel();
+          _fillTimer = null;
           _fill(generation);
         },
         onCompleted: (tag) {
@@ -219,7 +222,8 @@ final class ReadAloudComparison extends ChangeNotifier {
         _fillTimer != null) {
       return;
     }
-    _fillTimer = Timer(Duration.zero, () {
+    // B组只改变追加时机：避开新段起播后的前500毫秒。
+    _fillTimer = Timer(const Duration(milliseconds: 500), () {
       _fillTimer = null;
       if (_valid(generation)) _fillNow(generation);
     });
@@ -240,6 +244,7 @@ final class ReadAloudComparison extends ChangeNotifier {
         if (confirmed is! int || confirmed < currentIndex) return;
         currentIndex = confirmed;
         while (_valid(generation) &&
+            identical(_native.currentPlaylistTag, confirmed) &&
             _next < fixture!.audio.length &&
             _next - currentIndex - 1 < 2) {
           final index = _next;
