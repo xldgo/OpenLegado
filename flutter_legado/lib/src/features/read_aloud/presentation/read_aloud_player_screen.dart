@@ -352,20 +352,24 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
         ),
       );
     }
-    return ValueListenableBuilder(
-      valueListenable: notifier.readAloudPosition,
-      builder: (context, position, _) {
+    return _ParagraphScope(
+      // 正文只需要换段：段内进度由下方进度条单独订阅位置流。
+      listenable: notifier.readAloudPosition,
+      resolve: () {
+        final position = notifier.readAloudPosition.value;
+        return position?.bookUrl == audio.bookUrl &&
+                position?.chapterIndex == audio.currentIndex
+            ? position!.paragraphIndex
+            : notifier.currentParagraphIndex;
+      },
+      builder: (context, activeIndex) {
         ReadAloudDiagnostics.instance.count('ui.chapter_text_build');
         return ReadAloudChapterText(
           key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
           active: _page == 2,
           onUserScrollChanged: _onTextScroll,
           paragraphs: paragraphs,
-          activeIndex:
-              position?.bookUrl == audio.bookUrl &&
-                  position?.chapterIndex == audio.currentIndex
-              ? position!.paragraphIndex
-              : notifier.currentParagraphIndex,
+          activeIndex: activeIndex,
           onSeek: enabled
               ? (index) => _run(() => notifier.seekToParagraph(index))
               : null,
@@ -560,6 +564,58 @@ class _ReadAloudCatalogState extends State<_ReadAloudCatalog> {
       onTap: widget.onSelect == null ? null : () => widget.onSelect!(index),
     ),
   );
+}
+
+/// 正文只在段落索引变化时重建；段内位置更新只影响进度条，不重建整章列表。
+class _ParagraphScope extends StatefulWidget {
+  const _ParagraphScope({
+    required this.listenable,
+    required this.resolve,
+    required this.builder,
+  });
+
+  final Listenable listenable;
+  final int Function() resolve;
+  final Widget Function(BuildContext context, int index) builder;
+
+  @override
+  State<_ParagraphScope> createState() => _ParagraphScopeState();
+}
+
+class _ParagraphScopeState extends State<_ParagraphScope> {
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.resolve();
+    widget.listenable.addListener(_onChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ParagraphScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.listenable, widget.listenable)) {
+      oldWidget.listenable.removeListener(_onChanged);
+      widget.listenable.addListener(_onChanged);
+    }
+    // 父级重建已经带来新参数，直接取最新段落，不额外触发一次刷新。
+    _index = widget.resolve();
+  }
+
+  void _onChanged() {
+    final next = widget.resolve();
+    if (next != _index && mounted) setState(() => _index = next);
+  }
+
+  @override
+  void dispose() {
+    widget.listenable.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _index);
 }
 
 /// 段落高度只在正文或排版参数改变时测量；播放范围回调复用缓存。

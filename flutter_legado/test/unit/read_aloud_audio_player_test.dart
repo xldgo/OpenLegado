@@ -263,6 +263,38 @@ void main() {
     expect(progress.single.$1.inMilliseconds, 20);
     expect(progress.single.$2, same(b));
   });
+  test('位置流按间隔合并发布，播放事件与换项仍即时上报', () async {
+    final local = ReadAloudAudioPlayer(
+      createPlayer: () => native,
+      progressInterval: const Duration(milliseconds: 50),
+    );
+    addTearDown(local.dispose);
+    final published = <Duration>[];
+    await local.startPlaylist(
+      AudioPlaylistItem(path: '/cache/a.wav', tag: Object()),
+      speed: 1,
+      onStarted: (_) {},
+      onCompleted: (_) {},
+      onProgress: (position, _, _) => published.add(position),
+      onError: (_) {},
+    );
+    published.clear();
+    // 播放事件先推进位置基点（换项后的第一份采样不参与节流）
+    native.emit();
+    published.clear();
+    // 模拟 60 Hz 位置采样：节流窗口内只发布一次
+    for (var i = 0; i < 20; i++) {
+      native.positions.add(Duration(milliseconds: i * 16));
+    }
+    expect(published, hasLength(1));
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    native.positions.add(const Duration(milliseconds: 400));
+    expect(published, hasLength(2));
+    // 播放事件不属于位置采样，始终即时上报
+    native.emit();
+    expect(published, hasLength(3));
+  });
+
   test('队列到尾后的迟到音频重新起播，暂停期间追加不自动播放', () async {
     final a = Object(), b = Object();
     await start(a);

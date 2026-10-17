@@ -9,8 +9,17 @@ import 'read_aloud_diagnostics.dart';
 /// 统一纯音频后端：正文队列、音频书和独立试听都使用 just_audio。— Codex + UI
 class ReadAloudAudioPlayer extends StreamAudioPlayer
     implements AudioPlaylistPlayer {
-  ReadAloudAudioPlayer({audio.AudioPlayer Function()? createPlayer})
-    : _createPlayer = createPlayer ?? _defaultPlayer;
+  ReadAloudAudioPlayer({
+    audio.AudioPlayer Function()? createPlayer,
+    this.progressInterval = const Duration(milliseconds: 250),
+  }) : _createPlayer = createPlayer ?? _defaultPlayer;
+
+  /// 位置流向上层发布的节流间隔
+  ///
+  /// 原生位置流默认约 16–200 ms 一次（短音频接近 60 Hz），逐次构造位置对象
+  /// 并驱动阅读页/听书页重建会造成持续的 CPU 与帧唤醒。播放事件、换项、
+  /// 完成判定与暂停恢复不经过本间隔，仍即时生效。
+  final Duration progressInterval;
 
   static audio.AudioPlayer _defaultPlayer() => audio.AudioPlayer(
     handleInterruptions: false,
@@ -38,6 +47,8 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   void Function(Object)? _started, _ended, _failed;
   void Function(Duration, Duration, Object)? _progress;
   final _diagnostics = ReadAloudDiagnostics.instance;
+  final Stopwatch _progressClock = Stopwatch()..start();
+  int _lastProgressPublishMs = -1 << 30;
   Object? _lastDiagnosticTag;
   int _lastDiagnosticPosition = 0, _lastDiagnosticSample = 0;
   int _lastDiagnosticSession = 0;
@@ -208,7 +219,17 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _syncStructure(generation);
   }
 
-  void _publishProgress(int generation) {
+  /// 位置发布节流：只有到点才向上层报告，返回 false 表示本帧跳过。
+  bool _allowPositionPublish() {
+    final now = _progressClock.elapsedMilliseconds;
+    if (now - _lastProgressPublishMs < progressInterval.inMilliseconds) {
+      return false;
+    }
+    _lastProgressPublishMs = now;
+    return true;
+  }
+
+  void _publishProgress(int generation, {bool sampled = false}) {
     _diagnostics.count('player.sync');
     if (generation != _generation || !_queueMode || _editing) return;
     final player = _native!;
@@ -220,9 +241,16 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       return;
     }
     final baseline = _positionBaseline;
+    var freshBaseline = false;
     if (baseline != null) {
       if (!event.updateTime.isAfter(baseline)) return;
       _positionBaseline = null;
+      // 换项后的第一份位置基点必须立即发布，不从节流窗口里丢掉。
+      freshBaseline = true;
+    }
+    // 位置采样按间隔合并；播放事件与换项不受影响。
+    if (sampled && !freshBaseline && !_allowPositionPublish()) {
+      return;
     }
     final position = player.position;
     if (_diagnostics.enabled) {
@@ -246,6 +274,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         _trace('player.sample');
       }
     }
+    _diagnostics.count('player.progress_publish');
     _progress?.call(position, event.duration ?? Duration.zero, tag);
   }
 
@@ -308,7 +337,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       }),
       player.positionStream.listen((_) {
         _diagnostics.count('player.position_event');
-        _publishProgress(generation);
+        _publishProgress(generation, sampled: true);
       }),
       player.errorStream.listen((error) {
         if (generation == _generation && _queueMode) _failed?.call(error);
@@ -476,6 +505,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _queueMode = false;
     _active = null;
     _positionBaseline = null;
+    _lastProgressPublishMs = -1 << 30;
     _single = false;
     _singleTag = null;
     _singleUrl = null;
