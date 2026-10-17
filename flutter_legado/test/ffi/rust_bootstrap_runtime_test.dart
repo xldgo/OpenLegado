@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
+import 'package:flutter_legado/src/app/bootstrap/app_settings_factory.dart';
+import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
@@ -31,7 +33,13 @@ void main() {
     final root = Directory(
       '.dart_tool/rust-bootstrap-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    final source = SettingsRuntimeConfiguration();
+    final settings = createAppSettingsService();
+    addTearDown(settings.dispose);
+    final readerSettings = AppReaderSettingsRepository(settings);
+    final source = SettingsRuntimeConfiguration(
+      appSettings: settings,
+      readerSettings: readerSettings,
+    );
     final startup = RustBootstrap(
       runtime: const NativeRustRuntime(),
       environment: _IsolatedEnvironment(root.absolute.path),
@@ -58,8 +66,7 @@ void main() {
       (await source.readReadBookConfig()).fields,
     );
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('reader_font_size', 28.0);
+    await readerSettings.update(fontSize: 28.0);
     await readingConfigSyncFor(api).refreshReadBookConfig();
     expect(
       (jsonDecode(

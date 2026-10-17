@@ -1,5 +1,7 @@
 import 'views/comic_webtoon_view.dart';
 import '../application/comic_preload_service.dart';
+import '../application/comic_reader_controller.dart';
+import '../application/comic_reader_state.dart';
 import 'views/comic_image_item.dart';
 import '../../../data/services/comic_image_decode_cache.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
@@ -28,8 +30,6 @@ import '../../../routes.dart';
 import '../../../providers/media_provider.dart';
 import '../../../services/platform_bridge_service.dart';
 import '../../../services/system_brightness.dart';
-import '../../../utils/comic_image_utils.dart';
-import '../../../utils/error_message.dart';
 import '../../../widgets/loading_indicator.dart';
 import '../../../widgets/error_view.dart';
 import 'overlays/manga_config_sheet.dart';
@@ -62,28 +62,20 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 滚动控制器，用于纵向连续滚动
   final ScrollController _scrollController = ScrollController();
 
-  /// 当前书籍（用于加载章节和图片）
-  Book? _book;
+  late final ComicReaderController _reader;
+  late ComicReaderState _observedSession;
 
-  /// [P4-3 M3 修2] 活跃 bookUrl（初始 = [ReaderComicScreen.bookUrl]；
-  /// 顶栏换源键成功换源后切到新源 URL 并整书重载——widget 参数不可变，
-  /// 用屏内状态承载当前源，屏内所有按 bookUrl 的取数/缓存/进度均走此值）
-  late String _activeBookUrl;
-
-  /// 章节列表
-  List<BookChapter> _chapters = [];
-
-  /// 当前章节索引
-  int _currentChapterIndex = 0;
-
-  /// 当前章节的图片 URL 列表
-  List<String> _imageUrls = [];
-
-  /// 加载状态
-  bool _loading = true;
-
-  /// 错误信息
-  String? _error;
+  Book? get _book => _reader.state.book;
+  String get _activeBookUrl => _reader.state.bookUrl;
+  List<BookChapter> get _chapters => _reader.state.chapters;
+  int get _currentChapterIndex => _reader.state.chapterIndex;
+  List<String> get _imageUrls => _reader.state.imageUrls;
+  bool get _loading => _reader.state.loading;
+  String? get _error => _reader.state.error;
+  Map<String, String> get _imageHeaders => _reader.state.imageHeaders;
+  BookSource? get _bookSource => _reader.state.source;
+  int get _loadSeq => _reader.state.navigationId;
+  bool get _errorChapterLevel => _reader.state.chapterError;
 
   /// 是否显示控制栏（顶部返回 + 底部进度条）
   bool _showControls = false;
@@ -104,20 +96,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// [P4-3 M1] 菜单淡入淡出
   late final Animation<double> _menuOpacity;
 
-  /// 图片窗口去重与相邻章预载由同一会话服务管理。
-  late final ComicPreloadService _preloader;
-
   /// 图片加载失败的索引集合（用于显示重试按钮）
   final Set<int> _failedIndices = {};
-
-  /// 书源防盗链 header（Referer/UA 等，对齐原版 glide getGlideUrl 带书源 headerMap）
-  /// [UI-fix 2026-08-10 | Reasonix] 漫画 CDN 常校验 Referer，无 header 时 403
-  Map<String, String> _imageHeaders = const {};
-
-  /// 当前书源（含 imageDecode 规则；解码走 FFI fetchImageWithDecode）
-  /// [UI-fix v2.0.19 | Reasonix] 对齐原版 ImageUtils.decodeImageStream：
-  /// 漫画/图片站图片 bytes 经书源 imageDecode JS 解密后才可显示
-  BookSource? _bookSource;
 
   /// 预加载缓存（前后各 2 页）
   static const int _preloadRange = 2;
@@ -144,27 +124,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// [P4-1 C1] 标记「本次滚动来自恢复跳转」（jumpTo 触发的 [_onScroll]
   /// 不视为用户操作，不终止页级恢复锚定）
   bool _isRestoreJump = false;
-
-  /// [P4-1 C3] 相邻章预载代数（换书/取消守卫，对齐 C1b 代数守卫先例）
-  ///
-  /// [P4-3 E4] 会话加载 token 映射登记（只登记映射、不重复实现）：
-  /// 参考版 `MangaLoadToken(sessionId, revision, bookUrl, chapterIndex)`
-  /// （MangaReaderSessionModels.kt L42-61）+ `MangaSessionState.accepts(token)`
-  /// （L76-79：sessionId/revision/bookUrl 失配即丢弃在飞结果；
-  /// DefaultMangaReaderSession chapterLoaded L276-296 同语义）——本字段是其
-  /// 简化等价物：屏幕实例即唯一会话（实例 bookUrl 固定）≡ sessionId+bookUrl，
-  /// 换书（_loadBook）/切章（_goToChapter）递增代数 ≡ revision 换代；
-  /// 在飞相邻章预载经代数失配中止（_preloadAdjacentChapters `seq != _loadSeq`
-  /// 守卫），陈旧的单页式子树经代数 `ValueKey('mangaPaged-$_loadSeq')`
-  /// （_buildPagedContent）强制重建——语义等价「token 失配 → 丢弃结果」，
-  /// 无需引入参考版 Empty/Loading/Ready/Failed 四态状态机。
-  int _loadSeq = 0;
-
-  /// [P4-3 E4] 当前错误是否为「章级」错误（章节正文获取失败 / 非卷章
-  /// 0 图校验失败）：ErrorView 重试只重载当前章节 [_loadChapterImages]
-  /// （对齐参考版 RetryChapter L308-318 章级重载，不重拉书籍信息/目录）；
-  /// false = 书级错误（书籍信息/目录获取失败），重试走整书重载 [_loadBook]
-  bool _errorChapterLevel = false;
 
   /// [P4-3 E1] 翻页模式（**有效值**，对齐参考版 MangaScrollMode；默认条漫 4）
   ///
@@ -308,13 +267,19 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   @override
   void initState() {
     super.initState();
-    // [P4-3 M3 修2] 活跃 bookUrl 初始 = 入参（换源成功后更新）
-    _activeBookUrl = widget.bookUrl;
-    _preloader = ComicPreloadService(
-      images: ref.read(bookImageRepositoryProvider),
-      localBooks: ref.read(localBookServiceProvider),
+    _reader = ComicReaderController(
+      bookUrl: widget.bookUrl,
+      bookshelf: ref.read(bookshelfRepositoryProvider),
       reading: ref.read(readingRepositoryProvider),
+      sources: ref.read(bookSourceRepositoryProvider),
+      preloader: ComicPreloadService(
+        images: ref.read(bookImageRepositoryProvider),
+        localBooks: ref.read(localBookServiceProvider),
+        reading: ref.read(readingRepositoryProvider),
+      ),
     );
+    _observedSession = _reader.state;
+    _reader.addListener(_onReaderChanged);
     _scrollController.addListener(_onScroll);
     // [P4-3 M1] 菜单显隐动画（200ms，对齐既有 300ms 翻页动画的快显隐档位）
     _menuCtrl = AnimationController(
@@ -337,7 +302,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   @override
   void dispose() {
-    _preloader.dispose();
+    unawaited(_saveProgress());
+    _reader.removeListener(_onReaderChanged);
+    _reader.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // [P4-3 E3] 取消自动翻页定时器
@@ -351,8 +318,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final bridge = PlatformBridgeService.instance;
     bridge.unregisterVolumeKeyHandler();
     unawaited(bridge.setVolumeKeyCapture(false));
-    // 退出前保存阅读进度
-    unawaited(_saveProgress());
     unawaited(
       SystemBrightness.setFollowSystem(true).catchError((Object error) {
         debugPrint('退出漫画阅读时恢复系统亮度失败: $error');
@@ -540,9 +505,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         : (MangaScrollModes.valid.contains(value)
               ? value
               : MangaScrollModes.defaultValue);
-    if (!await _updateBookReadConfigField('mangaScrollMode', v)) return;
-    _bookScrollMode = v;
-    _applyEffectiveMangaScope();
+    await _reader.updateReadConfigField('mangaScrollMode', v);
   }
 
   /// [漫画设置作用域] 写入/清除当前书**书级**条漫侧边留白覆盖
@@ -550,42 +513,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 数值不做 dp 换算）。[value] null = 清除覆盖，跟随全局。
   Future<void> _persistBookSidePadding(int? value) async {
     final v = value?.clamp(0, 45);
-    if (!await _updateBookReadConfigField('webtoonSidePaddingDp', v)) return;
-    _bookSidePadding = v;
-    _applyEffectiveMangaScope();
-  }
-
-  /// [漫画设置作用域] 单字段局部更新当前书 readConfig（保留其他 readConfig
-  /// 成员、章节与进度字段，避免整书陈旧快照覆盖）：
-  /// 1. 先重取当前书（`_activeBookUrl`）拿最新快照；
-  /// 2. 仅在 readConfig JSON 上增/删目标键（null = 删键清除书级覆盖）；
-  /// 3. 经现有 [BookshelfRepository.updateBook] + [Book.copyWith] 落库，并同步屏内
-  ///    [_book] 缓存供后续写入使用。
-  ///
-  /// 返回是否写入成功（失败不改变屏内书级覆盖态）。
-  Future<bool> _updateBookReadConfigField(String key, int? value) async {
-    try {
-      final fresh = await ref
-          .read(bookshelfRepositoryProvider)
-          .getBook(_activeBookUrl);
-      if (fresh == null) return false;
-      final map = Map<String, dynamic>.from(
-        fresh.readConfig?.toJson() ?? const <String, dynamic>{},
-      );
-      if (value == null) {
-        map.remove(key);
-      } else {
-        map[key] = value;
-      }
-      final updated = fresh.copyWith(
-        readConfig: map.isEmpty ? null : ReadConfig.fromJson(map),
-      );
-      await ref.read(bookshelfRepositoryProvider).updateBook(updated);
-      _book = updated;
-      return true;
-    } catch (_) {
-      return false;
-    }
+    await _reader.updateReadConfigField('webtoonSidePaddingDp', v);
   }
 
   /// [P4-3 M4 批2] 持久化行为开关（8 键通用：setState 即时生效 +
@@ -1050,16 +978,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
           .then((dynamic result) {
             final newBookUrl = result is String ? result : null;
             if (newBookUrl == null || newBookUrl.isEmpty || !mounted) return;
-            setState(() {
-              _activeBookUrl = newBookUrl;
-              // 整书重载归位：章首开始、清页级恢复锚定与可见页估算
-              _currentChapterIndex = 0;
-              _restorePageIndex = null;
-              _visiblePageIndex = 0;
-            });
-            // 代数换代：中止在飞相邻章预载 + 单页式子树强制重建
-            _loadSeq++;
-            unawaited(_loadBook());
+            unawaited(_reader.open(bookUrl: newBookUrl));
           }),
     );
   }
@@ -1118,258 +1037,49 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     return ColorFilter.matrix(_colorFilter.toColorMatrix());
   }
 
-  /// 加载书籍信息和章节列表
-  Future<void> _loadBook() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _errorChapterLevel = false; // [P4-3 E4] 书级重载入口复位章级错误标记
-    });
-
-    try {
-      // 获取书籍信息（[P4-3 M3 修2] 走活跃 bookUrl，换源后按新源重载）
-      _book = await ref
-          .read(bookshelfRepositoryProvider)
-          .getBook(_activeBookUrl);
-      if (_book == null) {
-        setState(() {
-          _error = '未找到书籍信息';
-          _loading = false;
-        });
-        return;
-      }
-
-      // [漫画设置作用域] 重装当前书书级覆盖（切书/换源/整书重载统一入口：
-      // 书级非 null 覆盖全局、null 回退全局；非法模式/越界留白按归一规则
-      // 降级为「未覆盖」，避免旧屏幕状态污染新书）
-      final bookReadConfig = _book!.readConfig;
-      final rawScrollMode = bookReadConfig?.mangaScrollMode;
-      _bookScrollMode =
-          (rawScrollMode != null &&
-              MangaScrollModes.valid.contains(rawScrollMode))
-          ? rawScrollMode
-          : null;
-      _bookSidePadding = bookReadConfig?.webtoonSidePaddingDp?.clamp(0, 45);
-      _applyEffectiveMangaScope();
-
-      // 获取章节列表。对齐原版 / reader_notifier / toc_screen：
-      // 本地库无目录的在线书（搜索进详情未落库章节、或 notShelf 临时书）
-      // 须自动 refreshToc，否则漫画阅读器永远「暂无章节」无法进正文/图片。
-      // 设备实测：51漫画 book.type=notShelf|image、chapters=0，Rust 侧
-      // refresh_toc 可出 1 章+正文图，缺此回退则整链断裂。— Reasonix + UI
-      _chapters = await ref
-          .read(readingRepositoryProvider)
-          .getChapters(_activeBookUrl);
-      if (_chapters.isEmpty &&
-          _book != null &&
-          _book!.origin.isNotEmpty &&
-          !_book!.origin.startsWith(BookType.localTag) &&
-          !_book!.origin.startsWith(BookType.webDavTag)) {
-        _chapters = await ref
-            .read(readingRepositoryProvider)
-            .refreshToc(_activeBookUrl, _book!.origin);
-      }
-      if (_chapters.isEmpty) {
-        setState(() {
-          _error = '暂无章节';
-          _loading = false;
-        });
-        return;
-      }
-
-      // 恢复上次阅读位置
-      _currentChapterIndex = _book!.durChapterIndex;
-      if (_currentChapterIndex >= _chapters.length) {
-        _currentChapterIndex = 0;
-      }
-
-      // [P4-1 C1] 记住记录的页级进度（重开定位页；0/缺省 = 章首）
-      _restorePageIndex = _book!.durChapterPos > 0
-          ? _book!.durChapterPos
-          : null;
-      // [P4-1 C3] 代数守卫：换书/重载后失效在途的相邻章预载
-      _loadSeq++;
-
-      // 加载当前章节的图片
-      await _loadChapterImages();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        // BridgeError 无自定义 toString()，裸显会显示 "Instance of 'BridgeError'"
-        _error = errorMessage(e);
-        _loading = false;
-      });
+  /// 会话数据变化只投影到视口，滚动与动画仍由页面管理。
+  void _onReaderChanged() {
+    if (!mounted) return;
+    final previous = _observedSession;
+    final next = _reader.state;
+    _observedSession = next;
+    if (next.navigationId != previous.navigationId) {
+      _restorePageIndex = next.initialPage > 0 ? next.initialPage : null;
+      _visiblePageIndex = 0;
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
-  }
-
-  /// 加载当前章节的图片 URL 列表
-  Future<void> _loadChapterImages() async {
-    if (_chapters.isEmpty) return;
-
+    if (next.book != previous.book && next.book != null) {
+      final config = next.book!.readConfig;
+      final mode = config?.mangaScrollMode;
+      _bookScrollMode = mode != null && MangaScrollModes.valid.contains(mode)
+          ? mode
+          : null;
+      _bookSidePadding = config?.webtoonSidePaddingDp?.clamp(0, 45);
+      _applyEffectiveMangaScope();
+    }
     setState(() {
-      _loading = true;
-      _error = null;
-      _errorChapterLevel = false; // [P4-3 E4] 章级重载入口复位章级错误标记
-      _imageUrls = [];
-      _preloader.reset();
-      _failedIndices.clear();
+      if (next.loading) _failedIndices.clear();
     });
-
-    try {
-      final chapter = _chapters[_currentChapterIndex];
-
-      // 书源防盗链 header（仅取一次；对齐原版 OkHttpStreamFetcher 带书源
-      // headerMap 加载漫画图）+ 书源对象（imageDecode 规则判断）— Reasonix
-      if ((_imageHeaders.isEmpty || _bookSource == null) &&
-          _book != null &&
-          _book!.origin.isNotEmpty) {
-        final sources = await ref
-            .read(bookSourceRepositoryProvider)
-            .getBookSources();
-        for (final s in sources) {
-          if (s.bookSourceUrl == _book!.origin) {
-            _bookSource = s;
-            if (s.header != null && s.header!.isNotEmpty) {
-              _imageHeaders = _parseHeaderMap(s.header!);
-            }
-            break;
-          }
-        }
-      }
-
-      // 获取章节内容
-      String content;
-      if (chapter.url.isNotEmpty && _book != null) {
-        // 在线章节：通过 fetchChapterContent 获取（[P4-3 M3 修2] 活跃 bookUrl）
-        content = await ref
-            .read(readingRepositoryProvider)
-            .fetchChapterContent(_activeBookUrl, chapter.url, _book!.origin);
-      } else {
-        // 本地章节：通过 getChapterContent 获取
-        content = await ref
-            .read(readingRepositoryProvider)
-            .getChapterContent(_activeBookUrl, _currentChapterIndex);
-      }
-
-      if (!mounted) return;
-
-      // 解析图片 URL（支持多种格式）
-      _imageUrls = _parseImageUrls(content);
-
-      // 相对路径转绝对（对齐原版 BookHelp.flowImages：
-      // NetworkUtils.getAbsoluteURL(bookChapter.url, src)）— Reasonix
-      // [cbz 批 D] 本地 cbz 页为 `cbz://` 伪 URL：不参与相对路径换算
-      //（cbz 章节 url 为空，换算会把伪 URL 破坏成 `/cbz://...`）
-      if (_imageUrls.any(
-        (u) => !u.startsWith('http') && !u.startsWith('cbz://'),
-      )) {
-        _imageUrls = _imageUrls
-            .map((u) => _resolveImageUrl(chapter.url, u))
-            .toList();
-      }
-
-      // 如果章节有 imgUrl 字段，也作为图片源
-      if (chapter.imgUrl != null && chapter.imgUrl!.isNotEmpty) {
-        _imageUrls.insert(0, chapter.imgUrl!);
-      }
-
-      setState(() {
-        _loading = false;
-      });
-
-      // [P4-3 E4] 0 图章节校验（对齐原版 ReadManga.kt L227-230
-      // contentLoadFinish：imageCount==0 && !isVolume → loadFail「正文没有
-      // 图片」；参考版 MangaChapterPageLoader L36-38 同条件 throw →
-      // Failed 态 → 全屏错误 + 章级重试 MangaReaderOverlays L757-771）：
-      // - 非卷章：进入章级错误态（ErrorView + 重试，重试只重载当前章）
-      // - 卷章（isVolume）：0 图是合法分隔页（原版 L635-636 ReaderLoading
-      //   分隔页、标题=章名；参考版 L452-460 ChapterEdge "volume:..."
-      //   message=chapterTitle）→ 非错误，_buildContent 显示章节标题
-      //   + 上下章导航
-      // 0 图无图片项：跳过分页控制器创建/预载/进度恢复，直接返回
-      if (_imageUrls.isEmpty) {
-        if (!_chapters[_currentChapterIndex].isVolume) {
-          setState(() {
-            _error = '正文没有图片';
-            _errorChapterLevel = true;
-          });
-        }
-        return;
-      }
-
-      // [P4-3 E1] 单页式：图片可见前创建 PageController
-      //（初始页 = 待恢复页或章首；须在 _applyPageRestore 消费 _restorePageIndex 前取值）
-      if (MangaScrollModes.isPaged(_scrollMode) && _imageUrls.isNotEmpty) {
+    if (previous.loading &&
+        !next.loading &&
+        next.error == null &&
+        next.imageUrls.isNotEmpty) {
+      if (MangaScrollModes.isPaged(_scrollMode)) {
         final initial = (_restorePageIndex ?? 0).clamp(
           0,
           _imageUrls.length - 1,
         );
-        _visiblePageIndex = initial; // 页脚/进度回读一致
+        _visiblePageIndex = initial;
         _syncPagedController(initialLogical: initial);
       }
-
-      // 触发初始预加载
       _preloadVisibleImages();
-
-      // [P4-1 C1] 恢复记录的页级进度（定位到记录页）
       _applyPageRestore();
-      // [P4-1 C3] 当前章加载完成后后台预载相邻章（下一章优先、静默失败）
-      unawaited(_preloadAdjacentChapters());
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        // BridgeError 无自定义 toString()，裸显会显示 "Instance of 'BridgeError'"
-        _error = errorMessage(e);
-        // [P4-3 E4] 章节正文获取失败 = 章级错误：重试只重载当前章
-        // （对齐参考版 chapterLoaded 失败 → Failed(token, message) →
-        // RetryChapter 章级重试，不重拉书籍信息/目录）
-        _errorChapterLevel = true;
-        _loading = false;
-      });
     }
   }
 
-  /// 从章节内容中解析图片 URL 列表（复合 URL 对齐原版 HtmlFormatter）
-  /// — Reasonix + UI
-  ///
-  /// [cbz 批 D | 2026-10-03] 本地 `.cbz` 书正文是 Rust `get_chapter_content`
-  /// 产出的 `cbz://<条目名>` 行列表；共享解析器 [parseComicImageUrls] 的行
-  /// 解析要求 `http` 前缀（comic_image_utils.dart L82），不认 cbz scheme。
-  /// 在屏内先按行提取 `cbz://` 伪 URL 直用（改动最小：不引入本地书语义
-  /// 到共享解析器，避免影响文本阅读器兜底 isImageDominantContent 的
-  /// 既有 http 行为）。— 全栈工程师 + UI
-  List<String> _parseImageUrls(String content) {
-    final cbzEntries = _extractCbzEntries(content);
-    if (cbzEntries.isNotEmpty) return cbzEntries;
-    return parseComicImageUrls(content);
-  }
+  Future<void> _loadBook() => _reader.open();
 
-  /// 提取 `cbz://` 行（逐行 trim；保持 Rust 自然排序与原始条目名）
-  List<String> _extractCbzEntries(String content) {
-    if (!content.contains('cbz://')) return const [];
-    final entries = <String>[];
-    for (final line in content.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.startsWith('cbz://')) entries.add(trimmed);
-    }
-    return entries;
-  }
-
-  /// 相对路径转绝对（以章节 URL 为 base，对齐原版 NetworkUtils.getAbsoluteURL）
-  String _resolveImageUrl(String chapterUrl, String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('//')) return 'https:$url';
-    final uri = Uri.tryParse(chapterUrl);
-    if (uri == null) return url;
-    final base = uri.scheme.isNotEmpty && uri.host.isNotEmpty
-        ? '${uri.scheme}://${uri.host}'
-        : chapterUrl;
-    if (url.startsWith('/')) return '$base$url';
-    // 相对当前目录：章节 URL 去掉最后一段
-    final path = uri.path;
-    final dir = path.substring(0, path.lastIndexOf('/') + 1);
-    return '$base$dir$url';
-  }
+  Future<void> _loadChapterImages() => _reader.refreshChapter();
 
   /// 滚动监听，触发预加载
   void _onScroll() {
@@ -1449,12 +1159,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _scrollController.jumpTo(max * page / (_imageUrls.length - 1));
   }
 
-  Future<void> _preloadAdjacentChapters() => _preloader.preloadAdjacent(
-    bookUrl: _activeBookUrl,
-    chapterIndex: _currentChapterIndex,
-    chapterCount: _chapters.length,
-  );
-
   /// 预加载当前可见区域前后的图片。
   ///
   /// 有书源 / 复合 URL / imageDecode 时与正式渲染统一走 FFI
@@ -1498,68 +1202,16 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   void _preloadIndicesInRange(int start, int end) {
     if (!mounted) return;
-    unawaited(
-      _preloader.preloadRange(
-        urls: _imageUrls,
-        start: start,
-        end: end,
-        bookUrl: _activeBookUrl,
-        book: _book,
-        source: _bookSource,
-        precacheNetwork: (url) =>
-            precacheImage(CachedNetworkImageProvider(url), context),
-      ),
+    _reader.preloadRange(
+      start,
+      end,
+      precacheNetwork: (url) =>
+          precacheImage(CachedNetworkImageProvider(url), context),
     );
   }
 
-  /// 解析书源 header 字符串（JSON 或 key: value 行）— Reasonix
-  Map<String, String> _parseHeaderMap(String header) {
-    final trimmed = header.trim();
-    if (trimmed.isEmpty) return const {};
-    if (trimmed.startsWith('{')) {
-      try {
-        final decoded = jsonDecode(trimmed);
-        if (decoded is Map<String, dynamic>) {
-          return decoded.map((k, v) => MapEntry(k, v.toString()));
-        }
-      } catch (_) {
-        // JSON 解析失败走行解析
-      }
-    }
-    final map = <String, String>{};
-    for (final line in trimmed.split('\n')) {
-      final idx = line.indexOf(':');
-      if (idx > 0) {
-        map[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
-      }
-    }
-    return map;
-  }
-
-  /// 切换到指定章节
-  Future<void> _goToChapter(int index) async {
-    if (index < 0 || index >= _chapters.length) return;
-    // 切章前保存旧章的页级进度（_visiblePageIndex 仍指向旧章可见页）
-    await _saveProgress();
-    _currentChapterIndex = index;
-    _restorePageIndex = null; // 手动切章不应用初始页级恢复
-    _visiblePageIndex = 0; // 新章从章首开始
-    // [P4-3 W2-fix P0-2] 递增预载代数：使旧章在途预载失效（同 _loadBook
-    // L565 先例），并令 [_syncPagedController] 的 _pagedGen == _loadSeq
-    // 守卫失配 → 重建控制器 initialPage = 章首（对齐参考版
-    // openChapter(index, pageIndex = 0) 新章恒从 0 页开始）。
-    // 原实现不递增：切章后 PageView 以新图片列表卸载重挂时落回控制器
-    // 构造时的 initialPage（即旧章恢复页），带页级进度恢复进入后
-    // 每次切章都落旧页。
-    _loadSeq++;
-    // 滚动到顶部
-    if (_scrollController.hasClients) {
-      _scrollController.jumpTo(0);
-    }
-    await _loadChapterImages();
-    // 新章章首进度（chapterPos=0，与 chapterIndex 一并落库）
-    await _saveProgress();
-  }
+  Future<void> _goToChapter(int index) =>
+      _reader.goToChapter(index, currentPage: _visiblePageIndex);
 
   /// 切换到下一章
   Future<void> _nextChapter() async {
@@ -1575,27 +1227,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     }
   }
 
-  /// 保存阅读进度
-  ///
-  /// [P4-1 C1] chapterPos 携带页级进度（当前可见页索引，clamp 到
-  /// [0, imageCount-1]），替代修复前恒 0；对齐原版
-  /// ReadManga.saveRead/buildMangaContent 的 durChapterPos 语义
-  /// （与章级 durChapterIndex 一并落库，互不覆写）。
-  Future<void> _saveProgress() async {
-    try {
-      final maxPage = _imageUrls.isEmpty ? 0 : _imageUrls.length - 1;
-      final pos = _visiblePageIndex.clamp(0, maxPage);
-      await ref
-          .read(readingRepositoryProvider)
-          .updateReadingProgress(
-            bookUrl: _activeBookUrl,
-            chapterIndex: _currentChapterIndex,
-            chapterPos: pos,
-          );
-    } catch (_) {
-      // 保存失败不阻断阅读流程
-    }
-  }
+  Future<void> _saveProgress() => _reader.saveProgress(_visiblePageIndex);
 
   /// 切换控制栏显示/隐藏
   void _toggleControls() {

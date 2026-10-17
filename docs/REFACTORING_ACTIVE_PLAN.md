@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### COMIC-SESSION-20261017：漫画阅读会话下沉与宿主FFI补验（P1）
+
+- 授权与基线：用户明确要求编译补齐DLL并实施漫画阅读会话下沉；feature/ui-reader-selection / 361cced7e，开始工作区干净。Codex直接执行、不使用子代理、不新建分支；沿用每批验证后本地提交一次，不推送/触发CI，不构建或安装Flutter应用，版本2.0.373+374不变。
+- 状态：本批实现与本地验证完成，按逐批授权本地提交一次；默认目录Windows Debug QuickJS DLL已构建并通过只读校验，此前受阻的真实FFI测试已复跑通过。不修改Rust、FRB签名/生成物或依赖。漫画Controller接管开书、目录与正文加载、图片解析、切章/换源、进度保存和当前书readConfig局部写回；状态只有一份。
+- UI边界：页面保留PageController/ScrollController、可见页估算与恢复跳转、动画/手势/菜单/硬件按键和自动阅读计时器；会话只传递初始页与导航代际，不持有Flutter上下文或滚动控制器。复用原ComicPreloadService、图片组件及仓储；不新增缓存策略、存储、FFI接口或图像排版能力。
+- 验收：独立控制器覆盖本地/在线开书、缺目录补取、CBZ/复合/相对图片、卷章与章级重试、进度恢复与保存、切章/换源及设置字段保留；复验既有五种阅读模式、预载、菜单、作用域和自动阅读。完整静态检查及真实宿主FFI结果按实际记录，不将单元测试当设备验收。
+- 实现：新增ComicReaderController与只读ComicReaderState，页面经监听投影视口，不再持有可变书籍/目录/正文/书源与加载状态；comic_chapter_parser.dart保留CBZ、复合URL、相对路径、章节封面和请求头原有规则。会话接收显式仓储与既有预载服务，不依赖Ref/Context；切章先保存旧页再加载新章并保存零页，换源重装书源，过期加载不发布，销毁前捕获进度且不在销毁后访问Ref。书级设置重读当前书后局部合并，落库成功才发布。
+- 验证：新增15项独立会话/解析行为测试通过；最终漫画、设置、预载、图片组件与全部20份test/ffi组合回归232项通过（35秒），含真实DLL的37项测试，未重复累计首轮结果。完整flutter analyze --no-pub通过（19.9秒），相关Dart格式和git diff --check通过。没有构建/安装Flutter应用或设备验收，没有独立审查/真实CI；Codex单代理实现与自查，不推送、不触发CI。
+- native与失败处理：使用python scripts/dev.py build ffi windows --profile debug及verify ffi windows默认输出rust/target/debug/legado_ffi.dll；SHA-256为28fb3daa87f25ebdf84157993cafa55364ceab863978ed40932c65cd853d127d，FRB 2.13.0、QuickJS、Rust stable。初次Cargo已成功但旧meta无读取/替换权限，删除被自动审批拒绝；用户自行删除后，清理确认所属进程已退出的构建锁，默认入口重编和写入新meta成功。独立输出目录构建已停止且最终未使用，其删除同样被自动审批拒绝，build/comic-session-native仍待清理，不计入交付产物。
+- FFI补验修正：首轮真实FFI为36通过/1失败，rust_bootstrap_runtime_test直接改SharedPreferences绕过统一配置内存快照；夹具改为与启动共享AppSettingsService，并通过正式ReaderSettingsRepository.update修改字体。保留真实JS读取28与运行时不重复初始化断言，没有修改生产设置回退或放宽断言。最终组合全部通过；没有重跑与本批无关的全仓测试，B5原4063项结果仍仅为历史记录。
+- 证据与回滚：忽略目录flutter_legado/build/comic-session-qa/保存dll-build、dll-rebuild、ffi-baseline、session-initial、regression-final与analysis-final日志；失败轮次不作为通过证据。本批只改漫画应用/页面边界及过时FFI测试夹具，可单独回退本批提交；不涉及数据迁移、存储键、Repository契约、版本或依赖改造。
+
+编写者：Codex｜2026-10-17
+
 ### FEATURE-FIRST-PAGES-20261017：页面解构与 Feature-first 规范化（P1）
 
 - 授权与基线：用户确认规划并开始任务，随后授权完成01/02/03三批、每批验证后本地提交一次。feature/ui-reader-selection / afe49a7ff，开始时工作区干净；Codex直接执行、不使用子代理、不新建分支、不推送/触发CI/构建安装，版本2.0.373+374不变。本次明确授权替代此前“不自动提交”边界。
