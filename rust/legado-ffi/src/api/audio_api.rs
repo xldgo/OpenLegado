@@ -3,12 +3,11 @@
 //! - 播放进度读写（caches 表）
 //! - 章节媒体取址（对齐 Android `AudioPlay.loadRemotePlayUrl` → `WebBook.getContent`）
 
-use legado_core::audio::{
-    resolve_audio_play_book as core_resolve_audio_play_book,
-    with_audio_play_mode as core_with_audio_play_mode,
-};
+use legado_core::audio::with_audio_play_mode as core_with_audio_play_mode;
 use legado_core::cache_book::CachedChapter;
-use legado_core::models::{Book, BookChapter};
+#[cfg(test)]
+use legado_core::models::Book;
+use legado_core::models::BookChapter;
 use legado_core::web_book::WebChapter;
 use legado_core::{LegadoError, LegadoResult};
 #[cfg(test)]
@@ -78,33 +77,6 @@ pub fn save_audio_progress(
 /// `read_config` 为空或非法 JSON 时返回仅含 playMode 的新对象。
 pub fn with_audio_play_mode(read_config: Option<&str>, play_mode: i32) -> String {
     core_with_audio_play_mode(read_config, play_mode)
-}
-
-/// 解析听书书籍（对应 Kotlin `resolveAudioPlayBook`）
-pub fn resolve_audio_play_book(
-    requested_book_url: Option<&str>,
-    cached_book_json: Option<&str>,
-) -> LegadoResult<Option<Book>> {
-    let cached: Option<Book> = match cached_book_json {
-        Some(json) if !json.trim().is_empty() => serde_json::from_str(json)?,
-        _ => None,
-    };
-    let resolved = core_resolve_audio_play_book(
-        requested_book_url,
-        cached,
-        |b| b.book_url.as_str(),
-        |url| match with_database(|db| {
-            legado_db::BookRepository::new(db.connection()).find_by_url(url)
-        }) {
-            Ok(book) => book,
-            Err(e) => {
-                // DB 读取异常不再静默吞错：warn 后按未缓存继续解析（行为不变）
-                log::warn!("读取听书书籍缓存失败，按未缓存继续解析: {e}");
-                None
-            }
-        },
-    );
-    Ok(resolved)
 }
 
 /// 解析章节歌词（chapter.variable JSON 中的 lyric 字段）

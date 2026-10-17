@@ -12,6 +12,7 @@ import 'package:flutter_legado/src/data/repositories/rust_cover_rule_repository.
 import 'package:flutter_legado/src/data/services/rust_book_source_edit_service.dart';
 import 'package:flutter_legado/src/data/services/rust_cover_search_service.dart';
 import 'package:flutter_legado/src/data/services/rust_source_action_service.dart';
+import 'package:flutter_legado/src/data/services/rust_audio_book_service.dart';
 import 'package:flutter_legado/src/domain/models/cover_rule.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -95,7 +96,8 @@ void main() {
         'callBackJs': "java.copyText('甲');java.copyText('乙');true",
       },
     });
-    await RustBookSourceRepository(onSourcesChanged: () {}).addBookSource(source);
+    await RustBookSourceRepository(onSourcesChanged: () {})
+        .addBookSource(source);
     final covers = await const RustCoverSearchService().searchCover('书');
     expect(covers.single.url, '$url/cover.png');
     expect(covers.single.width, 0);
@@ -128,5 +130,12 @@ void main() {
     );
     expect(purchase.kind, ChapterPurchaseKind.none);
     expect(dispatches, hasLength(1));
+  });
+  test('闲置导出清理后既有音频进度和播放模式接线保持', () async {
+    const audio = RustAudioBookService();
+    await audio.saveAudioProgress('audio-book', 7, 9007199254740993);
+    expect(await audio.getAudioProgress('audio-book', 7), 9007199254740993);
+    final config = await audio.audioWithPlayMode(playMode: 2);
+    expect(config.toJson()['playMode'], 2);
   });
 }

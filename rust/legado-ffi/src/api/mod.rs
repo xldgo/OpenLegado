@@ -59,7 +59,6 @@ pub mod source_rate_limit;
 pub mod source_switch;
 pub mod tts_cache_api;
 pub mod tts_speak_api;
-pub mod txt_search_api;
 pub mod verification_api;
 /// [V-B1 | 2026-10-05] 视频弹幕数据链（契约 §2.49：查询面 + 抓取链落库 sink）
 pub mod video_api;

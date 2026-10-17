@@ -1683,10 +1683,10 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `ruleSubCheckUpdate({required int id})` | id | `Future<String>` | 检查更新（检查结果 JSON：`id` / `url` / `name` / `dueForUpdate`（should_update 间隔判定）/ `hasUpdate`（远程版本对比）/ `remoteVersion` / `error`） |
 | `ruleSubApplyUpdate({required int id})` | id | `Future<String>` | 应用更新（应用结果 JSON：`id` / `url` / `success` / `itemsAdded` / `itemsUpdated` / `itemsRemoved` / `totalItems` / `error`；合并后回写版本号与最后更新时间） |
 
-### 2.40 本地 TXT 全文搜索（txt_search FFI，Task #98 缺口#4）（4 个方法）
+### 2.40 本地 TXT 全文搜索（历史4项FRB导出，2026-10-17已退役）
 
-> 保留原 TXT 搜索、正则搜索、章节内搜索和匹配计数四项能力；旧 C ABI 已移除，统一使用 FRB 入口，
-> 本小节为其 frb 主链路暴露（包装 `legado-book::txt_search::TxtSearch` 引擎），供 Flutter 侧本地 TXT 书内搜索调用。
+> 下表只记录历史接口，当前没有对应FRB导出或Flutter消费者。底层 `legado-book::txt_search`
+> 的纯文本、正则、章节内搜索和计数能力仍保留；阅读器现有搜索路径不受影响。
 > 返回裸 JSON Array（遵守 §1.4 铁律），每项字段（snake_case）：`chapter_index` / `chapter_title` / `char_offset` /
 > `matched_text` / `context` / `context_match_start` / `context_match_end`（TxtSearchResult 序列化）。
 
@@ -2371,6 +2371,16 @@ SourceSyntaxDto(valid,message,line:Option<u32>)，不强制执行脚本或更改
 原JS执行、成功清缓存和调用方刷新规则不变。按钮回调返回SourceCallbackDto(invoked,jsTrue,raw,
 actionsJson)，动态动作数组单独保留JSON；顺序、未知字段及平台回放一次后才返回的语义不变。
 完整稳定结果不得先JSON序列化再反解；固定结构与真正动态动作文档分开，不扩展用户功能。
+
+编写者：Codex｜2026-10-17
+
+### FFI-TRANSPORT-20261017 / 闲置导出清理冻结
+
+全仓调用核对后，移除txt_search/txt_search_regex/txt_search_in_chapter/txt_search_count及
+audio_resolve_play_book五个FRB导出和对应生成绑定；移除仅为这些入口存在的FFI适配模块/函数。
+这些接口没有Flutter手写消费者，也未被脚本、CI或Server调用，不新增替代接口或界面接线。
+legado-book::txt_search及legado-core::audio的通用算法和行为测试继续保留；实际阅读器搜索、
+音频章节取址/进度/readConfig合并等现有入口不变。历史接口表仅作追溯，以本冻结为准。
 
 编写者：Codex｜2026-10-17
 

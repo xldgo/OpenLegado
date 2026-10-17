@@ -3,7 +3,7 @@
 //! 与 [`crate::api::archive_import_api`] 的分工：后者处理 ZIP/RAR **压缩容器**
 //! 的书籍文件导入与编码检测；本模块服务 `LocalBook` → `CbzFile` 链路的
 //! **漫画页字节读取**（`.cbz` 整包 = 一本漫画，见 API_CONTRACT §2.6 / §2.34）。
-//! 独立成模块：一模块一职责（与既有 `image_api`/`txt_search_api` 同布局），
+//! 独立成模块：一模块一职责，与图片缓存等媒体入口分开，
 //! 且不触碰 archive 导入路径（零回归面）。
 //!
 //! 字节直接返回给 FRB，不经 base64/JSON。

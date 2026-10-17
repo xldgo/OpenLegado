@@ -619,68 +619,6 @@ Future<BookMetadataDto> importParseMetadata({required String filePath}) =>
 Future<LocalImportDto> importLocalBook({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportLocalBook(filePath: filePath);
 
-/// 搜索本地 TXT 文件内容（纯文本模式）
-///
-/// 返回 JSON 序列化的 `Vec<TxtSearchResult>`，
-/// 每项含 `chapter_index` / `chapter_title` / `char_offset` / `matched_text` /
-/// `context` / `context_match_start` / `context_match_end`。
-Future<String> txtSearch({
-  required String path,
-  required String query,
-  required bool caseSensitive,
-  required int maxResults,
-}) => RustLib.instance.api.crateFfiFfiTxtSearch(
-  path: path,
-  query: query,
-  caseSensitive: caseSensitive,
-  maxResults: maxResults,
-);
-
-/// 使用正则搜索本地 TXT 文件内容
-///
-/// 返回格式同 `txt_search`。
-Future<String> txtSearchRegex({
-  required String path,
-  required String pattern,
-  required bool caseSensitive,
-  required int maxResults,
-}) => RustLib.instance.api.crateFfiFfiTxtSearchRegex(
-  path: path,
-  pattern: pattern,
-  caseSensitive: caseSensitive,
-  maxResults: maxResults,
-);
-
-/// 在本地 TXT 文件指定章节内搜索
-///
-/// 返回格式同 `txt_search`。
-Future<String> txtSearchInChapter({
-  required String path,
-  required String query,
-  required int chapterIndex,
-  required bool caseSensitive,
-  required int maxResults,
-}) => RustLib.instance.api.crateFfiFfiTxtSearchInChapter(
-  path: path,
-  query: query,
-  chapterIndex: chapterIndex,
-  caseSensitive: caseSensitive,
-  maxResults: maxResults,
-);
-
-/// 统计本地 TXT 文件内关键词匹配总数（不返回完整结果，供 UI 显示计数）
-///
-///
-Future<int> txtSearchCount({
-  required String path,
-  required String query,
-  required bool caseSensitive,
-}) => RustLib.instance.api.crateFfiFfiTxtSearchCount(
-  path: path,
-  query: query,
-  caseSensitive: caseSensitive,
-);
-
 /// 获取所有 RSS 源列表（类型化列表）
 Future<List<RssSourceDto>> rssListSources() =>
     RustLib.instance.api.crateFfiFfiRssListSources();
@@ -2389,17 +2327,6 @@ Future<String> audioWithPlayMode({String? readConfig, required int playMode}) =>
       readConfig: readConfig,
       playMode: playMode,
     );
-
-/// 解析听书书籍（返回 Book JSON 或 null）
-///
-/// 请求 URL 为空时返回缓存书籍；缓存匹配时直接返回；否则按 URL 查库。
-Future<String> audioResolvePlayBook({
-  String? requestedBookUrl,
-  String? cachedBookJson,
-}) => RustLib.instance.api.crateFfiFfiAudioResolvePlayBook(
-  requestedBookUrl: requestedBookUrl,
-  cachedBookJson: cachedBookJson,
-);
 
 /// 书源 callBackBtn（对齐 SourceCallBack.callBackBtn + 中途 UI 队列）
 ///

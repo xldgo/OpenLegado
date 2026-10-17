@@ -941,78 +941,6 @@ pub mod ffi {
         Ok(result.into())
     }
 
-    // ─── 本地 TXT 全文搜索（Task #98 缺口#4，加法式新增） ─────
-
-    /// 搜索本地 TXT 文件内容（纯文本模式）
-    ///
-    /// 返回 JSON 序列化的 `Vec<TxtSearchResult>`，
-    /// 每项含 `chapter_index` / `chapter_title` / `char_offset` / `matched_text` /
-    /// `context` / `context_match_start` / `context_match_end`。
-    pub fn txt_search(
-        path: String,
-        query: String,
-        case_sensitive: bool,
-        max_results: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::txt_search_api::txt_search(
-            &path,
-            &query,
-            case_sensitive,
-            max_results,
-        )?)
-    }
-
-    /// 使用正则搜索本地 TXT 文件内容
-    ///
-    /// 返回格式同 `txt_search`。
-    pub fn txt_search_regex(
-        path: String,
-        pattern: String,
-        case_sensitive: bool,
-        max_results: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::txt_search_api::txt_search_regex(
-            &path,
-            &pattern,
-            case_sensitive,
-            max_results,
-        )?)
-    }
-
-    /// 在本地 TXT 文件指定章节内搜索
-    ///
-    /// 返回格式同 `txt_search`。
-    pub fn txt_search_in_chapter(
-        path: String,
-        query: String,
-        chapter_index: i32,
-        case_sensitive: bool,
-        max_results: i32,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::txt_search_api::txt_search_in_chapter(
-            &path,
-            &query,
-            chapter_index,
-            case_sensitive,
-            max_results,
-        )?)
-    }
-
-    /// 统计本地 TXT 文件内关键词匹配总数（不返回完整结果，供 UI 显示计数）
-    ///
-    ///
-    pub fn txt_search_count(
-        path: String,
-        query: String,
-        case_sensitive: bool,
-    ) -> Result<i32, BridgeError> {
-        Ok(crate::api::txt_search_api::txt_search_count(
-            &path,
-            &query,
-            case_sensitive,
-        )?)
-    }
-
     // ─── RSS ──────────────────────────────────────────────────
 
     /// 获取所有 RSS 源列表（类型化列表）
@@ -3144,20 +3072,6 @@ pub mod ffi {
     /// 将播放模式写入 readConfig JSON（返回更新后的 JSON）
     pub fn audio_with_play_mode(read_config: Option<String>, play_mode: i32) -> String {
         crate::api::audio_api::with_audio_play_mode(read_config.as_deref(), play_mode)
-    }
-
-    /// 解析听书书籍（返回 Book JSON 或 null）
-    ///
-    /// 请求 URL 为空时返回缓存书籍；缓存匹配时直接返回；否则按 URL 查库。
-    pub fn audio_resolve_play_book(
-        requested_book_url: Option<String>,
-        cached_book_json: Option<String>,
-    ) -> Result<String, BridgeError> {
-        let book = crate::api::audio_api::resolve_audio_play_book(
-            requested_book_url.as_deref(),
-            cached_book_json.as_deref(),
-        )?;
-        to_json(&book)
     }
 
     /// 书源 callBackBtn（对齐 SourceCallBack.callBackBtn + 中途 UI 队列）

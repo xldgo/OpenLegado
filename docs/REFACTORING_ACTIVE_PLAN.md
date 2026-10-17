@@ -4,6 +4,8 @@
 
 - 续批执行（实施中，基线3493f78c8）：用户授权按A→B→C推进。A迁移封面配置/搜索、JS书源提取与诊断、购买和回调固定结果；B核对并清理TXT专用搜索和音频解析闲置FRB导出；C审计登录/规则/JS/WebDAV动态协议并收敛可确定的实体入参。继续原worktree、单代理，每批验证后本地提交，不推送/CI/安装，不变更版本、依赖或数据库；保留SSE和真实文档语义。
 
+- 续批B完成：全仓手写Dart/测试/脚本/CI/Server调用搜索只命中定义后，移除四个TXT专用搜索及audio_resolve_play_book共五个FRB导出；删除txt_search_api及音频旧解析适配，底层通用算法/测试保留。现有正文搜索和音频媒体/进度/模式入口不变。Rust TXT搜索18项/FFI音频7项通过，QuickJS全目标严格Clippy与完整Flutter分析通过；正式独立DLL和只读校验、真实FFI4项通过，新增精确i64音频进度和模式接线。证据build/ffi-phase3/unused-exports-{callers,codegen,rust-search,rust-audio,clippy,analysis,native,runtime}。单代理，无独立外审/设备结论；按授权本地提交后进入C。
+
 - 续批A完成：封面候选/URL列表/四字段配置、JS完整书源/三字段诊断、购买枚举与回调固定外壳直接传输。平台动作独立JSON，未知字段和原顺序不丢失，回放完成才返回且不重复。7份Flutter50项、Rust封面9项/购买5项/DTO2项通过，QuickJS全目标严格Clippy、完整Flutter分析通过。正式Python独立DLL及只读校验、真实FFI3项通过，覆盖Cookie三态、data规则、本机封面搜索、真实JS与copyText两动作、本地购买none。首轮真实测试缺构造回调已修正。证据build/ffi-phase3/source-tools-{codegen,rust-cover,rust-pay,rust-dto,flutter,clippy,analysis-closed,native,runtime-final}.log。无独立外审/设备或远程CI结论，版本/数据不变；按授权本地提交后进入B。
 
 - 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界已完成，契约与定向集成收口已完成；不扩展历史格式兼容层，不改变备份FFI签名。
