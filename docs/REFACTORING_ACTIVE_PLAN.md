@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-CALLBACK-SERVICE-20261018：书源事件回调服务下沉（P1）
+
+- 授权与基线：用户批准回调服务计划；feature/rust-ffi-modernization / dd9e1c2a5，工作区干净。沿用当前worktree和分支，单代理实现/自查，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS业务和已登记后置缺口不扩入。
+- 范围：SourceActionService承接回调查询、原JS绑定、动作收集、真假判定和返回门控；复用已有独立VM与值转换。显式借用所属TaskGroup，不给登录/购买新增任务或取消策略；FFI保留原签名、忽略的book_type参数及结果类型重导出。
+- 行为冻结：任务登记先于数据库查询，工作结束才释放凭据；缺源/禁用监听/空脚本仍立即返回invoked=false，不额外加取消检查。可选章节缺失仍绑定null，result空值/字符串区分；独立VM、来源tag/网络资源、动作顺序、脚本错误及无QuickJS提示保持。只有原JS成功后的发布门控拒绝取消结果，不宣称取消可撤销已发生网络或登录写入。数据库连接不跨JS，不持根Engine或自建Runtime。
+- 验收：原3项回调测试保留（私有测试随实现迁移），补公开入口必要的取消/实例资源/回退与绑定验证；相关Rust回归、default/QuickJS严格Clippy、正式Windows DLL与既有真实FRB动作回归。不改FFI契约/DTO/生成绑定、schema、UI、版本或依赖，不新增测试宿主；无独立外审如实记录。
+- 实现：回调查询/绑定/执行/动作收集与发布门控迁入SourceActionService.callback，显式借用TaskGroup，不给登录/购买新增任务字段；复用既有fresh_engine与json_to_js_value。FFI仅传入宿主服务和任务组并从原API路径重导出结果。先登记、独立借还DB连接、提前回退及JS成功后门控的顺序保持，不新增运行时或根引擎强引用。
+- 回归：QuickJS库Engine110/FFI552共662项通过，42项既有忽略；原3项回调测试保留，真假判定与阻塞并发动作隔离2项随私有实现迁入Engine，FFI缺书错误断言不变。新增2项公开服务用例覆盖缺源/关闭监听/空脚本/缺章节/已关闭任务组、无JS错误、真实HTTP来源头/Cookie、阻塞中根析构与任务有界关闭、另一实例动作与参数绑定、错误后队列隔离及空字符串/null。没有新增测试宿主或重复生成链路。
+- 整改：新增取消夹具最初在启动工作前释放根引擎，按既有Drop策略任务组立即关闭，HTTP未发出而超时。改为请求到达后才释放根，验证实际在途取消；未改生产策略、延长超时或放宽断言。初轮失败不计通过。
+- 自查：原FFI签名/DTO映射、真假算法和值转换保持；迁移主函数资源替换后仅格式器为查询闭包补等价块括号，JS执行体资源替换后相同。move-comparison.json仅辅助人工核对，不替代行为测试。未改生成绑定、数据库、锁文件、版本或音频/TTS业务，无新增lint放行。
+- 严格检查：default定向Engine2/FFI2共4项通过（含原缺书与DTO动作映射回归）；Engine/FFI的default和QuickJS两档全目标Clippy -D warnings、限定文件格式与git diff --check通过，无新增lint放行。
+- 正式接线：Python正式入口重建Windows Debug QuickJS DLL，构建/源码指纹/源库与复制库摘要及最终只读校验通过。既有source_tools_transport_runtime_test真实动作回归1项通过，验证本机源、回调动作顺序且仅回放一次，原本地书购买短路同用例保持；不新增Dart测试或外部宿主，取消生命周期由上述真实HTTP+JS Engine行为测试覆盖。
+- 证据与限制：build/source-callback-service/{rust-initial,rust-quick,rust-default,clippy-quick,clippy-default,native-build,native-runtime,native-verify}.log及move-comparison.json。初轮新增夹具失败不计通过；最终相关回归通过。仅Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论，不重复全量Flutter验证。此前其他批次锁冲突根因、后置功能缺口和音频/TTS不在本批销账。
+- 状态：本批服务迁移与本地验证完成，按授权整批本地提交；保持当前worktree/分支，不推送/合并，不修改主目录。可独立撤销本批，后续范围另行确定。
+
+编写者：Codex｜2026-10-18
+
 ### SOURCE-ACTION-SERVICE-20261018：书源登录与章节购买动作服务下沉（P1）
 
 - 授权与基线：用户批准V1/V2登录与章节购买动作完整批次；feature/rust-ffi-modernization / 60a92aeee，worktree干净。当前分支内单代理执行，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS及既有后置功能缺口不扩入。

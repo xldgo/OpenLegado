@@ -617,3 +617,21 @@ FFI保留文档解析与原签名，LoginActionV2Request及PayActionResult从原
 状态与证据仅维护于Active计划。
 
 编写者：Codex｜2026-10-18
+
+
+### 书源事件回调（2026-10-18）
+
+`SourceActionService`的callback模块承接书籍/书源/可选章节查询、JS执行、动作收集及返回门控。
+调用时显式借用所属TaskGroup，沿用先登记任务、再查询数据的顺序；JS执行不持数据库连接。
+缺源、监听关闭和空脚本仍按原路径返回invoked=false，不额外改变提前返回的取消语义。
+
+回调复用书源动作已有的独立VM构造及JSON到JS值转换，保持event/book/chapter/result绑定，
+章节缺失绑定null，空字符串result与null区分；原来源tag、实例网络能力和动作顺序不变。
+仅原JS成功后的with_active门控负责拒绝迟到返回，脚本错误仍上抛，工作真正结束才释放凭据。
+取消不会中止同步HTTP，也不能撤销已执行的网络或登录副作用；UI动作仅随有效结果回放。
+
+FFI仅装配宿主服务及任务组，保留原签名和暂未分流的book_type参数，SourceCallBackBtnResult
+从原API路径重导出，DTO映射和FRB绑定不变。不为登录/购买新增任务或取消策略，
+不涉及音频/TTS播放逻辑、数据库、UI、版本或依赖。状态与验证证据仅维护于Active计划。
+
+编写者：Codex｜2026-10-18

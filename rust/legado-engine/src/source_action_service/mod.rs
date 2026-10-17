@@ -1,13 +1,15 @@
-//! 书源登录与章节购买动作；资源来自宿主入口快照。
+//! 书源登录、章节购买与事件回调；资源来自宿主入口快照。
 use crate::{SourceLoginCache, StorageContext};
 use legado_core::{LegadoError, LegadoResult, models::BookSource};
 use std::sync::Arc;
 
+mod callback;
 #[cfg(feature = "quickjs")]
 mod js;
 mod login_v1;
 mod login_v2;
 mod purchase;
+pub use callback::SourceCallBackBtnResult;
 pub use login_v2::{LoginActionV2Request, is_login_ui_v2};
 pub use purchase::PayActionResult;
 
@@ -39,5 +41,7 @@ impl SourceActionService {
     }
 }
 
+#[cfg(test)]
+mod callback_tests;
 #[cfg(test)]
 mod tests;

@@ -1,7 +1,7 @@
 use super::*;
 use crate::EngineContext;
 
-fn service(engine: &EngineContext) -> SourceActionService {
+pub(super) fn service(engine: &EngineContext) -> SourceActionService {
     let login = engine.source_login_cache().clone();
     #[cfg(feature = "quickjs")]
     let info = engine.source_info_map().clone();
