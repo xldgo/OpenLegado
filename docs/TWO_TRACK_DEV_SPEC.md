@@ -572,3 +572,25 @@ refresh_source_rate_limit包装移除，许可获取和同一注册表的宿主�
 本批不改变FFI签名/生成绑定、UI、schema、版本或依赖；状态与证据仅维护于Active计划。
 
 编写者：Codex｜2026-10-18
+
+
+### 替换规则管理与执行服务（2026-10-18）
+
+`legado-engine/replace_rule_service`借用宿主已取得的数据库连接，集中规则CRUD、启停、
+新增默认值和编辑可选字段合并；ReplaceRuleFields只代表现有编辑入口允许写入的字段。
+新增仍默认启用、order=0，更新仍保留scope/order，None保留、空串清除语义不变。
+FFI继续提供原参数和JSON文档解析，不新增公共DTO或改写生成绑定。
+
+书源导入沿用core的书源作用域规则和顺序执行，不注入JS执行器；查询失败由FFI原位置
+返回输入文档，单条规则失败由core保留当前文本。正文/导出的规则处理不改，未扩入MCP。
+
+预览接收已解析规则及宿主入口捕获的JsResources，不在超时工作线程查询宿主全局槽位。
+每次匹配仍创建独立QuickJS VM，保留source/replace-rule-preview来源、64MB沙箱及result绑定；
+来源变量与登录能力属于同一注入实例，不持根EngineContext或自建Runtime。
+复用core既有逐规则超时及替换实现，执行失败仍返回原警告字符串，非法文档仍为FFI输入错误。
+未启用QuickJS时维持原不可用提示，不额外引入取消或后台任务关闭协议。
+
+本批不解决scope/order写入与Flutter排序持久化缺口；该后置项仍由Active计划单独登记。
+FFI契约、UI、数据库、应用/依赖版本不变；状态和验证证据仅维护于Active计划。
+
+编写者：Codex｜2026-10-18

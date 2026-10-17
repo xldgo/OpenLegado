@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### REPLACE-RULE-SERVICE-20261018：替换规则管理与执行服务下沉（P1）
+
+- 授权与基线：用户要求依赖核实单独提交后继续既定服务任务；feature/rust-ffi-modernization / 7659c18ba，工作区干净。当前worktree内单代理执行，验证后整批本地提交，不推送/合并/远程CI/WSL/安装，音频/TTS保持暂缓。
+- 范围：Engine服务借用宿主数据库连接，承接CRUD/启停、默认值与可选字段合并、书源规则执行；预览显式接收入口JS资源快照，复用core既有替换算法和逐规则超时。FFI保留参数/文档转换、宿主资源装配及未开库错误回退，不持根引擎或自建Runtime。
+- 行为冻结：新增默认启用/order=0、group空值差异、更新None保留/空串清除、scope/order保留；预览result绑定、独立VM、64MB沙箱、警告字符串和非法输入错误保持。书源作用域匹配及无JS执行器策略保持，数据库或规则失败保留原文，不改正文/导出处理。
+- 验收与边界：保留原替换规则测试，必要时补实例隔离及真实JS资源归属；相关Rust回归、default/QuickJS严格Clippy、正式Windows DLL指纹/摘要及已有真实FRB用例。不改FFI签名/DTO/生成绑定、schema、版本或依赖，不新增测试宿主。REPLACE-RULE-WRITE-GAPS-20261016的scope/排序等写入缺口继续后置。单代理自查，无独立外审如实记录；可独立撤销本批。
+- 实现：ReplaceRuleService在宿主闭包内借用连接，ReplaceRuleFields承接原编辑字段，完整保留新增默认值及更新三态；书源替换仍直接复用core的作用域和逐规则失败回退。独立preview模块接收宿主入口JS快照，在每次匹配创建原配置VM，不再从超时工作线程查询宿主槽位。FFI保留非法文档错误及未开库/查询失败时原文回退；没有启用书源导入JS或改写正文/导出路径。
+- Rust验证：QuickJS完整库Engine101/FFI557共658项通过，42项既有忽略；default定向Engine2/FFI19共21项通过（含既有导出替换回归）。原18项FFI替换测试原样保留，新增3项检查独立存储/相同ID隔离/未暴露字段保留、真实规则顺序/作用域/无JS策略、注入JS变量与登录能力/每匹配独立VM/根引擎释放；无新增测试宿主。default及QuickJS两档Engine/FFI全目标Clippy -D warnings、限定文件格式与git diff --check通过。
+- 自查：8项原API函数签名与完整原测试模块逐字核对不变；生产逻辑逐段核对，除明确的入口JS资源快照外无执行策略变化。move-comparison.json仅辅助代码复核，不作为行为测试。无新增lint放行，Dart/FRB生成物、锁文件、数据库、版本及音频/TTS业务不变。
+- 正式接线：Python正式入口重建Windows Debug QuickJS DLL，构建/源码指纹/源库与复制库摘要及只读校验通过；既有business_transport_runtime_test中字典/替换规则/历史/排序定向1项通过，使用真实FRB与SQLite，不新增Dart用例或外部宿主。
+- 证据与限制：build/replace-rule-service/{rust-initial,rust-quick,rust-default,clippy-quick,clippy-default,native-build,native-runtime,native-verify}.log及move-comparison.json。单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论；不重复无关Flutter全量验证。前批共享库锁冲突根因与后置写入缺口未在本批销账。
+- 状态：本批迁移与本地验证完成，按授权整批本地提交；保留当前worktree/分支，不推送或合并。音频/TTS与后置功能缺口继续暂缓，后续范围另行确定。
+
+编写者：Codex｜2026-10-18
+
 ### CORE-LAYOUT-DEPENDENCY-20261018：排版依赖核实与模块文档纠正（P2）
 
 - 授权与基线：用户要求先核实并清理core的layout依赖，单独本地提交后继续替换规则服务任务；feature/rust-ffi-modernization / 5878cb0da，工作区干净。不推送、不改主目录。

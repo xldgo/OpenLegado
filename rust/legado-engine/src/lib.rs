@@ -16,6 +16,7 @@ mod media;
 mod network;
 mod operations;
 pub mod reading_service;
+pub mod replace_rule_service;
 pub mod review_service;
 pub mod rss_service;
 pub mod rule_subscription_service;
