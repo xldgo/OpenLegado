@@ -12,6 +12,7 @@
 mod frb_generated;
 
 pub mod api;
+pub mod automation_dto;
 pub mod business_dto;
 pub mod content_dto;
 pub mod db_state;

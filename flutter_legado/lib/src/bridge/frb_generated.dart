@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'automation_dto.dart';
 import 'business_dto.dart';
 import 'content_dto.dart';
 
@@ -206,7 +207,7 @@ abstract class RustLibApi extends BaseApi {
     required int playMode,
   });
 
-  Future<String> crateFfiFfiAutoTaskBuildBookUpdate({
+  Future<AutoTaskRuleDto> crateFfiFfiAutoTaskBuildBookUpdate({
     required String bookUrl,
     required String bookName,
     required String bookAuthor,
@@ -218,27 +219,31 @@ abstract class RustLibApi extends BaseApi {
     required bool respectCanUpdate,
   });
 
-  Future<String> crateFfiFfiAutoTaskCreateRule({required String ruleJson});
+  Future<String> crateFfiFfiAutoTaskCreateRule({required AutoTaskRuleDto rule});
 
   Future<void> crateFfiFfiAutoTaskDeleteRule({required String id});
 
-  Future<String> crateFfiFfiAutoTaskExecute({required String protocolJson});
+  Future<TaskResultDto> crateFfiFfiAutoTaskExecute({
+    required String protocolJson,
+  });
 
-  Future<String> crateFfiFfiAutoTaskExecuteWithId({
+  Future<TaskResultDto> crateFfiFfiAutoTaskExecuteWithId({
     required String protocolJson,
     required String taskId,
   });
 
-  Future<String> crateFfiFfiAutoTaskFindBookUpdate({
-    required String tasksJson,
+  Future<AutoTaskRuleDto?> crateFfiFfiAutoTaskFindBookUpdate({
+    required List<AutoTaskRuleDto> tasks,
     required String bookUrl,
     required String bookName,
     required String bookAuthor,
   });
 
-  Future<String> crateFfiFfiAutoTaskFindRuleById({required String id});
+  Future<AutoTaskRuleDto?> crateFfiFfiAutoTaskFindRuleById({
+    required String id,
+  });
 
-  Future<String> crateFfiFfiAutoTaskListRules();
+  Future<List<AutoTaskRuleDto>> crateFfiFfiAutoTaskListRules();
 
   Future<PlatformInt64> crateFfiFfiAutoTaskNextDueAt({
     required String cron,
@@ -247,18 +252,18 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> crateFfiFfiAutoTaskNormalizeScript({required String script});
 
-  Future<String> crateFfiFfiAutoTaskPrepareImported({
-    required String localTasksJson,
+  Future<List<AutoTaskRuleDto>> crateFfiFfiAutoTaskPrepareImported({
+    required List<AutoTaskRuleDto> localTasks,
     required String importedJson,
   });
 
-  Future<String> crateFfiFfiAutoTaskUpdateCronBatch({
-    required String rulesJson,
-    required String idsJson,
+  Future<List<AutoTaskRuleDto>> crateFfiFfiAutoTaskUpdateCronBatch({
+    required List<AutoTaskRuleDto> rules,
+    required List<String> ids,
     required String cron,
   });
 
-  Future<void> crateFfiFfiAutoTaskUpdateRule({required String ruleJson});
+  Future<void> crateFfiFfiAutoTaskUpdateRule({required AutoTaskRuleDto rule});
 
   Future<String> crateFfiFfiBackupCreate({required String path});
 
@@ -2328,7 +2333,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskBuildBookUpdate({
+  Future<AutoTaskRuleDto> crateFfiFfiAutoTaskBuildBookUpdate({
     required String bookUrl,
     required String bookName,
     required String bookAuthor,
@@ -2350,8 +2355,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_bridge_error,
+          decodeSuccessData: sse_decode_auto_task_rule_dto,
+          decodeErrorData: null,
         ),
         constMeta: kCrateFfiFfiAutoTaskBuildBookUpdateConstMeta,
         argValues: [bookUrl, bookName, bookAuthor, name],
@@ -2402,12 +2407,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskCreateRule({required String ruleJson}) {
+  Future<String> crateFfiFfiAutoTaskCreateRule({
+    required AutoTaskRuleDto rule,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(ruleJson, serializer);
+          sse_encode_box_autoadd_auto_task_rule_dto(rule, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2420,7 +2427,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskCreateRuleConstMeta,
-        argValues: [ruleJson],
+        argValues: [rule],
         apiImpl: this,
       ),
     );
@@ -2429,7 +2436,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiAutoTaskCreateRuleConstMeta =>
       const TaskConstMeta(
         debugName: "auto_task_create_rule",
-        argNames: ["ruleJson"],
+        argNames: ["rule"],
       );
 
   @override
@@ -2461,7 +2468,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "auto_task_delete_rule", argNames: ["id"]);
 
   @override
-  Future<String> crateFfiFfiAutoTaskExecute({required String protocolJson}) {
+  Future<TaskResultDto> crateFfiFfiAutoTaskExecute({
+    required String protocolJson,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -2475,7 +2484,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_task_result_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskExecuteConstMeta,
@@ -2491,7 +2500,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  Future<String> crateFfiFfiAutoTaskExecuteWithId({
+  Future<TaskResultDto> crateFfiFfiAutoTaskExecuteWithId({
     required String protocolJson,
     required String taskId,
   }) {
@@ -2509,7 +2518,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_task_result_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskExecuteWithIdConstMeta,
@@ -2526,8 +2535,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskFindBookUpdate({
-    required String tasksJson,
+  Future<AutoTaskRuleDto?> crateFfiFfiAutoTaskFindBookUpdate({
+    required List<AutoTaskRuleDto> tasks,
     required String bookUrl,
     required String bookName,
     required String bookAuthor,
@@ -2536,7 +2545,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(tasksJson, serializer);
+          sse_encode_list_auto_task_rule_dto(tasks, serializer);
           sse_encode_String(bookUrl, serializer);
           sse_encode_String(bookName, serializer);
           sse_encode_String(bookAuthor, serializer);
@@ -2548,11 +2557,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_bridge_error,
+          decodeSuccessData: sse_decode_opt_box_autoadd_auto_task_rule_dto,
+          decodeErrorData: null,
         ),
         constMeta: kCrateFfiFfiAutoTaskFindBookUpdateConstMeta,
-        argValues: [tasksJson, bookUrl, bookName, bookAuthor],
+        argValues: [tasks, bookUrl, bookName, bookAuthor],
         apiImpl: this,
       ),
     );
@@ -2561,11 +2570,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiAutoTaskFindBookUpdateConstMeta =>
       const TaskConstMeta(
         debugName: "auto_task_find_book_update",
-        argNames: ["tasksJson", "bookUrl", "bookName", "bookAuthor"],
+        argNames: ["tasks", "bookUrl", "bookName", "bookAuthor"],
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskFindRuleById({required String id}) {
+  Future<AutoTaskRuleDto?> crateFfiFfiAutoTaskFindRuleById({
+    required String id,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -2579,7 +2590,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_opt_box_autoadd_auto_task_rule_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskFindRuleByIdConstMeta,
@@ -2596,7 +2607,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskListRules() {
+  Future<List<AutoTaskRuleDto>> crateFfiFfiAutoTaskListRules() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -2609,7 +2620,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_auto_task_rule_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskListRulesConstMeta,
@@ -2689,15 +2700,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskPrepareImported({
-    required String localTasksJson,
+  Future<List<AutoTaskRuleDto>> crateFfiFfiAutoTaskPrepareImported({
+    required List<AutoTaskRuleDto> localTasks,
     required String importedJson,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(localTasksJson, serializer);
+          sse_encode_list_auto_task_rule_dto(localTasks, serializer);
           sse_encode_String(importedJson, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -2707,11 +2718,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_auto_task_rule_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskPrepareImportedConstMeta,
-        argValues: [localTasksJson, importedJson],
+        argValues: [localTasks, importedJson],
         apiImpl: this,
       ),
     );
@@ -2720,21 +2731,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiAutoTaskPrepareImportedConstMeta =>
       const TaskConstMeta(
         debugName: "auto_task_prepare_imported",
-        argNames: ["localTasksJson", "importedJson"],
+        argNames: ["localTasks", "importedJson"],
       );
 
   @override
-  Future<String> crateFfiFfiAutoTaskUpdateCronBatch({
-    required String rulesJson,
-    required String idsJson,
+  Future<List<AutoTaskRuleDto>> crateFfiFfiAutoTaskUpdateCronBatch({
+    required List<AutoTaskRuleDto> rules,
+    required List<String> ids,
     required String cron,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rulesJson, serializer);
-          sse_encode_String(idsJson, serializer);
+          sse_encode_list_auto_task_rule_dto(rules, serializer);
+          sse_encode_list_String(ids, serializer);
           sse_encode_String(cron, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -2744,11 +2755,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_bridge_error,
+          decodeSuccessData: sse_decode_list_auto_task_rule_dto,
+          decodeErrorData: null,
         ),
         constMeta: kCrateFfiFfiAutoTaskUpdateCronBatchConstMeta,
-        argValues: [rulesJson, idsJson, cron],
+        argValues: [rules, ids, cron],
         apiImpl: this,
       ),
     );
@@ -2757,16 +2768,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiAutoTaskUpdateCronBatchConstMeta =>
       const TaskConstMeta(
         debugName: "auto_task_update_cron_batch",
-        argNames: ["rulesJson", "idsJson", "cron"],
+        argNames: ["rules", "ids", "cron"],
       );
 
   @override
-  Future<void> crateFfiFfiAutoTaskUpdateRule({required String ruleJson}) {
+  Future<void> crateFfiFfiAutoTaskUpdateRule({required AutoTaskRuleDto rule}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(ruleJson, serializer);
+          sse_encode_box_autoadd_auto_task_rule_dto(rule, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2779,7 +2790,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiAutoTaskUpdateRuleConstMeta,
-        argValues: [ruleJson],
+        argValues: [rule],
         apiImpl: this,
       ),
     );
@@ -2788,7 +2799,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiAutoTaskUpdateRuleConstMeta =>
       const TaskConstMeta(
         debugName: "auto_task_update_rule",
-        argNames: ["ruleJson"],
+        argNames: ["rule"],
       );
 
   @override
@@ -12038,6 +12049,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AutoTaskRuleDto dco_decode_auto_task_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 18)
+      throw Exception('unexpected arr length: expect 18 but see ${arr.length}');
+    return AutoTaskRuleDto(
+      id: dco_decode_String(arr[0]),
+      name: dco_decode_String(arr[1]),
+      enable: dco_decode_bool(arr[2]),
+      cron: dco_decode_opt_String(arr[3]),
+      loginUrl: dco_decode_opt_String(arr[4]),
+      loginUi: dco_decode_opt_String(arr[5]),
+      loginCheckJs: dco_decode_opt_String(arr[6]),
+      comment: dco_decode_opt_String(arr[7]),
+      script: dco_decode_String(arr[8]),
+      header: dco_decode_opt_String(arr[9]),
+      jsLib: dco_decode_opt_String(arr[10]),
+      concurrentRate: dco_decode_opt_String(arr[11]),
+      enabledCookieJar: dco_decode_bool(arr[12]),
+      customOrder: dco_decode_i_32(arr[13]),
+      lastRunAt: dco_decode_i_64(arr[14]),
+      lastResult: dco_decode_opt_String(arr[15]),
+      lastError: dco_decode_opt_String(arr[16]),
+      lastLog: dco_decode_opt_String(arr[17]),
+    );
+  }
+
+  @protected
   BackupFileDto dco_decode_backup_file_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -12240,6 +12279,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
+  }
+
+  @protected
+  AutoTaskRuleDto dco_decode_box_autoadd_auto_task_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_auto_task_rule_dto(raw);
   }
 
   @protected
@@ -13440,6 +13485,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<AutoTaskRuleDto> dco_decode_list_auto_task_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_auto_task_rule_dto).toList();
+  }
+
+  @protected
   List<BackupFileDto> dco_decode_list_backup_file_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_backup_file_dto).toList();
@@ -13855,6 +13906,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  AutoTaskRuleDto? dco_decode_opt_box_autoadd_auto_task_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_auto_task_rule_dto(raw);
   }
 
   @protected
@@ -14726,6 +14783,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  TaskResultDto dco_decode_task_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return TaskResultDto(
+      taskId: dco_decode_String(arr[0]),
+      success: dco_decode_bool(arr[1]),
+      message: dco_decode_String(arr[2]),
+      durationMs: dco_decode_u_64(arr[3]),
+      details: dco_decode_opt_String(arr[4]),
+    );
+  }
+
+  @protected
   TextResponseDto dco_decode_text_response_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     switch (raw[0]) {
@@ -15282,6 +15354,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AutoTaskRuleDto sse_decode_auto_task_rule_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_enable = sse_decode_bool(deserializer);
+    var var_cron = sse_decode_opt_String(deserializer);
+    var var_loginUrl = sse_decode_opt_String(deserializer);
+    var var_loginUi = sse_decode_opt_String(deserializer);
+    var var_loginCheckJs = sse_decode_opt_String(deserializer);
+    var var_comment = sse_decode_opt_String(deserializer);
+    var var_script = sse_decode_String(deserializer);
+    var var_header = sse_decode_opt_String(deserializer);
+    var var_jsLib = sse_decode_opt_String(deserializer);
+    var var_concurrentRate = sse_decode_opt_String(deserializer);
+    var var_enabledCookieJar = sse_decode_bool(deserializer);
+    var var_customOrder = sse_decode_i_32(deserializer);
+    var var_lastRunAt = sse_decode_i_64(deserializer);
+    var var_lastResult = sse_decode_opt_String(deserializer);
+    var var_lastError = sse_decode_opt_String(deserializer);
+    var var_lastLog = sse_decode_opt_String(deserializer);
+    return AutoTaskRuleDto(
+      id: var_id,
+      name: var_name,
+      enable: var_enable,
+      cron: var_cron,
+      loginUrl: var_loginUrl,
+      loginUi: var_loginUi,
+      loginCheckJs: var_loginCheckJs,
+      comment: var_comment,
+      script: var_script,
+      header: var_header,
+      jsLib: var_jsLib,
+      concurrentRate: var_concurrentRate,
+      enabledCookieJar: var_enabledCookieJar,
+      customOrder: var_customOrder,
+      lastRunAt: var_lastRunAt,
+      lastResult: var_lastResult,
+      lastError: var_lastError,
+      lastLog: var_lastLog,
+    );
+  }
+
+  @protected
   BackupFileDto sse_decode_backup_file_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_name = sse_decode_String(deserializer);
@@ -15588,6 +15703,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  AutoTaskRuleDto sse_decode_box_autoadd_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_auto_task_rule_dto(deserializer));
   }
 
   @protected
@@ -17167,6 +17290,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<AutoTaskRuleDto> sse_decode_list_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <AutoTaskRuleDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_auto_task_rule_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<BackupFileDto> sse_decode_list_backup_file_dto(
     SseDeserializer deserializer,
   ) {
@@ -17949,6 +18086,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  AutoTaskRuleDto? sse_decode_opt_box_autoadd_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_auto_task_rule_dto(deserializer));
     } else {
       return null;
     }
@@ -19224,6 +19374,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  TaskResultDto sse_decode_task_result_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_taskId = sse_decode_String(deserializer);
+    var var_success = sse_decode_bool(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    var var_durationMs = sse_decode_u_64(deserializer);
+    var var_details = sse_decode_opt_String(deserializer);
+    return TaskResultDto(
+      taskId: var_taskId,
+      success: var_success,
+      message: var_message,
+      durationMs: var_durationMs,
+      details: var_details,
+    );
+  }
+
+  @protected
   TextResponseDto sse_decode_text_response_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -19892,6 +20059,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_auto_task_rule_dto(
+    AutoTaskRuleDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_bool(self.enable, serializer);
+    sse_encode_opt_String(self.cron, serializer);
+    sse_encode_opt_String(self.loginUrl, serializer);
+    sse_encode_opt_String(self.loginUi, serializer);
+    sse_encode_opt_String(self.loginCheckJs, serializer);
+    sse_encode_opt_String(self.comment, serializer);
+    sse_encode_String(self.script, serializer);
+    sse_encode_opt_String(self.header, serializer);
+    sse_encode_opt_String(self.jsLib, serializer);
+    sse_encode_opt_String(self.concurrentRate, serializer);
+    sse_encode_bool(self.enabledCookieJar, serializer);
+    sse_encode_i_32(self.customOrder, serializer);
+    sse_encode_i_64(self.lastRunAt, serializer);
+    sse_encode_opt_String(self.lastResult, serializer);
+    sse_encode_opt_String(self.lastError, serializer);
+    sse_encode_opt_String(self.lastLog, serializer);
+  }
+
+  @protected
   void sse_encode_backup_file_dto(
     BackupFileDto self,
     SseSerializer serializer,
@@ -20069,6 +20262,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_auto_task_rule_dto(
+    AutoTaskRuleDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_auto_task_rule_dto(self, serializer);
   }
 
   @protected
@@ -21368,6 +21570,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_auto_task_rule_dto(
+    List<AutoTaskRuleDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_auto_task_rule_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_backup_file_dto(
     List<BackupFileDto> self,
     SseSerializer serializer,
@@ -22066,6 +22280,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_auto_task_rule_dto(
+    AutoTaskRuleDto? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_auto_task_rule_dto(self, serializer);
     }
   }
 
@@ -23020,6 +23247,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.speakerId, serializer);
     sse_encode_String(self.displayName, serializer);
     sse_encode_String(self.traitsJson, serializer);
+  }
+
+  @protected
+  void sse_encode_task_result_dto(
+    TaskResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.taskId, serializer);
+    sse_encode_bool(self.success, serializer);
+    sse_encode_String(self.message, serializer);
+    sse_encode_u_64(self.durationMs, serializer);
+    sse_encode_opt_String(self.details, serializer);
   }
 
   @protected

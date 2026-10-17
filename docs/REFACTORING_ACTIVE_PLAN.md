@@ -2,7 +2,9 @@
 
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
-- 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界进入实施；不扩展历史格式兼容层，不改变备份FFI签名。
+- 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界进入实施；不扩展历史格式兼容层，不改变备份FFI签名。
+
+- 后续第5批完成：自动任务18字段DTO贯通CRUD、书籍任务构建/查找、批量cron、本地导入状态合并及执行结果；只保留真正脚本/导入协议JSON。核心10字段计算仅回写改变字段，完整登录/Header/运行状态不丢失；删除无消费者auto_task_json。Rust定向10项、全目标QuickJS严格Clippy、完整Flutter分析通过；5份Flutter组合54通过1失败（测试同步抛错断言问题），修正断言后该文件9项通过，组合其余46项已通过。正式独立DLL构建/验证及3项真实FFI通过，覆盖18字段SQLite往返、精确i64、重复导入合并、QuickJS真实成功/失败与坏协议。证据在build/ffi-phase3/auto-{codegen,rust,clippy,flutter,unit-final,analysis-final,native,runtime}.log。代码生成清理的38个无关Freezed/JSON生成物已按原HEAD恢复；单代理自查，无独立外审/CI/设备验证；未推送。
 
 - 后续第4批完成：基于fcd7735a3迁移RSS44字段/文章/收藏/已读、替换和词典规则、订阅及更新统计、历史、日志、备份结果与稳定集合；清理无消费者rss_json_decode。真实配置/脚本/导入导出文档继续保留，不改变存储、版本和依赖。原RSS收藏snake_case时间/日期显式映射到领域字段，备份文件摘要保留原领域描述文本与字段顺序；未扩展订阅编辑隐藏字段。
 - 第4批验证：QuickJS FFI588项/42忽略、默认FFI512项/21忽略，两档全目标严格Clippy通过；36份Flutter回归276项，定向仓储47项含在组合内，额外映射4项/备份2项通过，完整分析无问题。正式Python独立DLL构建及只读指纹/摘要通过。五份真实FFI组合13通过1失败，先修复Windows路径表示断言后发现既有RSS备份布尔问题；不修改原备份内容，以合法布尔字段独立文档验证非零统计，最终该文件5项通过，其余9项已通过。覆盖RSS44字段、真实本机RSS/订阅、SQLite排序/历史/规则、日志、备份统计，以及80组上游排版和前批流/媒体回归。证据为build/ffi-phase3/business-{codegen,rust-initial,rust-default,clippy-quick,clippy-default,flutter-regression,unit,mapping,backup-final,analysis-closed,native,native-tests,native-retest-final}，组合入口见business-regression-files.txt。仅单代理自查，无独立外审/CI/Android/iOS/设备性能结论。

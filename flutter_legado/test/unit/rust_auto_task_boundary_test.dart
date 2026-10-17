@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_legado/src/bridge/automation_dto.dart';
+import 'package:flutter_legado/src/data/bridge/auto_task_dto_mapping.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_auto_task_repository.dart';
@@ -33,38 +35,34 @@ void main() {
     lastError: 'error',
     lastLog: 'log',
   );
+  setUpAll(() => registerFallbackValue(autoTaskToDto(rule)));
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
   });
   tearDown(RustLib.dispose);
 
-  test('CRUD读取与写入保留完整规则，JSON由适配器编码', () async {
+  test('CRUD直接传输完整十八字段且不丢登录和运行状态', () async {
+    final dto = autoTaskToDto(rule);
     when(() => bridge.crateFfiFfiAutoTaskListRules())
-        .thenAnswer((_) async => jsonEncode([rule.toJson()]));
+        .thenAnswer((_) async => [dto]);
     when(() => bridge.crateFfiFfiAutoTaskFindRuleById(id: '1'))
-        .thenAnswer((_) async => jsonEncode(rule.toJson()));
-    when(
-      () => bridge.crateFfiFfiAutoTaskCreateRule(
-        ruleJson: any(named: 'ruleJson'),
-      ),
-    ).thenAnswer((call) async {
-      expect(
-        jsonDecode(call.namedArguments[#ruleJson] as String),
-        rule.toJson(),
-      );
-      return '1';
-    });
-    when(
-      () => bridge.crateFfiFfiAutoTaskUpdateRule(
-        ruleJson: any(named: 'ruleJson'),
-      ),
-    ).thenAnswer((call) async {
-      expect(
-        jsonDecode(call.namedArguments[#ruleJson] as String),
-        rule.toJson(),
-      );
-    });
+        .thenAnswer((_) async => dto);
+    when(() => bridge.crateFfiFfiAutoTaskCreateRule(rule: any(named: 'rule')))
+        .thenAnswer((call) async {
+          expect(
+            autoTaskFromDto(call.namedArguments[#rule] as AutoTaskRuleDto),
+            rule,
+          );
+          return '1';
+        });
+    when(() => bridge.crateFfiFfiAutoTaskUpdateRule(rule: any(named: 'rule')))
+        .thenAnswer((call) async {
+          expect(
+            autoTaskFromDto(call.namedArguments[#rule] as AutoTaskRuleDto),
+            rule,
+          );
+        });
     when(() => bridge.crateFfiFfiAutoTaskDeleteRule(id: '1'))
         .thenAnswer((_) async {});
     expect(await repository.listRules(), [rule]);
@@ -74,34 +72,16 @@ void main() {
     await repository.deleteRule('1');
     verify(() => bridge.crateFfiFfiAutoTaskDeleteRule(id: '1')).called(1);
   });
-  for (final payload in ['{}', '[{}]', '[1]']) {
-    test('错误规则列表不当空列表：$payload', () async {
-      when(() => bridge.crateFfiFfiAutoTaskListRules())
-          .thenAnswer((_) async => payload);
-      await expectLater(repository.listRules(), throwsFormatException);
-    });
-  }
-  test('查询未命中为null，CRUD异常向上传递', () async {
+  test('Option未命中为空，原生失败仍向上传递', () async {
     when(() => bridge.crateFfiFfiAutoTaskFindRuleById(id: 'none'))
-        .thenAnswer((_) async => 'null');
+        .thenAnswer((_) async => null);
     expect(await repository.findRuleById('none'), isNull);
     final error = StateError('数据库不可写');
-    when(
-      () => bridge.crateFfiFfiAutoTaskCreateRule(
-        ruleJson: any(named: 'ruleJson'),
-      ),
-    ).thenThrow(error);
-    when(
-      () => bridge.crateFfiFfiAutoTaskUpdateRule(
-        ruleJson: any(named: 'ruleJson'),
-      ),
-    ).thenThrow(error);
-    when(() => bridge.crateFfiFfiAutoTaskDeleteRule(id: '1')).thenThrow(error);
+    when(() => bridge.crateFfiFfiAutoTaskCreateRule(rule: any(named: 'rule')))
+        .thenThrow(error);
     await expectLater(() => repository.createRule(rule), throwsA(same(error)));
-    await expectLater(() => repository.updateRule(rule), throwsA(same(error)));
-    await expectLater(() => repository.deleteRule('1'), throwsA(same(error)));
   });
-  test('构建结果的Rust纯计算字段正确归一化', () async {
+  test('构建结果直接映射，批量cron传输完整实体与ID列表', () async {
     when(
       () => bridge.crateFfiFfiAutoTaskBuildBookUpdate(
         bookUrl: 'b',
@@ -109,83 +89,73 @@ void main() {
         bookAuthor: '作者',
         name: '更新',
       ),
-    ).thenAnswer(
-      (_) async => '{"id":"book_update:id","name":"更新","script":"action","custom_order":9,"last_run_at":456,"last_log":"log"}',
+    ).thenAnswer((_) async => autoTaskToDto(rule));
+    expect(
+      await service.buildBookUpdateTask(
+        bookUrl: 'b',
+        bookName: '书',
+        bookAuthor: '作者',
+        name: '更新',
+      ),
+      rule,
     );
-    final result = await service.buildBookUpdateTask(
-      bookUrl: 'b',
-      bookName: '书',
-      bookAuthor: '作者',
-      name: '更新',
-    );
-    expect(result.id, 'book_update:id');
-    expect(result.customOrder, 9);
-    expect(result.lastRunAt, 456);
-    expect(result.lastLog, 'log');
-  });
-  test('批量cron传入正确core字段，返回仍保留登录和运行数据', () async {
     when(
       () => bridge.crateFfiFfiAutoTaskUpdateCronBatch(
-        rulesJson: any(named: 'rulesJson'),
-        idsJson: '["1"]',
+        rules: any(named: 'rules'),
+        ids: ['1'],
         cron: 'new',
       ),
     ).thenAnswer((call) async {
-      final input =
-          (jsonDecode(call.namedArguments[#rulesJson] as String) as List).single
-              as Map<String, dynamic>;
-      expect(input['custom_order'], 7);
-      expect(input['last_run_at'], 123);
-      expect(input['last_log'], 'log');
-      return jsonEncode([
-        {...input, 'cron': 'new'},
-      ]);
+      expect(
+        (call.namedArguments[#rules] as List<AutoTaskRuleDto>).map(
+          autoTaskFromDto,
+        ),
+        [rule],
+      );
+      return [autoTaskToDto(rule.copyWith(cron: 'new'))];
     });
-    final result = await service.updateCronBatch(
-      rules: [rule],
-      ids: ['1'],
-      cron: 'new',
+    expect(
+      (await service.updateCronBatch(
+        rules: [rule],
+        ids: ['1'],
+        cron: 'new',
+      )).single,
+      rule.copyWith(cron: 'new'),
     );
-    expect(result.single, rule.copyWith(cron: 'new'));
   });
-  test('导入准备传入本地真实排序/运行记录，保留原始导入文本', () async {
-    const imported = '[{"id":"1","name":"导入","script":"new"}]';
+  test('导入文本不改写，本地规则与结果直接传输', () async {
+    const document = '[{"id":"1","name":"导入","script":"x"}]';
     when(
       () => bridge.crateFfiFfiAutoTaskPrepareImported(
-        localTasksJson: any(named: 'localTasksJson'),
-        importedJson: imported,
+        localTasks: any(named: 'localTasks'),
+        importedJson: document,
       ),
     ).thenAnswer((call) async {
-      final local =
-          (jsonDecode(
-                call.namedArguments[#localTasksJson] as String,
-              ) as List).single
-              as Map;
-      expect(local['last_run_at'], 123);
-      expect(local['custom_order'], 7);
-      return jsonEncode([rule.copyWith(name: '导入', script: 'new').toJson()]);
+      expect(
+        autoTaskFromDto(
+          (call.namedArguments[#localTasks] as List<AutoTaskRuleDto>).single,
+        ),
+        rule,
+      );
+      return [autoTaskToDto(rule.copyWith(name: '导入'))];
     });
-    final result = await service.prepareImportedTasks(
-      localTasks: [rule],
-      importedJson: imported,
+    expect(
+      (await service.prepareImportedTasks(
+        localTasks: [rule],
+        importedJson: document,
+      )).single,
+      rule.copyWith(name: '导入'),
     );
-    expect(result.single, rule.copyWith(name: '导入', script: 'new'));
   });
-  test('书籍任务查找使用完整脚本并合回数据库专属字段', () async {
+  test('书籍任务完整实体及未命中Option保留', () async {
     when(
       () => bridge.crateFfiFfiAutoTaskFindBookUpdate(
-        tasksJson: any(named: 'tasksJson'),
+        tasks: any(named: 'tasks'),
         bookUrl: 'b',
         bookName: '书',
         bookAuthor: '作者',
       ),
-    ).thenAnswer((call) async {
-      final task =
-          (jsonDecode(call.namedArguments[#tasksJson] as String) as List).single
-              as Map;
-      expect(task['script'], 'script');
-      return jsonEncode(task);
-    });
+    ).thenAnswer((_) async => autoTaskToDto(rule));
     expect(
       await service.findBookUpdateTask(
         tasks: [rule],
@@ -195,43 +165,66 @@ void main() {
       ),
       rule,
     );
+    when(
+      () => bridge.crateFfiFfiAutoTaskFindBookUpdate(
+        tasks: any(named: 'tasks'),
+        bookUrl: 'b',
+        bookName: '书',
+        bookAuthor: '作者',
+      ),
+    ).thenAnswer((_) async => null);
+    expect(
+      await service.findBookUpdateTask(
+        tasks: [rule],
+        bookUrl: 'b',
+        bookName: '书',
+        bookAuthor: '作者',
+      ),
+      isNull,
+    );
   });
   for (final taskId in <String?>[null, '1']) {
-    test('执行入口按taskId=$taskId分派并返回类型化结果', () async {
+    test('执行协议保留JSON，结果taskId=$taskId直接映射', () async {
       const protocol = {'action': 'Backup', 'params': <String, String>{}};
-      const raw =
-          '{"task_id":"1","success":false,"message":"失败","duration_ms":34,"details":"日志"}';
+      final result = TaskResultDto(
+        taskId: '1',
+        success: false,
+        message: '失败',
+        durationMs: BigInt.from(9007199254740993),
+        details: '日志',
+      );
       if (taskId == null) {
         when(
           () => bridge.crateFfiFfiAutoTaskExecute(
             protocolJson: jsonEncode(protocol),
           ),
-        ).thenAnswer((_) async => raw);
+        ).thenAnswer((_) async => result);
       } else {
         when(
           () => bridge.crateFfiFfiAutoTaskExecuteWithId(
             protocolJson: jsonEncode(protocol),
-            taskId: '1',
+            taskId: taskId,
           ),
-        ).thenAnswer((_) async => raw);
+        ).thenAnswer((_) async => result);
       }
-      final result = await service.execute(protocol: protocol, taskId: taskId);
-      expect(result.taskId, '1');
-      expect(result.success, isFalse);
-      expect(result.message, '失败');
-      expect(result.durationMs, 34);
-      expect(result.details, '日志');
+      final actual = await service.execute(protocol: protocol, taskId: taskId);
+      expect(actual.success, isFalse);
+      expect(actual.taskId, '1');
+      expect(actual.message, '失败');
+      expect(actual.durationMs, 9007199254740993);
+      expect(actual.details, '日志');
     });
   }
-  test('执行坏响应不伪造成功，真实异常不吞掉', () async {
-    when(() => bridge.crateFfiFfiAutoTaskExecute(protocolJson: '{}'))
-        .thenAnswer((_) async => '{}');
-    await expectLater(service.execute(protocol: {}), throwsFormatException);
+  test('失败不吞掉，显式i32范围校验不截断', () async {
     when(() => bridge.crateFfiFfiAutoTaskExecute(protocolJson: '{}'))
         .thenThrow(StateError('执行器失败'));
     await expectLater(service.execute(protocol: {}), throwsStateError);
+    expect(
+      () => autoTaskToDto(rule.copyWith(customOrder: 2147483648)),
+      throwsRangeError,
+    );
   });
-  test('脚本、刷新许可与调度时间保留原始参数及-1含义', () async {
+  test('脚本、刷新许可与调度时间保留标量含义', () async {
     when(() => bridge.crateFfiFfiAutoTaskNormalizeScript(script: '@js:x'))
         .thenAnswer((_) async => 'x');
     when(

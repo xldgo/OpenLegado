@@ -2330,6 +2330,19 @@ RssSourceRepository完整44字段；布尔字段输出JSON布尔值，enabledCoo
 
 编写者：Codex｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 自动任务稳定载荷冻结
+
+AutoTaskRuleDto完整保留18字段：id/name/enable/cron/loginUrl/loginUi/loginCheckJs/comment/script/
+header/jsLib/concurrentRate/enabledCookieJar/customOrder/lastRunAt/lastResult/lastError/lastLog。
+CRUD、构建书籍任务、批量cron、书籍任务查找和导入准备的本地列表与返回值统一使用该DTO；
+未命中为Option，ID列表为Vec<String>，创建仍返回原业务ID。不再跨边界传实体JSON。
+纯计算仍调用原核心算法，完整实体专属的登录/Header等字段不得被核心10字段结构覆盖或丢弃。
+TaskResultDto包含taskId/success/message/durationMs/details，时长u64直接传递并在Dart领域映射为int。
+脚本、任务执行协议与用户导入文档保持原JSON字符串；只在真实文档边界解析，导入合并保留本地排序/
+运行记录与重复ID后者覆盖策略。接口不改数据库、任务调度、QuickJS执行或版本；继续SSE。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

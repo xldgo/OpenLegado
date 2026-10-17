@@ -146,6 +146,7 @@ async fn run_webbook_blocking<T: Send + 'static>(
 pub mod ffi {
     use super::BridgeError;
     use super::to_json;
+    use crate::automation_dto::*;
     use crate::business_dto::*;
     use crate::content_dto::*;
     use crate::frb_generated::StreamSink;
@@ -2947,120 +2948,110 @@ pub mod ffi {
 
     // ─── 自动任务 ─────────────────────────────────────
 
-    /// 构建书籍更新定时任务（返回 AutoTaskRule JSON）
+    /// 构建书籍更新任务，返回完整稳定实体。
     pub fn auto_task_build_book_update(
         book_url: String,
         book_name: String,
         book_author: String,
         name: String,
-    ) -> Result<String, BridgeError> {
-        let task = crate::api::auto_task_api::build_book_update_task(
+    ) -> AutoTaskRuleDto {
+        crate::api::auto_task_api::build_book_update_task(
             &book_url,
             &book_name,
             &book_author,
             &name,
-        );
-        to_json(&task)
+        )
+        .into()
     }
-
-    /// 批量更新 cron 表达式（rules_json 为 AutoTaskRule 数组，ids_json 为 ID 数组，返回更新后的规则数组 JSON）
+    /// 批量调整 cron，保留未参与计算的登录和运行字段。
     pub fn auto_task_update_cron_batch(
-        rules_json: String,
-        ids_json: String,
+        rules: Vec<AutoTaskRuleDto>,
+        ids: Vec<String>,
         cron: String,
-    ) -> Result<String, BridgeError> {
-        let rules = crate::api::auto_task_api::update_cron_batch(&rules_json, &ids_json, &cron)?;
-        to_json(&rules)
+    ) -> Vec<AutoTaskRuleDto> {
+        crate::api::auto_task_api::update_cron_batch(
+            rules.into_iter().map(Into::into).collect(),
+            &ids,
+            &cron,
+        )
+        .into_iter()
+        .map(Into::into)
+        .collect()
     }
-
-    /// 准备导入任务（合并本地运行时状态，返回合并后的任务数组 JSON）
+    /// 导入文本仍是文档；本地实体和合并结果直接传输。
     pub fn auto_task_prepare_imported(
-        local_tasks_json: String,
+        local_tasks: Vec<AutoTaskRuleDto>,
         imported_json: String,
-    ) -> Result<String, BridgeError> {
-        let merged =
-            crate::api::auto_task_api::prepare_imported_tasks(&local_tasks_json, &imported_json)?;
-        to_json(&merged)
+    ) -> Result<Vec<AutoTaskRuleDto>, BridgeError> {
+        let local: Vec<_> = local_tasks.into_iter().map(Into::into).collect();
+        Ok(
+            crate::api::auto_task_api::prepare_imported_tasks(&local, &imported_json)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
     }
-
-    /// 执行任务协议（protocol_json 为 TaskProtocol，返回 TaskResult JSON）
-    pub fn auto_task_execute(protocol_json: String) -> Result<String, BridgeError> {
-        let result = crate::api::auto_task_api::execute_task(&protocol_json, None)?;
-        to_json(&result)
+    /// 执行真实任务协议，结果直接传输。
+    pub fn auto_task_execute(protocol_json: String) -> Result<TaskResultDto, BridgeError> {
+        Ok(crate::api::auto_task_api::execute_task(&protocol_json, None)?.into())
     }
-
-    /// 带 ID 执行任务协议（返回 TaskResult JSON）
+    /// 带业务 ID 执行任务。
     pub fn auto_task_execute_with_id(
         protocol_json: String,
         task_id: String,
-    ) -> Result<String, BridgeError> {
-        let result = crate::api::auto_task_api::execute_task(&protocol_json, Some(&task_id))?;
-        to_json(&result)
+    ) -> Result<TaskResultDto, BridgeError> {
+        Ok(crate::api::auto_task_api::execute_task(&protocol_json, Some(&task_id))?.into())
     }
-
-    /// 规范化脚本（去除 @js: 前缀或 <js></js> 包裹）
+    /// 规范化脚本文档。
     pub fn auto_task_normalize_script(script: String) -> String {
         crate::api::auto_task_api::normalize_script(&script)
     }
-
-    /// 判断书籍是否允许刷新目录
+    /// 判断目录刷新许可。
     pub fn auto_task_can_refresh_toc(can_update: bool, respect_can_update: bool) -> bool {
         crate::api::auto_task_api::can_refresh_book_toc(can_update, respect_can_update)
     }
-
-    /// 查找书籍更新任务（tasks_json 为 AutoTaskRule 数组，返回匹配任务 JSON 或 null）
+    /// 查找书籍更新任务，未命中返回空选项。
     pub fn auto_task_find_book_update(
-        tasks_json: String,
+        tasks: Vec<AutoTaskRuleDto>,
         book_url: String,
         book_name: String,
         book_author: String,
-    ) -> Result<String, BridgeError> {
-        let found = crate::api::auto_task_api::find_book_update_task(
-            &tasks_json,
+    ) -> Option<AutoTaskRuleDto> {
+        let tasks: Vec<_> = tasks.into_iter().map(Into::into).collect();
+        crate::api::auto_task_api::find_book_update_task(
+            &tasks,
             &book_url,
             &book_name,
             &book_author,
-        )?;
-        to_json(&found)
+        )
+        .map(Into::into)
     }
-
-    /// 解析 cron 表达式计算下次执行时间（Unix 毫秒，无法解析返回 -1）
+    /// 计算下次执行时间；无效 cron 仍返回 -1。
     pub fn auto_task_next_due_at(cron: String, from_ms: i64) -> i64 {
         crate::api::auto_task_api::next_due_at(&cron, from_ms)
     }
-
-    // ─── 自动任务数据库 CRUD ───────────────────────
-
-    /// 列出所有自动任务规则（按 customOrder 排序，返回 AutoTaskRule 数组 JSON）
-    pub fn auto_task_list_rules() -> Result<String, BridgeError> {
-        let rules = crate::api::auto_task_api::list_rules_db()?;
-        to_json(&rules)
+    /// 按原排序列出完整规则。
+    pub fn auto_task_list_rules() -> Result<Vec<AutoTaskRuleDto>, BridgeError> {
+        Ok(crate::api::auto_task_api::list_rules_db()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
-
-    /// 创建自动任务规则（rule_json 为 AutoTaskRule JSON，返回任务 ID）
-    pub fn auto_task_create_rule(rule_json: String) -> Result<String, BridgeError> {
-        let rule: legado_core::models::AutoTaskRule = serde_json::from_str(&rule_json)?;
-        let id = crate::api::auto_task_api::create_rule_db(&rule)?;
-        Ok(id)
+    /// 创建规则，返回原业务 ID。
+    pub fn auto_task_create_rule(rule: AutoTaskRuleDto) -> Result<String, BridgeError> {
+        Ok(crate::api::auto_task_api::create_rule_db(&rule.into())?)
     }
-
-    /// 更新自动任务规则（rule_json 为 AutoTaskRule JSON）
-    pub fn auto_task_update_rule(rule_json: String) -> Result<(), BridgeError> {
-        let rule: legado_core::models::AutoTaskRule = serde_json::from_str(&rule_json)?;
-        crate::api::auto_task_api::update_rule_db(&rule)?;
-        Ok(())
+    /// 按业务 ID 原地更新规则。
+    pub fn auto_task_update_rule(rule: AutoTaskRuleDto) -> Result<(), BridgeError> {
+        Ok(crate::api::auto_task_api::update_rule_db(&rule.into())?)
     }
-
-    /// 删除自动任务规则（按 ID 删除）
+    /// 删除规则。
     pub fn auto_task_delete_rule(id: String) -> Result<(), BridgeError> {
-        crate::api::auto_task_api::delete_rule_db(&id)?;
-        Ok(())
+        Ok(crate::api::auto_task_api::delete_rule_db(&id)?)
     }
-
-    /// 根据 ID 查询自动任务规则（返回 AutoTaskRule JSON 或 null）
-    pub fn auto_task_find_rule_by_id(id: String) -> Result<String, BridgeError> {
-        let rule = crate::api::auto_task_api::find_rule_by_id_db(&id)?;
-        to_json(&rule)
+    /// 查找规则，未命中返回空选项。
+    pub fn auto_task_find_rule_by_id(id: String) -> Result<Option<AutoTaskRuleDto>, BridgeError> {
+        Ok(crate::api::auto_task_api::find_rule_by_id_db(&id)?.map(Into::into))
     }
 
     // ─── 高亮体系（Task #69，加法式新增）────────────────

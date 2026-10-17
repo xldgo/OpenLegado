@@ -4,10 +4,9 @@ import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/auto_task_service.dart';
 import '../../domain/models/auto_task_execution_result.dart';
 import '../../models/misc.dart';
-import '../bridge/auto_task_json.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/auto_task_dto_mapping.dart';
 
-/// 复用现有Rust任务算法和执行器；传输编码限定在此。— Codex + Bridge
+/// 实体直接传输，JSON 仅用于真实脚本协议与导入文档。— Codex + Bridge
 final class RustAutoTaskService implements AutoTaskService {
   const RustAutoTaskService();
   @override
@@ -16,15 +15,12 @@ final class RustAutoTaskService implements AutoTaskService {
     required String bookName,
     required String bookAuthor,
     required String name,
-  }) async => decodeAutoTaskRule(
-    decodeRustJsonMap(
-      await bridge.autoTaskBuildBookUpdate(
-        bookUrl: bookUrl,
-        bookName: bookName,
-        bookAuthor: bookAuthor,
-        name: name,
-      ),
-      'autoTaskBuildBookUpdate',
+  }) async => autoTaskFromDto(
+    await bridge.autoTaskBuildBookUpdate(
+      bookUrl: bookUrl,
+      bookName: bookName,
+      bookAuthor: bookAuthor,
+      name: name,
     ),
   );
   @override
@@ -32,48 +28,37 @@ final class RustAutoTaskService implements AutoTaskService {
     required List<AutoTaskRule> rules,
     required List<String> ids,
     required String cron,
-  }) async => decodeAutoTaskRules(
-    await bridge.autoTaskUpdateCronBatch(
-      rulesJson: jsonEncode(rules.map(autoTaskCoreJson).toList()),
-      idsJson: jsonEncode(ids),
-      cron: cron,
-    ),
-    'autoTaskUpdateCronBatch',
-    originals: rules,
-  );
+  }) async => (await bridge.autoTaskUpdateCronBatch(
+    rules: rules.map(autoTaskToDto).toList(),
+    ids: ids,
+    cron: cron,
+  )).map(autoTaskFromDto).toList();
   @override
   Future<List<AutoTaskRule>> prepareImportedTasks({
     required List<AutoTaskRule> localTasks,
     required String importedJson,
-  }) async => decodeAutoTaskRules(
-    await bridge.autoTaskPrepareImported(
-      localTasksJson: jsonEncode(localTasks.map(autoTaskCoreJson).toList()),
-      importedJson: importedJson,
-    ),
-    'autoTaskPrepareImported',
-  );
+  }) async => (await bridge.autoTaskPrepareImported(
+    localTasks: localTasks.map(autoTaskToDto).toList(),
+    importedJson: importedJson,
+  )).map(autoTaskFromDto).toList();
   @override
   Future<AutoTaskExecutionResult> execute({
     required Map<String, dynamic> protocol,
     String? taskId,
   }) async {
     final encoded = jsonEncode(protocol);
-    final raw = taskId == null
+    final result = taskId == null
         ? await bridge.autoTaskExecute(protocolJson: encoded)
         : await bridge.autoTaskExecuteWithId(
             protocolJson: encoded,
             taskId: taskId,
           );
-    final result = decodeRustJsonMap(raw, 'autoTaskExecute');
-    if (result['success'] is! bool) {
-      throw const FormatException('自动任务执行结果缺少success');
-    }
     return AutoTaskExecutionResult(
-      success: result['success'] as bool,
-      taskId: result['task_id'] as String? ?? taskId ?? '',
-      message: result['message'] as String? ?? '',
-      durationMs: (result['duration_ms'] ?? result['durationMs']) as int? ?? 0,
-      details: result['details'] as String?,
+      success: result.success,
+      taskId: result.taskId,
+      message: result.message,
+      durationMs: result.durationMs.toInt(),
+      details: result.details,
     );
   }
 
@@ -95,18 +80,13 @@ final class RustAutoTaskService implements AutoTaskService {
     required String bookName,
     required String bookAuthor,
   }) async {
-    final raw = await bridge.autoTaskFindBookUpdate(
-      tasksJson: jsonEncode(tasks.map(autoTaskCoreJson).toList()),
+    final rule = await bridge.autoTaskFindBookUpdate(
+      tasks: tasks.map(autoTaskToDto).toList(),
       bookUrl: bookUrl,
       bookName: bookName,
       bookAuthor: bookAuthor,
     );
-    if (raw.isEmpty || raw == 'null') return null;
-    final map = decodeRustJsonMap(raw, 'autoTaskFindBookUpdate');
-    return decodeAutoTaskRule(
-      map,
-      original: tasks.where((rule) => rule.id == map['id']).firstOrNull,
-    );
+    return rule == null ? null : autoTaskFromDto(rule);
   }
 
   @override

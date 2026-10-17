@@ -1,7 +1,6 @@
 //! 自动任务 FFI API
 //!
-//! 包装 `legado_core::auto_task` 的自动任务逻辑，通过 JSON 序列化传参，
-//! 遵循项目「复杂类型 FFI 用 JSON」决策。
+//! 复用核心算法，以完整实体保留登录配置；只在导入和执行文档处解析 JSON。
 //!
 //! 对应 Kotlin 原版 `AutoTask` / `AutoTaskRunner` / `AutoTaskSchedulePolicy`。
 
@@ -31,41 +30,57 @@ pub fn build_book_update_task(
     core_build_book_update_task(book_url, book_name, book_author, name)
 }
 
-/// 批量更新 cron 表达式（对应 Kotlin `AutoTask.updateCron`）
-///
-/// - `rules_json`: 现有规则数组（AutoTaskRule JSON 数组）
-/// - `ids_json`: 待更新的任务 ID 数组（JSON 字符串数组）
-/// - `cron`: 新的 cron 表达式
-///
-/// 返回更新后的完整规则数组。
-pub fn update_cron_batch(
-    rules_json: &str,
-    ids_json: &str,
-    cron: &str,
-) -> LegadoResult<Vec<AutoTaskRule>> {
-    let mut rules: Vec<AutoTaskRule> = serde_json::from_str(rules_json)?;
-    let ids: Vec<String> = serde_json::from_str(ids_json)?;
-    core_update_cron_batch(&mut rules, &ids, cron);
-    Ok(rules)
+/// 核心算法只消费计算字段，不让其精简结构覆盖完整实体。
+fn core_rule(v: &AutoTaskRuleModel) -> AutoTaskRule {
+    AutoTaskRule {
+        id: v.id.clone(),
+        name: v.name.clone(),
+        enable: v.enable,
+        cron: v.cron.clone(),
+        script: v.script.clone(),
+        custom_order: v.custom_order,
+        last_run_at: v.last_run_at,
+        last_result: v.last_result.clone(),
+        last_error: v.last_error.clone(),
+        last_log: v.last_log.clone(),
+    }
 }
 
-/// 准备导入任务，合并本地运行时状态（对应 Kotlin `prepareImportedAutoTasks`）
-///
-/// - `local_tasks_json`: 本地任务数组（AutoTaskRule JSON 数组）
-/// - `imported_json`: 导入数据（JSON 数组或单个对象）
-///
-/// 返回合并后的任务 JSON 数组。
+/// 批量 cron 复用核心算法，仅回写其改变的 cron 字段。
+pub fn update_cron_batch(
+    mut rules: Vec<AutoTaskRuleModel>,
+    ids: &[String],
+    cron: &str,
+) -> Vec<AutoTaskRuleModel> {
+    let mut calculation: Vec<_> = rules.iter().map(core_rule).collect();
+    core_update_cron_batch(&mut calculation, ids, cron);
+    for (rule, updated) in rules.iter_mut().zip(calculation) {
+        rule.cron = updated.cron;
+    }
+    rules
+}
+
+/// 仅用户导入文档需要 JSON 解析；合并后输出完整实体。
 pub fn prepare_imported_tasks(
-    local_tasks_json: &str,
+    local_tasks: &[AutoTaskRuleModel],
     imported_json: &str,
-) -> LegadoResult<Vec<serde_json::Value>> {
-    let local_tasks: Vec<AutoTaskRule> = serde_json::from_str(local_tasks_json)?;
+) -> LegadoResult<Vec<AutoTaskRuleModel>> {
+    let local: Vec<_> = local_tasks.iter().map(core_rule).collect();
     let imported =
         AutoTaskExporter::import_json(imported_json).map_err(legado_core::LegadoError::Parser)?;
-    Ok(AutoTaskExporter::prepare_imported_tasks(
-        &local_tasks,
-        imported,
-    ))
+    AutoTaskExporter::prepare_imported_tasks(&local, imported)
+        .into_iter()
+        .map(|value| {
+            if !value.get("id").is_some_and(serde_json::Value::is_string)
+                || !value.get("name").is_some_and(serde_json::Value::is_string)
+            {
+                return Err(legado_core::LegadoError::Parser(
+                    "自动任务规则缺少有效id或name".into(),
+                ));
+            }
+            Ok(serde_json::from_value(value)?)
+        })
+        .collect()
 }
 
 /// 执行任务协议（对应 Kotlin `AutoTaskRunner.execute`）
@@ -129,13 +144,14 @@ pub fn can_refresh_book_toc(can_update: bool, respect_can_update: bool) -> bool 
 ///
 /// 优先按 ID 精确匹配，其次按书名 + 作者匹配。未找到返回 None。
 pub fn find_book_update_task(
-    tasks_json: &str,
+    tasks: &[AutoTaskRuleModel],
     book_url: &str,
     book_name: &str,
     book_author: &str,
-) -> LegadoResult<Option<AutoTaskRule>> {
-    let tasks: Vec<AutoTaskRule> = serde_json::from_str(tasks_json)?;
-    Ok(core_find_book_update_task(&tasks, book_url, book_name, book_author).cloned())
+) -> Option<AutoTaskRuleModel> {
+    let calculation: Vec<_> = tasks.iter().map(core_rule).collect();
+    let found = core_find_book_update_task(&calculation, book_url, book_name, book_author)?;
+    tasks.iter().find(|task| task.id == found.id).cloned()
 }
 
 /// 解析 cron 表达式，计算下次执行时间（Unix 毫秒）
@@ -193,6 +209,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn full_entities_survive_calculation_and_import_merges_runtime() {
+        let built = build_book_update_task("book", "书", "作者", "更新");
+        let mut local: AutoTaskRuleModel =
+            crate::automation_dto::AutoTaskRuleDto::from(built).into();
+        local.header = Some("header".into());
+        local.login_ui = Some("[]".into());
+        local.js_lib = Some("lib".into());
+        local.enabled_cookie_jar = false;
+        local.custom_order = 7;
+        local.last_run_at = 9007199254740993;
+        local.last_log = Some("log".into());
+        let updated =
+            update_cron_batch(vec![local.clone()], std::slice::from_ref(&local.id), "new");
+        let mut expected = local.clone();
+        expected.cron = Some("new".into());
+        assert_eq!(
+            serde_json::to_value(&updated[0]).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        let found = find_book_update_task(&[local.clone()], "book", "书", "作者").unwrap();
+        assert_eq!(found.header, local.header);
+        assert_eq!(found.login_ui, local.login_ui);
+        let document = serde_json::json!([
+            {"id": local.id, "name":"替代一", "script":"x", "header":"new-header"},
+            {"id": local.id, "name":"替代二", "script":"y", "header":"final-header"},
+            {"id":"new", "name":"新", "script":"z"}
+        ])
+        .to_string();
+        let merged = prepare_imported_tasks(&[local.clone()], &document).unwrap();
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].name, "替代二");
+        assert_eq!(merged[0].header.as_deref(), Some("final-header"));
+        assert_eq!(merged[0].custom_order, local.custom_order);
+        assert_eq!(merged[0].last_run_at, local.last_run_at);
+        assert_eq!(merged[0].last_log, local.last_log);
+        assert_eq!(merged[1].custom_order, 8);
+        assert!(prepare_imported_tasks(&[], r#"[{"id":"x"}]"#).is_err());
+        assert!(prepare_imported_tasks(&[], "not json").is_err());
+    }
+
+    #[test]
     fn test_build_book_update_task() {
         let task = build_book_update_task("http://book/1", "测试", "作者", "更新测试");
         assert!(task.id.starts_with("book_update:"));
@@ -202,9 +259,9 @@ mod tests {
     #[test]
     fn test_update_cron_batch() {
         let task = build_book_update_task("http://book/1", "测试", "作者", "更新");
-        let rules_json = serde_json::to_string(&vec![task.clone()]).unwrap();
-        let ids_json = serde_json::to_string(&vec![task.id.clone()]).unwrap();
-        let updated = update_cron_batch(&rules_json, &ids_json, "0 */6 * * *").unwrap();
+        let rule: AutoTaskRuleModel =
+            crate::automation_dto::AutoTaskRuleDto::from(task.clone()).into();
+        let updated = update_cron_batch(vec![rule], &[task.id], "0 */6 * * *");
         assert_eq!(updated.len(), 1);
         assert_eq!(updated[0].cron, Some("0 */6 * * *".to_string()));
     }
@@ -217,11 +274,14 @@ mod tests {
             "作者",
             "更新",
         )];
-        let local_json = serde_json::to_string(&local).unwrap();
+        let local: Vec<AutoTaskRuleModel> = local
+            .into_iter()
+            .map(|v| crate::automation_dto::AutoTaskRuleDto::from(v).into())
+            .collect();
         let imported = r#"[{"id":"new1","name":"新任务","script":"x"}]"#;
-        let merged = prepare_imported_tasks(&local_json, imported).unwrap();
+        let merged = prepare_imported_tasks(&local, imported).unwrap();
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0]["id"], "new1");
+        assert_eq!(merged[0].id, "new1");
     }
 
     #[test]
@@ -248,8 +308,8 @@ mod tests {
     #[test]
     fn test_find_book_update_task() {
         let task = build_book_update_task("http://book/1", "测试", "作者", "更新");
-        let tasks_json = serde_json::to_string(&vec![task]).unwrap();
-        let found = find_book_update_task(&tasks_json, "http://book/1", "测试", "作者").unwrap();
+        let rule: AutoTaskRuleModel = crate::automation_dto::AutoTaskRuleDto::from(task).into();
+        let found = find_book_update_task(&[rule], "http://book/1", "测试", "作者");
         assert!(found.is_some());
     }
 

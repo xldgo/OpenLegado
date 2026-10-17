@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'automation_dto.dart';
 import 'business_dto.dart';
 import 'content_dto.dart';
 
@@ -170,6 +171,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AudioChapterMediaDto dco_decode_audio_chapter_media_dto(dynamic raw);
 
   @protected
+  AutoTaskRuleDto dco_decode_auto_task_rule_dto(dynamic raw);
+
+  @protected
   BackupFileDto dco_decode_backup_file_dto(dynamic raw);
 
   @protected
@@ -195,6 +199,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  AutoTaskRuleDto dco_decode_box_autoadd_auto_task_rule_dto(dynamic raw);
 
   @protected
   BookDto dco_decode_box_autoadd_book_dto(dynamic raw);
@@ -520,6 +527,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<AppLogDto> dco_decode_list_app_log_dto(dynamic raw);
 
   @protected
+  List<AutoTaskRuleDto> dco_decode_list_auto_task_rule_dto(dynamic raw);
+
+  @protected
   List<BackupFileDto> dco_decode_list_backup_file_dto(dynamic raw);
 
   @protected
@@ -710,6 +720,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  AutoTaskRuleDto? dco_decode_opt_box_autoadd_auto_task_rule_dto(dynamic raw);
 
   @protected
   BookDto? dco_decode_opt_box_autoadd_book_dto(dynamic raw);
@@ -914,6 +927,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SystemVoiceEntryDto dco_decode_system_voice_entry_dto(dynamic raw);
 
   @protected
+  TaskResultDto dco_decode_task_result_dto(dynamic raw);
+
+  @protected
   TextResponseDto dco_decode_text_response_dto(dynamic raw);
 
   @protected
@@ -1110,6 +1126,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  AutoTaskRuleDto sse_decode_auto_task_rule_dto(SseDeserializer deserializer);
+
+  @protected
   BackupFileDto sse_decode_backup_file_dto(SseDeserializer deserializer);
 
   @protected
@@ -1135,6 +1154,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  AutoTaskRuleDto sse_decode_box_autoadd_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BookDto sse_decode_box_autoadd_book_dto(SseDeserializer deserializer);
@@ -1560,6 +1584,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<AppLogDto> sse_decode_list_app_log_dto(SseDeserializer deserializer);
 
   @protected
+  List<AutoTaskRuleDto> sse_decode_list_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<BackupFileDto> sse_decode_list_backup_file_dto(
     SseDeserializer deserializer,
   );
@@ -1838,6 +1867,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  AutoTaskRuleDto? sse_decode_opt_box_autoadd_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BookDto? sse_decode_opt_box_autoadd_book_dto(SseDeserializer deserializer);
 
   @protected
@@ -2102,6 +2136,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  TaskResultDto sse_decode_task_result_dto(SseDeserializer deserializer);
+
+  @protected
   TextResponseDto sse_decode_text_response_dto(SseDeserializer deserializer);
 
   @protected
@@ -2334,6 +2371,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_auto_task_rule_dto(
+    AutoTaskRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_backup_file_dto(BackupFileDto self, SseSerializer serializer);
 
   @protected
@@ -2365,6 +2408,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_auto_task_rule_dto(
+    AutoTaskRuleDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_book_dto(BookDto self, SseSerializer serializer);
@@ -2919,6 +2968,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_auto_task_rule_dto(
+    List<AutoTaskRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_backup_file_dto(
     List<BackupFileDto> self,
     SseSerializer serializer,
@@ -3264,6 +3319,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_auto_task_rule_dto(
+    AutoTaskRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_book_dto(
     BookDto? self,
     SseSerializer serializer,
@@ -3598,6 +3659,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     SystemVoiceEntryDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_task_result_dto(TaskResultDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_text_response_dto(

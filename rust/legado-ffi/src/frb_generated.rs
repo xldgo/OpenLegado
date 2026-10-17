@@ -1220,13 +1220,13 @@ fn wire__crate__ffi__ffi__auto_task_build_book_update_impl(
             let api_name = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
-                transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::auto_task_build_book_update(
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::ffi::ffi::auto_task_build_book_update(
                         api_book_url,
                         api_book_name,
                         api_book_author,
                         api_name,
-                    )?;
+                    ))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1292,11 +1292,11 @@ fn wire__crate__ffi__ffi__auto_task_create_rule_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_rule_json = <String>::sse_decode(&mut deserializer);
+            let api_rule = <crate::automation_dto::AutoTaskRuleDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::auto_task_create_rule(api_rule_json)?;
+                    let output_ok = crate::ffi::ffi::auto_task_create_rule(api_rule)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1426,19 +1426,20 @@ fn wire__crate__ffi__ffi__auto_task_find_book_update_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_tasks_json = <String>::sse_decode(&mut deserializer);
+            let api_tasks =
+                <Vec<crate::automation_dto::AutoTaskRuleDto>>::sse_decode(&mut deserializer);
             let api_book_url = <String>::sse_decode(&mut deserializer);
             let api_book_name = <String>::sse_decode(&mut deserializer);
             let api_book_author = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
-                transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::auto_task_find_book_update(
-                        api_tasks_json,
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::ffi::ffi::auto_task_find_book_update(
+                        api_tasks,
                         api_book_url,
                         api_book_name,
                         api_book_author,
-                    )?;
+                    ))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1603,13 +1604,14 @@ fn wire__crate__ffi__ffi__auto_task_prepare_imported_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_local_tasks_json = <String>::sse_decode(&mut deserializer);
+            let api_local_tasks =
+                <Vec<crate::automation_dto::AutoTaskRuleDto>>::sse_decode(&mut deserializer);
             let api_imported_json = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
                     let output_ok = crate::ffi::ffi::auto_task_prepare_imported(
-                        api_local_tasks_json,
+                        api_local_tasks,
                         api_imported_json,
                     )?;
                     std::result::Result::Ok(output_ok)
@@ -1640,17 +1642,16 @@ fn wire__crate__ffi__ffi__auto_task_update_cron_batch_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_rules_json = <String>::sse_decode(&mut deserializer);
-            let api_ids_json = <String>::sse_decode(&mut deserializer);
+            let api_rules =
+                <Vec<crate::automation_dto::AutoTaskRuleDto>>::sse_decode(&mut deserializer);
+            let api_ids = <Vec<String>>::sse_decode(&mut deserializer);
             let api_cron = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
-                transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::auto_task_update_cron_batch(
-                        api_rules_json,
-                        api_ids_json,
-                        api_cron,
-                    )?;
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::ffi::ffi::auto_task_update_cron_batch(
+                        api_rules, api_ids, api_cron,
+                    ))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -1679,11 +1680,11 @@ fn wire__crate__ffi__ffi__auto_task_update_rule_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_rule_json = <String>::sse_decode(&mut deserializer);
+            let api_rule = <crate::automation_dto::AutoTaskRuleDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::auto_task_update_rule(api_rule_json)?;
+                    let output_ok = crate::ffi::ffi::auto_task_update_rule(api_rule)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -11788,6 +11789,50 @@ impl SseDecode for crate::media_dto::AudioChapterMediaDto {
     }
 }
 
+impl SseDecode for crate::automation_dto::AutoTaskRuleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_enable = <bool>::sse_decode(deserializer);
+        let mut var_cron = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginUrl = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginUi = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginCheckJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_comment = <Option<String>>::sse_decode(deserializer);
+        let mut var_script = <String>::sse_decode(deserializer);
+        let mut var_header = <Option<String>>::sse_decode(deserializer);
+        let mut var_jsLib = <Option<String>>::sse_decode(deserializer);
+        let mut var_concurrentRate = <Option<String>>::sse_decode(deserializer);
+        let mut var_enabledCookieJar = <bool>::sse_decode(deserializer);
+        let mut var_customOrder = <i32>::sse_decode(deserializer);
+        let mut var_lastRunAt = <i64>::sse_decode(deserializer);
+        let mut var_lastResult = <Option<String>>::sse_decode(deserializer);
+        let mut var_lastError = <Option<String>>::sse_decode(deserializer);
+        let mut var_lastLog = <Option<String>>::sse_decode(deserializer);
+        return crate::automation_dto::AutoTaskRuleDto {
+            id: var_id,
+            name: var_name,
+            enable: var_enable,
+            cron: var_cron,
+            login_url: var_loginUrl,
+            login_ui: var_loginUi,
+            login_check_js: var_loginCheckJs,
+            comment: var_comment,
+            script: var_script,
+            header: var_header,
+            js_lib: var_jsLib,
+            concurrent_rate: var_concurrentRate,
+            enabled_cookie_jar: var_enabledCookieJar,
+            custom_order: var_customOrder,
+            last_run_at: var_lastRunAt,
+            last_result: var_lastResult,
+            last_error: var_lastError,
+            last_log: var_lastLog,
+        };
+    }
+}
+
 impl SseDecode for crate::business_dto::BackupFileDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -13445,6 +13490,20 @@ impl SseDecode for Vec<crate::business_dto::AppLogDto> {
     }
 }
 
+impl SseDecode for Vec<crate::automation_dto::AutoTaskRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::automation_dto::AutoTaskRuleDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::business_dto::BackupFileDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -14232,6 +14291,19 @@ impl SseDecode for Option<String> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::automation_dto::AutoTaskRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::automation_dto::AutoTaskRuleDto>::sse_decode(
+                deserializer,
+            ));
         } else {
             return None;
         }
@@ -15518,6 +15590,24 @@ impl SseDecode for crate::media_dto::SystemVoiceEntryDto {
     }
 }
 
+impl SseDecode for crate::automation_dto::TaskResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_taskId = <String>::sse_decode(deserializer);
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        let mut var_durationMs = <u64>::sse_decode(deserializer);
+        let mut var_details = <Option<String>>::sse_decode(deserializer);
+        return crate::automation_dto::TaskResultDto {
+            task_id: var_taskId,
+            success: var_success,
+            message: var_message,
+            duration_ms: var_durationMs,
+            details: var_details,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::TextResponseDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -16551,6 +16641,43 @@ impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::AudioChapterMediaDto>
     for crate::media_dto::AudioChapterMediaDto
 {
     fn into_into_dart(self) -> crate::media_dto::AudioChapterMediaDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::automation_dto::AutoTaskRuleDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.enable.into_into_dart().into_dart(),
+            self.cron.into_into_dart().into_dart(),
+            self.login_url.into_into_dart().into_dart(),
+            self.login_ui.into_into_dart().into_dart(),
+            self.login_check_js.into_into_dart().into_dart(),
+            self.comment.into_into_dart().into_dart(),
+            self.script.into_into_dart().into_dart(),
+            self.header.into_into_dart().into_dart(),
+            self.js_lib.into_into_dart().into_dart(),
+            self.concurrent_rate.into_into_dart().into_dart(),
+            self.enabled_cookie_jar.into_into_dart().into_dart(),
+            self.custom_order.into_into_dart().into_dart(),
+            self.last_run_at.into_into_dart().into_dart(),
+            self.last_result.into_into_dart().into_dart(),
+            self.last_error.into_into_dart().into_dart(),
+            self.last_log.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::automation_dto::AutoTaskRuleDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::automation_dto::AutoTaskRuleDto>
+    for crate::automation_dto::AutoTaskRuleDto
+{
+    fn into_into_dart(self) -> crate::automation_dto::AutoTaskRuleDto {
         self
     }
 }
@@ -19233,6 +19360,30 @@ impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::SystemVoiceEntryDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::automation_dto::TaskResultDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.task_id.into_into_dart().into_dart(),
+            self.success.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+            self.duration_ms.into_into_dart().into_dart(),
+            self.details.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::automation_dto::TaskResultDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::automation_dto::TaskResultDto>
+    for crate::automation_dto::TaskResultDto
+{
+    fn into_into_dart(self) -> crate::automation_dto::TaskResultDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::TextResponseDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -19777,6 +19928,30 @@ impl SseEncode for crate::media_dto::AudioChapterMediaDto {
         <bool>::sse_encode(self.from_cache, serializer);
         <Option<String>>::sse_encode(self.lyric, serializer);
         <String>::sse_encode(self.source_url, serializer);
+    }
+}
+
+impl SseEncode for crate::automation_dto::AutoTaskRuleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <bool>::sse_encode(self.enable, serializer);
+        <Option<String>>::sse_encode(self.cron, serializer);
+        <Option<String>>::sse_encode(self.login_url, serializer);
+        <Option<String>>::sse_encode(self.login_ui, serializer);
+        <Option<String>>::sse_encode(self.login_check_js, serializer);
+        <Option<String>>::sse_encode(self.comment, serializer);
+        <String>::sse_encode(self.script, serializer);
+        <Option<String>>::sse_encode(self.header, serializer);
+        <Option<String>>::sse_encode(self.js_lib, serializer);
+        <Option<String>>::sse_encode(self.concurrent_rate, serializer);
+        <bool>::sse_encode(self.enabled_cookie_jar, serializer);
+        <i32>::sse_encode(self.custom_order, serializer);
+        <i64>::sse_encode(self.last_run_at, serializer);
+        <Option<String>>::sse_encode(self.last_result, serializer);
+        <Option<String>>::sse_encode(self.last_error, serializer);
+        <Option<String>>::sse_encode(self.last_log, serializer);
     }
 }
 
@@ -20925,6 +21100,16 @@ impl SseEncode for Vec<crate::business_dto::AppLogDto> {
     }
 }
 
+impl SseEncode for Vec<crate::automation_dto::AutoTaskRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::automation_dto::AutoTaskRuleDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::business_dto::BackupFileDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -21518,6 +21703,16 @@ impl SseEncode for Option<String> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <String>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::automation_dto::AutoTaskRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::automation_dto::AutoTaskRuleDto>::sse_encode(value, serializer);
         }
     }
 }
@@ -22360,6 +22555,17 @@ impl SseEncode for crate::media_dto::SystemVoiceEntryDto {
         <String>::sse_encode(self.speaker_id, serializer);
         <String>::sse_encode(self.display_name, serializer);
         <String>::sse_encode(self.traits_json, serializer);
+    }
+}
+
+impl SseEncode for crate::automation_dto::TaskResultDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.task_id, serializer);
+        <bool>::sse_encode(self.success, serializer);
+        <String>::sse_encode(self.message, serializer);
+        <u64>::sse_encode(self.duration_ms, serializer);
+        <Option<String>>::sse_encode(self.details, serializer);
     }
 }
 
