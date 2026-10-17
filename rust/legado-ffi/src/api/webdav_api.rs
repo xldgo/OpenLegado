@@ -3,7 +3,7 @@
 //! 暴露 legado-net::webdav 的 WebDavClient + BookSyncManager 到 Flutter 端。
 //! 支持：配置管理、目录列表、文件上传/下载、全量同步、增量同步。
 
-use legado_core::{LegadoError, LegadoResult};
+use legado_core::LegadoResult;
 use legado_net::webdav::{BookSyncManager, WebDavClient, WebDavConfig};
 
 /// 获取 WebDAV 异步运行时句柄（优先当前 tokio 运行时，否则惰性创建兜底 runtime）
@@ -11,13 +11,8 @@ fn webdav_runtime_handle() -> LegadoResult<tokio::runtime::Handle> {
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         return Ok(handle);
     }
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .thread_name("legado-webdav-fallback")
-        .thread_stack_size(8 * 1024 * 1024)
-        .build()
-        .map(|rt| rt.handle().clone())
-        .map_err(|e| LegadoError::Internal(format!("创建 WebDAV 运行时失败: {e}")))
+    // 不能只返回临时 Runtime 的 Handle：Runtime 随函数返回销毁后，IO 驱动也已关闭。
+    Ok(crate::runtime::get_runtime().handle().clone())
 }
 
 /// 同步结果统计
@@ -61,8 +56,11 @@ pub struct SyncOptions {
 /// - `path`: 远程目录路径（相对 remote_dir）
 ///
 /// # 返回
-/// JSON 序列化的 `Vec<WebDavFileInfo>`
-pub fn webdav_list_dir(config_json: &str, path: &str) -> LegadoResult<String> {
+/// 完整目录元数据列表
+pub fn webdav_list_dir(
+    config_json: &str,
+    path: &str,
+) -> LegadoResult<Vec<legado_net::webdav::WebDavFileInfo>> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
     let client = WebDavClient::with_custom_hosts(
@@ -71,9 +69,7 @@ pub fn webdav_list_dir(config_json: &str, path: &str) -> LegadoResult<String> {
     );
 
     let rt = webdav_runtime_handle()?;
-    let files = rt.block_on(client.list_dir(path))?;
-    serde_json::to_string(&files)
-        .map_err(|e| legado_core::LegadoError::Internal(format!("序列化失败: {e}")))
+    rt.block_on(client.list_dir(path))
 }
 
 /// 上传文件到 WebDAV
@@ -295,6 +291,14 @@ pub fn webdav_incremental_sync(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fallback_runtime_keeps_its_driver_alive_after_handle_return() {
+        let handle = webdav_runtime_handle().unwrap();
+        handle.block_on(async {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        });
+    }
 
     /// Task #51：配置解析失败 → Internal 错误
     #[test]

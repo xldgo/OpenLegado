@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../bridge/file_dto_mapping.dart';
+
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/webdav_service.dart';
 import '../../domain/models/webdav_connection.dart';
@@ -18,12 +20,10 @@ final class RustWebDavService implements WebDavService {
   Future<List<Map<String, dynamic>>> webdavListDir(
     WebDavConnection connection,
     String path,
-  ) async => decodeWebDavDirectory(
-    await bridge.webdavListDir(
-      configJson: encodeWebDavConfig(connection),
-      path: path,
-    ),
-  );
+  ) async => (await bridge.webdavListDir(
+    configJson: encodeWebDavConfig(connection),
+    path: path,
+  )).map(webDavFileFromDto).toList();
   @override
   Future<void> webdavUpload(
     WebDavConnection connection,
@@ -73,11 +73,4 @@ final class RustWebDavService implements WebDavService {
     localBooks: localBooks,
     localSources: localSources,
   );
-}
-
-/// 目录协议在数据边界解码；保留原非对象条目跳过语义。
-List<Map<String, dynamic>> decodeWebDavDirectory(String payload) {
-  final decoded = jsonDecode(payload);
-  if (decoded is! List) throw const FormatException('目录列表格式错误');
-  return decoded.whereType<Map<String, dynamic>>().toList();
 }

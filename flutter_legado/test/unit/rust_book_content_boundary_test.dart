@@ -1,5 +1,9 @@
 import 'dart:typed_data';
 
+import 'package:flutter_legado/src/bridge/file_dto.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
+import 'package:flutter_legado/src/models/book.dart';
+
 import 'package:flutter_legado/src/bridge/content_dto.dart';
 import 'package:flutter_legado/src/data/bridge/content_dto_mapping.dart';
 
@@ -66,10 +70,12 @@ void main() {
   test('导入与CBZ按原路径调用，解码返回书籍和字节', () async {
     when(() => bridge.crateFfiFfiImportLocalBook(filePath: '目录/书.cbz'))
         .thenAnswer(
-          (_) async => jsonEncode({
-            'success': true,
-            'book': {'bookUrl': 'file://书.cbz', 'name': '漫画', 'type': 4160},
-          }),
+          (_) async => LocalImportDto(
+            success: true,
+            book: bookToDto(
+              const Book(bookUrl: 'file://书.cbz', name: '漫画', bookType: 4160),
+            ),
+          ),
         );
     when(
       () => bridge.crateFfiFfiCbzReadPage(
@@ -95,9 +101,8 @@ void main() {
   });
 
   for (final payload in [
-    '{}',
-    '{"success":true}',
-    '{"success":false,"error":"文件不存在"}',
+    const LocalImportDto(success: true),
+    const LocalImportDto(success: false, error: '文件不存在'),
   ]) {
     test('坏导入结果不能伪造书籍：$payload', () async {
       when(() => bridge.crateFfiFfiImportLocalBook(filePath: 'p'))
@@ -117,14 +122,15 @@ void main() {
 
   test('ZIP/RAR列表、密码和解包参数一致，返回文件路径', () async {
     when(() => bridge.crateFfiFfiArchiveListZipFiles(zipPath: 'z'))
-        .thenAnswer((_) async => '["目录/书.txt"]');
+        .thenAnswer((_) async => ['目录/书.txt']);
     when(
       () => bridge.crateFfiFfiArchiveListRarFiles(rarPath: 'r', password: '密码'),
-    ).thenAnswer((_) async => '[]');
+    ).thenAnswer((_) async => <String>[]);
     when(
       () => bridge.crateFfiFfiArchiveImportZip(zipPath: 'z', outputDir: 'out'),
     ).thenAnswer(
-      (_) async => ' {"success":true,"extracted_files":["out/书.txt"]}',
+      (_) async =>
+          const ArchiveImportDto(success: true, extractedFiles: ['out/书.txt']),
     );
     when(
       () => bridge.crateFfiFfiArchiveImportRar(
@@ -132,7 +138,9 @@ void main() {
         outputDir: 'out',
         password: '密码',
       ),
-    ).thenAnswer((_) async => ' {"success":true,"extracted_files":[]}');
+    ).thenAnswer(
+      (_) async => const ArchiveImportDto(success: true, extractedFiles: []),
+    );
     expect(await archive.archiveListZipFiles(zipPath: 'z'), ['目录/书.txt']);
     expect(
       await archive.archiveListRarFiles(rarPath: 'r', password: '密码'),
@@ -159,18 +167,22 @@ void main() {
   });
 
   test('编码检测与转换返回类型化字段及新路径', () async {
-    when(() => bridge.crateFfiFfiArchiveDetectEncoding(filePath: 'p'))
-        .thenAnswer(
-          (_) async =>
-              ' {"encoding":"GBK","has_bom":false,"confidence":"high"}',
-        );
+    when(
+      () => bridge.crateFfiFfiArchiveDetectEncoding(filePath: 'p'),
+    ).thenAnswer(
+      (_) async =>
+          const EncodingDto(encoding: 'GBK', hasBom: false, confidence: 'high'),
+    );
     when(
       () => bridge.crateFfiFfiArchiveConvertEncoding(
         filePath: 'p',
         fromEncoding: 'GBK',
         toEncoding: 'UTF-8',
       ),
-    ).thenAnswer((_) async => ' {"success":true,"output_path":"new.txt"}');
+    ).thenAnswer(
+      (_) async =>
+          const EncodingConversionDto(success: true, outputPath: 'new.txt'),
+    );
     when(() => bridge.crateFfiFfiArchiveIsArchive(filePath: 'p'))
         .thenAnswer((_) async => false);
     final detected = await archive.archiveDetectEncoding(filePath: 'p');
@@ -190,16 +202,24 @@ void main() {
 
   test('解包失败、坏列表与转换失败均不当成功', () async {
     when(() => bridge.crateFfiFfiArchiveImportZip(zipPath: 'z', outputDir: 'o'))
-        .thenAnswer((_) async => ' {"success":false,"error":"损坏压缩包"}');
+        .thenAnswer(
+          (_) async => const ArchiveImportDto(
+            success: false,
+            extractedFiles: [],
+            error: '损坏压缩包',
+          ),
+        );
     when(() => bridge.crateFfiFfiArchiveListZipFiles(zipPath: 'z'))
-        .thenAnswer((_) async => '[null]');
+        .thenAnswer((_) async => throw const FormatException('目录读取失败'));
     when(
       () => bridge.crateFfiFfiArchiveConvertEncoding(
         filePath: 'p',
         fromEncoding: 'x',
         toEncoding: 'y',
       ),
-    ).thenAnswer((_) async => ' {"success":false,"error":"未知编码"}');
+    ).thenAnswer(
+      (_) async => const EncodingConversionDto(success: false, error: '未知编码'),
+    );
     await expectLater(
       archive.archiveImportZip(zipPath: 'z', outputDir: 'o'),
       throwsA(isA<Exception>()),
@@ -218,7 +238,7 @@ void main() {
     );
   });
 
-  test('导出选项编码一次，预览章节数适配当前Rust协议', () async {
+  test('导出选项编码一次，预览章节数直接映射', () async {
     String? options;
     when(
       () => bridge.crateFfiFfiBookExportWithOptions(
@@ -229,12 +249,20 @@ void main() {
       ),
     ).thenAnswer((call) async {
       options = call.namedArguments[#optionsJson] as String;
-      return '{"success":true,"file_name":"书.epub","data_base64":"AQID","mime_type":"application/epub+zip"}';
+      return BookExportDto(
+        success: true,
+        fileName: '书.epub',
+        data: Uint8List.fromList([1, 2, 3]),
+        mimeType: 'application/epub+zip',
+      );
     });
     when(() => bridge.crateFfiFfiBookExportInfo(bookUrl: 'b', format: 'epub'))
         .thenAnswer(
-          (_) async =>
-              ' {"success":true,"file_name":"书.epub","error":"章节数: 24"}',
+          (_) async => BookExportDto(
+            success: true,
+            fileName: '书.epub',
+            chapterCount: BigInt.from(24),
+          ),
         );
     final data = await exporter.bookExportWithOptions(
       bookUrl: 'b',
@@ -265,7 +293,7 @@ void main() {
     );
   });
 
-  test('导出坏base64和缺失章节数不伪造成功', () async {
+  test('导出缺失字节和章节数不伪造成功', () async {
     when(
       () => bridge.crateFfiFfiBookExportWithOptions(
         bookUrl: 'b',
@@ -274,10 +302,16 @@ void main() {
         optionsJson: '',
       ),
     ).thenAnswer(
-      (_) async => ' {"success":true,"file_name":"书.txt","data_base64":"***","mime_type":"text/plain"}',
+      (_) async => const BookExportDto(
+        success: true,
+        fileName: '书.txt',
+        mimeType: 'text/plain',
+      ),
     );
     when(() => bridge.crateFfiFfiBookExportInfo(bookUrl: 'b', format: 'txt'))
-        .thenAnswer((_) async => ' {"success":true,"file_name":"书.txt"}');
+        .thenAnswer(
+          (_) async => const BookExportDto(success: true, fileName: '书.txt'),
+        );
     await expectLater(
       exporter.bookExportWithOptions(
         bookUrl: 'b',

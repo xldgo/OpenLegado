@@ -11734,6 +11734,20 @@ impl SseDecode for crate::business_dto::AppLogDto {
     }
 }
 
+impl SseDecode for crate::file_dto::ArchiveImportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_extractedFiles = <Vec<String>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::file_dto::ArchiveImportDto {
+            success: var_success,
+            extracted_files: var_extractedFiles,
+            error: var_error,
+        };
+    }
+}
+
 impl SseDecode for crate::media_dto::AudioCacheDownloadDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -11936,6 +11950,42 @@ impl SseDecode for crate::transfer_dto::BookDto {
     }
 }
 
+impl SseDecode for crate::file_dto::BookExportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_data = <Option<Vec<u8>>>::sse_decode(deserializer);
+        let mut var_fileName = <Option<String>>::sse_decode(deserializer);
+        let mut var_mimeType = <Option<String>>::sse_decode(deserializer);
+        let mut var_chapterCount = <Option<usize>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::file_dto::BookExportDto {
+            success: var_success,
+            data: var_data,
+            file_name: var_fileName,
+            mime_type: var_mimeType,
+            chapter_count: var_chapterCount,
+            error: var_error,
+        };
+    }
+}
+
+impl SseDecode for crate::file_dto::BookFormatDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::file_dto::BookFormatDto::Epub,
+            1 => crate::file_dto::BookFormatDto::Mobi,
+            2 => crate::file_dto::BookFormatDto::Txt,
+            3 => crate::file_dto::BookFormatDto::Pdf,
+            4 => crate::file_dto::BookFormatDto::Umd,
+            5 => crate::file_dto::BookFormatDto::Cbz,
+            _ => unreachable!("Invalid variant for BookFormatDto: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::BookGroupDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -12018,6 +12068,22 @@ impl SseDecode for crate::transfer_dto::BookInfoRuleDto {
             word_count: var_wordCount,
             can_re_name: var_canReName,
             download_urls: var_downloadUrls,
+        };
+    }
+}
+
+impl SseDecode for crate::file_dto::BookMetadataDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_author = <String>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        let mut var_format = <crate::file_dto::BookFormatDto>::sse_decode(deserializer);
+        return crate::file_dto::BookMetadataDto {
+            title: var_title,
+            author: var_author,
+            description: var_description,
+            format: var_format,
         };
     }
 }
@@ -12501,6 +12567,18 @@ impl SseDecode for crate::task_dto::DebugLogDto {
     }
 }
 
+impl SseDecode for crate::file_dto::DetectFormatDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_format = <String>::sse_decode(deserializer);
+        let mut var_path = <String>::sse_decode(deserializer);
+        return crate::file_dto::DetectFormatDto {
+            format: var_format,
+            path: var_path,
+        };
+    }
+}
+
 impl SseDecode for crate::business_dto::DictEntryDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -12602,6 +12680,34 @@ impl SseDecode for crate::task_dto::DownloadTaskDto {
             fail_count: var_failCount,
             downloaded_bytes: var_downloadedBytes,
             max_retry_count: var_maxRetryCount,
+        };
+    }
+}
+
+impl SseDecode for crate::file_dto::EncodingConversionDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_outputPath = <Option<String>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::file_dto::EncodingConversionDto {
+            success: var_success,
+            output_path: var_outputPath,
+            error: var_error,
+        };
+    }
+}
+
+impl SseDecode for crate::file_dto::EncodingDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_encoding = <String>::sse_decode(deserializer);
+        let mut var_hasBom = <bool>::sse_decode(deserializer);
+        let mut var_confidence = <String>::sse_decode(deserializer);
+        return crate::file_dto::EncodingDto {
+            encoding: var_encoding,
+            has_bom: var_hasBom,
+            confidence: var_confidence,
         };
     }
 }
@@ -14232,6 +14338,18 @@ impl SseDecode for Vec<crate::content_dto::WebChapterDto> {
     }
 }
 
+impl SseDecode for Vec<crate::file_dto::WebDavFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::file_dto::WebDavFileDto>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::content_dto::WebSearchResultDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -14257,6 +14375,20 @@ impl SseDecode for Vec<crate::task_dto::WebViewRequestDto> {
             ));
         }
         return ans_;
+    }
+}
+
+impl SseDecode for crate::file_dto::LocalImportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_book = <Option<crate::transfer_dto::BookDto>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::file_dto::LocalImportDto {
+            success: var_success,
+            book: var_book,
+            error: var_error,
+        };
     }
 }
 
@@ -15442,6 +15574,18 @@ impl SseDecode for crate::transfer_dto::SearchSourceBatchDto {
     }
 }
 
+impl SseDecode for crate::file_dto::ServerStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_running = <bool>::sse_decode(deserializer);
+        let mut var_port = <u16>::sse_decode(deserializer);
+        return crate::file_dto::ServerStatusDto {
+            running: var_running,
+            port: var_port,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::SourceCheckConfigDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -15836,6 +15980,26 @@ impl SseDecode for crate::content_dto::WebChapterDto {
             is_volume: var_isVolume,
             variable: var_variable,
             word_count: var_wordCount,
+        };
+    }
+}
+
+impl SseDecode for crate::file_dto::WebDavFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_size = <u64>::sse_decode(deserializer);
+        let mut var_lastModified = <Option<String>>::sse_decode(deserializer);
+        let mut var_etag = <Option<String>>::sse_decode(deserializer);
+        let mut var_isDir = <bool>::sse_decode(deserializer);
+        return crate::file_dto::WebDavFileDto {
+            name: var_name,
+            path: var_path,
+            size: var_size,
+            last_modified: var_lastModified,
+            etag: var_etag,
+            is_dir: var_isDir,
         };
     }
 }
@@ -16573,6 +16737,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::AppLogDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::ArchiveImportDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.success.into_into_dart().into_dart(),
+            self.extracted_files.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::ArchiveImportDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::ArchiveImportDto>
+    for crate::file_dto::ArchiveImportDto
+{
+    fn into_into_dart(self) -> crate::file_dto::ArchiveImportDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::media_dto::AudioCacheDownloadDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -16760,6 +16946,56 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::BookDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::BookExportDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.success.into_into_dart().into_dart(),
+            self.data.into_into_dart().into_dart(),
+            self.file_name.into_into_dart().into_dart(),
+            self.mime_type.into_into_dart().into_dart(),
+            self.chapter_count.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::BookExportDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::BookExportDto>
+    for crate::file_dto::BookExportDto
+{
+    fn into_into_dart(self) -> crate::file_dto::BookExportDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::BookFormatDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Epub => 0.into_dart(),
+            Self::Mobi => 1.into_dart(),
+            Self::Txt => 2.into_dart(),
+            Self::Pdf => 3.into_dart(),
+            Self::Umd => 4.into_dart(),
+            Self::Cbz => 5.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::BookFormatDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::BookFormatDto>
+    for crate::file_dto::BookFormatDto
+{
+    fn into_into_dart(self) -> crate::file_dto::BookFormatDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::BookGroupDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -16844,6 +17080,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::BookInfoRuleDto>
     for crate::transfer_dto::BookInfoRuleDto
 {
     fn into_into_dart(self) -> crate::transfer_dto::BookInfoRuleDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::BookMetadataDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.title.into_into_dart().into_dart(),
+            self.author.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.format.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::BookMetadataDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::BookMetadataDto>
+    for crate::file_dto::BookMetadataDto
+{
+    fn into_into_dart(self) -> crate::file_dto::BookMetadataDto {
         self
     }
 }
@@ -17362,6 +17621,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::task_dto::DebugLogDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::DetectFormatDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.format.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::DetectFormatDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::DetectFormatDto>
+    for crate::file_dto::DetectFormatDto
+{
+    fn into_into_dart(self) -> crate::file_dto::DetectFormatDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::business_dto::DictEntryDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -17487,6 +17767,47 @@ impl flutter_rust_bridge::IntoIntoDart<crate::task_dto::DownloadTaskDto>
     for crate::task_dto::DownloadTaskDto
 {
     fn into_into_dart(self) -> crate::task_dto::DownloadTaskDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::EncodingConversionDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.success.into_into_dart().into_dart(),
+            self.output_path.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::EncodingConversionDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::EncodingConversionDto>
+    for crate::file_dto::EncodingConversionDto
+{
+    fn into_into_dart(self) -> crate::file_dto::EncodingConversionDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::EncodingDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.encoding.into_into_dart().into_dart(),
+            self.has_bom.into_into_dart().into_dart(),
+            self.confidence.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::file_dto::EncodingDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::EncodingDto>
+    for crate::file_dto::EncodingDto
+{
+    fn into_into_dart(self) -> crate::file_dto::EncodingDto {
         self
     }
 }
@@ -18391,6 +18712,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::layout_dto::LayoutValueKind>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::LocalImportDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.success.into_into_dart().into_dart(),
+            self.book.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::LocalImportDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::LocalImportDto>
+    for crate::file_dto::LocalImportDto
+{
+    fn into_into_dart(self) -> crate::file_dto::LocalImportDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::business_dto::LogLevelDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -19181,6 +19524,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::SearchSourceBatchDto
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::ServerStatusDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.running.into_into_dart().into_dart(),
+            self.port.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::ServerStatusDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::ServerStatusDto>
+    for crate::file_dto::ServerStatusDto
+{
+    fn into_into_dart(self) -> crate::file_dto::ServerStatusDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::SourceCheckConfigDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -19613,6 +19977,31 @@ impl flutter_rust_bridge::IntoIntoDart<crate::content_dto::WebChapterDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::file_dto::WebDavFileDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.name.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+            self.size.into_into_dart().into_dart(),
+            self.last_modified.into_into_dart().into_dart(),
+            self.etag.into_into_dart().into_dart(),
+            self.is_dir.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::file_dto::WebDavFileDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::file_dto::WebDavFileDto>
+    for crate::file_dto::WebDavFileDto
+{
+    fn into_into_dart(self) -> crate::file_dto::WebDavFileDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::content_dto::WebSearchResultDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -19890,6 +20279,15 @@ impl SseEncode for crate::business_dto::AppLogDto {
     }
 }
 
+impl SseEncode for crate::file_dto::ArchiveImportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.success, serializer);
+        <Vec<String>>::sse_encode(self.extracted_files, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+    }
+}
+
 impl SseEncode for crate::media_dto::AudioCacheDownloadDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -20010,6 +20408,38 @@ impl SseEncode for crate::transfer_dto::BookDto {
     }
 }
 
+impl SseEncode for crate::file_dto::BookExportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.success, serializer);
+        <Option<Vec<u8>>>::sse_encode(self.data, serializer);
+        <Option<String>>::sse_encode(self.file_name, serializer);
+        <Option<String>>::sse_encode(self.mime_type, serializer);
+        <Option<usize>>::sse_encode(self.chapter_count, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+    }
+}
+
+impl SseEncode for crate::file_dto::BookFormatDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::file_dto::BookFormatDto::Epub => 0,
+                crate::file_dto::BookFormatDto::Mobi => 1,
+                crate::file_dto::BookFormatDto::Txt => 2,
+                crate::file_dto::BookFormatDto::Pdf => 3,
+                crate::file_dto::BookFormatDto::Umd => 4,
+                crate::file_dto::BookFormatDto::Cbz => 5,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for crate::transfer_dto::BookGroupDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -20056,6 +20486,16 @@ impl SseEncode for crate::transfer_dto::BookInfoRuleDto {
         <Option<String>>::sse_encode(self.word_count, serializer);
         <Option<String>>::sse_encode(self.can_re_name, serializer);
         <Option<String>>::sse_encode(self.download_urls, serializer);
+    }
+}
+
+impl SseEncode for crate::file_dto::BookMetadataDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.author, serializer);
+        <String>::sse_encode(self.description, serializer);
+        <crate::file_dto::BookFormatDto>::sse_encode(self.format, serializer);
     }
 }
 
@@ -20364,6 +20804,14 @@ impl SseEncode for crate::task_dto::DebugLogDto {
     }
 }
 
+impl SseEncode for crate::file_dto::DetectFormatDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.format, serializer);
+        <String>::sse_encode(self.path, serializer);
+    }
+}
+
 impl SseEncode for crate::business_dto::DictEntryDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -20433,6 +20881,24 @@ impl SseEncode for crate::task_dto::DownloadTaskDto {
         <u32>::sse_encode(self.fail_count, serializer);
         <i64>::sse_encode(self.downloaded_bytes, serializer);
         <u32>::sse_encode(self.max_retry_count, serializer);
+    }
+}
+
+impl SseEncode for crate::file_dto::EncodingConversionDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.success, serializer);
+        <Option<String>>::sse_encode(self.output_path, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+    }
+}
+
+impl SseEncode for crate::file_dto::EncodingDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.encoding, serializer);
+        <bool>::sse_encode(self.has_bom, serializer);
+        <String>::sse_encode(self.confidence, serializer);
     }
 }
 
@@ -21650,6 +22116,16 @@ impl SseEncode for Vec<crate::content_dto::WebChapterDto> {
     }
 }
 
+impl SseEncode for Vec<crate::file_dto::WebDavFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::file_dto::WebDavFileDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::content_dto::WebSearchResultDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -21667,6 +22143,15 @@ impl SseEncode for Vec<crate::task_dto::WebViewRequestDto> {
         for item in self {
             <crate::task_dto::WebViewRequestDto>::sse_encode(item, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::file_dto::LocalImportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.success, serializer);
+        <Option<crate::transfer_dto::BookDto>>::sse_encode(self.book, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
     }
 }
 
@@ -22470,6 +22955,14 @@ impl SseEncode for crate::transfer_dto::SearchSourceBatchDto {
     }
 }
 
+impl SseEncode for crate::file_dto::ServerStatusDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.running, serializer);
+        <u16>::sse_encode(self.port, serializer);
+    }
+}
+
 impl SseEncode for crate::transfer_dto::SourceCheckConfigDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -22729,6 +23222,18 @@ impl SseEncode for crate::content_dto::WebChapterDto {
         <bool>::sse_encode(self.is_volume, serializer);
         <Option<String>>::sse_encode(self.variable, serializer);
         <Option<String>>::sse_encode(self.word_count, serializer);
+    }
+}
+
+impl SseEncode for crate::file_dto::WebDavFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.path, serializer);
+        <u64>::sse_encode(self.size, serializer);
+        <Option<String>>::sse_encode(self.last_modified, serializer);
+        <Option<String>>::sse_encode(self.etag, serializer);
+        <bool>::sse_encode(self.is_dir, serializer);
     }
 }
 

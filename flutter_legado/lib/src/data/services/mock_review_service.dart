@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../../domain/contracts/review_service.dart';
 import '../../domain/models/review.dart';
-import '../bridge/book_content_decode.dart';
+import '../bridge/review_document_decode.dart';
 
 /// 保留旧段评样例与分页，不请求网络。— Codex + Bridge
 final class MockReviewService implements ReviewService {

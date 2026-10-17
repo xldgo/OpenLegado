@@ -1,55 +1,11 @@
-import 'dart:convert';
-
-import '../../domain/models/book_content_result.dart';
 import '../../domain/models/review.dart';
-import 'rust_api_exception.dart';
 import 'rust_json_decode.dart';
 
-/// 书籍内容传输数据只在数据层解析，不以空结果掩盖坏响应。— Codex + Bridge
+// Mock 段评样例的真实文档解析，不参与 FRB 传输。— Codex + Bridge
 String contentString(Map<String, dynamic> map, String key) {
   final value = map[key];
   if (value is String) return value;
   throw FormatException('书籍内容字段$key不是字符串');
-}
-
-List<String> contentStrings(dynamic value) {
-  if (value is List && value.every((item) => item is String)) {
-    return value.cast<String>();
-  }
-  throw const FormatException('书籍内容响应不是字符串列表');
-}
-
-Map<String, dynamic> successfulContent(String json, String operation) {
-  final map = decodeRustJsonMap(json, operation);
-  if (map['success'] is! bool) throw FormatException('$operation缺少成功标记');
-  if (map['success'] != true) {
-    throw RustApiException(
-      map['error'] as String? ?? '$operation失败',
-      operation: operation,
-    );
-  }
-  return map;
-}
-
-BookExportData decodeBookExport(String json) {
-  final map = successfulContent(json, 'bookExport');
-  return BookExportData(
-    fileName: contentString(map, 'file_name'),
-    bytes: base64Decode(contentString(map, 'data_base64')),
-    mimeType: contentString(map, 'mime_type'),
-  );
-}
-
-BookExportInfo decodeBookExportInfo(String json) {
-  final map = successfulContent(json, 'bookExportInfo');
-  // 当前Rust把章节数放在成功响应的error字段；仅适配当前协议，不向UI泄漏。
-  final match = RegExp(r'^章节数[:：]\s*(\d+)$')
-      .firstMatch(contentString(map, 'error'));
-  if (match == null) throw const FormatException('导出预览缺少有效章节数');
-  return BookExportInfo(
-    fileName: contentString(map, 'file_name'),
-    chapterCount: int.parse(match[1]!),
-  );
 }
 
 ReviewSummary decodeReviewSummary(String json) {

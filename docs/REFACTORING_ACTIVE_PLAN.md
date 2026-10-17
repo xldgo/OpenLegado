@@ -2,7 +2,10 @@
 
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
-- 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界进入实施；不扩展历史格式兼容层，不改变备份FFI签名。
+- 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界已完成，正在契约与定向集成收口；不扩展历史格式兼容层，不改变备份FFI签名。
+
+- 后续第6批完成：本地格式/元数据/导入、导出与预览、ZIP/RAR条目及解包结果、编码结果、WebDAV目录、服务状态改为DTO/直接集合。导出原始字节不经Base64，预览章节数独立字段；Mock段评真实文档解析拆到review_document_decode，无消费者旧书籍传输解码删除。真实WebDAV请求先复现失败：临时Runtime返回Handle后被销毁，已复用持久Runtime并补驱动存活测试。版本、存储和用户导出选项不变。
+- 第6批验证：QuickJS FFI593项通过/42忽略、默认FFI517项/21忽略，两档全目标严格Clippy通过；7份Flutter组合首轮34通过/1文件未编译（测试Book参数命名），修后该文件11项通过，完整Flutter分析无问题。原6项Rust导出测试通过，正式独立DLL重建及只读摘要验证通过；真实文件4项通过，覆盖本地TXT/目录/UTF-8导出/预览/ZIP/UTF-16转换/PROPFIND/状态，Zip列表按既有基础文件名语义修正测试。证据为build/ffi-phase3/file-{codegen,rust-export,rust-quick,rust-default,clippy-closed,clippy-default,analysis-final2,flutter,unit-closed,native-closed,runtime-diagnosis,runtime-final}.log。全程单代理，无独立外审/CI/应用安装或设备性能结论；未推送。
 
 - 后续第5批完成：自动任务18字段DTO贯通CRUD、书籍任务构建/查找、批量cron、本地导入状态合并及执行结果；只保留真正脚本/导入协议JSON。核心10字段计算仅回写改变字段，完整登录/Header/运行状态不丢失；删除无消费者auto_task_json。Rust定向10项、全目标QuickJS严格Clippy、完整Flutter分析通过；5份Flutter组合54通过1失败（测试同步抛错断言问题），修正断言后该文件9项通过，组合其余46项已通过。正式独立DLL构建/验证及3项真实FFI通过，覆盖18字段SQLite往返、精确i64、重复导入合并、QuickJS真实成功/失败与坏协议。证据在build/ffi-phase3/auto-{codegen,rust,clippy,flutter,unit-final,analysis-final,native,runtime}.log。代码生成清理的38个无关Freezed/JSON生成物已按原HEAD恢复；单代理自查，无独立外审/CI/设备验证；未推送。
 

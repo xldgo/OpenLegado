@@ -22,8 +22,10 @@ use crate::db_state::with_database;
 pub struct ExportResult {
     /// 是否成功
     pub success: bool,
-    /// 导出文件内容（base64 编码）
-    pub data_base64: Option<String>,
+    /// 导出文件原始字节
+    pub data: Option<Vec<u8>>,
+    /// 仅预览结果包含章节数
+    pub chapter_count: Option<usize>,
     /// 文件名
     pub file_name: Option<String>,
     /// MIME 类型
@@ -57,7 +59,7 @@ pub struct ExportOptions {
 /// - `include_toc`: 是否包含目录
 ///
 /// # 返回
-/// 导出结果，包含 base64 编码的文件内容
+/// 导出结果，包含原始文件字节
 pub fn export_book(book_url: &str, format: &str, include_toc: bool) -> LegadoResult<ExportResult> {
     export_book_inner(book_url, format, include_toc, &ExportOptions::default())
 }
@@ -80,7 +82,8 @@ pub fn export_book_with_options(
             Err(e) => {
                 return Ok(ExportResult {
                     success: false,
-                    data_base64: None,
+                    data: None,
+                    chapter_count: None,
                     file_name: None,
                     mime_type: None,
                     error: Some(format!("导出选项 JSON 解析失败: {e}")),
@@ -104,7 +107,8 @@ fn export_book_inner(
         None => {
             return Ok(ExportResult {
                 success: false,
-                data_base64: None,
+                data: None,
+                chapter_count: None,
                 file_name: None,
                 mime_type: None,
                 error: Some(format!(
@@ -132,7 +136,8 @@ fn export_book_inner(
         None => {
             return Ok(ExportResult {
                 success: false,
-                data_base64: None,
+                data: None,
+                chapter_count: None,
                 file_name: None,
                 mime_type: None,
                 error: Some(format!("书籍不存在: {book_url}")),
@@ -242,8 +247,6 @@ fn export_book_inner(
     Ok(
         match BookExporter::export_with(&export_data, &config, fetcher.as_deref()) {
             Ok(bytes) => {
-                use base64::Engine;
-                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
                 // R8：文件名模板（{name}/{author} 占位符），缺省 = 现行为 `{书名}.{扩展名}`
                 let file_name = match options
                     .file_name_template
@@ -260,7 +263,8 @@ fn export_book_inner(
                 };
                 ExportResult {
                     success: true,
-                    data_base64: Some(b64),
+                    data: Some(bytes),
+                    chapter_count: None,
                     file_name: Some(file_name),
                     mime_type: Some(export_format.mime_type().to_string()),
                     error: None,
@@ -268,7 +272,8 @@ fn export_book_inner(
             }
             Err(e) => ExportResult {
                 success: false,
-                data_base64: None,
+                data: None,
+                chapter_count: None,
                 file_name: None,
                 mime_type: None,
                 error: Some(format!("导出失败: {e}")),
@@ -284,7 +289,8 @@ pub fn export_info(book_url: &str, format: &str) -> LegadoResult<ExportResult> {
         None => {
             return Ok(ExportResult {
                 success: false,
-                data_base64: None,
+                data: None,
+                chapter_count: None,
                 file_name: None,
                 mime_type: None,
                 error: Some(format!("不支持的导出格式: {format}")),
@@ -303,15 +309,17 @@ pub fn export_info(book_url: &str, format: &str) -> LegadoResult<ExportResult> {
                 let file_name = format!("{}.{}", b.name, export_format.extension());
                 Ok(ExportResult {
                     success: true,
-                    data_base64: None,
+                    data: None,
+                    chapter_count: Some(chapters.len()),
                     file_name: Some(file_name),
                     mime_type: Some(export_format.mime_type().to_string()),
-                    error: Some(format!("章节数: {}", chapters.len())),
+                    error: None,
                 })
             }
             None => Ok(ExportResult {
                 success: false,
-                data_base64: None,
+                data: None,
+                chapter_count: None,
                 file_name: None,
                 mime_type: None,
                 error: Some(format!("书籍不存在: {book_url}")),
@@ -365,14 +373,11 @@ mod tests {
         db_guard
     }
 
-    /// 解码导出结果的 base64 为 UTF-8 文本
+    /// 将导出原始字节作为 UTF-8 文本读取
     fn decode_export(result: &ExportResult) -> String {
-        use base64::Engine;
         assert!(result.success, "导出应成功: {:?}", result.error);
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(result.data_base64.as_ref().unwrap())
-            .unwrap();
-        String::from_utf8(bytes).unwrap()
+        let bytes = result.data.as_ref().unwrap();
+        String::from_utf8(bytes.clone()).unwrap()
     }
 
     /// 测试本地书导出正文非空（修复仅读缓存导致全空的回归）
@@ -436,10 +441,7 @@ mod tests {
 
         let result = export_book(&path, "pdf", false).unwrap();
         if result.success {
-            use base64::Engine;
-            let bytes = base64::engine::general_purpose::STANDARD
-                .decode(result.data_base64.as_ref().unwrap())
-                .unwrap();
+            let bytes = result.data.as_ref().unwrap();
             assert!(bytes.len() > 4, "PDF 输出不应为空");
             assert_eq!(&bytes[0..4], b"%PDF", "导出文件应为有效 PDF");
             assert_eq!(
@@ -470,12 +472,9 @@ mod tests {
             export_book_with_options(&path, "txt", false, r#"{"encoding":"GBK"}"#).unwrap();
         assert!(result.success, "GBK 导出应成功: {:?}", result.error);
 
-        use base64::Engine;
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(result.data_base64.as_ref().unwrap())
-            .unwrap();
+        let bytes = result.data.as_ref().unwrap();
         // GBK 输出非合法 UTF-8（中文首字节 ≥ 0x81）
-        assert!(std::str::from_utf8(&bytes).is_err(), "GBK 输出不应为 UTF-8");
+        assert!(std::str::from_utf8(bytes).is_err(), "GBK 输出不应为 UTF-8");
         // 首字符「导」的 GBK 编码为 0xB5 0xBC
         assert_eq!(&bytes[0..2], &[0xB5, 0xBC], "首字符应按 GBK 编码");
 

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter_legado/src/bridge/file_dto.dart';
+
 import 'package:flutter_legado/src/bridge/content_dto.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -111,8 +113,9 @@ void main() {
         .thenAnswer((_) async => 'started');
     when(() => bridge.crateFfiFfiServerStop())
         .thenAnswer((_) async => 'stopped');
-    when(() => bridge.crateFfiFfiServerStatus())
-        .thenAnswer((_) async => '{"running":true,"port":4321}');
+    when(
+      () => bridge.crateFfiFfiServerStatus(),
+    ).thenAnswer((_) async => const ServerStatusDto(running: true, port: 4321));
     when(() => bridge.crateFfiFfiConfigSet(key: 'server_port', value: '4321'))
         .thenAnswer((_) async => true);
     when(() => bridge.crateFfiFfiSetMcpPort(port: 1236))
@@ -135,18 +138,11 @@ void main() {
       () => bridge.crateFfiFfiServerStop(),
     ]);
   });
-  for (final payload in [
-    '[]',
-    '{}',
-    '{"running":"true","port":1122}',
-    '{"running":false}',
-  ]) {
-    test('坏服务状态不冒充stopped：$payload', () async {
-      when(() => bridge.crateFfiFfiServerStatus())
-          .thenAnswer((_) async => payload);
-      await expectLater(server.getServerStatus(), throwsFormatException);
-    });
-  }
+  test('服务状态读取失败不冒充stopped', () async {
+    final error = StateError('状态读取失败');
+    when(() => bridge.crateFfiFfiServerStatus()).thenThrow(error);
+    await expectLater(server.getServerStatus(), throwsA(same(error)));
+  });
   test('服务失败与端口写入拒绝不会伪装成功', () async {
     final error = StateError('端口已占用');
     when(() => bridge.crateFfiFfiServerStart(port: 1122)).thenThrow(error);

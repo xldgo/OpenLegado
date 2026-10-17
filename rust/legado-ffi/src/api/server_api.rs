@@ -135,8 +135,14 @@ pub fn server_stop() -> String {
 
 /// 获取服务器状态，保留原 JSON 字段。
 pub fn server_status() -> String {
+    let status = read_server_status();
+    serde_json::json!({ "running": status.running, "port": status.port }).to_string()
+}
+
+/// 状态快照与旧原生 JSON 适配器共用一次原子读取。
+pub fn read_server_status() -> crate::file_dto::ServerStatusDto {
     let (running, port) = crate::engine_holder::services().web.status();
-    serde_json::json!({ "running": running, "port": port }).to_string()
+    crate::file_dto::ServerStatusDto { running, port }
 }
 
 // ─── 独立 MCP 服务（契约 §2.22.5 setMcpPort，Task #73） ───────

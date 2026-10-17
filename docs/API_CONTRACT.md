@@ -2343,6 +2343,20 @@ TaskResultDto包含taskId/success/message/durationMs/details，时长u64直接�
 
 编写者：Codex｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 文件与服务稳定载荷冻结
+
+本地格式检测返回format/path DTO；元数据返回title/author/description/format，不额外传送旧接口
+未暴露的封面。格式枚举保持现有集合，导入结果使用success/BookDto?/error?，不改变落库规则。
+导出结果含success/data:Option<Vec<u8>>/fileName?/mimeType?/chapterCount?/error?；文件数据不再
+经Base64，预览章节数独立为usize，不再塞进error文本。选项JSON仍保留，生成文件内容不变。
+ZIP/RAR导入结果含success/extractedFiles/error，条目直接Vec<String>；编码检测和转换结果
+分别为encoding/hasBom/confidence和success/outputPath/error。错误不转换为空成功。
+WebDAV目录返回name/path/size:u64/lastModified?/etag?/isDir DTO列表；配置与同步文档保持JSON，
+领域旧Map暂由适配层逐字段构造，不经字符串解析。服务状态直接返回running/port:u16，
+启动/停止状态机与消息不变。继续SSE，不声称字节零拷贝；不升级应用、数据库或依赖。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

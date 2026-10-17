@@ -13,6 +13,7 @@ import 'dart:ffi' as ffi;
 
 import 'ffi.dart';
 import 'ffi/ffi.dart';
+import 'file_dto.dart';
 import 'frb_generated.dart';
 import 'layout_bridge.dart';
 import 'layout_dto.dart';
@@ -158,6 +159,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppLogDto dco_decode_app_log_dto(dynamic raw);
 
   @protected
+  ArchiveImportDto dco_decode_archive_import_dto(dynamic raw);
+
+  @protected
   AudioCacheDownloadDto dco_decode_audio_cache_download_dto(dynamic raw);
 
   @protected
@@ -178,6 +182,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BookDto dco_decode_book_dto(dynamic raw);
 
   @protected
+  BookExportDto dco_decode_book_export_dto(dynamic raw);
+
+  @protected
+  BookFormatDto dco_decode_book_format_dto(dynamic raw);
+
+  @protected
   BookGroupDto dco_decode_book_group_dto(dynamic raw);
 
   @protected
@@ -185,6 +195,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookInfoRuleDto dco_decode_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookMetadataDto dco_decode_book_metadata_dto(dynamic raw);
 
   @protected
   BookOrderDto dco_decode_book_order_dto(dynamic raw);
@@ -401,6 +414,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DebugLogDto dco_decode_debug_log_dto(dynamic raw);
 
   @protected
+  DetectFormatDto dco_decode_detect_format_dto(dynamic raw);
+
+  @protected
   DictEntryDto dco_decode_dict_entry_dto(dynamic raw);
 
   @protected
@@ -414,6 +430,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DownloadTaskDto dco_decode_download_task_dto(dynamic raw);
+
+  @protected
+  EncodingConversionDto dco_decode_encoding_conversion_dto(dynamic raw);
+
+  @protected
+  EncodingDto dco_decode_encoding_dto(dynamic raw);
 
   @protected
   ExploreActionDto dco_decode_explore_action_dto(dynamic raw);
@@ -705,10 +727,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<WebChapterDto> dco_decode_list_web_chapter_dto(dynamic raw);
 
   @protected
+  List<WebDavFileDto> dco_decode_list_web_dav_file_dto(dynamic raw);
+
+  @protected
   List<WebSearchResultDto> dco_decode_list_web_search_result_dto(dynamic raw);
 
   @protected
   List<WebViewRequestDto> dco_decode_list_web_view_request_dto(dynamic raw);
+
+  @protected
+  LocalImportDto dco_decode_local_import_dto(dynamic raw);
 
   @protected
   LogLevelDto dco_decode_log_level_dto(dynamic raw);
@@ -904,6 +932,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SearchSourceBatchDto dco_decode_search_source_batch_dto(dynamic raw);
 
   @protected
+  ServerStatusDto dco_decode_server_status_dto(dynamic raw);
+
+  @protected
   SourceCheckConfigDto dco_decode_source_check_config_dto(dynamic raw);
 
   @protected
@@ -971,6 +1002,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebChapterDto dco_decode_web_chapter_dto(dynamic raw);
+
+  @protected
+  WebDavFileDto dco_decode_web_dav_file_dto(dynamic raw);
 
   @protected
   WebSearchResultDto dco_decode_web_search_result_dto(dynamic raw);
@@ -1109,6 +1143,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppLogDto sse_decode_app_log_dto(SseDeserializer deserializer);
 
   @protected
+  ArchiveImportDto sse_decode_archive_import_dto(SseDeserializer deserializer);
+
+  @protected
   AudioCacheDownloadDto sse_decode_audio_cache_download_dto(
     SseDeserializer deserializer,
   );
@@ -1133,6 +1170,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BookDto sse_decode_book_dto(SseDeserializer deserializer);
 
   @protected
+  BookExportDto sse_decode_book_export_dto(SseDeserializer deserializer);
+
+  @protected
+  BookFormatDto sse_decode_book_format_dto(SseDeserializer deserializer);
+
+  @protected
   BookGroupDto sse_decode_book_group_dto(SseDeserializer deserializer);
 
   @protected
@@ -1140,6 +1183,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookInfoRuleDto sse_decode_book_info_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  BookMetadataDto sse_decode_book_metadata_dto(SseDeserializer deserializer);
 
   @protected
   BookOrderDto sse_decode_book_order_dto(SseDeserializer deserializer);
@@ -1422,6 +1468,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DebugLogDto sse_decode_debug_log_dto(SseDeserializer deserializer);
 
   @protected
+  DetectFormatDto sse_decode_detect_format_dto(SseDeserializer deserializer);
+
+  @protected
   DictEntryDto sse_decode_dict_entry_dto(SseDeserializer deserializer);
 
   @protected
@@ -1439,6 +1488,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DownloadTaskDto sse_decode_download_task_dto(SseDeserializer deserializer);
+
+  @protected
+  EncodingConversionDto sse_decode_encoding_conversion_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  EncodingDto sse_decode_encoding_dto(SseDeserializer deserializer);
 
   @protected
   ExploreActionDto sse_decode_explore_action_dto(SseDeserializer deserializer);
@@ -1844,6 +1901,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<WebDavFileDto> sse_decode_list_web_dav_file_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<WebSearchResultDto> sse_decode_list_web_search_result_dto(
     SseDeserializer deserializer,
   );
@@ -1852,6 +1914,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<WebViewRequestDto> sse_decode_list_web_view_request_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  LocalImportDto sse_decode_local_import_dto(SseDeserializer deserializer);
 
   @protected
   LogLevelDto sse_decode_log_level_dto(SseDeserializer deserializer);
@@ -2101,6 +2166,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ServerStatusDto sse_decode_server_status_dto(SseDeserializer deserializer);
+
+  @protected
   SourceCheckConfigDto sse_decode_source_check_config_dto(
     SseDeserializer deserializer,
   );
@@ -2186,6 +2254,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebChapterDto sse_decode_web_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavFileDto sse_decode_web_dav_file_dto(SseDeserializer deserializer);
 
   @protected
   WebSearchResultDto sse_decode_web_search_result_dto(
@@ -2351,6 +2422,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_app_log_dto(AppLogDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_archive_import_dto(
+    ArchiveImportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_audio_cache_download_dto(
     AudioCacheDownloadDto self,
     SseSerializer serializer,
@@ -2381,6 +2458,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_book_dto(BookDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_book_export_dto(BookExportDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_format_dto(BookFormatDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_book_group_dto(BookGroupDto self, SseSerializer serializer);
 
   @protected
@@ -2392,6 +2475,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_book_info_rule_dto(
     BookInfoRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_book_metadata_dto(
+    BookMetadataDto self,
     SseSerializer serializer,
   );
 
@@ -2747,6 +2836,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_debug_log_dto(DebugLogDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_detect_format_dto(
+    DetectFormatDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_dict_entry_dto(DictEntryDto self, SseSerializer serializer);
 
   @protected
@@ -2772,6 +2867,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     DownloadTaskDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_encoding_conversion_dto(
+    EncodingConversionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_encoding_dto(EncodingDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_explore_action_dto(
@@ -3293,6 +3397,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_web_dav_file_dto(
+    List<WebDavFileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_web_search_result_dto(
     List<WebSearchResultDto> self,
     SseSerializer serializer,
@@ -3301,6 +3411,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_web_view_request_dto(
     List<WebViewRequestDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_local_import_dto(
+    LocalImportDto self,
     SseSerializer serializer,
   );
 
@@ -3617,6 +3733,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_server_status_dto(
+    ServerStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_source_check_config_dto(
     SourceCheckConfigDto self,
     SseSerializer serializer,
@@ -3723,6 +3845,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_web_chapter_dto(WebChapterDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_web_dav_file_dto(
+    WebDavFileDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_web_search_result_dto(

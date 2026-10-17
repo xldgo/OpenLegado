@@ -19,6 +19,7 @@ pub mod db_state;
 mod engine_holder;
 pub mod error;
 pub mod ffi;
+pub mod file_dto;
 pub mod http_state;
 pub mod js_executor;
 mod layout_bridge;

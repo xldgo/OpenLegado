@@ -1,7 +1,6 @@
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/local_server_service.dart';
 import '../../domain/models/local_server_status.dart';
-import '../bridge/rust_json_decode.dart';
 
 /// 不复制Rust服务状态机，状态读取失败由调用方处理。— Codex + Bridge
 class RustLocalServerService implements LocalServerService {
@@ -19,13 +18,8 @@ class RustLocalServerService implements LocalServerService {
 
   @override
   Future<LocalServerStatus> getServerStatus() async {
-    final map = decodeRustJsonMap(await bridge.serverStatus(), 'serverStatus');
-    final running = map['running'];
-    final port = map['port'];
-    if (running is! bool || port is! int) {
-      throw const FormatException('serverStatus缺少有效的running或port');
-    }
-    return LocalServerStatus(running: running, port: port);
+    final status = await bridge.serverStatus();
+    return LocalServerStatus(running: status.running, port: status.port);
   }
 
   @override

@@ -149,6 +149,7 @@ pub mod ffi {
     use crate::automation_dto::*;
     use crate::business_dto::*;
     use crate::content_dto::*;
+    use crate::file_dto::*;
     use crate::frb_generated::StreamSink;
     use crate::media_dto::*;
     use crate::task_dto::*;
@@ -746,7 +747,7 @@ pub mod ffi {
         crate::api::search::cancel_search();
     }
 
-    /// 搜索书籍封面候选列表（返回 JSON 数组）
+    /// 搜索书籍封面候选列表（返回字符串列表）
     ///
     /// 复用多书源搜索能力：以书名为关键词搜索所有启用的书源，
     /// 从搜索结果中提取封面 URL 作为候选（去重、过滤空值）。
@@ -919,22 +920,22 @@ pub mod ffi {
 
     // ─── 书籍导入 ─────────────────────────────────────────────
 
-    /// 检测书籍文件格式（JSON）
-    pub fn import_detect_format(file_path: String) -> Result<String, BridgeError> {
+    /// 检测书籍文件格式。
+    pub fn import_detect_format(file_path: String) -> Result<DetectFormatDto, BridgeError> {
         let result = crate::api::book_import::detect_format(&file_path)?;
-        to_json(&result)
+        Ok(result.into())
     }
 
-    /// 解析书籍元数据（返回 JSON 字符串）
-    pub fn import_parse_metadata(file_path: String) -> Result<String, BridgeError> {
+    /// 解析书籍稳定元数据。
+    pub fn import_parse_metadata(file_path: String) -> Result<BookMetadataDto, BridgeError> {
         let metadata = crate::api::book_import::parse_metadata(&file_path)?;
-        Ok(serde_json::to_string(&metadata)?)
+        Ok(metadata.into())
     }
 
-    /// 导入本地书籍到书架（JSON）
-    pub fn import_local_book(file_path: String) -> Result<String, BridgeError> {
+    /// 导入本地书籍到书架。
+    pub fn import_local_book(file_path: String) -> Result<LocalImportDto, BridgeError> {
         let result = crate::api::book_import::import_local_book(&file_path)?;
-        to_json(&result)
+        Ok(result.into())
     }
 
     // ─── 本地 TXT 全文搜索（Task #98 缺口#4，加法式新增） ─────
@@ -2607,9 +2608,9 @@ pub mod ffi {
         crate::api::server_api::server_stop()
     }
 
-    /// 获取服务器状态（JSON）
-    pub fn server_status() -> String {
-        crate::api::server_api::server_status()
+    /// 获取原子服务状态快照。
+    pub fn server_status() -> ServerStatusDto {
+        crate::api::server_api::read_server_status()
     }
 
     /// 设置独立 MCP 服务端口（契约 §2.22.5，Task #72/#73）
@@ -2661,12 +2662,17 @@ pub mod ffi {
 
     // ─── WebDAV 云同步 ─────────────────────────────────────
 
-    /// 列出 WebDAV 远程目录（JSON 数组）
-    pub fn webdav_list_dir(config_json: String, path: String) -> Result<String, BridgeError> {
-        Ok(crate::api::webdav_api::webdav_list_dir(
-            &config_json,
-            &path,
-        )?)
+    /// 列出 WebDAV 远程目录元数据。
+    pub fn webdav_list_dir(
+        config_json: String,
+        path: String,
+    ) -> Result<Vec<WebDavFileDto>, BridgeError> {
+        Ok(
+            crate::api::webdav_api::webdav_list_dir(&config_json, &path)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
     }
 
     /// 上传文件到 WebDAV
@@ -2834,7 +2840,7 @@ pub mod ffi {
 
     // ─── 书籍导出 ─────────────────────────────────────
 
-    /// 导出书籍（返回 ExportResult JSON）
+    /// 导出书籍，原始文件字节直传。
     ///
     /// # 参数
     /// - `book_url`: 书籍 URL
@@ -2844,15 +2850,18 @@ pub mod ffi {
         book_url: String,
         format: String,
         include_toc: bool,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<BookExportDto, BridgeError> {
         let result = crate::api::book_export::export_book(&book_url, &format, include_toc)?;
-        to_json(&result)
+        Ok(result.into())
     }
 
-    /// 获取导出预览信息（返回 ExportResult JSON）
-    pub fn book_export_info(book_url: String, format: String) -> Result<String, BridgeError> {
+    /// 获取导出预览信息和真实章节数。
+    pub fn book_export_info(
+        book_url: String,
+        format: String,
+    ) -> Result<BookExportDto, BridgeError> {
         let result = crate::api::book_export::export_info(&book_url, &format)?;
-        to_json(&result)
+        Ok(result.into())
     }
 
     /// 带选项导出书籍（Task #136 R8，API_CONTRACT §2.43.4）
@@ -2864,68 +2873,71 @@ pub mod ffi {
         format: String,
         include_toc: bool,
         options_json: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<BookExportDto, BridgeError> {
         let result = crate::api::book_export::export_book_with_options(
             &book_url,
             &format,
             include_toc,
             &options_json,
         )?;
-        to_json(&result)
+        Ok(result.into())
     }
 
     // ─── 压缩包导入与编码检测 ─────────────────────────
 
-    /// 导入 ZIP 压缩包中的书籍文件（返回 ArchiveImportResult JSON）
-    pub fn archive_import_zip(zip_path: String, output_dir: String) -> Result<String, BridgeError> {
+    /// 导入 ZIP 压缩包中的书籍文件（返回类型化结果）
+    pub fn archive_import_zip(
+        zip_path: String,
+        output_dir: String,
+    ) -> Result<ArchiveImportDto, BridgeError> {
         let result = crate::api::archive_import_api::import_zip_file(&zip_path, &output_dir);
-        to_json(&result)
+        Ok(result.into())
     }
 
-    /// 导入 RAR 压缩包中的书籍文件（支持加密，返回 ArchiveImportResult JSON）
+    /// 导入 RAR 压缩包中的书籍文件（支持加密，返回类型化结果）
     pub fn archive_import_rar(
         rar_path: String,
         output_dir: String,
         password: Option<String>,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<ArchiveImportDto, BridgeError> {
         let result =
             crate::api::archive_import_api::import_rar_file(&rar_path, &output_dir, password);
-        to_json(&result)
+        Ok(result.into())
     }
 
-    /// 列出 ZIP 压缩包中的书籍文件名（不解压，返回 JSON 数组）
-    pub fn archive_list_zip_files(zip_path: String) -> Result<String, BridgeError> {
+    /// 列出 ZIP 压缩包中的书籍文件名（不解压，返回字符串列表）
+    pub fn archive_list_zip_files(zip_path: String) -> Result<Vec<String>, BridgeError> {
         let files = crate::api::archive_import_api::list_zip_book_files(&zip_path)?;
-        to_json(&files)
+        Ok(files)
     }
 
-    /// 列出 RAR 压缩包中的书籍文件名（不解压，返回 JSON 数组）
+    /// 列出 RAR 压缩包中的书籍文件名（不解压，返回字符串列表）
     pub fn archive_list_rar_files(
         rar_path: String,
         password: Option<String>,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<Vec<String>, BridgeError> {
         let files = crate::api::archive_import_api::list_rar_book_files(&rar_path, password)?;
-        to_json(&files)
+        Ok(files)
     }
 
-    /// 检测 TXT 文件编码（返回 EncodingResult JSON）
-    pub fn archive_detect_encoding(file_path: String) -> Result<String, BridgeError> {
+    /// 检测 TXT 文件编码（返回编码检测结果）
+    pub fn archive_detect_encoding(file_path: String) -> Result<EncodingDto, BridgeError> {
         let result = crate::api::archive_import_api::detect_txt_encoding(&file_path)?;
-        to_json(&result)
+        Ok(result.into())
     }
 
-    /// 转换 TXT 文件编码（返回 ConvertResult JSON）
+    /// 转换 TXT 文件编码（返回编码转换结果）
     pub fn archive_convert_encoding(
         file_path: String,
         from_encoding: String,
         to_encoding: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<EncodingConversionDto, BridgeError> {
         let result = crate::api::archive_import_api::convert_txt_encoding(
             &file_path,
             &from_encoding,
             &to_encoding,
         );
-        to_json(&result)
+        Ok(result.into())
     }
 
     /// 判断文件是否为压缩包格式

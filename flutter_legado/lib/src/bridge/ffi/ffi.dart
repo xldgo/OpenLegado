@@ -7,6 +7,7 @@ import '../automation_dto.dart';
 import '../business_dto.dart';
 import '../content_dto.dart';
 import '../ffi.dart';
+import '../file_dto.dart';
 import '../frb_generated.dart';
 import '../media_dto.dart';
 import '../task_dto.dart';
@@ -452,7 +453,7 @@ Future<List<AnnotatedCandidateDto>> searchMulti({
 /// 取消正在进行的搜索
 Future<void> searchCancel() => RustLib.instance.api.crateFfiFfiSearchCancel();
 
-/// 搜索书籍封面候选列表（返回 JSON 数组）
+/// 搜索书籍封面候选列表（返回字符串列表）
 ///
 /// 复用多书源搜索能力：以书名为关键词搜索所有启用的书源，
 /// 从搜索结果中提取封面 URL 作为候选（去重、过滤空值）。
@@ -605,16 +606,16 @@ Future<bool> readerCanRemoveSameTitle({
   rawContent: rawContent,
 );
 
-/// 检测书籍文件格式（JSON）
-Future<String> importDetectFormat({required String filePath}) =>
+/// 检测书籍文件格式。
+Future<DetectFormatDto> importDetectFormat({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportDetectFormat(filePath: filePath);
 
-/// 解析书籍元数据（返回 JSON 字符串）
-Future<String> importParseMetadata({required String filePath}) =>
+/// 解析书籍稳定元数据。
+Future<BookMetadataDto> importParseMetadata({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportParseMetadata(filePath: filePath);
 
-/// 导入本地书籍到书架（JSON）
-Future<String> importLocalBook({required String filePath}) =>
+/// 导入本地书籍到书架。
+Future<LocalImportDto> importLocalBook({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportLocalBook(filePath: filePath);
 
 /// 搜索本地 TXT 文件内容（纯文本模式）
@@ -1924,8 +1925,9 @@ Future<String> serverStart({required int port}) =>
 /// 停止服务器
 Future<String> serverStop() => RustLib.instance.api.crateFfiFfiServerStop();
 
-/// 获取服务器状态（JSON）
-Future<String> serverStatus() => RustLib.instance.api.crateFfiFfiServerStatus();
+/// 获取原子服务状态快照。
+Future<ServerStatusDto> serverStatus() =>
+    RustLib.instance.api.crateFfiFfiServerStatus();
 
 /// 设置独立 MCP 服务端口（契约 §2.22.5，Task #72/#73）
 ///
@@ -1961,8 +1963,8 @@ Future<bool> saveCoverRule({required String ruleJson}) =>
 Future<bool> deleteCoverRule() =>
     RustLib.instance.api.crateFfiFfiDeleteCoverRule();
 
-/// 列出 WebDAV 远程目录（JSON 数组）
-Future<String> webdavListDir({
+/// 列出 WebDAV 远程目录元数据。
+Future<List<WebDavFileDto>> webdavListDir({
   required String configJson,
   required String path,
 }) => RustLib.instance.api.crateFfiFfiWebdavListDir(
@@ -2119,13 +2121,13 @@ Future<ReviewPageDto> reviewGetReplies({
   page: page,
 );
 
-/// 导出书籍（返回 ExportResult JSON）
+/// 导出书籍，原始文件字节直传。
 ///
 /// # 参数
 /// - `book_url`: 书籍 URL
 /// - `format`: 导出格式（txt/epub/html/pdf）
 /// - `include_toc`: 是否包含目录
-Future<String> bookExport({
+Future<BookExportDto> bookExport({
   required String bookUrl,
   required String format,
   required bool includeToc,
@@ -2135,8 +2137,8 @@ Future<String> bookExport({
   includeToc: includeToc,
 );
 
-/// 获取导出预览信息（返回 ExportResult JSON）
-Future<String> bookExportInfo({
+/// 获取导出预览信息和真实章节数。
+Future<BookExportDto> bookExportInfo({
   required String bookUrl,
   required String format,
 }) => RustLib.instance.api.crateFfiFfiBookExportInfo(
@@ -2148,7 +2150,7 @@ Future<String> bookExportInfo({
 ///
 /// `options_json` 透传：encoding（仅 TXT）/ startChapter / endChapter（-1=不限）/
 /// fileNameTemplate（{name}/{author} 占位符）；空串 = 全缺省（行为等同 book_export）。
-Future<String> bookExportWithOptions({
+Future<BookExportDto> bookExportWithOptions({
   required String bookUrl,
   required String format,
   required bool includeToc,
@@ -2160,8 +2162,8 @@ Future<String> bookExportWithOptions({
   optionsJson: optionsJson,
 );
 
-/// 导入 ZIP 压缩包中的书籍文件（返回 ArchiveImportResult JSON）
-Future<String> archiveImportZip({
+/// 导入 ZIP 压缩包中的书籍文件（返回类型化结果）
+Future<ArchiveImportDto> archiveImportZip({
   required String zipPath,
   required String outputDir,
 }) => RustLib.instance.api.crateFfiFfiArchiveImportZip(
@@ -2169,8 +2171,8 @@ Future<String> archiveImportZip({
   outputDir: outputDir,
 );
 
-/// 导入 RAR 压缩包中的书籍文件（支持加密，返回 ArchiveImportResult JSON）
-Future<String> archiveImportRar({
+/// 导入 RAR 压缩包中的书籍文件（支持加密，返回类型化结果）
+Future<ArchiveImportDto> archiveImportRar({
   required String rarPath,
   required String outputDir,
   String? password,
@@ -2180,12 +2182,12 @@ Future<String> archiveImportRar({
   password: password,
 );
 
-/// 列出 ZIP 压缩包中的书籍文件名（不解压，返回 JSON 数组）
-Future<String> archiveListZipFiles({required String zipPath}) =>
+/// 列出 ZIP 压缩包中的书籍文件名（不解压，返回字符串列表）
+Future<List<String>> archiveListZipFiles({required String zipPath}) =>
     RustLib.instance.api.crateFfiFfiArchiveListZipFiles(zipPath: zipPath);
 
-/// 列出 RAR 压缩包中的书籍文件名（不解压，返回 JSON 数组）
-Future<String> archiveListRarFiles({
+/// 列出 RAR 压缩包中的书籍文件名（不解压，返回字符串列表）
+Future<List<String>> archiveListRarFiles({
   required String rarPath,
   String? password,
 }) => RustLib.instance.api.crateFfiFfiArchiveListRarFiles(
@@ -2193,12 +2195,12 @@ Future<String> archiveListRarFiles({
   password: password,
 );
 
-/// 检测 TXT 文件编码（返回 EncodingResult JSON）
-Future<String> archiveDetectEncoding({required String filePath}) =>
+/// 检测 TXT 文件编码（返回编码检测结果）
+Future<EncodingDto> archiveDetectEncoding({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiArchiveDetectEncoding(filePath: filePath);
 
-/// 转换 TXT 文件编码（返回 ConvertResult JSON）
-Future<String> archiveConvertEncoding({
+/// 转换 TXT 文件编码（返回编码转换结果）
+Future<EncodingConversionDto> archiveConvertEncoding({
   required String filePath,
   required String fromEncoding,
   required String toEncoding,

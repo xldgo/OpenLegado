@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/bridge/file_dto.dart';
+import 'package:flutter_legado/src/data/bridge/file_dto_mapping.dart';
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 
 import 'dart:convert';
@@ -14,12 +16,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('目录响应在数据边界解码，坏容器拒绝且原非对象项跳过', () {
-    expect(decodeWebDavDirectory('[null,{"name":"book.txt","size":1}]'), [
-      {'name': 'book.txt', 'size': 1},
-    ]);
-    expect(() => decodeWebDavDirectory('{}'), throwsFormatException);
-    expect(() => decodeWebDavDirectory('['), throwsFormatException);
+  test('目录元数据逐字段映射，精确大小与空值保留', () {
+    expect(
+      webDavFileFromDto(
+        WebDavFileDto(
+          name: 'book.txt',
+          path: '/book.txt',
+          size: BigInt.from(9007199254740993),
+          isDir: false,
+        ),
+      ),
+      {
+        'name': 'book.txt',
+        'path': '/book.txt',
+        'size': 9007199254740993,
+        'last_modified': null,
+        'etag': null,
+        'is_dir': false,
+      },
+    );
   });
   test('配置编码保留密码和Rust字段，默认目录补斜线，自定义根目录保持空', () {
     const connection = WebDavConnection(
