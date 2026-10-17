@@ -26,6 +26,9 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ReadAloudDiagnostics") {
+      ReadAloudDiagnostics.shared.attach(messenger: registrar.messenger())
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PrivacyBridge") {
       PrivacyBridge.shared.attach(messenger: registrar.messenger())
     }

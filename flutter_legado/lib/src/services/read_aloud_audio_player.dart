@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart' as audio;
 
 import 'audio_playlist_player.dart';
 import 'stream_audio_player.dart';
+import 'read_aloud_diagnostics.dart';
 
 /// 统一纯音频后端：正文队列、音频书和独立试听都使用 just_audio。— Codex + UI
 class ReadAloudAudioPlayer extends StreamAudioPlayer
@@ -35,6 +36,41 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   Future<void> _mutations = Future.value();
   void Function(Object)? _started, _ended, _failed;
   void Function(Duration, Duration, Object)? _progress;
+  final _diagnostics = ReadAloudDiagnostics.instance;
+  Object? _lastDiagnosticTag;
+  int _lastDiagnosticPosition = 0, _lastDiagnosticSample = 0;
+  int _lastDiagnosticSession = 0;
+  String? _diagnosticUrl, _diagnosticFile;
+
+  Map<String, Object?> _diagnosticSnapshot() {
+    final player = _native;
+    final source = _currentSource;
+    final url = source?.uri.toString();
+    if (url != _diagnosticUrl) {
+      _diagnosticUrl = url;
+      _diagnosticFile = url == null ? null : ReadAloudDiagnostics.fileKey(url);
+    }
+    return {
+      'player': identityHashCode(this),
+      'generation': _generation,
+      'tag': source?.tag == null ? null : identityHashCode(source!.tag!),
+      'file': _diagnosticFile,
+      'index': player?.currentIndex,
+      'items': player?.sequence.length,
+      'positionMs': player?.position.inMilliseconds,
+      'durationMs': player?.duration?.inMilliseconds,
+      'state': player?.processingState.name,
+      'playing': player?.playing,
+      'playRequested': _playRequested,
+      'editing': _editing,
+    };
+  }
+
+  void _trace(String event, [Map<String, Object?> extra = const {}]) {
+    if (_diagnostics.enabled) {
+      _diagnostics.event(event, {..._diagnosticSnapshot(), ...extra});
+    }
+  }
 
   @override
   Object? get currentPlaylistTag => _queueMode ? _active : null;
@@ -106,6 +142,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   void _play(int generation) {
     final player = _native!;
+    _trace('player.play');
     unawaited(
       player.play().catchError((Object error) {
         if (generation == _generation && _queueMode) _failed?.call(error);
@@ -114,11 +151,36 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   }
 
   void _sync(int generation) {
+    _diagnostics.count('player.sync');
     if (generation != _generation || !_queueMode || _editing) return;
     final player = _native!;
     final tag = player.sequenceState.currentSource?.tag;
     if (tag == null) return;
+    if (_diagnostics.enabled) {
+      if (_lastDiagnosticSession != _diagnostics.session) {
+        _lastDiagnosticSession = _diagnostics.session;
+        _lastDiagnosticTag = null;
+        _lastDiagnosticSample = 0;
+      }
+      final positionMs = player.position.inMilliseconds;
+      if (identical(_lastDiagnosticTag, tag) &&
+          positionMs + 200 < _lastDiagnosticPosition) {
+        _trace('player.position_backwards', {
+          'previousMs': _lastDiagnosticPosition,
+        });
+      }
+      _lastDiagnosticTag = tag;
+      _lastDiagnosticPosition = positionMs;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastDiagnosticSample >= 1000) {
+        _lastDiagnosticSample = now;
+        _trace('player.sample');
+      }
+    }
     if (!identical(_active, tag)) {
+      _trace('player.item_changed', {
+        'previousTag': _active == null ? null : identityHashCode(_active!),
+      });
       final previous = _active;
       _active = tag;
       if (previous != null && _completed.add(previous)) _ended?.call(previous);
@@ -174,9 +236,18 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _progress = onProgress;
     _failed = onError;
     final player = _native ??= _createPlayer();
+    _trace('player.load.request', {
+      'file': ReadAloudDiagnostics.fileKey(source.uri.toString()),
+    });
     _subscriptions.addAll([
-      player.playbackEventStream.listen((_) => _sync(generation)),
-      player.positionStream.listen((_) => _sync(generation)),
+      player.playbackEventStream.listen((_) {
+        _diagnostics.count('player.playback_event');
+        _sync(generation);
+      }),
+      player.positionStream.listen((_) {
+        _diagnostics.count('player.position_event');
+        _sync(generation);
+      }),
       player.errorStream.listen((error) {
         if (generation == _generation && _queueMode) _failed?.call(error);
       }),
@@ -184,6 +255,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     try {
       await _mutate(generation, () async {
         await player.setAudioSources([source]);
+        _trace('player.load.done');
         if (generation != _generation || !_queueMode) return;
         await player.setSpeed(speed <= 0 ? 1 : speed);
         if (generation != _generation || !_queueMode) return;
@@ -201,12 +273,17 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     final generation = _generation;
     return _mutate(generation, () async {
       final player = _native!;
+      _trace('player.append.begin', {
+        'addedTag': identityHashCode(item.tag),
+        'addedFile': ReadAloudDiagnostics.fileKey(item.path),
+      });
       final endedTag = playlistFinished
           ? player.sequenceState.currentSource?.tag
           : null;
       await player.addAudioSource(
         audio.AudioSource.uri(_fileUri(item.path), tag: item.tag),
       );
+      _trace('player.append.end');
       if (generation != _generation || !_queueMode || !_playRequested) return;
       // 追加期间原生可能已经换项，旧的队尾状态不能用来重置新音频。
       if (endedTag == null ||
@@ -220,6 +297,11 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       final nextIndex = endedIndex + 1;
       if (endedIndex < 0 || nextIndex >= player.sequence.length) return;
       // 仍停在原音频末尾时才恢复相邻项，不跳到队尾而漏播中间内容。
+      _trace('player.seek', {
+        'reason': 'append_finished',
+        'targetIndex': nextIndex,
+        'targetMs': 0,
+      });
       await player.seek(Duration.zero, index: nextIndex);
       if (generation == _generation && _queueMode && _playRequested) {
         _play(generation);
@@ -236,10 +318,17 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       if (before <= 0) return;
       final removed = player.sequence.take(before).map((e) => e.tag).toList();
       final position = player.position;
+      _trace('player.discard.begin', {'removeBefore': before});
       await player.removeAudioSourceRange(0, before);
+      _trace('player.discard.end');
       if (generation != _generation || !_queueMode) return;
       if (defaultTargetPlatform == TargetPlatform.windows) {
         // WinRT 删除前项不发布新的索引；显式保留当前片位置并同步索引，避免误认下一片。
+        _trace('player.seek', {
+          'reason': 'windows_remove',
+          'targetIndex': 0,
+          'targetMs': position.inMilliseconds,
+        });
         await player.seek(position, index: 0);
       }
       for (final tag in removed) {
@@ -251,6 +340,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   @override
   Future<void> pause() async {
     if (!_queueMode) return;
+    _trace('player.pause');
     _playRequested = false;
     await _native?.pause();
   }
@@ -261,8 +351,14 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     final generation = _generation;
     _playRequested = true;
     final player = _native!;
+    _trace('player.resume');
     if (_itemFinished &&
         (player.currentIndex ?? 0) + 1 < player.sequence.length) {
+      _trace('player.seek', {
+        'reason': 'resume_next',
+        'targetIndex': (player.currentIndex ?? 0) + 1,
+        'targetMs': 0,
+      });
       await player.seekToNext();
     }
     if (generation == _generation && _queueMode && _playRequested) {
@@ -272,11 +368,16 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   @override
   Future<void> setSpeed(double speed) async {
+    _trace('player.speed', {'speed': speed});
     if (_queueMode) await _native!.setSpeed(speed <= 0 ? 1 : speed);
   }
 
   @override
   Future<void> seek(Duration position) async {
+    _trace('player.seek', {
+      'reason': 'explicit',
+      'targetMs': position.inMilliseconds,
+    });
     if (_queueMode) await _native!.seek(position);
   }
 
@@ -328,6 +429,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   }
 
   Future<void> _stopPlaylist() async {
+    _trace('player.stop');
     final generation = ++_generation;
     _playRequested = false;
     _queueMode = false;

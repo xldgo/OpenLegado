@@ -18,6 +18,7 @@ import '../../audio/application/audio_state.dart';
 import '../../audio/application/read_aloud_position.dart';
 import '../../../platform/tts/system_tts.dart';
 import '../../../services/stream_audio_player.dart';
+import '../../../services/read_aloud_diagnostics.dart';
 import '../../../utils/read_aloud_text.dart';
 import '../http_tts_voice_selection.dart';
 import 'read_aloud_engine.dart';
@@ -133,6 +134,7 @@ class ReadAloudController {
   void restoreReadAloudFollow() => followReadAloud.value = true;
   void detachReadAloudFollow() => followReadAloud.value = false;
   void _publishReadAloudPosition({int? offset}) {
+    ReadAloudDiagnostics.instance.count('ui.position_publish');
     if (_disposed ||
         _state.isStreamMode ||
         _state.state == PlayerState.idle ||
@@ -581,6 +583,14 @@ class ReadAloudController {
 
   void _startCloudPrefetch(ReadAloudRequest request, CloudTtsEngine cloud) {
     final prefs = _settings.current;
+    ReadAloudDiagnostics.instance.event('cloud.prefetch_config', {
+      'chapter': _state.currentIndex,
+      'paragraph': _paragraphIndex,
+      'paragraphs': _paragraphs.length,
+      'chaptersAhead': prefs.audioPreDownloadNum,
+      'concurrency': prefs.ttsPreSynthesisConcurrency,
+      'splitMode': prefs.splitMode.name,
+    });
     _cacheRetentionMinutes = prefs.audioCacheCleanTime;
     if (prefs.audioPreDownloadNum <= 0) {
       _synthesisQueue.cancelBackground();

@@ -16,6 +16,7 @@ import '../../features/audio/application/read_aloud_capsule.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../../routes.dart';
 import '../../services/platform_bridge_service.dart';
+import '../../services/read_aloud_diagnostics.dart';
 import '../book_cover.dart';
 import 'read_aloud_player_transition.dart';
 
@@ -493,6 +494,7 @@ class _FloatingCapsuleState extends State<_FloatingCapsule>
                 ]),
                 child: image,
                 builder: (context, cover) {
+                  ReadAloudDiagnostics.instance.count('ui.capsule_build');
                   final expansion = _expansion.value;
                   final width = 48 + 112 * expansion;
                   final height = 48 + 8 * expansion;

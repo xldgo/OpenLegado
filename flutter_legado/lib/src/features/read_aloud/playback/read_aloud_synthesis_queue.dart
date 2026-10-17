@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../domain/contracts/http_tts_synthesizer.dart';
 import '../../../domain/contracts/tts_cache_repository.dart';
+import '../../../services/read_aloud_diagnostics.dart';
 import 'read_aloud_engine.dart';
 
 /// 前台优先的有界合成队列；不保存正文位置、不调用播放器。— Codex + UI
@@ -108,6 +109,11 @@ final class ReadAloudSynthesisQueue {
   Future<HttpTtsSynthesisResult> _attempt(_Job job) async {
     final r = job.request;
     try {
+      ReadAloudDiagnostics.instance.count(
+        job.foreground
+            ? 'synthesis.foreground_attempt'
+            : 'synthesis.background_attempt',
+      );
       return await synthesize(r, job.cancel);
     } catch (error) {
       if (job.foreground) rethrow;
@@ -120,6 +126,18 @@ final class ReadAloudSynthesisQueue {
 
   Future<void> _run(_Job job) async {
     HttpTtsAudio? audio;
+    final trace = ReadAloudDiagnostics.instance.begin('synthesis.job', {
+      'queue': identityHashCode(this),
+      'job': identityHashCode(job),
+      'foreground': job.foreground,
+      'running': _running,
+      'limit': _limit,
+      'window': job.window,
+      'textUnits': job.request.text.length,
+      'pending': _jobs.length,
+    });
+    String outcome = 'error';
+    bool? fromCache;
     try {
       var result = await _attempt(job);
       if (!job.foreground &&
@@ -142,6 +160,12 @@ final class ReadAloudSynthesisQueue {
         if (!job.cancel.isCancelled) result = await _attempt(job);
       }
       if (result is HttpTtsAudio) audio = result;
+      outcome = result is HttpTtsAudio
+          ? 'audio'
+          : result is HttpTtsCancelled
+          ? 'cancelled'
+          : 'no_audio';
+      fromCache = audio?.fromCache;
       if (job.cancel.isCancelled ||
           (!job.foreground && job.window != _window)) {
         job.result.complete(const HttpTtsCancelled());
@@ -172,6 +196,16 @@ final class ReadAloudSynthesisQueue {
         job.result.complete(const HttpTtsCancelled());
       }
     } finally {
+      ReadAloudDiagnostics.instance.count('synthesis.completed');
+      if (fromCache == true) {
+        ReadAloudDiagnostics.instance.count('synthesis.cache_hit');
+      }
+      trace?.finish({
+        'outcome': outcome,
+        'fromCache': fromCache,
+        'cancelled': job.cancel.isCancelled,
+        'foreground': job.foreground,
+      });
       try {
         await audio?.lease?.release();
       } catch (error) {
@@ -202,6 +236,11 @@ final class ReadAloudSynthesisQueue {
     }
     cancelBackground();
     _windowKey = key;
+    ReadAloudDiagnostics.instance.event('synthesis.window_start', {
+      'queue': identityHashCode(this),
+      'window': _window,
+      'limit': _limit,
+    });
     final generation = _window;
     unawaited(_fill(chapters, generation));
   }
@@ -214,6 +253,12 @@ final class ReadAloudSynthesisQueue {
     try {
       await for (final requests in chapters) {
         if (generation != _window) return;
+        ReadAloudDiagnostics.instance.event('synthesis.chapter_batch', {
+          'queue': identityHashCode(this),
+          'window': generation,
+          'requests': requests.length,
+          'textUnits': requests.fold<int>(0, (sum, r) => sum + r.text.length),
+        });
         var failures = 0;
         // 工作数量有界：每批最多并发上限，不为整章创建成千上万个 Future。
         for (var start = 0; start < requests.length; start += _limit) {
@@ -244,6 +289,12 @@ final class ReadAloudSynthesisQueue {
   }
 
   void cancelBackground() {
+    ReadAloudDiagnostics.instance.event('synthesis.window_cancel', {
+      'queue': identityHashCode(this),
+      'window': _window,
+      'running': _running,
+      'pending': _jobs.length,
+    });
     _window++;
     _windowKey = null;
     for (final job in List<_Job>.of(_jobs)) {

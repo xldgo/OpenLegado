@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AB181DFA2026101700000001 /* ReadAloudDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB181DFA2026101700000002 /* ReadAloudDiagnostics.swift */; };
 		0A92A97AA15E2356F8DECDDA /* PrivacyBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38FEE003B71988C0BCDB59E /* PrivacyBridge.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
@@ -45,6 +46,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AB181DFA2026101700000002 /* ReadAloudDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadAloudDiagnostics.swift; sourceTree = "<group>"; };
 		F38FEE003B71988C0BCDB59E /* PrivacyBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyBridge.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 			74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				AB181DFA2026101700000002 /* ReadAloudDiagnostics.swift */,
 			7485A0BA2F0A0000000000A1 /* NowPlayingBridge.swift */,
 			7485A0BB2F0B0000000000A2 /* WebKeepAlive.swift */,
 			B913AF9475EAC9655614311C /* LauncherIconBridge.swift */,
@@ -284,6 +287,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				AB181DFA2026101700000001 /* ReadAloudDiagnostics.swift in Sources */,
 			7485A0BA2F0A0000000000B2 /* NowPlayingBridge.swift in Sources */,
 			7485A0BB2F0B0000000000B3 /* WebKeepAlive.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,

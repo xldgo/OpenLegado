@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../domain/contracts/http_tts_synthesizer.dart';
 import '../../../services/audio_playlist_player.dart';
 import '../../../services/stream_audio_player.dart';
+import '../../../services/read_aloud_diagnostics.dart';
 import 'read_aloud_engine.dart';
 
 /// 只编排当前文件及至多两个后续文件，章节、定时和选择仍归协调层。— Codex + UI
@@ -113,6 +114,16 @@ final class FileReadAloudPlaylist {
     final index = _cues.indexWhere((cue) => identical(cue, tag));
     if (index < 0) return;
     _current = index;
+    ReadAloudDiagnostics.instance.event('playlist.cue_started', {
+      'playlist': identityHashCode(this),
+      'generation': generation,
+      'cue': index,
+      'paragraph': _cues[index].paragraphIndex,
+      'tag': identityHashCode(tag),
+      'retained': _audio.length,
+      'queuedNext': _next,
+      'totalCues': _cues.length,
+    });
     _onCue?.call(_cues[index]);
     if (!_valid(generation)) return;
     _session?.reportProgress(_cues[index].sourceOffset - _progressBase);
@@ -122,6 +133,11 @@ final class FileReadAloudPlaylist {
   Future<void> _retire(int generation) async {
     // 换项可能发生在出队确认期间，只释放本次请求前已经播完的文件。
     final before = _current;
+    final trace = ReadAloudDiagnostics.instance.begin('playlist.retire', {
+      'playlist': identityHashCode(this),
+      'cue': before,
+      'retained': _audio.length,
+    });
     try {
       await _native.discardPlayedItems();
       if (generation != _generation) return;
@@ -133,6 +149,8 @@ final class FileReadAloudPlaylist {
       if (_valid(generation)) _pump();
     } catch (error) {
       if (_valid(generation)) _session?.fail(error);
+    } finally {
+      trace?.finish({'retained': _audio.length, 'currentCue': _current});
     }
   }
 

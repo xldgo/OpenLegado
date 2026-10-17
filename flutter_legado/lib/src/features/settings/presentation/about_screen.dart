@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/legado_app_bar.dart';
@@ -10,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../routes.dart';
 import '../../../services/app_update_service.dart';
 import '../../../services/crash_log_service.dart';
+import '../../../services/read_aloud_diagnostics.dart';
 import '../../../widgets/settings_widgets.dart';
 import '../../../widgets/update_dialog.dart';
 import '../../../widgets/help/show_help.dart';
@@ -35,6 +37,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       'https://gedoor.github.io/legado/#/md/privacyPolicy';
 
   bool _checkingUpdate = false;
+  bool _diagnosticBusy = false;
   String _appVersion = '';
 
   @override
@@ -131,6 +134,54 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     );
   }
 
+  Future<void> _toggleDiagnostics(bool enabled) async {
+    if (_diagnosticBusy) return;
+    setState(() => _diagnosticBusy = true);
+    try {
+      final diagnostics = ReadAloudDiagnostics.instance;
+      if (enabled) {
+        await diagnostics.start();
+      } else {
+        await diagnostics.stop();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法开启朗读诊断')));
+      }
+    } finally {
+      if (mounted) setState(() => _diagnosticBusy = false);
+    }
+  }
+
+  Future<void> _exportDiagnostics() async {
+    if (_diagnosticBusy) return;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box == null
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    setState(() => _diagnosticBusy = true);
+    try {
+      final file = await ReadAloudDiagnostics.instance.export();
+      if (!mounted) return;
+      if (file == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('尚无朗读诊断，请先开启并复现问题')));
+        return;
+      }
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], sharePositionOrigin: origin),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('导出朗读诊断失败')));
+      }
+    } finally {
+      if (mounted) setState(() => _diagnosticBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
@@ -175,6 +226,33 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   onTap: () => Navigator.pushNamed(context, AppRoutes.appLog),
                 ),
                 SettingTile(title: '保存日志', onTap: _saveLog),
+                ListenableBuilder(
+                  listenable: ReadAloudDiagnostics.instance,
+                  builder: (context, _) => SettingSwitchRow(
+                    title: '朗读诊断',
+                    subtitle: '排查重播与发热，30分钟后自动关闭',
+                    value: ReadAloudDiagnostics.instance.enabled,
+                    onChanged: _diagnosticBusy ? null : _toggleDiagnostics,
+                  ),
+                ),
+                SettingTile(
+                  title: '标记刚才的段首重播',
+                  onTap: () {
+                    final diagnostics = ReadAloudDiagnostics.instance;
+                    if (diagnostics.enabled) diagnostics.mark();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          diagnostics.enabled ? '已记录故障时间' : '请先开启朗读诊断',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                SettingTile(
+                  title: '导出朗读诊断并停止采集',
+                  onTap: _diagnosticBusy ? null : _exportDiagnostics,
+                ),
                 SettingTile(title: '创建堆转储', onTap: _createHeapDumpPlaceholder),
                 SettingTile(
                   title: '用户隐私与协议',

@@ -12,6 +12,7 @@ import '../../audio/application/audio_notifier.dart';
 import '../../audio/application/read_aloud_preferences.dart';
 import '../../audio/application/read_aloud_capsule.dart';
 import '../../../routes.dart';
+import '../../../services/read_aloud_diagnostics.dart';
 import '../../../widgets/app_menu.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/book_cover.dart';
@@ -353,20 +354,23 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
     }
     return ValueListenableBuilder(
       valueListenable: notifier.readAloudPosition,
-      builder: (context, position, _) => ReadAloudChapterText(
-        key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
-        active: _page == 2,
-        onUserScrollChanged: _onTextScroll,
-        paragraphs: paragraphs,
-        activeIndex:
-            position?.bookUrl == audio.bookUrl &&
-                position?.chapterIndex == audio.currentIndex
-            ? position!.paragraphIndex
-            : notifier.currentParagraphIndex,
-        onSeek: enabled
-            ? (index) => _run(() => notifier.seekToParagraph(index))
-            : null,
-      ),
+      builder: (context, position, _) {
+        ReadAloudDiagnostics.instance.count('ui.chapter_text_build');
+        return ReadAloudChapterText(
+          key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
+          active: _page == 2,
+          onUserScrollChanged: _onTextScroll,
+          paragraphs: paragraphs,
+          activeIndex:
+              position?.bookUrl == audio.bookUrl &&
+                  position?.chapterIndex == audio.currentIndex
+              ? position!.paragraphIndex
+              : notifier.currentParagraphIndex,
+          onSeek: enabled
+              ? (index) => _run(() => notifier.seekToParagraph(index))
+              : null,
+        );
+      },
     );
   }
 
