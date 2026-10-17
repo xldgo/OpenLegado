@@ -1,3 +1,4 @@
+import '../../domain/models/rule_parse_result.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/rule_execution_service.dart';
 
@@ -8,8 +9,21 @@ class RustRuleExecutionService implements RuleExecutionService {
   final Future<String> Function(String) _interceptResult;
 
   @override
-  Future<String> parseRule(String content, String rule, String ruleType) =>
-      bridge.parseRule(content: content, rule: rule, ruleType: ruleType);
+  Future<RuleParseResult> parseRule(
+    String content,
+    String rule,
+    String ruleType,
+  ) async {
+    final value = await bridge.parseRule(
+      content: content,
+      rule: rule,
+      ruleType: ruleType,
+    );
+    return RuleParseResult(
+      results: List.unmodifiable(value.results),
+      count: value.count.toInt(),
+    );
+  }
 
   @override
   Future<String> evalJs(String script) async =>

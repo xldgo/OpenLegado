@@ -1,3 +1,5 @@
+import '../../domain/models/webdav_sync_result.dart';
+
 import 'dart:convert';
 
 import '../bridge/file_dto_mapping.dart';
@@ -64,13 +66,16 @@ final class RustWebDavService implements WebDavService {
   Future<void> webdavDelete(WebDavConnection connection, String path) => bridge
       .webdavDelete(configJson: encodeWebDavConfig(connection), path: path);
   @override
-  Future<String> webdavFullSync(
+  Future<WebDavSyncResult> webdavFullSync(
     WebDavConnection connection,
     String localBooks,
     String localSources,
-  ) => bridge.webdavFullSync(
-    configJson: encodeWebDavConfig(connection),
-    localBooks: localBooks,
-    localSources: localSources,
-  );
+  ) async {
+    final value = await bridge.webdavFullSync(
+      configJson: encodeWebDavConfig(connection),
+      localBooks: localBooks,
+      localSources: localSources,
+    );
+    return WebDavSyncResult(books: value.books, sources: value.sources);
+  }
 }

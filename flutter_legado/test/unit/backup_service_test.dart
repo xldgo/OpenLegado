@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/old_data_import_result.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -164,12 +166,23 @@ void main() {
   });
 
   test('旧版导入结果沿用消息或计数格式', () async {
-    when(() => api.backupRepository.importOldData(any()))
-        .thenAnswer((_) async => '{"messages":["导入书籍","导入书源"]}');
+    when(() => api.backupRepository.importOldData(any())).thenAnswer(
+      (_) async => const OldDataImportResult(
+        books: 0,
+        bookSources: 0,
+        replaceRules: 0,
+        messages: ['导入书籍', '导入书源'],
+      ),
+    );
     expect(await service().importOldData(directory.path), '导入书籍\n导入书源');
-    when(
-      () => api.backupRepository.importOldData(any()),
-    ).thenAnswer((_) async => '{"books":2,"bookSources":3,"replaceRules":1}');
+    when(() => api.backupRepository.importOldData(any())).thenAnswer(
+      (_) async => const OldDataImportResult(
+        books: 2,
+        bookSources: 3,
+        replaceRules: 1,
+        messages: [],
+      ),
+    );
     expect(
       await service().importOldData(directory.path),
       '书架 2 · 书源 3 · 替换规则 1',

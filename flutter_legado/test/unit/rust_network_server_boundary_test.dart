@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/bridge/business_dto.dart';
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -172,10 +174,15 @@ void main() {
         rule: 'p@text',
         ruleType: 'css',
       ),
-    ).thenAnswer((_) async => '小说');
+    ).thenAnswer(
+      (_) async =>
+          RuleParseResultDto(results: ['小说', '小说😀'], count: BigInt.two),
+    );
     expect(await service.evalJs('java.webView()'), '平台处理结果');
     expect(intercepted, ['平台请求']);
-    expect(await service.parseRule('<p>小说</p>', 'p@text', 'css'), '小说');
+    final parsed = await service.parseRule('<p>小说</p>', 'p@text', 'css');
+    expect(parsed.results, ['小说', '小说😀']);
+    expect(parsed.count, 2);
   });
   test('JS错误不进入拦截，版本探测失败仍为unknown', () async {
     var intercepted = false;

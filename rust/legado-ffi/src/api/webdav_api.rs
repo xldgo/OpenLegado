@@ -104,16 +104,10 @@ pub fn webdav_full_sync(
     config_json: &str,
     local_books_json: &str,
     local_sources_json: &str,
-) -> LegadoResult<String> {
+) -> LegadoResult<(String, String)> {
     let config: WebDavConfig = serde_json::from_str(config_json)
         .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
-    let (books, sources) =
-        host_service()?.webdav_full_sync(config, local_books_json, local_sources_json)?;
-    serde_json::to_string(&serde_json::json!({
-        "books": books,
-        "sources": sources,
-    }))
-    .map_err(|e| legado_core::LegadoError::Internal(format!("序列化失败：{e}")))
+    host_service()?.webdav_full_sync(config, local_books_json, local_sources_json)
 }
 
 pub fn webdav_incremental_sync(

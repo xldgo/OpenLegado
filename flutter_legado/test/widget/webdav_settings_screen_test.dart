@@ -1,5 +1,7 @@
 library;
 
+import 'package:flutter_legado/src/domain/models/webdav_sync_result.dart';
+
 import '../fixtures/app_test_api.dart';
 
 /// WebDAV 设置页「测试配置」行（差异清单 C7）
@@ -112,7 +114,9 @@ void main() {
       'app_backup_path': 'E:/备份',
     });
     when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-        .thenAnswer((_) async => '{}');
+        .thenAnswer(
+          (_) async => const WebDavSyncResult(books: '[]', sources: '[]'),
+        );
     when(() => mockApi.backupRepository.backup(any()))
         .thenAnswer((_) async => 'E:/备份/backup.zip');
     final metadata = _MetadataRepository();

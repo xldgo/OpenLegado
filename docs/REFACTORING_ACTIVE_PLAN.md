@@ -9,7 +9,14 @@
 - 验证与关闭：相关Rust行为回归与严格检查，契约批次集中生成/重建正式Windows DLL和实际FRB验证；复用已有测试，不新增外部宿主/协议，不重复全量CI。Active为唯一状态源，自查/平台未测边界如实记录；每批可独立回滚。不自动启动替换规则写入、订阅实体落库、自动任务真实动作或缓存过期设置缺口。
 - 安全补丁结果：SourceLockGuard将MutexGuard存入Option并在Drop中take后显式释放，随后才析构Arc字段；正常与中毒获取路径保持原算法，!Send仍由MutexGuard类型约束。新增容器先析构/最后entry释放和中毒恢复/同key互斥两项真实回归，原相关用例保留，共16项通过；core全目标Clippy -D warnings与格式/差异检查通过。环境未安装Miri，普通回归不冒称动态UB检测；安全性依据显式Drop顺序和字段私有封装复核。证据：build/rust-boundary-next/source-lock-{tests,clippy}.log。
 - 集成准备：固定主目录f13431d74与本worktree安全补丁53c584207对比，共同基线01d4dfc35；两侧提交修改文件仅Active计划重叠。git merge-tree只创建预演树对象，没有修改工作区/index/分支或真正合并，返回1且仅Active存在文本冲突。后续集成应合并保留两侧任务记录，禁止拿一侧整文件覆盖；不代表编译/行为集成已验收。主目录未提交架构报告未修改。cargo metadata --locked --offline --no-deps确认11crate及内部依赖，纠正rust/DEVELOPMENT.md的8crate/无内部依赖/不存在文件和API模块bridge.rs说明；README已正确，不重复改。证据：build/rust-boundary-next/integration-preview.{json,log}。
-- 状态：安全补丁53c584207已提交，集成准备与模块说明核对完成后本地提交；继续固定结果类型化，不执行真实合并。
+- 类型化实施：API_CONTRACT先冻结三项返回；RuleParseResultDto、OldDataImportResultDto、WebDavSyncResultDto替换正式JSON外层，API薄适配返回原内部实体/二元文档。Dart三项窄接口及正式/Mock实现同步为独立领域结果，备份提示保留消息优先/计数格式，WebDAV调用方仍等待成功后更新时间；不碰恢复方向、文档解析或网络回退。删除原外层JSON编解码，不增加兼容入口。固定FRB2.13.0在隔离目录生成成功，依赖/锁文件无变化；Permit/lifetime为原生成器提示，不扩改排版句柄。
+- 边界核查：旧文件导入仍在读完文件后短借连接完成各类写入，保留逐文件部分成功；WebDAV服务只持网络和Runtime Handle，无数据库连接，外层类型化没有把连接跨网络保留。Engine析构只发取消，TaskGroup保留有界异步关闭/凭据存续；本轮未改任务策略。I/O和serde错误已有来源，其他字符串错误仍存在，不宣称全量错误链已改造；BridgeError保留原message。共享FFI测试库偶发锁冲突继续待定位，本轮不靠全局串行或增加重试销账。
+- 轻量验证：Flutter全项目分析0 issue；8个受影响测试文件168项通过，包含正式DTO映射/精确计数/错误传播、Mock同形、备份消息/计数显示、同步状态/确认及失败持久化。原用例断言按新结果类型适配，新增2项正式适配器行为用例；首轮测试文件import误放library前导致格式器拒绝，纠正后分析/测试通过。真实FRB用例追加到现有business_transport_runtime_test，覆盖原文/空解析、实际旧文件导入、五步本机DAV请求和失败上抛，不新增外部宿主。
+- 最终Rust验证：Engine113/FFI552共665项QuickJS库回归通过，42项既有忽略；Engine/FFI的default及QuickJS两档全目标Clippy -D warnings通过。SourceLock补丁另有16项core回归及严格检查；格式/差异检查通过，无新增lint放行。不重复全量Flutter测试、模拟器、远程CI或性能测试。
+- 正式接线：固定FRB2.13.0隔离生成成功后，Python正式入口只重建一次Windows Debug QuickJS DLL，构建输入/源码指纹与源库/复制库摘要及初次/最终只读验证通过；现有业务传输运行时测试文件6项最终通过，包含本批新增三接口真实往返、实际旧书落库/重复跳过和本机DAV五步顺序/原文/HTTP403。首次FRB复验仅末尾错误断言失败：生成BridgeError的toString不展开message，改为检查实际message字段，原生库/生产实现不改，不放宽为任意异常；重跑通过，首次失败不计通过。native测试文件变动后定向分析0 issue。
+- 最终集成准备：将本轮全部已提交/未提交改动与固定主目录f13431d74再次核对，重叠仅docs/API_CONTRACT.md及Active计划，无源码重叠；后续合并需同时保留两边契约和任务条目。最初merge-tree预演只基于安全提交53c584207，最终文件交集另存integration-current-paths.json，不冒称已经执行完整合并/编译集成。
+- 证据与限制：build/rust-boundary-next/{generate,clippy-default,rust-quickjs,clippy-quickjs,dart-analysis,dart-tests,native-build,native-verify,native-verify-final,native-runtime-final,native-test-analysis-final}.log及integration-preview.{json,log}/integration-current-paths.json；native-runtime.log保留首次断言失败。正式命令最终均为退出0，原生验证只覆盖Windows。单代理实现/自查，无独立外审或Android/iOS/真机结论；FRB生成物未手改，依赖/锁文件、schema、应用版本、CI与音频/TTS业务不变。
+- 状态：本轮授权的安全修复、集成准备、三项非音频固定结果类型化及针对性错误/资源边界核查完成并随本批代码本地提交；安全补丁53c584207、模块说明69835e341已独立提交，类型化使用单独一批，不追加回填提交。工作仍在当前worktree，未推送/合并/改写历史；原功能缺口与需要实测再决定的性能/拆crate计划继续后置，可分别回滚。
 
 编写者：Codex｜2026-10-18
 

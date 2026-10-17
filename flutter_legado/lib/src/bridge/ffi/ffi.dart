@@ -1060,8 +1060,8 @@ Future<String> exploreEvalUiJs({
   jsStr: jsStr,
 );
 
-/// 使用规则解析内容，返回 JSON 格式的结果
-Future<String> parseRule({
+/// 使用规则解析内容，直接返回结果列表与计数。
+Future<RuleParseResultDto> parseRule({
   required String content,
   required String rule,
   required String ruleType,
@@ -1853,8 +1853,8 @@ Future<RestoreStatsDto> backupRestore({required String path}) =>
 Future<List<BackupFileDto>> backupList({required String dir}) =>
     RustLib.instance.api.crateFfiFfiBackupList(dir: dir);
 
-/// 导入旧版（阅读 2.x）备份目录，返回统计 JSON
-Future<String> importOldData({required String dir}) =>
+/// 导入旧版（阅读 2.x）备份目录，返回实际计数与逐文件消息。
+Future<OldDataImportResultDto> importOldData({required String dir}) =>
     RustLib.instance.api.crateFfiFfiImportOldData(dir: dir);
 
 /// 启动 legado-server，返回状态消息
@@ -1966,8 +1966,8 @@ Future<void> webdavDelete({required String configJson, required String path}) =>
       path: path,
     );
 
-/// WebDAV 全量同步（返回 JSON: {"books": "...", "sources": "..."}）
-Future<String> webdavFullSync({
+/// WebDAV 全量同步，返回两份文档原文。
+Future<WebDavSyncResultDto> webdavFullSync({
   required String configJson,
   required String localBooks,
   required String localSources,

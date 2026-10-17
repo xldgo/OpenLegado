@@ -660,7 +660,9 @@ abstract class RustLibApi extends BaseApi {
 
   Future<LocalImportDto> crateFfiFfiImportLocalBook({required String filePath});
 
-  Future<String> crateFfiFfiImportOldData({required String dir});
+  Future<OldDataImportResultDto> crateFfiFfiImportOldData({
+    required String dir,
+  });
 
   Future<BookMetadataDto> crateFfiFfiImportParseMetadata({
     required String filePath,
@@ -683,7 +685,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<bool> crateFfiFfiLooksLikeCurl({required String text});
 
-  Future<String> crateFfiFfiParseRule({
+  Future<RuleParseResultDto> crateFfiFfiParseRule({
     required String content,
     required String rule,
     required String ruleType,
@@ -1245,7 +1247,7 @@ abstract class RustLibApi extends BaseApi {
     required String localFilePath,
   });
 
-  Future<String> crateFfiFfiWebdavFullSync({
+  Future<WebDavSyncResultDto> crateFfiFfiWebdavFullSync({
     required String configJson,
     required String localBooks,
     required String localSources,
@@ -6215,7 +6217,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  Future<String> crateFfiFfiImportOldData({required String dir}) {
+  Future<OldDataImportResultDto> crateFfiFfiImportOldData({
+    required String dir,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -6229,7 +6233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_old_data_import_result_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiImportOldDataConstMeta,
@@ -6457,7 +6461,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "looks_like_curl", argNames: ["text"]);
 
   @override
-  Future<String> crateFfiFfiParseRule({
+  Future<RuleParseResultDto> crateFfiFfiParseRule({
     required String content,
     required String rule,
     required String ruleType,
@@ -6477,7 +6481,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_rule_parse_result_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiParseRuleConstMeta,
@@ -11249,7 +11253,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiWebdavFullSync({
+  Future<WebDavSyncResultDto> crateFfiFfiWebdavFullSync({
     required String configJson,
     required String localBooks,
     required String localSources,
@@ -11269,7 +11273,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_web_dav_sync_result_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiWebdavFullSyncConstMeta,
@@ -13861,6 +13865,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  OldDataImportResultDto dco_decode_old_data_import_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return OldDataImportResultDto(
+      books: dco_decode_u_64(arr[0]),
+      bookSources: dco_decode_u_64(arr[1]),
+      replaceRules: dco_decode_u_64(arr[2]),
+      messages: dco_decode_list_String(arr[3]),
+    );
+  }
+
+  @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_Map_String_String_None(raw);
@@ -14520,6 +14538,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RuleParseResultDto dco_decode_rule_parse_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return RuleParseResultDto(
+      results: dco_decode_list_String(arr[0]),
+      count: dco_decode_u_64(arr[1]),
+    );
+  }
+
+  @protected
   RuleSubscriptionDto dco_decode_rule_subscription_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -14997,6 +15027,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       lastModified: dco_decode_opt_String(arr[3]),
       etag: dco_decode_opt_String(arr[4]),
       isDir: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  WebDavSyncResultDto dco_decode_web_dav_sync_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return WebDavSyncResultDto(
+      books: dco_decode_String(arr[0]),
+      sources: dco_decode_String(arr[1]),
     );
   }
 
@@ -18275,6 +18317,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  OldDataImportResultDto sse_decode_old_data_import_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_books = sse_decode_u_64(deserializer);
+    var var_bookSources = sse_decode_u_64(deserializer);
+    var var_replaceRules = sse_decode_u_64(deserializer);
+    var var_messages = sse_decode_list_String(deserializer);
+    return OldDataImportResultDto(
+      books: var_books,
+      bookSources: var_bookSources,
+      replaceRules: var_replaceRules,
+      messages: var_messages,
+    );
+  }
+
+  @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
     SseDeserializer deserializer,
   ) {
@@ -19267,6 +19326,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RuleParseResultDto sse_decode_rule_parse_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_results = sse_decode_list_String(deserializer);
+    var var_count = sse_decode_u_64(deserializer);
+    return RuleParseResultDto(results: var_results, count: var_count);
+  }
+
+  @protected
   RuleSubscriptionDto sse_decode_rule_subscription_dto(
     SseDeserializer deserializer,
   ) {
@@ -19876,6 +19945,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       etag: var_etag,
       isDir: var_isDir,
     );
+  }
+
+  @protected
+  WebDavSyncResultDto sse_decode_web_dav_sync_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_books = sse_decode_String(deserializer);
+    var var_sources = sse_decode_String(deserializer);
+    return WebDavSyncResultDto(books: var_books, sources: var_sources);
   }
 
   @protected
@@ -22683,6 +22762,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_old_data_import_result_dto(
+    OldDataImportResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.books, serializer);
+    sse_encode_u_64(self.bookSources, serializer);
+    sse_encode_u_64(self.replaceRules, serializer);
+    sse_encode_list_String(self.messages, serializer);
+  }
+
+  @protected
   void sse_encode_opt_Map_String_String_None(
     Map<String, String>? self,
     SseSerializer serializer,
@@ -23469,6 +23560,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_rule_parse_result_dto(
+    RuleParseResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_String(self.results, serializer);
+    sse_encode_u_64(self.count, serializer);
+  }
+
+  @protected
   void sse_encode_rule_subscription_dto(
     RuleSubscriptionDto self,
     SseSerializer serializer,
@@ -23891,6 +23992,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.lastModified, serializer);
     sse_encode_opt_String(self.etag, serializer);
     sse_encode_bool(self.isDir, serializer);
+  }
+
+  @protected
+  void sse_encode_web_dav_sync_result_dto(
+    WebDavSyncResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.books, serializer);
+    sse_encode_String(self.sources, serializer);
   }
 
   @protected

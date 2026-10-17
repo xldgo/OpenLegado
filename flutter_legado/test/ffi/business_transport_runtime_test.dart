@@ -4,6 +4,13 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+
+import 'package:flutter_legado/src/data/repositories/rust_backup_repository.dart';
+import 'package:flutter_legado/src/data/services/rust_rule_execution_service.dart';
+import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
@@ -268,5 +275,81 @@ void main() {
     expect(stats.rssSources, BigInt.from(originals.length));
     final restored = await rss.getRssSources();
     expect(restored, originals);
+  });
+
+  test('固定结果经真实FRB往返，文档/部分导入消息和网络失败保持', () async {
+    final rules = RustRuleExecutionService(interceptResult: (raw) async => raw);
+    final parsed = await rules.parseRule('<p>甲😀</p><p>乙</p>', 'p@text', 'css');
+    expect(parsed.results, ['甲😀', '乙']);
+    expect(parsed.count, 2);
+    final empty = await rules.parseRule('<p>正文</p>', 'span@text', 'css');
+    expect(empty.results, isEmpty);
+    expect(empty.count, 0);
+    final dir = await Directory('${root.path}/legacy-result').create();
+    await File('${dir.path}/myBookShelf.json').writeAsString(
+      '[{"noteUrl":"https://old-fixed.test/book","bookInfoBean":{"name":"旧版😀"}}]',
+    );
+    const backup = RustBackupRepository();
+    final imported = await backup.importOldData(dir.path);
+    expect(imported.books, 1);
+    expect(imported.bookSources, 0);
+    expect(imported.replaceRules, 0);
+    expect(imported.messages, ['成功导入书架1', '未找到 myBookSource.json', '未找到替换规则']);
+    expect(
+      (await const RustBookshelfRepository().getBook(
+        'https://old-fixed.test/book',
+      ))?.name,
+      '旧版😀',
+    );
+    expect((await backup.importOldData(dir.path)).books, 0);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final requests = <String>[];
+    var failUpload = false;
+    server.listen((request) async {
+      final body = await utf8.decoder.bind(request).join();
+      requests.add('${request.method} ${request.uri.path} $body');
+      request.response.headers.contentType = ContentType.text;
+      if (failUpload && request.method == 'PUT') {
+        request.response.statusCode = HttpStatus.forbidden;
+      } else if (request.method == 'GET') {
+        request.response.write(
+          request.uri.path.endsWith('bookshelf.json')
+              ? '远端😀非JSON文档'
+              : '{"远端源":"原样"}',
+        );
+      } else {
+        request.response.statusCode = HttpStatus.created;
+      }
+      await request.response.close();
+    });
+    final connection = WebDavConnection(
+      url: 'http://127.0.0.1:${server.port}',
+      username: 'u',
+      password: 'p',
+      remoteDir: '/books',
+    );
+    const dav = RustWebDavService();
+    final synced = await dav.webdavFullSync(connection, '本地书架😀', '本地书源');
+    expect(synced.books, '远端😀非JSON文档');
+    expect(synced.sources, '{"远端源":"原样"}');
+    expect(requests, [
+      'MKCOL /books/ ',
+      'PUT /books/bookshelf.json 本地书架😀',
+      'PUT /books/sources.json 本地书源',
+      'GET /books/bookshelf.json ',
+      'GET /books/sources.json ',
+    ]);
+    failUpload = true;
+    await expectLater(
+      dav.webdavFullSync(connection, '本地书架😀', '本地书源'),
+      throwsA(
+        isA<BridgeError>().having(
+          (error) => error.message,
+          '原生错误消息',
+          contains('HTTP 403'),
+        ),
+      ),
+    );
   });
 }

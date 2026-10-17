@@ -151,13 +151,12 @@ class BackupService {
   }
 
   Future<String> importOldData(String directory) async {
-    final decoded = jsonDecode(await _repository.importOldData(directory));
-    if (decoded is! Map) return '导入完成';
-    final messages = decoded['messages'];
-    if (messages is List && messages.isNotEmpty) {
-      return messages.map((item) => '$item').join('\n');
+    final result = await _repository.importOldData(directory);
+    final messages = result.messages;
+    if (messages.isNotEmpty) {
+      return messages.join('\n');
     }
-    return '书架 ${decoded['books'] ?? 0} · 书源 ${decoded['bookSources'] ?? 0} · 替换规则 ${decoded['replaceRules'] ?? 0}';
+    return '书架 ${result.books} · 书源 ${result.bookSources} · 替换规则 ${result.replaceRules}';
   }
 
   Future<Map<String, dynamic>> _readBackup(String path) async {

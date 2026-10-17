@@ -1,3 +1,4 @@
+import '../models/webdav_sync_result.dart';
 import '../models/webdav_connection.dart';
 
 /// 远程传输能力，连接持久化和同步编排由各自入口管理。— Codex + Bridge
@@ -23,7 +24,7 @@ abstract interface class WebDavService {
     String localFilePath,
   );
   Future<void> webdavDelete(WebDavConnection connection, String path);
-  Future<String> webdavFullSync(
+  Future<WebDavSyncResult> webdavFullSync(
     WebDavConnection connection,
     String localBooks,
     String localSources,

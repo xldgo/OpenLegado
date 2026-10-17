@@ -1,3 +1,4 @@
+import '../../domain/models/webdav_sync_result.dart';
 import '../../domain/contracts/webdav_service.dart';
 import '../../domain/models/webdav_connection.dart';
 
@@ -41,9 +42,9 @@ final class MockWebDavService implements WebDavService {
   @override
   Future<void> webdavDelete(WebDavConnection connection, String path) async {}
   @override
-  Future<String> webdavFullSync(
+  Future<WebDavSyncResult> webdavFullSync(
     WebDavConnection connection,
     String localBooks,
     String localSources,
-  ) async => '{"synced":true}';
+  ) async => WebDavSyncResult(books: localBooks, sources: localSources);
 }

@@ -1,5 +1,38 @@
 //! 稳定业务快照；规则、脚本与真正文档保留字符串边界。— Codex + Bridge
 
+/// 规则执行的固定外层，结果中的文本不再另行编码。
+#[derive(Debug, Clone)]
+pub struct RuleParseResultDto {
+    pub results: Vec<String>,
+    pub count: u64,
+}
+
+/// 旧版文件导入的实际计数及逐文件消息。
+#[derive(Debug, Clone)]
+pub struct OldDataImportResultDto {
+    pub books: u64,
+    pub book_sources: u64,
+    pub replace_rules: u64,
+    pub messages: Vec<String>,
+}
+impl From<legado_engine::backup_service::OldImportResult> for OldDataImportResultDto {
+    fn from(v: legado_engine::backup_service::OldImportResult) -> Self {
+        Self {
+            books: v.books as u64,
+            book_sources: v.book_sources as u64,
+            replace_rules: v.replace_rules as u64,
+            messages: v.messages,
+        }
+    }
+}
+
+/// 同步返回两份真实文档；只对固定外层类型化。
+#[derive(Debug, Clone)]
+pub struct WebDavSyncResultDto {
+    pub books: String,
+    pub sources: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct RssSourceDto {
     pub source_url: String,

@@ -1,5 +1,22 @@
 # API 契约文档
 
+## 非音频固定结果类型化（2026-10-18，实施前冻结）
+
+本批原位替换三项正式FRB返回类型，不新增JSON兼容入口；同批生成两端绑定并重建原生库。
+
+| 入口 | Rust DTO / Dart领域结果 | 字段与保持行为 |
+|---|---|---|
+| parseRule(content, rule, ruleType) | RuleParseResultDto / RuleParseResult | results: List<String>、count: u64→int；顺序/重复/Unicode保留，count为结果条数，规则前缀判定与失败异常保持 |
+| importOldData(dir) | OldDataImportResultDto / OldDataImportResult | books/bookSources/replaceRules: u64→int、messages: List<String>；保留逐文件部分成功及消息顺序，不新增事务；目录预检查与失败异常保持 |
+| webdavFullSync(connection, localBooks, localSources) | WebDavSyncResultDto / WebDavSyncResult | books/sources: String，仍是实际文档原文，不在边界反复编码外层JSON；上传/下载顺序、认证与错误保持 |
+
+Dart窄接口、正式/Mock实现与消费层同步使用领域结果，不暴露生成DTO给UI；旧备份导入的
+消息优先/计数提示不变。规则Mock仍不实现解析器，以原输入作为单条占位结果；WebDAV Mock
+返回输入的两份文档而非虚构synced标志，不宣称发生远端同步。WebDAV配置/书架/书源文档、
+脚本与正文继续使用字符串；不变更增量同步、音频/TTS、错误码、schema、依赖或版本。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## 引擎选择与书级偏好Dart边界（2026-10-17，实施前冻结）
 
 ReadAloudSelectionService负责默认引擎、书级优先/全局回退、HTTP稳定ID与音色选择保存；
@@ -1241,7 +1258,7 @@ Rust导出、参数、返回和数据库格式保持。
 |------|------|------|------|
 | `backup(String dirPath)` | dirPath | `Future<String>` | 备份数据，返回备份文件路径。**P2-4（2026-08-13）**：Flutter 在 FFI 写出 JSON 后注入 `appPrefs`（当前 SharedPreferences 快照，已按 restoreIgnore + alwaysIgnore 过滤）；无新 FFI 签名 |
 | `restore(String backupPath)` | backupPath | `Future<void>` | 恢复数据。BackupService从RestoreIgnoreRepository读取策略并预过滤本地书，先调用本方法恢复业务表，成功后由BackupPreferencesService按忽略规则应用appPrefs并检查写入结果；部分失败独立反馈，应用层集中刷新配置。Rust签名不变 |
-| `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<String>`（统计 JSON） | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回 JSON：`{books, bookSources, replaceRules, messages: string[]}` |
+| `importOldData(String dirPath)` | dirPath：含旧版备份文件的目录 | `Future<OldDataImportResult>` | **P2-4（2026-08-13）**：对齐原版 `ImportOldData.importUri`。读取目录下 `myBookShelf.json` / `myBookSource.json` / `myBookReplaceRule.json`（缺文件不致命，计入 `messages`）；书架字段映射（`noteUrl`→`bookUrl`、`bookInfoBean.*` 等）；书源经 `toNewRule`/`toNewUrl`/`toNewUrls`/`uaToHeader` 迁到 3.x 规则结构；替换规则兼容新格式或旧字段（`regex`/`replaceSummary`/`useTo`/`enable`/`serialNumber`）。已存在 `bookUrl` 的书跳过。返回结构化统计：books / bookSources / replaceRules / messages |
 
 ### 2.12 阅读记录（10 个方法）
 
@@ -1401,7 +1418,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `parseRule(String content, String rule, String ruleType)` | content, rule, ruleType（css/xpath/json/regex 等，rule 无 `@` 前缀时拼为 `@type:rule`） | `Future<String>` | 使用规则解析内容，返回 `{results,count}` JSON |
+| `parseRule(String content, String rule, String ruleType)` | content, rule, ruleType（css/xpath/json/regex 等，rule 无 `@` 前缀时拼为 `@type:rule`） | `Future<RuleParseResult>` | 使用规则解析内容，返回结构化 results/count，保留结果顺序 |
 
 ### 2.20 网络操作（5 个方法）
 
@@ -1501,7 +1518,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `webdavUpload(WebDavConnection connection, String path, String data)` | connection, path, data | `Future<void>` | WebDAV 上传文件 |
 | `webdavDownload(WebDavConnection connection, String path)` | connection, path | `Future<String>` | WebDAV 下载文件（**仅 UTF-8 文本**；二进制请用 `webdavDownloadFile`） |
 | `webdavDelete(WebDavConnection connection, String path)` | connection, path | `Future<void>` | WebDAV 删除远程文件 |
-| `webdavFullSync(WebDavConnection connection, String localBooks, String localSources)` | connection, localBooks, localSources | `Future<String>` | WebDAV 全量同步 |
+| `webdavFullSync(WebDavConnection connection, String localBooks, String localSources)` | connection, localBooks, localSources | `Future<WebDavSyncResult>` | WebDAV 全量同步 |
 | `webdavUploadFile(WebDavConnection connection, String path, String localFilePath)` | connection（适配层编码为原WebDavConfig JSON）；path: 远程目标路径；localFilePath: 本地文件绝对路径 | `Future<void>` | WebDAV 从本地文件路径读取并上传（大文件场景，如书籍上传至远程），区别于既有 `webdavUpload` 的 String data 直传；既有 `webdavUpload` 签名保持不变。错误码：Io（文件不存在/读取失败）/ Net（上传失败）/ Internal（配置解析失败）（台账 §5.11-1 上传至远程，Task #50，加法式新增） |
 | `webdavDownloadFile(WebDavConnection connection, String path, String localFilePath)` | connection（适配层编码为WebDavConfig JSON，字段 `url`/`username`/`password`/`remote_dir`）；path: 相对 `remote_dir` 的远程路径；localFilePath: 本地落盘绝对路径 | `Future<void>` | WebDAV 下载**二进制**到本地文件（对齐远程书库 `RemoteBookActivity` 导入；镜像 `webdavUploadFile`）。父目录不存在时创建；错误码：Io（写盘失败）/ Net（下载失败）/ Internal（配置解析失败）。既有 `webdavDownload` 签名保持不变（加法式新增，2026-08-12 P1-5） |
 

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/webdav_sync_result.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
@@ -91,7 +93,9 @@ void main() {
       ],
     );
     when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-        .thenAnswer((_) async => '{"books":"[]","sources":$remoteSources}');
+        .thenAnswer(
+          (_) async => WebDavSyncResult(books: '[]', sources: remoteSources),
+        );
     when(() => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'))
         .thenAnswer((_) async => remoteBooks);
     when(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))
@@ -302,7 +306,9 @@ void main() {
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => const []);
       when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
-          .thenAnswer((_) async => '{"books":"[]","sources":"[]"}');
+          .thenAnswer(
+            (_) async => const WebDavSyncResult(books: '[]', sources: '[]'),
+          );
       when(() => mockApi.webDavService.webdavDownload(any(), 'bookshelf.json'))
           .thenAnswer((_) async => remoteBooks);
       when(() => mockApi.webDavService.webdavDownload(any(), 'sources.json'))

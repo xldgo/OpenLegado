@@ -74,7 +74,9 @@ void main() {
       )).isSuccess,
       isTrue,
     );
-    expect(await api.ruleExecutionService.parseRule('原文', 'p', 'css'), '原文');
+    final parsed = await api.ruleExecutionService.parseRule('原文', 'p', 'css');
+    expect(parsed.results, ['原文']);
+    expect(parsed.count, 1);
     expect(await api.ruleExecutionService.evalJs('1+1'), 'undefined');
     expect(await api.ruleExecutionService.getJsEngineVersion(), 'mock-quickjs');
   });

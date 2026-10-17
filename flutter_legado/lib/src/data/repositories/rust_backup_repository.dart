@@ -1,3 +1,4 @@
+import '../../domain/models/old_data_import_result.dart';
 import '../../domain/contracts/backup_repository.dart';
 
 import 'dart:io';
@@ -40,12 +41,18 @@ final class RustBackupRepository implements BackupRepository {
 
   /// 导入旧版数据（委托 Rust import_old_data）
   @override
-  Future<String> importOldData(String dirPath) async {
+  Future<OldDataImportResult> importOldData(String dirPath) async {
     final dir = Directory(dirPath);
     if (!await dir.exists()) {
       throw RustApiException('目录不存在: $dirPath', operation: 'importOldData');
     }
-    return bridge.importOldData(dir: dirPath);
+    final value = await bridge.importOldData(dir: dirPath);
+    return OldDataImportResult(
+      books: value.books.toInt(),
+      bookSources: value.bookSources.toInt(),
+      replaceRules: value.replaceRules.toInt(),
+      messages: List.unmodifiable(value.messages),
+    );
   }
 
   @override

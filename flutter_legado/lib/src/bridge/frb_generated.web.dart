@@ -763,6 +763,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LogLevelDto dco_decode_log_level_dto(dynamic raw);
 
   @protected
+  OldDataImportResultDto dco_decode_old_data_import_result_dto(dynamic raw);
+
+  @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
 
   @protected
@@ -938,6 +941,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RssStarSnapshotDto dco_decode_rss_star_snapshot_dto(dynamic raw);
 
   @protected
+  RuleParseResultDto dco_decode_rule_parse_result_dto(dynamic raw);
+
+  @protected
   RuleSubscriptionDto dco_decode_rule_subscription_dto(dynamic raw);
 
   @protected
@@ -1032,6 +1038,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebDavFileDto dco_decode_web_dav_file_dto(dynamic raw);
+
+  @protected
+  WebDavSyncResultDto dco_decode_web_dav_sync_result_dto(dynamic raw);
 
   @protected
   WebSearchResultDto dco_decode_web_search_result_dto(dynamic raw);
@@ -1977,6 +1986,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LogLevelDto sse_decode_log_level_dto(SseDeserializer deserializer);
 
   @protected
+  OldDataImportResultDto sse_decode_old_data_import_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
     SseDeserializer deserializer,
   );
@@ -2202,6 +2216,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RuleParseResultDto sse_decode_rule_parse_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RuleSubscriptionDto sse_decode_rule_subscription_dto(
     SseDeserializer deserializer,
   );
@@ -2320,6 +2339,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebDavFileDto sse_decode_web_dav_file_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavSyncResultDto sse_decode_web_dav_sync_result_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   WebSearchResultDto sse_decode_web_search_result_dto(
@@ -3520,6 +3544,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_log_level_dto(LogLevelDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_old_data_import_result_dto(
+    OldDataImportResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_Map_String_String_None(
     Map<String, String>? self,
     SseSerializer serializer,
@@ -3805,6 +3835,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_rule_parse_result_dto(
+    RuleParseResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_rule_subscription_dto(
     RuleSubscriptionDto self,
     SseSerializer serializer,
@@ -3957,6 +3993,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_web_dav_file_dto(
     WebDavFileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_sync_result_dto(
+    WebDavSyncResultDto self,
     SseSerializer serializer,
   );
 

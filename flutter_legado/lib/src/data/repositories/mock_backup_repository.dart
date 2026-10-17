@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import '../../domain/models/old_data_import_result.dart';
 import '../../domain/contracts/backup_repository.dart';
 
 /// 本地备份访问沿用原方法行为。— Codex + Bridge
@@ -19,12 +18,12 @@ final class MockBackupRepository implements BackupRepository {
   Future<List<String>> backupList(String dir) async => [];
 
   @override
-  Future<String> importOldData(String dirPath) async {
-    return jsonEncode({
-      'books': 0,
-      'bookSources': 0,
-      'replaceRules': 0,
-      'messages': <String>['mock: 未找到旧版备份文件'],
-    });
+  Future<OldDataImportResult> importOldData(String dirPath) async {
+    return const OldDataImportResult(
+      books: 0,
+      bookSources: 0,
+      replaceRules: 0,
+      messages: ['mock: 未找到旧版备份文件'],
+    );
   }
 }

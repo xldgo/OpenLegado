@@ -495,13 +495,14 @@ void main() {
       expect(result, isEmpty);
     });
 
-    test('webdavFullSync 返回成功', () async {
+    test('webdavFullSync占位返回文档，不声称远端同步', () async {
       final result = await api.webDavService.webdavFullSync(
         const WebDavConnection(),
         '/books',
         '/sources',
       );
-      expect(result, contains('synced'));
+      expect(result.books, '/books');
+      expect(result.sources, '/sources');
     });
   });
 

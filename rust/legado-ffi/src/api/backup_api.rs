@@ -1,5 +1,5 @@
 //! 备份宿主适配：装配所属存储，保留文档与DTO映射。
-use legado_core::{LegadoError, LegadoResult};
+use legado_core::LegadoResult;
 use legado_engine::backup_service::BackupService;
 pub use legado_engine::backup_service::{BackupData, RestoreStats};
 fn host_service() -> BackupService {
@@ -33,15 +33,8 @@ pub fn list_backup_files(dir: &str) -> Vec<crate::business_dto::BackupFileDto> {
         })
         .collect()
 }
-pub fn import_old_data(dir: &str) -> LegadoResult<String> {
-    let result = host_service().import_old_data(dir)?;
-    serde_json::to_string(&serde_json::json!({
-        "books": result.books,
-        "bookSources": result.book_sources,
-        "replaceRules": result.replace_rules,
-        "messages": result.messages,
-    }))
-    .map_err(|e| LegadoError::Internal(format!("统计序列化失败: {e}")))
+pub fn import_old_data(dir: &str) -> LegadoResult<legado_engine::backup_service::OldImportResult> {
+    host_service().import_old_data(dir)
 }
 #[cfg(test)]
 mod tests {

@@ -160,6 +160,38 @@ class DictionaryRuleDto {
 
 enum LogLevelDto { message, crash, http }
 
+/// 旧版文件导入的实际计数及逐文件消息。
+class OldDataImportResultDto {
+  final BigInt books;
+  final BigInt bookSources;
+  final BigInt replaceRules;
+  final List<String> messages;
+
+  const OldDataImportResultDto({
+    required this.books,
+    required this.bookSources,
+    required this.replaceRules,
+    required this.messages,
+  });
+
+  @override
+  int get hashCode =>
+      books.hashCode ^
+      bookSources.hashCode ^
+      replaceRules.hashCode ^
+      messages.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OldDataImportResultDto &&
+          runtimeType == other.runtimeType &&
+          books == other.books &&
+          bookSources == other.bookSources &&
+          replaceRules == other.replaceRules &&
+          messages == other.messages;
+}
+
 class ReplaceRuleDto {
   final PlatformInt64 id;
   final String name;
@@ -579,6 +611,25 @@ class RssStarSnapshotDto {
           variable == other.variable;
 }
 
+/// 规则执行的固定外层，结果中的文本不再另行编码。
+class RuleParseResultDto {
+  final List<String> results;
+  final BigInt count;
+
+  const RuleParseResultDto({required this.results, required this.count});
+
+  @override
+  int get hashCode => results.hashCode ^ count.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RuleParseResultDto &&
+          runtimeType == other.runtimeType &&
+          results == other.results &&
+          count == other.count;
+}
+
 class RuleSubscriptionDto {
   final PlatformInt64 id;
   final String url;
@@ -766,4 +817,23 @@ class SubscriptionCheckDto {
           hasUpdate == other.hasUpdate &&
           remoteVersion == other.remoteVersion &&
           error == other.error;
+}
+
+/// 同步返回两份真实文档；只对固定外层类型化。
+class WebDavSyncResultDto {
+  final String books;
+  final String sources;
+
+  const WebDavSyncResultDto({required this.books, required this.sources});
+
+  @override
+  int get hashCode => books.hashCode ^ sources.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavSyncResultDto &&
+          runtimeType == other.runtimeType &&
+          books == other.books &&
+          sources == other.sources;
 }

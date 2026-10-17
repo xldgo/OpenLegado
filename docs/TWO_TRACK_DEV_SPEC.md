@@ -687,3 +687,18 @@ CachedChapterEntry从原API路径重导出，FRB仍使用原CachedChapterDto。
 公开FFI/生成绑定、schema、依赖、应用版本与UI不变，状态与验证仅维护于Active计划。
 
 编写者：Codex｜2026-10-18
+
+
+### 非音频固定结果传输（2026-10-18）
+
+规则解析、旧版导入统计及WebDAV全量同步的固定外层由FRB DTO传输，
+Dart正式适配器映射成domain/models中的独立结果，不把生成DTO交给UI。
+规则结果顺序与计数、旧导入逐文件部分成功和消息优先提示保持；
+WebDAV的books/sources仍为真实文档字符串，类型化不改变同步或恢复行为。
+Mock只提供同形占位数据，不宣称发生真实解析、导入或远端同步。
+
+三项返回类型原位更换，使用方必须配套更新生成绑定及Native库；
+不保留第二套JSON返回入口。配置/脚本/正文/实际文档继续用字符串，
+仍用SSE，不宣称零拷贝。字段与接口以API_CONTRACT为准，状态与证据仅维护于Active。
+
+编写者：Codex + Bridge｜2026-10-18

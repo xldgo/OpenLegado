@@ -1,4 +1,7 @@
 import 'package:flutter_legado/src/bridge/file_dto.dart';
+import 'package:flutter_legado/src/bridge/business_dto.dart';
+import 'package:flutter_legado/src/bridge/frb_generated.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/data/bridge/file_dto_mapping.dart';
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 
@@ -15,7 +18,45 @@ import 'package:flutter_legado/src/providers/backup_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+class _Bridge extends Mock implements RustLibApi {}
+
 void main() {
+  test('同步固定外层直接映射，文档内容和异常不被重解释', () async {
+    final bridge = _Bridge();
+    RustLib.initMock(api: bridge);
+    addTearDown(RustLib.dispose);
+    const connection = WebDavConnection(url: 'https://dav.test');
+    final config = encodeWebDavConfig(connection);
+    when(
+      () => bridge.crateFfiFfiWebdavFullSync(
+        configJson: config,
+        localBooks: '本地😀',
+        localSources: '本地源',
+      ),
+    ).thenAnswer(
+      (_) async =>
+          const WebDavSyncResultDto(books: '远端😀非JSON', sources: '{"文档":"原样"}'),
+    );
+    final result = await const RustWebDavService().webdavFullSync(
+      connection,
+      '本地😀',
+      '本地源',
+    );
+    expect(result.books, '远端😀非JSON');
+    expect(result.sources, '{"文档":"原样"}');
+    final failure = StateError('远端拒绝');
+    when(
+      () => bridge.crateFfiFfiWebdavFullSync(
+        configJson: config,
+        localBooks: '本地😀',
+        localSources: '本地源',
+      ),
+    ).thenThrow(failure);
+    await expectLater(
+      const RustWebDavService().webdavFullSync(connection, '本地😀', '本地源'),
+      throwsA(same(failure)),
+    );
+  });
   test('目录元数据逐字段映射，精确大小与空值保留', () {
     expect(
       webDavFileFromDto(

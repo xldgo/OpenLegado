@@ -1495,12 +1495,12 @@ pub mod ffi {
 
     // ─── 规则解析 ─────────────────────────────────────────────
 
-    /// 使用规则解析内容，返回 JSON 格式的结果
+    /// 使用规则解析内容，直接返回结果列表与计数。
     pub fn parse_rule(
         content: String,
         rule: String,
         rule_type: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<RuleParseResultDto, BridgeError> {
         let effective_rule = if rule.starts_with('@') || rule.starts_with('<') {
             rule
         } else if !rule_type.trim().is_empty() {
@@ -1511,10 +1511,10 @@ pub mod ffi {
         let analyzer = legado_parser::AnalyzeRule::new(content, String::new())
             .with_variable_reader(crate::engine_holder::js_resources().variable_reader());
         let results = analyzer.get_strings(&effective_rule)?;
-        Ok(serde_json::to_string(&serde_json::json!({
-            "results": results,
-            "count": results.len(),
-        }))?)
+        Ok(RuleParseResultDto {
+            count: results.len() as u64,
+            results,
+        })
     }
 
     // ─── JS 引擎 ──────────────────────────────────────────────
@@ -2526,10 +2526,9 @@ pub mod ffi {
         crate::api::backup_api::list_backup_files(&dir)
     }
 
-    /// 导入旧版（阅读 2.x）备份目录，返回统计 JSON
-    pub fn import_old_data(dir: String) -> Result<String, BridgeError> {
-        let result = crate::api::backup_api::import_old_data(&dir)?;
-        Ok(result)
+    /// 导入旧版（阅读 2.x）备份目录，返回实际计数与逐文件消息。
+    pub fn import_old_data(dir: String) -> Result<OldDataImportResultDto, BridgeError> {
+        Ok(crate::api::backup_api::import_old_data(&dir)?.into())
     }
 
     // ─── 服务器管理 ─────────────────────────────────────
@@ -2658,17 +2657,15 @@ pub mod ffi {
         Ok(())
     }
 
-    /// WebDAV 全量同步（返回 JSON: {"books": "...", "sources": "..."}）
+    /// WebDAV 全量同步，返回两份文档原文。
     pub fn webdav_full_sync(
         config_json: String,
         local_books: String,
         local_sources: String,
-    ) -> Result<String, BridgeError> {
-        Ok(crate::api::webdav_api::webdav_full_sync(
-            &config_json,
-            &local_books,
-            &local_sources,
-        )?)
+    ) -> Result<WebDavSyncResultDto, BridgeError> {
+        let (books, sources) =
+            crate::api::webdav_api::webdav_full_sync(&config_json, &local_books, &local_sources)?;
+        Ok(WebDavSyncResultDto { books, sources })
     }
 
     // ─── 下载管理器 ─────────────────────────────────────
