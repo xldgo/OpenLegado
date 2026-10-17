@@ -148,9 +148,10 @@ pub mod ffi {
     use super::to_json;
     use crate::frb_generated::StreamSink;
     use crate::transfer_dto::{
-        AnnotatedCandidateDto, BookDto, BookSourceDto, BookmarkDto, ChangeSourceBatchDto,
-        ChapterListDto, CheckProgressDto, CheckResultDto, ReadRecordDetailDto, SearchBookDto,
-        SearchSourceBatchDto, SourceCheckConfigDto, SourceSwitchResponseDto,
+        AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
+        ChangeSourceBatchDto, ChapterListDto, CheckProgressDto, CheckResultDto, HighlightRuleDto,
+        ReadRecordDailyDto, ReadRecordDetailDto, ReadRecordDto, ReadRecordSessionDto,
+        SearchBookDto, SearchSourceBatchDto, SourceCheckConfigDto, SourceSwitchResponseDto,
         SwitchSearchOptionsDto, TextResponseDto,
     };
 
@@ -1760,10 +1761,9 @@ pub mod ffi {
 
     // ─── 阅读记录 ─────────────────────────────────────
 
-    /// 获取所有阅读记录（JSON 数组）
-    pub fn read_record_list() -> Result<String, BridgeError> {
-        let records = crate::api::read_record_api::get_read_records()?;
-        to_json(&records)
+    /// 获取所有阅读记录的类型化快照。
+    pub fn read_record_list() -> Result<Vec<ReadRecordDto>, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_records()?)
     }
 
     /// 添加/更新阅读记录，返回阅读时长
@@ -1797,8 +1797,11 @@ pub mod ffi {
     }
 
     /// 查询真实阅读会话（毫秒时间戳与章节序号）。
-    pub fn read_record_session_list() -> Result<String, BridgeError> {
-        to_json(&crate::api::read_record_api::get_read_record_sessions()?)
+    pub fn read_record_session_list() -> Result<Vec<ReadRecordSessionDto>, BridgeError> {
+        Ok(crate::api::read_record_api::get_read_record_sessions()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
     /// 删除某日单书明细及对应会话区间。
     pub fn read_record_detail_delete(
@@ -1831,19 +1834,18 @@ pub mod ffi {
 
     /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
     ///
-    /// 返回 JSON：`[{"date":"2026-08-29","seconds":3600},...]`（按日期升序）。
-    pub fn read_record_daily_list(year: i32) -> Result<String, BridgeError> {
+    /// 返回日期升序的类型化列表，时长仍为整秒。
+    pub fn read_record_daily_list(year: i32) -> Result<Vec<ReadRecordDailyDto>, BridgeError> {
         let db = crate::db_state::with_database(|db| {
             let repo = legado_db::repository::read_record_repository::ReadRecordRepository::new(
                 db.connection(),
             );
             repo.list_daily_year(year)
         })?;
-        let items: Vec<serde_json::Value> = db
+        Ok(db
             .into_iter()
-            .map(|(date, seconds)| serde_json::json!({"date": date, "seconds": seconds}))
-            .collect();
-        Ok(serde_json::to_string(&items)?)
+            .map(|(date, seconds)| ReadRecordDailyDto { date, seconds })
+            .collect())
     }
 
     /// 删除阅读记录
@@ -1871,10 +1873,9 @@ pub mod ffi {
 
     // ─── 书籍分组 ─────────────────────────────────────
 
-    /// 获取所有书籍分组（JSON 数组）
-    pub fn book_group_list() -> Result<String, BridgeError> {
-        let groups = crate::api::book_group_api::get_book_groups()?;
-        to_json(&groups)
+    /// 获取所有书籍分组的既有字段投影。
+    pub fn book_group_list() -> Result<Vec<BookGroupDto>, BridgeError> {
+        Ok(crate::api::book_group_api::get_book_groups()?)
     }
 
     /// 添加书籍分组，返回新分组 ID
@@ -2969,9 +2970,9 @@ pub mod ffi {
 
     // ─── 高亮体系（Task #69，加法式新增）────────────────
 
-    /// 新增/更新高亮记录（BookHighlight JSON，time=0 时自动分配），返回 time
-    pub fn highlight_add(highlight_json: String) -> Result<i64, BridgeError> {
-        Ok(crate::api::highlight_api::highlight_add(&highlight_json)?)
+    /// 新增/更新高亮记录；time=0 时自动分配，返回实际主键。
+    pub fn highlight_add(highlight: BookHighlightDto) -> Result<i64, BridgeError> {
+        Ok(crate::api::highlight_api::highlight_add(highlight.into())?)
     }
 
     /// 按主键 time 删除高亮记录，返回是否实际删除
@@ -2986,42 +2987,42 @@ pub mod ffi {
         )?)
     }
 
-    /// 按书籍获取高亮列表（BookHighlight 数组 JSON）
-    pub fn highlight_list_by_book(book_url: String) -> Result<String, BridgeError> {
+    /// 按书籍获取类型化高亮列表。
+    pub fn highlight_list_by_book(book_url: String) -> Result<Vec<BookHighlightDto>, BridgeError> {
         let list = crate::api::highlight_api::highlight_list_by_book(&book_url)?;
-        to_json(&list)
+        Ok(list.into_iter().map(Into::into).collect())
     }
 
-    /// 按书籍 + 章节索引获取高亮列表（BookHighlight 数组 JSON）
+    /// 按书籍与章节索引获取类型化高亮列表。
     pub fn highlight_list_by_chapter(
         book_url: String,
         chapter_index: i32,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<Vec<BookHighlightDto>, BridgeError> {
         let list = crate::api::highlight_api::highlight_list_by_chapter(&book_url, chapter_index)?;
-        to_json(&list)
+        Ok(list.into_iter().map(Into::into).collect())
     }
 
-    /// 全局关键词搜索高亮（BookHighlight 数组 JSON）
-    pub fn highlight_search(keyword: String) -> Result<String, BridgeError> {
+    /// 全局关键词搜索高亮。
+    pub fn highlight_search(keyword: String) -> Result<Vec<BookHighlightDto>, BridgeError> {
         let list = crate::api::highlight_api::highlight_search(&keyword)?;
-        to_json(&list)
+        Ok(list.into_iter().map(Into::into).collect())
     }
 
-    /// 获取所有高亮记录（BookHighlight 数组 JSON）
-    pub fn highlight_list_all() -> Result<String, BridgeError> {
+    /// 获取所有类型化高亮记录。
+    pub fn highlight_list_all() -> Result<Vec<BookHighlightDto>, BridgeError> {
         let list = crate::api::highlight_api::highlight_list_all()?;
-        to_json(&list)
+        Ok(list.into_iter().map(Into::into).collect())
     }
 
-    /// 获取所有高亮规则（HighlightRule 数组 JSON，按 sortOrder 升序）
-    pub fn highlight_rule_list() -> Result<String, BridgeError> {
+    /// 获取所有高亮规则，按 sortOrder 升序。
+    pub fn highlight_rule_list() -> Result<Vec<HighlightRuleDto>, BridgeError> {
         let rules = crate::api::highlight_api::highlight_rule_list()?;
-        to_json(&rules)
+        Ok(rules.into_iter().map(Into::into).collect())
     }
 
-    /// 保存高亮规则（HighlightRule JSON，id=0 时自增新增），返回规则 ID
-    pub fn highlight_rule_save(rule_json: String) -> Result<i64, BridgeError> {
-        Ok(crate::api::highlight_api::highlight_rule_save(&rule_json)?)
+    /// 保存高亮规则；id=0 时新增，返回规则 ID。
+    pub fn highlight_rule_save(rule: HighlightRuleDto) -> Result<i64, BridgeError> {
+        Ok(crate::api::highlight_api::highlight_rule_save(rule.into())?)
     }
 
     /// 按 ID 删除高亮规则，返回是否实际删除
@@ -3029,13 +3030,13 @@ pub mod ffi {
         Ok(crate::api::highlight_api::highlight_rule_delete(id)?)
     }
 
-    /// 按书籍查找启用的高亮规则（HighlightRule 数组 JSON）
+    /// 按书籍查找启用的高亮规则。
     pub fn highlight_rule_find_enabled(
         book_name: String,
         origin: String,
-    ) -> Result<String, BridgeError> {
+    ) -> Result<Vec<HighlightRuleDto>, BridgeError> {
         let rules = crate::api::highlight_api::highlight_rule_find_enabled(&book_name, &origin)?;
-        to_json(&rules)
+        Ok(rules.into_iter().map(Into::into).collect())
     }
 
     // ─── 听书播放（播放模式/书籍解析）───────────────────

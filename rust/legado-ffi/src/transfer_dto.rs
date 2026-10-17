@@ -72,9 +72,332 @@ impl From<ReadRecordDetail> for ReadRecordDetailDto {
     }
 }
 
+/// 累计阅读快照；毫秒、设备归属与原服务端字段保持。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadRecordDto {
+    pub book_name: String,
+    pub author: String,
+    pub read_time: i64,
+    pub last_read: i64,
+    #[serde(default)]
+    pub device_id: String,
+}
+
+/// 每日阅读总量；日期保持本地日期，时长单位为整秒。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadRecordDailyDto {
+    pub date: String,
+    pub seconds: i64,
+}
+
+/// 真实阅读会话；不在桥接层重新分片或折算时间。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadRecordSessionDto {
+    pub id: i64,
+    pub device_id: String,
+    pub book_name: String,
+    pub author: String,
+    pub book_url: String,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub chapter_index: i32,
+}
+
+impl From<legado_db::ReadRecordSession> for ReadRecordSessionDto {
+    fn from(value: legado_db::ReadRecordSession) -> Self {
+        Self {
+            id: value.id,
+            device_id: value.device_id,
+            book_name: value.book_name,
+            author: value.book_author,
+            book_url: value.book_url,
+            start_time: value.start_time,
+            end_time: value.end_time,
+            chapter_index: value.chapter_index,
+        }
+    }
+}
+
+/// 分组列表的既有六字段投影，不扩充写入能力。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookGroupDto {
+    pub group_id: i64,
+    pub group_name: String,
+    pub cover: Option<String>,
+    pub order: i32,
+    pub show: bool,
+    pub is_private: bool,
+}
+
+/// 正文标注完整快照；样式文档原样传输。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BookHighlightDto {
+    pub time: i64,
+    pub book_url: String,
+    pub chapter_url: String,
+    pub book_name: String,
+    pub book_author: String,
+    pub chapter_index: i32,
+    pub chapter_pos: i32,
+    pub chapter_pos_end: i32,
+    pub layout_title_length: i32,
+    pub chapter_name: String,
+    pub book_text: String,
+    pub style: String,
+    pub note: String,
+}
+
+impl From<legado_core::models::BookHighlight> for BookHighlightDto {
+    fn from(value: legado_core::models::BookHighlight) -> Self {
+        Self {
+            time: value.time,
+            book_url: value.bookUrl,
+            chapter_url: value.chapterUrl,
+            book_name: value.bookName,
+            book_author: value.bookAuthor,
+            chapter_index: value.chapterIndex,
+            chapter_pos: value.chapterPos,
+            chapter_pos_end: value.chapterPosEnd,
+            layout_title_length: value.layoutTitleLength,
+            chapter_name: value.chapterName,
+            book_text: value.bookText,
+            style: value.style,
+            note: value.note,
+        }
+    }
+}
+
+impl From<BookHighlightDto> for legado_core::models::BookHighlight {
+    fn from(value: BookHighlightDto) -> Self {
+        Self {
+            time: value.time,
+            bookUrl: value.book_url,
+            chapterUrl: value.chapter_url,
+            bookName: value.book_name,
+            bookAuthor: value.book_author,
+            chapterIndex: value.chapter_index,
+            chapterPos: value.chapter_pos,
+            chapterPosEnd: value.chapter_pos_end,
+            layoutTitleLength: value.layout_title_length,
+            chapterName: value.chapter_name,
+            bookText: value.book_text,
+            style: value.style,
+            note: value.note,
+        }
+    }
+}
+
+/// 自动高亮规则；可空作用范围、排序、超时和标题标记全部保留。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HighlightRuleDto {
+    pub id: i64,
+    pub name: String,
+    pub pattern: String,
+    pub is_regex: bool,
+    pub scope: Option<String>,
+    pub is_enabled: bool,
+    pub style: String,
+    pub sort_order: i32,
+    pub timeout_millisecond: i64,
+    pub apply_to_title: bool,
+}
+
+impl From<legado_core::models::HighlightRule> for HighlightRuleDto {
+    fn from(value: legado_core::models::HighlightRule) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            pattern: value.pattern,
+            is_regex: value.isRegex,
+            scope: value.scope,
+            is_enabled: value.isEnabled,
+            style: value.style,
+            sort_order: value.sortOrder,
+            timeout_millisecond: value.timeoutMillisecond,
+            apply_to_title: value.applyToTitle,
+        }
+    }
+}
+
+impl From<HighlightRuleDto> for legado_core::models::HighlightRule {
+    fn from(value: HighlightRuleDto) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            pattern: value.pattern,
+            isRegex: value.is_regex,
+            scope: value.scope,
+            isEnabled: value.is_enabled,
+            style: value.style,
+            sortOrder: value.sort_order,
+            timeoutMillisecond: value.timeout_millisecond,
+            applyToTitle: value.apply_to_title,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reading_queries_keep_time_units_sessions_and_deletion() {
+        let _guard = crate::db_state::ensure_test_db();
+        use crate::ffi::ffi;
+        use chrono::TimeZone;
+        let start = chrono::Local
+            .with_ymd_and_hms(2026, 1, 2, 12, 0, 0)
+            .unwrap()
+            .timestamp_millis();
+        ffi::read_record_record_time(
+            "类型化阅读记录".into(),
+            "作者😀".into(),
+            2999,
+            Some(start),
+            Some(start + 2999),
+            "book://typed-record".into(),
+            7,
+        )
+        .unwrap();
+        let record = ffi::read_record_list()
+            .unwrap()
+            .into_iter()
+            .find(|r| r.book_name == "类型化阅读记录")
+            .unwrap();
+        assert_eq!(
+            (record.author.as_str(), record.read_time, record.last_read),
+            ("作者😀", 2999, start + 2999)
+        );
+        let session = ffi::read_record_session_list()
+            .unwrap()
+            .into_iter()
+            .find(|r| r.book_name == record.book_name)
+            .unwrap();
+        assert_eq!(
+            (
+                session.author.as_str(),
+                session.book_url.as_str(),
+                session.chapter_index,
+                session.end_time - session.start_time
+            ),
+            ("作者😀", "book://typed-record", 7, 2999)
+        );
+        let daily = ffi::read_record_daily_list(2026).unwrap();
+        assert!(daily.windows(2).all(|pair| pair[0].date < pair[1].date));
+        assert!(
+            daily
+                .iter()
+                .any(|r| r.date == "2026-01-02" && r.seconds >= 2)
+        );
+        ffi::read_record_sessions_delete(vec![session.id]).unwrap();
+        assert!(
+            !ffi::read_record_session_list()
+                .unwrap()
+                .iter()
+                .any(|r| r.id == session.id)
+        );
+    }
+
+    #[test]
+    fn typed_highlights_preserve_fields_keys_filtering_and_rule_updates() {
+        let _guard = crate::db_state::ensure_test_db();
+        use crate::ffi::ffi;
+        let item = legado_core::models::BookHighlight {
+            bookUrl: "book://typed-highlight".into(),
+            chapterUrl: "chapter://😀".into(),
+            bookName: "类型化高亮".into(),
+            bookAuthor: "作者".into(),
+            chapterIndex: 3,
+            chapterPos: 2,
+            chapterPosEnd: 9,
+            layoutTitleLength: -1,
+            chapterName: "第三章".into(),
+            bookText: "甲😀正文".into(),
+            style: "{\"textColor\":-65536}".into(),
+            note: "原始笔记".into(),
+            ..Default::default()
+        };
+        let first = ffi::highlight_add(item.clone().into()).unwrap();
+        let second = ffi::highlight_add(item.clone().into()).unwrap();
+        assert_ne!(first, second);
+        let mut saved = item.clone();
+        saved.time = first;
+        saved.note = "修改".into();
+        assert_eq!(ffi::highlight_add(saved.clone().into()).unwrap(), first);
+        let entries = ffi::highlight_list_by_chapter(item.bookUrl.clone(), 3).unwrap();
+        assert_eq!(entries.len(), 2);
+        let actual: legado_core::models::BookHighlight = entries
+            .into_iter()
+            .find(|e| e.time == first)
+            .unwrap()
+            .into();
+        assert_eq!(actual, saved);
+        assert!(
+            ffi::highlight_search("甲😀".into())
+                .unwrap()
+                .iter()
+                .any(|e| e.time == first)
+        );
+        let mut rule = legado_core::models::HighlightRule {
+            name: "类型化规则".into(),
+            pattern: "甲😀".into(),
+            scope: Some("类型化高亮".into()),
+            isRegex: true,
+            applyToTitle: true,
+            sortOrder: -4,
+            timeoutMillisecond: 9007199254740993,
+            style: "{\"backgroundColor\":1}".into(),
+            ..Default::default()
+        };
+        rule.id = ffi::highlight_rule_save(rule.clone().into()).unwrap();
+        let found: legado_core::models::HighlightRule =
+            ffi::highlight_rule_find_enabled(item.bookName.clone(), "源".into())
+                .unwrap()
+                .into_iter()
+                .find(|r| r.id == rule.id)
+                .unwrap()
+                .into();
+        assert_eq!(found, rule);
+        rule.isEnabled = false;
+        assert_eq!(
+            ffi::highlight_rule_save(rule.clone().into()).unwrap(),
+            rule.id
+        );
+        assert!(
+            !ffi::highlight_rule_find_enabled(item.bookName, "源".into())
+                .unwrap()
+                .iter()
+                .any(|r| r.id == rule.id)
+        );
+        assert!(ffi::highlight_rule_delete(rule.id).unwrap());
+        assert_eq!(ffi::highlight_delete_by_book(item.bookUrl).unwrap(), 2);
+    }
+
+    #[test]
+    fn typed_groups_keep_existing_projection_and_visibility() {
+        let _guard = crate::db_state::ensure_test_db();
+        use crate::ffi::ffi;
+        let id = ffi::book_group_add("类型化分组😀".into(), "".into(), -5, Some(true)).unwrap();
+        assert!(ffi::book_group_set_show(id, false).unwrap());
+        let group = ffi::book_group_list()
+            .unwrap()
+            .into_iter()
+            .find(|g| g.group_id == id)
+            .unwrap();
+        assert_eq!(
+            (
+                group.group_name.as_str(),
+                group.cover,
+                group.order,
+                group.show,
+                group.is_private
+            ),
+            ("类型化分组😀", None, -5, false, true)
+        );
+        assert!(ffi::book_group_delete(id).unwrap());
+    }
 
     #[test]
     fn bookmark_roundtrip_preserves_large_ids_unicode_and_offsets() {

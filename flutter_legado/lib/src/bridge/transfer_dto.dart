@@ -248,6 +248,114 @@ class BookDto {
           coverOrigin == other.coverOrigin;
 }
 
+/// 分组列表的既有六字段投影，不扩充写入能力。
+class BookGroupDto {
+  final PlatformInt64 groupId;
+  final String groupName;
+  final String? cover;
+  final int order;
+  final bool show_;
+  final bool isPrivate;
+
+  const BookGroupDto({
+    required this.groupId,
+    required this.groupName,
+    this.cover,
+    required this.order,
+    required this.show_,
+    required this.isPrivate,
+  });
+
+  @override
+  int get hashCode =>
+      groupId.hashCode ^
+      groupName.hashCode ^
+      cover.hashCode ^
+      order.hashCode ^
+      show_.hashCode ^
+      isPrivate.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BookGroupDto &&
+          runtimeType == other.runtimeType &&
+          groupId == other.groupId &&
+          groupName == other.groupName &&
+          cover == other.cover &&
+          order == other.order &&
+          show_ == other.show_ &&
+          isPrivate == other.isPrivate;
+}
+
+/// 正文标注完整快照；样式文档原样传输。
+class BookHighlightDto {
+  final PlatformInt64 time;
+  final String bookUrl;
+  final String chapterUrl;
+  final String bookName;
+  final String bookAuthor;
+  final int chapterIndex;
+  final int chapterPos;
+  final int chapterPosEnd;
+  final int layoutTitleLength;
+  final String chapterName;
+  final String bookText;
+  final String style;
+  final String note;
+
+  const BookHighlightDto({
+    required this.time,
+    required this.bookUrl,
+    required this.chapterUrl,
+    required this.bookName,
+    required this.bookAuthor,
+    required this.chapterIndex,
+    required this.chapterPos,
+    required this.chapterPosEnd,
+    required this.layoutTitleLength,
+    required this.chapterName,
+    required this.bookText,
+    required this.style,
+    required this.note,
+  });
+
+  @override
+  int get hashCode =>
+      time.hashCode ^
+      bookUrl.hashCode ^
+      chapterUrl.hashCode ^
+      bookName.hashCode ^
+      bookAuthor.hashCode ^
+      chapterIndex.hashCode ^
+      chapterPos.hashCode ^
+      chapterPosEnd.hashCode ^
+      layoutTitleLength.hashCode ^
+      chapterName.hashCode ^
+      bookText.hashCode ^
+      style.hashCode ^
+      note.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BookHighlightDto &&
+          runtimeType == other.runtimeType &&
+          time == other.time &&
+          bookUrl == other.bookUrl &&
+          chapterUrl == other.chapterUrl &&
+          bookName == other.bookName &&
+          bookAuthor == other.bookAuthor &&
+          chapterIndex == other.chapterIndex &&
+          chapterPos == other.chapterPos &&
+          chapterPosEnd == other.chapterPosEnd &&
+          layoutTitleLength == other.layoutTitleLength &&
+          chapterName == other.chapterName &&
+          bookText == other.bookText &&
+          style == other.style &&
+          note == other.note;
+}
+
 /// BookInfoRule 的桥接快照；不承担领域校验。
 class BookInfoRuleDto {
   final String? init;
@@ -901,6 +1009,62 @@ class ExploreRuleDto {
           wordCount == other.wordCount;
 }
 
+/// 自动高亮规则；可空作用范围、排序、超时和标题标记全部保留。
+class HighlightRuleDto {
+  final PlatformInt64 id;
+  final String name;
+  final String pattern;
+  final bool isRegex;
+  final String? scope;
+  final bool isEnabled;
+  final String style;
+  final int sortOrder;
+  final PlatformInt64 timeoutMillisecond;
+  final bool applyToTitle;
+
+  const HighlightRuleDto({
+    required this.id,
+    required this.name,
+    required this.pattern,
+    required this.isRegex,
+    this.scope,
+    required this.isEnabled,
+    required this.style,
+    required this.sortOrder,
+    required this.timeoutMillisecond,
+    required this.applyToTitle,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      pattern.hashCode ^
+      isRegex.hashCode ^
+      scope.hashCode ^
+      isEnabled.hashCode ^
+      style.hashCode ^
+      sortOrder.hashCode ^
+      timeoutMillisecond.hashCode ^
+      applyToTitle.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HighlightRuleDto &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          pattern == other.pattern &&
+          isRegex == other.isRegex &&
+          scope == other.scope &&
+          isEnabled == other.isEnabled &&
+          style == other.style &&
+          sortOrder == other.sortOrder &&
+          timeoutMillisecond == other.timeoutMillisecond &&
+          applyToTitle == other.applyToTitle;
+}
+
 class PlatformActionDto {
   final PlatformActionKind action;
   final String? url;
@@ -1095,6 +1259,25 @@ class ReadConfigDto {
           webtoonSidePaddingDp == other.webtoonSidePaddingDp;
 }
 
+/// 每日阅读总量；日期保持本地日期，时长单位为整秒。
+class ReadRecordDailyDto {
+  final String date;
+  final PlatformInt64 seconds;
+
+  const ReadRecordDailyDto({required this.date, required this.seconds});
+
+  @override
+  int get hashCode => date.hashCode ^ seconds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadRecordDailyDto &&
+          runtimeType == other.runtimeType &&
+          date == other.date &&
+          seconds == other.seconds;
+}
+
 /// 单书每日阅读明细，保留服务端既有 JSON 序列化，同时供 FRB 强类型传输。
 class ReadRecordDetailDto {
   final String bookName;
@@ -1129,6 +1312,90 @@ class ReadRecordDetailDto {
           date == other.date &&
           readTime == other.readTime &&
           lastRead == other.lastRead;
+}
+
+/// 累计阅读快照；毫秒、设备归属与原服务端字段保持。
+class ReadRecordDto {
+  final String bookName;
+  final String author;
+  final PlatformInt64 readTime;
+  final PlatformInt64 lastRead;
+  final String deviceId;
+
+  const ReadRecordDto({
+    required this.bookName,
+    required this.author,
+    required this.readTime,
+    required this.lastRead,
+    required this.deviceId,
+  });
+
+  @override
+  int get hashCode =>
+      bookName.hashCode ^
+      author.hashCode ^
+      readTime.hashCode ^
+      lastRead.hashCode ^
+      deviceId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadRecordDto &&
+          runtimeType == other.runtimeType &&
+          bookName == other.bookName &&
+          author == other.author &&
+          readTime == other.readTime &&
+          lastRead == other.lastRead &&
+          deviceId == other.deviceId;
+}
+
+/// 真实阅读会话；不在桥接层重新分片或折算时间。
+class ReadRecordSessionDto {
+  final PlatformInt64 id;
+  final String deviceId;
+  final String bookName;
+  final String author;
+  final String bookUrl;
+  final PlatformInt64 startTime;
+  final PlatformInt64 endTime;
+  final int chapterIndex;
+
+  const ReadRecordSessionDto({
+    required this.id,
+    required this.deviceId,
+    required this.bookName,
+    required this.author,
+    required this.bookUrl,
+    required this.startTime,
+    required this.endTime,
+    required this.chapterIndex,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      deviceId.hashCode ^
+      bookName.hashCode ^
+      author.hashCode ^
+      bookUrl.hashCode ^
+      startTime.hashCode ^
+      endTime.hashCode ^
+      chapterIndex.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadRecordSessionDto &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          deviceId == other.deviceId &&
+          bookName == other.bookName &&
+          author == other.author &&
+          bookUrl == other.bookUrl &&
+          startTime == other.startTime &&
+          endTime == other.endTime &&
+          chapterIndex == other.chapterIndex;
 }
 
 /// RedirectInfo 的类型化事件载荷。

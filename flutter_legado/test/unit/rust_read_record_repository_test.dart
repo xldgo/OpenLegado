@@ -17,10 +17,17 @@ void main() {
   });
   tearDown(RustLib.dispose);
 
-  test('保留裸数组、毫秒和原字段，不缓存查询结果', () async {
+  test('类型化记录保留毫秒和原字段，不缓存查询结果', () async {
     when(() => bridge.crateFfiFfiReadRecordList()).thenAnswer(
-      (_) async =>
-          '[{"bookName":"测试","readTime":4999,"lastRead":123,"deviceId":"设备"}]',
+      (_) async => [
+        const ReadRecordDto(
+          bookName: '测试',
+          author: '',
+          readTime: 4999,
+          lastRead: 123,
+          deviceId: '设备',
+        ),
+      ],
     );
     expect(await repository.getReadRecords(), [
       const ReadRecord(
@@ -30,8 +37,7 @@ void main() {
         deviceId: '设备',
       ),
     ]);
-    when(() => bridge.crateFfiFfiReadRecordList())
-        .thenAnswer((_) async => '[]');
+    when(() => bridge.crateFfiFfiReadRecordList()).thenAnswer((_) async => []);
     expect(await repository.getReadRecords(), isEmpty);
     verify(() => bridge.crateFfiFfiReadRecordList()).called(2);
     verifyNoMoreInteractions(bridge);
@@ -85,31 +91,20 @@ void main() {
     verifyNoMoreInteractions(bridge);
   });
 
-  test('每日查询传递年份，保持日期顺序、秒数及额外字段', () async {
+  test('每日查询传递年份，保持日期顺序及整秒单位', () async {
     when(() => bridge.crateFfiFfiReadRecordDailyList(year: 2026)).thenAnswer(
-      (_) async => '[{"date":"2026-01-01","seconds":5,"extra":"保留"},{"date":"2026-01-02","seconds":8}]',
+      (_) async => [
+        const ReadRecordDailyDto(date: '2026-01-01', seconds: 5),
+        const ReadRecordDailyDto(date: '2026-01-02', seconds: 8),
+      ],
     );
     expect(await repository.readRecordDailyList(2026), [
-      {'date': '2026-01-01', 'seconds': 5, 'extra': '保留'},
+      {'date': '2026-01-01', 'seconds': 5},
       {'date': '2026-01-02', 'seconds': 8},
     ]);
     verify(() => bridge.crateFfiFfiReadRecordDailyList(year: 2026)).called(1);
     verifyNoMoreInteractions(bridge);
   });
-
-  for (final json in ['{}', '{"data":[]}', 'null', '不是 JSON']) {
-    test('查询拒绝非法或包装 JSON：$json', () async {
-      when(() => bridge.crateFfiFfiReadRecordList())
-          .thenAnswer((_) async => json);
-      when(() => bridge.crateFfiFfiReadRecordDailyList(year: 2026))
-          .thenAnswer((_) async => json);
-      await expectLater(repository.getReadRecords(), throwsFormatException);
-      await expectLater(
-        repository.readRecordDailyList(2026),
-        throwsFormatException,
-      );
-    });
-  }
 
   test('五项底层错误原样上抛，不降级为空列表或成功', () async {
     final failure = StateError('数据库读取失败');
@@ -211,5 +206,41 @@ void main() {
     await expectLater(repository.clearReadRecords(), throwsStateError);
     await Future<void>.delayed(Duration.zero);
     expect(events, 1);
+  });
+
+  test('会话快照保持大整数、作者、章节和查询错误，不缓存结果', () async {
+    when(() => bridge.crateFfiFfiReadRecordSessionList()).thenAnswer(
+      (_) async => [
+        const ReadRecordSessionDto(
+          id: 9007199254740993,
+          deviceId: '设备😀',
+          bookName: '同名',
+          author: '真实作者',
+          bookUrl: 'book://1',
+          startTime: 9007199254740993,
+          endTime: 9007199254743992,
+          chapterIndex: 7,
+        ),
+      ],
+    );
+    final session = (await repository.getReadRecordSessions()).single;
+    expect(session.id, 9007199254740993);
+    expect(session.deviceId, '设备😀');
+    expect(session.bookName, '同名');
+    expect(session.author, '真实作者');
+    expect(session.bookUrl, 'book://1');
+    expect(session.startTime, 9007199254740993);
+    expect(session.endTime, 9007199254743992);
+    expect(session.durationMs, 2999);
+    expect(session.chapterIndex, 7);
+    when(() => bridge.crateFfiFfiReadRecordSessionList())
+        .thenAnswer((_) async => []);
+    expect(await repository.getReadRecordSessions(), isEmpty);
+    final failure = StateError('会话查询失败');
+    when(() => bridge.crateFfiFfiReadRecordSessionList()).thenThrow(failure);
+    await expectLater(
+      repository.getReadRecordSessions(),
+      throwsA(same(failure)),
+    );
   });
 }

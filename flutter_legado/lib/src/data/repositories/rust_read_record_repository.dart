@@ -7,7 +7,7 @@ import '../../domain/contracts/read_record_changes.dart';
 import '../../models/misc.dart';
 import '../../models/read_record_detail.dart';
 import '../../models/read_record_session.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/reading_dto_mapping.dart';
 
 /// 直接调用已有 FRB；复用应用已初始化的运行时和数据库。— Codex + Bridge
 final class RustReadRecordRepository
@@ -17,11 +17,7 @@ final class RustReadRecordRepository
 
   @override
   Future<List<ReadRecord>> getReadRecords() async {
-    final json = await bridge.readRecordList();
-    return decodeRustJsonList(
-      json,
-      'bookApi',
-    ).map((item) => ReadRecord.fromJson(item as Map<String, dynamic>)).toList();
+    return (await bridge.readRecordList()).map(readRecordFromDto).toList();
   }
 
   @override
@@ -63,8 +59,14 @@ final class RustReadRecordRepository
 
   @override
   Future<List<Map<String, dynamic>>> readRecordDailyList(int year) async {
-    final json = await bridge.readRecordDailyList(year: year);
-    return decodeRustJsonList(json, 'bookApi').cast<Map<String, dynamic>>();
+    return (await bridge.readRecordDailyList(year: year))
+        .map(
+          (value) => <String, dynamic>{
+            'date': value.date,
+            'seconds': value.seconds,
+          },
+        )
+        .toList();
   }
 
   ReadRecordDetail _detailFromDto(dto.ReadRecordDetailDto value) =>
@@ -88,9 +90,8 @@ final class RustReadRecordRepository
 
   @override
   Future<List<ReadRecordSession>> getReadRecordSessions() async {
-    final json = await bridge.readRecordSessionList();
-    return decodeRustJsonList(json, 'readRecord')
-        .map((item) => ReadRecordSession.fromJson(item as Map<String, dynamic>))
+    return (await bridge.readRecordSessionList())
+        .map(readRecordSessionFromDto)
         .toList();
   }
 

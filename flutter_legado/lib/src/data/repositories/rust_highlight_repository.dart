@@ -1,31 +1,16 @@
-import 'dart:convert';
-
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/highlight_repository.dart';
 import '../../domain/models/book_highlight.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/reading_dto_mapping.dart';
 
-/// 正式标注直接使用现有FRB，传输JSON不进入页面。— Codex + Bridge
+/// 正式标注通过类型化快照访问现有FRB。— Codex + Bridge
 final class RustHighlightRepository implements HighlightRepository {
   const RustHighlightRepository();
-
-  List<BookHighlight> _decode(String json) =>
-      decodeRustJsonList(json, 'highlight').indexed.map((entry) {
-        final (index, value) = entry;
-        if (value is! Map<String, dynamic>) {
-          throw FormatException('标注列表第${index + 1}项必须是对象');
-        }
-        try {
-          return BookHighlight.fromJson(value);
-        } on TypeError catch (error) {
-          throw FormatException('标注列表第${index + 1}项字段类型无效：$error');
-        }
-      }).toList();
 
   @override
   Future<int> highlightAdd(BookHighlight highlight) async {
     final time = await bridge.highlightAdd(
-      highlightJson: jsonEncode(highlight.toJson()),
+      highlight: bookHighlightToDto(highlight),
     );
     if (time <= 0) throw StateError('保存标注未返回有效主键');
     return time;
@@ -42,25 +27,29 @@ final class RustHighlightRepository implements HighlightRepository {
   @override
   Future<List<BookHighlight>> highlightListByBook({
     required String bookUrl,
-  }) async => _decode(await bridge.highlightListByBook(bookUrl: bookUrl));
+  }) async =>
+      (await bridge.highlightListByBook(bookUrl: bookUrl))
+          .map(bookHighlightFromDto)
+          .toList();
 
   @override
   Future<List<BookHighlight>> highlightListByChapter({
     required String bookUrl,
     required int chapterIndex,
-  }) async => _decode(
-    await bridge.highlightListByChapter(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-    ),
-  );
+  }) async => (await bridge.highlightListByChapter(
+    bookUrl: bookUrl,
+    chapterIndex: chapterIndex,
+  )).map(bookHighlightFromDto).toList();
 
   @override
   Future<List<BookHighlight>> highlightSearch({
     required String keyword,
-  }) async => _decode(await bridge.highlightSearch(keyword: keyword));
+  }) async =>
+      (await bridge.highlightSearch(keyword: keyword))
+          .map(bookHighlightFromDto)
+          .toList();
 
   @override
   Future<List<BookHighlight>> highlightListAll() async =>
-      _decode(await bridge.highlightListAll());
+      (await bridge.highlightListAll()).map(bookHighlightFromDto).toList();
 }

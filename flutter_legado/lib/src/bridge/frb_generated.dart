@@ -288,7 +288,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<bool> crateFfiFfiBookGroupDelete({required PlatformInt64 id});
 
-  Future<String> crateFfiFfiBookGroupList();
+  Future<List<BookGroupDto>> crateFfiFfiBookGroupList();
 
   Future<bool> crateFfiFfiBookGroupSetShow({
     required PlatformInt64 id,
@@ -558,7 +558,7 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<PlatformInt64> crateFfiFfiHighlightAdd({
-    required String highlightJson,
+    required BookHighlightDto highlight,
   });
 
   Future<bool> crateFfiFfiHighlightDelete({required PlatformInt64 time});
@@ -567,29 +567,33 @@ abstract class RustLibApi extends BaseApi {
     required String bookUrl,
   });
 
-  Future<String> crateFfiFfiHighlightListAll();
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightListAll();
 
-  Future<String> crateFfiFfiHighlightListByBook({required String bookUrl});
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightListByBook({
+    required String bookUrl,
+  });
 
-  Future<String> crateFfiFfiHighlightListByChapter({
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightListByChapter({
     required String bookUrl,
     required int chapterIndex,
   });
 
   Future<bool> crateFfiFfiHighlightRuleDelete({required PlatformInt64 id});
 
-  Future<String> crateFfiFfiHighlightRuleFindEnabled({
+  Future<List<HighlightRuleDto>> crateFfiFfiHighlightRuleFindEnabled({
     required String bookName,
     required String origin,
   });
 
-  Future<String> crateFfiFfiHighlightRuleList();
+  Future<List<HighlightRuleDto>> crateFfiFfiHighlightRuleList();
 
   Future<PlatformInt64> crateFfiFfiHighlightRuleSave({
-    required String ruleJson,
+    required HighlightRuleDto rule,
   });
 
-  Future<String> crateFfiFfiHighlightSearch({required String keyword});
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightSearch({
+    required String keyword,
+  });
 
   Future<String> crateFfiFfiHttpGet({required String url});
 
@@ -689,7 +693,9 @@ abstract class RustLibApi extends BaseApi {
 
   Future<bool> crateFfiFfiReadRecordClear();
 
-  Future<String> crateFfiFfiReadRecordDailyList({required int year});
+  Future<List<ReadRecordDailyDto>> crateFfiFfiReadRecordDailyList({
+    required int year,
+  });
 
   Future<bool> crateFfiFfiReadRecordDelete({required String bookName});
 
@@ -708,7 +714,7 @@ abstract class RustLibApi extends BaseApi {
     required int year,
   });
 
-  Future<String> crateFfiFfiReadRecordList();
+  Future<List<ReadRecordDto>> crateFfiFfiReadRecordList();
 
   Future<PlatformInt64> crateFfiFfiReadRecordRecordTime({
     required String bookName,
@@ -720,7 +726,7 @@ abstract class RustLibApi extends BaseApi {
     required int chapterIndex,
   });
 
-  Future<String> crateFfiFfiReadRecordSessionList();
+  Future<List<ReadRecordSessionDto>> crateFfiFfiReadRecordSessionList();
 
   Future<bool> crateFfiFfiReadRecordSessionsDelete({required Int64List ids});
 
@@ -3007,7 +3013,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "book_group_delete", argNames: ["id"]);
 
   @override
-  Future<String> crateFfiFfiBookGroupList() {
+  Future<List<BookGroupDto>> crateFfiFfiBookGroupList() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -3020,7 +3026,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_book_group_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiBookGroupListConstMeta,
@@ -5453,13 +5459,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<PlatformInt64> crateFfiFfiHighlightAdd({
-    required String highlightJson,
+    required BookHighlightDto highlight,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(highlightJson, serializer);
+          sse_encode_box_autoadd_book_highlight_dto(highlight, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -5472,16 +5478,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightAddConstMeta,
-        argValues: [highlightJson],
+        argValues: [highlight],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateFfiFfiHighlightAddConstMeta => const TaskConstMeta(
-    debugName: "highlight_add",
-    argNames: ["highlightJson"],
-  );
+  TaskConstMeta get kCrateFfiFfiHighlightAddConstMeta =>
+      const TaskConstMeta(debugName: "highlight_add", argNames: ["highlight"]);
 
   @override
   Future<bool> crateFfiFfiHighlightDelete({required PlatformInt64 time}) {
@@ -5545,7 +5549,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiHighlightListAll() {
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightListAll() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -5558,7 +5562,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_book_highlight_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightListAllConstMeta,
@@ -5572,7 +5576,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "highlight_list_all", argNames: []);
 
   @override
-  Future<String> crateFfiFfiHighlightListByBook({required String bookUrl}) {
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightListByBook({
+    required String bookUrl,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -5586,7 +5592,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_book_highlight_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightListByBookConstMeta,
@@ -5603,7 +5609,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiHighlightListByChapter({
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightListByChapter({
     required String bookUrl,
     required int chapterIndex,
   }) {
@@ -5621,7 +5627,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_book_highlight_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightListByChapterConstMeta,
@@ -5666,7 +5672,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "highlight_rule_delete", argNames: ["id"]);
 
   @override
-  Future<String> crateFfiFfiHighlightRuleFindEnabled({
+  Future<List<HighlightRuleDto>> crateFfiFfiHighlightRuleFindEnabled({
     required String bookName,
     required String origin,
   }) {
@@ -5684,7 +5690,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_highlight_rule_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightRuleFindEnabledConstMeta,
@@ -5701,7 +5707,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiHighlightRuleList() {
+  Future<List<HighlightRuleDto>> crateFfiFfiHighlightRuleList() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -5714,7 +5720,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_highlight_rule_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightRuleListConstMeta,
@@ -5729,13 +5735,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<PlatformInt64> crateFfiFfiHighlightRuleSave({
-    required String ruleJson,
+    required HighlightRuleDto rule,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(ruleJson, serializer);
+          sse_encode_box_autoadd_highlight_rule_dto(rule, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -5748,20 +5754,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightRuleSaveConstMeta,
-        argValues: [ruleJson],
+        argValues: [rule],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta get kCrateFfiFfiHighlightRuleSaveConstMeta =>
-      const TaskConstMeta(
-        debugName: "highlight_rule_save",
-        argNames: ["ruleJson"],
-      );
+      const TaskConstMeta(debugName: "highlight_rule_save", argNames: ["rule"]);
 
   @override
-  Future<String> crateFfiFfiHighlightSearch({required String keyword}) {
+  Future<List<BookHighlightDto>> crateFfiFfiHighlightSearch({
+    required String keyword,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -5775,7 +5780,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_book_highlight_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiHighlightSearchConstMeta,
@@ -6776,7 +6781,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "read_record_clear", argNames: []);
 
   @override
-  Future<String> crateFfiFfiReadRecordDailyList({required int year}) {
+  Future<List<ReadRecordDailyDto>> crateFfiFfiReadRecordDailyList({
+    required int year,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -6790,7 +6797,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_read_record_daily_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiReadRecordDailyListConstMeta,
@@ -6943,7 +6950,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiReadRecordList() {
+  Future<List<ReadRecordDto>> crateFfiFfiReadRecordList() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -6956,7 +6963,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_read_record_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiReadRecordListConstMeta,
@@ -7031,7 +7038,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiReadRecordSessionList() {
+  Future<List<ReadRecordSessionDto>> crateFfiFfiReadRecordSessionList() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -7044,7 +7051,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_read_record_session_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiReadRecordSessionListConstMeta,
@@ -11855,6 +11862,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BookGroupDto dco_decode_book_group_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return BookGroupDto(
+      groupId: dco_decode_i_64(arr[0]),
+      groupName: dco_decode_String(arr[1]),
+      cover: dco_decode_opt_String(arr[2]),
+      order: dco_decode_i_32(arr[3]),
+      show_: dco_decode_bool(arr[4]),
+      isPrivate: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  BookHighlightDto dco_decode_book_highlight_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 13)
+      throw Exception('unexpected arr length: expect 13 but see ${arr.length}');
+    return BookHighlightDto(
+      time: dco_decode_i_64(arr[0]),
+      bookUrl: dco_decode_String(arr[1]),
+      chapterUrl: dco_decode_String(arr[2]),
+      bookName: dco_decode_String(arr[3]),
+      bookAuthor: dco_decode_String(arr[4]),
+      chapterIndex: dco_decode_i_32(arr[5]),
+      chapterPos: dco_decode_i_32(arr[6]),
+      chapterPosEnd: dco_decode_i_32(arr[7]),
+      layoutTitleLength: dco_decode_i_32(arr[8]),
+      chapterName: dco_decode_String(arr[9]),
+      bookText: dco_decode_String(arr[10]),
+      style: dco_decode_String(arr[11]),
+      note: dco_decode_String(arr[12]),
+    );
+  }
+
+  @protected
   BookInfoRuleDto dco_decode_book_info_rule_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -11952,6 +11998,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BookHighlightDto dco_decode_box_autoadd_book_highlight_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_book_highlight_dto(raw);
+  }
+
+  @protected
   BookInfoRuleDto dco_decode_box_autoadd_book_info_rule_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_book_info_rule_dto(raw);
@@ -12003,6 +12055,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_box_autoadd_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  HighlightRuleDto dco_decode_box_autoadd_highlight_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_highlight_rule_dto(raw);
   }
 
   @protected
@@ -12300,6 +12358,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  HighlightRuleDto dco_decode_highlight_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    return HighlightRuleDto(
+      id: dco_decode_i_64(arr[0]),
+      name: dco_decode_String(arr[1]),
+      pattern: dco_decode_String(arr[2]),
+      isRegex: dco_decode_bool(arr[3]),
+      scope: dco_decode_opt_String(arr[4]),
+      isEnabled: dco_decode_bool(arr[5]),
+      style: dco_decode_String(arr[6]),
+      sortOrder: dco_decode_i_32(arr[7]),
+      timeoutMillisecond: dco_decode_i_64(arr[8]),
+      applyToTitle: dco_decode_bool(arr[9]),
+    );
   }
 
   @protected
@@ -12740,6 +12818,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<BookGroupDto> dco_decode_list_book_group_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_book_group_dto).toList();
+  }
+
+  @protected
+  List<BookHighlightDto> dco_decode_list_book_highlight_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_book_highlight_dto).toList();
+  }
+
+  @protected
   List<BookSourceDto> dco_decode_list_book_source_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_book_source_dto).toList();
@@ -12755,6 +12845,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_chapter_dto).toList();
+  }
+
+  @protected
+  List<HighlightRuleDto> dco_decode_list_highlight_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_highlight_rule_dto).toList();
   }
 
   @protected
@@ -12839,12 +12935,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ReadRecordDailyDto> dco_decode_list_read_record_daily_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_read_record_daily_dto)
+        .toList();
+  }
+
+  @protected
   List<ReadRecordDetailDto> dco_decode_list_read_record_detail_dto(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>)
         .map(dco_decode_read_record_detail_dto)
+        .toList();
+  }
+
+  @protected
+  List<ReadRecordDto> dco_decode_list_read_record_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_read_record_dto).toList();
+  }
+
+  @protected
+  List<ReadRecordSessionDto> dco_decode_list_read_record_session_dto(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_read_record_session_dto)
         .toList();
   }
 
@@ -13100,6 +13220,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ReadRecordDailyDto dco_decode_read_record_daily_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ReadRecordDailyDto(
+      date: dco_decode_String(arr[0]),
+      seconds: dco_decode_i_64(arr[1]),
+    );
+  }
+
+  @protected
   ReadRecordDetailDto dco_decode_read_record_detail_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -13111,6 +13243,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       date: dco_decode_String(arr[2]),
       readTime: dco_decode_i_64(arr[3]),
       lastRead: dco_decode_i_64(arr[4]),
+    );
+  }
+
+  @protected
+  ReadRecordDto dco_decode_read_record_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ReadRecordDto(
+      bookName: dco_decode_String(arr[0]),
+      author: dco_decode_String(arr[1]),
+      readTime: dco_decode_i_64(arr[2]),
+      lastRead: dco_decode_i_64(arr[3]),
+      deviceId: dco_decode_String(arr[4]),
+    );
+  }
+
+  @protected
+  ReadRecordSessionDto dco_decode_read_record_session_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return ReadRecordSessionDto(
+      id: dco_decode_i_64(arr[0]),
+      deviceId: dco_decode_String(arr[1]),
+      bookName: dco_decode_String(arr[2]),
+      author: dco_decode_String(arr[3]),
+      bookUrl: dco_decode_String(arr[4]),
+      startTime: dco_decode_i_64(arr[5]),
+      endTime: dco_decode_i_64(arr[6]),
+      chapterIndex: dco_decode_i_32(arr[7]),
     );
   }
 
@@ -13744,6 +13909,58 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BookGroupDto sse_decode_book_group_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_groupId = sse_decode_i_64(deserializer);
+    var var_groupName = sse_decode_String(deserializer);
+    var var_cover = sse_decode_opt_String(deserializer);
+    var var_order = sse_decode_i_32(deserializer);
+    var var_show_ = sse_decode_bool(deserializer);
+    var var_isPrivate = sse_decode_bool(deserializer);
+    return BookGroupDto(
+      groupId: var_groupId,
+      groupName: var_groupName,
+      cover: var_cover,
+      order: var_order,
+      show_: var_show_,
+      isPrivate: var_isPrivate,
+    );
+  }
+
+  @protected
+  BookHighlightDto sse_decode_book_highlight_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_time = sse_decode_i_64(deserializer);
+    var var_bookUrl = sse_decode_String(deserializer);
+    var var_chapterUrl = sse_decode_String(deserializer);
+    var var_bookName = sse_decode_String(deserializer);
+    var var_bookAuthor = sse_decode_String(deserializer);
+    var var_chapterIndex = sse_decode_i_32(deserializer);
+    var var_chapterPos = sse_decode_i_32(deserializer);
+    var var_chapterPosEnd = sse_decode_i_32(deserializer);
+    var var_layoutTitleLength = sse_decode_i_32(deserializer);
+    var var_chapterName = sse_decode_String(deserializer);
+    var var_bookText = sse_decode_String(deserializer);
+    var var_style = sse_decode_String(deserializer);
+    var var_note = sse_decode_String(deserializer);
+    return BookHighlightDto(
+      time: var_time,
+      bookUrl: var_bookUrl,
+      chapterUrl: var_chapterUrl,
+      bookName: var_bookName,
+      bookAuthor: var_bookAuthor,
+      chapterIndex: var_chapterIndex,
+      chapterPos: var_chapterPos,
+      chapterPosEnd: var_chapterPosEnd,
+      layoutTitleLength: var_layoutTitleLength,
+      chapterName: var_chapterName,
+      bookText: var_bookText,
+      style: var_style,
+      note: var_note,
+    );
+  }
+
+  @protected
   BookInfoRuleDto sse_decode_book_info_rule_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_init = sse_decode_opt_String(deserializer);
@@ -13897,6 +14114,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BookHighlightDto sse_decode_box_autoadd_book_highlight_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_book_highlight_dto(deserializer));
+  }
+
+  @protected
   BookInfoRuleDto sse_decode_box_autoadd_book_info_rule_dto(
     SseDeserializer deserializer,
   ) {
@@ -13960,6 +14185,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_f_64(deserializer));
+  }
+
+  @protected
+  HighlightRuleDto sse_decode_box_autoadd_highlight_rule_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_highlight_rule_dto(deserializer));
   }
 
   @protected
@@ -14316,6 +14549,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat64();
+  }
+
+  @protected
+  HighlightRuleDto sse_decode_highlight_rule_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_i_64(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_pattern = sse_decode_String(deserializer);
+    var var_isRegex = sse_decode_bool(deserializer);
+    var var_scope = sse_decode_opt_String(deserializer);
+    var var_isEnabled = sse_decode_bool(deserializer);
+    var var_style = sse_decode_String(deserializer);
+    var var_sortOrder = sse_decode_i_32(deserializer);
+    var var_timeoutMillisecond = sse_decode_i_64(deserializer);
+    var var_applyToTitle = sse_decode_bool(deserializer);
+    return HighlightRuleDto(
+      id: var_id,
+      name: var_name,
+      pattern: var_pattern,
+      isRegex: var_isRegex,
+      scope: var_scope,
+      isEnabled: var_isEnabled,
+      style: var_style,
+      sortOrder: var_sortOrder,
+      timeoutMillisecond: var_timeoutMillisecond,
+      applyToTitle: var_applyToTitle,
+    );
   }
 
   @protected
@@ -14958,6 +15218,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<BookGroupDto> sse_decode_list_book_group_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <BookGroupDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_book_group_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<BookHighlightDto> sse_decode_list_book_highlight_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <BookHighlightDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_book_highlight_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<BookSourceDto> sse_decode_list_book_source_dto(
     SseDeserializer deserializer,
   ) {
@@ -14991,6 +15279,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <ChapterDto>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_chapter_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<HighlightRuleDto> sse_decode_list_highlight_rule_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <HighlightRuleDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_highlight_rule_dto(deserializer));
     }
     return ans_;
   }
@@ -15130,6 +15432,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ReadRecordDailyDto> sse_decode_list_read_record_daily_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ReadRecordDailyDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_read_record_daily_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<ReadRecordDetailDto> sse_decode_list_read_record_detail_dto(
     SseDeserializer deserializer,
   ) {
@@ -15139,6 +15455,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <ReadRecordDetailDto>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_read_record_detail_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ReadRecordDto> sse_decode_list_read_record_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ReadRecordDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_read_record_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ReadRecordSessionDto> sse_decode_list_read_record_session_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ReadRecordSessionDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_read_record_session_dto(deserializer));
     }
     return ans_;
   }
@@ -15608,6 +15952,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ReadRecordDailyDto sse_decode_read_record_daily_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_date = sse_decode_String(deserializer);
+    var var_seconds = sse_decode_i_64(deserializer);
+    return ReadRecordDailyDto(date: var_date, seconds: var_seconds);
+  }
+
+  @protected
   ReadRecordDetailDto sse_decode_read_record_detail_dto(
     SseDeserializer deserializer,
   ) {
@@ -15623,6 +15977,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       date: var_date,
       readTime: var_readTime,
       lastRead: var_lastRead,
+    );
+  }
+
+  @protected
+  ReadRecordDto sse_decode_read_record_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_bookName = sse_decode_String(deserializer);
+    var var_author = sse_decode_String(deserializer);
+    var var_readTime = sse_decode_i_64(deserializer);
+    var var_lastRead = sse_decode_i_64(deserializer);
+    var var_deviceId = sse_decode_String(deserializer);
+    return ReadRecordDto(
+      bookName: var_bookName,
+      author: var_author,
+      readTime: var_readTime,
+      lastRead: var_lastRead,
+      deviceId: var_deviceId,
+    );
+  }
+
+  @protected
+  ReadRecordSessionDto sse_decode_read_record_session_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_i_64(deserializer);
+    var var_deviceId = sse_decode_String(deserializer);
+    var var_bookName = sse_decode_String(deserializer);
+    var var_author = sse_decode_String(deserializer);
+    var var_bookUrl = sse_decode_String(deserializer);
+    var var_startTime = sse_decode_i_64(deserializer);
+    var var_endTime = sse_decode_i_64(deserializer);
+    var var_chapterIndex = sse_decode_i_32(deserializer);
+    return ReadRecordSessionDto(
+      id: var_id,
+      deviceId: var_deviceId,
+      bookName: var_bookName,
+      author: var_author,
+      bookUrl: var_bookUrl,
+      startTime: var_startTime,
+      endTime: var_endTime,
+      chapterIndex: var_chapterIndex,
     );
   }
 
@@ -16341,6 +16737,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_book_group_dto(BookGroupDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.groupId, serializer);
+    sse_encode_String(self.groupName, serializer);
+    sse_encode_opt_String(self.cover, serializer);
+    sse_encode_i_32(self.order, serializer);
+    sse_encode_bool(self.show_, serializer);
+    sse_encode_bool(self.isPrivate, serializer);
+  }
+
+  @protected
+  void sse_encode_book_highlight_dto(
+    BookHighlightDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.time, serializer);
+    sse_encode_String(self.bookUrl, serializer);
+    sse_encode_String(self.chapterUrl, serializer);
+    sse_encode_String(self.bookName, serializer);
+    sse_encode_String(self.bookAuthor, serializer);
+    sse_encode_i_32(self.chapterIndex, serializer);
+    sse_encode_i_32(self.chapterPos, serializer);
+    sse_encode_i_32(self.chapterPosEnd, serializer);
+    sse_encode_i_32(self.layoutTitleLength, serializer);
+    sse_encode_String(self.chapterName, serializer);
+    sse_encode_String(self.bookText, serializer);
+    sse_encode_String(self.style, serializer);
+    sse_encode_String(self.note, serializer);
+  }
+
+  @protected
   void sse_encode_book_info_rule_dto(
     BookInfoRuleDto self,
     SseSerializer serializer,
@@ -16432,6 +16860,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_book_highlight_dto(
+    BookHighlightDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_book_highlight_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_book_info_rule_dto(
     BookInfoRuleDto self,
     SseSerializer serializer,
@@ -16501,6 +16938,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_highlight_rule_dto(
+    HighlightRuleDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_highlight_rule_dto(self, serializer);
   }
 
   @protected
@@ -16814,6 +17260,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat64(self);
+  }
+
+  @protected
+  void sse_encode_highlight_rule_dto(
+    HighlightRuleDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.id, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.pattern, serializer);
+    sse_encode_bool(self.isRegex, serializer);
+    sse_encode_opt_String(self.scope, serializer);
+    sse_encode_bool(self.isEnabled, serializer);
+    sse_encode_String(self.style, serializer);
+    sse_encode_i_32(self.sortOrder, serializer);
+    sse_encode_i_64(self.timeoutMillisecond, serializer);
+    sse_encode_bool(self.applyToTitle, serializer);
   }
 
   @protected
@@ -17312,6 +17776,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_book_group_dto(
+    List<BookGroupDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_book_group_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_book_highlight_dto(
+    List<BookHighlightDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_book_highlight_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_book_source_dto(
     List<BookSourceDto> self,
     SseSerializer serializer,
@@ -17344,6 +17832,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_chapter_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_highlight_rule_dto(
+    List<HighlightRuleDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_highlight_rule_dto(item, serializer);
     }
   }
 
@@ -17484,6 +17984,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_read_record_daily_dto(
+    List<ReadRecordDailyDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_read_record_daily_dto(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_read_record_detail_dto(
     List<ReadRecordDetailDto> self,
     SseSerializer serializer,
@@ -17492,6 +18004,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_read_record_detail_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_read_record_dto(
+    List<ReadRecordDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_read_record_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_read_record_session_dto(
+    List<ReadRecordSessionDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_read_record_session_dto(item, serializer);
     }
   }
 
@@ -17908,6 +18444,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_read_record_daily_dto(
+    ReadRecordDailyDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.date, serializer);
+    sse_encode_i_64(self.seconds, serializer);
+  }
+
+  @protected
   void sse_encode_read_record_detail_dto(
     ReadRecordDetailDto self,
     SseSerializer serializer,
@@ -17918,6 +18464,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.date, serializer);
     sse_encode_i_64(self.readTime, serializer);
     sse_encode_i_64(self.lastRead, serializer);
+  }
+
+  @protected
+  void sse_encode_read_record_dto(
+    ReadRecordDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.bookName, serializer);
+    sse_encode_String(self.author, serializer);
+    sse_encode_i_64(self.readTime, serializer);
+    sse_encode_i_64(self.lastRead, serializer);
+    sse_encode_String(self.deviceId, serializer);
+  }
+
+  @protected
+  void sse_encode_read_record_session_dto(
+    ReadRecordSessionDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.id, serializer);
+    sse_encode_String(self.deviceId, serializer);
+    sse_encode_String(self.bookName, serializer);
+    sse_encode_String(self.author, serializer);
+    sse_encode_String(self.bookUrl, serializer);
+    sse_encode_i_64(self.startTime, serializer);
+    sse_encode_i_64(self.endTime, serializer);
+    sse_encode_i_32(self.chapterIndex, serializer);
   }
 
   @protected

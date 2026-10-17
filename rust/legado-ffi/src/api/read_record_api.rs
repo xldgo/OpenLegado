@@ -2,26 +2,12 @@
 //!
 //! 提供阅读记录的增删查操作，通过 ReadRecordRepository 访问数据库。
 
-use serde::{Deserialize, Serialize};
-
 use legado_core::LegadoResult;
 use legado_db::ReadRecordRepository;
 
 use crate::db_state::with_database;
 
-/// 阅读记录 DTO（camelCase 对齐 Flutter `ReadRecord.fromJson`）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReadRecordDto {
-    pub book_name: String,
-    pub author: String,
-    pub read_time: i64,
-    pub last_read: i64,
-    #[serde(default)]
-    pub device_id: String,
-}
-
-pub use crate::transfer_dto::ReadRecordDetailDto;
+pub use crate::transfer_dto::{ReadRecordDetailDto, ReadRecordDto};
 
 /// 获取所有阅读记录（按 readTime 降序）
 pub fn get_read_records() -> LegadoResult<Vec<ReadRecordDto>> {

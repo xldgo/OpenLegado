@@ -1589,14 +1589,14 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 2.36 正文高亮（highlight FFI）（11 个方法）
 
-> **Dart边界（2026-10-16）**：下表保留FRB传输签名，十一项不再属于根BookApi。
-> HighlightRepository保留标注七项方法名，highlightAdd(BookHighlight highlight)在仓储编码，返回实际time；
+> **Dart边界（2026-10-17类型化更新）**：下表为当前FRB传输签名，十一项不属于根BookApi。
+> HighlightRepository保留标注七项方法名，highlightAdd(BookHighlight highlight)在仓储映射DTO，返回实际time；
 > 四项列表/搜索返回Future<List<BookHighlight>>，删除保留原bool/数量返回。
 > HighlightRuleRepository保留规则四项方法名，highlightRuleSave(HighlightRule rule)返回ID，
 > 列表与适用规则查询返回Future<List<HighlightRule>>；模型移出Provider状态文件并保留既有排序和超时字段。
 > 两份仓储直接调用现有FRB；Mock通过同一装配实例共享状态，规则ID复用原分配器。
-> 空数组合法，坏JSON/根结构/列表条目不当空列表；保存无有效主键或删除返回false不报告成功。
-> 消费者通过独立Provider注入，不在目录页或规则Notifier解码传输JSON；不改变原文偏移、绘制或规则执行。
+> 空列表合法，底层错误原样上抛；保存无有效主键时失败，删除保留原false/数量。
+> 消费者通过独立Provider注入，不在目录页或规则Notifier解析传输载荷；不改变原文偏移、绘制或规则执行。
 >
 > **Flutter 选区调用口径（2026-10-11，UI-READER-SELECTION-20261011）**：新增选区记录的 `chapterPos` / `chapterPosEnd` 为收到的章节正文中的 UTF-16 起止偏移（左闭右开），与 Dart 选区一致；`bookText` 从同一原文区间取得，排版生成的缩进不计入原文。阅读器现有页索引与字符偏移分别管理。Rust 沿用现有整数存储，不新增字段、方法或数据库迁移，也不重写历史高亮记录。
 
@@ -1605,17 +1605,17 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `highlightAdd({required String highlightJson})` | BookHighlight JSON（time=0 时自动分配） | `Future<int>` | 新增/更新高亮记录，返回 time 主键 |
+| `highlightAdd({required BookHighlightDto highlight})` | 完整标注快照（time=0 时自动分配） | `Future<int>` | 新增/更新高亮记录，返回 time 主键 |
 | `highlightDelete({required int time})` | time | `Future<bool>` | 按主键删除高亮记录，返回是否实际删除 |
 | `highlightDeleteByBook({required String bookUrl})` | bookUrl | `Future<int>` | 按书籍删除全部高亮，返回删除数量 |
-| `highlightListByBook({required String bookUrl})` | bookUrl | `Future<String>` | 按书籍获取高亮列表（BookHighlight 数组 JSON） |
-| `highlightListByChapter({required String bookUrl, required int chapterIndex})` | bookUrl, chapterIndex | `Future<String>` | 按书籍+章节获取高亮列表（BookHighlight 数组 JSON） |
-| `highlightSearch({required String keyword})` | keyword | `Future<String>` | 全局关键词搜索高亮（bookText/note，BookHighlight 数组 JSON） |
-| `highlightListAll()` | 无 | `Future<String>` | 获取所有高亮记录（BookHighlight 数组 JSON） |
-| `highlightRuleList()` | 无 | `Future<String>` | 获取所有高亮规则（按 sortOrder 升序，HighlightRule 数组 JSON） |
-| `highlightRuleSave({required String ruleJson})` | HighlightRule JSON（id=0 时自增新增） | `Future<int>` | 保存高亮规则，返回规则 ID |
+| `highlightListByBook({required String bookUrl})` | bookUrl | `Future<List<BookHighlightDto>>` | 按书籍获取高亮列表 |
+| `highlightListByChapter({required String bookUrl, required int chapterIndex})` | bookUrl, chapterIndex | `Future<List<BookHighlightDto>>` | 按书籍+章节获取高亮列表 |
+| `highlightSearch({required String keyword})` | keyword | `Future<List<BookHighlightDto>>` | 全局关键词搜索高亮（bookText/note） |
+| `highlightListAll()` | 无 | `Future<List<BookHighlightDto>>` | 获取所有高亮记录 |
+| `highlightRuleList()` | 无 | `Future<List<HighlightRuleDto>>` | 获取所有高亮规则，按 sortOrder 升序 |
+| `highlightRuleSave({required HighlightRuleDto rule})` | 规则快照（id=0 时自增新增） | `Future<int>` | 保存高亮规则，返回规则 ID |
 | `highlightRuleDelete({required int id})` | id | `Future<bool>` | 按 ID 删除高亮规则，返回是否实际删除 |
-| `highlightRuleFindEnabled({required String bookName, required String origin})` | bookName, origin | `Future<String>` | 按书籍查找启用的高亮规则（scope 匹配书名或 origin，HighlightRule 数组 JSON） |
+| `highlightRuleFindEnabled({required String bookName, required String origin})` | bookName, origin | `Future<List<HighlightRuleDto>>` | 按书籍查找启用的高亮规则，scope 匹配书名或 origin |
 
 ### 2.37 JS 单文件书源配置（JsSourceConfig 对齐）（3 个方法）
 
@@ -2300,3 +2300,33 @@ HTTP/Server所需JSON格式仍由其入口适配，FRB执行链不借JSON序列�
 序列化后交给Dart重新解析。这避免复制Rust导入的宽松反序列化规则及缺键/null语义；用户书源JSON
 仍由既有导入路径解析。Mock与所有调用方同步；配置JSON是现有设置文档格式，仅在数据适配器
 解析一次后转换SourceCheckConfigDto。批量校验的源列表接口不改。
+
+### FFI-TRANSPORT-20261017 / 阅读域补齐契约
+
+本批冻结下列强类型接口；领域仓储和页面行为、数据库与导入导出不变，继续使用 SSE。
+
+| 导出 | 入参或结果 |
+| --- | --- |
+| readRecordList | Vec<ReadRecordDto>：bookName/author/deviceId/readTime/lastRead；时间均为 i64 毫秒，不新增 startTime |
+| readRecordSessionList | Vec<ReadRecordSessionDto>：id/deviceId/bookName/author/bookUrl/startTime/endTime/chapterIndex；时间为毫秒 |
+| readRecordDailyList(year) | Vec<ReadRecordDailyDto>：date/seconds；日期升序，seconds 为 i64 整秒，年份与空结果语义不变 |
+| bookGroupList | Vec<BookGroupDto>：groupId/groupName/cover/order/show/isPrivate；cover 可空，其余领域默认值保持原样 |
+| highlightAdd | BookHighlightDto → i64；time=0 分配主键并避免同毫秒冲突，显式主键仍覆盖 |
+| highlightListByBook / highlightListByChapter / highlightSearch / highlightListAll | Vec<BookHighlightDto>；原过滤、排序与错误语义保持 |
+| highlightRuleSave | HighlightRuleDto → i64；id=0 新增，正数覆盖；Dart 未保存的非正 id 仍归一为 0 |
+| highlightRuleList / highlightRuleFindEnabled | Vec<HighlightRuleDto>；原排序、范围与启用判定保持 |
+
+BookHighlightDto 十三个字段为 time/bookUrl/chapterUrl/bookName/bookAuthor/chapterIndex/chapterPos/
+chapterPosEnd/layoutTitleLength/chapterName/bookText/style/note；位置仍为既有 UTF-16 坐标，
+layoutTitleLength=-1 表示未知，时间为 i64。HighlightRuleDto 十个字段为 id/name/pattern/isRegex/
+scope/isEnabled/style/sortOrder/timeoutMillisecond/applyToTitle；scope 可空，超时为 i64 毫秒。
+style 为既有样式文档字符串，保留内容，不在传输层重新解释。
+
+高亮保存直接把 DTO 转为现有实体；已确认没有生产调用方的旧 JSON 保存入口移除，测试直接调用实体入口。
+阅读记录与分组复用现有同名 DTO，序列化字段保持给 Server 使用；不为迁移补充旧接口从未返回的字段。
+Dart 每日统计仍向原领域接口提供 date/seconds Map，通过字段映射构造，不做 JSON 往返。
+全部列表不吞掉底层错误；Dart 保存高亮/规则的无效返回主键校验保留。
+高亮的四个 i32 位置/章节字段和规则 sortOrder 在 Dart 编码前检查有符号范围；
+超出范围以 RangeError 拒绝，不让直接编码截断。有效负值（如未知标题长度 -1）不改。
+
+编写者：Codex + Bridge｜2026-10-17

@@ -1,9 +1,9 @@
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/book_group_repository.dart';
 import '../../models/misc.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/reading_dto_mapping.dart';
 
-/// 直接调用现有 FRB，保留参数、解码与失败语义。— Codex + Bridge
+/// 直接映射现有分组字段，保留参数与失败语义。— Codex + Bridge
 final class RustBookGroupRepository implements BookGroupRepository {
   const RustBookGroupRepository();
 
@@ -12,11 +12,7 @@ final class RustBookGroupRepository implements BookGroupRepository {
   /// 获取所有书籍分组
   @override
   Future<List<BookGroup>> getBookGroups() async {
-    final json = await bridge.bookGroupList();
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list
-        .map((e) => BookGroup.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (await bridge.bookGroupList()).map(bookGroupFromDto).toList();
   }
 
   /// 添加书籍分组

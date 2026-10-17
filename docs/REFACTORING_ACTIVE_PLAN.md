@@ -3,7 +3,7 @@
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
 - 授权与基线：用户要求从主目录最新提交创建 worktree，分析方案后授权开始。基线 feature/ui-reader-selection / 361cced7e；工作区 build/worktrees/rust-ffi-modernization，分支 feature/rust-ffi-modernization。主目录并行 UI 修改保留，不带入或覆盖；Codex 直接执行，不使用子代理。后续按用户授权 rebase 至主目录 1b871c3c4，已恢复原全部改动；stash 95d0feb27 作为恢复备份保留。
-- 状态：本轮既定范围的实现与本地验证已完成，用户已授权提交当前成果并继续阅读域迁移，提交以Git记录为准。P1～P4 与后续补齐的搜索/换源/校验/目录/正文主链路均已迁移；默认工作区及 QuickJS 相关三包的全目标严格 Clippy 已通过，前轮基线阻断已修复。P2 保留 SSE 字节直传，不宣称零拷贝。设备完整 profile、Android/iOS 验证和独立审查未执行，不视为全平台验收或全部领域 JSON 淘汰。方法与范围见 [实施方案](FFI_TRANSPORT_MODERNIZATION_20261017.md)，本条为唯一状态入口；下述早期结果与失败为过程记录，以本条末尾收口结果为准。
+- 状态：首批已按用户授权提交为e4c907a02；阅读域续批的实现与本地验证也已完成，阅读域续批按用户授权提交；后续四批可在验证后分别提交，不推送或触发CI。P1～P4 与后续补齐的搜索/换源/校验/目录/正文主链路均已迁移；默认工作区及 QuickJS 相关三包的全目标严格 Clippy 已通过，前轮基线阻断已修复。P2 保留 SSE 字节直传，不宣称零拷贝。设备完整 profile、Android/iOS 验证和独立审查未执行，不视为全平台验收或全部领域 JSON 淘汰。方法与范围见 [实施方案](FFI_TRANSPORT_MODERNIZATION_20261017.md)，本条为唯一状态入口；下述早期结果与失败为过程记录，以本条末尾收口结果为准。
 - P1 契约：API_CONTRACT §2.7 先行冻结 BookmarkDto 九字段、ReadRecordDetailDto 五字段；七个既有 FFI 导出改用强类型入参/结果，函数不增不删。书签新增/删除保留标量参数，更新仍保留数据库原 id/time；阅读明细保持毫秒、作者、日期排序和年份语义。其余 JSON 接口、导入导出与存储格式不变。
 - P1 实现：新增 rust/legado-ffi/src/transfer_dto.rs，实体与 DTO 直接转换；既有明细 DTO 移入传输模块并保留服务端序列化。正式 RustBookmarkRepository 和 RustReadRecordRepository 直接映射生成 DTO，不经 JSON 往返。领域契约、页面和 Mock 不变；同次 FRB 2.13.0 生成双方绑定，新 hash 为 -319340783，旧原生库不能配用。
 - P1 回归：QuickJS FFI 全库 581 项通过/42 项既有忽略；默认 FFI 全库 505 项通过/21 项既有忽略。相关十二份 Flutter 单元/Widget 测试 102 项通过，新增四项仓储映射/写入/错误测试包含其中。完整 flutter analyze --no-pub 无问题；五份手写 Dart 与五份 Rust 格式检查及 git diff --check 通过。
@@ -27,6 +27,11 @@
 - 收口回归：`cargo test -p legado-ffi -p legado-db -p legado-fetcher --lib --features quickjs` 共1100项通过（DB360、Fetcher156、FFI584，42项既有忽略）；默认 FFI 库508项通过、21项既有忽略。27份相关 Flutter 单元/Widget文件246项通过，完整 `flutter analyze --no-pub` 无问题。9份真实 DLL 测试26项通过，包含80组上游布局的页面字段比较、全部新增主链路的本地真实HTTP、流关闭/取消，以及既有实体、图片、CBZ、阅读明细与视频弹幕回归；不将组合与定向重跑次数叠加。
 - 收口真实产物：FRB runtime/codegen保持2.13.0，同次生成双方绑定；当前hash为-1366931245。正式Python入口在本worktree独立target重建Windows Debug QuickJS DLL，构建与最终只读指纹/摘要门禁均通过，主目录native未替换。真实测试首轮因本地夹具用相对目录链接不符合既有轻量校验器而失败，修正为绝对链接后通过，未改生产解析器或放宽断言；最终分析前清理测试未用导入。
 - 最终证据与边界：忽略目录build/ffi-phase3中的continued-rust-tests、continued-rust-default、continued-clippy-default-final、continued-clippy-quick-final、continued-flutter-final、continued-ffi-final、continued-analysis-final、continued-native-final和continued-codegen-final为本轮输出。限定改动文件的格式与git diff --check通过；主目录工作区干净，恢复stash仍保留。仅Codex单代理实现及自行审查，无独立外部审查、CI、Android/iOS、设备profile或Flutter应用构建安装。未提交/推送/合并，依赖/锁文件、数据库schema/存储和应用版本不变。
+
+- 阅读域续批：用户授权提交当前成果后继续迁移，首批已提交为e4c907a02，仍在本worktree。续批契约先冻结，累计阅读五字段、每日整秒二字段、会话八字段、分组既有六字段和标注十三字段/规则十字段贯通FRB与Dart仓储；原领域接口、页面、存储和SSE保持。状态为实现与本地验证完成，本批按用户最新授权本地提交，后续四批验证后分别提交；不推送/CI/安装或使用子代理。
+- 续批行为：复用ReadRecordDto/BookGroupDto并保留原序列化投影，分组写入标量不变；新ReadRecordSessionDto/ReadRecordDailyDto与BookHighlightDto/HighlightRuleDto直接映射实体。每日统计仍向原仓储接口构造date/seconds Map，不使用JSON；标注style文档原样保留。删除无生产消费者的旧高亮JSON保存入口，原主键自动分配/覆盖、规则范围与启用过滤使用同一实现；非正规则ID保持新增语义。Dart在编码前拒绝超出i32的章节/位置/排序值，避免原JSON反序列化的范围保护在直接编码时丢失。
+- 续批验证：最终QuickJS FFI库587项通过、42项既有忽略；默认FFI库511项通过、21项既有忽略。默认工作区与QuickJS相关三包的全目标严格Clippy通过。43份相关Flutter单元/Widget文件343项通过；完整flutter analyze --no-pub无问题。4份真实Windows DLL测试18项通过，含新增标注/规则/分组3项、阅读记录跨年会话与删除、80组上游布局、搜索/校验/换源及流取消回归。独立target的正式Python native重建与最终只读指纹/摘要门禁通过，双方绑定保持2.13.0，hash为-1366931245。
+- 续批失败与整改：首轮Dart编译发现show是Dart关键字、生成属性实际名为show_，映射与夹具已修正，未改字段语义。移除依赖坏JSON/未知条目的测试，替换为类型化字段、空结果、底层错误和i32范围行为；原删除/错误断言保留。生成器过滤build_runner导致其他领域的已提交生成文件被删除，已精确恢复HEAD字节，未覆盖手写修改。最终日志为忽略目录build/ffi-phase3的reading-{codegen,rust-quick-final,rust-default-final,clippy-quick-final,clippy-default-final,flutter-final,ffi-runtime,analysis-closed,native-final}，实际回归入口见reading-regression-files.txt。仅自查，无独立审查、Android/iOS、设备profile或应用安装；依赖、锁文件、数据库和应用版本不变。
 
 ### COMIC-SETTINGS-ACTIONS-20261017：漫画设置与图片操作边界（P1）
 

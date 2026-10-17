@@ -2,27 +2,12 @@
 //!
 //! 提供书籍分组的增删改查操作，通过 BookGroupRepository 访问数据库。
 
-use serde::Serialize;
-
 use legado_core::LegadoResult;
 use legado_db::{BookGroup, BookGroupRepository};
 
 use crate::db_state::with_database;
 
-/// 书籍分组 DTO
-///
-/// 序列化契约：camelCase 字段名（groupId/groupName/…），
-/// 与 Dart 侧 `BookGroup.fromJson` 的 `@JsonKey` 一一对应。
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BookGroupDto {
-    pub group_id: i64,
-    pub group_name: String,
-    pub cover: Option<String>,
-    pub order: i32,
-    pub show: bool,
-    pub is_private: bool,
-}
+pub use crate::transfer_dto::BookGroupDto;
 
 /// 获取所有书籍分组（按 order 升序）
 pub fn get_book_groups() -> LegadoResult<Vec<BookGroupDto>> {
@@ -44,7 +29,12 @@ pub fn get_book_groups() -> LegadoResult<Vec<BookGroupDto>> {
 }
 
 /// 添加书籍分组，返回新分组 ID
-pub fn add_book_group(group_name: &str, cover: &str, order: i32, is_private: Option<bool>) -> LegadoResult<i64> {
+pub fn add_book_group(
+    group_name: &str,
+    cover: &str,
+    order: i32,
+    is_private: Option<bool>,
+) -> LegadoResult<i64> {
     with_database(|db| {
         let repo = BookGroupRepository::new(db.connection());
         // 使用当前时间戳作为 group_id
@@ -73,7 +63,13 @@ pub fn add_book_group(group_name: &str, cover: &str, order: i32, is_private: Opt
 }
 
 /// 更新书籍分组
-pub fn update_book_group(id: i64, group_name: &str, cover: &str, order: i32, is_private: Option<bool>) -> LegadoResult<bool> {
+pub fn update_book_group(
+    id: i64,
+    group_name: &str,
+    cover: &str,
+    order: i32,
+    is_private: Option<bool>,
+) -> LegadoResult<bool> {
     with_database(|db| {
         let repo = BookGroupRepository::new(db.connection());
         let existing = repo.find_by_id(id)?;
@@ -86,7 +82,9 @@ pub fn update_book_group(id: i64, group_name: &str, cover: &str, order: i32, is_
                     Some(cover.to_string())
                 };
                 g.order = order;
-                if let Some(value) = is_private { g.is_private = value; }
+                if let Some(value) = is_private {
+                    g.is_private = value;
+                }
                 repo.update(&g)
             }
             None => Ok(false),

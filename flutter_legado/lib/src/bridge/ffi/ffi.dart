@@ -1298,8 +1298,8 @@ Future<String> replaceRulePreview({
   sample: sample,
 );
 
-/// 获取所有阅读记录（JSON 数组）
-Future<String> readRecordList() =>
+/// 获取所有阅读记录的类型化快照。
+Future<List<ReadRecordDto>> readRecordList() =>
     RustLib.instance.api.crateFfiFfiReadRecordList();
 
 /// 添加/更新阅读记录，返回阅读时长
@@ -1333,7 +1333,7 @@ Future<PlatformInt64> readRecordRecordTime({
 );
 
 /// 查询真实阅读会话（毫秒时间戳与章节序号）。
-Future<String> readRecordSessionList() =>
+Future<List<ReadRecordSessionDto>> readRecordSessionList() =>
     RustLib.instance.api.crateFfiFfiReadRecordSessionList();
 
 /// 删除某日单书明细及对应会话区间。
@@ -1361,8 +1361,8 @@ Future<List<ReadRecordDetailDto>> readRecordAllDetailList() =>
 
 /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
 ///
-/// 返回 JSON：`[{"date":"2026-08-29","seconds":3600},...]`（按日期升序）。
-Future<String> readRecordDailyList({required int year}) =>
+/// 返回日期升序的类型化列表，时长仍为整秒。
+Future<List<ReadRecordDailyDto>> readRecordDailyList({required int year}) =>
     RustLib.instance.api.crateFfiFfiReadRecordDailyList(year: year);
 
 /// 删除阅读记录
@@ -1382,8 +1382,8 @@ Future<bool> readRecordDeleteWithAuthor({
 Future<bool> readRecordClear() =>
     RustLib.instance.api.crateFfiFfiReadRecordClear();
 
-/// 获取所有书籍分组（JSON 数组）
-Future<String> bookGroupList() =>
+/// 获取所有书籍分组的既有字段投影。
+Future<List<BookGroupDto>> bookGroupList() =>
     RustLib.instance.api.crateFfiFfiBookGroupList();
 
 /// 添加书籍分组，返回新分组 ID
@@ -2310,9 +2310,9 @@ Future<void> autoTaskDeleteRule({required String id}) =>
 Future<String> autoTaskFindRuleById({required String id}) =>
     RustLib.instance.api.crateFfiFfiAutoTaskFindRuleById(id: id);
 
-/// 新增/更新高亮记录（BookHighlight JSON，time=0 时自动分配），返回 time
-Future<PlatformInt64> highlightAdd({required String highlightJson}) =>
-    RustLib.instance.api.crateFfiFfiHighlightAdd(highlightJson: highlightJson);
+/// 新增/更新高亮记录；time=0 时自动分配，返回实际主键。
+Future<PlatformInt64> highlightAdd({required BookHighlightDto highlight}) =>
+    RustLib.instance.api.crateFfiFfiHighlightAdd(highlight: highlight);
 
 /// 按主键 time 删除高亮记录，返回是否实际删除
 Future<bool> highlightDelete({required PlatformInt64 time}) =>
@@ -2322,12 +2322,12 @@ Future<bool> highlightDelete({required PlatformInt64 time}) =>
 Future<PlatformInt64> highlightDeleteByBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiHighlightDeleteByBook(bookUrl: bookUrl);
 
-/// 按书籍获取高亮列表（BookHighlight 数组 JSON）
-Future<String> highlightListByBook({required String bookUrl}) =>
+/// 按书籍获取类型化高亮列表。
+Future<List<BookHighlightDto>> highlightListByBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiHighlightListByBook(bookUrl: bookUrl);
 
-/// 按书籍 + 章节索引获取高亮列表（BookHighlight 数组 JSON）
-Future<String> highlightListByChapter({
+/// 按书籍与章节索引获取类型化高亮列表。
+Future<List<BookHighlightDto>> highlightListByChapter({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiHighlightListByChapter(
@@ -2335,28 +2335,28 @@ Future<String> highlightListByChapter({
   chapterIndex: chapterIndex,
 );
 
-/// 全局关键词搜索高亮（BookHighlight 数组 JSON）
-Future<String> highlightSearch({required String keyword}) =>
+/// 全局关键词搜索高亮。
+Future<List<BookHighlightDto>> highlightSearch({required String keyword}) =>
     RustLib.instance.api.crateFfiFfiHighlightSearch(keyword: keyword);
 
-/// 获取所有高亮记录（BookHighlight 数组 JSON）
-Future<String> highlightListAll() =>
+/// 获取所有类型化高亮记录。
+Future<List<BookHighlightDto>> highlightListAll() =>
     RustLib.instance.api.crateFfiFfiHighlightListAll();
 
-/// 获取所有高亮规则（HighlightRule 数组 JSON，按 sortOrder 升序）
-Future<String> highlightRuleList() =>
+/// 获取所有高亮规则，按 sortOrder 升序。
+Future<List<HighlightRuleDto>> highlightRuleList() =>
     RustLib.instance.api.crateFfiFfiHighlightRuleList();
 
-/// 保存高亮规则（HighlightRule JSON，id=0 时自增新增），返回规则 ID
-Future<PlatformInt64> highlightRuleSave({required String ruleJson}) =>
-    RustLib.instance.api.crateFfiFfiHighlightRuleSave(ruleJson: ruleJson);
+/// 保存高亮规则；id=0 时新增，返回规则 ID。
+Future<PlatformInt64> highlightRuleSave({required HighlightRuleDto rule}) =>
+    RustLib.instance.api.crateFfiFfiHighlightRuleSave(rule: rule);
 
 /// 按 ID 删除高亮规则，返回是否实际删除
 Future<bool> highlightRuleDelete({required PlatformInt64 id}) =>
     RustLib.instance.api.crateFfiFfiHighlightRuleDelete(id: id);
 
-/// 按书籍查找启用的高亮规则（HighlightRule 数组 JSON）
-Future<String> highlightRuleFindEnabled({
+/// 按书籍查找启用的高亮规则。
+Future<List<HighlightRuleDto>> highlightRuleFindEnabled({
   required String bookName,
   required String origin,
 }) => RustLib.instance.api.crateFfiFfiHighlightRuleFindEnabled(

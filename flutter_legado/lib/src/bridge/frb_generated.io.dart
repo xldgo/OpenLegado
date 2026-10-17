@@ -135,6 +135,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BookDto dco_decode_book_dto(dynamic raw);
 
   @protected
+  BookGroupDto dco_decode_book_group_dto(dynamic raw);
+
+  @protected
+  BookHighlightDto dco_decode_book_highlight_dto(dynamic raw);
+
+  @protected
   BookInfoRuleDto dco_decode_book_info_rule_dto(dynamic raw);
 
   @protected
@@ -148,6 +154,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookDto dco_decode_box_autoadd_book_dto(dynamic raw);
+
+  @protected
+  BookHighlightDto dco_decode_box_autoadd_book_highlight_dto(dynamic raw);
 
   @protected
   BookInfoRuleDto dco_decode_box_autoadd_book_info_rule_dto(dynamic raw);
@@ -175,6 +184,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  HighlightRuleDto dco_decode_box_autoadd_highlight_rule_dto(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_i_32(dynamic raw);
@@ -280,6 +292,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_64(dynamic raw);
 
   @protected
+  HighlightRuleDto dco_decode_highlight_rule_dto(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
@@ -359,6 +374,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BookDto> dco_decode_list_book_dto(dynamic raw);
 
   @protected
+  List<BookGroupDto> dco_decode_list_book_group_dto(dynamic raw);
+
+  @protected
+  List<BookHighlightDto> dco_decode_list_book_highlight_dto(dynamic raw);
+
+  @protected
   List<BookSourceDto> dco_decode_list_book_source_dto(dynamic raw);
 
   @protected
@@ -366,6 +387,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
+
+  @protected
+  List<HighlightRuleDto> dco_decode_list_highlight_rule_dto(dynamic raw);
 
   @protected
   List<LayoutBlockDto> dco_decode_list_layout_block_dto(dynamic raw);
@@ -405,7 +429,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ReadRecordDailyDto> dco_decode_list_read_record_daily_dto(dynamic raw);
+
+  @protected
   List<ReadRecordDetailDto> dco_decode_list_read_record_detail_dto(dynamic raw);
+
+  @protected
+  List<ReadRecordDto> dco_decode_list_read_record_dto(dynamic raw);
+
+  @protected
+  List<ReadRecordSessionDto> dco_decode_list_read_record_session_dto(
+    dynamic raw,
+  );
 
   @protected
   List<(int, String)> dco_decode_list_record_i_32_string(dynamic raw);
@@ -510,7 +545,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReadConfigDto dco_decode_read_config_dto(dynamic raw);
 
   @protected
+  ReadRecordDailyDto dco_decode_read_record_daily_dto(dynamic raw);
+
+  @protected
   ReadRecordDetailDto dco_decode_read_record_detail_dto(dynamic raw);
+
+  @protected
+  ReadRecordDto dco_decode_read_record_dto(dynamic raw);
+
+  @protected
+  ReadRecordSessionDto dco_decode_read_record_session_dto(dynamic raw);
 
   @protected
   (int, String) dco_decode_record_i_32_string(dynamic raw);
@@ -690,6 +734,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BookDto sse_decode_book_dto(SseDeserializer deserializer);
 
   @protected
+  BookGroupDto sse_decode_book_group_dto(SseDeserializer deserializer);
+
+  @protected
+  BookHighlightDto sse_decode_book_highlight_dto(SseDeserializer deserializer);
+
+  @protected
   BookInfoRuleDto sse_decode_book_info_rule_dto(SseDeserializer deserializer);
 
   @protected
@@ -703,6 +753,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookDto sse_decode_box_autoadd_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookHighlightDto sse_decode_box_autoadd_book_highlight_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BookInfoRuleDto sse_decode_box_autoadd_book_info_rule_dto(
@@ -740,6 +795,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  HighlightRuleDto sse_decode_box_autoadd_highlight_rule_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
@@ -865,6 +925,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
+  HighlightRuleDto sse_decode_highlight_rule_dto(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
@@ -968,6 +1031,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BookDto> sse_decode_list_book_dto(SseDeserializer deserializer);
 
   @protected
+  List<BookGroupDto> sse_decode_list_book_group_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookHighlightDto> sse_decode_list_book_highlight_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<BookSourceDto> sse_decode_list_book_source_dto(
     SseDeserializer deserializer,
   );
@@ -977,6 +1050,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  List<HighlightRuleDto> sse_decode_list_highlight_rule_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<LayoutBlockDto> sse_decode_list_layout_block_dto(
@@ -1028,7 +1106,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ReadRecordDailyDto> sse_decode_list_read_record_daily_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ReadRecordDetailDto> sse_decode_list_read_record_detail_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadRecordDto> sse_decode_list_read_record_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadRecordSessionDto> sse_decode_list_read_record_session_dto(
     SseDeserializer deserializer,
   );
 
@@ -1171,7 +1264,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReadConfigDto sse_decode_read_config_dto(SseDeserializer deserializer);
 
   @protected
+  ReadRecordDailyDto sse_decode_read_record_daily_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReadRecordDetailDto sse_decode_read_record_detail_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadRecordDto sse_decode_read_record_dto(SseDeserializer deserializer);
+
+  @protected
+  ReadRecordSessionDto sse_decode_read_record_session_dto(
     SseDeserializer deserializer,
   );
 
@@ -1383,6 +1489,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_book_dto(BookDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_book_group_dto(BookGroupDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_highlight_dto(
+    BookHighlightDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_book_info_rule_dto(
     BookInfoRuleDto self,
     SseSerializer serializer,
@@ -1399,6 +1514,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_book_dto(BookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_book_highlight_dto(
+    BookHighlightDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_book_info_rule_dto(
@@ -1444,6 +1565,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_highlight_rule_dto(
+    HighlightRuleDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
@@ -1608,6 +1735,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_highlight_rule_dto(
+    HighlightRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
@@ -1743,6 +1876,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_book_dto(List<BookDto> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_book_group_dto(
+    List<BookGroupDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_highlight_dto(
+    List<BookHighlightDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_book_source_dto(
     List<BookSourceDto> self,
     SseSerializer serializer,
@@ -1757,6 +1902,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_chapter_dto(
     List<ChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_highlight_rule_dto(
+    List<HighlightRuleDto> self,
     SseSerializer serializer,
   );
 
@@ -1830,8 +1981,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_record_daily_dto(
+    List<ReadRecordDailyDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_read_record_detail_dto(
     List<ReadRecordDetailDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_dto(
+    List<ReadRecordDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_session_dto(
+    List<ReadRecordSessionDto> self,
     SseSerializer serializer,
   );
 
@@ -2001,8 +2170,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_read_config_dto(ReadConfigDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_read_record_daily_dto(
+    ReadRecordDailyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_read_record_detail_dto(
     ReadRecordDetailDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_record_dto(ReadRecordDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_read_record_session_dto(
+    ReadRecordSessionDto self,
     SseSerializer serializer,
   );
 
