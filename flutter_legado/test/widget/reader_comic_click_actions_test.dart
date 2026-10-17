@@ -304,6 +304,25 @@ Future<void> _settleImageDecode(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// 异步文件写入使用真实IO事件循环，随后仍断言提示与文件内容。
+Future<void> _waitForSavedImage(
+  WidgetTester tester,
+  Directory directory,
+) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    // IO在真实循环完成；每轮pump推进fake-async区域中的await后续。
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    if (find.textContaining('已保存到文档目录').evaluate().isNotEmpty) {
+      expect(directory.listSync().whereType<File>(), isNotEmpty);
+      return;
+    }
+  }
+  throw StateError('图片保存未完成');
+}
+
 /// 等待滚动范围稳定并返回稳定值（[W2-fix]）
 ///
 /// 图片项「占位（屏高 0.6）→ FFI 解码后真实高度」的切换发生在真实事件
@@ -1316,6 +1335,7 @@ void main() {
 
       await tester.longPressAt(const Offset(400, 100));
       await tester.pumpAndSettle();
+      await _waitForSavedImage(tester, tempDir);
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(
@@ -1463,6 +1483,7 @@ void main() {
 
       await tester.longPressAt(const Offset(400, 100));
       await tester.pumpAndSettle();
+      await _waitForSavedImage(tester, tempDir);
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(

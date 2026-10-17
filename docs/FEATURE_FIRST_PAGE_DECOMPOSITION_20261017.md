@@ -116,6 +116,20 @@ readConfig局部写回；ComicReaderState是唯一业务快照，列表与请求
 验证覆盖独立会话决策、真实页面交互与Windows宿主FFI。当前结果、失败与未测边界只在
 Active任务COMIC-SESSION-20261017维护，不把本地测试当作移动设备验收。
 
+## 漫画设置与图片操作边界补充
+
+ComicSettingsController持有唯一MangaSettings页面快照，经现有MangaSettingsRepository加载及
+逐字段变换保存；书级模式/留白从会话Book.readConfig按需解析，清除覆盖后回退全局。
+沿用即时显示及保存失败保留本次页面显示的策略，存储结果仍由原仓储负责。
+页面观察设置差异，执行翻页控制器同步、自动阅读周期、亮度与音量键副作用；
+首次音量键捕获须等配置读取成功，不能在书籍先加载时按默认值开启。
+
+ComicImageActionsService使用点击时的ComicPageImage固定书籍/书源/图片，复用原字节解析器，
+负责保存、分享、复制链接及结果文案。PluginComicImageActionsPlatform适配现有下载通道、
+文件选择器、文档/临时文件写入、分享与剪贴板；页面只组合菜单与提示。
+文档目录改为异步写入；保存目标、取消回退及CBZ交互保持原规则，不增加图片剪贴板能力。
+当前状态与验证记录统一在Active任务COMIC-SETTINGS-ACTIONS-20261017维护。
+
 ## B5：长尾页面与状态归属
 
 本批复用已经形成的页面/Notifier/Repository职责，只收拢目录和修正引用；

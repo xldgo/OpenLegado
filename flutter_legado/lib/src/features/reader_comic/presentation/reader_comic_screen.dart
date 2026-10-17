@@ -1,9 +1,11 @@
+import '../application/comic_settings_controller.dart';
+import '../application/comic_image_actions_service.dart';
+import '../data/plugin_comic_image_actions_platform.dart';
 import 'views/comic_webtoon_view.dart';
 import '../application/comic_preload_service.dart';
 import '../application/comic_reader_controller.dart';
 import '../application/comic_reader_state.dart';
 import 'views/comic_image_item.dart';
-import '../../../data/services/comic_image_decode_cache.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/reading_provider.dart';
 import '../../book_sources/book_source_repository_provider.dart';
@@ -12,16 +14,10 @@ import '../../../providers/config_settings_provider.dart';
 import '../../../domain/models/manga_settings.dart';
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io' show File;
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../providers/network_provider.dart';
 
@@ -39,7 +35,6 @@ import '../../../models/manga_click_actions.dart';
 import 'overlays/manga_menu.dart';
 import 'views/manga_paged_view.dart';
 import 'overlays/manga_page_actions_sheet.dart';
-import '../application/manga_page_image_resolver.dart';
 import '../../../models/manga_page_scale_type.dart';
 import '../../../models/manga_scroll_mode.dart';
 
@@ -102,12 +97,38 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 预加载缓存（前后各 2 页）
   static const int _preloadRange = 2;
 
-  /// 漫画专用配置（对齐原版 PreferKey manga*）— GapAudit P0-3
-  MangaColorFilterConfig _colorFilter = MangaColorFilterConfig();
-  MangaFooterConfig _footerConfig = MangaFooterConfig();
-  bool _enableEInk = false;
-  bool _enableGray = false;
-  int _eInkThreshold = 150;
+  late final ComicSettingsController _settings;
+  late final ComicImageActionsService _imageActions;
+  late MangaSettings _observedSettings;
+  int _appliedScrollMode = MangaScrollModes.defaultValue;
+  bool _platformSettingsApplied = false;
+
+  MangaSettings get _config => _settings.current;
+  MangaColorFilterConfig get _colorFilter => _config.colorFilter;
+  MangaFooterConfig get _footerConfig => _config.footer;
+  bool get _enableEInk => _config.enableEInk;
+  bool get _enableGray => _config.enableGray;
+  int get _eInkThreshold => _config.eInkThreshold;
+  int get _scrollMode => _settings.scrollMode(_book?.readConfig);
+  int get _sidePadding => _settings.sidePadding(_book?.readConfig);
+  int get _globalScrollMode => _config.scrollMode;
+  int get _globalSidePadding => _config.sidePadding;
+  int? get _bookScrollMode =>
+      ComicSettingsController.bookScrollMode(_book?.readConfig);
+  int? get _bookSidePadding =>
+      ComicSettingsController.bookSidePadding(_book?.readConfig);
+  int get _autoReadSpeed => _config.autoReadSpeed;
+  int get _pageScaleType => _config.pageScaleType;
+  List<int> get _clickActions => _config.clickActions;
+  bool get _disableClickScroll => _config.disableClickScroll;
+  bool get _disableMangaScale => _config.disableMangaScale;
+  bool get _disableMangaPageAnim => _config.disableMangaPageAnim;
+  bool get _hideMangaTitle => _config.hideMangaTitle;
+  bool get _volumeKeyPage => _config.volumeKeyPage;
+  bool get _reverseVolumeKeyPage => _config.reverseVolumeKeyPage;
+  bool get _mangaLongClickSaveImage => _config.longClickSaveImage;
+  bool get _disableMangaCrossFade => _config.disableCrossFade;
+  int get _mangaBgColor => _config.backgroundColor;
 
   /// 页脚用「当前可见页」近似索引（滚动估算）
   int _visiblePageIndex = 0;
@@ -125,11 +146,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 不视为用户操作，不终止页级恢复锚定）
   bool _isRestoreJump = false;
 
-  /// [P4-3 E1] 翻页模式（**有效值**，对齐参考版 MangaScrollMode；默认条漫 4）
-  ///
-  /// [漫画设置作用域] 有效值 = 书级覆盖 ?? 全局值（[_applyEffectiveMangaScope]）
-  int _scrollMode = MangaScrollModes.defaultValue;
-
   /// [P4-3 E1] 单页式 PageController（模式/章节/初始页变化时重建）
   PageController? _pagedController;
 
@@ -138,21 +154,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   bool _pagedReversed = false;
   int _pagedGen = 0;
 
-  /// [P4-3 E5 / M5] 九区点击动作（9 格行优先；默认对齐参考版 Contract
-  /// L167 [-1,-1,1,2,0,1,2,1,1]；经设置面板九宫格编辑器可改并持久化
-  /// 于 [MangaConfigKeys.mangaClickActions]）
-  List<int> _clickActions = MangaClickActions.defaultActions;
-
   /// [P4-3 E5] 点击按下位置（tap-up 时换算位移，区分点击与滑动/缩放意图）
   Offset? _tapDownPosition;
 
   /// [P4-3 E3] 自动翻页/自动滚动开关（会话态，不落库——对齐参考版
   /// MangaReaderContract L44 autoReadEnabled 默认 false 的会话态语义）
   bool _autoRead = false;
-
-  /// [P4-3 E3] 自动翻页速度档 1..15（持久化；缺省/非法 → 默认 3，
-  /// 对齐参考版 Contract L136 autoReadSpeed 默认 3）
-  int _autoReadSpeed = MangaAutoRead.defaultValue;
 
   /// [P4-3 E3] 自动翻页定时器（单页式每 速度×1s 翻一页；条漫每周期
   /// ceil(16/速度×10000)ms 滚动 10000px，见 [MangaAutoRead] 取证注释）
@@ -184,80 +191,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 依赖 activeSheet：底栏打开期间自动翻页暂停）
   bool _pageActionsOpen = false;
 
-  /// [P4-3 E2] 分页适配类型 0..5（持久化；缺省/非法 → 默认 0 = 全屏适配，
-  /// 对齐参考版 Contract L121）
-  int _pageScaleType = MangaPageScaleType.defaultValue;
-
-  /// [P4-3 M3 修4] 条漫侧边留白百分比 0..45（**有效值**，默认 0；仅条漫渲染
-  /// 路径消费：每侧 padding = 视口宽 × p/100，对齐参考版 MangaReaderScreen
-  /// fraction = 1 - p×2/100 ⇔ itemWidth = 视口宽 × (1 - 2p/100)；
-  /// 单页式路径不生效，设置面板仅 isWebtoon 显示此滑杆）
-  ///
-  /// [漫画设置作用域] 有效值 = 书级覆盖 ?? 全局值（[_applyEffectiveMangaScope]）
-  int _sidePadding = 0;
-
-  // ---------------------------------------------------------------------------
-  // [漫画设置作用域 2026-10-01] 本书覆盖 + 全局回退（参考版仅 scrollMode 与
-  // webtoon side padding 两项具备书级覆盖；长按存图/自动速度/九区点击动作
-  // 保持全局，见 MangaConfigKeys 注释）。有效值优先级对齐参考版
-  // MangaReaderViewModel L1332-1334 `book?.scrollMode ?: settings.scrollMode`。
-  // ---------------------------------------------------------------------------
-
-  /// 全局翻页模式（书级覆盖为空时的回退源；MangaConfigKeys.scrollMode）
-  int _globalScrollMode = MangaScrollModes.defaultValue;
-
-  /// 当前书书级翻页模式覆盖（`book.readConfig.mangaScrollMode`；
-  /// null = 未覆盖，跟随全局）
-  int? _bookScrollMode;
-
-  /// 全局条漫侧边留白百分比 0..45（书级覆盖为空时的回退源；
-  /// MangaConfigKeys.sidePadding）
-  int _globalSidePadding = 0;
-
-  /// 当前书书级条漫侧边留白覆盖（`book.readConfig.webtoonSidePaddingDp`；
-  /// null = 未覆盖，跟随全局；数值沿用 Flutter 百分比口径 0..45）
-  int? _bookSidePadding;
-
-  // ---------------------------------------------------------------------------
-  // [P4-3 M4 批2] 行为开关组（键名对齐原版 PreferKey，AppConfig.kt 默认值
-  // 取证：disableClickScroll=false L906-907 / disableMangaScale=**true**
-  // L880-881 / disableMangaPageAnim=false L892-893 / hideMangaTitle=false
-  // L940-941 / volumeKeyPage=**true** L747-748 / reverseVolumeKeyPage=false
-  // L749-750 / mangaLongClickSaveImage=**true** L886-887 /
-  // disableMangaCrossFade=false（参考版 MangaSettings）；mangaBgColor 新增
-  // 默认黑 0xFF000000（对齐原版 Scaffold 硬编码黑，默认行为零变化）
-  // ---------------------------------------------------------------------------
-
-  /// 禁用点击翻页（九区 1/2 失效，0/3/4 保留；对齐参考版 L1953/L714）
-  bool _disableClickScroll = false;
-
-  /// 禁用漫画缩放（true = InteractiveViewer 不渲染）
-  bool _disableMangaScale = true;
-
-  /// 禁用翻页动画（true = 单页 jumpToPage / 条漫 jumpTo 替代 animate；
-  /// 自动翻页定时器条漫路径 animateTo 保留）
-  bool _disableMangaPageAnim = false;
-
-  /// 隐藏漫画列表标题（我方无章节标题页 → 映射 0 图卷章分隔页 +
-  /// 章节导航区标题隐藏，按钮保留）
-  bool _hideMangaTitle = false;
-
-  /// 音量键翻页（平台无按键拦截通道 → 仅持久化，行为待平台支持）
-  bool _volumeKeyPage = true;
-
-  /// 反转音量键翻页方向（同上仅持久化）
-  bool _reverseVolumeKeyPage = false;
-
-  /// 长按保存图片（true = 长按直接 _savePageImage；false = 弹页操作菜单，
-  /// 对齐原版 ReadMangaActivity L239-250 分支）
-  bool _mangaLongClickSaveImage = true;
-
-  /// 禁用加载淡入动画（false = 图片加载完成淡入，参考版 L1751 crossfade）
-  bool _disableMangaCrossFade = false;
-
-  /// 阅读背景色（ARGB 整型，Scaffold 底色 = 图片未覆盖区域底色）
-  int _mangaBgColor = MangaBgColors.black;
-
   /// [P4-3 E2] 图片渲染 BoxFit：单页式按适配类型映射（Screen L1463-1472）；
   /// 条漫恒 fitWidth（Screen L1568）
   BoxFit get _imageFit => MangaScrollModes.isPaged(_scrollMode)
@@ -277,6 +210,16 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
         localBooks: ref.read(localBookServiceProvider),
         reading: ref.read(readingRepositoryProvider),
       ),
+    );
+    _settings = ComicSettingsController(
+      ref.read(mangaSettingsRepositoryProvider),
+    );
+    _observedSettings = _settings.current;
+    _settings.addListener(_onSettingsChanged);
+    _imageActions = ComicImageActionsService(
+      images: ref.read(bookImageRepositoryProvider),
+      localBooks: ref.read(localBookServiceProvider),
+      platform: const PluginComicImageActionsPlatform(),
     );
     _observedSession = _reader.state;
     _reader.addListener(_onReaderChanged);
@@ -305,6 +248,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     unawaited(_saveProgress());
     _reader.removeListener(_onReaderChanged);
     _reader.dispose();
+    _settings.removeListener(_onSettingsChanged);
+    _settings.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // [P4-3 E3] 取消自动翻页定时器
@@ -326,82 +271,34 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     super.dispose();
   }
 
-  /// 加载漫画配置（config 键对齐原版 PreferKey）
   Future<void> _loadMangaConfig() async {
-    try {
-      final settings = await ref.read(mangaSettingsRepositoryProvider).load();
-      if (!mounted) return;
-      setState(() {
-        _colorFilter = settings.colorFilter;
-        _footerConfig = settings.footer;
-        _enableEInk = settings.enableEInk;
-        _enableGray = settings.enableGray;
-        _eInkThreshold = settings.eInkThreshold;
-        _globalScrollMode = settings.scrollMode;
-        _autoReadSpeed = settings.autoReadSpeed;
-        _pageScaleType = settings.pageScaleType;
-        _globalSidePadding = settings.sidePadding;
-        _disableClickScroll = settings.disableClickScroll;
-        _disableMangaScale = settings.disableMangaScale;
-        _disableMangaPageAnim = settings.disableMangaPageAnim;
-        _hideMangaTitle = settings.hideMangaTitle;
-        _volumeKeyPage = settings.volumeKeyPage;
-        _reverseVolumeKeyPage = settings.reverseVolumeKeyPage;
-        _mangaLongClickSaveImage = settings.longClickSaveImage;
-        _disableMangaCrossFade = settings.disableCrossFade;
-        _mangaBgColor = settings.backgroundColor;
-        _clickActions = settings.clickActions;
-      });
-      // [漫画设置作用域] 配置可能在图片加载后才生效：按书级 ?? 全局重算
-      // 有效翻页模式/侧边留白（内部同步单页式控制器与自动翻页定时器）
-      _applyEffectiveMangaScope();
-      // [P4-3 M5] 音量键捕获同步（开关开启时注册，对齐原版阅读器内拦截）
-      _syncVolumeKeyCapture();
-      await _applyBrightness(_colorFilter.l);
-    } catch (_) {}
+    if (!await _settings.load() || !mounted) return;
+    _platformSettingsApplied = true;
+    _syncVolumeKeyCapture();
+    await _applyBrightness(_colorFilter.l);
   }
 
-  /// [漫画设置作用域] 重算并应用有效漫画设置：书级覆盖 > 全局 > 默认。
-  ///
-  /// - 翻页模式：`book.readConfig.mangaScrollMode` 非 null 优先，否则回退
-  ///   全局 [MangaConfigKeys.scrollMode]（对齐参考版 MangaReaderViewModel
-  ///   L1332 `book?.scrollMode ?: settings.scrollMode`）；
-  /// - 条漫侧边留白：`book.readConfig.webtoonSidePaddingDp` 非 null 优先，
-  ///   否则回退全局 [MangaConfigKeys.sidePadding]；数值沿用 Flutter 既有
-  ///   百分比口径 0..45（与参考版 dp 字段仅作用域对齐，不做单位换算）。
-  ///
-  /// 模式变化时同步单页式控制器与自动翻页定时器；仅留白变化时 setState
-  /// 重建条漫列表即生效。
-  void _applyEffectiveMangaScope() {
-    final mode = _bookScrollMode ?? _globalScrollMode;
-    final padding = _bookSidePadding ?? _globalSidePadding;
-    final modeChanged = mode != _scrollMode;
-    final paddingChanged = padding != _sidePadding;
-    if (!modeChanged && !paddingChanged) return;
-    _scrollMode = mode;
-    _sidePadding = padding;
-    if (mounted) setState(() {});
-    if (modeChanged) {
-      _applyScrollMode();
-      // [P4-3 E3] 翻页模式决定自动定时器语义（单页/条漫），变更后重启
+  /// 设置变化只在这里触发视口、平台和计时器副作用。
+  void _onSettingsChanged() {
+    if (!mounted) return;
+    final previous = _observedSettings;
+    final next = _settings.current;
+    _observedSettings = next;
+    final modeChanged = _appliedScrollMode != _scrollMode;
+    _appliedScrollMode = _scrollMode;
+    setState(() {});
+    if (modeChanged) _applyScrollMode();
+    if (modeChanged || previous.autoReadSpeed != next.autoReadSpeed) {
       _restartAutoReadTimer();
     }
-  }
-
-  /// [漫画设置作用域] 持久化**全局**翻页模式并即时应用（作用域 = 全局时
-  /// 的写入路径；书级覆盖存在时仅更新全局回退值，不改变屏内有效值——
-  /// 对齐参考版 MangaSettings.scrollMode 与书级 `mangaScrollMode` 分层）
-  Future<void> _persistScrollMode(int mode) async {
-    final v = MangaScrollModes.valid.contains(mode)
-        ? mode
-        : MangaScrollModes.defaultValue;
-    _globalScrollMode = v;
-    _applyEffectiveMangaScope();
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(scrollMode: v));
-    } catch (_) {}
+    if (_platformSettingsApplied &&
+        previous.volumeKeyPage != next.volumeKeyPage) {
+      _syncVolumeKeyCapture();
+    }
+    if (_platformSettingsApplied &&
+        previous.colorFilter.l != next.colorFilter.l) {
+      unawaited(_applyBrightness(next.colorFilter.l));
+    }
   }
 
   /// [P4-3 E3] 打开/关闭自动翻页（会话态，不持久化）
@@ -440,110 +337,17 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _stepPage(next ? 1 : -1);
   }
 
-  /// [P4-3 M5] 九区点击动作循环切换并持久化（对齐参考版
-  /// UpdateClickAction → nextMangaClickAction 循环 -1→0→1→2→3→4→-1）
-  Future<void> _cycleClickAction(int index) async {
-    if (index < 0 || index >= _clickActions.length) return;
-    final next = MangaClickActions.cycleNext(_clickActions[index]);
-    final updated = List<int>.from(_clickActions)..[index] = next;
-    if (mounted) setState(() => _clickActions = updated);
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(clickActions: updated));
-    } catch (_) {}
-  }
-
-  /// [P4-3 E3] 持久化自动翻页速度档并重启定时器（1..15，越限收敛）
-  Future<void> _persistAutoReadSpeed(int speed) async {
-    final v = MangaAutoRead.parse('$speed');
-    if (v == _autoReadSpeed) return;
-    if (mounted) setState(() => _autoReadSpeed = v);
-    _restartAutoReadTimer();
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(autoReadSpeed: v));
-    } catch (_) {}
-  }
-
-  /// [P4-3 E2] 持久化分页适配类型（0..5，缺省/非法回退 0；
-  /// 对齐参考版 MangaReaderViewModel L816 PAGE_SCALE_TYPE 持久化）
-  Future<void> _persistPageScaleType(int type) async {
-    final v = MangaPageScaleType.parse('$type');
-    if (v == _pageScaleType) return;
-    if (mounted) setState(() => _pageScaleType = v);
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(pageScaleType: v));
-    } catch (_) {}
-  }
-
-  /// [漫画设置作用域] 持久化**全局**条漫侧边留白（0..45%，越限收敛；
-  /// 作用域 = 全局时的写入路径；仅条漫渲染路径生效——条漫 ListView 包
-  /// 水平 padding，单页式不受影响；setState 即时重建条漫子树使滑杆拖动
-  /// 实时生效）
-  Future<void> _persistSidePadding(int value) async {
-    final v = value.clamp(0, 45);
-    _globalSidePadding = v;
-    _applyEffectiveMangaScope();
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(sidePadding: v));
-    } catch (_) {}
-  }
-
-  /// [漫画设置作用域] 写入/清除当前书**书级**翻页模式覆盖。
-  ///
-  /// [value] null = 清除覆盖（删 `readConfig.mangaScrollMode` 键，跟随全局；
-  /// 对齐参考版「跟随全局」语义——不写入默认值冒充清除）。
   Future<void> _persistBookScrollMode(int? value) async {
-    final v = value == null
+    final normalized = value == null
         ? null
-        : (MangaScrollModes.valid.contains(value)
-              ? value
-              : MangaScrollModes.defaultValue);
-    await _reader.updateReadConfigField('mangaScrollMode', v);
+        : MangaScrollModes.valid.contains(value)
+        ? value
+        : MangaScrollModes.defaultValue;
+    await _reader.updateReadConfigField('mangaScrollMode', normalized);
   }
 
-  /// [漫画设置作用域] 写入/清除当前书**书级**条漫侧边留白覆盖
-  /// （百分比口径 0..45，越限收敛；键名 `webtoonSidePaddingDp` 对齐参考版，
-  /// 数值不做 dp 换算）。[value] null = 清除覆盖，跟随全局。
-  Future<void> _persistBookSidePadding(int? value) async {
-    final v = value?.clamp(0, 45);
-    await _reader.updateReadConfigField('webtoonSidePaddingDp', v);
-  }
-
-  /// [P4-3 M4 批2] 持久化行为开关（8 键通用：setState 即时生效 +
-  /// setConfig 落库，键名对齐原版 PreferKey）
-  Future<void> _persistMangaBool(
-    MangaToggle option,
-    bool value,
-    void Function(bool) apply,
-  ) async {
-    apply(value);
-    if (mounted) setState(() {});
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.withToggle(option, value));
-    } catch (_) {}
-  }
-
-  /// [P4-3 M4 批2] 持久化阅读背景色（ARGB 整型 → 十进制字符串；
-  /// setState 即时重建 Scaffold 使色板点选实时生效）
-  Future<void> _persistMangaBgColor(int argb) async {
-    if (argb < 0 || argb > 0xFFFFFFFF) return;
-    if (argb == _mangaBgColor) return;
-    if (mounted) setState(() => _mangaBgColor = argb);
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(backgroundColor: argb));
-    } catch (_) {}
-  }
+  Future<void> _persistBookSidePadding(int? value) => _reader
+      .updateReadConfigField('webtoonSidePaddingDp', value?.clamp(0, 45));
 
   /// [P4-3 E3] 启动/重启自动翻页定时器（关闭或开关态为 false 时不排程）
   ///
@@ -750,76 +554,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// [P4-3 E1] 单页式滚动：触发前后预载（±2 页）
   void _onPagedScroll() => _preloadVisibleImages();
 
-  Future<void> _persistColorFilter(MangaColorFilterConfig cfg) async {
-    _colorFilter = MangaColorFilterConfig(
-      r: cfg.r,
-      g: cfg.g,
-      b: cfg.b,
-      a: cfg.a,
-      l: cfg.l,
-    );
-    setState(() {});
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(colorFilter: _colorFilter));
-    } catch (_) {}
-    await _applyBrightness(_colorFilter.l);
-  }
-
-  Future<void> _persistFooter(MangaFooterConfig cfg) async {
-    _footerConfig = MangaFooterConfig.fromJson(cfg.toJson());
-    setState(() {});
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(footer: _footerConfig));
-    } catch (_) {}
-  }
-
-  Future<void> _persistEInk(bool enabled) async {
-    setState(() {
-      _enableEInk = enabled;
-      if (enabled) _enableGray = false;
-    });
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update(
-            (s) => s.copyWith(
-              enableEInk: enabled,
-              enableGray: enabled ? false : s.enableGray,
-            ),
-          );
-    } catch (_) {}
-  }
-
-  Future<void> _persistGray(bool enabled) async {
-    setState(() {
-      _enableGray = enabled;
-      if (enabled) _enableEInk = false;
-    });
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update(
-            (s) => s.copyWith(
-              enableGray: enabled,
-              enableEInk: enabled ? false : s.enableEInk,
-            ),
-          );
-    } catch (_) {}
-  }
-
-  Future<void> _persistThreshold(int value) async {
-    setState(() => _eInkThreshold = value.clamp(0, 255));
-    try {
-      await ref
-          .read(mangaSettingsRepositoryProvider)
-          .update((s) => s.copyWith(eInkThreshold: _eInkThreshold));
-    } catch (_) {}
-  }
-
   Future<void> _applyBrightness(int l) async {
     if (l <= 0) return;
     try {
@@ -844,19 +578,19 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       autoReadSpeed: _autoReadSpeed,
       // [P4-3 E2] 分页适配类型（单页式映射 BoxFit；条漫恒 fitWidth）
       pageScaleType: _pageScaleType,
-      onColorFilterChanged: (c) => unawaited(_persistColorFilter(c)),
-      onFooterChanged: (c) => unawaited(_persistFooter(c)),
-      onEnableEInkChanged: (v) => unawaited(_persistEInk(v)),
-      onEnableGrayChanged: (v) => unawaited(_persistGray(v)),
-      onEInkThresholdChanged: (v) => unawaited(_persistThreshold(v)),
-      onScrollModeChanged: (m) => unawaited(_persistScrollMode(m)),
+      onColorFilterChanged: (c) => unawaited(_settings.setColorFilter(c)),
+      onFooterChanged: (c) => unawaited(_settings.setFooter(c)),
+      onEnableEInkChanged: (v) => unawaited(_settings.setEInk(v)),
+      onEnableGrayChanged: (v) => unawaited(_settings.setGray(v)),
+      onEInkThresholdChanged: (v) => unawaited(_settings.setThreshold(v)),
+      onScrollModeChanged: (m) => unawaited(_settings.setScrollMode(m)),
       onAutoReadChanged: (v) => _setAutoReadEnabled(v),
-      onAutoReadSpeedChanged: (v) => unawaited(_persistAutoReadSpeed(v)),
+      onAutoReadSpeedChanged: (v) => unawaited(_settings.setAutoReadSpeed(v)),
       // [P4-3 E2] 分页适配类型变更持久化（对齐参考版 ViewModel L816）
-      onPageScaleTypeChanged: (v) => unawaited(_persistPageScaleType(v)),
+      onPageScaleTypeChanged: (v) => unawaited(_settings.setPageScaleType(v)),
       // [P4-3 M3 修4] 条漫侧边留白（条漫专属滑杆，0..45% 持久化）
       sidePadding: _sidePadding,
-      onSidePaddingChanged: (v) => unawaited(_persistSidePadding(v)),
+      onSidePaddingChanged: (v) => unawaited(_settings.setSidePadding(v)),
       // [漫画设置作用域] 翻页模式 / 侧边留白的「跟随全局 / 本书」作用域控件
       // 接线：有当前书时才渲染（无书仅全局路径）；书级写入经 updateBook，
       // 清除覆盖 = 回调传 null（不写入默认值冒充清除）
@@ -868,7 +602,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       globalSidePadding: _globalSidePadding,
       onBookSidePaddingChanged: (v) => unawaited(_persistBookSidePadding(v)),
       // [P4-3 M4 批2] 行为开关组（8 布尔键 + 背景色；键名对齐原版
-      // PreferKey，持久化经 _persistMangaBool / _persistMangaBgColor）
+      // PreferKey，持久化经设置控制器）
       disableClickScroll: _disableClickScroll,
       disableMangaScale: _disableMangaScale,
       disableMangaPageAnim: _disableMangaPageAnim,
@@ -878,67 +612,28 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       mangaLongClickSaveImage: _mangaLongClickSaveImage,
       disableMangaCrossFade: _disableMangaCrossFade,
       mangaBgColor: _mangaBgColor,
-      onDisableClickScrollChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.disableClickScroll,
-          v,
-          (x) => _disableClickScroll = x,
-        ),
-      ),
-      onDisableMangaScaleChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.disableMangaScale,
-          v,
-          (x) => _disableMangaScale = x,
-        ),
-      ),
-      onDisableMangaPageAnimChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.disableMangaPageAnim,
-          v,
-          (x) => _disableMangaPageAnim = x,
-        ),
-      ),
-      onHideMangaTitleChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.hideMangaTitle,
-          v,
-          (x) => _hideMangaTitle = x,
-        ),
-      ),
-      onVolumeKeyPageChanged: (v) => unawaited(
-        _persistMangaBool(MangaToggle.volumeKeyPage, v, (x) {
-          _volumeKeyPage = x;
-          // [P4-3 M5] 开关即时启停捕获（关闭立即恢复系统音量键）
-          _syncVolumeKeyCapture();
-        }),
-      ),
-      onReverseVolumeKeyPageChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.reverseVolumeKeyPage,
-          v,
-          (x) => _reverseVolumeKeyPage = x,
-        ),
-      ),
-      onMangaLongClickSaveImageChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.longClickSaveImage,
-          v,
-          (x) => _mangaLongClickSaveImage = x,
-        ),
-      ),
-      onDisableMangaCrossFadeChanged: (v) => unawaited(
-        _persistMangaBool(
-          MangaToggle.disableCrossFade,
-          v,
-          (x) => _disableMangaCrossFade = x,
-        ),
-      ),
-      onMangaBgColorChanged: (v) => unawaited(_persistMangaBgColor(v)),
+      onDisableClickScrollChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.disableClickScroll, v)),
+      onDisableMangaScaleChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.disableMangaScale, v)),
+      onDisableMangaPageAnimChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.disableMangaPageAnim, v)),
+      onHideMangaTitleChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.hideMangaTitle, v)),
+      onVolumeKeyPageChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.volumeKeyPage, v)),
+      onReverseVolumeKeyPageChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.reverseVolumeKeyPage, v)),
+      onMangaLongClickSaveImageChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.longClickSaveImage, v)),
+      onDisableMangaCrossFadeChanged: (v) =>
+          unawaited(_settings.setToggle(MangaToggle.disableCrossFade, v)),
+      onMangaBgColorChanged: (v) => unawaited(_settings.setBackground(v)),
       // [P4-3 M5] 九宫格点击区编辑器（对齐参考版 ClickActionsSettingsContent
       // L772-802：点击循环切换；单格索引回调，屏内即时生效）
       clickActions: _clickActions,
-      onClickActionChanged: (index) => unawaited(_cycleClickAction(index)),
+      onClickActionChanged: (index) =>
+          unawaited(_settings.cycleClickAction(index)),
     );
   }
 
@@ -1048,15 +743,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       _visiblePageIndex = 0;
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
-    if (next.book != previous.book && next.book != null) {
-      final config = next.book!.readConfig;
-      final mode = config?.mangaScrollMode;
-      _bookScrollMode = mode != null && MangaScrollModes.valid.contains(mode)
-          ? mode
-          : null;
-      _bookSidePadding = config?.webtoonSidePaddingDp?.clamp(0, 45);
-      _applyEffectiveMangaScope();
-    }
+    if (next.book != previous.book) _onSettingsChanged();
     setState(() {
       if (next.loading) _failedIndices.clear();
     });
@@ -1162,7 +849,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 预加载当前可见区域前后的图片。
   ///
   /// 有书源 / 复合 URL / imageDecode 时与正式渲染统一走 FFI
-  /// `fetchImageWithDecode`（写入 [ComicImageDecodeCache]），禁止
+  /// `fetchImageWithDecode`（写入共享解码缓存），禁止
   /// CachedNetworkImageProvider 旁路（会截断复合 URL 或忽略防盗链）。
   /// — Reasonix + UI
   void _preloadVisibleImages() {
@@ -1415,7 +1102,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     // LaunchedEffect 依赖 activeSheet；关闭时复位）
     _pageActionsOpen = true;
     // [cbz 批 D] 本地 cbz 页伪 URL（cbz://<条目名>）不是可消费链接 →
-    // 隐藏「复制链接」项；保存/分享走 cbzReadPage 字节（见 _resolvePageImage）
+    // 隐藏「复制链接」项；保存/分享由图片操作服务读取CBZ条目字节。
     final isCbz = _imageUrls[index].startsWith('cbz://');
     showMangaPageActionsSheet(
       context,
@@ -1427,130 +1114,25 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
   }
 
-  /// 解析当前页图片字节（内存缓存 → 磁盘缓存 → FFI 解码回退）
-  ///
-  /// [cbz 批 D | 2026-10-03] 本地 cbz 页：内存缓存键 = 活跃 bookUrl
-  /// （与渲染/预载一致，非 origin），字节源经 [cbzPath] 走 cbzReadPage。
-  /// — 全栈工程师 + UI
-  Future<MangaPageImageBytes?> _resolvePageImage(int index) async {
-    final url = _imageUrls[index];
-    final isCbz = url.startsWith('cbz://');
-    return resolveMangaPageImageBytes(
-      images: ref.read(bookImageRepositoryProvider),
-      localBooks: ref.read(localBookServiceProvider),
-      bookUrl: _activeBookUrl,
-      url: url,
-      // 有书源才走 FFI 解码链路（对齐 _DecodedComicImage 的分发条件）
-      sourceJson: _bookSource == null
-          ? null
-          : jsonEncode(_bookSource!.toJson()),
-      // 本地 cbz 页：cbzReadPage 读条目（无书源，无磁盘/网络链路）
-      cbzPath: isCbz ? _book?.bookUrl : null,
-      memoryCached: ComicImageDecodeCache.get(
-        isCbz ? _activeBookUrl : (_book?.origin ?? ''),
-        url,
-      ),
-    );
-  }
+  ComicPageImage _pageImage(int index) => ComicPageImage(
+    bookUrl: _activeBookUrl,
+    url: _imageUrls[index],
+    book: _book,
+    source: _bookSource,
+  );
 
-  /// 保存图片（对齐原版：用户选目录写入；取消选择时回退文档目录并提示，
-  /// 先例 auto_task_screen saveFile → 文档目录兜底）
-  ///
-  /// [D2] 平台分派（根因：MuMu DownloadStorageProvider 拒写
-  /// SecurityException × file_picker 8.3.7 仅 catch IOException →
-  /// 未捕获异常抛主线程 FATAL，m4b_fatal_stack_d2.txt）：
-  /// - Android：MediaStore 直写通道（Download/legado/，不弹 SAF 对话框）
-  ///   → 成功 toast「已保存: Download/legado/<文件名>」；通道失败 /
-  ///   API < 29 → 回退文档目录兜底（现有逻辑 + 现有 toast）；
-  /// - iOS / 其他平台：保持现有 file_picker saveFile 路径
-  ///   （[D1 修复] bytes 必传；取消返回 null → 文档目录兜底）。
   Future<void> _savePageImage(int index) async {
-    final data = await _resolvePageImage(index);
-    if (data == null) {
-      _showPageActionSnackBar('无法获取图片数据');
-      return;
-    }
-    final fileName =
-        'manga-${DateTime.now().millisecondsSinceEpoch}${data.suffix}';
-    final service = PlatformBridgeService.instance;
-    if (service.useMediaStoreDownloads) {
-      // [D2] Android：MediaStore 直写（不经 SAF，绕开 file_picker 崩溃链路）
-      final saved = await service.saveImageToDownloads(fileName, data.bytes);
-      if (saved != null) {
-        _showPageActionSnackBar('已保存: $saved');
-        return;
-      }
-      // 通道失败 / API < 29 → 兜底写应用文档目录（现有逻辑）
-      try {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/$fileName')
-          ..writeAsBytesSync(data.bytes);
-        _showPageActionSnackBar('已保存到文档目录: ${file.path}');
-      } catch (e) {
-        _showPageActionSnackBar('保存图片失败: $e');
-      }
-      return;
-    }
-    // iOS / 其他平台：现有 file_picker saveFile 路径
-    try {
-      // 新版插件负责写入 bytes 并返回 URI；页面不再次写入选中位置。
-      // 取消时返回 null，继续沿用文档目录兜底。
-      final path = await FilePicker.saveFile(
-        dialogTitle: '保存图片',
-        fileName: fileName,
-        bytes: data.bytes,
-      );
-      if (path != null) {
-        final location = path.scheme == 'file'
-            ? path.toFilePath()
-            : path.toString();
-        _showPageActionSnackBar('已保存: $location');
-      } else {
-        // 用户取消目录选择 → 兜底写应用文档目录
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/$fileName')
-          ..writeAsBytesSync(data.bytes);
-        _showPageActionSnackBar('已保存到文档目录: ${file.path}');
-      }
-    } catch (e) {
-      _showPageActionSnackBar('保存图片失败: $e');
-    }
+    final result = await _imageActions.save(_pageImage(index));
+    _showPageActionSnackBar(result);
   }
 
-  /// 分享图片（对齐参考版 ShareImage：临时文件 + 系统分享面板；
-  /// 先例 auto_task_screen 的文件分享）
   Future<void> _sharePageImage(int index) async {
-    final data = await _resolvePageImage(index);
-    if (data == null) {
-      _showPageActionSnackBar('无法获取图片数据');
-      return;
-    }
-    try {
-      final dir = await getTemporaryDirectory();
-      final file = File(
-        '${dir.path}/manga-${DateTime.now().millisecondsSinceEpoch}${data.suffix}',
-      );
-      await file.writeAsBytes(data.bytes);
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], subject: '漫画图片'),
-      );
-    } catch (e) {
-      _showPageActionSnackBar('分享失败: $e');
-    }
+    final result = await _imageActions.share(_pageImage(index));
+    if (result != null) _showPageActionSnackBar(result);
   }
 
-  /// 复制图片
-  ///
-  /// 降级说明：参考版 CopyImage（ReadMangaActivity L150-154）用
-  /// ClipData.newUri 复制 URI；本方依赖集无图片/URI 剪贴板同族包先例，
-  /// 按文本剪贴板先例（about_screen L58 / audio_screen L834）复制图片链接。
   Future<void> _copyPageImage(int index) async {
-    try {
-      await Clipboard.setData(ClipboardData(text: _imageUrls[index]));
-      _showPageActionSnackBar('已复制图片链接');
-    } catch (_) {
-      _showPageActionSnackBar('复制失败');
-    }
+    _showPageActionSnackBar(await _imageActions.copy(_pageImage(index)));
   }
 
   /// 页操作结果提示（项目先例：ScaffoldMessenger.showSnackBar）
