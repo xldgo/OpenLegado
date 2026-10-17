@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-SWITCH-SERVICE-20261017：换源业务服务下沉（P1）
+
+- 授权与基线：用户同意先集成当前三项成果，再提取换源服务。feature/ui-reader-selection已从01d4dfc35本地快进至b6de32040；主目录仍停在debug/tts-diagnostics-20261017 / 80880bef8，原未跟踪文件保留。沿用既有feature/rust-ffi-modernization worktree，Codex单代理，不新建分支、不推送/远程CI/WSL或设备安装。
+- 范围：在现有legado-engine提取换源服务，接管候选过滤/评分、详情与目录增强、预取缓存、操作取消、书籍变量合并及单事务提交；FFI只组装捕获资源、复用现有单源搜索、转换协议并转发。共享批次调度原样下沉到engine，普通搜索重导出复用，不在本批迁移整个搜索领域。不新增crate或外部依赖版本，不改FFI DTO/签名、数据库、网络/缓存策略、应用版本及上游可见行为。
+- 资源边界：服务显式接收存储/网络/JS/抓取工厂/操作状态、宿主运行时Handle及单源搜索窄回调，不反向依赖FFI，不持根EngineContext，不新增全局槽位。运行时仍由FFI宿主持有；公共参数与返回类型保持原位置重导出，不为移动实现另建传输协议。
+- 验证：复用现有换源与批次调度回归、default/QuickJS编译及严格Clippy；必要时补服务独立实例行为验证，正式DLL与少量现有FFI冒烟复验，不扩充排版测试或成本测试。单代理自查，未执行独立外审及平台验收时如实列明。
+- 实现：SourceSwitchService按mod/search/enrich/repository/apply拆分；宿主注入单源搜索回调、抓取工厂和运行时Handle。普通搜索复用下沉的source_batches与source_catalog，保持32并发、换源60秒、单源隔离和暂停/取消策略。FFI换源主测试模块前由2234行减至492行，其中仍保留旧文档协议及测试薄适配；没有把JSON传输或宿主发现逻辑搬入引擎。操作入口登记和守卫继续由宿主按原顺序持有，服务内部沿用发布门控。
+- 数据与兼容：评分更新归还当前连接后再写所属实例config缓存，避免单连接实例嵌套借连接；原评分增量、失败和删除语义保留。legado-engine新增对已锁定futures包的直接引用，Cargo.lock只增加此工作区依赖边，529个外部锁定包的版本/来源/校验和不变。FFI入口、DTO及生成绑定未改，没有执行codegen。
+- 验证：现有换源35项通过/1项既有网络忽略；分组纯测试随实现迁移到engine，另补两项独立服务测试，验证查询缓存、评分/删除、单连接配置更新、取消及根引擎析构隔离。Engine+FFI QuickJS单元/集成/文档测试合计751通过/44既有忽略，default和QuickJS两档全目标严格Clippy通过。正式Windows DLL重建、指纹/摘要校验及既有真实换源/流式接口12项通过。首次编译的迁移遗漏和新夹具未启用书源已修正，产品策略未放宽。
+- 证据：build/source-switch-service/{switch-quick,engine-service-fixed,rust-quick,clippy-quick-final,clippy-default,native-build,native-runtime}.log。完整迁移差异已单代理自查；没有独立外审、远程CI、Android/iOS或设备/性能结论，不宣称所有搜索业务已迁移。
+- 状态：本批换源服务提取与本地复验完成，按授权本地提交；不推送或再次合并新服务提交，搜索领域其余业务迁移留作下一批。
+
+编写者：Codex｜2026-10-17
+
 ### LAYOUT-TEST-DEDUP-20261017：排版测试去重（P1）
 
 - 授权与基线：用户要求检查并移除多余测试；沿用feature/rust-ffi-modernization / 2bcfee89a，单代理。只整理当前排版测试与相关文档，不改产品、算法、契约、生成绑定、版本或依赖，不使用WSL、不推送/合并/远程CI或设备安装。

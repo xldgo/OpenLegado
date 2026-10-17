@@ -319,3 +319,15 @@ Web/MCP 监听状态及 Tokio runtime 由宿主拥有；停止端口和等待实
 — Codex，2026-10-16
 
 测试分层更新：Codex｜2026-10-17
+
+### 换源应用服务边界（2026-10-17）
+
+`legado-engine/source_switch_service`接管换源过滤/评分、增强、预取、变量合并和事务提交；
+内部按search/enrich/repository/apply分工。服务使用显式SwitchResources，单源搜索通过
+SwitchSearcher注入，既有普通搜索实现继续由FFI适配，不反向依赖FFI或持有根EngineContext。
+运行时由宿主持有，服务只借Handle；操作槽及TaskGroup保持实例归属，迟到结果仍受发布门控。
+`source_batches`是普通搜索和换源共用的唯一调度实现，`source_catalog`共用启用源筛选。
+本批不移动搜索领域其他业务，不改变DTO/生成绑定/数据库或应用行为；旧Rust路径重导出服务类型。
+评分同步先归还查询连接，再更新同一实例的config缓存，支持单连接内存实例。
+
+编写者：Codex｜2026-10-17

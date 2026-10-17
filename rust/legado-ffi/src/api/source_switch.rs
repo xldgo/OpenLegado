@@ -1,831 +1,130 @@
-//! 换源 API
-//!
-//! 提供搜索可替换书源和切换书籍来源的功能。
-//! 复用 legado-net 的 HTTP 客户端和 legado-core 的 SourceMatcher 评分逻辑。
-
-use serde::{Deserialize, Serialize};
-
-use legado_engine::{
-    Operation, SourceSwitchState, StorageContext, SwitchPrefetchEntry, TaskHandle,
-};
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use futures::stream::{self, StreamExt};
-
-use legado_core::models::{Book, BookChapter, BookSource};
-use legado_core::source_matcher::{SearchCandidate, SourceMatch, SourceMatcher};
-use legado_core::web_book::{BookSourceFetcher, WebBookInfo, WebChapter};
-use legado_core::{LegadoError, LegadoResult};
-use legado_net::LegadoClient;
-
+//! 换源宿主适配：捕获显式资源、复用单源搜索并转换旧文档入口。
 use crate::runtime;
+use legado_core::{LegadoError, LegadoResult, models::Book, source_matcher::SearchCandidate};
+#[cfg(test)]
+use legado_core::{
+    models::{BookChapter, BookSource},
+    source_matcher::SourceMatch,
+    web_book::{BookSourceFetcher, WebBookInfo, WebChapter},
+};
+use legado_engine::SourceSwitchState;
+#[cfg(test)]
+use legado_engine::SwitchPrefetchEntry;
+#[cfg(test)]
+use legado_engine::source_switch_service::ENRICH_CONCURRENCY;
+pub use legado_engine::source_switch_service::{
+    ChangeSourceBatch, SourceSwitchResponse, SwitchSearchOptions, merge_variables,
+    yield_stale_overlay_to_db,
+};
+use legado_engine::source_switch_service::{SourceSwitchService, SwitchResources, SwitchSearcher};
+use std::{ops::Deref, sync::Arc};
 
 #[derive(Clone)]
-struct SwitchContext {
-    storage: Option<StorageContext>,
-    factory: Option<super::web_book::CapturedFetcherFactory>,
-    state: Arc<SourceSwitchState>,
-    operation: Option<Arc<Operation>>,
-    deadline: Option<TaskHandle>,
-    network: Arc<legado_engine::NetworkContext>,
-    web_book: Arc<legado_fetcher::web_book_state::WebBookState>,
-    js: Arc<legado_js::JsResources>,
-    login: Arc<legado_engine::SourceLoginCache>,
-    info: Arc<legado_engine::SourceInfoMap>,
-    rate: Arc<legado_fetcher::rate_limit::RateLimiterRegistry>,
+struct SwitchContext(SourceSwitchService);
+impl Deref for SwitchContext {
+    type Target = SourceSwitchService;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 impl SwitchContext {
     fn host() -> Self {
-        let engine = crate::engine_holder::current().ok();
-        if let Some(engine) = engine.as_ref() {
-            return Self::from_engine(engine, crate::engine_holder::switches());
+        if let Ok(engine) = crate::engine_holder::current() {
+            return Self::from_engine(&engine, crate::engine_holder::switches());
         }
-        Self {
-            storage: engine.as_ref().map(|e| e.storage().clone()),
-            factory: engine.as_ref().map(|e| super::web_book::deps_for_engine(e)),
-            state: crate::engine_holder::switches(),
-            operation: None,
-            deadline: None,
-            network: crate::engine_holder::network(),
-            web_book: crate::engine_holder::web_book_state(),
-            js: crate::engine_holder::js_resources(),
-            login: crate::engine_holder::source_login_cache(),
-            info: crate::engine_holder::source_info_map(),
-            rate: crate::engine_holder::rate_limiter(),
-        }
+        Self::capture(None, crate::engine_holder::switches())
     }
     fn from_engine(engine: &legado_engine::EngineContext, state: Arc<SourceSwitchState>) -> Self {
-        Self {
-            storage: Some(engine.storage().clone()),
-            factory: Some(super::web_book::deps_for_engine(engine)),
+        Self::capture(Some(engine), state)
+    }
+
+    fn capture(
+        engine: Option<&legado_engine::EngineContext>,
+        state: Arc<SourceSwitchState>,
+    ) -> Self {
+        let storage = engine.map(|e| e.storage().clone());
+        let factory = engine.map(super::web_book::deps_for_engine);
+        let network = engine
+            .map(|e| e.network().clone())
+            .unwrap_or_else(crate::engine_holder::network);
+        let web_book = engine
+            .map(|e| e.web_book_state().clone())
+            .unwrap_or_else(crate::engine_holder::web_book_state);
+        let js = engine
+            .map(|e| e.js_resources().clone())
+            .unwrap_or_else(crate::engine_holder::js_resources);
+        let login = engine
+            .map(|e| e.source_login_cache().clone())
+            .unwrap_or_else(crate::engine_holder::source_login_cache);
+        let info = engine
+            .map(|e| e.source_info_map().clone())
+            .unwrap_or_else(crate::engine_holder::source_info_map);
+        let rate = engine
+            .map(|e| e.rate_limiter())
+            .unwrap_or_else(crate::engine_holder::rate_limiter);
+        let (search_storage, search_js, search_web_book) =
+            (storage.clone(), js.clone(), web_book.clone());
+        let search: SwitchSearcher = Arc::new(move |request| {
+            let mut deps = legado_fetcher::deps::FetcherDeps::new(request.client)
+                .with_js_resources(search_js.clone())
+                .with_web_book_state(search_web_book.clone());
+            deps.rate_limiter = rate.clone();
+            let mut context = super::search::SearchContext::assemble(
+                deps,
+                search_storage.clone(),
+                login.clone(),
+                info.clone(),
+            );
+            if let Some(task) = request.task {
+                context = context.with_task(task);
+            }
+            Box::pin(async move {
+                let source = request.source;
+                let results = super::search::search_single_source_with_context(
+                    &context,
+                    &source,
+                    &request.keyword,
+                    1,
+                    false,
+                )
+                .await?;
+                Ok(results
+                    .into_iter()
+                    .map(|r| SearchCandidate {
+                        source_url: r.source_url,
+                        source_name: r.source_name,
+                        book_url: r.book_url,
+                        book_name: r.book_name,
+                        author: r.author,
+                        latest_chapter: r.latest_chapter,
+                        word_count: r.word_count,
+                        chapter_word_count_text: None,
+                        chapter_word_count: -1,
+                        respond_time: -1,
+                        origin_order: source.custom_order,
+                        book_score: 0,
+                        variable: r.variable,
+                    })
+                    .collect())
+            })
+        });
+        Self(SourceSwitchService::new(SwitchResources {
+            storage,
+            factory,
             state,
-            operation: None,
-            deadline: None,
-            network: engine.network().clone(),
-            web_book: engine.web_book_state().clone(),
-            js: engine.js_resources().clone(),
-            login: engine.source_login_cache().clone(),
-            info: engine.source_info_map().clone(),
-            rate: engine.rate_limiter(),
-        }
+            network,
+            web_book,
+            js,
+            runtime: runtime::get_runtime().handle().clone(),
+            search,
+        }))
     }
-
-    fn start_search(mut self) -> LegadoResult<Self> {
-        self.operation = Some(
-            self.state
-                .start_search()
-                .map_err(|e| LegadoError::Internal(e.to_string()))?,
-        );
-        Ok(self)
+    fn start_search(self) -> LegadoResult<Self> {
+        Ok(Self(self.0.start_search()?))
     }
-    fn start_apply(mut self) -> LegadoResult<Self> {
-        self.operation = Some(
-            self.state
-                .applies
-                .start()
-                .map_err(|e| LegadoError::Internal(e.to_string()))?,
-        );
-        Ok(self)
+    fn start_apply(self) -> LegadoResult<Self> {
+        Ok(Self(self.0.start_apply()?))
     }
-    fn ensure_active(&self) -> LegadoResult<()> {
-        if self.operation.as_ref().is_some_and(|op| !op.is_active())
-            || self.deadline.as_ref().is_some_and(TaskHandle::is_cancelled)
-        {
-            Err(LegadoError::Internal("换源已取消".into()))
-        } else {
-            Ok(())
-        }
-    }
-    async fn cancelled(&self) {
-        let parent = async {
-            if let Some(operation) = &self.operation {
-                operation.task().cancelled().await;
-            } else {
-                std::future::pending::<()>().await;
-            }
-        };
-        let child = async {
-            if let Some(task) = &self.deadline {
-                task.cancelled().await;
-            } else {
-                std::future::pending::<()>().await;
-            }
-        };
-        tokio::select! {_=parent=>{},_=child=>{}}
-    }
-
-    fn publish<T>(&self, callback: impl FnOnce() -> T) -> Option<T> {
-        let publish = || {
-            if let Some(operation) = &self.operation {
-                operation.publish(callback)
-            } else {
-                Some(callback())
-            }
-        };
-        if let Some(deadline) = &self.deadline {
-            deadline.with_active(publish).flatten()
-        } else {
-            publish()
-        }
-    }
-    fn database<T>(
-        &self,
-        callback: impl FnOnce(&legado_db::Database) -> LegadoResult<T>,
-    ) -> LegadoResult<T> {
-        self.storage
-            .as_ref()
-            .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?
-            .with_database(callback)
-    }
-    fn config(&self, key: &str) -> String {
-        self.database(|db| {
-            Ok(legado_db::CacheRepository::new(db.connection())
-                .get(&format!("config:{key}"))?
-                .unwrap_or_default())
-        })
-        .unwrap_or_default()
-    }
-    fn search_context(&self, client: LegadoClient) -> super::search::SearchContext {
-        let mut deps = legado_fetcher::deps::FetcherDeps::new(client)
-            .with_js_resources(self.js.clone())
-            .with_web_book_state(self.web_book.clone());
-        deps.rate_limiter = self.rate.clone();
-        let context = super::search::SearchContext::assemble(
-            deps,
-            self.storage.clone(),
-            self.login.clone(),
-            self.info.clone(),
-        );
-        if let Some(op) = &self.operation {
-            context.with_task(op.task().clone())
-        } else {
-            context
-        }
-    }
-    fn fetcher(&self) -> LegadoResult<super::web_book::RealBookSourceFetcher> {
-        self.fetcher_for_book("", "")
-    }
-    fn fetcher_for_book(
-        &self,
-        source: &str,
-        book: &str,
-    ) -> LegadoResult<super::web_book::RealBookSourceFetcher> {
-        self.ensure_active()?;
-        let mut deps =
-            self.factory.as_ref().ok_or_else(|| {
-                LegadoError::Database("数据库尚未初始化，请先调用 db_open".into())
-            })?()?;
-        if let Some(sink) = deps.media_sub_content.take() {
-            let context = self.clone();
-            deps.media_sub_content = Some(Arc::new(move |book, source, chapter, key, value| {
-                context.publish(|| sink(book, source, chapter, key, value));
-            }));
-        }
-        if !source.is_empty() {
-            deps = deps.for_book(source, book);
-        }
-        Ok(super::web_book::RealBookSourceFetcher::with_deps(deps))
-    }
-
-    fn prefetch_cache_insert(
-        &self,
-        source: &str,
-        book: &str,
-        info: Option<WebBookInfo>,
-        chapters: Vec<WebChapter>,
-    ) {
-        self.publish(|| self.state.insert(source, book, info, chapters));
-    }
-    fn prefetch_cache_get(&self, source: &str, book: &str) -> Option<SwitchPrefetchEntry> {
-        self.state.get(source, book)
-    }
-}
-
-/// 换源提交的稳定主键与目标地址。— Codex
-struct SwitchCommitTarget<'a> {
-    book_url: &'a str,
-    source_url: &'a str,
-    detail_url: &'a str,
-}
-
-/// 换源搜索高级选项（对齐 AppConfig changeSourceLoad* 三开关）
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SwitchSearchOptions {
-    #[serde(default, rename = "loadInfo")]
-    pub load_info: bool,
-    #[serde(default, rename = "loadToc")]
-    pub load_toc: bool,
-    #[serde(default, rename = "loadWordCount")]
-    pub load_word_count: bool,
-    /// 强制网络重搜（对齐原版换源「刷新列表」/startSearch；默认 false 优先复用 searchBooks）
-    #[serde(default, rename = "forceRefresh")]
-    pub force_refresh: bool,
-}
-
-impl SwitchSearchOptions {
-    fn needs_enrichment(&self) -> bool {
-        self.load_info || self.load_toc || self.load_word_count
-    }
-}
-
-// ─── 换源预拉缓存 + 应用取消代数（2026-09-24 加法式，对齐上游
-//     ChangeBookSourceViewModel 的 tocMap/bookMap 与 changeSourceCancelable
-//     语义，解决「换源感知等待」：搜索期预拉详情+目录，选中即命中免抓取） ───
-
-/// 取消所属宿主的 apply；在发布门控外排空提交并中止原实例 TOC 分页。
-pub fn cancel_switch_apply() {
-    crate::engine_holder::switches().applies.cancel();
-    legado_fetcher::web_book::bump_toc_fetch_epoch(&crate::engine_holder::web_book_state());
-}
-
-#[cfg(test)]
-fn prefetch_cache_clear() {
-    crate::engine_holder::switches().clear();
-}
-#[cfg(test)]
-fn prefetch_cache_insert(
-    source: &str,
-    book: &str,
-    info: Option<WebBookInfo>,
-    chapters: Vec<WebChapter>,
-) {
-    crate::engine_holder::switches().insert(source, book, info, chapters);
-}
-#[cfg(test)]
-fn prefetch_cache_get(source: &str, book: &str) -> Option<SwitchPrefetchEntry> {
-    crate::engine_holder::switches().get(source, book)
-}
-
-/// 增强预拉有界并发上限（保守值，论证见 [`enrich_switch_candidates_async`]
-/// 文档：上游 threadCount=32 作用于「逐源搜索+增强」整链，我方搜索期已
-/// 32 并发，增强期为重型目录抓取集中突发，取 8 防连接池饱和）。
-const ENRICH_CONCURRENCY: usize = 8;
-
-/// 换源搜索响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SourceSwitchResponse {
-    /// 原始书籍名称
-    pub book_name: String,
-    /// 原始作者
-    pub author: String,
-    /// 匹配到的候选列表（按评分降序）
-    pub matches: Vec<SourceMatch>,
-}
-
-/// 搜索可替换的书源
-///
-/// `book_name` — 当前书籍名称
-/// `author` — 当前作者
-/// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；
-/// 空串/空数组/缺省=搜索所有启用源（留项#12/Task #131，语义与
-/// `search_books` 的 `source_urls_json` 一致，复用 `search::load_search_sources`）。
-/// `options_json` — 可选 JSON 对象 `{loadInfo,loadToc,loadWordCount}`；
-/// 空串/缺省时回退读取 config 同名键（对齐 AppConfig）。
-///
-/// 在指定（或全部启用）的书源中搜索，返回按匹配度排序的候选列表。
-pub fn search_alternative_sources(
-    book_name: &str,
-    author: &str,
-    source_urls_json: &str,
-    options_json: &str,
-) -> LegadoResult<SourceSwitchResponse> {
-    let context = SwitchContext::host().start_search()?;
-    let _guard = context.operation.as_ref().unwrap().guard();
-    let result =
-        context.search_alternative_sources(book_name, author, source_urls_json, options_json);
-    context
-        .publish(|| result)
-        .unwrap_or_else(|| Err(LegadoError::Internal("换源已取消".into())))
-}
-
-/// 换源搜索流批次事件（契约 §2.4 `searchSourceStream`）
-///
-/// `matches` 为**当前已过滤评分候选的全量快照**——Rust 侧维持过滤/排序，UI 仅替换展示；
-/// 单源失败经 `error` 字段承载，不中断流。
-#[derive(Debug, Clone, Serialize)]
-pub struct ChangeSourceBatch {
-    /// 刚完成书源的索引（0-based；DB 复用 / enrich 终批为 0）
-    pub source_index: usize,
-    pub source_url: String,
-    pub source_name: String,
-    /// 该源搜索失败时的错误信息（成功为 None）
-    pub error: Option<String>,
-    /// 已完成书源数量
-    pub finished_count: usize,
-    /// 本次搜索书源总数
-    pub total_count: usize,
-    /// 是否为最后一个批次（finished_count == total_count）
-    pub is_last: bool,
-    /// 当前已过滤评分候选全量快照（同名过滤(+可选作者校验) + 评分排序）
-    pub matches: Vec<SourceMatch>,
-}
-
-/// 换源搜索流式驱动器（T6 / 契约 §2.4 `searchSourceStream`）
-///
-/// 每完成一个书源推送一批次事件（`on_batch` 接收批次 JSON 字符串）：
-/// - `matches` = 累积候选经同名过滤(+可选作者校验)与评分排序后的**全量快照**——
-///   逐源增量过滤 ≡ 批量过滤（[`SourceMatcher::filter_for_change`] 为元素级判定）；
-/// - 进度由 `finished_count`/`total_count` 承载；单源失败推带 `error` 字段的批次，不中断流；
-/// - DB 复用路径（forceRefresh=false 且 searchBooks 有数据）推单批即结束，无网络请求；
-/// - 全部书源完成后：enrich 开启时执行流内后置增强（详情/目录/试读字数）并再推一批
-///   enriched+重排快照——**不阻塞首批到达**（所有搜索批次已先行推送）；
-///   最终候选落库 searchBooks（对齐原版 searchSuccess → insert）。
-///
-/// `on_batch` 返回 `Err`（sink 关闭 / 流取消）→ 驱动器置位取消并 abort 在飞任务，结束流。
-pub async fn run_change_source_stream<F>(
-    book_name: String,
-    author: String,
-    urls: String,
-    options: String,
-    mut on_batch: F,
-) where
-    F: FnMut(String) -> Result<(), String>,
-{
-    run_change_source_stream_typed(book_name, author, urls, options, |batch| {
-        on_batch(serde_json::to_string(&batch).map_err(|e| e.to_string())?)
-    })
-    .await;
-}
-
-pub async fn run_change_source_stream_typed<F>(
-    book_name: String,
-    author: String,
-    source_urls_json: String,
-    options_json: String,
-    on_batch: F,
-) where
-    F: FnMut(ChangeSourceBatch) -> Result<(), String>,
-{
-    let Ok(context) = SwitchContext::host().start_search() else {
-        return;
-    };
-    let _guard = context.operation.as_ref().unwrap().guard();
-    context
-        .run_change_source_stream_typed(book_name, author, source_urls_json, options_json, on_batch)
-        .await
-}
-
-/// 切换到新书源
-///
-/// `book_url` — 当前书籍的 bookUrl（稳定主键，换源后保持不变）
-/// `new_source_url` — 新书源的 URL
-/// `new_book_url` — 新书源中该书籍的详情页 URL
-///
-/// 返回更新后的书籍信息（JSON）。
-///
-/// Task #16 P0（方案 A，对齐 Android 原版）：**bookUrl 作为稳定主键，换源时不
-/// 变更 bookUrl**。仅更新书源相关字段（origin/originName/tocUrl），随后清除该
-/// bookUrl 下的旧章节与旧缓存正文，并用 new_book_url 从新源重新抓取目录、以
-/// 稳定的原 bookUrl 落库。避免旧实现「先改 book_url 再按新值 update」命中 0 行
-/// 回退 insert 导致的僵尸记录与章节孤儿；同时清缓存避免跨源正文串本。
-/// 切换到新书源
-///
-/// `book_url` — 当前书籍的 bookUrl（稳定主键，换源后保持不变）
-/// `new_source_url` — 新书源的 URL
-/// `new_book_url` — 新书源中该书籍的详情页 URL
-///
-/// 返回更新后的书籍信息（JSON）。
-///
-/// Task #16 P0（方案 A，对齐 Android 原版）：**bookUrl 作为稳定主键，换源时不
-/// 变更 bookUrl**。仅更新书源相关字段（origin/originName/tocUrl），随后清除该
-/// bookUrl 下的旧章节与旧缓存正文，并用 new_book_url 从新源重新抓取目录、以
-/// 稳定的原 bookUrl 落库。避免旧实现「先改 book_url 再按新值 update」命中 0 行
-/// 回退 insert 导致的僵尸记录与章节孤儿；同时清缓存避免跨源正文串本。
-pub fn switch_book_source(
-    book_url: &str,
-    new_source_url: &str,
-    new_book_url: &str,
-) -> LegadoResult<String> {
-    serde_json::to_string(&switch_book_source_entity(
-        book_url,
-        new_source_url,
-        new_book_url,
-    )?)
-    .map_err(LegadoError::Serialization)
-}
-
-pub fn switch_book_source_entity(
-    book_url: &str,
-    new_source_url: &str,
-    new_book_url: &str,
-) -> LegadoResult<Book> {
-    let context = SwitchContext::host().start_apply()?;
-    let _guard = context.operation.as_ref().unwrap().guard();
-    let fetcher = context.fetcher_for_book(new_source_url, new_book_url)?;
-    context.switch_book_source_entity_with(&fetcher, book_url, new_source_url, new_book_url)
-}
-
-/// [T5] 变量合并：候选搜索期变量（searchBooks 行）为先，详情页导出变量
-/// 后写入者优先（对齐原版 AnalyzeRule.putVariable 同名键覆盖语义）。
-/// 两侧均空/均非 JSON 对象 → None。
-pub(crate) fn merge_variables(initial: Option<&str>, detail: Option<&str>) -> Option<String> {
-    let mut map = serde_json::Map::new();
-    for (label, src) in [("initial", initial), ("detail", detail)] {
-        let _ = label;
-        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty())
-            && let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s)
-        {
-            for (k, v) in m {
-                map.insert(k, v);
-            }
-        }
-    }
-    if map.is_empty() {
-        None
-    } else {
-        Some(serde_json::Value::Object(map).to_string())
-    }
-}
-
-/// [P2-15 剩项②] 陈旧 overlay 让位：换源合并点上，对本进程 JS 写路径
-/// 残留 overlay（`legado_fetcher::web_book::book_var_overlay_map` 返回的键域，即
-/// `bookVar::{bookUrl}::` 持久裸层键）参与 [`merge_variables`] 合并后
-/// 的结果做保守修正——**仅**这些键在满足全部条件时用 DB 值覆盖：
-///
-/// 1. 键 ∈ overlay 键域（`overlay_keys`）——本进程 JS `book.putVariable`
-///    写路径的残留值（当前引擎的来源/书籍覆盖：换源/换书不清，
-///    见 P2-15 剩项① 的收窄说明）；
-/// 2. 键 ∉ 候选搜索行变量（`candidate_variable`）——候选 ⊕ 详情是 T5
-///    换源意图内的新鲜合并链，候选携带的键绝不让位（T5 候选优先不变）；
-/// 3. DB `books.variable`（`db_variable`）已有该键的值——DB 为持久权威
-///    值（用户编辑 / 既有落库），比进程级残留 overlay「更新」。
-///
-/// 其余一律不动：非 overlay 键（详情 `@put` 导出等新鲜解析产物）不
-/// 让位；DB 无该键或值相等 → 零副作用直通；`merged` 为 None → None；
-/// `merged` / 各输入非 JSON 对象 → 降级原样返回（不阻断换源）。
-///
-/// 已知降级（有意为之）：本阶段 JS 写入的同名键若同时被用户在 DB 编辑
-/// 过，也一并让位给 DB 值（DB 权威），与账本「让位给更新的 DB 值」一致。
-pub(crate) fn yield_stale_overlay_to_db(
-    merged: Option<&str>,
-    db_variable: Option<&str>,
-    candidate_variable: Option<&str>,
-    overlay_keys: &HashMap<String, String>,
-) -> Option<String> {
-    let merged_raw = merged?;
-    let Some(serde_json::Value::Object(mut map)) =
-        serde_json::from_str::<serde_json::Value>(merged_raw).ok()
-    else {
-        return Some(merged_raw.to_string());
-    };
-    let candidate_has_key = |k: &str| {
-        candidate_variable
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-            .map(|v| v.as_object().is_some_and(|o| o.contains_key(k)))
-            .unwrap_or(false)
-    };
-    let db_value = |k: &str| {
-        db_variable
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-            .and_then(|v| v.as_object().and_then(|o| o.get(k)).cloned())
-    };
-    for k in overlay_keys.keys() {
-        if candidate_has_key(k) {
-            continue;
-        }
-        if let Some(db_v) = db_value(k)
-            && map.get(k) != Some(&db_v)
-        {
-            map.insert(k.clone(), db_v);
-        }
-    }
-    Some(serde_json::Value::Object(map).to_string())
-}
-
-/// 当前 Unix 时间戳（毫秒）——目录派生字段同步写 latestChapterTime 用
-/// （与 legado-core::toc_updater::now_millis 同一实现风格）
-fn now_millis() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
-}
-
-/// 换源核心（fetcher 注入，便于单测以 Mock 验证 T2 执行链）
-///
-/// [T2 | ChangeBookSourceViewModel.kt:718-731 getToc] 对齐原版换源执行链：
-/// **先 `getBookInfoAwait`（canReName=false，保留既有书名/作者）解析真实
-/// tocUrl（ruleBookInfo.tocUrl 的目录页可与详情页不同），再用它取目录**；
-/// 详情或目录任一步失败 → 整个换源失败返回可读错误（含书源名），单事务
-/// 未提交即保留旧源。禁止拿 new_book_url 硬闯目录。
-///
-/// 2026-09-24 重构（行为不变）：定位/候选变量/变量合并/提交尾段拆为
-/// [`locate_switch_book_and_source`]/[`lookup_candidate_variable`]/
-/// [`apply_book_variable_merge`]/[`commit_source_switch`]，与预拉缓存版
-/// [`switch_book_source_prefetch`] 共用；执行顺序与副作用逐项保持原样。
-#[cfg(test)]
-fn switch_book_source_with<F: BookSourceFetcher>(
-    fetcher: &F,
-    book_url: &str,
-    new_source_url: &str,
-    new_book_url: &str,
-) -> LegadoResult<String> {
-    let context = SwitchContext::host().start_apply()?;
-    let _guard = context.operation.as_ref().unwrap().guard();
-    serde_json::to_string(&context.switch_book_source_entity_with(
-        fetcher,
-        book_url,
-        new_source_url,
-        new_book_url,
-    )?)
-    .map_err(LegadoError::Serialization)
-}
-
-/// 换源（预拉缓存版，2026-09-24 加法式；FFI `source_switch_apply_prefetch`）
-///
-/// 命中/未命中语义对齐上游 `getToc`（ChangeBookSourceViewModel.kt L659-682）：
-/// - **命中**（预拉缓存有该候选非空目录）：直接用缓存的详情 + 目录，
-///   **零网络**（2a/2b 均跳过；变量合并/陈旧 overlay 让位/空目录守卫/
-///   单事务提交/下一章登记逐项不变）——「选中源即落地」的感知等待消除点；
-/// - **未命中**：详情 + 目录现场抓取（执行链与 [`switch_book_source_with`]
-///   一致），**可取消**——[`cancel_switch_apply`] 使 原 apply 取消 并 bump
-///   TOC 刷新代数，事务前代数比对防取消后提交（DB 零变更），在途
-///   nextTocUrl 分页链在下一页边界中止。
-///
-/// `book_url` — 当前书籍的 bookUrl（稳定主键，换源后保持不变）
-/// `new_source_url` — 新书源的 URL
-/// `new_book_url` — 新书源中该书籍的详情页 URL
-pub fn switch_book_source_prefetch(
-    book_url: &str,
-    new_source_url: &str,
-    new_book_url: &str,
-) -> LegadoResult<String> {
-    serde_json::to_string(&switch_book_source_prefetch_entity(
-        book_url,
-        new_source_url,
-        new_book_url,
-    )?)
-    .map_err(LegadoError::Serialization)
-}
-
-pub fn switch_book_source_prefetch_entity(
-    book_url: &str,
-    new_source_url: &str,
-    new_book_url: &str,
-) -> LegadoResult<Book> {
-    let context = SwitchContext::host().start_apply()?;
-    let _guard = context.operation.as_ref().unwrap().guard();
-    let fetcher = context.fetcher_for_book(new_source_url, new_book_url)?;
-    context.switch_book_source_prefetch_entity_with(
-        &fetcher,
-        book_url,
-        new_source_url,
-        new_book_url,
-    )
-}
-
-/// 换源核心（预拉缓存版，fetcher 注入便于单测以 Mock 验证命中零抓取/
-/// 未命中现场抓取/取消路径）
-#[cfg(test)]
-fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
-    fetcher: &F,
-    book_url: &str,
-    new_source_url: &str,
-    new_book_url: &str,
-) -> LegadoResult<String> {
-    let context = SwitchContext::host().start_apply()?;
-    let _guard = context.operation.as_ref().unwrap().guard();
-    serde_json::to_string(&context.switch_book_source_prefetch_entity_with(
-        fetcher,
-        book_url,
-        new_source_url,
-        new_book_url,
-    )?)
-    .map_err(LegadoError::Serialization)
-}
-
-/// 解析换源场景待搜索的书源列表（留项#12，Task #131/Task #145）
-///
-/// 复用 [`crate::api::search::load_search_sources`] 过滤语义：
-/// 空串/空数组（`[]`）=全部启用源；非空 JSON 数组=仅搜指定 URL 的启用源。
-///
-/// Task #145：追加按 config `searchGroup` 的原生分组过滤（零 FFI 签名变更，
-/// Rust 内部读 config，对齐原版 ChangeBookSourceViewModel L197-206 读取
-/// `AppConfig.searchGroup` 后走 `getEnabledPartByGroup` 的行为）。
-#[cfg(test)]
-#[cfg(test)]
-pub(crate) fn resolve_switch_sources(source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
-    SwitchContext::host().resolve_switch_sources(source_urls_json)
-}
-
-/// config 键：换源搜索分组（键名对齐原版 `AppConfig.searchGroup`，Task #145）
-const SEARCH_GROUP_CONFIG_KEY: &str = "searchGroup";
-
-/// 分组包含判定（Task #145，对齐原版 `SOURCE_GROUP_MEMBERSHIP_FILTER` SQL 语义：
-/// SearchBookDao.kt L13-32 / BookSourceDao.getEnabledPartByGroup）
-///
-/// 分组字段为多组列表：`,`/`;`/`，`/`；` 四种分隔符统一规范化为逗号后拆分，
-/// 每个组名各自 trim（原版按空白字符集 trim）后与目标分组做**精确相等**匹配，
-/// 不做子串匹配（原版递归 CTE 逐组名 `group_name = trim(:sourceGroup)` 判定）。
-fn source_group_contains(source_group: &str, target: &str) -> bool {
-    let normalized: String = source_group
-        .chars()
-        .map(|c| match c {
-            ';' | '；' | '，' => ',',
-            other => other,
-        })
-        .collect();
-    normalized.split(',').any(|name| name.trim() == target)
-}
-
-/// 解析换源搜索选项：优先 options_json，缺省回退 config
-#[cfg(test)]
-pub(crate) fn resolve_switch_options(options_json: &str) -> SwitchSearchOptions {
-    SwitchContext::host().resolve_switch_options(options_json)
-}
-
-/// 流内后置增强核心（T6）：原生 async，孤儿（书源不在列表中）直通
-///
-/// 2026-09-24 重写（加法式，对齐上游 `search()` L317-344 语义）：
-/// - **有界并发** [`ENRICH_CONCURRENCY`]=8（上游 threadCount=32 作用于
-///   「逐源搜索+增强」整链；我方搜索期已 32 并发，增强期是重型目录抓取的
-///   集中突发，取 8 防连接池饱和，见常量文档论证）；
-/// - **单候选 60s 超时**（上游逐源 `withTimeout(60000L)`，L334）：超时/
-///   异常时候选原样直通（单失败隔离，不阻塞他项，对齐上游逐源 try/catch）；
-/// - 索引槽重建原始候选顺序（孤儿在前、其余按原顺序，旧行为不变）；
-/// - **命中预拉缓存**：增强结果写入 [`SourceSwitchState`]（键同上游
-///   `primaryStr()`），选中源时 [`switch_book_source_prefetch`] 命中免抓取。
-///
-/// `make_fetcher` 为可注入 fetcher 工厂：生产路径传
-/// `|_| real_fetcher()`；单测注入 Mock 验证并发上限/
-/// 失败隔离/顺序恢复（生产行为不变）。
-#[cfg(test)]
-async fn enrich_switch_candidates_async<F, MF>(
-    sources: &[BookSource],
-    candidates: Vec<SearchCandidate>,
-    options: &SwitchSearchOptions,
-    make_fetcher: MF,
-) -> LegadoResult<Vec<SearchCandidate>>
-where
-    F: BookSourceFetcher + Send + 'static,
-    MF: Fn() -> LegadoResult<F> + Send + Sync + 'static,
-{
-    SwitchContext::host()
-        .enrich_switch_candidates_async(sources, candidates, options, move |_| make_fetcher())
-        .await
-}
-
-/// 单候选 60s 超时（上游逐源 `withTimeout(60000L)`）：超时/异常时候选
-/// 原样直通——单失败隔离，不阻塞其他候选（对齐上游逐源 try/catch 语义）。
-#[cfg(test)]
-async fn enrich_item_with_timeout(
-    fetcher: &impl BookSourceFetcher,
-    source: &BookSource,
-    candidate: SearchCandidate,
-    options: &SwitchSearchOptions,
-    timeout: std::time::Duration,
-) -> SearchCandidate {
-    SwitchContext::host()
-        .enrich_item_with_timeout(fetcher, source, candidate, options, timeout)
-        .await
-}
-
-/// 单候选增强（fetcher 注入便于 Mock 验证；fetch 细节见函数体注释）。
-///
-/// 旧版构造 `RealBookSourceFetcher` 直用并调 inherent 方法
-/// `get_chapters_with_hints`（空变量表薄委托）；本版本用 trait 6 参
-/// [`BookSourceFetcher::get_chapters_with_hints_and_vars`] + 空变量表——
-/// 生产语义等价（RealBookSourceFetcher 的 4 参方法即委托到此 + 空表），
-/// 且可 Mock。详情抓取从 `build_engine().get_book_info`（canReName 默认
-/// true + 空变量表）改为 apply 对齐的
-/// [`BookSourceFetcher::get_book_info_with_existing_and_vars`]（canReName=false
-/// + 候选搜索期变量表）：缓存详情 ≡ apply 时详情，选中命中后字段更新/
-///   变量合并与旧 apply 路径逐项一致。
-#[cfg(test)]
-async fn enrich_one_switch_candidate_with(
-    fetcher: &impl BookSourceFetcher,
-    source: &BookSource,
-    candidate: SearchCandidate,
-    options: &SwitchSearchOptions,
-) -> SearchCandidate {
-    SwitchContext::host()
-        .enrich_one_switch_candidate_with(fetcher, source, candidate, options)
-        .await
-}
-
-async fn apply_word_count_sample(
-    candidate: &mut SearchCandidate,
-    source: &BookSource,
-    engine: &impl legado_core::web_book::BookSourceFetcher,
-    chapters: &[WebChapter],
-) {
-    let chapter_index = chapters.len().saturating_sub(1);
-    let chapter = &chapters[chapter_index];
-    let mut title = chapter.title.trim().to_string();
-    if title.chars().count() > 20 {
-        title = format!("{}…", title.chars().take(20).collect::<String>());
-    }
-    let start = std::time::Instant::now();
-    let web_ch = WebChapter {
-        url: chapter.url.clone(),
-        title: chapter.title.clone(),
-        index: chapter.index,
-        is_vip: chapter.is_vip,
-        is_volume: chapter.is_volume,
-        variable: chapter.variable.clone(),
-        word_count: None,
-    };
-    let (count, text) = match engine.get_content(source, &web_ch).await {
-        Ok(content) => {
-            let len = content.chars().count() as i32;
-            (
-                len,
-                format!("[{}] {}\n字数：{}", chapter_index + 1, title, len),
-            )
-        }
-        Err(e) => (
-            -1,
-            format!("[{}] {}\n获取字数失败：{}", chapter_index + 1, title, e),
-        ),
-    };
-    candidate.chapter_word_count = count;
-    candidate.chapter_word_count_text = Some(text);
-    candidate.respond_time = start.elapsed().as_millis() as i32;
-}
-
-/// 换源网络结果落库（对齐原版 searchSuccess → insert）
-#[cfg(test)]
-fn persist_switch_matches(matches: &[SourceMatch]) {
-    SwitchContext::host().persist_switch_matches(matches)
-}
-
-/// 更新换源列表项用户评分（-1/0/1）
-///
-/// 对齐原版 `SourceConfig.setBookScore`：持久化书维度评分并同步书源聚合分。
-pub fn update_search_book_score(book_url: &str, score: i32) -> LegadoResult<()> {
-    let book_url = book_url.trim();
-    if book_url.is_empty() {
-        return Err(LegadoError::Database("bookUrl 不能为空".into()));
-    }
-    if !(-1..=1).contains(&score) {
-        return Err(LegadoError::Database("评分仅允许 -1/0/1".into()));
-    }
-    if !crate::db_state::is_initialized() {
-        return Err(LegadoError::Database("数据库未初始化".into()));
-    }
-    crate::db_state::with_database(|db| {
-        let repo = legado_db::SearchBookRepository::new(db.connection());
-        let pre = repo
-            .find_by_book_url(book_url)?
-            .map(|b| b.book_score)
-            .unwrap_or(0);
-        let affected = repo.update_book_score(book_url, score)?;
-        if affected == 0 {
-            return Err(LegadoError::Database(format!(
-                "searchBooks 中不存在 bookUrl={book_url}"
-            )));
-        }
-        if let Some(book) = repo.find_by_book_url(book_url)? {
-            sync_source_score_delta(&book.origin, pre, score);
-        }
-        Ok(())
-    })
-}
-
-/// 删除换源列表项（按 bookUrl）
-pub fn delete_search_book(book_url: &str) -> LegadoResult<()> {
-    let book_url = book_url.trim();
-    if book_url.is_empty() {
-        return Err(LegadoError::Database("bookUrl 不能为空".into()));
-    }
-    if !crate::db_state::is_initialized() {
-        return Err(LegadoError::Database("数据库未初始化".into()));
-    }
-    crate::db_state::with_database(|db| {
-        let repo = legado_db::SearchBookRepository::new(db.connection());
-        let affected = repo.delete_by_book_url(book_url)?;
-        if affected == 0 {
-            return Err(LegadoError::Database(format!(
-                "searchBooks 中不存在 bookUrl={book_url}"
-            )));
-        }
-        Ok(())
-    })
-}
-
-/// 同步书源聚合评分（对标 SourceConfig.setBookScore 对 origin 键的增量更新）
-fn sync_source_score_delta(origin: &str, pre_score: i32, new_score: i32) {
-    let delta = if pre_score != 0 {
-        new_score - pre_score
-    } else {
-        new_score
-    };
-    if delta == 0 {
-        return;
-    }
-    let cur = crate::api::config_api::get_config(origin)
-        .ok()
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let _ = crate::api::config_api::set_config(origin, &(cur + delta).to_string());
-}
-
-impl SwitchContext {
     #[cfg(test)]
     fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
         &self,
@@ -841,7 +140,6 @@ impl SwitchContext {
         )
         .map_err(LegadoError::Serialization)
     }
-
     fn search_alternative_sources(
         &self,
         name: &str,
@@ -856,119 +154,6 @@ impl SwitchContext {
             self.resolve_switch_options(options),
         )
     }
-    fn search_alternative_sources_selected(
-        &self,
-        book_name: &str,
-        author: &str,
-        source_urls: &[String],
-        options: SwitchSearchOptions,
-    ) -> LegadoResult<SourceSwitchResponse> {
-        if !options.force_refresh {
-            if let Some(matches) = self.try_load_change_source_from_db(book_name, author, &options)
-            {
-                return Ok(SourceSwitchResponse {
-                    book_name: book_name.to_string(),
-                    author: author.to_string(),
-                    matches,
-                });
-            }
-        } else {
-            // 强制刷新：清掉该书旧 searchBooks，避免与新结果混杂
-            self.clear_search_books_for_change(book_name, author);
-        }
-
-        let sources = self.resolve_switch_sources_selected(source_urls)?;
-        if sources.is_empty() {
-            return Ok(SourceSwitchResponse {
-                book_name: book_name.to_string(),
-                author: author.to_string(),
-                matches: Vec::new(),
-            });
-        }
-
-        // 并行搜索（对齐 SearchModel.mapParallelSafe：限流并发 + 单源超时 60s）
-        let book_name_for_search = book_name.to_string();
-        let sources_for_search = sources.clone();
-        let candidates = runtime::block_on(async {
-            let client = self.network.client()?;
-
-            let mut all_candidates: Vec<SearchCandidate> = Vec::new();
-            let outcomes: Vec<_> = stream::iter(sources_for_search)
-                .map(|source| {
-                    let client = client.clone();
-                    let keyword = book_name_for_search.clone();
-                    async move {
-                        let url = source.book_source_url.clone();
-                        let result = tokio::time::timeout(
-                            crate::api::search::SWITCH_SOURCE_TIMEOUT,
-                            self.search_for_switch(&client, &source, &keyword),
-                        )
-                        .await;
-                        (url, result)
-                    }
-                })
-                .buffer_unordered(crate::api::search::SEARCH_CONCURRENCY)
-                .collect()
-                .await;
-
-            for (_url, joined) in outcomes {
-                if let Ok(Ok(mut items)) = joined {
-                    all_candidates.append(&mut items);
-                }
-            }
-            Ok::<_, LegadoError>(all_candidates)
-        })?;
-
-        // Task #25：对齐原版 ChangeBookSourceViewModel L266-270 的换源硬过滤：
-        // 只保留同名书（fName == name），可选「校验作者」开关（原版
-        // AppConfig.changeSourceCheckAuthor，键名一致）。此前仅打分排序不过滤，
-        // match_score 为 0 的毫不相关错书仍全部进入换源列表（Task #25 现象）。
-        // config 读取失败按关闭处理（不误伤同名过滤主语义）。
-        let check_author = self.config("changeSourceCheckAuthor").trim() == "true";
-        let candidates =
-            SourceMatcher::filter_for_change(candidates, book_name, author, check_author);
-
-        let candidates = if options.needs_enrichment() {
-            self.enrich_switch_candidates(&sources, candidates, &options)?
-        } else {
-            candidates
-        };
-
-        // 使用 SourceMatcher 评分排序（loadWordCount 开启时用字数 comparator）
-        let matches = SourceMatcher::rank_candidates_with_options(
-            candidates,
-            book_name,
-            author,
-            options.load_word_count,
-        );
-
-        self.ensure_active()?;
-        self.persist_switch_matches(&matches);
-
-        Ok(SourceSwitchResponse {
-            book_name: book_name.to_string(),
-            author: author.to_string(),
-            matches,
-        })
-    }
-
-    /// 推送一个换源流批次事件；返回 `Err`（sink 关闭）时由调用方决定终止
-    fn push_change_source_batch(
-        &self,
-        on_batch: &mut impl FnMut(ChangeSourceBatch) -> Result<(), String>,
-        batch: ChangeSourceBatch,
-    ) -> Result<(), String> {
-        let result = self
-            .publish(|| on_batch(batch))
-            .unwrap_or_else(|| Err("换源已取消".into()));
-        if result.is_err()
-            && let Some(operation) = &self.operation
-        {
-            operation.cancel();
-        }
-        result
-    }
-
     #[cfg(test)]
     async fn run_change_source_stream<F>(
         &self,
@@ -985,7 +170,6 @@ impl SwitchContext {
         })
         .await;
     }
-
     async fn run_change_source_stream_typed<F>(
         &self,
         name: String,
@@ -1008,856 +192,10 @@ impl SwitchContext {
         )
         .await;
     }
-    async fn run_change_source_stream_selected<F>(
-        &self,
-        book_name: String,
-        author: String,
-        source_urls: Vec<String>,
-        options: SwitchSearchOptions,
-        mut on_batch: F,
-    ) where
-        F: FnMut(ChangeSourceBatch) -> Result<(), String>,
-    {
-        use std::sync::atomic::AtomicBool;
-        // 对齐上游 startSearch() 入口清空 tocMap/bookMap（L279-281）：新一轮
-        // 搜索会话作废旧会话预拉，防选中读到陈旧目录
-
-        // 对齐原版 ChangeBookSourceViewModel.searchDataFlow：先 getDbSearchBooks，
-        // 非空直接展示（单批推送即结束）；仅空列表或强制刷新才全量搜索
-        if !options.force_refresh {
-            if let Some(matches) =
-                self.try_load_change_source_from_db(&book_name, &author, &options)
-            {
-                // 早期批次：sink 关闭无在飞任务可 abort，忽略推送结果
-                let _ = self.push_change_source_batch(
-                    &mut on_batch,
-                    ChangeSourceBatch {
-                        source_index: 0,
-                        source_url: String::new(),
-                        source_name: String::new(),
-                        error: None,
-                        finished_count: 1,
-                        total_count: 1,
-                        is_last: true,
-                        matches,
-                    },
-                );
-                return;
-            }
-        } else {
-            // 强制刷新：清掉该书旧 searchBooks，避免与新结果混杂
-            self.clear_search_books_for_change(&book_name, &author);
-        }
-
-        let sources = match self.resolve_switch_sources_selected(&source_urls) {
-            Ok(s) => s,
-            Err(e) => {
-                let _ = self.push_change_source_batch(
-                    &mut on_batch,
-                    ChangeSourceBatch {
-                        source_index: 0,
-                        source_url: String::new(),
-                        source_name: String::new(),
-                        error: Some(e.to_string()),
-                        finished_count: 0,
-                        total_count: 0,
-                        is_last: true,
-                        matches: Vec::new(),
-                    },
-                );
-                return;
-            }
-        };
-
-        if sources.is_empty() {
-            let _ = self.push_change_source_batch(
-                &mut on_batch,
-                ChangeSourceBatch {
-                    source_index: 0,
-                    source_url: String::new(),
-                    source_name: String::new(),
-                    error: None,
-                    finished_count: 0,
-                    total_count: 0,
-                    is_last: true,
-                    matches: Vec::new(),
-                },
-            );
-            return;
-        }
-
-        let client = match self.network.client() {
-            Ok(c) => c,
-            Err(e) => {
-                let _ = self.push_change_source_batch(
-                    &mut on_batch,
-                    ChangeSourceBatch {
-                        source_index: 0,
-                        source_url: String::new(),
-                        source_name: String::new(),
-                        error: Some(e.to_string()),
-                        finished_count: 0,
-                        total_count: sources.len(),
-                        is_last: true,
-                        matches: Vec::new(),
-                    },
-                );
-                return;
-            }
-        };
-
-        // 与批量路径同口径：原版 AppConfig.changeSourceCheckAuthor（读取失败按关闭）
-        let check_author = self.config("changeSourceCheckAuthor").trim() == "true";
-
-        // 会话级门控标志：sink 关闭 → 驱动器置位取消并 abort 在飞任务（复用 P0-3 驱动机制）
-        let cancel = self
-            .operation
-            .as_ref()
-            .expect("换源流入口必须登记任务")
-            .task()
-            .clone();
-        let paused = Arc::new(AtomicBool::new(false));
-
-        // 累积过滤后候选（逐源增量过滤 ≡ 批量过滤，元素级判定）
-        let mut accumulated: Vec<SearchCandidate> = Vec::new();
-
-        // search_one 闭包为 move（'static），需预克隆；on_source 闭包借用 book_name/author/options
-        let client_for_search = client.clone();
-        let search_context = self.clone();
-        let book_name_for_search = book_name.clone();
-
-        crate::api::search::drive_source_batches(
-            sources.clone(),
-            crate::api::search::SEARCH_CONCURRENCY,
-            crate::api::search::SWITCH_SOURCE_TIMEOUT,
-            &cancel,
-            &paused,
-            move |source: BookSource| {
-                let context = search_context.clone();
-                let client = client_for_search.clone();
-                let keyword = book_name_for_search.clone();
-                async move { context.search_for_switch(&client, &source, &keyword).await }
-            },
-            |outcome| {
-                // 该源候选增量过滤（同名 + 可选作者校验）并累积
-                if let Ok(items) = &outcome.result {
-                    accumulated.extend(SourceMatcher::filter_for_change(
-                        items.clone(),
-                        &book_name,
-                        &author,
-                        check_author,
-                    ));
-                }
-                // 重排快照：当前已过滤评分候选全量集
-                let matches = SourceMatcher::rank_candidates_with_options(
-                    accumulated.clone(),
-                    &book_name,
-                    &author,
-                    options.load_word_count,
-                );
-                // sink 关闭（Err）→ 传播给驱动器，置位取消并 abort 在飞任务
-                self.push_change_source_batch(
-                    &mut on_batch,
-                    ChangeSourceBatch {
-                        source_index: outcome.index,
-                        source_url: outcome.source_url,
-                        source_name: outcome.source_name,
-                        error: outcome.result.err().map(|e| e.to_string()),
-                        finished_count: outcome.finished_count,
-                        total_count: outcome.total_count,
-                        is_last: outcome.is_last,
-                        matches,
-                    },
-                )
-            },
-        )
-        .await;
-
-        if self.ensure_active().is_err() {
-            return;
-        }
-
-        // 流内后置增强（不阻塞首批到达——所有搜索批次已先行推送）：
-        // enrich 开启时对累积候选执行详情/目录/试读字数，再推最终重排快照
-        let enriched = if options.needs_enrichment() {
-            self.enrich_switch_candidates_async(
-                &sources,
-                accumulated,
-                &options,
-                |context: &SwitchContext| context.fetcher(),
-            )
-            .await
-            .unwrap_or_default()
-        } else {
-            accumulated
-        };
-
-        if self.ensure_active().is_err() {
-            return;
-        }
-        let final_matches = SourceMatcher::rank_candidates_with_options(
-            enriched,
-            &book_name,
-            &author,
-            options.load_word_count,
-        );
-
-        // 终批仅在 enrich 开启时推送（enriched+重排快照）；未开启时最后一搜索批次即最终态
-        if options.needs_enrichment() {
-            let total = sources.len();
-            // 终批推送失败（sink 已关闭）不影响最终候选落库
-            let _ = self.push_change_source_batch(
-                &mut on_batch,
-                ChangeSourceBatch {
-                    source_index: 0,
-                    source_url: String::new(),
-                    source_name: String::new(),
-                    error: None,
-                    finished_count: total,
-                    total_count: total,
-                    is_last: true,
-                    matches: final_matches.clone(),
-                },
-            );
-        }
-
-        // 最终候选落库 searchBooks（对齐原版 searchSuccess → insert；供下次读库路径复用）
-        self.persist_switch_matches(&final_matches);
-    }
-
-    /// 从 searchBooks 表加载换源候选（对齐 getDbSearchBooks）
-    ///
-    /// 有结果时返回 Some；无结果/DB 未初始化/读失败返回 None（回退网络搜索）。
-    fn try_load_change_source_from_db(
-        &self,
-        book_name: &str,
-        author: &str,
-        options: &SwitchSearchOptions,
-    ) -> Option<Vec<SourceMatch>> {
-        if !self.storage.is_some() {
-            return None;
-        }
-        let check_author = self.config("changeSourceCheckAuthor").trim() == "true";
-        let search_group = self.config("searchGroup").trim().to_string();
-        let author_filter = if check_author {
-            legado_core::book_help::format_book_author(author)
-        } else {
-            String::new()
-        };
-        // [审计 D6 | ChangeBookSourceViewModel.kt:603-625] 原版 getDbSearchBooks 以
-        // 原样 book.name 查询（不做归一化）；库内书名在解析期已经 formatBookName，
-        // 查询参数不再二次归一化
-        log::info!(
-            "换源读库: name={} author_filter={} searchGroup={}",
-            book_name,
-            author_filter,
-            search_group
-        );
-
-        let books = self
-            .database(|db| {
-                let repo = legado_db::SearchBookRepository::new(db.connection());
-                repo.change_source_by_group(book_name, &author_filter, &search_group)
-            })
-            .ok()?;
-
-        if books.is_empty() {
-            return None;
-        }
-
-        let candidates: Vec<SearchCandidate> = books
-            .into_iter()
-            .map(|b| SearchCandidate {
-                source_url: b.origin,
-                source_name: b.origin_name,
-                book_url: b.book_url,
-                book_name: b.name,
-                author: b.author,
-                latest_chapter: b.latest_chapter_title,
-                word_count: b.word_count,
-                chapter_word_count_text: b.chapter_word_count_text,
-                chapter_word_count: b.chapter_word_count,
-                respond_time: b.respond_time,
-                origin_order: b.origin_order,
-                book_score: b.book_score,
-                // [T5] 读库路径：searchBooks 行的搜索期级联变量
-                variable: b.variable,
-            })
-            .collect();
-
-        // 读库路径不再二次过滤（SQL 已按名/作者/分组筛过）；直接评分排序
-        let matches = SourceMatcher::rank_candidates_with_options(
-            candidates,
-            book_name,
-            author,
-            options.load_word_count,
-        );
-        if matches.is_empty() {
-            None
-        } else {
-            Some(matches)
-        }
-    }
-
-    fn clear_search_books_for_change(&self, book_name: &str, author: &str) {
-        if !self.storage.is_some() {
-            return;
-        }
-        let check_author = self.config("changeSourceCheckAuthor").trim() == "true";
-        let author_filter = if check_author {
-            legado_core::book_help::format_book_author(author)
-        } else {
-            String::new()
-        };
-        let normalized_name = legado_core::book_help::format_book_name(book_name);
-        self.publish(|| {
-            let _ = self.database(|db| {
-                let repo = legado_db::SearchBookRepository::new(db.connection());
-                let _ = repo.clear_by_name_author(&normalized_name, &author_filter);
-                Ok(())
-            });
-        });
-    }
-
-    /// 定位书籍 + 加载新书源配置（只读；旧路径与预拉缓存版共用）
-    ///
-    /// 先不写库，待新目录抓取成功后才在提交事务里统一落库，避免新源抰 0 章
-    /// 时已改了 origin/tocUrl 却没有章节的不一致中间态。
-    fn locate_switch_book_and_source(
-        &self,
-        book_url: &str,
-        new_source_url: &str,
-    ) -> LegadoResult<(Book, BookSource)> {
-        use legado_db::BookRepository;
-
-        let (book, source) = self.database(|db| {
-            let repo = BookRepository::new(db.connection());
-            let book = repo
-                .find_by_url(book_url)?
-                .ok_or_else(|| LegadoError::Database("书籍不存在".into()))?;
-
-            // 新书源配置：既用于抓取新目录，也用于取书源名称
-            let source_repo = legado_db::BookSourceRepository::new(db.connection());
-            let source = source_repo
-                .find_by_url(new_source_url)?
-                .ok_or_else(|| LegadoError::Database(format!("书源不存在: {new_source_url}")))?;
-
-            Ok((book, source))
-        })?;
-        Ok((book, source))
-    }
-
-    /// [T5] 候选搜索期变量：searchBooks 行按 (new_book_url, origin=new_source_url)
-    /// 命中时取 variable（对齐原版 SearchBook.toBook() 复制 variable 进入换源）
-    fn lookup_candidate_variable(
-        &self,
-        new_book_url: &str,
-        new_source_url: &str,
-    ) -> LegadoResult<Option<String>> {
-        let variable = self.database(|db| {
-            let repo = legado_db::SearchBookRepository::new(db.connection());
-            match repo.find_by_book_url(new_book_url)? {
-                Some(row) if row.origin == new_source_url => Ok(row.variable),
-                _ => Ok(None),
-            }
-        })?;
-        Ok(variable)
-    }
-
-    /// [T5] book.variable = 候选搜索期变量 ⊕ 详情/预拉 info 导出变量（后者写入
-    /// 者优先，对齐原版覆盖语义）；旧源旧值不再残留（R1 清单项）。
-    /// [P2-15 剩项②] 陈旧 overlay 让位：见 [`yield_stale_overlay_to_db`] 文档
-    /// （规则与降级不变，旧路径/预拉缓存版共用同一合并点）。
-    fn apply_book_variable_merge(
-        &self,
-        book: &mut Book,
-        candidate_variable: Option<&str>,
-        info_variable: Option<&str>,
-        new_book_url: &str,
-        source_url: &str,
-    ) {
-        let merged_variable = merge_variables(candidate_variable, info_variable);
-        book.variable = yield_stale_overlay_to_db(
-            merged_variable.as_deref(),
-            book.variable.as_deref(),
-            candidate_variable,
-            &legado_fetcher::web_book::book_var_overlay_map(
-                &self.js,
-                &self.web_book,
-                source_url,
-                new_book_url,
-            ),
-        );
-    }
-
-    /// 换源提交尾段（旧路径与预拉缓存版共用）：
-    /// tocUrl 解析 → 空目录守卫 → BookChapter 转换（稳定 bookUrl）→ 单事务落库
-    /// → [B-6] 新源下一章登记 → 书籍 JSON。
-    fn commit_source_switch(
-        &self,
-        book: &mut Book,
-        source: &BookSource,
-        target: SwitchCommitTarget<'_>,
-        info: WebBookInfo,
-        web_chapters: Vec<WebChapter>,
-    ) -> LegadoResult<Book> {
-        let SwitchCommitTarget {
-            book_url,
-            source_url: new_source_url,
-            detail_url: new_book_url,
-        } = target;
-        use legado_db::BookRepository;
-        use legado_db::repository::Repository;
-
-        // [T2] tocUrl = 详情解析出的真实目录页（目录页可与详情页不同，
-        //     如「详情页=books/1、目录页=/book/1/chapters」的源）
-        let toc_url = if info.toc_url.trim().is_empty() {
-            new_book_url.to_string()
-        } else {
-            info.toc_url.clone()
-        };
-
-        // Task #21 修复：空结果保护。新书源未解析到任何章节时（目录抓取返回
-        //    Ok(vec![]) 而非错误），直接返回可读错误，且不改动任何库记录
-        //    （保留原 origin/tocUrl 与原目录），避免把书换成「无章节」而比未换源
-        //    更糟的回归。
-        if web_chapters.is_empty() {
-            return Err(LegadoError::Parser(format!(
-                "换源失败：新书源未解析到任何章节（目录地址={toc_url}），已保留原书源与目录"
-            )));
-        }
-
-        // 3. 转换为 BookChapter，base_url/book_url 均落稳定的原 bookUrl
-        //    [T1] 保留解析值 variable/is_volume：章节级 @put 变量（翻页 token 类）
-        //    与卷章标记是正文请求/去重的前置输入，写死 None/false 会导致换源后正文错误
-        let book_chapters: Vec<BookChapter> = web_chapters
-            .iter()
-            .map(|wc| BookChapter {
-                url: wc.url.clone(),
-                title: wc.title.clone(),
-                is_volume: wc.is_volume,
-                base_url: book_url.to_string(),
-                book_url: book_url.to_string(),
-                index: wc.index,
-                is_vip: wc.is_vip,
-                is_pay: false,
-                resource_url: None,
-                tag: None,
-                word_count: None,
-                start: None,
-                end: None,
-                start_fragment_id: None,
-                end_fragment_id: None,
-                variable: wc.variable.clone(),
-                img_url: None,
-            })
-            .collect();
-
-        // 4. 将书源字段更新 + 清旧缓存/旧章节 + 写入新章节，全部包进单个 DB 事务：
-        //    全部成功才提交；中途失败自动回滚，保留原书源与原章节，
-        //    避免留下"无章节"状态（比未换源更糟）。bookUrl 保持稳定，仅改
-        //    origin/originName/tocUrl，update 的 WHERE 命中原行（稳定主键）。
-        //    connection() 返回共享的 &Connection（r2d2 池），无法用需 &mut 的
-        //    Connection::transaction()，故沿用项目既有的 unchecked_transaction()
-        //    模式（见 highlight_rule_repository / book_chapter_repository）。
-        //    insert_batch 内部会自开事务，此处改用 insert_batch_no_tx 避免嵌套 BEGIN。
-        // 仅更新书源相关字段；bookUrl 不变 → update 的 WHERE 命中原行（稳定主键）
-        book.origin = new_source_url.to_string();
-        book.origin_name = source.book_source_name.clone();
-        // [T2] tocUrl = 详情解析出的真实目录页（原写死详情页 URL，使「目录独立页」
-        //      源后续刷新目录/正文定位全错）
-        book.toc_url = toc_url;
-        // [P2-8] 换源根因修复：写入当前书源下该书的详情页地址（new_book_url）。
-        //    换源后 bookUrl（稳定主键）仍为旧源地址，「抓取书籍页」路径
-        //    （详情刷新 / tocUrl 推导 / preUpdateJs 钩子）优先用本字段，为空时
-        //    回退 bookUrl（未换源书籍与存量库行为不变）。
-        book.origin_book_url = new_book_url.to_string();
-        // [T2] 详情字段按 parse 门控结果更新（name/author 已含 canReName 门控；
-        //      Option 字段仅在解析出值时覆盖，避免新源缺字段抹掉既有信息）
-        book.name = info.name;
-        book.author = info.author;
-        if info.cover_url.is_some() {
-            book.cover_url = info.cover_url;
-        }
-        if info.intro.is_some() {
-            book.intro = info.intro;
-        }
-        if info.kind.is_some() {
-            book.kind = info.kind;
-        }
-        if info.word_count.is_some() {
-            book.word_count = info.word_count;
-        }
-        // [目录派生字段同步] 对齐上游 BookChapterList.updateBookTocInfo（目录成功
-        // 后 totalChapterNum/latestChapterTitle 以目录结果写入；详情 lastChapter
-        // 规则值写在目录写之前，由目录值覆盖——此处不再取详情值）：
-        // - totalChapterNum = 落库章节数（与同事务 insert_batch 的 bookChapters
-        //   行数一致，DB 内部一致性；书架进度百分比 = durChapterIndex/(N-1) 随之
-        //   正确）
-        // - latestChapterTitle = 新目录末章标题
-        // - latestChapterTime = now，仅章数增长时（上游 updateBookTocInfo 条件分支）
-        // 截断目录（非 2xx 保留前缀）按前缀章数写入——对齐上游「body-null 判停
-        // 后 updateBookTocInfo 写 list.size」；I/O 级失败/空结果不会走到提交
-        // （目录抓取 Err 上抛 + 函数入口空目录守卫），不存在陈旧值写回路径。
-        let old_total = book.total_chapter_num;
-        let new_total = book_chapters.len() as i32;
-        book.total_chapter_num = new_total;
-        book.latest_chapter_title = book_chapters.last().map(|c| c.title.clone());
-        if old_total < new_total {
-            book.latest_chapter_time = now_millis();
-        }
-        // 标记需要重新获取章节列表
-        book.last_check_time = 0;
-        book.last_check_count = 0;
-        self.publish(|| -> LegadoResult<()> {
-            self.database(|db| {
-                let conn = db.connection();
-                let tx = conn
-                    .unchecked_transaction()
-                    .map_err(|e| LegadoError::Database(format!("开启换源事务失败: {e}")))?;
-
-                // [B-4] `update` 的 UPDATE SET 结构性排除进度列（见
-                // BookRepository::update 的 [B-3] 注释）：本事务的入参 book 是「抓取前
-                // 快照」（locate_switch_book_and_source 读取），不含分钟级网络抓取
-                // 窗口内写入的进度——全行写回会把窗口内进度抹平。此处零代码改动：
-                // 靠结构排除实现「换源提交不抹窗口内进度」。
-                BookRepository::new(conn).update(book)?;
-                let cache_repo = legado_db::CacheBookRepository::new(conn);
-                cache_repo.delete_by_book(book_url)?;
-                let chapter_repo = legado_db::BookChapterRepository::new(conn);
-                chapter_repo.delete_by_book_url(book_url)?;
-                chapter_repo.insert_batch_no_tx(&book_chapters)?;
-
-                tx.commit()
-                    .map_err(|e| LegadoError::Database(format!("提交换源事务失败: {e}")))?;
-                Ok(())
-            })?;
-
-            // [B-6] 换源提交后按**新书源**登记 (书源, 章节) → 下一章 URL：换源后
-            // 正文分页「命中下一章即截断」按当前书源的目录判定（registry 复合键
-            // (书源, 章节) 天然隔离旧源登记，此处为当前书源补齐精确通道）
-            legado_fetcher::web_book::record_next_chapter_map(
-                &self.web_book,
-                new_source_url,
-                &web_chapters,
-            );
-
-            Ok(())
-        })
-        .ok_or_else(|| LegadoError::Internal("换源已取消".into()))??;
-
-        Ok(book.clone())
-    }
-
-    fn switch_book_source_entity_with<F: BookSourceFetcher>(
-        &self,
-        fetcher: &F,
-        book_url: &str,
-        new_source_url: &str,
-        new_book_url: &str,
-    ) -> LegadoResult<Book> {
-        // Task #21 修复：换源目标详情页 URL 为空时提前返回可读错误。
-        // 否则空 URL 会传入 get_chapters（步骤 2b），触发解析器抛出令人困惑的
-        // "bookUrl不能为空"（web_book.rs get_chapters 空值校验）。
-        // 空 book_url 通常源于书源 ruleSearch.bookUrl 未解析出详情页 URL 的候选，
-        // 此处兜底防御，主过滤在 search_for_switch（不让空候选进入换源列表）。
-        if new_book_url.trim().is_empty() {
-            return Err(LegadoError::Parser(
-                "换源目标书籍详情页 URL 为空，无法切换书源（该候选未解析出有效链接）".into(),
-            ));
-        }
-
-        // 1. 定位书籍 + 加载新书源配置（只读，见 helper 文档）
-        let (mut book, source) = self.locate_switch_book_and_source(book_url, new_source_url)?;
-
-        // [T5] 候选搜索期变量（searchBooks 行回查）
-        let candidate_variable = self.lookup_candidate_variable(new_book_url, new_source_url)?;
-
-        // P1-2 入口收口：换源执行 ruleBookInfo + 写 DB（变量桥读写）→ 先切
-        // flow scope（键 = 新源详情页 URL，与 webbook_info 同键族），防上一
-        // 流程残留 scope 串读/误清
-
-        // 2a. [T2] 新源详情解析（canReName=false：保留既有书名/作者，对齐原版
-        //     changeSource getBookInfoAwait 门控；cover/intro/kind/lastChapter/
-        //     wordCount 在 parse 内按解析值更新，tocUrl 为真实目录页）
-        //     [R1 修复 2026-09-06] 详情请求带候选搜索期变量表：原版
-        //     getBookInfoAwait 的 AnalyzeUrl 以 ruleData=book 构建（WebBook.kt:225-231，
-        //     book.variable=候选变量），bookUrl 的 {{key}} 模板与 ,{json} 请求选项
-        //     用其展开；此前恒空表 → 变量依赖源详情请求打错地址。
-        self.ensure_active()?;
-        let detail_vars = super::web_book::chapter_url_variables(candidate_variable.as_deref());
-        let info = runtime::block_on(async {
-            fetcher
-                .get_book_info_with_existing_and_vars(
-                    &source,
-                    new_book_url,
-                    false,
-                    &book.name,
-                    &book.author,
-                    &detail_vars,
-                )
-                .await
-        })
-        .map_err(|e| {
-            LegadoError::Parser(format!(
-                "换源失败：新源「{}」详情页解析失败，已保留原书源与目录: {e}",
-                source.book_source_name
-            ))
-        })?;
-
-        // [T5] 变量合并 + 陈旧 overlay 让位（须在 2b 目录抓取前完成：目录请求
-        //      变量表 = 候选 ⊕ 详情导出合并值，见 helper 文档）
-        self.apply_book_variable_merge(
-            &mut book,
-            candidate_variable.as_deref(),
-            info.variable.as_deref(),
-            new_book_url,
-            &source.book_source_url,
-        );
-
-        // 2b. [T2] 用解析出的真实 tocUrl 抓取新目录
-        let toc_url = if info.toc_url.trim().is_empty() {
-            new_book_url.to_string()
-        } else {
-            info.toc_url.clone()
-        };
-        self.ensure_active()?;
-        let web_chapters: Vec<WebChapter> = runtime::block_on(async {
-            // [R1 修复 2026-09-06] 目录请求带合并后 book.variable（候选 ⊕ 详情导出）：
-            // 原版 getChapterListAwait 的 AnalyzeUrl 以 ruleData=book 构建
-            // （WebBook.kt:312-318）；此前恒空表 → 变量依赖源目录请求打错地址。
-            let toc_vars = super::web_book::chapter_url_variables(book.variable.as_deref());
-            // P2-2（2026-09-17）：传 2a 详情解析出的书名作 hint。上游
-            // BookChapterList.kt:196 以 `AnalyzeRule(book, bookSource)` 构建
-            // 解析器，`@js:[{title: book.name, url: …}]` 类 ruleToc.chapterList
-            // 规则可读取 book.name；已知目录页直抓路径不抓详情页，无 hint 时
-            // book 绑定名为空 → 此类规则标题退化（SiS文學網简体等 4 源）。
-            // hint 为 Option：Mock 等实现走 trait 默认（退化为
-            // get_chapters_with_vars），既有签名不变。
-            fetcher
-                .get_chapters_with_vars_and_name_hint(
-                    &source,
-                    &toc_url,
-                    &toc_vars,
-                    Some(&info.name),
-                )
-                .await
-        })
-        .map_err(|e| {
-            LegadoError::Parser(format!(
-                "换源失败：新源「{}」目录获取失败，已保留原书源与目录: {e}",
-                source.book_source_name
-            ))
-        })?;
-
-        // 3+4. 空目录守卫 + 单事务提交 + 下一章登记 + 书籍 JSON（共用尾段）
-        self.commit_source_switch(
-            &mut book,
-            &source,
-            SwitchCommitTarget {
-                book_url,
-                source_url: new_source_url,
-                detail_url: new_book_url,
-            },
-            info,
-            web_chapters,
-        )
-    }
-
-    fn switch_book_source_prefetch_entity_with<F: BookSourceFetcher>(
-        &self,
-        fetcher: &F,
-        book_url: &str,
-        new_source_url: &str,
-        new_book_url: &str,
-    ) -> LegadoResult<Book> {
-        // Task #21 同款兜底防御（与旧路径同一文案/同一前置）
-        if new_book_url.trim().is_empty() {
-            return Err(LegadoError::Parser(
-                "换源目标书籍详情页 URL 为空，无法切换书源（该候选未解析出有效链接）".into(),
-            ));
-        }
-
-        // 1. 定位书籍 + 加载新书源配置（与旧路径共用）
-        let (mut book, source) = self.locate_switch_book_and_source(book_url, new_source_url)?;
-
-        // [T5] 候选搜索期变量（与旧路径共用）
-        let candidate_variable = self.lookup_candidate_variable(new_book_url, new_source_url)?;
-
-        // P1-2 入口收口（与旧路径共用同一 flow scope 切点）
-
-        // 命中/未命中分支（上游 getToc L659-682：命中 → 不抓取直接用；
-        // 未命中 → 现场抓取）
-        let entry = self.prefetch_cache_get(new_source_url, new_book_url);
-        let cached_info = entry.as_ref().and_then(|e| e.info.clone());
-        let cached_chapters = entry.map(|e| e.chapters).filter(|c| !c.is_empty());
-
-        // 2a. 详情（命中：缓存 info 直接用（零网络），None 降级现场补抓；
-        //     未命中：现场抓取，执行链与旧路径 2a 一致，请求带候选变量表）
-        let detail_vars = super::web_book::chapter_url_variables(candidate_variable.as_deref());
-        let info = match cached_info {
-            Some(info) => info,
-            None => {
-                self.ensure_active()?;
-                runtime::block_on(async {
-                    fetcher
-                        .get_book_info_with_existing_and_vars(
-                            &source,
-                            new_book_url,
-                            false,
-                            &book.name,
-                            &book.author,
-                            &detail_vars,
-                        )
-                        .await
-                })
-                .map_err(|e| {
-                    LegadoError::Parser(format!(
-                        "换源失败：新源「{}」详情页解析失败，已保留原书源与目录: {e}",
-                        source.book_source_name
-                    ))
-                })?
-            }
-        };
-
-        // [T5] 变量合并 + 陈旧 overlay 让位（须在未命中路径的目录抓取前完成：
-        //      目录请求变量表 = 候选 ⊕ 详情导出合并值）
-        self.apply_book_variable_merge(
-            &mut book,
-            candidate_variable.as_deref(),
-            info.variable.as_deref(),
-            new_book_url,
-            &source.book_source_url,
-        );
-
-        // 2b. 目录（命中：预拉缓存目录直接用，零网络；未命中：现场抓取，可取消）。
-        // 真实 tocUrl 由共用尾段 commit_source_switch 从 info 统一解析
-        // （「空 toc_url → new_book_url」回退与旧路径同一逻辑）
-        let web_chapters: Vec<WebChapter> = match cached_chapters {
-            Some(chapters) => chapters,
-            None => {
-                self.ensure_active()?;
-                let toc_url = if info.toc_url.trim().is_empty() {
-                    new_book_url.to_string()
-                } else {
-                    info.toc_url.clone()
-                };
-                runtime::block_on(async {
-                    // 目录请求变量表 = 合并后 book.variable（与旧路径 2b 一致）
-                    let toc_vars = super::web_book::chapter_url_variables(book.variable.as_deref());
-                    fetcher
-                        .get_chapters_with_vars_and_name_hint(
-                            &source,
-                            &toc_url,
-                            &toc_vars,
-                            Some(&info.name),
-                        )
-                        .await
-                })
-                .map_err(|e| {
-                    LegadoError::Parser(format!(
-                        "换源失败：新源「{}」目录获取失败，已保留原书源与目录: {e}",
-                        source.book_source_name
-                    ))
-                })?
-            }
-        };
-
-        // 提交前取消兜底：2a/2b 均成功后若已取消 → 不提交（DB 零变更）
-        self.ensure_active()?;
-
-        // 3+4. 空目录守卫 + 单事务提交 + 下一章登记 + 书籍 JSON（共用尾段）
-        self.commit_source_switch(
-            &mut book,
-            &source,
-            SwitchCommitTarget {
-                book_url,
-                source_url: new_source_url,
-                detail_url: new_book_url,
-            },
-            info,
-            web_chapters,
-        )
-    }
-
     #[cfg(test)]
     fn resolve_switch_sources(&self, json: &str) -> LegadoResult<Vec<BookSource>> {
         self.resolve_switch_sources_selected(&crate::api::search::parse_source_urls(json)?)
     }
-    fn resolve_switch_sources_selected(&self, urls: &[String]) -> LegadoResult<Vec<BookSource>> {
-        let sources =
-            crate::api::search::load_search_sources_selected_from(self.storage.as_ref(), urls)?;
-        Ok(self.filter_sources_by_search_group(sources))
-    }
-
-    /// 按 config `searchGroup` 过滤候选书源（留项#12，Task #145）
-    ///
-    /// 对齐原版 `ChangeBookSourceViewModel` L197-206：
-    /// - `searchGroup` 为空（trim 后）= 不过滤，搜全部启用源；
-    /// - 非空时仅保留分组字段包含该分组的源（`getEnabledPartByGroup` 语义）。
-    ///   config 读取失败时按空分组处理（不误伤全量搜索）。
-    fn filter_sources_by_search_group(&self, sources: Vec<BookSource>) -> Vec<BookSource> {
-        let group = self.config(SEARCH_GROUP_CONFIG_KEY);
-        let target = group.trim();
-        if target.is_empty() {
-            return sources;
-        }
-        sources
-            .into_iter()
-            .filter(|s| source_group_contains(s.book_source_group.as_deref().unwrap_or(""), target))
-            .collect()
-    }
-
-    /// 对单个书源执行搜索（用于换源场景）
-    ///
-    /// Task #16 P1：复用 [`crate::api::search::search_single_source`] 的完整
-    /// AnalyzeRule 解析链路，确保每个候选的 `book_url` 是真实的书籍**详情页 URL**
-    /// （而非搜索结果页 URL），使后续 [`switch_book_source`]/refresh_toc 能正确
-    /// 定位并获取目录。旧实现直接把响应 URL 当作 book_url，导致换源后目录抓取失败。
-    async fn search_for_switch(
-        &self,
-        client: &LegadoClient,
-        source: &BookSource,
-        keyword: &str,
-    ) -> LegadoResult<Vec<SearchCandidate>> {
-        // 换源候选搜索固定第 1 页（批次B：search_single_source 新增 page 参数，一次性场景传 1）
-        self.ensure_active()?;
-        let context = self.search_context(client.clone());
-        let results = tokio::select! {
-            biased;
-            _=self.cancelled()=>return Err(LegadoError::Internal("换源已取消".into())),
-            result=crate::api::search::search_single_source_with_context(&context,source,keyword,1,false)=>result?,
-        };
-        let candidates = results
-            .into_iter()
-            // [审计 D2 | BookList.kt:281-284] 原版对 bookUrl 解析为空的条目回退
-            // baseUrl 后照常入列表（不剔除）；解析层（search.rs S0-E）已实现同一
-            // 回退，此处不再按空 book_url 过滤——空 URL 候选保留展示，点击切换时
-            // 由 switch_book_source 兜底报错。
-            .map(|r| SearchCandidate {
-                source_url: r.source_url,
-                source_name: r.source_name,
-                book_url: r.book_url,
-                book_name: r.book_name,
-                author: r.author,
-                latest_chapter: r.latest_chapter,
-                word_count: r.word_count,
-                chapter_word_count_text: None,
-                chapter_word_count: -1,
-                respond_time: -1,
-                origin_order: source.custom_order,
-                book_score: 0,
-                // [T5] 网络路径：元素级解析导出的搜索期级联变量
-                variable: r.variable,
-            })
-            .collect();
-        Ok(candidates)
-    }
-
-    fn config_flag(&self, key: &str) -> bool {
-        self.config(key).trim() == "true"
-    }
-
     fn resolve_switch_options(&self, options_json: &str) -> SwitchSearchOptions {
         let trimmed = options_json.trim();
         if !trimmed.is_empty()
@@ -1866,154 +204,8 @@ impl SwitchContext {
         {
             return opts;
         }
-        SwitchSearchOptions {
-            load_info: self.config_flag("changeSourceLoadInfo"),
-            load_toc: self.config_flag("changeSourceLoadToc"),
-            load_word_count: self.config_flag("changeSourceLoadWordCount"),
-            force_refresh: false,
-        }
+        self.default_options()
     }
-
-    /// 按开关加载详情/目录/试读字数（对齐 ChangeBookSourceViewModel.loadBookInfo/Toc/WordCount）
-    ///
-    /// T6：拆为原生 async 核心 [`enrich_switch_candidates_async`] + 本同步包装——
-    /// 批量路径（`search_alternative_sources`，同步上下文）保留 block_on 驱动；
-    /// 流式驱动器在 async 上下文中直接 await 核心，**不得嵌套 block_on**。
-    fn enrich_switch_candidates(
-        &self,
-        sources: &[BookSource],
-        candidates: Vec<SearchCandidate>,
-        options: &SwitchSearchOptions,
-    ) -> LegadoResult<Vec<SearchCandidate>> {
-        runtime::block_on(self.enrich_switch_candidates_async(
-            sources,
-            candidates,
-            options,
-            |context: &SwitchContext| context.fetcher(),
-        ))
-    }
-
-    async fn enrich_switch_candidates_async<F, MF>(
-        &self,
-        sources: &[BookSource],
-        candidates: Vec<SearchCandidate>,
-        options: &SwitchSearchOptions,
-        make_fetcher: MF,
-    ) -> LegadoResult<Vec<SearchCandidate>>
-    where
-        F: BookSourceFetcher + Send + 'static,
-        MF: Fn(&SwitchContext) -> LegadoResult<F> + Send + Sync + 'static,
-    {
-        let source_map: HashMap<String, BookSource> = sources
-            .iter()
-            .map(|s| (s.book_source_url.clone(), s.clone()))
-            .collect();
-
-        let mut orphans = Vec::new();
-        let mut jobs: Vec<(SearchCandidate, BookSource)> = Vec::new();
-        for candidate in candidates {
-            match source_map.get(&candidate.source_url) {
-                Some(source) => jobs.push((candidate, source.clone())),
-                None => orphans.push(candidate),
-            }
-        }
-
-        // 有界并发 + 单候选超时（并发上限/索引槽/孤儿在前序恢复均在
-        // run_enrich_jobs 内）
-        let job_count = jobs.len();
-        let done = self.run_enrich_jobs(make_fetcher, jobs, options).await;
-
-        let mut filled: Vec<Option<SearchCandidate>> = vec![None; job_count];
-        for (idx, c) in done {
-            filled[idx] = Some(c);
-        }
-        let mut out = orphans;
-        out.extend(filled.into_iter().flatten());
-        Ok(out)
-    }
-
-    /// 有界并发增强执行器（泛型工厂：单候选超时/索引槽/并发上限集中于此）。
-    ///
-    /// 生产路径注入 [`super::web_book::RealBookSourceFetcher`]；单测注入 Mock
-    /// 验证并发上限（[`ENRICH_CONCURRENCY`]）与失败隔离。每个任务独立构造
-    /// fetcher（构建失败 → 该候选原样直通，不阻塞他项）。
-    async fn run_enrich_jobs<F, MF>(
-        &self,
-        make_fetcher: MF,
-        jobs: Vec<(SearchCandidate, BookSource)>,
-        options: &SwitchSearchOptions,
-    ) -> Vec<(usize, SearchCandidate)>
-    where
-        F: BookSourceFetcher + Send + 'static,
-        MF: Fn(&SwitchContext) -> LegadoResult<F> + Send + Sync + 'static,
-    {
-        self.run_enrich_jobs_until(
-            make_fetcher,
-            jobs,
-            options,
-            crate::api::search::SWITCH_SOURCE_TIMEOUT,
-        )
-        .await
-    }
-
-    async fn run_enrich_jobs_until<F, MF>(
-        &self,
-        make_fetcher: MF,
-        jobs: Vec<(SearchCandidate, BookSource)>,
-        options: &SwitchSearchOptions,
-        timeout: std::time::Duration,
-    ) -> Vec<(usize, SearchCandidate)>
-    where
-        F: BookSourceFetcher + Send + 'static,
-        MF: Fn(&SwitchContext) -> LegadoResult<F> + Send + Sync + 'static,
-    {
-        let factory = Arc::new(make_fetcher);
-        stream::iter(jobs.into_iter().enumerate())
-            .map(|(index, (candidate, source))| {
-                let context = self.clone();
-                let factory = factory.clone();
-                let options = options.clone();
-                async move {
-                    if context.ensure_active().is_err() {
-                        return (index, candidate);
-                    }
-                    let Ok(task) = context.state.tasks().begin() else {
-                        return (index, candidate);
-                    };
-                    let _guard = task.guard();
-                    let mut worker_context = context.clone();
-                    worker_context.deadline = Some(task.clone());
-                    let fallback = candidate.clone();
-                    // 阻塞壳完整驱动候选的 async/JS 链；超时丢弃 join 不会提前注销真实工作。
-                    let worker = tokio::task::spawn_blocking(move || {
-                        let fetcher = match factory(&worker_context) {
-                            Ok(fetcher) => fetcher,
-                            Err(_) => return candidate,
-                        };
-                        runtime::block_on(worker_context.enrich_one_switch_candidate_with(
-                            &fetcher, &source, candidate, &options,
-                        ))
-                    });
-                    let result = tokio::select! {
-                        biased;
-                        _=context.cancelled()=>None,
-                        result=tokio::time::timeout(timeout,worker)=>match result {
-                            Ok(Ok(candidate))=>Some(candidate), _=>None,
-                        },
-                    };
-                    if let Some(candidate) = result {
-                        (index, candidate)
-                    } else {
-                        task.cancel();
-                        (index, fallback)
-                    }
-                }
-            })
-            .buffer_unordered(ENRICH_CONCURRENCY)
-            .collect()
-            .await
-    }
-
     #[cfg(test)]
     async fn enrich_item_with_timeout(
         &self,
@@ -2041,164 +233,219 @@ impl SwitchContext {
             }
         }
     }
+}
 
-    async fn enrich_one_switch_candidate_with(
-        &self,
-        fetcher: &impl BookSourceFetcher,
-        source: &BookSource,
-        mut candidate: SearchCandidate,
-        options: &SwitchSearchOptions,
-    ) -> SearchCandidate {
-        if self.ensure_active().is_err() {
-            return candidate;
-        }
-        candidate.origin_order = source.custom_order;
-        if !(options.load_info || options.load_toc || options.load_word_count) {
-            return candidate;
-        }
+#[cfg(test)]
+fn prefetch_cache_clear() {
+    crate::engine_holder::switches().clear();
+}
 
-        let book_url = candidate.book_url.clone();
-        let mut toc_url = String::new();
-        let mut prefetched_info: Option<WebBookInfo> = None;
-        // [R1] 详情请求带候选搜索期变量表（与 apply 2a 同一展开口径：原版
-        // getBookInfoAwait 的 AnalyzeUrl 以 ruleData=book 构建，WebBook.kt:225-231）
-        let detail_vars = super::web_book::chapter_url_variables(candidate.variable.as_deref());
+#[cfg(test)]
+fn prefetch_cache_insert(
+    source: &str,
+    book: &str,
+    info: Option<WebBookInfo>,
+    chapters: Vec<WebChapter>,
+) {
+    crate::engine_holder::switches().insert(source, book, info, chapters);
+}
 
-        if options.load_info
-            && let Ok(info) = fetcher
-                .get_book_info_with_existing_and_vars(
-                    source,
-                    &book_url,
-                    false,
-                    &candidate.book_name,
-                    &candidate.author,
-                    &detail_vars,
-                )
-                .await
-        {
-            if self.ensure_active().is_err() {
-                return candidate;
-            }
-            if candidate
-                .latest_chapter
-                .as_ref()
-                .is_none_or(|s| s.is_empty())
-            {
-                candidate.latest_chapter = info.last_chapter.clone();
-            }
-            if candidate.word_count.as_ref().is_none_or(|s| s.is_empty()) {
-                candidate.word_count = info.word_count.clone();
-            }
-            toc_url = info.toc_url.clone();
-            prefetched_info = Some(info.clone());
-            // 上游 bookMap 恒写语义（loadBookInfo 成功后必写）：即使目录未
-            // 拉取也先写「详情-only」条目，apply 命中可降级「缓存详情 +
-            // 现场目录」省一次详情抓取
-            self.prefetch_cache_insert(&source.book_source_url, &book_url, Some(info), Vec::new());
-        }
+#[cfg(test)]
+fn prefetch_cache_get(source: &str, book: &str) -> Option<SwitchPrefetchEntry> {
+    crate::engine_holder::switches().get(source, book)
+}
 
-        if self.ensure_active().is_err() {
-            return candidate;
-        }
-        if options.load_toc || options.load_word_count {
-            let toc_opt = if toc_url.trim().is_empty() {
-                None
-            } else {
-                Some(toc_url.as_str())
-            };
-            match fetcher
-                .get_chapters_with_hints_and_vars(
-                    source,
-                    &book_url,
-                    toc_opt,
-                    Some(&candidate.book_name),
-                    &HashMap::new(),
-                )
-                .await
-            {
-                Ok(chapters) if !chapters.is_empty() => {
-                    if self.ensure_active().is_err() {
-                        return candidate;
-                    }
-                    if options.load_word_count {
-                        apply_word_count_sample(&mut candidate, source, fetcher, &chapters).await;
-                    }
-                    // 上游 loadBookToc L395-415：tocMap[primaryStr()] 写入（章数
-                    // 上限守卫在缓存内）。完整条目要求携带详情（apply 需要
-                    // tocUrl 解析 + 字段更新 + 变量合并）：load_info 已抓则复用，
-                    // 否则补抓一次（与 apply 2a 同一调用形态）
-                    let cache_info = match prefetched_info.take() {
-                        Some(info) => Some(info),
-                        None => fetcher
-                            .get_book_info_with_existing_and_vars(
-                                source,
-                                &book_url,
-                                false,
-                                &candidate.book_name,
-                                &candidate.author,
-                                &detail_vars,
-                            )
-                            .await
-                            .ok(),
-                    };
-                    self.prefetch_cache_insert(
-                        &source.book_source_url,
-                        &book_url,
-                        cache_info,
-                        chapters,
-                    );
-                }
-                Ok(_) => {}
-                Err(_) => {}
-            }
-        }
+pub fn search_alternative_sources(
+    book_name: &str,
+    author: &str,
+    source_urls_json: &str,
+    options_json: &str,
+) -> LegadoResult<SourceSwitchResponse> {
+    let context = SwitchContext::host().start_search()?;
+    let _guard = context.operation().unwrap().guard();
+    let result =
+        context.search_alternative_sources(book_name, author, source_urls_json, options_json);
+    context
+        .publish(|| result)
+        .unwrap_or_else(|| Err(LegadoError::Internal("换源已取消".into())))
+}
 
-        candidate
-    }
+pub async fn run_change_source_stream<F>(
+    book_name: String,
+    author: String,
+    urls: String,
+    options: String,
+    mut on_batch: F,
+) where
+    F: FnMut(String) -> Result<(), String>,
+{
+    run_change_source_stream_typed(book_name, author, urls, options, |batch| {
+        on_batch(serde_json::to_string(&batch).map_err(|e| e.to_string())?)
+    })
+    .await;
+}
 
-    fn persist_switch_matches(&self, matches: &[SourceMatch]) {
-        if matches.is_empty() || !self.storage.is_some() {
-            return;
-        }
-        use legado_core::models::SearchBook;
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0);
-        let books: Vec<SearchBook> = matches
-            .iter()
-            .map(|m| SearchBook {
-                book_url: m.book_url.clone(),
-                origin: m.source_url.clone(),
-                origin_name: m.source_name.clone(),
-                name: m.book_name.clone(),
-                author: m.author.clone(),
-                word_count: m.word_count.clone(),
-                latest_chapter_title: m.latest_chapter.clone(),
-                time: now,
-                origin_order: m.origin_order,
-                chapter_word_count_text: m.chapter_word_count_text.clone(),
-                chapter_word_count: m.chapter_word_count,
-                respond_time: m.respond_time,
-                book_score: m.book_score,
-                // [R1 修复 2026-09-06] 落库必须带候选搜索期变量：switch_book_source
-                // 按 (new_book_url, origin) 回查 searchBooks 取候选变量（对齐原版
-                // SearchBook.toBook() 复制 variable），此前 `..default()` 丢字段导致
-                // 网络路径与读库路径的候选变量双双丢失，变量依赖源换源后目录/正文
-                // 请求打错地址（内容错书的链路根因）
-                variable: m.variable.clone(),
-                ..SearchBook::default()
-            })
-            .collect();
-        self.publish(|| {
-            let _ = self.database(|db| {
-                let repo = legado_db::SearchBookRepository::new(db.connection());
-                let _ = repo.insert_all(&books);
-                Ok(())
-            });
-        });
-    }
+pub async fn run_change_source_stream_typed<F>(
+    book_name: String,
+    author: String,
+    source_urls_json: String,
+    options_json: String,
+    on_batch: F,
+) where
+    F: FnMut(ChangeSourceBatch) -> Result<(), String>,
+{
+    let Ok(context) = SwitchContext::host().start_search() else {
+        return;
+    };
+    let _guard = context.operation().unwrap().guard();
+    context
+        .run_change_source_stream_typed(book_name, author, source_urls_json, options_json, on_batch)
+        .await
+}
+
+pub fn switch_book_source(
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<String> {
+    serde_json::to_string(&switch_book_source_entity(
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+pub fn switch_book_source_entity(
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<Book> {
+    let context = SwitchContext::host().start_apply()?;
+    let _guard = context.operation().unwrap().guard();
+    let fetcher = context.fetcher_for_book(new_source_url, new_book_url)?;
+    context.switch_book_source_entity_with(&fetcher, book_url, new_source_url, new_book_url)
+}
+
+#[cfg(test)]
+fn switch_book_source_with<F: BookSourceFetcher>(
+    fetcher: &F,
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<String> {
+    let context = SwitchContext::host().start_apply()?;
+    let _guard = context.operation().unwrap().guard();
+    serde_json::to_string(&context.switch_book_source_entity_with(
+        fetcher,
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+pub fn switch_book_source_prefetch(
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<String> {
+    serde_json::to_string(&switch_book_source_prefetch_entity(
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+pub fn switch_book_source_prefetch_entity(
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<Book> {
+    let context = SwitchContext::host().start_apply()?;
+    let _guard = context.operation().unwrap().guard();
+    let fetcher = context.fetcher_for_book(new_source_url, new_book_url)?;
+    context.switch_book_source_prefetch_entity_with(
+        &fetcher,
+        book_url,
+        new_source_url,
+        new_book_url,
+    )
+}
+
+#[cfg(test)]
+fn switch_book_source_prefetch_with<F: BookSourceFetcher>(
+    fetcher: &F,
+    book_url: &str,
+    new_source_url: &str,
+    new_book_url: &str,
+) -> LegadoResult<String> {
+    let context = SwitchContext::host().start_apply()?;
+    let _guard = context.operation().unwrap().guard();
+    serde_json::to_string(&context.switch_book_source_prefetch_entity_with(
+        fetcher,
+        book_url,
+        new_source_url,
+        new_book_url,
+    )?)
+    .map_err(LegadoError::Serialization)
+}
+
+#[cfg(test)]
+pub(crate) fn resolve_switch_sources(source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
+    SwitchContext::host().resolve_switch_sources(source_urls_json)
+}
+
+#[cfg(test)]
+pub(crate) fn resolve_switch_options(options_json: &str) -> SwitchSearchOptions {
+    SwitchContext::host().resolve_switch_options(options_json)
+}
+
+#[cfg(test)]
+async fn enrich_switch_candidates_async<F, MF>(
+    sources: &[BookSource],
+    candidates: Vec<SearchCandidate>,
+    options: &SwitchSearchOptions,
+    make_fetcher: MF,
+) -> LegadoResult<Vec<SearchCandidate>>
+where
+    F: BookSourceFetcher + Send + 'static,
+    MF: Fn() -> LegadoResult<F> + Send + Sync + 'static,
+{
+    SwitchContext::host()
+        .enrich_switch_candidates_async(sources, candidates, options, move |_| make_fetcher())
+        .await
+}
+
+#[cfg(test)]
+async fn enrich_item_with_timeout(
+    fetcher: &impl BookSourceFetcher,
+    source: &BookSource,
+    candidate: SearchCandidate,
+    options: &SwitchSearchOptions,
+    timeout: std::time::Duration,
+) -> SearchCandidate {
+    SwitchContext::host()
+        .enrich_item_with_timeout(fetcher, source, candidate, options, timeout)
+        .await
+}
+
+#[cfg(test)]
+async fn enrich_one_switch_candidate_with(
+    fetcher: &impl BookSourceFetcher,
+    source: &BookSource,
+    candidate: SearchCandidate,
+    options: &SwitchSearchOptions,
+) -> SearchCandidate {
+    SwitchContext::host()
+        .enrich_one_switch_candidate_with(fetcher, source, candidate, options)
+        .await
+}
+
+#[cfg(test)]
+fn persist_switch_matches(matches: &[SourceMatch]) {
+    SwitchContext::host().persist_switch_matches(matches)
 }
 
 pub fn search_alternative_sources_selected(
@@ -2208,12 +455,13 @@ pub fn search_alternative_sources_selected(
     options: SwitchSearchOptions,
 ) -> LegadoResult<SourceSwitchResponse> {
     let context = SwitchContext::host().start_search()?;
-    let _guard = context.operation.as_ref().unwrap().guard();
+    let _guard = context.operation().unwrap().guard();
     let result = context.search_alternative_sources_selected(name, author, urls, options);
     context
         .publish(|| result)
         .unwrap_or_else(|| Err(LegadoError::Internal("换源已取消".into())))
 }
+
 pub async fn run_change_source_stream_selected<F>(
     name: String,
     author: String,
@@ -2226,10 +474,20 @@ pub async fn run_change_source_stream_selected<F>(
     let Ok(context) = SwitchContext::host().start_search() else {
         return;
     };
-    let _guard = context.operation.as_ref().unwrap().guard();
+    let _guard = context.operation().unwrap().guard();
     context
         .run_change_source_stream_selected(name, author, urls, options, callback)
         .await;
+}
+
+pub fn cancel_switch_apply() {
+    SwitchContext::host().cancel_apply();
+}
+pub fn update_search_book_score(book_url: &str, score: i32) -> LegadoResult<()> {
+    SwitchContext::host().update_search_book_score(book_url, score)
+}
+pub fn delete_search_book(book_url: &str) -> LegadoResult<()> {
+    SwitchContext::host().delete_search_book(book_url)
 }
 
 #[cfg(test)]
@@ -2290,26 +548,6 @@ mod tests {
             enabled.len(),
             "空数组应搜全部启用源"
         );
-    }
-
-    /// Task #145（留项#12）：分组包含判定纯语义单测
-    #[test]
-    fn test_source_group_contains_membership() {
-        // 逗号分隔多组：首/尾/中间组均命中
-        assert!(source_group_contains("玄幻,仙侠,都市", "玄幻"));
-        assert!(source_group_contains("玄幻,仙侠,都市", "都市"));
-        assert!(source_group_contains("玄幻,仙侠,都市", "仙侠"));
-        // 组名两侧空白（含全角空格）trim 后命中
-        assert!(source_group_contains("玄幻, 仙侠", "仙侠"));
-        assert!(source_group_contains("玄幻,\u{3000}仙侠", "仙侠"));
-        // 分隔符规范化：`;`/`；`/`，` 等同逗号
-        assert!(source_group_contains("玄幻;仙侠；都市，科幻", "科幻"));
-        // 精确匹配：不做子串匹配（原版逐组名相等判定）
-        assert!(!source_group_contains("玄幻仙侠", "玄幻"));
-        assert!(!source_group_contains("玄幻", "幻"));
-        // 空分组字段不命中任何目标
-        assert!(!source_group_contains("", "玄幻"));
-        assert!(!source_group_contains("  ,  ", "玄幻"));
     }
 
     #[test]
@@ -4875,7 +3113,7 @@ mod tests {
                 .unwrap();
             let context = isolated_context(engine);
             let searching = context.clone().start_search().unwrap();
-            let guard = searching.operation.as_ref().unwrap().guard();
+            let guard = searching.operation().unwrap().guard();
             let mut events = Vec::new();
             searching
                 .run_change_source_stream(
@@ -4892,7 +3130,7 @@ mod tests {
             assert_eq!(events.len(), 2);
             assert_eq!(events.last().unwrap()["matches"][0]["book_name"], "测试书");
             let entry = context
-                .state
+                .state()
                 .get(&server.url, &format!("{}/detail", server.url))
                 .unwrap();
             assert_eq!(entry.chapters[0].title, title);
@@ -4907,7 +3145,7 @@ mod tests {
             drop(guard);
             drop(searching);
             let applying = context.clone().start_apply().unwrap();
-            let guard = applying.operation.as_ref().unwrap().guard();
+            let guard = applying.operation().unwrap().guard();
             let fetcher = applying
                 .fetcher_for_book(&server.url, &format!("{}/detail", server.url))
                 .unwrap();
@@ -4948,7 +3186,7 @@ mod tests {
         }
         assert_eq!(
             contexts[0]
-                .state
+                .state()
                 .get(&server.url, &format!("{}/detail", server.url))
                 .unwrap()
                 .chapters[0]
@@ -4965,7 +3203,7 @@ mod tests {
         let engine = legado_engine::EngineContext::in_memory().unwrap();
         seed_isolated_switch(&engine, &server.url, &format!("{}/search", server.url));
         let context = isolated_context(&engine).start_search().unwrap();
-        let guard = context.operation.as_ref().unwrap().guard();
+        let guard = context.operation().unwrap().guard();
         let mut count = 0;
         context
             .run_change_source_stream(
@@ -4983,7 +3221,7 @@ mod tests {
         server.request().await;
         assert!(
             context
-                .state
+                .state()
                 .get(&server.url, &format!("{}/detail", server.url))
                 .is_none()
         );
@@ -5024,8 +3262,8 @@ mod tests {
         let storage = engine.storage().clone();
         seed_isolated_switch(&engine, &search.url, &format!("{}/search", search.url));
         let context = isolated_context(&engine).start_search().unwrap();
-        let state = context.state.clone();
-        let guard = context.operation.as_ref().unwrap().guard();
+        let state = context.state().clone();
+        let guard = context.operation().unwrap().guard();
         let mut count = 0;
         let mut stream = Box::pin(context.run_change_source_stream(
             "测试书".into(),
@@ -5094,10 +3332,10 @@ mod tests {
         let storage = engine.storage().clone();
         seed_isolated_switch(&engine, &details.url, &format!("{}/unused", details.url));
         let context = isolated_context(&engine).start_apply().unwrap();
-        let state = context.state.clone();
+        let state = context.state().clone();
         let source = details.url.clone();
         let worker = tokio::task::spawn_blocking(move || {
-            let _guard = context.operation.as_ref().unwrap().guard();
+            let _guard = context.operation().unwrap().guard();
             let fetcher = context.fetcher_for_book(&source, &format!("{source}/detail"))?;
             context.switch_book_source_prefetch_with(
                 &fetcher,
@@ -5147,7 +3385,7 @@ mod tests {
         let source =
             seed_isolated_switch(&engine, &details.url, &format!("{}/unused", details.url));
         let context = isolated_context(&engine).start_search().unwrap();
-        let guard = context.operation.as_ref().unwrap().guard();
+        let guard = context.operation().unwrap().guard();
         let book = format!("{}/detail", details.url);
         let options = SwitchSearchOptions {
             load_info: true,
@@ -5158,7 +3396,7 @@ mod tests {
         let worker = tokio::spawn(async move {
             worker_context
                 .run_enrich_jobs_until(
-                    |context: &SwitchContext| context.fetcher(),
+                    |context: &SourceSwitchService| context.fetcher(),
                     jobs,
                     &options,
                     Duration::from_millis(50),
@@ -5190,12 +3428,12 @@ mod tests {
         // 后半段观察真实后台工作，不让暂停时钟把五秒看门狗自动耗尽。
         tokio::time::resume();
         assert_eq!(result.len(), 1);
-        assert!(context.operation.as_ref().unwrap().is_active());
-        assert!(context.state.get(&details.url, &book).is_none());
+        assert!(context.operation().unwrap().is_active());
+        assert!(context.state().get(&details.url, &book).is_none());
         assert!(engine.tasks().active_count() > 1);
         context.publish(|| {
             context
-                .state
+                .state()
                 .insert(&details.url, &book, None, test_web_chapters(1, "accepted"))
         });
         details.release.send(()).unwrap();
@@ -5207,7 +3445,7 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(
-            context.state.get(&details.url, &book).unwrap().chapters[0].url,
+            context.state().get(&details.url, &book).unwrap().chapters[0].url,
             "accepted/c0"
         );
         drop(guard);

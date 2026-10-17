@@ -2121,6 +2121,7 @@ dependencies = [
 name = "legado-engine"
 version = "0.2.0"
 dependencies = [
+ "futures",
  "legado-core",
  "legado-db",
  "legado-fetcher",

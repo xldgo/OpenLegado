@@ -7,9 +7,12 @@ mod media;
 mod network;
 mod operations;
 mod search_tasks;
+pub mod source_batches;
+pub mod source_catalog;
 mod source_info_map;
 mod source_login;
 mod source_switch;
+pub mod source_switch_service;
 mod storage;
 mod tasks;
 
