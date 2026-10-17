@@ -65,6 +65,11 @@ pub fn list_rss_sources() -> LegadoResult<Vec<RssSource>> {
 pub fn add_rss_source(source_json: &str) -> LegadoResult<RssSource> {
     let source: RssSource = serde_json::from_str(source_json)
         .map_err(|e| LegadoError::Ffi(format!("RssSource JSON 解析失败: {e}")))?;
+    add_rss_source_entity(source)
+}
+
+/// 文档与类型化边界共享同一写入路径。
+pub fn add_rss_source_entity(source: RssSource) -> LegadoResult<RssSource> {
     with_database(|db| {
         let repo = RssSourceRepository::new(db.connection());
         repo.insert(&source)
@@ -130,6 +135,11 @@ pub fn delete_rss_source(source_url: &str) -> LegadoResult<()> {
 pub fn update_rss_source(source_json: &str) -> LegadoResult<RssSource> {
     let source: RssSource = serde_json::from_str(source_json)
         .map_err(|e| LegadoError::Ffi(format!("RssSource JSON 解析失败: {e}")))?;
+    update_rss_source_entity(source)
+}
+
+/// 文档与类型化边界共享同一写入路径。
+pub fn update_rss_source_entity(source: RssSource) -> LegadoResult<RssSource> {
     if source.source_url.trim().is_empty() {
         return Err(LegadoError::Ffi("RssSource sourceUrl 不能为空".into()));
     }

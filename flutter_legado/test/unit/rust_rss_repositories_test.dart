@@ -1,3 +1,8 @@
+import '../fixtures/business_transport_fixtures.dart';
+
+import 'package:flutter_legado/src/data/bridge/business_dto_mapping.dart';
+import 'package:flutter_legado/src/bridge/business_dto.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -18,6 +23,7 @@ void main() {
   const records = RustRssReadRecordRepository();
   const stars = RustRssStarRepository();
 
+  setUpAll(() => registerFallbackValue(rssSourceToDto(const RssSource())));
   setUp(() {
     bridge = _Bridge();
     RustLib.initMock(api: bridge);
@@ -36,14 +42,14 @@ void main() {
   for (final enabled in [false, true]) {
     test('启停只更新RSS实体且保留原字段：$enabled', () async {
       final current = source.copyWith(enabled: !enabled);
-      when(() => bridge.crateFfiFfiRssListSources())
-          .thenAnswer((_) async => jsonEncode([current.toJson()]));
+      when(() => bridge.crateFfiFfiRssListSources()).thenAnswer(
+        (_) async => fixtureRssSourceDtoList(jsonEncode([current.toJson()])),
+      );
       when(
-        () => bridge.crateFfiFfiRssUpdateSource(
-          sourceJson: any(named: 'sourceJson'),
-        ),
+        () => bridge.crateFfiFfiRssUpdateSource(source: any(named: 'source')),
       ).thenAnswer(
-        (invocation) async => invocation.namedArguments[#sourceJson] as String,
+        (invocation) async =>
+            invocation.namedArguments[#source] as RssSourceDto,
       );
 
       if (enabled) {
@@ -55,14 +61,11 @@ void main() {
       final payload =
           verify(
                 () => bridge.crateFfiFfiRssUpdateSource(
-                  sourceJson: captureAny(named: 'sourceJson'),
+                  source: captureAny(named: 'source'),
                 ),
               ).captured.single
-              as String;
-      expect(
-        RssSource.fromJson(jsonDecode(payload) as Map<String, dynamic>),
-        current.copyWith(enabled: enabled),
-      );
+              as RssSourceDto;
+      expect(rssSourceFromDto(payload), current.copyWith(enabled: enabled));
       verify(() => bridge.crateFfiFfiRssListSources()).called(1);
       // 任何书源表调用或额外写入都会令此断言失败。
       verifyNoMoreInteractions(bridge);
@@ -71,43 +74,28 @@ void main() {
 
   test('启停源不存在时失败且不写入', () async {
     when(() => bridge.crateFfiFfiRssListSources())
-        .thenAnswer((_) async => '[]');
+        .thenAnswer((_) async => fixtureRssSourceDtoList('[]'));
     await expectLater(sources.disableRssSource('missing'), throwsStateError);
     verify(() => bridge.crateFfiFfiRssListSources()).called(1);
     verifyNoMoreInteractions(bridge);
   });
 
-  test('更新拒绝false和损坏响应', () async {
-    for (final payload in ['false', 'null', '[]', 'invalid']) {
-      when(
-        () => bridge.crateFfiFfiRssUpdateSource(
-          sourceJson: any(named: 'sourceJson'),
-        ),
-      ).thenAnswer((_) async => payload);
-      await expectLater(
-        sources.updateRssSource(source),
-        payload == 'false' ? throwsStateError : throwsFormatException,
-      );
-    }
-  });
-
   test('新增读取真实返回值，删除透传URL', () async {
     final saved = source.copyWith(lastUpdateTime: 100);
     when(
-      () =>
-          bridge.crateFfiFfiRssAddSource(sourceJson: any(named: 'sourceJson')),
-    ).thenAnswer((_) async => jsonEncode(saved.toJson()));
+      () => bridge.crateFfiFfiRssAddSource(source: any(named: 'source')),
+    ).thenAnswer((_) async => fixtureRssSourceDto(jsonEncode(saved.toJson())));
     when(() => bridge.crateFfiFfiRssDeleteSource(sourceUrl: source.sourceUrl))
         .thenAnswer((_) async {});
     expect(await sources.addRssSource(source), saved);
     final payload =
         verify(
               () => bridge.crateFfiFfiRssAddSource(
-                sourceJson: captureAny(named: 'sourceJson'),
+                source: captureAny(named: 'source'),
               ),
             ).captured.single
-            as String;
-    expect(jsonDecode(payload), source.toJson());
+            as RssSourceDto;
+    expect(rssSourceFromDto(payload), source);
     await sources.deleteRssSource(source.sourceUrl);
     verify(() => bridge.crateFfiFfiRssDeleteSource(sourceUrl: source.sourceUrl))
         .called(1);
@@ -115,35 +103,39 @@ void main() {
   });
 
   test('导入沿用逐条RSS写入和非对象条目跳过，导出保持完整字段', () async {
-    when(
-      () =>
-          bridge.crateFfiFfiRssAddSource(sourceJson: any(named: 'sourceJson')),
-    ).thenAnswer(
-      (invocation) async => invocation.namedArguments[#sourceJson] as String,
-    );
+    when(() => bridge.crateFfiFfiRssAddSource(source: any(named: 'source')))
+        .thenAnswer(
+          (invocation) async =>
+              invocation.namedArguments[#source] as RssSourceDto,
+        );
     expect(await sources.importRssSources(jsonEncode([source.toJson(), 3])), 1);
-    verify(
-      () =>
-          bridge.crateFfiFfiRssAddSource(sourceJson: any(named: 'sourceJson')),
-    ).called(1);
+    verify(() => bridge.crateFfiFfiRssAddSource(source: any(named: 'source')))
+        .called(1);
     await expectLater(sources.importRssSources('{}'), throwsFormatException);
-    when(() => bridge.crateFfiFfiRssListSources())
-        .thenAnswer((_) async => jsonEncode([source.toJson()]));
+    when(() => bridge.crateFfiFfiRssListSources()).thenAnswer(
+      (_) async => fixtureRssSourceDtoList(jsonEncode([source.toJson()])),
+    );
     expect(jsonDecode(await sources.exportRssSources()), [source.toJson()]);
   });
 
-  test('文章保留link/image与url/imageUrl两组字段，清理透传来源', () async {
+  test('文章保留标题链接图片日期摘要，清理透传来源', () async {
     when(() => bridge.crateFfiFfiRssFetchArticles(sourceUrl: 'feed'))
         .thenAnswer(
-          (_) async =>
-              '[{"title":"一","link":"a","image":"i","content":"正文"},'
-              '{"title":"二","url":"b","imageUrl":"j","description":"摘要"}]',
+          (_) async => [
+            const RssArticleDto(
+              title: '一',
+              link: 'a',
+              description: '摘要',
+              pubDate: '日期',
+              imageUrl: 'i',
+            ),
+          ],
         );
     final result = await articles.getRssArticles('feed');
-    expect(result.map((a) => a.url), ['a', 'b']);
-    expect(result.map((a) => a.imageUrl), ['i', 'j']);
-    expect(result.first.content, '正文');
-    expect(result.last.description, '摘要');
+    expect(result.single.url, 'a');
+    expect(result.single.imageUrl, 'i');
+    expect(result.single.pubDate, '日期');
+    expect(result.single.description, '摘要');
     when(() => bridge.crateFfiFfiRssClearArticles(sourceUrl: 'feed'))
         .thenAnswer((_) async {});
     await articles.rssClearArticles('feed');
@@ -156,13 +148,13 @@ void main() {
         '[{"origin":"feed","title":"后读","link":null,"read_time":200},'
         '{"origin":"feed","title":"先读","link":"a","read_time":100}]';
     when(() => bridge.crateFfiFfiRssListReadRecords(limit: 2))
-        .thenAnswer((_) async => raw);
+        .thenAnswer((_) async => fixtureRssReadRecordDtoList(raw));
     when(
       () => bridge.crateFfiFfiRssListReadRecordsByOrigin(
         origin: 'feed',
         limit: 1,
       ),
-    ).thenAnswer((_) async => raw);
+    ).thenAnswer((_) async => fixtureRssReadRecordDtoList(raw));
     final result = await records.rssListReadRecords(2);
     expect(result.map((r) => r.readTime), [200, 100]);
     expect(result.first.link, isNull);
@@ -232,8 +224,9 @@ void main() {
         .thenAnswer((_) async => true);
     when(() => bridge.crateFfiFfiRssStarDelete(link: 'article'))
         .thenAnswer((_) async => false);
-    when(() => bridge.crateFfiFfiRssStarList())
-        .thenAnswer((_) async => jsonEncode([star.toJson()]));
+    when(() => bridge.crateFfiFfiRssStarList()).thenAnswer(
+      (_) async => fixtureRssStarSnapshotDtoList(jsonEncode([star.toJson()])),
+    );
     expect(await stars.addRssStar(star), star);
     expect(await stars.isStarred('article'), isTrue);
     expect(await stars.getRssStars(), [star]);
@@ -241,31 +234,9 @@ void main() {
     verify(() => bridge.crateFfiFfiRssStarDelete(link: 'article')).called(1);
   });
 
-  for (final payload in ['{}', '[null]', '[{"title":3}]', 'invalid']) {
-    test('查询拒绝坏结构而非返回空结果：$payload', () async {
-      when(() => bridge.crateFfiFfiRssListSources())
-          .thenAnswer((_) async => payload);
-      when(() => bridge.crateFfiFfiRssFetchArticles(sourceUrl: 'feed'))
-          .thenAnswer((_) async => payload);
-      when(() => bridge.crateFfiFfiRssListReadRecords(limit: null))
-          .thenAnswer((_) async => payload);
-      when(() => bridge.crateFfiFfiRssStarList())
-          .thenAnswer((_) async => payload);
-      // 源标题字段为sourceName；单独使用字段类型错误测试源模型。
-      if (payload == '[{"title":3}]') {
-        when(() => bridge.crateFfiFfiRssListSources())
-            .thenAnswer((_) async => '[{"sourceName":3}]');
-      }
-      await expectLater(sources.getRssSources(), throwsFormatException);
-      await expectLater(articles.getRssArticles('feed'), throwsFormatException);
-      await expectLater(records.rssListReadRecords(), throwsFormatException);
-      await expectLater(stars.getRssStars(), throwsFormatException);
-    });
-  }
-
   test('合法空列表成功，FRB异常原样传播', () async {
     when(() => bridge.crateFfiFfiRssListSources())
-        .thenAnswer((_) async => '[]');
+        .thenAnswer((_) async => fixtureRssSourceDtoList('[]'));
     expect(await sources.getRssSources(), isEmpty);
     final failure = StateError('数据库失败');
     when(() => bridge.crateFfiFfiRssListSources()).thenThrow(failure);

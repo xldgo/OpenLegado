@@ -1,7 +1,7 @@
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/rss_read_record_repository.dart';
 import '../../models/models.dart';
-import 'rss_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 
 /// 直接复用既有FRB，不持有页面状态。— Codex + Bridge
 final class RustRssReadRecordRepository implements RssReadRecordRepository {
@@ -33,8 +33,9 @@ final class RustRssReadRecordRepository implements RssReadRecordRepository {
   /// 获取 RSS 已读记录列表（按 readTime 降序）
   @override
   Future<List<RssReadRecordRow>> rssListReadRecords([int? limit]) async {
-    final json = await bridge.rssListReadRecords(limit: limit);
-    return decodeRssList(json, 'rssListReadRecords', RssReadRecordRow.fromJson);
+    return (await bridge.rssListReadRecords(
+      limit: limit == null ? null : businessI32(limit),
+    )).map(rssReadFromDto).toList();
   }
 
   @override
@@ -42,14 +43,9 @@ final class RustRssReadRecordRepository implements RssReadRecordRepository {
     String origin, [
     int? limit,
   ]) async {
-    final json = await bridge.rssListReadRecordsByOrigin(
+    return (await bridge.rssListReadRecordsByOrigin(
       origin: origin,
-      limit: limit,
-    );
-    return decodeRssList(
-      json,
-      'rssListReadRecordsByOrigin',
-      RssReadRecordRow.fromJson,
-    );
+      limit: limit == null ? null : businessI32(limit),
+    )).map(rssReadFromDto).toList();
   }
 }

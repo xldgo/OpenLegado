@@ -2480,11 +2480,12 @@ fn wire__crate__ffi__ffi__bookshelf_reorder_orders_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_orders_json = <String>::sse_decode(&mut deserializer);
+            let api_orders =
+                <Vec<crate::business_dto::BookOrderDto>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::bookshelf_reorder_orders(api_orders_json)?;
+                    let output_ok = crate::ffi::ffi::bookshelf_reorder_orders(api_orders)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -3966,11 +3967,11 @@ fn wire__crate__ffi__ffi__dict_rule_reorder_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_ids_json = <String>::sse_decode(&mut deserializer);
+            let api_ids = <Vec<i64>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::dict_rule_reorder(api_ids_json)?;
+                    let output_ok = crate::ffi::ffi::dict_rule_reorder(api_ids)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -7415,11 +7416,11 @@ fn wire__crate__ffi__ffi__rss_add_source_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::business_dto::RssSourceDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::rss_add_source(api_source_json)?;
+                    let output_ok = crate::ffi::ffi::rss_add_source(api_source)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -7948,11 +7949,11 @@ fn wire__crate__ffi__ffi__rss_update_source_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::business_dto::RssSourceDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::rss_update_source(api_source_json)?;
+                    let output_ok = crate::ffi::ffi::rss_update_source(api_source)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -8112,11 +8113,11 @@ fn wire__crate__ffi__ffi__rule_sub_save_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_sub_json = <String>::sse_decode(&mut deserializer);
+            let api_sub = <crate::business_dto::RuleSubscriptionDto>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::rule_sub_save(api_sub_json)?;
+                    let output_ok = crate::ffi::ffi::rule_sub_save(api_sub)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -8179,11 +8180,11 @@ fn wire__crate__ffi__ffi__rule_sub_update_order_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_ids_json = <String>::sse_decode(&mut deserializer);
+            let api_ids = <Vec<i64>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok = crate::ffi::ffi::rule_sub_update_order(api_ids_json)?;
+                    let output_ok = crate::ffi::ffi::rule_sub_update_order(api_ids)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -11718,6 +11719,20 @@ impl SseDecode for crate::transfer_dto::AnnotatedCandidateDto {
     }
 }
 
+impl SseDecode for crate::business_dto::AppLogDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_timestamp = <i64>::sse_decode(deserializer);
+        let mut var_level = <crate::business_dto::LogLevelDto>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        return crate::business_dto::AppLogDto {
+            timestamp: var_timestamp,
+            level: var_level,
+            message: var_message,
+        };
+    }
+}
+
 impl SseDecode for crate::media_dto::AudioCacheDownloadDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -11769,6 +11784,22 @@ impl SseDecode for crate::media_dto::AudioChapterMediaDto {
             from_cache: var_fromCache,
             lyric: var_lyric,
             source_url: var_sourceUrl,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::BackupFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_path = <String>::sse_decode(deserializer);
+        let mut var_size = <u64>::sse_decode(deserializer);
+        let mut var_modified = <i64>::sse_decode(deserializer);
+        return crate::business_dto::BackupFileDto {
+            name: var_name,
+            path: var_path,
+            size: var_size,
+            modified: var_modified,
         };
     }
 }
@@ -11946,6 +11977,18 @@ impl SseDecode for crate::transfer_dto::BookInfoRuleDto {
     }
 }
 
+impl SseDecode for crate::business_dto::BookOrderDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_bookUrl = <String>::sse_decode(deserializer);
+        let mut var_order = <i32>::sse_decode(deserializer);
+        return crate::business_dto::BookOrderDto {
+            book_url: var_bookUrl,
+            order: var_order,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::BookSourceDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -12119,6 +12162,18 @@ impl SseDecode for crate::task_dto::CacheDownloadTaskDto {
             total: var_total,
             completed: var_completed,
             failed: var_failed,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::CachedChapterDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_url = <String>::sse_decode(deserializer);
+        let mut var_wordCount = <String>::sse_decode(deserializer);
+        return crate::business_dto::CachedChapterDto {
+            url: var_url,
+            word_count: var_wordCount,
         };
     }
 }
@@ -12397,6 +12452,40 @@ impl SseDecode for crate::task_dto::DebugLogDto {
         return crate::task_dto::DebugLogDto {
             state: var_state,
             msg: var_msg,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::DictEntryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_word = <String>::sse_decode(deserializer);
+        let mut var_phonetic = <String>::sse_decode(deserializer);
+        let mut var_definitions = <Vec<String>>::sse_decode(deserializer);
+        return crate::business_dto::DictEntryDto {
+            word: var_word,
+            phonetic: var_phonetic,
+            definitions: var_definitions,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::DictionaryRuleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <i64>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_urlRule = <String>::sse_decode(deserializer);
+        let mut var_showRule = <String>::sse_decode(deserializer);
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_sortNumber = <i32>::sse_decode(deserializer);
+        return crate::business_dto::DictionaryRuleDto {
+            id: var_id,
+            name: var_name,
+            url_rule: var_urlRule,
+            show_rule: var_showRule,
+            enabled: var_enabled,
+            sort_number: var_sortNumber,
         };
     }
 }
@@ -13344,6 +13433,32 @@ impl SseDecode for Vec<crate::transfer_dto::AnnotatedCandidateDto> {
     }
 }
 
+impl SseDecode for Vec<crate::business_dto::AppLogDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::AppLogDto>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::BackupFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::BackupFileDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::transfer_dto::BookDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -13377,6 +13492,20 @@ impl SseDecode for Vec<crate::transfer_dto::BookHighlightDto> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::transfer_dto::BookHighlightDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::BookOrderDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::BookOrderDto>::sse_decode(
                 deserializer,
             ));
         }
@@ -13424,6 +13553,20 @@ impl SseDecode for Vec<crate::task_dto::CacheDownloadTaskDto> {
     }
 }
 
+impl SseDecode for Vec<crate::business_dto::CachedChapterDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::CachedChapterDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::transfer_dto::ChapterDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -13457,6 +13600,20 @@ impl SseDecode for Vec<crate::media_dto::CloudVoiceDescriptorDto> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::media_dto::CloudVoiceDescriptorDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::DictionaryRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::DictionaryRuleDto>::sse_decode(
                 deserializer,
             ));
         }
@@ -13806,6 +13963,20 @@ impl SseDecode for Vec<(String, String)> {
     }
 }
 
+impl SseDecode for Vec<crate::business_dto::ReplaceRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::ReplaceRuleDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::content_dto::ReviewDetailItemDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -13820,6 +13991,76 @@ impl SseDecode for Vec<crate::content_dto::ReviewDetailItemDto> {
     }
 }
 
+impl SseDecode for Vec<crate::business_dto::RssArticleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::RssArticleDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::RssReadRecordDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::RssReadRecordDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::RssSourceDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::RssSourceDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::RssStarSnapshotDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::RssStarSnapshotDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::RuleSubscriptionDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::RuleSubscriptionDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::transfer_dto::SearchBookDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -13827,6 +14068,20 @@ impl SseDecode for Vec<crate::transfer_dto::SearchBookDto> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::transfer_dto::SearchBookDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::business_dto::SearchHistoryDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::business_dto::SearchHistoryDto>::sse_decode(
                 deserializer,
             ));
         }
@@ -13943,6 +14198,19 @@ impl SseDecode for Vec<crate::task_dto::WebViewRequestDto> {
             ));
         }
         return ans_;
+    }
+}
+
+impl SseDecode for crate::business_dto::LogLevelDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::business_dto::LogLevelDto::Message,
+            1 => crate::business_dto::LogLevelDto::Crash,
+            2 => crate::business_dto::LogLevelDto::Http,
+            _ => unreachable!("Invalid variant for LogLevelDto: {}", inner),
+        };
     }
 }
 
@@ -14576,6 +14844,62 @@ impl SseDecode for crate::transfer_dto::RedirectInfoDto {
     }
 }
 
+impl SseDecode for crate::business_dto::ReplaceRuleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <i64>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_group = <Option<String>>::sse_decode(deserializer);
+        let mut var_pattern = <String>::sse_decode(deserializer);
+        let mut var_replacement = <String>::sse_decode(deserializer);
+        let mut var_scope = <Option<String>>::sse_decode(deserializer);
+        let mut var_scopeTitle = <bool>::sse_decode(deserializer);
+        let mut var_scopeContent = <bool>::sse_decode(deserializer);
+        let mut var_scopeSource = <bool>::sse_decode(deserializer);
+        let mut var_excludeScope = <Option<String>>::sse_decode(deserializer);
+        let mut var_isEnabled = <bool>::sse_decode(deserializer);
+        let mut var_isRegex = <bool>::sse_decode(deserializer);
+        let mut var_timeoutMillisecond = <i64>::sse_decode(deserializer);
+        let mut var_order = <i32>::sse_decode(deserializer);
+        return crate::business_dto::ReplaceRuleDto {
+            id: var_id,
+            name: var_name,
+            group: var_group,
+            pattern: var_pattern,
+            replacement: var_replacement,
+            scope: var_scope,
+            scope_title: var_scopeTitle,
+            scope_content: var_scopeContent,
+            scope_source: var_scopeSource,
+            exclude_scope: var_excludeScope,
+            is_enabled: var_isEnabled,
+            is_regex: var_isRegex,
+            timeout_millisecond: var_timeoutMillisecond,
+            order: var_order,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::RestoreStatsDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_books = <usize>::sse_decode(deserializer);
+        let mut var_bookmarks = <usize>::sse_decode(deserializer);
+        let mut var_replaceRules = <usize>::sse_decode(deserializer);
+        let mut var_bookSources = <usize>::sse_decode(deserializer);
+        let mut var_rssSources = <usize>::sse_decode(deserializer);
+        let mut var_readRecords = <usize>::sse_decode(deserializer);
+        return crate::business_dto::RestoreStatsDto {
+            books: var_books,
+            bookmarks: var_bookmarks,
+            replace_rules: var_replaceRules,
+            book_sources: var_bookSources,
+            rss_sources: var_rssSources,
+            read_records: var_readRecords,
+        };
+    }
+}
+
 impl SseDecode for crate::content_dto::ReviewDetailItemDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -14726,6 +15050,202 @@ impl SseDecode for crate::content_dto::ReviewSummaryDto {
     }
 }
 
+impl SseDecode for crate::business_dto::RssArticleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_link = <String>::sse_decode(deserializer);
+        let mut var_description = <Option<String>>::sse_decode(deserializer);
+        let mut var_pubDate = <Option<String>>::sse_decode(deserializer);
+        let mut var_imageUrl = <Option<String>>::sse_decode(deserializer);
+        return crate::business_dto::RssArticleDto {
+            title: var_title,
+            link: var_link,
+            description: var_description,
+            pub_date: var_pubDate,
+            image_url: var_imageUrl,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::RssReadRecordDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_origin = <String>::sse_decode(deserializer);
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_link = <Option<String>>::sse_decode(deserializer);
+        let mut var_readTime = <i64>::sse_decode(deserializer);
+        return crate::business_dto::RssReadRecordDto {
+            origin: var_origin,
+            title: var_title,
+            link: var_link,
+            read_time: var_readTime,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::RssSourceDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_sourceUrl = <String>::sse_decode(deserializer);
+        let mut var_sourceName = <String>::sse_decode(deserializer);
+        let mut var_sourceIcon = <String>::sse_decode(deserializer);
+        let mut var_sourceGroup = <Option<String>>::sse_decode(deserializer);
+        let mut var_sourceComment = <Option<String>>::sse_decode(deserializer);
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_variableComment = <Option<String>>::sse_decode(deserializer);
+        let mut var_jsLib = <Option<String>>::sse_decode(deserializer);
+        let mut var_enabledCookieJar = <Option<bool>>::sse_decode(deserializer);
+        let mut var_concurrentRate = <Option<String>>::sse_decode(deserializer);
+        let mut var_header = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginUrl = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginUi = <Option<String>>::sse_decode(deserializer);
+        let mut var_loginCheckJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_coverDecodeJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_sortUrl = <Option<String>>::sse_decode(deserializer);
+        let mut var_singleUrl = <bool>::sse_decode(deserializer);
+        let mut var_articleStyle = <i32>::sse_decode(deserializer);
+        let mut var_ruleArticles = <Option<String>>::sse_decode(deserializer);
+        let mut var_ruleNextPage = <Option<String>>::sse_decode(deserializer);
+        let mut var_ruleTitle = <Option<String>>::sse_decode(deserializer);
+        let mut var_rulePubDate = <Option<String>>::sse_decode(deserializer);
+        let mut var_ruleDescription = <Option<String>>::sse_decode(deserializer);
+        let mut var_ruleImage = <Option<String>>::sse_decode(deserializer);
+        let mut var_ruleLink = <Option<String>>::sse_decode(deserializer);
+        let mut var_ruleContent = <Option<String>>::sse_decode(deserializer);
+        let mut var_contentWhitelist = <Option<String>>::sse_decode(deserializer);
+        let mut var_contentBlacklist = <Option<String>>::sse_decode(deserializer);
+        let mut var_shouldOverrideUrlLoading = <Option<String>>::sse_decode(deserializer);
+        let mut var_style = <Option<String>>::sse_decode(deserializer);
+        let mut var_enableJs = <bool>::sse_decode(deserializer);
+        let mut var_loadWithBaseUrl = <bool>::sse_decode(deserializer);
+        let mut var_injectJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_preloadJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_startHtml = <Option<String>>::sse_decode(deserializer);
+        let mut var_startStyle = <Option<String>>::sse_decode(deserializer);
+        let mut var_startJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_showWebLog = <bool>::sse_decode(deserializer);
+        let mut var_lastUpdateTime = <i64>::sse_decode(deserializer);
+        let mut var_customOrder = <i32>::sse_decode(deserializer);
+        let mut var_rssType = <i32>::sse_decode(deserializer);
+        let mut var_preload = <bool>::sse_decode(deserializer);
+        let mut var_cacheFirst = <bool>::sse_decode(deserializer);
+        let mut var_searchUrl = <Option<String>>::sse_decode(deserializer);
+        return crate::business_dto::RssSourceDto {
+            source_url: var_sourceUrl,
+            source_name: var_sourceName,
+            source_icon: var_sourceIcon,
+            source_group: var_sourceGroup,
+            source_comment: var_sourceComment,
+            enabled: var_enabled,
+            variable_comment: var_variableComment,
+            js_lib: var_jsLib,
+            enabled_cookie_jar: var_enabledCookieJar,
+            concurrent_rate: var_concurrentRate,
+            header: var_header,
+            login_url: var_loginUrl,
+            login_ui: var_loginUi,
+            login_check_js: var_loginCheckJs,
+            cover_decode_js: var_coverDecodeJs,
+            sort_url: var_sortUrl,
+            single_url: var_singleUrl,
+            article_style: var_articleStyle,
+            rule_articles: var_ruleArticles,
+            rule_next_page: var_ruleNextPage,
+            rule_title: var_ruleTitle,
+            rule_pub_date: var_rulePubDate,
+            rule_description: var_ruleDescription,
+            rule_image: var_ruleImage,
+            rule_link: var_ruleLink,
+            rule_content: var_ruleContent,
+            content_whitelist: var_contentWhitelist,
+            content_blacklist: var_contentBlacklist,
+            should_override_url_loading: var_shouldOverrideUrlLoading,
+            style: var_style,
+            enable_js: var_enableJs,
+            load_with_base_url: var_loadWithBaseUrl,
+            inject_js: var_injectJs,
+            preload_js: var_preloadJs,
+            start_html: var_startHtml,
+            start_style: var_startStyle,
+            start_js: var_startJs,
+            show_web_log: var_showWebLog,
+            last_update_time: var_lastUpdateTime,
+            custom_order: var_customOrder,
+            rss_type: var_rssType,
+            preload: var_preload,
+            cache_first: var_cacheFirst,
+            search_url: var_searchUrl,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::RssStarSnapshotDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_origin = <String>::sse_decode(deserializer);
+        let mut var_sort = <String>::sse_decode(deserializer);
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_starTime = <i64>::sse_decode(deserializer);
+        let mut var_link = <Option<String>>::sse_decode(deserializer);
+        let mut var_pubDate = <Option<String>>::sse_decode(deserializer);
+        let mut var_description = <Option<String>>::sse_decode(deserializer);
+        let mut var_content = <Option<String>>::sse_decode(deserializer);
+        let mut var_image = <Option<String>>::sse_decode(deserializer);
+        let mut var_variable = <Option<String>>::sse_decode(deserializer);
+        return crate::business_dto::RssStarSnapshotDto {
+            origin: var_origin,
+            sort: var_sort,
+            title: var_title,
+            star_time: var_starTime,
+            link: var_link,
+            pub_date: var_pubDate,
+            description: var_description,
+            content: var_content,
+            image: var_image,
+            variable: var_variable,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::RuleSubscriptionDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <i64>::sse_decode(deserializer);
+        let mut var_url = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_subType = <String>::sse_decode(deserializer);
+        let mut var_lastUpdate = <i64>::sse_decode(deserializer);
+        let mut var_version = <String>::sse_decode(deserializer);
+        let mut var_isEnabled = <bool>::sse_decode(deserializer);
+        let mut var_createdAt = <i64>::sse_decode(deserializer);
+        let mut var_customOrder = <i32>::sse_decode(deserializer);
+        let mut var_autoUpdate = <bool>::sse_decode(deserializer);
+        let mut var_updateInterval = <i32>::sse_decode(deserializer);
+        let mut var_silentUpdate = <bool>::sse_decode(deserializer);
+        let mut var_js = <Option<String>>::sse_decode(deserializer);
+        let mut var_showRule = <Option<String>>::sse_decode(deserializer);
+        let mut var_sourceUrl = <Option<String>>::sse_decode(deserializer);
+        return crate::business_dto::RuleSubscriptionDto {
+            id: var_id,
+            url: var_url,
+            name: var_name,
+            sub_type: var_subType,
+            last_update: var_lastUpdate,
+            version: var_version,
+            is_enabled: var_isEnabled,
+            created_at: var_createdAt,
+            custom_order: var_customOrder,
+            auto_update: var_autoUpdate,
+            update_interval: var_updateInterval,
+            silent_update: var_silentUpdate,
+            js: var_js,
+            show_rule: var_showRule,
+            source_url: var_sourceUrl,
+        };
+    }
+}
+
 impl SseDecode for crate::transfer_dto::SearchBookDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -14774,6 +15294,20 @@ impl SseDecode for crate::transfer_dto::SearchBookDto {
             has_read_record: var_hasReadRecord,
             read_record_author: var_readRecordAuthor,
             origins: var_origins,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::SearchHistoryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_word = <String>::sse_decode(deserializer);
+        let mut var_usage = <i32>::sse_decode(deserializer);
+        let mut var_lastUseTime = <i64>::sse_decode(deserializer);
+        return crate::business_dto::SearchHistoryDto {
+            word: var_word,
+            usage: var_usage,
+            last_use_time: var_lastUseTime,
         };
     }
 }
@@ -14904,6 +15438,52 @@ impl SseDecode for crate::transfer_dto::SourceSwitchResponseDto {
             book_name: var_bookName,
             author: var_author,
             matches: var_matches,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::SubscriptionApplyDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <i64>::sse_decode(deserializer);
+        let mut var_url = <String>::sse_decode(deserializer);
+        let mut var_success = <bool>::sse_decode(deserializer);
+        let mut var_itemsAdded = <usize>::sse_decode(deserializer);
+        let mut var_itemsUpdated = <usize>::sse_decode(deserializer);
+        let mut var_itemsRemoved = <usize>::sse_decode(deserializer);
+        let mut var_totalItems = <usize>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::business_dto::SubscriptionApplyDto {
+            id: var_id,
+            url: var_url,
+            success: var_success,
+            items_added: var_itemsAdded,
+            items_updated: var_itemsUpdated,
+            items_removed: var_itemsRemoved,
+            total_items: var_totalItems,
+            error: var_error,
+        };
+    }
+}
+
+impl SseDecode for crate::business_dto::SubscriptionCheckDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <i64>::sse_decode(deserializer);
+        let mut var_url = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_dueForUpdate = <bool>::sse_decode(deserializer);
+        let mut var_hasUpdate = <bool>::sse_decode(deserializer);
+        let mut var_remoteVersion = <Option<String>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        return crate::business_dto::SubscriptionCheckDto {
+            id: var_id,
+            url: var_url,
+            name: var_name,
+            due_for_update: var_dueForUpdate,
+            has_update: var_hasUpdate,
+            remote_version: var_remoteVersion,
+            error: var_error,
         };
     }
 }
@@ -15881,6 +16461,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::AnnotatedCandidateDt
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::AppLogDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.timestamp.into_into_dart().into_dart(),
+            self.level.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::AppLogDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::AppLogDto>
+    for crate::business_dto::AppLogDto
+{
+    fn into_into_dart(self) -> crate::business_dto::AppLogDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::media_dto::AudioCacheDownloadDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -15949,6 +16551,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::media_dto::AudioChapterMediaDto>
     for crate::media_dto::AudioChapterMediaDto
 {
     fn into_into_dart(self) -> crate::media_dto::AudioChapterMediaDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::BackupFileDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.name.into_into_dart().into_dart(),
+            self.path.into_into_dart().into_dart(),
+            self.size.into_into_dart().into_dart(),
+            self.modified.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::BackupFileDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::BackupFileDto>
+    for crate::business_dto::BackupFileDto
+{
+    fn into_into_dart(self) -> crate::business_dto::BackupFileDto {
         self
     }
 }
@@ -16096,6 +16721,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::BookInfoRuleDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::BookOrderDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.book_url.into_into_dart().into_dart(),
+            self.order.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::BookOrderDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::BookOrderDto>
+    for crate::business_dto::BookOrderDto
+{
+    fn into_into_dart(self) -> crate::business_dto::BookOrderDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::BookSourceDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -16234,6 +16880,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::task_dto::CacheDownloadTaskDto>
     for crate::task_dto::CacheDownloadTaskDto
 {
     fn into_into_dart(self) -> crate::task_dto::CacheDownloadTaskDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::CachedChapterDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.url.into_into_dart().into_dart(),
+            self.word_count.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::CachedChapterDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::CachedChapterDto>
+    for crate::business_dto::CachedChapterDto
+{
+    fn into_into_dart(self) -> crate::business_dto::CachedChapterDto {
         self
     }
 }
@@ -16564,6 +17231,53 @@ impl flutter_rust_bridge::IntoIntoDart<crate::task_dto::DebugLogDto>
     for crate::task_dto::DebugLogDto
 {
     fn into_into_dart(self) -> crate::task_dto::DebugLogDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::DictEntryDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.word.into_into_dart().into_dart(),
+            self.phonetic.into_into_dart().into_dart(),
+            self.definitions.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::DictEntryDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::DictEntryDto>
+    for crate::business_dto::DictEntryDto
+{
+    fn into_into_dart(self) -> crate::business_dto::DictEntryDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::DictionaryRuleDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.url_rule.into_into_dart().into_dart(),
+            self.show_rule.into_into_dart().into_dart(),
+            self.enabled.into_into_dart().into_dart(),
+            self.sort_number.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::DictionaryRuleDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::DictionaryRuleDto>
+    for crate::business_dto::DictionaryRuleDto
+{
+    fn into_into_dart(self) -> crate::business_dto::DictionaryRuleDto {
         self
     }
 }
@@ -17550,6 +18264,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::layout_dto::LayoutValueKind>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::LogLevelDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Message => 0.into_dart(),
+            Self::Crash => 1.into_dart(),
+            Self::Http => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::LogLevelDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::LogLevelDto>
+    for crate::business_dto::LogLevelDto
+{
+    fn into_into_dart(self) -> crate::business_dto::LogLevelDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::PlatformActionDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -17808,6 +18544,64 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::RedirectInfoDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::ReplaceRuleDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.group.into_into_dart().into_dart(),
+            self.pattern.into_into_dart().into_dart(),
+            self.replacement.into_into_dart().into_dart(),
+            self.scope.into_into_dart().into_dart(),
+            self.scope_title.into_into_dart().into_dart(),
+            self.scope_content.into_into_dart().into_dart(),
+            self.scope_source.into_into_dart().into_dart(),
+            self.exclude_scope.into_into_dart().into_dart(),
+            self.is_enabled.into_into_dart().into_dart(),
+            self.is_regex.into_into_dart().into_dart(),
+            self.timeout_millisecond.into_into_dart().into_dart(),
+            self.order.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::ReplaceRuleDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::ReplaceRuleDto>
+    for crate::business_dto::ReplaceRuleDto
+{
+    fn into_into_dart(self) -> crate::business_dto::ReplaceRuleDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::RestoreStatsDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.books.into_into_dart().into_dart(),
+            self.bookmarks.into_into_dart().into_dart(),
+            self.replace_rules.into_into_dart().into_dart(),
+            self.book_sources.into_into_dart().into_dart(),
+            self.rss_sources.into_into_dart().into_dart(),
+            self.read_records.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::RestoreStatsDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::RestoreStatsDto>
+    for crate::business_dto::RestoreStatsDto
+{
+    fn into_into_dart(self) -> crate::business_dto::RestoreStatsDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::content_dto::ReviewDetailItemDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -17963,6 +18757,181 @@ impl flutter_rust_bridge::IntoIntoDart<crate::content_dto::ReviewSummaryDto>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::RssArticleDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.title.into_into_dart().into_dart(),
+            self.link.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.pub_date.into_into_dart().into_dart(),
+            self.image_url.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::RssArticleDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::RssArticleDto>
+    for crate::business_dto::RssArticleDto
+{
+    fn into_into_dart(self) -> crate::business_dto::RssArticleDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::RssReadRecordDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.origin.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.link.into_into_dart().into_dart(),
+            self.read_time.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::RssReadRecordDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::RssReadRecordDto>
+    for crate::business_dto::RssReadRecordDto
+{
+    fn into_into_dart(self) -> crate::business_dto::RssReadRecordDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::RssSourceDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.source_url.into_into_dart().into_dart(),
+            self.source_name.into_into_dart().into_dart(),
+            self.source_icon.into_into_dart().into_dart(),
+            self.source_group.into_into_dart().into_dart(),
+            self.source_comment.into_into_dart().into_dart(),
+            self.enabled.into_into_dart().into_dart(),
+            self.variable_comment.into_into_dart().into_dart(),
+            self.js_lib.into_into_dart().into_dart(),
+            self.enabled_cookie_jar.into_into_dart().into_dart(),
+            self.concurrent_rate.into_into_dart().into_dart(),
+            self.header.into_into_dart().into_dart(),
+            self.login_url.into_into_dart().into_dart(),
+            self.login_ui.into_into_dart().into_dart(),
+            self.login_check_js.into_into_dart().into_dart(),
+            self.cover_decode_js.into_into_dart().into_dart(),
+            self.sort_url.into_into_dart().into_dart(),
+            self.single_url.into_into_dart().into_dart(),
+            self.article_style.into_into_dart().into_dart(),
+            self.rule_articles.into_into_dart().into_dart(),
+            self.rule_next_page.into_into_dart().into_dart(),
+            self.rule_title.into_into_dart().into_dart(),
+            self.rule_pub_date.into_into_dart().into_dart(),
+            self.rule_description.into_into_dart().into_dart(),
+            self.rule_image.into_into_dart().into_dart(),
+            self.rule_link.into_into_dart().into_dart(),
+            self.rule_content.into_into_dart().into_dart(),
+            self.content_whitelist.into_into_dart().into_dart(),
+            self.content_blacklist.into_into_dart().into_dart(),
+            self.should_override_url_loading
+                .into_into_dart()
+                .into_dart(),
+            self.style.into_into_dart().into_dart(),
+            self.enable_js.into_into_dart().into_dart(),
+            self.load_with_base_url.into_into_dart().into_dart(),
+            self.inject_js.into_into_dart().into_dart(),
+            self.preload_js.into_into_dart().into_dart(),
+            self.start_html.into_into_dart().into_dart(),
+            self.start_style.into_into_dart().into_dart(),
+            self.start_js.into_into_dart().into_dart(),
+            self.show_web_log.into_into_dart().into_dart(),
+            self.last_update_time.into_into_dart().into_dart(),
+            self.custom_order.into_into_dart().into_dart(),
+            self.rss_type.into_into_dart().into_dart(),
+            self.preload.into_into_dart().into_dart(),
+            self.cache_first.into_into_dart().into_dart(),
+            self.search_url.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::RssSourceDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::RssSourceDto>
+    for crate::business_dto::RssSourceDto
+{
+    fn into_into_dart(self) -> crate::business_dto::RssSourceDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::RssStarSnapshotDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.origin.into_into_dart().into_dart(),
+            self.sort.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.star_time.into_into_dart().into_dart(),
+            self.link.into_into_dart().into_dart(),
+            self.pub_date.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.content.into_into_dart().into_dart(),
+            self.image.into_into_dart().into_dart(),
+            self.variable.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::RssStarSnapshotDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::RssStarSnapshotDto>
+    for crate::business_dto::RssStarSnapshotDto
+{
+    fn into_into_dart(self) -> crate::business_dto::RssStarSnapshotDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::RuleSubscriptionDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.url.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.sub_type.into_into_dart().into_dart(),
+            self.last_update.into_into_dart().into_dart(),
+            self.version.into_into_dart().into_dart(),
+            self.is_enabled.into_into_dart().into_dart(),
+            self.created_at.into_into_dart().into_dart(),
+            self.custom_order.into_into_dart().into_dart(),
+            self.auto_update.into_into_dart().into_dart(),
+            self.update_interval.into_into_dart().into_dart(),
+            self.silent_update.into_into_dart().into_dart(),
+            self.js.into_into_dart().into_dart(),
+            self.show_rule.into_into_dart().into_dart(),
+            self.source_url.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::RuleSubscriptionDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::RuleSubscriptionDto>
+    for crate::business_dto::RuleSubscriptionDto
+{
+    fn into_into_dart(self) -> crate::business_dto::RuleSubscriptionDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::transfer_dto::SearchBookDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -18000,6 +18969,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::SearchBookDto>
     for crate::transfer_dto::SearchBookDto
 {
     fn into_into_dart(self) -> crate::transfer_dto::SearchBookDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::SearchHistoryDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.word.into_into_dart().into_dart(),
+            self.usage.into_into_dart().into_dart(),
+            self.last_use_time.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::SearchHistoryDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::SearchHistoryDto>
+    for crate::business_dto::SearchHistoryDto
+{
+    fn into_into_dart(self) -> crate::business_dto::SearchHistoryDto {
         self
     }
 }
@@ -18140,6 +19131,59 @@ impl flutter_rust_bridge::IntoIntoDart<crate::transfer_dto::SourceSwitchResponse
     for crate::transfer_dto::SourceSwitchResponseDto
 {
     fn into_into_dart(self) -> crate::transfer_dto::SourceSwitchResponseDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::SubscriptionApplyDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.url.into_into_dart().into_dart(),
+            self.success.into_into_dart().into_dart(),
+            self.items_added.into_into_dart().into_dart(),
+            self.items_updated.into_into_dart().into_dart(),
+            self.items_removed.into_into_dart().into_dart(),
+            self.total_items.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::SubscriptionApplyDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::SubscriptionApplyDto>
+    for crate::business_dto::SubscriptionApplyDto
+{
+    fn into_into_dart(self) -> crate::business_dto::SubscriptionApplyDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::business_dto::SubscriptionCheckDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.url.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.due_for_update.into_into_dart().into_dart(),
+            self.has_update.into_into_dart().into_dart(),
+            self.remote_version.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::business_dto::SubscriptionCheckDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::business_dto::SubscriptionCheckDto>
+    for crate::business_dto::SubscriptionCheckDto
+{
+    fn into_into_dart(self) -> crate::business_dto::SubscriptionCheckDto {
         self
     }
 }
@@ -18686,6 +19730,15 @@ impl SseEncode for crate::transfer_dto::AnnotatedCandidateDto {
     }
 }
 
+impl SseEncode for crate::business_dto::AppLogDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.timestamp, serializer);
+        <crate::business_dto::LogLevelDto>::sse_encode(self.level, serializer);
+        <String>::sse_encode(self.message, serializer);
+    }
+}
+
 impl SseEncode for crate::media_dto::AudioCacheDownloadDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -18724,6 +19777,16 @@ impl SseEncode for crate::media_dto::AudioChapterMediaDto {
         <bool>::sse_encode(self.from_cache, serializer);
         <Option<String>>::sse_encode(self.lyric, serializer);
         <String>::sse_encode(self.source_url, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::BackupFileDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.path, serializer);
+        <u64>::sse_encode(self.size, serializer);
+        <i64>::sse_encode(self.modified, serializer);
     }
 }
 
@@ -18818,6 +19881,14 @@ impl SseEncode for crate::transfer_dto::BookInfoRuleDto {
         <Option<String>>::sse_encode(self.word_count, serializer);
         <Option<String>>::sse_encode(self.can_re_name, serializer);
         <Option<String>>::sse_encode(self.download_urls, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::BookOrderDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.book_url, serializer);
+        <i32>::sse_encode(self.order, serializer);
     }
 }
 
@@ -18932,6 +20003,14 @@ impl SseEncode for crate::task_dto::CacheDownloadTaskDto {
         <i32>::sse_encode(self.total, serializer);
         <i32>::sse_encode(self.completed, serializer);
         <i32>::sse_encode(self.failed, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::CachedChapterDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.url, serializer);
+        <String>::sse_encode(self.word_count, serializer);
     }
 }
 
@@ -19107,6 +20186,27 @@ impl SseEncode for crate::task_dto::DebugLogDto {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.state, serializer);
         <String>::sse_encode(self.msg, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::DictEntryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.word, serializer);
+        <String>::sse_encode(self.phonetic, serializer);
+        <Vec<String>>::sse_encode(self.definitions, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::DictionaryRuleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.url_rule, serializer);
+        <String>::sse_encode(self.show_rule, serializer);
+        <bool>::sse_encode(self.enabled, serializer);
+        <i32>::sse_encode(self.sort_number, serializer);
     }
 }
 
@@ -19815,6 +20915,26 @@ impl SseEncode for Vec<crate::transfer_dto::AnnotatedCandidateDto> {
     }
 }
 
+impl SseEncode for Vec<crate::business_dto::AppLogDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::AppLogDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::BackupFileDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::BackupFileDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::transfer_dto::BookDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -19841,6 +20961,16 @@ impl SseEncode for Vec<crate::transfer_dto::BookHighlightDto> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::transfer_dto::BookHighlightDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::BookOrderDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::BookOrderDto>::sse_encode(item, serializer);
         }
     }
 }
@@ -19875,6 +21005,16 @@ impl SseEncode for Vec<crate::task_dto::CacheDownloadTaskDto> {
     }
 }
 
+impl SseEncode for Vec<crate::business_dto::CachedChapterDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::CachedChapterDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::transfer_dto::ChapterDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -19901,6 +21041,16 @@ impl SseEncode for Vec<crate::media_dto::CloudVoiceDescriptorDto> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::media_dto::CloudVoiceDescriptorDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::DictionaryRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::DictionaryRuleDto>::sse_encode(item, serializer);
         }
     }
 }
@@ -20165,6 +21315,16 @@ impl SseEncode for Vec<(String, String)> {
     }
 }
 
+impl SseEncode for Vec<crate::business_dto::ReplaceRuleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::ReplaceRuleDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::content_dto::ReviewDetailItemDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -20175,12 +21335,72 @@ impl SseEncode for Vec<crate::content_dto::ReviewDetailItemDto> {
     }
 }
 
+impl SseEncode for Vec<crate::business_dto::RssArticleDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::RssArticleDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::RssReadRecordDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::RssReadRecordDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::RssSourceDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::RssSourceDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::RssStarSnapshotDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::RssStarSnapshotDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::RuleSubscriptionDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::RuleSubscriptionDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::transfer_dto::SearchBookDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::transfer_dto::SearchBookDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::business_dto::SearchHistoryDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::business_dto::SearchHistoryDto>::sse_encode(item, serializer);
         }
     }
 }
@@ -20262,6 +21482,23 @@ impl SseEncode for Vec<crate::task_dto::WebViewRequestDto> {
         for item in self {
             <crate::task_dto::WebViewRequestDto>::sse_encode(item, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::business_dto::LogLevelDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::business_dto::LogLevelDto::Message => 0,
+                crate::business_dto::LogLevelDto::Crash => 1,
+                crate::business_dto::LogLevelDto::Http => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
@@ -20744,6 +21981,38 @@ impl SseEncode for crate::transfer_dto::RedirectInfoDto {
     }
 }
 
+impl SseEncode for crate::business_dto::ReplaceRuleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <Option<String>>::sse_encode(self.group, serializer);
+        <String>::sse_encode(self.pattern, serializer);
+        <String>::sse_encode(self.replacement, serializer);
+        <Option<String>>::sse_encode(self.scope, serializer);
+        <bool>::sse_encode(self.scope_title, serializer);
+        <bool>::sse_encode(self.scope_content, serializer);
+        <bool>::sse_encode(self.scope_source, serializer);
+        <Option<String>>::sse_encode(self.exclude_scope, serializer);
+        <bool>::sse_encode(self.is_enabled, serializer);
+        <bool>::sse_encode(self.is_regex, serializer);
+        <i64>::sse_encode(self.timeout_millisecond, serializer);
+        <i32>::sse_encode(self.order, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::RestoreStatsDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <usize>::sse_encode(self.books, serializer);
+        <usize>::sse_encode(self.bookmarks, serializer);
+        <usize>::sse_encode(self.replace_rules, serializer);
+        <usize>::sse_encode(self.book_sources, serializer);
+        <usize>::sse_encode(self.rss_sources, serializer);
+        <usize>::sse_encode(self.read_records, serializer);
+    }
+}
+
 impl SseEncode for crate::content_dto::ReviewDetailItemDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -20828,6 +22097,114 @@ impl SseEncode for crate::content_dto::ReviewSummaryDto {
     }
 }
 
+impl SseEncode for crate::business_dto::RssArticleDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.link, serializer);
+        <Option<String>>::sse_encode(self.description, serializer);
+        <Option<String>>::sse_encode(self.pub_date, serializer);
+        <Option<String>>::sse_encode(self.image_url, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::RssReadRecordDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.origin, serializer);
+        <String>::sse_encode(self.title, serializer);
+        <Option<String>>::sse_encode(self.link, serializer);
+        <i64>::sse_encode(self.read_time, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::RssSourceDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.source_url, serializer);
+        <String>::sse_encode(self.source_name, serializer);
+        <String>::sse_encode(self.source_icon, serializer);
+        <Option<String>>::sse_encode(self.source_group, serializer);
+        <Option<String>>::sse_encode(self.source_comment, serializer);
+        <bool>::sse_encode(self.enabled, serializer);
+        <Option<String>>::sse_encode(self.variable_comment, serializer);
+        <Option<String>>::sse_encode(self.js_lib, serializer);
+        <Option<bool>>::sse_encode(self.enabled_cookie_jar, serializer);
+        <Option<String>>::sse_encode(self.concurrent_rate, serializer);
+        <Option<String>>::sse_encode(self.header, serializer);
+        <Option<String>>::sse_encode(self.login_url, serializer);
+        <Option<String>>::sse_encode(self.login_ui, serializer);
+        <Option<String>>::sse_encode(self.login_check_js, serializer);
+        <Option<String>>::sse_encode(self.cover_decode_js, serializer);
+        <Option<String>>::sse_encode(self.sort_url, serializer);
+        <bool>::sse_encode(self.single_url, serializer);
+        <i32>::sse_encode(self.article_style, serializer);
+        <Option<String>>::sse_encode(self.rule_articles, serializer);
+        <Option<String>>::sse_encode(self.rule_next_page, serializer);
+        <Option<String>>::sse_encode(self.rule_title, serializer);
+        <Option<String>>::sse_encode(self.rule_pub_date, serializer);
+        <Option<String>>::sse_encode(self.rule_description, serializer);
+        <Option<String>>::sse_encode(self.rule_image, serializer);
+        <Option<String>>::sse_encode(self.rule_link, serializer);
+        <Option<String>>::sse_encode(self.rule_content, serializer);
+        <Option<String>>::sse_encode(self.content_whitelist, serializer);
+        <Option<String>>::sse_encode(self.content_blacklist, serializer);
+        <Option<String>>::sse_encode(self.should_override_url_loading, serializer);
+        <Option<String>>::sse_encode(self.style, serializer);
+        <bool>::sse_encode(self.enable_js, serializer);
+        <bool>::sse_encode(self.load_with_base_url, serializer);
+        <Option<String>>::sse_encode(self.inject_js, serializer);
+        <Option<String>>::sse_encode(self.preload_js, serializer);
+        <Option<String>>::sse_encode(self.start_html, serializer);
+        <Option<String>>::sse_encode(self.start_style, serializer);
+        <Option<String>>::sse_encode(self.start_js, serializer);
+        <bool>::sse_encode(self.show_web_log, serializer);
+        <i64>::sse_encode(self.last_update_time, serializer);
+        <i32>::sse_encode(self.custom_order, serializer);
+        <i32>::sse_encode(self.rss_type, serializer);
+        <bool>::sse_encode(self.preload, serializer);
+        <bool>::sse_encode(self.cache_first, serializer);
+        <Option<String>>::sse_encode(self.search_url, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::RssStarSnapshotDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.origin, serializer);
+        <String>::sse_encode(self.sort, serializer);
+        <String>::sse_encode(self.title, serializer);
+        <i64>::sse_encode(self.star_time, serializer);
+        <Option<String>>::sse_encode(self.link, serializer);
+        <Option<String>>::sse_encode(self.pub_date, serializer);
+        <Option<String>>::sse_encode(self.description, serializer);
+        <Option<String>>::sse_encode(self.content, serializer);
+        <Option<String>>::sse_encode(self.image, serializer);
+        <Option<String>>::sse_encode(self.variable, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::RuleSubscriptionDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.url, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.sub_type, serializer);
+        <i64>::sse_encode(self.last_update, serializer);
+        <String>::sse_encode(self.version, serializer);
+        <bool>::sse_encode(self.is_enabled, serializer);
+        <i64>::sse_encode(self.created_at, serializer);
+        <i32>::sse_encode(self.custom_order, serializer);
+        <bool>::sse_encode(self.auto_update, serializer);
+        <i32>::sse_encode(self.update_interval, serializer);
+        <bool>::sse_encode(self.silent_update, serializer);
+        <Option<String>>::sse_encode(self.js, serializer);
+        <Option<String>>::sse_encode(self.show_rule, serializer);
+        <Option<String>>::sse_encode(self.source_url, serializer);
+    }
+}
+
 impl SseEncode for crate::transfer_dto::SearchBookDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -20853,6 +22230,15 @@ impl SseEncode for crate::transfer_dto::SearchBookDto {
         <bool>::sse_encode(self.has_read_record, serializer);
         <Option<String>>::sse_encode(self.read_record_author, serializer);
         <Vec<String>>::sse_encode(self.origins, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::SearchHistoryDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.word, serializer);
+        <i32>::sse_encode(self.usage, serializer);
+        <i64>::sse_encode(self.last_use_time, serializer);
     }
 }
 
@@ -20928,6 +22314,33 @@ impl SseEncode for crate::transfer_dto::SourceSwitchResponseDto {
         <String>::sse_encode(self.book_name, serializer);
         <String>::sse_encode(self.author, serializer);
         <Vec<crate::transfer_dto::SourceMatchDto>>::sse_encode(self.matches, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::SubscriptionApplyDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.url, serializer);
+        <bool>::sse_encode(self.success, serializer);
+        <usize>::sse_encode(self.items_added, serializer);
+        <usize>::sse_encode(self.items_updated, serializer);
+        <usize>::sse_encode(self.items_removed, serializer);
+        <usize>::sse_encode(self.total_items, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+    }
+}
+
+impl SseEncode for crate::business_dto::SubscriptionCheckDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.url, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <bool>::sse_encode(self.due_for_update, serializer);
+        <bool>::sse_encode(self.has_update, serializer);
+        <Option<String>>::sse_encode(self.remote_version, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
     }
 }
 

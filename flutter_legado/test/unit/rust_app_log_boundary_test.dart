@@ -1,3 +1,5 @@
+import '../fixtures/business_transport_fixtures.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -18,10 +20,12 @@ void main() {
 
   test('按级别读取返回共享条目，保留原顺序和换行消息', () async {
     when(() => bridge.crateFfiFfiAppLogList(level: 'http')).thenAnswer(
-      (_) async => jsonEncode([
-        {'timestamp': 20, 'level': 'http', 'message': '新日志\nGET /'},
-        {'timestamp': 10, 'level': 'http', 'message': '旧日志'},
-      ]),
+      (_) async => fixtureLogs(
+        jsonEncode([
+          {'timestamp': 20, 'level': 'http', 'message': '新日志\nGET /'},
+          {'timestamp': 10, 'level': 'http', 'message': '旧日志'},
+        ]),
+      ),
     );
     final list = await repository.appLogList(level: 'http');
     expect(list.map((entry) => entry.timestamp), [20, 10]);
@@ -56,31 +60,11 @@ void main() {
 
   test('合法空数组与空导出不报错', () async {
     when(() => bridge.crateFfiFfiAppLogList(level: 'message'))
-        .thenAnswer((_) async => '[]');
+        .thenAnswer((_) async => fixtureLogs('[]'));
     when(() => bridge.crateFfiFfiAppLogExport()).thenAnswer((_) async => '');
     expect(await repository.appLogList(level: 'message'), isEmpty);
     expect(await repository.appLogExport(), '');
   });
-
-  for (final payload in [
-    'invalid',
-    '{}',
-    'null',
-    '[null]',
-    '[1]',
-    '[{}]',
-    '[{"timestamp":"1","level":"http","message":"m"}]',
-    '[{"timestamp":1,"level":"http","message":1}]',
-  ]) {
-    test('损坏响应不按无日志放行：$payload', () async {
-      when(() => bridge.crateFfiFfiAppLogList(level: 'http'))
-          .thenAnswer((_) async => payload);
-      await expectLater(
-        repository.appLogList(level: 'http'),
-        throwsFormatException,
-      );
-    });
-  }
 
   test('五项FRB异常原样传递，不伪造成功', () async {
     final error = StateError('日志失败');

@@ -1,6 +1,5 @@
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/explore_state_repository.dart';
-import '../bridge/rust_json_decode.dart';
 
 /// infoMap继续由Rust持有，不在Dart建立第二份权威状态。— Codex + Bridge
 final class RustExploreStateRepository implements ExploreStateRepository {
@@ -20,13 +19,6 @@ final class RustExploreStateRepository implements ExploreStateRepository {
   );
   @override
   Future<Map<String, String>> snapshot(String sourceUrl) async {
-    final map = decodeRustJsonMap(
-      await bridge.exploreInfoMapSnapshot(sourceUrl: sourceUrl),
-      'exploreInfoMapSnapshot',
-    );
-    return map.map((key, value) {
-      if (value is! String) throw const FormatException('发现状态值必须是字符串');
-      return MapEntry(key, value);
-    });
+    return bridge.exploreInfoMapSnapshot(sourceUrl: sourceUrl);
   }
 }

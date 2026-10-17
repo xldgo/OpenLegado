@@ -1,4 +1,5 @@
-import 'dart:convert';
+import '../../bridge/business_dto.dart';
+import '../bridge/business_dto_mapping.dart';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/bookshelf_repository.dart';
@@ -74,5 +75,14 @@ final class RustBookshelfRepository implements BookshelfRepository {
   /// 批量持久化书架拖拽排序
   @override
   Future<void> reorderBooks(List<Map<String, dynamic>> orders) =>
-      bridge.bookshelfReorderOrders(ordersJson: jsonEncode(orders));
+      bridge.bookshelfReorderOrders(
+        orders: orders.map((v) {
+          final url = v['bookUrl'];
+          final order = v['order'];
+          if (url is! String || order is! int) {
+            throw const FormatException('排序须包含bookUrl和order');
+          }
+          return BookOrderDto(bookUrl: url, order: businessI32(order));
+        }).toList(),
+      );
 }

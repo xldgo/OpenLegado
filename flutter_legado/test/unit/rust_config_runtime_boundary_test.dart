@@ -31,10 +31,10 @@ void main() {
   });
   test('枚举在适配器解码，不伪造空结果；写入拒绝和原生异常传播', () async {
     when(() => bridge.crateFfiFfiConfigGetAll())
-        .thenAnswer((_) async => '{"a":2,"b":true}');
+        .thenAnswer((_) async => {'a': '2', 'b': 'true'});
     expect(await repository.getAllConfigs(), {'a': '2', 'b': 'true'});
-    when(() => bridge.crateFfiFfiConfigGetAll()).thenAnswer((_) async => '[]');
-    await expectLater(repository.getAllConfigs(), throwsFormatException);
+    when(() => bridge.crateFfiFfiConfigGetAll()).thenAnswer((_) async => {});
+    expect(await repository.getAllConfigs(), isEmpty);
     when(() => bridge.crateFfiFfiConfigSet(key: 'fail', value: 'x'))
         .thenAnswer((_) async => false);
     await expectLater(repository.setConfig('fail', 'x'), throwsStateError);

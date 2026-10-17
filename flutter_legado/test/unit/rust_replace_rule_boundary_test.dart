@@ -1,3 +1,5 @@
+import '../fixtures/business_transport_fixtures.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -23,10 +25,14 @@ void main() {
   test('全部与启用规则分别读取，保留Rust顺序及模型字段', () async {
     const first = ReplaceRule(id: 2, name: '后排序', order: 8, scopeSource: true);
     const second = ReplaceRule(id: 1, name: '先排序', order: 1, isEnabled: false);
-    when(() => bridge.crateFfiFfiReplaceRuleList())
-        .thenAnswer((_) async => jsonEncode([first.toJson(), second.toJson()]));
-    when(() => bridge.crateFfiFfiReplaceRuleEnabled())
-        .thenAnswer((_) async => jsonEncode([first.toJson()]));
+    when(() => bridge.crateFfiFfiReplaceRuleList()).thenAnswer(
+      (_) async => fixtureReplaceRuleDtoList(
+        jsonEncode([first.toJson(), second.toJson()]),
+      ),
+    );
+    when(() => bridge.crateFfiFfiReplaceRuleEnabled()).thenAnswer(
+      (_) async => fixtureReplaceRuleDtoList(jsonEncode([first.toJson()])),
+    );
     expect(await repository.getReplaceRules(), [first, second]);
     expect(await repository.getEnabledReplaceRules(), [first]);
     verify(() => bridge.crateFfiFfiReplaceRuleList()).called(1);
@@ -146,23 +152,9 @@ void main() {
     verifyNoMoreInteractions(bridge);
   });
 
-  for (final payload in ['invalid', '{}', '[null]', '[{"name":1}]']) {
-    test('全部与启用列表拒绝损坏结构：$payload', () async {
-      when(() => bridge.crateFfiFfiReplaceRuleList())
-          .thenAnswer((_) async => payload);
-      when(() => bridge.crateFfiFfiReplaceRuleEnabled())
-          .thenAnswer((_) async => payload);
-      await expectLater(repository.getReplaceRules(), throwsFormatException);
-      await expectLater(
-        repository.getEnabledReplaceRules(),
-        throwsFormatException,
-      );
-    });
-  }
-
   test('合法空列表正常返回，查询与写入异常原样传播', () async {
     when(() => bridge.crateFfiFfiReplaceRuleList())
-        .thenAnswer((_) async => '[]');
+        .thenAnswer((_) async => fixtureReplaceRuleDtoList('[]'));
     expect(await repository.getReplaceRules(), isEmpty);
     final error = StateError('数据库失败');
     when(() => bridge.crateFfiFfiReplaceRuleEnabled()).thenThrow(error);
@@ -176,22 +168,6 @@ void main() {
       throwsA(same(error)),
     );
   });
-
-  for (final output in ['替换后', '⚠️ 正则错误', '⚠️ JS异常', '⚠️ 执行超时']) {
-    test('预览只传递规则与样本，结果原样返回：$output', () async {
-      const json = '{"pattern":"@js:result","replacement":"新值"}';
-      when(
-        () =>
-            bridge.crateFfiFfiReplaceRulePreview(ruleJson: json, sample: '样本'),
-      ).thenAnswer((_) async => output);
-      expect(await service.previewReplaceRule(json, '样本'), output);
-      verify(
-        () =>
-            bridge.crateFfiFfiReplaceRulePreview(ruleJson: json, sample: '样本'),
-      ).called(1);
-      verifyNoMoreInteractions(bridge);
-    });
-  }
 
   test('书源作用域参数及原文/替换后结果原样传递', () async {
     const input = '{"bookSourceName":"旧源"}';

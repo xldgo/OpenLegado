@@ -199,9 +199,12 @@ pub fn reorder_books(orders_json: &str) -> LegadoResult<()> {
     let items: Vec<BookOrderItem> = serde_json::from_str(orders_json)
         .map_err(|e| legado_core::LegadoError::Ffi(format!("排序 JSON 解析失败: {e}")))?;
     let orders: Vec<(String, i32)> = items.into_iter().map(|i| (i.book_url, i.order)).collect();
+    reorder_book_entities(&orders)
+}
+pub fn reorder_book_entities(orders: &[(String, i32)]) -> LegadoResult<()> {
     with_database(|db| {
         let repo = BookRepository::new(db.connection());
-        repo.update_orders(&orders)
+        repo.update_orders(orders)
     })
 }
 

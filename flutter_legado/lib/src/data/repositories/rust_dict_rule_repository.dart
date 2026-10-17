@@ -1,9 +1,9 @@
-import 'dart:convert';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/dict_rule_repository.dart';
 import '../../models/misc.dart' show DictRule;
-import '../bridge/rust_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 
 /// 复用现有FRB与空表默认规则，响应解码集中在数据层。— Codex + Bridge
 final class RustDictRuleRepository implements DictRuleRepository {
@@ -11,24 +11,7 @@ final class RustDictRuleRepository implements DictRuleRepository {
 
   @override
   Future<List<DictRule>> dictRuleList() async =>
-      decodeRustJsonList(
-        await bridge.dictRuleList(),
-        'dictRuleList',
-      ).indexed.map((entry) {
-        final (index, value) = entry;
-        if (value is! Map<String, dynamic>) {
-          throw FormatException('词典规则第${index + 1}项必须是对象');
-        }
-        if (value['id'] is! int ||
-            value['name'] is! String ||
-            value['urlRule'] is! String ||
-            value['showRule'] is! String ||
-            value['enabled'] is! bool ||
-            value['sortNumber'] is! int) {
-          throw FormatException('词典规则第${index + 1}项字段类型无效');
-        }
-        return DictRule.fromJson(value);
-      }).toList();
+      (await bridge.dictRuleList()).map(dictionaryRuleFromDto).toList();
 
   @override
   Future<int> dictRuleAdd({
@@ -67,7 +50,7 @@ final class RustDictRuleRepository implements DictRuleRepository {
 
   @override
   Future<int> dictRuleReorder(List<int> ids) =>
-      bridge.dictRuleReorder(idsJson: jsonEncode(ids));
+      bridge.dictRuleReorder(ids: Int64List.fromList(ids));
 
   @override
   Future<int> dictRuleImport({

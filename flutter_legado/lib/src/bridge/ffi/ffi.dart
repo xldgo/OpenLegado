@@ -3,6 +3,7 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../business_dto.dart';
 import '../content_dto.dart';
 import '../ffi.dart';
 import '../frb_generated.dart';
@@ -107,10 +108,8 @@ Future<int> bookshelfImport({required String jsonArray}) =>
     RustLib.instance.api.crateFfiFfiBookshelfImport(jsonArray: jsonArray);
 
 /// 批量持久化书架排序（JSON 数组：[{"bookUrl":"...", "order":1}, ...]）
-Future<void> bookshelfReorderOrders({required String ordersJson}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiBookshelfReorderOrders(ordersJson: ordersJson);
+Future<void> bookshelfReorderOrders({required List<BookOrderDto> orders}) =>
+    RustLib.instance.api.crateFfiFfiBookshelfReorderOrders(orders: orders);
 
 /// 更新阅读进度
 Future<void> readerUpdateProgress({
@@ -680,26 +679,26 @@ Future<int> txtSearchCount({
 );
 
 /// 获取所有 RSS 源列表（JSON 数组）
-Future<String> rssListSources() =>
+Future<List<RssSourceDto>> rssListSources() =>
     RustLib.instance.api.crateFfiFfiRssListSources();
 
 /// 添加 RSS 源（传入 JSON 字符串），返回源信息（JSON）
-Future<String> rssAddSource({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiRssAddSource(sourceJson: sourceJson);
+Future<RssSourceDto> rssAddSource({required RssSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiRssAddSource(source: source);
 
 /// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（JSON）
 ///
 /// 缺口④ rssUpdateSource 原子更新（Task #108，加法式）：
 ///
-Future<String> rssUpdateSource({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiRssUpdateSource(sourceJson: sourceJson);
+Future<RssSourceDto> rssUpdateSource({required RssSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiRssUpdateSource(source: source);
 
 /// 删除 RSS 源
 Future<void> rssDeleteSource({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiRssDeleteSource(sourceUrl: sourceUrl);
 
 /// 获取 RSS 源的文章列表（JSON 数组）
-Future<String> rssFetchArticles({required String sourceUrl}) =>
+Future<List<RssArticleDto>> rssFetchArticles({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiRssFetchArticles(sourceUrl: sourceUrl);
 
 /// 清空指定 RSS 源的本地文章缓存（对齐 clearArticles）
@@ -707,7 +706,8 @@ Future<void> rssClearArticles({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiRssClearArticles(sourceUrl: sourceUrl);
 
 /// 获取所有 RSS 收藏（JSON 数组）
-Future<String> rssStarList() => RustLib.instance.api.crateFfiFfiRssStarList();
+Future<List<RssStarSnapshotDto>> rssStarList() =>
+    RustLib.instance.api.crateFfiFfiRssStarList();
 
 /// 添加 RSS 收藏，返回收藏时间戳
 Future<PlatformInt64> rssStarAdd({
@@ -761,11 +761,11 @@ Future<PlatformInt64> rssReadRecordCount() =>
     RustLib.instance.api.crateFfiFfiRssReadRecordCount();
 
 /// 获取 RSS 已读记录列表（JSON 数组，按 readTime 降序）
-Future<String> rssListReadRecords({int? limit}) =>
+Future<List<RssReadRecordDto>> rssListReadRecords({int? limit}) =>
     RustLib.instance.api.crateFfiFfiRssListReadRecords(limit: limit);
 
 /// 按 RSS 源 origin 获取已读记录（JSON 数组，对齐原版 getRecordsByOrigin）
-Future<String> rssListReadRecordsByOrigin({
+Future<List<RssReadRecordDto>> rssListReadRecordsByOrigin({
   required String origin,
   int? limit,
 }) => RustLib.instance.api.crateFfiFfiRssListReadRecordsByOrigin(
@@ -774,7 +774,7 @@ Future<String> rssListReadRecordsByOrigin({
 );
 
 /// 获取最近搜索历史（JSON 数组）
-Future<String> searchHistoryList({required int limit}) =>
+Future<List<SearchHistoryDto>> searchHistoryList({required int limit}) =>
     RustLib.instance.api.crateFfiFfiSearchHistoryList(limit: limit);
 
 /// 添加搜索关键词，返回时间戳
@@ -795,7 +795,7 @@ Future<bool> searchHistoryClear() =>
     RustLib.instance.api.crateFfiFfiSearchHistoryClear();
 
 /// 按前缀搜索历史关键词（JSON 数组）
-Future<String> searchHistoryByPrefix({
+Future<List<String>> searchHistoryByPrefix({
   required String prefix,
   required int limit,
 }) => RustLib.instance.api.crateFfiFfiSearchHistoryByPrefix(
@@ -807,11 +807,12 @@ Future<String> searchHistoryByPrefix({
 ///
 /// 返回结构化释义 DictEntry：`word`（归一化单词）/ `phonetic`（音标）/
 /// `definitions`（释义列表）。未收录词返回空 `definitions`（非异常）。
-Future<String> dictLookup({required String word}) =>
+Future<DictEntryDto> dictLookup({required String word}) =>
     RustLib.instance.api.crateFfiFfiDictLookup(word: word);
 
 /// 列出全部字典规则（空表先注入默认 5 源，DictRule 数组 JSON，按 sortNumber,id 升序）
-Future<String> dictRuleList() => RustLib.instance.api.crateFfiFfiDictRuleList();
+Future<List<DictionaryRuleDto>> dictRuleList() =>
+    RustLib.instance.api.crateFfiFfiDictRuleList();
 
 /// 新增字典规则（enabled=1, sortNumber=0），返回规则 ID
 Future<PlatformInt64> dictRuleAdd({
@@ -851,8 +852,8 @@ Future<bool> dictRuleSetEnabled({
 );
 
 /// 按给定 ID 顺序重编号 sortNumber（0..n），返回重排条数
-Future<int> dictRuleReorder({required String idsJson}) =>
-    RustLib.instance.api.crateFfiFfiDictRuleReorder(idsJson: idsJson);
+Future<int> dictRuleReorder({required Int64List ids}) =>
+    RustLib.instance.api.crateFfiFfiDictRuleReorder(ids: ids);
 
 /// 导入字典规则（GSON 数组/单对象，REPLACE by name），返回导入条数
 Future<int> dictRuleImport({required String jsonOrUrl, required String kind}) =>
@@ -1094,10 +1095,11 @@ Future<void> exploreInfoMapEnsureDefault({
 
 /// 读取发现 infoMap 快照（JSON 对象字符串；供 UI 回显 toggle/select/text
 /// 已存值，对齐原版 InfoMap 持久化语义）— 发现页修复 B①
-Future<String> exploreInfoMapSnapshot({required String sourceUrl}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiExploreInfoMapSnapshot(sourceUrl: sourceUrl);
+Future<Map<String, String>> exploreInfoMapSnapshot({
+  required String sourceUrl,
+}) => RustLib.instance.api.crateFfiFfiExploreInfoMapSnapshot(
+  sourceUrl: sourceUrl,
+);
 
 /// 执行发现页控件 action JS（返回 ExploreEvalActionResult JSON）
 Future<ExploreActionDto> exploreEvalAction({
@@ -1185,7 +1187,7 @@ Future<List<BookmarkDto>> bookmarkList() =>
     RustLib.instance.api.crateFfiFfiBookmarkList();
 
 /// 获取所有替换规则（JSON 数组）
-Future<String> replaceRuleList() =>
+Future<List<ReplaceRuleDto>> replaceRuleList() =>
     RustLib.instance.api.crateFfiFfiReplaceRuleList();
 
 /// 添加替换规则，返回规则 id
@@ -1262,7 +1264,7 @@ Future<void> replaceRuleDelete({required PlatformInt64 ruleId}) =>
     RustLib.instance.api.crateFfiFfiReplaceRuleDelete(ruleId: ruleId);
 
 /// 获取启用的替换规则（JSON 数组，用于阅读时应用）
-Future<String> replaceRuleEnabled() =>
+Future<List<ReplaceRuleDto>> replaceRuleEnabled() =>
     RustLib.instance.api.crateFfiFfiReplaceRuleEnabled();
 
 /// 启用/禁用替换规则
@@ -1467,10 +1469,10 @@ Future<String> cacheGetChapter({
 ///
 /// 返回 JSON 字符串数组（`["url1","url2",...]`），供 Flutter 目录页解析为
 /// 已缓存 chapter_url 集合，据此为每章渲染「已缓存实心 / 未缓存空心云」图标。
-Future<String> cacheListCachedChapterUrls({required String bookUrl}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiCacheListCachedChapterUrls(bookUrl: bookUrl);
+Future<List<String>> cacheListCachedChapterUrls({required String bookUrl}) =>
+    RustLib.instance.api.crateFfiFfiCacheListCachedChapterUrls(
+      bookUrl: bookUrl,
+    );
 
 /// 列出某本书已缓存章节的 (chapter_url, wordCount) 集合
 /// （P2-28c，API_CONTRACT §2.43.6，目录页实时字数刷新数据链）
@@ -1479,8 +1481,9 @@ Future<String> cacheListCachedChapterUrls({required String bookUrl}) => RustLib
 /// chapter_index 升序、空 url 过滤），wordCount 取 `chapters` 表当前值
 /// （P2-28b 回填链同源，未回填为空串）。供 Flutter 目录页 1 秒轮询
 /// （P2-28b）一次调用同时翻转「未缓存」⬇ 图标与同帧刷新字数胶囊。
-Future<String> cacheListCachedChapters({required String bookUrl}) =>
-    RustLib.instance.api.crateFfiFfiCacheListCachedChapters(bookUrl: bookUrl);
+Future<List<CachedChapterDto>> cacheListCachedChapters({
+  required String bookUrl,
+}) => RustLib.instance.api.crateFfiFfiCacheListCachedChapters(bookUrl: bookUrl);
 
 /// 获取缓存书籍数量
 Future<int> cacheGetBookCount() =>
@@ -1715,7 +1718,8 @@ Future<bool> configSet({required String key, required String value}) =>
     RustLib.instance.api.crateFfiFfiConfigSet(key: key, value: value);
 
 /// 获取所有配置（JSON 对象）
-Future<String> configGetAll() => RustLib.instance.api.crateFfiFfiConfigGetAll();
+Future<Map<String, String>> configGetAll() =>
+    RustLib.instance.api.crateFfiFfiConfigGetAll();
 
 /// 获取所有 HTTP TTS 源（JSON 数组）
 Future<List<HttpTtsConfigDto>> httpTtsList() =>
@@ -1901,11 +1905,11 @@ Future<String> backupCreate({required String path}) =>
     RustLib.instance.api.crateFfiFfiBackupCreate(path: path);
 
 /// 从备份文件恢复，返回恢复统计（JSON）
-Future<String> backupRestore({required String path}) =>
+Future<RestoreStatsDto> backupRestore({required String path}) =>
     RustLib.instance.api.crateFfiFfiBackupRestore(path: path);
 
 /// 列出备份文件（JSON 数组）
-Future<String> backupList({required String dir}) =>
+Future<List<BackupFileDto>> backupList({required String dir}) =>
     RustLib.instance.api.crateFfiFfiBackupList(dir: dir);
 
 /// 导入旧版（阅读 2.x）备份目录，返回统计 JSON
@@ -2444,7 +2448,7 @@ Future<void> appLogPush({required String level, required String message}) =>
 /// 获取指定级别的日志列表（JSON 数组，最新在前）
 ///
 /// 每项字段：`timestamp`（毫秒）/ `level` / `message`
-Future<String> appLogList({required String level}) =>
+Future<List<AppLogDto>> appLogList({required String level}) =>
     RustLib.instance.api.crateFfiFfiAppLogList(level: level);
 
 /// 清空指定级别的日志
@@ -2459,11 +2463,12 @@ Future<void> appLogClearAll() =>
 Future<String> appLogExport() => RustLib.instance.api.crateFfiFfiAppLogExport();
 
 /// 获取规则订阅列表（RuleSub 数组 JSON，按 customOrder 排序）
-Future<String> ruleSubList() => RustLib.instance.api.crateFfiFfiRuleSubList();
+Future<List<RuleSubscriptionDto>> ruleSubList() =>
+    RustLib.instance.api.crateFfiFfiRuleSubList();
 
 /// 保存规则订阅（RuleSub JSON，id>0 且存在则更新，否则新增）
-Future<bool> ruleSubSave({required String subJson}) =>
-    RustLib.instance.api.crateFfiFfiRuleSubSave(subJson: subJson);
+Future<bool> ruleSubSave({required RuleSubscriptionDto sub}) =>
+    RustLib.instance.api.crateFfiFfiRuleSubSave(sub: sub);
 
 /// 删除规则订阅，返回是否实际删除
 Future<bool> ruleSubDelete({required PlatformInt64 id}) =>
@@ -2477,17 +2482,17 @@ Future<bool> ruleSubSetEnabled({
     RustLib.instance.api.crateFfiFfiRuleSubSetEnabled(id: id, enabled: enabled);
 
 /// 批量更新规则订阅排序（拖拽排序，ids_json 为新顺序 ID 数组）
-Future<bool> ruleSubUpdateOrder({required String idsJson}) =>
-    RustLib.instance.api.crateFfiFfiRuleSubUpdateOrder(idsJson: idsJson);
+Future<bool> ruleSubUpdateOrder({required Int64List ids}) =>
+    RustLib.instance.api.crateFfiFfiRuleSubUpdateOrder(ids: ids);
 
 /// 检查规则订阅更新（委托 should_update/fetch_subscription，返回检查结果 JSON）
 ///
 /// 返回字段：id/url/name/dueForUpdate/hasUpdate/remoteVersion/error
-Future<String> ruleSubCheckUpdate({required PlatformInt64 id}) =>
+Future<SubscriptionCheckDto> ruleSubCheckUpdate({required PlatformInt64 id}) =>
     RustLib.instance.api.crateFfiFfiRuleSubCheckUpdate(id: id);
 
 /// 应用规则订阅更新（委托 fetch/merge_subscription，返回应用结果 JSON）
 ///
 /// 返回字段：id/url/success/itemsAdded/itemsUpdated/itemsRemoved/totalItems/error
-Future<String> ruleSubApplyUpdate({required PlatformInt64 id}) =>
+Future<SubscriptionApplyDto> ruleSubApplyUpdate({required PlatformInt64 id}) =>
     RustLib.instance.api.crateFfiFfiRuleSubApplyUpdate(id: id);

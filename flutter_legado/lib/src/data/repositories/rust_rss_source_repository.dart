@@ -1,10 +1,9 @@
 import 'dart:convert';
 
-import '../bridge/rust_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/rss_source_repository.dart';
 import '../../models/models.dart';
-import 'rss_json_decode.dart';
 
 /// 直接复用既有FRB，不持有页面状态。— Codex + Bridge
 final class RustRssSourceRepository implements RssSourceRepository {
@@ -13,39 +12,21 @@ final class RustRssSourceRepository implements RssSourceRepository {
   /// 获取所有 RSS 源
   @override
   Future<List<RssSource>> getRssSources() async {
-    final json = await bridge.rssListSources();
-    return decodeRssList(json, 'getRssSources', RssSource.fromJson);
+    return (await bridge.rssListSources()).map(rssSourceFromDto).toList();
   }
 
   /// 添加 RSS 源
   @override
   Future<RssSource> addRssSource(RssSource source) async {
-    final json = await bridge.rssAddSource(
-      sourceJson: jsonEncode(source.toJson()),
-    );
-    return decodeRssObject(
-      decodeRustJsonMap(json, 'addRssSource'),
-      'addRssSource',
-      RssSource.fromJson,
+    return rssSourceFromDto(
+      await bridge.rssAddSource(source: rssSourceToDto(source)),
     );
   }
 
   /// 原子更新RSS实体，不写入书源表。
   @override
   Future<void> updateRssSource(RssSource source) async {
-    final json = await bridge.rssUpdateSource(
-      sourceJson: jsonEncode(source.toJson()),
-    );
-    if (jsonDecode(json) == false) {
-      throw StateError(
-        'updateRssSource: RSS 源不存在（sourceUrl=${source.sourceUrl}）',
-      );
-    }
-    decodeRssObject(
-      decodeRustJsonMap(json, 'updateRssSource'),
-      'updateRssSource',
-      RssSource.fromJson,
-    );
+    await bridge.rssUpdateSource(source: rssSourceToDto(source));
   }
 
   /// 删除 RSS 源

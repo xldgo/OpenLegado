@@ -216,9 +216,12 @@ pub fn dict_rule_set_enabled(id: i64, enabled: bool) -> LegadoResult<bool> {
 pub fn dict_rule_reorder(ids_json: &str) -> LegadoResult<i32> {
     let ids: Vec<i64> = serde_json::from_str(ids_json)
         .map_err(|e| LegadoError::Database(format!("解析 reorder IDs 失败: {e}")))?;
+    reorder_dict_rules(&ids)
+}
+pub fn reorder_dict_rules(ids: &[i64]) -> LegadoResult<i32> {
     with_database(|db| {
         let repo = DictRuleRepository::new(db.connection());
-        repo.reorder(&ids)?;
+        repo.reorder(ids)?;
         Ok(ids.len() as i32)
     })
 }

@@ -150,6 +150,10 @@ pub fn backup_create(path: &str) -> LegadoResult<String> {
 ///
 /// 读取 JSON 文件，逐条恢复各表数据，返回恢复统计。
 pub fn backup_restore(path: &str) -> LegadoResult<String> {
+    Ok(serde_json::to_string(&restore_backup(path)?)?)
+}
+/// 恢复文档与类型化统计共享同一执行链。
+pub fn restore_backup(path: &str) -> LegadoResult<RestoreStats> {
     let content = fs::read_to_string(path)
         .map_err(|e| LegadoError::Io(std::io::Error::other(format!("读取备份文件失败: {e}"))))?;
 
@@ -248,21 +252,22 @@ pub fn backup_restore(path: &str) -> LegadoResult<String> {
         Ok(stats)
     })?;
 
-    let result = serde_json::to_string(&stats)
-        .map_err(|e| LegadoError::Internal(format!("统计序列化失败: {e}")))?;
-    Ok(result)
+    Ok(stats)
 }
 
 /// 列出备份文件
 ///
 /// 列出目录中的 .json 备份文件，返回 JSON 数组。
 pub fn backup_list(dir: &str) -> String {
+    serde_json::to_string(&list_backup_files(dir)).unwrap_or_else(|_| "[]".into())
+}
+pub fn list_backup_files(dir: &str) -> Vec<crate::business_dto::BackupFileDto> {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(_) => return "[]".to_string(),
+        Err(_) => return Vec::new(),
     };
 
-    let files: Vec<serde_json::Value> = entries
+    let files: Vec<crate::business_dto::BackupFileDto> = entries
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.path()
@@ -281,16 +286,16 @@ pub fn backup_list(dir: &str) -> String {
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_millis() as i64)
                 .unwrap_or(0);
-            Some(serde_json::json!({
-                "name": name,
-                "path": path.to_str().unwrap_or_default(),
-                "size": size,
-                "modified": modified,
-            }))
+            Some(crate::business_dto::BackupFileDto {
+                name,
+                path: path.to_str().unwrap_or_default().to_owned(),
+                size,
+                modified,
+            })
         })
         .collect();
 
-    serde_json::to_string(&files).unwrap_or_else(|_| "[]".to_string())
+    files
 }
 
 /// 导入旧版（阅读 2.x）备份目录

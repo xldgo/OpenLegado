@@ -1,7 +1,7 @@
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/replace_rule_repository.dart';
 import '../../models/misc.dart' show ReplaceRule;
-import '../bridge/rust_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 
 /// 配置访问直接复用FRB；保留现有字段映射和返回顺序。— Codex + Bridge
 final class RustReplaceRuleRepository implements ReplaceRuleRepository {
@@ -10,15 +10,13 @@ final class RustReplaceRuleRepository implements ReplaceRuleRepository {
   /// 获取所有替换规则
   @override
   Future<List<ReplaceRule>> getReplaceRules() async {
-    final json = await bridge.replaceRuleList();
-    return _decodeRules(json, 'getReplaceRules');
+    return (await bridge.replaceRuleList()).map(replaceRuleFromDto).toList();
   }
 
   /// 获取启用的替换规则
   @override
   Future<List<ReplaceRule>> getEnabledReplaceRules() async {
-    final json = await bridge.replaceRuleEnabled();
-    return _decodeRules(json, 'getEnabledReplaceRules');
+    return (await bridge.replaceRuleEnabled()).map(replaceRuleFromDto).toList();
   }
 
   /// 添加替换规则
@@ -84,16 +82,3 @@ final class RustReplaceRuleRepository implements ReplaceRuleRepository {
   Future<void> setReplaceRuleEnabled(int id, bool enabled) =>
       bridge.replaceRuleSetEnabled(ruleId: id, enabled: enabled);
 }
-
-List<ReplaceRule> _decodeRules(String raw, String operation) =>
-    decodeRustJsonList(raw, operation).indexed.map((entry) {
-      final (index, value) = entry;
-      if (value is! Map<String, dynamic>) {
-        throw FormatException('$operation：第${index + 1}项必须是对象');
-      }
-      try {
-        return ReplaceRule.fromJson(value);
-      } catch (error) {
-        throw FormatException('$operation：第${index + 1}项字段无效（$error）');
-      }
-    }).toList();

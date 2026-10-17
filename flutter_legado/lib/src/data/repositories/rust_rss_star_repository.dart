@@ -1,7 +1,7 @@
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/rss_star_repository.dart';
 import '../../models/models.dart';
-import 'rss_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 
 /// 直接复用既有FRB，不持有页面状态。— Codex + Bridge
 final class RustRssStarRepository implements RssStarRepository {
@@ -10,8 +10,7 @@ final class RustRssStarRepository implements RssStarRepository {
   /// 获取所有 RSS 收藏
   @override
   Future<List<RssStar>> getRssStars() async {
-    final json = await bridge.rssStarList();
-    return decodeRssList(json, 'getRssStars', RssStar.fromJson);
+    return (await bridge.rssStarList()).map(rssStarFromDto).toList();
   }
 
   /// 添加 RSS 收藏

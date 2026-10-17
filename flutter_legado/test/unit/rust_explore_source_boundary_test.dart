@@ -299,7 +299,7 @@ void main() {
       ),
     ).thenAnswer((_) async {});
     when(() => bridge.crateFfiFfiExploreInfoMapSnapshot(sourceUrl: 's'))
-        .thenAnswer((_) async => '{"k":"v","空":""}');
+        .thenAnswer((_) async => {'k': 'v', '空': ''});
     await state.put('s', 'k', 'v');
     await state.ensureDefault('s', 'k', 'd');
     expect(await state.snapshot('s'), {'k': 'v', '空': ''});
@@ -318,14 +318,6 @@ void main() {
       ),
     ).called(1);
   });
-
-  for (final payload in ['[]', '{"k":null}', '{"k":3}']) {
-    test('错误infoMap不会当作空快照：$payload', () async {
-      when(() => bridge.crateFfiFfiExploreInfoMapSnapshot(sourceUrl: 's'))
-          .thenAnswer((_) async => payload);
-      await expectLater(state.snapshot('s'), throwsFormatException);
-    });
-  }
 
   test('调试流映射状态与文本，沿用原生取消', () async {
     when(

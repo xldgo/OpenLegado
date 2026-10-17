@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'business_dto.dart';
 import 'content_dto.dart';
 
 import 'dart:async';
@@ -155,6 +156,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnnotatedCandidateDto dco_decode_annotated_candidate_dto(dynamic raw);
 
   @protected
+  AppLogDto dco_decode_app_log_dto(dynamic raw);
+
+  @protected
   AudioCacheDownloadDto dco_decode_audio_cache_download_dto(dynamic raw);
 
   @protected
@@ -164,6 +168,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AudioChapterMediaDto dco_decode_audio_chapter_media_dto(dynamic raw);
+
+  @protected
+  BackupFileDto dco_decode_backup_file_dto(dynamic raw);
 
   @protected
   BookDto dco_decode_book_dto(dynamic raw);
@@ -176,6 +183,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookInfoRuleDto dco_decode_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookOrderDto dco_decode_book_order_dto(dynamic raw);
 
   @protected
   BookSourceDto dco_decode_book_source_dto(dynamic raw);
@@ -292,6 +302,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReviewRuleDto dco_decode_box_autoadd_review_rule_dto(dynamic raw);
 
   @protected
+  RssSourceDto dco_decode_box_autoadd_rss_source_dto(dynamic raw);
+
+  @protected
+  RuleSubscriptionDto dco_decode_box_autoadd_rule_subscription_dto(dynamic raw);
+
+  @protected
   SearchRuleDto dco_decode_box_autoadd_search_rule_dto(dynamic raw);
 
   @protected
@@ -338,6 +354,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CacheDownloadTaskDto dco_decode_cache_download_task_dto(dynamic raw);
 
   @protected
+  CachedChapterDto dco_decode_cached_chapter_dto(dynamic raw);
+
+  @protected
   CaptchaInfoDto dco_decode_captcha_info_dto(dynamic raw);
 
   @protected
@@ -375,6 +394,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DebugLogDto dco_decode_debug_log_dto(dynamic raw);
+
+  @protected
+  DictEntryDto dco_decode_dict_entry_dto(dynamic raw);
+
+  @protected
+  DictionaryRuleDto dco_decode_dictionary_rule_dto(dynamic raw);
 
   @protected
   DownloadStatsDto dco_decode_download_stats_dto(dynamic raw);
@@ -492,6 +517,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<AppLogDto> dco_decode_list_app_log_dto(dynamic raw);
+
+  @protected
+  List<BackupFileDto> dco_decode_list_backup_file_dto(dynamic raw);
+
+  @protected
   List<BookDto> dco_decode_list_book_dto(dynamic raw);
 
   @protected
@@ -499,6 +530,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BookHighlightDto> dco_decode_list_book_highlight_dto(dynamic raw);
+
+  @protected
+  List<BookOrderDto> dco_decode_list_book_order_dto(dynamic raw);
 
   @protected
   List<BookSourceDto> dco_decode_list_book_source_dto(dynamic raw);
@@ -512,6 +546,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<CachedChapterDto> dco_decode_list_cached_chapter_dto(dynamic raw);
+
+  @protected
   List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
 
   @protected
@@ -521,6 +558,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CloudVoiceDescriptorDto> dco_decode_list_cloud_voice_descriptor_dto(
     dynamic raw,
   );
+
+  @protected
+  List<DictionaryRuleDto> dco_decode_list_dictionary_rule_dto(dynamic raw);
 
   @protected
   List<DownloadTaskDto> dco_decode_list_download_task_dto(dynamic raw);
@@ -610,10 +650,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<(String, String)> dco_decode_list_record_string_string(dynamic raw);
 
   @protected
+  List<ReplaceRuleDto> dco_decode_list_replace_rule_dto(dynamic raw);
+
+  @protected
   List<ReviewDetailItemDto> dco_decode_list_review_detail_item_dto(dynamic raw);
 
   @protected
+  List<RssArticleDto> dco_decode_list_rss_article_dto(dynamic raw);
+
+  @protected
+  List<RssReadRecordDto> dco_decode_list_rss_read_record_dto(dynamic raw);
+
+  @protected
+  List<RssSourceDto> dco_decode_list_rss_source_dto(dynamic raw);
+
+  @protected
+  List<RssStarSnapshotDto> dco_decode_list_rss_star_snapshot_dto(dynamic raw);
+
+  @protected
+  List<RuleSubscriptionDto> dco_decode_list_rule_subscription_dto(dynamic raw);
+
+  @protected
   List<SearchBookDto> dco_decode_list_search_book_dto(dynamic raw);
+
+  @protected
+  List<SearchHistoryDto> dco_decode_list_search_history_dto(dynamic raw);
 
   @protected
   List<SourceMatchDto> dco_decode_list_source_match_dto(dynamic raw);
@@ -640,6 +701,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<WebViewRequestDto> dco_decode_list_web_view_request_dto(dynamic raw);
+
+  @protected
+  LogLevelDto dco_decode_log_level_dto(dynamic raw);
 
   @protected
   Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
@@ -781,6 +845,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RedirectInfoDto dco_decode_redirect_info_dto(dynamic raw);
 
   @protected
+  ReplaceRuleDto dco_decode_replace_rule_dto(dynamic raw);
+
+  @protected
+  RestoreStatsDto dco_decode_restore_stats_dto(dynamic raw);
+
+  @protected
   ReviewDetailItemDto dco_decode_review_detail_item_dto(dynamic raw);
 
   @protected
@@ -796,7 +866,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReviewSummaryDto dco_decode_review_summary_dto(dynamic raw);
 
   @protected
+  RssArticleDto dco_decode_rss_article_dto(dynamic raw);
+
+  @protected
+  RssReadRecordDto dco_decode_rss_read_record_dto(dynamic raw);
+
+  @protected
+  RssSourceDto dco_decode_rss_source_dto(dynamic raw);
+
+  @protected
+  RssStarSnapshotDto dco_decode_rss_star_snapshot_dto(dynamic raw);
+
+  @protected
+  RuleSubscriptionDto dco_decode_rule_subscription_dto(dynamic raw);
+
+  @protected
   SearchBookDto dco_decode_search_book_dto(dynamic raw);
+
+  @protected
+  SearchHistoryDto dco_decode_search_history_dto(dynamic raw);
 
   @protected
   SearchRuleDto dco_decode_search_rule_dto(dynamic raw);
@@ -812,6 +900,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceSwitchResponseDto dco_decode_source_switch_response_dto(dynamic raw);
+
+  @protected
+  SubscriptionApplyDto dco_decode_subscription_apply_dto(dynamic raw);
+
+  @protected
+  SubscriptionCheckDto dco_decode_subscription_check_dto(dynamic raw);
 
   @protected
   SwitchSearchOptionsDto dco_decode_switch_search_options_dto(dynamic raw);
@@ -998,6 +1092,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  AppLogDto sse_decode_app_log_dto(SseDeserializer deserializer);
+
+  @protected
   AudioCacheDownloadDto sse_decode_audio_cache_download_dto(
     SseDeserializer deserializer,
   );
@@ -1013,6 +1110,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BackupFileDto sse_decode_backup_file_dto(SseDeserializer deserializer);
+
+  @protected
   BookDto sse_decode_book_dto(SseDeserializer deserializer);
 
   @protected
@@ -1023,6 +1123,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookInfoRuleDto sse_decode_book_info_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  BookOrderDto sse_decode_book_order_dto(SseDeserializer deserializer);
 
   @protected
   BookSourceDto sse_decode_book_source_dto(SseDeserializer deserializer);
@@ -1173,6 +1276,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RssSourceDto sse_decode_box_autoadd_rss_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RuleSubscriptionDto sse_decode_box_autoadd_rule_subscription_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SearchRuleDto sse_decode_box_autoadd_search_rule_dto(
     SseDeserializer deserializer,
   );
@@ -1233,6 +1346,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CachedChapterDto sse_decode_cached_chapter_dto(SseDeserializer deserializer);
+
+  @protected
   CaptchaInfoDto sse_decode_captcha_info_dto(SseDeserializer deserializer);
 
   @protected
@@ -1282,6 +1398,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DebugLogDto sse_decode_debug_log_dto(SseDeserializer deserializer);
+
+  @protected
+  DictEntryDto sse_decode_dict_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  DictionaryRuleDto sse_decode_dictionary_rule_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DownloadStatsDto sse_decode_download_stats_dto(SseDeserializer deserializer);
@@ -1433,6 +1557,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<AppLogDto> sse_decode_list_app_log_dto(SseDeserializer deserializer);
+
+  @protected
+  List<BackupFileDto> sse_decode_list_backup_file_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<BookDto> sse_decode_list_book_dto(SseDeserializer deserializer);
 
   @protected
@@ -1442,6 +1574,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BookHighlightDto> sse_decode_list_book_highlight_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookOrderDto> sse_decode_list_book_order_dto(
     SseDeserializer deserializer,
   );
 
@@ -1459,6 +1596,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<CachedChapterDto> sse_decode_list_cached_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
 
   @protected
@@ -1468,6 +1610,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CloudVoiceDescriptorDto> sse_decode_list_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<DictionaryRuleDto> sse_decode_list_dictionary_rule_dto(
     SseDeserializer deserializer,
   );
 
@@ -1595,12 +1742,47 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ReplaceRuleDto> sse_decode_list_replace_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ReviewDetailItemDto> sse_decode_list_review_detail_item_dto(
     SseDeserializer deserializer,
   );
 
   @protected
+  List<RssArticleDto> sse_decode_list_rss_article_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssReadRecordDto> sse_decode_list_rss_read_record_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssSourceDto> sse_decode_list_rss_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssStarSnapshotDto> sse_decode_list_rss_star_snapshot_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RuleSubscriptionDto> sse_decode_list_rule_subscription_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<SearchBookDto> sse_decode_list_search_book_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchHistoryDto> sse_decode_list_search_history_dto(
     SseDeserializer deserializer,
   );
 
@@ -1643,6 +1825,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<WebViewRequestDto> sse_decode_list_web_view_request_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  LogLevelDto sse_decode_log_level_dto(SseDeserializer deserializer);
 
   @protected
   Map<String, String>? sse_decode_opt_Map_String_String_None(
@@ -1828,6 +2013,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RedirectInfoDto sse_decode_redirect_info_dto(SseDeserializer deserializer);
 
   @protected
+  ReplaceRuleDto sse_decode_replace_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  RestoreStatsDto sse_decode_restore_stats_dto(SseDeserializer deserializer);
+
+  @protected
   ReviewDetailItemDto sse_decode_review_detail_item_dto(
     SseDeserializer deserializer,
   );
@@ -1845,7 +2036,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ReviewSummaryDto sse_decode_review_summary_dto(SseDeserializer deserializer);
 
   @protected
+  RssArticleDto sse_decode_rss_article_dto(SseDeserializer deserializer);
+
+  @protected
+  RssReadRecordDto sse_decode_rss_read_record_dto(SseDeserializer deserializer);
+
+  @protected
+  RssSourceDto sse_decode_rss_source_dto(SseDeserializer deserializer);
+
+  @protected
+  RssStarSnapshotDto sse_decode_rss_star_snapshot_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RuleSubscriptionDto sse_decode_rule_subscription_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SearchBookDto sse_decode_search_book_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchHistoryDto sse_decode_search_history_dto(SseDeserializer deserializer);
 
   @protected
   SearchRuleDto sse_decode_search_rule_dto(SseDeserializer deserializer);
@@ -1865,6 +2078,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceSwitchResponseDto sse_decode_source_switch_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SubscriptionApplyDto sse_decode_subscription_apply_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SubscriptionCheckDto sse_decode_subscription_check_dto(
     SseDeserializer deserializer,
   );
 
@@ -2090,6 +2313,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_app_log_dto(AppLogDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_audio_cache_download_dto(
     AudioCacheDownloadDto self,
     SseSerializer serializer,
@@ -2108,6 +2334,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_backup_file_dto(BackupFileDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_book_dto(BookDto self, SseSerializer serializer);
 
   @protected
@@ -2124,6 +2353,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     BookInfoRuleDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_book_order_dto(BookOrderDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_book_source_dto(BookSourceDto self, SseSerializer serializer);
@@ -2306,6 +2538,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_rss_source_dto(
+    RssSourceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_rule_subscription_dto(
+    RuleSubscriptionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_search_rule_dto(
     SearchRuleDto self,
     SseSerializer serializer,
@@ -2374,6 +2618,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_cache_download_task_dto(
     CacheDownloadTaskDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cached_chapter_dto(
+    CachedChapterDto self,
     SseSerializer serializer,
   );
 
@@ -2448,6 +2698,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_debug_log_dto(DebugLogDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_dict_entry_dto(DictEntryDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_dictionary_rule_dto(
+    DictionaryRuleDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_download_stats_dto(
@@ -2654,6 +2913,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_app_log_dto(
+    List<AppLogDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_backup_file_dto(
+    List<BackupFileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_book_dto(List<BookDto> self, SseSerializer serializer);
 
   @protected
@@ -2665,6 +2936,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_book_highlight_dto(
     List<BookHighlightDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_order_dto(
+    List<BookOrderDto> self,
     SseSerializer serializer,
   );
 
@@ -2687,6 +2964,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_cached_chapter_dto(
+    List<CachedChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_chapter_dto(
     List<ChapterDto> self,
     SseSerializer serializer,
@@ -2701,6 +2984,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_cloud_voice_descriptor_dto(
     List<CloudVoiceDescriptorDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_dictionary_rule_dto(
+    List<DictionaryRuleDto> self,
     SseSerializer serializer,
   );
 
@@ -2861,14 +3150,56 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_replace_rule_dto(
+    List<ReplaceRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_review_detail_item_dto(
     List<ReviewDetailItemDto> self,
     SseSerializer serializer,
   );
 
   @protected
+  void sse_encode_list_rss_article_dto(
+    List<RssArticleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_read_record_dto(
+    List<RssReadRecordDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_source_dto(
+    List<RssSourceDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_star_snapshot_dto(
+    List<RssStarSnapshotDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rule_subscription_dto(
+    List<RuleSubscriptionDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_search_book_dto(
     List<SearchBookDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_history_dto(
+    List<SearchHistoryDto> self,
     SseSerializer serializer,
   );
 
@@ -2919,6 +3250,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<WebViewRequestDto> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_log_level_dto(LogLevelDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_Map_String_String_None(
@@ -3146,6 +3480,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_replace_rule_dto(
+    ReplaceRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_restore_stats_dto(
+    RestoreStatsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_review_detail_item_dto(
     ReviewDetailItemDto self,
     SseSerializer serializer,
@@ -3170,7 +3516,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_rss_article_dto(RssArticleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rss_read_record_dto(
+    RssReadRecordDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rss_source_dto(RssSourceDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rss_star_snapshot_dto(
+    RssStarSnapshotDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rule_subscription_dto(
+    RuleSubscriptionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_search_book_dto(SearchBookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_history_dto(
+    SearchHistoryDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_search_rule_dto(SearchRuleDto self, SseSerializer serializer);
@@ -3196,6 +3572,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_source_switch_response_dto(
     SourceSwitchResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_subscription_apply_dto(
+    SubscriptionApplyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_subscription_check_dto(
+    SubscriptionCheckDto self,
     SseSerializer serializer,
   );
 

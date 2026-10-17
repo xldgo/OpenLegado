@@ -1,6 +1,5 @@
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/config_repository.dart';
-import '../bridge/rust_json_decode.dart';
 
 /// 保留原配置通道的空值、删除及枚举语义。— Codex + Bridge
 class RustConfigRepository implements ConfigRepository {
@@ -22,10 +21,6 @@ class RustConfigRepository implements ConfigRepository {
   Future<void> deleteConfig(String key) => setConfig(key, '');
   @override
   Future<Map<String, String>> getAllConfigs() async {
-    final values = decodeRustJsonMap(
-      await bridge.configGetAll(),
-      'configGetAll',
-    );
-    return values.map((key, value) => MapEntry(key, value.toString()));
+    return bridge.configGetAll();
   }
 }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../domain/contracts/backup_repository.dart';
 
 import 'dart:io';
@@ -52,8 +50,17 @@ final class RustBackupRepository implements BackupRepository {
 
   @override
   Future<List<String>> backupList(String dir) async {
-    final json = await bridge.backupList(dir: dir);
-    final list = jsonDecode(json) as List<dynamic>;
-    return list.map((e) => e.toString()).toList();
+    final files = await bridge.backupList(dir: dir);
+    // 保留既有领域接口的文件描述文本，文件内容与恢复统计不在此处编码。
+    return files
+        .map(
+          (v) => {
+            'modified': v.modified,
+            'name': v.name,
+            'path': v.path,
+            'size': v.size.toInt(),
+          }.toString(),
+        )
+        .toList();
   }
 }

@@ -1,5 +1,5 @@
 import '../../bridge/rust_lib.dart' as bridge;
-import '../bridge/rust_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 import '../../domain/contracts/search_history_repository.dart';
 import '../../models/models.dart';
 
@@ -12,10 +12,8 @@ final class RustSearchHistoryRepository implements SearchHistoryRepository {
   /// 获取搜索历史
   @override
   Future<List<SearchKeyword>> getSearchHistory({int limit = 50}) async {
-    final json = await bridge.searchHistoryList(limit: limit);
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list
-        .map((e) => SearchKeyword.fromJson(e as Map<String, dynamic>))
+    return (await bridge.searchHistoryList(limit: businessI32(limit)))
+        .map(searchHistoryFromDto)
         .toList();
   }
 
@@ -25,12 +23,10 @@ final class RustSearchHistoryRepository implements SearchHistoryRepository {
     String prefix, {
     int limit = 20,
   }) async {
-    final json = await bridge.searchHistoryByPrefix(
+    return bridge.searchHistoryByPrefix(
       prefix: prefix,
-      limit: limit,
+      limit: businessI32(limit),
     );
-    final list = decodeRustJsonList(json, 'bookApi');
-    return list.map((e) => e.toString()).toList();
   }
 
   /// 添加搜索关键词

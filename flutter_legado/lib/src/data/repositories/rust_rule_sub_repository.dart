@@ -1,9 +1,9 @@
-import 'dart:convert';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/rule_sub_repository.dart';
 import '../../models/rule_sub.dart';
-import '../bridge/rust_json_decode.dart';
+import '../bridge/business_dto_mapping.dart';
 
 /// 配置编解码归数据层，正式访问直接使用既有FRB。— Codex + Bridge
 final class RustRuleSubRepository implements RuleSubRepository {
@@ -11,19 +11,11 @@ final class RustRuleSubRepository implements RuleSubRepository {
 
   @override
   Future<List<RuleSub>> ruleSubList() async =>
-      decodeRustJsonList(await bridge.ruleSubList(), 'ruleSubList').indexed.map(
-        (entry) {
-          final (index, value) = entry;
-          if (value is! Map<String, dynamic>) {
-            throw FormatException('ruleSubList：第${index + 1}项必须是对象');
-          }
-          return RuleSub.fromJson(value);
-        },
-      ).toList();
+      (await bridge.ruleSubList()).map(ruleSubscriptionFromDto).toList();
 
   @override
   Future<bool> ruleSubSave(RuleSub sub) =>
-      bridge.ruleSubSave(subJson: jsonEncode(sub.toJson()));
+      bridge.ruleSubSave(sub: ruleSubscriptionToDto(sub));
 
   @override
   Future<bool> ruleSubDelete({required int id}) => bridge.ruleSubDelete(id: id);
@@ -34,5 +26,5 @@ final class RustRuleSubRepository implements RuleSubRepository {
 
   @override
   Future<bool> ruleSubUpdateOrder({required List<int> ids}) =>
-      bridge.ruleSubUpdateOrder(idsJson: jsonEncode(ids));
+      bridge.ruleSubUpdateOrder(ids: Int64List.fromList(ids));
 }

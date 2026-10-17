@@ -2299,6 +2299,28 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 
 编写者：Codex｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 后续第4批稳定业务载荷冻结
+
+本批以专用DTO贯通RSS源44字段、文章5字段、收藏10字段、已读4字段，搜索历史3字段、
+替换规则既有字段、词典条目/规则、规则订阅15字段及检查/应用结果、应用日志3字段、
+备份恢复统计6字段和备份文件摘要4字段。标量写入接口不因DTO而改变业务更新规则。
+
+- RSS新增/更新改收RssSourceDto，返回RssSourceDto；原生实体写入和真正文档导入共用执行链。
+  自定义Header、脚本、规则、样式字段保留字符串。Dart既有文档导入/导出仍解析或生成真实JSON。
+  收藏starTime/pubDate按真实原生字段映射，避免原snake_case与UI别名不一致吞掉时间。
+- 搜索联想、缓存章节URL、缓存索引直接传Vec<String>/Vec<i32>，配置快照与发现infoMap为Map<String,String>；
+  书架排序、词典及规则订阅排序为类型化序列。书架实体规则/原子更新语义不变。
+- 规则订阅仍接受未知subType字符串，由既有数据库映射决定；Flutter现有模型未暴露的js/showRule/sourceUrl
+  保持普通保存时原先的空值行为，不以本次传输任务扩展编辑功能。检查/应用结果不经过JSON解码。
+- 日志级别使用LogLevelDto穷举message/crash/http，导出仍是原格式化文本；日志列表保留时间、排序与环形缓冲。
+- backup_create仍返回实际文件路径；backup_restore返回RestoreStatsDto；backup_list返回BackupFileDto列表。
+  备份文件内容和旧版导入文档本身不改。旧版导入汇总、JS执行协议、登录协议、书籍导出选项及样式等
+  真正文档不按“消除String”指标盲目替换。
+- 专用DTO逐字段映射原生实体，不经serde_json中转；Dart在直传前保留i32范围校验。
+  只删除经调用搜索确认无消费者的传输JSON适配器；REST/CLI/真实导入导出边界继续保留。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

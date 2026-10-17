@@ -146,6 +146,7 @@ async fn run_webbook_blocking<T: Send + 'static>(
 pub mod ffi {
     use super::BridgeError;
     use super::to_json;
+    use crate::business_dto::*;
     use crate::content_dto::*;
     use crate::frb_generated::StreamSink;
     use crate::media_dto::*;
@@ -306,10 +307,10 @@ pub mod ffi {
         Ok(crate::api::bookshelf::import_books(&json_array)?)
     }
 
-    /// 批量持久化书架排序（JSON 数组：[{"bookUrl":"...", "order":1}, ...]）
-    pub fn bookshelf_reorder_orders(orders_json: String) -> Result<(), BridgeError> {
-        crate::api::bookshelf::reorder_books(&orders_json)?;
-        Ok(())
+    /// 批量持久化书架排序（类型化列表：[{"bookUrl":"...", "order":1}, ...]）
+    pub fn bookshelf_reorder_orders(orders: Vec<BookOrderDto>) -> Result<(), BridgeError> {
+        let orders: Vec<_> = orders.into_iter().map(|v| (v.book_url, v.order)).collect();
+        Ok(crate::api::bookshelf::reorder_book_entities(&orders)?)
     }
 
     /// 更新阅读进度
@@ -1009,25 +1010,25 @@ pub mod ffi {
 
     // ─── RSS ──────────────────────────────────────────────────
 
-    /// 获取所有 RSS 源列表（JSON 数组）
-    pub fn rss_list_sources() -> Result<String, BridgeError> {
-        let sources = crate::api::rss::list_rss_sources()?;
-        to_json(&sources)
+    /// 获取所有 RSS 源列表（类型化列表）
+    pub fn rss_list_sources() -> Result<Vec<RssSourceDto>, BridgeError> {
+        Ok(crate::api::rss::list_rss_sources()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
-    /// 添加 RSS 源（传入 JSON 字符串），返回源信息（JSON）
-    pub fn rss_add_source(source_json: String) -> Result<String, BridgeError> {
-        let source = crate::api::rss::add_rss_source(&source_json)?;
-        to_json(&source)
+    /// 添加 RSS 源（传入 类型化结构），返回源信息（类型化）
+    pub fn rss_add_source(source: RssSourceDto) -> Result<RssSourceDto, BridgeError> {
+        Ok(crate::api::rss::add_rss_source_entity(source.into())?.into())
     }
 
-    /// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（JSON）
+    /// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（类型化）
     ///
     /// 缺口④ rssUpdateSource 原子更新（Task #108，加法式）：
     ///
-    pub fn rss_update_source(source_json: String) -> Result<String, BridgeError> {
-        let source = crate::api::rss::update_rss_source(&source_json)?;
-        to_json(&source)
+    pub fn rss_update_source(source: RssSourceDto) -> Result<RssSourceDto, BridgeError> {
+        Ok(crate::api::rss::update_rss_source_entity(source.into())?.into())
     }
 
     /// 删除 RSS 源
@@ -1036,10 +1037,12 @@ pub mod ffi {
         Ok(())
     }
 
-    /// 获取 RSS 源的文章列表（JSON 数组）
-    pub fn rss_fetch_articles(source_url: String) -> Result<String, BridgeError> {
-        let articles = crate::api::rss::fetch_rss_articles(&source_url)?;
-        to_json(&articles)
+    /// 获取 RSS 源的文章列表（类型化列表）
+    pub fn rss_fetch_articles(source_url: String) -> Result<Vec<RssArticleDto>, BridgeError> {
+        Ok(crate::api::rss::fetch_rss_articles(&source_url)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 清空指定 RSS 源的本地文章缓存（对齐 clearArticles）
@@ -1050,10 +1053,12 @@ pub mod ffi {
 
     // ─── RSS 收藏 ────────────────────────────────────────
 
-    /// 获取所有 RSS 收藏（JSON 数组）
-    pub fn rss_star_list() -> Result<String, BridgeError> {
-        let stars = crate::api::rss_star_api::get_rss_stars()?;
-        to_json(&stars)
+    /// 获取所有 RSS 收藏（类型化列表）
+    pub fn rss_star_list() -> Result<Vec<RssStarSnapshotDto>, BridgeError> {
+        Ok(crate::api::rss_star_api::get_rss_stars()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 添加 RSS 收藏，返回收藏时间戳
@@ -1114,27 +1119,35 @@ pub mod ffi {
         Ok(count)
     }
 
-    /// 获取 RSS 已读记录列表（JSON 数组，按 readTime 降序）
-    pub fn rss_list_read_records(limit: Option<i32>) -> Result<String, BridgeError> {
-        let records = crate::api::rss_read_record_api::list_records(limit)?;
-        to_json(&records)
+    /// 获取 RSS 已读记录列表（类型化列表，按 readTime 降序）
+    pub fn rss_list_read_records(limit: Option<i32>) -> Result<Vec<RssReadRecordDto>, BridgeError> {
+        Ok(crate::api::rss_read_record_api::list_records(limit)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
-    /// 按 RSS 源 origin 获取已读记录（JSON 数组，对齐原版 getRecordsByOrigin）
+    /// 按 RSS 源 origin 获取已读记录（类型化列表，对齐原版 getRecordsByOrigin）
     pub fn rss_list_read_records_by_origin(
         origin: String,
         limit: Option<i32>,
-    ) -> Result<String, BridgeError> {
-        let records = crate::api::rss_read_record_api::list_records_by_origin(&origin, limit)?;
-        to_json(&records)
+    ) -> Result<Vec<RssReadRecordDto>, BridgeError> {
+        Ok(
+            crate::api::rss_read_record_api::list_records_by_origin(&origin, limit)?
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        )
     }
 
     // ─── 搜索历史 ────────────────────────────────────────
 
-    /// 获取最近搜索历史（JSON 数组）
-    pub fn search_history_list(limit: i32) -> Result<String, BridgeError> {
-        let history = crate::api::search_history_api::get_search_history(limit)?;
-        to_json(&history)
+    /// 获取最近搜索历史（类型化列表）
+    pub fn search_history_list(limit: i32) -> Result<Vec<SearchHistoryDto>, BridgeError> {
+        Ok(crate::api::search_history_api::get_search_history(limit)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 添加搜索关键词，返回时间戳
@@ -1155,27 +1168,32 @@ pub mod ffi {
         Ok(ok)
     }
 
-    /// 按前缀搜索历史关键词（JSON 数组）
-    pub fn search_history_by_prefix(prefix: String, limit: i32) -> Result<String, BridgeError> {
-        let results = crate::api::search_history_api::search_history_by_prefix(&prefix, limit)?;
-        to_json(&results)
+    /// 按前缀搜索历史关键词（类型化列表）
+    pub fn search_history_by_prefix(
+        prefix: String,
+        limit: i32,
+    ) -> Result<Vec<String>, BridgeError> {
+        Ok(crate::api::search_history_api::search_history_by_prefix(
+            &prefix, limit,
+        )?)
     }
 
     // ─── 词典 ───────────────────────────────────────────────
 
-    /// 词典查询（本地内置词典，JSON 对象）
+    /// 词典查询（本地内置词典，类型化结构）
     ///
     /// 返回结构化释义 DictEntry：`word`（归一化单词）/ `phonetic`（音标）/
     /// `definitions`（释义列表）。未收录词返回空 `definitions`（非异常）。
-    pub fn dict_lookup(word: String) -> Result<String, BridgeError> {
-        let entry = crate::api::dict_api::dict_lookup(&word)?;
-        to_json(&entry)
+    pub fn dict_lookup(word: String) -> Result<DictEntryDto, BridgeError> {
+        Ok(crate::api::dict_api::dict_lookup(&word)?.into())
     }
 
     /// 列出全部字典规则（空表先注入默认 5 源，DictRule 数组 JSON，按 sortNumber,id 升序）
-    pub fn dict_rule_list() -> Result<String, BridgeError> {
-        let rules = crate::api::dict_api::dict_rule_list()?;
-        to_json(&rules)
+    pub fn dict_rule_list() -> Result<Vec<DictionaryRuleDto>, BridgeError> {
+        Ok(crate::api::dict_api::dict_rule_list()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 新增字典规则（enabled=1, sortNumber=0），返回规则 ID
@@ -1212,8 +1230,8 @@ pub mod ffi {
     }
 
     /// 按给定 ID 顺序重编号 sortNumber（0..n），返回重排条数
-    pub fn dict_rule_reorder(ids_json: String) -> Result<i32, BridgeError> {
-        Ok(crate::api::dict_api::dict_rule_reorder(&ids_json)?)
+    pub fn dict_rule_reorder(ids: Vec<i64>) -> Result<i32, BridgeError> {
+        Ok(crate::api::dict_api::reorder_dict_rules(&ids)?)
     }
 
     /// 导入字典规则（GSON 数组/单对象，REPLACE by name），返回导入条数
@@ -1509,11 +1527,12 @@ pub mod ffi {
         Ok(())
     }
 
-    /// 读取发现 infoMap 快照（JSON 对象字符串；供 UI 回显 toggle/select/text
+    /// 读取发现 infoMap 快照（类型化映射；供 UI 回显 toggle/select/text
     /// 已存值，对齐原版 InfoMap 持久化语义）— 发现页修复 B①
-    pub fn explore_info_map_snapshot(source_url: String) -> Result<String, BridgeError> {
-        let map = crate::api::explore_info_map::snapshot(&source_url)?;
-        Ok(serde_json::to_string(&map).map_err(BridgeError::from)?)
+    pub fn explore_info_map_snapshot(
+        source_url: String,
+    ) -> Result<std::collections::HashMap<String, String>, BridgeError> {
+        Ok(crate::api::explore_info_map::snapshot(&source_url)?)
     }
 
     /// 执行发现页控件 action JS（返回 ExploreEvalActionResult JSON）
@@ -1656,10 +1675,12 @@ pub mod ffi {
 
     // ─── 替换规则管理 ─────────────────────────────────────────
 
-    /// 获取所有替换规则（JSON 数组）
-    pub fn replace_rule_list() -> Result<String, BridgeError> {
-        let rules = crate::api::replace_rule_api::get_replace_rules()?;
-        to_json(&rules)
+    /// 获取所有替换规则（类型化列表）
+    pub fn replace_rule_list() -> Result<Vec<ReplaceRuleDto>, BridgeError> {
+        Ok(crate::api::replace_rule_api::get_replace_rules()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 添加替换规则，返回规则 id
@@ -1743,10 +1764,12 @@ pub mod ffi {
         Ok(())
     }
 
-    /// 获取启用的替换规则（JSON 数组，用于阅读时应用）
-    pub fn replace_rule_enabled() -> Result<String, BridgeError> {
-        let rules = crate::api::replace_rule_api::get_enabled_rules()?;
-        to_json(&rules)
+    /// 获取启用的替换规则（类型化列表，用于阅读时应用）
+    pub fn replace_rule_enabled() -> Result<Vec<ReplaceRuleDto>, BridgeError> {
+        Ok(crate::api::replace_rule_api::get_enabled_rules()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 启用/禁用替换规则
@@ -1985,23 +2008,26 @@ pub mod ffi {
 
     /// 列出某本书已缓存章节的 chapter_url 集合（Task #22，目录页云图标）
     ///
-    /// 返回 JSON 字符串数组（`["url1","url2",...]`），供 Flutter 目录页解析为
+    /// 返回 类型化字符串列表（`["url1","url2",...]`），供 Flutter 目录页解析为
     /// 已缓存 chapter_url 集合，据此为每章渲染「已缓存实心 / 未缓存空心云」图标。
-    pub fn cache_list_cached_chapter_urls(book_url: String) -> Result<String, BridgeError> {
-        let urls = crate::api::cache_api::list_cached_chapter_urls(&book_url)?;
-        to_json(&urls)
+    pub fn cache_list_cached_chapter_urls(book_url: String) -> Result<Vec<String>, BridgeError> {
+        Ok(crate::api::cache_api::list_cached_chapter_urls(&book_url)?)
     }
 
     /// 列出某本书已缓存章节的 (chapter_url, wordCount) 集合
     /// （P2-28c，API_CONTRACT §2.43.6，目录页实时字数刷新数据链）
     ///
-    /// 返回 JSON 对象数组（`[{"url":"...","wordCount":"..."},...]`，按
+    /// 返回 类型化结构数组（`[{"url":"...","wordCount":"..."},...]`，按
     /// chapter_index 升序、空 url 过滤），wordCount 取 `chapters` 表当前值
     /// （P2-28b 回填链同源，未回填为空串）。供 Flutter 目录页 1 秒轮询
     /// （P2-28b）一次调用同时翻转「未缓存」⬇ 图标与同帧刷新字数胶囊。
-    pub fn cache_list_cached_chapters(book_url: String) -> Result<String, BridgeError> {
-        let entries = crate::api::cache_api::list_cached_chapters(&book_url)?;
-        to_json(&entries)
+    pub fn cache_list_cached_chapters(
+        book_url: String,
+    ) -> Result<Vec<CachedChapterDto>, BridgeError> {
+        Ok(crate::api::cache_api::list_cached_chapters(&book_url)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 获取缓存书籍数量
@@ -2309,10 +2335,9 @@ pub mod ffi {
         Ok(ok)
     }
 
-    /// 获取所有配置（JSON 对象）
-    pub fn config_get_all() -> Result<String, BridgeError> {
-        let config = crate::api::config_api::get_all_config()?;
-        to_json(&config)
+    /// 获取所有配置（类型化结构）
+    pub fn config_get_all() -> Result<std::collections::HashMap<String, String>, BridgeError> {
+        Ok(crate::api::config_api::get_all_config()?)
     }
 
     // ─── HTTP TTS 朗读源 ───────────────────────────────────
@@ -2552,15 +2577,14 @@ pub mod ffi {
         Ok(result)
     }
 
-    /// 从备份文件恢复，返回恢复统计（JSON）
-    pub fn backup_restore(path: String) -> Result<String, BridgeError> {
-        let result = crate::api::backup_api::backup_restore(&path)?;
-        Ok(result)
+    /// 从备份文件恢复，返回恢复统计（类型化）
+    pub fn backup_restore(path: String) -> Result<RestoreStatsDto, BridgeError> {
+        Ok(crate::api::backup_api::restore_backup(&path)?.into())
     }
 
-    /// 列出备份文件（JSON 数组）
-    pub fn backup_list(dir: String) -> String {
-        crate::api::backup_api::backup_list(&dir)
+    /// 列出备份文件（类型化列表）
+    pub fn backup_list(dir: String) -> Vec<BackupFileDto> {
+        crate::api::backup_api::list_backup_files(&dir)
     }
 
     /// 导入旧版（阅读 2.x）备份目录，返回统计 JSON
@@ -3193,12 +3217,14 @@ pub mod ffi {
         Ok(crate::api::log_api::push_log(&level, &message)?)
     }
 
-    /// 获取指定级别的日志列表（JSON 数组，最新在前）
+    /// 获取指定级别的日志列表（类型化列表，最新在前）
     ///
     /// 每项字段：`timestamp`（毫秒）/ `level` / `message`
-    pub fn app_log_list(level: String) -> Result<String, BridgeError> {
-        let logs = crate::api::log_api::list_logs(&level)?;
-        to_json(&logs)
+    pub fn app_log_list(level: String) -> Result<Vec<AppLogDto>, BridgeError> {
+        Ok(crate::api::log_api::list_logs(&level)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 清空指定级别的日志
@@ -3218,16 +3244,17 @@ pub mod ffi {
 
     // ─── 规则订阅（Task #89，对齐 Kotlin RuleSub/RuleSubActivity）──────
 
-    /// 获取规则订阅列表（RuleSub 数组 JSON，按 customOrder 排序）
-    pub fn rule_sub_list() -> Result<String, BridgeError> {
-        let subs = crate::api::rule_sub_api::list_subs_db()?;
-        to_json(&subs)
+    /// 获取规则订阅列表（RuleSub类型化列表，按 customOrder 排序）
+    pub fn rule_sub_list() -> Result<Vec<RuleSubscriptionDto>, BridgeError> {
+        Ok(crate::api::rule_sub_api::list_subs_db()?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
-    /// 保存规则订阅（RuleSub JSON，id>0 且存在则更新，否则新增）
-    pub fn rule_sub_save(sub_json: String) -> Result<bool, BridgeError> {
-        let record: legado_db::RuleSubRecord = serde_json::from_str(&sub_json)?;
-        Ok(crate::api::rule_sub_api::save_sub_db(&record)?)
+    /// 保存规则订阅（RuleSub实体，id>0 且存在则更新，否则新增）
+    pub fn rule_sub_save(sub: RuleSubscriptionDto) -> Result<bool, BridgeError> {
+        Ok(crate::api::rule_sub_api::save_sub_db(&sub.into())?)
     }
 
     /// 删除规则订阅，返回是否实际删除
@@ -3240,26 +3267,23 @@ pub mod ffi {
         Ok(crate::api::rule_sub_api::set_sub_enabled_db(id, enabled)?)
     }
 
-    /// 批量更新规则订阅排序（拖拽排序，ids_json 为新顺序 ID 数组）
-    pub fn rule_sub_update_order(ids_json: String) -> Result<bool, BridgeError> {
-        let ids: Vec<i64> = serde_json::from_str(&ids_json)?;
+    /// 批量更新规则订阅排序（拖拽排序，ids 为新顺序 ID 数组）
+    pub fn rule_sub_update_order(ids: Vec<i64>) -> Result<bool, BridgeError> {
         Ok(crate::api::rule_sub_api::update_sub_order_db(&ids)?)
     }
 
-    /// 检查规则订阅更新（委托 should_update/fetch_subscription，返回检查结果 JSON）
+    /// 检查规则订阅更新（委托 should_update/fetch_subscription，返回检查类型化结果）
     ///
     /// 返回字段：id/url/name/dueForUpdate/hasUpdate/remoteVersion/error
-    pub fn rule_sub_check_update(id: i64) -> Result<String, BridgeError> {
-        let result = crate::api::rule_sub_api::check_sub_update_db(id)?;
-        to_json(&result)
+    pub fn rule_sub_check_update(id: i64) -> Result<SubscriptionCheckDto, BridgeError> {
+        Ok(crate::api::rule_sub_api::check_sub_update_db(id)?.into())
     }
 
-    /// 应用规则订阅更新（委托 fetch/merge_subscription，返回应用结果 JSON）
+    /// 应用规则订阅更新（委托 fetch/merge_subscription，返回应用类型化结果）
     ///
     /// 返回字段：id/url/success/itemsAdded/itemsUpdated/itemsRemoved/totalItems/error
-    pub fn rule_sub_apply_update(id: i64) -> Result<String, BridgeError> {
-        let result = crate::api::rule_sub_api::apply_sub_update_db(id)?;
-        to_json(&result)
+    pub fn rule_sub_apply_update(id: i64) -> Result<SubscriptionApplyDto, BridgeError> {
+        Ok(crate::api::rule_sub_api::apply_sub_update_db(id)?.into())
     }
 }
 

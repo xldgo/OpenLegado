@@ -12,6 +12,7 @@
 mod frb_generated;
 
 pub mod api;
+pub mod business_dto;
 pub mod content_dto;
 pub mod db_state;
 mod engine_holder;
@@ -22,9 +23,9 @@ pub mod js_executor;
 mod layout_bridge;
 pub mod layout_dto;
 pub mod media_dto;
-pub mod task_dto;
 pub mod runtime;
 mod service_host;
+pub mod task_dto;
 pub mod transfer_dto;
 
 /// 测试支撑：全局变量 store / 桥读取器 / flow scope 的进程级状态锁
