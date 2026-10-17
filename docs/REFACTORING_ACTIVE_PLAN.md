@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### DICT-COVER-SERVICE-20261017：词典与封面规则服务下沉（P1）
+
+- 授权与基线：用户授权已确认的完整词典/封面服务计划；feature/rust-ffi-modernization / 4495472a8，当前worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL或设备安装；音频/TTS暂缓。
+- 范围：DictionaryService承接查询、规则CRUD/排序/导入、作用域JS及HTML释义处理；CoverService承接配置读写/默认回退与规则搜索；共享请求取体从FFI移入Engine。FFI保留宿主装配、文档/DTO转换，默认封面资源由宿主注入，不让Engine依赖FFI目录。
+- 行为冻结：串行逐规则、单条失败跳过、15秒超时、data URI、重定向/retry、默认词典种子、按名称覆盖保留ID、导入失败错误、未开库分支、封面单配置及相对地址行为保持。词典/导入不主动补CookieJar，封面按开关只补不覆盖。JS作用域与HTML处理不改，不新增取消/限流/事务或UI策略。
+- 验收与回滚：保留既有词典/封面行为测试，仅补必要实例隔离及真实请求验证；default/QuickJS严格Clippy、相关Rust回归、正式Windows DLL与摘要/指纹及已有真实FRB回归。不改FFI签名/DTO/生成绑定、数据库或版本；确需时仅给Engine增加已锁定regex依赖边。按用户要求单代理自查，无独立外审如实记录；可独立撤销本批。
+- 实现：DictionaryService以rules/scope/text分别承接请求/导入解析、JS变量执行器、HTML释义；CoverService承接配置与搜索。rule_text提供共享取体，不互调FFI业务；默认封面原JSON由宿主注入，沿用延迟解析和未开库错误/空结果分支。FFI保留原DictRuleDto映射，DictEntry/CoverRuleConfig原路径重导出，生成绑定不变。
+- Rust验证：QuickJS库Engine58/FFI575共633项通过，42项既有忽略；default的dict/cover两组定向32项通过。原词典17/封面9共26项测试全部保留，7项纯逻辑随实现迁移；新增4项覆盖独立存储/默认种子/CRUD/排序/导入保留ID/默认文档延迟回退/无根引用、真实HTTP POST和请求头、Cookie写回三态及JS实例/查询词上下文。25个搬迁函数逐段核对，外部529个锁包版本/来源/校验和/依赖不变，Cargo.lock只多Engine→regex直接依赖边。
+- 整改：初始机械提取误在pub(crate)可见性括号插入self及子模块方法可见性不足，修正后全目标编译通过。HTTP夹具新增响应头时与原请求头变量重名，首轮5项回归失败；改用response_headers后完整库通过，未改网络生产策略或放宽断言。原始失败不计通过，不添加lint放行；无新增测试宿主/协议。
+- 严格检查：Engine/FFI的default及QuickJS两档全目标Clippy -D warnings通过；限定文件格式及git diff --check通过，未新增lint放行。
+- 正式接线：Python正式入口独立target重建Windows Debug QuickJS DLL，构建/源码指纹/源库与复制库摘要及最终只读校验通过。既有business_transport与source_tools_transport中定向3项通过，覆盖字典规则/导入/排序/释义、封面配置Cookie三态/data规则以及真实HTTP封面候选与动作；未重复无关音频或全量Flutter验证。初次使用含竖线的测试筛选被Windows flutter.bat包装层拆开，未启动测试，改用3次plain-name筛选后全部通过，无生产修改。
+- 证据与限制：build/dict-cover-service/{check-initial,check-final,rust-quick,rust-quick-final,rust-dict-default,rust-cover-default,clippy-quick,clippy-default,native-build,native-runtime,native-runtime-0,native-runtime-1,native-runtime-2,native-verify-final}.log；move-comparison.json仅代码复核，不替代行为验证。初轮夹具失败不计通过；最终回归通过。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论。Dart、FRB生成物、schema、版本及音频/TTS业务未改。
+- 状态：本批词典/封面服务迁移与本地验证完成，按授权整批本地提交；当前worktree/分支保留，不推送或合并。音频相关服务保持暂缓，后续范围另行确定。
+
+编写者：Codex｜2026-10-17
+
 ### REVIEW-SERVICE-20261017：段评应用服务下沉（P1）
 
 - 授权与基线：用户授权已确认段评服务计划；feature/rust-ffi-modernization / 072a60690，当前worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL或设备安装，音频与TTS继续暂缓。

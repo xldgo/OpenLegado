@@ -24,6 +24,19 @@ impl Fixture {
         content_type: &'static str,
         body: impl Fn(&str) -> String + Send + Sync + 'static,
     ) -> Self {
+        Self::with_response_headers(count, blocked, content_type, &[], body)
+    }
+    pub fn with_response_headers(
+        count: usize,
+        blocked: bool,
+        content_type: &'static str,
+        headers: &[(&str, &str)],
+        body: impl Fn(&str) -> String + Send + Sync + 'static,
+    ) -> Self {
+        let response_headers = headers
+            .iter()
+            .map(|(key, value)| format!("{key}: {value}\r\n"))
+            .collect::<String>();
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
@@ -74,7 +87,7 @@ impl Fixture {
                 // 取消异步 HTTP future 后对端可以已经断开。
                 let _ = write!(
                     socket,
-                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
+                    "HTTP/1.1 200 OK\r\n{response_headers}Content-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
                     response.len()
                 );
             }

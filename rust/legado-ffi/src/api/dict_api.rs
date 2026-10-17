@@ -1,138 +1,24 @@
-//! 词典查询 API（Task #137：对齐 Android 原版字典规则体系）
-//!
-//! 提供词典查询（API_CONTRACT.md §3 需求 4：`dictLookup`）。
-//!
-//! ## 原版机制（`app/src/main/java/io/legado/app/`）
-//!
-//! Android 原版不使用静态词典，而是「字典规则（dict_rules）」体系：
-//! - `data/entities/DictRule.kt`：规则实体（name 主键 / urlRule / showRule /
-//!   enabled / sortNumber），`DictRule.search(word)` 执行查询：
-//!   `AnalyzeUrl(urlRule, key = word)` 取响应 body → showRule 为空直接返回，
-//!   否则 `AnalyzeRule.getString(showRule, mContent = body)` 解析；
-//! - `data/dao/DictRuleDao.kt`：`enabled` 查询按 sortNumber 排序，
-//!   阅读器字典弹窗（`ui/dict/DictViewModel`）逐条执行启用规则，每规则一个页签；
-//! - `help/DefaultData.kt` + `assets/defaultData/dictRules.json`：
-//!   内置默认 5 个字典源（海词中文 / 海词英文 / 有道 / 哔哩 / 百度汉语），
-//!   版本升级时 `importDefaultDictRules` 写入。
-//!
-//! ## 本实现（Rust 轨）
-//!
-//! - 数据源为 `dict_rules` 表（`DictRuleRepository`）；表为空时注入原版默认
-//!   5 源（`legado_db::DictRuleRepository::seed_default_rules`，
-//!   对标 Kotlin `importDefaultDictRules`）；
-//! - 查询链路复用项目既有能力：`legado_parser::AnalyzeUrl`（urlRule 模板/
-//!   `{{key}}` 替换/请求选项/data: URI）+ `legado_net::LegadoClient`（HTTP）
-//!   + `legado_parser::AnalyzeRule`（showRule CSS/XPath/JsonPath/正则）
-//!   + `legado-js` QuickJS（`@js:` 规则，经 `JsExecutor` 注入，需 quickjs 特性）；
-//! - JS 作用域对齐 Kotlin `AnalyzeUrl/AnalyzeRule.evalJS` 的绑定语义：
-//!   以 `var key/word/result = <JSON 字符串字面量>` 前置注入
-//!   （同 `js_executor::execute_login_check_response` 的 result 注入模式）；
-//! - 各启用规则的结果逐条写入 `definitions`（前缀 `【规则名】` 区分来源，
-//!   原版为每规则独立页签，本契约 DictEntry 为扁平列表）；规则执行失败
-//!   （网络错误 / JS 报错）仅记日志并跳过，不中断整体查询；
-//! - `phonetic` 恒为空字符串：原版规则产出 HTML 释义文本，无结构化音标
-//!   （保留字段以兼容已冻结的 Dart `DictEntry` 模型）。
-//!
-//! ## 与原版的行为差异（已在 API_CONTRACT.md 登记）
-//!
-//! - 未启用任何规则 / 数据库未初始化：返回空 `definitions`（非异常，
-//!   契约「未收录返回空列表」语义沿用）；
-//! - 原版部分默认规则的 showRule 依赖 Rhino 专属能力
-//!   （`JavaImporter`/`Packages.org.jsoup`/`cache.putMemory` 等），
-//!   QuickJS 环境无法等价复现；规则数据以原版 JSON 为准不做改写，
-//!   此类规则执行失败时按上述跳过策略处理；
-//! - 入参仅 trim 归一化、不再小写：原版将选中文本原样传给规则
-//!   （中文词不适用小写化）；
-//! - 释义文本做了轻量 HTML → 纯文本转换（`DictEntry.definitions` 为纯文本列表，
-//!   原版则在 WebView 中渲染 HTML）。
-
-use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
-use std::time::Duration;
-
-use regex::Regex;
-use serde::Serialize;
-
+//! 词典宿主适配：能力捕获与传输映射，业务归Engine服务。
 use legado_core::{LegadoError, LegadoResult};
-use legado_db::{DictRule, DictRuleRepository};
-use legado_parser::{AnalyzeRule, AnalyzeUrl, JsExecutor};
-
-use crate::db_state::with_database;
-
-/// 单条字典规则的请求超时（秒）
-///
-/// 原版无显式超时（跟随全局 OkHttp 配置）；此处限制单规则耗时，
-/// 避免离线场景下 5 个规则串行拖垮查询。
-const DICT_RULE_TIMEOUT_SECS: u64 = 15;
-
-/// 词典条目 DTO
-///
-/// 序列化字段对齐 Dart `DictEntry` 模型：`word` / `phonetic` / `definitions`。
-#[derive(Debug, Clone, Serialize)]
-pub struct DictEntry {
-    /// 归一化后的单词（trim）
-    pub word: String,
-    /// 音标（字典规则链路无结构化音标，恒为空字符串）
-    pub phonetic: String,
-    /// 释义条目列表（每条对应一个启用字典规则的结果，前缀 `【规则名】`）
-    pub definitions: Vec<String>,
-}
-
-/// 查询词典释义（字典规则引擎）
-///
-/// 对标 Kotlin `ui/dict/DictViewModel.initData + search`：
-/// 加载全部启用规则（按 sortNumber 排序）→ 逐条执行 `DictRule.search(word)`。
-///
-/// - 数据库未初始化：降级返回空 `definitions`（保持旧版「非异常」语义）；
-/// - 表为空：先注入原版默认 5 个字典源；
-/// - 单规则失败（网络/JS 错误）仅记日志跳过。
-pub fn dict_lookup(word: &str) -> LegadoResult<DictEntry> {
-    let key = word.trim().to_string();
-
-    if !crate::db_state::is_initialized() {
-        // 数据库未初始化：与旧静态表时代的「无异常」语义保持一致
-        return Ok(empty_entry(key));
-    }
-
-    let rules = with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        // 对标 Kotlin DefaultData.importDefaultDictRules：表为空时注入原版默认 5 源
-        repo.seed_default_rules()?;
-        repo.find_enabled()
-    })?;
-
-    // 无启用规则：返回空 definitions（契约约定非异常）
-    let mut definitions = Vec::new();
-    for rule in rules {
-        match search_dict_rule(&rule, &key) {
-            Ok(text) => {
-                let text = html_to_text(&text);
-                if !text.trim().is_empty() {
-                    definitions.push(format!("【{}】{}", rule.name, text.trim()));
-                }
-            }
-            Err(e) => {
-                // 原版在独立页签内展示单规则错误；本契约为扁平列表，失败仅记日志跳过
-                log::warn!("字典规则 [{}] 查询「{}」失败: {}", rule.name, key, e);
-            }
-        }
-    }
-
-    Ok(DictEntry {
-        word: key,
-        phonetic: String::new(),
-        definitions,
+use legado_db::DictRule;
+pub use legado_engine::dictionary_service::DictEntry;
+use legado_engine::dictionary_service::{DictionaryResources, DictionaryService};
+use serde::Serialize;
+fn host_service() -> DictionaryService {
+    let engine = crate::engine_holder::current().ok();
+    DictionaryService::new(DictionaryResources {
+        storage: engine.as_ref().map(|e| e.storage().clone()),
+        network: engine
+            .as_ref()
+            .map(|e| e.network().clone())
+            .unwrap_or_else(crate::engine_holder::network),
+        js: engine
+            .as_ref()
+            .map(|e| e.js_resources().clone())
+            .unwrap_or_else(crate::engine_holder::js_resources),
+        runtime: crate::runtime::get_runtime().handle().clone(),
     })
 }
-
-// ─── 字典规则管理（API_CONTRACT.md §2.45）─────────────────────────────
-//
-// 供管理页（CRUD/启停/排序/导入）使用，直接改变 dict_lookup 的查询行为：
-// 启停/排序改变「哪些规则执行、以何序执行」，增删/导入改变规则集合。
-// 对标 Kotlin `DictRuleViewModel`（upSortNumber/enableSelection/
-// disableSelection/importDefault）+ `ImportDictRuleDialog`（GSON 数组/
-// 单对象，REPLACE by name）。
-
 /// 字典规则 DTO（序列化字段对齐契约 §2.45：camelCase）
 #[derive(Debug, Clone, Serialize)]
 pub struct DictRuleDto {
@@ -160,479 +46,49 @@ impl From<&DictRule> for DictRuleDto {
     }
 }
 
-/// 列出全部字典规则（空表先注入原版默认 5 源，`ORDER BY sortNumber, id`）
-pub fn dict_rule_list() -> LegadoResult<Vec<DictRuleDto>> {
-    with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        // 表为空时注入原版默认 5 源（对标 dict_lookup 的 seed 行为）
-        repo.seed_default_rules()?;
-        let rules = repo.list_all_ordered()?;
-        Ok(rules.iter().map(DictRuleDto::from).collect::<Vec<_>>())
-    })
+pub fn dict_lookup(word: &str) -> LegadoResult<DictEntry> {
+    host_service().dict_lookup(word)
 }
-
-/// 新增一条字典规则（enabled=1, sortNumber=0）
-///
-/// name 重复时因 UNIQUE 约束返回错误（对标原版 name 主键语义）。
 pub fn dict_rule_add(name: &str, url_rule: &str, show_rule: &str) -> LegadoResult<i64> {
-    with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        repo.insert(name, url_rule, show_rule)
-    })
+    host_service().dict_rule_add(name, url_rule, show_rule)
 }
-
-/// 更新字典规则（按 id，改 name/urlRule/showRule）
 pub fn dict_rule_update(
     id: i64,
     name: &str,
     url_rule: &str,
     show_rule: &str,
 ) -> LegadoResult<bool> {
-    with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        repo.update(id, name, url_rule, show_rule)
-    })
+    host_service().dict_rule_update(id, name, url_rule, show_rule)
 }
-
-/// 删除字典规则（按 id）
 pub fn dict_rule_delete(id: i64) -> LegadoResult<bool> {
-    with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        repo.delete(id)
-    })
+    host_service().dict_rule_delete(id)
 }
-
-/// 设置字典规则启用/禁用（按 id）
 pub fn dict_rule_set_enabled(id: i64, enabled: bool) -> LegadoResult<bool> {
-    with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        repo.set_enabled(id, enabled)
-    })
+    host_service().dict_rule_set_enabled(id, enabled)
 }
-
-/// 按给定 ID 顺序重编号 sortNumber（0..n，对标 upSortNumber）
-///
-/// `ids_json` 为 JSON 数组（如 `[3,1,2]`），表示拖拽后的完整有序 ID 列表。
+pub fn reorder_dict_rules(ids: &[i64]) -> LegadoResult<i32> {
+    host_service().reorder_dict_rules(ids)
+}
+pub fn dict_rule_import(json_or_url: &str, kind: &str) -> LegadoResult<i32> {
+    host_service().dict_rule_import(json_or_url, kind)
+}
+pub fn dict_rule_list() -> LegadoResult<Vec<DictRuleDto>> {
+    Ok(host_service()
+        .dict_rule_list()?
+        .iter()
+        .map(Into::into)
+        .collect())
+}
 pub fn dict_rule_reorder(ids_json: &str) -> LegadoResult<i32> {
     let ids: Vec<i64> = serde_json::from_str(ids_json)
         .map_err(|e| LegadoError::Database(format!("解析 reorder IDs 失败: {e}")))?;
     reorder_dict_rules(&ids)
 }
-pub fn reorder_dict_rules(ids: &[i64]) -> LegadoResult<i32> {
-    with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        repo.reorder(ids)?;
-        Ok(ids.len() as i32)
-    })
-}
 
-/// 导入字典规则（GSON 数组/单对象，REPLACE by name），返回导入条数
-///
-/// `kind` = "text"：`json_or_url` 为 JSON 文本（数组或单对象）；
-/// `kind` = "url"：`json_or_url` 为 URL，先用既有抓取链路取 body 再解析。
-/// 对标 Kotlin `ImportDictRuleDialog`（REPLACE by name）；解析/抓取失败
-/// **返回明确错误**（导入是显式动作，与 dict_lookup 的静默跳过不同）。
-pub fn dict_rule_import(json_or_url: &str, kind: &str) -> LegadoResult<i32> {
-    let body = match kind {
-        "url" => fetch_url_body(json_or_url)?,
-        _ => json_or_url.to_string(),
-    };
-
-    let rules = parse_import_rules(&body)?;
-
-    let count = with_database(|db| {
-        let repo = DictRuleRepository::new(db.connection());
-        for rule in &rules {
-            // REPLACE by name：同名覆盖（保留 id），异名插入
-            repo.upsert_by_name(rule)?;
-        }
-        Ok(rules.len() as i32)
-    })?;
-
-    Ok(count)
-}
-
-/// 抓取 URL body（对齐 dict_lookup 的 AnalyzeUrl 用法，复用 fetch_body）
-fn fetch_url_body(url: &str) -> LegadoResult<String> {
-    if url.trim().is_empty() {
-        return Err(LegadoError::Database("导入 URL 为空".to_string()));
-    }
-    // 纯 URL（非规则模板）：构建单变量请求走既有取体链路
-    let analyze_url = AnalyzeUrl::parse(url, &HashMap::new(), 1)
-        .map_err(|e| LegadoError::Database(format!("解析导入 URL 失败: {e}")))?;
-    // 写侧 CookieJar 门控：导入动作无源上下文（上游 ImportDictRuleDialog
-    // 同为显式导入、不经 BaseSource），恒不补标记。
-    let body = crate::runtime::block_on(async {
-        match tokio::time::timeout(
-            Duration::from_secs(DICT_RULE_TIMEOUT_SECS),
-            fetch_body(&analyze_url, None),
-        )
-        .await
-        {
-            Ok(result) => result,
-            Err(_) => Err(format!("抓取超时（>{DICT_RULE_TIMEOUT_SECS}s）: {url}")),
-        }
-    })
-    .map_err(LegadoError::Database)?;
-    Ok(body)
-}
-
-/// 解析导入 JSON（数组或单对象）为规则列表
-///
-/// 字段对齐原版 `DictRule`（name/urlRule/showRule/enabled/sortNumber），
-/// 缺省 enabled=true、sortNumber=0（GSON 语义）。
-fn parse_import_rules(body: &str) -> LegadoResult<Vec<DictRule>> {
-    let trimmed = body.trim();
-    if trimmed.is_empty() {
-        return Err(LegadoError::Database("导入内容为空".to_string()));
-    }
-
-    // 复用原版模型（serde 字段名 camelCase 对齐 GSON）
-    type LegacyRule = legado_core::models::DictRule;
-
-    let legacy: Vec<LegacyRule> = if trimmed.starts_with('[') {
-        serde_json::from_str(trimmed)
-            .map_err(|e| LegadoError::Database(format!("解析导入 JSON 数组失败: {e}")))?
-    } else {
-        let single: LegacyRule = serde_json::from_str(trimmed)
-            .map_err(|e| LegadoError::Database(format!("解析导入 JSON 单对象失败: {e}")))?;
-        vec![single]
-    };
-
-    Ok(legacy
-        .into_iter()
-        .filter(|r| !r.name.trim().is_empty())
-        .map(|m| DictRule {
-            id: 0,
-            name: m.name.trim().to_string(),
-            url_rule: m.url_rule,
-            show_rule: m.show_rule,
-            is_enabled: m.enabled,
-            sort_order: m.sort_number,
-        })
-        .collect())
-}
-
-/// 执行单条字典规则查询（对标 Kotlin `DictRule.search`）
-///
-/// 流程：`AnalyzeUrl(urlRule, key)` 构建请求（含 `@js:` / `{{key}}` /
-/// data: URI / 请求选项解析）→ HTTP 或 data: URI 取 body →
-/// showRule 为空直接返回 body，否则经 `AnalyzeRule` 链路解析。
-pub(crate) fn search_dict_rule(rule: &DictRule, key: &str) -> Result<String, String> {
-    // 1. 构建请求（对标 AnalyzeUrl(urlRule, key = word)）
-    let analyze_url = build_request(rule, key)?;
-
-    // 2. 取响应 body（单规则超时保护）
-    // 写侧 CookieJar 门控：DictRule 无 enabledCookieJar 字段（上游
-    // DictRule.search 构造 AnalyzeUrl 不传 source），恒不补标记。
-    let body = crate::runtime::block_on(async {
-        match tokio::time::timeout(
-            Duration::from_secs(DICT_RULE_TIMEOUT_SECS),
-            fetch_body(&analyze_url, None),
-        )
-        .await
-        {
-            Ok(result) => result,
-            Err(_) => Err(format!(
-                "请求超时（>{DICT_RULE_TIMEOUT_SECS}s）: {}",
-                analyze_url.url()
-            )),
-        }
-    })?;
-
-    // 3. showRule 解析（对标 AnalyzeRule.getString(showRule, mContent = body)）
-    apply_show_rule(&rule.name, &rule.show_rule, &body, analyze_url.url(), key)
-}
-
-// ─── 请求构建 / 发送 ────────────────────────────────────────────
-
-/// 构建字典规则请求
-///
-/// - quickjs 构建：`AnalyzeUrl::parse_with_js` 支持 `@js:` urlRule 与
-///   `{{java.xxx()}}` 内嵌表达式（对齐 Kotlin `AnalyzeUrl.analyzeJs` +
-///   `replaceKeyPageJs`，JS 作用域含 key 绑定）；
-/// - 非 quickjs 构建：仅做变量替换的 `AnalyzeUrl::parse`，
-///   依赖 JS 的规则将自然失败（跳过策略见 [`dict_lookup`]）。
-fn build_request(rule: &DictRule, key: &str) -> Result<AnalyzeUrl, String> {
-    let tag = engine_tag(&rule.name);
-    // Kotlin AnalyzeUrl 构造时把 key 绑定进 JS 作用域，此处经前置注入等价实现
-    let executor = DictScopeExecutor::new(&tag, key, &rule.url_rule);
-    let mut vars = HashMap::new();
-    vars.insert("key".to_string(), key.to_string());
-    vars.insert("word".to_string(), key.to_string());
-
-    #[cfg(feature = "quickjs")]
-    {
-        AnalyzeUrl::parse_with_js(&rule.url_rule, &vars, 1, &executor).map_err(|e| e.to_string())
-    }
-    #[cfg(not(feature = "quickjs"))]
-    {
-        let _ = executor;
-        AnalyzeUrl::parse(&rule.url_rule, &vars, 1).map_err(|e| e.to_string())
-    }
-}
-
-/// 取响应 body：data: URI 直接解码，否则发起 HTTP 请求
-///
-/// `pub(crate)`：cover_api（契约 §2.4.8 searchCoverRules）复用同一取体链路。
-///
-/// `cookie_jar_enabled`：写侧 CookieJar 门控开关（批 2 收尾接线）——
-/// `Some(true)` 时经 `web_book::apply_cookie_jar_marker_by_flag` 补内部标记头
-/// （只补不覆盖），响应 `Set-Cookie` 才写回；`None`/`Some(false)` 不补。
-/// 调用方逐个核对（上游同口径）：
-/// - [`search_dict_rule`]：`DictRule` 无 `enabledCookieJar` 字段，上游
-///   `DictRule.search` 构造 `AnalyzeUrl` 亦不传 source → 恒 `None`；
-/// - [`fetch_url_body`]：导入动作无源上下文 → 恒 `None`；
-/// - `cover_api::search_one_cover_rule`：上游 `BookCover.searchCover` 以
-///   `CoverRule`（: BaseSource，含 `enabledCookieJar`）作 source → 传该开关。
-pub(crate) async fn fetch_body(
-    analyze_url: &AnalyzeUrl,
-    cookie_jar_enabled: Option<bool>,
-) -> Result<String, String> {
-    // data: URI（如百度汉语规则的 data:;base64,{{...}}）无需网络
-    if analyze_url.is_data_uri() {
-        return analyze_url
-            .get_byte_array_if_data_uri()
-            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
-            .ok_or_else(|| "data: URI 解码失败".to_string());
-    }
-
-    let url = analyze_url.url();
-    if url.is_empty() {
-        return Err("AnalyzeUrl 解析后 URL 为空".to_string());
-    }
-
-    let client = crate::http_state::shared_client().map_err(|e| e.to_string())?;
-    let headers = compose_fetch_headers(analyze_url, cookie_jar_enabled);
-
-    // P2-19 批3：urlOption followRedirects / retry 经 fetcher 汇聚点发送
-    //（文本路径；method 仍由 AnalyzeUrl 决定，语义与改前一致）
-    let response = legado_fetcher::analyze_request::send_text(&client, analyze_url, headers)
-        .await
-        .map_err(|e| format!("网络请求失败: {e}"))?;
-    if !response.is_success() {
-        return Err(format!("HTTP {}", response.status));
-    }
-    Ok(response.body)
-}
-
-/// 组装取体请求头：AnalyzeUrl 规则 headers + 按源开关补写侧 CookieJar 标记
-///
-/// 独立成纯函数便于单测（接线存在性）：无 headers 且未补标记时返回 `None`，
-/// 保持改前「空 headers → None」的发送形态。
-fn compose_fetch_headers(
-    analyze_url: &AnalyzeUrl,
-    cookie_jar_enabled: Option<bool>,
-) -> Option<HashMap<String, String>> {
-    let mut headers = analyze_url.headers().clone();
-    // 写侧门控（批 2 残差接线）：`Some(true)` 补内部标记头，发送前由
-    // legado-net 剥离（绝不出网）；None/false 按关。
-    legado_fetcher::web_book::apply_cookie_jar_marker_by_flag(&mut headers, cookie_jar_enabled);
-    if headers.is_empty() {
-        None
-    } else {
-        Some(headers)
-    }
-}
-
-// ─── showRule 解析 ──────────────────────────────────────────────
-
-/// 应用 showRule（对标 Kotlin `AnalyzeRule.getString(showRule, mContent = body)`）
-///
-/// - 空规则：直接返回 body（对齐 `DictRule.search` 的 isBlank 分支）；
-/// - 含 `@js:` 的规则：原版 `splitSourceRule` 将 `selector@js:code` 拆为
-///   级联子规则逐级执行；此处实现单级拆分（选择器结果作为 JS 的 `result`
-///   绑定后再执行，覆盖默认 5 源的规则形态）；
-/// - 纯选择器规则：交 `AnalyzeRule` 自动路由（CSS/XPath/JsonPath/正则）。
-fn apply_show_rule(
-    rule_name: &str,
-    show_rule: &str,
-    body: &str,
-    base_url: &str,
-    key: &str,
-) -> Result<String, String> {
-    let rule = show_rule.trim();
-    if rule.is_empty() {
-        return Ok(body.to_string());
-    }
-
-    let tag = engine_tag(rule_name);
-    match rule.find("@js:") {
-        None => build_analyzer(body, base_url, &tag, key)
-            .get_string(rule)
-            .map_err(|e| format!("showRule 解析失败: {e}")),
-        Some(idx) => {
-            let selector = rule[..idx].trim();
-            let js_code = &rule[idx + "@js:".len()..];
-
-            // 前置选择器（若有）先解析，结果作为 JS 的 result 绑定
-            let intermediate = if selector.is_empty() {
-                body.to_string()
-            } else {
-                build_analyzer(body, base_url, &tag, key)
-                    .get_string(selector)
-                    .map_err(|e| format!("showRule 选择器解析失败: {e}"))?
-            };
-
-            let executor = DictScopeExecutor::new(&tag, key, &intermediate);
-            executor.execute_js(js_code)
-        }
-    }
-}
-
-/// 构建规则解析器（注入字典作用域 JS 执行器，使 showRule 中的
-/// `result` / `key` 绑定可用；无 quickjs 时 JS 规则降级报错）
-fn build_analyzer(content: &str, base_url: &str, tag: &str, key: &str) -> AnalyzeRule {
-    let executor = DictScopeExecutor::new(tag, key, content);
-    AnalyzeRule::with_js_executor(
-        content.to_string(),
-        base_url.to_string(),
-        Arc::new(executor),
-    )
-}
-
-// ─── JS 作用域执行器 ────────────────────────────────────────────
-
-/// 引擎池缓存标签（按规则名分桶，同书源 URL 分桶模式）
-fn engine_tag(rule_name: &str) -> String {
-    format!("dict:{rule_name}")
-}
-
-/// 字典规则 JS 作用域执行器
-///
-/// 对标 Kotlin `AnalyzeUrl.evalJS` / `AnalyzeRule.evalJS` 的脚本绑定
-/// （`bindings["key"]` / `bindings["result"]` 等）：QuickJS 无等价
-/// bindings 注入口，故以 `globalThis.key/word/result = <JSON 字面量>;`
-/// 前置注入后再执行（同 `js_executor::execute_login_check_response` 的既有模式；
-/// [能力对账批次 2] var → globalThis 属性注入，不注册全局 var 条目）。
-struct DictScopeExecutor {
-    base: Option<Arc<dyn JsExecutor>>,
-    prelude: String,
-    variables: legado_parser::VariableReader,
-}
-
-impl DictScopeExecutor {
-    fn new(tag: &str, key: &str, result: &str) -> Self {
-        Self::with_resources(&crate::engine_holder::js_resources(), tag, key, result)
-    }
-
-    fn with_resources(
-        resources: &legado_js::JsResources,
-        tag: &str,
-        key: &str,
-        result: &str,
-    ) -> Self {
-        // 用途、规则标签与查询词分别保存，避免拼接身份碰撞。
-        let resources = resources.for_source("dictionary", tag, key);
-        let variables = resources.variable_reader();
-        #[cfg(feature = "quickjs")]
-        let base = Some(Arc::new(
-            crate::js_executor::QuickJsExecutor::new(tag).with_resources(resources),
-        ) as Arc<dyn JsExecutor>);
-        #[cfg(not(feature = "quickjs"))]
-        let base = None;
-        // [能力对账批次 2 | #702/#850] var → globalThis 属性注入（不注册全局
-        // var 条目，与规则块顶层 let 声明不再冲突；读路径等价）
-        let prelude = format!(
-            "globalThis.key = {};\nglobalThis.word = {};\nglobalThis.result = {};\n",
-            js_string_literal(key),
-            js_string_literal(key),
-            js_string_literal(result),
-        );
-        Self {
-            base,
-            prelude,
-            variables,
-        }
-    }
-}
-
-impl JsExecutor for DictScopeExecutor {
-    fn read_variable(&self, key: &str) -> Option<String> {
-        (self.variables)(key)
-    }
-
-    fn execute_js(&self, js_code: &str) -> Result<String, String> {
-        match &self.base {
-            Some(base) => base.execute_js(&format!("{}{}", self.prelude, js_code)),
-            None => Err("未启用 JS 引擎（quickjs 特性未编译），@js 规则不可用".to_string()),
-        }
-    }
-}
-
-/// 生成 JS 字符串字面量（JSON 字符串是合法的 JS 字符串字面量，
-/// 天然处理引号/反斜杠/换行转义）
-fn js_string_literal(s: &str) -> String {
-    serde_json::to_string(s).unwrap_or_else(|_| "''".to_string())
-}
-
-// ─── HTML → 纯文本 ──────────────────────────────────────────────
-
-/// 块级标签（转换为换行）
-static BLOCK_TAG_RE: OnceLock<Regex> = OnceLock::new();
-/// 任意 HTML 标签（剥离）
-static ANY_TAG_RE: OnceLock<Regex> = OnceLock::new();
-
-/// 轻量 HTML → 纯文本转换
-///
-/// 原版在 WebView 中渲染规则产出的 HTML；本契约 `definitions` 为纯文本
-/// 列表，故做保守转换：块级标签转换行 → 剥离剩余标签 → 解码常见实体。
-/// 不追求完整 HTML 语义（非本层职责），仅保证释义可读。
-fn html_to_text(html: &str) -> String {
-    let block_re = BLOCK_TAG_RE.get_or_init(|| {
-        Regex::new(r"(?i)<br\s*/?>|</(?:p|div|h[1-6]|li|ul|ol|tr|table|section|blockquote)>")
-            .expect("块级标签正则编译失败")
-    });
-    let any_re = ANY_TAG_RE.get_or_init(|| Regex::new(r"<[^>]+>").expect("标签剥离正则编译失败"));
-
-    let s = block_re.replace_all(html, "\n");
-    let s = any_re.replace_all(&s, "");
-    let s = decode_html_entities(&s);
-
-    // 压缩多余空行并去除行首尾空白
-    let mut out = String::with_capacity(s.len());
-    let mut blank = false;
-    for line in s.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            if !blank && !out.is_empty() {
-                out.push('\n');
-                blank = true;
-            }
-        } else {
-            if blank {
-                out.push('\n');
-            }
-            if !out.is_empty() && !out.ends_with('\n') {
-                out.push('\n');
-            }
-            out.push_str(line);
-            blank = false;
-        }
-    }
-    out
-}
-
-/// 解码常见 HTML 实体（&amp; 最后处理，避免二次解码）
-fn decode_html_entities(s: &str) -> String {
-    s.replace("&nbsp;", " ")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&")
-}
-
-/// 空结果条目
-fn empty_entry(word: String) -> DictEntry {
-    DictEntry {
-        word,
-        phonetic: String::new(),
-        definitions: Vec::new(),
-    }
-}
-
+#[cfg(test)]
+use crate::db_state::with_database;
+#[cfg(test)]
+use legado_db::DictRuleRepository;
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -663,50 +119,6 @@ mod tests {
     }
 
     /// 规则查询路径：data: URI urlRule（免网络）+ 空 showRule 直返 body
-    #[cfg(feature = "quickjs")]
-    #[test]
-    fn dict_cached_scope_follows_rule_and_word_without_cross_engine_variables() {
-        let resources = legado_js::JsResources::default();
-        let a = DictScopeExecutor::with_resources(&resources, "same-rule", "甲", "body-a");
-        let b = DictScopeExecutor::with_resources(&resources, "same-rule", "乙", "body-b");
-        a.execute_js("globalThis.savedRead=java.__lgStoreGet; java.__lgStorePut('key','a')")
-            .unwrap();
-        b.execute_js("java.__lgStorePut('key','b')").unwrap();
-        assert_eq!(
-            a.execute_js("key + ':' + savedRead('key')").unwrap(),
-            "甲:a"
-        );
-        assert_eq!(
-            b.execute_js("key + ':' + savedRead('key')").unwrap(),
-            "乙:b"
-        );
-        let other = DictScopeExecutor::with_resources(
-            &legado_js::JsResources::default(),
-            "same-rule",
-            "甲",
-            "other",
-        );
-        assert_eq!(other.execute_js("java.__lgStoreGet('key')").unwrap(), "");
-        let parser = AnalyzeRule::with_js_executor(String::new(), String::new(), Arc::new(a));
-        assert_eq!(parser.get_string("@get:{key}").unwrap(), "a");
-    }
-
-    #[test]
-    fn dict_reader_is_explicit_even_without_a_js_executor() {
-        let store = Arc::new(legado_js::variables::VariableStore::default());
-        let scope = store.fresh_flow("dict");
-        scope.put_flow_variable("key", "value").unwrap();
-        let executor = DictScopeExecutor {
-            base: None,
-            prelude: String::new(),
-            variables: scope.reader(),
-        };
-        assert_eq!(executor.read_variable("key").as_deref(), Some("value"));
-        assert!(
-            executor.execute_js("1").is_err(),
-            "仅注入读者不能开启 JS 执行"
-        );
-    }
 
     #[test]
     fn test_lookup_data_uri_rule() {
@@ -850,108 +262,6 @@ mod tests {
         assert!(json.get("phonetic").is_some());
         assert!(json.get("definitions").is_some());
         assert!(json["definitions"].is_array());
-    }
-
-    /// HTML → 纯文本转换
-    #[test]
-    fn test_html_to_text() {
-        let html = "<h3>拼音</h3><br><p>释义一&nbsp;&amp;</p><script>x()</script>尾部";
-        let text = html_to_text(html);
-        assert!(text.contains("拼音"));
-        assert!(text.contains("释义一 &"));
-        assert!(!text.contains('<'));
-        assert!(!text.contains("script"));
-        assert!(text.contains("尾部"));
-    }
-
-    // ─── 导入解析（纯函数，无需 DB）────────────────────────────────────────
-
-    /// 导入解析：GSON 数组（enabled/sortNumber 缺省对齐 GSON 语义）
-    #[test]
-    fn test_import_parse_rules_array() {
-        let json = r#"[{"name":"A","urlRule":"http://a","showRule":"sa","enabled":true,"sortNumber":0},{"name":"B","urlRule":"http://b","showRule":"sb"}]"#;
-        let rules = parse_import_rules(json).unwrap();
-        assert_eq!(rules.len(), 2);
-        assert_eq!(rules[0].name, "A");
-        assert_eq!(rules[0].url_rule, "http://a");
-        assert!(rules[0].is_enabled);
-        // B 缺省 enabled（GSON 默认 true）与 sortNumber（默认 0）
-        assert!(rules[1].is_enabled);
-        assert_eq!(rules[1].sort_order, 0);
-    }
-
-    /// 导入解析：单对象（非数组）
-    #[test]
-    fn test_import_parse_rules_single() {
-        let json = r#"{"name":"X","urlRule":"http://x","showRule":"sx"}"#;
-        let rules = parse_import_rules(json).unwrap();
-        assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].name, "X");
-        assert!(rules[0].is_enabled);
-    }
-
-    /// 导入解析：错误与过滤（空/非法 JSON、空 name 过滤）
-    #[test]
-    fn test_import_parse_rules_errors_and_filter() {
-        assert!(parse_import_rules("").is_err());
-        assert!(parse_import_rules("   ").is_err());
-        assert!(parse_import_rules("not json").is_err());
-        assert!(parse_import_rules(r#"[{"name":"A" broken"#).is_err());
-        // 空 name 条目被过滤，其余保留
-        let rules = parse_import_rules(r#"[{"name":"","urlRule":"x"},{"name":"B","urlRule":"y"}]"#)
-            .unwrap();
-        assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].name, "B");
-    }
-
-    /// 取体请求头组装（批 2 残差接线）：None/false → 不补且空 headers 维持
-    /// `None` 形态；Some(true) → 补标记；规则 headers 保留、同名键只补不覆盖。
-    #[test]
-    fn test_compose_fetch_headers_cookie_jar_gate() {
-        let plain = AnalyzeUrl::parse("http://example.com/x", &HashMap::new(), 1).unwrap();
-        assert!(compose_fetch_headers(&plain, None).is_none());
-        assert!(compose_fetch_headers(&plain, Some(false)).is_none());
-
-        let headers = compose_fetch_headers(&plain, Some(true)).expect("Some(true) 应产出标记头");
-        assert_eq!(
-            headers
-                .get(legado_net::COOKIE_JAR_HEADER)
-                .map(String::as_str),
-            Some("1")
-        );
-
-        // 规则 headers 保留 + 标记追加
-        let with_rule = AnalyzeUrl::parse(
-            r#"http://example.com/x,{"headers":{"X-Test":"1"}}"#,
-            &HashMap::new(),
-            1,
-        )
-        .unwrap();
-        let headers = compose_fetch_headers(&with_rule, None).unwrap();
-        assert_eq!(headers.get("X-Test").map(String::as_str), Some("1"));
-        let headers = compose_fetch_headers(&with_rule, Some(true)).unwrap();
-        assert_eq!(headers.get("X-Test").map(String::as_str), Some("1"));
-        assert_eq!(
-            headers
-                .get(legado_net::COOKIE_JAR_HEADER)
-                .map(String::as_str),
-            Some("1")
-        );
-
-        // 同名键只补不覆盖（跟随上游同名机制）
-        let same_name = AnalyzeUrl::parse(
-            r#"http://example.com/x,{"headers":{"CookieJar":"rule"}}"#,
-            &HashMap::new(),
-            1,
-        )
-        .unwrap();
-        let headers = compose_fetch_headers(&same_name, Some(true)).unwrap();
-        assert_eq!(
-            headers
-                .get(legado_net::COOKIE_JAR_HEADER)
-                .map(String::as_str),
-            Some("rule")
-        );
     }
 
     // ─── CRUD 全流程（经 API 层，DB 隔离）────────────────────────────────

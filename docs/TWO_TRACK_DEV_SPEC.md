@@ -414,3 +414,25 @@ Parser的skip_serializing_if改变既有文档形状。签名、DTO字段、生�
 不增加外部宿主或独立RPC协议。实现状态与验证限制只记Active计划。
 
 编写者：Codex｜2026-10-17
+
+
+### 词典与封面规则应用服务边界（2026-10-17）
+
+`legado-engine/dictionary_service`负责词典查询、规则CRUD/排序/导入、JS作用域与释义处理；
+`cover_service`负责封面配置和串行规则搜索；两者共享`rule_text`取体实现，不互调FFI业务入口。
+各服务显式接收可选StorageContext、NetworkContext、JsResources和宿主Handle，
+只捕获所属实例能力，不持根EngineContext、不创建运行时或在请求期间回查当前宿主。
+默认封面JSON由宿主注入，服务仅在需要回退时解析，不依赖FFI的assets目录。
+
+词典保持空表种子、trim保留大小写、排序和按名称导入保留ID；导入明确报错，查询单规则失败跳过。
+封面保持单配置保存、缺配置回退、禁用源不执行与相对URL补全。共享取体沿用data URI、
+AnalyzeUrl方法/请求头/body、followRedirects/retry和15秒外层超时，不另造网络请求策略。
+词典及导入不主动补CookieJar，封面按配置只补不覆盖，内部标记仍由Net剥离后发送。
+不新增任务取消/限流、事务、HTML渲染、字典分标签或其他用户可见行为。
+
+FFI保留宿主能力装配、规则DTO和JSON文档转换；DictEntry与CoverRuleConfig在原路径重导出，
+传输字段、序列化空值和持久化文档不变。Engine的regex直接依赖使用工作区已有锁定版本，
+不升级外部包。测试复用本地HTTP夹具，仅增加可配置响应头以检查真实Set-Cookie门控。
+完整进度与验证边界只记Active计划；音频/TTS业务继续暂缓。
+
+编写者：Codex｜2026-10-17
