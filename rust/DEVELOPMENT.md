@@ -48,40 +48,35 @@ flutter_rust_bridge_codegen --version
 
 ## 项目结构
 
-本项目由 8 个 Rust crate 组成，分层架构如下：
+本项目由 11 个 Rust crate 组成。以下工作区内部依赖依据Cargo元数据核对，包含可选依赖；
+各feature实际启用的网络/JS能力以对应Cargo.toml为准。
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Flutter UI 层                      │
-│              (flutter_legado/)                       │
-└────────────────────────┬────────────────────────────┘
-                         │  flutter_rust_bridge (FFI)
-┌────────────────────────▼────────────────────────────┐
-│                    legado-ffi                        │
-│           (cdylib / staticlib 入口)                  │
-├──────────┬──────────┬──────────┬──────────┬─────────┤
-│legado-   │legado-   │legado-   │legado-   │legado-  │
-│parser    │net       │js        │book      │db       │
-├──────────┴──────────┴──────────┴──────────┴─────────┤
-│                   legado-core                        │
-│            (公共类型 / 错误 / 工具)                   │
-└─────────────────────────────────────────────────────┘
-
-legado-server — 独立 HTTP 服务，依赖 legado-core/db/net/parser/js
+```text
+Flutter → legado-ffi ─┐
+HTTP/MCP → legado-server ─┼→ legado-engine → fetcher / js / db / book / net / parser
+                         └→ 宿主所需的平台与传输适配
+core → layout（阅读状态消费原文页范围类型）
 ```
 
-### Crate 依赖关系
+宿主可以直接调用薄仓储和纯算法；业务编排集中在Engine服务，不要求每次调用都增加转发层。
+FFI为应用宿主持有根实例，独立EngineContext保持实例资源隔离。宿主负责运行时及平台事件，
+无需把进程入口的所有槽位或平台通道都改成业务上下文。
 
-| Crate | 依赖 | 说明 |
-|-------|------|------|
-| **legado-core** | serde, thiserror | 无内部依赖，公共基础层 |
-| **legado-parser** | core | 书源规则解析（CSS/XPath/Regex/JsonPath） |
-| **legado-net** | core | HTTP 请求、Cookie、URL 模板、RSS、WebDAV |
-| **legado-js** | core | JavaScript 沙箱（可选 QuickJS feature） |
-| **legado-book** | core | 书籍文件解析（EPUB/TXT/MOBI/PDF） |
-| **legado-db** | core | SQLite 数据库（rusqlite bundled） |
-| **legado-ffi** | 全部 | FFI 出口，聚合所有 crate |
-| **legado-server** | core, db, net, parser, js | axum HTTP 服务 |
+### Crate 内部依赖关系
+
+| Crate | 直接内部依赖 | 职责 |
+|---|---|---|
+| `legado-layout` | 无 | 无平台的纯计算排版内核 |
+| `legado-core` | layout | 公共模型、错误、纯规则与既有状态算法；页范围类型来自layout |
+| `legado-parser` | core | 规则/URL解析，通过trait注入JS能力 |
+| `legado-net` | core | HTTP、Cookie、WebDAV及网络基础能力 |
+| `legado-book` | core | 本地书籍/归档/编码处理 |
+| `legado-db` | core | SQLite连接、迁移与仓储 |
+| `legado-js` | core, net, parser | JavaScript沙箱与宿主数据能力 |
+| `legado-fetcher` | core, js, net, parser | 共享抓取、规则求值与书源调度 |
+| `legado-engine` | book, core, db, fetcher, js, net, parser | 实例资源、任务生命周期及应用服务，不拥有宿主Runtime |
+| `legado-server` | book, core, db, engine, fetcher, js, net | HTTP/MCP宿主与路由，复用实例资源及服务 |
+| `legado-ffi` | book, core, db, engine, fetcher, js, layout, net, parser, server | Flutter宿主装配、平台接线与FRB边界 |
 
 ---
 
@@ -206,14 +201,12 @@ python scripts/dev.py run windows --profile debug
 | `types.rs` | 通用类型定义 |
 | `models/` | 数据模型：Book、BookChapter、BookSource、RssSource、Misc、ExploreRule、ReviewRule |
 | `crypto.rs` | 加密工具：AES/DES/RC4 |
-| `layout.rs` | 排版引擎 |
+| `reader_state.rs` | 阅读状态与原文位置，复用layout的页范围类型 |
 | `source_matcher.rs` | 换源匹配器 |
 | `search_engine.rs` | 搜索引擎接口 |
 | `web_book.rs` | WebBook 搜索完整链路（搜索→详情→目录→内容） |
 | `cache_book.rs` | 离线缓存模型与管理 |
 | `audio.rs` | 音频/TTS 类型定义 |
-| `reading_stats.rs` | 阅读统计数据类型 |
-| `ffi_macros.rs` | FFI 辅助宏 |
 
 ### legado-parser — 书源规则解析
 

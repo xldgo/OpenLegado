@@ -8,7 +8,8 @@
 - 类型化候选：规则解析的results/count、旧版备份导入统计、WebDAV全量同步固定外层；真实文档/脚本/正文仍用字符串，动态字段不伪装为静态枚举，继续SSE、不宣称零拷贝。以实际调用链确定完整迁移范围，避免为消除String而扩大功能。
 - 验证与关闭：相关Rust行为回归与严格检查，契约批次集中生成/重建正式Windows DLL和实际FRB验证；复用已有测试，不新增外部宿主/协议，不重复全量CI。Active为唯一状态源，自查/平台未测边界如实记录；每批可独立回滚。不自动启动替换规则写入、订阅实体落库、自动任务真实动作或缓存过期设置缺口。
 - 安全补丁结果：SourceLockGuard将MutexGuard存入Option并在Drop中take后显式释放，随后才析构Arc字段；正常与中毒获取路径保持原算法，!Send仍由MutexGuard类型约束。新增容器先析构/最后entry释放和中毒恢复/同key互斥两项真实回归，原相关用例保留，共16项通过；core全目标Clippy -D warnings与格式/差异检查通过。环境未安装Miri，普通回归不冒称动态UB检测；安全性依据显式Drop顺序和字段私有封装复核。证据：build/rust-boundary-next/source-lock-{tests,clippy}.log。
-- 状态：安全补丁完成并单独本地提交，继续集成准备及固定结果类型化。
+- 集成准备：固定主目录f13431d74与本worktree安全补丁53c584207对比，共同基线01d4dfc35；两侧提交修改文件仅Active计划重叠。git merge-tree只创建预演树对象，没有修改工作区/index/分支或真正合并，返回1且仅Active存在文本冲突。后续集成应合并保留两侧任务记录，禁止拿一侧整文件覆盖；不代表编译/行为集成已验收。主目录未提交架构报告未修改。cargo metadata --locked --offline --no-deps确认11crate及内部依赖，纠正rust/DEVELOPMENT.md的8crate/无内部依赖/不存在文件和API模块bridge.rs说明；README已正确，不重复改。证据：build/rust-boundary-next/integration-preview.{json,log}。
+- 状态：安全补丁53c584207已提交，集成准备与模块说明核对完成后本地提交；继续固定结果类型化，不执行真实合并。
 
 编写者：Codex｜2026-10-18
 

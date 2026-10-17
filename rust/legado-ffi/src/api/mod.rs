@@ -1,6 +1,6 @@
-//! 业务逻辑 API 模块
+//! 宿主 API 适配模块
 //!
-//! 各子模块实现具体的业务操作，由 bridge.rs 的 FFI 函数调用。
+//! 各子模块装配资源、转换参数并调用Engine服务/仓储/纯算法，由ffi.rs导出到Flutter。
 
 pub mod archive_import_api;
 pub mod audio_api;
