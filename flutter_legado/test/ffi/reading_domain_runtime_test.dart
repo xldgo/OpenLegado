@@ -7,8 +7,11 @@ import 'dart:io';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/data/repositories/rust_book_group_repository.dart';
+import 'package:flutter_legado/src/data/repositories/rust_cache_repository.dart';
+import 'package:flutter_legado/src/data/repositories/rust_chapter_cache_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_highlight_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_highlight_rule_repository.dart';
+import 'package:flutter_legado/src/data/services/rust_database_maintenance_service.dart';
 import 'package:flutter_legado/src/domain/models/book_highlight.dart';
 import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 import 'package:flutter_legado/src/models/misc.dart';
@@ -34,6 +37,43 @@ void main() {
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });
   tearDownAll(RustLib.dispose);
+
+  test('章节缓存经真实服务与绑定往返，单章清理不删他章', () async {
+    const chapters = RustChapterCacheRepository();
+    const cache = RustCacheRepository();
+    const maintenance = RustDatabaseMaintenanceService();
+    const book = 'fixture://cache😀';
+    for (var index = 0; index < 2; index++) {
+      expect(
+        await bridge.saveChapterContent(
+          bookUrl: book,
+          chapterIndex: index,
+          title: '第$index章',
+          content: '正文😀$index',
+          chapterUrl: 'chapter://$index',
+        ),
+        isTrue,
+      );
+    }
+    expect(await chapters.getCachedChapter(book, 0), '正文😀0');
+    expect(await chapters.listCachedChapterUrls(book), [
+      'chapter://0',
+      'chapter://1',
+    ]);
+    final entries = await bridge.cacheListCachedChapters(bookUrl: book);
+    expect(entries.map((e) => e.url), ['chapter://0', 'chapter://1']);
+    expect(entries.every((e) => e.wordCount.isEmpty), isTrue);
+    expect(await cache.getCacheBookCount(), 1);
+    expect(await cache.getCacheChapterCount(), 2);
+    expect(await cache.getCacheSize(), greaterThan(0));
+    expect(await chapters.clearChapterCache(book, 0), 1);
+    expect(await chapters.getCachedChapter(book, 0), isEmpty);
+    expect(await chapters.getCachedChapter(book, 1), '正文😀1');
+    expect(await chapters.clearBookCache(book), 1);
+    await cache.clearCacheBefore(0);
+    expect(await cache.getCacheChapterCount(), 0);
+    expect(await maintenance.shrinkDatabase(), greaterThanOrEqualTo(0));
+  });
 
   test('标注经真实绑定往返，UTF-16范围、样式、自动主键和覆盖均保持', () async {
     const repo = RustHighlightRepository();

@@ -16,21 +16,15 @@ use crate::db_state::with_database;
 /// 新增/更新高亮记录（INSERT OR REPLACE，主键为 time）
 ///
 /// time 为 0 时自动分配当前 Unix 毫秒时间戳。返回保存后的 time。
-pub fn highlight_add(mut highlight: BookHighlight) -> LegadoResult<i64> {
-    let auto_time = highlight.time == 0;
-    if auto_time {
-        highlight.time = current_time_millis();
-    }
+pub fn highlight_add(highlight: BookHighlight) -> LegadoResult<i64> {
+    let fallback_time = if highlight.time == 0 {
+        current_time_millis()
+    } else {
+        highlight.time
+    };
     with_database(|db| {
         let repo = HighlightRepository::new(db.connection());
-        // 自动分配 time 时若与已有记录撞主键（同一毫秒多次新增），向后顺延
-        if auto_time {
-            while repo.find_by_time(highlight.time)?.is_some() {
-                highlight.time += 1;
-            }
-        }
-        repo.insert(&highlight)?;
-        Ok(highlight.time)
+        repo.insert_with_fallback_time(highlight, fallback_time)
     })
 }
 

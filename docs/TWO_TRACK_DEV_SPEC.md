@@ -659,3 +659,31 @@ CRUD、非Custom执行及调度计算保持原行为，不新增调度器、取�
 FFI签名/DTO/生成绑定、schema、依赖与UI不变，状态与证据仅维护于Active计划。
 
 编写者：Codex｜2026-10-18
+
+
+### 章节缓存与剩余宿主边界（2026-10-18）
+
+reading_service::ChapterCacheService只持StorageContext，承接当前目录有效性过滤、
+字数映射、清理时复位章级开关、统计及VACUUM。写入继续调用原
+save_chapter_content_with_storage；空正文在未开库时仍返回false，压缩失败仍返回0。
+清理顺序、LIKE转义、非事务语义与原错误保持，不借迁移改变缓存产品规则。
+CachedChapterEntry从原API路径重导出，FRB仍使用原CachedChapterDto。
+标注的自动时间碰撞顺延归HighlightRepository，宿主只提供一次时间；
+显式主键保留INSERT OR REPLACE，不新增事务或宣称消除并发分配竞态。
+
+剩余入口按实际职责保留，不以清空api目录为目标：
+
+| 入口 | 保留职责 |
+|---|---|
+| read_record/bookmark/book_group/config/search_history/privacy | 薄仓储调用、输入默认值与结果映射 |
+| archive_import/cbz | 路径及结果适配，算法已在legado-book |
+| download | Engine所属队列的模型与DTO适配；实际下载由实例服务承接 |
+| server/net | 宿主运行时、监听服务及网络配置恢复/重建接线 |
+| verification/webview | 平台事件桥、回传及Cookie写入后唤醒；原core通道仍为进程级 |
+| layout_bridge | 正式FRB句柄及类型适配，计算已在legado-layout |
+
+已下沉领域的FFI继续负责原文档解析、资源装配和结果映射。音频/TTS、订阅实际落库、
+替换规则写入缺口及剩余固定诊断类型化沿用既定后置安排；不宣称全部全局状态消失。
+公开FFI/生成绑定、schema、依赖、应用版本与UI不变，状态与验证仅维护于Active计划。
+
+编写者：Codex｜2026-10-18

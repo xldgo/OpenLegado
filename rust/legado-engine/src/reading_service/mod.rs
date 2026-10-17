@@ -14,11 +14,13 @@ use legado_fetcher::deps::FetcherDeps;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 mod access;
+mod cache;
 mod content;
 mod pre_update;
 mod processing;
 mod toc;
 pub use access::{chapter_to_local_info, is_local_book};
+pub use cache::{CachedChapterEntry, ChapterCacheService};
 pub use content::{
     ChapterContent, ChapterRequest, RawChapter, save_chapter_cache,
     save_chapter_content_with_storage,

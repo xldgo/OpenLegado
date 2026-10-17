@@ -9,7 +9,13 @@
 - 阶段4与完成标准：保留并复用原测试，按批必要自测/严格检查后提交，正式DLL及跨批真实FRB集中做一次；最后相关Rust与Flutter集中回归、宿主引用/闲置代码核查与文档同步。公开FFI签名/DTO/生成绑定、UI、schema、依赖和应用版本不变，不新增外部测试宿主/设备性能任务。单代理自查，无独立外审如实记录，平台验证不冒称完成。
 - 阶段1完成：BookshelfService集中原9个实体/读写方法与书源合并；FFI公开签名及原测试模块不变，迁移正文资源替换后逐段一致。新增1项实际SQLite用例覆盖陈旧源保护/进度/章节不级联删除/排序/同标识实例隔离；首轮夹具误把Option<String>写为String，修正后Engine/FFI定向2项通过。原reading_flow_rust_defects中进度相关4项通过（含真实持锁失败/释放后重试成功），默认全目标严格Clippy与限定格式/差异检查通过。证据：build/engine-services-closeout/shelf-{tests,tests-final,progress,clippy}.log及shelf-review.json；初轮失败不计通过。正式DLL及跨批复验按计划集中执行，本批不提前宣称完成这些验证。
 - 阶段2完成：AutoTaskService集中完整实体与core计算模型的适配、文档导入合并、Cron回写、CRUD、自定义JS及结果组装。FFI保留协议文档解析和原路径重导出；原10项FFI测试原样保留，新增1项独立SQLite/JS实例用例，覆盖完整字段、相同ID隔离、根释放后数据能力存续及成功/失败结果。QuickJS定向Engine1/FFI13共14项、default Engine1/FFI10共11项通过，两档Engine/FFI全目标严格Clippy通过。执行体在移除边界解析和资源替换后与原实现一致；保留每次独立flow与原executor缓存，不宣称每次独立VM。自查发现机械提取误复制无QuickJS分支，已在默认构建验证前恢复原错误返回；辅助比对最初受缩进影响，规范化后全部一致，不作为行为测试。证据：build/engine-services-closeout/auto-{quick,default,clippy,default-clippy}.log及auto-review.json。正式DLL仍留到跨批集中验证。
-- 状态：阶段1已提交d55b84571，阶段2验证后本地提交，继续阶段3/4；各批可独立回滚，最终以实现和验证证据关闭已授权范围。
+- 阶段3核查与范围：章节缓存入口仍有目录失效过滤、当前字数映射、清理时复位章级开关及VACUUM规则，迁入现有reading_service下的ChapterCacheService，仅捕获StorageContext并复用既有写入；CachedChapterEntry从原API路径重导出，公开FFI/DTO不变。标注时间为零时的碰撞顺延下沉现有HighlightRepository，宿主只供时钟，显式主键仍覆盖；不新增事务/并发策略。删除迁移后无消费者的crate私有写入helper重导出。原缓存/标注测试模块逐字保留，补真实SQLite的实例存储归属/旧目录过滤/带LIKE通配符URL清理范围及固定时间碰撞测试。首轮新增夹具未显式处理rusqlite错误而编译失败，已修正；不计通过，最终结果另记。
+- 阶段3保留边界：阅读记录/书签/分组/配置/搜索历史为薄仓储与参数映射；归档/编码/CBZ算法已在book；下载入口为既有队列模型/DTO适配，实际下载已由实例服务承接；Server/网络配置为宿主生命周期与初始化接线；WebView/验证码为平台事件桥，仍使用原core进程级通道，并未改造成多实例通道。layout为FRB句柄边界。音频/TTS及已登记后置缺口不扩入；没有把剩余JSON文档/宿主适配误报为业务未迁完。
+- 阶段3/4回归：default缓存定向DB22/Engine24/FFI55共101项通过、2项既有忽略；标注定向DB17/FFI5共22项通过。最终QuickJS完整库Engine113/FFI552共665项通过，42项既有忽略；DB/Engine/FFI两档全目标Clippy -D warnings、限定Rust格式及git diff --check通过，无新增lint放行。原缓存/标注测试模块与缓存公开签名不变；搬迁逐段复核除存储替换外，仅rustfmt把clear_cache_before中单表达式map_err改为等价块闭包。辅助代码比对不作为行为测试，首轮夹具编译失败不计通过。
+- 阶段4正式接线：Python正式入口只重建一次Windows Debug QuickJS DLL，源码/构建输入指纹、源库与复制库摘要及初次/最终只读校验均通过。复用已有db_open_cookie_wiring和server_engine_cookies集成2项通过，覆盖原自动任务JS入口消费的Cookie/持久化与Web双向共享。Flutter原书架1项、自动任务3项及阅读域原3项均通过；在原阅读域文件增加1项缓存真实FRB往返，覆盖正文/类型化条目/统计/单章清理不误删他章/整书清理/压缩，共8项通过。没有新增外部测试宿主、通信协议或生成链路；Dart定向分析0 issue。
+- 自查与限制：仅Codex单代理实现及自查，无独立外审、远程CI、Android/iOS、真机或性能结论；不重复全量Flutter/UI验证。核对本轮FFI声明/DTO及FRB生成绑定、schema/迁移、锁文件、依赖与应用版本无改动，Engine新增服务不引用宿主根或运行时全局槽。前批共享测试数据库偶发锁冲突未在本轮销账，平台进程级通道及后置功能缺口未宣称迁完。
+- 证据：build/engine-services-closeout/下cache-default.log为首轮夹具编译失败，cache-default-final.log、highlight-default.log、final-quickjs.log、final-clippy-{default,quickjs}.log、runtime-cookie.log、dart-analysis.log、native-{build,verify,verify-final,runtime}.log为最终验证记录；shelf-review.json、auto-review.json与cache-review.json仅辅助代码审查。各正式命令最终退出码为0，未用文本检索假测试替代行为验证。
+- 状态：本轮授权四阶段的实现、剩余边界审计与本地集中验证完成，随本次代码提交关闭；阶段1为d55b84571，阶段2为ee5dae15f，阶段3/4合并为一个收口提交，不另做回填提交。每批可独立回滚；保持当前worktree/分支，不推送或合并。音频/TTS和已登记后置项继续暂缓。
 
 编写者：Codex｜2026-10-18
 
