@@ -243,14 +243,18 @@ flutter run -d windows --dart-define=USE_MOCK=true
 3. FFI 变更执行 §3 的双侧 codegen、native 构建及 hash 校验。
 4. 仅对 CI 未覆盖的平台或 UI 行为按统一工作流执行设备/桌面验收。
 
-**Flutter 排版测试的本地准备**：依赖 `test/helpers/reader_layout_host.dart` 的用例
-通过独立测试宿主调用真实 Rust 排版核心。先在仓库根目录执行
-`cargo build --locked --manifest-path rust/Cargo.toml -p legado-layout --example test_host`。
-默认查找当前工作树 `rust/target/debug/examples/test_host.exe`（Windows）；若通过
-`CARGO_TARGET_DIR` 复用其他输出目录，运行 Flutter 测试的终端须将
-`LEGADO_LAYOUT_TEST_HOST` 指向该目录内测试宿主的绝对路径。仅设置 Cargo 输出目录
-不会改变 Dart 测试辅助器的默认查找路径。此程序只用于测试，不参与应用打包；
-缺失时应先修复测试环境，再判断分页、选区或段评用例是否存在产品回退。
+**Flutter 排版测试的本地准备**：`test/helpers/native_reader_layout.dart` 复用正式
+`NativeReaderLayoutTransport` 与 FRB Opaque 会话，每个测试worker初始化一次绑定，
+用例结束清理尚未关闭的句柄；不启动应用或打开数据库。Windows在根目录使用
+`python scripts/dev.py build ffi windows --profile debug`；Linux/macOS使用
+`cargo build --locked --manifest-path rust/Cargo.toml -p legado-ffi --features quickjs`。
+默认从当前工作树 `rust/target/debug/` 加载对应的 DLL/so/dylib；复用其他Cargo目录时，
+将 `LEGADO_TEST_FFI_LIBRARY` 设置为实际原生库绝对路径。绑定与原生库必须来自同一契约。
+
+需要真实分页的Widget测试使用 `pumpNativeReaderLayout` / `settleNativeReaderLayout`
+交替等待真实I/O和推进测试帧；只调用 `pumpAndSettle` 不保证原生回调已经完成。
+普通组件测试继续使用固定布局输入，不要求原生库。旧逐次启动进程、重放全部内容的
+宿主及专用JSON测试链路已退役；测试辅助器只负责调度与清理，不另写分页算法。
 
 ### 7.3 集成失败处理
 

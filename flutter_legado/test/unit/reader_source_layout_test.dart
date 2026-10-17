@@ -1,6 +1,6 @@
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -33,7 +33,8 @@ Future<List<PageInfo>> _layout(
   bool hangingPunctuation = false,
 }) async {
   late List<PageInfo> pages;
-  await tester.pumpWidget(
+  await pumpNativeReaderLayout(
+    tester,
     MaterialApp(
       home: Scaffold(
         body: MediaQuery(
@@ -41,7 +42,7 @@ Future<List<PageInfo>> _layout(
           child: LayoutTestBuilder(
             builder: (context) async {
               pages = (await ParagraphLayoutEngine(
-                transport: RustLayoutTestTransport.instance,
+                transport: nativeReaderLayout,
                 context: context,
                 config: ParagraphConfig(
                   fontSize: 16,
@@ -75,11 +76,12 @@ Future<List<PageInfo>> _layout(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await settleNativeReaderLayout(tester);
   return pages;
 }
 
 void main() {
+  setUpNativeReaderLayout();
   test('分段保留混合换行、空白与重复段落的真实原文偏移', () async {
     const source = '\r\n　首段  \r\n\n重复段。\r重复段。\n\n';
     final paragraphs = splitChapterParagraphs(source);

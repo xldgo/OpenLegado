@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### LAYOUT-TEST-TRANSPORT-20261017：排版测试复用正式链路（P1）
+
+- 授权与基线：用户要求先将FFI worktree合并主目录，再在原worktree继续测试分层与宿主退役。主目录已快进到01d4dfc35，原未提交朗读诊断已备份、暂存并恢复；两份文档保留双方内容，云端合成器保持DTO并接入原诊断，其他18份文件逐字节保留，未提交用户改动。恢复stash与文件备份保留在本地。
+- 范围与顺序：去掉纯漫画测试无关的文字宿主依赖；需要真实排版的用例复用NativeReaderLayoutTransport与FRB绑定，按测试worker初始化、按用例释放会话；调整异步等待，保留算法/字段/几何断言；比较同一测试样本运行耗时；消费者迁完后删除旧进程与JSON重放辅助器、Rust example及CI旧准备步骤，更新开发文档。纯UI已使用固定布局的用例继续保留，不另写分页算法或RPC协议。
+- 执行：本轮迁移与Windows本地验证完成；原分支feature/rust-ffi-modernization，单代理，无推送/远程CI/应用构建安装；未改业务排版算法、FFI契约、数据库、依赖或版本。只在原worktree实施，主目录后续新增80880bef8朗读诊断提交，未带入本测试分支或改写其历史。FRB首次原生构建成本与测试执行时间分开，不预设CI整体耗时必然下降。
+- 实现：26份旧消费者中，5份漫画与书架返回用例去掉无关文字宿主（共6份），斜体组件改为固定布局（1份）；其余19份文字测量/选区/分页/重排用例复用正式NativeReaderLayoutTransport。新增辅助器只追踪真实I/O、交替驱动测试帧、用例结束清理句柄；错误转回原测试Zone，不另写协议/算法。80组上游页面和生命周期测试从混合业务FFI文件移入跨桌面平台的reader_layout_runtime_test，新增真实容量上限、失败释放与复用验证，无数据库准备。旧Dart进程重放辅助器和Rust test_host example删除；Flutter CI同一作业内构建本机QuickJS FFI库，不新增作业。
+- 修正假通过：旧段评用例最后的FutureBuilder未被等待；给旧宿主探针补等待后同样重现“20px不能容纳正文+24px紧凑角标”。保留产品最小空间规则，测试分别断言40px紧凑成功与20px明确失败，未修改算法或放宽几何断言。真实异步迁移首轮发现并修复测试时钟空转及跨Zone错误丢失，最终用例完整结束。
+- 验证：完整Flutter分析无问题；相关226项通过（包含真实句柄与80组上游样本），7份纯组件/漫画/书架用例在不存在原生库路径下69项通过；Rust核心10项（含既有260组对照样本）与严格Clippy通过，CI路由16项及actionlint通过。删除example后正式Python重建/校验独立Windows QuickJS DLL成功；混合业务FFI剩余4项另行复验通过。未执行全量Flutter/Rust工作区重跑、独立外审、Linux/macOS运行或远程CI，不宣称这些平台已经实测。
+- 计时：相同6635个UTF-16单元、120段、122次测量、27页，Windows debug、预热一轮后各三轮；旧进程链首屏/整章中位数84256/956677µs，新正式FRB链12418/96563µs。计时包含测试调度和传输，不能视为应用profile结果、算法加速或远程CI降本。原生构建为已有缓存下2.58秒Cargo构建，不代表首次冷构建成本。
+- 证据：build/layout-test-transport/中的final-related-tests.log、pure-without-native.log、analyze-closed.log、rust-layout.log、clippy-layout.log、ci-routing.log、native-build.log、remaining-ffi.log、benchmark-{before,after}.log和benchmark-summary.json；旧宿主补等待复现为old-host-awaited-probe.log。方法与准备命令回写TWO_TRACK_DEV_SPEC、READER_LAYOUT_REFERENCE与CI_ORCHESTRATION；无独立审查，按用户禁止子代理要求自查。
+
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
 - 新续批（本轮三阶段实现及本地验证完成，基线2c6b8b941）：用户授权发现动作/标题书源DTO收尾、生成副作用修复及一次集中集成验证。沿用现有worktree、单代理，不推送/合并/CI/安装，不更新版本或依赖；每个完整阶段本地提交。经典登录复用发现动作，随同迁移完整实体，不改变表单JSON或动作回放。完成范围仅限本轮，不代表全领域JSON退役或Android/iOS平台验收。

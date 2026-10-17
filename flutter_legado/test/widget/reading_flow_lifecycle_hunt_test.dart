@@ -1,5 +1,5 @@
 import '../fixtures/app_test_api.dart';
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 // 视角 C：阅读主流程「失败与边界 —— 进程生命周期」缺陷猎捕 —— 红态复现用例
 //
 // 本文件**故意断言「本应成立的不变量」**：当前实现不满足 → 用例红。
@@ -44,6 +44,7 @@ const _chapters = [
 ];
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   setUp(() {
@@ -85,11 +86,12 @@ void main() {
     WidgetTester tester,
     MockRustApi api,
   ) async {
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
         overrides: mergeTestOverrides([...api.overrides]),
         child: MaterialApp(
-          builder: readerLayoutTestBuilder,
+          builder: nativeReaderLayoutBuilder,
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(
@@ -108,14 +110,14 @@ void main() {
       ),
     );
     await tester.tap(find.text('进入阅读'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderScreen)),
     );
     final notifier = container.read(readerNotifierProvider.notifier);
     await notifier.openBook(_book);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     return (container, notifier);
   }
 
@@ -178,7 +180,7 @@ void main() {
       // 判定走「直接退出」路：saveProgress 落库 7 后 pop（断言语义不变）
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
       navigator.maybePop();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       expect(
         writes.map((w) => w[1]).toList(),

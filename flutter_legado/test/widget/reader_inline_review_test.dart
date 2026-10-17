@@ -1,4 +1,4 @@
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -10,8 +10,10 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_controller.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
 import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 
 void main() {
+  setUpNativeReaderLayout();
   for (final scale in [1.0, 2.0]) {
     testWidgets('段评只改变尾行，测绘同参且原生全选排除角标，缩放$scale', (tester) async {
       final controller = ReaderSelectionController();
@@ -20,7 +22,8 @@ void main() {
       late List<PageInfo> pages;
       late List<PageInfo> plain;
       var tapped = 0;
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         ProviderScope(
           child: MaterialApp(
             home: Scaffold(
@@ -29,7 +32,7 @@ void main() {
                 child: LayoutTestBuilder(
                   builder: (context) async {
                     final engine = ParagraphLayoutEngine(
-                      transport: RustLayoutTestTransport.instance,
+                      transport: nativeReaderLayout,
                       context: context,
                       config: ParagraphConfig(
                         fontSize: 16,
@@ -77,7 +80,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       final lines = pages
           .expand((p) => p.paragraphs)
           .expand((p) => p.lines)
@@ -106,19 +109,20 @@ void main() {
       tester
           .state<SelectableRegionState>(find.byType(SelectableRegion).first)
           .selectAll();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(controller.selection!.text, source);
       expect(tester.takeException(), isNull);
     });
   }
 
   testWidgets('段末正文与角标一起移页，正数槽宽固定，零评论无占位', (tester) async {
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: LayoutTestBuilder(
           builder: (context) async {
             final engine = ParagraphLayoutEngine(
-              transport: RustLayoutTestTransport.instance,
+              transport: nativeReaderLayout,
               context: context,
               config: const ParagraphConfig(
                 fontSize: 10,
@@ -156,7 +160,7 @@ void main() {
             expect(sizes.toSet(), hasLength(1));
             final narrow = (await engine.paginateChapter(
               '甲乙',
-              20,
+              40,
               200,
               paragraphReviews: ReviewColumnBadge.measureParagraphs(
                 context,
@@ -170,7 +174,27 @@ void main() {
             expect(tail.trailingReview!.size.width, greaterThan(0));
             expect(
               tail.trailingReview!.offset.dx + tail.trailingReview!.size.width,
-              lessThanOrEqualTo(20.001),
+              lessThanOrEqualTo(40.001),
+            );
+            // 紧凑图标本身宽24px，20px连图标都放不下，应明确失败而非吞字。
+            await expectLater(
+              engine.paginateChapter(
+                '甲乙',
+                20,
+                200,
+                paragraphReviews: ReviewColumnBadge.measureParagraphs(
+                  context,
+                  '甲乙',
+                  {1: 1},
+                ),
+              ),
+              throwsA(
+                isA<BridgeError>().having(
+                  (error) => error.message,
+                  'message',
+                  contains('阅读区域太窄'),
+                ),
+              ),
             );
             expect(
               ReviewColumnBadge.measureParagraphs(context, source, {1: 0}),

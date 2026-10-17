@@ -1,6 +1,6 @@
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -10,6 +10,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   for (final quote in ['"', "'", '“', '「']) {
     for (final indent in [1, 2, 3]) {
       for (final scale in [1.0, 1.5]) {
@@ -21,7 +22,8 @@ void main() {
             bool hanging,
           ) async {
             late PageInfo page;
-            await tester.pumpWidget(
+            await pumpNativeReaderLayout(
+              tester,
               MaterialApp(
                 home: Scaffold(
                   body: MediaQuery(
@@ -29,7 +31,7 @@ void main() {
                     child: LayoutTestBuilder(
                       builder: (context) async {
                         page = (await ParagraphLayoutEngine(
-                          transport: RustLayoutTestTransport.instance,
+                          transport: nativeReaderLayout,
                           context: context,
                           config: ParagraphConfig(
                             fontSize: 16,
@@ -60,7 +62,7 @@ void main() {
                 ),
               ),
             );
-            await tester.pumpAndSettle();
+            await settleNativeReaderLayout(tester);
             final line = page.paragraphs.first.lines.first;
             final rich = find.byWidgetPredicate(
               (w) =>

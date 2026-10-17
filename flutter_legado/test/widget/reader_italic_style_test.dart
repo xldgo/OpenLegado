@@ -3,11 +3,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/services/reader_layout_service.dart';
-
-import '../helpers/reader_layout_host.dart';
-
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
 
 /// 斜体贯通测试（差异清单 C3 双基准补齐项）
 ///
@@ -30,35 +25,39 @@ void main() {
   });
 
   testWidgets('正文段落渲染把 fontStyle 落到 TextStyle（渲染侧同参）', (tester) async {
-    await tester.pumpWidget(
-      ReaderLayoutTransportScope(
-        transport: RustLayoutTestTransport.instance,
-        child: MaterialApp(
-          home: Scaffold(
-            body: LayoutTestBuilder(
-              builder: (context) async {
-                final pages = await ParagraphLayoutEngine(
-                  context: context,
-                  config: ParagraphConfig(
-                    fontSize: 18,
-                    lineHeight: 1.6,
-                    paragraphSpacing: 8,
-                    textColor: Colors.black,
-                    backgroundColor: Colors.white,
-                    fontStyle: FontStyle.italic,
-                    textEnvironment: TextLayoutEnvironment.of(context),
-                  ),
-                ).paginateChapter('第一段正文。\n第二段正文。', 320, 580);
-                return ReaderTextContent(
-                  pageInfo: pages.first,
-                  fontSize: 18,
-                  lineHeight: 1.6,
-                  paragraphSpacing: 8,
-                  textColor: Colors.black,
-                  fontStyle: FontStyle.italic,
-                );
-              },
+    // 此用例只校验渲染样式，固定布局作为输入，不重复执行分页。
+    final page = PageInfo(
+      sourceText: '第一段正文。',
+      paragraphs: [
+        ParagraphInfo(
+          lines: [
+            LineInfo(
+              words: ['第一段正文。'],
+              width: 108,
+              height: 28.8,
+              startIndex: 0,
+              endIndex: 6,
             ),
+          ],
+          totalHeight: 28.8,
+          startIndex: 0,
+          endIndex: 6,
+          chapterParagraphIndex: 0,
+          isParagraphEnd: true,
+        ),
+      ],
+      totalHeight: 28.8,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ReaderTextContent(
+            pageInfo: page,
+            fontSize: 18,
+            lineHeight: 1.6,
+            paragraphSpacing: 8,
+            textColor: Colors.black,
+            fontStyle: FontStyle.italic,
           ),
         ),
       ),

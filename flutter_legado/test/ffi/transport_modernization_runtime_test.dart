@@ -12,7 +12,6 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/ffi.dart' as requests;
-import 'package:flutter_legado/src/services/reader_layout_service.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookshelf_repository.dart';
 import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 import 'package:flutter_legado/src/bridge/transfer_dto.dart';
@@ -28,28 +27,6 @@ import 'package:flutter_legado/src/data/services/rust_network_service.dart';
 import 'package:flutter_legado/src/data/services/rust_book_source_query_service.dart';
 import 'package:flutter_legado/src/data/services/rust_explore_service.dart';
 import 'package:flutter_legado/src/data/services/rust_review_service.dart';
-
-void _golden(Object? actual, Object? expected, String path) {
-  if (actual is num && expected is num) {
-    expect(
-      actual,
-      closeTo(expected, 0.0001 + expected.abs() * 0.0000003),
-      reason: path,
-    );
-  } else if (actual is Map && expected is Map) {
-    expect(actual.keys.toSet(), expected.keys.toSet(), reason: path);
-    for (final key in expected.keys) {
-      _golden(actual[key], expected[key], '$path.$key');
-    }
-  } else if (actual is List && expected is List) {
-    expect(actual.length, expected.length, reason: path);
-    for (var i = 0; i < expected.length; i++) {
-      _golden(actual[i], expected[i], '$path[$i]');
-    }
-  } else {
-    expect(actual, expected, reason: path);
-  }
-}
 
 void main() {
   if (!Platform.isWindows) {
@@ -131,74 +108,6 @@ void main() {
     final sources = await bridge.sourceList();
     expect(sources.single.bookSourceName, '改名');
     expect(bookSourceFromDto(sources.single).ruleSearch, source.ruleSearch);
-  });
-  test('上游全部输入通过原生句柄，返回共享字节列可解码，完成后释放', () async {
-    final fixture = jsonDecode(
-      File('../rust/legado-ffi/tests/fixtures/layout_transport.json')
-          .readAsStringSync(),
-    ) as Map;
-    final reference = jsonDecode(
-      utf8.decode(
-        gzip.decode(
-          File('../rust/legado-layout/tests/fixtures/md3.json.gz')
-              .readAsBytesSync(),
-        ),
-      ),
-    ) as Map;
-    final expected = {
-      for (final c in reference['cases'] as List) c['name']: c['expected'],
-    };
-    for (final c in fixture['cases'] as List) {
-      final input = c['input'] as Map;
-      final session = ReaderLayoutSession(
-        config: Map<String, Object?>.from(input['config'] as Map),
-      );
-      try {
-        final pages = <Map<String, dynamic>>[];
-        final blocks = (input['blocks'] as List)
-            .map((b) => Map<String, Object?>.from(b as Map))
-            .toList();
-        for (var i = 0; i < blocks.length; i += 32) {
-          pages.addAll(
-            (await session.push(
-              blocks.sublist(i, (i + 32).clamp(0, blocks.length)),
-            )).pages,
-          );
-        }
-        pages.addAll((await session.finish()).pages);
-        _golden(pages, expected[c['name']], c['name'] as String);
-        expect(session.closed, isTrue, reason: c['name'] as String);
-      } finally {
-        await session.cancel();
-      }
-    }
-  });
-  test('排版取消和完成不耗尽并发名额', () async {
-    final config = <String, Object?>{
-      'chapterIndex': 0,
-      'chapterTitle': '测试',
-      'viewportWidthPx': 320,
-      'viewportHeightPx': 480,
-      'paddingLeftPx': 10,
-      'paddingTopPx': 10,
-      'paddingRightPx': 10,
-      'paddingBottomPx': 10,
-      'lineHeightPx': 24,
-      'baselineOffsetPx': 18,
-    };
-    for (var i = 0; i < 20; i++) {
-      final session = ReaderLayoutSession(config: config);
-      if (i.isEven) {
-        await session.cancel();
-        await expectLater(
-          session.push([]),
-          throwsA(isA<ReaderLayoutCancelled>()),
-        );
-      } else {
-        await session.finish();
-        await session.cancel();
-      }
-    }
   });
   test('旧订阅取消后新校验流仍输出类型化进度', () async {
     await bridge.sourceAdd(

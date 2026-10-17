@@ -8,20 +8,21 @@ library;
 /// - 超长段落跨页拆分
 /// - 设置变化导致重新分页
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   group('paginateChapter - 屏级分页测试', () {
     late ParagraphLayoutEngine engine;
 
     setUp(() {
       // 使用测试用 BuildContext（TextPainter 不需要真实 context）
       engine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         config: const ParagraphConfig(
           fontSize: 16.0,
           lineHeight: 1.5,
@@ -145,7 +146,7 @@ void main() {
       final content = '测试段落，包含中文标点符号，用于验证分行开关行为差异。' * 6;
       const width = 140.0, height = 600.0;
       final zhEngine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         config: const ParagraphConfig(
           fontSize: 16.0,
           lineHeight: 1.5,
@@ -157,7 +158,7 @@ void main() {
         context: _FakeBuildContext(),
       );
       final plainEngine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         config: const ParagraphConfig(
           fontSize: 16.0,
           lineHeight: 1.5,
@@ -202,7 +203,7 @@ void main() {
 
     test('段首悬挂只让出引号宽度并保留独立缩进', () async {
       final hangEngine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         config: const ParagraphConfig(
           fontSize: 16.0,
           lineHeight: 1.5,
@@ -231,7 +232,7 @@ void main() {
       );
       // 关闭悬挂开关时无悬挂标记
       final noHangEngine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         config: const ParagraphConfig(
           fontSize: 16.0,
           lineHeight: 1.5,
@@ -268,7 +269,7 @@ void main() {
       final content = '测试字号对分页的影响，这段文字需要足够长才能看出差异。' * 20;
 
       final smallFontEngine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         // [A-4] 颜色必填：显式传原默认值（白底/黑字）
         config: const ParagraphConfig(
           fontSize: 12.0,
@@ -279,7 +280,7 @@ void main() {
         context: _FakeBuildContext(),
       );
       final largeFontEngine = ParagraphLayoutEngine(
-        transport: RustLayoutTestTransport.instance,
+        transport: nativeReaderLayout,
         // [A-4] 颜色必填：显式传原默认值（白底/黑字）
         config: const ParagraphConfig(
           fontSize: 24.0,

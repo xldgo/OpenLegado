@@ -6,7 +6,6 @@ import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
-import '../helpers/reader_layout_host.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -191,7 +190,6 @@ Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
     child: const MaterialApp(
-      builder: readerLayoutTestBuilder,
       home: ReaderComicScreen(bookUrl: 'mock://comic/p43unify/err'),
     ),
   );

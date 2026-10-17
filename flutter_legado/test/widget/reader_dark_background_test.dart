@@ -1,5 +1,5 @@
 import '../fixtures/app_test_api.dart';
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 // [M1 深色态默认修复] 阅读器渲染 widget 测试：背景色断言
 //
@@ -22,6 +22,7 @@ import 'package:flutter_legado/src/theme/md3_colors.dart';
 import '../mocks/mocks.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   setUp(() {
@@ -30,7 +31,7 @@ void main() {
 
   Widget themeWrap(Widget child, {Brightness brightness = Brightness.light}) {
     return MaterialApp(
-      builder: readerLayoutTestBuilder,
+      builder: nativeReaderLayoutBuilder,
       theme: AppTheme.palette(brightness: brightness, palette: Md3Palettes.wh),
       darkTheme: AppTheme.palette(
         brightness: Brightness.dark,
@@ -58,7 +59,8 @@ void main() {
 
   /// 启动真实 ReaderScreen 并打开书籍（书架打开链路）
   Future<void> pumpReader(WidgetTester tester, MockRustApi mockApi) async {
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
         child: themeWrap(const ReaderScreen(), brightness: Brightness.dark),
@@ -70,7 +72,7 @@ void main() {
     await container
         .read(readerNotifierProvider.notifier)
         .openBook(const Book(bookUrl: 'u1', name: '矩阵书'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
   }
 
   group('[M1] 阅读器深色态背景', () {

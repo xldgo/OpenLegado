@@ -6,7 +6,6 @@ import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
-import '../helpers/reader_layout_host.dart';
 
 import 'dart:convert';
 
@@ -197,7 +196,7 @@ Widget _buildApp(ProviderContainer container, {Brightness? brightness}) {
   if (brightness == null) {
     return UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(builder: readerLayoutTestBuilder, home: home),
+      child: const MaterialApp(home: home),
     );
   }
   final scheme = ColorScheme.fromSeed(
@@ -207,7 +206,6 @@ Widget _buildApp(ProviderContainer container, {Brightness? brightness}) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
-      builder: readerLayoutTestBuilder,
       theme: ThemeData(colorScheme: scheme),
       home: home,
     ),

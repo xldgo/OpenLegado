@@ -1,4 +1,4 @@
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,8 +6,10 @@ import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/layout_diagnostics.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   testWidgets('注入测量采样不改变断点、分页及原文位置', (tester) async {
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: LayoutTestBuilder(
           builder: (context) async {
@@ -23,12 +25,12 @@ void main() {
             const source = '“Hello 😀！”他问道。\n中文、组合字符 e\u0301 和长英文 newspaper。';
             final diagnostics = ReaderLayoutDiagnostics();
             final baseline = ParagraphLayoutEngine(
-              transport: RustLayoutTestTransport.instance,
+              transport: nativeReaderLayout,
               config: config,
               context: context,
             );
             final measured = ParagraphLayoutEngine(
-              transport: RustLayoutTestTransport.instance,
+              transport: nativeReaderLayout,
               config: config,
               context: context,
               diagnostics: diagnostics,
@@ -61,6 +63,6 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
   });
 }

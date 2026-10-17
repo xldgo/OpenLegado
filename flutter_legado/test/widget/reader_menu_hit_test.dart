@@ -9,7 +9,7 @@ import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 
 import 'dart:async';
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 import '../fixtures/home_settings_storage.dart';
 
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
@@ -234,11 +234,12 @@ Future<(_Reader, _Hits)> _pumpMenu(
     ]),
   );
   addTearDown(container.dispose);
-  await tester.pumpWidget(
+  await pumpNativeReaderLayout(
+    tester,
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        builder: readerLayoutTestBuilder,
+        builder: nativeReaderLayoutBuilder,
         onGenerateRoute: onGenerateRoute,
         home: Scaffold(
           // 同时覆盖祖先点击识别和翻页组件使用的原始指针事件。
@@ -287,7 +288,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await settleNativeReaderLayout(tester);
   return (container.read(readerNotifierProvider.notifier) as _Reader, hits);
 }
 
@@ -320,25 +321,27 @@ Future<ProviderContainer> _pumpReader(
     ]),
   );
   addTearDown(container.dispose);
-  await tester.pumpWidget(
+  await pumpNativeReaderLayout(
+    tester,
     UncontrolledProviderScope(
       container: container,
       child: const MaterialApp(
-        builder: readerLayoutTestBuilder,
+        builder: nativeReaderLayoutBuilder,
         home: ReaderScreen(),
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await settleNativeReaderLayout(tester);
   // 菜单手势从章内第二页开始，避免配置重排将旧初始页码归零。
   if (mode != PageTurnMode.scroll) {
     tester.state<ReaderPageViewState>(find.byType(ReaderPageView)).goToPage(1);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
   }
   return container;
 }
 
 void main() {
+  setUpNativeReaderLayout();
   testWidgets('阅读菜单连接预加载失败不产生未捕获异常', (tester) async {
     final repository = _ConnectionRepository()..fail = true;
     final api = _SyncNetworkApi();
@@ -354,10 +357,10 @@ void main() {
       await _pumpMenu(tester, connectionRepository: repository, api: api);
       repository.fail = true;
       await tester.tap(find.byTooltip('更多'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.ensureVisible(find.text(label));
       await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(
         find.textContaining(label == '同步阅读进度' ? '同步进度失败' : '上传进度失败'),
         findsOneWidget,
@@ -384,33 +387,33 @@ void main() {
     );
     final repo = container.read(readerSettingsRepositoryProvider);
     reader.chapterFailed('测试章节加载失败');
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(api.searches, 0);
     await repo.update(autoChangeSource: true);
     reader.chapterFailed(null);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     reader.chapterFailed('再次加载失败');
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(api.searches, 1);
     expect(find.text('自动换源：无可用替代书源'), findsOneWidget);
     storage.writeFailure = true;
     await expectLater(repo.update(autoChangeSource: false), throwsStateError);
     expect(repo.current.autoChangeSource, isTrue);
     reader.chapterFailed(null);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     reader.chapterFailed('保存回退后加载失败');
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(api.searches, 2);
     storage.writeFailure = false;
     await repo.update(autoChangeSource: false);
     reader.chapterFailed(null);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     reader.chapterFailed('关闭后再次失败');
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(api.searches, 2);
     expect(api.switches, isEmpty);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -430,7 +433,7 @@ void main() {
     final reader = _AutoSourceReader();
     await _pumpReader(tester, reader: reader, api: api);
     reader.chapterFailed('章节加载失败');
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(api.searches, 1);
     expect(api.switches, [
       (
@@ -444,7 +447,7 @@ void main() {
     expect(reader.openedBook?.originBookUrl, 'https://new.test/detail');
     expect(find.text('章节加载失败，已自动换源：新书源'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -473,7 +476,7 @@ void main() {
       textColor: 0xff010203,
       textColorNight: 0xfffafbfc,
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     ThemeData menuTheme() => Theme.of(tester.element(menu));
     Color? titleColor() => tester
         .widget<Text>(find.descendant(of: menu, matching: find.text('菜单点击测试')))
@@ -499,7 +502,7 @@ void main() {
     final reader =
         container.read(readerNotifierProvider.notifier) as _ScreenReader;
     reader.changeReadingBrightness(Brightness.dark);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(menuTheme().brightness, Brightness.dark);
     expect(menuTheme().colorScheme.primary, const Color(0xffabcdef));
     expect(
@@ -512,13 +515,13 @@ void main() {
     );
     expect(titleColor(), const Color(0xfffafbfc));
     await repo.updateMenuTheme(mode: 0);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(menuTheme(), bodyTheme);
     // 跟随应用时仍允许独立覆盖标题文字；使用菜单的实际明暗主题选择颜色。
     expect(titleColor(), const Color(0xff010203));
     expect(container.read(readerNotifierProvider).currentChapterPos, position);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -551,36 +554,36 @@ void main() {
     final control = find.byType(ReaderBrightnessControl);
     expect(control, findsNothing);
     await repo.updateBrightnessControl(mode: 1);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(tester.widget<ReaderBrightnessControl>(control).vertical, isFalse);
     await repo.updateBrightnessControl(mode: 2);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(tester.widget<ReaderBrightnessControl>(control).vertical, isTrue);
     final right = tester.getCenter(control).dx;
     storage.writes.clear();
     await tester.tap(find.byTooltip('切换亮度控件位置'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(repo.current.brightnessControl.onLeft, isTrue);
     expect(tester.getCenter(control).dx, lessThan(right));
     expect(storage.writes, [('reader_brightness_control_on_left', true)]);
     storage.writeFailure = true;
     await tester.tap(find.byTooltip('切换亮度控件位置'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('亮度控件设置保存失败，请重试'), findsOneWidget);
     expect(repo.current.brightnessControl.onLeft, isTrue);
     expect(tester.getCenter(control).dx, lessThan(right));
     storage.writeFailure = false;
     await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tap(find.byTooltip('切换亮度控件位置'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(repo.current.brightnessControl.onLeft, isFalse);
     expect(tester.getCenter(control).dx, right);
     await repo.updateBrightnessControl(mode: 0);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(control, findsNothing);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -595,9 +598,9 @@ void main() {
     final reader =
         container.read(readerNotifierProvider.notifier) as _ScreenReader;
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await repository.updateAutoPageTurn(enabled: true, intervalSeconds: 3);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       tester.getRect(find.byType(AutoTurnPanel)).top,
       greaterThanOrEqualTo(0),
@@ -608,13 +611,13 @@ void main() {
     await repository.updateInteraction(selectText: false);
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       container.read(readerNotifierProvider).currentChapterPos,
       before + 1,
     );
     await repository.updateAutoPageTurn(intervalSeconds: 4, forward: false);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final afterForward = container
         .read(readerNotifierProvider)
         .currentChapterPos;
@@ -624,17 +627,17 @@ void main() {
       afterForward,
     );
     await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(container.read(readerNotifierProvider).currentChapterPos, before);
     await tester.tap(find.byTooltip('停止自动翻页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(repository.current.autoPageTurn.enabled, isFalse);
     expect(find.byType(AutoTurnPanel), findsNothing);
     await tester.pump(const Duration(seconds: 12));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(container.read(readerNotifierProvider).currentChapterPos, before);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -648,45 +651,45 @@ void main() {
     final repository = container.read(readerSettingsRepositoryProvider);
     storage.writeFailure = true;
     await tester.tap(find.text('自动翻页').hitTestable());
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('自动翻页设置保存失败，请重试'), findsOneWidget);
     expect(repository.current.autoPageTurn.enabled, isFalse);
     storage.writeFailure = false;
     await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tap(find.text('自动翻页').hitTestable());
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(repository.current.autoPageTurn.enabled, isTrue);
     final reader =
         container.read(readerNotifierProvider.notifier) as _ScreenReader;
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       tester.widget<AutoTurnPanel>(find.byType(AutoTurnPanel)).intervalSeconds,
       10,
     );
     await tester.tap(find.byTooltip('加快翻页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(repository.current.autoPageTurn.intervalSeconds, 15);
     expect(storage.values['reader_auto_page_turn_interval_seconds'], 15);
     storage.writeFailure = true;
     await tester.tap(find.byTooltip('停止自动翻页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(repository.current.autoPageTurn.enabled, isTrue);
     expect(find.text('自动翻页设置保存失败，请重试'), findsOneWidget);
     expect(find.byType(AutoTurnPanel), findsOneWidget);
     storage.writeFailure = false;
     await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tap(find.byTooltip('停止自动翻页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final before = container.read(readerNotifierProvider).currentChapterPos;
     await tester.pump(const Duration(seconds: 20));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(container.read(readerNotifierProvider).currentChapterPos, before);
     expect(repository.current.autoPageTurn.enabled, isFalse);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -707,7 +710,7 @@ void main() {
       progressBarBehavior: 'chapter',
       volumeKeyPage: false,
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final view = tester.widget<ReaderPageView>(find.byType(ReaderPageView));
     expect(view.selectText, isFalse);
     expect(view.noAnimScroll, isTrue);
@@ -729,43 +732,43 @@ void main() {
     final reader =
         container.read(readerNotifierProvider.notifier) as _ScreenReader;
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final before = container.read(readerNotifierProvider).currentChapterPos;
     await tester.tapAt(const Offset(8, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tapAt(const Offset(792, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(container.read(readerNotifierProvider).currentChapterPos, before);
     final actions = List<TapAction>.of(
       repository.current.interaction.tapActions,
     )..[4] = TapAction.nextPage;
     await repository.updateInteraction(tapActions: actions, pageTouchSlop: 0);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(customSlop, findsNothing);
     await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       container.read(readerNotifierProvider).currentChapterPos,
       before + 1,
     );
     await tester.sendKeyDownEvent(LogicalKeyboardKey.audioVolumeDown);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.audioVolumeDown);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       container.read(readerNotifierProvider).currentChapterPos,
       before + 1,
     );
     await repository.updateInteraction(volumeKeyPage: true);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.audioVolumeDown);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.audioVolumeDown);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       container.read(readerNotifierProvider).currentChapterPos,
       before + 2,
     );
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -817,13 +820,14 @@ void main() {
       unawaited(service.dispose());
     });
     final navigator = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
           navigatorKey: navigator,
           navigatorObservers: [systemBarRouteObserver],
-          builder: (context, child) => readerLayoutTestBuilder(
+          builder: (context, child) => nativeReaderLayoutBuilder(
             context,
             MediaQuery(
               data: const MediaQueryData(
@@ -837,12 +841,12 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final reader =
         container.read(readerNotifierProvider.notifier) as _ScreenReader;
     final repository = container.read(readerSettingsRepositoryProvider);
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await repository.updateScreen(
       orientation: 2,
       hideStatusBar: true,
@@ -855,7 +859,7 @@ void main() {
       showProgress: true,
       showChapterName: true,
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     ReaderPageView view() =>
         tester.widget<ReaderPageView>(find.byType(ReaderPageView));
     expect(barEvents.last, (
@@ -882,17 +886,17 @@ void main() {
       findsOneWidget,
     );
     await repository.updateScreen(avoidDisplayCutouts: true);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().contentInsets, const EdgeInsets.fromLTRB(7, 24, 8, 0));
     reader.toggleControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(barEvents.last, (
       statusBarVisible: true,
       navigationBarVisible: true,
     ));
     expect(find.byType(ReaderStatusStrip), findsNothing);
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(barEvents.last, (
       statusBarVisible: false,
       navigationBarVisible: false,
@@ -905,21 +909,21 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(appEvents.length, applicationsBefore + 1);
     final callsBefore = orientationCalls.length;
     await repository.updateScreen(orientation: 1);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(orientationCalls, hasLength(callsBefore));
     navigator.currentState!.pop();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(orientationCalls.last, ['DeviceOrientation.portraitUp']);
     expect(barEvents.last, (
       statusBarVisible: false,
       navigationBarVisible: false,
     ));
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -942,7 +946,7 @@ void main() {
     final container = await _pumpReader(tester, settingsService: service);
     final repository = container.read(readerSettingsRepositoryProvider);
     await repository.load();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     ReaderPageView view() =>
         tester.widget<ReaderPageView>(find.byType(ReaderPageView));
     expect(view().paragraphSpacing, 9);
@@ -954,15 +958,15 @@ void main() {
     expect(view().useZhLayout, isTrue);
     expect(view().hangingPunctuation, isTrue);
     await repository.updateTextLayout(letterSpacing: 0, textBold: 1);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().letterSpacing, 0);
     expect(view().textBold, 1);
     storage.values['reader_paragraph_indent'] = 1;
     await repository.reload();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().paragraphIndent, 1);
     await repository.updateScreen(keepScreenOnSeconds: 60);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().letterSpacing, 0);
     expect(view().textBold, 1);
     expect(view().paragraphIndent, 1);
@@ -997,7 +1001,7 @@ void main() {
     final container = await _pumpReader(tester, settingsService: service);
     final repository = container.read(readerSettingsRepositoryProvider);
     await repository.load();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     ReaderPageView view() =>
         tester.widget<ReaderPageView>(find.byType(ReaderPageView));
     expect(view().marginTop, 30);
@@ -1018,21 +1022,21 @@ void main() {
     expect(view().pageChrome.tipFooterRight, 5);
     await repository.updatePageLayout(left: 23);
     await repository.updateTitle(size: 4);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().marginLeft, 23);
     expect(view().pageChrome.titleSize, 4);
     storage.values['reader_header_tip_left'] = 2;
     await repository.reload();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().pageChrome.tipHeaderLeft, 2);
     await repository.updateScreen(hideStatusBar: true);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(view().pageChrome.hideStatusBar, isTrue);
     expect(view().pageChrome.titleSize, 4);
     expect(view().marginLeft, 23);
     expect(tester.takeException(), isNull);
     // 系统栏变化后排版会安排下一轮回写，卸载并推进事件时钟完成回调。
-    await tester.pumpWidget(const SizedBox());
+    await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
   });
 
@@ -1054,9 +1058,9 @@ void main() {
     expect(menuTheme.colorScheme, isNot(appTheme.colorScheme));
     for (final systemBack in [false, true]) {
       await tester.tap(find.byTooltip('更多'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.tap(find.text('编辑内容'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(find.byType(ReaderContentEditDialog), findsOneWidget);
       expect(
         Theme.of(tester.element(find.byType(AlertDialog))).colorScheme,
@@ -1074,7 +1078,7 @@ void main() {
       }
       await tester.pump(const Duration(milliseconds: 50));
       expect(tester.takeException(), isNull);
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(find.byType(ReaderContentEditDialog), findsNothing);
       expect(reader.value.chapterContent, '原章节正文');
       expect(tester.takeException(), isNull);
@@ -1085,17 +1089,17 @@ void main() {
   testWidgets('更多弹出菜单打开时，第一次正文点击只关闭弹出菜单', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.byTooltip('更多'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('添加书签'), findsOneWidget);
 
     await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('添加书签'), findsNothing);
     expect(reader.value.showControls, isTrue);
     _expectNoBodyEvents(hits);
 
     await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(reader.value.showControls, isFalse);
     _expectNoBodyActions(hits);
   });
@@ -1103,15 +1107,15 @@ void main() {
   testWidgets('关闭更多菜单的拖动不会同时关闭阅读菜单或翻页', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.byTooltip('更多'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.dragFrom(const Offset(400, 300), const Offset(-280, 0));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('添加书签'), findsNothing);
     expect(reader.value.showControls, isTrue);
     _expectNoBodyEvents(hits);
 
     await tester.dragFrom(const Offset(400, 300), const Offset(-280, 0));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(reader.value.showControls, isFalse);
     expect(hits.bodyDrags, greaterThan(0));
   });
@@ -1119,13 +1123,13 @@ void main() {
   testWidgets('系统返回只关闭更多菜单，下一次正文点击仍可收起阅读菜单', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.byTooltip('更多'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('添加书签'), findsNothing);
     expect(reader.value.showControls, isTrue);
     await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(reader.value.showControls, isFalse);
     _expectNoBodyActions(hits);
   });
@@ -1133,14 +1137,14 @@ void main() {
   testWidgets('外部关闭阅读菜单后重新打开，不残留弹出菜单的输入拦截', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.byTooltip('更多'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     reader.toggleControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.text('添加书签'), findsNothing);
     await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(reader.value.showControls, isFalse);
     _expectNoBodyActions(hits);
   });
@@ -1169,7 +1173,7 @@ void main() {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.text('目录'));
     await tester.drag(find.byType(Slider), const Offset(180, 0));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(hits.catalogTaps, 1);
     expect(reader.seekCalls, greaterThan(0));
     expect(reader.value.showControls, isTrue);
@@ -1185,7 +1189,7 @@ void main() {
     testWidgets('菜单外滑动 $direction 收起菜单，同时传给正文', (tester) async {
       final (reader, hits) = await _pumpMenu(tester);
       await tester.dragFrom(const Offset(400, 300), direction);
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(reader.value.showControls, isFalse);
       expect(hits.bodyPointers, greaterThan(0));
       expect(hits.bodyDrags, greaterThan(0));
@@ -1211,7 +1215,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 60));
     await tester.tapAt(const Offset(792, 300));
     _expectNoBodyEvents(hits);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tapAt(const Offset(792, 300));
     expect(hits.bodyPointers, greaterThan(0));
     expect(hits.bodyTaps, 1);
@@ -1220,7 +1224,7 @@ void main() {
   testWidgets('菜单刚打开且淡入尚未开始时，正文区域也只关闭菜单', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     reader.hideControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     reader.toggleControls();
     await tester.pump();
     await tester.tapAt(const Offset(792, 300));
@@ -1239,16 +1243,17 @@ void main() {
         ]),
       );
       addTearDown(container.dispose);
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
-            builder: readerLayoutTestBuilder,
+            builder: nativeReaderLayoutBuilder,
             home: ReaderScreen(),
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       final pages = tester.state<ReaderPageViewState>(
         find.byType(ReaderPageView),
       );
@@ -1258,9 +1263,9 @@ void main() {
       await tester.pump();
       expect(container.read(readerNotifierProvider).showControls, isFalse);
       expect(container.read(readerNotifierProvider).currentChapterPos, before);
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.tapAt(const Offset(792, 300));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(
         container.read(readerNotifierProvider).currentChapterPos,
         before + 1,
@@ -1274,7 +1279,7 @@ void main() {
       final container = await _pumpReader(tester);
       final before = container.read(readerNotifierProvider).currentChapterPos;
       await tester.dragFrom(const Offset(400, 300), Offset(dx, 0));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(container.read(readerNotifierProvider).showControls, isFalse);
       expect(
         container.read(readerNotifierProvider).currentChapterPos,
@@ -1293,7 +1298,7 @@ void main() {
     expect(container.read(readerNotifierProvider).showControls, isFalse);
     await gesture.moveBy(const Offset(-300, 0));
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       container.read(readerNotifierProvider).currentChapterPos,
       before + 1,
@@ -1308,7 +1313,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
     await gesture.up();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(container.read(readerNotifierProvider).showControls, isFalse);
     expect(container.read(readerNotifierProvider).currentChapterPos, before);
     expect(tester.takeException(), isNull);
@@ -1326,14 +1331,14 @@ void main() {
     );
     final before = scrollable.position.pixels;
     await tester.dragFrom(const Offset(400, 360), const Offset(0, -180));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final afterUp = scrollable.position.pixels;
     expect(container.read(readerNotifierProvider).showControls, isFalse);
     expect(afterUp, greaterThan(before));
     container.read(readerNotifierProvider.notifier).toggleControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.dragFrom(const Offset(400, 240), const Offset(0, 180));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(container.read(readerNotifierProvider).showControls, isFalse);
     expect(scrollable.position.pixels, lessThan(afterUp));
     expect(tester.takeException(), isNull);
@@ -1383,14 +1388,14 @@ void main() {
         },
       );
       await tester.tap(find.text('章节网页'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(opened?.name, AppRoutes.browser);
       expect(opened?.arguments, {'url': expectedUrl, 'title': '章节链接'});
       expect(find.text('章节浏览页'), findsOneWidget);
       expect(reader.value.showControls, isTrue);
       _expectNoBodyEvents(hits);
       Navigator.of(tester.element(find.text('章节浏览页'))).pop();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(find.text('章节网页'), findsOneWidget);
       expect(reader.value.currentChapterIndex, 0);
     });
@@ -1430,7 +1435,7 @@ void main() {
       );
       expect(find.byTooltip('打开章节网页'), findsNothing);
       await tester.tap(find.text('章节网页'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(
         opens,
         0,
@@ -1476,7 +1481,7 @@ void main() {
           .read(readerSettingsRepositoryProvider)
           .update(chapterInSystemBrowser: true);
       await tester.tap(find.text('章节网页'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(calls, hasLength(1));
       expect(calls.single.method, 'launch');
       expect(calls.single.arguments['url'], 'https://source.test/1.html');
@@ -1528,9 +1533,9 @@ void main() {
       await repository.load();
       storage.writeFailure = failed;
       await tester.longPress(find.text('章节网页'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.tap(find.text('系统浏览器打开'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(calls, hasLength(1));
       expect(calls.single.arguments['url'], 'https://source.test/1.html');
       expect(repository.current.chapterInSystemBrowser, !failed);
@@ -1542,14 +1547,14 @@ void main() {
         );
         storage.writeFailure = false;
         await tester.longPress(find.text('章节网页'));
-        await tester.pumpAndSettle();
+        await settleNativeReaderLayout(tester);
         await tester.tap(find.text('系统浏览器打开'));
-        await tester.pumpAndSettle();
+        await settleNativeReaderLayout(tester);
         calls.clear();
       }
       expect(storage.values['reader_chapter_in_system_browser'], isTrue);
       await tester.tap(find.text('章节网页'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(calls, hasLength(failed ? 1 : 2));
       expect(
         storage.writes.map((entry) => entry.$1),
@@ -1584,16 +1589,16 @@ void main() {
       },
     );
     await tester.longPress(find.text('章节网页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tap(find.text('内置浏览器打开'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(routes, 1);
     expect(storage.values['reader_chapter_in_system_browser'], isFalse);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pop();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tap(find.text('章节网页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(routes, 2);
     expect(storage.writes, [('reader_chapter_in_system_browser', false)]);
     expect(tester.takeException(), isNull);
@@ -1630,9 +1635,9 @@ void main() {
       ),
     );
     await tester.longPress(find.text('章节网页'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tap(find.text('复制链接'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(clipboardWrites, [
       {'text': 'https://source.test/1.html'},
     ]);

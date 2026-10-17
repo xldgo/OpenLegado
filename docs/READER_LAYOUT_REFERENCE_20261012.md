@@ -52,12 +52,26 @@ python scripts/reader_layout_reference.py --java-home '<本机 Java 17 目录>' 
 cd rust
 cargo test -p legado-layout --all-targets
 cargo clippy -p legado-layout --all-targets -- -D warnings
-cargo build -p legado-layout --example test_host
-cd ../flutter_legado
+cd ..
+python scripts/dev.py build ffi windows --profile debug
+cd flutter_legado
 flutter test test/unit/reader_layout_service_test.dart test/widget/reader_native_selection_test.dart
 ```
 
-Flutter Widget 测试通过注入传输层调用同一 Rust 核心测试宿主，避免测试环境另维护一份 Dart 算法；正式应用只调用 FRB native 实现。CI 的 Flutter 测试只补建该小型宿主，不额外构建完整原生应用。
+上例的原生库构建命令适用于Windows；Linux/macOS使用
+`cargo build --locked --manifest-path rust/Cargo.toml -p legado-ffi --features quickjs`。
+共享其他Cargo输出目录时，以 `LEGADO_TEST_FFI_LIBRARY` 指定实际原生库的绝对路径。
+
+纯Rust算法测试直接验证固定上游样本；组件样式、菜单等局部行为使用固定布局输入。
+需要文字测量、重排、选区几何配合的Flutter测试复用正式FRB传输，不加载应用数据库，
+不再逐次启动外部程序或重算历史内容。80组上游页面、取消和容量归还集中在
+`test/ffi/reader_layout_runtime_test.dart`，该文件支持本机Windows/Linux/macOS原生库。
+Flutter CI在同一作业内准备本机FFI库再测试，不构建APK、IPA或桌面应用；首次整库编译
+成本高于旧小型宿主，不能仅凭测试执行变快就认定CI总耗时下降。
+
+原生测试的worker初始化、Widget异步等待和句柄清理见
+[双轨规范§7.2](TWO_TRACK_DEV_SPEC.md#72-集成验证步骤)。测试专用进程/文件JSON链路不用于
+应用性能评估；真实性能仍按下述Profile基准测量。
 
 ## 本轮数据所有权与缓存
 

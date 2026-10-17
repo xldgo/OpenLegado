@@ -1,4 +1,4 @@
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +7,7 @@ import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   test('中文断行返回字形簇索引，不把 UTF-16 长度混入索引', () async {
     const text = '甲😀乙e\u0301丙👨‍👩‍👧‍👦丁';
     final mapping = TextClusterMap(text);
@@ -19,7 +20,8 @@ void main() {
     late PageInfo page;
     late TextLayoutEnvironment environment;
     const source = '甲😀乙e\u0301正文测试';
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: DefaultTextStyle(
@@ -31,7 +33,7 @@ void main() {
               builder: (context) async {
                 environment = TextLayoutEnvironment.of(context);
                 page = (await ParagraphLayoutEngine(
-                  transport: RustLayoutTestTransport.instance,
+                  transport: nativeReaderLayout,
                   context: context,
                   config: ParagraphConfig(
                     fontSize: 16,

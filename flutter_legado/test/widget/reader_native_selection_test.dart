@@ -1,6 +1,6 @@
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart'
@@ -32,7 +32,8 @@ Future<void> _pumpReader(
   double textScale = 1,
   bool outerOverlay = false,
 }) async {
-  await tester.pumpWidget(
+  await pumpNativeReaderLayout(
+    tester,
     ProviderScope(
       child: MaterialApp(
         theme: ThemeData(platform: platform),
@@ -51,7 +52,7 @@ Future<void> _pumpReader(
               child: LayoutTestBuilder(
                 builder: (context) async {
                   final pages = (await ParagraphLayoutEngine(
-                    transport: RustLayoutTestTransport.instance,
+                    transport: nativeReaderLayout,
                     context: context,
                     config: ParagraphConfig(
                       fontSize: 16,
@@ -103,13 +104,14 @@ Future<void> _pumpReader(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await settleNativeReaderLayout(tester);
 }
 
 SelectableRegionState _region(WidgetTester tester) =>
     tester.state<SelectableRegionState>(find.byType(SelectableRegion).first);
 
 void main() {
+  setUpNativeReaderLayout();
   TestWidgetsFlutterBinding.ensureInitialized();
   late ReaderSelectionController controller;
   String? clipboard;
@@ -140,7 +142,7 @@ void main() {
         .where((e) => (e.widget as ReaderLineText).data.startsWith('这是第一'))
         .last;
     await tester.longPress(find.byWidget(liveText.widget));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(controller.selection, isNotNull);
     expect(controller.selection!.text.trim(), isNotEmpty);
     expect(find.byType(ReaderSelectionToolbar), findsOneWidget);
@@ -157,12 +159,12 @@ void main() {
     const source = '第一段正文很长，用于测试断行后仍保留原文。\n\n第二段正文。';
     await _pumpReader(tester, controller, source: source);
     _region(tester).selectAll(SelectionChangedCause.toolbar);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(controller.selection!.text, source);
     expect(controller.selection!.start, 0);
     expect(controller.selection!.end, source.length);
     await tester.tap(find.text('复制'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(clipboard, source);
     expect(controller.value, isFalse);
     expect(tester.takeException(), isNull);
@@ -171,7 +173,7 @@ void main() {
   testWidgets('缩进保留视觉留白，但不属于原生选区的文本和高亮', (tester) async {
     await _pumpReader(tester, controller);
     _region(tester).selectAll();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final paragraphs = find
         .byWidgetPredicate((widget) => widget is RichText)
         .evaluate()
@@ -199,14 +201,14 @@ void main() {
     var turns = 0;
     await _pumpReader(tester, controller, onPageChanged: (_) => turns++);
     _region(tester).selectAll(SelectionChangedCause.toolbar);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.dragFrom(const Offset(240, 200), const Offset(-150, 0));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(turns, 0);
     controller.clear();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.dragFrom(const Offset(240, 200), const Offset(-150, 0));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(turns, 1);
     expect(tester.takeException(), isNull);
   });
@@ -215,7 +217,7 @@ void main() {
     const source = '第一段  正文。\n第二段　正文。';
     await _pumpReader(tester, controller, source: source);
     _region(tester).selectAll(SelectionChangedCause.toolbar);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(controller.selection!.text, source);
     final text = find
         .byWidgetPredicate((widget) => widget is RichText)
@@ -227,18 +229,18 @@ void main() {
     expect(text, contains('第一段  正文。'));
     expect(text, contains('第二段　正文。'));
     await tester.tap(find.text('复制'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(clipboard, source);
   });
 
   testWidgets('重新排版清除旧选区，新的选区对应新正文', (tester) async {
     await _pumpReader(tester, controller);
     _region(tester).selectAll();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await _pumpReader(tester, controller, source: '重新排版后的新正文。');
     expect(controller.value, isFalse);
     _region(tester).selectAll();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(controller.selection!.text, '重新排版后的新正文。');
     expect(tester.takeException(), isNull);
   });
@@ -253,16 +255,16 @@ void main() {
     var taps = 0;
     await _pumpReader(tester, controller, onTapUp: (_) => taps++);
     await tester.tapAt(const Offset(160, 180));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(taps, 1);
     _region(tester).selectAll();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.tapAt(const Offset(160, 180));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(taps, 1);
     expect(controller.value, isFalse);
     await tester.tapAt(const Offset(160, 180));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(taps, 2);
   });
 
@@ -281,7 +283,7 @@ void main() {
           .where((e) => (e.widget as ReaderLineText).data.startsWith('这是第一'))
           .last;
       await tester.longPress(find.byWidget(text.widget));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       final toolbar = tester.element(find.byType(ReaderSelectionToolbar));
       final body = tester.element(find.byType(ReaderSelectionRegion));
       expect(Theme.of(toolbar).colorScheme, isNot(Theme.of(body).colorScheme));
@@ -297,7 +299,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 150));
       await gesture.up();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(clipboard, selectedText);
       expect(controller.value, isFalse);
       expect(find.byType(ReaderSelectionToolbar), findsNothing);
@@ -310,7 +312,7 @@ void main() {
   testWidgets('放大系统字体后选区工具条能够滚动且不溢出', (tester) async {
     await _pumpReader(tester, controller, textScale: 2);
     _region(tester).selectAll(SelectionChangedCause.toolbar);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(find.byType(ReaderSelectionToolbar), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -324,7 +326,7 @@ void main() {
         .where((e) => (e.widget as ReaderLineText).data.startsWith('这是第一'))
         .last;
     await tester.longPress(find.byWidget(first.widget));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final initial = controller.selection!;
     final handle =
         tester.getTopLeft(find.byType(SelectableRegion)) +
@@ -345,7 +347,7 @@ void main() {
         second.localToGlobal(targetBox.toRect().bottomRight) +
         const Offset(11, 11);
     await tester.dragFrom(handle, target - handle);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(controller.selection!.end, greaterThan(initial.end));
     expect(controller.selection!.text, contains('\n'));
     expect(turns, 0);
@@ -358,14 +360,15 @@ void main() {
       (i) => '第${i + 1}段正文内容，用于验证双页文字选择。',
     ).join('\n');
     late List<PageInfo> pages;
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
         child: MaterialApp(
           home: Scaffold(
             body: LayoutTestBuilder(
               builder: (context) async {
                 pages = (await ParagraphLayoutEngine(
-                  transport: RustLayoutTestTransport.instance,
+                  transport: nativeReaderLayout,
                   context: context,
                   config: ParagraphConfig(
                     fontSize: 16,
@@ -407,7 +410,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final rightLine = pages.last.paragraphs.first.lines.first;
     final rightText = find
         .descendant(
@@ -440,12 +443,12 @@ void main() {
         .first
         .toRect();
     await tester.longPressAt(paragraph.localToGlobal(firstBox.center));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final range = paragraph.selections.first;
     expect(controller.selection!.start, rightLine.sourceOffset(range.start));
     expect(controller.selection!.end, rightLine.sourceOffset(range.end));
     _region(tester).selectAll();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final start = pages.first.paragraphs.first.lines.first.startIndex;
     final end = pages.last.paragraphs.last.lines.last.endIndex;
     expect(controller.selection!.text, source.substring(start, end));

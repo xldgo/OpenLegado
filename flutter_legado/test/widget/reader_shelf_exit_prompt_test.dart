@@ -1,5 +1,5 @@
 import '../fixtures/app_test_api.dart';
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 // [P2-30 | 未入架书退出阅读缺「放入书架」提示] 退出判定 widget 测试
 //
 // 对齐原版 ReadBookActivity.finish() 三路语义（参考版 closeReadBook 同款）：
@@ -62,6 +62,7 @@ const _chapters = [
 ];
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   setUp(() {
@@ -97,7 +98,8 @@ void main() {
     MockRustApi api, {
     SystemBarController? systemBars,
   }) async {
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
         overrides: mergeTestOverrides([
           ...api.overrides,
@@ -106,7 +108,7 @@ void main() {
         ]),
         child: MaterialApp(
           navigatorObservers: [systemBarRouteObserver],
-          builder: readerLayoutTestBuilder,
+          builder: nativeReaderLayoutBuilder,
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(
@@ -125,14 +127,14 @@ void main() {
       ),
     );
     await tester.tap(find.text('进入阅读'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderScreen)),
     );
     final notifier = container.read(readerNotifierProvider.notifier);
     await notifier.openBook(_sessionBook);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     return container;
   }
 
@@ -143,7 +145,7 @@ void main() {
   Future<void> popReader(WidgetTester tester) async {
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.maybePop();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
   }
 
   group('P2-30 未入架书退出阅读「放入书架」提示', () {
@@ -206,7 +208,7 @@ void main() {
 
       await popReader(tester);
       await tester.tap(find.text('确认'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       // 入架：addBook 被调用且 notShelf 位已清（upsert 不级联删章节目录）
       final captured = verify(
@@ -248,7 +250,7 @@ void main() {
 
       await popReader(tester);
       await tester.tap(find.text('取消'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       // 取消 → 未入架书不残留：deleteBook 清理本次会话的临时记录
       verify(() => api.bookshelfRepository.deleteBook(_sessionBook.bookUrl))
@@ -301,10 +303,10 @@ void main() {
           builder: (_) => const Scaffold(body: Text('独立页面')),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(applied.last, '应用夜间');
       navigator.pop();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       expect(applied.last, '阅读');
 
       systemBarRouteObserver.didPop(sheet, null);
@@ -363,7 +365,7 @@ void main() {
 
       await popReader(tester);
       await tester.tap(find.text('确认'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       // 失败提示可见
       expect(find.textContaining('加入书架失败'), findsOneWidget);

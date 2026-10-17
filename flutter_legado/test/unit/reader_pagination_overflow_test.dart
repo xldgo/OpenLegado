@@ -1,4 +1,4 @@
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +16,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 const _defaultChrome = ReaderPageChromeConfig();
 
 void main() {
+  setUpNativeReaderLayout();
   const fontSize = 22.0;
   const lineHeight = 1.8;
   const paragraphSpacing = 12.0;
@@ -63,7 +64,8 @@ void main() {
   /// 按生产链路分页并渲染指定页，返回分页结果
   Future<List<PageInfo>> pumpPage(WidgetTester tester, int pageIndex) async {
     late List<PageInfo> pages;
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: LayoutTestBuilder(
@@ -83,7 +85,7 @@ void main() {
                   measureTitleBlockHeight(context, availableWidth);
 
               final engine = ParagraphLayoutEngine(
-                transport: RustLayoutTestTransport.instance,
+                transport: nativeReaderLayout,
                 config: const ParagraphConfig(
                   fontSize: fontSize,
                   lineHeight: lineHeight,
@@ -142,7 +144,8 @@ void main() {
     late List<PageInfo> pages;
     late double availableHeight;
     late double firstPageHeight;
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: LayoutTestBuilder(
           builder: (context) async {
@@ -160,7 +163,7 @@ void main() {
                 availableHeight -
                 measureTitleBlockHeight(context, availableWidth);
             final engine = ParagraphLayoutEngine(
-              transport: RustLayoutTestTransport.instance,
+              transport: nativeReaderLayout,
               config: const ParagraphConfig(
                 fontSize: fontSize,
                 lineHeight: lineHeight,

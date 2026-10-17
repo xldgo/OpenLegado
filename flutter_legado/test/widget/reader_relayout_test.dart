@@ -1,5 +1,5 @@
 import '../fixtures/app_test_api.dart';
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +21,7 @@ class _Reader extends ReaderNotifier {
 }
 
 void main() {
+  setUpNativeReaderLayout();
   testWidgets('系统字体缩放和屏幕宽度变化会使真实阅读器重新分页', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();
@@ -31,14 +32,15 @@ void main() {
       EdgeInsets insets = EdgeInsets.zero,
       bool outerInsets = false,
     }) async {
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         ProviderScope(
           overrides: mergeTestOverrides([
             ...MockBookApi().overrides,
             readerNotifierProvider.overrideWith(_Reader.new),
           ]),
           child: MaterialApp(
-            builder: readerLayoutTestBuilder,
+            builder: nativeReaderLayoutBuilder,
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
@@ -68,14 +70,14 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.pump(const Duration(milliseconds: 1));
     }
 
     await pump(500, 1);
     final wide = key.currentState!.pageCount;
     key.currentState!.goToPage(2);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final anchor = ProviderScope.containerOf(
       tester.element(find.byType(ReaderPageView)),
     ).read(readerNotifierProvider.notifier).currentSourceOffset!;

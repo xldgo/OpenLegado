@@ -1,5 +1,5 @@
 import '../fixtures/app_test_api.dart';
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 // 一比一复刻 S7 验收：渲染矩阵补页（详情/阅读，UI_ONE_TO_ONE_CLONE_PLAN_
 // 20260905.md S7）——md3_acceptance_matrix 原有 4 页之外补关键改动两屏，
@@ -20,6 +20,7 @@ import 'package:flutter_legado/src/theme/md3_colors.dart';
 import '../mocks/mocks.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   setUp(() {
@@ -28,7 +29,7 @@ void main() {
 
   Widget themeWrap(Widget child, {Brightness brightness = Brightness.light}) {
     return MaterialApp(
-      builder: readerLayoutTestBuilder,
+      builder: nativeReaderLayoutBuilder,
       theme: AppTheme.palette(brightness: brightness, palette: Md3Palettes.wh),
       darkTheme: AppTheme.palette(
         brightness: Brightness.dark,
@@ -69,7 +70,8 @@ void main() {
             .thenAnswer((_) async => '');
         when(() => mockApi.readingRepository.getChapterContent(any(), any()))
             .thenAnswer((_) async => '内容');
-        await tester.pumpWidget(
+        await pumpNativeReaderLayout(
+          tester,
           ProviderScope(
             overrides: mergeTestOverrides([...mockApi.overrides]),
             child: themeWrap(
@@ -78,7 +80,7 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await settleNativeReaderLayout(tester);
 
         // ActionCard 行关键入口可见（S3 骨架在位）
         // [PARITY C1 D2] 四图标卡标签：已在书架/查看目录/书源/阅读记录
@@ -103,7 +105,8 @@ void main() {
       when(() => mockApi.configRepository.getConfig(any()))
           .thenAnswer((_) async => '');
 
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         ProviderScope(
           overrides: mergeTestOverrides([...mockApi.overrides]),
           child: themeWrap(const ReaderScreen()),
@@ -117,7 +120,7 @@ void main() {
       await container
           .read(readerNotifierProvider.notifier)
           .openBook(const Book(bookUrl: 'u1', name: '矩阵书'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       expect(tester.takeException(), isNull);
     });

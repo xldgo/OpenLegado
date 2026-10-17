@@ -1,6 +1,6 @@
 import '../fixtures/app_test_api.dart';
 import '../mocks/reading_fixture.dart';
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,10 +77,12 @@ class _Content extends Fake implements ChapterContentService {
 }
 
 void main() {
+  setUpNativeReaderLayout();
   testWidgets('边界预览通过注入的正文服务取得后续章并完成布局', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final content = _Content();
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
         overrides: mergeTestOverrides([
           ..._Api().overrides,
@@ -88,7 +90,7 @@ void main() {
           chapterContentServiceProvider.overrideWithValue(content),
         ]),
         child: MaterialApp(
-          builder: readerLayoutTestBuilder,
+          builder: nativeReaderLayoutBuilder,
           home: const Scaffold(
             body: SizedBox(
               width: 320,
@@ -99,7 +101,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(content.requests, [('layout-fixture', 1)]);
     expect(
       tester
@@ -113,14 +115,15 @@ void main() {
   testWidgets('当前布局中的显式跳页等待分批页面就绪，再派生原文锚点', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final key = GlobalKey<ReaderPageViewState>();
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
         overrides: mergeTestOverrides([
           ..._Api().overrides,
           readerNotifierProvider.overrideWith(_ReaderWithPageRequest.new),
         ]),
         child: MaterialApp(
-          builder: readerLayoutTestBuilder,
+          builder: nativeReaderLayoutBuilder,
           home: Scaffold(
             body: SizedBox(
               width: 320,
@@ -131,7 +134,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(key.currentState!.currentSourceRange.$1, greaterThan(0));
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderPageView)),
@@ -154,11 +157,12 @@ void main() {
     );
     addTearDown(container.dispose);
     Future<void> pump(double width) async {
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            builder: readerLayoutTestBuilder,
+            builder: nativeReaderLayoutBuilder,
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
@@ -177,7 +181,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
     }
 
     await pump(320);
@@ -189,7 +193,7 @@ void main() {
         .chapterNextPage;
     expect(preview, isNotNull);
     notifier.toggleControls();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       identical(
         preview,
@@ -201,13 +205,13 @@ void main() {
     );
     expect(key.currentState!.layoutMeasurements, measurements);
     notifier.color();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(key.currentState!.layoutMeasurements, measurements);
     final hits = key.currentState!.layoutCacheHits;
     notifier.chapter(1);
     await tester.pump();
     expect(key.currentState!.layoutCacheHits, greaterThan(hits));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(
       tester
           .widget<ReaderTextContent>(find.byType(ReaderTextContent).first)
@@ -216,12 +220,12 @@ void main() {
       sources[1],
     );
     notifier.mode(PageTurnMode.scroll);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await tester.drag(
       find.byType(SingleChildScrollView).first,
       const Offset(0, -900),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final anchor = notifier.currentSourceOffset!;
     expect(anchor, greaterThan(0));
     await pump(420);

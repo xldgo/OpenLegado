@@ -1,4 +1,4 @@
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'dart:ui' as ui;
 
@@ -12,11 +12,13 @@ import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   for (final scale in [1.0, 2.0]) {
     testWidgets('跨行高亮保留统一行间留白与独立段距，文字缩放 $scale', (tester) async {
       final source = '${List.filled(8, '正文 (English)! ').join()}\n第二段正文';
       late PageInfo page;
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         ProviderScope(
           child: MaterialApp(
             builder: (context, child) => MediaQuery(
@@ -28,7 +30,7 @@ void main() {
               body: LayoutTestBuilder(
                 builder: (context) async {
                   page = (await ParagraphLayoutEngine(
-                    transport: RustLayoutTestTransport.instance,
+                    transport: nativeReaderLayout,
                     context: context,
                     config: ParagraphConfig(
                       fontSize: 16,
@@ -61,11 +63,11 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       tester
           .state<SelectableRegionState>(find.byType(SelectableRegion))
           .selectAll();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       final paragraphs = find
           .byType(ReaderSelectableText)
           .evaluate()
@@ -125,7 +127,8 @@ void main() {
 
   for (final scale in [1.0, 2.0]) {
     testWidgets('中英文符号混排的原生高亮同高，文字缩放 $scale', (tester) async {
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         MaterialApp(
           home: Scaffold(
             body: SelectionArea(
@@ -158,11 +161,11 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       tester
           .state<SelectableRegionState>(find.byType(SelectableRegion))
           .selectAll();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       final paragraph = tester.renderObject<RenderParagraph>(
         find.byType(ReaderSelectableText),
       );

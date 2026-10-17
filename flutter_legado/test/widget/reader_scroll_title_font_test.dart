@@ -16,7 +16,7 @@ import '../fixtures/app_test_api.dart';
 /// reader_font_family 注入）。
 /// 滚动模式不分页 → 仅渲染侧取值（无测量侧同步需求）。
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +42,7 @@ class _FixedReaderNotifier extends ReaderNotifier {
 }
 
 void main() {
+  setUpNativeReaderLayout();
   const chapterTitle = '第一章 滚动标题';
   const bodyFont = 'SimSun';
   const titleFontFamily = 'KaiTi';
@@ -60,7 +61,7 @@ void main() {
         readerNotifierProvider.overrideWith(() => _FixedReaderNotifier(state)),
       ]),
       child: MaterialApp(
-        builder: readerLayoutTestBuilder,
+        builder: nativeReaderLayoutBuilder,
         home: ReaderPageView(
           paragraphSpacing: 8,
           pageChrome: chrome,
@@ -79,8 +80,8 @@ void main() {
       final expected = effectiveTitleFontFamily(chrome, bodyFont);
       expect(expected, titleFontFamily);
 
-      await tester.pumpWidget(wrap(scrollState(), chrome));
-      await tester.pumpAndSettle();
+      await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
+      await settleNativeReaderLayout(tester);
 
       final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
       expect(
@@ -101,9 +102,9 @@ void main() {
       expect(expected, bodyFont);
       expect(effectiveTitleFontFamily(chrome, null), isNull);
 
-      await tester.pumpWidget(wrap(scrollState(), chrome));
+      await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
       // 等待 _refreshFontFamily 异步完成（setState 重建）
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       // 既有行为（非 A4 引入）：滚动模式 build 会走 _paginateIfNeeded，
       // 其 reader_page_view.dart:616 `Future(() => updateChapterPageCount(...))`
       // 在 SDK 内为 Timer.run（零时长 FakeTimer），创建于该帧 elapse 之后；
@@ -121,10 +122,11 @@ void main() {
 
     testWidgets('原内容区直接订阅字体选择，更新正文后标题同步跟随', (tester) async {
       SharedPreferences.setMockInitialValues({'reader_font_family': bodyFont});
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         wrap(scrollState(), const ReaderPageChromeConfig()),
       );
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.pump(const Duration(seconds: 1));
       final container = ProviderScope.containerOf(
         tester.element(find.byType(ReaderPageView)),
@@ -137,7 +139,7 @@ void main() {
       await container
           .read(readerSettingsRepositoryProvider)
           .update(fontFamily: 'Georgia');
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       await tester.pump(const Duration(seconds: 1));
       expect(tester.state(find.byType(ReaderPageView)), same(view));
       expect(

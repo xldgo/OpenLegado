@@ -63,6 +63,11 @@ Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地�
 权威实现为 [.github/scripts/ci_changes.py](../.github/scripts/ci_changes.py)，
 回归矩阵为 [test_ci_changes.py](../.github/scripts/test_ci_changes.py)。
 
+Flutter排版测试已复用正式FRB接口；现有Flutter测试步骤在本机先构建`legado-ffi`
+（QuickJS），再运行测试。该准备复用Rust构建缓存，不构建应用，也不新增工作流或平台作业。
+纯组件测试不初始化原生库；相邻章缓存、分页、原文映射等用例使用真实句柄。首次整库编译
+成本与测试执行耗时需分别记录，不宣称已测得远程CI总耗时下降。
+
 - 纯文档与测试改动不启动无关原生编译；Flutter 测试走 Flutter CI，Rust crate
   集成测试走 Rust CI。Rust src 内联测试无法按文件与生产代码分离，仍运行原生检查。
 - 普通 Dart 页面走 Flutter 检查；在 dev/master 上影响应用内容时构建 iOS 设备包。

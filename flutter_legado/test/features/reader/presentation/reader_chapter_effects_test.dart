@@ -13,10 +13,11 @@ import 'package:flutter_legado/src/widgets/reader/review_column.dart';
 import 'package:flutter_legado/src/widgets/reader/review_detail_sheet.dart';
 
 import '../../../fixtures/app_test_api.dart';
-import '../../../helpers/reader_layout_host.dart';
+import '../../../helpers/native_reader_layout.dart';
 import '../../../mocks/mocks.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   testWidgets('实际阅读页按章更新段评，点击使用该章查询参数并打开详情', (tester) async {
@@ -67,19 +68,20 @@ void main() {
       overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          builder: readerLayoutTestBuilder,
+          builder: nativeReaderLayoutBuilder,
           home: const ReaderScreen(),
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final reader = container.read(readerNotifierProvider.notifier);
     await reader.openBook(book);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(loadedChapters, [chapters[0].url]);
     expect(
       tester.widget<ReaderPageView>(find.byType(ReaderPageView)).reviewCounts,
@@ -92,7 +94,7 @@ void main() {
         .hitTestable();
     expect(badge, findsOneWidget);
     await tester.tap(badge);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     final detail = tester.widget<ReviewDetailSheet>(
       find.byType(ReviewDetailSheet),
     );
@@ -100,9 +102,9 @@ void main() {
     expect(detail.paragraphData, '第0章段评');
     expect(detail.totalCount, 4);
     Navigator.of(tester.element(find.byType(ReviewDetailSheet))).pop();
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     await reader.goToChapter(1);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     expect(loadedChapters, [chapters[0].url, chapters[1].url]);
     expect(
       tester.widget<ReaderPageView>(find.byType(ReaderPageView)).reviewCounts,
@@ -125,7 +127,7 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
+    await pumpNativeReaderLayout(tester, const SizedBox.shrink());
+    await settleNativeReaderLayout(tester);
   });
 }

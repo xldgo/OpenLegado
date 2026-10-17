@@ -7,7 +7,6 @@ import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
 import '../mocks/reading_fixture.dart';
 import '../mocks/book_source_fixture.dart';
 import '../mocks/bookshelf_fixture.dart';
-import '../helpers/reader_layout_host.dart';
 
 // [P4-3 E5] 漫画屏九区点击 + 长按菜单（分享/复制/存图）
 //
@@ -251,7 +250,6 @@ Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
     child: const MaterialApp(
-      builder: readerLayoutTestBuilder,
       home: ReaderComicScreen(bookUrl: 'mock://comic/1'),
     ),
   );

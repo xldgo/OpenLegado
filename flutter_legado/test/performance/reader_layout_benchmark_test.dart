@@ -3,24 +3,26 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../helpers/reader_layout_host.dart';
+import '../helpers/native_reader_layout.dart';
 
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 
 /// 固定文本用于同环境诊断，不把调试模式耗时作为发布性能结论。
 void main() {
+  setUpNativeReaderLayout();
   testWidgets('固定文本记录首个完整页面、整章时间与测量次数', (tester) async {
     final source = List.generate(
       120,
       (i) => '这是排版性能固定样本的第${i + 1}段正文。' * 3,
     ).join('\n');
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: LayoutTestBuilder(
           builder: (context) async {
             for (var round = 0; round < 4; round++) {
               final engine = ParagraphLayoutEngine(
-                transport: RustLayoutTestTransport.instance,
+                transport: nativeReaderLayout,
                 context: context,
                 config: const ParagraphConfig(
                   fontSize: 18,
@@ -72,6 +74,6 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
   });
 }
