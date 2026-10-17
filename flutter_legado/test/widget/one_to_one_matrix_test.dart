@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';

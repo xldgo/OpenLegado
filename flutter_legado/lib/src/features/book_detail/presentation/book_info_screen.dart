@@ -1,64 +1,64 @@
-import '../features/book_detail/book_detail_notifier.dart';
-import '../features/book_detail/book_detail_state.dart';
+import 'components/book_detail_backdrop.dart';
+import 'components/book_meta_card.dart';
+import 'components/book_action_buttons.dart';
+import 'components/book_reading_status.dart';
+import 'components/book_expandable_text.dart';
+import 'dialogs/book_variable_dialog.dart';
+import '../book_detail_notifier.dart';
+import '../book_detail_state.dart';
 
 import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 
-import '../providers/backup_provider.dart';
-import '../features/book_sources/book_source_repository_provider.dart';
-import '../providers/reading_provider.dart';
-import '../providers/source_action_provider.dart';
-import '../providers/chapter_cache_provider.dart';
-import '../features/privacy/privacy_controller.dart';
-import '../widgets/app_menu.dart';
+import '../../../providers/backup_provider.dart';
+import '../../book_sources/book_source_repository_provider.dart';
+import '../../../providers/reading_provider.dart';
+import '../../../providers/source_action_provider.dart';
+import '../../../providers/chapter_cache_provider.dart';
+import '../../privacy/privacy_controller.dart';
+import '../../../widgets/app_menu.dart';
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' show ImageFilter;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-import '../l10n/app_strings.dart';
-import '../models/models.dart';
-import '../providers/auto_task/auto_task_notifier.dart';
-import '../features/bookshelf/bookshelf.dart';
-import '../features/reader/application/reader_notifier.dart';
-import '../providers/sync/sync_notifier.dart';
-import '../routes.dart';
-import '../providers/ui_settings/ui_settings_notifier.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/top_bar_button.dart';
-import '../services/cover_palette_service.dart';
-import '../services/cache_service.dart';
-import '../services/local_book_store.dart'; // [iOS 视角F C1] 本地书相对标识解析
-import '../services/platform_bridge_service.dart';
-import '../providers/bookshelf_settings_provider.dart';
-import '../theme/app_theme.dart';
-import '../utils/book_info_utils.dart';
-import '../utils/book_open_utils.dart';
-import '../utils/meaningful_text_guard.dart'; // [U4 | 台账 0917] 详情页渲染层模板残留守卫
+import '../../../l10n/app_strings.dart';
+import '../../../models/models.dart';
+import '../../../providers/auto_task/auto_task_notifier.dart';
+import '../../bookshelf/bookshelf.dart';
+import '../../reader/application/reader_notifier.dart';
+import '../../../providers/sync/sync_notifier.dart';
+import '../../../routes.dart';
+import '../../../providers/ui_settings/ui_settings_notifier.dart';
+import '../../../widgets/legado_app_bar.dart';
+import '../../../widgets/top_bar_button.dart';
+import '../../../services/cover_palette_service.dart';
+import '../../../services/cache_service.dart';
+import '../../../services/local_book_store.dart'; // [iOS 视角F C1] 本地书相对标识解析
+import '../../../services/platform_bridge_service.dart';
+import '../../../providers/bookshelf_settings_provider.dart';
+import '../../../theme/app_theme.dart';
+import '../../../utils/book_info_utils.dart';
+import '../../../utils/book_open_utils.dart';
+import '../../../utils/meaningful_text_guard.dart'; // [U4 | 台账 0917] 详情页渲染层模板残留守卫
 // [08 元信息区对齐 | 台账 0922 修订] book_progress_utils 导入已随「目录：已读 X%」
 // 行移除而不再使用（工具本身保留：book_list_item 仍用，单测保留）
-import '../utils/source_login_entry.dart';
-import '../utils/source_login_prompt.dart';
-import '../widgets/book_cover.dart';
-import '../widgets/ui_settings_scope.dart';
-import '../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4 收尾] 详情下拉 M3 化
-import '../widgets/error_view.dart';
-import '../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
-import '../widgets/list_footer.dart';
-part 'book_info_screen_load.part.dart';
-part 'book_info_screen_builders.part.dart';
-part 'book_info_screen_dialogs.part.dart';
+import '../../../utils/source_login_entry.dart';
+import '../../../utils/source_login_prompt.dart';
+import '../../../widgets/ui_settings_scope.dart';
+import '../../../widgets/error_view.dart';
+import '../../../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
 
-// ↑ 分域 part 文件（体检 §三.16 超长文件拆分）：非生命周期方法按域拆入 extension，
-// 零行为变更（同 library 私有成员可访问）。
+part 'book_info_screen_builders.part.dart';
+
+// 页面操作与导航保留在同一 library；独立表现组件通过输入和回调通信。
 
 /// 书籍详情页面
 class BookInfoScreen extends ConsumerStatefulWidget {
@@ -409,9 +409,66 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
               ? ErrorView(message: _loadError!, onRetry: _reload)
               : _loadedBook == null
               ? const ErrorView(message: '书籍不存在')
-              : _buildPage(pageContext, _loadedBook!, _chapters),
+              : BookDetailBackdrop(
+                  book: _loadedBook!,
+                  coverSeed: _coverSeed,
+                  isLoading: _networkLoading || _tocLoading,
+                  onRefresh: _reload,
+                  child: _buildBody(pageContext, _loadedBook!, _chapters),
+                ),
         ),
       ),
     );
   }
+
+  void _onBridgeRefresh() {
+    final signal = PlatformBridgeService.refreshSignal.value;
+    if (!mounted || signal == null) return;
+    if (signal == 'bookInfo' || signal == 'bookToc') _reload();
+  }
+
+  Future<void> _reload() => _loadData();
+  Future<void> _loadData() => mounted ? _detailNotifier.load() : Future.value();
+
+  void _onDetailChanged(BookDetailState? previous, BookDetailState next) {
+    if (!mounted) return;
+    final book = next.data.book;
+    if (book != null && book != previous?.data.book) {
+      unawaited(_extractCoverSeed(book));
+    }
+    if (next.completedLoads <= (previous?.completedLoads ?? 0)) return;
+    // 首轮完成即消费自动开读机会；目录为空或路由不在栈顶时停留详情。
+    final autoStartNow = widget.openReaderImmediately && !_autoStartScheduled;
+    _autoStartScheduled = true;
+    if (!autoStartNow || next.data.chapters.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final current = _loadedBook;
+      if (current != null) {
+        unawaited(_openReader(context, current, current.durChapterIndex));
+      }
+    });
+  }
+
+  Future<void> _loadDeleteBookAlert() async {
+    try {
+      await ref.read(bookshelfSettingsRepositoryProvider).load();
+    } catch (error) {
+      if (mounted) _snack('删除提醒设置读取失败，请重试');
+    }
+  }
+
+  String _errMsg(Object error) => detailErrorMessage(error);
+  bool _isOnlineBook(Book book) => BookMetadataPolicy.isOnlineBook(book);
+
+  bool _isLocalTxt(Book book) {
+    if (_isOnlineBook(book)) return false;
+    final name = book.originName.trim();
+    return (name.isNotEmpty ? name : book.bookUrl).toLowerCase().endsWith(
+      '.txt',
+    );
+  }
+
+  Future<BookSource?> _findSourceByOrigin(String origin) =>
+      ref.read(bookDetailServiceProvider).findSource(origin);
 }

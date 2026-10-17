@@ -26,7 +26,7 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 
 import '../mocks/mocks.dart';
 

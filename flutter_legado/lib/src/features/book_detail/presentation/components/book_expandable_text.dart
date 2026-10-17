@@ -1,18 +1,15 @@
-// book_info_screen.dart 的 part 文件（体检 §三.16 超长文件拆分）：
-// 可折叠文字组件与变量对话框（顶层私有类原样搬移）。
-part of 'book_info_screen.dart';
+import 'package:material_ui/material_ui.dart';
 
-/// 可折叠文字组件
-class _ExpandableText extends StatefulWidget {
+class BookExpandableText extends StatefulWidget {
   final String text;
 
-  const _ExpandableText({required this.text});
+  const BookExpandableText({super.key, required this.text});
 
   @override
-  State<_ExpandableText> createState() => _ExpandableTextState();
+  State<BookExpandableText> createState() => BookExpandableTextState();
 }
 
-class _ExpandableTextState extends State<_ExpandableText> {
+class BookExpandableTextState extends State<BookExpandableText> {
   // [UI-fix v2.0.11 | 2026-08-10] 简介默认全部显示（用户反馈），
   // 保留「收起」按钮供手动折叠；短简介仍由 showToggle 自适应隐藏切换控件 — Reasonix
   bool _expanded = true;
@@ -93,75 +90,3 @@ class _ExpandableTextState extends State<_ExpandableText> {
 ///
 /// 回传约定：确定 → pop 输入值（可为空串，空串=清除语义由调用方保持）；
 /// 取消/系统关闭 → pop 无值（null），调用方不保存。
-class _VariableDialog extends StatefulWidget {
-  final String title;
-
-  /// 说明文案（对齐原版 VariableDialog 的 comment 展示）
-  final String comment;
-
-  /// 输入框预填文本
-  final String initialText;
-
-  const _VariableDialog({
-    required this.title,
-    required this.comment,
-    required this.initialText,
-  });
-
-  @override
-  State<_VariableDialog> createState() => _VariableDialogState();
-}
-
-class _VariableDialogState extends State<_VariableDialog> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.initialText,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.comment,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _controller,
-              minLines: 3,
-              maxLines: null,
-              decoration: const InputDecoration(labelText: 'variable'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () {
-            // 先取值再 pop（controller 随子树卸载后不可再读）
-            final value = _controller.text;
-            Navigator.pop(context, value);
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    );
-  }
-}

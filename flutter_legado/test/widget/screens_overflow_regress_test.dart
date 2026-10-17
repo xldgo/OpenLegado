@@ -27,7 +27,7 @@ import 'package:flutter_legado/src/screens/app_log_screen.dart';
 import 'package:flutter_legado/src/screens/audio_screen.dart';
 import 'package:flutter_legado/src/screens/auto_task_screen.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/screens/bottom_bar_skin_assign_screen.dart';
 import 'package:flutter_legado/src/screens/bottom_bar_skin_screen.dart';

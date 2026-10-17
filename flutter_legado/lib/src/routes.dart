@@ -16,7 +16,7 @@ import 'screens/dict_screen.dart';
 import 'screens/audio_screen.dart';
 import 'screens/auto_task_screen.dart';
 import 'features/bookshelf/bookshelf.dart';
-import 'screens/book_info_screen.dart';
+import 'features/book_detail/presentation/book_info_screen.dart';
 import 'screens/cache_download_screen.dart';
 import 'screens/cache_settings_screen.dart';
 import 'screens/offline_cache_screen.dart';

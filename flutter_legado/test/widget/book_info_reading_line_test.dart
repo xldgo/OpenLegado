@@ -19,7 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
 

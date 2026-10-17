@@ -55,134 +55,6 @@ class _MetaChip extends StatelessWidget {
 }
 
 extension _BookInfoBuilders on _BookInfoScreenState {
-  /// 页面主体：封面背景三档（off/off_for_default/on）+ seed 渐变 —— 内容叠层
-  /// [UI_SYNC_REFACTOR B4] 对齐参考仓 BookInfoBackdrop：
-  /// - on=480dp 顶部封面 + blur24 + seedOverlay(lerp(secondaryContainer,seed,0.42) α0.34)；
-  /// - off=显示封面不模糊 + seed 叠加；off_for_default=全部隐藏（纯 surface）；
-  /// - [G1 | 台账 0917 批六] 垂直渐变 stops 0/0.2/0.35/0.48/1：35% 起→48%
-  ///   surface 渐隐至全覆盖，其下为纯 surface 底色区（明暗双态经 cs.surface 槽位）；
-  ///   切换 Crossfade 800ms。
-  Widget _buildPage(
-    BuildContext context,
-    Book book,
-    List<BookChapter> chapters,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final coverUrl = book.customCoverUrl ?? book.coverUrl;
-    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
-    final isDefaultCover = !hasCover;
-    final ui = UiSettingsScope.of(context, UiSettingsAspect.details);
-    final mode = isDefaultCover
-        ? ui.bookInfoDefaultCoverBackground
-        : ui.bookInfoNetworkCoverBackground;
-    // [UI-fix v2.0.166] 虚化源降采样：σ24 下 1/3 屏宽与全尺寸视觉无差，
-    // 解码+滤波开销降一个量级（进详情转场掉帧根因之一）
-    final blurWidth = (MediaQuery.sizeOf(context).width / 3).round().clamp(
-      120,
-      480,
-    );
-    final seed = _coverSeed;
-    final seedOverlay = seed == null
-        ? cs.secondaryContainer
-        : Color.lerp(cs.secondaryContainer, seed, 0.42)!;
-    // [UI_SYNC_REFACTOR R1] enableBlur 关闭时 on 档退化为不模糊显示（对齐参考仓全局开关语义）
-    final useBlur = mode == 'on' && hasCover && ui.enableBlur;
-    final showBackdrop = !(mode == 'off_for_default' && isDefaultCover);
-
-    final Widget backdrop = !showBackdrop
-        ? ColoredBox(color: cs.surface)
-        : Stack(
-            children: [
-              if (hasCover)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 480,
-                  child: RepaintBoundary(
-                    child: useBlur
-                        ? ImageFiltered(
-                            imageFilter: ImageFilter.blur(
-                              sigmaX: 24,
-                              sigmaY: 24,
-                            ),
-                            child: CachedNetworkImage(
-                              imageUrl: coverUrl,
-                              fit: BoxFit.cover,
-                              memCacheWidth: blurWidth,
-                            ),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: coverUrl,
-                            fit: BoxFit.cover,
-                            memCacheWidth: blurWidth,
-                          ),
-                  ),
-                )
-              else
-                ColoredBox(color: cs.surfaceContainerHighest),
-              if (hasCover)
-                Positioned.fill(
-                  child: ColoredBox(color: seedOverlay.withValues(alpha: 0.34)),
-                ),
-            ],
-          );
-
-    // [G1 | 台账 0917 批六] hero 底部渐隐：≤35% 封面完整（仅 seed 10-18% 微染），
-    // 35%→48% surface 由 α0 渐隐至全覆盖（亮态融入亮 surface / 暗态融入暗
-    // surface，均走 cs.surface 槽位，明暗双态天然生效），48% 以下为纯 surface
-    // 底色区——信息 chips/四按钮/在读·最新/标签/简介不再透封面，对齐 ref 08
-    // 「模糊封面仅占顶部约 45%（y≈870/1920 完全消失）」
-    final gradient = DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: const [0.0, 0.2, 0.35, 0.48, 1.0],
-          colors: [
-            cs.surface.withValues(alpha: 0),
-            seedOverlay.withValues(alpha: 0.10),
-            seedOverlay.withValues(alpha: 0.18),
-            cs.surface,
-            cs.surface,
-          ],
-        ),
-      ),
-    );
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 背景层：封面/档位/seed 变化时 Crossfade 800（对齐参考仓 tween(800)）
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 800),
-          child: KeyedSubtree(
-            key: ValueKey('$coverUrl|$mode|${seed?.toARGB32()}'),
-            child: backdrop,
-          ),
-        ),
-        Positioned.fill(child: gradient),
-        SafeArea(
-          top: false,
-          // [LAYOUT_PLAN P4 收尾] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
-          child: CustomRefreshIndicator(
-            onRefresh: () async => _reload(),
-            child: _buildBody(context, book, chapters),
-          ),
-        ),
-        // 顶栏加载条（对标原版 refreshProgressBar.isAutoLoading）
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: TopNetworkLoadingBar(
-            isLoading: _networkLoading || _tocLoading,
-          ),
-        ),
-      ],
-    );
-  }
-
   /// P2-2 自定义按钮：SourceCallBack.callBackBtn + 中途 UI 回放
   Future<void> _onCustomButton() async {
     final book = _loadedBook;
@@ -419,7 +291,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // 绑定对话框子树，确定按钮先取值再 pop 回传 — Qoder
     final input = await showDialog<String>(
       context: _pageContext,
-      builder: (ctx) => _VariableDialog(
+      builder: (ctx) => BookVariableDialog(
         title: '设置源变量',
         comment: comment,
         initialText: source.variable,
@@ -606,7 +478,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // StatefulWidget 对话框，消除外部 controller 提前 dispose 隐患 — Qoder
     final input = await showDialog<String>(
       context: _pageContext,
-      builder: (ctx) => _VariableDialog(
+      builder: (ctx) => BookVariableDialog(
         title: '设置书籍变量',
         comment: comment,
         initialText: customInit?.toString() ?? '',
@@ -798,13 +670,37 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         ),
         // 头部两栏（封面左置 110×160 + 信息右置；[U10-U12] 版块顺序重排后
         // 头部仅保留两栏，标签行/在读最新块/聚合行按参考序独立成 sliver）
-        SliverToBoxAdapter(child: _buildHeader(context, book, chapters)),
+        SliverToBoxAdapter(
+          child: BookMetaCard(
+            book: book,
+            onChangeCover: () => _openChangeCover(book),
+            onPreviewCover: () => _previewCover(book),
+            onNameTap: () => _openSearch(book.name, event: 'clickBookName'),
+            onNameLongPress: () =>
+                _sourceCallBackSearch('longClickBookName', book.name),
+            onAuthorTap: () => _openSearch(book.author, event: 'clickAuthor'),
+            onAuthorLongPress: () =>
+                _sourceCallBackSearch('longClickAuthor', book.author),
+            onSourceTap: _isOnlineBook(book)
+                ? () => _openSourceEdit(book)
+                : null,
+            onChangeSource: () => _showChangeSourceDialog(book),
+          ),
+        ),
         // [08 元信息区对齐 | 台账 0922 修订] ① chips 行：分组 chip（条件）+
         // kind chips + 字数 chip（对标参考 BookInfoHeader LazyRow/TextCard；
         // 整行无数据不渲染；章数项已去除——由 ③「共 N 章」行承载）
         SliverToBoxAdapter(child: _buildKindChipRow(context, book, kinds)),
         // 操作区：加入书架、查看目录、书源和设置分组。
-        SliverToBoxAdapter(child: _buildActionCards(context, book)),
+        SliverToBoxAdapter(
+          child: BookActionButtons(
+            inBookshelf: _inBookshelf,
+            onToggleShelf: () => _toggleShelf(book),
+            onOpenToc: _openTocScreen,
+            onChangeSource: () => _showChangeSourceDialog(book),
+            onChangeGroup: _showChangeGroup,
+          ),
+        ),
         // [U10 | 台账 0917 批三] ③ 在读/最新/共N章 三行块（原置于四按钮
         // 之前，参考 08 排在四按钮之后；U9 在读/最新行 + D4 共N章单行，
         // 缺数据行不渲染，共N章行恒渲染）
@@ -812,13 +708,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           child: Column(
             // 原头部 Column 为 start 对齐，此处保持逐行自带左距 13dp
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ..._buildReadLatestLines(context, book, chapters),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(13, 12, 16, 0),
-                child: _buildChapterStatLine(context, book, chapters),
-              ),
-            ],
+            children: [BookReadingStatus(book: book, chapters: chapters)],
           ),
         ),
         // [UI_SYNC_REFACTOR S3] Characters/RelatedBooks 区块骨架（已授权；
@@ -828,7 +718,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         ..._buildRelatedBooksSection(context, book),
         // ④ 简介面板（[08 元信息区对齐 | 台账 0922 修订] 原 ④ 标签行 /
         // ⑥ 分组行 / 目录行已移除或收编入 ① chips 行，面板内仅余简介；
-        // 书名/作者/来源两栏区在 _buildHeader）
+        // 书名/作者/来源两栏区在 BookMetaCard）
         SliverToBoxAdapter(child: _buildSummaryPanel(context, book)),
         // 底部续铺纯色：内容不足一屏时填满剩余视口，避免透出封面虚化层
         SliverFillRemaining(
@@ -847,199 +737,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// - [U10-U12 | 台账 0917 批三] 标签行/在读最新块/聚合行不再置于头部，
   ///   按参考 08 版块序独立成 sliver（_buildBody 中 ①③④ 位）
   /// — full-stack-engineer + UI
-  Widget _buildHeader(
-    BuildContext context,
-    Book book,
-    List<BookChapter> chapters,
-  ) {
-    final topPadding = MediaQuery.paddingOf(context).top + kToolbarHeight + 8;
-    final cs = Theme.of(context).colorScheme;
-    final ts = Theme.of(context).textTheme;
-    // [U6 | 台账 0917 批二] 双（深+浅）柔阴影：去掉信息列浅底卡后，书名/作者/
-    // 书源直排于 hero（参考 08 无卡底），此阴影保证任意（亮/暗）封面 hero 下
-    // 深色文字对比可读（深色阴影压亮底、浅色光晕托暗底）
-    // [F1 | 台账 0917 08 批] 强化为「深色文字 + 白色柔光」保底组合（历史）
-    // [G3 | 台账 0917 批六] 改「深色为主」：三行文字保持完全不透明 onSurface
-    // （亮态 hero 上即纯黑书名，对齐 ref 08 PIL 实测墨 L≤17）；深阴影升为
-    // 主保障 α0.60/blur6/offset(0,1.5) 压亮底；白色柔光降权至 α0.25/blur12
-    // 仅作暗 hero / 暗色主题保险，避免强白晕冲淡深色高对比观感
-    final heroTextShadows = const [
-      Shadow(color: Color(0x99000000), blurRadius: 6, offset: Offset(0, 1.5)),
-      Shadow(color: Color(0x40FFFFFF), blurRadius: 12),
-    ];
-    // [U10 | 台账 0917 批三] 版块重排后头部以两栏收尾，底距 12→4：
-    // 与 ① 聚合行 top 8 合成 12dp 间隙（原 12dp 底距随移出的版块移除）
-    return Padding(
-      padding: EdgeInsets.only(top: topPadding, bottom: 4),
-      child: Column(
-        // [PARITY C1 D6] 信息流左对齐（参考 08：各信息行随封面左缘起排）；
-        // Column 默认 center 会使收缩行居中 → start。
-        // [U10-U12] 标签行/在读最新块/聚合行已移出头部（见 _buildBody 版块序）
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 两栏：封面左置 + 右侧信息列
-          // [U2 | 台账 0917] 封面回缩至原版 XML 尺寸 110×160dp（ref 08 PIL
-          // 实测 337×469px≈112×156dp，圆角 2-3dp）；左距 13dp、与右侧
-          // 信息列间隙 17dp（PIL 实测 39-40px/52px），信息列垂直居中
-          // （参考版书名顶距封面顶 44.7dp≈160dp 封面内居中，对齐参考位置）
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // [G4 | 台账 0917 批六] 封面卡浮起观感：阴影保留（elevation 8），
-                // 补 1px 浅描边（outlineVariant 槽位；ref 08 PIL 实测卡缘 ~1-2px
-                // 浅灰线 L≈150-154）。G1 渐隐后卡下缘落在纯 surface 底色区，
-                // 描边+阴影的浮起感清晰，对齐参考
-                Material(
-                  elevation: 8,
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(3),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
-                    child: GestureDetector(
-                      // 对齐原版 ivCover 点击换封面 / 长按预览大图 — Cursor UI
-                      onTap: () => _openChangeCover(book),
-                      onLongPress: () => _previewCover(book),
-                      // 共用封面飞行与状态保留，内层不再设置 heroTag。
-                      child: BookCoverHero(
-                        tag: 'book-cover:${book.bookUrl}',
-                        child: BookCover(
-                          coverUrl: book.customCoverUrl ?? book.coverUrl,
-                          // [U2 | 台账 0917] 110×160dp 圆角 3（原版
-                          // activity_book_info.xml iv_cover 精确值 + ref PIL
-                          // 实测 112×156dp；2.0.276 的 120×260 偏大，回缩）
-                          width: 110,
-                          height: 160,
-                          borderRadius: 3,
-                          sourceOrigin: book.origin,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 17),
-                Expanded(
-                  child: Container(
-                    // [U6 | 台账 0917 批二] 去掉淡色护底卡：信息列（书名/作者/
-                    // 书源）透明直排于 hero（对齐参考 08，其标题块无卡底，PIL
-                    // 实测标题区背景=hero 透传 117-176 渐变，非浅底卡）。对比度
-                    // 改由文字双（深+浅）柔阴影 heroTextShadows 保证，任意封面
-                    // （亮/暗）hero 下均可读
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 书名（对齐原版 tvName 点击/长按 → SearchActivity）
-                        GestureDetector(
-                          onTap: () =>
-                              _openSearch(book.name, event: 'clickBookName'),
-                          onLongPress: () => _sourceCallBackSearch(
-                            'longClickBookName',
-                            book.name,
-                          ),
-                          child: Text(
-                            book.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            // [U3 | 台账 0917] 大字深色：ref 08 PIL 实测
-                            // 墨高 65px≈22sp（任务估 28sp 为缩略预览误估，
-                            // 以 PIL 量化为准）；主题 titleLarge=18sp 偏小，
-                            // 此处显式定 22sp w700 onSurface 高对比
-                            // [F2 | 台账 0917 08 批] 复测 ref 08 书名墨高
-                            // 70px≈23.3sp → 24sp（22sp 偏小一档）
-                            style: ts.titleLarge?.copyWith(
-                              fontSize: 24,
-                              height: 1.35,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onSurface,
-                              shadows: heroTextShadows,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        // 作者（点击 → 搜索作者；长按 → JS 回调，行为不变）
-                        GestureDetector(
-                          onTap: () =>
-                              _openSearch(book.author, event: 'clickAuthor'),
-                          onLongPress: () => _sourceCallBackSearch(
-                            'longClickAuthor',
-                            book.author,
-                          ),
-                          behavior: HitTestBehavior.opaque,
-                          child: Text(
-                            book.author.isNotEmpty ? book.author : '未知作者',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            // [U3 | 台账 0917] 中等可读灰（ref PIL 实测
-                            // 14-16sp）；[U6] 去护底卡后对比度由
-                            // heroTextShadows 双柔阴影保证
-                            // [F1 | 台账 0917 08 批] 过淡灰 onSurfaceVariant
-                            // （wcag 2.08-3.36 <4.5）改完全不透明 onSurface +
-                            // 强化白柔光阴影，任意 hero 下可读
-                            style: ts.bodyMedium?.copyWith(
-                              color: cs.onSurface,
-                              shadows: heroTextShadows,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        // 来源=书源名（点击 → 编辑书源；「换源」小按钮，行为不变）
-                        Row(
-                          children: [
-                            // [F1 | 台账 0917 08 批] 图标随文字改 onSurface 高对比
-                            Icon(
-                              Symbols.language_rounded,
-                              size: 14,
-                              color: cs.onSurface,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _isOnlineBook(book)
-                                    ? () => _openSourceEdit(book)
-                                    : null,
-                                behavior: HitTestBehavior.opaque,
-                                child: Text(
-                                  '来源：${book.originName.isNotEmpty ? book.originName : book.origin}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  // [F1 | 台账 0917 08 批] onSurfaceVariant
-                                  // → onSurface 高对比 + 白柔光阴影；
-                                  // [F2] ref 08 来源行墨高 32px≈10.7sp → 11sp
-                                  // （原 14sp 偏大一档）
-                                  style: ts.bodyMedium?.copyWith(
-                                    fontSize: 11,
-                                    color: cs.onSurface,
-                                    shadows: heroTextShadows,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            _smallAction(
-                              context,
-                              '换源',
-                              () => _showChangeSourceDialog(book),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// [PARITY C1 D4][P2-21] 章节信息单行：「共 N 章 | 未读 / 已读 N 章 /
   /// 已读完」（对齐参考 08 BookInfoSummary 行；替代原两态绿字版式）。
@@ -1055,48 +752,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// 与状态词 secondary（原绿色字面量 0xFF4CAF50 与实机取样
   /// (181,204,186) 不符，改主题角色色，随激活调色板渲染——与参考版同源
   /// 行为）。
-  Widget _buildChapterStatLine(
-    BuildContext context,
-    Book book,
-    List<BookChapter> chapters,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final ts = Theme.of(context).textTheme;
-    final chapterTotal = book.totalChapterNum > 0
-        ? book.totalChapterNum
-        : chapters.length;
-    if (chapterTotal <= 0) {
-      return Text(
-        '暂无章节',
-        style: ts.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-      );
-    }
-    final dci = book.durChapterIndex;
-    final String readState;
-    if (dci == 0 && book.durChapterPos == 0) {
-      readState = '未读';
-    } else if (dci + 1 == chapterTotal && chapterTotal > 0) {
-      readState = '已读完';
-    } else {
-      readState = '已读 ${dci + 1} 章';
-    }
-    // [H4 | 台账 0917 反馈批七] ref 08 共N章行墨高 35px/字宽 33px≈
-    // 12sp → 13sp 偏大，显式定 12sp
-    final base = ts.bodyLarge?.copyWith(fontSize: 12);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '共 $chapterTotal 章',
-          style: base?.copyWith(color: cs.primary, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(width: 8),
-        Text('|', style: base?.copyWith(color: cs.secondary)),
-        const SizedBox(width: 8),
-        Text(readState, style: base?.copyWith(color: cs.secondary)),
-      ],
-    );
-  }
 
   /// [08 元信息区对齐 | 台账 0922 修订] chips 行（对标参考 08
   /// BookInfoHeader 的 LazyRow/TextCard chips 行）：
@@ -1167,187 +822,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         .toList();
   }
 
-  /// [U9 | 台账 0917 批二][P2-21] 在读/最新两行（对齐参考 08
-  /// 「在读 · 引子 穿越」「最新 · 第二百三十六章…」，置于「共 N 章」行
-  /// 上方；缺数据不渲染该行）：
-  /// - 在读行 = 标题取值优先级（对齐原版/参考 resolveBookInfoTocTitle
-  ///   口径）：① 存储值 book.durChapterTitle（Rust 侧
-  ///   update_reading_progress 写入）→ ② 目录回落 chapters[durChapterIndex]
-  ///   （durChapterIndex 为 0 基：reader_notifier.dart 直接
-  ///   chapters[chapterIndex]；原实现按 1 基取 durIdx-1，偏一章）→
-  ///   ③ 皆缺（存储值空 + 目录未加载/越界）不渲染该行（D4 缺数据
-  ///   不渲染，不显示脏索引）；形态「在读 · {标题}」，无「第N章」前缀
-  /// - 最新行 = info 的 latestChapterTitle；[E5 | 台账 0917 反馈批四]
-  ///   部分书源该字段返回完结状态词（如「已完结」而非章节标题），此时
-  ///   回落目录末章真实标题（与在读行同源 chapters 列表，totalChapterNum
-  ///   优先、回落实际章节数）；数据缺（字段为空）不渲染该行（D4 单行
-  ///   口径，不造占位），状态词且目录无标题数据时保持原值（不丢行）；
-  ///   形态「最新 · {标题}」（参考 dump 中「（全书完）」为站点标题自带，
-  ///   非代码追加，故不再追加后缀）
-  List<Widget> _buildReadLatestLines(
-    BuildContext context,
-    Book book,
-    List<BookChapter> chapters,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final ts = Theme.of(context).textTheme;
-    // [F1 | 台账 0917 08 批] 在读/最新行 onSurfaceVariant（wcag 2.79-2.92）
-    // 改 onSurface 高对比；[H2/H3 | 台账 0917 反馈批七] ref 08 量化：
-    // 在读行墨高 46px/字宽 45px≈16sp 且字框 fill 0.30-0.52 为粗体 →
-    // 16sp w700；最新行墨高 40px/字宽 38px≈13sp 常规字重 → 13sp
-    Widget line(String text, {double fontSize = 13, FontWeight? weight}) =>
-        Padding(
-          // [08 左缘对齐 | 台账 0922 遗留闭环 2026-09-26] 参考
-          // BookInfoSummary start=16dp（ref x=48），我方 13dp（x=39）差 3dp
-          padding: const EdgeInsets.only(left: 16, top: 6),
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: ts.bodyMedium?.copyWith(
-              fontSize: fontSize,
-              fontWeight: weight,
-              color: cs.onSurface,
-            ),
-          ),
-        );
-    final lines = <Widget>[];
-    // 在读行（[P2-21] 标题取值 ① 存储值 → ② 目录回落 → ③ 不渲染；
-    // durChapterIndex 为 0 基，原版 resolveBookInfoTocTitle 同口径
-    // chapters.getOrNull(currentIndex)）
-    final durIdx = book.durChapterIndex;
-    final storedTitle = (book.durChapterTitle ?? '').trim();
-    String? readTitle = isMeaningfulText(storedTitle) ? storedTitle : null;
-    if (readTitle == null && durIdx >= 0 && durIdx < chapters.length) {
-      final tocTitle = chapters[durIdx].title.trim();
-      if (isMeaningfulText(tocTitle)) {
-        readTitle = tocTitle;
-      }
-    }
-    if (readTitle != null) {
-      // [H2 | 台账 0917 反馈批七] 在读行 16sp w700（ref 墨高 46px 粗体）；
-      // [P2-21] 形态对齐参考 toc_s「在读 · %s」：标题原文直出，无「第N章」
-      // 前缀（原「在读·第N章」前缀 + 1 基取 chapters[durIdx-1] 双错）
-      lines.add(line('在读 · $readTitle', fontSize: 16, weight: FontWeight.w700));
-    }
-    // 最新行（info：latestChapterTitle）
-    // [E5 | 台账 0917 反馈批四] 部分书源的 latestChapterTitle 字段返回的是完结
-    // 状态词（如「已完结」而非章节标题，参考版实测「最新·第51章 已完结」缺
-    // 章节名），此时回落目录末章真实标题（与在读行同源 chapters 列表）；
-    // 数据缺（字段为空）保持现状不渲染（D4 单行口径，不造占位），
-    // 状态词且目录无标题数据时保持原值（不丢行）。
-    // [P2-21] 形态对齐参考 lasted_show「最新 · %s」：去「第N章」前缀与
-    // 代码追加的「（全书完）」后缀（参考 dump 中该后缀为站点标题自带，
-    // 回落目录末章时同样不加后缀）
-    final latestStatusRe = RegExp(r'^(已完结|完本|已完本|连载中|暂停更新|停更|断更)$');
-    final latestRaw = (book.latestChapterTitle ?? '').trim();
-    var latestTitle = latestRaw;
-    if (latestStatusRe.hasMatch(latestTitle)) {
-      final tocTotal = book.totalChapterNum > 0
-          ? book.totalChapterNum
-          : chapters.length;
-      final tocIdx = tocTotal > 0 ? tocTotal - 1 : chapters.length - 1;
-      if (tocIdx >= 0 && tocIdx < chapters.length) {
-        final tocTitle = chapters[tocIdx].title.trim();
-        if (isMeaningfulText(tocTitle)) {
-          latestTitle = tocTitle;
-        }
-      }
-    }
-    if (isMeaningfulText(latestTitle)) {
-      // [H3 | 台账 0917 反馈批七] 最新行 13sp 常规字重（ref 墨高 40px）
-      lines.add(line('最新 · $latestTitle', fontSize: 13));
-    }
-    return lines;
-  }
-
-  /// 操作区四图标卡一行（[PARITY C1 D2]，对齐参考 08）
-  /// - 四卡：已在书架/加书架（切换，_toggleShelf）/ 查看目录 / 书源（换源）/
-  ///   设置分组（复用现有分组选择对话框）
-  /// [H1 | 台账 0917 反馈批七] 四按钮横向拓宽（近卡片横排）：ref 08 量化
-  /// 单卡 229px≈76dp 宽 × 207px≈69dp 高、圆角 44.75px≈15dp、卡间距
-  /// 24-25px≈8dp、左右页边距 39px≈13dp、横向跨度 989px≈329.7dp →
-  /// Row + 4×Expanded 等分（卡宽 (360-26-30)/4=76dp，间距 10dp，边距
-  /// 13dp）；图标 20dp + 间距 10dp + 标签 11sp（图标/标签字号随卡宽
-  /// 比例微调，标签保持可读，与 ref 字宽 33px/墨高 34px≈11sp 一致）
-  Widget _buildActionCards(BuildContext context, Book book) {
-    final cs = Theme.of(context).colorScheme;
-    Widget card(IconData icon, String label, VoidCallback onTap) {
-      // [H1] 宽由 Expanded 等分（≈76dp）；高 69dp 固定（ref 207px≈69dp）
-      return SizedBox(
-        height: 69,
-        child: Material(
-          color: cs.surfaceContainerLow,
-          // [H1 | 台账 0917 反馈批七] 卡宽 76dp 圆角 15dp（ref 实测
-          // 44.75px≈15dp，R/w=0.196；原 52dp 卡 10dp 圆角随卡宽放大）
-          borderRadius: BorderRadius.circular(15),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(15),
-            onTap: onTap,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 20, color: cs.primary),
-                const SizedBox(height: 10),
-                Text(
-                  label,
-                  // [F1 | 台账 0917 08 批] 四按钮标签在面板区（非 hero）：
-                  // onSurfaceVariant（wcag 2.79）改 onSurface 高对比；
-                  // [H1] 卡宽拓宽后标签 11sp 保持可读（ref 33px≈11sp）
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(fontSize: 11, color: cs.onSurface),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // [H1 | 台账 0917 反馈批七] 等分布局：左右页边距 13dp（ref 左
-    // 39px≈13dp）、卡间距 10dp（ref 24-25px≈8-8.3dp，等分布局取 10
-    // 使卡宽 (360-26-30)/4=76dp 对齐 ref 229px≈76dp，横向跨度 1002px
-    // 对齐 ref 989px，偏差 +1.3%）
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: card(
-              _inBookshelf
-                  ? Symbols.playlist_remove_rounded
-                  : Symbols.playlist_add_rounded,
-              _inBookshelf ? '已在书架' : '加书架',
-              () => _toggleShelf(book),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: card(
-              Symbols.format_list_bulleted_rounded,
-              '查看目录',
-              _openTocScreen,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: card(
-              Symbols.swap_horiz_rounded,
-              '书源',
-              () => _showChangeSourceDialog(book),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: card(Symbols.folder_rounded, '设置分组', _showChangeGroup),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// [UI_SYNC_REFACTOR S3] Characters 区块骨架（已授权；数据链后端调研中，
   /// 无数据隐藏=缺省降级）
   List<Widget> _buildCharactersSection(BuildContext context, Book book) {
@@ -1399,7 +873,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   /// BookInfoSummary：面板内仅「简介」（参考 08 面板无标签行、无独立
   /// 分组行/目录行——标签信息已收编进 chips 行、分组信息入 chips 行
   /// 条件 chip、目录入口保留于四按钮「查看目录」卡）；
-  /// 书名/作者/来源两栏区在 _buildHeader，B1 形态对齐）
+  /// 书名/作者/来源两栏区在 BookMetaCard，B1 形态对齐）
   Widget _buildSummaryPanel(BuildContext context, Book book) {
     final cs = Theme.of(context).colorScheme;
     return Container(
@@ -1418,24 +892,6 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           // 移除/收编——见 _buildKindChipRow 注释与台账 0922 修订节）
           _buildIntro(context, book),
         ],
-      ),
-    );
-  }
-
-  /// 小按钮（对标原版 AccentBgTextView；iOS 风格胶囊小按钮）
-  Widget _smallAction(BuildContext context, String text, VoidCallback onTap) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        margin: const EdgeInsets.only(left: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: cs.primary,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(text, style: TextStyle(fontSize: 13, color: cs.onPrimary)),
       ),
     );
   }
@@ -1583,7 +1039,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // （原版直接显示正文无前缀），清洗后为空则不渲染简介区 — Qoder
     final intro = _cleanIntro(raw);
     if (intro.isEmpty) return const SizedBox.shrink();
-    return _ExpandableText(text: intro);
+    return BookExpandableText(text: intro);
   }
 
   /// 清洗简介正文：剥离开头的「简介：」「简介 :」等前缀
