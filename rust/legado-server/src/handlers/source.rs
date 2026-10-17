@@ -7,9 +7,7 @@ use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-use legado_core::models::BookSource;
-use legado_db::repository::Repository;
-use legado_db::repository::book_source_repository::BookSourceRepository;
+use legado_engine::book_source_service::{BookSourceService, SourceEditFields};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -62,17 +60,11 @@ where
     Option::<String>::deserialize(deserializer).map(Some)
 }
 
-/// 把创建请求的 concurrent_rate 规整为入库值：空串/纯空白 → None
-fn normalize_concurrent_rate(rate: Option<String>) -> Option<String> {
-    rate.filter(|r| !r.trim().is_empty())
-}
-
 /// GET /api/sources — 获取全部书源
 pub async fn list_sources(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
     state
         .with_database(move |db| {
-            let repo = BookSourceRepository::new(db.connection());
-            let sources = repo.find_all()?;
+            let sources = BookSourceService::new(db).list_sources()?;
             Ok(Json(json!({ "sources": sources, "total": sources.len() })))
         })
         .await?
@@ -83,32 +75,20 @@ pub async fn create_source(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateSourceRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let engine = state.engine.clone();
+    let registry = state.engine.rate_limiter();
     state
         .with_database(move |db| {
-            let source = BookSource {
+            let fields = SourceEditFields {
                 book_source_url: req.book_source_url,
                 book_source_name: req.book_source_name,
                 book_source_group: req.book_source_group,
-                book_source_type: req.book_source_type.unwrap_or(0),
-                enabled: req.enabled.unwrap_or(true),
+                book_source_type: req.book_source_type,
+                enabled: req.enabled,
                 search_url: req.search_url,
-                concurrent_rate: normalize_concurrent_rate(req.concurrent_rate),
-                ..BookSource::default()
             };
-
-            {
-                let repo = BookSourceRepository::new(db.connection());
-                repo.insert(&source)?;
-            }
-            // 写库成功后才刷新进程级限速注册表（写库失败经 `?` 提前返回，不触发刷新）：
-            // 空值 → 移除既有 limiter（空=不限流），合法值 → 原位刷新。
-            engine.rate_limiter().refresh(
-                &source.book_source_url,
-                source.concurrent_rate.as_deref().unwrap_or(""),
-            );
-
-            Ok((StatusCode::CREATED, Json(json!(source))))
+            let saved =
+                BookSourceService::new(db).create_from_fields(fields, req.concurrent_rate)?;
+            Ok((StatusCode::CREATED, Json(json!(saved.publish(&registry)))))
         })
         .await?
 }
@@ -119,64 +99,23 @@ pub async fn update_source(
     Path(source_url): Path<String>,
     Json(req): Json<UpdateSourceRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let engine = state.engine.clone();
+    let registry = state.engine.rate_limiter();
     state
         .with_database(move |db| {
-            let transaction = db.immediate_transaction()?;
-            // concurrentRate 三态：缺键保留 / 显式 null 或空串清除 / 有值更新
-            enum RateChange {
-                Keep,
-                Clear,
-                Set(String),
-            }
-            let rate_change = match req.concurrent_rate {
-                None => RateChange::Keep,
-                Some(None) => RateChange::Clear,
-                Some(Some(raw)) => {
-                    if raw.trim().is_empty() {
-                        RateChange::Clear
-                    } else {
-                        RateChange::Set(raw)
-                    }
-                }
+            let fields = SourceEditFields {
+                book_source_url: req.book_source_url,
+                book_source_name: req.book_source_name,
+                book_source_group: req.book_source_group,
+                book_source_type: req.book_source_type,
+                enabled: req.enabled,
+                search_url: req.search_url,
             };
-
-            let source = {
-                let repo = BookSourceRepository::new(db.connection());
-                // 先按 path 取完整实体做字段级 mutate：DTO 未暴露的字段（规则/header/
-                // jsLib/variable 等）保持库内原值，不再用 `BookSource::default()` 构造
-                // （全列 upsert 会清掉这些字段）。path 不存在时维持原有 INSERT OR
-                // REPLACE 语义（以默认实体补齐），不改为 404；URL 冲突时保持现有
-                // 「按 path 查找、写 body URL」行为（以 body URL 为准替换该行）。
-                let mut source = repo.find_by_url(&source_url)?.unwrap_or_default();
-                source.book_source_url = req.book_source_url;
-                source.book_source_name = req.book_source_name;
-                source.book_source_group = req.book_source_group;
-                source.book_source_type = req.book_source_type.unwrap_or(0);
-                source.enabled = req.enabled.unwrap_or(true);
-                source.search_url = req.search_url;
-                match &rate_change {
-                    RateChange::Keep => {}
-                    RateChange::Clear => source.concurrent_rate = None,
-                    RateChange::Set(value) => source.concurrent_rate = Some(value.clone()),
-                }
-                repo.update(&source)?;
-                source
-            };
-
-            transaction.commit().map_err(|error| {
-                legado_core::LegadoError::Database(format!("提交书源更新失败: {error}"))
-            })?;
-            // 写库成功后才刷新限速注册表：缺键不刷新；清除 → 移除 limiter；有值 → 刷新
-            match &rate_change {
-                RateChange::Keep => {}
-                RateChange::Clear => engine.rate_limiter().refresh(&source.book_source_url, ""),
-                RateChange::Set(value) => engine
-                    .rate_limiter()
-                    .refresh(&source.book_source_url, value),
-            }
-
-            Ok(Json(json!(source)))
+            let saved = BookSourceService::new(db).update_from_fields(
+                &source_url,
+                fields,
+                req.concurrent_rate,
+            )?;
+            Ok(Json(json!(saved.publish(&registry))))
         })
         .await?
 }
@@ -188,8 +127,7 @@ pub async fn delete_source(
 ) -> Result<Json<Value>, ApiError> {
     state
         .with_database(move |db| {
-            let repo = BookSourceRepository::new(db.connection());
-            repo.delete(&source_url)?;
+            BookSourceService::new(db).delete_source(&source_url)?;
             Ok(Json(json!({ "deleted": true, "source_url": source_url })))
         })
         .await?
@@ -200,6 +138,8 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::{Method, Request};
+    use legado_core::models::BookSource;
+    use legado_db::{BookSourceRepository, repository::Repository};
     use std::time::Duration;
     use tower::ServiceExt;
 

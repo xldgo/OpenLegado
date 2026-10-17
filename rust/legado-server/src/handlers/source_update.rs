@@ -12,9 +12,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
+#[cfg(test)]
 use legado_db::RoomImporter;
 use legado_db::repository::Repository;
 use legado_db::repository::book_source_repository::BookSourceRepository;
+use legado_engine::book_source_service::{BookSourceService, RoomSourceImport};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -272,30 +274,15 @@ pub async fn execute_update(
         .collect();
 
     if !sources_to_import.is_empty() {
-        let import_json = serde_json::to_string(&sources_to_import)
-            .map_err(|e| legado_core::LegadoError::Internal(format!("序列化书源失败: {e}")))?;
+        let prepared = RoomSourceImport::new(&sources_to_import)?;
 
         let imported = state
-            .with_database(move |db| {
-                RoomImporter::import_book_sources(db.connection(), &import_json)
-            })
+            .with_database(move |db| BookSourceService::new(db).import_room_sources(prepared))
             .await
             .and_then(|result| result);
         match imported {
-            Ok(count) => {
-                // 整批写库成功后按本次实际导入书源（含 concurrentRate）刷新
-                // server registry；写库失败不刷新（避免未落库配置提前生效）
-                for item in &sources_to_import {
-                    let url = item
-                        .get("bookSourceUrl")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    let rate = item
-                        .get("concurrentRate")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    state.engine.rate_limiter().refresh(url, rate);
-                }
+            Ok(saved) => {
+                let count = saved.publish(&state.engine.rate_limiter());
                 // 区分新增和更新
                 for item in &sources_to_import {
                     let url = item

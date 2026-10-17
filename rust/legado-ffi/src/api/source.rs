@@ -1,154 +1,57 @@
-//! 书源管理 API
-//!
-//! 提供书源的增删改查、启用/禁用、批量导入/导出操作。
-
+//! 书源宿主适配：文档解析、连接装配与成功提交后的限速发布。
+use crate::db_state::with_database;
 use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
-use legado_db::BookSourceRepository;
-use legado_db::repository::Repository;
+use legado_engine::book_source_service::BookSourceService;
 
-use crate::db_state::with_database;
-
-/// 获取所有书源
 pub fn list_sources() -> LegadoResult<Vec<BookSource>> {
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.find_all()
-    })
+    with_database(|db| BookSourceService::new(db).list_sources())
 }
-
-/// 添加书源（JSON 序列化传入）
 pub fn add_source(source_json: &str) -> LegadoResult<BookSource> {
-    let source: BookSource = serde_json::from_str(source_json)
-        .map_err(|e| legado_core::LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
+    let source = serde_json::from_str(source_json)
+        .map_err(|e| LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
     add_source_entity(source)
 }
-
-/// 实体入口与 JSON 宿主共用同一写入及后置处理。
 pub fn add_source_entity(source: BookSource) -> LegadoResult<BookSource> {
-    let saved = with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.insert(&source)?;
-        Ok(source)
-    })?;
-    // 写库成功后才刷新限速注册表（写库失败经 `?` 提前返回，不触发刷新）；
-    // 空值（这里的 `None`/空串）经 refresh 走清除路径，合法值原位刷新
-    crate::api::source_rate_limit::refresh_source_rate_limit(
-        &saved.book_source_url,
-        saved.concurrent_rate.as_deref().unwrap_or(""),
-    );
-    Ok(saved)
+    let saved = with_database(|db| BookSourceService::new(db).add_source(source))?;
+    Ok(saved.publish(&crate::api::source_rate_limit::registry()))
 }
-
-/// 更新书源
 pub fn update_source(source_json: &str) -> LegadoResult<()> {
-    let source: BookSource = serde_json::from_str(source_json)
-        .map_err(|e| legado_core::LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
+    let source = serde_json::from_str(source_json)
+        .map_err(|e| LegadoError::Ffi(format!("BookSource JSON 解析失败: {e}")))?;
     update_source_entity(source)
 }
-
-/// 实体入口与 JSON 宿主共用同一写入及后置处理。
 pub fn update_source_entity(source: BookSource) -> LegadoResult<()> {
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.update(&source)
-    })?;
-    // 写库成功后才刷新限速注册表（失败经 `?` 提前返回，不触发刷新）；
-    // 保存显式 null/空串 → 清除路径（移除该 key 的 limiter），合法值原位刷新
-    crate::api::source_rate_limit::refresh_source_rate_limit(
-        &source.book_source_url,
-        source.concurrent_rate.as_deref().unwrap_or(""),
-    );
+    let saved = with_database(|db| BookSourceService::new(db).update_source(&source))?;
+    saved.publish(&crate::api::source_rate_limit::registry());
     Ok(())
 }
-
-/// 按 URL 删除书源
 pub fn delete_source(source_url: &str) -> LegadoResult<()> {
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.delete(source_url)
-    })
+    with_database(|db| BookSourceService::new(db).delete_source(source_url))
 }
-
-/// 启用书源
 pub fn enable_source(source_url: &str) -> LegadoResult<()> {
     set_source_enabled(source_url, true)
 }
-
-/// 禁用书源
 pub fn disable_source(source_url: &str) -> LegadoResult<()> {
     set_source_enabled(source_url, false)
 }
-
-/// 设置书源启用状态
 fn set_source_enabled(source_url: &str, enabled: bool) -> LegadoResult<()> {
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        let mut source = repo
-            .find_by_url(source_url)?
-            .ok_or_else(|| LegadoError::Database("书源不存在".into()))?;
-        source.enabled = enabled;
-        repo.update(&source)
-    })
+    with_database(|db| BookSourceService::new(db).set_source_enabled(source_url, enabled))
 }
-
-/// 批量导入书源（JSON 数组）
-///
-/// [P1-1 | 2026-10-01] 整批原子写入：改走 [`BookSourceRepository::insert_batch`]
-/// （单事务：任一条失败整批回滚），与 server 侧 `RoomImporter::import_book_sources`
-/// 共享 legado-db `in_transaction` 事务边界，不再各自维护一套部分成功语义。
-/// 仅整批提交成功后逐个刷新本次实际导入书源（用解析出的书源列表，而非返回值
-/// 计数）；任一步失败经 `?` 提前返回，整批均不落库、不刷新。
-///
-/// 说明：此处不复用 `RoomImporter`（其按 Room 导出格式把规则字段当字符串写入、
-/// 且列集不含 `variable`），以免 FFI 线格式（规则为 JSON 对象）的规则与
-/// `variable` 被静默丢弃；事务边界与批量写实现仍通过 legado-db 共享。
 pub fn import_sources(json_array: &str) -> LegadoResult<i32> {
     let sources: Vec<BookSource> = serde_json::from_str(json_array)
         .map_err(|e| LegadoError::Ffi(format!("书源 JSON 数组解析失败: {e}")))?;
-    let count = sources.len() as i32;
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.insert_batch(&sources)
-    })?;
-    // 整批写库成功后逐个刷新本次导入书源（用实际解析出的书源列表，而非返回值计数）；
-    // 任一条目写库失败经 `?` 提前返回，整批均不刷新
-    for source in &sources {
-        crate::api::source_rate_limit::refresh_source_rate_limit(
-            &source.book_source_url,
-            source.concurrent_rate.as_deref().unwrap_or(""),
-        );
-    }
-    Ok(count)
+    let saved = with_database(|db| BookSourceService::new(db).import_sources(&sources))?;
+    Ok(saved.publish(&crate::api::source_rate_limit::registry()))
 }
-
-/// 导出所有书源为 JSON 数组
 pub fn export_sources() -> LegadoResult<Vec<BookSource>> {
     list_sources()
 }
-
-/// 获取所有启用的书源
 pub fn list_enabled_sources() -> LegadoResult<Vec<BookSource>> {
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.find_enabled()
-    })
+    with_database(|db| BookSourceService::new(db).list_enabled_sources())
 }
-
-/// 设置书源自定义变量（契约 §2.3 setSourceVariable，台账 §5.11-3，Task #63）
-///
-/// 对齐原版 `source.setVariable`：单列 UPDATE 语义仅更新 `variable` 单列，
-/// 规避 `updateBookSource` 全行更新风险；空串表示清除该变量。
-/// 错误码：书源不存在 → Internal；写入失败 → Db。
 pub fn set_source_variable(source_url: &str, variable: &str) -> LegadoResult<()> {
-    with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        let hit = repo.update_variable(source_url, variable)?;
-        if !hit {
-            return Err(LegadoError::Internal(format!("书源不存在: {source_url}")));
-        }
-        Ok(())
-    })
+    with_database(|db| BookSourceService::new(db).set_source_variable(source_url, variable))
 }
 
 #[cfg(test)]

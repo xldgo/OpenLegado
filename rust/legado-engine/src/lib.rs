@@ -5,6 +5,7 @@
 pub mod backup_service;
 pub mod book_export_service;
 pub mod book_import_service;
+pub mod book_source_service;
 mod cache_downloads;
 pub mod cover_service;
 pub mod dictionary_service;

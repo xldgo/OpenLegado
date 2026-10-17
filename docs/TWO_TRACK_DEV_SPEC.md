@@ -546,3 +546,29 @@ prepare_update仍对空本地数组执行原合并算法，只生成统计并回
 状态与证据仅维护于Active计划。
 
 编写者：Codex｜2026-10-17
+
+
+### 书源管理与提交后限速发布（2026-10-18）
+
+`legado-engine/book_source_service`在宿主数据库闭包内借用连接，集中完整实体CRUD、启停、变量
+单列更新、类型化批量导入和编辑字段更新；不持根EngineContext、不重新获取池连接。
+source_catalog保留原选择/排序语义，只复用服务的启用查询。
+
+SourceWrite仅持成功写入的返回值与限速变更，不持数据库、注册表或根引擎；宿主在原提交位置
+调用publish并显式指定所属RateLimiterRegistry。FFI在with_database成功返回后发布，Web创建/
+编辑仍在阻塞闭包内提交后发布，在线Room更新仍在异步数据库操作成功返回后发布。
+任何写入/提交失败均不返回可发布结果；若新调用者另开外层事务，须等待最外层提交后发布。
+不在Drop中隐式刷新，也不改变请求取消或数据库任务的原生命周期。
+
+完整实体保存不改字段；编辑字段输入与完整BookSource模型区分，未暴露字段从库内保留。
+concurrentRate缺键保持且不刷新，null/空串清除，有值更新；未知path仍按默认实体补齐，
+保持按path查询、按body URL写入的既有行为。删除/启停/变量修改不额外刷新限速。
+
+类型化导入继续复用BookSourceRepository.insert_batch，保留规则对象和variable；RoomSourceImport
+从同一组选中值生成原JSON文档及限速变更，再复用RoomImporter原列映射与事务，不混合两种格式。
+Room在线更新的网络、筛选和计数仍由既有路径负责；失败整批回滚，成功提交后才发布。
+FFI只解析文档和装配资源；Web保留请求DTO/三态反序列化、任务保护与响应。已无消费者的私有
+refresh_source_rate_limit包装移除，许可获取和同一注册表的宿主装配保留。
+本批不改变FFI签名/生成绑定、UI、schema、版本或依赖；状态与证据仅维护于Active计划。
+
+编写者：Codex｜2026-10-18

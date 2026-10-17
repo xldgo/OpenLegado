@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### BOOK-SOURCE-SERVICE-20261017：书源管理与保存后限速同步收口（P1）
+
+- 授权与基线：用户批准完整书源服务批次；feature/rust-ffi-modernization / e6f955ead，worktree干净。Codex单代理，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS和后置功能缺口不扩入。
+- 范围：Engine BookSourceService借用宿主连接，承接完整书源CRUD/启停/变量、类型化批量导入、编辑字段与Web rate三态；写入成功返回不持连接的限速变更，由原宿主时机发布。source_catalog复用启用查询。Room导入保持原Importer/文档格式，在线更新的导入与提交后限速发布共用服务。
+- 行为冻结：FFI完整实体覆盖、Web编辑保留未暴露字段、缺path默认实体/按body URL写入、concurrentRate缺键保留/空值清除/有值更新；类型化规则对象与Room规则字符串/variable差异保持。批量写入整批原子，成功提交后才刷新，失败不刷新；保持原启停/删除无额外限速刷新、排序/字段/错误和计数。Web数据库调度/任务保护、HTTP拉取/筛选/统计与响应保持。
+- 验证：复用原FFI/Web/在线更新和限速回归、原book_source_repository_runtime_test真实FRB；只在独立Engine数据库增加字段/两种导入/回滚和注册表归属必要用例，不新增全局DDL或外部宿主。相关Rust回归、default/QuickJS严格Clippy和正式Windows DLL指纹/摘要校验。单代理自查，无独立外审如实记录。
+- 边界：不改FFI签名/DTO/生成绑定、UI、schema、版本或依赖；不扩大到MCP/订阅真正落库/替换规则写入或调度器重构。前批共享库锁冲突根因未确认，本批不销账。
+- 实现：BookSourceService承接完整实体与字段编辑、两类批量导入；SourceWrite保存返回值与限速变更，宿主仅在原成功提交位置显式发布到所属注册表，不持根引擎或连接。FFI文档解析/资源装配、Web三态反序列化/数据库调度和在线更新HTTP/筛选/统计保持。删除原私有refresh包装的唯一生产调用链，许可入口和同一注册表装配保留。
+- Rust回归：QuickJS完整库Engine98/FFI557/Server209共864项通过，42项既有忽略；新增独立Engine3项/default同3项通过，覆盖全字段/变量/启停/源筛选与实例隔离、提交后发布且根可释放/注册表不串、类型化和Room实际SQL失败的整批回滚/不刷新与成功后的原格式差异。原FFI6、Web10与在线更新7项保留，不新增共享库DDL或测试宿主。
+- 自查与整改：首次全目标check通过；首轮严格Clippy发现本批manual_map与cloned_ref_to_slice_refs两处，改用Option::map及slice::from_ref，不增加lint放行。最终三crate default/QuickJS全目标Clippy -D warnings均通过；限定Rust文件格式与git diff --check通过。前批共享库锁冲突未扩入或销账。
+- 正式接线：Python正式入口重建Windows Debug QuickJS DLL成功，构建输入/源码指纹与源库/复制库摘要及只读校验通过。原book_source_repository_runtime_test全文件1项真实FRB通过，覆盖共享源仓储、CRUD/启停、变量单列更新、导入/导出及坏JSON/缺源错误、成功写入才通知失效。不改Dart用例或运行全量Flutter/应用构建/设备验证。
+- 证据与限制：build/book-source-service/{check-initial,tests-quickjs,tests-default,clippy-default,clippy-default-final,clippy-quickjs,native-build,native-verify,native-runtime,native-verify-final}.log；move-review.json仅辅助人工搬迁审查，Web测试差异仅迁入原生产导入，断言不变。首轮Clippy失败已整改，不计通过；Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论。未改FFI/生成物/schema/版本/依赖；音频/TTS及已登记缺口保持后置。
+- 状态：书源管理与提交后限速同步收口、本地验证完成，按授权整批本地提交；保留当前worktree/分支，不推送或合并。
+
+编写者：Codex｜2026-10-18
+
 ### RULE-SUB-SERVICE-20261017：规则订阅应用服务与双宿主去重（P1）
 
 - 授权与基线：用户批准完整订阅服务计划；feature/rust-ffi-modernization / 67bc009b1，worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。

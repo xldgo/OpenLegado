@@ -8,8 +8,9 @@ pub fn load_search_sources_selected_from(
 ) -> LegadoResult<Vec<BookSource>> {
     let storage = storage
         .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?;
-    let all = storage
-        .with_database(|db| legado_db::BookSourceRepository::new(db.connection()).find_enabled())?;
+    let all = storage.with_database(|db| {
+        crate::book_source_service::BookSourceService::new(db).list_enabled_sources()
+    })?;
     Ok(if urls.is_empty() {
         all
     } else {
