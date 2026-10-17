@@ -1,5 +1,23 @@
 # Legado 后续重构执行计划（Active）
 
+### BACKUP-WEBDAV-SERVICE-20261017：备份与WebDAV应用服务下沉（P1）
+
+- 授权与基线：用户授权执行完整备份/WebDAV计划；feature/rust-ffi-modernization / d4f03955d，worktree干净。Codex单代理，整批完成后本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。
+- 范围：BackupService显式持所属存储，承接备份/恢复/列表及既有旧版导入；WebDavService显式接收所属Hosts和宿主Handle，复用Net客户端及BookSyncManager处理文件与同步编排。FFI保留配置文档解析、宿主装配和结果/DTO映射；Engine结果不依赖FFI类型，不保存根EngineContext或回查宿主全局。
+- 行为冻结：备份版本/字段/JSON文件、逐条恢复/失败跳过/成功统计、RSS完整映射/可空Cookie标志、文件扫描/旧版导入消息保持；WebDAV配置错误文本、认证、路径/UTF-8/本地文件错误、原Runtime选择、整文件传输、同步回退和外层结果形状不改。不新增事务、流式上传、历史兼容或取消策略；FFI签名/DTO/生成绑定、数据库、UI、版本和依赖版本不变。
+- 行为例外：仅下述已复现的阅读记录字段映射错误一并纠正，恢复当前备份中原本的书名和非零时长；磁盘格式及其他恢复策略不变。
+- 验证与回滚：保留相关原测试，仅补文件往返、资源归属和错误语义必要用例；default/QuickJS严格Clippy、相关Rust回归、正式Windows DLL及指纹/摘要与既有真实FRB定向用例。无新测试宿主，按用户要求单代理自查、如实记录无独立外审；可单独撤销本批。
+- 实现：BackupService承接原备份文件/恢复/目录扫描/既有旧版导入，文件条目及旧版统计为Engine自有结果，FFI保留DTO映射和原文档包装。三项原RSS备份私有测试随实现迁移，其余原FFI测试保留。WebDavService只持Hosts/Handle，复用原Net客户端与BookSyncManager；配置解析和同步文档外壳留在FFI，Runtime选择仍由宿主负责。
+- 基线缺陷与最小修复（P1）：原备份创建对DB ReadRecord直接序列化，产生book_name/read_time，恢复却按Core ReadRecord的bookName/readTime解析，默认字段掩盖错误，非零时长变0且书名变空。新增真实文件→空库回归首次稳定失败（1234→0），迁移前函数同样使用此错误类型。已向用户说明并给出范围选项；按本批备份正确性采用推荐最小方案，仅把恢复类型改成与创建相同的DB ReadRecord，保留磁盘文档及原upsert写库策略，不增加历史格式回退。原非零断言保留，并补书名与实际输出字段断言；不改断言掩盖问题。
+- 初始验证与整改：QuickJS全目标编译通过，未用WebDavFileInfo导入已改为签名直接使用；首轮Engine69项通过/1项上述基线失败，不计整批通过。新WebDAV真实7次文件/认证/目录请求与8次全量/增量同步请求用例通过；最终结果见下文。
+- 修复后回归：QuickJS库Engine70/FFI572共642项通过，42项既有忽略；原备份6/WebDAV3共9项保留，其中3项RSS私有测试迁入Engine。新增4项验证六集合真实备份→空库恢复/部分坏条目计数/原RSS字段和非零时长、备份目录/错误及既有旧版导入消息、WebDAV文件/认证/方法/精确u64以及全量/增量同步原路径和统计。全程复用同crate本地HTTP夹具，无新增外部宿主/协议或源码文本断言。
+- 正式接线：Python正式入口独立target重建Windows Debug QuickJS DLL通过，源码指纹/输入与源库及复制库摘要通过；既有business_transport_runtime_test整文件5项及file_transport_runtime_test的WebDAV定向1项真实FRB通过。前者包含备份文件→清空RSS→恢复完整44字段与统计，不能单独筛选最后一项，因其依赖前序夹具；没有新增Dart用例或重复应用构建/设备测试。最终只读校验通过，FRB/DTO/存储/版本未改。
+- 严格检查与复核：映射修复后的Engine/FFI default与QuickJS全目标Clippy -D warnings通过，不增加lint放行；default备份8/WebDAV5共13项定向回归通过。限定Rust文件格式与git diff --check通过；15个搬迁函数逐段核对，除所属资源、Engine结果/FFI包装及阅读记录映射修复外，差异为Rustfmt闭包/match格式。Cargo.toml/Cargo.lock、数据库schema和生成绑定不变。
+- 证据与限制：build/backup-webdav-service/{check-initial,tests-quickjs,tests-ffi-quickjs,tests-quickjs-final,tests-backup-default,tests-webdav-default,clippy-default,clippy-quickjs,clippy-default-final,clippy-quickjs-final,native-build,native-backup,native-webdav,native-verify-final}.log；move-comparison.json仅辅助人工复核，不替代行为测试。首轮阅读时长失败未掩盖，修后非零/书名断言均通过。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论；音频/TTS不在范围内。
+- 状态：本批备份/WebDAV迁移、阅读记录映射修复与本地验证完成，按授权整批本地提交；保留当前worktree/分支，不推送或合并。
+
+编写者：Codex｜2026-10-17
+
 ### BOOK-IO-SERVICE-20261017：本地书导入与导出服务下沉（P1）
 
 - 授权与基线：用户授权已确认的完整书籍导入/导出服务计划；feature/rust-ffi-modernization / b138babf7，worktree干净。Codex单代理，当前分支整批验证后本地提交，不推送/合并/远程CI/WSL或设备安装；音频/TTS继续暂缓。

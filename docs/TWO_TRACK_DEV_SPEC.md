@@ -455,3 +455,25 @@ FFI保留宿主装配、选项 JSON 解析及原类型路径重导出；签名�
 状态与本地验证证据只记 Active 计划；音频/TTS、压缩和编码薄入口不在本批范围内。
 
 编写者：Codex｜2026-10-17
+
+### 备份与WebDAV应用服务边界（2026-10-17）
+
+`legado-engine/backup_service`管理已有六组数据的备份文件、逐项恢复、目录扫描和旧版导入。
+服务只持所属StorageContext，目录条目与旧版导入统计使用Engine自身模型；FFI保留原DTO映射、
+旧版导入结果JSON及恢复统计JSON的外壳，备份文件本身继续在服务内按已有文档格式读写。
+不为本批引入新的数据库、事务、历史格式回退或备份集合；恢复成功计数与失败跳过策略保持。
+阅读记录恢复使用与创建相同的DB实体，保持磁盘book_name/read_time字段不变，避免误用Core实体
+将其读成空书名和零时长；仍按已有upsert策略写入，不借机改变其他记录字段的恢复策略。
+
+`webdav_service`只接收所属CustomHosts和宿主运行时Handle，配置参数为Net的WebDavConfig，
+执行中不查询FFI全局、不保存根EngineContext或自建Runtime。HTTP认证、路径、目录协议、
+全量/增量同步算法继续复用Net的WebDavClient和BookSyncManager。
+服务承接本地文件读写及同步调用，FFI保留配置文档解析和既有同步结果JSON包装。
+未将整文件传输改为流式上传，也未更换客户端策略或补充取消/重试/冲突解决行为。
+
+Runtime选择仍在FFI：优先当前Handle，否则使用持久兜底Runtime，避免返回临时Runtime的失效Handle。
+直接Engine调用者须保证传入Runtime存活，服务不承担调度器所有权。
+测试复用现有crate内HTTP夹具，验证真实方法、路径、认证、请求体和文件落盘，不新增宿主协议。
+FFI签名/DTO/生成绑定、UI、schema和版本不变；当前状态与发现的缺陷统一记录在Active计划。
+
+编写者：Codex｜2026-10-17

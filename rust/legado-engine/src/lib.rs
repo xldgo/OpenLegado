@@ -2,6 +2,7 @@
 //!
 //! 数据库、书源限流、网络、抓取及 VM 缓存按实例共享；任务作用域已建立，正式任务接线与剩余宿主状态继续收口。
 
+pub mod backup_service;
 pub mod book_export_service;
 pub mod book_import_service;
 mod cache_downloads;
@@ -28,6 +29,7 @@ mod storage;
 mod tasks;
 #[cfg(test)]
 mod test_http_fixture;
+pub mod webdav_service;
 
 pub use cache_downloads::{CacheDownloadTask, CacheDownloads, ChapterDownload};
 pub use media::{AudioTransfer, MediaState};
