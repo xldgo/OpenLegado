@@ -27,13 +27,13 @@ void main() {
     ).thenAnswer((_) async {});
     when(
       () => mockApi.exploreService.evaluateAction(
-        sourceJson: any(named: 'sourceJson'),
+        source: any(named: 'source'),
         actionJs: any(named: 'actionJs'),
       ),
     ).thenAnswer((_) async => ExploreActionResult());
     when(
       () => mockApi.exploreService.evaluateUiJs(
-        sourceJson: any(named: 'sourceJson'),
+        source: any(named: 'source'),
         jsStr: any(named: 'jsStr'),
       ),
     ).thenAnswer(
@@ -47,7 +47,7 @@ void main() {
   );
 
   const sourceUrl = 'https://explore-layout.test';
-  const sourceJson = '{"bookSourceUrl":"https://explore-layout.test"}';
+  const source = BookSource(bookSourceUrl: 'https://explore-layout.test');
   const cellStyle = FlexChildStyle(
     layoutFlexGrow: 1,
     layoutFlexBasisPercent: 0.25,
@@ -77,7 +77,7 @@ void main() {
             width: 360,
             child: ExploreKindLayout(
               sourceUrl: sourceUrl,
-              sourceJson: sourceJson,
+              source: source,
               categories: categories,
             ),
           ),
@@ -113,7 +113,7 @@ void main() {
       wrap(
         ExploreKindLayout(
           sourceUrl: sourceUrl,
-          sourceJson: sourceJson,
+          source: source,
           categories: const [
             ExploreCategory(title: '玄幻', url: '/xh', style: cellStyle),
           ],
@@ -132,7 +132,7 @@ void main() {
       wrap(
         ExploreKindLayout(
           sourceUrl: sourceUrl,
-          sourceJson: sourceJson,
+          source: source,
           categories: const [
             ExploreCategory(
               title: '登录番茄',
@@ -150,7 +150,7 @@ void main() {
 
     verify(
       () => mockApi.exploreService.evaluateAction(
-        sourceJson: sourceJson,
+        source: source,
         actionJs: 'java.refreshExplore()',
       ),
     ).called(1);
@@ -175,7 +175,7 @@ void main() {
     );
     when(
       () => mockApi.exploreService.evaluateAction(
-        sourceJson: sourceJson,
+        source: source,
         actionJs: 'copyAndRefresh()',
       ),
     ).thenAnswer(
@@ -191,7 +191,7 @@ void main() {
       wrap(
         ExploreKindLayout(
           sourceUrl: sourceUrl,
-          sourceJson: sourceJson,
+          source: source,
           categories: const [
             ExploreCategory(
               title: '执行动作',

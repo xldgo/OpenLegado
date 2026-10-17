@@ -19,7 +19,6 @@ import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -651,7 +650,7 @@ class _SourceItemState extends ConsumerState<_SourceItem>
       // 点击链路 onCategoryTap → _openExploreShow 不变）
       child: _ExploreSectionedChips(
         sourceUrl: sourceUrl,
-        sourceJson: jsonEncode(widget.source.toJson()),
+        source: widget.source,
         categories: categories,
         onCategoryTap: widget.onCategoryTap,
         onRefreshCategories: () => ref

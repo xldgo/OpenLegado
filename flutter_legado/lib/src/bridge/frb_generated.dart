@@ -525,12 +525,12 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<ExploreActionDto> crateFfiFfiExploreEvalAction({
-    required String sourceJson,
+    required BookSourceDto source,
     required String actionJs,
   });
 
   Future<String> crateFfiFfiExploreEvalUiJs({
-    required String sourceJson,
+    required BookSourceDto source,
     required String jsStr,
   });
 
@@ -5099,14 +5099,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<ExploreActionDto> crateFfiFfiExploreEvalAction({
-    required String sourceJson,
+    required BookSourceDto source,
     required String actionJs,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(sourceJson, serializer);
+          sse_encode_box_autoadd_book_source_dto(source, serializer);
           sse_encode_String(actionJs, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -5120,7 +5120,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiExploreEvalActionConstMeta,
-        argValues: [sourceJson, actionJs],
+        argValues: [source, actionJs],
         apiImpl: this,
       ),
     );
@@ -5129,19 +5129,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateFfiFfiExploreEvalActionConstMeta =>
       const TaskConstMeta(
         debugName: "explore_eval_action",
-        argNames: ["sourceJson", "actionJs"],
+        argNames: ["source", "actionJs"],
       );
 
   @override
   Future<String> crateFfiFfiExploreEvalUiJs({
-    required String sourceJson,
+    required BookSourceDto source,
     required String jsStr,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(sourceJson, serializer);
+          sse_encode_box_autoadd_book_source_dto(source, serializer);
           sse_encode_String(jsStr, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -5155,7 +5155,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiExploreEvalUiJsConstMeta,
-        argValues: [sourceJson, jsStr],
+        argValues: [source, jsStr],
         apiImpl: this,
       ),
     );
@@ -5163,7 +5163,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateFfiFfiExploreEvalUiJsConstMeta => const TaskConstMeta(
     debugName: "explore_eval_ui_js",
-    argNames: ["sourceJson", "jsStr"],
+    argNames: ["source", "jsStr"],
   );
 
   @override

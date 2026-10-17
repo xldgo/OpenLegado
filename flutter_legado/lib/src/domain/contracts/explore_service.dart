@@ -9,11 +9,11 @@ abstract interface class ExploreService {
   });
   Future<List<SearchBook>> fetchBooks(BookSource source, String url, int page);
   Future<ExploreActionResult> evaluateAction({
-    required String sourceJson,
+    required BookSource source,
     required String actionJs,
   });
   Future<String> evaluateUiJs({
-    required String sourceJson,
+    required BookSource source,
     required String jsStr,
   });
 }

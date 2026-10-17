@@ -41,7 +41,7 @@ void main() {
         .thenAnswer((_) async {});
     when(
       () => mockApi.exploreService.evaluateAction(
-        sourceJson: any(named: 'sourceJson'),
+        source: any(named: 'source'),
         actionJs: any(named: 'actionJs'),
       ),
     ).thenAnswer((_) async => ExploreActionResult());
@@ -130,7 +130,7 @@ void main() {
     final captured =
         verify(
               () => mockApi.exploreService.evaluateAction(
-                sourceJson: any(named: 'sourceJson'),
+                source: any(named: 'source'),
                 actionJs: captureAny(named: 'actionJs'),
               ),
             ).captured.single
@@ -165,7 +165,7 @@ void main() {
     final captured =
         verify(
               () => mockApi.exploreService.evaluateAction(
-                sourceJson: any(named: 'sourceJson'),
+                source: any(named: 'source'),
                 actionJs: captureAny(named: 'actionJs'),
               ),
             ).captured.single

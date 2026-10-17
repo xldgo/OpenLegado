@@ -16,6 +16,7 @@ import 'package:flutter_legado/src/data/services/rust_cover_search_service.dart'
 import 'package:flutter_legado/src/data/services/rust_source_action_service.dart';
 import 'package:flutter_legado/src/data/services/rust_audio_book_service.dart';
 import 'package:flutter_legado/src/data/services/rust_source_login_v2_service.dart';
+import 'package:flutter_legado/src/data/services/rust_explore_service.dart';
 import 'package:flutter_legado/src/domain/models/cover_rule.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -133,6 +134,39 @@ void main() {
     );
     expect(purchase.kind, ChapterPurchaseKind.none);
     expect(dispatches, hasLength(1));
+  });
+  test('发现脚本完整书源直传，标题与动作顺序及刷新标记保持', () async {
+    const service = RustExploreService();
+    const source = BookSource(
+      bookSourceUrl: 'https://explore-wire.test',
+      bookSourceName: '发现源😀',
+      header: '{"X-Trace":"保留"}',
+      enabledCookieJar: false,
+    );
+    expect(
+      await service.evaluateUiJs(
+        source: source,
+        jsStr: 'source.bookSourceName + source.header',
+      ),
+      '${source.bookSourceName}${source.header}',
+    );
+    final result = await service.evaluateAction(
+      source: source,
+      actionJs: "java.copyText(source.bookSourceName);java.copyText(source.header);java.refreshExplore();'完成'",
+    );
+    expect(result.raw, '完成');
+    expect(result.refreshExplore, isTrue);
+    expect(result.actions, [
+      {'action': 'copyText', 'text': source.bookSourceName},
+      {'action': 'copyText', 'text': source.header},
+    ]);
+    await expectLater(
+      service.evaluateAction(
+        source: source,
+        actionJs: "throw new Error('脚本失败')",
+      ),
+      throwsA(anything),
+    );
   });
   test('闲置导出清理后既有音频进度和播放模式接线保持', () async {
     const audio = RustAudioBookService();

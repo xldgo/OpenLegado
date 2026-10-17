@@ -28,23 +28,25 @@ pub struct ExploreEvalActionResult {
 
 /// 执行发现页 button/toggle/select/text 的 action JS（对标 Android evalButtonClick）
 pub fn explore_eval_action(source_json: &str, action_js: &str) -> LegadoResult<String> {
-    serde_json::to_string(&explore_eval_action_result(source_json, action_js)?)
-        .map_err(LegadoError::Serialization)
+    serde_json::to_string(&explore_eval_action_result(
+        &serde_json::from_str(source_json)?,
+        action_js,
+    )?)
+    .map_err(LegadoError::Serialization)
 }
 
 pub fn explore_eval_action_result(
-    source_json: &str,
+    source: &BookSource,
     action_js: &str,
 ) -> LegadoResult<ExploreEvalActionResult> {
-    let source: BookSource = serde_json::from_str(source_json)?;
     #[cfg(feature = "quickjs")]
     {
-        let result = eval_explore_action_js(action_js, &source)?;
+        let result = eval_explore_action_js(action_js, source)?;
         Ok(result)
     }
     #[cfg(not(feature = "quickjs"))]
     {
-        let _ = (source_json, action_js, source);
+        let _ = (action_js, source);
         Err(LegadoError::JsEngine(
             "QuickJS engine not enabled. Build with --features quickjs".into(),
         ))
@@ -52,15 +54,14 @@ pub fn explore_eval_action_result(
 }
 
 /// 执行发现页 viewName 动态标题 JS（对标 Android evalUiJs）
-pub fn explore_eval_ui_js(source_json: &str, js_str: &str) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+pub fn explore_eval_ui_js(source: &BookSource, js_str: &str) -> LegadoResult<String> {
     #[cfg(feature = "quickjs")]
     {
-        eval_explore_ui_js(js_str, &source)
+        eval_explore_ui_js(js_str, source)
     }
     #[cfg(not(feature = "quickjs"))]
     {
-        let _ = (source_json, js_str, source);
+        let _ = (js_str, source);
         Err(LegadoError::JsEngine(
             "QuickJS engine not enabled. Build with --features quickjs".into(),
         ))

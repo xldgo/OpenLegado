@@ -332,7 +332,7 @@ Future<List<WebViewRequestDto>> webviewPending() =>
 
 /// 判定书源登录 UI 是否为 V2 动态状态协议
 ///
-/// `source_json` — BookSource JSON
+/// `source` — 完整书源实体快照
 Future<bool> sourceIsLoginUiV2({required BookSourceDto source}) =>
     RustLib.instance.api.crateFfiFfiSourceIsLoginUiV2(source: source);
 
@@ -349,7 +349,7 @@ Future<String> sourceLoginUiV2({
 
 /// 执行 loginAction v2 动作，返回命令 JSON（state/error/login/close）
 ///
-/// `source_json` — BookSource JSON
+/// `source` — 完整书源实体快照
 /// `user_input_json` — `{"action":"...","stateJson":"...","formJson":{...}}`
 Future<String> sourceLoginActionV2({
   required BookSourceDto source,
@@ -1044,19 +1044,19 @@ Future<Map<String, String>> exploreInfoMapSnapshot({
 
 /// 执行发现页控件 action JS（返回 ExploreEvalActionResult JSON）
 Future<ExploreActionDto> exploreEvalAction({
-  required String sourceJson,
+  required BookSourceDto source,
   required String actionJs,
 }) => RustLib.instance.api.crateFfiFfiExploreEvalAction(
-  sourceJson: sourceJson,
+  source: source,
   actionJs: actionJs,
 );
 
 /// 执行发现页 viewName 动态标题 JS
 Future<String> exploreEvalUiJs({
-  required String sourceJson,
+  required BookSourceDto source,
   required String jsStr,
 }) => RustLib.instance.api.crateFfiFfiExploreEvalUiJs(
-  sourceJson: sourceJson,
+  source: source,
   jsStr: jsStr,
 );
 

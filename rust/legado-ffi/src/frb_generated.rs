@@ -4279,13 +4279,13 @@ fn wire__crate__ffi__ffi__explore_eval_action_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::transfer_dto::BookSourceDto>::sse_decode(&mut deserializer);
             let api_action_js = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
                     let output_ok =
-                        crate::ffi::ffi::explore_eval_action(api_source_json, api_action_js)?;
+                        crate::ffi::ffi::explore_eval_action(api_source, api_action_js)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -4314,13 +4314,12 @@ fn wire__crate__ffi__ffi__explore_eval_ui_js_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_source_json = <String>::sse_decode(&mut deserializer);
+            let api_source = <crate::transfer_dto::BookSourceDto>::sse_decode(&mut deserializer);
             let api_js_str = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::ffi::BridgeError>((move || {
-                    let output_ok =
-                        crate::ffi::ffi::explore_eval_ui_js(api_source_json, api_js_str)?;
+                    let output_ok = crate::ffi::ffi::explore_eval_ui_js(api_source, api_js_str)?;
                     std::result::Result::Ok(output_ok)
                 })())
             }

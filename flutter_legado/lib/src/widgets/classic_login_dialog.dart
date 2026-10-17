@@ -34,7 +34,7 @@ import '../utils/error_message.dart';
 class ClassicLoginDialog extends StatefulWidget {
   final SourceLoginRepository? repository;
   final Future<ExploreActionResult> Function({
-    required String sourceJson,
+    required BookSource source,
     required String actionJs,
   })?
   evaluateAction;
@@ -273,7 +273,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
       actions = values is List ? values : const [];
     } else {
       final result = await widget.evaluateAction!(
-        sourceJson: jsonEncode(source.toJson()),
+        source: source,
         actionJs: script,
       );
       actions = result.actions;

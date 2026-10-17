@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/task_dto.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' as controls;
@@ -33,7 +32,6 @@ void main() {
     header: '{"token":"token"}',
     ruleBookInfo: BookInfoRule(name: 'h1'),
   );
-  final sourceJson = jsonEncode(source.toJson());
   const explore = RustExploreService();
   const query = RustBookSourceQueryService();
   const state = RustExploreStateRepository();
@@ -227,7 +225,7 @@ void main() {
   test('动作返回类型化外壳，内部平台动作仍为脚本协议文档', () async {
     when(
       () => bridge.crateFfiFfiExploreEvalAction(
-        sourceJson: sourceJson,
+        source: bookSourceToDto(source),
         actionJs: 'run()',
       ),
     ).thenAnswer(
@@ -239,22 +237,19 @@ void main() {
     );
     when(
       () => bridge.crateFfiFfiExploreEvalUiJs(
-        sourceJson: sourceJson,
+        source: bookSourceToDto(source),
         jsStr: 'title()',
       ),
     ).thenAnswer((_) async => '值');
     final result = await explore.evaluateAction(
-      sourceJson: sourceJson,
+      source: source,
       actionJs: 'run()',
     );
     expect(result.raw, 'ok');
     expect(result.actions.single, {'action': 'copyText', 'text': '文字'});
     expect(result.refreshExplore, true);
     expect(() => result.actions.clear(), throwsUnsupportedError);
-    expect(
-      await explore.evaluateUiJs(sourceJson: sourceJson, jsStr: 'title()'),
-      '值',
-    );
+    expect(await explore.evaluateUiJs(source: source, jsStr: 'title()'), '值');
   });
   test('类型化空结果合法，底层错误仍上抛', () async {
     when(

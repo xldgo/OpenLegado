@@ -88,14 +88,14 @@ class _ExploreSectionedChips extends StatelessWidget {
   // unused_element_parameter 警告）
   const _ExploreSectionedChips({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.categories,
     this.onCategoryTap,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final List<ExploreCategory> categories;
   final void Function(String title, String url)? onCategoryTap;
   final Future<void> Function()? onRefreshCategories;
@@ -130,7 +130,7 @@ class _ExploreSectionedChips extends StatelessWidget {
       children.add(
         ExploreKindLayout(
           sourceUrl: sourceUrl,
-          sourceJson: sourceJson,
+          source: source,
           categories: _forceThreeColumns(section.items),
           onCategoryTap: onCategoryTap,
           onRefreshCategories: onRefreshCategories,

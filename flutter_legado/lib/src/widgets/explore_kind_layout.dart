@@ -40,14 +40,14 @@ class ExploreKindLayout extends StatelessWidget {
   const ExploreKindLayout({
     super.key,
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.categories,
     this.onCategoryTap,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final List<ExploreCategory> categories;
   final void Function(String title, String url)? onCategoryTap;
   final Future<void> Function()? onRefreshCategories;
@@ -72,7 +72,7 @@ class ExploreKindLayout extends StatelessWidget {
           children.add(
             _ExploreKindItem(
               sourceUrl: sourceUrl,
-              sourceJson: sourceJson,
+              source: source,
               category: category,
               width: _chipWidth(maxWidth, style),
               onCategoryTap: onCategoryTap,
@@ -126,7 +126,7 @@ class ExploreKindLayout extends StatelessWidget {
 class _ExploreKindItem extends ConsumerWidget {
   const _ExploreKindItem({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onCategoryTap,
@@ -134,7 +134,7 @@ class _ExploreKindItem extends ConsumerWidget {
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final void Function(String title, String url)? onCategoryTap;
@@ -145,28 +145,28 @@ class _ExploreKindItem extends ConsumerWidget {
     return switch (category.type) {
       'toggle' => _ToggleChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
       ),
       'select' => _SelectChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
       ),
       'button' => _ButtonChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
       ),
       'text' => _TextChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
@@ -263,13 +263,13 @@ class _StaticChipState extends State<_StaticChip> {
 
 class _DynamicLabel extends ConsumerStatefulWidget {
   const _DynamicLabel({
-    required this.sourceJson,
+    required this.source,
     required this.category,
     required this.fallback,
     required this.builder,
   });
 
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final String fallback;
   final Widget Function(String label) builder;
@@ -307,7 +307,7 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
     try {
       final text = await ref
           .read(exploreServiceProvider)
-          .evaluateUiJs(sourceJson: widget.sourceJson, jsStr: viewName);
+          .evaluateUiJs(source: widget.source, jsStr: viewName);
       if (!mounted) return;
       setState(() {
         _label = text.isEmpty ? 'null' : text;
@@ -334,14 +334,14 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
 class _ButtonChip extends ConsumerStatefulWidget {
   const _ButtonChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -360,7 +360,7 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
     try {
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -376,7 +376,7 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
         widget.category.action!.trim().isNotEmpty;
 
     return _DynamicLabel(
-      sourceJson: widget.sourceJson,
+      source: widget.source,
       category: widget.category,
       fallback: widget.category.title,
       builder: (label) => _StaticChip(
@@ -392,14 +392,14 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
 class _ToggleChip extends ConsumerStatefulWidget {
   const _ToggleChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -449,7 +449,7 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
     try {
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -471,7 +471,7 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
     final value = _chars[_index];
 
     return _DynamicLabel(
-      sourceJson: widget.sourceJson,
+      source: widget.source,
       category: widget.category,
       fallback: widget.category.title,
       builder: (title) {
@@ -514,14 +514,14 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
 class _SelectChip extends ConsumerStatefulWidget {
   const _SelectChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -573,7 +573,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     try {
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -606,7 +606,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     final value = _chars[_index];
 
     return _DynamicLabel(
-      sourceJson: widget.sourceJson,
+      source: widget.source,
       category: widget.category,
       fallback: widget.category.title,
       builder: (title) {
@@ -658,14 +658,14 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
 class _TextChip extends ConsumerStatefulWidget {
   const _TextChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -717,7 +717,7 @@ class _TextChipState extends ConsumerState<_TextChip> {
       _lastSubmitted = text;
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );

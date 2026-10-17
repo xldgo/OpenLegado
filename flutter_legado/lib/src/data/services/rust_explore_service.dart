@@ -43,11 +43,11 @@ final class RustExploreService implements ExploreService {
           .toList();
   @override
   Future<ExploreActionResult> evaluateAction({
-    required String sourceJson,
+    required BookSource source,
     required String actionJs,
   }) async {
     final value = await bridge.exploreEvalAction(
-      sourceJson: sourceJson,
+      source: bookSourceToDto(source),
       actionJs: actionJs,
     );
     return ExploreActionResult(
@@ -59,9 +59,9 @@ final class RustExploreService implements ExploreService {
 
   @override
   Future<String> evaluateUiJs({
-    required String sourceJson,
+    required BookSource source,
     required String jsStr,
-  }) => bridge.exploreEvalUiJs(sourceJson: sourceJson, jsStr: jsStr);
+  }) => bridge.exploreEvalUiJs(source: bookSourceToDto(source), jsStr: jsStr);
 
   /// URL 归一规则保留，不再依赖 JSON 别名。
   SearchBook _searchBookFromExplore(

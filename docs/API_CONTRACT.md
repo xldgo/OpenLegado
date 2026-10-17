@@ -2384,6 +2384,16 @@ legado-book::txt_search及legado-core::audio的通用算法和行为测试继续
 
 编写者：Codex｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 发现脚本实体收尾
+
+explore_eval_action和explore_eval_ui_js的source入参统一为BookSourceDto，直接转换完整BookSource；
+ExploreService对应两方法接收BookSource，发现控件及经典登录复用入口不再编码书源JSON。
+infoMap身份仍由sourceUrl关联，不改变分类布局、平台动作顺序、刷新发现、标题空值或异常语义。
+脚本文本、经典登录表单result和动态动作数组继续保留真实文档；Rust原JSON测试/文档包装
+仅在其边界解析，FRB实体调用不得经字符串反解；结果模型沿用ExploreActionDto/原标题字符串。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / 动态协议边界冻结
 
 source_is_login_ui_v2/source_login_ui_v2/source_login_action_v2的source入参改为既有BookSourceDto，

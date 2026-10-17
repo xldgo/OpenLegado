@@ -1470,10 +1470,11 @@ pub mod ffi {
 
     /// 执行发现页控件 action JS（返回 ExploreEvalActionResult JSON）
     pub fn explore_eval_action(
-        source_json: String,
+        source: BookSourceDto,
         action_js: String,
     ) -> Result<ExploreActionDto, BridgeError> {
-        let result = crate::api::explore_api::explore_eval_action_result(&source_json, &action_js)?;
+        let result =
+            crate::api::explore_api::explore_eval_action_result(&source.into(), &action_js)?;
         Ok(ExploreActionDto {
             raw: result.raw,
             actions_json: serde_json::to_string(&result.actions)?,
@@ -1482,9 +1483,12 @@ pub mod ffi {
     }
 
     /// 执行发现页 viewName 动态标题 JS
-    pub fn explore_eval_ui_js(source_json: String, js_str: String) -> Result<String, BridgeError> {
+    pub fn explore_eval_ui_js(
+        source: BookSourceDto,
+        js_str: String,
+    ) -> Result<String, BridgeError> {
         Ok(crate::api::explore_api::explore_eval_ui_js(
-            &source_json,
+            &source.into(),
             &js_str,
         )?)
     }

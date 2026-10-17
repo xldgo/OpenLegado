@@ -42,13 +42,13 @@ final class MockExploreService implements ExploreService {
 
   @override
   Future<ExploreActionResult> evaluateAction({
-    required String sourceJson,
+    required BookSource source,
     required String actionJs,
   }) async =>
       ExploreActionResult(refreshExplore: actionJs.contains('refreshExplore'));
   @override
   Future<String> evaluateUiJs({
-    required String sourceJson,
+    required BookSource source,
     required String jsStr,
   }) async => jsStr;
 }

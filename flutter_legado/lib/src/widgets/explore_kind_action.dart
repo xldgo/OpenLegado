@@ -4,6 +4,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
+import '../models/book_source.dart';
 import '../providers/explore/explore_dependencies.dart';
 import '../services/platform_bridge_service.dart';
 
@@ -23,14 +24,14 @@ class ExploreKindActionRunner {
 
   static Future<void> runAction({
     required WidgetRef ref,
-    required String sourceJson,
+    required BookSource source,
     required String action,
     Future<void> Function()? onRefreshCategories,
   }) async {
     final service = ref.read(exploreServiceProvider);
     try {
       final result = await service.evaluateAction(
-        sourceJson: sourceJson,
+        source: source,
         actionJs: action,
       );
       final actions = result.actions;
