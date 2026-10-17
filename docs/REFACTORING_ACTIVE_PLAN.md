@@ -8,7 +8,11 @@
 - 验证：复用缓存与弹幕测试，补真实 SQLite 的坏行、时间边界、通配符和失败顺序缺口；相关 Rust 回归及两档严格 Clippy，集中一次正式 Windows DLL/指纹摘要和已有真实 FRB 用例。不新增外部宿主或源码字符串测试；单代理自查，不宣称独立外审或设备验收。
 - 缓存批结果：配置查询/坏行首次告警与章级标记删除集中 CacheRepository，时间查询及删除集中 CacheBookRepository；delete_expired 原先无生产调用方，错误文案沿用服务入口原有的“清空过期缓存失败”，正式调用方行为不变。DB 显式复用已锁定 log 依赖，仅增加依赖边，不升级包。新增四项真实 SQLite 回归覆盖过期配置保留/坏行跳过、三类 LIKE 转义、严格时间边界/坏行失败、两种清理的中途失败顺序与部分清理状态。
 - 缓存验证：default 定向 DB25/Engine52/FFI30 加配置1，共108项通过、2项既有忽略；DB/Engine/FFI 全目标严格 Clippy、限定格式及 git diff --check 通过。证据位于 build/rust-boundary-cleanup/{cache-tests,config-tests,cache-clippy}.log。未重建 DLL，跨批正式接线仍待集中验证。
-- 状态：缓存整批本地验证完成并随本批提交；弹幕解析下沉实施中。
+- 弹幕批结果：原解析正文与八项纯解析回归整体迁入 legado-book::danmaku，FFI 在原模块路径重导出，存储/副内容捕获及其原八项测试保留原位。移除 FFI 的 quick-xml 直接依赖，锁文件仅删除该依赖边；没有升级外部包。解析正文逐字核对一致，仅为搬迁复核，不当作行为测试。
+- 集中 Rust 验证：legado-book 全部169项通过；QuickJS 库 DB365/Engine145/FFI516 共1026项通过、42项既有忽略，覆盖缓存新增四项及原弹幕存储链。DB/Book/Engine/FFI 两档全目标 Clippy -D warnings 通过，无新增 lint 放行；限定格式及 git diff --check 通过。证据：build/rust-boundary-cleanup/{book-tests,quick-tests,clippy-default,clippy-quick}.log。
+- 正式接线：Python 正式入口集中重建一次 Windows Debug QuickJS DLL，构建输入/源码指纹、源库与复制库摘要及最终只读校验通过；原 business_transport_runtime_test、reading_domain_runtime_test、video_danmaku_runtime_test 三个文件共12项真实 FRB 通过，覆盖配置值、章节清理及弹幕解析/副内容捕获。复用既有用例和 native 链，不新增测试宿主/协议，不重复全量 Flutter/设备验证。证据：build/rust-boundary-cleanup/{native-build,native-runtime,native-verify}.log。
+- 自查与限制：仅 Codex 单代理实现/自查，无独立外审、远程 CI、Android/iOS 或性能结论。FFI 声明/生成绑定、Dart、schema 和应用版本不变；主目录另一路未提交修改未触碰。初步读源码确认 Holder 的失败重试/并发初始化与任务/存储释放已有实现及测试，任务根/临时目录的 expect 有私有构造不变式；Net 请求映射已有诊断链展开。不将这些抽查当作完整 M-3/M-4/unsafe 审计，也不据此修改错误载荷或实例生命周期。
+- 状态：本任务限定的缓存仓储收口与弹幕解析下沉两批及本地集中验证已关闭；缓存批 fd6944a3b 已提交，弹幕批与本条同步提交，不追加回填提交。后续错误/生命周期完整核查及构建测量仍待单独执行；core 拆分没有测量结论，不自动启动。保持当前 worktree，不推送、不合并主目录；两批可分别回滚。
 
 编写者：Codex｜2026-10-18
 

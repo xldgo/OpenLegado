@@ -2183,7 +2183,6 @@ dependencies = [
  "libc",
  "log",
  "md5",
- "quick-xml",
  "regex",
  "rusqlite",
  "serde",
