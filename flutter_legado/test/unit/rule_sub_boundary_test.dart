@@ -5,7 +5,7 @@ import '../fixtures/app_test_api.dart';
 import 'package:flutter_legado/src/data/repositories/mock_rule_sub_repository.dart';
 import 'package:flutter_legado/src/domain/models/rule_sub_update_result.dart';
 import 'package:flutter_legado/src/models/rule_sub.dart';
-import 'package:flutter_legado/src/providers/rule_sub/rule_sub_notifier.dart';
+import 'package:flutter_legado/src/features/rules/application/subscriptions/rule_sub_notifier.dart';
 import 'package:flutter_legado/src/providers/rule_sub_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

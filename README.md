@@ -22,9 +22,12 @@ Legado（阅读）是一款免费开源的小说阅读器，正在从 Android �
 │   ├── legado-engine/  # 资源装配、实例状态与任务生命周期
 │   ├── legado-ffi/     # FFI 出口（flutter_rust_bridge）
 │   └── legado-server/  # HTTP 服务（axum）
-├── flutter_legado/     # Flutter UI 层（62 个 Screen 页面）
+├── flutter_legado/     # Flutter UI 层（页面与专属状态按 Feature 组织）
 └── CHANGELOG.md        # 更新日志
 ```
+
+Flutter 页面与专属状态位于 `flutter_legado/lib/src/features/`；共享领域契约、数据服务、
+平台能力及应用装配保持独立。目录归属见 [页面与状态组织方案](docs/FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md)。
 
 Android 原版源码及其 Gradle 工程不随本仓库分发；语义对照或原版测试需另备完整原版工程。当前 Android 构建入口在 `flutter_legado/android/`。
 

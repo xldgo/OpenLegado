@@ -10,7 +10,7 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/domain/models/cover_rule.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/change_source/change_source_notifier.dart';
+import 'package:flutter_legado/src/features/book_sources/application/change_source/change_source_notifier.dart';
 
 import '../mocks/mocks.dart';
 

@@ -10,7 +10,7 @@ import '../../data/services/rust_http_tts_login_session.dart';
 import '../../models/models.dart';
 import '../../widgets/classic_login_dialog.dart';
 import '../../widgets/login_v2_dialog.dart';
-import '../../screens/webview_login_screen.dart';
+import '../book_sources/presentation/webview_login_screen.dart';
 
 /// HTTP TTS 使用独立来源 ID，复用既有登录控件和 WebView。— Codex + UI
 Future<void> showHttpTtsLogin(

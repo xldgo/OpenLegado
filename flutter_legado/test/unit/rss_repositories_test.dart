@@ -9,8 +9,8 @@ import 'package:flutter_legado/src/data/repositories/mock_rss_read_record_reposi
 import 'package:flutter_legado/src/data/repositories/mock_rss_source_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_rss_star_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/rss/rss_notifier.dart';
-import 'package:flutter_legado/src/providers/rss_history/rss_history_notifier.dart';
+import 'package:flutter_legado/src/features/rss/application/rss_notifier.dart';
+import 'package:flutter_legado/src/features/rss/application/history/rss_history_notifier.dart';
 import 'package:flutter_legado/src/providers/rss_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

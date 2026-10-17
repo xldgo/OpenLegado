@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../mocks/mocks.dart';

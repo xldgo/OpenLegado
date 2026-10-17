@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../bridge/ffi.dart' show BridgeError;
 import '../models/book_source.dart';
-import '../screens/source_login_screen.dart';
+import '../features/book_sources/presentation/source_login_screen.dart';
 
 /// 是否为 loginCheckJs 判定的「书源需要登录」错误（错误码 1012 / 文案对齐）。
 bool isSourceLoginRequiredError(Object? error) {

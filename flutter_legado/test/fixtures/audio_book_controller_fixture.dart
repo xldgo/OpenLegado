@@ -8,7 +8,7 @@ import 'package:flutter_legado/src/domain/models/audio_playback_settings.dart';
 import 'package:flutter_legado/src/features/audio/playback/audio_book_controller.dart';
 import 'package:flutter_legado/src/features/audio/playback/audio_book_host.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 import '../mocks/mocks.dart';
 

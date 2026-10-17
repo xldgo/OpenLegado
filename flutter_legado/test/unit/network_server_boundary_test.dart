@@ -9,7 +9,7 @@ import 'package:flutter_legado/src/data/services/mock_local_server_service.dart'
 import 'package:flutter_legado/src/data/services/mock_rule_execution_service.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/models/http_response.dart';
-import 'package:flutter_legado/src/providers/association/association_notifier.dart';
+import 'package:flutter_legado/src/features/imports/application/association_notifier.dart';
 
 import '../mocks/mocks.dart';
 

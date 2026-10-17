@@ -10,8 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_preferences.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 

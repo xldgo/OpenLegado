@@ -4,8 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../l10n/app_localization.dart';
-import '../../../../providers/audio/audio_notifier.dart';
-import '../../../../providers/audio/read_aloud_capsule.dart';
+import '../../../audio/application/audio_notifier.dart';
+import '../../../audio/application/read_aloud_capsule.dart';
 import '../../application/reader_state.dart';
 import '../../../../routes.dart';
 import '../../../../widgets/reader/read_aloud_bar.dart';

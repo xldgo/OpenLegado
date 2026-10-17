@@ -24,7 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
 import '../mocks/mocks.dart';

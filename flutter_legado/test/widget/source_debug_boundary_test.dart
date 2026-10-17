@@ -9,7 +9,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/models/book_source_debug_event.dart';
 import 'package:flutter_legado/src/l10n/app_strings.dart';
 import 'package:flutter_legado/src/providers/explore/explore_dependencies.dart';
-import 'package:flutter_legado/src/screens/source_debug_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/source_debug_screen.dart';
 
 import '../mocks/mocks.dart';
 

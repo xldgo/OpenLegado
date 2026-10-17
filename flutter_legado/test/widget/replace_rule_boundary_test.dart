@@ -6,7 +6,7 @@ import 'package:flutter_legado/src/data/repositories/mock_replace_rule_repositor
 import 'package:flutter_legado/src/domain/contracts/replace_rule_service.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/providers/replace_rule_repository_provider.dart';
-import 'package:flutter_legado/src/screens/replace_rule_edit_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/replace_rule_edit_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';

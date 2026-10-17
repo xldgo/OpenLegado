@@ -19,9 +19,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 
 import '../mocks/mocks.dart';

@@ -15,7 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/screens/video_screen.dart';
+import 'package:flutter_legado/src/features/video/presentation/video_screen.dart';
 
 import '../fixtures/app_test_api.dart';
 

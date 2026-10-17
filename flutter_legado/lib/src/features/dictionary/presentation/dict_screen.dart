@@ -1,0 +1,424 @@
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/app_search_field.dart';
+import '../../../widgets/legado_app_bar.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../models/models.dart';
+import '../application/dict_notifier.dart';
+import '../../../routes.dart';
+import '../../../widgets/help/help_assets.dart';
+import '../../../widgets/help/show_help.dart';
+
+/// 字典查询页面
+///
+/// 优先查询内置本地词典，未命中时可通过在线词典规则跳转查询。
+/// 在线规则与管理页共用SQLite规则仓储，释义查询委托DictionaryService。
+class DictScreen extends ConsumerStatefulWidget {
+  const DictScreen({super.key});
+
+  @override
+  ConsumerState<DictScreen> createState() => _DictScreenState();
+}
+
+class _DictScreenState extends ConsumerState<DictScreen> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(dictNotifierProvider.notifier).loadRules(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _search() {
+    ref.read(dictNotifierProvider.notifier).lookup(_searchController.text);
+  }
+
+  Future<void> _launchOnline(DictRule rule) async {
+    final word =
+        ref.read(dictNotifierProvider).queriedWord ??
+        _searchController.text.trim();
+    if (word.isEmpty) return;
+    final uri = Uri.tryParse(rule.buildUrl(word));
+    if (uri == null) return;
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法打开在线词典')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final state = ref.watch(dictNotifierProvider);
+    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+    return AppScaffold(
+      topBar: LegadoAppBar(
+        title: const Text('字典查询'),
+        bottom: AppSearchRow(
+          field: AppSearchField(
+            controller: _searchController,
+            focusNode: _searchFocus,
+            autoFocus: true,
+            hintText: '输入单词查询释义',
+            onSubmitted: (_) => _search(),
+          ),
+          action: FilledButton(onPressed: _search, child: const Text('查询')),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Symbols.help_rounded),
+            tooltip: '帮助',
+            onPressed: () => showHelp(context, HelpAssets.dictRuleHelp),
+          ),
+          IconButton(
+            icon: const Icon(Symbols.rule_folder_rounded),
+            tooltip: '词典规则管理',
+            onPressed: _showRuleManager,
+          ),
+          // [C2 批2 | full-stack-engineer + UI] 字典规则管理页入口
+          // （对齐原版 DictRuleActivity；既有「词典规则管理」弹窗保留）
+          IconButton(
+            icon: const Icon(Symbols.manage_search_rounded),
+            tooltip: '规则管理',
+            onPressed: () async {
+              await Navigator.of(context).pushNamed(AppRoutes.dictRule);
+              if (mounted) {
+                await ref.read(dictNotifierProvider.notifier).loadRules();
+              }
+            },
+          ),
+        ],
+      ),
+      body: _buildBody(theme, state),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme, DictState state) {
+    if (state.queriedWord == null) {
+      return _buildEmptyHint(theme);
+    }
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.error != null) {
+      return Center(child: Text(state.error!));
+    }
+    final entry = state.result;
+    final notFound = entry == null || entry.definitions.isEmpty;
+    return ListView(
+      // [LAYOUT_PLAN P2] 页面边距统一 16dp（全局标尺）
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (!notFound)
+          _buildResultCard(theme, entry)
+        else
+          _buildNotFound(theme, state.queriedWord!),
+        const SizedBox(height: 20),
+        _buildOnlineSection(theme, state),
+      ],
+    );
+  }
+
+  Widget _buildEmptyHint(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Symbols.menu_book_rounded,
+            size: 64,
+            color: theme.colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          Text('输入单词开始查询', style: theme.textTheme.bodyLarge),
+          const SizedBox(height: 8),
+          Text('未收录的词可跳转在线词典', style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultCard(ThemeData theme, DictEntry entry) {
+    return Card(
+      color: theme.colorScheme.surfaceContainer,
+      // [LAYOUT_PLAN P2] 分组卡圆角 16dp；卡内统一 16dp
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  entry.word,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    entry.phonetic,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.secondary,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  // [LAYOUT_PLAN P2] 状态色走 tonal（primaryContainer/onPrimaryContainer）
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '本地词典',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            ...entry.definitions.map(
+              (d) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Symbols.circle_rounded,
+                      size: 6,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(d, style: theme.textTheme.bodyLarge)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotFound(ThemeData theme, String word) {
+    return Card(
+      color: theme.colorScheme.surfaceContainer,
+      // [LAYOUT_PLAN P2] 分组卡圆角 16dp；卡内统一 16dp
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(
+              Symbols.search_off_rounded,
+              size: 40,
+              color: theme.colorScheme.outline,
+            ),
+            const SizedBox(height: 8),
+            Text('本地词典未收录「$word」', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('可使用下方在线词典查询', style: theme.textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOnlineSection(ThemeData theme, DictState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('在线词典', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (state.rules.isEmpty)
+          Text('暂无词典规则，点击右上角管理添加', style: theme.textTheme.bodySmall)
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: state.rules
+                .where((rule) => rule.enabled)
+                .map(
+                  (rule) => ActionChip(
+                    avatar: const Icon(Symbols.open_in_new_rounded, size: 16),
+                    label: Text(rule.name),
+                    onPressed: () => _launchOnline(rule),
+                  ),
+                )
+                .toList(),
+          ),
+      ],
+    );
+  }
+
+  // ========== 词典规则管理 ==========
+
+  void _showRuleManager() {
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final rules = ref.read(dictNotifierProvider).rules;
+          return AlertDialog(
+            title: const Text('词典规则管理'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: rules.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('暂无规则，点击下方按钮添加'),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: rules.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final rule = rules[index];
+                        return ListTile(
+                          dense: true,
+                          // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
+                          title: Text(rule.name),
+                          subtitle: Text(
+                            rule.urlRule,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Symbols.delete_rounded, size: 20),
+                            onPressed: () async {
+                              final removed = await ref
+                                  .read(dictNotifierProvider.notifier)
+                                  .deleteRule(index);
+                              setDialogState(() {});
+                              if (!removed && mounted) {
+                                final error = ref
+                                    .read(dictNotifierProvider)
+                                    .error;
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(content: Text('删除失败：$error')),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  final n = await ref
+                      .read(dictNotifierProvider.notifier)
+                      .importDefaultRules();
+                  setDialogState(() {});
+                  if (mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('已导入 $n 条原版默认词典规则')));
+                  }
+                },
+                child: const Text('导入默认'),
+              ),
+              TextButton(
+                onPressed: () => _showRuleEditor(ctx, onSaved: setDialogState),
+                child: const Text('添加规则'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('完成'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showRuleEditor(BuildContext ctx, {required StateSetter onSaved}) {
+    final nameCtrl = TextEditingController();
+    final urlCtrl = TextEditingController(
+      text: 'https://example.com/dict?q={{key}}',
+    );
+    showDialog(
+      context: ctx,
+      builder: (editCtx) => AlertDialog(
+        title: const Text('添加词典规则'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // [LAYOUT_PLAN P2] 输入框走 inputDecorationTheme（不显式 border）；
+            // 字段分组间距 12dp
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: '规则名称'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlCtrl,
+              decoration: const InputDecoration(
+                labelText: '查询地址',
+                hintText: '使用 {{key}} 作为单词占位符',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(editCtx).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final url = urlCtrl.text.trim();
+              if (name.isEmpty || url.isEmpty) return;
+              final saved = await ref
+                  .read(dictNotifierProvider.notifier)
+                  .addRule(DictRule(name: name, urlRule: url));
+              onSaved(() {});
+              if (saved && editCtx.mounted) Navigator.of(editCtx).pop();
+              if (!saved && mounted) {
+                final error = ref.read(dictNotifierProvider).error;
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text('保存失败：$error')));
+              }
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+}

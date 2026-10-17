@@ -17,9 +17,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
+import 'package:flutter_legado/src/features/explore/application/explore_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 
 import '../mocks/mocks.dart';
 

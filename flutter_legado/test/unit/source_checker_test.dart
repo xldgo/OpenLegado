@@ -15,7 +15,7 @@ import 'package:flutter_legado/src/data/services/mock_source_checker.dart';
 import 'package:flutter_legado/src/data/services/rust_source_checker.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
-import 'package:flutter_legado/src/providers/source_check/check_source_notifier.dart';
+import 'package:flutter_legado/src/features/book_sources/application/source_check/check_source_notifier.dart';
 
 import '../mocks/mocks.dart';
 

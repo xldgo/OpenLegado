@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_legado/src/data/repositories/mock_app_log_repository.dart';
 import 'package:flutter_legado/src/domain/models/app_log_entry.dart';
 import 'package:flutter_legado/src/providers/app_log_repository_provider.dart';
-import 'package:flutter_legado/src/screens/app_log_screen.dart';
+import 'package:flutter_legado/src/features/logs/presentation/app_log_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';

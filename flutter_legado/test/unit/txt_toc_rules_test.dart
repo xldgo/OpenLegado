@@ -8,7 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/txt_toc_rules/txt_toc_rules_notifier.dart';
+import 'package:flutter_legado/src/features/rules/application/txt_toc_rules/txt_toc_rules_notifier.dart';
 
 import '../mocks/mocks.dart';
 

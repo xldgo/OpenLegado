@@ -9,8 +9,8 @@ import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/audio/read_aloud_capsule.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_capsule.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
 
 import '../../../fixtures/app_test_api.dart';

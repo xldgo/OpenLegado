@@ -7,7 +7,7 @@ import 'package:flutter_legado/src/data/repositories/mock_highlight_rule_reposit
 import 'package:flutter_legado/src/domain/models/book_highlight.dart';
 import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 import 'package:flutter_legado/src/providers/highlight_repository_provider.dart';
-import 'package:flutter_legado/src/providers/highlight_rules/highlight_rules_notifier.dart';
+import 'package:flutter_legado/src/features/rules/application/highlight_rules/highlight_rules_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';

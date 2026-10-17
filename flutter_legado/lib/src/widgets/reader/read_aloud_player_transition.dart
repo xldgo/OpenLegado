@@ -8,9 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/privacy/privacy_gate.dart';
 import '../../features/privacy/privacy_controller.dart';
-import '../../providers/audio/audio_notifier.dart';
+import '../../features/audio/application/audio_notifier.dart';
 
-import '../../screens/read_aloud_player_screen.dart';
+import '../../features/read_aloud/presentation/read_aloud_player_screen.dart';
 
 /// 起点在宿主中保留布局；收回时重新测量，适应横竖屏与窗口大小变化。
 class ReadAloudCapsuleAnchor {

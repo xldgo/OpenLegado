@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/providers/auto_task/auto_task_notifier.dart';
+import 'package:flutter_legado/src/features/automation/application/auto_task_notifier.dart';
 
 /// 书籍更新任务真实 script 样例（对齐 Rust build_book_update_task）
 const _bookUpdateScript =

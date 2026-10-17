@@ -9,7 +9,7 @@ import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../domain/models/bookshelf_settings.dart';
 import '../../domain/contracts/bookshelf_settings_repository.dart';
-import '../../providers/bookshelf_settings_provider.dart';
+import 'application/bookshelf_settings_provider.dart';
 import '../privacy/privacy_controller.dart';
 import 'bookshelf_repositories.dart';
 import 'bookshelf_state.dart';

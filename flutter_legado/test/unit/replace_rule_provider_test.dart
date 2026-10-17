@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
+import 'package:flutter_legado/src/features/rules/application/replace_rules/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart';
 

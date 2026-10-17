@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../providers/bookshelf_settings_provider.dart';
+import 'application/bookshelf_settings_provider.dart';
 import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
 import 'bookshelf_manage_notifier.dart';

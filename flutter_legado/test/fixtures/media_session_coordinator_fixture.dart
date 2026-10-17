@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/features/audio/playback/media_session_coordinator.dart';
 import 'package:flutter_legado/src/features/audio/playback/media_session_host.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
-import 'package:flutter_legado/src/providers/audio/read_aloud_position.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_position.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 import 'package:flutter_legado/src/services/media_session_models.dart';
 

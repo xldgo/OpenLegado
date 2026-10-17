@@ -31,7 +31,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../l10n/app_strings.dart';
 import '../../../models/models.dart';
-import '../../../providers/auto_task/auto_task_notifier.dart';
+import '../../automation/application/auto_task_notifier.dart';
 import '../../bookshelf/bookshelf.dart';
 import '../../reader/application/reader_notifier.dart';
 import '../../../providers/sync/sync_notifier.dart';
@@ -43,7 +43,7 @@ import '../../../services/cover_palette_service.dart';
 import '../../../services/cache_service.dart';
 import '../../../services/local_book_store.dart'; // [iOS 视角F C1] 本地书相对标识解析
 import '../../../services/platform_bridge_service.dart';
-import '../../../providers/bookshelf_settings_provider.dart';
+import '../../bookshelf/application/bookshelf_settings_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/book_info_utils.dart';
 import '../../../utils/book_open_utils.dart';

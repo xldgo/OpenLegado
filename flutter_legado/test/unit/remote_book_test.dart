@@ -13,8 +13,8 @@ import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/domain/contracts/remote_server_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
-import 'package:flutter_legado/src/providers/remote_book/remote_book_notifier.dart';
-import 'package:flutter_legado/src/providers/remote_book/remote_server_provider.dart';
+import 'package:flutter_legado/src/features/remote_books/application/remote_book_notifier.dart';
+import 'package:flutter_legado/src/features/remote_books/application/remote_server_provider.dart';
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
 import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 

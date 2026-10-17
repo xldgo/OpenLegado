@@ -1,7 +1,7 @@
 import '../fixtures/app_test_api.dart';
 
 import 'package:mocktail/mocktail.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import 'dart:convert';
 

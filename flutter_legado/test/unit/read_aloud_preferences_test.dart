@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_preferences.dart';
 
 import '../mocks/mocks.dart';
 

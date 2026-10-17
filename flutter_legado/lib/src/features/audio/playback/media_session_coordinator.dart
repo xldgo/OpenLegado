@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import '../../../domain/models/read_aloud_media_timeline.dart';
 import '../../../models/book.dart';
-import '../../../providers/audio/audio_state.dart';
+import '../application/audio_state.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/media_artwork_loader.dart';
 import '../../../services/media_session_models.dart';

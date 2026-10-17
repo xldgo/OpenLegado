@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 import '../mocks/mocks.dart';

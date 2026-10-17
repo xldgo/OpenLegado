@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/rss_history/rss_history_notifier.dart';
+import 'package:flutter_legado/src/features/rss/application/history/rss_history_notifier.dart';
 
 import '../mocks/mocks.dart';
 

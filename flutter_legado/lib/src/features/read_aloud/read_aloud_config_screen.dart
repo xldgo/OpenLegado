@@ -21,7 +21,7 @@ import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
 
 import '../../models/models.dart';
-import '../../providers/audio/audio_notifier.dart';
+import '../audio/application/audio_notifier.dart';
 import 'http_tts_seed.dart';
 import 'http_tts_repository_provider.dart';
 import '../../widgets/app_progress_indicator.dart';

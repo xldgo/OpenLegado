@@ -22,7 +22,7 @@ import 'package:flutter_legado/src/domain/contracts/sync_metadata_repository.dar
 import 'package:flutter_legado/src/providers/sync_metadata_provider.dart';
 import 'package:flutter_legado/src/providers/sync/sync_notifier.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/data/services/backup_service.dart';
 import 'package:flutter_legado/src/app/bootstrap/restored_settings_refresher.dart';
 import 'package:flutter_legado/src/providers/backup_provider.dart';

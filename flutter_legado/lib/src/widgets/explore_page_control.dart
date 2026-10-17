@@ -9,7 +9,7 @@ import '../l10n/app_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/explore/explore_show_notifier.dart';
+import '../features/explore/application/explore_show_notifier.dart';
 import 'md3_picker_sheet.dart';
 
 /// 发现分类页码按钮（AppBar actions 或双栏右栏顶栏）

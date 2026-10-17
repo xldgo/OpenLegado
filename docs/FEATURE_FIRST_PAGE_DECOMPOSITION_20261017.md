@@ -102,6 +102,31 @@
 - 页面、专属弹层及字节解析分别收拢至Feature的presentation/application；共享仓储、
   设置模型和平台能力保持原归属，旧入口引用同步迁移。
 
+## B5：长尾页面与状态归属
+
+本批复用已经形成的页面/Notifier/Repository职责，只收拢目录和修正引用；
+不借路径迁移改写业务、路由名称、Provider声明或生成模型。
+
+| 业务域 | 页面与专属状态归属 |
+|---|---|
+| 首页与书架 | home/presentation与application；书架偏好注入归bookshelf/application |
+| 设置与引导 | settings/presentation；欢迎页面归onboarding/presentation |
+| RSS | rss/presentation、application，阅读历史归application/history |
+| 规则 | rules/presentation；替换、TXT目录、高亮与订阅状态归application下对应子目录 |
+| 词典 | dictionary/presentation与application，词典规则编辑仍归rules |
+| 书源与详情 | 登录、调试、换源页面/状态归book_sources；元信息编辑和换封面归book_detail |
+| 发现 | explore/presentation与application，保留原part和生成物关系 |
+| 媒体 | 音频播放页面/状态归audio，朗读页面归read_aloud，视频归video |
+| 外观 | 底栏皮肤页面/状态归appearance；字体管理页面归reader |
+| 缓存与自动任务 | cache/presentation；automation/presentation与application |
+| 导入与文件 | imports承载本地/压缩包/关联导入及状态；remote_books承载远程书库；files承载文件管理 |
+| 日志与工具 | logs/presentation与application；browser承载浏览器，tools承载扫码、代码编辑及cURL工具 |
+
+页面及其独有状态不再从screens/和对应旧Provider目录消费，不保留导出壳。
+根providers/仍保留共享仓储/服务装配、配置投影、主题/系统栏、同步与应用生命周期；
+例如explore_dependencies仍是共享书源查询/调试能力的装配导出，不随页面Notifier搬迁。
+生成文件按原始字节迁移，库的part/import/export指令只更新目标路径。
+
 ## 验证与回滚
 
 每批执行完整静态分析和相关行为测试。B1a 直接测试无 Riverpod 宿主的控制器，并复验既有
@@ -109,7 +134,7 @@ ReaderNotifier、刷新、换源、原文位置与阅读记录测试。断言真
 后续表现层提取覆盖浮层命中及关闭顺序、连续翻页、选区操作；漫画覆盖模式切换与位置恢复。
 设备与 CI 未执行时明确记为未验证，不用单元测试代替真实交互验收。
 
-本轮由 Codex 直接实现和自查，不使用子代理；没有独立审查时如实标记。用户本轮已授权逐批验证后本地提交一次，前三批后继续授权B4；未经另行授权
+本轮由 Codex 直接实现和自查，不使用子代理；没有独立审查时如实标记。用户本轮已授权逐批验证后本地提交一次，前三批后继续授权B4、B5；未经另行授权
 不推送或触发 CI。每批可独立撤销自身修改，不涉及数据迁移或其他模块回滚。
 
 编写者：Codex｜2026-10-17

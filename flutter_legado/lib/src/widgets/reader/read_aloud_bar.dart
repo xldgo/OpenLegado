@@ -13,7 +13,7 @@ import '../../models/tts_engine_option.dart';
 
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 
-import '../../providers/audio/audio_notifier.dart';
+import '../../features/audio/application/audio_notifier.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
 import '../../routes.dart';
 import '../../l10n/app_localization.dart';

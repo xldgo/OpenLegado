@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../domain/contracts/audio_book_service.dart';
 import '../../../domain/contracts/bookshelf_repository.dart';
 import '../../../models/book.dart';
-import '../../../providers/audio/audio_state.dart';
+import '../application/audio_state.dart';
 import 'audio_preferences_host.dart';
 
 /// 书级倍速防抖仍沿用原来的600ms窗口。

@@ -10,8 +10,8 @@ import 'package:mocktail/mocktail.dart';
 // ignore: depend_on_referenced_packages
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/screens/file_manage_screen.dart';
-import 'package:flutter_legado/src/screens/replace_rules_screen.dart';
+import 'package:flutter_legado/src/features/files/presentation/file_manage_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/replace_rules_screen.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 import '../mocks/mocks.dart';

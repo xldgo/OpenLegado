@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/screens/source_login_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/source_login_screen.dart';
 
 import '../mocks/mocks.dart';
 

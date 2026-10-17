@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:flutter_legado/src/domain/models/review.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/providers/book_content_provider.dart';
-import 'package:flutter_legado/src/screens/archive_import_dialog.dart';
+import 'package:flutter_legado/src/features/imports/presentation/archive_import_dialog.dart';
 import 'package:flutter_legado/src/widgets/reader/review_detail_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

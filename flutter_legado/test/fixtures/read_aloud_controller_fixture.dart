@@ -13,7 +13,7 @@ import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_contr
 import 'package:flutter_legado/src/features/read_aloud/playback/read_aloud_host.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 import '../mocks/mocks.dart';
 

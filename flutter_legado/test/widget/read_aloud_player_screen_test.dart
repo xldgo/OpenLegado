@@ -9,10 +9,10 @@ import 'package:flutter_legado/src/features/read_aloud/read_aloud_player_info.da
 import 'package:flutter_legado/src/features/read_aloud/widgets/read_aloud_player_content.dart';
 import 'package:flutter_legado/src/features/read_aloud/widgets/read_aloud_chapter_text.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/audio/read_aloud_position.dart';
-import 'package:flutter_legado/src/providers/audio/read_aloud_preferences.dart';
-import 'package:flutter_legado/src/screens/read_aloud_player_screen.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_position.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_preferences.dart';
+import 'package:flutter_legado/src/features/read_aloud/presentation/read_aloud_player_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
 import '../mocks/mocks.dart';

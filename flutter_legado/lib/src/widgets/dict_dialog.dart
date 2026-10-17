@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
-import '../providers/dict/dict_notifier.dart';
+import '../features/dictionary/application/dict_notifier.dart';
 import 'md3_loading_indicator.dart';
 
 /// 词典查询 Dialog（对标原版 `ui/dict/DictDialog`）

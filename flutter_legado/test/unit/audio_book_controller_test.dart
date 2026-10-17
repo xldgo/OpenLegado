@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/models/audio_media.dart';
 import 'package:flutter_legado/src/domain/models/audio_playback_settings.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 import '../fixtures/audio_book_controller_fixture.dart';
 

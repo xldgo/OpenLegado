@@ -2,8 +2,8 @@ import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/domain/contracts/remote_server_repository.dart';
 import 'package:flutter_legado/src/domain/models/remote_server_config.dart';
-import 'package:flutter_legado/src/providers/remote_book/remote_server_provider.dart';
-import 'package:flutter_legado/src/screens/remote_book_screen.dart';
+import 'package:flutter_legado/src/features/remote_books/application/remote_server_provider.dart';
+import 'package:flutter_legado/src/features/remote_books/presentation/remote_book_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';

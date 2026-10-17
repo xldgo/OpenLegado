@@ -9,7 +9,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/routes.dart' show AppRoutes;
-import 'package:flutter_legado/src/screens/dict_rule_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/dict_rule_screen.dart';
 
 import '../mocks/mocks.dart';
 

@@ -11,7 +11,7 @@ import 'package:flutter_legado/src/domain/models/source_syntax_result.dart';
 import 'package:flutter_legado/src/domain/models/login_v2.dart';
 import 'package:flutter_legado/src/features/book_sources/js_source_edit_screen.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
-import 'package:flutter_legado/src/screens/curl_analyze_url_sheet.dart';
+import 'package:flutter_legado/src/features/tools/presentation/curl_analyze_url_sheet.dart';
 import 'package:flutter_legado/src/utils/source_login_entry.dart';
 
 import '../mocks/mocks.dart';

@@ -4,7 +4,7 @@
 // 附加请求头，对齐原版 toWebViewRequestConfig 的容错语义。
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/screens/webview_login_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/webview_login_screen.dart';
 
 void main() {
   group('parseSourceHeaderMap', () {

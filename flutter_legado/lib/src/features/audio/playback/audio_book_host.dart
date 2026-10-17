@@ -1,5 +1,5 @@
 import '../../../models/book.dart';
-import '../../../providers/audio/audio_state.dart';
+import '../application/audio_state.dart';
 
 /// 音频书复用宿主的播放状态、标识和章级动作，不持有Ref。— Codex + UI
 final class AudioBookHost {

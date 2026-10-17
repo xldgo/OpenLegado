@@ -18,7 +18,7 @@ import '../../../../models/models.dart';
 import '../../../book_sources/book_sources.dart';
 import '../../../../providers/sync/sync_notifier.dart';
 import '../../../../utils/source_login_entry.dart';
-import '../../../../screens/webview_login_screen.dart';
+import '../../../book_sources/presentation/webview_login_screen.dart';
 import '../../../../widgets/help/help_assets.dart';
 import '../../../../widgets/help/show_help.dart';
 import '../../../../widgets/reader/change_chapter_source_sheet.dart';

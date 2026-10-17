@@ -21,7 +21,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/models.dart';
-import '../../providers/explore/explore_notifier.dart';
+import '../explore/application/explore_notifier.dart';
 import '../search/search.dart';
 import 'source_notifier.dart';
 import '../../routes.dart';

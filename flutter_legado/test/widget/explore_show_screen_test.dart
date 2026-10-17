@@ -10,7 +10,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/screens/explore_show_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_show_screen.dart';
 
 import '../mocks/mocks.dart';
 

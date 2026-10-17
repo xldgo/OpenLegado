@@ -16,7 +16,7 @@ import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/services/source_import_parser.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
-import 'package:flutter_legado/src/providers/association/association_notifier.dart';
+import 'package:flutter_legado/src/features/imports/application/association_notifier.dart';
 
 import '../mocks/mocks.dart';
 

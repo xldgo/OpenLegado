@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/domain/models/read_aloud_content.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 import '../fixtures/read_aloud_controller_fixture.dart';
 import '../mocks/mocks.dart';

@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../features/bookshelf/bookshelf.dart';
-import '../providers/explore/explore_show_notifier.dart';
+import '../features/explore/application/explore_show_notifier.dart';
 import '../routes.dart';
 import '../utils/source_login_entry.dart';
 import '../widgets/book_cover.dart';

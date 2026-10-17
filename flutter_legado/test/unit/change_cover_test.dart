@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/change_cover/change_cover_notifier.dart';
+import 'package:flutter_legado/src/features/book_detail/application/change_cover/change_cover_notifier.dart';
 
 import '../mocks/mocks.dart';
 

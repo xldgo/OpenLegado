@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/screens/explore_show_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_show_screen.dart';
 import 'package:flutter_legado/src/widgets/book_cover.dart';
 
 void main() {

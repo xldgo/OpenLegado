@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
 import 'package:flutter_legado/src/services/media_session_models.dart';
 

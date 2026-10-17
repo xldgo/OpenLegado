@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../providers/audio/audio_notifier.dart';
+import '../../features/audio/application/audio_notifier.dart';
 import '../../features/bookmarks/bookmarks.dart';
 import '../../providers/highlight_repository_provider.dart';
 import '../../features/reader/application/reader_notifier.dart';

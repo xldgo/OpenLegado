@@ -9,8 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/screens/remote_book_screen.dart';
-import 'package:flutter_legado/src/screens/rss_screen.dart';
+import 'package:flutter_legado/src/features/remote_books/presentation/remote_book_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
 
 import '../mocks/mocks.dart';
 

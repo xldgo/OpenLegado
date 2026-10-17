@@ -17,9 +17,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/screens/home_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
 import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';

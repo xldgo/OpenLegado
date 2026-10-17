@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../platform/tts/system_tts.dart';
-import '../../providers/audio/audio_notifier.dart';
+import '../audio/application/audio_notifier.dart';
 import 'cloud_tts_providers.dart';
 import 'http_tts_repository_provider.dart';
 import 'http_tts_voice_selection.dart';

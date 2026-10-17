@@ -1,0 +1,1275 @@
+import '../book_source_repository_provider.dart';
+import '../../../providers/config_settings_provider.dart';
+import '../../search/search_settings_provider.dart';
+import '../../../domain/models/change_source_settings.dart';
+import '../../../widgets/app_search_transition.dart';
+import '../../../widgets/app_menu.dart';
+
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/legado_app_bar.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../../models/models.dart';
+import '../../../bridge/ffi.dart' show BridgeError;
+import '../application/change_source/change_source_notifier.dart';
+import '../../../routes.dart';
+import '../../../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
+import '../../../widgets/error_view.dart';
+import '../../../widgets/loading_indicator.dart';
+
+/// 换源页面 — 搜索替代书源并切换
+///
+/// 通过 [ChangeSourceNotifier] 经 SourceSwitchService 调用 Rust 后端的换源匹配器
+/// （`searchSource` / `switchSource`），在所有启用的书源中搜索同名书籍，
+/// 按匹配度评分排序（Rust 侧完成），用户选择后切换书籍来源。
+///
+/// 架构说明（对齐 UI_RESTRUCTURE_PLAN.md §0.2）：本页面不直接调用 bridge/FFI，
+/// 全部经 [ChangeSourceNotifier] → SourceSwitchService 委托 Rust。
+class ChangeSourceScreen extends ConsumerStatefulWidget {
+  /// 书籍对象（路由参数规范化：优先使用 Book 对象）
+  final Book? book;
+
+  /// 以下字段为向后兼容保留，当未传入 Book 对象时使用
+  final String bookUrl;
+  final String bookName;
+  final String author;
+  final String currentSourceUrl;
+
+  const ChangeSourceScreen({
+    super.key,
+    this.book,
+    this.bookUrl = '',
+    this.bookName = '',
+    this.author = '',
+    this.currentSourceUrl = '',
+  });
+
+  /// 获取有效的 bookUrl
+  String get effectiveBookUrl => book?.bookUrl ?? bookUrl;
+
+  /// 获取有效的书名
+  String get effectiveBookName => book?.name ?? bookName;
+
+  /// 获取有效的作者
+  String get effectiveAuthor => book?.author ?? author;
+
+  /// 获取有效的当前书源地址
+  String get effectiveCurrentSourceUrl => book?.origin ?? currentSourceUrl;
+
+  @override
+  ConsumerState<ChangeSourceScreen> createState() => _ChangeSourceScreenState();
+}
+
+class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
+    with SingleTickerProviderStateMixin {
+  // [A2 形态对齐 | full-stack-engineer + UI] 换源页由「整页」改为「底部弹层」：
+  // 非不透明路由（routes.dart _ChangeSourceSheetRoute）承载，本页 build 产出
+  // 全屏 Stack——半透明遮罩（点按关闭）+ 底部面板（把手 + 下滑关闭）。
+  // 面板高度约为全屏 85%（顶部圆角，对齐参考版 kazusa 底部弹层形态与
+  // 原版 ChangeBookSourceDialog BaseDialogFragment 的浮层语义）。
+  static const double _sheetHeightRatio = 0.85;
+  static const double _sheetCornerRadius = 16;
+  // 下滑关闭判定阈值：拖拽位移（px）或甩出速度（px/s）
+  static const double _closeDragThreshold = 160;
+  static const double _closeFlingVelocity = 800;
+
+  final _scrollController = ScrollController();
+  // [A2 形态对齐 | full-stack-engineer + UI] 未达关闭阈值时把手回弹动画
+  // （拖拽位移 → 0；关闭路径直接 pop，收尾滑出由路由反向转场承接）
+  late final AnimationController _sheetSpringController;
+  Tween<Offset> _sheetSpringTween = Tween(begin: Offset.zero, end: Offset.zero);
+  // [A2 形态对齐 | full-stack-engineer + UI] 弹层拖拽实时下移量（仅下滑生效；
+  // 列表区域内的垂直拖拽被内层 Scrollable 优先仲裁，不会误触面板拖拽）
+  double _sheetDragOffset = 0;
+  // 下滑关闭收尾动画进行中（防重入）
+  bool _sheetClosing = false;
+  // [UI-fix v2.0.2 | 2026-08-06] 换源页高级选项（对标原版 change_source.xml：
+  // 搜索筛选/停止刷新切换/书源管理入口/刷新列表/校验作者开关/加载字数开关/
+  // 加载信息开关/加载目录开关/源分组单选/关闭）；开关项持久化于 config，
+  // 键名对齐原版 AppConfig — Qoder
+  final _searchFilterCtrl = TextEditingController();
+  bool _searchFilterVisible = false;
+  String _searchFilter = '';
+  bool _stopped = false;
+  bool _checkAuthor = false;
+  bool _loadWordCount = false;
+  bool _loadInfo = false;
+  bool _loadToc = false;
+  String _searchGroup = '';
+  List<String> _groups = const [];
+
+  /// 高级选项加载 Future：首次自动搜索须等其完成（对齐原版
+  /// ChangeBookSourceViewModel 搜索前同步读取 AppConfig，避免首轮搜索
+  /// 使用未恢复的默认开关值）
+  Future<void>? _advancedOptionsLoaded;
+
+  @override
+  void initState() {
+    super.initState();
+    // [A2 形态对齐 | full-stack-engineer + UI] 弹层下滑未达阈值时的回弹控制器
+    _sheetSpringController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _advancedOptionsLoaded = _loadAdvancedOptions();
+    // 进入页面自动搜索一次（_search 内部等待高级选项加载完成）
+    WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+  }
+
+  @override
+  void dispose() {
+    _searchFilterCtrl.dispose();
+    _scrollController.dispose();
+    _sheetSpringController.dispose();
+    super.dispose();
+  }
+
+  /// 恢复高级开关持久化状态与源分组列表
+  Future<void> _loadAdvancedOptions() async {
+    try {
+      final settings = await ref
+          .read(changeSourceSettingsRepositoryProvider)
+          .load();
+      final searchRepository = ref.read(searchSettingsRepositoryProvider);
+      await searchRepository.loadRuntime();
+      final search = searchRepository.current;
+      if (mounted) {
+        setState(() {
+          _checkAuthor = settings.checkAuthor;
+          _loadWordCount = settings.loadWordCount;
+          _loadInfo = settings.loadInfo;
+          _loadToc = settings.loadToc;
+          _searchGroup = search.searchGroup;
+        });
+      }
+    } catch (_) {}
+    try {
+      // 源分组从启用书源的 bookSourceGroup 字段聚合（对标原版
+      // flowEnabledGroups）；[审计 D1] 分组分隔符全集 ,;，；，对齐原版
+      // splitGroupRegex（仅英文逗号会漏分号分组的组名）
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
+      final groups = <String>{};
+      for (final s in sources) {
+        if (!s.enabled) continue;
+        final g = s.bookSourceGroup ?? '';
+        if (g.trim().isEmpty) continue;
+        groups.addAll(
+          g
+              .split(RegExp(r'[,;，；]'))
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty),
+        );
+      }
+      if (mounted) setState(() => _groups = groups.toList()..sort());
+    } catch (_) {}
+  }
+
+  /// 开关项持久化（键名对齐原版 AppConfig）
+  Future<void> _persistBool(ChangeSourceOption option, bool value) async {
+    try {
+      await ref
+          .read(changeSourceSettingsRepositoryProvider)
+          .update((s) => s.withOption(option, value));
+    } catch (_) {}
+  }
+
+  /// [A2 形态对齐 | full-stack-engineer + UI] 关闭弹层：对标原版
+  /// ChangeBookSourceDialog（BaseDialogFragment）的 dismiss 语义——
+  /// 点遮罩 / 高级菜单「关闭」项 / 系统返回键均收敛为 pop 本路由，
+  /// 调用方（pushNamed）按原语义取回路由结果（新 bookUrl 或 null）。
+  void _closeSheet() {
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
+
+  // ── 弹层下滑关闭手势 [A2 形态对齐 | full-stack-engineer + UI] ──
+  // 仅把手/面板非滚动区可拖动（列表区域内的垂直拖拽被内层 Scrollable
+  // 优先仲裁，不会误触）；下滑超阈值或快速甩出 → 保持拖拽位移冻结并
+  // pop 本路由，收尾滑出动画由路由反向转场（_ChangeSourceSheetRoute）
+  // 承接；未达阈值 → 弹性回位。
+
+  void _onSheetDragStart(DragStartDetails details) {
+    if (_sheetClosing) return;
+    _sheetSpringController.stop();
+    _sheetSpringTween = Tween(begin: Offset.zero, end: Offset.zero);
+    setState(() => _sheetDragOffset = 0);
+  }
+
+  void _onSheetDragUpdate(DragUpdateDetails details) {
+    if (_sheetClosing) return;
+    setState(() {
+      _sheetDragOffset = details.delta.dy.clamp(0.0, 480.0).toDouble();
+    });
+  }
+
+  void _onSheetDragEnd(DragEndDetails details) {
+    if (_sheetClosing) return;
+    final shouldClose =
+        _sheetDragOffset > _closeDragThreshold ||
+        details.velocity.pixelsPerSecond.dy > _closeFlingVelocity;
+    if (shouldClose) {
+      // 位移保持冻结（面板停在松手处），pop 后路由反向转场将其滑出屏幕
+      _sheetClosing = true;
+      Navigator.pop(context);
+    } else {
+      _springSheetBack();
+    }
+  }
+
+  /// 未达关闭阈值：弹性回位（拖拽位移 → 0）
+  Future<void> _springSheetBack() async {
+    if (_sheetDragOffset == 0) return;
+    _sheetSpringTween = Tween<Offset>(
+      begin: Offset(0, _sheetDragOffset),
+      end: Offset.zero,
+    );
+    _sheetDragOffset = 0;
+    setState(() {});
+    await _sheetSpringController.forward();
+  }
+
+  /// 搜索可替换书源
+  ///
+  /// [UI-fix v2.0.3 | 2026-08-06] 留项#12（Task #131）：传入当前选中分组，
+  /// 分组过滤全链生效（Rust sourceSwitchSearch 的 sourceUrlsJson） — Qoder
+  /// [UI-fix v2.0.3 | 2026-08-08] 留项#12（Task #145）：Rust 侧已原生读取
+  /// searchGroup config 过滤；搜索完成后分组过滤零结果时弹
+  /// 「是否切换到全部分组」对话框（对标 ChangeChapterSourceDialog L90-97） — Qoder
+  ///
+  /// [forceRefresh] false（进入页默认）：优先复用搜索阶段写入的 searchBooks
+  /// （对齐原版 getDbSearchBooks）；true（刷新列表）：强制网络重搜。
+  Future<void> _search({bool forceRefresh = false}) async {
+    // 首次搜索等待高级选项加载完成（后续手动刷新无需再等）
+    final pending = _advancedOptionsLoaded;
+    if (pending != null) {
+      _advancedOptionsLoaded = null;
+      await pending;
+      if (!mounted) return;
+    }
+    await ref
+        .read(changeSourceNotifierProvider.notifier)
+        .search(
+          widget.effectiveBookName,
+          widget.effectiveAuthor,
+          group: _searchGroup,
+          loadInfo: _loadInfo,
+          loadToc: _loadToc,
+          loadWordCount: _loadWordCount,
+          forceRefresh: forceRefresh,
+        );
+    if (!mounted) return;
+    final state = ref.read(changeSourceNotifierProvider);
+    if (state.error == null &&
+        state.results.isEmpty &&
+        _searchGroup.isNotEmpty) {
+      _showEmptyGroupResultDialog();
+    }
+  }
+
+  /// [UI-fix v2.0.3 | 2026-08-08] 分组搜索结果为空对话框（Task #145，对标原版
+  /// ChangeChapterSourceDialog L90-97：「xx分组搜索结果为空,是否切换到全部分组」，
+  /// 确认后清空 searchGroup config 并重搜） — Qoder
+  Future<void> _showEmptyGroupResultDialog() async {
+    final group = _searchGroup;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('搜索结果为空'),
+        content: Text('$group分组搜索结果为空，是否切换到全部分组'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('切换'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _searchGroup = '');
+    try {
+      await ref
+          .read(searchSettingsRepositoryProvider)
+          .update((s) => s.copyWith(searchGroup: ''));
+    } catch (_) {}
+    if (mounted && !_stopped) await _search();
+  }
+
+  /// 应用选中的书源
+  Future<void> _applySource(
+    SourceMatch result, {
+    bool skipConfirm = false,
+  }) async {
+    // 已有切换进行中时不再重复触发
+    if (ref.read(changeSourceNotifierProvider).isApplying) return;
+
+    if (!skipConfirm) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('切换书源'),
+          content: Text(
+            '确定要将本书切换到「${result.sourceName}」吗？\n'
+            '切换后将重新获取目录与章节内容。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('切换'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    try {
+      final newBookUrl = await ref
+          .read(changeSourceNotifierProvider.notifier)
+          .applySource(result, bookUrl: widget.effectiveBookUrl);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已切换到「${result.sourceName}」')));
+      Navigator.pop(context, newBookUrl);
+    } catch (e) {
+      if (!mounted) return;
+      // [fix Task#24 | 2026-08-08] BridgeError 未重写 toString，直接内插得到
+      // 无信息的「Instance of 'BridgeError'」。改用 .message 暴露 Rust 侧真实
+      // 错误（如「新书源未解析到任何章节」），便于用户与排查 — Qoder
+      final msg = e is BridgeError ? e.message : e.toString();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('换源失败: $msg')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(changeSourceNotifierProvider);
+    final results = _filteredResults(state);
+    final colorScheme = Theme.of(context).colorScheme;
+    // [A2 形态对齐 | full-stack-engineer + UI] 整页 Scaffold → 底部弹层：
+    // 全屏 Stack = 遮罩层（点按关闭）+ 底部面板（85% 高、顶部圆角 + 把手、
+    // 可下滑关闭）。非不透明路由的屏障只压暗未被路由内容命中的区域，
+    // 故遮罩点按关闭在本页实现。
+    return Stack(
+      children: [
+        // 遮罩层：视觉压暗由路由屏障（barrierColor black54，M3 模态
+        // 浮层遮罩规范值）承担，本层仅做全屏命中区域 → 点按关闭
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _closeSheet,
+          ),
+        ),
+        // [A2 形态对齐 | full-stack-engineer + UI] 面板下移量 = 拖拽实时量
+        // + 回弹动画量（_sheetSpringTween 经控制器插值）；关闭路径
+        // （_sheetClosing）冻结位移，收尾滑出由路由反向转场承接
+        AnimatedBuilder(
+          animation: _sheetSpringController,
+          builder: (context, _) => Align(
+            alignment: Alignment.bottomCenter,
+            child: Transform.translate(
+              offset: Offset(
+                0,
+                _sheetDragOffset +
+                    _sheetSpringTween.evaluate(_sheetSpringController).dy,
+              ),
+              child: _buildSheetPanel(context, state, results, colorScheme),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// [A2 形态对齐 | full-stack-engineer + UI] 弹层面板：把手 + 既有全部功能
+  /// （顶栏标题/筛选/高级菜单、流式搜索列表、底部栏、搜索 FAB 原样保留，
+  /// 仅承载容器由整页 Scaffold 改为面板内 Scaffold）
+  Widget _buildSheetPanel(
+    BuildContext context,
+    ChangeSourceState state,
+    List<SourceMatch> results,
+    ColorScheme colorScheme,
+  ) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragStart: _onSheetDragStart,
+      onVerticalDragUpdate: _onSheetDragUpdate,
+      onVerticalDragEnd: _onSheetDragEnd,
+      child: Material(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(_sheetCornerRadius),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: (screenHeight * _sheetHeightRatio).clamp(
+            0.0,
+            screenHeight.toDouble(),
+          ),
+          child: Column(
+            children: [
+              // 把手（M3 底部弹层惯例：32×4 圆角条，outline 系配色）
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.outline.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: AppScaffold(
+                  // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+                  topBar: LegadoAppBar(
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.effectiveBookName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (widget.effectiveAuthor.isNotEmpty)
+                          Text(
+                            widget.effectiveAuthor,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                      ],
+                    ),
+                    actions: [
+                      // [UI-fix v2.0.2 | 2026-08-06] 搜索筛选入口（对标 menu_screen）— Qoder
+                      IconButton(
+                        icon: Icon(
+                          _searchFilter.isNotEmpty
+                              ? Symbols.filter_alt_rounded
+                              : Symbols.search_rounded,
+                        ),
+                        tooltip: '搜索筛选',
+                        onPressed: () => setState(
+                          () => _searchFilterVisible = !_searchFilterVisible,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Symbols.refresh_rounded),
+                        tooltip: '重新搜索',
+                        onPressed: state.isLoading || _stopped
+                            ? null
+                            : () => _search(forceRefresh: true),
+                      ),
+                      // [UI-fix v2.0.2 | 2026-08-06] 高级选项菜单（对标 change_source.xml）— Qoder
+                      AppMenuButton<String>(
+                        tooltip: '高级选项',
+                        onSelected: _handleAdvancedMenu,
+                        itemBuilder: (_) => [
+                          AppMenuItem(
+                            value: 'startStop',
+                            child: _menuRow(
+                              icon: _stopped
+                                  ? Symbols.play_arrow_rounded
+                                  : Symbols.stop_rounded,
+                              label: _stopped ? '继续刷新' : '停止刷新',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'sourceManage',
+                            child: _menuRow(
+                              icon: Symbols.settings_rounded,
+                              label: '书源管理',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'refreshList',
+                            child: _menuRow(
+                              icon: Symbols.refresh_rounded,
+                              label: '刷新列表',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'checkAuthor',
+                            child: _menuRow(
+                              icon: _checkAuthor
+                                  ? Symbols.check_box_rounded
+                                  : Symbols.check_box_outline_blank_rounded,
+                              label: '校验作者',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'loadWordCount',
+                            child: _menuRow(
+                              icon: _loadWordCount
+                                  ? Symbols.check_box_rounded
+                                  : Symbols.check_box_outline_blank_rounded,
+                              label: '加载字数',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'loadInfo',
+                            child: _menuRow(
+                              icon: _loadInfo
+                                  ? Symbols.check_box_rounded
+                                  : Symbols.check_box_outline_blank_rounded,
+                              label: '加载信息',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'loadToc',
+                            child: _menuRow(
+                              icon: _loadToc
+                                  ? Symbols.check_box_rounded
+                                  : Symbols.check_box_outline_blank_rounded,
+                              label: '加载目录',
+                            ),
+                          ),
+                          AppMenuItem(
+                            value: 'group',
+                            child: _menuRow(
+                              icon: Symbols.group_work_rounded,
+                              label: _searchGroup.isEmpty
+                                  ? '源分组：全部'
+                                  : '源分组：$_searchGroup',
+                            ),
+                          ),
+                          const AppMenuItem(
+                            value: 'close',
+                            child: _MenuRowStatic(
+                              icon: Symbols.close_rounded,
+                              label: '关闭',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  body: Column(
+                    children: [
+                      AppSearchTransition(
+                        expanded: _searchFilterVisible,
+                        builder: (context, progress) => AppSearchReveal(
+                          progress: progress,
+                          expanded: _searchFilterVisible,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: TextField(
+                              controller: _searchFilterCtrl,
+                              onChanged: (v) =>
+                                  setState(() => _searchFilter = v.trim()),
+                              decoration: InputDecoration(
+                                hintText: '按书源名称筛选',
+                                isDense: true,
+                                filled: true,
+                                fillColor: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                                // [B3] 筛选搜索框：无描边无底线、聚焦零变化
+                                // （显式声明防主题底部指示线渗入）
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(child: _buildBody(state, results)),
+                    ],
+                  ),
+                  bottomBar: _buildBottomBar(state, results),
+                  // [A2 形态对齐 | full-stack-engineer + UI] 搜索 FAB 原样
+                  // 保留于面板内（相对面板右下角，位置语义不变）
+                  floatingActionButton: FloatingActionButton.extended(
+                    onPressed: state.isLoading || _stopped
+                        ? null
+                        : () => _search(forceRefresh: true),
+                    icon: const Icon(Symbols.search_rounded),
+                    label: const Text('搜索'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 菜单行（动态勾选态）
+  Widget _menuRow({required IconData icon, required String label}) =>
+      _MenuRowStatic(icon: icon, label: label);
+
+  /// 高级选项菜单分发（对标 change_source.xml 各 menu 项）
+  Future<void> _handleAdvancedMenu(String value) async {
+    switch (value) {
+      case 'startStop':
+        // 对标 menu_start_stop：停止/继续刷新（会话态，不持久化）
+        setState(() => _stopped = !_stopped);
+      case 'sourceManage':
+        // 对标 menu_source_manage → SourceActivity
+        Navigator.pushNamed(context, AppRoutes.sources);
+      case 'refreshList':
+        // 对标 menu_refresh_list：强制网络重搜（对齐 startSearch）
+        if (!_stopped) await _search(forceRefresh: true);
+      case 'checkAuthor':
+        // 对标 menu_check_author（AppConfig.changeSourceCheckAuthor）
+        setState(() => _checkAuthor = !_checkAuthor);
+        _persistBool(ChangeSourceOption.checkAuthor, _checkAuthor);
+      case 'loadWordCount':
+        // 对标 menu_load_word_count（AppConfig.changeSourceLoadWordCount）
+        setState(() => _loadWordCount = !_loadWordCount);
+        await _persistBool(ChangeSourceOption.loadWordCount, _loadWordCount);
+        if (_loadWordCount && !_stopped) await _search(forceRefresh: true);
+      case 'loadInfo':
+        // 对标 menu_load_info（AppConfig.changeSourceLoadInfo）
+        setState(() => _loadInfo = !_loadInfo);
+        await _persistBool(ChangeSourceOption.loadInfo, _loadInfo);
+        if (_loadInfo && !_stopped) await _search(forceRefresh: true);
+      case 'loadToc':
+        // 对标 menu_load_toc（AppConfig.changeSourceLoadToc）
+        setState(() => _loadToc = !_loadToc);
+        await _persistBool(ChangeSourceOption.loadToc, _loadToc);
+        if (_loadToc && !_stopped) await _search(forceRefresh: true);
+      case 'group':
+        await _showGroupPicker();
+      case 'close':
+        // 对标 menu_close
+        if (mounted) Navigator.pop(context);
+    }
+  }
+
+  /// 源分组单选（对标 menu_group/source_group：AppConfig.searchGroup，
+  /// 留项#12 已于 Task #131 闭合：选中后按分组过滤重搜全链生效）— Qoder
+  Future<void> _showGroupPicker() async {
+    final selected = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('源分组'),
+        children: [
+          _groupRadio(ctx, '', '全部'),
+          for (final g in _groups) _groupRadio(ctx, g, g),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _searchGroup = selected);
+    try {
+      await ref
+          .read(searchSettingsRepositoryProvider)
+          .update((s) => s.copyWith(searchGroup: selected));
+    } catch (_) {}
+    if (!_stopped) await _search(forceRefresh: true);
+  }
+
+  Widget _groupRadio(BuildContext ctx, String value, String label) {
+    final isSelected = _searchGroup == value;
+    return ListTile(
+      leading: Icon(
+        isSelected
+            ? Symbols.radio_button_checked_rounded
+            : Symbols.radio_button_unchecked_rounded,
+        color: isSelected ? Theme.of(ctx).colorScheme.primary : null,
+      ),
+      title: Text(label),
+      onTap: () => Navigator.pop(ctx, value),
+    );
+  }
+
+  List<SourceMatch> _filteredResults(ChangeSourceState state) {
+    var results = state.results;
+    if (_searchFilter.isNotEmpty) {
+      // [审计 D5 | ChangeBookSourceViewModel.kt:184] 原版筛选只按书名
+      // contains，不含源名匹配
+      results = results
+          .where((r) => r.bookName.contains(_searchFilter))
+          .toList();
+    }
+    return results;
+  }
+
+  SourceMatch? _currentSourceItem(List<SourceMatch> results) {
+    for (final r in results) {
+      if (r.sourceUrl == widget.effectiveCurrentSourceUrl) return r;
+    }
+    return null;
+  }
+
+  void _scrollToCurrentSource(List<SourceMatch> results) {
+    final idx = results.indexWhere(
+      (r) => r.sourceUrl == widget.effectiveCurrentSourceUrl,
+    );
+    if (idx < 0 || !_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      idx * 72.0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Widget _buildBottomBar(ChangeSourceState state, List<SourceMatch> results) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final current = _currentSourceItem(results);
+    final label = current?.sourceName.isNotEmpty == true
+        ? current!.sourceName
+        : (widget.effectiveCurrentSourceUrl.isNotEmpty
+              ? widget.effectiveCurrentSourceUrl
+              : '当前书源');
+
+    return Material(
+      elevation: 8,
+      color: colorScheme.surfaceContainerHighest,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: results.isEmpty
+                      ? null
+                      : () => _scrollToCurrentSource(results),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Symbols.vertical_align_top_rounded),
+                tooltip: '滚到顶部',
+                onPressed: results.isEmpty
+                    ? null
+                    : () {
+                        // hasClients 在布局 attach 后才为 true，须于点击时判定（构建时为 false）
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      },
+              ),
+              IconButton(
+                icon: const Icon(Symbols.vertical_align_bottom_rounded),
+                tooltip: '滚到底部',
+                onPressed: results.isEmpty
+                    ? null
+                    : () {
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onThumbUp(SourceMatch item) async {
+    final newScore = item.bookScore > 0 ? 0 : 1;
+    try {
+      await ref
+          .read(changeSourceNotifierProvider.notifier)
+          .updateBookScore(item.bookUrl, newScore);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is BridgeError ? e.message : e.toString();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
+    }
+  }
+
+  Future<void> _onThumbDown(SourceMatch item) async {
+    final newScore = item.bookScore < 0 ? 0 : -1;
+    try {
+      await ref
+          .read(changeSourceNotifierProvider.notifier)
+          .updateBookScore(item.bookUrl, newScore);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is BridgeError ? e.message : e.toString();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
+    }
+  }
+
+  Future<void> _showItemActions(SourceMatch item) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Symbols.vertical_align_top_rounded),
+              title: const Text('置顶'),
+              onTap: () => Navigator.pop(ctx, 'top'),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.vertical_align_bottom_rounded),
+              title: const Text('置底'),
+              onTap: () => Navigator.pop(ctx, 'bottom'),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.edit_rounded),
+              title: const Text('编辑书源'),
+              onTap: () => Navigator.pop(ctx, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.block_rounded),
+              title: const Text('禁用书源'),
+              onTap: () => Navigator.pop(ctx, 'disable'),
+            ),
+            ListTile(
+              leading: Icon(
+                Symbols.delete_rounded,
+                color: Theme.of(ctx).colorScheme.error,
+              ),
+              title: Text(
+                '删除',
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+              ),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+
+    final notifier = ref.read(changeSourceNotifierProvider.notifier);
+    switch (action) {
+      case 'top':
+        notifier.moveToTop(item.bookUrl);
+      case 'bottom':
+        notifier.moveToBottom(item.bookUrl);
+      case 'edit':
+        Navigator.pushNamed(context, AppRoutes.sources);
+      case 'disable':
+        try {
+          await notifier.disableAndRemove(item);
+        } catch (e) {
+          if (!mounted) return;
+          final msg = e is BridgeError ? e.message : e.toString();
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('禁用失败: $msg')));
+        }
+      case 'delete':
+        await _confirmDeleteItem(item);
+    }
+  }
+
+  Future<void> _confirmDeleteItem(SourceMatch item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除'),
+        content: Text('确定删除「${item.sourceName}」吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final wasCurrent = item.bookUrl == widget.effectiveBookUrl;
+    try {
+      await ref
+          .read(changeSourceNotifierProvider.notifier)
+          .deleteSearchBookItem(item.bookUrl);
+      if (!mounted) return;
+      if (wasCurrent) {
+        final next = ref.read(changeSourceNotifierProvider).results.firstOrNull;
+        if (next != null) {
+          await _applySource(next, skipConfirm: true);
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is BridgeError ? e.message : e.toString();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('删除失败: $msg')));
+    }
+  }
+
+  Widget _buildBody(ChangeSourceState state, List<SourceMatch> results) {
+    if (state.isLoading && results.isEmpty) {
+      // T6 流式：首个候选批次到达前的等待窗口仍以「源数量 + 已等待时长」
+      // 告知仍在进行（T6 后首候选通常 <5s，此窗口很短）
+      return LoadingIndicator(
+        message: null,
+        subMessage: _SearchWaitMessage(count: state.searchingCount),
+      );
+    }
+    if (state.error != null && results.isEmpty) {
+      return ErrorView(
+        message: state.error!,
+        onRetry: () {
+          _search(forceRefresh: true);
+        },
+      );
+    }
+    if (results.isEmpty) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Symbols.search_off_rounded,
+              size: 64,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '未找到可替换的书源',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '请确认已启用足够的书源后重试',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // [LAYOUT_PLAN P4] 下拉 M3 化：裸 RefreshIndicator → CustomRefreshIndicator
+    return CustomRefreshIndicator(
+      onRefresh: () => _search(forceRefresh: true),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (state.isLoading) const LinearProgressIndicator(minHeight: 2),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              state.isLoading
+                  ? state.loadingProgressLabel(results.length)
+                  : '找到 ${results.length} 个匹配书源',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: results.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) =>
+                  _buildResultTile(context, results[index], state),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultTile(
+    BuildContext context,
+    SourceMatch item,
+    ChangeSourceState state,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // [LAYOUT_MOTION_AUDIT L3] 结果行字级走 M3 Type Scale（源名 titleSmall→
+    // 最新章节/字数 bodySmall→耗时 labelSmall，对齐 HapeLee ChangeSourceSheet
+    // 信息层级：源名→最新章节→字数→耗时，保持现有字段仅调间距字级）
+    final textTheme = Theme.of(context).textTheme;
+    final isCurrent = item.sourceUrl == widget.effectiveCurrentSourceUrl;
+    final isApplying = state.applyingUrl == item.sourceUrl;
+    final score = item.bookScore;
+    final goodActive = score > 0;
+    final badActive = score < 0;
+    // [UI_MD3_ALIGNMENT_PLAN.md Batch A A1] 评分指示色走 tonal role：
+    // 赞成=error 系（醒目警示）、反对=tertiary 系（次级），亮暗自适应
+    final goodColor = colorScheme.error;
+    final badColor = colorScheme.tertiary;
+
+    return InkWell(
+      onTap: isCurrent || state.isApplying ? null : () => _applySource(item),
+      onLongPress: () => _showItemActions(item),
+      child: Padding(
+        // [LAYOUT_MOTION_AUDIT L3] 行内边距对齐 vertical12 + horizontal8
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                // [LAYOUT_MOTION_AUDIT L3] 行内层级间距 4dp（对齐
+                // ChangeSourceSheet supportingContent spacedBy 4dp）
+                spacing: 4,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          item.sourceName.isEmpty ? '未知书源' : item.sourceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isCurrent ? colorScheme.primary : null,
+                          ),
+                        ),
+                      ),
+                      if (isCurrent) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '当前',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (item.latestChapter != null &&
+                      item.latestChapter!.isNotEmpty)
+                    Text(
+                      '最新：${item.latestChapter}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall,
+                    ),
+                  if (item.wordCount != null && item.wordCount!.isNotEmpty)
+                    Text(
+                      item.wordCount!,
+                      style: textTheme.bodySmall?.copyWith(
+                        // [FIX 2026-09-04] 正文次要文字走 onSurfaceVariant（outline 仅用于边框/装饰图标）
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (_loadWordCount &&
+                      item.chapterWordCountText != null &&
+                      item.chapterWordCountText!.isNotEmpty)
+                    Text(
+                      item.chapterWordCountText!,
+                      style: textTheme.bodySmall?.copyWith(
+                        // [FIX 2026-09-04] 正文次要文字走 onSurfaceVariant（outline 仅用于边框/装饰图标）
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (_loadWordCount && item.respondTime >= 0)
+                    Text(
+                      '耗时 ${item.respondTime}ms',
+                      style: textTheme.labelSmall?.copyWith(
+                        // [FIX 2026-09-04] 正文次要文字走 onSurfaceVariant（outline 仅用于边框/装饰图标）
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Symbols.thumb_up_rounded,
+                    color: goodActive
+                        ? goodColor
+                        : colorScheme.outline.withValues(alpha: 0.6),
+                  ),
+                  tooltip: '赞',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _onThumbUp(item),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Symbols.thumb_down_rounded,
+                    color: badActive
+                        ? badColor
+                        : colorScheme.outline.withValues(alpha: 0.6),
+                  ),
+                  tooltip: '踩',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _onThumbDown(item),
+                ),
+              ],
+            ),
+            if (isCurrent)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 12),
+                child: Icon(
+                  Symbols.check_circle_rounded,
+                  size: 20,
+                  color: colorScheme.primary,
+                ),
+              )
+            else if (isApplying)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    // 2026-09-24 换源感知等待：apply 在途（未命中现场抓取）
+                    // 可取消——Rust apply 代数 +1 → 提交前中止（DB 零变更），
+                    // 对齐上游 cancelChangeSource
+                    IconButton(
+                      icon: Icon(
+                        Symbols.close_rounded,
+                        size: 18,
+                        color: colorScheme.outline,
+                      ),
+                      tooltip: '取消换源',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => ref
+                          .read(changeSourceNotifierProvider.notifier)
+                          .cancelApply(),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// [UI-fix v2.0.2 | 2026-08-06] 菜单行（图标 + 文案） — Qoder
+class _MenuRowStatic extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MenuRowStatic({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
+    );
+  }
+}
+
+/// 搜索等待反馈文本（体检 U1 · T6 流式化前的过渡方案）
+///
+/// Rust 换源搜索为一次性阻塞调用（流式 API 落地前无逐源 x/y 进度），
+/// 以「参与搜索的源数量 + 已等待时长」告知仍在进行，避免无反馈转圈。
+class _SearchWaitMessage extends StatefulWidget {
+  final int? count;
+
+  const _SearchWaitMessage({this.count});
+
+  @override
+  State<_SearchWaitMessage> createState() => _SearchWaitMessageState();
+}
+
+class _SearchWaitMessageState extends State<_SearchWaitMessage> {
+  Timer? _timer;
+  int _seconds = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _seconds++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final count = widget.count;
+    final sourceText = (count == null || count <= 0) ? '' : ' $count 个书源';
+    return Text(
+      '正在搜索$sourceText… 已等待 $_seconds 秒',
+      style: Theme.of(context).textTheme.bodyMedium
+          ?.copyWith(color: colorScheme.onSurfaceVariant),
+    );
+  }
+}

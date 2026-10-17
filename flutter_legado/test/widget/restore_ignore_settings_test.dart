@@ -5,7 +5,7 @@ import 'package:flutter_legado/src/data/repositories/preferences_restore_ignore_
 import 'package:flutter_legado/src/domain/contracts/restore_ignore_repository.dart';
 import 'package:flutter_legado/src/domain/models/restore_ignore_config.dart';
 import 'package:flutter_legado/src/providers/restore_ignore_provider.dart';
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/restore_ignore_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';

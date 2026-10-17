@@ -7,8 +7,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
-import 'package:flutter_legado/src/screens/rss_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 
 import '../mocks/mocks.dart';

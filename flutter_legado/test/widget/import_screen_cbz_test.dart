@@ -27,8 +27,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/screens/archive_import_dialog.dart';
-import 'package:flutter_legado/src/screens/import_screen.dart';
+import 'package:flutter_legado/src/features/imports/presentation/archive_import_dialog.dart';
+import 'package:flutter_legado/src/features/imports/presentation/import_screen.dart';
 
 import '../mocks/mocks.dart';
 

@@ -13,13 +13,13 @@ import 'package:flutter_legado/src/features/bookshelf/bookshelf_manage_screen.da
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_locale_notifier.dart';
-import 'package:flutter_legado/src/providers/bookshelf_settings_provider.dart';
+import 'package:flutter_legado/src/features/bookshelf/application/bookshelf_settings_provider.dart';
 import 'package:flutter_legado/src/providers/ui_settings/eye_protection_notifier.dart';
 import 'package:flutter_legado/src/providers/welcome_settings_provider.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/screens/welcome_config_screen.dart';
-import 'package:flutter_legado/src/screens/welcome_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/onboarding/presentation/welcome_config_screen.dart';
+import 'package:flutter_legado/src/features/onboarding/presentation/welcome_screen.dart';
 import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter_legado/src/widgets/eye_protection_settings.dart';
 

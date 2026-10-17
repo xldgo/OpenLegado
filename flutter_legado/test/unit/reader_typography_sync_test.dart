@@ -8,7 +8,7 @@ import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
-import 'package:flutter_legado/src/providers/association/association_notifier.dart';
+import 'package:flutter_legado/src/features/imports/application/association_notifier.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 

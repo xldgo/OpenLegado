@@ -15,7 +15,7 @@ import 'package:flutter_legado/src/features/read_aloud/read_aloud_player_info.da
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
 

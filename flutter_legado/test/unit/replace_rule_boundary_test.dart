@@ -5,7 +5,7 @@ import '../fixtures/app_test_api.dart';
 import 'package:flutter_legado/src/data/repositories/mock_replace_rule_repository.dart';
 import 'package:flutter_legado/src/data/services/mock_replace_rule_service.dart';
 import 'package:flutter_legado/src/models/misc.dart';
-import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
+import 'package:flutter_legado/src/features/rules/application/replace_rules/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/providers/replace_rule_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

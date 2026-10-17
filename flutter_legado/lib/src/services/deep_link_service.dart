@@ -5,7 +5,7 @@ import 'package:app_links/app_links.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
-import '../screens/association_import_dialog.dart';
+import '../features/imports/presentation/association_import_dialog.dart';
 import '../utils/legado_deep_link.dart';
 
 /// 监听 Android `legado://` / `yuedu://` 深链并导航到关联导入页

@@ -45,24 +45,19 @@
 'area: audio':
   - changed-files:
       - any-glob-to-any-file:
-          - 'flutter_legado/lib/src/screens/audio*'
-          - 'flutter_legado/lib/src/screens/read_aloud*'
-          - 'flutter_legado/lib/src/providers/audio/**'
+          - 'flutter_legado/lib/src/features/audio/**'
+          - 'flutter_legado/lib/src/features/read_aloud/**'
           - 'flutter_legado/lib/src/services/stream_audio_player.dart'
 'area: bookshelf':
   - changed-files:
       - any-glob-to-any-file:
-          - 'flutter_legado/lib/src/screens/home_screen.dart'
-          - 'flutter_legado/lib/src/screens/home_tab_screen.dart'
+          - 'flutter_legado/lib/src/features/home/**'
           - 'flutter_legado/lib/src/features/bookshelf/**'
-          - 'flutter_legado/lib/src/screens/book_manage*'
 'area: book source':
   - changed-files:
       - any-glob-to-any-file:
           - 'flutter_legado/lib/src/features/book_sources/**'
-          - 'flutter_legado/lib/src/screens/source*'
           - 'flutter_legado/lib/src/features/search/**'
-          - 'flutter_legado/lib/src/providers/source*/**'
           - 'rust/legado-fetcher/**'
           - 'rust/legado-parser/**'
 'area: web':
@@ -74,9 +69,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - 'rust/legado-db/**'
-          - 'flutter_legado/lib/src/screens/backup*'
-          - 'flutter_legado/lib/src/screens/restore*'
-          - 'flutter_legado/lib/src/screens/webdav_settings_screen.dart'
+          - 'flutter_legado/lib/src/features/settings/presentation/webdav_settings_screen.dart'
           - 'flutter_legado/lib/src/providers/sync/**'
           - 'flutter_legado/lib/src/services/backup*'
           - 'flutter_legado/lib/src/services/local_book_store.dart'

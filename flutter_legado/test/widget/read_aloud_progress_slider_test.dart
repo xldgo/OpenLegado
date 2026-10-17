@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_legado/src/features/read_aloud/widgets/read_aloud_progress_slider.dart';
-import 'package:flutter_legado/src/providers/audio/read_aloud_position.dart';
+import 'package:flutter_legado/src/features/audio/application/read_aloud_position.dart';
 
 void main() {
   final seeks = <int>[];

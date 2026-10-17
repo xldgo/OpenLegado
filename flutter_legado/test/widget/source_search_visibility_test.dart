@@ -7,7 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
-import 'package:flutter_legado/src/screens/rss_source_manage_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_source_manage_screen.dart';
 
 import '../mocks/mocks.dart';
 

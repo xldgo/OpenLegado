@@ -21,7 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../l10n/app_localization.dart';
-import '../../../providers/audio/audio_notifier.dart';
+import '../../audio/application/audio_notifier.dart';
 import '../../bookmarks/bookmarks.dart';
 import '../../bookshelf/bookshelf.dart';
 import '../../../providers/general_settings_provider.dart';
@@ -31,7 +31,7 @@ import '../../../routes.dart';
 import '../../../services/system_brightness.dart';
 import '../../../services/system_bar_service.dart';
 import '../../../utils/app_route_observer.dart';
-import '../../../providers/audio/read_aloud_capsule.dart';
+import '../../audio/application/read_aloud_capsule.dart';
 import '../../../widgets/reader/auto_turn_panel.dart';
 import '../../../widgets/reader/reader_page_view.dart';
 import 'overlays/reader_settings_sheet.dart';

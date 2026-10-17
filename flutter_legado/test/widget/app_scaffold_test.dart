@@ -18,7 +18,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 
-import 'package:flutter_legado/src/screens/home_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scaffold.dart';
 
 import '../mocks/mocks.dart';

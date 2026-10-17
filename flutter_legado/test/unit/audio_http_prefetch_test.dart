@@ -16,7 +16,7 @@ import 'package:flutter_legado/src/domain/contracts/tts_cache_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
 

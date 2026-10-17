@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
-import '../screens/webview_login_screen.dart';
+import '../features/book_sources/presentation/webview_login_screen.dart';
 import '../widgets/classic_login_dialog.dart';
 import '../widgets/login_v2_dialog.dart';
 

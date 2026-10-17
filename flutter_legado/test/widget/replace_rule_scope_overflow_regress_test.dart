@@ -23,7 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/screens/replace_rule_edit_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/replace_rule_edit_screen.dart';
 
 import '../mocks/mocks.dart';
 

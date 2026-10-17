@@ -5,7 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 
 import '../providers/ui_settings/ui_settings_notifier.dart';
-import '../screens/home_screen.dart';
+import '../features/home/presentation/home_screen.dart';
 import 'top_bar_button.dart';
 import 'ui_settings_scope.dart';
 

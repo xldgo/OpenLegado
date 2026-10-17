@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
+import 'package:flutter_legado/src/features/explore/application/explore_notifier.dart';
 
 import '../mocks/mocks.dart';
 

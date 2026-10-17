@@ -22,8 +22,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
-import 'package:flutter_legado/src/screens/replace_rule_edit_screen.dart';
+import 'package:flutter_legado/src/features/rules/application/replace_rules/replace_rule_notifier.dart';
+import 'package:flutter_legado/src/features/rules/presentation/replace_rule_edit_screen.dart';
 
 import '../mocks/mocks.dart';
 

@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/change_source_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/change_source_screen.dart';
 
 import '../mocks/mocks.dart';
 

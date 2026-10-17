@@ -4,7 +4,7 @@ import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/data/repositories/mock_app_log_repository.dart';
 import 'package:flutter_legado/src/domain/models/app_log_entry.dart';
-import 'package:flutter_legado/src/providers/app_log/app_log_notifier.dart';
+import 'package:flutter_legado/src/features/logs/application/app_log_notifier.dart';
 import 'package:flutter_legado/src/providers/app_log_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

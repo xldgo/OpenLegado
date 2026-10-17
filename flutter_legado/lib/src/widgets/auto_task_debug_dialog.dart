@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/auto_task/auto_task_notifier.dart';
+import '../features/automation/application/auto_task_notifier.dart';
 import '../models/misc.dart';
 import '../providers/auto_task/auto_task_dependencies.dart';
 import '../domain/models/auto_task_protocol.dart';

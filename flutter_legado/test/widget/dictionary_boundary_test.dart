@@ -3,8 +3,8 @@ import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.d
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/providers/dictionary_provider.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/dict_rule_screen.dart';
-import 'package:flutter_legado/src/screens/dict_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/dict_rule_screen.dart';
+import 'package:flutter_legado/src/features/dictionary/presentation/dict_screen.dart';
 import 'package:flutter_legado/src/widgets/dict_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';

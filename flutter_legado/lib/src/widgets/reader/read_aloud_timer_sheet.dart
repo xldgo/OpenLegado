@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localization.dart';
-import '../../providers/audio/audio_notifier.dart';
+import '../../features/audio/application/audio_notifier.dart';
 import '../bottom_sheet_widget.dart';
 import '../settings_widgets.dart';
 

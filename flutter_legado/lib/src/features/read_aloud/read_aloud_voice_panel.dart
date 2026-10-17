@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../domain/contracts/read_aloud_voice_repository.dart';
-import '../../providers/audio/audio_notifier.dart';
+import '../audio/application/audio_notifier.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import 'http_tts_repository_provider.dart';
 import 'read_aloud_voice_sheet.dart';

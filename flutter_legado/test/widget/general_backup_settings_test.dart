@@ -17,8 +17,8 @@ import 'package:flutter_legado/src/l10n/app_localization.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/backup_settings_provider.dart';
 import 'package:flutter_legado/src/providers/general_settings_provider.dart';
-import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../fixtures/home_settings_storage.dart';

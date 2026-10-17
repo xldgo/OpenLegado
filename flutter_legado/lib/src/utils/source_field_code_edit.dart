@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../screens/code_edit_screen.dart';
+import '../features/tools/presentation/code_edit_screen.dart';
 
 /// 将当前字段与光标交给代码编辑页，返回后回填并恢复焦点。
 Future<void> editSourceFieldCode(

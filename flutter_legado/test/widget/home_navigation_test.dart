@@ -10,8 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
-import 'package:flutter_legado/src/providers/main_prefs_notifier.dart';
-import 'package:flutter_legado/src/providers/rss/rss_notifier.dart'
+import 'package:flutter_legado/src/features/home/application/main_prefs_notifier.dart';
+import 'package:flutter_legado/src/features/rss/application/rss_notifier.dart'
     show kRssSourceVersion, kRssSourceVersionKey;
 import 'package:flutter_legado/src/providers/home_settings_provider.dart';
 import 'package:flutter_legado/src/data/repositories/app_home_settings_repository.dart';
@@ -19,10 +19,10 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/contracts/home_settings_repository.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
-import 'package:flutter_legado/src/screens/home_screen.dart';
-import 'package:flutter_legado/src/screens/home_tab_screen.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_tab_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
 
 import '../mocks/mocks.dart';
 import '../fixtures/home_settings_storage.dart';

@@ -3,7 +3,7 @@ import 'package:flutter_legado/src/providers/chapter_cache_provider.dart';
 import 'package:flutter_legado/src/domain/models/cache_download_task.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_legado/src/screens/cache_download_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/cache_download_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

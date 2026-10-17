@@ -11,8 +11,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localization.dart';
 import '../../models/book.dart';
-import '../../providers/audio/audio_notifier.dart';
-import '../../providers/audio/read_aloud_capsule.dart';
+import '../../features/audio/application/audio_notifier.dart';
+import '../../features/audio/application/read_aloud_capsule.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../../routes.dart';
 import '../../services/platform_bridge_service.dart';

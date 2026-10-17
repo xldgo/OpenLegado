@@ -18,7 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 
 import '../mocks/mocks.dart';
 

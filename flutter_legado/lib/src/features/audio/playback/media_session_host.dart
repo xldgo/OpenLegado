@@ -1,6 +1,6 @@
 import '../../../models/book.dart';
-import '../../../providers/audio/audio_state.dart';
-import '../../../providers/audio/read_aloud_position.dart';
+import '../application/audio_state.dart';
+import '../application/read_aloud_position.dart';
 
 /// 系统媒体操作使用现有播放状态与命令，不持有Ref或Notifier。— Codex + UI
 final class MediaSessionHost {

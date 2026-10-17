@@ -35,8 +35,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/screens/audio_screen.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/presentation/audio_screen.dart';
 import 'package:flutter_legado/src/services/audio_cache_events.dart';
 
 import '../mocks/mocks.dart';

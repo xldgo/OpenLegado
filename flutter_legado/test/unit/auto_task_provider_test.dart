@@ -5,7 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/domain/models/auto_task_execution_result.dart';
 import 'package:flutter_legado/src/providers/auto_task/auto_task_dependencies.dart';
-import 'package:flutter_legado/src/providers/auto_task/auto_task_notifier.dart';
+import 'package:flutter_legado/src/features/automation/application/auto_task_notifier.dart';
 
 import '../mocks/mocks.dart';
 

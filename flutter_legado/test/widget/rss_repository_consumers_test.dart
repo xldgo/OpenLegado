@@ -3,8 +3,8 @@ import 'package:flutter_legado/src/data/repositories/mock_rss_source_repository.
 import 'package:flutter_legado/src/data/repositories/mock_rss_star_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/rss_repository_provider.dart';
-import 'package:flutter_legado/src/screens/rss_favorites_screen.dart';
-import 'package:flutter_legado/src/screens/rss_source_manage_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_favorites_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_source_manage_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';

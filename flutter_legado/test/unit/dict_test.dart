@@ -1,7 +1,7 @@
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/dict/dict_notifier.dart';
+import 'package:flutter_legado/src/features/dictionary/application/dict_notifier.dart';
 import 'package:flutter_legado/src/providers/dictionary_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -7,7 +7,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/data/services/source_login_service.dart';
 import 'package:flutter_legado/src/features/book_sources/source_login_providers.dart';
-import 'package:flutter_legado/src/screens/source_login_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/source_login_screen.dart';
 
 import '../mocks/mocks.dart';
 

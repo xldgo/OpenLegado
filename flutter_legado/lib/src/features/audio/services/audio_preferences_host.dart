@@ -1,5 +1,5 @@
 import '../../../models/book.dart';
-import '../../../providers/audio/audio_state.dart';
+import '../application/audio_state.dart';
 
 /// 偏好操作读取宿主唯一快照，不接收Ref或Notifier。— Codex + UI
 final class AudioPreferencesHost {

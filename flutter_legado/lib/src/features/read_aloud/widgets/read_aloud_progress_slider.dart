@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localization.dart';
-import '../../../providers/audio/read_aloud_position.dart';
+import '../../audio/application/read_aloud_position.dart';
 
 /// 拖动只预览原文位置，松手才定位；不拥有播放会话或重新计算朗读单元。— Codex + UI
 class ReadAloudProgressSlider extends StatefulWidget {

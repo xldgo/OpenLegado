@@ -1,4 +1,4 @@
-import '../../../providers/audio/audio_state.dart';
+import '../../audio/application/audio_state.dart';
 
 /// 朗读与应用播放协调层之间的端口，不暴露Ref或Notifier。— Codex + UI
 final class ReadAloudHost {

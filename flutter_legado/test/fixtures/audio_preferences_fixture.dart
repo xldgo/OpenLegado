@@ -8,7 +8,7 @@ import 'package:flutter_legado/src/features/audio/services/audio_book_preference
 import 'package:flutter_legado/src/features/audio/services/audio_preferences_host.dart';
 import 'package:flutter_legado/src/features/read_aloud/services/read_aloud_selection_service.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 class PreferencesBookshelf extends Fake implements BookshelfRepository {
   final books = <String, Book>{};

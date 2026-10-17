@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../providers/audio/audio_notifier.dart';
+import '../audio/application/audio_notifier.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
 import 'tts_cache_provider.dart';

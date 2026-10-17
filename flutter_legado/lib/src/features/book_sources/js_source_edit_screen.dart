@@ -12,9 +12,9 @@ import '../../providers/source_interaction_provider.dart';
 import 'book_source_repository_provider.dart';
 import 'source_notifier.dart';
 import 'widgets/source_rule_help_sheet.dart';
-import '../../screens/code_edit_screen.dart';
-import '../../screens/curl_analyze_url_sheet.dart';
-import '../../screens/source_debug_screen.dart';
+import '../tools/presentation/code_edit_screen.dart';
+import '../tools/presentation/curl_analyze_url_sheet.dart';
+import 'presentation/source_debug_screen.dart';
 
 /// JS 单文件书源编辑（对标原版 JsSourceEditActivity 最小可用）
 ///

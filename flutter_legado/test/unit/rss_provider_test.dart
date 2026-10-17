@@ -15,7 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/rss/rss_notifier.dart';
+import 'package:flutter_legado/src/features/rss/application/rss_notifier.dart';
 
 import '../mocks/mocks.dart';
 

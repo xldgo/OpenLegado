@@ -19,7 +19,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/bridge/ffi.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 

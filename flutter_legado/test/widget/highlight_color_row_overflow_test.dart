@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/screens/highlight_rules_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/highlight_rules_screen.dart';
 
 import '../mocks/mocks.dart';
 

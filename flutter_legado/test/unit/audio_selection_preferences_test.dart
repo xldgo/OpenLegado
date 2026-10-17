@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/http_tts_seed.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_state.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_state.dart';
 
 import '../fixtures/audio_preferences_fixture.dart';
 

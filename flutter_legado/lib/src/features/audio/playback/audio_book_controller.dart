@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../domain/contracts/audio_book_service.dart';
 import '../../../domain/contracts/audio_playback_settings_repository.dart';
-import '../../../providers/audio/audio_state.dart';
+import '../application/audio_state.dart';
 import '../../../services/stream_audio_player.dart';
 import '../../../utils/audio_skip_policy.dart';
 import 'audio_book_host.dart';

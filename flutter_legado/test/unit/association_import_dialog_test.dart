@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/widgets/app_menu.dart';
-import 'package:flutter_legado/src/providers/association/association_notifier.dart';
-import 'package:flutter_legado/src/screens/association_import_dialog.dart';
+import 'package:flutter_legado/src/features/imports/application/association_notifier.dart';
+import 'package:flutter_legado/src/features/imports/presentation/association_import_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 

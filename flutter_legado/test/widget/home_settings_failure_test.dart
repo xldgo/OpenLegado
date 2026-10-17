@@ -12,8 +12,8 @@ import 'package:flutter_legado/src/data/repositories/app_home_settings_repositor
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/home_settings_provider.dart';
-import 'package:flutter_legado/src/providers/main_prefs_notifier.dart';
-import 'package:flutter_legado/src/screens/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/home/application/main_prefs_notifier.dart';
+import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../fixtures/home_settings_storage.dart';

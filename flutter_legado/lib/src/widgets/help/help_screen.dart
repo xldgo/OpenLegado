@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../screens/code_edit_screen.dart';
+import '../../features/tools/presentation/code_edit_screen.dart';
 import '../legado_app_bar.dart';
 import 'help_markdown_builders.dart';
 import 'help_markdown_styles.dart';

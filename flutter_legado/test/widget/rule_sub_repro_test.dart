@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/screens/rule_sub_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/rule_sub_screen.dart';
 
 import '../mocks/mocks.dart';
 

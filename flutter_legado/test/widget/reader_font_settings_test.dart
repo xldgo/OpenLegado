@@ -9,7 +9,7 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
-import 'package:flutter_legado/src/screens/font_screen.dart';
+import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 import '../fixtures/home_settings_storage.dart';

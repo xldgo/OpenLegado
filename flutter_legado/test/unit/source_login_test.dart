@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/source_login/source_login_notifier.dart';
+import 'package:flutter_legado/src/features/book_sources/application/source_login/source_login_notifier.dart';
 
 import '../mocks/mocks.dart';
 

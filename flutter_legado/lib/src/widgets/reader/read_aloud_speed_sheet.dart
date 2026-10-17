@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localization.dart';
-import '../../providers/audio/audio_notifier.dart';
-import '../../providers/audio/read_aloud_preferences.dart';
+import '../../features/audio/application/audio_notifier.dart';
+import '../../features/audio/application/read_aloud_preferences.dart';
 import '../bottom_sheet_widget.dart';
 import '../settings_widgets.dart';
 

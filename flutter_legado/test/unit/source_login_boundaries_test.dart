@@ -13,7 +13,7 @@ import 'package:flutter_legado/src/domain/models/source_login_credentials.dart';
 import 'package:flutter_legado/src/domain/services/source_login_codec.dart';
 import 'package:flutter_legado/src/features/book_sources/source_login_providers.dart';
 import 'package:flutter_legado/src/models/misc.dart' show LoginKeyValue;
-import 'package:flutter_legado/src/providers/source_login/source_login_notifier.dart';
+import 'package:flutter_legado/src/features/book_sources/application/source_login/source_login_notifier.dart';
 
 import '../mocks/mocks.dart';
 
