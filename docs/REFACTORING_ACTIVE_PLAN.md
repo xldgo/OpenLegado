@@ -2,9 +2,12 @@
 
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
-- 新续批（第1/2阶段已完成，第3阶段集成验证中，基线2c6b8b941）：用户授权发现动作/标题书源DTO收尾、生成副作用修复及一次集中集成验证。沿用现有worktree、单代理，不推送/合并/CI/安装，不更新版本或依赖；每个完整阶段本地提交。经典登录复用发现动作，随同迁移完整实体，不改变表单JSON或动作回放。
+- 新续批（本轮三阶段实现及本地验证完成，基线2c6b8b941）：用户授权发现动作/标题书源DTO收尾、生成副作用修复及一次集中集成验证。沿用现有worktree、单代理，不推送/合并/CI/安装，不更新版本或依赖；每个完整阶段本地提交。经典登录复用发现动作，随同迁移完整实体，不改变表单JSON或动作回放。完成范围仅限本轮，不代表全领域JSON退役或Android/iOS平台验收。
 
-- 新续批第2阶段完成：FRB普通生成与只读检查均改为临时副本执行；普通生成只发布自有桥接文件，拒绝手写入口改写，失败不发布，输入并发变更拒绝发布，相同输出不重写，写入失败回滚。13项生成测试通过，工具套件175项中172通过/3项宿主限制跳过；真实普通生成和首次只读复核成功，无关Freezed/JSON生成物未再被删除。第二次真实只读复核及集中集成验证继续执行。同步§2.18发现API旧表为当前DTO签名。方法见PYTHON_FFI_BUILD_20261011.md；证据为build/ffi-phase3/{generator-tests,integration-tooling,isolated-generate,isolated-check-1}.log。仅单代理自查，未作独立外审或CI验证。
+- 新续批第2阶段完成（758c6c572）：FRB普通生成与只读检查均改为临时副本执行；普通生成只发布自有桥接文件，拒绝手写入口改写，失败不发布，输入并发变更拒绝发布，相同输出不重写，写入失败回滚。13项生成测试通过，工具套件175项中172通过/3项宿主限制跳过；真实普通生成和两次只读复核成功，无关Freezed/JSON生成物未再被删除。同步§2.18发现API旧表为当前DTO签名。方法见PYTHON_FFI_BUILD_20261011.md；证据为build/ffi-phase3/{generator-tests,integration-tooling,isolated-generate,isolated-check-1,isolated-check-2}.log。仅单代理自查，未作独立外审或CI验证。
+
+- 新续批第3阶段验证：默认Rust工作区（含集成与文档测试）3226通过/25忽略，默认工作区和QuickJS FFI全目标严格Clippy通过；QuickJS FFI全库串行595通过/42忽略。并发首轮593通过/两项换源时序失败，未改换源源码或阈值，串行复验不能证明既有并发敏感性已经消失。完整Flutter分析无问题。Flutter全量首轮3986通过/92失败；发现本次终端未配置共享Cargo目录内的排版测试宿主，且并行编译期间三项调试性能断言失败。以当前源码重建test_host、显式配置LEGADO_LAYOUT_TEST_HOST后，19份失败文件串行复验140项全部通过（包括性能断言）；没有降低阈值或改产品代码，未再次重跑完整套件。测试宿主准备条件补入TWO_TRACK_DEV_SPEC §7.2。
+- 新续批交付与限制：发现实体迁移提交b2645a26a，隔离生成提交758c6c572。独立Windows Debug QuickJS DLL正式构建后六项真实源工具FFI通过，最终只读指纹/摘要复验通过；全量Flutter首轮还覆盖其他真实FFI文件及80组上游布局样本。SSE保持，不宣称零拷贝、设备性能改善或消除既有并发测试敏感性；没有独立外审、远程CI、设备安装或平台发布结论。集成证据在build/ffi-phase3/integration-{rust-workspace,rust-quick,rust-quick-serial,clippy-default,clippy-quick,flutter-all,flutter-retest}.log与layout-test-host.log；本轮日志不写入commit正文。
 
 - 新续批第1阶段完成：发现动作/动态标题和经典登录调用方改传BookSource，数据适配器映射BookSourceDto，Rust直接消费实体；保留动态JS/表单/动作JSON、infoMap与刷新语义。Rust发现回归31通过/4忽略，Flutter三份回归15通过，完整分析无问题；新独立Windows QuickJS DLL经正式构建与校验，真实源工具六项通过（新增标题/动作顺序/刷新/失败测试）。单代理自查，无独立外审或平台设备结论。证据：build/ffi-phase3/explore-{tests,rust,analysis-final,native,runtime}.log。
 

@@ -243,6 +243,15 @@ flutter run -d windows --dart-define=USE_MOCK=true
 3. FFI 变更执行 §3 的双侧 codegen、native 构建及 hash 校验。
 4. 仅对 CI 未覆盖的平台或 UI 行为按统一工作流执行设备/桌面验收。
 
+**Flutter 排版测试的本地准备**：依赖 `test/helpers/reader_layout_host.dart` 的用例
+通过独立测试宿主调用真实 Rust 排版核心。先在仓库根目录执行
+`cargo build --locked --manifest-path rust/Cargo.toml -p legado-layout --example test_host`。
+默认查找当前工作树 `rust/target/debug/examples/test_host.exe`（Windows）；若通过
+`CARGO_TARGET_DIR` 复用其他输出目录，运行 Flutter 测试的终端须将
+`LEGADO_LAYOUT_TEST_HOST` 指向该目录内测试宿主的绝对路径。仅设置 Cargo 输出目录
+不会改变 Dart 测试辅助器的默认查找路径。此程序只用于测试，不参与应用打包；
+缺失时应先修复测试环境，再判断分页、选区或段评用例是否存在产品回退。
+
 ### 7.3 集成失败处理
 
 | 失败类型 | 责任方 | 处理方式 |
