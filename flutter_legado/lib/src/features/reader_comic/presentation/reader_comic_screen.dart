@@ -1,16 +1,17 @@
-import '../domain/contracts/local_book_service.dart';
-import '../features/bookshelf/bookshelf_repositories.dart';
-import '../providers/reading_provider.dart';
-import '../features/book_sources/book_source_repository_provider.dart';
-import '../providers/book_content_provider.dart';
-import '../providers/config_settings_provider.dart';
-import '../domain/models/manga_settings.dart';
+import 'views/comic_webtoon_view.dart';
+import '../application/comic_preload_service.dart';
+import 'views/comic_image_item.dart';
+import '../../../data/services/comic_image_decode_cache.dart';
+import '../../bookshelf/bookshelf_repositories.dart';
+import '../../../providers/reading_provider.dart';
+import '../../book_sources/book_source_repository_provider.dart';
+import '../../../providers/book_content_provider.dart';
+import '../../../providers/config_settings_provider.dart';
+import '../../../domain/models/manga_settings.dart';
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
@@ -20,31 +21,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../providers/network_provider.dart';
-import '../domain/contracts/network_service.dart';
+import '../../../providers/network_provider.dart';
 
-import '../models/models.dart';
-import '../routes.dart';
-import '../domain/contracts/book_image_repository.dart';
-import '../providers/media_provider.dart';
-import '../services/platform_bridge_service.dart';
-import '../services/system_brightness.dart';
-import '../utils/comic_image_utils.dart';
-import '../utils/error_message.dart';
-import '../utils/manga_epaper.dart';
-import '../widgets/app_progress_indicator.dart';
-import '../widgets/loading_indicator.dart';
-import '../widgets/error_view.dart';
-import '../widgets/manga/manga_config_sheet.dart';
-import '../models/manga_auto_read.dart';
-import 'reader_comic/manga_catalog_sheet.dart';
-import '../models/manga_click_actions.dart';
-import 'reader_comic/manga_menu.dart';
-import 'reader_comic/manga_paged_view.dart';
-import 'reader_comic/manga_page_actions_sheet.dart';
-import 'reader_comic/manga_page_image_resolver.dart';
-import '../models/manga_page_scale_type.dart';
-import '../models/manga_scroll_mode.dart';
+import '../../../models/models.dart';
+import '../../../routes.dart';
+import '../../../providers/media_provider.dart';
+import '../../../services/platform_bridge_service.dart';
+import '../../../services/system_brightness.dart';
+import '../../../utils/comic_image_utils.dart';
+import '../../../utils/error_message.dart';
+import '../../../widgets/loading_indicator.dart';
+import '../../../widgets/error_view.dart';
+import 'overlays/manga_config_sheet.dart';
+import '../../../models/manga_auto_read.dart';
+import 'overlays/manga_catalog_sheet.dart';
+import '../../../models/manga_click_actions.dart';
+import 'overlays/manga_menu.dart';
+import 'views/manga_paged_view.dart';
+import 'overlays/manga_page_actions_sheet.dart';
+import '../application/manga_page_image_resolver.dart';
+import '../../../models/manga_page_scale_type.dart';
+import '../../../models/manga_scroll_mode.dart';
 
 /// 漫画阅读页面
 ///
@@ -107,8 +104,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// [P4-3 M1] 菜单淡入淡出
   late final Animation<double> _menuOpacity;
 
-  /// 已预加载的图片索引集合（避免重复预加载）
-  final Set<int> _preloadedIndices = {};
+  /// 图片窗口去重与相邻章预载由同一会话服务管理。
+  late final ComicPreloadService _preloader;
 
   /// 图片加载失败的索引集合（用于显示重试按钮）
   final Set<int> _failedIndices = {};
@@ -313,6 +310,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     super.initState();
     // [P4-3 M3 修2] 活跃 bookUrl 初始 = 入参（换源成功后更新）
     _activeBookUrl = widget.bookUrl;
+    _preloader = ComicPreloadService(
+      images: ref.read(bookImageRepositoryProvider),
+      localBooks: ref.read(localBookServiceProvider),
+      reading: ref.read(readingRepositoryProvider),
+    );
     _scrollController.addListener(_onScroll);
     // [P4-3 M1] 菜单显隐动画（200ms，对齐既有 300ms 翻页动画的快显隐档位）
     _menuCtrl = AnimationController(
@@ -335,6 +337,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
 
   @override
   void dispose() {
+    _preloader.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     // [P4-3 E3] 取消自动翻页定时器
@@ -1115,12 +1118,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     return ColorFilter.matrix(_colorFilter.toColorMatrix());
   }
 
-  Widget _wrapImageFilter(Widget child) {
-    final filter = _imageColorFilter;
-    if (filter == null) return child;
-    return ColorFiltered(colorFilter: filter, child: child);
-  }
-
   /// 加载书籍信息和章节列表
   Future<void> _loadBook() async {
     setState(() {
@@ -1214,7 +1211,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       _error = null;
       _errorChapterLevel = false; // [P4-3 E4] 章级重载入口复位章级错误标记
       _imageUrls = [];
-      _preloadedIndices.clear();
+      _preloader.reset();
       _failedIndices.clear();
     });
 
@@ -1452,33 +1449,11 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     _scrollController.jumpTo(max * page / (_imageUrls.length - 1));
   }
 
-  /// [P4-1 C3] 当前章加载完成后后台预载相邻章（下一章优先、上一章次之）
-  ///
-  /// 复用 [ReadingRepository.getChapterContentFull]（缓存+网络合并，零契约变更）：
-  /// 缓存命中直接返回、未命中联网抓取并回写 Rust 侧章节缓存，
-  /// 使相邻章翻页无等待。静默失败语义对齐文本阅读器
-  /// reader_screen._preloadAdjacentChapters（catch 不显示错误、不阻断
-  /// 当前阅读）；换书/重载后经 [_loadSeq] 代数守卫中止剩余预载。
-  Future<void> _preloadAdjacentChapters() async {
-    final seq = _loadSeq;
-
-    final candidates = <int>[
-      if (_currentChapterIndex + 1 < _chapters.length)
-        _currentChapterIndex + 1, // 下一章优先（翻页方向）
-      if (_currentChapterIndex - 1 >= 0) _currentChapterIndex - 1,
-    ];
-    for (final index in candidates) {
-      try {
-        await ref
-            .read(readingRepositoryProvider)
-            .getChapterContentFull(_activeBookUrl, index);
-      } catch (_) {
-        // 预载失败静默：不显示错误、不阻断阅读（下次进入该章再试）
-      }
-      // 换书/重载/退出：中止剩余预载（代数守卫 + mounted 检查）
-      if (seq != _loadSeq || !mounted) return;
-    }
-  }
+  Future<void> _preloadAdjacentChapters() => _preloader.preloadAdjacent(
+    bookUrl: _activeBookUrl,
+    chapterIndex: _currentChapterIndex,
+    chapterCount: _chapters.length,
+  );
 
   /// 预加载当前可见区域前后的图片。
   ///
@@ -1521,100 +1496,20 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     );
   }
 
-  /// 预载指定索引范围（条漫/单页式共用；越界收敛，去重由 [_preloadedIndices]）
   void _preloadIndicesInRange(int start, int end) {
-    if (_imageUrls.isEmpty) return;
-    final s = start.clamp(0, _imageUrls.length - 1);
-    final e = end.clamp(0, _imageUrls.length - 1);
-    final useFfi = _bookSource != null;
-    for (var i = s; i <= e; i++) {
-      if (!_preloadedIndices.contains(i)) {
-        _preloadedIndices.add(i);
-        final url = _imageUrls[i];
-        // [cbz 批 D] 本地 cbz 页：cbz:// 伪 URL 走 cbzReadPage 预载
-        //（须先于 useFfi/直连分支判定；本地书无书源且 CachedNetworkImage
-        // 无法处理 cbz scheme）
-        if (url.startsWith('cbz://')) {
-          unawaited(_preloadCbzPage(url));
-        } else if (useFfi) {
-          unawaited(_preloadViaFfi(url));
-        } else if (isCompositeImageUrl(url)) {
-          // 无书源却含复合 URL：无法直连预加载，跳过（正式渲染亦可能失败）
-        } else {
-          unawaited(
-            precacheImage(
-              CachedNetworkImageProvider(url),
-              context,
-            ).catchError((_) {}),
-          );
-        }
-      }
-    }
-  }
-
-  /// FFI 预加载：与 [_DecodedComicImage] 共用缓存 — Reasonix + UI
-  ///
-  /// [P4-2a | 契约 §2.46] 图片磁盘缓存优先：磁盘命中 → 存入内存缓存
-  /// 并跳过网络；未命中走网络预载，成功后回写磁盘缓存（fire-and-forget
-  /// 静默降级，不影响在线）。
-  Future<void> _preloadViaFfi(String url) async {
-    final source = _bookSource;
-    final book = _book;
-    if (source == null || book == null || !mounted) return;
-    try {
-      final images = ref.read(bookImageRepositoryProvider);
-      final diskHit = await images.getImageCache(_activeBookUrl, url);
-      if (diskHit != null &&
-          diskHit.isNotEmpty &&
-          looksLikeImageBytes(diskHit)) {
-        ComicImageDecodeCache.put(
-          book.origin,
-          url,
-          diskHit is Uint8List ? diskHit : Uint8List.fromList(diskHit),
-        );
-        return;
-      }
-      await ComicImageDecodeCache.preload(
-        images: images,
-        url: url,
-        sourceJson: jsonEncode(source.toJson()),
-        bookSourceUrl: book.origin,
-      );
-      // [P4-2a] 网络预载成功后回写磁盘缓存（失败静默降级，不影响在线）
-      final loaded = ComicImageDecodeCache.get(book.origin, url);
-      if (loaded != null) {
-        try {
-          await images.saveImageCache(
-            bookUrl: _activeBookUrl,
-            url: url,
-            bytes: loaded,
-          );
-        } catch (_) {
-          // 磁盘缓存写失败静默降级（契约 §2.46 降级语义）
-        }
-      }
-    } catch (_) {
-      // 预加载失败静默；正式渲染会再试并展示错误态
-    }
-  }
-
-  /// 本地 cbz 页预加载（[cbz 批 D | 2026-10-03]）：与 [_LocalCbzImage]
-  /// 共用 [ComicImageDecodeCache]（缓存键 = 活跃 bookUrl + 条目名，本地书
-  /// 无书源，用 bookUrl 隔离不同 cbz 包的同名条目），已命中直接跳过；
-  /// 失败静默，正式渲染会再试并展示错误态。— 全栈工程师 + UI
-  Future<void> _preloadCbzPage(String url) async {
-    final book = _book;
-    if (book == null || !mounted) return;
-    try {
-      await ComicImageDecodeCache.preloadCbz(
-        localBooks: ref.read(localBookServiceProvider),
-        path: book.bookUrl,
-        cacheKey: _activeBookUrl,
-        entry: url,
-      );
-    } catch (_) {
-      // 预加载失败静默；正式渲染会再试并展示错误态
-    }
+    if (!mounted) return;
+    unawaited(
+      _preloader.preloadRange(
+        urls: _imageUrls,
+        start: start,
+        end: end,
+        bookUrl: _activeBookUrl,
+        book: _book,
+        source: _bookSource,
+        precacheNetwork: (url) =>
+            precacheImage(CachedNetworkImageProvider(url), context),
+      ),
+    );
   }
 
   /// 解析书源 header 字符串（JSON 或 key: value 行）— Reasonix
@@ -2205,317 +2100,46 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   /// 记录页」（ScrollController listener 收不到纯度量变化，须用 Notification）。
   /// [P4-3 M3 修4] 条漫路径按 [_sidePadding] 百分比加水平 padding
   /// （见方法尾部包裹逻辑）。
-  Widget _buildImageList() {
-    final listView = ListView.builder(
-      controller: _scrollController,
-      itemCount: _imageUrls.length + 1, // +1 用于底部章节导航
-      padding: EdgeInsets.zero,
-      physics: const ClampingScrollPhysics(),
-      itemBuilder: (context, index) {
-        // 最后一项：章节导航
-        if (index == _imageUrls.length) {
-          return _buildChapterNavigation();
-        }
-        var item = _buildImageItem(index);
-        // [P4-3 E1] 条漫（间隔）：页间 8px 间距
-        //（参考版 Arrangement.spacedBy(8.dp)，实现为 4px 上 + 4px 下包裹）
-        if (_scrollMode == MangaScrollModes.webtoonWithGap) {
-          item = Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: item,
-          );
-        }
-        return item;
-      },
-    );
-    // [P4-3 M4 批2] 禁用漫画缩放（原版默认 true）：InteractiveViewer
-    // 不渲染，仅启用时包裹缩放层
-    final zoomable = !_disableMangaScale
-        ? InteractiveViewer(
-            minScale: 1.0,
-            maxScale: 3.0,
-            boundaryMargin: const EdgeInsets.all(0),
-            child: listView,
-          )
-        : listView;
-    final list = NotificationListener<ScrollMetricsNotification>(
-      onNotification: _onScrollMetricsChanged,
-      child: zoomable,
-    );
-    // [P4-3 M3 修4] 条漫侧边留白：每侧 padding = 视口宽 × p/100（p =
-    // _sidePadding 0..45）。对齐参考版 MangaReaderScreen L500/L1706：
-    // fraction = 1 - p×2/100，itemWidthPx = 视口宽 × fraction ⇔ 每侧
-    // 让出 p% 视口宽；仅条漫（4/5）路径生效，单页式路径参考版
-    // fraction 恒 1（不加 padding）
-    if (!MangaScrollModes.isWebtoon(_scrollMode) || _sidePadding <= 0) {
-      return list;
-    }
-    final h = MediaQuery.sizeOf(context).width * (_sidePadding / 100.0);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: h),
-      child: list,
-    );
-  }
+  Widget _buildImageList() => ComicWebtoonView(
+    controller: _scrollController,
+    pageCount: _imageUrls.length,
+    pageBuilder: (_, index) => _buildImageItem(index),
+    navigationBuilder: (_) => _buildChapterNavigation(),
+    disableScale: _disableMangaScale,
+    withGap: _scrollMode == MangaScrollModes.webtoonWithGap,
+    sidePadding: MangaScrollModes.isWebtoon(_scrollMode) ? _sidePadding : 0,
+    onMetricsChanged: _onScrollMetricsChanged,
+  );
 
-  /// 构建单张图片项
-  ///
-  /// [P4-3 E5] 外包长按命中层（对齐参考版单页 onLongClick L1082 /
-  /// 条漫长按 L761-771）：长按 → 页操作菜单（保存/分享/复制）。
-  /// 条漫与单页两条路径的页构建都经过本方法，一处接线两态生效。
-  Widget _buildImageItem(int index) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // [P4-3 M4 批2] 长按保存图片（原版默认 **true**）：开启时长按
-      // 直接存当前页（对齐原版 ReadMangaActivity L239-250 分支）；
-      // 关闭时长按弹页操作菜单（保存/分享/复制）
-      onLongPress: () {
-        if (_mangaLongClickSaveImage) {
-          unawaited(_savePageImage(index));
-        } else {
-          _showPageActions(index);
-        }
-      },
-      child: _wrapImageFade(_buildImageItemBody(index)),
-    );
-  }
-
-  /// [P4-3 M4 批2] 图片加载淡入包裹（参考版 L1751 crossfade 语义）：
-  /// disableMangaCrossFade = false（默认）时包裹 [_MangaImageFade]
-  /// 淡入 300ms；= true 时直接返回 child 不包
-  Widget _wrapImageFade(Widget child) {
-    if (_disableMangaCrossFade) return child;
-    return _MangaImageFade(child: child);
-  }
-
-  /// 图片项本体（占位 / FFI 解码 / 直连网络分发）
-  Widget _buildImageItemBody(int index) {
-    final url = _imageUrls[index];
-    final isFailed = _failedIndices.contains(index);
-
-    if (isFailed) {
-      // 图片加载失败，显示重试按钮
-      return _buildImageErrorPlaceholder(index, url);
-    }
-
-    // [cbz 批 D | 2026-10-03] 本地 cbz 页：`cbz://<条目名>` 伪 URL 优先于
-    // 书源判定分发（本地书 origin=loc_book，_bookSource 恒 null；若落下方
-    //「有 origin 却未命中书源」分支会直接进失败占位）。
-    // 渲染挂接与 _DecodedComicImage 同构：_wrapImageFilter（灰度/色彩滤镜
-    // 外层包裹）+ _MangaImageFade（_buildImageItem 统一包裹）+ 可选电子纸。
-    if (url.startsWith('cbz://')) {
-      final book = _book;
-      if (book == null) {
-        return _buildImageErrorPlaceholder(index, url);
+  Widget _buildImageItem(int index) => ComicImageItem(
+    url: _imageUrls[index],
+    book: _book,
+    source: _bookSource,
+    bookUrl: _activeBookUrl,
+    images: ref.read(bookImageRepositoryProvider),
+    localBooks: ref.read(localBookServiceProvider),
+    network: ref.read(networkServiceProvider),
+    failed: _failedIndices.contains(index),
+    headers: _imageHeaders,
+    fit: _imageFit,
+    colorFilter: _imageColorFilter,
+    enableEInk: _enableEInk,
+    eInkThreshold: _eInkThreshold,
+    disableCrossFade: _disableMangaCrossFade,
+    onError: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_failedIndices.contains(index)) {
+        setState(() => _failedIndices.add(index));
       }
-      return _wrapImageFilter(
-        _LocalCbzImage(
-          path: book.bookUrl,
-          entry: url,
-          // 缓存键 = 活跃 bookUrl（本地书无书源；bookUrl 唯一标识 cbz 包，
-          // 避免不同包同名条目命中同一内存缓存）
-          cacheKey: _activeBookUrl,
-          // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
-          fit: _imageFit,
-          eInkThreshold: _enableEInk ? _eInkThreshold : null,
-          onError: () {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_failedIndices.contains(index)) {
-                setState(() {
-                  _failedIndices.add(index);
-                });
-              }
-            });
-          },
-        ),
-      );
-    }
-
-    // 统一走 FFI 下载：Rust fetchImageWithDecode 支持书源 header 防盗链与
-    // `url,{json headers}` 复合格式（favcomic 等漫画站图片 URL 内嵌防盗链
-    // header，对齐原版 AnalyzeUrl），且无 imageDecode 规则时原样返回 bytes。
-    // CachedNetworkImage 直连无法解析复合 URL / 会把 AES 密文送进
-    // FlutterImageDecoder →「图片加载失败」（51漫画设备实测）。
-    // 漫画阅读器只要能解析到书源就禁止直连 CDN。— Reasonix
-    if (_bookSource != null) {
-      return _wrapImageFilter(
-        _DecodedComicImage(
-          url: url,
-          sourceJson: jsonEncode(_bookSource!.toJson()),
-          bookSourceUrl: _book!.origin,
-          // [P4-3 M3 修2] 活跃 bookUrl（磁盘缓存目录键随换源切换）
-          bookUrl: _activeBookUrl,
-          // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
-          fit: _imageFit,
-          eInkThreshold: _enableEInk ? _eInkThreshold : null,
-          onError: () {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_failedIndices.contains(index)) {
-                setState(() {
-                  _failedIndices.add(index);
-                });
-              }
-            });
-          },
-        ),
-      );
-    }
-    // 有 origin 却未命中书源：勿直连（密文/防盗链），直接失败可重试
-    if (_book != null && _book!.origin.isNotEmpty) {
-      return _buildImageErrorPlaceholder(index, url);
-    }
-
-    if (_enableEInk) {
-      return _EpaperNetworkImage(
-        network: ref.read(networkServiceProvider),
-        url: url,
-        headers: _imageHeaders,
-        threshold: _eInkThreshold,
-        // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
-        fit: _imageFit,
-        onError: () {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_failedIndices.contains(index)) {
-              setState(() => _failedIndices.add(index));
-            }
-          });
-        },
-      );
-    }
-
-    return _wrapImageFilter(
-      CachedNetworkImage(
-        imageUrl: url,
-        httpHeaders: _imageHeaders, // 防盗链 header（对齐原版）— Reasonix
-        // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
-        fit: _imageFit,
-        width: double.infinity,
-        // 漫画页按屏宽全分辨率显示，不限制 memCacheWidth（磁盘缓存默认开启）
-        progressIndicatorBuilder: (context, _, progress) =>
-            _buildImageLoadingPlaceholder(progress.progress),
-        errorWidget: (context, _, _) => _buildImageErrorPlaceholder(index, url),
-        errorListener: (_) {
-          // 标记为失败状态（供重建时显示重试按钮）
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_failedIndices.contains(index)) {
-              setState(() {
-                _failedIndices.add(index);
-              });
-            }
-          });
-        },
-      ),
-    );
-  }
-
-  /// 图片加载占位符（骨架屏效果，[progress] 为下载进度 0.0~1.0）
-  Widget _buildImageLoadingPlaceholder(double? progress) {
-    // [STAGE-UI-P43UNIFY1 B2] 加载态去整面硬编码底色：参考版 #2082 后
-    // MangaImageLoadOverlay loading 分支不再整页压黑（MangaReaderScreen.kt
-    // 1618-1647 注释），我方同步去除 0xFF1A1A1A 整面底色
-    final colorScheme = Theme.of(context).colorScheme;
-    // 保留 Container 作 widget 测试取证位（断言 color == null 即证明
-    // 「加载态无整面硬编码底色」，B2 测试依赖），故不以 SizedBox 替换
-    // ignore: sized_box_for_whitespace
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 骨架屏动画效果
-            // [STAGE-UI-P43UNIFY1 B2] 块底 0xFF2A2A2A → 主题槽
-            // surfaceContainerHighest（参考版 SkeletonPlaceholders.kt:54-56
-            // 骨架块 surfaceContainerHighest→High→Highest 级联取证 + 我方
-            // SkeletonBox 同口径；参考版漫画场景无骨架（grep 零命中），
-            // 「同场景固定深灰」不可证 → 按主题槽等价表达）
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              // [STAGE-UI-P43UNIFY1 B1] 图标位改真实素材图：参考版图片加载
-              // 形态直接显示该素材（ImageProvider.kt:39 errorBitmap =
-              // R.drawable.image_loading_error；调研报告 §2.4），我方此前用
-              // Icons.image 图标代替 → 统一为同名素材（字节级一致）
-              child: Image.asset(
-                'assets/images/image_loading_error.png',
-                width: 64,
-                height: 64,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 进度条
-            // [STAGE-UI-P43UNIFY1 B2] 轨 0xFF2A2A2A → surfaceContainerHighest、
-            // 填充 0xFF666666 → 主题槽 primary
-            SizedBox(
-              width: 120,
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-              ),
-            ),
-            if (progress != null) ...[
-              const SizedBox(height: 8),
-              // [STAGE-UI-P43UNIFY1 B2] % 文案 0xFF888888 → 主题槽 onSurfaceVariant
-              Text(
-                '${(progress * 100).toInt()}%',
-                style: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 图片加载失败占位符（显示重试按钮）
-  Widget _buildImageErrorPlaceholder(int index, String url) {
-    // [STAGE-UI-P43UNIFY1 B1] 底色 0xFF1A1A1A → 55% 黑：参考版失败态为
-    // Color.Black.copy(alpha = 0.55f) 整面覆盖（MangaReaderScreen.kt
-    // MangaImageLoadOverlay failed 分支，调研报告 §2.5）
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.4,
-      color: Colors.black.withValues(alpha: 0.55),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // [STAGE-UI-P43UNIFY1 B1] 同 B1 素材图（参考版失败占位即该素材，
-            // 调研报告 §2.4）
-            Image.asset(
-              'assets/images/image_loading_error.png',
-              width: 64,
-              height: 64,
-            ),
-            const SizedBox(height: 12),
-            // [STAGE-UI-P43UNIFY2 B4] 文案 0xFF888888 → 主题槽 onSurfaceVariant
-            Text(
-              '图片加载失败',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // [STAGE-UI-P43UNIFY2 B4] 重试按钮 0xFF444444 硬编码底色 → MD3
-            // 主题化 OutlinedButton（对齐参考版 MangaImageLoadOverlay 失败分支的
-            // MediumOutlinedButton，SeriesButton Outlined 风格，调研报告 §2.5）
-            OutlinedButton.icon(
-              onPressed: () => _retryImage(index),
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    }),
+    onRetry: () => _retryImage(index),
+    onLongPress: () {
+      if (_mangaLongClickSaveImage) {
+        unawaited(_savePageImage(index));
+      } else {
+        _showPageActions(index);
+      }
+    },
+  );
 
   /// 章节导航区域（显示在图片列表底部）
   Widget _buildChapterNavigation() {
@@ -2726,717 +2350,6 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
       onOpenAutoSettings: _openMangaConfig,
       // 翻页设置键（参考版 OpenSettings(READER) → 漫画设置面板）
       onOpenPageSettings: _openMangaConfig,
-    );
-  }
-}
-
-/// FFI 图片解码结果缓存（预加载与正式渲染共用）— Reasonix + UI
-class ComicImageDecodeCache {
-  ComicImageDecodeCache._();
-
-  static final Map<String, Uint8List> _cache = {};
-
-  static String keyOf(String bookSourceUrl, String url) =>
-      '$bookSourceUrl\u0000$url';
-
-  static Uint8List? get(String bookSourceUrl, String url) =>
-      _cache[keyOf(bookSourceUrl, url)];
-
-  static void put(String bookSourceUrl, String url, Uint8List bytes) {
-    // 拒绝缓存非图片字节（imageDecode 失败回退密文时勿污染缓存）— Reasonix + UI
-    if (!looksLikeImageBytes(bytes)) return;
-    _cache[keyOf(bookSourceUrl, url)] = bytes;
-  }
-
-  /// 预加载：调用 FFI 并写入缓存（已命中则跳过）
-  static Future<void> preload({
-    required BookImageRepository images,
-    required String url,
-    required String sourceJson,
-    required String bookSourceUrl,
-  }) async {
-    if (_cache.containsKey(keyOf(bookSourceUrl, url))) return;
-    final bytes = await images.fetchImageWithDecode(url, sourceJson);
-    if (bytes.isEmpty) return;
-    if (!looksLikeImageBytes(bytes)) return;
-    put(bookSourceUrl, url, bytes);
-  }
-
-  /// 本地 cbz 页预加载（[cbz 批 D | 2026-10-03]）：调用
-  /// [LocalBookService.cbzReadPage] 并写入缓存（已命中则跳过）；与 [_LocalCbzImage]
-  /// 正式渲染共用同一缓存键（[cacheKey] = 活跃 bookUrl + 条目名）。
-  /// — 全栈工程师 + UI
-  static Future<void> preloadCbz({
-    required LocalBookService localBooks,
-    required String path,
-    required String cacheKey,
-    required String entry,
-  }) async {
-    if (_cache.containsKey(keyOf(cacheKey, entry))) return;
-    final bytes = await localBooks.cbzReadPage(path: path, entry: entry);
-    if (bytes.isEmpty) return;
-    if (!looksLikeImageBytes(bytes)) return;
-    put(cacheKey, entry, bytes);
-  }
-
-  /// 测试用：清空缓存
-  @visibleForTesting
-  static void clearForTest() => _cache.clear();
-}
-
-/// 走 imageDecode 解码链路的漫画图片项
-///
-/// 调用 Rust FFI `fetchImageWithDecode`：下载图片 bytes → 注入书源 jsLib +
-/// imageDecode JS 解码（对齐原版 ImageUtils.decodeImageStream）→ 返回
-/// base64 → [Image.memory] 显示。请求头（防盗链 Referer/UA）由 Rust 侧
-/// 按书源 header 自动构造，Flutter 无需重复传 header。
-///
-/// [UI-fix v2.0.19 | 2026-08-11] 漫画/图片源图片解密链路落地 — Reasonix
-///
-/// [P4-2a | 2026-09-29] 图片磁盘缓存优先（契约 §2.46，对齐原版
-/// `MangaVH.mangaImagePath` 本地优先语义）：加载前经 [bookUrl] 查
-/// `getImageCache` 磁盘缓存，命中直接本地字节渲染（不走网络）；
-/// 未命中走 `fetchImageWithDecode` 网络链路，成功后经 `saveImageCache`
-/// 回写磁盘缓存（fire-and-forget，写失败静默降级不影响在线加载）。
-/// [P4-3 M4 批2] 图片加载淡入（对齐参考版 MangaReaderScreen L1751
-/// crossfade：加载完成 300ms 淡入；disableMangaCrossFade 键控制包裹，
-/// 见屏幕侧 [_wrapImageFade]；根节点 ValueKey('mangaImageFade') 为
-/// widget 测试取证钩子）
-class _MangaImageFade extends StatefulWidget {
-  final Widget child;
-
-  const _MangaImageFade({required this.child});
-
-  @override
-  State<_MangaImageFade> createState() => _MangaImageFadeState();
-}
-
-class _MangaImageFadeState extends State<_MangaImageFade>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-      value: 0,
-    );
-    _ctrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      key: const ValueKey('mangaImageFade'),
-      opacity: _ctrl,
-      child: widget.child,
-    );
-  }
-}
-
-class _DecodedComicImage extends ConsumerStatefulWidget {
-  final String url;
-  final String sourceJson;
-  final String bookSourceUrl;
-
-  /// 书籍 URL（图片磁盘缓存目录按书隔离，契约 §2.46）— P4-2a
-  final String bookUrl;
-  final VoidCallback onError;
-
-  /// 非 null 时做真像素电子纸二值化（对齐 EpaperTransformation）
-  final int? eInkThreshold;
-
-  /// [P4-3 E2] 图片渲染 BoxFit（调用方按分页适配类型映射传入，
-  /// 条漫恒 fitWidth；见 [MangaPageScaleType.fitFor] 取证注释）
-  final BoxFit fit;
-
-  const _DecodedComicImage({
-    required this.url,
-    required this.sourceJson,
-    required this.bookSourceUrl,
-    required this.bookUrl,
-    required this.onError,
-    this.eInkThreshold,
-    this.fit = BoxFit.fitWidth,
-  });
-
-  @override
-  ConsumerState<_DecodedComicImage> createState() => _DecodedComicImageState();
-}
-
-class _DecodedComicImageState extends ConsumerState<_DecodedComicImage> {
-  bool _loading = true;
-  Uint8List? _bytes;
-  ui.Image? _epaperImage;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    final hit = ComicImageDecodeCache.get(widget.bookSourceUrl, widget.url);
-    if (hit != null) {
-      _bytes = hit;
-      _loading = false;
-      unawaited(_applyEpaperIfNeeded(hit));
-    } else {
-      unawaited(_load());
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _DecodedComicImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.eInkThreshold != widget.eInkThreshold && _bytes != null) {
-      unawaited(_applyEpaperIfNeeded(_bytes!));
-    }
-  }
-
-  @override
-  void dispose() {
-    _epaperImage?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _applyEpaperIfNeeded(Uint8List bytes) async {
-    final thr = widget.eInkThreshold;
-    if (thr == null) {
-      _epaperImage?.dispose();
-      if (mounted) setState(() => _epaperImage = null);
-      return;
-    }
-    try {
-      final img = await mangaEpaperFromBytes(bytes, threshold: thr);
-      if (!mounted) {
-        img.dispose();
-        return;
-      }
-      _epaperImage?.dispose();
-      setState(() => _epaperImage = img);
-    } catch (e) {
-      debugPrint('电子纸二值化失败: $e');
-    }
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final images = ref.read(bookImageRepositoryProvider);
-      // [P4-2a | 契约 §2.46] 图片磁盘缓存优先（对齐原版 MangaVH.mangaImagePath
-      // 本地优先语义）：命中 → 直接本地字节渲染，跳过网络解码链；未命中/
-      // 读失败降级走下方网络链路（读失败已由 Rust 侧降级 null，不影响在线）。
-      final cached = await images.getImageCache(widget.bookUrl, widget.url);
-      if (cached != null && cached.isNotEmpty && looksLikeImageBytes(cached)) {
-        final cachedBytes = cached is Uint8List
-            ? cached
-            : Uint8List.fromList(cached);
-        if (!mounted) return;
-        ComicImageDecodeCache.put(
-          widget.bookSourceUrl,
-          widget.url,
-          cachedBytes,
-        );
-        setState(() {
-          _bytes = cachedBytes;
-          _loading = false;
-        });
-        await _applyEpaperIfNeeded(cachedBytes);
-        return;
-      }
-      final bytes = await images.fetchImageWithDecode(
-        widget.url,
-        widget.sourceJson,
-      );
-      if (bytes.isEmpty) {
-        throw Exception('解码结果为空（imageDecode 未返回有效图片数据）');
-      }
-      if (!looksLikeImageBytes(bytes)) {
-        throw Exception('解码结果不是有效图片（可能 imageDecode/createSymmetricCrypto 失败）');
-      }
-      if (!mounted) return;
-      ComicImageDecodeCache.put(widget.bookSourceUrl, widget.url, bytes);
-      // [P4-2a] 网络成功后回写磁盘缓存：fire-and-forget，写失败静默降级
-      // （不影响在线加载，对齐原版 saveImage catch 仅记日志不抛异常语义）
-      unawaited(_saveDiskCache(images, bytes));
-      setState(() {
-        _bytes = bytes;
-        _loading = false;
-      });
-      await _applyEpaperIfNeeded(bytes);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '$e';
-        _loading = false;
-      });
-      widget.onError();
-    }
-  }
-
-  /// [P4-2a | 契约 §2.46] 将图片字节写入磁盘缓存（fire-and-forget）。
-  ///
-  /// 写盘失败/输入非法时 `saveImageCache` 返回 false（Rust 侧静默降级），
-  /// 此处再兜底捕获任何异常——缓存是加速器不是数据源，失败必须不影响
-  /// 在线加载（对齐原版 `BookHelp.saveImage` catch 仅记日志语义）。
-  Future<void> _saveDiskCache(
-    BookImageRepository images,
-    List<int> bytes,
-  ) async {
-    try {
-      await images.saveImageCache(
-        bookUrl: widget.bookUrl,
-        url: widget.url,
-        bytes: bytes,
-      );
-    } catch (_) {
-      // 磁盘缓存写失败静默降级：不影响在线加载（契约 §2.46 降级语义）
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      // [STAGE-UI-P43UNIFY1 B2] 加载态：去整面 0xFF1A1A1A 底色（参考版 #2082
-      // 不整页压黑）；环色 0xFF666666 → 主题槽（color 省略 → 主题 primary，
-      // 参考版 MangaReaderOverlays.kt:754 加载环为裸 CircularProgressIndicator）；
-      // [STAGE-UI-P43UNIFY2 B3] 换接统一封装 AppCircularProgressIndicator；
-      // 线宽口径（B4 裁决）：参考版 34 处调用 0 覆盖 strokeWidth → 主流默认
-      // 4dp，本处保留 2dp 实参（避免既有细环视觉抖动）。深底上主题
-      // primary 可见性沿用参考版取舍（dark 主题 primary 为浅紫，可见；
-      // light 主题 primary 为深紫，深底可见性有限——与参考版一致，如实遵循）
-      // 保留 Container 作 widget 测试取证位（断言 color == null 即证明
-      // 「加载态无整面硬编码底色」，B2 测试依赖），故不以 SizedBox 替换
-      // ignore: sized_box_for_whitespace
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: const Center(
-          child: AppCircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-    final epaper = _epaperImage;
-    if (widget.eInkThreshold != null && epaper != null) {
-      return RawImage(
-        image: epaper,
-        // [P4-3 E2] 分页适配类型映射的 BoxFit
-        fit: widget.fit,
-        width: double.infinity,
-      );
-    }
-    final bytes = _bytes;
-    if (bytes != null) {
-      return Image.memory(
-        bytes,
-        // [P4-3 E2] 分页适配类型映射的 BoxFit
-        fit: widget.fit,
-        width: double.infinity,
-        gaplessPlayback: true,
-        errorBuilder: (context, _, _) => _errorPlaceholder(),
-      );
-    }
-    return _errorPlaceholder();
-  }
-
-  Widget _errorPlaceholder() {
-    // [STAGE-UI-P43UNIFY1 B1] 底色 0xFF1A1A1A → 55% 黑（参考版失败态
-    // Color.Black.copy(alpha = 0.55f)，同 _buildImageErrorPlaceholder）
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.4,
-      color: Colors.black.withValues(alpha: 0.55),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // [STAGE-UI-P43UNIFY1 B1] 图标位改真实素材图（调研报告 §2.4）
-            Image.asset(
-              'assets/images/image_loading_error.png',
-              width: 64,
-              height: 64,
-            ),
-            const SizedBox(height: 12),
-            // [STAGE-UI-P43UNIFY2 B4] 文案 0xFF888888 → 主题槽 onSurfaceVariant
-            Text(
-              _error ?? '图片加载失败',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // [STAGE-UI-P43UNIFY2 B4] 重试按钮 0xFF444444 → MD3 主题化
-            // OutlinedButton（对齐参考版 MediumOutlinedButton，调研报告 §2.5）
-            OutlinedButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 本地 cbz 漫画页图片项（[cbz 批 D | 2026-10-03]）
-///
-/// 图片 URL 为 `cbz://<ZIP 条目名>` 伪 URL（Rust `get_chapter_content` 对
-/// `.cbz` 本地书产出）：经 [LocalBookService.cbzReadPage]（FFI `cbz_read_page`）读取
-/// 条目字节 → base64 解码 → [looksLikeImageBytes] 魔数校验 → [Image.memory]
-/// 显示（校验不过的字节不送图片解码器）。
-///
-/// 与 [_DecodedComicImage] 同构：
-/// - 内存缓存 [ComicImageDecodeCache] 优先（预载
-///   [ComicImageDecodeCache.preloadCbz] 与正式渲染共用，命中零重复 FFI）；
-/// - 加载态 = 0.6 屏高 + 主题加载环；失败态 = 55% 黑罩错误占位 + 重试，
-///   并同时经 [onError] 回调节点进屏幕 [_failedIndices] 失败占位重试链路；
-/// - [eInkThreshold] 非 null 时做真像素电子纸二值化（对齐 _DecodedComicImage）。
-/// — 全栈工程师 + UI
-class _LocalCbzImage extends ConsumerStatefulWidget {
-  const _LocalCbzImage({
-    required this.path,
-    required this.entry,
-    required this.cacheKey,
-    required this.onError,
-    this.eInkThreshold,
-    this.fit = BoxFit.fitWidth,
-  });
-
-  /// 本地 cbz 文件路径（book.bookUrl；FFI 侧兼容绝对路径与相对可迁移标识）
-  final String path;
-
-  /// ZIP 条目名（`cbz://` 伪 URL；FFI 侧兼容带/不带前缀）
-  final String entry;
-
-  /// 内存缓存键（本地书无书源，用活跃 bookUrl 隔离不同 cbz 包的同名条目）
-  final String cacheKey;
-
-  final VoidCallback onError;
-
-  /// 非 null 时做真像素电子纸二值化（对齐 EpaperTransformation）
-  final int? eInkThreshold;
-
-  /// [P4-3 E2] 图片渲染 BoxFit（调用方按分页适配类型映射传入）
-  final BoxFit fit;
-
-  @override
-  ConsumerState<_LocalCbzImage> createState() => _LocalCbzImageState();
-}
-
-class _LocalCbzImageState extends ConsumerState<_LocalCbzImage> {
-  bool _loading = true;
-  Uint8List? _bytes;
-  ui.Image? _epaperImage;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    final hit = ComicImageDecodeCache.get(widget.cacheKey, widget.entry);
-    if (hit != null) {
-      _bytes = hit;
-      _loading = false;
-      unawaited(_applyEpaperIfNeeded(hit));
-    } else {
-      unawaited(_load());
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _LocalCbzImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.entry != widget.entry ||
-        oldWidget.cacheKey != widget.cacheKey) {
-      // 条目/缓存键变化（切章/换书复用同索引元素）：重置重载
-      final hit = ComicImageDecodeCache.get(widget.cacheKey, widget.entry);
-      if (hit != null) {
-        _bytes = hit;
-        _loading = false;
-        _error = null;
-        unawaited(_applyEpaperIfNeeded(hit));
-      } else {
-        _bytes = null;
-        unawaited(_load());
-      }
-    } else if (oldWidget.eInkThreshold != widget.eInkThreshold &&
-        _bytes != null) {
-      unawaited(_applyEpaperIfNeeded(_bytes!));
-    }
-  }
-
-  @override
-  void dispose() {
-    _epaperImage?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _applyEpaperIfNeeded(Uint8List bytes) async {
-    final thr = widget.eInkThreshold;
-    if (thr == null) {
-      _epaperImage?.dispose();
-      if (mounted) setState(() => _epaperImage = null);
-      return;
-    }
-    try {
-      final img = await mangaEpaperFromBytes(bytes, threshold: thr);
-      if (!mounted) {
-        img.dispose();
-        return;
-      }
-      _epaperImage?.dispose();
-      setState(() => _epaperImage = img);
-    } catch (e) {
-      debugPrint('电子纸二值化失败: $e');
-    }
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      // 内存缓存（预载/其它实例已解码）命中 → 直接渲染，零重复 FFI 调用
-      final hit = ComicImageDecodeCache.get(widget.cacheKey, widget.entry);
-      if (hit != null) {
-        if (!mounted) return;
-        setState(() {
-          _bytes = hit;
-          _loading = false;
-        });
-        await _applyEpaperIfNeeded(hit);
-        return;
-      }
-      final bytes = await ref
-          .read(localBookServiceProvider)
-          .cbzReadPage(path: widget.path, entry: widget.entry);
-      if (bytes.isEmpty) {
-        throw Exception('CBZ 页数据为空');
-      }
-      if (!looksLikeImageBytes(bytes)) {
-        throw Exception('CBZ 页数据不是有效图片');
-      }
-      if (!mounted) return;
-      ComicImageDecodeCache.put(widget.cacheKey, widget.entry, bytes);
-      setState(() {
-        _bytes = bytes;
-        _loading = false;
-      });
-      await _applyEpaperIfNeeded(bytes);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '$e';
-        _loading = false;
-      });
-      widget.onError();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      // 加载态与 _DecodedComicImage 同口径（B2：无整面硬编码底色 + 主题环）
-      // 保留 Container 作 widget 测试取证位，见该处注释
-      // ignore: sized_box_for_whitespace
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: const Center(
-          child: AppCircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-    final epaper = _epaperImage;
-    if (widget.eInkThreshold != null && epaper != null) {
-      return RawImage(image: epaper, fit: widget.fit, width: double.infinity);
-    }
-    final bytes = _bytes;
-    if (bytes != null) {
-      return Image.memory(
-        bytes,
-        fit: widget.fit,
-        width: double.infinity,
-        gaplessPlayback: true,
-        errorBuilder: (context, _, _) => _errorPlaceholder(),
-      );
-    }
-    return _errorPlaceholder();
-  }
-
-  Widget _errorPlaceholder() {
-    // 失败态与 _DecodedComicImage._errorPlaceholder 同口径（55% 黑罩 +
-    // 素材图 + 重试；屏幕 _failedIndices 链路随后接管为页面级失败占位）
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.4,
-      color: Colors.black.withValues(alpha: 0.55),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/images/image_loading_error.png',
-              width: 64,
-              height: 64,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _error ?? '图片加载失败',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 无书源时的网络图电子纸渲染
-class _EpaperNetworkImage extends StatefulWidget {
-  const _EpaperNetworkImage({
-    required this.network,
-    required this.url,
-    required this.headers,
-    required this.threshold,
-    required this.onError,
-    this.fit = BoxFit.fitWidth,
-  });
-
-  final NetworkService network;
-  final String url;
-  final Map<String, String>? headers;
-  final int threshold;
-  final VoidCallback onError;
-
-  /// [P4-3 E2] 图片渲染 BoxFit（见 [MangaPageScaleType.fitFor] 取证注释）
-  final BoxFit fit;
-
-  @override
-  State<_EpaperNetworkImage> createState() => _EpaperNetworkImageState();
-}
-
-class _EpaperNetworkImageState extends State<_EpaperNetworkImage> {
-  bool _loading = true;
-  ui.Image? _image;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  @override
-  void didUpdateWidget(covariant _EpaperNetworkImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url ||
-        oldWidget.threshold != widget.threshold) {
-      unawaited(_load());
-    }
-  }
-
-  @override
-  void dispose() {
-    _image?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final res = await widget.network.httpGetBytes(
-        widget.url,
-        headers: widget.headers,
-        timeout: const Duration(seconds: 30),
-      );
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        throw StateError('HTTP ${res.statusCode}');
-      }
-      final img = await mangaEpaperFromBytes(
-        res.bytes,
-        threshold: widget.threshold,
-      );
-      if (!mounted) {
-        img.dispose();
-        return;
-      }
-      _image?.dispose();
-      setState(() {
-        _image = img;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '$e';
-        _loading = false;
-      });
-      widget.onError();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      // [STAGE-UI-P43UNIFY1 B2] 电子纸加载态与 _DecodedComicImage 同口径：
-      // 去整面 0xFF1A1A1A 底色 + 环色走主题槽（详见该处取证注释）
-      // [STAGE-UI-P43UNIFY2 B3] 换接统一封装（线宽口径 B4 裁决：保留 2dp 实参）
-      // 保留 Container 作 widget 测试取证位（断言 color == null 即证明
-      // 「加载态无整面硬编码底色」，B2 测试依赖），故不以 SizedBox 替换
-      // ignore: sized_box_for_whitespace
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: const Center(
-          child: AppCircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-    final img = _image;
-    if (img != null) {
-      return RawImage(
-        image: img,
-        // [P4-3 E2] 分页适配类型映射的 BoxFit
-        fit: widget.fit,
-        width: double.infinity,
-      );
-    }
-    // [STAGE-UI-P43UNIFY1 B1] 电子纸错误分支底色同语义 → 55% 黑
-    //（参考版失败态 Color.Black.copy(alpha = 0.55f)，调研报告 §2.5）
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.4,
-      color: Colors.black.withValues(alpha: 0.55),
-      child: Center(
-        child: Text(
-          _error ?? '图片加载失败',
-          // [STAGE-UI-P43UNIFY2 B4] 文案 0xFF888888 → 主题槽 onSurfaceVariant
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 12,
-          ),
-        ),
-      ),
     );
   }
 }

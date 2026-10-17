@@ -38,7 +38,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/models/manga_auto_read.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码；条漫用例依赖解码后的真实项高）
 const _kPngBase64 =

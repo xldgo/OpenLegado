@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../models/models.dart';
+import '../../../../models/models.dart';
 
 /// [P4-3 M1] 目录 bottom sheet（章节列表 + 当前章高亮 + 点击跳章）
 ///

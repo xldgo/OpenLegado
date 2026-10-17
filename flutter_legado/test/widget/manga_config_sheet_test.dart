@@ -16,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/manga_config.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
-import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

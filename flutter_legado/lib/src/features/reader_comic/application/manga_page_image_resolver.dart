@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import '../../domain/contracts/local_book_service.dart';
-import '../../domain/contracts/book_image_repository.dart';
-import '../../utils/comic_image_utils.dart';
+import '../../../domain/contracts/local_book_service.dart';
+import '../../../domain/contracts/book_image_repository.dart';
+import '../../../utils/comic_image_utils.dart';
 
 /// [P4-3 E5] 一页漫画图片的可操作字节 + 文件名后缀推断
 class MangaPageImageBytes {

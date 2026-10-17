@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/services/comic_image_decode_cache.dart';
+
 import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 
@@ -14,7 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 import 'package:flutter_legado/src/services/platform_channel.dart';
 

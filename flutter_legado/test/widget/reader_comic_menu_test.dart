@@ -46,8 +46,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/reader_comic/manga_menu.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_menu.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码；同 auto_read/page_scale 先例）
 const _kPngBase64 =

@@ -39,8 +39,9 @@
 'area: manga':
   - changed-files:
       - any-glob-to-any-file:
-          - 'flutter_legado/lib/src/screens/reader_comic_screen.dart'
-          - 'flutter_legado/lib/src/screens/reader_comic/**'
+          - 'flutter_legado/lib/src/features/reader_comic/**'
+          - 'flutter_legado/test/features/reader_comic/**'
+          - 'flutter_legado/lib/src/data/services/comic_image_decode_cache.dart'
 'area: audio':
   - changed-files:
       - any-glob-to-any-file:

@@ -1,12 +1,12 @@
-import '../../l10n/app_localization.dart';
+import '../../../../l10n/app_localization.dart';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../models/manga_config.dart';
-import '../../models/manga_auto_read.dart';
-import '../../models/manga_click_actions.dart';
-import '../../models/manga_page_scale_type.dart';
-import '../../models/manga_scroll_mode.dart';
+import '../../../../models/manga_config.dart';
+import '../../../../models/manga_auto_read.dart';
+import '../../../../models/manga_click_actions.dart';
+import '../../../../models/manga_page_scale_type.dart';
+import '../../../../models/manga_scroll_mode.dart';
 
 /// 漫画阅读配置底栏面板（对齐原版滤镜 / 电子纸 / 页脚 Dialog 入口结构）
 ///

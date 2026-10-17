@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../providers/media_provider.dart';
-import '../../screens/reader_comic_screen.dart' show ComicImageDecodeCache;
+import '../../data/services/comic_image_decode_cache.dart';
 import '../../utils/comic_image_utils.dart';
 import '../app_progress_indicator.dart';
 
