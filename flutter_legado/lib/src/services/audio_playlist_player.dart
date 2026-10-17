@@ -11,7 +11,6 @@ abstract interface class AudioPlaylistPlayer {
   bool get playlistFinished;
   Future<void> startPlaylist(
     AudioPlaylistItem first, {
-    List<AudioPlaylistItem> initialFollowing = const [],
     required double speed,
     required void Function(Object tag) onStarted,
     required void Function(Object tag) onCompleted,

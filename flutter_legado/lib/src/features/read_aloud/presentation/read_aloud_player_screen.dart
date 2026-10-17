@@ -12,7 +12,6 @@ import '../../audio/application/audio_notifier.dart';
 import '../../audio/application/read_aloud_preferences.dart';
 import '../../audio/application/read_aloud_capsule.dart';
 import '../../../routes.dart';
-import '../../../services/read_aloud_diagnostics.dart';
 import '../../../widgets/app_menu.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/book_cover.dart';
@@ -363,7 +362,6 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
             : notifier.currentParagraphIndex;
       },
       builder: (context, activeIndex) {
-        ReadAloudDiagnostics.instance.count('ui.chapter_text_build');
         return ReadAloudChapterText(
           key: ValueKey(('text', audio.bookUrl, audio.currentIndex)),
           active: _page == 2,

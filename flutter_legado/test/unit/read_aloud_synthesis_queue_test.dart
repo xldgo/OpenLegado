@@ -15,6 +15,16 @@ class _Lease implements TtsAudioLease {
   }
 }
 
+class _ReleasedLease implements TtsAudioLease {
+  final entered = Completer<void>();
+  int releases = 0;
+  @override
+  Future<void> release() async {
+    releases++;
+    entered.complete();
+  }
+}
+
 class _Cache extends Fake implements TtsCacheRepository {
   final contexts = <TtsCacheContext>[];
   @override
@@ -140,6 +150,39 @@ void main() {
     await (result as HttpTtsAudio).lease?.release();
     expect(lease.releases, 1);
   });
+  test('后台已完成并开始释放租约时，前台重新获取缓存租约', () async {
+    final backgroundLease = _ReleasedLease(), foregroundLease = _Lease();
+    var calls = 0;
+    final queue = ReadAloudSynthesisQueue(
+      synthesize: (r, c) async {
+        calls++;
+        return HttpTtsAudio(
+          audioPath: '/cache/same.wav',
+          fromCache: calls > 1,
+          lease: calls == 1 ? backgroundLease : foregroundLease,
+        );
+      },
+      cache: () => cache,
+    );
+    final input = request('甲');
+    queue.startWindow(
+      key: 'a',
+      concurrency: 1,
+      chapters: Stream.value([input]),
+    );
+    await backgroundLease.entered.future;
+    final result =
+        await queue.foreground(input, HttpTtsCancellation()) as HttpTtsAudio;
+    await queue.whenIdle();
+    expect(calls, 2);
+    expect(result.fromCache, isTrue);
+    expect(result.lease, same(foregroundLease));
+    expect(backgroundLease.releases, 1);
+    expect(foregroundLease.releases, 0);
+    await result.lease!.release();
+    expect(foregroundLease.releases, 1);
+  });
+
   test('当前段优先于后续段，抢占释放一个后台并发槽', () async {
     queue.startWindow(
       key: 'a',

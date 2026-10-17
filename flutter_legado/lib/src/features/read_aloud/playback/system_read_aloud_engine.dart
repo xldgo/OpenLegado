@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import '../../../platform/tts/system_tts.dart';
-import '../../../services/read_aloud_diagnostics.dart';
 import 'read_aloud_engine.dart';
 
 /// 系统播放适配；原生停止屏障、分片和暂停恢复继续由平台服务实现。— Codex + UI
@@ -17,10 +16,7 @@ final class SystemReadAloudEngine implements ReadAloudEngine {
   void _bind(ReadAloudSession session) {
     _session?.cancel();
     _session = session;
-    _system.onProgress = (start, end) {
-      ReadAloudDiagnostics.instance.count('system_tts.progress');
-      session.reportProgress(start);
-    };
+    _system.onProgress = (start, end) => session.reportProgress(start);
   }
 
   void _observe(Future<SystemTtsOutcome> speech, ReadAloudSession session) {
@@ -41,9 +37,6 @@ final class SystemReadAloudEngine implements ReadAloudEngine {
     ReadAloudSession session,
   ) async {
     if (!session.isCurrent) return ReadAloudStart.cancelled;
-    ReadAloudDiagnostics.instance.event('system_tts.speak', {
-      'textUnits': request.text.length,
-    });
     _bind(session);
     _observe(
       Future.sync(
@@ -62,9 +55,6 @@ final class SystemReadAloudEngine implements ReadAloudEngine {
   @override
   Future<ReadAloudStart> resume(ReadAloudSession session) async {
     if (!session.isCurrent) return ReadAloudStart.cancelled;
-    ReadAloudDiagnostics.instance.event('system_tts.resume', {
-      'nativePaused': _system.isPaused,
-    });
     _bind(session);
     _observe(Future.sync(_system.resume), session);
     return ReadAloudStart.started;
@@ -72,14 +62,12 @@ final class SystemReadAloudEngine implements ReadAloudEngine {
 
   @override
   Future<void> pause() {
-    ReadAloudDiagnostics.instance.event('system_tts.pause');
     _session?.cancel();
     return _system.pause();
   }
 
   @override
   Future<void> stop() {
-    ReadAloudDiagnostics.instance.event('system_tts.stop');
     _session?.cancel();
     _session = null;
     return _system.stop();

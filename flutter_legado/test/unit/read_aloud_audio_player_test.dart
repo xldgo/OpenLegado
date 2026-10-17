@@ -205,30 +205,6 @@ void main() {
     onProgress: (position, _, tag) => progress.add((position, tag)),
     onError: failures.add,
   );
-  test('初始后续项在一次装载中按序提交，不触发动态追加', () async {
-    final a = Object(), b = Object(), c = Object();
-    await player.startPlaylist(
-      AudioPlaylistItem(path: '/a.wav', tag: a),
-      initialFollowing: [
-        AudioPlaylistItem(path: '/b.wav', tag: b),
-        AudioPlaylistItem(path: '/c.wav', tag: c),
-      ],
-      speed: 1,
-      onStarted: started.add,
-      onCompleted: ended.add,
-      onProgress: (_, _, _) {},
-      onError: failures.add,
-    );
-    expect(native.loads, 1);
-    expect(native.appends, 0);
-    expect(native.sequence.map((s) => s.tag), [a, b, c]);
-    expect(native.seeks, isEmpty);
-    native.transition(1);
-    native.transition(2);
-    expect(started, [a, b, c]);
-    expect(ended, [a, b]);
-  });
-
   test('追加文件不重建或重新装载播放器，换项通知与最终完成均只消费一次', () async {
     final a = Object(), b = Object();
     await start(a);
@@ -350,10 +326,6 @@ void main() {
     final notifications = <String>[];
     await player.startPlaylist(
       AudioPlaylistItem(path: '/0.wav', tag: tags[0]),
-      initialFollowing: [
-        for (var i = 1; i < 3; i++)
-          AudioPlaylistItem(path: '/$i.wav', tag: tags[i]),
-      ],
       speed: 1,
       onStarted: (tag) {
         expect(player.currentPlaylistTag, same(tag));
@@ -366,6 +338,10 @@ void main() {
       onProgress: (_, _, _) {},
       onError: failures.add,
     );
+    await player.appendPlaylist([
+      for (var i = 1; i < 3; i++)
+        AudioPlaylistItem(path: '/$i.wav', tag: tags[i]),
+    ]);
     native.appendGate = Completer<void>();
     final append = player.appendPlaylist([
       AudioPlaylistItem(path: '/3.wav', tag: tags[3]),
@@ -434,7 +410,6 @@ void main() {
     Future<void>? stopping;
     await player.startPlaylist(
       AudioPlaylistItem(path: '/a.wav', tag: a),
-      initialFollowing: [AudioPlaylistItem(path: '/b.wav', tag: b)],
       speed: 1,
       onStarted: started.add,
       onCompleted: (tag) {
@@ -444,6 +419,7 @@ void main() {
       onProgress: (_, _, _) {},
       onError: failures.add,
     );
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
     native.transition(1);
     await stopping;
     expect(started, [a]);
@@ -493,7 +469,6 @@ void main() {
     Future<void>? replacement;
     await player.startPlaylist(
       AudioPlaylistItem(path: '/a.wav', tag: a),
-      initialFollowing: [AudioPlaylistItem(path: '/b.wav', tag: b)],
       speed: 1,
       onStarted: started.add,
       onCompleted: (tag) {
@@ -503,6 +478,7 @@ void main() {
       onProgress: (_, _, _) {},
       onError: failures.add,
     );
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
     native.transition(1);
     await replacement;
     expect(started, [a, next]);
@@ -539,6 +515,100 @@ void main() {
     // 播放事件不属于位置采样，始终即时上报
     native.emit();
     expect(published, hasLength(3));
+  });
+
+  test('追加等待中旧队尾才结束，恢复相邻项且按完成再起播通知', () async {
+    final a = Object(), b = Object();
+    final notifications = <String>[];
+    await player.startPlaylist(
+      AudioPlaylistItem(path: '/a.wav', tag: a),
+      speed: 1,
+      onStarted: (tag) =>
+          notifications.add(identical(tag, a) ? 'startA' : 'startB'),
+      onCompleted: (tag) {
+        expect(player.currentPlaylistTag, same(b));
+        notifications.add('endA');
+      },
+      onProgress: (_, _, _) {},
+      onError: failures.add,
+    );
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist([
+      AudioPlaylistItem(path: '/b.wav', tag: b),
+    ]);
+    await flush();
+    native.finish();
+    native.appendGate!.complete();
+    await append;
+    await flush();
+    expect(player.currentPlaylistTag, same(b));
+    expect(native.seeks, [(Duration.zero, 1)]);
+    expect(notifications, ['startA', 'endA', 'startB']);
+  });
+
+  test('新项有效基点无需后续播放事件，定时位置采样持续发布', () async {
+    final local = ReadAloudAudioPlayer(
+      createPlayer: () => native,
+      progressInterval: Duration.zero,
+    );
+    addTearDown(local.dispose);
+    final published = <Duration>[];
+    await local.startPlaylist(
+      AudioPlaylistItem(path: '/a.wav', tag: Object()),
+      speed: 1,
+      onStarted: (_) {},
+      onCompleted: (_) {},
+      onProgress: (p, _, _) => published.add(p),
+      onError: failures.add,
+    );
+    await local.appendPlaylist([
+      AudioPlaylistItem(path: '/b.wav', tag: Object()),
+    ]);
+    native.transition(1);
+    published.clear();
+    for (final ms in [100, 300, 600, 900]) {
+      native.position = Duration(milliseconds: ms);
+      native.positions.add(native.position);
+    }
+    expect(published.map((p) => p.inMilliseconds), [100, 300, 600, 900]);
+  });
+
+  test('新索引沿用旧位置基点时仍隔离，更新基点后恢复发布', () async {
+    final a = Object(), b = Object();
+    await start(a);
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
+    native.position = const Duration(milliseconds: 900);
+    native.emit();
+    final previous = native.playbackEvent;
+    native.currentIndex = 1;
+    native.playbackEvent = audio.PlaybackEvent(
+      currentIndex: 1,
+      processingState: audio.ProcessingState.ready,
+      duration: native.duration,
+      updatePosition: previous.updatePosition,
+      updateTime: previous.updateTime,
+    );
+    native.discontinuities.add(
+      audio.PositionDiscontinuity(
+        audio.PositionDiscontinuityReason.autoAdvance,
+        previous,
+        native.playbackEvent,
+      ),
+    );
+    progress.clear();
+    native.positions.add(native.position);
+    expect(progress, isEmpty);
+    native.position = const Duration(milliseconds: 100);
+    native.playbackEvent = audio.PlaybackEvent(
+      currentIndex: 1,
+      processingState: audio.ProcessingState.ready,
+      duration: native.duration,
+      updatePosition: native.position,
+      updateTime: previous.updateTime,
+    );
+    native.events.add(native.playbackEvent);
+    expect(progress.single.$1.inMilliseconds, 100);
+    expect(progress.single.$2, same(b));
   });
 
   test('队列到尾后的迟到音频重新起播，暂停期间追加不自动播放', () async {

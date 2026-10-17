@@ -3,7 +3,6 @@ import 'dart:async';
 import '../../../domain/contracts/http_tts_synthesizer.dart';
 import '../../../services/audio_playlist_player.dart';
 import '../../../services/stream_audio_player.dart';
-import '../../../services/read_aloud_diagnostics.dart';
 import 'read_aloud_engine.dart';
 
 /// 前方至多准备两项；本章历史来源及租约随原生停止统一释放。— Codex + UI
@@ -130,25 +129,7 @@ final class FileReadAloudPlaylist {
     if (index < 0) return;
     _current = index;
     final cue = _cues[index];
-    ReadAloudDiagnostics.instance.event('playlist.cue_started', {
-      'playlist': identityHashCode(this),
-      'generation': generation,
-      'cue': index,
-      'paragraph': cue.paragraphIndex,
-      'tag': identityHashCode(tag),
-      'retained': _audio.length,
-      'preparedNext': _next,
-      'queuedNext': _queuedNext,
-      'ready': _ready.length,
-      'totalCues': _cues.length,
-      // 字数用于和 item.ended 的时长比对，识别同一份音频内重复朗读。
-      'textLength': cue.request.text.length,
-    });
-    ReadAloudDiagnostics.instance.markFields
-      ..['cue'] = index
-      ..['paragraph'] = cue.paragraphIndex
-      ..['textLength'] = cue.request.text.length
-      ..['sourceOffset'] = cue.sourceOffset;
+
     _onCue?.call(cue);
     if (!_valid(generation)) return;
     _session?.reportProgress(_cues[index].sourceOffset - _progressBase);

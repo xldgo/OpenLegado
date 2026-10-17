@@ -18,7 +18,6 @@ import '../../audio/application/audio_state.dart';
 import '../../audio/application/read_aloud_position.dart';
 import '../../../platform/tts/system_tts.dart';
 import '../../../services/stream_audio_player.dart';
-import '../../../services/read_aloud_diagnostics.dart';
 import '../../../utils/read_aloud_text.dart';
 import '../http_tts_voice_selection.dart';
 import 'read_aloud_engine.dart';
@@ -108,10 +107,6 @@ class ReadAloudController {
   final _inFlightChapterContent = <String, Future<String>>{};
   int _speakGeneration = 0;
   Future<void> _ttsPauseBarrier = Future.value();
-  Future<void> _stopBarrier = Future.value();
-
-  /// 手动音频对照等待停止和取消任务真正结束，不改变普通停止的即时反馈。
-  Future<void> get stopped => _stopBarrier;
   int? _pendingParagraphIndex;
   int? _pendingChapterPos;
   bool _waitingForParagraph = false;
@@ -138,7 +133,6 @@ class ReadAloudController {
   void restoreReadAloudFollow() => followReadAloud.value = true;
   void detachReadAloudFollow() => followReadAloud.value = false;
   void _publishReadAloudPosition({int? offset}) {
-    ReadAloudDiagnostics.instance.count('ui.position_publish');
     if (_disposed ||
         _state.isStreamMode ||
         _state.state == PlayerState.idle ||
@@ -587,14 +581,6 @@ class ReadAloudController {
 
   void _startCloudPrefetch(ReadAloudRequest request, CloudTtsEngine cloud) {
     final prefs = _settings.current;
-    ReadAloudDiagnostics.instance.event('cloud.prefetch_config', {
-      'chapter': _state.currentIndex,
-      'paragraph': _paragraphIndex,
-      'paragraphs': _paragraphs.length,
-      'chaptersAhead': prefs.audioPreDownloadNum,
-      'concurrency': prefs.ttsPreSynthesisConcurrency,
-      'splitMode': prefs.splitMode.name,
-    });
     _cacheRetentionMinutes = prefs.audioCacheCleanTime;
     if (prefs.audioPreDownloadNum <= 0) {
       _synthesisQueue.cancelBackground();
@@ -1214,7 +1200,7 @@ class ReadAloudController {
     _noEngineHintShown = false;
     _speakGeneration++;
     final token = _playToken;
-    final systemStopped = _systemEngine.stop();
+    observeControl(_systemEngine.stop());
     _paragraphs = [];
     _paragraphUnits = [];
     readAloudPosition.value = null;
@@ -1224,14 +1210,12 @@ class ReadAloudController {
     _pendingChapterPos = null;
     _pendingParagraphIndex = null;
     _waitingForParagraph = false;
-    _stopBarrier = Future.wait<void>([
-      systemStopped,
+    observeControl(
       stopFilePlayback().then(
         (_) => _cleanTtsCache(snapshot, retention, token: token),
       ),
-      _synthesisQueue.whenIdle(),
-    ]).then<void>((_) {});
-    observeControl(_stopBarrier, errorPrefix: '音频播放控制失败');
+      errorPrefix: '音频播放控制失败',
+    );
     _host.changed();
   }
 

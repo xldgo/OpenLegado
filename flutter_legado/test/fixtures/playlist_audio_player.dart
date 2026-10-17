@@ -25,7 +25,6 @@ class FakePlaylistAudioPlayer extends FakeStreamAudioPlayer
   @override
   Future<void> startPlaylist(
     AudioPlaylistItem first, {
-    List<AudioPlaylistItem> initialFollowing = const [],
     required double speed,
     required void Function(Object) onStarted,
     required void Function(Object) onCompleted,
@@ -36,8 +35,7 @@ class FakePlaylistAudioPlayer extends FakeStreamAudioPlayer
     starts++;
     items
       ..clear()
-      ..add(first)
-      ..addAll(initialFollowing);
+      ..add(first);
     peakItems = peakItems < items.length ? items.length : peakItems;
     current = 0;
     _finished = _paused = false;

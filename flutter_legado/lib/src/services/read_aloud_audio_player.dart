@@ -5,7 +5,6 @@ import 'package:just_audio/just_audio.dart' as audio;
 
 import 'audio_playlist_player.dart';
 import 'stream_audio_player.dart';
-import 'read_aloud_diagnostics.dart';
 
 /// 统一纯音频后端：正文队列、音频书和独立试听都使用 just_audio。— Codex + UI
 class ReadAloudAudioPlayer extends StreamAudioPlayer
@@ -13,9 +12,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   ReadAloudAudioPlayer({
     audio.AudioPlayer Function()? createPlayer,
     this.progressInterval = const Duration(milliseconds: 250),
-  }) : _createPlayer = createPlayer ?? _defaultPlayer {
-    _diagnostics.markSnapshot = _markProvider;
-  }
+  }) : _createPlayer = createPlayer ?? _defaultPlayer;
 
   /// 位置流向上层发布的节流间隔
   ///
@@ -47,65 +44,18 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   final _transitions = Queue<_PlaybackTransition>();
   int _confirmedIndex = -1, _control = 0;
   int? _seekTarget;
+  bool _seekCompletesPrevious = false;
   bool _loaded = false, _delivering = false;
   Object? _pendingStarted;
   audio.PlaybackEvent? _terminal;
   DateTime? _initialTime, _committedTime;
   Timer? _reconcileTimer;
-  DateTime? _positionBaseline;
+  audio.PlaybackEvent? _positionBaseline;
   Future<void> _mutations = Future.value();
   void Function(Object)? _started, _ended, _failed;
   void Function(Duration, Duration, Object)? _progress;
-  final _diagnostics = ReadAloudDiagnostics.instance;
   final Stopwatch _progressClock = Stopwatch()..start();
   int _lastProgressPublishMs = -1 << 30;
-  Object? _lastDiagnosticTag;
-  int _lastDiagnosticPosition = 0, _lastDiagnosticSample = 0;
-  int _lastDiagnosticSession = 0;
-  String? _diagnosticUrl, _diagnosticFile;
-
-  /// 最近换项序列（含文件、位置和时间），供用户标记时回看是第几段。
-  final List<Map<String, Object?>> _recentItems = [];
-
-  Map<String, Object?> _markSnapshot() => {
-    ..._diagnosticSnapshot(),
-    'recentItems': List<Map<String, Object?>>.of(_recentItems),
-  };
-  late final Map<String, Object?> Function() _markProvider = _markSnapshot;
-
-  Map<String, Object?> _diagnosticSnapshot() {
-    final player = _native;
-    final source = _currentSource;
-    final url = source?.uri.toString();
-    if (url != _diagnosticUrl) {
-      _diagnosticUrl = url;
-      _diagnosticFile = url == null ? null : ReadAloudDiagnostics.fileKey(url);
-    }
-    return {
-      'player': identityHashCode(this),
-      'generation': _generation,
-      'tag': source?.tag == null ? null : identityHashCode(source!.tag!),
-      'file': _diagnosticFile,
-      'index': player?.currentIndex,
-      'items': player?.sequence.length,
-      'positionMs': player?.position.inMilliseconds,
-      'durationMs': player?.duration?.inMilliseconds,
-      'state': player?.processingState.name,
-      'playing': player?.playing,
-      'playRequested': _playRequested,
-      'editing': _editing,
-      'confirmedIndex': _confirmedIndex,
-      'confirmedTag': _active == null ? null : identityHashCode(_active!),
-      'pendingTransitions': _transitions.length,
-    };
-  }
-
-  void _trace(String event, [Map<String, Object?> extra = const {}]) {
-    if (_diagnostics.enabled) {
-      _diagnostics.event(event, {..._diagnosticSnapshot(), ...extra});
-    }
-  }
-
   @override
   Object? get currentPlaylistTag => _queueMode ? _active : null;
   bool get _itemFinished {
@@ -181,7 +131,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   void _play(int generation) {
     final player = _native!;
-    _trace('player.play');
+
     unawaited(
       player.play().catchError((Object error) {
         if (generation == _generation && _queueMode) _failed?.call(error);
@@ -201,23 +151,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       identical(_tagAt(index), tag) &&
       !event.updateTime.isBefore(_committedTime ?? event.updateTime);
 
-  void _recordStarted(Object? previous) {
-    final source = _timeline[_confirmedIndex];
-    final fields = <String, Object?>{
-      'previousTag': previous == null ? null : identityHashCode(previous),
-      'tag': identityHashCode(_active!),
-      'index': _confirmedIndex,
-      'file': ReadAloudDiagnostics.fileKey(source.uri.toString()),
-      'positionMs': 0,
-    };
-    _trace('player.item_changed', fields);
-    if (_diagnostics.enabled) {
-      _recentItems.add({
-        ...fields,
-        'wallMs': DateTime.now().millisecondsSinceEpoch,
-      });
-      if (_recentItems.length > 12) _recentItems.removeAt(0);
-    }
+  void _recordStarted() {
     _pendingStarted = _active;
   }
 
@@ -235,8 +169,9 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       if (_active == null && _timeline.isNotEmpty) {
         _confirmedIndex = 0;
         _active = _tagAt(0);
-        _committedTime = _positionBaseline = _initialTime;
-        _recordStarted(null);
+        _committedTime = _initialTime;
+        _positionBaseline = null;
+        _recordStarted();
       }
       while (_owns(generation) && _playRequested && !_editing) {
         final pending = _pendingStarted;
@@ -259,10 +194,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
             (step.from != _confirmedIndex ||
                 step.to != step.from + 1 ||
                 !identical(step.fromTag, _active))) {
-          _trace('player.transition_ignored', {
-            'fromIndex': step.from,
-            'toIndex': step.to,
-          });
           continue;
         }
         final previous = _active;
@@ -270,9 +201,19 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         // 先提交事实与去重，再交给可能暂停、停止或更换会话的外部回调。
         _confirmedIndex = step.to;
         _active = step.toTag;
-        _committedTime = _positionBaseline = step.event.updateTime;
-        if (changed) _recordStarted(previous);
-        if (!step.seek && previous != null && _completed.add(previous)) {
+        _committedTime = step.event.updateTime;
+        // 定时位置使用同一事件外推；仅沿用旧基点的转换才等待更新事件。
+        _positionBaseline =
+            step.event.updateTime.isAfter(step.previous.updateTime) ||
+                step.event.updatePosition != step.previous.updatePosition ||
+                step.event.updatePosition == Duration.zero
+            ? null
+            : step.event;
+        _lastProgressPublishMs = -1 << 30;
+        if (changed) _recordStarted();
+        if (step.completesPrevious &&
+            previous != null &&
+            _completed.add(previous)) {
           final control = _control;
           _ended?.call(previous);
           if (!_owns(generation) || control != _control) return;
@@ -310,11 +251,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
             : (_seekTarget != null ||
                   to != from + 1 ||
                   to <= _confirmedIndex))) {
-      _trace('player.transition_ignored', {
-        'fromIndex': from,
-        'toIndex': to,
-        'reason': change.reason.name,
-      });
       return;
     }
     if (!_transitions.any(
@@ -324,13 +260,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
           s.to == to &&
           s.seek == seek,
     )) {
-      _trace('player.transition_candidate', {
-        'fromIndex': from,
-        'toIndex': to,
-        'reason': change.reason.name,
-        'eventTimeMs': change.event.updateTime.millisecondsSinceEpoch,
-        'control': _control,
-      });
       _transitions.add(
         _PlaybackTransition(
           from,
@@ -338,8 +267,10 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
           fromTag,
           toTag,
           change.event,
+          change.previousEvent,
           _control,
           seek,
+          !seek || _seekCompletesPrevious,
         ),
       );
     }
@@ -348,7 +279,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   void _onPlaybackEvent(audio.PlaybackEvent event, int generation) {
     if (!_owns(generation)) return;
-    _diagnostics.count('player.playback_event');
+
     if (_seekTarget == null &&
         event.processingState == audio.ProcessingState.completed &&
         event.currentIndex == _timeline.length - 1 &&
@@ -384,7 +315,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   }
 
   void _publishProgress(int generation, {bool sampled = false}) {
-    _diagnostics.count('player.sync');
     if (generation != _generation || !_queueMode || _editing) return;
     final player = _native!;
     final event = player.playbackEvent;
@@ -397,7 +327,11 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     final baseline = _positionBaseline;
     var freshBaseline = false;
     if (baseline != null) {
-      if (!event.updateTime.isAfter(baseline)) return;
+      if (event.updateTime.isBefore(baseline.updateTime) ||
+          (event.updateTime == baseline.updateTime &&
+              event.updatePosition == baseline.updatePosition)) {
+        return;
+      }
       _positionBaseline = null;
       // 换项后的第一份位置基点必须立即发布，不从节流窗口里丢掉。
       freshBaseline = true;
@@ -407,35 +341,12 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       return;
     }
     final position = player.position;
-    if (_diagnostics.enabled) {
-      if (_lastDiagnosticSession != _diagnostics.session) {
-        _lastDiagnosticSession = _diagnostics.session;
-        _lastDiagnosticTag = null;
-        _lastDiagnosticSample = 0;
-      }
-      final positionMs = position.inMilliseconds;
-      if (identical(_lastDiagnosticTag, tag) &&
-          positionMs + 200 < _lastDiagnosticPosition) {
-        _trace('player.position_backwards', {
-          'previousMs': _lastDiagnosticPosition,
-        });
-      }
-      _lastDiagnosticTag = tag;
-      _lastDiagnosticPosition = positionMs;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - _lastDiagnosticSample >= 1000) {
-        _lastDiagnosticSample = now;
-        _trace('player.sample');
-      }
-    }
-    _diagnostics.count('player.progress_publish');
     _progress?.call(position, event.duration ?? Duration.zero, tag);
   }
 
   @override
   Future<void> startPlaylist(
     AudioPlaylistItem first, {
-    List<AudioPlaylistItem> initialFollowing = const [],
     required double speed,
     required void Function(Object) onStarted,
     required void Function(Object) onCompleted,
@@ -443,10 +354,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     required void Function(Object) onError,
   }) => _startSource(
     audio.AudioSource.uri(_fileUri(first.path), tag: first.tag),
-    initialFollowing: [
-      for (final item in initialFollowing)
-        audio.AudioSource.uri(_fileUri(item.path), tag: item.tag),
-    ],
     speed: speed,
     onStarted: onStarted,
     onCompleted: onCompleted,
@@ -456,7 +363,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   Future<void> _startSource(
     audio.UriAudioSource source, {
-    List<audio.UriAudioSource> initialFollowing = const [],
     required double speed,
     required void Function(Object) onStarted,
     required void Function(Object) onCompleted,
@@ -475,15 +381,13 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _singleTag = publicTag;
     _singleUrl = publicUrl;
     _playRequested = true;
-    _timeline.addAll([source, ...initialFollowing]);
+    _timeline.add(source);
     _started = onStarted;
     _ended = onCompleted;
     _progress = onProgress;
     _failed = onError;
     final player = _native ??= _createPlayer();
-    _trace('player.load.request', {
-      'file': ReadAloudDiagnostics.fileKey(source.uri.toString()),
-    });
+
     _subscriptions.addAll([
       player.sequenceStateStream.listen((_) => _scheduleReconcile(generation)),
       player.positionDiscontinuityStream.listen(
@@ -493,7 +397,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         (event) => _onPlaybackEvent(event, generation),
       ),
       player.positionStream.listen((_) {
-        _diagnostics.count('player.position_event');
         _publishProgress(generation, sampled: true);
       }),
       player.errorStream.listen((error) {
@@ -502,11 +405,11 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     ]);
     try {
       await _mutate(generation, () async {
-        await player.setAudioSources([source, ...initialFollowing]);
+        await player.setAudioSources([source]);
         if (!_owns(generation)) return;
         _initialTime = player.playbackEvent.updateTime;
         _loaded = true;
-        _trace('player.load.done');
+
         if (generation != _generation || !_queueMode) return;
         await player.setSpeed(speed <= 0 ? 1 : speed);
         if (generation != _generation || !_queueMode) return;
@@ -529,48 +432,40 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     final generation = _generation;
     return _mutate(generation, () async {
       final player = _native!;
-      _trace('player.append.begin', {
-        'addedCount': items.length,
-        'addedTags': items.map((item) => identityHashCode(item.tag)).toList(),
-        'addedFiles': items
-            .map((item) => ReadAloudDiagnostics.fileKey(item.path))
-            .toList(),
-      });
-      final endedTag = playlistFinished
-          ? player.sequenceState.currentSource?.tag
-          : null;
+
+      final oldTail = _tagAt(_timeline.length - 1);
       _timeline.addAll(sources);
       await player.addAudioSources(sources);
-      _trace('player.append.end');
+
       if (generation != _generation || !_queueMode || !_playRequested) return;
-      // 追加期间原生可能已经换项，旧的队尾状态不能用来重置新音频。
-      if (endedTag == null ||
-          !identical(player.sequenceState.currentSource?.tag, endedTag) ||
-          !_itemFinished) {
-        return;
-      }
-      final endedIndex = player.sequence.indexWhere(
-        (source) => identical(source.tag, endedTag),
-      );
-      final nextIndex = endedIndex + 1;
-      if (endedIndex < 0 || nextIndex >= player.sequence.length) return;
-      // 仍停在原音频末尾时才恢复相邻项，不跳到队尾而漏播中间内容。
-      _trace('player.seek', {
-        'reason': 'append_finished',
-        'targetIndex': nextIndex,
-        'targetMs': 0,
-      });
-      await _seekTo(Duration.zero, nextIndex, generation);
-      if (generation == _generation && _queueMode && _playRequested) {
-        _play(generation);
-      }
+      await _continueExtendedTail(generation, oldTail);
     });
+  }
+
+  Future<void> _continueExtendedTail(int generation, Object? oldTail) async {
+    if (!_owns(generation) ||
+        !_playRequested ||
+        _seekTarget != null ||
+        oldTail == null ||
+        !identical(_active, oldTail) ||
+        !_itemFinished ||
+        _confirmedIndex + 1 >= _timeline.length) {
+      return;
+    }
+    // 只恢复被扩展的旧队尾；已经自然换项时不会重置新项目。
+    await _seekTo(
+      Duration.zero,
+      _confirmedIndex + 1,
+      generation,
+      completesPrevious: true,
+    );
+    if (_owns(generation) && _playRequested) _play(generation);
   }
 
   @override
   Future<void> pause() async {
     if (!_queueMode) return;
-    _trace('player.pause');
+
     _playRequested = false;
     await _native?.pause();
   }
@@ -581,15 +476,15 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     final generation = _generation;
     _playRequested = true;
     final player = _native!;
-    _trace('player.resume');
+
     if (_itemFinished &&
         (player.currentIndex ?? 0) + 1 < player.sequence.length) {
-      _trace('player.seek', {
-        'reason': 'resume_next',
-        'targetIndex': (player.currentIndex ?? 0) + 1,
-        'targetMs': 0,
-      });
-      await _seekTo(Duration.zero, _confirmedIndex + 1, generation);
+      await _seekTo(
+        Duration.zero,
+        _confirmedIndex + 1,
+        generation,
+        completesPrevious: true,
+      );
     }
     if (generation == _generation && _queueMode && _playRequested) {
       _play(generation);
@@ -599,23 +494,24 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   @override
   Future<void> setSpeed(double speed) async {
-    _trace('player.speed', {'speed': speed});
     if (_queueMode) await _native!.setSpeed(speed <= 0 ? 1 : speed);
   }
 
   @override
   Future<void> seek(Duration position) async {
-    _trace('player.seek', {
-      'reason': 'explicit',
-      'targetMs': position.inMilliseconds,
-    });
     if (_queueMode) await _seekTo(position, _confirmedIndex, _generation);
   }
 
-  Future<void> _seekTo(Duration position, int index, int generation) async {
+  Future<void> _seekTo(
+    Duration position,
+    int index,
+    int generation, {
+    bool completesPrevious = false,
+  }) async {
     if (!_owns(generation) || _tagAt(index) == null) return;
     final control = ++_control;
     _seekTarget = index;
+    _seekCompletesPrevious = completesPrevious;
     _terminal = null;
     _transitions.clear();
     _pendingStarted = null;
@@ -638,7 +534,10 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         );
       }
     } finally {
-      if (_owns(generation) && control == _control) _seekTarget = null;
+      if (_owns(generation) && control == _control) {
+        _seekTarget = null;
+        _seekCompletesPrevious = false;
+      }
     }
     _onPlaybackEvent(_native!.playbackEvent, generation);
   }
@@ -691,7 +590,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   }
 
   Future<void> _stopPlaylist() async {
-    _trace('player.stop');
     final generation = ++_generation;
     _playRequested = false;
     _queueMode = false;
@@ -701,6 +599,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _pendingStarted = null;
     _terminal = null;
     _seekTarget = null;
+    _seekCompletesPrevious = false;
     _initialTime = _committedTime = null;
     ++_control;
     _timeline.clear();
@@ -730,10 +629,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   @override
   Future<void> dispose() async {
     await stop();
-    if (identical(_diagnostics.markSnapshot, _markProvider)) {
-      _diagnostics.markSnapshot = null;
-    }
-    _recentItems.clear();
     await _native?.dispose();
     _native = null;
   }
@@ -747,11 +642,13 @@ final class _PlaybackTransition {
     this.fromTag,
     this.toTag,
     this.event,
+    this.previous,
     this.control,
     this.seek,
+    this.completesPrevious,
   );
   final int from, to, control;
   final Object fromTag, toTag;
-  final audio.PlaybackEvent event;
-  final bool seek;
+  final audio.PlaybackEvent event, previous;
+  final bool seek, completesPrevious;
 }
