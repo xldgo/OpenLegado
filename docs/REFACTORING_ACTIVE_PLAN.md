@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-PLUGIN-PIN-20261018：接入指定just_audio提交（P1）
+
+- 授权：用户指定xldgo/just_audio的05ad63dd8d92c057e25e7194e054745f34c4fb54及子目录just_audio；继续当前debug分支，单代理，不提交、推送或触发构建。保留用户未跟踪的ARCHITECTURE_REVIEW_20261018.md。
+- 范围：只切换pubspec依赖来源并恢复锁定依赖；保留B组500毫秒追加、正式朗读和默认延迟准备。该提交增加iOS安全尾部追加路径，真实蓝牙效果待设备复验；此配置与先前仅延后追加的构建应分开比较。
+- 状态：已接入，pub get成功且仅just_audio一项依赖改变，锁文件resolved-ref与指定提交完全一致；播放器及对照控制器定点dart analyze无问题，git diff --check通过。pub get造成的三份无实质内容差异的平台注册文件已恢复；未执行测试、iOS编译或设备验证，不修改本机Pub缓存源码，不宣称已解决蓝牙卡顿。
+- 交付授权：用户随后要求推送并触发构建；仅提交本批依赖配置、锁文件及任务记录，使用[skip ci]跳过其他CI，手动触发当前debug分支iOS Build。设备构建结果与蓝牙效果分别验收。
+
+编写者：Codex + UI｜2026-10-18
+
 ### TTS-COMPARISON-DELAY-20261018：B组延后追加对照（P1）
 
 - 授权与基线：用户要求仅将B组新段开始后立即追加改为500毫秒后追加；继续debug/tts-diagnostics-20261017 / 1b6fd1d86，单代理，不提交、推送或构建，保留.workbuddy及版本。
