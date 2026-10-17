@@ -647,3 +647,15 @@ FFI只装配存储能力及解析原文档。重试每次独立借还连接，20
 FFI签名/DTO/生成绑定、数据库和UI均不变；状态与证据仅维护于Active计划。
 
 编写者：Codex｜2026-10-18
+
+
+### 自动任务实体与执行服务（2026-10-18）
+
+AutoTaskService显式接收StorageContext及JsResources，集中完整实体与core计算模型适配、
+导入合并、Cron回写和执行结果组装。FFI只解析原执行文档、装配资源并保留原API路径。
+Custom JS每次创建独立变量flow，沿用原QuickJsExecutor的执行与VM缓存语义；
+脚本错误仍转换为失败TaskResult，无QuickJS构建保留原错误，不附加源级登录配置。
+CRUD、非Custom执行及调度计算保持原行为，不新增调度器、取消策略或Runtime。
+FFI签名/DTO/生成绑定、schema、依赖与UI不变，状态与证据仅维护于Active计划。
+
+编写者：Codex｜2026-10-18

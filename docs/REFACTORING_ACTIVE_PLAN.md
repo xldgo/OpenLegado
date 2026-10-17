@@ -8,7 +8,8 @@
 - 阶段3：审计网络配置、验证码/WebView、标注及其他剩余入口，逐项区分业务编排与宿主/传输/薄仓储适配；仅有实质业务规则才迁移，不为目录齐全新增转发服务或扩大产品功能。保留真实JSON文档及平台协议，仍使用SSE且不宣称零拷贝。
 - 阶段4与完成标准：保留并复用原测试，按批必要自测/严格检查后提交，正式DLL及跨批真实FRB集中做一次；最后相关Rust与Flutter集中回归、宿主引用/闲置代码核查与文档同步。公开FFI签名/DTO/生成绑定、UI、schema、依赖和应用版本不变，不新增外部测试宿主/设备性能任务。单代理自查，无独立外审如实记录，平台验证不冒称完成。
 - 阶段1完成：BookshelfService集中原9个实体/读写方法与书源合并；FFI公开签名及原测试模块不变，迁移正文资源替换后逐段一致。新增1项实际SQLite用例覆盖陈旧源保护/进度/章节不级联删除/排序/同标识实例隔离；首轮夹具误把Option<String>写为String，修正后Engine/FFI定向2项通过。原reading_flow_rust_defects中进度相关4项通过（含真实持锁失败/释放后重试成功），默认全目标严格Clippy与限定格式/差异检查通过。证据：build/engine-services-closeout/shelf-{tests,tests-final,progress,clippy}.log及shelf-review.json；初轮失败不计通过。正式DLL及跨批复验按计划集中执行，本批不提前宣称完成这些验证。
-- 状态：阶段1验证后本地提交，继续阶段2；各批可独立回滚，最终以实现和验证证据关闭已授权范围。
+- 阶段2完成：AutoTaskService集中完整实体与core计算模型的适配、文档导入合并、Cron回写、CRUD、自定义JS及结果组装。FFI保留协议文档解析和原路径重导出；原10项FFI测试原样保留，新增1项独立SQLite/JS实例用例，覆盖完整字段、相同ID隔离、根释放后数据能力存续及成功/失败结果。QuickJS定向Engine1/FFI13共14项、default Engine1/FFI10共11项通过，两档Engine/FFI全目标严格Clippy通过。执行体在移除边界解析和资源替换后与原实现一致；保留每次独立flow与原executor缓存，不宣称每次独立VM。自查发现机械提取误复制无QuickJS分支，已在默认构建验证前恢复原错误返回；辅助比对最初受缩进影响，规范化后全部一致，不作为行为测试。证据：build/engine-services-closeout/auto-{quick,default,clippy,default-clippy}.log及auto-review.json。正式DLL仍留到跨批集中验证。
+- 状态：阶段1已提交d55b84571，阶段2验证后本地提交，继续阶段3/4；各批可独立回滚，最终以实现和验证证据关闭已授权范围。
 
 编写者：Codex｜2026-10-18
 

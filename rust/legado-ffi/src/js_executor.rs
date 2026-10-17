@@ -261,28 +261,12 @@ pub fn validate_js_lib(
     Ok(())
 }
 
-/// [体检 §二.5 | P3-6] AutoTask Custom JS 真实执行入口
-///
-/// 对齐原版 `AutoTaskRunner`（`AutoTask.buildSource(task)` → `source.evalJS(script)`）:
-/// 经 QuickJS 引擎（带引擎缓存与 Response/Jsoup 基础桥）真实求值并返回
-/// 完成值/错误,取代"验证脚本非空即视为成功"的静默假成功。
-/// 绑定面:基础桥(无书源 java/cookie 绑定——原版 AutoTask.buildSource
-/// 亦为合成源,重度绑定场景待书源上下文注入后扩展)。
-#[cfg(feature = "quickjs")]
-use legado_parser::JsExecutor;
-#[cfg(feature = "quickjs")]
+/// 自动任务JS宿主入口；显式捕获资源，执行实现由Engine唯一维护。
 pub fn execute_auto_task_js(js_code: &str) -> Result<String, String> {
-    let root = crate::engine_holder::js_resources();
-    let resources = root.with_variable_scope(root.variables().fresh_flow("auto_task"));
-    QuickJsExecutor::new("auto_task")
-        .with_resources(resources)
-        .execute_js(js_code)
-}
-
-/// 非 quickjs 构建:引擎不可用,如实报错(不再静默假成功)
-#[cfg(not(feature = "quickjs"))]
-pub fn execute_auto_task_js(_js_code: &str) -> Result<String, String> {
-    Err("Custom JS 执行需要 quickjs feature(当前构建未启用 JS 引擎)".to_string())
+    legado_engine::auto_task_service::execute_auto_task_js(
+        &crate::engine_holder::js_resources(),
+        js_code,
+    )
 }
 
 // ─── 测试 ─────────────────────────────────────────────────────────────────────
