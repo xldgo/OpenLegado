@@ -1389,13 +1389,13 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `exploreParseUrl(String exploreUrl, {String sourceJson})` | exploreUrl；`@js:` 须传 sourceJson | `Future<List<ExploreCategory>>` | 解析 exploreUrl 为分类列表（含 type/action/chars/style） |
-| `exploreFetchBooks(String sourceJson, String url, int page)` | sourceJson, url, page | `Future<List<SearchBook>>` | 抓取发现分类的书籍列表 |
+| `exploreParseUrl({required String exploreUrl, BookSourceDto? source})` | exploreUrl；`@js:` 须传 source | `Future<List<ExploreCategoryDto>>` | 解析 exploreUrl 为分类列表（含 type/action/chars/style） |
+| `exploreFetchBooks({required BookSourceDto source, required String url, required int page})` | source, url, page | `Future<List<WebSearchResultDto>>` | 抓取发现分类的书籍列表，数据适配器转为 SearchBook |
 | `exploreInfoMapPut(String sourceUrl, String key, String value)` | sourceUrl, key, value | `Future<void>` | toggle/select/text 写入 infoMap |
 | `exploreInfoMapEnsureDefault(String sourceUrl, String key, String defaultValue)` | sourceUrl, key, defaultValue | `Future<void>` | infoMap 键不存在时写入默认值 |
 | `exploreInfoMapSnapshot(String sourceUrl)` | sourceUrl | `Future<String>` | 读取 infoMap 快照（JSON 对象；UI 回显 toggle/select/text 已存值，对齐原版 InfoMap 持久化）。加法式新增（2026-08-14 发现页修复 B①） |
-| `exploreEvalAction({required String sourceJson, required String actionJs})` | sourceJson, actionJs | `Future<Map>` | 执行发现控件 action JS；返回 `{raw, actions, refreshExplore}`（对标 evalButtonClick + java 中途 UI） |
-| `exploreEvalUiJs({required String sourceJson, required String jsStr})` | sourceJson, jsStr | `Future<String>` | 执行 viewName 动态标题 JS（对标 evalUiJs） |
+| `exploreEvalAction({required BookSourceDto source, required String actionJs})` | source, actionJs | `Future<ExploreActionDto>` | 固定字段 raw/refreshExplore 类型化，动态动作保留 actionsJson，数据适配器转为 ExploreActionResult |
+| `exploreEvalUiJs({required BookSourceDto source, required String jsStr})` | source, jsStr | `Future<String>` | 执行 viewName 动态标题 JS（对标 evalUiJs） |
 
 ### 2.19 规则解析（1 个方法）
 
