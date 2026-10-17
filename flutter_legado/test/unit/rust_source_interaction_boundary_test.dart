@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/bridge/source_tools_dto.dart';
+import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
+
 import 'dart:convert';
 
 import 'package:flutter_legado/src/bridge/task_dto.dart';
@@ -51,9 +54,9 @@ void main() {
         .thenAnswer((_) async => 'url');
     when(() => bridge.crateFfiFfiAnalyzeUrlToCurl(text: 'url'))
         .thenAnswer((_) async => 'curl -g -L url');
-    when(() => bridge.crateFfiFfiJsSourceExtract(content: '完整脚本')).thenAnswer(
-      (_) async => jsonEncode({...source.toJson(), 'mainJs': '旧内容'}),
-    );
+    when(
+      () => bridge.crateFfiFfiJsSourceExtract(content: '完整脚本'),
+    ).thenAnswer((_) async => bookSourceToDto(source.copyWith(mainJs: '旧内容')));
     expect(await editor.looksLikeCurl('curl -L url'), isTrue);
     expect(await editor.curlToAnalyzeUrl('curl -L url'), 'url');
     expect(await editor.analyzeUrlToCurl('url'), 'curl -g -L url');
@@ -64,30 +67,25 @@ void main() {
   });
   test('语法结果类型化并保留错误行号', () async {
     when(() => bridge.crateFfiFfiJsSourceSyntaxCheck(content: 'bad'))
-        .thenAnswer((_) async => '{"valid":false,"message":"缺少括号","line":12}');
+        .thenAnswer(
+          (_) async =>
+              const SourceSyntaxDto(valid: false, message: '缺少括号', line: 12),
+        );
     final result = await editor.checkJsSourceSyntax('bad');
     expect(result.valid, isFalse);
     expect(result.message, '缺少括号');
     expect(result.line, 12);
   });
-  for (final payload in [
-    '[]',
-    '{}',
-    '{"bookSourceUrl":1,"bookSourceName":"源"}',
-  ]) {
-    test('提取坏响应不伪造可保存的书源：$payload', () async {
-      when(() => bridge.crateFfiFfiJsSourceExtract(content: 'bad'))
-          .thenAnswer((_) async => payload);
-      await expectLater(editor.extractJsSource('bad'), throwsFormatException);
-    });
-  }
-  test('语法坏响应和原生转换异常向上传递', () async {
+  test('提取、语法和原生转换异常保持失败', () async {
+    final error = StateError('JS_INVALID');
+    when(() => bridge.crateFfiFfiJsSourceExtract(content: 'bad'))
+        .thenThrow(error);
     when(() => bridge.crateFfiFfiJsSourceSyntaxCheck(content: 'bad'))
-        .thenAnswer((_) async => '{}');
-    final error = StateError('CURL_INVALID');
+        .thenThrow(error);
     when(() => bridge.crateFfiFfiCurlToAnalyzeUrl(text: 'bad'))
         .thenThrow(error);
-    await expectLater(editor.checkJsSourceSyntax('bad'), throwsFormatException);
+    await expectLater(editor.extractJsSource('bad'), throwsA(same(error)));
+    await expectLater(editor.checkJsSourceSyntax('bad'), throwsA(same(error)));
     await expectLater(
       () => editor.curlToAnalyzeUrl('bad'),
       throwsA(same(error)),

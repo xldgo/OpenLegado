@@ -2,6 +2,10 @@
 
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
+- 续批执行（实施中，基线3493f78c8）：用户授权按A→B→C推进。A迁移封面配置/搜索、JS书源提取与诊断、购买和回调固定结果；B核对并清理TXT专用搜索和音频解析闲置FRB导出；C审计登录/规则/JS/WebDAV动态协议并收敛可确定的实体入参。继续原worktree、单代理，每批验证后本地提交，不推送/CI/安装，不变更版本、依赖或数据库；保留SSE和真实文档语义。
+
+- 续批A完成：封面候选/URL列表/四字段配置、JS完整书源/三字段诊断、购买枚举与回调固定外壳直接传输。平台动作独立JSON，未知字段和原顺序不丢失，回放完成才返回且不重复。7份Flutter50项、Rust封面9项/购买5项/DTO2项通过，QuickJS全目标严格Clippy、完整Flutter分析通过。正式Python独立DLL及只读校验、真实FFI3项通过，覆盖Cookie三态、data规则、本机封面搜索、真实JS与copyText两动作、本地购买none。首轮真实测试缺构造回调已修正。证据build/ffi-phase3/source-tools-{codegen,rust-cover,rust-pay,rust-dto,flutter,clippy,analysis-closed,native,runtime-final}.log。无独立外审/设备或远程CI结论，版本/数据不变；按授权本地提交后进入B。
+
 - 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界已完成，契约与定向集成收口已完成；不扩展历史格式兼容层，不改变备份FFI签名。
 
 - 本轮授权范围收口：RSS备份修复46c7ba1ed、自动任务f27bea0ff、文件/服务6dc59f2bd已本地提交；契约总则、排版专用契约与双轨需求说明已按现有DTO/opaque/字节SSE同步，历史立项快照明确标识。12份Flutter集中回归100项、7份真实Windows FFI集中回归25项全部通过（含80组既有上游布局对照）；最终独立DLL只读源码指纹/摘要通过，主目录仍为1b871c3c4且干净。证据：build/ffi-phase3/final-{flutter,native}-integration.log。无子代理、独立外审、远程CI、推送、合并、应用安装、Android/iOS或设备性能验收。

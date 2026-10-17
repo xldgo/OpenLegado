@@ -27,6 +27,7 @@ pub mod layout_dto;
 pub mod media_dto;
 pub mod runtime;
 mod service_host;
+pub mod source_tools_dto;
 pub mod task_dto;
 pub mod transfer_dto;
 

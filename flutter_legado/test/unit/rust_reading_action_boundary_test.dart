@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
+
+import 'package:flutter_legado/src/bridge/source_tools_dto.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -99,14 +100,14 @@ void main() {
     );
   });
   for (final (raw, kind) in [
-    ('url', ChapterPurchaseKind.url),
-    ('success', ChapterPurchaseKind.success),
-    ('none', ChapterPurchaseKind.none),
+    (ChapterPurchaseKindDto.url, ChapterPurchaseKind.url),
+    (ChapterPurchaseKindDto.success, ChapterPurchaseKind.success),
+    (ChapterPurchaseKindDto.none, ChapterPurchaseKind.none),
   ]) {
     test('购买返回$raw保留结果与章级身份', () async {
       when(
         () => bridge.crateFfiFfiChapterPayAction(bookUrl: 'b', chapterIndex: 7),
-      ).thenAnswer((_) async => jsonEncode({'kind': raw, 'value': '原始返回'}));
+      ).thenAnswer((_) async => ChapterPurchaseDto(kind: raw, value: '原始返回'));
       final service = RustSourceActionService(
         dispatchActions: (_) async => fail('购买不回放无关回调'),
       );
@@ -116,23 +117,6 @@ void main() {
       );
       expect(result.kind, kind);
       expect(result.value, '原始返回');
-    });
-  }
-  for (final raw in [
-    '[]',
-    '{}',
-    '{"kind":"unexpected","value":"x"}',
-    '{"kind":"success"}',
-  ]) {
-    test('购买坏响应不能冒充无需购买或成功：$raw', () async {
-      when(
-        () => bridge.crateFfiFfiChapterPayAction(bookUrl: 'b', chapterIndex: 1),
-      ).thenAnswer((_) async => raw);
-      final service = RustSourceActionService(dispatchActions: (_) async {});
-      await expectLater(
-        service.chapterPayAction(bookUrl: 'b', chapterIndex: 1),
-        throwsFormatException,
-      );
     });
   }
   test('回调先等待平台动作全部回放，再返回接管结果，动作只回放一次', () async {
@@ -148,12 +132,22 @@ void main() {
       ),
     ).thenAnswer((_) async {
       calls.add('native');
-      return '{"invoked":true,"jsTrue":true,"raw":"true","actions":[{"action":"copyText","text":"回调内容"}]}';
+      return const SourceCallbackDto(
+        invoked: true,
+        jsTrue: true,
+        raw: 'true',
+        actionsJson:
+            '[{"action":"copyText","text":"回调内容","extra":{"keep":true}}]',
+      );
     });
     final service = RustSourceActionService(
       dispatchActions: (actions) async {
         expect(actions, [
-          {'action': 'copyText', 'text': '回调内容'},
+          {
+            'action': 'copyText',
+            'text': '回调内容',
+            'extra': {'keep': true},
+          },
         ]);
         calls.add('dispatch');
         await gate.future;
@@ -192,7 +186,12 @@ void main() {
         bookType: 0,
       ),
     ).thenAnswer(
-      (_) async => '{"invoked":true,"jsTrue":false,"raw":"false","actions":[{"action":"toast"}]}',
+      (_) async => const SourceCallbackDto(
+        invoked: true,
+        jsTrue: false,
+        raw: 'false',
+        actionsJson: '[{"action":"toast"}]',
+      ),
     );
     final service = RustSourceActionService(
       dispatchActions: (_) async {
@@ -219,8 +218,12 @@ void main() {
         bookType: 0,
       ),
     ).thenAnswer(
-      (_) async =>
-          '{"invoked":"true","jsTrue":false,"raw":"false","actions":[]}',
+      (_) async => const SourceCallbackDto(
+        invoked: true,
+        jsTrue: false,
+        raw: 'false',
+        actionsJson: '{}',
+      ),
     );
     await expectLater(
       service.sourceCallBackBtn(event: 'bad', bookUrl: 'b'),
@@ -234,7 +237,12 @@ void main() {
         bookType: 0,
       ),
     ).thenAnswer(
-      (_) async => '{"invoked":true,"jsTrue":true,"raw":"true","actions":[{}]}',
+      (_) async => const SourceCallbackDto(
+        invoked: true,
+        jsTrue: true,
+        raw: 'true',
+        actionsJson: '[{}]',
+      ),
     );
     await expectLater(
       service.sourceCallBackBtn(event: 'throw', bookUrl: 'b'),

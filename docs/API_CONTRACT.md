@@ -2360,6 +2360,20 @@ WebDAV目录返回name/path/size:u64/lastModified?/etag?/isDir DTO列表；配�
 
 编写者：Codex｜2026-10-17
 
+### FFI-TRANSPORT-20261017 / 书源工具与动作固定载荷冻结
+
+封面搜索返回CoverCandidateDto(url,width,height)列表，封面规则搜索返回Vec<String>，
+配置读写传CoverRuleDto(enable,searchUrl,coverRule,enabledCookieJar:Option<bool>)；
+表达式原文、默认资源、主配置覆盖与Cookie空值语义不变，数据库rule仍为原JSON文档。
+JS书源提取返回BookSourceDto，Dart继续将原脚本写入mainJs；语法检查返回
+SourceSyntaxDto(valid,message,line:Option<u32>)，不强制执行脚本或更改行号含义。
+购买返回ChapterPurchaseDto(kind:ChapterPurchaseKindDto,value)，kind穷举url/success/none，
+原JS执行、成功清缓存和调用方刷新规则不变。按钮回调返回SourceCallbackDto(invoked,jsTrue,raw,
+actionsJson)，动态动作数组单独保留JSON；顺序、未知字段及平台回放一次后才返回的语义不变。
+完整稳定结果不得先JSON序列化再反解；固定结构与真正动态动作文档分开，不扩展用户功能。
+
+编写者：Codex｜2026-10-17
+
 ### FFI-TRANSPORT-20261017 / P3 流冻结
 
 搜索、书源校验和换源的已有 StreamSink<String> 分别改为 StreamSink<SearchSourceBatchDto>、

@@ -22,6 +22,7 @@ import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+import 'source_tools_dto.dart';
 import 'task_dto.dart';
 import 'transfer_dto.dart';
 
@@ -423,7 +424,7 @@ abstract class RustLibApi extends BaseApi {
     required String entry,
   });
 
-  Future<String> crateFfiFfiChapterPayAction({
+  Future<ChapterPurchaseDto> crateFfiFfiChapterPayAction({
     required String bookUrl,
     required int chapterIndex,
   });
@@ -575,7 +576,7 @@ abstract class RustLibApi extends BaseApi {
     required String bookAuthor,
   });
 
-  Future<String> crateFfiFfiGetCoverRule();
+  Future<CoverRuleDto> crateFfiFfiGetCoverRule();
 
   Future<Uint8List?> crateFfiFfiGetImageCache({
     required String bookUrl,
@@ -674,14 +675,16 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> crateFfiFfiJsEval({required String script});
 
-  Future<String> crateFfiFfiJsSourceExtract({required String content});
+  Future<BookSourceDto> crateFfiFfiJsSourceExtract({required String content});
 
   Future<String> crateFfiFfiJsSourceStampLastUpdateTime({
     required String content,
     required PlatformInt64 stamp,
   });
 
-  Future<String> crateFfiFfiJsSourceSyntaxCheck({required String content});
+  Future<SourceSyntaxDto> crateFfiFfiJsSourceSyntaxCheck({
+    required String content,
+  });
 
   Future<bool> crateFfiFfiLooksLikeCurl({required String text});
 
@@ -976,7 +979,7 @@ abstract class RustLibApi extends BaseApi {
     required String chapterUrl,
   });
 
-  Future<bool> crateFfiFfiSaveCoverRule({required String ruleJson});
+  Future<bool> crateFfiFfiSaveCoverRule({required CoverRuleDto rule});
 
   Future<bool> crateFfiFfiSaveImageCache({
     required String bookUrl,
@@ -991,9 +994,11 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateFfiFfiSearchCancel();
 
-  Future<String> crateFfiFfiSearchCover({required String bookName});
+  Future<List<CoverCandidateDto>> crateFfiFfiSearchCover({
+    required String bookName,
+  });
 
-  Future<String> crateFfiFfiSearchCoverRules({required String name});
+  Future<List<String>> crateFfiFfiSearchCoverRules({required String name});
 
   Future<PlatformInt64> crateFfiFfiSearchHistoryAdd({
     required String keyword,
@@ -1060,7 +1065,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<BookSourceDto> crateFfiFfiSourceAdd({required BookSourceDto source});
 
-  Future<String> crateFfiFfiSourceCallBackBtn({
+  Future<SourceCallbackDto> crateFfiFfiSourceCallBackBtn({
     required String event,
     required String bookUrl,
     int? chapterIndex,
@@ -4189,7 +4194,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  Future<String> crateFfiFfiChapterPayAction({
+  Future<ChapterPurchaseDto> crateFfiFfiChapterPayAction({
     required String bookUrl,
     required int chapterIndex,
   }) {
@@ -4207,7 +4212,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_chapter_purchase_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiChapterPayActionConstMeta,
@@ -5478,7 +5483,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiGetCoverRule() {
+  Future<CoverRuleDto> crateFfiFfiGetCoverRule() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -5491,7 +5496,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_cover_rule_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiGetCoverRuleConstMeta,
@@ -6394,7 +6399,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "js_eval", argNames: ["script"]);
 
   @override
-  Future<String> crateFfiFfiJsSourceExtract({required String content}) {
+  Future<BookSourceDto> crateFfiFfiJsSourceExtract({required String content}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -6408,7 +6413,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_book_source_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiJsSourceExtractConstMeta,
@@ -6459,7 +6464,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> crateFfiFfiJsSourceSyntaxCheck({required String content}) {
+  Future<SourceSyntaxDto> crateFfiFfiJsSourceSyntaxCheck({
+    required String content,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -6473,8 +6480,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_bridge_error,
+          decodeSuccessData: sse_decode_source_syntax_dto,
+          decodeErrorData: null,
         ),
         constMeta: kCrateFfiFfiJsSourceSyntaxCheckConstMeta,
         argValues: [content],
@@ -8915,12 +8922,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<bool> crateFfiFfiSaveCoverRule({required String ruleJson}) {
+  Future<bool> crateFfiFfiSaveCoverRule({required CoverRuleDto rule}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(ruleJson, serializer);
+          sse_encode_box_autoadd_cover_rule_dto(rule, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -8933,14 +8940,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSaveCoverRuleConstMeta,
-        argValues: [ruleJson],
+        argValues: [rule],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta get kCrateFfiFfiSaveCoverRuleConstMeta =>
-      const TaskConstMeta(debugName: "save_cover_rule", argNames: ["ruleJson"]);
+      const TaskConstMeta(debugName: "save_cover_rule", argNames: ["rule"]);
 
   @override
   Future<bool> crateFfiFfiSaveImageCache({
@@ -9040,7 +9047,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "search_cancel", argNames: []);
 
   @override
-  Future<String> crateFfiFfiSearchCover({required String bookName}) {
+  Future<List<CoverCandidateDto>> crateFfiFfiSearchCover({
+    required String bookName,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -9054,7 +9063,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_cover_candidate_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSearchCoverConstMeta,
@@ -9068,7 +9077,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "search_cover", argNames: ["bookName"]);
 
   @override
-  Future<String> crateFfiFfiSearchCoverRules({required String name}) {
+  Future<List<String>> crateFfiFfiSearchCoverRules({required String name}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -9082,7 +9091,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_list_String,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSearchCoverRulesConstMeta,
@@ -9796,7 +9805,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "source_add", argNames: ["source"]);
 
   @override
-  Future<String> crateFfiFfiSourceCallBackBtn({
+  Future<SourceCallbackDto> crateFfiFfiSourceCallBackBtn({
     required String event,
     required String bookUrl,
     int? chapterIndex,
@@ -9820,7 +9829,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
+          decodeSuccessData: sse_decode_source_callback_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiSourceCallBackBtnConstMeta,
@@ -12434,6 +12443,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverRuleDto dco_decode_box_autoadd_cover_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_cover_rule_dto(raw);
+  }
+
+  @protected
   ExploreRuleDto dco_decode_box_autoadd_explore_rule_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_explore_rule_dto(raw);
@@ -12751,6 +12766,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChapterPurchaseDto dco_decode_chapter_purchase_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ChapterPurchaseDto(
+      kind: dco_decode_chapter_purchase_kind_dto(arr[0]),
+      value: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
+  ChapterPurchaseKindDto dco_decode_chapter_purchase_kind_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ChapterPurchaseKindDto.values[raw as int];
+  }
+
+  @protected
   CheckProgressDto dco_decode_check_progress_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -12874,6 +12907,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       imageDecode: dco_decode_opt_String(arr[8]),
       payAction: dco_decode_opt_String(arr[9]),
       callBackJs: dco_decode_opt_String(arr[10]),
+    );
+  }
+
+  @protected
+  CoverCandidateDto dco_decode_cover_candidate_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return CoverCandidateDto(
+      url: dco_decode_String(arr[0]),
+      width: dco_decode_i_32(arr[1]),
+      height: dco_decode_i_32(arr[2]),
+    );
+  }
+
+  @protected
+  CoverRuleDto dco_decode_cover_rule_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return CoverRuleDto(
+      enable: dco_decode_bool(arr[0]),
+      searchUrl: dco_decode_String(arr[1]),
+      coverRule: dco_decode_String(arr[2]),
+      enabledCookieJar: dco_decode_opt_box_autoadd_bool(arr[3]),
     );
   }
 
@@ -13678,6 +13738,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return (raw as List<dynamic>)
         .map(dco_decode_cloud_voice_descriptor_dto)
         .toList();
+  }
+
+  @protected
+  List<CoverCandidateDto> dco_decode_list_cover_candidate_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_cover_candidate_dto).toList();
   }
 
   @protected
@@ -14804,6 +14870,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SourceCallbackDto dco_decode_source_callback_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return SourceCallbackDto(
+      invoked: dco_decode_bool(arr[0]),
+      jsTrue: dco_decode_bool(arr[1]),
+      raw: dco_decode_String(arr[2]),
+      actionsJson: dco_decode_String(arr[3]),
+    );
+  }
+
+  @protected
   SourceCheckConfigDto dco_decode_source_check_config_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -14854,6 +14934,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bookName: dco_decode_String(arr[0]),
       author: dco_decode_String(arr[1]),
       matches: dco_decode_list_source_match_dto(arr[2]),
+    );
+  }
+
+  @protected
+  SourceSyntaxDto dco_decode_source_syntax_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return SourceSyntaxDto(
+      valid: dco_decode_bool(arr[0]),
+      message: dco_decode_String(arr[1]),
+      line: dco_decode_opt_box_autoadd_u_32(arr[2]),
     );
   }
 
@@ -16011,6 +16104,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CoverRuleDto sse_decode_box_autoadd_cover_rule_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_cover_rule_dto(deserializer));
+  }
+
+  @protected
   ExploreRuleDto sse_decode_box_autoadd_explore_rule_dto(
     SseDeserializer deserializer,
   ) {
@@ -16383,6 +16484,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ChapterPurchaseDto sse_decode_chapter_purchase_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_chapter_purchase_kind_dto(deserializer);
+    var var_value = sse_decode_String(deserializer);
+    return ChapterPurchaseDto(kind: var_kind, value: var_value);
+  }
+
+  @protected
+  ChapterPurchaseKindDto sse_decode_chapter_purchase_kind_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return ChapterPurchaseKindDto.values[inner];
+  }
+
+  @protected
   CheckProgressDto sse_decode_check_progress_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_index = sse_decode_usize(deserializer);
@@ -16551,6 +16671,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       imageDecode: var_imageDecode,
       payAction: var_payAction,
       callBackJs: var_callBackJs,
+    );
+  }
+
+  @protected
+  CoverCandidateDto sse_decode_cover_candidate_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_url = sse_decode_String(deserializer);
+    var var_width = sse_decode_i_32(deserializer);
+    var var_height = sse_decode_i_32(deserializer);
+    return CoverCandidateDto(
+      url: var_url,
+      width: var_width,
+      height: var_height,
+    );
+  }
+
+  @protected
+  CoverRuleDto sse_decode_cover_rule_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_enable = sse_decode_bool(deserializer);
+    var var_searchUrl = sse_decode_String(deserializer);
+    var var_coverRule = sse_decode_String(deserializer);
+    var var_enabledCookieJar = sse_decode_opt_box_autoadd_bool(deserializer);
+    return CoverRuleDto(
+      enable: var_enable,
+      searchUrl: var_searchUrl,
+      coverRule: var_coverRule,
+      enabledCookieJar: var_enabledCookieJar,
     );
   }
 
@@ -17704,6 +17854,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <CloudVoiceDescriptorDto>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_cloud_voice_descriptor_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<CoverCandidateDto> sse_decode_list_cover_candidate_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <CoverCandidateDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_cover_candidate_dto(deserializer));
     }
     return ans_;
   }
@@ -19499,6 +19663,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SourceCallbackDto sse_decode_source_callback_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_invoked = sse_decode_bool(deserializer);
+    var var_jsTrue = sse_decode_bool(deserializer);
+    var var_raw = sse_decode_String(deserializer);
+    var var_actionsJson = sse_decode_String(deserializer);
+    return SourceCallbackDto(
+      invoked: var_invoked,
+      jsTrue: var_jsTrue,
+      raw: var_raw,
+      actionsJson: var_actionsJson,
+    );
+  }
+
+  @protected
   SourceCheckConfigDto sse_decode_source_check_config_dto(
     SseDeserializer deserializer,
   ) {
@@ -19568,6 +19749,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bookName: var_bookName,
       author: var_author,
       matches: var_matches,
+    );
+  }
+
+  @protected
+  SourceSyntaxDto sse_decode_source_syntax_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_valid = sse_decode_bool(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    var var_line = sse_decode_opt_box_autoadd_u_32(deserializer);
+    return SourceSyntaxDto(
+      valid: var_valid,
+      message: var_message,
+      line: var_line,
     );
   }
 
@@ -20719,6 +20913,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_cover_rule_dto(
+    CoverRuleDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_cover_rule_dto(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_explore_rule_dto(
     ExploreRuleDto self,
     SseSerializer serializer,
@@ -21087,6 +21290,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_chapter_purchase_dto(
+    ChapterPurchaseDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_chapter_purchase_kind_dto(self.kind, serializer);
+    sse_encode_String(self.value, serializer);
+  }
+
+  @protected
+  void sse_encode_chapter_purchase_kind_dto(
+    ChapterPurchaseKindDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
   void sse_encode_check_progress_dto(
     CheckProgressDto self,
     SseSerializer serializer,
@@ -21203,6 +21425,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.imageDecode, serializer);
     sse_encode_opt_String(self.payAction, serializer);
     sse_encode_opt_String(self.callBackJs, serializer);
+  }
+
+  @protected
+  void sse_encode_cover_candidate_dto(
+    CoverCandidateDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.url, serializer);
+    sse_encode_i_32(self.width, serializer);
+    sse_encode_i_32(self.height, serializer);
+  }
+
+  @protected
+  void sse_encode_cover_rule_dto(CoverRuleDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.enable, serializer);
+    sse_encode_String(self.searchUrl, serializer);
+    sse_encode_String(self.coverRule, serializer);
+    sse_encode_opt_box_autoadd_bool(self.enabledCookieJar, serializer);
   }
 
   @protected
@@ -22091,6 +22333,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_cloud_voice_descriptor_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_cover_candidate_dto(
+    List<CoverCandidateDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_cover_candidate_dto(item, serializer);
     }
   }
 
@@ -23553,6 +23807,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_source_callback_dto(
+    SourceCallbackDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.invoked, serializer);
+    sse_encode_bool(self.jsTrue, serializer);
+    sse_encode_String(self.raw, serializer);
+    sse_encode_String(self.actionsJson, serializer);
+  }
+
+  @protected
   void sse_encode_source_check_config_dto(
     SourceCheckConfigDto self,
     SseSerializer serializer,
@@ -23598,6 +23864,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.bookName, serializer);
     sse_encode_String(self.author, serializer);
     sse_encode_list_source_match_dto(self.matches, serializer);
+  }
+
+  @protected
+  void sse_encode_source_syntax_dto(
+    SourceSyntaxDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.valid, serializer);
+    sse_encode_String(self.message, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.line, serializer);
   }
 
   @protected

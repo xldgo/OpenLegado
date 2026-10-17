@@ -31,15 +31,15 @@ const COVER_RULE_TIMEOUT_SECS: u64 = 15;
 /// coverRules 表 rule 字段 / FFI 配置 JSON（对齐原版 `BookCover.CoverRule`）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CoverRuleConfig {
+pub struct CoverRuleConfig {
     #[serde(default = "default_true")]
-    enable: bool,
+    pub enable: bool,
     /// 搜索 URL 模板（支持 `{{key}}` 等模板，key=书名）
     #[serde(default)]
-    search_url: String,
+    pub search_url: String,
     /// 封面提取规则（AnalyzeRule getString isUrl=true 语义）
     #[serde(default)]
-    cover_rule: String,
+    pub cover_rule: String,
     /// 响应 Set-Cookie 写回开关（对齐上游 `BookCover.CoverRule.enabledCookieJar`）
     ///
     /// 上游 `BookCover.searchCover` 以 CoverRule 自身作 `AnalyzeUrl(source=…)`，
@@ -51,7 +51,7 @@ struct CoverRuleConfig {
         rename = "enabledCookieJar",
         skip_serializing_if = "Option::is_none"
     )]
-    enabled_cookie_jar: Option<bool>,
+    pub enabled_cookie_jar: Option<bool>,
 }
 
 fn default_true() -> bool {
@@ -67,6 +67,11 @@ fn default_cover_rule_config() -> LegadoResult<CoverRuleConfig> {
 ///
 /// 返回裸 JSON `{enable,searchUrl,coverRule}`；表空时回退默认 assets。
 pub fn get_cover_rule() -> LegadoResult<String> {
+    Ok(serde_json::to_string(&read_cover_rule()?)?)
+}
+
+/// 类型化读取复用同一默认资源和表内文档解析。
+pub fn read_cover_rule() -> LegadoResult<CoverRuleConfig> {
     let config = if crate::db_state::is_initialized() {
         let rows = with_database(|db| {
             let repo = CoverRuleRepository::new(db.connection());
@@ -99,14 +104,18 @@ pub fn get_cover_rule() -> LegadoResult<String> {
     } else {
         default_cover_rule_config()?
     };
-    serde_json::to_string(&config)
-        .map_err(|e| LegadoError::Internal(format!("封面规则序列化失败: {e}")))
+    Ok(config)
 }
 
 /// 保存封面规则（对齐 `BookCover.saveCoverRule`）
 pub fn save_cover_rule(rule_json: &str) -> LegadoResult<bool> {
     let config: CoverRuleConfig = serde_json::from_str(rule_json)
         .map_err(|e| LegadoError::Internal(format!("封面规则 JSON 无效: {e}")))?;
+    write_cover_rule(config)
+}
+
+/// 普通编辑直接接收完整配置，持久化文档不变。
+pub fn write_cover_rule(config: CoverRuleConfig) -> LegadoResult<bool> {
     if config.search_url.trim().is_empty() || config.cover_rule.trim().is_empty() {
         return Err(LegadoError::Internal("搜索url和cover规则不能为空".into()));
     }
@@ -155,11 +164,16 @@ pub fn delete_cover_rule() -> LegadoResult<bool> {
 ///
 /// 错误码：Internal（coverRules 规则数据读取失败，由 DB 错误映射）。
 pub fn search_cover_rules(name: &str) -> LegadoResult<String> {
+    Ok(serde_json::to_string(&search_cover_urls(name)?)?)
+}
+
+/// 直接返回已有结果集合，不在桥接前中转JSON。
+pub fn search_cover_urls(name: &str) -> LegadoResult<Vec<String>> {
     let key = name.trim().to_string();
 
     if !crate::db_state::is_initialized() {
         // 数据库未初始化：返回空数组（沿用 dictLookup「非异常」语义）
-        return Ok("[]".to_string());
+        return Ok(vec![]);
     }
 
     // 规则数据读取失败 → 向上抛出（契约错误码 Internal）
@@ -185,8 +199,7 @@ pub fn search_cover_rules(name: &str) -> LegadoResult<String> {
         }
     }
 
-    serde_json::to_string(&urls)
-        .map_err(|e| LegadoError::Internal(format!("封面 URL 列表序列化失败: {e}")))
+    Ok(urls)
 }
 
 /// 执行单条封面规则（对标原版 `BookCover.searchCover` 单规则分支）

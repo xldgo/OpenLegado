@@ -1,9 +1,9 @@
+import 'package:flutter_legado/src/bridge/source_tools_dto.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' show StreamRequest;
 import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -40,7 +40,19 @@ Map<String, bool> _options(SwitchSearchOptionsDto v) => {
   'loadWordCount': v.loadWordCount,
   'forceRefresh': v.forceRefresh,
 };
+Map<String, dynamic> _coverMap(CoverRuleDto v) => {
+  'enable': v.enable,
+  'searchUrl': v.searchUrl,
+  'coverRule': v.coverRule,
+  if (v.enabledCookieJar != null) 'enabledCookieJar': v.enabledCookieJar,
+};
+
 void main() {
+  setUpAll(
+    () => registerFallbackValue(
+      const CoverRuleDto(enable: true, searchUrl: '', coverRule: ''),
+    ),
+  );
   late _Bridge bridge;
   const service = RustSourceSwitchService();
   const covers = RustCoverSearchService();
@@ -297,10 +309,13 @@ void main() {
 
   test('封面候选与规则搜索分别解码尺寸和地址列表', () async {
     when(() => bridge.crateFfiFfiSearchCover(bookName: '书')).thenAnswer(
-      (_) async => '[{"url":"a","width":240,"height":320},{"url":"b"}]',
+      (_) async => const [
+        CoverCandidateDto(url: 'a', width: 240, height: 320),
+        CoverCandidateDto(url: 'b', width: 0, height: 0),
+      ],
     );
     when(() => bridge.crateFfiFfiSearchCoverRules(name: '书'))
-        .thenAnswer((_) async => '["a","b"]');
+        .thenAnswer((_) async => ['a', 'b']);
     final result = await covers.searchCover('书');
     expect(result, [
       const CoverCandidate(url: 'a', width: 240, height: 320),
@@ -311,19 +326,23 @@ void main() {
 
   test('封面规则读写保留Cookie选项，删除false不冒充成功', () async {
     when(() => bridge.crateFfiFfiGetCoverRule()).thenAnswer(
-      (_) async => '{"enable":false,"searchUrl":"url","coverRule":"rule","enabledCookieJar":true}',
+      (_) async => const CoverRuleDto(
+        enable: false,
+        searchUrl: 'url',
+        coverRule: 'rule',
+        enabledCookieJar: true,
+      ),
     );
-    when(
-      () => bridge.crateFfiFfiSaveCoverRule(ruleJson: any(named: 'ruleJson')),
-    ).thenAnswer((call) async {
-      expect(jsonDecode(call.namedArguments[#ruleJson] as String), {
-        'enable': false,
-        'searchUrl': 'url',
-        'coverRule': 'rule',
-        'enabledCookieJar': true,
-      });
-      return true;
-    });
+    when(() => bridge.crateFfiFfiSaveCoverRule(rule: any(named: 'rule')))
+        .thenAnswer((call) async {
+          expect(_coverMap(call.namedArguments[#rule] as CoverRuleDto), {
+            'enable': false,
+            'searchUrl': 'url',
+            'coverRule': 'rule',
+            'enabledCookieJar': true,
+          });
+          return true;
+        });
     when(() => bridge.crateFfiFfiDeleteCoverRule())
         .thenAnswer((_) async => false);
     final rule = await rules.getCoverRule();
@@ -333,16 +352,15 @@ void main() {
   });
 
   test('未指定Cookie选项不会在写入时凭空启用', () async {
-    when(
-      () => bridge.crateFfiFfiSaveCoverRule(ruleJson: any(named: 'ruleJson')),
-    ).thenAnswer((call) async {
-      expect(jsonDecode(call.namedArguments[#ruleJson] as String), {
-        'enable': true,
-        'searchUrl': 'u',
-        'coverRule': 'r',
-      });
-      return false;
-    });
+    when(() => bridge.crateFfiFfiSaveCoverRule(rule: any(named: 'rule')))
+        .thenAnswer((call) async {
+          expect(_coverMap(call.namedArguments[#rule] as CoverRuleDto), {
+            'enable': true,
+            'searchUrl': 'u',
+            'coverRule': 'r',
+          });
+          return false;
+        });
     expect(
       await rules.saveCoverRule(
         const CoverRule(searchUrl: 'u', coverRule: 'r'),
@@ -353,10 +371,11 @@ void main() {
 
   test('封面坏响应与原生失败向上传递', () async {
     when(() => bridge.crateFfiFfiSearchCover(bookName: '书'))
-        .thenAnswer((_) async => '[1]');
+        .thenThrow(const FormatException('封面失败'));
     when(() => bridge.crateFfiFfiSearchCoverRules(name: '书'))
-        .thenAnswer((_) async => '[null]');
-    when(() => bridge.crateFfiFfiGetCoverRule()).thenAnswer((_) async => '[]');
+        .thenThrow(const FormatException('规则失败'));
+    when(() => bridge.crateFfiFfiGetCoverRule())
+        .thenThrow(const FormatException('配置失败'));
     final error = StateError('事务失败');
     when(
       () => bridge.crateFfiFfiSourceSwitchApply(

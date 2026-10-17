@@ -1,7 +1,9 @@
+import 'dart:convert';
+
+import '../../bridge/source_tools_dto.dart' as dto;
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/source_action_service.dart';
 import '../../domain/models/source_action_result.dart';
-import '../bridge/rust_json_decode.dart';
 
 /// 回调动作在返回前按原队列回放一次，再由调用方判断默认操作。— Codex + Bridge
 class RustSourceActionService implements SourceActionService {
@@ -12,24 +14,16 @@ class RustSourceActionService implements SourceActionService {
     required String bookUrl,
     required int chapterIndex,
   }) async {
-    final map = decodeRustJsonMap(
-      await bridge.chapterPayAction(
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
-      ),
-      'chapterPayAction',
+    final result = await bridge.chapterPayAction(
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
     );
-    final kind = switch (map['kind']) {
-      'url' => ChapterPurchaseKind.url,
-      'success' => ChapterPurchaseKind.success,
-      'none' => ChapterPurchaseKind.none,
-      _ => throw const FormatException('chapterPayAction返回未知kind'),
+    final kind = switch (result.kind) {
+      dto.ChapterPurchaseKindDto.url => ChapterPurchaseKind.url,
+      dto.ChapterPurchaseKindDto.success => ChapterPurchaseKind.success,
+      dto.ChapterPurchaseKindDto.none => ChapterPurchaseKind.none,
     };
-    final value = map['value'];
-    if (value is! String) {
-      throw const FormatException('chapterPayAction缺少有效value');
-    }
-    return ChapterPurchaseResult(kind: kind, value: value);
+    return ChapterPurchaseResult(kind: kind, value: result.value);
   }
 
   @override
@@ -40,30 +34,22 @@ class RustSourceActionService implements SourceActionService {
     String? result,
     int bookType = 0,
   }) async {
-    final map = decodeRustJsonMap(
-      await bridge.sourceCallBackBtn(
-        event: event,
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
-        result: result,
-        bookType: bookType,
-      ),
-      'sourceCallBackBtn',
+    final payload = await bridge.sourceCallBackBtn(
+      event: event,
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
+      result: result,
+      bookType: bookType,
     );
-    final invoked = map['invoked'];
-    final jsTrue = map['jsTrue'];
-    final raw = map['raw'];
-    final actions = map['actions'];
-    if (invoked is! bool ||
-        jsTrue is! bool ||
-        raw is! String ||
-        actions is! List) {
-      throw const FormatException('sourceCallBackBtn返回字段无效');
+    // 只解析真正动态动作文档，保留未知字段与原有平台队列。
+    final actions = jsonDecode(payload.actionsJson);
+    if (actions is! List) {
+      throw const FormatException('sourceCallBackBtn动作必须为数组');
     }
     final response = SourceCallbackResult(
-      invoked: invoked,
-      jsTrue: jsTrue,
-      raw: raw,
+      invoked: payload.invoked,
+      jsTrue: payload.jsTrue,
+      raw: payload.raw,
       actions: actions,
     );
     if (response.actions.isNotEmpty) await _dispatchActions(response.actions);

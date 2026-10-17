@@ -152,6 +152,7 @@ pub mod ffi {
     use crate::file_dto::*;
     use crate::frb_generated::StreamSink;
     use crate::media_dto::*;
+    use crate::source_tools_dto::*;
     use crate::task_dto::*;
     use crate::transfer_dto::{
         AnnotatedCandidateDto, BookDto, BookGroupDto, BookHighlightDto, BookSourceDto, BookmarkDto,
@@ -754,9 +755,11 @@ pub mod ffi {
     /// 每项字段：`url` / `width` / `height`（未知尺寸填 0）。
     ///
     /// `book_name` — 书籍名称（搜索关键词）
-    pub fn search_cover(book_name: String) -> Result<String, BridgeError> {
-        let candidates = crate::api::search::search_cover(&book_name)?;
-        to_json(&candidates)
+    pub fn search_cover(book_name: String) -> Result<Vec<CoverCandidateDto>, BridgeError> {
+        Ok(crate::api::search::search_cover(&book_name)?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 
     /// 多源渐进式（流式）搜索
@@ -2318,9 +2321,11 @@ pub mod ffi {
     /// 返回 JSON：`{"kind": "url"/"success"/"none", "value": "<JS 返回原文>"}`；
     /// kind=url 时 UI 打开支付页，kind=success 时已清当前章正文缓存。
     /// 需 quickjs 构建（非 quickjs 返回错误）。
-    pub fn chapter_pay_action(book_url: String, chapter_index: i32) -> Result<String, BridgeError> {
-        let result = crate::api::pay_action_api::chapter_pay_action(&book_url, chapter_index)?;
-        to_json(&result)
+    pub fn chapter_pay_action(
+        book_url: String,
+        chapter_index: i32,
+    ) -> Result<ChapterPurchaseDto, BridgeError> {
+        crate::api::pay_action_api::chapter_pay_action(&book_url, chapter_index)?.try_into()
     }
 
     // ─── 配置管理 ─────────────────────────────────────
@@ -2637,21 +2642,18 @@ pub mod ffi {
     ///
     /// 返回候选封面 URL 裸 JSON Array（§1.4 铁律）；无启用规则或
     /// 全部失败返回 `[]`（非异常）。
-    pub fn search_cover_rules(name: String) -> Result<String, BridgeError> {
-        let json = crate::api::cover_api::search_cover_rules(&name)?;
-        Ok(json)
+    pub fn search_cover_rules(name: String) -> Result<Vec<String>, BridgeError> {
+        Ok(crate::api::cover_api::search_cover_urls(&name)?)
     }
 
     /// 读取封面规则配置（契约 §2.4 F4，对齐 BookCover.getCoverRule）
-    pub fn get_cover_rule() -> Result<String, BridgeError> {
-        let json = crate::api::cover_api::get_cover_rule()?;
-        Ok(json)
+    pub fn get_cover_rule() -> Result<CoverRuleDto, BridgeError> {
+        Ok(crate::api::cover_api::read_cover_rule()?.into())
     }
 
     /// 保存封面规则配置（契约 §2.4 F4，对齐 BookCover.saveCoverRule）
-    pub fn save_cover_rule(rule_json: String) -> Result<bool, BridgeError> {
-        let ok = crate::api::cover_api::save_cover_rule(&rule_json)?;
-        Ok(ok)
+    pub fn save_cover_rule(rule: CoverRuleDto) -> Result<bool, BridgeError> {
+        Ok(crate::api::cover_api::write_cover_rule(rule.into())?)
     }
 
     /// 删除封面规则配置（契约 §2.4 F4，对齐 BookCover.delCoverRule）
@@ -3168,36 +3170,32 @@ pub mod ffi {
         chapter_index: Option<i32>,
         result: Option<String>,
         book_type: i32,
-    ) -> Result<String, BridgeError> {
-        let dto = crate::api::source_callback_api::source_call_back_btn(
+    ) -> Result<SourceCallbackDto, BridgeError> {
+        crate::api::source_callback_api::source_call_back_btn(
             &event,
             &book_url,
             chapter_index,
             result.as_deref(),
             book_type,
-        )?;
-        to_json(&dto)
+        )?
+        .try_into()
     }
 
     // ─── JS 单文件书源配置（JsSourceConfig 对齐）────────────────
 
-    /// 提取 JS 单文件书源配置（返回 BookSource JSON）
+    /// 提取JS单文件书源完整配置。
     ///
     /// `content` — 完整 JS 书源脚本文本；需 quickjs 构建，否则返回错误
-    pub fn js_source_extract(content: String) -> Result<String, BridgeError> {
-        Ok(crate::api::js_source_config_api::js_source_extract(
-            &content,
-        )?)
+    pub fn js_source_extract(content: String) -> Result<BookSourceDto, BridgeError> {
+        Ok(crate::api::js_source_config_api::js_source_extract(&content)?.into())
     }
 
-    /// JS 语法检查（#479，返回 SyntaxCheckResult JSON：valid/message/line）
+    /// JS 语法检查，直接返回valid/message/line诊断。
     ///
     /// `content` — 待检查的 JS 脚本文本；quickjs 构建下只编译不执行，
     /// 非 quickjs 构建降级为括号平衡基础检查
-    pub fn js_source_syntax_check(content: String) -> Result<String, BridgeError> {
-        Ok(crate::api::js_source_config_api::js_source_syntax_check(
-            &content,
-        )?)
+    pub fn js_source_syntax_check(content: String) -> SourceSyntaxDto {
+        crate::api::js_source_config_api::js_source_syntax_check(&content).into()
     }
 
     /// 写回顶层配置对象的 lastUpdateTime（#208/#515，返回替换后脚本文本）

@@ -10,6 +10,7 @@ import '../ffi.dart';
 import '../file_dto.dart';
 import '../frb_generated.dart';
 import '../media_dto.dart';
+import '../source_tools_dto.dart';
 import '../task_dto.dart';
 import '../transfer_dto.dart';
 
@@ -460,7 +461,7 @@ Future<void> searchCancel() => RustLib.instance.api.crateFfiFfiSearchCancel();
 /// 每项字段：`url` / `width` / `height`（未知尺寸填 0）。
 ///
 /// `book_name` — 书籍名称（搜索关键词）
-Future<String> searchCover({required String bookName}) =>
+Future<List<CoverCandidateDto>> searchCover({required String bookName}) =>
     RustLib.instance.api.crateFfiFfiSearchCover(bookName: bookName);
 
 /// 多源渐进式（流式）搜索
@@ -1703,7 +1704,7 @@ Stream<List<CacheDownloadTaskDto>> cacheDownloadStream({
 /// 返回 JSON：`{"kind": "url"/"success"/"none", "value": "<JS 返回原文>"}`；
 /// kind=url 时 UI 打开支付页，kind=success 时已清当前章正文缓存。
 /// 需 quickjs 构建（非 quickjs 返回错误）。
-Future<String> chapterPayAction({
+Future<ChapterPurchaseDto> chapterPayAction({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiChapterPayAction(
@@ -1949,15 +1950,16 @@ Future<void> setCustomHosts({required String hostsJson}) =>
 ///
 /// 返回候选封面 URL 裸 JSON Array（§1.4 铁律）；无启用规则或
 /// 全部失败返回 `[]`（非异常）。
-Future<String> searchCoverRules({required String name}) =>
+Future<List<String>> searchCoverRules({required String name}) =>
     RustLib.instance.api.crateFfiFfiSearchCoverRules(name: name);
 
 /// 读取封面规则配置（契约 §2.4 F4，对齐 BookCover.getCoverRule）
-Future<String> getCoverRule() => RustLib.instance.api.crateFfiFfiGetCoverRule();
+Future<CoverRuleDto> getCoverRule() =>
+    RustLib.instance.api.crateFfiFfiGetCoverRule();
 
 /// 保存封面规则配置（契约 §2.4 F4，对齐 BookCover.saveCoverRule）
-Future<bool> saveCoverRule({required String ruleJson}) =>
-    RustLib.instance.api.crateFfiFfiSaveCoverRule(ruleJson: ruleJson);
+Future<bool> saveCoverRule({required CoverRuleDto rule}) =>
+    RustLib.instance.api.crateFfiFfiSaveCoverRule(rule: rule);
 
 /// 删除封面规则配置（契约 §2.4 F4，对齐 BookCover.delCoverRule）
 Future<bool> deleteCoverRule() =>
@@ -2403,7 +2405,7 @@ Future<String> audioResolvePlayBook({
 ///
 /// 返回 JSON：`{invoked, jsTrue, raw, actions:[...]}`。
 /// `actions` 供 Flutter PlatformBridge 回放（refreshBookInfo / openBrowser 等）。
-Future<String> sourceCallBackBtn({
+Future<SourceCallbackDto> sourceCallBackBtn({
   required String event,
   required String bookUrl,
   int? chapterIndex,
@@ -2417,17 +2419,17 @@ Future<String> sourceCallBackBtn({
   bookType: bookType,
 );
 
-/// 提取 JS 单文件书源配置（返回 BookSource JSON）
+/// 提取JS单文件书源完整配置。
 ///
 /// `content` — 完整 JS 书源脚本文本；需 quickjs 构建，否则返回错误
-Future<String> jsSourceExtract({required String content}) =>
+Future<BookSourceDto> jsSourceExtract({required String content}) =>
     RustLib.instance.api.crateFfiFfiJsSourceExtract(content: content);
 
-/// JS 语法检查（#479，返回 SyntaxCheckResult JSON：valid/message/line）
+/// JS 语法检查，直接返回valid/message/line诊断。
 ///
 /// `content` — 待检查的 JS 脚本文本；quickjs 构建下只编译不执行，
 /// 非 quickjs 构建降级为括号平衡基础检查
-Future<String> jsSourceSyntaxCheck({required String content}) =>
+Future<SourceSyntaxDto> jsSourceSyntaxCheck({required String content}) =>
     RustLib.instance.api.crateFfiFfiJsSourceSyntaxCheck(content: content);
 
 /// 写回顶层配置对象的 lastUpdateTime（#208/#515，返回替换后脚本文本）

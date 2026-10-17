@@ -21,6 +21,7 @@ import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 
+import 'source_tools_dto.dart';
 import 'task_dto.dart';
 import 'transfer_dto.dart';
 
@@ -257,6 +258,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ContentRuleDto dco_decode_box_autoadd_content_rule_dto(dynamic raw);
 
   @protected
+  CoverRuleDto dco_decode_box_autoadd_cover_rule_dto(dynamic raw);
+
+  @protected
   ExploreRuleDto dco_decode_box_autoadd_explore_rule_dto(dynamic raw);
 
   @protected
@@ -387,6 +391,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChapterListDto dco_decode_chapter_list_dto(dynamic raw);
 
   @protected
+  ChapterPurchaseDto dco_decode_chapter_purchase_dto(dynamic raw);
+
+  @protected
+  ChapterPurchaseKindDto dco_decode_chapter_purchase_kind_dto(dynamic raw);
+
+  @protected
   CheckProgressDto dco_decode_check_progress_dto(dynamic raw);
 
   @protected
@@ -409,6 +419,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
+
+  @protected
+  CoverCandidateDto dco_decode_cover_candidate_dto(dynamic raw);
+
+  @protected
+  CoverRuleDto dco_decode_cover_rule_dto(dynamic raw);
 
   @protected
   DebugLogDto dco_decode_debug_log_dto(dynamic raw);
@@ -588,6 +604,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CloudVoiceDescriptorDto> dco_decode_list_cloud_voice_descriptor_dto(
     dynamic raw,
   );
+
+  @protected
+  List<CoverCandidateDto> dco_decode_list_cover_candidate_dto(dynamic raw);
 
   @protected
   List<DictionaryRuleDto> dco_decode_list_dictionary_rule_dto(dynamic raw);
@@ -935,6 +954,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ServerStatusDto dco_decode_server_status_dto(dynamic raw);
 
   @protected
+  SourceCallbackDto dco_decode_source_callback_dto(dynamic raw);
+
+  @protected
   SourceCheckConfigDto dco_decode_source_check_config_dto(dynamic raw);
 
   @protected
@@ -942,6 +964,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceSwitchResponseDto dco_decode_source_switch_response_dto(dynamic raw);
+
+  @protected
+  SourceSyntaxDto dco_decode_source_syntax_dto(dynamic raw);
 
   @protected
   SubscriptionApplyDto dco_decode_subscription_apply_dto(dynamic raw);
@@ -1257,6 +1282,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CoverRuleDto sse_decode_box_autoadd_cover_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ExploreRuleDto sse_decode_box_autoadd_explore_rule_dto(
     SseDeserializer deserializer,
   );
@@ -1431,6 +1461,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChapterListDto sse_decode_chapter_list_dto(SseDeserializer deserializer);
 
   @protected
+  ChapterPurchaseDto sse_decode_chapter_purchase_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterPurchaseKindDto sse_decode_chapter_purchase_kind_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   CheckProgressDto sse_decode_check_progress_dto(SseDeserializer deserializer);
 
   @protected
@@ -1463,6 +1503,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  CoverCandidateDto sse_decode_cover_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CoverRuleDto sse_decode_cover_rule_dto(SseDeserializer deserializer);
 
   @protected
   DebugLogDto sse_decode_debug_log_dto(SseDeserializer deserializer);
@@ -1694,6 +1742,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CloudVoiceDescriptorDto> sse_decode_list_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<CoverCandidateDto> sse_decode_list_cover_candidate_dto(
     SseDeserializer deserializer,
   );
 
@@ -2169,6 +2222,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ServerStatusDto sse_decode_server_status_dto(SseDeserializer deserializer);
 
   @protected
+  SourceCallbackDto sse_decode_source_callback_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SourceCheckConfigDto sse_decode_source_check_config_dto(
     SseDeserializer deserializer,
   );
@@ -2180,6 +2238,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SourceSwitchResponseDto sse_decode_source_switch_response_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  SourceSyntaxDto sse_decode_source_syntax_dto(SseDeserializer deserializer);
 
   @protected
   SubscriptionApplyDto sse_decode_subscription_apply_dto(
@@ -2569,6 +2630,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_cover_rule_dto(
+    CoverRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_explore_rule_dto(
     ExploreRuleDto self,
     SseSerializer serializer,
@@ -2785,6 +2852,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_chapter_purchase_dto(
+    ChapterPurchaseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_chapter_purchase_kind_dto(
+    ChapterPurchaseKindDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_check_progress_dto(
     CheckProgressDto self,
     SseSerializer serializer,
@@ -2831,6 +2910,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ContentRuleDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_cover_candidate_dto(
+    CoverCandidateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cover_rule_dto(CoverRuleDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_debug_log_dto(DebugLogDto self, SseSerializer serializer);
@@ -3141,6 +3229,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_cloud_voice_descriptor_dto(
     List<CloudVoiceDescriptorDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cover_candidate_dto(
+    List<CoverCandidateDto> self,
     SseSerializer serializer,
   );
 
@@ -3739,6 +3833,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_source_callback_dto(
+    SourceCallbackDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_source_check_config_dto(
     SourceCheckConfigDto self,
     SseSerializer serializer,
@@ -3753,6 +3853,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_source_switch_response_dto(
     SourceSwitchResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_syntax_dto(
+    SourceSyntaxDto self,
     SseSerializer serializer,
   );
 
