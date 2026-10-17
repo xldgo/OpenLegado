@@ -62,6 +62,7 @@ final class ReadAloudComparison extends ChangeNotifier {
   Duration position = Duration.zero, duration = Duration.zero;
   Future<void>? _prepareTask, _activation, _finishing;
   Object? _fillOwner;
+  Timer? _fillTimer;
   final _watch = Stopwatch();
   bool get busy => preparing || starting || running || _finishing != null;
   bool _valid(int generation) =>
@@ -101,7 +102,9 @@ final class ReadAloudComparison extends ChangeNotifier {
       status = '已固定${value.audio.length}个音频，两组使用相同文件';
     } catch (failure) {
       fixture = null;
-      error = failure is StateError ? '${failure.message}' : '准备缓存音频失败，请重试';
+      error = failure is StateError
+          ? failure.message.toString()
+          : '准备缓存音频失败，请重试';
       status = '样本未准备完成';
     } finally {
       preparing = false;
@@ -160,7 +163,10 @@ final class ReadAloudComparison extends ChangeNotifier {
         ],
         speed: 1,
         onStarted: (tag) {
-          if (!_valid(generation)) return;
+          if (!_valid(generation) ||
+              !identical(_native.currentPlaylistTag, tag)) {
+            return;
+          }
           currentIndex = tag as int;
           position = duration = Duration.zero;
           _event('item_started', {'index': currentIndex, 'queued': _next});
@@ -171,10 +177,17 @@ final class ReadAloudComparison extends ChangeNotifier {
         onCompleted: (tag) {
           if (!_valid(generation)) return;
           _event('item_completed', {'index': tag});
-          if (tag == files.length - 1) unawaited(stop(reason: 'completed'));
+          if (tag == files.length - 1 &&
+              _native.playlistFinished &&
+              identical(_native.currentPlaylistTag, tag)) {
+            unawaited(stop(reason: 'completed'));
+          }
         },
-        onProgress: (p, d, _) {
-          if (!_valid(generation)) return;
+        onProgress: (p, d, tag) {
+          if (!_valid(generation) ||
+              !identical(_native.currentPlaylistTag, tag)) {
+            return;
+          }
           position = p;
           duration = d;
           _changed();
@@ -203,6 +216,19 @@ final class ReadAloudComparison extends ChangeNotifier {
     if (!_valid(generation) ||
         !_loaded ||
         mode != ReadAloudComparisonMode.dynamic ||
+        _fillTimer != null) {
+      return;
+    }
+    _fillTimer = Timer(Duration.zero, () {
+      _fillTimer = null;
+      if (_valid(generation)) _fillNow(generation);
+    });
+  }
+
+  void _fillNow(int generation) {
+    if (!_valid(generation) ||
+        !_loaded ||
+        mode != ReadAloudComparisonMode.dynamic ||
         _fillOwner != null) {
       return;
     }
@@ -210,6 +236,9 @@ final class ReadAloudComparison extends ChangeNotifier {
     _fillOwner = owner;
     unawaited(() async {
       try {
+        final confirmed = _native.currentPlaylistTag;
+        if (confirmed is! int || confirmed < currentIndex) return;
+        currentIndex = confirmed;
         while (_valid(generation) &&
             _next < fixture!.audio.length &&
             _next - currentIndex - 1 < 2) {
@@ -220,6 +249,10 @@ final class ReadAloudComparison extends ChangeNotifier {
           ]);
           if (!_valid(generation)) return;
           _next = index + 1;
+          final confirmed = _native.currentPlaylistTag;
+          if (confirmed is int && confirmed >= currentIndex) {
+            currentIndex = confirmed;
+          }
           _event('append_end', {'index': index, 'current': currentIndex});
         }
       } catch (failure) {
@@ -259,6 +292,8 @@ final class ReadAloudComparison extends ChangeNotifier {
     ++_generation;
     running = starting = _loaded = false;
     _fillOwner = null;
+    _fillTimer?.cancel();
+    _fillTimer = null;
     return _finishing = Future<void>.microtask(() => _finish(reason))
         .whenComplete(() {
           _finishing = null;

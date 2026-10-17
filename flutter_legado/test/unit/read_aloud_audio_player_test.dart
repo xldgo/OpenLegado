@@ -266,7 +266,7 @@ void main() {
     await player.appendPlaylist([]);
     expect(native.appends, 1);
   });
-  test('位置采样不触发换项，新项不继承旧项位置，主动定位不误报自然完成', () async {
+  test('位置与无应用操作的定位不触发换项，新会话允许切换且不误报自然完成', () async {
     final a = Object(), b = Object();
     await start(a);
     await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
@@ -279,13 +279,235 @@ void main() {
     expect(ended, isEmpty);
     expect(progress, isEmpty);
     native.transition(1, natural: false, resetPosition: false);
-    expect(started, [a, b]);
+    expect(started, [a]);
     expect(ended, isEmpty);
     expect(progress, isEmpty);
+    await start(b);
+    progress.clear();
     native.position = const Duration(milliseconds: 20);
     native.emit();
     expect(progress.single.$1.inMilliseconds, 20);
     expect(progress.single.$2, same(b));
+  });
+
+  for (final locked in [false, true]) {
+    test('3→2→3不污染起播或完成，追加锁内=$locked', () async {
+      final a = Object(), b = Object(), c = Object(), d = Object();
+      await start(a);
+      await player.appendPlaylist([
+        AudioPlaylistItem(path: '/b.wav', tag: b),
+        AudioPlaylistItem(path: '/c.wav', tag: c),
+      ]);
+      native.transition(1);
+      native.transition(2);
+      Future<void>? append;
+      if (locked) {
+        native.appendGate = Completer<void>();
+        append = player.appendPlaylist([
+          AudioPlaylistItem(path: '/d.wav', tag: d),
+        ]);
+        await flush();
+      }
+      native.transition(1);
+      native.transition(2);
+      if (locked) {
+        native.appendGate!.complete();
+        await append;
+      }
+      expect(started, [a, b, c]);
+      expect(ended, [a, b]);
+      expect(player.currentPlaylistTag, same(c));
+      if (locked) native.transition(3);
+      native.finish();
+      expect(ended, locked ? [a, b, c, d] : [a, b, c]);
+      expect(failures, isEmpty);
+    });
+  }
+
+  test('追加锁内首次进入末项后回退恢复，不得提前结束末项', () async {
+    final a = Object(), b = Object(), c = Object();
+    await start(a);
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
+    native.transition(1);
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist([
+      AudioPlaylistItem(path: '/c.wav', tag: c),
+    ]);
+    await flush();
+    native.transition(2);
+    native.transition(1);
+    native.transition(2);
+    native.appendGate!.complete();
+    await append;
+    expect(started, [a, b, c]);
+    expect(ended, [a, b]);
+    native.finish();
+    expect(ended, [a, b, c]);
+  });
+
+  test('锁内真实连续推进保留顺序，回调看到的内部项目已提交', () async {
+    final tags = List.generate(4, (_) => Object());
+    final notifications = <String>[];
+    await player.startPlaylist(
+      AudioPlaylistItem(path: '/0.wav', tag: tags[0]),
+      initialFollowing: [
+        for (var i = 1; i < 3; i++)
+          AudioPlaylistItem(path: '/$i.wav', tag: tags[i]),
+      ],
+      speed: 1,
+      onStarted: (tag) {
+        expect(player.currentPlaylistTag, same(tag));
+        notifications.add('start${tags.indexOf(tag)}');
+      },
+      onCompleted: (tag) {
+        expect(player.currentPlaylistTag, isNot(same(tag)));
+        notifications.add('end${tags.indexOf(tag)}');
+      },
+      onProgress: (_, _, _) {},
+      onError: failures.add,
+    );
+    native.appendGate = Completer<void>();
+    final append = player.appendPlaylist([
+      AudioPlaylistItem(path: '/3.wav', tag: tags[3]),
+    ]);
+    await flush();
+    native.transition(1);
+    native.transition(2);
+    native.transition(3);
+    expect(notifications, ['start0']);
+    native.appendGate!.complete();
+    await append;
+    expect(notifications, [
+      'start0',
+      'end0',
+      'start1',
+      'end1',
+      'start2',
+      'end2',
+      'start3',
+    ]);
+    expect(native.seeks, isEmpty);
+  });
+
+  test('列表快照不能宣布起播，非相邻跳跃不能补造完成', () async {
+    final a = Object(), b = Object(), c = Object();
+    await start(a);
+    await player.appendPlaylist([
+      AudioPlaylistItem(path: '/b.wav', tag: b),
+      AudioPlaylistItem(path: '/c.wav', tag: c),
+    ]);
+    native.currentIndex = 1;
+    native.emit();
+    expect(started, [a]);
+    expect(ended, isEmpty);
+    native.currentIndex = 0;
+    native.emit();
+    native.transition(2);
+    expect(started, [a]);
+    expect(ended, isEmpty);
+    expect(player.currentPlaylistTag, same(a));
+  });
+
+  test('暂停期间真实换段候选恢复后核对，停止后的迟到事件不生效', () async {
+    final a = Object(), b = Object(), c = Object();
+    await start(a);
+    await player.appendPlaylist([
+      AudioPlaylistItem(path: '/b.wav', tag: b),
+      AudioPlaylistItem(path: '/c.wav', tag: c),
+    ]);
+    await player.pause();
+    native.transition(1);
+    expect(started, [a]);
+    expect(ended, isEmpty);
+    await player.resume();
+    expect(started, [a, b]);
+    expect(ended, [a]);
+    await player.stop();
+    native.currentIndex = null;
+    native.emit();
+    expect(started, [a, b]);
+    expect(ended, [a]);
+  });
+
+  test('旧项完成回调停止后，不再发送新项起播', () async {
+    final a = Object(), b = Object();
+    Future<void>? stopping;
+    await player.startPlaylist(
+      AudioPlaylistItem(path: '/a.wav', tag: a),
+      initialFollowing: [AudioPlaylistItem(path: '/b.wav', tag: b)],
+      speed: 1,
+      onStarted: started.add,
+      onCompleted: (tag) {
+        ended.add(tag);
+        stopping = player.stop();
+      },
+      onProgress: (_, _, _) {},
+      onError: failures.add,
+    );
+    native.transition(1);
+    await stopping;
+    expect(started, [a]);
+    expect(ended, [a]);
+    expect(player.currentPlaylistTag, isNull);
+  });
+
+  test('应用重播和返回上一段建立新会话，不被自然推进约束拦截', () async {
+    final a = Object(), b = Object();
+    await start(a);
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
+    native.transition(1);
+    await start(a);
+    native.finish();
+    expect(started, [a, b, a]);
+    expect(ended, [a, a]);
+  });
+
+  test('完成事件先到而派生索引稍后收敛，快照只唤醒已有完成证据', () async {
+    final a = Object(), b = Object();
+    await start(a);
+    await player.appendPlaylist([AudioPlaylistItem(path: '/b.wav', tag: b)]);
+    native.transition(1);
+    final complete = audio.PlaybackEvent(
+      currentIndex: 1,
+      processingState: audio.ProcessingState.completed,
+      duration: native.duration,
+      updatePosition: native.duration,
+      updateTime: native.playbackEvent.updateTime.add(
+        const Duration(milliseconds: 1),
+      ),
+    );
+    native.currentIndex = 0;
+    native.processingState = audio.ProcessingState.completed;
+    native.playbackEvent = complete;
+    native.events.add(complete);
+    expect(ended, [a]);
+    native.currentIndex = 1;
+    native.sequences.add(native.sequenceState);
+    await flush();
+    expect(started, [a, b]);
+    expect(ended, [a, b]);
+  });
+
+  test('旧完成回调换会话后不补发旧新项通知', () async {
+    final a = Object(), b = Object(), next = Object();
+    Future<void>? replacement;
+    await player.startPlaylist(
+      AudioPlaylistItem(path: '/a.wav', tag: a),
+      initialFollowing: [AudioPlaylistItem(path: '/b.wav', tag: b)],
+      speed: 1,
+      onStarted: started.add,
+      onCompleted: (tag) {
+        ended.add(tag);
+        replacement = start(next);
+      },
+      onProgress: (_, _, _) {},
+      onError: failures.add,
+    );
+    native.transition(1);
+    await replacement;
+    expect(started, [a, next]);
+    expect(ended, [a]);
+    expect(player.currentPlaylistTag, same(next));
   });
   test('位置流按间隔合并发布，播放事件与换项仍即时上报', () async {
     final local = ReadAloudAudioPlayer(

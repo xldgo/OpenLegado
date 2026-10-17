@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:just_audio/just_audio.dart' as audio;
 
@@ -42,7 +43,15 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   Object? _singleTag;
   String? _singleUrl;
   final _completed = Set<Object>.identity();
-  final _pendingCompleted = Set<Object>.identity();
+  final _timeline = <audio.UriAudioSource>[];
+  final _transitions = Queue<_PlaybackTransition>();
+  int _confirmedIndex = -1, _control = 0;
+  int? _seekTarget;
+  bool _loaded = false, _delivering = false;
+  Object? _pendingStarted;
+  audio.PlaybackEvent? _terminal;
+  DateTime? _initialTime, _committedTime;
+  Timer? _reconcileTimer;
   DateTime? _positionBaseline;
   Future<void> _mutations = Future.value();
   void Function(Object)? _started, _ended, _failed;
@@ -85,6 +94,9 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       'playing': player?.playing,
       'playRequested': _playRequested,
       'editing': _editing,
+      'confirmedIndex': _confirmedIndex,
+      'confirmedTag': _active == null ? null : identityHashCode(_active!),
+      'pendingTransitions': _transitions.length,
     };
   }
 
@@ -103,7 +115,10 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         player != null &&
         event != null &&
         event.processingState == audio.ProcessingState.completed &&
+        player.processingState == audio.ProcessingState.completed &&
+        event.currentIndex == _confirmedIndex &&
         event.currentIndex == player.currentIndex &&
+        identical(_currentSource?.tag, _active) &&
         (event.duration ?? Duration.zero) > Duration.zero;
   }
 
@@ -157,7 +172,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       } finally {
         _editing = false;
       }
-      _syncStructure(generation);
+      _drainTransitions(generation);
     });
     // 已返回的操作仍向调用方报错，后续清理不被旧失败阻断。
     _mutations = next.catchError((Object _) {});
@@ -174,70 +189,188 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     );
   }
 
-  void _complete(Object tag, int generation) {
-    if (generation == _generation && _queueMode && _completed.add(tag)) {
-      _ended?.call(tag);
+  bool _owns(int generation) => generation == _generation && _queueMode;
+
+  Object? _tagAt(int? index) =>
+      index != null && index >= 0 && index < _timeline.length
+      ? _timeline[index].tag
+      : null;
+
+  bool _eventOwns(audio.PlaybackEvent event, int index, Object tag) =>
+      event.currentIndex == index &&
+      identical(_tagAt(index), tag) &&
+      !event.updateTime.isBefore(_committedTime ?? event.updateTime);
+
+  void _recordStarted(Object? previous) {
+    final source = _timeline[_confirmedIndex];
+    final fields = <String, Object?>{
+      'previousTag': previous == null ? null : identityHashCode(previous),
+      'tag': identityHashCode(_active!),
+      'index': _confirmedIndex,
+      'file': ReadAloudDiagnostics.fileKey(source.uri.toString()),
+      'positionMs': 0,
+    };
+    _trace('player.item_changed', fields);
+    if (_diagnostics.enabled) {
+      _recentItems.add({
+        ...fields,
+        'wallMs': DateTime.now().millisecondsSinceEpoch,
+      });
+      if (_recentItems.length > 12) _recentItems.removeAt(0);
     }
+    _pendingStarted = _active;
   }
 
-  void _syncStructure(int generation) {
-    if (generation != _generation || !_queueMode || _editing) return;
-    final player = _native!;
-    final tag = player.sequenceState.currentSource?.tag;
-    if (tag == null) return;
-    final completed = List.of(_pendingCompleted);
-    _pendingCompleted.clear();
-    for (final previous in completed) {
-      if (!identical(previous, tag)) _complete(previous, generation);
-      if (generation != _generation || !_queueMode) return;
+  void _drainTransitions(int generation) {
+    if (!_owns(generation) ||
+        !_loaded ||
+        _editing ||
+        _delivering ||
+        _seekTarget != null ||
+        !_playRequested) {
+      return;
     }
-    if (!identical(_active, tag)) {
-      _trace('player.item_changed', {
-        'previousTag': _active == null ? null : identityHashCode(_active!),
-      });
-      _active = tag;
-      // 换项事件可能仍带上一项的位置和时长，先等待下一份原生位置基点。
-      _positionBaseline = player.playbackEvent.updateTime;
-      if (_diagnostics.enabled) {
-        final snapshot = _diagnosticSnapshot();
-        _recentItems.add({
-          'tag': snapshot['tag'],
-          'file': snapshot['file'],
-          'positionMs': snapshot['positionMs'],
-          'durationMs': snapshot['durationMs'],
-          'wallMs': DateTime.now().millisecondsSinceEpoch,
-        });
-        if (_recentItems.length > 12) _recentItems.removeAt(0);
+    _delivering = true;
+    try {
+      if (_active == null && _timeline.isNotEmpty) {
+        _confirmedIndex = 0;
+        _active = _tagAt(0);
+        _committedTime = _positionBaseline = _initialTime;
+        _recordStarted(null);
       }
-      _started?.call(tag);
-    }
-    if (generation != _generation || !_queueMode) return;
-    if (completed.any((item) => identical(item, tag)) || playlistFinished) {
-      _complete(tag, generation);
+      while (_owns(generation) && _playRequested && !_editing) {
+        final pending = _pendingStarted;
+        if (pending != null) {
+          _pendingStarted = null;
+          final control = _control;
+          _started?.call(pending);
+          if (!_owns(generation) || !_playRequested || control != _control) {
+            return;
+          }
+        }
+        if (_transitions.isEmpty) break;
+        final step = _transitions.removeFirst();
+        if (step.control != _control ||
+            !identical(_tagAt(step.to), step.toTag) ||
+            !_eventOwns(step.event, step.to, step.toTag)) {
+          continue;
+        }
+        if (!step.seek &&
+            (step.from != _confirmedIndex ||
+                step.to != step.from + 1 ||
+                !identical(step.fromTag, _active))) {
+          _trace('player.transition_ignored', {
+            'fromIndex': step.from,
+            'toIndex': step.to,
+          });
+          continue;
+        }
+        final previous = _active;
+        final changed = !identical(previous, step.toTag);
+        // 先提交事实与去重，再交给可能暂停、停止或更换会话的外部回调。
+        _confirmedIndex = step.to;
+        _active = step.toTag;
+        _committedTime = _positionBaseline = step.event.updateTime;
+        if (changed) _recordStarted(previous);
+        if (!step.seek && previous != null && _completed.add(previous)) {
+          final control = _control;
+          _ended?.call(previous);
+          if (!_owns(generation) || control != _control) return;
+        }
+      }
+      final end = _terminal;
+      if (!_owns(generation) ||
+          !_playRequested ||
+          end == null ||
+          _active == null ||
+          !_eventOwns(end, _confirmedIndex, _active!) ||
+          !playlistFinished) {
+        return;
+      }
+      _terminal = null;
+      if (_completed.add(_active!)) _ended?.call(_active!);
+    } finally {
+      _delivering = false;
     }
   }
 
   void _onDiscontinuity(audio.PositionDiscontinuity change, int generation) {
-    if (generation != _generation || !_queueMode) return;
-    if (change.reason == audio.PositionDiscontinuityReason.autoAdvance) {
-      final sequence = _native!.sequence;
-      final index = change.previousEvent.currentIndex;
-      // 本章来源只追加，索引不会因删除历史项而指向另一份正文。
-      if (index != null && index >= 0 && index < sequence.length) {
-        final tag = sequence[index].tag;
-        if (tag != null) _pendingCompleted.add(tag);
-      }
+    if (!_owns(generation)) return;
+    final from = change.previousEvent.currentIndex,
+        to = change.event.currentIndex;
+    final fromTag = _tagAt(from), toTag = _tagAt(to);
+    final seek = change.reason == audio.PositionDiscontinuityReason.seek;
+    if (from == null ||
+        to == null ||
+        fromTag == null ||
+        toTag == null ||
+        change.event.updateTime.isBefore(change.previousEvent.updateTime) ||
+        (seek
+            ? _seekTarget != to
+            : (_seekTarget != null ||
+                  to != from + 1 ||
+                  to <= _confirmedIndex))) {
+      _trace('player.transition_ignored', {
+        'fromIndex': from,
+        'toIndex': to,
+        'reason': change.reason.name,
+      });
+      return;
     }
-    _syncStructure(generation);
+    if (!_transitions.any(
+      (s) =>
+          s.control == _control &&
+          s.from == from &&
+          s.to == to &&
+          s.seek == seek,
+    )) {
+      _trace('player.transition_candidate', {
+        'fromIndex': from,
+        'toIndex': to,
+        'reason': change.reason.name,
+        'eventTimeMs': change.event.updateTime.millisecondsSinceEpoch,
+        'control': _control,
+      });
+      _transitions.add(
+        _PlaybackTransition(
+          from,
+          to,
+          fromTag,
+          toTag,
+          change.event,
+          _control,
+          seek,
+        ),
+      );
+    }
+    _drainTransitions(generation);
   }
 
-  void _onProcessingState(int generation) {
-    if (generation != _generation || !_queueMode) return;
-    if (playlistFinished) {
-      final tag = _native!.sequenceState.currentSource?.tag;
-      if (tag != null) _pendingCompleted.add(tag);
+  void _onPlaybackEvent(audio.PlaybackEvent event, int generation) {
+    if (!_owns(generation)) return;
+    _diagnostics.count('player.playback_event');
+    if (_seekTarget == null &&
+        event.processingState == audio.ProcessingState.completed &&
+        event.currentIndex == _timeline.length - 1 &&
+        (event.duration ?? Duration.zero) > Duration.zero) {
+      _terminal = event;
     }
-    _syncStructure(generation);
+    _drainTransitions(generation);
+    _scheduleReconcile(generation);
+    _publishProgress(generation);
+  }
+
+  void _scheduleReconcile(int generation) {
+    if (!_owns(generation) ||
+        _reconcileTimer != null ||
+        (_terminal == null && _transitions.isEmpty)) {
+      return;
+    }
+    // 派生索引可能晚于PlaybackEvent到达；只复核既有证据，不从快照创造转换。
+    _reconcileTimer = Timer(Duration.zero, () {
+      _reconcileTimer = null;
+      _drainTransitions(generation);
+    });
   }
 
   /// 位置发布节流：只有到点才向上层报告，返回 false 表示本帧跳过。
@@ -342,6 +475,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _singleTag = publicTag;
     _singleUrl = publicUrl;
     _playRequested = true;
+    _timeline.addAll([source, ...initialFollowing]);
     _started = onStarted;
     _ended = onCompleted;
     _progress = onProgress;
@@ -351,17 +485,13 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       'file': ReadAloudDiagnostics.fileKey(source.uri.toString()),
     });
     _subscriptions.addAll([
-      player.sequenceStateStream.listen((_) => _syncStructure(generation)),
+      player.sequenceStateStream.listen((_) => _scheduleReconcile(generation)),
       player.positionDiscontinuityStream.listen(
         (change) => _onDiscontinuity(change, generation),
       ),
-      player.processingStateStream.listen(
-        (_) => _onProcessingState(generation),
+      player.playbackEventStream.listen(
+        (event) => _onPlaybackEvent(event, generation),
       ),
-      player.playbackEventStream.listen((_) {
-        _diagnostics.count('player.playback_event');
-        _publishProgress(generation);
-      }),
       player.positionStream.listen((_) {
         _diagnostics.count('player.position_event');
         _publishProgress(generation, sampled: true);
@@ -373,6 +503,9 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     try {
       await _mutate(generation, () async {
         await player.setAudioSources([source, ...initialFollowing]);
+        if (!_owns(generation)) return;
+        _initialTime = player.playbackEvent.updateTime;
+        _loaded = true;
         _trace('player.load.done');
         if (generation != _generation || !_queueMode) return;
         await player.setSpeed(speed <= 0 ? 1 : speed);
@@ -406,7 +539,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       final endedTag = playlistFinished
           ? player.sequenceState.currentSource?.tag
           : null;
-      if (endedTag != null) _pendingCompleted.add(endedTag);
+      _timeline.addAll(sources);
       await player.addAudioSources(sources);
       _trace('player.append.end');
       if (generation != _generation || !_queueMode || !_playRequested) return;
@@ -427,7 +560,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         'targetIndex': nextIndex,
         'targetMs': 0,
       });
-      await player.seek(Duration.zero, index: nextIndex);
+      await _seekTo(Duration.zero, nextIndex, generation);
       if (generation == _generation && _queueMode && _playRequested) {
         _play(generation);
       }
@@ -456,10 +589,11 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
         'targetIndex': (player.currentIndex ?? 0) + 1,
         'targetMs': 0,
       });
-      await player.seekToNext();
+      await _seekTo(Duration.zero, _confirmedIndex + 1, generation);
     }
     if (generation == _generation && _queueMode && _playRequested) {
       _play(generation);
+      _drainTransitions(generation);
     }
   }
 
@@ -475,7 +609,38 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       'reason': 'explicit',
       'targetMs': position.inMilliseconds,
     });
-    if (_queueMode) await _native!.seek(position);
+    if (_queueMode) await _seekTo(position, _confirmedIndex, _generation);
+  }
+
+  Future<void> _seekTo(Duration position, int index, int generation) async {
+    if (!_owns(generation) || _tagAt(index) == null) return;
+    final control = ++_control;
+    _seekTarget = index;
+    _terminal = null;
+    _transitions.clear();
+    _pendingStarted = null;
+    _completed.remove(_tagAt(index));
+    final previous = _native!.playbackEvent;
+    try {
+      await _native!.seek(position, index: index);
+      if (!_owns(generation) || control != _control) return;
+      // 平台可能只发位置事件；应用操作归属与实际目标一致时补确认，不猜自然完成。
+      final current = _native!.playbackEvent;
+      if (current.currentIndex == index &&
+          identical(_currentSource?.tag, _tagAt(index))) {
+        _onDiscontinuity(
+          audio.PositionDiscontinuity(
+            audio.PositionDiscontinuityReason.seek,
+            previous,
+            current,
+          ),
+          generation,
+        );
+      }
+    } finally {
+      if (_owns(generation) && control == _control) _seekTarget = null;
+    }
+    _onPlaybackEvent(_native!.playbackEvent, generation);
   }
 
   Future<void> _playSingle(Uri uri, String url, double speed, Object? tag) =>
@@ -515,7 +680,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _singleTag = tag;
     if (_itemFinished) _completed.remove(_active);
     await resume();
-    _syncStructure(generation);
+    _drainTransitions(generation);
     return generation == _generation && identical(_singleTag, tag);
   }
 
@@ -531,13 +696,23 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     _playRequested = false;
     _queueMode = false;
     _active = null;
+    _confirmedIndex = -1;
+    _loaded = false;
+    _pendingStarted = null;
+    _terminal = null;
+    _seekTarget = null;
+    _initialTime = _committedTime = null;
+    ++_control;
+    _timeline.clear();
+    _transitions.clear();
+    _reconcileTimer?.cancel();
+    _reconcileTimer = null;
     _positionBaseline = null;
     _lastProgressPublishMs = -1 << 30;
     _single = false;
     _singleTag = null;
     _singleUrl = null;
     _completed.clear();
-    _pendingCompleted.clear();
     _started = _ended = _failed = null;
     _progress = null;
     final subscriptions = List.of(_subscriptions);
@@ -562,4 +737,21 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     await _native?.dispose();
     _native = null;
   }
+}
+
+/// 保存转换的有序证据，不提前把来源变化归结为某个标签已完成。
+final class _PlaybackTransition {
+  const _PlaybackTransition(
+    this.from,
+    this.to,
+    this.fromTag,
+    this.toTag,
+    this.event,
+    this.control,
+    this.seek,
+  );
+  final int from, to, control;
+  final Object fromTag, toTag;
+  final audio.PlaybackEvent event;
+  final bool seek;
 }

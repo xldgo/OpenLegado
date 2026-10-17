@@ -73,7 +73,9 @@ void main() {
     expect(player.items.map((a) => a.path), fixture.audio.map((a) => a.path));
     expect(player.starts, 1);
     expect(player.playedLocalFiles.single.speed, 1);
-    for (var i = 0; i < 8; i++) player.advance();
+    for (var i = 0; i < 8; i++) {
+      player.advance();
+    }
     await comparison.stop();
     expect(player.appendBatches, isEmpty);
     expect(comparison.running, isFalse);
@@ -112,6 +114,29 @@ void main() {
     expect(player.items.map((i) => i.path), fixture.audio.map((i) => i.path));
     expect(player.starts, 1);
     expect(player.nativeResumes, 0);
+  });
+
+  test('快速换段只异步唤醒补充，按已确认项目读取储备', () async {
+    await comparison.start(ReadAloudComparisonMode.dynamic);
+    player.advance();
+    player.advance();
+    expect(player.appendBatches, isEmpty);
+    await _drain();
+    expect(player.items.map((i) => i.tag), [0, 1, 2, 3, 4]);
+    expect(player.starts, 1);
+    expect(comparison.currentIndex, 2);
+  });
+
+  test('末项暂态回调不提前停止，停止前取消待补充唤醒', () async {
+    await comparison.start(ReadAloudComparisonMode.dynamic);
+    player.started!(7);
+    player.completed!(7);
+    expect(comparison.running, isTrue);
+    expect(comparison.currentIndex, 0);
+    await comparison.stop();
+    await _drain();
+    expect(player.appendBatches, isEmpty);
+    expect(comparison.running, isFalse);
   });
 
   test('新组清理采集但保留已另存的A日志，且两组清单一致', () async {

@@ -30,7 +30,7 @@ final class FileReadAloudPlaylist {
   bool _loaded = false, _paused = false;
   Object? _fillOwner;
   Object? _appendOwner;
-  Timer? _appendTimer;
+  Timer? _appendTimer, _pumpTimer;
   Object? _failure;
   Future<void> _pauseBarrier = Future.value();
 
@@ -85,7 +85,11 @@ final class FileReadAloudPlaylist {
         onStarted: (tag) => _started(tag, generation),
         onCompleted: (tag) => _ended(tag, generation),
         onProgress: (position, duration, tag) {
-          if (!_valid(generation) || duration.inMilliseconds <= 0) return;
+          if (!_valid(generation) ||
+              duration.inMilliseconds <= 0 ||
+              !identical(_native.currentPlaylistTag, tag)) {
+            return;
+          }
           final cue = tag as ReadAloudPlaylistCue;
           final offset =
               (cue.request.text.length *
@@ -114,12 +118,14 @@ final class FileReadAloudPlaylist {
     _next = 1;
     _queuedNext = 1;
     _loaded = true;
-    _pump();
+    _schedulePump();
     return ReadAloudStart.started;
   }
 
   void _started(Object tag, int generation) {
-    if (!_valid(generation)) return;
+    if (!_valid(generation) || !identical(_native.currentPlaylistTag, tag)) {
+      return;
+    }
     final index = _cues.indexWhere((cue) => identical(cue, tag));
     if (index < 0) return;
     _current = index;
@@ -146,7 +152,7 @@ final class FileReadAloudPlaylist {
     _onCue?.call(cue);
     if (!_valid(generation)) return;
     _session?.reportProgress(_cues[index].sourceOffset - _progressBase);
-    _pump();
+    _schedulePump();
   }
 
   void _ended(Object tag, int generation) {
@@ -154,6 +160,10 @@ final class FileReadAloudPlaylist {
     final index = _cues.indexWhere((cue) => identical(cue, tag));
     if (index < 0) return;
     if (index == _cues.length - 1) {
+      if (!_native.playlistFinished ||
+          !identical(_native.currentPlaylistTag, tag)) {
+        return;
+      }
       _session?.reportProgress(
         _cues[index].sourceOffset -
             _progressBase +
@@ -184,6 +194,21 @@ final class FileReadAloudPlaylist {
     _session?.reportProgress(_cues[next].sourceOffset - _progressBase);
     _loaded = false;
     _session?.fail(_failure!);
+  }
+
+  void _schedulePump() {
+    if (!_loaded || !_valid(_generation) || _pumpTimer != null) return;
+    final generation = _generation;
+    _pumpTimer = Timer(Duration.zero, () {
+      _pumpTimer = null;
+      if (!_valid(generation)) return;
+      final confirmed = _native.currentPlaylistTag;
+      final index = _cues.indexWhere((cue) => identical(cue, confirmed));
+      if (index < _current) return;
+      _current = index;
+      _pump();
+      _scheduleAppend();
+    });
   }
 
   void _pump() {
@@ -219,7 +244,7 @@ final class FileReadAloudPlaylist {
       } finally {
         if (identical(_fillOwner, owner)) {
           _fillOwner = null;
-          if (_valid(_generation)) _pump();
+          if (_valid(_generation)) _schedulePump();
         }
       }
     }());
@@ -267,7 +292,7 @@ final class FileReadAloudPlaylist {
         _appendOwner = null;
         if (_valid(generation)) {
           _scheduleAppend();
-          _pump();
+          _schedulePump();
           _maybeFail(generation);
         }
       }
@@ -278,6 +303,8 @@ final class FileReadAloudPlaylist {
     _session?.cancel();
     _paused = true;
     _pending?.cancel();
+    _pumpTimer?.cancel();
+    _pumpTimer = null;
     return _pauseBarrier = player.pause();
   }
 
@@ -299,7 +326,7 @@ final class FileReadAloudPlaylist {
       _started(tag, generation);
     }
     if (_native.playlistFinished && tag != null) _ended(tag, generation);
-    _pump();
+    _schedulePump();
     _scheduleAppend();
     return ReadAloudStart.started;
   }
@@ -312,6 +339,8 @@ final class FileReadAloudPlaylist {
     _pending = null;
     _appendTimer?.cancel();
     _appendTimer = null;
+    _pumpTimer?.cancel();
+    _pumpTimer = null;
     _loaded = _paused = false;
     _failure = null;
     _pauseBarrier = Future.value();

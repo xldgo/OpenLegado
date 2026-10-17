@@ -112,6 +112,49 @@ void main() {
     expect(leases.map((l) => l.releases), everyElement(1));
   });
 
+  test('起播只合并唤醒，执行时按已确认项目补足前方两项', () async {
+    final session = _Session();
+    final started = <int>[];
+    await engine.speakPlaylist(
+      cues(6),
+      session.value,
+      onCueStarted: (cue) => started.add(cue.paragraphIndex),
+    );
+    await flush();
+    expect(inputs, hasLength(3));
+    player.advance();
+    player.advance();
+    expect(inputs, hasLength(3));
+    expect(started, [0, 1, 2]);
+    await flush();
+    expect(inputs, hasLength(5));
+    expect(player.items, hasLength(5));
+    expect(player.appendBatches.map((b) => b.length), [2, 2]);
+    expect(session.completed, 0);
+  });
+
+  test('起播和末项完成必须属于确认项目，不被暂态标签提前切章', () async {
+    final session = _Session();
+    final plan = cues(3);
+    final started = <int>[];
+    await engine.speakPlaylist(
+      plan,
+      session.value,
+      onCueStarted: (cue) => started.add(cue.paragraphIndex),
+    );
+    await flush();
+    player.started!(plan.last);
+    player.completed!(plan.last);
+    expect(started, [0]);
+    expect(session.completed, 0);
+    player.advance();
+    player.advance();
+    expect(session.completed, 0);
+    player.advance();
+    expect(started, [0, 1, 2]);
+    expect(session.completed, 1);
+  });
+
   test('暂停恢复不重新装载，新的会话从当前片起点映射原文进度', () async {
     final old = _Session();
     await engine.speakPlaylist(cues(4), old.value, onCueStarted: (_) {});
@@ -217,12 +260,12 @@ void main() {
     expect(leases.map((item) => item.releases), everyElement(0));
   });
 
-  test('批量提交调度前停止，不产生迟到追加，已准备租约全部回收', () async {
+  test('补充调度前停止，不启动迟到合成或追加，已准备租约全部回收', () async {
     await engine.speakPlaylist(cues(3), _Session().value, onCueStarted: (_) {});
     for (var i = 0; i < 8; i++) {
       await Future<void>.value();
     }
-    expect(inputs, hasLength(3));
+    expect(inputs, hasLength(1));
     expect(player.appendBatches, isEmpty);
     await engine.stop();
     await flush();
