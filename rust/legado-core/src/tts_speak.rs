@@ -125,6 +125,12 @@ pub fn is_error_content_type(content_type: &str) -> bool {
     ct == "application/json" || ct.starts_with("text/")
 }
 
+/// 缓存命中探测的扩展名集合（与 `ext_from_content_type` 的输出保持一致）
+///
+/// 只探测已知扩展名即可覆盖全部写入路径：`put` 的扩展名来自该映射，
+/// 因此无需再扫描目录。
+const CACHE_EXTENSIONS: [&str; 7] = ["mp3", "wav", "aac", "m4a", "ogg", "amr", "flac"];
+
 /// 合成音频文件缓存：`{dir}/tts_{md5}.{ext}`
 ///
 /// 文件系统即索引（对照原版 `hasSpeakFile` / `createSpeakFile` 目录扫描模式），
@@ -147,26 +153,22 @@ impl SpeakCache {
         &self.dir
     }
 
-    /// 查找缓存文件（扫描 `tts_{key}.*`），未命中返回 None；空文件视为未命中
+    /// 查找缓存文件，未命中返回 None；空文件视为未命中
+    ///
+    /// 评审修复（性能，高价值）：原实现 `read_dir` 遍历整个缓存目录并逐条
+    /// `is_file()` + `metadata()`，每次合成都扫一遍（含纯缓存命中），目录越大
+    /// 越慢，朗读期间形成持续的目录遍历 I/O。现按已知扩展名逐个探测：
+    /// 最多 7 次 `metadata`，命中通常 1 次，与目录规模无关。
+    ///
+    /// 兼容性：`put` 只会写入 `ext_from_content_type` 产出的 7 种扩展名，
+    /// 探测集合与之一致；`.part` 临时文件不再可能被误命中（旧实现仅按
+    /// `tts_{key}.` 前缀匹配，文件名形如 `tts_{key}.mp3.part` 会被当作音频）。
     pub fn get(&self, key: &str) -> Option<PathBuf> {
-        let prefix = format!("{}{}.", SPEAK_CACHE_PREFIX, key);
-        let entries = std::fs::read_dir(&self.dir).ok()?;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            // 评审修复（提前返回，低危）：原 `path.file_name()?` 遇 None
-            // 会终止整个扫描循环，改为 continue 跳过该条目。
-            let Some(file_name) = path.file_name() else {
-                continue;
-            };
-            let name = file_name.to_string_lossy().to_string();
-            if name.starts_with(&prefix)
-                && let Ok(meta) = std::fs::metadata(&path)
-                && meta.len() > 0
-            {
-                return Some(path);
+        for ext in CACHE_EXTENSIONS {
+            let path = self.dir.join(format!("{}{}.{}", SPEAK_CACHE_PREFIX, key, ext));
+            match std::fs::metadata(&path) {
+                Ok(meta) if meta.is_file() && meta.len() > 0 => return Some(path),
+                _ => continue,
             }
         }
         None
@@ -203,7 +205,10 @@ impl SpeakCache {
             .open(&temp)?;
         let cleanup = TempFile(temp.clone());
         file.write_all(bytes)?;
-        file.sync_all()?;
+        // 性能（发热治理）：`sync_all` 会连 inode 元数据一起刷盘，朗读期间每段
+        // 一次即形成稳定 fsync 开销。这里只需保证数据落盘后再 rename 发布，
+        // `sync_data`（fdatasync）已足够；音频是可再生缓存，掉电最坏重合成。
+        file.sync_data()?;
         drop(file);
         // 完整写入之后才发布；扫描不识别 .part 临时文件。
         std::fs::rename(&temp, &path)?;
@@ -464,6 +469,27 @@ mod tests {
         // clear 删除所有 tts_ 前缀文件（含空文件）
         assert_eq!(cache.clear(), 2);
         assert!(cache.get("abc").is_none());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn test_speak_cache_get_is_key_exact_and_never_returns_partial_files() {
+        let dir = test_dir("probe");
+        let cache = SpeakCache::new(dir.clone());
+
+        // 无关文件与同前缀键不得误命中
+        std::fs::write(dir.join("tts_abcdef.mp3"), b"other").unwrap();
+        std::fs::write(dir.join("tts_partial.wav.part"), b"PARTIAL_AUDIO").unwrap();
+        assert!(cache.get("abc").is_none());
+        assert!(cache.get("partial").is_none());
+        assert!(cache.get("abcdef").is_some());
+
+        // 已知扩展名按 key 精确命中；空文件仍视为未命中
+        let path = cache.put("probe-key", "wav", b"RIFFDATA").unwrap();
+        assert_eq!(cache.get("probe-key"), Some(path));
+        std::fs::write(dir.join("tts_empty.mp3"), b"").unwrap();
+        assert!(cache.get("empty").is_none());
+
         std::fs::remove_dir_all(&dir).ok();
     }
 

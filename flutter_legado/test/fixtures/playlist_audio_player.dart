@@ -13,7 +13,7 @@ class FakePlaylistAudioPlayer extends FakeStreamAudioPlayer
   bool _finished = false, _paused = false;
   Object? appendError, startError;
   Completer<void>? appendGate;
-  final discardGates = <Completer<void>>[];
+  final appendBatches = <List<AudioPlaylistItem>>[];
   void Function(Object)? started, completed, error;
   void Function(Duration, Duration, Object)? progress;
 
@@ -67,29 +67,22 @@ class FakePlaylistAudioPlayer extends FakeStreamAudioPlayer
   }
 
   @override
-  Future<void> appendPlaylist(AudioPlaylistItem item) async {
+  Future<void> appendPlaylist(List<AudioPlaylistItem> batch) async {
+    if (batch.isEmpty) return;
+    appendBatches.add(List.of(batch));
     await appendGate?.future;
     if (appendError != null) throw appendError!;
-    items.add(item);
+    items.addAll(batch);
     if (items.length > peakItems) peakItems = items.length;
     if (_finished && !_paused) {
       current++;
       _finished = false;
       isPlaying = true;
-      currentTag = item.tag;
-      startedTags.add(item.tag);
-      started?.call(item.tag);
+      currentTag = items[current].tag;
+      currentUrl = items[current].path;
+      startedTags.add(items[current].tag);
+      started?.call(items[current].tag);
     }
-  }
-
-  @override
-  Future<void> discardPlayedItems() async {
-    if (current <= 0) return;
-    final retiring = items.take(current).toList();
-    if (discardGates.isNotEmpty) await discardGates.removeAt(0).future;
-    final playing = items[current];
-    items.removeWhere(retiring.contains);
-    current = items.indexOf(playing);
   }
 
   void report(int milliseconds, {int total = 1000}) => progress?.call(

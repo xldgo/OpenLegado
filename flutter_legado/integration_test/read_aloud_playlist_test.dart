@@ -65,7 +65,6 @@ Future<Map<String, Object>> queued(List<File> files) async {
         handleInterruptions: false,
         handleAudioSessionActivation: false,
         androidApplyAudioAttributes: false,
-        useLazyPreparation: false,
         maxSkipsOnError: 0,
       );
     },
