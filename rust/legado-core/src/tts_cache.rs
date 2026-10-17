@@ -182,7 +182,9 @@ impl TtsCache {
                 .create_new(true)
                 .open(&temp)?;
             file.write_all(&serde_json::to_vec(&contexts)?)?;
-            file.sync_all()?;
+            // 性能（发热治理）：索引只是缓存管理页的附加元数据，不是播放依据；
+            // 每次合成一段都 sync_all 会额外产生一次 fsync。这里只保证写完后
+            // rename 发布，掉电最多丢一条索引，音频本身仍可正常播放。
             drop(file);
             std::fs::rename(&temp, self.index(name))?;
             Ok(())
