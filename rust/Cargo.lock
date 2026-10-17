@@ -2106,6 +2106,7 @@ dependencies = [
  "argon2",
  "chrono",
  "legado-core",
+ "log",
  "md5",
  "r2d2",
  "r2d2_sqlite",

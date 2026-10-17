@@ -4,8 +4,12 @@
 //! deadline = 0 表示永不过期；deadline > 0 表示过期时间戳（毫秒）。
 
 use rusqlite::{Connection, params};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use legado_core::{LegadoError, LegadoResult};
+
+/// 配置坏行继续跳过，仅首次告警，避免高频读取刷屏。
+static CONFIG_ROW_FAIL_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// 缓存记录（对应 caches 表）
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +32,49 @@ pub struct CacheRepository<'a> {
 impl<'a> CacheRepository<'a> {
     pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
+    }
+
+    /// 批量读取配置原始键值；不套用普通缓存的过期清理规则。
+    pub fn configuration_entries(&self) -> LegadoResult<Vec<(String, String)>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT key, value FROM caches WHERE key LIKE ?1")
+            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+        let rows = stmt
+            .query_map(params!["config:%"], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
+        let mut entries = Vec::new();
+        for row in rows {
+            match row {
+                Ok(entry) => entries.push(entry),
+                Err(e) => {
+                    if CONFIG_ROW_FAIL_WARNED
+                        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                        .is_ok()
+                    {
+                        log::warn!("读取配置行失败（仅告警一次，后续静默跳过）: {e}");
+                    }
+                }
+            }
+        }
+        Ok(entries)
+    }
+
+    /// 清理指定书籍的章级开关，书籍 URL 中的 LIKE 通配符只按字面匹配。
+    pub fn delete_same_title_removed(&self, book_url: &str) -> LegadoResult<usize> {
+        let escaped = book_url
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
+        let pattern = format!("sameTitleRemoved:{escaped}:%");
+        self.conn
+            .execute(
+                "DELETE FROM caches WHERE key LIKE ?1 ESCAPE '\\'",
+                params![pattern],
+            )
+            .map_err(|e| LegadoError::Database(format!("复位章级开关失败：{e}")))
     }
 
     /// 写入缓存
@@ -147,6 +194,57 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         schema::init_schema(&conn).unwrap();
         conn
+    }
+
+    #[test]
+    fn configuration_query_skips_bad_rows_without_expiring_entries() {
+        let conn = setup_db();
+        conn.execute_batch(
+            "INSERT INTO caches(key,value,deadline,created_at) VALUES
+            ('config:theme','dark',0,0), ('config:expired','kept',1,0),
+            ('config:bad',x'80',0,0), ('other','hidden',0,0);",
+        )
+        .unwrap();
+        let repo = CacheRepository::new(&conn);
+        let mut entries = repo.configuration_entries().unwrap();
+        entries.sort();
+        assert_eq!(
+            entries,
+            [
+                ("config:expired".into(), "kept".into()),
+                ("config:theme".into(), "dark".into())
+            ]
+        );
+        assert_eq!(repo.count().unwrap(), 4);
+        conn.execute_batch("DROP TABLE caches").unwrap();
+        assert!(repo.configuration_entries().is_err());
+    }
+
+    #[test]
+    fn same_title_cleanup_escapes_url_and_keeps_other_keys() {
+        let conn = setup_db();
+        let repo = CacheRepository::new(&conn);
+        let book = r"fixture://a%_\b";
+        for key in [
+            format!("sameTitleRemoved:{book}:0"),
+            format!("sameTitleRemoved:{book}:1"),
+            r"sameTitleRemoved:fixture://aXY\b:0".into(),
+            format!("sameTitleRemoved:{book}extra:0"),
+            format!("other:{book}:0"),
+        ] {
+            repo.put(&key, "1", 0).unwrap();
+        }
+        assert_eq!(repo.delete_same_title_removed(book).unwrap(), 2);
+        assert_eq!(repo.delete_same_title_removed(book).unwrap(), 0);
+        assert_eq!(repo.count().unwrap(), 3);
+        assert!(
+            repo.contains_key(r"sameTitleRemoved:fixture://aXY\b:0")
+                .unwrap()
+        );
+        assert!(
+            repo.contains_key(&format!("sameTitleRemoved:{book}extra:0"))
+                .unwrap()
+        );
     }
 
     #[test]

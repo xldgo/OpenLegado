@@ -63,20 +63,14 @@ impl ChapterCacheService {
     /// caches 表 `sameTitleRemoved:{book_url}:%` 章级「不删重复标题」开关键
     /// （写入侧 reader::toggle_same_title_removed，消费侧读取时跳过同标题去重；
     /// 不清则清缓存后章节仍按旧开关渲染，用户预期「重置」落空）。LIKE 模式
-    /// 经 [`like_escape`] 转义 book_url 防通配符跨书误删（同 clear_cache_before）。
+    /// 由缓存仓储转义 book_url，防止通配符跨书误删（同 clear_cache_before）。
     pub fn clear_book_cache(&self, book_url: &str) -> LegadoResult<i32> {
         self.with_database(|db| {
-            use rusqlite::params;
             let conn = db.connection();
             let repo = CacheBookRepository::new(conn);
             let deleted = repo.delete_by_book(book_url)?;
             // 复位该书的章级「删除重复标题」开关（caches 表键前缀匹配）
-            let pattern = format!("sameTitleRemoved:{}:%", like_escape(book_url));
-            conn.execute(
-                "DELETE FROM caches WHERE key LIKE ?1 ESCAPE '\\'",
-                params![pattern],
-            )
-            .map_err(|e| LegadoError::Database(format!("复位章级开关失败：{e}")))?;
+            CacheRepository::new(conn).delete_same_title_removed(book_url)?;
             Ok(deleted as i32)
         })
     }
@@ -292,46 +286,14 @@ impl ChapterCacheService {
     /// `sameTitleRemoved:{bookUrl}:*` 章级开关键；未被清理的书籍不受影响。
     pub fn clear_cache_before(&self, before_timestamp: i64) -> LegadoResult<i64> {
         self.with_database(|db| {
-            use rusqlite::params;
             let conn = db.connection();
-            // 先收集将被清理的书籍 book_url 集合（仅这些书的章级开关需复位）
-            let book_urls: Vec<String> = {
-                let mut stmt = conn
-                    .prepare("SELECT DISTINCT book_url FROM cached_chapters WHERE cached_at < ?1")
-                    .map_err(|e| {
-                        legado_core::LegadoError::Database(format!("查询待清理书籍失败：{e}"))
-                    })?;
-                let rows = stmt
-                    .query_map(params![before_timestamp], |row| row.get::<_, String>(0))
-                    .map_err(|e| {
-                        legado_core::LegadoError::Database(format!("查询待清理书籍失败：{e}"))
-                    })?;
-                rows.collect::<Result<Vec<_>, _>>().map_err(|e| {
-                    legado_core::LegadoError::Database(format!("查询待清理书籍失败：{e}"))
-                })?
-            };
-
-            let deleted = conn
-                .execute(
-                    "DELETE FROM cached_chapters WHERE cached_at < ?1",
-                    params![before_timestamp],
-                )
-                .map_err(|e| {
-                    legado_core::LegadoError::Database(format!("清空过期缓存失败：{e}"))
-                })?;
-
-            // 复位被清理书籍的章级「删除重复标题」开关（caches 表键前缀匹配）；
-            // book_url 可能含 %/_ 等 LIKE 通配符（如 URL 百分号编码），先转义
-            // 再匹配，避免误删他书键。
+            let repo = CacheBookRepository::new(conn);
+            // 保留查询、章节删除、逐书复位的顺序，不新增统一事务。
+            let book_urls = repo.books_cached_before(before_timestamp)?;
+            let deleted = repo.delete_expired(before_timestamp)?;
+            let flags = CacheRepository::new(conn);
             for book_url in book_urls {
-                let pattern = format!("sameTitleRemoved:{}:%", like_escape(&book_url));
-                conn.execute(
-                    "DELETE FROM caches WHERE key LIKE ?1 ESCAPE '\\'",
-                    params![pattern],
-                )
-                .map_err(|e| {
-                    legado_core::LegadoError::Database(format!("复位章级开关失败：{e}"))
-                })?;
+                flags.delete_same_title_removed(&book_url)?;
             }
             Ok(deleted as i64)
         })
@@ -347,14 +309,6 @@ fn db_logical_size_bytes(conn: &rusqlite::Connection) -> LegadoResult<i64> {
         .query_row("PRAGMA page_size", [], |row| row.get(0))
         .map_err(|e| LegadoError::Database(format!("查询 page_size 失败: {e}")))?;
     Ok(page_count.saturating_mul(page_size))
-}
-
-/// LIKE 模式转义：将 `\`、`%`、`_` 转为带 `\` 前缀的字面量，
-/// 配合 `ESCAPE '\\'` 使用，防止 book_url 中的通配符造成跨书误删
-fn like_escape(s: &str) -> String {
-    s.replace('\\', "\\\\")
-        .replace('%', "\\%")
-        .replace('_', "\\_")
 }
 
 #[cfg(test)]

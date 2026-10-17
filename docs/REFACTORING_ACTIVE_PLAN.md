@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-BOUNDARY-CLEANUP-20261018：缓存仓储收口与弹幕解析下沉（P1）
+
+- 授权与基线：用户批准实施排期首两批，feature/rust-ffi-modernization / 260f89685，沿用当前 worktree，单代理。保留主目录用户文档；不推送、合并、安装、远程 CI 或新增分支。
+- 范围：CacheRepository 承接配置批量查询及转义后的章级标记删除；CacheBookRepository 承接按时间查询并复用已有删除方法。配置坏行跳过/首次告警、不加 TTL，章节坏行报错、严格小于时刻、多语句顺序及部分失败保持。弹幕纯解析与现有八项回归迁入 legado-book，FFI 保留原入口。
+- 非目标：不改 FFI 签名/生成绑定、schema、依赖版本、应用版本或 UI；不新增事务、自动过期策略或媒体功能。后续错误/生命周期核查只按实际缺陷立项，拆 crate 不自动执行。
+- 验证：复用缓存与弹幕测试，补真实 SQLite 的坏行、时间边界、通配符和失败顺序缺口；相关 Rust 回归及两档严格 Clippy，集中一次正式 Windows DLL/指纹摘要和已有真实 FRB 用例。不新增外部宿主或源码字符串测试；单代理自查，不宣称独立外审或设备验收。
+- 缓存批结果：配置查询/坏行首次告警与章级标记删除集中 CacheRepository，时间查询及删除集中 CacheBookRepository；delete_expired 原先无生产调用方，错误文案沿用服务入口原有的“清空过期缓存失败”，正式调用方行为不变。DB 显式复用已锁定 log 依赖，仅增加依赖边，不升级包。新增四项真实 SQLite 回归覆盖过期配置保留/坏行跳过、三类 LIKE 转义、严格时间边界/坏行失败、两种清理的中途失败顺序与部分清理状态。
+- 缓存验证：default 定向 DB25/Engine52/FFI30 加配置1，共108项通过、2项既有忽略；DB/Engine/FFI 全目标严格 Clippy、限定格式及 git diff --check 通过。证据位于 build/rust-boundary-cleanup/{cache-tests,config-tests,cache-clippy}.log。未重建 DLL，跨批正式接线仍待集中验证。
+- 状态：缓存整批本地验证完成并随本批提交；弹幕解析下沉实施中。
+
+编写者：Codex｜2026-10-18
+
 ### MEDIA-ENGINE-SERVICES-20261018：朗读与音频服务边界收口（P1）
 
 - 授权与基线：用户解除音频/TTS暂缓并同意顺序；当前feature/rust-ffi-modernization，已将主目录6da9692ab合入为b6d7ef26f，仅在本worktree工作，单代理，整批验证后本地提交，不推送/安装/远程CI或修改主目录。

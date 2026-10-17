@@ -8,6 +8,99 @@ use legado_core::{
 use legado_db::{BookRepository, repository::Repository};
 
 #[test]
+fn cleanup_keeps_statement_order_and_partial_failure() {
+    for time_based in [false, true] {
+        let engine = EngineContext::in_memory().unwrap();
+        let storage = engine.storage();
+        let service = ChapterCacheService::new(Some(storage.clone()));
+        let cleanup = || {
+            if time_based {
+                service.clear_cache_before(10)
+            } else {
+                service.clear_book_cache("book").map(i64::from)
+            }
+        };
+        storage
+            .with_database(|db| {
+                let conn = db.connection();
+                for (index, time) in [(0, 9), (1, 10), (2, 11)] {
+                    CacheBookRepository::new(conn).insert(&CachedChapter {
+                        id: 0,
+                        book_url: "book".into(),
+                        chapter_index: index,
+                        chapter_title: "标题".into(),
+                        chapter_url: format!("chapter/{index}"),
+                        content: "正文".into(),
+                        cached_at: time,
+                        size_bytes: 6,
+                    })?;
+                }
+                CacheRepository::new(conn).put("sameTitleRemoved:book:0", "1", 0)?;
+                conn.execute_batch(
+                    "CREATE TRIGGER reject_chapter BEFORE DELETE ON cached_chapters
+                BEGIN SELECT RAISE(ABORT,'chapter blocked'); END;",
+                )
+                .unwrap();
+                Ok(())
+            })
+            .unwrap();
+        assert!(
+            cleanup()
+                .unwrap_err()
+                .to_string()
+                .contains("chapter blocked")
+        );
+        storage
+            .with_database(|db| {
+                let conn = db.connection();
+                assert_eq!(
+                    CacheBookRepository::new(conn).get_stats()?.total_chapters,
+                    3
+                );
+                assert!(CacheRepository::new(conn).contains_key("sameTitleRemoved:book:0")?);
+                conn.execute_batch(
+                    "DROP TRIGGER reject_chapter;
+                CREATE TRIGGER reject_flag BEFORE DELETE ON caches
+                BEGIN SELECT RAISE(ABORT,'flag blocked'); END;",
+                )
+                .unwrap();
+                Ok(())
+            })
+            .unwrap();
+        assert!(
+            cleanup()
+                .unwrap_err()
+                .to_string()
+                .contains("复位章级开关失败：flag blocked")
+        );
+        storage
+            .with_database(|db| {
+                let conn = db.connection();
+                assert_eq!(
+                    CacheBookRepository::new(conn).get_stats()?.total_chapters,
+                    if time_based { 2 } else { 0 }
+                );
+                assert!(CacheRepository::new(conn).contains_key("sameTitleRemoved:book:0")?);
+                conn.execute_batch("DROP TRIGGER reject_flag").unwrap();
+                Ok(())
+            })
+            .unwrap();
+        // 失败前删除的章节不回滚，后续无章节可删时仍保留原来的残留标记语义。
+        assert_eq!(cleanup().unwrap(), 0);
+        storage
+            .with_database(|db| {
+                assert_eq!(
+                    CacheRepository::new(db.connection())
+                        .contains_key("sameTitleRemoved:book:0")?,
+                    time_based
+                );
+                Ok(())
+            })
+            .unwrap();
+    }
+}
+
+#[test]
 fn captured_cache_filters_stale_entries_and_cleans_only_its_storage() {
     let first = EngineContext::in_memory().unwrap();
     let second = EngineContext::in_memory().unwrap();

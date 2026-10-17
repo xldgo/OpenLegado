@@ -256,8 +256,21 @@ impl<'a> CacheBookRepository<'a> {
                 "DELETE FROM cached_chapters WHERE cached_at < ?1",
                 params![before_timestamp],
             )
-            .map_err(|e| LegadoError::Database(format!("删除过期缓存失败: {e}")))?;
+            .map_err(|e| LegadoError::Database(format!("清空过期缓存失败：{e}")))?;
         Ok(count)
+    }
+
+    /// 查询严格早于指定时刻的缓存所属书籍；坏行必须上抛，不能漏清章级开关。
+    pub fn books_cached_before(&self, before_timestamp: i64) -> LegadoResult<Vec<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT book_url FROM cached_chapters WHERE cached_at < ?1")
+            .map_err(|e| LegadoError::Database(format!("查询待清理书籍失败：{e}")))?;
+        let rows = stmt
+            .query_map(params![before_timestamp], |row| row.get::<_, String>(0))
+            .map_err(|e| LegadoError::Database(format!("查询待清理书籍失败：{e}")))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| LegadoError::Database(format!("查询待清理书籍失败：{e}")))
     }
 }
 
@@ -377,6 +390,33 @@ mod tests {
 
         let stats = repo.get_stats().unwrap();
         assert_eq!(stats.total_chapters, 1);
+    }
+
+    #[test]
+    fn time_query_and_deletion_share_strict_boundary_and_reject_bad_book_url() {
+        let db = crate::init_in_memory_database().unwrap();
+        let conn = db.connection();
+        let repo = CacheBookRepository::new(conn);
+        for (book, index, time) in [
+            ("old", 0, 9),
+            ("old", 1, 8),
+            ("equal", 0, 10),
+            ("new", 0, 11),
+        ] {
+            repo.insert(&make_cached(book, &format!("{book}/{index}"), index, time))
+                .unwrap();
+        }
+        assert_eq!(repo.books_cached_before(10).unwrap(), ["old"]);
+        assert_eq!(repo.delete_expired(10).unwrap(), 2);
+        assert!(repo.books_cached_before(10).unwrap().is_empty());
+        assert_eq!(repo.get_stats().unwrap().total_chapters, 2);
+        conn.execute(
+            "UPDATE cached_chapters SET book_url=x'80' WHERE cached_at=10",
+            [],
+        )
+        .unwrap();
+        assert!(repo.books_cached_before(11).is_err());
+        assert_eq!(repo.get_stats().unwrap().total_chapters, 2);
     }
 
     #[test]
