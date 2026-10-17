@@ -2,7 +2,10 @@
 
 ### FFI-TRANSPORT-20261017：FFI 传输层现代化（P1）
 
-- 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界已完成，正在契约与定向集成收口；不扩展历史格式兼容层，不改变备份FFI签名。
+- 后续执行授权：用户同意先修RSS备份完整性，再补自动任务及其余稳定接口、收口契约与定向集成。基线7237fbb3e，继续原worktree，Codex单代理；每个完整阶段验证后本地提交，不推送/CI/应用安装，不更新版本或依赖。BACKUP-RSS-BOOL-20261017已关闭，自动任务稳定边界已完成，文件与服务稳定边界已完成，契约与定向集成收口已完成；不扩展历史格式兼容层，不改变备份FFI签名。
+
+- 本轮授权范围收口：RSS备份修复46c7ba1ed、自动任务f27bea0ff、文件/服务6dc59f2bd已本地提交；契约总则、排版专用契约与双轨需求说明已按现有DTO/opaque/字节SSE同步，历史立项快照明确标识。12份Flutter集中回归100项、7份真实Windows FFI集中回归25项全部通过（含80组既有上游布局对照）；最终独立DLL只读源码指纹/摘要通过，主目录仍为1b871c3c4且干净。证据：build/ffi-phase3/final-{flutter,native}-integration.log。无子代理、独立外审、远程CI、推送、合并、应用安装、Android/iOS或设备性能验收。
+- 范围界限：本轮冻结接口完成，不表示全仓JSON已清零。动态JS/登录/配置/导入导出文件保留真实文档；尚未冻结的TXT书内搜索、封面候选、音频书解析、章节购买动作与脚本诊断仍使用既有接口，后续需先核对消费者和协议再决定迁移。没有把这些残留包装成“必须保留JSON”的架构规定。
 
 - 后续第6批完成：本地格式/元数据/导入、导出与预览、ZIP/RAR条目及解包结果、编码结果、WebDAV目录、服务状态改为DTO/直接集合。导出原始字节不经Base64，预览章节数独立字段；Mock段评真实文档解析拆到review_document_decode，无消费者旧书籍传输解码删除。真实WebDAV请求先复现失败：临时Runtime返回Handle后被销毁，已复用持久Runtime并补驱动存活测试。版本、存储和用户导出选项不变。
 - 第6批验证：QuickJS FFI593项通过/42忽略、默认FFI517项/21忽略，两档全目标严格Clippy通过；7份Flutter组合首轮34通过/1文件未编译（测试Book参数命名），修后该文件11项通过，完整Flutter分析无问题。原6项Rust导出测试通过，正式独立DLL重建及只读摘要验证通过；真实文件4项通过，覆盖本地TXT/目录/UTF-8导出/预览/ZIP/UTF-16转换/PROPFIND/状态，Zip列表按既有基础文件名语义修正测试。证据为build/ffi-phase3/file-{codegen,rust-export,rust-quick,rust-default,clippy-closed,clippy-default,analysis-final2,flutter,unit-closed,native-closed,runtime-diagnosis,runtime-final}.log。全程单代理，无独立外审/CI/应用安装或设备性能结论；未推送。

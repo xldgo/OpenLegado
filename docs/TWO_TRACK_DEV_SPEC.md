@@ -171,7 +171,7 @@ frb（flutter_rust_bridge）的调用桥按 **funcId 序号**把 Dart 调用分�
 
 流程如下：
 
-1. **登记需求**：在 `API_CONTRACT.md` 的"需求区"登记（方法名 + 入参 + 返回 JSON 结构示例）。
+1. **登记需求**：在 `API_CONTRACT.md` 的"需求区"登记（方法名 + 入参/返回 DTO 或真实 JSON 文档结构示例）。
 2. **Mock 先行**：UI 轨在对应领域 Mock 实现中提供假数据能力，继续 UI 开发。
 3. **Rust 交付**：Rust 轨按契约实现真实方法，并接入对应数据适配器。
 4. **验证切换**：UI 轨去掉 `USE_MOCK=true`，验证真实数据流通。

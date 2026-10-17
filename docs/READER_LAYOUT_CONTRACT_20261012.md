@@ -4,11 +4,12 @@
 
 ## 输入、输出与坐标
 
-配置入口为 `{schemaVersion: 1, config: {...}}`；推送入口为
-`{schemaVersion: 1, blocks: [...]}`。输出统一为
-`{schemaVersion: 1, sessionId: ..., pages: [...], rustMicros: ...}`。字段采用 camelCase。
-rustMicros 记录服务内解码、校验和布局的墙钟微秒，不含最终输出序列化；
-完整边界成本由 Flutter 的编码/调用/解码计时记录，不能把两者直接相加。
+运行时入口为 `readerLayoutBegin(LayoutConfigDto) -> LayoutSession`；句柄的
+`push(Vec<LayoutBlockDto>)` 和 `finish()` 返回 `LayoutReplyDto`，`cancel()` 同步取消。
+不再传递 sessionId、schemaVersion 包装或 JSON 字符串；Kotlin 对照 fixture 的 JSON 只是测试文档，
+不构成第二套运行时协议。配置、块与行内项采用对应 DTO/Enum。
+rustMicros 记录方法内载荷校验、模型转换、布局和紧凑结果装配的墙钟微秒，不含最终 SSE 编解码；
+Flutter 的调用总耗时包含 Rust 耗时，不能将两者直接相加。
 
 几何使用上游 Float 对应的 f32，视口宽高为整数；整数除法、浮点累计及截断按上游执行顺序。
 原文坐标为 UTF-16 半开区间，簇索引用于断行，二者不得互换。平台测量输出簇和宽度，
@@ -18,7 +19,7 @@ Rust 不重新塑形字体。零长度的背景音乐/段评元素允许存在�
 字距、段距、标题间距/居中、分栏、滚动、页底对齐、下划线及角色档案快照。
 装饰和字体资源仅传数据/资源标识，不传 Flutter 或 Android 对象。
 
-块由 `type` 区分：`paragraph`（已测量正文）、`inlineParagraph`（通用行内项）、
+内容块由 LayoutBlockDto 的类型枚举区分：`paragraph`（已测量正文）、`inlineParagraph`（通用行内项）、
 `image`、`blankLine`、`rule`、`pageBreak`。正文保留 text/clusters/clusterWidthsPx/style/
 chapterPosition/缩进/对齐及测量覆盖项；行内段落保留完整行高、基线、字号、缩进、
 装饰、词间对齐及逐项样式几何。行内项类型为 `text`、`image`、`roleCast`、`bgmScene`
@@ -31,9 +32,9 @@ revision 和最终元素集合。元素携带最终 bounds，文字/段评携带
 页面 text 保留上游图片占位语义；复制、搜索和 TTS 使用原文范围，不使用该展示串。
 
 输出使用唯一的紧凑列式结构，不添加格式版本标识或兼容分支：共享 `textStyles`；
-`glyphs` 携带 count、合并文字 text、geometry、positions 和稀疏 extras。
-geometry 为 Base64 小端 f32 数组，每字形五项 left/top/right/bottom/baseline；
-positions 为 Base64 小端 u32 数组，每字形四项 sourceOffset/paragraphIndex/styleIndex/
+LayoutReplyDto 携带 count、合并文字 text、geometry、positions 和稀疏 extras。
+geometry 为 Vec<u8> 直传的小端 f32 数组，每字形五项 left/top/right/bottom/baseline；
+positions 为 Vec<u8> 直传的小端 u32 数组，每字形四项 sourceOffset/paragraphIndex/styleIndex/
 合并文字 UTF-16 endOffset。起点为前一字形 endOffset，首字形起点为零。
 页面 elements 中的整数引用共享字形编号，非文字元素保持完整对象和原顺序。
 extras 以字形编号为键，保存非默认标记、链接及背景边框等字段。
@@ -46,8 +47,9 @@ Flutter 页面与行引用同一元素存储，复制、选区和朗读继续使
 ## 会话与取消
 
 每个会话一块前瞻以决定真实段末间距；未确定章末的页面延迟一页输出，与上游一致。
-finish 输出余页并释放资源。cancel 幂等；被取消的会话不得继续输出。
-Rust 核心不包含 FFI 注册表；桥接适配器管理隔离会话与资源上限。
+finish 输出余页并释放核心和并发许可。cancel 幂等；被取消的会话不得继续输出。
+客户端结束后显式 dispose 句柄；GC 只作引用回收兜底，不替代在途取消。
+Rust 核心不包含 FFI 注册表；opaque LayoutSession 持有独立核心与并发许可，保留载荷/资源上限。
 客户端切章、重排、销毁或发生错误时取消旧会话，并用代际标识拒绝迟到结果。
 禁止逐字符 FFI 往返；推送已测量块的批次，并分别记录编码、调用、Rust 计算和解码耗时。
 
@@ -66,4 +68,4 @@ Flutter 已有的“关闭中文排版”设置以显式 `breakMode: plain` 保�
 默认 `breakMode: chinese` 执行上游算法。plain 是项目已有设置的扩展路径，不宣称来自上游。
 首页独立标题的测量占位使用上游 Rule 内容块表达，不另改首页的分页判定。
 
-编写者：Codex｜2026-10-12
+编写者：Codex｜2026-10-12；传输契约修订：2026-10-17

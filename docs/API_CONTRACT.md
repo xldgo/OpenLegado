@@ -724,9 +724,12 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 
 ### 1.3 数据传递约定
 
-- 复杂类型统一以 **JSON String** 跨 FFI 边界传递（项目既有决策）。
-- Dart 侧负责 `jsonEncode` / `jsonDecode`，Rust 侧返回序列化后的 JSON 字符串。
-- 模型对象（Book、BookSource 等）通过各自 `toJson()` / `fromJson()` 完成序列化。
+- 稳定实体和结果按逐域冻结的 FRB Struct/Enum/集合传输，Dart data 适配器转换为原领域模型。
+- 原始文件/图片字节使用 Vec<u8>/Option<Vec<u8>>；当前继续使用 SSE，不能据此宣称零拷贝。
+- 真正的脚本、配置、登录、导入导出文件和网络协议保持各自 JSON 文档语义，不为消除 String 改写产品格式。
+- 已迁移接口以本文件末尾 FFI-TRANSPORT-20261017 各域冻结和生成签名为准，覆盖正文历史 JSON 说明；
+  尚未冻结迁移的接口仍使用原协议，不能把“当前仍返回 JSON”理解为必须保留 JSON 的设计要求。
+- JSON 仅在真实文档/尚未迁移边界使用 toJson/fromJson；已迁移稳定 DTO 不得先序列化再反解析。
 
 ### 1.3.1 阅读布局纯计算服务（2026-10-12 冻结）
 
@@ -736,23 +739,23 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 
 | Rust 导出 / Dart 名称 | 参数 | 返回 | 语义 |
 |---|---|---|---|
-| `reader_layout_begin` / `readerLayoutBegin` | `config_json: String` | `Result<String, BridgeError>` | 校验 v1 配置，创建隔离会话，返回会话标识 |
-| `reader_layout_push` / `readerLayoutPush` | `session_id: String, blocks_json: String` | `Result<String, BridgeError>` | 批量接受已测量内容块，返回新完成页面 |
-| `reader_layout_finish` / `readerLayoutFinish` | `session_id: String` | `Result<String, BridgeError>` | 收尾并释放会话，返回尚未输出页面 |
-| `reader_layout_cancel` / `readerLayoutCancel` | `session_id: String` | `Result<(), BridgeError>` | 取消并释放会话，重复取消无副作用 |
+| `reader_layout_begin` / `readerLayoutBegin` | `config: LayoutConfigDto` | `Result<LayoutSession, BridgeError>` | 校验配置和载荷预算，创建独立 opaque 句柄 |
+| `LayoutSession.push` | `blocks: Vec<LayoutBlockDto>` | `Result<LayoutReplyDto, BridgeError>` | 批量推送已测量块，返回已完成页 |
+| `LayoutSession.finish` | 无 | `Result<LayoutReplyDto, BridgeError>` | 输出余页并释放会话核心，重复调用报错 |
+| `LayoutSession.cancel` | 无 | 同步 void | 幂等取消；Dart 最终显式 dispose 释放句柄引用 |
 
-复杂数据仍以 JSON String 传递；输出使用共享文字、样式及 Base64 小端数值列，
-页面按字形编号引用。不增加输出格式标识，不保留历史传输兼容；输入与四个导出签名不变。
-文本位置采用章节 UTF-16 偏移；虚拟缩进、
-段评与背景音乐胶囊没有原文长度。无效配置、未知 schema/类型、非有限几何、
-簇/宽度不匹配及不存在的会话必须报错，不回退旧算法。分页与断行以固定上游
+数值列为 Vec<u8> 小端二进制，不再经 Base64；共享文字/样式和字形编号继续保留。
+删除 session_id 注册表和旧全局 push/finish/cancel 导出，不保留双协议兼容或格式标签。
+预算、并发会话、单批块数/行内项数和取消语义保持，GC 不是及时取消机制。
+文本位置采用章节 UTF-16 偏移；虚拟缩进、段评与背景音乐胶囊没有原文长度。
+无效配置、非有限几何、簇/宽度不匹配及已结束会话报错，不回退旧算法；分页/断行仍按固定上游
 `070ca1a9b2e491654f70c105bca9939968023940` 的 Kotlin 执行结果校验。
 
 ### 1.4 已知双兼容点（重要警告）
 
 > 2026-10-17 强类型补充：本节 JSON 裸数组约束仅适用于尚未迁移的 JSON 接口；已冻结的 DTO 列表直接传输，不先转换 JSON。书签与每日阅读明细见 §2.7。
 
-以下方法的 Rust 侧返回为 **Map 包装结构**（非裸 List），Dart 侧已做兼容处理（提取内部字段）：
+下表记录历史结构事故；当前对应 ChapterListDto/SourceSwitchResponseDto 在 data 层明确映射，不再解码包装 JSON：
 
 | 方法 | Rust 返回结构 | 提取字段 | 历史事故 |
 |------|---------------|----------|----------|
@@ -760,7 +763,7 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 | `refreshToc` | `ChapterListResponse { total, chapters[] }` | `chapters` | Task #42 崩溃修复 |
 | `searchSource` | `SourceSwitchResponse { book_name, author, matches[] }` | `matches` | Task #42 崩溃修复 |
 
-> **铁律**：未来新增返回列表的 FFI 方法，Rust 侧必须返回裸 JSON Array `[...]`，禁止无预警使用 Map 包装。若确需包装，必须在本文档登记并在 Dart 侧同步兼容。
+> 列表和带分页/总数的响应须冻结各自类型，禁止无预警改变容器。仅真正 JSON 文档及未迁移接口沿用原裸数组约定，不把 DTO 包回 JSON。
 
 ### 1.5 实现类
 
@@ -1404,10 +1407,10 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `httpGet(String url)` | url | `Future<String>` | HTTP GET 请求，返回 JSON `{"status": int, "body": string, "url": string}`（文本 body） |
-| `httpPost(String url, String body)` | url, body | `Future<String>` | HTTP POST 请求，返回格式同 httpGet |
-| `httpGetBytes(String url, {String headersJson = ''})` | url；headersJson 可选 JSON 对象 | `Future<String>` | HTTP GET 二进制响应，返回 JSON `{"status": int, "bodyBase64": string, "url": string}`（F3-14，经 legado-net 共享客户端） |
-| `fetchImageWithDecode(String url, String sourceJson)` | url, sourceJson（BookSource JSON） | `Future<String>` | 图片下载 + imageDecode JS 解密，返回 `{base64,len}` JSON（F3-10 补登记） |
+| `NetworkService.httpGet(String url, {timeout})` | url、超时 | `Future<HttpTextResponse>` | 原生HttpTextResponseDto逐字段映射status/body/url；不经JSON |
+| `NetworkService.httpPost(String url, String body, {timeout})` | url、body、超时 | `Future<HttpTextResponse>` | 与GET共用文本响应模型和共享客户端 |
+| `NetworkService.httpGetBytes(String url, {headers, timeout})` | URL、可空Map<String,String>请求头、超时 | `Future<HttpBytesResponse>` | 原生HttpBytesResponseDto直接传status/bytes/url，字节不经Base64 |
+| `fetchImageWithDecode(String url, String sourceJson)` | url、真正书源配置文档 | `Future<Uint8List>` | 图片下载及imageDecode脚本解密，原始字节直传，不包装base64/len |
 | `setCustomHosts(String hostsJson)` | hostsJson: 域名→IP 映射 JSON 对象字符串（对齐原版存储格式） | `Future<void>` | 设置自定义 hosts 映射，配置后网络层 DNS 解析优先使用该映射（命中域名直连映射 IP，未命中回落系统 DNS）。存储格式对齐原版 `AppConfig.customHosts`：JSON **对象** `{"域名":"IP", "域名":["IP1","IP2"]}`（值支持单 IP 字符串或 IP 数组，实读原版 `AppConfig.hostMap/addressCache` 确认）；空串/空对象=清除映射、恢复系统 DNS。配置需持久化（复用既有配置存储语义，caches 表 `config:` 前缀键 `customHosts`，与既有 `setConfig` 同语义）并即时生效（后续请求使用新映射）。Rust 实现要点：legado-net 经 reqwest `ClientBuilder::resolve` 域名覆盖或自定义 DNS resolver 挂钩（现状无 custom_hosts 钩子，实施时补）。错误码：Internal（hostsJson 非合法 JSON 对象）。差异注明：原版非法输入即清除；本契约改为拒绝保存（更防误操作，Task #76 Med2）。既有 `httpGet` / `httpPost` 签名保持不变，本方法为加法式新增（台账 §5.13-1，第四批后置项，Task #72） |
 
 ### 2.21 JS 引擎（2 个方法）
@@ -1924,7 +1927,7 @@ Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺
 >
 > [C2 批1 | 2026-09-13] 加法式新增（不改既有签名/行为）：字典规则 CRUD / 重排 / 导入经 frb 主链路（`ffi.rs` → `dict_api.rs`）暴露。
 > 数据源 `dictRules` 表（`name` UNIQUE，按 `sortNumber` 排序）；`dictRuleList` 空表先注入原版默认 5 源（与 `dictLookup` 同 seed 语义）。
-> 复杂类型以 JSON String 跨 FFI（§1.3）；`dictRuleReorder` / `dictRuleImport` 返回处理条数；解析/抓取失败返回**明确错误**（导入为显式动作，非静默跳过）。
+> 词典稳定实体使用DTO，真实导入文档保留JSON（§1.3）；`dictRuleReorder` / `dictRuleImport` 返回处理条数；解析/抓取失败返回**明确错误**（导入为显式动作，非静默跳过）。
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
@@ -1947,7 +1950,7 @@ Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺
 
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
-| `saveImageCache({required String bookUrl, required String url, required List<int> bytes})` | bookUrl / url / bytes | `Future<bool>` | 图片字节落盘缓存（对齐原版 `writeImage`）：写入 `{缓存根}/{书目录}/images/{md5_16(url)}.{suffix}`；成功 `true`；base64 输入非法 / 目录创建失败 / 写盘失败返回 `false`（静默降级 + 一次性日志，**不抛异常**——不影响在线加载）。Rust FFI 面为 `save_image_cache(bookUrl, url, bytesBase64) -> Result<bool, BridgeError>`（base64 解码失败抛 Ffi 错，IO 降级返回 `Ok(false)`）；Dart 侧 `RustApi.saveImageCache` 捕获所有错误统一返回 `false` |
+| `saveImageCache({required String bookUrl, required String url, required List<int> bytes})` | bookUrl / url / bytes | `Future<bool>` | 图片缓存目录、命名和IO降级规则不变。FRB入参为Vec<u8>，不再接收或解码Base64；IO失败返回false，不影响在线显示 |
 | `getImageCache({required String bookUrl, required String url})` | bookUrl / url | `Future<List<int>?>` | 读取磁盘缓存（对齐原版 `getImage`/`isImageExist` 的本地优先语义）：命中返回图片字节；未命中 / 读失败返回 `null`（降级走网络加载）。Rust FFI 面为 `get_image_cache(bookUrl, url) -> Result<Option<String>, BridgeError>`（base64 或 null；文件不存在与读失败均降级 `Ok(None)`） |
 
 ---
