@@ -26,7 +26,6 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     handleAudioSessionActivation: false,
     androidApplyAudioAttributes: false,
     useProxyForRequestHeaders: false,
-    useLazyPreparation: false,
     maxSkipsOnError: 0,
   );
 

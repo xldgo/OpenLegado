@@ -2,6 +2,7 @@
 
 ### TTS-QUEUE-20261017：朗读换项与章节队列维护（P1）
 
+- 默认准备策略对照：用户后续授权删除显式useLazyPreparation:false并推送触发iOS Build；基线610c812d3，继续当前debug分支。生产播放器与真实音频集成夹具一并移除覆盖，使用just_audio 0.10.6默认true，其余队列、预合成、已提交发热优化及版本保持不变；仅格式和差异检查，不执行自动测试或设备操作，蓝牙重播与资源占用待用户复验。
 - 授权与基线：用户要求先实施播放器优化第1～4项，完成后提交、推送修复分支并触发iOS Build；继续主目录debug/tts-diagnostics-20261017 / 80880bef8，Codex单代理。保留用户未跟踪报告及.workbuddy目录，版本2.0.373+374不变，不改其他worktree。
 - 范围：分离自然换项、队列结束和进度；章节内只追加、停止后统一清空和释放；前方至多两项独立于历史来源计数；已就绪文件批量追加并保留队尾恢复竞态保护。Dart公共边界先登记API_CONTRACT，不改Rust/FRB、预合成设置、系统TTS、媒体会话、缓存实现、UI采样频率或插件准备参数。
 - 参考与取舍：just_audio 0.10.6官方playlist示例的事件职责；HapeLee/legado-with-MD3 / 07ff3a1698d76a09c31de72c9d8a8caf594e0981的HttpReadAloudService章节内持续追加。上游为ExoPlayer，不能证明iOS同样表现；不引入无实测依据的8项回收阈值，超长章原生来源数量与内存待真机观察。
