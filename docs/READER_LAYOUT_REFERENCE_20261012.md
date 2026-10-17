@@ -64,8 +64,11 @@ flutter test test/unit/reader_layout_service_test.dart test/widget/reader_native
 
 纯Rust算法测试直接验证固定上游样本；组件样式、菜单等局部行为使用固定布局输入。
 需要文字测量、重排、选区几何配合的Flutter测试复用正式FRB传输，不加载应用数据库，
-不再逐次启动外部程序或重算历史内容。80组上游页面、取消和容量归还集中在
-`test/ffi/reader_layout_runtime_test.dart`，该文件支持本机Windows/Linux/macOS原生库。
+不再逐次启动外部程序或重算历史内容。260组上游算法样例仅在Rust侧完整比对；
+`test/ffi/reader_layout_runtime_test.dart`只验证两种代表载荷的字段/字形映射、
+错误传播及取消/容量归还，支持本机Windows/Linux/macOS原生库，不重复全部算法样例。
+Dart分段、索引映射、设置和尺寸传参由`test/unit/paragraph_layout_engine_test.dart`
+独立验证，不初始化FRB。测绘一致性、选区、段评和重排等跨层回归继续保留。
 Flutter CI在同一作业内准备本机FFI库再测试，不构建APK、IPA或桌面应用；首次整库编译
 成本高于旧小型宿主，不能仅凭测试执行变快就认定CI总耗时下降。
 
@@ -96,3 +99,5 @@ Rust已输出页面从会话移出，保留上游要求的一页延迟与绝对�
 原六步的调试诊断与迁移前采样属于历史基线，不代表当前 Rust 实现的性能。实施前后以独立 Profile 包、同一设备/窗口/文本/字体配置比较，并记录编码、调用、Rust 计算、解码及真实帧；方法与结果见 [Profile 基准](READER_LAYOUT_PROFILE_20261012.md)。不预设 Rust 必然更快，单次超长段的平台测量仍不可中断，深处锚点仍需先排前文。
 
 编写者：Codex｜2026-10-12
+
+测试分层更新：Codex｜2026-10-17

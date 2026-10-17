@@ -8,13 +8,6 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
   setUpNativeReaderLayout();
-  test('中文断行返回字形簇索引，不把 UTF-16 长度混入索引', () async {
-    const text = '甲😀乙e\u0301丙👨‍👩‍👧‍👦丁';
-    final mapping = TextClusterMap(text);
-    expect(mapping.sourceOffsets[2], 3);
-    expect(mapping.clusterIndex(3), 2);
-    expect(() => mapping.clusterIndex(2), throwsArgumentError);
-  });
 
   testWidgets('显式零字距、方向、Locale 与文字高度行为测绘一致', (tester) async {
     late PageInfo page;

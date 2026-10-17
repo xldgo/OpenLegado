@@ -82,19 +82,6 @@ Future<List<PageInfo>> _layout(
 
 void main() {
   setUpNativeReaderLayout();
-  test('分段保留混合换行、空白与重复段落的真实原文偏移', () async {
-    const source = '\r\n　首段  \r\n\n重复段。\r重复段。\n\n';
-    final paragraphs = splitChapterParagraphs(source);
-    expect(paragraphs.map((p) => p.text), ['首段', '重复段。', '重复段。']);
-    expect(paragraphs[0].startIndex, source.indexOf('首段'));
-    expect(paragraphs[2].startIndex, source.lastIndexOf('重复段。'));
-    for (final paragraph in paragraphs) {
-      expect(
-        source.substring(paragraph.startIndex, paragraph.endIndex),
-        paragraph.text,
-      );
-    }
-  });
 
   testWidgets('缩进仅用于显示，第二段偏移从原文计算', (tester) async {
     const source = '第一段。\n第二段内容。';
