@@ -179,7 +179,7 @@ impl SourceLock {
             let result = match entry.mutex.try_lock() {
                 Ok(g) => {
                     // SAFETY: MutexGuard 借用的 Mutex 存活于 Arc<LockEntry> 堆内存中，
-                    // 只要 _entry (Arc) 存活，Mutex 就不会被释放，guard 就有效。
+                    // 返回守卫持有该 Arc，且 Drop 显式先释放 guard 再释放 Arc。
                     LockResult::Acquired(unsafe {
                         std::mem::transmute::<
                             std::sync::MutexGuard<'_, ()>,
@@ -188,6 +188,7 @@ impl SourceLock {
                     })
                 }
                 Err(std::sync::TryLockError::WouldBlock) => LockResult::WouldBlock,
+                // SAFETY: 中毒恢复沿用同一存活保证，由返回守卫的 Drop 先释放锁。
                 Err(std::sync::TryLockError::Poisoned(e)) => LockResult::Poisoned(unsafe {
                     std::mem::transmute::<
                         std::sync::MutexGuard<'_, ()>,
@@ -200,7 +201,7 @@ impl SourceLock {
                 LockResult::Acquired(guard) | LockResult::Poisoned(guard) => {
                     return Some(SourceLockGuard {
                         _entry: entry,
-                        _guard: guard,
+                        guard: Some(guard),
                     });
                 }
                 LockResult::WouldBlock => {
@@ -226,11 +227,19 @@ impl SourceLock {
 /// RAII 锁守卫
 ///
 /// 持有 `Arc<LockEntry>` 保证 Mutex 存活，`MutexGuard<'static, ()>` 通过
-/// unsafe transmute 扩展生命周期（实际由 Arc 引用计数保证安全）。
+/// unsafe transmute 扩展生命周期；Drop 显式先解锁，再释放 Arc，
+/// 因此容器先销毁时仍然安全，不依赖字段声明顺序。
 pub struct SourceLockGuard {
     /// 保持 Arc 引用使 Mutex 存活
     _entry: Arc<LockEntry>,
-    _guard: std::sync::MutexGuard<'static, ()>,
+    guard: Option<std::sync::MutexGuard<'static, ()>>,
+}
+
+impl Drop for SourceLockGuard {
+    fn drop(&mut self) {
+        // 此时 _entry 必然仍存活；take 也确保随后字段析构不会再次访问 Mutex。
+        drop(self.guard.take());
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -381,6 +390,38 @@ mod tests {
         let lock = SourceLock::new();
         let result = lock.with_lock("key", 1000, || 42);
         assert_eq!(result, Some(42));
+    }
+
+    #[test]
+    fn test_source_lock_guard_outlives_owner_and_releases_last_entry() {
+        let lock = SourceLock::new();
+        let guard = lock.try_lock("owner-first", 0).unwrap();
+        let entry = Arc::downgrade(&guard._entry);
+        drop(lock);
+        assert_eq!(entry.strong_count(), 1);
+        assert!(guard._entry.mutex.try_lock().is_err());
+        drop(guard);
+        assert!(entry.upgrade().is_none());
+    }
+
+    #[test]
+    fn test_source_lock_poison_recovery_unlocks_and_keeps_owner_alive() {
+        let lock = SourceLock::new();
+        let result = std::panic::catch_unwind(|| {
+            let _guard = lock.try_lock("poisoned", 0).unwrap();
+            panic!("构造中毒锁");
+        });
+        assert!(result.is_err());
+        let recovered = lock.try_lock("poisoned", 0).unwrap();
+        assert!(recovered._entry.mutex.is_poisoned());
+        let entry = recovered._entry.clone();
+        assert!(lock.try_lock("poisoned", 0).is_none());
+        drop(lock);
+        drop(recovered);
+        assert!(matches!(
+            entry.mutex.try_lock(),
+            Err(std::sync::TryLockError::Poisoned(_))
+        ));
     }
 
     #[test]
