@@ -14,6 +14,7 @@ mod network;
 mod operations;
 pub mod reading_service;
 pub mod review_service;
+pub mod rss_service;
 mod rule_text;
 pub mod search_service;
 mod search_tasks;

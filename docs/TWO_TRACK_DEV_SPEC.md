@@ -477,3 +477,22 @@ Runtime选择仍在FFI：优先当前Handle，否则使用持久兜底Runtime，
 FFI签名/DTO/生成绑定、UI、schema和版本不变；当前状态与发现的缺陷统一记录在Active计划。
 
 编写者：Codex｜2026-10-17
+
+### RSS应用服务边界（2026-10-17）
+
+`legado-engine/rss_service`按sources/articles/records拆分源管理、文章加载缓存和收藏/已读。
+RssService仅持所属StorageContext；文章加载方法额外接收所属NetworkContext和宿主Handle，
+不持根EngineContext、不自行创建Runtime或在执行中查找FFI全局资源。
+普通源管理、收藏与已读的宿主装配不启动网络或运行时；FFI保留源文档解析/导出和DTO映射。
+RssArticle在Engine定义并从原FFI路径重导出，收藏返回DB记录后由FFI映射原RssStarDto。
+
+RSS源44字段映射统一在DB仓储，find_all保持坏行报错供备份使用，find_all_skip_invalid
+供页面列表保留原逐行跳过策略；共用相同查询和字段映射，不借去重改变错误处理。
+列表排序、原子更新、默认分组删除、导入逐项写入及错误文本沿用原路径。
+
+文章保持cacheFirst和最多500条缓存读取、RSS/Atom解析、非标准内容200字符摘要回退，
+保持按源Cookie开关添加内部标记和尽力写入文章缓存，不引入额外JS、规则、事务或取消策略。
+清理文章缓存不改变收藏/已读身份；收藏时间与已读操作继续复用原DB仓储及默认字段。
+本批不改FRB签名、DTO、生成绑定、schema、版本或音频/TTS。状态与证据仅在Active计划维护。
+
+编写者：Codex｜2026-10-17

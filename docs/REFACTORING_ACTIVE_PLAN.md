@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### RSS-SERVICE-20261017：RSS应用服务与数据映射收口（P1）
+
+- 授权与基线：用户授权执行RSS完整批次；feature/rust-ffi-modernization / a22fffa2a，worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。
+- 范围：RssService按sources/articles/records管理源CRUD/批量导入、文章抓取缓存、收藏及已读；服务持所属存储，文章加载显式注入所属网络/宿主Handle。DB集中44字段映射，区分页面跳过坏行与备份严格报错。FFI保留文档解析/导出、资源装配及DTO映射，原RssArticle路径重导出，不让Engine依赖FFI类型。
+- 行为冻结：排序、全字段/可空值、原子更新缺源错误、导入部分成功、默认分组删除、cacheFirst/500条缓存、Cookie写回开关、RSS/Atom/200字符摘要回退、网络非成功状态错误、尽力缓存和收藏/已读身份/时间/默认值保持。不新增JS/规则源能力、取消/事务/重试或改UI；FFI签名/DTO/生成绑定、schema、版本及外部依赖不变。
+- 验证与回滚：保留原RSS行为测试，仅补DB两种坏行策略、缓存/真实HTTP/Cookie和资源归属必要用例；DB/Engine/FFI相关Rust回归及default/QuickJS全目标严格Clippy，正式Windows DLL/指纹/摘要与既有真实FRB。复用现有本地HTTP夹具，不增加测试宿主；按用户要求单代理自查，无独立外审如实记录，可独立撤销本批。
+- 实现：RssService按sources/articles/records承接源管理、文章抓取/缓存与收藏/已读，只持StorageContext；文章加载额外接收所属网络和宿主Handle。FFI仅保留共享存储装配、源文档解析/导出、原RssArticle重导出及收藏DTO转换，简单源/收藏/已读入口不装配网络运行时。DB的query_all共用同一查询/字段映射，两个具名入口分别严格报错/跳过坏行。
+- Rust回归：QuickJS库DB361/Engine73/FFI572共1006项通过，42项既有忽略。保留原RSS3项FFI测试，新增DB1/Engine3项验证坏行双策略和全部字段实体相等、源/收藏/已读/清缓存身份与根生命周期、3次真实HTTP及cacheFirst不重复请求/Cookie三态、无效订阅Unicode摘要和拒绝缓存写入后仍返回内容；未增加外部宿主或源码文本断言。
+- 整改与复核：初始全目标编译通过。首轮新增Cookie用例把完整URL误传给要求域名的set_cookie，预置Cookie无法匹配，Engine72通过/1失败；改为本地服务器主机127.0.0.1，真实请求仍使用随机端口的fixture.url，最终完整回归通过。生产Cookie策略未改、旧断言未放宽；16个搬迁核心函数除资源引用外逐段核对一致。
+- 严格检查：default定向DB38/Engine6/FFI3共47项通过；DB/Engine/FFI两档全目标Clippy -D warnings通过，不增加lint放行。限定Rust文件格式与git diff --check通过。Cargo.toml/Cargo.lock、FFI契约/DTO/生成绑定、Dart、schema及版本不变；源列表去重未改变备份严格读策略。
+- 正式接线：Python正式入口独立target重建Windows Debug QuickJS DLL通过，源码指纹/构建输入与源库/复制库摘要及最终只读校验通过。既有business_transport_runtime_test全文件5项真实FRB通过，涵盖RSS44字段、文章/缓存清理/收藏/已读身份以及源备份→清空→恢复完整实体；复用原夹具顺序，不新增Dart用例、测试宿主或应用构建。
+- 证据与限制：build/rss-service/{check-initial,tests-quickjs,tests-quickjs-final,tests-default,clippy-default,clippy-quickjs,native-build,native-runtime,native-verify-final}.log；move-comparison.json仅辅助人工搬迁复核。首轮Cookie夹具失败不计通过；最终回归通过。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论；无外部依赖变更，音频/TTS保持暂缓。
+- 状态：本批RSS服务、字段映射去重及本地验证完成，按授权整批本地提交；当前worktree/分支保留，不推送或合并。
+
+编写者：Codex｜2026-10-17
+
 ### BACKUP-WEBDAV-SERVICE-20261017：备份与WebDAV应用服务下沉（P1）
 
 - 授权与基线：用户授权执行完整备份/WebDAV计划；feature/rust-ffi-modernization / d4f03955d，worktree干净。Codex单代理，整批完成后本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS继续暂缓。
