@@ -15,6 +15,7 @@ import '../../../services/read_aloud_diagnostics.dart';
 import '../../../widgets/settings_widgets.dart';
 import '../../../widgets/update_dialog.dart';
 import '../../../widgets/help/show_help.dart';
+import 'read_aloud_comparison_screen.dart';
 
 /// 关于页面（对齐原版 about.xml + AboutFragment）
 ///
@@ -252,6 +253,17 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 SettingTile(
                   title: '导出朗读诊断并停止采集',
                   onTap: _diagnosticBusy ? null : _exportDiagnostics,
+                ),
+                SettingTile(
+                  title: '朗读播放对照',
+                  subtitle: '用相同缓存音频比较固定列表与动态追加',
+                  onTap: _diagnosticBusy
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ReadAloudComparisonScreen(),
+                          ),
+                        ),
                 ),
                 SettingTile(title: '创建堆转储', onTap: _createHeapDumpPlaceholder),
                 SettingTile(

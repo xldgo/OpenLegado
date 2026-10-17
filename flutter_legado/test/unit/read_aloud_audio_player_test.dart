@@ -205,6 +205,30 @@ void main() {
     onProgress: (position, _, tag) => progress.add((position, tag)),
     onError: failures.add,
   );
+  test('初始后续项在一次装载中按序提交，不触发动态追加', () async {
+    final a = Object(), b = Object(), c = Object();
+    await player.startPlaylist(
+      AudioPlaylistItem(path: '/a.wav', tag: a),
+      initialFollowing: [
+        AudioPlaylistItem(path: '/b.wav', tag: b),
+        AudioPlaylistItem(path: '/c.wav', tag: c),
+      ],
+      speed: 1,
+      onStarted: started.add,
+      onCompleted: ended.add,
+      onProgress: (_, _, _) {},
+      onError: failures.add,
+    );
+    expect(native.loads, 1);
+    expect(native.appends, 0);
+    expect(native.sequence.map((s) => s.tag), [a, b, c]);
+    expect(native.seeks, isEmpty);
+    native.transition(1);
+    native.transition(2);
+    expect(started, [a, b, c]);
+    expect(ended, [a, b]);
+  });
+
   test('追加文件不重建或重新装载播放器，换项通知与最终完成均只消费一次', () async {
     final a = Object(), b = Object();
     await start(a);

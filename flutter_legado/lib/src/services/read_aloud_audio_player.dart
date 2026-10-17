@@ -302,6 +302,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   @override
   Future<void> startPlaylist(
     AudioPlaylistItem first, {
+    List<AudioPlaylistItem> initialFollowing = const [],
     required double speed,
     required void Function(Object) onStarted,
     required void Function(Object) onCompleted,
@@ -309,6 +310,10 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     required void Function(Object) onError,
   }) => _startSource(
     audio.AudioSource.uri(_fileUri(first.path), tag: first.tag),
+    initialFollowing: [
+      for (final item in initialFollowing)
+        audio.AudioSource.uri(_fileUri(item.path), tag: item.tag),
+    ],
     speed: speed,
     onStarted: onStarted,
     onCompleted: onCompleted,
@@ -318,6 +323,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
 
   Future<void> _startSource(
     audio.UriAudioSource source, {
+    List<audio.UriAudioSource> initialFollowing = const [],
     required double speed,
     required void Function(Object) onStarted,
     required void Function(Object) onCompleted,
@@ -366,7 +372,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
     ]);
     try {
       await _mutate(generation, () async {
-        await player.setAudioSources([source]);
+        await player.setAudioSources([source, ...initialFollowing]);
         _trace('player.load.done');
         if (generation != _generation || !_queueMode) return;
         await player.setSpeed(speed <= 0 ? 1 : speed);

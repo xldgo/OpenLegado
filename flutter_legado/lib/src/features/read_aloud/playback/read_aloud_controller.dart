@@ -108,6 +108,10 @@ class ReadAloudController {
   final _inFlightChapterContent = <String, Future<String>>{};
   int _speakGeneration = 0;
   Future<void> _ttsPauseBarrier = Future.value();
+  Future<void> _stopBarrier = Future.value();
+
+  /// 手动音频对照等待停止和取消任务真正结束，不改变普通停止的即时反馈。
+  Future<void> get stopped => _stopBarrier;
   int? _pendingParagraphIndex;
   int? _pendingChapterPos;
   bool _waitingForParagraph = false;
@@ -1210,7 +1214,7 @@ class ReadAloudController {
     _noEngineHintShown = false;
     _speakGeneration++;
     final token = _playToken;
-    observeControl(_systemEngine.stop());
+    final systemStopped = _systemEngine.stop();
     _paragraphs = [];
     _paragraphUnits = [];
     readAloudPosition.value = null;
@@ -1220,12 +1224,14 @@ class ReadAloudController {
     _pendingChapterPos = null;
     _pendingParagraphIndex = null;
     _waitingForParagraph = false;
-    observeControl(
+    _stopBarrier = Future.wait<void>([
+      systemStopped,
       stopFilePlayback().then(
         (_) => _cleanTtsCache(snapshot, retention, token: token),
       ),
-      errorPrefix: '音频播放控制失败',
-    );
+      _synthesisQueue.whenIdle(),
+    ]).then<void>((_) {});
+    observeControl(_stopBarrier, errorPrefix: '音频播放控制失败');
     _host.changed();
   }
 

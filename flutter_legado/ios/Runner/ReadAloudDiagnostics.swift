@@ -115,6 +115,7 @@ final class ReadAloudDiagnostics: NSObject {
 
   private func sample() -> [String: Any] {
     let info = ProcessInfo.processInfo
+    let audioSession = AVAudioSession.sharedInstance()
     var usage = rusage()
     let ok = getrusage(RUSAGE_SELF, &usage) == 0
     let cpu = Double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec)
@@ -126,7 +127,11 @@ final class ReadAloudDiagnostics: NSObject {
       "batteryLevel": UIDevice.current.batteryLevel,
       "batteryState": UIDevice.current.batteryState.rawValue,
       "applicationState": UIApplication.shared.applicationState.rawValue,
-      "processorCount": info.activeProcessorCount
+      "processorCount": info.activeProcessorCount,
+      "outputPorts": audioSession.currentRoute.outputs.map { $0.portType.rawValue },
+      "outputLatencyMs": audioSession.outputLatency * 1000,
+      "sampleRate": audioSession.sampleRate,
+      "ioBufferDurationMs": audioSession.ioBufferDuration * 1000
     ]
     if ok {
       data["cpuSeconds"] = cpu

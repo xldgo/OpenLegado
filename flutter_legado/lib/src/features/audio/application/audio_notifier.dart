@@ -813,6 +813,12 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _media.notifyStopped();
   }
 
+  /// 诊断独立接管声音前，等待旧队列和预合成取消确认。— Codex + UI
+  Future<void> stopForComparison() {
+    stop();
+    return _readAloud.stopped;
+  }
+
   Future<void> next() async {
     _readAloud.cancelBackground();
     if (!state.hasNext && state.mode != AudioPlayMode.singleLoop) return;
