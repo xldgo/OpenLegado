@@ -34,6 +34,8 @@ quick-xml = "0.42"
 flutter_rust_bridge = "=2.13.0"
 
 [dev-dependencies]
+# 仅测试启用可控时钟，候选超时不依赖机器负载；生产构建不启用。
+tokio = { workspace = true, features = ["test-util"] }
 encoding_rs = "0.8"
 # [cbz 批 B | 2026-10-03] 测试造 CBZ 夹具（与 legado-book 同版本 zip，仅测试用）
 zip = "9.0.1"

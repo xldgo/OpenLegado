@@ -3640,11 +3640,12 @@ mod tests {
     /// Task #21 回归：换源目标详情页 URL 为空时应提前返回可读错误，
     /// 而非把空 URL 传进解析器抛出令人困惑的 "bookUrl不能为空"。
     ///
-    /// guard 位于 switch_book_source 最顶部（DB/网络访问之前），故本用例
-    /// 无需任何 DB/网络即可确定性验证：空串与纯空白 new_book_url 均被拦截，
-    /// 且错误信息可读（不含裸 "bookUrl不能为空"）。
+    /// 无需数据库或网络；但真实入口先替换宿主 apply 操作槽，再校验 URL。
+    /// 必须和其他宿主测试共用隔离锁，否则无效请求也会取消并行换源。
+    /// 空串与纯空白均被拦截，且错误不暴露裸 "bookUrl不能为空"。
     #[test]
     fn test_switch_book_source_rejects_empty_new_book_url() {
+        let _lock = crate::test_support::lock_global_store();
         for empty in ["", "   ", "\t\n"] {
             let err = switch_book_source(
                 "https://any-book.example.com/1",
@@ -5134,7 +5135,7 @@ mod tests {
         details.worker.join().unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn isolated_candidate_timeout_blocks_late_cache_write_without_cancelling_other_candidates()
      {
         use super::super::source_task_fixture::Fixture;
@@ -5152,15 +5153,42 @@ mod tests {
             load_info: true,
             ..Default::default()
         };
-        let future = context.run_enrich_jobs_until(
-            |context: &SwitchContext| context.fetcher(),
-            vec![(mk_candidate(&details.url, &book, "测试书"), source)],
-            &options,
-            Duration::from_millis(50),
-        );
-        let mut future = Box::pin(future);
-        tokio::select! {_=details.request()=>{},_=&mut future=>panic!("候选未进入真实等待")}
-        let result = future.await;
+        let worker_context = context.clone();
+        let jobs = vec![(mk_candidate(&details.url, &book, "测试书"), source)];
+        let worker = tokio::spawn(async move {
+            worker_context
+                .run_enrich_jobs_until(
+                    |context: &SwitchContext| context.fetcher(),
+                    jobs,
+                    &options,
+                    Duration::from_millis(50),
+                )
+                .await
+        });
+        // 请求来自另一个真实运行时。保持本测试可调度，防止暂停时钟在
+        // HTTP 尚未到达时自动跳到超时；真实看门狗仅防夹具故障。
+        let startup = std::time::Instant::now();
+        loop {
+            match details.requests.try_recv() {
+                Ok(_) => break,
+                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                    assert!(!worker.is_finished(), "请求到达前候选已结束");
+                    assert!(
+                        startup.elapsed() < Duration::from_secs(5),
+                        "候选未进入真实等待"
+                    );
+                    tokio::task::yield_now().await;
+                }
+                Err(error) => panic!("HTTP 夹具提前关闭: {error}"),
+            }
+        }
+        tokio::time::advance(Duration::from_millis(49)).await;
+        tokio::task::yield_now().await;
+        assert!(!worker.is_finished(), "候选在50ms期限前提前结束");
+        tokio::time::advance(Duration::from_millis(1)).await;
+        let result = worker.await.unwrap();
+        // 后半段观察真实后台工作，不让暂停时钟把五秒看门狗自动耗尽。
+        tokio::time::resume();
         assert_eq!(result.len(), 1);
         assert!(context.operation.as_ref().unwrap().is_active());
         assert!(context.state.get(&details.url, &book).is_none());
