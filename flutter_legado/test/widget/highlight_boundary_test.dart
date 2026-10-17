@@ -9,7 +9,7 @@ import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/highlight_repository_provider.dart';
 import 'package:flutter_legado/src/screens/highlight_rules_screen.dart';
-import 'package:flutter_legado/src/screens/toc_screen.dart';
+import 'package:flutter_legado/src/features/toc/presentation/toc_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';

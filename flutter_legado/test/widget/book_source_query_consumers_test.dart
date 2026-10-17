@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/explore/explore_dependencies.dart';
 import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
-import 'package:flutter_legado/src/screens/toc_screen.dart';
+import 'package:flutter_legado/src/features/toc/presentation/toc_screen.dart';
 
 import '../mocks/mocks.dart';
 

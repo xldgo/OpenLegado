@@ -1,96 +1,42 @@
+import 'components/toc_overflow_menu.dart';
+import '../application/toc_filter_controller.dart';
+import '../application/toc_cache_controller.dart';
+import 'components/toc_item_tile.dart';
+import 'components/toc_volume_tile.dart';
+
 import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 
-import '../features/bookshelf/bookshelf_repositories.dart';
-import '../providers/reading_provider.dart';
-import '../features/book_sources/book_source_repository_provider.dart';
-import '../providers/explore/explore_dependencies.dart';
-import '../providers/media_provider.dart';
-import '../domain/models/book_highlight.dart';
-import '../providers/highlight_repository_provider.dart';
-import '../providers/chapter_cache_provider.dart';
-import '../l10n/app_localization.dart';
-import '../widgets/app_menu.dart';
-import '../features/bookmarks/bookmarks.dart';
-
-import 'dart:async';
+import '../../bookshelf/bookshelf_repositories.dart';
+import '../../../providers/reading_provider.dart';
+import '../../book_sources/book_source_repository_provider.dart';
+import '../../../providers/explore/explore_dependencies.dart';
+import '../../../providers/media_provider.dart';
+import '../../../domain/models/book_highlight.dart';
+import '../../../providers/highlight_repository_provider.dart';
+import '../../../providers/chapter_cache_provider.dart';
+import '../../../l10n/app_localization.dart';
+import '../../../widgets/app_menu.dart';
+import '../../bookmarks/bookmarks.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../widgets/md3_fast_scroller.dart';
-import '../widgets/app_scaffold.dart';
-import '../widgets/legado_app_bar.dart';
-import '../widgets/app_search_field.dart';
+import '../../../widgets/md3_fast_scroller.dart';
+import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/legado_app_bar.dart';
+import '../../../widgets/app_search_field.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../models/models.dart';
-import '../providers/general_settings_provider.dart';
-import '../features/reader/application/reader_settings_provider.dart';
-import '../routes.dart';
-import '../services/audio_cache_events.dart';
-import '../services/bookmark_export.dart';
-import '../utils/app_route_observer.dart';
+import '../../../models/models.dart';
+import '../../../providers/general_settings_provider.dart';
+import '../../reader/application/reader_settings_provider.dart';
+import '../../../routes.dart';
+import '../../../services/audio_cache_events.dart';
+import '../../../services/bookmark_export.dart';
+import '../../../utils/app_route_observer.dart';
 
-/// 独立目录页（对齐原版 TocActivity + ChapterListFragment/BookmarkFragment/HighlightFragment）
-///
-/// [UI-fix v2.0.3 | 2026-08-08] 模块 D：新建独立目录页 — Qoder
-/// - 三 Tab：目录 / 书签 / 标注（对齐原版 TabFragmentPageAdapter；
-///   [PARITY C2 T1] 参考版仅 2 项，「标注」为功能超集，登记保留）
-/// - 目录 Tab：卷分组样式、当前章节淡蓝底高亮（[PARITY C2 T5]）+ 自动定位、
-///   章节字数胶囊（[PARITY C2 T2]，受「加载字数」开关控制）、
-///   缓存状态图标（[P2-28]，对齐原版 ChapterListAdapter.upHasCache 三态）
-///   [PARITY C2 T4] 底部当前章节信息条 + 跳转顶/底已移除（跳转能力保留于目录 FAB）
-/// - 书签 Tab 经 BookmarkRepository / bookmarkNotifier；标注经 HighlightRepository.highlightListByBook
-/// - 溢出菜单对齐 book_toc.xml 顺序与条件显隐（随 Tab 切换，对齐 TocActivity.onMenuOpened）
-/// - 返回值：选中章节 index（int），供调用方走现有阅读跳转链路
-/// - [P2-28b] 章节行缓存状态三态（未缓存=离线下载图标⬇ / 已缓存=无图标 /
-///   当前章=对勾圈），图标对齐参考版 TocScreen.StatusIcon，
-///   数据经 ChapterCacheRepository.listCachedChapterUrls
-///   （[UI-fix v2.0.6] Task #22 接通的只读 FFI，契约 §2.43.5）
-/// - [P2-29] 章节行状态机对齐参考版五态（用户验收「下载中缺少过渡动画」）：
-///   当前章→定位图标 location_on（替代 check_circle）/ 下载中→16px 加载
-///   指示（数据经 CacheDownloadService.listDownloadingChapters，契约 §2.43.7，1s 轮询
-///   同周期刷新）/ 失败→红色重试图标（点击单章重下，复用
-///   cacheDownloadStart(idx, idx)；数据经 CacheDownloadService.listFailedChapters，
-///   契约 §2.43.8，与下载中同周期 1s 轮询）/
-///   未缓存→⬇ / 已缓存→无图标（本地书恒视为已缓存，无图标）
-/// - [P2-29b] 状态元素互斥分支与着色修正（用户指正：参考版当前章没有
-///   红色定位图标，只有高亮胶囊）：行右侧状态元素改为对齐参考版
-///   ReaderSheetChapterStatus 单 when 链的互斥分支（字数胶囊短路全部状态
-///   图标——当前章有字数时只显示高亮胶囊，不再与定位图标并存）；定位图标
-///   着色统一 secondary（参考 ReaderSheetStatusIcon tint）；补参考版
-///   SUCCESS 态对勾图标（已缓存且无胶囊时，secondary 色）；当前章行级
-///   高亮改参考行色（背景 secondaryContainer + 标题 onSecondaryContainer）；
-///   字数胶囊改 isDur 分色（当前章 primaryContainer/onPrimaryContainer，
-///   普通章 surfaceContainer/onSurfaceVariant，8sp、圆角 8）
-/// - [P2-29c] 目录缓存交互补齐（P2-29b 增量需求登记落地，零契约）：
-///   ① NONE 态 ⬇ 图标可点击单章下载（对齐参考版 TocScreen.kt ChapterItem
-///   :879-881 `canDownload = downloadState == NONE || ERROR` + :958-965
-///   状态图标 Box 挂 onDownloadClick + :808 onDownloadClick →
-///   TocViewModel.kt downloadChapter :863-869 按章索引单章下载）——复用
-///   `CacheDownloadService.cacheDownloadStart`（契约 §2.43.3 闭区间 start==end 单章，
-///   与 ERROR 重试同路径）；② ERROR 分支优先级提到已缓存之前 + showCount
-///   排除 ERROR（对齐参考版 TocViewModel.kt rawDataFlow :510-514
-///   running > error > cached 判定序；StatusIcon :1146-1157 字数胶囊仅
-///   LOCAL/SUCCESS 态命中）；③ 两态图标按钮统一 shrinkWrap 触控尺寸，
-///   保持 16px 图标几何不变（沿用 P2-28/29 行高适配口径）；④ 失败态数据源
-///   于 P2-29c 后续批接通：Rust 任务表/持久化快照新增失败章索引集合，
-///   只读 FFI cacheDownloadFailedChapters（契约 §2.43.8）→ CacheDownloadService.listFailedChapters，
-///   本页 1s 轮询同周期拉取（见 [_failedIndices]），注入缝已移除
-/// - [P2-28b] 页面打开期间每秒轮询缓存状态（对齐原版 ChapterListFragment
-///   订阅 EventBus.SAVE_CONTENT 的行刷新语义）：批量离线缓存下载中，每章正文
-///   保存后对应行 ⬇ 图标实时变为字数胶囊/无图标，无需退出重进
-/// - [B1-TOC] 音频书章节「已缓存」徽标接线（2026-10-04）：音频书的已缓存
-///   判定改取 AudioCacheRepository.audioCacheList（契约 §2.47，返回已缓存章节下标集合），
-///   对齐原版 ChapterListFragment.kt:154-184（仅 `if (book.isAudio)` 经
-///   AudioCacheManager.listCachedChapterKeys 取缓存键集合）+
-///   ChapterListAdapter.kt:192-198（音频书 `audioCacheKeys.contains(
-///   AudioCacheKey.from(chapter))`）；1s 轮询同周期追加 audioCacheList
-///   （**仅非本地音频书**，非音频书不消耗此 FFI 调用），无变化与文本缓存
-///   同样跳过 setState、查询失败保留旧态。非音频书仍走
-///   listCachedChapterUrls 文本缓存判定（§2.43.5）不受影响；本地书恒无
-///   徽标（原版 isLocalBook 恒视为已缓存 + 本地书无书源不可缓存）。
+/// 目录页组合章节、书签和标注；数据及下载保持现有仓储来源。— Codex + UI
 class TocScreen extends ConsumerStatefulWidget {
   /// 书籍对象（路由参数规范化：优先使用 Book 对象）
   final Book book;
@@ -110,17 +56,10 @@ class _TocScreenState extends ConsumerState<TocScreen>
   final ScrollController _tocScrollController = ScrollController();
   final TextEditingController _searchCtrl = TextEditingController();
 
-  /// 搜索防抖计时器（300ms，对齐任务规范）
-  Timer? _debounce;
-
-  /// 是否处于搜索态（AppBar 标题切换为搜索框）
+  final TocFilterController _filter = TocFilterController();
+  late final TocCacheController _cache;
   bool _searching = false;
-
-  /// 当前搜索关键词（防抖后生效，三 Tab 共用，对齐原版 viewModel.searchKey）
-  String _searchKey = '';
-
-  /// 倒序目录（纯本地显示序反转，对齐原版 menu_reverse_toc 语义的展示部分）
-  bool _reverseToc = false;
+  String get _searchKey => _filter.query;
 
   /// 加载字数开关使用共享阅读设置，不维护独立持久化副本。— Codex + UI
   bool get _loadWordCount =>
@@ -140,54 +79,11 @@ class _TocScreenState extends ConsumerState<TocScreen>
   bool _chaptersLoading = true;
   String? _chaptersError;
 
-  /// [P2-28] 本书已缓存章节 URL 集合（经 ChapterCacheRepository.listCachedChapterUrls，
-  /// 契约 §2.43.5；对齐原版 cacheFileNames.contains(chapter.getFileName()) 判定。
-  /// 本地书恒视为已缓存（对齐原版 isLocalBook），不发起查询）
-  Set<String> _cachedUrls = const {};
-
-  /// [B1-TOC] 本书已缓存音频章节下标集合（经 AudioCacheRepository.audioCacheList，
-  /// 契约 §2.47，返回 `List<int>` 已缓存章节下标）。**仅非本地音频书**使用：
-  /// 对齐原版 ChapterListFragment.kt:154-184 的 `if (book.isAudio)` 分支
-  /// （只有音频书经 AudioCacheManager.listCachedChapterKeys 取键，
-  /// ChapterListAdapter.kt:192-198 以 audioCacheKeys 判「已缓存」）；
-  /// 非音频书不走此数据链（不浪费一次 FFI 调用），本地书无书源不可缓存
-  /// 且原版 isLocalBook 恒视为已缓存 → 亦不查询、不显示徽标。
-  Set<int> _audioCachedIndices = const {};
-
-  /// [P2-28c] 轮询获得的字数映射（url → wordCount，取 chapters 表当前值，
-  /// 仅含非空项）：行渲染时优先于章节数据 wordCount，使新缓存章的字数
-  /// 胶囊与 ⬇ 图标翻转同帧出现（对齐参考版 ChapterListFragment 订阅
-  /// SAVE_CONTENT 同帧刷行语义，P2-28b 轮询升级）
-  final Map<String, String> _polledWordCounts = {};
-
-  /// [P2-29] 本书当前在途下载章节 index 集合（经 CacheDownloadService.listDownloadingChapters，
-  /// 契约 §2.43.7 cacheDownloadRunningChapters；对齐参考版 TocViewModel
-  /// runningIndices——源自 `CacheBook.downloadStateFlow` 全局状态流）：
-  /// 初始加载 + 1s 轮询（P2-28b/c）同周期刷新，驱动下载中行 16px 加载指示
-  /// 动画（对齐参考版 `AppContainedLoadingIndicator` 16dp 形态）；
-  /// 无活跃批量下载任务时为空集。
-  Set<int> _downloadingIndices = const {};
-
-  /// [P2-29] 缓存状态轮询定时器（每秒一次，仅在线书；页面关闭/dispose 时取消）。
-  /// 对齐原版 ChapterListFragment 订阅 EventBus.SAVE_CONTENT 的「每章正文保存
-  /// 后刷新对应行」语义——我方以只读 FFI listCachedChapterUrls 轮询替代事件总线
-  /// （零契约面方案）：批量离线缓存下载中，每章正文保存后该行 ⬇ 图标实时
-  /// 变为字数胶囊/无图标。
-  Timer? _cachePollTimer;
-
-  /// [B2-EVT] 音频缓存变更事件订阅（进程内 broadcast，对齐原版
-  /// EventBus.AUDIO_CACHE_CHANGED 订阅，ChapterListFragment.kt:196-208）：
-  /// 听书页批量预下载每章成功即触发本页立即重查 audioCacheList，
-  /// 徽标刷新无需等待 1s 轮询；dispose 必须取消订阅（防销毁后回调泄漏）。
-  StreamSubscription<AudioCacheChanged>? _audioCacheChangeSub;
-
-  /// [P2-29c 后续] 本书批量下载已失败章节 index 集合（ERROR 态，对齐参考版
-  /// failedIndices——源自 `CacheBook.downloadStateFlow`）。数据源经
-  /// [CacheDownloadService.listFailedChapters]（契约 §2.43.8 cacheDownloadFailedChapters）：
-  /// 初始加载 + 1s 轮询（与 [_downloadingIndices] 同周期）刷新；失败记录随
-  /// 任务终态保留（供展示与重试），任务重新取到该章开始下载时清除（对齐
-  /// 参考版 CacheDownloadStateStore.markFailed/markSuccess 语义）。
-  Set<int> _failedIndices = const {};
+  Set<String> get _cachedUrls => _cache.state.urls;
+  Set<int> get _audioCachedIndices => _cache.state.audio;
+  Map<String, String> get _polledWordCounts => _cache.state.wordCounts;
+  Set<int> get _downloadingIndices => _cache.state.downloading;
+  Set<int> get _failedIndices => _cache.state.failed;
 
   /// 标注列表（BookHighlight实体，经 HighlightRepository.highlightListByBook）
   List<BookHighlight> _highlights = [];
@@ -198,6 +94,14 @@ class _TocScreenState extends ConsumerState<TocScreen>
   void initState() {
     super.initState();
     _book = widget.book;
+    _filter.addListener(_onPresentationChanged);
+    _cache = TocCacheController(
+      readBook: () => _book,
+      chapters: ref.read(chapterCacheRepositoryProvider),
+      downloads: ref.read(cacheDownloadServiceProvider),
+      audio: ref.read(audioCacheRepositoryProvider),
+      events: AudioCacheEvents.instance.stream,
+    )..addListener(_onPresentationChanged);
     _tabController = TabController(length: 3, vsync: this)
       // Tab 切换需刷新溢出菜单条件显隐与底部信息条（对齐原版 onMenuOpened）
       ..addListener(() {
@@ -206,13 +110,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     _initBookshelfState();
     _loadSettings();
     _loadHighlights();
-    // [P2-28b] 页面打开期间每秒轮询缓存状态（本地书恒视为已缓存，免轮询）
-    _startCachePolling();
-    // [B2-EVT] 订阅进程内音频缓存变更事件（听书页每章缓存成功后立即重查，
-    // 早于 1s 轮询；本页 dispose 时取消订阅）
-    _audioCacheChangeSub = AudioCacheEvents.instance.stream.listen(
-      _onAudioCacheChanged,
-    );
+    _cache.start();
     // 书签按书名+作者加载（对齐原版 bookmarkDao.getByBook，规避同名书混入，
     // 契约 §2.7 getBookmarksByBook，台账 §5.14-2，Task #65）
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -252,129 +150,15 @@ class _TocScreenState extends ConsumerState<TocScreen>
     }
   }
 
-  /// [P2-28b] 启动缓存状态轮询（仅在线书；本地书恒视为已缓存，免轮询）。
-  ///
-  /// 每秒调用一次 [_pollCachedUrls]，与当前 [_cachedUrls] 做 diff，
-  /// 仅在出现**新增**已缓存章节时 setState 刷新对应行——批量离线缓存下载
-  /// 进行中，每章正文保存后目录页对应行状态实时变动（⬇ 图标 → 字数胶囊/
-  /// 无图标），无需退出重进。对齐原版 ChapterListFragment 订阅
-  /// EventBus.SAVE_CONTENT 增量刷新行的用户可见行为。
-  void _startCachePolling() {
-    if (_isLocal) return; // 本地书恒视为已缓存，免轮询
-    _cachePollTimer?.cancel();
-    _cachePollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      _pollCachedUrls();
-    });
-  }
-
-  /// [B2-EVT] 音频缓存变更事件回调（对齐原版 ChapterListFragment.kt:196-208
-  /// 的 AUDIO_CACHE_CHANGED 订阅）：仅供当前书的非本地音频书使用——
-  /// 命中后立即重查 [_pollCachedUrls]（内含 audioCacheList），徽标刷新不等
-  /// 1s 轮询；复用其「无变化跳过 setState」守卫，事件与轮询结果一致时零重建。
-  void _onAudioCacheChanged(AudioCacheChanged event) {
-    if (!mounted) return;
-    if (event.bookUrl != _book.bookUrl) return;
-    if (_isLocal || !_isAudioBook) return;
-    unawaited(_pollCachedUrls());
-  }
-
-  /// [P2-28b→P2-28c] 轮询缓存态（升级为字数刷新数据链）：单次调用
-  /// `ChapterCacheRepository.listCachedChapters`（契约 §2.43.6）同时完成 URL 集合 diff
-  /// （翻转「未缓存」⬇ 图标）与字数映射刷新（新缓存章字数胶囊同帧出现，
-  /// 对齐参考版 ChapterListFragment 订阅 SAVE_CONTENT 同帧刷行语义）；
-  /// 两者均无变化时跳过 setState（避免每秒无谓整行重建）；查询失败保留旧态。
-  Future<void> _pollCachedUrls() async {
-    try {
-      final entries = await ref
-          .read(chapterCacheRepositoryProvider)
-          .listCachedChapters(_book.bookUrl);
-      final urls = entries.keys.toSet();
-      final urlsChanged =
-          urls.difference(_cachedUrls).isNotEmpty ||
-          _cachedUrls.difference(urls).isNotEmpty;
-      final wordCountsChanged = entries.keys.any(
-        (u) => _polledWordCounts[u] != entries[u],
-      );
-      // [P2-29] 下载中集合（契约 §2.43.7）：与缓存态/字数同周期拉取，
-      // 驱动下载中行 16px 加载指示动画；单项查询失败保留旧态
-      List<int> downloading;
-      try {
-        downloading = await ref
-            .read(cacheDownloadServiceProvider)
-            .listDownloadingChapters(_book.bookUrl);
-      } catch (_) {
-        downloading = _downloadingIndices.toList();
-      }
-      final downloadingSet = downloading.toSet();
-      final downloadingChanged =
-          downloadingSet.difference(_downloadingIndices).isNotEmpty ||
-          _downloadingIndices.difference(downloadingSet).isNotEmpty;
-      // [P2-29c 后续] 失败章集合（契约 §2.43.8）：与缓存态/下载中同周期拉取，
-      // 驱动失败行红色重试图标（ERROR 态）；单项查询失败保留旧态
-      Set<int> failed;
-      try {
-        failed =
-            (await ref
-                    .read(cacheDownloadServiceProvider)
-                    .listFailedChapters(_book.bookUrl))
-                .toSet();
-      } catch (_) {
-        failed = _failedIndices;
-      }
-      final failedChanged =
-          failed.difference(_failedIndices).isNotEmpty ||
-          _failedIndices.difference(failed).isNotEmpty;
-      // [B1-TOC] 音频书音频缓存下标集合（契约 §2.47 audioCacheList）：与文本
-      // 缓存/下载中同周期拉取，仅非本地音频书调用（对齐原版
-      // ChapterListFragment.kt:155 的 `if (book.isAudio)` 分支——非音频书
-      // 不浪费这次 FFI 调用）；单项查询失败保留旧态，不影响目录展示
-      Set<int> audioCached = _audioCachedIndices;
-      if (_isAudioBook && !_isLocal) {
-        try {
-          audioCached =
-              (await ref
-                      .read(audioCacheRepositoryProvider)
-                      .audioCacheList(bookUrl: _book.bookUrl))
-                  .toSet();
-        } catch (_) {
-          audioCached = _audioCachedIndices;
-        }
-      }
-      // 无变化跳过 setState 守卫纳入音频集合（集合为空且未变时同样完全
-      // 跳过，不引入每秒空转重建；长度相等且无新增即等价集合相等）
-      final audioChanged =
-          audioCached.length != _audioCachedIndices.length ||
-          audioCached.difference(_audioCachedIndices).isNotEmpty;
-      if (!mounted) return;
-      if (!urlsChanged &&
-          !wordCountsChanged &&
-          !downloadingChanged &&
-          !failedChanged &&
-          !audioChanged) {
-        return;
-      }
-      setState(() {
-        _cachedUrls = urls;
-        _polledWordCounts
-          ..clear()
-          ..addAll(entries);
-        _downloadingIndices = downloading.toSet();
-        _failedIndices = failed;
-        _audioCachedIndices = audioCached;
-      });
-    } catch (_) {
-      // 查询失败保留旧态（不影响目录展示）
-    }
+  void _onPresentationChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
-    _cachePollTimer?.cancel();
-    // [B2-EVT] 取消事件订阅（防页面销毁后事件回调泄漏）
-    _audioCacheChangeSub?.cancel();
-    _debounce?.cancel();
+    _cache.dispose();
+    _filter.dispose();
     _tabController.dispose();
     _tocScrollController.dispose();
     _searchCtrl.dispose();
@@ -388,8 +172,12 @@ class _TocScreenState extends ConsumerState<TocScreen>
   /// 缓存页返回后保持最新。
   @override
   void didPopNext() {
+    _cache.start();
     _refreshOnReshow();
   }
+
+  @override
+  void didPushNext() => _cache.stop();
 
   Future<void> _refreshOnReshow() async {
     try {
@@ -398,20 +186,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
           .getBook(_book.bookUrl);
       if (!mounted) return;
       if (fresh != null) setState(() => _book = fresh);
-      // [P2-28] 刷新缓存 URL 集（本地书恒视为已缓存，对齐原版 isLocalBook，不查询）
-      if (!_isLocal) {
-        try {
-          final urls =
-              (await ref
-                      .read(chapterCacheRepositoryProvider)
-                      .listCachedChapterUrls(_book.bookUrl))
-                  .toSet();
-          if (!mounted) return;
-          setState(() => _cachedUrls = urls);
-        } catch (_) {
-          // 刷新失败保持旧集
-        }
-      }
+      await _cache.refreshUrls();
     } catch (_) {
       // 刷新失败不阻断展示，保持旧状态
     }
@@ -456,64 +231,10 @@ class _TocScreenState extends ConsumerState<TocScreen>
         }
       }
       if (!mounted) return;
-      // [P2-28] 加载已缓存章节 URL 集供章节行缓存状态图标渲染（对齐原版
-      // cacheFileNames 判定，契约 §2.43.5 listCachedChapterUrls）；本地书
-      // 恒视为已缓存（对齐原版 isLocalBook），跳过查询。
-      Set<String> cachedUrls = const {};
-      List<int> downloading = const [];
-      // [P2-29c 后续] 音频书初始加载已失败章节集合（契约 §2.43.8
-      // cacheDownloadFailedChapters）：首帧即可渲染失败章红色重试图标
-      // （对齐参考版打开目录即见 ERROR 态）；失败降级空集（后续 1s 轮询自愈）
-      List<int> failed = const [];
-      // [B1-TOC] 音频书初始加载已缓存章节下标集合（契约 §2.47
-      // audioCacheList）：首帧即可渲染音频已缓存章的「已缓存」徽标
-      // （对齐原版 cacheFileJob 建页即 listCachedChapterKeys + 全量刷行）；
-      // 仅非本地音频书查询，失败降级空集（后续 1s 轮询自愈）
-      Set<int> audioCached = const {};
-      if (!_isLocal) {
-        try {
-          cachedUrls =
-              (await ref
-                      .read(chapterCacheRepositoryProvider)
-                      .listCachedChapterUrls(_book.bookUrl))
-                  .toSet();
-        } catch (_) {
-          // 查询失败降级为全未缓存态，不阻断目录展示
-        }
-        // [P2-29] 初始加载下载中集合（契约 §2.43.7）：使首帧即可渲染
-        // 下载中行 16px 加载指示（对齐参考版打开目录即见 LOADING 态）；
-        // 查询失败降级为空集（后续 1s 轮询自愈）
-        try {
-          downloading = await ref
-              .read(cacheDownloadServiceProvider)
-              .listDownloadingChapters(_book.bookUrl);
-        } catch (_) {}
-        // [P2-29c 后续] 初始加载失败章节集合（契约 §2.43.8）：使首帧即可
-        // 渲染 ERROR 态红色重试图标；查询失败降级为空集（后续 1s 轮询自愈）
-        try {
-          failed = await ref
-              .read(cacheDownloadServiceProvider)
-              .listFailedChapters(_book.bookUrl);
-        } catch (_) {}
-        if (_isAudioBook) {
-          try {
-            audioCached =
-                (await ref
-                        .read(audioCacheRepositoryProvider)
-                        .audioCacheList(bookUrl: _book.bookUrl))
-                    .toSet();
-          } catch (_) {
-            // 查询失败降级为空集，不阻断目录展示（后续 1s 轮询自愈）
-          }
-        }
-        if (!mounted) return;
-      }
+      await _cache.loadInitial();
+      if (!mounted) return;
       setState(() {
         _chapters = chapters;
-        _cachedUrls = cachedUrls;
-        _downloadingIndices = downloading.toSet();
-        _failedIndices = failed.toSet();
-        _audioCachedIndices = audioCached;
         _chaptersLoading = false;
       });
       // 初次进入自动滚动定位当前章节（按 index 估算偏移）
@@ -619,19 +340,8 @@ class _TocScreenState extends ConsumerState<TocScreen>
   // ===== 目录展示列表（搜索过滤 + 倒序，保留原始章节 index 供跳转） =====
 
   /// 展示条目：(原始列表位置, 章节)
-  List<MapEntry<int, BookChapter>> get _displayEntries {
-    final query = _searchKey.trim().toLowerCase();
-    var entries = _chapters.asMap().entries.toList();
-    if (query.isNotEmpty) {
-      entries = entries
-          .where((e) => e.value.title.toLowerCase().contains(query))
-          .toList();
-    }
-    if (_reverseToc) {
-      entries = entries.reversed.toList();
-    }
-    return entries;
-  }
+  List<MapEntry<int, BookChapter>> get _displayEntries =>
+      _filter.entries(_chapters);
 
   /// 滚动定位到指定章节 index（按展示列表位置 * 行高估算偏移）
   void _scrollToChapter(int chapterIndex) {
@@ -650,12 +360,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
 
   // ===== 搜索（300ms 防抖） =====
 
-  void _onSearchChanged(String text) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      if (mounted) setState(() => _searchKey = text);
-    });
-  }
+  void _onSearchChanged(String text) => _filter.search(text);
 
   void _toggleSearch() {
     if (_searching) FocusScope.of(context).unfocus();
@@ -663,69 +368,12 @@ class _TocScreenState extends ConsumerState<TocScreen>
       _searching = !_searching;
       if (!_searching) {
         _searchCtrl.clear();
-        _searchKey = '';
-        _debounce?.cancel();
+        _filter.clear();
       }
     });
   }
 
   // ===== 溢出菜单（对齐 book_toc.xml 顺序 + TocActivity.onMenuOpened 条件显隐） =====
-
-  List<AppMenuEntry<String>> _buildMenuItems() {
-    final tab = _tabController.index;
-    final items = <AppMenuEntry<String>>[];
-    if (tab == 0) {
-      // menu_group_text：仅本地 TXT 书可见（对齐原版 isLocalTxt 判定）
-      if (_isLocalTxt) {
-        items.add(
-          AppMenuItem(value: 'tocRegex', child: Text(context.l10n.txtTocRules)),
-        );
-        items.add(
-          AppMenuItem(
-            value: 'splitLongChapter',
-            checked: _book.readConfig?.splitLongChapter ?? true,
-            child: Text(context.l10n.readerSplitLongChapters),
-          ),
-        );
-      }
-      // menu_group_toc：目录 Tab 可见
-      items.add(
-        AppMenuItem(
-          value: 'reverseToc',
-          child: Text(context.l10n.readerReverseChapterOrder),
-        ),
-      );
-      items.add(
-        AppMenuItem(
-          value: 'useReplace',
-          // useReplaceRule 存于 ReadConfig（对齐原版 Book.ReadConfig.useReplaceRule）
-          checked: _book.readConfig?.useReplaceRule ?? true,
-          child: Text(context.l10n.readerUseReplaceRule),
-        ),
-      );
-      items.add(
-        AppMenuItem(
-          value: 'loadWordCount',
-          checked: _loadWordCount,
-          child: Text(context.l10n.readerLoadWordCount),
-        ),
-      );
-    } else if (tab == 1) {
-      // menu_group_bookmark：书签 Tab 可见
-      items.add(
-        AppMenuItem(
-          value: 'exportBookmark',
-          child: Text(context.l10n.readerExport),
-        ),
-      );
-      items.add(
-        const AppMenuItem(value: 'exportMd', child: Text('导出 Markdown')),
-      );
-    }
-    // menu_log：始终可见
-    items.add(AppMenuItem(value: 'log', child: Text(context.l10n.logs)));
-    return items;
-  }
 
   Future<void> _handleMenu(String value) async {
     switch (value) {
@@ -745,7 +393,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
         break;
       case 'reverseToc':
         // 纯 Dart 本地反转显示序（对齐原版 menu_reverse_toc 展示语义）
-        setState(() => _reverseToc = !_reverseToc);
+        _filter.toggleOrder();
         break;
       case 'useReplace':
         // 接 ReadConfig.useReplaceRule 字段经 BookshelfRepository 更新（对齐原版 menu_use_replace）
@@ -881,8 +529,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
                   hintText: context.l10n.debugKeywordLabel,
                   onChanged: _onSearchChanged,
                   onClear: () {
-                    _debounce?.cancel();
-                    setState(() => _searchKey = '');
+                    _filter.clear();
                   },
                 )
               : currentChapterTitle.isNotEmpty
@@ -917,10 +564,12 @@ class _TocScreenState extends ConsumerState<TocScreen>
             tooltip: _searching ? '关闭搜索' : context.l10n.search,
             onPressed: _toggleSearch,
           ),
-          AppMenuButton<String>(
-            tooltip: context.l10n.more,
+          TocOverflowMenu(
+            tab: _tabController.index,
+            isLocalTxt: _isLocalTxt,
+            readConfig: _book.readConfig,
+            loadWordCount: _loadWordCount,
             onSelected: _handleMenu,
-            itemBuilder: (_) => _buildMenuItems(),
           ),
         ],
         // AppBar 内 TabBar 显式指定前景色，避免白底白字（项目规范）
@@ -1144,216 +793,31 @@ class _TocScreenState extends ConsumerState<TocScreen>
         itemBuilder: (context, i) {
           final chapter = entries[i].value;
           return chapter.isVolume
-              ? _buildVolumeRow(context, chapter)
+              ? TocVolumeTile(chapter: chapter)
               : _buildChapterRow(context, chapter);
         },
       ),
     );
   }
 
-  /// 卷行：不可点、加粗 + 背景区分（对齐原版 item_chapter_group 样式语义）
-  Widget _buildVolumeRow(BuildContext context, BookChapter chapter) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      color: cs.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        chapter.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface),
-      ),
-    );
-  }
-
-  /// 章节行：当前章行级高亮（[P2-29b] 对齐参考版 ReaderSheetChapterItem
-  /// :965-974——isDur → 行背景 secondaryContainer + 标题 onSecondaryContainer，
-  /// 替代此前 primary 10% 淡底；[PARITY C2 T5]）；右侧状态元素为
-  /// **互斥分支**（[P2-29b] 对齐参考版 ReaderSheetChapterStatus :1039-1096 单
-  /// when 链，优先级从高到低，字数胶囊短路全部状态图标）：
-  /// - ① showCount（加载字数开关开 && wordCount 非空 && (本地书 || 已缓存)
-  ///   && 非 ERROR，[P2-29c] 排除 ERROR 对齐参考版 StatusIcon :1146-1157
-  ///   字数分支仅 LOCAL/SUCCESS 态）→ 字数胶囊：当前章 = primaryContainer 底 +
-  ///   onPrimaryContainer 字；普通章 = surfaceContainer 底 + onSurfaceVariant
-  ///   字；8sp labelSmallEmphasized，padding 横 6 纵 2，圆角 8
-  ///   （当前章有字数时只显示高亮胶囊，无定位图标）
-  /// - ② isDur（当前章且无胶囊）→ 定位图标（Icons.Default.LocationOn →
-  ///   Icons.location_on；[P2-29b] 着色统一 secondary，对齐参考版
-  ///   ReaderSheetStatusIcon :1100-1111 tint=colorScheme.secondary，16px）
-  /// - ③ 下载中（index ∈ _downloadingIndices，数据经
-  ///   CacheDownloadService.listDownloadingChapters 契约 §2.43.7，对齐参考版 LOADING 态
-  ///   `AppContainedLoadingIndicator` 16dp 形态）→ 16px 加载指示
-  ///   （SizedBox 16 + CircularProgressIndicator strokeWidth 2，着色 primary）
-  /// - ④ 失败（index ∈ _failedIndices，对齐参考版 ERROR 态）→ 红色重试图标
-  ///   （Icons.refresh，error 着色）可点击 → 单章重下复用
-  ///   cacheDownloadStart(bookUrl, idx, idx)；[P2-29c] 优先级提到已缓存之前
-  ///   （对齐参考版 TocViewModel rawDataFlow :510-514 running > error >
-  ///   cached 判定序：失败章不显示成 SUCCESS 对勾）；数据链留项：Rust 任务表
-  ///   仅 failed 计数、无逐章失败记录 → 生产恒空恒不显示（不伪造，契约
-  ///   §2.43.7 ERROR 留项）
-  /// - ⑤ 已缓存且无胶囊（非音频书 url ∈ _cachedUrls；音频书
-  ///   chapter.index ∈ _audioCachedIndices，契约 §2.47，[B1-TOC]；如字数
-  ///   开关关或 wordCount 空）→ 对勾图标（参考版 SUCCESS 态 :1069-1071
-  ///   CheckCircle，secondary 色）
-  /// - ⑥ 未缓存网络章 → 离线下载图标 ⬇（Icons.Outlined.DownloadForOffline →
-  ///   Icons.download_for_offline_outlined，着色 outline 50% 透明度）；
-  ///   [P2-29c] 可点击单章下载（对齐参考版 canDownload = NONE || ERROR
-  ///   :879-881 + :958-965 → downloadChapter :863-869）：复用
-  ///   cacheDownloadStart(bookUrl, idx, idx)（契约 §2.43.3 闭区间单章语义）
-  /// - ⑦ 本地书章节（无胶囊且非当前章）→ 无显示（参考版 LOCAL 态：showCount
-  ///   假且非 isDur 时 when 链无分支命中，渲染空；本地书不等同网络书 SUCCESS
-  ///   态，故也不显示对勾图标；卷标题行走 _buildVolumeRow，不参与判定）
-  /// 字数胶囊：原样展示 wordCount（Rust 回填链已按原版 wordCountFormat 存
-  /// 「1200字」/「1.1万字」形态，与原版 ChapterListAdapter:231 / 参考版
-  /// TocScreen.kt:1205 的 as-is 展示一致，不再追加「 字」后缀）。
-  /// 布局对齐 item_chapter_list.xml：状态元素居右（互斥，至多一个）。
-  Widget _buildChapterRow(BuildContext context, BookChapter chapter) {
-    final cs = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final isCurrent = chapter.index == _book.durChapterIndex;
-    // [P2-28c] 优先取轮询字数映射（新缓存章胶囊同帧出现），回退章节数据值
-    final wordCount = _polledWordCounts[chapter.url] ?? chapter.wordCount;
-    // [B1-TOC] 已缓存判定分型（对齐原版 ChapterListAdapter.kt:192-198）：
-    // 音频书取音频缓存下标集合（契约 §2.47 audioCacheList，原版
-    // `audioCacheKeys.contains(AudioCacheKey.from(chapter))`）；非音频书
-    // 沿用文本缓存 URL 判定（契约 §2.43.5 cacheFileNames 等价）。本地书
-    // 恒视为已缓存不显示徽标（原版 isLocalBook → cached=true → 图标隐藏；
-    // 且本地书无书源不可缓存）。分卷章节行走 _buildVolumeRow，不进入本行。
-    final isCached =
-        !_isLocal &&
-        (_isAudioBook
-            ? _audioCachedIndices.contains(chapter.index)
-            : _cachedUrls.contains(chapter.url));
-    // [P2-29c] 下载中/失败标记先于 showCount 判定：失败章不显示字数胶囊
-    // （对齐参考版 StatusIcon :1146-1157 字数分支仅 LOCAL/SUCCESS 态命中）
-    final bool isDownloading = _downloadingIndices.contains(chapter.index);
-    final bool isError = _failedIndices.contains(chapter.index);
-    // [P2-29b] 字数胶囊条件对齐参考版 showCount（:1039-1041）：
-    // 开关开 && wordCount 非空 && (本地书 || 网络书已缓存)；
-    // [P2-29c] && !isError（ERROR 态优先于 SUCCESS/字数）
-    final showCount =
-        _loadWordCount &&
-        (wordCount?.isNotEmpty ?? false) &&
-        (_isLocal || isCached) &&
-        !isError;
-    // [P2-29b] 状态元素互斥分支（对齐参考版单 when 链，①~⑥ 至多渲染一个；
-    // size 16 沿用 P2-28 行高适配；内容带取整行 48 保证图标居中可命中，见
-    // 下方 contentPadding 注释）
-    final Widget? statusTrailing;
-    if (showCount) {
-      // ① 字数胶囊（isDur 分色；短路全部状态图标——当前章不再与定位图标并存）
-      statusTrailing = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          // 参考版 :1045-1049：当前章 = primaryContainer 底，
-          // 普通章 = surfaceContainer 底（灰底）
-          color: isCurrent ? cs.primaryContainer : cs.surfaceContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        // [P2-28b] 原样展示（Rust 回填值已带「字/万字」后缀；showCount 守卫
-        // 已保证非空）
-        child: Text(
-          wordCount!,
-          style: textTheme.labelSmall?.copyWith(
-            fontSize: 8,
-            // 8sp labelSmallEmphasized（参考版 :1054）
-            fontWeight: FontWeight.w500,
-            // 参考版 :1055-1059：当前章 = onPrimaryContainer，
-            // 普通章 = onSurfaceVariant
-            color: isCurrent ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-          ),
-        ),
+  Widget _buildChapterRow(BuildContext context, BookChapter chapter) =>
+      TocItemTile(
+        chapter: chapter,
+        isCurrent: chapter.index == _book.durChapterIndex,
+        isLocal: _isLocal,
+        isCached:
+            !_isLocal &&
+            (_isAudioBook
+                ? _audioCachedIndices.contains(chapter.index)
+                : _cachedUrls.contains(chapter.url)),
+        isDownloading: _downloadingIndices.contains(chapter.index),
+        isError: _failedIndices.contains(chapter.index),
+        loadWordCount: _loadWordCount,
+        wordCount: _polledWordCounts[chapter.url] ?? chapter.wordCount,
+        onSelect: () => Navigator.of(context).pop(chapter.index),
+        onDownload: () => _downloadChapter(chapter.index, retry: false),
+        onRetry: () => _downloadChapter(chapter.index, retry: true),
       );
-    } else if (isCurrent) {
-      // ② 当前章且无胶囊（被 ① 短路）：定位图标（参考版 DUR 态，
-      // ReaderSheetStatusIcon tint=secondary，非红色）
-      statusTrailing = Icon(Icons.location_on, size: 16, color: cs.secondary);
-    } else if (isDownloading) {
-      // ③ 下载中：16px 加载指示（对齐参考版 LOADING 态 16dp 转圈形态）
-      statusTrailing = SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-      );
-    } else if (isError) {
-      // ④ 失败（[P2-29c] 优先级先于已缓存，对齐参考版 rawDataFlow
-      // :510-514 running > error > cached 判定序）：红色重试图标可点击 →
-      // 单章重下复用 cacheDownloadStart(bookUrl, idx, idx)（契约 §2.43.3
-      // 闭区间单章语义）；shrinkWrap 保持 16px 图标几何（P2-28/29 行高
-      // 适配口径），不改变行内状态元素对齐
-      statusTrailing = IconButton(
-        icon: Icon(Icons.refresh, size: 16, color: cs.error),
-        iconSize: 16,
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        // 命中区 24×24 对齐参考版（视觉仍 16；16×16 仅参考版面积的
-        // 44%。不上 48：参考版未做，且占满行高有 P2-29 中心裁切回归风险）
-        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-        style: IconButton.styleFrom(
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        tooltip: '重新下载本章',
-        onPressed: () => _downloadChapter(chapter.index, retry: true),
-      );
-    } else if (isCached) {
-      // ⑤ 已缓存且无胶囊（字数开关关或 wordCount 空）：对勾图标
-      // （参考版 SUCCESS 态 :1069-1071 CheckCircle，secondary 色）；
-      // [B1-TOC] 音频书的已缓存判定来自音频缓存下标集合（契约 §2.47）
-      statusTrailing = Icon(Icons.check_circle, size: 16, color: cs.secondary);
-    } else if (!_isLocal && !isCached) {
-      // ⑥ 未缓存网络章：离线下载图标 ⬇（参考版 NONE 态 outline 色）；
-      // [P2-29c] 可点击单章下载（对齐参考版 canDownload = NONE || ERROR
-      // :879-881 + :958-965 状态图标挂 onDownloadClick → downloadChapter
-      // :863-869），复用 cacheDownloadStart(bookUrl, idx, idx)（契约
-      // §2.43.3 闭区间单章语义）；shrinkWrap 保持 16px 图标几何
-      statusTrailing = IconButton(
-        icon: Icon(
-          Icons.download_for_offline_outlined,
-          size: 16,
-          color: cs.outline.withValues(alpha: 0.5),
-        ),
-        iconSize: 16,
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        // 命中区 24×24 对齐参考版（视觉仍 16；同上不上 48 的理由）
-        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-        style: IconButton.styleFrom(
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        tooltip: '下载本章',
-        onPressed: () => _downloadChapter(chapter.index, retry: false),
-      );
-    } else {
-      // ⑦ 本地书章节（无胶囊且非当前章）：无显示（参考版 LOCAL 态渲染空，
-      // 本地书恒视为已缓存但不显示对勾图标，对齐原版 isLocalBook 语义）
-      statusTrailing = null;
-    }
-    return ListTile(
-      dense: true,
-      shape: const RoundedRectangleBorder(),
-      // [P2-29b] 当前章行级高亮对齐参考版 ReaderSheetChapterItem :965-974：
-      // isDur → 行背景 secondaryContainer + 标题 onSecondaryContainer（蓝色
-      // 主调下即此前量化的淡蓝底 ≈(238,243,253)，替代 primary 10% 铺底）
-      tileColor: isCurrent ? cs.secondaryContainer : null,
-      // [P2-29b] 行级文字色：M3 ListTile 以 effectiveColor 覆写标题样式色，
-      // 经 textColor 参数注入（普通行回退 listTileTheme 的 onSurface 不变）
-      textColor: isCurrent ? cs.onSecondaryContainer : null,
-      // [LAYOUT_MOTION_AUDIT L3] 章节行内边距 horizontal8；vertical 取 0 而非 12：
-      // M3 ListTile trailing 的 _yOffsetFor 按整 tile 高 48 居中后再叠加
-      // contentPadding.vertical，v12 会把 16px 状态图标下移 12px（底边超出 24px
-      // 内容带），中心点被裁切，ERROR 重试图标 tester.tap 命中不到。vertical 0
-      // 使内容带=整行 48，图标居中（16..32）可命中；dense 自然行高 48 与 itemExtent
-      // 48 一致，标题仍垂直居中，视觉与 P2-28 不变。
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      title: Text(chapter.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      // [P2-29b] 右侧状态元素：互斥分支——字数胶囊与状态图标不再并存
-      // （对齐参考版单 when 链），两者皆无时为 null
-      trailing: statusTrailing,
-      // 返回选中章节 index，由调用方走现有阅读跳转链路（对齐原版 openChapter setResult）
-      onTap: () => Navigator.of(context).pop(chapter.index),
-    );
-  }
 
   // [PARITY C2 T4] 原「目录底栏：当前章节名 + 跳转顶部/底部」已移除（参考无底栏）；
   // 跳转顶部/底部与定位当前章能力保留于目录 FAB 展开菜单（_buildJumpFab）。

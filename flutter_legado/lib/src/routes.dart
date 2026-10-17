@@ -53,7 +53,7 @@ import 'screens/read_aloud_settings_screen.dart';
 import 'screens/read_aloud_player_screen.dart';
 import 'features/appearance/appearance.dart';
 import 'screens/bottom_bar_skin_screen.dart';
-import 'screens/toc_screen.dart';
+import 'features/toc/presentation/toc_screen.dart';
 import 'screens/txt_toc_rules_screen.dart';
 import 'screens/video_screen.dart';
 import 'screens/webdav_settings_screen.dart';

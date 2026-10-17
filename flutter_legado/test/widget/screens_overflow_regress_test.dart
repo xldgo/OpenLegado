@@ -70,7 +70,7 @@ import 'package:flutter_legado/src/screens/settings_screen.dart';
 import 'package:flutter_legado/src/screens/source_debug_screen.dart';
 import 'package:flutter_legado/src/screens/source_login_screen.dart';
 import 'package:flutter_legado/src/features/appearance/appearance.dart';
-import 'package:flutter_legado/src/screens/toc_screen.dart';
+import 'package:flutter_legado/src/features/toc/presentation/toc_screen.dart';
 import 'package:flutter_legado/src/screens/txt_toc_rules_screen.dart';
 import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/screens/welcome_config_screen.dart';

@@ -4,7 +4,7 @@
 
 - 授权与基线：用户确认规划并开始任务，随后授权完成01/02/03三批、每批验证后本地提交一次。feature/ui-reader-selection / afe49a7ff，开始时工作区干净；Codex直接执行、不使用子代理、不新建分支、不推送/触发CI/构建安装，版本2.0.373+374不变。本次明确授权替代此前“不自动提交”边界。
 - 方案：[页面解构方案](FEATURE_FIRST_PAGE_DECOMPOSITION_20261017.md)。顺序为B1文本阅读器、B2书籍详情、B3目录、B4漫画阅读器、B5长尾归拢；每批先提取职责，再迁移路径，共享领域/数据/平台和依赖组装保持独立。
-- 状态：B1已提交ad3ae8ca9；B2本地实现及回归完成，按本轮授权提交；B3随后实施。会话、页面/浮层/专属状态、段评/预取、自动换源及退出判定已拆分，正文视口独立为ReaderContentViewport。ReaderNotifier保留唯一ReaderState、设置/菜单和分页派生信息；页面保留系统显示、手势、导航、硬件按键和定时器的UI生命周期，不为目标行数强行提取转发层。缺少设备与独立审查，提交交付仅指本地实现及测试。
+- 状态：B1已提交ad3ae8ca9、B2已提交3442ae13b；B3本地实现及回归完成，按本轮授权提交。前三批本地实施收口，B4漫画/B5长尾尚未开始。会话、页面/浮层/专属状态、段评/预取、自动换源及退出判定已拆分，正文视口独立为ReaderContentViewport。ReaderNotifier保留唯一ReaderState、设置/菜单和分页派生信息；页面保留系统显示、手势、导航、硬件按键和定时器的UI生命周期，不为目标行数强行提取转发层。缺少设备与独立审查，提交交付仅指本地实现及测试。
 - 实现边界：新增features/reader/application中的会话控制器与宿主端口；首次会话操作时装配显式依赖，同一Provider周期复用实例，Provider释放/重建时使旧请求失效并清理引用。保留开书/章节加载的原代际及刷新/换源重入守卫；刷新纳入正文发布代际，切书或切章后的旧刷新不覆盖当前正文。原文锚点与计时只有一份实现，不创建平行ReaderUiState，不改变持久化键。
 - 本地验证：31份相关单元与Widget测试共354项通过，含16项不使用Provider的控制器测试及1项新增Provider重建测试；覆盖开书/导航/刷新/换源/原文锚点/阅读记录、布局缓存和重排、阅读菜单命中及滑动等。另2份原生选区及快速连续翻页回归31项通过，两组不重叠，共33份385项。完整flutter analyze --no-pub无问题，6份改动Dart格式检查、git diff --check、方案链接与新文件UTF-8检查通过。
 - 失败与修正：首轮机械提取误识别同名调用，产生缺失/重复方法，编译与静态检查发现后修正。显式依赖装配暴露旧MockRustApi记录仓储缺省空值，夹具补充类型化替身，没有增加生产回退。首次组合中覆盖build的纯表现替身没有初始化会话，已改为按需装配并补Provider重建测试，最终354项全部通过；失败轮次不作为通过证据。
@@ -19,8 +19,14 @@
 
 
 - B2实现：书籍详情迁入features/book_detail/presentation，提取BookMetaCard、BookActionButtons、BookReadingStatus、BookExpandableText、BookDetailBackdrop与BookVariableDialog。组件只消费明确输入和事件；现有BookDetailNotifier/Service仍是唯一加载、刷新与代际来源，生命周期直接归页面，删除旧load/dialogs分区和screens入口，不留导出壳。剩余builders分区只保留页面动作、导航及组装，不宣称part已全部消除。
-- B2验证：12份相关单元与Widget测试136项通过，包含新增5项组件交互：四个动作分发/在架状态、书名作者点击与长按、简介收展、变量确认与取消；原详情进度/元信息、书源查询、入架失败、全屏溢出和服务/Notifier回归保持通过。完整flutter analyze --no-pub无问题；11份Feature及新测试Dart格式检查、git diff --check通过。首轮提取漏掉大图预览图片导入，静态检查发现并补回；新公开Widget补key及清理未用导入，失败轮次不计为通过。
+- B2验证：11份相关单元与Widget测试136项通过，包含新增5项组件交互：四个动作分发/在架状态、书名作者点击与长按、简介收展、变量确认与取消；原详情进度/元信息、书源查询、入架失败、全屏溢出和服务/Notifier回归保持通过。完整flutter analyze --no-pub无问题；11份Feature及新测试Dart格式检查、git diff --check通过。首轮提取漏掉大图预览图片导入，静态检查发现并补回；新公开Widget补key及清理未用导入，失败轮次不计为通过。
 - B2限制与证据：忽略目录flutter_legado/build/book-detail-feature-qa/{analysis-final,tests-final}.log。仅Codex直接实现及自查，无独立审查、native/设备验证、构建安装、推送或CI运行；不改FFI、Repository契约、存储、依赖及2.0.373+374版本。按用户授权每批本地提交一次，B3继续。
+
+
+- B3实现：目录迁入features/toc/presentation，TocFilterController接管三Tab共用查询、防抖与目录显示倒序，保留列表原位置和BookChapter.index。TocCacheController使用显式仓储/服务及书籍读取端口，维护唯一只读观察快照，组合初始URL、轮询字数/运行/失败集合和音频缓存事件，不接管下载事实或写库。页面只组合三Tab、导航与已有书签/标注操作；TocItemTile、TocVolumeTile、TocOverflowMenu分别承载行表现及菜单条件。
+- B3行为：行高、状态优先级、字数胶囊、当前章高亮、单章下载/重试和返回章节实体索引不变；保留初始查询失败独立降级、轮询主查询失败整轮保留与子查询失败保留对应状态。无变化不通知；并发刷新复用当前请求。新增路由暂停/恢复边界，隐藏目录取消轮询与音频订阅，返回重启，销毁后忽略在途结果；本地及WebDAV免远程查询。旧screens入口删除，路由、运行代码、测试和PR标签同步，不留兼容导出。
+- B3验证：16份相关单元与Widget测试189项通过，含21项新增过滤/缓存/菜单/组件/真实目录页交互；覆盖防抖与清空、非连续章节索引、真实搜索及倒序后选章、缓存不变不重建、查询失败、音频事件、真实路由离开/返回/销毁、下载和重试点击不串到选章，以及既有书签/标注、书源查询、详情、阅读菜单、流程状态机及溢出回归。完整flutter analyze --no-pub无问题，相关Dart格式及git diff --check通过。
+- B3证据与边界：忽略目录flutter_legado/build/toc-feature-qa/{analysis-final,tests-final}.log，独立边界用例另见controller-initial/new-tests/lifecycle。首轮静态检查发现菜单模型导入路径和构造初始化提示，已定点修正；不把首轮输出当最终证据。仅Codex直接实现与自查，无独立审查、真实CI、设备或native构建安装；版本2.0.373+374、FFI/Repository契约、存储及依赖不变。本轮授权范围B1/B2/B3结束后停止，B4/B5不自动展开，不推送或触发CI。
 
 编写者：Codex｜2026-10-17
 
