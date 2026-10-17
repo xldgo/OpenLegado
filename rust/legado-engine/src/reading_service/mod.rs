@@ -26,7 +26,7 @@ pub use content::{
 #[cfg(feature = "quickjs")]
 pub use pre_update::apply_web_info_to_book;
 pub use processing::{
-    can_remove_same_title, chinese_convert_direction, convert_title_by_type,
+    ContentProcessing, can_remove_same_title, chinese_convert_direction, convert_title_by_type,
     process_content_with_rules_inner, same_title_removed_key, word_count_format,
 };
 pub type ReadingFetcherFactory = Arc<dyn Fn() -> LegadoResult<FetcherDeps> + Send + Sync>;

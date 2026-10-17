@@ -118,7 +118,24 @@ pub fn process_content_with_rules_inner(
     processor.process(raw_content, chapter_title, &entries)
 }
 
-impl ReadingService {
+/// 阅读与导出共享的正文配置及处理能力，不携带抓取或运行时资源。
+#[derive(Clone)]
+pub struct ContentProcessing {
+    storage: Option<StorageContext>,
+}
+impl ContentProcessing {
+    pub fn new(storage: Option<StorageContext>) -> Self {
+        Self { storage }
+    }
+    fn with_database<T>(
+        &self,
+        f: impl FnOnce(&legado_db::Database) -> LegadoResult<T>,
+    ) -> LegadoResult<T> {
+        self.storage
+            .as_ref()
+            .ok_or_else(|| LegadoError::Database("数据库尚未初始化，请先调用 db_open".into()))?
+            .with_database(f)
+    }
     pub fn get_chinese_convert_type(&self) -> i32 {
         self.with_database(|db| {
             Ok(CacheRepository::new(db.connection())
@@ -302,6 +319,88 @@ impl ReadingService {
             apply_replace_rules,
             chinese_convert,
             remove_duplicate_title,
+        )
+    }
+}
+
+impl ReadingService {
+    fn content_processing(&self) -> ContentProcessing {
+        ContentProcessing::new(self.resources.storage.clone())
+    }
+    pub fn get_chinese_convert_type(&self) -> i32 {
+        self.content_processing().get_chinese_convert_type()
+    }
+    pub fn set_chinese_convert_type(&self, convert_type: i32) {
+        self.content_processing()
+            .set_chinese_convert_type(convert_type)
+    }
+    pub fn get_same_title_removed(&self, book_url: &str, chapter_index: i32) -> bool {
+        self.content_processing()
+            .get_same_title_removed(book_url, chapter_index)
+    }
+    pub fn toggle_same_title_removed(
+        &self,
+        book_url: &str,
+        chapter_index: i32,
+        enable: bool,
+    ) -> LegadoResult<()> {
+        self.content_processing()
+            .toggle_same_title_removed(book_url, chapter_index, enable)
+    }
+    pub(super) fn apply_title_convert(&self, chapters: &mut [BookChapter]) {
+        self.content_processing().apply_title_convert(chapters)
+    }
+    pub fn apply_content_processing(
+        &self,
+        book_url: &str,
+        raw_content: &str,
+        chapter_title: &str,
+    ) -> String {
+        self.content_processing()
+            .apply_content_processing(book_url, raw_content, chapter_title)
+    }
+    pub fn apply_content_processing_chapter(
+        &self,
+        book_url: &str,
+        raw_content: &str,
+        chapter_title: &str,
+        chapter_index: i32,
+    ) -> String {
+        self.content_processing().apply_content_processing_chapter(
+            book_url,
+            raw_content,
+            chapter_title,
+            chapter_index,
+        )
+    }
+    pub fn apply_content_processing_raw(
+        &self,
+        book_url: &str,
+        raw_content: &str,
+        chapter_title: &str,
+        chapter_index: Option<i32>,
+    ) -> String {
+        self.content_processing().apply_content_processing_raw(
+            book_url,
+            raw_content,
+            chapter_title,
+            chapter_index,
+        )
+    }
+    pub(super) fn apply_content_processing_inner(
+        &self,
+        book_url: &str,
+        raw_content: &str,
+        chapter_title: &str,
+        apply_replace_rules: bool,
+        chapter_index: Option<i32>,
+    ) -> String {
+        self.content_processing().apply_content_processing_inner(
+            book_url,
+            raw_content,
+            chapter_title,
+            apply_replace_rules,
+            chapter_index,
         )
     }
 }

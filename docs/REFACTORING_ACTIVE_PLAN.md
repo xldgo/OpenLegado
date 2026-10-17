@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### BOOK-IO-SERVICE-20261017：本地书导入与导出服务下沉（P1）
+
+- 授权与基线：用户授权已确认的完整书籍导入/导出服务计划；feature/rust-ffi-modernization / b138babf7，worktree干净。Codex单代理，当前分支整批验证后本地提交，不推送/合并/远程CI/WSL或设备安装；音频/TTS继续暂缓。
+- 范围：BookImportService承接格式/元数据与书架入库编排，注入存储/路径解析能力；BookExportService承接导出和预览，注入存储及捕获的图片获取器。现有正文处理抽成仅依赖存储的ContentProcessing，阅读与导出直接复用；FFI保留文档解析、宿主能力装配与类型重导出。
+- 行为冻结：相对导入标识bookUrl原样保存、绝对/URL解析、CBZ位域、元数据与入库错误形状、缓存/本地正文来源、处理顺序、章节闭区间/编码/文件名模板/格式/预览保持。不顺带修复现有导出相对路径处理或缺缓存回退，不新增任务取消/下载策略。压缩/编码薄入口、UI、音频/TTS、FFI签名/DTO/生成绑定、schema/应用/依赖版本不改。
+- 验收与回滚：原导入/导出/阅读正文处理测试保留，仅增加实例隔离和真实文件/图片能力测试；default/QuickJS严格Clippy、相关Rust回归及正式Windows DLL/摘要指纹/既有文件FRB定向回归。无新增外部测试宿主或协议；用户禁止子代理，采用单代理自查并如实记录无独立外审。可独立撤销本批。
+- 实现：新增BookImportService/BookExportService，FFI仅保留入口装配、选项JSON解析及原结果类型重导出；ContentProcessing抽出原正文处理实现，ReadingService保留既有方法委托，导出无需装配阅读、搜索或JS资源。服务只持窄资源，不持根EngineContext或在执行中查询FFI当前实例。图片回调捕获所属网络与Handle，保持原GET取字节行为。
+- Rust验证：QuickJS库Engine63/FFI575共638项通过，42项既有忽略；default定向Engine5/FFI57共62项通过，2项既有忽略。原导入2/导出6和阅读处理测试保留；新增5项覆盖相对标识与真实TXT读取、实例与根生命周期隔离、解析/入库/格式/缺书错误分类、原文缓存不变、替换/繁简/章级开关、章节范围/文件名/预览，以及注入PNG经真实解码嵌入PDF且相对图片地址正确绝对化。图片回调使用固定有效PNG夹具，不宣称真实HTTP图片请求或性能验证；本机PDF成功生成。
+- 严格检查与复核：Engine/FFI的default和QuickJS全目标Clippy -D warnings通过，不新增lint放行；导入三函数、预览与17个正文函数对照搬迁前实现无算法变化，导出主体除资源引用、图片注入和格式差异外保持。Cargo.toml/Cargo.lock、FRB生成绑定及Dart/schema/版本未改。源码比较仅辅助人工复核，不作为行为测试。
+- 整改：初始全目标检查命中迁移后的测试未用Repository导入，移除后通过。首轮新增导出夹具误给两章相同缓存URL，导致后一章按缓存主键覆盖前章；修正为真实独立章节URL后完整回归通过，未调整生产行为或放宽原测试。初轮失败不计通过。
+- 正式接线：Python正式入口独立target重建Windows Debug QuickJS DLL通过；构建输入/源码指纹、源库与复制库摘要及最终只读校验通过。既有file_transport_runtime_test定向1项真实FRB回归通过，覆盖本地格式/元数据/导入、目录、原始字节导出、选项文件名、预览章节数及非法格式。未新增专用测试宿主/协议或重复无关Flutter全量验证；限定Rust文件格式检查和git diff --check通过。
+- 证据与限制：build/book-io-service/{check-initial,tests-quickjs,tests-quickjs-final,tests-default,clippy-default,clippy-quickjs,native-build,native-runtime,native-verify-final}.log；move-comparison.json仅辅助搬迁复核。初轮失败不计通过。Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论；音频/TTS、UI及版本未改。可独立撤销本批服务迁移提交。
+- 状态：本批导入/导出服务迁移及本地验证完成，按授权整批本地提交；保留当前worktree/分支，不推送或合并。
+
+编写者：Codex｜2026-10-17
+
 ### DICT-COVER-SERVICE-20261017：词典与封面规则服务下沉（P1）
 
 - 授权与基线：用户授权已确认的完整词典/封面服务计划；feature/rust-ffi-modernization / 4495472a8，当前worktree干净。Codex单代理，整批验证后本地提交，不推送/合并/远程CI/WSL或设备安装；音频/TTS暂缓。
