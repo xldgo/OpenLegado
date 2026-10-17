@@ -3,6 +3,7 @@
 //! 提供缓存大小查询、清理、章节缓存读取操作；
 //! Task #136 R5 补齐写侧（[`save_chapter_content`]）。
 
+#[cfg(test)]
 use legado_core::cache_book::CachedChapter;
 use legado_core::{LegadoError, LegadoResult};
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
@@ -249,67 +250,7 @@ pub fn save_chapter_content(
     )
 }
 
-pub(crate) fn save_chapter_content_with_storage(
-    storage: &legado_engine::StorageContext,
-    book_url: &str,
-    chapter_index: i32,
-    title: &str,
-    content: &str,
-    chapter_url: &str,
-) -> LegadoResult<bool> {
-    // [B-1] 空内容不入缓存（对齐上游 BookHelp.kt:557-559）：空行入库会被
-    // 读侧按命中返回，使该章节永久空白、永不重抓；返回 false 表示未写入
-    if content.trim().is_empty() {
-        return Ok(false);
-    }
-    // 缺省字段回填：对齐 Kotlin cached_chapters 主键（book_url + chapter_url）
-    let (chapter_title, chapter_url) = if title.is_empty() || chapter_url.is_empty() {
-        let ch = storage
-            .with_database(|db| {
-                let repo = BookChapterRepository::new(db.connection());
-                repo.find_by_book_url_and_index(book_url, chapter_index)
-            })?
-            .ok_or_else(|| {
-                LegadoError::Database(format!("章节 {chapter_index} 不存在: {book_url}"))
-            })?;
-        (
-            if title.is_empty() {
-                ch.title
-            } else {
-                title.to_string()
-            },
-            if chapter_url.is_empty() {
-                ch.url
-            } else {
-                chapter_url.to_string()
-            },
-        )
-    } else {
-        (title.to_string(), chapter_url.to_string())
-    };
-
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0);
-
-    let chapter = CachedChapter {
-        id: 0,
-        book_url: book_url.to_string(),
-        chapter_index,
-        chapter_title,
-        chapter_url,
-        content: content.to_string(),
-        cached_at: now_ms,
-        size_bytes: content.len() as i64,
-    };
-
-    storage.with_database(|db| {
-        let repo = CacheBookRepository::new(db.connection());
-        repo.insert(&chapter)?;
-        Ok(true)
-    })
-}
+pub(crate) use legado_engine::reading_service::save_chapter_content_with_storage;
 
 /// 执行 SQLite VACUUM 压缩数据库，返回释放的字节数（Task #51，API_CONTRACT §2.16.6）
 ///

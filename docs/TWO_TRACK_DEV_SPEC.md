@@ -356,3 +356,23 @@ FFI保留实体与文档适配、原路径重导出及宿主JS绑定装配；调
 本批不改FRB签名、DTO/生成绑定、外部依赖、数据库或可见行为；完整状态只记Active计划。
 
 编写者：Codex｜2026-10-17
+
+### 阅读应用服务边界（2026-10-17）
+
+`legado-engine/reading_service`按toc/access/content/processing/pre_update划分目录事务、
+读取编排、原文缓存与下载、内容设置/处理和刷新前钩子。ReadingResources显式接收存储、
+抓取工厂、任务组、WebBookState、JS资源、搜索服务、宿主Handle及本地路径解析器；
+不反向依赖FFI，不持根EngineContext或自建运行时。路径解析器由宿主捕获数据目录后注入。
+
+目录刷新保持tocUrl/originBookUrl/bookUrl取址链、空目录保护、单事务重写和进度列排除；
+原文读取和下载共用ChapterContent，缓存仍保存原文，规则/繁简/重复标题只作用于展示路径。
+普通阅读尽力缓存与显式缓存保存的Result错误语义分别保留，不为合并代码而改变失败策略。
+已取消任务的缓存及媒体副内容发布仍走原门控；不据此宣称同步解析被强杀或所有目录写入
+新增了取消保证。preUpdateJs的reGetBook/refreshTocUrl直接复用所属Engine精搜与Fetcher详情，
+不再从钩子回调FFI搜索/详情入口；稳定bookUrl与钩子更新字段保持原语义。
+
+FFI保留宿主装配、旧入口和类型重导出；对外DTO/生成绑定、数据库和应用版本不变。
+Engine仅新增对已有legado-book/legado-parser的workspace依赖边，外部锁定包版本不变。
+正式应用使用前须重建native；实现状态与验证边界只记Active计划。
+
+编写者：Codex｜2026-10-17

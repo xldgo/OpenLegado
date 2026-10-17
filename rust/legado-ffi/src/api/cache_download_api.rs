@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 /// 装配只捕获数据能力，后台线程不强持根引擎。
 pub(crate) fn downloads_for_engine(engine: &EngineContext) -> Arc<CacheDownloads> {
-    let content = super::chapter_content::ChapterContent::from_engine(engine);
+    let content = super::chapter_content::from_engine(engine);
     Arc::new(CacheDownloads::new(
         engine.storage().clone(),
         engine.tasks().clone(),

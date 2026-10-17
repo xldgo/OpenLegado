@@ -7,6 +7,7 @@ pub mod explore_service;
 mod media;
 mod network;
 mod operations;
+pub mod reading_service;
 pub mod search_service;
 mod search_tasks;
 pub mod source_batches;

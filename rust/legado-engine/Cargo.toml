@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 futures = "0.3"
+legado-book = { path = "../legado-book" }
+legado-parser = { path = "../legado-parser" }
 legado-core = { path = "../legado-core" }
 legado-db = { path = "../legado-db" }
 legado-fetcher = { path = "../legado-fetcher" }

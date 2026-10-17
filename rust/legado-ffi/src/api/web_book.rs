@@ -35,21 +35,6 @@ pub(crate) fn build_js_orchestrator(
     )
 }
 
-pub(crate) fn bump_toc_fetch_epoch() {
-    legado_fetcher::web_book::bump_toc_fetch_epoch(&crate::engine_holder::web_book_state());
-}
-
-pub(crate) fn record_next_chapter_map(
-    source_url: &str,
-    chapters: &[legado_core::web_book::WebChapter],
-) {
-    legado_fetcher::web_book::record_next_chapter_map(
-        &crate::engine_holder::web_book_state(),
-        source_url,
-        chapters,
-    );
-}
-
 // ─── 宿主注入面组装 ───────────────────────────────────────────────────────────
 
 /// 按 bookUrl 读用户书籍变量（DB `books.variable`，P1-1 两路反查）
@@ -178,16 +163,6 @@ pub(crate) fn deps_for_engine(engine: &legado_engine::EngineContext) -> Captured
 /// `pub`：source_switch/toc 回归测试与 `examples/` 诊断脚本复用同一注入面
 /// （登录头 / DB 书籍变量 / 书源 setup 全量；避免各调用点自建 FetcherDeps
 /// 造成注入面漂移）。
-#[cfg(feature = "quickjs")]
-pub(crate) fn real_fetcher_for_book(
-    source: &str,
-    book: &str,
-) -> LegadoResult<RealBookSourceFetcher> {
-    Ok(RealBookSourceFetcher::with_deps(
-        ffi_deps()?.for_book(source, book),
-    ))
-}
-
 pub fn real_fetcher() -> LegadoResult<RealBookSourceFetcher> {
     Ok(RealBookSourceFetcher::with_deps(ffi_deps()?))
 }

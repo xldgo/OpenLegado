@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### READING-SERVICE-20261017：目录正文与缓存服务下沉（P1）
+
+- 授权与基线：用户授权执行已确认的完整阅读服务批次；feature/rust-ffi-modernization / b6e7d5a9c，worktree干净。Codex单代理，原分支内实施，整批验证后本地提交；不推送/合并/远程CI/WSL或设备安装。
+- 范围：现有legado-engine承接目录查询/刷新、正文缓存读取与下载、规则/繁简/重复标题设置及preUpdateJs编排。FFI保留根资源、路径/抓取装配及协议薄适配；刷新前钩子直接复用Engine精搜及Fetcher详情。保持稳定bookUrl、目录取址回退、空目录保护、事务和进度列保护、缓存原文/展示正文分离及任务发布门控。
+- 非目标：不改FFI签名/DTO或生成绑定、数据库schema、应用版本/界面、解析算法或网络策略；必要时仅增加对现有workspace crate的依赖边，不升级外部包。既有本地路径语义原样迁移，不顺带修复其他路径问题。
+- 验收：复用阅读/目录事务/缓存下载和真实FRB回归，仅补独立服务隔离必要用例；default/QuickJS严格Clippy、正式Windows DLL与指纹/摘要。单代理自查，无独立外审或平台验收时如实记录；可独立撤销本批。状态见下方最终验证记录。
+
+- 实现：ReadingService按toc/access/content/processing/pre_update分工，显式接收存储/抓取工厂/任务组/JS/WebBookState/搜索服务/宿主Handle和路径解析器。ChapterContent下沉后供阅读与下载共用，显式缓存保存也迁入Engine，FFI保留装配与原类型重导出。刷新前钩子直接使用所属SearchService精搜与Fetcher详情，不再调用FFI兄弟业务入口；精搜结果使用同一实体字段，不经JSON往返。
+- 行为核对：目录取址回退、preUpdate写回、空目录保护、目录/派生字段/失效缓存同事务、进度列排除及下一章映射保持。原文缓存和展示处理分开；普通阅读尽力缓存与显式保存Result两种错误语义保留。未顺便更改原有本地full读取入口的路径处理；不宣称为同步JS或全部目录写入新增取消保证。删除已无消费者的FFI目录代数/下一章映射/书级fetcher薄包装。
+- Rust验证：Engine32、FFI594共626项通过，FFI42项既有忽略。新增3项独立服务测试覆盖配置/规则/章级开关与原文缓存隔离、目录刷新保留在途进度和只清理所属缓存、空目录不覆盖，以及preUpdateJs真实回环精搜/详情请求使用本源头且稳定bookUrl不变。现有reader45、chapter_content3、pre_update3、cache_api8项测试入口均保留。
+- 整改：初次搬迁修正本地书静态方法限定、常量与测试导入；合并impl块时遗漏首个自由函数结束括号，已修复后通过编译。新配置用例原先假定替换早于繁简转换，按既有ContentProcessor顺序修正夹具，不改生产顺序或放宽旧断言。搬迁函数按原实现复核，8个纯函数和显式缓存写入一致。Cargo.lock仅增加legado-book/legado-parser两条workspace依赖边，529个外部包版本/来源/校验和不变。
+- 最终验证：Rust626项通过/42项既有忽略，default/QuickJS两档Engine/FFI全目标严格Clippy通过。正式Python入口独立target重建Windows Debug QuickJS DLL，构建及指纹/摘要校验通过；既有真实FRB三份文件13项通过，含目录刷新/正文获取、真实本地30章读取与下载终态、订阅退订和原搜索/校验/换源流回归。限定文件格式与git diff --check通过；未改Dart/生成绑定、数据库schema或应用版本。
+- 证据与限制：build/reading-service/{rust-quick-final,clippy-quick-final,clippy-default,native-build,native-runtime,native-verify-final}.log。初轮编译和新夹具失败不计通过；未重复运行全量Flutter分析或设备/性能测试。Codex单代理实现与自查，无独立外审、远程CI、Android/iOS或真机验收，不将本机验证描述为全平台完成。
+- 状态：本批阅读服务迁移、下载共用及本地验证完成，按授权整批本地提交。仍在原worktree/分支，不推送或合并；后续任务另行确定。
+
+编写者：Codex｜2026-10-17
+
 ### EXPLORE-CHECK-SERVICE-20261017：发现与书源校验服务下沉（P1）
 
 - 授权与基线：用户授权执行下一批完整计划；feature/rust-ffi-modernization / 65b4e812e，worktree干净，Codex单代理，不新建分支。验证后整批本地提交，不推送/合并/远程CI/WSL或设备安装。

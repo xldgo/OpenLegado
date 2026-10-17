@@ -52,7 +52,7 @@ fn host_service() -> SearchService {
     service_for_engine(crate::engine_holder::current().ok().as_deref())
 }
 
-fn service_for_engine(engine: Option<&legado_engine::EngineContext>) -> SearchService {
+pub(crate) fn service_for_engine(engine: Option<&legado_engine::EngineContext>) -> SearchService {
     let storage = engine.map(|e| e.storage().clone());
     let network = engine
         .map(|e| e.network().clone())
