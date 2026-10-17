@@ -123,19 +123,27 @@ final class FileReadAloudPlaylist {
     final index = _cues.indexWhere((cue) => identical(cue, tag));
     if (index < 0) return;
     _current = index;
+    final cue = _cues[index];
     ReadAloudDiagnostics.instance.event('playlist.cue_started', {
       'playlist': identityHashCode(this),
       'generation': generation,
       'cue': index,
-      'paragraph': _cues[index].paragraphIndex,
+      'paragraph': cue.paragraphIndex,
       'tag': identityHashCode(tag),
       'retained': _audio.length,
       'preparedNext': _next,
       'queuedNext': _queuedNext,
       'ready': _ready.length,
       'totalCues': _cues.length,
+      // 字数用于和 item.ended 的时长比对，识别同一份音频内重复朗读。
+      'textLength': cue.request.text.length,
     });
-    _onCue?.call(_cues[index]);
+    ReadAloudDiagnostics.instance.markFields
+      ..['cue'] = index
+      ..['paragraph'] = cue.paragraphIndex
+      ..['textLength'] = cue.request.text.length
+      ..['sourceOffset'] = cue.sourceOffset;
+    _onCue?.call(cue);
     if (!_valid(generation)) return;
     _session?.reportProgress(_cues[index].sourceOffset - _progressBase);
     _pump();

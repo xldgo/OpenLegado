@@ -23,7 +23,11 @@ final class ReadAloudDiagnostics extends ChangeNotifier
 
   static final instance = ReadAloudDiagnostics();
   static const maxFileBytes = 1024 * 1024;
-  static const maxBufferedEvents = 256;
+
+  /// 原生事件每次汇集可能一次到达上百条；256 条的旧上限在真机上丢弃了
+  /// 六成以上事件（含换项与播放器快照），使复采无法定位段首重播。
+  static const maxBufferedEvents = 2048;
+  static const maxBufferedBytes = 256 * 1024;
   final Future<Directory> Function() _directory;
   final Future<Directory> Function() _exportDirectory;
   final MethodChannel _channel;
@@ -76,13 +80,14 @@ final class ReadAloudDiagnostics extends ChangeNotifier
     _frames = _slowFrames = _maxBuildUs = _maxRasterUs = 0;
     _counts.clear();
     lastError = null;
+    markFields.clear();
     _enabled = true;
     WidgetsBinding.instance.addObserver(this);
     SchedulerBinding.instance.addTimingsCallback(_timings);
     event('capture.start', {'platform': defaultTargetPlatform.name});
     await _nativeEnabled(true);
     _timer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(seconds: 2),
       (_) => unawaited(_pulse()),
     );
     _deadline = Timer(const Duration(minutes: 30), () => unawaited(stop()));
@@ -136,7 +141,7 @@ final class ReadAloudDiagnostics extends ChangeNotifier
     }
     while (_pending.isNotEmpty &&
         (_pending.length >= maxBufferedEvents ||
-            _bufferBytes + bytes > 65536)) {
+            _bufferBytes + bytes > maxBufferedBytes)) {
       _bufferBytes -= utf8.encode(_pending.removeAt(0)).length;
       _dropped++;
     }
@@ -246,7 +251,22 @@ final class ReadAloudDiagnostics extends ChangeNotifier
     return _writes;
   }
 
-  void mark() => event('user.heard_replay');
+  /// 标记点击时刻的上下文：队列/播放器在运行中写入，避免只有时间戳
+  /// 而无法判断用户听到的是哪一段、哪份音频（标记时间通常晚于故障）。
+  final Map<String, Object?> markFields = {};
+
+  /// 播放器提供的实时快照；在标记时调用，取点击当下的位置与当前项。
+  Map<String, Object?> Function()? markSnapshot;
+
+  void mark() {
+    final fields = <String, Object?>{};
+    final live = markSnapshot?.call();
+    if (live != null) fields.addAll(live);
+    if (markFields.isNotEmpty) {
+      fields['cue'] = Map<String, Object?>.of(markFields);
+    }
+    event('user.heard_replay', fields);
+  }
 
   /// 文件统计不阻塞音频返回；文件已回收时仅缺失大小，不改变合成结果。
   void recordCloudAudio(String path, {required bool fromCache}) {

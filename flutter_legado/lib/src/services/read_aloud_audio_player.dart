@@ -12,7 +12,9 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   ReadAloudAudioPlayer({
     audio.AudioPlayer Function()? createPlayer,
     this.progressInterval = const Duration(milliseconds: 250),
-  }) : _createPlayer = createPlayer ?? _defaultPlayer;
+  }) : _createPlayer = createPlayer ?? _defaultPlayer {
+    _diagnostics.markSnapshot = _markProvider;
+  }
 
   /// 位置流向上层发布的节流间隔
   ///
@@ -52,6 +54,15 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   int _lastDiagnosticPosition = 0, _lastDiagnosticSample = 0;
   int _lastDiagnosticSession = 0;
   String? _diagnosticUrl, _diagnosticFile;
+
+  /// 最近换项序列（含文件、位置和时间），供用户标记时回看是第几段。
+  final List<Map<String, Object?>> _recentItems = [];
+
+  Map<String, Object?> _markSnapshot() => {
+    ..._diagnosticSnapshot(),
+    'recentItems': List<Map<String, Object?>>.of(_recentItems),
+  };
+  late final Map<String, Object?> Function() _markProvider = _markSnapshot;
 
   Map<String, Object?> _diagnosticSnapshot() {
     final player = _native;
@@ -187,6 +198,17 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
       _active = tag;
       // 换项事件可能仍带上一项的位置和时长，先等待下一份原生位置基点。
       _positionBaseline = player.playbackEvent.updateTime;
+      if (_diagnostics.enabled) {
+        final snapshot = _diagnosticSnapshot();
+        _recentItems.add({
+          'tag': snapshot['tag'],
+          'file': snapshot['file'],
+          'positionMs': snapshot['positionMs'],
+          'durationMs': snapshot['durationMs'],
+          'wallMs': DateTime.now().millisecondsSinceEpoch,
+        });
+        if (_recentItems.length > 12) _recentItems.removeAt(0);
+      }
       _started?.call(tag);
     }
     if (generation != _generation || !_queueMode) return;
@@ -527,6 +549,10 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   @override
   Future<void> dispose() async {
     await stop();
+    if (identical(_diagnostics.markSnapshot, _markProvider)) {
+      _diagnostics.markSnapshot = null;
+    }
+    _recentItems.clear();
     await _native?.dispose();
     _native = null;
   }

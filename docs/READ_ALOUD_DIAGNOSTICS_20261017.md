@@ -16,9 +16,10 @@ CLOUD_TTS_THERMAL_ANALYSIS_20261017.md，不把其量级估算当作设备实测
 6. 每次重新开启会清空旧采集及轮转记录，导出只包含本轮；正在采集时重复开启不会清空。
    停止后仍可重复导出。已经分享或保存到外部的文件不删除。
 
-日志默认关闭。启用后每5秒汇集原生通知并异步批量落盘，不调用fsync；每15秒记录资源、
-回调计数与帧汇总，不逐帧写日志。内存最多256条/64KiB，溢出丢弃最旧事件并计数；
-64KiB指编码后的事件内容，不代表整个诊断对象的真实内存占用。
+日志默认关闭。启用后每2秒汇集原生通知并异步批量落盘，不调用fsync；每15秒记录资源、
+回调计数与帧汇总，不逐帧写日志。内存最多2048条/256KiB，溢出丢弃最旧事件并计数；
+256KiB指编码后的事件内容，不代表整个诊断对象的真实内存占用。旧上限256条/64KiB在
+真机复采中丢弃了六成以上事件（含换项与播放器快照），已上调。
 采集文件最多两个1MiB，临时导出复用单个文件。应用被强制终止时最后一批内存事件可能丢失。
 关闭后移除帧、生命周期与原生通知观察，取消定时器并恢复原有电池监测状态。
 
@@ -36,7 +37,8 @@ session是一次手动采集的身份；generation是播放会话代次。Dart�
 | player.append.begin/end | 批量追加前后的项数/索引/位置/状态，addedCount及匿名标签/文件列表 |
 | player.seek | 显式定位及原因，含队尾恢复下一项、暂停恢复和用户定位 |
 | player.item_changed、sample、position_backwards | 当前音频身份、每秒状态和同一标签位置后退超过200ms的线索 |
-| playlist.cue_started | 正文段落/分片、租约保留量、准备位置preparedNext与提交位置queuedNext |
+| playlist.cue_started | 正文段落/分片、租约保留量、准备位置preparedNext、提交位置queuedNext、字数textLength |
+| user.heard_replay | 标记点击时刻的实时播放器快照（tag/file/位置/时长/状态）、当前cue/段落/字数及最近12次换项 |
 | native.event | iOS音频项时间不连续、结束、停顿、失败、中断、路由变化及原生时间 |
 | synthesis.window_start/cancel、chapter_batch | 窗口代次、每章实际分片数、并发和待处理量 |
 | synthesis.job.begin/end | 前后台归属、取消、结果、缓存命中和端到端任务耗时 |
@@ -47,7 +49,9 @@ session是一次手动采集的身份；generation是播放会话代次。Dart�
 
 ## 段首重播的判读
 
-- 先找user.heard_replay前十几秒的同一个file/tag。
+- 先看user.heard_replay自带的cue/段落/textLength与最近12次换项，再回看前十几秒的同一个file/tag。
+- 时长/字数比：用item.ended的positionMs除以cue_started的textLength，正常中文约150-250ms/字；
+  明显高于同段其他分片说明同一份合成音频里重复朗读了正文，与播放器无关。
 - 有第二次load或显式seek：沿应用调用原因检查；主动拖动产生的位置后退属于正常行为。
 - 没有对应Dart定位、但有相同原生item的time_jump：说明系统观察到该项时间不连续，
   结合discard/append前后位置判断相关性。通知本身不能证明由哪一个插件内部方法触发。

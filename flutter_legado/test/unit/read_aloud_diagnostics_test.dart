@@ -52,6 +52,46 @@ void main() {
     expect(marker['monoUs'], isNonNegative);
   });
 
+  test('标记记录点击时刻的播放器与段落上下文', () async {
+    await diagnostics.start();
+    diagnostics.markSnapshot = () => {
+      'tag': 42,
+      'file': 'abcdef0123456789',
+      'positionMs': 1234,
+      'state': 'ready',
+      'recentItems': [
+        {'file': 'abcdef0123456789', 'positionMs': 0},
+      ],
+    };
+    diagnostics.markFields
+      ..['cue'] = 7
+      ..['paragraph'] = 245
+      ..['textLength'] = 33;
+    diagnostics.mark();
+    await diagnostics.stop();
+    final marker = (await getLog().readAsLines())
+        .map((line) => jsonDecode(line) as Map<String, dynamic>)
+        .singleWhere((entry) => entry['event'] == 'user.heard_replay');
+    expect(marker['positionMs'], 1234);
+    expect(marker['file'], 'abcdef0123456789');
+    expect((marker['cue'] as Map)['paragraph'], 245);
+    expect((marker['cue'] as Map)['textLength'], 33);
+    expect((marker['recentItems'] as List), hasLength(1));
+  });
+
+  test('重新开启采集不继承上一轮标记上下文', () async {
+    await diagnostics.start();
+    diagnostics.markFields['paragraph'] = 1;
+    await diagnostics.stop();
+    await diagnostics.start();
+    diagnostics.mark();
+    await diagnostics.stop();
+    final markers = (await getLog().readAsLines())
+        .map((line) => jsonDecode(line) as Map<String, dynamic>)
+        .where((entry) => entry['event'] == 'user.heard_replay');
+    expect(markers.last.containsKey('cue'), isFalse);
+  });
+
   test('旧采集的迟到耗时结果不混入下一次采集', () async {
     await diagnostics.start();
     final old = diagnostics.begin('old.job');
@@ -105,7 +145,7 @@ void main() {
 
   test('突发事件有界，超过容量不会无限堆积或阻断调用', () async {
     await diagnostics.start();
-    for (var i = 0; i < 1000; i++) {
+    for (var i = 0; i < ReadAloudDiagnostics.maxBufferedEvents + 500; i++) {
       diagnostics.event('burst', {'number': i});
     }
     await diagnostics.flush();
