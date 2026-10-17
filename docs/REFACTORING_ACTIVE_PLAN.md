@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-ACTION-SERVICE-20261018：书源登录与章节购买动作服务下沉（P1）
+
+- 授权与基线：用户批准V1/V2登录与章节购买动作完整批次；feature/rust-ffi-modernization / 60a92aeee，worktree干净。当前分支内单代理执行，验证后整批本地提交，不推送/合并/远程CI/WSL/安装；音频/TTS及既有后置功能缺口不扩入。
+- 范围：Engine SourceActionService按V1/V2/购买划分编排，显式接收存储、JS、登录能力和书源setup；FFI只保留原参数/文档转换、宿主装配及结果类型重导出。数据库查询分别借还连接，JS执行不持连接；不持根EngineContext或自建Runtime。
+- 行为冻结：V1保留去壳/动作名规则、sanitize jsLib与setup、忽略脚本结果/错误并读取登录头；V2保留独立VM、原绑定、状态/表单规范化及命令登录信息最后写入；购买保留本地书短路、错误顺序、URL/true/none分类和按书籍+章节URL精确清缓存。原来源tag、Cookie/请求头归属、64MB沙箱及无QuickJS行为不变；不补V1错误策略、购买模板能力或其他新功能。
+- 验收与边界：复用原登录/购买回归及跨FFI-Web登录测试，私有纯逻辑测试随实现迁移；仅补必要独立实例/真实JS/HTTP及缓存归属用例。相关Rust回归、default/QuickJS严格Clippy、正式Windows DLL/指纹/摘要与既有真实FRB用例。不改FFI签名/DTO/生成物、UI、schema、版本或依赖，不新增外部测试宿主；单代理自查，无独立外审如实记录。
+- 实现：SourceActionService按login_v1/login_v2/purchase划分，FFI共用source_action_host捕获窄资源。V1直接调用共享Fetcher解析器，V2/购买只合并原本相同的独立VM构造和值转换；状态/表单协议复用core。每次DB闭包结束即归还连接，JS执行不持池连接；购买精确清理的DB键与返回形状保持。LoginActionV2Request和PayActionResult从原API路径重导出，FFI文档解析和签名不变。
+- Rust回归：QuickJS库Engine106/FFI554共660项通过，42项既有忽略；default服务4项与FFI购买2项通过。原15项登录/购买测试保留，其中3项私有纯逻辑随实现迁入Engine，12项原FFI断言保留。新增2项QuickJS与1项default用例，检查根释放/实例变量及登录归属/V2独立VM、真实HTTP来源头和Cookie/单连接池下执行/跨书及跨实例精确清缓存、无JS与未开库错误行为。原server_engine_login真实FFI-Web回归1项通过，覆盖开库前V1写入、开库后消费/更新/删除/持久化失败。
+- 整改：首次机械提取脚本未识别泛型函数名而中断，修正匹配后完成提取，无其他工作区改动。首轮新增HTTP夹具把完整URL当域键传给NetworkContext.set_cookie，Cookie断言失败；按API要求使用normalize_cookie_key后完整回归通过，未修改生产网络策略或放宽断言。初轮失败不计通过。
+- 自查：原5个公开入口签名不变，V1/V2原测试与迁移的购买纯函数测试核对一致；去壳/状态规范化/购买分类与两处合并的值转换逐段核对不变。move-comparison.json仅辅助复核，不替代行为验证。不新增lint放行，未改FRB生成物、DTO、锁文件、schema、版本或音频/TTS业务。
+- 严格检查：Engine/FFI的default与QuickJS两档全目标Clippy -D warnings通过，限定文件格式和git diff --check通过；无新增lint放行。
+- 正式接线：Python正式入口重建Windows Debug QuickJS DLL，构建/源码指纹/源库与复制库摘要及只读校验通过；既有source_tools_transport_runtime_test定向2项通过，覆盖V2完整实体/动态状态与表单/先持久化再返回、回调动作及购买本地书短路。不增加Dart用例或改写生成绑定，在线购买的实际JS/HTTP/精确清缓存由Engine及原FFI测试覆盖，不冒称真机或在线购买FRB端到端验收。
+- 证据与限制：build/source-action-service/{rust-initial,rust-quick,rust-default-service,rust-default-purchase,clippy-quick,clippy-default,server-engine-login,native-build,native-login,native-purchase,native-verify}.log及move-comparison.json。首次夹具失败不计通过；最终相关回归均通过。仅Codex单代理实现/自查，无独立外审、远程CI、Android/iOS、设备或性能结论，不重复全量Flutter验证；此前其他批次的锁冲突根因与后置功能缺口未在本批销账。
+- 状态：本批服务迁移与本地验证完成，按授权整批本地提交；保持当前worktree/分支，不推送/合并，不修改主目录。音频/TTS及后置功能缺口继续暂缓，可独立撤销本批。
+
+编写者：Codex｜2026-10-18
+
 ### REPLACE-RULE-SERVICE-20261018：替换规则管理与执行服务下沉（P1）
 
 - 授权与基线：用户要求依赖核实单独提交后继续既定服务任务；feature/rust-ffi-modernization / 7659c18ba，工作区干净。当前worktree内单代理执行，验证后整批本地提交，不推送/合并/远程CI/WSL/安装，音频/TTS保持暂缓。

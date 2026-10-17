@@ -594,3 +594,26 @@ FFI继续提供原参数和JSON文档解析，不新增公共DTO或改写生成�
 FFI契约、UI、数据库、应用/依赖版本不变；状态和验证证据仅维护于Active计划。
 
 编写者：Codex｜2026-10-18
+
+
+### 书源登录与章节购买动作（2026-10-18）
+
+`legado-engine/source_action_service`分别承接V1登录、V2渲染/动作及章节购买编排。
+宿主入口一次捕获StorageContext、JsResources、SourceLoginCache与setup回调；回调仅持
+登录和infoMap能力，不持根EngineContext。未开库的登录仍可使用同一内存服务，购买仍报原错误。
+数据库查询分别借还连接，脚本执行不持数据库连接，也不新建或拥有Tokio Runtime。
+
+V1保持getLoginJs去壳、动作名处理、sanitize jsLib与共享解析器setup；setup错误和脚本
+执行错误仍按原路径忽略，最后返回登录头或空值，不借本批改变既有错误策略。
+V2仍用core协议处理空状态/表单及命令，每次调用创建独立VM并注入原baseUrl/source绑定；
+命令的login数据在脚本执行完成后写入同一登录服务，覆盖脚本中的中间值。
+购买沿用本地书短路及书/章节/源检查顺序，原book/chapter/title/baseUrl/result/src绑定保持；
+成功只按书籍URL与章节URL清理数据库正文缓存，URL/none结果不清理。
+
+V2和购买只共用原本一致的独立VM构造及JSON到JS值转换，64MB沙箱、来源tag、
+实例Cookie/来源请求头和无QuickJS行为保持。V1解析器、V2协议和购买绑定仍各自独立。
+FFI保留文档解析与原签名，LoginActionV2Request及PayActionResult从原模块路径重导出；
+原core算法、FFI DTO和生成绑定不变。未补购买模板能力，不涉及音频/TTS、schema、版本或依赖。
+状态与证据仅维护于Active计划。
+
+编写者：Codex｜2026-10-18

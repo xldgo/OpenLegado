@@ -1,182 +1,22 @@
-//! 登录 UI V2 动态状态协议 FFI 层（上游 #402/#488）
-//!
-//! 在 [`legado_core::login_ui_v2`] 协议实现之上接入 QuickJS 引擎池，
-//! 对齐 Kotlin `BaseSource.evalLoginUiV2/evalLoginActionV2` 的执行链路：
-//!
-//! - JS 绑定上下文对齐：Kotlin `evalJS` 注入 java/source/sourceApi/baseUrl/cookie/cache；
-//!   Rust 引擎已全局注册 `java` 命名空间与 cookie API（getCookie/setCookie/clearCookies），
-//!   本层额外注入 `baseUrl`（书源 URL）与 `source`（书源 JSON 对象），
-//!   脚本亦可通过 `getSource(baseUrl)` 读取书源完整字段。
-//! - #488 登录前脚本阻塞：Rust 侧 V2 动作直接执行 `loginAction`，
-//!   不前置遗留 `login()` 脚本，执行顺序无同类问题。
-//!
-//! 未启用 quickjs feature 时返回 `JsEngine` 错误（FFI 层转 BridgeError）。
+//! 登录V2边界：保留文档解析与原入口，执行委托Engine。
+use legado_core::{LegadoResult, models::BookSource};
+pub use legado_engine::source_action_service::LoginActionV2Request;
 
-use legado_core::models::BookSource;
-use legado_core::{LegadoError, LegadoResult, login_ui_v2};
-
-/// 判定书源登录 UI 是否为 V2 动态状态协议
-///
-/// `source` — 完整书源实体快照
 pub fn is_login_ui_v2(source: &BookSource) -> bool {
-    login_ui_v2::is_v2(source.login_ui.as_deref())
+    legado_engine::source_action_service::is_login_ui_v2(source)
 }
-
-/// 执行 loginUi v2 脚本，返回动态 UI 描述 JSON（`{ "rows": [...] }`）
-///
-/// - `source` — 完整书源实体快照
-/// - `state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
-///
-/// JS 返回 null/undefined 时返回空字符串（对齐 Kotlin 返回 null → 渲染失败提示）。
 pub fn eval_login_ui_v2(source: &BookSource, state_json: &str) -> LegadoResult<String> {
-    let state = if state_json.trim().is_empty() {
-        "{}"
-    } else {
-        state_json
-    };
-    let result = eval_with_quickjs(source, |eval_js| {
-        login_ui_v2::eval_login_ui_v2(source, state, eval_js)
-    })?;
-    Ok(result.unwrap_or_default())
+    crate::source_action_host::service().eval_login_ui_v2(source, state_json)
 }
-
-/// V2 登录动作请求（`source_login_action_v2` 的 `user_input_json` 契约）
-///
-/// - `action` — 按钮动作名（RowUi.action）
-/// - `stateJson` — 当前状态（JSON 字符串或对象均可，对象会自动序列化）
-/// - `formJson` — 表单键值（JSON 对象或字符串均可）
-#[derive(Debug, Clone, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginActionV2Request {
-    pub action: String,
-    #[serde(default)]
-    pub state_json: serde_json::Value,
-    #[serde(default)]
-    pub form_json: serde_json::Value,
-}
-
-/// 将请求字段规范化为 JSON 字符串：字符串原样使用，对象自动序列化，缺省为 `"{}"`
-fn json_param_to_string(value: &serde_json::Value) -> String {
-    match value {
-        serde_json::Value::Null => "{}".to_string(),
-        serde_json::Value::String(s) => {
-            if s.trim().is_empty() {
-                "{}".to_string()
-            } else {
-                s.clone()
-            }
-        }
-        other => other.to_string(),
-    }
-}
-
-/// 执行 loginAction v2 动作，返回命令 JSON（state/error/login/close）
-///
-/// - `source` — 完整书源实体快照
-/// - `user_input_json` — [`LoginActionV2Request`] JSON（action/stateJson/formJson）
-///
-/// JS 返回 null/undefined（无命令）时返回空字符串。
-///
-/// **登录结果持久化**（对齐 Kotlin `SourceLoginV2Delegate.dispatch`：
-/// `command.loginJson?.let { source.putLoginInfo(it) }`）：
-/// 返回命令含 `login` 时自动把 login JSON 写入 `source_login_cache`
-/// （`userInfo_<url>`）；JS 登录键直接访问同一服务，不再复制旧变量快照。
-/// — DeepSeek Harness + Bridge
 pub fn eval_login_action_v2(source: &BookSource, user_input_json: &str) -> LegadoResult<String> {
     let request: LoginActionV2Request = serde_json::from_str(user_input_json)?;
-    let state = json_param_to_string(&request.state_json);
-    let form = json_param_to_string(&request.form_json);
-    let result = eval_with_quickjs(source, |eval_js| {
-        login_ui_v2::eval_login_action_v2(source, &request.action, &state, &form, eval_js)
-    })?;
-
-    // 1) login 命令 → putLoginInfo 落库（对齐 SourceLoginV2Delegate.kt:268-274）
-    if let Some(json) = result.as_deref() {
-        let command = login_ui_v2::parse_action_result(Some(json));
-        if let Some(login_json) = command.login_json {
-            crate::api::source_login_cache::put_login_info(&source.book_source_url, &login_json)?;
-        }
-    }
-
-    Ok(result.unwrap_or_default())
+    crate::source_action_host::service().eval_login_action_v2(source, &request)
 }
-
-// ─── QuickJS 求值接入 ──────────────────────────────────────────
-
-/// 启用 quickjs：独立 VM 使用本实例登录能力执行 V2 脚本
-#[cfg(feature = "quickjs")]
-fn eval_with_quickjs<F>(source: &BookSource, eval: F) -> LegadoResult<Option<String>>
-where
-    F: for<'a> FnOnce(login_ui_v2::EvalJs<'a>) -> LegadoResult<Option<String>>,
-{
-    use legado_js::{JsEngine, JsValue};
-
-    let engine = crate::js_executor::fresh_engine(&source.book_source_url)?;
-    let guard = engine
-        .lock()
-        .map_err(|e| LegadoError::JsEngine(format!("JS 引擎加锁失败: {e}")))?;
-
-    // 对齐 Kotlin evalJS 绑定：baseUrl = getKey()；source = 书源对象
-    let source_obj_json = serde_json::to_string(source)?;
-    let base_url = source.book_source_url.clone();
-    let mut eval_js = |code: &str, bindings: &[(&str, &str)]| -> LegadoResult<String> {
-        let mut js_bindings: Vec<(&str, JsValue)> = Vec::with_capacity(bindings.len() + 2);
-        js_bindings.push(("baseUrl", JsValue::String(base_url.clone())));
-        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&source_obj_json) {
-            js_bindings.push(("source", json_to_js_value(value)));
-        }
-        for (name, value) in bindings {
-            js_bindings.push((name, JsValue::String((*value).to_string())));
-        }
-        guard.eval_with_bindings(code, &js_bindings)
-    };
-    // P2-19：绑定当前书源 tag（对齐 explore_api / js_executor 主路径）：
-    // V2 loginUi/loginAction 脚本调用 java.ajax（登录 API）时 Cookie/全局头
-    // 按本源 book_source_url 过滤（而非未归属不带、更非全量合并泄漏）。
-    legado_js::host_api::current_source::with_current_source_tag(&source.book_source_url, || {
-        eval(&mut eval_js)
-    })
-}
-
-/// serde_json::Value → legado_js::JsValue（用于注入 `source` 绑定对象）
-#[cfg(feature = "quickjs")]
-fn json_to_js_value(value: serde_json::Value) -> legado_js::JsValue {
-    use legado_js::JsValue;
-    match value {
-        serde_json::Value::Null => JsValue::Null,
-        serde_json::Value::Bool(b) => JsValue::Bool(b),
-        serde_json::Value::Number(n) => match n.as_i64() {
-            Some(i) => JsValue::Int(i),
-            None => JsValue::Number(n.as_f64().unwrap_or(0.0)),
-        },
-        serde_json::Value::String(s) => JsValue::String(s),
-        serde_json::Value::Array(items) => {
-            JsValue::Array(items.into_iter().map(json_to_js_value).collect())
-        }
-        serde_json::Value::Object(map) => JsValue::Object(
-            map.into_iter()
-                .map(|(k, v)| (k, json_to_js_value(v)))
-                .collect(),
-        ),
-    }
-}
-
-/// 未启用 quickjs：无法执行 JS，返回引擎未启用错误
-#[cfg(not(feature = "quickjs"))]
-fn eval_with_quickjs<F>(_source: &BookSource, _eval: F) -> LegadoResult<Option<String>>
-where
-    F: for<'a> FnOnce(login_ui_v2::EvalJs<'a>) -> LegadoResult<Option<String>>,
-{
-    Err(LegadoError::JsEngine(
-        "QuickJS engine not enabled. Build with --features quickjs".into(),
-    ))
-}
-
-// ─── 测试 ──────────────────────────────────────────────────────
 
 #[cfg(all(test, feature = "quickjs"))]
 mod tests {
     use super::*;
+    use legado_core::login_ui_v2;
 
     // 仅测试fixture保留JSON文档输入；生产入口直接接收实体。
     fn is_login_ui_v2(document: &str) -> LegadoResult<bool> {

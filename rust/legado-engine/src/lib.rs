@@ -23,6 +23,7 @@ pub mod rule_subscription_service;
 mod rule_text;
 pub mod search_service;
 mod search_tasks;
+pub mod source_action_service;
 pub mod source_batches;
 pub mod source_catalog;
 pub mod source_check_service;
