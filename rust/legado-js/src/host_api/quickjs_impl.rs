@@ -1174,23 +1174,23 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
     return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4), arg5));
   };
   globalThis.connect = java.connect;
-  java.get = function (url, headers) {
+  java.get = function (url, headers, timeout) {
     if (arguments.length >= 2) {
       var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-      return __resp(__nativeConnect(String(url), 'GET', hs));
+      return __resp(__nativeConnect(String(url), 'GET', hs, undefined, timeout));
     }
     return __nativeGetVariable(String(url));
   };
   // 对齐原版 JsExtensions.post/head：followRedirects(false)。
   // 天涯书库等源 java.post(...).header('location') 拦截 302；若跟随重定向则
   // Location 丢失 → String(null) → 请求落到 /null。
-  java.post = function (url, body, headers) {
+  java.post = function (url, body, headers, timeout) {
     var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-    return __resp(__nativeConnect(String(url), 'POST', hs, String(body)));
+    return __resp(__nativeConnect(String(url), 'POST', hs, String(body), timeout));
   };
-  java.head = function (url, headers) {
+  java.head = function (url, headers, timeout) {
     var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-    return __resp(__nativeConnect(String(url), 'HEAD', hs));
+    return __resp(__nativeConnect(String(url), 'HEAD', hs, undefined, timeout));
   };
 })();
 
@@ -2789,7 +2789,7 @@ fn register_network_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // connectNR(url, method?, headers?, body?) -> String（完整响应 JSON，不跟随重定向）
+    // connectNR(url, method?, headers?, body?, timeoutMs?) -> String（完整响应 JSON，不跟随重定向）
     // 对齐原版 jsoup followRedirects(false)：java.get/post/head 拦截重定向需读 Location 头
     let http = resources.clone();
     mount_dual(
@@ -2798,19 +2798,24 @@ fn register_network_apis<'js>(
         "connectNR",
         rquickjs::Function::new(
             ctx.clone(),
-            move |url: RhinoStr,
+            move |ctx: rquickjs::Ctx<'js>,
+                  url: RhinoStr,
                   method: RhinoOptStr,
                   headers: RhinoOptStr,
-                  body: RhinoOptStr|
-                  -> String {
-                network::connect_no_redirect(
+                  body: RhinoOptStr,
+                  timeout: RhinoOptInt|
+                  -> rquickjs::Result<String> {
+                let timeout_ms = network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
+                    .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))?;
+                Ok(network::connect_no_redirect_with_timeout(
                     &http.request(),
                     &url,
                     method.0.as_deref(),
                     headers.0.as_deref(),
                     body.0.as_deref(),
+                    timeout_ms,
                 )
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                .unwrap_or_else(|e| format!("[ERROR] {}", e)))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,

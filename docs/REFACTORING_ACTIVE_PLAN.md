@@ -1,5 +1,25 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-NETWORK-PARITY-20261018：安全扫描收尾与脚本网络语义核查（P1）
+
+- 授权与基线：用户同意安全扫描收尾及JS网络语义核查；复用build/worktrees/dep-audit、chore/dep-audit / cf0514901，单代理，不推送/合并、不修改主目录原有三份文档。
+- 上游：已用git ls-remote核对参考仓库main为15e1337a23278296b970b1942aa51e8ff7f9763e，与本地镜像一致；本批固定该提交。核对JsExtensions、AnalyzeUrl及StrResponse，不把方法存在当作行为一致。
+- 范围：先运行cargo audit核查锁文件及已有豁免；再检查ajax/connect/get/post的请求参数、响应、超时和回环/代理分派。已有真实QuickJS和本地HTTP回归优先复用；确认缺陷先复现、再最小修复。额外功能缺口单独登记，不扩成所有JS能力重写。
+- 验收：新增用例必须执行真实Rust/QuickJS行为，不读源码做字符串守卫；相关JS回归及默认/QuickJS严格Clippy通过。普通Rust核查不新增宿主、Flutter排版验收或模拟器；若改正式桥接签名先冻结契约。安全扫描失败不记为通过，不自动新增豁免或批量升级依赖。
+- 安全扫描：安装cargo-audit 0.22.2（binstall下载并验证签名），更新RustSec库后对495项锁定依赖运行cargo audit，退出0；保留原RSA豁免，无新增豁免、依赖或锁文件修改。证据build/js-network-parity/audit.log；不将有豁免的通过等同于零剩余风险。
+- 确认与修复：get/head/post包装丢失最后一参，慢HTTP与负数用例在基线失败；原回环字符串切割误判IPv6、127.0.0.2、带凭据或无斜杠查询的localhost。契约先冻结，补原生可选Int超时传递及发送前拒绝；用URL解析后的HTTP(S)host选择回环池，远端/相似域名不绕代理。旧Rust入口仍委托默认值，单参变量查询、请求正文/头、Cookie与302策略保持。
+- 回归：JS完整库652项及集成65项共717项通过，既有库2项/文档1项忽略；包含7项新真实QuickJS/本地HTTP用例及既有ajax超时、StrResponse、Cookie/连接池隔离回归。默认/QuickJS两档全目标严格Clippy、限定格式与diff检查通过，无lint放行。证据js-tests.log、clippy-{default,quickjs}.log、fixed-loopback.log。
+- 夹具整改：首轮普通请求偶发10053/连接提前关闭，定位到Windows接受的socket继承非阻塞模式，测试读取遇WouldBlock提前退出；显式恢复阻塞读取后20轮定向复验通过。超时用例增加服务端实际收到请求断言，避免一般网络失败伪装超时成功；独立子进程设置死HTTP代理，IPv6回环仍请求成功。证据reproduce-{network,get,loopback}.log、diagnose-repeat.log、blocking-repeat.log、ipv6-dead-proxy.log；早期失败不计通过，未添加重试掩盖问题，诊断输出已移除。
+- 后续差异：timeout=0仍沿用默认而非真正无限等待；ajax/connect仍未完整复用上游AnalyzeUrl（动态规则、charset、源头合并需逐项复现）；ajaxAll的响应结构/顺序及ajaxTestAll的超时参数属于下一批核查项。现有Response包装遇原生错误文本可能退为空响应，也需单独复现诊断语义；不宣称本批已完成全部网络或JS兼容。
+- 状态：本批安全扫描、已确认的超时/回环修复及本地验证已关闭，整批本地提交；版本2.0.379+380及双日志同步。FRB签名/生成物、数据库和依赖锁文件不变；单代理自查，无独立外审、正式DLL/Flutter/设备或远程CI验证，不推送/合并。已先同步主目录dfb39e5d2技能删除提交，JS差异继续留在本worktree；主目录原有三份文档未改。
+
+编写者：Codex｜2026-10-18
+
+
+
+
+
+
 ### REMOVE-GITNEXUS-SKILLS-20261018：移除项目GitNexus技能（P2）
 
 - 授权与范围：用户要求移除GitNexus系列技能。仅删除.agents/skills中的六项GitNexus技能及来源清单/维护说明，不安装替代工具，不修改其他技能或用户已有三份文档。

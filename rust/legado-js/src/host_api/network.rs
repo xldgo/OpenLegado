@@ -88,23 +88,18 @@ fn sanitize_request_url(url: &str) -> String {
 /// HTTP_PROXY/HTTPS_PROXY 存在时连回环地址也走代理，会把本地测试流量
 /// 劫持到死代理；回环豁免对齐 legado-net 约定（cda70a0c54）。
 pub(crate) fn is_loopback_url(url: &str) -> bool {
-    let lower = url.to_ascii_lowercase();
-    for scheme in ["http://", "https://"] {
-        let Some(rest) = lower.strip_prefix(scheme) else {
-            continue;
-        };
-        // host 段：到第一个 ':' 或 '/' 为止；[::1] 带方括号形式
-        let host = rest.split([':', '/']).next().unwrap_or("");
-        let host = host
-            .strip_prefix('[')
-            .unwrap_or(host)
-            .strip_suffix(']')
-            .unwrap_or(host);
-        if host == "127.0.0.1" || host == "::1" || host == "localhost" {
-            return true;
-        }
+    let Ok(url) = url::Url::parse(url.trim()) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
     }
-    false
+    match url.host() {
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(host)) => host.is_loopback(),
+        Some(url::Host::Ipv6(host)) => host.is_loopback(),
+        None => false,
+    }
 }
 
 /// POST 有 body 时若缺 Content-Type，补 form-urlencoded（对齐 Jsoup.requestBody）
@@ -386,6 +381,29 @@ mod http_options_tests {
     use super::*;
 
     #[test]
+    fn loopback_selection_uses_the_parsed_host() {
+        for url in [
+            "http://127.0.0.1:80/x",
+            "http://127.0.0.2/",
+            "HTTP://LOCALHOST?x=1",
+            "http://user:pwd@localhost/",
+            "http://[::1]:80/",
+            "https://[0:0:0:0:0:0:0:1]/",
+        ] {
+            assert!(is_loopback_url(url), "回环地址应选择直连池：{url}");
+        }
+        for url in [
+            "http://localhost.example/",
+            "http://localhost@remote.example/",
+            "http://[2001:db8::1]/",
+            "ftp://localhost/",
+            "不是URL",
+        ] {
+            assert!(!is_loopback_url(url), "非回环HTTP地址不得绕过代理：{url}");
+        }
+    }
+
+    #[test]
     fn test_body_accepts_object() {
         // 书山目录：url,{"method":"POST","body":{...对象...}}
         let opts: HttpOptions = serde_json::from_str(
@@ -665,6 +683,18 @@ pub fn connect_no_redirect(
     headers_json: Option<&str>,
     body: Option<&str>,
 ) -> Result<String, String> {
+    connect_no_redirect_with_timeout(request_resources, url, method, headers_json, body, None)
+}
+
+/// JS的get/head/post逐次超时入口；旧Rust调用保持原默认值。
+pub(crate) fn connect_no_redirect_with_timeout(
+    request_resources: &RequestResources<'_>,
+    url: &str,
+    method: Option<&str>,
+    headers_json: Option<&str>,
+    body: Option<&str>,
+    timeout_ms: Option<u64>,
+) -> Result<String, String> {
     let method_str = method.unwrap_or("GET").to_uppercase();
     let method = match method_str.as_str() {
         "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(&method_str),
@@ -696,7 +726,9 @@ pub fn connect_no_redirect(
             method,
             headers,
             body: body_owned,
-            timeout: Some(std::time::Duration::from_millis(DEFAULT_TIMEOUT_MS)),
+            timeout: Some(std::time::Duration::from_millis(
+                timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
+            )),
         };
         let resp = client
             .send(&request)

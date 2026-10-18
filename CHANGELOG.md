@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.379] - 2026-10-18
+
+### Fixed
+- 修复书源脚本GET/HEAD/POST忽略逐次超时，非法超时在请求前拒绝。
+- 修复IPv6等回环地址的直连识别，避免误走代理。
+- 贡献者：Codex + Rust；构建号380。
+
 ## [2.0.378] - 2026-10-18
 
 ### Changed
