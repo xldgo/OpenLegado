@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.380] - 2026-10-18
 
 ### Added
+- [UI] 阅读器采用 Glass 顶栏按钮和进度滑条，进度区与底部操作栏独立悬浮。
 - [UI] 悬浮底栏增加独立液态玻璃开关，接入滑动选中指示器、拖动选择和键盘操作。
 - [UI] 顶栏液态玻璃样式接入按钮与合并胶囊背景，保留原有点击区域和菜单操作。
 

@@ -29,9 +29,10 @@ final class AppSurfaceMaterial {
   factory AppSurfaceMaterial.topBar({
     required Color color,
     required UiSettings settings,
+    bool liquidGlass = false,
   }) => AppSurfaceMaterial.resolve(
     color: color,
-    blurEnabled: settings.enableBlur,
+    blurEnabled: settings.enableBlur || liquidGlass,
     backgroundOpacity: settings.topBarBackgroundOpacity,
     blurTintOpacity: settings.topBarBlurTintOpacity,
     blurSigma: settings.topBarBlurSigma,

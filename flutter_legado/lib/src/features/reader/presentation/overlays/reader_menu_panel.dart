@@ -1,5 +1,5 @@
 import '../../../../theme/app_surface_material.dart';
-import '../../../../widgets/app_surface_backdrop.dart';
+import '../../../../widgets/app_glass_surface.dart';
 import '../../../../app/routing/route_names.dart';
 import '../../../../app/bootstrap/application_dependencies.dart';
 import '../../../../providers/chapter_content_provider.dart';
@@ -26,6 +26,7 @@ import '../../../../widgets/help/help_assets.dart';
 import '../../../../widgets/help/show_help.dart';
 import '../../../../widgets/reader/change_chapter_source_sheet.dart';
 import 'reader_brightness_control.dart';
+import 'reader_menu_controls.dart';
 import '../../application/reader_notifier.dart';
 import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 
@@ -36,10 +37,10 @@ import 'reader_content_edit_dialog.dart';
 
 part 'reader_menu_actions.part.dart';
 
-/// [UI_SYNC_REFACTOR S2-1] 阅读菜单单块底部面板（对齐参考 ReadBookMenuBar）
+/// 阅读器悬浮菜单，进度与操作分层，保留正文手势及现有业务回调。— Codex + UI
 ///
 /// 结构：屏幕顶栏（返回/书名/换源/刷新正文/下载（离线缓存）/更多溢出 +
-/// 章节信息块）→ 底部 Surface（进度滑条行 + 单行五键行动作行）。
+/// 章节信息块）→ 底部进度面板 + 单行五键操作栏。
 /// 底部按钮按用户指定顺序排列：目录/全文搜索/自动翻页/朗读/设置。
 /// 键集沿用参考 ReadButtonConfigDelegate.kt:197-203（
 /// DEFAULT_ENABLED_BUTTON_IDS = search/auto_page/catalog/read_aloud/setting，
@@ -116,6 +117,19 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     if (_dismissalPointers.remove(pointer)) setState(() {});
   }
 
+  Widget _dismissalRegion(ReaderNotifier notifier) => AbsorbPointer(
+    absorbing: _popupMenuOpen,
+    child: Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) => _dismissFromPointer(event.pointer),
+      onPointerUp: (event) => _releaseDismissalPointer(event.pointer),
+      onPointerCancel: (event) => _releaseDismissalPointer(event.pointer),
+      onPointerSignal: (_) => notifier.hideControls(),
+      onPointerPanZoomStart: (event) => _dismissFromPointer(event.pointer),
+      onPointerPanZoomEnd: (event) => _releaseDismissalPointer(event.pointer),
+    ),
+  );
+
   // 进出场：进 220（fadeIn180 内含）/ 出 180（对齐参考 0.88 缩放族）
   late final AnimationController _menuController = AnimationController(
     vsync: this,
@@ -191,10 +205,12 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     final topMaterial = AppSurfaceMaterial.topBar(
       color: barColor,
       settings: ui,
+      liquidGlass: true,
     );
     final bottomMaterial = AppSurfaceMaterial.bottomBar(
       color: barColor,
       settings: ui,
+      liquidGlass: true,
     );
 
     return Positioned.fill(
@@ -221,166 +237,171 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             ),
           );
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 顶栏置屏幕顶部（用户
-            // 反馈①：此前误置于底部面板首行；对齐原版布局——← 居左，
-            // 换源/刷新/缓存/更多 居右）— Qoder
-            SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, -1),
-                end: Offset.zero,
-              ).animate(_menuSlideCurve),
-              child: AppSurfaceBackdrop(
-                material: topMaterial,
-                child: _buildTopBar(
-                  context,
-                  topMaterial.color,
-                  book,
-                  chapter,
-                  notifier,
-                ),
+        child: ReaderMenuControlTheme(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 顶栏置屏幕顶部（用户
+              // 反馈①：此前误置于底部面板首行；对齐原版布局——← 居左，
+              // 换源/刷新/缓存/更多 居右）— Qoder
+              SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, -1),
+                  end: Offset.zero,
+                ).animate(_menuSlideCurve),
+                child: _buildTopBar(context, book, chapter, topMaterial),
               ),
-            ),
-            // 正文露出区域的按下先收起菜单，滑动同时交给正文；点击由菜单消费。
-            Expanded(
-              // 弹出菜单先消费外部手势；原始指针也不能传给阅读菜单与正文。
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  AbsorbPointer(
-                    absorbing: _popupMenuOpen,
-                    child: Listener(
-                      behavior: HitTestBehavior.translucent,
-                      onPointerDown: (event) =>
-                          _dismissFromPointer(event.pointer),
-                      onPointerUp: (event) =>
-                          _releaseDismissalPointer(event.pointer),
-                      onPointerCancel: (event) =>
-                          _releaseDismissalPointer(event.pointer),
-                      onPointerSignal: (_) => notifier.hideControls(),
-                      onPointerPanZoomStart: (event) =>
-                          _dismissFromPointer(event.pointer),
-                      onPointerPanZoomEnd: (event) =>
-                          _releaseDismissalPointer(event.pointer),
-                    ),
-                  ),
-                  if (brightnessControl.mode == 2)
-                    Align(
-                      alignment: brightnessControl.onLeft
-                          ? Alignment.centerLeft
-                          : Alignment.centerRight,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: Offset(brightnessControl.onLeft ? -1 : 1, 0),
-                          end: Offset.zero,
-                        ).animate(_menuSlideCurve),
-                        child: SafeArea(
-                          top: false,
-                          bottom: false,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 8,
-                            ),
-                            child: SizedBox(
-                              width: ReaderBrightnessControl.verticalWidth,
-                              height: 240,
-                              child: Material(
-                                color: barColor,
-                                borderRadius: BorderRadius.circular(
-                                  ReaderBrightnessControl.verticalWidth / 2,
-                                ),
-                                child: ReaderBrightnessControl(
-                                  compact: true,
-                                  vertical: true,
-                                  onSwitchSide: _switchBrightnessSide,
+              // 正文露出区域的按下先收起菜单，滑动同时交给正文；点击由菜单消费。
+              Expanded(
+                // 弹出菜单先消费外部手势；原始指针也不能传给阅读菜单与正文。
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _dismissalRegion(notifier),
+                    if (brightnessControl.mode == 2)
+                      Align(
+                        alignment: brightnessControl.onLeft
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: Offset(brightnessControl.onLeft ? -1 : 1, 0),
+                            end: Offset.zero,
+                          ).animate(_menuSlideCurve),
+                          child: SafeArea(
+                            top: false,
+                            bottom: false,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                              child: SizedBox(
+                                width: ReaderBrightnessControl.verticalWidth,
+                                height: 240,
+                                child: AppGlassSurface(
+                                  material: bottomMaterial,
+                                  visibility: _menuFadeCurve,
+                                  topRadius:
+                                      ReaderBrightnessControl.verticalWidth / 2,
+                                  bottomRadius:
+                                      ReaderBrightnessControl.verticalWidth / 2,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(
+                                      ReaderBrightnessControl.verticalWidth / 2,
+                                    ),
+                                    child: ReaderBrightnessControl(
+                                      compact: true,
+                                      vertical: true,
+                                      onSwitchSide: _switchBrightnessSide,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 1),
-                end: Offset.zero,
-              ).animate(_menuSlideCurve),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (widget.bottomAccessory != null) widget.bottomAccessory!,
-                  AppSurfaceBackdrop(
-                    material: bottomMaterial,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(32),
+              SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(_menuSlideCurve),
+                child: Stack(
+                  children: [
+                    // 悬浮面板外侧留白属于正文露出区，沿用菜单外手势规则。
+                    Positioned.fill(child: _dismissalRegion(notifier)),
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (widget.bottomAccessory != null)
+                              widget.bottomAccessory!,
+                            AppGlassSurface(
+                              key: const ValueKey('reader-progress-surface'),
+                              material: bottomMaterial,
+                              visibility: _menuFadeCurve,
+                              topRadius: 28,
+                              bottomRadius: 28,
+                              child: _buildProgressPanel(
+                                context,
+                                foreground,
+                                notifier,
+                                state,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            AppGlassSurface(
+                              key: const ValueKey('reader-actions-surface'),
+                              material: bottomMaterial,
+                              visibility: _menuFadeCurve,
+                              topRadius: 28,
+                              bottomRadius: 28,
+                              child: Material(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(28),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 6,
+                                  ),
+                                  child: _buildActionRow(
+                                    context,
+                                    foreground,
+                                    autoPageActive,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: _panelSurface(
-                      context,
-                      bottomMaterial.color,
-                      foreground,
-                      book,
-                      chapter,
-                      notifier,
-                      state,
-                      autoPageActive,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _panelSurface(
+  Widget _buildProgressPanel(
     BuildContext context,
-    Color barColor,
     Color? foreground,
-    Book? book,
-    BookChapter? chapter,
     ReaderNotifier notifier,
     ReaderState state,
-    bool autoPageActive,
   ) {
-    // 亮度横条位于章节进度上方；背景延伸到系统导航区，内容仅避让一次。
+    // 亮度横条位于章节进度上方；悬浮面板外侧统一计算留白与系统安全区。
     final brightnessControl = ref
         .read(readerSettingsRepositoryProvider)
         .current
         .brightnessControl;
     return Material(
-      color: barColor,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      child: SafeArea(
-        top: false,
-        minimum: EdgeInsets.only(
-          bottom: MediaQuery.viewPaddingOf(context).bottom,
-          left: MediaQuery.viewPaddingOf(context).left,
-          right: MediaQuery.viewPaddingOf(context).right,
-        ),
-        child: IconTheme(
-          data: IconThemeData(color: foreground),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (brightnessControl.mode == 1)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: ReaderBrightnessControl(compact: true),
-                ),
-              _buildProgressRow(context, notifier, state, foreground),
-              _buildActionRow(context, foreground, autoPageActive),
-            ],
-          ),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(28),
+      child: IconTheme(
+        data: IconThemeData(color: foreground),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (brightnessControl.mode == 1)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: ReaderBrightnessControl(compact: true),
+              ),
+            _buildProgressRow(context, notifier, state, foreground),
+          ],
         ),
       ),
     );
@@ -425,23 +446,13 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     );
   }
 
-  // ── 分区 1：屏幕顶部工具栏（对齐原版：← 居左；⇄ ↻ ⬇ ⋮ 居右）──
-  //
-  // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈②：顶栏按参考版改造——
-  // 移除书名/章名胶囊（章名在正文区与页脚已有呈现），改为参考版五钮
-  //（返回/换源/刷新正文/下载当前章/更多溢出）— Qoder
+  // 顶栏返回按钮独立，右侧动作共用表面；标题和章节链接保留原回调。
   Widget _buildTopBar(
     BuildContext context,
-    Color barColor,
     Book? book,
     BookChapter? chapter,
-    ReaderNotifier notifier,
+    AppSurfaceMaterial material,
   ) {
-    // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 用户反馈②：头部信息（章节名/
-    // 章节链接/书源名）应在顶栏菜单中而非正文——工具行下方补信息块
-    //（章名+书源徽标 / 章节链接），对齐参考版顶栏布局 — Qoder
-    // [PARITY C2 M2] 移除来源 URL 全文行：参考版顶栏信息块只保留
-    // 章节名 + 书源小字徽标，不再渲染章节链接全文（来源名并入小字行）。
     final theme = Theme.of(context);
     final config = ref.read(readerSettingsRepositoryProvider).current.menuTheme;
     final customText = theme.brightness == Brightness.dark
@@ -488,95 +499,113 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
             ),
           );
     return Material(
-      color: barColor,
+      color: Colors.transparent,
       child: SafeArea(
         bottom: false,
-        minimum: EdgeInsets.only(
-          top: MediaQuery.viewPaddingOf(context).top,
-          left: MediaQuery.viewPaddingOf(context).left,
-          right: MediaQuery.viewPaddingOf(context).right,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 48,
-              child: Row(
+        minimum: EdgeInsets.only(top: MediaQuery.viewPaddingOf(context).top),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Symbols.arrow_back_rounded),
-                    tooltip: '退出阅读',
+                  ReaderMenuControlButton(
+                    standalone: true,
+                    icon: Symbols.arrow_back_rounded,
+                    label: '退出阅读',
+                    color: titleColor,
                     onPressed: widget.onBack,
                   ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        book?.name ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: titleColor,
+                  const Spacer(),
+                  AppGlassSurface(
+                    material: material,
+                    visibility: _menuFadeCurve,
+                    topRadius: 24,
+                    bottomRadius: 24,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 本地书沿用原规则，不显示换源、刷新和下载。
+                        if (isOnline) ...[
+                          ReaderMenuControlButton(
+                            icon: Symbols.swap_horiz_rounded,
+                            label: '换源',
+                            color: titleColor,
+                            onPressed: () =>
+                                _showChangeSourceMenu(context, book),
+                          ),
+                          ReaderMenuControlButton(
+                            icon: Symbols.refresh_rounded,
+                            label: '刷新正文',
+                            color: titleColor,
+                            onPressed: () =>
+                                unawaited(_refreshContentFlow(context)),
+                          ),
+                          ReaderMenuControlButton(
+                            icon: Symbols.download_rounded,
+                            label: '下载（离线缓存）',
+                            color: titleColor,
+                            onPressed: () =>
+                                showReaderOfflineCacheDialog(context, ref),
+                          ),
+                        ],
+                        // 保留菜单节点及控制器，切换材质不关闭已展开的菜单。
+                        AppMenuAnchor<String>(
+                          onOpen: _onPopupMenuOpen,
+                          onClose: _onPopupMenuClose,
+                          onSelected: _handleMenuAction,
+                          itemBuilder: (_) => _menuItems(book, isOnline),
+                          builder: (context, controller, _) =>
+                              ReaderMenuControlButton(
+                                icon: Symbols.more_vert_rounded,
+                                label: '更多',
+                                color: titleColor,
+                                onPressed: () => controller.isOpen
+                                    ? controller.close()
+                                    : controller.open(),
+                              ),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                  // [P2-9 fix | 2026-09-24] 本地书不渲染换源/刷新正文/缓存
-                  // 当前章（对齐原版 ReadMenu 本地书菜单构成：三项仅在线书
-                  // 可见，与顶栏 isOnline 分支一致）。首版「isOnline ? 可点
-                  // : null」的置灰形态被实机观测为「显示且点击无反应」
-                  // （35% alpha no-op），现改为不渲染。
-                  // 换源 = await 导航：路由 pop 新 bookUrl（发生切换）后
-                  // 重载书/目录/强制刷新正文；取消（pop null）不做任何事
-                  // （原实现未 await，换源后正文不刷新——缺陷根因 B）
-                  // 换源闭包体保留 HEAD 基线缩进列（collection-if 后果
-                  // 不重新缩进），避免 diff 引入纯空白行
-                  if (isOnline)
-                    IconButton(
-                      icon: const Icon(Symbols.swap_horiz_rounded),
-                      tooltip: '换源',
-                      onPressed: () => _showChangeSourceMenu(context, book),
-                    ),
-                  // [P2-9 | 2026-09-24] 刷新正文 = 强制拉取（绕过缓存，
-                  // 见 ReaderNotifier.refreshChapterContent），统一 Fix A
-                  // 路径 + 可见反馈（进行中/成功/失败含原因）
-                  if (isOnline)
-                    IconButton(
-                      icon: const Icon(Symbols.refresh_rounded),
-                      tooltip: '刷新正文',
-                      onPressed: () => unawaited(_refreshContentFlow(context)),
-                    ),
-                  // [P2-27 | 2026-09-28] 下载入口改弹「离线缓存」范围对话框
-                  // （对齐原版 menu_download → showBookDownloadDialog /
-                  // 参考版 DownloadSheet；默认起始 = 当前章，与原版一致），
-                  // 移除自创的「直接缓存当前章」行为；共享实现见
-                  // reader_download_dialog.dart（与顶栏下载钮同源）
-                  if (isOnline)
-                    IconButton(
-                      icon: const Icon(Symbols.download_rounded),
-                      tooltip: '下载（离线缓存）',
-                      onPressed: () =>
-                          showReaderOfflineCacheDialog(context, ref),
-                    ),
-                  AppMenuButton<String>(
-                    tooltip: '更多',
-                    onOpen: _onPopupMenuOpen,
-                    onClose: _onPopupMenuClose,
-                    onSelected: _handleMenuAction,
-                    itemBuilder: (_) => _menuItems(book, isOnline),
                   ),
                 ],
               ),
-            ),
-            if (chapter != null || sourceName.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              if (book != null || chapter != null || sourceName.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                AppGlassSurface(
+                  material: material,
+                  visibility: _menuFadeCurve,
+                  topRadius: 16,
+                  bottomRadius: 16,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
                       children: [
-                        Expanded(child: chapterTitleWidget),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                book?.name ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: titleColor,
+                                ),
+                              ),
+                              if (chapter != null) ...[
+                                const SizedBox(height: 4),
+                                chapterTitleWidget,
+                              ],
+                            ],
+                          ),
+                        ),
                         if (sourceName.isNotEmpty)
                           Flexible(
                             child: Align(
@@ -615,10 +644,11 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                           ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-          ],
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -654,27 +684,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     }
   }
 
-  // ── 分区：单行五键行动作行（[PARITY A5] 键集对齐参考版默认键集）──
-  //
-  // [PARITY A5 | 深色对齐裁决"以参考版为准"] 参考版阅读菜单默认五键：
-  // 全文搜索/自动翻页/目录/朗读/设置。依据（参考源码 D:\tmp\md3_ref_legado）：
-  // ① 默认开启键集 ReadButtonConfigDelegate.kt:197-203
-  //   DEFAULT_ENABLED_BUTTON_IDS = {search, auto_page, catalog, read_aloud, setting}
-  //   （loadButtonConfig :148-154：用户未配置时按 ReadBookButtonIds 显示序取此五键）；
-  //   ② 键位定义 SystemMenuPage.kt:898-903：search→Icons.Search/search_content、
-  //   auto_page→Icons.PlayArrow/auto_next_page、catalog→Icons.List/chapter_list、
-  //   read_aloud→Icons.RecordVoiceOver/read_aloud、setting→Icons.Settings/setting；
-  //   ③ 文案 values-zh-rCN/strings.xml：search_content=全文搜索(:1036)、
-  //   auto_next_page=自动翻页(:465)、chapter_list=目录(:184)、
-  //   read_aloud=朗读(:189)、setting=设置(:97)；
-  //   ④ 布局 ReadBookContract.kt:359-360 readMenuIconItemsPerRow=5、
-  //   readMenuIconRowCount=1（单行五键，无第二页、无字号/亮度键；亮度
-  //   showBrightnessView 默认 "0" 隐藏，:390）。
-  // 注：在途版曾按 MuMu 定制实例截图放 章节梗概/AI改写 占位键，但参考源码默认
-  // 键集不含 ai_summary/ai_rewrite（ReadBookButtonIds 成员但默认 enabled=false，
-  // ReadButtonConfigDelegate.kt:172-190 normalizeButtonConfig），故按源码移除；
-  // 如需保留 AI 占位请主代理另立裁决。替换/更多入口保留于顶栏更多溢出菜单，
-  // 亮度/字号保留在读内（ReaderSettingsSheet / ReaderConfigPanel）。
+  // 保留已确认的五个操作及顺序，材质与触控统一由阅读器组件适配。
   Widget _buildActionRow(
     BuildContext context,
     Color? foreground,
@@ -689,26 +699,12 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     }) {
       final color = active ? cs.primary : (foreground ?? cs.onSurfaceVariant);
       return Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 24, color: color),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium
-                      ?.copyWith(color: color),
-                ),
-              ],
-            ),
-          ),
+        child: ReaderMenuControlButton(
+          icon: icon,
+          label: label,
+          onPressed: onTap,
+          color: color,
+          showLabel: true,
         ),
       );
     }
@@ -728,7 +724,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       item(Symbols.headphones_rounded, '朗读', widget.onReadAloud),
       item(Symbols.settings_rounded, '设置', widget.onOpenSettings),
     ];
-    return SizedBox(height: 76, child: Row(children: items));
+    return Row(children: items);
   }
 
   // ── 分区：进度滑条行（page=调章内页 / chapter=调章节）──
@@ -749,54 +745,52 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
       0,
       chapterPageCount > 0 ? chapterPageCount - 1 : 0,
     );
-    final cs = Theme.of(context).colorScheme;
-    final progressColor = foreground ?? cs.onSurface;
+    final progressColor = foreground ?? Theme.of(context).colorScheme.onSurface;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         children: [
-          IconButton(
-            tooltip: '上一章',
+          ReaderMenuControlButton(
+            label: '上一章',
             color: progressColor,
-            disabledColor: progressColor.withValues(alpha: 0.38),
             onPressed: state.hasPreviousChapter && !state.isLoading
                 ? () => unawaited(notifier.prevChapter())
                 : null,
-            icon: const Icon(Icons.skip_previous_rounded),
+            icon: Icons.skip_previous_rounded,
           ),
           Expanded(
-            child: usePageSeek
-                ? Slider(
-                    value: currentPage.toDouble(),
-                    min: 0,
-                    max: (chapterPageCount - 1).toDouble(),
-                    divisions: chapterPageCount - 1,
-                    onChanged: (value) => widget.onSeekPage!(value.toInt()),
-                  )
-                : Slider(
-                    value: state.chapters.isNotEmpty
-                        ? state.currentChapterIndex.toDouble()
-                        : 0,
-                    min: 0,
-                    max: state.chapters.length > 1
-                        ? (state.chapters.length - 1).toDouble()
-                        : 1,
-                    divisions: state.chapters.length > 1
-                        ? state.chapters.length - 1
-                        : null,
-                    onChanged: state.chapters.length > 1
-                        ? (value) => notifier.goToChapter(value.toInt())
-                        : null,
-                  ),
+            child: ReaderMenuProgressSlider(
+              label: usePageSeek ? '章内页码' : '章节进度',
+              color: progressColor,
+              value: usePageSeek
+                  ? currentPage.toDouble()
+                  : state.chapters.isNotEmpty
+                  ? state.currentChapterIndex.toDouble()
+                  : 0,
+              max: usePageSeek
+                  ? (chapterPageCount - 1).toDouble()
+                  : state.chapters.length > 1
+                  ? (state.chapters.length - 1).toDouble()
+                  : 1,
+              divisions: usePageSeek
+                  ? chapterPageCount - 1
+                  : state.chapters.length > 1
+                  ? state.chapters.length - 1
+                  : null,
+              onChanged: usePageSeek
+                  ? (value) => widget.onSeekPage!(value.toInt())
+                  : state.chapters.length > 1
+                  ? (value) => notifier.goToChapter(value.toInt())
+                  : null,
+            ),
           ),
-          IconButton(
-            tooltip: '下一章',
+          ReaderMenuControlButton(
+            label: '下一章',
             color: progressColor,
-            disabledColor: progressColor.withValues(alpha: 0.38),
             onPressed: state.hasNextChapter && !state.isLoading
                 ? () => unawaited(notifier.nextChapter())
                 : null,
-            icon: const Icon(Icons.skip_next_rounded),
+            icon: Icons.skip_next_rounded,
           ),
         ],
       ),

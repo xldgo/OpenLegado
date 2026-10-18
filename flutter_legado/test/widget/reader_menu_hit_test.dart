@@ -9,6 +9,9 @@ import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
 
 import 'dart:async';
 
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter_legado/src/theme/app_glass_theme.dart';
+
 import '../helpers/native_reader_layout.dart';
 import '../fixtures/home_settings_storage.dart';
 
@@ -34,6 +37,7 @@ import 'package:flutter_legado/src/features/reader/application/reader_notifier.d
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_controls.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_content_edit_dialog.dart';
@@ -218,6 +222,9 @@ Future<(_Reader, _Hits)> _pumpMenu(
   AppSettingsService? settingsService,
   WebDavConnectionRepository? connectionRepository,
   MockBookApi? api,
+  bool glassAvailable = false,
+  bool reduced = false,
+  double textScale = 1,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final hits = _Hits();
@@ -239,7 +246,22 @@ Future<(_Reader, _Hits)> _pumpMenu(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        builder: nativeReaderLayoutBuilder,
+        builder: (context, child) => nativeReaderLayoutBuilder(
+          context,
+          MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              disableAnimations: reduced,
+              textScaler: TextScaler.linear(textScale),
+            ),
+            child: AppGlassHost(
+              available: glassAvailable,
+              child: GlassTheme(
+                data: GlassThemeData.simple(quality: GlassQuality.minimal),
+                child: child!,
+              ),
+            ),
+          ),
+        ),
         onGenerateRoute: onGenerateRoute,
         home: Scaffold(
           // 同时覆盖祖先点击识别和翻页组件使用的原始指针事件。
@@ -342,6 +364,121 @@ Future<ProviderContainer> _pumpReader(
 
 void main() {
   setUpNativeReaderLayout();
+  for (final ready in [false, true]) {
+    testWidgets('窄屏大字及底部安全区使用同一新布局：资源就绪$ready', (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      final (_, hits) = await _pumpMenu(
+        tester,
+        glassAvailable: ready,
+        textScale: 1.8,
+        initialState: const ReaderState(
+          currentBook: Book(
+            bookUrl: 'https://book.test/1',
+            name: '长书名窄屏菜单测试',
+            origin: 'https://book.test',
+            originName: '测试书源',
+          ),
+          chapters: [BookChapter(title: '章节名称', index: 0)],
+          showControls: true,
+        ),
+      );
+      expect(find.byType(GlassButton), findsNWidgets(12));
+      expect(find.byType(GlassSlider), findsOneWidget);
+      expect(
+        find.byType(GlassContainer),
+        ready ? findsNWidgets(4) : findsNothing,
+      );
+      final bottom = tester.getRect(
+        find.byKey(const ValueKey('reader-actions-surface')),
+      );
+      expect(bottom.left, 12);
+      expect(bottom.right, 308);
+      expect(bottom.bottom, 640 - 34 - 12);
+      final back = tester.getSize(find.byTooltip('退出阅读'));
+      expect(back, const Size(48, 48));
+      await tester.tap(find.byTooltip('目录'));
+      await settleNativeReaderLayout(tester);
+      expect(hits.catalogTaps, 1);
+      _expectNoBodyEvents(hits);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final reduced in [false, true]) {
+    testWidgets('Glass菜单保持按钮、滑条、弹层和正文边界：减少动态效果$reduced', (tester) async {
+      final (reader, hits) = await _pumpMenu(
+        tester,
+        glassAvailable: true,
+        reduced: reduced,
+      );
+      expect(find.byType(GlassContainer), findsNWidgets(4));
+      expect(find.byType(GlassButton), findsNWidgets(9));
+      final bottom = find.byKey(const ValueKey('reader-actions-surface'));
+      final rect = tester.getRect(bottom);
+      expect(rect.left, 12);
+      expect(rect.right, 788);
+      expect(rect.bottom, lessThan(600));
+      final progress = tester.getRect(
+        find.byKey(const ValueKey('reader-progress-surface')),
+      );
+      expect(rect.top - progress.bottom, 10);
+      await tester.tap(find.text('目录'));
+      await tester.drag(
+        find.byType(ReaderMenuProgressSlider),
+        const Offset(180, 0),
+      );
+      await settleNativeReaderLayout(tester);
+      expect(hits.catalogTaps, 1);
+      expect(reader.seekCalls, greaterThan(0));
+      _expectNoBodyEvents(hits);
+      await tester.tap(find.byTooltip('更多'));
+      await settleNativeReaderLayout(tester);
+      expect(find.text('添加书签'), findsOneWidget);
+      await tester.tapAt(const Offset(400, 300));
+      await settleNativeReaderLayout(tester);
+      expect(find.text('添加书签'), findsNothing);
+      expect(reader.value.showControls, isTrue);
+      _expectNoBodyActions(hits);
+      await tester.dragFrom(const Offset(400, 300), const Offset(-250, 0));
+      await settleNativeReaderLayout(tester);
+      expect(reader.value.showControls, isFalse);
+      expect(hits.bodyDrags, greaterThan(0));
+      expect(find.byType(GlassContainer), findsNothing);
+      expect(find.byType(GlassButton), findsNothing);
+      expect(tester.binding.transientCallbackCount, 0);
+      reader.toggleControls();
+      await tester.pump();
+      if (!reduced) await tester.pump(const Duration(milliseconds: 80));
+      reader.hideControls();
+      await tester.pump();
+      reader.toggleControls();
+      await settleNativeReaderLayout(tester);
+      expect(find.byType(GlassContainer), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('悬浮面板外侧留白点击关闭菜单，面板内留白不穿透', (tester) async {
+    final (reader, hits) = await _pumpMenu(tester);
+    final bottom = find.byKey(const ValueKey('reader-progress-surface'));
+    final rect = tester.getRect(bottom);
+    await tester.tapAt(
+      Offset(
+        rect.left + 2,
+        tester.getCenter(find.byType(ReaderMenuProgressSlider)).dy,
+      ),
+    );
+    expect(reader.value.showControls, isTrue);
+    _expectNoBodyEvents(hits);
+    await tester.tapAt(Offset(2, rect.center.dy));
+    await settleNativeReaderLayout(tester);
+    expect(reader.value.showControls, isFalse);
+    _expectNoBodyActions(hits);
+  });
   testWidgets('阅读菜单连接预加载失败不产生未捕获异常', (tester) async {
     final repository = _ConnectionRepository()..fail = true;
     final api = _SyncNetworkApi();
@@ -1163,7 +1300,9 @@ void main() {
   testWidgets('顶栏书名和底栏留白消费点击，不关闭菜单或触发正文', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.text('菜单点击测试'));
-    await tester.tapAt(Offset(2, tester.getCenter(find.byType(Slider)).dy));
+    await tester.tapAt(
+      Offset(14, tester.getCenter(find.byType(ReaderMenuProgressSlider)).dy),
+    );
     await tester.pump();
     expect(reader.value.showControls, isTrue);
     _expectNoBodyEvents(hits);
@@ -1172,7 +1311,10 @@ void main() {
   testWidgets('菜单按钮和进度滑条仍能操作，拖动不传给正文翻页', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
     await tester.tap(find.text('目录'));
-    await tester.drag(find.byType(Slider), const Offset(180, 0));
+    await tester.drag(
+      find.byType(ReaderMenuProgressSlider),
+      const Offset(180, 0),
+    );
     await settleNativeReaderLayout(tester);
     expect(hits.catalogTaps, 1);
     expect(reader.seekCalls, greaterThan(0));
