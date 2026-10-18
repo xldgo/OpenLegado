@@ -1,3 +1,5 @@
+import 'application/bookshelf_import_controller.dart';
+import 'application/bookshelf_import_provider.dart';
 import '../../utils/error_message.dart';
 
 import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
@@ -5,11 +7,7 @@ import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 
 import '../../providers/reading_provider.dart';
 import '../book_sources/book_source_repository_provider.dart';
-import '../search/search_access_providers.dart';
-import '../../providers/network_provider.dart';
-import '../../providers/explore/explore_dependencies.dart';
 import '../privacy/privacy_gate.dart';
-import 'bookshelf_repositories.dart';
 import '../../widgets/app_menu.dart';
 
 import 'dart:convert';
@@ -1171,8 +1169,9 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// 添加网址对话框（对标 Kotlin showAddBookByUrlAlert，扩展书名字段作裸书兑底）
   Future<void> _showAddByUrlDialog() async {
-    final urlCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
+    // 输入框拥有内部控制器，避免对话框退场动画期间提前释放。— Codex + UI
+    var urlInput = '';
+    var nameInput = '';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1182,13 +1181,13 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: urlCtrl,
+                onChanged: (value) => urlInput = value,
                 maxLines: 3,
                 decoration: InputDecoration(hintText: context.l10n.bookUrlHint),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: nameCtrl,
+                onChanged: (value) => nameInput = value,
                 decoration: InputDecoration(
                   hintText: context.l10n.bookNameOptionalHint,
                 ),
@@ -1208,94 +1207,35 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         ],
       ),
     );
-    final urls = urlCtrl.text
+    final urls = urlInput
         .split(RegExp(r'[\n,;]'))
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-    final fallbackName = nameCtrl.text.trim();
-    urlCtrl.dispose();
-    nameCtrl.dispose();
+    final fallbackName = nameInput.trim();
     if (confirmed != true || urls.isEmpty || !mounted) return;
     await _addBooksByUrl(urls, fallbackName);
   }
 
-  /// 按 URL 逐本添加（对标 Kotlin BookshelfViewModel.addBookByUrl：
-  /// bookUrlPattern 正则/域名匹配书源 → webbookInfo 取详情入库）
+  /// 输入与结果提示留在页面，网址添加由应用层编排。
   Future<void> _addBooksByUrl(List<String> urls, String fallbackName) async {
-    final shelfRepository = ref.read(bookshelfRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
-    final existingUrls = ref
-        .read(bookshelfNotifierProvider)
-        .books
-        .map((b) => b.bookUrl)
-        .toSet();
-    List<BookSource> sources;
-    try {
-      sources = await ref
-          .read(bookSourceRepositoryProvider)
-          .getEnabledBookSources();
-    } catch (_) {
-      sources = const [];
-    }
-    var ok = 0;
-    var skip = 0;
-    var fail = 0;
-    for (final url in urls) {
-      if (existingUrls.contains(url)) {
-        skip++;
-        continue;
-      }
-      try {
-        final source = _matchSource(sources, url);
-        Book? book;
-        if (source != null) {
-          book = await ref
-              .read(bookSourceQueryServiceProvider)
-              .getBookInfo(source, url);
-        }
-        // 无匹配书源时按输入书名创建裸 WebBook 入库（任务要求；
-        // Kotlin 原版此处报「没有匹配的书源」，Flutter 侧放宽为兑底入库）
-        book ??= Book(
-          bookUrl: url,
-          name: fallbackName.isNotEmpty ? fallbackName : url,
-          originName: '网页书籍',
-        );
-        await shelfRepository.addBook(book);
-        existingUrls.add(url);
-        ok++;
-      } catch (e) {
-        fail++;
-        debugPrint('添加网址失败 $url: $e');
-      }
-    }
+    final result = await ref
+        .read(bookshelfImportControllerProvider)
+        .addByUrls(urls, fallbackName);
     if (!mounted) return;
     ref.read(bookshelfNotifierProvider.notifier).refresh();
     messenger.showSnackBar(
-      SnackBar(content: Text(context.l10n.addBookUrlFinished(ok, skip, fail))),
+      SnackBar(
+        content: Text(
+          context.l10n.addBookUrlFinished(
+            result.added,
+            result.skipped,
+            result.failed,
+          ),
+        ),
+      ),
     );
-  }
-
-  /// URL 匹配书源（对标 Kotlin addBookByUrl：先 bookUrlPattern 正则，
-  /// 后按主域名兑底）
-  BookSource? _matchSource(List<BookSource> sources, String url) {
-    for (final s in sources) {
-      final pattern = s.bookUrlPattern;
-      if (pattern == null || pattern.isEmpty) continue;
-      try {
-        if (RegExp(pattern).hasMatch(url)) return s;
-      } catch (_) {
-        // 非法正则忽略（部分书源 pattern 非标准正则）
-      }
-    }
-    final uri = Uri.tryParse(url);
-    if (uri != null && uri.host.isNotEmpty) {
-      for (final s in sources) {
-        final sUri = Uri.tryParse(s.bookSourceUrl);
-        if (sUri != null && sUri.host == uri.host) return s;
-      }
-    }
-    return null;
   }
 
   /// 导入书单对话框（对标 Kotlin importBookshelfAlert：
@@ -1309,94 +1249,24 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     await _importBookshelf(input);
   }
 
-  /// 导入书单（对标 Kotlin importBookshelf：url → httpGet 拉取，
-  /// JSON 数组 → 逐本搜索入库；已在架跳过）
+  /// 页面只处理展示和刷新，不参与网络、搜索与入架。
   Future<void> _importBookshelf(String input) async {
-    final shelfRepository = ref.read(bookshelfRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
-    var content = input;
-    if (content.startsWith('http://') || content.startsWith('https://')) {
-      try {
-        final response = await ref
-            .read(networkServiceProvider)
-            .httpGet(content);
-        if (!response.isSuccess) {
-          throw StateError('HTTP ${response.statusCode}');
-        }
-        content = response.body.trim();
-      } catch (e) {
-        if (mounted) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.bookListFetchFailed(e.toString())),
-            ),
-          );
-        }
-        return;
-      }
-    }
-    dynamic decoded;
-    try {
-      decoded = jsonDecode(content);
-    } catch (_) {
-      decoded = null;
-    }
-    if (decoded is! List) {
-      if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(context.l10n.invalidBookList)),
-        );
-      }
-      return;
-    }
-    final shelf = ref.read(bookshelfNotifierProvider).books;
-    final existing = shelf.map((b) => '${b.name}|${b.author}').toSet();
-    List<String> enabledUrls;
-    try {
-      enabledUrls =
-          (await ref.read(bookSourceRepositoryProvider).getEnabledBookSources())
-              .map((s) => s.bookSourceUrl)
-              .toList();
-    } catch (_) {
-      enabledUrls = const [];
-    }
-    var ok = 0;
-    var skip = 0;
-    var fail = 0;
-    for (final item in decoded) {
-      if (item is! Map) continue;
-      final name = (item['name'] ?? '').toString().trim();
-      final author = (item['author'] ?? '').toString().trim();
-      if (name.isEmpty) continue;
-      if (existing.contains('$name|$author')) {
-        skip++;
-        continue;
-      }
-      try {
-        // 对标 Kotlin WebBook.preciseSearchAwait（FFI preciseSearch）
-        final hit = await ref
-            .read(searchServiceProvider)
-            .preciseSearch(
-              name,
-              author,
-              sourceUrls: enabledUrls.isEmpty ? null : enabledUrls,
-            );
-        final best = SearchResult.fromSearchBook(hit).book;
-        await shelfRepository.addBook(best);
-        existing.add('$name|$author');
-        ok++;
-      } catch (e) {
-        fail++;
-        debugPrint('导入书单条目失败《$name》: $e');
-      }
-    }
+    final result = await ref
+        .read(bookshelfImportControllerProvider)
+        .importBookshelf(input);
     if (!mounted) return;
-    ref.read(bookshelfNotifierProvider.notifier).refresh();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.bookListImportFinished(ok, skip, fail)),
-      ),
-    );
+    if (result is BookshelfImportSummary) {
+      ref.read(bookshelfNotifierProvider.notifier).refresh();
+    }
+    final message = switch (result) {
+      BookshelfImportFetchFailed(:final error) =>
+        context.l10n.bookListFetchFailed(error.toString()),
+      BookshelfImportInvalid() => context.l10n.invalidBookList,
+      BookshelfImportSummary(:final added, :final skipped, :final failed) =>
+        context.l10n.bookListImportFinished(added, skipped, failed),
+    };
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 选择模式「已选N本 · 共M本」胶囊（对齐参考版 05 截图：× 退出钮 + 计数）

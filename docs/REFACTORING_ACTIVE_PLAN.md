@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-BOOKSHELF-IMPORT-20261018：书单导入编排提取（P1，SCH-X1）
+
+- 授权与基线：用户要求提交第一批后继续下一批；主目录feature/ui-reader-selection / ef01eb1a8，单代理、沿用当前分支，不推送或设备构建，第二批完成后保留工作区待审核。第一批错误边界已本地提交。
+- 范围：bookshelf_screen.dart内书单导入、网址添加及书源匹配迁入feature的application controller；继续消费现有网络/搜索/书源查询/书架窄接口，页面保留输入、刷新、提示和mounted检查。不改Rust/FRB/数据库/依赖/版本及UI布局，不扩入路由或播放器。
+- 行为边界：保留串行导入、当前书架去重/批内去重、正则优先于域名匹配、书源读取失败的原回退、无源裸网页入架、单条失败继续及原统计文案；书单拉取/格式失败不刷新。书架快照仍在原时点读取，不新增取消、并发、事务或进度界面。
+- 实现：新增BookshelfImportController及Provider装配，导入完成/格式无效/拉取失败使用明确结果类型，页面仅做输入、刷新和本地化提示。沿用已有窄接口与SearchResult映射，不新增原生入口或存储；无匹配源裸书入架属于既有行为，本批没有新设兜底规则。
+- 验证与整改：controller14项、实际页面/Provider/controller接线4项、既有书架刷新/Tab/Notifier37项均分批通过，共55项。首轮静态分析发现遗漏导入、结果变量确定赋值及风格问题，均已修正；首轮页面网址用例复现旧有TextEditingController提前释放错误，改为TextField内部管理控制器后4项页面复验通过。没有通过延迟关闭动画或忽略异常绕过失败。
+- 证据：flutter_legado/build/x1/controller-tests.log、tests.log、widget-final.log、analyze-final.log；tests.log保留首轮54通过/1失败，网址最终复验见widget-final.log。完整Dart静态分析及git diff --check通过；单代理代码与行为复核，没有独立外审、远程CI或设备验证。
+- 状态：第二批代码与本地验证完成，按用户“每批完成后本地提交”的要求随本条提交，不推送；下一批为SCH-F3a路由循环依赖。保留两份用户原有文档修改。回滚时仅回退本批书架controller/Provider、页面及测试/边界文档，保留第一批ef01eb1a8。
+
+编写者：Codex + UI｜2026-10-18
+
 ### FLUTTER-ERROR-BOUNDARY-20261018：Dart错误边界收口（P1）
 
 - 授权与基线：用户同意执行Flutter轨第一批（排期SCH-F1b，含原X2）；主目录feature/ui-reader-selection / 260f89685，单代理，不创建分支、不提交/推送/合并/设备构建。保留已有TWO_TRACK_DEV_SPEC.md未提交修改及ARCHITECTURE_REVIEW_20261018.md。
