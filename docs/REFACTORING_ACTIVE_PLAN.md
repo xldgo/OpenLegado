@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-VIDEO-SESSION-20261018：视频播放编排与生命周期拆分（P1，SCH-F2a）
+
+- 授权与基线：用户要求继续并在每批验证后本地提交；主目录feature/ui-reader-selection / f94aeecf7，单代理、不新建分支、不推送/设备构建。保留TWO_TRACK_DEV_SPEC.md和ARCHITECTURE_REVIEW_20261018.md原有修改。
+- 范围：从VideoScreen提取播放编排及资源生命周期至application controller，正式依赖在didChangeDependencies获取后注入；controller不持BuildContext/Ref，页面保留渲染、对话框、全屏系统栏和导航。复用现有video_player、视频设置与进度、章节/弹幕服务和悬浮窗coordinator，不新增音视频后端或FFI。
+- 保持行为：直链/书籍/复合URL/MPD、续播、选集/倍速、自然连播、悬浮窗首播/回全屏/失败提示及移交前暂停、进度和临时文件归属不变；本批不改布局、设置键、数据库、Rust/FRB、依赖或版本，不顺便重构悬浮窗原生服务。
+- 实现：新增VideoPlaybackController、VideoPlaybackRequest及独立设置定义；视频页在didChangeDependencies绑定既有窄接口并创建会话，后续编排/进度/退出不读context或Ref。页面只消费同一controller的播放状态，保留对话框、全屏和导航；设置默认值、键和持久化实现原样移动，不保留同义重导出。
+- 生命周期：按请求代次隔离章节/弹幕/临时文件准备，播放器初始化捕获具体实例与续播位置，seek/play之后复核身份；切换先释放旧播放器，退出移除监听/停止定时并暴露released确认。MPD移交中退出按原生接受结果决定文件归属，未应用的预置文件也可释放；同路径重试不先删除待复用文件。未新增底层网络取消协议，不将丢弃迟到结果宣称为取消Rust任务。
+- 验证：12项controller行为覆盖设置/书源/章节/弹幕迟到、连续选集、旧seek迟到、初始化期间退出及单次释放、MPD准备/预置/重试/悬浮窗接受或拒绝后退出；使用真实VideoPlayerController与可控平台事件，不启动原生播放器。复用视频设置、主题、选集/倍速、连播、URL工具、悬浮窗、进度与路由测试；最终单次106项全部通过，完整Dart静态分析与git diff --check通过。
+- 整改与证据：首轮迁移的导入/初始化形式/大括号已修正；旧悬浮窗夹具未提供新装配时读取的BookSourceRepository导致9项失败，补入真实Mock仓储后原9项通过，未修改预期或生产回退规则。证据在flutter_legado/build/f2a/下regression.log（47通过/9夹具失败）、handoff-final.log（9项）、lifecycle.log（首轮19项）、tests-final.log（最终106项）及analyze-final.log。Fake视频平台提取为共享测试设施，不使用源码字符串断言；仅单代理自查，没有独立外审、远程CI、性能或Android/iOS真机验收。
+- 状态：本批代码及本地验证完成，按用户要求随文档本地提交，不推送；下一批为SCH-F2b阅读器分页编排。已有两份用户文档保留；回滚只撤销本批视频会话、设置定义与相关测试/文档，保留前批路由与书架成果。
+
+编写者：Codex + UI｜2026-10-18
+
 ### FLUTTER-ROUTING-BOUNDARY-20261018：解除路由循环依赖（P1，SCH-F3a）
 
 - 授权与基线：用户要求每批完成验证后本地提交并继续；主目录feature/ui-reader-selection / b1b20a959，单代理、不新建分支、不推送/设备构建。保留TWO_TRACK_DEV_SPEC.md和ARCHITECTURE_REVIEW_20261018.md原有工作区修改。

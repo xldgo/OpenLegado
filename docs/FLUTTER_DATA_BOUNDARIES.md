@@ -66,6 +66,25 @@ feature、公共Widget及服务只消费名称或参数，不能反向导入页�
 
 编写者：Codex + UI｜2026-10-18
 
+## 视频播放会话
+
+`features/video/application/VideoPlaybackController`复用既有读取、书源、弹幕、直链进度
+和悬浮窗能力，拥有章节/播放目标编排、播放器初始化、定时进度及MPD文件归属。
+`VideoScreen`在didChangeDependencies绑定一次依赖并注入，异步操作和退出写盘不再读取
+页面context或Provider；页面保留渲染、提示、对话框、全屏系统栏与导航。
+
+每次播放请求有独立代次；正文/弹幕/临时目录等异步结果回写前核验归属。初始化还捕获
+具体播放器，seek/play完成后再次核验，避免迟到任务操作新实例。替换前等待旧播放器释放，
+退出时移除监听、停止定时并释放资源；released可等待已拥有资源的释放，不宣称取消底层
+网络请求。迟到网络结果被丢弃，迟到创建的MPD由对应操作自行删除。
+
+悬浮窗移交中的MPD由接受结果决定归属：原生接受后保留，失败或未移交则清理；预置MPD
+重试保留正在复用的路径，退出时统一释放。设置定义移至application/video_play_settings.dart，
+读写键、默认值及SharedPreferences通道原样保留，对话框不再作为数据类型的导出入口。
+现有video_player后端、悬浮窗原生协议、焦点和视觉样式保持不变。
+
+编写者：Codex + UI｜2026-10-18
+
 ## 实施顺序
 
 1. 提取初始化内部职责：应用 Bootstrap 编排，Bridge 加载原生库并调用 FRB，
