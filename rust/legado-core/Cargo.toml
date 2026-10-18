@@ -10,7 +10,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt"] }
-tokio-util = { version = "0.7", features = ["rt"] }
 aes = { workspace = true }
 cbc = { workspace = true }
 ecb = { workspace = true }
@@ -19,7 +18,6 @@ base64 = { workspace = true }
 md5 = "0.8.1"
 # 云端 Provider 地址解析和缓存摘要，沿用已锁定依赖版本。
 url = "2"
-sha2 = "0.11"
 regex = "1"
 # 安全正则编译缓存的 LRU 淘汰（任务 #60 ④，与 legado-js 同版本）
 lru = "0.18.5"

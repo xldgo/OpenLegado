@@ -8,6 +8,7 @@
 - PDF规则：内容完整、中文可读、章节/目录顺序正确、图片比例与分页合理；不追求旧版具体行断点、页数或坐标。优先文本/图片API与小型排版，关闭默认HTML链，保留字体配置。外部PDF导入不为依赖消重而无验证降级。
 - 验证：真实行为回归、相关模块编译/严格Clippy、正式三目标feature图；Flutter清理按静态分析与测试验证。各批不重复运行全套CI/模拟器；原生产链变更在最终集中重建native并核对。过程日志存build/dependency-governance/，失败不计通过；单代理自查，不声称独立外审/远程CI或移动设备验证。
 - 第一批：移除rar及其旧AES链，RAR直接入口与通用解压别名在默认/宽松沙箱明确拒绝；不注册新的ByteArray入口，不改变桌面unrar。新增两项回归在旧代码均失败，修复后JS库651项及安全边界2项通过（2项原忽略）；严格Clippy与diff检查通过。证据b1-reproduce.log、b1-tests-final.log、b1-clippy.log；首次脚本编码失败和测试导入漏项均已修正，不计通过。内置assets语料未检出RAR宿主调用，不代表外部书源无人使用。安全修复版本2.0.377+378同步日志。
+- 第二批：删除core的tokio-util/sha2、FFI的futures/md5及Flutter的ffi/flutter_svg直接声明。pub get移除flutter_svg、path_parsing和三项vector_graphics包，ffi保留为传递依赖。Rust工作区全部目标QuickJS编译检查、core 802项、Flutter分析通过。目录级Flutter测试3781项通过，16份依赖排版DLL的文件在setUpAll因新worktree库路径缺失未启动，不声称全量通过；用户要求避免重复排版验收，留最终相关原生验证，不为清单清理重跑这些算法/UI用例。首次native补建已完成，不再重复此批。证据b2-{pub-get,rust-check,core-tests,analyze,flutter-tests,native}.log。
 - 状态：实施中，六批完成证据逐批补入本条。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
 
 编写者：Codex｜2026-10-18
