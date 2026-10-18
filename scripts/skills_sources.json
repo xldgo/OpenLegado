@@ -45,18 +45,6 @@
       }
     },
     {
-      "repository": "abhigyanpatwari/GitNexus",
-      "commit": "191a954bf67583447dac5c71cc8d679aabd101d8",
-      "skills": {
-        "gitnexus-cli": "gitnexus-claude-plugin/skills/gitnexus-cli",
-        "gitnexus-debugging": "gitnexus-claude-plugin/skills/gitnexus-debugging",
-        "gitnexus-exploring": "gitnexus-claude-plugin/skills/gitnexus-exploring",
-        "gitnexus-guide": "gitnexus-claude-plugin/skills/gitnexus-guide",
-        "gitnexus-impact-analysis": "gitnexus-claude-plugin/skills/gitnexus-impact-analysis",
-        "gitnexus-refactoring": "gitnexus-claude-plugin/skills/gitnexus-refactoring"
-      }
-    },
-    {
       "repository": "arenukvern/skill_steward",
       "commit": "016f1524387af23a6be6e9ad6e2c7767581a5630",
       "skills": {

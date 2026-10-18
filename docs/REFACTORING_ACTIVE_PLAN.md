@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### REMOVE-GITNEXUS-SKILLS-20261018：移除项目GitNexus技能（P2）
+
+- 授权与范围：用户要求移除GitNexus系列技能。仅删除.agents/skills中的六项GitNexus技能及来源清单/维护说明，不安装替代工具，不修改其他技能或用户已有三份文档。
+- 验证：来源清单JSON可解析，保留技能目录与SKILL.md可读取；setup_skills.py重复运行确认两个共享入口仍指向唯一来源。无应用代码或构建配置改动，不运行应用测试。
+- 状态：本地清理完成并独立提交，不推送；JS网络核查修改保留在dep-audit worktree，继续执行。当前会话缓存的技能目录列表可能仍显示已删除项，新会话重新发现后生效。
+
+编写者：Codex｜2026-10-18
+
+
+
 
 ### DEPENDENCY-GOVERNANCE-20261018：依赖安全与构建配置收敛（P0/P1）
 

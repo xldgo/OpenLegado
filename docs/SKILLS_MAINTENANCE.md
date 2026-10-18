@@ -16,7 +16,7 @@ Windows 创建目录联接；其他平台使用相对符号链接。
 Windows 联接使用绝对目标，移动仓库后若旧链接仍存在，先核对并移除旧入口再初始化。
 
 各工具读取入口下的 `SKILL.md`。本轮在 Windows 核对了两个入口的目标及全部
-53 个入口文件，并验证初始化重复执行；未宣称其他平台或各编辑器的实际加载已经验收。
+当时的 53 个入口文件，并验证初始化重复执行；未宣称其他平台或各编辑器的实际加载已经验收。
 
 ## 上游更新
 
@@ -28,7 +28,6 @@ Windows 联接使用绝对目标，移动仓库后若旧链接仍存在，先核
 |---|---|
 | Dart / Flutter 通用 skills | [Flutter 官方 agent-plugins](https://github.com/flutter/agent-plugins/tree/main/skills) |
 | Flutter MCP skills | [作者维护的 mcp_flutter](https://github.com/Arenukvern/mcp_flutter/tree/main/plugin/skills) |
-| GitNexus skills | [作者维护的 GitNexus 插件](https://github.com/abhigyanpatwari/GitNexus/tree/main/gitnexus-claude-plugin/skills) |
 | 工程治理 skills | [作者维护的 Skill Steward](https://github.com/arenukvern/skill_steward/tree/main/skills) |
 | Apple UI Designer | [作者维护的 atelier-ui](https://github.com/heyman333/atelier-ui/tree/main/skills/apple-ui-designer) |
 
@@ -43,3 +42,5 @@ Windows 联接使用绝对目标，移动仓库后若旧链接仍存在，先核
 用户当前指令优先于 skills；更新不改变用户对提交、推送、测试或子代理的授权。
 
 编写者：Codex｜2026-10-11
+
+2026-10-18：按用户要求移除六项 GitNexus skills 及其来源记录；共享入口自动同步。
