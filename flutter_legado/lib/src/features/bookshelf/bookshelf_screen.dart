@@ -32,6 +32,7 @@ import '../../app/routing/route_arguments.dart';
 import '../../services/local_book_store.dart';
 import '../../utils/book_open_utils.dart';
 import '../../widgets/app_scaffold.dart';
+import '../../widgets/app_bottom_bar_inset.dart';
 import '../../widgets/app_progress_indicator.dart';
 import 'widgets/book_grid_item.dart';
 import 'widgets/book_list_item.dart';
@@ -168,7 +169,12 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
               ref,
               state.copyWith(isBatchMode: false),
             ),
-            SliverFillRemaining(child: locked),
+            SliverFillRemaining(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: AppBottomBarInset.of(context)),
+                child: locked,
+              ),
+            ),
           ],
         ),
         child: _buildBody(context, ref),
@@ -398,7 +404,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         return LayoutBuilder(
           builder: (context, constraints) {
             return GridView.builder(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
+              padding: AppBottomBarInset.padding(
+                context,
+                const EdgeInsets.fromLTRB(22, 8, 22, 8),
+              ),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: state.gridColumns,
                 mainAxisSpacing: 20,
@@ -415,7 +424,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         );
       }
       return ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: AppBottomBarInset.padding(
+          context,
+          const EdgeInsets.symmetric(vertical: 8),
+        ),
         itemCount: 8,
         itemBuilder: (_, _) => const ListSkeletonItem(),
       );
@@ -514,6 +526,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                 SliverToBoxAdapter(
                   child: _buildBatchBottomBar(context, ref, state),
                 ),
+              const AppBottomBarSliverSpace(),
             ],
           );
         },

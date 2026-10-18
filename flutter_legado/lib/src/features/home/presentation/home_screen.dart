@@ -14,6 +14,7 @@ import '../../../l10n/app_localization.dart';
 import '../../bookshelf/bookshelf.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/app_bottom_bar_inset.dart';
 import '../../../widgets/navigation/app_navigation_bars.dart';
 import '../../appearance/application/bottom_bar_skin_notifier.dart';
 import '../application/main_prefs_notifier.dart';
@@ -375,29 +376,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           );
-          // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+          final extendBody =
+              !useRail &&
+              ui.showBottomView &&
+              ui.useFloatingBottomBar &&
+              MediaQuery.viewInsetsOf(context).bottom == 0;
+          final safeTop = !ref.watch(
+            systemBarProvider.select((s) => s.transparentStatusBar),
+          );
           return AppScaffold(
+            extendBody: extendBody,
             // 沉浸式状态栏开启时顶栏延伸至状态栏区域（对标原版 fullScreen +
             // AppConfig.isTransparentStatusBar）；关闭时保留顶部 SafeArea
-            body: SafeArea(
-              top: !ref.watch(
-                systemBarProvider.select((s) => s.transparentStatusBar),
-              ),
-              bottom: false,
-              // [UI_SYNC_REFACTOR B3] tabletInterface + sw≥600 切 NavigationRail
-              //（简版：系统图标不带皮肤，expand 持久化登记差异延后）
-              // 保持页面容器层级稳定，切换导航形态时不重建当前页。
-              child: Row(
-                children: [
-                  if (useRail) ...[
-                    _buildRail(ui, tabs, currentIndex),
-                    const VerticalDivider(width: 1, thickness: 0),
-                  ],
-                  Expanded(
-                    key: const ValueKey('home-page-area'),
-                    child: pageArea,
+            body: Builder(
+              builder: (bodyContext) => AppBottomBarInset(
+                // Scaffold已按实际底栏布局计算，包含胶囊留白与系统安全区。
+                // 在子页自己的Scaffold处理MediaQuery之前保存这份几何输入。
+                bottom: extendBody
+                    ? MediaQuery.paddingOf(bodyContext).bottom
+                    : 0,
+                // 子页SafeArea不再把整片内容推到底栏上方；遮挡只留在滚动尾部。
+                child: MediaQuery.removePadding(
+                  context: bodyContext,
+                  removeBottom: extendBody,
+                  child: SafeArea(
+                    top: safeTop,
+                    bottom: false,
+                    // [UI_SYNC_REFACTOR B3] tabletInterface + sw≥600 切 NavigationRail
+                    //（简版：系统图标不带皮肤，expand 持久化登记差异延后）
+                    // 保持页面容器层级稳定，切换导航形态时不重建当前页。
+                    child: Row(
+                      children: [
+                        if (useRail) ...[
+                          _buildRail(ui, tabs, currentIndex),
+                          const VerticalDivider(width: 1, thickness: 0),
+                        ],
+                        Expanded(
+                          key: const ValueKey('home-page-area'),
+                          child: pageArea,
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
             // [UI_SYNC_REFACTOR B3] 底栏三形态：隐藏 / 悬浮 64dp 胶囊 / 标准

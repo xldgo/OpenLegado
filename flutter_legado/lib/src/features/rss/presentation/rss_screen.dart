@@ -14,6 +14,7 @@ import '../application/rss_notifier.dart';
 import '../application/history/rss_history_notifier.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/app_bottom_bar_inset.dart';
 import '../../../widgets/confirm_dialog.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
@@ -255,6 +256,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                     ),
                   ),
                 ),
+              const AppBottomBarSliverSpace(),
             ],
           );
         },

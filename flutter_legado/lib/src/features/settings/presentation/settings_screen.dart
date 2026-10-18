@@ -18,6 +18,7 @@ import '../../../utils/error_message.dart';
 import '../../../services/auto_task_scheduler.dart';
 import '../../../services/web_keep_alive_service.dart';
 import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/app_bottom_bar_inset.dart';
 import '../../../widgets/settings_widgets.dart';
 import '../../../widgets/help/help_assets.dart';
 import '../../../widgets/help/show_help.dart';
@@ -316,7 +317,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       body: SettingsBody(
         child: ListView(
-          padding: const EdgeInsets.only(top: 16, bottom: 32),
+          padding: AppBottomBarInset.padding(
+            context,
+            const EdgeInsets.only(top: 16, bottom: 32),
+          ),
           children: [
             // 分组整体构建，确保首页快捷入口能定位尚未滚动到的其他区域。
             Column(

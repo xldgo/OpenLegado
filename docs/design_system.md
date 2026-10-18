@@ -11,6 +11,13 @@ AppGlassStyle集中转换最终底色和模糊输入，颜色alpha不二次相�
 原有逻辑像素参数，实际效果需设备校准，不宣称与高斯sigma视觉等效。
 公共页面不依赖第三方导航模型；玻璃导航与按钮按批次接入，不替换全站页壳。
 
+主页悬浮底栏使用AppScaffold.extendBody让正文在底栏后方绘制；默认页壳仍不延伸。
+主页在Scaffold的body上下文取得实际底栏占用高度，经AppBottomBarInset提供给
+各子页，不硬编码胶囊/安全区总高度；移除Scaffold为extendBody注入的正文底部
+padding，避免嵌套SafeArea把整个视口缩回。尾部留白仅添加到ListView内容padding
+或Sliver尾部，保证末项能滚到可操作区域；标准栏、隐藏、侧栏与键盘遮挡时不叠加。
+作用域限于主页子树，独立路由默认零占用；切换模式保持页面、控制器与滚动状态。
+
 编写者：Codex + UI｜2026-10-18
 
 > 数据来源：`flutter_legado/lib/src/theme/app_theme.dart`（MD3 主题装配）、`md3_colors.dart`（12 套内置调色板）、`app_typography.dart`（M3 字阶）

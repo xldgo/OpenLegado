@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.379] - 2026-10-18
+
+### Changed
+- [UI] 悬浮底栏后方显示主页滚动内容，首页、书架、发现、订阅和设置保留末项操作空间。
+- [UI] 切换底栏形态保留书架列表位置，键盘弹出时避免叠加底栏留白。
+- 贡献者：Codex + UI；构建号380。
+
 ## [2.0.378] - 2026-10-18
 
 ### Changed

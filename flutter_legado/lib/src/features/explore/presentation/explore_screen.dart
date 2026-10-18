@@ -19,6 +19,7 @@ import '../../book_sources/book_source_repository_provider.dart';
 import '../../../l10n/app_localization.dart';
 
 import '../../../widgets/app_menu.dart';
+import '../../../widgets/app_bottom_bar_inset.dart';
 
 import 'dart:async';
 
@@ -155,7 +156,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       // [LAYOUT_PLAN P4] 首屏 Skeleton 接线：列表骨架替代整页 LoadingIndicator
       // （shimmer 1200ms 已在 skeleton.dart 实现）
       return ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: AppBottomBarInset.padding(
+          context,
+          const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        ),
         itemCount: 8,
         itemBuilder: (_, _) => const ListSkeletonItem(),
       );
@@ -234,7 +238,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       child: ExploreBookList(
                         key: ValueKey(_selectedCategory),
                         args: _selectedCategory!,
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: AppBottomBarInset.padding(
+                          context,
+                          const EdgeInsets.only(bottom: 8),
+                        ),
                       ),
                     ),
                   ],
@@ -258,7 +265,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               horizontalPadding,
               8,
               horizontalPadding,
-              16,
+              16 + AppBottomBarInset.of(context),
             ),
             itemCount: sources.length,
             itemBuilder: (context, index) {
