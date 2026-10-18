@@ -11,7 +11,7 @@ legado-core = { path = "../legado-core" }
 legado-parser = { path = "../legado-parser" }
 legado-net = { path = "../legado-net" }
 legado-js = { path = "../legado-js" }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
@@ -25,6 +25,7 @@ md5 = "0.8.1"
 sha2 = "0.11"
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "net"] }
 base64 = { workspace = true }
 
 [features]

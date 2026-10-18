@@ -58,7 +58,7 @@ futures       = { version = "0.3", optional = true }
 scraper       = { version = "0.27", optional = true }
 
 # tokio 运行时桥接（用于在 JS 线程中调用 legado-net 异步 API）
-tokio         = { version = "1", features = ["rt-multi-thread", "sync"], optional = true }
+tokio         = { version = "1", features = ["rt-multi-thread", "sync", "time"], optional = true }
 legado-net    = { path = "../legado-net", optional = true }
 
 [features]
