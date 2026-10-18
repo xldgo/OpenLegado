@@ -12,6 +12,27 @@
 - 状态：本批代码与可执行本地验证已完成，版本2.0.377+378并同步两处更新日志；按用户约定不构建/安装，不推送或合并。未进行独立外审、远程CI、设备视觉/性能验收或整页原生命中复验；本批可单独回滚。Rust/FRB/依赖不变，液态玻璃效果和底栏缩放继续后置。
 
 编写者：Codex + UI｜2026-10-18
+- 基线同步（2026-10-18）：按用户授权合并主目录 feature/ui-reader-selection / cf0514901，保留材质分支 35de9dd19、1ac8abcbe 与双方任务记录。版本采用基线 2.0.378+379，保留两组更新条目；主目录未提交文件不纳入。仅处理版本与文档冲突，Rust文件与新基线一致、Flutter界面源码与材质提交一致。离线pub get无输出后中止，静态分析未启动，不计作验证通过；未重编译、安装或推送。
+
+### DEPENDENCY-GOVERNANCE-20261018：依赖安全与构建配置收敛（P0/P1）
+
+- 授权与基线：用户批准依次实施六批并逐批本地提交；沿用干净的build/worktrees/dep-audit、chore/dep-audit，起点b30ae82b7。单代理，不推送/合并，不改主目录未提交文件。
+- 顺序与边界：①封闭JS RAR不安全实现及全部别名分派，保留桌面书籍unrar；②删除确认无引用的直接依赖；③逐crate精简Tokio特性，保留内置Web服务；④MD5输出兼容迁移及独立补丁更新；⑤受控字体/内容测试与printpdf替换；⑥Argon2 API迁移及旧哈希校验。Flutter设计组件升级、移动RAR替代选型和Release调优后置。
+- PDF规则：内容完整、中文可读、章节/目录顺序正确、图片比例与分页合理；不追求旧版具体行断点、页数或坐标。优先文本/图片API与小型排版，关闭默认HTML链，保留字体配置。外部PDF导入不为依赖消重而无验证降级。
+- 验证：真实行为回归、相关模块编译/严格Clippy、正式三目标feature图；Flutter清理按静态分析与测试验证。各批不重复运行全套CI/模拟器；原生产链变更在最终集中重建native并核对。过程日志存build/dependency-governance/，失败不计通过；单代理自查，不声称独立外审/远程CI或移动设备验证。
+- 第一批：移除rar及其旧AES链，RAR直接入口与通用解压别名在默认/宽松沙箱明确拒绝；不注册新的ByteArray入口，不改变桌面unrar。新增两项回归在旧代码均失败，修复后JS库651项及安全边界2项通过（2项原忽略）；严格Clippy与diff检查通过。证据b1-reproduce.log、b1-tests-final.log、b1-clippy.log；首次脚本编码失败和测试导入漏项均已修正，不计通过。内置assets语料未检出RAR宿主调用，不代表外部书源无人使用。安全修复版本2.0.377+378同步日志。
+- 第二批：删除core的tokio-util/sha2、FFI的futures/md5及Flutter的ffi/flutter_svg直接声明。pub get移除flutter_svg、path_parsing和三项vector_graphics包，ffi保留为传递依赖。Rust工作区全部目标QuickJS编译检查、core 802项、Flutter分析通过。目录级Flutter测试3781项通过，16份依赖排版DLL的文件在setUpAll因新worktree库路径缺失未启动，不声称全量通过；用户要求避免重复排版验收，留最终相关原生验证，不为清单清理重跑这些算法/UI用例。首次native补建已完成，不再重复此批。证据b2-{pub-get,rust-check,core-tests,analyze,flutter-tests,native}.log。
+- 第三批：workspace与net测试档移除Tokio full，各crate显式声明fs/io-util/net/macros/rt/sync/time所需能力，server同步精简，FFI到server的产品能力保留。工作区QuickJS全部目标检查通过，net/engine/server共596项回归通过；正式Windows特性21→15、Android/iOS 20→14，两档QuickJS均一致，去掉full/io-std/parking_lot/process/signal/signal-hook-registry；仅依赖图结论，不声称交叉编译或包体收益。证据b3-check.log、b3-tests.log、tokio-before/after.json。
+- 第四批MD5：core统一为md-5 0.11并提供小写摘要工具，db/engine/fetcher复用core工具而不再直接依赖MD5；parser保持同代实现，JS保留RSA约束的digest 0.10。迁移前固定向量/目录与文件名通过，TTS源上下文旧键e5ccc0556d13b6588c32a72fadc201f1已固定；迁移后四库1434项通过，严格Clippy通过。初次编译发现新摘要数组不实现LowerHex，改为单一十六进制转换；随后仅去除冗余format并经Clippy复核。证据b4-{vectors-before,tts-before,tests-final,clippy}.log。
+- 第四批补丁：仅更新rustls 0.23.46、sha2 0.11.1、sevenz-rust2 0.24.1；后者必要传递依赖lzma-rust2同步0.22→0.23，未顺带升级zip/fancy-regex/backtrace或JS的digest体系。网络/JS/Fetcher三库QuickJS共1065项通过（既有2项忽略），涵盖TLS、7z与摘要行为。证据b4-patch-updates.log、b4-patch-tests.log。
+- 第五批：受控OFL字体与完整中文断言先在旧后端5项通过，再以printpdf 0.12.8替代genpdf；新增独立PDF写入模块，保留标题/作者/简介/目录/章节和图片，混合章节保留正文、缺字明确报错。关闭默认HTML，未引入Azul；TTC直接选择字体面并删除手工拆表。书籍库171项通过、严格Clippy通过；初轮仅测试档Path导入告警，已消除并复验。文本与图片样例经独立PyMuPDF解析/渲染并目视检查，中文及混排可读、图片比例正确；过程b5-{pdf-before,tests-final,clippy-final,preview}.log，样例text/image.pdf与对应page3.png。临时预览example已删除，不新增宿主协议。
+- 第五批依赖与限制：锁文件494包，genpdf、rusttype、image 0.23、lopdf 0.26及time 0.2退出，外部PDF导入保留lopdf 0.45，printpdf使用0.44；两者均高于该公告修复下限，删除RUSTSEC-2026-0187豁免，保留RSA剩余风险说明。未安装或运行cargo-audit，不冒充完整安全扫描。生产保留系统字体/显式字体配置，测试字体只覆盖夹具，不随应用当作通用字体。版本2.0.378+379同步日志；未验证移动端PDF运行或包体。
+- 第六批：Argon2 0.6使用hash_password_with_salt接收16字节系统随机盐，关闭其内部另一条随机数生成feature；PHC存储和Argon2id v19/m19456/t2/p1/32字节输出保持。旧0.5.3固定盐哈希在迁移前生成后固定，升级后继续正确校验；错误旧密码不改写、换密/清除、随机盐和损坏哈希语义通过。DB库371项与严格Clippy通过，证据b6-hash-before.log、b6-db-tests.log、b6-clippy.log。
+- 最终收口：默认与QuickJS两档工作区全部目标严格Clippy通过；Windows正式入口使用共享Cargo缓存完成最终Debug QuickJS DLL构建，Rust/构建输入指纹、FRB契约及源/复制库摘要通过。按原字节将源库、打包库与元数据复制至本worktree后，再显式验证本worktree target目录通过；不是补写元数据冒充重编。两份既有真实FRB文件共3项通过，覆盖隐私密码、私密书籍/分组及启动配置，复用启动用例验证RAR直接入口和通用别名确实抛错、失败后运行时可继续使用。Dart定向分析通过，不重复排版算法/Widget验收。证据final-clippy-{quickjs,default}.log、final-native-{build,verify-worktree,tests}.log、final-dart-analyze.log；全部退出0。
+- 提交与结果：第一批98c7552d4、第二批b456a14a7、第三批aa22d6ea9、第四批9761241e9及842237bf2、第五批b94aff5b7；第六批与本收口记录在同一后续提交。Cargo.lock 540→495条目，多版本包名49→31（额外版本条目57→35）；Flutter锁定包212→207，ffi仍是传递依赖。最终Tokio图与第三批一致，backtrace保留基线0.3.76未动。全程单代理自查，无独立外审，不推送/合并；主目录的未提交文档未写入。
+- 状态：六批实现及上述范围本地验证已关闭。Flutter目录级3781项通过、16份排版文件前置DLL缺失未执行，按讨论未重跑，不宣称全量Flutter绿灯；无远程CI、移动端构建/设备、完整cargo-audit或Release包体结论。JS RAR为明确停用而非功能补齐；移动端RAR替代、Flutter设计组件升级与Release调优后置。API/FRB签名与生成物、数据库schema不变；版本2.0.378+379。回滚可按批次独立撤销提交；PDF字体夹具与新后端同批，回退时重新构建对应native，不伪造或降级产物元数据。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
+
+编写者：Codex｜2026-10-18
 
 ### WINDOWS-RELEASE-BUILD-20261018：动效合并后的Windows构建（P1）
 

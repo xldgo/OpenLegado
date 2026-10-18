@@ -4607,12 +4607,20 @@ fn register_archive_apis<'js>(
 ) -> Result<(), LegadoError> {
     // unzipFile / unArchiveFile(zipPath) -> String（解压目标目录）
     // 对应 Kotlin: unzipFile → unArchiveFile；空路径返回空串
-    let unarchive = rquickjs::Function::new(ctx.clone(), |zip_path: RhinoStr| -> String {
-        if zip_path.is_empty() {
-            return String::new();
-        }
-        archive_utils::un_archive_file(&zip_path, None).unwrap_or_else(|e| format!("[ERROR] {}", e))
-    })
+    let unarchive = rquickjs::Function::new(
+        ctx.clone(),
+        |ctx: rquickjs::Ctx<'_>, zip_path: RhinoStr| -> rquickjs::Result<String> {
+            if zip_path.is_empty() {
+                return Ok(String::new());
+            }
+            match archive_utils::un_archive_file(&zip_path, None) {
+                Err(e) if e == archive_utils::RAR_UNSUPPORTED => {
+                    Err(rquickjs::Exception::throw_message(&ctx, &e))
+                }
+                result => Ok(result.unwrap_or_else(|e| format!("[ERROR] {e}"))),
+            }
+        },
+    )
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
     java.set("unzipFile", unarchive.clone())
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
@@ -4661,16 +4669,21 @@ fn register_archive_apis<'js>(
     )?;
 
     // unrarFile(rarPath, outputPath?) -> String
-    // 纯 Rust RAR4/RAR5 解压（rar crate），失败返回 [ERROR] 前缀错误信息
+    // 停用不安全后端，在任何文件访问前抛出明确异常
     mount_dual(
         java,
         globals,
         "unrarFile",
         rquickjs::Function::new(
             ctx.clone(),
-            |rar_path: RhinoStr, output_path: RhinoOptStr| -> String {
-                archive_utils::unrar_file(&rar_path, output_path.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+            |ctx: rquickjs::Ctx<'_>,
+             _rar_path: RhinoStr,
+             _output_path: RhinoOptStr|
+             -> rquickjs::Result<String> {
+                Err(rquickjs::Exception::throw_message(
+                    &ctx,
+                    archive_utils::RAR_UNSUPPORTED,
+                ))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4695,22 +4708,24 @@ fn register_archive_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // getRarStringContent(url, path, charsetName?) -> String
-    // 对应 Kotlin: getRarStringContent(url, path[, charsetName])；
-    // url 可为本地 RAR 路径 / 网络 URL / 十六进制字符串；失败返回空串（对齐 Kotlin）
+    // 不解析来源、不发请求、不创建临时目录，避免读条目接口绕过停用边界。
     mount_dual(
         java,
         globals,
         "getRarStringContent",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(
-                ctx.clone(),
-                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                    get_rar_string_content_js(&http, &url, &entry, charset.0.as_deref())
-                },
-            )
-        }
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'_>,
+             _url: RhinoStr,
+             _entry: RhinoStr,
+             _charset: RhinoOptStr|
+             -> rquickjs::Result<String> {
+                Err(rquickjs::Exception::throw_message(
+                    &ctx,
+                    archive_utils::RAR_UNSUPPORTED,
+                ))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -4775,32 +4790,6 @@ fn get_7z_string_content_js(
         Ok(b) => decode_bytes_with_charset(&b, charset),
         Err(e) => {
             eprintln!("[get7zStringContent] {e}");
-            String::new()
-        }
-    }
-}
-
-/// getRarStringContent 的 JS 入口实现：解析 RAR 来源并读取指定条目的字符串内容
-///
-/// 对应 Kotlin `getRarByteArrayContent` + `getRarStringContent`；
-/// 失败时记录日志并返回空串（对齐 Kotlin `?: return ""`）
-fn get_rar_string_content_js(
-    http: &crate::http_resources::HttpResources,
-    url: &str,
-    entry: &str,
-    charset: Option<&str>,
-) -> String {
-    let bytes = match resolve_archive_bytes(http, url, "RAR") {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("[getRarStringContent] RAR 来源解析失败: {e}");
-            return String::new();
-        }
-    };
-    match archive_utils::rar_entry_bytes(&bytes, entry) {
-        Ok(b) => decode_bytes_with_charset(&b, charset),
-        Err(e) => {
-            eprintln!("[getRarStringContent] {e}");
             String::new()
         }
     }
@@ -5113,6 +5102,7 @@ mod resource_network_tests {
 #[cfg(test)]
 mod tests {
     use crate::engine::{JsEngine, QuickJsEngine};
+    use crate::host_api::archive_utils;
     use crate::sandbox::SandboxConfig;
     use std::io::{Read, Write};
 
@@ -6095,10 +6085,10 @@ cipher.decryptStr(b64);
 
     #[test]
     fn test_java_unrar_file_missing_file_error() {
-        // 真实实现（rar crate）：不存在的文件返回 [ERROR] 前缀错误信息
+        // 停用后不再探测本地文件是否存在
         let engine = make_engine();
-        let result = engine.eval("java.unrarFile('test.rar')").unwrap();
-        assert!(result.contains("[ERROR]"));
+        let error = engine.eval("java.unrarFile('test.rar')").unwrap_err();
+        assert!(error.to_string().contains(archive_utils::RAR_UNSUPPORTED));
     }
 
     #[test]
@@ -6329,11 +6319,23 @@ cipher.decryptStr(b64);
         let engine = make_engine();
 
         let code = format!("java.getRarStringContent('{}', 'hello.txt')", hex_str);
-        assert_eq!(engine.eval(&code).unwrap(), "Hello RAR World!");
+        assert!(
+            engine
+                .eval(&code)
+                .unwrap_err()
+                .to_string()
+                .contains(archive_utils::RAR_UNSUPPORTED)
+        );
 
-        // 不存在的条目返回空串（对齐 Kotlin return ""）
+        // 不存在的条目同样明确拒绝
         let code = format!("java.getRarStringContent('{}', 'no.txt')", hex_str);
-        assert_eq!(engine.eval(&code).unwrap(), "");
+        assert!(
+            engine
+                .eval(&code)
+                .unwrap_err()
+                .to_string()
+                .contains(archive_utils::RAR_UNSUPPORTED)
+        );
     }
 
     #[test]

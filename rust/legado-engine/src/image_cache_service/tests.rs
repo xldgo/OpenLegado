@@ -48,7 +48,7 @@ fn md5_naming_layout() {
     let service = ImageCacheService::new(root.clone());
     let url = "https://cdn.com/img/page-001.webp?v=2";
     assert!(service.save_image_cache("https://a.com/book/7", url, b"png-bytes"));
-    let hex = format!("{:x}", md5::compute(url));
+    let hex = legado_core::crypto::md5_hex(url);
     let expected = root
         .join(book_dir_name("https://a.com/book/7"))
         .join(IMAGES_DIR)
@@ -163,4 +163,17 @@ fn explicit_roots_isolate_same_keys_and_keep_empty_and_io_error_semantics() {
     assert!(!a.save_image_cache("书", "read-failure", b"no"));
     fs::remove_dir_all(first_root).unwrap();
     fs::remove_dir_all(second_root).unwrap();
+}
+
+#[test]
+fn md5_cache_filename_known_vector() {
+    let service = ImageCacheService::new(PathBuf::from("cache"));
+    let path = service.image_file_path("https://example.com/书/一", "https://example.com/书/一");
+    assert_eq!(
+        path,
+        PathBuf::from("cache")
+            .join("https___example.com_____250ab464")
+            .join("images")
+            .join("02d9fa1915061b5e.jpg")
+    );
 }

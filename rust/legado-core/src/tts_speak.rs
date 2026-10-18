@@ -74,9 +74,9 @@ fn format_speed(speed: f64) -> String {
 /// Windows 文件系统为非法字符。
 pub fn speak_cache_key(template: &str, text: &str, speed: f64) -> String {
     format!(
-        "{:x}-{:x}-{}",
-        md5::compute(template.as_bytes()),
-        md5::compute(text.as_bytes()),
+        "{}-{}-{}",
+        crate::crypto::md5_hex(template.as_bytes()),
+        crate::crypto::md5_hex(text.as_bytes()),
         format_speed(speed)
     )
 }
@@ -165,7 +165,9 @@ impl SpeakCache {
     /// `tts_{key}.` 前缀匹配，文件名形如 `tts_{key}.mp3.part` 会被当作音频）。
     pub fn get(&self, key: &str) -> Option<PathBuf> {
         for ext in CACHE_EXTENSIONS {
-            let path = self.dir.join(format!("{}{}.{}", SPEAK_CACHE_PREFIX, key, ext));
+            let path = self
+                .dir
+                .join(format!("{}{}.{}", SPEAK_CACHE_PREFIX, key, ext));
             match std::fs::metadata(&path) {
                 Ok(meta) if meta.is_file() && meta.len() > 0 => return Some(path),
                 _ => continue,
@@ -344,6 +346,18 @@ fn url_encoded(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn md5_cache_key_known_vectors() {
+        assert_eq!(
+            speak_cache_key("abc", "测试中文", 1.0),
+            "900150983cd24fb0d6963f7d28e17f72-40b230b1b2e413e50e0c154daacea377-1"
+        );
+        assert_eq!(
+            crate::auto_task::book_update_task_id("https://example.com/书/一"),
+            "book_update:250ab46402d9fa19"
+        );
+    }
 
     fn test_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(

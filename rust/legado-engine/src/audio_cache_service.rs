@@ -150,7 +150,7 @@ impl AudioCacheService {
 /// MD5 小写 hex 中段 16 字符（对齐原版 `MD5Utils.md5Encode16` = `hex[8..24)`，
 /// 与 image_cache_api / legado-js `encoding::md5_encode_16` 同口径）
 fn md5_mid16(input: &str) -> String {
-    let hex = format!("{:x}", md5::compute(input));
+    let hex = legado_core::crypto::md5_hex(input);
     hex[8..24].to_string()
 }
 

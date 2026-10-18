@@ -47,8 +47,6 @@ url           = { version = "2", optional = true }
 # 解压缩（ZIP / 7z / RAR）
 zip           = { version = "9.0.1", optional = true }
 sevenz-rust2  = { version = "0.24", optional = true }
-# 纯 Rust RAR4/RAR5 解压（含加密档案），无 C 依赖
-rar           = { version = "0.4", optional = true }
 # 纯 Rust raw-deflate 解压（P2-9 ①：java.util.zip.Inflater 语料面
 # java.inflateRawBytes 宿主桥；版本锁定 1.1.9 复用 Cargo.lock 既有传递依赖）
 flate2        = { version = "1", optional = true }
@@ -60,7 +58,7 @@ futures       = { version = "0.3", optional = true }
 scraper       = { version = "0.27", optional = true }
 
 # tokio 运行时桥接（用于在 JS 线程中调用 legado-net 异步 API）
-tokio         = { version = "1", features = ["rt-multi-thread", "sync"], optional = true }
+tokio         = { version = "1", features = ["rt-multi-thread", "sync", "time"], optional = true }
 legado-net    = { path = "../legado-net", optional = true }
 
 [features]
@@ -85,7 +83,6 @@ quickjs = [
     "dep:url",
     "dep:zip",
     "dep:sevenz-rust2",
-    "dep:rar",
     "dep:flate2",
     "dep:futures",
     "dep:scraper",

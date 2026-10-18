@@ -24,7 +24,7 @@ impl ImageCacheService {
     /// `md5_mid16` = MD5 小写 hex 的 `[8..24]` 中段 16 字符（原版
     /// `MD5Utils.md5Encode16` = `substring(8, 24)`，逐字节对齐）。
     pub fn image_file_path(&self, book_url: &str, url: &str) -> PathBuf {
-        let hex = format!("{:x}", md5::compute(url));
+        let hex = legado_core::crypto::md5_hex(url);
         let mid16 = &hex[8..24];
         self.root
             .clone()
@@ -106,7 +106,7 @@ fn book_dir_name(book_url: &str) -> String {
         })
         .collect();
     let truncated: String = sanitized.chars().take(BOOK_DIR_MAX_CHARS).collect();
-    let digest = format!("{:x}", md5::compute(book_url));
+    let digest = legado_core::crypto::md5_hex(book_url);
     format!("{truncated}_{}", &digest[0..8])
 }
 

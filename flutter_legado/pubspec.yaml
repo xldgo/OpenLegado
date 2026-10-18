@@ -1,7 +1,7 @@
 name: flutter_legado
 description: "Legado - A reading app powered by Rust + Flutter"
 publish_to: 'none'
-version: 2.0.377+378
+version: 2.0.378+379
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
@@ -14,7 +14,6 @@ dependencies:
     sdk: flutter
   intl: ^0.20.3
   cupertino_icons: ^2.0.0
-  ffi: ^2.1.0
   file_picker: ^13.1.0
   flutter_rust_bridge: 2.13.0
   freezed_annotation: ^3.1.0
@@ -36,7 +35,6 @@ dependencies:
   just_audio_windows: ^0.2.3
   video_player: ^2.14.1
   webview_flutter: ^4.10.0
-  flutter_svg: ^2.0.10+1
   cached_network_image: ^4.0.4
   flutter_riverpod: ^3.4.3
   mobile_scanner: ^7.4.2

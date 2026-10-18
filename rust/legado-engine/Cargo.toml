@@ -13,12 +13,11 @@ legado-fetcher = { path = "../legado-fetcher" }
 legado-net = { path = "../legado-net" }
 legado-js = { path = "../legado-js" }
 log = "0.4"
-md5 = "0.8.1"
 regex = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.35"
 

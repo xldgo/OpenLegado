@@ -11,7 +11,7 @@ legado-core = { path = "../legado-core" }
 legado-parser = { path = "../legado-parser" }
 legado-net = { path = "../legado-net" }
 legado-js = { path = "../legado-js" }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
@@ -20,11 +20,11 @@ encoding_rs = "0.8"
 # [P2-19 尾项 | 2026-10-01 用户批准] charset 第四级统计探测（HTTP 三级无果时
 # 兜底：显式 charset → Content-Type → HTML meta → chardetng 探测 → lossy UTF-8）
 chardetng = "1.0"
-md5 = "0.8.1"
 # 云端合成缓存摘要沿用已锁定 sha2。
 sha2 = "0.11"
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "net"] }
 base64 = { workspace = true }
 
 [features]

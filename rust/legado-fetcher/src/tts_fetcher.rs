@@ -151,7 +151,7 @@ pub fn tts_cache_key_from_context(config: &HttpTtsConfig, context: &TtsSpeakCont
         context.speaker_name,
         context.emotion_tag
     ]);
-    format!("{:x}", md5::compute(input.to_string().as_bytes()))
+    legado_core::crypto::md5_hex(input.to_string().as_bytes())
 }
 
 /// 解析 TTS URL 模板为 AnalyzeUrl（支持可选 JS 执行器）
@@ -473,9 +473,8 @@ fn runtime_cache_key(
     if values.is_empty() {
         return Ok(key);
     }
-    Ok(format!(
-        "{:x}",
-        md5::compute(serde_json::json!([key, values]).to_string().as_bytes())
+    Ok(legado_core::crypto::md5_hex(
+        serde_json::json!([key, values]).to_string().as_bytes(),
     ))
 }
 
@@ -902,6 +901,7 @@ mod tests {
         };
         let context = TtsSpeakContext::new("正文", 10, None, None, None);
         let key = tts_cache_key_from_context(&config, &context);
+        assert_eq!(key, "e5ccc0556d13b6588c32a72fadc201f1");
         for changed in [
             TtsSpeakContext::new("其他正文", 10, None, None, None),
             TtsSpeakContext::new("正文", 11, None, None, None),
@@ -1367,10 +1367,7 @@ mod tests {
             &context,
             &dir,
             None,
-            TtsFetchResources {
-                store,
-                rates,
-            },
+            TtsFetchResources { store, rates },
             &TtsCancellation::default(),
         )
         .await

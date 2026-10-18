@@ -15,7 +15,7 @@ legado-js = { path = "../legado-js" }
 legado-fetcher = { path = "../legado-fetcher" }
 
 axum = { version = "0.8", features = ["ws", "json"] }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros", "net", "rt-multi-thread", "sync", "time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
@@ -35,5 +35,6 @@ default = []
 quickjs = ["legado-js/quickjs", "legado-fetcher/quickjs", "legado-engine/quickjs"]
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["io-util"] }
 tokio-tungstenite = "0.30"
 futures-util = "0.3"
