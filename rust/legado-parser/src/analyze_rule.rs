@@ -3375,12 +3375,22 @@ mod tests {
     }
 
     #[test]
-    fn test_js_rule_with_failing_executor() {
+    fn test_failed_rule_preserves_cause_and_next_rule_works() {
         let executor = Arc::new(FailingJsExecutor);
-        let rule =
-            AnalyzeRule::with_js_executor("some content".to_string(), String::new(), executor);
-        let result = rule.get_strings("@js:result");
-        assert!(result.is_err());
+        let mut rule =
+            AnalyzeRule::with_js_executor("<p>正常正文</p>".to_string(), String::new(), executor);
+        let error = rule.get_strings("@js:result").unwrap_err();
+        assert!(
+            matches!(error, legado_core::LegadoError::JsEngine(message) if message.contains("模拟执行失败"))
+        );
+        assert_eq!(rule.get_string("p@text").unwrap(), "正常正文");
+        rule.set_content("{".to_string());
+        let error = rule.get_strings("$.name").unwrap_err();
+        assert!(
+            matches!(error, legado_core::LegadoError::Parser(message) if message.contains("JSON parse error") && message.contains("line 1") && message.contains("column 1"))
+        );
+        rule.set_content(r#"{"name":"恢复后正文"}"#.to_string());
+        assert_eq!(rule.get_string("$.name").unwrap(), "恢复后正文");
     }
 
     #[test]
