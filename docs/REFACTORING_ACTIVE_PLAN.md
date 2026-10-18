@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-CORE-CLEANUP-MEASURE-20261018：遗留并发清理与构建边界测量（P2）
+
+- 授权与基线：用户批准清理、验证提交及 M-1/M-2 测量；feature/rust-ffi-modernization / a5d78fd28，沿用当前 worktree，单代理。不推送/合并/远程 CI/WSL/安装或新建分支，不修改主目录。
+- 清理范围：删除 legado-core::source_lock 的 SingleFlight/SourceLock/SourceLockGuard/TickCounter 及其模块内16项测试，移除唯一公开模块导出。全仓 git grep 引用清单包含三份 Rust 文件（定义、导出、JS 的 Kotlin 注释），其余为 Markdown 历史材料及 .qoder 生成 wiki 的元数据，无正式消费者、脚本调用或 FFI 契约。JS ConcurrencyState 和实际宿主回调不改，不替换成 Core 原语；不存在需要保留的转发入口。
+- 文档边界：给 rust/PROGRESS.md 与旧覆盖报告标明快照性质，历史完成记录、CHANGELOG、归档及生成 wiki 不批量改写。引用清单位于 build/rust-core-cleanup/references.json，仅辅助范围复核，不作行为测试。
+- 验证：复用 Core 测试和 JS 并发行为回归，工作区两档编译/严格 Clippy 验证公开导出移除无消费者；不新增源码文本测试/宿主、全量 CI 或设备验证。FFI签名/DTO/生成绑定、schema、依赖和应用版本不改，清理整批验证后本地提交。
+- 测量范围：清理提交后，使用 cargo rustc 的 rlib 产物与 --timings 对现有 QuickJS FFI 依赖图测量。先预热/无改动基线，再临时修改 Core 的固定实现模块与模型模块，逐次构建并归档重编单元/耗时，最后恢复原文件字节并核对 Git；不生成/覆盖正式 DLL。不清理全局缓存，不把 rlib 耗时当成动态库链接、CI 或设备性能结论。
+- 决策范围：结合明确候选模块的实际依赖分析讨论拆分收益；同时依赖 Core 与候选 crate 不自动等于没有收益，还要看修改是否能离开 Core、哪些下游不再失效。不自动创建 crate 或修改架构；测量及结论随文档本地提交。
+- 清理验证：Core802项与JS并发4项通过；工作区 default/QuickJS 两档全目标 Clippy -D warnings 通过，无新增 lint 放行。删除模块530行及其16项测试、唯一导出；配置/FFI/native/依赖版本均未改。证据：build/rust-core-cleanup/{core-tests,js-concurrency,workspace-default,workspace-quick}.log，各退出0。
+- 状态：清理整批本地验证完成并随本批提交，测量待执行；仅单代理自查，无独立外审、远程CI或设备结论。
+
+编写者：Codex｜2026-10-18
+
 ### RUST-ERROR-LIFECYCLE-20261018：生产异常与实例生命周期核查（P1）
 
 - 授权与基线：用户要求继续错误来源、生产 panic 及生命周期核查；feature/rust-ffi-modernization / 7247f5c23，沿用当前 worktree，单代理，不推送/合并/远程 CI/WSL/安装或修改主目录。
@@ -17,12 +30,12 @@
 
 编写者：Codex｜2026-10-18
 
-### SINGLEFLIGHT-RECOVERY-20261018：未接入原语的异常恢复（P2，已确认待修）
+### SINGLEFLIGHT-RECOVERY-20261018：未接入原语的异常恢复（P2）
 
 - 来源：上述生命周期核查发现 legado-core/src/source_lock.rs 的 SingleFlight；全 Rust 工作区只检索到定义与本模块单测，未找到正式生产消费者，不宣称当前 App 受影响。
 - 缺口：执行闭包 panic 后 running 保持 true，后续同键调用不再执行闭包；等待分支持有 running 锁，阻塞执行者清理和通知，也需一起检查。
 - 证据：忽略目录中的单次 Rust 探测直接调用当前模块，catch_unwind 后以0等待重试，实际 retry=None / retry_closure_ran=false；日志 build/rust-error-lifecycle/singleflight-probe.log。没有新增长期测试宿主或通信协议。
-- 排期：不夹带进本轮现用搜索/JS修复。后续独立核查保留价值与消费者，再决定修复原语或删除无用实现；未授权删除，不以补兼容层处理。状态仅在本条维护。
+- 状态：按用户授权删除未接入模块及唯一导出，验证结果见 RUST-CORE-CLEANUP-MEASURE-20261018，本项通过清理关闭，不再安排原语修复；实际 JS 并发能力保留。
 
 编写者：Codex｜2026-10-18
 
