@@ -28,7 +28,6 @@ import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
 import '../reader/application/reader_notifier.dart';
 import '../../app/routing/route_names.dart';
-import '../../app/routing/route_arguments.dart';
 import '../../services/local_book_store.dart';
 import '../../utils/book_open_utils.dart';
 import '../../widgets/app_scaffold.dart';
@@ -677,27 +676,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   // ===== 操作 =====
 
-  /// 对标原版 startActivityForBook：未读进书详页 + 立即自动开读（A4 对齐 B）；
-  /// 已读按 BookType 分流到 video / audio / reader-comic / reader
-  /// （勿固定文本阅读器）。— Reasonix + UI
+  /// 对齐参考版：单击按 BookType 直达阅读器或播放器，长按进入详情。— Codex + UI
   Future<void> _openBook(BuildContext context, WidgetRef ref, Book book) async {
-    if (book.durChapterIndex <= 0 && book.durChapterPos <= 0) {
-      // [A4 对齐 B | 2026-09-21 裁决] 未读书单击 = 详情页 + 立即自动开读
-      // （等价重构版 BookInfoPage(openReaderImmediately: true)）：详情页
-      // 目录就绪即自动开读（未读书取首章）；目录不可用则停留详情页，仍可
-      // 经「阅读」FAB 手动开读。长按入口仍走 _openBookInfo 普通详情页，
-      // 行为不变。
-      // [队列⑫ P3 | 2026-09-22] await 至弹回书架（先关阅读器再关详情页）
-      // 后触发单本定向刷新：未读链路（详情+自动开读）返回时同步新进度
-      await Navigator.pushNamed(
-        context,
-        AppRoutes.bookInfo,
-        arguments: BookInfoArgs(book: book, openReaderImmediately: true),
-      );
-      if (!context.mounted) return;
-      await _refreshBookOnReturn(context, ref, book);
-      return;
-    }
     var typeBits = BookTypePolicy.typeBitsOf(book);
     // 书源媒体类型 / 视频启发式优先于抽图提升 — Reasonix + UI
     if (BookMetadataPolicy.isOnlineBook(book)) {
@@ -736,7 +716,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// [队列⑫ P3 | 2026-09-22] 从阅读器/详情页返回书架：单本定向刷新
   ///
-  /// 上方 `await Navigator.pushNamed` 在该路由被弹回（回到书架）时才返回，
+  /// 上方 `await Navigator.pushNamed` 在阅读器或播放器弹回书架时才返回，
   /// 此刻重拉该书最新进度写回内存（BookshelfNotifier.refreshBook），
   /// 「刚读完的书」进度行/进度条随返回同步。不做整页重建、不新增 UI；
   /// 书若在阅读期间被移除，notifier 内部回退全量 refresh 保持一致。

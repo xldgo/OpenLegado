@@ -1,5 +1,16 @@
 # API 契约文档
 
+## Flutter 开书导航（2026-10-19，实施前冻结）
+
+书架与公共 BookOpenUtils.openBook 不再按零阅读进度转入详情，统一按书籍类型
+进入阅读器或播放器，文本继续由 ReaderNotifier.openBook 加载目录与章节。
+删除 unreadOpensBookInfo、BookInfoArgs、BookInfoScreen.openReaderImmediately
+及其自动导航状态；详情路由继续接收 Book 或 bookUrl，显式点击阅读按钮才开读。
+长按进入详情、隐私门禁、媒体参数、开读后的进度刷新及欢迎页全局导航保持。
+本次仅调整 Flutter 导航参数与交互，不改 Rust/FRB/数据库或原文定位契约。
+
+编写者：Codex + UI｜2026-10-19
+
 ## 通用网络任务并发设置（2026-10-18，实施前冻结）
 
 threadCount经领域设置仓储→共享AppSettingsService→ConfigRepository保存到Rust

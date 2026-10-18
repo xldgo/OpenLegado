@@ -18,9 +18,9 @@ import '../mocks/mocks.dart';
 
 /// [P2-E | 2026-09-30] BookOpenUtils.openBook 统一开书编排测试
 /// （4 屏收敛后的公共入口）：
-/// - 未读（durChapterIndex<=0 && durChapterPos<=0）→ 书籍详情页；
+/// - 零进度书籍直接进入对应阅读器或播放器；
 /// - 在线书籍按 origin 匹配书源（尾斜杠归一）解析类型位 → 视频路由；
-/// - 欢迎页口径：全局 navigatorKey 导航 + 跳过未读进详情分支；
+/// - 欢迎页口径：全局 navigatorKey 导航，复用相同直开规则；
 /// - 文本阅读器：先经 ReaderNotifier.openBook 装载再导航（无 arguments）。
 /// — 全栈工程师 + UI
 void main() {
@@ -44,7 +44,6 @@ void main() {
     required MockRustApi api,
     _RecordingReaderNotifier? readerNotifier,
     bool useGlobalNavigator = false,
-    bool unreadOpensBookInfo = true,
   }) {
     return ProviderScope(
       overrides: mergeTestOverrides([
@@ -70,7 +69,6 @@ void main() {
                   ref,
                   book,
                   useGlobalNavigator: useGlobalNavigator,
-                  unreadOpensBookInfo: unreadOpensBookInfo,
                 ),
                 child: const Text('open'),
               ),
@@ -81,20 +79,30 @@ void main() {
     );
   }
 
-  testWidgets('未读（durChapterIndex=0 且 durChapterPos=0）→ 书籍详情页', (tester) async {
+  testWidgets('零进度书籍直接打开文本阅读器，返回不经过详情', (tester) async {
     const book = Book(bookUrl: 'https://ex.com/unread', name: '未读书');
     final api = MockRustApi();
+    final reader = _RecordingReaderNotifier();
 
-    await tester.pumpWidget(harness(book: book, api: api));
+    await tester.pumpWidget(
+      harness(book: book, api: api, readerNotifier: reader),
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(observer.lastName, AppRoutes.bookInfo);
-    expect(observer.lastArguments, book);
-    expect(find.text('stub:${AppRoutes.bookInfo}'), findsOneWidget);
+    expect(observer.lastName, AppRoutes.reader);
+    expect(observer.lastArguments, isNull);
+    expect(reader.openedBook, book);
+    expect(
+      observer.routes.map((route) => route.settings.name),
+      isNot(contains(AppRoutes.bookInfo)),
+    );
+    Navigator.of(tester.element(find.text('stub:${AppRoutes.reader}'))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('open'), findsOneWidget);
   });
 
-  testWidgets('在线书源匹配（尾斜杠归一 type=4）→ 视频路由且带类型位更新', (tester) async {
+  testWidgets('零进度在线书源匹配（尾斜杠归一 type=4）→ 视频路由且带类型位更新', (tester) async {
     final api = MockRustApi();
     when(() => api.bookSourceRepository.getBookSources()).thenAnswer(
       (_) async => const [
@@ -111,7 +119,6 @@ void main() {
       name: '视频书',
       origin: 'https://video.example.com/',
       originName: '影视源',
-      durChapterIndex: 3,
       bookType: BookType.text,
     );
 
@@ -129,7 +136,7 @@ void main() {
     verify(() => api.bookSourceRepository.getBookSources()).called(1);
   });
 
-  testWidgets('欢迎页口径：全局 navigatorKey + 跳过未读进详情 → 文本阅读器', (tester) async {
+  testWidgets('欢迎页口径：全局 navigatorKey 直开零进度文本书', (tester) async {
     const book = Book(
       bookUrl: 'loc_book_1',
       name: '本地未读书',
@@ -147,13 +154,12 @@ void main() {
         api: api,
         readerNotifier: reader,
         useGlobalNavigator: true,
-        unreadOpensBookInfo: false,
       ),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    // unreadOpensBookInfo=false：index/pos 均 0 也不进详情页
+    // 全局导航与页面导航均直接打开对应阅读器。
     expect(observer.lastName, AppRoutes.reader);
     expect(observer.lastArguments, isNull);
     expect(reader.openedBook?.bookUrl, book.bookUrl);
@@ -182,6 +188,23 @@ void main() {
     expect(reader.openedBook, book);
   });
 
+  testWidgets('零进度音频书直接进入播放器并保留书籍参数', (tester) async {
+    const book = Book(
+      bookUrl: 'audio://unread',
+      name: '未读音频书',
+      bookType: BookType.audio,
+    );
+    final reader = _RecordingReaderNotifier();
+    await tester.pumpWidget(
+      harness(book: book, api: MockRustApi(), readerNotifier: reader),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(observer.lastName, AppRoutes.audio);
+    expect(observer.lastArguments, book);
+    expect(reader.openedBook, isNull);
+  });
+
   // [cbz 批 C | 2026-10-03] cbz 漫画包开书路由钉住：Rust importLocalBook
   // 对 .cbz 返回 bookType=LOCAL|image(0x1040)，BookOpenUtils 位域路由须
   // 进 /reader-comic（零代码改动，补测试防回归）。
@@ -203,7 +226,6 @@ void main() {
       name: '本地漫画',
       origin: BookType.localTag,
       bookType: BookType.local | BookType.image,
-      durChapterIndex: 1,
       durChapterPos: 0,
     );
     final api = MockRustApi();

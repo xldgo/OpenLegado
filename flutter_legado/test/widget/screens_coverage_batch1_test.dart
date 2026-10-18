@@ -679,10 +679,7 @@ void main() {
       });
     });
 
-    // [A4 对齐 B | 2026-09-21 裁决；2026-09-22 review 硬化]
-    // openReaderImmediately（书架未读书单击 → 详情页 + 自动开读）：
-    // 机会在首轮全量加载完成时无条件消费 + postFrame 栈顶守卫
-    group('openReaderImmediately 自动开读', () {
+    group('详情页只响应显式阅读操作', () {
       final pushed = <String>[];
 
       Widget wrapWithRoutes(Widget child) {
@@ -702,7 +699,7 @@ void main() {
         );
       }
 
-      void stubAutoStart(Book book, List<BookChapter> chapters) {
+      void stubDetailData(Book book, List<BookChapter> chapters) {
         when(() => mockApi.bookshelfRepository.getBook(any()))
             .thenAnswer((_) async => book);
         when(() => mockApi.readingRepository.getChapters(any()))
@@ -730,7 +727,7 @@ void main() {
             .thenAnswer((_) async => const []);
       }
 
-      testWidgets('正面：目录非空首轮加载后自动压栈阅读器', (tester) async {
+      testWidgets('目录加载完成仍停留详情，点击阅读后才打开阅读器', (tester) async {
         const book = Book(
           bookUrl: 'u1',
           name: '未读A4',
@@ -738,23 +735,28 @@ void main() {
           origin: 'https://src.com',
           originName: '测试源',
         );
-        stubAutoStart(book, const [
+        stubDetailData(book, const [
           BookChapter(bookUrl: 'u1', index: 0, title: '第一章', url: 'c1'),
           BookChapter(bookUrl: 'u1', index: 1, title: '第二章', url: 'c2'),
         ]);
 
         await tester.pumpWidget(
-          wrapWithRoutes(
-            const BookInfoScreen(book: book, openReaderImmediately: true),
-          ),
+          wrapWithRoutes(const BookInfoScreen(book: book)),
         );
         await tester.pumpAndSettle();
 
-        expect(pushed, contains(AppRoutes.reader));
+        expect(pushed, isNot(contains(AppRoutes.reader)));
+        expect(find.byKey(const Key('reader-stub')), findsNothing);
+        await tester.tap(find.byType(FloatingActionButton));
+        await tester.pumpAndSettle();
+        expect(
+          pushed.where((route) => route == AppRoutes.reader),
+          hasLength(1),
+        );
         expect(find.byKey(const Key('reader-stub')), findsOneWidget);
       });
 
-      testWidgets('负例：目录为空不自动开读，停留详情页', (tester) async {
+      testWidgets('目录为空时保持详情页', (tester) async {
         const book = Book(
           bookUrl: 'u2',
           name: '空目录A4',
@@ -762,12 +764,10 @@ void main() {
           origin: 'https://src.com',
           originName: '测试源',
         );
-        stubAutoStart(book, const []);
+        stubDetailData(book, const []);
 
         await tester.pumpWidget(
-          wrapWithRoutes(
-            const BookInfoScreen(book: book, openReaderImmediately: true),
-          ),
+          wrapWithRoutes(const BookInfoScreen(book: book)),
         );
         await tester.pumpAndSettle();
 
@@ -777,7 +777,7 @@ void main() {
         expect(find.byKey(const Key('reader-stub')), findsNothing);
       });
 
-      testWidgets('守卫：自动开读返回后阅读器只被压栈一次', (tester) async {
+      testWidgets('手动阅读返回详情，刷新不会再次打开阅读器', (tester) async {
         const book = Book(
           bookUrl: 'u3',
           name: '守卫A4',
@@ -785,21 +785,21 @@ void main() {
           origin: 'https://src.com',
           originName: '测试源',
         );
-        stubAutoStart(book, const [
+        stubDetailData(book, const [
           BookChapter(bookUrl: 'u3', index: 0, title: '第一章', url: 'c1'),
           BookChapter(bookUrl: 'u3', index: 1, title: '第二章', url: 'c2'),
         ]);
 
         await tester.pumpWidget(
-          wrapWithRoutes(
-            const BookInfoScreen(book: book, openReaderImmediately: true),
-          ),
+          wrapWithRoutes(const BookInfoScreen(book: book)),
         );
+        await tester.pumpAndSettle();
+        expect(pushed, isNot(contains(AppRoutes.reader)));
+        await tester.tap(find.byType(FloatingActionButton));
         await tester.pumpAndSettle();
         expect(pushed.where((r) => r == AppRoutes.reader).length, 1);
 
-        // 退出阅读器返回详情页（_openReader 尾部 _reload 触发二次加载，
-        // 机会已消费，不得再压第二个阅读器）
+        // 退出阅读器会重新加载详情，刷新不触发导航。
         Navigator.of(tester.element(find.byKey(const Key('reader-stub'))))
             .pop();
         await tester.pumpAndSettle();
@@ -808,22 +808,20 @@ void main() {
         expect(find.byKey(const Key('reader-stub')), findsNothing);
       });
 
-      testWidgets('首轮空目录已消费机会，后续刷新有目录也不自动导航', (tester) async {
+      testWidgets('空目录刷新成功后仍停留详情页', (tester) async {
         const book = Book(
           bookUrl: 'auto-empty-then-refresh',
           name: '先空后有目录',
           bookType: 8,
           origin: 'https://src.com',
         );
-        stubAutoStart(book, const []);
+        stubDetailData(book, const []);
         await tester.pumpWidget(
-          wrapWithRoutes(
-            const BookInfoScreen(book: book, openReaderImmediately: true),
-          ),
+          wrapWithRoutes(const BookInfoScreen(book: book)),
         );
         await tester.pumpAndSettle();
         expect(pushed, isNot(contains(AppRoutes.reader)));
-        stubAutoStart(book, const [
+        stubDetailData(book, const [
           BookChapter(
             bookUrl: 'auto-empty-then-refresh',
             index: 0,

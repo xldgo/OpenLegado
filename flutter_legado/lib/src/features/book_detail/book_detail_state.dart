@@ -8,13 +8,11 @@ class BookDetailState {
     this.tocLoading = false,
     this.networkLoading = false,
     this.error,
-    this.completedLoads = 0,
   });
 
   final BookDetailData data;
   final bool pageLoading, tocLoading, networkLoading;
   final String? error;
-  final int completedLoads;
 
   BookDetailState copyWith({
     BookDetailData? data,
@@ -23,13 +21,11 @@ class BookDetailState {
     bool? networkLoading,
     String? error,
     bool clearError = false,
-    int? completedLoads,
   }) => BookDetailState(
     data: data ?? this.data,
     pageLoading: pageLoading ?? this.pageLoading,
     tocLoading: tocLoading ?? this.tocLoading,
     networkLoading: networkLoading ?? this.networkLoading,
     error: clearError ? null : error ?? this.error,
-    completedLoads: completedLoads ?? this.completedLoads,
   );
 }

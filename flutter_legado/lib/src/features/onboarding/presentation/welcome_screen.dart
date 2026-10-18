@@ -124,16 +124,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
   }
 
   Future<void> _openLastRead(Book book) async {
-    // 启动直达路径无页面 context 可用，经全局 navigatorKey 导航；并保持
-    // 「默认开读直达阅读器」既有行为（不经未读进详情分支，unreadOpensBookInfo
-    // = false）——分流编排统一在 BookOpenUtils.openBook
-    await BookOpenUtils.openBook(
-      context,
-      ref,
-      book,
-      useGlobalNavigator: true,
-      unreadOpensBookInfo: false,
-    );
+    // 启动直达路径经全局 navigatorKey 导航，复用公共开书分流。
+    await BookOpenUtils.openBook(context, ref, book, useGlobalNavigator: true);
   }
 
   @override

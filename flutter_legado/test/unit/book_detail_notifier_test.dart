@@ -44,20 +44,19 @@ void main() {
     await pending;
     expect(container.read(provider).data.book!.name, '新书名');
     expect(container.read(provider).networkLoading, isFalse);
-    expect(container.read(provider).completedLoads, 1);
   });
 
-  test('首次失败可重试，错误清除且完成次数只记录成功流程', () async {
+  test('首次失败可重试，错误清除并恢复详情', () async {
     when(() => fixture.bookshelf.getBook(any())).thenThrow(StateError('读取失败'));
     final notifier = container.read(provider.notifier);
     await notifier.load();
     expect(container.read(provider).error, contains('读取失败'));
-    expect(container.read(provider).completedLoads, 0);
+    expect(container.read(provider).networkLoading, isFalse);
     expect(container.read(provider).pageLoading, isFalse);
     when(() => fixture.bookshelf.getBook(any())).thenAnswer((_) async => null);
     await notifier.load();
     expect(container.read(provider).error, isNull);
-    expect(container.read(provider).completedLoads, 1);
+    expect(container.read(provider).networkLoading, isFalse);
     expect(container.read(provider).data.chapters, [BookDetailFixture.chapter]);
   });
 
@@ -76,7 +75,7 @@ void main() {
     old.complete(BookDetailFixture.fresh.copyWith(name: '过期详情'));
     await first;
     expect(container.read(provider).data.book!.name, '第二次详情');
-    expect(container.read(provider).completedLoads, 1);
+    expect(container.read(provider).networkLoading, isFalse);
   });
 
   test('菜单更新复用同一详情快照，刷新目录也写入同一状态', () async {
@@ -129,7 +128,6 @@ void main() {
     container.invalidate(provider);
     info.complete(BookDetailFixture.fresh);
     await pending;
-    expect(container.read(provider).completedLoads, 0);
     verifyNever(() => fixture.bookshelf.updateBook(any()));
   });
 }

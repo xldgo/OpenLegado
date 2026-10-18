@@ -255,10 +255,10 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
     _refresh();
   }
 
-  // ===== 打开书籍（对齐原版 startActivityForBook：未读进书详，已读按类型分流） =====
+  // ===== 打开书籍：按类型直达阅读器或播放器 =====
 
   Future<void> _openBook(Book book) async {
-    // 分流编排统一在 BookOpenUtils.openBook（未读进书详 + 类型位分流）
+    // 分流编排统一在 BookOpenUtils.openBook，直接按类型进入阅读器或播放器。
     await BookOpenUtils.openBook(context, ref, book);
   }
 

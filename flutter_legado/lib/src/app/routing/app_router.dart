@@ -161,17 +161,6 @@ class AppRouter {
     },
     AppRoutes.bookInfo: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      // [A4 对齐 B | 2026-09-21 裁决] BookInfoArgs：书架未读书单击
-      // = 详情页 + 立即自动开读（openReaderImmediately）
-      if (args is BookInfoArgs) {
-        return PrivacyBookGate(
-          book: args.book,
-          builder: (_) => BookInfoScreen(
-            book: args.book,
-            openReaderImmediately: args.openReaderImmediately,
-          ),
-        );
-      }
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
         return PrivacyBookGate(

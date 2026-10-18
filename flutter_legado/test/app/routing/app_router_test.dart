@@ -222,17 +222,10 @@ void main() {
     expect(await result, 'new://book');
   });
 
-  testWidgets('详情参数保留书籍身份、自动开读及字符串入口', (tester) async {
-    final (gate, target) = await resolve(
-      tester,
-      AppRoutes.bookInfo,
-      const BookInfoArgs(book: book, openReaderImmediately: true),
-    );
+  testWidgets('详情参数保留书籍身份、隐私门禁及字符串入口', (tester) async {
+    final (gate, target) = await resolve(tester, AppRoutes.bookInfo, book);
     expect((gate as PrivacyBookGate).book, same(book));
     expect((target as BookInfoScreen).book, same(book));
-    expect(target.openReaderImmediately, isTrue);
-    final (_, direct) = await resolve(tester, AppRoutes.bookInfo, book);
-    expect((direct as BookInfoScreen).openReaderImmediately, isFalse);
     final (_, byUrl) = await resolve(tester, AppRoutes.bookInfo, 'book://url');
     expect((byUrl as BookInfoScreen).bookUrl, 'book://url');
   });

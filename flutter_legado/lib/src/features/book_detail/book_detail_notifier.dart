@@ -77,7 +77,6 @@ class BookDetailNotifier extends Notifier<BookDetailState> {
         pageLoading: false,
         tocLoading: false,
         networkLoading: false,
-        completedLoads: state.completedLoads + 1,
       );
     } catch (error) {
       if (!isCurrent()) return;

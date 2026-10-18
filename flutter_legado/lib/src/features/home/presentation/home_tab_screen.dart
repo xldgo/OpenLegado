@@ -470,7 +470,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
 
   Future<void> _openBook(Book book) async {
     // 与阅读记录页同链路：分流编排统一在 BookOpenUtils.openBook
-    // （未读进详情 + 书源类型位解析后按类型进阅读器）
+    // （书源类型位解析后直接进入阅读器或播放器）
     await BookOpenUtils.openBook(context, ref, book);
   }
 
