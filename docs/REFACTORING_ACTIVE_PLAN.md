@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-NAV-LABEL-WEIGHT-20261018：底栏默认字重（P2）
+
+- 授权与基线：用户要求修改默认主题，采用选中600/未选中500；沿用feature/ui-glass-material-base / 2fca226f2，单代理，不提升版本，不自动安装或推送。
+- 范围：NavigationBarTheme默认状态字重统一；普通与Glass胶囊从该主题读取状态字重，保留labelSmall字号11/行高16，标准底栏原字号12不改，全局labelSmall不变，无新增偏好或依赖。
+- 验收：既有导航、材质和主题解析定向回归、静态分析；不新增与实现镜像的样式断言。
+- 实现：默认NavigationBarTheme按选中状态提供600/500，普通及Glass胶囊读取相同主题字重；字号、行高与间距不变，仍支持上层主题覆盖。不新增设置、依赖或主题扩展类型。
+- 验证：已有导航组件与主题解析三份回归28项全部通过，定向静态分析及diff检查通过。证据flutter_legado/build/liquid-glass/nav-label-weight-{tests,analyze}.log。
+- 状态：代码与本地验证完成，随本记录本地提交；无子代理、远程CI、安装、推送或版本提升。
+
+编写者：Codex + UI｜2026-10-18
+
 ### UI-CAPSULE-LABELS-20261018：胶囊底栏文字（P2）
 
 - 授权与基线：用户同意胶囊默认全部显示，原只选中显示映射为全部显示；沿用feature/ui-glass-material-base / bae18c502，单代理，不提升版本，不自动编译安装或推送。

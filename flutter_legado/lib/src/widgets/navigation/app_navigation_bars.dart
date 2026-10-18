@@ -163,6 +163,14 @@ class AppFloatingBottomBar extends StatelessWidget {
     final radius = BorderRadius.circular(32);
     final useGlass = useLiquidGlass && AppGlassScope.availableOf(context);
     final labelStyle = Theme.of(context).textTheme.labelSmall;
+    final navigationLabels = Theme.of(context)
+        .navigationBarTheme
+        .labelTextStyle;
+    final selectedWeight =
+        navigationLabels?.resolve({WidgetState.selected})?.fontWeight ??
+        FontWeight.w600;
+    final unselectedWeight =
+        navigationLabels?.resolve({})?.fontWeight ?? FontWeight.w500;
     final labelHeight =
         MediaQuery.textScalerOf(context).scale(labelStyle?.fontSize ?? 11) *
         (labelStyle?.height ?? 1.3);
@@ -191,6 +199,8 @@ class AppFloatingBottomBar extends StatelessWidget {
         selectedLabelColor: cs.onSurface,
         unselectedLabelColor: cs.onSurfaceVariant,
         textStyle: labelStyle,
+        selectedLabelStyle: TextStyle(fontWeight: selectedWeight),
+        unselectedLabelStyle: TextStyle(fontWeight: unselectedWeight),
         horizontalPadding: 0,
         verticalPadding: 0,
         barHeight: barHeight,
@@ -225,7 +235,15 @@ class AppFloatingBottomBar extends StatelessWidget {
             child: Row(
               children: [
                 for (var i = 0; i < specs.length; i++)
-                  Expanded(child: _plainItem(context, i, cs, labelStyle)),
+                  Expanded(
+                    child: _plainItem(
+                      context,
+                      i,
+                      cs,
+                      labelStyle,
+                      i == currentIndex ? selectedWeight : unselectedWeight,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -247,6 +265,7 @@ class AppFloatingBottomBar extends StatelessWidget {
     int index,
     ColorScheme cs,
     TextStyle? labelStyle,
+    FontWeight labelWeight,
   ) {
     final selected = currentIndex == index;
     return Semantics(
@@ -285,6 +304,7 @@ class AppFloatingBottomBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: labelStyle?.copyWith(
+                    fontWeight: labelWeight,
                     color: selected ? cs.onSurface : cs.onSurfaceVariant,
                   ),
                 ),

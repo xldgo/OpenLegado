@@ -56,6 +56,8 @@ padding，避免嵌套SafeArea把整个视口缩回。尾部留白仅添加到Li
 unlabeled保持纯图标；标准底栏仍按原三档处理，不改偏好数据。AppFloatingBottomBar
 通过默认true的showLabels参数接收结果，GlassTab使用label/null，名称语义始终保留。
 普通胶囊采用相同图标+文字结构；不实现只选中标签或额外文字显隐动画。
+底栏选中/未选中字重统一由NavigationBarTheme.labelTextStyle按状态提供，默认600/500；
+普通与Glass胶囊读取该主题字重，字号与行高仍来自labelSmall，不修改全局字阶。
 文字前景显式跟随应用主题，单行超出省略；64dp为基准，大字时将内容行高向上取整
 后增加底栏高度，避免分数字体度量溢出。正文尾部留白继续消费实际测得的占用。
 
