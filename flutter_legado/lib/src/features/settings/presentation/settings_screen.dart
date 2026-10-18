@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../l10n/app_localization.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../providers/general_settings_provider.dart';
 import '../../../utils/error_message.dart';
 import '../../../services/auto_task_scheduler.dart';
@@ -207,8 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      // [2026-10-06 iOS 实测修复] 裸插值 $e 对 Rust BridgeError 只会显示
-      // "Instance of 'BridgeError'"，改用统一提取器暴露 Rust 侧可读原因
+      // 使用领域错误展示器保留服务失败的可读原因，避免只显示异常类型。
       // （如「数据库未初始化」「端口绑定失败」）。
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -222,7 +221,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   /// MCP 卡片副题：运行中显示端口；未运行且未配置访问令牌时给出前置条件
   /// 提示（见 [_mcpTokenConfigured]）——「需先配置什么」直接写在卡片上，
-  /// 而不是让用户点开关撞「Instance of BridgeError」后再猜。
+  /// 避免点击开关失败后才得知缺少配置。
   String get _mcpServiceSubtitle {
     if (_mcpService && _mcpPort > 0) {
       return context.l10n.mcpServicePort(_mcpPort);
@@ -258,7 +257,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      // [2026-10-06 iOS 实测修复] 同 Web 开关：BridgeError 取 message，
+      // 同Web开关：领域错误提取原消息，
       // 暴露 Rust 侧真实失败原因（token 未配置 / 端口占用 / 端口越界）。
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -18,7 +18,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/explore/application/explore_notifier.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -88,7 +88,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        onGenerateRoute: AppRoutes.generateRoute,
+        onGenerateRoute: AppRouter().generateRoute,
         home: const ExploreScreen(),
       ),
     );

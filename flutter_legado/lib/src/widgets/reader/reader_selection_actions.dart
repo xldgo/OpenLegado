@@ -10,7 +10,7 @@ import '../../features/audio/application/audio_notifier.dart';
 import '../../features/bookmarks/bookmarks.dart';
 import '../../providers/highlight_repository_provider.dart';
 import '../../features/reader/application/reader_notifier.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../l10n/app_localization.dart';
 import '../../domain/contracts/highlight_repository.dart';
 import '../../domain/models/book_highlight.dart';

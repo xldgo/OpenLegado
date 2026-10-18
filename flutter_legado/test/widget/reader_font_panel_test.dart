@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_config_panel.dart';
 import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';

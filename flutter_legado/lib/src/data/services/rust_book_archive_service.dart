@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/book_archive_service.dart';
 import '../../domain/models/book_content_result.dart';
@@ -11,7 +12,10 @@ final class RustBookArchiveService implements BookArchiveService {
     required String zipPath,
     required String outputDir,
   }) async => archiveFromDto(
-    await bridge.archiveImportZip(zipPath: zipPath, outputDir: outputDir),
+    await rustFuture(
+      () => bridge.archiveImportZip(zipPath: zipPath, outputDir: outputDir),
+      operation: 'archiveImportZip',
+    ),
     'archiveImportZip',
   );
   @override
@@ -20,26 +24,38 @@ final class RustBookArchiveService implements BookArchiveService {
     required String outputDir,
     String? password,
   }) async => archiveFromDto(
-    await bridge.archiveImportRar(
-      rarPath: rarPath,
-      outputDir: outputDir,
-      password: password,
+    await rustFuture(
+      () => bridge.archiveImportRar(
+        rarPath: rarPath,
+        outputDir: outputDir,
+        password: password,
+      ),
+      operation: 'archiveImportRar',
     ),
     'archiveImportRar',
   );
   @override
   Future<List<String>> archiveListZipFiles({required String zipPath}) async =>
-      bridge.archiveListZipFiles(zipPath: zipPath);
+      rustFuture(
+        () => bridge.archiveListZipFiles(zipPath: zipPath),
+        operation: 'archiveListZipFiles',
+      );
   @override
   Future<List<String>> archiveListRarFiles({
     required String rarPath,
     String? password,
-  }) async => bridge.archiveListRarFiles(rarPath: rarPath, password: password);
+  }) async => rustFuture(
+    () => bridge.archiveListRarFiles(rarPath: rarPath, password: password),
+    operation: 'archiveListRarFiles',
+  );
   @override
   Future<EncodingDetection> archiveDetectEncoding({
     required String filePath,
   }) async {
-    final result = await bridge.archiveDetectEncoding(filePath: filePath);
+    final result = await rustFuture(
+      () => bridge.archiveDetectEncoding(filePath: filePath),
+      operation: 'archiveDetectEncoding',
+    );
     return EncodingDetection(
       encoding: result.encoding,
       hasBom: result.hasBom,
@@ -53,10 +69,13 @@ final class RustBookArchiveService implements BookArchiveService {
     required String fromEncoding,
     required String toEncoding,
   }) async {
-    final result = await bridge.archiveConvertEncoding(
-      filePath: filePath,
-      fromEncoding: fromEncoding,
-      toEncoding: toEncoding,
+    final result = await rustFuture(
+      () => bridge.archiveConvertEncoding(
+        filePath: filePath,
+        fromEncoding: fromEncoding,
+        toEncoding: toEncoding,
+      ),
+      operation: 'archiveConvertEncoding',
     );
     requireFileSuccess(result.success, result.error, 'archiveConvertEncoding');
     final path = result.outputPath;
@@ -65,6 +84,8 @@ final class RustBookArchiveService implements BookArchiveService {
   }
 
   @override
-  Future<bool> archiveIsArchive({required String filePath}) =>
-      bridge.archiveIsArchive(filePath: filePath);
+  Future<bool> archiveIsArchive({required String filePath}) => rustFuture(
+    () => bridge.archiveIsArchive(filePath: filePath),
+    operation: 'archiveIsArchive',
+  );
 }

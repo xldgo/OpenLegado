@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/app_log_repository.dart';
 import '../../domain/models/app_log_entry.dart';
@@ -9,19 +10,29 @@ final class RustAppLogRepository implements AppLogRepository {
 
   @override
   Future<void> appLogPush({required String level, required String message}) =>
-      bridge.appLogPush(level: level, message: message);
+      rustFuture(
+        () => bridge.appLogPush(level: level, message: message),
+        operation: 'appLogPush',
+      );
 
   @override
   Future<List<AppLogEntry>> appLogList({required String level}) async =>
-      (await bridge.appLogList(level: level)).map(appLogFromDto).toList();
+      (await rustFuture(
+        () => bridge.appLogList(level: level),
+        operation: 'appLogList',
+      )).map(appLogFromDto).toList();
 
   @override
-  Future<void> appLogClear({required String level}) =>
-      bridge.appLogClear(level: level);
+  Future<void> appLogClear({required String level}) => rustFuture(
+    () => bridge.appLogClear(level: level),
+    operation: 'appLogClear',
+  );
 
   @override
-  Future<void> appLogClearAll() => bridge.appLogClearAll();
+  Future<void> appLogClearAll() =>
+      rustFuture(() => bridge.appLogClearAll(), operation: 'appLogClearAll');
 
   @override
-  Future<String> appLogExport() => bridge.appLogExport();
+  Future<String> appLogExport() =>
+      rustFuture(() => bridge.appLogExport(), operation: 'appLogExport');
 }

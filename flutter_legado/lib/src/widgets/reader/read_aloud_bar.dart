@@ -15,7 +15,7 @@ import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 
 import '../../features/audio/application/audio_notifier.dart';
 import '../../features/read_aloud/http_tts_repository_provider.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../l10n/app_localization.dart';
 import '../app_progress_indicator.dart';
 import 'read_aloud_timer_sheet.dart';

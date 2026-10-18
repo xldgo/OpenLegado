@@ -1,11 +1,11 @@
 import '../../bridge/file_dto.dart';
 import '../../domain/models/book_content_result.dart';
-import 'rust_api_exception.dart';
+import '../../domain/errors/app_exception.dart';
 
 // 类型化文件结果仍拒绝成功标记与实际内容不一致的载荷。— Codex + Bridge
 void requireFileSuccess(bool success, String? error, String operation) {
   if (!success) {
-    throw RustApiException(error ?? '$operation失败', operation: operation);
+    throw AppException(error ?? '$operation失败', operation: operation);
   }
 }
 

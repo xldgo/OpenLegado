@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import '../../../l10n/app_localization.dart';
 
 import 'dart:async';
@@ -87,16 +88,6 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
     return _logs.where((log) => _enabledLevels.contains(log.level)).toList();
   }
 
-  /// 提取真实错误消息：BridgeError 带 message 字段，直接内插 `$e`
-  /// 只会显示 "Instance of 'BridgeError'"；取不到时回退 toString。
-  String _errMsg(Object e) {
-    try {
-      final m = (e as dynamic).message;
-      if (m is String && m.isNotEmpty) return m;
-    } catch (_) {}
-    return e.toString();
-  }
-
   Future<void> _runDebug() async {
     if (_running) return;
     final l10n = context.l10n;
@@ -140,7 +131,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
     } catch (e) {
       if (generation == _debugGeneration) {
         _appendLog(
-          l10n.debugException(_errMsg(e)),
+          l10n.debugException(errorMessage(e)),
           level: _DebugLogLevel.error,
         );
       }

@@ -24,7 +24,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/app.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 import 'package:flutter_legado/src/services/video_float_window.dart';
 

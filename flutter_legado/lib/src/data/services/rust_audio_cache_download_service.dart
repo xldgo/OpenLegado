@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/audio_cache_download_service.dart';
 import '../../domain/models/audio_media.dart';
@@ -14,12 +15,15 @@ final class RustAudioCacheDownloadService implements AudioCacheDownloadService {
     required String chapterTitle,
     required String playUrl,
   }) async {
-    final value = await bridge.audioCacheDownload(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-      chapterUrl: chapterUrl,
-      chapterTitle: chapterTitle,
-      playUrl: playUrl,
+    final value = await rustFuture(
+      () => bridge.audioCacheDownload(
+        bookUrl: bookUrl,
+        chapterIndex: chapterIndex,
+        chapterUrl: chapterUrl,
+        chapterTitle: chapterTitle,
+        playUrl: playUrl,
+      ),
+      operation: 'audioCacheDownload',
     );
     return AudioCacheDownloadResult(
       status: switch (value.status) {
@@ -35,5 +39,8 @@ final class RustAudioCacheDownloadService implements AudioCacheDownloadService {
   }
 
   @override
-  Future<bool> audioCacheCancel() => bridge.audioCacheCancel();
+  Future<bool> audioCacheCancel() => rustFuture(
+    () => bridge.audioCacheCancel(),
+    operation: 'audioCacheCancel',
+  );
 }

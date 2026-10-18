@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/features/read_aloud/media_playback_navigation.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/services/media_session_models.dart';
 
 void main() {

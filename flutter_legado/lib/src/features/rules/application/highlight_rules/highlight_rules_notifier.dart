@@ -1,6 +1,7 @@
+import '../../../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../../bridge/ffi.dart';
 import '../../../../providers/highlight_repository_provider.dart';
 import '../../../../domain/models/highlight_rule.dart';
 import 'highlight_rules_state.dart';
@@ -23,7 +24,7 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
           .highlightRuleList();
       state = state.copyWith(rules: rules, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapError(e));
+      state = state.copyWith(isLoading: false, error: errorMessage(e));
     }
   }
 
@@ -41,7 +42,7 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
       if (!deleted) throw StateError('删除高亮规则失败');
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -58,14 +59,8 @@ class HighlightRulesNotifier extends Notifier<HighlightRulesState> {
       if (id <= 0) throw StateError('保存高亮规则失败');
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

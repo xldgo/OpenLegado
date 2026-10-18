@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -14,7 +16,10 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
   /// 获取所有 HTTP TTS 配置
   @override
   Future<List<HttpTts>> getHttpTts() async {
-    return (await bridge.httpTtsList()).map(httpTtsFromDto).toList();
+    return (await rustFuture(
+      () => bridge.httpTtsList(),
+      operation: 'httpTtsList',
+    )).map(httpTtsFromDto).toList();
   }
 
   /// 添加 HTTP TTS 配置（保存完整字段，返回携带最终 ID 的对象）
@@ -26,7 +31,10 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
         kMaxHttpTtsSynthesisThreadCount,
       ),
     );
-    final id = await bridge.httpTtsAdd(tts: httpTtsToDto(normalized));
+    final id = await rustFuture(
+      () => bridge.httpTtsAdd(tts: httpTtsToDto(normalized)),
+      operation: 'httpTtsAdd',
+    );
     return normalized.copyWith(id: id.toInt());
   }
 
@@ -39,7 +47,10 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
         kMaxHttpTtsSynthesisThreadCount,
       ),
     );
-    final updated = await bridge.httpTtsUpdate(tts: httpTtsToDto(normalized));
+    final updated = await rustFuture(
+      () => bridge.httpTtsUpdate(tts: httpTtsToDto(normalized)),
+      operation: 'httpTtsUpdate',
+    );
     if (!updated) {
       throw StateError('HTTP TTS 引擎不存在: id=${tts.id}');
     }
@@ -48,13 +59,19 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
   /// 删除 HTTP TTS 配置
   @override
   Future<void> deleteHttpTts(int id) async {
-    await bridge.httpTtsDelete(id: id);
+    await rustFuture(
+      () => bridge.httpTtsDelete(id: id),
+      operation: 'httpTtsDelete',
+    );
   }
 
   /// 导入 HTTP TTS 配置（解析 JSON 数组，完整保留全字段及数组 loginUi）
   @override
   Future<int> importHttpTts(String json) async {
-    return bridge.httpTtsImport(document: json);
+    return rustFuture(
+      () => bridge.httpTtsImport(document: json),
+      operation: 'httpTtsImport',
+    );
   }
 
   /// 导出 HTTP TTS 配置（返回 JSON 数组）
@@ -66,6 +83,8 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
 
   /// 设置 HTTP TTS 源启用/禁用（F3-20）
   @override
-  Future<bool> httpTtsSetEnabled(int id, bool enabled) =>
-      bridge.httpTtsSetEnabled(id: id, enabled: enabled);
+  Future<bool> httpTtsSetEnabled(int id, bool enabled) => rustFuture(
+    () => bridge.httpTtsSetEnabled(id: id, enabled: enabled),
+    operation: 'httpTtsSetEnabled',
+  );
 }

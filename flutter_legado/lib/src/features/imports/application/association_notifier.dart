@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 export 'association_state.dart';
 import '../../book_sources/book_source_repository_provider.dart';
 import '../../../providers/domain_config_provider.dart';
@@ -12,7 +13,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../bridge/ffi.dart';
 import '../../../models/book_source.dart';
 import '../../../models/misc.dart';
 import '../../../models/rss_source.dart';
@@ -72,7 +72,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
       }
       await _parseAndSet(response.body, typeHint);
     } catch (e) {
-      final msg = e is BridgeError ? e.message : '$e';
+      final msg = errorMessage(e);
       state = state.copyWith(error: '从 URL 加载失败：$msg', isLoading: false);
     }
   }
@@ -89,7 +89,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
       final content = await file.readAsString(encoding: utf8);
       await _parseAndSet(content, typeHint);
     } catch (e) {
-      final msg = e is BridgeError ? e.message : '$e';
+      final msg = errorMessage(e);
       state = state.copyWith(error: '读取文件失败：$msg', isLoading: false);
     }
   }
@@ -111,7 +111,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
       }
       await _parseAndSet(trimmed, typeHint);
     } catch (e) {
-      final msg = e is BridgeError ? e.message : '$e';
+      final msg = errorMessage(e);
       state = state.copyWith(error: '读取剪贴板失败：$msg', isLoading: false);
     }
   }
@@ -369,7 +369,7 @@ class AssociationNotifier extends Notifier<AssociationState> {
       state = state.copyWith(lastResult: result, isLoading: false);
       return result;
     } catch (e) {
-      final msg = e is BridgeError ? e.message : '$e';
+      final msg = errorMessage(e);
       state = state.copyWith(isLoading: false, error: msg);
       return ImportResult(
         total: items.length,

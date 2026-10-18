@@ -22,7 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../../providers/network_provider.dart';
 
 import '../../../models/models.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../providers/media_provider.dart';
 import '../../../services/platform_bridge_service.dart';
 import '../../../services/system_brightness.dart';

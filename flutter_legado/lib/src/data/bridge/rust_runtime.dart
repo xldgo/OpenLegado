@@ -1,3 +1,5 @@
+import 'rust_errors.dart';
+
 import 'dart:io';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
@@ -27,41 +29,58 @@ class NativeRustRuntime implements RustRuntime {
   Future<void> initialize() async {
     final library = (libraryResolver ?? _resolveFfiLibrary)();
     await bridge.RustLib.init(externalLibrary: library);
-    await bridge.init();
+    await rustFuture(() => bridge.init(), operation: 'init');
   }
 
   @override
-  Future<void> openDatabase(String path) => bridge.dbOpen(path: path);
+  Future<void> openDatabase(String path) =>
+      rustFuture(() => bridge.dbOpen(path: path), operation: 'dbOpen');
 
   @override
-  Future<bool> setTtsCacheDirectory(String path) =>
-      bridge.ttsSetCacheDir(path: path);
+  Future<bool> setTtsCacheDirectory(String path) => rustFuture(
+    () => bridge.ttsSetCacheDir(path: path),
+    operation: 'ttsSetCacheDir',
+  );
 
   @override
   Future<void> setJsCacheDirectory(String path) =>
-      bridge.setCacheDir(dir: path);
+      rustFuture(() => bridge.setCacheDir(dir: path), operation: 'setCacheDir');
 
   @override
-  Future<void> setImageCacheDirectory(String path) =>
-      bridge.setImageCacheDir(dir: path);
+  Future<void> setImageCacheDirectory(String path) => rustFuture(
+    () => bridge.setImageCacheDir(dir: path),
+    operation: 'setImageCacheDir',
+  );
 
   @override
-  Future<void> setAudioCacheDirectory(String path) =>
-      bridge.setAudioCacheDir(dir: path);
+  Future<void> setAudioCacheDirectory(String path) => rustFuture(
+    () => bridge.setAudioCacheDir(dir: path),
+    operation: 'setAudioCacheDir',
+  );
 
   @override
-  Future<void> setDeviceId(String id) => bridge.setDeviceId(deviceId: id);
+  Future<void> setDeviceId(String id) => rustFuture(
+    () => bridge.setDeviceId(deviceId: id),
+    operation: 'setDeviceId',
+  );
 
   @override
-  Future<void> setThemeConfig(RuntimeConfigSnapshot snapshot) =>
-      bridge.setThemeConfig(themeJson: snapshot.encode());
+  Future<void> setThemeConfig(RuntimeConfigSnapshot snapshot) => rustFuture(
+    () => bridge.setThemeConfig(themeJson: snapshot.encode()),
+    operation: 'setThemeConfig',
+  );
 
   @override
-  Future<void> setThemeMode(String mode) => bridge.setThemeMode(mode: mode);
+  Future<void> setThemeMode(String mode) => rustFuture(
+    () => bridge.setThemeMode(mode: mode),
+    operation: 'setThemeMode',
+  );
 
   @override
-  Future<void> setReadBookConfig(RuntimeConfigSnapshot snapshot) =>
-      bridge.setReadBookConfig(readJson: snapshot.encode());
+  Future<void> setReadBookConfig(RuntimeConfigSnapshot snapshot) => rustFuture(
+    () => bridge.setReadBookConfig(readJson: snapshot.encode()),
+    operation: 'setReadBookConfig',
+  );
 }
 
 ExternalLibrary? _resolveFfiLibrary() {

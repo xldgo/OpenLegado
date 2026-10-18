@@ -1,3 +1,4 @@
+import '../../features/reader/application/reader_pagination_policy.dart';
 import '../../providers/chapter_content_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
 
@@ -15,7 +16,7 @@ import '../../models/models.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../../features/audio/application/audio_notifier.dart';
 import '../../features/audio/application/read_aloud_preferences.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/paragraph_layout_engine.dart';
@@ -157,7 +158,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   bool _preloadingNext = false;
   bool _preloadingPrev = false;
   int _layoutGeneration = 0;
-  String _reviewGeometryKey = '';
   String _reviewPaintKey = '';
   Object? _reviewMeasureKey;
   Map<int, InlineReview> _measuredReviews = {};
@@ -173,7 +173,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   bool _fontRefreshQueued = false;
   int _layoutMeasurements = 0;
   String? _paginatedBookUrl;
-  int _paginatedFontRevision = -1;
 
   int get layoutMeasurements => _layoutMeasurements;
   int get layoutCacheHits => _layoutCache.hits;
@@ -416,55 +415,11 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   /// 分页对应的章节索引（用于检测章节切换后重新分页）
   int _paginatedChapterIndex = -1;
 
-  /// 分页对应的字号（设置变化时重新分页）
-  double _paginatedFontSize = -1;
-
-  /// 分页对应的行高
-  double _paginatedLineHeight = -1;
-
+  ReaderPaginationSignature? _paginationSignature;
   Size? _paginatedScreenSize;
-  TextScaler? _paginatedTextScaler;
   TextLayoutEnvironment? _paginatedTextEnvironment;
-  bool _paginatedBoldText = false;
-
-  /// 分页对应的段距
-  double _paginatedParagraphSpacing = -1;
-
-  // [UI-fix v2.0.2 | 2026-08-06] 分页缓存键新增字距/缩进/对齐/字体 — Qoder
-  double _paginatedLetterSpacing = double.nan;
-  // [UI-fix v2.0.4 | 2026-08-08] 缩进改 int 档位；新增字重缓存键 — Qoder
-  int _paginatedIndent = -1;
-  int _paginatedTextBold = -1;
-  bool _paginatedItalic = false;
-  bool _paginatedJustify = true;
-  String? _paginatedFontFamily;
-
-  // [UI-fix v2.0.3 | 2026-08-06] 分页缓存键新增页面边距 — Qoder
-  String _paginatedMargins = '';
-  String _paginatedPageChrome = '';
-
-  // [UI-fix v2.0.5 | 2026-08-10] 双页模式分页状态：当前分页是否双栏
-  // （档位/宽高比/翻页模式变化时重新分页）— Reasonix
   bool _paginatedDoublePage = false;
-  bool _paginatedScroll = false;
-
-  /// 当前分页是否为双页模式（单页时恒 false；翻页步进/屏换算消费）
   bool get _isDoublePage => _paginatedDoublePage;
-
-  // [UI-fix v2.0.5 | 2026-08-10] 中文分行开关分页缓存键（useZhLayout
-  // 变化时重新分页）— Reasonix
-  bool _paginatedUseZhLayout = true;
-
-  // [UI-fix v2.0.5 | 2026-08-10] 段首标点悬挂分页缓存键 — Reasonix
-  bool _paginatedHangingPunctuation = false;
-
-  // [UI-fix v2.0.3 | 2026-08-08] 分页缓存键新增系统栏 padding（隐藏
-  // 状态栏/导航栏后可用高度变化需重新分页）— Qoder
-  String _paginatedSysPadding = '';
-
-  // [UI-fix v2.0.3 | 2026-08-08] 分页缓存键纳入正文内容：编辑内容/反转
-  // 内容保存后同章重载（reloadChapterContent）时正文变化但章节索引不变，
-  // 不比对内容会命中旧分页缓存导致页面仍显示旧正文 — Qoder
   String _paginatedContent = '';
 
   /// 当前阅读字体 family（与 FontScreen 持久化键 reader_font_family 同步）
@@ -656,7 +611,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         setState(() {
           _fontFamily = settings.fontFamily;
           _fontRevision = revision;
-          _paginatedFontFamily = null;
+          _paginationSignature = null;
         });
       }
     } catch (error) {
@@ -702,21 +657,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final justify = widget.textFullJustify;
     final fontFamily = _fontFamily;
     // [UI-fix v2.0.3 | 2026-08-06] 页面边距变化同样触发重新分页 — Qoder
-    final margins =
-        '${widget.marginTop}_${widget.marginBottom}_${widget.marginLeft}_${widget.marginRight}';
-    final insets = _contentInsets(context);
-    final sysPaddingKey =
-        '${insets.top}_${insets.bottom}_${insets.left}_${insets.right}';
-
-    // [UI-fix v2.0.5 | 2026-08-10] 双页档位判定（对齐原版
-    // ChapterProvider.upLayout：0=单页、1=双页、2=横屏双页、3=平板或
-    // 横屏双页；滚动模式 pageAnim==3 强制单页；桌面端以窗口宽 >=700
-    // 作为平板语义）— Reasonix
-    // 动画使用完整视口，分页只使用内部避让后可排版的尺寸。
-    final screenSize = Size(
-      viewportSize.width - insets.horizontal,
-      viewportSize.height - insets.vertical,
+    final margins = EdgeInsets.fromLTRB(
+      widget.marginLeft,
+      widget.marginTop,
+      widget.marginRight,
+      widget.marginBottom,
     );
+    final insets = _contentInsets(context);
+    // 翻页画布使用完整视口，测量只使用内部避让后的内容区。
+    final screenSize = ReaderPaginationPolicy.contentSize(viewportSize, insets);
     final textScaler = MediaQuery.textScalerOf(context);
     final baseStyle = DefaultTextStyle.of(context).style;
     final boldText = MediaQuery.boldTextOf(context);
@@ -773,110 +722,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         );
       }
     }
-    final doublePage = switch (widget.doubleHorizontalPage) {
-      1 => state.pageTurnMode != PageTurnMode.scroll,
-      2 =>
-        screenSize.width > screenSize.height &&
-            state.pageTurnMode != PageTurnMode.scroll,
-      3 =>
-        (screenSize.width > screenSize.height || screenSize.width >= 700) &&
-            state.pageTurnMode != PageTurnMode.scroll,
-      _ => false,
-    };
-
-    final needRepaginate =
-        content.isNotEmpty &&
-        (content != _paginatedContent ||
-            reviewKey != _reviewGeometryKey ||
-            chapterIndex != _paginatedChapterIndex ||
-            screenSize != _paginatedScreenSize ||
-            textScaler != _paginatedTextScaler ||
-            state.currentBook?.bookUrl != _paginatedBookUrl ||
-            _fontRevision != _paginatedFontRevision ||
-            environment != _paginatedTextEnvironment ||
-            boldText != _paginatedBoldText ||
-            fontSize != _paginatedFontSize ||
-            lineHeight != _paginatedLineHeight ||
-            spacing != _paginatedParagraphSpacing ||
-            letterSpacing != _paginatedLetterSpacing ||
-            indent != _paginatedIndent ||
-            textBold != _paginatedTextBold ||
-            italic != _paginatedItalic ||
-            justify != _paginatedJustify ||
-            fontFamily != _paginatedFontFamily ||
-            margins != _paginatedMargins ||
-            widget.pageChrome.layoutKey != _paginatedPageChrome ||
-            sysPaddingKey != _paginatedSysPadding ||
-            doublePage != _paginatedDoublePage ||
-            (state.pageTurnMode == PageTurnMode.scroll) != _paginatedScroll ||
-            widget.useZhLayout != _paginatedUseZhLayout ||
-            widget.hangingPunctuation != _paginatedHangingPunctuation);
-
-    if (!needRepaginate) {
-      if (content.isEmpty) _layoutError = null;
-      return;
-    }
-
-    // 计算可用尺寸（减去配置的页面边距）
-    // [UI_SYNC_REFACTOR S4 修 | 2026-09-06] 去掉 ×0.95 缩减：测量已与渲染
-    // 同源同参（整段 TextPainter 盒宽 + DefaultTextStyle + textScaler），
-    // 且 _breakLines 末端有行宽安全网兜底，此前 5% 缩减只白白损失行宽。
-    // 双页模式：每栏可用宽 =（屏宽 - 左右边距 - 16 栏间隙）/ 2，取两栏
-    // 较小值——渲染侧左栏扣 marginLeft+8、右栏扣 marginRight+8，左右
-    // 边距不对称时取小者才保证两栏都不越界 — Qoder
-    final availableWidth = doublePage
-        ? math.min(
-            screenSize.width / 2 - widget.marginLeft - 8,
-            screenSize.width / 2 - widget.marginRight - 8,
-          )
-        : screenSize.width - widget.marginLeft - widget.marginRight;
-    // [UI-fix v2.0.4 | 2026-08-08] 分页可用高度与渲染容器严格一致：
-    // 渲染侧（ReaderTypographicPage）Column = 首页标题块 +
-    // Expanded(正文) + 页码指示（top 8 + 11 号文字）；此前用固定
-    // 40 估算页脚且未扣首页标题块高度，满页正文首页底部
-    // RenderFlex 溢出 ~16-27px（随字号增大）。改为 TextPainter 按
-    // 渲染同参实测页脚与标题块高度，首页容量单独下发排版引擎 — Qoder
-    // 实测样式合并 DefaultTextStyle（与渲染侧 Text 的主题字体一致，
-    // 避免字体度量差异引入像素级偏差）
-    final chrome = widget.pageChrome;
-    final headerBlock = ReaderPageLayoutMetrics.headerBlockHeight(
-      context,
-      chrome,
-    );
-    final footerBlock = ReaderPageLayoutMetrics.footerBlockHeight(
-      context,
-      chrome,
-    );
-    final availableHeight =
-        screenSize.height -
-        headerBlock -
-        footerBlock -
-        widget.marginTop -
-        widget.marginBottom;
-    if (availableWidth <= 0 || availableHeight <= 0) {
-      _layoutGeneration++;
-      _layoutSession?.cancel();
-      _layoutSession = null;
-      for (final session in _preloadSessions) {
-        session.cancel();
-      }
-      // 记录失败视口，使恢复尺寸后重新命中原布局，旧任务不能覆盖错误状态。
-      _paginatedScreenSize = screenSize;
-      _layoutError = '阅读区域太小，请扩大窗口或减小页边距';
-      return;
-    }
-
-    // 首页标题块高度（与渲染侧 pageIndex==0 分支同参）
-    // [UI_SYNC_REFACTOR S6 修] 抽为 _computeFirstPageHeight：相邻章预载需按
-    // 「目标章标题」计算首页容量（与落地实际分页一致，防切换重排闪动）— Qoder
-    final chapterTitle = state.currentChapter?.title;
-    final firstPageHeight = _computeFirstPageHeight(
-      state,
-      availableHeight,
-      availableWidth,
-      chapterTitle,
-    );
-
     final config = ParagraphConfig(
       fontSize: fontSize,
       lineHeight: lineHeight,
@@ -901,6 +746,70 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       baseStyle: baseStyle,
       textScaler: textScaler,
       textEnvironment: environment,
+    );
+
+    final doublePage = ReaderPaginationPolicy.doublePage(
+      widget.doubleHorizontalPage,
+      screenSize,
+      state.pageTurnMode,
+    );
+    final signature = ReaderPaginationSignature(
+      bookUrl: state.currentBook?.bookUrl,
+      chapter: chapterIndex,
+      content: content,
+      config: config,
+      fontRevision: _fontRevision,
+      boldText: boldText,
+      textBold: textBold,
+      margins: margins,
+      insets: insets,
+      chromeKey: widget.pageChrome.layoutKey,
+      doublePage: doublePage,
+      scroll: state.pageTurnMode == PageTurnMode.scroll,
+      reviews: reviewKey,
+    );
+    final needRepaginate =
+        content.isNotEmpty &&
+        (signature != _paginationSignature ||
+            screenSize != _paginatedScreenSize);
+
+    if (!needRepaginate) {
+      if (content.isEmpty) _layoutError = null;
+      return;
+    }
+
+    final chrome = widget.pageChrome;
+    final bounds = ReaderPaginationPolicy.bounds(
+      content: screenSize,
+      margins: margins,
+      doublePage: doublePage,
+      headerHeight: ReaderPageLayoutMetrics.headerBlockHeight(context, chrome),
+      footerHeight: ReaderPageLayoutMetrics.footerBlockHeight(context, chrome),
+    );
+    final availableWidth = bounds.width;
+    final availableHeight = bounds.height;
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      _layoutGeneration++;
+      _layoutSession?.cancel();
+      _layoutSession = null;
+      for (final session in _preloadSessions) {
+        session.cancel();
+      }
+      // 记录失败视口，使恢复尺寸后重新命中原布局，旧任务不能覆盖错误状态。
+      _paginatedScreenSize = screenSize;
+      _layoutError = '阅读区域太小，请扩大窗口或减小页边距';
+      return;
+    }
+
+    // 首页标题块高度（与渲染侧 pageIndex==0 分支同参）
+    // [UI_SYNC_REFACTOR S6 修] 抽为 _computeFirstPageHeight：相邻章预载需按
+    // 「目标章标题」计算首页容量（与落地实际分页一致，防切换重排闪动）— Qoder
+    final chapterTitle = state.currentChapter?.title;
+    final firstPageHeight = _computeFirstPageHeight(
+      state,
+      availableHeight,
+      availableWidth,
+      chapterTitle,
     );
 
     // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 记录分页参数（相邻章预载复用
@@ -941,15 +850,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
             : null);
     final engine = ParagraphLayoutEngine(config: config, context: context);
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
-    final cacheKey = _chapterCacheKey(
-      state,
-      chapterIndex,
-      content,
-      config,
-      availableWidth,
-      availableHeight,
-      firstPageHeight,
-      reviewKey,
+    final cacheKey = ReaderPaginationPolicy.chapterCacheKey(
+      bookUrl: state.currentBook?.bookUrl,
+      chapter: chapterIndex,
+      content: content,
+      config: config,
+      width: availableWidth,
+      height: availableHeight,
+      firstHeight: firstPageHeight,
+      fontRevision: _fontRevision,
+      reviews: reviewKey,
     );
     final cachedPages = _layoutCache.get(cacheKey);
     _layoutError = null;
@@ -970,52 +880,23 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     _layoutSession = session;
     _layoutComplete = session == null || session.complete;
     final pages = cachedPages ?? session?.pages ?? const <PageInfo>[];
-    _waitingForAnchor =
-        !_layoutComplete &&
-        (pages.isEmpty ||
-            state.currentChapterPos == -1 ||
-            (sourceAnchor == null && state.currentChapterPos >= pages.length) ||
-            (sourceAnchor != null && pages.last.sourceEnd <= sourceAnchor));
-
+    final target = ReaderPaginationTarget(
+      requestedPage: state.currentChapterPos,
+      sourceAnchor: sourceAnchor,
+    );
+    _waitingForAnchor = target.waiting(pages, complete: _layoutComplete);
     _paginatedPages = pages;
-    _reviewGeometryKey = reviewKey;
+    _paginationSignature = signature;
     _paginatedContent = content;
     _paginatedChapterIndex = chapterIndex;
     _paginatedBookUrl = state.currentBook?.bookUrl;
-    _paginatedFontRevision = _fontRevision;
     _paginatedChapterTitle = state.currentChapter?.title;
-    _paginatedFontSize = fontSize;
-    _paginatedLineHeight = lineHeight;
     _paginatedScreenSize = screenSize;
-    _paginatedTextScaler = textScaler;
     _paginatedTextEnvironment = environment;
-    _paginatedBoldText = boldText;
-    _paginatedParagraphSpacing = spacing;
-    _paginatedLetterSpacing = letterSpacing;
-    _paginatedIndent = indent;
-    _paginatedTextBold = textBold;
-    _paginatedItalic = italic;
-    _paginatedJustify = justify;
-    _paginatedFontFamily = fontFamily;
-    _paginatedMargins = margins;
-    _paginatedPageChrome = widget.pageChrome.layoutKey;
-    _paginatedSysPadding = sysPaddingKey;
     _paginatedDoublePage = doublePage;
-    _paginatedScroll = state.pageTurnMode == PageTurnMode.scroll;
-    _paginatedUseZhLayout = widget.useZhLayout;
-    _paginatedHangingPunctuation = widget.hangingPunctuation;
     _rebuildScrollLayout();
     // 开书已经清除历史页码；这里的页号只表示当前布局中的显式跳页操作。
-    final chapterPos = state.currentChapterPos;
-    if (chapterPos == -1 && pages.isNotEmpty) {
-      _currentPageIndex = pages.length - 1;
-    } else if (sourceAnchor != null) {
-      _currentPageIndex = pageIndexForSourceOffset(pages, sourceAnchor);
-    } else {
-      _currentPageIndex = pages.isEmpty
-          ? 0
-          : chapterPos.clamp(0, pages.length - 1);
-    }
+    _currentPageIndex = target.resolve(pages);
     final resolvedAnchor =
         sourceAnchor ??
         (pages.isEmpty ? 0 : pages[_currentPageIndex].sourceStart);
@@ -1023,14 +904,14 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final resolvedPage = _currentPageIndex;
     final initialComplete = _layoutComplete;
     final bookUrl = state.currentBook?.bookUrl;
+    final task = ReaderPaginationTask(
+      bookUrl: bookUrl,
+      chapter: chapterIndex,
+      generation: generation,
+    );
     if (!_waitingForAnchor) {
       Future(() {
-        if (!mounted || generation != _layoutGeneration) return;
-        final live = ref.read(readerNotifierProvider);
-        if (live.currentChapterIndex != chapterIndex ||
-            live.currentBook?.bookUrl != bookUrl) {
-          return;
-        }
+        if (!_isCurrentPaginationTask(task)) return;
         if (initialComplete) {
           _publishReadAloudPages();
           notifier.updateChapterPageCount(chapterIndex, pages.length);
@@ -1041,19 +922,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     }
 
     if (session != null && !session.complete) {
-      unawaited(
-        _continuePagination(
-          session,
-          engine,
-          cacheKey,
-          generation,
-          chapterIndex,
-          bookUrl,
-          sourceAnchor,
-          chapterPos == -1,
-          chapterPos,
-        ),
-      );
+      unawaited(_continuePagination(session, engine, cacheKey, task, target));
     } else {
       _layoutCache.put(cacheKey, pages);
       _layoutMeasurements += engine.measurementCount;
@@ -1063,83 +932,44 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     if (_layoutComplete) _maybePreloadAdjacent(state, eager: true);
   }
 
-  Object _chapterCacheKey(
-    ReaderState state,
-    int chapter,
-    String content,
-    ParagraphConfig config,
-    double width,
-    double height,
-    double firstHeight,
-    String reviews,
-  ) => (
-    state.currentBook?.bookUrl,
-    chapter,
-    content,
-    width,
-    height,
-    firstHeight,
-    config.fontSize,
-    config.lineHeight,
-    config.paragraphSpacing,
-    config.indent,
-    config.indentCount,
-    config.letterSpacing,
-    config.fontFamily,
-    config.fontWeight,
-    config.fontStyle,
-    config.justify,
-    config.useZhLayout,
-    config.hangingPunctuation,
-    config.textEnvironment?.geometryKey,
-    _fontRevision,
-    reviews,
-  );
+  bool _isCurrentPaginationTask(ReaderPaginationTask task) {
+    if (!mounted) return false;
+    final live = ref.read(readerNotifierProvider);
+    return task.matches(
+      bookUrl: live.currentBook?.bookUrl,
+      chapter: live.currentChapterIndex,
+      generation: _layoutGeneration,
+    );
+  }
 
   Future<void> _continuePagination(
     ChapterPaginationSession session,
     ParagraphLayoutEngine engine,
     Object cacheKey,
-    int generation,
-    int chapter,
-    String? bookUrl,
-    int? anchor,
-    bool lastPage,
-    int requestedPage,
+    ReaderPaginationTask task,
+    ReaderPaginationTarget target,
   ) async {
     while (!session.complete && !session.cancelled) {
       await SchedulerBinding.instance.endOfFrame;
-      if (!mounted || generation != _layoutGeneration) {
-        session.cancel();
-        return;
-      }
-      final live = ref.read(readerNotifierProvider);
-      if (live.currentChapterIndex != chapter ||
-          live.currentBook?.bookUrl != bookUrl) {
+      if (!_isCurrentPaginationTask(task)) {
         session.cancel();
         return;
       }
       try {
         // 上游延迟一页输出；首屏允许测量更多短段，仍受八毫秒测量预算限制。
         await session.advance(maxParagraphs: session.pages.isEmpty ? 16 : 8);
-        if (!mounted || generation != _layoutGeneration || session.cancelled) {
+        if (!_isCurrentPaginationTask(task) || session.cancelled) {
+          session.cancel();
           return;
         }
       } catch (error) {
         session.cancel();
-        if (!mounted || generation != _layoutGeneration) return;
+        if (!_isCurrentPaginationTask(task)) return;
         setState(() => _layoutError = '正文排版失败：$error');
         return;
       }
       final pages = session.pages;
-      final ready =
-          pages.isNotEmpty &&
-          (session.complete ||
-              (!lastPage &&
-                  (anchor != null
-                      ? pages.last.sourceEnd > anchor
-                      : requestedPage < pages.length)));
-      if (!ready) continue;
+      if (!target.ready(pages, complete: session.complete)) continue;
       final wasWaiting = _waitingForAnchor;
       setState(() {
         _paginatedPages = pages;
@@ -1147,30 +977,27 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         _layoutComplete = session.complete;
         _waitingForAnchor = false;
         if (wasWaiting) {
-          _currentPageIndex = lastPage
-              ? pages.length - 1
-              : anchor != null
-              ? pageIndexForSourceOffset(pages, anchor)
-              : requestedPage.clamp(0, pages.length - 1);
+          _currentPageIndex = target.resolve(pages);
         }
       });
       final notifier = ref.read(readerNotifierProvider.notifier);
       if (wasWaiting) {
         notifier.updatePosition(
           _currentPageIndex,
-          sourceOffset: anchor ?? pages[_currentPageIndex].sourceStart,
+          sourceOffset:
+              target.sourceAnchor ?? pages[_currentPageIndex].sourceStart,
         );
         _restoreScrollAnchor(
-          anchor ?? pages[_currentPageIndex].sourceStart,
-          generation,
+          target.sourceAnchor ?? pages[_currentPageIndex].sourceStart,
+          task.generation,
         );
       }
       if (session.complete) {
         _publishReadAloudPages();
         _layoutCache.put(cacheKey, pages);
         _layoutMeasurements += engine.measurementCount;
-        notifier.updateChapterPageCount(chapter, pages.length);
-        _maybePreloadAdjacent(live, eager: true);
+        notifier.updateChapterPageCount(task.chapter, pages.length);
+        _maybePreloadAdjacent(ref.read(readerNotifierProvider), eager: true);
       }
     }
   }
@@ -1623,29 +1450,19 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   /// 章边界预载触发：末屏预载下一章首屏、首屏预载上一章末屏
   void _maybePreloadAdjacent(ReaderState state, {bool eager = false}) {
-    if (_paginatedPages.isEmpty || state.currentBook == null) return;
-    // 两侧按距离串行预排，避免同时测量两章、保留两套在途布局。
-    if (_preloadingNext || _preloadingPrev) return;
-    final screenIndex = _isDoublePage
-        ? _currentPageIndex ~/ 2
-        : _currentPageIndex;
-    final screenCount = _isDoublePage
-        ? (_paginatedPages.length + 1) ~/ 2
-        : _paginatedPages.length;
-    // 提前一屏预载（异步加载留出时间窗）；eager=分页即预载两侧邻章
-    //（对齐原版三章窗口：章节打开即后台准备相邻章，章末翻页才来得及动画）
-    final atLast = eager || screenIndex >= screenCount - 2;
-    final atFirst = eager || screenIndex <= 1;
-    final needsNext =
-        atLast && state.hasNextChapter && _nextChapterPreview == null;
-    final needsPrev =
-        atFirst && state.hasPreviousChapter && _prevChapterPreview == null;
-    if (needsPrev &&
-        (!needsNext || screenIndex < screenCount - 1 - screenIndex)) {
-      unawaited(_preloadAdjacent(state, -1));
-    } else if (needsNext) {
-      unawaited(_preloadAdjacent(state, 1));
-    }
+    final delta = ReaderPaginationPolicy.adjacentChapter(
+      pageCount: _paginatedPages.length,
+      currentPage: _currentPageIndex,
+      doublePage: _isDoublePage,
+      hasBook: state.currentBook != null,
+      preloading: _preloadingNext || _preloadingPrev,
+      hasPreviousChapter: state.hasPreviousChapter,
+      hasNextChapter: state.hasNextChapter,
+      previousReady: _prevChapterPreview != null,
+      nextReady: _nextChapterPreview != null,
+      eager: eager,
+    );
+    if (delta != null) unawaited(_preloadAdjacent(state, delta));
   }
 
   /// 预载相邻章边界页（下一章首屏 / 上一章末屏），供章边界动画与承接
@@ -1663,6 +1480,11 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // 往往不变，仅校验章号会让旧源拉取的结果回写、覆盖新源预览 — Qoder
     final baseBookUrl = book?.bookUrl;
     final generation = _layoutGeneration;
+    final task = ReaderPaginationTask(
+      bookUrl: baseBookUrl,
+      chapter: baseChapter,
+      generation: generation,
+    );
     final target = baseChapter + delta;
     final config = _pagedConfig;
     final availableWidth = _pagedWidth;
@@ -1675,14 +1497,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       final content = await ref
           .read(chapterContentServiceProvider)
           .read(book.bookUrl, target);
-      if (!mounted) return;
-      // 发起后章节已切换或已换源（bookUrl 变）则作废
-      final live = ref.read(readerNotifierProvider);
-      if (live.currentChapterIndex != baseChapter ||
-          live.currentBook?.bookUrl != baseBookUrl ||
-          generation != _layoutGeneration) {
-        return;
-      }
+      if (!mounted || !_isCurrentPaginationTask(task)) return;
       if (content.trim().isEmpty) {
         return;
       }
@@ -1694,15 +1509,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         availableWidth,
         state.chapters[target].title,
       );
-      final cacheKey = _chapterCacheKey(
-        state,
-        target,
-        content,
-        config,
-        availableWidth,
-        availableHeight,
-        previewFirstPageHeight,
-        '',
+      final cacheKey = ReaderPaginationPolicy.chapterCacheKey(
+        bookUrl: state.currentBook?.bookUrl,
+        chapter: target,
+        content: content,
+        config: config,
+        width: availableWidth,
+        height: availableHeight,
+        firstHeight: previewFirstPageHeight,
+        fontRevision: _fontRevision,
+        reviews: '',
       );
       var pages = _layoutCache.get(cacheKey);
       if (pages == null) {
@@ -1716,12 +1532,12 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         try {
           while (!session.complete && !session.cancelled) {
             await SchedulerBinding.instance.endOfFrame;
-            if (!mounted || generation != _layoutGeneration) {
+            if (!_isCurrentPaginationTask(task)) {
               session.cancel();
               return;
             }
             await session.advance();
-            if (!mounted || generation != _layoutGeneration) {
+            if (!_isCurrentPaginationTask(task)) {
               session.cancel();
               return;
             }
@@ -1742,11 +1558,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       final pageIndex = delta > 0 ? 0 : pages.length - 1;
       final title = state.chapters[target].title;
       final paintState = ref.read(readerNotifierProvider);
-      if (paintState.currentChapterIndex != baseChapter ||
-          paintState.currentBook?.bookUrl != baseBookUrl ||
-          generation != _layoutGeneration) {
-        return;
-      }
+      if (!_isCurrentPaginationTask(task)) return;
       final page = _buildPreviewPage(
         paintState,
         info,

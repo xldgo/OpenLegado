@@ -2,14 +2,14 @@ import '../l10n/app_localization.dart';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../bridge/ffi.dart' show BridgeError;
+import '../domain/errors/app_exception.dart';
 import '../models/book_source.dart';
 import '../features/book_sources/presentation/source_login_screen.dart';
 
 /// 是否为 loginCheckJs 判定的「书源需要登录」错误（错误码 1012 / 文案对齐）。
 bool isSourceLoginRequiredError(Object? error) {
   if (error == null) return false;
-  final msg = error is BridgeError ? error.message : error.toString();
+  final msg = error is AppException ? error.message : error.toString();
   return msg.contains('书源需要登录') ||
       msg.contains('LoginRequired') ||
       msg.contains('login_required') ||
@@ -17,7 +17,7 @@ bool isSourceLoginRequiredError(Object? error) {
 }
 
 String sourceLoginRequiredMessage(Object? error, {String? fallback}) {
-  if (error is BridgeError && error.message.isNotEmpty) {
+  if (error is AppException && error.message.isNotEmpty) {
     return error.message;
   }
   final s = error?.toString() ?? '';

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/cover_search_service.dart';
 import '../../models/cover_candidate.dart';
@@ -7,12 +8,17 @@ final class RustCoverSearchService implements CoverSearchService {
   const RustCoverSearchService();
   @override
   Future<List<CoverCandidate>> searchCover(String bookName) async =>
-      (await bridge.searchCover(bookName: bookName))
+      (await rustFuture(
+            () => bridge.searchCover(bookName: bookName),
+            operation: 'searchCover',
+          ))
           .map(
             (v) => CoverCandidate(url: v.url, width: v.width, height: v.height),
           )
           .toList();
   @override
-  Future<List<String>> searchCoverRules(String name) async =>
-      bridge.searchCoverRules(name: name);
+  Future<List<String>> searchCoverRules(String name) async => rustFuture(
+    () => bridge.searchCoverRules(name: name),
+    operation: 'searchCoverRules',
+  );
 }

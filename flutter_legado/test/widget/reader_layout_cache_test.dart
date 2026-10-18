@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../fixtures/app_test_api.dart';
 import '../mocks/reading_fixture.dart';
 import '../helpers/native_reader_layout.dart';
@@ -59,6 +61,9 @@ class _Reader extends ReaderNotifier {
 
   void mode(PageTurnMode value) => state = state.copyWith(pageTurnMode: value);
   void color() => state = state.copyWith(backgroundColor: Colors.black);
+  void replaceBook() => state = state.copyWith(
+    currentBook: const Book(bookUrl: 'replacement-book'),
+  );
 }
 
 class _ReaderWithPageRequest extends _Reader {
@@ -76,8 +81,114 @@ class _Content extends Fake implements ChapterContentService {
   }
 }
 
+class _DeferredContent extends _Content {
+  final first = Completer<String>();
+
+  @override
+  Future<String> read(String bookUrl, int index) {
+    if (requests.isEmpty) {
+      requests.add((bookUrl, index));
+      return first.future;
+    }
+    return super.read(bookUrl, index);
+  }
+}
+
 void main() {
   setUpNativeReaderLayout();
+  for (final replaceBook in [true, false]) {
+    testWidgets('${replaceBook ? '同章换书' : '视口重排'}后丢弃迟到预载，不覆盖新预览或增加测量', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final content = _DeferredContent();
+      final key = GlobalKey<ReaderPageViewState>();
+      final container = ProviderContainer(
+        overrides: mergeTestOverrides([
+          ..._Api().overrides,
+          readerNotifierProvider.overrideWith(_Reader.new),
+          chapterContentServiceProvider.overrideWithValue(content),
+        ]),
+      );
+      addTearDown(container.dispose);
+      Future<void> pump(double width) => pumpNativeReaderLayout(
+        tester,
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            builder: nativeReaderLayoutBuilder,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  height: 500,
+                  child: ReaderPageView(
+                    key: key,
+                    paragraphSpacing: 8,
+                    selectText: false,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pump(320);
+      expect(content.requests, [('layout-fixture', 1)]);
+      if (replaceBook) {
+        (container.read(readerNotifierProvider.notifier) as _Reader)
+            .replaceBook();
+      }
+      await pump(replaceBook ? 320 : 420);
+      expect(content.requests, [
+        ('layout-fixture', 1),
+        (replaceBook ? 'replacement-book' : 'layout-fixture', 1),
+      ]);
+      final preview = tester
+          .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+          .chapterNextPage;
+      expect(preview, isNotNull);
+      final measurements = key.currentState!.layoutMeasurements;
+      content.first.complete(sources[2]);
+      await settleNativeReaderLayout(tester);
+      expect(
+        tester
+            .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+            .chapterNextPage,
+        same(preview),
+      );
+      expect(key.currentState!.layoutMeasurements, measurements);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('阅读器退出后迟到预载不再读取Provider或构建预览', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final content = _DeferredContent();
+    await pumpNativeReaderLayout(
+      tester,
+      ProviderScope(
+        overrides: mergeTestOverrides([
+          ..._Api().overrides,
+          readerNotifierProvider.overrideWith(_Reader.new),
+          chapterContentServiceProvider.overrideWithValue(content),
+        ]),
+        child: MaterialApp(
+          builder: nativeReaderLayoutBuilder,
+          home: const Scaffold(
+            body: ReaderPageView(paragraphSpacing: 8, selectText: false),
+          ),
+        ),
+      ),
+    );
+    expect(content.requests, [('layout-fixture', 1)]);
+    await tester.pumpWidget(const SizedBox.shrink());
+    content.first.complete(sources[2]);
+    await settleNativeReaderLayout(tester);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('边界预览通过注入的正文服务取得后续章并完成布局', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final content = _Content();

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/replace_rule_repository.dart';
 import '../../models/misc.dart' show ReplaceRule;
@@ -10,13 +11,19 @@ final class RustReplaceRuleRepository implements ReplaceRuleRepository {
   /// 获取所有替换规则
   @override
   Future<List<ReplaceRule>> getReplaceRules() async {
-    return (await bridge.replaceRuleList()).map(replaceRuleFromDto).toList();
+    return (await rustFuture(
+      () => bridge.replaceRuleList(),
+      operation: 'replaceRuleList',
+    )).map(replaceRuleFromDto).toList();
   }
 
   /// 获取启用的替换规则
   @override
   Future<List<ReplaceRule>> getEnabledReplaceRules() async {
-    return (await bridge.replaceRuleEnabled()).map(replaceRuleFromDto).toList();
+    return (await rustFuture(
+      () => bridge.replaceRuleEnabled(),
+      operation: 'replaceRuleEnabled',
+    )).map(replaceRuleFromDto).toList();
   }
 
   /// 添加替换规则
@@ -28,19 +35,22 @@ final class RustReplaceRuleRepository implements ReplaceRuleRepository {
   /// timeoutMillisecond=3000）。
   @override
   Future<ReplaceRule> addReplaceRule(ReplaceRule rule) async {
-    final id = await bridge.replaceRuleAdd(
-      name: rule.name,
-      pattern: rule.pattern,
-      replacement: rule.replacement,
-      isRegex: rule.isRegex,
-      scope: rule.scope ?? '',
-      group: rule.group,
-      scopeTitle: rule.scopeTitle,
-      scopeContent: rule.scopeContent,
-      excludeScope: rule.excludeScope,
-      timeoutMillisecond: rule.timeoutMillisecond,
-      // [书源作用域 | 2026-09-13] 全字段透传；Rust 侧 None→false（对齐原版默认 0）
-      scopeSource: rule.scopeSource,
+    final id = await rustFuture(
+      () => bridge.replaceRuleAdd(
+        name: rule.name,
+        pattern: rule.pattern,
+        replacement: rule.replacement,
+        isRegex: rule.isRegex,
+        scope: rule.scope ?? '',
+        group: rule.group,
+        scopeTitle: rule.scopeTitle,
+        scopeContent: rule.scopeContent,
+        excludeScope: rule.excludeScope,
+        timeoutMillisecond: rule.timeoutMillisecond,
+        // [书源作用域 | 2026-09-13] 全字段透传；Rust 侧 None→false（对齐原版默认 0）
+        scopeSource: rule.scopeSource,
+      ),
+      operation: 'replaceRuleAdd',
     );
     return rule.copyWith(id: id);
   }
@@ -56,29 +66,36 @@ final class RustReplaceRuleRepository implements ReplaceRuleRepository {
   /// [书源作用域 | 2026-09-13] 新增 scopeSource 全字段透传；
   /// Rust 侧 None=保留既有值，Some(b)=覆盖。
   @override
-  Future<void> updateReplaceRule(ReplaceRule rule) => bridge.replaceRuleUpdate(
-    ruleId: rule.id,
-    name: rule.name,
-    pattern: rule.pattern,
-    replacement: rule.replacement,
-    isRegex: rule.isRegex,
-    isEnabled: rule.isEnabled,
-    group: rule.group ?? '',
-    scopeTitle: rule.scopeTitle,
-    scopeContent: rule.scopeContent,
-    excludeScope: rule.excludeScope ?? '',
-    timeoutMillisecond: rule.timeoutMillisecond,
-    // [书源作用域 | 2026-09-13] 全字段透传；Rust 侧 None=保留既有值
-    scopeSource: rule.scopeSource,
+  Future<void> updateReplaceRule(ReplaceRule rule) => rustFuture(
+    () => bridge.replaceRuleUpdate(
+      ruleId: rule.id,
+      name: rule.name,
+      pattern: rule.pattern,
+      replacement: rule.replacement,
+      isRegex: rule.isRegex,
+      isEnabled: rule.isEnabled,
+      group: rule.group ?? '',
+      scopeTitle: rule.scopeTitle,
+      scopeContent: rule.scopeContent,
+      excludeScope: rule.excludeScope ?? '',
+      timeoutMillisecond: rule.timeoutMillisecond,
+      // [书源作用域 | 2026-09-13] 全字段透传；Rust 侧 None=保留既有值
+      scopeSource: rule.scopeSource,
+    ),
+    operation: 'replaceRuleUpdate',
   );
 
   /// 删除替换规则
   @override
-  Future<void> deleteReplaceRule(int id) =>
-      bridge.replaceRuleDelete(ruleId: id);
+  Future<void> deleteReplaceRule(int id) => rustFuture(
+    () => bridge.replaceRuleDelete(ruleId: id),
+    operation: 'replaceRuleDelete',
+  );
 
   /// 启用/禁用替换规则
   @override
-  Future<void> setReplaceRuleEnabled(int id, bool enabled) =>
-      bridge.replaceRuleSetEnabled(ruleId: id, enabled: enabled);
+  Future<void> setReplaceRuleEnabled(int id, bool enabled) => rustFuture(
+    () => bridge.replaceRuleSetEnabled(ruleId: id, enabled: enabled),
+    operation: 'replaceRuleSetEnabled',
+  );
 }

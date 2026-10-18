@@ -1,3 +1,4 @@
+import 'rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/app_runtime.dart';
 
@@ -8,5 +9,6 @@ class RustAppRuntime implements AppRuntime {
   @override
   Future<void> initialize() => startup();
   @override
-  Future<String> getVersion() => bridge.version();
+  Future<String> getVersion() =>
+      rustFuture(() => bridge.version(), operation: 'version');
 }

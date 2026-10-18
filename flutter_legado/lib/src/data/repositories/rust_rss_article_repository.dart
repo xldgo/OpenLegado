@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/rss_article_repository.dart';
 import '../../models/models.dart';
@@ -10,13 +11,16 @@ final class RustRssArticleRepository implements RssArticleRepository {
   /// 获取 RSS 文章列表
   @override
   Future<List<RssFeedArticle>> getRssArticles(String sourceUrl) async {
-    return (await bridge.rssFetchArticles(sourceUrl: sourceUrl))
-        .map(rssArticleFromDto)
-        .toList();
+    return (await rustFuture(
+      () => bridge.rssFetchArticles(sourceUrl: sourceUrl),
+      operation: 'rssFetchArticles',
+    )).map(rssArticleFromDto).toList();
   }
 
   /// 清空指定 RSS 源本地文章缓存
   @override
-  Future<void> rssClearArticles(String sourceUrl) =>
-      bridge.rssClearArticles(sourceUrl: sourceUrl);
+  Future<void> rssClearArticles(String sourceUrl) => rustFuture(
+    () => bridge.rssClearArticles(sourceUrl: sourceUrl),
+    operation: 'rssClearArticles',
+  );
 }

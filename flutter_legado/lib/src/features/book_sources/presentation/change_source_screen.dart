@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import '../book_source_repository_provider.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../search/search_settings_provider.dart';
@@ -16,9 +17,8 @@ import '../../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
-import '../../../bridge/ffi.dart' show BridgeError;
 import '../application/change_source/change_source_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
 import '../../../widgets/error_view.dart';
 import '../../../widgets/loading_indicator.dart';
@@ -69,7 +69,7 @@ class ChangeSourceScreen extends ConsumerStatefulWidget {
 class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     with SingleTickerProviderStateMixin {
   // [A2 形态对齐 | full-stack-engineer + UI] 换源页由「整页」改为「底部弹层」：
-  // 非不透明路由（routes.dart _ChangeSourceSheetRoute）承载，本页 build 产出
+  // 非不透明路由（AppRouter 的换源弹层）承载，本页 build 产出
   // 全屏 Stack——半透明遮罩（点按关闭）+ 底部面板（把手 + 下滑关闭）。
   // 面板高度约为全屏 85%（顶部圆角，对齐参考版 kazusa 底部弹层形态与
   // 原版 ChangeBookSourceDialog BaseDialogFragment 的浮层语义）。
@@ -348,10 +348,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       Navigator.pop(context, newBookUrl);
     } catch (e) {
       if (!mounted) return;
-      // [fix Task#24 | 2026-08-08] BridgeError 未重写 toString，直接内插得到
-      // 无信息的「Instance of 'BridgeError'」。改用 .message 暴露 Rust 侧真实
-      // 错误（如「新书源未解析到任何章节」），便于用户与排查 — Qoder
-      final msg = e is BridgeError ? e.message : e.toString();
+      // 数据层保留领域错误消息，展示时不暴露桥接类型。
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('换源失败: $msg')));
     }
@@ -827,7 +825,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           .updateBookScore(item.bookUrl, newScore);
     } catch (e) {
       if (!mounted) return;
-      final msg = e is BridgeError ? e.message : e.toString();
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
     }
@@ -841,7 +839,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           .updateBookScore(item.bookUrl, newScore);
     } catch (e) {
       if (!mounted) return;
-      final msg = e is BridgeError ? e.message : e.toString();
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
     }
@@ -905,7 +903,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           await notifier.disableAndRemove(item);
         } catch (e) {
           if (!mounted) return;
-          final msg = e is BridgeError ? e.message : e.toString();
+          final msg = errorMessage(e);
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text('禁用失败: $msg')));
         }
@@ -948,7 +946,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      final msg = e is BridgeError ? e.message : e.toString();
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('删除失败: $msg')));
     }

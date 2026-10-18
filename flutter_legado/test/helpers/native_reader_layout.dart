@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
     show ExternalLibrary;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/services/reader_layout_service.dart';
 
 /// 每个测试进程加载一次正式绑定；排版不需要数据库或应用启动。— Codex + Bridge
@@ -53,7 +53,9 @@ class _TrackedNativeLayout implements ReaderLayoutTransport {
             .then<void>(
               (value) => caller.run(() => result.complete(value)),
               onError: (Object error, StackTrace stack) {
-                if (error is BridgeError) debugPrint('原生排版错误：${error.message}');
+                if (error is AppException) {
+                  debugPrint('原生排版错误：${error.message}');
+                }
                 caller.run(() => result.completeError(error, stack));
               },
             )

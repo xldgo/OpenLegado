@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../bridge/business_dto_mapping.dart';
 import '../../domain/contracts/search_history_repository.dart';
@@ -12,9 +13,10 @@ final class RustSearchHistoryRepository implements SearchHistoryRepository {
   /// 获取搜索历史
   @override
   Future<List<SearchKeyword>> getSearchHistory({int limit = 50}) async {
-    return (await bridge.searchHistoryList(limit: businessI32(limit)))
-        .map(searchHistoryFromDto)
-        .toList();
+    return (await rustFuture(
+      () => bridge.searchHistoryList(limit: businessI32(limit)),
+      operation: 'searchHistoryList',
+    )).map(searchHistoryFromDto).toList();
   }
 
   /// 按前缀搜索历史关键词（用于搜索联想）
@@ -23,27 +25,39 @@ final class RustSearchHistoryRepository implements SearchHistoryRepository {
     String prefix, {
     int limit = 20,
   }) async {
-    return bridge.searchHistoryByPrefix(
-      prefix: prefix,
-      limit: businessI32(limit),
+    return rustFuture(
+      () => bridge.searchHistoryByPrefix(
+        prefix: prefix,
+        limit: businessI32(limit),
+      ),
+      operation: 'searchHistoryByPrefix',
     );
   }
 
   /// 添加搜索关键词
   @override
   Future<void> addSearchKeyword(String keyword, String bookName) async {
-    await bridge.searchHistoryAdd(keyword: keyword, bookName: bookName);
+    await rustFuture(
+      () => bridge.searchHistoryAdd(keyword: keyword, bookName: bookName),
+      operation: 'searchHistoryAdd',
+    );
   }
 
   /// 删除搜索关键词
   @override
   Future<void> deleteSearchKeyword(String keyword) async {
-    await bridge.searchHistoryDelete(keyword: keyword);
+    await rustFuture(
+      () => bridge.searchHistoryDelete(keyword: keyword),
+      operation: 'searchHistoryDelete',
+    );
   }
 
   /// 清空搜索历史
   @override
   Future<void> clearSearchHistory() async {
-    await bridge.searchHistoryClear();
+    await rustFuture(
+      () => bridge.searchHistoryClear(),
+      operation: 'searchHistoryClear',
+    );
   }
 }

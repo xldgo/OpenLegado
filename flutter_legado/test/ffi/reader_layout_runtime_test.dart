@@ -6,7 +6,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/services/reader_layout_service.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import '../helpers/native_reader_layout.dart';
 
@@ -53,7 +53,7 @@ void main() {
       for (var i = 0; i < 8; i++) {
         handles.add((await transport.begin(config)).sessionId);
       }
-      await expectLater(transport.begin(config), throwsA(isA<BridgeError>()));
+      await expectLater(transport.begin(config), throwsA(isA<AppException>()));
       await transport.cancel(handles.removeLast());
       final replacement = (await transport.begin(config)).sessionId;
       handles.add(replacement);
@@ -63,7 +63,7 @@ void main() {
           List.generate(33, (_) => {'type': 'pageBreak'}),
         ),
         throwsA(
-          isA<BridgeError>().having(
+          isA<AppException>().having(
             (e) => e.message,
             'message',
             contains('超过32'),

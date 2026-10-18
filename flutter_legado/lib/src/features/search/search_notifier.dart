@@ -1,3 +1,4 @@
+import '../../utils/error_message.dart';
 export 'search_state.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import '../../providers/app_log_repository_provider.dart';
@@ -10,7 +11,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../bridge/ffi.dart';
 import 'search_state.dart';
 import 'search_settings_provider.dart';
 
@@ -224,7 +224,7 @@ class SearchNotifier extends Notifier<SearchState> {
       _attachSearchStream(session, trimmed, 1, sourceUrls, seq);
     } catch (e) {
       if (!_ownsSession(session, seq)) return;
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
       unawaited(_invalidateSession());
     }
   }
@@ -272,7 +272,7 @@ class SearchNotifier extends Notifier<SearchState> {
       _attachSearchStream(session, keyword, nextPage, sourceUrls, seq);
     } catch (e) {
       if (!_ownsSession(session, seq)) return;
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
       unawaited(_invalidateSession());
     }
   }
@@ -330,7 +330,7 @@ class SearchNotifier extends Notifier<SearchState> {
         _resultsFlushTimer = null;
         _flushResults();
         state = state.copyWith(
-          error: _mapError(e),
+          error: errorMessage(e),
           isLoading: false,
           isPaused: false,
         );
@@ -709,12 +709,6 @@ class SearchNotifier extends Notifier<SearchState> {
   /// 清除错误状态
   void clearError() {
     state = state.copyWith(error: null);
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

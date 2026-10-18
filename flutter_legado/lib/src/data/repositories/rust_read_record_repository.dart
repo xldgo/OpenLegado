@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -17,7 +19,10 @@ final class RustReadRecordRepository
 
   @override
   Future<List<ReadRecord>> getReadRecords() async {
-    return (await bridge.readRecordList()).map(readRecordFromDto).toList();
+    return (await rustFuture(
+      () => bridge.readRecordList(),
+      operation: 'readRecordList',
+    )).map(readRecordFromDto).toList();
   }
 
   @override
@@ -26,14 +31,17 @@ final class RustReadRecordRepository
     String bookUrl = '',
     int chapterIndex = 0,
   }) async {
-    await bridge.readRecordRecordTime(
-      bookName: record.bookName,
-      author: record.author,
-      readTimeMs: record.readTime,
-      startTimeMs: record.startTime,
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-      endTimeMs: record.lastRead > 0 ? record.lastRead : null,
+    await rustFuture(
+      () => bridge.readRecordRecordTime(
+        bookName: record.bookName,
+        author: record.author,
+        readTimeMs: record.readTime,
+        startTimeMs: record.startTime,
+        bookUrl: bookUrl,
+        chapterIndex: chapterIndex,
+        endTimeMs: record.lastRead > 0 ? record.lastRead : null,
+      ),
+      operation: 'readRecordRecordTime',
     );
     notifyReadRecordChanged();
   }
@@ -41,11 +49,17 @@ final class RustReadRecordRepository
   @override
   Future<void> deleteReadRecord(String bookName, {String? author}) async {
     if (author == null) {
-      await bridge.readRecordDelete(bookName: bookName);
+      await rustFuture(
+        () => bridge.readRecordDelete(bookName: bookName),
+        operation: 'readRecordDelete',
+      );
     } else {
-      await bridge.readRecordDeleteWithAuthor(
-        bookName: bookName,
-        author: author,
+      await rustFuture(
+        () => bridge.readRecordDeleteWithAuthor(
+          bookName: bookName,
+          author: author,
+        ),
+        operation: 'readRecordDeleteWithAuthor',
       );
     }
     notifyReadRecordChanged();
@@ -53,13 +67,19 @@ final class RustReadRecordRepository
 
   @override
   Future<void> clearReadRecords() async {
-    await bridge.readRecordClear();
+    await rustFuture(
+      () => bridge.readRecordClear(),
+      operation: 'readRecordClear',
+    );
     notifyReadRecordChanged();
   }
 
   @override
   Future<List<Map<String, dynamic>>> readRecordDailyList(int year) async {
-    return (await bridge.readRecordDailyList(year: year))
+    return (await rustFuture(
+          () => bridge.readRecordDailyList(year: year),
+          operation: 'readRecordDailyList',
+        ))
         .map(
           (value) => <String, dynamic>{
             'date': value.date,
@@ -80,19 +100,24 @@ final class RustReadRecordRepository
 
   @override
   Future<List<ReadRecordDetail>> getReadRecordDetails(int year) async =>
-      (await bridge.readRecordDetailList(year: year))
-          .map(_detailFromDto)
-          .toList();
+      (await rustFuture(
+        () => bridge.readRecordDetailList(year: year),
+        operation: 'readRecordDetailList',
+      )).map(_detailFromDto).toList();
 
   @override
   Future<List<ReadRecordDetail>> getAllReadRecordDetails() async =>
-      (await bridge.readRecordAllDetailList()).map(_detailFromDto).toList();
+      (await rustFuture(
+        () => bridge.readRecordAllDetailList(),
+        operation: 'readRecordAllDetailList',
+      )).map(_detailFromDto).toList();
 
   @override
   Future<List<ReadRecordSession>> getReadRecordSessions() async {
-    return (await bridge.readRecordSessionList())
-        .map(readRecordSessionFromDto)
-        .toList();
+    return (await rustFuture(
+      () => bridge.readRecordSessionList(),
+      operation: 'readRecordSessionList',
+    )).map(readRecordSessionFromDto).toList();
   }
 
   @override
@@ -101,17 +126,23 @@ final class RustReadRecordRepository
     String author,
     String date,
   ) async {
-    await bridge.readRecordDetailDelete(
-      bookName: bookName,
-      author: author,
-      date: date,
+    await rustFuture(
+      () => bridge.readRecordDetailDelete(
+        bookName: bookName,
+        author: author,
+        date: date,
+      ),
+      operation: 'readRecordDetailDelete',
     );
     notifyReadRecordChanged();
   }
 
   @override
   Future<void> deleteReadRecordSessions(List<int> ids) async {
-    await bridge.readRecordSessionsDelete(ids: Int64List.fromList(ids));
+    await rustFuture(
+      () => bridge.readRecordSessionsDelete(ids: Int64List.fromList(ids)),
+      operation: 'readRecordSessionsDelete',
+    );
     notifyReadRecordChanged();
   }
 }

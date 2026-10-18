@@ -1,6 +1,7 @@
+import '../../../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../bridge/ffi.dart' show BridgeError;
 import '../../../../domain/models/source_login_credentials.dart';
 import '../../source_login_providers.dart';
 import '../../../../models/misc.dart' show LoginKeyValue;
@@ -38,7 +39,7 @@ class SourceLoginNotifier extends Notifier<SourceLoginState> {
       );
     } catch (error) {
       if (!ref.mounted || generation != _loadGeneration) return;
-      state = SourceLoginState(error: _mapError(error));
+      state = SourceLoginState(error: errorMessage(error));
     }
   }
 
@@ -118,7 +119,7 @@ class SourceLoginNotifier extends Notifier<SourceLoginState> {
         if (ref.mounted) state = state.copyWith(isSaving: false);
       } catch (error) {
         if (ref.mounted) {
-          state = state.copyWith(isSaving: false, error: _mapError(error));
+          state = state.copyWith(isSaving: false, error: errorMessage(error));
         }
         rethrow;
       } finally {
@@ -128,9 +129,6 @@ class SourceLoginNotifier extends Notifier<SourceLoginState> {
     _saving = task;
     return task;
   }
-
-  String _mapError(Object error) =>
-      error is BridgeError ? error.message : error.toString();
 }
 
 /// 每个源拥有独立草稿，页面无消费者时释放，不持有另一源的凭据。

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/replace_rule_service.dart';
 
@@ -16,10 +17,13 @@ final class RustReplaceRuleService implements ReplaceRuleService {
     String sourceJson,
     String sourceName,
     String sourceUrl,
-  ) => bridge.applyReplaceRulesToSource(
-    sourceJson: sourceJson,
-    sourceName: sourceName,
-    sourceUrl: sourceUrl,
+  ) => rustFuture(
+    () => bridge.applyReplaceRulesToSource(
+      sourceJson: sourceJson,
+      sourceName: sourceName,
+      sourceUrl: sourceUrl,
+    ),
+    operation: 'applyReplaceRulesToSource',
   );
 
   /// 替换规则编辑器预览：对单条规则在示例文本上执行真实替换管线（契约 §2.8 `previewReplaceRule`）
@@ -29,5 +33,11 @@ final class RustReplaceRuleService implements ReplaceRuleService {
   /// 错误文本（不上抛 FFI）；非法输入（JSON 解析失败）MAY Err。
   @override
   Future<String> previewReplaceRule(String ruleJson, String sampleContent) =>
-      bridge.replaceRulePreview(ruleJson: ruleJson, sample: sampleContent);
+      rustFuture(
+        () => bridge.replaceRulePreview(
+          ruleJson: ruleJson,
+          sample: sampleContent,
+        ),
+        operation: 'replaceRulePreview',
+      );
 }

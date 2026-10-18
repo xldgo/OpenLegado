@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../routes.dart';
+import '../app/routing/route_names.dart';
 import '../utils/legado_deep_link.dart';
 import '../utils/video_play_utils.dart';
 import 'deep_link_service.dart';

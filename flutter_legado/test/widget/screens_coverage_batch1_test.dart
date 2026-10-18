@@ -8,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
@@ -504,7 +505,7 @@ void main() {
         pushed.clear();
         final observer = _PushedRouteObserver(pushed);
         // 分流只验证路由；四种目标页统一使用桩页，真实页面与隐私门禁另有专项回归。
-        final routes = Map<String, WidgetBuilder>.from(AppRoutes.routes)
+        final routes = Map<String, WidgetBuilder>.from(AppRouter().routes)
           ..remove('/');
         routes[AppRoutes.reader] = (_) =>
             const Scaffold(key: Key('reader-stub'), body: Text('文本阅读页'));
@@ -687,7 +688,7 @@ void main() {
       Widget wrapWithRoutes(Widget child) {
         pushed.clear();
         final observer = _PushedRouteObserver(pushed);
-        final routes = Map<String, WidgetBuilder>.from(AppRoutes.routes)
+        final routes = Map<String, WidgetBuilder>.from(AppRouter().routes)
           ..remove('/');
         routes[AppRoutes.reader] = (_) =>
             const Scaffold(key: Key('reader-stub'), body: Text('文本阅读页'));

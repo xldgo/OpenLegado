@@ -1,3 +1,4 @@
+import '../../utils/error_message.dart';
 export 'source_state.dart';
 import '../../providers/replace_rule_repository_provider.dart';
 import '../../domain/contracts/replace_rule_service.dart';
@@ -8,7 +9,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../data/services/book_source_export_service.dart';
 import '../../app/bootstrap/source_import_factory.dart';
@@ -59,7 +59,7 @@ class SourceNotifier extends Notifier<SourceState> {
       }
       state = state.copyWith(sources: sources, loading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -76,7 +76,7 @@ class SourceNotifier extends Notifier<SourceState> {
       newSources[index] = updated;
       state = state.copyWith(sources: newSources);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -94,7 +94,7 @@ class SourceNotifier extends Notifier<SourceState> {
         batchMode: selected.isNotEmpty,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -117,7 +117,7 @@ class SourceNotifier extends Notifier<SourceState> {
         state = state.copyWith(sources: newSources);
       }
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
       rethrow;
     }
   }
@@ -151,7 +151,7 @@ class SourceNotifier extends Notifier<SourceState> {
           .getBookSources();
       state = state.copyWith(sources: sources, loading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -207,7 +207,7 @@ class SourceNotifier extends Notifier<SourceState> {
       );
       return result;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
       return ImportResult(
         total: 0,
         success: 0,
@@ -232,7 +232,7 @@ class SourceNotifier extends Notifier<SourceState> {
       );
       return result;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
       return ImportResult(
         total: 0,
         success: 0,
@@ -257,7 +257,7 @@ class SourceNotifier extends Notifier<SourceState> {
       );
       return result;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
       return ImportResult(
         total: 0,
         success: 0,
@@ -340,7 +340,7 @@ class SourceNotifier extends Notifier<SourceState> {
     } catch (e) {
       // 保存中途失败时重新读取已落库的顺序，避免界面假装全部保存成功。
       await loadSources();
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
       return false;
     }
   }
@@ -433,7 +433,7 @@ class SourceNotifier extends Notifier<SourceState> {
       newSources[index] = updated;
       state = state.copyWith(sources: newSources);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -460,7 +460,7 @@ class SourceNotifier extends Notifier<SourceState> {
         loading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -487,7 +487,7 @@ class SourceNotifier extends Notifier<SourceState> {
         loading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -508,7 +508,7 @@ class SourceNotifier extends Notifier<SourceState> {
         loading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -536,7 +536,7 @@ class SourceNotifier extends Notifier<SourceState> {
         loading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -593,7 +593,7 @@ class SourceNotifier extends Notifier<SourceState> {
         loading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -641,7 +641,7 @@ class SourceNotifier extends Notifier<SourceState> {
         loading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -677,7 +677,7 @@ class SourceNotifier extends Notifier<SourceState> {
       }
       state = state.copyWith(sources: newSources);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -703,12 +703,6 @@ class SourceNotifier extends Notifier<SourceState> {
   /// 清除搜索关键词
   void clearFilter() {
     state = state.copyWith(filterKeyword: '');
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

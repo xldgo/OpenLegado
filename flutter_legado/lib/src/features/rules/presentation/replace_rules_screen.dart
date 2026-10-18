@@ -21,7 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../models/models.dart';
 import '../application/replace_rules/replace_rule_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/help/help_assets.dart';
 import '../../../widgets/help/show_help.dart';
 import '../../../widgets/replace_rule_group_manage_dialog.dart';

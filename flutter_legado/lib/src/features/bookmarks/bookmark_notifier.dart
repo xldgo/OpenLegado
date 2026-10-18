@@ -1,6 +1,7 @@
+import '../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import 'bookmark_repository_provider.dart';
 import 'bookmark_state.dart';
@@ -27,7 +28,7 @@ class BookmarkNotifier extends Notifier<BookmarkState> {
       final bookmarks = await repository.getAllBookmarks();
       state = state.copyWith(bookmarks: bookmarks, isLoading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
     }
   }
 
@@ -43,7 +44,7 @@ class BookmarkNotifier extends Notifier<BookmarkState> {
       );
       state = state.copyWith(bookmarks: bookmarks, isLoading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
     }
   }
 
@@ -108,14 +109,8 @@ class BookmarkNotifier extends Notifier<BookmarkState> {
       final bookmarks = await repository.searchBookmarks(keyword);
       state = state.copyWith(bookmarks: bookmarks, isLoading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
     }
-  }
-
-  /// 统一错误映射（对齐原实现：BridgeError 取 message，其余 toString）
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

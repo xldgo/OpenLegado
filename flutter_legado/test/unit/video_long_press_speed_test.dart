@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/video/application/video_play_settings.dart';
 // [V-B4] 长按倍速（对齐原版 VideoPlayer.kt / VideoPlay.kt）
 //
 // 原版依据（app/src/main/java/io/legado/app/help/gsyVideo/VideoPlayer.kt）：

@@ -15,8 +15,9 @@ import 'src/providers/app_locale_notifier.dart';
 import 'src/providers/theme/app_theme_preferences_provider.dart';
 import 'src/providers/theme/theme_colors_notifier.dart';
 import 'src/providers/theme/theme_notifier.dart';
-import 'src/routes.dart';
-import 'src/features/video/presentation/video_screen.dart';
+import 'src/app/routing/route_names.dart';
+import 'src/app/routing/route_arguments.dart';
+import 'src/app/routing/app_router.dart';
 import 'src/services/auto_task_scheduler.dart';
 import 'src/services/deep_link_service.dart';
 import 'src/features/audio/application/audio_notifier.dart';
@@ -209,6 +210,8 @@ class TopRouteWatcher extends NavigatorObserver {
 
 class _LegadoAppState extends ConsumerState<LegadoApp>
     with WidgetsBindingObserver {
+  final _router = AppRouter();
+
   /// 栈顶路由观察器（注册进 `MaterialApp(navigatorObservers:)`，见
   /// [build]），两个只读消费者：
   /// - [P2-13b] 崩溃弹窗调度（[scheduleCrashLogDialog]）；
@@ -442,8 +445,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             );
           },
           initialRoute: widget.initialRoute,
-          // 命名路由统一由 AppRoutes 构建；普通页面使用平台默认转场。
-          onGenerateRoute: AppRoutes.generateRoute,
+          // 命名路由统一由 AppRouter 构建；普通页面使用平台默认转场。
+          onGenerateRoute: _router.generateRoute,
         );
       },
     );

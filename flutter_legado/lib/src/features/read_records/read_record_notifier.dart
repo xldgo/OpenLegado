@@ -1,10 +1,10 @@
+import '../../utils/error_message.dart';
 import '../bookshelf/bookshelf_repositories.dart';
 
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../domain/contracts/read_record_settings_repository.dart';
 import '../../providers/read_record_settings_provider.dart';
@@ -89,7 +89,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _mapError(e));
+      state = state.copyWith(isLoading: false, error: errorMessage(e));
     }
   }
 
@@ -122,7 +122,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
       await ref.read(readRecordRepositoryProvider).deleteReadRecord(bookName);
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -132,7 +132,7 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
       await ref.read(readRecordRepositoryProvider).clearReadRecords();
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -189,11 +189,6 @@ class ReadRecordNotifier extends Notifier<ReadRecordState> {
         list.sort((a, b) => a.bookName.compareTo(b.bookName));
     }
     return list;
-  }
-
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

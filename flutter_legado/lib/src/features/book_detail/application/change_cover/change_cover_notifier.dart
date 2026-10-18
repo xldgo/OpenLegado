@@ -1,6 +1,7 @@
+import '../../../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../../bridge/ffi.dart';
 import '../../../../providers/cover_provider.dart';
 import 'change_cover_state.dart';
 
@@ -30,14 +31,8 @@ class ChangeCoverNotifier extends Notifier<ChangeCoverState> {
           .searchCover(keyword);
       state = state.copyWith(candidates: candidates, isSearching: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isSearching: false);
+      state = state.copyWith(error: errorMessage(e), isSearching: false);
     }
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

@@ -20,7 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../../../providers/sync/sync_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../services/export_service.dart';
 import '../../../utils/book_open_utils.dart';
 import '../../../widgets/export_dialog.dart';

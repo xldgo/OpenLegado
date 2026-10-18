@@ -7,7 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/book_sources/presentation/change_source_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -130,7 +131,7 @@ void main() {
                 builder: (_) => const Text('HOME_PAGE'),
               );
             }
-            return AppRoutes.generateRoute(settings);
+            return AppRouter().generateRoute(settings);
           },
         ),
       ),
@@ -187,7 +188,7 @@ void main() {
   group('ChangeSourceScreen', () {
     // [A2 形态对齐] 路由承载弹层：换源路由须为非不透明路由（底部弹层）
     test('generateRoute 换源路由为非不透明底部弹层路由', () {
-      final route = AppRoutes.generateRoute(
+      final route = AppRouter().generateRoute(
         const RouteSettings(name: AppRoutes.changeSource),
       );
       // 非不透明（opaque: false）→ 前页保持可见，由屏障压暗
@@ -203,7 +204,7 @@ void main() {
     });
 
     test('generateRoute 其余路由仍为普通整页路由', () {
-      final route = AppRoutes.generateRoute(
+      final route = AppRouter().generateRoute(
         const RouteSettings(name: AppRoutes.bookInfo),
       ) as PageRoute;
       expect(route.opaque, isTrue);

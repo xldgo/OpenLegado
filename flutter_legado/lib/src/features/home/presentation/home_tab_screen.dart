@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../models/models.dart';
 import '../../bookshelf/bookshelf.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../read_records/read_records.dart';
 import '../../read_records/read_record_overview_calculator.dart';
 import '../../../utils/book_open_utils.dart';

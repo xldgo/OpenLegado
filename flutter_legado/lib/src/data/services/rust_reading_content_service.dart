@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/reading_content_service.dart';
 
@@ -5,27 +6,44 @@ import '../../domain/contracts/reading_content_service.dart';
 class RustReadingContentService implements ReadingContentService {
   const RustReadingContentService();
   @override
-  Future<void> setChineseConvertType(int type) =>
-      bridge.readerSetChineseConvert(convertType: type);
+  Future<void> setChineseConvertType(int type) => rustFuture(
+    () => bridge.readerSetChineseConvert(convertType: type),
+    operation: 'readerSetChineseConvert',
+  );
   @override
-  Future<int> getChineseConvertType() => bridge.readerGetChineseConvert();
+  Future<int> getChineseConvertType() => rustFuture(
+    () => bridge.readerGetChineseConvert(),
+    operation: 'readerGetChineseConvert',
+  );
   @override
   Future<void> toggleSameTitleRemoved(
     String bookUrl,
     int chapterIndex,
     bool enable,
-  ) => bridge.readerToggleSameTitleRemoved(
-    bookUrl: bookUrl,
-    chapterIndex: chapterIndex,
-    enable: enable,
+  ) => rustFuture(
+    () => bridge.readerToggleSameTitleRemoved(
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
+      enable: enable,
+    ),
+    operation: 'readerToggleSameTitleRemoved',
   );
   @override
-  Future<bool> getSameTitleRemoved(String bookUrl, int chapterIndex) => bridge
-      .readerGetSameTitleRemoved(bookUrl: bookUrl, chapterIndex: chapterIndex);
+  Future<bool> getSameTitleRemoved(String bookUrl, int chapterIndex) =>
+      rustFuture(
+        () => bridge.readerGetSameTitleRemoved(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+        ),
+        operation: 'readerGetSameTitleRemoved',
+      );
   @override
   Future<bool> canRemoveSameTitle(String chapterTitle, String rawContent) =>
-      bridge.readerCanRemoveSameTitle(
-        chapterTitle: chapterTitle,
-        rawContent: rawContent,
+      rustFuture(
+        () => bridge.readerCanRemoveSameTitle(
+          chapterTitle: chapterTitle,
+          rawContent: rawContent,
+        ),
+        operation: 'readerCanRemoveSameTitle',
       );
 }

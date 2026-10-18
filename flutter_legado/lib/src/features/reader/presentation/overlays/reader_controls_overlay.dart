@@ -7,7 +7,7 @@ import '../../../../l10n/app_localization.dart';
 import '../../../audio/application/audio_notifier.dart';
 import '../../../audio/application/read_aloud_capsule.dart';
 import '../../application/reader_state.dart';
-import '../../../../routes.dart';
+import '../../../../app/routing/route_names.dart';
 import '../../../../widgets/reader/read_aloud_bar.dart';
 import 'reader_menu_panel.dart';
 import '../../../../widgets/reader/reader_menu_theme.dart';

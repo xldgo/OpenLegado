@@ -45,7 +45,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_menu.dart';
 import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 

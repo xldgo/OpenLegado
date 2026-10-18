@@ -20,7 +20,7 @@ import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
 import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 import 'package:flutter_legado/src/features/read_aloud/presentation/read_aloud_settings_screen.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 
 import '../mocks/mocks.dart';
 

@@ -4,8 +4,8 @@ library;
 @Timeout(Duration(minutes: 3))
 import 'dart:io';
 
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
+import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 import 'package:flutter_legado/src/bridge/transfer_dto.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/models/models.dart';
@@ -92,7 +92,11 @@ void main() {
     );
     await expectLater(
       repository.updateBookmark(const Bookmark(id: -1, content: '不存在')),
-      throwsA(anything),
+      throwsA(
+        isA<AppException>()
+            .having((error) => error.cause, '桥接原因', isA<BridgeError>())
+            .having((error) => error.message, '目标 ID', contains('-1')),
+      ),
     );
     expect(await repository.getAllBookmarks(), before);
   });

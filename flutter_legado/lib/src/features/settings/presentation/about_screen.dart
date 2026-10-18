@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../services/app_update_service.dart';
 import '../../../services/crash_log_service.dart';
 import '../../../widgets/settings_widgets.dart';

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi.dart' as bridge;
 import '../../domain/contracts/privacy_credential_repository.dart';
 
@@ -5,11 +6,21 @@ import '../../domain/contracts/privacy_credential_repository.dart';
 class RustPrivacyCredentialRepository implements PrivacyCredentialRepository {
   const RustPrivacyCredentialRepository();
   @override
-  Future<bool> hasPassword() => bridge.privacyHasPassword();
+  Future<bool> hasPassword() => rustFuture(
+    () => bridge.privacyHasPassword(),
+    operation: 'privacyHasPassword',
+  );
   @override
-  Future<bool> verify(String password) =>
-      bridge.privacyVerifyPassword(password: password);
+  Future<bool> verify(String password) => rustFuture(
+    () => bridge.privacyVerifyPassword(password: password),
+    operation: 'privacyVerifyPassword',
+  );
   @override
-  Future<bool> change(String currentPassword, String password) => bridge
-      .privacySetPassword(currentPassword: currentPassword, password: password);
+  Future<bool> change(String currentPassword, String password) => rustFuture(
+    () => bridge.privacySetPassword(
+      currentPassword: currentPassword,
+      password: password,
+    ),
+    operation: 'privacySetPassword',
+  );
 }

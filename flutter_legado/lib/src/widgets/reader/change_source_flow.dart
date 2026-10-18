@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import '../../features/reader/application/reader_notifier.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 
 // [SB-HUNT | 2026-09-25] 换源流程统一入口（阅读器两个换源入口共用）：
 // 菜单面板 _changeSourceFlow / 顶栏 _changeBookSource 原为两份同形拷贝，
@@ -39,7 +39,7 @@ import '../../routes.dart';
 //
 // [P2-9 fix | 2026-09-24] 生产 /change_source 路由是
 // _ChangeSourceSheetRoute（PopupRoute<dynamic>，见
-// AppRoutes.generateRoute）：类型化 pushNamed<String> 会在运行期把
+// AppRouter.generateRoute）：类型化 pushNamed<String> 会在运行期把
 // 生成的路由强转 Route<String?> 抛 TypeError（真机崩溃）。对齐
 // 详情页 Task#24 既有修法（book_info_screen_builders
 // ._showChangeSourceDialog）：无类型 pushNamed + result is String 判定。

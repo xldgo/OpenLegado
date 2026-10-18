@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/source_switch_service.dart';
 import '../../domain/models/source_switch_batch.dart';
@@ -31,11 +32,14 @@ final class RustSourceSwitchService implements SourceSwitchService {
     bool loadWordCount = false,
     bool forceRefresh = false,
   }) async {
-    final result = await bridge.sourceSwitchSearch(
-      bookName: bookName,
-      author: author,
-      sourceUrls: sourceUrls ?? [],
-      options: _options(loadInfo, loadToc, loadWordCount, forceRefresh),
+    final result = await rustFuture(
+      () => bridge.sourceSwitchSearch(
+        bookName: bookName,
+        author: author,
+        sourceUrls: sourceUrls ?? [],
+        options: _options(loadInfo, loadToc, loadWordCount, forceRefresh),
+      ),
+      operation: 'sourceSwitchSearch',
     );
     return result.matches.map(sourceMatchFromDto).toList();
   }
@@ -50,12 +54,15 @@ final class RustSourceSwitchService implements SourceSwitchService {
     bool loadWordCount = false,
     bool forceRefresh = false,
   }) => managedRustStream(
-    (request) => bridge.sourceSwitchSearchStream(
-      bookName: bookName,
-      author: author,
-      sourceUrls: sourceUrls ?? [],
-      options: _options(loadInfo, loadToc, loadWordCount, forceRefresh),
-      request: request,
+    (request) => rustStream(
+      () => bridge.sourceSwitchSearchStream(
+        bookName: bookName,
+        author: author,
+        sourceUrls: sourceUrls ?? [],
+        options: _options(loadInfo, loadToc, loadWordCount, forceRefresh),
+        request: request,
+      ),
+      operation: 'sourceSwitchSearchStream',
     ),
   ).map(switchBatchFromDto);
   Book _book(dto.BookDto value, String bookUrl) {
@@ -72,10 +79,13 @@ final class RustSourceSwitchService implements SourceSwitchService {
     String newSourceUrl,
     String newBookUrl,
   ) async => _book(
-    await bridge.sourceSwitchApply(
-      bookUrl: bookUrl,
-      newSourceUrl: newSourceUrl,
-      newBookUrl: newBookUrl,
+    await rustFuture(
+      () => bridge.sourceSwitchApply(
+        bookUrl: bookUrl,
+        newSourceUrl: newSourceUrl,
+        newBookUrl: newBookUrl,
+      ),
+      operation: 'sourceSwitchApply',
     ),
     bookUrl,
   );
@@ -85,19 +95,29 @@ final class RustSourceSwitchService implements SourceSwitchService {
     String newSourceUrl,
     String newBookUrl,
   ) async => _book(
-    await bridge.sourceSwitchApplyPrefetch(
-      bookUrl: bookUrl,
-      newSourceUrl: newSourceUrl,
-      newBookUrl: newBookUrl,
+    await rustFuture(
+      () => bridge.sourceSwitchApplyPrefetch(
+        bookUrl: bookUrl,
+        newSourceUrl: newSourceUrl,
+        newBookUrl: newBookUrl,
+      ),
+      operation: 'sourceSwitchApplyPrefetch',
     ),
     bookUrl,
   );
   @override
-  Future<void> cancelSwitchSourceApply() => bridge.sourceSwitchApplyCancel();
+  Future<void> cancelSwitchSourceApply() => rustFuture(
+    () => bridge.sourceSwitchApplyCancel(),
+    operation: 'sourceSwitchApplyCancel',
+  );
   @override
-  Future<void> updateSearchBookScore(String bookUrl, int score) =>
-      bridge.updateSearchBookScore(bookUrl: bookUrl, score: score);
+  Future<void> updateSearchBookScore(String bookUrl, int score) => rustFuture(
+    () => bridge.updateSearchBookScore(bookUrl: bookUrl, score: score),
+    operation: 'updateSearchBookScore',
+  );
   @override
-  Future<void> deleteSearchBook(String bookUrl) =>
-      bridge.deleteSearchBook(bookUrl: bookUrl);
+  Future<void> deleteSearchBook(String bookUrl) => rustFuture(
+    () => bridge.deleteSearchBook(bookUrl: bookUrl),
+    operation: 'deleteSearchBook',
+  );
 }

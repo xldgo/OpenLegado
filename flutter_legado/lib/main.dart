@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
-import 'src/routes.dart';
+import 'src/app/routing/route_names.dart';
 import 'src/app/bootstrap/application_dependencies.dart';
 import 'src/app/bootstrap/application_scope.dart';
 import 'src/app/bootstrap/application_bootstrap.dart';

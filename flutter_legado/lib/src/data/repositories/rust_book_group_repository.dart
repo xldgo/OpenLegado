@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/book_group_repository.dart';
 import '../../models/misc.dart';
@@ -12,17 +13,23 @@ final class RustBookGroupRepository implements BookGroupRepository {
   /// 获取所有书籍分组
   @override
   Future<List<BookGroup>> getBookGroups() async {
-    return (await bridge.bookGroupList()).map(bookGroupFromDto).toList();
+    return (await rustFuture(
+      () => bridge.bookGroupList(),
+      operation: 'bookGroupList',
+    )).map(bookGroupFromDto).toList();
   }
 
   /// 添加书籍分组
   @override
   Future<BookGroup> addBookGroup(BookGroup group) async {
-    final id = await bridge.bookGroupAdd(
-      groupName: group.groupName,
-      cover: group.cover ?? '',
-      order: group.order,
-      isPrivate: group.isPrivate,
+    final id = await rustFuture(
+      () => bridge.bookGroupAdd(
+        groupName: group.groupName,
+        cover: group.cover ?? '',
+        order: group.order,
+        isPrivate: group.isPrivate,
+      ),
+      operation: 'bookGroupAdd',
     );
     return group.copyWith(groupId: id.toInt());
   }
@@ -30,23 +37,31 @@ final class RustBookGroupRepository implements BookGroupRepository {
   /// 更新书籍分组
   @override
   Future<void> updateBookGroup(BookGroup group) async {
-    await bridge.bookGroupUpdate(
-      id: group.groupId,
-      groupName: group.groupName,
-      cover: group.cover ?? '',
-      order: group.order,
-      isPrivate: group.isPrivate,
+    await rustFuture(
+      () => bridge.bookGroupUpdate(
+        id: group.groupId,
+        groupName: group.groupName,
+        cover: group.cover ?? '',
+        order: group.order,
+        isPrivate: group.isPrivate,
+      ),
+      operation: 'bookGroupUpdate',
     );
   }
 
   /// 删除书籍分组
   @override
   Future<void> deleteBookGroup(int groupId) async {
-    await bridge.bookGroupDelete(id: groupId);
+    await rustFuture(
+      () => bridge.bookGroupDelete(id: groupId),
+      operation: 'bookGroupDelete',
+    );
   }
 
   /// 设置分组显示状态（F3-20）
   @override
-  Future<bool> bookGroupSetShow(int groupId, bool show) =>
-      bridge.bookGroupSetShow(id: groupId, show_: show);
+  Future<bool> bookGroupSetShow(int groupId, bool show) => rustFuture(
+    () => bridge.bookGroupSetShow(id: groupId, show_: show),
+    operation: 'bookGroupSetShow',
+  );
 }

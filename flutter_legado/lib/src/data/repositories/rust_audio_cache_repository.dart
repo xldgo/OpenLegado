@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -18,11 +20,14 @@ final class RustAudioCacheRepository implements AudioCacheRepository {
     required String chapterTitle,
   }) async {
     try {
-      return await bridge.audioCacheQuery(
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
-        chapterUrl: chapterUrl,
-        chapterTitle: chapterTitle,
+      return await rustFuture(
+        () => bridge.audioCacheQuery(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+          chapterUrl: chapterUrl,
+          chapterTitle: chapterTitle,
+        ),
+        operation: 'audioCacheQuery',
       );
     } catch (e) {
       debugPrint('[RustApi] audioCacheQuery 失败（降级未缓存）：$e');
@@ -36,7 +41,10 @@ final class RustAudioCacheRepository implements AudioCacheRepository {
   @override
   Future<List<int>> audioCacheList({required String bookUrl}) async {
     try {
-      return await bridge.audioCacheList(bookUrl: bookUrl);
+      return await rustFuture(
+        () => bridge.audioCacheList(bookUrl: bookUrl),
+        operation: 'audioCacheList',
+      );
     } catch (e) {
       debugPrint('[RustApi] audioCacheList 失败（降级空列表）：$e');
       return const <int>[];
@@ -54,11 +62,14 @@ final class RustAudioCacheRepository implements AudioCacheRepository {
     required String chapterTitle,
   }) async {
     try {
-      return await bridge.audioCacheClearChapter(
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
-        chapterUrl: chapterUrl,
-        chapterTitle: chapterTitle,
+      return await rustFuture(
+        () => bridge.audioCacheClearChapter(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+          chapterUrl: chapterUrl,
+          chapterTitle: chapterTitle,
+        ),
+        operation: 'audioCacheClearChapter',
       );
     } catch (e) {
       debugPrint('[RustApi] audioCacheClearChapter 失败（降级 0）：$e');
@@ -71,7 +82,10 @@ final class RustAudioCacheRepository implements AudioCacheRepository {
   @override
   Future<int> audioCacheClearBook({required String bookUrl}) async {
     try {
-      return await bridge.audioCacheClearBook(bookUrl: bookUrl);
+      return await rustFuture(
+        () => bridge.audioCacheClearBook(bookUrl: bookUrl),
+        operation: 'audioCacheClearBook',
+      );
     } catch (e) {
       debugPrint('[RustApi] audioCacheClearBook 失败（降级 0）：$e');
       return 0;

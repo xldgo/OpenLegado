@@ -1,158 +1,85 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'features/reader/application/reader_notifier.dart';
-import 'features/privacy/privacy_screen.dart';
-import 'features/privacy/privacy_gate.dart';
+import '../../features/reader/application/reader_notifier.dart';
+import '../../features/privacy/privacy_screen.dart';
+import '../../features/privacy/privacy_gate.dart';
 
-import 'widgets/reader/read_aloud_player_transition.dart';
+import '../../widgets/reader/read_aloud_player_transition.dart';
 
-import 'models/models.dart';
-import 'features/settings/presentation/about_screen.dart';
-import 'features/logs/presentation/app_log_screen.dart';
-import 'features/browser/presentation/browser_screen.dart';
-import 'features/rules/presentation/dict_rule_screen.dart';
-import 'features/dictionary/presentation/dict_screen.dart';
-import 'features/audio/presentation/audio_screen.dart';
-import 'features/automation/presentation/auto_task_screen.dart';
-import 'features/bookshelf/bookshelf.dart';
-import 'features/book_detail/presentation/book_info_screen.dart';
-import 'features/cache/presentation/cache_download_screen.dart';
-import 'features/cache/presentation/cache_settings_screen.dart';
-import 'features/cache/presentation/offline_cache_screen.dart';
-import 'features/book_detail/presentation/edit_book_info_screen.dart';
-import 'features/bookmarks/bookmarks.dart';
-import 'features/book_detail/presentation/change_cover_screen.dart';
-import 'features/book_sources/presentation/change_source_screen.dart';
-import 'features/explore/presentation/explore_show_screen.dart';
-import 'features/files/presentation/file_manage_screen.dart';
-import 'features/reader/presentation/font_screen.dart';
-import 'features/rules/presentation/highlight_rules_screen.dart';
-import 'features/settings/presentation/other_settings_screen.dart';
-import 'features/home/presentation/home_screen.dart';
-import 'features/imports/presentation/import_screen.dart';
-import 'features/tools/presentation/qrcode_screen.dart';
-import 'features/search/search.dart';
-import 'features/read_records/read_records.dart';
-import 'features/reader/presentation/reader_screen.dart';
-import 'features/reader_comic/presentation/reader_comic_screen.dart';
-import 'features/remote_books/presentation/remote_book_screen.dart';
-import 'features/rules/presentation/replace_rules_screen.dart';
-import 'features/rules/presentation/replace_rule_edit_screen.dart';
-import 'features/rss/presentation/rss_favorites_screen.dart';
-import 'features/rss/presentation/rss_source_debug_screen.dart';
-import 'features/rss/presentation/rss_source_manage_screen.dart';
-import 'features/rss/presentation/rss_screen.dart';
-import 'features/rules/presentation/rule_sub_screen.dart';
-import 'features/settings/presentation/settings_screen.dart';
-import 'features/book_sources/book_sources.dart';
-import 'features/rss/presentation/rss_source_edit_screen.dart';
-import 'features/book_sources/presentation/source_debug_screen.dart';
-import 'features/read_aloud/read_aloud.dart';
-import 'features/read_aloud/presentation/read_aloud_settings_screen.dart';
-import 'features/read_aloud/presentation/read_aloud_player_screen.dart';
-import 'features/appearance/appearance.dart';
-import 'features/appearance/presentation/bottom_bar_skin_screen.dart';
-import 'features/toc/presentation/toc_screen.dart';
-import 'features/rules/presentation/txt_toc_rules_screen.dart';
-import 'features/video/presentation/video_screen.dart';
-import 'features/settings/presentation/webdav_settings_screen.dart';
-import 'features/onboarding/presentation/welcome_config_screen.dart';
-import 'features/onboarding/presentation/welcome_screen.dart';
+import '../../models/models.dart';
+import '../../features/settings/presentation/about_screen.dart';
+import '../../features/logs/presentation/app_log_screen.dart';
+import '../../features/browser/presentation/browser_screen.dart';
+import '../../features/rules/presentation/dict_rule_screen.dart';
+import '../../features/dictionary/presentation/dict_screen.dart';
+import '../../features/audio/presentation/audio_screen.dart';
+import '../../features/automation/presentation/auto_task_screen.dart';
+import '../../features/bookshelf/bookshelf.dart';
+import '../../features/book_detail/presentation/book_info_screen.dart';
+import '../../features/cache/presentation/cache_download_screen.dart';
+import '../../features/cache/presentation/cache_settings_screen.dart';
+import '../../features/cache/presentation/offline_cache_screen.dart';
+import '../../features/book_detail/presentation/edit_book_info_screen.dart';
+import '../../features/bookmarks/bookmarks.dart';
+import '../../features/book_detail/presentation/change_cover_screen.dart';
+import '../../features/book_sources/presentation/change_source_screen.dart';
+import '../../features/explore/presentation/explore_show_screen.dart';
+import '../../features/files/presentation/file_manage_screen.dart';
+import '../../features/reader/presentation/font_screen.dart';
+import '../../features/rules/presentation/highlight_rules_screen.dart';
+import '../../features/settings/presentation/other_settings_screen.dart';
+import '../../features/home/presentation/home_screen.dart';
+import '../../features/imports/presentation/import_screen.dart';
+import '../../features/tools/presentation/qrcode_screen.dart';
+import '../../features/search/search.dart';
+import '../../features/read_records/read_records.dart';
+import '../../features/reader/presentation/reader_screen.dart';
+import '../../features/reader_comic/presentation/reader_comic_screen.dart';
+import '../../features/remote_books/presentation/remote_book_screen.dart';
+import '../../features/rules/presentation/replace_rules_screen.dart';
+import '../../features/rules/presentation/replace_rule_edit_screen.dart';
+import '../../features/rss/presentation/rss_favorites_screen.dart';
+import '../../features/rss/presentation/rss_source_debug_screen.dart';
+import '../../features/rss/presentation/rss_source_manage_screen.dart';
+import '../../features/rss/presentation/rss_screen.dart';
+import '../../features/rules/presentation/rule_sub_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/book_sources/book_sources.dart';
+import '../../features/rss/presentation/rss_source_edit_screen.dart';
+import '../../features/book_sources/presentation/source_debug_screen.dart';
+import '../../features/read_aloud/read_aloud.dart';
+import '../../features/read_aloud/presentation/read_aloud_settings_screen.dart';
+import '../../features/read_aloud/presentation/read_aloud_player_screen.dart';
+import '../../features/appearance/appearance.dart';
+import '../../features/appearance/presentation/bottom_bar_skin_screen.dart';
+import '../../features/toc/presentation/toc_screen.dart';
+import '../../features/rules/presentation/txt_toc_rules_screen.dart';
+import '../../features/video/presentation/video_screen.dart';
+import '../../features/settings/presentation/webdav_settings_screen.dart';
+import '../../features/onboarding/presentation/welcome_config_screen.dart';
+import '../../features/onboarding/presentation/welcome_screen.dart';
 
-/// 书籍信息页路由参数：Book 对象 + 是否进入即自动开读
-///
-/// [A4 对齐 B | 2026-09-21 裁决] 书架未读书单击 = 详情页 + 立即自动开读
-///（等价重构版 `BookInfoPage(openReaderImmediately: true)`）。长按封面/书名
-/// 及其余入口仍直接传 [Book]（走既有分支，行为不变）。
-class BookInfoArgs {
-  /// 书籍对象
-  final Book book;
+import 'route_names.dart';
+import 'route_arguments.dart';
 
-  /// 目录就绪后自动跳转阅读器（默认 false）
-  final bool openReaderImmediately;
+/// 页面装配由应用入口拥有；每个实例可提供独立路由表。— Codex + UI
+class AppRouter {
+  AppRouter({Map<String, WidgetBuilder>? routes})
+    : routes = Map.unmodifiable(routes ?? _defaultRoutes);
 
-  const BookInfoArgs({required this.book, this.openReaderImmediately = false});
-}
+  final Map<String, WidgetBuilder> routes;
 
-/// 路由配置
-class AppRoutes {
-  static const home = '/';
-  static const reader = '/reader';
-  static const readerComic = '/reader-comic';
-  static const search = '/search';
-  static const sources = '/sources';
-  static const sourceEdit = '/sources/edit';
-  static const exploreShow = '/explore_show';
-  static const settings = '/settings';
-  static const privacy = '/privacy';
-  static const otherSettings = '/other_settings';
-  // [UI_SYNC_REFACTOR S6 | 2026-09-08] 设置主页（集中化分组入口）— Qoder
-  static const cacheSettings = '/cache_settings';
-  static const cacheDownloads = '/cache_downloads';
-  // [UI-fix v2.0.17 | 2026-08-11] 离线缓存页（对齐原版 CacheActivity 书籍列表）— Reasonix
-  static const offlineCache = '/offline_cache';
-  static const rss = '/rss';
-  static const ruleSub = '/rule_sub';
-  static const audio = '/audio';
-  static const bookInfo = '/book_info';
-  static const editBookInfo = '/edit_book_info';
-  static const changeSource = '/change_source';
-  static const readingStats = '/reading_stats'; // 历史别名，重定向到阅读记录
-  static const readRecord = '/read_record';
-  static const readRecordOverview = '/read_record_overview';
-  static const bookmarks = '/bookmarks';
-  static const replaceRules = '/replace_rules';
-  // [A3 形态对齐 | full-stack-engineer + UI] 替换规则整页编辑器
-  static const replaceRuleEdit = '/replace_rule_edit';
-  static const autoTasks = '/auto_tasks';
-  static const sourceDebug = '/sources/debug';
-  static const rssSourceEdit = '/rss/edit';
-  static const readAloudConfig = '/read_aloud_config';
-  static const readAloudSettings = '/read_aloud_settings';
-  static const readAloudPlayer = '/read_aloud_player';
-  static const themeConfig = '/theme_config';
-  static const bottomBarSkin = '/bottom_bar_skin';
-  static const importBooks = '/import_books';
-  static const remoteBooks = '/remote_books';
-  static const bookGroups = '/book_groups';
-  static const bookshelfManage = '/bookshelf/manage';
-  static const searchContent = '/search_content';
-  // [UI-fix v2.0.3 | 2026-08-08] 新增独立目录页路由（对齐原版 TocActivity） — Qoder
-  static const toc = '/toc';
-  static const about = '/about';
-  static const appLog = '/app_log';
-  // discover 路由已删除（原版不存在的功能）
-  // [UI-fix v2.0.2 | 2026-08-06] 结构治理：删除 rssConfig 路由（原版无此页，订阅源管理统一走 rssSourceManage）— Qoder
-  static const rssSourceManage = '/rss/manage';
-  static const rssFavorites = '/rss/favorites';
-  static const rssSourceDebug = '/rss/source_debug';
-  static const changeCover = '/change_cover';
-  static const txtTocRules = '/txt_toc_rules';
-  static const dict = '/dict';
-  // [C2 批2 | full-stack-engineer + UI] 字典规则管理页（对齐原版 DictRuleActivity）
-  static const dictRule = '/dict_rule';
-  static const fonts = '/fonts';
-  static const highlightRules = '/highlight_rules';
-  static const fileManage = '/file_manage';
-  static const qrcode = '/qrcode';
-  static const welcome = '/welcome';
-  static const welcomeConfig = '/welcome_config';
-  static const browser = '/browser';
-  static const video = '/video';
-  static const webdavSettings = '/webdav_settings';
-  // rssArticles 和 rssArticleDetail 通过 Navigator.push 传参，不在此注册
-
-  static Map<String, WidgetBuilder> get routes => {
-    home: (_) => const HomeScreen(),
-    reader: (_) => Consumer(
+  static Map<String, WidgetBuilder> get _defaultRoutes => {
+    AppRoutes.home: (_) => const HomeScreen(),
+    AppRoutes.reader: (_) => Consumer(
       builder: (context, ref, _) => PrivacyBookGate(
         book: ref.watch(readerNotifierProvider).currentBook,
         builder: (_) => const ReaderScreen(),
       ),
     ),
-    privacy: (_) => const PrivacyScreen(),
-    readerComic: (context) {
+    AppRoutes.privacy: (_) => const PrivacyScreen(),
+    AppRoutes.readerComic: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final bookUrl = args is String
           ? args
@@ -162,7 +89,7 @@ class AppRoutes {
         builder: (_) => ReaderComicScreen(bookUrl: bookUrl),
       );
     },
-    search: (context) {
+    AppRoutes.search: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       String? initialQuery;
       List<String>? sourceUrls;
@@ -192,26 +119,26 @@ class AppRoutes {
         initialGroups: initialGroups,
       );
     },
-    sources: (_) => const SourceScreen(),
-    sourceEdit: (context) {
+    AppRoutes.sources: (_) => const SourceScreen(),
+    AppRoutes.sourceEdit: (context) {
       // 发现页编辑入口传入完整 BookSource 对象；未传入则新建
       //（此前忽略 arguments → 打开空表单，「编辑页没有书源信息」根因）
       final args = ModalRoute.of(context)?.settings.arguments;
       return SourceEditScreen(source: args is BookSource ? args : null);
     },
-    exploreShow: (context) {
+    AppRoutes.exploreShow: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final exploreArgs = args is ExploreShowArgs ? args : null;
       return ExploreShowScreen(args: exploreArgs);
     },
-    settings: (_) => const SettingsScreen(),
-    otherSettings: (_) => const OtherSettingsScreen(),
-    cacheSettings: (_) => const CacheSettingsScreen(),
-    cacheDownloads: (_) => const CacheDownloadScreen(),
-    offlineCache: (_) => const OfflineCacheScreen(),
-    rss: (_) => const RssScreen(),
-    ruleSub: (_) => const RuleSubScreen(),
-    audio: (context) {
+    AppRoutes.settings: (_) => const SettingsScreen(),
+    AppRoutes.otherSettings: (_) => const OtherSettingsScreen(),
+    AppRoutes.cacheSettings: (_) => const CacheSettingsScreen(),
+    AppRoutes.cacheDownloads: (_) => const CacheDownloadScreen(),
+    AppRoutes.offlineCache: (_) => const OfflineCacheScreen(),
+    AppRoutes.rss: (_) => const RssScreen(),
+    AppRoutes.ruleSub: (_) => const RuleSubScreen(),
+    AppRoutes.audio: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
@@ -232,7 +159,7 @@ class AppRoutes {
       }
       return const AudioScreen();
     },
-    bookInfo: (context) {
+    AppRoutes.bookInfo: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // [A4 对齐 B | 2026-09-21 裁决] BookInfoArgs：书架未读书单击
       // = 详情页 + 立即自动开读（openReaderImmediately）
@@ -259,7 +186,7 @@ class AppRoutes {
         builder: (_) => BookInfoScreen(bookUrl: bookUrl),
       );
     },
-    editBookInfo: (context) {
+    AppRoutes.editBookInfo: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 路由参数规范化：接收 Book 对象
       if (args is Book) {
@@ -268,7 +195,7 @@ class AppRoutes {
       // 缺少书籍对象时回退到首页，避免崩溃
       return const HomeScreen();
     },
-    changeSource: (context) {
+    AppRoutes.changeSource: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
@@ -285,18 +212,18 @@ class AppRoutes {
       }
       return const ChangeSourceScreen();
     },
-    readingStats: (_) => const ReadRecordScreen(),
-    readRecord: (_) => const ReadRecordScreen(),
-    readRecordOverview: (_) => const ReadRecordOverviewScreen(),
-    bookmarks: (_) => const BookmarkScreen(),
-    replaceRules: (context) {
+    AppRoutes.readingStats: (_) => const ReadRecordScreen(),
+    AppRoutes.readRecord: (_) => const ReadRecordScreen(),
+    AppRoutes.readRecordOverview: (_) => const ReadRecordOverviewScreen(),
+    AppRoutes.bookmarks: (_) => const BookmarkScreen(),
+    AppRoutes.replaceRules: (context) {
       // [UI-fix v2.0.2 | 2026-08-06] 支持 String 路由参数：阅读器长按
       // 选中文本作为新规则 pattern 预填 — Qoder
       final args = ModalRoute.of(context)?.settings.arguments;
       final pattern = args is String ? args : null;
       return ReplaceRulesScreen(initialPattern: pattern);
     },
-    replaceRuleEdit: (context) {
+    AppRoutes.replaceRuleEdit: (context) {
       // [A3 形态对齐 | full-stack-engineer + UI] 替换规则整页编辑器：
       // 路由参数 ReplaceRule（编辑既有规则）或 String（新建时
       // pattern 预填，对标原版 startIntent pattern 预填语义）
@@ -306,7 +233,7 @@ class AppRoutes {
         prefillPattern: args is String ? args : null,
       );
     },
-    autoTasks: (context) {
+    AppRoutes.autoTasks: (context) {
       // [UI-fix v2.0.3 | 2026-08-09] 支持按任务编辑/预建新建路由参数
       //（Task #39 §5.11-2）：Map<String,dynamic>
       // {'editTaskId': String} 或 {'newTask': Map<String,dynamic>}，
@@ -324,26 +251,26 @@ class AppRoutes {
       }
       return const AutoTaskScreen();
     },
-    sourceDebug: (context) {
+    AppRoutes.sourceDebug: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final sourceUrl = args is String ? args : null;
       return SourceDebugScreen(sourceUrl: sourceUrl);
     },
-    rssSourceEdit: (context) {
+    AppRoutes.rssSourceEdit: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final source = args is RssSource ? args : null;
       return RssSourceEditScreen(source: source);
     },
-    readAloudConfig: (_) => const ReadAloudConfigScreen(),
-    readAloudSettings: (_) => const ReadAloudSettingsScreen(),
-    readAloudPlayer: (_) => const ReadAloudPlayerScreen(),
-    themeConfig: (_) => const ThemeConfigScreen(),
-    bottomBarSkin: (_) => const BottomBarSkinScreen(),
-    importBooks: (_) => const ImportScreen(),
-    remoteBooks: (_) => const RemoteBookScreen(),
-    bookGroups: (_) => const BookGroupScreen(),
-    bookshelfManage: (_) => const BookshelfManageScreen(),
-    searchContent: (context) {
+    AppRoutes.readAloudConfig: (_) => const ReadAloudConfigScreen(),
+    AppRoutes.readAloudSettings: (_) => const ReadAloudSettingsScreen(),
+    AppRoutes.readAloudPlayer: (_) => const ReadAloudPlayerScreen(),
+    AppRoutes.themeConfig: (_) => const ThemeConfigScreen(),
+    AppRoutes.bottomBarSkin: (_) => const BottomBarSkinScreen(),
+    AppRoutes.importBooks: (_) => const ImportScreen(),
+    AppRoutes.remoteBooks: (_) => const RemoteBookScreen(),
+    AppRoutes.bookGroups: (_) => const BookGroupScreen(),
+    AppRoutes.bookshelfManage: (_) => const BookshelfManageScreen(),
+    AppRoutes.searchContent: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
@@ -367,10 +294,10 @@ class AppRoutes {
       }
       return const SearchContentScreen();
     },
-    about: (_) => const AboutScreen(),
+    AppRoutes.about: (_) => const AboutScreen(),
     // [UI-fix v2.0.3 | 2026-08-08] 独立目录页（对齐原版 TocActivity）：
     // 优先接收 Book 对象，兼容 Map 传参（is Map 运行时判定规范） — Qoder
-    toc: (context) {
+    AppRoutes.toc: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Book) {
         return TocScreen(book: args);
@@ -381,15 +308,15 @@ class AppRoutes {
       // 缺少书籍对象时回退到首页，避免崩溃
       return const HomeScreen();
     },
-    appLog: (_) => const AppLogScreen(),
-    rssSourceManage: (_) => const RssSourceManageScreen(),
-    rssFavorites: (_) => const RssFavoritesScreen(),
-    rssSourceDebug: (context) {
+    AppRoutes.appLog: (_) => const AppLogScreen(),
+    AppRoutes.rssSourceManage: (_) => const RssSourceManageScreen(),
+    AppRoutes.rssFavorites: (_) => const RssFavoritesScreen(),
+    AppRoutes.rssSourceDebug: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final sourceUrl = args is String ? args : null;
       return RssSourceDebugScreen(sourceUrl: sourceUrl);
     },
-    changeCover: (context) {
+    AppRoutes.changeCover: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 路由参数规范化：优先接收 Book 对象
       if (args is Book) {
@@ -405,22 +332,22 @@ class AppRoutes {
       }
       return const ChangeCoverScreen();
     },
-    txtTocRules: (_) => const TxtTocRulesScreen(),
-    dict: (_) => const DictScreen(),
+    AppRoutes.txtTocRules: (_) => const TxtTocRulesScreen(),
+    AppRoutes.dict: (_) => const DictScreen(),
     // [C2 批2 | full-stack-engineer + UI] 字典规则管理页
-    dictRule: (_) => const DictRuleScreen(),
+    AppRoutes.dictRule: (_) => const DictRuleScreen(),
     // [C3 标题字体] 标题字体入口经 arguments 传 'title'（默认 'body' 保持
     // 既有调用方兼容）— full-stack-engineer
-    fonts: (context) {
+    AppRoutes.fonts: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       return FontScreen(target: args is String ? args : 'body');
     },
-    highlightRules: (_) => const HighlightRulesScreen(),
-    fileManage: (_) => const FileManageScreen(),
-    qrcode: (_) => const QrcodeScreen(),
-    welcome: (_) => const WelcomeScreen(),
-    welcomeConfig: (_) => const WelcomeConfigScreen(),
-    browser: (context) {
+    AppRoutes.highlightRules: (_) => const HighlightRulesScreen(),
+    AppRoutes.fileManage: (_) => const FileManageScreen(),
+    AppRoutes.qrcode: (_) => const QrcodeScreen(),
+    AppRoutes.welcome: (_) => const WelcomeScreen(),
+    AppRoutes.welcomeConfig: (_) => const WelcomeConfigScreen(),
+    AppRoutes.browser: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // 平台桥接分发携带 url/html/title（Task #114）— QoderCN
       // 路由参数统一 is Map 运行时兼容判定（Map<String,dynamic> 规范）
@@ -434,7 +361,7 @@ class AppRoutes {
       final url = args is String ? args : null;
       return BrowserScreen(initialUrl: url);
     },
-    video: (context) {
+    AppRoutes.video: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       // [V-B3] 悬浮窗回全屏：原生交回已解析 URL/位置，直接续播
       if (args is VideoScreenArgs) {
@@ -468,27 +395,32 @@ class AppRoutes {
       }
       return const VideoScreen(videoUrl: '');
     },
-    webdavSettings: (_) => const WebDavSettingsScreen(),
+    AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
   };
 
-  static Route<dynamic> generateRoute(RouteSettings settings) {
-    if (settings.name == readAloudPlayer) {
+  Route<dynamic> generateRoute(RouteSettings settings) {
+    if (settings.name == AppRoutes.readAloudPlayer) {
       return ReadAloudPlayerRoute(settings: settings);
     }
     // [A2 形态对齐 | full-stack-engineer + UI] 换源页改用「底部弹层」形态
     // （对标原版 ChangeBookSourceDialog BaseDialogFragment + 参考版 kazusa
     // 底部弹层实机截图）：非不透明路由承载——半透明遮罩压住前页、面板自底部
     // 滑入；5 处调用方仍走 pushNamed 并回收新 bookUrl 路由结果，不改。
-    if (settings.name == changeSource) {
+    if (settings.name == AppRoutes.changeSource) {
       return _ChangeSourceSheetRoute(
-        builder: routes[changeSource]!,
+        builder: routes[AppRoutes.changeSource]!,
         settings: settings,
       );
     }
-    final builder = routes[settings.name] ?? (_) => const HomeScreen();
+    final builder =
+        routes[settings.name] ??
+        routes[AppRoutes.home] ??
+        (_) => const HomeScreen();
     return MaterialPageRoute<dynamic>(
       builder: (context) => PrivacyAppGate(
-        child: settings.name == bookGroups || settings.name == bookshelfManage
+        child:
+            settings.name == AppRoutes.bookGroups ||
+                settings.name == AppRoutes.bookshelfManage
             ? PrivacyVerificationGate(builder: builder)
             : Builder(builder: builder),
       ),

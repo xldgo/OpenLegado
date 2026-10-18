@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
 import '../../../models/models.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/confirm_dialog.dart';
 import '../../../widgets/help/help_assets.dart';
 import '../../../widgets/help/show_help.dart';

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/book_source_debug_service.dart';
 import '../../domain/models/book_source_debug_event.dart';
@@ -9,16 +10,22 @@ final class RustBookSourceDebugService implements BookSourceDebugService {
   @override
   Stream<BookSourceDebugEvent> debug(String sourceUrl, String key) =>
       managedRustStream(
-        (request) => bridge.debugBookSourceStream(
-          sourceUrl: sourceUrl,
-          key: key,
-          request: request,
+        (request) => rustStream(
+          () => bridge.debugBookSourceStream(
+            sourceUrl: sourceUrl,
+            key: key,
+            request: request,
+          ),
+          operation: 'debugBookSourceStream',
         ),
       ).map(
         (value) => BookSourceDebugEvent(state: value.state, message: value.msg),
       );
   @override
   Future<void> cancel() async {
-    await bridge.debugBookSourceCancel();
+    await rustFuture(
+      () => bridge.debugBookSourceCancel(),
+      operation: 'debugBookSourceCancel',
+    );
   }
 }

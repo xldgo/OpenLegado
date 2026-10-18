@@ -12,7 +12,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/features/rules/application/replace_rules/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import '../mocks/mocks.dart';
 
@@ -71,9 +71,9 @@ void main() {
       expect(readState().error, isNull);
     });
 
-    test('加载失败设置 BridgeError', () async {
+    test('加载失败设置 AppException', () async {
       when(() => mockApi.replaceRuleRepository.getReplaceRules())
-          .thenThrow(const BridgeError(message: '规则加载失败'));
+          .thenThrow(const AppException('规则加载失败'));
 
       await readNotifier().load();
 

@@ -27,7 +27,7 @@ import '../../bookshelf/bookshelf.dart';
 import '../../../providers/general_settings_provider.dart';
 import '../application/reader_notifier.dart';
 import '../../../providers/theme/system_bar_controller.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../services/system_brightness.dart';
 import '../../../services/system_bar_service.dart';
 import '../../../utils/app_route_observer.dart';

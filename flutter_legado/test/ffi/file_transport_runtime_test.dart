@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/file_dto.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/services/rust_book_archive_service.dart';
@@ -126,7 +126,7 @@ void main() {
         )
         .timeout(const Duration(seconds: 15))
         .catchError((Object error) {
-          if (error is BridgeError) fail('WebDAV请求失败：${error.message}');
+          if (error is AppException) fail('WebDAV请求失败：${error.message}');
           throw error;
         });
     expect(methods, ['PROPFIND']);

@@ -1,6 +1,7 @@
+import '../../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../bridge/ffi.dart';
 import '../../../data/defaults/dict_rule_defaults.dart';
 import '../../../models/models.dart';
 import '../../../providers/dictionary_provider.dart';
@@ -19,7 +20,7 @@ class DictNotifier extends Notifier<DictState> {
       final rules = await ref.read(dictRuleRepositoryProvider).dictRuleList();
       state = state.copyWith(rules: rules, isLoading: false);
     } catch (error) {
-      state = state.copyWith(error: _mapError(error), isLoading: false);
+      state = state.copyWith(error: errorMessage(error), isLoading: false);
     }
   }
 
@@ -45,7 +46,7 @@ class DictNotifier extends Notifier<DictState> {
       await loadRules();
       return state.error == null;
     } catch (error) {
-      state = state.copyWith(error: _mapError(error));
+      state = state.copyWith(error: errorMessage(error));
       return false;
     }
   }
@@ -62,7 +63,7 @@ class DictNotifier extends Notifier<DictState> {
       await loadRules();
       return state.error == null;
     } catch (error) {
-      state = state.copyWith(error: _mapError(error));
+      state = state.copyWith(error: errorMessage(error));
       return false;
     }
   }
@@ -80,12 +81,9 @@ class DictNotifier extends Notifier<DictState> {
       final result = await ref.read(dictionaryServiceProvider).dictLookup(key);
       state = state.copyWith(result: result, isLoading: false);
     } catch (error) {
-      state = state.copyWith(error: _mapError(error), isLoading: false);
+      state = state.copyWith(error: errorMessage(error), isLoading: false);
     }
   }
-
-  String _mapError(Object error) =>
-      error is BridgeError ? error.message : error.toString();
 }
 
 final dictNotifierProvider = NotifierProvider<DictNotifier, DictState>(

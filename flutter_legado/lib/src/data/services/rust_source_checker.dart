@@ -1,5 +1,6 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
-import '../../bridge/ffi.dart' show BridgeError;
+import '../../domain/errors/app_exception.dart';
 import '../../domain/contracts/source_checker.dart';
 import '../../models/book_source.dart';
 import '../bridge/entity_dto_mapping.dart';
@@ -24,12 +25,20 @@ final class RustSourceChecker implements SourceChecker {
     final config = () {
       try {
         return sourceCheckConfig(configJson);
-      } catch (error) {
-        throw BridgeError(message: '校验配置 JSON 解析失败: $error');
+      } catch (error, stack) {
+        throw AppException(
+          '校验配置 JSON 解析失败: $error',
+          cause: error,
+          sourceStackTrace: stack,
+        );
       }
     }();
     return checkResultFromDto(
-      await bridge.sourceCheck(source: bookSourceToDto(source), config: config),
+      await rustFuture(
+        () =>
+            bridge.sourceCheck(source: bookSourceToDto(source), config: config),
+        operation: 'sourceCheck',
+      ),
     );
   }
 
@@ -42,15 +51,21 @@ final class RustSourceChecker implements SourceChecker {
     String? configJson,
   }) {
     return managedRustStream(
-      (request) => bridge.sourceCheckStream(
-        sourceUrls: sourceUrls,
-        config: sourceCheckConfig(configJson, fallbackOnError: true),
-        request: request,
+      (request) => rustStream(
+        () => bridge.sourceCheckStream(
+          sourceUrls: sourceUrls,
+          config: sourceCheckConfig(configJson, fallbackOnError: true),
+          request: request,
+        ),
+        operation: 'sourceCheckStream',
       ),
     ).map(checkProgressFromDto);
   }
 
   /// 取消正在进行的批量书源校验
   @override
-  Future<void> cancelCheckSources() => bridge.sourceCheckCancel();
+  Future<void> cancelCheckSources() => rustFuture(
+    () => bridge.sourceCheckCancel(),
+    operation: 'sourceCheckCancel',
+  );
 }

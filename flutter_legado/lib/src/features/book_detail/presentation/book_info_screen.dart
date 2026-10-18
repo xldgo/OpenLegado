@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import 'components/book_detail_backdrop.dart';
 import 'components/book_meta_card.dart';
 import 'components/book_action_buttons.dart';
@@ -35,7 +36,7 @@ import '../../automation/application/auto_task_notifier.dart';
 import '../../bookshelf/bookshelf.dart';
 import '../../reader/application/reader_notifier.dart';
 import '../../../providers/sync/sync_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../../widgets/legado_app_bar.dart';
 import '../../../widgets/top_bar_button.dart';
@@ -458,7 +459,6 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
     }
   }
 
-  String _errMsg(Object error) => detailErrorMessage(error);
   bool _isOnlineBook(Book book) => BookMetadataPolicy.isOnlineBook(book);
 
   bool _isLocalTxt(Book book) {

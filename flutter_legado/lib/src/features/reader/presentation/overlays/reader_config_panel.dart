@@ -1,3 +1,4 @@
+import '../../../../app/routing/route_names.dart';
 import '../../application/reader_settings_provider.dart';
 import '../../../../domain/models/reader_text_layout_settings.dart';
 import '../../../../domain/models/reader_page_layout_settings.dart';
@@ -16,7 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../../../l10n/app_localization.dart';
 import '../../../../providers/reading_content_provider.dart';
 import '../../application/reader_notifier.dart';
-import '../../../../routes.dart';
+
 import 'reader_brightness_control.dart';
 import 'reader_menu_color_dialog.dart';
 import 'reader_padding_config_sheet.dart';

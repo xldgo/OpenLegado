@@ -2,7 +2,7 @@ import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_legado/src/providers/dictionary_provider.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/rules/presentation/dict_rule_screen.dart';
 import 'package:flutter_legado/src/features/dictionary/presentation/dict_screen.dart';
 import 'package:flutter_legado/src/widgets/dict_dialog.dart';

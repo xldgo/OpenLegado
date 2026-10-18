@@ -17,7 +17,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import '../mocks/mocks.dart';
 
@@ -104,9 +104,9 @@ void main() {
       expect(readState().error, isNull);
     });
 
-    test('加载失败设置 BridgeError', () async {
+    test('加载失败设置 AppException', () async {
       when(() => mockApi.bookSourceRepository.getBookSources())
-          .thenThrow(const BridgeError(message: '书源加载失败'));
+          .thenThrow(const AppException('书源加载失败'));
 
       await readNotifier().loadSources();
 
@@ -272,7 +272,7 @@ void main() {
 
     test('切换失败设置错误', () async {
       when(() => mockApi.bookSourceRepository.updateBookSource(any()))
-          .thenThrow(const BridgeError(message: '更新失败'));
+          .thenThrow(const AppException('更新失败'));
 
       await readNotifier().toggleSource('http://a.com');
 
@@ -303,7 +303,7 @@ void main() {
 
     test('删除失败设置错误', () async {
       when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
-          .thenThrow(const BridgeError(message: '删除失败'));
+          .thenThrow(const AppException('删除失败'));
 
       await readNotifier().deleteSource('http://a.com');
 
@@ -350,11 +350,11 @@ void main() {
 
       final source = makeSource('http://x.com', 'X');
       when(() => mockApi.bookSourceRepository.addBookSource(any()))
-          .thenThrow(const BridgeError(message: '保存失败'));
+          .thenThrow(const AppException('保存失败'));
 
       expect(
         () => readNotifier().saveSource(source),
-        throwsA(isA<BridgeError>()),
+        throwsA(isA<AppException>()),
       );
     });
   });
@@ -479,7 +479,7 @@ void main() {
 
     test('batchEnable 失败设置错误', () async {
       when(() => mockApi.bookSourceRepository.updateBookSource(any()))
-          .thenThrow(const BridgeError(message: '批量失败'));
+          .thenThrow(const AppException('批量失败'));
       readNotifier().enterBatchMode();
       readNotifier().toggleSelection('http://b.com');
 
@@ -520,7 +520,7 @@ void main() {
       await readNotifier().loadSources();
 
       when(() => mockApi.bookSourceRepository.importBookSources(any()))
-          .thenThrow(const BridgeError(message: '导入失败'));
+          .thenThrow(const AppException('导入失败'));
 
       await readNotifier().importSources('invalid');
 
@@ -655,7 +655,7 @@ void main() {
       ).thenAnswer((invocation) async {
         final updated = invocation.positionalArguments.single as BookSource;
         if (updated.bookSourceUrl == 'http://c.com') {
-          throw const BridgeError(message: '写入失败');
+          throw const AppException('写入失败');
         }
         stored = [
           for (final source in stored)

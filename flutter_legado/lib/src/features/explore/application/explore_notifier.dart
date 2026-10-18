@@ -1,8 +1,8 @@
+import '../../../utils/error_message.dart';
 export 'explore_state.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../bridge/ffi.dart';
 import '../../../models/models.dart';
 import '../../../domain/contracts/explore_state_repository.dart';
 import '../../../providers/explore/explore_dependencies.dart';
@@ -55,7 +55,10 @@ class ExploreNotifier extends Notifier<ExploreState> {
       state = state.copyWith(bookSources: exploreSources, isLoading: false);
     } catch (e) {
       if (!ref.mounted) return;
-      state = state.copyWith(error: '加载书源失败：${_mapError(e)}', isLoading: false);
+      state = state.copyWith(
+        error: '加载书源失败：${errorMessage(e)}',
+        isLoading: false,
+      );
     }
   }
 
@@ -191,7 +194,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: '卸载失败：${_mapError(e)}');
+      state = state.copyWith(error: '卸载失败：${errorMessage(e)}');
       return false;
     }
   }
@@ -199,12 +202,6 @@ class ExploreNotifier extends Notifier<ExploreState> {
   /// 清除错误状态
   void clearError() {
     state = state.copyWith(error: null);
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 
   /// ERROR 分类缓存视为可重试（对标 Android clearExploreKindsCache）
@@ -216,7 +213,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
 
   /// 剥离 FFI/Rust 包装前缀，弹窗展示完整 JS 错误
   String _formatExploreError(Object e) {
-    var msg = _mapError(e);
+    var msg = errorMessage(e);
     const prefixes = [
       'JS engine error: ',
       'exploreUrl JS 执行失败: ',
@@ -228,7 +225,7 @@ class ExploreNotifier extends Notifier<ExploreState> {
         msg = msg.substring(p.length).trim();
       }
     }
-    return msg.isEmpty ? _mapError(e) : msg;
+    return msg.isEmpty ? errorMessage(e) : msg;
   }
 
   /// 为 toggle/select 控件初始化 infoMap 默认值（对标 Android ExploreAdapter）

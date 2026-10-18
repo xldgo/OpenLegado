@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/config_repository.dart';
 
@@ -6,13 +7,19 @@ class RustConfigRepository implements ConfigRepository {
   const RustConfigRepository();
   @override
   Future<String?> getConfig(String key) async {
-    final value = await bridge.configGet(key: key);
+    final value = await rustFuture(
+      () => bridge.configGet(key: key),
+      operation: 'configGet',
+    );
     return value.isEmpty ? null : value;
   }
 
   @override
   Future<void> setConfig(String key, String value) async {
-    if (!await bridge.configSet(key: key, value: value)) {
+    if (!await rustFuture(
+      () => bridge.configSet(key: key, value: value),
+      operation: 'configSet',
+    )) {
       throw StateError('配置未保存：$key');
     }
   }
@@ -21,6 +28,6 @@ class RustConfigRepository implements ConfigRepository {
   Future<void> deleteConfig(String key) => setConfig(key, '');
   @override
   Future<Map<String, String>> getAllConfigs() async {
-    return bridge.configGetAll();
+    return rustFuture(() => bridge.configGetAll(), operation: 'configGetAll');
   }
 }

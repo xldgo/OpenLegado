@@ -22,7 +22,7 @@ import '../../../domain/models/restore_ignore_config.dart';
 import '../../../l10n/app_strings.dart';
 import '../../../providers/providers.dart';
 import '../../../providers/sync/sync_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../providers/backup_settings_provider.dart';
 import '../../../providers/restore_ignore_provider.dart';
 import '../../../services/settings_service.dart';

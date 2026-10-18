@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 export 'remote_book_state.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/backup_provider.dart';
@@ -8,7 +9,6 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../bridge/ffi.dart';
 import '../../../models/book.dart';
 import '../../../providers/webdav_connection_provider.dart';
 import 'remote_book_state.dart';
@@ -190,7 +190,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
       state = state.copyWith(
         isLoading: false,
         items: const [],
-        error: _mapError(e),
+        error: errorMessage(e),
       );
     }
   }
@@ -322,7 +322,7 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
             );
         ok++;
       } catch (e) {
-        lastErr = _mapError(e);
+        lastErr = errorMessage(e);
       }
     }
     state = state.copyWith(
@@ -335,11 +335,6 @@ class RemoteBookNotifier extends Notifier<RemoteBookState> {
     if (ok > 0) {
       await refresh();
     }
-  }
-
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi.dart' as controls;
 import '../../bridge/media_dto.dart';
 import '../bridge/media_dto_mapping.dart';
@@ -30,23 +31,29 @@ final class RustCloudTtsSynthesizer implements CloudTtsSynthesizer {
     if (apiKey == null || apiKey.trim().isEmpty) {
       throw StateError('云端凭据不可用，请重新填写 API Key');
     }
-    final request = controls.ttsRequestNew();
+    final request = rustCall(
+      () => controls.ttsRequestNew(),
+      operation: 'ttsRequestNew',
+    );
     var transferred = false;
     void cancel() => request.cancel();
     cancellation?.addListener(cancel);
     try {
-      final result = await bridge.cloudTtsSpeak(
-        engineId: engineId,
-        apiKey: apiKey,
-        input: CloudSpeechInputDto(
-          text: text,
-          credentialKey: engine.credentialKey,
-          voiceId: voiceId,
-          voiceOptions: voiceOptions == null
-              ? null
-              : cloudVoiceOptionsToDto(voiceOptions),
+      final result = await rustFuture(
+        () => bridge.cloudTtsSpeak(
+          engineId: engineId,
+          apiKey: apiKey,
+          input: CloudSpeechInputDto(
+            text: text,
+            credentialKey: engine.credentialKey,
+            voiceId: voiceId,
+            voiceOptions: voiceOptions == null
+                ? null
+                : cloudVoiceOptionsToDto(voiceOptions),
+          ),
+          request: request,
         ),
-        request: request,
+        operation: 'cloudTtsSpeak',
       );
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
       final path = result.audioPath;

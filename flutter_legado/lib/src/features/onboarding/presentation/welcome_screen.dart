@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../constants/pref_keys.dart';
 import '../../../models/book.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../domain/models/welcome_settings.dart';
 import '../../../providers/welcome_settings_provider.dart';
 import '../../../utils/book_open_utils.dart';

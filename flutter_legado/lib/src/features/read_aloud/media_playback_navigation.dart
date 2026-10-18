@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../models/book.dart';
 import '../../services/audio_service.dart';
 import '../../services/media_session_models.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 
 final class MediaPlaybackDestination {
   const MediaPlaybackDestination(this.route, {this.book});

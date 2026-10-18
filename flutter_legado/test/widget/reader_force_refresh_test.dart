@@ -38,10 +38,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 
 import '../mocks/mocks.dart';
@@ -371,7 +372,7 @@ void main() {
       when(
         () =>
             mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
-      ).thenThrow(const BridgeError(message: '404: 源不可达'));
+      ).thenThrow(const AppException('404: 源不可达'));
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);
@@ -398,7 +399,7 @@ void main() {
       // 的子类型——任何 pushNamed<String>(AppRoutes.changeSource) 都会
       // 在运行期强转处抛 TypeError（真机崩溃，证据
       // docs/parity_shots/verify_ui_20260922/p29_crash_dialog_change_source.xml）
-      final route = AppRoutes.generateRoute(
+      final route = AppRouter().generateRoute(
         const RouteSettings(name: AppRoutes.changeSource),
       );
       expect(route, isA<PopupRoute<dynamic>>());

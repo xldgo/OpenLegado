@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/book_source_edit_service.dart';
 import '../../domain/models/source_syntax_result.dart';
@@ -8,22 +9,36 @@ import '../bridge/entity_dto_mapping.dart';
 class RustBookSourceEditService implements BookSourceEditService {
   const RustBookSourceEditService();
   @override
-  Future<bool> looksLikeCurl(String text) => bridge.looksLikeCurl(text: text);
+  Future<bool> looksLikeCurl(String text) => rustFuture(
+    () => bridge.looksLikeCurl(text: text),
+    operation: 'looksLikeCurl',
+  );
   @override
-  Future<String> curlToAnalyzeUrl(String text) =>
-      bridge.curlToAnalyzeUrl(text: text);
+  Future<String> curlToAnalyzeUrl(String text) => rustFuture(
+    () => bridge.curlToAnalyzeUrl(text: text),
+    operation: 'curlToAnalyzeUrl',
+  );
   @override
-  Future<String> analyzeUrlToCurl(String text) =>
-      bridge.analyzeUrlToCurl(text: text);
+  Future<String> analyzeUrlToCurl(String text) => rustFuture(
+    () => bridge.analyzeUrlToCurl(text: text),
+    operation: 'analyzeUrlToCurl',
+  );
   @override
   Future<BookSource> extractJsSource(String content) async {
-    return bookSourceFromDto(await bridge.jsSourceExtract(content: content))
-        .copyWith(mainJs: content);
+    return bookSourceFromDto(
+      await rustFuture(
+        () => bridge.jsSourceExtract(content: content),
+        operation: 'jsSourceExtract',
+      ),
+    ).copyWith(mainJs: content);
   }
 
   @override
   Future<SourceSyntaxResult> checkJsSourceSyntax(String content) async {
-    final result = await bridge.jsSourceSyntaxCheck(content: content);
+    final result = await rustFuture(
+      () => bridge.jsSourceSyntaxCheck(content: content),
+      operation: 'jsSourceSyntaxCheck',
+    );
     return SourceSyntaxResult(
       valid: result.valid,
       message: result.message,

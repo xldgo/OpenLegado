@@ -1,3 +1,4 @@
+import '../../../../app/routing/route_names.dart';
 import '../../application/reader_settings_provider.dart';
 import '../../../../domain/models/reader_theme_mode.dart';
 import '../../../../domain/models/reader_style.dart';
@@ -12,7 +13,7 @@ import '../../../../l10n/app_localization.dart';
 import '../../application/reader_notifier.dart';
 import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../../../providers/ui_settings/eye_protection_notifier.dart';
-import '../../../../routes.dart';
+
 import 'reader_config_panel.dart';
 import '../../../../widgets/app_scaffold.dart';
 import '../../../../widgets/legado_app_bar.dart';

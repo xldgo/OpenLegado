@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../l10n/app_localization.dart';
 import '../bookshelf/bookshelf.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../utils/book_open_utils.dart';
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';

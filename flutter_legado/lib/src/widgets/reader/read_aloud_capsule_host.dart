@@ -14,7 +14,7 @@ import '../../models/book.dart';
 import '../../features/audio/application/audio_notifier.dart';
 import '../../features/audio/application/read_aloud_capsule.dart';
 import '../../features/reader/application/reader_notifier.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../services/platform_bridge_service.dart';
 import '../book_cover.dart';
 import 'read_aloud_player_transition.dart';

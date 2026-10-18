@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -22,11 +24,14 @@ final class RustBookExportService implements BookExportService {
       'fileNameTemplate': ?options.fileNameTemplate,
     };
     return bookExportFromDto(
-      await bridge.bookExportWithOptions(
-        bookUrl: bookUrl,
-        format: format,
-        includeToc: includeToc,
-        optionsJson: values.isEmpty ? '' : jsonEncode(values),
+      await rustFuture(
+        () => bridge.bookExportWithOptions(
+          bookUrl: bookUrl,
+          format: format,
+          includeToc: includeToc,
+          optionsJson: values.isEmpty ? '' : jsonEncode(values),
+        ),
+        operation: 'bookExportWithOptions',
       ),
     );
   }
@@ -36,6 +41,9 @@ final class RustBookExportService implements BookExportService {
     required String bookUrl,
     required String format,
   }) async => bookExportInfoFromDto(
-    await bridge.bookExportInfo(bookUrl: bookUrl, format: format),
+    await rustFuture(
+      () => bridge.bookExportInfo(bookUrl: bookUrl, format: format),
+      operation: 'bookExportInfo',
+    ),
   );
 }

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../bridge/source_tools_dto.dart';
 import '../../domain/contracts/cover_rule_repository.dart';
@@ -8,7 +9,10 @@ final class RustCoverRuleRepository implements CoverRuleRepository {
   const RustCoverRuleRepository();
   @override
   Future<CoverRule> getCoverRule() async {
-    final result = await bridge.getCoverRule();
+    final result = await rustFuture(
+      () => bridge.getCoverRule(),
+      operation: 'getCoverRule',
+    );
     return CoverRule(
       enable: result.enable,
       searchUrl: result.searchUrl,
@@ -18,14 +22,18 @@ final class RustCoverRuleRepository implements CoverRuleRepository {
   }
 
   @override
-  Future<bool> saveCoverRule(CoverRule rule) => bridge.saveCoverRule(
-    rule: CoverRuleDto(
-      enable: rule.enable,
-      searchUrl: rule.searchUrl,
-      coverRule: rule.coverRule,
-      enabledCookieJar: rule.enabledCookieJar,
+  Future<bool> saveCoverRule(CoverRule rule) => rustFuture(
+    () => bridge.saveCoverRule(
+      rule: CoverRuleDto(
+        enable: rule.enable,
+        searchUrl: rule.searchUrl,
+        coverRule: rule.coverRule,
+        enabledCookieJar: rule.enabledCookieJar,
+      ),
     ),
+    operation: 'saveCoverRule',
   );
   @override
-  Future<bool> deleteCoverRule() => bridge.deleteCoverRule();
+  Future<bool> deleteCoverRule() =>
+      rustFuture(() => bridge.deleteCoverRule(), operation: 'deleteCoverRule');
 }

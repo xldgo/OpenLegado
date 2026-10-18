@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/webview_bridge_service.dart';
 import '../../domain/models/webview_request.dart';
@@ -9,22 +10,32 @@ class RustWebViewBridgeService implements WebViewBridgeService {
   const RustWebViewBridgeService();
   @override
   Stream<WebViewRequest> webviewRequestStream() => managedRustStream(
-    (request) => bridge.webviewRequestStream(request: request),
+    (request) => rustStream(
+      () => bridge.webviewRequestStream(request: request),
+      operation: 'webviewRequestStream',
+    ),
   ).map(webViewFromDto);
   @override
-  Future<bool> submitWebviewResult(String key, String result) =>
-      bridge.webviewSubmit(key: key, result: result);
+  Future<bool> submitWebviewResult(String key, String result) => rustFuture(
+    () => bridge.webviewSubmit(key: key, result: result),
+    operation: 'webviewSubmit',
+  );
   @override
   Future<bool> submitWebviewResultWithCookies(
     String key,
     String result,
     Map<String, String> cookies,
-  ) => bridge.webviewSubmitResultWithCookies(
-    key: key,
-    result: result,
-    cookies: cookies,
+  ) => rustFuture(
+    () => bridge.webviewSubmitResultWithCookies(
+      key: key,
+      result: result,
+      cookies: cookies,
+    ),
+    operation: 'webviewSubmitResultWithCookies',
   );
   @override
-  Future<bool> cancelWebviewRequest(String key) =>
-      bridge.webviewCancel(key: key);
+  Future<bool> cancelWebviewRequest(String key) => rustFuture(
+    () => bridge.webviewCancel(key: key),
+    operation: 'webviewCancel',
+  );
 }

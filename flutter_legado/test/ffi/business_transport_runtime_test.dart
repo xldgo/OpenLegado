@@ -4,7 +4,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import 'package:flutter_legado/src/data/repositories/rust_backup_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_rule_execution_service.dart';
@@ -344,7 +344,7 @@ void main() {
     await expectLater(
       dav.webdavFullSync(connection, '本地书架😀', '本地书源'),
       throwsA(
-        isA<BridgeError>().having(
+        isA<AppException>().having(
           (error) => error.message,
           '原生错误消息',
           contains('HTTP 403'),

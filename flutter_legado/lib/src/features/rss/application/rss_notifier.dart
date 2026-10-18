@@ -1,10 +1,10 @@
+import '../../../utils/error_message.dart';
 import '../../../providers/rss_repository_provider.dart';
 
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../bridge/ffi.dart';
 import '../../../models/models.dart';
 import '../../../domain/contracts/rss_source_repository.dart';
 import 'rss_state.dart';
@@ -66,7 +66,7 @@ class RssNotifier extends Notifier<RssState> {
       final sources = await repository.getRssSources();
       state = state.copyWith(sources: sources, isLoadingSources: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoadingSources: false);
+      state = state.copyWith(error: errorMessage(e), isLoadingSources: false);
     }
   }
 
@@ -106,7 +106,7 @@ class RssNotifier extends Notifier<RssState> {
           .getRssArticles(source.sourceUrl);
       state = state.copyWith(articles: articles, isLoadingArticles: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoadingArticles: false);
+      state = state.copyWith(error: errorMessage(e), isLoadingArticles: false);
     }
   }
 
@@ -133,7 +133,7 @@ class RssNotifier extends Notifier<RssState> {
           .addRssSource(newSource);
       state = state.copyWith(sources: [...state.sources, added]);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -152,19 +152,13 @@ class RssNotifier extends Notifier<RssState> {
       }
       state = next;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
   /// 清除错误
   void clearError() {
     state = state.copyWith(error: null);
-  }
-
-  /// 统一错误映射（对齐原 BridgeError 优先取 message）
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

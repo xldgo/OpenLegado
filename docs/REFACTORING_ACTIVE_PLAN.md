@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-UI-INTEGRATION-20261018：本轮双轨成果本地合流（P1）
+
+- 授权与基线：用户批准合并回主目录；主目录 feature/ui-reader-selection / a949b8d95，Rust worktree feature/rust-ffi-modernization / bcb6e4dbf，单代理、不推送。
+- 合流：先在Rust worktree合入主目录5项已提交UI成果，保留Rust7项提交；唯一冲突为双方在Active顶部新增记录，已按共同基线逐段保留双方全部记录。Rust代码和Flutter代码没有冲突，不重写已提交历史、不改版本或生成绑定。
+- 用户修改保护：主目录TWO_TRACK_DEV_SPEC.md未提交修改及ARCHITECTURE_REVIEW_20261018.md未跟踪文档均保留；合流前保存原始字节与摘要，主目录快进前再次核对HEAD和文件摘要。暂不stash、不提交这些文档。
+- 验证：Python正式入口完成一次Windows Debug QuickJS DLL重建，源码/构建输入指纹、FRB契约及Cargo源库/复制库摘要一致，只读校验通过；既有business_transport/reading_domain/video_danmaku/search_session/search_access五份真实FRB文件共14项全部通过，包含配置/缓存、弹幕和本机搜索请求。合流后的Rust树与原Rust提交一致，Flutter/scripts/CI树与主目录基线一致；无额外业务改动或生成操作。git diff --check通过。证据：build/rust-integration/{native-build,native-verify,native-runtime}.log，均退出0。
+- 状态：合流及上述Windows跨轨验证完成，随本次合流提交交付，主目录采用快进方式接入同一提交；不推送。两份用户文档不暂存或提交，快进前后按before.json核对原始摘要并记录最终HEAD/状态。原生库仅在worktree生成，未构建或安装应用、未替换主目录已有二进制；主目录下次正式构建仍需正常重编与校验。无远程CI、Android/iOS、设备或独立外审结论。
+
+编写者：Codex｜2026-10-18
+
 ### HTTP-PROTOCOL-ERROR-CHAIN-20261018：独立网络入口诊断收口（P1）
 
 - 授权与基线：用户批准继续剩余网络错误诊断，feature/rust-ffi-modernization / e8360c25e，沿用当前 worktree、单代理；不修改主目录、不推送/合并或触发远程 CI。
@@ -83,6 +93,69 @@
 - 状态：本任务限定的缓存仓储收口与弹幕解析下沉两批及本地集中验证已关闭；缓存批 fd6944a3b 已提交，弹幕批与本条同步提交，不追加回填提交。后续错误/生命周期完整核查及构建测量仍待单独执行；core 拆分没有测量结论，不自动启动。保持当前 worktree，不推送、不合并主目录；两批可分别回滚。
 
 编写者：Codex｜2026-10-18
+
+### FLUTTER-PAGINATION-POLICY-20261018：阅读器分页编排策略提取（P1，SCH-F2b）
+
+- 授权与基线：用户要求继续且每批验证后本地提交；主目录feature/ui-reader-selection / 718eb92ee，单代理、沿用分支、不推送或设备构建。保留两份用户原有文档修改。
+- 范围：将ReaderPageView的重排签名、双页/可用尺寸、完整章节缓存键、页面目标就绪和相邻章预载选择提取为可独立测试的application策略；Widget保留平台测量、渲染/选区、翻页及状态发布，沿用既有ChapterPaginationSession与ChapterLayoutCache，不重写排版核心或调整缓存预算/预取范围。
+- 保持行为：实际内容区约束、单双页档位/700宽阈值、字体与缩放/Locale/方向/高度、段评显隐/纯重绘区分、原文锚点和显式跳页、完整布局复用、三章预算、串行相邻预载及失败静默保持；不改Rust/FRB/数据库/依赖/版本或排版规则，不新增历史兼容标识。
+- 实现：新增ReaderPaginationPolicy、ReaderPaginationSignature、ReaderPaginationTarget和ReaderPaginationTask，主章/预载共用策略及缓存键，删除Widget内分散的比较字段和重复判断。页眉/页脚/标题仍只在确认需要重排后测量，配色/菜单/段评正数变化不新增文字测量；原文锚点、末页请求优先级及无效视口恢复规则不变。异步分页与预载等待后统一核对书籍/章节/代次，失效会话取消，未宣称取消底层章节请求。
+- 验证：33项纯策略行为覆盖单双页/700宽阈值、非对称栏宽、签名与缓存几何失效/配色命中、锚点/远页/末页等待及预载距离；复用正式Windows原生排版传输，6项缓存/接线回归含同章换书、视口重排和退出后的迟到预载，另有测绘同参3项、行内段评3项、诊断1项和缓存预算2项。最终同一命令46项全部通过；完整Dart静态分析、Windows FFI只读指纹/摘要校验和git diff --check通过。
+- 整改与证据：初轮提取的模型导入、live变量和异步context检查已修正；新测试误将只读缓存列表视作原列表身份，改为核对同一页面对象；新增Widget夹具漏传段距已补全。未更改生产行为迁就测试。flutter_legado/build/f2b/下policy-tests.log、regression.log与analyze-initial.log保留过程记录，最终为regression-final.log（46项）和analyze-final.log，命令退出码均为0；不把首轮失败记录算通过。
+- 状态：本批提取及本地验证完成，随代码本地提交，不推送；仅单代理自查，无独立外审、远程CI、设备或实际阅读器选区/翻页性能验收。排期中Flutter轨SCH-F1b、SCH-X1、SCH-F3a、SCH-F2a/SCH-F2b均已有本地交付，结构性大改须按Phase 3对应证据再决定，不自动扩入Rust候选项。两份用户文档修改保持原样；回滚仅撤销本批策略、Widget接线、测试和边界文档，保留既有排版核心及前批成果。
+
+编写者：Codex + UI｜2026-10-18
+
+### FLUTTER-VIDEO-SESSION-20261018：视频播放编排与生命周期拆分（P1，SCH-F2a）
+
+- 授权与基线：用户要求继续并在每批验证后本地提交；主目录feature/ui-reader-selection / f94aeecf7，单代理、不新建分支、不推送/设备构建。保留TWO_TRACK_DEV_SPEC.md和ARCHITECTURE_REVIEW_20261018.md原有修改。
+- 范围：从VideoScreen提取播放编排及资源生命周期至application controller，正式依赖在didChangeDependencies获取后注入；controller不持BuildContext/Ref，页面保留渲染、对话框、全屏系统栏和导航。复用现有video_player、视频设置与进度、章节/弹幕服务和悬浮窗coordinator，不新增音视频后端或FFI。
+- 保持行为：直链/书籍/复合URL/MPD、续播、选集/倍速、自然连播、悬浮窗首播/回全屏/失败提示及移交前暂停、进度和临时文件归属不变；本批不改布局、设置键、数据库、Rust/FRB、依赖或版本，不顺便重构悬浮窗原生服务。
+- 实现：新增VideoPlaybackController、VideoPlaybackRequest及独立设置定义；视频页在didChangeDependencies绑定既有窄接口并创建会话，后续编排/进度/退出不读context或Ref。页面只消费同一controller的播放状态，保留对话框、全屏和导航；设置默认值、键和持久化实现原样移动，不保留同义重导出。
+- 生命周期：按请求代次隔离章节/弹幕/临时文件准备，播放器初始化捕获具体实例与续播位置，seek/play之后复核身份；切换先释放旧播放器，退出移除监听/停止定时并暴露released确认。MPD移交中退出按原生接受结果决定文件归属，未应用的预置文件也可释放；同路径重试不先删除待复用文件。未新增底层网络取消协议，不将丢弃迟到结果宣称为取消Rust任务。
+- 验证：12项controller行为覆盖设置/书源/章节/弹幕迟到、连续选集、旧seek迟到、初始化期间退出及单次释放、MPD准备/预置/重试/悬浮窗接受或拒绝后退出；使用真实VideoPlayerController与可控平台事件，不启动原生播放器。复用视频设置、主题、选集/倍速、连播、URL工具、悬浮窗、进度与路由测试；最终单次106项全部通过，完整Dart静态分析与git diff --check通过。
+- 整改与证据：首轮迁移的导入/初始化形式/大括号已修正；旧悬浮窗夹具未提供新装配时读取的BookSourceRepository导致9项失败，补入真实Mock仓储后原9项通过，未修改预期或生产回退规则。证据在flutter_legado/build/f2a/下regression.log（47通过/9夹具失败）、handoff-final.log（9项）、lifecycle.log（首轮19项）、tests-final.log（最终106项）及analyze-final.log。Fake视频平台提取为共享测试设施，不使用源码字符串断言；仅单代理自查，没有独立外审、远程CI、性能或Android/iOS真机验收。
+- 状态：本批代码及本地验证完成，按用户要求随文档本地提交，不推送；下一批为SCH-F2b阅读器分页编排。已有两份用户文档保留；回滚只撤销本批视频会话、设置定义与相关测试/文档，保留前批路由与书架成果。
+
+编写者：Codex + UI｜2026-10-18
+
+### FLUTTER-ROUTING-BOUNDARY-20261018：解除路由循环依赖（P1，SCH-F3a）
+
+- 授权与基线：用户要求每批完成验证后本地提交并继续；主目录feature/ui-reader-selection / b1b20a959，单代理、不新建分支、不推送/设备构建。保留TWO_TRACK_DEV_SPEC.md和ARCHITECTURE_REVIEW_20261018.md原有工作区修改。
+- 范围与目标：拆分轻量路由名称/参数与页面装配，feature/公共Widget/服务不再导入包含全部screen的路由表；AppRouter可独立实例化并注入路由表，应用入口拥有正式实例。删除旧集中入口并迁移全部消费者，不增加同义转发层。
+- 保持行为：所有路由字符串、参数接受方式/默认值、隐私门禁、未知路径回首页、换源弹层及朗读页转场不变；本批不引入新路由框架、延迟加载、参数协议重写、UI/播放器重构或Rust/FRB/数据库/依赖/版本变更。
+- 实现：新增route_names.dart、route_arguments.dart与AppRouter；原路由字符串、页面工厂及换源动画原样迁移，BookInfoArgs和VideoScreenArgs移入轻量参数文件。App入口拥有稳定路由实例，可注入完整独立表；全部生产/测试/integration调用点迁走并删除旧routes.dart，不保留转发入口。
+- 行为验证：独立装配/实际push-pop及参数结果/未知路径/隐私门禁/特殊转场/书籍与搜索/音频漫画视频参数11项通过；既有系统栏、换源、媒体导航、欢迎页竞争、书架返回与开书58项通过。另有发现页、详情、阅读退出/换源和书单接线34项通过，共103项分批通过。未初始化真实播放器、Rust或设备，不将工厂构造测试宣称为实际播放验收。
+- 整改与证据：迁移初轮遗漏part所属library的轻量导入及测试Route类型访问，已修正；新增未知路径测试避免被离场首页重建覆盖观测，门禁夹具补全已配置口令状态，11项最终通过。误并行启动两个Flutter测试进程造成编译缓存拷贝冲突，停止受影响进程后串行复验34项通过；没有更改生产门禁或关闭校验迁就测试。证据在flutter_legado/build/f3a/下route-tests.log（初轮编译失败）、route-tests-final.log（67通过/2夹具失败）、router-final.log（11项最终通过）、consumer-tests.log（缓存冲突）、consumer-tests-final.log（34项最终通过）、analyze-final.log；失败记录保留，不冒充全部首次通过。
+- 结构复核：路由表依赖文件的遍历未发现回到AppRouter的路径，生产侧只有lib/app.dart直接导入AppRouter；路由名称零导入，参数只导入Book。默认路由工厂与换源动画迁移对照无行为差异，源码检查只作结构审计，没有源码字符串断言测试。完整Dart静态分析、git diff --check通过；没有GitNexus工具，采用直接依赖追踪，不冒称图谱验证或独立外审。
+- 状态：本批代码及本地验证完成，按用户要求随文档本地提交，不推送；下一批为SCH-F2a视频播放编排与生命周期。无远程CI、设备、Android/iOS或性能验收；两份用户文档修改保持原样。回滚本批路由拆分及导入迁移即可，前两批已提交成果保留。
+
+编写者：Codex + UI｜2026-10-18
+
+### FLUTTER-BOOKSHELF-IMPORT-20261018：书单导入编排提取（P1，SCH-X1）
+
+- 授权与基线：用户要求提交第一批后继续下一批；主目录feature/ui-reader-selection / ef01eb1a8，单代理、沿用当前分支，不推送或设备构建，第二批完成后保留工作区待审核。第一批错误边界已本地提交。
+- 范围：bookshelf_screen.dart内书单导入、网址添加及书源匹配迁入feature的application controller；继续消费现有网络/搜索/书源查询/书架窄接口，页面保留输入、刷新、提示和mounted检查。不改Rust/FRB/数据库/依赖/版本及UI布局，不扩入路由或播放器。
+- 行为边界：保留串行导入、当前书架去重/批内去重、正则优先于域名匹配、书源读取失败的原回退、无源裸网页入架、单条失败继续及原统计文案；书单拉取/格式失败不刷新。书架快照仍在原时点读取，不新增取消、并发、事务或进度界面。
+- 实现：新增BookshelfImportController及Provider装配，导入完成/格式无效/拉取失败使用明确结果类型，页面仅做输入、刷新和本地化提示。沿用已有窄接口与SearchResult映射，不新增原生入口或存储；无匹配源裸书入架属于既有行为，本批没有新设兜底规则。
+- 验证与整改：controller14项、实际页面/Provider/controller接线4项、既有书架刷新/Tab/Notifier37项均分批通过，共55项。首轮静态分析发现遗漏导入、结果变量确定赋值及风格问题，均已修正；首轮页面网址用例复现旧有TextEditingController提前释放错误，改为TextField内部管理控制器后4项页面复验通过。没有通过延迟关闭动画或忽略异常绕过失败。
+- 证据：flutter_legado/build/x1/controller-tests.log、tests.log、widget-final.log、analyze-final.log；tests.log保留首轮54通过/1失败，网址最终复验见widget-final.log。完整Dart静态分析及git diff --check通过；单代理代码与行为复核，没有独立外审、远程CI或设备验证。
+- 状态：第二批代码与本地验证完成，按用户“每批完成后本地提交”的要求随本条提交，不推送；下一批为SCH-F3a路由循环依赖。保留两份用户原有文档修改。回滚时仅回退本批书架controller/Provider、页面及测试/边界文档，保留第一批ef01eb1a8。
+
+编写者：Codex + UI｜2026-10-18
+
+### FLUTTER-ERROR-BOUNDARY-20261018：Dart错误边界收口（P1）
+
+- 授权与基线：用户同意执行Flutter轨第一批（排期SCH-F1b，含原X2）；主目录feature/ui-reader-selection / 260f89685，单代理，不创建分支、不提交/推送/合并/设备构建。保留已有TWO_TRACK_DEV_SPEC.md未提交修改及ARCHITECTURE_REVIEW_20261018.md。
+- 范围：领域错误、data/桥接调用与错误转换、原有错误展示工具及feature消费者、必要装配和行为测试。跨轨Dart错误边界已获本轮授权，先登记契约；不扩展书单导入、路由、视频或分页拆分，不修改Rust/FRB生成物、数据库、依赖、应用版本或UI布局。
+- 目标：BridgeError在数据边界转换并保留cause/stack；普通异常和取消语义不变，feature不再依赖桥接错误或动态message字段；同步/Future/Stream及Mock失败路径有行为证据。
+- 实现：新增纯领域AppException，原RustApiException并入；数据层同步/Future/Stream共用BridgeError转换，保留消息、操作、cause与堆栈，普通异常与取消对象保持身份。迁移数据调用和排版句柄入口，原有取消/释放/租约顺序不变；清理27处feature桥接导入、重复展示方法和动态message探测，公共书源登录提示同步消费领域错误，保留原操作前缀和登录引导。
+- 行为验证：17个定向文件416项通过；另有详情/发现页面30项通过。新增边界测试覆盖同步/异步/流错误、原始堆栈、普通错误身份、广播流及暂停/恢复/取消、实际Mock失败；书签适配器转换与直接FRB不转换分别断言。最终边界复验17项和消息/登录提示5项通过，以上分组有重叠，不累加为唯一用例总数。
+- 原生验证：现有DLL指纹不匹配时未绕过校验；通过Python正式入口重建Windows Debug QuickJS DLL，构建及源码指纹/产物摘要校验通过。数据库/网络/文件/排版/书源校验/搜索取消/HTTP合成及租约/行内段评共8个真实FFI文件22项通过。初轮书签直接FRB误用了领域错误预期，已纠正为直接桥接错误、适配器领域错误分别验证；其余21项初轮通过，书签文件3项最终复验通过。
+- 证据：flutter_legado/build/f1b/下tests.log、additional-tests.log、boundary-final-tests.log、login-message-tests.log、native-build.log、native-tests.log及analyze-final.log；native-tests.log保留初轮失败，不冒充全绿，书签最终结果见boundary-final-tests.log。完整Dart静态分析及git diff --check通过。单代理自查，没有独立外审、远程CI、Android/iOS或设备验收。
+- 状态：第一批代码与本地验证完成，用户已授权本地提交并继续第二批；本条随代码提交，不推送。Rust/FRB生成物、schema、依赖、版本和UI布局未修改，已有两份用户文档修改保留。需要撤销时只回退本批Dart与契约/边界文档，不覆盖用户原有工作区内容。
+
+编写者：Codex + Bridge/UI｜2026-10-18
 
 ### MEDIA-ENGINE-SERVICES-20261018：朗读与音频服务边界收口（P1）
 

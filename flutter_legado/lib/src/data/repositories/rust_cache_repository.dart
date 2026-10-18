@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/cache_repository.dart';
 
@@ -6,24 +7,36 @@ final class RustCacheRepository implements CacheRepository {
   const RustCacheRepository();
 
   @override
-  Future<int> getCacheSize() async => (await bridge.cacheGetSize()).toInt();
+  Future<int> getCacheSize() async => (await rustFuture(
+    () => bridge.cacheGetSize(),
+    operation: 'cacheGetSize',
+  )).toInt();
 
   @override
-  Future<int> getCacheBookCount() => bridge.cacheGetBookCount();
+  Future<int> getCacheBookCount() => rustFuture(
+    () => bridge.cacheGetBookCount(),
+    operation: 'cacheGetBookCount',
+  );
 
   @override
-  Future<int> getCacheChapterCount() => bridge.cacheGetChapterCount();
+  Future<int> getCacheChapterCount() => rustFuture(
+    () => bridge.cacheGetChapterCount(),
+    operation: 'cacheGetChapterCount',
+  );
 
   @override
   Future<void> clearCache() async {
-    if (!await bridge.cacheClear()) {
+    if (!await rustFuture(() => bridge.cacheClear(), operation: 'cacheClear')) {
       throw StateError('全局缓存清理未成功');
     }
   }
 
   @override
   Future<void> clearCacheBefore(int beforeTimestampMs) async {
-    if (!await bridge.cacheClearBefore(beforeTimestampMs: beforeTimestampMs)) {
+    if (!await rustFuture(
+      () => bridge.cacheClearBefore(beforeTimestampMs: beforeTimestampMs),
+      operation: 'cacheClearBefore',
+    )) {
       throw StateError('按时间清理缓存未成功');
     }
   }

@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../../providers/domain_config_provider.dart';
 import '../../../providers/local_server_provider.dart';
@@ -33,7 +34,6 @@ import '../../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../constants/pref_keys.dart';
-import '../../../bridge/ffi.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../providers/app_locale_notifier.dart';
 import '../../../providers/welcome_settings_provider.dart';
@@ -675,10 +675,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     }
   }
 
-  /// 可读错误消息（BridgeError 取 message，其余 toString）
-  /// [Task #74 | 2026-08-10] — Qoder
-  String _errMsg(Object e) => e is BridgeError ? e.message : e.toString();
-
   /// 自定义 hosts 配置摘要（副标题：已配置 N 条/未配置；
   /// Task #74 §5.13-1） — Qoder
   String get _customHostsSummary {
@@ -713,7 +709,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       _toast(value > 0 ? 'MCP 端口已保存：$value（独立服务已重启）' : '独立 MCP 服务已停止');
     } catch (e) {
       debugPrint('OtherSettingsScreen 设置 MCP 端口异常: $e');
-      if (mounted) _toast('MCP 端口设置失败: ${_errMsg(e)}');
+      if (mounted) _toast('MCP 端口设置失败: ${errorMessage(e)}');
     }
   }
 
@@ -738,7 +734,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
         _toast('自定义 hosts 已清除');
       } catch (e) {
         debugPrint('OtherSettingsScreen 清除 customHosts 异常: $e');
-        if (mounted) _toast('自定义 hosts 清除失败: ${_errMsg(e)}');
+        if (mounted) _toast('自定义 hosts 清除失败: ${errorMessage(e)}');
       }
       return;
     }
@@ -762,7 +758,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       _toast('自定义 hosts 已保存（${decoded.length} 条）');
     } catch (e) {
       debugPrint('OtherSettingsScreen 保存 customHosts 异常: $e');
-      if (mounted) _toast('自定义 hosts 保存失败: ${_errMsg(e)}');
+      if (mounted) _toast('自定义 hosts 保存失败: ${errorMessage(e)}');
     }
   }
 

@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -10,21 +12,33 @@ final class RustRuleSubRepository implements RuleSubRepository {
   const RustRuleSubRepository();
 
   @override
-  Future<List<RuleSub>> ruleSubList() async =>
-      (await bridge.ruleSubList()).map(ruleSubscriptionFromDto).toList();
+  Future<List<RuleSub>> ruleSubList() async => (await rustFuture(
+    () => bridge.ruleSubList(),
+    operation: 'ruleSubList',
+  )).map(ruleSubscriptionFromDto).toList();
 
   @override
-  Future<bool> ruleSubSave(RuleSub sub) =>
-      bridge.ruleSubSave(sub: ruleSubscriptionToDto(sub));
+  Future<bool> ruleSubSave(RuleSub sub) => rustFuture(
+    () => bridge.ruleSubSave(sub: ruleSubscriptionToDto(sub)),
+    operation: 'ruleSubSave',
+  );
 
   @override
-  Future<bool> ruleSubDelete({required int id}) => bridge.ruleSubDelete(id: id);
+  Future<bool> ruleSubDelete({required int id}) => rustFuture(
+    () => bridge.ruleSubDelete(id: id),
+    operation: 'ruleSubDelete',
+  );
 
   @override
   Future<bool> ruleSubSetEnabled({required int id, required bool enabled}) =>
-      bridge.ruleSubSetEnabled(id: id, enabled: enabled);
+      rustFuture(
+        () => bridge.ruleSubSetEnabled(id: id, enabled: enabled),
+        operation: 'ruleSubSetEnabled',
+      );
 
   @override
-  Future<bool> ruleSubUpdateOrder({required List<int> ids}) =>
-      bridge.ruleSubUpdateOrder(ids: Int64List.fromList(ids));
+  Future<bool> ruleSubUpdateOrder({required List<int> ids}) => rustFuture(
+    () => bridge.ruleSubUpdateOrder(ids: Int64List.fromList(ids)),
+    operation: 'ruleSubUpdateOrder',
+  );
 }

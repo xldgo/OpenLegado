@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/book_chapter.dart';
 import '../../features/reader/application/reader_settings_provider.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 
 /// 章节导航只接受网页地址；相对路径使用章节目录的原始地址补全。
 String? resolveReaderChapterWebUrl(BookChapter chapter) {
