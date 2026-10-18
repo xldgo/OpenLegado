@@ -113,11 +113,6 @@ fn data_uri_headers() -> HashMap<String, String> {
     HashMap::new()
 }
 
-/// 响应是否已到「终态」（不再重发）：2xx 或 3xx
-fn is_settled_status(status: u16) -> bool {
-    (200..400).contains(&status)
-}
-
 /// 状态码提取（raw / text 两种响应形态共用重试循环）
 trait StatusCode {
     fn status_code(&self) -> u16;
@@ -243,20 +238,14 @@ where
     F: Fn(LegadoClient) -> Fut,
     Fut: Future<Output = LegadoResult<T>>,
 {
-    let effective = if analyze_url.follow_redirects() == Some(false) {
-        client.no_redirect_variant()?
-    } else {
-        client.clone()
-    };
-
-    let mut retries_remaining = analyze_url.retry();
-    loop {
-        let response = send(effective.clone()).await?;
-        if is_settled_status(response.status_code()) || retries_remaining == 0 {
-            return Ok(response);
-        }
-        retries_remaining -= 1;
-    }
+    legado_net::request::send_with_response_options(
+        client,
+        analyze_url.follow_redirects(),
+        analyze_url.retry(),
+        |response: &T| response.status_code(),
+        send,
+    )
+    .await
 }
 
 #[cfg(test)]

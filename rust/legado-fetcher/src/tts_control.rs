@@ -12,6 +12,15 @@ pub struct TtsCancellation {
     state: Arc<CancellationState>,
 }
 
+impl legado_js::cancellation::JsCancellation for TtsCancellation {
+    fn is_cancelled(&self) -> bool {
+        self.state.cancelled.load(Ordering::Acquire)
+    }
+    fn cancelled(&self) -> legado_js::cancellation::CancelWait<'_> {
+        Box::pin(self.cancelled())
+    }
+}
+
 #[derive(Default)]
 struct CancellationState {
     cancelled: AtomicBool,

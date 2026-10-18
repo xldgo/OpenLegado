@@ -44,7 +44,7 @@ impl SourceSwitchService {
         // 有界并发 + 单候选超时（并发上限/索引槽/孤儿在前序恢复均在
         // run_enrich_jobs 内）
         let job_count = jobs.len();
-        let done = self.run_enrich_jobs(make_fetcher, jobs, options).await;
+        let done = self.run_enrich_jobs(make_fetcher, jobs, options).await?;
 
         let mut filled: Vec<Option<SearchCandidate>> = vec![None; job_count];
         for (idx, c) in done {
@@ -60,7 +60,7 @@ impl SourceSwitchService {
         make_fetcher: MF,
         jobs: Vec<(SearchCandidate, BookSource)>,
         options: &SwitchSearchOptions,
-    ) -> Vec<(usize, SearchCandidate)>
+    ) -> LegadoResult<Vec<(usize, SearchCandidate)>>
     where
         F: BookSourceFetcher + Send + 'static,
         MF: Fn(&SourceSwitchService) -> LegadoResult<F> + Send + Sync + 'static,
@@ -80,13 +80,16 @@ impl SourceSwitchService {
         jobs: Vec<(SearchCandidate, BookSource)>,
         options: &SwitchSearchOptions,
         timeout: std::time::Duration,
-    ) -> Vec<(usize, SearchCandidate)>
+    ) -> LegadoResult<Vec<(usize, SearchCandidate)>>
     where
         F: BookSourceFetcher + Send + 'static,
         MF: Fn(&SourceSwitchService) -> LegadoResult<F> + Send + Sync + 'static,
     {
+        let concurrency = crate::request_settings::thread_count(self.storage.as_ref())?
+            .get()
+            .min(ENRICH_CONCURRENCY);
         let factory = Arc::new(make_fetcher);
-        stream::iter(jobs.into_iter().enumerate())
+        Ok(stream::iter(jobs.into_iter().enumerate())
             .map(|(index, (candidate, source))| {
                 let context = self.clone();
                 let factory = factory.clone();
@@ -129,9 +132,9 @@ impl SourceSwitchService {
                     }
                 }
             })
-            .buffer_unordered(ENRICH_CONCURRENCY)
+            .buffer_unordered(concurrency)
             .collect()
-            .await
+            .await)
     }
 
     pub async fn enrich_one_switch_candidate_with(

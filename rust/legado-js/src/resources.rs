@@ -7,6 +7,7 @@
 /// Cookie、主要网络入口和间接下载使用实例能力；其余宿主状态按计划收口。
 #[derive(Clone)]
 pub struct JsResources {
+    cancellation: Option<std::sync::Arc<dyn crate::cancellation::JsCancellation>>,
     variables: std::sync::Arc<crate::variables::VariableStore>,
     host: std::sync::Arc<crate::host_resources::JsHostResources>,
     scope: Option<crate::variables::VariableScope>,
@@ -23,6 +24,7 @@ impl Default for JsResources {
     fn default() -> Self {
         let variables = std::sync::Arc::new(crate::variables::VariableStore::default());
         Self {
+            cancellation: None,
             scope: Some(variables.unscoped()),
             variables,
             host: Default::default(),
@@ -38,6 +40,19 @@ impl Default for JsResources {
 }
 
 impl JsResources {
+    /// 执行视图共享缓存；任务不会写入缓存身份或HTTP的常驻能力槽。
+    pub fn with_cancellation(
+        &self,
+        control: std::sync::Arc<dyn crate::cancellation::JsCancellation>,
+    ) -> std::sync::Arc<Self> {
+        let mut view = self.clone();
+        view.cancellation = Some(control);
+        std::sync::Arc::new(view)
+    }
+
+    pub fn cancellation(&self) -> Option<&std::sync::Arc<dyn crate::cancellation::JsCancellation>> {
+        self.cancellation.as_ref()
+    }
     #[cfg(feature = "quickjs")]
     pub fn with_http_resources(
         mut self,
@@ -130,6 +145,7 @@ impl JsResources {
             Some(self.http.clone()),
             Some(self.host.clone()),
         )
+        .map(|engine| engine.with_cancellation(self.cancellation.clone()))
     }
 
     /// 回调只捕获此数据能力，不捕获拥有 VM 缓存的根资源。
@@ -155,6 +171,7 @@ impl JsResources {
         #[cfg(feature = "quickjs")]
         let same_owner = std::sync::Arc::ptr_eq(&self.variables, scope.store());
         std::sync::Arc::new(Self {
+            cancellation: self.cancellation.clone(),
             variables: scope.store().clone(),
             host: self.host.clone(),
             scope: Some(scope),

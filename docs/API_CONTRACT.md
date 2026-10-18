@@ -1,5 +1,171 @@
 # API 契约文档
 
+## 通用网络任务并发设置（2026-10-18，实施前冻结）
+
+threadCount经领域设置仓储→共享AppSettingsService→ConfigRepository保存到Rust
+config:threadCount；不再从SharedPreferences读写或维护镜像，不迁移尚未接线的旧值。
+按参考版DownloadCacheSettings默认16、设置界面范围1..256；缺失/非法存储值回落16，
+数据库读取失败保留错误，不以默认值掩盖故障。新写入超范围值拒绝。
+Engine统一解释配置，JS批量、搜索/换源、目录并行页与书源校验消费同一来源。
+每个并发调度阶段固定一次快照，新设置作用于后续阶段，不热改在途队列；这是每批
+任务并发上限，不是系统线程池大小或Engine所有任务合计上限。换源增强保留现有8上限。
+Fetcher只接收宿主注入的非零快照，不访问数据库；最小宿主默认16。目录保序、错误
+与取消门禁不变；书源校验并行执行且按输入顺序发布，保留原index/最后项语义。
+Server批量更新省略max_concurrent时读本实例配置；显式值沿用现有max(1)规则优先，
+返回实际采用值。Server独立批量书源校验省略concurrency时读本实例配置，保留20上限；
+显式参数沿用1..20夹取并优先。Flutter书架逐书串行更新本批不改，单书目录分页使用该配置。
+离线下载cacheBookThreadCount、TTS并发及其专用限制独立，不合并。
+设置页使用现有数字对话框，保存/读取失败可见且不显示伪成功，不新增FRB方法、生成物、
+数据库schema或依赖；验证采用Rust/Flutter行为测试，不构建应用/DLL或模拟器。
+
+编写者：Codex + Bridge｜2026-10-18
+
+## SOCKS4请求代理（2026-10-18，实施前冻结）
+
+允许socks4://host:port复用现有reqwest SOCKS通道，不新增依赖或协议实现。
+严格解析与宽容配置构造均识别独立Socks4类型；请求级DNS、Cookie、限流、
+期限与取消沿用现有管线。SOCKS4使用IPv4目标与本地DNS；代理拒绝必须返回错误，
+不得直连或改用SOCKS5。参考版HttpHelper统一交Java SOCKS入口，本批不把该入口
+当作完整SOCKS4互操作证明，以真实v4握手和源站收包验证。
+当前reqwest v4路径不传递USERID/密码；标准或遗留凭据配置均在构建前明确拒绝，
+不宣称SOCKS5式认证能力，不静默丢弃凭据。SOCKS4a不在本批范围。
+不改FRB/生成物、数据库、UI或依赖；验证仅限本地Rust/QuickJS网络测试。
+
+编写者：Codex + Bridge｜2026-10-18
+
+## JS请求级DNS与代理（2026-10-18，实施前冻结）
+
+ajax/connect和批量请求复用同一AnalyzeUrl发送管线，消费dnsIp与proxy（含来源header中的
+proxy控制项），控制项不作为HTTP头发送。WebView仍明确拒绝，不以普通HTTP代替。
+dnsIp按参考版15e1337a的parseIpsFromString处理逗号列表：逐项接受IP或解析主机名，
+忽略失败项；全空/全失败回落原DNS。有效列表仅覆盖本请求派生客户端的DNS查找，
+包含重定向和代理主机的本地解析，保留URL域名、Host和TLS SNI；字面量IP不强制改写。
+不修改Engine全局hosts，也不将请求级映射写入数据库。DNS准备与网络等待均可取消。
+代理复用既有Net校验与认证能力，支持HTTP/HTTPS/SOCKS5及既有标准/遗留凭据格式；
+SOCKS4的补充范围见上方“SOCKS4请求代理”。非法代理在发送前返回错误，
+不得降级直连；显式代理优先于回环直连策略，不把代理凭据加入诊断日志或缓存Debug输出。
+派生池按实际代理/DNS地址列表、直连和期限策略区分，在所属HttpResources内有界复用，
+reset同步失效。所有变体共享原Cookie罐与持久化后端，既有源限流、超时、重试、
+重定向及取消错误形态不变；流/批次失败直接释放等待，不创建脱离任务。
+不改变FRB签名/生成物、schema、Flutter设置或依赖版本；仅用Rust真实QuickJS与有界
+本地HTTP/代理验证，未执行平台构建，不声称HTTP代理或SOCKS远端DNS可由本地dnsIp覆盖。
+
+编写者：Codex + Bridge｜2026-10-18
+
+## JS任务主动取消（2026-10-18，实施前冻结）
+
+复用宿主已登记的TaskHandle，通过JS层定义的窄取消能力按次绑定执行，不反向引用Engine。
+QuickJS指令执行、源限流等待、HTTP发送/正文读取及批量队列均响应所属任务取消；
+取消与JS期限/网络故障分开诊断，不转换为ajax错误正文、connect错误响应或探活失败项后继续。
+缓存VM不长期持有首个任务；初始化、fresh、mainJs及compiled路径使用当次能力，
+嵌套执行保存恢复上下文，结束/异常后释放绑定。未绑定任务的独立VM保持现有行为。
+停止任务不发布后续结果或新发请求；保持已有提交门禁，不承诺回滚取消前已完成的副作用，
+也不强杀任意原生函数。外层入口被丢弃后，阻塞worker仍登记至实际退出。
+普通HTTP错误、显式零期限及书源接口返回形态不变，不新增FRB入口或全仓错误载荷改造。
+验证限于Rust/真实QuickJS/有界回环HTTP，不新增外部宿主、DLL或模拟器验收。
+
+编写者：Codex + Bridge｜2026-10-18
+
+## JS请求限流与批量并发（2026-10-18，实施前冻结）
+
+ajax/connect及get/head/post复用所属EngineContext的RateLimiterRegistry，按当前源键
+消费concurrentRate，与抓取主链共用窗口；书源、订阅源和httpTts:<id>均从所属存储读取。
+HTTP TTS沿用ttsSourceState中的concurrentRate覆盖。源配置缺失/空值/0沿用现有限流器语义。
+限流等待发生在HTTP发送前，释放数据库连接与策略锁后再等待；网络期限与callTime不包含等待。
+ajaxAll/ajaxTestAll的skipRateLimit缺省为false，true仅跳过源限流，不跳过并发上限。
+正式引擎从通用Rust配置config:threadCount读取正整数并发，缺失/非法值使用上游默认16；独立无存储VM
+保持4。每批次固定来源、策略与并发快照，后续调用重新读取配置；源头不从异步TLS重取。
+批次失败直接丢弃在途请求及限流等待，不生成脱离任务或预先占用未来窗口。
+JS仅定义可注入窄策略，不反向依赖Fetcher、不持有根Engine/JsResources，保留可释放资源图。
+不修改UI、FRB签名/生成物、数据库schema、网络重试及外部主动停止能力。
+该批交付时Flutter线程数条目仍是读取SharedPreferences的只读占位，与Rust配置尚未统一；
+本轮已统一权威来源并开放控件，见上方“通用网络任务并发设置”；Rust不读取平台私有偏好文件。
+
+编写者：Codex + Bridge｜2026-10-18
+
+## JS响应桥注入生命周期（2026-10-18，实施前冻结）
+
+保留宿主注册与setup之后的响应桥注入时机；同一VM重复注入且函数/依赖未变时，
+必须复用已安装包装，不重复解析响应或叠加变量查询/webView垫片。
+setup替换底层函数或connectNR依赖后须重新适配最新函数，保留旧包装委托的行为，
+不能用“整个桥已初始化”直接跳过。单参get继续查询变量，多参仍为网络请求。
+connect/批量返回StrResponse，get/head/post返回既有Response；超时、错误、Cookie、
+头与正文规则不改。只有本VM桥实际创建的同类响应对象可以在setup委托后原样返回；
+损坏JSON或任意伪响应对象仍须拒绝，不能用宽松对象识别掩盖格式错误。
+安装记录只在当前VM保存，不进入数据库/全局Engine，不新增进程级状态或根资源引用。
+FRB签名、生成物、数据库、网络发送实现和依赖不变。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
+## JS批量网络请求（2026-10-18，实施前冻结）
+
+ajaxAll(urls, skipRateLimit?)、ajaxTestAll(urls, timeout?, skipRateLimit?)在JS端返回
+StrResponse数组，保留输入顺序、重复项与空列表的既有宽松入参；不再返回JSON字符串数组
+或statusCode/success探活对象。每项提供body()/code()/raw()/callTime()等同源响应能力。
+内部Rust边界仍以JSON传输，JS包装负责恢复对象方法；不保留第二种旧返回协议。
+两接口复用单项AnalyzeUrl规则、源头快照、Cookie、编码和重试；不以HEAD探活替代正文。
+ajaxAll失败抛异常，立即释放整个批次的在途future及未启动队列，不分离tokio任务。
+ajaxTestAll逐项保留失败：合成状态200、错误正文与负callTime；调用方用callTime<0
+判断失败。Timeout按现有结构记-1，其他不可细分错误记-7，不按字符串猜Java错误类别。
+成功callTime为请求和响应处理的实际毫秒数；超时参数覆盖URL预算，零关闭调用总期限。
+默认/null/undefined继续使用默认，负数在任何请求前拒绝；数值转换沿用原始Int契约。
+动态JS借用当前VM，在同步准备或响应求值后立刻恢复外层result/baseUrl/page、URL和头，
+不跨异步等待保留这些临时绑定。源限流、全局threadCount与skipRateLimit的后续接线
+见上方“JS请求限流与批量并发”；本节不新增外部网络停止接口。
+FRB签名、生成绑定、数据库及UI不变；DNS/代理后续接线见上方“JS请求级DNS与代理”，WebView仍不支持。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
+## JS规则请求统一（2026-10-18，实施前冻结）
+
+ajax/connect复用AnalyzeUrl规则解析；同一URL选项的method/body/headers/charset、动态
+@js/<js>/{{}}与选项js/bodyJs在当前QuickJS上下文执行，不另建VM或重复获取引擎锁。
+来源头→connect显式头→URL规则头按不区分大小写覆盖；Cookie沿请求域合并且保留写入门控。
+初始Content-Type参与正文编码判定；脚本明确覆盖Content-Type后不沿用自动表单编码。
+缺省或显式零超时沿用前批约定；显式调用超时优先于规则timeout/既有timeout_ms扩展。
+保留ajax标准JSON扩展的响应JSON形态与增强方法参数；普通规则ajax只返回正文，connect
+保留StrResponse包装。原生请求和JS错误转换分离，get/head/post不进入AnalyzeUrl。
+嵌套规则保存/恢复外层URL、待发头及result，失败也恢复；已有解析器对选项JS的降级策略
+本批不统一重写。编码复用原抓取链四级解码，重定向/状态码重试复用下层通用发送算法。
+DNS/代理接线见上方“JS请求级DNS与代理”；webView仍明确返回不支持，不发送普通HTTP替代请求。
+FRB/schema/生成物不变，不新增对Fetcher的反向依赖，不改变批量请求。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
+
+## JS请求失败与超时分层（2026-10-18，实施前冻结）
+
+按参考版15e1337a：ajax失败返回含原因的错误文本；connect失败返回StrResponse，
+body承载错误，raw使用上游合成状态200及请求URL，不能将其当作真实HTTP成功。
+get/head/post的网络失败抛出JS异常，不再返回状态0/空正文；真实HTTP响应行为不因本批改变。
+包装收到损坏的内部响应时明确抛错，不伪造空响应。单参java.get仍查询变量。
+缺省/null/undefined沿用默认；合法正数保留逐次期限，负数/越界在发送前拒绝。
+显式0须保留：ajax/connect不设总调用期限，同时保留连接与读取空闲超时；
+get/head/post的0不设请求/连接/读取超时。0覆盖规则内timeout_ms，不得退化为缺省。
+网络层新增明确的客户端超时策略，默认策略保持原行为；派生无重定向客户端继承策略。
+JS按直连/代理、重定向和超时策略惰性复用池，所有池共享同一Cookie与持久化后端。
+FRB函数、生成物、数据库和书源存储不变；本批不统一AnalyzeUrl或批量请求。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
+
+## JS网络逐请求超时与回环分派（2026-10-18，实施前冻结）
+
+参考版15e1337a的JsExtensions.get/head(url,headers,timeout: Int?)及
+post(url,body,headers,timeout: Int?)在最后一参接收毫秒超时。补齐JS包装到
+不跟随重定向请求的参数传递；缺省/null/undefined保持默认，正数按请求生效，
+负数及超出Int范围在发送前拒绝。保留原有请求正文、请求头、302拦截、Cookie门控
+及单参java.get变量查询。timeout=0语义以上方“JS请求失败与超时分层”的新约定为准。
+JS回环池按URL解析后的HTTP(S)主机选择，涵盖IPv4回环与IPv6 ::1；用户名、路径、
+相似域名不得被误认而绕过代理。其他域名继续使用原代理池，不改变沙箱网络权限。
+FRB签名/生成绑定、书源存储、数据库及公开Rust旧请求入口不变。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## 胶囊底栏文字边界（2026-10-18，用户确认）
 
 AppFloatingBottomBar增加showLabels可选布尔参数，默认true；主页从已有

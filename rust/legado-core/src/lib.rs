@@ -52,6 +52,7 @@ pub mod read_state;
 pub mod reader_state;
 /// 统一安全正则编译入口（1KB 长度上限 + nest_limit 嵌套防御 + 失败负缓存）
 pub mod regex_safe;
+pub mod request_settings;
 pub mod review;
 /// 跨源聚合单一真源（队列⑩a P1-1 项2：同名同作者跨源合并 + origins 累加，
 /// 对齐 Dart `applyPrecisionSearch` / 增量桶语义，跨端夹具校验基准）

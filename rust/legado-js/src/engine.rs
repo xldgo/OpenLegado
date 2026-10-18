@@ -354,6 +354,7 @@ mod quickjs_engine {
         interrupted: Arc<AtomicBool>,
         variables: crate::host_api::variable_bindings::BoundVariables,
         http: Arc<crate::http_resources::HttpResources>,
+        cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
     }
 
     // rquickjs 的 parallel 特性已让字段支持跨线程，Send/Sync 由编译器自动推导。
@@ -400,6 +401,9 @@ mod quickjs_engine {
             let i = interrupted.clone();
             let e = epoch;
             runtime.set_interrupt_handler(Some(Box::new(move || {
+                if crate::cancellation::is_cancelled() {
+                    return true;
+                }
                 let now_ns = e.elapsed().as_nanos() as u64;
                 if now_ns > d.load(Ordering::SeqCst) {
                     i.store(true, Ordering::SeqCst);
@@ -447,6 +451,7 @@ mod quickjs_engine {
             })?;
 
             Ok(Self {
+                cancellation: None,
                 http,
                 runtime,
                 context,
@@ -461,6 +466,15 @@ mod quickjs_engine {
         /// 本 VM 捕获的网络数据能力，不包含 VM 或缓存所有者。
         pub fn http_resources(&self) -> &Arc<crate::http_resources::HttpResources> {
             &self.http
+        }
+
+        /// 仅供独立会话VM使用；缓存构造不捕获任务，执行时从调用栈绑定。
+        pub(crate) fn with_cancellation(
+            mut self,
+            control: Option<Arc<dyn crate::cancellation::JsCancellation>>,
+        ) -> Self {
+            self.cancellation = control;
+            self
         }
 
         /// 能力切换和求值处于同一上下文锁；退出时恢复，保存的旧函数也跟随本次能力。
@@ -489,7 +503,10 @@ mod quickjs_engine {
             bindings: &[(&str, JsValue)],
             variables: Option<&crate::variables::VariableScope>,
         ) -> LegadoResult<String> {
+            let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+            crate::cancellation::check()?;
             self.context.with(|ctx| {
+                crate::cancellation::check()?;
                 // 排队等待不消耗本次执行预算，也不重置正在执行的另一次调用。
                 self.reset_deadline();
                 let _binding = variables.map(|scope| self.variables.bind(scope));
@@ -498,10 +515,12 @@ mod quickjs_engine {
                 let mut options = rquickjs::context::EvalOptions::default();
                 options.strict = false;
                 options.global = true;
-                match ctx.eval_with_options::<rquickjs::Value, _>(code, options) {
+                let result = match ctx.eval_with_options::<rquickjs::Value, _>(code, options) {
                     Ok(result) => Ok(Self::result_to_string(&ctx, &result)),
                     Err(_) => Err(LegadoError::JsEngine(self.exception_message(&ctx))),
-                }
+                };
+                crate::cancellation::check()?;
+                result
             })
         }
 
@@ -511,7 +530,10 @@ mod quickjs_engine {
             bindings: &[(&str, JsValue)],
             variables: Option<&crate::variables::VariableScope>,
         ) -> LegadoResult<String> {
+            let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+            crate::cancellation::check()?;
             self.context.with(|ctx| {
+                crate::cancellation::check()?;
                 self.reset_deadline();
                 let _binding = variables.map(|scope| self.variables.bind(scope));
                 Self::inject_bindings(&ctx, bindings)?;
@@ -524,6 +546,7 @@ mod quickjs_engine {
                         }
                         other => LegadoError::JsEngine(other.to_string()),
                     })?;
+                crate::cancellation::check()?;
                 Ok(Self::result_to_string(&ctx, &result))
             })
         }
@@ -558,7 +581,10 @@ mod quickjs_engine {
         ///
         /// 对齐 `JsSourceEngine.normalizeJsResult`：String 原样；null/undefined
         /// 字面量；Object/Array → JSON.stringify（勿用 Debug `Array(0x…)`）。
-        fn result_to_string<'js>(ctx: &rquickjs::Ctx<'js>, val: &rquickjs::Value<'js>) -> String {
+        pub(crate) fn result_to_string<'js>(
+            ctx: &rquickjs::Ctx<'js>,
+            val: &rquickjs::Value<'js>,
+        ) -> String {
             match js_value_from_rquickjs(ctx, val) {
                 JsValue::String(s) => s,
                 JsValue::Null => "null".to_string(),
@@ -577,6 +603,9 @@ mod quickjs_engine {
                 let function = rquickjs::Function::new(
                     ctx.clone(),
                     move |ctx: rquickjs::Ctx<'_>, input: String| {
+                        crate::cancellation::check().map_err(|e| {
+                            rquickjs::Exception::throw_message(&ctx, &e.to_string())
+                        })?;
                         callback(&input)
                             .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
                     },
@@ -602,6 +631,8 @@ mod quickjs_engine {
         /// 注 2：沙箱会替换全局 `Function` 构造器，故此处创建独立的纯上下文；
         /// 检查过程不执行待检代码，无沙箱逃逸风险。
         pub fn check_syntax(&self, code: &str) -> Result<(), String> {
+            let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+            crate::cancellation::check().map_err(|e| e.to_string())?;
             use crate::sandbox::SandboxConfig;
 
             let limits = SandboxConfig::default();
@@ -619,6 +650,9 @@ mod quickjs_engine {
             let i = interrupted.clone();
             let e = epoch;
             runtime.set_interrupt_handler(Some(Box::new(move || {
+                if crate::cancellation::is_cancelled() {
+                    return true;
+                }
                 let now_ns = e.elapsed().as_nanos() as u64;
                 if now_ns > d.load(Ordering::SeqCst) {
                     i.store(true, Ordering::SeqCst);
@@ -676,6 +710,10 @@ mod quickjs_engine {
         /// （message + stack）。仅本引擎实例的 eval 路径使用；
         /// [`Self::check_syntax_in_ctx`] 走独立 Runtime，无中断标志。
         fn exception_message(&self, ctx: &rquickjs::Ctx<'_>) -> String {
+            if crate::cancellation::is_cancelled() {
+                let _ = ctx.catch();
+                return crate::cancellation::CANCELLED.into();
+            }
             if self.interrupted.load(Ordering::SeqCst) {
                 return self.interrupted_message();
             }
@@ -683,7 +721,7 @@ mod quickjs_engine {
         }
 
         /// 提取当前挂起异常的信息（message + stack），不抛出
-        fn take_exception_message(ctx: &rquickjs::Ctx<'_>) -> String {
+        pub(crate) fn take_exception_message(ctx: &rquickjs::Ctx<'_>) -> String {
             let exc_val = ctx.catch();
             let mut message = "语法错误".to_string();
             if let Some(exc) = exc_val
@@ -725,7 +763,10 @@ mod quickjs_engine {
         }
 
         fn eval_bytes(&self, code: &str, bindings: &[(&str, JsValue)]) -> LegadoResult<Vec<u8>> {
+            let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+            crate::cancellation::check()?;
             self.context.with(|ctx| {
+                crate::cancellation::check()?;
                 self.reset_deadline();
                 Self::inject_bindings(&ctx, bindings)?;
                 // non-exhaustive struct：Default 后逐字段修改（rquickjs 限制）
@@ -737,6 +778,7 @@ mod quickjs_engine {
                     Err(_) => return Err(LegadoError::JsEngine(self.exception_message(&ctx))),
                 };
                 // 结果必须是 Uint8Array（对齐原版 evalJS 返回 ByteArray 语义）
+                crate::cancellation::check()?;
                 let arr: rquickjs::TypedArray<u8> = result.get().map_err(|e| {
                     LegadoError::JsEngine(format!("imageDecode 结果不是字节数组: {e}"))
                 })?;

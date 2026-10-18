@@ -77,7 +77,9 @@ pub(crate) fn ffi_deps() -> LegadoResult<FetcherDeps> {
             permit.with_active(|| sink(book, source, chapter, key, value));
         }));
     }
-    Ok(deps.with_execution_lease(Arc::new(task)))
+    Ok(deps
+        .with_cancellation(Arc::new(task.clone()))
+        .with_execution_lease(Arc::new(task)))
 }
 
 /// 长任务固定实例的数据能力；回调不强持根引擎，也不在执行时查询宿主槽位。
@@ -100,6 +102,9 @@ pub(crate) fn deps_for_engine(engine: &legado_engine::EngineContext) -> Captured
         let headers = login.clone();
         let info = captured_info.clone();
         Ok(FetcherDeps {
+            request_concurrency: legado_engine::request_settings::thread_count(Some(
+                &captured_storage,
+            ))?,
             execution_lease: None,
             client: network.client()?,
             web_book: web_book.clone(),
@@ -372,6 +377,32 @@ pub(crate) fn search_deps(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn captured_factory_refreshes_concurrency_without_changing_existing_deps() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let factory = deps_for_engine(&engine);
+        let first = factory().unwrap();
+        assert_eq!(first.request_concurrency.get(), 16);
+        engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CacheRepository::new(db.connection()).put("config:threadCount", "3", 0)
+            })
+            .unwrap();
+        assert_eq!(factory().unwrap().request_concurrency.get(), 3);
+        assert_eq!(first.request_concurrency.get(), 16);
+        engine
+            .storage()
+            .with_database(|db| {
+                db.connection()
+                    .execute_batch("DROP TABLE caches")
+                    .map_err(|error| LegadoError::Database(error.to_string()))
+            })
+            .unwrap();
+        assert!(factory().is_err(), "数据库错误不能回落默认并发");
+    }
+
     use crate::test_support::GLOBAL_STORE_TEST_LOCK;
     use legado_core::LegadoError;
     use legado_core::models::book_source::book_source_type;

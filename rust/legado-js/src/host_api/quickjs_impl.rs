@@ -53,6 +53,37 @@ impl<'js> rquickjs::FromJs<'js> for NullStr {
     }
 }
 
+/// 可空装箱Long：保留缺省/null，其他值必须为数值，不接受字符串数字。
+struct OptionalBoxedLong(Option<i64>);
+
+impl<'js> rquickjs::function::FromParam<'js> for OptionalBoxedLong {
+    fn param_requirement() -> rquickjs::function::ParamRequirement {
+        rquickjs::function::ParamRequirement::optional()
+    }
+
+    fn from_param<'a>(
+        params: &mut rquickjs::function::ParamsAccessor<'a, 'js>,
+    ) -> rquickjs::Result<Self> {
+        if params.is_empty() {
+            return Ok(Self(None));
+        }
+        let ctx = params.ctx().clone();
+        let value = params.arg();
+        if value.is_null() || value.is_undefined() {
+            return Ok(Self(None));
+        }
+        if !value.is_number() {
+            return Err(rquickjs::Error::FromJs {
+                from: value.type_of().as_str(),
+                to: "java.lang.Long",
+                message: None,
+            });
+        }
+        let value = <RhinoLong as rquickjs::FromJs>::from_js(&ctx, value)?;
+        Ok(Self(Some(value.0)))
+    }
+}
+
 /// 可空布尔入参（语义同 [`NullStr`]）
 struct NullBool(Option<bool>);
 
@@ -1093,11 +1124,42 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
 #[cfg(feature = "quickjs")]
 pub const RESPONSE_BRIDGE_JS: &str = r#"
 (function () {
+  // 只属于当前 VM；弱键不延长已替换函数及响应对象的生命周期。
+  var state = globalThis.__legadoResponseBridge;
+  if (!state) {
+    state = { functions: new WeakMap(), responses: new WeakMap(), installed: Object.create(null) };
+    Object.defineProperty(globalThis, '__legadoResponseBridge', { value: state });
+  }
+  function __install(name, dependencies, factory, requireNative) {
+    var current = java[name];
+    var previous = state.functions.get(current);
+    var owned = previous && previous.name === name;
+    var native = owned ? previous.native : current;
+    if (requireNative && typeof native !== 'function') return;
+    if (owned && previous.dependencies.length === dependencies.length &&
+        dependencies.every(function (value, index) { return value === previous.dependencies[index]; })) return;
+    var replaced = owned ? previous.replaced : !!state.installed[name];
+    var wrapper = factory(native, replaced);
+    state.functions.set(wrapper, { name: name, native: native, dependencies: dependencies, replaced: replaced });
+    state.installed[name] = true;
+    java[name] = wrapper;
+  }
+  function __remember(response, kind) {
+    state.responses.set(response, kind);
+    return response;
+  }
+  function __readResponse(jsonStr) {
+    var r = JSON.parse(jsonStr);
+    if (!r || typeof r !== 'object' || Array.isArray(r) || typeof r.status_code !== 'number') {
+      throw new Error('HTTP桥接响应结构无效');
+    }
+    return r;
+  }
   function __resp(jsonStr) {
-    var r = null;
-    try { r = JSON.parse(jsonStr); } catch (e) { r = null; }
+    if (jsonStr && typeof jsonStr === 'object' && state.responses.get(jsonStr) === 'response') return jsonStr;
+    var r = __readResponse(jsonStr);
     var h = (r && r.headers) || {};
-    return {
+    return __remember({
       header: function (name) {
         var lk = String(name).toLowerCase();
         for (var k in h) { if (String(k).toLowerCase() === lk) return h[k]; }
@@ -1114,14 +1176,12 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
       // 辅助新增（非上游 OkHttp 面）：本响应最终 URL 的域归属 cookie 串
       //（响应 Set-Cookie 已在请求层落 cookie 存储，读即所得）— 3b-3
       cookies: function () { return java.getCookie((r && r.url) || ''); }
-    };
+    }, 'response');
   }
-  var __nativeGetVariable = java.get;
   var __nativeConnect = java.connectNR;
-  var __nativeConnectFull = java.connect;
   function __strResponse(jsonStr) {
-    var r = null;
-    try { r = JSON.parse(jsonStr); } catch (e) { r = null; }
+    if (jsonStr && typeof jsonStr === 'object' && state.responses.get(jsonStr) === 'strResponse') return jsonStr;
+    var r = __readResponse(jsonStr);
     var finalUrl = (r && r.url) || '';
     var h = (r && r.headers) || {};
     var raw = {
@@ -1143,7 +1203,7 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
         return v === null ? [] : [v];
       }
     };
-    return {
+    return __remember({
       // 对齐上游 StrResponse（Kotlin `fun body() = body`）：body 为方法而非
       // 属性。有意偏离：爱丽丝书屋#61 语料以 `.body` 属性读取（该源在上游
       // 原版侧同样不兼容），双基线「功能=原版侧」取上游方法形态
@@ -1151,55 +1211,83 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
       // 对齐上游 StrResponse `fun code(): Int`（okhttp3 Response.code()）
       code: function () { return r ? r.status_code : 0; },
       raw: function () { return raw; },
-      callTime: function () { return 0; },
+      callTime: function () { return typeof r.call_time === 'number' ? r.call_time : 0; },
       // 辅助新增（非上游 OkHttp 面）：本响应最终 URL 的域归属 cookie 串 — 3b-3
       cookies: function () { return java.getCookie(finalUrl); }
-    };
+    }, 'strResponse');
   }
-  java.connect = function (url, arg2, arg3, arg4, arg5) {
-    // rquickjs Opt<T> 不能接收显式 undefined；必须按实参数量调用原生函数。
-    if (arguments.length <= 1) return __strResponse(__nativeConnectFull(String(url)));
-    var isMethod = typeof arg2 === 'string' && /^(GET|POST|HEAD|PUT|DELETE)$/i.test(arg2);
-    if (!isMethod) {
-      var headerOnly = typeof arg2 === 'string' ? arg2 : JSON.stringify(arg2 || {});
-      var timeoutOnly = arg3 == null ? undefined : arg3;
-      return timeoutOnly === undefined
-        ? __strResponse(__nativeConnectFull(String(url), 'GET', headerOnly))
-        : __strResponse(__nativeConnectFull(String(url), 'GET', headerOnly, undefined, timeoutOnly));
-    }
-    var hs = arg3 == null ? undefined : (typeof arg3 === 'string' ? arg3 : JSON.stringify(arg3));
-    if (arguments.length === 2) return __strResponse(__nativeConnectFull(String(url), arg2));
-    if (arguments.length === 3) return __strResponse(__nativeConnectFull(String(url), arg2, hs));
-    if (arguments.length === 4) return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4)));
-    return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4), arg5));
-  };
+  __install('connect', [], function (__nativeConnectFull, replaced) {
+    return function (url, arg2, arg3, arg4, arg5) {
+      // setup 委托收到原调用参数，避免把头参数再次转换成增强方法的五参格式。
+      if (replaced) return __strResponse(__nativeConnectFull.apply(java, arguments));
+      // rquickjs Opt<T> 不能接收显式 undefined；必须按实参数量调用原生函数。
+      if (arguments.length <= 1) return __strResponse(__nativeConnectFull(String(url)));
+      var isMethod = typeof arg2 === 'string' && /^(GET|POST|HEAD|PUT|DELETE)$/i.test(arg2);
+      if (!isMethod) {
+        var headerOnly = typeof arg2 === 'string' ? arg2 : JSON.stringify(arg2 || {});
+        var timeoutOnly = arg3 == null ? undefined : arg3;
+        return timeoutOnly === undefined
+          ? __strResponse(__nativeConnectFull(String(url), undefined, headerOnly))
+          : __strResponse(__nativeConnectFull(String(url), undefined, headerOnly, undefined, timeoutOnly));
+      }
+      var hs = arg3 == null ? undefined : (typeof arg3 === 'string' ? arg3 : JSON.stringify(arg3));
+      if (arguments.length === 2) return __strResponse(__nativeConnectFull(String(url), arg2));
+      if (arguments.length === 3) return __strResponse(__nativeConnectFull(String(url), arg2, hs));
+      if (arguments.length === 4) return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4)));
+      return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4), arg5));
+    };
+  }, true);
   globalThis.connect = java.connect;
-  java.get = function (url, headers) {
-    if (arguments.length >= 2) {
-      var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-      return __resp(__nativeConnect(String(url), 'GET', hs));
-    }
-    return __nativeGetVariable(String(url));
-  };
+  function __batchResponses(text) {
+    if (text && typeof text === 'object' && state.responses.get(text) === 'batch') return text;
+    var rows = JSON.parse(text);
+    if (!Array.isArray(rows)) throw new TypeError('批量响应必须为数组');
+    return __remember(rows.map(function (row) { return __strResponse(JSON.stringify(row)); }), 'batch');
+  }
+  __install('ajaxAll', [], function (native) {
+    return function (urls, skipRateLimit) {
+      return __batchResponses(native(urls, skipRateLimit === undefined ? false : skipRateLimit));
+    };
+  }, true);
+  __install('ajaxTestAll', [], function (native) {
+    return function (urls, timeout, skipRateLimit) {
+      return __batchResponses(native(urls, timeout, skipRateLimit === undefined ? false : skipRateLimit));
+    };
+  }, true);
+  globalThis.ajaxAll = java.ajaxAll;
+  globalThis.ajaxTestAll = java.ajaxTestAll;
+
+  __install('get', [__nativeConnect], function (__nativeGetVariable) {
+    return function (url, headers, timeout) {
+      if (arguments.length >= 2) {
+        var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
+        return __resp(__nativeConnect(String(url), 'GET', hs, undefined, timeout));
+      }
+      return __nativeGetVariable(String(url));
+    };
+  });
   // 对齐原版 JsExtensions.post/head：followRedirects(false)。
   // 天涯书库等源 java.post(...).header('location') 拦截 302；若跟随重定向则
   // Location 丢失 → String(null) → 请求落到 /null。
-  java.post = function (url, body, headers) {
-    var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-    return __resp(__nativeConnect(String(url), 'POST', hs, String(body)));
-  };
-  java.head = function (url, headers) {
-    var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-    return __resp(__nativeConnect(String(url), 'HEAD', hs));
-  };
-})();
-
+  __install('post', [__nativeConnect], function (native, replaced) {
+    return function (url, body, headers, timeout) {
+      if (replaced) return __resp(native.apply(java, arguments));
+      var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
+      return __resp(__nativeConnect(String(url), 'POST', hs, String(body), timeout));
+    };
+  });
+  __install('head', [__nativeConnect], function (native, replaced) {
+    return function (url, headers, timeout) {
+      if (replaced) return __resp(native.apply(java, arguments));
+      var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
+      return __resp(__nativeConnect(String(url), 'HEAD', hs, undefined, timeout));
+    };
+  });
   // [可空入参垫片 | 2026-09-26] 原生 webView 已改 NullStr/NullBool 可空
   // 入参（null/undefined 均 None、上游 Kotlin String? 语义），换型后
   // arity=4 必填——垫片把缺参/undefined 补成 null，恒 4 参调用
-  (function () {
-    var nativeWebView = java.webView;
-    java.webView = function (html, url, js, cacheFirst) {
+  __install('webView', [], function (nativeWebView) {
+    return function (html, url, js, cacheFirst) {
       return nativeWebView(
         html === undefined ? null : html,
         url === undefined ? null : url,
@@ -1207,7 +1295,8 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
         cacheFirst === undefined ? null : cacheFirst === true
       );
     };
-  })();
+  }, true);
+})();
 
 "#;
 
@@ -2662,9 +2751,9 @@ fn register_network_apis<'js>(
     // 第二参 callTimeout 透传为逐请求超时（对齐上游 JsExtensions.kt:134
     // `ajax(url: Any, callTimeout: Long?)` → OkHttp callTimeout，单位毫秒；
     // null/0/越界边界见 network::call_timeout_to_request_timeout）。
-    // 类型选 RhinoOptLong：上游为装箱可空 `Long?`，Rhino 探针（coerce.rs
+    // 使用OptionalBoxedLong：上游为装箱可空 `Long?`，Rhino探针（coerce.rs
     // 数值表）显示装箱数值严格转换（字符串数字抛「方法不存在」），与
-    // connect 的 `Opt<i64>`（同为上游 `callTimeout: Long?`）同款；缺参/显式
+    // connect 的可空 Long（同为上游 `callTimeout: Long?`）同款；缺参/显式
     // null → None（arity 由 FromParam::optional 保留，单参形态不回归）。
     let http = resources.clone();
     mount_dual(
@@ -2673,12 +2762,22 @@ fn register_network_apis<'js>(
         "ajax",
         rquickjs::Function::new(
             ctx.clone(),
-            move |options: AjaxUrlStr, call_timeout: RhinoOptLong| -> String {
+            move |ctx: rquickjs::Ctx<'js>,
+                  options: AjaxUrlStr,
+                  call_timeout: OptionalBoxedLong|
+                  -> String {
                 match network::call_timeout_to_request_timeout(call_timeout.0) {
-                    Ok(timeout_ms) => {
-                        network::ajax_with_timeout(&http.request(), &options.0, timeout_ms)
-                            .unwrap_or_else(|e| format!("[ERROR] {}", e))
-                    }
+                    Ok(timeout_ms) => super::rule_request::ContextEvaluator::new(ctx)
+                        .map_err(|e| e.to_string())
+                        .and_then(|evaluator| {
+                            network::ajax_with_evaluator(
+                                &http.request(),
+                                &options.0,
+                                timeout_ms,
+                                &evaluator,
+                            )
+                        })
+                        .unwrap_or_else(|e| format!("[ERROR] {e}")),
                     Err(e) => format!("[ERROR] {}", e),
                 }
             },
@@ -2741,19 +2840,30 @@ fn register_network_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // ajaxAll(urls) -> String（JSON 数组，并发请求多个 URL）
-    // 对应 Kotlin: ajaxAll(urlList: Array<String>): Array<StrResponse>
-    // 入参经 LooseStrList 宽松收敛：JS 数组（晋江文学 bookList `java.ajaxAll(urls)`）
-    // → 元素级 ToString 后的 JSON 数组文本；null/undefined → 空串（空列表）。
+    // 内部 JSON 交由响应桥包装；普通批次失败抛异常并释放全部在途请求。
     let http = resources.clone();
     mount_dual(
         java,
         globals,
         "ajaxAll",
-        rquickjs::Function::new(ctx.clone(), move |urls: LooseStrList| -> String {
-            network::ajax_all(&http.request(), &urls.0).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        rquickjs::Function::new(
+            ctx.clone(),
+            move |ctx: rquickjs::Ctx<'js>,
+                  urls: LooseStrList,
+                  skip_rate_limit: Opt<bool>|
+                  -> rquickjs::Result<String> {
+                super::batch_request::run(
+                    &http.request(),
+                    &urls.0,
+                    None,
+                    false,
+                    skip_rate_limit.0.unwrap_or(false),
+                    Some(&ctx),
+                )
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+            },
+        )
+        .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
     )?;
 
     // connect(url, method?, headers?, body?, timeoutMs?) -> String（完整响应 JSON）
@@ -2761,7 +2871,7 @@ fn register_network_apis<'js>(
     // 增强：支持指定 HTTP 方法（GET/POST/HEAD/PUT/DELETE）
     // timeout_ms 上游为可空 Long?（JsExtensions.kt:214 `callTimeout: Long?`；
     // jsHelp.md:212 的 `Int?` 系过时文档）：装箱数值 + Rhino 探针实测严格
-    // （字符串数字报「方法不存在」），故**保持** `Opt<i64>` 严格转换（W4 边界）
+    // （字符串数字报「方法不存在」）；使用可选Long并在发送前验证范围
     let http = resources.clone();
     mount_dual(
         java,
@@ -2769,27 +2879,34 @@ fn register_network_apis<'js>(
         "connect",
         rquickjs::Function::new(
             ctx.clone(),
-            move |url: RhinoStr,
+            move |ctx: rquickjs::Ctx<'js>, url: RhinoStr,
                   method: RhinoOptStr,
                   headers: RhinoOptStr,
                   body: RhinoOptStr,
-                  timeout_ms: Opt<i64>|
+                  timeout_ms: OptionalBoxedLong|
                   -> String {
-                network::connect_full(
-                    &http.request(),
-                    &url,
-                    method.0.as_deref(),
-                    headers.0.as_deref(),
-                    body.0.as_deref(),
-                    timeout_ms.0.map(|t| t as u64),
-                )
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                let result = network::call_timeout_to_request_timeout(timeout_ms.0).and_then(|timeout| {
+                    let evaluator=super::rule_request::ContextEvaluator::new(ctx).map_err(|e|e.to_string())?;
+                    network::connect_with_evaluator(
+                        &http.request(), &url, method.0.as_deref(), headers.0.as_deref(),
+                        body.0.as_deref(), timeout, Some(&evaluator),
+                    )
+                });
+                result.unwrap_or_else(|error| {
+                    // 仅JS兼容面使用上游StrResponse(url,error)的合成状态，不代表真实HTTP成功。
+                    serde_json::json!({
+                        "status_code": 200,
+                        "body": format!("[ERROR] {error}"),
+                        "headers": {},
+                        "url": url::Url::parse(&url).map(|u| u.to_string()).unwrap_or_else(|_| "http://localhost/".to_string()),
+                    }).to_string()
+                })
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // connectNR(url, method?, headers?, body?) -> String（完整响应 JSON，不跟随重定向）
+    // connectNR(url, method?, headers?, body?, timeoutMs?) -> String（完整响应 JSON，不跟随重定向）
     // 对齐原版 jsoup followRedirects(false)：java.get/post/head 拦截重定向需读 Location 头
     let http = resources.clone();
     mount_dual(
@@ -2798,19 +2915,24 @@ fn register_network_apis<'js>(
         "connectNR",
         rquickjs::Function::new(
             ctx.clone(),
-            move |url: RhinoStr,
+            move |ctx: rquickjs::Ctx<'js>,
+                  url: RhinoStr,
                   method: RhinoOptStr,
                   headers: RhinoOptStr,
-                  body: RhinoOptStr|
-                  -> String {
-                network::connect_no_redirect(
+                  body: RhinoOptStr,
+                  timeout: RhinoOptInt|
+                  -> rquickjs::Result<String> {
+                let timeout_ms = network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
+                    .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))?;
+                network::connect_no_redirect_with_timeout(
                     &http.request(),
                     &url,
                     method.0.as_deref(),
                     headers.0.as_deref(),
                     body.0.as_deref(),
+                    timeout_ms,
                 )
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2918,7 +3040,9 @@ fn register_cookie_apis<'js>(
         globals,
         "clearCookies",
         rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> bool {
-            http.cookies().clear(&url);
+            if !crate::cancellation::is_cancelled() {
+                http.cookies().clear(&url);
+            }
             true
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2935,7 +3059,9 @@ fn register_cookie_apis<'js>(
         globals,
         "removeCookie",
         rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-            http.cookies().clear(&url);
+            if !crate::cancellation::is_cancelled() {
+                http.cookies().clear(&url);
+            }
             String::new()
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4216,19 +4342,36 @@ fn register_misc_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // ajaxTestAll(urls) -> String（入参宽松收敛同 ajaxAll：上游 Kotlin
-    // `ajaxTestAll(urlList: Array<String>, timeout: Int)`，JsExtensions.kt:173）
+    // 测试批次保留每项错误；沿用原始 Int 的可选转换与超时边界。
     mount_dual(
         java,
         globals,
         "ajaxTestAll",
         {
             let http = resources.clone();
-            rquickjs::Function::new(ctx.clone(), move |urls: LooseStrList| -> String {
-                misc_api::ajax_test_all(&http, &urls.0)
-            })
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>,
+                      urls: LooseStrList,
+                      timeout: RhinoOptInt,
+                      skip_rate_limit: Opt<bool>|
+                      -> rquickjs::Result<String> {
+                    let timeout =
+                        network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
+                            .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                    super::batch_request::run(
+                        &http.request(),
+                        &urls.0,
+                        timeout,
+                        true,
+                        skip_rate_limit.0.unwrap_or(false),
+                        Some(&ctx),
+                    )
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                },
+            )
         }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
     )?;
 
     // toUrl(path, query) -> String
@@ -4803,8 +4946,7 @@ fn resolve_archive_bytes(
 ) -> Result<Vec<u8>, String> {
     // 网络 URL 使用本资源的二进制响应，不经字符串转换。
     if source.starts_with("http://") || source.starts_with("https://") {
-        use crate::host_api::runtime_bridge::block_on;
-        return block_on(async {
+        return super::runtime_bridge::block_on_cancellable(async {
             // 同一资源复用连接池，保持回环直连策略。
             let client = http
                 .client_for_url(source, false)
@@ -5073,7 +5215,7 @@ mod resource_network_tests {
             assert_eq!(vm.eval(&script).unwrap(), expected);
             let result: serde_json::Value = serde_json::from_str(
                 &vm.eval(&format!(
-                    "java.ajaxTestAll([{}])",
+                    "JSON.stringify(java.ajaxTestAll([{}]).map(function(r){{return {{statusCode:r.code()}};}}))",
                     quote(&format!("{base}/probe"))
                 ))
                 .unwrap(),
@@ -5108,6 +5250,36 @@ mod tests {
 
     fn make_engine() -> QuickJsEngine {
         QuickJsEngine::new(SandboxConfig::permissive()).expect("Failed to create QuickJsEngine")
+    }
+
+    #[test]
+    fn response_bridge_rejects_corrupt_payloads_instead_of_empty_responses() {
+        let runtime = rquickjs::Runtime::new().unwrap();
+        let context = rquickjs::Context::full(&runtime).unwrap();
+        context.with(|ctx| {
+            ctx.eval::<(), _>(r#"
+                var payload = '';
+                var java = {
+                    get: function(){return '变量';},
+                    connect: function(){return payload;},
+                    connectNR: function(){return payload;},
+                    getCookie: function(){return '';}
+                };
+            "#).unwrap();
+            ctx.eval::<(), _>(super::RESPONSE_BRIDGE_JS).unwrap();
+            for payload in ["损坏JSON", "null", "[]", "{}", r#"{"status_code":"200"}"#] {
+                ctx.globals().set("payload", payload).unwrap();
+                for call in ["java.connect('http://example.test/')", "java.get('http://example.test/',{})"] {
+                    let throws: bool = ctx.eval(format!(
+                        "(function(){{try{{{call};return false;}}catch(e){{return e instanceof Error;}}}})()"
+                    )).unwrap();
+                    assert!(throws, "损坏响应不得退为空对象：{call} / {payload}");
+                }
+            }
+            ctx.globals().set("payload", r#"{"status_code":200,"body":"","headers":{}}"#).unwrap();
+            assert_eq!(ctx.eval::<String, _>("java.get('http://example.test/',{}).body()").unwrap(), "");
+            assert_eq!(ctx.eval::<String, _>("java.get('key')").unwrap(), "变量");
+        });
     }
 
     #[test]

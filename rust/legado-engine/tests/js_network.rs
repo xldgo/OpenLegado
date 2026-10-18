@@ -80,6 +80,61 @@ fn source(engine: &EngineContext, tag: &str) {
 }
 
 #[test]
+fn js_requests_share_the_engine_source_rate_window() {
+    use std::time::Duration;
+    let (url, server) = fixture(7);
+    let engine = EngineContext::in_memory().unwrap();
+    source(&engine, &url);
+    engine
+        .storage()
+        .with_database(|db| {
+            db.connection()
+                .execute(
+                    "UPDATE book_sources SET concurrentRate='1/10000' WHERE bookSourceUrl=?1",
+                    [&url],
+                )
+                .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+            Ok(())
+        })
+        .unwrap();
+    let vm = engine
+        .js_resources()
+        .create_engine(SandboxConfig::default())
+        .unwrap();
+    vm.eval(&format!(
+        "globalThis.url={};java.ajax(url)",
+        serde_json::to_string(&url).unwrap()
+    ))
+    .unwrap();
+    for call in [
+        "java.ajax(url)",
+        "java.connect(url).body()",
+        "java.get(url,{}).body()",
+        "java.head(url,{}).body()",
+        "java.post(url,'',{}).body()",
+    ] {
+        engine.rate_limiter().remove(&url);
+        legado_js::host_api::current_source::with_current_source_tag(&url, || vm.eval(call))
+            .unwrap();
+        // JS真实请求已占用所属注册表的首个许可，抓取侧再次申请必须等待。
+        // 使用长窗口+短观察期，不把客户端调度耗时误当作限流等待下限。
+        let shared = legado_js::host_api::runtime_bridge::block_on(async {
+            tokio::time::timeout(
+                Duration::from_millis(50),
+                engine.rate_limiter().acquire_key(&url, "1/10000"),
+            )
+            .await
+        });
+        assert!(shared.is_err(), "{call}未占用共享源限流窗口");
+    }
+    legado_js::host_api::current_source::with_current_source_tag(&url, || {
+        vm.eval("java.ajaxAll([url],true)[0].body()")
+    })
+    .unwrap();
+    server.join().unwrap();
+}
+
+#[test]
 fn webview_payloads_use_the_same_vm_cookie_owner_and_keep_empty_url_empty() {
     let one = EngineContext::in_memory().unwrap();
     let two = EngineContext::in_memory().unwrap();
@@ -292,10 +347,19 @@ fn request_snapshot_survives_changed_source_headers_and_batch_async_execution() 
             let urls =
                 serde_json::json!([format!("{base}/batch1"), format!("{base}/batch2")]).to_string();
             let response = legado_js::host_api::network::ajax_all(&request, &urls).unwrap();
-            assert!(response.contains("server=before"));
+            let rows: Vec<legado_js::host_api::network::HttpResponse> =
+                serde_json::from_str(&response).unwrap();
+            assert_eq!(rows.len(), 2);
+            for row in rows {
+                let body: serde_json::Value = serde_json::from_str(&row.body).unwrap();
+                assert_eq!(
+                    body["owner"], "before",
+                    "每个批量请求都必须携带原快照，不能读已修改的来源头"
+                );
+            }
         },
     );
-    // 批量响应的空 owner 覆盖值，证明使用原开启快照写回，而非当前关闭来源。
+    // 批量请求现在携带原 owner，响应 Cookie 也必须按原开启快照写回。
     assert_eq!(
         engine
             .network()
@@ -304,7 +368,7 @@ fn request_snapshot_survives_changed_source_headers_and_batch_async_execution() 
             .unwrap()
             .get_key("127.0.0.1", "server")
             .as_deref(),
-        Some("")
+        Some("before")
     );
     fixture.join().unwrap();
 }

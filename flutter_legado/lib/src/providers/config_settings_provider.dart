@@ -1,3 +1,7 @@
+import '../data/repositories/app_request_settings_repository.dart';
+import '../domain/contracts/request_settings_repository.dart';
+import '../domain/models/request_settings.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_settings_provider.dart';
@@ -29,3 +33,13 @@ final serviceSettingsRepositoryProvider = Provider<ServiceSettingsRepository>(
 final mangaSettingsRepositoryProvider = Provider<MangaSettingsRepository>(
   (ref) => AppMangaSettingsRepository(ref.watch(appSettingsServiceProvider)),
 );
+
+/// 并发设置与其他Rust配置共享快照及写入失败回退。— Codex + UI
+final requestSettingsRepositoryProvider = Provider<RequestSettingsRepository>(
+  (ref) => AppRequestSettingsRepository(ref.watch(appSettingsServiceProvider)),
+);
+final requestSettingsProvider = StreamProvider<RequestSettings>((ref) async* {
+  final repository = ref.watch(requestSettingsRepositoryProvider);
+  await repository.load();
+  yield* repository.watch();
+});

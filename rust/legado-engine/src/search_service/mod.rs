@@ -1,5 +1,5 @@
 //! 搜索应用服务：显式资源、会话归属和结果发布，不依赖FFI或进程全局变量。
-use crate::source_batches::{SEARCH_CONCURRENCY, drive_source_batches};
+use crate::source_batches::drive_source_batches;
 use crate::source_catalog::load_search_sources_selected_from;
 use crate::{NetworkContext, SearchSession, SearchTasks, StorageContext, TaskGroup, TaskHandle};
 use legado_core::{
@@ -63,11 +63,12 @@ impl SearchContext {
         }
     }
     pub fn with_session(mut self, session: Arc<SearchSession>) -> Self {
-        self.task = Some(session.task().clone());
+        self = self.with_task(session.task().clone());
         self.session = Some(session);
         self
     }
     pub fn with_task(mut self, task: TaskHandle) -> Self {
+        self.deps.js = self.deps.js.with_cancellation(Arc::new(task.clone()));
         self.task = Some(task);
         self
     }
@@ -228,6 +229,8 @@ impl SearchService {
             return Ok(Vec::new());
         }
         let precision = self.precision();
+        let concurrency =
+            crate::request_settings::thread_count(self.resources.storage.as_ref())?.get();
 
         // 限流并发 + 单源超时 + 异常隔离（对齐原版 SearchModel 线程池语义），
         // 逐源完成后累积结果；失败源跳过不阻断整体。
@@ -245,7 +248,7 @@ impl SearchService {
             let session_cb = Arc::clone(&session);
             drive_source_batches(
                 sources,
-                SEARCH_CONCURRENCY,
+                concurrency,
                 SEARCH_SOURCE_TIMEOUT,
                 session.as_ref(),
                 &session.paused,
@@ -338,6 +341,8 @@ impl SearchService {
             return Ok(Vec::new());
         }
         let precision = self.precision();
+        let concurrency =
+            crate::request_settings::thread_count(self.resources.storage.as_ref())?.get();
 
         // 先保留书源输入错误/空源的原返回顺序，再装配网络能力。
         let context = self
@@ -346,7 +351,7 @@ impl SearchService {
 
         // 委托统一单源执行器（drive_source_batches + search_single_source），与
         // search_books / run_multi_stream 共享同一并发/超时/解析语义：有界并发
-        // SEARCH_CONCURRENCY、每源 SEARCH_SOURCE_TIMEOUT(30s)、无截断。原
+        // concurrency、每源 SEARCH_SOURCE_TIMEOUT(30s)、无截断。原
         // MultiSourceSearcher/WebSourceSearcher 独立驱动器的 10s 全局超时、20 条
         // 截断与跨源去重/相关性排序已移除——聚合排序下沉至 Flutter，对齐原版
         // SearchModel「Rust 出原始单源结果、UI 按 mergeItems 聚合」。
@@ -358,7 +363,7 @@ impl SearchService {
             let session_cb = Arc::clone(&session);
             drive_source_batches(
                 sources,
-                SEARCH_CONCURRENCY,
+                concurrency,
                 SEARCH_SOURCE_TIMEOUT,
                 session.as_ref(),
                 &session.paused,
@@ -465,10 +470,13 @@ impl SearchService {
             return;
         }
 
-        let client = match self.resources.network.client() {
+        let (client, concurrency) = match self.resources.network.client().and_then(|client| {
+            crate::request_settings::thread_count(self.resources.storage.as_ref())
+                .map(|n| (client, n.get()))
+        }) {
             Ok(c) => c,
             Err(e) => {
-                log::error!("流式搜索：共享 HTTP 客户端初始化失败: {e}");
+                log::error!("流式搜索：网络或并发设置初始化失败: {e}");
                 clear_current_session_if_same(&session); // 7.5：HTTP 失败早退亦清理会话
                 return;
             }
@@ -489,7 +497,7 @@ impl SearchService {
 
         drive_source_batches(
             sources,
-            SEARCH_CONCURRENCY,
+            concurrency,
             SEARCH_SOURCE_TIMEOUT,
             session.as_ref(),
             &session.paused,

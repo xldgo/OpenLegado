@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/data/repositories/app_request_settings_repository.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +18,63 @@ import '../fixtures/config_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('并发只存Rust配置，忽略未接线的SP旧值并拒绝越界写入', () async {
+    SharedPreferences.setMockInitialValues({'threadCount': 99});
+    final config = MockConfigRepository(values: {'threadCount': '3'});
+    final service = createAppSettingsService(configRepository: () => config);
+    addTearDown(service.dispose);
+    final repository = AppRequestSettingsRepository(service);
+    expect((await repository.load()).threadCount, 3);
+    await repository.update((s) => s.copyWith(threadCount: 7));
+    expect(await config.getConfig('threadCount'), '7');
+    expect((await SharedPreferences.getInstance()).getInt('threadCount'), 99);
+    await expectLater(
+      repository.update((s) => s.copyWith(threadCount: 257)),
+      throwsRangeError,
+    );
+    expect(await config.getConfig('threadCount'), '7');
+    final restored = createAppSettingsService(configRepository: () => config);
+    addTearDown(restored.dispose);
+    expect(
+      (await AppRequestSettingsRepository(restored).load()).threadCount,
+      7,
+    );
+    for (final value in ['0', '-1', '257', 'bad', '0x20', '']) {
+      await config.setConfig('threadCount', value);
+      await repository.reload();
+      expect(repository.current.threadCount, 16);
+    }
+  });
+  test('并发写入失败回退，重试可保存；读取失败不能伪装默认值', () async {
+    var failRead = false, failWrite = true;
+    var stored = '2';
+    final config = TestConfigRepository(
+      read: (key) async {
+        if (failRead) throw StateError('读取失败');
+        return stored;
+      },
+      write: (key, value) async {
+        if (failWrite) throw StateError('写入失败');
+        stored = value;
+      },
+    );
+    final service = createAppSettingsService(configRepository: () => config);
+    addTearDown(service.dispose);
+    final repository = AppRequestSettingsRepository(service);
+    await repository.load();
+    await expectLater(
+      repository.update((s) => s.copyWith(threadCount: 8)),
+      throwsStateError,
+    );
+    expect(repository.current.threadCount, 2);
+    failWrite = false;
+    await repository.update((s) => s.copyWith(threadCount: 8));
+    expect(stored, '8');
+    failRead = true;
+    await expectLater(repository.reload(), throwsStateError);
+    expect(repository.current.threadCount, 8);
+  });
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test('同一设置服务同步播放仓储，重新装配仍读取持久化结果', () async {
     final config = MockConfigRepository();

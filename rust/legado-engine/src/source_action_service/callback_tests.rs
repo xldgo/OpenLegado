@@ -106,7 +106,7 @@ fn callback_fallbacks_keep_original_query_order_and_feature_errors() {
 
 #[cfg(feature = "quickjs")]
 #[test]
-fn callback_cancellation_keeps_worker_registered_and_other_instance_actions_intact() {
+fn callback_cancellation_stops_http_worker_and_keeps_other_instance_actions_intact() {
     use crate::test_http_fixture::Fixture;
     use std::time::Duration;
     let mut fixture = Fixture::new(1, true, |_| "继续".into());
@@ -165,8 +165,9 @@ fn callback_cancellation_keeps_worker_registered_and_other_instance_actions_inta
     // 根析构会关闭任务组，必须在确认工作进入HTTP后才释放根实例。
     drop(first);
     assert!(weak.upgrade().is_none());
-    assert!(!runtime.block_on(tasks.shutdown(Duration::from_millis(10))));
-    assert_eq!(tasks.active_count(), 1);
+    // 服务端仍阻塞时，取消必须使真实worker退出，而非只隐藏结果。
+    assert!(runtime.block_on(tasks.shutdown(Duration::from_secs(2))));
+    assert_eq!(tasks.active_count(), 0);
     let b = super::tests::service(&second);
     let out = b
         .source_call_back_btn(

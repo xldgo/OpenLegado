@@ -44,6 +44,9 @@ pub fn is_collecting() -> bool {
     CURRENT.with(|slot| slot.borrow().is_some())
 }
 pub fn push_action(action: Value) {
+    if crate::cancellation::is_cancelled() {
+        return;
+    }
     CURRENT.with(|slot| {
         if let Some(actions) = slot.borrow_mut().as_mut() {
             actions.values.push(action);
@@ -59,6 +62,9 @@ pub fn push_payload_json(payload: &str) {
     }
 }
 fn request_refresh_explore() {
+    if crate::cancellation::is_cancelled() {
+        return;
+    }
     CURRENT.with(|slot| {
         if let Some(actions) = slot.borrow_mut().as_mut() {
             actions.refresh_explore = true;

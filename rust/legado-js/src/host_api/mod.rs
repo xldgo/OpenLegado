@@ -7,6 +7,8 @@
 pub mod archive_utils;
 #[cfg(feature = "quickjs")]
 pub mod asymmetric_crypto;
+#[cfg(feature = "quickjs")]
+mod batch_request;
 pub mod cache_store;
 /// 能力受限台账：未知 Java 符号 + jsLib 加载失败登记（队列④，无 feature 门控）
 pub mod capability_ledger;
@@ -44,6 +46,8 @@ pub mod pre_update_hooks;
 pub mod query_ttf;
 pub mod regex_utils;
 pub(crate) mod resource_files;
+#[cfg(feature = "quickjs")]
+mod rule_request;
 #[cfg(feature = "quickjs")]
 pub mod runtime_bridge;
 pub mod source_callback;

@@ -44,6 +44,7 @@ impl SourceActionService {
     ) -> LegadoResult<SourceCallBackBtnResult> {
         let task = tasks.begin().map_err(|e| LegadoError::Ffi(e.to_string()))?;
         let _guard = task.guard();
+        let _execution = legado_js::cancellation::Scope::enter(Some(Arc::new(task.clone())));
         let book = self
             .with_database(|db| BookRepository::new(db.connection()).find_by_url(book_url))?
             .ok_or_else(|| LegadoError::Database(format!("书籍不存在: {book_url}")))?;
@@ -94,8 +95,12 @@ impl SourceActionService {
             None => None,
         };
 
-        let (raw, actions) =
-            self.eval_call_back_js(&source, &book, chapter.as_ref(), event, result, js_str)?;
+        let evaluated =
+            self.eval_call_back_js(&source, &book, chapter.as_ref(), event, result, js_str);
+        if task.is_cancelled() {
+            return Err(LegadoError::Ffi("书源回调已取消".into()));
+        }
+        let (raw, actions) = evaluated?;
 
         task.with_active(|| {
             Ok(SourceCallBackBtnResult {

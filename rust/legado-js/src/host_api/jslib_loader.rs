@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use crate::host_api::capability_ledger;
 use crate::host_api::encoding;
-use crate::host_api::runtime_bridge::block_on;
+use crate::host_api::runtime_bridge::block_on_cancellable;
 use crate::http_resources::HttpResources;
 use legado_net::LegadoRequest;
 
@@ -78,7 +78,8 @@ pub fn default_js_lib_fetcher(http: &HttpResources, url: &str) -> Result<String,
         .map_err(|e| format!("下载jsLib-{url}失败: {e}"))?;
     let mut req = LegadoRequest::get(url);
     req.timeout = Some(JSLIB_FETCH_TIMEOUT);
-    let resp = block_on(client.send(&req)).map_err(|e| format!("下载jsLib-{url}失败: {e}"))?;
+    let resp =
+        block_on_cancellable(client.send(&req)).map_err(|e| format!("下载jsLib-{url}失败: {e}"))?;
     if !resp.is_success() {
         return Err(format!("下载jsLib-{url}失败: HTTP {}", resp.status));
     }
@@ -113,6 +114,9 @@ pub fn resolve_js_lib_url_map(
     let entries = parse_js_lib_url_map(js_lib)?;
     let mut parts: Vec<String> = Vec::new();
     for (name, value) in entries {
+        if crate::cancellation::is_cancelled() {
+            return None;
+        }
         let v = value.trim();
         if !(v.starts_with("http://") || v.starts_with("https://")) {
             // 非 URL 值：上游直接 eval 的原始 JS
@@ -129,10 +133,16 @@ pub fn resolve_js_lib_url_map(
             Some(body) => parts.push(format!("// {name}\n{body}")),
             None => match (fetch)(v) {
                 Ok(body) => {
+                    if crate::cancellation::is_cancelled() {
+                        return None;
+                    }
                     http.cache_js_lib(key, body.clone());
                     parts.push(format!("// {name}\n{body}"));
                 }
                 Err(e) => {
+                    if crate::cancellation::is_cancelled() {
+                        return None;
+                    }
                     eprintln!(
                         "[jslib_loader] {source_tag}: {e}（降级继续，仅依赖 jsLib {name} 的规则受影响）"
                     );

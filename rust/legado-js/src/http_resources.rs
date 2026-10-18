@@ -1,6 +1,7 @@
 //! VM 只捕获网络数据能力，不捕获拥有 VM 缓存的根对象。
 #![cfg(feature = "quickjs")]
 
+use legado_net::client::ClientTimeoutPolicy;
 use legado_net::{CookiePersistence, CookieStore, LegadoClient, LegadoClientConfig};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -9,14 +10,33 @@ pub use crate::host_api::cookie_store::CookieAccess;
 
 pub type SourceCookieJarLookup = Arc<dyn Fn(&str) -> Option<bool> + Send + Sync>;
 
-#[derive(Default)]
-struct Pools {
-    revision: u64,
-    clients: [Option<LegadoClient>; 4],
+// 缓存键可能携带认证信息，不派生Debug或输出到日志。
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct RouteKey {
+    index: usize,
+    proxy: Option<String>,
+    dns_addresses: Vec<std::net::IpAddr>,
 }
 
-/// 四池共享同一罐；构造不持槽位锁跨数据库预载。
+const ROUTE_CACHE_CAPACITY: usize = 32;
+struct Pools {
+    revision: u64,
+    clients: [Option<LegadoClient>; 12],
+    routes: lru::LruCache<RouteKey, LegadoClient>,
+}
+impl Default for Pools {
+    fn default() -> Self {
+        Self {
+            revision: 0,
+            clients: Default::default(),
+            routes: lru::LruCache::new(std::num::NonZeroUsize::new(ROUTE_CACHE_CAPACITY).unwrap()),
+        }
+    }
+}
+
+/// 各策略池共享同一罐；按需构建，构造不持槽位锁跨数据库预载。
 pub struct HttpResources {
+    request_policy: RwLock<Option<Arc<dyn crate::http_request_policy::HttpRequestPolicy>>>,
     hosts: Arc<legado_net::custom_hosts::CustomHosts>,
     store: Arc<RwLock<CookieStore>>,
     persistence: Option<Arc<dyn CookiePersistence>>,
@@ -54,6 +74,7 @@ impl HttpResources {
         lookup: SourceCookieJarLookup,
     ) -> Self {
         Self {
+            request_policy: RwLock::new(None),
             hosts: Arc::new(Default::default()),
             store,
             persistence,
@@ -74,6 +95,17 @@ impl HttpResources {
         self.hosts = hosts;
         self.reset_clients();
         self
+    }
+
+    /// 更新宿主策略而不重建VM/客户端；等待时不持有此锁。
+    pub fn set_request_policy(
+        &self,
+        policy: Arc<dyn crate::http_request_policy::HttpRequestPolicy>,
+    ) {
+        *self
+            .request_policy
+            .write()
+            .unwrap_or_else(|p| p.into_inner()) = Some(policy);
     }
 
     pub(crate) fn fonts(&self) -> &crate::host_api::font_api::FontResources {
@@ -97,7 +129,7 @@ impl HttpResources {
     }
 
     pub(crate) fn download_font(&self, url: &str) -> Result<Vec<u8>, String> {
-        crate::host_api::runtime_bridge::block_on(async {
+        crate::host_api::runtime_bridge::block_on_cancellable(async {
             let client = self
                 .client_for_url(url, false)
                 .map_err(|e| format!("build client error: {e}"))?;
@@ -149,6 +181,9 @@ impl HttpResources {
 
     /// setCookie 保留空值，忽略无等号或空键；与原绑定批量写入口一致。
     pub fn set_cookie(&self, url: &str, cookie: &str) {
+        if crate::cancellation::is_cancelled() {
+            return;
+        }
         let pairs: Vec<_> = cookie
             .split(';')
             .filter_map(|pair| {
@@ -164,6 +199,9 @@ impl HttpResources {
 
     /// replaceCookie 的既有语义跳过空新值，现存同名空值不因此被删除。
     pub fn replace_cookie(&self, url: &str, cookie: &str) {
+        if crate::cancellation::is_cancelled() {
+            return;
+        }
         if url.trim().is_empty() || cookie.trim().is_empty() {
             return;
         }
@@ -202,6 +240,8 @@ impl HttpResources {
     pub fn request_for(&self, source: Option<&str>) -> RequestResources<'_> {
         RequestResources {
             http: self,
+            cancellation: crate::cancellation::current(),
+            source: source.map(str::to_owned),
             cookie_jar_enabled: source.and_then(|source| (self.lookup)(source)) == Some(true),
             headers: source
                 .map(|source| self.headers_for(source))
@@ -210,19 +250,62 @@ impl HttpResources {
     }
 
     pub fn client(&self, loopback: bool, no_redirect: bool) -> Result<LegadoClient, String> {
-        let index = usize::from(loopback) + usize::from(no_redirect) * 2;
+        self.client_with_timeout_policy(loopback, no_redirect, ClientTimeoutPolicy::Default)
+    }
+
+    pub(crate) fn client_with_timeout_policy(
+        &self,
+        loopback: bool,
+        no_redirect: bool,
+        timeout_policy: ClientTimeoutPolicy,
+    ) -> Result<LegadoClient, String> {
+        self.routed_client(loopback, no_redirect, timeout_policy, None, Vec::new())
+    }
+
+    /// 配置按请求固定，建池不持锁跨Cookie预载；reset时丢弃过期构建结果。
+    pub(crate) fn routed_client(
+        &self,
+        loopback: bool,
+        no_redirect: bool,
+        timeout_policy: ClientTimeoutPolicy,
+        proxy: Option<legado_net::ProxyConfig>,
+        dns_addresses: Vec<std::net::IpAddr>,
+    ) -> Result<LegadoClient, String> {
+        let policy_index = match timeout_policy {
+            ClientTimeoutPolicy::Default => 0,
+            ClientTimeoutPolicy::NoTotalTimeout => 1,
+            ClientTimeoutPolicy::Unlimited => 2,
+        };
+        let index = usize::from(loopback) + usize::from(no_redirect) * 2 + policy_index * 4;
+        let key = RouteKey {
+            index,
+            proxy: proxy.as_ref().map(|p| p.effective_url()),
+            dns_addresses,
+        };
+        let routed = key.proxy.is_some() || !key.dns_addresses.is_empty();
         loop {
             let revision = {
-                let pools = self.pools.read().unwrap_or_else(|p| p.into_inner());
-                if let Some(client) = &pools.clients[index] {
-                    return Ok(client.clone());
+                if routed {
+                    let mut pools = self.pools.write().unwrap_or_else(|p| p.into_inner());
+                    if let Some(client) = pools.routes.get(&key) {
+                        return Ok(client.clone());
+                    }
+                    pools.revision
+                } else {
+                    let pools = self.pools.read().unwrap_or_else(|p| p.into_inner());
+                    if let Some(client) = &pools.clients[index] {
+                        return Ok(client.clone());
+                    }
+                    pools.revision
                 }
-                pools.revision
             };
             let config = LegadoClientConfig {
                 no_proxy: loopback,
+                proxy: proxy.clone(),
+                dns_addresses: key.dns_addresses.clone(),
                 custom_hosts: Some(self.hosts.clone()),
                 follow_redirects: !no_redirect,
+                timeout_policy,
                 ..Default::default()
             };
             let built = LegadoClient::with_cookie_store(
@@ -230,10 +313,23 @@ impl HttpResources {
                 self.store.clone(),
                 self.persistence.clone(),
             )
-            .map_err(|error| format!("build client error: {error}"))?;
+            .map_err(|error| {
+                if key.proxy.is_some() {
+                    "请求代理客户端构建失败".to_string()
+                } else {
+                    format!("build client error: {error}")
+                }
+            })?;
             let mut pools = self.pools.write().unwrap_or_else(|p| p.into_inner());
             if pools.revision != revision {
                 continue;
+            }
+            if routed {
+                if let Some(client) = pools.routes.get(&key) {
+                    return Ok(client.clone());
+                }
+                pools.routes.put(key, built.clone());
+                return Ok(built);
             }
             return Ok(pools.clients[index].get_or_insert(built).clone());
         }
@@ -243,19 +339,48 @@ impl HttpResources {
         let mut pools = self.pools.write().unwrap_or_else(|p| p.into_inner());
         pools.revision = pools.revision.wrapping_add(1);
         pools.clients = Default::default();
+        pools.routes.clear();
     }
 }
 
 /// 固定来源开关和头，不跨异步边界访问线程局部状态。
 pub struct RequestResources<'a> {
+    cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
     pub http: &'a HttpResources,
+    pub source: Option<String>,
     pub cookie_jar_enabled: bool,
     pub headers: HashMap<String, String>,
 }
 
+impl RequestResources<'_> {
+    pub(crate) fn check_active(&self) -> legado_core::LegadoResult<()> {
+        if self
+            .cancellation
+            .as_ref()
+            .is_some_and(|control| control.is_cancelled())
+        {
+            Err(crate::cancellation::error())
+        } else {
+            Ok(())
+        }
+    }
+    pub fn policy(&self) -> Result<crate::http_request_policy::RequestPolicySnapshot, String> {
+        let policy = self
+            .http
+            .request_policy
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        policy.map_or_else(
+            || Ok(Default::default()),
+            |policy| policy.snapshot(self.source.as_deref()),
+        )
+    }
+}
+
 struct MemoryCookies(Arc<RwLock<CookieStore>>);
 
-/// 没有数据库的独立 VM 仍使用其四池的同一罐，不生成另一个 JS 镜像。
+/// 没有数据库的独立 VM 仍使用其请求池的同一罐，不生成另一个 JS 镜像。
 impl CookieAccess for MemoryCookies {
     fn get(&self, url: &str) -> String {
         self.0
@@ -294,6 +419,131 @@ impl CookieAccess for MemoryCookies {
 mod tests {
     use super::*;
     use crate::JsEngine;
+
+    #[test]
+    fn route_cache_is_bounded_reused_reset_and_owned_by_instance() {
+        use ClientTimeoutPolicy::*;
+        let resources = HttpResources::default();
+        let route = || vec!["127.0.0.1".parse().unwrap()];
+        let first = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        let again = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert_eq!(first.client_id(), again.client_id());
+        assert!(Arc::ptr_eq(first.cookie_store(), resources.cookie_store()));
+        for policy in [NoTotalTimeout, Unlimited] {
+            let variant = resources
+                .routed_client(true, false, policy, None, route())
+                .unwrap();
+            assert_ne!(first.client_id(), variant.client_id());
+            assert!(Arc::ptr_eq(first.cookie_store(), variant.cookie_store()));
+        }
+        let other = HttpResources::default()
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert!(!Arc::ptr_eq(first.cookie_store(), other.cookie_store()));
+        let proxy = |value: &str| Some(legado_net::parse_proxy_config(value).unwrap());
+        let auth = resources
+            .routed_client(
+                true,
+                false,
+                Default,
+                proxy("http://user:pass@127.0.0.1:8080"),
+                Vec::new(),
+            )
+            .unwrap();
+        let legacy = resources
+            .routed_client(
+                true,
+                false,
+                Default,
+                proxy("http://127.0.0.1:8080@user@pass"),
+                Vec::new(),
+            )
+            .unwrap();
+        assert_eq!(auth.client_id(), legacy.client_id());
+        let different = resources
+            .routed_client(
+                true,
+                false,
+                Default,
+                proxy("http://user:other@127.0.0.1:8080"),
+                Vec::new(),
+            )
+            .unwrap();
+        assert_ne!(
+            auth.client_id(),
+            different.client_id(),
+            "不同认证不能复用同一代理连接池"
+        );
+        assert!(Arc::ptr_eq(auth.cookie_store(), first.cookie_store()));
+        for i in 2..=40 {
+            resources
+                .routed_client(
+                    true,
+                    false,
+                    Default,
+                    None,
+                    vec![std::net::Ipv4Addr::new(127, 0, 0, i).into()],
+                )
+                .unwrap();
+        }
+        assert_eq!(
+            resources.pools.read().unwrap().routes.len(),
+            ROUTE_CACHE_CAPACITY
+        );
+        let rebuilt = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert_ne!(first.client_id(), rebuilt.client_id());
+        resources.reset_clients();
+        assert!(resources.pools.read().unwrap().routes.is_empty());
+        let reset = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert_ne!(rebuilt.client_id(), reset.client_id());
+        assert!(Arc::ptr_eq(first.cookie_store(), reset.cookie_store()));
+    }
+
+    #[test]
+    fn timeout_policy_pools_reuse_and_reset_with_one_cookie_store() {
+        let resources = HttpResources::default();
+        let mut clients = Vec::new();
+        for policy in [
+            ClientTimeoutPolicy::Default,
+            ClientTimeoutPolicy::NoTotalTimeout,
+            ClientTimeoutPolicy::Unlimited,
+        ] {
+            for (loopback, no_redirect) in
+                [(false, false), (true, false), (false, true), (true, true)]
+            {
+                let first = resources
+                    .client_with_timeout_policy(loopback, no_redirect, policy)
+                    .unwrap();
+                let again = resources
+                    .client_with_timeout_policy(loopback, no_redirect, policy)
+                    .unwrap();
+                assert_eq!(first.client_id(), again.client_id());
+                assert!(Arc::ptr_eq(first.cookie_store(), resources.cookie_store()));
+                assert!(clients.iter().all(|id| *id != first.client_id()));
+                clients.push(first.client_id());
+            }
+        }
+        resources.reset_clients();
+        for policy in [
+            ClientTimeoutPolicy::Default,
+            ClientTimeoutPolicy::NoTotalTimeout,
+            ClientTimeoutPolicy::Unlimited,
+        ] {
+            let next = resources
+                .client_with_timeout_policy(true, true, policy)
+                .unwrap();
+            assert!(!clients.contains(&next.client_id()));
+            assert!(Arc::ptr_eq(next.cookie_store(), resources.cookie_store()));
+        }
+    }
 
     #[test]
     fn headers_are_owned_by_source_and_instance_and_empty_write_removes_them() {

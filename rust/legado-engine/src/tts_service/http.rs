@@ -156,7 +156,7 @@ mod tests {
 
     #[cfg(feature = "quickjs")]
     #[test]
-    fn isolated_cancelled_response_script_remains_registered_until_actual_exit() {
+    fn isolated_cancelled_response_script_exits_before_server_unblocks() {
         use crate::test_http_fixture::Fixture;
         use std::sync::Arc;
         use std::time::Duration;
@@ -192,8 +192,8 @@ mod tests {
         assert!(weak.upgrade().is_none());
         let result = worker.join().unwrap();
         assert!(result.unwrap_err().to_string().contains("TTS_CANCELLED"));
-        assert!(!block_on(tasks.shutdown(Duration::from_millis(20))));
-        assert!(tasks.active_count() > 0);
+        assert!(block_on(tasks.shutdown(Duration::from_secs(2))));
+        assert_eq!(tasks.active_count(), 0);
         fixture.release.send(()).unwrap();
         fixture.worker.join().unwrap();
         assert!(block_on(tasks.shutdown(Duration::from_secs(5))));

@@ -1,5 +1,6 @@
-//! 书源校验服务：串行推进、明确实例资源与取消发布边界。
+//! 书源校验服务：有界并发并按输入顺序发布、明确实例资源与取消发布边界。
 use crate::{NetworkContext, Operation, OperationSlot, StorageContext, TaskGroup};
+use futures::{StreamExt, stream};
 use legado_core::{LegadoError, LegadoResult, models::BookSource};
 use legado_db::{BookSourceRepository, repository::Repository};
 use legado_net::source_checker::{CheckResult, CheckerConfig, SourceChecker};
@@ -41,6 +42,7 @@ pub async fn run_checks_config<F>(
     config: CheckerConfig,
     operation: &Arc<Operation>,
     network: &NetworkContext,
+    concurrency: std::num::NonZeroUsize,
     mut on_result: F,
 ) where
     F: FnMut(CheckProgress) -> Result<(), String>,
@@ -58,44 +60,47 @@ pub async fn run_checks_config<F>(
         }
     };
 
-    // 串行逐个校验（对齐 Kotlin CheckSourceService，避免对书源站并发压力）
-    for (index, source) in sources.into_iter().enumerate() {
+    // 并行检查但保持既有输入索引/最后项协议，取消时直接丢弃全部在途future。
+    let checker = &checker;
+    let pending = stream::iter(sources.into_iter().enumerate())
+        .map(|(index, source)| async move {
+            let result = match source.as_ref() {
+                Some(src) => checker.check_full(src).await,
+                None => CheckResult {
+                    source_url: String::new(),
+                    search_ok: false,
+                    toc_ok: false,
+                    content_ok: false,
+                    search_error: Some("书源不存在".to_string()),
+                    toc_error: Some("skipped".to_string()),
+                    content_error: Some("skipped".to_string()),
+                    total_time_ms: 0,
+                    captcha: None,
+                    redirect: None,
+                },
+            };
+            CheckProgress {
+                index,
+                total,
+                is_last: index + 1 >= total,
+                source_name: source
+                    .as_ref()
+                    .map(|s| s.book_source_name.clone())
+                    .unwrap_or_default(),
+                result,
+            }
+        })
+        .buffered(concurrency.get());
+    futures::pin_mut!(pending);
+    loop {
         if !operation.is_active() {
             break;
         }
-
-        let result = match source {
-            Some(ref src) => tokio::select! {
-                biased;
-                _ = operation.task().cancelled() => break,
-                result = checker.check_full(src) => result,
-            },
-            // 书源不存在：对齐 Kotlin source == null 分支，推送失败结果
-            None => CheckResult {
-                source_url: String::new(),
-                search_ok: false,
-                toc_ok: false,
-                content_ok: false,
-                search_error: Some("书源不存在".to_string()),
-                toc_error: Some("skipped".to_string()),
-                content_error: Some("skipped".to_string()),
-                total_time_ms: 0,
-                captcha: None,
-                redirect: None,
-            },
+        let progress = tokio::select! {
+            biased;
+            _ = operation.task().cancelled() => break,
+            progress = pending.next() => match progress { Some(progress)=>progress, None=>break },
         };
-
-        let progress = CheckProgress {
-            index,
-            total,
-            is_last: index + 1 >= total,
-            source_name: source
-                .as_ref()
-                .map(|s| s.book_source_name.clone())
-                .unwrap_or_default(),
-            result,
-        };
-
         {
             // sink 关闭（Err）时提前终止
             match operation.publish(|| on_result(progress)) {
@@ -168,7 +173,22 @@ impl SourceCheckService {
         let network = self.resources.network.clone();
         let sources =
             load_check_sources_selected(storage.as_ref(), &source_urls).unwrap_or_default();
-        run_checks_config(sources, config, &operation, &network, &mut on_result).await;
+        let concurrency = match crate::request_settings::thread_count(storage.as_ref()) {
+            Ok(value) => value,
+            Err(error) => {
+                log::error!("书源校验读取并发设置失败: {error}");
+                return;
+            }
+        };
+        run_checks_config(
+            sources,
+            config,
+            &operation,
+            &network,
+            concurrency,
+            &mut on_result,
+        )
+        .await;
     }
     pub fn cancel_check_sources(&self) {
         self.resources.slot.cancel();

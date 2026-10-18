@@ -35,13 +35,9 @@ use crate::state::AppState;
 #[derive(Debug, Deserialize)]
 pub struct BatchTocUpdateBody {
     pub books: Vec<BookTocEntry>,
-    /// 最大并发数，默认 4（对标 Kotlin AppConfig.threadCount 限流）
-    #[serde(default = "default_concurrent")]
-    pub max_concurrent: usize,
-}
-
-fn default_concurrent() -> usize {
-    4
+    /// 显式值优先；省略时读取所属引擎threadCount。
+    #[serde(default)]
+    pub max_concurrent: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -338,6 +334,15 @@ pub async fn start_toc_update(
     State(state): State<Arc<AppState>>,
     Json(body): Json<BatchTocUpdateBody>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let max_concurrent = match body.max_concurrent {
+        Some(value) => value.max(1),
+        None => state
+            .with_database(legado_engine::request_settings::from_database)
+            .await
+            .map_err(ApiError::from)?
+            .map_err(ApiError::from)?
+            .get(),
+    };
     let requests: Vec<TocUpdateRequest> = body
         .books
         .into_iter()
@@ -364,7 +369,7 @@ pub async fn start_toc_update(
             ));
         }
         state.services.toc_stopped.store(false, Ordering::SeqCst);
-        let updater = Arc::new(TocUpdater::new(body.max_concurrent.max(1)));
+        let updater = Arc::new(TocUpdater::new(max_concurrent));
         updater.start_batch(requests.clone());
         *slot = updater.clone();
         updater
@@ -397,7 +402,7 @@ pub async fn start_toc_update(
         Json(json!({
             "started": true,
             "total": total,
-            "max_concurrent": body.max_concurrent,
+            "max_concurrent": max_concurrent,
         })),
     ))
 }
@@ -508,6 +513,51 @@ mod tests {
             ),
             "https://new-src.example.com/book/9"
         );
+    }
+
+    #[tokio::test]
+    async fn batch_concurrency_uses_config_unless_explicitly_overridden() {
+        for (stored, explicit, expected) in [
+            (None, None, 16),
+            (Some("257"), None, 16),
+            (Some("3"), None, 3),
+            (Some("3"), Some(7), 7),
+            (Some("3"), Some(0), 1),
+        ] {
+            let state = make_test_state();
+            if let Some(stored) = stored {
+                state
+                    .engine
+                    .storage()
+                    .with_database(|db| {
+                        legado_db::CacheRepository::new(db.connection()).put(
+                            "config:threadCount",
+                            stored,
+                            0,
+                        )
+                    })
+                    .unwrap();
+            }
+            let mut body = json!({"books": []});
+            if let Some(explicit) = explicit {
+                body["max_concurrent"] = json!(explicit);
+            }
+            let response = test_router(state.clone())
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/api/bookshelf/update-toc")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let body = body_json(response.into_body()).await;
+            assert_eq!(body["max_concurrent"], expected);
+            wait_batch_done(&state, 0).await;
+        }
     }
 
     #[tokio::test]

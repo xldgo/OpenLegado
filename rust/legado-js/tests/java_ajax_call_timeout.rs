@@ -149,8 +149,8 @@ JSON.stringify({a:a, b:b, c:c, d:d})
 }
 
 /// 边界：`callTimeout === 0` 在原版为 OkHttp「不设 call timeout」（0 合法且
-/// 不立即超时）；我方最接近映射 = 沿用默认请求超时，绝不能变成 Duration::ZERO
-/// 的立即超时（reqwest 对零时长 sleep 立即到期）。
+/// 不立即超时）；显式零值关闭总期限，但保留连接/读取空闲预算。
+/// 更强的规则预算覆盖验证位于network_parity测试。
 #[test]
 fn java_ajax_call_timeout_zero_does_not_expire_immediately() {
     let addr = spawn_loopback_server(8);

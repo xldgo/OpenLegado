@@ -28,6 +28,7 @@ pub mod proxy;
 pub mod rate_limit;
 pub mod remote_book;
 pub mod request;
+pub mod request_dns;
 pub mod response;
 pub mod retry;
 pub mod rss;

@@ -10,14 +10,13 @@ use crate::http_resources::RequestResources;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[cfg(test)]
 use crate::host_api::runtime_bridge::block_on;
+use legado_net::client::ClientTimeoutPolicy;
 use legado_net::{COOKIE_JAR_HEADER, LegadoClient, LegadoRequest, Method};
 
 /// 默认请求超时（毫秒），与 Kotlin 端一致
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
-
-/// ajaxAll 有界并发数
-const AJAX_ALL_CONCURRENCY: usize = 4;
 
 /// body 反序列化：兼容字符串、对象/数组（书山聚合等源 `url,{json}` 的
 /// body 是嵌套对象，须转 JSON 字符串，否则 serde 解析失败 → ajax 返回 [ERROR]）
@@ -88,23 +87,18 @@ fn sanitize_request_url(url: &str) -> String {
 /// HTTP_PROXY/HTTPS_PROXY 存在时连回环地址也走代理，会把本地测试流量
 /// 劫持到死代理；回环豁免对齐 legado-net 约定（cda70a0c54）。
 pub(crate) fn is_loopback_url(url: &str) -> bool {
-    let lower = url.to_ascii_lowercase();
-    for scheme in ["http://", "https://"] {
-        let Some(rest) = lower.strip_prefix(scheme) else {
-            continue;
-        };
-        // host 段：到第一个 ':' 或 '/' 为止；[::1] 带方括号形式
-        let host = rest.split([':', '/']).next().unwrap_or("");
-        let host = host
-            .strip_prefix('[')
-            .unwrap_or(host)
-            .strip_suffix(']')
-            .unwrap_or(host);
-        if host == "127.0.0.1" || host == "::1" || host == "localhost" {
-            return true;
-        }
+    let Ok(url) = url::Url::parse(url.trim()) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
     }
-    false
+    match url.host() {
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(host)) => host.is_loopback(),
+        Some(url::Host::Ipv6(host)) => host.is_loopback(),
+        None => false,
+    }
 }
 
 /// POST 有 body 时若缺 Content-Type，补 form-urlencoded（对齐 Jsoup.requestBody）
@@ -124,7 +118,7 @@ fn ensure_form_content_type(headers: &mut HashMap<String, String>, has_body: boo
 }
 
 /// 按当前书源开关向请求头补写侧标记（只补不覆盖：显式同名键保持原值）
-fn apply_source_cookie_jar_gate(
+pub(super) fn apply_source_cookie_jar_gate(
     request_resources: &RequestResources<'_>,
     headers: &mut HashMap<String, String>,
 ) {
@@ -148,6 +142,28 @@ fn request_client(
     resources.http.client(is_loopback_url(url), no_redirect)
 }
 
+/// 0不设置请求总期限；客户端策略另外决定连接和读取预算。
+pub(super) fn request_timeout(timeout_ms: u64) -> Option<std::time::Duration> {
+    (timeout_ms != 0).then(|| std::time::Duration::from_millis(timeout_ms))
+}
+
+pub(super) fn request_client_with_timeout(
+    resources: &RequestResources<'_>,
+    no_redirect: bool,
+    url: &str,
+    timeout_ms: u64,
+    zero_policy: ClientTimeoutPolicy,
+) -> Result<LegadoClient, String> {
+    let policy = if timeout_ms == 0 {
+        zero_policy
+    } else {
+        ClientTimeoutPolicy::Default
+    };
+    resources
+        .http
+        .client_with_timeout_policy(is_loopback_url(url), no_redirect, policy)
+}
+
 /// httpGet(url, headers?) → 同步 HTTP GET，返回响应体文本
 ///
 /// 对应 Kotlin 端 `ajax(url)` / `get(url, headers)` 的简化版本。
@@ -156,7 +172,8 @@ pub fn http_get(
     url: &str,
     headers: Option<&str>,
 ) -> Result<String, String> {
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -185,7 +202,8 @@ pub fn http_post(
     body: &str,
     headers: Option<&str>,
 ) -> Result<String, String> {
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -209,7 +227,8 @@ pub fn http_post(
 ///
 /// 对应 Kotlin 端 `head(urlStr, headers)` 的简化版本。
 pub fn http_head(request_resources: &RequestResources<'_>, url: &str) -> Result<String, String> {
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -229,41 +248,20 @@ pub fn http_head(request_resources: &RequestResources<'_>, url: &str) -> Result<
     })
 }
 
-/// `java.ajax(url, callTimeout)` 第二参 → 逐请求超时（毫秒）
-///
-/// 原版语义（`JsExtensions.kt:134 ajax(url: Any, callTimeout: Long?)` →
-/// `AnalyzeUrl` 链路到 OkHttp `callTimeout(it, TimeUnit.MILLISECONDS)`，
-/// `AnalyzeUrlNetworkOptions.kt:117-119`）：
-/// - `null` / 缺省 → `None`（沿用全局默认，行为与单参形态一致）；
-/// - `0` → OkHttp 语义「不设 call timeout」（0 合法、不立即超时）——
-///   本实现最接近映射为 `None`（不覆盖默认请求超时）；**不得**下传
-///   `Duration::ZERO`（reqwest 对零时长 sleep 立即到期，会把原版可用形态
-///   变成必失败）；
-/// - `1..=Integer.MAX_VALUE` → `Some(ms)`；
-/// - `< 0` 或 `> Integer.MAX_VALUE` → Err：原版 OkHttp `checkDuration`
-///   抛 IllegalArgumentException，被 `ajax` 的 `runCatching` 捕获后返回
-///   `stackTraceStr`（错误文本，非抛到 JS）；本实现以既有 `[ERROR]` 惯例承载。
+/// ajax/connect的可空毫秒期限；显式0保留为关闭总期限，不与缺省混淆。
+/// 负数或超过OkHttp的Int毫秒范围在发送前拒绝。
 pub fn call_timeout_to_request_timeout(
     call_timeout_ms: Option<i64>,
 ) -> Result<Option<u64>, String> {
     match call_timeout_ms {
         None => Ok(None),
-        Some(0) => Ok(None),
         Some(t) if t < 0 => Err(format!(
-            "ajax: callTimeout {t} 非法（原版 OkHttp checkDuration: timeout < 0）"
+            "网络请求: callTimeout {t} 非法（原版 OkHttp checkDuration: timeout < 0）"
         )),
         Some(t) if t > i64::from(i32::MAX) => Err(format!(
-            "ajax: callTimeout {t} 超过原版 OkHttp 上限 Integer.MAX_VALUE 毫秒"
+            "网络请求: callTimeout {t} 超过原版 OkHttp 上限 Integer.MAX_VALUE 毫秒"
         )),
         Some(t) => Ok(Some(t as u64)),
-    }
-}
-
-/// 显式第二参覆盖 options 内 timeout_ms（`url,{json}` 里的 timeout_ms 让位；
-/// 显式调用参数优先）；`None` 不覆盖。
-fn apply_call_timeout(opts: &mut HttpOptions, call_timeout_ms: Option<u64>) {
-    if let Some(t) = call_timeout_ms {
-        opts.timeout_ms = Some(t);
     }
 }
 
@@ -287,103 +285,44 @@ pub fn ajax_with_timeout(
     input: &str,
     call_timeout_ms: Option<u64>,
 ) -> Result<String, String> {
-    let input = input.trim();
-    // 原版「url,{json}」格式：不以 `{` 开头且含 `,{`，逗号前为 URL、逗号后为 option JSON
-    if !input.starts_with('{')
-        && let Some(comma) = input.find(",{")
-    {
-        let url_part = input[..comma].trim();
-        let option_part = &input[comma + 1..];
-        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(option_part)
-            && let Some(obj) = v.as_object_mut()
-        {
-            obj.insert(
-                "url".to_string(),
-                serde_json::Value::String(url_part.to_string()),
-            );
-            if let Ok(mut opts) = serde_json::from_value::<HttpOptions>(v) {
-                apply_call_timeout(&mut opts, call_timeout_ms);
-                return ajax_request_body(request_resources, &opts);
-            }
-        }
-    }
-    // 普通 URL 输入（对齐原版 ajax(request_resources, url) 语义）：不含 ",{" 的裸 URL
-    // 直接 GET 并返回纯响应体文本（新落秋/笔趣阁zdzn 等源 @js: 块
-    // java.ajax(request_resources, source.key+"/user/search.html?q="+key) 依赖）
-    // — 2026-08-17
-    if !input.starts_with('{') {
-        let mut opts = HttpOptions {
-            url: input.to_string(),
-            ..Default::default()
-        };
-        apply_call_timeout(&mut opts, call_timeout_ms);
-        return ajax_request_body(request_resources, &opts);
-    }
-    // 标准 JSON 输入
-    let mut opts: HttpOptions =
-        serde_json::from_str(input).map_err(|e| format!("ajax parse options error: {}", e))?;
+    super::rule_request::ajax(request_resources, input, call_timeout_ms, None)
+}
 
-    if opts.url.is_empty() {
-        return Err("ajax: url is required".to_string());
-    }
-    // 显式第二参优先于 options JSON 内 timeout_ms
-    apply_call_timeout(&mut opts, call_timeout_ms);
-    let url = sanitize_request_url(&opts.url);
-    if url.is_empty() {
-        return Err("ajax: url is required".to_string());
-    }
-
-    let timeout = opts.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
-    let method_str = opts.method.as_deref().unwrap_or("GET").to_uppercase();
-
-    // 验证方法是否受支持
-    let method = match method_str.as_str() {
-        "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(&method_str),
-        other => return Err(format!("ajax: unsupported method '{}'", other)),
-    };
-
-    block_on(async {
-        // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = request_client(request_resources, false, &url)?;
-
-        // Cookie 合并须在 url move 进 LegadoRequest 前完成（新签名按请求 URL 取 cookie）
-        let mut headers = ensure_json_content_type(
-            merge_global_cookie(
-                request_resources,
-                opts.headers.clone().unwrap_or_default(),
-                &url,
-            ),
-            &opts.body,
-        );
-        // 写侧门控（批 2）：按当前书源开关补标记（读侧不受影响）
-        apply_source_cookie_jar_gate(request_resources, &mut headers);
-        let request = LegadoRequest {
-            url,
-            method,
-            headers,
-            body: opts.body.clone(),
-            timeout: Some(std::time::Duration::from_millis(timeout)),
-        };
-
-        let resp = client
-            .send(&request)
-            .await
-            .map_err(|e| format!("ajax request error: {}", e))?;
-
-        let result = HttpResponse {
-            status_code: resp.status,
-            body: resp.body,
-            headers: resp.headers,
-            url: resp.url,
-        };
-
-        serde_json::to_string(&result).map_err(|e| format!("ajax serialize error: {}", e))
-    })
+pub(super) fn ajax_with_evaluator(
+    resources: &RequestResources<'_>,
+    input: &str,
+    timeout: Option<u64>,
+    evaluator: &dyn legado_parser::analyze_url::SynchronousJsEvaluator,
+) -> Result<String, String> {
+    super::rule_request::ajax(resources, input, timeout, Some(evaluator))
 }
 
 #[cfg(test)]
 mod http_options_tests {
     use super::*;
+
+    #[test]
+    fn loopback_selection_uses_the_parsed_host() {
+        for url in [
+            "http://127.0.0.1:80/x",
+            "http://127.0.0.2/",
+            "HTTP://LOCALHOST?x=1",
+            "http://user:pwd@localhost/",
+            "http://[::1]:80/",
+            "https://[0:0:0:0:0:0:0:1]/",
+        ] {
+            assert!(is_loopback_url(url), "回环地址应选择直连池：{url}");
+        }
+        for url in [
+            "http://localhost.example/",
+            "http://localhost@remote.example/",
+            "http://[2001:db8::1]/",
+            "ftp://localhost/",
+            "不是URL",
+        ] {
+            assert!(!is_loopback_url(url), "非回环HTTP地址不得绕过代理：{url}");
+        }
+    }
 
     #[test]
     fn test_body_accepts_object() {
@@ -406,9 +345,9 @@ mod http_options_tests {
     /// `java.ajax(url, callTimeout)` 边界映射（原版 OkHttp checkDuration 语义）
     #[test]
     fn test_call_timeout_to_request_timeout_boundaries() {
-        // null/缺省 与 0 均不覆盖默认
+        // 缺省不覆盖默认，显式0须传到请求和客户端选择
         assert_eq!(call_timeout_to_request_timeout(None).unwrap(), None);
-        assert_eq!(call_timeout_to_request_timeout(Some(0)).unwrap(), None);
+        assert_eq!(call_timeout_to_request_timeout(Some(0)).unwrap(), Some(0));
         // 正超时原样透传（毫秒）
         assert_eq!(
             call_timeout_to_request_timeout(Some(300)).unwrap(),
@@ -441,163 +380,36 @@ mod http_options_tests {
 ///   键查找大小写不敏感）——对齐上游 `AnalyzeUrl.setCookie` →
 ///   `CookieManager.mergeCookies` 语义。
 ///   不变式保留：**不相关域名的 cookie 绝不携带**（P2-19 核心修复，不得回退）。
-fn merge_global_cookie(
+pub(super) fn merge_global_cookie(
     request_resources: &RequestResources<'_>,
     mut headers: HashMap<String, String>,
     url: &str,
 ) -> HashMap<String, String> {
     for (key, value) in &request_resources.headers {
-        headers.entry(key.clone()).or_insert_with(|| value.clone());
+        if !headers.keys().any(|name| name.eq_ignore_ascii_case(key)) {
+            headers.insert(key.clone(), value.clone());
+        }
     }
     let cookies = request_resources.http.cookies().get(url);
     crate::host_api::cookie_store::merge_cookie_string(&mut headers, &cookies);
     headers
 }
 
-/// 对齐原版 AnalyzeUrl POST 分支：body 非空且未显式指定 Content-Type 时按
-/// JSON 发送（postJson(body)）——书山 /details、/catalog 等服务端校验
-/// Content-Type，缺省返回「缺少必要参数」（curl 实测 application/json 必带）。
-/// 仅当 body 是 JSON 形态（{/[ 开头）才设 JSON Content-Type：书山 /login 等
-/// 表单接口（email=..&password=..）若被标 JSON 会解析出空字段（实测
-/// 「邮箱和密码不能为空」），须保持默认 application/x-www-form-urlencoded。
-fn ensure_json_content_type(
-    mut headers: HashMap<String, String>,
-    body: &Option<String>,
-) -> HashMap<String, String> {
-    let has_ct = headers
-        .keys()
-        .any(|k| k.eq_ignore_ascii_case("content-type"));
-    if has_ct {
-        return headers;
-    }
-    if let Some(b) = body {
-        let t = b.trim_start();
-        if t.starts_with('{') || t.starts_with('[') {
-            // JSON 形态 body：对齐原版 postJson(body)
-            headers.insert(
-                "Content-Type".to_string(),
-                "application/json;charset=UTF-8".to_string(),
-            );
-        } else if t.contains('=') && !t.contains(' ') {
-            // 表单形态 body（email=..&password=..）：显式 form-urlencoded，
-            // 避免 reqwest 自动 text/plain 导致服务端解析空字段
-            headers.insert(
-                "Content-Type".to_string(),
-                "application/x-www-form-urlencoded".to_string(),
-            );
-        }
-    }
-    headers
-}
-
-/// 「url,{json}」格式请求，返回**纯响应体文本**（对齐原版 JsExtensions.ajax 返回
-/// StrResponse.body；七猫 qmParse 等直接 JSON.parse 响应体）
+/// 旧协议测试继续走同一规则请求，不保留独立编排实现。
+#[cfg(test)]
 fn ajax_request_body(
-    request_resources: &RequestResources<'_>,
+    resources: &RequestResources<'_>,
     opts: &HttpOptions,
 ) -> Result<String, String> {
-    if opts.url.is_empty() {
-        return Err("ajax: url is required".to_string());
-    }
-    let url = sanitize_request_url(&opts.url);
-    if url.is_empty() {
-        return Err("ajax: url is required".to_string());
-    }
-    let timeout = opts.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
-    let method_str = opts.method.as_deref().unwrap_or("GET").to_uppercase();
-    let method = match method_str.as_str() {
-        "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(&method_str),
-        other => return Err(format!("ajax: unsupported method '{}'", other)),
-    };
-    block_on(async {
-        // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = request_client(request_resources, false, &url)?;
-        // Cookie 合并须在 url move 进 LegadoRequest 前完成（新签名按请求 URL 取 cookie）
-        let mut headers = ensure_json_content_type(
-            merge_global_cookie(
-                request_resources,
-                opts.headers.clone().unwrap_or_default(),
-                &url,
-            ),
-            &opts.body,
-        );
-        // 写侧门控（批 2）：按当前书源开关补标记
-        apply_source_cookie_jar_gate(request_resources, &mut headers);
-        let request = LegadoRequest {
-            url,
-            method,
-            headers,
-            body: opts.body.clone(),
-            timeout: Some(std::time::Duration::from_millis(timeout)),
-        };
-        let resp = client
-            .send(&request)
-            .await
-            .map_err(|e| format!("ajax request error: {}", e))?;
-        Ok(resp.body)
-    })
+    let input = serde_json::to_string(opts).map_err(|e| e.to_string())?;
+    let response = super::rule_request::ajax(resources, &input, None, None)?;
+    let response: HttpResponse = serde_json::from_str(&response).map_err(|e| e.to_string())?;
+    Ok(response.body)
 }
 
-/// ajaxAll(urls_json) → 批量并发请求（有界并发）
-///
-/// 输入为 JSON 数组（URL 列表），返回 JSON 数组（每个 URL 的响应体，失败为空字符串）。
-/// 使用 `futures::stream::buffer_unordered` 实现有界并发（默认 4）。
-pub fn ajax_all(
-    request_resources: &RequestResources<'_>,
-    urls_json: &str,
-) -> Result<String, String> {
-    // 空输入 = 空列表（宿主入参宽松收敛：JS null/undefined → 空串，见
-    // quickjs_impl::LooseStrList；空数组 `[]` 同样命中），不视为 parse 错误
-    if urls_json.trim().is_empty() {
-        return Ok("[]".to_string());
-    }
-    block_on(async {
-        let urls: Vec<String> =
-            serde_json::from_str(urls_json).map_err(|e| format!("ajaxAll parse error: {}", e))?;
-
-        let client = request_resources.http.client(false, false)?;
-        // 回环 URL（本地书源/本地测试服务）须 no_proxy 直连（P2-17 约定
-        // cda70a0c54：HTTP_PROXY 存在时 reqwest 连 127.0.0.1 也走代理）；
-        // 真实主机 URL 沿用默认池（代理配置不变）
-        let loopback_client = urls
-            .iter()
-            .any(|url| is_loopback_url(url))
-            .then(|| request_resources.http.client(true, false))
-            .transpose()?;
-
-        use futures::stream::{self, StreamExt};
-
-        let results: Vec<String> = stream::iter(urls)
-            .map(|url| {
-                let c = if is_loopback_url(&url) {
-                    loopback_client
-                        .as_ref()
-                        .expect("loopback client built above")
-                        .clone()
-                } else {
-                    client.clone()
-                };
-                async move {
-                    // 写侧门控（批 2）：每个 URL 按当前书源开关补标记
-                    let mut headers = HashMap::new();
-                    apply_source_cookie_jar_gate(request_resources, &mut headers);
-                    let headers = if headers.is_empty() {
-                        None
-                    } else {
-                        Some(headers)
-                    };
-                    c.get(&url, headers)
-                        .await
-                        .map(|resp| resp.body)
-                        .unwrap_or_default()
-                }
-            })
-            .buffer_unordered(AJAX_ALL_CONCURRENCY)
-            .collect()
-            .await;
-
-        serde_json::to_string(&results).map_err(|e| format!("ajaxAll serialize error: {}", e))
-    })
+/// 批量规则请求的 Rust 入口，JSON 内部表示在 JS 边界包装为 StrResponse 数组。
+pub fn ajax_all(resources: &RequestResources<'_>, urls_json: &str) -> Result<String, String> {
+    super::batch_request::run(resources, urls_json, None, false, false, None)
 }
 
 /// connectFull(url, method?, headers?, body?, timeoutMs?) → 完整 HTTP 响应 JSON
@@ -614,42 +426,42 @@ pub fn connect_full(
     body: Option<&str>,
     timeout_ms: Option<u64>,
 ) -> Result<String, String> {
-    let timeout = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
-    let method_str = method.unwrap_or("GET").to_uppercase();
-    let method = match method_str.as_str() {
-        "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(&method_str),
-        other => return Err(format!("connect: unsupported method '{}'", other)),
-    };
-    let headers: HashMap<String, String> = headers_json
-        .and_then(|s| serde_json::from_str(s).ok())
-        .unwrap_or_default();
-    // 写侧门控（批 2，UrlOption 前置）：按当前书源开关补标记
-    let mut headers = headers;
-    apply_source_cookie_jar_gate(request_resources, &mut headers);
+    connect_with_evaluator(
+        request_resources,
+        url,
+        method,
+        headers_json,
+        body,
+        timeout_ms,
+        None,
+    )
+}
 
-    block_on(async {
-        // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
-        // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = request_client(request_resources, false, url)?;
-        let request = LegadoRequest {
-            url: url.to_string(),
+pub(super) fn connect_with_evaluator(
+    resources: &RequestResources<'_>,
+    url: &str,
+    method: Option<&str>,
+    headers: Option<&str>,
+    body: Option<&str>,
+    timeout: Option<u64>,
+    evaluator: Option<&dyn legado_parser::analyze_url::SynchronousJsEvaluator>,
+) -> Result<String, String> {
+    let response = super::rule_request::execute(
+        resources,
+        url,
+        super::rule_request::RequestOverrides {
             method,
             headers,
-            body: body.map(|s| s.to_string()),
-            timeout: Some(std::time::Duration::from_millis(timeout)),
-        };
-        let resp = client
-            .send(&request)
-            .await
-            .map_err(|e| format!("connect request error: {}", e))?;
-        let result = HttpResponse {
-            status_code: resp.status,
-            body: resp.body,
-            headers: resp.headers,
-            url: resp.url,
-        };
-        serde_json::to_string(&result).map_err(|e| format!("connect serialize error: {}", e))
-    })
+            body,
+            timeout,
+        },
+        evaluator,
+    )
+    .map_err(|e| {
+        e.replace("ajax:", "connect:")
+            .replace("ajax request error", "connect request error")
+    })?;
+    serde_json::to_string(&response).map_err(|e| e.to_string())
 }
 
 /// connectNR(url, method?, headers?, body?) → 完整响应 JSON（不跟随重定向）
@@ -665,6 +477,19 @@ pub fn connect_no_redirect(
     headers_json: Option<&str>,
     body: Option<&str>,
 ) -> Result<String, String> {
+    connect_no_redirect_with_timeout(request_resources, url, method, headers_json, body, None)
+}
+
+/// JS的get/head/post逐次超时入口；旧Rust调用保持原默认值。
+pub(crate) fn connect_no_redirect_with_timeout(
+    request_resources: &RequestResources<'_>,
+    url: &str,
+    method: Option<&str>,
+    headers_json: Option<&str>,
+    body: Option<&str>,
+    timeout_ms: Option<u64>,
+) -> Result<String, String> {
+    let timeout = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
     let method_str = method.unwrap_or("GET").to_uppercase();
     let method = match method_str.as_str() {
         "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(&method_str),
@@ -682,21 +507,28 @@ pub fn connect_no_redirect(
     // 写侧门控（批 2）：java.get/post/head 走 connectNR；按当前书源开关补标记
     //（对齐上游 JsExtensions.kt:532-534/559-561/586-588 的 getSource 门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
+        request_resources.policy()?.acquire(false).await;
         // 不跟随重定向共享池（回环/非回环分池）：
         // - `follow_redirects=false`：拦截 302 取 Location 头（jsoup 语义）
         // - 回环流量（本地测试服务/本地源）不得经系统/环境变量代理路由：
         //   reqwest 默认客户端在 HTTP_PROXY 存在时连 127.0.0.1 也走代理，
         //   死代理环境下回环用例会被劫持（cda70a0c54 约定）。仅回环 URL
         //   豁免代理；真实主机仍走用户代理配置，不改变生产行为。
-        let client = request_client(request_resources, true, &url)
-            .map_err(|e| format!("connectNR client error: {}", e))?;
+        let client = request_client_with_timeout(
+            request_resources,
+            true,
+            &url,
+            timeout,
+            ClientTimeoutPolicy::Unlimited,
+        )
+        .map_err(|e| format!("connectNR client error: {}", e))?;
         let request = LegadoRequest {
             url,
             method,
             headers,
             body: body_owned,
-            timeout: Some(std::time::Duration::from_millis(DEFAULT_TIMEOUT_MS)),
+            timeout: request_timeout(timeout),
         };
         let resp = client
             .send(&request)
@@ -727,7 +559,8 @@ pub fn head_full(
     // 写侧门控（批 2）：按当前书源开关补标记（上游 head 同门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
 
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -768,7 +601,8 @@ pub fn post_full(
     // 写侧门控（批 2）：按当前书源开关补标记（上游 post 同门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
 
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -1202,9 +1036,11 @@ mod tests {
         ]);
         let results_json = ajax_all(&fixture.http.request(), &urls.to_string())
             .expect("ajaxAll 到本地回环 mock 应成功");
-        let results: Vec<String> = serde_json::from_str(&results_json).expect("结果应可解析");
+        let results: Vec<HttpResponse> = serde_json::from_str(&results_json).expect("结果应可解析");
         assert_eq!(results.len(), 3, "应返回 3 个结果");
-        for body in &results {
+        for response in &results {
+            assert_eq!(response.status_code, 200);
+            let body = &response.body;
             assert!(
                 is_valid_response(body),
                 "每个响应体都应为 JSON 对象: {body}"

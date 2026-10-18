@@ -72,6 +72,17 @@ pub fn cookie_jar_marker_present(headers: Option<&HashMap<String, String>>) -> b
         .unwrap_or(false)
 }
 
+/// 客户端期限策略；缺省保留既有总期限配置。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ClientTimeoutPolicy {
+    #[default]
+    Default,
+    /// 不设总期限，仍限制连接和读取空闲时间。
+    NoTotalTimeout,
+    /// 不设连接、读取或总期限，供显式要求无限等待的兼容接口使用。
+    Unlimited,
+}
+
 /// HTTP 客户端配置
 ///
 /// 默认值参考 `HttpHelper.kt` 中 `okHttpClient` 的构建参数。
@@ -81,6 +92,8 @@ pub struct LegadoClientConfig {
     pub connect_timeout: Duration,
     /// 读取超时，默认 60s（对应 OkHttp `.readTimeout(60, TimeUnit.SECONDS)`）
     pub read_timeout: Duration,
+    /// 默认沿用既有总期限；其他策略由调用方显式选择。
+    pub timeout_policy: ClientTimeoutPolicy,
     /// User-Agent 字符串（缺省见 [`DEFAULT_USER_AGENT`]，轮换优先级低于 `user_agents`）
     pub user_agent: String,
     /// 代理配置（单一代理，兼容旧接口）
@@ -105,6 +118,8 @@ pub struct LegadoClientConfig {
     pub no_proxy: bool,
     /// 宿主的实时 DNS 覆盖能力，未提供时为低层工具默认值。
     pub custom_hosts: Option<Arc<crate::custom_hosts::CustomHosts>>,
+    /// 本请求派生客户端的DNS覆盖；空列表使用宿主解析器，不修改全局hosts。
+    pub dns_addresses: Vec<std::net::IpAddr>,
 }
 
 impl Default for LegadoClientConfig {
@@ -112,6 +127,7 @@ impl Default for LegadoClientConfig {
         Self {
             connect_timeout: Duration::from_secs(15),
             read_timeout: Duration::from_secs(60),
+            timeout_policy: ClientTimeoutPolicy::Default,
             // 缺省 UA 对齐上游浏览器形态（见 [`DEFAULT_USER_AGENT`] 文档）：
             // 此前 "Legado/1.0" 仅被 FFI 主链路补注入覆盖，JS 桥四池漏网，
             // 两客户端 UA 指纹不一致致 WAF cookie 跨层失效
@@ -126,6 +142,7 @@ impl Default for LegadoClientConfig {
             ssl: None,
             no_proxy: false,
             custom_hosts: None,
+            dns_addresses: Vec::new(),
         }
     }
 }
@@ -230,14 +247,21 @@ impl LegadoClient {
             persistence.preload(&cookie_store);
         }
 
-        let mut builder = crate::tls::client_builder()
-            .connect_timeout(config.connect_timeout)
-            .timeout(config.read_timeout)
-            .user_agent(&config.user_agent)
-            .cookie_provider(Arc::new(crate::response_cookies::SharedCookieJar {
-                store: cookie_store.clone(),
-                persistence: cookie_persistence.clone(),
-            }));
+        let builder = crate::tls::client_builder();
+        let mut builder = match config.timeout_policy {
+            ClientTimeoutPolicy::Default => builder
+                .connect_timeout(config.connect_timeout)
+                .timeout(config.read_timeout),
+            ClientTimeoutPolicy::NoTotalTimeout => builder
+                .connect_timeout(config.connect_timeout)
+                .read_timeout(config.read_timeout),
+            ClientTimeoutPolicy::Unlimited => builder,
+        }
+        .user_agent(&config.user_agent)
+        .cookie_provider(Arc::new(crate::response_cookies::SharedCookieJar {
+            store: cookie_store.clone(),
+            persistence: cookie_persistence.clone(),
+        }));
 
         // SSL 配置：优先使用 ssl 字段，否则回退到 accept_invalid_certs
         if let Some(ref ssl) = config.ssl {
@@ -270,12 +294,18 @@ impl LegadoClient {
         // 自定义 hosts DNS 覆盖（契约 §2.20.3，Task #73）：
         // resolver 每次解析实时读取全局映射，setCustomHosts 变更对已构建
         // 的客户端即时生效（命中映射直连 IP，未命中回落系统 DNS）
-        builder = builder.dns_resolver(
-            config
-                .custom_hosts
-                .as_ref()
-                .map_or_else(crate::custom_hosts::resolver, |hosts| hosts.resolver()),
-        );
+        builder = if config.dns_addresses.is_empty() {
+            builder.dns_resolver(
+                config
+                    .custom_hosts
+                    .as_ref()
+                    .map_or_else(crate::custom_hosts::resolver, |hosts| hosts.resolver()),
+            )
+        } else {
+            builder.dns_resolver(Arc::new(crate::request_dns::RequestDnsResolver(
+                config.dns_addresses.clone(),
+            )))
+        };
 
         let client = builder
             .build()
@@ -1010,6 +1040,114 @@ fn extract_domain_for_cookie(url: &str) -> String {
 mod tests {
     use super::*;
     use std::sync::Mutex;
+
+    /// 持续分块响应超过总预算仍成功，但读取停顿仍受空闲预算限制。
+    #[tokio::test]
+    async fn timeout_policies_distinguish_total_idle_and_unlimited() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let mut workers = Vec::new();
+            for _ in 0..7 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                workers.push(tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut byte = [0];
+                    while !request.ends_with(b"\r\n\r\n") {
+                        if socket.read_exact(&mut byte).await.is_err() {
+                            return;
+                        }
+                        request.push(byte[0]);
+                        assert!(request.len() < 65536);
+                    }
+                    let request = String::from_utf8(request).unwrap();
+                    let drip = request.starts_with("GET /drip ");
+                    if request.starts_with("GET /slow ") {
+                        tokio::time::sleep(Duration::from_millis(400)).await;
+                    }
+                    if socket
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n",
+                        )
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                    for byte in b"abcdefgh" {
+                        if drip {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                        if socket.write_all(&[*byte]).await.is_err() {
+                            return;
+                        }
+                    }
+                }));
+            }
+            for worker in workers {
+                worker.await.unwrap();
+            }
+        });
+        let client = |timeout_policy| {
+            LegadoClient::new(LegadoClientConfig {
+                no_proxy: true,
+                connect_timeout: Duration::from_millis(200),
+                read_timeout: Duration::from_millis(200),
+                timeout_policy,
+                ..Default::default()
+            })
+            .unwrap()
+        };
+        let url = |path| format!("http://{address}/{path}");
+        let standard = client(ClientTimeoutPolicy::Default);
+        assert!(
+            standard
+                .get(&url("drip"), None)
+                .await
+                .unwrap_err()
+                .to_string()
+                .to_lowercase()
+                .contains("timed out")
+        );
+        let no_total = client(ClientTimeoutPolicy::NoTotalTimeout);
+        assert_eq!(
+            no_total.get(&url("drip"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        assert!(
+            no_total
+                .get(&url("slow"), None)
+                .await
+                .unwrap_err()
+                .to_string()
+                .to_lowercase()
+                .contains("timed out")
+        );
+        assert_eq!(
+            no_total.get(&url("fast"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        let unlimited = client(ClientTimeoutPolicy::Unlimited);
+        assert_eq!(
+            unlimited.get(&url("slow"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        let variant = unlimited.no_redirect_variant().unwrap();
+        assert_eq!(
+            variant.config.timeout_policy,
+            ClientTimeoutPolicy::Unlimited
+        );
+        assert_eq!(
+            variant.get(&url("slow"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        assert_eq!(
+            standard.get(&url("fast"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        server.await.unwrap();
+    }
 
     /// 连接池复用验证：同一 host 的两次顺序请求应命中同一条 TCP 连接（keep-alive）
     ///

@@ -113,11 +113,10 @@ pub fn check_source_entity(source: BookSource, config: CheckerConfig) -> LegadoR
 /// - `result` — 该书源的 [`CheckResult`] 完整结构
 pub use legado_engine::source_check_service::CheckProgress;
 
-/// 批量校验书源（串行），逐个回推进度
+/// 批量校验书源（配置并发、按输入顺序回推进度）
 ///
-/// 与 [`check_source`] 不同：本函数按请求顺序**串行**校验每个书源
-/// （对齐 Kotlin `CheckSourceService` flow 顺序执行），每完成一个书源
-/// 即调用一次 `on_result`（传入 [`CheckProgress`] 的 JSON 字符串）。
+/// 按threadCount有界并发检查，保留输入顺序发布CheckProgress。
+/// 回调关闭或所属任务取消时停止派发并丢弃在途检查。
 ///
 /// `source_urls_json` — 待校验书源 URL 的 JSON 数组；为空（空串/`[]`）则校验全部书源
 /// `config_json` — 可选校验配置 JSON，空串使用默认配置
@@ -187,6 +186,7 @@ async fn run_checks_typed<F>(
         parse_config(json).unwrap_or_default(),
         operation,
         network,
+        legado_core::request_settings::parse_thread_count(None),
         callback,
     )
     .await;

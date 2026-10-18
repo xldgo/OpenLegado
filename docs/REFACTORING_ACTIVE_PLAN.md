@@ -1,5 +1,158 @@
 # Legado 后续重构执行计划（Active）
 
+### REQUEST-CONCURRENCY-20261018：统一配置及任务并发（P1）
+
+- 状态：本批限定范围已关闭；用户同意ConfigRepository作为权威来源，dep-audit / chore/dep-audit / e30de9360起，上游固定15e1337a；单代理，不推送/合并，不写主目录用户文件。
+- 方案：冻结默认16/范围1..256与每调度阶段快照；Core纯值解释、Engine数据库读取、Fetcher非零快照，接JS/搜索/换源/目录/校验及Server省略参数路径。保留显式参数、增强8上限、错误与取消/保序；下载/TTS独立。
+- 设置：新增窄领域投影复用共享设置服务和ConfigRepository，移除本选项SP读取并启用现有输入对话框，覆盖读取/写入失败、重开回读和非法输入。
+- 边界：书架更新全部的Dart逐书串行入口不改，单书目录分页消费配置；不新增FRB/schema/依赖，不构建DLL/应用/模拟器。定向测试先复现，适用Rust/Flutter回归与严格检查后整批本地提交。
+- 实现：Core统一十进制范围解释，Engine短借所属数据库读取；JS批量请求、普通/流式搜索、换源搜索及增强、目录并行页、App批量书源校验消费该配置。Fetcher只持非零值快照，FFI工厂与Server每次请求重新捕获，不持根引擎。Server批量目录更新省略参数读配置，显式max(1)优先；独立批量校验省略参数读配置并保留20上限，显式1..20优先。换源增强保留8上限；配置读取失败不变成默认并发或空增强成功。
+- 设置落点：RequestSettings / RequestSettingsRepository / AppRequestSettingsRepository及Riverpod投影，复用AppSettingsService→ConfigRepository；旧SP值不迁移、不镜像。启用其他设置页数字对话框，非法输入不提交、保存失败回退、读取失败展示错误并可点按重试；重开仓储回读已保存值。
+- 行为验证：Core、Engine、Fetcher库分别804/154/156项通过，FFI最终518项通过（42项既有忽略）；Server最终213项通过，连同4项真实HTTP集成共1849项通过、42项既有忽略。新增4项真实HTTP/服务测试验证搜索批次快照及下一批配置、换源实际在途数、目录页保序和快照、校验保序及取消后停止派发；宿主工厂验证旧deps不变与新请求刷新，数据库故障保持失败。Flutter定向17项通过，7文件分析无问题。
+- 过程纠正：修前JS策略接受257的用例按预期失败。初版校验夹具href缺引号，与现有链接提取器不匹配，已修正夹具；测试清理改为先释放Provider并异步关闭服务，避免假时钟清理等待。初次FFI故障夹具错误使用rusqlite→LegadoError隐式转换，已改显式数据库错误；Dart一处花括号lint已修正。扩大回归发现旧搜索生命周期断言要求取消后HTTP继续等待，与前批主动取消冲突；改为四阶段在服务器仍阻塞时及时取消并完成登记释放，FFI完整复验通过。不放宽生产超时，不把上述失败算通过。
+- 门禁与交付：相关五个crate默认/QuickJS两档全目标Clippy -D warnings通过，最后Server补充变更两档复验通过；限定rustfmt、UTF-8和diff检查通过。版本2.0.388+389、双日志和契约随本批本地提交。主目录三份用户文件SHA-256与既存快照一致；未构建或安装应用、未触发远程CI，无推送/合并。书架逐书刷新仍串行、下载/TTS独立；没有宣称整套JS能力或设备运行已验收。回滚本批后重建native，不改写产物元数据。
+- 证据：build/request-concurrency/{reproduce,check-second,rust-regressions,ffi-final,service-final,server-complete,flutter-final,flutter-analyze-final,clippy-quickjs-final,clippy-default-final,server-clippy-quickjs,server-clippy-default}.log。rust-regressions整条命令因旧取消断言失败，其前三个独立库成功结果有效，FFI最终以ffi-final为准。仅单代理实现与自查，无独立外审，不以源码文本检索充当测试。
+
+
+编写者：Codex｜2026-10-18
+
+### JS-SOCKS4-20261018：低成本接入SOCKS4（P2）
+
+- 授权与基线：用户授权在已有能力上接入，dep-audit / chore/dep-audit / 23744592f，单代理、不推送/合并。
+- 核查：本地reqwest 0.13.5的socks通道已有SocksV4，本项目校验层仍拒绝。参考版HttpHelper把socks4/socks5交同一Java SOCKS入口，不能据此宣称真实v4握手已验证；依赖的v4路径不传递USERID/密码。
+- 实现：补Socks4类型及协议映射，复用reqwest，无新增依赖或生产握手代码。严格解析和宽容from_url/with_proxy入口均拒绝底层不会传递的凭据，错误不回显密码；原有请求级DNS、Cookie、期限与取消管线不改。更正“reqwest无socks4实现”的错误注释。
+- 复现与验证：新增真实QuickJS→本地SOCKS4→HTTP源站用例，修前在协议校验阶段失败；修后核对版本4、CONNECT、IPv4目标/端口和空USERID，源站收到正文请求；代理拒绝后无直连。新增配置用例覆盖严格/宽容入口、标准/遗留凭据拒绝及脱敏。Net/JS相关库与network_parity共963项通过、既有2项忽略；Net/JS默认和QuickJS两档全目标Clippy -D warnings、工作区QuickJS全目标cargo check、限定rustfmt/diff检查通过。
+- 证据：build/js-socks4/{reproduce,fixed,regressions,clippy-quickjs,clippy-default,workspace}.log；reproduce为预期修前失败，其余退出码0。单代理实现与自查，无独立外审。
+- 状态：本批已关闭，版本2.0.387+388、双日志及契约随本批本地提交。只支持无凭据SOCKS4和IPv4目标；未扩展SOCKS4a或新增认证实现。无依赖/FRB/生成物/schema/UI变更，不构建DLL/应用/模拟器，不推送/合并；主目录用户文件保持原摘要。回滚本批后重建native，不伪造产物元数据。
+
+编写者：Codex｜2026-10-18
+
+### JS-REQUEST-ROUTING-20261018：请求级DNS与代理（P1）
+
+- 授权与基线：用户批准，dep-audit / chore/dep-audit / 3a7e40cf5，上游固定15e1337a。单代理，不推送/合并、不写主目录用户文件。
+- 核查与复现：规则管线明确拒绝dnsIp/proxy，上游AnalyzeUrl.getClient逐请求派生DNS/代理；真实QuickJS的跨域重定向与认证代理两例修前失败，修后通过。契约先冻结，沿用已有Net认证、共享Cookie与期限策略。
+- 实现：Net新增请求级DNS解析器，逐项解析IP/主机名、忽略失败项、空列表回落原DNS。保留Host/SNI/证书校验，重定向与本地代理主机查找消费同一覆盖，不修改Engine hosts。JS单项/批量共用管线；代理配置发送前校验、错误不回显凭据、不降级直连。Cookie合并后再次剥离proxy控制头，建池后/每次重试发送前检查任务取消。
+- 缓存：所属HttpResources内32项LRU按规范化代理（含认证）、实际地址列表及原有策略键复用；不同认证隔离，标准/遗留相同认证复用，reset同步失效，不捕获根Engine或任务。Cookie罐与持久化后端沿用原Arc；在途客户端可继续持有，不宣称进程总实例数上限32。补齐既有代理解析的IPv6括号与显式默认端口。
+- 验证：Net/JS/Fetcher/Engine库与集成37个测试二进制，1415项通过、既有2项忽略。新增10项覆盖IP/主机名列表、IPv4/IPv6、跨域重定向、真实代理认证、来源/显式头控制项剥离、并发路由隔离、Cookie共享、无效代理不直连与凭据脱敏、期限/主动取消、LRU淘汰/reset及严格HTTPS Host/SNI/证书验证。两档相关全目标Clippy -D warnings、工作区两档全目标cargo check及限定rustfmt/diff检查通过。
+- 过程记录：首次扩大回归在既有180ms限流耗时断言失败，单独复跑通过；改为真实JS先占共享注册表许可、抓取侧短观察期内无法再获许可，并保留skipRateLimit真实请求断言，不改限流生产实现。初次Clippy拒绝删减后的单元素测试循环，已改为直接断言。来源proxy控制头在合并时被补回的实际收包失败已修复；最终完整复验通过，早期失败不计通过。
+- 证据：build/js-request-routing/{reproduce,fixed,routing-tests,routing-fixed,rate-recheck,regressions,regressions-final,clippy-quickjs,clippy-quickjs-final,clippy-default,workspace-quickjs,workspace-default}.log；最终测试以regressions-final、严格QuickJS检查以clippy-quickjs-final为准。单代理实现与自查，无独立外审。
+- 状态：本批选定范围已关闭，版本2.0.386+387及双日志/契约随本批本地提交；主目录三份用户文件SHA-256与原快照一致。无FRB签名/生成物/schema/依赖变更，不构建DLL/应用/模拟器，不推送/合并/远程CI。WebView、既有SOCKS4限制及Flutter线程数设置未改；HTTP代理/SOCKS远端DNS不受本地覆盖控制，不宣称各平台真机验证或强杀系统DNS原生线程。回滚本批后重建native，不伪造产物元数据。
+
+编写者：Codex｜2026-10-18
+
+### JS-ACTIVE-CANCELLATION-20261018：JS主动取消贯通（P1）
+
+- 授权与基线：用户批准执行；dep-audit / chore/dep-audit / 159d1099a，上游固定15e1337a，单代理，不推送/合并或改主目录用户文件。
+- 已核查：任务已有通知/发布门禁，QuickJS仅检查执行期限，JS同步HTTP/限流未接收任务取消；外层丢弃spawn_blocking不能停止实际工作。先用真实搜索入口复现实际worker仍存活，再最小接线。
+- 计划：JS定义窄取消接口；资源视图绑定任务且共享缓存，求值与网络入口固定按次取消快照。指令/等待/HTTP/批量均检查，缓存不保留旧任务，初始化与嵌套执行恢复状态。维持任务登记和发布门禁，不扩大为所有原生函数强制中断或全仓错误改造。
+- 验收：取消纯循环/限流等待/挂起HTTP/批量，取消后无后续请求或结果，其他任务不受影响，同一VM可复用，绑定正常释放；相关Rust/QuickJS回归、两档严格检查。无FRB/schema/依赖/UI变更，不构建DLL/应用/模拟器。
+- 复现：真实搜索入口取消后已返回，但JS循环worker仍登记至约5秒默认期限，修前用例失败；接线后用例在400ms等待窗口内确认实际登记清空。此为固定回归，不是通用延迟或性能保证。
+- 实现：新增JsCancellation窄能力与按次RAII绑定；缓存只共享数据和VM，不捕获首个任务，独立会话VM可携带缺省任务。QuickJS指令、mainJs/规则、fresh/compiled/字节求值及初始化均检查取消，排队锁在已绑定任务时可取消等待。异步驱动固定取消快照并直接丢弃请求future，HTTP/正文/限流/批量与间接下载不创建脱离任务。请求项在进入/等待结束/处理响应时再次检查，避免取消被探活转换后继续队列；未完成的初始化不发布缓存条目。
+- 接线：搜索、调试、发现、阅读/音频书抓取、书源事件回调及FFI WebBook沿用所属TaskHandle；TTS脚本同时响应根任务与独立请求取消。保留已有发布门禁，变量/登录、Cookie和UI动作的常用写入口增加检查；书源回调继续返回原“书源回调已取消”，TTS保留TTS_CANCELLED。正常失败/显式零期限不改，取消不进入jsLib能力失败台账。
+- 验证：Engine库与集成228项、JS/Fetcher库与集成907项、TTS独立请求取消追加1项，去重1136项通过，既有2项忽略。新增11项覆盖真实搜索/调试停止、缓存/fresh与初始化取消、compiled/字节求值、排队锁、嵌套与异常恢复、请求发送/正文/限流/批量停止、TCP释放、无迟到变量/动作、其他实例隔离和TTS独立取消；缓存不强持旧任务且后续仍可执行。JS/Fetcher/Engine/FFI两档全目标Clippy -D warnings、工作区两档全目标cargo check、限定rustfmt与diff检查通过。
+- 过程记录：初次接线有文档注释截断、资源视图漏字段及导入问题，已修复。首次完整回归的两条旧用例要求取消后HTTP worker仍存活；改为在服务端解除阻塞之前断言worker退出/登记清空，保留其他实例动作、原取消错误和无音频产物断言，复验通过。没有删除失败测试或把普通错误算取消。
+- 证据：build/js-active-cancellation/{reproduce,fixed-search3,network-cancel,execution-cancel,engine-regressions,js-fetcher-regressions,tts-independent-cancel,clippy-quickjs,clippy-default,workspace-quickjs,workspace-default}.log；reproduce为预期修前失败，早期fixed-search/fixed-search2/regressions失败不计通过。单代理实现与自查，无独立外审。
+- 状态：本批已登记任务的JS取消范围关闭，版本2.0.385+386及双日志/契约随本批本地提交；主目录三份用户文件与原SHA-256快照一致。不新增FRB入口/生成物/schema/依赖，不构建DLL/Flutter/模拟器，无推送/合并/远程CI。未绑定任务的独立宿主保持旧行为，不扩成所有服务入口登记改造；不能强杀任意同步原生函数或回滚已开始的副作用，阻塞工作仍登记至实际退出。不宣称WebView、dnsIp/proxy及Flutter线程数设置已完成；回滚按本批撤销后重建native，不改写旧产物元数据。
+
+编写者：Codex｜2026-10-18
+
+### JS-REQUEST-POLICY-20261018：源限流与批量并发配置（P1）
+
+- 授权与基线：用户要求继续；dep-audit / chore/dep-audit / 8f85124fd，上游固定15e1337a，单代理，不推送/合并或改动主目录用户文件。
+- 核查：上游ajax/connect经AnalyzeUrl限流，get/head/post同样调用ConcurrentRateLimiter；批量使用threadCount默认16。当前JS固定4并发且忽略skipRateLimit，未共享Engine注册表。
+- 范围：先冻结契约与复现，再注入只持有存储/现有限流器的窄策略，覆盖书源、订阅源和TTS来源。请求固定来源，批次固定配置；等待不占数据库/策略锁，失败直接释放在途future。保留错误/超时/重试语义及资源可释放性。
+- 验收：真实QuickJS/本地HTTP验证共享窗口、直接请求、skipRateLimit、配置并发、失败取消等待；策略回归覆盖隔离、设置更新、TTS覆盖和数据库失败。相关JS/Engine测试及两档严格检查。不构建应用/DLL/模拟器，不改FRB/schema/依赖/UI。
+- 实现：JS定义同步策略快照与异步等待窄接口；Engine只注入存储和现有RateLimiterRegistry，不回指根Engine/VM。ajax/connect、get/head/post及既有直接HTTP入口共享源窗口；批次固定源键、并发与限流快照，skipRateLimit为true只绕过源等待。发送期限及成功callTime从等待结束后计算，批次失败丢弃在途网络及限流future。替换注册表不重建现有VM，原资源释放回归保持。
+- 复现与验证：修前真实QuickJS/HTTP用例确认JS不等待已占用的源窗口；修后ajax/connect/get/head/post逐一验证。新增8项覆盖配置并发、跳过/不跳过、等待不计耗时、失败后取消等待/不发队列、三类源共享窗口与实例隔离、配置快照/非法值、TTS覆盖、注册表更换及数据库失败。JS/Engine完整相关库与集成共969项通过，既有2项忽略；默认与QuickJS两档JS/Engine全目标Clippy -D warnings、工作区两档全目标cargo check、限定rustfmt和diff检查通过。
+- 过程记录：完整回归首次遇到两条既有短期限HTTP测试失败（请求未抵达及50ms快速项也超时）；测试预热客户端并把预算调至600ms，慢响应仍为1200ms，保留服务端收包、超时异常与快速项成功断言。完整复验通过，未放宽生产超时或把失败记成功。策略单测初版缺JsEngine trait导入导致编译失败，已修正；早期失败日志不计通过。
+- 证据：build/js-request-policy/{reproduce,fixed,policy-tests,engine-policy-fixed,network-final,regressions-final,clippy-quickjs,clippy-default,workspace-quickjs,workspace-default}.log。reproduce为预期修前失败，最终969项以regressions-final为准；单代理自查，无独立外审，不把源码文本检索算测试。
+- 状态：本批Rust限定范围已关闭，版本2.0.384+385及双日志/契约随本批本地提交。主目录三份用户文件SHA-256与既存快照一致。无FRB/生成物/schema/依赖变更，不构建DLL/Flutter/模拟器，无推送/合并或远程CI，不宣称外部主动取消、Flutter设置已接通或全部JS能力对齐。沿用现有限流器刷新/窗口算法；回滚按本批撤销并重建native，不改写旧产物元数据。
+- 配置边界核实：Flutter的SettingsService.getIntPref实际读取SharedPreferences，线程数条目disabled；并非通用Rust config。当前批只接通Rust config:threadCount与默认16，保留无存储VM默认4，不开通控件或声称Flutter偏好已同步。未来接通设置页须统一配置来源，不增加第二个可写UI。
+
+编写者：Codex｜2026-10-18
+
+### JS-RESPONSE-LIFECYCLE-20261018：响应桥注入生命周期（P1）
+
+- 授权与基线：用户要求继续下一批；dep-audit / chore/dep-audit / 71a2e9080，单代理，不推送/合并，不写主目录用户文件。
+- 当前证据：宿主注册先注入RESPONSE_BRIDGE_JS，缓存初始化与fresh执行在setup后再次注入。connect/get/webView等未统一区分宿主包装与底层函数，先以真实QuickJS/本地HTTP复现重复解析、包装增长及setup更新行为，再按证据修复。
+- 范围：统一同一VM内的桥安装；无变化时复用包装，setup替换函数或依赖后重新适配，不能用全局只执行一次跳过必要更新。保留变量get、网络get/head/post、connect、批量与webView参数语义，裸别名保持；不改网络发送、限流、错误分类、FRB/schema或依赖。
+- 验证：重复注入后的真实HTTP、函数身份稳定、setup覆盖/委托、缓存及fresh路径、损坏JSON仍拒绝、Cookie与错误语义；相关JS/Engine回归与两档严格检查。JS状态只属VM，不持有根引擎，不增加应用进程或测试宿主。
+- 复现：修前3项真实QuickJS/HTTP用例全部失败，确认缓存初始化的connect将已包装对象再次JSON.parse、重复安装改变函数身份、setup委托叠加解析。初版脚本转换误改raw.request中的对象返回导致注册失败，已修正；不将该过程计为通过。
+- 实现：保留注册与setup后的注入时机，以VM内WeakMap登记桥创建的函数/响应；函数及依赖未变时复用，connectNR变化时更新相关包装，setup覆盖时保留委托原始参数及响应身份。批量包装纳入同一安装器，WebView参数垫片也复用，不再逐次叠加。弱键不为替换函数/临时响应增加长期强引用；不是安全签名，不新增进程级状态。
+- 回归：新增6项覆盖重复注入身份、缓存及URL映射fresh初始化、setup变量查询替换、委托参数/超时、底层依赖更换、批量委托、损坏JSON/伪对象拒绝与WebView归一化。真实HTTP验证单次调用只发一次；setup按命名空间变量模式复验通过，不用源码文本守卫。
+- 验证：JS完整库/集成745项通过、既有3项忽略，Engine真实网络生命周期6项通过，合计751项。JS两档全目标Clippy -D warnings、工作区两档全部目标cargo check、限定格式及diff检查通过。证据build/js-response-lifecycle/{js-tests,setup-final,engine-network,clippy-quickjs,clippy-default,workspace-quickjs,workspace-default}.log；reproduce为修前失败，fixed为整改中失败，fixed2/lifecycle-final为修后定向通过。
+- 状态：本批选定范围已关闭，版本2.0.383+384及双日志与本记录本地提交；单代理自查，无独立外审。主目录三份用户文件原字节保持。FRB/生成绑定/schema/依赖及网络发送未改，不构建DLL/Flutter/模拟器，无远程CI/推送/合并；不宣称全JS兼容或WebView平台能力已完成。源级限流/全局并发与外部任务取消仍后置；回滚按本批撤销后重建native，不改写产物元数据。
+
+编写者：Codex｜2026-10-18
+
+
+### JS-BATCH-REQUESTS-20261018：批量脚本请求对齐（P1）
+
+- 授权与基线：用户要求继续第三批；dep-audit / chore/dep-audit / 7dc19dd5d，上游固定15e1337a。单代理，不推送/合并，不写主目录用户文件。
+- 范围：ajaxAll/ajaxTestAll返回真实StrResponse数组并保持输入顺序；统一上一批AnalyzeUrl请求管线、当前VM动态JS和请求快照。网络有界并发，JS求值只在原调用线程同步进行，不跨await持有脚本临时绑定，不生成新VM或后台脱离任务。
+- 失败与超时：ajaxAll任一失败即抛异常并丢弃在途及未启动请求；ajaxTestAll接收毫秒超时，保留默认/零/正数/非法边界，逐项返回正文、状态、最终URL与耗时，失败记录负callTime。不把失败伪装成可用接口，不用HEAD替代实际规则请求。
+- 实施：先冻结契约、真实QuickJS/本地HTTP复现；拆分可共用的准备/异步发送/响应求值三段，复用响应包装；删除旧串行探活与乱序正文数组实现；补并发、顺序、失败取消、源头快照、嵌套绑定与超时回归，再相关测试和两档严格检查，整批本地提交。
+- 范围限制：当前JS宿主未注入书源RateLimiter与全局threadCount，保留固定4并发及skipRateLimit参数形态，不声称源级限流对齐；按现有结构可识别Timeout记-1，其余错误记-7，不按错误字符串猜测Java异常细分码。外部引擎主动中止网络仍不在现有宿主能力中，本批取消指批次失败后释放请求，不宣称新增外部停止接口。FRB/schema/依赖、UI、WebView与独立DNS/代理不改。
+- 复现与实现：修前两项真实QuickJS/HTTP用例失败，确认批量返回字符串或简化探活JSON，无法调用body/code/callTime。移除旧串行探活与乱序正文实现，批次复用准备/异步发送/响应求值三段；同步求值结束立即恢复外层绑定。无序消费任意失败以尽早取消，全部成功后按索引恢复输入顺序，不创建后台任务。
+- 响应与生命周期：同一StrResponse包装提供正文、状态、最终请求URL和耗时；失败测试项使用合成200、错误正文及负callTime，不丢其他项。固定HTTP回归验证实际并发且峰值不超过4、不同完成顺序、重复项、零覆盖规则预算、负值发送前拒绝、当前VM规则/POST编码和源头快照；普通批次失败时三条挂起正文TCP均关闭，后续六项未发送，失败后VM/池可继续使用。批量响应桥增加幂等包装，覆盖缓存/setup重复注入。
+- 验证与审查：JS完整库/集成共739项、既有3项忽略；Engine真实网络所有权/快照/释放6项通过，合计745项。JS两档与Engine QuickJS全目标严格Clippy、工作区两档全目标cargo check、限定格式及diff检查通过。单代理自查，无独立外审。证据build/js-batch-requests/{js-tests-final,engine-network-final,clippy-quickjs-final,clippy-default,workspace-quickjs,workspace-default}.log。Engine旧断言曾依赖批量不带来源头而产生空Cookie，已改为逐条验证原before快照及同值回写，保留隔离检查；早期失败日志不算通过。
+- 状态：第三批选定范围已关闭，版本2.0.382+383及双日志与本记录整批本地提交；主目录三份用户文件原字节保持。不构建DLL/Flutter/模拟器，不重复排版、无远程CI/推送/合并。FRB、生成物、schema和依赖不变。上述源级限流/全局并发、Java错误细分和外部停止能力尚未完成，后续另核查非批量响应桥的重复注入；不宣称JS网络全面对齐。回滚按本批撤销并重建native，不改写旧产物元数据。
+
+编写者：Codex｜2026-10-18
+
+
+### JS-REQUEST-RULES-20261018：统一脚本请求规则（P1）
+
+- 授权与基线：用户批准第二批；沿用dep-audit / chore/dep-audit / 6b56da8ed，单代理，不推送/合并或修改主目录用户文档。上游固定15e1337a。
+- 范围：ajax/connect统一AnalyzeUrl输入、Header/正文/编码/重定向/响应重试和当前上下文动态JS；get/head/post保持直接请求。复用Parser解析与Net发送，下沉必要公共发送/解码算法，Fetcher保持原入口转发，不引入循环依赖或独立VM。
+- 边界：同步回调不满足Send+Sync时使用专用解析能力，不手写unsafe；嵌套解析RAII恢复URL/待发请求头，JS回调恢复result，不重置外层VM执行预算。不更改已有错误与零超时约定、FRB/schema/UI或批量请求。
+- 验收：先复现同规则两入口请求内容、动态变量、嵌套成功/失败恢复，再做最小实现；相关Parser/Net/JS/Fetcher行为测试和严格Clippy。固定HTTP夹具，无外网运行依赖，不新增宿主或模拟器；完成后整批本地提交。
+- 复现与实现：修前真实QuickJS/HTTP用例确认ajax发送未编码中文、connect忽略URL选项及动态JS。现由同一AnalyzeUrl解析；借用当前Ctx同步求值，不新建VM、不重新获取引擎缓存锁或重置执行预算。初始头在正文编码前合并，URL/脚本头不区分大小写覆盖，动态Content-Type清除旧自动表单编码。
+- 上下文与复用：RAII恢复嵌套解析成功、错误和unwind后的URL/待发头；JS保留外层result/baseUrl/page。原抓取四级解码移到Parser，Fetcher保留公开转发；重定向及非2xx/3xx重试移到Net，传输错误保持直传。chardetng仅变更依赖归属，未升级依赖版本。
+- 验证：Parser/Net/JS/Fetcher完整相关测试1486项通过，既有4项忽略；末轮19项真实QuickJS/本地HTTP复验包含新增动态Content-Type用例，Engine网络所有权/快照/释放6项通过，去重共1493项。默认与QuickJS两档相关crate全目标严格Clippy通过，工作区两档全目标cargo check、限定rustfmt与diff检查通过。证据build/js-request-rules/{tests-final,parity-final,engine-network,clippy-quickjs-final,clippy-default,workspace-quickjs,workspace-default}.log；早期reproduce及整改失败日志不计通过。
+- 状态：第二批选定范围已关闭，版本2.0.381+382及双日志与本记录整批本地提交；单代理实现/自查，无独立外审。get/head/post、各接口错误/零超时、FRB签名/生成物和schema保持。webView及独立dnsIp/proxy明确不支持，不发送普通HTTP替代；保留现有Parser的选项JS降级策略，不宣称全部AnalyzeUrl/Java兼容。未构建DLL、Flutter或移动端/设备，未运行远程CI、推送或合并；主目录三份用户文件原字节保持。下一批核查ajaxAll/ajaxTestAll的结果类型、输入顺序、超时与批量取消。回滚按本批提交撤销并重新构建native，不改写旧产物元数据。
+
+编写者：Codex｜2026-10-18
+
+
+
+### JS-NETWORK-ERROR-TIMEOUT-20261018：脚本错误与超时语义收口（P1）
+
+- 授权与基线：用户批准三批计划中的第一批；复用dep-audit worktree / chore/dep-audit / 6933d985b，单代理，不推送/合并或修改主目录已有文档。
+- 参考：固定上游15e1337a，JsExtensions的ajax/connect捕获请求错误、get/head/post直接抛出；StrResponse(url,error)构造器使用合成状态200；AnalyzeUrl.getClient的callTimeout=0只关闭总期限。Jsoup的timeout=0关闭其超时。避免混淆无响应故障与真实HTTP状态。
+- 范围：修复错误被空响应吞掉、connect非法超时回绕和零值丢失；区分缺省/零/正数/非法值。保留默认连接池行为，零值客户端惰性缓存并共享现有Cookie/hosts/代理/重定向能力；不使用极大Duration伪装无限，不为每次请求新建客户端。
+- 验收：真实QuickJS/本地HTTP先复现错误载荷及零值覆盖；连接/读取/总期限的短预算行为回归，失败后引擎和池继续可用；JS与受影响Net测试、两档严格Clippy。无FRB签名/schema/生成物、动态规则或批量请求改造，不新增宿主、模拟器或全量Flutter测试。
+- 复现：10项定向用例在基线4通过/6失败，确认connect非法超时仍发请求、0未覆盖规则50ms预算、get/head/post超时及断连退为空响应。先冻结契约，Rust网络Result保持；仅JS适配层对ajax返回诊断、connect构造上游错误StrResponse、get/head/post抛错，损坏桥接JSON不再伪造空响应。真实HTTP状态行为不改，合成200仅限兼容面。
+- 期限实现：显式0保留并覆盖规则内预算；NoTotalTimeout保留连接/读空闲限制，Unlimited关闭三类应用层期限，Default保留现有配置。按直连/重定向/策略惰性缓存至多12个客户端，复用Cookie与持久化后端，reset及派生客户端继承策略。没有极大Duration、失败降级或逐请求重建；默认正超时行为不扩改为完整Jsoup阶段预算。
+- 类型与回归：connect范围校验阻止负值无符号回绕；ajax/connect使用严格可空装箱Long，拒绝字符串数字、布尔、NaN/Infinity，null/undefined保留。复用原7项网络集成并补4项，另补损坏响应/池生命周期单元及Net分块/停顿行为；验证默认总期限、无总期限但有读空闲预算、完全无限的区别，以及失败后客户端仍可请求。短预算回归不等待30/60秒默认期限。
+- 验证：最终JS/Net完整测试共992项通过、4项原有忽略；工作区默认/QuickJS全部目标cargo check通过，JS/Net两档全部目标Clippy -D warnings、限定rustfmt和diff检查通过。证据build/js-network-errors/{reproduce,fixed,timeout-policies-final,regressions-complete,workspace-check-complete,workspace-check-default,clippy-quickjs-complete,clippy-default-complete}.log；reproduce退出101为预期修前失败，不计通过。
+- 整改过程：初轮Net新测试误要求正文阶段错误属于发送阶段Timeout变体，改为核对原有原因链中的timed out而不改生产分类。可空Long初版误用了宽松转换，被既有装箱参数回归发现后恢复严格检查；新增桥单元漏super限定已修正。对应早期timeout-policies/regressions/*-final日志不作为最终通过证据；默认工作区检查曾等待共享Cargo目录锁，最终退出0。
+- 状态：第一批选定范围已关闭，契约/源码/行为回归/版本2.0.380+381及双日志整批本地提交；单代理实现与自查，无独立外审。FRB签名/生成物、schema及依赖锁文件不改，无正式DLL、Flutter、模拟器、移动平台或远程CI验证；不推送/合并。后续第二批统一AnalyzeUrl、第三批批量请求尚未实施，不宣称网络或JS全面对齐。主目录用户文件未修改。
+
+编写者：Codex｜2026-10-18
+
+
+
+### JS-NETWORK-PARITY-20261018：安全扫描收尾与脚本网络语义核查（P1）
+
+- 授权与基线：用户同意安全扫描收尾及JS网络语义核查；复用build/worktrees/dep-audit、chore/dep-audit / cf0514901，单代理，不推送/合并、不修改主目录原有三份文档。
+- 上游：已用git ls-remote核对参考仓库main为15e1337a23278296b970b1942aa51e8ff7f9763e，与本地镜像一致；本批固定该提交。核对JsExtensions、AnalyzeUrl及StrResponse，不把方法存在当作行为一致。
+- 范围：先运行cargo audit核查锁文件及已有豁免；再检查ajax/connect/get/post的请求参数、响应、超时和回环/代理分派。已有真实QuickJS和本地HTTP回归优先复用；确认缺陷先复现、再最小修复。额外功能缺口单独登记，不扩成所有JS能力重写。
+- 验收：新增用例必须执行真实Rust/QuickJS行为，不读源码做字符串守卫；相关JS回归及默认/QuickJS严格Clippy通过。普通Rust核查不新增宿主、Flutter排版验收或模拟器；若改正式桥接签名先冻结契约。安全扫描失败不记为通过，不自动新增豁免或批量升级依赖。
+- 安全扫描：安装cargo-audit 0.22.2（binstall下载并验证签名），更新RustSec库后对495项锁定依赖运行cargo audit，退出0；保留原RSA豁免，无新增豁免、依赖或锁文件修改。证据build/js-network-parity/audit.log；不将有豁免的通过等同于零剩余风险。
+- 确认与修复：get/head/post包装丢失最后一参，慢HTTP与负数用例在基线失败；原回环字符串切割误判IPv6、127.0.0.2、带凭据或无斜杠查询的localhost。契约先冻结，补原生可选Int超时传递及发送前拒绝；用URL解析后的HTTP(S)host选择回环池，远端/相似域名不绕代理。旧Rust入口仍委托默认值，单参变量查询、请求正文/头、Cookie与302策略保持。
+- 回归：JS完整库652项及集成65项共717项通过，既有库2项/文档1项忽略；包含7项新真实QuickJS/本地HTTP用例及既有ajax超时、StrResponse、Cookie/连接池隔离回归。默认/QuickJS两档全目标严格Clippy、限定格式与diff检查通过，无lint放行。证据js-tests.log、clippy-{default,quickjs}.log、fixed-loopback.log。
+- 夹具整改：首轮普通请求偶发10053/连接提前关闭，定位到Windows接受的socket继承非阻塞模式，测试读取遇WouldBlock提前退出；显式恢复阻塞读取后20轮定向复验通过。超时用例增加服务端实际收到请求断言，避免一般网络失败伪装超时成功；独立子进程设置死HTTP代理，IPv6回环仍请求成功。证据reproduce-{network,get,loopback}.log、diagnose-repeat.log、blocking-repeat.log、ipv6-dead-proxy.log；早期失败不计通过，未添加重试掩盖问题，诊断输出已移除。
+- 后续差异：timeout=0仍沿用默认而非真正无限等待；ajax/connect仍未完整复用上游AnalyzeUrl（动态规则、charset、源头合并需逐项复现）；ajaxAll的响应结构/顺序及ajaxTestAll的超时参数属于下一批核查项。现有Response包装遇原生错误文本可能退为空响应，也需单独复现诊断语义；不宣称本批已完成全部网络或JS兼容。
+- 状态：本批安全扫描、已确认的超时/回环修复及本地验证已关闭，整批本地提交；版本2.0.379+380及双日志同步。FRB签名/生成物、数据库和依赖锁文件不变；单代理自查，无独立外审、正式DLL/Flutter/设备或远程CI验证，不推送/合并。已先同步主目录dfb39e5d2技能删除提交，JS差异继续留在本worktree；主目录原有三份文档未改。
+
+编写者：Codex｜2026-10-18
+
+
+
+
+
+
 ### REMOVE-GITNEXUS-SKILLS-20261018：移除项目GitNexus技能（P2）
 
 - 授权与范围：用户要求移除GitNexus系列技能。仅删除.agents/skills中的六项GitNexus技能及来源清单/维护说明，不安装替代工具，不修改其他技能或用户已有三份文档。
