@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.376] - 2026-10-18
+
+### Changed
+- [UI] 漫画新图片在实际首帧出现后淡入，内存/磁盘缓存直接显示，加载和错误占位不再淡化。
+- [UI] 减少动态效果在导航、漫画菜单和选区退场中切换时立即生效；主页保活页停用时暂停动画时钟。
+- 贡献者：Codex + UI；构建号377。
+
 ## [2.0.375] - 2026-10-18
 
 ### Changed

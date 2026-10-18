@@ -11,6 +11,53 @@ import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 /// SelectionArea 包裹段落 → 长按出词选 → 自定义浮窗工具条出现
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('选区菜单退场中开启减少动态效果仍完成移除，不留下透明拦截层', (tester) async {
+    final reduced = ValueNotifier(false);
+    addTearDown(reduced.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          builder: (context, child) => ValueListenableBuilder<bool>(
+            valueListenable: reduced,
+            builder: (context, value, _) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: value),
+              child: child!,
+            ),
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => ReaderSelectionToolbar.show(
+                  context,
+                  anchor: const Offset(150, 150),
+                  text: '测试选区',
+                  chapterPos: 0,
+                ),
+                child: const Text('打开选区菜单'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('打开选区菜单'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReaderSelectionToolbar), findsOneWidget);
+    await tester.tapAt(const Offset(700, 500));
+    await tester.pump(const Duration(milliseconds: 30));
+    reduced.value = true;
+    await tester.pumpAndSettle();
+    expect(find.byType(ReaderSelectionToolbar), findsNothing);
+    // 同一位置的底层按钮仍可重新打开菜单，证明旧浮层已移除。
+    await tester.tap(find.text('打开选区菜单'));
+    await tester.pump();
+    expect(find.byType(ReaderSelectionToolbar), findsOneWidget);
+    await tester.tapAt(const Offset(700, 500));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReaderSelectionToolbar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('长按正文出现浮窗工具条（复制/分享/浏览器/朗读/书签/更多）', (tester) async {
     final pageInfo = PageInfo(
       paragraphs: [

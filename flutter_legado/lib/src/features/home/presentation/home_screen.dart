@@ -91,6 +91,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _defaultHomePageApplied = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_animatedTarget != null && AppMotion.reduced(context)) {
+      final revision = _navigationRevision;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            revision != _navigationRevision ||
+            !_pageController.hasClients) {
+          return;
+        }
+        final index = _visibleTabs(ref.read(mainPrefsProvider))
+            .indexOf(_currentTab);
+        if (index >= 0) _pageController.jumpToPage(index);
+        _animatedTarget = null;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     _bookshelfScrollTopSignal.dispose();
@@ -344,7 +363,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _onPageChanged(tabs, index, navigationRevision),
               children: [
                 for (final tab in tabs)
-                  _KeepAlivePage(key: ValueKey(tab), child: _pageOf(tab)),
+                  _KeepAlivePage(
+                    key: ValueKey(tab),
+                    child: TickerMode(
+                      enabled: tab == _currentTab,
+                      child: _pageOf(tab),
+                    ),
+                  ),
               ],
             ),
           );

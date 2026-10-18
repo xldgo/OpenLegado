@@ -131,7 +131,8 @@ class _ReaderSelectionToolbarState extends ConsumerState<ReaderSelectionToolbar>
         await _motion.reverse().orCancel;
       }
     } on TickerCanceled {
-      return;
+      // 系统偏好在退场中改变会取消Ticker，但浮层仍须完成移除。
+      if (!mounted || !AppMotion.reduced(context)) return;
     }
     if (mounted) widget.onDismiss();
   }
