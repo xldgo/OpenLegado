@@ -108,3 +108,27 @@ fn concurrent_replacement_and_slot_drop_do_not_keep_operations_alive() {
     drop(operations);
     assert_eq!(tasks.active_count(), 0);
 }
+
+#[tokio::test]
+async fn panicked_publication_releases_registration_and_slot_can_restart() {
+    let tasks = TaskGroup::default();
+    let slot = Arc::new(OperationSlot::new(tasks.clone()));
+    let operation = slot.start().unwrap();
+    let worker = tokio::spawn(async move {
+        let _guard = operation.guard();
+        operation.publish(|| panic!("后台发布故障"));
+    });
+    let error = worker.await.unwrap_err();
+    assert!(error.is_panic());
+    assert!(error.to_string().contains("后台发布故障"));
+    assert!(slot.current().is_none());
+    assert_eq!(tasks.active_count(), 0);
+    assert!(!tasks.is_closed());
+    let next = slot.start().unwrap();
+    assert_eq!(next.publish(|| 42), Some(42));
+    let guard = next.guard();
+    drop(guard);
+    drop(next);
+    assert!(slot.current().is_none());
+    assert!(tasks.shutdown(Duration::from_secs(1)).await);
+}

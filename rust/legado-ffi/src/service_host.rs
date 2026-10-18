@@ -205,4 +205,43 @@ mod tests {
         release.send(()).unwrap();
         assert!(runtime.block_on(tasks.shutdown(Duration::from_secs(3))));
     }
+
+    #[test]
+    fn panicked_listener_releases_port_and_can_restart() {
+        let runtime = Runtime::new().unwrap();
+        let tasks = TaskGroup::default();
+        let slot = ServiceSlot::default();
+        let listener = runtime
+            .block_on(tokio::net::TcpListener::bind("127.0.0.1:0"))
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+        slot.start(&runtime, &tasks, port, move |_| async move {
+            let _listener = listener;
+            panic!("监听任务故障");
+        })
+        .unwrap();
+        runtime.block_on(async {
+            tokio::time::timeout(Duration::from_secs(2), async {
+                while slot.status().0 {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+        });
+        assert_eq!(tasks.active_count(), 0);
+        assert!(!slot.stop(&runtime));
+        let listener = runtime
+            .block_on(tokio::net::TcpListener::bind(("127.0.0.1", port)))
+            .unwrap();
+        slot.start(&runtime, &tasks, port, move |_| async move {
+            let _listener = listener;
+            std::future::pending::<()>().await;
+        })
+        .unwrap();
+        assert!(slot.status().0);
+        assert!(slot.stop(&runtime));
+        assert_eq!(tasks.active_count(), 0);
+        assert!(std::net::TcpListener::bind(("127.0.0.1", port)).is_ok());
+    }
 }
