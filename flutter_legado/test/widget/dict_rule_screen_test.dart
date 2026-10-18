@@ -8,7 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/routes.dart' show AppRoutes;
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/rules/presentation/dict_rule_screen.dart';
 
 import '../mocks/mocks.dart';

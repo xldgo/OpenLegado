@@ -9,7 +9,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../data/defaults/dict_rule_defaults.dart';
 import '../../../models/misc.dart' show DictRule;
 import '../../../providers/dictionary_provider.dart';
-import '../../../routes.dart' show AppRoutes;
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/error_view.dart';
 import '../../../widgets/help/help_assets.dart';

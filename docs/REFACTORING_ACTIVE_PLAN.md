@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-ROUTING-BOUNDARY-20261018：解除路由循环依赖（P1，SCH-F3a）
+
+- 授权与基线：用户要求每批完成验证后本地提交并继续；主目录feature/ui-reader-selection / b1b20a959，单代理、不新建分支、不推送/设备构建。保留TWO_TRACK_DEV_SPEC.md和ARCHITECTURE_REVIEW_20261018.md原有工作区修改。
+- 范围与目标：拆分轻量路由名称/参数与页面装配，feature/公共Widget/服务不再导入包含全部screen的路由表；AppRouter可独立实例化并注入路由表，应用入口拥有正式实例。删除旧集中入口并迁移全部消费者，不增加同义转发层。
+- 保持行为：所有路由字符串、参数接受方式/默认值、隐私门禁、未知路径回首页、换源弹层及朗读页转场不变；本批不引入新路由框架、延迟加载、参数协议重写、UI/播放器重构或Rust/FRB/数据库/依赖/版本变更。
+- 实现：新增route_names.dart、route_arguments.dart与AppRouter；原路由字符串、页面工厂及换源动画原样迁移，BookInfoArgs和VideoScreenArgs移入轻量参数文件。App入口拥有稳定路由实例，可注入完整独立表；全部生产/测试/integration调用点迁走并删除旧routes.dart，不保留转发入口。
+- 行为验证：独立装配/实际push-pop及参数结果/未知路径/隐私门禁/特殊转场/书籍与搜索/音频漫画视频参数11项通过；既有系统栏、换源、媒体导航、欢迎页竞争、书架返回与开书58项通过。另有发现页、详情、阅读退出/换源和书单接线34项通过，共103项分批通过。未初始化真实播放器、Rust或设备，不将工厂构造测试宣称为实际播放验收。
+- 整改与证据：迁移初轮遗漏part所属library的轻量导入及测试Route类型访问，已修正；新增未知路径测试避免被离场首页重建覆盖观测，门禁夹具补全已配置口令状态，11项最终通过。误并行启动两个Flutter测试进程造成编译缓存拷贝冲突，停止受影响进程后串行复验34项通过；没有更改生产门禁或关闭校验迁就测试。证据在flutter_legado/build/f3a/下route-tests.log（初轮编译失败）、route-tests-final.log（67通过/2夹具失败）、router-final.log（11项最终通过）、consumer-tests.log（缓存冲突）、consumer-tests-final.log（34项最终通过）、analyze-final.log；失败记录保留，不冒充全部首次通过。
+- 结构复核：路由表依赖文件的遍历未发现回到AppRouter的路径，生产侧只有lib/app.dart直接导入AppRouter；路由名称零导入，参数只导入Book。默认路由工厂与换源动画迁移对照无行为差异，源码检查只作结构审计，没有源码字符串断言测试。完整Dart静态分析、git diff --check通过；没有GitNexus工具，采用直接依赖追踪，不冒称图谱验证或独立外审。
+- 状态：本批代码及本地验证完成，按用户要求随文档本地提交，不推送；下一批为SCH-F2a视频播放编排与生命周期。无远程CI、设备、Android/iOS或性能验收；两份用户文档修改保持原样。回滚本批路由拆分及导入迁移即可，前两批已提交成果保留。
+
+编写者：Codex + UI｜2026-10-18
+
 ### FLUTTER-BOOKSHELF-IMPORT-20261018：书单导入编排提取（P1，SCH-X1）
 
 - 授权与基线：用户要求提交第一批后继续下一批；主目录feature/ui-reader-selection / ef01eb1a8，单代理、沿用当前分支，不推送或设备构建，第二批完成后保留工作区待审核。第一批错误边界已本地提交。

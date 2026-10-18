@@ -18,7 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../application/change_source/change_source_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
 import '../../../widgets/error_view.dart';
 import '../../../widgets/loading_indicator.dart';
@@ -69,7 +69,7 @@ class ChangeSourceScreen extends ConsumerStatefulWidget {
 class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
     with SingleTickerProviderStateMixin {
   // [A2 形态对齐 | full-stack-engineer + UI] 换源页由「整页」改为「底部弹层」：
-  // 非不透明路由（routes.dart _ChangeSourceSheetRoute）承载，本页 build 产出
+  // 非不透明路由（AppRouter 的换源弹层）承载，本页 build 产出
   // 全屏 Stack——半透明遮罩（点按关闭）+ 底部面板（把手 + 下滑关闭）。
   // 面板高度约为全屏 85%（顶部圆角，对齐参考版 kazusa 底部弹层形态与
   // 原版 ChangeBookSourceDialog BaseDialogFragment 的浮层语义）。

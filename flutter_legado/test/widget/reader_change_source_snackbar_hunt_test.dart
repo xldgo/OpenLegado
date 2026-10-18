@@ -31,7 +31,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 
 import '../mocks/mocks.dart';

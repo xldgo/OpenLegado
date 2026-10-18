@@ -29,7 +29,7 @@ import '../../../widgets/explore_book_list.dart';
 import '../../../widgets/explore_page_control.dart';
 import '../../../widgets/legado_app_bar.dart';
 
-/// 路由参数类型转发（routes.dart / explore_screen.dart 依赖）— 保留原导出
+/// 路由参数类型转发（AppRouter / explore_screen.dart 依赖）— 保留原导出
 
 /// 发现分类书籍浏览页
 class ExploreShowScreen extends ConsumerStatefulWidget {
@@ -113,7 +113,7 @@ class _ExploreShowScreenState extends ConsumerState<ExploreShowScreen> {
   Widget build(BuildContext context) {
     final ref = this.ref;
     final args = this.args;
-    // 参数缺失兜底（正常路径由 routes.dart 保证非空）
+    // 参数缺失兜底（正常路径由 AppRouter 保证非空）
     if (args == null) {
       // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
       return AppScaffold(

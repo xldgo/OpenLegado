@@ -20,7 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';

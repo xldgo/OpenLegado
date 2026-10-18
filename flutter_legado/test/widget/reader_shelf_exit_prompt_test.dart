@@ -27,7 +27,8 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
 
 import '../mocks/mocks.dart';
@@ -291,7 +292,7 @@ void main() {
         navigationBarColor: Colors.black,
       ));
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-      final sheet = AppRoutes.generateRoute(
+      final sheet = AppRouter().generateRoute(
         const RouteSettings(name: AppRoutes.changeSource),
       );
       // 验证真实换源 Sheet 的路由类型，不构建需要另行初始化的换源业务。

@@ -19,7 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../application/audio_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../services/audio_cache_events.dart';
 import '../../book_sources/book_sources.dart';

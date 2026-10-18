@@ -17,7 +17,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -94,7 +94,7 @@ void main() {
     return ProviderScope(
       overrides: mergeTestOverrides([...mockApi.overrides]),
       child: MaterialApp(
-        onGenerateRoute: AppRoutes.generateRoute,
+        onGenerateRoute: AppRouter().generateRoute,
         home: const ExploreScreen(),
       ),
     );

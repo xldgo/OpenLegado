@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../l10n/app_localization.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../providers/general_settings_provider.dart';
 import '../../../utils/error_message.dart';
 import '../../../services/auto_task_scheduler.dart';

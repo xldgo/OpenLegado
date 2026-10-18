@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
 import '../features/reader/application/reader_notifier.dart';
-import '../routes.dart';
+import '../app/routing/route_names.dart';
 import '../services/platform_bridge_service.dart';
 
 /// 按 BookType 位标记打开阅读器（对齐原版 `startActivityForBook` /

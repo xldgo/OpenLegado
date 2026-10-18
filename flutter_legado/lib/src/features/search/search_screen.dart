@@ -1,3 +1,4 @@
+import '../../app/routing/route_names.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import '../../widgets/app_menu.dart';
 
@@ -18,7 +19,7 @@ import '../../domain/models/search_settings.dart';
 import '../bookshelf/bookshelf.dart';
 import 'search_notifier.dart';
 import 'search_settings_provider.dart';
-import '../../routes.dart';
+
 import '../../widgets/book_cover.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';

@@ -2,7 +2,7 @@ import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/utils/book_open_utils.dart';
 import 'package:flutter_legado/src/utils/comic_image_utils.dart';
 

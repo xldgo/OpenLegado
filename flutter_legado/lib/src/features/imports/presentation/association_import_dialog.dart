@@ -12,7 +12,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../models/models.dart';
 import '../application/association_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../domain/models/import_result.dart';
 import '../../../widgets/custom_group_dialog.dart';
 

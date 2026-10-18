@@ -48,7 +48,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_legado/app.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
 
 import '../test/fixtures/native_test_api.dart';
 

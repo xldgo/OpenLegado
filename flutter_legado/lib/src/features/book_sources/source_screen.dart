@@ -1,3 +1,4 @@
+import '../../app/routing/route_names.dart';
 import '../../widgets/dynamic_search_app_bar.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
@@ -21,7 +22,7 @@ import '../../models/models.dart';
 import '../search/search.dart';
 import 'source_notifier.dart';
 import 'application/source_check/check_source_notifier.dart';
-import '../../routes.dart';
+
 import '../../domain/models/source_preview.dart';
 import '../../domain/services/source_import_parser.dart';
 import '../../utils/legado_deep_link.dart';

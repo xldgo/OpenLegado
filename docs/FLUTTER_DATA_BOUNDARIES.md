@@ -52,6 +52,20 @@ BackupSettingsRepository；图标和删除提醒分别扩展已有外观、书�
 
 编写者：Codex + UI｜2026-10-18
 
+## 路由装配边界
+
+`app/routing/route_names.dart`只定义路由名称，不导入页面或Flutter；
+`route_arguments.dart`保存BookInfoArgs和VideoScreenArgs，只依赖Book模型。
+feature、公共Widget及服务只消费名称或参数，不能反向导入页面路由表。
+
+`AppRouter`统一装配既有目标页面、参数处理与特殊转场，正式实例由LegadoApp持有；
+构造函数可接收完整路由表，各实例复制并只读持有自己的表。默认页面工厂、隐私门禁、
+换源结果及朗读转场保持原样；未命中路径使用实例首页，未提供首页时仍回正式HomeScreen。
+测试可独立注入路由表验证导航，不需要修改全局表或启动原生播放。旧routes.dart入口删除，
+不保留重导出它的同义兼容层。任务状态和证据仍只维护在活动计划。
+
+编写者：Codex + UI｜2026-10-18
+
 ## 实施顺序
 
 1. 提取初始化内部职责：应用 Bootstrap 编排，Bridge 加载原生库并调用 FRB，

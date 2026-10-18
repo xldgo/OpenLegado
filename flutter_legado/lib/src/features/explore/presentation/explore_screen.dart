@@ -29,7 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../application/explore_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import 'explore_show_screen.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/source_login_entry.dart';

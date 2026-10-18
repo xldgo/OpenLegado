@@ -25,7 +25,8 @@ import 'package:share_plus_platform_interface/method_channel/method_channel_shar
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
-import 'package:flutter_legado/src/routes.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 
 import '../mocks/mocks.dart';
@@ -345,7 +346,7 @@ void main() {
     testWidgets('kind chip 点击进搜索页（原 🏷️ 行逐 tag 搜索入口迁移）', (tester) async {
       final pushed = <String>[];
       final observer = _PushedRouteObserver(pushed);
-      final routes = Map<String, WidgetBuilder>.from(AppRoutes.routes)
+      final routes = Map<String, WidgetBuilder>.from(AppRouter().routes)
         ..remove('/');
       routes[AppRoutes.search] = (_) =>
           const Scaffold(key: Key('search-stub'), body: Text('搜索页'));

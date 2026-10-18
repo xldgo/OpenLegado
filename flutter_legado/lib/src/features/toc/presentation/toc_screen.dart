@@ -32,7 +32,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../../models/models.dart';
 import '../../../providers/general_settings_provider.dart';
 import '../../reader/application/reader_settings_provider.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../services/audio_cache_events.dart';
 import '../../../services/bookmark_export.dart';
 import '../../../utils/app_route_observer.dart';

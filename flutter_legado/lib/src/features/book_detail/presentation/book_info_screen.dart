@@ -36,7 +36,7 @@ import '../../automation/application/auto_task_notifier.dart';
 import '../../bookshelf/bookshelf.dart';
 import '../../reader/application/reader_notifier.dart';
 import '../../../providers/sync/sync_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../../widgets/legado_app_bar.dart';
 import '../../../widgets/top_bar_button.dart';

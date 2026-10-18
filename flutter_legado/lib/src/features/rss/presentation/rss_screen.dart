@@ -12,7 +12,7 @@ import '../../../l10n/app_localization.dart';
 import '../../../models/models.dart';
 import '../application/rss_notifier.dart';
 import '../application/history/rss_history_notifier.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/confirm_dialog.dart';
 import '../../../widgets/empty_state.dart';

@@ -10,7 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../models/models.dart';
-import '../routes.dart';
+import '../app/routing/route_names.dart';
 import '../domain/contracts/source_login_repository.dart';
 import '../services/platform_bridge_service.dart';
 import '../utils/error_message.dart';

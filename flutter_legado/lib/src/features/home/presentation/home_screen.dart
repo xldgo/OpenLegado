@@ -6,7 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../l10n/app_localization.dart';
 import '../../bookshelf/bookshelf.dart';
-import '../../../routes.dart';
+import '../../../app/routing/route_names.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/navigation/app_navigation_bars.dart';
 import '../../appearance/application/bottom_bar_skin_notifier.dart';

@@ -24,7 +24,7 @@ import '../../providers/theme/system_bar_notifier.dart';
 import '../../providers/theme/theme_colors_notifier.dart';
 import '../../providers/theme/theme_notifier.dart';
 import '../../providers/ui_settings/ui_settings_notifier.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../services/launcher_icon_service.dart';
 import '../../services/settings_service.dart';
 import '../../widgets/settings_widgets.dart';

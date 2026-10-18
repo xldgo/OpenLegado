@@ -15,7 +15,7 @@ import '../../models/models.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../../features/audio/application/audio_notifier.dart';
 import '../../features/audio/application/read_aloud_preferences.dart';
-import '../../routes.dart';
+import '../../app/routing/route_names.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/paragraph_layout_engine.dart';
