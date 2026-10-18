@@ -14,7 +14,10 @@
 - 第四批补丁：仅更新rustls 0.23.46、sha2 0.11.1、sevenz-rust2 0.24.1；后者必要传递依赖lzma-rust2同步0.22→0.23，未顺带升级zip/fancy-regex/backtrace或JS的digest体系。网络/JS/Fetcher三库QuickJS共1065项通过（既有2项忽略），涵盖TLS、7z与摘要行为。证据b4-patch-updates.log、b4-patch-tests.log。
 - 第五批：受控OFL字体与完整中文断言先在旧后端5项通过，再以printpdf 0.12.8替代genpdf；新增独立PDF写入模块，保留标题/作者/简介/目录/章节和图片，混合章节保留正文、缺字明确报错。关闭默认HTML，未引入Azul；TTC直接选择字体面并删除手工拆表。书籍库171项通过、严格Clippy通过；初轮仅测试档Path导入告警，已消除并复验。文本与图片样例经独立PyMuPDF解析/渲染并目视检查，中文及混排可读、图片比例正确；过程b5-{pdf-before,tests-final,clippy-final,preview}.log，样例text/image.pdf与对应page3.png。临时预览example已删除，不新增宿主协议。
 - 第五批依赖与限制：锁文件494包，genpdf、rusttype、image 0.23、lopdf 0.26及time 0.2退出，外部PDF导入保留lopdf 0.45，printpdf使用0.44；两者均高于该公告修复下限，删除RUSTSEC-2026-0187豁免，保留RSA剩余风险说明。未安装或运行cargo-audit，不冒充完整安全扫描。生产保留系统字体/显式字体配置，测试字体只覆盖夹具，不随应用当作通用字体。版本2.0.378+379同步日志；未验证移动端PDF运行或包体。
-- 状态：实施中，六批完成证据逐批补入本条。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
+- 第六批：Argon2 0.6使用hash_password_with_salt接收16字节系统随机盐，关闭其内部另一条随机数生成feature；PHC存储和Argon2id v19/m19456/t2/p1/32字节输出保持。旧0.5.3固定盐哈希在迁移前生成后固定，升级后继续正确校验；错误旧密码不改写、换密/清除、随机盐和损坏哈希语义通过。DB库371项与严格Clippy通过，证据b6-hash-before.log、b6-db-tests.log、b6-clippy.log。
+- 最终收口：默认与QuickJS两档工作区全部目标严格Clippy通过；Windows正式入口使用共享Cargo缓存完成最终Debug QuickJS DLL构建，Rust/构建输入指纹、FRB契约及源/复制库摘要通过。按原字节将源库、打包库与元数据复制至本worktree后，再显式验证本worktree target目录通过；不是补写元数据冒充重编。两份既有真实FRB文件共3项通过，覆盖隐私密码、私密书籍/分组及启动配置，复用启动用例验证RAR直接入口和通用别名确实抛错、失败后运行时可继续使用。Dart定向分析通过，不重复排版算法/Widget验收。证据final-clippy-{quickjs,default}.log、final-native-{build,verify-worktree,tests}.log、final-dart-analyze.log；全部退出0。
+- 提交与结果：第一批98c7552d4、第二批b456a14a7、第三批aa22d6ea9、第四批9761241e9及842237bf2、第五批b94aff5b7；第六批与本收口记录在同一后续提交。Cargo.lock 540→495条目，多版本包名49→31（额外版本条目57→35）；Flutter锁定包212→207，ffi仍是传递依赖。最终Tokio图与第三批一致，backtrace保留基线0.3.76未动。全程单代理自查，无独立外审，不推送/合并；主目录的未提交文档未写入。
+- 状态：六批实现及上述范围本地验证已关闭。Flutter目录级3781项通过、16份排版文件前置DLL缺失未执行，按讨论未重跑，不宣称全量Flutter绿灯；无远程CI、移动端构建/设备、完整cargo-audit或Release包体结论。JS RAR为明确停用而非功能补齐；移动端RAR替代、Flutter设计组件升级与Release调优后置。API/FRB签名与生成物、数据库schema不变；版本2.0.378+379。回滚可按批次独立撤销提交；PDF字体夹具与新后端同批，回退时重新构建对应native，不伪造或降级产物元数据。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
 
 编写者：Codex｜2026-10-18
 
