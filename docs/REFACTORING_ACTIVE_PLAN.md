@@ -9,7 +9,13 @@
 - 测量范围：清理提交后，使用 cargo rustc 的 rlib 产物与 --timings 对现有 QuickJS FFI 依赖图测量。先预热/无改动基线，再临时修改 Core 的固定实现模块与模型模块，逐次构建并归档重编单元/耗时，最后恢复原文件字节并核对 Git；不生成/覆盖正式 DLL。不清理全局缓存，不把 rlib 耗时当成动态库链接、CI 或设备性能结论。
 - 决策范围：结合明确候选模块的实际依赖分析讨论拆分收益；同时依赖 Core 与候选 crate 不自动等于没有收益，还要看修改是否能离开 Core、哪些下游不再失效。不自动创建 crate 或修改架构；测量及结论随文档本地提交。
 - 清理验证：Core802项与JS并发4项通过；工作区 default/QuickJS 两档全目标 Clippy -D warnings 通过，无新增 lint 放行。删除模块530行及其16项测试、唯一导出；配置/FFI/native/依赖版本均未改。证据：build/rust-core-cleanup/{core-tests,js-concurrency,workspace-default,workspace-quick}.log，各退出0。
-- 状态：清理整批本地验证完成并随本批提交，测量待执行；仅单代理自查，无独立外审、远程CI或设备结论。
+- 测量基线与方法：清理提交81d9cc32db615bbc5296f6f412b8a9511e38a556，Rust1.99.0/Windows x64/dev/QuickJS/4个Cargo并行任务。cargo rustc --locked -p legado-ffi --lib --features quickjs --target x86_64-pc-windows-msvc --crate-type rlib --jobs 4 --message-format json --timings；沿用已有第三方缓存，先热身39.222秒，再采无改动基线。实现探针仅把 source_matcher::default_neg_one 的 -1 改成 black_box(-1)；随后保留该探针、在 models/book.rs 追加无消费者公开常量，模型字段不变。链式单样本测量，不视作真实接口字段修改或统计基准。
+- M-1结果：无改动1.506秒/0个工作区crate重编；实现探针12.933秒/10个；实现不再修改1.455秒/0个；模型公开声明探针12.831秒/10个；模型不再修改1.435秒/0个。两次增量均为 Core+Book/DB/Engine/Fetcher/FFI/JS/Net/Parser/Server，Layout保持fresh；第三方依赖保持fresh。Cargo调度重编不等于全量机器码重做，已有增量缓存大量复用；各单元并行重叠，耗时不能直接相加。以上不包含最终DLL/staticlib链接、应用构建或CI执行，单机各探针一次，不报告提速比例。
+- M-2固定候选与口径：仅分析 source_matcher.rs、search_engine.rs、search_aggregate.rs，基线同上。三文件生产/测试区间分别297/228、224/230、321/481行，均含空行和注释，仅作范围记录，不以总行数推导收益。源码引用显示外部直接消费者为Engine/FFI，两者也依赖Core；search_engine内部使用BookSource及SourceMatcher，aggregate使用Core SearchBook。
+- M-2传播分析：只拆source_matcher会让留在Core的search_engine继续依赖候选，失效链不缩小。三模块成组迁出、移除Core旧模块/根重导出，并让Engine/FFI直接消费候选时，按当前Cargo图静态预测，搜索候选改动影响候选本身+Engine/Server/FFI四个包；模型/Core改动仍影响全图且多一个新包。该图没有创建新crate或实测拆分，只用于指出边界前置条件，不能声称已获性能收益；同时依赖Core和候选包不是自动否决依据。
+- 决策：SCH-R1整体拆Core暂不实施。当前只证明存在广泛失效，热缓存rlib增量约13秒，没有实际拆分提速、持续修改热点或构建预算要求的证据。窄搜索计算包可作未来候选，先明确维护需求再原型验证；不把大文件、行数或双重依赖当作改架构理由。已修正排期方法中的双重依赖判断口径，结果和状态仍只维护于Active。
+- 恢复与证据：两处源文件已逐字恢复，Rust树指纹前后一致，正式DLL及其meta的摘要前后不变，测量结束工作区干净。仅构建rlib，未重建正式DLL/应用，不宣称删除后的native新指纹已验收；下一次正式应用构建应正常重建并校验。原始cargo JSON/HTML及stderr、精确版本/命令/每单元时段、恢复和摘要位于build/rust-core-cleanup/measure/，measurement.json与analysis.json保存汇总。所有六轮命令退出0，探针没有进入提交，也不修改运行时行为。
+- 状态：清理批81d9cc32d及M-1/M-2当前范围测量与决策完成；方法/结果文档随本批提交，无回填实现提交。仅单代理自查，无独立外审、远程CI、Android/iOS或设备性能结论。不推送、不合并主目录，不自动拆crate。
 
 编写者：Codex｜2026-10-18
 
