@@ -108,6 +108,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('多行空态与连续计数共用切换，旧内容不参与语义且能中途销毁', (tester) async {
+    Widget multiline(String text) => MediaQuery(
+      data: const MediaQueryData(),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: SizedBox(
+          width: 100,
+          child: AppAnimatedTextLine(text, maxLines: 2),
+        ),
+      ),
+    );
+    await tester.pumpWidget(multiline('第一行提示与第二行提示'));
+    expect(tester.widget<Text>(find.text('第一行提示与第二行提示')).maxLines, 2);
+    await tester.pumpWidget(multiline('新的两行提示'));
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.pumpWidget(multiline('最终提示'));
+    await tester.pumpAndSettle();
+    expect(find.text('最终提示'), findsOneWidget);
+    expect(find.text('新的两行提示'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('窄宽度和大字号保持单行省略，样式更新不触发文字切换', (tester) async {
     await tester.pumpWidget(host('点按项目选择，返回退出', rtl: true));
     expect(tester.getSize(find.byType(AppAnimatedTextLine)).width, 140);

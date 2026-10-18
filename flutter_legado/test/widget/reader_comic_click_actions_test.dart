@@ -1056,7 +1056,7 @@ void main() {
       expect(find.text('分享图片'), findsOneWidget);
     });
 
-    testWidgets('disableMangaCrossFade 默认 false：图片加载淡入包裹渲染', (tester) async {
+    testWidgets('disableMangaCrossFade 默认 false：预载缓存不重复淡入', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
         overrides: mergeTestOverrides([...api.overrides]),
@@ -1066,8 +1066,8 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('mangaImageFade')),
-        findsWidgets,
-        reason: '默认淡入开启（参考版 disableMangaCrossFade=false）',
+        findsNothing,
+        reason: '默认开启仍直接展示预载缓存，首次图片淡入由独立首帧用例验证',
       );
     });
 

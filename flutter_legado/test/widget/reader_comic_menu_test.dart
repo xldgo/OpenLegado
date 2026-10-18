@@ -240,12 +240,23 @@ Future<void> _pumpScreen(
   _MenuMockApi api,
   ProviderContainer container, {
   ThemeData? theme,
+  ValueNotifier<bool>? reducedMotion,
 }) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: theme,
+        builder: reducedMotion == null
+            ? null
+            : (context, child) => ValueListenableBuilder<bool>(
+                valueListenable: reducedMotion,
+                builder: (context, value, _) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(disableAnimations: value),
+                  child: child!,
+                ),
+              ),
         routes: {AppRoutes.changeSource: (_) => const _FakeChangeSourceRoute()},
         home: ReaderComicScreen(bookUrl: 'mock://menu'),
       ),
@@ -261,6 +272,35 @@ Future<void> _showControls(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('漫画菜单滑入途中开启减少动态效果即刻落位，关闭后不留命中层', (tester) async {
+    final reduced = ValueNotifier(false);
+    addTearDown(reduced.dispose);
+    final api = _MenuMockApi(
+      progressCalls: [],
+      configWrites: [],
+      fetchCalls: [],
+    );
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
+    addTearDown(container.dispose);
+    await _pumpScreen(tester, api, container, reducedMotion: reduced);
+    await tester.tapAt(_centerOffset(tester));
+    await tester.pump(const Duration(milliseconds: 40));
+    reduced.value = true;
+    await tester.pump();
+    final menu = find.byType(MangaMenuTopBar);
+    expect(menu, findsOneWidget);
+    final slides = tester.widgetList<SlideTransition>(
+      find.ancestor(of: menu, matching: find.byType(SlideTransition)),
+    );
+    expect(slides.any((slide) => slide.position.value == Offset.zero), isTrue);
+    await tester.tapAt(_centerOffset(tester));
+    await tester.pump();
+    expect(find.byType(MangaMenuTopBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   group('[P4-3 M2] 漫画菜单按用户截图重构', () {
     testWidgets('① 顶栏：实心背景 + 书名/章节名/源名 + 返回/刷新/更多（刷新 = 收菜单 + 重取）', (
       tester,

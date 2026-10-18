@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 
 import 'contained_loading_indicator.dart';
-import 'md3_animated_text_line.dart';
+import 'app_animated_text_line.dart';
 
 /// 空状态组件
 ///
@@ -12,7 +12,7 @@ import 'md3_animated_text_line.dart';
 /// - [simple] = false（默认）：图标 + 提示文字 + 可选操作按钮
 /// - [kaomoji] = true：颜文字彩蛋（用户授权新增，AGENTS 红线 2026-08-29
 ///   口径）——对齐参考仓库 EmptyMessage：32sp 随机颜文字，点击换一个，
-///   提示文字随变化翻滚（Md3AnimatedTextLine）
+///   提示文字随变化翻滚（AppAnimatedTextLine）
 class EmptyState extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -106,8 +106,8 @@ class _EmptyStateState extends State<EmptyState> {
                   }),
                   child: Padding(
                     padding: const EdgeInsets.all(8),
-                    child: Md3AnimatedTextLine(
-                      text: _face,
+                    child: AppAnimatedTextLine(
+                      _face,
                       style: TextStyle(
                         fontSize: 32,
                         color: colorScheme.onSurfaceVariant,
@@ -116,8 +116,8 @@ class _EmptyStateState extends State<EmptyState> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Md3AnimatedTextLine(
-                  text: widget.title,
+                AppAnimatedTextLine(
+                  widget.title,
                   maxLines: 2,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,

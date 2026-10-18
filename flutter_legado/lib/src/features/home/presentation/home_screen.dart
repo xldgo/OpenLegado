@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import '../../../theme/app_motion.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
@@ -67,6 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
   int _navigationRevision = 0;
   int? _pendingPageSync;
+  _HomeTab? _animatedTarget;
 
   /// 已访问过的 Tab 集合（首屏默认访问书架）— 保留懒构建语义
   /// [UI_SYNC_REFACTOR S6] 首页页签相邻预载，一并加入初始集 — Qoder
@@ -84,6 +89,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// 默认首页是否已应用（偏好异步加载完成后仅跳转一次）
   bool _defaultHomePageApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_animatedTarget != null && AppMotion.reduced(context)) {
+      final revision = _navigationRevision;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            revision != _navigationRevision ||
+            !_pageController.hasClients) {
+          return;
+        }
+        final index = _visibleTabs(ref.read(mainPrefsProvider))
+            .indexOf(_currentTab);
+        if (index >= 0) _pageController.jumpToPage(index);
+        _animatedTarget = null;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -139,8 +163,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _lastTapTime = now;
     _lastTappedTab = tab;
     if (tab != _currentTab) {
-      // 对标原版 setCurrentItem(position, false)：无过渡动画
-      // [UI_SYNC_REFACTOR S1] PageView 跳页（滑动切页开启，同参考 HorizontalPager）
       _navigateTo(tab);
     }
   }
@@ -156,11 +178,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _currentTab = tab;
       _visitedTabs.add(tab);
     });
-    if (_pageController.hasClients) _pageController.jumpToPage(index);
+    if (!_pageController.hasClients) return;
+    if (AppMotion.reduced(context)) {
+      _animatedTarget = null;
+      _pageController.jumpToPage(index);
+      return;
+    }
+    final revision = _navigationRevision;
+    _animatedTarget = tab;
+    unawaited(
+      _pageController
+          .animateToPage(
+            index,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() {
+            if (mounted && revision == _navigationRevision) {
+              _animatedTarget = null;
+            }
+          }),
+    );
   }
 
   /// 在新页面集合完成布局后恢复位置，旧回调不能覆盖后来的点击或设置。
   void _synchronizePages(List<_HomeTab> tabs) {
+    _animatedTarget = null;
     final revision = ++_navigationRevision;
     _pendingPageSync = revision;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -194,7 +237,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onPageChanged(List<_HomeTab> tabs, int index, int revision) {
-    if (revision != _navigationRevision ||
+    if (_animatedTarget != null ||
+        revision != _navigationRevision ||
         _pendingPageSync != null ||
         !listEquals(tabs, _renderedTabs) ||
         !listEquals(tabs, _visibleTabs(ref.read(mainPrefsProvider))) ||
@@ -304,6 +348,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // 手势开始时即确认用户导航意图，不等到切页完成才阻止晚到默认页。
               if (notification.depth == 0 && notification.dragDetails != null) {
                 _defaultHomePageApplied = true;
+                // 手势可接管尚未完成的点击导航，旧动画结束不再改变目标。
+                _animatedTarget = null;
               }
               return false;
             },
@@ -317,7 +363,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _onPageChanged(tabs, index, navigationRevision),
               children: [
                 for (final tab in tabs)
-                  _KeepAlivePage(key: ValueKey(tab), child: _pageOf(tab)),
+                  _KeepAlivePage(
+                    key: ValueKey(tab),
+                    child: TickerMode(
+                      enabled: tab == _currentTab,
+                      child: _pageOf(tab),
+                    ),
+                  ),
               ],
             ),
           );

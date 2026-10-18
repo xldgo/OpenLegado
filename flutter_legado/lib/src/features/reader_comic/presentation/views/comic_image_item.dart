@@ -1,3 +1,5 @@
+import '../../../../theme/app_motion.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -54,20 +56,12 @@ class ComicImageItem extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onLongPress: onLongPress,
-    child: _wrapImageFade(_buildImageWithContext(context)),
+    child: _buildImageWithContext(context),
   );
 
   Widget _wrapImageFilter(Widget child) => colorFilter == null
       ? child
       : ColorFiltered(colorFilter: colorFilter!, child: child);
-
-  /// [P4-3 M4 批2] 图片加载淡入包裹（参考版 L1751 crossfade 语义）：
-  /// disableMangaCrossFade = false（默认）时包裹 [_MangaImageFade]
-  /// 淡入 300ms；= true 时直接返回 child 不包
-  Widget _wrapImageFade(Widget child) {
-    if (disableCrossFade) return child;
-    return _MangaImageFade(child: child);
-  }
 
   /// 图片项本体（占位 / FFI 解码 / 直连网络分发）
   Widget _buildImageWithContext(BuildContext context) {
@@ -84,7 +78,7 @@ class ComicImageItem extends StatelessWidget {
     // 书源判定分发（本地书 origin=loc_book，source 恒 null；若落下方
     //「有 origin 却未命中书源」分支会直接进失败占位）。
     // 渲染挂接与 _DecodedComicImage 同构：_wrapImageFilter（灰度/色彩滤镜
-    // 外层包裹）+ _MangaImageFade（_buildImageItem 统一包裹）+ 可选电子纸。
+    // 外层包裹）与可选电子纸；只有新图片首帧就绪后淡入，缓存直接显示。
     if (url.startsWith('cbz://')) {
       if (book == null) {
         return _buildImageErrorPlaceholder(context);
@@ -92,6 +86,7 @@ class ComicImageItem extends StatelessWidget {
       return _wrapImageFilter(
         _LocalCbzImage(
           localBooks: localBooks,
+          crossFade: !disableCrossFade,
           path: book.bookUrl,
           entry: url,
           // 缓存键 = 活跃 bookUrl（本地书无书源；bookUrl 唯一标识 cbz 包，
@@ -115,6 +110,7 @@ class ComicImageItem extends StatelessWidget {
       return _wrapImageFilter(
         _DecodedComicImage(
           images: images,
+          crossFade: !disableCrossFade,
           url: url,
           sourceJson: jsonEncode(source.toJson()),
           bookSourceUrl: book!.origin,
@@ -147,6 +143,10 @@ class ComicImageItem extends StatelessWidget {
     return _wrapImageFilter(
       CachedNetworkImage(
         imageUrl: url,
+        fadeInDuration: disableCrossFade || AppMotion.reduced(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 300),
+        fadeOutDuration: Duration.zero,
         httpHeaders: headers, // 防盗链 header（对齐原版）— Reasonix
         // [P4-3 E2] 分页适配类型映射的 BoxFit（条漫恒 fitWidth）
         fit: fit,
@@ -292,7 +292,16 @@ class _MangaImageFadeState extends State<_MangaImageFade>
       duration: const Duration(milliseconds: 300),
       value: 0,
     );
-    _ctrl.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduced(context)) {
+      _ctrl.value = 1;
+    } else if (!_ctrl.isCompleted && !_ctrl.isAnimating) {
+      _ctrl.forward();
+    }
   }
 
   @override
@@ -312,6 +321,7 @@ class _MangaImageFadeState extends State<_MangaImageFade>
 }
 
 class _DecodedComicImage extends StatefulWidget {
+  final bool crossFade;
   final String url;
   final String sourceJson;
   final BookImageRepository images;
@@ -330,6 +340,7 @@ class _DecodedComicImage extends StatefulWidget {
 
   const _DecodedComicImage({
     required this.images,
+    required this.crossFade,
     required this.url,
     required this.sourceJson,
     required this.bookSourceUrl,
@@ -345,6 +356,7 @@ class _DecodedComicImage extends StatefulWidget {
 
 class _DecodedComicImageState extends State<_DecodedComicImage> {
   bool _loading = true;
+  bool _fadeOnLoad = true;
   Uint8List? _bytes;
   ui.Image? _epaperImage;
   String? _error;
@@ -355,6 +367,7 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
     final hit = ComicImageDecodeCache.get(widget.bookSourceUrl, widget.url);
     if (hit != null) {
       _bytes = hit;
+      _fadeOnLoad = false;
       _loading = false;
       unawaited(_applyEpaperIfNeeded(hit));
     } else {
@@ -419,6 +432,7 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
         );
         setState(() {
           _bytes = cachedBytes;
+          _fadeOnLoad = false;
           _loading = false;
         });
         await _applyEpaperIfNeeded(cachedBytes);
@@ -441,6 +455,7 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
       unawaited(_saveDiskCache(images, bytes));
       setState(() {
         _bytes = bytes;
+        _fadeOnLoad = true;
         _loading = false;
       });
       await _applyEpaperIfNeeded(bytes);
@@ -512,6 +527,10 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
         fit: widget.fit,
         width: double.infinity,
         gaplessPlayback: true,
+        frameBuilder: (_, child, frame, synchronous) =>
+            frame == null || synchronous || !widget.crossFade || !_fadeOnLoad
+            ? child
+            : _MangaImageFade(child: child),
         errorBuilder: (context, _, _) => _errorPlaceholder(),
       );
     }
@@ -576,6 +595,7 @@ class _DecodedComicImageState extends State<_DecodedComicImage> {
 class _LocalCbzImage extends StatefulWidget {
   const _LocalCbzImage({
     required this.localBooks,
+    required this.crossFade,
     required this.path,
     required this.entry,
     required this.cacheKey,
@@ -584,6 +604,7 @@ class _LocalCbzImage extends StatefulWidget {
     this.fit = BoxFit.fitWidth,
   });
 
+  final bool crossFade;
   final LocalBookService localBooks;
 
   /// 本地 cbz 文件路径（book.bookUrl；FFI 侧兼容绝对路径与相对可迁移标识）
@@ -609,6 +630,7 @@ class _LocalCbzImage extends StatefulWidget {
 
 class _LocalCbzImageState extends State<_LocalCbzImage> {
   bool _loading = true;
+  bool _fadeOnLoad = true;
   Uint8List? _bytes;
   ui.Image? _epaperImage;
   String? _error;
@@ -619,6 +641,7 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
     final hit = ComicImageDecodeCache.get(widget.cacheKey, widget.entry);
     if (hit != null) {
       _bytes = hit;
+      _fadeOnLoad = false;
       _loading = false;
       unawaited(_applyEpaperIfNeeded(hit));
     } else {
@@ -635,6 +658,7 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
       final hit = ComicImageDecodeCache.get(widget.cacheKey, widget.entry);
       if (hit != null) {
         _bytes = hit;
+        _fadeOnLoad = false;
         _loading = false;
         _error = null;
         unawaited(_applyEpaperIfNeeded(hit));
@@ -686,6 +710,7 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
         if (!mounted) return;
         setState(() {
           _bytes = hit;
+          _fadeOnLoad = false;
           _loading = false;
         });
         await _applyEpaperIfNeeded(hit);
@@ -705,6 +730,7 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
       ComicImageDecodeCache.put(widget.cacheKey, widget.entry, bytes);
       setState(() {
         _bytes = bytes;
+        _fadeOnLoad = true;
         _loading = false;
       });
       await _applyEpaperIfNeeded(bytes);
@@ -742,6 +768,10 @@ class _LocalCbzImageState extends State<_LocalCbzImage> {
         fit: widget.fit,
         width: double.infinity,
         gaplessPlayback: true,
+        frameBuilder: (_, child, frame, synchronous) =>
+            frame == null || synchronous || !widget.crossFade || !_fadeOnLoad
+            ? child
+            : _MangaImageFade(child: child),
         errorBuilder: (context, _, _) => _errorPlaceholder(),
       );
     }

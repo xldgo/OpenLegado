@@ -1,3 +1,4 @@
+import '../../../widgets/app_content_transition.dart';
 import '../../privacy/privacy_gate.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -162,19 +163,22 @@ class BookListItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (selectionMode) ...[
-                  const SizedBox(width: 12),
-                  Icon(
-                    selected
-                        ? Symbols.check_circle_rounded
-                        : Symbols.radio_button_unchecked_rounded,
-                    size: 22,
-                    color: selected
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
-                    fill: selected ? 1 : 0,
+                AppSelectionReveal(
+                  visible: selectionMode,
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 12),
+                    child: Icon(
+                      selected
+                          ? Symbols.check_circle_rounded
+                          : Symbols.radio_button_unchecked_rounded,
+                      size: 22,
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                      fill: selected ? 1 : 0,
+                    ),
                   ),
-                ],
+                ),
               ],
             ),
           ),

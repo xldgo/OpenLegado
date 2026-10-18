@@ -1,3 +1,5 @@
+import '../../theme/app_motion.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -90,7 +92,7 @@ class _ReaderSelectionToolbarState extends ConsumerState<ReaderSelectionToolbar>
     vsync: this,
     duration: const Duration(milliseconds: 180),
     reverseDuration: const Duration(milliseconds: 320),
-  )..forward();
+  );
   final _cardKey = GlobalKey();
   Rect? _moreAnchor;
   LocalHistoryEntry? _history;
@@ -108,14 +110,29 @@ class _ReaderSelectionToolbarState extends ConsumerState<ReaderSelectionToolbar>
     history?.remove();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduced(context)) {
+      _motion.value = _closing ? 0 : 1;
+    } else if (!_closing) {
+      _motion.forward();
+    }
+  }
+
   Future<void> dismiss() async {
     if (_closing) return;
     _closing = true;
     _closeMore();
     try {
-      await _motion.reverse().orCancel;
+      if (AppMotion.reduced(context)) {
+        _motion.value = 0;
+      } else {
+        await _motion.reverse().orCancel;
+      }
     } on TickerCanceled {
-      return;
+      // 系统偏好在退场中改变会取消Ticker，但浮层仍须完成移除。
+      if (!mounted || !AppMotion.reduced(context)) return;
     }
     if (mounted) widget.onDismiss();
   }

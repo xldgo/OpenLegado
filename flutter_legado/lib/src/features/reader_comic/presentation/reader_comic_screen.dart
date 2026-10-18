@@ -1,3 +1,4 @@
+import '../../../theme/app_motion.dart';
 import '../application/comic_settings_controller.dart';
 import '../application/comic_image_actions_service.dart';
 import '../data/plugin_comic_image_actions_platform.dart';
@@ -89,7 +90,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   late final Animation<Offset> _bottomBarPos;
 
   /// [P4-3 M1] 菜单淡入淡出
-  late final Animation<double> _menuOpacity;
+  late final CurvedAnimation _menuOpacity;
 
   /// 图片加载失败的索引集合（用于显示重试按钮）
   final Set<int> _failedIndices = {};
@@ -244,6 +245,12 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduced(context)) _menuCtrl.value = _showControls ? 1 : 0;
+  }
+
+  @override
   void dispose() {
     unawaited(_saveProgress());
     _reader.removeListener(_onReaderChanged);
@@ -255,6 +262,7 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     // [P4-3 E3] 取消自动翻页定时器
     _autoReadTimer?.cancel();
     // [P4-3 M1] 菜单显隐动画控制器
+    _menuOpacity.dispose();
     _menuCtrl.dispose();
     // [P4-3 E1] 单页式控制器（此时元素树已卸载，控制器已解绑，可安全释放）
     _pagedController?.dispose();
@@ -923,7 +931,9 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     });
     // [P4-3 M1] 菜单滑入/滑出动画（隐藏时动画落定后子树移除，
     // 见 build 的 AnimatedBuilder）
-    if (_showControls) {
+    if (AppMotion.reduced(context)) {
+      _menuCtrl.value = _showControls ? 1 : 0;
+    } else if (_showControls) {
       _menuCtrl.forward();
     } else {
       _menuCtrl.reverse();

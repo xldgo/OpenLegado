@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../theme/app_motion.dart';
+
 /// M3 骨架占位（对齐 HapeLee SkeletonPlaceholders）
 ///
 /// shimmer：1200ms LinearEasing 无限循环，色 surfaceContainerHighest→High，
@@ -21,14 +23,48 @@ class SkeletonBox extends StatefulWidget {
 }
 
 class _SkeletonBoxState extends State<SkeletonBox>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1200),
-  )..repeat();
+  );
+
+  bool _foreground = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  }
+
+  void _sync() {
+    if (_foreground &&
+        TickerMode.valuesOf(context).enabled &&
+        !AppMotion.reduced(context)) {
+      if (!_controller.isAnimating) _controller.repeat();
+    } else {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _sync();
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }

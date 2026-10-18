@@ -40,6 +40,7 @@ void main() {
     MockRustApi mockApi, {
     Map<String, Object> preferences = const {},
     HomeSettingsRepository? mainPreferences,
+    ValueNotifier<bool>? reducedMotion,
   }) async {
     // 既有底栏交互用例使用手机窗口，避免默认宽窗口启用侧栏。
     tester.view.physicalSize = const Size(390, 844);
@@ -71,7 +72,19 @@ void main() {
           if (mainPreferences != null)
             homeSettingsRepositoryProvider.overrideWithValue(mainPreferences),
         ]),
-        child: const MaterialApp(home: HomeScreen()),
+        child: MaterialApp(
+          builder: reducedMotion == null
+              ? null
+              : (context, child) => ValueListenableBuilder<bool>(
+                  valueListenable: reducedMotion,
+                  builder: (context, value, _) => MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(disableAnimations: value),
+                    child: child!,
+                  ),
+                ),
+          home: const HomeScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -201,6 +214,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(currentPage(tester), 2);
     expect(navBarIndex(tester), 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('减少动态效果初始及导航途中开启均立即落到目标页', (tester) async {
+    final reduced = ValueNotifier(true);
+    addTearDown(reduced.dispose);
+    await pumpHome(tester, MockRustApi(), reducedMotion: reduced);
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pump();
+    expect(currentPage(tester), 4);
+    reduced.value = false;
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(NavigationDestination).at(0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(currentPage(tester), inExclusiveRange(0.0, 4.0));
+    reduced.value = true;
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 0);
+    expect(navBarIndex(tester), 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('点击导航经过中间位置，快速反向以最后目标为准', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pump();
+    expect(currentPage(tester), 1);
+    await tester.pump(const Duration(milliseconds: 70));
+    expect(currentPage(tester), inExclusiveRange(1.0, 4.0));
+    expect(navBarIndex(tester), 4);
+    await tester.tap(find.byType(NavigationDestination).at(0));
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 0);
+    expect(navBarIndex(tester), 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('导航动画中手势可接管，不被原点击目标拉回', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.drag(find.byType(PageView), const Offset(350, 0));
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), lessThan(4));
+    expect(navBarIndex(tester), currentPage(tester).round());
     expect(tester.takeException(), isNull);
   });
 
@@ -393,7 +453,7 @@ void main() {
     expect(navBarIndex(tester), 2);
   });
 
-  testWidgets('点击底栏项直接跳页（对标 setCurrentItem）', (tester) async {
+  testWidgets('点击底栏项过渡后显示目标页面', (tester) async {
     await pumpHome(tester, MockRustApi());
 
     await tester.tap(find.byType(NavigationDestination).at(4));
