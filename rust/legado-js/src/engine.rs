@@ -558,7 +558,10 @@ mod quickjs_engine {
         ///
         /// 对齐 `JsSourceEngine.normalizeJsResult`：String 原样；null/undefined
         /// 字面量；Object/Array → JSON.stringify（勿用 Debug `Array(0x…)`）。
-        fn result_to_string<'js>(ctx: &rquickjs::Ctx<'js>, val: &rquickjs::Value<'js>) -> String {
+        pub(crate) fn result_to_string<'js>(
+            ctx: &rquickjs::Ctx<'js>,
+            val: &rquickjs::Value<'js>,
+        ) -> String {
             match js_value_from_rquickjs(ctx, val) {
                 JsValue::String(s) => s,
                 JsValue::Null => "null".to_string(),
@@ -683,7 +686,7 @@ mod quickjs_engine {
         }
 
         /// 提取当前挂起异常的信息（message + stack），不抛出
-        fn take_exception_message(ctx: &rquickjs::Ctx<'_>) -> String {
+        pub(crate) fn take_exception_message(ctx: &rquickjs::Ctx<'_>) -> String {
             let exc_val = ctx.catch();
             let mut message = "语法错误".to_string();
             if let Some(exc) = exc_val

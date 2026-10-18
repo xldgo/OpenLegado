@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.381] - 2026-10-18
+
+### Fixed
+- 统一书源脚本 ajax/connect 的 URL 规则、POST 编码、响应解码及重定向重试。
+- 动态请求复用当前脚本上下文，嵌套调用后恢复外层 URL、请求头与结果。
+- 贡献者：Codex + Rust；构建号382。
+
 ## [2.0.380] - 2026-10-18
 
 ### Fixed

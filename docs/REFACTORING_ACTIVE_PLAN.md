@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-REQUEST-RULES-20261018：统一脚本请求规则（P1）
+
+- 授权与基线：用户批准第二批；沿用dep-audit / chore/dep-audit / 6b56da8ed，单代理，不推送/合并或修改主目录用户文档。上游固定15e1337a。
+- 范围：ajax/connect统一AnalyzeUrl输入、Header/正文/编码/重定向/响应重试和当前上下文动态JS；get/head/post保持直接请求。复用Parser解析与Net发送，下沉必要公共发送/解码算法，Fetcher保持原入口转发，不引入循环依赖或独立VM。
+- 边界：同步回调不满足Send+Sync时使用专用解析能力，不手写unsafe；嵌套解析RAII恢复URL/待发请求头，JS回调恢复result，不重置外层VM执行预算。不更改已有错误与零超时约定、FRB/schema/UI或批量请求。
+- 验收：先复现同规则两入口请求内容、动态变量、嵌套成功/失败恢复，再做最小实现；相关Parser/Net/JS/Fetcher行为测试和严格Clippy。固定HTTP夹具，无外网运行依赖，不新增宿主或模拟器；完成后整批本地提交。
+- 复现与实现：修前真实QuickJS/HTTP用例确认ajax发送未编码中文、connect忽略URL选项及动态JS。现由同一AnalyzeUrl解析；借用当前Ctx同步求值，不新建VM、不重新获取引擎缓存锁或重置执行预算。初始头在正文编码前合并，URL/脚本头不区分大小写覆盖，动态Content-Type清除旧自动表单编码。
+- 上下文与复用：RAII恢复嵌套解析成功、错误和unwind后的URL/待发头；JS保留外层result/baseUrl/page。原抓取四级解码移到Parser，Fetcher保留公开转发；重定向及非2xx/3xx重试移到Net，传输错误保持直传。chardetng仅变更依赖归属，未升级依赖版本。
+- 验证：Parser/Net/JS/Fetcher完整相关测试1486项通过，既有4项忽略；末轮19项真实QuickJS/本地HTTP复验包含新增动态Content-Type用例，Engine网络所有权/快照/释放6项通过，去重共1493项。默认与QuickJS两档相关crate全目标严格Clippy通过，工作区两档全目标cargo check、限定rustfmt与diff检查通过。证据build/js-request-rules/{tests-final,parity-final,engine-network,clippy-quickjs-final,clippy-default,workspace-quickjs,workspace-default}.log；早期reproduce及整改失败日志不计通过。
+- 状态：第二批选定范围已关闭，版本2.0.381+382及双日志与本记录整批本地提交；单代理实现/自查，无独立外审。get/head/post、各接口错误/零超时、FRB签名/生成物和schema保持。webView及独立dnsIp/proxy明确不支持，不发送普通HTTP替代；保留现有Parser的选项JS降级策略，不宣称全部AnalyzeUrl/Java兼容。未构建DLL、Flutter或移动端/设备，未运行远程CI、推送或合并；主目录三份用户文件原字节保持。下一批核查ajaxAll/ajaxTestAll的结果类型、输入顺序、超时与批量取消。回滚按本批提交撤销并重新构建native，不改写旧产物元数据。
+
+编写者：Codex｜2026-10-18
+
+
+
 ### JS-NETWORK-ERROR-TIMEOUT-20261018：脚本错误与超时语义收口（P1）
 
 - 授权与基线：用户批准三批计划中的第一批；复用dep-audit worktree / chore/dep-audit / 6933d985b，单代理，不推送/合并或修改主目录已有文档。

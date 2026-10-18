@@ -1927,7 +1927,6 @@ name = "legado-fetcher"
 version = "0.2.0"
 dependencies = [
  "base64 0.23.1",
- "chardetng",
  "encoding_rs",
  "futures",
  "legado-core",
@@ -2046,6 +2045,7 @@ name = "legado-parser"
 version = "0.2.0"
 dependencies = [
  "base64 0.23.1",
+ "chardetng",
  "ego-tree",
  "encoding_rs",
  "jsonpath-rust",

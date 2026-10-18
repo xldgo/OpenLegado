@@ -30,6 +30,7 @@ pub mod curl_converter;
 pub mod html;
 pub mod jsonpath;
 pub mod regex_engine;
+pub mod response_decode;
 pub mod review_rule_parser;
 pub mod rule_analyzer;
 pub mod rule_complete;

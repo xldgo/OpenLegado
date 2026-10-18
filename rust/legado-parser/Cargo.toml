@@ -16,5 +16,6 @@ base64 = { workspace = true }
 md-5 = "0.11"
 urlencoding = "2"
 encoding_rs = "0.8"
+chardetng = "1.0"
 # 保留书源的 Jayway 风格扩展；回归样例见 jsonpath 模块测试。
 jsonpath-rust = "0.7"

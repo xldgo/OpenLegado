@@ -1200,8 +1200,8 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
       var headerOnly = typeof arg2 === 'string' ? arg2 : JSON.stringify(arg2 || {});
       var timeoutOnly = arg3 == null ? undefined : arg3;
       return timeoutOnly === undefined
-        ? __strResponse(__nativeConnectFull(String(url), 'GET', headerOnly))
-        : __strResponse(__nativeConnectFull(String(url), 'GET', headerOnly, undefined, timeoutOnly));
+        ? __strResponse(__nativeConnectFull(String(url), undefined, headerOnly))
+        : __strResponse(__nativeConnectFull(String(url), undefined, headerOnly, undefined, timeoutOnly));
     }
     var hs = arg3 == null ? undefined : (typeof arg3 === 'string' ? arg3 : JSON.stringify(arg3));
     if (arguments.length === 2) return __strResponse(__nativeConnectFull(String(url), arg2));
@@ -2709,12 +2709,22 @@ fn register_network_apis<'js>(
         "ajax",
         rquickjs::Function::new(
             ctx.clone(),
-            move |options: AjaxUrlStr, call_timeout: OptionalBoxedLong| -> String {
+            move |ctx: rquickjs::Ctx<'js>,
+                  options: AjaxUrlStr,
+                  call_timeout: OptionalBoxedLong|
+                  -> String {
                 match network::call_timeout_to_request_timeout(call_timeout.0) {
-                    Ok(timeout_ms) => {
-                        network::ajax_with_timeout(&http.request(), &options.0, timeout_ms)
-                            .unwrap_or_else(|e| format!("[ERROR] {}", e))
-                    }
+                    Ok(timeout_ms) => super::rule_request::ContextEvaluator::new(ctx)
+                        .map_err(|e| e.to_string())
+                        .and_then(|evaluator| {
+                            network::ajax_with_evaluator(
+                                &http.request(),
+                                &options.0,
+                                timeout_ms,
+                                &evaluator,
+                            )
+                        })
+                        .unwrap_or_else(|e| format!("[ERROR] {e}")),
                     Err(e) => format!("[ERROR] {}", e),
                 }
             },
@@ -2805,16 +2815,17 @@ fn register_network_apis<'js>(
         "connect",
         rquickjs::Function::new(
             ctx.clone(),
-            move |url: RhinoStr,
+            move |ctx: rquickjs::Ctx<'js>, url: RhinoStr,
                   method: RhinoOptStr,
                   headers: RhinoOptStr,
                   body: RhinoOptStr,
                   timeout_ms: OptionalBoxedLong|
                   -> String {
                 let result = network::call_timeout_to_request_timeout(timeout_ms.0).and_then(|timeout| {
-                    network::connect_full(
+                    let evaluator=super::rule_request::ContextEvaluator::new(ctx).map_err(|e|e.to_string())?;
+                    network::connect_with_evaluator(
                         &http.request(), &url, method.0.as_deref(), headers.0.as_deref(),
-                        body.0.as_deref(), timeout,
+                        body.0.as_deref(), timeout, Some(&evaluator),
                     )
                 });
                 result.unwrap_or_else(|error| {

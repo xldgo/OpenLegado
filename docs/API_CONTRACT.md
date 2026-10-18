@@ -1,5 +1,23 @@
 # API 契约文档
 
+## JS规则请求统一（2026-10-18，实施前冻结）
+
+ajax/connect复用AnalyzeUrl规则解析；同一URL选项的method/body/headers/charset、动态
+@js/<js>/{{}}与选项js/bodyJs在当前QuickJS上下文执行，不另建VM或重复获取引擎锁。
+来源头→connect显式头→URL规则头按不区分大小写覆盖；Cookie沿请求域合并且保留写入门控。
+初始Content-Type参与正文编码判定；脚本明确覆盖Content-Type后不沿用自动表单编码。
+缺省或显式零超时沿用前批约定；显式调用超时优先于规则timeout/既有timeout_ms扩展。
+保留ajax标准JSON扩展的响应JSON形态与增强方法参数；普通规则ajax只返回正文，connect
+保留StrResponse包装。原生请求和JS错误转换分离，get/head/post不进入AnalyzeUrl。
+嵌套规则保存/恢复外层URL、待发头及result，失败也恢复；已有解析器对选项JS的降级策略
+本批不统一重写。编码复用原抓取链四级解码，重定向/状态码重试复用下层通用发送算法。
+webView、独立dnsIp/proxy选项尚未接线，明确返回不支持且不发送普通HTTP替代请求。
+FRB/schema/生成物不变，不新增对Fetcher的反向依赖，不改变批量请求。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
+
 ## JS请求失败与超时分层（2026-10-18，实施前冻结）
 
 按参考版15e1337a：ajax失败返回含原因的错误文本；connect失败返回StrResponse，

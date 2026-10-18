@@ -45,6 +45,8 @@ pub mod query_ttf;
 pub mod regex_utils;
 pub(crate) mod resource_files;
 #[cfg(feature = "quickjs")]
+mod rule_request;
+#[cfg(feature = "quickjs")]
 pub mod runtime_bridge;
 pub mod source_callback;
 pub mod string_utils;

@@ -107,20 +107,45 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize) {
     if socket.read_exact(&mut body).is_err() {
         return;
     }
-    requests.fetch_add(1, Ordering::AcqRel);
+    let request_number = requests.fetch_add(1, Ordering::AcqRel) + 1;
     if path == "/disconnect" {
+        return;
+    }
+    if path.starts_with("/gbk") {
+        let text = if path == "/gbk-meta" {
+            "<meta charset=gbk>中文"
+        } else {
+            "中文"
+        };
+        let (bytes, _, _) = encoding_rs::GBK.encode(text);
+        let content_type = if path == "/gbk-header" {
+            "text/plain; charset=gbk"
+        } else if path == "/gbk-explicit" {
+            "text/plain; charset=utf-8"
+        } else {
+            "text/html"
+        };
+        let head = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            bytes.len()
+        );
+        let _ = socket.write_all(head.as_bytes());
+        let _ = socket.write_all(&bytes);
         return;
     }
     let body = if path == "/slow" {
         std::thread::sleep(Duration::from_millis(1200));
         "SLOW-OK".to_string()
     } else {
-        serde_json::json!({"method":method,"body":String::from_utf8(body).unwrap(),
-            "marker":header("X-Marker"),"contentType":header("Content-Type")})
+        serde_json::json!({"method":method,"path":path,"body":String::from_utf8(body).unwrap(),
+            "marker":header("X-Marker"),"contentType":header("Content-Type"),
+            "markerCount":head.lines().filter(|line| line.split_once(':').is_some_and(|(key,_)| key.eq_ignore_ascii_case("X-Marker"))).count()})
         .to_string()
     };
     let status = if path == "/redirect" {
         "302 Found"
+    } else if path == "/retry" && request_number < 3 {
+        "503 Service Unavailable"
     } else {
         "200 OK"
     };
@@ -301,7 +326,8 @@ fn ajax_options_and_connect_headers_keep_their_wire_values() {
     );
     let response: serde_json::Value = serde_json::from_str(&response).unwrap();
     assert_eq!(response["method"], "POST");
-    assert_eq!(response["body"], "甲乙");
+    // URL 规则统一交给 AnalyzeUrl：未声明 Content-Type 的正文作表单编码。
+    assert_eq!(response["body"], "%E7%94%B2%E4%B9%99");
     assert_eq!(response["marker"], "ajax");
     for header in [r#"'{"X-Marker":"connect"}'"#, r#"{'X-Marker':'connect'}"#] {
         let response = eval(
@@ -429,4 +455,253 @@ fn boxed_call_timeouts_keep_nullable_and_strict_number_inputs() {
             "200"
         );
     }
+}
+
+#[test]
+fn ajax_and_connect_share_rule_options_and_request_encoding() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for call in ["java.ajax(rule)", "java.connect(rule).body()"] {
+        let script = format!(
+            r#"var rule=url+',{{"method":"POST","body":"q=中文","charset":"gbk","headers":{{"X-Marker":"rule"}}}}'; {call}"#
+        );
+        let response = eval(&engine, &server.url("/echo"), &script);
+        let response: serde_json::Value =
+            serde_json::from_str(&response).expect("两入口都应得到正文JSON");
+        assert_eq!(response["method"], "POST");
+        assert_eq!(response["body"], "q=%D6%D0%CE%C4");
+        assert_eq!(response["marker"], "rule");
+    }
+}
+
+#[test]
+fn current_vm_globals_and_nested_result_are_preserved() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        globalThis.result='外层结果';globalThis.makePath=function(){return '/echo';};
+        var rule='@js: globalThis.nestedSeen = result; url';
+        var body=java.ajax(rule);
+        JSON.stringify([JSON.parse(body).method,result,typeof makePath,nestedSeen]);
+    "#,
+    );
+    assert_eq!(
+        response,
+        "[\"GET\",\"外层结果\",\"function\",\"@js: globalThis.nestedSeen = result; url\"]"
+    );
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var rule=url+',{"js":"java.ajax(url); result"}';
+        var response=java.connect(rule);
+        JSON.stringify([response.code(),result]);
+    "#,
+    );
+    assert_eq!(response, "[200,\"外层结果\"]");
+}
+
+#[test]
+fn rule_headers_override_case_insensitively_before_body_encoding() {
+    use legado_js::host_api::current_source::with_current_source_tag;
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = with_current_source_tag(&server.url("/"), || {
+        eval(
+            &engine,
+            &server.url("/echo"),
+            r#"
+        java.putGlobalHeaders(JSON.stringify({'X-Marker':'source','CONTENT-TYPE':'text/plain'}));
+        var rule=url+',{"method":"POST","body":"中文","headers":{"x-marker":"rule"}}';
+        java.connect(rule,{'X-MARKER':'explicit'}).body();
+        "#,
+        )
+    });
+    let body: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(
+        body["body"], "中文",
+        "初始 Content-Type 必须在表单编码判定前参与解析"
+    );
+    assert_eq!(body["marker"], "rule");
+    assert_eq!(body["markerCount"], 1, "大小写不同的同名头不得重复发送");
+    assert_eq!(body["contentType"], "text/plain");
+    let response = with_current_source_tag(&server.url("/"), || {
+        eval(
+            &engine,
+            &server.url("/echo"),
+            "java.connect(url,{'X-MARKER':'explicit'}).body()",
+        )
+    });
+    let body: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(body["marker"], "explicit");
+    assert_eq!(body["markerCount"], 1);
+}
+
+#[test]
+fn dynamic_content_type_prevents_stale_form_encoding() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var rule=url+','+JSON.stringify({method:'POST',body:'中文',
+            js:"java.headerMapPut('CONTENT-TYPE','text/plain'); result"});
+        java.connect(rule).body();
+    "#,
+    );
+    let body: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(body["body"], "中文");
+    assert_eq!(body["contentType"], "text/plain");
+}
+
+#[test]
+fn relative_templates_and_response_scripts_use_the_existing_vm() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/"),
+        r#"
+        globalThis.baseUrl=url; globalThis.result='外层';
+        globalThis.makePath=function(){return '/echo';};
+        var rule='{{makePath()}},{"bodyJs":"JSON.parse(result).path + java.getCurrentUrl()"}';
+        var body=java.ajax(rule);
+        JSON.stringify([body,baseUrl,result]);
+    "#,
+    );
+    let response: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(response[0], format!("/echo{}", server.url("/echo")));
+    assert_eq!(response[1], server.url("/"));
+    assert_eq!(response[2], "外层");
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var body=java.ajax('@js: throw new Error("规则错误")');
+        JSON.stringify([body.indexOf('规则错误')>=0,result,java.ajax(url).length>0]);
+    "#,
+    );
+    assert_eq!(response, "[true,\"外层\",true]");
+}
+
+#[test]
+fn nested_requests_restore_outer_url_headers_and_result_even_on_failure() {
+    use legado_parser::analyze_url::{
+        current_url, push_pending_request_header, set_current_url, take_pending_request_headers,
+    };
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    set_current_url(Some("https://outer.example/".to_string()));
+    push_pending_request_header("X-Outside".to_string(), "saved".to_string());
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        globalThis.result='原始结果';
+        globalThis.failureRule='@js: throw new Error("inner failed")';
+        var script="java.headerMapPut('X-Marker','outer');" +
+            "java.ajax(url + ',{\"js\":\"java.headerMapPut(\\\"X-Marker\\\",\\\"inner\\\"); result\"}');" +
+            "java.ajax(failureRule);" +
+            "if(java.getCurrentUrl() !== url) throw new Error('外层 URL 丢失'); result";
+        var rule=url+','+JSON.stringify({js:script});
+        var response=java.connect(rule);
+        JSON.stringify([response.body(),result]);
+    "#,
+    );
+    let restored_url = current_url();
+    let restored_headers = take_pending_request_headers();
+    set_current_url(None);
+    let response: serde_json::Value = serde_json::from_str(&response).unwrap();
+    let body: serde_json::Value = serde_json::from_str(response[0].as_str().unwrap())
+        .unwrap_or_else(|error| panic!("响应不是正文 JSON：{error}；{response}"));
+    assert_eq!(body["marker"], "outer");
+    assert_eq!(response[1], "原始结果");
+    assert_eq!(restored_url.as_deref(), Some("https://outer.example/"));
+    assert_eq!(
+        restored_headers,
+        vec![("X-Outside".to_string(), "saved".to_string())]
+    );
+}
+
+#[test]
+fn rule_response_charset_redirect_retry_and_hex_options_are_applied() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for call in ["java.ajax(rule)", "java.connect(rule).body()"] {
+        for (path, options, expected) in [
+            ("/gbk-header", "{}", "中文"),
+            ("/gbk-meta", "{}", "<meta charset=gbk>中文"),
+            ("/gbk-explicit", r#"{"charset":"gbk"}"#, "中文"),
+            ("/gbk-header", r#"{"type":"hex"}"#, "d6d0cec4"),
+        ] {
+            let response = eval(
+                &engine,
+                &server.url(path),
+                &format!(
+                    "var rule=url+','+{}; {call}",
+                    serde_json::to_string(options).unwrap()
+                ),
+            );
+            assert_eq!(response, expected, "{path} {call}");
+        }
+    }
+    let response = eval(
+        &engine,
+        &server.url("/redirect"),
+        r#"
+        var r=java.connect(url+',{"followRedirects":false}');
+        var followed=java.connect(url);
+        JSON.stringify([r.code(),r.raw().header('Location'),JSON.parse(followed.body()).path]);
+    "#,
+    );
+    assert_eq!(response, "[302,\"/echo\",\"/echo\"]");
+    let server = Server::new("127.0.0.1:0");
+    assert_eq!(
+        eval(
+            &engine,
+            &server.url("/retry"),
+            r#"java.connect(url+',{"retry":2}').code()"#
+        ),
+        "200"
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), 3);
+}
+
+#[test]
+fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fail() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/slow"),
+        r#"java.ajax(url+',{"timeout_ms":50}')"#,
+    );
+    assert!(
+        response.contains("[ERROR]") && response.contains("Timeout"),
+        "{response}"
+    );
+    for options in [
+        r#"{"webView":true}"#,
+        r#"{"dnsIp":"127.0.0.1"}"#,
+        r#"{"proxy":"http://127.0.0.1:1"}"#,
+    ] {
+        let response = eval(
+            &engine,
+            &server.url("/echo"),
+            &format!(
+                "java.ajax(url+','+{})",
+                serde_json::to_string(options).unwrap()
+            ),
+        );
+        assert!(response.contains("暂不支持"), "{response}");
+    }
+    assert_eq!(
+        server.requests.load(Ordering::Acquire),
+        1,
+        "不支持的网络策略不得退化为普通HTTP请求"
+    );
 }
