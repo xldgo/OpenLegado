@@ -202,6 +202,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final glass in [false, true]) {
+    testWidgets('胶囊底栏复用文字三档，auto映射全部显示：Glass$glass', (tester) async {
+      await pumpHome(
+        tester,
+        MockRustApi(),
+        glassReady: true,
+        preferences: {
+          'useFloatingBottomBar': true,
+          'useFloatingBottomBarLiquidGlass': glass,
+        },
+      );
+      final scope = find.byType(AppFloatingBottomBar);
+      final scroll = tester.state<ScrollableState>(shelfScrollable());
+      for (final mode in [
+        BottomBarLabelMode.auto,
+        BottomBarLabelMode.unlabeled,
+        BottomBarLabelMode.labeled,
+        BottomBarLabelMode.auto,
+      ]) {
+        await uiPreferences(tester).setLabelVisibilityMode(mode);
+        await tester.pumpAndSettle();
+        final bar = tester.widget<AppFloatingBottomBar>(scope);
+        expect(bar.showLabels, mode != BottomBarLabelMode.unlabeled);
+        for (final spec in bar.specs) {
+          final text = find.descendant(
+            of: scope,
+            matching: find.text(spec.label),
+          );
+          expect(
+            text,
+            mode == BottomBarLabelMode.unlabeled ? findsNothing : findsWidgets,
+          );
+        }
+        expect(tester.state<ScrollableState>(shelfScrollable()), same(scroll));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('玻璃未就绪时主页使用原普通材质，不强制开启模糊', (tester) async {
     await pumpHome(
       tester,

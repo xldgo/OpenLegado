@@ -28,15 +28,21 @@ void main() {
     String activeSkin = '',
     int selected = 0,
     ValueChanged<int>? onSelect,
+    bool showLabels = true,
+    double textScale = 1,
+    Size window = const Size(390, 844),
   }) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = window;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(brightness: brightness),
         home: MediaQuery(
-          data: MediaQueryData(disableAnimations: reduced),
+          data: MediaQueryData(
+            disableAnimations: reduced,
+            textScaler: TextScaler.linear(textScale),
+          ),
           child: Directionality(
             textDirection: direction,
             child: AppGlassHost(
@@ -55,6 +61,7 @@ void main() {
                       currentIndex: selected,
                       activeSkin: activeSkin,
                       useLiquidGlass: enabled,
+                      showLabels: showLabels,
                       onSelect: (index) {
                         onSelect?.call(index);
                         setState(() => selected = index);
@@ -82,6 +89,71 @@ void main() {
       rect.left + rect.width * (physicalIndex + 0.5) / count,
       rect.center.dy,
     );
+  }
+
+  for (final flags in [(true, true), (false, true), (true, false)]) {
+    testWidgets('胶囊默认显示全部文字，隐藏时保留名称语义：$flags', (tester) async {
+      final calls = <int>[];
+      await show(
+        tester,
+        enabled: flags.$1,
+        ready: flags.$2,
+        onSelect: calls.add,
+      );
+      for (final name in ['首页', '书架', '发现']) {
+        expect(find.text(name), findsWidgets);
+      }
+      final discover = find.descendant(
+        of: find.byType(AppFloatingBottomBar),
+        matching: find.bySemanticsLabel('发现'),
+      );
+      await tester.tap(discover);
+      await tester.pumpAndSettle();
+      expect(calls.last, 2);
+      for (final name in ['首页', '书架', '发现']) {
+        expect(find.text(name), findsWidgets);
+      }
+      await show(
+        tester,
+        enabled: flags.$1,
+        ready: flags.$2,
+        showLabels: false,
+        onSelect: calls.add,
+      );
+      for (final name in ['首页', '书架', '发现']) {
+        expect(find.text(name), findsNothing);
+        expect(find.bySemanticsLabel(name), findsOneWidget);
+      }
+      await tester.tap(find.bySemanticsLabel('书架'));
+      await tester.pumpAndSettle();
+      expect(calls.last, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('窄屏大字五项胶囊文字不溢出：$flags', (tester) async {
+      await show(
+        tester,
+        enabled: flags.$1,
+        ready: flags.$2,
+        window: const Size(320, 640),
+        textScale: 2,
+        items: const [
+          ...specs,
+          AppNavSpec(symbol: Icons.rss_feed, label: '订阅'),
+          AppNavSpec(symbol: Icons.person, label: '我的'),
+        ],
+      );
+      for (final name in ['首页', '书架', '发现', '订阅', '我的']) {
+        final text = find.text(name).first;
+        expect(text, findsOneWidget);
+        expect(tester.getSize(text).height, greaterThan(0));
+      }
+      expect(
+        tester.getSize(find.byType(AppFloatingBottomBar)).height,
+        greaterThan(76),
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('关闭设置或资源未就绪时使用普通材质', (tester) async {

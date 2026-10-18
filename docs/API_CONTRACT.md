@@ -1,5 +1,17 @@
 # API 契约文档
 
+## 胶囊底栏文字边界（2026-10-18，用户确认）
+
+AppFloatingBottomBar增加showLabels可选布尔参数，默认true；主页从已有
+UiSettings.labelVisibilityMode映射：auto和labeled均为true，unlabeled为false。
+不新增偏好、不改保存值；标准底栏仍保留原三档。Glass页签传入label/null并始终保留
+semanticLabel，普通胶囊同步显示图标与文字；不实现只选中显示或自定义文字显隐动画。
+前景颜色显式使用应用主题，文字仅一行，基准胶囊高度64dp；大字体按所需行高增加
+占用，AppBottomBarInset继续消费实际尺寸。文字设置页提示胶囊下auto映射全部常显。
+不改Rust/FRB或数据库，版本仍为2.0.380+381；完成后本地提交，不自动推送或安装。
+
+编写者：Codex + UI｜2026-10-18
+
 ## 阅读器 Glass 界面边界（2026-10-18，用户确认）
 
 阅读器统一使用 Glass 设计，不提供旧版/胶囊/液态菜单切换，不新增任何偏好键。

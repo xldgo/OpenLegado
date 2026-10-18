@@ -723,6 +723,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         ),
                       SettingMenuRow<BottomBarLabelMode>(
                         title: '底栏文字',
+                        subtitle: ui.useFloatingBottomBar
+                            ? '胶囊底栏下，仅选中显示按全部常显显示'
+                            : null,
                         value: ui.labelVisibilityMode,
                         options: {
                           for (final value in BottomBarLabelMode.values)
