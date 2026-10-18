@@ -515,10 +515,15 @@ mod quickjs_engine {
                 self.reset_deadline();
                 let _binding = variables.map(|scope| self.variables.bind(scope));
                 Self::inject_bindings(&ctx, bindings)?;
-                // 保持 compiled 原来的 ctx.eval 选项与错误转换，不改为普通非严格求值。
+                // 保持compiled原来的求值选项，异常诊断与普通eval共用提取逻辑。
                 let result = ctx
                     .eval::<rquickjs::Value, _>(script.source.as_str())
-                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+                    .map_err(|error| match error {
+                        rquickjs::Error::Exception => {
+                            LegadoError::JsEngine(self.exception_message(&ctx))
+                        }
+                        other => LegadoError::JsEngine(other.to_string()),
+                    })?;
                 Ok(Self::result_to_string(&ctx, &result))
             })
         }
@@ -921,6 +926,48 @@ mod quickjs_tests {
         let engine = make_engine();
         let result = engine.eval("md5Encode('hello')").unwrap();
         assert_eq!(result, "5d41402abc4b2a76b9719d911017c592");
+    }
+
+    #[test]
+    fn test_compiled_failure_preserves_cause_and_reuses_engine() {
+        let engine = make_engine();
+        for code in [
+            "function failCompiled() { throw new Error('缓存脚本失败'); } failCompiled()",
+            "throw '缓存脚本失败'",
+        ] {
+            let compiled = engine.compile(code).unwrap();
+            for bindings in [false, true] {
+                let error = if bindings {
+                    engine.execute_compiled_with_bindings(&compiled, &[("x", JsValue::Int(1))])
+                } else {
+                    engine.execute_compiled(&compiled)
+                }
+                .unwrap_err();
+                assert!(
+                    matches!(&error, legado_core::LegadoError::JsEngine(message) if message.contains("缓存脚本失败")),
+                    "应保留脚本异常原因: {error}"
+                );
+                if code.starts_with("function") {
+                    assert!(error.to_string().contains("failCompiled"), "应保留调用栈");
+                }
+                let healthy = engine.compile("40 + 2").unwrap();
+                assert_eq!(engine.execute_compiled(&healthy).unwrap(), "42");
+            }
+        }
+    }
+
+    #[test]
+    fn test_compiled_timeout_preserves_cause_and_recovers() {
+        let config = SandboxConfig::permissive().with_timeout(Duration::from_millis(100));
+        let engine = QuickJsEngine::new(config).unwrap();
+        let compiled = engine.compile("while(true) {}").unwrap();
+        let error = engine.execute_compiled(&compiled).unwrap_err();
+        assert!(
+            error.to_string().contains("interrupted"),
+            "应保留中断原因: {error}"
+        );
+        let healthy = engine.compile("20 + 22").unwrap();
+        assert_eq!(engine.execute_compiled(&healthy).unwrap(), "42");
     }
 
     #[test]
