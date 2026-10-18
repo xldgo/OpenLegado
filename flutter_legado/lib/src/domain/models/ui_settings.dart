@@ -1,3 +1,5 @@
+import 'ui_settings_values.dart';
+
 /// 顶栏按钮样式档位（对齐参考仓 TopBarButtonStyle）
 enum TopBarButtonStyle {
   /// 平面：40dp 容器 / 图标 24dp，无底色（参考仓 "plain"）
@@ -12,7 +14,7 @@ enum TopBarButtonStyle {
   /// 玻璃：36dp 容器，surface 半透明实色（参考仓 blur 档的实色回退，"glass"）
   glass,
 
-  /// 液态玻璃：与 [glass] 同规格实色版（参考仓 "liquid"，blur 家族接通后差异化）
+  /// 液态玻璃预留档：当前复用 [glass] 的半透明底色，光学效果后置
   liquidGlass;
 
   /// 从持久化字符串解析（未知值回退 [tonal]）
@@ -78,14 +80,14 @@ final class UiSettings {
   /// MediumFlexible 大顶栏形态（true=LargeTitle 系保持展开大标题）
   final bool useFlexibleTopAppBar;
 
-  /// 顶栏不透明度 0-100
-  final int topBarOpacity;
+  /// 顶栏普通背景不透明度 0–1
+  final double topBarBackgroundOpacity;
 
   /// 底栏 label 显示档位
   final BottomBarLabelMode labelVisibilityMode;
 
-  /// 底栏不透明度 0-100
-  final int bottomBarOpacity;
+  /// 底栏普通背景不透明度 0–1
+  final double bottomBarBackgroundOpacity;
 
   /// 悬浮底栏（64dp 胶囊形态，参考仓默认关）
   final bool useFloatingBottomBar;
@@ -114,17 +116,17 @@ final class UiSettings {
   /// 启用毛玻璃（BackdropFilter，默认关）
   final bool enableBlur;
 
-  /// 顶栏模糊半径 dp
-  final int topBarBlurRadius;
+  /// 顶栏高斯模糊 sigma，单位为逻辑像素
+  final double topBarBlurSigma;
 
-  /// 顶栏底色透明度 0-255
-  final int topBarBlurAlpha;
+  /// 顶栏模糊底色不透明度 0–1
+  final double topBarBlurTintOpacity;
 
-  /// 悬浮底栏模糊半径 dp
-  final int bottomBarBlurRadius;
+  /// 底栏高斯模糊 sigma，单位为逻辑像素
+  final double bottomBarBlurSigma;
 
-  /// 悬浮底栏底色透明度 0-255
-  final int bottomBarBlurAlpha;
+  /// 底栏模糊底色不透明度 0–1
+  final double bottomBarBlurTintOpacity;
 
   /// 跟随壁纸取色（Android 12+ Material You / iOS 动态色均接通）
   final bool wallpaperColorFollow;
@@ -148,9 +150,10 @@ final class UiSettings {
     this.topBarButtonStyle = TopBarButtonStyle.tonal,
     this.mergeTopBarActions = false,
     this.useFlexibleTopAppBar = true,
-    this.topBarOpacity = 100,
+    this.topBarBackgroundOpacity = UiSettingsValues.topBarBackgroundOpacity,
     this.labelVisibilityMode = BottomBarLabelMode.auto,
-    this.bottomBarOpacity = 100,
+    this.bottomBarBackgroundOpacity =
+        UiSettingsValues.bottomBarBackgroundOpacity,
     this.useFloatingBottomBar = false,
     this.showBottomView = true,
     this.tabletInterface = TabletInterfaceMode.auto,
@@ -160,10 +163,10 @@ final class UiSettings {
     this.overrideBaseCardCornerRadius = false,
     this.baseCardCornerRadius = 16,
     this.enableBlur = false,
-    this.topBarBlurRadius = 24,
-    this.topBarBlurAlpha = 73,
-    this.bottomBarBlurRadius = 8,
-    this.bottomBarBlurAlpha = 40,
+    this.topBarBlurSigma = UiSettingsValues.topBarBlurSigma,
+    this.topBarBlurTintOpacity = UiSettingsValues.topBarBlurTintOpacity,
+    this.bottomBarBlurSigma = UiSettingsValues.bottomBarBlurSigma,
+    this.bottomBarBlurTintOpacity = UiSettingsValues.bottomBarBlurTintOpacity,
     this.wallpaperColorFollow = false,
     this.enableItemDivider = false,
     this.railExtended = false,
@@ -176,9 +179,9 @@ final class UiSettings {
     TopBarButtonStyle? topBarButtonStyle,
     bool? mergeTopBarActions,
     bool? useFlexibleTopAppBar,
-    int? topBarOpacity,
+    double? topBarBackgroundOpacity,
     BottomBarLabelMode? labelVisibilityMode,
-    int? bottomBarOpacity,
+    double? bottomBarBackgroundOpacity,
     bool? useFloatingBottomBar,
     bool? showBottomView,
     TabletInterfaceMode? tabletInterface,
@@ -188,10 +191,10 @@ final class UiSettings {
     bool? overrideBaseCardCornerRadius,
     int? baseCardCornerRadius,
     bool? enableBlur,
-    int? topBarBlurRadius,
-    int? topBarBlurAlpha,
-    int? bottomBarBlurRadius,
-    int? bottomBarBlurAlpha,
+    double? topBarBlurSigma,
+    double? topBarBlurTintOpacity,
+    double? bottomBarBlurSigma,
+    double? bottomBarBlurTintOpacity,
     bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,
@@ -203,9 +206,11 @@ final class UiSettings {
       topBarButtonStyle: topBarButtonStyle ?? this.topBarButtonStyle,
       mergeTopBarActions: mergeTopBarActions ?? this.mergeTopBarActions,
       useFlexibleTopAppBar: useFlexibleTopAppBar ?? this.useFlexibleTopAppBar,
-      topBarOpacity: topBarOpacity ?? this.topBarOpacity,
+      topBarBackgroundOpacity:
+          topBarBackgroundOpacity ?? this.topBarBackgroundOpacity,
       labelVisibilityMode: labelVisibilityMode ?? this.labelVisibilityMode,
-      bottomBarOpacity: bottomBarOpacity ?? this.bottomBarOpacity,
+      bottomBarBackgroundOpacity:
+          bottomBarBackgroundOpacity ?? this.bottomBarBackgroundOpacity,
       useFloatingBottomBar: useFloatingBottomBar ?? this.useFloatingBottomBar,
       showBottomView: showBottomView ?? this.showBottomView,
       tabletInterface: tabletInterface ?? this.tabletInterface,
@@ -219,10 +224,12 @@ final class UiSettings {
           overrideBaseCardCornerRadius ?? this.overrideBaseCardCornerRadius,
       baseCardCornerRadius: baseCardCornerRadius ?? this.baseCardCornerRadius,
       enableBlur: enableBlur ?? this.enableBlur,
-      topBarBlurRadius: topBarBlurRadius ?? this.topBarBlurRadius,
-      topBarBlurAlpha: topBarBlurAlpha ?? this.topBarBlurAlpha,
-      bottomBarBlurRadius: bottomBarBlurRadius ?? this.bottomBarBlurRadius,
-      bottomBarBlurAlpha: bottomBarBlurAlpha ?? this.bottomBarBlurAlpha,
+      topBarBlurSigma: topBarBlurSigma ?? this.topBarBlurSigma,
+      topBarBlurTintOpacity:
+          topBarBlurTintOpacity ?? this.topBarBlurTintOpacity,
+      bottomBarBlurSigma: bottomBarBlurSigma ?? this.bottomBarBlurSigma,
+      bottomBarBlurTintOpacity:
+          bottomBarBlurTintOpacity ?? this.bottomBarBlurTintOpacity,
       wallpaperColorFollow: wallpaperColorFollow ?? this.wallpaperColorFollow,
       enableItemDivider: enableItemDivider ?? this.enableItemDivider,
       railExtended: railExtended ?? this.railExtended,
@@ -238,9 +245,9 @@ final class UiSettings {
       topBarButtonStyle == other.topBarButtonStyle &&
       mergeTopBarActions == other.mergeTopBarActions &&
       useFlexibleTopAppBar == other.useFlexibleTopAppBar &&
-      topBarOpacity == other.topBarOpacity &&
+      topBarBackgroundOpacity == other.topBarBackgroundOpacity &&
       labelVisibilityMode == other.labelVisibilityMode &&
-      bottomBarOpacity == other.bottomBarOpacity &&
+      bottomBarBackgroundOpacity == other.bottomBarBackgroundOpacity &&
       useFloatingBottomBar == other.useFloatingBottomBar &&
       showBottomView == other.showBottomView &&
       tabletInterface == other.tabletInterface &&
@@ -250,10 +257,10 @@ final class UiSettings {
       overrideBaseCardCornerRadius == other.overrideBaseCardCornerRadius &&
       baseCardCornerRadius == other.baseCardCornerRadius &&
       enableBlur == other.enableBlur &&
-      topBarBlurRadius == other.topBarBlurRadius &&
-      topBarBlurAlpha == other.topBarBlurAlpha &&
-      bottomBarBlurRadius == other.bottomBarBlurRadius &&
-      bottomBarBlurAlpha == other.bottomBarBlurAlpha &&
+      topBarBlurSigma == other.topBarBlurSigma &&
+      topBarBlurTintOpacity == other.topBarBlurTintOpacity &&
+      bottomBarBlurSigma == other.bottomBarBlurSigma &&
+      bottomBarBlurTintOpacity == other.bottomBarBlurTintOpacity &&
       wallpaperColorFollow == other.wallpaperColorFollow &&
       enableItemDivider == other.enableItemDivider &&
       railExtended == other.railExtended &&
@@ -266,9 +273,9 @@ final class UiSettings {
     topBarButtonStyle,
     mergeTopBarActions,
     useFlexibleTopAppBar,
-    topBarOpacity,
+    topBarBackgroundOpacity,
     labelVisibilityMode,
-    bottomBarOpacity,
+    bottomBarBackgroundOpacity,
     useFloatingBottomBar,
     showBottomView,
     tabletInterface,
@@ -278,10 +285,10 @@ final class UiSettings {
     overrideBaseCardCornerRadius,
     baseCardCornerRadius,
     enableBlur,
-    topBarBlurRadius,
-    topBarBlurAlpha,
-    bottomBarBlurRadius,
-    bottomBarBlurAlpha,
+    topBarBlurSigma,
+    topBarBlurTintOpacity,
+    bottomBarBlurSigma,
+    bottomBarBlurTintOpacity,
     wallpaperColorFollow,
     enableItemDivider,
     railExtended,

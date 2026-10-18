@@ -34,7 +34,7 @@ void main() {
     return container;
   }
 
-  test('默认值沿用原口径，打开设置不写入存储', () async {
+  test('默认使用浮点材质参数，打开设置不写入存储', () async {
     expect(await repository.load(), const UiSettings());
     expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
   });
@@ -59,14 +59,14 @@ void main() {
     expect(prefs.getString('readMenuBrightnessVwPos'), 'left');
   });
 
-  test('十项布局保留原键和类型，可从新仓储恢复', () async {
+  test('布局参数按明确类型保存并从新仓储恢复', () async {
     await repository.update(
       topBarButtonStyle: TopBarButtonStyle.plain,
       mergeTopBarActions: true,
       useFlexibleTopAppBar: false,
-      topBarOpacity: 75,
+      topBarBackgroundOpacity: 0.75,
       labelVisibilityMode: BottomBarLabelMode.labeled,
-      bottomBarOpacity: 80,
+      bottomBarBackgroundOpacity: 0.8,
       useFloatingBottomBar: true,
       showBottomView: false,
       tabletInterface: TabletInterfaceMode.always,
@@ -79,9 +79,9 @@ void main() {
         'topBarButtonStyle': 'plain',
         'mergeTopBarActions': true,
         'useFlexibleTopAppBar': false,
-        'topBarOpacity': 75,
+        'topBarBackgroundOpacity': 0.75,
         'labelVisibilityMode': 'labeled',
-        'bottomBarOpacity': 80,
+        'bottomBarBackgroundOpacity': 0.8,
         'useFloatingBottomBar': true,
         'showBottomView': false,
         'tabletInterface': 'always',
@@ -100,7 +100,7 @@ void main() {
     );
   });
 
-  test('其余十五项完整保存原键及类型，并从共享仓储恢复', () async {
+  test('其他参数完整保存，模糊使用浮点比例和 sigma', () async {
     await repository.update(
       bookInfoFollowCoverColor: false,
       bookInfoNetworkCoverBackground: 'off',
@@ -108,10 +108,10 @@ void main() {
       overrideBaseCardCornerRadius: true,
       baseCardCornerRadius: 22,
       enableBlur: true,
-      topBarBlurRadius: 32,
-      topBarBlurAlpha: 120,
-      bottomBarBlurRadius: 12,
-      bottomBarBlurAlpha: 90,
+      topBarBlurSigma: 32,
+      topBarBlurTintOpacity: 0.6,
+      bottomBarBlurSigma: 12,
+      bottomBarBlurTintOpacity: 0.35,
       wallpaperColorFollow: true,
       enableItemDivider: true,
       themeStyle: 'fruitSalad',
@@ -128,10 +128,10 @@ void main() {
         'overrideBaseCardCornerRadius': true,
         'baseCardCornerRadius': 22,
         'enableBlur': true,
-        'topBarBlurRadius': 32,
-        'topBarBlurAlpha': 120,
-        'bottomBarBlurRadius': 12,
-        'bottomBarBlurAlpha': 90,
+        'topBarBlurSigma': 32,
+        'topBarBlurTintOpacity': 0.6,
+        'bottomBarBlurSigma': 12,
+        'bottomBarBlurTintOpacity': 0.35,
         'wallpaperColorFollow': true,
         'enableItemDivider': true,
         'themeStyle': 'fruitSalad',
@@ -151,21 +151,21 @@ void main() {
     );
   });
 
-  test('圆角、模糊半径与透明度保存限值沿用原规则', () async {
+  test('圆角、模糊 sigma 与不透明度保存时规范范围', () async {
     final container = containerFor(service);
     final notifier = container.read(uiSettingsProvider.notifier);
     await notifier.load();
     await notifier.setBaseCardCornerRadius(-1);
     expect(container.read(uiSettingsProvider).baseCardCornerRadius, 4);
     await notifier.setBaseCardCornerRadius(100);
-    await notifier.setTopBarBlur(radius: 90, alpha: -3);
-    await notifier.setBottomBarBlur(radius: -2, alpha: 500);
+    await notifier.setTopBarBlur(sigma: 90, tintOpacity: -3);
+    await notifier.setBottomBarBlur(sigma: -2, tintOpacity: 5);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getInt('baseCardCornerRadius'), 28);
-    expect(prefs.getInt('topBarBlurRadius'), 48);
-    expect(prefs.getInt('topBarBlurAlpha'), 0);
-    expect(prefs.getInt('bottomBarBlurRadius'), 0);
-    expect(prefs.getInt('bottomBarBlurAlpha'), 255);
+    expect(prefs.getDouble('topBarBlurSigma'), 48);
+    expect(prefs.getDouble('topBarBlurTintOpacity'), 0);
+    expect(prefs.getDouble('bottomBarBlurSigma'), 0);
+    expect(prefs.getDouble('bottomBarBlurTintOpacity'), 1.0);
   });
 
   test('按钮、底栏标签和大屏模式的全部选项保持原编码', () async {
@@ -187,17 +187,49 @@ void main() {
     }
   });
 
-  test('透明度读取与保存均保留 0–100 范围规则', () async {
+  test('背景不透明度读取与保存均限制在 0–1', () async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('topBarOpacity', -10);
-    await prefs.setInt('bottomBarOpacity', 120);
+    await prefs.setDouble('topBarBackgroundOpacity', -10);
+    await prefs.setDouble('bottomBarBackgroundOpacity', 120);
     await repository.load();
-    expect(repository.current.topBarOpacity, 0);
-    expect(repository.current.bottomBarOpacity, 100);
-    expect(prefs.getInt('topBarOpacity'), -10);
-    await repository.update(topBarOpacity: 130, bottomBarOpacity: -20);
-    expect(prefs.getInt('topBarOpacity'), 100);
-    expect(prefs.getInt('bottomBarOpacity'), 0);
+    expect(repository.current.topBarBackgroundOpacity, 0);
+    expect(repository.current.bottomBarBackgroundOpacity, 1.0);
+    expect(prefs.getDouble('topBarBackgroundOpacity'), -10);
+    await repository.update(
+      topBarBackgroundOpacity: 130,
+      bottomBarBackgroundOpacity: -20,
+    );
+    expect(prefs.getDouble('topBarBackgroundOpacity'), 1.0);
+    expect(prefs.getDouble('bottomBarBackgroundOpacity'), 0);
+  });
+
+  test('读取越界和非有限材质参数使用与保存一致的规范', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('topBarBlurSigma', -4);
+    await prefs.setDouble('bottomBarBlurSigma', double.infinity);
+    await prefs.setDouble('topBarBlurTintOpacity', 2);
+    await prefs.setDouble('bottomBarBlurTintOpacity', double.nan);
+    await prefs.setInt('baseCardCornerRadius', 200);
+    final loaded = await repository.load();
+    expect(loaded.topBarBlurSigma, 0);
+    expect(loaded.bottomBarBlurSigma, 8);
+    expect(loaded.topBarBlurTintOpacity, 1);
+    expect(loaded.bottomBarBlurTintOpacity, 0.4);
+    expect(loaded.baseCardCornerRadius, 28);
+    await repository.update(
+      topBarBackgroundOpacity: double.nan,
+      bottomBarBackgroundOpacity: double.infinity,
+      topBarBlurSigma: double.nan,
+      bottomBarBlurSigma: -4,
+      topBarBlurTintOpacity: double.infinity,
+      bottomBarBlurTintOpacity: -1,
+    );
+    expect(prefs.getDouble('topBarBackgroundOpacity'), 1);
+    expect(prefs.getDouble('bottomBarBackgroundOpacity'), 1);
+    expect(prefs.getDouble('topBarBlurSigma'), 24);
+    expect(prefs.getDouble('bottomBarBlurSigma'), 0);
+    expect(prefs.getDouble('topBarBlurTintOpacity'), 0.73);
+    expect(prefs.getDouble('bottomBarBlurTintOpacity'), 0);
   });
 
   test('未知枚举只回退展示，修改其他字段不重写它', () async {
@@ -214,17 +246,17 @@ void main() {
     final notifier = container.read(uiSettingsProvider.notifier);
     await Future<void>.delayed(Duration.zero);
     await notifier.setTopBarButtonStyle(TopBarButtonStyle.plain);
-    await notifier.setBottomBarOpacity(85);
+    await notifier.setBottomBarBackgroundOpacity(0.85);
     await notifier.setTabletInterface(TabletInterfaceMode.always);
     await notifier.setRailExtended(true);
     await notifier.setThemeAmoled(true);
     final state = container.read(uiSettingsProvider);
     expect(state.topBarButtonStyle, TopBarButtonStyle.plain);
-    expect(state.bottomBarOpacity, 85);
+    expect(state.bottomBarBackgroundOpacity, 0.85);
     expect(state.tabletInterface, TabletInterfaceMode.always);
     expect(state.railExtended, isTrue);
     expect(state.themeAmoled, isTrue);
-    expect(repository.current.bottomBarOpacity, 85);
+    expect(repository.current.bottomBarBackgroundOpacity, 0.85);
     expect(repository.current.themeAmoled, isTrue);
   });
 
@@ -258,12 +290,12 @@ void main() {
     await repository.load();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('useFloatingBottomBar', true);
-    await prefs.setInt('bottomBarOpacity', 60);
+    await prefs.setDouble('bottomBarBackgroundOpacity', 0.6);
     await prefs.setBool('enableBlur', true);
     await prefs.setString('themeStyle', 'expressive');
     await notifier.reload();
     expect(container.read(uiSettingsProvider).useFloatingBottomBar, isTrue);
-    expect(container.read(uiSettingsProvider).bottomBarOpacity, 60);
+    expect(container.read(uiSettingsProvider).bottomBarBackgroundOpacity, 0.6);
     expect(container.read(uiSettingsProvider).enableBlur, isTrue);
     expect(container.read(uiSettingsProvider).themeStyle, 'expressive');
   });

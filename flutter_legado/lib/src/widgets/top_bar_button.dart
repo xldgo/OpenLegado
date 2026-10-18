@@ -1,3 +1,5 @@
+import '../theme/app_surface_material.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 import 'app_menu.dart';
@@ -8,7 +10,7 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 ///
 /// - 5 档样式：plain 40dp/图标24；tonal/outlined/glass/liquidGlass 36dp/图标20；
 ///   outlined 加 1dp outlineVariant 描边；glass/liquidGlass 为实色玻璃回退
-///   （surfaceContainerHighest α0.5，enableBlur 接通后差异化）；
+///   （共享按钮材质底色；液态玻璃光学效果另行实现）；
 /// - tonal 在浅色与深色模式均使用透明常态底色、onSurfaceVariant 前景，
 ///   圆形点击反馈由 IconButton 绘制。激活/选中态由调用方用主题色区分。
 /// - 外层点击区域为 48dp，内层保持各档位的视觉尺寸。
@@ -93,7 +95,7 @@ class TopBarActionStyler extends StatelessWidget {
         return BoxDecoration(
           shape: BoxShape.rectangle,
           borderRadius: BorderRadius.circular(20),
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: AppSurfaceMaterial.buttonColor(cs.surfaceContainerHighest),
         );
       case TopBarButtonStyle.tonal:
         // 合并模式保留胶囊布局，常态底色与独立按钮统一为透明。
@@ -157,7 +159,9 @@ class _ActionSlot extends StatelessWidget {
         merge ? null : Border.all(color: cs.outlineVariant),
       ),
       TopBarButtonStyle.glass || TopBarButtonStyle.liquidGlass => (
-        merge ? null : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        merge
+            ? null
+            : AppSurfaceMaterial.buttonColor(cs.surfaceContainerHighest),
         cs.onSurface,
         null,
       ),
@@ -225,7 +229,7 @@ class TopBarButton extends StatelessWidget {
     final bg = switch (style) {
       TopBarButtonStyle.tonal => Colors.transparent,
       TopBarButtonStyle.glass || TopBarButtonStyle.liquidGlass =>
-        cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        AppSurfaceMaterial.buttonColor(cs.surfaceContainerHighest),
       _ => Colors.transparent,
     };
     final fg = switch (style) {

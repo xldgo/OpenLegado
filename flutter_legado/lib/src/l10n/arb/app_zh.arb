@@ -3563,11 +3563,11 @@
   "@themeTopBarButtonStyle": {
     "description": "按页面功能核对 HapeLee top_bar_button_style；只用于显示文案。"
   },
-  "themeTopBarOpacity": "顶栏不透明度",
+  "themeTopBarOpacity": "顶栏背景不透明度",
   "@themeTopBarOpacity": {
     "description": "按页面功能核对 HapeLee top_bar_opacity；只用于显示文案。"
   },
-  "themeBottomBarOpacity": "底栏不透明度",
+  "themeBottomBarOpacity": "底栏背景不透明度",
   "@themeBottomBarOpacity": {
     "description": "按页面功能核对 HapeLee bottom_bar_opacity；只用于显示文案。"
   },

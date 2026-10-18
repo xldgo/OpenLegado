@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/widgets/app_surface_backdrop.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
@@ -100,6 +103,27 @@ void main() {
       expect(find.byType(AppMenuButton<String>), findsOneWidget);
       // 初始无书籍时进度为 0.0%
       expect(find.byType(Slider), findsOneWidget);
+    });
+
+    testWidgets('菜单上下栏使用统一浮点底色，普通模式也响应背景设置', (tester) async {
+      final settings = container.read(uiSettingsProvider.notifier);
+      await settings.load();
+      await settings.setTopBarBackgroundOpacity(0.25);
+      await settings.setBottomBarBackgroundOpacity(0.5);
+      await tester.pumpWidget(wrapStack(buildReaderMenu(onAddBookmark: () {})));
+      await tester.pumpAndSettle();
+      List<AppSurfaceBackdrop> surfaces() => tester
+          .widgetList<AppSurfaceBackdrop>(find.byType(AppSurfaceBackdrop))
+          .toList();
+      expect(surfaces().first.material.color.a, 0.25);
+      expect(surfaces().last.material.color.a, 0.5);
+      expect(find.byType(BackdropFilter), findsNothing);
+      await settings.setEnableBlur(true);
+      await tester.pumpAndSettle();
+      expect(surfaces().first.material.color.a, closeTo(0.73, 1e-6));
+      expect(surfaces().last.material.color.a, closeTo(0.4, 1e-6));
+      expect(find.byType(BackdropFilter), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('edge-to-edge 下顶栏内容避让 viewPadding.top', (tester) async {

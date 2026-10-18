@@ -1,7 +1,9 @@
 import '../app_menu.dart';
 
 import 'dart:io' show File;
-import 'dart:ui' show ImageFilter;
+
+import '../../theme/app_surface_material.dart';
+import '../app_surface_backdrop.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -68,7 +70,7 @@ class AppShortNavigationBar extends StatelessWidget {
   final int currentIndex;
   final String activeSkin;
   final NavigationDestinationLabelBehavior labelBehavior;
-  final double opacity;
+  final AppSurfaceMaterial material;
   final ValueChanged<int> onSelect;
 
   const AppShortNavigationBar({
@@ -77,15 +79,17 @@ class AppShortNavigationBar extends StatelessWidget {
     required this.currentIndex,
     required this.activeSkin,
     required this.labelBehavior,
-    required this.opacity,
+    required this.material,
     required this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
+    return AppSurfaceBackdrop(
+      material: material,
       child: NavigationBar(
+        backgroundColor: material.color,
+        surfaceTintColor: Colors.transparent,
         labelBehavior: labelBehavior,
         selectedIndex: currentIndex,
         onDestinationSelected: onSelect,
@@ -119,9 +123,7 @@ class AppFloatingBottomBar extends StatefulWidget {
   final int currentIndex;
   final String activeSkin;
   final ValueChanged<int> onSelect;
-  final bool useBlur;
-  final int blurRadius;
-  final int blurAlpha;
+  final AppSurfaceMaterial material;
 
   const AppFloatingBottomBar({
     super.key,
@@ -129,9 +131,7 @@ class AppFloatingBottomBar extends StatefulWidget {
     required this.currentIndex,
     required this.activeSkin,
     required this.onSelect,
-    required this.useBlur,
-    required this.blurRadius,
-    required this.blurAlpha,
+    required this.material,
   });
 
   @override
@@ -167,9 +167,7 @@ class _AppFloatingBottomBarState extends State<AppFloatingBottomBar> {
       height: 64,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(
-          alpha: widget.useBlur ? widget.blurAlpha / 255 : 0.85,
-        ),
+        color: widget.material.color,
         borderRadius: radius,
       ),
       child: Row(
@@ -182,18 +180,11 @@ class _AppFloatingBottomBarState extends State<AppFloatingBottomBar> {
 
     // 留白必须留在裁剪层之外：BackdropFilter 的采样范围和圆角要与可见胶囊
     // 严格重合，否则模糊会溢出到胶囊左右 16、底部 12 的留白里。
-    final capsule = widget.useBlur
-        ? ClipRRect(
-            borderRadius: radius,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: widget.blurRadius.toDouble(),
-                sigmaY: widget.blurRadius.toDouble(),
-              ),
-              child: surface,
-            ),
-          )
-        : surface;
+    final capsule = AppSurfaceBackdrop(
+      material: widget.material,
+      borderRadius: radius,
+      child: surface,
+    );
 
     return SafeArea(
       top: false,

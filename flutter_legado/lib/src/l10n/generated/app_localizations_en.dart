@@ -3165,10 +3165,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeTopBarButtonStyle => 'Top Bar Button Style';
 
   @override
-  String get themeTopBarOpacity => 'Top Bar Opacity';
+  String get themeTopBarOpacity => 'Top Bar Background Opacity';
 
   @override
-  String get themeBottomBarOpacity => 'Bottom Bar Opacity';
+  String get themeBottomBarOpacity => 'Bottom Bar Background Opacity';
 
   @override
   String get themeBaseCardCornerRadius => 'Card corner radius';

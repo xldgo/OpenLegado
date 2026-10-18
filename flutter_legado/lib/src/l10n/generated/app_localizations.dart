@@ -5586,13 +5586,13 @@ abstract class AppLocalizations {
   /// 按页面功能核对 HapeLee top_bar_opacity；只用于显示文案。
   ///
   /// In zh, this message translates to:
-  /// **'顶栏不透明度'**
+  /// **'顶栏背景不透明度'**
   String get themeTopBarOpacity;
 
   /// 按页面功能核对 HapeLee bottom_bar_opacity；只用于显示文案。
   ///
   /// In zh, this message translates to:
-  /// **'底栏不透明度'**
+  /// **'底栏背景不透明度'**
   String get themeBottomBarOpacity;
 
   /// 按页面功能核对 HapeLee base_card_corner_radius；只用于显示文案。

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
+import 'package:flutter_legado/src/theme/app_surface_material.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,7 +9,7 @@ import 'package:flutter_legado/src/widgets/navigation/app_navigation_bars.dart';
 ///
 /// 锁住两个曾经静默出错的地方：
 /// - 模糊层裁剪范围大于可见胶囊（左右留白与底部留白被包进 ClipRRect）；
-/// - 透明度按 0-100 解读 0-255 字段，alpha 超过 100 后全部饱和为不透明。
+/// - 背景参数与模糊裁剪必须共同作用于胶囊，不影响前景与导航语义。
 void main() {
   const specs = [
     AppNavSpec(symbol: Icons.home_rounded, label: '首页'),
@@ -33,9 +35,10 @@ void main() {
             currentIndex: currentIndex,
             activeSkin: '',
             onSelect: onSelect ?? (_) {},
-            useBlur: useBlur,
-            blurRadius: 20,
-            blurAlpha: 73,
+            material: AppSurfaceMaterial.bottomBar(
+              color: Colors.white,
+              settings: UiSettings(enableBlur: useBlur, bottomBarBlurSigma: 20),
+            ),
           ),
         ),
       ),

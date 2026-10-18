@@ -80,22 +80,94 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('普通背景浮点保存，模糊开关只展示对应模式设置', (tester) async {
+    await open(tester);
+    storage.fail = false;
+    await reveal(tester, '顶栏背景不透明度');
+    await tester.tap(find.text('顶栏背景不透明度'));
+    await tester.pumpAndSettle();
+    final finder = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(Slider),
+    );
+    final slider = tester.widget<Slider>(finder);
+    expect(slider.max, 1);
+    expect(slider.divisions, 100);
+    slider.onChanged!(0.42);
+    await tester.pump();
+    expect(find.text('当前 42%'), findsOneWidget);
+    await tester.tap(
+      find.descendant(of: find.byType(AlertDialog), matching: find.text('确定')),
+    );
+    await tester.pumpAndSettle();
+    expect(storage.values['topBarBackgroundOpacity'], 0.42);
+    final notifier = container.read(uiSettingsProvider.notifier);
+    await notifier.setEnableBlur(true);
+    await tester.pumpAndSettle();
+    expect(find.text('顶栏背景不透明度'), findsNothing);
+    await reveal(tester, '顶栏模糊');
+    await tester.tap(find.text('顶栏模糊'));
+    await tester.pumpAndSettle();
+    expect(find.text('底色不透明度 73%'), findsOneWidget);
+    final sliders = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(Slider),
+    );
+    expect(tester.widget<Slider>(sliders.at(0)).value, 24);
+    expect(tester.widget<Slider>(sliders.at(1)).value, 0.73);
+    expect(tester.widget<Slider>(sliders.at(1)).max, 1);
+    await tester.tap(
+      find.descendant(of: find.byType(AlertDialog), matching: find.text('取消')),
+    );
+    await tester.pumpAndSettle();
+    await notifier.setEnableBlur(false);
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('顶栏背景不透明度'),
+      find.byType(ListView),
+      const Offset(0, 220),
+    );
+    expect(find.text('当前 42%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('存储中的越界值和非有限值不会进入模糊滑块', (tester) async {
+    await open(
+      tester,
+      initial: {
+        'enableBlur': true,
+        'topBarBlurSigma': -2.0,
+        'topBarBlurTintOpacity': double.nan,
+      },
+    );
+    await reveal(tester, '顶栏模糊');
+    await tester.tap(find.text('顶栏模糊'));
+    await tester.pumpAndSettle();
+    final sliders = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(Slider),
+    );
+    expect(tester.widget<Slider>(sliders.at(0)).value, 0);
+    expect(tester.widget<Slider>(sliders.at(1)).value, 0.73);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('顶栏透明度保存失败恢复原值并提示', (tester) async {
     await open(tester);
-    await reveal(tester, '顶栏不透明度');
-    await tester.tap(find.text('顶栏不透明度'));
+    await reveal(tester, '顶栏背景不透明度');
+    await tester.tap(find.text('顶栏背景不透明度'));
     await tester.pumpAndSettle();
     final slider = find.descendant(
       of: find.byType(AlertDialog),
       matching: find.byType(Slider),
     );
-    tester.widget<Slider>(slider).onChanged!(50);
+    tester.widget<Slider>(slider).onChanged!(0.5);
     await tester.pump();
     await tester.tap(
       find.descendant(of: find.byType(AlertDialog), matching: find.text('确定')),
     );
     await tester.pumpAndSettle();
-    expect(container.read(uiSettingsProvider).topBarOpacity, 100);
+    expect(container.read(uiSettingsProvider).topBarBackgroundOpacity, 1.0);
     expect(find.text('保存失败，请重试'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -165,7 +237,7 @@ void main() {
         matching: find.byType(Slider),
       );
       tester.widget<Slider>(sliders.at(0)).onChanged!(32);
-      tester.widget<Slider>(sliders.at(1)).onChanged!(120);
+      tester.widget<Slider>(sliders.at(1)).onChanged!(0.6);
       await tester.pump();
       await tester.tap(
         find.descendant(
@@ -177,13 +249,13 @@ void main() {
     }
 
     await saveParameters();
-    expect(container.read(uiSettingsProvider).topBarBlurRadius, 24);
-    expect(container.read(uiSettingsProvider).topBarBlurAlpha, 73);
+    expect(container.read(uiSettingsProvider).topBarBlurSigma, 24);
+    expect(container.read(uiSettingsProvider).topBarBlurTintOpacity, 0.73);
     expect(find.text('保存失败，请重试'), findsOneWidget);
     storage.fail = false;
     await saveParameters();
-    expect(container.read(uiSettingsProvider).topBarBlurRadius, 32);
-    expect(container.read(uiSettingsProvider).topBarBlurAlpha, 120);
+    expect(container.read(uiSettingsProvider).topBarBlurSigma, 32);
+    expect(container.read(uiSettingsProvider).topBarBlurTintOpacity, 0.6);
     expect(tester.takeException(), isNull);
   });
 }

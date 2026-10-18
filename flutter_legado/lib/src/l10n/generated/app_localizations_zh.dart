@@ -2969,10 +2969,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeTopBarButtonStyle => '顶栏按钮样式';
 
   @override
-  String get themeTopBarOpacity => '顶栏不透明度';
+  String get themeTopBarOpacity => '顶栏背景不透明度';
 
   @override
-  String get themeBottomBarOpacity => '底栏不透明度';
+  String get themeBottomBarOpacity => '底栏背景不透明度';
 
   @override
   String get themeBaseCardCornerRadius => '卡片圆角';

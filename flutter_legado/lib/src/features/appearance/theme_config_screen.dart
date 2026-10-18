@@ -181,28 +181,40 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     TopBarButtonStyle.tonal => 'Tonal（默认）',
     TopBarButtonStyle.outlined => '描边',
     TopBarButtonStyle.glass => '玻璃',
-    TopBarButtonStyle.liquidGlass => '液态玻璃',
+    TopBarButtonStyle.liquidGlass => '液态玻璃（暂用玻璃底色）',
   };
 
-  Future<void> _showTopBarOpacityDialog() async {
-    var value = ref.read(uiSettingsProvider).topBarOpacity.toDouble();
+  Future<void> _showTopBarOpacityDialog() =>
+      _showBackgroundOpacityDialog(topBar: true);
+  Future<void> _showBottomBarOpacityDialog() =>
+      _showBackgroundOpacityDialog(topBar: false);
+
+  Future<void> _showBackgroundOpacityDialog({required bool topBar}) async {
+    final ui = ref.read(uiSettingsProvider);
+    var value = topBar
+        ? ui.topBarBackgroundOpacity
+        : ui.bottomBarBackgroundOpacity;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(ctx.l10n.themeTopBarOpacity),
+          title: Text(
+            topBar
+                ? ctx.l10n.themeTopBarOpacity
+                : ctx.l10n.themeBottomBarOpacity,
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Slider(
                 value: value,
                 min: 0,
-                max: 100,
-                divisions: 20,
-                label: '${value.round()}%',
+                max: 1,
+                divisions: 100,
+                label: '${(value * 100).round()}%',
                 onChanged: (v) => setDialogState(() => value = v),
               ),
-              Text('当前 ${value.round()}%'),
+              Text('当前 ${(value * 100).round()}%'),
             ],
           ),
           actions: [
@@ -219,10 +231,11 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       ),
     );
     if (confirmed == true && mounted) {
+      final notifier = ref.read(uiSettingsProvider.notifier);
       await _saveAppearance(
-        () => ref
-            .read(uiSettingsProvider.notifier)
-            .setTopBarOpacity(value.round()),
+        () => topBar
+            ? notifier.setTopBarBackgroundOpacity(value)
+            : notifier.setBottomBarBackgroundOpacity(value),
       );
     }
   }
@@ -232,49 +245,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     BottomBarLabelMode.labeled => '全部常显',
     BottomBarLabelMode.unlabeled => '纯图标',
   };
-
-  Future<void> _showBottomBarOpacityDialog() async {
-    var value = ref.read(uiSettingsProvider).bottomBarOpacity.toDouble();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(ctx.l10n.themeBottomBarOpacity),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Slider(
-                value: value,
-                min: 0,
-                max: 100,
-                divisions: 20,
-                label: '${value.round()}%',
-                onChanged: (v) => setDialogState(() => value = v),
-              ),
-              Text('当前 ${value.round()}%'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(ctx.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(ctx.l10n.confirm),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirmed == true && mounted) {
-      await _saveAppearance(
-        () => ref
-            .read(uiSettingsProvider.notifier)
-            .setBottomBarOpacity(value.round()),
-      );
-    }
-  }
 
   String _tabletLabel(TabletInterfaceMode m) => switch (m) {
     TabletInterfaceMode.auto => '自动（宽屏 ≥600dp）',
@@ -358,14 +328,14 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     }
   }
 
-  Future<void> _showBlurRadiusDialog({
+  Future<void> _showBlurMaterialDialog({
     required String title,
-    required int currentRadius,
-    required int currentAlpha,
-    required Future<void> Function(int radius, int alpha) onSave,
+    required double currentSigma,
+    required double currentTintOpacity,
+    required Future<void> Function(double sigma, double tintOpacity) onSave,
   }) async {
-    var radius = currentRadius.toDouble();
-    var alpha = currentAlpha.toDouble();
+    var sigma = currentSigma;
+    var tintOpacity = currentTintOpacity;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -374,21 +344,21 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('模糊半径 ${radius.round()}dp'),
+              Text('模糊强度 ${sigma.round()}'),
               Slider(
-                value: radius,
+                value: sigma,
                 min: 0,
                 max: 48,
-                divisions: 12,
-                onChanged: (v) => setDialogState(() => radius = v),
+                divisions: 48,
+                onChanged: (v) => setDialogState(() => sigma = v),
               ),
-              Text('底色透明度 ${alpha.round()}/255'),
+              Text('底色不透明度 ${(tintOpacity * 100).round()}%'),
               Slider(
-                value: alpha,
+                value: tintOpacity,
                 min: 0,
-                max: 255,
-                divisions: 51,
-                onChanged: (v) => setDialogState(() => alpha = v),
+                max: 1,
+                divisions: 100,
+                onChanged: (v) => setDialogState(() => tintOpacity = v),
               ),
             ],
           ),
@@ -406,31 +376,31 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      await _saveAppearance(() => onSave(radius.round(), alpha.round()));
+      await _saveAppearance(() => onSave(sigma, tintOpacity));
     }
   }
 
   Future<void> _showTopBarBlurDialog() async {
     final uiNow = ref.read(uiSettingsProvider);
     final notifier = ref.read(uiSettingsProvider.notifier);
-    await _showBlurRadiusDialog(
+    await _showBlurMaterialDialog(
       title: '顶栏模糊',
-      currentRadius: uiNow.topBarBlurRadius,
-      currentAlpha: uiNow.topBarBlurAlpha,
-      onSave: (radius, alpha) =>
-          notifier.setTopBarBlur(radius: radius, alpha: alpha),
+      currentSigma: uiNow.topBarBlurSigma,
+      currentTintOpacity: uiNow.topBarBlurTintOpacity,
+      onSave: (sigma, tintOpacity) =>
+          notifier.setTopBarBlur(sigma: sigma, tintOpacity: tintOpacity),
     );
   }
 
   Future<void> _showBottomBarBlurDialog() async {
     final uiNow = ref.read(uiSettingsProvider);
     final notifier = ref.read(uiSettingsProvider.notifier);
-    await _showBlurRadiusDialog(
-      title: '悬浮底栏模糊',
-      currentRadius: uiNow.bottomBarBlurRadius,
-      currentAlpha: uiNow.bottomBarBlurAlpha,
-      onSave: (radius, alpha) =>
-          notifier.setBottomBarBlur(radius: radius, alpha: alpha),
+    await _showBlurMaterialDialog(
+      title: '底栏模糊',
+      currentSigma: uiNow.bottomBarBlurSigma,
+      currentTintOpacity: uiNow.bottomBarBlurTintOpacity,
+      onSave: (sigma, tintOpacity) =>
+          notifier.setBottomBarBlur(sigma: sigma, tintOpacity: tintOpacity),
     );
   }
 
@@ -711,11 +681,13 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                               .setUseFlexibleTopAppBar(v),
                         ),
                       ),
-                      SettingTile(
-                        title: context.l10n.themeTopBarOpacity,
-                        subtitle: '当前 ${ui.topBarOpacity}%',
-                        onTap: _showTopBarOpacityDialog,
-                      ),
+                      if (!ui.enableBlur)
+                        SettingTile(
+                          title: context.l10n.themeTopBarOpacity,
+                          subtitle:
+                              '当前 ${(ui.topBarBackgroundOpacity * 100).round()}%',
+                          onTap: _showTopBarOpacityDialog,
+                        ),
                       SettingSwitchRow(
                         title: '显示底栏',
                         subtitle: '隐藏后仅侧栏/手势切页',
@@ -749,11 +721,13 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                               .setLabelVisibilityMode(value),
                         ),
                       ),
-                      SettingTile(
-                        title: context.l10n.themeBottomBarOpacity,
-                        subtitle: '当前 ${ui.bottomBarOpacity}%',
-                        onTap: _showBottomBarOpacityDialog,
-                      ),
+                      if (!ui.enableBlur)
+                        SettingTile(
+                          title: context.l10n.themeBottomBarOpacity,
+                          subtitle:
+                              '当前 ${(ui.bottomBarBackgroundOpacity * 100).round()}%',
+                          onTap: _showBottomBarOpacityDialog,
+                        ),
                       // 大屏导航形态（参考 main_activity 组 tabletInterface=平板界面；
                       // 四档 自动/始终/仅横屏/关闭）
                       SettingMenuRow<TabletInterfaceMode>(
@@ -878,13 +852,13 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         SettingTile(
                           title: '顶栏模糊',
                           subtitle:
-                              '半径 ${ui.topBarBlurRadius}dp · 底色 ${ui.topBarBlurAlpha}/255',
+                              '强度 ${ui.topBarBlurSigma.round()} · 底色 ${(ui.topBarBlurTintOpacity * 100).round()}%',
                           onTap: _showTopBarBlurDialog,
                         ),
                         SettingTile(
-                          title: '悬浮底栏模糊',
+                          title: '底栏模糊',
                           subtitle:
-                              '半径 ${ui.bottomBarBlurRadius}dp · 底色 ${ui.bottomBarBlurAlpha}/255',
+                              '强度 ${ui.bottomBarBlurSigma.round()} · 底色 ${(ui.bottomBarBlurTintOpacity * 100).round()}%',
                           onTap: _showBottomBarBlurDialog,
                         ),
                       ],

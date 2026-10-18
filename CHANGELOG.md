@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.377] - 2026-10-18
+
+### Changed
+- [UI] 上下栏和阅读菜单统一背景不透明度与模糊底色参数，设置按百分比展示；普通和模糊模式分别配置。
+- [UI] 标准与悬浮底栏只调整背景，保留文字图标清晰度；统一模糊强度和按钮半透明材质定义。
+- 贡献者：Codex + UI；构建号378。
+
 ## [2.0.376] - 2026-10-18
 
 ### Changed

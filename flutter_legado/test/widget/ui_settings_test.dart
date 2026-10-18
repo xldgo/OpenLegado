@@ -1,5 +1,5 @@
 // [UI_SYNC_REFACTOR B3] 底栏设置回归守护：label 三档/大屏形态解析与默认值、
-// UiSettings 默认口径（对齐参考仓默认：悬浮关/显示开/透明度 100）。
+// UiSettings 默认口径（对齐参考仓默认：悬浮关/显示开/不透明度 1）。
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
@@ -25,12 +25,12 @@ void main() {
     expect(TabletInterfaceMode.fromName('always'), TabletInterfaceMode.always);
   });
 
-  test('默认口径对齐参考仓：悬浮关/显示开/透明度 100', () {
+  test('默认口径对齐参考仓：悬浮关/显示开/不透明度 1', () {
     const state = UiSettings();
     expect(state.useFloatingBottomBar, isFalse);
     expect(state.showBottomView, isTrue);
-    expect(state.bottomBarOpacity, 100);
-    expect(state.topBarOpacity, 100);
+    expect(state.bottomBarBackgroundOpacity, 1.0);
+    expect(state.topBarBackgroundOpacity, 1.0);
     expect(state.labelVisibilityMode, BottomBarLabelMode.auto);
     expect(state.tabletInterface, TabletInterfaceMode.auto);
   });

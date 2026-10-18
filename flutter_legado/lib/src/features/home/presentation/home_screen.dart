@@ -1,3 +1,5 @@
+import '../../../theme/app_surface_material.dart';
+
 import 'dart:async';
 
 import '../../../theme/app_motion.dart';
@@ -520,9 +522,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         currentIndex: currentIndex,
         activeSkin: activeSkin,
         onSelect: (index) => _onDestinationSelected(tabs, index),
-        useBlur: ui.enableBlur,
-        blurRadius: ui.bottomBarBlurRadius,
-        blurAlpha: ui.bottomBarBlurAlpha,
+        material: AppSurfaceMaterial.bottomBar(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          settings: ui,
+        ),
       );
     }
     return AppShortNavigationBar(
@@ -537,7 +540,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         BottomBarLabelMode.unlabeled =>
           NavigationDestinationLabelBehavior.alwaysHide,
       },
-      opacity: ui.bottomBarOpacity / 100,
+      material: AppSurfaceMaterial.bottomBar(
+        color:
+            Theme.of(context).navigationBarTheme.backgroundColor ??
+            Theme.of(context).colorScheme.surfaceContainer,
+        settings: ui,
+      ),
       onSelect: (index) => _onDestinationSelected(tabs, index),
     );
   }
