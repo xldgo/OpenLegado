@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### HTTP-BODY-ERROR-CHAIN-20261018：响应正文读取错误来源保留（P1）
+
+- 基线与授权：用户要求继续 Rust 整改，feature/rust-ffi-modernization / 202635732，沿用现有 worktree，单代理，不修改主目录、不推送/合并或触发远程 CI。
+- 问题与范围：LegadoClient 的文本、二进制正文及 LegadoStreamResponse 的流式读取仅格式化 reqwest 最外层错误，未复用发送阶段已有的 source 链诊断。先以本机 HTTP 响应截断复现，再保留实际读取原因；不改错误枚举、既有前缀、Network 分类、重试、超时、Cookie 与限流策略。
+- 验收与非目标：三种正式读取入口均须拒绝截断响应，并包含底层原因；运行 Net 既有回归及相关严格 Clippy。不改 FFI 签名/DTO/生成物、Dart、schema、依赖或应用版本，不扩散到独立 WebDAV/上传模块，不新增测试宿主或设备验证。
+- 根因与修复：本机服务声明 Content-Length=128，仅返回 partial 后断开；原始 reqwest 的 source 链包含 end of file before message length reached，而正式三入口只返回最外层正文解码错误。三项行为回归在修复前全部失败；文本/二进制/流式读取改为共用既有最多5层来源展开，保留原前缀和 Network 分类，不改发送阶段或读取策略。这里保留的是诊断文本，未将 String 变体改为可下转的类型化 source，不能视作 SCH-R3a 全仓载荷调整已经完成。
+- 验证：cargo test --locked -p legado-net 共265项通过（库258、截断3、TLS4），1项既有文档用例忽略；Net default 全目标及 Net/Engine/FFI QuickJS 全目标 Clippy -D warnings 均退出0，无 lint 放行。限定格式与 git diff --check 通过。证据：build/rust-body-errors/{reproduce,fixed,net-tests,clippy-default,clippy-quickjs}.log；reproduce 为实际缺因断言退出101，其余正式验证退出0。
+- 状态：本批选定三条读取入口已关闭，代码/回归/记录整批本地提交。仅单代理自查与 Windows Rust 验证，无独立外审、远程CI或设备结论；未重建正式 DLL/应用，下一次正式应用构建需正常重编并校验，不宣称当前已有二进制包含本次修复。未改独立WebDAV/上传/订阅模块，不推送或合并。
+
+编写者：Codex｜2026-10-18
+
 ### RUST-CORE-CLEANUP-MEASURE-20261018：遗留并发清理与构建边界测量（P2）
 
 - 授权与基线：用户批准清理、验证提交及 M-1/M-2 测量；feature/rust-ffi-modernization / a5d78fd28，沿用当前 worktree，单代理。不推送/合并/远程 CI/WSL/安装或新建分支，不修改主目录。

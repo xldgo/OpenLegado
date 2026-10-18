@@ -827,10 +827,12 @@ impl LegadoClient {
         }
 
         // 读取响应体
-        let body = response
-            .text()
-            .await
-            .map_err(|e| LegadoError::Network(format!("Failed to read response body: {}", e)))?;
+        let body = response.text().await.map_err(|e| {
+            LegadoError::Network(format!(
+                "Failed to read response body: {}",
+                reqwest_error_chain(&e)
+            ))
+        })?;
 
         Ok(LegadoResponse {
             status,
@@ -860,7 +862,12 @@ impl LegadoClient {
         let body = response
             .bytes()
             .await
-            .map_err(|e| LegadoError::Network(format!("Failed to read response bytes: {}", e)))?
+            .map_err(|e| {
+                LegadoError::Network(format!(
+                    "Failed to read response bytes: {}",
+                    reqwest_error_chain(&e)
+                ))
+            })?
             .to_vec();
 
         Ok(crate::response::LegadoRawResponse {
@@ -896,13 +903,13 @@ impl LegadoClient {
     }
 }
 
-/// 将 reqwest::Error 映射为 LegadoError
+/// 展开 reqwest 发送与正文读取阶段的错误链。
 ///
 /// **错误链必须透传**（V-B 网络排查教训）：reqwest `Display` 只含最外层
 /// （"error sending request for url"），DNS 解析失败 / TCP 拒绝 / TLS 握手
-/// 失败等真因全在 `source()` 链里。600 域名全挂时只看最外层无法区分
-/// 「宿主无网」「DNS 污染」「TLS 证书」三类故障，故逐级拼出完整链。
-fn reqwest_error_chain(e: &reqwest::Error) -> String {
+/// 失败及响应正文截断等真因全在 `source()` 链里。600 域名全挂时只看最外层无法区分
+/// 「宿主无网」「DNS 污染」「TLS 证书」三类故障，故最多展开5层来源。
+pub(crate) fn reqwest_error_chain(e: &reqwest::Error) -> String {
     let mut msg = e.to_string();
     let mut src: Option<&dyn std::error::Error> = std::error::Error::source(e);
     let mut depth = 0;

@@ -165,7 +165,12 @@ impl LegadoStreamResponse {
             .chunk()
             .await
             .map(|opt| opt.map(|b| b.to_vec()))
-            .map_err(|e| LegadoError::Network(format!("读取响应流失败: {e}")))
+            .map_err(|e| {
+                LegadoError::Network(format!(
+                    "读取响应流失败: {}",
+                    crate::client::reqwest_error_chain(&e)
+                ))
+            })
     }
 }
 
