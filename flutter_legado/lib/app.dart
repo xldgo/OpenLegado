@@ -25,6 +25,7 @@ import 'src/features/read_aloud/media_playback_navigation.dart';
 import 'src/services/platform_bridge_service.dart';
 import 'src/services/video_float_window.dart';
 import 'src/theme/app_theme_resolver.dart';
+import 'src/theme/app_glass_theme.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
 
@@ -46,10 +47,14 @@ class LegadoApp extends ConsumerStatefulWidget {
   /// 上次崩溃日志内容（null 表示无崩溃记录）
   final String? lastCrashLog;
 
+  /// 启动阶段已成功预热；独立预览默认使用普通材质。
+  final bool glassAvailable;
+
   const LegadoApp({
     super.key,
     this.initialRoute = AppRoutes.home,
     this.lastCrashLog,
+    this.glassAvailable = false,
   });
 
   /// 弹出「上次运行发生崩溃」提示弹窗（[P2-13 2026-09-18]）。
@@ -437,6 +442,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             );
             wrapped = EyeProtectionFilter(child: wrapped);
             wrapped = UiSettingsHost(child: wrapped);
+            wrapped = AppGlassHost(
+              available: widget.glassAvailable,
+              child: wrapped,
+            );
             if (scale == null) return wrapped;
             return MediaQuery(
               data: MediaQuery.of(context)

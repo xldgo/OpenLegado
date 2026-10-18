@@ -21,6 +21,7 @@ import 'src/data/repositories/app_appearance_settings_repository.dart';
 import 'src/data/repositories/app_backup_settings_repository.dart';
 import 'src/providers/app_settings_provider.dart';
 import 'src/services/crash_log_service.dart';
+import 'src/theme/app_glass_runtime.dart';
 
 void main() {
   runZonedGuarded(
@@ -55,7 +56,7 @@ void main() {
       // 3. 读取上次崩溃日志
       final lastCrash = await CrashLogService.instance.getLastCrashLog();
 
-      // 4. 并行初始化：SharedPreferences 与 Rust FFI 无依赖，可并行
+      // 4. 设置、FFI 与玻璃资源并行准备；玻璃失败不影响前两项。
       // SharedPreferences 预热供 SettingsService；启动和界面使用同一Provider容器。
       sw = Stopwatch()..start();
       container = createApplicationContainer(
@@ -81,11 +82,14 @@ void main() {
           ),
         ],
       );
+      final glassRuntime = AppGlassRuntime();
       try {
+        final glassInitialization = glassRuntime.initialize();
         final apiInitialization = initializeApplication(container);
         await Future.wait<Object?>([
           SharedPreferences.getInstance(),
           apiInitialization,
+          glassInitialization,
         ]);
       } catch (e, stack) {
         CrashLogService.instance.logError(e, stack);
@@ -109,7 +113,11 @@ void main() {
       runApp(
         ApplicationScope(
           container: container,
-          child: LegadoApp(initialRoute: initialRoute, lastCrashLog: lastCrash),
+          child: LegadoApp(
+            initialRoute: initialRoute,
+            lastCrashLog: lastCrash,
+            glassAvailable: glassRuntime.available,
+          ),
         ),
       );
     },

@@ -61,6 +61,7 @@ dependencies:
   material_color_utilities: ^0.13.0
   material_ui: 1.6.0
   cupertino_ui: 1.1.2
+  liquid_glass_widgets: 1.13.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,18 @@
 # Legado Flutter 设计规范文档（Material Design 3）
 
+## 液态玻璃资源与主题边界（2026-10-18）
+
+liquid_glass_widgets 固定 1.13.0，仅通过项目材质适配接入。AppGlassRuntime
+在启动时与设置/FFI并行预热，每次进程只初始化一次；预热失败保留普通材质，
+不作为FFI错误阻止启动。库的帧预算告警监视器关闭，性能结论使用独立profile取证。
+AppGlassHost在应用主题内提供明确亮度与固定standard质量，尊重系统减少动态效果
+和高对比度；不在页面build中重复调用修改库全局配置的wrap。
+AppGlassStyle集中转换最终底色和模糊输入，颜色alpha不二次相乘；库blur暂使用
+原有逻辑像素参数，实际效果需设备校准，不宣称与高斯sigma视觉等效。
+公共页面不依赖第三方导航模型；玻璃导航与按钮按批次接入，不替换全站页壳。
+
+编写者：Codex + UI｜2026-10-18
+
 > 数据来源：`flutter_legado/lib/src/theme/app_theme.dart`（MD3 主题装配）、`md3_colors.dart`（12 套内置调色板）、`app_typography.dart`（M3 字阶）
 > Token 来源基准：Material Design 3 官方指南（Expressive 视觉层），12 套内置命名主题 × 亮/暗 tonal 配对，语义槽位与 Android 原版一一对应
 >
