@@ -11,6 +11,7 @@
 - 第二批：删除core的tokio-util/sha2、FFI的futures/md5及Flutter的ffi/flutter_svg直接声明。pub get移除flutter_svg、path_parsing和三项vector_graphics包，ffi保留为传递依赖。Rust工作区全部目标QuickJS编译检查、core 802项、Flutter分析通过。目录级Flutter测试3781项通过，16份依赖排版DLL的文件在setUpAll因新worktree库路径缺失未启动，不声称全量通过；用户要求避免重复排版验收，留最终相关原生验证，不为清单清理重跑这些算法/UI用例。首次native补建已完成，不再重复此批。证据b2-{pub-get,rust-check,core-tests,analyze,flutter-tests,native}.log。
 - 第三批：workspace与net测试档移除Tokio full，各crate显式声明fs/io-util/net/macros/rt/sync/time所需能力，server同步精简，FFI到server的产品能力保留。工作区QuickJS全部目标检查通过，net/engine/server共596项回归通过；正式Windows特性21→15、Android/iOS 20→14，两档QuickJS均一致，去掉full/io-std/parking_lot/process/signal/signal-hook-registry；仅依赖图结论，不声称交叉编译或包体收益。证据b3-check.log、b3-tests.log、tokio-before/after.json。
 - 第四批MD5：core统一为md-5 0.11并提供小写摘要工具，db/engine/fetcher复用core工具而不再直接依赖MD5；parser保持同代实现，JS保留RSA约束的digest 0.10。迁移前固定向量/目录与文件名通过，TTS源上下文旧键e5ccc0556d13b6588c32a72fadc201f1已固定；迁移后四库1434项通过，严格Clippy通过。初次编译发现新摘要数组不实现LowerHex，改为单一十六进制转换；随后仅去除冗余format并经Clippy复核。证据b4-{vectors-before,tts-before,tests-final,clippy}.log。
+- 第四批补丁：仅更新rustls 0.23.46、sha2 0.11.1、sevenz-rust2 0.24.1；后者必要传递依赖lzma-rust2同步0.22→0.23，未顺带升级zip/fancy-regex/backtrace或JS的digest体系。网络/JS/Fetcher三库QuickJS共1065项通过（既有2项忽略），涵盖TLS、7z与摘要行为。证据b4-patch-updates.log、b4-patch-tests.log。
 - 状态：实施中，六批完成证据逐批补入本条。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
 
 编写者：Codex｜2026-10-18
