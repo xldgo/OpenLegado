@@ -5,6 +5,17 @@ import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_surface_material.dart';
 
 void main() {
+  test('按钮材质沿用实色回退的浓度，不二次乘alpha', () {
+    for (final color in [
+      Colors.white,
+      const Color(0x80FF0000),
+      Colors.transparent,
+    ]) {
+      final material = AppSurfaceMaterial.button(color: color);
+      expect(material.color, AppSurfaceMaterial.buttonColor(color));
+      expect(material.blurSigma, color.a == 0 ? 0 : 8);
+    }
+  });
   test('液态底栏独立消费模糊底色，普通毛玻璃关闭不影响它', () {
     const settings = UiSettings(
       enableBlur: false,

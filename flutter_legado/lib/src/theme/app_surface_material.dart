@@ -49,12 +49,23 @@ final class AppSurfaceMaterial {
     blurSigma: settings.bottomBarBlurSigma,
   );
 
+  /// 按钮独立于整栏背景设置，普通回退与光学材质使用同一底色。
+  factory AppSurfaceMaterial.button({required Color color}) =>
+      AppSurfaceMaterial.resolve(
+        color: color,
+        blurEnabled: true,
+        backgroundOpacity: buttonTintOpacity,
+        blurTintOpacity: buttonTintOpacity,
+        blurSigma: buttonBlurSigma,
+      );
+
   final Color color;
   final double blurSigma;
   bool get hasBlur => blurSigma > 0;
 
-  /// 按钮与合并胶囊使用同一半透明底色；液态玻璃光学效果后置。
+  /// 按钮与合并胶囊使用同一半透明底色与轻量模糊参数。
   static const buttonTintOpacity = 0.5;
+  static const buttonBlurSigma = 8.0;
   static Color buttonColor(Color color) =>
       color.withValues(alpha: color.a * buttonTintOpacity);
 }

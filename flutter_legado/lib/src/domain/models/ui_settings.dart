@@ -14,7 +14,7 @@ enum TopBarButtonStyle {
   /// 玻璃：36dp 容器，surface 半透明实色（参考仓 blur 档的实色回退，"glass"）
   glass,
 
-  /// 液态玻璃预留档：当前复用 [glass] 的半透明底色，光学效果后置
+  /// 液态玻璃：资源就绪时绘制光学背景，未就绪回退 [glass] 底色
   liquidGlass;
 
   /// 从持久化字符串解析（未知值回退 [tonal]）

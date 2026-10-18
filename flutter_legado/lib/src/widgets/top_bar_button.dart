@@ -1,5 +1,7 @@
 import '../theme/app_surface_material.dart';
+import '../theme/app_glass_theme.dart';
 
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app_menu.dart';
@@ -9,8 +11,8 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 /// [UI_SYNC_REFACTOR B2] 顶栏按钮体系（对齐参考仓 TopBarButton/GlassDefaults）
 ///
 /// - 5 档样式：plain 40dp/图标24；tonal/outlined/glass/liquidGlass 36dp/图标20；
-///   outlined 加 1dp outlineVariant 描边；glass/liquidGlass 为实色玻璃回退
-///   （共享按钮材质底色；液态玻璃光学效果另行实现）；
+///   outlined 加 1dp outlineVariant 描边；glass 使用半透明实色，liquidGlass
+///   在资源就绪时绘制光学背景，未就绪保留相同底色；
 /// - tonal 在浅色与深色模式均使用透明常态底色、onSurfaceVariant 前景，
 ///   圆形点击反馈由 IconButton 绘制。激活/选中态由调用方用主题色区分。
 /// - 外层点击区域为 48dp，内层保持各档位的视觉尺寸。
@@ -50,6 +52,7 @@ class TopBarActionStyler extends StatelessWidget {
     if (!merge) {
       return [for (final a in list) _ActionSlot(style: style, child: a)];
     }
+    final liquid = _usesLiquidGlass(context, style);
     // merge 模式：并入胶囊容器，槽位间 1dp 分隔线
     final cs = Theme.of(context).colorScheme;
     final slots = <Widget>[];
@@ -69,9 +72,27 @@ class TopBarActionStyler extends StatelessWidget {
     return [
       Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: _mergeDecoration(context, style),
-        child: Row(mainAxisSize: MainAxisSize.min, children: slots),
+        // 保留装饰节点，资源就绪切换时不重新挂载已打开的菜单。
+        decoration: liquid
+            ? const BoxDecoration()
+            : _mergeDecoration(context, style),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: liquid
+                    ? const _ButtonGlassSurface(
+                        shape: LiquidRoundedRectangle(borderRadius: 20),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(mainAxisSize: MainAxisSize.min, children: slots),
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -106,6 +127,29 @@ class TopBarActionStyler extends StatelessWidget {
         );
     }
   }
+}
+
+bool _usesLiquidGlass(BuildContext context, TopBarButtonStyle style) =>
+    style == TopBarButtonStyle.liquidGlass &&
+    AppGlassScope.availableOf(context);
+
+/// 只绘制材质；原按钮在同级接收输入，避免截断48dp热区或重复菜单语义。— Codex + UI
+class _ButtonGlassSurface extends StatelessWidget {
+  const _ButtonGlassSurface({required this.shape});
+
+  final LiquidShape shape;
+
+  @override
+  Widget build(BuildContext context) => GlassContainer(
+    shape: shape,
+    useOwnLayer: true,
+    settings: AppGlassStyle.resolve(
+      AppSurfaceMaterial.button(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+    ),
+    child: const SizedBox.expand(),
+  );
 }
 
 class _ActionSlot extends StatelessWidget {
@@ -146,6 +190,7 @@ class _ActionSlot extends StatelessWidget {
       );
     }
     final cs = Theme.of(context).colorScheme;
+    final liquid = !merge && _usesLiquidGlass(context, style);
     final (bg, fg, border) = switch (style) {
       // 普通图标按钮常态透明，激活态由调用方以主题色覆盖。
       TopBarButtonStyle.tonal => (
@@ -179,7 +224,12 @@ class _ActionSlot extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           IgnorePointer(
-            child: Container(width: 36, height: 36, decoration: deco),
+            child: liquid
+                ? const SizedBox.square(
+                    dimension: 36,
+                    child: _ButtonGlassSurface(shape: LiquidOval()),
+                  )
+                : Container(width: 36, height: 36, decoration: deco),
           ),
           IconButtonTheme(
             data: IconButtonThemeData(
@@ -225,6 +275,7 @@ class TopBarButton extends StatelessWidget {
     final size = style == TopBarButtonStyle.plain ? 40.0 : 36.0;
     final iconSize = style == TopBarButtonStyle.plain ? 24.0 : 20.0;
     final cs = Theme.of(context).colorScheme;
+    final liquid = _usesLiquidGlass(context, style);
     // 普通图标按钮常态透明，点击反馈由 IconButton 保留。
     final bg = switch (style) {
       TopBarButtonStyle.tonal => Colors.transparent,
@@ -244,17 +295,22 @@ class TopBarButton extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           IgnorePointer(
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: bg,
-                shape: BoxShape.circle,
-                border: style == TopBarButtonStyle.outlined
-                    ? Border.all(color: cs.outlineVariant)
-                    : null,
-              ),
-            ),
+            child: liquid
+                ? const SizedBox.square(
+                    dimension: 36,
+                    child: _ButtonGlassSurface(shape: LiquidOval()),
+                  )
+                : Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: bg,
+                      shape: BoxShape.circle,
+                      border: style == TopBarButtonStyle.outlined
+                          ? Border.all(color: cs.outlineVariant)
+                          : null,
+                    ),
+                  ),
           ),
           IconButton(
             tooltip: tooltip,

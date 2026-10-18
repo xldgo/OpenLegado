@@ -1,5 +1,17 @@
 # API 契约文档
 
+## 顶栏液态按钮适配边界（2026-10-18，实施前冻结）
+
+沿用TopBarButtonStyle.liquidGlass、TopBarActionStyler与TopBarButton现有输入，
+不新增偏好键，不修改Rust/FRB或数据库。仅在AppGlassScope预热成功时启用玻璃背景，
+未就绪保留原半透明实色。独立按钮视觉36dp、点击48dp；合并动作仅绘制一层胶囊背景，
+沿用原留白与分隔线，图标、文字和自定义菜单入口不重建为第三方交互控件。
+按钮材质沿用原色alpha乘0.5，光学模糊固定8逻辑像素，不复用栏背景浓度或全局模糊开关。
+GlassContainer仅绘制背景，不参与手势或语义；点击、长按、键盘、菜单与禁用态由原控件
+负责，不新增自定义缩放。用户要求后续批次不提升版本号，本批保持2.0.380+381。
+
+编写者：Codex + UI｜2026-10-18
+
 ## 悬浮底栏液态玻璃设置边界（2026-10-18，实施前冻结）
 
 UiSettings / UiSettingsRepository.update新增useFloatingBottomBarLiquidGlass布尔字段，

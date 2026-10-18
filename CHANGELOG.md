@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - [UI] 悬浮底栏增加独立液态玻璃开关，接入滑动选中指示器、拖动选择和键盘操作。
+- [UI] 顶栏液态玻璃样式接入按钮与合并胶囊背景，保留原有点击区域和菜单操作。
 
 ### Changed
 - [UI] 移除悬浮底栏的双层缩放，保留皮肤图标、无障碍标签与书架双击回顶。

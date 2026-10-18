@@ -23,6 +23,15 @@ AnimatedScale；普通模式仅保留选中背景过渡，尊重减少动态效�
 固定standard质量是本轮接线策略；组件行为测试使用minimal档位验证真实导航，
 不能据此声明standard着色器视觉、Impeller表现或GPU开销已验收。
 
+顶栏liquidGlass档通过TopBarActionStyler与TopBarButton的背景适配GlassContainer，
+独立按钮绘制36dp圆形，合并动作只绘制一层原尺寸的圆角胶囊；玻璃背景IgnorePointer，
+原IconButton/AppMenuButton保留48dp点击区域、禁用态、键盘、长按提示及菜单定位。
+不新增GlassIconButton手势层或自定义缩放，减少动态效果继续由既有按钮和库作用域处理。
+预热状态变化保留按钮/菜单所在节点，避免菜单被重建。未预热成功回退原半透明实色。
+按钮底色保持原色alpha乘0.5，光学blur固定8逻辑像素，独立于整栏设置；
+AppSurfaceMaterial.button统一参数，AppGlassStyle执行库参数转换。glass档仍使用实色。
+文字动作与自定义菜单入口不压入图标槽位；已有页面的显式plain档优先于全局样式。
+
 主页悬浮底栏使用AppScaffold.extendBody让正文在底栏后方绘制；默认页壳仍不延伸。
 主页在Scaffold的body上下文取得实际底栏占用高度，经AppBottomBarInset提供给
 各子页，不硬编码胶囊/安全区总高度；移除Scaffold为extendBody注入的正文底部
@@ -55,8 +64,7 @@ Sliver 头部使用 AppSliverSurfaceBackdrop 按可见 paintBounds 裁剪，透�
 已启用的模糊模式。不透明背景保留既有主题表面色调；半透明背景避免默认色调抬高 alpha。
 
 独立按钮、动作槽和合并胶囊共用按钮材质底色，浓度独立于栏背景。
-当前 glass/liquidGlass 均为已存在的半透明实色回退，界面明确标示；不在本批新增
-光学折射、按钮过滤器或修改悬浮底栏缩放，液态玻璃效果后置。
+glass使用半透明实色，liquidGlass在资源就绪时采用上述光学背景，未就绪时同色回退。
 颜色 ARGB 编码、漫画颜色矩阵、详情封面图像滤镜和进出动画不属于此设置单位。
 
 编写者：Codex + UI｜2026-10-18

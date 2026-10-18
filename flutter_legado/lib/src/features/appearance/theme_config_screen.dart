@@ -181,7 +181,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     TopBarButtonStyle.tonal => 'Tonal（默认）',
     TopBarButtonStyle.outlined => '描边',
     TopBarButtonStyle.glass => '玻璃',
-    TopBarButtonStyle.liquidGlass => '液态玻璃（暂用玻璃底色）',
+    TopBarButtonStyle.liquidGlass => '液态玻璃',
   };
 
   Future<void> _showTopBarOpacityDialog() =>

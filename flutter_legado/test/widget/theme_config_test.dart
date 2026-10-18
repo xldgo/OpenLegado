@@ -32,6 +32,27 @@ void main() {
     );
   }
 
+  testWidgets('顶栏液态玻璃沿用原样式选项并保存，无临时回退标签', (tester) async {
+    await tester.pumpWidget(wrap());
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('顶栏按钮样式'),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(find.text('顶栏按钮样式'));
+    await tester.pumpAndSettle();
+    expect(find.text('液态玻璃（暂用玻璃底色）'), findsNothing);
+    await tester.tap(find.widgetWithText(CheckboxMenuButton, '液态玻璃'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(uiSettingsProvider).topBarButtonStyle,
+      TopBarButtonStyle.liquidGlass,
+    );
+    expect(find.text('液态玻璃'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('渲染关键分组标题与自定义主题分组（IA 对齐参考版）', (tester) async {
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
