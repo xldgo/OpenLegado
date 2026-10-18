@@ -17,9 +17,6 @@ use legado_net::{COOKIE_JAR_HEADER, LegadoClient, LegadoRequest, Method};
 /// 默认请求超时（毫秒），与 Kotlin 端一致
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 
-/// ajaxAll 有界并发数
-const AJAX_ALL_CONCURRENCY: usize = 4;
-
 /// body 反序列化：兼容字符串、对象/数组（书山聚合等源 `url,{json}` 的
 /// body 是嵌套对象，须转 JSON 字符串，否则 serde 解析失败 → ajax 返回 [ERROR]）
 fn de_body<'de, D>(de: D) -> Result<Option<String>, D::Error>
@@ -406,66 +403,9 @@ fn ajax_request_body(
     Ok(response.body)
 }
 
-/// ajaxAll(urls_json) → 批量并发请求（有界并发）
-///
-/// 输入为 JSON 数组（URL 列表），返回 JSON 数组（每个 URL 的响应体，失败为空字符串）。
-/// 使用 `futures::stream::buffer_unordered` 实现有界并发（默认 4）。
-pub fn ajax_all(
-    request_resources: &RequestResources<'_>,
-    urls_json: &str,
-) -> Result<String, String> {
-    // 空输入 = 空列表（宿主入参宽松收敛：JS null/undefined → 空串，见
-    // quickjs_impl::LooseStrList；空数组 `[]` 同样命中），不视为 parse 错误
-    if urls_json.trim().is_empty() {
-        return Ok("[]".to_string());
-    }
-    block_on(async {
-        let urls: Vec<String> =
-            serde_json::from_str(urls_json).map_err(|e| format!("ajaxAll parse error: {}", e))?;
-
-        let client = request_resources.http.client(false, false)?;
-        // 回环 URL（本地书源/本地测试服务）须 no_proxy 直连（P2-17 约定
-        // cda70a0c54：HTTP_PROXY 存在时 reqwest 连 127.0.0.1 也走代理）；
-        // 真实主机 URL 沿用默认池（代理配置不变）
-        let loopback_client = urls
-            .iter()
-            .any(|url| is_loopback_url(url))
-            .then(|| request_resources.http.client(true, false))
-            .transpose()?;
-
-        use futures::stream::{self, StreamExt};
-
-        let results: Vec<String> = stream::iter(urls)
-            .map(|url| {
-                let c = if is_loopback_url(&url) {
-                    loopback_client
-                        .as_ref()
-                        .expect("loopback client built above")
-                        .clone()
-                } else {
-                    client.clone()
-                };
-                async move {
-                    // 写侧门控（批 2）：每个 URL 按当前书源开关补标记
-                    let mut headers = HashMap::new();
-                    apply_source_cookie_jar_gate(request_resources, &mut headers);
-                    let headers = if headers.is_empty() {
-                        None
-                    } else {
-                        Some(headers)
-                    };
-                    c.get(&url, headers)
-                        .await
-                        .map(|resp| resp.body)
-                        .unwrap_or_default()
-                }
-            })
-            .buffer_unordered(AJAX_ALL_CONCURRENCY)
-            .collect()
-            .await;
-
-        serde_json::to_string(&results).map_err(|e| format!("ajaxAll serialize error: {}", e))
-    })
+/// 批量规则请求的 Rust 入口，JSON 内部表示在 JS 边界包装为 StrResponse 数组。
+pub fn ajax_all(resources: &RequestResources<'_>, urls_json: &str) -> Result<String, String> {
+    super::batch_request::run(resources, urls_json, None, false, None)
 }
 
 /// connectFull(url, method?, headers?, body?, timeoutMs?) → 完整 HTTP 响应 JSON
@@ -1089,9 +1029,11 @@ mod tests {
         ]);
         let results_json = ajax_all(&fixture.http.request(), &urls.to_string())
             .expect("ajaxAll 到本地回环 mock 应成功");
-        let results: Vec<String> = serde_json::from_str(&results_json).expect("结果应可解析");
+        let results: Vec<HttpResponse> = serde_json::from_str(&results_json).expect("结果应可解析");
         assert_eq!(results.len(), 3, "应返回 3 个结果");
-        for body in &results {
+        for response in &results {
+            assert_eq!(response.status_code, 200);
+            let body = &response.body;
             assert!(
                 is_valid_response(body),
                 "每个响应体都应为 JSON 对象: {body}"

@@ -1187,7 +1187,7 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
       // 对齐上游 StrResponse `fun code(): Int`（okhttp3 Response.code()）
       code: function () { return r ? r.status_code : 0; },
       raw: function () { return raw; },
-      callTime: function () { return 0; },
+      callTime: function () { return typeof r.call_time === 'number' ? r.call_time : 0; },
       // 辅助新增（非上游 OkHttp 面）：本响应最终 URL 的域归属 cookie 串 — 3b-3
       cookies: function () { return java.getCookie(finalUrl); }
     };
@@ -1210,6 +1210,29 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
     return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4), arg5));
   };
   globalThis.connect = java.connect;
+  var __nativeAjaxAll = java.ajaxAll;
+  var __nativeAjaxTestAll = java.ajaxTestAll;
+  function __batchResponses(text) {
+    var rows = JSON.parse(text);
+    if (!Array.isArray(rows)) throw new TypeError('批量响应必须为数组');
+    return rows.map(function (row) { return __strResponse(JSON.stringify(row)); });
+  }
+  // setup 与缓存宿主会重复注入响应桥，已包装的批量函数不能再按 JSON 包装一次。
+  if (typeof java.ajaxAll === 'function' && !java.ajaxAll.__legadoBatchBridge) {
+    java.ajaxAll = function (urls, skipRateLimit) {
+      return __batchResponses(__nativeAjaxAll(urls, skipRateLimit === undefined ? false : skipRateLimit));
+    };
+    java.ajaxAll.__legadoBatchBridge = true;
+  }
+  if (typeof java.ajaxTestAll === 'function' && !java.ajaxTestAll.__legadoBatchBridge) {
+    java.ajaxTestAll = function (urls, timeout, skipRateLimit) {
+      return __batchResponses(__nativeAjaxTestAll(urls, timeout, skipRateLimit === undefined ? false : skipRateLimit));
+    };
+    java.ajaxTestAll.__legadoBatchBridge = true;
+  }
+  globalThis.ajaxAll = java.ajaxAll;
+  globalThis.ajaxTestAll = java.ajaxTestAll;
+
   java.get = function (url, headers, timeout) {
     if (arguments.length >= 2) {
       var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
@@ -2787,19 +2810,23 @@ fn register_network_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // ajaxAll(urls) -> String（JSON 数组，并发请求多个 URL）
-    // 对应 Kotlin: ajaxAll(urlList: Array<String>): Array<StrResponse>
-    // 入参经 LooseStrList 宽松收敛：JS 数组（晋江文学 bookList `java.ajaxAll(urls)`）
-    // → 元素级 ToString 后的 JSON 数组文本；null/undefined → 空串（空列表）。
+    // 内部 JSON 交由响应桥包装；普通批次失败抛异常并释放全部在途请求。
     let http = resources.clone();
     mount_dual(
         java,
         globals,
         "ajaxAll",
-        rquickjs::Function::new(ctx.clone(), move |urls: LooseStrList| -> String {
-            network::ajax_all(&http.request(), &urls.0).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        rquickjs::Function::new(
+            ctx.clone(),
+            move |ctx: rquickjs::Ctx<'js>,
+                  urls: LooseStrList,
+                  _skip_rate_limit: Opt<bool>|
+                  -> rquickjs::Result<String> {
+                super::batch_request::run(&http.request(), &urls.0, None, false, Some(&ctx))
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+            },
+        )
+        .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
     )?;
 
     // connect(url, method?, headers?, body?, timeoutMs?) -> String（完整响应 JSON）
@@ -4274,19 +4301,29 @@ fn register_misc_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // ajaxTestAll(urls) -> String（入参宽松收敛同 ajaxAll：上游 Kotlin
-    // `ajaxTestAll(urlList: Array<String>, timeout: Int)`，JsExtensions.kt:173）
+    // 测试批次保留每项错误；沿用原始 Int 的可选转换与超时边界。
     mount_dual(
         java,
         globals,
         "ajaxTestAll",
         {
             let http = resources.clone();
-            rquickjs::Function::new(ctx.clone(), move |urls: LooseStrList| -> String {
-                misc_api::ajax_test_all(&http, &urls.0)
-            })
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>,
+                      urls: LooseStrList,
+                      timeout: RhinoOptInt,
+                      _skip_rate_limit: Opt<bool>|
+                      -> rquickjs::Result<String> {
+                    let timeout =
+                        network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
+                            .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                    super::batch_request::run(&http.request(), &urls.0, timeout, true, Some(&ctx))
+                        .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                },
+            )
         }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
     )?;
 
     // toUrl(path, query) -> String
@@ -5131,7 +5168,7 @@ mod resource_network_tests {
             assert_eq!(vm.eval(&script).unwrap(), expected);
             let result: serde_json::Value = serde_json::from_str(
                 &vm.eval(&format!(
-                    "java.ajaxTestAll([{}])",
+                    "JSON.stringify(java.ajaxTestAll([{}]).map(function(r){{return {{statusCode:r.code()}};}}))",
                     quote(&format!("{base}/probe"))
                 ))
                 .unwrap(),

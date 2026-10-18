@@ -1,6 +1,6 @@
 //! 杂项 API
 //!
-//! 对应 Kotlin 端 `JsExtensions` 中的 connect / getSource / getTag / ajaxTestAll /
+//! 对应 Kotlin 端 `JsExtensions` 中的 getSource / getTag /
 //! toUrl / toast / logType 等方法。
 
 /// getSource - 从 DB 获取书源 JSON
@@ -30,56 +30,6 @@ pub fn get_tag(tag_name: &str) -> String {
         return "null".to_string();
     }
     tag_name.to_string()
-}
-
-/// ajaxTestAll - 批量测试 URL 可达性
-///
-/// 对应 Kotlin: `ajaxTestAll(urlList, timeout)` -> Array<StrResponse>
-/// 简化实现：对每个 URL 执行 GET 请求，返回 JSON 数组结果
-#[cfg(feature = "quickjs")]
-pub fn ajax_test_all(http: &crate::http_resources::HttpResources, urls: &str) -> String {
-    use crate::host_api::runtime_bridge::block_on;
-
-    let url_list: Vec<String> = serde_json::from_str(urls).unwrap_or_else(|_| {
-        urls.split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect()
-    });
-
-    let results = block_on(async {
-        let mut results = Vec::new();
-
-        for url in &url_list {
-            // 使用本资源连接池，不读取进程级网络注册槽。
-            let Ok(client) = http.client_for_url(url, false) else {
-                results.push(serde_json::json!({
-                    "url": url,
-                    "statusCode": 0,
-                    "success": false
-                }));
-                continue;
-            };
-            let status = match client.get(url, None).await {
-                Ok(resp) => resp.status,
-                Err(_) => 0,
-            };
-            results.push(serde_json::json!({
-                "url": url,
-                "statusCode": status,
-                "success": (200..400).contains(&status)
-            }));
-        }
-        results
-    });
-
-    serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string())
-}
-
-/// ajaxTestAll 的非 quickjs fallback
-#[cfg(not(feature = "quickjs"))]
-pub fn ajax_test_all(_urls: &str) -> String {
-    "[]".to_string()
 }
 
 /// toUrl - URL 拼接

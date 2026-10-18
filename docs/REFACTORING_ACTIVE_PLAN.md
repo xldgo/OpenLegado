@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-BATCH-REQUESTS-20261018：批量脚本请求对齐（P1）
+
+- 授权与基线：用户要求继续第三批；dep-audit / chore/dep-audit / 7dc19dd5d，上游固定15e1337a。单代理，不推送/合并，不写主目录用户文件。
+- 范围：ajaxAll/ajaxTestAll返回真实StrResponse数组并保持输入顺序；统一上一批AnalyzeUrl请求管线、当前VM动态JS和请求快照。网络有界并发，JS求值只在原调用线程同步进行，不跨await持有脚本临时绑定，不生成新VM或后台脱离任务。
+- 失败与超时：ajaxAll任一失败即抛异常并丢弃在途及未启动请求；ajaxTestAll接收毫秒超时，保留默认/零/正数/非法边界，逐项返回正文、状态、最终URL与耗时，失败记录负callTime。不把失败伪装成可用接口，不用HEAD替代实际规则请求。
+- 实施：先冻结契约、真实QuickJS/本地HTTP复现；拆分可共用的准备/异步发送/响应求值三段，复用响应包装；删除旧串行探活与乱序正文数组实现；补并发、顺序、失败取消、源头快照、嵌套绑定与超时回归，再相关测试和两档严格检查，整批本地提交。
+- 范围限制：当前JS宿主未注入书源RateLimiter与全局threadCount，保留固定4并发及skipRateLimit参数形态，不声称源级限流对齐；按现有结构可识别Timeout记-1，其余错误记-7，不按错误字符串猜测Java异常细分码。外部引擎主动中止网络仍不在现有宿主能力中，本批取消指批次失败后释放请求，不宣称新增外部停止接口。FRB/schema/依赖、UI、WebView与独立DNS/代理不改。
+- 复现与实现：修前两项真实QuickJS/HTTP用例失败，确认批量返回字符串或简化探活JSON，无法调用body/code/callTime。移除旧串行探活与乱序正文实现，批次复用准备/异步发送/响应求值三段；同步求值结束立即恢复外层绑定。无序消费任意失败以尽早取消，全部成功后按索引恢复输入顺序，不创建后台任务。
+- 响应与生命周期：同一StrResponse包装提供正文、状态、最终请求URL和耗时；失败测试项使用合成200、错误正文及负callTime，不丢其他项。固定HTTP回归验证实际并发且峰值不超过4、不同完成顺序、重复项、零覆盖规则预算、负值发送前拒绝、当前VM规则/POST编码和源头快照；普通批次失败时三条挂起正文TCP均关闭，后续六项未发送，失败后VM/池可继续使用。批量响应桥增加幂等包装，覆盖缓存/setup重复注入。
+- 验证与审查：JS完整库/集成共739项、既有3项忽略；Engine真实网络所有权/快照/释放6项通过，合计745项。JS两档与Engine QuickJS全目标严格Clippy、工作区两档全目标cargo check、限定格式及diff检查通过。单代理自查，无独立外审。证据build/js-batch-requests/{js-tests-final,engine-network-final,clippy-quickjs-final,clippy-default,workspace-quickjs,workspace-default}.log。Engine旧断言曾依赖批量不带来源头而产生空Cookie，已改为逐条验证原before快照及同值回写，保留隔离检查；早期失败日志不算通过。
+- 状态：第三批选定范围已关闭，版本2.0.382+383及双日志与本记录整批本地提交；主目录三份用户文件原字节保持。不构建DLL/Flutter/模拟器，不重复排版、无远程CI/推送/合并。FRB、生成物、schema和依赖不变。上述源级限流/全局并发、Java错误细分和外部停止能力尚未完成，后续另核查非批量响应桥的重复注入；不宣称JS网络全面对齐。回滚按本批撤销并重建native，不改写旧产物元数据。
+
+编写者：Codex｜2026-10-18
+
+
 ### JS-REQUEST-RULES-20261018：统一脚本请求规则（P1）
 
 - 授权与基线：用户批准第二批；沿用dep-audit / chore/dep-audit / 6b56da8ed，单代理，不推送/合并或修改主目录用户文档。上游固定15e1337a。

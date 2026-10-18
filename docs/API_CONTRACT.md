@@ -1,5 +1,25 @@
 # API 契约文档
 
+## JS批量网络请求（2026-10-18，实施前冻结）
+
+ajaxAll(urls, skipRateLimit?)、ajaxTestAll(urls, timeout?, skipRateLimit?)在JS端返回
+StrResponse数组，保留输入顺序、重复项与空列表的既有宽松入参；不再返回JSON字符串数组
+或statusCode/success探活对象。每项提供body()/code()/raw()/callTime()等同源响应能力。
+内部Rust边界仍以JSON传输，JS包装负责恢复对象方法；不保留第二种旧返回协议。
+两接口复用单项AnalyzeUrl规则、源头快照、Cookie、编码和重试；不以HEAD探活替代正文。
+ajaxAll失败抛异常，立即释放整个批次的在途future及未启动队列，不分离tokio任务。
+ajaxTestAll逐项保留失败：合成状态200、错误正文与负callTime；调用方用callTime<0
+判断失败。Timeout按现有结构记-1，其他不可细分错误记-7，不按字符串猜Java错误类别。
+成功callTime为请求和响应处理的实际毫秒数；超时参数覆盖URL预算，零关闭调用总期限。
+默认/null/undefined继续使用默认，负数在任何请求前拒绝；数值转换沿用原始Int契约。
+动态JS借用当前VM，在同步准备或响应求值后立刻恢复外层result/baseUrl/page、URL和头，
+不跨异步等待保留这些临时绑定。并发上限保持4；skipRateLimit参数形态接受，但宿主尚未
+注入源级限流和全局threadCount，本批不宣称这两项对齐或新增外部网络停止接口。
+FRB签名、生成绑定、数据库及UI不变；WebView/独立dnsIp/proxy继续明确不支持。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
 ## JS规则请求统一（2026-10-18，实施前冻结）
 
 ajax/connect复用AnalyzeUrl规则解析；同一URL选项的method/body/headers/charset、动态

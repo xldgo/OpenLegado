@@ -292,10 +292,19 @@ fn request_snapshot_survives_changed_source_headers_and_batch_async_execution() 
             let urls =
                 serde_json::json!([format!("{base}/batch1"), format!("{base}/batch2")]).to_string();
             let response = legado_js::host_api::network::ajax_all(&request, &urls).unwrap();
-            assert!(response.contains("server=before"));
+            let rows: Vec<legado_js::host_api::network::HttpResponse> =
+                serde_json::from_str(&response).unwrap();
+            assert_eq!(rows.len(), 2);
+            for row in rows {
+                let body: serde_json::Value = serde_json::from_str(&row.body).unwrap();
+                assert_eq!(
+                    body["owner"], "before",
+                    "每个批量请求都必须携带原快照，不能读已修改的来源头"
+                );
+            }
         },
     );
-    // 批量响应的空 owner 覆盖值，证明使用原开启快照写回，而非当前关闭来源。
+    // 批量请求现在携带原 owner，响应 Cookie 也必须按原开启快照写回。
     assert_eq!(
         engine
             .network()
@@ -304,7 +313,7 @@ fn request_snapshot_survives_changed_source_headers_and_batch_async_execution() 
             .unwrap()
             .get_key("127.0.0.1", "server")
             .as_deref(),
-        Some("")
+        Some("before")
     );
     fixture.join().unwrap();
 }

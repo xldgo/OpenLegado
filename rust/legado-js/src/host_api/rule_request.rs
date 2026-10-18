@@ -114,12 +114,36 @@ fn merge_headers(
     }
 }
 
+/// 准备阶段结束即释放当前 VM 的临时绑定，网络等待只持有普通 Rust 数据。
+pub(super) struct PreparedRequest {
+    parsed: AnalyzeUrl,
+    request: LegadoRequest,
+    timeout: u64,
+}
+impl PreparedRequest {
+    pub fn url(&self) -> &str {
+        &self.request.url
+    }
+}
+
 pub(super) fn execute(
     resources: &RequestResources<'_>,
     input: &str,
     overrides: RequestOverrides<'_>,
     evaluator: Option<&dyn SynchronousJsEvaluator>,
 ) -> Result<HttpResponse, String> {
+    let prepared = prepare(resources, input, overrides, evaluator)?;
+    let response = super::runtime_bridge::block_on(send(resources, &prepared))
+        .map_err(|error| format!("ajax request error: {error}"))?;
+    finish(prepared, response, evaluator)
+}
+
+pub(super) fn prepare(
+    resources: &RequestResources<'_>,
+    input: &str,
+    overrides: RequestOverrides<'_>,
+    evaluator: Option<&dyn SynchronousJsEvaluator>,
+) -> Result<PreparedRequest, String> {
     if input.trim().is_empty() {
         return Err("ajax: url is required".to_string());
     }
@@ -184,62 +208,77 @@ pub(super) fn execute(
     let url = parsed.url().to_string();
     headers = network::merge_global_cookie(resources, headers, &url);
     network::apply_source_cookie_jar_gate(resources, &mut headers);
-    let response = if parsed.is_data_uri() {
-        LegadoRawResponse {
+    Ok(PreparedRequest {
+        parsed,
+        request: LegadoRequest {
+            url,
+            method,
+            headers,
+            body,
+            timeout: network::request_timeout(timeout),
+        },
+        timeout,
+    })
+}
+
+/// future 可直接丢弃以停止读流，不创建脱离批次的 tokio 任务。
+pub(super) async fn send(
+    resources: &RequestResources<'_>,
+    prepared: &PreparedRequest,
+) -> legado_core::LegadoResult<LegadoRawResponse> {
+    let parsed = &prepared.parsed;
+    let request = &prepared.request;
+    if parsed.is_data_uri() {
+        return Ok(LegadoRawResponse {
             status: 200,
             headers: HashMap::new(),
-            body: parsed
-                .get_byte_array_if_data_uri()
-                .ok_or("data: URI 内容解码失败")?,
-            url: url.clone(),
-        }
-    } else {
-        super::runtime_bridge::block_on(async {
-            let client = network::request_client_with_timeout(
-                resources,
-                false,
-                &url,
-                timeout,
-                legado_net::client::ClientTimeoutPolicy::NoTotalTimeout,
-            )?;
-            let request = LegadoRequest {
-                url: url.clone(),
-                method,
+            url: request.url.clone(),
+            body: parsed.get_byte_array_if_data_uri().ok_or_else(|| {
+                legado_core::LegadoError::Parser("data: URI 内容解码失败".to_string())
+            })?,
+        });
+    }
+    let client = network::request_client_with_timeout(
+        resources,
+        false,
+        &request.url,
+        prepared.timeout,
+        legado_net::client::ClientTimeoutPolicy::NoTotalTimeout,
+    )
+    .map_err(legado_core::LegadoError::Network)?;
+    legado_net::request::send_with_response_options(
+        &client,
+        parsed.follow_redirects(),
+        parsed.retry(),
+        |response: &LegadoRawResponse| response.status,
+        |client| async move {
+            let mut stream = client.send_stream(request).await?;
+            let (status, headers, url) = (
+                stream.status(),
+                stream.headers().clone(),
+                stream.url().to_string(),
+            );
+            let mut bytes = Vec::new();
+            while let Some(chunk) = stream.next_chunk().await? {
+                bytes.extend_from_slice(&chunk);
+            }
+            Ok(LegadoRawResponse {
+                status,
                 headers,
-                body,
-                timeout: network::request_timeout(timeout),
-            };
-            legado_net::request::send_with_response_options(
-                &client,
-                parsed.follow_redirects(),
-                parsed.retry(),
-                |response: &LegadoRawResponse| response.status,
-                |client| {
-                    let request = &request;
-                    async move {
-                        let mut stream = client.send_stream(request).await?;
-                        let (status, headers, url) = (
-                            stream.status(),
-                            stream.headers().clone(),
-                            stream.url().to_string(),
-                        );
-                        let mut bytes = Vec::new();
-                        while let Some(chunk) = stream.next_chunk().await? {
-                            bytes.extend_from_slice(&chunk);
-                        }
-                        Ok(LegadoRawResponse {
-                            status,
-                            headers,
-                            body: bytes,
-                            url,
-                        })
-                    }
-                },
-            )
-            .await
-            .map_err(|e| format!("ajax request error: {e}"))
-        })?
-    };
+                url,
+                body: bytes,
+            })
+        },
+    )
+    .await
+}
+
+pub(super) fn finish(
+    prepared: PreparedRequest,
+    response: LegadoRawResponse,
+    evaluator: Option<&dyn SynchronousJsEvaluator>,
+) -> Result<HttpResponse, String> {
+    let parsed = prepared.parsed;
     let mut body = if parsed.response_type().is_some() {
         hex::encode(&response.body)
     } else {

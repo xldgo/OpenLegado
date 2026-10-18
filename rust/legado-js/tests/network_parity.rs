@@ -15,11 +15,19 @@ use legado_js::QuickJsEngine;
 use legado_js::engine::{JsEngine, JsValue};
 use legado_js::sandbox::SandboxConfig;
 
+#[derive(Default)]
+struct BatchMetrics {
+    active: AtomicUsize,
+    peak: AtomicUsize,
+    cancelled: AtomicUsize,
+}
+
 struct Server {
     address: SocketAddr,
     stopped: Arc<AtomicBool>,
     requests: Arc<AtomicUsize>,
     worker: Option<JoinHandle<()>>,
+    metrics: Arc<BatchMetrics>,
 }
 
 impl Server {
@@ -29,6 +37,8 @@ impl Server {
         listener.set_nonblocking(true).unwrap();
         let stopped = Arc::new(AtomicBool::new(false));
         let requests = Arc::new(AtomicUsize::new(0));
+        let metrics = Arc::new(BatchMetrics::default());
+        let observed = metrics.clone();
         let stop = stopped.clone();
         let count = requests.clone();
         let worker = std::thread::spawn(move || {
@@ -37,7 +47,8 @@ impl Server {
                 match listener.accept() {
                     Ok((socket, _)) => {
                         let count = count.clone();
-                        workers.push(std::thread::spawn(move || serve(socket, &count)));
+                        let metrics = observed.clone();
+                        workers.push(std::thread::spawn(move || serve(socket, &count, &metrics)));
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                         std::thread::sleep(Duration::from_millis(2));
@@ -54,6 +65,7 @@ impl Server {
             stopped,
             requests,
             worker: Some(worker),
+            metrics,
         }
     }
 
@@ -69,7 +81,7 @@ impl Drop for Server {
     }
 }
 
-fn serve(mut socket: TcpStream, requests: &AtomicUsize) {
+fn serve(mut socket: TcpStream, requests: &AtomicUsize, metrics: &BatchMetrics) {
     // Windows接受的socket可继承监听器的非阻塞模式；读完整HTTP请求前显式恢复阻塞。
     socket.set_nonblocking(false).unwrap();
     socket
@@ -108,6 +120,37 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize) {
         return;
     }
     let request_number = requests.fetch_add(1, Ordering::AcqRel) + 1;
+    if path == "/pending" {
+        let _ =
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n");
+        let mut probe = [0];
+        let result = socket.read(&mut probe);
+        if matches!(result, Ok(0))
+            || result.as_ref().is_err_and(|error| {
+                matches!(
+                    error.kind(),
+                    std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted
+                )
+            })
+        {
+            metrics.cancelled.fetch_add(1, Ordering::AcqRel);
+        }
+        return;
+    }
+    if path == "/batch-error" {
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while requests.load(Ordering::Acquire) < 4 && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        return;
+    }
+    if path.starts_with("/batch/") {
+        let active = metrics.active.fetch_add(1, Ordering::AcqRel) + 1;
+        metrics.peak.fetch_max(active, Ordering::AcqRel);
+        let delay = path.rsplit('/').next().unwrap().parse::<u64>().unwrap();
+        std::thread::sleep(Duration::from_millis(delay));
+        metrics.active.fetch_sub(1, Ordering::AcqRel);
+    }
     if path == "/disconnect" {
         return;
     }
@@ -704,4 +747,225 @@ fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fai
         1,
         "不支持的网络策略不得退化为普通HTTP请求"
     );
+}
+
+#[test]
+fn batch_requests_return_ordered_response_objects_and_preserve_duplicates() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var rows=java.ajaxAll([url,url]);
+        JSON.stringify([Array.isArray(rows),rows.length,
+            rows.map(function(r){return [r.code(),JSON.parse(r.body()).path,r.raw().request().url(),r.callTime()>=0];})]);
+    "#,
+    );
+    let response: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(response[0], true, "必须是JS响应数组，不能是JSON字符串");
+    assert_eq!(response[1], 2);
+    for item in response[2].as_array().unwrap() {
+        assert_eq!(
+            item,
+            &serde_json::json!([200, "/echo", server.url("/echo"), true])
+        );
+    }
+}
+
+#[test]
+fn batch_probe_uses_timeout_and_returns_diagnostics_without_aborting_other_items() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/"),
+        r#"
+        var rows=java.ajaxTestAll([url+'slow',url+'echo'],50,true);
+        JSON.stringify(rows.map(function(r){return [r.code(),r.body(),r.callTime()];}));
+    "#,
+    );
+    let response: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(response[0][0], 200, "失败保留上游合成StrResponse语义");
+    assert!(response[0][1].as_str().unwrap().contains("Timeout"));
+    assert_eq!(response[0][2], -1);
+    assert_eq!(response[1][0], 200);
+    assert!(response[1][2].as_i64().unwrap() >= 0);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(response[1][1].as_str().unwrap()).unwrap()["path"],
+        "/echo"
+    );
+}
+
+#[test]
+fn batch_results_keep_input_order_despite_completion_order_with_bounded_parallelism() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/"),
+        r#"
+        var paths=['batch/0/120','batch/1/20','batch/2/20','batch/3/20','batch/4/20','batch/5/20'];
+        JSON.stringify(java.ajaxAll(paths.map(function(path){return url+path;}))
+            .map(function(r){return JSON.parse(r.body()).path;}));
+    "#,
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).unwrap(),
+        serde_json::json!([
+            "/batch/0/120",
+            "/batch/1/20",
+            "/batch/2/20",
+            "/batch/3/20",
+            "/batch/4/20",
+            "/batch/5/20"
+        ])
+    );
+    let peak = server.metrics.peak.load(Ordering::Acquire);
+    assert!(peak > 1 && peak <= 4, "必须实际并发且不超过4：{peak}");
+}
+
+#[test]
+fn batch_failure_cancels_inflight_bodies_and_does_not_start_the_whole_queue() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/"),
+        r#"
+        var paths=['pending','pending','pending','batch-error','echo','echo','echo','echo','echo','echo'];
+        (function(){try{java.ajaxAll(paths.map(function(path){return url+path;}));return '错误被吞';}
+            catch(e){return String(e);}})();
+    "#,
+    );
+    assert!(response.contains("批量请求[3]"), "{response}");
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while server.metrics.cancelled.load(Ordering::Acquire) < 3
+        && std::time::Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(
+        server.requests.load(Ordering::Acquire),
+        4,
+        "未启动队列不得在失败后继续请求"
+    );
+    assert_eq!(
+        server.metrics.cancelled.load(Ordering::Acquire),
+        3,
+        "在途正文的TCP连接必须实际释放"
+    );
+    assert_eq!(
+        eval(&engine, &server.url("/echo"), "java.connect(url).code()"),
+        "200",
+        "失败后VM与连接池继续可用"
+    );
+}
+
+#[test]
+fn batch_dynamic_rules_and_response_scripts_restore_bindings_between_awaits() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/"),
+        r#"
+        globalThis.result='外层'; globalThis.baseUrl=url;
+        var first=url+'batch/0/80,'+JSON.stringify({js:'result',bodyJs:'JSON.parse(result).path'});
+        var second=url+'{{result === "外层" ? "echo" : "leaked"}},'+JSON.stringify({bodyJs:'JSON.parse(result).path'});
+        var rows=java.ajaxAll([first,second]);
+        JSON.stringify([rows.map(function(r){return r.body();}),result,baseUrl]);
+    "#,
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).unwrap(),
+        serde_json::json!([["/batch/0/80", "/echo"], "外层", server.url("/")])
+    );
+}
+
+#[test]
+fn batch_probe_zero_overrides_rule_timeout_and_negative_timeout_prevents_network_io() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/slow"),
+        r#"
+        var rule=url+',{"timeout_ms":20}';
+        var rows=java.ajaxTestAll([rule],0);
+        JSON.stringify([rows[0].body(),rows[0].callTime()>=0]);
+    "#,
+    );
+    assert_eq!(response, "[\"SLOW-OK\",true]");
+    let before = server.requests.load(Ordering::Acquire);
+    assert_eq!(
+        eval(
+            &engine,
+            &server.url("/echo"),
+            r#"
+        (function(){try{java.ajaxTestAll([url],-1);return false;}catch(e){return true;}})()
+    "#
+        ),
+        "true"
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), before);
+    for timeout in ["null", "undefined"] {
+        assert_eq!(
+            eval(
+                &engine,
+                &server.url("/echo"),
+                &format!("java.ajaxTestAll([url],{timeout})[0].code()")
+            ),
+            "200"
+        );
+    }
+}
+
+#[test]
+fn batch_bridge_reinjection_keeps_response_methods_available() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for _ in 0..2 {
+        engine
+            .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+            .unwrap();
+    }
+    for call in ["java.ajaxAll([url])", "java.ajaxTestAll([url],1000)"] {
+        assert_eq!(
+            eval(
+                &engine,
+                &server.url("/echo"),
+                &format!(
+                    "var rows={call};JSON.stringify([rows[0].code(),JSON.parse(rows[0].body()).path]);"
+                )
+            ),
+            "[200,\"/echo\"]"
+        );
+    }
+}
+
+#[test]
+fn batch_rules_share_post_encoding_and_the_original_source_header_snapshot() {
+    use legado_js::host_api::current_source::with_current_source_tag;
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = with_current_source_tag(&server.url("/"), || {
+        eval(
+            &engine,
+            &server.url("/echo"),
+            r#"
+        java.putGlobalHeaders(JSON.stringify({'X-Marker':'before'}));
+        var options={method:'POST',body:'q=中文',charset:'gbk',
+            js:"java.putGlobalHeaders(JSON.stringify({'X-Marker':'after'})); result"};
+        var rule=url+','+JSON.stringify(options);
+        JSON.stringify(java.ajaxAll([rule,rule]).map(function(r){return JSON.parse(r.body());}));
+    "#,
+        )
+    });
+    let rows: serde_json::Value = serde_json::from_str(&response).unwrap();
+    for row in rows.as_array().unwrap() {
+        assert_eq!(row["method"], "POST");
+        assert_eq!(row["body"], "q=%D6%D0%CE%C4");
+        assert_eq!(row["marker"], "before");
+    }
 }
