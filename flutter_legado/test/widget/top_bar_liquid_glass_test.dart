@@ -43,6 +43,115 @@ Widget _host(
 );
 
 void main() {
+  testWidgets('Plain档即使开启合并也保留独立按钮与点击区域', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        TopBarActionStyler(
+          style: TopBarButtonStyle.plain,
+          merge: true,
+          actions: [
+            IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+            IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+          ],
+        ),
+      ),
+    );
+    expect(find.byType(GlassContainer), findsNothing);
+    expect(tester.getSize(find.byType(TopBarActionStyler)), const Size(96, 48));
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final style in [
+    TopBarButtonStyle.outlined,
+    TopBarButtonStyle.glass,
+    TopBarButtonStyle.liquidGlass,
+  ]) {
+    for (final height in [56.0, 64.0]) {
+      testWidgets('真实顶栏仅合并右侧，保持按钮视觉高度：$style/$height', (tester) async {
+        var taps = 0;
+        await tester.pumpWidget(
+          _host(
+            Scaffold(
+              appBar: LegadoAppBar(
+                title: const Text('标题'),
+                showBack: true,
+                toolbarHeight: height,
+                actions: [
+                  IconButton(
+                    tooltip: '查找',
+                    onPressed: () => taps++,
+                    icon: const Icon(Icons.search),
+                  ),
+                  IconButton(
+                    tooltip: '操作',
+                    onPressed: () {},
+                    icon: const Icon(Icons.more_vert),
+                  ),
+                ],
+              ),
+            ),
+            page: true,
+            settings: UiSettings(
+              topBarButtonStyle: style,
+              mergeTopBarActions: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final capsules = find.byWidgetPredicate(
+          (widget) => style == TopBarButtonStyle.liquidGlass
+              ? widget is GlassContainer &&
+                    widget.shape is LiquidRoundedRectangle
+              : widget is Container &&
+                    widget.decoration is BoxDecoration &&
+                    (widget.decoration! as BoxDecoration).borderRadius ==
+                        BorderRadius.circular(20),
+        );
+        expect(capsules, findsOneWidget);
+        expect(tester.getSize(capsules).height, 36);
+        final leading = tester.widget<AppBar>(find.byType(AppBar)).leading!;
+        expect(tester.getSize(find.byWidget(leading)).width, 56);
+        await tester.tap(find.byTooltip('查找'));
+        expect(taps, 1);
+        if (style == TopBarButtonStyle.liquidGlass) {
+          final surface = find.byWidgetPredicate(
+            (widget) =>
+                widget is GlassContainer &&
+                widget.shape is LiquidRoundedRectangle,
+          );
+          expect(tester.getSize(surface), const Size(89, 36));
+        }
+      });
+    }
+  }
+
+  testWidgets('单动作合并背景退化为36dp圆形，保持48dp热区', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        Scaffold(
+          appBar: LegadoAppBar(
+            title: const Text('标题'),
+            showBack: false,
+            toolbarHeight: 64,
+            actions: [
+              IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+            ],
+          ),
+        ),
+        page: true,
+        settings: const UiSettings(
+          topBarButtonStyle: TopBarButtonStyle.liquidGlass,
+          mergeTopBarActions: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(GlassContainer)), const Size(36, 36));
+    expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
+    expect(tester.takeException(), isNull);
+  });
+
   for (final merge in [false, true]) {
     testWidgets('液态按钮保留48dp热区与菜单，仅合并时共用一层：$merge', (tester) async {
       var taps = 0;
@@ -81,10 +190,7 @@ void main() {
           const Size(36, 36),
         );
       } else {
-        expect(
-          tester.getSize(find.byType(GlassContainer)),
-          const Size(109, 52),
-        );
+        expect(tester.getSize(find.byType(GlassContainer)), const Size(89, 36));
       }
       // 触点位于视觉圆之外、48dp热区之内，材质不能截断此处输入。
       await tester.tapAt(

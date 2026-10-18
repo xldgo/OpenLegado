@@ -22,6 +22,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/search/search.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 import '../mocks/mocks.dart';
 
@@ -91,6 +93,41 @@ void main() {
       .toList();
 
   group('搜索页顶栏三钮（A1 形态对齐）', () {
+    for (final active in [false, true]) {
+      testWidgets('合并背景不叠加圆形底色，保留筛选强调色：$active', (tester) async {
+        when(() => mockApi.configRepository.getConfig('searchResultFilter'))
+            .thenAnswer((_) async => active ? '遮光' : null);
+        await tester.pumpWidget(
+          wrap(
+            UiSettingsScope(
+              settings: const UiSettings(
+                topBarButtonStyle: TopBarButtonStyle.glass,
+                mergeTopBarActions: true,
+              ),
+              child: const SearchScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final label in ['搜索范围', active ? '搜索结果过滤（已开启）' : '搜索结果过滤']) {
+          final finder = find.byWidgetPredicate(
+            (widget) => widget is IconButton && widget.tooltip == label,
+          );
+          final button = tester.widget<IconButton>(finder);
+          expect(
+            button.style!.backgroundColor!.resolve({}),
+            Colors.transparent,
+          );
+          final cs = Theme.of(tester.element(finder)).colorScheme;
+          expect(
+            button.style!.foregroundColor!.resolve({}),
+            active && label.contains('已开启') ? cs.primary : cs.onSurfaceVariant,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('顶栏三钮（设置/范围/过滤）均在位，⋮ 已移除', (tester) async {
       final events = StreamController<SearchBatch>();
       // [A1 形态对齐] searchMultiStream 契约含 page 参数（批次B G-B-01 翻页），

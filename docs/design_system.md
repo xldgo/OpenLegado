@@ -24,13 +24,17 @@ AnimatedScale；普通模式仅保留选中背景过渡，尊重减少动态效�
 不能据此声明standard着色器视觉、Impeller表现或GPU开销已验收。
 
 顶栏liquidGlass档通过TopBarActionStyler与TopBarButton的背景适配GlassContainer，
-独立按钮绘制36dp圆形，合并动作只绘制一层原尺寸的圆角胶囊；玻璃背景IgnorePointer，
+独立按钮绘制36dp圆形，合并动作只绘制一层36dp高的圆角胶囊；玻璃背景IgnorePointer，
 原IconButton/AppMenuButton保留48dp点击区域、禁用态、键盘、长按提示及菜单定位。
 不新增GlassIconButton手势层或自定义缩放，减少动态效果继续由既有按钮和库作用域处理。
+合并仅作用于右侧动作；返回按钮独立、Plain档不合并。胶囊背景在48dp点击层内缩6dp，
+单动作自然退化为36dp圆形；不再给单按钮叠加胶囊内边距或塞进leading的固定宽度。
 预热状态变化保留按钮/菜单所在节点，避免菜单被重建。未预热成功回退原半透明实色。
 按钮底色保持原色alpha乘0.5，光学blur固定8逻辑像素，独立于整栏设置；
 AppSurfaceMaterial.button统一参数，AppGlassStyle执行库参数转换。glass档仍使用实色。
 文字动作与自定义菜单入口不压入图标槽位；已有页面的显式plain档优先于全局样式。
+搜索范围与筛选动作在合并模式不再绘制独立圆形底色，筛选开启时用primary图标区分，
+不覆盖胶囊材质；未合并时保留原有激活底色与前景组合。
 
 主页悬浮底栏使用AppScaffold.extendBody让正文在底栏后方绘制；默认页壳仍不延伸。
 主页在Scaffold的body上下文取得实际底栏占用高度，经AppBottomBarInset提供给

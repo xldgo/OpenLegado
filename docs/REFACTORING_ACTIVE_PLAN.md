@@ -23,6 +23,10 @@
 - 第四批验证：按钮/既有顶栏/整栏材质/材质纯逻辑41项，外观页/保存失败/玻璃主题/悬浮导航20项，合计61项通过；语义树API更新后新按钮9项复验通过（已计入41项，不重复累计）。完整dart analyze --fatal-infos无问题，diff检查通过。组件使用minimal档位，不宣称standard着色器或性能验收；本批无设备、远程CI或独立外审。
 - 第四批排障与证据：初轮两项测试误用返回按钮及Tooltip标签语义查询，已改为系统返回和真实语义节点；另发现就绪切换时移除装饰节点会重建合并菜单，保留节点后正反切换均通过。初轮分析的测试API弃用提示已修正。证据flutter_legado/build/liquid-glass/b4-{buttons-initial,buttons-final,settings-regression,liquid-final,analyze-final}.log，初轮失败不计验收。
 - 状态：前四批代码与上述本地验证完成，第四批随本提交；按用户要求保持2.0.380+381，仅补充同版本两处更新日志。未推送、编译安装或修改主目录；⑤设备视觉/standard着色器/Impeller及profile仍待开展。本批可单独回滚，保留前三批成果。
+- 第四批补修：用户反馈合并顶栏外观异常。MuMu进程3797确认16px溢出，真实AppBar六项先红复现：自动返回被误传merge，72dp胶囊挤入56dp leading；另有合并背景52dp与独立按钮36dp不一致、搜索页显式圆形底色覆盖胶囊。核对本地上游TopBarButton.kt的独立导航/同高胶囊/Plain不合并语义，返回固定独立、背景内缩于48dp热区并保持36dp、单动作自然圆形，搜索合并态使用透明底与激活图标强调色。
+- 补修验证：顶栏与材质回归40项通过，补充Plain后顶栏17项复验通过（原16项重复，合计41项）；搜索页与360dp窄屏8项通过，共49项。完整Dart分析无问题，diff检查通过。搜索新增用例初轮误将Tooltip祖先当作IconButton父节点，修正Finder后通过；高度探针确认原实现并非整栏拉伸，根因是额外胶囊内边距，未用Align掩盖。
+- 补修设备：正式Python入口构建Debug x86_64并严格复用/校验既有Rust库，最终APK包内校验通过，覆盖MuMu 127.0.0.1:16384，720×1280/320dpi；新进程4725复验多动作、搜索菜单、返回和单动作，未见新的RenderFlex/overflow/E/flutter错误，原数据与版本2.0.380+381保留。证据build/liquid-glass/下merge-{reproduce,fixed,final,search-final,analyze-final,mumu-build-final,device-final}.log及mumu-qa/merged-{before,search-final,menu-final,single-final}.png（均位于flutter_legado/）。uiautomator在当前MuMu退出139，使用限定前台包的ADB触点和截图复验，未以其失败宣称应用崩溃。
+- 补修交付：代码、同版本日志与本条随本次本地提交，不推送、不修改主目录；单代理自查，无远程CI/iOS/profile结论，第五批仍待推进。
 
 编写者：Codex + UI｜2026-10-18
 

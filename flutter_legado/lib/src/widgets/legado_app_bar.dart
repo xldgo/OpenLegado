@@ -107,7 +107,6 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget? _buildLeading(
     BuildContext context, {
     required TopBarButtonStyle style,
-    required bool merge,
   }) {
     if (leading != null) {
       return TopBarActionStyler.styleActions(
@@ -128,7 +127,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ],
       style: style,
-      merge: merge,
+      merge: false,
     ).first;
   }
 
@@ -173,7 +172,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
         );
 
     final bar = AppBar(
-      leading: _buildLeading(context, style: style, merge: merge),
+      leading: _buildLeading(context, style: style),
       automaticallyImplyLeading: false,
       title: _safeTitle(title),
       actions: TopBarActionStyler.styleActions(

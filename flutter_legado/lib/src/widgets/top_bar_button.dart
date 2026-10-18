@@ -49,7 +49,7 @@ class TopBarActionStyler extends StatelessWidget {
   }) {
     final list = actions;
     if (list == null || list.isEmpty) return const [];
-    if (!merge) {
+    if (!merge || style == TopBarButtonStyle.plain) {
       return [for (final a in list) _ActionSlot(style: style, child: a)];
     }
     final liquid = _usesLiquidGlass(context, style);
@@ -70,25 +70,26 @@ class TopBarActionStyler extends StatelessWidget {
       slots.add(_ActionSlot(style: style, merge: true, child: list[i]));
     }
     return [
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        // 保留装饰节点，资源就绪切换时不重新挂载已打开的菜单。
-        decoration: liquid
-            ? const BoxDecoration()
-            : _mergeDecoration(context, style),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Stack(
           children: [
             Positioned.fill(
+              // 合并背景沿用36dp视觉高度，48dp热区位于同级，单按钮自然退化为圆形。
+              left: 6,
+              right: 6,
+              top: 6,
+              bottom: 6,
               child: IgnorePointer(
                 child: liquid
                     ? const _ButtonGlassSurface(
-                        shape: LiquidRoundedRectangle(borderRadius: 20),
+                        shape: LiquidRoundedRectangle(borderRadius: 18),
                       )
-                    : const SizedBox.shrink(),
+                    : Container(decoration: _mergeDecoration(context, style)),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
               child: Row(mainAxisSize: MainAxisSize.min, children: slots),
             ),
           ],
