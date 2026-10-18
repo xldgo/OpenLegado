@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### DATABASE-FAILURE-AUDIT-20261018：数据库异常与恢复核查（P1）
+
+- 授权与基线：用户要求按数据库→JS→解析→后台任务逐批核查、通过后本地提交。沿用feature/rust-ffi-modernization / da7c9f757与当前worktree，单代理、不推送/合并或修改主目录；不扩大为全仓错误载荷改造，不改版本/依赖/schema/FFI绑定。
+- 已有覆盖：StorageContext包含连接归还、异步等待、业务错误回滚、工作线程panic回滚和再次写入；书源批量/阅读记录多表写入有真实触发器失败回归；进度持锁失败及释放后重试已有FFI集成测试。优先复用，不新增专用宿主或重复全量CI。
+- 候选缺口：BookRepository同名同作者URL迁移在autocommit状态关闭FK后逐条执行，末尾插入失败可能丢失旧书并留下已迁移章节；关联表更新还会忽略SQL错误。先以真实SQLite触发器复现，再决定限定修复；保持成功时替换与目录保留语义，补失败后连接/事务可继续使用的证据。
+- 确认与修复：两项真实触发器复现分别证明新父行插入失败会丢失原书、关联标注更新失败被当成成功。限定URL迁移增加私有保存点守卫，失败回滚本次整组操作、成功保留原替换语义；在保存点内延迟FK检查而不关闭FK，退出恢复原defer_foreign_keys设置，外层事务不被提前提交。关联表更新逐项返回真实SQL错误。不是将所有数据库操作事务化，也不修改其他既有部分成功策略。
+- 错误传播结论：核对当前rusqlite的Display，常见SQLite失败包含具体消息，转换为Database(String)后类型化source不可下转，但真实SQL拒绝原因仍在；r2d2自身仅保存底层文本，Display已带该文本，不照搬reqwest的来源链补丁。业务代码/连接池错误前缀保持，原生枚举/FFI错误码不变，不启动通用错误类型改造。
+- 验证：新增仓储3项覆盖末尾失败回滚/再次成功、关联失败上抛、外层事务内失败恢复及成功后由外层回滚、延迟设置原true/false恢复；新增StorageContext真实SQL拒绝用例，确认原事务回滚、错误原因保留、下一异步任务可取连接并写入。DB库368/集成5/文档1共374项、StorageContext11项均通过，DB/Engine/FFI两档全目标Clippy -D warnings通过，限定格式与diff检查通过。证据：build/database-audit/{reproduce,fixed,db-tests,storage-tests,clippy-default,clippy-quickjs}.log；初次标注夹具列名错误已纠正，initial-fixture.log不计验收，最终reproduce的两项真实缺陷退出101，其余正式验证退出0。
+- 状态：数据库选定范围已关闭，修复/回归/记录本地提交后进入JS批。仅单代理自查和Windows Rust验证，无独立外审/远程CI/设备结论；正式native与FRB跨批集中复验，不提前声称现有DLL包含修复。未确认错误返回/事务RAII之外的连接池重置缺陷，不增加通用连接清洗或全仓事务框架。
+
+编写者：Codex｜2026-10-18
+
 ### RUST-UI-INTEGRATION-20261018：本轮双轨成果本地合流（P1）
 
 - 授权与基线：用户批准合并回主目录；主目录 feature/ui-reader-selection / a949b8d95，Rust worktree feature/rust-ffi-modernization / bcb6e4dbf，单代理、不推送。

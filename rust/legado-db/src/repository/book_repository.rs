@@ -12,6 +12,57 @@ pub struct BookRepository<'a> {
     conn: &'a Connection,
 }
 
+/// URL迁移可能处于外层事务内；保存点只回滚本次迁移，并恢复原外键延迟设置。
+struct BookUrlRemap<'a> {
+    conn: &'a Connection,
+    deferred: bool,
+    released: bool,
+}
+
+impl<'a> BookUrlRemap<'a> {
+    fn begin(conn: &'a Connection) -> LegadoResult<Self> {
+        let deferred = conn
+            .pragma_query_value(None, "defer_foreign_keys", |row| row.get(0))
+            .map_err(|e| LegadoError::Database(format!("读取外键延迟设置失败: {e}")))?;
+        conn.execute_batch("SAVEPOINT legado_book_url_remap")
+            .map_err(|e| LegadoError::Database(format!("开启书籍迁移保存点失败: {e}")))?;
+        let guard = Self {
+            conn,
+            deferred,
+            released: false,
+        };
+        conn.pragma_update(None, "defer_foreign_keys", true)
+            .map_err(|e| LegadoError::Database(format!("延迟外键校验失败: {e}")))?;
+        Ok(guard)
+    }
+
+    fn commit(mut self) -> LegadoResult<()> {
+        self.conn
+            .execute_batch("RELEASE SAVEPOINT legado_book_url_remap")
+            .map_err(|e| LegadoError::Database(format!("提交书籍迁移失败: {e}")))?;
+        self.released = true;
+        Ok(())
+    }
+}
+
+impl Drop for BookUrlRemap<'_> {
+    fn drop(&mut self) {
+        if !self.released && !self.conn.is_autocommit()
+            && let Err(error) = self.conn.execute_batch(
+                "ROLLBACK TO SAVEPOINT legado_book_url_remap; RELEASE SAVEPOINT legado_book_url_remap;",
+            )
+        {
+            log::error!("回滚书籍URL迁移失败: {error}");
+        }
+        if let Err(error) = self
+            .conn
+            .pragma_update(None, "defer_foreign_keys", self.deferred)
+        {
+            log::error!("恢复外键延迟设置失败: {error}");
+        }
+    }
+}
+
 impl<'a> BookRepository<'a> {
     pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
@@ -446,39 +497,37 @@ impl<'a> BookRepository<'a> {
             // 防御：同 URL 不应进入冲突路径，直接 REPLACE 字段
             return self.insert_replace(item);
         }
-        // 临时关闭 FK，避免迁移瞬间外键失败；删除旧行时也不会 CASCADE 清 chapters
+        // 先迁移子表，再替换父行；延迟校验期间也不关闭FK，原书目录不会级联删除。
+        let transaction = BookUrlRemap::begin(self.conn)?;
         self.conn
-            .execute_batch("PRAGMA foreign_keys = OFF;")
-            .map_err(|e| LegadoError::Database(format!("关闭外键失败: {e}")))?;
-        let result = (|| -> LegadoResult<()> {
-            self.conn
-                .execute(
-                    "UPDATE chapters SET bookUrl = ?1 WHERE bookUrl = ?2",
-                    params![new_url, old_url],
-                )
-                .map_err(|e| LegadoError::Database(format!("迁移 chapters 失败: {e}")))?;
-            let _ = self.conn.execute(
+            .execute(
+                "UPDATE chapters SET bookUrl = ?1 WHERE bookUrl = ?2",
+                params![new_url, old_url],
+            )
+            .map_err(|e| LegadoError::Database(format!("迁移 chapters 失败: {e}")))?;
+        self.conn
+            .execute(
                 "UPDATE highlights SET bookUrl = ?1 WHERE bookUrl = ?2",
                 params![new_url, old_url],
-            );
-            let _ = self.conn.execute(
+            )
+            .map_err(|e| LegadoError::Database(format!("迁移 highlights 失败: {e}")))?;
+        self.conn
+            .execute(
                 "UPDATE cached_chapters SET book_url = ?1 WHERE book_url = ?2",
                 params![new_url, old_url],
-            );
-            let _ = self.conn.execute(
+            )
+            .map_err(|e| LegadoError::Database(format!("迁移 cached_chapters 失败: {e}")))?;
+        self.conn
+            .execute(
                 "UPDATE download_tasks SET book_url = ?1 WHERE book_url = ?2",
                 params![new_url, old_url],
-            );
-            self.conn
-                .execute("DELETE FROM books WHERE bookUrl = ?1", params![old_url])
-                .map_err(|e| LegadoError::Database(format!("删除冲突书籍失败: {e}")))?;
-            self.insert_replace(item)?;
-            Ok(())
-        })();
+            )
+            .map_err(|e| LegadoError::Database(format!("迁移 download_tasks 失败: {e}")))?;
         self.conn
-            .execute_batch("PRAGMA foreign_keys = ON;")
-            .map_err(|e| LegadoError::Database(format!("恢复外键失败: {e}")))?;
-        result
+            .execute("DELETE FROM books WHERE bookUrl = ?1", params![old_url])
+            .map_err(|e| LegadoError::Database(format!("删除冲突书籍失败: {e}")))?;
+        self.insert_replace(item)?;
+        transaction.commit()
     }
 
     /// 批量更新书籍排序（对齐原版拖拽排序后 updateBook 持久化 order 字段）
@@ -1135,6 +1184,98 @@ mod tests {
             2,
             "name+author 冲突预检必须保留 chapters"
         );
+    }
+
+    #[test]
+    fn test_conflict_failure_preserves_original_book_and_reuses_connection() {
+        let db = crate::init_in_memory_database().unwrap();
+        let conn = db.connection();
+        let repo = BookRepository::new(conn);
+        repo.insert(&make_book("old", "同名书", "作者")).unwrap();
+        let chapters = crate::BookChapterRepository::new(conn);
+        chapters
+            .insert_batch(&[legado_core::models::BookChapter {
+                url: "chapter".into(),
+                book_url: "old".into(),
+                title: "原章节".into(),
+                ..Default::default()
+            }])
+            .unwrap();
+        conn.execute_batch("CREATE TRIGGER reject_replacement BEFORE INSERT ON books WHEN NEW.bookUrl = 'new' BEGIN SELECT RAISE(ABORT, 'replacement-denied'); END;").unwrap();
+        let error = repo
+            .insert(&make_book("new", "同名书", "作者"))
+            .unwrap_err();
+        assert!(
+            matches!(&error, LegadoError::Database(message) if message.contains("replacement-denied")),
+            "底层SQL原因应保留: {error}"
+        );
+        assert!(
+            repo.find_by_url("old").unwrap().is_some(),
+            "替换失败不能删除原书"
+        );
+        assert!(repo.find_by_url("new").unwrap().is_none());
+        assert_eq!(chapters.find_by_book_url("old").unwrap().len(), 1);
+        assert!(chapters.find_by_book_url("new").unwrap().is_empty());
+        assert!(conn.is_autocommit());
+        assert!(
+            conn.pragma_query_value(None, "foreign_keys", |row| row.get::<_, bool>(0))
+                .unwrap()
+        );
+        conn.execute_batch("DROP TRIGGER reject_replacement")
+            .unwrap();
+        repo.insert(&make_book("new", "同名书", "作者")).unwrap();
+        assert_eq!(chapters.find_by_book_url("new").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_conflict_related_update_error_is_not_reported_as_success() {
+        let db = crate::init_in_memory_database().unwrap();
+        let conn = db.connection();
+        let repo = BookRepository::new(conn);
+        repo.insert(&make_book("old", "同名书", "作者")).unwrap();
+        conn.execute_batch("INSERT INTO highlights(time, bookUrl, bookName, bookAuthor, chapterIndex, chapterPos, chapterPosEnd, chapterName, bookText, style, note) VALUES(1,'old','同名书','作者',0,0,1,'','字','','');
+            CREATE TRIGGER reject_highlight_move BEFORE UPDATE ON highlights BEGIN SELECT RAISE(ABORT, 'highlight-move-denied'); END;").unwrap();
+        let error = repo
+            .insert(&make_book("new", "同名书", "作者"))
+            .expect_err("关联数据迁移失败不能返回成功");
+        assert!(error.to_string().contains("highlight-move-denied"));
+        assert!(repo.find_by_url("old").unwrap().is_some());
+        assert_eq!(
+            conn.query_row("SELECT bookUrl FROM highlights WHERE time=1", [], |row| row
+                .get::<_, String>(0))
+                .unwrap(),
+            "old"
+        );
+    }
+
+    #[test]
+    fn test_conflict_savepoint_keeps_outer_transaction_and_foreign_key_settings() {
+        for deferred in [false, true] {
+            let db = crate::init_in_memory_database().unwrap();
+            let conn = db.connection();
+            let repo = BookRepository::new(conn);
+            repo.insert(&make_book("old", "同名书", "作者")).unwrap();
+            let tx = conn.unchecked_transaction().unwrap();
+            conn.pragma_update(None, "defer_foreign_keys", deferred)
+                .unwrap();
+            conn.execute_batch("CREATE TRIGGER reject_replacement BEFORE INSERT ON books WHEN NEW.bookUrl = 'new' BEGIN SELECT RAISE(ABORT, 'replacement-denied'); END;").unwrap();
+            assert!(repo.insert(&make_book("new", "同名书", "作者")).is_err());
+            assert!(repo.find_by_url("old").unwrap().is_some());
+            assert!(!conn.is_autocommit());
+            assert_eq!(
+                conn.pragma_query_value(None, "defer_foreign_keys", |row| row.get::<_, bool>(0))
+                    .unwrap(),
+                deferred
+            );
+            conn.execute_batch("DROP TRIGGER reject_replacement")
+                .unwrap();
+            repo.insert(&make_book("new", "同名书", "作者")).unwrap();
+            assert!(repo.find_by_url("new").unwrap().is_some());
+            assert!(!conn.is_autocommit(), "不能提前提交外层事务");
+            tx.rollback().unwrap();
+            assert!(repo.find_by_url("old").unwrap().is_some());
+            assert!(repo.find_by_url("new").unwrap().is_none());
+        }
     }
 
     /// P2-1：自愈回写用单列 update_toc_url —— 只改 tocUrl，其它列

@@ -267,3 +267,35 @@ async fn rate_windows_are_shared_only_within_one_context() {
         .is_ok()
     );
 }
+
+#[tokio::test]
+async fn sql_failure_preserves_cause_rolls_back_and_allows_next_task() {
+    let context = EngineContext::in_memory().unwrap();
+    write(&context, "before-sql-error").unwrap();
+    let result = context.storage().run(|db| -> LegadoResult<()> {
+        let conn = db.connection();
+        conn.execute_batch("CREATE TRIGGER reject_cache BEFORE INSERT ON caches WHEN NEW.key = 'blocked' BEGIN SELECT RAISE(ABORT, 'cache-write-denied'); END;")
+            .map_err(|e| LegadoError::Database(e.to_string()))?;
+        let _transaction = db.immediate_transaction()?;
+        let repo = CacheRepository::new(conn);
+        repo.put("same-key", "not-committed", 0)?;
+        repo.put("blocked", "denied", 0)
+    }).await.unwrap().unwrap_err();
+    assert!(
+        matches!(result, LegadoError::Database(message) if message.contains("cache-write-denied"))
+    );
+    assert_eq!(read(&context).as_deref(), Some("before-sql-error"));
+    context
+        .storage()
+        .run(|db| {
+            assert!(db.connection().is_autocommit());
+            db.connection()
+                .execute_batch("DROP TRIGGER reject_cache")
+                .unwrap();
+            CacheRepository::new(db.connection()).put("same-key", "next-task", 0)
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(read(&context).as_deref(), Some("next-task"));
+}
