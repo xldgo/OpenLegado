@@ -12,6 +12,8 @@
 - 第三批：workspace与net测试档移除Tokio full，各crate显式声明fs/io-util/net/macros/rt/sync/time所需能力，server同步精简，FFI到server的产品能力保留。工作区QuickJS全部目标检查通过，net/engine/server共596项回归通过；正式Windows特性21→15、Android/iOS 20→14，两档QuickJS均一致，去掉full/io-std/parking_lot/process/signal/signal-hook-registry；仅依赖图结论，不声称交叉编译或包体收益。证据b3-check.log、b3-tests.log、tokio-before/after.json。
 - 第四批MD5：core统一为md-5 0.11并提供小写摘要工具，db/engine/fetcher复用core工具而不再直接依赖MD5；parser保持同代实现，JS保留RSA约束的digest 0.10。迁移前固定向量/目录与文件名通过，TTS源上下文旧键e5ccc0556d13b6588c32a72fadc201f1已固定；迁移后四库1434项通过，严格Clippy通过。初次编译发现新摘要数组不实现LowerHex，改为单一十六进制转换；随后仅去除冗余format并经Clippy复核。证据b4-{vectors-before,tts-before,tests-final,clippy}.log。
 - 第四批补丁：仅更新rustls 0.23.46、sha2 0.11.1、sevenz-rust2 0.24.1；后者必要传递依赖lzma-rust2同步0.22→0.23，未顺带升级zip/fancy-regex/backtrace或JS的digest体系。网络/JS/Fetcher三库QuickJS共1065项通过（既有2项忽略），涵盖TLS、7z与摘要行为。证据b4-patch-updates.log、b4-patch-tests.log。
+- 第五批：受控OFL字体与完整中文断言先在旧后端5项通过，再以printpdf 0.12.8替代genpdf；新增独立PDF写入模块，保留标题/作者/简介/目录/章节和图片，混合章节保留正文、缺字明确报错。关闭默认HTML，未引入Azul；TTC直接选择字体面并删除手工拆表。书籍库171项通过、严格Clippy通过；初轮仅测试档Path导入告警，已消除并复验。文本与图片样例经独立PyMuPDF解析/渲染并目视检查，中文及混排可读、图片比例正确；过程b5-{pdf-before,tests-final,clippy-final,preview}.log，样例text/image.pdf与对应page3.png。临时预览example已删除，不新增宿主协议。
+- 第五批依赖与限制：锁文件494包，genpdf、rusttype、image 0.23、lopdf 0.26及time 0.2退出，外部PDF导入保留lopdf 0.45，printpdf使用0.44；两者均高于该公告修复下限，删除RUSTSEC-2026-0187豁免，保留RSA剩余风险说明。未安装或运行cargo-audit，不冒充完整安全扫描。生产保留系统字体/显式字体配置，测试字体只覆盖夹具，不随应用当作通用字体。版本2.0.378+379同步日志；未验证移动端PDF运行或包体。
 - 状态：实施中，六批完成证据逐批补入本条。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
 
 编写者：Codex｜2026-10-18

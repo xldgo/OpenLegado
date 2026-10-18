@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.378] - 2026-10-18
+
+### Changed
+- PDF导出更换后端，保留中文文本、目录、章节分页与图片比例，混合章节不再丢失正文。
+- 导出缺字时明确提示，移除旧PDF依赖及对应安全豁免。
+- 贡献者：Codex + Rust；构建号379。
+
 ## [2.0.377] - 2026-10-18
 
 ### Fixed
