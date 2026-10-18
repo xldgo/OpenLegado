@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -1157,7 +1158,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     // 键变化恰好触发一次"旧页 → 新页"过渡。首次打开（无既有分页）
     // 仍显示加载指示。
     if (state.isLoading && _paginatedPages.isEmpty) {
-      return LoadingIndicator(message: AppStrings.loadingChapter);
+      return _chapterLoading(context);
     }
     if (state.isLoading && state.error == null) {
       // 冻结帧：不重分页、不响应排版参数变化（加载完成后统一重算）
@@ -1224,6 +1225,21 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     return _buildContent(context, state, repaginate: true);
   }
 
+  Widget _chapterLoading(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return LoadingIndicator(
+      message: AppStrings.loadingChapter,
+      indicator: TickerMode(
+        enabled: !MediaQuery.disableAnimationsOf(context),
+        child: GlassProgressIndicator.circular(
+          color: color,
+          backgroundColor: color.withValues(alpha: 0.15),
+          semanticLabel: AppStrings.loadingChapter,
+        ),
+      ),
+    );
+  }
+
   /// 组装正文内容（ [_paginateIfNeeded] 的触发时机集中在此）
   Widget _buildContent(
     BuildContext context,
@@ -1261,7 +1277,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       return Center(child: Text(message, textAlign: TextAlign.center));
     }
     if (_waitingForAnchor) {
-      return LoadingIndicator(message: AppStrings.loadingChapter);
+      return _chapterLoading(context);
     }
 
     final Widget content;

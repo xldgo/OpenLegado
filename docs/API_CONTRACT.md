@@ -1,5 +1,34 @@
 # API 契约文档
 
+## 胶囊底栏文字边界（2026-10-18，用户确认）
+
+AppFloatingBottomBar增加showLabels可选布尔参数，默认true；主页从已有
+UiSettings.labelVisibilityMode映射：auto和labeled均为true，unlabeled为false。
+不新增偏好、不改保存值；标准底栏仍保留原三档。Glass页签传入label/null并始终保留
+semanticLabel，普通胶囊同步显示图标与文字；不实现只选中显示或自定义文字显隐动画。
+前景颜色显式使用应用主题，文字仅一行，基准胶囊高度64dp；大字体按所需行高增加
+占用，AppBottomBarInset继续消费实际尺寸。文字设置页提示胶囊下auto映射全部常显。
+不改Rust/FRB或数据库，版本仍为2.0.380+381；完成后本地提交，不自动推送或安装。
+
+编写者：Codex + UI｜2026-10-18
+
+## 阅读器 Glass 界面边界（2026-10-18，用户确认）
+
+阅读器统一使用 Glass 设计，不提供旧版/胶囊/液态菜单切换，不新增任何偏好键。
+前一轮未提交的 useLiquidGlass 配置、仓储参数、编解码和文案均撤销；原菜单配色、
+亮度设置和业务行为保留。Rust/FRB、数据库与阅读位置契约不变。
+
+第一批：顶栏独立返回按钮及共用背景动作组，章节信息保留网页/书源入口；
+底部进度与五键操作分成两个悬浮圆角表面，左右12dp、间隔10dp、底部12dp加系统
+安全区、四角28dp。使用真实GlassButton/GlassSlider，通过阅读器专用组件传递普通
+数值与回调，SDK Cupertino主题从material_ui局部阅读主题显式适配。
+按钮组内使用透明交互，不重复绘制玻璃。资源未就绪时表面降级、控件使用minimal，
+不恢复旧布局。保留原菜单控制器及外部点击/滑动关闭语义；弹出菜单内容、设置Sheet、
+选区工具条和朗读浮层在后续批次迁移。原220/180ms动画及减少动态效果规则保持。
+版本保持2.0.380+381，不自动推送或安装；iOS GPU效果和性能验收后置。
+
+编写者：Codex + UI｜2026-10-18
+
 ## 顶栏液态按钮适配边界（2026-10-18，实施前冻结）
 
 沿用TopBarButtonStyle.liquidGlass、TopBarActionStyler与TopBarButton现有输入，

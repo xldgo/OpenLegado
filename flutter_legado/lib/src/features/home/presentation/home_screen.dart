@@ -544,6 +544,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           AppGlassScope.availableOf(context);
       return AppFloatingBottomBar(
         useLiquidGlass: useGlass,
+        // 胶囊采用统一图标与文字布局，auto按全部显示处理。
+        showLabels: ui.labelVisibilityMode != BottomBarLabelMode.unlabeled,
         specs: _specsFor(tabs),
         currentIndex: currentIndex,
         activeSkin: activeSkin,

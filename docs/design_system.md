@@ -50,6 +50,44 @@ padding，避免嵌套SafeArea把整个视口缩回。尾部留白仅添加到Li
 >
 > **定位说明（2026-09-27）**：本文只定义 Flutter 实现使用的主题 Token 与生成关系，不定义产品视觉目标。布局、间距、形态、图标、文案、配色、字体和明暗主题均按参考版截图一比一验收，执行依据为 `SCREEN_1TO1_PARITY_SPEC_20260914.md` 与对应台账；MD3 Token 是实现工具，不能覆盖参考版基准。旧版“视觉风格自由”及仅按 Material 规范验收的描述均已废止。修改 Token 时同步维护本文与代码实现（`md3_colors.dart` 走生成器）。
 
+## 胶囊底栏文字（2026-10-18）
+
+胶囊默认显示全部导航文字。主页复用labelVisibilityMode：auto与labeled都显示全部，
+unlabeled保持纯图标；标准底栏仍按原三档处理，不改偏好数据。AppFloatingBottomBar
+通过默认true的showLabels参数接收结果，GlassTab使用label/null，名称语义始终保留。
+普通胶囊采用相同图标+文字结构；不实现只选中标签或额外文字显隐动画。
+底栏选中/未选中字重统一由NavigationBarTheme.labelTextStyle按状态提供，默认600/500；
+普通与Glass胶囊读取该主题字重，字号与行高仍来自labelSmall，不修改全局字阶。
+文字前景显式跟随应用主题，单行超出省略；64dp为基准，大字时将内容行高向上取整
+后增加底栏高度，避免分数字体度量溢出。正文尾部留白继续消费实际测得的占用。
+
+编写者：Codex + UI｜2026-10-18
+
+## 阅读器 Glass 控件（2026-10-18）
+
+用户批准阅读器采用新的 Glass 界面，不保留旧布局或材质开关。第一批使用独立返回
+按钮、右侧共用表面动作组及书名/章节信息面板；书名置于信息面板内，避免在正文上
+直接绘制低对比度文字，也避免窄屏下被动作组挤压。进度和五键操作分为两个悬浮面板，
+左右12dp、间隔10dp、底部12dp加安全区、四角28dp。正文与排版布局不变。
+
+ReaderMenuControlTheme集中向SDK Cupertino和GlassTheme传递局部阅读主题的亮度与
+强调色；应用仍使用material_ui主题。ReaderMenuControlButton/ProgressSlider只接受
+图标、文案、数值及回调；实际使用GlassButton/GlassSlider，不在页面复制手势或物理
+动画。独立按钮绘制自身材质，组内按钮透明且不叠加表面，热区至少48dp。
+AppGlassSurface仅绘制背景，资源未就绪使用普通表面；控件本身采用minimal档位，
+保持同一新布局和交互。该降级不对应用户可切换的旧设计。
+
+菜单保留原有弹层控制器、外部点击/滑动关闭顺序与220/180ms过渡。弹出菜单内容、
+设置Sheet、选区和朗读浮层在后续批次迁移；不为本批提前复制一套业务控制器。
+minimal组件验证不等于真实GPU外观或性能验收；设备profile按用户要求后置。
+
+章节首次加载与等待分页锚点使用 GlassProgressIndicator.circular，采用库默认20dp尺寸、
+2.5dp描边及应用主题强调色。LoadingIndicator通过可选indicator插槽复用居中提示布局，
+其他页面默认波浪指示器不变。章节spinner通过TickerMode响应系统减少动态效果，
+静止时仍显示加载提示；切章已有正文的冻结帧、错误与空态不受替换影响。
+
+编写者：Codex + UI｜2026-10-18
+
 ## 背景材质与参数单位（2026-10-18）
 
 UiSettings、普通设置仓储与组件材质统一使用 0–1 double 不透明度，设置界面显示

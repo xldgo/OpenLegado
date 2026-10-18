@@ -9,6 +9,50 @@
 编写者：Codex｜2026-10-18
 
 
+### UI-READER-SPINNER-20261018：章节加载 Glass spinner（P2）
+
+- 授权与基线：用户要求将章节加载的自定义动画替换为 Glass spinner；沿用 feature/ui-glass-material-base / 9be35728e，单代理，不提升版本、不自动安装或推送。
+- 范围：首次加载章节与等待分页锚点共用 GlassProgressIndicator.circular；复用原加载提示布局与主题色，系统减少动态效果时停止旋转。切章时已有正文的冻结帧、错误与空态保持原行为；不改其他页面的默认加载指示器。
+- 验收：实际阅读器加载状态、正文恢复和切章冻结帧回归；动画偏好切换与默认加载样式回归、定向静态分析。
+- 验证：阅读器加载状态及共用加载组件两份定向回归5项通过，覆盖减少动画切换、恢复正文及切章冻结帧；定向静态分析无问题，diff检查通过。证据：flutter_legado/build/liquid-glass/chapter-spinner-{tests,analyze}.log。
+- 状态：代码与本地验证完成，随本记录本地提交；无 Rust、FFI、依赖或设置修改。未编译安装、推送或执行远程CI，设备视觉待用户后续验证。
+
+编写者：Codex + UI｜2026-10-18
+
+### UI-NAV-LABEL-WEIGHT-20261018：底栏默认字重（P2）
+
+- 授权与基线：用户要求修改默认主题，采用选中600/未选中500；沿用feature/ui-glass-material-base / 2fca226f2，单代理，不提升版本，不自动安装或推送。
+- 范围：NavigationBarTheme默认状态字重统一；普通与Glass胶囊从该主题读取状态字重，保留labelSmall字号11/行高16，标准底栏原字号12不改，全局labelSmall不变，无新增偏好或依赖。
+- 验收：既有导航、材质和主题解析定向回归、静态分析；不新增与实现镜像的样式断言。
+- 实现：默认NavigationBarTheme按选中状态提供600/500，普通及Glass胶囊读取相同主题字重；字号、行高与间距不变，仍支持上层主题覆盖。不新增设置、依赖或主题扩展类型。
+- 验证：已有导航组件与主题解析三份回归28项全部通过，定向静态分析及diff检查通过。证据flutter_legado/build/liquid-glass/nav-label-weight-{tests,analyze}.log。
+- 状态：代码与本地验证完成，随本记录本地提交；无子代理、远程CI、安装、推送或版本提升。
+
+编写者：Codex + UI｜2026-10-18
+
+### UI-CAPSULE-LABELS-20261018：胶囊底栏文字（P2）
+
+- 授权与基线：用户同意胶囊默认全部显示，原只选中显示映射为全部显示；沿用feature/ui-glass-material-base / bae18c502，单代理，不提升版本，不自动编译安装或推送。
+- 范围：复用底栏文字设置，auto/labeled显示全部、unlabeled纯图标；普通与Glass胶囊一致，标准底栏三档保持。无新偏好、Rust/FFI/schema或依赖修改。
+- 验收：两种材质下默认与三档映射、点击切页后标签保持、隐藏时名称语义保留、主题文字颜色、窄屏大字及实际底部占用；不增加只选中显示动画。
+- 实现：AppFloatingBottomBar新增默认true的showLabels，主页消费已有三档设置，Glass页签显式传label和前景色；普通胶囊同步图标/文字布局，语义名称不受显隐影响。大字按行高向上取整增加实际占用，外观设置补充映射说明，不新增设置或文字动画。
+- 验证：四份定向Widget回归61项通过，覆盖两种材质及资源未就绪、全部文字/隐藏/切页后保持、320dp宽两倍字体五项、键盘/拖动/RTL/语义、主页三档切换与书架滚动状态。定向静态分析与diff检查通过，证据flutter_legado/build/liquid-glass/capsule-labels-final.log、capsule-labels-analyze.log。初轮普通/降级模式大字行高出现0.1px舍入溢出，向上取整后最终61项全部通过。
+- 状态：代码及本地验证完成，随本记录本地提交；无独立子代理审查，遵守用户不使用子代理。未重新编译安装、推送或触发远程CI，设备视觉待用户后续验证。
+
+编写者：Codex + UI｜2026-10-18
+
+### UI-READER-GLASS-20261018：阅读器 Glass 界面（P2）
+
+- 授权与基线：用户批准阅读器分三批迁移，沿用feature/ui-glass-material-base / 8844e40c2，单代理，不提升版本、不自动推送、合并或安装。用户追加明确不保留旧菜单设计，不需要胶囊/液态菜单开关；未提交配置改动直接撤销。
+- 第一批范围：顶栏独立返回按钮与共用动作组；底部进度和操作分层，真实GlassButton/GlassSlider；阅读器适配局部主题与第三方类型，仅资源失败降级。原菜单配色、章节链接、正文/选区/翻页、亮度与业务回调保留，不改Rust/FRB/schema。
+- 后续批次：第二批设置面板与弹出菜单内容；第三批选区与朗读浮层。不在同一批混改状态管理或公共全站UI。
+- 验收：48dp按钮与窄屏/大字/安全区；章节滑条、动作、弹出菜单优先关闭及正文手势边界；资源未就绪时仍是新布局，局部主题与减少动态效果、动画反向、隐藏停止绘制。minimal组件测试不替代standard着色器或iPhone/profile。
+- 第一批实现：书名与章节合入独立信息面板，避免窄屏动作挤压及正文上文字对比度不足；返回按钮独立，动作组共用背景，底部进度与五键操作相隔10dp。ReaderMenuControlTheme/Button/ProgressSlider隔离库类型与主题，AppGlassSurface只绘制背景并在资源未就绪时降级。撤销前一轮全部开关/偏好/生成文案改动，不存在两套菜单布局；保留原弹层控制器、横纵亮度控件及其配置。配色来源不改，全站MD3控件不改。
+- 第一批验证：三份定向测试62项通过，包含真实Rust分页的阅读器手势/主题/章节链接，以及320dp窄屏、1.8倍字体、34dp安全区、资源未就绪、键盘激活、禁用语义、原进度跳转和减少动态效果。全工程Dart分析无问题，diff检查通过。证据：flutter_legado/build/liquid-glass/reader-glass-final.log、reader-glass-analyze.log。早期失败分别为新Tooltip排除语义后测试Finder无法命中、组件测试父约束过紧和语义句柄释放时机，修正后最终全部通过；未把早期失败计作通过。
+- 状态：第一批代码及本地验证完成，本记录随实现同一本地提交；设备视觉待复验，第二/三批未启动。无独立子代理审查，遵守用户不使用子代理；无远程CI、推送或合并，未执行iPhone着色器/性能验收，不宣称全阅读器迁移完成。
+- 后续安装：用户要求后编译并覆盖安装MuMu的bae18c502版，x86_64原生源库及最终APK校验通过，应用正常进入书架。构建工具硬编码MainActivity启动失败，改用实时解析到的Launcher4后启动成功；本轮只完成安装，不修改工具。证据flutter_legado/build/liquid-glass/reader-glass-mumu-{build,startup}.log及reader-glass-mumu-home.png。未把安装视作阅读器视觉验收。
+
+编写者：Codex + UI｜2026-10-18
 
 ### UI-LIQUID-GLASS-20261018：液态玻璃分批接入（P2）
 

@@ -1,6 +1,7 @@
 import '../app_menu.dart';
 
 import 'dart:io' show File;
+import 'dart:math' as math;
 
 import '../../theme/app_surface_material.dart';
 import '../../theme/app_glass_theme.dart';
@@ -130,6 +131,7 @@ class AppFloatingBottomBar extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final AppSurfaceMaterial material;
   final bool useLiquidGlass;
+  final bool showLabels;
 
   const AppFloatingBottomBar({
     super.key,
@@ -139,6 +141,7 @@ class AppFloatingBottomBar extends StatelessWidget {
     required this.onSelect,
     required this.material,
     this.useLiquidGlass = false,
+    this.showLabels = true,
   });
 
   Widget _icon(int index, {required bool selected}) {
@@ -159,6 +162,22 @@ class AppFloatingBottomBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final radius = BorderRadius.circular(32);
     final useGlass = useLiquidGlass && AppGlassScope.availableOf(context);
+    final labelStyle = Theme.of(context).textTheme.labelSmall;
+    final navigationLabels = Theme.of(context)
+        .navigationBarTheme
+        .labelTextStyle;
+    final selectedWeight =
+        navigationLabels?.resolve({WidgetState.selected})?.fontWeight ??
+        FontWeight.w600;
+    final unselectedWeight =
+        navigationLabels?.resolve({})?.fontWeight ?? FontWeight.w500;
+    final labelHeight =
+        MediaQuery.textScalerOf(context).scale(labelStyle?.fontSize ?? 11) *
+        (labelStyle?.height ?? 1.3);
+    final barHeight = showLabels
+        // 字体行度量按完整逻辑像素预留，避免大字下小数舍入产生溢出。
+        ? math.max(64.0, (28 + 2 + labelHeight + 8).ceilToDouble())
+        : 64.0;
     final Widget capsule;
     if (useGlass) {
       final reduced = AppMotion.reduced(context);
@@ -168,7 +187,7 @@ class AppFloatingBottomBar extends StatelessWidget {
             GlassTab(
               icon: _icon(i, selected: false),
               activeIcon: _icon(i, selected: true),
-              // 悬浮形态沿用纯图标，名称仍提供给无障碍与键盘操作。
+              label: showLabels ? specs[i].label : null,
               semanticLabel: specs[i].label,
             ),
         ],
@@ -177,10 +196,14 @@ class AppFloatingBottomBar extends StatelessWidget {
         settings: AppGlassStyle.resolve(material),
         selectedIconColor: cs.onSurface,
         unselectedIconColor: cs.onSurfaceVariant,
-        textStyle: Theme.of(context).textTheme.labelSmall,
+        selectedLabelColor: cs.onSurface,
+        unselectedLabelColor: cs.onSurfaceVariant,
+        textStyle: labelStyle,
+        selectedLabelStyle: TextStyle(fontWeight: selectedWeight),
+        unselectedLabelStyle: TextStyle(fontWeight: unselectedWeight),
         horizontalPadding: 0,
         verticalPadding: 0,
-        barHeight: 64,
+        barHeight: barHeight,
         barBorderRadius: 32,
         magnification: reduced ? 1 : 1.15,
         interactionBehavior: reduced
@@ -203,7 +226,7 @@ class AppFloatingBottomBar extends StatelessWidget {
           material: material,
           borderRadius: radius,
           child: Container(
-            height: 64,
+            height: barHeight,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: material.color,
@@ -212,7 +235,15 @@ class AppFloatingBottomBar extends StatelessWidget {
             child: Row(
               children: [
                 for (var i = 0; i < specs.length; i++)
-                  Expanded(child: _plainItem(context, i, cs)),
+                  Expanded(
+                    child: _plainItem(
+                      context,
+                      i,
+                      cs,
+                      labelStyle,
+                      i == currentIndex ? selectedWeight : unselectedWeight,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -229,7 +260,13 @@ class AppFloatingBottomBar extends StatelessWidget {
     );
   }
 
-  Widget _plainItem(BuildContext context, int index, ColorScheme cs) {
+  Widget _plainItem(
+    BuildContext context,
+    int index,
+    ColorScheme cs,
+    TextStyle? labelStyle,
+    FontWeight labelWeight,
+  ) {
     final selected = currentIndex == index;
     return Semantics(
       button: true,
@@ -242,20 +279,37 @@ class AppFloatingBottomBar extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelect(index),
         child: Center(
-          child: AnimatedContainer(
-            duration: AppMotion.duration(
-              context,
-              const Duration(milliseconds: 200),
-            ),
-            curve: Curves.fastOutSlowIn,
-            width: selected ? 64 : 48,
-            height: 32,
-            decoration: BoxDecoration(
-              color: selected ? cs.secondaryContainer : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            alignment: Alignment.center,
-            child: _icon(index, selected: selected),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: AppMotion.duration(
+                  context,
+                  const Duration(milliseconds: 200),
+                ),
+                curve: Curves.fastOutSlowIn,
+                width: selected ? 64 : 48,
+                height: showLabels ? 28 : 32,
+                decoration: BoxDecoration(
+                  color: selected ? cs.secondaryContainer : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: _icon(index, selected: selected),
+              ),
+              if (showLabels) ...[
+                const SizedBox(height: 2),
+                Text(
+                  specs[index].label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle?.copyWith(
+                    fontWeight: labelWeight,
+                    color: selected ? cs.onSurface : cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
