@@ -80,6 +80,58 @@ fn source(engine: &EngineContext, tag: &str) {
 }
 
 #[test]
+fn js_requests_share_the_engine_source_rate_window() {
+    use std::time::{Duration, Instant};
+    let (url, server) = fixture(7);
+    let engine = EngineContext::in_memory().unwrap();
+    source(&engine, &url);
+    engine
+        .storage()
+        .with_database(|db| {
+            db.connection()
+                .execute(
+                    "UPDATE book_sources SET concurrentRate='1/180' WHERE bookSourceUrl=?1",
+                    [&url],
+                )
+                .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+            Ok(())
+        })
+        .unwrap();
+    let vm = engine
+        .js_resources()
+        .create_engine(SandboxConfig::default())
+        .unwrap();
+    vm.eval(&format!(
+        "globalThis.url={};java.ajax(url)",
+        serde_json::to_string(&url).unwrap()
+    ))
+    .unwrap();
+    for call in [
+        "java.ajax(url)",
+        "java.connect(url).body()",
+        "java.get(url,{}).body()",
+        "java.head(url,{}).body()",
+        "java.post(url,'',{}).body()",
+    ] {
+        legado_js::host_api::runtime_bridge::block_on(
+            engine.rate_limiter().acquire_key(&url, "1/180"),
+        );
+        let start = Instant::now();
+        legado_js::host_api::current_source::with_current_source_tag(&url, || vm.eval(call))
+            .unwrap();
+        assert!(
+            start.elapsed() >= Duration::from_millis(130),
+            "{call}未消费已有源限流窗口"
+        );
+    }
+    legado_js::host_api::current_source::with_current_source_tag(&url, || {
+        vm.eval("java.ajaxAll([url],true)[0].body()")
+    })
+    .unwrap();
+    server.join().unwrap();
+}
+
+#[test]
 fn webview_payloads_use_the_same_vm_cookie_owner_and_keep_empty_url_empty() {
     let one = EngineContext::in_memory().unwrap();
     let two = EngineContext::in_memory().unwrap();

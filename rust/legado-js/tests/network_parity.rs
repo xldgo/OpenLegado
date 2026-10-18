@@ -22,6 +22,159 @@ struct BatchMetrics {
     cancelled: AtomicUsize,
 }
 
+struct Policy {
+    concurrency: AtomicUsize,
+    gate: Option<Arc<Gate>>,
+}
+
+impl legado_js::http_request_policy::HttpRequestPolicy for Policy {
+    fn snapshot(
+        &self,
+        _: Option<&str>,
+    ) -> Result<legado_js::http_request_policy::RequestPolicySnapshot, String> {
+        Ok(legado_js::http_request_policy::RequestPolicySnapshot {
+            concurrency: std::num::NonZeroUsize::new(self.concurrency.load(Ordering::Acquire))
+                .unwrap(),
+            gate: self
+                .gate
+                .clone()
+                .map(|g| g as Arc<dyn legado_js::http_request_policy::RequestGate>),
+        })
+    }
+}
+
+#[derive(Default)]
+struct Gate {
+    delay: Option<Duration>,
+    entered: AtomicUsize,
+    cancelled: AtomicUsize,
+}
+
+impl legado_js::http_request_policy::RequestGate for Gate {
+    fn acquire(&self) -> legado_js::http_request_policy::RequestWait<'_> {
+        Box::pin(async {
+            let index = self.entered.fetch_add(1, Ordering::AcqRel);
+            struct Waiting<'a>(&'a AtomicUsize, bool);
+            impl Drop for Waiting<'_> {
+                fn drop(&mut self) {
+                    if !self.1 {
+                        self.0.fetch_add(1, Ordering::AcqRel);
+                    }
+                }
+            }
+            let mut wait = Waiting(&self.cancelled, false);
+            match self.delay {
+                Some(delay) => tokio::time::sleep(delay).await,
+                None if index > 0 => std::future::pending::<()>().await,
+                None => (),
+            }
+            wait.1 = true;
+        })
+    }
+}
+
+#[test]
+fn configured_batch_concurrency_applies_even_when_rate_is_skipped() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let policy = Arc::new(Policy {
+        concurrency: AtomicUsize::new(2),
+        gate: None,
+    });
+    engine.http_resources().set_request_policy(policy.clone());
+    for (limit, call) in [
+        (2, "java.ajaxAll(urls,true)"),
+        (1, "java.ajaxTestAll(urls,1000,true)"),
+    ] {
+        policy.concurrency.store(limit, Ordering::Release);
+        server.metrics.peak.store(0, Ordering::Release);
+        let urls: Vec<_> = (0..6)
+            .map(|i| server.url(&format!("/batch/{i}/50")))
+            .collect();
+        assert_eq!(
+            eval(
+                &engine,
+                &server.url("/"),
+                &format!(
+                    "var urls={}; {call}.length",
+                    serde_json::to_string(&urls).unwrap()
+                )
+            ),
+            "6"
+        );
+        assert_eq!(server.metrics.peak.load(Ordering::Acquire), limit);
+    }
+}
+
+#[test]
+fn skip_rate_limit_is_explicit_and_probe_time_excludes_wait() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let gate = Arc::new(Gate {
+        delay: Some(Duration::from_millis(180)),
+        ..Default::default()
+    });
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(2),
+        gate: Some(gate.clone()),
+    }));
+    let start = std::time::Instant::now();
+    let time = eval(
+        &engine,
+        &server.url("/echo"),
+        "java.ajaxTestAll([url],1000)[0].callTime()",
+    )
+    .parse::<u128>()
+    .unwrap();
+    assert!(start.elapsed().as_millis() >= time + 140);
+    eval(
+        &engine,
+        &server.url("/echo"),
+        "java.ajaxAll([url],false)[0].body()",
+    );
+    assert_eq!(gate.entered.load(Ordering::Acquire), 2);
+    for call in [
+        "java.ajaxAll([url],true)",
+        "java.ajaxTestAll([url],1000,true)",
+    ] {
+        eval(&engine, &server.url("/echo"), call);
+    }
+    assert_eq!(
+        gate.entered.load(Ordering::Acquire),
+        2,
+        "跳过源限流不应创建等待"
+    );
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn failed_batch_drops_rate_waiters_without_sending_queued_requests() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let gate = Arc::new(Gate::default());
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(3),
+        gate: Some(gate.clone()),
+    }));
+    let output = eval(
+        &engine,
+        &server.url("/disconnect"),
+        "try {java.ajaxAll([url,url,url,url,url]); 'bad'} catch(e) {'cancelled'}",
+    );
+    assert_eq!(output, "cancelled");
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+    assert_eq!(gate.entered.load(Ordering::Acquire), 3);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 2);
+    assert_eq!(
+        eval(
+            &engine,
+            &server.url("/echo"),
+            "java.ajaxAll([url],true)[0].code()"
+        ),
+        "200"
+    );
+}
+
 struct Server {
     address: SocketAddr,
     stopped: Arc<AtomicBool>,
@@ -219,10 +372,17 @@ fn eval(engine: &QuickJsEngine, url: &str, script: &str) -> String {
 fn check_timeout(method: &str) {
     let server = Server::new("127.0.0.1:0");
     let engine = engine();
+    // 先确认请求链已就绪，避免并行建VM/首次建池挤占短超时预算。
+    eval(
+        &engine,
+        &server.url("/echo"),
+        "java.get(url,{}).statusCode()",
+    );
+    let before = server.requests.load(Ordering::Acquire);
     let call = if method == "post" {
-        "java.post(url,'正文',{ 'X-Marker':'timeout' },300)".to_string()
+        "java.post(url,'正文',{ 'X-Marker':'timeout' },600)".to_string()
     } else {
-        format!("java.{method}(url,{{'X-Marker':'timeout'}},300)")
+        format!("java.{method}(url,{{'X-Marker':'timeout'}},600)")
     };
     let response = eval(
         &engine,
@@ -232,7 +392,7 @@ fn check_timeout(method: &str) {
         ),
     );
     assert_eq!(
-        server.requests.load(Ordering::Acquire),
+        server.requests.load(Ordering::Acquire) - before,
         1,
         "慢请求必须真正到达服务端"
     );
@@ -777,11 +937,12 @@ fn batch_requests_return_ordered_response_objects_and_preserve_duplicates() {
 fn batch_probe_uses_timeout_and_returns_diagnostics_without_aborting_other_items() {
     let server = Server::new("127.0.0.1:0");
     let engine = engine();
+    eval(&engine, &server.url("/echo"), "java.ajax(url)");
     let response = eval(
         &engine,
         &server.url("/"),
         r#"
-        var rows=java.ajaxTestAll([url+'slow',url+'echo'],50,true);
+        var rows=java.ajaxTestAll([url+'slow',url+'echo'],600,true);
         JSON.stringify(rows.map(function(r){return [r.code(),r.body(),r.callTime()];}));
     "#,
     );

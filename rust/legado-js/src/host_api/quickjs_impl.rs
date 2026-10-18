@@ -2850,10 +2850,17 @@ fn register_network_apis<'js>(
             ctx.clone(),
             move |ctx: rquickjs::Ctx<'js>,
                   urls: LooseStrList,
-                  _skip_rate_limit: Opt<bool>|
+                  skip_rate_limit: Opt<bool>|
                   -> rquickjs::Result<String> {
-                super::batch_request::run(&http.request(), &urls.0, None, false, Some(&ctx))
-                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                super::batch_request::run(
+                    &http.request(),
+                    &urls.0,
+                    None,
+                    false,
+                    skip_rate_limit.0.unwrap_or(false),
+                    Some(&ctx),
+                )
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
@@ -4343,13 +4350,20 @@ fn register_misc_apis<'js>(
                 move |ctx: rquickjs::Ctx<'js>,
                       urls: LooseStrList,
                       timeout: RhinoOptInt,
-                      _skip_rate_limit: Opt<bool>|
+                      skip_rate_limit: Opt<bool>|
                       -> rquickjs::Result<String> {
                     let timeout =
                         network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
                             .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
-                    super::batch_request::run(&http.request(), &urls.0, timeout, true, Some(&ctx))
-                        .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                    super::batch_request::run(
+                        &http.request(),
+                        &urls.0,
+                        timeout,
+                        true,
+                        skip_rate_limit.0.unwrap_or(false),
+                        Some(&ctx),
+                    )
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
                 },
             )
         }

@@ -18,6 +18,7 @@ struct Pools {
 
 /// 各策略池共享同一罐；按需构建，构造不持槽位锁跨数据库预载。
 pub struct HttpResources {
+    request_policy: RwLock<Option<Arc<dyn crate::http_request_policy::HttpRequestPolicy>>>,
     hosts: Arc<legado_net::custom_hosts::CustomHosts>,
     store: Arc<RwLock<CookieStore>>,
     persistence: Option<Arc<dyn CookiePersistence>>,
@@ -55,6 +56,7 @@ impl HttpResources {
         lookup: SourceCookieJarLookup,
     ) -> Self {
         Self {
+            request_policy: RwLock::new(None),
             hosts: Arc::new(Default::default()),
             store,
             persistence,
@@ -75,6 +77,17 @@ impl HttpResources {
         self.hosts = hosts;
         self.reset_clients();
         self
+    }
+
+    /// 更新宿主策略而不重建VM/客户端；等待时不持有此锁。
+    pub fn set_request_policy(
+        &self,
+        policy: Arc<dyn crate::http_request_policy::HttpRequestPolicy>,
+    ) {
+        *self
+            .request_policy
+            .write()
+            .unwrap_or_else(|p| p.into_inner()) = Some(policy);
     }
 
     pub(crate) fn fonts(&self) -> &crate::host_api::font_api::FontResources {
@@ -203,6 +216,7 @@ impl HttpResources {
     pub fn request_for(&self, source: Option<&str>) -> RequestResources<'_> {
         RequestResources {
             http: self,
+            source: source.map(str::to_owned),
             cookie_jar_enabled: source.and_then(|source| (self.lookup)(source)) == Some(true),
             headers: source
                 .map(|source| self.headers_for(source))
@@ -265,8 +279,24 @@ impl HttpResources {
 /// 固定来源开关和头，不跨异步边界访问线程局部状态。
 pub struct RequestResources<'a> {
     pub http: &'a HttpResources,
+    pub source: Option<String>,
     pub cookie_jar_enabled: bool,
     pub headers: HashMap<String, String>,
+}
+
+impl RequestResources<'_> {
+    pub fn policy(&self) -> Result<crate::http_request_policy::RequestPolicySnapshot, String> {
+        let policy = self
+            .http
+            .request_policy
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone();
+        policy.map_or_else(
+            || Ok(Default::default()),
+            |policy| policy.snapshot(self.source.as_deref()),
+        )
+    }
 }
 
 struct MemoryCookies(Arc<RwLock<CookieStore>>);

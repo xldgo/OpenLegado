@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.384] - 2026-10-18
+
+### Fixed
+- 书源脚本网络请求与抓取任务共享源级限流，避免并行调用绕过访问频率。
+- 批量脚本请求支持显式跳过源限流，同时保留并发上限；等待不再计入探活耗时。
+- 贡献者：Codex + Rust；构建号385。
+
 ## [2.0.383] - 2026-10-18
 
 ### Fixed

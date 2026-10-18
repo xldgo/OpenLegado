@@ -1,5 +1,22 @@
 # API 契约文档
 
+## JS请求限流与批量并发（2026-10-18，实施前冻结）
+
+ajax/connect及get/head/post复用所属EngineContext的RateLimiterRegistry，按当前源键
+消费concurrentRate，与抓取主链共用窗口；书源、订阅源和httpTts:<id>均从所属存储读取。
+HTTP TTS沿用ttsSourceState中的concurrentRate覆盖。源配置缺失/空值/0沿用现有限流器语义。
+限流等待发生在HTTP发送前，释放数据库连接与策略锁后再等待；网络期限与callTime不包含等待。
+ajaxAll/ajaxTestAll的skipRateLimit缺省为false，true仅跳过源限流，不跳过并发上限。
+正式引擎从通用Rust配置config:threadCount读取正整数并发，缺失/非法值使用上游默认16；独立无存储VM
+保持4。每批次固定来源、策略与并发快照，后续调用重新读取配置；源头不从异步TLS重取。
+批次失败直接丢弃在途请求及限流等待，不生成脱离任务或预先占用未来窗口。
+JS仅定义可注入窄策略，不反向依赖Fetcher、不持有根Engine/JsResources，保留可释放资源图。
+不修改UI、FRB签名/生成物、数据库schema、网络重试及外部主动停止能力。
+注意：当前Flutter线程数条目仍是读取SharedPreferences的只读占位，与此Rust配置尚未统一；
+本批不声称设置页已可修改并发，也不从Rust读取平台私有偏好文件。后续开放控件时应统一权威来源。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## JS响应桥注入生命周期（2026-10-18，实施前冻结）
 
 保留宿主注册与setup之后的响应桥注入时机；同一VM重复注入且函数/依赖未变时，
@@ -28,8 +45,8 @@ ajaxTestAll逐项保留失败：合成状态200、错误正文与负callTime；�
 成功callTime为请求和响应处理的实际毫秒数；超时参数覆盖URL预算，零关闭调用总期限。
 默认/null/undefined继续使用默认，负数在任何请求前拒绝；数值转换沿用原始Int契约。
 动态JS借用当前VM，在同步准备或响应求值后立刻恢复外层result/baseUrl/page、URL和头，
-不跨异步等待保留这些临时绑定。并发上限保持4；skipRateLimit参数形态接受，但宿主尚未
-注入源级限流和全局threadCount，本批不宣称这两项对齐或新增外部网络停止接口。
+不跨异步等待保留这些临时绑定。源限流、全局threadCount与skipRateLimit的后续接线
+见上方“JS请求限流与批量并发”；本节不新增外部网络停止接口。
 FRB签名、生成绑定、数据库及UI不变；WebView/独立dnsIp/proxy继续明确不支持。
 
 编写者：Codex + Bridge｜2026-10-18

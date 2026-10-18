@@ -9,8 +9,6 @@ use legado_parser::analyze_url::SynchronousJsEvaluator;
 use serde::Serialize;
 use std::time::Instant;
 
-const CONCURRENCY: usize = 4;
-
 #[derive(Serialize)]
 struct BatchResponse {
     #[serde(flatten)]
@@ -78,12 +76,15 @@ async fn item(
     timeout: Option<u64>,
     probe: bool,
     ctx: Option<&rquickjs::Ctx<'_>>,
+    policy: &crate::http_request_policy::RequestPolicySnapshot,
+    skip_rate_limit: bool,
 ) -> Result<BatchResponse, String> {
     let prepared = match prepare(resources, input, timeout, ctx) {
         Ok(prepared) => prepared,
         Err(error) if probe => return Ok(failed(input, error, -7)),
         Err(error) => return Err(error),
     };
+    prepared.wait(policy, skip_rate_limit).await;
     let start = Instant::now();
     let response = match rule_request::send(resources, &prepared).await {
         Ok(response) => response,
@@ -114,6 +115,7 @@ pub(super) fn run(
     urls_json: &str,
     timeout: Option<u64>,
     probe: bool,
+    skip_rate_limit: bool,
     ctx: Option<&rquickjs::Ctx<'_>>,
 ) -> Result<String, String> {
     let urls: Vec<String> = if urls_json.trim().is_empty() {
@@ -121,15 +123,16 @@ pub(super) fn run(
     } else {
         serde_json::from_str(urls_json).map_err(|error| format!("批量请求 parse error: {error}"))?
     };
+    let policy = &resources.policy()?;
     let mut responses = super::runtime_bridge::block_on(async {
         stream::iter(urls.iter().enumerate())
             .map(|(index, url)| async move {
-                item(resources, url, timeout, probe, ctx)
+                item(resources, url, timeout, probe, ctx, policy, skip_rate_limit)
                     .await
                     .map(|response| (index, response))
                     .map_err(|error| format!("批量请求[{index}] {error}"))
             })
-            .buffer_unordered(CONCURRENCY)
+            .buffer_unordered(policy.concurrency.get())
             .try_collect::<Vec<_>>()
             .await
     })?;

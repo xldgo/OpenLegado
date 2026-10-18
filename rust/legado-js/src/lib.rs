@@ -80,4 +80,6 @@ pub fn new_quickjs_engine(
 pub mod variables;
 
 #[cfg(feature = "quickjs")]
+pub mod http_request_policy;
+#[cfg(feature = "quickjs")]
 pub mod http_resources;

@@ -124,6 +124,16 @@ impl PreparedRequest {
     pub fn url(&self) -> &str {
         &self.request.url
     }
+
+    pub async fn wait(
+        &self,
+        policy: &crate::http_request_policy::RequestPolicySnapshot,
+        skip: bool,
+    ) {
+        if !self.parsed.is_data_uri() {
+            policy.acquire(skip).await;
+        }
+    }
 }
 
 pub(super) fn execute(
@@ -133,8 +143,12 @@ pub(super) fn execute(
     evaluator: Option<&dyn SynchronousJsEvaluator>,
 ) -> Result<HttpResponse, String> {
     let prepared = prepare(resources, input, overrides, evaluator)?;
-    let response = super::runtime_bridge::block_on(send(resources, &prepared))
-        .map_err(|error| format!("ajax request error: {error}"))?;
+    let policy = resources.policy()?;
+    let response = super::runtime_bridge::block_on(async {
+        prepared.wait(&policy, false).await;
+        send(resources, &prepared).await
+    })
+    .map_err(|error| format!("ajax request error: {error}"))?;
     finish(prepared, response, evaluator)
 }
 
@@ -147,7 +161,9 @@ pub(super) fn prepare(
     if input.trim().is_empty() {
         return Err("ajax: url is required".to_string());
     }
-    let base = crate::host_api::current_source::current_source_tag()
+    let base = resources
+        .source
+        .clone()
         .or_else(|| {
             evaluator.and_then(|evaluator| {
                 evaluator

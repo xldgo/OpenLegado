@@ -16,6 +16,8 @@ pub mod dictionary_service;
 pub mod explore_service;
 pub mod image_cache_service;
 pub mod image_service;
+#[cfg(feature = "quickjs")]
+mod js_request_policy;
 mod media;
 mod network;
 mod operations;
@@ -87,11 +89,19 @@ impl EngineContext {
         let source_login = Arc::new(SourceLoginCache::with_storage(storage.clone()));
         let source_info_map = Arc::new(SourceInfoMap::with_storage(storage.clone()));
         let js = legado_js::JsResources::default().with_source_login_store(source_login.clone());
+        let rate_limiter = Arc::new(RateLimiterRegistry::new());
         #[cfg(feature = "quickjs")]
-        let js = js.with_http_resources(network.js_http_resources());
+        let js = {
+            let http = network.js_http_resources();
+            http.set_request_policy(Arc::new(js_request_policy::DbJsRequestPolicy {
+                storage: storage.clone(),
+                rates: rate_limiter.clone(),
+            }));
+            js.with_http_resources(http)
+        };
         Self {
             storage,
-            rate_limiter: Arc::new(RateLimiterRegistry::new()),
+            rate_limiter,
             network,
             web_book: Arc::new(legado_fetcher::web_book_state::WebBookState::default()),
             js: Arc::new(js),
@@ -226,6 +236,12 @@ impl EngineContext {
                         .with_http_resources(self.network.js_http_resources()),
                 );
             }
+            self.js.http_resources().set_request_policy(Arc::new(
+                js_request_policy::DbJsRequestPolicy {
+                    storage: self.storage.clone(),
+                    rates: self.rate_limiter.clone(),
+                },
+            ));
         }
         self
     }
@@ -251,6 +267,11 @@ impl EngineContext {
     /// 宿主初始化数据库前已使用限流能力时，沿用同一窗口。
     pub fn with_rate_limiter(mut self, registry: Arc<RateLimiterRegistry>) -> Self {
         self.rate_limiter = registry;
+        #[cfg(feature = "quickjs")]
+        {
+            let resources = self.js.clone();
+            self = self.with_js_resources(resources);
+        }
         self
     }
 

@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-REQUEST-POLICY-20261018：源限流与批量并发配置（P1）
+
+- 授权与基线：用户要求继续；dep-audit / chore/dep-audit / 8f85124fd，上游固定15e1337a，单代理，不推送/合并或改动主目录用户文件。
+- 核查：上游ajax/connect经AnalyzeUrl限流，get/head/post同样调用ConcurrentRateLimiter；批量使用threadCount默认16。当前JS固定4并发且忽略skipRateLimit，未共享Engine注册表。
+- 范围：先冻结契约与复现，再注入只持有存储/现有限流器的窄策略，覆盖书源、订阅源和TTS来源。请求固定来源，批次固定配置；等待不占数据库/策略锁，失败直接释放在途future。保留错误/超时/重试语义及资源可释放性。
+- 验收：真实QuickJS/本地HTTP验证共享窗口、直接请求、skipRateLimit、配置并发、失败取消等待；策略回归覆盖隔离、设置更新、TTS覆盖和数据库失败。相关JS/Engine测试及两档严格检查。不构建应用/DLL/模拟器，不改FRB/schema/依赖/UI。
+- 实现：JS定义同步策略快照与异步等待窄接口；Engine只注入存储和现有RateLimiterRegistry，不回指根Engine/VM。ajax/connect、get/head/post及既有直接HTTP入口共享源窗口；批次固定源键、并发与限流快照，skipRateLimit为true只绕过源等待。发送期限及成功callTime从等待结束后计算，批次失败丢弃在途网络及限流future。替换注册表不重建现有VM，原资源释放回归保持。
+- 复现与验证：修前真实QuickJS/HTTP用例确认JS不等待已占用的源窗口；修后ajax/connect/get/head/post逐一验证。新增8项覆盖配置并发、跳过/不跳过、等待不计耗时、失败后取消等待/不发队列、三类源共享窗口与实例隔离、配置快照/非法值、TTS覆盖、注册表更换及数据库失败。JS/Engine完整相关库与集成共969项通过，既有2项忽略；默认与QuickJS两档JS/Engine全目标Clippy -D warnings、工作区两档全目标cargo check、限定rustfmt和diff检查通过。
+- 过程记录：完整回归首次遇到两条既有短期限HTTP测试失败（请求未抵达及50ms快速项也超时）；测试预热客户端并把预算调至600ms，慢响应仍为1200ms，保留服务端收包、超时异常与快速项成功断言。完整复验通过，未放宽生产超时或把失败记成功。策略单测初版缺JsEngine trait导入导致编译失败，已修正；早期失败日志不计通过。
+- 证据：build/js-request-policy/{reproduce,fixed,policy-tests,engine-policy-fixed,network-final,regressions-final,clippy-quickjs,clippy-default,workspace-quickjs,workspace-default}.log。reproduce为预期修前失败，最终969项以regressions-final为准；单代理自查，无独立外审，不把源码文本检索算测试。
+- 状态：本批Rust限定范围已关闭，版本2.0.384+385及双日志/契约随本批本地提交。主目录三份用户文件SHA-256与既存快照一致。无FRB/生成物/schema/依赖变更，不构建DLL/Flutter/模拟器，无推送/合并或远程CI，不宣称外部主动取消、Flutter设置已接通或全部JS能力对齐。沿用现有限流器刷新/窗口算法；回滚按本批撤销并重建native，不改写旧产物元数据。
+- 配置边界核实：Flutter的SettingsService.getIntPref实际读取SharedPreferences，线程数条目disabled；并非通用Rust config。当前批只接通Rust config:threadCount与默认16，保留无存储VM默认4，不开通控件或声称Flutter偏好已同步。未来接通设置页须统一配置来源，不增加第二个可写UI。
+
+编写者：Codex｜2026-10-18
+
 ### JS-RESPONSE-LIFECYCLE-20261018：响应桥注入生命周期（P1）
 
 - 授权与基线：用户要求继续下一批；dep-audit / chore/dep-audit / 71a2e9080，单代理，不推送/合并，不写主目录用户文件。

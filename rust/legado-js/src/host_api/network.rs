@@ -172,6 +172,7 @@ pub fn http_get(
     headers: Option<&str>,
 ) -> Result<String, String> {
     block_on(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -201,6 +202,7 @@ pub fn http_post(
     headers: Option<&str>,
 ) -> Result<String, String> {
     block_on(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -225,6 +227,7 @@ pub fn http_post(
 /// 对应 Kotlin 端 `head(urlStr, headers)` 的简化版本。
 pub fn http_head(request_resources: &RequestResources<'_>, url: &str) -> Result<String, String> {
     block_on(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -405,7 +408,7 @@ fn ajax_request_body(
 
 /// 批量规则请求的 Rust 入口，JSON 内部表示在 JS 边界包装为 StrResponse 数组。
 pub fn ajax_all(resources: &RequestResources<'_>, urls_json: &str) -> Result<String, String> {
-    super::batch_request::run(resources, urls_json, None, false, None)
+    super::batch_request::run(resources, urls_json, None, false, false, None)
 }
 
 /// connectFull(url, method?, headers?, body?, timeoutMs?) → 完整 HTTP 响应 JSON
@@ -504,6 +507,7 @@ pub(crate) fn connect_no_redirect_with_timeout(
     //（对齐上游 JsExtensions.kt:532-534/559-561/586-588 的 getSource 门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
     block_on(async {
+        request_resources.policy()?.acquire(false).await;
         // 不跟随重定向共享池（回环/非回环分池）：
         // - `follow_redirects=false`：拦截 302 取 Location 头（jsoup 语义）
         // - 回环流量（本地测试服务/本地源）不得经系统/环境变量代理路由：
@@ -555,6 +559,7 @@ pub fn head_full(
     apply_source_cookie_jar_gate(request_resources, &mut headers);
 
     block_on(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
@@ -596,6 +601,7 @@ pub fn post_full(
     apply_source_cookie_jar_gate(request_resources, &mut headers);
 
     block_on(async {
+        request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
         let client = request_client(request_resources, false, url)?;
