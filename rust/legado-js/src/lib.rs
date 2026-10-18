@@ -84,3 +84,6 @@ pub mod variables;
 pub mod http_request_policy;
 #[cfg(feature = "quickjs")]
 pub mod http_resources;
+
+/// 当前执行资源的WebView窄适配。
+pub mod webview;

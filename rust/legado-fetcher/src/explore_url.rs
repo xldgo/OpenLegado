@@ -123,6 +123,9 @@ impl ExploreInfoMapJsExecutor {
 
 #[cfg(feature = "quickjs")]
 impl legado_parser::JsExecutor for ExploreInfoMapJsExecutor {
+    fn webview_executor(&self) -> Option<legado_parser::analyze_rule::WebViewExecutor> {
+        self.inner.webview_executor()
+    }
     fn read_variable(&self, key: &str) -> Option<String> {
         self.inner.read_variable(key)
     }

@@ -1680,7 +1680,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             &chapter.url,
             &source.book_source_url,
             source.js_lib.as_deref(),
-        );
+        )?;
 
         // 2. 使用正文规则解析首页
         let content_rule_str = content_rule
@@ -3045,7 +3045,7 @@ fn apply_content_web_hooks(
     page_url: &str,
     source_url: &str,
     js_lib: Option<&str>,
-) -> String {
+) -> LegadoResult<String> {
     let source_regex = content_rule
         .and_then(|r| r.source_regex.as_deref())
         .map(str::trim)
@@ -3056,12 +3056,12 @@ fn apply_content_web_hooks(
         .filter(|s| !s.is_empty());
 
     if source_regex.is_none() && web_js.is_none() {
-        return body;
+        return Ok(body);
     }
 
     // sourceRegex：DOM 嗅探优先，否则无头 URL 扫描
     if let Some(re_str) = source_regex {
-        if legado_core::webview_channel::has_subscribers() {
+        {
             let req = legado_core::webview_channel::WebViewRequest {
                 key: String::new(),
                 action: "webViewGetSource".into(),
@@ -3085,23 +3085,23 @@ fn apply_content_web_hooks(
                 cookie: deps.cookies_for_url(page_url),
                 created_at_ms: 0,
             };
-            if let Ok(hit) = legado_core::webview_channel::request_and_wait(
+            if let Some(result) = legado_js::webview::execute(
+                &deps.js.host_resources().webview,
+                deps.js.cancellation().cloned(),
                 req,
                 legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
-            ) && !hit.trim().is_empty()
-                && !hit.starts_with("[ERROR]")
-            {
-                return hit;
+            ) {
+                return result;
             }
         }
         if let Some(hit) = sniff_source_regex_url(&body, re_str) {
-            return hit;
+            return Ok(hit);
         }
     }
 
     // webJs：DOM 优先（对齐 AnalyzeUrl + BackstageWebView），再无头 QuickJS
     if let Some(js) = web_js {
-        if legado_core::webview_channel::has_subscribers() {
+        {
             let req = legado_core::webview_channel::WebViewRequest {
                 key: String::new(),
                 action: "webView".into(),
@@ -3123,13 +3123,13 @@ fn apply_content_web_hooks(
                 cookie: deps.cookies_for_url(page_url),
                 created_at_ms: 0,
             };
-            if let Ok(out) = legado_core::webview_channel::request_and_wait(
+            if let Some(result) = legado_js::webview::execute(
+                &deps.js.host_resources().webview,
+                deps.js.cancellation().cloned(),
                 req,
                 legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
-            ) && !out.trim().is_empty()
-                && !out.starts_with("[ERROR]")
-            {
-                return out;
+            ) {
+                return result;
             }
         }
         // P2-9 ①：src = 正文响应体（见 bind_orig_src 注释）
@@ -3143,13 +3143,13 @@ fn apply_content_web_hooks(
         )
         .with_js_binding("src", &body_src_json);
         match analyzer.get_string(&format!("@js:{js}")) {
-            Ok(out) if !out.trim().is_empty() => return out,
+            Ok(out) if !out.trim().is_empty() => return Ok(out),
             Ok(_) => {}
             Err(e) => eprintln!("[web_book] contentRule.webJs 执行失败（回退原文）: {e}"),
         }
     }
 
-    body
+    Ok(body)
 }
 
 /// 从 HTML/文本中嗅探匹配 sourceRegex 的 URL
@@ -7465,7 +7465,8 @@ mod tests {
             "https://example.com/c",
             "https://example.com",
             None,
-        );
+        )
+        .unwrap();
         assert_eq!(out, "https://cdn.example.com/v.mp4");
     }
 

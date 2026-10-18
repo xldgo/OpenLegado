@@ -75,7 +75,9 @@ pub fn construct_analyzer_with_js_lib(
     _source_tag: &str,
     _js_lib: Option<&str>,
 ) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url).with_variable_reader(variable_reader(resources))
+    AnalyzeRule::new(content, base_url)
+        .with_variable_reader(variable_reader(resources))
+        .with_webview_executor(legado_js::webview::executor(resources))
 }
 
 /// 构造规则解析器：注入书源 jsLib + 书源上下文 setup（source/cookie 绑定）
@@ -112,7 +114,9 @@ pub fn construct_analyzer_with_source_context(
     _js_lib: Option<&str>,
     _setup_script: Option<String>,
 ) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url).with_variable_reader(variable_reader(resources))
+    AnalyzeRule::new(content, base_url)
+        .with_variable_reader(variable_reader(resources))
+        .with_webview_executor(legado_js::webview::executor(resources))
 }
 
 /// 目录分页共享上下文（循环不变部分收敛）
@@ -163,9 +167,12 @@ pub fn construct_toc_page_analyzer(
 ///
 /// 该档无 JS 执行器，但目录每页仍携带同一实例的变量读取能力。
 #[cfg(not(feature = "quickjs"))]
-pub struct TocPageContext(legado_parser::VariableReader);
+pub struct TocPageContext(
+    legado_parser::VariableReader,
+    legado_parser::analyze_rule::WebViewExecutor,
+);
 
-/// 非 quickjs 档：只持有变量读者，不创建 VM。
+/// 非quickjs档携带变量与WebView数据能力，不创建VM。
 #[cfg(not(feature = "quickjs"))]
 pub fn build_toc_page_context(
     resources: &std::sync::Arc<legado_js::JsResources>,
@@ -173,7 +180,10 @@ pub fn build_toc_page_context(
     _js_lib: Option<&str>,
     _setup_script: Option<String>,
 ) -> TocPageContext {
-    TocPageContext(variable_reader(resources))
+    TocPageContext(
+        variable_reader(resources),
+        legado_js::webview::executor(resources),
+    )
 }
 
 /// 非 quickjs 档：原样降级
@@ -183,7 +193,9 @@ pub fn construct_toc_page_analyzer(
     content: String,
     base_url: String,
 ) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url).with_variable_reader(ctx.0.clone())
+    AnalyzeRule::new(content, base_url)
+        .with_variable_reader(ctx.0.clone())
+        .with_webview_executor(ctx.1.clone())
 }
 
 /// 构建搜索 URL（携带书源 jsLib + 书源上下文 setup）

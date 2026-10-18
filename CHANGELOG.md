@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.389] - 2026-10-19
+
+### Fixed
+- 书源WebView请求取消或超时后返回明确错误，防止继续执行无头回退或后续脚本。
+- 清理已放弃的请求和退出的订阅，阻止迟到、重复或其他实例的回调改写Cookie。
+- 保留正常空结果及无订阅时的既有平台动作入口。
+- 贡献者：Codex + Rust；构建号390。
+
 ## [2.0.388] - 2026-10-18
 
 ### Added
