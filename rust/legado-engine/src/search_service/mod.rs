@@ -150,7 +150,12 @@ pub fn classify_source_outcome(result: &LegadoResult<Vec<SearchResult>>) -> &'st
             LegadoError::JsEngine(_) => "js_error",
             LegadoError::Network(msg) => {
                 let lower = msg.to_lowercase();
-                if msg.contains("超时") || lower.contains("timeout") || lower.contains("timed out")
+                if msg.starts_with("单源搜索崩溃: ") {
+                    // panic 文本来自底层执行，不能让其中的 timeout/cancel 改写异常分类。
+                    "parser_error"
+                } else if msg.contains("超时")
+                    || lower.contains("timeout")
+                    || lower.contains("timed out")
                 {
                     "timeout"
                 } else if msg.contains("取消") || lower.contains("cancel") {

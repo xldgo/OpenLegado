@@ -217,6 +217,28 @@ fn concurrent_read_modify_write_uses_database_transaction() {
 }
 
 #[tokio::test]
+async fn panicked_database_worker_rolls_back_and_returns_its_connection() {
+    let context = EngineContext::in_memory().unwrap();
+    write(&context, "before-panic").unwrap();
+    let result: LegadoResult<()> = context
+        .storage()
+        .run(|db| {
+            let _transaction = db.immediate_transaction().unwrap();
+            CacheRepository::new(db.connection())
+                .put("same-key", "not-committed", 0)
+                .unwrap();
+            panic!("数据库工作线程故障");
+        })
+        .await;
+    assert!(
+        matches!(result, Err(LegadoError::Database(message)) if message.contains("数据库工作线程故障"))
+    );
+    assert_eq!(read(&context).as_deref(), Some("before-panic"));
+    write(&context, "recovered").unwrap();
+    assert_eq!(read(&context).as_deref(), Some("recovered"));
+}
+
+#[tokio::test]
 async fn rate_windows_are_shared_only_within_one_context() {
     use legado_core::models::BookSource;
     use std::time::Duration;

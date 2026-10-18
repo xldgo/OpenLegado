@@ -8,6 +8,9 @@ use std::sync::{
 };
 use std::time::Duration;
 
+#[cfg(test)]
+mod tests;
+
 /// 普通搜索与换源沿用同一并发上限。
 pub const SEARCH_CONCURRENCY: usize = 32;
 /// 换源单源超时保持60秒。
@@ -156,16 +159,23 @@ pub async fn drive_source_batches<F, Fut, T, G, C>(
 
                 let outcome = tokio::time::timeout(
                     per_source_timeout,
-                    AssertUnwindSafe(search_one(source)).catch_unwind(),
+                    // 创建 Future 也可能执行用户代码，必须与后续轮询一起进入捕获范围。
+                    AssertUnwindSafe(async move { search_one(source).await }).catch_unwind(),
                 )
                 .await;
 
                 let result = match outcome {
                     Ok(Ok(r)) => r,
-                    Ok(Err(p)) => Err(LegadoError::Network(format!(
-                        "单源搜索崩溃: {:?}（已隔离，不影响其他源）",
-                        p
-                    ))),
+                    Ok(Err(payload)) => {
+                        let reason = payload
+                            .downcast_ref::<String>()
+                            .map(String::as_str)
+                            .or_else(|| payload.downcast_ref::<&str>().copied())
+                            .unwrap_or("非文本 panic");
+                        Err(LegadoError::Network(format!(
+                            "单源搜索崩溃: {reason}（已隔离，不影响其他源）"
+                        )))
+                    }
                     Err(_elapsed) => Err(LegadoError::Network(format!(
                         "搜索超时（{}s）",
                         per_source_timeout.as_secs()

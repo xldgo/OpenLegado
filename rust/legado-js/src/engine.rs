@@ -356,9 +356,8 @@ mod quickjs_engine {
         http: Arc<crate::http_resources::HttpResources>,
     }
 
-    // rquickjs Runtime + Context 在启用 "parallel" feature 后是 Send + Sync
-    unsafe impl Send for QuickJsEngine {}
-    unsafe impl Sync for QuickJsEngine {}
+    // rquickjs 的 parallel 特性已让字段支持跨线程，Send/Sync 由编译器自动推导。
+    // JsEngine 的约束会在新增非线程安全字段时拒绝编译，不能手工绕过检查。
 
     impl QuickJsEngine {
         /// 创建新的 QuickJS 引擎实例

@@ -1,5 +1,31 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-ERROR-LIFECYCLE-20261018：生产异常与实例生命周期核查（P1）
+
+- 授权与基线：用户要求继续错误来源、生产 panic 及生命周期核查；feature/rust-ffi-modernization / 7247f5c23，沿用当前 worktree，单代理，不推送/合并/远程 CI/WSL/安装或修改主目录。
+- 核查范围：Engine/FFI 的根实例、任务组、操作槽、存储与服务监听关闭，相关 Core/Net 的不变式、错误来源及原生边界。先排除测试及静态字面量，源码检索仅为候选清单，不作为安全性证明或行为测试；不宣称完整第三方 unsafe 审计。
+- 已确认候选：共用书源批次驱动器只在创建 Future 后安装 catch_unwind，创建阶段 panic 由 JoinError 回退为索引0/空URL和名称；已捕获 panic 又按 Any 的 Debug 输出丢失实际文本。新增真实驱动器回归复现，再把创建/轮询放在同一异步捕获范围，保留 Network 错误分类、并发/超时/取消及源身份。
+- 验证与非目标：复用既有批次调度、搜索/换源、实例存储、任务关闭与服务端口测试；只补真实缺口，两档严格 Clippy，最终正式 Windows DLL 和原有 FRB 搜索用例按实际边界选取。FFI签名/DTO/生成绑定、Dart、schema、依赖版本和应用版本不改。不统一重写错误枚举，不强制删除受私有不变式保护的 expect，不新增运行时或默认多实例/切库能力。
+- 根因与修复：新增驱动器回归在基线稳定失败（创建阶段 panic 的源索引退化为0，预期1），失败日志保留为 reproduce.log；修复后固定断言通过。创建和轮询统一进入捕获，保留源索引/URL/名称，String 与静态字符串保留原因，其他载荷返回“非文本 panic”。专用 panic 前缀先于正文 timeout/cancel 判断，避免增强诊断后改变既有 parser_error 分类；真正的创建阶段 panic 从原先误归取消改为正常异常隔离。不改并发、超时、sink关闭、暂停/取消和完成计数。
+- 原生边界收紧：移除 QuickJsEngine 的手写 unsafe Send/Sync。项目已启用 rquickjs parallel，字段自动推导满足 JsEngine: Send+Sync，两档编译/Clippy通过；新增不安全字段将不再被手写实现掩盖。该项是消除维护风险，不宣称基线已经发生数据竞争；未修改 rquickjs 或生成绑定。
+- 错误来源核查：Core Io/Serialization 的 #[from] 已保留 source；Net map_reqwest_error 已展开最多5层诊断链，不是只留最外层消息。Database/Parser/JsEngine 等 String 变体仍丢失可下转的源类型，但本轮未证明因此导致的其他生产失败，不为统一形状重写全仓载荷；这属于 SCH-R3a 后续设计输入，不视作已全面解决。实际丢失的 panic 原因在上述边界修复。
+- 生命周期核查：EngineHolder 的早期能力接续、失败重试、重复/并发初始化已有回归；不将默认进程单根误报为无法创建独立 EngineContext。TaskGroup 的私有根作用域、存储临时目录 OnceLock、排队前检查和标量/固定切片的 unwrap 有对应不变式，不批量改成静默默认。服务监听停止有 abort/join 与任务有界等待，保留既有行为。新增真实 SQLite 工作线程 panic 回归，确认未提交事务回滚、错误返回和单连接可再次借用/写入，没有为通过测试修改存储实现。
+- unsafe 核查边界：Core SourceLockGuard 保留先解锁后释放 Arc 的销毁顺序；QuickJS 字节读取在 Context 锁内立即复制，不把切片带入 JS 调用；Unix setpriority 使用无指针的固定参数，Android liblog 的 CString 在调用期间存活。保留已有封装，不把 FRB unwind 捕获等同于可恢复 abort/栈溢出/UB；未执行 Miri、消毒器或第三方 C 全面审计。极大限流间隔在当前 Windows std 的 Instant 加法探测未复现溢出，不以猜测修改行为；探测不代表其他平台结论。
+- Rust 验证：default 新回归1项通过；QuickJS 库 Engine146/FFI516/JS652 共1314项通过、44项既有忽略；原五个生命周期集成文件共31项通过，含新增工作线程 panic 用例。三 crate 两档全目标 Clippy -D warnings、限定格式和 git diff --check 通过，无 lint 放行。证据：build/rust-error-lifecycle/{reproduce,fixed,fixed-final,quick-tests,lifecycle-tests,clippy-quick,clippy-default}.log；reproduce 的退出101不计通过，后续正式验证退出0。
+- 正式接线：Python 正式入口重建一次 Windows Debug QuickJS DLL，输入/源码指纹及源库/复制库摘要与最终只读校验通过；原 search_session_runtime_test 与 search_access_runtime_test 共2项真实 FRB 通过，涵盖本机HTTP搜索、暂停恢复/停止/再搜、迟到响应隔离及历史访问。未新增外部宿主、Dart用例或生成流程。证据：build/rust-error-lifecycle/{native-build,native-runtime,native-verify}.log。
+- 状态：本轮选定生产边界核查、两项修复和必要生命周期补测完成，与代码整批本地提交；单代理自查，无独立外审、远程 CI、Android/iOS 或设备性能结论。FFI签名/DTO/生成绑定、Dart、schema、依赖和应用版本不变，不推送或合并。以下未接入遗留项单独登记，不将本轮结论夸大为全仓安全证明；core拆分仍无测量决策。
+
+编写者：Codex｜2026-10-18
+
+### SINGLEFLIGHT-RECOVERY-20261018：未接入原语的异常恢复（P2，已确认待修）
+
+- 来源：上述生命周期核查发现 legado-core/src/source_lock.rs 的 SingleFlight；全 Rust 工作区只检索到定义与本模块单测，未找到正式生产消费者，不宣称当前 App 受影响。
+- 缺口：执行闭包 panic 后 running 保持 true，后续同键调用不再执行闭包；等待分支持有 running 锁，阻塞执行者清理和通知，也需一起检查。
+- 证据：忽略目录中的单次 Rust 探测直接调用当前模块，catch_unwind 后以0等待重试，实际 retry=None / retry_closure_ran=false；日志 build/rust-error-lifecycle/singleflight-probe.log。没有新增长期测试宿主或通信协议。
+- 排期：不夹带进本轮现用搜索/JS修复。后续独立核查保留价值与消费者，再决定修复原语或删除无用实现；未授权删除，不以补兼容层处理。状态仅在本条维护。
+
+编写者：Codex｜2026-10-18
+
 ### RUST-BOUNDARY-CLEANUP-20261018：缓存仓储收口与弹幕解析下沉（P1）
 
 - 授权与基线：用户批准实施排期首两批，feature/rust-ffi-modernization / 260f89685，沿用当前 worktree，单代理。保留主目录用户文档；不推送、合并、安装、远程 CI 或新增分支。
