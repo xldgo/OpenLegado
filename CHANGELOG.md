@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.380] - 2026-10-18
+
+### Fixed
+- 修复书源网络错误退化为空响应，保留各JS接口的错误返回与异常行为。
+- 修复显式零超时、非法超时和装箱参数转换，连接池按超时策略复用。
+- 贡献者：Codex + Rust；构建号381。
+
 ## [2.0.379] - 2026-10-18
 
 ### Fixed

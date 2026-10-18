@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::host_api::runtime_bridge::block_on;
+use legado_net::client::ClientTimeoutPolicy;
 use legado_net::{COOKIE_JAR_HEADER, LegadoClient, LegadoRequest, Method};
 
 /// 默认请求超时（毫秒），与 Kotlin 端一致
@@ -143,6 +144,28 @@ fn request_client(
     resources.http.client(is_loopback_url(url), no_redirect)
 }
 
+/// 0不设置请求总期限；客户端策略另外决定连接和读取预算。
+fn request_timeout(timeout_ms: u64) -> Option<std::time::Duration> {
+    (timeout_ms != 0).then(|| std::time::Duration::from_millis(timeout_ms))
+}
+
+fn request_client_with_timeout(
+    resources: &RequestResources<'_>,
+    no_redirect: bool,
+    url: &str,
+    timeout_ms: u64,
+    zero_policy: ClientTimeoutPolicy,
+) -> Result<LegadoClient, String> {
+    let policy = if timeout_ms == 0 {
+        zero_policy
+    } else {
+        ClientTimeoutPolicy::Default
+    };
+    resources
+        .http
+        .client_with_timeout_policy(is_loopback_url(url), no_redirect, policy)
+}
+
 /// httpGet(url, headers?) → 同步 HTTP GET，返回响应体文本
 ///
 /// 对应 Kotlin 端 `ajax(url)` / `get(url, headers)` 的简化版本。
@@ -224,31 +247,18 @@ pub fn http_head(request_resources: &RequestResources<'_>, url: &str) -> Result<
     })
 }
 
-/// `java.ajax(url, callTimeout)` 第二参 → 逐请求超时（毫秒）
-///
-/// 原版语义（`JsExtensions.kt:134 ajax(url: Any, callTimeout: Long?)` →
-/// `AnalyzeUrl` 链路到 OkHttp `callTimeout(it, TimeUnit.MILLISECONDS)`，
-/// `AnalyzeUrlNetworkOptions.kt:117-119`）：
-/// - `null` / 缺省 → `None`（沿用全局默认，行为与单参形态一致）；
-/// - `0` → OkHttp 语义「不设 call timeout」（0 合法、不立即超时）——
-///   本实现最接近映射为 `None`（不覆盖默认请求超时）；**不得**下传
-///   `Duration::ZERO`（reqwest 对零时长 sleep 立即到期，会把原版可用形态
-///   变成必失败）；
-/// - `1..=Integer.MAX_VALUE` → `Some(ms)`；
-/// - `< 0` 或 `> Integer.MAX_VALUE` → Err：原版 OkHttp `checkDuration`
-///   抛 IllegalArgumentException，被 `ajax` 的 `runCatching` 捕获后返回
-///   `stackTraceStr`（错误文本，非抛到 JS）；本实现以既有 `[ERROR]` 惯例承载。
+/// ajax/connect的可空毫秒期限；显式0保留为关闭总期限，不与缺省混淆。
+/// 负数或超过OkHttp的Int毫秒范围在发送前拒绝。
 pub fn call_timeout_to_request_timeout(
     call_timeout_ms: Option<i64>,
 ) -> Result<Option<u64>, String> {
     match call_timeout_ms {
         None => Ok(None),
-        Some(0) => Ok(None),
         Some(t) if t < 0 => Err(format!(
-            "ajax: callTimeout {t} 非法（原版 OkHttp checkDuration: timeout < 0）"
+            "网络请求: callTimeout {t} 非法（原版 OkHttp checkDuration: timeout < 0）"
         )),
         Some(t) if t > i64::from(i32::MAX) => Err(format!(
-            "ajax: callTimeout {t} 超过原版 OkHttp 上限 Integer.MAX_VALUE 毫秒"
+            "网络请求: callTimeout {t} 超过原版 OkHttp 上限 Integer.MAX_VALUE 毫秒"
         )),
         Some(t) => Ok(Some(t as u64)),
     }
@@ -339,7 +349,13 @@ pub fn ajax_with_timeout(
 
     block_on(async {
         // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = request_client(request_resources, false, &url)?;
+        let client = request_client_with_timeout(
+            request_resources,
+            false,
+            &url,
+            timeout,
+            ClientTimeoutPolicy::NoTotalTimeout,
+        )?;
 
         // Cookie 合并须在 url move 进 LegadoRequest 前完成（新签名按请求 URL 取 cookie）
         let mut headers = ensure_json_content_type(
@@ -357,7 +373,7 @@ pub fn ajax_with_timeout(
             method,
             headers,
             body: opts.body.clone(),
-            timeout: Some(std::time::Duration::from_millis(timeout)),
+            timeout: request_timeout(timeout),
         };
 
         let resp = client
@@ -424,9 +440,9 @@ mod http_options_tests {
     /// `java.ajax(url, callTimeout)` 边界映射（原版 OkHttp checkDuration 语义）
     #[test]
     fn test_call_timeout_to_request_timeout_boundaries() {
-        // null/缺省 与 0 均不覆盖默认
+        // 缺省不覆盖默认，显式0须传到请求和客户端选择
         assert_eq!(call_timeout_to_request_timeout(None).unwrap(), None);
-        assert_eq!(call_timeout_to_request_timeout(Some(0)).unwrap(), None);
+        assert_eq!(call_timeout_to_request_timeout(Some(0)).unwrap(), Some(0));
         // 正超时原样透传（毫秒）
         assert_eq!(
             call_timeout_to_request_timeout(Some(300)).unwrap(),
@@ -529,7 +545,13 @@ fn ajax_request_body(
     };
     block_on(async {
         // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = request_client(request_resources, false, &url)?;
+        let client = request_client_with_timeout(
+            request_resources,
+            false,
+            &url,
+            timeout,
+            ClientTimeoutPolicy::NoTotalTimeout,
+        )?;
         // Cookie 合并须在 url move 进 LegadoRequest 前完成（新签名按请求 URL 取 cookie）
         let mut headers = ensure_json_content_type(
             merge_global_cookie(
@@ -546,7 +568,7 @@ fn ajax_request_body(
             method,
             headers,
             body: opts.body.clone(),
-            timeout: Some(std::time::Duration::from_millis(timeout)),
+            timeout: request_timeout(timeout),
         };
         let resp = client
             .send(&request)
@@ -648,13 +670,19 @@ pub fn connect_full(
     block_on(async {
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 共享池（有效超时由逐请求 timeout 决定，与修复前一致）
-        let client = request_client(request_resources, false, url)?;
+        let client = request_client_with_timeout(
+            request_resources,
+            false,
+            url,
+            timeout,
+            ClientTimeoutPolicy::NoTotalTimeout,
+        )?;
         let request = LegadoRequest {
             url: url.to_string(),
             method,
             headers,
             body: body.map(|s| s.to_string()),
-            timeout: Some(std::time::Duration::from_millis(timeout)),
+            timeout: request_timeout(timeout),
         };
         let resp = client
             .send(&request)
@@ -695,6 +723,7 @@ pub(crate) fn connect_no_redirect_with_timeout(
     body: Option<&str>,
     timeout_ms: Option<u64>,
 ) -> Result<String, String> {
+    let timeout = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
     let method_str = method.unwrap_or("GET").to_uppercase();
     let method = match method_str.as_str() {
         "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(&method_str),
@@ -719,16 +748,20 @@ pub(crate) fn connect_no_redirect_with_timeout(
         //   reqwest 默认客户端在 HTTP_PROXY 存在时连 127.0.0.1 也走代理，
         //   死代理环境下回环用例会被劫持（cda70a0c54 约定）。仅回环 URL
         //   豁免代理；真实主机仍走用户代理配置，不改变生产行为。
-        let client = request_client(request_resources, true, &url)
-            .map_err(|e| format!("connectNR client error: {}", e))?;
+        let client = request_client_with_timeout(
+            request_resources,
+            true,
+            &url,
+            timeout,
+            ClientTimeoutPolicy::Unlimited,
+        )
+        .map_err(|e| format!("connectNR client error: {}", e))?;
         let request = LegadoRequest {
             url,
             method,
             headers,
             body: body_owned,
-            timeout: Some(std::time::Duration::from_millis(
-                timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
-            )),
+            timeout: request_timeout(timeout),
         };
         let resp = client
             .send(&request)

@@ -17,7 +17,7 @@
 //!    /bool/undefined/null 抛错（与探针一致）；
 //! 2) 可选数值形参（`RhinoOptInt`/`RhinoOptLong`）保留可选 arity（缺参 →
 //!    None），显式 null/undefined → None，其余按 1) 宽松转换；
-//! 3) 装箱数值（`connect` 的 `timeout_ms: Opt<i64>`，上游 `callTimeout: Long?`，
+//! 3) 装箱数值（`connect` 的可空装箱Long超时，上游 `callTimeout: Long?`，
 //!    JsExtensions.kt:214；jsHelp.md:212 的 `Int?` 系过时文档）
 //!    与全部布尔形参**保持严格**（探针实测原版即抛错）——越权宽松化会引入
 //!    原版没有的行为，本文件同时锁定这两类「不得变宽」。

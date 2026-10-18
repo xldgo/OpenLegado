@@ -108,6 +108,9 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize) {
         return;
     }
     requests.fetch_add(1, Ordering::AcqRel);
+    if path == "/disconnect" {
+        return;
+    }
     let body = if path == "/slow" {
         std::thread::sleep(Duration::from_millis(1200));
         "SLOW-OK".to_string()
@@ -153,17 +156,25 @@ fn check_timeout(method: &str) {
     } else {
         format!("java.{method}(url,{{'X-Marker':'timeout'}},300)")
     };
-    let code = eval(
+    let response = eval(
         &engine,
         &server.url("/slow"),
-        &format!("{call}.statusCode()"),
+        &format!(
+            "(function(){{try{{return JSON.stringify({{code:{call}.statusCode()}});}}catch(e){{return JSON.stringify({{error:String(e)}});}}}})()"
+        ),
     );
     assert_eq!(
         server.requests.load(Ordering::Acquire),
         1,
         "慢请求必须真正到达服务端"
     );
-    assert_eq!(code, "0", "{method}必须使用传入的超时，不能等到慢响应成功");
+    let response: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert!(
+        response["error"]
+            .as_str()
+            .is_some_and(|s| s.contains("Timeout")),
+        "{method}必须抛出包含超时原因的异常，实际：{response}"
+    );
     let code = eval(
         &engine,
         &server.url("/echo"),
@@ -301,5 +312,121 @@ fn ajax_options_and_connect_headers_keep_their_wire_values() {
             ),
         );
         assert_eq!(response, "[200,\"connect\"]");
+    }
+}
+
+#[test]
+fn network_failures_keep_each_entrypoints_error_contract() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for method in ["get", "head", "post"] {
+        let args = if method == "post" {
+            "url,'内容',{}"
+        } else {
+            "url,{}"
+        };
+        let response = eval(
+            &engine,
+            &server.url("/disconnect"),
+            &format!(
+                "(function(){{try{{java.{method}({args});return '错误被吞';}}catch(e){{return String(e);}}}})()"
+            ),
+        );
+        assert!(
+            response.contains("connectNR request error"),
+            "{method}错误原因丢失：{response}"
+        );
+    }
+    let response = eval(&engine, &server.url("/disconnect"), "java.ajax(url)");
+    assert!(
+        response.contains("[ERROR]") && response.contains("ajax request error"),
+        "{response}"
+    );
+    let response = eval(
+        &engine,
+        &server.url("/disconnect"),
+        "var r=java.connect(url);JSON.stringify({body:r.body(),code:r.code(),url:r.raw().request().url()})",
+    );
+    let response: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(response["code"], 200, "遵循上游错误StrResponse的合成状态");
+    assert!(
+        response["body"]
+            .as_str()
+            .unwrap()
+            .contains("connect request error"),
+        "{response}"
+    );
+    assert_eq!(response["url"], server.url("/disconnect"));
+    assert_eq!(
+        eval(&engine, &server.url("/echo"), "java.connect(url).code()"),
+        "200"
+    );
+}
+
+#[test]
+fn connect_rejects_invalid_timeout_without_sending_requests() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for timeout in ["-1", "2147483648"] {
+        let response = eval(
+            &engine,
+            &server.url("/echo"),
+            &format!("java.connect(url,'{{}}',{timeout}).body()"),
+        );
+        assert!(
+            response.contains("[ERROR]") && response.contains("callTimeout"),
+            "{response}"
+        );
+    }
+    assert_eq!(server.requests.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn explicit_zero_timeout_overrides_rule_budget() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let response = eval(
+        &engine,
+        &server.url("/slow"),
+        r#"java.ajax(url + ',{"timeout_ms":50}',0)"#,
+    );
+    assert_eq!(response, "SLOW-OK", "显式0必须覆盖规则内的50ms期限");
+    assert_eq!(
+        eval(
+            &engine,
+            &server.url("/slow"),
+            "java.connect(url,'{}',0).body()"
+        ),
+        "SLOW-OK"
+    );
+}
+
+#[test]
+fn boxed_call_timeouts_keep_nullable_and_strict_number_inputs() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for timeout in ["'1000'", "NaN", "Infinity", "true"] {
+        for call in [
+            format!("java.ajax(url,{timeout})"),
+            format!("java.connect(url,null,{timeout})"),
+        ] {
+            let result = eval(
+                &engine,
+                &server.url("/echo"),
+                &format!("(function(){{try{{{call};return false;}}catch(e){{return true;}}}})()"),
+            );
+            assert_eq!(result, "true", "非法装箱超时不得被转换：{call}");
+        }
+    }
+    assert_eq!(server.requests.load(Ordering::Acquire), 0);
+    for timeout in ["null", "undefined", "5000"] {
+        assert_eq!(
+            eval(
+                &engine,
+                &server.url("/echo"),
+                &format!("java.connect(url,null,{timeout}).code()")
+            ),
+            "200"
+        );
     }
 }

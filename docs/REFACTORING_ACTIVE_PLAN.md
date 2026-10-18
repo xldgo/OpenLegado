@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-NETWORK-ERROR-TIMEOUT-20261018：脚本错误与超时语义收口（P1）
+
+- 授权与基线：用户批准三批计划中的第一批；复用dep-audit worktree / chore/dep-audit / 6933d985b，单代理，不推送/合并或修改主目录已有文档。
+- 参考：固定上游15e1337a，JsExtensions的ajax/connect捕获请求错误、get/head/post直接抛出；StrResponse(url,error)构造器使用合成状态200；AnalyzeUrl.getClient的callTimeout=0只关闭总期限。Jsoup的timeout=0关闭其超时。避免混淆无响应故障与真实HTTP状态。
+- 范围：修复错误被空响应吞掉、connect非法超时回绕和零值丢失；区分缺省/零/正数/非法值。保留默认连接池行为，零值客户端惰性缓存并共享现有Cookie/hosts/代理/重定向能力；不使用极大Duration伪装无限，不为每次请求新建客户端。
+- 验收：真实QuickJS/本地HTTP先复现错误载荷及零值覆盖；连接/读取/总期限的短预算行为回归，失败后引擎和池继续可用；JS与受影响Net测试、两档严格Clippy。无FRB签名/schema/生成物、动态规则或批量请求改造，不新增宿主、模拟器或全量Flutter测试。
+- 复现：10项定向用例在基线4通过/6失败，确认connect非法超时仍发请求、0未覆盖规则50ms预算、get/head/post超时及断连退为空响应。先冻结契约，Rust网络Result保持；仅JS适配层对ajax返回诊断、connect构造上游错误StrResponse、get/head/post抛错，损坏桥接JSON不再伪造空响应。真实HTTP状态行为不改，合成200仅限兼容面。
+- 期限实现：显式0保留并覆盖规则内预算；NoTotalTimeout保留连接/读空闲限制，Unlimited关闭三类应用层期限，Default保留现有配置。按直连/重定向/策略惰性缓存至多12个客户端，复用Cookie与持久化后端，reset及派生客户端继承策略。没有极大Duration、失败降级或逐请求重建；默认正超时行为不扩改为完整Jsoup阶段预算。
+- 类型与回归：connect范围校验阻止负值无符号回绕；ajax/connect使用严格可空装箱Long，拒绝字符串数字、布尔、NaN/Infinity，null/undefined保留。复用原7项网络集成并补4项，另补损坏响应/池生命周期单元及Net分块/停顿行为；验证默认总期限、无总期限但有读空闲预算、完全无限的区别，以及失败后客户端仍可请求。短预算回归不等待30/60秒默认期限。
+- 验证：最终JS/Net完整测试共992项通过、4项原有忽略；工作区默认/QuickJS全部目标cargo check通过，JS/Net两档全部目标Clippy -D warnings、限定rustfmt和diff检查通过。证据build/js-network-errors/{reproduce,fixed,timeout-policies-final,regressions-complete,workspace-check-complete,workspace-check-default,clippy-quickjs-complete,clippy-default-complete}.log；reproduce退出101为预期修前失败，不计通过。
+- 整改过程：初轮Net新测试误要求正文阶段错误属于发送阶段Timeout变体，改为核对原有原因链中的timed out而不改生产分类。可空Long初版误用了宽松转换，被既有装箱参数回归发现后恢复严格检查；新增桥单元漏super限定已修正。对应早期timeout-policies/regressions/*-final日志不作为最终通过证据；默认工作区检查曾等待共享Cargo目录锁，最终退出0。
+- 状态：第一批选定范围已关闭，契约/源码/行为回归/版本2.0.380+381及双日志整批本地提交；单代理实现与自查，无独立外审。FRB签名/生成物、schema及依赖锁文件不改，无正式DLL、Flutter、模拟器、移动平台或远程CI验证；不推送/合并。后续第二批统一AnalyzeUrl、第三批批量请求尚未实施，不宣称网络或JS全面对齐。主目录用户文件未修改。
+
+编写者：Codex｜2026-10-18
+
+
+
 ### JS-NETWORK-PARITY-20261018：安全扫描收尾与脚本网络语义核查（P1）
 
 - 授权与基线：用户同意安全扫描收尾及JS网络语义核查；复用build/worktrees/dep-audit、chore/dep-audit / cf0514901，单代理，不推送/合并、不修改主目录原有三份文档。

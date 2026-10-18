@@ -1,6 +1,7 @@
 //! VM 只捕获网络数据能力，不捕获拥有 VM 缓存的根对象。
 #![cfg(feature = "quickjs")]
 
+use legado_net::client::ClientTimeoutPolicy;
 use legado_net::{CookiePersistence, CookieStore, LegadoClient, LegadoClientConfig};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -12,10 +13,10 @@ pub type SourceCookieJarLookup = Arc<dyn Fn(&str) -> Option<bool> + Send + Sync>
 #[derive(Default)]
 struct Pools {
     revision: u64,
-    clients: [Option<LegadoClient>; 4],
+    clients: [Option<LegadoClient>; 12],
 }
 
-/// 四池共享同一罐；构造不持槽位锁跨数据库预载。
+/// 各策略池共享同一罐；按需构建，构造不持槽位锁跨数据库预载。
 pub struct HttpResources {
     hosts: Arc<legado_net::custom_hosts::CustomHosts>,
     store: Arc<RwLock<CookieStore>>,
@@ -210,7 +211,21 @@ impl HttpResources {
     }
 
     pub fn client(&self, loopback: bool, no_redirect: bool) -> Result<LegadoClient, String> {
-        let index = usize::from(loopback) + usize::from(no_redirect) * 2;
+        self.client_with_timeout_policy(loopback, no_redirect, ClientTimeoutPolicy::Default)
+    }
+
+    pub(crate) fn client_with_timeout_policy(
+        &self,
+        loopback: bool,
+        no_redirect: bool,
+        timeout_policy: ClientTimeoutPolicy,
+    ) -> Result<LegadoClient, String> {
+        let policy_index = match timeout_policy {
+            ClientTimeoutPolicy::Default => 0,
+            ClientTimeoutPolicy::NoTotalTimeout => 1,
+            ClientTimeoutPolicy::Unlimited => 2,
+        };
+        let index = usize::from(loopback) + usize::from(no_redirect) * 2 + policy_index * 4;
         loop {
             let revision = {
                 let pools = self.pools.read().unwrap_or_else(|p| p.into_inner());
@@ -223,6 +238,7 @@ impl HttpResources {
                 no_proxy: loopback,
                 custom_hosts: Some(self.hosts.clone()),
                 follow_redirects: !no_redirect,
+                timeout_policy,
                 ..Default::default()
             };
             let built = LegadoClient::with_cookie_store(
@@ -255,7 +271,7 @@ pub struct RequestResources<'a> {
 
 struct MemoryCookies(Arc<RwLock<CookieStore>>);
 
-/// 没有数据库的独立 VM 仍使用其四池的同一罐，不生成另一个 JS 镜像。
+/// 没有数据库的独立 VM 仍使用其请求池的同一罐，不生成另一个 JS 镜像。
 impl CookieAccess for MemoryCookies {
     fn get(&self, url: &str) -> String {
         self.0
@@ -294,6 +310,44 @@ impl CookieAccess for MemoryCookies {
 mod tests {
     use super::*;
     use crate::JsEngine;
+
+    #[test]
+    fn timeout_policy_pools_reuse_and_reset_with_one_cookie_store() {
+        let resources = HttpResources::default();
+        let mut clients = Vec::new();
+        for policy in [
+            ClientTimeoutPolicy::Default,
+            ClientTimeoutPolicy::NoTotalTimeout,
+            ClientTimeoutPolicy::Unlimited,
+        ] {
+            for (loopback, no_redirect) in
+                [(false, false), (true, false), (false, true), (true, true)]
+            {
+                let first = resources
+                    .client_with_timeout_policy(loopback, no_redirect, policy)
+                    .unwrap();
+                let again = resources
+                    .client_with_timeout_policy(loopback, no_redirect, policy)
+                    .unwrap();
+                assert_eq!(first.client_id(), again.client_id());
+                assert!(Arc::ptr_eq(first.cookie_store(), resources.cookie_store()));
+                assert!(clients.iter().all(|id| *id != first.client_id()));
+                clients.push(first.client_id());
+            }
+        }
+        resources.reset_clients();
+        for policy in [
+            ClientTimeoutPolicy::Default,
+            ClientTimeoutPolicy::NoTotalTimeout,
+            ClientTimeoutPolicy::Unlimited,
+        ] {
+            let next = resources
+                .client_with_timeout_policy(true, true, policy)
+                .unwrap();
+            assert!(!clients.contains(&next.client_id()));
+            assert!(Arc::ptr_eq(next.cookie_store(), resources.cookie_store()));
+        }
+    }
 
     #[test]
     fn headers_are_owned_by_source_and_instance_and_empty_write_removes_them() {

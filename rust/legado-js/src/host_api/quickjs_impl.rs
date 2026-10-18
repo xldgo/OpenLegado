@@ -53,6 +53,37 @@ impl<'js> rquickjs::FromJs<'js> for NullStr {
     }
 }
 
+/// 可空装箱Long：保留缺省/null，其他值必须为数值，不接受字符串数字。
+struct OptionalBoxedLong(Option<i64>);
+
+impl<'js> rquickjs::function::FromParam<'js> for OptionalBoxedLong {
+    fn param_requirement() -> rquickjs::function::ParamRequirement {
+        rquickjs::function::ParamRequirement::optional()
+    }
+
+    fn from_param<'a>(
+        params: &mut rquickjs::function::ParamsAccessor<'a, 'js>,
+    ) -> rquickjs::Result<Self> {
+        if params.is_empty() {
+            return Ok(Self(None));
+        }
+        let ctx = params.ctx().clone();
+        let value = params.arg();
+        if value.is_null() || value.is_undefined() {
+            return Ok(Self(None));
+        }
+        if !value.is_number() {
+            return Err(rquickjs::Error::FromJs {
+                from: value.type_of().as_str(),
+                to: "java.lang.Long",
+                message: None,
+            });
+        }
+        let value = <RhinoLong as rquickjs::FromJs>::from_js(&ctx, value)?;
+        Ok(Self(Some(value.0)))
+    }
+}
+
 /// 可空布尔入参（语义同 [`NullStr`]）
 struct NullBool(Option<bool>);
 
@@ -1093,9 +1124,15 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
 #[cfg(feature = "quickjs")]
 pub const RESPONSE_BRIDGE_JS: &str = r#"
 (function () {
+  function __readResponse(jsonStr) {
+    var r = JSON.parse(jsonStr);
+    if (!r || typeof r !== 'object' || Array.isArray(r) || typeof r.status_code !== 'number') {
+      throw new Error('HTTP桥接响应结构无效');
+    }
+    return r;
+  }
   function __resp(jsonStr) {
-    var r = null;
-    try { r = JSON.parse(jsonStr); } catch (e) { r = null; }
+    var r = __readResponse(jsonStr);
     var h = (r && r.headers) || {};
     return {
       header: function (name) {
@@ -1120,8 +1157,7 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
   var __nativeConnect = java.connectNR;
   var __nativeConnectFull = java.connect;
   function __strResponse(jsonStr) {
-    var r = null;
-    try { r = JSON.parse(jsonStr); } catch (e) { r = null; }
+    var r = __readResponse(jsonStr);
     var finalUrl = (r && r.url) || '';
     var h = (r && r.headers) || {};
     var raw = {
@@ -2662,9 +2698,9 @@ fn register_network_apis<'js>(
     // 第二参 callTimeout 透传为逐请求超时（对齐上游 JsExtensions.kt:134
     // `ajax(url: Any, callTimeout: Long?)` → OkHttp callTimeout，单位毫秒；
     // null/0/越界边界见 network::call_timeout_to_request_timeout）。
-    // 类型选 RhinoOptLong：上游为装箱可空 `Long?`，Rhino 探针（coerce.rs
+    // 使用OptionalBoxedLong：上游为装箱可空 `Long?`，Rhino探针（coerce.rs
     // 数值表）显示装箱数值严格转换（字符串数字抛「方法不存在」），与
-    // connect 的 `Opt<i64>`（同为上游 `callTimeout: Long?`）同款；缺参/显式
+    // connect 的可空 Long（同为上游 `callTimeout: Long?`）同款；缺参/显式
     // null → None（arity 由 FromParam::optional 保留，单参形态不回归）。
     let http = resources.clone();
     mount_dual(
@@ -2673,7 +2709,7 @@ fn register_network_apis<'js>(
         "ajax",
         rquickjs::Function::new(
             ctx.clone(),
-            move |options: AjaxUrlStr, call_timeout: RhinoOptLong| -> String {
+            move |options: AjaxUrlStr, call_timeout: OptionalBoxedLong| -> String {
                 match network::call_timeout_to_request_timeout(call_timeout.0) {
                     Ok(timeout_ms) => {
                         network::ajax_with_timeout(&http.request(), &options.0, timeout_ms)
@@ -2761,7 +2797,7 @@ fn register_network_apis<'js>(
     // 增强：支持指定 HTTP 方法（GET/POST/HEAD/PUT/DELETE）
     // timeout_ms 上游为可空 Long?（JsExtensions.kt:214 `callTimeout: Long?`；
     // jsHelp.md:212 的 `Int?` 系过时文档）：装箱数值 + Rhino 探针实测严格
-    // （字符串数字报「方法不存在」），故**保持** `Opt<i64>` 严格转换（W4 边界）
+    // （字符串数字报「方法不存在」）；使用可选Long并在发送前验证范围
     let http = resources.clone();
     mount_dual(
         java,
@@ -2773,17 +2809,23 @@ fn register_network_apis<'js>(
                   method: RhinoOptStr,
                   headers: RhinoOptStr,
                   body: RhinoOptStr,
-                  timeout_ms: Opt<i64>|
+                  timeout_ms: OptionalBoxedLong|
                   -> String {
-                network::connect_full(
-                    &http.request(),
-                    &url,
-                    method.0.as_deref(),
-                    headers.0.as_deref(),
-                    body.0.as_deref(),
-                    timeout_ms.0.map(|t| t as u64),
-                )
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                let result = network::call_timeout_to_request_timeout(timeout_ms.0).and_then(|timeout| {
+                    network::connect_full(
+                        &http.request(), &url, method.0.as_deref(), headers.0.as_deref(),
+                        body.0.as_deref(), timeout,
+                    )
+                });
+                result.unwrap_or_else(|error| {
+                    // 仅JS兼容面使用上游StrResponse(url,error)的合成状态，不代表真实HTTP成功。
+                    serde_json::json!({
+                        "status_code": 200,
+                        "body": format!("[ERROR] {error}"),
+                        "headers": {},
+                        "url": url::Url::parse(&url).map(|u| u.to_string()).unwrap_or_else(|_| "http://localhost/".to_string()),
+                    }).to_string()
+                })
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2807,7 +2849,7 @@ fn register_network_apis<'js>(
                   -> rquickjs::Result<String> {
                 let timeout_ms = network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
                     .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))?;
-                Ok(network::connect_no_redirect_with_timeout(
+                network::connect_no_redirect_with_timeout(
                     &http.request(),
                     &url,
                     method.0.as_deref(),
@@ -2815,7 +2857,7 @@ fn register_network_apis<'js>(
                     body.0.as_deref(),
                     timeout_ms,
                 )
-                .unwrap_or_else(|e| format!("[ERROR] {}", e)))
+                .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -5113,6 +5155,36 @@ mod tests {
 
     fn make_engine() -> QuickJsEngine {
         QuickJsEngine::new(SandboxConfig::permissive()).expect("Failed to create QuickJsEngine")
+    }
+
+    #[test]
+    fn response_bridge_rejects_corrupt_payloads_instead_of_empty_responses() {
+        let runtime = rquickjs::Runtime::new().unwrap();
+        let context = rquickjs::Context::full(&runtime).unwrap();
+        context.with(|ctx| {
+            ctx.eval::<(), _>(r#"
+                var payload = '';
+                var java = {
+                    get: function(){return '变量';},
+                    connect: function(){return payload;},
+                    connectNR: function(){return payload;},
+                    getCookie: function(){return '';}
+                };
+            "#).unwrap();
+            ctx.eval::<(), _>(super::RESPONSE_BRIDGE_JS).unwrap();
+            for payload in ["损坏JSON", "null", "[]", "{}", r#"{"status_code":"200"}"#] {
+                ctx.globals().set("payload", payload).unwrap();
+                for call in ["java.connect('http://example.test/')", "java.get('http://example.test/',{})"] {
+                    let throws: bool = ctx.eval(format!(
+                        "(function(){{try{{{call};return false;}}catch(e){{return e instanceof Error;}}}})()"
+                    )).unwrap();
+                    assert!(throws, "损坏响应不得退为空对象：{call} / {payload}");
+                }
+            }
+            ctx.globals().set("payload", r#"{"status_code":200,"body":"","headers":{}}"#).unwrap();
+            assert_eq!(ctx.eval::<String, _>("java.get('http://example.test/',{}).body()").unwrap(), "");
+            assert_eq!(ctx.eval::<String, _>("java.get('key')").unwrap(), "变量");
+        });
     }
 
     #[test]
