@@ -1124,6 +1124,30 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
 #[cfg(feature = "quickjs")]
 pub const RESPONSE_BRIDGE_JS: &str = r#"
 (function () {
+  // 只属于当前 VM；弱键不延长已替换函数及响应对象的生命周期。
+  var state = globalThis.__legadoResponseBridge;
+  if (!state) {
+    state = { functions: new WeakMap(), responses: new WeakMap(), installed: Object.create(null) };
+    Object.defineProperty(globalThis, '__legadoResponseBridge', { value: state });
+  }
+  function __install(name, dependencies, factory, requireNative) {
+    var current = java[name];
+    var previous = state.functions.get(current);
+    var owned = previous && previous.name === name;
+    var native = owned ? previous.native : current;
+    if (requireNative && typeof native !== 'function') return;
+    if (owned && previous.dependencies.length === dependencies.length &&
+        dependencies.every(function (value, index) { return value === previous.dependencies[index]; })) return;
+    var replaced = owned ? previous.replaced : !!state.installed[name];
+    var wrapper = factory(native, replaced);
+    state.functions.set(wrapper, { name: name, native: native, dependencies: dependencies, replaced: replaced });
+    state.installed[name] = true;
+    java[name] = wrapper;
+  }
+  function __remember(response, kind) {
+    state.responses.set(response, kind);
+    return response;
+  }
   function __readResponse(jsonStr) {
     var r = JSON.parse(jsonStr);
     if (!r || typeof r !== 'object' || Array.isArray(r) || typeof r.status_code !== 'number') {
@@ -1132,9 +1156,10 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
     return r;
   }
   function __resp(jsonStr) {
+    if (jsonStr && typeof jsonStr === 'object' && state.responses.get(jsonStr) === 'response') return jsonStr;
     var r = __readResponse(jsonStr);
     var h = (r && r.headers) || {};
-    return {
+    return __remember({
       header: function (name) {
         var lk = String(name).toLowerCase();
         for (var k in h) { if (String(k).toLowerCase() === lk) return h[k]; }
@@ -1151,12 +1176,11 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
       // 辅助新增（非上游 OkHttp 面）：本响应最终 URL 的域归属 cookie 串
       //（响应 Set-Cookie 已在请求层落 cookie 存储，读即所得）— 3b-3
       cookies: function () { return java.getCookie((r && r.url) || ''); }
-    };
+    }, 'response');
   }
-  var __nativeGetVariable = java.get;
   var __nativeConnect = java.connectNR;
-  var __nativeConnectFull = java.connect;
   function __strResponse(jsonStr) {
+    if (jsonStr && typeof jsonStr === 'object' && state.responses.get(jsonStr) === 'strResponse') return jsonStr;
     var r = __readResponse(jsonStr);
     var finalUrl = (r && r.url) || '';
     var h = (r && r.headers) || {};
@@ -1179,7 +1203,7 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
         return v === null ? [] : [v];
       }
     };
-    return {
+    return __remember({
       // 对齐上游 StrResponse（Kotlin `fun body() = body`）：body 为方法而非
       // 属性。有意偏离：爱丽丝书屋#61 语料以 `.body` 属性读取（该源在上游
       // 原版侧同样不兼容），双基线「功能=原版侧」取上游方法形态
@@ -1190,75 +1214,80 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
       callTime: function () { return typeof r.call_time === 'number' ? r.call_time : 0; },
       // 辅助新增（非上游 OkHttp 面）：本响应最终 URL 的域归属 cookie 串 — 3b-3
       cookies: function () { return java.getCookie(finalUrl); }
-    };
+    }, 'strResponse');
   }
-  java.connect = function (url, arg2, arg3, arg4, arg5) {
-    // rquickjs Opt<T> 不能接收显式 undefined；必须按实参数量调用原生函数。
-    if (arguments.length <= 1) return __strResponse(__nativeConnectFull(String(url)));
-    var isMethod = typeof arg2 === 'string' && /^(GET|POST|HEAD|PUT|DELETE)$/i.test(arg2);
-    if (!isMethod) {
-      var headerOnly = typeof arg2 === 'string' ? arg2 : JSON.stringify(arg2 || {});
-      var timeoutOnly = arg3 == null ? undefined : arg3;
-      return timeoutOnly === undefined
-        ? __strResponse(__nativeConnectFull(String(url), undefined, headerOnly))
-        : __strResponse(__nativeConnectFull(String(url), undefined, headerOnly, undefined, timeoutOnly));
-    }
-    var hs = arg3 == null ? undefined : (typeof arg3 === 'string' ? arg3 : JSON.stringify(arg3));
-    if (arguments.length === 2) return __strResponse(__nativeConnectFull(String(url), arg2));
-    if (arguments.length === 3) return __strResponse(__nativeConnectFull(String(url), arg2, hs));
-    if (arguments.length === 4) return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4)));
-    return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4), arg5));
-  };
+  __install('connect', [], function (__nativeConnectFull, replaced) {
+    return function (url, arg2, arg3, arg4, arg5) {
+      // setup 委托收到原调用参数，避免把头参数再次转换成增强方法的五参格式。
+      if (replaced) return __strResponse(__nativeConnectFull.apply(java, arguments));
+      // rquickjs Opt<T> 不能接收显式 undefined；必须按实参数量调用原生函数。
+      if (arguments.length <= 1) return __strResponse(__nativeConnectFull(String(url)));
+      var isMethod = typeof arg2 === 'string' && /^(GET|POST|HEAD|PUT|DELETE)$/i.test(arg2);
+      if (!isMethod) {
+        var headerOnly = typeof arg2 === 'string' ? arg2 : JSON.stringify(arg2 || {});
+        var timeoutOnly = arg3 == null ? undefined : arg3;
+        return timeoutOnly === undefined
+          ? __strResponse(__nativeConnectFull(String(url), undefined, headerOnly))
+          : __strResponse(__nativeConnectFull(String(url), undefined, headerOnly, undefined, timeoutOnly));
+      }
+      var hs = arg3 == null ? undefined : (typeof arg3 === 'string' ? arg3 : JSON.stringify(arg3));
+      if (arguments.length === 2) return __strResponse(__nativeConnectFull(String(url), arg2));
+      if (arguments.length === 3) return __strResponse(__nativeConnectFull(String(url), arg2, hs));
+      if (arguments.length === 4) return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4)));
+      return __strResponse(__nativeConnectFull(String(url), arg2, hs, String(arg4), arg5));
+    };
+  }, true);
   globalThis.connect = java.connect;
-  var __nativeAjaxAll = java.ajaxAll;
-  var __nativeAjaxTestAll = java.ajaxTestAll;
   function __batchResponses(text) {
+    if (text && typeof text === 'object' && state.responses.get(text) === 'batch') return text;
     var rows = JSON.parse(text);
     if (!Array.isArray(rows)) throw new TypeError('批量响应必须为数组');
-    return rows.map(function (row) { return __strResponse(JSON.stringify(row)); });
+    return __remember(rows.map(function (row) { return __strResponse(JSON.stringify(row)); }), 'batch');
   }
-  // setup 与缓存宿主会重复注入响应桥，已包装的批量函数不能再按 JSON 包装一次。
-  if (typeof java.ajaxAll === 'function' && !java.ajaxAll.__legadoBatchBridge) {
-    java.ajaxAll = function (urls, skipRateLimit) {
-      return __batchResponses(__nativeAjaxAll(urls, skipRateLimit === undefined ? false : skipRateLimit));
+  __install('ajaxAll', [], function (native) {
+    return function (urls, skipRateLimit) {
+      return __batchResponses(native(urls, skipRateLimit === undefined ? false : skipRateLimit));
     };
-    java.ajaxAll.__legadoBatchBridge = true;
-  }
-  if (typeof java.ajaxTestAll === 'function' && !java.ajaxTestAll.__legadoBatchBridge) {
-    java.ajaxTestAll = function (urls, timeout, skipRateLimit) {
-      return __batchResponses(__nativeAjaxTestAll(urls, timeout, skipRateLimit === undefined ? false : skipRateLimit));
+  }, true);
+  __install('ajaxTestAll', [], function (native) {
+    return function (urls, timeout, skipRateLimit) {
+      return __batchResponses(native(urls, timeout, skipRateLimit === undefined ? false : skipRateLimit));
     };
-    java.ajaxTestAll.__legadoBatchBridge = true;
-  }
+  }, true);
   globalThis.ajaxAll = java.ajaxAll;
   globalThis.ajaxTestAll = java.ajaxTestAll;
 
-  java.get = function (url, headers, timeout) {
-    if (arguments.length >= 2) {
-      var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-      return __resp(__nativeConnect(String(url), 'GET', hs, undefined, timeout));
-    }
-    return __nativeGetVariable(String(url));
-  };
+  __install('get', [__nativeConnect], function (__nativeGetVariable) {
+    return function (url, headers, timeout) {
+      if (arguments.length >= 2) {
+        var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
+        return __resp(__nativeConnect(String(url), 'GET', hs, undefined, timeout));
+      }
+      return __nativeGetVariable(String(url));
+    };
+  });
   // 对齐原版 JsExtensions.post/head：followRedirects(false)。
   // 天涯书库等源 java.post(...).header('location') 拦截 302；若跟随重定向则
   // Location 丢失 → String(null) → 请求落到 /null。
-  java.post = function (url, body, headers, timeout) {
-    var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-    return __resp(__nativeConnect(String(url), 'POST', hs, String(body), timeout));
-  };
-  java.head = function (url, headers, timeout) {
-    var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
-    return __resp(__nativeConnect(String(url), 'HEAD', hs, undefined, timeout));
-  };
-})();
-
+  __install('post', [__nativeConnect], function (native, replaced) {
+    return function (url, body, headers, timeout) {
+      if (replaced) return __resp(native.apply(java, arguments));
+      var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
+      return __resp(__nativeConnect(String(url), 'POST', hs, String(body), timeout));
+    };
+  });
+  __install('head', [__nativeConnect], function (native, replaced) {
+    return function (url, headers, timeout) {
+      if (replaced) return __resp(native.apply(java, arguments));
+      var hs = typeof headers === 'string' ? headers : JSON.stringify(headers || {});
+      return __resp(__nativeConnect(String(url), 'HEAD', hs, undefined, timeout));
+    };
+  });
   // [可空入参垫片 | 2026-09-26] 原生 webView 已改 NullStr/NullBool 可空
   // 入参（null/undefined 均 None、上游 Kotlin String? 语义），换型后
   // arity=4 必填——垫片把缺参/undefined 补成 null，恒 4 参调用
-  (function () {
-    var nativeWebView = java.webView;
-    java.webView = function (html, url, js, cacheFirst) {
+  __install('webView', [], function (nativeWebView) {
+    return function (html, url, js, cacheFirst) {
       return nativeWebView(
         html === undefined ? null : html,
         url === undefined ? null : url,
@@ -1266,7 +1295,8 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
         cacheFirst === undefined ? null : cacheFirst === true
       );
     };
-  })();
+  }, true);
+})();
 
 "#;
 

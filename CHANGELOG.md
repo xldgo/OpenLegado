@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.383] - 2026-10-18
+
+### Fixed
+- 修复书源初始化时重复包装网络响应，避免请求成功后仍出现 JSON 解析错误。
+- 保留书源自定义请求与变量查询，重复初始化不再叠加响应和 WebView 参数包装。
+- 贡献者：Codex + Rust；构建号384。
+
 ## [2.0.382] - 2026-10-18
 
 ### Fixed

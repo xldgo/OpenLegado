@@ -1,5 +1,20 @@
 # API 契约文档
 
+## JS响应桥注入生命周期（2026-10-18，实施前冻结）
+
+保留宿主注册与setup之后的响应桥注入时机；同一VM重复注入且函数/依赖未变时，
+必须复用已安装包装，不重复解析响应或叠加变量查询/webView垫片。
+setup替换底层函数或connectNR依赖后须重新适配最新函数，保留旧包装委托的行为，
+不能用“整个桥已初始化”直接跳过。单参get继续查询变量，多参仍为网络请求。
+connect/批量返回StrResponse，get/head/post返回既有Response；超时、错误、Cookie、
+头与正文规则不改。只有本VM桥实际创建的同类响应对象可以在setup委托后原样返回；
+损坏JSON或任意伪响应对象仍须拒绝，不能用宽松对象识别掩盖格式错误。
+安装记录只在当前VM保存，不进入数据库/全局Engine，不新增进程级状态或根资源引用。
+FRB签名、生成物、数据库、网络发送实现和依赖不变。
+
+编写者：Codex + Bridge｜2026-10-18
+
+
 ## JS批量网络请求（2026-10-18，实施前冻结）
 
 ajaxAll(urls, skipRateLimit?)、ajaxTestAll(urls, timeout?, skipRateLimit?)在JS端返回

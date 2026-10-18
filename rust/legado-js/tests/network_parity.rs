@@ -969,3 +969,223 @@ fn batch_rules_share_post_encoding_and_the_original_source_header_snapshot() {
         assert_eq!(row["marker"], "before");
     }
 }
+
+#[test]
+fn response_bridge_reinjection_preserves_single_requests_and_function_identity() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    engine.eval("globalThis.savedBridge=[java.connect,java.get,java.post,java.head,java.webView,java.ajaxAll,java.ajaxTestAll];java.put('bridge-key','变量');").unwrap();
+    for _ in 0..3 {
+        engine
+            .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+            .unwrap();
+    }
+    assert_eq!(engine.eval("[java.connect,java.get,java.post,java.head,java.webView,java.ajaxAll,java.ajaxTestAll].every(function(f,i){return f===savedBridge[i];})").unwrap(),"true","未变化的包装必须复用，不应逐次叠加");
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var r=java.connect(url);
+        var p=java.post(url,'正文',{'X-Marker':'kept'});
+        JSON.stringify([r.code(),JSON.parse(r.body()).path,java.get('bridge-key'),
+            java.get(url,{}).statusCode(),java.head(url,{}).statusCode(),JSON.parse(p.body()).body]);
+    "#,
+    );
+    assert_eq!(response, "[200,\"/echo\",\"变量\",200,200,\"正文\"]");
+    assert_eq!(
+        server.requests.load(Ordering::Acquire),
+        4,
+        "每次调用只发送一次请求"
+    );
+}
+
+#[test]
+fn response_bridge_works_in_cached_and_fresh_executor_initialization() {
+    use legado_js::executor::QuickJsExecutor;
+    use legado_parser::JsExecutor;
+    let server = Server::new("127.0.0.1:0");
+    for fresh in [false, true] {
+        // 空URL映射库选择生产fresh分支，不产生额外远端库请求。
+        let executor = QuickJsExecutor::new(&server.url("/"))
+            .with_setup_script(Some(
+                "put('source_bridge-key','变量'); java.get=function(key){return get('source_'+key);}; globalThis.setupReady=true;".to_string(),
+            ))
+            .with_js_lib(fresh.then(|| "{}".to_string()));
+        let script = format!(
+            "globalThis.calls=(globalThis.calls||0)+1;JSON.stringify([java.connect({}).code(),java.get('bridge-key'),setupReady,calls])",
+            serde_json::to_string(&server.url("/echo")).unwrap()
+        );
+        for turn in 1..=2 {
+            let actual = executor
+                .execute_js(&script)
+                .expect("缓存与fresh初始化后均应能请求");
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&actual).unwrap(),
+                serde_json::json!([200, "变量", true, if fresh { 1 } else { turn }])
+            );
+        }
+    }
+    assert_eq!(server.requests.load(Ordering::Acquire), 4);
+}
+
+#[test]
+fn response_bridge_reinjection_accepts_setup_delegation_and_refreshes_backend_dependency() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    engine
+        .eval(
+            r#"
+        globalThis.sourceConnect=java.connect;globalThis.sourceGet=java.get;
+        globalThis.nativeNR=java.connectNR;
+        globalThis.sourceBatch=java.ajaxAll;globalThis.sourceProbe=java.ajaxTestAll;
+        java.ajaxAll=function(){return sourceBatch.apply(java,arguments);};
+        java.ajaxTestAll=function(){return sourceProbe.apply(java,arguments);};
+        globalThis.connectCalls=0;globalThis.getCalls=0;globalThis.nrCalls=0;
+        java.connect=function(){connectCalls++;return sourceConnect.apply(java,arguments);};
+        java.get=function(key){getCalls++;return sourceGet(key);};
+        java.connectNR=function(){nrCalls++;return nativeNR.apply(java,arguments);};
+        java.put('bridge-key','变量');
+    "#,
+        )
+        .unwrap();
+    for _ in 0..3 {
+        engine
+            .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+            .unwrap();
+    }
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var r=java.connect(url);
+        JSON.stringify([r.code(),JSON.parse(r.body()).path,java.get('bridge-key'),
+            java.get(url,{}).statusCode(),connectCalls,getCalls,nrCalls,
+            java.ajaxAll([url])[0].code(),java.ajaxTestAll([url],1000)[0].code()]);
+    "#,
+    );
+    assert_eq!(response, "[200,\"/echo\",\"变量\",200,1,1,1,200,200]");
+    assert_eq!(server.requests.load(Ordering::Acquire), 4);
+}
+
+#[test]
+fn response_bridge_setup_delegation_preserves_headers_bodies_and_timeouts() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    engine.eval(r#"
+        globalThis.savedConnect=java.connect;globalThis.savedPost=java.post;globalThis.savedHead=java.head;
+        globalThis.hookCalls=0;
+        java.connect=function(){hookCalls++;return savedConnect.apply(java,arguments);};
+        java.post=function(){hookCalls++;return savedPost.apply(java,arguments);};
+        java.head=function(){hookCalls++;return savedHead.apply(java,arguments);};
+    "#).unwrap();
+    for _ in 0..2 {
+        engine
+            .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+            .unwrap();
+    }
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"
+        var rows=[java.connect(url,{'X-Marker':'connect'},1000).body(),
+            java.connect(url,'POST',{'X-Marker':'enhanced'},'正文',1000).body(),
+            java.post(url,'正文',{'X-Marker':'post'},1000).body()];
+        JSON.stringify([rows.map(function(body){var r=JSON.parse(body);return [r.marker,r.body,r.method];}),
+            java.head(url,{},1000).statusCode(),hookCalls]);
+    "#,
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).unwrap(),
+        serde_json::json!([
+            [
+                ["connect", "", "GET"],
+                ["enhanced", "正文", "POST"],
+                ["post", "正文", "POST"]
+            ],
+            200,
+            4
+        ])
+    );
+    let response = eval(
+        &engine,
+        &server.url("/slow"),
+        r#"
+        JSON.stringify([java.connect(url,{},40).body().indexOf('Timeout')>=0,
+            (function(){try{java.post(url,'body',{},40);return false;}catch(e){return String(e).indexOf('Timeout')>=0;}})()]);
+    "#,
+    );
+    assert_eq!(response, "[true,true]");
+}
+
+#[test]
+fn response_bridge_rejects_unowned_response_shaped_objects_and_tracks_latest_backend() {
+    let engine = engine();
+    for override_script in [
+        "java.connect=function(){return {body:function(){return '伪响应';},code:function(){return 200;}};};",
+        "java.connect=function(){return {status_code:200,body:'伪响应',headers:{}};};",
+        "java.connect=function(){return '损坏JSON';};",
+    ] {
+        engine.eval(override_script).unwrap();
+        engine
+            .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+            .unwrap();
+        assert_eq!(engine.eval("(function(){try{java.connect('https://unused.test/');return false;}catch(e){return true;}})()").unwrap(),"true");
+    }
+    engine.eval("java.connectNR=function(){return JSON.stringify({status_code:201,body:'first',headers:{}});};").unwrap();
+    engine
+        .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+        .unwrap();
+    assert_eq!(
+        engine
+            .eval("java.get('https://unused.test/',{}).body()")
+            .unwrap(),
+        "first"
+    );
+    engine.eval("java.connectNR=function(){return JSON.stringify({status_code:202,body:'second',headers:{}});};").unwrap();
+    engine
+        .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+        .unwrap();
+    assert_eq!(
+        engine
+            .eval("java.get('https://unused.test/',{}).body()")
+            .unwrap(),
+        "second"
+    );
+    assert_eq!(
+        engine
+            .eval("java.head('https://unused.test/',{}).statusCode()")
+            .unwrap(),
+        "202"
+    );
+}
+
+#[test]
+fn response_bridge_reuses_webview_adapter_and_normalizes_setup_replacement_once() {
+    let engine = engine();
+    engine
+        .eval(
+            r#"
+        globalThis.webViewCalls=0;
+        java.webView=function(html,url,js,cacheFirst){webViewCalls++;
+            return JSON.stringify([html,url,js,cacheFirst,arguments.length]);};
+    "#,
+        )
+        .unwrap();
+    engine
+        .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+        .unwrap();
+    engine
+        .eval("globalThis.savedWebView=java.webView;")
+        .unwrap();
+    for _ in 0..10 {
+        engine
+            .eval(legado_js::host_api::quickjs_impl::RESPONSE_BRIDGE_JS)
+            .unwrap();
+    }
+    assert_eq!(engine.eval("java.webView===savedWebView").unwrap(), "true");
+    assert_eq!(
+        engine.eval("java.webView('正文')").unwrap(),
+        "[\"正文\",null,null,null,4]"
+    );
+    assert_eq!(engine.eval("webViewCalls").unwrap(), "1");
+}

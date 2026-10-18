@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-RESPONSE-LIFECYCLE-20261018：响应桥注入生命周期（P1）
+
+- 授权与基线：用户要求继续下一批；dep-audit / chore/dep-audit / 71a2e9080，单代理，不推送/合并，不写主目录用户文件。
+- 当前证据：宿主注册先注入RESPONSE_BRIDGE_JS，缓存初始化与fresh执行在setup后再次注入。connect/get/webView等未统一区分宿主包装与底层函数，先以真实QuickJS/本地HTTP复现重复解析、包装增长及setup更新行为，再按证据修复。
+- 范围：统一同一VM内的桥安装；无变化时复用包装，setup替换函数或依赖后重新适配，不能用全局只执行一次跳过必要更新。保留变量get、网络get/head/post、connect、批量与webView参数语义，裸别名保持；不改网络发送、限流、错误分类、FRB/schema或依赖。
+- 验证：重复注入后的真实HTTP、函数身份稳定、setup覆盖/委托、缓存及fresh路径、损坏JSON仍拒绝、Cookie与错误语义；相关JS/Engine回归与两档严格检查。JS状态只属VM，不持有根引擎，不增加应用进程或测试宿主。
+- 复现：修前3项真实QuickJS/HTTP用例全部失败，确认缓存初始化的connect将已包装对象再次JSON.parse、重复安装改变函数身份、setup委托叠加解析。初版脚本转换误改raw.request中的对象返回导致注册失败，已修正；不将该过程计为通过。
+- 实现：保留注册与setup后的注入时机，以VM内WeakMap登记桥创建的函数/响应；函数及依赖未变时复用，connectNR变化时更新相关包装，setup覆盖时保留委托原始参数及响应身份。批量包装纳入同一安装器，WebView参数垫片也复用，不再逐次叠加。弱键不为替换函数/临时响应增加长期强引用；不是安全签名，不新增进程级状态。
+- 回归：新增6项覆盖重复注入身份、缓存及URL映射fresh初始化、setup变量查询替换、委托参数/超时、底层依赖更换、批量委托、损坏JSON/伪对象拒绝与WebView归一化。真实HTTP验证单次调用只发一次；setup按命名空间变量模式复验通过，不用源码文本守卫。
+- 验证：JS完整库/集成745项通过、既有3项忽略，Engine真实网络生命周期6项通过，合计751项。JS两档全目标Clippy -D warnings、工作区两档全部目标cargo check、限定格式及diff检查通过。证据build/js-response-lifecycle/{js-tests,setup-final,engine-network,clippy-quickjs,clippy-default,workspace-quickjs,workspace-default}.log；reproduce为修前失败，fixed为整改中失败，fixed2/lifecycle-final为修后定向通过。
+- 状态：本批选定范围已关闭，版本2.0.383+384及双日志与本记录本地提交；单代理自查，无独立外审。主目录三份用户文件原字节保持。FRB/生成绑定/schema/依赖及网络发送未改，不构建DLL/Flutter/模拟器，无远程CI/推送/合并；不宣称全JS兼容或WebView平台能力已完成。源级限流/全局并发与外部任务取消仍后置；回滚按本批撤销后重建native，不改写产物元数据。
+
+编写者：Codex｜2026-10-18
+
+
 ### JS-BATCH-REQUESTS-20261018：批量脚本请求对齐（P1）
 
 - 授权与基线：用户要求继续第三批；dep-audit / chore/dep-audit / 7dc19dd5d，上游固定15e1337a。单代理，不推送/合并，不写主目录用户文件。
