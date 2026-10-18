@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.377] - 2026-10-18
+
+### Fixed
+- 停用书源脚本中不安全的 RAR 解压及条目读取，防止归档路径越界；桌面本地书籍导入保持。
+- 贡献者：Codex + Rust；构建号378。
+
 ## [2.0.376] - 2026-10-18
 
 ### Changed

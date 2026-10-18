@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+
+### DEPENDENCY-GOVERNANCE-20261018：依赖安全与构建配置收敛（P0/P1）
+
+- 授权与基线：用户批准依次实施六批并逐批本地提交；沿用干净的build/worktrees/dep-audit、chore/dep-audit，起点b30ae82b7。单代理，不推送/合并，不改主目录未提交文件。
+- 顺序与边界：①封闭JS RAR不安全实现及全部别名分派，保留桌面书籍unrar；②删除确认无引用的直接依赖；③逐crate精简Tokio特性，保留内置Web服务；④MD5输出兼容迁移及独立补丁更新；⑤受控字体/内容测试与printpdf替换；⑥Argon2 API迁移及旧哈希校验。Flutter设计组件升级、移动RAR替代选型和Release调优后置。
+- PDF规则：内容完整、中文可读、章节/目录顺序正确、图片比例与分页合理；不追求旧版具体行断点、页数或坐标。优先文本/图片API与小型排版，关闭默认HTML链，保留字体配置。外部PDF导入不为依赖消重而无验证降级。
+- 验证：真实行为回归、相关模块编译/严格Clippy、正式三目标feature图；Flutter清理按静态分析与测试验证。各批不重复运行全套CI/模拟器；原生产链变更在最终集中重建native并核对。过程日志存build/dependency-governance/，失败不计通过；单代理自查，不声称独立外审/远程CI或移动设备验证。
+- 第一批：移除rar及其旧AES链，RAR直接入口与通用解压别名在默认/宽松沙箱明确拒绝；不注册新的ByteArray入口，不改变桌面unrar。新增两项回归在旧代码均失败，修复后JS库651项及安全边界2项通过（2项原忽略）；严格Clippy与diff检查通过。证据b1-reproduce.log、b1-tests-final.log、b1-clippy.log；首次脚本编码失败和测试导入漏项均已修正，不计通过。内置assets语料未检出RAR宿主调用，不代表外部书源无人使用。安全修复版本2.0.377+378同步日志。
+- 状态：实施中，六批完成证据逐批补入本条。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
+
+编写者：Codex｜2026-10-18
+
 ### WINDOWS-RELEASE-BUILD-20261018：动效合并后的Windows构建（P1）
 
 - 授权与基线：用户要求尝试编译合并动效后的Windows版本，主目录feature/ui-reader-selection / 47968eab5；单代理，保留原有两份文档修改，不推送或触发额外CI。

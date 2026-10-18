@@ -1,5 +1,18 @@
 # API 契约文档
 
+
+## JS RAR安全停用边界（2026-10-18，实施前冻结）
+
+移除legado-js中rar 0.4解压与临时文件读取实现，避免条目越界写入/截断和越界读取。
+保留已注册unrarFile/getRarStringContent名称，调用立即抛出“JS RAR 功能暂不支持”异常，
+不访问文件、不发请求、不创建目录；这两项不再计为已实现能力。
+unArchiveFile及unzipFile别名遇RAR魔数同样抛出明确异常，不绕过停用边界；ZIP/7z保持。
+getRarByteArrayContent当前未注册，本批不新增；桌面legado-book的unrar导入不改。
+Android arm64/x86_64、Windows与iOS QuickJS均执行同一边界，不将停用误报为RAR兼容完成。
+FRB函数签名/生成物、书源存储与数据库schema不变。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## Flutter错误边界（2026-10-18，实施前冻结）
 
 领域层使用不引用FRB的AppException承载可见消息、操作上下文、原始cause及sourceStackTrace；
