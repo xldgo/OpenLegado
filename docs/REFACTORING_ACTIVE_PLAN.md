@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-PAGINATION-POLICY-20261018：阅读器分页编排策略提取（P1，SCH-F2b）
+
+- 授权与基线：用户要求继续且每批验证后本地提交；主目录feature/ui-reader-selection / 718eb92ee，单代理、沿用分支、不推送或设备构建。保留两份用户原有文档修改。
+- 范围：将ReaderPageView的重排签名、双页/可用尺寸、完整章节缓存键、页面目标就绪和相邻章预载选择提取为可独立测试的application策略；Widget保留平台测量、渲染/选区、翻页及状态发布，沿用既有ChapterPaginationSession与ChapterLayoutCache，不重写排版核心或调整缓存预算/预取范围。
+- 保持行为：实际内容区约束、单双页档位/700宽阈值、字体与缩放/Locale/方向/高度、段评显隐/纯重绘区分、原文锚点和显式跳页、完整布局复用、三章预算、串行相邻预载及失败静默保持；不改Rust/FRB/数据库/依赖/版本或排版规则，不新增历史兼容标识。
+- 实现：新增ReaderPaginationPolicy、ReaderPaginationSignature、ReaderPaginationTarget和ReaderPaginationTask，主章/预载共用策略及缓存键，删除Widget内分散的比较字段和重复判断。页眉/页脚/标题仍只在确认需要重排后测量，配色/菜单/段评正数变化不新增文字测量；原文锚点、末页请求优先级及无效视口恢复规则不变。异步分页与预载等待后统一核对书籍/章节/代次，失效会话取消，未宣称取消底层章节请求。
+- 验证：33项纯策略行为覆盖单双页/700宽阈值、非对称栏宽、签名与缓存几何失效/配色命中、锚点/远页/末页等待及预载距离；复用正式Windows原生排版传输，6项缓存/接线回归含同章换书、视口重排和退出后的迟到预载，另有测绘同参3项、行内段评3项、诊断1项和缓存预算2项。最终同一命令46项全部通过；完整Dart静态分析、Windows FFI只读指纹/摘要校验和git diff --check通过。
+- 整改与证据：初轮提取的模型导入、live变量和异步context检查已修正；新测试误将只读缓存列表视作原列表身份，改为核对同一页面对象；新增Widget夹具漏传段距已补全。未更改生产行为迁就测试。flutter_legado/build/f2b/下policy-tests.log、regression.log与analyze-initial.log保留过程记录，最终为regression-final.log（46项）和analyze-final.log，命令退出码均为0；不把首轮失败记录算通过。
+- 状态：本批提取及本地验证完成，随代码本地提交，不推送；仅单代理自查，无独立外审、远程CI、设备或实际阅读器选区/翻页性能验收。排期中Flutter轨SCH-F1b、SCH-X1、SCH-F3a、SCH-F2a/SCH-F2b均已有本地交付，结构性大改须按Phase 3对应证据再决定，不自动扩入Rust候选项。两份用户文档修改保持原样；回滚仅撤销本批策略、Widget接线、测试和边界文档，保留既有排版核心及前批成果。
+
+编写者：Codex + UI｜2026-10-18
+
 ### FLUTTER-VIDEO-SESSION-20261018：视频播放编排与生命周期拆分（P1，SCH-F2a）
 
 - 授权与基线：用户要求继续并在每批验证后本地提交；主目录feature/ui-reader-selection / f94aeecf7，单代理、不新建分支、不推送/设备构建。保留TWO_TRACK_DEV_SPEC.md和ARCHITECTURE_REVIEW_20261018.md原有修改。
