@@ -38,7 +38,9 @@
 | 文档 | 说明 |
 | --- | --- |
 | [API_CONTRACT.md](API_CONTRACT.md) | BookApi 接口契约文档（UI 轨与 Rust 轨唯一接口基准） |
-| [TWO_TRACK_DEV_SPEC.md](TWO_TRACK_DEV_SPEC.md) | 双轨协作开发规范（UI 轨与 Rust 轨分离开发及边界） |
+| [TWO_TRACK_DEV_SPEC.md](TWO_TRACK_DEV_SPEC.md) | 双轨协作开发规范（UI 轨与 Rust 轨分离开发及边界），只写做法 |
+| [TWO_TRACK_DEV_RATIONALE.md](TWO_TRACK_DEV_RATIONALE.md) | 双轨规范背景与原理说明（为什么这样规定），章节号与规范对应 |
+| [RUST_SERVICE_BOUNDARY_LOG.md](RUST_SERVICE_BOUNDARY_LOG.md) | Rust 服务边界逐批变更记录（记录性文档，不构成新约束） |
 | [SETTINGS_ARCHITECTURE.md](SETTINGS_ARCHITECTURE.md) | 设置业务分类、存储与状态边界、逐项清单规范及迁移顺序 |
 | [UI_THEME_ARCHITECTURE.md](UI_THEME_ARCHITECTURE.md) | 主题、调色板与配色架构规范 |
 | [FLUTTER_DATA_BOUNDARIES.md](FLUTTER_DATA_BOUNDARIES.md) | Flutter 初始化职责与数据访问渐进拆分方案 |
