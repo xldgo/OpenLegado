@@ -1,10 +1,11 @@
+import '../../../../utils/error_message.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../bridge/ffi.dart';
 import '../../../../models/models.dart';
 import '../../../../domain/contracts/txt_toc_rule_repository.dart';
 import '../../../../providers/domain_config_provider.dart';
@@ -65,7 +66,7 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
       final rules = await repository.getRules();
       state = state.copyWith(rules: rules, isLoading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
     }
   }
 
@@ -127,13 +128,8 @@ class TxtTocRulesNotifier extends Notifier<TxtTocRulesState> {
     try {
       await ref.read(txtTocRuleRepositoryProvider).saveRules(rules);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
-  }
-
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

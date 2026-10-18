@@ -137,7 +137,7 @@ void main() {
       await tester.pumpWidget(wrap(const DictRuleScreen()));
       await tester.pumpAndSettle();
 
-      // _errMsg 对非 BridgeError 走 toString（Exception 带 "Exception: " 前缀）
+      // _errMsg 对非 AppException 走 toString（Exception 带 "Exception: " 前缀）
       expect(find.text('Exception: ffi dictRuleList'), findsOneWidget);
       expect(find.byIcon(Symbols.refresh_rounded), findsWidgets);
     });

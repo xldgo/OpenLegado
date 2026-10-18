@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
@@ -88,7 +88,7 @@ void main() {
 
     test('加载失败时设置 error', () async {
       when(() => mockApi.bookshelfRepository.getBooks())
-          .thenThrow(const BridgeError(message: '数据库连接失败'));
+          .thenThrow(const AppException('数据库连接失败'));
 
       container.read(bookshelfNotifierProvider);
       await pumpInit();
@@ -98,7 +98,7 @@ void main() {
       expect(readState().books, isEmpty);
     });
 
-    test('非 BridgeError 异常也能正确映射', () async {
+    test('非 AppException 异常也能正确映射', () async {
       when(() => mockApi.bookshelfRepository.getBooks())
           .thenThrow(Exception('网络超时'));
 
@@ -144,7 +144,7 @@ void main() {
     test('addBook 失败时设置 error', () async {
       await pumpInit();
       when(() => mockApi.bookshelfRepository.addBook(any()))
-          .thenThrow(const BridgeError(message: '添加失败'));
+          .thenThrow(const AppException('添加失败'));
 
       await readNotifier().addBook(const Book(name: 'x', bookUrl: 'x'));
 
@@ -166,7 +166,7 @@ void main() {
     test('removeBook 失败时设置 error 且列表不变', () async {
       await pumpInit();
       when(() => mockApi.bookshelfRepository.deleteBook(any()))
-          .thenThrow(const BridgeError(message: '删除失败'));
+          .thenThrow(const AppException('删除失败'));
 
       await readNotifier().removeBook('book://1');
 
@@ -387,7 +387,7 @@ void main() {
       readNotifier().toggleSelect('book://1');
 
       when(() => mockApi.bookshelfRepository.deleteBook('book://1'))
-          .thenThrow(const BridgeError(message: '删除失败'));
+          .thenThrow(const AppException('删除失败'));
 
       await readNotifier().deleteSelectedBooks();
 

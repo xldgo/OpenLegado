@@ -1,3 +1,4 @@
+import '../../utils/error_message.dart';
 import '../../providers/book_content_provider.dart';
 
 import 'dart:async';
@@ -5,7 +6,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../../domain/models/bookshelf_settings.dart';
 import '../../domain/contracts/bookshelf_settings_repository.dart';
@@ -109,7 +109,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       _applyVideoGroup();
     } catch (e) {
       if (!ref.mounted) return;
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
     }
   }
 
@@ -142,7 +142,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
         ],
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -182,7 +182,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
     } catch (e) {
       // 分组加载失败不阻断书架展示
       if (!ref.mounted) return;
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -254,7 +254,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       _applyVideoGroup();
       return true;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
       return false;
     }
   }
@@ -289,7 +289,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       _applyVideoGroup();
       return true;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
       return false;
     }
   }
@@ -363,7 +363,7 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
       );
       await _loadBooks();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -394,18 +394,12 @@ class BookshelfNotifier extends Notifier<BookshelfState> {
         for (final b in reordered) {'bookUrl': b.bookUrl, 'order': b.order},
       ]);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
       await _loadBooks();
     }
   }
 
   // ===== 内部工具 =====
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
-  }
 }
 
 /// 书架 Notifier 全局 Provider

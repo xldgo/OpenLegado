@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -16,18 +18,24 @@ final class RustAudioBookService implements AudioBookService {
     int chapterIndex,
   ) async {
     return audioChapterMediaFromDto(
-      await bridge.audioGetChapterMedia(
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
+      await rustFuture(
+        () => bridge.audioGetChapterMedia(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+        ),
+        operation: 'audioGetChapterMedia',
       ),
     );
   }
 
   @override
   Future<int> getAudioProgress(String bookUrl, int chapterIndex) async =>
-      (await bridge.audioGetProgress(
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
+      (await rustFuture(
+        () => bridge.audioGetProgress(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+        ),
+        operation: 'audioGetProgress',
       )).toInt();
   @override
   Future<void> saveAudioProgress(
@@ -35,10 +43,13 @@ final class RustAudioBookService implements AudioBookService {
     int chapterIndex,
     int positionMs,
   ) async {
-    await bridge.audioSaveProgress(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-      position: positionMs,
+    await rustFuture(
+      () => bridge.audioSaveProgress(
+        bookUrl: bookUrl,
+        chapterIndex: chapterIndex,
+        position: positionMs,
+      ),
+      operation: 'audioSaveProgress',
     );
   }
 
@@ -48,9 +59,14 @@ final class RustAudioBookService implements AudioBookService {
     required int playMode,
   }) async => ReadConfig.fromJson(
     decodeRustJsonMap(
-      await bridge.audioWithPlayMode(
-        readConfig: readConfig == null ? null : jsonEncode(readConfig.toJson()),
-        playMode: playMode,
+      await rustFuture(
+        () => bridge.audioWithPlayMode(
+          readConfig: readConfig == null
+              ? null
+              : jsonEncode(readConfig.toJson()),
+          playMode: playMode,
+        ),
+        operation: 'audioWithPlayMode',
       ),
       'audioWithPlayMode',
     ),

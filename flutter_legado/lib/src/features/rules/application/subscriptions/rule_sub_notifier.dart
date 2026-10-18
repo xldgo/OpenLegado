@@ -1,6 +1,7 @@
+import '../../../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../../bridge/ffi.dart';
 import '../../../../models/models.dart';
 import '../../../../providers/rule_sub_repository_provider.dart';
 import '../../../../domain/models/rule_sub_update_result.dart';
@@ -47,7 +48,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
         ..sort((a, b) => a.customOrder.compareTo(b.customOrder));
       state = state.copyWith(subs: subs, loading: false);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), loading: false);
+      state = state.copyWith(error: errorMessage(e), loading: false);
     }
   }
 
@@ -81,7 +82,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
       );
       await loadSubs();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -96,7 +97,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
         subs: state.subs.where((s) => s.id != id).toList(),
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -115,7 +116,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
       subs[index] = subs[index].copyWith(isEnabled: enabled);
       state = state.copyWith(subs: subs);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -136,7 +137,7 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
       );
     } catch (e) {
       await loadSubs();
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
     }
   }
 
@@ -153,12 +154,6 @@ class RuleSubNotifier extends Notifier<RuleSubState> {
     // 应用成功后 Rust 已回写版本号与最后更新时间，刷新列表
     if (result.success) await loadSubs();
     return result;
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

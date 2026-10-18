@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../bridge/business_dto_mapping.dart';
@@ -12,27 +14,38 @@ final class RustRssSourceRepository implements RssSourceRepository {
   /// 获取所有 RSS 源
   @override
   Future<List<RssSource>> getRssSources() async {
-    return (await bridge.rssListSources()).map(rssSourceFromDto).toList();
+    return (await rustFuture(
+      () => bridge.rssListSources(),
+      operation: 'rssListSources',
+    )).map(rssSourceFromDto).toList();
   }
 
   /// 添加 RSS 源
   @override
   Future<RssSource> addRssSource(RssSource source) async {
     return rssSourceFromDto(
-      await bridge.rssAddSource(source: rssSourceToDto(source)),
+      await rustFuture(
+        () => bridge.rssAddSource(source: rssSourceToDto(source)),
+        operation: 'rssAddSource',
+      ),
     );
   }
 
   /// 原子更新RSS实体，不写入书源表。
   @override
   Future<void> updateRssSource(RssSource source) async {
-    await bridge.rssUpdateSource(source: rssSourceToDto(source));
+    await rustFuture(
+      () => bridge.rssUpdateSource(source: rssSourceToDto(source)),
+      operation: 'rssUpdateSource',
+    );
   }
 
   /// 删除 RSS 源
   @override
-  Future<void> deleteRssSource(String sourceUrl) =>
-      bridge.rssDeleteSource(sourceUrl: sourceUrl);
+  Future<void> deleteRssSource(String sourceUrl) => rustFuture(
+    () => bridge.rssDeleteSource(sourceUrl: sourceUrl),
+    operation: 'rssDeleteSource',
+  );
 
   /// 通过RSS原子更新启用，保留实体其他字段。
   @override

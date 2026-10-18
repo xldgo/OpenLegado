@@ -1,4 +1,4 @@
-import '../../../bridge/ffi.dart' show BridgeError;
+import '../../../utils/error_message.dart';
 import '../../../data/services/chapter_content_service.dart';
 import '../../../domain/contracts/bookshelf_repository.dart';
 import '../../../domain/contracts/reading_repository.dart';
@@ -144,7 +144,7 @@ final class ReaderSessionController {
       await _loadChapterContent();
     } catch (e) {
       // 被更新开书操作取代的错误不得覆盖当前会话。
-      if (openSeq == _openSeq) state = state.copyWith(error: _mapError(e));
+      if (openSeq == _openSeq) state = state.copyWith(error: errorMessage(e));
     } finally {
       if (openSeq == _openSeq) state = state.copyWith(isLoading: false);
     }
@@ -304,7 +304,7 @@ final class ReaderSessionController {
       if (seq != _loadSeq) return null;
       // [STAGE3-C2B] 失败保留旧正文并显示原因；仅当前章缓存行丢失
       // （对齐上游，不做整书清理）
-      final msg = _mapError(e);
+      final msg = errorMessage(e);
       state = state.copyWith(isLoading: false, error: msg);
       return msg;
     } finally {
@@ -380,7 +380,7 @@ final class ReaderSessionController {
       return null;
     } catch (e) {
       if (openSeq != _openSeq || _disposed) return null;
-      final msg = _mapError(e);
+      final msg = errorMessage(e);
       state = state.copyWith(isLoading: false, error: msg);
       return msg;
     } finally {
@@ -536,14 +536,9 @@ final class ReaderSessionController {
       return true;
     } catch (e) {
       if (seq != _loadSeq) return false; // 被取代加载的错误同样不得覆盖新状态
-      state = state.copyWith(error: _mapError(e), chapterContent: '');
+      state = state.copyWith(error: errorMessage(e), chapterContent: '');
       return true;
     }
-  }
-
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 
   /// 接收表现层解析的目标位置，不拥有跨章节分页器。

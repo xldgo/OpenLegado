@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import 'components/book_detail_backdrop.dart';
 import 'components/book_meta_card.dart';
 import 'components/book_action_buttons.dart';
@@ -458,7 +459,6 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
     }
   }
 
-  String _errMsg(Object error) => detailErrorMessage(error);
   bool _isOnlineBook(Book book) => BookMetadataPolicy.isOnlineBook(book);
 
   bool _isLocalTxt(Book book) {

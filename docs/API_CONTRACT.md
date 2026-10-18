@@ -1,5 +1,18 @@
 # API 契约文档
 
+## Flutter错误边界（2026-10-18，实施前冻结）
+
+领域层使用不引用FRB的AppException承载可见消息、操作上下文、原始cause及sourceStackTrace；
+数据层将BridgeError转换为该类型，同步/Future/Stream入口共用转换规则并保留堆栈。
+未知异常原样传播，不按消息文本猜测网络/取消分类，不重写现有取消令牌、结果类型和
+订阅释放行为。既有RustApiException并入领域类型，不保留同义转发或第二套错误体系。
+UI的errorMessage只读取领域错误，空白消息使用既有“未知错误”，普通异常沿用toString；
+原有操作前缀仍由原调用点提供，不在转换器中重复添加。清理各feature的BridgeError判断
+及dynamic.message探测；错误以外的生成类型不得以隐藏导出继续泄漏至UI。
+Rust签名、FRB生成绑定、数据库、依赖和版本不变，不需要codegen。
+
+编写者：Codex + Bridge/UI｜2026-10-18
+
 ## 非音频固定结果类型化（2026-10-18，实施前冻结）
 
 本批原位替换三项正式FRB返回类型，不新增JSON兼容入口；同批生成两端绑定并重建原生库。

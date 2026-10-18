@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/network_service.dart';
 import '../../domain/models/http_response.dart';
@@ -10,7 +11,10 @@ class RustNetworkService implements NetworkService {
     String url, {
     Duration timeout = const Duration(seconds: 30),
   }) async {
-    final value = await bridge.httpGet(url: url).timeout(timeout);
+    final value = await rustFuture(
+      () => bridge.httpGet(url: url),
+      operation: 'httpGet',
+    ).timeout(timeout);
     return HttpTextResponse(
       statusCode: value.status,
       body: value.body,
@@ -24,7 +28,10 @@ class RustNetworkService implements NetworkService {
     String body, {
     Duration timeout = const Duration(seconds: 30),
   }) async {
-    final value = await bridge.httpPost(url: url, body: body).timeout(timeout);
+    final value = await rustFuture(
+      () => bridge.httpPost(url: url, body: body),
+      operation: 'httpPost',
+    ).timeout(timeout);
     return HttpTextResponse(
       statusCode: value.status,
       body: value.body,
@@ -38,12 +45,13 @@ class RustNetworkService implements NetworkService {
     Map<String, String>? headers,
     Duration timeout = const Duration(seconds: 30),
   }) async {
-    final value = await bridge
-        .httpGetBytes(
-          url: url,
-          headers: headers == null || headers.isEmpty ? null : headers,
-        )
-        .timeout(timeout);
+    final value = await rustFuture(
+      () => bridge.httpGetBytes(
+        url: url,
+        headers: headers == null || headers.isEmpty ? null : headers,
+      ),
+      operation: 'httpGetBytes',
+    ).timeout(timeout);
     return HttpBytesResponse(
       statusCode: value.status,
       bytes: value.bytes,
@@ -52,8 +60,11 @@ class RustNetworkService implements NetworkService {
   }
 
   @override
-  Future<void> setCustomHosts(String configuration) =>
-      bridge.setCustomHosts(hostsJson: configuration);
+  Future<void> setCustomHosts(String configuration) => rustFuture(
+    () => bridge.setCustomHosts(hostsJson: configuration),
+    operation: 'setCustomHosts',
+  );
   @override
-  Future<void> clearCookie(String url) => bridge.clearCookie(url: url);
+  Future<void> clearCookie(String url) =>
+      rustFuture(() => bridge.clearCookie(url: url), operation: 'clearCookie');
 }

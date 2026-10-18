@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/reading_provider.dart';
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
@@ -494,9 +494,9 @@ void main() {
       expect(readState().chapterContent, equals('第一章正文内容'));
     });
 
-    test('失败时设置 BridgeError 错误', () async {
+    test('失败时设置 AppException 错误', () async {
       when(() => mockApi.readingRepository.getChapters(any()))
-          .thenThrow(const BridgeError(message: '书籍不存在'));
+          .thenThrow(const AppException('书籍不存在'));
       container.read(readerNotifierProvider);
       await pumpInit();
 

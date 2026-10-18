@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -22,9 +24,12 @@ final class RustVideoDanmakuService implements VideoDanmakuService {
     required int chapterIndex,
   }) async {
     try {
-      return await bridge.getVideoDanmaku(
-        bookUrl: bookUrl,
-        chapterIndex: chapterIndex,
+      return await rustFuture(
+        () => bridge.getVideoDanmaku(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+        ),
+        operation: 'getVideoDanmaku',
       );
     } catch (e) {
       debugPrint('[RustApi] getVideoDanmaku 失败（降级 null）：$e');
@@ -44,7 +49,10 @@ final class RustVideoDanmakuService implements VideoDanmakuService {
     required String raw,
   }) async {
     try {
-      final json = await bridge.parseVideoDanmaku(raw: raw);
+      final json = await rustFuture(
+        () => bridge.parseVideoDanmaku(raw: raw),
+        operation: 'parseVideoDanmaku',
+      );
       if (json == null) return null;
       final decoded = jsonDecode(json);
       if (decoded is! List) return null;

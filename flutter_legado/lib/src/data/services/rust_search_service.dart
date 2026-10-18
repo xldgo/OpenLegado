@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/search_service.dart';
 import '../../domain/models/search_batch.dart';
@@ -19,9 +20,9 @@ final class RustSearchService implements SearchService {
     String keyword, {
     List<String>? sourceUrls,
   }) async {
-    final books = await bridge.searchBooks(
-      keyword: keyword,
-      sourceUrls: sourceUrls ?? [],
+    final books = await rustFuture(
+      () => bridge.searchBooks(keyword: keyword, sourceUrls: sourceUrls ?? []),
+      operation: 'searchBooks',
     );
     return books
         .map(
@@ -41,10 +42,13 @@ final class RustSearchService implements SearchService {
     List<String>? sourceUrls,
   }) async {
     return searchBookFromDto(
-      await bridge.preciseSearch(
-        name: name,
-        author: author,
-        sourceUrls: sourceUrls ?? [],
+      await rustFuture(
+        () => bridge.preciseSearch(
+          name: name,
+          author: author,
+          sourceUrls: sourceUrls ?? [],
+        ),
+        operation: 'preciseSearch',
       ),
     );
   }
@@ -55,9 +59,9 @@ final class RustSearchService implements SearchService {
     String query, {
     List<String>? sourceUrls,
   }) async {
-    return (await bridge.searchMulti(
-          query: query,
-          sourceUrls: sourceUrls ?? [],
+    return (await rustFuture(
+          () => bridge.searchMulti(query: query, sourceUrls: sourceUrls ?? []),
+          operation: 'searchMulti',
         ))
         .map(
           (v) => <String, dynamic>{
@@ -91,24 +95,30 @@ final class RustSearchService implements SearchService {
     int page = 1,
   }) {
     return managedRustStream(
-      (request) => bridge.searchMultiStream(
-        query: query,
-        sourceUrls: sourceUrls ?? [],
-        page: page,
-        request: request,
+      (request) => rustStream(
+        () => bridge.searchMultiStream(
+          query: query,
+          sourceUrls: sourceUrls ?? [],
+          page: page,
+          request: request,
+        ),
+        operation: 'searchMultiStream',
       ),
     ).map(searchBatchFromDto);
   }
 
   /// 取消搜索
   @override
-  Future<void> cancelSearch() => bridge.searchCancel();
+  Future<void> cancelSearch() =>
+      rustFuture(() => bridge.searchCancel(), operation: 'searchCancel');
 
   /// 暂停正在进行的流式搜索（软挂起，批次B G-B-04）
   @override
-  Future<void> pauseSearch() => bridge.searchPause();
+  Future<void> pauseSearch() =>
+      rustFuture(() => bridge.searchPause(), operation: 'searchPause');
 
   /// 恢复已暂停的流式搜索（批次B G-B-04）
   @override
-  Future<void> resumeSearch() => bridge.searchResume();
+  Future<void> resumeSearch() =>
+      rustFuture(() => bridge.searchResume(), operation: 'searchResume');
 }

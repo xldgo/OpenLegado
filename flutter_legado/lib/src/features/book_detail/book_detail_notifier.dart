@@ -1,3 +1,5 @@
+import '../../utils/error_message.dart';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -83,7 +85,7 @@ class BookDetailNotifier extends Notifier<BookDetailState> {
         pageLoading: false,
         tocLoading: false,
         networkLoading: false,
-        error: detailErrorMessage(error),
+        error: errorMessage(error),
       );
     }
   }
@@ -118,12 +120,4 @@ class BookDetailNotifier extends Notifier<BookDetailState> {
       state = state.copyWith(data: state.data.copyWith(inBookshelf: value));
 }
 
-String detailErrorMessage(Object error) {
-  try {
-    final message = (error as dynamic).message;
-    if (message is String && message.isNotEmpty) return message;
-  } catch (_) {
-    // 普通异常没有message字段时沿用原字符串表示。
-  }
-  return error.toString();
-}
+String detailErrorMessage(Object error) => errorMessage(error);

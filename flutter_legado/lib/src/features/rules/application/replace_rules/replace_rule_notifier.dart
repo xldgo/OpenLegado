@@ -2,7 +2,6 @@ import '../../../../providers/replace_rule_repository_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../../bridge/ffi.dart';
 import '../../../../models/models.dart';
 import '../../../../utils/error_message.dart';
 import 'replace_rule_state.dart';
@@ -32,11 +31,7 @@ class ReplaceRuleNotifier extends Notifier<ReplaceRuleState> {
           .getReplaceRules();
       state = state.copyWith(rules: rules);
     } catch (e) {
-      if (e is BridgeError) {
-        state = state.copyWith(error: e.message);
-      } else {
-        state = state.copyWith(error: errorMessage(e));
-      }
+      state = state.copyWith(error: errorMessage(e));
     } finally {
       state = state.copyWith(loading: false);
     }

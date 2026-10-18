@@ -1,3 +1,5 @@
+import '../../utils/error_message.dart';
+
 import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
 import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 
@@ -22,7 +24,6 @@ import '../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 
-import '../../bridge/ffi.dart' show BridgeError;
 import '../../l10n/app_localization.dart';
 import '../../models/models.dart';
 import 'bookshelf_notifier.dart';
@@ -813,7 +814,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       } catch (e) {
         failures.add(file.name);
         if (failureDetails.length < 3) {
-          final msg = e is BridgeError ? e.message : '$e';
+          final msg = errorMessage(e);
           failureDetails.add('${file.name}：$msg');
         }
       }

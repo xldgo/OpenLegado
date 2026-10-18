@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:typed_data';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -11,7 +13,10 @@ final class RustLocalBookService implements LocalBookService {
   const RustLocalBookService();
   @override
   Future<Book> importLocalBook(String filePath) async {
-    final result = await bridge.importLocalBook(filePath: filePath);
+    final result = await rustFuture(
+      () => bridge.importLocalBook(filePath: filePath),
+      operation: 'importLocalBook',
+    );
     requireFileSuccess(result.success, result.error, 'importLocalBook');
     final book = result.book;
     if (book == null) throw const FormatException('导入成功但缺少书籍数据');
@@ -22,5 +27,8 @@ final class RustLocalBookService implements LocalBookService {
   Future<Uint8List> cbzReadPage({
     required String path,
     required String entry,
-  }) async => bridge.cbzReadPage(path: path, entry: entry);
+  }) async => rustFuture(
+    () => bridge.cbzReadPage(path: path, entry: entry),
+    operation: 'cbzReadPage',
+  );
 }

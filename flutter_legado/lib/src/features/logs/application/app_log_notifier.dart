@@ -1,6 +1,7 @@
+import '../../../utils/error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../bridge/ffi.dart';
 import '../../../providers/app_log_repository_provider.dart';
 import 'app_log_state.dart';
 
@@ -32,7 +33,7 @@ class AppLogNotifier extends Notifier<AppLogState> {
       state = state.copyWith(
         logs: const [],
         isLoading: false,
-        error: _mapError(e),
+        error: errorMessage(e),
       );
     }
   }
@@ -45,7 +46,7 @@ class AppLogNotifier extends Notifier<AppLogState> {
       await load(level);
       return state.error == null;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
       return false;
     }
   }
@@ -57,7 +58,7 @@ class AppLogNotifier extends Notifier<AppLogState> {
       await load(state.currentLevel);
       return state.error == null;
     } catch (e) {
-      state = state.copyWith(error: _mapError(e));
+      state = state.copyWith(error: errorMessage(e));
       return false;
     }
   }
@@ -65,12 +66,6 @@ class AppLogNotifier extends Notifier<AppLogState> {
   /// 导出全部日志为格式化文本（时间升序，Rust 侧 64_000 字符截断）
   Future<String> export() async {
     return ref.read(appLogRepositoryProvider).appLogExport();
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

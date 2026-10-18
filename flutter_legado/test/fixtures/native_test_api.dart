@@ -1,5 +1,5 @@
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
-export 'package:flutter_legado/src/data/bridge/rust_api_exception.dart';
+export 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 export 'app_test_api.dart';
 

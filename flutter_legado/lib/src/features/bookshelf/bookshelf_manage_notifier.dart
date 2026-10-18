@@ -1,9 +1,9 @@
+import '../../utils/error_message.dart';
 import 'bookshelf_repositories.dart';
 import '../../providers/change_source/source_switch_dependencies.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../bridge/ffi.dart';
 import '../../models/models.dart';
 import '../search/search_access_providers.dart';
 import 'bookshelf_manage_state.dart';
@@ -33,7 +33,7 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isLoading: false);
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
     }
   }
 
@@ -71,7 +71,7 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
       state = state.copyWith(isBusy: false);
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isBusy: false);
+      state = state.copyWith(error: errorMessage(e), isBusy: false);
     }
   }
 
@@ -88,7 +88,7 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
       state = state.copyWith(isBusy: false);
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isBusy: false);
+      state = state.copyWith(error: errorMessage(e), isBusy: false);
     }
   }
 
@@ -105,7 +105,7 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
       state = state.copyWith(isBusy: false);
       await load();
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isBusy: false);
+      state = state.copyWith(error: errorMessage(e), isBusy: false);
     }
   }
 
@@ -159,15 +159,9 @@ class BookshelfManageNotifier extends Notifier<BookshelfManageState> {
       await load();
       return (success, targets.length);
     } catch (e) {
-      state = state.copyWith(error: _mapError(e), isBusy: false);
+      state = state.copyWith(error: errorMessage(e), isBusy: false);
       return (0, targets.length);
     }
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 }
 

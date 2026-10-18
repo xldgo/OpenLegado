@@ -313,7 +313,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       _snack(input.isEmpty ? '源变量已清除' : '源变量已保存');
     } catch (e) {
       debugPrint('设置源变量失败: $e');
-      if (mounted) _snack('设置源变量失败: ${_errMsg(e)}');
+      if (mounted) _snack('设置源变量失败: ${errorMessage(e)}');
     }
   }
 
@@ -385,7 +385,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           .webdavUploadFile(syncNotifier.connection, remotePath, localPath);
     } catch (e) {
       debugPrint('上传至远程失败: $e');
-      if (mounted) _snack('上传失败: ${_errMsg(e)}');
+      if (mounted) _snack('上传失败: ${errorMessage(e)}');
       return;
     }
     if (!mounted) return;

@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import '../book_source_repository_provider.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../search/search_settings_provider.dart';
@@ -16,7 +17,6 @@ import '../../../widgets/legado_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
-import '../../../bridge/ffi.dart' show BridgeError;
 import '../application/change_source/change_source_notifier.dart';
 import '../../../routes.dart';
 import '../../../widgets/custom_refresh_indicator.dart'; // [LAYOUT_PLAN P4] 下拉 M3 化
@@ -348,10 +348,8 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       Navigator.pop(context, newBookUrl);
     } catch (e) {
       if (!mounted) return;
-      // [fix Task#24 | 2026-08-08] BridgeError 未重写 toString，直接内插得到
-      // 无信息的「Instance of 'BridgeError'」。改用 .message 暴露 Rust 侧真实
-      // 错误（如「新书源未解析到任何章节」），便于用户与排查 — Qoder
-      final msg = e is BridgeError ? e.message : e.toString();
+      // 数据层保留领域错误消息，展示时不暴露桥接类型。
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('换源失败: $msg')));
     }
@@ -827,7 +825,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           .updateBookScore(item.bookUrl, newScore);
     } catch (e) {
       if (!mounted) return;
-      final msg = e is BridgeError ? e.message : e.toString();
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
     }
@@ -841,7 +839,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           .updateBookScore(item.bookUrl, newScore);
     } catch (e) {
       if (!mounted) return;
-      final msg = e is BridgeError ? e.message : e.toString();
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('评分失败: $msg')));
     }
@@ -905,7 +903,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
           await notifier.disableAndRemove(item);
         } catch (e) {
           if (!mounted) return;
-          final msg = e is BridgeError ? e.message : e.toString();
+          final msg = errorMessage(e);
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text('禁用失败: $msg')));
         }
@@ -948,7 +946,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      final msg = e is BridgeError ? e.message : e.toString();
+      final msg = errorMessage(e);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('删除失败: $msg')));
     }

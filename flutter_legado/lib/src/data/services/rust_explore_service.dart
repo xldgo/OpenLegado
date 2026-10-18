@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -16,9 +18,12 @@ final class RustExploreService implements ExploreService {
     String exploreUrl, {
     BookSource? source,
   }) async {
-    return (await bridge.exploreParseUrl(
-      exploreUrl: exploreUrl,
-      source: source == null ? null : bookSourceToDto(source),
+    return (await rustFuture(
+      () => bridge.exploreParseUrl(
+        exploreUrl: exploreUrl,
+        source: source == null ? null : bookSourceToDto(source),
+      ),
+      operation: 'exploreParseUrl',
     )).map(exploreCategoryFromDto).toList();
   }
 
@@ -28,10 +33,13 @@ final class RustExploreService implements ExploreService {
     String url,
     int page,
   ) async =>
-      (await bridge.exploreFetchBooks(
-            source: bookSourceToDto(source),
-            url: url,
-            page: page,
+      (await rustFuture(
+            () => bridge.exploreFetchBooks(
+              source: bookSourceToDto(source),
+              url: url,
+              page: page,
+            ),
+            operation: 'exploreFetchBooks',
           ))
           .map(
             (value) => _searchBookFromExplore(
@@ -46,9 +54,12 @@ final class RustExploreService implements ExploreService {
     required BookSource source,
     required String actionJs,
   }) async {
-    final value = await bridge.exploreEvalAction(
-      source: bookSourceToDto(source),
-      actionJs: actionJs,
+    final value = await rustFuture(
+      () => bridge.exploreEvalAction(
+        source: bookSourceToDto(source),
+        actionJs: actionJs,
+      ),
+      operation: 'exploreEvalAction',
     );
     return ExploreActionResult(
       raw: value.raw,
@@ -61,7 +72,10 @@ final class RustExploreService implements ExploreService {
   Future<String> evaluateUiJs({
     required BookSource source,
     required String jsStr,
-  }) => bridge.exploreEvalUiJs(source: bookSourceToDto(source), jsStr: jsStr);
+  }) => rustFuture(
+    () => bridge.exploreEvalUiJs(source: bookSourceToDto(source), jsStr: jsStr),
+    operation: 'exploreEvalUiJs',
+  );
 
   /// URL 归一规则保留，不再依赖 JSON 别名。
   SearchBook _searchBookFromExplore(

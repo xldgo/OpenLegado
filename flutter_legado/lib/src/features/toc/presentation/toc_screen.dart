@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import 'components/toc_overflow_menu.dart';
 import '../application/toc_filter_controller.dart';
 import '../application/toc_cache_controller.dart';
@@ -244,7 +245,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _chaptersError = _errMsg(e);
+        _chaptersError = errorMessage(e);
         _chaptersLoading = false;
       });
     }
@@ -268,7 +269,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _highlightsError = _errMsg(e);
+        _highlightsError = errorMessage(e);
         _highlightsLoading = false;
       });
     }
@@ -306,18 +307,9 @@ class _TocScreenState extends ConsumerState<TocScreen>
             bookName: _book.name,
           );
     } catch (e) {
-      debugPrint('webbookChapters 错误: ${_errMsg(e)}');
+      debugPrint('webbookChapters 错误: ${errorMessage(e)}');
       return const [];
     }
-  }
-
-  /// 提取错误信息（BridgeError 等封装类型带 message 字段）
-  String _errMsg(Object e) {
-    try {
-      final m = (e as dynamic).message;
-      if (m is String && m.isNotEmpty) return m;
-    } catch (_) {}
-    return e.toString();
   }
 
   // ===== 书籍类型判定（对齐原版 isLocal/isLocalTxt） =====
@@ -476,7 +468,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
       // 写入失败给出可读错误（对齐原版 AppLog.put「导出失败」提示语义）
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('导出失败: ${_errMsg(e)}')));
+          .showSnackBar(SnackBar(content: Text('导出失败: ${errorMessage(e)}')));
     }
   }
 
@@ -488,7 +480,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('更新失败: ${_errMsg(e)}')));
+            .showSnackBar(SnackBar(content: Text('更新失败: ${errorMessage(e)}')));
       }
     }
   }

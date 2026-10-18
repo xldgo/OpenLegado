@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../domain/models/webdav_sync_result.dart';
 
 import 'dart:convert';
@@ -22,59 +23,83 @@ final class RustWebDavService implements WebDavService {
   Future<List<Map<String, dynamic>>> webdavListDir(
     WebDavConnection connection,
     String path,
-  ) async => (await bridge.webdavListDir(
-    configJson: encodeWebDavConfig(connection),
-    path: path,
+  ) async => (await rustFuture(
+    () => bridge.webdavListDir(
+      configJson: encodeWebDavConfig(connection),
+      path: path,
+    ),
+    operation: 'webdavListDir',
   )).map(webDavFileFromDto).toList();
   @override
   Future<void> webdavUpload(
     WebDavConnection connection,
     String path,
     String data,
-  ) => bridge.webdavUpload(
-    configJson: encodeWebDavConfig(connection),
-    path: path,
-    data: data,
+  ) => rustFuture(
+    () => bridge.webdavUpload(
+      configJson: encodeWebDavConfig(connection),
+      path: path,
+      data: data,
+    ),
+    operation: 'webdavUpload',
   );
   @override
   Future<void> webdavUploadFile(
     WebDavConnection connection,
     String path,
     String localFilePath,
-  ) => bridge.webdavUploadFile(
-    configJson: encodeWebDavConfig(connection),
-    path: path,
-    localFilePath: localFilePath,
+  ) => rustFuture(
+    () => bridge.webdavUploadFile(
+      configJson: encodeWebDavConfig(connection),
+      path: path,
+      localFilePath: localFilePath,
+    ),
+    operation: 'webdavUploadFile',
   );
   @override
   Future<String> webdavDownload(WebDavConnection connection, String path) =>
-      bridge.webdavDownload(
-        configJson: encodeWebDavConfig(connection),
-        path: path,
+      rustFuture(
+        () => bridge.webdavDownload(
+          configJson: encodeWebDavConfig(connection),
+          path: path,
+        ),
+        operation: 'webdavDownload',
       );
   @override
   Future<void> webdavDownloadFile(
     WebDavConnection connection,
     String path,
     String localFilePath,
-  ) => bridge.webdavDownloadFile(
-    configJson: encodeWebDavConfig(connection),
-    path: path,
-    localFilePath: localFilePath,
+  ) => rustFuture(
+    () => bridge.webdavDownloadFile(
+      configJson: encodeWebDavConfig(connection),
+      path: path,
+      localFilePath: localFilePath,
+    ),
+    operation: 'webdavDownloadFile',
   );
   @override
-  Future<void> webdavDelete(WebDavConnection connection, String path) => bridge
-      .webdavDelete(configJson: encodeWebDavConfig(connection), path: path);
+  Future<void> webdavDelete(WebDavConnection connection, String path) =>
+      rustFuture(
+        () => bridge.webdavDelete(
+          configJson: encodeWebDavConfig(connection),
+          path: path,
+        ),
+        operation: 'webdavDelete',
+      );
   @override
   Future<WebDavSyncResult> webdavFullSync(
     WebDavConnection connection,
     String localBooks,
     String localSources,
   ) async {
-    final value = await bridge.webdavFullSync(
-      configJson: encodeWebDavConfig(connection),
-      localBooks: localBooks,
-      localSources: localSources,
+    final value = await rustFuture(
+      () => bridge.webdavFullSync(
+        configJson: encodeWebDavConfig(connection),
+        localBooks: localBooks,
+        localSources: localSources,
+      ),
+      operation: 'webdavFullSync',
     );
     return WebDavSyncResult(books: value.books, sources: value.sources);
   }

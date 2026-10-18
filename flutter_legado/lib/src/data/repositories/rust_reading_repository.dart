@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/reading_repository.dart';
 import '../../models/book_chapter.dart';
@@ -12,26 +13,42 @@ final class RustReadingRepository implements ReadingRepository {
 
   @override
   Future<List<BookChapter>> getChapters(String bookUrl) async =>
-      (await bridge.readerGetChapters(bookUrl: bookUrl)).chapters
-          .map(bookChapterFromDto)
-          .toList();
+      (await rustFuture(
+        () => bridge.readerGetChapters(bookUrl: bookUrl),
+        operation: 'readerGetChapters',
+      )).chapters.map(bookChapterFromDto).toList();
 
   @override
   Future<String> getChapterContent(String bookUrl, int chapterIndex) =>
-      bridge.readerGetContent(bookUrl: bookUrl, chapterIndex: chapterIndex);
+      rustFuture(
+        () => bridge.readerGetContent(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+        ),
+        operation: 'readerGetContent',
+      );
 
   @override
   Future<String> getChapterContentRaw(String bookUrl, int chapterIndex) =>
-      bridge.readerGetContentRaw(bookUrl: bookUrl, chapterIndex: chapterIndex);
+      rustFuture(
+        () => bridge.readerGetContentRaw(
+          bookUrl: bookUrl,
+          chapterIndex: chapterIndex,
+        ),
+        operation: 'readerGetContentRaw',
+      );
 
   @override
   Future<String> getChapterContentFull(
     String bookUrl,
     int chapterIndex,
   ) async => resolveTextResponse(
-    await bridge.readerGetContentFull(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
+    await rustFuture(
+      () => bridge.readerGetContentFull(
+        bookUrl: bookUrl,
+        chapterIndex: chapterIndex,
+      ),
+      operation: 'readerGetContentFull',
     ),
     dispatchAction,
   );
@@ -42,10 +59,13 @@ final class RustReadingRepository implements ReadingRepository {
     String chapterUrl,
     String sourceUrl,
   ) async => resolveTextResponse(
-    await bridge.readerFetchContent(
-      bookUrl: bookUrl,
-      chapterUrl: chapterUrl,
-      sourceUrl: sourceUrl,
+    await rustFuture(
+      () => bridge.readerFetchContent(
+        bookUrl: bookUrl,
+        chapterUrl: chapterUrl,
+        sourceUrl: sourceUrl,
+      ),
+      operation: 'readerFetchContent',
     ),
     dispatchAction,
   );
@@ -56,12 +76,15 @@ final class RustReadingRepository implements ReadingRepository {
     required int chapterIndex,
     required String title,
     required String content,
-  }) => bridge.saveChapterContent(
-    bookUrl: bookUrl,
-    chapterIndex: chapterIndex,
-    title: title,
-    content: content,
-    chapterUrl: '',
+  }) => rustFuture(
+    () => bridge.saveChapterContent(
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
+      title: title,
+      content: content,
+      chapterUrl: '',
+    ),
+    operation: 'saveChapterContent',
   );
 
   @override
@@ -69,18 +92,21 @@ final class RustReadingRepository implements ReadingRepository {
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
-  }) => bridge.readerUpdateProgress(
-    bookUrl: bookUrl,
-    chapterIndex: chapterIndex,
-    chapterPos: chapterPos,
+  }) => rustFuture(
+    () => bridge.readerUpdateProgress(
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
+      chapterPos: chapterPos,
+    ),
+    operation: 'readerUpdateProgress',
   );
 
   @override
   Future<List<BookChapter>> refreshToc(
     String bookUrl,
     String sourceUrl,
-  ) async => (await bridge.readerRefreshToc(
-    bookUrl: bookUrl,
-    sourceUrl: sourceUrl,
+  ) async => (await rustFuture(
+    () => bridge.readerRefreshToc(bookUrl: bookUrl, sourceUrl: sourceUrl),
+    operation: 'readerRefreshToc',
   )).chapters.map(bookChapterFromDto).toList();
 }

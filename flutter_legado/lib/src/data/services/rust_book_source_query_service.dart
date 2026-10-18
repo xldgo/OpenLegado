@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/book_source_query_service.dart';
 import '../../models/models.dart';
@@ -10,9 +11,12 @@ final class RustBookSourceQueryService implements BookSourceQueryService {
   @override
   Future<Book> getBookInfo(BookSource source, String pageUrl) async =>
       webBookInfoFromDto(
-        await bridge.webbookInfo(
-          source: bookSourceToDto(source),
-          bookUrl: pageUrl,
+        await rustFuture(
+          () => bridge.webbookInfo(
+            source: bookSourceToDto(source),
+            bookUrl: pageUrl,
+          ),
+          operation: 'webbookInfo',
         ),
         source,
       );
@@ -23,10 +27,13 @@ final class RustBookSourceQueryService implements BookSourceQueryService {
     required String bookUrl,
     String tocUrl = '',
     String bookName = '',
-  }) async => (await bridge.webbookChapters(
-    source: bookSourceToDto(source),
-    bookUrl: pageUrl,
-    tocUrl: tocUrl,
-    bookName: bookName,
+  }) async => (await rustFuture(
+    () => bridge.webbookChapters(
+      source: bookSourceToDto(source),
+      bookUrl: pageUrl,
+      tocUrl: tocUrl,
+      bookName: bookName,
+    ),
+    operation: 'webbookChapters',
   )).map((value) => webChapterFromDto(value, bookUrl)).toList();
 }

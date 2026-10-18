@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/features/search/search_settings_provider.dart';
@@ -797,7 +797,7 @@ void main() {
       expect(readState().isLoading, isFalse);
     });
 
-    test('流错误时设置 error（BridgeError）', () async {
+    test('流错误时设置 error（AppException）', () async {
       when(
         () => mockApi.searchService.searchMultiStream(
           any(),
@@ -805,7 +805,7 @@ void main() {
           page: any(named: 'page'),
         ),
       ).thenAnswer(
-        (_) => Stream<SearchBatch>.error(const BridgeError(message: '网络超时')),
+        (_) => Stream<SearchBatch>.error(const AppException('网络超时')),
       );
 
       container.read(searchNotifierProvider);

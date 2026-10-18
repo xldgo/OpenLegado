@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/rust_lib.dart' as bridge;
@@ -24,12 +26,14 @@ final class RustHttpTtsLoginSession implements SourceLoginSession {
     }
   }
 
-  Future<String> _call(String operation, [String payload = '']) =>
-      bridge.httpTtsLogin(
-        engineId: engine.id,
-        operation: operation,
-        payload: payload,
-      );
+  Future<String> _call(String operation, [String payload = '']) => rustFuture(
+    () => bridge.httpTtsLogin(
+      engineId: engine.id,
+      operation: operation,
+      payload: payload,
+    ),
+    operation: 'httpTtsLogin',
+  );
   @override
   Future<String> loadUi(String state) => _call('ui', state);
   @override

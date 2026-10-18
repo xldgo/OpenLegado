@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../domain/models/rule_parse_result.dart';
 import '../../bridge/rust_lib.dart' as bridge;
 import '../../domain/contracts/rule_execution_service.dart';
@@ -14,10 +15,9 @@ class RustRuleExecutionService implements RuleExecutionService {
     String rule,
     String ruleType,
   ) async {
-    final value = await bridge.parseRule(
-      content: content,
-      rule: rule,
-      ruleType: ruleType,
+    final value = await rustFuture(
+      () => bridge.parseRule(content: content, rule: rule, ruleType: ruleType),
+      operation: 'parseRule',
     );
     return RuleParseResult(
       results: List.unmodifiable(value.results),
@@ -26,15 +26,19 @@ class RustRuleExecutionService implements RuleExecutionService {
   }
 
   @override
-  Future<String> evalJs(String script) async =>
-      _interceptResult(await bridge.jsEval(script: script));
+  Future<String> evalJs(String script) async => _interceptResult(
+    await rustFuture(() => bridge.jsEval(script: script), operation: 'jsEval'),
+  );
 
   @override
   Future<String> getJsEngineVersion() async {
     try {
-      return await bridge.jsEval(
-        script:
-            'typeof QuickJS !== "undefined" ? QuickJS.version : "quickjs-ng"',
+      return await rustFuture(
+        () => bridge.jsEval(
+          script:
+              'typeof QuickJS !== "undefined" ? QuickJS.version : "quickjs-ng"',
+        ),
+        operation: 'jsEval',
       );
     } catch (_) {
       return 'unknown';

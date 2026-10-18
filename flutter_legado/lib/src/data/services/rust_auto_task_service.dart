@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -16,11 +18,14 @@ final class RustAutoTaskService implements AutoTaskService {
     required String bookAuthor,
     required String name,
   }) async => autoTaskFromDto(
-    await bridge.autoTaskBuildBookUpdate(
-      bookUrl: bookUrl,
-      bookName: bookName,
-      bookAuthor: bookAuthor,
-      name: name,
+    await rustFuture(
+      () => bridge.autoTaskBuildBookUpdate(
+        bookUrl: bookUrl,
+        bookName: bookName,
+        bookAuthor: bookAuthor,
+        name: name,
+      ),
+      operation: 'autoTaskBuildBookUpdate',
     ),
   );
   @override
@@ -28,18 +33,24 @@ final class RustAutoTaskService implements AutoTaskService {
     required List<AutoTaskRule> rules,
     required List<String> ids,
     required String cron,
-  }) async => (await bridge.autoTaskUpdateCronBatch(
-    rules: rules.map(autoTaskToDto).toList(),
-    ids: ids,
-    cron: cron,
+  }) async => (await rustFuture(
+    () => bridge.autoTaskUpdateCronBatch(
+      rules: rules.map(autoTaskToDto).toList(),
+      ids: ids,
+      cron: cron,
+    ),
+    operation: 'autoTaskUpdateCronBatch',
   )).map(autoTaskFromDto).toList();
   @override
   Future<List<AutoTaskRule>> prepareImportedTasks({
     required List<AutoTaskRule> localTasks,
     required String importedJson,
-  }) async => (await bridge.autoTaskPrepareImported(
-    localTasks: localTasks.map(autoTaskToDto).toList(),
-    importedJson: importedJson,
+  }) async => (await rustFuture(
+    () => bridge.autoTaskPrepareImported(
+      localTasks: localTasks.map(autoTaskToDto).toList(),
+      importedJson: importedJson,
+    ),
+    operation: 'autoTaskPrepareImported',
   )).map(autoTaskFromDto).toList();
   @override
   Future<AutoTaskExecutionResult> execute({
@@ -48,10 +59,16 @@ final class RustAutoTaskService implements AutoTaskService {
   }) async {
     final encoded = jsonEncode(protocol);
     final result = taskId == null
-        ? await bridge.autoTaskExecute(protocolJson: encoded)
-        : await bridge.autoTaskExecuteWithId(
-            protocolJson: encoded,
-            taskId: taskId,
+        ? await rustFuture(
+            () => bridge.autoTaskExecute(protocolJson: encoded),
+            operation: 'autoTaskExecute',
+          )
+        : await rustFuture(
+            () => bridge.autoTaskExecuteWithId(
+              protocolJson: encoded,
+              taskId: taskId,
+            ),
+            operation: 'autoTaskExecuteWithId',
           );
     return AutoTaskExecutionResult(
       success: result.success,
@@ -63,15 +80,20 @@ final class RustAutoTaskService implements AutoTaskService {
   }
 
   @override
-  Future<String> normalizeScript(String script) =>
-      bridge.autoTaskNormalizeScript(script: script);
+  Future<String> normalizeScript(String script) => rustFuture(
+    () => bridge.autoTaskNormalizeScript(script: script),
+    operation: 'autoTaskNormalizeScript',
+  );
   @override
   Future<bool> canRefreshBookToc({
     required bool canUpdate,
     required bool respectCanUpdate,
-  }) => bridge.autoTaskCanRefreshToc(
-    canUpdate: canUpdate,
-    respectCanUpdate: respectCanUpdate,
+  }) => rustFuture(
+    () => bridge.autoTaskCanRefreshToc(
+      canUpdate: canUpdate,
+      respectCanUpdate: respectCanUpdate,
+    ),
+    operation: 'autoTaskCanRefreshToc',
   );
   @override
   Future<AutoTaskRule?> findBookUpdateTask({
@@ -80,16 +102,22 @@ final class RustAutoTaskService implements AutoTaskService {
     required String bookName,
     required String bookAuthor,
   }) async {
-    final rule = await bridge.autoTaskFindBookUpdate(
-      tasks: tasks.map(autoTaskToDto).toList(),
-      bookUrl: bookUrl,
-      bookName: bookName,
-      bookAuthor: bookAuthor,
+    final rule = await rustFuture(
+      () => bridge.autoTaskFindBookUpdate(
+        tasks: tasks.map(autoTaskToDto).toList(),
+        bookUrl: bookUrl,
+        bookName: bookName,
+        bookAuthor: bookAuthor,
+      ),
+      operation: 'autoTaskFindBookUpdate',
     );
     return rule == null ? null : autoTaskFromDto(rule);
   }
 
   @override
   Future<int> nextDueAt({required String cron, required int fromMs}) async =>
-      (await bridge.autoTaskNextDueAt(cron: cron, fromMs: fromMs)).toInt();
+      (await rustFuture(
+        () => bridge.autoTaskNextDueAt(cron: cron, fromMs: fromMs),
+        operation: 'autoTaskNextDueAt',
+      )).toInt();
 }

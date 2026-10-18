@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/rss_star_repository.dart';
 import '../../models/models.dart';
@@ -10,16 +11,22 @@ final class RustRssStarRepository implements RssStarRepository {
   /// 获取所有 RSS 收藏
   @override
   Future<List<RssStar>> getRssStars() async {
-    return (await bridge.rssStarList()).map(rssStarFromDto).toList();
+    return (await rustFuture(
+      () => bridge.rssStarList(),
+      operation: 'rssStarList',
+    )).map(rssStarFromDto).toList();
   }
 
   /// 添加 RSS 收藏
   @override
   Future<RssStar> addRssStar(RssStar star) async {
-    await bridge.rssStarAdd(
-      sourceUrl: star.origin,
-      title: star.title,
-      link: star.link,
+    await rustFuture(
+      () => bridge.rssStarAdd(
+        sourceUrl: star.origin,
+        title: star.title,
+        link: star.link,
+      ),
+      operation: 'rssStarAdd',
     );
     return star;
   }
@@ -27,10 +34,16 @@ final class RustRssStarRepository implements RssStarRepository {
   /// 删除 RSS 收藏
   @override
   Future<void> deleteRssStar(String link) async {
-    await bridge.rssStarDelete(link: link);
+    await rustFuture(
+      () => bridge.rssStarDelete(link: link),
+      operation: 'rssStarDelete',
+    );
   }
 
   /// 判断是否已收藏
   @override
-  Future<bool> isStarred(String link) => bridge.rssStarIsStarred(link: link);
+  Future<bool> isStarred(String link) => rustFuture(
+    () => bridge.rssStarIsStarred(link: link),
+    operation: 'rssStarIsStarred',
+  );
 }

@@ -28,7 +28,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
@@ -394,7 +394,7 @@ void main() {
       when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async {
             await Future<void>.delayed(const Duration(seconds: 4));
-            throw const BridgeError(message: 'bridge 不可用');
+            throw const AppException('bridge 不可用');
           });
 
       final notifier = container.read(readerNotifierProvider.notifier);
@@ -520,7 +520,7 @@ void main() {
       addTearDown(container.dispose);
       stubOpenBook(mockApi);
       when(() => mockApi.bookshelfRepository.getBook(any()))
-          .thenThrow(const BridgeError(message: 'bridge 不可用'));
+          .thenThrow(const AppException('bridge 不可用'));
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);

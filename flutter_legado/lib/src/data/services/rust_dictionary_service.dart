@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/dictionary_service.dart';
 import '../../models/misc.dart' show DictEntry;
@@ -9,6 +10,11 @@ final class RustDictionaryService implements DictionaryService {
 
   @override
   Future<DictEntry> dictLookup(String word) async {
-    return dictEntryFromDto(await bridge.dictLookup(word: word));
+    return dictEntryFromDto(
+      await rustFuture(
+        () => bridge.dictLookup(word: word),
+        operation: 'dictLookup',
+      ),
+    );
   }
 }

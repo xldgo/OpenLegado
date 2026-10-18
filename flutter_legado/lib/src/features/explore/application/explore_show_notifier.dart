@@ -1,6 +1,7 @@
+import '../../../domain/errors/app_exception.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../bridge/ffi.dart';
 import '../../../models/models.dart';
 import '../../../providers/explore/explore_dependencies.dart';
 import 'explore_show_state.dart';
@@ -155,7 +156,7 @@ class ExploreShowNotifier extends Notifier<ExploreShowState> {
 
   /// 统一错误映射
   String _mapError(Object e) {
-    if (e is BridgeError) {
+    if (e is AppException) {
       // 登录错误（Rust 1012 LoginRequired）：标记前缀供 UI 提供「去登录」引导 — R4
       final msg = e.message;
       if (msg.contains('需要登录') ||

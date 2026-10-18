@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/rss/application/rss_notifier.dart';
 
@@ -82,9 +82,9 @@ void main() {
       expect(readState().error, isNull);
     });
 
-    test('加载失败时设置 BridgeError', () async {
+    test('加载失败时设置 AppException', () async {
       when(() => mockApi.rssSourceRepository.getRssSources())
-          .thenThrow(const BridgeError(message: 'RSS 加载失败'));
+          .thenThrow(const AppException('RSS 加载失败'));
 
       await readNotifier().loadSources();
 
@@ -138,7 +138,7 @@ void main() {
 
     test('选择源失败时设置错误', () async {
       when(() => mockApi.rssArticleRepository.getRssArticles(any()))
-          .thenThrow(const BridgeError(message: '获取文章失败'));
+          .thenThrow(const AppException('获取文章失败'));
 
       await readNotifier().selectSource(testSource);
 
@@ -212,7 +212,7 @@ void main() {
 
     test('添加失败时设置错误', () async {
       when(() => mockApi.rssSourceRepository.addRssSource(any()))
-          .thenThrow(const BridgeError(message: '添加失败'));
+          .thenThrow(const AppException('添加失败'));
 
       await readNotifier().addSource('bad', 'https://bad.com');
 
@@ -261,7 +261,7 @@ void main() {
 
     test('删除失败时设置错误', () async {
       when(() => mockApi.rssSourceRepository.deleteRssSource(any()))
-          .thenThrow(const BridgeError(message: '删除失败'));
+          .thenThrow(const AppException('删除失败'));
 
       await readNotifier().removeSource('https://x.com');
 
@@ -299,7 +299,7 @@ void main() {
 
     test('clearError 状态变更触发监听', () async {
       when(() => mockApi.rssSourceRepository.getRssSources())
-          .thenThrow(const BridgeError(message: 'e'));
+          .thenThrow(const AppException('e'));
       await readNotifier().loadSources();
       expect(readState().error, isNotNull);
 

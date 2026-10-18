@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../bridge/media_dto_mapping.dart';
@@ -8,25 +9,35 @@ final class RustReadAloudVoiceRepository implements ReadAloudVoiceRepository {
   @override
   bool get supportsCatalog => true;
   @override
-  Future<List<ReadAloudVoice>> list() async =>
-      (await bridge.readAloudVoiceList())
-          .map(readAloudVoiceFromDto)
-          .toList(growable: false);
+  Future<List<ReadAloudVoice>> list() async => (await rustFuture(
+    () => bridge.readAloudVoiceList(),
+    operation: 'readAloudVoiceList',
+  )).map(readAloudVoiceFromDto).toList(growable: false);
   @override
-  Future<void> save(ReadAloudVoice voice) =>
-      bridge.readAloudVoiceSave(voice: readAloudVoiceToDto(voice));
+  Future<void> save(ReadAloudVoice voice) => rustFuture(
+    () => bridge.readAloudVoiceSave(voice: readAloudVoiceToDto(voice)),
+    operation: 'readAloudVoiceSave',
+  );
   @override
   Future<void> delete(String id) async {
-    if (!await bridge.readAloudVoiceDelete(id: id)) throw StateError('用户音色不存在');
+    if (!await rustFuture(
+      () => bridge.readAloudVoiceDelete(id: id),
+      operation: 'readAloudVoiceDelete',
+    )) {
+      throw StateError('用户音色不存在');
+    }
   }
 
   @override
   Future<void> syncSystem(
     String engineId,
     List<SystemVoiceCatalogEntry> entries,
-  ) => bridge.readAloudVoiceSyncSystem(
-    engineId: engineId,
-    entries: entries.map(systemVoiceToDto).toList(),
+  ) => rustFuture(
+    () => bridge.readAloudVoiceSyncSystem(
+      engineId: engineId,
+      entries: entries.map(systemVoiceToDto).toList(),
+    ),
+    operation: 'readAloudVoiceSyncSystem',
   );
   @override
   Future<void> setFlags(
@@ -34,10 +45,13 @@ final class RustReadAloudVoiceRepository implements ReadAloudVoiceRepository {
     required bool enabled,
     required bool excluded,
   }) async {
-    if (!await bridge.readAloudVoiceSetFlags(
-      id: id,
-      enabled: enabled,
-      excluded: excluded,
+    if (!await rustFuture(
+      () => bridge.readAloudVoiceSetFlags(
+        id: id,
+        enabled: enabled,
+        excluded: excluded,
+      ),
+      operation: 'readAloudVoiceSetFlags',
     )) {
       throw StateError('音色不存在');
     }

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/database_maintenance_service.dart';
 
@@ -7,6 +8,8 @@ final class RustDatabaseMaintenanceService
   const RustDatabaseMaintenanceService();
 
   @override
-  Future<int> shrinkDatabase() async =>
-      (await bridge.cacheShrinkDatabase()).toInt();
+  Future<int> shrinkDatabase() async => (await rustFuture(
+    () => bridge.cacheShrinkDatabase(),
+    operation: 'cacheShrinkDatabase',
+  )).toInt();
 }

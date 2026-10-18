@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -13,10 +15,13 @@ final class RustBookImageRepository implements BookImageRepository {
     required List<int> bytes,
   }) async {
     try {
-      return await bridge.saveImageCache(
-        bookUrl: bookUrl,
-        url: url,
-        bytes: bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+      return await rustFuture(
+        () => bridge.saveImageCache(
+          bookUrl: bookUrl,
+          url: url,
+          bytes: bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+        ),
+        operation: 'saveImageCache',
       );
     } catch (e) {
       debugPrint('[RustApi] saveImageCache 失败（降级在线加载）：$e');
@@ -27,7 +32,10 @@ final class RustBookImageRepository implements BookImageRepository {
   @override
   Future<List<int>?> getImageCache(String bookUrl, String url) async {
     try {
-      final bytes = await bridge.getImageCache(bookUrl: bookUrl, url: url);
+      final bytes = await rustFuture(
+        () => bridge.getImageCache(bookUrl: bookUrl, url: url),
+        operation: 'getImageCache',
+      );
       return bytes == null || bytes.isEmpty ? null : bytes;
     } catch (e) {
       debugPrint('[RustApi] getImageCache 失败（降级在线加载）：$e');
@@ -37,5 +45,8 @@ final class RustBookImageRepository implements BookImageRepository {
 
   @override
   Future<Uint8List> fetchImageWithDecode(String url, String sourceJson) async =>
-      bridge.fetchImageWithDecode(url: url, sourceJson: sourceJson);
+      rustFuture(
+        () => bridge.fetchImageWithDecode(url: url, sourceJson: sourceJson),
+        operation: 'fetchImageWithDecode',
+      );
 }

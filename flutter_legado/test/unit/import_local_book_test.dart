@@ -51,7 +51,7 @@ void main() {
       expect(book.bookType, equals(BookType.local));
     });
 
-    test('success=true 但 book 为 null 时应抛出 RustApiException', () {
+    test('success=true 但 book 为 null 时应抛出 AppException', () {
       final importResultJson = jsonEncode({
         'success': true,
         'book': null,
@@ -67,10 +67,9 @@ void main() {
 
       // 验证此情况应抛出异常
       expect(
-        () =>
-            throw RustApiException('导入成功但缺少书籍数据', operation: 'importLocalBook'),
+        () => throw AppException('导入成功但缺少书籍数据', operation: 'importLocalBook'),
         throwsA(
-          isA<RustApiException>().having(
+          isA<AppException>().having(
             (e) => e.message,
             'message',
             contains('缺少书籍数据'),
@@ -79,7 +78,7 @@ void main() {
       );
     });
 
-    test('success=false 时应抛出带错误信息的 RustApiException', () {
+    test('success=false 时应抛出带错误信息的 AppException', () {
       final importResultJson = jsonEncode({
         'success': false,
         'book': null,
@@ -96,9 +95,9 @@ void main() {
 
       // 验证错误处理逻辑
       expect(
-        () => throw RustApiException(error, operation: 'importLocalBook'),
+        () => throw AppException(error, operation: 'importLocalBook'),
         throwsA(
-          isA<RustApiException>().having(
+          isA<AppException>().having(
             (e) => e.message,
             'message',
             contains('元数据解析失败'),

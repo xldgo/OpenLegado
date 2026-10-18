@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/highlight_repository.dart';
 import '../../domain/models/book_highlight.dart';
@@ -9,47 +10,57 @@ final class RustHighlightRepository implements HighlightRepository {
 
   @override
   Future<int> highlightAdd(BookHighlight highlight) async {
-    final time = await bridge.highlightAdd(
-      highlight: bookHighlightToDto(highlight),
+    final time = await rustFuture(
+      () => bridge.highlightAdd(highlight: bookHighlightToDto(highlight)),
+      operation: 'highlightAdd',
     );
     if (time <= 0) throw StateError('保存标注未返回有效主键');
     return time;
   }
 
   @override
-  Future<bool> highlightDelete({required int time}) =>
-      bridge.highlightDelete(time: time);
+  Future<bool> highlightDelete({required int time}) => rustFuture(
+    () => bridge.highlightDelete(time: time),
+    operation: 'highlightDelete',
+  );
 
   @override
-  Future<int> highlightDeleteByBook({required String bookUrl}) =>
-      bridge.highlightDeleteByBook(bookUrl: bookUrl);
+  Future<int> highlightDeleteByBook({required String bookUrl}) => rustFuture(
+    () => bridge.highlightDeleteByBook(bookUrl: bookUrl),
+    operation: 'highlightDeleteByBook',
+  );
 
   @override
   Future<List<BookHighlight>> highlightListByBook({
     required String bookUrl,
-  }) async =>
-      (await bridge.highlightListByBook(bookUrl: bookUrl))
-          .map(bookHighlightFromDto)
-          .toList();
+  }) async => (await rustFuture(
+    () => bridge.highlightListByBook(bookUrl: bookUrl),
+    operation: 'highlightListByBook',
+  )).map(bookHighlightFromDto).toList();
 
   @override
   Future<List<BookHighlight>> highlightListByChapter({
     required String bookUrl,
     required int chapterIndex,
-  }) async => (await bridge.highlightListByChapter(
-    bookUrl: bookUrl,
-    chapterIndex: chapterIndex,
+  }) async => (await rustFuture(
+    () => bridge.highlightListByChapter(
+      bookUrl: bookUrl,
+      chapterIndex: chapterIndex,
+    ),
+    operation: 'highlightListByChapter',
   )).map(bookHighlightFromDto).toList();
 
   @override
   Future<List<BookHighlight>> highlightSearch({
     required String keyword,
-  }) async =>
-      (await bridge.highlightSearch(keyword: keyword))
-          .map(bookHighlightFromDto)
-          .toList();
+  }) async => (await rustFuture(
+    () => bridge.highlightSearch(keyword: keyword),
+    operation: 'highlightSearch',
+  )).map(bookHighlightFromDto).toList();
 
   @override
-  Future<List<BookHighlight>> highlightListAll() async =>
-      (await bridge.highlightListAll()).map(bookHighlightFromDto).toList();
+  Future<List<BookHighlight>> highlightListAll() async => (await rustFuture(
+    () => bridge.highlightListAll(),
+    operation: 'highlightListAll',
+  )).map(bookHighlightFromDto).toList();
 }

@@ -1,3 +1,5 @@
+import 'rust_errors.dart';
+
 import 'dart:async';
 
 import '../../bridge/ffi.dart' as bridge;
@@ -16,7 +18,10 @@ Stream<T> managedRustStream<T>(Stream<T> Function(bridge.StreamRequest) start) {
   controller = StreamController<T>(
     onListen: () {
       try {
-        request = bridge.streamRequestNew();
+        request = rustCall(
+          () => bridge.streamRequestNew(),
+          operation: 'streamRequestNew',
+        );
         upstream = start(request!).listen(
           (value) {
             if (!stopped) controller.add(value);

@@ -1,3 +1,5 @@
+import '../data/bridge/rust_errors.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -44,7 +46,7 @@ class _NativeLayoutHandle {
   void release() {
     if (!disposed) {
       disposed = true;
-      session.dispose();
+      rustCall(() => session.dispose(), operation: 'readerLayoutDispose');
     }
   }
 }
@@ -53,7 +55,10 @@ class NativeReaderLayoutTransport implements ReaderLayoutTransport {
   const NativeReaderLayoutTransport();
   @override
   Future<ReaderLayoutReply> begin(Map<String, Object?> config) async {
-    final session = await bridge.readerLayoutBegin(config: configToDto(config));
+    final session = await rustFuture(
+      () => bridge.readerLayoutBegin(config: configToDto(config)),
+      operation: 'readerLayoutBegin',
+    );
     final handle = _NativeLayoutHandle(session);
     return ReaderLayoutReply._(handle, const [], 0);
   }
@@ -65,8 +70,9 @@ class NativeReaderLayoutTransport implements ReaderLayoutTransport {
   ) async {
     final handle = sessionId as _NativeLayoutHandle;
     if (handle.disposed) throw const ReaderLayoutCancelled();
-    final reply = await handle.session.push(
-      blocks: blocks.map(blockToDto).toList(),
+    final reply = await rustFuture(
+      () => handle.session.push(blocks: blocks.map(blockToDto).toList()),
+      operation: 'readerLayoutPush',
     );
     return ReaderLayoutReply.fromNative(reply, handle);
   }
@@ -77,7 +83,10 @@ class NativeReaderLayoutTransport implements ReaderLayoutTransport {
     if (handle.disposed) throw const ReaderLayoutCancelled();
     try {
       return ReaderLayoutReply.fromNative(
-        await handle.session.finish(),
+        await rustFuture(
+          () => handle.session.finish(),
+          operation: 'readerLayoutFinish',
+        ),
         handle,
       );
     } finally {
@@ -89,7 +98,7 @@ class NativeReaderLayoutTransport implements ReaderLayoutTransport {
   Future<void> cancel(Object sessionId) async {
     final handle = sessionId as _NativeLayoutHandle;
     if (!handle.disposed) {
-      handle.session.cancel();
+      rustCall(() => handle.session.cancel(), operation: 'readerLayoutCancel');
       handle.release();
     }
   }

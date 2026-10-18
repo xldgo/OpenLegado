@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../bridge/transfer_dto.dart' as dto;
 import '../../domain/contracts/bookmark_repository.dart';
@@ -32,40 +33,53 @@ final class RustBookmarkRepository implements BookmarkRepository {
   );
 
   @override
-  Future<List<Bookmark>> getAllBookmarks() async =>
-      (await bridge.bookmarkList()).map(_fromDto).toList();
+  Future<List<Bookmark>> getAllBookmarks() async => (await rustFuture(
+    () => bridge.bookmarkList(),
+    operation: 'bookmarkList',
+  )).map(_fromDto).toList();
 
   @override
   Future<List<Bookmark>> getBookmarksByBook(
     String bookName,
     String bookAuthor,
-  ) async => (await bridge.getBookmarksByBook(
-    bookName: bookName,
-    bookAuthor: bookAuthor,
+  ) async => (await rustFuture(
+    () => bridge.getBookmarksByBook(bookName: bookName, bookAuthor: bookAuthor),
+    operation: 'getBookmarksByBook',
   )).map(_fromDto).toList();
 
   @override
   Future<Bookmark> addBookmark(Bookmark bookmark) async {
-    final id = await bridge.bookmarkAdd(
-      bookName: bookmark.bookName,
-      bookAuthor: bookmark.bookAuthor,
-      chapterIndex: bookmark.chapterIndex,
-      chapterPos: bookmark.chapterPos,
-      chapterName: bookmark.chapterName,
-      bookText: bookmark.bookText,
-      content: bookmark.content,
+    final id = await rustFuture(
+      () => bridge.bookmarkAdd(
+        bookName: bookmark.bookName,
+        bookAuthor: bookmark.bookAuthor,
+        chapterIndex: bookmark.chapterIndex,
+        chapterPos: bookmark.chapterPos,
+        chapterName: bookmark.chapterName,
+        bookText: bookmark.bookText,
+        content: bookmark.content,
+      ),
+      operation: 'bookmarkAdd',
     );
     return bookmark.copyWith(id: id);
   }
 
   @override
-  Future<void> updateBookmark(Bookmark bookmark) =>
-      bridge.bookmarkUpdate(bookmark: _toDto(bookmark));
+  Future<void> updateBookmark(Bookmark bookmark) => rustFuture(
+    () => bridge.bookmarkUpdate(bookmark: _toDto(bookmark)),
+    operation: 'bookmarkUpdate',
+  );
 
   @override
-  Future<void> deleteBookmark(int id) => bridge.bookmarkDelete(bookmarkId: id);
+  Future<void> deleteBookmark(int id) => rustFuture(
+    () => bridge.bookmarkDelete(bookmarkId: id),
+    operation: 'bookmarkDelete',
+  );
 
   @override
   Future<List<Bookmark>> searchBookmarks(String keyword) async =>
-      (await bridge.bookmarkSearch(keyword: keyword)).map(_fromDto).toList();
+      (await rustFuture(
+        () => bridge.bookmarkSearch(keyword: keyword),
+        operation: 'bookmarkSearch',
+      )).map(_fromDto).toList();
 }

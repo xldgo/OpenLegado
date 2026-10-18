@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../bridge/media_dto_mapping.dart';
 import '../../domain/contracts/tts_cache_repository.dart';
@@ -8,12 +9,18 @@ final class RustTtsCacheRepository implements TtsCacheRepository {
   bool get supportsAudioFiles => true;
   const RustTtsCacheRepository();
   @override
-  Future<void> record(String path, TtsCacheContext context) => bridge
-      .ttsCacheRecord(audioPath: path, context: ttsCacheContextToDto(context));
+  Future<void> record(String path, TtsCacheContext context) => rustFuture(
+    () => bridge.ttsCacheRecord(
+      audioPath: path,
+      context: ttsCacheContextToDto(context),
+    ),
+    operation: 'ttsCacheRecord',
+  );
   @override
-  Future<List<TtsCacheEntry>> list() async => (await bridge.ttsCacheList())
-      .map(ttsCacheEntryFromDto)
-      .toList(growable: false);
+  Future<List<TtsCacheEntry>> list() async => (await rustFuture(
+    () => bridge.ttsCacheList(),
+    operation: 'ttsCacheList',
+  )).map(ttsCacheEntryFromDto).toList(growable: false);
 
   @override
   Future<TtsCacheClearResult> clear({
@@ -23,13 +30,16 @@ final class RustTtsCacheRepository implements TtsCacheRepository {
     int? keepChapterIndex,
   }) async {
     return ttsCacheClearResultFromDto(
-      await bridge.ttsCacheClear(
-        name: name,
-        beforeTimestampMs: beforeTimestampMs == null
-            ? null
-            : BigInt.from(beforeTimestampMs),
-        keepBookUrl: keepBookUrl,
-        keepChapterIndex: keepChapterIndex,
+      await rustFuture(
+        () => bridge.ttsCacheClear(
+          name: name,
+          beforeTimestampMs: beforeTimestampMs == null
+              ? null
+              : BigInt.from(beforeTimestampMs),
+          keepBookUrl: keepBookUrl,
+          keepChapterIndex: keepChapterIndex,
+        ),
+        operation: 'ttsCacheClear',
       ),
     );
   }

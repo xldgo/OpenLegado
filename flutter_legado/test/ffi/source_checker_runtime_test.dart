@@ -12,7 +12,6 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
@@ -54,7 +53,7 @@ void main() {
     expect(result, containsPair('total_time_ms', isA<num>()));
     await expectLater(
       checker.checkSource(source, configJson: '坏 JSON'),
-      throwsA(isA<BridgeError>()),
+      throwsA(isA<AppException>()),
     );
     final events = await checker.checkSourcesStream([
       source.bookSourceUrl,

@@ -16,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 
@@ -73,9 +73,9 @@ void main() {
       expect(readState().error, isNull);
     });
 
-    test('加载失败设置 BridgeError', () async {
+    test('加载失败设置 AppException', () async {
       when(() => repository.getAllBookmarks())
-          .thenThrow(const BridgeError(message: '书签加载失败'));
+          .thenThrow(const AppException('书签加载失败'));
 
       await readNotifier().loadAll();
 
@@ -125,7 +125,7 @@ void main() {
 
     test('按书名+作者加载失败设置错误', () async {
       when(() => repository.getBookmarksByBook(any(), any()))
-          .thenThrow(const BridgeError(message: '查询失败'));
+          .thenThrow(const AppException('查询失败'));
 
       await readNotifier().loadByBook('不存在的书', '');
 
@@ -319,7 +319,7 @@ void main() {
 
     test('搜索失败设置错误', () async {
       when(() => repository.searchBookmarks(any()))
-          .thenThrow(const BridgeError(message: '搜索出错'));
+          .thenThrow(const AppException('搜索出错'));
 
       await readNotifier().search('test');
 

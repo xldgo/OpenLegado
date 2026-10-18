@@ -10,7 +10,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_controller.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
 import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 void main() {
   setUpNativeReaderLayout();
@@ -189,7 +189,7 @@ void main() {
                 ),
               ),
               throwsA(
-                isA<BridgeError>().having(
+                isA<AppException>().having(
                   (error) => error.message,
                   'message',
                   contains('阅读区域太窄'),

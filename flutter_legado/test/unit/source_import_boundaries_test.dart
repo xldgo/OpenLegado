@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/domain/models/http_response.dart';
 import 'package:flutter_legado/src/data/services/source_import_service.dart';
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
@@ -166,7 +166,7 @@ void main() {
         final name = item['bookSourceName'] as String;
         events.add(name);
         if (name == '一') return gate.future;
-        if (name == '二') throw const BridgeError(message: '第二条拒绝写入');
+        if (name == '二') throw const AppException('第二条拒绝写入');
         return Future.value(1);
       });
       final task = service.importFromJson(

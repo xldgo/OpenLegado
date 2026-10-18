@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../domain/contracts/tts_cache_repository.dart';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -25,19 +26,25 @@ class RustHttpTtsSynthesizer implements HttpTtsSynthesizer {
     HttpTtsCancellation? cancellation,
   }) async {
     if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
-    final request = controls.ttsRequestNew();
+    final request = rustCall(
+      () => controls.ttsRequestNew(),
+      operation: 'ttsRequestNew',
+    );
     var transferred = false;
     void cancel() => request.cancel();
     cancellation?.addListener(cancel);
     try {
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
-      final result = await bridge.ttsSpeak(
-        engineId: engineId,
-        request: request,
-        text: text,
-        toneId: toneId,
-        speakerName: speakerName ?? voiceName,
-        emotionTag: emotionTag,
+      final result = await rustFuture(
+        () => bridge.ttsSpeak(
+          engineId: engineId,
+          request: request,
+          text: text,
+          toneId: toneId,
+          speakerName: speakerName ?? voiceName,
+          emotionTag: emotionTag,
+        ),
+        operation: 'ttsSpeak',
       );
       if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
       final path = result.audioPath.trim();

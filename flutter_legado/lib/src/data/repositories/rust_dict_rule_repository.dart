@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart' show Int64List;
 
 import '../../bridge/ffi/ffi.dart' as bridge;
@@ -10,8 +12,10 @@ final class RustDictRuleRepository implements DictRuleRepository {
   const RustDictRuleRepository();
 
   @override
-  Future<List<DictRule>> dictRuleList() async =>
-      (await bridge.dictRuleList()).map(dictionaryRuleFromDto).toList();
+  Future<List<DictRule>> dictRuleList() async => (await rustFuture(
+    () => bridge.dictRuleList(),
+    operation: 'dictRuleList',
+  )).map(dictionaryRuleFromDto).toList();
 
   @override
   Future<int> dictRuleAdd({
@@ -19,10 +23,10 @@ final class RustDictRuleRepository implements DictRuleRepository {
     required String urlRule,
     required String showRule,
   }) async {
-    final id = await bridge.dictRuleAdd(
-      name: name,
-      urlRule: urlRule,
-      showRule: showRule,
+    final id = await rustFuture(
+      () =>
+          bridge.dictRuleAdd(name: name, urlRule: urlRule, showRule: showRule),
+      operation: 'dictRuleAdd',
     );
     if (id <= 0) throw StateError('新增词典规则未返回有效主键');
     return id;
@@ -34,27 +38,41 @@ final class RustDictRuleRepository implements DictRuleRepository {
     required String name,
     required String urlRule,
     required String showRule,
-  }) => bridge.dictRuleUpdate(
-    id: id,
-    name: name,
-    urlRule: urlRule,
-    showRule: showRule,
+  }) => rustFuture(
+    () => bridge.dictRuleUpdate(
+      id: id,
+      name: name,
+      urlRule: urlRule,
+      showRule: showRule,
+    ),
+    operation: 'dictRuleUpdate',
   );
 
   @override
-  Future<bool> dictRuleDelete(int id) => bridge.dictRuleDelete(id: id);
+  Future<bool> dictRuleDelete(int id) => rustFuture(
+    () => bridge.dictRuleDelete(id: id),
+    operation: 'dictRuleDelete',
+  );
 
   @override
   Future<bool> dictRuleSetEnabled({required int id, required bool enabled}) =>
-      bridge.dictRuleSetEnabled(id: id, enabled: enabled);
+      rustFuture(
+        () => bridge.dictRuleSetEnabled(id: id, enabled: enabled),
+        operation: 'dictRuleSetEnabled',
+      );
 
   @override
-  Future<int> dictRuleReorder(List<int> ids) =>
-      bridge.dictRuleReorder(ids: Int64List.fromList(ids));
+  Future<int> dictRuleReorder(List<int> ids) => rustFuture(
+    () => bridge.dictRuleReorder(ids: Int64List.fromList(ids)),
+    operation: 'dictRuleReorder',
+  );
 
   @override
   Future<int> dictRuleImport({
     required String jsonOrUrl,
     required String kind,
-  }) => bridge.dictRuleImport(jsonOrUrl: jsonOrUrl, kind: kind);
+  }) => rustFuture(
+    () => bridge.dictRuleImport(jsonOrUrl: jsonOrUrl, kind: kind),
+    operation: 'dictRuleImport',
+  );
 }

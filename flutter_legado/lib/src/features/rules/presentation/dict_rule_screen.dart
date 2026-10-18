@@ -1,3 +1,4 @@
+import '../../../utils/error_message.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
 
@@ -5,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../bridge/ffi.dart';
 import '../../../data/defaults/dict_rule_defaults.dart';
 import '../../../models/misc.dart' show DictRule;
 import '../../../providers/dictionary_provider.dart';
@@ -65,9 +65,6 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
   bool _selectMode = false;
   final Set<int> _selectedIds = {};
 
-  /// 错误信息归一（BridgeError 取 message，其余 toString）
-  String _errMsg(Object e) => e is BridgeError ? e.message : e.toString();
-
   @override
   void initState() {
     super.initState();
@@ -90,7 +87,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = _errMsg(e);
+        _error = errorMessage(e);
         _loading = false;
       });
     }
@@ -121,7 +118,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
     } catch (e) {
       _rows = previous;
       setState(() {});
-      _snack('启用/禁用失败：${_errMsg(e)}');
+      _snack('启用/禁用失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -153,7 +150,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       });
     } catch (e) {
       setState(() => _rows = previous);
-      _snack('排序保存失败：${_errMsg(e)}');
+      _snack('排序保存失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -221,7 +218,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       });
       _snack('已${enabled ? '启用' : '禁用'} ${ids.length} 条规则');
     } catch (e) {
-      _snack('批量${enabled ? '启用' : '禁用'}失败：${_errMsg(e)}');
+      _snack('批量${enabled ? '启用' : '禁用'}失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -269,7 +266,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       });
       _snack('已删除 ${targets.length} 条规则');
     } catch (e) {
-      _snack('删除失败：${_errMsg(e)}');
+      _snack('删除失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -329,7 +326,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       await _load();
       _snack(row == null ? '已添加规则「$name」' : '已更新规则「$name」');
     } catch (e) {
-      _snack('保存失败：${_errMsg(e)}');
+      _snack('保存失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -378,7 +375,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       await _load();
       _snack('已导入 $n 条字典规则');
     } catch (e) {
-      _snack('导入失败：${_errMsg(e)}');
+      _snack('导入失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -407,7 +404,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       await _load();
       _snack('已导入 $n 条字典规则');
     } catch (e) {
-      _snack('导入失败：${_errMsg(e)}');
+      _snack('导入失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -441,7 +438,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       await _load();
       _snack('已导入 $n 条字典规则');
     } catch (e) {
-      _snack('导入失败：${_errMsg(e)}');
+      _snack('导入失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -460,7 +457,7 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
       await _load();
       _snack('已导入 $n 条默认字典规则');
     } catch (e) {
-      _snack('导入默认失败：${_errMsg(e)}');
+      _snack('导入默认失败：${errorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

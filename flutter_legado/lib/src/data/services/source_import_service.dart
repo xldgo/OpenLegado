@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../bridge/ffi.dart' show BridgeError;
+import '../../utils/error_message.dart';
 import '../../domain/contracts/book_source_repository.dart';
 import '../../domain/models/import_result.dart';
 import '../../domain/models/source_preview.dart';
@@ -121,8 +121,8 @@ class SourceImportService {
         } catch (e) {
           failed++;
           final name = item['bookSourceName'] ?? '未知书源';
-          // BridgeError 取 message，避免显示 "Instance of 'BridgeError'"
-          final msg = e is BridgeError ? e.message : e.toString();
+          // 领域错误保留来源失败消息，不显示桥接类型。
+          final msg = errorMessage(e);
           errors.add('导入「$name」失败：$msg');
         }
       }

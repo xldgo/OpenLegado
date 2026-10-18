@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
 import 'package:flutter_legado/src/domain/contracts/bookshelf_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
@@ -125,7 +125,7 @@ void main() {
 
   test('正文错误使用原错误文案，重新加载成功清除错误', () async {
     when(() => content.read(book.bookUrl, 0))
-        .thenThrow(const BridgeError(message: '读取失败'));
+        .thenThrow(const AppException('读取失败'));
     await controller.openBook(book);
     expect(state.error, '读取失败');
     expect(state.chapterContent, isEmpty);
@@ -252,7 +252,7 @@ void main() {
     final refreshing = controller.refreshChapterContent();
     expect(controller.isRefreshing, isTrue);
     expect(await controller.refreshChapterContent(), '正文刷新进行中');
-    pending.completeError(const BridgeError(message: '刷新失败'));
+    pending.completeError(const AppException('刷新失败'));
     expect(await refreshing, '刷新失败');
     expect(state.chapterContent, '正文0' * 30);
     expect(state.error, '刷新失败');

@@ -1,3 +1,4 @@
+import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/review_service.dart';
 import '../../domain/models/review.dart';
@@ -11,9 +12,12 @@ final class RustReviewService implements ReviewService {
     String sourceJson,
     Map<String, dynamic> request,
   ) async {
-    final value = await bridge.reviewGetSummary(
-      sourceJson: sourceJson,
-      request: reviewRequestToDto(request),
+    final value = await rustFuture(
+      () => bridge.reviewGetSummary(
+        sourceJson: sourceJson,
+        request: reviewRequestToDto(request),
+      ),
+      operation: 'reviewGetSummary',
     );
     return ReviewSummary(
       counts: Map.fromEntries(value.counts.entries.where((e) => e.value > 0)),
@@ -27,10 +31,13 @@ final class RustReviewService implements ReviewService {
     Map<String, dynamic> request,
     int page,
   ) async => reviewPageFromDto(
-    await bridge.reviewGetDetail(
-      sourceJson: sourceJson,
-      request: reviewRequestToDto(request),
-      page: page,
+    await rustFuture(
+      () => bridge.reviewGetDetail(
+        sourceJson: sourceJson,
+        request: reviewRequestToDto(request),
+        page: page,
+      ),
+      operation: 'reviewGetDetail',
     ),
   );
   @override
@@ -39,10 +46,13 @@ final class RustReviewService implements ReviewService {
     Map<String, dynamic> request,
     int page,
   ) async => reviewPageFromDto(
-    await bridge.reviewGetReplies(
-      sourceJson: sourceJson,
-      request: reviewRequestToDto(request),
-      page: page,
+    await rustFuture(
+      () => bridge.reviewGetReplies(
+        sourceJson: sourceJson,
+        request: reviewRequestToDto(request),
+        page: page,
+      ),
+      operation: 'reviewGetReplies',
     ),
   );
 }

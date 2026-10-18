@@ -1,3 +1,5 @@
+import '../bridge/rust_errors.dart';
+
 import 'dart:convert';
 
 import '../../bridge/source_tools_dto.dart' as dto;
@@ -14,9 +16,10 @@ class RustSourceActionService implements SourceActionService {
     required String bookUrl,
     required int chapterIndex,
   }) async {
-    final result = await bridge.chapterPayAction(
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
+    final result = await rustFuture(
+      () =>
+          bridge.chapterPayAction(bookUrl: bookUrl, chapterIndex: chapterIndex),
+      operation: 'chapterPayAction',
     );
     final kind = switch (result.kind) {
       dto.ChapterPurchaseKindDto.url => ChapterPurchaseKind.url,
@@ -34,12 +37,15 @@ class RustSourceActionService implements SourceActionService {
     String? result,
     int bookType = 0,
   }) async {
-    final payload = await bridge.sourceCallBackBtn(
-      event: event,
-      bookUrl: bookUrl,
-      chapterIndex: chapterIndex,
-      result: result,
-      bookType: bookType,
+    final payload = await rustFuture(
+      () => bridge.sourceCallBackBtn(
+        event: event,
+        bookUrl: bookUrl,
+        chapterIndex: chapterIndex,
+        result: result,
+        bookType: bookType,
+      ),
+      operation: 'sourceCallBackBtn',
     );
     // 只解析真正动态动作文档，保留未知字段与原有平台队列。
     final actions = jsonDecode(payload.actionsJson);

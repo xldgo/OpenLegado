@@ -38,7 +38,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/routes.dart';
@@ -371,7 +371,7 @@ void main() {
       when(
         () =>
             mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
-      ).thenThrow(const BridgeError(message: '404: 源不可达'));
+      ).thenThrow(const AppException('404: 源不可达'));
 
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(_testBook);

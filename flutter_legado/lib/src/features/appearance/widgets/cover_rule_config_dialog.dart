@@ -1,3 +1,5 @@
+import '../../../utils/error_message.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -6,7 +8,6 @@ import '../../../domain/models/cover_rule.dart';
 
 import 'package:flutter/services.dart';
 
-import '../../../bridge/ffi.dart';
 import '../../../widgets/settings_widgets.dart';
 
 /// 封面规则配置对话框（对齐原版 CoverRuleConfigDialog + 测试搜索）
@@ -58,8 +59,6 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
     super.dispose();
   }
 
-  String _errMsg(Object e) => e is BridgeError ? e.message : e.toString();
-
   Future<void> _load() async {
     try {
       final rule = await widget.loadRule();
@@ -75,7 +74,7 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
       debugPrint('CoverRuleConfig 加载失败: $e');
       if (!mounted) return;
       setState(() {
-        _error = '加载失败: ${_errMsg(e)}';
+        _error = '加载失败: ${errorMessage(e)}';
         _loading = false;
       });
     }
@@ -107,7 +106,7 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '保存失败: ${_errMsg(e)}';
+        _error = '保存失败: ${errorMessage(e)}';
         _saving = false;
       });
     }
@@ -125,7 +124,7 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '删除失败: ${_errMsg(e)}';
+        _error = '删除失败: ${errorMessage(e)}';
         _saving = false;
       });
     }
@@ -152,7 +151,7 @@ class _CoverRuleConfigDialogState extends State<CoverRuleConfigDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '搜索失败: ${_errMsg(e)}';
+        _error = '搜索失败: ${errorMessage(e)}';
         _results = [];
         _searched = true;
         _searching = false;

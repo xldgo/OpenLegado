@@ -25,6 +25,20 @@ BackupSettingsRepository；图标和删除提醒分别扩展已有外观、书�
 会话有效；正文、预览和既有配置注入共享会话实例及颜色解析。纯色范围及上游差异见方案第 12 节，
 不把颜色模板升级为另一套分页配置。
 
+## 错误边界
+
+领域错误由`domain/errors/app_exception.dart`定义，不依赖FRB。数据适配器通过
+`data/bridge/rust_errors.dart`统一转换同步、Future和Stream中的BridgeError，
+保留可见消息、操作名、原始cause及堆栈；已转换的领域错误和普通异常不重复包装。
+取消令牌、取消结果、流订阅和句柄释放继续由原调用方管理，不依据错误文本推断取消。
+
+界面和公共展示工具只消费领域消息，使用`utils/error_message.dart`处理空消息回退；
+登录引导保留自己的识别与展示规则，不依赖生成错误类型或动态message探测。
+原RustApiException并入领域错误，不保留第二套同义类型。直接调用FRB仍返回原桥接错误，
+领域转换只发生在数据适配边界，不改Rust签名或生成绑定。
+
+编写者：Codex + Bridge/UI｜2026-10-18
+
 ## 实施顺序
 
 1. 提取初始化内部职责：应用 Bootstrap 编排，Bridge 加载原生库并调用 FRB，

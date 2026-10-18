@@ -1,5 +1,7 @@
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
+import 'package:flutter_legado/src/bridge/ffi.dart' show BridgeError;
 import 'package:flutter_legado/src/bridge/transfer_dto.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookmark_repository.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,5 +116,20 @@ void main() {
     );
     await expectLater(repository.searchBookmarks('备注'), throwsA(same(failure)));
     await expectLater(repository.updateBookmark(model), throwsA(same(failure)));
+  });
+
+  test('真实数据适配器将桥接错误转换为领域错误并保留原因', () async {
+    const failure = BridgeError(message: '书签数据库不可用');
+    when(() => bridge.crateFfiFfiBookmarkList())
+        .thenAnswer((_) async => throw failure);
+    await expectLater(
+      repository.getAllBookmarks(),
+      throwsA(
+        isA<AppException>()
+            .having((error) => error.message, '消息', failure.message)
+            .having((error) => error.cause, '原因', same(failure))
+            .having((error) => error.operation, '操作', 'bookmarkList'),
+      ),
+    );
   });
 }

@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-ERROR-BOUNDARY-20261018：Dart错误边界收口（P1）
+
+- 授权与基线：用户同意执行Flutter轨第一批（排期SCH-F1b，含原X2）；主目录feature/ui-reader-selection / 260f89685，单代理，不创建分支、不提交/推送/合并/设备构建。保留已有TWO_TRACK_DEV_SPEC.md未提交修改及ARCHITECTURE_REVIEW_20261018.md。
+- 范围：领域错误、data/桥接调用与错误转换、原有错误展示工具及feature消费者、必要装配和行为测试。跨轨Dart错误边界已获本轮授权，先登记契约；不扩展书单导入、路由、视频或分页拆分，不修改Rust/FRB生成物、数据库、依赖、应用版本或UI布局。
+- 目标：BridgeError在数据边界转换并保留cause/stack；普通异常和取消语义不变，feature不再依赖桥接错误或动态message字段；同步/Future/Stream及Mock失败路径有行为证据。
+- 实现：新增纯领域AppException，原RustApiException并入；数据层同步/Future/Stream共用BridgeError转换，保留消息、操作、cause与堆栈，普通异常与取消对象保持身份。迁移数据调用和排版句柄入口，原有取消/释放/租约顺序不变；清理27处feature桥接导入、重复展示方法和动态message探测，公共书源登录提示同步消费领域错误，保留原操作前缀和登录引导。
+- 行为验证：17个定向文件416项通过；另有详情/发现页面30项通过。新增边界测试覆盖同步/异步/流错误、原始堆栈、普通错误身份、广播流及暂停/恢复/取消、实际Mock失败；书签适配器转换与直接FRB不转换分别断言。最终边界复验17项和消息/登录提示5项通过，以上分组有重叠，不累加为唯一用例总数。
+- 原生验证：现有DLL指纹不匹配时未绕过校验；通过Python正式入口重建Windows Debug QuickJS DLL，构建及源码指纹/产物摘要校验通过。数据库/网络/文件/排版/书源校验/搜索取消/HTTP合成及租约/行内段评共8个真实FFI文件22项通过。初轮书签直接FRB误用了领域错误预期，已纠正为直接桥接错误、适配器领域错误分别验证；其余21项初轮通过，书签文件3项最终复验通过。
+- 证据：flutter_legado/build/f1b/下tests.log、additional-tests.log、boundary-final-tests.log、login-message-tests.log、native-build.log、native-tests.log及analyze-final.log；native-tests.log保留初轮失败，不冒充全绿，书签最终结果见boundary-final-tests.log。完整Dart静态分析及git diff --check通过。单代理自查，没有独立外审、远程CI、Android/iOS或设备验收。
+- 状态：第一批代码与本地验证完成，用户已授权本地提交并继续第二批；本条随代码提交，不推送。Rust/FRB生成物、schema、依赖、版本和UI布局未修改，已有两份用户文档修改保留。需要撤销时只回退本批Dart与契约/边界文档，不覆盖用户原有工作区内容。
+
+编写者：Codex + Bridge/UI｜2026-10-18
+
 ### MEDIA-ENGINE-SERVICES-20261018：朗读与音频服务边界收口（P1）
 
 - 授权与基线：用户解除音频/TTS暂缓并同意顺序；当前feature/rust-ffi-modernization，已将主目录6da9692ab合入为b6d7ef26f，仅在本worktree工作，单代理，整批验证后本地提交，不推送/安装/远程CI或修改主目录。

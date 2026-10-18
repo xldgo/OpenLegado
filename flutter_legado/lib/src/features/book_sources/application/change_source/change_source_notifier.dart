@@ -1,10 +1,10 @@
+import '../../../../utils/error_message.dart';
 import '../../../../providers/app_log_repository_provider.dart';
 
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../../bridge/ffi.dart';
 import '../../../../models/models.dart';
 import '../../../../domain/contracts/source_switch_service.dart';
 import '../../../../providers/change_source/source_switch_dependencies.dart';
@@ -163,7 +163,7 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
     } catch (e) {
       if (!ref.mounted || seq != _searchSeq) return;
       state = state.copyWith(
-        error: _mapError(e),
+        error: errorMessage(e),
         isLoading: false,
         searchingCount: null,
         progressFinished: null,
@@ -212,12 +212,6 @@ class ChangeSourceNotifier extends Notifier<ChangeSourceState> {
     final SourceSwitchService service =
         _applyingService ?? ref.read(sourceSwitchServiceProvider);
     return service.cancelSwitchSourceApply();
-  }
-
-  /// 统一错误映射
-  String _mapError(Object e) {
-    if (e is BridgeError) return e.message;
-    return e.toString();
   }
 
   /// 更新换源列表项用户评分（-1/0/1），持久化后同步本地状态
