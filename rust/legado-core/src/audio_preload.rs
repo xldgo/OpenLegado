@@ -165,7 +165,7 @@ impl AudioDiskCache {
 
     fn url_to_key(url: &str) -> String {
         // 使用 URL hash 作为文件名
-        format!("{:x}", md5::compute(url.as_bytes()))
+        crate::crypto::md5_hex(url.as_bytes())
     }
 }
 

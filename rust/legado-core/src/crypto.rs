@@ -10,6 +10,18 @@
 
 use crate::{LegadoError, LegadoResult};
 
+/// 书源与缓存使用的小写 MD5；仅作标识兼容，不用于密码安全。
+pub fn md5_hex(input: impl AsRef<[u8]>) -> String {
+    use md5::Digest;
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(32);
+    for byte in md5::Md5::digest(input) {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 15) as usize] as char);
+    }
+    output
+}
+
 /// AES 块大小（字节）
 const AES_BLOCK_SIZE: usize = 16;
 /// DES 块大小（字节）

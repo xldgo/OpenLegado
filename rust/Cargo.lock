@@ -2019,7 +2019,7 @@ dependencies = [
  "fancy-regex",
  "legado-layout",
  "lru",
- "md5",
+ "md-5 0.11.0",
  "regex",
  "serde",
  "serde_json",
@@ -2036,7 +2036,6 @@ dependencies = [
  "chrono",
  "legado-core",
  "log",
- "md5",
  "r2d2",
  "r2d2_sqlite",
  "rand_core 0.6.4",
@@ -2060,7 +2059,6 @@ dependencies = [
  "legado-net",
  "legado-parser",
  "log",
- "md5",
  "r2d2",
  "r2d2_sqlite",
  "regex",
@@ -2082,7 +2080,6 @@ dependencies = [
  "legado-js",
  "legado-net",
  "legado-parser",
- "md5",
  "regex",
  "serde",
  "serde_json",
@@ -2420,12 +2417,6 @@ dependencies = [
  "cfg-if",
  "digest 0.11.3",
 ]
-
-[[package]]
-name = "md5"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ebb8d8732c6a6df3d8f032a82911cfc747e00efb95cc46e8d0acd5b5b88570c"
 
 [[package]]
 name = "memchr"

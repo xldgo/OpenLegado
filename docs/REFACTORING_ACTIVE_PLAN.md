@@ -10,6 +10,7 @@
 - 第一批：移除rar及其旧AES链，RAR直接入口与通用解压别名在默认/宽松沙箱明确拒绝；不注册新的ByteArray入口，不改变桌面unrar。新增两项回归在旧代码均失败，修复后JS库651项及安全边界2项通过（2项原忽略）；严格Clippy与diff检查通过。证据b1-reproduce.log、b1-tests-final.log、b1-clippy.log；首次脚本编码失败和测试导入漏项均已修正，不计通过。内置assets语料未检出RAR宿主调用，不代表外部书源无人使用。安全修复版本2.0.377+378同步日志。
 - 第二批：删除core的tokio-util/sha2、FFI的futures/md5及Flutter的ffi/flutter_svg直接声明。pub get移除flutter_svg、path_parsing和三项vector_graphics包，ffi保留为传递依赖。Rust工作区全部目标QuickJS编译检查、core 802项、Flutter分析通过。目录级Flutter测试3781项通过，16份依赖排版DLL的文件在setUpAll因新worktree库路径缺失未启动，不声称全量通过；用户要求避免重复排版验收，留最终相关原生验证，不为清单清理重跑这些算法/UI用例。首次native补建已完成，不再重复此批。证据b2-{pub-get,rust-check,core-tests,analyze,flutter-tests,native}.log。
 - 第三批：workspace与net测试档移除Tokio full，各crate显式声明fs/io-util/net/macros/rt/sync/time所需能力，server同步精简，FFI到server的产品能力保留。工作区QuickJS全部目标检查通过，net/engine/server共596项回归通过；正式Windows特性21→15、Android/iOS 20→14，两档QuickJS均一致，去掉full/io-std/parking_lot/process/signal/signal-hook-registry；仅依赖图结论，不声称交叉编译或包体收益。证据b3-check.log、b3-tests.log、tokio-before/after.json。
+- 第四批MD5：core统一为md-5 0.11并提供小写摘要工具，db/engine/fetcher复用core工具而不再直接依赖MD5；parser保持同代实现，JS保留RSA约束的digest 0.10。迁移前固定向量/目录与文件名通过，TTS源上下文旧键e5ccc0556d13b6588c32a72fadc201f1已固定；迁移后四库1434项通过，严格Clippy通过。初次编译发现新摘要数组不实现LowerHex，改为单一十六进制转换；随后仅去除冗余format并经Clippy复核。证据b4-{vectors-before,tts-before,tests-final,clippy}.log。
 - 状态：实施中，六批完成证据逐批补入本条。契约先更新再改JS宿主；FRB签名/生成物与数据库schema不改。
 
 编写者：Codex｜2026-10-18
