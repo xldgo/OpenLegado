@@ -3,6 +3,7 @@
 //! 对应 Kotlin `RuleUpdate.kt`，负责从远程 URL 拉取订阅内容，
 //! 对比版本并合并变更（书源 / 替换规则 / RSS 源）。
 
+use crate::http_error::reqwest_error_chain;
 use serde::{Deserialize, Serialize};
 
 /// 订阅源
@@ -74,7 +75,7 @@ pub async fn fetch_subscription_with_hosts(
         .tls_danger_accept_invalid_certs(true)
         .dns_resolver(hosts.resolver())
         .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", reqwest_error_chain(&e)))?;
 
     let mut request = client.get(&url);
     if without_ua {
@@ -84,7 +85,7 @@ pub async fn fetch_subscription_with_hosts(
     let response = request
         .send()
         .await
-        .map_err(|e| format!("请求订阅失败 [{}]: {e}", sub.url))?;
+        .map_err(|e| format!("请求订阅失败 [{}]: {}", sub.url, reqwest_error_chain(&e)))?;
 
     if !response.status().is_success() {
         return Err(format!(
@@ -97,7 +98,7 @@ pub async fn fetch_subscription_with_hosts(
     let text = response
         .text()
         .await
-        .map_err(|e| format!("读取订阅响应失败: {e}"))?;
+        .map_err(|e| format!("读取订阅响应失败: {}", reqwest_error_chain(&e)))?;
 
     Ok(text)
 }

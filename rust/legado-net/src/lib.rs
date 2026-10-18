@@ -22,6 +22,7 @@ pub mod cookie_store;
 pub mod cover;
 pub mod custom_hosts;
 pub mod direct_link_upload;
+mod http_error;
 pub mod middleware;
 pub mod proxy;
 pub mod rate_limit;

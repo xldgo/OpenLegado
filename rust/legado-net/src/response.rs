@@ -168,7 +168,7 @@ impl LegadoStreamResponse {
             .map_err(|e| {
                 LegadoError::Network(format!(
                     "读取响应流失败: {}",
-                    crate::client::reqwest_error_chain(&e)
+                    crate::http_error::reqwest_error_chain(&e)
                 ))
             })
     }

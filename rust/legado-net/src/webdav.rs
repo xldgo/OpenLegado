@@ -3,6 +3,7 @@
 //! 支持 WebDAV 协议的基本操作：PROPFIND, PUT, GET, DELETE, MKCOL
 //! 支持增量同步、冲突检测、冲突合并、断点续传
 
+use crate::http_error::reqwest_error_chain;
 use legado_core::{LegadoError, LegadoResult};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -83,12 +84,12 @@ impl WebDavClient {
             .body(body)
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
 
         let xml = response
             .text()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
 
         Self::parse_propfind_response(&xml)
     }
@@ -112,7 +113,7 @@ impl WebDavClient {
             .body(body)
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         let status = response.status();
         if !status.is_success() {
             return Err(LegadoError::Network(format!(
@@ -147,7 +148,7 @@ impl WebDavClient {
             .body(data)
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         let status = response.status();
         if !status.is_success() {
             return Err(LegadoError::Network(format!(
@@ -166,11 +167,11 @@ impl WebDavClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         let bytes = response
             .bytes()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         Ok(bytes.to_vec())
     }
 
@@ -182,7 +183,7 @@ impl WebDavClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         Ok(())
     }
 
@@ -194,7 +195,7 @@ impl WebDavClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         Ok(())
     }
 
@@ -253,7 +254,7 @@ impl WebDavClient {
             .body(data.to_vec())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         if response.status() == reqwest::StatusCode::PRECONDITION_FAILED {
             return Ok(false);
         }

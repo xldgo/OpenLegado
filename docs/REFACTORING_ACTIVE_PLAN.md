@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### HTTP-PROTOCOL-ERROR-CHAIN-20261018：独立网络入口诊断收口（P1）
+
+- 授权与基线：用户批准继续剩余网络错误诊断，feature/rust-ffi-modernization / e8360c25e，沿用当前 worktree、单代理；不修改主目录、不推送/合并或触发远程 CI。
+- 范围：WebDAV、远程书籍、规则订阅、直链上传的 reqwest 请求发送及正文读取；用本机截断正文和响应头前断开复现后，共用既有最多5层来源展开。格式化函数收归 Net 私有模块，不让协议模块依赖 LegadoClient 实现。
+- 保持行为：现有前缀、Network/String 返回分类、认证、请求方法/内容、超时/重试及 HTTP 状态处理不变；WebDAV get_file_info 的 None 和同步回退保留，不借诊断改动重写失败策略。不改 FFI 签名/DTO/绑定、Dart、schema、依赖或应用版本。
+- 根因与修复：6个正文截断场景均丢失 end of file before message length reached，12个响应头前断开场景均丢失 connection closed before message completed；两组回归修前退出101，修后通过。WebDAV/远程书籍/订阅/上传共20处 reqwest 错误转换复用同一私有格式化函数，包括订阅客户端构建失败；原 LegadoClient/流式响应也引用该模块，算法、展开上限与消息顺序未变。保留的是诊断字符串，不改变 LegadoError 载荷或新增类型化 source。
+- 验证：新增3项真实HTTP测试覆盖上述18个失败场景、请求方法/Basic认证/订阅UA/条件写入头，以及WebDAV 412返回false、401上传报错、截断元数据返回None。Net全套268项通过（库258、原正文3、新协议3、TLS4），1项既有文档测试忽略。Net default及Net/Engine/FFI QuickJS两档全目标严格Clippy、限定格式和git diff --check通过，无新增lint放行。证据：build/rust-protocol-errors/{reproduce,fixed,net-tests,clippy-default,clippy-quickjs}.log；reproduce不计通过，其余命令退出0。
+- 状态：本批选定协议入口诊断已关闭，整批代码/回归/记录本地提交；单代理自查，无独立外审、远程CI或设备结论。未重建正式DLL/应用，不能宣称已有安装包包含本次修复；下次正式构建正常重编并校验。文件流上传的同类错误转换经代码复核及编译，未新增文件上传端到端用例；未改变get_file_info和同步层有意吞错的既有策略。不推送或合并。
+- 本轮Rust排期结论：SCH-R2a/R2b缓存仓储已收口（fd6944a3b），R2c弹幕解析已下沉（7247f5c23）；M-3/生命周期核查修复单源panic归属并移除冗余unsafe（a5d78fd28），未接入并发原语已删除（81d9cc32d）；M-1/M-2已测量并决定暂不拆Core（202635732）；M-4已修复选定网络入口的实际诊断缺口（e8360c25e及本批）。这不等于完成全仓错误类型化或安全审计。SCH-R3c选定实例隔离、初始化与关闭路径已有核查，未确认额外整改缺口；正式切库或多个默认宿主属于另立需求。SCH-R3a载荷调整与R4深层模块拆分仍需实际需求/缺陷证据，不为清空候选清单自动启动；Flutter编排任务不在本轮Rust执行范围。
+
+编写者：Codex｜2026-10-18
+
 ### HTTP-BODY-ERROR-CHAIN-20261018：响应正文读取错误来源保留（P1）
 
 - 基线与授权：用户要求继续 Rust 整改，feature/rust-ffi-modernization / 202635732，沿用现有 worktree，单代理，不修改主目录、不推送/合并或触发远程 CI。

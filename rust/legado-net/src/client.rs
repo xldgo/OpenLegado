@@ -21,6 +21,7 @@ use reqwest::redirect::Policy;
 use legado_core::{LegadoError, LegadoResult};
 
 use crate::cookie_store::{CookiePersistence, CookieStore};
+use crate::http_error::reqwest_error_chain;
 use crate::middleware::MiddlewareChain;
 use crate::proxy::{ProxyConfig, ProxyMiddleware, ProxyPool};
 use crate::rate_limit::DomainRateLimiter;
@@ -901,27 +902,6 @@ impl LegadoClient {
                 .map(|(_, value)| value.as_str()),
         );
     }
-}
-
-/// 展开 reqwest 发送与正文读取阶段的错误链。
-///
-/// **错误链必须透传**（V-B 网络排查教训）：reqwest `Display` 只含最外层
-/// （"error sending request for url"），DNS 解析失败 / TCP 拒绝 / TLS 握手
-/// 失败及响应正文截断等真因全在 `source()` 链里。600 域名全挂时只看最外层无法区分
-/// 「宿主无网」「DNS 污染」「TLS 证书」三类故障，故最多展开5层来源。
-pub(crate) fn reqwest_error_chain(e: &reqwest::Error) -> String {
-    let mut msg = e.to_string();
-    let mut src: Option<&dyn std::error::Error> = std::error::Error::source(e);
-    let mut depth = 0;
-    while let Some(s) = src {
-        depth += 1;
-        msg.push_str(&format!(" <- {}", s));
-        if depth >= 5 {
-            break;
-        }
-        src = s.source();
-    }
-    msg
 }
 
 /// 将 reqwest::Error 映射为 LegadoError

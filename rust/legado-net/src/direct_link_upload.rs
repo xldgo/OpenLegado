@@ -2,6 +2,7 @@
 //! 移植自 Kotlin DirectLinkUpload.kt (121行)
 //! 通过规则引擎解析上传/下载地址
 
+use crate::http_error::reqwest_error_chain;
 use serde::{Deserialize, Serialize};
 
 /// 上传规则配置（对应 Kotlin DirectLinkUpload.Rule）
@@ -58,9 +59,9 @@ impl DirectLinkUploader {
             .body(content.to_string())
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| reqwest_error_chain(&e))?;
 
-        let body = resp.text().await.map_err(|e| e.to_string())?;
+        let body = resp.text().await.map_err(|e| reqwest_error_chain(&e))?;
 
         // 使用规则提取下载链接
         let download_url = Self::extract_download_url(&body, &rule.download_url_rule);
