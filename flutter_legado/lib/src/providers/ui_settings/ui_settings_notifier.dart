@@ -87,6 +87,10 @@ class UiSettingsNotifier extends Notifier<UiSettings> {
   Future<void> setUseFloatingBottomBar(bool value) =>
       _save((repository) => repository.update(useFloatingBottomBar: value));
 
+  Future<void> setUseFloatingBottomBarLiquidGlass(bool value) => _save(
+    (repository) => repository.update(useFloatingBottomBarLiquidGlass: value),
+  );
+
   Future<void> setShowBottomView(bool value) =>
       _save((repository) => repository.update(showBottomView: value));
 

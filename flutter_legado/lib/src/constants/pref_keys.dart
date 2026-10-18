@@ -95,6 +95,10 @@ class PrefKeys {
   /// 悬浮底栏（参考仓 useFloatingBottomBar，默认关）
   static const useFloatingBottomBar = 'useFloatingBottomBar';
 
+  /// 悬浮底栏液态玻璃，默认关闭。
+  static const useFloatingBottomBarLiquidGlass =
+      'useFloatingBottomBarLiquidGlass';
+
   /// 显示底栏（参考仓 showBottomView，默认开）
   static const showBottomView = 'showBottomView';
 

@@ -21,6 +21,7 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     _address(PrefKeys.labelVisibilityMode),
     _address(PrefKeys.bottomBarBackgroundOpacity),
     _address(PrefKeys.useFloatingBottomBar),
+    _address(PrefKeys.useFloatingBottomBarLiquidGlass),
     _address(PrefKeys.showBottomView),
     _address(PrefKeys.tabletInterface),
     _address(PrefKeys.bookInfoFollowCoverColor),
@@ -72,6 +73,11 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
       fallback: UiSettingsValues.bottomBarBackgroundOpacity,
     ),
     useFloatingBottomBar: _read(snapshot, PrefKeys.useFloatingBottomBar, false),
+    useFloatingBottomBarLiquidGlass: _read(
+      snapshot,
+      PrefKeys.useFloatingBottomBarLiquidGlass,
+      false,
+    ),
     showBottomView: _read(snapshot, PrefKeys.showBottomView, true),
     tabletInterface: TabletInterfaceMode.fromName(
       _read(snapshot, PrefKeys.tabletInterface, ''),
@@ -170,6 +176,7 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     BottomBarLabelMode? labelVisibilityMode,
     double? bottomBarBackgroundOpacity,
     bool? useFloatingBottomBar,
+    bool? useFloatingBottomBarLiquidGlass,
     bool? showBottomView,
     TabletInterfaceMode? tabletInterface,
     bool? bookInfoFollowCoverColor,
@@ -210,6 +217,8 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
             fallback: UiSettingsValues.bottomBarBackgroundOpacity,
           )),
     _address(PrefKeys.useFloatingBottomBar): ?useFloatingBottomBar,
+    _address(PrefKeys.useFloatingBottomBarLiquidGlass):
+        ?useFloatingBottomBarLiquidGlass,
     _address(PrefKeys.showBottomView): ?showBottomView,
     _address(PrefKeys.tabletInterface): ?tabletInterface?.name,
     _address(PrefKeys.bookInfoFollowCoverColor): ?bookInfoFollowCoverColor,

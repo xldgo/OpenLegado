@@ -1,6 +1,6 @@
 import '../models/ui_settings.dart';
 
-/// 二十七项界面偏好的统一访问入口。— Codex + UI
+/// 界面偏好的统一访问入口。— Codex + UI
 abstract interface class UiSettingsRepository {
   UiSettings get current;
   Stream<UiSettings> watch();
@@ -14,6 +14,7 @@ abstract interface class UiSettingsRepository {
     BottomBarLabelMode? labelVisibilityMode,
     double? bottomBarBackgroundOpacity,
     bool? useFloatingBottomBar,
+    bool? useFloatingBottomBarLiquidGlass,
     bool? showBottomView,
     TabletInterfaceMode? tabletInterface,
     bool? bookInfoFollowCoverColor,

@@ -11,6 +11,18 @@ AppGlassStyle集中转换最终底色和模糊输入，颜色alpha不二次相�
 原有逻辑像素参数，实际效果需设备校准，不宣称与高斯sigma视觉等效。
 公共页面不依赖第三方导航模型；玻璃导航与按钮按批次接入，不替换全站页壳。
 
+悬浮导航通过AppFloatingBottomBar适配GlassTabBar.bottom，保留AppNavSpec、
+SkinNavIcon与应用切页回调。useFloatingBottomBarLiquidGlass默认false，独立于
+enableBlur；资源未预热成功时使用普通材质。液态模式使用既有底栏blur/tint参数，
+普通模式使用原有背景规则。底栏保留64dp高度、左右16dp、底部12dp和系统安全区，
+外侧留白只由项目计算一次。库负责玻璃/选中指示器/按压与拖动反馈，不再叠加旧
+AnimatedScale；普通模式仅保留选中背景过渡，尊重减少动态效果。
+库按下选择及拖动释放回调均转发应用，重复点击仍可触发书架双击回顶；普通模式
+在点击完成时转发。玻璃图标不额外嵌套Material按钮，以免竞争手势或重复语义。
+应用明确传入前景颜色，库的两套图标视觉层只保留一组无障碍入口。
+固定standard质量是本轮接线策略；组件行为测试使用minimal档位验证真实导航，
+不能据此声明standard着色器视觉、Impeller表现或GPU开销已验收。
+
 主页悬浮底栏使用AppScaffold.extendBody让正文在底栏后方绘制；默认页壳仍不延伸。
 主页在Scaffold的body上下文取得实际底栏占用高度，经AppBottomBarInset提供给
 各子页，不硬编码胶囊/安全区总高度；移除Scaffold为extendBody注入的正文底部

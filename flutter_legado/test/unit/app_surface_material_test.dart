@@ -5,6 +5,27 @@ import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_surface_material.dart';
 
 void main() {
+  test('液态底栏独立消费模糊底色，普通毛玻璃关闭不影响它', () {
+    const settings = UiSettings(
+      enableBlur: false,
+      bottomBarBackgroundOpacity: 1,
+      bottomBarBlurTintOpacity: 0.4,
+      bottomBarBlurSigma: 8,
+    );
+    final ordinary = AppSurfaceMaterial.bottomBar(
+      color: const Color(0x80FFFFFF),
+      settings: settings,
+    );
+    final glass = AppSurfaceMaterial.bottomBar(
+      color: const Color(0x80FFFFFF),
+      settings: settings,
+      liquidGlass: true,
+    );
+    expect(ordinary.color.a, closeTo(128 / 255, 0.00001));
+    expect(ordinary.blurSigma, 0);
+    expect(glass.color.a, closeTo(128 / 255 * 0.4, 0.00001));
+    expect(glass.blurSigma, 8);
+  });
   test('默认模糊底色使用 0.73 与 0.40，不解释为颜色字节', () {
     const settings = UiSettings(enableBlur: true);
     final top = AppSurfaceMaterial.topBar(

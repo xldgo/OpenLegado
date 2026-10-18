@@ -1,4 +1,5 @@
 import '../../../theme/app_surface_material.dart';
+import '../../../theme/app_glass_theme.dart';
 
 import 'dart:async';
 
@@ -538,7 +539,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ) {
     if (!ui.showBottomView) return null;
     if (ui.useFloatingBottomBar) {
+      final useGlass =
+          ui.useFloatingBottomBarLiquidGlass &&
+          AppGlassScope.availableOf(context);
       return AppFloatingBottomBar(
+        useLiquidGlass: useGlass,
         specs: _specsFor(tabs),
         currentIndex: currentIndex,
         activeSkin: activeSkin,
@@ -546,6 +551,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         material: AppSurfaceMaterial.bottomBar(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           settings: ui,
+          liquidGlass: useGlass,
         ),
       );
     }

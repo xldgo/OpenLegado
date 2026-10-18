@@ -411,6 +411,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     final themeNotifier = ref.read(themeNotifierProvider.notifier);
     final colors = ref.watch(themeColorsProvider);
     final ui = ref.watch(uiSettingsProvider);
+    final liquidBottomBar =
+        ui.useFloatingBottomBar && ui.useFloatingBottomBarLiquidGlass;
     final systemBars = ref.watch(systemBarProvider);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
@@ -708,6 +710,17 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                               .setUseFloatingBottomBar(v),
                         ),
                       ),
+                      if (ui.useFloatingBottomBar)
+                        SettingSwitchRow(
+                          title: context.l10n.themeLiquidBottomBar,
+                          subtitle: context.l10n.themeLiquidBottomBarSummary,
+                          value: ui.useFloatingBottomBarLiquidGlass,
+                          onChanged: (value) => _saveAppearance(
+                            () => ref
+                                .read(uiSettingsProvider.notifier)
+                                .setUseFloatingBottomBarLiquidGlass(value),
+                          ),
+                        ),
                       SettingMenuRow<BottomBarLabelMode>(
                         title: '底栏文字',
                         value: ui.labelVisibilityMode,
@@ -721,7 +734,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                               .setLabelVisibilityMode(value),
                         ),
                       ),
-                      if (!ui.enableBlur)
+                      if (!ui.enableBlur && !liquidBottomBar)
                         SettingTile(
                           title: context.l10n.themeBottomBarOpacity,
                           subtitle:
@@ -848,20 +861,20 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                               .setEnableBlur(v),
                         ),
                       ),
-                      if (ui.enableBlur) ...[
+                      if (ui.enableBlur)
                         SettingTile(
                           title: '顶栏模糊',
                           subtitle:
                               '强度 ${ui.topBarBlurSigma.round()} · 底色 ${(ui.topBarBlurTintOpacity * 100).round()}%',
                           onTap: _showTopBarBlurDialog,
                         ),
+                      if (ui.enableBlur || liquidBottomBar)
                         SettingTile(
                           title: '底栏模糊',
                           subtitle:
                               '强度 ${ui.bottomBarBlurSigma.round()} · 底色 ${(ui.bottomBarBlurTintOpacity * 100).round()}%',
                           onTap: _showBottomBarBlurDialog,
                         ),
-                      ],
                     ],
                   ),
 

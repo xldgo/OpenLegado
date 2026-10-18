@@ -13,6 +13,7 @@ import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/features/appearance/appearance_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
+import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
 void main() {
   late _Storage storage;
@@ -57,6 +58,46 @@ void main() {
     expect(storage.writes, 1);
     expect(container.read(themeNotifierProvider).themeMode, ThemeMode.system);
     expect(find.text('保存失败，请重试'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('液态底栏保存失败回退，重试后无需开启普通毛玻璃', (tester) async {
+    storage.values['useFloatingBottomBar'] = true;
+    await open(tester);
+    final setting = find.text('悬浮底栏液态玻璃');
+    await tester.dragUntilVisible(
+      setting,
+      find.byType(ListView),
+      const Offset(0, -160),
+    );
+    await tester.pumpAndSettle();
+    storage.fail = true;
+    await tester.tap(setting);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(uiSettingsProvider).useFloatingBottomBarLiquidGlass,
+      isFalse,
+    );
+    expect(storage.values['useFloatingBottomBarLiquidGlass'], isNull);
+    expect(find.text('保存失败，请重试'), findsOneWidget);
+    storage.fail = false;
+    await tester.tap(setting);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(uiSettingsProvider).useFloatingBottomBarLiquidGlass,
+      isTrue,
+    );
+    expect(container.read(uiSettingsProvider).enableBlur, isFalse);
+    expect(storage.values['useFloatingBottomBarLiquidGlass'], isTrue);
+    await tester.dragUntilVisible(
+      find.text('底栏模糊'),
+      find.byType(ListView),
+      const Offset(0, -160),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('底栏模糊'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

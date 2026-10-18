@@ -10,6 +10,12 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get themeLiquidBottomBar => '悬浮底栏液态玻璃';
+
+  @override
+  String get themeLiquidBottomBarSummary => '折射背景与滑动选中效果';
+
+  @override
   String get appTitle => '阅读';
 
   @override

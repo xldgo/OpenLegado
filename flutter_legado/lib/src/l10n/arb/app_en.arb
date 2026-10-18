@@ -1,5 +1,7 @@
 {
   "@@locale": "en",
+  "themeLiquidBottomBar": "Liquid glass floating bar",
+  "themeLiquidBottomBarSummary": "Refracted background and a sliding selection indicator",
   "appTitle": "Legado",
   "bookshelf": "Bookshelf",
   "search": "Search",

@@ -1,5 +1,7 @@
 {
   "@@locale": "zh",
+  "themeLiquidBottomBar": "悬浮底栏液态玻璃",
+  "themeLiquidBottomBarSummary": "折射背景与滑动选中效果",
   "appTitle": "阅读",
   "@appTitle": {
     "description": "应用文案：阅读"

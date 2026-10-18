@@ -1,5 +1,16 @@
 # API 契约文档
 
+## 悬浮底栏液态玻璃设置边界（2026-10-18，实施前冻结）
+
+UiSettings / UiSettingsRepository.update新增useFloatingBottomBarLiquidGlass布尔字段，
+偏好键同名，默认false；不复用enableBlur，不读取旧别名，不改Rust/FRB或数据库。
+开关仅作用于悬浮底栏，保留普通底栏、皮肤、页签和书架双击行为；预热未就绪时使用
+普通材质。液态模式独立消费既有bottomBarBlurSigma和bottomBarBlurTintOpacity，
+不要求启用普通毛玻璃，也不将底色alpha二次相乘；普通模式保持原有材质定义。
+第三方导航模型只存在于组件适配内部，应用仍传AppNavSpec和逻辑页签回调。
+
+编写者：Codex + UI｜2026-10-18
+
 
 ## 隐私凭据Argon2依赖迁移（2026-10-18，实施前冻结）
 

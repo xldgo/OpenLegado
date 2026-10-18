@@ -40,9 +40,10 @@ final class AppSurfaceMaterial {
   factory AppSurfaceMaterial.bottomBar({
     required Color color,
     required UiSettings settings,
+    bool liquidGlass = false,
   }) => AppSurfaceMaterial.resolve(
     color: color,
-    blurEnabled: settings.enableBlur,
+    blurEnabled: settings.enableBlur || liquidGlass,
     backgroundOpacity: settings.bottomBarBackgroundOpacity,
     blurTintOpacity: settings.bottomBarBlurTintOpacity,
     blurSigma: settings.bottomBarBlurSigma,

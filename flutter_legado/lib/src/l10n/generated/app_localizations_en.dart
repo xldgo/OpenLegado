@@ -10,6 +10,13 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get themeLiquidBottomBar => 'Liquid glass floating bar';
+
+  @override
+  String get themeLiquidBottomBarSummary =>
+      'Refracted background and a sliding selection indicator';
+
+  @override
   String get appTitle => 'Legado';
 
   @override

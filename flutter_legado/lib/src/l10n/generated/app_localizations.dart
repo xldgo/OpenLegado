@@ -98,6 +98,18 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @themeLiquidBottomBar.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮底栏液态玻璃'**
+  String get themeLiquidBottomBar;
+
+  /// No description provided for @themeLiquidBottomBarSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'折射背景与滑动选中效果'**
+  String get themeLiquidBottomBarSummary;
+
   /// 应用文案：阅读
   ///
   /// In zh, this message translates to:

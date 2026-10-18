@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.380] - 2026-10-18
+
+### Added
+- [UI] 悬浮底栏增加独立液态玻璃开关，接入滑动选中指示器、拖动选择和键盘操作。
+
+### Changed
+- [UI] 移除悬浮底栏的双层缩放，保留皮肤图标、无障碍标签与书架双击回顶。
+- [UI] 液态底栏独立配置模糊强度与底色比例，资源未就绪时使用普通材质。
+- 贡献者：Codex + UI；构建号381。
+
 ## [2.0.379] - 2026-10-18
 
 ### Changed

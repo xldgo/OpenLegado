@@ -68,6 +68,7 @@ void main() {
       labelVisibilityMode: BottomBarLabelMode.labeled,
       bottomBarBackgroundOpacity: 0.8,
       useFloatingBottomBar: true,
+      useFloatingBottomBarLiquidGlass: true,
       showBottomView: false,
       tabletInterface: TabletInterfaceMode.always,
       railExtended: true,
@@ -83,6 +84,7 @@ void main() {
         'labelVisibilityMode': 'labeled',
         'bottomBarBackgroundOpacity': 0.8,
         'useFloatingBottomBar': true,
+        'useFloatingBottomBarLiquidGlass': true,
         'showBottomView': false,
         'tabletInterface': 'always',
         'railExtended': true,
@@ -246,12 +248,19 @@ void main() {
     final notifier = container.read(uiSettingsProvider.notifier);
     await Future<void>.delayed(Duration.zero);
     await notifier.setTopBarButtonStyle(TopBarButtonStyle.plain);
+    await notifier.setUseFloatingBottomBarLiquidGlass(true);
     await notifier.setBottomBarBackgroundOpacity(0.85);
     await notifier.setTabletInterface(TabletInterfaceMode.always);
     await notifier.setRailExtended(true);
     await notifier.setThemeAmoled(true);
     final state = container.read(uiSettingsProvider);
     expect(state.topBarButtonStyle, TopBarButtonStyle.plain);
+    expect(state.useFloatingBottomBarLiquidGlass, isTrue);
+    expect(state.enableBlur, isFalse);
+    expect(
+      state.copyWith(useFloatingBottomBarLiquidGlass: false),
+      isNot(state),
+    );
     expect(state.bottomBarBackgroundOpacity, 0.85);
     expect(state.tabletInterface, TabletInterfaceMode.always);
     expect(state.railExtended, isTrue);

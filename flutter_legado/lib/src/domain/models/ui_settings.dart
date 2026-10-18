@@ -92,6 +92,9 @@ final class UiSettings {
   /// 悬浮底栏（64dp 胶囊形态，参考仓默认关）
   final bool useFloatingBottomBar;
 
+  /// 悬浮底栏液态玻璃，独立于普通毛玻璃开关。
+  final bool useFloatingBottomBarLiquidGlass;
+
   /// 显示底栏（参考仓 showBottomView）
   final bool showBottomView;
 
@@ -155,6 +158,7 @@ final class UiSettings {
     this.bottomBarBackgroundOpacity =
         UiSettingsValues.bottomBarBackgroundOpacity,
     this.useFloatingBottomBar = false,
+    this.useFloatingBottomBarLiquidGlass = false,
     this.showBottomView = true,
     this.tabletInterface = TabletInterfaceMode.auto,
     this.bookInfoFollowCoverColor = true,
@@ -183,6 +187,7 @@ final class UiSettings {
     BottomBarLabelMode? labelVisibilityMode,
     double? bottomBarBackgroundOpacity,
     bool? useFloatingBottomBar,
+    bool? useFloatingBottomBarLiquidGlass,
     bool? showBottomView,
     TabletInterfaceMode? tabletInterface,
     bool? bookInfoFollowCoverColor,
@@ -212,6 +217,9 @@ final class UiSettings {
       bottomBarBackgroundOpacity:
           bottomBarBackgroundOpacity ?? this.bottomBarBackgroundOpacity,
       useFloatingBottomBar: useFloatingBottomBar ?? this.useFloatingBottomBar,
+      useFloatingBottomBarLiquidGlass:
+          useFloatingBottomBarLiquidGlass ??
+          this.useFloatingBottomBarLiquidGlass,
       showBottomView: showBottomView ?? this.showBottomView,
       tabletInterface: tabletInterface ?? this.tabletInterface,
       bookInfoFollowCoverColor:
@@ -249,6 +257,8 @@ final class UiSettings {
       labelVisibilityMode == other.labelVisibilityMode &&
       bottomBarBackgroundOpacity == other.bottomBarBackgroundOpacity &&
       useFloatingBottomBar == other.useFloatingBottomBar &&
+      useFloatingBottomBarLiquidGlass ==
+          other.useFloatingBottomBarLiquidGlass &&
       showBottomView == other.showBottomView &&
       tabletInterface == other.tabletInterface &&
       bookInfoFollowCoverColor == other.bookInfoFollowCoverColor &&
@@ -277,6 +287,7 @@ final class UiSettings {
     labelVisibilityMode,
     bottomBarBackgroundOpacity,
     useFloatingBottomBar,
+    useFloatingBottomBarLiquidGlass,
     showBottomView,
     tabletInterface,
     bookInfoFollowCoverColor,

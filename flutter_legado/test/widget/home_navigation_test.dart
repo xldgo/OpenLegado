@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter_legado/src/theme/app_glass_theme.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
@@ -47,6 +49,7 @@ void main() {
     ValueNotifier<bool>? reducedMotion,
     List<BookSource> bookSources = const [],
     List<RssSource> rssSources = const [],
+    bool glassReady = false,
   }) async {
     // 既有底栏交互用例使用手机窗口，避免默认宽窗口启用侧栏。
     tester.view.physicalSize = const Size(390, 844);
@@ -79,16 +82,30 @@ void main() {
             homeSettingsRepositoryProvider.overrideWithValue(mainPreferences),
         ]),
         child: MaterialApp(
-          builder: reducedMotion == null
-              ? null
-              : (context, child) => ValueListenableBuilder<bool>(
-                  valueListenable: reducedMotion,
-                  builder: (context, value, _) => MediaQuery(
-                    data: MediaQuery.of(context)
-                        .copyWith(disableAnimations: value),
-                    child: child!,
+          builder: (context, child) {
+            Widget content = child!;
+            if (glassReady) {
+              content = AppGlassHost(
+                available: true,
+                child: GlassTheme(
+                  data: GlassThemeData.simple(
+                    quality: GlassQuality.minimal,
+                    brightness: Theme.of(context).brightness,
                   ),
+                  child: content,
                 ),
+              );
+            }
+            if (reducedMotion == null) return content;
+            return ValueListenableBuilder<bool>(
+              valueListenable: reducedMotion,
+              child: content,
+              builder: (context, value, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: value),
+                child: child!,
+              ),
+            );
+          },
           home: const HomeScreen(),
         ),
       ),
@@ -146,6 +163,62 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('液态底栏保留双击回顶，切换材质不重建正文', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      glassReady: true,
+      preferences: {
+        'useFloatingBottomBar': true,
+        'useFloatingBottomBarLiquidGlass': true,
+      },
+    );
+    expect(find.byType(GlassTabBar), findsOneWidget);
+    final scroll = tester.state<ScrollableState>(shelfScrollable());
+    scroll.position.jumpTo(400);
+    await tester.pump();
+    final rect = tester.getRect(find.byType(GlassTabBar));
+    final bookshelfTab = Offset(
+      rect.left + rect.width * 1.5 / 5,
+      rect.center.dy,
+    );
+    await tester.tapAt(bookshelfTab);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(bookshelfTab);
+    await tester.pumpAndSettle();
+    expect(scroll.position.pixels, 0);
+    await uiPreferences(tester).setUseFloatingBottomBarLiquidGlass(false);
+    await tester.pumpAndSettle();
+    expect(find.byType(GlassTabBar), findsNothing);
+    expect(tester.state<ScrollableState>(shelfScrollable()), same(scroll));
+    await uiPreferences(tester).setUseFloatingBottomBarLiquidGlass(true);
+    await preferences(tester).setShowDiscovery(false);
+    await tester.pumpAndSettle();
+    final bar = tester.widget<GlassTabBar>(find.byType(GlassTabBar));
+    expect(bar.tabs.length, 4);
+    expect(bar.selectedIndex, 1);
+    expect(tester.state<ScrollableState>(shelfScrollable()), same(scroll));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('玻璃未就绪时主页使用原普通材质，不强制开启模糊', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      preferences: {
+        'useFloatingBottomBar': true,
+        'useFloatingBottomBarLiquidGlass': true,
+      },
+    );
+    expect(find.byType(GlassTabBar), findsNothing);
+    final bar = tester.widget<AppFloatingBottomBar>(
+      find.byType(AppFloatingBottomBar),
+    );
+    expect(bar.useLiquidGlass, isFalse);
+    expect(bar.material.blurSigma, 0);
+    expect(bar.material.color.a, 1);
+  });
 
   testWidgets('切换悬浮/标准/隐藏/侧栏保留书架状态和位置', (tester) async {
     await pumpHome(tester, MockRustApi());
