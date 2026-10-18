@@ -3,10 +3,16 @@ import 'package:flutter/widgets.dart';
 
 /// 整行向上滚动切换，复用 Flutter 弹簧与位移动画。— Codex + UI
 class AppAnimatedTextLine extends StatefulWidget {
-  const AppAnimatedTextLine(this.text, {super.key, this.style});
+  const AppAnimatedTextLine(
+    this.text, {
+    super.key,
+    this.style,
+    this.maxLines = 1,
+  });
 
   final String text;
   final TextStyle? style;
+  final int maxLines;
 
   @override
   State<AppAnimatedTextLine> createState() => _AppAnimatedTextLineState();
@@ -123,8 +129,8 @@ class _AppAnimatedTextLineState extends State<AppAnimatedTextLine>
               child: Text(
                 entry.text,
                 style: widget.style,
-                maxLines: 1,
-                softWrap: false,
+                maxLines: widget.maxLines,
+                softWrap: widget.maxLines != 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),

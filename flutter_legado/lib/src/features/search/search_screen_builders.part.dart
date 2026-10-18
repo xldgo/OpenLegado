@@ -80,8 +80,8 @@ extension _SearchBuilders on _SearchScreenState {
               borderRadius: BorderRadius.circular(12),
             ),
             // [翻滚数字] 浮动进度卡同步翻滚
-            child: Md3AnimatedTextLine(
-              text: '${state.searchedCount}/${state.totalCount}',
+            child: AppAnimatedTextLine(
+              '${state.searchedCount}/${state.totalCount}',
               style: theme.textTheme.labelSmall,
             ),
           ),
@@ -719,8 +719,8 @@ extension _SearchBuilders on _SearchScreenState {
                           color: colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Md3AnimatedTextLine(
-                          text: '${result.originsCount}',
+                        child: AppAnimatedTextLine(
+                          '${result.originsCount}',
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
                                 color: colorScheme.onSurfaceVariant,

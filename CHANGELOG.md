@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.374] - 2026-10-18
+
+### Changed
+- [UI] 自定义搜索展开、选区与阅读菜单、详情和折叠内容响应系统减少动态效果；骨架扫光在后台及停用页面停止。
+- [UI] 搜索计数、空态和阅读记录共用整行文字切换，改善连续更新及读屏重复问题。
+- 贡献者：Codex + UI；构建号375。
+
 ## [2.0.373] - 2026-10-13
 
 ### Added

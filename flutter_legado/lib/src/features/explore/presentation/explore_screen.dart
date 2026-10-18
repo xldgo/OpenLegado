@@ -1,5 +1,7 @@
 library;
 
+import '../../../theme/app_motion.dart';
+
 import '../../book_sources/book_source_repository_provider.dart';
 
 /// 书源探索页面（ExploreScreen）
@@ -425,7 +427,7 @@ class _SourceItemState extends ConsumerState<_SourceItem>
 
   bool _expanded = false;
   late final AnimationController _expandController;
-  late final Animation<double> _expandAnimation;
+  late final CurvedAnimation _expandAnimation;
 
   @override
   void initState() {
@@ -445,6 +447,7 @@ class _SourceItemState extends ConsumerState<_SourceItem>
   @override
   void dispose() {
     widget.collapseSignal?.removeListener(_onCollapseSignal);
+    _expandAnimation.dispose();
     _expandController.dispose();
     super.dispose();
   }
@@ -455,9 +458,17 @@ class _SourceItemState extends ConsumerState<_SourceItem>
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduced(context)) _expandController.value = _expanded ? 1 : 0;
+  }
+
   void _setExpanded(bool value) {
     setState(() => _expanded = value);
-    if (value) {
+    if (AppMotion.reduced(context)) {
+      _expandController.value = value ? 1 : 0;
+    } else if (value) {
       _expandController.forward();
     } else {
       _expandController.reverse();
@@ -524,7 +535,10 @@ class _SourceItemState extends ConsumerState<_SourceItem>
                       ),
                       AnimatedRotation(
                         turns: _expanded ? 0.25 : 0,
-                        duration: widget.expandDuration,
+                        duration: AppMotion.duration(
+                          context,
+                          widget.expandDuration,
+                        ),
                         // [LAYOUT_MOTION_AUDIT L3] emphasized 曲线
                         curve: Curves.easeOutCubic,
                         child: Icon(

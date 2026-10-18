@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-MOTION-20261018：UI动效一致性与操作衔接（P2）
+
+- 授权与基线：用户批准三批优化并要求每批验证后本地提交，全部完成后编译安装MuMu；feature/ui-motion / da7c9f757，单代理，不推送、不修改主目录或Rust worktree。
+- 上游依据：HapeLee/legado-with-MD3 main / 15e1337a23278296b970b1942aa51e8ff7f9763e；主导航平滑切页、书架编辑动作显隐、搜索场景过渡、选区菜单及文字切换按源码核对。沿用Flutter组件与平台转场，不引入动效依赖或全局自定义路由框架。
+- 批次：①减少动态效果、循环动画生命周期、阅读菜单曲线资源与文字切换统一；②主导航、书架多选与搜索场景衔接；③快速反向/命中/缓存图片淡入复验与必要修正，最后正式构建安装MuMu。
+- 明确后置：悬浮底栏双层缩放只记录，留待iOS液态玻璃阶段；不修改app_navigation_bars.dart中的相关缩放。现有封面Hero、详情主题400ms/背景800ms、朗读转场和用户翻页模式保留，不修改音频后端、Rust/FFI、数据库或依赖。
+- 第一批：统一AppMotion系统偏好入口；搜索展开、阅读菜单/选区、发现折叠及详情过渡响应减少动态效果。阅读菜单淡入曲线由State持有并释放，发现折叠曲线补齐释放；骨架按系统偏好、TickerMode和前后台停止/恢复。AppAnimatedTextLine补齐多行能力，搜索和空态迁移后删除Md3重复实现及其已被行为覆盖的旧测试。正常详情主题400ms/背景800ms、菜单进出节奏保持。
+- 第一批验证：27项文字/骨架/搜索/选区/菜单组件回归通过；弃用TickerMode API和曲线静态类型修正后，完整Dart分析及3项系统偏好/生命周期复验通过。过程见flutter_legado/build/ui-motion/b1-{tests,analyze,analyze-final,preferences-final}.log，失败过程不算通过；未运行设备或全量CI。版本2.0.374+375并同步日志，整批本地提交。
+- 状态：第一批完成，后续第二/三批按上述范围推进；每批验证后提交，不推送。无子代理或独立外审，不以组件回归冒充帧耗时或iOS实测。
+
+编写者：Codex + UI｜2026-10-18
+
 ### RUST-UI-INTEGRATION-20261018：本轮双轨成果本地合流（P1）
 
 - 授权与基线：用户批准合并回主目录；主目录 feature/ui-reader-selection / a949b8d95，Rust worktree feature/rust-ffi-modernization / bcb6e4dbf，单代理、不推送。

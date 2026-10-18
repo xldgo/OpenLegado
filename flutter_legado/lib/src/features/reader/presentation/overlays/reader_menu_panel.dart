@@ -5,6 +5,7 @@ import '../../../../domain/models/source_action_result.dart';
 import '../../application/reader_settings_provider.dart';
 import '../../../../l10n/app_localization.dart';
 import '../../../../widgets/app_menu.dart';
+import '../../../../theme/app_motion.dart';
 
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
@@ -128,6 +129,25 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     reverseCurve: Curves.easeInCubic,
   );
 
+  late final CurvedAnimation _menuFadeCurve = CurvedAnimation(
+    parent: _menuController,
+    curve: const Interval(0, 0.82, curve: Curves.easeOut),
+  );
+
+  void _syncMotion() {
+    if (AppMotion.reduced(context)) {
+      _menuController.value = widget.visible ? 1 : 0;
+    } else {
+      widget.visible ? _menuController.forward() : _menuController.reverse();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
+  }
+
   @override
   void didUpdateWidget(covariant ReaderMenuPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -136,12 +156,13 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
         _popupMenuOpen = false;
         _sourceActionMenuController.close();
       }
-      widget.visible ? _menuController.forward() : _menuController.reverse();
+      _syncMotion();
     }
   }
 
   @override
   void dispose() {
+    _menuFadeCurve.dispose();
     _menuSlideCurve.dispose();
     _menuController.dispose();
     super.dispose();
@@ -183,12 +204,6 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
           if (hidden && _dismissalPointers.isEmpty) {
             return const SizedBox.shrink();
           }
-          final fade = Tween<double>(begin: 0, end: 1).animate(
-            CurvedAnimation(
-              parent: _menuController,
-              curve: const Interval(0, 0.82, curve: Curves.easeOut),
-            ),
-          );
           // 淡出后仍保留当前指针的点击识别器，防止长按松手变成正文点击。
           // 完全隐藏时新手势直接交给正文，当前拖动也不会被中断。
           return IgnorePointer(
@@ -199,7 +214,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
               onLongPress: () {},
               child: AbsorbPointer(
                 absorbing: !widget.visible && !hidden,
-                child: FadeTransition(opacity: fade, child: child!),
+                child: FadeTransition(opacity: _menuFadeCurve, child: child!),
               ),
             ),
           );

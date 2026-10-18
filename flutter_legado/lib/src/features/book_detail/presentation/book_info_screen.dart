@@ -1,3 +1,4 @@
+import '../../../theme/app_motion.dart';
 import '../../../utils/error_message.dart';
 import 'components/book_detail_backdrop.dart';
 import 'components/book_meta_card.dart';
@@ -391,7 +392,7 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
     // 保留 400ms 封面换肤动画，所有组件和页面弹层共用完整局部主题。
     return AnimatedTheme(
       data: _coverTheme!,
-      duration: const Duration(milliseconds: 400),
+      duration: AppMotion.duration(context, const Duration(milliseconds: 400)),
       curve: Curves.fastOutSlowIn,
       child: Builder(
         builder: (pageContext) => Scaffold(

@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../theme/app_motion.dart';
+
 class BookExpandableText extends StatefulWidget {
   final String text;
 
@@ -52,7 +54,10 @@ class BookExpandableTextState extends State<BookExpandableText> {
                 crossFadeState: _expanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 200),
+                duration: AppMotion.duration(
+                  context,
+                  const Duration(milliseconds: 200),
+                ),
               ),
               // [UI-fix v2.0.7 | 2026-08-08] 展开/收起：右对齐 + 主题色文字，
               // 对齐原版底部右下角切换控件（省略号硬截断改为可展开/收起） — Qoder

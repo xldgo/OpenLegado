@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../theme/app_motion.dart';
+
 /// 搜索区域的单一动画进度，顶栏占位与内容同时消费，支持中途反向。
 class AppSearchTransition extends StatefulWidget {
   const AppSearchTransition({
@@ -25,12 +27,26 @@ class _AppSearchTransitionState extends State<AppSearchTransition>
     parent: _controller,
     curve: Curves.easeInOutCubic,
   );
+  void _sync() {
+    if (AppMotion.reduced(context)) {
+      _controller.value = widget.expanded ? 1 : 0;
+    } else {
+      widget.expanded ? _controller.forward() : _controller.reverse();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
   @override
   void didUpdateWidget(covariant AppSearchTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.expanded != oldWidget.expanded) {
       if (!widget.expanded) FocusScope.of(context).unfocus();
-      widget.expanded ? _controller.forward() : _controller.reverse();
+      _sync();
     }
   }
 

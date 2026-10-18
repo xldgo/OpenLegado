@@ -1,3 +1,5 @@
+import '../../../../theme/app_motion.dart';
+
 import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
@@ -113,7 +115,10 @@ class BookDetailBackdrop extends StatelessWidget {
       children: [
         // 背景层：封面/档位/seed 变化时 Crossfade 800（对齐参考仓 tween(800)）
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 800),
+          duration: AppMotion.duration(
+            context,
+            const Duration(milliseconds: 800),
+          ),
           child: KeyedSubtree(
             key: ValueKey('$coverUrl|$mode|${seed?.toARGB32()}'),
             child: backdrop,
