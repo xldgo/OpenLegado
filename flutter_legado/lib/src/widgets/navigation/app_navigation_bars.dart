@@ -1,7 +1,14 @@
 import '../app_menu.dart';
 
 import 'dart:io' show File;
-import 'dart:ui' show ImageFilter;
+
+import '../../theme/app_surface_material.dart';
+import '../../theme/app_glass_theme.dart';
+import '../../theme/app_motion.dart';
+
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+
+import '../app_surface_backdrop.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -68,7 +75,7 @@ class AppShortNavigationBar extends StatelessWidget {
   final int currentIndex;
   final String activeSkin;
   final NavigationDestinationLabelBehavior labelBehavior;
-  final double opacity;
+  final AppSurfaceMaterial material;
   final ValueChanged<int> onSelect;
 
   const AppShortNavigationBar({
@@ -77,15 +84,17 @@ class AppShortNavigationBar extends StatelessWidget {
     required this.currentIndex,
     required this.activeSkin,
     required this.labelBehavior,
-    required this.opacity,
+    required this.material,
     required this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
+    return AppSurfaceBackdrop(
+      material: material,
       child: NavigationBar(
+        backgroundColor: material.color,
+        surfaceTintColor: Colors.transparent,
         labelBehavior: labelBehavior,
         selectedIndex: currentIndex,
         onDestinationSelected: onSelect,
@@ -113,15 +122,14 @@ class AppShortNavigationBar extends StatelessWidget {
   }
 }
 
-/// 悬浮底栏（64dp Stadium 胶囊；对齐参考 FloatingBottomBar 实色版）
-class AppFloatingBottomBar extends StatefulWidget {
+/// 悬浮底栏：保持应用导航接口，玻璃模型仅在本组件内适配。— Codex + UI
+class AppFloatingBottomBar extends StatelessWidget {
   final List<AppNavSpec> specs;
   final int currentIndex;
   final String activeSkin;
   final ValueChanged<int> onSelect;
-  final bool useBlur;
-  final int blurRadius;
-  final int blurAlpha;
+  final AppSurfaceMaterial material;
+  final bool useLiquidGlass;
 
   const AppFloatingBottomBar({
     super.key,
@@ -129,30 +137,19 @@ class AppFloatingBottomBar extends StatefulWidget {
     required this.currentIndex,
     required this.activeSkin,
     required this.onSelect,
-    required this.useBlur,
-    required this.blurRadius,
-    required this.blurAlpha,
+    required this.material,
+    this.useLiquidGlass = false,
   });
 
-  @override
-  State<AppFloatingBottomBar> createState() => _AppFloatingBottomBarState();
-}
-
-class _AppFloatingBottomBarState extends State<AppFloatingBottomBar> {
-  int _pressedIndex = -1;
-
   Widget _icon(int index, {required bool selected}) {
-    final spec = widget.specs[index];
-    Widget fallback({required bool sel}) =>
-        Icon(spec.symbol, size: 24, fill: sel ? 1 : 0);
-    if (widget.activeSkin.isEmpty || spec.skinSlot == null) {
-      return fallback(sel: selected);
-    }
+    final spec = specs[index];
+    final fallback = Icon(spec.symbol, size: 24, fill: selected ? 1 : 0);
+    if (activeSkin.isEmpty || spec.skinSlot == null) return fallback;
     return SkinNavIcon(
-      skin: widget.activeSkin,
+      skin: activeSkin,
       slot: spec.skinSlot!,
       selected: selected,
-      fallback: fallback(sel: selected),
+      fallback: fallback,
     );
   }
 
@@ -160,82 +157,109 @@ class _AppFloatingBottomBarState extends State<AppFloatingBottomBar> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final capsule = Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      height: 64,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(
-          alpha: widget.useBlur ? widget.blurAlpha / 255 : 0.85,
+    final radius = BorderRadius.circular(32);
+    final useGlass = useLiquidGlass && AppGlassScope.availableOf(context);
+    final Widget capsule;
+    if (useGlass) {
+      final reduced = AppMotion.reduced(context);
+      capsule = GlassTabBar.bottom(
+        tabs: [
+          for (var i = 0; i < specs.length; i++)
+            GlassTab(
+              icon: _icon(i, selected: false),
+              activeIcon: _icon(i, selected: true),
+              // 悬浮形态沿用纯图标，名称仍提供给无障碍与键盘操作。
+              semanticLabel: specs[i].label,
+            ),
+        ],
+        selectedIndex: currentIndex,
+        onTabSelected: onSelect,
+        settings: AppGlassStyle.resolve(material),
+        selectedIconColor: cs.onSurface,
+        unselectedIconColor: cs.onSurfaceVariant,
+        textStyle: Theme.of(context).textTheme.labelSmall,
+        horizontalPadding: 0,
+        verticalPadding: 0,
+        barHeight: 64,
+        barBorderRadius: 32,
+        magnification: reduced ? 1 : 1.15,
+        interactionBehavior: reduced
+            ? GlassInteractionBehavior.none
+            : GlassInteractionBehavior.full,
+      );
+    } else {
+      capsule = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < widget.specs.length; i++)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (_) => setState(() => _pressedIndex = i),
-                onTapCancel: () => setState(() => _pressedIndex = -1),
-                onTapUp: (_) {
-                  setState(() => _pressedIndex = -1);
-                  widget.onSelect(i);
-                },
-                child: Center(
-                  child: AnimatedScale(
-                    scale: _pressedIndex == i ? 1.08 : 1.0,
-                    duration: const Duration(milliseconds: 120),
-                    curve: Curves.fastOutSlowIn,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.fastOutSlowIn,
-                      width: widget.currentIndex == i ? 64 : 48,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: widget.currentIndex == i
-                            ? cs.secondaryContainer
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      alignment: Alignment.center,
-                      child: AnimatedScale(
-                        scale: widget.currentIndex == i ? 1.2 : 1.0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.fastOutSlowIn,
-                        child: _icon(i, selected: widget.currentIndex == i),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+        child: AppSurfaceBackdrop(
+          material: material,
+          borderRadius: radius,
+          child: Container(
+            height: 64,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: material.color,
+              borderRadius: radius,
             ),
-        ],
-      ),
-    );
-    if (widget.useBlur) {
-      return SafeArea(
-        top: false,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: widget.blurRadius.toDouble(),
-              sigmaY: widget.blurRadius.toDouble(),
+            child: Row(
+              children: [
+                for (var i = 0; i < specs.length; i++)
+                  Expanded(child: _plainItem(context, i, cs)),
+              ],
             ),
-            child: capsule,
           ),
         ),
       );
     }
-    return SafeArea(top: false, child: capsule);
+    // 留白、安全区只计算一次，不把整个底栏槽当作可见玻璃面。
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: capsule,
+      ),
+    );
+  }
+
+  Widget _plainItem(BuildContext context, int index, ColorScheme cs) {
+    final selected = currentIndex == index;
+    return Semantics(
+      button: true,
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      label: specs[index].label,
+      onTap: () => onSelect(index),
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onSelect(index),
+        child: Center(
+          child: AnimatedContainer(
+            duration: AppMotion.duration(
+              context,
+              const Duration(milliseconds: 200),
+            ),
+            curve: Curves.fastOutSlowIn,
+            width: selected ? 64 : 48,
+            height: 32,
+            decoration: BoxDecoration(
+              color: selected ? cs.secondaryContainer : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: _icon(index, selected: selected),
+          ),
+        ),
+      ),
+    );
   }
 }
 

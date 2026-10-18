@@ -10,6 +10,12 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get themeLiquidBottomBar => '悬浮底栏液态玻璃';
+
+  @override
+  String get themeLiquidBottomBarSummary => '折射背景与滑动选中效果';
+
+  @override
   String get appTitle => '阅读';
 
   @override
@@ -2969,10 +2975,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeTopBarButtonStyle => '顶栏按钮样式';
 
   @override
-  String get themeTopBarOpacity => '顶栏不透明度';
+  String get themeTopBarOpacity => '顶栏背景不透明度';
 
   @override
-  String get themeBottomBarOpacity => '底栏不透明度';
+  String get themeBottomBarOpacity => '底栏背景不透明度';
 
   @override
   String get themeBaseCardCornerRadius => '卡片圆角';

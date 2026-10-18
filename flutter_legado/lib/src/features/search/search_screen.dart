@@ -11,6 +11,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
+import '../../widgets/ui_settings_scope.dart';
+import '../../domain/models/ui_settings.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 

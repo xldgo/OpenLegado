@@ -15,6 +15,7 @@ import '../../read_records/read_record_overview_calculator.dart';
 import '../../../utils/book_open_utils.dart';
 import '../../../widgets/book_cover.dart';
 import '../../../widgets/legado_app_bar.dart';
+import '../../../widgets/app_bottom_bar_inset.dart';
 
 /// 首页页签（对齐参考版首页布局）
 ///
@@ -161,7 +162,10 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        padding: AppBottomBarInset.padding(
+          context,
+          const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        ),
         children: [
           // ===== 最近阅读卡 =====
           if (recent != null)

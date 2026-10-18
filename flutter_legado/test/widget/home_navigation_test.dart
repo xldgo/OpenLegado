@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter_legado/src/theme/app_glass_theme.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
@@ -23,6 +25,10 @@ import 'package:flutter_legado/src/features/explore/presentation/explore_screen.
 import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/features/home/presentation/home_tab_screen.dart';
 import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
+import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/widgets/app_bottom_bar_inset.dart';
+import 'package:flutter_legado/src/widgets/navigation/app_navigation_bars.dart';
 
 import '../mocks/mocks.dart';
 import '../fixtures/home_settings_storage.dart';
@@ -41,6 +47,9 @@ void main() {
     Map<String, Object> preferences = const {},
     HomeSettingsRepository? mainPreferences,
     ValueNotifier<bool>? reducedMotion,
+    List<BookSource> bookSources = const [],
+    List<RssSource> rssSources = const [],
+    bool glassReady = false,
   }) async {
     // 既有底栏交互用例使用手机窗口，避免默认宽窗口启用侧栏。
     tester.view.physicalSize = const Size(390, 844);
@@ -59,9 +68,9 @@ void main() {
     when(() => mockApi.bookGroupRepository.getBookGroups())
         .thenAnswer((_) async => []);
     when(() => mockApi.bookSourceRepository.getBookSources())
-        .thenAnswer((_) async => []);
+        .thenAnswer((_) async => bookSources);
     when(() => mockApi.rssSourceRepository.getRssSources())
-        .thenAnswer((_) async => []);
+        .thenAnswer((_) async => rssSources);
     // 首页页签数据源：阅读记录 + 每日时长（HomeTabScreen initState 拉取）
     when(() => mockApi.readRecordRepository)
         .thenReturn(MockReadRecordRepository());
@@ -73,16 +82,30 @@ void main() {
             homeSettingsRepositoryProvider.overrideWithValue(mainPreferences),
         ]),
         child: MaterialApp(
-          builder: reducedMotion == null
-              ? null
-              : (context, child) => ValueListenableBuilder<bool>(
-                  valueListenable: reducedMotion,
-                  builder: (context, value, _) => MediaQuery(
-                    data: MediaQuery.of(context)
-                        .copyWith(disableAnimations: value),
-                    child: child!,
+          builder: (context, child) {
+            Widget content = child!;
+            if (glassReady) {
+              content = AppGlassHost(
+                available: true,
+                child: GlassTheme(
+                  data: GlassThemeData.simple(
+                    quality: GlassQuality.minimal,
+                    brightness: Theme.of(context).brightness,
                   ),
+                  child: content,
                 ),
+              );
+            }
+            if (reducedMotion == null) return content;
+            return ValueListenableBuilder<bool>(
+              valueListenable: reducedMotion,
+              child: content,
+              builder: (context, value, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: value),
+                child: child!,
+              ),
+            );
+          },
           home: const HomeScreen(),
         ),
       ),
@@ -99,6 +122,228 @@ void main() {
 
   double currentPage(WidgetTester tester) =>
       tester.widget<PageView>(find.byType(PageView)).controller!.page!;
+
+  UiSettingsNotifier uiPreferences(WidgetTester tester) =>
+      ProviderScope.containerOf(tester.element(find.byType(HomeScreen)))
+          .read(uiSettingsProvider.notifier);
+
+  Finder shelfScrollable() => find.descendant(
+    of: find.byType(BookshelfScreen),
+    matching: find.byWidgetPredicate(
+      (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+    ),
+  );
+
+  for (final grid in [false, true]) {
+    testWidgets('悬浮栏下正文延伸，书架末项可滚动到胶囊上方：网格$grid', (tester) async {
+      await pumpHome(
+        tester,
+        MockRustApi(),
+        preferences: {'useFloatingBottomBar': true, 'bookshelf_layout': grid},
+      );
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      await tester.pumpAndSettle();
+      final bar = find.byType(AppFloatingBottomBar);
+      final barRect = tester.getRect(bar);
+      final viewRect = tester.getRect(find.byType(PageView));
+      expect(viewRect.bottom, greaterThan(barRect.top));
+      expect(viewRect.bottom, barRect.bottom);
+      expect(
+        AppBottomBarInset.of(tester.element(find.byType(BookshelfScreen))),
+        barRect.height,
+      );
+      final position = tester
+          .state<ScrollableState>(shelfScrollable())
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final lastBook = find.byType(grid ? BookGridItem : BookListItem).last;
+      expect(tester.getRect(lastBook).bottom, lessThanOrEqualTo(barRect.top));
+      expect(lastBook.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('液态底栏保留双击回顶，切换材质不重建正文', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      glassReady: true,
+      preferences: {
+        'useFloatingBottomBar': true,
+        'useFloatingBottomBarLiquidGlass': true,
+      },
+    );
+    expect(find.byType(GlassTabBar), findsOneWidget);
+    final scroll = tester.state<ScrollableState>(shelfScrollable());
+    scroll.position.jumpTo(400);
+    await tester.pump();
+    final rect = tester.getRect(find.byType(GlassTabBar));
+    final bookshelfTab = Offset(
+      rect.left + rect.width * 1.5 / 5,
+      rect.center.dy,
+    );
+    await tester.tapAt(bookshelfTab);
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(bookshelfTab);
+    await tester.pumpAndSettle();
+    expect(scroll.position.pixels, 0);
+    await uiPreferences(tester).setUseFloatingBottomBarLiquidGlass(false);
+    await tester.pumpAndSettle();
+    expect(find.byType(GlassTabBar), findsNothing);
+    expect(tester.state<ScrollableState>(shelfScrollable()), same(scroll));
+    await uiPreferences(tester).setUseFloatingBottomBarLiquidGlass(true);
+    await preferences(tester).setShowDiscovery(false);
+    await tester.pumpAndSettle();
+    final bar = tester.widget<GlassTabBar>(find.byType(GlassTabBar));
+    expect(bar.tabs.length, 4);
+    expect(bar.selectedIndex, 1);
+    expect(tester.state<ScrollableState>(shelfScrollable()), same(scroll));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('玻璃未就绪时主页使用原普通材质，不强制开启模糊', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      preferences: {
+        'useFloatingBottomBar': true,
+        'useFloatingBottomBarLiquidGlass': true,
+      },
+    );
+    expect(find.byType(GlassTabBar), findsNothing);
+    final bar = tester.widget<AppFloatingBottomBar>(
+      find.byType(AppFloatingBottomBar),
+    );
+    expect(bar.useLiquidGlass, isFalse);
+    expect(bar.material.blurSigma, 0);
+    expect(bar.material.color.a, 1);
+  });
+
+  testWidgets('切换悬浮/标准/隐藏/侧栏保留书架状态和位置', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    final scrollState = tester.state<ScrollableState>(shelfScrollable());
+    scrollState.position.jumpTo(400);
+    await tester.pump();
+    final settings = uiPreferences(tester);
+    for (final update in <Future<void> Function()>[
+      () => settings.setUseFloatingBottomBar(true),
+      () => settings.setUseFloatingBottomBar(false),
+      () => settings.setShowBottomView(false),
+      () => settings.setTabletInterface(TabletInterfaceMode.always),
+    ]) {
+      await update();
+      await tester.pumpAndSettle();
+      final current = tester.state<ScrollableState>(shelfScrollable());
+      expect(current, same(scrollState));
+      expect(current.position.pixels, 400);
+      expect(currentPage(tester), 1);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('我的页视口延伸到底栏后，退出项仍可滚达和点击', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pumpAndSettle();
+    await uiPreferences(tester).setUseFloatingBottomBar(true);
+    await tester.pumpAndSettle();
+    final list = find.descendant(
+      of: find.byType(SettingsScreen),
+      matching: find.byType(ListView),
+    );
+    final bar = tester.getRect(find.byType(AppFloatingBottomBar));
+    expect(tester.getRect(list).bottom, bar.bottom);
+    final scrollable = find.descendant(
+      of: list,
+      matching: find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+      ),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final exit = find.text('退出');
+    expect(exit.hitTestable(), findsOneWidget);
+    expect(tester.getRect(exit).bottom, lessThanOrEqualTo(bar.top));
+    await tester.tap(exit);
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+  });
+
+  testWidgets('键盘出现不保留悬浮栏的额外滚动留白', (tester) async {
+    await pumpHome(
+      tester,
+      MockRustApi(),
+      preferences: {'useFloatingBottomBar': true},
+    );
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(
+      AppBottomBarInset.of(tester.element(find.byType(BookshelfScreen))),
+      0,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final tab in [0, 2, 3]) {
+    testWidgets('首页/发现/订阅滚动视口延伸，末项停在底栏上方：$tab', (tester) async {
+      await pumpHome(
+        tester,
+        MockRustApi(),
+        preferences: {'useFloatingBottomBar': true},
+        bookSources: [
+          for (var i = 0; i < 20; i++)
+            BookSource(
+              bookSourceUrl: 'https://source$i.test',
+              bookSourceName: '发现源$i',
+              exploreUrl: '分类::https://source$i.test/list',
+              customOrder: i,
+            ),
+        ],
+        rssSources: [
+          for (var i = 0; i < 30; i++)
+            RssSource(sourceUrl: 'rss$i', sourceName: '订阅$i', customOrder: i),
+        ],
+      );
+      tester
+          .widget<AppFloatingBottomBar>(find.byType(AppFloatingBottomBar))
+          .onSelect(tab);
+      await tester.pumpAndSettle();
+      final page = find.byType(switch (tab) {
+        0 => HomeTabScreen,
+        2 => ExploreScreen,
+        _ => RssScreen,
+      });
+      final scrollable = find.descendant(
+        of: page,
+        matching: find.byWidgetPredicate(
+          (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+        ),
+      );
+      final bar = tester.getRect(find.byType(AppFloatingBottomBar));
+      expect(tester.getRect(scrollable).bottom, bar.bottom);
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final Finder last;
+      if (tab == 0) {
+        final list = tester.widget<ListView>(
+          find.descendant(of: page, matching: find.byType(ListView)),
+        );
+        final children =
+            (list.childrenDelegate as SliverChildListDelegate).children;
+        last = find.byWidget(children.last);
+      } else {
+        last = tab == 2
+            ? find.text('发现源19')
+            : find.byKey(const ValueKey('rss29'));
+      }
+      expect(last.hitTestable(), findsOneWidget);
+      expect(tester.getRect(last).bottom, lessThanOrEqualTo(bar.top));
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   AppHomeSettingsRepository repositoryFor(HomeSettingsStorage storage) {
     final service = AppSettingsService(

@@ -2,9 +2,10 @@ import '../../constants/pref_keys.dart';
 import '../../domain/contracts/ui_settings_repository.dart';
 import '../../domain/models/app_settings_snapshot.dart';
 import '../../domain/models/ui_settings.dart';
+import '../../domain/models/ui_settings_values.dart';
 import '../services/app_settings_service.dart';
 
-/// 原键、默认值和保存限值统一在数据层解释。— Codex + UI
+/// 偏好键、默认值与读写限值统一解释，材质仅使用浮点比例和 sigma。— Codex + UI
 final class AppUiSettingsRepository implements UiSettingsRepository {
   AppUiSettingsRepository(this._service);
   final AppSettingsService _service;
@@ -16,10 +17,11 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     _address(PrefKeys.topBarButtonStyle),
     _address(PrefKeys.mergeTopBarActions),
     _address(PrefKeys.useFlexibleTopAppBar),
-    _address(PrefKeys.topBarOpacity),
+    _address(PrefKeys.topBarBackgroundOpacity),
     _address(PrefKeys.labelVisibilityMode),
-    _address(PrefKeys.bottomBarOpacity),
+    _address(PrefKeys.bottomBarBackgroundOpacity),
     _address(PrefKeys.useFloatingBottomBar),
+    _address(PrefKeys.useFloatingBottomBarLiquidGlass),
     _address(PrefKeys.showBottomView),
     _address(PrefKeys.tabletInterface),
     _address(PrefKeys.bookInfoFollowCoverColor),
@@ -28,10 +30,10 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     _address(PrefKeys.overrideBaseCardCornerRadius),
     _address(PrefKeys.baseCardCornerRadius),
     _address(PrefKeys.enableBlur),
-    _address(PrefKeys.topBarBlurRadius),
-    _address(PrefKeys.topBarBlurAlpha),
-    _address(PrefKeys.bottomBarBlurRadius),
-    _address(PrefKeys.bottomBarBlurAlpha),
+    _address(PrefKeys.topBarBlurSigma),
+    _address(PrefKeys.topBarBlurTintOpacity),
+    _address(PrefKeys.bottomBarBlurSigma),
+    _address(PrefKeys.bottomBarBlurTintOpacity),
     _address(PrefKeys.wallpaperColorFollow),
     _address(PrefKeys.enableItemDivider),
     _address(PrefKeys.railExtended),
@@ -51,16 +53,31 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     ),
     mergeTopBarActions: _read(snapshot, PrefKeys.mergeTopBarActions, false),
     useFlexibleTopAppBar: _read(snapshot, PrefKeys.useFlexibleTopAppBar, true),
-    topBarOpacity: _read(snapshot, PrefKeys.topBarOpacity, 100).clamp(0, 100),
+    topBarBackgroundOpacity: UiSettingsValues.opacity(
+      _read(
+        snapshot,
+        PrefKeys.topBarBackgroundOpacity,
+        UiSettingsValues.topBarBackgroundOpacity,
+      ),
+      fallback: UiSettingsValues.topBarBackgroundOpacity,
+    ),
     labelVisibilityMode: BottomBarLabelMode.fromName(
       _read(snapshot, PrefKeys.labelVisibilityMode, ''),
     ),
-    bottomBarOpacity: _read(
-      snapshot,
-      PrefKeys.bottomBarOpacity,
-      100,
-    ).clamp(0, 100),
+    bottomBarBackgroundOpacity: UiSettingsValues.opacity(
+      _read(
+        snapshot,
+        PrefKeys.bottomBarBackgroundOpacity,
+        UiSettingsValues.bottomBarBackgroundOpacity,
+      ),
+      fallback: UiSettingsValues.bottomBarBackgroundOpacity,
+    ),
     useFloatingBottomBar: _read(snapshot, PrefKeys.useFloatingBottomBar, false),
+    useFloatingBottomBarLiquidGlass: _read(
+      snapshot,
+      PrefKeys.useFloatingBottomBarLiquidGlass,
+      false,
+    ),
     showBottomView: _read(snapshot, PrefKeys.showBottomView, true),
     tabletInterface: TabletInterfaceMode.fromName(
       _read(snapshot, PrefKeys.tabletInterface, ''),
@@ -85,12 +102,42 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
       PrefKeys.overrideBaseCardCornerRadius,
       false,
     ),
-    baseCardCornerRadius: _read(snapshot, PrefKeys.baseCardCornerRadius, 16),
+    baseCardCornerRadius: UiSettingsValues.cardRadius(
+      _read(snapshot, PrefKeys.baseCardCornerRadius, 16),
+    ),
     enableBlur: _read(snapshot, PrefKeys.enableBlur, false),
-    topBarBlurRadius: _read(snapshot, PrefKeys.topBarBlurRadius, 24),
-    topBarBlurAlpha: _read(snapshot, PrefKeys.topBarBlurAlpha, 73),
-    bottomBarBlurRadius: _read(snapshot, PrefKeys.bottomBarBlurRadius, 8),
-    bottomBarBlurAlpha: _read(snapshot, PrefKeys.bottomBarBlurAlpha, 40),
+    topBarBlurSigma: UiSettingsValues.sigma(
+      _read(
+        snapshot,
+        PrefKeys.topBarBlurSigma,
+        UiSettingsValues.topBarBlurSigma,
+      ),
+      fallback: UiSettingsValues.topBarBlurSigma,
+    ),
+    topBarBlurTintOpacity: UiSettingsValues.opacity(
+      _read(
+        snapshot,
+        PrefKeys.topBarBlurTintOpacity,
+        UiSettingsValues.topBarBlurTintOpacity,
+      ),
+      fallback: UiSettingsValues.topBarBlurTintOpacity,
+    ),
+    bottomBarBlurSigma: UiSettingsValues.sigma(
+      _read(
+        snapshot,
+        PrefKeys.bottomBarBlurSigma,
+        UiSettingsValues.bottomBarBlurSigma,
+      ),
+      fallback: UiSettingsValues.bottomBarBlurSigma,
+    ),
+    bottomBarBlurTintOpacity: UiSettingsValues.opacity(
+      _read(
+        snapshot,
+        PrefKeys.bottomBarBlurTintOpacity,
+        UiSettingsValues.bottomBarBlurTintOpacity,
+      ),
+      fallback: UiSettingsValues.bottomBarBlurTintOpacity,
+    ),
     wallpaperColorFollow: _read(snapshot, PrefKeys.wallpaperColorFollow, false),
     enableItemDivider: _read(snapshot, PrefKeys.enableItemDivider, false),
     railExtended: _read(snapshot, PrefKeys.railExtended, false),
@@ -125,10 +172,11 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     TopBarButtonStyle? topBarButtonStyle,
     bool? mergeTopBarActions,
     bool? useFlexibleTopAppBar,
-    int? topBarOpacity,
+    double? topBarBackgroundOpacity,
     BottomBarLabelMode? labelVisibilityMode,
-    int? bottomBarOpacity,
+    double? bottomBarBackgroundOpacity,
     bool? useFloatingBottomBar,
+    bool? useFloatingBottomBarLiquidGlass,
     bool? showBottomView,
     TabletInterfaceMode? tabletInterface,
     bool? bookInfoFollowCoverColor,
@@ -137,10 +185,10 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     bool? overrideBaseCardCornerRadius,
     int? baseCardCornerRadius,
     bool? enableBlur,
-    int? topBarBlurRadius,
-    int? topBarBlurAlpha,
-    int? bottomBarBlurRadius,
-    int? bottomBarBlurAlpha,
+    double? topBarBlurSigma,
+    double? topBarBlurTintOpacity,
+    double? bottomBarBlurSigma,
+    double? bottomBarBlurTintOpacity,
     bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,
@@ -151,10 +199,26 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
     _address(PrefKeys.topBarButtonStyle): ?topBarButtonStyle?.name,
     _address(PrefKeys.mergeTopBarActions): ?mergeTopBarActions,
     _address(PrefKeys.useFlexibleTopAppBar): ?useFlexibleTopAppBar,
-    _address(PrefKeys.topBarOpacity): ?topBarOpacity?.clamp(0, 100),
+    _address(
+      PrefKeys.topBarBackgroundOpacity,
+    ): ?(topBarBackgroundOpacity == null
+        ? null
+        : UiSettingsValues.opacity(
+            topBarBackgroundOpacity,
+            fallback: UiSettingsValues.topBarBackgroundOpacity,
+          )),
     _address(PrefKeys.labelVisibilityMode): ?labelVisibilityMode?.name,
-    _address(PrefKeys.bottomBarOpacity): ?bottomBarOpacity?.clamp(0, 100),
+    _address(
+      PrefKeys.bottomBarBackgroundOpacity,
+    ): ?(bottomBarBackgroundOpacity == null
+        ? null
+        : UiSettingsValues.opacity(
+            bottomBarBackgroundOpacity,
+            fallback: UiSettingsValues.bottomBarBackgroundOpacity,
+          )),
     _address(PrefKeys.useFloatingBottomBar): ?useFloatingBottomBar,
+    _address(PrefKeys.useFloatingBottomBarLiquidGlass):
+        ?useFloatingBottomBarLiquidGlass,
     _address(PrefKeys.showBottomView): ?showBottomView,
     _address(PrefKeys.tabletInterface): ?tabletInterface?.name,
     _address(PrefKeys.bookInfoFollowCoverColor): ?bookInfoFollowCoverColor,
@@ -164,15 +228,36 @@ final class AppUiSettingsRepository implements UiSettingsRepository {
         ?bookInfoDefaultCoverBackground,
     _address(PrefKeys.overrideBaseCardCornerRadius):
         ?overrideBaseCardCornerRadius,
-    _address(PrefKeys.baseCardCornerRadius): ?baseCardCornerRadius?.clamp(
-      4,
-      28,
-    ),
+    _address(PrefKeys.baseCardCornerRadius): ?(baseCardCornerRadius == null
+        ? null
+        : UiSettingsValues.cardRadius(baseCardCornerRadius)),
     _address(PrefKeys.enableBlur): ?enableBlur,
-    _address(PrefKeys.topBarBlurRadius): ?topBarBlurRadius?.clamp(0, 48),
-    _address(PrefKeys.topBarBlurAlpha): ?topBarBlurAlpha?.clamp(0, 255),
-    _address(PrefKeys.bottomBarBlurRadius): ?bottomBarBlurRadius?.clamp(0, 48),
-    _address(PrefKeys.bottomBarBlurAlpha): ?bottomBarBlurAlpha?.clamp(0, 255),
+    _address(PrefKeys.topBarBlurSigma): ?(topBarBlurSigma == null
+        ? null
+        : UiSettingsValues.sigma(
+            topBarBlurSigma,
+            fallback: UiSettingsValues.topBarBlurSigma,
+          )),
+    _address(PrefKeys.topBarBlurTintOpacity): ?(topBarBlurTintOpacity == null
+        ? null
+        : UiSettingsValues.opacity(
+            topBarBlurTintOpacity,
+            fallback: UiSettingsValues.topBarBlurTintOpacity,
+          )),
+    _address(PrefKeys.bottomBarBlurSigma): ?(bottomBarBlurSigma == null
+        ? null
+        : UiSettingsValues.sigma(
+            bottomBarBlurSigma,
+            fallback: UiSettingsValues.bottomBarBlurSigma,
+          )),
+    _address(
+      PrefKeys.bottomBarBlurTintOpacity,
+    ): ?(bottomBarBlurTintOpacity == null
+        ? null
+        : UiSettingsValues.opacity(
+            bottomBarBlurTintOpacity,
+            fallback: UiSettingsValues.bottomBarBlurTintOpacity,
+          )),
     _address(PrefKeys.wallpaperColorFollow): ?wallpaperColorFollow,
     _address(PrefKeys.enableItemDivider): ?enableItemDivider,
     _address(PrefKeys.railExtended): ?railExtended,

@@ -98,6 +98,18 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @themeLiquidBottomBar.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮底栏液态玻璃'**
+  String get themeLiquidBottomBar;
+
+  /// No description provided for @themeLiquidBottomBarSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'折射背景与滑动选中效果'**
+  String get themeLiquidBottomBarSummary;
+
   /// 应用文案：阅读
   ///
   /// In zh, this message translates to:
@@ -5586,13 +5598,13 @@ abstract class AppLocalizations {
   /// 按页面功能核对 HapeLee top_bar_opacity；只用于显示文案。
   ///
   /// In zh, this message translates to:
-  /// **'顶栏不透明度'**
+  /// **'顶栏背景不透明度'**
   String get themeTopBarOpacity;
 
   /// 按页面功能核对 HapeLee bottom_bar_opacity；只用于显示文案。
   ///
   /// In zh, this message translates to:
-  /// **'底栏不透明度'**
+  /// **'底栏背景不透明度'**
   String get themeBottomBarOpacity;
 
   /// 按页面功能核对 HapeLee base_card_corner_radius；只用于显示文案。

@@ -74,17 +74,22 @@ class UiSettingsNotifier extends Notifier<UiSettings> {
   Future<void> setUseFlexibleTopAppBar(bool value) =>
       _save((repository) => repository.update(useFlexibleTopAppBar: value));
 
-  Future<void> setTopBarOpacity(int value) =>
-      _save((repository) => repository.update(topBarOpacity: value));
+  Future<void> setTopBarBackgroundOpacity(double value) =>
+      _save((repository) => repository.update(topBarBackgroundOpacity: value));
 
   Future<void> setLabelVisibilityMode(BottomBarLabelMode value) =>
       _save((repository) => repository.update(labelVisibilityMode: value));
 
-  Future<void> setBottomBarOpacity(int value) =>
-      _save((repository) => repository.update(bottomBarOpacity: value));
+  Future<void> setBottomBarBackgroundOpacity(double value) => _save(
+    (repository) => repository.update(bottomBarBackgroundOpacity: value),
+  );
 
   Future<void> setUseFloatingBottomBar(bool value) =>
       _save((repository) => repository.update(useFloatingBottomBar: value));
+
+  Future<void> setUseFloatingBottomBarLiquidGlass(bool value) => _save(
+    (repository) => repository.update(useFloatingBottomBarLiquidGlass: value),
+  );
 
   Future<void> setShowBottomView(bool value) =>
       _save((repository) => repository.update(showBottomView: value));
@@ -105,17 +110,17 @@ class UiSettingsNotifier extends Notifier<UiSettings> {
   Future<void> setEnableBlur(bool value) =>
       _save((repository) => repository.update(enableBlur: value));
 
-  Future<void> setTopBarBlurRadius(int value) =>
-      _save((repository) => repository.update(topBarBlurRadius: value));
+  Future<void> setTopBarBlurSigma(double value) =>
+      _save((repository) => repository.update(topBarBlurSigma: value));
 
-  Future<void> setTopBarBlurAlpha(int value) =>
-      _save((repository) => repository.update(topBarBlurAlpha: value));
+  Future<void> setTopBarBlurTintOpacity(double value) =>
+      _save((repository) => repository.update(topBarBlurTintOpacity: value));
 
-  Future<void> setBottomBarBlurRadius(int value) =>
-      _save((repository) => repository.update(bottomBarBlurRadius: value));
+  Future<void> setBottomBarBlurSigma(double value) =>
+      _save((repository) => repository.update(bottomBarBlurSigma: value));
 
-  Future<void> setBottomBarBlurAlpha(int value) =>
-      _save((repository) => repository.update(bottomBarBlurAlpha: value));
+  Future<void> setBottomBarBlurTintOpacity(double value) =>
+      _save((repository) => repository.update(bottomBarBlurTintOpacity: value));
 
   Future<void> setWallpaperColorFollow(bool value) =>
       _save((repository) => repository.update(wallpaperColorFollow: value));
@@ -151,18 +156,24 @@ class UiSettingsNotifier extends Notifier<UiSettings> {
           baseCardCornerRadius: radius,
         ),
       );
-  Future<void> setTopBarBlur({required int radius, required int alpha}) =>
-      _save(
-        (repository) =>
-            repository.update(topBarBlurRadius: radius, topBarBlurAlpha: alpha),
-      );
-  Future<void> setBottomBarBlur({required int radius, required int alpha}) =>
-      _save(
-        (repository) => repository.update(
-          bottomBarBlurRadius: radius,
-          bottomBarBlurAlpha: alpha,
-        ),
-      );
+  Future<void> setTopBarBlur({
+    required double sigma,
+    required double tintOpacity,
+  }) => _save(
+    (repository) => repository.update(
+      topBarBlurSigma: sigma,
+      topBarBlurTintOpacity: tintOpacity,
+    ),
+  );
+  Future<void> setBottomBarBlur({
+    required double sigma,
+    required double tintOpacity,
+  }) => _save(
+    (repository) => repository.update(
+      bottomBarBlurSigma: sigma,
+      bottomBarBlurTintOpacity: tintOpacity,
+    ),
+  );
 }
 
 final uiSettingsProvider = NotifierProvider<UiSettingsNotifier, UiSettings>(

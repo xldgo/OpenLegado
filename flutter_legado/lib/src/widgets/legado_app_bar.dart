@@ -1,4 +1,5 @@
-import 'dart:ui' show ImageFilter;
+import '../theme/app_surface_material.dart';
+import 'app_surface_backdrop.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -21,7 +22,7 @@ import 'ui_settings_scope.dart';
 /// [MD3 Batch 1] 视觉随 appTheme M3 化（tonal 抬升/前景 onSurface），
 /// LargeTitle 折叠顶栏随各主 Tab 根页所在批次落地。
 /// [UI_SYNC_REFACTOR B2] actions/leading 统一经 TopBarActionStyler 注入
-/// 5 档按钮样式与 merge 胶囊（设置即时全局生效）；背景按 topBarOpacity
+/// 5 档按钮样式与 merge 胶囊（设置即时全局生效）；背景按 topBarBackgroundOpacity
 /// 混入透明度；显式 [actionsStyle]/[mergeActions] 参数可覆盖全局设置。
 /// 从页面内 [UiSettingsScope] 订阅顶栏设置，独立使用时沿用默认值。
 class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -106,7 +107,6 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget? _buildLeading(
     BuildContext context, {
     required TopBarButtonStyle style,
-    required bool merge,
   }) {
     if (leading != null) {
       return TopBarActionStyler.styleActions(
@@ -127,7 +127,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ],
       style: style,
-      merge: merge,
+      merge: false,
     ).first;
   }
 
@@ -159,16 +159,8 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
         backgroundColor ??
         Theme.of(context).appBarTheme.backgroundColor ??
         Theme.of(context).colorScheme.surface;
-    // [UI_SYNC_REFACTOR B2] 顶栏不透明度（0-100，100=不变）
-    if (ui.topBarOpacity < 100 && bg != Colors.transparent) {
-      bg = bg.withValues(alpha: ui.topBarOpacity / 100);
-    }
-    // [UI_SYNC_REFACTOR R1] 毛玻璃：enableBlur 开启且非透明背景时，
-    // 半透明底（topBarBlurAlpha/255）+ BackdropFilter（topBarBlurRadius）
-    final useBlur = ui.enableBlur && bg != Colors.transparent;
-    if (useBlur) {
-      bg = bg.withValues(alpha: ui.topBarBlurAlpha / 255);
-    }
+    final material = AppSurfaceMaterial.topBar(color: bg, settings: ui);
+    bg = material.color;
     final isLight =
         ThemeData.estimateBrightnessForColor(bg) == Brightness.light;
     final effectiveOverlay =
@@ -179,8 +171,8 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
           statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
         );
 
-    Widget bar = AppBar(
-      leading: _buildLeading(context, style: style, merge: merge),
+    final bar = AppBar(
+      leading: _buildLeading(context, style: style),
       automaticallyImplyLeading: false,
       title: _safeTitle(title),
       actions: TopBarActionStyler.styleActions(
@@ -194,7 +186,9 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: elevation,
       scrolledUnderElevation: scrolledUnderElevation,
       shadowColor: shadowColor,
-      surfaceTintColor: surfaceTintColor,
+      surfaceTintColor:
+          surfaceTintColor ??
+          (material.color.a < 1 ? Colors.transparent : null),
       shape: shape,
       backgroundColor: bg,
       foregroundColor: foregroundColor,
@@ -213,19 +207,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
       systemOverlayStyle: effectiveOverlay,
       forceMaterialTransparency: forceMaterialTransparency ?? false,
     );
-    // [UI_SYNC_REFACTOR R1] 毛玻璃包裹（实色半透明底 + 背后内容模糊）
-    if (useBlur) {
-      bar = ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: ui.topBarBlurRadius.toDouble(),
-            sigmaY: ui.topBarBlurRadius.toDouble(),
-          ),
-          child: bar,
-        ),
-      );
-    }
-    return bar;
+    return AppSurfaceBackdrop(material: material, child: bar);
   }
 
   @override
@@ -354,6 +336,10 @@ class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver> {
     final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
     final overlay = _legadoSystemOverlay(context);
     final cs = Theme.of(context).colorScheme;
+    final material = AppSurfaceMaterial.topBar(
+      color: Theme.of(context).appBarTheme.backgroundColor ?? cs.surface,
+      settings: ui,
+    );
     final styledActions = TopBarActionStyler.styleActions(
       context,
       widget.actions,
@@ -389,32 +375,44 @@ class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver> {
             );
       return _largeTitleThemeOverride(
         context,
-        SliverAppBar.large(
-          automaticallyImplyLeading: false,
-          leading: styledLeading,
-          title: widget.title,
-          actions: styledActions,
-          titleSpacing: widget.titleSpacing,
-          bottom: widget.bottom,
-          surfaceTintColor: cs.surfaceContainer,
-          systemOverlayStyle: overlay,
-          // [骨架对齐 2.0.260 | 台账 1-3] 可选收敛展开态高度（默认 152dp）
-          expandedHeight: widget.expandedHeight,
-          titleTextStyle: largeTitleStyle,
+        AppSliverSurfaceBackdrop(
+          material: material,
+          child: SliverAppBar.large(
+            automaticallyImplyLeading: false,
+            leading: styledLeading,
+            title: widget.title,
+            actions: styledActions,
+            titleSpacing: widget.titleSpacing,
+            bottom: widget.bottom,
+            backgroundColor: material.color,
+            surfaceTintColor: material.color.a < 1
+                ? Colors.transparent
+                : cs.surfaceContainer,
+            systemOverlayStyle: overlay,
+            // [骨架对齐 2.0.260 | 台账 1-3] 可选收敛展开态高度（默认 152dp）
+            expandedHeight: widget.expandedHeight,
+            titleTextStyle: largeTitleStyle,
+          ),
         ),
         fontSize: widget.largeTitleFontSize,
       );
     }
-    return SliverAppBar(
-      pinned: true,
-      automaticallyImplyLeading: false,
-      leading: styledLeading,
-      title: widget.title,
-      actions: styledActions,
-      titleSpacing: widget.titleSpacing,
-      bottom: widget.bottom,
-      surfaceTintColor: cs.surfaceContainer,
-      systemOverlayStyle: overlay,
+    return AppSliverSurfaceBackdrop(
+      material: material,
+      child: SliverAppBar(
+        pinned: true,
+        automaticallyImplyLeading: false,
+        leading: styledLeading,
+        title: widget.title,
+        actions: styledActions,
+        titleSpacing: widget.titleSpacing,
+        bottom: widget.bottom,
+        backgroundColor: material.color,
+        surfaceTintColor: material.color.a < 1
+            ? Colors.transparent
+            : cs.surfaceContainer,
+        systemOverlayStyle: overlay,
+      ),
     );
   }
 }
@@ -441,40 +439,14 @@ class LegadoLargeTitleScroll extends StatefulWidget {
 
 class _LegadoLargeTitleScrollState extends State<LegadoLargeTitleScroll> {
   @override
-  Widget build(BuildContext context) {
-    final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
-    final cs = Theme.of(context).colorScheme;
-    final styledActions = TopBarActionStyler.styleActions(
-      context,
-      widget.actions,
-      style: ui.topBarButtonStyle,
-      merge: ui.mergeTopBarActions,
-    );
-    // [P1] headlineMedium→headlineSmall 子树覆写：展开大标题 28→24dp
-    return _largeTitleThemeOverride(
-      context,
-      NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          if (ui.useFlexibleTopAppBar)
-            SliverAppBar.large(
-              automaticallyImplyLeading: false,
-              title: widget.title,
-              actions: styledActions,
-              surfaceTintColor: cs.surfaceContainer,
-              systemOverlayStyle: _legadoSystemOverlay(context),
-            )
-          else
-            SliverAppBar(
-              pinned: true,
-              automaticallyImplyLeading: false,
-              title: widget.title,
-              actions: styledActions,
-              surfaceTintColor: cs.surfaceContainer,
-              systemOverlayStyle: _legadoSystemOverlay(context),
-            ),
-        ],
-        body: widget.body,
+  Widget build(BuildContext context) => NestedScrollView(
+    headerSliverBuilder: (context, innerBoxIsScrolled) => [
+      LegadoTabRootHeaderSliver(
+        title: widget.title,
+        actions: widget.actions,
+        large: true,
       ),
-    );
-  }
+    ],
+    body: widget.body,
+  );
 }

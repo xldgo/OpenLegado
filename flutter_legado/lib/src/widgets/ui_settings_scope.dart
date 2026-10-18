@@ -31,10 +31,10 @@ class UiSettingsScope extends InheritedModel<UiSettingsAspect> {
           ui.topBarButtonStyle,
           ui.mergeTopBarActions,
           ui.useFlexibleTopAppBar,
-          ui.topBarOpacity,
+          ui.topBarBackgroundOpacity,
           ui.enableBlur,
-          ui.topBarBlurRadius,
-          ui.topBarBlurAlpha,
+          ui.topBarBlurSigma,
+          ui.topBarBlurTintOpacity,
         ),
         UiSettingsAspect.details => (
           ui.bookInfoDefaultCoverBackground,

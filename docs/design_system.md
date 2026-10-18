@@ -1,9 +1,77 @@
 # Legado Flutter 设计规范文档（Material Design 3）
 
+## 液态玻璃资源与主题边界（2026-10-18）
+
+liquid_glass_widgets 固定 1.13.0，仅通过项目材质适配接入。AppGlassRuntime
+在启动时与设置/FFI并行预热，每次进程只初始化一次；预热失败保留普通材质，
+不作为FFI错误阻止启动。库的帧预算告警监视器关闭，性能结论使用独立profile取证。
+AppGlassHost在应用主题内提供明确亮度与固定standard质量，尊重系统减少动态效果
+和高对比度；不在页面build中重复调用修改库全局配置的wrap。
+AppGlassStyle集中转换最终底色和模糊输入，颜色alpha不二次相乘；库blur暂使用
+原有逻辑像素参数，实际效果需设备校准，不宣称与高斯sigma视觉等效。
+公共页面不依赖第三方导航模型；玻璃导航与按钮按批次接入，不替换全站页壳。
+
+悬浮导航通过AppFloatingBottomBar适配GlassTabBar.bottom，保留AppNavSpec、
+SkinNavIcon与应用切页回调。useFloatingBottomBarLiquidGlass默认false，独立于
+enableBlur；资源未预热成功时使用普通材质。液态模式使用既有底栏blur/tint参数，
+普通模式使用原有背景规则。底栏保留64dp高度、左右16dp、底部12dp和系统安全区，
+外侧留白只由项目计算一次。库负责玻璃/选中指示器/按压与拖动反馈，不再叠加旧
+AnimatedScale；普通模式仅保留选中背景过渡，尊重减少动态效果。
+库按下选择及拖动释放回调均转发应用，重复点击仍可触发书架双击回顶；普通模式
+在点击完成时转发。玻璃图标不额外嵌套Material按钮，以免竞争手势或重复语义。
+应用明确传入前景颜色，库的两套图标视觉层只保留一组无障碍入口。
+固定standard质量是本轮接线策略；组件行为测试使用minimal档位验证真实导航，
+不能据此声明standard着色器视觉、Impeller表现或GPU开销已验收。
+
+顶栏liquidGlass档通过TopBarActionStyler与TopBarButton的背景适配GlassContainer，
+独立按钮绘制36dp圆形，合并动作只绘制一层36dp高的圆角胶囊；玻璃背景IgnorePointer，
+原IconButton/AppMenuButton保留48dp点击区域、禁用态、键盘、长按提示及菜单定位。
+不新增GlassIconButton手势层或自定义缩放，减少动态效果继续由既有按钮和库作用域处理。
+合并仅作用于右侧动作；返回按钮独立、Plain档不合并。胶囊背景在48dp点击层内缩6dp，
+单动作自然退化为36dp圆形；不再给单按钮叠加胶囊内边距或塞进leading的固定宽度。
+预热状态变化保留按钮/菜单所在节点，避免菜单被重建。未预热成功回退原半透明实色。
+按钮底色保持原色alpha乘0.5，光学blur固定8逻辑像素，独立于整栏设置；
+AppSurfaceMaterial.button统一参数，AppGlassStyle执行库参数转换。glass档仍使用实色。
+文字动作与自定义菜单入口不压入图标槽位；已有页面的显式plain档优先于全局样式。
+搜索范围与筛选动作在合并模式不再绘制独立圆形底色，筛选开启时用primary图标区分，
+不覆盖胶囊材质；未合并时保留原有激活底色与前景组合。
+
+主页悬浮底栏使用AppScaffold.extendBody让正文在底栏后方绘制；默认页壳仍不延伸。
+主页在Scaffold的body上下文取得实际底栏占用高度，经AppBottomBarInset提供给
+各子页，不硬编码胶囊/安全区总高度；移除Scaffold为extendBody注入的正文底部
+padding，避免嵌套SafeArea把整个视口缩回。尾部留白仅添加到ListView内容padding
+或Sliver尾部，保证末项能滚到可操作区域；标准栏、隐藏、侧栏与键盘遮挡时不叠加。
+作用域限于主页子树，独立路由默认零占用；切换模式保持页面、控制器与滚动状态。
+
+编写者：Codex + UI｜2026-10-18
+
 > 数据来源：`flutter_legado/lib/src/theme/app_theme.dart`（MD3 主题装配）、`md3_colors.dart`（12 套内置调色板）、`app_typography.dart`（M3 字阶）
 > Token 来源基准：Material Design 3 官方指南（Expressive 视觉层），12 套内置命名主题 × 亮/暗 tonal 配对，语义槽位与 Android 原版一一对应
 >
 > **定位说明（2026-09-27）**：本文只定义 Flutter 实现使用的主题 Token 与生成关系，不定义产品视觉目标。布局、间距、形态、图标、文案、配色、字体和明暗主题均按参考版截图一比一验收，执行依据为 `SCREEN_1TO1_PARITY_SPEC_20260914.md` 与对应台账；MD3 Token 是实现工具，不能覆盖参考版基准。旧版“视觉风格自由”及仅按 Material 规范验收的描述均已废止。修改 Token 时同步维护本文与代码实现（`md3_colors.dart` 走生成器）。
+
+## 背景材质与参数单位（2026-10-18）
+
+UiSettings、普通设置仓储与组件材质统一使用 0–1 double 不透明度，设置界面显示
+百分比，滑块直接编辑 0–1 值。普通背景与模糊底色分开保存，按全局模糊开关选用，
+不叠乘两项设置，也不依次覆盖；顶栏默认 1/0.73、底栏默认 1/0.40。
+新字段使用明确的新偏好键，旧字节/百分比键不读取、不迁移、不双写。
+UiSettingsValues 统一读写的有限值和范围检查；模糊 sigma 限制为 0–48，
+卡片圆角为 4–28 逻辑像素整数。非有限值回退对应参数默认值。
+
+AppSurfaceMaterial 在主题层解析模式和背景，保留输入颜色 alpha，再乘以选定比例。
+AppSurfaceBackdrop 仅在最终形状内执行高斯模糊；sigma 为零时不创建过滤器。
+Sliver 头部使用 AppSliverSurfaceBackdrop 按可见 paintBounds 裁剪，透传原滚动几何、
+命中和语义；缓存随 sigma 变化的过滤器及合成层并随卸载释放，不替换内建大标题布局。
+顶栏、可折叠头部、标准底栏、悬浮底栏与阅读菜单复用同一规则；文字图标不随背景比例变淡，
+菜单进出动画独立处理。显式透明源色不新增底色或模糊；普通背景设为零不关闭
+已启用的模糊模式。不透明背景保留既有主题表面色调；半透明背景避免默认色调抬高 alpha。
+
+独立按钮、动作槽和合并胶囊共用按钮材质底色，浓度独立于栏背景。
+glass使用半透明实色，liquidGlass在资源就绪时采用上述光学背景，未就绪时同色回退。
+颜色 ARGB 编码、漫画颜色矩阵、详情封面图像滤镜和进出动画不属于此设置单位。
+
+编写者：Codex + UI｜2026-10-18
 
 ---
 
@@ -153,8 +221,8 @@ SystemBarNotifier 只投影当前偏好和加载状态；外观页开关保存�
 默认使用 `onSurface`，普通顶栏图标使用 `onSurfaceVariant`。
 
 菜单明暗跟随应用；默认模式保留应用纯黑配置，独立生成的菜单主题不额外套用纯黑，
-与上游 `ReadBookColorTheme` 保持一致。毛玻璃独立读取现有顶栏、底栏模糊半径及
-百分比不透明度，颜色配置不再决定是否启用模糊。正文分页树不进入菜单主题。
+与上游 `ReadBookColorTheme` 保持一致。毛玻璃使用共用材质解析入口与顶栏、底栏的模糊 sigma 和浮点底色不透明度；
+普通模式使用对应背景不透明度，百分比只用于界面展示。正文分页树不进入菜单主题。
 
 参考：[上游 ReadBookColorTheme](https://github.com/HapeLee/legado-with-MD3/blob/070ca1a9b2e491654f70c105bca9939968023940/app/src/main/java/io/legado/app/ui/book/read/ReadBookColorTheme.kt)。
 当前正文仅接入纯色背景，不扩展图片背景；配色复用现有 Dart 2021 色彩规范，

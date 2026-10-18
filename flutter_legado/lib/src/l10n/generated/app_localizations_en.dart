@@ -10,6 +10,13 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get themeLiquidBottomBar => 'Liquid glass floating bar';
+
+  @override
+  String get themeLiquidBottomBarSummary =>
+      'Refracted background and a sliding selection indicator';
+
+  @override
   String get appTitle => 'Legado';
 
   @override
@@ -3165,10 +3172,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeTopBarButtonStyle => 'Top Bar Button Style';
 
   @override
-  String get themeTopBarOpacity => 'Top Bar Opacity';
+  String get themeTopBarOpacity => 'Top Bar Background Opacity';
 
   @override
-  String get themeBottomBarOpacity => 'Bottom Bar Opacity';
+  String get themeBottomBarOpacity => 'Bottom Bar Background Opacity';
 
   @override
   String get themeBaseCardCornerRadius => 'Card corner radius';

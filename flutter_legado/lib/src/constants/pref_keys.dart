@@ -83,17 +83,21 @@ class PrefKeys {
   /// 使用 MediumFlexible 大顶栏形态（参考仓 useFlexibleTopAppBar，默认 true）
   static const useFlexibleTopAppBar = 'useFlexibleTopAppBar';
 
-  /// 顶栏不透明度 0-100（参考仓 topBarOpacity，默认 100）
-  static const topBarOpacity = 'topBarOpacity';
+  /// 顶栏普通背景不透明度 0–1 double，默认 1
+  static const topBarBackgroundOpacity = 'topBarBackgroundOpacity';
 
   /// 底栏 label 显示档位：auto/labeled/unlabeled（参考仓默认 auto）
   static const labelVisibilityMode = 'labelVisibilityMode';
 
-  /// 底栏不透明度 0-100（参考仓 bottomBarOpacity，默认 100）
-  static const bottomBarOpacity = 'bottomBarOpacity';
+  /// 底栏普通背景不透明度 0–1 double，默认 1
+  static const bottomBarBackgroundOpacity = 'bottomBarBackgroundOpacity';
 
   /// 悬浮底栏（参考仓 useFloatingBottomBar，默认关）
   static const useFloatingBottomBar = 'useFloatingBottomBar';
+
+  /// 悬浮底栏液态玻璃，默认关闭。
+  static const useFloatingBottomBarLiquidGlass =
+      'useFloatingBottomBarLiquidGlass';
 
   /// 显示底栏（参考仓 showBottomView，默认开）
   static const showBottomView = 'showBottomView';
@@ -121,17 +125,17 @@ class PrefKeys {
   /// 启用毛玻璃（参考仓 enableBlur，默认关——低端机掉帧保护）
   static const enableBlur = 'enableBlur';
 
-  /// 顶栏模糊半径 dp（参考仓 topBarBlurRadius，默认 24）
-  static const topBarBlurRadius = 'topBarBlurRadius';
+  /// 顶栏模糊 sigma，逻辑像素 double，默认 24
+  static const topBarBlurSigma = 'topBarBlurSigma';
 
-  /// 顶栏模糊底色透明度 0-255（参考仓 topBarBlurAlpha，默认 73）
-  static const topBarBlurAlpha = 'topBarBlurAlpha';
+  /// 顶栏模糊底色不透明度 0–1 double，默认 0.73
+  static const topBarBlurTintOpacity = 'topBarBlurTintOpacity';
 
-  /// 悬浮底栏模糊半径 dp（参考仓 bottomBarBlurRadius，默认 8）
-  static const bottomBarBlurRadius = 'bottomBarBlurRadius';
+  /// 底栏模糊 sigma，逻辑像素 double，默认 8
+  static const bottomBarBlurSigma = 'bottomBarBlurSigma';
 
-  /// 悬浮底栏底色透明度 0-255（参考仓 bottomBarBlurAlpha，默认 40）
-  static const bottomBarBlurAlpha = 'bottomBarBlurAlpha';
+  /// 底栏模糊底色不透明度 0–1 double，默认 0.40
+  static const bottomBarBlurTintOpacity = 'bottomBarBlurTintOpacity';
 
   /// 设置行分隔线开关（参考仓 enableItemDivider，默认关）
   static const enableItemDivider = 'enableItemDivider';

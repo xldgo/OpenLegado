@@ -272,7 +272,7 @@ extension _SearchBuilders on _SearchScreenState {
   ///
   /// [2.0.275 视觉精修] 非激活态底色 surfaceContainerHighest → surfaceContainerHigh
   /// + 前景 onSurface：与全局顶栏 tonal 中性槽位（TopBarActionStyler）同槽位，
-  /// 激活态（筛选开启）保持主题色 primary 区分。
+  /// 激活态（筛选开启）保持主题色 primary 区分；合并时由胶囊绘制背景。
   Widget _circleAction(
     BuildContext context, {
     required IconData icon,
@@ -281,13 +281,21 @@ extension _SearchBuilders on _SearchScreenState {
     bool active = false,
   }) {
     final cs = Theme.of(context).colorScheme;
+    final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
+    final merged =
+        ui.mergeTopBarActions &&
+        ui.topBarButtonStyle != TopBarButtonStyle.plain;
     return IconButton(
       tooltip: tooltip,
       onPressed: onTap,
       icon: Icon(icon),
       style: IconButton.styleFrom(
-        backgroundColor: active ? cs.primary : cs.surfaceContainerHigh,
-        foregroundColor: active ? cs.onPrimary : cs.onSurfaceVariant,
+        backgroundColor: merged
+            ? Colors.transparent
+            : (active ? cs.primary : cs.surfaceContainerHigh),
+        foregroundColor: active
+            ? (merged ? cs.primary : cs.onPrimary)
+            : cs.onSurfaceVariant,
       ),
     );
   }

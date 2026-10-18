@@ -1,6 +1,6 @@
 import '../models/ui_settings.dart';
 
-/// 二十七项界面偏好的统一访问入口。— Codex + UI
+/// 界面偏好的统一访问入口。— Codex + UI
 abstract interface class UiSettingsRepository {
   UiSettings get current;
   Stream<UiSettings> watch();
@@ -10,10 +10,11 @@ abstract interface class UiSettingsRepository {
     TopBarButtonStyle? topBarButtonStyle,
     bool? mergeTopBarActions,
     bool? useFlexibleTopAppBar,
-    int? topBarOpacity,
+    double? topBarBackgroundOpacity,
     BottomBarLabelMode? labelVisibilityMode,
-    int? bottomBarOpacity,
+    double? bottomBarBackgroundOpacity,
     bool? useFloatingBottomBar,
+    bool? useFloatingBottomBarLiquidGlass,
     bool? showBottomView,
     TabletInterfaceMode? tabletInterface,
     bool? bookInfoFollowCoverColor,
@@ -22,10 +23,10 @@ abstract interface class UiSettingsRepository {
     bool? overrideBaseCardCornerRadius,
     int? baseCardCornerRadius,
     bool? enableBlur,
-    int? topBarBlurRadius,
-    int? topBarBlurAlpha,
-    int? bottomBarBlurRadius,
-    int? bottomBarBlurAlpha,
+    double? topBarBlurSigma,
+    double? topBarBlurTintOpacity,
+    double? bottomBarBlurSigma,
+    double? bottomBarBlurTintOpacity,
     bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,

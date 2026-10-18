@@ -26,6 +26,23 @@ import '../mocks/mocks.dart';
 void main() {
   setUpAll(registerFallbacks);
 
+  testWidgets('正文延伸只改变底栏后的可绘制范围，默认保留原占位', (tester) async {
+    for (final extend in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppScaffold(
+            extendBody: extend,
+            bottomBar: const SizedBox(height: 80),
+            body: const SizedBox.expand(key: ValueKey('extended-body')),
+          ),
+        ),
+      );
+      final body = tester.getRect(find.byKey(const ValueKey('extended-body')));
+      final scaffold = tester.getRect(find.byType(Scaffold));
+      expect(body.bottom, scaffold.bottom - (extend ? 0 : 80));
+    }
+  });
+
   testWidgets('壳基本结构：topBar/body/bottomBar/FAB 各就各位', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

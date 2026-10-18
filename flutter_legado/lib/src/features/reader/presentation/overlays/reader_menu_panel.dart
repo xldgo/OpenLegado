@@ -1,3 +1,5 @@
+import '../../../../theme/app_surface_material.dart';
+import '../../../../widgets/app_surface_backdrop.dart';
 import '../../../../app/routing/route_names.dart';
 import '../../../../app/bootstrap/application_dependencies.dart';
 import '../../../../providers/chapter_content_provider.dart';
@@ -8,7 +10,6 @@ import '../../../../widgets/app_menu.dart';
 import '../../../../theme/app_motion.dart';
 
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -187,13 +188,14 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     final barColor = cs.surfaceContainerHigh;
     // 毛玻璃只改变表面的透明度和模糊，不改变菜单配色来源。
     final ui = ref.watch(uiSettingsProvider);
-    final useSurfaceBlur = ui.enableBlur;
-    final topColor = useSurfaceBlur
-        ? barColor.withValues(alpha: ui.topBarBlurAlpha / 100)
-        : barColor;
-    final bottomColor = useSurfaceBlur
-        ? barColor.withValues(alpha: ui.bottomBarBlurAlpha / 100)
-        : barColor;
+    final topMaterial = AppSurfaceMaterial.topBar(
+      color: barColor,
+      settings: ui,
+    );
+    final bottomMaterial = AppSurfaceMaterial.bottomBar(
+      color: barColor,
+      settings: ui,
+    );
 
     return Positioned.fill(
       child: AnimatedBuilder(
@@ -230,23 +232,16 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                 begin: const Offset(0, -1),
                 end: Offset.zero,
               ).animate(_menuSlideCurve),
-              child: useSurfaceBlur
-                  ? ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(
-                          sigmaX: ui.topBarBlurRadius.toDouble(),
-                          sigmaY: ui.topBarBlurRadius.toDouble(),
-                        ),
-                        child: _buildTopBar(
-                          context,
-                          topColor,
-                          book,
-                          chapter,
-                          notifier,
-                        ),
-                      ),
-                    )
-                  : _buildTopBar(context, topColor, book, chapter, notifier),
+              child: AppSurfaceBackdrop(
+                material: topMaterial,
+                child: _buildTopBar(
+                  context,
+                  topMaterial.color,
+                  book,
+                  chapter,
+                  notifier,
+                ),
+              ),
             ),
             // 正文露出区域的按下先收起菜单，滑动同时交给正文；点击由菜单消费。
             Expanded(
@@ -321,38 +316,22 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (widget.bottomAccessory != null) widget.bottomAccessory!,
-                  useSurfaceBlur
-                      ? ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(32),
-                          ),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(
-                              sigmaX: ui.bottomBarBlurRadius.toDouble(),
-                              sigmaY: ui.bottomBarBlurRadius.toDouble(),
-                            ),
-                            child: _panelSurface(
-                              context,
-                              bottomColor,
-                              foreground,
-                              book,
-                              chapter,
-                              notifier,
-                              state,
-                              autoPageActive,
-                            ),
-                          ),
-                        )
-                      : _panelSurface(
-                          context,
-                          bottomColor,
-                          foreground,
-                          book,
-                          chapter,
-                          notifier,
-                          state,
-                          autoPageActive,
-                        ),
+                  AppSurfaceBackdrop(
+                    material: bottomMaterial,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
+                    child: _panelSurface(
+                      context,
+                      bottomMaterial.color,
+                      foreground,
+                      book,
+                      chapter,
+                      notifier,
+                      state,
+                      autoPageActive,
+                    ),
+                  ),
                 ],
               ),
             ),
