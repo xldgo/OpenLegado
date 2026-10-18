@@ -4463,7 +4463,7 @@ mod standalone_task_tests {
 
     #[cfg(feature = "quickjs")]
     #[tokio::test]
-    async fn all_four_real_blocking_search_stages_remain_registered_after_entry_is_dropped() {
+    async fn all_four_real_blocking_search_stages_cancel_http_after_entry_is_dropped() {
         for phase in 0..4 {
             let mut gate = Fixture::new(1, true, |_| "放行".into());
             let mut response = if phase >= 2 {
@@ -4507,15 +4507,12 @@ mod standalone_task_tests {
             drop(task);
             drop(engine);
             assert!(weak.upgrade().is_none(), "阶段 {phase} 强持根实例");
-            assert!(
-                !tasks.shutdown(Duration::from_millis(20)).await,
-                "阶段 {phase} 提前注销阻塞工作"
-            );
-            gate.release.send(()).unwrap();
+            // HTTP等待已可主动取消，无需服务器先返回；登记仍由阻塞工作实际退出释放。
             assert!(
                 tasks.shutdown(Duration::from_secs(5)).await,
-                "阶段 {phase} 在真实退出后未释放登记"
+                "阶段 {phase} 取消HTTP等待后未释放登记"
             );
+            gate.release.send(()).unwrap();
             gate.worker.join().unwrap();
             if let Some(ref mut response) = response {
                 response.request().await;

@@ -35,6 +35,7 @@ impl SourceSwitchService {
         // 并行搜索（对齐 SearchModel.mapParallelSafe：限流并发 + 单源超时 60s）
         let book_name_for_search = book_name.to_string();
         let sources_for_search = sources.clone();
+        let concurrency = crate::request_settings::thread_count(self.storage.as_ref())?.get();
         let candidates = self.runtime.block_on(async {
             let client = self.network.client()?;
 
@@ -53,7 +54,7 @@ impl SourceSwitchService {
                         (url, result)
                     }
                 })
-                .buffer_unordered(crate::source_batches::SEARCH_CONCURRENCY)
+                .buffer_unordered(concurrency)
                 .collect()
                 .await;
 
@@ -192,7 +193,9 @@ impl SourceSwitchService {
             return;
         }
 
-        let client = match self.network.client() {
+        let (client, concurrency) = match self.network.client().and_then(|client| {
+            crate::request_settings::thread_count(self.storage.as_ref()).map(|n| (client, n.get()))
+        }) {
             Ok(c) => c,
             Err(e) => {
                 let _ = self.push_change_source_batch(
@@ -234,7 +237,7 @@ impl SourceSwitchService {
 
         crate::source_batches::drive_source_batches(
             sources.clone(),
-            crate::source_batches::SEARCH_CONCURRENCY,
+            concurrency,
             crate::source_batches::SWITCH_SOURCE_TIMEOUT,
             &cancel,
             &paused,
@@ -286,14 +289,33 @@ impl SourceSwitchService {
         // 流内后置增强（不阻塞首批到达——所有搜索批次已先行推送）：
         // enrich 开启时对累积候选执行详情/目录/试读字数，再推最终重排快照
         let enriched = if options.needs_enrichment() {
-            self.enrich_switch_candidates_async(
-                &sources,
-                accumulated,
-                &options,
-                |context: &SourceSwitchService| context.fetcher(),
-            )
-            .await
-            .unwrap_or_default()
+            match self
+                .enrich_switch_candidates_async(
+                    &sources,
+                    accumulated,
+                    &options,
+                    |context: &SourceSwitchService| context.fetcher(),
+                )
+                .await
+            {
+                Ok(enriched) => enriched,
+                Err(error) => {
+                    let _ = self.push_change_source_batch(
+                        &mut on_batch,
+                        ChangeSourceBatch {
+                            source_index: 0,
+                            source_url: String::new(),
+                            source_name: String::new(),
+                            error: Some(error.to_string()),
+                            finished_count: sources.len(),
+                            total_count: sources.len(),
+                            is_last: true,
+                            matches: Vec::new(),
+                        },
+                    );
+                    return;
+                }
+            }
         } else {
             accumulated
         };

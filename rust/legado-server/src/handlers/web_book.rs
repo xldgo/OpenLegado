@@ -117,6 +117,9 @@ fn server_deps(state: &Arc<AppState>) -> LegadoResult<FetcherDeps> {
     let source_context_login = state.engine.source_login_cache().clone();
 
     Ok(FetcherDeps::new(client)
+        .with_request_concurrency(legado_engine::request_settings::thread_count(Some(
+            state.engine.storage(),
+        ))?)
         .with_execution_lease(Arc::new(task))
         .with_web_book_state(state.engine.web_book_state().clone())
         .with_js_resources(state.engine.js_resources().clone())
@@ -293,6 +296,23 @@ pub async fn get_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn server_deps_refresh_concurrency_for_next_request() {
+        let state = make_test_state();
+        let first = server_deps(&state).unwrap();
+        assert_eq!(first.request_concurrency.get(), 16);
+        state
+            .engine
+            .storage()
+            .with_database(|db| {
+                CacheRepository::new(db.connection()).put("config:threadCount", "2", 0)
+            })
+            .unwrap();
+        assert_eq!(server_deps(&state).unwrap().request_concurrency.get(), 2);
+        assert_eq!(first.request_concurrency.get(), 16);
+    }
+
     use axum::body::Body;
     use axum::http::{Method, Request, StatusCode};
     use legado_db::CookieRepository;

@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### REQUEST-CONCURRENCY-20261018：统一配置及任务并发（P1）
+
+- 状态：本批限定范围已关闭；用户同意ConfigRepository作为权威来源，dep-audit / chore/dep-audit / e30de9360起，上游固定15e1337a；单代理，不推送/合并，不写主目录用户文件。
+- 方案：冻结默认16/范围1..256与每调度阶段快照；Core纯值解释、Engine数据库读取、Fetcher非零快照，接JS/搜索/换源/目录/校验及Server省略参数路径。保留显式参数、增强8上限、错误与取消/保序；下载/TTS独立。
+- 设置：新增窄领域投影复用共享设置服务和ConfigRepository，移除本选项SP读取并启用现有输入对话框，覆盖读取/写入失败、重开回读和非法输入。
+- 边界：书架更新全部的Dart逐书串行入口不改，单书目录分页消费配置；不新增FRB/schema/依赖，不构建DLL/应用/模拟器。定向测试先复现，适用Rust/Flutter回归与严格检查后整批本地提交。
+- 实现：Core统一十进制范围解释，Engine短借所属数据库读取；JS批量请求、普通/流式搜索、换源搜索及增强、目录并行页、App批量书源校验消费该配置。Fetcher只持非零值快照，FFI工厂与Server每次请求重新捕获，不持根引擎。Server批量目录更新省略参数读配置，显式max(1)优先；独立批量校验省略参数读配置并保留20上限，显式1..20优先。换源增强保留8上限；配置读取失败不变成默认并发或空增强成功。
+- 设置落点：RequestSettings / RequestSettingsRepository / AppRequestSettingsRepository及Riverpod投影，复用AppSettingsService→ConfigRepository；旧SP值不迁移、不镜像。启用其他设置页数字对话框，非法输入不提交、保存失败回退、读取失败展示错误并可点按重试；重开仓储回读已保存值。
+- 行为验证：Core、Engine、Fetcher库分别804/154/156项通过，FFI最终518项通过（42项既有忽略）；Server最终213项通过，连同4项真实HTTP集成共1849项通过、42项既有忽略。新增4项真实HTTP/服务测试验证搜索批次快照及下一批配置、换源实际在途数、目录页保序和快照、校验保序及取消后停止派发；宿主工厂验证旧deps不变与新请求刷新，数据库故障保持失败。Flutter定向17项通过，7文件分析无问题。
+- 过程纠正：修前JS策略接受257的用例按预期失败。初版校验夹具href缺引号，与现有链接提取器不匹配，已修正夹具；测试清理改为先释放Provider并异步关闭服务，避免假时钟清理等待。初次FFI故障夹具错误使用rusqlite→LegadoError隐式转换，已改显式数据库错误；Dart一处花括号lint已修正。扩大回归发现旧搜索生命周期断言要求取消后HTTP继续等待，与前批主动取消冲突；改为四阶段在服务器仍阻塞时及时取消并完成登记释放，FFI完整复验通过。不放宽生产超时，不把上述失败算通过。
+- 门禁与交付：相关五个crate默认/QuickJS两档全目标Clippy -D warnings通过，最后Server补充变更两档复验通过；限定rustfmt、UTF-8和diff检查通过。版本2.0.388+389、双日志和契约随本批本地提交。主目录三份用户文件SHA-256与既存快照一致；未构建或安装应用、未触发远程CI，无推送/合并。书架逐书刷新仍串行、下载/TTS独立；没有宣称整套JS能力或设备运行已验收。回滚本批后重建native，不改写产物元数据。
+- 证据：build/request-concurrency/{reproduce,check-second,rust-regressions,ffi-final,service-final,server-complete,flutter-final,flutter-analyze-final,clippy-quickjs-final,clippy-default-final,server-clippy-quickjs,server-clippy-default}.log。rust-regressions整条命令因旧取消断言失败，其前三个独立库成功结果有效，FFI最终以ffi-final为准。仅单代理实现与自查，无独立外审，不以源码文本检索充当测试。
+
+
+编写者：Codex｜2026-10-18
+
 ### JS-SOCKS4-20261018：低成本接入SOCKS4（P2）
 
 - 授权与基线：用户授权在已有能力上接入，dep-audit / chore/dep-audit / 23744592f，单代理、不推送/合并。

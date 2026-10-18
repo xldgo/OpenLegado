@@ -1,5 +1,25 @@
 # API 契约文档
 
+## 通用网络任务并发设置（2026-10-18，实施前冻结）
+
+threadCount经领域设置仓储→共享AppSettingsService→ConfigRepository保存到Rust
+config:threadCount；不再从SharedPreferences读写或维护镜像，不迁移尚未接线的旧值。
+按参考版DownloadCacheSettings默认16、设置界面范围1..256；缺失/非法存储值回落16，
+数据库读取失败保留错误，不以默认值掩盖故障。新写入超范围值拒绝。
+Engine统一解释配置，JS批量、搜索/换源、目录并行页与书源校验消费同一来源。
+每个并发调度阶段固定一次快照，新设置作用于后续阶段，不热改在途队列；这是每批
+任务并发上限，不是系统线程池大小或Engine所有任务合计上限。换源增强保留现有8上限。
+Fetcher只接收宿主注入的非零快照，不访问数据库；最小宿主默认16。目录保序、错误
+与取消门禁不变；书源校验并行执行且按输入顺序发布，保留原index/最后项语义。
+Server批量更新省略max_concurrent时读本实例配置；显式值沿用现有max(1)规则优先，
+返回实际采用值。Server独立批量书源校验省略concurrency时读本实例配置，保留20上限；
+显式参数沿用1..20夹取并优先。Flutter书架逐书串行更新本批不改，单书目录分页使用该配置。
+离线下载cacheBookThreadCount、TTS并发及其专用限制独立，不合并。
+设置页使用现有数字对话框，保存/读取失败可见且不显示伪成功，不新增FRB方法、生成物、
+数据库schema或依赖；验证采用Rust/Flutter行为测试，不构建应用/DLL或模拟器。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## SOCKS4请求代理（2026-10-18，实施前冻结）
 
 允许socks4://host:port复用现有reqwest SOCKS通道，不新增依赖或协议实现。
@@ -58,8 +78,8 @@ ajaxAll/ajaxTestAll的skipRateLimit缺省为false，true仅跳过源限流，不
 批次失败直接丢弃在途请求及限流等待，不生成脱离任务或预先占用未来窗口。
 JS仅定义可注入窄策略，不反向依赖Fetcher、不持有根Engine/JsResources，保留可释放资源图。
 不修改UI、FRB签名/生成物、数据库schema、网络重试及外部主动停止能力。
-注意：当前Flutter线程数条目仍是读取SharedPreferences的只读占位，与此Rust配置尚未统一；
-本批不声称设置页已可修改并发，也不从Rust读取平台私有偏好文件。后续开放控件时应统一权威来源。
+该批交付时Flutter线程数条目仍是读取SharedPreferences的只读占位，与Rust配置尚未统一；
+本轮已统一权威来源并开放控件，见上方“通用网络任务并发设置”；Rust不读取平台私有偏好文件。
 
 编写者：Codex + Bridge｜2026-10-18
 

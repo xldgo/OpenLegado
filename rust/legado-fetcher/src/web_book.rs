@@ -2917,13 +2917,14 @@ impl RealBookSourceFetcher {
                         }
                     })
                     .collect();
-                // [性能专项 2026-09-24] 有界并行：对齐上游 mapAsync(threadCount=32)，
-                // 按 TOC_PAGE_CONCURRENCY 滑窗推进（保序）；改前 join_all 无上限 →
+                // 按宿主固定的threadCount滑窗推进并保持页序；改前join_all无上限 →
                 // N 页 = N-1 个并发连接打爆站点/本地回环。任一页失败即整刷失败
                 // （对齐上游 res.body!! NPE 语义，不可静默丢章）——改前 eprintln
                 // 跳过 = 静默丢章。
-                let mut stream =
-                    futures::StreamExt::buffered(futures::stream::iter(futs), TOC_PAGE_CONCURRENCY);
+                let mut stream = futures::StreamExt::buffered(
+                    futures::stream::iter(futs),
+                    self.deps.request_concurrency.get(),
+                );
                 while let Some(page) = futures::StreamExt::next(&mut stream).await {
                     match page {
                         Ok(chs) => chapters.extend(chs),
@@ -3246,13 +3247,10 @@ const MAX_CONTENT_PAGES: usize = 99;
 // - MAX_TOC_PAGES：串行目录链总页数上限（含首抓页）。上游仅靠 visited 去重
 //   判停，每页 next 都是新 URL 的「失控链」会无限抓取；512 页 × 每页 100 章
 //   = 5.1 万章，远超真实目录，截断保护。
-// - TOC_PAGE_CONCURRENCY：并行拉页（nextTocUrl 展开 >1 页）并发上限，对齐
-//   上游 `AppConfig.threadCount` 默认 32（原 `join_all` 无界）。
 // - toc_epoch：引擎内刷新代数。每次 refresh_toc 入口 +1；目录分页链
 //   在每页边界比对捕获的代数，被新刷新抢占即中止（对齐上游 ensureActive()
 //   判活语义，无状态 FFI 用原子计数器实现，不改 FFI 签名）。
 const MAX_TOC_PAGES: usize = 512;
-const TOC_PAGE_CONCURRENCY: usize = 32;
 
 /// 新刷新代数 +1（refresh_toc 入口调用，使在途旧刷新的分页链在下一页边界中止）
 pub fn bump_toc_fetch_epoch(state: &WebBookState) {

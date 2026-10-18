@@ -11,8 +11,6 @@ use std::time::Duration;
 #[cfg(test)]
 mod tests;
 
-/// 普通搜索与换源沿用同一并发上限。
-pub const SEARCH_CONCURRENCY: usize = 32;
 /// 换源单源超时保持60秒。
 pub const SWITCH_SOURCE_TIMEOUT: Duration = Duration::from_secs(60);
 

@@ -3394,6 +3394,7 @@ mod tests {
                     Duration::from_millis(50),
                 )
                 .await
+                .unwrap()
         });
         // 请求来自另一个真实运行时。保持本测试可调度，防止暂停时钟在
         // HTTP 尚未到达时自动跳到超时；真实看门狗仅防夹具故障。

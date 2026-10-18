@@ -5,7 +5,7 @@ use legado_fetcher::rate_limit::RateLimiterRegistry;
 use legado_js::http_request_policy::{
     HttpRequestPolicy, RequestGate, RequestPolicySnapshot, RequestWait,
 };
-use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 pub(crate) struct DbJsRequestPolicy {
     pub storage: crate::StorageContext,
@@ -30,13 +30,7 @@ impl HttpRequestPolicy for DbJsRequestPolicy {
         let (concurrency, rate) = self
             .storage
             .with_database(|db| {
-                let cache = CacheRepository::new(db.connection());
-                let concurrency = cache
-                    .get("config:threadCount")?
-                    .and_then(|v| v.parse::<u32>().ok())
-                    .filter(|v| *v > 0 && *v <= i32::MAX as u32)
-                    .and_then(|v| NonZeroUsize::new(v as usize))
-                    .unwrap_or(NonZeroUsize::new(16).unwrap());
+                let concurrency = crate::request_settings::from_database(db)?;
                 let rate = source
                     .map(|key| source_rate(db, key))
                     .transpose()?
@@ -117,7 +111,7 @@ mod tests {
                 .get(),
             16
         );
-        for invalid in ["0", "-1", "bad", "2147483648"] {
+        for invalid in ["0", "-1", "bad", "257", "2147483648"] {
             config(&one, invalid);
             assert_eq!(request.policy().unwrap().concurrency.get(), 16);
         }

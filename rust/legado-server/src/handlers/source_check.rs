@@ -33,7 +33,7 @@ pub struct CheckBatchRequest {
     pub sources: Vec<BookSource>,
     /// 可选搜索关键词
     pub keyword: Option<String>,
-    /// 最大并发数（默认 5）
+    /// 显式值按1..20夹取；省略时取引擎threadCount并保留20上限。
     pub concurrency: Option<usize>,
 }
 
@@ -69,13 +69,27 @@ pub async fn check_source(
     Ok(Json(json!(result)))
 }
 
+/// 独立REST入口保留既有20上限；显式参数不被配置覆盖。
+async fn batch_concurrency(state: &AppState, explicit: Option<usize>) -> Result<usize, ApiError> {
+    if let Some(explicit) = explicit {
+        return Ok(explicit.clamp(1, 20));
+    }
+    Ok(state
+        .with_database(legado_engine::request_settings::from_database)
+        .await
+        .map_err(ApiError::from)?
+        .map_err(ApiError::from)?
+        .get()
+        .min(20))
+}
+
 /// POST /api/sources/check-batch — 批量检查书源（并行）
 pub async fn check_batch(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CheckBatchRequest>,
 ) -> Result<Json<Value>, ApiError> {
     let keyword = req.keyword.clone();
-    let concurrency = req.concurrency.unwrap_or(5).clamp(1, 20);
+    let concurrency = batch_concurrency(&state, req.concurrency).await?;
 
     // 使用信号量控制并发
     let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
@@ -161,6 +175,43 @@ mod tests {
         Arc::new(AppState::new(Arc::new(
             legado_engine::EngineContext::from_database(db),
         )))
+    }
+
+    #[tokio::test]
+    async fn batch_limit_uses_engine_config_and_preserves_explicit_cap() {
+        let state = make_test_state();
+        assert_eq!(batch_concurrency(&state, None).await.unwrap(), 16);
+        for (stored, expected) in [("3", 3), ("256", 20)] {
+            state
+                .engine
+                .storage()
+                .with_database(|db| {
+                    legado_db::CacheRepository::new(db.connection()).put(
+                        "config:threadCount",
+                        stored,
+                        0,
+                    )
+                })
+                .unwrap();
+            assert_eq!(batch_concurrency(&state, None).await.unwrap(), expected);
+        }
+        for (explicit, expected) in [(0, 1), (7, 7), (256, 20)] {
+            assert_eq!(
+                batch_concurrency(&state, Some(explicit)).await.unwrap(),
+                expected
+            );
+        }
+        state
+            .engine
+            .storage()
+            .with_database(|db| {
+                db.connection()
+                    .execute_batch("DROP TABLE caches")
+                    .map_err(|error| legado_core::LegadoError::Database(error.to_string()))
+            })
+            .unwrap();
+        assert!(batch_concurrency(&state, None).await.is_err());
+        assert_eq!(batch_concurrency(&state, Some(7)).await.unwrap(), 7);
     }
 
     #[tokio::test]

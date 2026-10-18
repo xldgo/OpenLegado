@@ -1,3 +1,4 @@
+import '../../../domain/models/request_settings.dart';
 import '../../../utils/error_message.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../../providers/domain_config_provider.dart';
@@ -93,7 +94,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   String _jsSourceApiToken = '';
   int get _webPort =>
       ref.read(generalSettingsRepositoryProvider).current.webPort;
-  int _threadCount = 16;
+  int get _threadCount =>
+      ref.read(requestSettingsRepositoryProvider).current.threadCount;
   bool _processText = true;
   bool _recordLog = false;
   bool _recordHttpLog = false;
@@ -188,7 +190,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       PrefKeys.showMangaUi,
       defaultValue: true,
     );
-    _threadCount = await s.getIntPref(PrefKeys.threadCount, defaultValue: 16);
     _processText = await s.getBoolPref(
       PrefKeys.processText,
       defaultValue: true,
@@ -231,6 +232,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     ref.watch(welcomeSettingsProvider);
     ref.watch(generalSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
+    final requestSettings = ref.watch(requestSettingsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
@@ -489,10 +491,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                 ),
                 SettingTile(
                   title: '更新和搜索线程数（太多会卡顿）',
-                  value: '$_threadCount',
-                  onTap: null,
-                  enabled: false,
-                  subtitle: '待实现',
+                  value: requestSettings.hasError ? '读取失败' : '$_threadCount',
+                  onTap: _showThreadCountDialog,
+                  subtitle: requestSettings.hasError
+                      ? '点按重试'
+                      : '新任务生效，范围 1～256',
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedSearchTextActions,
@@ -644,6 +647,36 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
             .read(generalSettingsRepositoryProvider)
             .update(defaultBookTreeUri: ''),
       );
+    }
+  }
+
+  /// 网络任务并发设置经共享配置服务保存，读取失败允许重试。
+  Future<void> _showThreadCountDialog() async {
+    final repository = ref.read(requestSettingsRepositoryProvider);
+    try {
+      await repository.reload();
+      if (!mounted) return;
+      ref.invalidate(requestSettingsProvider);
+    } catch (error) {
+      if (mounted) _toast('并发设置读取失败，请重试');
+      return;
+    }
+    if (!mounted) return;
+    final value = await _showNumberInputDialog(
+      title: '更新和搜索线程数',
+      current: repository.current.threadCount,
+      min: RequestSettings.minThreadCount,
+      max: RequestSettings.maxThreadCount,
+    );
+    if (value == null || !mounted || value == repository.current.threadCount) {
+      return;
+    }
+    try {
+      await repository.update(
+        (settings) => settings.copyWith(threadCount: value),
+      );
+    } catch (error) {
+      if (mounted) _toast('并发设置保存失败，请重试');
     }
   }
 

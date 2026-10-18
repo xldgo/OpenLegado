@@ -51,6 +51,8 @@ pub type MediaSubContentSink = Arc<dyn Fn(Option<&str>, &str, &str, &str, &str) 
 pub struct FetcherDeps {
     /// HTTP 客户端
     pub client: LegadoClient,
+    /// 宿主在操作开始时固定的并发设置，不反向查询数据库。
+    pub request_concurrency: std::num::NonZeroUsize,
     /// 本次操作的仅数据寿命凭据；不得存入 VM/常驻资源，避免反向依赖宿主。
     pub execution_lease: Option<Arc<dyn Send + Sync>>,
     /// 引擎拥有的 HTML、书籍元信息与章节映射缓存。
@@ -115,6 +117,7 @@ impl FetcherDeps {
         ));
         Self {
             client,
+            request_concurrency: legado_core::request_settings::parse_thread_count(None),
             execution_lease: None,
             web_book: Arc::new(crate::web_book_state::WebBookState::default()),
             js: Arc::new(js),
@@ -124,6 +127,11 @@ impl FetcherDeps {
             source_context: None,
             media_sub_content: None,
         }
+    }
+
+    pub fn with_request_concurrency(mut self, value: std::num::NonZeroUsize) -> Self {
+        self.request_concurrency = value;
+        self
     }
 
     /// [`Self::new`] 别名（可读性：以客户端为最小注入面）
