@@ -3040,7 +3040,9 @@ fn register_cookie_apis<'js>(
         globals,
         "clearCookies",
         rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> bool {
-            http.cookies().clear(&url);
+            if !crate::cancellation::is_cancelled() {
+                http.cookies().clear(&url);
+            }
             true
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -3057,7 +3059,9 @@ fn register_cookie_apis<'js>(
         globals,
         "removeCookie",
         rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-            http.cookies().clear(&url);
+            if !crate::cancellation::is_cancelled() {
+                http.cookies().clear(&url);
+            }
             String::new()
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4942,8 +4946,7 @@ fn resolve_archive_bytes(
 ) -> Result<Vec<u8>, String> {
     // 网络 URL 使用本资源的二进制响应，不经字符串转换。
     if source.starts_with("http://") || source.starts_with("https://") {
-        use crate::host_api::runtime_bridge::block_on;
-        return block_on(async {
+        return super::runtime_bridge::block_on_cancellable(async {
             // 同一资源复用连接池，保持回环直连策略。
             let client = http
                 .client_for_url(source, false)

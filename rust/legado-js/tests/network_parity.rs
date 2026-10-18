@@ -22,6 +22,151 @@ struct BatchMetrics {
     cancelled: AtomicUsize,
 }
 
+#[derive(Default)]
+struct Cancellation {
+    flag: AtomicBool,
+    changed: tokio::sync::Notify,
+}
+impl Cancellation {
+    fn cancel(&self) {
+        self.flag.store(true, Ordering::Release);
+        self.changed.notify_waiters();
+    }
+}
+impl legado_js::cancellation::JsCancellation for Cancellation {
+    fn is_cancelled(&self) -> bool {
+        self.flag.load(Ordering::Acquire)
+    }
+    fn cancelled(&self) -> legado_js::cancellation::CancelWait<'_> {
+        Box::pin(async {
+            loop {
+                let notified = self.changed.notified();
+                let mut notified = std::pin::pin!(notified);
+                notified.as_mut().enable();
+                if self.flag.load(Ordering::Acquire) {
+                    return;
+                }
+                notified.await;
+            }
+        })
+    }
+}
+
+fn wait_for(mut ready: impl FnMut() -> bool) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while !ready() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "等待夹具进入目标阶段超时"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+fn start_cancellable(
+    engine: &Arc<QuickJsEngine>,
+    token: &Arc<Cancellation>,
+    code: String,
+) -> (
+    JoinHandle<()>,
+    std::sync::mpsc::Receiver<Result<String, String>>,
+) {
+    let engine = engine.clone();
+    let token = token.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let _scope = legado_js::cancellation::Scope::enter(Some(token));
+        tx.send(engine.eval(&code).map_err(|e| e.to_string()))
+            .unwrap();
+    });
+    (worker, rx)
+}
+
+fn finish_cancelled(
+    token: &Cancellation,
+    worker: JoinHandle<()>,
+    rx: std::sync::mpsc::Receiver<Result<String, String>>,
+) {
+    token.cancel();
+    let result = rx.recv_timeout(Duration::from_secs(2));
+    worker.join().unwrap();
+    let error = result
+        .expect("取消没有中断宿主等待")
+        .expect_err("取消被转成普通成功响应");
+    assert!(
+        error.contains(legado_js::cancellation::CANCELLED),
+        "{error}"
+    );
+    assert!(!error.contains("Timeout"), "取消不应误报网络超时");
+}
+
+#[test]
+fn active_cancel_interrupts_send_and_body_without_becoming_ajax_error_text() {
+    for (path, call) in [
+        ("/pending", "java.ajax(url,0)"),
+        ("/pending", "java.connect(url,{},0).body()"),
+        ("/no-headers", "java.get(url,{},0).body()"),
+        ("/no-headers", "java.head(url,{},0).body()"),
+        ("/no-headers", "java.post(url,'',{},0).body()"),
+    ] {
+        let server = Server::new("127.0.0.1:0");
+        let engine = Arc::new(engine());
+        let token = Arc::new(Cancellation::default());
+        let code = format!(
+            "var url={};var result;try{{result={call}}}catch(e){{result='caught'}}java.put('after-cancel','bad');result",
+            serde_json::to_string(&server.url(path)).unwrap()
+        );
+        let (worker, rx) = start_cancellable(&engine, &token, code);
+        wait_for(|| server.requests.load(Ordering::Acquire) == 1);
+        finish_cancelled(&token, worker, rx);
+        wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 1);
+        assert_eq!(engine.eval("java.get('after-cancel')").unwrap(), "");
+        assert_eq!(
+            eval(&engine, &server.url("/echo"), "java.connect(url).code()"),
+            "200"
+        );
+    }
+}
+
+#[test]
+fn active_cancel_drops_probe_batch_inflight_and_unsent_items() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let token = Arc::new(Cancellation::default());
+    let code = format!(
+        "var url={};java.ajaxTestAll([url,url,url,url,url,url,url,url],0,true)",
+        serde_json::to_string(&server.url("/pending")).unwrap()
+    );
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| server.requests.load(Ordering::Acquire) == 4);
+    finish_cancelled(&token, worker, rx);
+    wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 4);
+    assert_eq!(server.requests.load(Ordering::Acquire), 4);
+}
+
+#[test]
+fn active_cancel_releases_rate_wait_without_starting_http() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let gate = Arc::new(Gate::default());
+    gate.entered.store(1, Ordering::Release);
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(2),
+        gate: Some(gate.clone()),
+    }));
+    let token = Arc::new(Cancellation::default());
+    let code = format!(
+        "java.ajaxAll([{},{}])",
+        serde_json::to_string(&server.url("/echo")).unwrap(),
+        serde_json::to_string(&server.url("/echo")).unwrap()
+    );
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| gate.entered.load(Ordering::Acquire) == 3);
+    finish_cancelled(&token, worker, rx);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 2);
+    assert_eq!(server.requests.load(Ordering::Acquire), 0);
+}
+
 struct Policy {
     concurrency: AtomicUsize,
     gate: Option<Arc<Gate>>,
@@ -273,9 +418,11 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize, metrics: &BatchMetrics) 
         return;
     }
     let request_number = requests.fetch_add(1, Ordering::AcqRel) + 1;
-    if path == "/pending" {
-        let _ =
-            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n");
+    if path == "/pending" || path == "/no-headers" {
+        if path == "/pending" {
+            let _ = socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n");
+        }
         let mut probe = [0];
         let result = socket.read(&mut probe);
         if matches!(result, Ok(0))

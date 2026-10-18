@@ -144,7 +144,7 @@ pub(super) fn execute(
 ) -> Result<HttpResponse, String> {
     let prepared = prepare(resources, input, overrides, evaluator)?;
     let policy = resources.policy()?;
-    let response = super::runtime_bridge::block_on(async {
+    let response = super::runtime_bridge::block_on_cancellable(async {
         prepared.wait(&policy, false).await;
         send(resources, &prepared).await
     })
@@ -158,6 +158,7 @@ pub(super) fn prepare(
     overrides: RequestOverrides<'_>,
     evaluator: Option<&dyn SynchronousJsEvaluator>,
 ) -> Result<PreparedRequest, String> {
+    resources.check_active().map_err(|e| e.to_string())?;
     if input.trim().is_empty() {
         return Err("ajax: url is required".to_string());
     }
@@ -242,6 +243,7 @@ pub(super) async fn send(
     resources: &RequestResources<'_>,
     prepared: &PreparedRequest,
 ) -> legado_core::LegadoResult<LegadoRawResponse> {
+    resources.check_active()?;
     let parsed = &prepared.parsed;
     let request = &prepared.request;
     if parsed.is_data_uri() {

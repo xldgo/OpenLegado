@@ -117,6 +117,8 @@ async fn run_debug(run: Arc<DebugRun>, key: String) {
     let _guard = run.operation.guard();
     let worker = run.clone();
     let join = tokio::task::spawn_blocking(move || {
+        let _execution =
+            legado_js::cancellation::Scope::enter(Some(Arc::new(worker.operation.task().clone())));
         worker.debug_book_source_sync(&worker.source_url, &key)
     });
     if let Err(error) = join.await {
@@ -170,6 +172,9 @@ impl DebugRun {
             self.deps.as_ref().ok_or_else(|| {
                 LegadoError::Database("数据库尚未初始化，请先调用 db_open".into())
             })?()?;
+        deps.js = deps
+            .js
+            .with_cancellation(Arc::new(self.operation.task().clone()));
         if let Some(sink) = deps.media_sub_content.take() {
             let task = self.operation.task().clone();
             deps.media_sub_content = Some(Arc::new(move |book, source, chapter, key, value| {

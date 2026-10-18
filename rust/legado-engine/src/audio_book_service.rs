@@ -202,7 +202,8 @@ impl AudioBookService {
             ));
         }
         let engine = legado_fetcher::web_book::build_engine(
-            deps.with_execution_lease(std::sync::Arc::new(task)),
+            deps.with_cancellation(std::sync::Arc::new(task.clone()))
+                .with_execution_lease(std::sync::Arc::new(task)),
         );
         let content = self
             .runtime

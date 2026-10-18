@@ -200,7 +200,7 @@ mod impl_file_utils {
         }
 
         // 下载使用所属资源连接池；显式文件名仍按原沙箱规则解析。
-        let bytes = crate::host_api::runtime_bridge::block_on(async {
+        let bytes = crate::host_api::runtime_bridge::block_on_cancellable(async {
             let client = http
                 .client_for_url(url, false)
                 .map_err(|e| format!("Download client error: {}", e))?;
@@ -284,7 +284,7 @@ mod impl_file_utils {
 
             // 下载并写入缓存
             {
-                let bytes = crate::host_api::runtime_bridge::block_on(async {
+                let bytes = crate::host_api::runtime_bridge::block_on_cancellable(async {
                     http.client_for_url(url, false)?
                         .get_raw(url, None)
                         .await

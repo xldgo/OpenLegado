@@ -63,11 +63,12 @@ impl SearchContext {
         }
     }
     pub fn with_session(mut self, session: Arc<SearchSession>) -> Self {
-        self.task = Some(session.task().clone());
+        self = self.with_task(session.task().clone());
         self.session = Some(session);
         self
     }
     pub fn with_task(mut self, task: TaskHandle) -> Self {
+        self.deps.js = self.deps.js.with_cancellation(Arc::new(task.clone()));
         self.task = Some(task);
         self
     }

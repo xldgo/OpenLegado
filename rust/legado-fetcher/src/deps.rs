@@ -70,6 +70,14 @@ pub struct FetcherDeps {
 }
 
 impl FetcherDeps {
+    /// 本次抓取的JS任务能力，缓存VM不会永久捕获它。
+    pub fn with_cancellation(
+        mut self,
+        control: Arc<dyn legado_js::cancellation::JsCancellation>,
+    ) -> Self {
+        self.js = self.js.with_cancellation(control);
+        self
+    }
     pub fn with_execution_lease(mut self, lease: Arc<dyn Send + Sync>) -> Self {
         self.execution_lease = Some(lease);
         self

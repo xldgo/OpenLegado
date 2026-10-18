@@ -10,6 +10,7 @@ use crate::http_resources::RequestResources;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[cfg(test)]
 use crate::host_api::runtime_bridge::block_on;
 use legado_net::client::ClientTimeoutPolicy;
 use legado_net::{COOKIE_JAR_HEADER, LegadoClient, LegadoRequest, Method};
@@ -171,7 +172,7 @@ pub fn http_get(
     url: &str,
     headers: Option<&str>,
 ) -> Result<String, String> {
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
         request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
@@ -201,7 +202,7 @@ pub fn http_post(
     body: &str,
     headers: Option<&str>,
 ) -> Result<String, String> {
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
         request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
@@ -226,7 +227,7 @@ pub fn http_post(
 ///
 /// 对应 Kotlin 端 `head(urlStr, headers)` 的简化版本。
 pub fn http_head(request_resources: &RequestResources<'_>, url: &str) -> Result<String, String> {
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
         request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
@@ -506,7 +507,7 @@ pub(crate) fn connect_no_redirect_with_timeout(
     // 写侧门控（批 2）：java.get/post/head 走 connectNR；按当前书源开关补标记
     //（对齐上游 JsExtensions.kt:532-534/559-561/586-588 的 getSource 门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
         request_resources.policy()?.acquire(false).await;
         // 不跟随重定向共享池（回环/非回环分池）：
         // - `follow_redirects=false`：拦截 302 取 Location 头（jsoup 语义）
@@ -558,7 +559,7 @@ pub fn head_full(
     // 写侧门控（批 2）：按当前书源开关补标记（上游 head 同门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
 
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
         request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）
@@ -600,7 +601,7 @@ pub fn post_full(
     // 写侧门控（批 2）：按当前书源开关补标记（上游 post 同门控）
     apply_source_cookie_jar_gate(request_resources, &mut headers);
 
-    block_on(async {
+    super::runtime_bridge::block_on_cancellable(async {
         request_resources.policy()?.acquire(false).await;
         // 回环 URL 直连豁免代理（P2-17 约定），真实主机行为不变；
         // 实例共享池（2026-09-24 性能专项：不再每调用新建连接池）

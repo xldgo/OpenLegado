@@ -78,6 +78,17 @@ impl DbTtsSourceStore {
     }
 }
 impl TtsSourceStore for DbTtsSourceStore {
+    #[cfg(feature = "quickjs")]
+    fn cancellation(&self) -> Option<Arc<dyn legado_js::cancellation::JsCancellation>> {
+        legado_js::cancellation::combine(
+            self.task
+                .clone()
+                .map(|t| Arc::new(t) as Arc<dyn legado_js::cancellation::JsCancellation>),
+            self.cancellation
+                .clone()
+                .map(|c| Arc::new(c) as Arc<dyn legado_js::cancellation::JsCancellation>),
+        )
+    }
     fn host_resources(&self) -> Arc<legado_js::host_resources::JsHostResources> {
         self.resources.host_resources().clone()
     }
@@ -316,6 +327,52 @@ fn login_script(config: &HttpTtsConfig) -> LegadoResult<String> {
 #[cfg(test)]
 mod instance_tests {
     use super::*;
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn independent_request_cancel_interrupts_tts_js_without_cancelling_engine_task() {
+        use legado_parser::JsExecutor;
+        use std::time::{Duration, Instant};
+        let engine = crate::EngineContext::in_memory().unwrap();
+        let id = engine
+            .storage()
+            .with_database(|db| {
+                HttpTtsRepository::new(db.connection()).insert("可取消源", "https://tts.test")
+            })
+            .unwrap();
+        let config = config_for_storage(engine.storage(), id).unwrap();
+        let task = engine.tasks().begin().unwrap();
+        let request = legado_fetcher::tts_control::TtsCancellation::default();
+        let store = Arc::new(
+            DbTtsSourceStore::for_resources(&engine.tts_service().resources)
+                .with_task(task.clone(), Some(request.clone())),
+        );
+        let executor = legado_fetcher::tts_source::TtsJsExecutor::new(&config, store);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            tx.send(
+                executor
+                    .execute_js("java.setCookie('https://tts.test','started=yes');while(true){}"),
+            )
+            .unwrap();
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !engine
+            .js_resources()
+            .http_resources()
+            .cookies_for_url("https://tts.test")
+            .contains("started=yes")
+        {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        request.cancel();
+        let result = rx.recv_timeout(Duration::from_secs(2));
+        worker.join().unwrap();
+        assert!(result.unwrap().unwrap_err().to_string().contains("取消"));
+        assert!(!task.is_cancelled());
+        drop(task);
+        assert_eq!(engine.tasks().active_count(), 0);
+    }
     #[test]
     fn source_state_and_login_commit_only_to_original_instance_and_reject_closed_task() {
         let first = crate::EngineContext::in_memory().unwrap();

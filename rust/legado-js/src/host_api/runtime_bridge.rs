@@ -45,6 +45,46 @@ pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
     }
 }
 
+pub(crate) trait CancelError {
+    fn cancelled() -> Self;
+}
+impl CancelError for String {
+    fn cancelled() -> Self {
+        crate::cancellation::CANCELLED.into()
+    }
+}
+impl CancelError for legado_core::LegadoError {
+    fn cancelled() -> Self {
+        crate::cancellation::error()
+    }
+}
+
+/// 进入异步驱动前固定本次取消能力，不在异步轮询时重新读取TLS。
+pub(crate) fn block_on_cancellable<F, T, E>(future: F) -> Result<T, E>
+where
+    F: std::future::Future<Output = Result<T, E>>,
+    E: CancelError,
+{
+    let control = crate::cancellation::current();
+    block_on(async move {
+        let Some(control) = control else {
+            return future.await;
+        };
+        if control.is_cancelled() {
+            return Err(E::cancelled());
+        }
+        let result = match futures::future::select(control.cancelled(), Box::pin(future)).await {
+            futures::future::Either::Left(_) => Err(E::cancelled()),
+            futures::future::Either::Right((result, _)) => result,
+        };
+        if control.is_cancelled() {
+            Err(E::cancelled())
+        } else {
+            result
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

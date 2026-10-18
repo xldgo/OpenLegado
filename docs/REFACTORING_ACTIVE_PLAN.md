@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-ACTIVE-CANCELLATION-20261018：JS主动取消贯通（P1）
+
+- 授权与基线：用户批准执行；dep-audit / chore/dep-audit / 159d1099a，上游固定15e1337a，单代理，不推送/合并或改主目录用户文件。
+- 已核查：任务已有通知/发布门禁，QuickJS仅检查执行期限，JS同步HTTP/限流未接收任务取消；外层丢弃spawn_blocking不能停止实际工作。先用真实搜索入口复现实际worker仍存活，再最小接线。
+- 计划：JS定义窄取消接口；资源视图绑定任务且共享缓存，求值与网络入口固定按次取消快照。指令/等待/HTTP/批量均检查，缓存不保留旧任务，初始化与嵌套执行恢复状态。维持任务登记和发布门禁，不扩大为所有原生函数强制中断或全仓错误改造。
+- 验收：取消纯循环/限流等待/挂起HTTP/批量，取消后无后续请求或结果，其他任务不受影响，同一VM可复用，绑定正常释放；相关Rust/QuickJS回归、两档严格检查。无FRB/schema/依赖/UI变更，不构建DLL/应用/模拟器。
+- 复现：真实搜索入口取消后已返回，但JS循环worker仍登记至约5秒默认期限，修前用例失败；接线后用例在400ms等待窗口内确认实际登记清空。此为固定回归，不是通用延迟或性能保证。
+- 实现：新增JsCancellation窄能力与按次RAII绑定；缓存只共享数据和VM，不捕获首个任务，独立会话VM可携带缺省任务。QuickJS指令、mainJs/规则、fresh/compiled/字节求值及初始化均检查取消，排队锁在已绑定任务时可取消等待。异步驱动固定取消快照并直接丢弃请求future，HTTP/正文/限流/批量与间接下载不创建脱离任务。请求项在进入/等待结束/处理响应时再次检查，避免取消被探活转换后继续队列；未完成的初始化不发布缓存条目。
+- 接线：搜索、调试、发现、阅读/音频书抓取、书源事件回调及FFI WebBook沿用所属TaskHandle；TTS脚本同时响应根任务与独立请求取消。保留已有发布门禁，变量/登录、Cookie和UI动作的常用写入口增加检查；书源回调继续返回原“书源回调已取消”，TTS保留TTS_CANCELLED。正常失败/显式零期限不改，取消不进入jsLib能力失败台账。
+- 验证：Engine库与集成228项、JS/Fetcher库与集成907项、TTS独立请求取消追加1项，去重1136项通过，既有2项忽略。新增11项覆盖真实搜索/调试停止、缓存/fresh与初始化取消、compiled/字节求值、排队锁、嵌套与异常恢复、请求发送/正文/限流/批量停止、TCP释放、无迟到变量/动作、其他实例隔离和TTS独立取消；缓存不强持旧任务且后续仍可执行。JS/Fetcher/Engine/FFI两档全目标Clippy -D warnings、工作区两档全目标cargo check、限定rustfmt与diff检查通过。
+- 过程记录：初次接线有文档注释截断、资源视图漏字段及导入问题，已修复。首次完整回归的两条旧用例要求取消后HTTP worker仍存活；改为在服务端解除阻塞之前断言worker退出/登记清空，保留其他实例动作、原取消错误和无音频产物断言，复验通过。没有删除失败测试或把普通错误算取消。
+- 证据：build/js-active-cancellation/{reproduce,fixed-search3,network-cancel,execution-cancel,engine-regressions,js-fetcher-regressions,tts-independent-cancel,clippy-quickjs,clippy-default,workspace-quickjs,workspace-default}.log；reproduce为预期修前失败，早期fixed-search/fixed-search2/regressions失败不计通过。单代理实现与自查，无独立外审。
+- 状态：本批已登记任务的JS取消范围关闭，版本2.0.385+386及双日志/契约随本批本地提交；主目录三份用户文件与原SHA-256快照一致。不新增FRB入口/生成物/schema/依赖，不构建DLL/Flutter/模拟器，无推送/合并/远程CI。未绑定任务的独立宿主保持旧行为，不扩成所有服务入口登记改造；不能强杀任意同步原生函数或回滚已开始的副作用，阻塞工作仍登记至实际退出。不宣称WebView、dnsIp/proxy及Flutter线程数设置已完成；回滚按本批撤销后重建native，不改写旧产物元数据。
+
+编写者：Codex｜2026-10-18
+
 ### JS-REQUEST-POLICY-20261018：源限流与批量并发配置（P1）
 
 - 授权与基线：用户要求继续；dep-audit / chore/dep-audit / 8f85124fd，上游固定15e1337a，单代理，不推送/合并或改动主目录用户文件。

@@ -6,6 +6,10 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 pub trait TtsSourceStore: Send + Sync {
+    #[cfg(feature = "quickjs")]
+    fn cancellation(&self) -> Option<Arc<dyn legado_js::cancellation::JsCancellation>> {
+        None
+    }
     fn host_resources(&self) -> Arc<legado_js::host_resources::JsHostResources>;
     /// 宿主拥有的变量能力；cache 裸键跨调用存活，临时 flow 每次合成独立。
     fn variables(&self) -> Arc<legado_js::variables::VariableStore>;
@@ -117,6 +121,8 @@ impl TtsJsExecutor {
 
     #[cfg(feature = "quickjs")]
     fn eval(&self, code: &str) -> LegadoResult<String> {
+        let _execution = legado_js::cancellation::Scope::enter(self.store.cancellation());
+        legado_js::cancellation::check()?;
         use legado_js::JsEngine;
         let key = self.config.source_key();
         let values = self.store.load(&key)?;

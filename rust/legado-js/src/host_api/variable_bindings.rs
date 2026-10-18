@@ -50,6 +50,7 @@ impl BoundVariables {
         self.current().store().get_variable(key)
     }
     pub fn set_variable(&self, key: &str, value: &str) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         if let Some(store) = &self.source_login
             && let Some((kind, source)) = crate::source_login::parse_key(key)
         {
@@ -59,6 +60,7 @@ impl BoundVariables {
         self.current().store().set_variable(key, value)
     }
     pub fn remove_variable(&self, key: &str) -> Result<Option<String>, String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         if let Some(store) = &self.source_login
             && let Some((kind, source)) = crate::source_login::parse_key(key)
         {
@@ -67,9 +69,11 @@ impl BoundVariables {
         self.current().store().remove_variable(key)
     }
     pub fn clear_variables(&self) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         self.current().clear_variables()
     }
     pub fn put_flow_variable(&self, key: &str, value: &str) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         self.current().put_flow_variable(key, value)
     }
     pub fn get_flow_variable(&self, key: &str) -> Option<String> {
@@ -86,18 +90,22 @@ impl BoundVariables {
     }
 
     pub fn set_book_variable(&self, book_url: &str, key: &str, value: &str) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         self.current().set_book_variable(book_url, key, value)
     }
 
     pub fn remove_book_variable(&self, book_url: &str, key: &str) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         self.current().remove_book_variable(book_url, key)
     }
 
     pub fn set_book_type(&self, book_url: &str, value: &str) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         self.current().set_book_type(book_url, value)
     }
 
     pub fn set_book_reverse_toc(&self, book_url: &str, value: &str) -> Result<(), String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         self.current().set_book_reverse_toc(book_url, value)
     }
 }

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.385] - 2026-10-18
+
+### Fixed
+- 停止搜索或书源调试时，中断相关脚本循环、限流及网络等待，及时释放后台任务。
+- 取消HTTP朗读任务时停止相关脚本请求，防止迟到动作和无效音频发布。
+- 取消后的书源缓存仍可复用，后续任务与其他实例互不影响。
+- 贡献者：Codex + Rust；构建号386。
+
 ## [2.0.384] - 2026-10-18
 
 ### Fixed

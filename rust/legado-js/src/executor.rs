@@ -76,6 +76,8 @@ impl JsExecutor for QuickJsExecutor {
     }
 
     fn execute_js(&self, js_code: &str) -> Result<String, String> {
+        let _execution = crate::cancellation::Scope::enter(self.resources.cancellation().cloned());
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
         let hash = {
@@ -112,6 +114,7 @@ impl JsExecutor for QuickJsExecutor {
                             )
                         },
                     );
+                    crate::cancellation::check().map_err(|e| e.to_string())?;
                     if is_url_map {
                         // 逐条拉取失败已在加载器内记台账（降级跳过该条，
                         // 仅依赖该 jsLib 的规则受影响）；全失败时脚本为 None，
@@ -124,6 +127,7 @@ impl JsExecutor for QuickJsExecutor {
                             // SharedJsScope.kt:251/:258）。此前静默降级会让
                             // 失败推迟到主脚本引用点，报出误导性
                             // `source is not defined`（iOS 实机 1/2 号根因链）
+                            crate::cancellation::check().map_err(|e| e.to_string())?;
                             crate::host_api::capability_ledger::record_jslib_load_failure(
                                 &ledger_tag,
                                 &e.to_string(),
@@ -131,6 +135,7 @@ impl JsExecutor for QuickJsExecutor {
                             return Err(format!("jsLib 求值失败: {e}"));
                         }
                     } else if let Err(e) = crate::JsEngine::eval(&engine, lib) {
+                        crate::cancellation::check().map_err(|e| e.to_string())?;
                         // 仅对语法错误尝试 Rhino 宽容语法归一化后重试一次（与 engine_cache
                         // 缓存路径一致；对齐原版 corejs-Rhino 宽松解析——B 站 jsLib 的
                         // let 参数影子重声明、data..item_null 双点笔误等）。
@@ -164,9 +169,11 @@ impl JsExecutor for QuickJsExecutor {
                         }
                     }
                 }
+                crate::cancellation::check().map_err(|e| e.to_string())?;
                 if let Some(setup) = &self.setup_script
                     && let Err(e) = crate::JsEngine::eval(&engine, setup)
                 {
+                    crate::cancellation::check().map_err(|e| e.to_string())?;
                     eprintln!(
                         "[legado-js] 书源 {} setup 加载失败（降级继续）: {e}",
                         self.source_tag
@@ -224,10 +231,8 @@ impl JsExecutor for QuickJsExecutor {
         }
         let result =
             crate::host_api::current_source::with_current_source_tag(&self.source_tag, || {
-                cached
-                    .engine
-                    .lock()
-                    .map_err(|_| "JS 引擎锁中毒".to_string())
+                crate::cancellation::lock(&cached.engine)
+                    .map_err(|e| e.to_string())
                     .and_then(|engine| {
                         let result = match self.resources.variable_scope() {
                             Some(scope) => engine.eval_with_variables(js_code, &[], scope),
@@ -236,6 +241,7 @@ impl JsExecutor for QuickJsExecutor {
                         result.map_err(|e| e.to_string())
                     })
             });
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         match result {
             Err(e) if e.contains("redeclaration") || e.contains("already declared") => {
                 self.resources.mark_lexical(hash);

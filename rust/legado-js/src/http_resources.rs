@@ -111,7 +111,7 @@ impl HttpResources {
     }
 
     pub(crate) fn download_font(&self, url: &str) -> Result<Vec<u8>, String> {
-        crate::host_api::runtime_bridge::block_on(async {
+        crate::host_api::runtime_bridge::block_on_cancellable(async {
             let client = self
                 .client_for_url(url, false)
                 .map_err(|e| format!("build client error: {e}"))?;
@@ -163,6 +163,9 @@ impl HttpResources {
 
     /// setCookie 保留空值，忽略无等号或空键；与原绑定批量写入口一致。
     pub fn set_cookie(&self, url: &str, cookie: &str) {
+        if crate::cancellation::is_cancelled() {
+            return;
+        }
         let pairs: Vec<_> = cookie
             .split(';')
             .filter_map(|pair| {
@@ -178,6 +181,9 @@ impl HttpResources {
 
     /// replaceCookie 的既有语义跳过空新值，现存同名空值不因此被删除。
     pub fn replace_cookie(&self, url: &str, cookie: &str) {
+        if crate::cancellation::is_cancelled() {
+            return;
+        }
         if url.trim().is_empty() || cookie.trim().is_empty() {
             return;
         }
@@ -216,6 +222,7 @@ impl HttpResources {
     pub fn request_for(&self, source: Option<&str>) -> RequestResources<'_> {
         RequestResources {
             http: self,
+            cancellation: crate::cancellation::current(),
             source: source.map(str::to_owned),
             cookie_jar_enabled: source.and_then(|source| (self.lookup)(source)) == Some(true),
             headers: source
@@ -278,6 +285,7 @@ impl HttpResources {
 
 /// 固定来源开关和头，不跨异步边界访问线程局部状态。
 pub struct RequestResources<'a> {
+    cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
     pub http: &'a HttpResources,
     pub source: Option<String>,
     pub cookie_jar_enabled: bool,
@@ -285,6 +293,17 @@ pub struct RequestResources<'a> {
 }
 
 impl RequestResources<'_> {
+    pub(crate) fn check_active(&self) -> legado_core::LegadoResult<()> {
+        if self
+            .cancellation
+            .as_ref()
+            .is_some_and(|control| control.is_cancelled())
+        {
+            Err(crate::cancellation::error())
+        } else {
+            Ok(())
+        }
+    }
     pub fn policy(&self) -> Result<crate::http_request_policy::RequestPolicySnapshot, String> {
         let policy = self
             .http

@@ -7,7 +7,7 @@
 use crate::engine::{JsEngine, QuickJsEngine};
 use crate::host_api::quickjs_impl::{JSOUP_BRIDGE_JS, RESPONSE_BRIDGE_JS};
 use crate::sandbox::SandboxConfig;
-use legado_core::{LegadoError, LegadoResult};
+use legado_core::LegadoResult;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
@@ -88,6 +88,7 @@ fn init_engine(
                 }
             }
             Err(first_err) => {
+                crate::cancellation::check()?;
                 // 区分语法错误与运行时错误：仅对语法错误尝试 Rhino 宽容语法归一化后重试一次
                 // （对齐原版 corejs-Rhino 的宽松解析，如 B 站 jsLib 的 let 参数影子重声明、
                 // data..item_null 双点笔误）；运行时错误按原样降级（原版 evaluateJsLib
@@ -194,6 +195,8 @@ impl EngineCache {
         main_js: Option<&str>,
         resources: &crate::JsResources,
     ) -> LegadoResult<CachedEngine> {
+        let _execution = crate::cancellation::Scope::enter(resources.cancellation().cloned());
+        crate::cancellation::check()?;
         self.get_or_create_inner(
             key,
             js_lib,
@@ -220,10 +223,7 @@ impl EngineCache {
         let lib = js_lib.unwrap_or("");
         let setup = setup_script.unwrap_or("");
         let main = main_js.unwrap_or("");
-        let mut guard = self
-            .store
-            .lock()
-            .map_err(|_| LegadoError::JsEngine("缓存锁中毒".into()))?;
+        let mut guard = crate::cancellation::lock(&self.store)?;
         let same = guard
             .entries
             .get(key)
@@ -275,6 +275,7 @@ impl EngineCache {
         guard.entries.remove(key);
         guard.order.retain(|k| k != key);
         let cached = init_engine(key, lib, setup, main, capabilities)?;
+        crate::cancellation::check()?;
         guard.entries.insert(
             key.to_string(),
             Entry {

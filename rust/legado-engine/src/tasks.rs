@@ -248,6 +248,15 @@ impl Drop for RegisteredTask {
 #[derive(Clone)]
 pub struct TaskHandle(Arc<RegisteredTask>);
 
+impl legado_js::cancellation::JsCancellation for TaskHandle {
+    fn is_cancelled(&self) -> bool {
+        TaskHandle::is_cancelled(self)
+    }
+    fn cancelled(&self) -> legado_js::cancellation::CancelWait<'_> {
+        Box::pin(TaskHandle::cancelled(self))
+    }
+}
+
 impl TaskHandle {
     pub fn is_cancelled(&self) -> bool {
         self.0.is_cancelled()

@@ -143,6 +143,10 @@ impl ExploreService {
         info_map: HashMap<String, String>,
         task: Option<TaskHandle>,
     ) -> LegadoResult<Vec<WebSearchResult>> {
+        let deps = match &task {
+            Some(task) => deps.with_cancellation(Arc::new(task.clone())),
+            None => deps,
+        };
         if url.is_empty() {
             return Err(LegadoError::Internal("发现分类 URL 为空".into()));
         }
@@ -232,6 +236,13 @@ impl ExploreService {
 
     #[cfg(feature = "quickjs")]
     pub fn eval_explore_js(&self, js_code: &str, source: &BookSource) -> LegadoResult<String> {
+        let task = self
+            .resources
+            .tasks
+            .begin()
+            .map_err(|e| LegadoError::Ffi(e.to_string()))?;
+        let _guard = task.guard();
+        let _execution = legado_js::cancellation::Scope::enter(Some(Arc::new(task.clone())));
         use legado_js::JsEngine;
         use legado_js::host_api::current_source::with_current_source_tag;
 
@@ -357,6 +368,7 @@ impl ExploreService {
             .begin()
             .map_err(|e| LegadoError::Ffi(e.to_string()))?;
         let _guard = task.guard();
+        let _execution = legado_js::cancellation::Scope::enter(Some(Arc::new(task.clone())));
 
         let tag = source.book_source_url.clone();
         let engine = self.fresh_engine(&tag)?;
@@ -388,6 +400,13 @@ impl ExploreService {
 
     #[cfg(feature = "quickjs")]
     fn eval_explore_ui_js(&self, js_str: &str, source: &BookSource) -> LegadoResult<String> {
+        let task = self
+            .resources
+            .tasks
+            .begin()
+            .map_err(|e| LegadoError::Ffi(e.to_string()))?;
+        let _guard = task.guard();
+        let _execution = legado_js::cancellation::Scope::enter(Some(Arc::new(task.clone())));
         use legado_js::JsEngine;
         use legado_js::host_api::current_source::with_current_source_tag;
 

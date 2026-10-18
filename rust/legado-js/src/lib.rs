@@ -76,6 +76,7 @@ pub fn new_quickjs_engine(
     ))
 }
 
+pub mod cancellation;
 /// 显式变量存储与流程句柄。
 pub mod variables;
 

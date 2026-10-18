@@ -92,6 +92,7 @@ impl ReadingService {
             }));
         }
         Ok(deps
+            .with_cancellation(Arc::new(task.clone()))
             .with_execution_lease(Arc::new(task))
             .for_book(source, book))
     }

@@ -79,12 +79,14 @@ async fn item(
     policy: &crate::http_request_policy::RequestPolicySnapshot,
     skip_rate_limit: bool,
 ) -> Result<BatchResponse, String> {
+    resources.check_active().map_err(|e| e.to_string())?;
     let prepared = match prepare(resources, input, timeout, ctx) {
         Ok(prepared) => prepared,
         Err(error) if probe => return Ok(failed(input, error, -7)),
         Err(error) => return Err(error),
     };
     prepared.wait(policy, skip_rate_limit).await;
+    resources.check_active().map_err(|e| e.to_string())?;
     let start = Instant::now();
     let response = match rule_request::send(resources, &prepared).await {
         Ok(response) => response,
@@ -100,6 +102,7 @@ async fn item(
         Err(error) => return Err(error.to_string()),
     };
     let final_url = response.url.clone();
+    resources.check_active().map_err(|e| e.to_string())?;
     match finish(prepared, response, ctx) {
         Ok(response) => Ok(BatchResponse {
             response,
@@ -124,7 +127,7 @@ pub(super) fn run(
         serde_json::from_str(urls_json).map_err(|error| format!("批量请求 parse error: {error}"))?
     };
     let policy = &resources.policy()?;
-    let mut responses = super::runtime_bridge::block_on(async {
+    let mut responses = super::runtime_bridge::block_on_cancellable(async {
         stream::iter(urls.iter().enumerate())
             .map(|(index, url)| async move {
                 item(resources, url, timeout, probe, ctx, policy, skip_rate_limit)

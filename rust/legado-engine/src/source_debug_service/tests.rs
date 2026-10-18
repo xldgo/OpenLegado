@@ -33,6 +33,53 @@ use crate::explore_service::ExploreResources;
 use crate::{EngineContext, OperationSlot};
 use std::time::Duration;
 
+#[cfg(feature = "quickjs")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancelling_debug_interrupts_main_js_and_releases_the_operation() {
+    let engine = EngineContext::in_memory().unwrap();
+    let url = "https://debug-cancel.test";
+    seed(&engine, url, "可取消调试源");
+    engine.storage().with_database(|db| {
+        let repo = BookSourceRepository::new(db.connection());
+        let mut source = repo.find_by_url(url)?.unwrap();
+        source.main_js = Some("function getContent(){java.setCookie('https://debug-cancel.test','started=yes');while(true){}}".into());
+        repo.update(&source)
+    }).unwrap();
+    let slot = Arc::new(OperationSlot::new(engine.tasks().clone()));
+    let service = Arc::new(service_for_engine(&engine, &slot));
+    let owner = service.clone();
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let events = logs.clone();
+    let worker = tokio::spawn(async move {
+        service
+            .run(url.into(), format!("--{url}/chapter"), move |item| {
+                events.lock().unwrap().push(item);
+                Ok(())
+            })
+            .await;
+    });
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while !engine
+            .js_resources()
+            .http_resources()
+            .cookies_for_url(url)
+            .contains("started=yes")
+        {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    owner.cancel();
+    tokio::time::timeout(Duration::from_secs(2), worker)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(engine.tasks().active_count(), 0);
+    assert!(slot.current().is_none());
+    assert!(!logs.lock().unwrap().iter().any(|item| item.state == 1000));
+}
+
 fn service_for_engine(engine: &EngineContext, slot: &Arc<OperationSlot>) -> SourceDebugService {
     let runtime = tokio::runtime::Handle::current();
     let js = engine.js_resources().clone();

@@ -93,6 +93,8 @@ impl CallResult {
 /// - 直接持有 `Box<dyn JsEngine>`（stub / with_engine）
 /// - 通过 `EnginePool` 按 source_tag 共享引擎（池化模式）
 pub struct JsSourceEngine {
+    #[cfg(feature = "quickjs")]
+    cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
     /// 源配置
     config: JsSourceConfig,
     #[cfg(feature = "quickjs")]
@@ -132,6 +134,8 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         }
     }
@@ -180,6 +184,7 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            cancellation: resources.cancellation().cloned(),
             main_js_loaded,
         })
     }
@@ -202,6 +207,8 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         })
     }
@@ -227,6 +234,8 @@ impl JsSourceEngine {
             config,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         })
     }
@@ -246,6 +255,8 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         }
     }
@@ -279,6 +290,9 @@ impl JsSourceEngine {
         name: &str,
         args: &[(&str, JsValue)],
     ) -> LegadoResult<Option<String>> {
+        #[cfg(feature = "quickjs")]
+        let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+        crate::cancellation::check()?;
         // 绑定当前书源上下文（供 getVerificationCode 等宿主钩子识别书源，
         // 对齐 Kotlin JsExtensions.getSource()），结束后恢复原值
         let tag = self.config.source_url.clone();
@@ -311,7 +325,7 @@ impl JsSourceEngine {
             let pooled_opt = self.pooled_engine.clone();
             if let Some(pooled) = pooled_opt {
                 // 池化模式：通过 Arc<Mutex<QuickJsEngine>> 执行
-                let engine_guard = pooled.lock().unwrap();
+                let engine_guard = crate::cancellation::lock(&pooled)?;
 
                 // 首次调用时 eval 主脚本，后续跳过（mainJs 求值缓存）
                 if !self.main_js_loaded {

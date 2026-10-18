@@ -77,7 +77,9 @@ pub(crate) fn ffi_deps() -> LegadoResult<FetcherDeps> {
             permit.with_active(|| sink(book, source, chapter, key, value));
         }));
     }
-    Ok(deps.with_execution_lease(Arc::new(task)))
+    Ok(deps
+        .with_cancellation(Arc::new(task.clone()))
+        .with_execution_lease(Arc::new(task)))
 }
 
 /// 长任务固定实例的数据能力；回调不强持根引擎，也不在执行时查询宿主槽位。
