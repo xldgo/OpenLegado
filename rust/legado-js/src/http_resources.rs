@@ -10,10 +10,28 @@ pub use crate::host_api::cookie_store::CookieAccess;
 
 pub type SourceCookieJarLookup = Arc<dyn Fn(&str) -> Option<bool> + Send + Sync>;
 
-#[derive(Default)]
+// 缓存键可能携带认证信息，不派生Debug或输出到日志。
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct RouteKey {
+    index: usize,
+    proxy: Option<String>,
+    dns_addresses: Vec<std::net::IpAddr>,
+}
+
+const ROUTE_CACHE_CAPACITY: usize = 32;
 struct Pools {
     revision: u64,
     clients: [Option<LegadoClient>; 12],
+    routes: lru::LruCache<RouteKey, LegadoClient>,
+}
+impl Default for Pools {
+    fn default() -> Self {
+        Self {
+            revision: 0,
+            clients: Default::default(),
+            routes: lru::LruCache::new(std::num::NonZeroUsize::new(ROUTE_CACHE_CAPACITY).unwrap()),
+        }
+    }
 }
 
 /// 各策略池共享同一罐；按需构建，构造不持槽位锁跨数据库预载。
@@ -241,22 +259,50 @@ impl HttpResources {
         no_redirect: bool,
         timeout_policy: ClientTimeoutPolicy,
     ) -> Result<LegadoClient, String> {
+        self.routed_client(loopback, no_redirect, timeout_policy, None, Vec::new())
+    }
+
+    /// 配置按请求固定，建池不持锁跨Cookie预载；reset时丢弃过期构建结果。
+    pub(crate) fn routed_client(
+        &self,
+        loopback: bool,
+        no_redirect: bool,
+        timeout_policy: ClientTimeoutPolicy,
+        proxy: Option<legado_net::ProxyConfig>,
+        dns_addresses: Vec<std::net::IpAddr>,
+    ) -> Result<LegadoClient, String> {
         let policy_index = match timeout_policy {
             ClientTimeoutPolicy::Default => 0,
             ClientTimeoutPolicy::NoTotalTimeout => 1,
             ClientTimeoutPolicy::Unlimited => 2,
         };
         let index = usize::from(loopback) + usize::from(no_redirect) * 2 + policy_index * 4;
+        let key = RouteKey {
+            index,
+            proxy: proxy.as_ref().map(|p| p.effective_url()),
+            dns_addresses,
+        };
+        let routed = key.proxy.is_some() || !key.dns_addresses.is_empty();
         loop {
             let revision = {
-                let pools = self.pools.read().unwrap_or_else(|p| p.into_inner());
-                if let Some(client) = &pools.clients[index] {
-                    return Ok(client.clone());
+                if routed {
+                    let mut pools = self.pools.write().unwrap_or_else(|p| p.into_inner());
+                    if let Some(client) = pools.routes.get(&key) {
+                        return Ok(client.clone());
+                    }
+                    pools.revision
+                } else {
+                    let pools = self.pools.read().unwrap_or_else(|p| p.into_inner());
+                    if let Some(client) = &pools.clients[index] {
+                        return Ok(client.clone());
+                    }
+                    pools.revision
                 }
-                pools.revision
             };
             let config = LegadoClientConfig {
                 no_proxy: loopback,
+                proxy: proxy.clone(),
+                dns_addresses: key.dns_addresses.clone(),
                 custom_hosts: Some(self.hosts.clone()),
                 follow_redirects: !no_redirect,
                 timeout_policy,
@@ -267,10 +313,23 @@ impl HttpResources {
                 self.store.clone(),
                 self.persistence.clone(),
             )
-            .map_err(|error| format!("build client error: {error}"))?;
+            .map_err(|error| {
+                if key.proxy.is_some() {
+                    "请求代理客户端构建失败".to_string()
+                } else {
+                    format!("build client error: {error}")
+                }
+            })?;
             let mut pools = self.pools.write().unwrap_or_else(|p| p.into_inner());
             if pools.revision != revision {
                 continue;
+            }
+            if routed {
+                if let Some(client) = pools.routes.get(&key) {
+                    return Ok(client.clone());
+                }
+                pools.routes.put(key, built.clone());
+                return Ok(built);
             }
             return Ok(pools.clients[index].get_or_insert(built).clone());
         }
@@ -280,6 +339,7 @@ impl HttpResources {
         let mut pools = self.pools.write().unwrap_or_else(|p| p.into_inner());
         pools.revision = pools.revision.wrapping_add(1);
         pools.clients = Default::default();
+        pools.routes.clear();
     }
 }
 
@@ -359,6 +419,93 @@ impl CookieAccess for MemoryCookies {
 mod tests {
     use super::*;
     use crate::JsEngine;
+
+    #[test]
+    fn route_cache_is_bounded_reused_reset_and_owned_by_instance() {
+        use ClientTimeoutPolicy::*;
+        let resources = HttpResources::default();
+        let route = || vec!["127.0.0.1".parse().unwrap()];
+        let first = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        let again = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert_eq!(first.client_id(), again.client_id());
+        assert!(Arc::ptr_eq(first.cookie_store(), resources.cookie_store()));
+        for policy in [NoTotalTimeout, Unlimited] {
+            let variant = resources
+                .routed_client(true, false, policy, None, route())
+                .unwrap();
+            assert_ne!(first.client_id(), variant.client_id());
+            assert!(Arc::ptr_eq(first.cookie_store(), variant.cookie_store()));
+        }
+        let other = HttpResources::default()
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert!(!Arc::ptr_eq(first.cookie_store(), other.cookie_store()));
+        let proxy = |value: &str| Some(legado_net::parse_proxy_config(value).unwrap());
+        let auth = resources
+            .routed_client(
+                true,
+                false,
+                Default,
+                proxy("http://user:pass@127.0.0.1:8080"),
+                Vec::new(),
+            )
+            .unwrap();
+        let legacy = resources
+            .routed_client(
+                true,
+                false,
+                Default,
+                proxy("http://127.0.0.1:8080@user@pass"),
+                Vec::new(),
+            )
+            .unwrap();
+        assert_eq!(auth.client_id(), legacy.client_id());
+        let different = resources
+            .routed_client(
+                true,
+                false,
+                Default,
+                proxy("http://user:other@127.0.0.1:8080"),
+                Vec::new(),
+            )
+            .unwrap();
+        assert_ne!(
+            auth.client_id(),
+            different.client_id(),
+            "不同认证不能复用同一代理连接池"
+        );
+        assert!(Arc::ptr_eq(auth.cookie_store(), first.cookie_store()));
+        for i in 2..=40 {
+            resources
+                .routed_client(
+                    true,
+                    false,
+                    Default,
+                    None,
+                    vec![std::net::Ipv4Addr::new(127, 0, 0, i).into()],
+                )
+                .unwrap();
+        }
+        assert_eq!(
+            resources.pools.read().unwrap().routes.len(),
+            ROUTE_CACHE_CAPACITY
+        );
+        let rebuilt = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert_ne!(first.client_id(), rebuilt.client_id());
+        resources.reset_clients();
+        assert!(resources.pools.read().unwrap().routes.is_empty());
+        let reset = resources
+            .routed_client(true, false, Default, None, route())
+            .unwrap();
+        assert_ne!(rebuilt.client_id(), reset.client_id());
+        assert!(Arc::ptr_eq(first.cookie_store(), reset.cookie_store()));
+    }
 
     #[test]
     fn timeout_policy_pools_reuse_and_reset_with_one_cookie_store() {

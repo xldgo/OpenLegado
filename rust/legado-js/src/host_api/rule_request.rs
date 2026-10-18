@@ -119,6 +119,7 @@ pub(super) struct PreparedRequest {
     parsed: AnalyzeUrl,
     request: LegadoRequest,
     timeout: u64,
+    proxy: Option<legado_net::ProxyConfig>,
 }
 impl PreparedRequest {
     pub fn url(&self) -> &str {
@@ -189,9 +190,13 @@ pub(super) fn prepare(
     if parsed.use_web_view() {
         return Err("脚本规则请求暂不支持WebView选项".to_string());
     }
-    if parsed.dns_ip().is_some() || parsed.proxy().is_some() {
-        return Err("脚本规则请求暂不支持独立dnsIp/proxy选项".to_string());
-    }
+    // 解析错误不回显原配置，避免认证信息进入ajax错误正文或日志。
+    let proxy = parsed
+        .proxy()
+        .filter(|value| !value.trim().is_empty())
+        .map(legado_net::parse_proxy_config)
+        .transpose()
+        .map_err(|_| "请求代理配置无效或协议不受支持（支持HTTP/HTTPS/SOCKS5）".to_string())?;
     let method = match overrides.method {
         Some(method) => match method.to_ascii_uppercase().as_str() {
             "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(method),
@@ -224,6 +229,8 @@ pub(super) fn prepare(
     let timeout = overrides.timeout.or(parsed.timeout()).unwrap_or(30_000);
     let url = parsed.url().to_string();
     headers = network::merge_global_cookie(resources, headers, &url);
+    // Cookie合并会补回来源头，路由控制项须在最终发送边界再次剥离。
+    headers.retain(|name, _| !name.eq_ignore_ascii_case("proxy"));
     network::apply_source_cookie_jar_gate(resources, &mut headers);
     Ok(PreparedRequest {
         parsed,
@@ -235,6 +242,7 @@ pub(super) fn prepare(
             timeout: network::request_timeout(timeout),
         },
         timeout,
+        proxy,
     })
 }
 
@@ -256,20 +264,32 @@ pub(super) async fn send(
             })?,
         });
     }
-    let client = network::request_client_with_timeout(
-        resources,
-        false,
-        &request.url,
-        prepared.timeout,
-        legado_net::client::ClientTimeoutPolicy::NoTotalTimeout,
-    )
-    .map_err(legado_core::LegadoError::Network)?;
+    let dns_addresses = legado_net::request_dns::resolve_addresses(parsed.dns_ip()).await;
+    resources.check_active()?;
+    let policy = if prepared.timeout == 0 {
+        legado_net::client::ClientTimeoutPolicy::NoTotalTimeout
+    } else {
+        legado_net::client::ClientTimeoutPolicy::Default
+    };
+    let client = resources
+        .http
+        .routed_client(
+            network::is_loopback_url(&request.url),
+            false,
+            policy,
+            prepared.proxy.clone(),
+            dns_addresses,
+        )
+        .map_err(legado_core::LegadoError::Network)?;
+    // 建池可能触发同步Cookie预载，返回后再次检查，避免取消期间发出新请求。
+    resources.check_active()?;
     legado_net::request::send_with_response_options(
         &client,
         parsed.follow_redirects(),
         parsed.retry(),
         |response: &LegadoRawResponse| response.status,
         |client| async move {
+            resources.check_active()?;
             let mut stream = client.send_stream(request).await?;
             let (status, headers, url) = (
                 stream.status(),

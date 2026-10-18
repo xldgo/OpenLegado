@@ -118,6 +118,8 @@ pub struct LegadoClientConfig {
     pub no_proxy: bool,
     /// 宿主的实时 DNS 覆盖能力，未提供时为低层工具默认值。
     pub custom_hosts: Option<Arc<crate::custom_hosts::CustomHosts>>,
+    /// 本请求派生客户端的DNS覆盖；空列表使用宿主解析器，不修改全局hosts。
+    pub dns_addresses: Vec<std::net::IpAddr>,
 }
 
 impl Default for LegadoClientConfig {
@@ -140,6 +142,7 @@ impl Default for LegadoClientConfig {
             ssl: None,
             no_proxy: false,
             custom_hosts: None,
+            dns_addresses: Vec::new(),
         }
     }
 }
@@ -291,12 +294,18 @@ impl LegadoClient {
         // 自定义 hosts DNS 覆盖（契约 §2.20.3，Task #73）：
         // resolver 每次解析实时读取全局映射，setCustomHosts 变更对已构建
         // 的客户端即时生效（命中映射直连 IP，未命中回落系统 DNS）
-        builder = builder.dns_resolver(
-            config
-                .custom_hosts
-                .as_ref()
-                .map_or_else(crate::custom_hosts::resolver, |hosts| hosts.resolver()),
-        );
+        builder = if config.dns_addresses.is_empty() {
+            builder.dns_resolver(
+                config
+                    .custom_hosts
+                    .as_ref()
+                    .map_or_else(crate::custom_hosts::resolver, |hosts| hosts.resolver()),
+            )
+        } else {
+            builder.dns_resolver(Arc::new(crate::request_dns::RequestDnsResolver(
+                config.dns_addresses.clone(),
+            )))
+        };
 
         let client = builder
             .build()

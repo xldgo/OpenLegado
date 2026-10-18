@@ -15,6 +15,226 @@ use legado_js::QuickJsEngine;
 use legado_js::engine::{JsEngine, JsValue};
 use legado_js::sandbox::SandboxConfig;
 
+#[test]
+fn rule_dns_override_follows_cross_host_redirect_without_leaking() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let url = format!("http://localhost:{}/redirect-host", server.address.port());
+    let response = eval(
+        &engine,
+        &url,
+        r#"
+        var r=java.connect(url+',{"dnsIp":"::zz,127.0.0.1"}');
+        JSON.stringify([r.code(),JSON.parse(r.body()).host,r.raw().request().url().toString()]);
+    "#,
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).unwrap(),
+        serde_json::json!([
+            200,
+            format!("second.invalid:{}", server.address.port()),
+            format!("http://second.invalid:{}/echo", server.address.port())
+        ])
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), 2);
+    // 未携带覆盖的后续请求仍使用原DNS，不得复用上一请求的解析结果。
+    let failure = eval(&engine, &url, "java.ajax(url,600)");
+    assert!(failure.contains("[ERROR]"), "{failure}");
+    assert_eq!(server.requests.load(Ordering::Acquire), 3);
+}
+
+#[test]
+fn rule_proxy_routes_loopback_with_credentials_and_does_not_leak() {
+    let origin = Server::new("127.0.0.1:0");
+    let proxy = Server::new("127.0.0.1:0");
+    let engine = engine();
+    for proxy_url in [
+        format!("http://user:pass@{}", proxy.address),
+        format!("http://{}@user@pass", proxy.address),
+    ] {
+        let rule = format!(
+            "{},{}",
+            origin.url("/echo"),
+            serde_json::json!({"proxy":proxy_url})
+        );
+        let response = eval(&engine, &rule, "java.connect(url).body()");
+        let body: serde_json::Value = serde_json::from_str(&response).expect(&response);
+        assert_eq!(body["path"], origin.url("/echo"));
+        assert_eq!(body["proxyAuth"], "Basic dXNlcjpwYXNz");
+        assert!(body["proxyHeader"].is_null());
+    }
+    assert_eq!(origin.requests.load(Ordering::Acquire), 0);
+    let response = eval(&engine, &origin.url("/echo"), "java.connect(url).body()");
+    let body: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert_eq!(body["path"], "/echo");
+    assert!(body["proxyAuth"].is_null());
+    assert_eq!(origin.requests.load(Ordering::Acquire), 1);
+    assert_eq!(proxy.requests.load(Ordering::Acquire), 2);
+}
+
+#[test]
+fn source_and_explicit_header_proxy_are_consumed_without_sending_control_headers() {
+    use legado_js::host_api::current_source::with_current_source_tag;
+    let origin = Server::new("127.0.0.1:0");
+    let proxy = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let proxy_url = format!("http://{}", proxy.address);
+    let result = with_current_source_tag("https://source.invalid", || {
+        eval(
+            &engine,
+            &origin.url("/echo"),
+            &format!(
+                r#"
+        java.putGlobalHeaders(JSON.stringify({{proxy:{}}}));java.connect(url).body()
+    "#,
+                serde_json::to_string(&proxy_url).unwrap()
+            ),
+        )
+    });
+    let body: serde_json::Value = serde_json::from_str(&result).expect(&result);
+    assert_eq!(body["path"], origin.url("/echo"));
+    assert!(body["proxyHeader"].is_null());
+    // ajax标准JSON扩展也要复用同一来源头/代理提取路径。
+    let response = eval(
+        &engine,
+        &origin.url("/echo"),
+        &format!(
+            r#"
+        var headers={{proxy:{}}};JSON.parse(java.ajax(JSON.stringify({{url:url,headers:headers}}))).body
+    "#,
+            serde_json::to_string(&proxy_url).unwrap()
+        ),
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).unwrap()["path"],
+        origin.url("/echo")
+    );
+    for invalid in [
+        "http://user:secret@broken",
+        "socks4://127.0.0.1:1080",
+        "bad",
+    ] {
+        let rule = format!(
+            "{},{}",
+            origin.url("/echo"),
+            serde_json::json!({"proxy":invalid})
+        );
+        let failure = eval(&engine, &rule, "java.ajax(url)");
+        assert!(failure.contains("代理配置无效或协议不受支持"), "{failure}");
+        assert!(!failure.contains("secret"));
+    }
+    assert_eq!(proxy.requests.load(Ordering::Acquire), 2);
+    assert_eq!(
+        origin.requests.load(Ordering::Acquire),
+        0,
+        "代理配置错误不得直连"
+    );
+}
+
+#[test]
+fn batch_dns_routes_are_isolated_and_cookie_state_is_shared_between_variants() {
+    let one = Server::new("127.0.0.1:0");
+    let two = Server::new(&format!("127.0.0.2:{}", one.address.port()));
+    let engine = engine();
+    let url = format!("http://localhost:{}/echo", one.address.port());
+    let response = eval(
+        &engine,
+        &url,
+        r#"
+        var rules=['127.0.0.1','127.0.0.2','127.0.0.1','127.0.0.2'].map(function(ip){return url+','+JSON.stringify({dnsIp:ip});});
+        JSON.stringify(java.ajaxAll(rules).map(function(r){return JSON.parse(r.body()).localIp;}))
+    "#,
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).unwrap(),
+        serde_json::json!(["127.0.0.1", "127.0.0.2", "127.0.0.1", "127.0.0.2"])
+    );
+    assert_eq!(one.requests.load(Ordering::Acquire), 2);
+    assert_eq!(two.requests.load(Ordering::Acquire), 2);
+    let cookie_url = format!("http://localhost:{}/cookie", one.address.port());
+    eval(
+        &engine,
+        &cookie_url,
+        r#"java.connect(url+',{"dnsIp":"127.0.0.1","headers":{"CookieJar":"1"}}').code()"#,
+    );
+    let response = eval(&engine, &url, "java.connect(url).body()");
+    let body: serde_json::Value = serde_json::from_str(&response).unwrap();
+    assert!(body["cookie"].as_str().unwrap().contains("routed=yes"));
+    // 无效覆盖回落原DNS；不得把上一变体127.0.0.2带到这次请求。
+    assert_eq!(
+        eval(
+            &engine,
+            &url,
+            r#"JSON.parse(java.connect(url+',{"dnsIp":"::zz"}').body()).localIp"#
+        ),
+        "127.0.0.1"
+    );
+}
+
+#[test]
+fn routed_request_retains_redirect_policy_timeout_and_active_cancellation() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let url = format!("http://localhost:{}/redirect-host", server.address.port());
+    assert_eq!(
+        eval(
+            &engine,
+            &url,
+            r#"java.connect(url+',{"dnsIp":"127.0.0.1","followRedirects":false}').code()"#
+        ),
+        "302"
+    );
+    let slow = format!("http://localhost:{}/slow", server.address.port());
+    let failure = eval(
+        &engine,
+        &slow,
+        r#"java.ajax(url+',{"dnsIp":"127.0.0.1"}',200)"#,
+    );
+    assert!(failure.contains("Timeout"), "{failure}");
+    let token = Arc::new(Cancellation::default());
+    let pending = format!("http://localhost:{}/pending", server.address.port());
+    let code = format!(
+        "java.ajax({}+',{{\"dnsIp\":\"127.0.0.1\"}}',0)",
+        serde_json::to_string(&pending).unwrap()
+    );
+    let before = server.requests.load(Ordering::Acquire);
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| server.requests.load(Ordering::Acquire) == before + 1);
+    finish_cancelled(&token, worker, rx);
+    wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 1);
+    assert_eq!(
+        eval(&engine, &server.url("/echo"), "java.connect(url).code()"),
+        "200"
+    );
+}
+
+#[test]
+fn dns_override_supports_ipv6_and_proxy_hostname_lookup() {
+    let ipv6 = Server::new("[::1]:0");
+    let engine = engine();
+    let url = format!("http://localhost:{}/echo", ipv6.address.port());
+    assert_eq!(
+        eval(
+            &engine,
+            &url,
+            r#"JSON.parse(java.connect(url+',{"dnsIp":"::1"}').body()).localIp"#
+        ),
+        "::1"
+    );
+    let proxy = Server::new("127.0.0.1:0");
+    let target = "http://localhost:1/echo";
+    let rule = format!(
+        "{target},{}",
+        serde_json::json!({"proxy":format!("http://proxy.invalid:{}",proxy.address.port()),"dnsIp":"127.0.0.1"})
+    );
+    let response = eval(&engine, &rule, "java.connect(url).body()");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&response).expect(&response)["path"],
+        target
+    );
+    assert_eq!(proxy.requests.load(Ordering::Acquire), 1);
+}
+
 #[derive(Default)]
 struct BatchMetrics {
     active: AtomicUsize,
@@ -482,10 +702,11 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize, metrics: &BatchMetrics) 
     } else {
         serde_json::json!({"method":method,"path":path,"body":String::from_utf8(body).unwrap(),
             "marker":header("X-Marker"),"contentType":header("Content-Type"),
+            "localIp":socket.local_addr().unwrap().ip().to_string(),"cookie":header("Cookie"),"host":header("Host"),"proxyAuth":header("Proxy-Authorization"),"proxyHeader":header("proxy"),
             "markerCount":head.lines().filter(|line| line.split_once(':').is_some_and(|(key,_)| key.eq_ignore_ascii_case("X-Marker"))).count()})
         .to_string()
     };
-    let status = if path == "/redirect" {
+    let status = if matches!(path, "/redirect" | "/redirect-host") {
         "302 Found"
     } else if path == "/retry" && request_number < 3 {
         "503 Service Unavailable"
@@ -493,12 +714,22 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize, metrics: &BatchMetrics) 
         "200 OK"
     };
     let location = if path == "/redirect" {
-        "Location: /echo\r\n"
+        "Location: /echo\r\n".to_string()
+    } else if path == "/redirect-host" {
+        format!(
+            "Location: http://second.invalid:{}/echo\r\n",
+            socket.local_addr().unwrap().port()
+        )
+    } else {
+        String::new()
+    };
+    let cookie = if path == "/cookie" {
+        "Set-Cookie: routed=yes; Path=/\r\n"
     } else {
         ""
     };
     let response = format!(
-        "HTTP/1.1 {status}\r\n{location}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        "HTTP/1.1 {status}\r\n{cookie}{location}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
         body.len(),
         if method == "HEAD" { "" } else { &body }
     );
@@ -1034,21 +1265,12 @@ fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fai
         response.contains("[ERROR]") && response.contains("Timeout"),
         "{response}"
     );
-    for options in [
-        r#"{"webView":true}"#,
-        r#"{"dnsIp":"127.0.0.1"}"#,
-        r#"{"proxy":"http://127.0.0.1:1"}"#,
-    ] {
-        let response = eval(
-            &engine,
-            &server.url("/echo"),
-            &format!(
-                "java.ajax(url+','+{})",
-                serde_json::to_string(options).unwrap()
-            ),
-        );
-        assert!(response.contains("暂不支持"), "{response}");
-    }
+    let response = eval(
+        &engine,
+        &server.url("/echo"),
+        r#"java.ajax(url+',{"webView":true}')"#,
+    );
+    assert!(response.contains("暂不支持"), "{response}");
     assert_eq!(
         server.requests.load(Ordering::Acquire),
         1,

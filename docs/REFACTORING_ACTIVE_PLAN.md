@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-REQUEST-ROUTING-20261018：请求级DNS与代理（P1）
+
+- 授权与基线：用户批准，dep-audit / chore/dep-audit / 3a7e40cf5，上游固定15e1337a。单代理，不推送/合并、不写主目录用户文件。
+- 核查与复现：规则管线明确拒绝dnsIp/proxy，上游AnalyzeUrl.getClient逐请求派生DNS/代理；真实QuickJS的跨域重定向与认证代理两例修前失败，修后通过。契约先冻结，沿用已有Net认证、共享Cookie与期限策略。
+- 实现：Net新增请求级DNS解析器，逐项解析IP/主机名、忽略失败项、空列表回落原DNS。保留Host/SNI/证书校验，重定向与本地代理主机查找消费同一覆盖，不修改Engine hosts。JS单项/批量共用管线；代理配置发送前校验、错误不回显凭据、不降级直连。Cookie合并后再次剥离proxy控制头，建池后/每次重试发送前检查任务取消。
+- 缓存：所属HttpResources内32项LRU按规范化代理（含认证）、实际地址列表及原有策略键复用；不同认证隔离，标准/遗留相同认证复用，reset同步失效，不捕获根Engine或任务。Cookie罐与持久化后端沿用原Arc；在途客户端可继续持有，不宣称进程总实例数上限32。补齐既有代理解析的IPv6括号与显式默认端口。
+- 验证：Net/JS/Fetcher/Engine库与集成37个测试二进制，1415项通过、既有2项忽略。新增10项覆盖IP/主机名列表、IPv4/IPv6、跨域重定向、真实代理认证、来源/显式头控制项剥离、并发路由隔离、Cookie共享、无效代理不直连与凭据脱敏、期限/主动取消、LRU淘汰/reset及严格HTTPS Host/SNI/证书验证。两档相关全目标Clippy -D warnings、工作区两档全目标cargo check及限定rustfmt/diff检查通过。
+- 过程记录：首次扩大回归在既有180ms限流耗时断言失败，单独复跑通过；改为真实JS先占共享注册表许可、抓取侧短观察期内无法再获许可，并保留skipRateLimit真实请求断言，不改限流生产实现。初次Clippy拒绝删减后的单元素测试循环，已改为直接断言。来源proxy控制头在合并时被补回的实际收包失败已修复；最终完整复验通过，早期失败不计通过。
+- 证据：build/js-request-routing/{reproduce,fixed,routing-tests,routing-fixed,rate-recheck,regressions,regressions-final,clippy-quickjs,clippy-quickjs-final,clippy-default,workspace-quickjs,workspace-default}.log；最终测试以regressions-final、严格QuickJS检查以clippy-quickjs-final为准。单代理实现与自查，无独立外审。
+- 状态：本批选定范围已关闭，版本2.0.386+387及双日志/契约随本批本地提交；主目录三份用户文件SHA-256与原快照一致。无FRB签名/生成物/schema/依赖变更，不构建DLL/应用/模拟器，不推送/合并/远程CI。WebView、既有SOCKS4限制及Flutter线程数设置未改；HTTP代理/SOCKS远端DNS不受本地覆盖控制，不宣称各平台真机验证或强杀系统DNS原生线程。回滚本批后重建native，不伪造产物元数据。
+
+编写者：Codex｜2026-10-18
+
 ### JS-ACTIVE-CANCELLATION-20261018：JS主动取消贯通（P1）
 
 - 授权与基线：用户批准执行；dep-audit / chore/dep-audit / 159d1099a，上游固定15e1337a，单代理，不推送/合并或改主目录用户文件。

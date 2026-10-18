@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.386] - 2026-10-18
+
+### Fixed
+- 书源脚本的单项与批量规则请求支持独立DNS和代理，支持代理认证并保持Cookie、超时与取消行为。
+- 防止请求级网络配置影响后续普通请求，来源代理控制头不再发送给服务器。
+- 贡献者：Codex + Rust；构建号387。
+
 ## [2.0.385] - 2026-10-18
 
 ### Fixed

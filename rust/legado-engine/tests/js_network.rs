@@ -81,7 +81,7 @@ fn source(engine: &EngineContext, tag: &str) {
 
 #[test]
 fn js_requests_share_the_engine_source_rate_window() {
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
     let (url, server) = fixture(7);
     let engine = EngineContext::in_memory().unwrap();
     source(&engine, &url);
@@ -90,7 +90,7 @@ fn js_requests_share_the_engine_source_rate_window() {
         .with_database(|db| {
             db.connection()
                 .execute(
-                    "UPDATE book_sources SET concurrentRate='1/180' WHERE bookSourceUrl=?1",
+                    "UPDATE book_sources SET concurrentRate='1/10000' WHERE bookSourceUrl=?1",
                     [&url],
                 )
                 .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
@@ -113,16 +113,19 @@ fn js_requests_share_the_engine_source_rate_window() {
         "java.head(url,{}).body()",
         "java.post(url,'',{}).body()",
     ] {
-        legado_js::host_api::runtime_bridge::block_on(
-            engine.rate_limiter().acquire_key(&url, "1/180"),
-        );
-        let start = Instant::now();
+        engine.rate_limiter().remove(&url);
         legado_js::host_api::current_source::with_current_source_tag(&url, || vm.eval(call))
             .unwrap();
-        assert!(
-            start.elapsed() >= Duration::from_millis(130),
-            "{call}未消费已有源限流窗口"
-        );
+        // JS真实请求已占用所属注册表的首个许可，抓取侧再次申请必须等待。
+        // 使用长窗口+短观察期，不把客户端调度耗时误当作限流等待下限。
+        let shared = legado_js::host_api::runtime_bridge::block_on(async {
+            tokio::time::timeout(
+                Duration::from_millis(50),
+                engine.rate_limiter().acquire_key(&url, "1/10000"),
+            )
+            .await
+        });
+        assert!(shared.is_err(), "{call}未占用共享源限流窗口");
     }
     legado_js::host_api::current_source::with_current_source_tag(&url, || {
         vm.eval("java.ajaxAll([url],true)[0].body()")

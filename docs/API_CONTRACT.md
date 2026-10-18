@@ -1,5 +1,24 @@
 # API 契约文档
 
+## JS请求级DNS与代理（2026-10-18，实施前冻结）
+
+ajax/connect和批量请求复用同一AnalyzeUrl发送管线，消费dnsIp与proxy（含来源header中的
+proxy控制项），控制项不作为HTTP头发送。WebView仍明确拒绝，不以普通HTTP代替。
+dnsIp按参考版15e1337a的parseIpsFromString处理逗号列表：逐项接受IP或解析主机名，
+忽略失败项；全空/全失败回落原DNS。有效列表仅覆盖本请求派生客户端的DNS查找，
+包含重定向和代理主机的本地解析，保留URL域名、Host和TLS SNI；字面量IP不强制改写。
+不修改Engine全局hosts，也不将请求级映射写入数据库。DNS准备与网络等待均可取消。
+代理复用既有Net校验与认证能力，支持HTTP/HTTPS/SOCKS5及既有标准/遗留凭据格式；
+SOCKS4沿用既有明确不支持，不宣称与参考版该别名兼容。非法代理在发送前返回错误，
+不得降级直连；显式代理优先于回环直连策略，不把代理凭据加入诊断日志或缓存Debug输出。
+派生池按实际代理/DNS地址列表、直连和期限策略区分，在所属HttpResources内有界复用，
+reset同步失效。所有变体共享原Cookie罐与持久化后端，既有源限流、超时、重试、
+重定向及取消错误形态不变；流/批次失败直接释放等待，不创建脱离任务。
+不改变FRB签名/生成物、schema、Flutter设置或依赖版本；仅用Rust真实QuickJS与有界
+本地HTTP/代理验证，未执行平台构建，不声称HTTP代理或SOCKS远端DNS可由本地dnsIp覆盖。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## JS任务主动取消（2026-10-18，实施前冻结）
 
 复用宿主已登记的TaskHandle，通过JS层定义的窄取消能力按次绑定执行，不反向引用Engine。
@@ -61,7 +80,7 @@ ajaxTestAll逐项保留失败：合成状态200、错误正文与负callTime；�
 动态JS借用当前VM，在同步准备或响应求值后立刻恢复外层result/baseUrl/page、URL和头，
 不跨异步等待保留这些临时绑定。源限流、全局threadCount与skipRateLimit的后续接线
 见上方“JS请求限流与批量并发”；本节不新增外部网络停止接口。
-FRB签名、生成绑定、数据库及UI不变；WebView/独立dnsIp/proxy继续明确不支持。
+FRB签名、生成绑定、数据库及UI不变；DNS/代理后续接线见上方“JS请求级DNS与代理”，WebView仍不支持。
 
 编写者：Codex + Bridge｜2026-10-18
 
@@ -77,7 +96,7 @@ ajax/connect复用AnalyzeUrl规则解析；同一URL选项的method/body/headers
 保留StrResponse包装。原生请求和JS错误转换分离，get/head/post不进入AnalyzeUrl。
 嵌套规则保存/恢复外层URL、待发头及result，失败也恢复；已有解析器对选项JS的降级策略
 本批不统一重写。编码复用原抓取链四级解码，重定向/状态码重试复用下层通用发送算法。
-webView、独立dnsIp/proxy选项尚未接线，明确返回不支持且不发送普通HTTP替代请求。
+DNS/代理接线见上方“JS请求级DNS与代理”；webView仍明确返回不支持，不发送普通HTTP替代请求。
 FRB/schema/生成物不变，不新增对Fetcher的反向依赖，不改变批量请求。
 
 编写者：Codex + Bridge｜2026-10-18

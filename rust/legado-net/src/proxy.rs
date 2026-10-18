@@ -206,7 +206,7 @@ pub fn parse_proxy_config(raw_proxy: &str) -> LegadoResult<ProxyConfig> {
         let host = normalize_host(&caps[2])?;
         let port = parse_port(&caps[3])?;
         return Ok(ProxyConfig {
-            url: format!("{}://{}:{}", scheme, host, port),
+            url: proxy_url(&scheme, &host, port),
             proxy_type,
             credentials: Some(credentials),
         });
@@ -252,16 +252,33 @@ pub fn parse_proxy_config(raw_proxy: &str) -> LegadoResult<ProxyConfig> {
         .ok_or_else(invalid_proxy)
         .and_then(normalize_host)?;
     // 上游要求显式端口；url crate 对非特殊 scheme 不做默认端口填充
+    // url会省略显式默认端口（如http:80），从原始authority补取，仍拒绝未声明端口。
+    let authority = proxy
+        .split_once("://")
+        .map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or_default())
+        .unwrap_or_default();
+    let explicit_port = authority
+        .rsplit_once(':')
+        .and_then(|(_, port)| port.parse::<u16>().ok());
     let port = parsed
         .port()
+        .or(explicit_port)
         .ok_or_else(invalid_proxy)
         .and_then(|p| parse_port(&p.to_string()))?;
 
     Ok(ProxyConfig {
-        url: format!("{}://{}:{}", scheme, host, port),
+        url: proxy_url(&scheme, &host, port),
         proxy_type,
         credentials,
     })
+}
+
+fn proxy_url(scheme: &str, host: &str, port: u16) -> String {
+    if host.contains(':') {
+        format!("{scheme}://[{host}]:{port}")
+    } else {
+        format!("{scheme}://{host}:{port}")
+    }
 }
 
 /// scheme 到代理类型的映射（不支持 SOCKS4）
@@ -449,6 +466,26 @@ pub fn to_reqwest_proxy(config: &ProxyConfig) -> Result<reqwest::Proxy, LegadoEr
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parsed_proxy_retains_ipv6_brackets_and_explicit_default_ports() {
+        for raw in [
+            "http://[::1]:80",
+            "https://proxy.example:443",
+            "http://[::1]:8080@user@pass",
+        ] {
+            let config = parse_proxy_config(raw).unwrap();
+            let parsed = Url::parse(&config.effective_url()).unwrap();
+            assert!(parsed.host().is_some());
+            assert!(to_reqwest_proxy(&config).is_ok());
+        }
+        assert_eq!(
+            parse_proxy_config("http://[::1]:80").unwrap().url,
+            "http://[::1]:80"
+        );
+        assert!(parse_proxy_config("http://[::1]").is_err());
+        assert!(parse_proxy_config("https://proxy.example").is_err());
+    }
 
     #[test]
     fn test_proxy_type_from_url() {
