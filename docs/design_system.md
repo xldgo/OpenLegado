@@ -81,6 +81,11 @@ AppGlassSurface仅绘制背景，资源未就绪使用普通表面；控件本�
 设置Sheet、选区和朗读浮层在后续批次迁移；不为本批提前复制一套业务控制器。
 minimal组件验证不等于真实GPU外观或性能验收；设备profile按用户要求后置。
 
+章节首次加载与等待分页锚点使用 GlassProgressIndicator.circular，采用库默认20dp尺寸、
+2.5dp描边及应用主题强调色。LoadingIndicator通过可选indicator插槽复用居中提示布局，
+其他页面默认波浪指示器不变。章节spinner通过TickerMode响应系统减少动态效果，
+静止时仍显示加载提示；切章已有正文的冻结帧、错误与空态不受替换影响。
+
 编写者：Codex + UI｜2026-10-18
 
 ## 背景材质与参数单位（2026-10-18）

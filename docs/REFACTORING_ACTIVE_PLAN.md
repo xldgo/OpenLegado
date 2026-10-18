@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-READER-SPINNER-20261018：章节加载 Glass spinner（P2）
+
+- 授权与基线：用户要求将章节加载的自定义动画替换为 Glass spinner；沿用 feature/ui-glass-material-base / 9be35728e，单代理，不提升版本、不自动安装或推送。
+- 范围：首次加载章节与等待分页锚点共用 GlassProgressIndicator.circular；复用原加载提示布局与主题色，系统减少动态效果时停止旋转。切章时已有正文的冻结帧、错误与空态保持原行为；不改其他页面的默认加载指示器。
+- 验收：实际阅读器加载状态、正文恢复和切章冻结帧回归；动画偏好切换与默认加载样式回归、定向静态分析。
+- 验证：阅读器加载状态及共用加载组件两份定向回归5项通过，覆盖减少动画切换、恢复正文及切章冻结帧；定向静态分析无问题，diff检查通过。证据：flutter_legado/build/liquid-glass/chapter-spinner-{tests,analyze}.log。
+- 状态：代码与本地验证完成，随本记录本地提交；无 Rust、FFI、依赖或设置修改。未编译安装、推送或执行远程CI，设备视觉待用户后续验证。
+
+编写者：Codex + UI｜2026-10-18
+
 ### UI-NAV-LABEL-WEIGHT-20261018：底栏默认字重（P2）
 
 - 授权与基线：用户要求修改默认主题，采用选中600/未选中500；沿用feature/ui-glass-material-base / 2fca226f2，单代理，不提升版本，不自动安装或推送。
