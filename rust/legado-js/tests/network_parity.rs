@@ -15,6 +15,89 @@ use legado_js::QuickJsEngine;
 use legado_js::engine::{JsEngine, JsValue};
 use legado_js::sandbox::SandboxConfig;
 
+/// 最小本地v4代理只转发一个GET；生产代码使用reqwest，不共享此测试实现。
+fn socks4_fixture(
+    target: SocketAddr,
+    reject: bool,
+) -> (SocketAddr, JoinHandle<std::io::Result<()>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let worker = std::thread::spawn(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        let mut socket = loop {
+            match listener.accept() {
+                Ok((socket, _)) => break socket,
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        && std::time::Instant::now() < deadline =>
+                {
+                    std::thread::sleep(Duration::from_millis(2))
+                }
+                Err(e) => return Err(e),
+            }
+        };
+        socket.set_nonblocking(false)?;
+        socket.set_read_timeout(Some(Duration::from_secs(2)))?;
+        socket.set_write_timeout(Some(Duration::from_secs(2)))?;
+        let mut request = [0; 9];
+        socket.read_exact(&mut request)?;
+        assert_eq!(&request[..2], &[4, 1], "必须发送真正的SOCKS4 CONNECT");
+        assert_eq!(u16::from_be_bytes([request[2], request[3]]), target.port());
+        assert_eq!(&request[4..8], &[127, 0, 0, 1]);
+        assert_eq!(request[8], 0, "当前通道发送空USERID");
+        socket.write_all(&[0, if reject { 91 } else { 90 }, 0, 0, 0, 0, 0, 0])?;
+        if !reject {
+            let mut upstream = TcpStream::connect_timeout(&target, Duration::from_secs(2))?;
+            upstream.set_read_timeout(Some(Duration::from_secs(2)))?;
+            upstream.set_write_timeout(Some(Duration::from_secs(2)))?;
+            let mut head = Vec::new();
+            while !head.ends_with(b"\r\n\r\n") {
+                let mut byte = [0];
+                socket.read_exact(&mut byte)?;
+                head.push(byte[0]);
+                assert!(head.len() < 65536);
+            }
+            upstream.write_all(&head)?;
+            std::io::copy(&mut upstream, &mut socket)?;
+        }
+        Ok(())
+    });
+    (address, worker)
+}
+
+#[test]
+fn socks4_rule_requests_use_v4_handshake_and_never_bypass_rejection() {
+    let origin = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let url = format!("http://localhost:{}/echo", origin.address.port());
+    for reject in [false, true] {
+        let (address, worker) = socks4_fixture(origin.address, reject);
+        let rule = format!(
+            "{url},{}",
+            serde_json::json!({"proxy":format!("socks4://{address}"),"dnsIp":"127.0.0.1"})
+        );
+        let response = eval(&engine, &rule, "java.ajax(url,1000)");
+        let handshake = worker.join().unwrap();
+        assert!(
+            handshake.is_ok(),
+            "未完成v4握手：{handshake:?}，响应：{response}"
+        );
+        if reject {
+            assert!(response.contains("[ERROR]"), "{response}");
+        } else {
+            let body: serde_json::Value = serde_json::from_str(&response).expect(&response);
+            assert_eq!(body["path"], "/echo");
+            assert_eq!(body["host"], format!("localhost:{}", origin.address.port()));
+        }
+        assert_eq!(
+            origin.requests.load(Ordering::Acquire),
+            1,
+            "代理拒绝后不得直连源站"
+        );
+    }
+}
+
 #[test]
 fn rule_dns_override_follows_cross_host_redirect_without_leaking() {
     let server = Server::new("127.0.0.1:0");
@@ -111,7 +194,8 @@ fn source_and_explicit_header_proxy_are_consumed_without_sending_control_headers
     );
     for invalid in [
         "http://user:secret@broken",
-        "socks4://127.0.0.1:1080",
+        "socks4://user:secret@127.0.0.1:1080",
+        "socks6://127.0.0.1:1080",
         "bad",
     ] {
         let rule = format!(

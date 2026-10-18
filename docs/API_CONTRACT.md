@@ -1,5 +1,18 @@
 # API 契约文档
 
+## SOCKS4请求代理（2026-10-18，实施前冻结）
+
+允许socks4://host:port复用现有reqwest SOCKS通道，不新增依赖或协议实现。
+严格解析与宽容配置构造均识别独立Socks4类型；请求级DNS、Cookie、限流、
+期限与取消沿用现有管线。SOCKS4使用IPv4目标与本地DNS；代理拒绝必须返回错误，
+不得直连或改用SOCKS5。参考版HttpHelper统一交Java SOCKS入口，本批不把该入口
+当作完整SOCKS4互操作证明，以真实v4握手和源站收包验证。
+当前reqwest v4路径不传递USERID/密码；标准或遗留凭据配置均在构建前明确拒绝，
+不宣称SOCKS5式认证能力，不静默丢弃凭据。SOCKS4a不在本批范围。
+不改FRB/生成物、数据库、UI或依赖；验证仅限本地Rust/QuickJS网络测试。
+
+编写者：Codex + Bridge｜2026-10-18
+
 ## JS请求级DNS与代理（2026-10-18，实施前冻结）
 
 ajax/connect和批量请求复用同一AnalyzeUrl发送管线，消费dnsIp与proxy（含来源header中的
@@ -9,7 +22,7 @@ dnsIp按参考版15e1337a的parseIpsFromString处理逗号列表：逐项接受I
 包含重定向和代理主机的本地解析，保留URL域名、Host和TLS SNI；字面量IP不强制改写。
 不修改Engine全局hosts，也不将请求级映射写入数据库。DNS准备与网络等待均可取消。
 代理复用既有Net校验与认证能力，支持HTTP/HTTPS/SOCKS5及既有标准/遗留凭据格式；
-SOCKS4沿用既有明确不支持，不宣称与参考版该别名兼容。非法代理在发送前返回错误，
+SOCKS4的补充范围见上方“SOCKS4请求代理”。非法代理在发送前返回错误，
 不得降级直连；显式代理优先于回环直连策略，不把代理凭据加入诊断日志或缓存Debug输出。
 派生池按实际代理/DNS地址列表、直连和期限策略区分，在所属HttpResources内有界复用，
 reset同步失效。所有变体共享原Cookie罐与持久化后端，既有源限流、超时、重试、

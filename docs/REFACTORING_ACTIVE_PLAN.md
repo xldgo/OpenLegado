@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-SOCKS4-20261018：低成本接入SOCKS4（P2）
+
+- 授权与基线：用户授权在已有能力上接入，dep-audit / chore/dep-audit / 23744592f，单代理、不推送/合并。
+- 核查：本地reqwest 0.13.5的socks通道已有SocksV4，本项目校验层仍拒绝。参考版HttpHelper把socks4/socks5交同一Java SOCKS入口，不能据此宣称真实v4握手已验证；依赖的v4路径不传递USERID/密码。
+- 实现：补Socks4类型及协议映射，复用reqwest，无新增依赖或生产握手代码。严格解析和宽容from_url/with_proxy入口均拒绝底层不会传递的凭据，错误不回显密码；原有请求级DNS、Cookie、期限与取消管线不改。更正“reqwest无socks4实现”的错误注释。
+- 复现与验证：新增真实QuickJS→本地SOCKS4→HTTP源站用例，修前在协议校验阶段失败；修后核对版本4、CONNECT、IPv4目标/端口和空USERID，源站收到正文请求；代理拒绝后无直连。新增配置用例覆盖严格/宽容入口、标准/遗留凭据拒绝及脱敏。Net/JS相关库与network_parity共963项通过、既有2项忽略；Net/JS默认和QuickJS两档全目标Clippy -D warnings、工作区QuickJS全目标cargo check、限定rustfmt/diff检查通过。
+- 证据：build/js-socks4/{reproduce,fixed,regressions,clippy-quickjs,clippy-default,workspace}.log；reproduce为预期修前失败，其余退出码0。单代理实现与自查，无独立外审。
+- 状态：本批已关闭，版本2.0.387+388、双日志及契约随本批本地提交。只支持无凭据SOCKS4和IPv4目标；未扩展SOCKS4a或新增认证实现。无依赖/FRB/生成物/schema/UI变更，不构建DLL/应用/模拟器，不推送/合并；主目录用户文件保持原摘要。回滚本批后重建native，不伪造产物元数据。
+
+编写者：Codex｜2026-10-18
+
 ### JS-REQUEST-ROUTING-20261018：请求级DNS与代理（P1）
 
 - 授权与基线：用户批准，dep-audit / chore/dep-audit / 3a7e40cf5，上游固定15e1337a。单代理，不推送/合并、不写主目录用户文件。

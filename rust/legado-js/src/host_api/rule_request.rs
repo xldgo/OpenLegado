@@ -196,7 +196,10 @@ pub(super) fn prepare(
         .filter(|value| !value.trim().is_empty())
         .map(legado_net::parse_proxy_config)
         .transpose()
-        .map_err(|_| "请求代理配置无效或协议不受支持（支持HTTP/HTTPS/SOCKS5）".to_string())?;
+        .map_err(|_| {
+            "请求代理配置无效或协议不受支持（支持HTTP/HTTPS/SOCKS4/SOCKS5；SOCKS4不支持凭据）"
+                .to_string()
+        })?;
     let method = match overrides.method {
         Some(method) => match method.to_ascii_uppercase().as_str() {
             "GET" | "POST" | "HEAD" | "PUT" | "DELETE" => Method::from_str_loose(method),

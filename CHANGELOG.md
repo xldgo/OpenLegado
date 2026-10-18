@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.387] - 2026-10-18
+
+### Added
+- 支持无凭据SOCKS4代理，复用现有书源请求、独立DNS和Cookie能力。
+- SOCKS4凭据明确报错，代理拒绝后不会降级直连。
+- 贡献者：Codex + Rust；构建号388。
+
 ## [2.0.386] - 2026-10-18
 
 ### Fixed

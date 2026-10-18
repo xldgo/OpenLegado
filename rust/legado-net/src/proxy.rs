@@ -1,6 +1,6 @@
 //! 代理池管理
 //!
-//! 支持 HTTP / HTTPS / SOCKS5 代理类型，提供轮询和伪随机选择策略，
+//! 支持 HTTP / HTTPS / SOCKS4 / SOCKS5 代理类型，提供轮询和伪随机选择策略，
 //! 并可作为中间件自动为请求分配代理。
 //!
 //! SOCKS5 支持用户名/密码认证（对齐上游 `HttpProxyConfig.kt` 的凭据校验逻辑
@@ -29,6 +29,8 @@ pub enum ProxyType {
     Http,
     /// HTTPS 代理
     Https,
+    /// SOCKS4代理（当前通道使用空USERID，不支持凭据）
+    Socks4,
     /// SOCKS5 代理
     Socks5,
 }
@@ -39,6 +41,8 @@ impl ProxyType {
         let lower = url.to_lowercase();
         if lower.starts_with("socks5://") || lower.starts_with("socks5h://") {
             ProxyType::Socks5
+        } else if lower.starts_with("socks4://") {
+            ProxyType::Socks4
         } else if lower.starts_with("https://") {
             ProxyType::Https
         } else {
@@ -159,6 +163,9 @@ impl ProxyConfig {
 /// - 用户名不得为空，均不得含控制字符
 /// - SOCKS5 协议限制用户名/密码 UTF-8 字节长度为 1..=255
 fn validate_credentials(creds: &ProxyCredentials, proxy_type: ProxyType) -> LegadoResult<()> {
+    if proxy_type == ProxyType::Socks4 {
+        return Err(socks4_credentials_unsupported());
+    }
     if creds.username.trim().is_empty()
         || creds.username.chars().any(char::is_control)
         || creds.password.chars().any(char::is_control)
@@ -185,9 +192,9 @@ fn validate_credentials(creds: &ProxyCredentials, proxy_type: ProxyType) -> Lega
 /// 1. 遗留格式 `protocol://host:port@username@password`
 /// 2. 标准 URI `scheme://[user:pass@]host:port`
 ///
-/// 校验内容：scheme 必须为 http/https/socks5(socks5h)，必须显式携带端口（1..=65535），
+/// 校验内容：scheme 必须为 http/https/socks4/socks5(socks5h)，必须显式携带端口（1..=65535），
 /// 不得携带 path/query/fragment，凭据通过 [`validate_credentials`] 校验。
-/// SOCKS4 协议 reqwest 不支持，直接报错。
+/// SOCKS4复用reqwest现有通道，明确拒绝其不会发送的USERID/密码。
 pub fn parse_proxy_config(raw_proxy: &str) -> LegadoResult<ProxyConfig> {
     let proxy = raw_proxy.trim();
     if proxy.is_empty() {
@@ -229,6 +236,12 @@ pub fn parse_proxy_config(raw_proxy: &str) -> LegadoResult<ProxyConfig> {
 
     let scheme = parsed.scheme().to_lowercase();
     let proxy_type = match_scheme(&scheme)?;
+
+    if proxy_type == ProxyType::Socks4
+        && (!parsed.username().is_empty() || parsed.password().is_some())
+    {
+        return Err(socks4_credentials_unsupported());
+    }
 
     // 凭据：username 必须非空；存在 username 时密码分隔符必须存在
     // 注：url crate 的 username()/password() 返回未解码原文，需手工百分号解码
@@ -281,15 +294,13 @@ fn proxy_url(scheme: &str, host: &str, port: u16) -> String {
     }
 }
 
-/// scheme 到代理类型的映射（不支持 SOCKS4）
+/// scheme到代理类型的映射。
 fn match_scheme(scheme: &str) -> LegadoResult<ProxyType> {
     match scheme {
         "http" => Ok(ProxyType::Http),
         "https" => Ok(ProxyType::Https),
         "socks5" | "socks5h" => Ok(ProxyType::Socks5),
-        "socks4" => Err(LegadoError::Network(
-            "SOCKS4 代理不受支持（reqwest 无 socks4 实现）".into(),
-        )),
+        "socks4" => Ok(ProxyType::Socks4),
         _ => Err(invalid_proxy()),
     }
 }
@@ -316,6 +327,10 @@ fn parse_port(value: &str) -> LegadoResult<u16> {
         Ok(p) => Ok(p),
         Err(_) => Err(invalid_proxy_port()),
     }
+}
+
+fn socks4_credentials_unsupported() -> LegadoError {
+    LegadoError::Network("SOCKS4代理暂不支持USERID或密码，请使用无凭据配置".into())
 }
 
 fn invalid_proxy() -> LegadoError {
@@ -458,6 +473,15 @@ impl Middleware for ProxyMiddleware {
 /// 使用 [`ProxyConfig::effective_url`] 拼接凭据后的 URL；
 /// reqwest `socks` feature 原生支持 `socks5://user:pass@host:port`。
 pub fn to_reqwest_proxy(config: &ProxyConfig) -> Result<reqwest::Proxy, LegadoError> {
+    // 宽容from_url/with_proxy入口也不能令reqwest静默忽略v4凭据。
+    if (config.proxy_type == ProxyType::Socks4
+        || ProxyType::from_url(&config.url) == ProxyType::Socks4)
+        && (config.credentials.is_some()
+            || Url::parse(&config.url)
+                .is_ok_and(|url| !url.username().is_empty() || url.password().is_some()))
+    {
+        return Err(socks4_credentials_unsupported());
+    }
     let url = config.effective_url();
     reqwest::Proxy::all(&url)
         .map_err(|e| LegadoError::Network(format!("Invalid proxy URL '{}': {}", url, e)))
@@ -485,6 +509,37 @@ mod tests {
         );
         assert!(parse_proxy_config("http://[::1]").is_err());
         assert!(parse_proxy_config("https://proxy.example").is_err());
+    }
+
+    #[test]
+    fn socks4_config_uses_native_protocol_and_rejects_untransmitted_credentials() {
+        let config = parse_proxy_config("socks4://127.0.0.1:1080").unwrap();
+        assert_eq!(config.proxy_type, ProxyType::Socks4);
+        assert_eq!(
+            ProxyType::from_url("SOCKS4://127.0.0.1:1080"),
+            ProxyType::Socks4
+        );
+        assert_eq!(config.effective_url(), "socks4://127.0.0.1:1080");
+        assert!(to_reqwest_proxy(&config).is_ok());
+        for raw in [
+            "socks4://user@127.0.0.1:1080",
+            "socks4://user:secret@127.0.0.1:1080",
+            "socks4://:secret@127.0.0.1:1080",
+            "socks4://127.0.0.1:1080@user@secret",
+        ] {
+            assert!(parse_proxy_config(raw).is_err());
+            let error = to_reqwest_proxy(&ProxyConfig::from_url(raw))
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("USERID"));
+            assert!(!error.contains("secret"));
+        }
+        let configured =
+            ProxyConfig::from_url("socks4://127.0.0.1:1080").with_credentials(ProxyCredentials {
+                username: "user".into(),
+                password: "secret".into(),
+            });
+        assert!(to_reqwest_proxy(&configured).is_err());
     }
 
     #[test]
@@ -633,8 +688,8 @@ mod tests {
         assert!(parse_proxy_config("127.0.0.1:1080").is_err());
         // 不支持的 scheme
         assert!(parse_proxy_config("ftp://127.0.0.1:21").is_err());
-        // SOCKS4 不受支持
-        assert!(parse_proxy_config("socks4://127.0.0.1:1080").is_err());
+        // 本批未接入SOCKS4a。
+        assert!(parse_proxy_config("socks4a://127.0.0.1:1080").is_err());
         // 缺少显式端口
         assert!(parse_proxy_config("socks5://127.0.0.1").is_err());
         // 端口越界
