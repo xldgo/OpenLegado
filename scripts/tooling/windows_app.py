@@ -49,7 +49,7 @@ def build_windows_app(root: Path, profile: str, cargo_target_dir: Path | None = 
         # flutter run 自身构建应用并执行 CMake INSTALL，保留热重载，不先重复 build。
         command = [*flutter, "run", "-d", "windows", f"--{profile}"]
     else:
-        command = [*flutter, "build", "windows", f"--{profile}", "--target-platform", "windows-x64"]
+        command = [*flutter, "build", "windows", f"--{profile}"]
     run_command(command, app, env)
     if not executable.is_file() or not executable.stat().st_size:
         raise ToolError(f"Flutter 未产生 Windows 应用：{executable}")

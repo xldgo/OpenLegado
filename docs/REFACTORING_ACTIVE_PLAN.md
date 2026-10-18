@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### WINDOWS-RELEASE-BUILD-20261018：动效合并后的Windows构建（P1）
+
+- 授权与基线：用户要求尝试编译合并动效后的Windows版本，主目录feature/ui-reader-selection / 47968eab5；单代理，保留原有两份文档修改，不推送或触发额外CI。
+- 已确认阻塞：Python正式入口已完成Windows Release QuickJS DLL构建及来源校验，但Flutter 3.47.7拒绝旧参数--target-platform，退出64。当前SDK的Windows命令默认选择宿主架构，本机为x64；仅移除不支持的参数，不修改SDK、Rust、依赖或应用版本。
+- 修复与环境：windows_app.py只移除不支持的参数，原有打包测试改为断言实际完整命令，11项Windows工具回归通过。首轮Flutter编译还发现本地CMake缓存引用已移除的JDK24目录，使用cmake -U JAVA_*刷新当前构建目录后成功发现现有JDK；不提交本机路径，不改依赖或插件源码。
+- 验证与产物：正式入口最终退出0，Windows Release QuickJS DLL与Flutter x64应用均完成，构建输入/源码指纹、FRB契约及源库/最终打包库摘要一致。应用为flutter_legado/build/windows/x64/runner/Release/flutter_legado.exe，完整目录打包为build/OpenLegado-2.0.376+377-windows-x64.zip。过程日志在build/windows-release-20261018/，build.log为参数失败、build-retry.log为JNI缓存失败，build-final.log为最终成功，tool-tests.log为11项回归；不将失败计作通过。
+- 状态：Windows编译与打包验证完成，工具修复及记录本地提交、不推送；保留两份用户文档。没有启动应用或执行动效/音频/阅读交互验收，不宣称运行功能已验证；需要分发整个Release目录或ZIP，不能单独复制exe。
+
+编写者：Codex + Tool｜2026-10-18
+
 ### UI-MOTION-20261018：UI动效一致性与操作衔接（P2）
 
 - 授权与基线：用户批准三批优化并要求每批验证后本地提交，最初要求全部完成后编译安装MuMu，后续明确取消构建与安装；feature/ui-motion / da7c9f757，单代理，不推送、不修改主目录或Rust worktree。

@@ -7,6 +7,12 @@
 
 ## 命令
 
+2026-10-18在Flutter 3.47.7完成正式Windows x64 Release构建及最终DLL来源校验。
+该SDK的Windows命令不接受`--target-platform`，Python入口使用宿主默认架构；当前
+Rust入口限定x64 MSVC，应用产物也核对在x64目录。若本机换过JDK但CMake仍引用旧JNI
+路径，可在对应构建目录重新配置时清除`JAVA_*`缓存，无需修改插件或项目依赖。
+本次仅验证编译与打包，不代表动效和平台功能已完成运行验收，状态与证据见Active计划。
+
 以下命令在仓库根目录使用 Python 3.11+；从其他目录调用入口也按脚本位置定位仓库。
 
 ```powershell
