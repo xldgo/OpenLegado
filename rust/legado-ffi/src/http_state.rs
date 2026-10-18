@@ -6,13 +6,6 @@
 use legado_core::LegadoResult;
 use legado_net::{LegadoClient, LegadoClientConfig};
 
-/// WebView 回流统一经过本实例的域通道、共享 jar 与合并持久化。
-pub(crate) fn persist_cookie_row_merged(tag: &str, incoming: &str) {
-    if let Err(error) = crate::engine_holder::network().set_cookie(tag, incoming) {
-        log::warn!("合并持久化 Cookie '{tag}' 写入失败: {error}");
-    }
-}
-
 pub fn shared_client() -> LegadoResult<LegadoClient> {
     crate::engine_holder::network().client()
 }

@@ -256,7 +256,7 @@ fn register_apis_with_binding<'js>(
     register_chinese_apis(ctx, &java, &globals)?;
     register_config_apis(ctx, &java, &globals, &host.config)?;
     register_concurrency_apis(ctx, &java, &globals, &host.concurrency)?;
-    register_misc_apis(ctx, &java, &globals, &http)?;
+    register_misc_apis(ctx, &java, &globals, &http, &host.webview)?;
     register_archive_apis(ctx, &java, &globals, &http)?;
     register_font_apis(ctx, &java, &globals, &http)?;
     // 全局 cache 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存，对齐 WebCacheManager）
@@ -4319,6 +4319,7 @@ fn register_misc_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     resources: &std::sync::Arc<crate::http_resources::HttpResources>,
+    manager: &std::sync::Arc<legado_core::webview_channel::WebViewManager>,
 ) -> Result<(), LegadoError> {
     // getSource(sourceUrl) -> String
     mount_dual(
@@ -4493,21 +4494,31 @@ fn register_misc_apis<'js>(
     // type 'string'」。改用 NullStr/NullBool 入参（null/undefined → None），
     // 配 JS 垫片恒定 4 参调用（undefined 补 null），见 RESPONSE_BRIDGE_JS。
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
         "webView",
         rquickjs::Function::new(
             ctx.clone(),
-            move |html: NullStr, url: NullStr, js: NullStr, cache_first: NullBool| -> String {
+            move |ctx: rquickjs::Ctx<'js>,
+                  html: NullStr,
+                  url: NullStr,
+                  js: NullStr,
+                  cache_first: NullBool|
+                  -> rquickjs::Result<String> {
                 platform::web_view_ex(
-                    &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
+                    platform::WebViewContext {
+                        manager: &webview,
+                        cookie: &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
+                    },
                     html.0.as_deref().unwrap_or(""),
                     url.0.as_deref().unwrap_or(""),
                     js.0.as_deref().unwrap_or(""),
                     cache_first.0.unwrap_or(false),
                     0,
                 )
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error.to_string()))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4517,21 +4528,26 @@ fn register_misc_apis<'js>(
     // cacheFirst 上游为非空 Boolean（严格，W4 探针）；delayTime 上游为非空
     // Long（:271/:277 重载，Rhino 原始 long 宽松 — W4 探针）
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
         "webViewGetSource",
         rquickjs::Function::new(
             ctx.clone(),
-            move |html: RhinoOptStr,
+            move |ctx: rquickjs::Ctx<'js>,
+                  html: RhinoOptStr,
                   url: RhinoOptStr,
                   js: RhinoOptStr,
                   source_regex: RhinoOptStr,
                   cache_first: Opt<bool>,
                   delay_time: RhinoOptLong|
-                  -> String {
+                  -> rquickjs::Result<String> {
                 platform::web_view_get_source_ex(
-                    &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
+                    platform::WebViewContext {
+                        manager: &webview,
+                        cookie: &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
+                    },
                     html.0.as_deref().unwrap_or(""),
                     url.0.as_deref().unwrap_or(""),
                     js.0.as_deref().unwrap_or(""),
@@ -4539,6 +4555,7 @@ fn register_misc_apis<'js>(
                     cache_first.0.unwrap_or(false),
                     delay_time.0.unwrap_or(0),
                 )
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error.to_string()))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4550,21 +4567,26 @@ fn register_misc_apis<'js>(
     // Rust 无头运行时返回桥接载荷，由 Flutter 侧用真实 WebView 拦截跳转 URL
     // cacheFirst 严格 / delayTime 宽松，同 webViewGetSource（W4 探针）
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
         "webViewGetOverrideUrl",
         rquickjs::Function::new(
             ctx.clone(),
-            move |html: RhinoOptStr,
+            move |ctx: rquickjs::Ctx<'js>,
+                  html: RhinoOptStr,
                   url: RhinoOptStr,
                   js: RhinoOptStr,
                   override_url_regex: RhinoStr,
                   cache_first: Opt<bool>,
                   delay_time: RhinoOptLong|
-                  -> String {
+                  -> rquickjs::Result<String> {
                 platform::web_view_get_override_url(
-                    &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
+                    platform::WebViewContext {
+                        manager: &webview,
+                        cookie: &http.cookies_for_url(url.0.as_deref().unwrap_or("")),
+                    },
                     html.0.as_deref().unwrap_or(""),
                     url.0.as_deref().unwrap_or(""),
                     js.0.as_deref().unwrap_or(""),
@@ -4572,6 +4594,7 @@ fn register_misc_apis<'js>(
                     cache_first.0.unwrap_or(false),
                     delay_time.0.unwrap_or(0),
                 )
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error.to_string()))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,

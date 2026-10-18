@@ -6,16 +6,15 @@
 //!
 //! # 语义与边界
 //! - 默认超时 60s（对齐 `BackstageWebView` withTimeout）；规则级 Mode.WebJs 用 10s
-//! - 无订阅者时请求方应走无头 QuickJS 回退（本模块 `has_subscribers`）
+//! - 无订阅者时由调用方选择既有无头/载荷回退，通道不持有进程全局实例。
 //! - 空结果允许唤醒（对齐原版 evaluateJavascript 返回 `""`/`null` 的可空语义）
-//! - **边界**：DOM `document`/`window`/`result` 可用；Android 页内经原生
-//!   Backstage 注入 `java`/`source`/`cache` JavascriptInterface；`cacheFirst`
-//!   → `LOAD_CACHE_ELSE_NETWORK`
+//! - **边界**：真实 DOM、页内接口注入与缓存模式由平台执行器实现；
+//!   本模块只处理请求、结果、取消和资源归属，不证明平台执行能力。
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -68,61 +67,103 @@ pub struct WebViewRequest {
     pub created_at_ms: u64,
 }
 
+/// 仅检查任务是否仍有效；实现必须为非阻塞数据检查，不得回调管理器。
+pub type ActiveCheck = Arc<dyn Fn() -> bool + Send + Sync>;
+
 enum Outcome {
     Done(String),
+    Cancelled,
+    TimedOut,
 }
-
+enum Phase {
+    Pending,
+    Completing,
+    Finished(Outcome),
+}
+struct AttemptState {
+    phase: Phase,
+    deadline: Instant,
+}
 struct Attempt {
     request: WebViewRequest,
-    outcome: Mutex<Option<Outcome>>,
+    active: Option<ActiveCheck>,
+    state: Mutex<AttemptState>,
     cond: Condvar,
 }
-
-/// WebView 请求管理器（全局单例）
-pub struct WebViewManager {
-    attempts: Mutex<HashMap<String, Arc<Attempt>>>,
-    subscribers: Mutex<Vec<Sender<WebViewRequest>>>,
-    seq: AtomicU64,
+impl Attempt {
+    fn is_pending(&self) -> bool {
+        let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        matches!(state.phase, Phase::Pending)
+            && Instant::now() < state.deadline
+            && self.active.as_ref().is_none_or(|check| check())
+    }
+}
+struct Subscriber {
+    sender: Sender<WebViewRequest>,
+    wake: Arc<tokio::sync::Notify>,
+}
+#[derive(Default)]
+struct ManagerState {
+    attempts: HashMap<String, Arc<Attempt>>,
+    subscribers: HashMap<u64, Subscriber>,
+    next_subscription: u64,
 }
 
-impl WebViewManager {
-    fn new_leaked() -> &'static Self {
-        Box::leak(Box::new(Self::new()))
-    }
-
-    fn new() -> Self {
+/// 同一宿主的数据通道；句柄拥有管理器，订阅只保留弱引用。
+pub struct WebViewManager {
+    id: u64,
+    state: Mutex<ManagerState>,
+    seq: AtomicU64,
+}
+static NEXT_MANAGER: AtomicU64 = AtomicU64::new(1);
+impl Default for WebViewManager {
+    fn default() -> Self {
         Self {
-            attempts: Mutex::new(HashMap::new()),
-            subscribers: Mutex::new(Vec::new()),
+            id: NEXT_MANAGER.fetch_add(1, Ordering::Relaxed),
+            state: Mutex::new(ManagerState::default()),
             seq: AtomicU64::new(0),
         }
     }
-
-    fn new_key(&self) -> String {
-        let seq = self.seq.fetch_add(1, Ordering::Relaxed);
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
-        format!("webview-{ts}-{seq}")
-    }
-
-    /// 是否有 Flutter 侧订阅者（无订阅则调用方应无头回退）
+}
+impl WebViewManager {
     pub fn has_subscribers(&self) -> bool {
-        let mut subs = self.subscribers.lock().unwrap_or_else(|e| e.into_inner());
-        // 顺带清理断开的发送端
-        subs.retain(|s| {
-            // 空探测：不发送实际请求；用 try 无法探测，保留长度
-            let _ = s;
-            true
-        });
-        // 更可靠：广播前 retain send ok；此处仅看是否非空
-        !subs.is_empty()
+        !self
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .subscribers
+            .is_empty()
     }
-
-    pub fn request(&'static self, mut req: WebViewRequest) -> WebViewHandle {
-        let key = self.new_key();
-        req.key = key.clone();
+    /// 显式请求入口供宿主和通道使用；不要求订阅者已经连接。
+    pub fn request(self: &Arc<Self>, req: WebViewRequest) -> WebViewHandle {
+        self.begin(req, DEFAULT_WEBVIEW_TIMEOUT, None, false)
+            .expect("显式请求不检查订阅")
+    }
+    /// 检查订阅和入队在同一锁内，避免订阅刚退出后仍进入长等待。
+    pub fn try_request(
+        self: &Arc<Self>,
+        req: WebViewRequest,
+        timeout: Duration,
+        active: Option<ActiveCheck>,
+    ) -> Option<WebViewHandle> {
+        self.begin(req, timeout, active, true)
+    }
+    fn begin(
+        self: &Arc<Self>,
+        mut req: WebViewRequest,
+        timeout: Duration,
+        active: Option<ActiveCheck>,
+        require_subscriber: bool,
+    ) -> Option<WebViewHandle> {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        if require_subscriber && state.subscribers.is_empty() {
+            return None;
+        }
+        req.key = format!(
+            "webview-{}-{}",
+            self.id,
+            self.seq.fetch_add(1, Ordering::Relaxed)
+        );
         if req.created_at_ms == 0 {
             req.created_at_ms = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -131,146 +172,301 @@ impl WebViewManager {
         }
         let attempt = Arc::new(Attempt {
             request: req.clone(),
-            outcome: Mutex::new(None),
+            active,
+            state: Mutex::new(AttemptState {
+                phase: Phase::Pending,
+                deadline: Instant::now() + timeout,
+            }),
             cond: Condvar::new(),
         });
-        {
-            let mut attempts = self.attempts.lock().unwrap_or_else(|e| e.into_inner());
-            attempts.insert(key, attempt.clone());
-        }
-        self.broadcast(req);
-        WebViewHandle {
-            attempt,
-            manager: self,
-        }
-    }
-
-    pub fn submit(&self, key: &str, result: &str) -> bool {
-        self.finish(key, Outcome::Done(result.to_string()))
-    }
-
-    pub fn cancel(&self, key: &str) -> bool {
-        self.finish(key, Outcome::Done(String::new()))
-    }
-
-    fn finish(&self, key: &str, outcome: Outcome) -> bool {
-        let attempt = {
-            let mut attempts = self.attempts.lock().unwrap_or_else(|e| e.into_inner());
-            attempts.remove(key)
-        };
-        match attempt {
-            Some(attempt) => {
-                let mut guard = attempt.outcome.lock().unwrap_or_else(|e| e.into_inner());
-                if guard.is_none() {
-                    *guard = Some(outcome);
-                }
-                attempt.cond.notify_all();
-                true
+        state.attempts.insert(req.key.clone(), attempt.clone());
+        state.subscribers.retain(|_, subscriber| {
+            let sent = subscriber.sender.send(req.clone()).is_ok();
+            if sent {
+                subscriber.wake.notify_one();
             }
-            None => false,
-        }
+            sent
+        });
+        Some(WebViewHandle {
+            attempt,
+            manager: self.clone(),
+        })
     }
-
-    pub fn subscribe(&self) -> Receiver<WebViewRequest> {
-        let (tx, rx) = channel();
-        {
-            let mut subscribers = self.subscribers.lock().unwrap_or_else(|e| e.into_inner());
-            subscribers.push(tx.clone());
-        }
-        for req in self.pending() {
-            let _ = tx.send(req);
-        }
-        rx
+    pub fn submit(&self, key: &str, result: &str) -> bool {
+        self.submit_with(key, result, || {})
     }
-
-    pub fn pending(&self) -> Vec<WebViewRequest> {
-        let attempts = self.attempts.lock().unwrap_or_else(|e| e.into_inner());
-        let mut list: Vec<WebViewRequest> = attempts
+    /// 原子认领后再执行副作用，不持请求表或状态锁进入数据库。
+    /// 认领后完成方获胜，等待者须等提交结束；回调panic也会唤醒并清理。
+    pub fn submit_with(&self, key: &str, result: &str, commit: impl FnOnce()) -> bool {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(attempt) = state.attempts.get(key).cloned() else {
+            return false;
+        };
+        let mut status = attempt.state.lock().unwrap_or_else(|e| e.into_inner());
+        if !matches!(status.phase, Phase::Pending) {
+            return false;
+        }
+        let invalid = if attempt.active.as_ref().is_some_and(|check| !check()) {
+            Some(Outcome::Cancelled)
+        } else if Instant::now() >= status.deadline {
+            Some(Outcome::TimedOut)
+        } else {
+            None
+        };
+        if let Some(outcome) = invalid {
+            status.phase = Phase::Finished(outcome);
+            state.attempts.remove(key);
+            attempt.cond.notify_all();
+            return false;
+        }
+        status.phase = Phase::Completing;
+        state.attempts.remove(key);
+        drop(status);
+        drop(state);
+        let completion = Completion(attempt);
+        commit();
+        completion.finish(Outcome::Done(result.to_string()));
+        true
+    }
+    pub fn cancel(&self, key: &str) -> bool {
+        self.end(key, Outcome::Cancelled)
+    }
+    fn end(&self, key: &str, outcome: Outcome) -> bool {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(attempt) = state.attempts.remove(key) else {
+            return false;
+        };
+        let mut status = attempt.state.lock().unwrap_or_else(|e| e.into_inner());
+        status.phase = Phase::Finished(outcome);
+        attempt.cond.notify_all();
+        true
+    }
+    pub fn subscribe(self: &Arc<Self>) -> WebViewSubscription {
+        let (sender, receiver) = channel();
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let id = state.next_subscription;
+        state.next_subscription += 1;
+        let wake = Arc::new(tokio::sync::Notify::new());
+        state.subscribers.insert(
+            id,
+            Subscriber {
+                sender: sender.clone(),
+                wake: wake.clone(),
+            },
+        );
+        let mut replay: Vec<_> = state
+            .attempts
             .values()
-            .filter(|a| {
-                a.outcome
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .is_none()
+            .filter(|attempt| {
+                let status = attempt.state.lock().unwrap_or_else(|e| e.into_inner());
+                matches!(status.phase, Phase::Pending)
+                    && Instant::now() < status.deadline
+                    && attempt.active.as_ref().is_none_or(|check| check())
             })
-            .map(|a| a.request.clone())
+            .map(|attempt| attempt.request.clone())
             .collect();
-        list.sort_by(|a, b| a.key.cmp(&b.key));
-        list
+        replay.sort_by(|a, b| a.key.cmp(&b.key));
+        for request in replay {
+            let _ = sender.send(request);
+            wake.notify_one();
+        }
+        WebViewSubscription {
+            receiver,
+            manager: Arc::downgrade(self),
+            id,
+            wake,
+        }
     }
-
-    fn broadcast(&self, request: WebViewRequest) {
-        let mut subscribers = self.subscribers.lock().unwrap_or_else(|e| e.into_inner());
-        subscribers.retain(|s| s.send(request.clone()).is_ok());
+    fn is_pending(&self, key: &str) -> bool {
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .attempts
+            .get(key)
+            .is_some_and(|attempt| attempt.is_pending())
+    }
+    pub fn pending(&self) -> Vec<WebViewRequest> {
+        let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let mut requests: Vec<_> = state
+            .attempts
+            .values()
+            .filter(|attempt| {
+                let status = attempt.state.lock().unwrap_or_else(|e| e.into_inner());
+                matches!(status.phase, Phase::Pending)
+                    && Instant::now() < status.deadline
+                    && attempt.active.as_ref().is_none_or(|check| check())
+            })
+            .map(|attempt| attempt.request.clone())
+            .collect();
+        requests.sort_by(|a, b| a.key.cmp(&b.key));
+        requests
     }
 }
 
-/// 请求句柄
+/// 完成屏障：已认领请求的副作用执行结束后才发布结果。
+struct Completion(Arc<Attempt>);
+impl Completion {
+    fn finish(self, outcome: Outcome) {
+        let mut state = self.0.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.phase = Phase::Finished(outcome);
+        self.0.cond.notify_all();
+    }
+}
+impl Drop for Completion {
+    fn drop(&mut self) {
+        let mut state = self.0.state.lock().unwrap_or_else(|e| e.into_inner());
+        if matches!(state.phase, Phase::Completing) {
+            state.phase = Phase::Finished(Outcome::Cancelled);
+            self.0.cond.notify_all();
+        }
+    }
+}
+
+pub struct WebViewSubscription {
+    receiver: Receiver<WebViewRequest>,
+    manager: Weak<WebViewManager>,
+    id: u64,
+    wake: Arc<tokio::sync::Notify>,
+}
+impl WebViewSubscription {
+    pub async fn recv_async(&mut self) -> Option<WebViewRequest> {
+        loop {
+            let wake = self.wake.notified();
+            tokio::pin!(wake);
+            wake.as_mut().enable();
+            match self.try_recv() {
+                Ok(request) => return Some(request),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => return None,
+                Err(std::sync::mpsc::TryRecvError::Empty) => wake.await,
+            }
+        }
+    }
+}
+impl Drop for WebViewManager {
+    fn drop(&mut self) {
+        let state = self.state.get_mut().unwrap_or_else(|e| e.into_inner());
+        for (_, subscriber) in state.subscribers.drain() {
+            drop(subscriber.sender);
+            subscriber.wake.notify_one();
+        }
+    }
+}
+
+impl WebViewSubscription {
+    pub fn try_recv(&self) -> Result<WebViewRequest, std::sync::mpsc::TryRecvError> {
+        loop {
+            let request = self.receiver.try_recv()?;
+            let Some(manager) = self.manager.upgrade() else {
+                return Err(std::sync::mpsc::TryRecvError::Disconnected);
+            };
+            if manager.is_pending(&request.key) {
+                return Ok(request);
+            }
+        }
+    }
+    pub fn recv_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<WebViewRequest, std::sync::mpsc::RecvTimeoutError> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let request = self
+                .receiver
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))?;
+            let Some(manager) = self.manager.upgrade() else {
+                return Err(std::sync::mpsc::RecvTimeoutError::Disconnected);
+            };
+            if manager.is_pending(&request.key) {
+                return Ok(request);
+            }
+        }
+    }
+}
+impl Drop for WebViewSubscription {
+    fn drop(&mut self) {
+        if let Some(manager) = self.manager.upgrade() {
+            let keys = {
+                let mut state = manager.state.lock().unwrap_or_else(|e| e.into_inner());
+                state.subscribers.remove(&self.id);
+                if state.subscribers.is_empty() {
+                    state.attempts.keys().cloned().collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                }
+            };
+            for key in keys {
+                manager.cancel(&key);
+            }
+        }
+    }
+}
+
+/// 句柄丢弃即放弃待处理请求，不等待Flutter或保留静态引用。
 pub struct WebViewHandle {
     attempt: Arc<Attempt>,
-    manager: &'static WebViewManager,
+    manager: Arc<WebViewManager>,
 }
-
 impl WebViewHandle {
     pub fn key(&self) -> &str {
         &self.attempt.request.key
     }
-
-    /// 阻塞等待 WebView 执行结果（可空串）
     pub fn wait(self, timeout: Duration) -> LegadoResult<String> {
-        let deadline = Instant::now() + timeout;
-        let mut guard = self
-            .attempt
-            .outcome
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut state = self.attempt.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.deadline = state.deadline.min(Instant::now() + timeout);
         loop {
-            if let Some(outcome) = guard.as_ref() {
-                let result = match outcome {
-                    Outcome::Done(c) => c.clone(),
-                };
-                return Ok(result);
+            match &state.phase {
+                Phase::Finished(Outcome::Done(text)) => return Ok(text.clone()),
+                Phase::Finished(Outcome::Cancelled) => {
+                    return Err(LegadoError::Network("WebView请求已取消".into()));
+                }
+                Phase::Finished(Outcome::TimedOut) => {
+                    return Err(LegadoError::Timeout("webview execution timed out".into()));
+                }
+                Phase::Completing => {
+                    state = self
+                        .attempt
+                        .cond
+                        .wait(state)
+                        .unwrap_or_else(|e| e.into_inner());
+                    continue;
+                }
+                Phase::Pending => {}
             }
+            let cancelled = self.attempt.active.as_ref().is_some_and(|check| !check());
             let now = Instant::now();
-            if now >= deadline {
-                drop(guard);
-                self.manager.cancel(self.attempt.request.key.as_str());
-                return Err(LegadoError::Timeout(
-                    "webview execution timed out".to_string(),
-                ));
+            if cancelled || now >= state.deadline {
+                drop(state);
+                self.manager.end(
+                    self.key(),
+                    if cancelled {
+                        Outcome::Cancelled
+                    } else {
+                        Outcome::TimedOut
+                    },
+                );
+                state = self.attempt.state.lock().unwrap_or_else(|e| e.into_inner());
+                continue;
             }
-            let (next, _) = self
+            // 同步JS已占阻塞工作线程；仅绑定任务时短等待检查取消，不新增监视线程。
+            let remaining = state.deadline - now;
+            let delay = if self.attempt.active.is_some() {
+                remaining.min(Duration::from_millis(10))
+            } else {
+                remaining
+            };
+            state = self
                 .attempt
                 .cond
-                .wait_timeout(guard, deadline - now)
-                .unwrap_or_else(|e| e.into_inner());
-            guard = next;
+                .wait_timeout(state, delay)
+                .unwrap_or_else(|e| e.into_inner())
+                .0;
         }
     }
 }
-
-static MANAGER: OnceLock<&'static WebViewManager> = OnceLock::new();
-
-pub fn webview_manager() -> &'static WebViewManager {
-    MANAGER.get_or_init(WebViewManager::new_leaked)
-}
-
-pub fn has_subscribers() -> bool {
-    webview_manager().has_subscribers()
-}
-
-/// 发起并等待 WebView 执行
-pub fn request_and_wait(req: WebViewRequest, timeout: Duration) -> LegadoResult<String> {
-    let handle = webview_manager().request(req);
-    handle.wait(timeout)
-}
-
-pub fn submit_webview_result(key: &str, result: &str) -> bool {
-    webview_manager().submit(key, result)
-}
-
-pub fn cancel_webview_request(key: &str) -> bool {
-    webview_manager().cancel(key)
+impl Drop for WebViewHandle {
+    fn drop(&mut self) {
+        self.manager.cancel(self.key());
+    }
 }
 
 #[cfg(test)]
@@ -328,7 +524,7 @@ mod tests {
 
     #[test]
     fn submit_wakes_waiter() {
-        let mgr = WebViewManager::new_leaked();
+        let mgr = Arc::new(WebViewManager::default());
         let rx = mgr.subscribe();
         let handle = mgr.request(WebViewRequest {
             key: String::new(),
@@ -352,5 +548,199 @@ mod tests {
         assert_eq!(evt.key, key);
         assert!(mgr.submit(&key, "from-dom"));
         assert_eq!(waiter.join().unwrap().unwrap(), "from-dom");
+    }
+
+    fn request_fixture() -> WebViewRequest {
+        serde_json::from_value(serde_json::json!({
+            "key":"", "action":"webView", "html":"", "url":"https://view.test/",
+            "js":"", "is_rule":false, "result":"", "created_at_ms":0
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn cancelled_request_is_not_a_successful_empty_result() {
+        let manager = Arc::new(WebViewManager::default());
+        let handle = manager.request(request_fixture());
+        assert!(manager.cancel(handle.key()));
+        assert!(handle.wait(Duration::from_millis(10)).is_err());
+    }
+
+    #[test]
+    fn dropping_handle_removes_pending_request() {
+        let manager = Arc::new(WebViewManager::default());
+        let handle = manager.request(request_fixture());
+        drop(handle);
+        assert!(manager.pending().is_empty());
+    }
+
+    #[test]
+    fn dropping_subscriber_removes_capability() {
+        let manager = Arc::new(WebViewManager::default());
+        let subscription = manager.subscribe();
+        assert!(manager.has_subscribers());
+        drop(subscription);
+        assert!(!manager.has_subscribers());
+    }
+
+    #[test]
+    fn completion_claim_is_unique_and_waiter_observes_committed_effect() {
+        let manager = Arc::new(WebViewManager::default());
+        let handle = manager.request(request_fixture());
+        let key = handle.key().to_string();
+        let claimed = manager.clone();
+        let claim_key = key.clone();
+        let (entered, ready) = channel();
+        let (release, gate) = channel();
+        let written = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let effect = written.clone();
+        let writer = thread::spawn(move || {
+            claimed.submit_with(&claim_key, "done", || {
+                entered.send(()).unwrap();
+                gate.recv().unwrap();
+                effect.store(true, Ordering::SeqCst);
+            })
+        });
+        ready.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(!manager.cancel(&key));
+        assert!(!manager.submit(&key, "duplicate"));
+        let (result, received) = channel();
+        let waiter = thread::spawn(move || {
+            let value = handle.wait(Duration::ZERO);
+            result
+                .send((value, written.load(Ordering::SeqCst)))
+                .unwrap();
+        });
+        assert!(matches!(
+            received.recv_timeout(Duration::from_millis(20)),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+        ));
+        release.send(()).unwrap();
+        assert!(writer.join().unwrap());
+        waiter.join().unwrap();
+        let (value, written) = received.recv().unwrap();
+        assert_eq!(value.unwrap(), "done");
+        assert!(written);
+        assert!(manager.pending().is_empty());
+    }
+
+    #[test]
+    fn invalid_or_duplicate_results_never_run_effect_and_empty_success_is_preserved() {
+        let manager = Arc::new(WebViewManager::default());
+        let mut effects = 0;
+        assert!(!manager.submit_with("unknown", "", || effects += 1));
+        let request = manager.request(request_fixture());
+        let key = request.key().to_string();
+        assert!(manager.cancel(&key));
+        assert!(!manager.submit_with(&key, "late", || effects += 1));
+        drop(request);
+        let request = manager.request(request_fixture());
+        let key = request.key().to_string();
+        assert!(request.wait(Duration::ZERO).is_err());
+        assert!(!manager.submit_with(&key, "late", || effects += 1));
+        let subscription = manager.subscribe();
+        let request = manager
+            .try_request(request_fixture(), Duration::ZERO, None)
+            .unwrap();
+        assert!(!manager.submit_with(request.key(), "expired", || effects += 1));
+        assert!(matches!(
+            request.wait(Duration::ZERO),
+            Err(LegadoError::Timeout(_))
+        ));
+        let active = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let check = active.clone();
+        let request = manager
+            .try_request(
+                request_fixture(),
+                Duration::from_secs(2),
+                Some(Arc::new(move || check.load(Ordering::SeqCst))),
+            )
+            .unwrap();
+        active.store(false, Ordering::SeqCst);
+        assert!(!manager.submit_with(request.key(), "cancelled", || effects += 1));
+        assert!(request.wait(Duration::from_secs(2)).is_err());
+        let request = manager.request(request_fixture());
+        let key = request.key().to_string();
+        assert!(manager.submit_with(&key, "", || effects += 1));
+        assert_eq!(request.wait(Duration::from_secs(2)).unwrap(), "");
+        assert!(!manager.submit_with(&key, "duplicate", || effects += 1));
+        assert_eq!(effects, 1);
+        drop(subscription);
+    }
+
+    #[test]
+    fn last_subscriber_cancels_waiting_requests_and_instances_do_not_cross() {
+        let one = Arc::new(WebViewManager::default());
+        let two = Arc::new(WebViewManager::default());
+        let first = one.subscribe();
+        let second = one.subscribe();
+        let other = two.subscribe();
+        let a = one.request(request_fixture());
+        let b = two.request(request_fixture());
+        assert_ne!(a.key(), b.key());
+        assert_eq!(
+            first.recv_timeout(Duration::from_secs(1)).unwrap().key,
+            a.key()
+        );
+        assert_eq!(
+            other.recv_timeout(Duration::from_secs(1)).unwrap().key,
+            b.key()
+        );
+        assert!(!two.submit(a.key(), "wrong"));
+        drop(first);
+        assert!(one.has_subscribers());
+        assert_eq!(one.pending().len(), 1);
+        drop(second);
+        assert!(one.pending().is_empty());
+        assert!(a.wait(Duration::from_secs(1)).is_err());
+        assert!(two.submit(b.key(), "two"));
+        assert_eq!(b.wait(Duration::from_secs(1)).unwrap(), "two");
+    }
+
+    #[tokio::test]
+    async fn subscription_replays_pending_once_and_does_not_keep_manager_alive() {
+        let manager = Arc::new(WebViewManager::default());
+        let weak = Arc::downgrade(&manager);
+        let handle = manager.request(request_fixture());
+        let mut subscription = manager.subscribe();
+        let request = subscription.recv_async().await.unwrap();
+        assert_eq!(request.key, handle.key());
+        assert!(matches!(
+            subscription.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ));
+        drop(handle);
+        drop(manager);
+        assert!(weak.upgrade().is_none());
+        assert!(subscription.recv_async().await.is_none());
+    }
+
+    #[test]
+    fn effect_panic_releases_completion_barrier_and_manager_can_be_reused() {
+        let manager = Arc::new(WebViewManager::default());
+        let handle = manager.request(request_fixture());
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                manager.submit_with(handle.key(), "", || panic!("模拟写入异常"))
+            }))
+            .is_err()
+        );
+        assert!(handle.wait(Duration::from_secs(1)).is_err());
+        assert!(manager.pending().is_empty());
+        let next = manager.request(request_fixture());
+        assert!(manager.submit(next.key(), "ok"));
+        assert_eq!(next.wait(Duration::from_secs(1)).unwrap(), "ok");
+    }
+    #[tokio::test]
+    async fn cancelled_queued_events_are_not_dispatched_to_subscriber() {
+        let manager = Arc::new(WebViewManager::default());
+        let mut subscriber = manager.subscribe();
+        let old = manager.request(request_fixture());
+        manager.cancel(old.key());
+        let live = manager.request(request_fixture());
+        assert_eq!(subscriber.recv_async().await.unwrap().key, live.key());
+        assert!(manager.submit(live.key(), "live"));
+        assert_eq!(live.wait(Duration::from_secs(1)).unwrap(), "live");
+        assert!(old.wait(Duration::from_secs(1)).is_err());
     }
 }

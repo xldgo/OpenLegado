@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### WEBVIEW-LIFECYCLE-20261019：WebView取消、归属与回传收口（P1）
+
+- 状态：本批Rust通道范围已关闭；dep-audit / chore/dep-audit从主目录7e542e6d9快进基线开始，单代理、本地提交，不推送/合并、不修改主目录三份用户文件。
+- 复现：Core全局管理器取消返回成功空值，丢弃句柄仍留请求，订阅退出仍报告可用；FFI先写Cookie再判key且既有测试允许未知key写入。3项行为用例修前失败。收尾另复现平台`[ERROR]`被当作成功继续脚本，已按现有传输约定识别为错误。
+- 实现：WebViewManager归属现有JsHostResources，JS、Parser/Fetcher与FFI共用所属管理器；按次绑定已有任务取消快照。无进程共享请求表、泄漏管理器或根Engine回指。句柄丢弃、显式取消、超时和最后订阅退出清理请求；排队的失效事件不再发送给执行器，订阅接入原子重放且只持弱引用。
+- 完成竞争：原子认领仍有效的本实例key后，才通过捕获的NetworkContext合并Cookie，提交结束后唤醒；取消/超时先获胜、未知、重复及其他实例回调均无Cookie副作用。已认领的提交不能强制中断/回滚，回调panic仍释放等待屏障。正常空结果成功，取消/平台错误不转正文或无头重试；无订阅保留旧动作载荷与既有无头路径。
+- 调度：FFI订阅由Notify通知唤醒，移除每秒spawn_blocking轮询。同步JS仍在已有阻塞线程等待，绑定任务时按10ms条件变量短等待检查取消；未绑定任务的独立宿主只受显式取消/超时约束。不新增监视线程，不宣称所有原生函数均可强制中断。
+- 验证：Core/Parser/JS/Fetcher/Engine/FFI库2627项通过、既有44项忽略；6项新增Engine集成通过。末次错误前缀修复后，JS/Parser/Fetcher三库1141项再次通过、既有2项忽略，计去重2633项通过而非累加重复复跑。覆盖完成/取消竞争与屏障、正常空值、超时/丢弃、订阅释放与队列失效、两实例结果/Cookie隔离、真实QuickJS缓存/fresh取消与复用、Parser不做无头重试、正文钩子取消及根资源释放。
+- 门禁：相关六crate默认/QuickJS两档全目标Clippy -D warnings通过，限定rustfmt、UTF-8与diff检查通过；主目录三份用户文件SHA-256与既存快照一致。仅单代理实现与自查，无独立外审；没有用源码字符串检索充当测试。
+- 过程记录：初次接线漏测例参数及Result包装，已修正；缓存/fresh测试初版移走变量导致编译错误，已修正。初次Clippy的collapsible_if已修正。平台错误前缀补例先失败、修后通过；这些失败均不计入通过结论。
+- 证据：build/webview-lifecycle/{reproduce,regressions,error-reproduce,behavior-final2,js-consumers-final,clippy-quickjs-final2,clippy-default-final2}.log；reproduce/error-reproduce为修前预期失败。日志只作本地追溯，不写入提交正文。
+- 交付边界：版本2.0.389+390、契约与双日志随本批本地提交；无FRB签名/DTO/生成物/schema/依赖变更，不构建DLL/应用/模拟器、不触发远程CI。尚未验证真实WebView DOM、平台Cookie、WebView请求选项或登录回调；不宣称整套JS能力完成。回滚本批后重建native，不伪造产物元数据。
+- 合流：2026-10-19 由主代理合并入主目录 feature/ui-reader-selection，与 UI-DIRECT-BOOK-OPEN-20261019 同批合流；代码零冲突，仅文档同点插入冲突，两侧章节全部保留。
+
+编写者：Codex｜2026-10-19
+
 ### UI-DIRECT-BOOK-OPEN-20261019：开书直达阅读器（P1）
 
 - 授权与基线：用户要求对齐当前上游，删除未读书详情中转；主目录 feature/ui-reader-selection / 7e542e6d9，单代理，不推送、不构建安装、不提升版本，保留三份未提交用户文档。

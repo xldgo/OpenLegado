@@ -17,11 +17,25 @@ use crate::xpath::XPathParser;
 /// 当前解析器的外部变量读取能力；不注册为进程状态。
 pub type VariableReader = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
+/// 所属宿主提供的WebView能力；None代表无订阅，可按原有规则无头处理。
+pub type WebViewExecutor = Arc<
+    dyn Fn(
+            legado_core::webview_channel::WebViewRequest,
+            std::time::Duration,
+        ) -> Option<LegadoResult<String>>
+        + Send
+        + Sync,
+>;
+
 /// JavaScript 执行器 trait
 ///
 /// 由调用方注入具体实现（如 legado-js 的 QuickJS 引擎），
 /// 解决 legado-parser 与 legado-js 之间的循环依赖问题。
 pub trait JsExecutor: Send + Sync {
+    /// 由所属宿主提供WebView能力，未注入时只走既有无头路径。
+    fn webview_executor(&self) -> Option<WebViewExecutor> {
+        None
+    }
     /// 执行 JavaScript 代码，返回结果字符串
     fn execute_js(&self, js_code: &str) -> Result<String, String>;
 
@@ -81,6 +95,7 @@ pub struct AnalyzeRule {
     /// 可选的 JS 执行器（通过回调注入模式解决跨 crate 循环依赖）
     js_executor: Option<Arc<dyn JsExecutor>>,
     variable_reader: Option<VariableReader>,
+    webview: Option<WebViewExecutor>,
     /// JS 执行时的注入上下文（对齐原版 AnalyzeRule.evalJS bindings：
     /// result/src/baseUrl 自动注入；chapter/title/source 等由调用方补充）
     js_bindings: Vec<(String, String)>,
@@ -116,6 +131,7 @@ impl AnalyzeRule {
             json_element_mode: false,
             js_executor: None,
             variable_reader: None,
+            webview: None,
             js_bindings: Vec::new(),
             variables: Arc::new(Mutex::new(HashMap::new())),
             local_bindings: Arc::new(Mutex::new(HashMap::new())),
@@ -131,8 +147,15 @@ impl AnalyzeRule {
         executor: Arc<dyn JsExecutor>,
     ) -> Self {
         let mut rule = Self::new(content, base_url);
+        rule.webview = executor.webview_executor();
         rule.js_executor = Some(executor);
         rule
+    }
+
+    /// 显式注入所属宿主的WebView能力，独立解析器不访问全局通道。
+    pub fn with_webview_executor(mut self, executor: WebViewExecutor) -> Self {
+        self.webview = Some(executor);
+        self
     }
 
     /// 显式注入当前实例的兜底读者；本地绑定与变量仍优先。
@@ -303,6 +326,7 @@ impl AnalyzeRule {
 
     /// 设置 JS 执行器
     pub fn set_js_executor(&mut self, executor: Arc<dyn JsExecutor>) {
+        self.webview = executor.webview_executor();
         self.js_executor = Some(executor);
     }
 
@@ -1854,7 +1878,7 @@ impl AnalyzeRule {
     ///（变量读写与精简同步 API；ajax 等网络类仍建议无头宿主）。
     fn execute_web_js_rule(&self, js_code: &str) -> LegadoResult<String> {
         // 1) DOM 通道（对齐 AnalyzeRule.getWebJsResult → BackstageWebView isRule）
-        if legado_core::webview_channel::has_subscribers() {
+        if let Some(execute) = &self.webview {
             let result_json =
                 serde_json::to_string(&self.content).unwrap_or_else(|_| "\"\"".into());
             let req = legado_core::webview_channel::WebViewRequest {
@@ -1883,16 +1907,8 @@ impl AnalyzeRule {
                 cookie: String::new(),
                 created_at_ms: 0,
             };
-            match legado_core::webview_channel::request_and_wait(
-                req,
-                legado_core::webview_channel::RULE_WEBVIEW_TIMEOUT,
-            ) {
-                Ok(s) if !s.trim().is_empty() && !s.starts_with("[ERROR]") => {
-                    return Ok(s);
-                }
-                Ok(_) | Err(_) => {
-                    eprintln!("[AnalyzeRule] @webjs DOM 通道未得有效结果，回退无头");
-                }
+            if let Some(result) = execute(req, legado_core::webview_channel::RULE_WEBVIEW_TIMEOUT) {
+                return result;
             }
         }
 

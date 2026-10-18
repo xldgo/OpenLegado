@@ -2,6 +2,7 @@
 use std::sync::Arc;
 #[derive(Default)]
 pub struct JsHostResources {
+    pub webview: Arc<legado_core::webview_channel::WebViewManager>,
     pub config: Arc<crate::host_api::config_api::HostConfiguration>,
     pub cache: Arc<crate::host_api::cache_store::CacheStore>,
     pub concurrency: Arc<crate::host_api::concurrency_api::ConcurrencyState>,
