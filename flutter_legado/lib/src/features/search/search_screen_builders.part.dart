@@ -460,7 +460,30 @@ extension _SearchBuilders on _SearchScreenState {
     }
   }
 
-  Widget _buildBody(BuildContext context, SearchState state) {
+  // 只在场景类别变化时过渡；流式结果和续页更新保留同一列表及滚动位置。
+  Widget _buildSceneBody(BuildContext context, SearchState state) {
+    final results = _filterSearchResults(state.results);
+    return AppSceneTransition(
+      scene: _bodyScene(state, results),
+      child: _buildBody(context, state, results),
+    );
+  }
+
+  String _bodyScene(SearchState state, List<SearchResult> results) {
+    if (state.hasResults && _showInputHelp) return 'history';
+    if (state.isLoading && !state.hasResults) return 'loading';
+    if (state.error != null) return 'error';
+    if (results.isEmpty && !state.isLoading && state.keyword.isNotEmpty) {
+      return 'empty';
+    }
+    return state.hasResults ? 'results' : 'history';
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    SearchState state,
+    List<SearchResult> results,
+  ) {
     // 分桶排序在 notifier 批次回调内一次性完成（对齐原版 mergeItems
     // 无条件执行：默认也按匹配度 equal→tags→contains→other 排序，
     // 精准搜索丢弃 other 桶），展示层直接消费 state.results，
@@ -469,8 +492,6 @@ extension _SearchBuilders on _SearchScreenState {
     // [A1 形态对齐 | full-stack-engineer + UI] 搜索结果过滤（对齐原版
     // filterSearchResults：屏蔽词每行一个，匹配书名/作者/分类标签，忽略英文
     // 大小写）。展示层在已分桶结果之上做排除过滤，空词表 = 不过滤（原样返回）。
-    final results = _filterSearchResults(state.results);
-
     // [批次B G-B-05] 书架实时数据（对标原版 appDb.bookDao.flowAll 响应式流）：
     // 在此 watch，进入搜索页即加载书架；增删/刷新时输入帮助层「书架」节与
     // 结果项绿点实时重绘

@@ -1,3 +1,4 @@
+import '../../widgets/app_content_transition.dart';
 import 'application/bookshelf_import_controller.dart';
 import 'application/bookshelf_import_provider.dart';
 import '../../utils/error_message.dart';
@@ -186,11 +187,21 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             ?.copyWith(fontSize: 28),
       ),
       // [UI-fix 2.0.258] 选择模式下加载态/错误态顶栏同样切换为批量动作集
-      actions: state.isBatchMode
-          ? _buildBatchAppBarActions(context, ref)
-          : _buildAppBarActions(context, ref),
+      actions: _animatedActions(context, state),
     );
   }
+
+  List<Widget> _animatedActions(BuildContext context, BookshelfState state) => [
+    AppActionTransition(
+      identity: state.isBatchMode,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: state.isBatchMode
+            ? _buildBatchAppBarActions(context, ref)
+            : _buildAppBarActions(context, ref),
+      ),
+    ),
+  ];
 
   /// [UI-fix 2.0.258] 选择模式顶栏动作集（全选/反选/删除/取消，对标原版
   /// selectMode 顶栏切换语义）：进入选择模式后顶栏由「搜索+溢出菜单」
@@ -524,9 +535,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             ?.copyWith(fontSize: 28),
       ),
       // [UI-fix 2.0.258] 选择模式顶栏切换为批量动作集（全选/反选/删除/取消）
-      actions: state.isBatchMode
-          ? _buildBatchAppBarActions(context, ref)
-          : _buildAppBarActions(context, ref),
+      actions: _animatedActions(context, state),
       // 分组 tab 行（TabBar 默认高 kToolbarHeight，Tab 高度 40dp）
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),

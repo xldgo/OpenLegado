@@ -204,6 +204,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('点击导航经过中间位置，快速反向以最后目标为准', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pump();
+    expect(currentPage(tester), 1);
+    await tester.pump(const Duration(milliseconds: 70));
+    expect(currentPage(tester), inExclusiveRange(1.0, 4.0));
+    expect(navBarIndex(tester), 4);
+    await tester.tap(find.byType(NavigationDestination).at(0));
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 0);
+    expect(navBarIndex(tester), 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('导航动画中手势可接管，不被原点击目标拉回', (tester) async {
+    await pumpHome(tester, MockRustApi());
+    await tester.tap(find.byType(NavigationDestination).at(4));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.drag(find.byType(PageView), const Offset(350, 0));
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), lessThan(4));
+    expect(navBarIndex(tester), currentPage(tester).round());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('快速显隐与用户切页不会被旧帧回调改回去', (tester) async {
     await pumpHome(tester, MockRustApi());
     final notifier = preferences(tester);
@@ -393,7 +420,7 @@ void main() {
     expect(navBarIndex(tester), 2);
   });
 
-  testWidgets('点击底栏项直接跳页（对标 setCurrentItem）', (tester) async {
+  testWidgets('点击底栏项过渡后显示目标页面', (tester) async {
     await pumpHome(tester, MockRustApi());
 
     await tester.tap(find.byType(NavigationDestination).at(4));

@@ -1,3 +1,5 @@
+import '../../../widgets/app_content_transition.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -136,10 +138,11 @@ class BookGridItem extends StatelessWidget {
                               ),
                             ),
                           // 勾选标记独立于封面，切换模式不替换图片。— Codex + UI
-                          if (selectionMode && selected)
-                            Positioned(
-                              top: 4,
-                              right: 4,
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: AppSelectionReveal(
+                              visible: selectionMode && selected,
                               child: Icon(
                                 Symbols.check_circle_rounded,
                                 size: 22,
@@ -147,6 +150,7 @@ class BookGridItem extends StatelessWidget {
                                 color: colorScheme.primary,
                               ),
                             ),
+                          ),
                         ],
                       );
                     },

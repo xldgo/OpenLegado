@@ -1,3 +1,4 @@
+import '../../widgets/app_content_transition.dart';
 import '../../app/routing/route_names.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import '../../widgets/app_menu.dart';
@@ -356,7 +357,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 state.failedSources,
                 _failedBannerExpanded,
               ),
-            Expanded(child: _buildBody(context, state)),
+            Expanded(child: _buildSceneBody(context, state)),
           ],
         ),
         // 批次B G-B-02：搜索中=stop；空闲且 hasMore=play（原版 fb_start_stop + searchFinally）
