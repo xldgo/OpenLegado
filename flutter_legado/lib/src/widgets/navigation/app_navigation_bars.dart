@@ -160,82 +160,108 @@ class _AppFloatingBottomBarState extends State<AppFloatingBottomBar> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final capsule = Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    final radius = BorderRadius.circular(32);
+
+    // 材质面只负责填充、圆角与内容；阴影交给外层，避免被模糊层裁剪。
+    final surface = Container(
       height: 64,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(
           alpha: widget.useBlur ? widget.blurAlpha / 255 : 0.85,
         ),
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: radius,
       ),
       child: Row(
         children: [
           for (var i = 0; i < widget.specs.length; i++)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (_) => setState(() => _pressedIndex = i),
-                onTapCancel: () => setState(() => _pressedIndex = -1),
-                onTapUp: (_) {
-                  setState(() => _pressedIndex = -1);
-                  widget.onSelect(i);
-                },
-                child: Center(
-                  child: AnimatedScale(
-                    scale: _pressedIndex == i ? 1.08 : 1.0,
-                    duration: const Duration(milliseconds: 120),
-                    curve: Curves.fastOutSlowIn,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.fastOutSlowIn,
-                      width: widget.currentIndex == i ? 64 : 48,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: widget.currentIndex == i
-                            ? cs.secondaryContainer
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      alignment: Alignment.center,
-                      child: AnimatedScale(
-                        scale: widget.currentIndex == i ? 1.2 : 1.0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.fastOutSlowIn,
-                        child: _icon(i, selected: widget.currentIndex == i),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            Expanded(child: _item(i, cs)),
         ],
       ),
     );
-    if (widget.useBlur) {
-      return SafeArea(
-        top: false,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: widget.blurRadius.toDouble(),
-              sigmaY: widget.blurRadius.toDouble(),
+
+    // 留白必须留在裁剪层之外：BackdropFilter 的采样范围和圆角要与可见胶囊
+    // 严格重合，否则模糊会溢出到胶囊左右 16、底部 12 的留白里。
+    final capsule = widget.useBlur
+        ? ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: widget.blurRadius.toDouble(),
+                sigmaY: widget.blurRadius.toDouble(),
+              ),
+              child: surface,
             ),
-            child: capsule,
+          )
+        : surface;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: capsule,
+        ),
+      ),
+    );
+  }
+
+  /// 单个导航项：视觉态（按压/选中缩放）与语义态（名称、选中、互斥组）分开表达。
+  Widget _item(int index, ColorScheme cs) {
+    final spec = widget.specs[index];
+    final selected = widget.currentIndex == index;
+    return Semantics(
+      button: true,
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      label: spec.label,
+      onTap: () => widget.onSelect(index),
+      // 图标与皮肤图片不单独进语义树，名称已由 label 表达，避免重复播报。
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressedIndex = index),
+        onTapCancel: () => setState(() => _pressedIndex = -1),
+        onTapUp: (_) {
+          setState(() => _pressedIndex = -1);
+          widget.onSelect(index);
+        },
+        child: Center(
+          child: AnimatedScale(
+            scale: _pressedIndex == index ? 1.08 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.fastOutSlowIn,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.fastOutSlowIn,
+              width: selected ? 64 : 48,
+              height: 32,
+              decoration: BoxDecoration(
+                color: selected ? cs.secondaryContainer : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: AnimatedScale(
+                scale: selected ? 1.2 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.fastOutSlowIn,
+                child: _icon(index, selected: selected),
+              ),
+            ),
           ),
         ),
-      );
-    }
-    return SafeArea(top: false, child: capsule);
+      ),
+    );
   }
 }
 
