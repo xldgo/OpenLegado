@@ -1,3 +1,7 @@
+import '../fixtures/routing_test_app.dart';
+
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+
 import '../fixtures/app_test_api.dart';
 
 // 回归守卫：debug 模式 RenderFlex 右溢（台账 P2-13 ②，设备 crash_log 右溢 12px）。
@@ -112,12 +116,19 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(home: screen),
+        child: screen is WelcomeScreen
+            ? RoutingTestApp(
+                home: const Scaffold(body: Text('主页')),
+                initialRoute: AppRoutes.welcome,
+                routes: {AppRoutes.welcome: (_) => screen},
+              )
+            : MaterialApp(home: screen),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
+    if (screen is WelcomeScreen) await tester.pumpAndSettle();
   }
 
   /// 扫描屏幕清单：（屏幕名, 360dp 画布下的 fixture）。

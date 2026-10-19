@@ -1,7 +1,8 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 // 阅读域类型化结果的真实宿主原生库 往返。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:io';

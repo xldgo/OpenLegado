@@ -1,13 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
 
-### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，实施中）
+### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，待复验：Linux CI）
 
 - 授权与基线：用户同意统一加载入口、移除无依据的Windows限制并整理CI；feature/ui-reader-selection / 7d7df8d17，单代理，逐批本地提交，不推送、不提升版本、不构建安装应用。
-- B1已完成：测试统一显式库路径或当前宿主debug产物，复用NativeRustRuntime.libraryResolver；缺库/空库/加载失败报错，不搜索release旧库。通用业务不再注册跳过占位，原生句柄、载荷与业务断言保留。
+- B1已完成（ea77e5ed5）：测试统一显式库路径或当前宿主debug产物，复用NativeRustRuntime.libraryResolver；缺库/空库/加载失败报错，不搜索release旧库。通用业务不再注册跳过占位，原生句柄、载荷与业务断言保留。
 - B2：将普通测试与原生测试显式分组，Linux CI单次构建宿主库后集中运行原生测试；保留Windows宿主冒烟、现有触发/权限及iOS手动约定。按依赖范围选择相关任务，不把Windows本地通过当作Linux验证。
+- B2本地完成：43个原生测试文件显式标记native，普通组不准备原生库并使用不存在的显式库路径；Linux原生组只构建一次当前源码debug库后运行。analyze保留为汇总门禁，原生失败/取消/意外跳过不能被普通组通过掩盖。独立页面/普通组件实现变化不启动原生组；测试集改动保守跑两组，共享层及新目录默认纳入原生检查。
+- 夹具清理：普通组首次完整执行发现13个既有失败；6个测试文件修正Router/ProviderScope宿主、确认页正常push/pop、已接线线程设置的禁用项数量，以及Glass菜单控件/底色断言。保留原业务行为断言，章级去重改为真实点击菜单；未改生产UI或引入skip，88项定向复验通过。
 - 非目标：不调整Web/MCP服务实现、不修改生产加载器/Rust/FFI契约、不使用子代理、不安装或触发远程CI。
 - B1验证：当前源码宿主库cargo build --locked -p legado-ffi --features quickjs成功；29个FFI测试文件共71项全部通过，28个文件移除Windows跳过。加载器6项及已解除原生依赖的20项回归通过，目标静态分析无问题。日志flutter_legado/build/native-tests-b1-{cargo,runtime,fast,analyze}.log。WSL未安装Flutter/Rust，不将平台名称解析测试当作Linux或macOS真实加载证据。
+- B2验证：Windows完整普通组4185项通过（显式指定不存在的库路径），完整原生组190项通过，无平台占位或跳过。CI编排22项通过，覆盖真实Git差异到CLI输出、手动范围及汇总失败策略；全模块dart analyze、actionlint与diff检查通过。日志flutter_legado/build/native-tests-b2-{fast,runtime,fixtures,routing,analyze}.log；初次失败保留于fast-initial.log，修正后已全量复验。
+- 交付边界：本批本地代码与流程验证完成，生产代码/SDK/依赖/版本号未修改；未推送、未构建安装应用或触发Actions。Linux/macOS真实加载未运行，Linux CI结果保留待复验；不得把Windows的190项等同于跨平台验收。执行者Codex + UI/Bridge，2026-10-19；B2提交见Git记录。
+
 
 ### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
 
@@ -16,7 +21,7 @@
 - 验收：保留原有交互断言；显式指定不存在的原生库路径运行迁移用例；对应静态分析及diff检查。Web/MCP服务调整后置，CI任务拆分与其余原生测试审计另行收口，不声称已解除全模块原生依赖。
 
 - 结果：两组选区/高亮测试解除FFI初始化与异步原生等待；夹具保留正式ReaderGlyph命中/绘制路径，双页与分行由用例指定。旧测绘契约/诊断链路合并为FlutterTextShaper测试，新增Unicode字形命中与复制回归；原有交互断言保留。复制用例宿主改用既有RoutingTestApp，长按落在实际字形而非满宽行容器中心。
-- 验证：LEGADO_TEST_FFI_LIBRARY指向不存在的库路径，20项相关行为测试全部通过；日志flutter_legado/build/reader-test-boundaries.log。对应静态分析及diff检查通过；未运行远程CI、设备或原生构建。真实FFI和其余分页集成用例保留，CI拆分未实施。测试职责见FLUTTER_DATA_BOUNDARIES.md「阅读器测试职责与原生依赖」。
+- 验证：LEGADO_TEST_FFI_LIBRARY指向不存在的库路径，20项相关行为测试全部通过；日志flutter_legado/build/reader-test-boundaries.log。对应静态分析及diff检查通过；未运行远程CI、设备或原生构建。真实FFI和其余分页集成用例保留；CI分层由UI-NATIVE-TESTS-20261019单独交付。测试职责见FLUTTER_DATA_BOUNDARIES.md「阅读器测试职责与原生依赖」。
 - 执行者：Codex + UI，2026-10-19；本批提交见Git记录。
 
 ### UI-FOUNDATION-20261019：启动、任务边界与工程门禁（P1/P2）

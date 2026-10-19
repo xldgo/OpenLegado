@@ -92,7 +92,9 @@ void main() {
     });
     // 真实目录流必须在真实异步区域启动，不能留给测试的虚拟时钟处理。
     await tester.runAsync(() async {
-      await tester.pumpWidget(const MaterialApp(home: FileManageScreen()));
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: FileManageScreen())),
+      );
       for (var attempt = 0; attempt < 100; attempt++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         await tester.pump();

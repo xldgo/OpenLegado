@@ -1,4 +1,5 @@
 import '../fixtures/app_test_api.dart';
+import '../fixtures/routing_test_app.dart';
 
 import 'package:flutter_legado/src/domain/models/reader_menu_theme_settings.dart';
 
@@ -40,7 +41,7 @@ Future<void> _showToolbar(
         if (bookmarks != null)
           bookmarkRepositoryProvider.overrideWithValue(bookmarks),
       ]),
-      child: MaterialApp(
+      child: RoutingTestApp(
         builder: (_, child) => Overlay.wrap(child: child!),
         home: Scaffold(
           body: ReaderMenuThemeHost(

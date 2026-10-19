@@ -1,6 +1,7 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:async';

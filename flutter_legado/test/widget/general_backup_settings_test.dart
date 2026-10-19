@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('其他设置未接线的二十二行禁用，保留说明及已保存值', (tester) async {
+  testWidgets('其他设置未接线的二十一行禁用，保留说明及已保存值', (tester) async {
     await open(
       tester,
       const OtherSettingsScreen(),
@@ -85,7 +85,7 @@ void main() {
         .widgetList<SettingTile>(find.byType(SettingTile))
         .where((row) => !row.enabled)
         .toList();
-    expect(disabled, hasLength(22));
+    expect(disabled, hasLength(21));
     for (final row in disabled) {
       expect(row.onTap, isNull, reason: row.title);
       expect(row.subtitle, contains('待实现'), reason: row.title);

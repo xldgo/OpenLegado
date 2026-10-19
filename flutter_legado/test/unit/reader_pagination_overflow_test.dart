@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import '../helpers/native_reader_layout.dart';
 
 import 'package:material_ui/material_ui.dart';

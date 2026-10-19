@@ -1,7 +1,8 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// 通过实际 DLL 验证字节传输、CBZ 与缓存，不依赖模拟桥。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:convert';

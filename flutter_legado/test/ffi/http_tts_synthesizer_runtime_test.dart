@@ -1,7 +1,8 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// 真实宿主 FFI 与本机 HTTP fixture，不依赖外部 TTS 网站。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:async';

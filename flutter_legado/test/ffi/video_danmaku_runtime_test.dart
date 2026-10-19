@@ -1,3 +1,5 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// V-B1 视频弹幕数据链 Dart↔Rust 真实数据链运行时验证（契约 §2.49）
@@ -20,7 +22,6 @@ library;
 /// （rust/legado-ffi/src/api/video_api.rs，不联网）。
 /// 前置条件：先在 rust/ 下构建当前宿主原生库
 /// （cargo build -p legado-ffi --features quickjs）。
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:convert';

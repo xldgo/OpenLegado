@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 
 import '../helpers/native_reader_layout.dart';

@@ -1,7 +1,8 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// 真实 FRB、SQLite 与本机 SSE/音频下载，不调用百炼账号。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:convert';

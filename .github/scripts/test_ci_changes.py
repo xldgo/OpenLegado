@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 import ci_changes as ci
 
 
@@ -141,6 +142,64 @@ class SummaryTests(unittest.TestCase):
             ci.check_results(self.needs(selected=""), {"tests": "rust"})
 
 
+class NativeRoutingTests(unittest.TestCase):
+    def test_native_inputs(self):
+        for path in (
+            "rust/legado-net/src/client.rs", "rust/Cargo.lock",
+            "rust/legado-layout/tests/fixtures/md3.json.gz",
+            "rust/legado-ffi/tests/fixtures/layout_transport.json",
+            "flutter_legado/lib/src/data/bridge/rust_runtime.dart",
+            "flutter_legado/lib/src/widgets/reader/reader_text_content.dart",
+            "flutter_legado/lib/src/features/reader/application/reader_state.dart",
+            "flutter_legado/lib/src/features/read_aloud/playback/file_read_aloud_playlist.dart",
+            "flutter_legado/lib/src/app/routing/app_router.dart",
+            "flutter_legado/lib/src/new_shared_module/service.dart",
+            "flutter_legado/pubspec.lock", "flutter_legado/dart_test.yaml",
+            "flutter_legado/test/ffi/privacy_runtime_test.dart",
+            "flutter_legado/test/widget/bookshelf_test.dart",
+            "flutter_legado/test/helpers/native_ffi.dart",
+            ".github/workflows/flutter-ci.yml",
+            ".github/actions/setup-flutter-rust/action.yml", "third_party/plugin/lib/native.dart",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(ci.classify_native_test_paths([path]), {"native_tests": True})
+
+    def test_isolated_ui_docs_and_other_platforms_do_not_build_linux(self):
+        for path in (
+            "docs/development.md", "rust/README.md", "README.md",
+            "flutter_legado/lib/src/widgets/top_bar_button.dart",
+            "flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart",
+            "flutter_legado/lib/src/features/settings/presentation/settings_screen.dart",
+            "flutter_legado/android/app/build.gradle.kts", "flutter_legado/ios/Runner/Info.plist",
+            "rust/legado-net/tests/client.rs", "flutter_legado/assets/updateLog.md",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(ci.classify_native_test_paths([path]), {"native_tests": False})
+
+    def test_native_input_is_not_hidden_by_unrelated_changes(self):
+        self.assertEqual(ci.classify_native_test_paths([
+            "README.md", "flutter_legado/lib/src/bridge/frb_generated.dart",
+        ]), {"native_tests": True})
+
+    def test_aggregate_rejects_native_failure_or_unexpected_skip(self):
+        for result in ("failure", "cancelled", "skipped"):
+            with self.subTest(result=result), self.assertRaises(ValueError):
+                ci.check_results({
+                    "changes": {"result": "success", "outputs": {
+                        "flutter_checks": "false", "native_tests": "true",
+                    }},
+                    "flutter-checks": {"result": "skipped"},
+                    "native-tests": {"result": result},
+                }, {"flutter-checks": "flutter_checks", "native-tests": "native_tests"})
+        ci.check_results({
+            "changes": {"result": "success", "outputs": {
+                "flutter_checks": "true", "native_tests": "false",
+            }},
+            "flutter-checks": {"result": "success"},
+            "native-tests": {"result": "skipped"},
+        }, {"flutter-checks": "flutter_checks", "native-tests": "native_tests"})
+
+
 class GitDiffTests(unittest.TestCase):
     def setUp(self):
         parent = ci.ROOT / ".tmp_ci_workflow_validation"
@@ -226,12 +285,45 @@ class GitDiffTests(unittest.TestCase):
                                 env=environment, capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(output.read_text(encoding="utf-8").splitlines(),
-                         [f"{key}={'true' if key == 'android_ffi' else 'false'}" for key in (*ci.TARGETS, "dart_generate", "bridge_generate")])
+                         [f"{key}={'true' if key == 'android_ffi' else 'false'}" for key in (*ci.TARGETS, "dart_generate", "bridge_generate", "native_tests", "flutter_checks")])
         event.write_text(json.dumps({"inputs": {"platform": "unknown"}}), encoding="utf-8")
         result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
                                 env=environment, capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 1)
         self.assertIn("未知手动验证范围", result.stderr)
+
+        event.write_text(json.dumps({"inputs": {"platform": "all"}}), encoding="utf-8")
+        output.write_text("", encoding="utf-8")
+        result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
+                                env=environment, capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines()),
+                         dict.fromkeys((*ci.TARGETS, "dart_generate", "bridge_generate", "native_tests", "flutter_checks"), "true"))
+
+    def test_automatic_cli_emits_flutter_and_native_groups(self):
+        event = self.root / ".git" / "fixture-event.json"
+        output = self.root / ".git" / "fixture-outputs.txt"
+        for path, expected in (
+            ("flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart", ("true", "false")),
+            ("flutter_legado/test/widget/bookshelf_test.dart", ("true", "true")),
+            ("rust/legado-net/src/client.rs", ("false", "true")),
+            ("rust/legado-ffi/src/api/book.rs", ("true", "true")),
+            ("docs/development.md", ("false", "false")),
+        ):
+            before = self.command("rev-parse", "HEAD")
+            self.write(path, "夹具\n")
+            head = self.commit()
+            event.write_text(json.dumps({"before": before}), encoding="utf-8")
+            output.write_text("", encoding="utf-8")
+            with self.subTest(path=path), patch.object(ci, "ROOT", self.root), patch.object(
+                os.sys, "argv", ["ci_changes.py", "changes"],
+            ), patch.dict(os.environ, {
+                "GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": str(event),
+                "GITHUB_OUTPUT": str(output), "GITHUB_SHA": head,
+            }), patch("builtins.print"):
+                self.assertEqual(ci.main(), 0)
+            values = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines())
+            self.assertEqual((values["flutter_checks"], values["native_tests"]), expected)
 
 
 if __name__ == "__main__":

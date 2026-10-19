@@ -1,7 +1,8 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// 真实 FRB/SQLite/HTTP；凭据存储使用内存 fixture，不证明平台密钥库有效。— Codex + Bridge
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:convert';

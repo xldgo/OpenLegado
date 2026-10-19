@@ -15,9 +15,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  analyze:
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      flutter: ${{ steps.changes.outputs.flutter }}
+      dart_generate: ${{ steps.changes.outputs.dart_generate }}
+      bridge_generate: ${{ steps.changes.outputs.bridge_generate }}
+      flutter_checks: ${{ steps.changes.outputs.flutter_checks }}
+      native_tests: ${{ steps.changes.outputs.native_tests }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -28,26 +34,35 @@ jobs:
         id: changes
         uses: ./.github/actions/ci-changes
 
-      - name: Setup Flutter and Rust
-        if: steps.changes.outputs.flutter == 'true' || steps.changes.outputs.dart_generate == 'true' || steps.changes.outputs.bridge_generate == 'true'
+  flutter-checks:
+    needs: changes
+    if: needs.changes.outputs.flutter_checks == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter and optional bridge Rust toolchain
         uses: ./.github/actions/setup-flutter-rust
+        with:
+          rust-toolchain: ${{ needs.changes.outputs.bridge_generate == 'true' && 'stable' || 'none' }}
 
       - name: Run flutter pub get
-        if: steps.changes.outputs.flutter == 'true' || steps.changes.outputs.dart_generate == 'true' || steps.changes.outputs.bridge_generate == 'true'
         working-directory: flutter_legado
         run: flutter pub get --enforce-lockfile
 
       - name: Check architecture dependencies
-        if: steps.changes.outputs.flutter == 'true'
+        if: needs.changes.outputs.flutter == 'true'
         working-directory: flutter_legado
         run: dart run tool/check_architecture.dart
 
       - name: Check Dart generated code
-        if: steps.changes.outputs.dart_generate == 'true'
+        if: needs.changes.outputs.dart_generate == 'true'
         run: python3 scripts/dev.py generate dart --check
 
       - name: Setup bridge generators
-        if: steps.changes.outputs.bridge_generate == 'true'
+        if: needs.changes.outputs.bridge_generate == 'true'
         shell: bash
         run: |
           FRB_VERSION="$(python3 -c 'import sys; from pathlib import Path; sys.path.insert(0, "scripts"); from tooling.contracts import runtime_version; print(runtime_version(Path.cwd()))')"
@@ -55,17 +70,58 @@ jobs:
           cargo install cargo-expand --version 1.0.127 --locked
 
       - name: Check bridge generated code
-        if: steps.changes.outputs.bridge_generate == 'true'
+        if: needs.changes.outputs.bridge_generate == 'true'
         run: python3 scripts/dev.py generate bridge --check
 
       - name: Run flutter analyze
-        if: steps.changes.outputs.flutter == 'true'
+        if: needs.changes.outputs.flutter == 'true'
         working-directory: flutter_legado
         run: flutter analyze --no-pub
 
       - name: Run flutter test
-        if: steps.changes.outputs.flutter == 'true'
+        if: needs.changes.outputs.flutter == 'true'
         working-directory: flutter_legado
-        run: |
-          cargo build --locked --manifest-path ../rust/Cargo.toml -p legado-ffi --features quickjs
-          flutter test --no-pub
+        env:
+          LEGADO_TEST_FFI_LIBRARY: /__legado_fast_tests_no_native_library__
+        run: flutter test --no-pub --exclude-tags native
+
+  native-tests:
+    needs: changes
+    if: needs.changes.outputs.native_tests == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter and Rust
+        uses: ./.github/actions/setup-flutter-rust
+
+      - name: Restore locked Flutter dependencies
+        working-directory: flutter_legado
+        run: flutter pub get --enforce-lockfile
+
+      - name: Build current Linux FFI library once
+        working-directory: rust
+        run: cargo build --locked -p legado-ffi --features quickjs
+
+      - name: Run native contract and reader integration tests
+        working-directory: flutter_legado
+        env:
+          LEGADO_TEST_FFI_LIBRARY: ${{ github.workspace }}/rust/target/debug/liblegado_ffi.so
+        run: flutter test --no-pub --tags native
+
+  # 保留原analyze检查名，任何被选中的任务失败/取消/意外跳过都不能通过。
+  analyze:
+    if: ${{ always() }}
+    needs: [changes, flutter-checks, native-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Aggregate Flutter checks
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci_changes.py check flutter-checks=flutter_checks native-tests=native_tests

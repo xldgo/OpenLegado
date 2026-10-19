@@ -1008,3 +1008,17 @@ legado_ffi.dll、liblegado_ffi.so、liblegado_ffi.dylib；可用LEGADO_TEST_FFI_
 由test/ffi与分页集成用例负责，平台实测结果统一记录在Active计划。
 
 编写者：Codex + Bridge｜2026-10-19
+
+
+## 普通组与原生组的执行边界
+
+原生测试文件以库级`@Tags(['native'])`标记，dart_test.yaml登记标签。
+`flutter test --exclude-tags native`执行普通组，`flutter test --tags native`执行原生组；
+直接`flutter test`仍执行全部，不允许原生库缺失时用占位测试替代原有断言。
+
+CI普通组显式设置不存在的库路径，用于暴露错误初始化；Linux原生组单次构建并指定当前源码产物。
+Windows宿主冒烟沿用独立Integration Smoke，不复制整套业务矩阵。
+测试集变化本轮保守运行两组；分组是执行边界，不将少跑测试或未初始化Rust等同于测试通过。
+编排、触发和汇总规则见CI_ORCHESTRATION_20261010.md，验证进度只登记于Active计划。
+
+编写者：Codex + UI｜2026-10-19

@@ -1,3 +1,5 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// P2-29c 后续 失败章查询 Dart↔Rust 真实数据链运行时验证（契约 §2.43.8）
@@ -16,7 +18,6 @@ library;
 /// （rust/legado-ffi/src/api/cache_download_api.rs，本地 TXT 夹具不联网）。
 /// 前置条件：先在 rust/ 下构建当前宿主原生库
 /// （cargo build -p legado-ffi --features quickjs）。
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:io';

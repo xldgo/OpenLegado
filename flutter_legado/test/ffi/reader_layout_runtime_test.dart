@@ -1,6 +1,7 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
-@Timeout(Duration(minutes: 3))
 import 'dart:convert';
 import 'dart:io';
 

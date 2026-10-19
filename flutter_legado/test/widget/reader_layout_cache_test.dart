@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import 'dart:async';
 
 import '../fixtures/app_test_api.dart';

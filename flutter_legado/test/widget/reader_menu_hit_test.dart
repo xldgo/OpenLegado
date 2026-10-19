@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import '../fixtures/routing_test_app.dart';
 
 import 'package:flutter_legado/src/app/routing/route_arguments.dart';

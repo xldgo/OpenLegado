@@ -9,7 +9,11 @@ import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_legado/src/widgets/app_menu.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_controls.dart';
+import 'package:flutter_legado/src/l10n/app_localization.dart';
+
+import '../fixtures/routing_test_app.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -80,7 +84,7 @@ void main() {
   Widget wrapStack(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
+      child: RoutingTestApp(
         home: Scaffold(body: Stack(children: [child])),
       ),
     );
@@ -100,16 +104,16 @@ void main() {
       await tester.pump();
 
       expect(find.byIcon(Symbols.arrow_back_rounded), findsOneWidget);
-      expect(find.byType(AppMenuButton<String>), findsOneWidget);
+      expect(find.byTooltip('更多'), findsOneWidget);
       // 初始无书籍时进度为 0.0%
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(ReaderMenuProgressSlider), findsOneWidget);
     });
 
-    testWidgets('菜单上下栏使用统一浮点底色，普通模式也响应背景设置', (tester) async {
+    testWidgets('菜单上下栏使用独立玻璃底色，模糊总开关不改变材质', (tester) async {
       final settings = container.read(uiSettingsProvider.notifier);
       await settings.load();
-      await settings.setTopBarBackgroundOpacity(0.25);
-      await settings.setBottomBarBackgroundOpacity(0.5);
+      await settings.setTopBarBlurTintOpacity(0.25);
+      await settings.setBottomBarBlurTintOpacity(0.5);
       await tester.pumpWidget(wrapStack(buildReaderMenu(onAddBookmark: () {})));
       await tester.pumpAndSettle();
       List<AppSurfaceBackdrop> surfaces() => tester
@@ -117,12 +121,12 @@ void main() {
           .toList();
       expect(surfaces().first.material.color.a, 0.25);
       expect(surfaces().last.material.color.a, 0.5);
-      expect(find.byType(BackdropFilter), findsNothing);
+      expect(find.byType(BackdropFilter), findsWidgets);
       await settings.setEnableBlur(true);
       await tester.pumpAndSettle();
-      expect(surfaces().first.material.color.a, closeTo(0.73, 1e-6));
-      expect(surfaces().last.material.color.a, closeTo(0.4, 1e-6));
-      expect(find.byType(BackdropFilter), findsNWidgets(2));
+      expect(surfaces().first.material.color.a, closeTo(0.25, 1e-6));
+      expect(surfaces().last.material.color.a, closeTo(0.5, 1e-6));
+      expect(find.byType(BackdropFilter), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -131,7 +135,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: MediaQuery(
               data: const MediaQueryData(
                 padding: EdgeInsets.zero,
@@ -226,11 +230,15 @@ void main() {
       await tester.pump();
       await openBookAndPump(tester);
 
-      final prevButton = tester.widget<IconButton>(
-        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '上一章'),
+      final prevButton = tester.widget<ReaderMenuControlButton>(
+        find.byWidgetPredicate(
+          (w) => w is ReaderMenuControlButton && w.label == '上一章',
+        ),
       );
-      final nextButton = tester.widget<IconButton>(
-        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '下一章'),
+      final nextButton = tester.widget<ReaderMenuControlButton>(
+        find.byWidgetPredicate(
+          (w) => w is ReaderMenuControlButton && w.label == '下一章',
+        ),
       );
       expect(prevButton.onPressed, isNull);
       expect(nextButton.onPressed, isNotNull);
@@ -282,11 +290,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.brightness_auto), findsOneWidget);
-      expect(find.byType(Slider), findsNWidgets(2));
+      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(ReaderMenuProgressSlider), findsOneWidget);
       await tester.tap(find.byIcon(Icons.brightness_auto));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.brightness_auto_outlined), findsOneWidget);
-      expect(find.byType(Slider), findsNWidgets(2));
+      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(ReaderMenuProgressSlider), findsOneWidget);
     });
   });
 
@@ -458,9 +468,13 @@ void main() {
             .openBook(testBook);
         await tester.pumpWidget(wrapStack(buildReaderMenu()));
         await tester.pumpAndSettle();
-        tester
-            .widget<AppMenuButton<String>>(find.byType(AppMenuButton<String>))
-            .onSelected!('sameTitleRemoved');
+        await tester.tap(find.byTooltip('更多'));
+        await tester.pumpAndSettle();
+        final label = tester
+            .element(find.byTooltip('更多'))
+            .l10n
+            .readerRemoveDuplicateTitle;
+        await tester.tap(find.text(label));
         await tester.pumpAndSettle();
         verify(
           () => mockApi.readingContentService.toggleSameTitleRemoved(

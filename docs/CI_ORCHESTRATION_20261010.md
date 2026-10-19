@@ -63,13 +63,26 @@ Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地�
 权威实现为 [.github/scripts/ci_changes.py](../.github/scripts/ci_changes.py)，
 回归矩阵为 [test_ci_changes.py](../.github/scripts/test_ci_changes.py)。
 
-Flutter排版测试已复用正式FRB接口；现有Flutter测试步骤在本机先构建`legado-ffi`
-（QuickJS），再运行测试。该准备复用Rust构建缓存，不构建应用，也不新增工作流或平台作业。
-纯组件测试不初始化原生库；相邻章缓存、分页、原文映射等用例使用真实句柄。首次整库编译
-成本与测试执行耗时需分别记录，不宣称已测得远程CI总耗时下降。
+Flutter CI分为changes、flutter-checks、native-tests与analyze汇总。保留原analyze检查名，
+选择失败、被选中任务失败/取消/意外跳过都不能通过；未选中任务允许跳过。
 
-- 纯文档与测试改动不启动无关原生编译；Flutter 测试走 Flutter CI，Rust crate
-  集成测试走 Rust CI。Rust src 内联测试无法按文件与生产代码分离，仍运行原生检查。
+- flutter-checks运行架构门禁、按相关输入选择的生成检查、静态分析及
+  `flutter test --no-pub --exclude-tags native`。普通测试不编译原生库，且显式指定不存在的
+  LEGADO_TEST_FFI_LIBRARY，避免错误初始化被本机旧库掩盖；只有FRB生成复核需要Rust工具链。
+- native-tests在Linux单次执行`cargo build --locked -p legado-ffi --features quickjs`，
+  显式传入本次debug `.so`，运行`flutter test --no-pub --tags native`。
+  标签覆盖通用FFI契约与仍依赖真实分页的阅读器集成用例，不按所在目录假定测试类型。
+- 原生组选中范围包括Rust生产输入、FRB与数据/领域/平台/共享状态、阅读器/搜索/朗读、
+  依赖锁文件和相关编排。独立书架/设置页面及非阅读器普通组件实现变化不单独选择原生组。
+  本轮测试文件和共享夹具变化先保守选择两组，不声称已做到逐用例最小依赖选择。
+- Rust crate独立集成测试变化只走Rust CI；两处正式排版测试载荷目录因被Dart读取，仍选原生组。
+  纯文档变化不启动原生编译；iOS模拟器手动约定、设备包触发和Windows宿主冒烟保持。
+- `dart_test.yaml`登记native标签；新增原生用例须显式标记。普通组缺库即失败，用来暴露遗漏分组，
+  不通过skip或退回Mock消除失败。全量本地`flutter test`仍会运行两组，需先构建宿主库。
+
+本地验证结果与平台限制登记于Active计划；Windows通过不代表Linux/macOS已实际运行，
+编排静态检查通过也不代表远程Actions已通过。不以分组前后单次本地耗时推断远程成本下降。
+
 - 普通 Dart 页面走 Flutter 检查；在 dev/master 上影响应用内容时构建 iOS 设备包。
 - Android/Windows/iOS 平台目录分别选择所属平台；Android FFI 作业只证明原生库
   编译和复制校验，不替代 APK/Gradle 宿主构建。

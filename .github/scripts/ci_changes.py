@@ -112,6 +112,50 @@ def classify_generation_paths(paths):
     return selected
 
 
+def classify_native_test_paths(paths):
+    """原生回归跟随边界与阅读集成输入；测试集改动先保守全量复核。"""
+    for path in paths:
+        if path.startswith("docs/") or (
+            path.endswith((".md", ".rst")) and "assets" not in path.split("/")
+        ):
+            continue
+        if path.startswith("third_party/") or path in (
+            ".gitmodules", ".github/workflows/flutter-ci.yml",
+            ".github/actions/setup-flutter-rust/action.yml",
+            ".github/actions/ci-changes/action.yml", ".github/scripts/ci_changes.py",
+        ):
+            return {"native_tests": True}
+        if path.startswith("rust/"):
+            parts = path.split("/")
+            integration_test = len(parts) > 3 and parts[2] == "tests"
+            if not integration_test or path.startswith((
+                "rust/legado-ffi/tests/fixtures/", "rust/legado-layout/tests/fixtures/",
+            )):
+                return {"native_tests": True}
+        if not path.startswith("flutter_legado/"):
+            continue
+        relative = path.removeprefix("flutter_legado/")
+        if relative in ("pubspec.yaml", "pubspec.lock", ".metadata", "flutter_rust_bridge.yaml", "dart_test.yaml"):
+            return {"native_tests": True}
+        # 测试文件、共享夹具的改变可能调整分组或依赖，暂不据文件名猜测是否纯UI。
+        if relative.startswith("test/"):
+            return {"native_tests": True}
+        if relative.startswith("lib/"):
+            native_features = (
+                "lib/src/features/reader/", "lib/src/features/search/",
+                "lib/src/features/read_aloud/", "lib/src/features/audio/",
+            )
+            if relative.startswith("lib/src/features/") and not relative.startswith(native_features):
+                continue
+            if relative.startswith("lib/src/widgets/") and not relative.startswith((
+                "lib/src/widgets/reader/", "lib/src/widgets/paragraph_layout_engine.dart",
+            )):
+                continue
+            # 其它共享层或新目录默认进入原生组，避免只维护已知依赖白名单。
+            return {"native_tests": True}
+    return {"native_tests": False}
+
+
 def git(root, *args):
     result = subprocess.run(
         ["git", *args], cwd=root, check=True, stdout=subprocess.PIPE,
@@ -192,12 +236,18 @@ def main():
     try:
         if args.command == "changes":
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-            selected = plan(ROOT, os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"])
             if os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
+                selected = plan(ROOT, "workflow_dispatch", event, os.environ["GITHUB_SHA"])
                 generation = dict.fromkeys(("dart_generate", "bridge_generate"), event.get("inputs", {}).get("platform", "all") == "all")
+                native = {"native_tests": event.get("inputs", {}).get("platform", "all") == "all"}
             else:
-                generation = classify_generation_paths(changed_paths(ROOT, os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"]))
+                paths = changed_paths(ROOT, os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"])
+                selected = classify_paths(paths)
+                generation = classify_generation_paths(paths)
+                native = classify_native_test_paths(paths)
             selected.update(generation)
+            selected.update(native)
+            selected["flutter_checks"] = selected["flutter"] or any(generation.values())
             payload = "".join(f"{target}={str(value).lower()}\n" for target, value in selected.items())
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8", newline="\n") as output:
                 output.write(payload)

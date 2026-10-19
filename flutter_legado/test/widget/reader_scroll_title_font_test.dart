@@ -1,3 +1,4 @@
+@Tags(['native'])
 library;
 
 import '../fixtures/app_test_api.dart';

@@ -1,3 +1,5 @@
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
 library;
 
 /// FRB StreamSink 生成链路真实原生库运行时验证（P1-1）
@@ -19,7 +21,6 @@ library;
 /// 若该分支可达，下列测试将全部抛出 UnimplementedError。
 ///
 /// 前置条件：先在 rust/ 下构建当前宿主原生库（cargo build -p legado-ffi --features quickjs）。
-@Timeout(Duration(minutes: 3))
 import '../helpers/native_ffi.dart';
 
 import 'dart:async';

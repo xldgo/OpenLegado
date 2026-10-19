@@ -9,6 +9,8 @@ import '../fixtures/app_test_api.dart';
 // 修复：controller 由对话框内容组件自持，随子树卸载统一释放。
 import 'dart:convert';
 
+import 'package:go_router/go_router.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -139,13 +141,24 @@ void main() {
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
         child: RoutingTestApp(
-          home: SourceImportConfirmScreen(
-            sources: [SourcePreview.fromRaw(raw)],
-            localSources: const [],
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => context.push('/fixture-confirm'),
+              child: const Text('打开确认页'),
+            ),
           ),
+          routes: {
+            '/fixture-confirm': (_) => SourceImportConfirmScreen(
+              sources: [SourcePreview.fromRaw(raw)],
+              localSources: const [],
+            ),
+          },
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('打开确认页'));
     await tester.pumpAndSettle();
 
     // 预览条目正常展示（未被严格解析拦截）

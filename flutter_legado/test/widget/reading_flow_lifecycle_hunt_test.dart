@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import '../fixtures/app_test_api.dart';
 import '../helpers/native_reader_layout.dart';
 // 视角 C：阅读主流程「失败与边界 —— 进程生命周期」缺陷猎捕 —— 红态复现用例

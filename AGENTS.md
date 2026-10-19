@@ -19,6 +19,7 @@ Legado：Rust + Flutter 跨平台阅读器，参考上游(HapeLee/legado-with-MD
 
 - **Android 原版单元测试**：仅在另备的完整原版工程根目录执行 `.\gradlew.bat :app:testAppReleaseUnitTest`。本仓库不包含原版源码或其 Gradle 构建入口；旧 `test.yml` 已移除。
 - **Flutter**：SDK 3.47.7；在 `flutter_legado/` 下 `flutter analyze && flutter test`（CI：`.github/workflows/flutter-ci.yml`）
+- **Flutter 测试分组**：普通测试 `flutter test --exclude-tags native`；真实FFI及分页集成测试 `flutter test --tags native`，先在 `rust/` 构建 `cargo build --locked -p legado-ffi --features quickjs`。宿主库可通过 `LEGADO_TEST_FFI_LIBRARY` 显式指定；缺库报错，不按 Windows 限制跳过。CI 分层见 [CI 编排说明](docs/CI_ORCHESTRATION_20261010.md)。
 - **Rust**：在 `rust/` 下 `cargo test`（CI：`.github/workflows/rust-ci.yml`）
 - **iOS**：`ios-ci.yml` 仅手动运行模拟器验证，不作为 PR 必需检查；`ios-build.yml` 保留设备 IPA 自动构建与手动入口。签名及诊断方法见 `docs/IOS_CI_SIGNING_SETUP.md`。
 - **CI 总览**：`.github/workflows/`（tooling-ci / rust-ci / flutter-ci / integration-smoke / ios-ci / ios-build / release；仓库自动化保持独立）

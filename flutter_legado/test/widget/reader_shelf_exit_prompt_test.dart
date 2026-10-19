@@ -1,3 +1,6 @@
+@Tags(['native'])
+library;
+
 import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 import '../helpers/native_reader_layout.dart';
