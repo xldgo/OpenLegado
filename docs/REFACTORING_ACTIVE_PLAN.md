@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-SYMMETRIC-BOUNDARY-20261019：对称加密入口与Cipher模式（P1）
+
+- 状态：已关闭（本批现有对称加密入口与Cipher单次操作范围）。用户授权继续；dep-audit / chore/dep-audit快进同步主目录da8c2ec71，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/安装/合并或触碰主目录。
+- 依据与范围：固定参考版15e1337a的JsEncodeUtils/SymmetricCryptoAndroid、JCA官方Cipher/SecretKeySpec及JDK固定向量。先冻结脚本契约，修复吞错、DES模式/padding分发、字节输入和Cipher加解密状态；保留16字节DESede与本地便利扩展，不扩展RSA/依赖/FFI。
+- 实现：新增私有symmetric_bridge集中双入口和异常；移除[ERROR]成功串及无效视图unwrap为空的路径，ByteArray在可能重入的参数转换前复制。对象支持String/Uint8/Int8/Java byte数组、Hex/Base64密文识别、加密字符集和UTF-8替换解码；setIv使用调用方this返回而不捕获对象，避免旧注释所述闭包自引用。
+- 核心：Core补DES的ECB/NoPadding与CBC/NoPadding真实分发，集中校验算法、模式、padding、密钥及显式IV；未知padding不再默认为PKCS7，RC4空密钥在进入底层前报错。块算法单段默认ECB/PKCS5Padding，保留NONE无填充和PKCS7别名、已确认16字节DESede兼容；对象按参考版截断超长DES/DESede密钥，原生Cipher保持严格长度。
+- Cipher：新增原生单次操作状态与ENCRYPT_MODE/DECRYPT_MODE；init先清空旧状态，完成参数校验后发布自有快照，坏类型/模式/密钥/IV失败后不能沿用旧初始化。doFinal依操作模式计算，成功后保留初始化参数供下一独立调用；getIV、SecretKeySpec.getEncoded及IvParameterSpec.getIV返回复制。CBC加密缺IV安全随机生成，解密缺IV报错；工厂忽略空IV/ECB的IV，显式setIv空IV在计算时拒绝。null工厂密钥随机生成，空密钥仍拒绝；不新增update、多段流或完整JCA面。
+- 独立向量：JDK25生成14组固定密文，涵盖AES128/192/256、DES/3DES、CBC/ECB、padding/NoPadding、Unicode、空输入及RC4。16字节DESede在JDK探针中显式扩展K1/K2/K1，以核对原项目兼容算法；不以JDK拒绝短密钥为由删除语料兼容。运行回归只读JSON测试数据，不依赖JVM、网络或外部测试宿主。
+- 回归：11项新增真实QuickJS通过，加既有小小阅读/Java String共18项定向通过；Core加密33项通过，完整JS856项通过、4既有忽略（25组，库700/网络56，不重复累计），默认JS库274通过；Core/JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8和git diff --check通过。
+- 过程与纠正：初轮7项中6失败1通过；其中密文向量测试误用返回文本的hexDecode/hexEncodeToString，纠正为字节解码和测试内字节转Hex后才形成有效向量证据，不把误用算作生产缺陷。实现初次泛型错误消息转换未显式into导致编译失败，补齐后通过；Core测试误用未声明hex crate，改标准库解码，不新增依赖。严格Clippy发现固定chunks_exact，改as_chunks后通过，未压制告警。
+- 内存门禁：首次完整回归698通过/2失败，新增JS参数对象使原400KB沙箱在Response注册阶段耗尽，未执行到既有OOM配方。将密钥/IV构造和复制方法下沉原生回调，减少启动JS编译；保持原预算/配方/断言，22项沙箱定向通过（1既有忽略），随后完整JS通过。无沙箱上限放宽、额外跳过或借共享Cargo锁干预其他任务；不以此宣称RSS或生产性能改善数据。
+- 自查与证据：核对契约→java/裸入口→Packages常量/构造器→快照→Core计算→编码/异常；状态只持有Rust数据，RefCell借用不跨可重入JS转换，无新增unsafe。按用户要求无子代理，仅Codex自查，不宣称独立审查或远程CI。build/js-byte-conversion/symmetric-{reproduce,fixed,fixed-final,vectors-fixed,targeted,core,core-final,complete,oom-budget,complete-final,default,clippy-quickjs,clippy-quickjs-final,clippy-default}.log，只有final成功项作完整通过证据；研究材料build/symmetric-oracle。
+- 交付限制：版本2.0.406+407及双日志同步，无RSA/签名、依赖、FRB/生成物、数据库或Flutter业务变更；不运行全workspace/Flutter测试、native/应用构建、设备或远程CI。MuMu仍2.0.394+395，下次构建须重建匹配Rust库。原本地aesEncrypt/desEncrypt等编码和默认IV保留，不冒充上游同名面；不宣称全部加密算法/重载或Android/iOS实机验收。
+
+编写者：Codex｜2026-10-19
+
 ### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
 
 - 授权：用户要求先将当前内容合并主目录；主目录feature/ui-reader-selection / 211503d29与chore/dep-audit / 4aa9c2533开始均干净，不推送或构建安装。

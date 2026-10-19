@@ -66,6 +66,8 @@ pub mod runtime_bridge;
 pub mod source_callback;
 pub mod string_utils;
 #[cfg(feature = "quickjs")]
+mod symmetric_bridge;
+#[cfg(feature = "quickjs")]
 pub mod symmetric_crypto;
 pub mod time_utils;
 pub mod ui_action_queue;

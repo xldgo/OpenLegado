@@ -31,9 +31,9 @@ use crate::host_api::coerce::{
 use legado_core::LegadoError;
 
 use crate::host_api::{
-    archive_utils, asymmetric_crypto, capability_ledger, chinese_utils, cookie_store, crypto_api,
-    encoding, file_utils, html_format, html_parse, json_utils, message_digest, misc_api, network,
-    platform, regex_utils, register::mount_dual, string_utils, symmetric_crypto, time_utils,
+    archive_utils, asymmetric_crypto, capability_ledger, chinese_utils, cookie_store, encoding,
+    file_utils, html_format, html_parse, json_utils, message_digest, misc_api, network, platform,
+    regex_utils, register::mount_dual, string_utils, time_utils,
 };
 use crate::sandbox::SandboxConfig;
 use rquickjs::function::Opt;
@@ -324,7 +324,7 @@ fn inject_response_bridge<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoErr
 /// - `android.util.Base64` — decode(→Uint8Array)/encodeToString
 /// - `cn.hutool.crypto.digest.DigestUtil.md5Hex`
 /// - `javax.crypto.spec.SecretKeySpec|IvParameterSpec` + `javax.crypto.Cipher`
-///   （init/doFinal → `java.aesDecryptBytes` 字节级 AES-CBC/ECB 解密）
+///   （init/doFinal → 原生Cipher状态，依操作模式委托对称加密核心）
 ///
 /// P2-9 ① 扩面（按语料实际用法）：
 /// - `java.lang.{Integer/Long/Double/Boolean}.parse*/toString`、`String.valueOf`、
@@ -995,20 +995,13 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     cn: { hutool: { crypto: { digest: { DigestUtil: { md5Hex: function (s) { return java.md5Encode(String(s)); } } } } } },
     javax: { crypto: {
       spec: {
-        SecretKeySpec: function (key, algo) { return { key: toU8(key), algo: algo }; },
-        IvParameterSpec: function (iv) { return { iv: toU8(iv) }; }
+        SecretKeySpec: java.cipherSecretKey,
+        IvParameterSpec: java.cipherIvParameter
       },
       Cipher: {
+        ENCRYPT_MODE: 1, DECRYPT_MODE: 2,
         getInstance: function (transformation) {
-          var t = String(transformation);
-          return {
-            init: function (mode, key, ivSpec) { this._mode = mode; this._key = key; this._iv = ivSpec; },
-            doFinal: function (data) {
-              var key = this._key ? toU8(this._key.key) : null;
-              var iv = this._iv ? toU8(this._iv.iv) : null;
-              return java.aesDecryptBytes(toU8(data), key, iv, t);
-            }
-          };
+          return java.cipherGetInstance(transformation);
         }
       }
     } },
@@ -2936,206 +2929,7 @@ fn register_crypto_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
 ) -> Result<(), LegadoError> {
-    // aesDecryptBytes(data, key, iv?, transformation?) -> Uint8Array
-    // 字节级 AES 解密（Rhino `Packages.javax.crypto.Cipher.doFinal` 模拟层依赖；
-    // 七猫四合一等书源 jsLib 用 Packages 解密章节/榜单 AES-CBC 密文，
-    // key/iv/data 均为字节数组，与字符串级 aesDecrypt 不同）
-    mount_dual(
-        java,
-        globals,
-        "aesDecryptBytes",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>,
-             data: rquickjs::TypedArray<u8>,
-             key: rquickjs::TypedArray<u8>,
-             iv: Opt<rquickjs::TypedArray<u8>>,
-             transformation: RhinoOptStr|
-             -> rquickjs::Result<rquickjs::Value<'js>> {
-                use rquickjs::IntoJs;
-                let t = transformation
-                    .0
-                    .unwrap_or_else(|| "AES/CBC/PKCS5Padding".to_string());
-                let key_b = crate::quickjs_bytes::copy_bytes(&key).unwrap_or_default();
-                let data_b = crate::quickjs_bytes::copy_bytes(&data).unwrap_or_default();
-                let iv_b =
-                    iv.0.map(|a| crate::quickjs_bytes::copy_bytes(&a).unwrap_or_default());
-                let plain =
-                    legado_core::crypto::symmetric_decrypt(&t, &key_b, iv_b.as_deref(), &data_b)
-                        .map_err(|e| rquickjs::Error::FromJs {
-                            from: "Uint8Array",
-                            to: "Uint8Array",
-                            message: Some(e.to_string()),
-                        })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), plain)?;
-                arr.into_js(&ctx)
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // aesEncrypt(data, key, iv?) -> String
-    mount_dual(
-        java,
-        globals,
-        "aesEncrypt",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, key: RhinoStr, iv: RhinoOptStr| -> String {
-                crypto_api::aes_encrypt(&data, &key, iv.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // aesDecrypt(data, key, iv?) -> String
-    mount_dual(
-        java,
-        globals,
-        "aesDecrypt",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, key: RhinoStr, iv: RhinoOptStr| -> String {
-                crypto_api::aes_decrypt(&data, &key, iv.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // desEncrypt(data, key, iv?) -> String
-    mount_dual(
-        java,
-        globals,
-        "desEncrypt",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, key: RhinoStr, iv: RhinoOptStr| -> String {
-                crypto_api::des_encrypt(&data, &key, iv.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // desDecrypt(data, key, iv?) -> String
-    mount_dual(
-        java,
-        globals,
-        "desDecrypt",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, key: RhinoStr, iv: RhinoOptStr| -> String {
-                crypto_api::des_decrypt(&data, &key, iv.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // rc4Encrypt(data, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "rc4Encrypt",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr, key: RhinoStr| -> String {
-            crypto_api::rc4_encrypt(&data, &key).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // rc4Decrypt(data, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "rc4Decrypt",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr, key: RhinoStr| -> String {
-            crypto_api::rc4_decrypt(&data, &key).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // createSymmetricCrypto(transformation, key, iv?) -> SymmetricCrypto 对象
-    // 对齐 Kotlin JsEncodeUtils.createSymmetricCrypto（hutool SymmetricCrypto）
-    // 返回对象含 decrypt/decryptStr/encrypt/encryptBase64/encryptHex/setIv
-    // 漫画 imageDecode：cipher.decrypt(Uint8Array) → Uint8Array — Reasonix
-    mount_dual(
-        java,
-        globals,
-        "createSymmetricCrypto",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>,
-             transformation: RhinoStr,
-             key: rquickjs::Value<'js>,
-             iv: Opt<rquickjs::Value<'js>>|
-             -> rquickjs::Result<rquickjs::Object<'js>> {
-                let (key_bytes, iv_bytes) = symmetric_crypto::parse_key_iv_args(key, iv)?;
-                symmetric_crypto::build_symmetric_crypto_object(
-                    ctx,
-                    &transformation,
-                    &key_bytes,
-                    iv_bytes.as_deref(),
-                )
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // tripleDESEncodeBase64Str(data, key, mode, padding, iv) -> String
-    // 对齐 JsEncodeUtils.tripleDESEncodeBase64Str（#135 阅文 QDSign 加密）：
-    // createSymmetricCrypto("DESede/{mode}/{padding}", key, iv).encryptBase64(data)
-    mount_dual(
-        java,
-        globals,
-        "tripleDESEncodeBase64Str",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr,
-             key: RhinoStr,
-             mode: RhinoStr,
-             padding: RhinoStr,
-             iv: RhinoStr|
-             -> String {
-                crypto_api::triple_des_encode_base64_str(&data, &key, &mode, &padding, &iv)
-                    .unwrap_or_else(|e| format!("[ERROR] {e}"))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // aesBase64DecodeToString(str, key, transformation, iv) — 全网漫画等目录/正文 AES
-    // 对齐 JsEncodeUtils.aesBase64DecodeToString（deprecated 但仍被大量书源使用）
-    mount_dual(
-        java,
-        globals,
-        "aesBase64DecodeToString",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, key: RhinoStr, transformation: RhinoStr, iv: RhinoStr| -> String {
-                symmetric_crypto::aes_base64_decode_to_string(&data, &key, &transformation, &iv)
-                    .unwrap_or_else(|e| format!("[ERROR] {e}"))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // aesDecodeToString(str, key, transformation, iv) — 同语义别名
-    mount_dual(
-        java,
-        globals,
-        "aesDecodeToString",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, key: RhinoStr, transformation: RhinoStr, iv: RhinoStr| -> String {
-                // 非 Base64 原始密文场景较少；与 aesBase64 共用入口时先试 Base64
-                symmetric_crypto::aes_base64_decode_to_string(&data, &key, &transformation, &iv)
-                    .unwrap_or_else(|e| format!("[ERROR] {e}"))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    super::symmetric_bridge::register(ctx, java, globals)?;
 
     // createAsymmetricCrypto(transformation) -> RSA 对象
     // 对应 Kotlin JsEncodeUtils.createAsymmetricCrypto（AsymmetricCrypto）
@@ -5351,16 +5145,16 @@ cipher.decryptStr(b64);
         assert_eq!(out, "QDSign sign payload");
     }
 
-    /// tripleDESEncodeBase64Str 错误模式应返回 [ERROR] 前缀而非抛异常
+    /// tripleDESEncodeBase64Str不支持的模式必须抛错，不能作为正常密文返回。
     #[test]
-    fn test_java_desede_bad_mode_returns_error_prefix() {
+    fn test_java_desede_bad_mode_throws() {
         let engine = make_engine();
         let out = engine
             .eval(
                 "java.tripleDESEncodeBase64Str('x', '0123456789abcdef', 'OFB', 'NoPadding', '00000000')",
             )
-            .unwrap();
-        assert!(out.starts_with("[ERROR]"), "应为 [ERROR] 前缀: {out}");
+            .expect_err("不支持的模式应抛错");
+        assert!(out.to_string().contains("Unsupported"), "{out}");
     }
 
     // ── 3b-3/3b-4/3b-5 引擎级测试（2026-09-26）──

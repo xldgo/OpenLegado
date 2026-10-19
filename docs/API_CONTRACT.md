@@ -1,5 +1,27 @@
 # API 契约文档
 
+## JS对称加密边界（2026-10-19，实施前冻结）
+
+对照固定参考版15e1337a的JsEncodeUtils/SymmetricCryptoAndroid与[Java Cipher](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/javax/crypto/Cipher.html)；仅处理现有对称加密入口。
+AES/DES/DESede支持CBC、ECB及PKCS5/PKCS7/NoPadding，保留既有NONE无填充别名；未知模式或padding明确拒绝。
+RC4保持既有单算法路径和1～256字节非空密钥范围，不宣称其全部Provider行为等价，不接受IV。
+createSymmetricCrypto的单段块算法按ECB/PKCS5Padding；保留既有16字节DESede双密钥兼容，
+DES与DESede对象按参考版截断超长密钥；空密钥拒绝，显式null密钥生成随机密钥，不将空字符串当随机。
+对象支持字符串和有效字节视图/Java byte数组；字符串按UTF-8，encrypt/encryptBase64可显式传字符集。
+decrypt(String)先识别偶数Hex，否则复用既有Hutool Base64规则；decryptStr默认UTF-8替换无效字符。
+setIv复制参数并返回当前对象，不捕获JS对象自引用；工厂忽略空IV，显式setIv空IV仍按非法参数处理。
+对象CBC加密缺IV时由安全随机生成器产生本次IV，解密缺IV报错，不伪造零IV；不宣称可取回对象内部随机IV。
+Packages Cipher提供ENCRYPT_MODE/DECRYPT_MODE，init验证操作模式、密钥算法/长度及IV，doFinal依模式调用同一Rust核心；
+未初始化或失败init后的doFinal拒绝，成功doFinal保留初始化参数供下次独立调用；不新增update/多段流协议。
+SecretKeySpec/IvParameterSpec及Cipher初始化复制字节，后续修改源数组不改变已初始化参数；getIV/getEncoded返回拷贝。
+CBC加密init缺IV时生成并保留随机IV，getIV可读取；CBC解密init缺IV报错；ECB在对象工厂忽略IV，原生Cipher显式IV拒绝。
+所有现有对称加密字符串入口失败抛可捕获异常，不返回[ERROR]正文；null非空String形参拒绝。
+aesDecryptBytes复用自有ByteArray转换，失效/越界视图不得当空数据；不跨JS重入保留缓冲区借用。
+现有aesEncrypt/desEncrypt/rc4Encrypt等本地便利扩展保留原编码和默认IV，不把它们宣称为参考版同名接口。
+不改RSA/签名、依赖、FRB/生成物、数据库及Flutter业务；不新增尚未支持的算法或Provider。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## Flutter 封面开书过渡（2026-10-19，实施前冻结）
 
 文字阅读器命名路由可接收BookCoverOrigin，只包含来源书籍标识、当前可见封面位置、

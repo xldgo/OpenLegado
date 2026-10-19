@@ -5,7 +5,7 @@
 //!
 //! 支持算法：
 //! - AES（CBC / ECB 模式，PKCS7 或 NoPadding，128/192/256 位密钥）
-//! - DES（CBC 模式，PKCS7 填充）
+//! - DES（CBC / ECB 模式，PKCS7 或 NoPadding）
 //! - RC4（流密码，加解密同操作）
 
 use crate::{LegadoError, LegadoResult};
@@ -305,7 +305,7 @@ impl AesCrypto {
 // DES
 // ---------------------------------------------------------------------------
 
-/// DES 对称加密工具（CBC 模式，PKCS7 填充）
+/// DES 对称加密工具（CBC / ECB 模式，PKCS7 或 NoPadding）
 pub struct DesCrypto;
 
 impl DesCrypto {
@@ -343,6 +343,63 @@ impl DesCrypto {
             .encrypt_padded::<Pkcs7>(&mut buf, data.len())
             .map_err(crypto_op_err)?;
         Ok(ct.to_vec())
+    }
+
+    /// 通用DES分发交给RustCrypto，模式和填充必须与请求一致。
+    fn process(
+        mode: &str,
+        nopad: bool,
+        encrypt: bool,
+        key: &[u8],
+        iv: Option<&[u8]>,
+        data: &[u8],
+    ) -> LegadoResult<Vec<u8>> {
+        use cbc::cipher::{
+            BlockModeDecrypt, BlockModeEncrypt, KeyInit, KeyIvInit,
+            block_padding::{NoPadding, Pkcs7},
+        };
+        let mut buf = if encrypt && !nopad {
+            make_padded_buf(DES_BLOCK_SIZE, data)
+        } else {
+            data.to_vec()
+        };
+        macro_rules! apply {
+            ($cipher:expr) => {{
+                let cipher = $cipher.map_err(crypto_init_err)?;
+                let out = if nopad {
+                    cipher.encrypt_padded::<NoPadding>(&mut buf, data.len())
+                } else {
+                    cipher.encrypt_padded::<Pkcs7>(&mut buf, data.len())
+                }
+                .map_err(crypto_op_err)?;
+                Ok(out.to_vec())
+            }};
+        }
+        macro_rules! reverse {
+            ($cipher:expr) => {{
+                let cipher = $cipher.map_err(crypto_init_err)?;
+                let out = if nopad {
+                    cipher.decrypt_padded::<NoPadding>(&mut buf)
+                } else {
+                    cipher.decrypt_padded::<Pkcs7>(&mut buf)
+                }
+                .map_err(crypto_op_err)?;
+                Ok(out.to_vec())
+            }};
+        }
+        match (mode, encrypt) {
+            ("CBC", true) => apply!(cbc::Encryptor::<des::Des>::new_from_slices(
+                key,
+                iv.ok_or_else(|| LegadoError::Parser("DES/CBC requires IV".into()))?
+            )),
+            ("CBC", false) => reverse!(cbc::Decryptor::<des::Des>::new_from_slices(
+                key,
+                iv.ok_or_else(|| LegadoError::Parser("DES/CBC requires IV".into()))?
+            )),
+            ("ECB", true) => apply!(ecb::Encryptor::<des::Des>::new_from_slice(key)),
+            ("ECB", false) => reverse!(ecb::Decryptor::<des::Des>::new_from_slice(key)),
+            _ => Err(LegadoError::Parser(format!("Unsupported DES mode: {mode}"))),
+        }
     }
 }
 
@@ -662,6 +719,7 @@ pub fn des_decrypt_base64(key: &str, iv: &str, ciphertext_b64: &str) -> LegadoRe
 /// RC4 加密后 Base64 编码
 pub fn rc4_encrypt_base64(key: &str, plaintext: &str) -> LegadoResult<String> {
     use base64::Engine;
+    validate_symmetric_parameters("RC4", key.as_bytes(), None)?;
     let ciphertext = Rc4Crypto::process(key.as_bytes(), plaintext.as_bytes());
     Ok(base64::engine::general_purpose::STANDARD.encode(&ciphertext))
 }
@@ -672,6 +730,7 @@ pub fn rc4_decrypt_base64(key: &str, ciphertext_b64: &str) -> LegadoResult<Strin
     let ciphertext = base64::engine::general_purpose::STANDARD
         .decode(ciphertext_b64)
         .map_err(|e| LegadoError::Parser(format!("Base64 decode error: {}", e)))?;
+    validate_symmetric_parameters("RC4", key.as_bytes(), None)?;
     let plaintext = Rc4Crypto::process(key.as_bytes(), &ciphertext);
     String::from_utf8(plaintext)
         .map_err(|e| LegadoError::Parser(format!("UTF-8 decode error: {}", e)))
@@ -734,7 +793,7 @@ fn bad_key_len(algo: &str, got: usize, expected: &[usize]) -> LegadoError {
 /// 解析 transformation 字符串，如 "AES/CBC/PKCS5Padding"
 ///
 /// 返回 (algorithm, mode, padding) 三元组，algorithm 和 mode 为大写。
-/// 对于无模式/填充的算法（如 "RC4"），允许单段格式，返回 ("RC4", "NONE", "NONE")。
+/// RC4单段保持NONE/NONE，块算法单段使用ECB/PKCS5Padding。
 pub fn parse_transformation(s: &str) -> Result<(String, String, String), String> {
     let parts: Vec<&str> = s.split('/').collect();
     match parts.len() {
@@ -746,7 +805,11 @@ pub fn parse_transformation(s: &str) -> Result<(String, String, String), String>
         1 => {
             // 单段格式，如 "RC4"、"AES"
             let algo = parts[0].to_uppercase();
-            Ok((algo, "NONE".to_string(), "NONE".to_string()))
+            if algo == "RC4" {
+                Ok((algo, "NONE".into(), "NONE".into()))
+            } else {
+                Ok((algo, "ECB".into(), "PKCS5Padding".into()))
+            }
         }
         _ => Err(format!(
             "Invalid transformation: {}. Expected format: Algorithm/Mode/Padding or Algorithm",
@@ -760,6 +823,70 @@ fn is_no_padding(padding: &str) -> bool {
     padding.eq_ignore_ascii_case("NoPadding") || padding.eq_ignore_ascii_case("NONE")
 }
 
+/// 校验现有对称算法的模式、填充与参数，不将未知padding当作PKCS7。
+/// CBC缺IV的加解密差异由调用阶段决定，此处只校验显式IV。
+pub fn validate_symmetric_parameters(
+    transformation: &str,
+    key: &[u8],
+    iv: Option<&[u8]>,
+) -> LegadoResult<()> {
+    let (algo, mode, padding) =
+        parse_transformation(transformation).map_err(LegadoError::Parser)?;
+    let expected: &[usize] = match algo.as_str() {
+        "AES" => &[16, 24, 32],
+        "DES" => &[8],
+        "DESEDE" => &[16, 24],
+        "RC4" => {
+            if key.is_empty() || key.len() > 256 {
+                return Err(LegadoError::Parser(format!(
+                    "RC4 key length must be 1..=256 bytes, got {}",
+                    key.len()
+                )));
+            }
+            if !matches!(mode.as_str(), "NONE" | "ECB") || !is_no_padding(&padding) {
+                return Err(LegadoError::Parser("Unsupported RC4 transformation".into()));
+            }
+            if iv.is_some() {
+                return Err(LegadoError::Parser("RC4不接受IV".into()));
+            }
+            return Ok(());
+        }
+        _ => {
+            return Err(LegadoError::Parser(format!(
+                "Unsupported algorithm: {algo}"
+            )));
+        }
+    };
+    if !matches!(mode.as_str(), "CBC" | "ECB") {
+        return Err(LegadoError::Parser(format!(
+            "Unsupported {algo} mode: {mode}"
+        )));
+    }
+    if !is_no_padding(&padding)
+        && !padding.eq_ignore_ascii_case("PKCS5Padding")
+        && !padding.eq_ignore_ascii_case("PKCS7Padding")
+    {
+        return Err(LegadoError::Parser(format!(
+            "Unsupported padding: {padding}"
+        )));
+    }
+    if !expected.contains(&key.len()) {
+        return Err(bad_key_len(&algo, key.len(), expected));
+    }
+    if mode == "CBC"
+        && let Some(iv) = iv
+    {
+        let block = if algo == "AES" { 16 } else { 8 };
+        if iv.len() != block {
+            return Err(LegadoError::Parser(format!(
+                "{algo}/CBC IV length must be {block}, got {}",
+                iv.len()
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// 按 Java transformation 对称解密原始字节（对齐 hutool SymmetricCrypto.decrypt）
 ///
 /// — Reasonix + Rust
@@ -769,6 +896,7 @@ pub fn symmetric_decrypt(
     iv: Option<&[u8]>,
     data: &[u8],
 ) -> LegadoResult<Vec<u8>> {
+    validate_symmetric_parameters(transformation, key, iv)?;
     let (algo, mode, padding) =
         parse_transformation(transformation).map_err(LegadoError::Parser)?;
     match algo.as_str() {
@@ -796,10 +924,7 @@ pub fn symmetric_decrypt(
                 ))),
             }
         }
-        "DES" => {
-            let iv = iv.unwrap_or(b"\0\0\0\0\0\0\0\0");
-            DesCrypto::decrypt_cbc(key, iv, data)
-        }
+        "DES" => DesCrypto::process(&mode, is_no_padding(&padding), false, key, iv, data),
         "DESEDE" => {
             let nopad = is_no_padding(&padding);
             match mode.as_str() {
@@ -840,6 +965,7 @@ pub fn symmetric_encrypt(
     iv: Option<&[u8]>,
     data: &[u8],
 ) -> LegadoResult<Vec<u8>> {
+    validate_symmetric_parameters(transformation, key, iv)?;
     let (algo, mode, padding) =
         parse_transformation(transformation).map_err(LegadoError::Parser)?;
     match algo.as_str() {
@@ -867,10 +993,7 @@ pub fn symmetric_encrypt(
                 ))),
             }
         }
-        "DES" => {
-            let iv = iv.unwrap_or(b"\0\0\0\0\0\0\0\0");
-            DesCrypto::encrypt_cbc(key, iv, data)
-        }
+        "DES" => DesCrypto::process(&mode, is_no_padding(&padding), true, key, iv, data),
         "DESEDE" => {
             let nopad = is_no_padding(&padding);
             match mode.as_str() {
@@ -909,6 +1032,65 @@ pub fn symmetric_encrypt(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn des_modes_and_padding_match_jdk_ciphertexts() {
+        let key = b"12345678";
+        let iv = b"87654321";
+        for (t, data, expected) in [
+            (
+                "DES/CBC/NoPadding",
+                b"12345678".as_slice(),
+                "85b3ad903f0b2178",
+            ),
+            (
+                "DES/ECB/NoPadding",
+                b"12345678".as_slice(),
+                "96d0028878d58c89",
+            ),
+            (
+                "DES/CBC/PKCS5Padding",
+                b"hello".as_slice(),
+                "f46c50bc44536cc5",
+            ),
+        ] {
+            let out = symmetric_encrypt(t, key, Some(iv), data).unwrap();
+            let expected: Vec<u8> = expected
+                .as_bytes()
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+                .collect();
+            assert_eq!(out, expected);
+            assert_eq!(symmetric_decrypt(t, key, Some(iv), &out).unwrap(), data);
+        }
+    }
+
+    #[test]
+    fn invalid_transformations_and_rc4_keys_return_errors() {
+        for t in [
+            "DES/OFB/PKCS5Padding",
+            "DES/CBC/BadPadding",
+            "AES/ECB/BadPadding",
+            "AES/CBC/",
+            "",
+        ] {
+            assert!(
+                symmetric_encrypt(t, b"0123456789abcdef", None, b"hello").is_err(),
+                "{t}"
+            );
+            assert!(
+                symmetric_decrypt(t, b"0123456789abcdef", None, b"hello").is_err(),
+                "{t}"
+            );
+        }
+        assert!(symmetric_encrypt("RC4", b"", None, b"hello").is_err());
+        assert!(rc4_encrypt_base64("", "hello").is_err());
+        assert!(rc4_decrypt_base64("", "eA==").is_err());
+        assert!(symmetric_encrypt("RC4", b"key", Some(b"iv"), b"hello").is_err());
+        assert!(symmetric_decrypt("DES/CBC/PKCS5Padding", b"12345678", None, b"hello").is_err());
+    }
 
     // ---- AES-CBC ----
 

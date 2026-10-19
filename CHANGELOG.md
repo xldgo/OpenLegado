@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.406] - 2026-10-19
+
+### Fixed
+- 修复书源Cipher忽略加密模式、DES忽略模式和填充的问题，支持独立的初始化参数快照。
+- 对称加密对象正确识别Hex与Base64密文，恢复setIv链式调用及字符集重载。
+- 无效密钥、模式和字节输入明确报错，失败不再伪装为正常密文，空RC4密钥不再触发底层panic。
+- 贡献者：Codex + Rust；构建号407。
+
 ## [2.0.405] - 2026-10-19
 
 ### Fixed
