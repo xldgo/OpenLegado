@@ -7,11 +7,12 @@ final class CloudTtsProviderProfile {
     required this.formats,
     this.styles = const [],
     this.supportsSourceSpeed = false,
+    this.supportsLocale = false,
     this.textLimit = 4000,
   });
   final String name, model, voice;
   final List<String> formats, styles;
-  final bool supportsSourceSpeed;
+  final bool supportsSourceSpeed, supportsLocale;
   final int textLimit;
 }
 
@@ -28,6 +29,7 @@ const cloudTtsProviderProfiles = {
     model: 'qwen3-tts-flash',
     voice: 'Cherry',
     formats: ['wav'],
+    supportsLocale: true,
     textLimit: 600,
   ),
   'mimo': CloudTtsProviderProfile(

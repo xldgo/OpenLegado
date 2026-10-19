@@ -65,35 +65,55 @@ void main() {
   test('试听参数拒绝未知字段与非有限语速，保留显式零值', () {
     final options = cloudVoiceOptionsToDto({
       'voiceId': '声线',
+      'locale': 'English',
       'style': '高兴',
+      'role': '旁白',
       'instructions': '中文',
       'speed': 0,
+      'pitch': 1.2,
+      'volume': 0,
       'format': 'wav',
+      'sampleRate': 24000,
     });
     expect(
       options,
       const dto.CloudVoiceOptionsDto(
         voiceId: '声线',
+        locale: 'English',
         style: '高兴',
+        role: '旁白',
         instructions: '中文',
         speed: 0,
+        pitch: 1.2,
+        volume: 0,
         format: 'wav',
+        sampleRate: 24000,
       ),
     );
     expect(
       () => cloudVoiceOptionsToDto({'apiKey': '不可混入'}),
       throwsFormatException,
     );
-    for (final speed in [
-      double.nan,
-      double.infinity,
-      double.negativeInfinity,
-    ]) {
+    for (final key in ['speed', 'pitch', 'volume']) {
+      for (final number in [
+        double.nan,
+        double.infinity,
+        double.negativeInfinity,
+      ]) {
+        expect(
+          () => cloudVoiceOptionsToDto({key: number}),
+          throwsArgumentError,
+        );
+      }
+    }
+    for (final sampleRate in [-1, 0x100000000]) {
       expect(
-        () => cloudVoiceOptionsToDto({'speed': speed}),
+        () => cloudVoiceOptionsToDto({'sampleRate': sampleRate}),
         throwsArgumentError,
       );
     }
+    expect(cloudVoiceOptionsToDto({}).pitch, isNull);
+    expect(cloudVoiceOptionsToDto({'sampleRate': 0}).sampleRate, 0);
   });
   test('音色十四字段、系统目录协议文档原样往返', () {
     const voice = ReadAloudVoice(

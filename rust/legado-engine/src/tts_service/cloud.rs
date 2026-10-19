@@ -62,6 +62,7 @@ pub(super) async fn speak(
         traits.insert("voiceId".into(), serde_json::json!(voice.speaker_id));
         metadata.options_json = serde_json::to_string(&traits)?;
     } else if let Some(options) = input.voice_options {
+        options.validate()?;
         metadata.options_json = serde_json::to_string(&options)?;
     }
     let request = metadata.request(input.text)?;
@@ -125,6 +126,39 @@ mod tests {
             credential_key: credential.into(),
             voice_id: None,
             voice_options: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn draft_non_finite_numbers_fail_before_json_can_erase_them() {
+        use legado_db::repository::cloud_tts_repository::CloudVoiceOptions;
+        let engine = engine("http://127.0.0.1:1", "cloud-tts:same-cloud:finite");
+        for (key, value) in [
+            ("speed", f64::NAN),
+            ("pitch", f64::INFINITY),
+            ("volume", f64::NEG_INFINITY),
+        ] {
+            let mut options = CloudVoiceOptions::default();
+            match key {
+                "speed" => options.speed = Some(value),
+                "pitch" => options.pitch = Some(value),
+                _ => options.volume = Some(value),
+            }
+            let mut request = input("cloud-tts:same-cloud:finite");
+            request.voice_options = Some(options);
+            let error = engine
+                .tts_service()
+                .cloud_speak(
+                    "same-cloud",
+                    "fixture".into(),
+                    request,
+                    &TtsCancellation::default(),
+                )
+                .await
+                .err()
+                .unwrap();
+            assert!(error.to_string().contains("数值必须为有限值"));
+            assert_eq!(engine.tasks().active_count(), 0);
         }
     }
 

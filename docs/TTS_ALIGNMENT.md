@@ -2,6 +2,27 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 云端音色参数与百炼语言（2026-10-19）
+
+固定参考 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)
+的 CloudTtsViewModel.buildVoice/buildRequest 与 AlibabaCloudTtsProvider。百炼已有正式
+Provider、四个音色、SSE/签名地址下载与缓存实现，本批修复参数接线，不重复实现 Provider。
+
+- 云端编辑以已有参数为底，只覆盖可编辑项。隐藏的语言、角色、音调、音量与采样率不得
+  因重命名丢失；保留未知字段不代表允许合成，DB/试听映射仍拒绝未知字段及地址、凭据。
+- 保存音色、引擎默认配置与试听草稿共用完整 CloudVoiceOptions，映射到已有 Core 请求。
+  仅扩展可选 DTO 字段并重新生成绑定，无数据库迁移；构建必须使用新绑定对应的原生库。
+- 百炼语言输入去除首尾空白，留空使用 Auto；与上游一样传递服务商语言名称，不转换成
+  系统 TTS 的设备 locale。支持参数与默认行为参见[百炼官方 API](https://help.aliyun.com/zh/model-studio/qwen-tts-api)。
+  百炼仍仅 instruct 模型发送风格/指令，不发送接口不支持的数值语速、音调或音量。
+- 实际请求缓存区分有效语言；保存音色与相同试听草稿应命中同一结果，清空语言恢复
+  自动识别的缓存。纯隐藏参数若不参与某 Provider 请求，不制造额外缓存身份。
+
+验证采用真实 Sheet、DTO 数值与字段门禁、SQLite 请求构建和本地 SSE 的真实 FFI 链路；
+本地假服务不证明真实账号、发音效果、设备后台与蓝牙播放正常。
+
+编写者：Codex + UI/Bridge｜2026-10-19。
+
 ## HTTP 音色与情感参数（2026-10-19）
 
 固定参考 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)

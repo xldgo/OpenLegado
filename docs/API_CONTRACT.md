@@ -2218,6 +2218,19 @@ MiMo 源选项保留 voiceId/style/instructions/format，format 为 wav；源 sp
 
 Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺序拼接 Base64 PCM，使用 24kHz/16-bit/单声道/小端 WAV 适配。错误事件、坏 JSON/Base64、空音频或未完成流不能落盘；完成以 [DONE] 或 finish_reason=stop 为证，拒绝 length 等截断原因。保留 120 秒超时、完整响应后播放、取消、缓存去重/原子提交及租约，不新增边合成边播放或云端后台预合成。OpenAI 仍使用 Bearer 与直接音频响应，其原有 JSON/text 错误拒绝不能因 SSE 支持而放宽。不调用真实云账号。
 
+**2026-10-19 云端音色参数保留（实施前冻结）**：不新增 FRB 方法、不改数据库 schema 或 Provider 协议。
+CloudVoiceOptions 与 CloudVoiceOptionsDto 同步补齐可选 locale/role/pitch/volume/sampleRate，
+同步生成绑定并重编原生库，不混用旧二进制；生成器 hash 一致不能替代字段兼容验证。
+保存音色、引擎默认配置与试听草稿均映射至
+已有 CloudTtsSynthesisRequest；缺省字符串为空、pitch/volume 为 1、sampleRate 为 null。
+草稿与配置继续拒绝未知字段/地址/凭据，数字必须有限，sampleRate 为非负 u32；具体支持由
+Provider 决定，不给百炼添加其接口不支持的数值调音能力。
+云端音色编辑/试听以原 traitsJson 对象为底，仅覆盖表单实际编辑字段；保留未展示的
+locale、role、pitch、volume、sampleRate 等参数。百炼增加语言编辑，保存去除首尾空白的
+locale；空值沿用 Rust 的 Auto 默认语义，试听与保存使用同一草稿。不支持源级语速的
+Provider 不新增 speed，但编辑不能删除已有字段；是否参与请求仍由 Rust Provider 决定。
+参考固定 c4182eb9 的 CloudTtsViewModel.buildVoice/buildRequest 及 AlibabaCloudTtsProvider。
+
 **T4b-4 阿里云百炼（2026-10-14，实施前冻结）**：新增 provider `alibaba_cloud`，保持 schema v112、五个 FRB 签名和设备凭据引用。对照固定上游 070ca1a AlibabaCloudTtsProvider：默认 qwen3-tts-flash、Cherry，四个内置音色 Cherry/Serena/Ethan/Chelsie，格式仅 WAV。POST multimodal-generation/generation，Bearer 鉴权及 X-DashScope-SSE: enable；input 为 text/voice/language_type（默认 Auto），仅 instruct 模型发送 style 与 instructions 以中文分号连接后的 instructions。源级数值速度不发送，播放倍速仍独立。
 
 百炼会话采用不超过 600 UTF-16 的字形簇安全分片（保守满足官方 600 字符限制），原文进度累计与段落完成语义不变。SSE output.audio.data 按序拼接 PCM 并封装 24kHz 单声道 WAV；无 PCM 时使用 output.audio.url 下载完整 WAV。仅在 finish_reason=stop 或 [DONE] 后接受完整结果，错误、坏 JSON/Base64、截断、空音频不缓存。音频下载接受无用户凭据/片段的 HTTP(S) 地址（允许 OSS 签名查询），不携带合成请求凭据、不跟随重定向，沿用取消、120 秒超时及文本报错拒绝。UI/Mock/DB 共用新增服务商的默认值、格式和只读 Provider 规则。不调用真实云账号，不新增云端预合成或边合成边播放。

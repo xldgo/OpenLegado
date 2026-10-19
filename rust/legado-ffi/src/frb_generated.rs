@@ -12337,16 +12337,26 @@ impl SseDecode for crate::media_dto::CloudVoiceOptionsDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_voiceId = <Option<String>>::sse_decode(deserializer);
+        let mut var_locale = <Option<String>>::sse_decode(deserializer);
         let mut var_style = <Option<String>>::sse_decode(deserializer);
+        let mut var_role = <Option<String>>::sse_decode(deserializer);
         let mut var_instructions = <Option<String>>::sse_decode(deserializer);
         let mut var_speed = <Option<f64>>::sse_decode(deserializer);
+        let mut var_pitch = <Option<f64>>::sse_decode(deserializer);
+        let mut var_volume = <Option<f64>>::sse_decode(deserializer);
         let mut var_format = <Option<String>>::sse_decode(deserializer);
+        let mut var_sampleRate = <Option<u32>>::sse_decode(deserializer);
         return crate::media_dto::CloudVoiceOptionsDto {
             voice_id: var_voiceId,
+            locale: var_locale,
             style: var_style,
+            role: var_role,
             instructions: var_instructions,
             speed: var_speed,
+            pitch: var_pitch,
+            volume: var_volume,
             format: var_format,
+            sample_rate: var_sampleRate,
         };
     }
 }
@@ -17529,10 +17539,15 @@ impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudVoiceOptionsDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.voice_id.into_into_dart().into_dart(),
+            self.locale.into_into_dart().into_dart(),
             self.style.into_into_dart().into_dart(),
+            self.role.into_into_dart().into_dart(),
             self.instructions.into_into_dart().into_dart(),
             self.speed.into_into_dart().into_dart(),
+            self.pitch.into_into_dart().into_dart(),
+            self.volume.into_into_dart().into_dart(),
             self.format.into_into_dart().into_dart(),
+            self.sample_rate.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -20928,10 +20943,15 @@ impl SseEncode for crate::media_dto::CloudVoiceOptionsDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Option<String>>::sse_encode(self.voice_id, serializer);
+        <Option<String>>::sse_encode(self.locale, serializer);
         <Option<String>>::sse_encode(self.style, serializer);
+        <Option<String>>::sse_encode(self.role, serializer);
         <Option<String>>::sse_encode(self.instructions, serializer);
         <Option<f64>>::sse_encode(self.speed, serializer);
+        <Option<f64>>::sse_encode(self.pitch, serializer);
+        <Option<f64>>::sse_encode(self.volume, serializer);
         <Option<String>>::sse_encode(self.format, serializer);
+        <Option<u32>>::sse_encode(self.sample_rate, serializer);
     }
 }
 

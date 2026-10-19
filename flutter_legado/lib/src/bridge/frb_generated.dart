@@ -12655,14 +12655,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CloudVoiceOptionsDto dco_decode_cloud_voice_options_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return CloudVoiceOptionsDto(
       voiceId: dco_decode_opt_String(arr[0]),
-      style: dco_decode_opt_String(arr[1]),
-      instructions: dco_decode_opt_String(arr[2]),
-      speed: dco_decode_opt_box_autoadd_f_64(arr[3]),
-      format: dco_decode_opt_String(arr[4]),
+      locale: dco_decode_opt_String(arr[1]),
+      style: dco_decode_opt_String(arr[2]),
+      role: dco_decode_opt_String(arr[3]),
+      instructions: dco_decode_opt_String(arr[4]),
+      speed: dco_decode_opt_box_autoadd_f_64(arr[5]),
+      pitch: dco_decode_opt_box_autoadd_f_64(arr[6]),
+      volume: dco_decode_opt_box_autoadd_f_64(arr[7]),
+      format: dco_decode_opt_String(arr[8]),
+      sampleRate: dco_decode_opt_box_autoadd_u_32(arr[9]),
     );
   }
 
@@ -16447,16 +16452,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_voiceId = sse_decode_opt_String(deserializer);
+    var var_locale = sse_decode_opt_String(deserializer);
     var var_style = sse_decode_opt_String(deserializer);
+    var var_role = sse_decode_opt_String(deserializer);
     var var_instructions = sse_decode_opt_String(deserializer);
     var var_speed = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_pitch = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_volume = sse_decode_opt_box_autoadd_f_64(deserializer);
     var var_format = sse_decode_opt_String(deserializer);
+    var var_sampleRate = sse_decode_opt_box_autoadd_u_32(deserializer);
     return CloudVoiceOptionsDto(
       voiceId: var_voiceId,
+      locale: var_locale,
       style: var_style,
+      role: var_role,
       instructions: var_instructions,
       speed: var_speed,
+      pitch: var_pitch,
+      volume: var_volume,
       format: var_format,
+      sampleRate: var_sampleRate,
     );
   }
 
@@ -21254,10 +21269,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_opt_String(self.voiceId, serializer);
+    sse_encode_opt_String(self.locale, serializer);
     sse_encode_opt_String(self.style, serializer);
+    sse_encode_opt_String(self.role, serializer);
     sse_encode_opt_String(self.instructions, serializer);
     sse_encode_opt_box_autoadd_f_64(self.speed, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.pitch, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.volume, serializer);
     sse_encode_opt_String(self.format, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.sampleRate, serializer);
   }
 
   @protected

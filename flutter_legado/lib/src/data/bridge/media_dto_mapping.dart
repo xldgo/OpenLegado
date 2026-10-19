@@ -188,19 +188,40 @@ AudioChapterMedia audioChapterMediaFromDto(dto.AudioChapterMediaDto v) =>
       sourceUrl: v.sourceUrl,
     );
 dto.CloudVoiceOptionsDto cloudVoiceOptionsToDto(Map<String, dynamic> value) {
-  const allowed = {'voiceId', 'style', 'instructions', 'speed', 'format'};
+  const allowed = {
+    'voiceId',
+    'locale',
+    'style',
+    'role',
+    'instructions',
+    'speed',
+    'pitch',
+    'volume',
+    'format',
+    'sampleRate',
+  };
   if (value.keys.any((key) => !allowed.contains(key))) {
     throw const FormatException('云端试听参数包含未知字段');
   }
-  final speed = (value['speed'] as num?)?.toDouble();
-  if (speed != null && !speed.isFinite) {
-    throw ArgumentError.value(speed, 'speed', '语速必须为有限值');
+  double? number(String key) {
+    final number = (value[key] as num?)?.toDouble();
+    if (number != null && !number.isFinite) {
+      throw ArgumentError.value(number, key, '音色数值必须为有限值');
+    }
+    return number;
   }
+
+  final sampleRate = value['sampleRate'] as int?;
   return dto.CloudVoiceOptionsDto(
     voiceId: value['voiceId'] as String?,
+    locale: value['locale'] as String?,
     style: value['style'] as String?,
+    role: value['role'] as String?,
     instructions: value['instructions'] as String?,
-    speed: speed,
+    speed: number('speed'),
+    pitch: number('pitch'),
+    volume: number('volume'),
     format: value['format'] as String?,
+    sampleRate: sampleRate == null ? null : _u32(sampleRate, 'sampleRate'),
   );
 }

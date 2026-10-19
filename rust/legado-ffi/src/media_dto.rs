@@ -147,19 +147,29 @@ impl From<CloudTtsMetadataDto> for legado_db::repository::cloud_tts_repository::
 #[derive(Debug, Clone)]
 pub struct CloudVoiceOptionsDto {
     pub voice_id: Option<String>,
+    pub locale: Option<String>,
     pub style: Option<String>,
+    pub role: Option<String>,
     pub instructions: Option<String>,
     pub speed: Option<f64>,
+    pub pitch: Option<f64>,
+    pub volume: Option<f64>,
     pub format: Option<String>,
+    pub sample_rate: Option<u32>,
 }
 impl From<legado_db::repository::cloud_tts_repository::CloudVoiceOptions> for CloudVoiceOptionsDto {
     fn from(v: legado_db::repository::cloud_tts_repository::CloudVoiceOptions) -> Self {
         Self {
             voice_id: v.voice_id,
+            locale: v.locale,
             style: v.style,
+            role: v.role,
             instructions: v.instructions,
             speed: v.speed,
+            pitch: v.pitch,
+            volume: v.volume,
             format: v.format,
+            sample_rate: v.sample_rate,
         }
     }
 }
@@ -167,10 +177,15 @@ impl From<CloudVoiceOptionsDto> for legado_db::repository::cloud_tts_repository:
     fn from(v: CloudVoiceOptionsDto) -> Self {
         Self {
             voice_id: v.voice_id,
+            locale: v.locale,
             style: v.style,
+            role: v.role,
             instructions: v.instructions,
             speed: v.speed,
+            pitch: v.pitch,
+            volume: v.volume,
             format: v.format,
+            sample_rate: v.sample_rate,
         }
     }
 }

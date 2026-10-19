@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-CLOUD-PARAMS-20261019：云端音色参数与百炼语言接线（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户批准下一批，feature/ui-tts-engine / 1c8af9e24，单代理。
+- 审计更正：百炼 Provider/目录/传输已存在，不重复接入；确认云端编辑重建参数导致丢字段，DB 解析与试听 DTO 也缺 locale 等已有 Core 字段。
+- 范围：先冻结 API_CONTRACT，贯通 locale/role/pitch/volume/sampleRate 的窄 DTO、DB 请求解析与生成绑定；音色编辑保留未展示参数，百炼提供语言设置，试听/保存一致。保持未知字段拒绝及凭据隔离。
+- 参考：HapeLee/legado-with-MD3 / c4182eb9 的 CloudTtsViewModel、AlibabaCloudTtsProvider；语言语义另核对百炼官方 API。
+- 验收：真实 Sheet 重命名/试听/保存及清空语言、三 Provider 回归；DTO 映射与无效参数拒绝；真实 SQLite/SSE 请求及语言缓存隔离。无新 Provider、schema、播放队列或设备安装改动；仅本地提交，不推送/触发 CI。
+- 实现：云端表单保留原参数，百炼可编辑 locale；DB/DTO/映射补齐已有 Core 字段，生成绑定。草稿非有限数字在 JSON 编码前拒绝，防止变成 null 后被默认值掩盖。未知参数/凭据仍不准参与合成。
+- 验证：44 项不同 Flutter 用例通过（7 份普通回归共 43 项、真实 FFI 1 项，不累计复跑）；Rust DB 5 项与 QuickJS Engine 3 项通过。真实宿主 DLL 在本 worktree 独立构建，SQLite 保存音色与草稿命中同一缓存，英文/中文请求互不串缓存，清空语言命中 Auto，签名下载不带凭据。
+- 命令：flutter test --no-pub --reporter expanded 后接 widget/{cloud_tts_voice_parameters_test,http_tts_voice_parameters_test,cloud_tts_screen_test,read_aloud_management_test}.dart 与 unit/{media_dto_mapping_test,audio_cloud_tts_test,cloud_tts_settings_test}.dart；真实库 cargo build --locked --offline -p legado-ffi --features quickjs 后运行 --tags native test/ffi/alibaba_cloud_tts_runtime_test.dart。Rust 定向 cargo test --locked --offline 分别为 legado-db --lib repository::cloud_tts_repository::tests::、legado-engine --features quickjs --lib tts_service::cloud::tests::；实际逐一传入路径。
+- 过程/边界：新增表单先复现 5 项失败，修复后通过；最终收紧夹具为合法参数并复验 6 项。FRB 固定 2.13.0，generate bridge 与 --check 均通过，7 个 Dart 文件严格分析、架构依赖门禁、限定格式/diff 检查通过；依赖锁文件未改。生成器 hash 本批不变，实际使用新编译库验证字段编码，不能仅靠 hash 判断兼容。版本 2.0.392+393 与双日志同步；单代理自查，无独立外审、真实云账号/设备听感/后台验收，不推送或安装。
+- 执行者：Codex + UI/Bridge｜2026-10-19。
+
 ### TTS-VOICE-PARAMS-20261019：HTTP 音色与情感参数贯通（P2，待复验：真机听感）
 
 - 授权/基线：用户批准第二批，feature/ui-tts-engine / a7e07d320，单代理；先冻结 API_CONTRACT 音色参数语义，无 FRB 签名/schema 变化。

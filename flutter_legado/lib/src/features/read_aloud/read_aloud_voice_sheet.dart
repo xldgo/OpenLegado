@@ -48,7 +48,8 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _style,
       _instructions,
       _sample,
-      _emotion;
+      _emotion,
+      _locale;
   String _format = 'wav';
   bool _previewing = false;
   String? _error;
@@ -75,6 +76,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
     _speaker = TextEditingController(text: voice?.speakerId ?? '');
     _name = TextEditingController(text: voice?.displayName ?? '');
     _speed = TextEditingController(text: '${_traits['speed'] ?? 1.0}');
+    _locale = TextEditingController(text: _traits['locale'] as String? ?? '');
     _style = TextEditingController(text: _traits['style'] as String? ?? '');
     _instructions = TextEditingController(
       text: _traits['instructions'] as String? ?? '',
@@ -114,6 +116,10 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
           ).withEmotion(_emotion.text)
         : cloud
         ? <String, dynamic>{
+            // 未展示的请求参数仍属于音色，不因重命名或试听而丢失。
+            ..._traits,
+            if (cloudTtsProfile(source.provider!).supportsLocale)
+              'locale': _locale.text.trim(),
             if (cloudTtsProfile(source.provider!).supportsSourceSpeed)
               'speed': double.parse(_speed.text),
             'style': _style.text,
@@ -166,6 +172,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _instructions,
       _sample,
       _emotion,
+      _locale,
     ]) {
       c.dispose();
     }
@@ -267,6 +274,15 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
               ),
             ],
             if (profile != null) ...[
+              if (profile.supportsLocale)
+                TextFormField(
+                  key: const ValueKey('voice-locale'),
+                  controller: _locale,
+                  decoration: const InputDecoration(
+                    labelText: '语言',
+                    hintText: '留空自动识别，例如 Chinese、English',
+                  ),
+                ),
               if (profile.supportsSourceSpeed)
                 TextFormField(
                   key: const ValueKey('voice-speed'),

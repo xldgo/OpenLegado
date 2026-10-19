@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.392] - 2026-10-19
+
+### Fixed
+- [UI] 编辑云端音色保留未展示的请求参数，百炼音色支持设置语言或留空自动识别。
+- [Rust] 贯通音色与试听的语言、角色等已有请求字段，保持严格校验及有效请求缓存隔离。
+
+贡献者：Codex；构建号393。
+
 ## [2.0.391] - 2026-10-19
 
 ### Fixed

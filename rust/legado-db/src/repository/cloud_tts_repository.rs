@@ -22,10 +22,28 @@ pub struct CloudTtsMetadata {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CloudVoiceOptions {
     pub voice_id: Option<String>,
+    pub locale: Option<String>,
     pub style: Option<String>,
+    pub role: Option<String>,
     pub instructions: Option<String>,
     pub speed: Option<f64>,
+    pub pitch: Option<f64>,
+    pub volume: Option<f64>,
     pub format: Option<String>,
+    pub sample_rate: Option<u32>,
+}
+impl CloudVoiceOptions {
+    /// DTO 的非有限浮点值必须在 JSON 编码将其变成 null 前拒绝。
+    pub fn validate(&self) -> LegadoResult<()> {
+        if [self.speed, self.pitch, self.volume]
+            .into_iter()
+            .flatten()
+            .any(|value| !value.is_finite())
+        {
+            return Err(LegadoError::Ffi("云端音色数值必须为有限值".into()));
+        }
+        Ok(())
+    }
 }
 impl CloudTtsMetadata {
     pub fn engine(&self, api_key: String) -> CloudTtsEngine {
@@ -41,6 +59,7 @@ impl CloudTtsMetadata {
     }
     pub fn request(&self, text: String) -> LegadoResult<CloudTtsSynthesisRequest> {
         let options: CloudVoiceOptions = serde_json::from_str(&self.options_json)?;
+        options.validate()?;
         Ok(CloudTtsSynthesisRequest {
             text,
             voice_id: options.voice_id.unwrap_or_else(|| {
@@ -51,9 +70,13 @@ impl CloudTtsMetadata {
                 }
                 .into()
             }),
+            locale: options.locale.unwrap_or_default(),
             style: options.style.unwrap_or_default(),
+            role: options.role.unwrap_or_default(),
             instructions: options.instructions.unwrap_or_default(),
             speed: options.speed.unwrap_or(1.0),
+            pitch: options.pitch.unwrap_or(1.0),
+            volume: options.volume.unwrap_or(1.0),
             format: options.format.unwrap_or_else(|| {
                 match self.provider {
                     CloudTtsProviderType::OpenAiSpeech => "mp3",
@@ -61,7 +84,7 @@ impl CloudTtsMetadata {
                 }
                 .into()
             }),
-            ..Default::default()
+            sample_rate: options.sample_rate,
         })
     }
     pub fn validate(&self) -> LegadoResult<()> {
@@ -310,5 +333,46 @@ mod tests {
             repo.get(&m.id).unwrap().provider,
             CloudTtsProviderType::AlibabaCloud
         );
+    }
+
+    #[test]
+    fn complete_voice_options_reach_request_and_keep_strict_validation() {
+        let mut m = metadata();
+        m.provider = CloudTtsProviderType::AlibabaCloud;
+        m.model = "qwen3-tts-instruct-flash".into();
+        m.options_json = serde_json::json!({
+            "voiceId": "Serena", "locale": "English", "role": "旁白",
+            "style": "平静", "instructions": "保留指令", "speed": 1.5,
+            "pitch": 1.2, "volume": 0.0, "sampleRate": 24000, "format": "wav",
+        })
+        .to_string();
+        m.validate().unwrap();
+        let request = m.request("原文".into()).unwrap();
+        assert_eq!(request.locale, "English");
+        assert_eq!(request.role, "旁白");
+        assert_eq!(request.pitch, 1.2);
+        assert_eq!(request.volume, 0.0);
+        assert_eq!(request.sample_rate, Some(24000));
+        assert_eq!(request.speed, 1.5);
+        let prepared = cloud_tts_provider(m.provider)
+            .prepare(&m.engine("fixture".into()), &request)
+            .unwrap();
+        assert_eq!(prepared.body["input"]["language_type"], "English");
+        for options in [
+            r#"{"apiKey":"不能混入"}"#,
+            r#"{"baseUrl":"http://example.org"}"#,
+            r#"{"sampleRate":-1}"#,
+            r#"{"sampleRate":4294967296}"#,
+            r#"{"pitch":"高"}"#,
+        ] {
+            m.options_json = options.into();
+            assert!(m.request("原文".into()).is_err());
+        }
+        m.options_json = "{}".into();
+        let request = m.request("原文".into()).unwrap();
+        assert_eq!(request.locale, "");
+        assert_eq!(request.pitch, 1.0);
+        assert_eq!(request.volume, 1.0);
+        assert_eq!(request.sample_rate, None);
     }
 }

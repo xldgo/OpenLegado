@@ -220,26 +220,41 @@ class CloudVoiceDescriptorDto {
 
 class CloudVoiceOptionsDto {
   final String? voiceId;
+  final String? locale;
   final String? style;
+  final String? role;
   final String? instructions;
   final double? speed;
+  final double? pitch;
+  final double? volume;
   final String? format;
+  final int? sampleRate;
 
   const CloudVoiceOptionsDto({
     this.voiceId,
+    this.locale,
     this.style,
+    this.role,
     this.instructions,
     this.speed,
+    this.pitch,
+    this.volume,
     this.format,
+    this.sampleRate,
   });
 
   @override
   int get hashCode =>
       voiceId.hashCode ^
+      locale.hashCode ^
       style.hashCode ^
+      role.hashCode ^
       instructions.hashCode ^
       speed.hashCode ^
-      format.hashCode;
+      pitch.hashCode ^
+      volume.hashCode ^
+      format.hashCode ^
+      sampleRate.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -247,10 +262,15 @@ class CloudVoiceOptionsDto {
       other is CloudVoiceOptionsDto &&
           runtimeType == other.runtimeType &&
           voiceId == other.voiceId &&
+          locale == other.locale &&
           style == other.style &&
+          role == other.role &&
           instructions == other.instructions &&
           speed == other.speed &&
-          format == other.format;
+          pitch == other.pitch &&
+          volume == other.volume &&
+          format == other.format &&
+          sampleRate == other.sampleRate;
 }
 
 class HttpTtsConfigDto {
