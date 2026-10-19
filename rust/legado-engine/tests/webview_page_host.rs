@@ -512,3 +512,117 @@ async fn cancelling_page_call_interrupts_io_and_late_effects_are_rejected() {
             .is_none()
     );
 }
+
+#[test]
+fn file_cache_ttl_is_shared_by_page_host_and_quickjs() {
+    let engine = EngineContext::in_memory().unwrap();
+    let page = service(&engine);
+    let manager = &page.js.host_resources().webview;
+    let handle = request(manager, "https://file-cache.test");
+    let key = handle.key();
+    assert_eq!(
+        invoke(
+            &page,
+            key,
+            PageTarget::Cache,
+            "putFile",
+            vec![Some("expired"), Some("value"), Some("-1")]
+        )
+        .unwrap(),
+        Value::Null
+    );
+    assert_eq!(
+        invoke(
+            &page,
+            key,
+            PageTarget::Cache,
+            "getFile",
+            vec![Some("expired")]
+        )
+        .unwrap(),
+        Value::Null
+    );
+    invoke(
+        &page,
+        key,
+        PageTarget::Cache,
+        "putFile",
+        vec![Some("live"), Some("page"), Some("1")],
+    )
+    .unwrap();
+    assert_eq!(
+        page.js.host_resources().cache.get_file("live").as_deref(),
+        Some("page")
+    );
+    for invalid in ["bad", "1.5", "2147483648"] {
+        assert!(
+            invoke(
+                &page,
+                key,
+                PageTarget::Cache,
+                "putFile",
+                vec![Some("live"), Some("wrong"), Some(invalid)]
+            )
+            .is_err()
+        );
+    }
+    #[cfg(feature = "quickjs")]
+    {
+        use legado_js::JsEngine;
+        let evaluator = engine
+            .js_resources()
+            .create_engine(legado_js::SandboxConfig::permissive())
+            .unwrap();
+        assert_eq!(evaluator.eval("cache.getFile('live')").unwrap(), "page");
+        evaluator.eval("cache.putFile('expired','js',-1)").unwrap();
+        assert_eq!(
+            invoke(
+                &page,
+                key,
+                PageTarget::Cache,
+                "getFile",
+                vec![Some("expired")]
+            )
+            .unwrap(),
+            Value::Null
+        );
+        evaluator.eval("cache.putFile('live','js',0)").unwrap();
+        assert_eq!(
+            invoke(&page, key, PageTarget::Cache, "getFile", vec![Some("live")]).unwrap(),
+            json!("js")
+        );
+    }
+    // 独立短期限走真实时钟，取消后不能通过迟到页内调用重建。
+    invoke(
+        &page,
+        key,
+        PageTarget::Cache,
+        "putFile",
+        vec![Some("short"), Some("value"), Some("1")],
+    )
+    .unwrap();
+    std::thread::sleep(Duration::from_millis(1100));
+    assert_eq!(
+        invoke(
+            &page,
+            key,
+            PageTarget::Cache,
+            "getFile",
+            vec![Some("short")]
+        )
+        .unwrap(),
+        Value::Null
+    );
+    manager.cancel(key);
+    assert!(
+        invoke(
+            &page,
+            key,
+            PageTarget::Cache,
+            "putFile",
+            vec![Some("short"), Some("late"), Some("0")]
+        )
+        .is_err()
+    );
+    assert!(page.js.host_resources().cache.get_file("short").is_none());
+}

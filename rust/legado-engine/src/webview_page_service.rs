@@ -126,11 +126,13 @@ impl WebViewPageService {
                     }
                     "putFile" => {
                         args.count(2, 3)?;
-                        if args.optional(2).unwrap_or("0") != "0" {
-                            return Err(bad("现有文件缓存尚不支持非零期限"));
-                        }
+                        let ttl = args
+                            .optional(2)
+                            .unwrap_or("0")
+                            .parse::<i32>()
+                            .map_err(|_| bad("缓存期限必须是整数秒"))?;
                         lease.check()?;
-                        cache.put_file(args.text(0)?, args.text(1)?);
+                        cache.put_file(args.text(0)?, args.text(1)?, ttl);
                         Ok(Value::Null)
                     }
                     _ => Err(bad("未支持的后台cache方法")),

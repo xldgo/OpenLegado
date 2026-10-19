@@ -3834,13 +3834,11 @@ fn register_html_parse_apis<'js>(
 
 /// 注册全局 `cache` 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存）
 ///
-/// 对齐上游 WebCacheManager（help/WebCacheManager.kt:171-206）JS 面：
+/// 对齐上游 CacheManager.kt 中 WebCacheManager 的 JS 面：
 /// put / putMemory / getFromMemory / deleteMemory / get(onlyDisk) /
-/// putFile / getFile / delete。后端为 `cache_store` 模块的进程级
-/// LRU 内存 + 磁盘文件，语义对齐 CacheManager.kt:60-98：
-/// - saveTime <= 0 → 仅内存（putMemory），永久有效
-/// - saveTime > 0  → 磁盘条目 + 截止时间，读取时过期即删
-/// - putFile/getFile：磁盘裸文件，无过期
+/// putFile / getFile / delete。后端由所属资源的CacheStore持有：
+/// - put沿用已有内存/磁盘规则；get可选择只读磁盘
+/// - putFile/getFile为独立文件层，0永久、非零期限按秒持久化，过期即删
 ///
 /// 值统一字符串化后存储（上游 WebCacheManager 存 String；对象值
 /// 走 JSON.stringify 为兼容超集）；缺失键返回显式 **null**
@@ -3856,7 +3854,7 @@ fn register_cache_apis<'js>(
         rquickjs::Object::new(ctx.clone()).map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
     // put(key, value, saveTime?) -> bool
-    // saveTime<=0 语义对齐 CacheManager.kt:60-98：仅内存、无过期
+    // 普通put沿用既有规则：非正期限永久并同步内存，正期限写盘并清理内存。
     // saveTime 上游为非空原始 Int（CacheManager.kt:60；WebCacheManager.put :172
     // 同为 `saveTime: Int = 0`，@JvmOverloads 缺省 0）：按 Rhino 原始 int 语义
     // 宽松（字符串数字可；缺参 → None → 0 — W4 探针），域判定与 int 同
@@ -4017,7 +4015,7 @@ fn register_cache_apis<'js>(
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // putFile(key, value) -> bool（磁盘裸文件，无过期）
+    // putFile(key, value, saveTime?) -> bool（文件层，期限按秒）
     cache
         .set(
             "putFile",
@@ -4027,9 +4025,14 @@ fn register_cache_apis<'js>(
                     ctx.clone(),
                     move |ctx: rquickjs::Ctx<'js>,
                           key: RhinoStr,
-                          value: rquickjs::Value<'js>|
+                          value: rquickjs::Value<'js>,
+                          save_time: RhinoOptInt|
                           -> bool {
-                        cache_store.put_file(&key, &stringify_cache_value(&ctx, &value))
+                        cache_store.put_file(
+                            &key,
+                            &stringify_cache_value(&ctx, &value),
+                            save_time.0.unwrap_or(0),
+                        )
                     },
                 )
             }
@@ -7789,11 +7792,40 @@ cipher.decryptStr(b64);
         assert!(result.contains("\"pbNullFalse\":true"), "got: {result}");
     }
 
-    /// 全局 cache 对象（对齐 WebCacheManager）：记忆三件套 + 磁盘/文件缓存
-    ///
-    /// P2-11 ②：取磁盘层测试串行锁——cache_store 注入目录测试会切换
-    /// INJECTED_DIR/env/清理临时目录，互斥防止目录切换/清理干扰本测试
-    /// 磁盘读写。
+    /// 文件缓存期限沿用Rhino可选整数转换；返回值与原有bool保持一致。
+    #[test]
+    fn file_cache_ttl_accepts_optional_seconds_in_quickjs() {
+        let engine = make_engine();
+        let result = engine
+            .eval(
+                r#"
+            cache.putFile('negative','value',-1);
+            cache.putFile('minimum','value',-2147483648);
+            cache.putFile('omitted','permanent');
+            cache.putFile('null','permanent',null);
+            cache.putFile('undefined','permanent',undefined);
+            cache.putFile('string','positive','60');
+            cache.putFile('maximum','long',2147483647);
+            JSON.stringify(['negative','minimum','omitted','null','undefined','string','maximum']
+                .map(function(key){return cache.getFile(key);}));
+        "#,
+            )
+            .unwrap();
+        let values: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(
+            values,
+            serde_json::json!([
+                null,
+                null,
+                "permanent",
+                "permanent",
+                "permanent",
+                "positive",
+                "long"
+            ])
+        );
+    }
+
     #[test]
     fn test_cache_global_roundtrip() {
         let _lock = crate::host_api::cache_store::lock_cache_for_test();

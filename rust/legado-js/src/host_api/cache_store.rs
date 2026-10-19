@@ -1,4 +1,4 @@
-//! JS 数据缓存由显式所有者持有；保留原 LRU、TTL、磁盘及失败降级规则。
+//! JS缓存由显式所有者持有；内存LRU、普通磁盘缓存与限期文件缓存独立。
 use lru::LruCache;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -16,7 +16,22 @@ struct DiskCacheEntry {
     d: i64,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct FileCacheEntry {
+    value: String,
+    #[serde(deserialize_with = "file_cache_deadline")]
+    expires_at: Option<i64>,
+}
+
+// 永久缓存也必须显式包含null期限；缺字段的损坏文件不能被当成永久。
+fn file_cache_deadline<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<i64>, D::Error> {
+    serde::Deserialize::deserialize(deserializer)
+}
+
 pub struct CacheStore {
+    file_access: Mutex<()>,
     memory: Mutex<LruCache<String, String>>,
     directory: Mutex<Option<PathBuf>>,
     fallback: Option<PathBuf>,
@@ -25,6 +40,7 @@ pub struct CacheStore {
 impl Default for CacheStore {
     fn default() -> Self {
         Self {
+            file_access: Mutex::new(()),
             memory: Mutex::new(LruCache::new(
                 NonZeroUsize::new(MEMORY_CACHE_CAPACITY).unwrap(),
             )),
@@ -176,8 +192,13 @@ impl CacheStore {
         }
     }
 
-    /// 纯磁盘写入（`putFile`，无内存层、不过期）
-    pub fn put_file(&self, key: &str, value: &str) -> bool {
+    /// 文件缓存只写磁盘；期限按秒持久化，0永久，负数已过期。
+    pub fn put_file(&self, key: &str, value: &str, save_time_secs: i32) -> bool {
+        self.put_file_at(key, value, save_time_secs, now_millis())
+    }
+
+    fn put_file_at(&self, key: &str, value: &str, save_time_secs: i32, now: i64) -> bool {
+        let _access = self.file_access.lock().unwrap_or_else(|e| e.into_inner());
         let Some(path) = self.file_path(key) else {
             return false;
         };
@@ -195,7 +216,20 @@ impl CacheStore {
         // P2-11 ②：纯磁盘 API（file/ 子目录，不进内存层）——写失败无内存层
         // 可降级，仅记录失败原因（原 `.is_ok()` 静默吞错）；P2-15 剩项：
         // 限流为进程内首条（目录不合法时每次 `cache.putFile` 都会失败）
-        match fs::write(&path, value) {
+        let entry = FileCacheEntry {
+            value: value.into(),
+            expires_at: (save_time_secs != 0).then_some(now + i64::from(save_time_secs) * 1000),
+        };
+        let encoded = match serde_json::to_vec(&entry) {
+            Ok(encoded) => encoded,
+            Err(error) => {
+                warn_once(&PUT_FILE_WRITE_FAIL_WARNED, || {
+                    eprintln!("[cache_store] 文件缓存序列化失败: {error}");
+                });
+                return false;
+            }
+        };
+        match fs::write(&path, encoded) {
             Ok(()) => true,
             Err(e) => {
                 warn_once(&PUT_FILE_WRITE_FAIL_WARNED, || {
@@ -208,9 +242,22 @@ impl CacheStore {
         }
     }
 
-    /// 纯磁盘读取（`getFile`，不做 deadline 校验）
+    /// 文件缓存读取不进入内存层；只有超过截止毫秒才清除过期文件。
     pub fn get_file(&self, key: &str) -> Option<String> {
-        fs::read_to_string(self.file_path(key)?).ok()
+        self.get_file_at(key, now_millis())
+    }
+
+    fn get_file_at(&self, key: &str, now: i64) -> Option<String> {
+        // 与同一所有者写入/删除串行，避免旧的过期读取误删刚覆盖的新值。
+        let _access = self.file_access.lock().unwrap_or_else(|e| e.into_inner());
+        let path = self.file_path(key)?;
+        let entry: FileCacheEntry = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
+        if entry.expires_at.is_some_and(|deadline| now > deadline) {
+            let _ = fs::remove_file(path);
+            None
+        } else {
+            Some(entry.value)
+        }
     }
 
     /// 删除（磁盘 + 内存）
@@ -218,8 +265,11 @@ impl CacheStore {
         if let Some(path) = self.disk_path(key) {
             let _ = fs::remove_file(path);
         }
-        if let Some(path) = self.file_path(key) {
-            let _ = fs::remove_file(path);
+        {
+            let _access = self.file_access.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(path) = self.file_path(key) {
+                let _ = fs::remove_file(path);
+            }
         }
         self.delete_memory(key);
     }
@@ -325,7 +375,7 @@ fn get(key: &str, disk: bool) -> Option<String> {
 }
 #[cfg(test)]
 fn put_file(key: &str, value: &str) -> bool {
-    test_store().put_file(key, value)
+    test_store().put_file(key, value, 0)
 }
 #[cfg(test)]
 fn get_file(key: &str) -> Option<String> {
@@ -357,6 +407,97 @@ mod tests {
     fn unique_key(tag: &str) -> String {
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
         format!("{}-{}-{}", std::process::id(), n, tag)
+    }
+
+    #[test]
+    fn file_cache_ttl_deadline_survives_reopen_and_expires_only_after_boundary() {
+        let owner = CacheStore::default();
+        let directory = owner.disk_dir().unwrap();
+        let first = CacheStore::default();
+        first.set_cache_dir(&directory);
+        let now = 1_700_000_000_000;
+        assert!(first.put_file_at("key", "中文\n{正文}", 2, now));
+        assert_eq!(
+            first.get_file_at("key", now + 1999).as_deref(),
+            Some("中文\n{正文}")
+        );
+        drop(first);
+        let reopened = CacheStore::default();
+        reopened.set_cache_dir(&directory);
+        assert_eq!(
+            reopened.get_file_at("key", now + 2000).as_deref(),
+            Some("中文\n{正文}")
+        );
+        assert_eq!(reopened.get_file_at("key", now + 2001), None);
+        assert!(!reopened.file_path("key").unwrap().exists());
+    }
+
+    #[test]
+    fn file_cache_ttl_overwrites_deadline_and_keeps_file_layer_separate() {
+        let cache = CacheStore::default();
+        let now = 1_700_000_000_000;
+        assert!(cache.put_file_at("key", "old", 1, now));
+        assert!(cache.put_file_at("key", "permanent", 0, now + 500));
+        assert_eq!(
+            cache.get_file_at("key", now + 100_000).as_deref(),
+            Some("permanent")
+        );
+        assert!(cache.get("key", true).is_none());
+        assert!(cache.get_from_memory("key").is_none());
+        assert!(cache.put_file_at("key", "new", 1, now + 100_000));
+        assert_eq!(
+            cache.get_file_at("key", now + 101_000).as_deref(),
+            Some("new")
+        );
+        assert_eq!(cache.get_file_at("key", now + 101_001), None);
+    }
+
+    #[test]
+    fn file_cache_ttl_handles_negative_and_full_i32_range_without_zero_sentinel() {
+        let cache = CacheStore::default();
+        let now = 1_700_000_000_000;
+        for seconds in [-1, i32::MIN, -1_700_000_000] {
+            assert!(cache.put_file_at("key", "expired", seconds, now));
+            assert!(cache.get_file_at("key", now).is_none());
+        }
+        assert!(cache.put_file_at("key", "long", i32::MAX, now));
+        let end = now + i64::from(i32::MAX) * 1000;
+        assert_eq!(cache.get_file_at("key", end).as_deref(), Some("long"));
+        assert_eq!(cache.get_file_at("key", end + 1), None);
+    }
+
+    #[test]
+    fn file_cache_ttl_delete_and_independent_owners_do_not_cross() {
+        let one = CacheStore::default();
+        let two = CacheStore::default();
+        assert!(one.put_file("same", "one", 0));
+        assert!(two.put_file("same", "two", 60));
+        one.put_memory("same", "memory");
+        assert!(one.put("same", "disk", 0));
+        one.delete("same");
+        assert!(one.get_file("same").is_none());
+        assert!(one.get("same", false).is_none());
+        assert!(one.get("same", true).is_none());
+        assert_eq!(two.get_file("same").as_deref(), Some("two"));
+    }
+
+    #[test]
+    fn file_cache_ttl_unstructured_or_corrupt_files_are_misses() {
+        let cache = CacheStore::default();
+        let path = cache.file_path("key").unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        for data in [
+            "原裸缓存",
+            "{broken",
+            r#"{"value":"v","expires_at":"bad"}"#,
+            r#"{"value":"missing-deadline"}"#,
+            r#"{"expires_at":null}"#,
+        ] {
+            fs::write(&path, data).unwrap();
+            assert_eq!(cache.get_file("key"), None);
+        }
+        assert!(cache.put_file("key", "recreated", 0));
+        assert_eq!(cache.get_file("key").as_deref(), Some("recreated"));
     }
 
     #[test]

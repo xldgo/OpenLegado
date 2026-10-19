@@ -1,5 +1,18 @@
 # API 契约文档
 
+## JS文件缓存期限（2026-10-19，实施前冻结）
+
+沿用cache.putFile(key,value,saveTime?)与cache.getFile(key)，没有新增FFI字段。
+QuickJS可选期限沿用现有RhinoOptInt转换；省略/null/undefined为0。页内宿主省略/null为0，提供字符串需可解析为i32整数秒。
+0永久，正值为写入时间加秒数，负值已过期；当前时间严格大于截止时间才失效，边界毫秒仍可读。
+getFile过期返回null并移除该文件；重开相同目录保留截止时间，覆盖写入替换旧值和期限。
+文件缓存与内存/普通cache.put层分离；delete同时移除对应各层，独立引擎目录不互相影响。
+文件缓存采用内部JSON值/可选截止时间，不增加协议版本标识；无法按当前结构解析的条目作未命中，由规则重建，不实施旧格式迁移。
+QuickJS保留现有写入bool，页内保留现有void/null；失败仍走原日志/false规则，无内存降级，不扩大为全缓存错误改造。
+本批仅文件缓存期限行为对齐；普通cache.put的已有负值/失败降级规则不在范围内。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## WebView嗅探匹配与结果语义（2026-10-19，实施前冻结）
 
 沿用既有webViewGetSource/webViewGetOverrideUrl请求与WebViewResponse，不增加FFI字段。
@@ -45,7 +58,7 @@ source.get/put、getVariable/putVariable、登录信息/Header复用Rust现有�
 复用所属JsHostResources.cache，保留内存/磁盘/TTL区别，不建平台镜像，不在完整结果返回时回填快照。
 java.get/put按上游RssJsExtensions委托source；同步ajax/connect/get/head/post和getString/List
 复用Rust网络/解析器，独立执行视图避免重入正在等待WebView的父VM。source.login复用已配置的
-源登录脚本，不打开登录UI。缓存putFile沿用Rust既有文件语义，不附带改造TTL。
+源登录脚本，不打开登录UI。缓存putFile的期限现已按本文“JS文件缓存期限”扩展，统一委托所属CacheStore。
 后台无Activity：java.request异步分派不执行（与参考版后台一致），不补RSS导航/界面回调。
 Android通过原生prompt回调及现有MethodChannel转发，主线程只异步处理；Flutter回退使用
 公开prompt回调保持页内同步返回。两路消费相同Dart参数校验/错误信封与Rust执行，不把失败转空串。

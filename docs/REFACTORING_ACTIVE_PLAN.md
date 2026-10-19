@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-FILE-CACHE-TTL-20261019：JS文件缓存期限贯通（P1）
+
+- 状态：已关闭（本批Rust脚本文件缓存范围）；dep-audit / chore/dep-audit / d747375b7起，单代理实现与自查，本地提交，不推送/合并，不修改主目录。
+- 依据：参考版固定15e1337a的WebCacheManager.putFile → CacheManager.putFile → ACache.put/getAsString。秒为单位，0永久、负数已过期，now>截止时间失效并移除文件；未运行上游应用。
+- 修前复现：QuickJS实测忽略第三参数，负期限读回value；页内入口同例报“现有文件缓存尚不支持非零期限”。两项真实调用均先失败，修后通过，不以源码字符串检索充当测试。
+- 实现：先冻结脚本契约，QuickJS沿用RhinoOptInt可选整数转换，页内第三参数解析i32秒，统一委托所属CacheStore。文件缓存独立保存JSON值与可选截止毫秒，永久明确为null、缺期限字段拒绝，过期返回空并删除；无新增版本标识。无法按当前结构解析的条目视为未命中，不迁移旧缓存或用户数据库。普通cache.put、内存LRU、目录归属、写失败日志/false策略保持，页内void/null返回不变。
+- 并发与隔离：同一CacheStore的文件读写/删除共用实例锁，避免旧过期读取误删刚更新的文件；不加全局会话表或进程锁。跨所有者独立目录互不影响；不承诺不同进程共享同一目录的事务隔离。
+- 验证：QuickJS库661项通过、2项既有忽略；页内宿主6项集成通过。默认档另有15项缓存与3项页内通过，不重复累加。新增覆盖严格截止边界、重新创建所有者后的持久期限、覆盖更新、永久/负数/完整i32范围及截止为0、删除/实例隔离、坏JSON/缺字段、可选/null/undefined/数字字符串、两入口互读、无效期限不覆盖及取消后迟到拒绝。边界用显式时刻的生产读写路径配真实磁盘；页内另有1秒真实时钟失效测试，不用整批长等待。
+- 门禁：JS/Engine默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8与diff检查通过。末次追加缺字段夹具后单项复验通过；其余受影响回归通过后未反复跑全仓检查。只有单代理自查，无独立外审。
+- 证据：build/js-file-cache-ttl/{reproduce-quickjs,reproduce-page,fixed-quickjs,fixed-page,js-library,page-host,default-cache,default-page,clippy-quickjs,clippy-default,malformed-final}.log。前两项为预期修前失败，其余通过；早期共享Cargo目录等待不算构建性能测量。
+- 交付边界：版本2.0.395+396、双日志及契约随本批提交。无FFI签名/DTO/生成物/数据库schema/依赖或UI改动；未构建native/应用、安装模拟器或触发CI，MuMu仍为上批版本。下次应用构建需重建匹配Rust产物，不改写旧元数据。普通cache.put负值/失败降级与上游差异未在本批改变，不宣称全JS缓存语义完成。
+
+编写者：Codex｜2026-10-19
+
 ### WEBVIEW-SNIFFER-20261019：资源嗅探与跳转捕获对齐（P1）
 
 - 状态：待复验；Android与通用逻辑限定场景已完成，iOS待外部测试能力。dep-audit / chore/dep-audit / 4191dc232起，单代理实现与自查，本地提交，不推送/合并，不修改主目录。

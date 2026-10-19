@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.395] - 2026-10-19
+
+### Fixed
+- 书源脚本与后台页面的文件缓存支持指定秒数，到期后正确失效。
+- 文件缓存覆盖更新和重新打开后保留正确期限，修复非零期限被忽略或拒绝的问题。
+- 贡献者：Codex + Rust；构建号396。
+
 ## [2.0.394] - 2026-10-19
 
 ### Fixed
