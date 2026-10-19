@@ -25,19 +25,29 @@ void main() {
   late File crashFile;
   late FlutterExceptionHandler? previousOnError;
 
-  // 与生产 main.dart L27-29 完全一致的处理器（复刻点）
+  late FlutterExceptionHandler previousPresentError;
+  late bool Function(Object, StackTrace)? previousPlatformError;
+  final presented = <FlutterErrorDetails>[];
+
   void installProductionHandler() {
     previousOnError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      CrashLogService.instance.logError(details.exception, details.stack);
-    };
+    previousPresentError = FlutterError.presentError;
+    previousPlatformError = PlatformDispatcher.instance.onError;
+    FlutterError.presentError = presented.add;
+    CrashLogService.instance.setupCrashHandler();
   }
 
   void restoreProductionHandler() {
     FlutterError.onError = previousOnError;
+    FlutterError.presentError = previousPresentError;
+    PlatformDispatcher.instance.onError = previousPlatformError;
   }
 
   setUp(() async {
+    presented.clear();
+    previousOnError = FlutterError.onError;
+    previousPresentError = FlutterError.presentError;
+    previousPlatformError = PlatformDispatcher.instance.onError;
     SharedPreferences.setMockInitialValues({});
     tempDir = await Directory.systemTemp.createTemp('crash_class_test');
     crashFile = File('${tempDir.path}/crash_log.txt');
@@ -71,6 +81,7 @@ void main() {
         stack: StackTrace.current,
       ),
     );
+    expect(presented, hasLength(1));
     restoreProductionHandler();
     await flushPrefs();
 
@@ -109,6 +120,7 @@ void main() {
         stack: StackTrace.current,
       ),
     );
+    expect(presented, hasLength(1));
     restoreProductionHandler();
     await flushPrefs();
 

@@ -1,3 +1,4 @@
+import 'src/app/routing/startup_reading_navigation.dart';
 import 'src/app/routing/app_navigation.dart';
 import 'src/providers/auto_task/auto_task_dependencies.dart';
 import 'src/providers/config_settings_provider.dart';
@@ -217,6 +218,8 @@ class TopRouteWatcher extends NavigatorObserver {
 class _LegadoAppState extends ConsumerState<LegadoApp>
     with WidgetsBindingObserver {
   late final GoRouter _router;
+  late final StartupReadingNavigation _startupReading;
+  late final ProviderContainer _applicationContainer;
 
   /// 栈顶路由观察器（注册进 `MaterialApp(navigatorObservers:)`，见
   /// [build]），两个只读消费者：
@@ -230,7 +233,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   @override
   void initState() {
     super.initState();
+    _applicationContainer = ProviderScope.containerOf(context, listen: false);
+    _startupReading = ref.read(startupReadingNavigationProvider);
     _mediaPlaybackNavigation = MediaPlaybackNavigation(
+      onOpenRequested: _startupReading.preferExternalAction,
       resolve: (request) {
         if (!mounted) return null;
         final notifier = ref.read(audioNotifierProvider.notifier);
@@ -257,6 +263,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
         appRouteObserver,
         systemBarRouteObserver,
         _topRouteWatcher,
+        _startupReading,
         _readAloudCapsuleObserver,
         _mediaPlaybackNavigation,
       ],
@@ -299,8 +306,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
         watcher: _topRouteWatcher,
         navigator: () =>
             mounted ? PlatformBridgeService.navigatorKey.currentState : null,
-        push: (_) =>
-            DeepLinkService.instance.attach(PlatformBridgeService.navigatorKey),
+        push: (_) => DeepLinkService.instance.attach(
+          PlatformBridgeService.navigatorKey,
+          onImport: _startupReading.preferExternalAction,
+        ),
         onTimeout: () => debugPrint('[DeepLink] 等待欢迎页退出超时'),
       );
     });
@@ -319,6 +328,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   @override
   void dispose() {
+    _startupReading.dispose();
+    _applicationContainer.invalidate(startupReadingNavigationProvider);
     _router.dispose();
     _mediaPlaybackNavigation.dispose();
     _readAloudCapsuleObserver.dispose();
@@ -332,6 +343,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   /// `replaceAppRoute(home)` 竞争、刚压入的 /video 被整体替换
   /// （round2 真机 2/2；详见 [scheduleFloatReturnNavigation]）。
   void _openVideoFromFloatWindow(VideoFloatWindowState state, Book? book) {
+    _startupReading.preferExternalAction();
     final args = VideoScreenArgs(
       videoUrl: state.directUrl ?? book?.bookUrl ?? '',
       title: state.chapterTitle?.isNotEmpty == true

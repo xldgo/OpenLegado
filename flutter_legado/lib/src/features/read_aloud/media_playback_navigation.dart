@@ -17,7 +17,8 @@ final class MediaPlaybackDestination {
 
 /// 导航只消费有效会话，不创建播放；欢迎页未退出时保留最新点击。— Codex + UI
 class MediaPlaybackNavigation extends NavigatorObserver {
-  MediaPlaybackNavigation({required this.resolve});
+  MediaPlaybackNavigation({required this.resolve, this.onOpenRequested});
+  final VoidCallback? onOpenRequested;
   final MediaPlaybackDestination? Function(MediaPlaybackTarget) resolve;
   final _routes = <Route<dynamic>>[];
   StreamSubscription<MediaPlaybackTarget>? _subscription;
@@ -34,6 +35,7 @@ class MediaPlaybackNavigation extends NavigatorObserver {
 
   void open(MediaPlaybackTarget target) {
     if (_closed) return;
+    onOpenRequested?.call();
     _pending = target;
     _schedule();
   }

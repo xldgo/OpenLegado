@@ -17,11 +17,16 @@ class DeepLinkService {
 
   GlobalKey<NavigatorState>? navigatorKey;
   bool _attached = false;
+  VoidCallback? _onImport;
   String? _lastHandled;
   StreamSubscription<Uri>? _iosLinkSub;
 
   /// 在 [LegadoApp] 首帧后调用；重复调用安全
-  Future<void> attach(GlobalKey<NavigatorState> key) async {
+  Future<void> attach(
+    GlobalKey<NavigatorState> key, {
+    VoidCallback? onImport,
+  }) async {
+    _onImport = onImport;
     navigatorKey = key;
     if (_attached) return;
     _attached = true;
@@ -74,6 +79,7 @@ class DeepLinkService {
   Future<void> handleUrl(String url) async {
     if (!LegadoDeepLink.isImportScheme(url)) return;
     if (_lastHandled == url) return;
+    _onImport?.call();
     _lastHandled = url;
 
     final parsed = LegadoDeepLink.tryParse(url);

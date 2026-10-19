@@ -45,13 +45,7 @@ void main() {
       debugPrint('[启动] CrashLogService 初始化耗时：${sw.elapsedMilliseconds}ms');
 
       // 2. 注册全局错误捕获
-      FlutterError.onError = (details) {
-        CrashLogService.instance.logError(details.exception, details.stack);
-      };
-      PlatformDispatcher.instance.onError = (error, stack) {
-        CrashLogService.instance.logError(error, stack);
-        return true;
-      };
+      CrashLogService.instance.setupCrashHandler();
 
       // 3. 读取上次崩溃日志
       final lastCrash = await CrashLogService.instance.getLastCrashLog();
@@ -123,7 +117,7 @@ void main() {
     },
     (error, stack) {
       // Zone 级异常兜底：记录到崩溃日志
-      CrashLogService.instance.logError(error, stack);
+      CrashLogService.instance.handleException(error, stack);
     },
   );
 }

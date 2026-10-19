@@ -13,7 +13,7 @@ import '../../../models/book.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../domain/models/welcome_settings.dart';
 import '../../../providers/welcome_settings_provider.dart';
-import '../../../utils/book_open_utils.dart';
+import '../../../app/routing/startup_reading_navigation.dart';
 import '../../../widgets/app_scaffold.dart';
 
 /// 启动闪屏（对齐原版 WelcomeActivity + activity_welcome.xml）
@@ -104,29 +104,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     }
 
     if (!mounted) return;
-    // 对齐原版：先 MainActivity，再按需 ReadBookActivity
-    //
-    // [V-B3-ROUTE 2026-10-05] 本替换与悬浮窗冷启动「回全屏」的 push 共用
-    // 路由栈：app.dart [LegadoApp.scheduleFloatReturnNavigation] 已按
-    // 「栈顶非 /welcome」门控，等本替换完成后才压入 /video；此处保持
-    // replaceAppRoute保留替换语义，普通push会把欢迎页留在栈底。
-    //
-    // 注意（既有缺陷登记，不在本批范围）：replaceAppRoute返回的是
-    // **新路由（home）的 popped future**，home 不弹栈该 await 永不完成
-    // → 下方 lastRead 直达分支实际不可达（探针测试实证）。因此
-    // `_openLastRead` 不会与浮窗回全屏竞争；若后续修复该 await 语义，须先
-    // 约定「直达阅读器 vs 浮窗回全屏」的压栈优先级，避免新竞争。
-    await GoRouter.of(context).replaceAppRoute(AppRoutes.home);
+    // 交接给应用作用域；替换Future代表主页关闭，不能把它当作入场完成。
     if (lastRead != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _openLastRead(lastRead!);
-      });
+      ref.read(startupReadingNavigationProvider).request(lastRead);
     }
-  }
-
-  Future<void> _openLastRead(Book book) async {
-    // 启动直达路径经全局 navigatorKey 导航，复用公共开书分流。
-    await BookOpenUtils.openBook(context, ref, book, useGlobalNavigator: true);
+    unawaited(GoRouter.of(context).replaceAppRoute(AppRoutes.home));
   }
 
   @override
