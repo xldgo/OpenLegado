@@ -3,7 +3,7 @@
 ## 下载与缓存设置（2026-10-19）
 
 主设置“其他”分组新增“下载与缓存”，命名路由/download_cache_settings。
-参照HapeLee main/c4182eb9的DownloadCacheConfigScreen，页面按下载设置、
+参照HapeLee main/c4182eb9的DownloadCacheConfigScreen，页面按HTTP缓存、下载设置、
 图片缓存、网络、其他操作分组，复用SettingsBody/SettingsGroup/SettingTile。
 原高级页移除对应项，既有离线缓存列表和缓存统计页面保持各自职责。
 
@@ -15,8 +15,9 @@ Sheet复用AppSettingsSheet，仅保留数字输入框，1～256限制在非法�
 不将无释放量的压缩返回值报告为成功。清理章节后同步清除章级重复标题镜像标记。
 
 未接线的预下载、图片缓存容量/保留和User-Agent继续只读展示旧值并标明待实现，
-不新增无消费者的设置写入。上游封面/漫画HTTP缓存分区、下载专用并发、
-向前预下载及Cronet在本批范围之外；本页不宣称已交付全部上游后端能力。
+不新增无消费者的设置写入。按用户授权，封面缓存、漫画缓存、书籍缓存下载线程数、
+向前预下载先提供禁用占位，副说明统一为“待实现”，不显示虚构缓存大小或默认配置值，
+不提供清理或编辑回调；对应底层能力及Cronet未实现，不宣称已交付全部上游功能。
 
 来源：[上游页面](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt)。
 

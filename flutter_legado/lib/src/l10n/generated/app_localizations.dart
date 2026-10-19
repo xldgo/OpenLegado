@@ -98,6 +98,42 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @httpCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'HTTP 缓存'**
+  String get httpCache;
+
+  /// No description provided for @coverCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面缓存'**
+  String get coverCache;
+
+  /// No description provided for @mangaCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'漫画缓存'**
+  String get mangaCache;
+
+  /// No description provided for @cacheBookThreadCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'书籍缓存下载线程数'**
+  String get cacheBookThreadCount;
+
+  /// No description provided for @preDownloadPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'向前预下载'**
+  String get preDownloadPrevious;
+
+  /// No description provided for @featurePending.
+  ///
+  /// In zh, this message translates to:
+  /// **'待实现'**
+  String get featurePending;
+
   /// No description provided for @downloadAndCache.
   ///
   /// In zh, this message translates to:

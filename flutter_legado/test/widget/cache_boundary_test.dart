@@ -173,12 +173,28 @@ void main() {
     });
     await openDownloads(tester);
     final groups = tester.widgetList<SettingsGroup>(find.byType(SettingsGroup));
-    expect(groups.map((group) => group.title), ['下载设置', '图片缓存', '网络设置', '其他']);
+    expect(groups.map((group) => group.title), [
+      'HTTP 缓存',
+      '下载设置',
+      '图片缓存',
+      '网络设置',
+      '其他',
+    ]);
     final disabled = tester
         .widgetList<SettingTile>(find.byType(SettingTile))
         .where((tile) => !tile.enabled)
         .toList();
-    expect(disabled, hasLength(4));
+    expect(disabled, hasLength(8));
+    for (final title in ['封面缓存', '漫画缓存', '书籍缓存下载线程数', '向前预下载']) {
+      final tile = disabled.singleWhere((tile) => tile.title == title);
+      expect(tile.subtitle, '待实现');
+      expect(tile.value, isNull);
+      expect(tile.onTap, isNull);
+      await tester.tap(find.text(title));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('当前最大缓存 128 MB\n待实现'), findsOneWidget);
     expect(find.text('保留已读章节数量 9\n待实现'), findsOneWidget);
     expect(find.text('预先下载 30 章正文\n待实现'), findsOneWidget);

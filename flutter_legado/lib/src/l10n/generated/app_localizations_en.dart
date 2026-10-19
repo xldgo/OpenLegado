@@ -10,6 +10,24 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get httpCache => 'HTTP cache';
+
+  @override
+  String get coverCache => 'Cover cache';
+
+  @override
+  String get mangaCache => 'Manga cache';
+
+  @override
+  String get cacheBookThreadCount => 'Book cache download threads';
+
+  @override
+  String get preDownloadPrevious => 'Preload previous chapters';
+
+  @override
+  String get featurePending => 'Not implemented yet';
+
+  @override
   String get downloadAndCache => 'Downloads and cache';
 
   @override

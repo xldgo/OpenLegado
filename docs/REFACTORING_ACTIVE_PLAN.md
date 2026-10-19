@@ -5,12 +5,15 @@
 - 授权与基线：用户要求参照上游独立设置页；主目录feature/ui-reader-selection / 006569b28，单代理，完成后本地提交，不提升版本、不自动安装或推送。
 - 上游：HapeLee/legado-with-MD3 main / c4182eb9bcdd2e52eb6bb44d14c37856e592a99a，ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt及其Contract/ViewModel。采用下载设置、图片缓存、网络、其他操作分组；保留本项目SettingsGroup和公共Sheet。
 - 范围：主设置页增加独立入口和命名路由，将其他设置中的线程数、预下载、图片缓存/保留、User-Agent、清理缓存与压缩数据库迁出；既有离线缓存管理和缓存统计页不混为配置页。已接线线程配置与清理/压缩保持，未接线项继续禁用并标明原因。
-- 边界：不扩展Rust/FFI/数据库、独立封面/漫画HTTP缓存或Cronet；不新增无消费者的设置写入。真实配置写入失败回退、取消清理、重复操作和路由返回须有回归，验证真实页面，不自建测试替身界面。
+- 边界：不扩展Rust/FFI/数据库；独立封面/漫画HTTP缓存、书籍缓存下载线程数、向前预下载按用户授权提供禁用占位，不实现后端或新增无消费者的设置写入；Cronet仍不纳入本批。真实配置写入失败回退、取消清理、重复操作和路由返回须有回归，验证真实页面，不自建测试替身界面。
 - 验收：定向widget测试、目标静态分析及架构门禁；设备视觉/安装和远程CI不自动执行。执行者Codex + UI，2026-10-19。
 - 本地结果：新增DownloadCacheSettingsScreen及/download_cache_settings命名路由，主设置新增入口；原高级页移除7项重复入口与旧维护方法。线程编辑使用公共AppSettingsSheet的整数滑块/输入，保持Rust配置单源、取消不写入、越界拒绝与保存失败回退；维护操作抽至DownloadCacheActions，清理后同步章级镜像，操作互斥且离页不显示迟到结果。未接线4项只读偏好离页后释放，重进重新读取；现有缓存统计及离线下载列表保留。中英文导航/分组文案经flutter gen-l10n生成，版本不变。
 - 验证：显式缺失FFI库运行5份实际widget测试共90项通过（cache_boundary、request_settings、general_backup_settings、settings、screens_overflow_regress），覆盖真实AppRouter进入/返回、360dp布局、取消/失败、互斥/离页和旧值保留；目标dart analyze --fatal-infos、架构门禁及diff检查通过。首次验证修复共享服务导入遗漏，并将路由测试从禁止未提供路由的旧宿主改为实际AppRouter；没有删减业务断言。未安装设备或触发当前页面的远程CI，不能以widget结果代替视觉验收。
 - 剩余上游差异：独立HTTP封面/漫画缓存、缓存下载专用并发、向前预下载、Cronet及4项旧禁用配置的后端消费未在本轮实施；本批完成的是页面独立与现有能力迁移，不宣称上游功能全量对齐。提交见Git记录，Codex + UI，2026-10-19。
 - 用户实测后调整：标题说明下移，移除生效/范围常驻说明；线程编辑只保留数字输入框与非法值提示。原_busy跨越弹层生命周期导致行onTap置空、箭头消失，现弹层重入标记与维护忙态分离，背景行不改外观。该调整按用户反馈实施，不改变公共SettingTile或配置存储。request_settings/cache_boundary/settings共26项通过，补取消/重复打开后的request_settings两项复验通过，不累加次数；目标静态分析、格式及diff检查通过。未再次安装或推送。
+
+- 占位补齐：用户允许难以快速实现的功能占位。新增HTTP缓存分组（封面/漫画），下载设置增加书籍缓存下载线程数和向前预下载；四行禁用并标注待实现，不显示虚假大小/默认值，无编辑或清理回调。仅补页面与中英文文案，不修改后端。执行者Codex + UI，2026-10-19。
+- 占位验证：flutter gen-l10n成功；cache_boundary/request_settings/settings/screens_overflow_regress共85项通过，覆盖占位点击无操作、原设置/维护/路由回归及360dp布局；目标dart analyze --fatal-infos无问题，git diff --check通过。未重新安装、推送或触发远程CI，设备视觉仍待复验。
 
 ### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，本批已关闭）
 

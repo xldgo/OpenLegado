@@ -129,6 +129,22 @@ class _DownloadCacheSettingsScreenState
                 onTap: () => ref.invalidate(pendingDownloadSettingsProvider),
               ),
             SettingsGroup(
+              title: context.l10n.httpCache,
+              children: [
+                SettingTile(
+                  title: context.l10n.coverCache,
+                  subtitle: context.l10n.featurePending,
+                  enabled: false,
+                ),
+                SettingTile(
+                  title: context.l10n.mangaCache,
+                  subtitle: context.l10n.featurePending,
+                  enabled: false,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SettingsGroup(
               title: context.l10n.downloadSettings,
               children: [
                 SettingTile(
@@ -141,12 +157,22 @@ class _DownloadCacheSettingsScreenState
                   onTap: _busy ? null : _editThreads,
                 ),
                 SettingTile(
+                  title: context.l10n.cacheBookThreadCount,
+                  subtitle: context.l10n.featurePending,
+                  enabled: false,
+                ),
+                SettingTile(
                   title: context.l10n.advancedPreDownload,
                   subtitle: description(
                     snapshot == null
                         ? null
                         : '预先下载 ${snapshot.preDownloadNum} 章正文',
                   ),
+                  enabled: false,
+                ),
+                SettingTile(
+                  title: context.l10n.preDownloadPrevious,
+                  subtitle: context.l10n.featurePending,
                   enabled: false,
                 ),
               ],

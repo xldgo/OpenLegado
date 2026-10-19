@@ -1,4 +1,10 @@
 {
+  "httpCache": "HTTP 缓存",
+  "coverCache": "封面缓存",
+  "mangaCache": "漫画缓存",
+  "cacheBookThreadCount": "书籍缓存下载线程数",
+  "preDownloadPrevious": "向前预下载",
+  "featurePending": "待实现",
   "downloadAndCache": "下载与缓存",
   "downloadAndCacheSummary": "下载并发、预下载、图片缓存与清理",
   "downloadSettings": "下载设置",
