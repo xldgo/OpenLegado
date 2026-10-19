@@ -1,7 +1,9 @@
 library;
 
-/// 真实 Windows FFI 复核直接书架与分组适配，共用独立数据库。— Codex + Bridge
+/// 真实宿主 FFI 复核直接书架与分组适配，共用独立数据库。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,17 +11,12 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('书架真实 FFI 需要 Windows DLL', () {}, skip: '没有 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('书架读写、进度、排序、分组及导入直接适配共享同一数据库', () async {
     SharedPreferences.setMockInitialValues({});
@@ -29,7 +26,7 @@ void main() {
     final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
-        runtime: const NativeRustRuntime(),
+        runtime: nativeTestRuntime(),
         environment: _Environment(root.absolute.path),
         configurationSource: SettingsRuntimeConfiguration(),
       ),

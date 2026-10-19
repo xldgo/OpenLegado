@@ -2,7 +2,7 @@ library;
 
 /// P2-29c 后续 失败章查询 Dart↔Rust 真实数据链运行时验证（契约 §2.43.8）
 ///
-/// 加载 rust/target/debug/legado_ffi.dll（解析策略对齐
+/// 加载当前宿主rust/target/debug原生库（解析策略对齐
 /// audio_cache_runtime_test.dart / ffi_stream_sink_runtime_test.dart），
 /// 经真实 FRB wire 验证：
 ///
@@ -14,9 +14,11 @@ library;
 ///
 /// 失败记入/成功移除/持久化/恢复回读的完整数据链由 Rust 单测覆盖
 /// （rust/legado-ffi/src/api/cache_download_api.rs，本地 TXT 夹具不联网）。
-/// 前置条件：先在 rust/ 下构建 DLL
+/// 前置条件：先在 rust/ 下构建当前宿主原生库
 /// （cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
@@ -24,40 +26,14 @@ import 'package:flutter_legado/src/bridge/frb_generated.dart';
 
 import '../fixtures/native_test_api.dart';
 
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 
-/// 从 rust/target/debug 解析真实 DLL 路径（对齐 rust_api.dart 的搜索策略）
-String _resolveDll() {
-  const libName = 'legado_ffi.dll';
-  final sep = Platform.pathSeparator;
-  final candidates = <String>[
-    // flutter test 的 Directory.current 即 flutter_legado/
-    '${Directory.current.parent.path}${sep}rust${sep}target${sep}debug$sep$libName',
-    '${Directory.current.path}$sep..${sep}rust${sep}target${sep}debug$sep$libName',
-  ];
-  for (final path in candidates) {
-    if (File(path).existsSync()) {
-      return path;
-    }
-  }
-  throw StateError('未找到 legado_ffi.dll，请先在 rust/ 下构建');
-}
-
 void main() {
-  // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
-  // CI（ubuntu/macOS）无产物：注册阶段整体跳过（仅留占位用例可见）
-  if (!Platform.isWindows) {
-    test('跳过 FFI 运行时失败章查询测试：需要 Windows DLL 产物（仅本机验证）', () {});
-    return;
-  }
-
   const noTaskBook = 'http://p2438-no-task.example.com/book';
   late NativeTestApi api;
 
   setUpAll(() async {
-    final lib = ExternalLibrary.open(_resolveDll());
+    final lib = nativeTestLibrary();
     await RustLib.init(externalLibrary: lib);
     await bridge.init();
     // 隔离数据库：无该书的批量下载任务，保证断言确定性
@@ -72,7 +48,7 @@ void main() {
     api = createTestApplication(useMock: false) as NativeTestApi;
   });
 
-  group('失败章查询真实 DLL 运行时验证（契约 §2.43.8）', () {
+  group('失败章查询真实原生库运行时验证（契约 §2.43.8）', () {
     test('FFI：无任务书返回 JSON 空数组 `[]`（整型数组形态）', () async {
       final json = await bridge.cacheDownloadFailedChapters(
         bookUrl: noTaskBook,

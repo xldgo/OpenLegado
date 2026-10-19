@@ -2,6 +2,8 @@ library;
 
 /// 真实 FRB/SQLite/HTTP；凭据存储使用内存 fixture，不证明平台密钥库有效。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -10,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' as controls;
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/media_dto.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/rust_cloud_tts_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_tts_cache_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_cloud_tts_synthesizer.dart';
@@ -20,16 +21,12 @@ import 'package:flutter_legado/src/features/read_aloud/cloud_tts_settings.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('云端真实 FFI 需要 Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('云端元数据/凭据分离、合成参数/缓存/租约、过期引用拒绝和禁用', () async {
     final directory = Directory(
       '.dart_tool/cloud-tts-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    const runtime = NativeRustRuntime();
+    final runtime = nativeTestRuntime();
     await runtime.initialize();
     await bridge.dbOpen(path: '${directory.absolute.path}/db.sqlite');
     await runtime.setTtsCacheDirectory('${directory.absolute.path}/audio');

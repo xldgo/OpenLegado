@@ -1,28 +1,25 @@
 library;
 
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/task_dto.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/services/rust_cache_download_service.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookshelf_repository.dart';
 import 'package:flutter_legado/src/models/book.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('真实本地章节下载发出初始和终态快照，退订不取消任务', () async {
     final root = Directory(
       '.dart_tool/task-transport-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    const runtime = NativeRustRuntime();
+    final runtime = nativeTestRuntime();
     await runtime.initialize();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
     final file = File('${root.absolute.path}/小说.txt');

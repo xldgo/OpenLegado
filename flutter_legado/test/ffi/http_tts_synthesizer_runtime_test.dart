@@ -1,7 +1,9 @@
 library;
 
-/// 真实 Windows FFI 与本机 HTTP fixture，不依赖外部 TTS 网站。— Codex + Bridge
+/// 真实宿主 FFI 与本机 HTTP fixture，不依赖外部 TTS 网站。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -16,7 +18,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/rust_http_tts_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
@@ -24,10 +25,6 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('HTTP 合成真实 FFI 需要 Windows DLL', () {}, skip: '未提供 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('真实合成、目录选择、情感缓存隔离及系统目录生命周期', () async {
     final cache = Directory(
@@ -36,7 +33,7 @@ void main() {
     final dbDir = Directory(
       '.dart_tool/tts-db-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    const runtime = NativeRustRuntime();
+    final runtime = nativeTestRuntime();
     await runtime.initialize();
     await bridge.dbOpen(path: '${dbDir.absolute.path}/test.db');
     expect(await runtime.setTtsCacheDirectory(cache.absolute.path), isTrue);

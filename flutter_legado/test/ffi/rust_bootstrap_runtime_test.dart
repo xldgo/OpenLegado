@@ -1,7 +1,9 @@
 library;
 
-/// 使用真实 Windows DLL 复核拆分后的启动与 JS 配置注入。
+/// 使用真实宿主原生库 复核拆分后的启动与 JS 配置注入。
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,14 +16,9 @@ import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/app_settings_factory.dart';
 import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('启动真实 FFI 验证需要 Windows DLL', () {}, skip: '未提供 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('应用工厂启动真实运行时，JS 读取原快照，刷新不重复初始化', () async {
@@ -41,7 +38,7 @@ void main() {
       readerSettings: readerSettings,
     );
     final startup = RustBootstrap(
-      runtime: const NativeRustRuntime(),
+      runtime: nativeTestRuntime(),
       environment: _IsolatedEnvironment(root.absolute.path),
       configurationSource: source,
     );

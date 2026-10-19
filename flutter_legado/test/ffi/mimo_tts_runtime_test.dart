@@ -2,11 +2,12 @@ library;
 
 /// 当前 DLL、本机 SSE 与安全存储替身；不调用真实 MiMo 账号。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/data/repositories/rust_cloud_tts_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_cloud_tts_synthesizer.dart';
@@ -16,16 +17,12 @@ import 'package:flutter_legado/src/features/read_aloud/cloud_tts_settings.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('MiMo 真实 FFI 需要 Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('MiMo 元数据到 FRB/鉴权/SSE/WAV/缓存，坏流不落盘', () async {
     final dir = Directory(
       '.dart_tool/mimo-tts-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    const runtime = NativeRustRuntime();
+    final runtime = nativeTestRuntime();
     await runtime.initialize();
     await bridge.dbOpen(path: '${dir.absolute.path}/db.sqlite');
     await runtime.setTtsCacheDirectory('${dir.absolute.path}/audio');

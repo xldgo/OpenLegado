@@ -2,7 +2,7 @@ library;
 
 /// V-B1 视频弹幕数据链 Dart↔Rust 真实数据链运行时验证（契约 §2.49）
 ///
-/// 加载 rust/target/debug/legado_ffi.dll（解析策略对齐
+/// 加载当前宿主rust/target/debug原生库（解析策略对齐
 /// audio_cache_runtime_test.dart），经真实 FRB wire 在本机回环服务器上跑
 /// **完整数据链**（不联网）：
 ///
@@ -18,9 +18,11 @@ library;
 ///
 /// 大数据文件分流（≥10000 UTF-16）/阈值口径 / 读失败降级由 Rust 单测覆盖
 /// （rust/legado-ffi/src/api/video_api.rs，不联网）。
-/// 前置条件：先在 rust/ 下构建 DLL
+/// 前置条件：先在 rust/ 下构建当前宿主原生库
 /// （cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -30,26 +32,7 @@ import 'package:flutter_legado/src/models/book.dart';
 
 import '../fixtures/native_test_api.dart';
 
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
-
-/// 从 rust/target/debug 解析真实 DLL 路径（对齐 rust_api.dart 的搜索策略）
-String _resolveDll() {
-  const libName = 'legado_ffi.dll';
-  final sep = Platform.pathSeparator;
-  final candidates = <String>[
-    // flutter test 的 Directory.current 即 flutter_legado/
-    '${Directory.current.parent.path}${sep}rust${sep}target${sep}debug$sep$libName',
-    '${Directory.current.path}$sep..${sep}rust${sep}target${sep}debug$sep$libName',
-  ];
-  for (final path in candidates) {
-    if (File(path).existsSync()) {
-      return path;
-    }
-  }
-  throw StateError('未找到 legado_ffi.dll，请先在 rust/ 下构建');
-}
 
 /// 本机回环服务器：`/toc` 目录页、`/c1` 内容页（含 subContent 副内容）
 Future<HttpServer> _startFixtureServer() async {
@@ -81,18 +64,11 @@ Future<HttpServer> _startFixtureServer() async {
 }
 
 void main() {
-  // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
-  // CI（ubuntu/macOS）无产物：注册阶段整体跳过（对齐既有运行时测试守卫）
-  if (!Platform.isWindows) {
-    test('跳过视频弹幕 FFI 运行时测试：需要 Windows DLL 产物（仅本机验证）', () {});
-    return;
-  }
-
   late NativeTestApi api;
   late Directory dbDir;
 
   setUpAll(() async {
-    await RustLib.init(externalLibrary: ExternalLibrary.open(_resolveDll()));
+    await RustLib.init(externalLibrary: nativeTestLibrary());
     await bridge.init();
     final sep = Platform.pathSeparator;
     dbDir = Directory('.dart_tool${sep}ffi_video_danmaku_test');
@@ -217,7 +193,7 @@ void main() {
   });
 
   test(
-    'parseVideoDanmaku（§2.50）：真实 DLL 解析 B 站 XML → 结构化弹幕项；非法 → null',
+    'parseVideoDanmaku（§2.50）：真实原生库 解析 B 站 XML → 结构化弹幕项；非法 → null',
     () async {
       const xml =
           '<i>'
@@ -228,7 +204,7 @@ void main() {
 
       // NativeTestApi 通道：JSON → 模型列表（升序、类型过滤、字段口径）
       final items = await api.videoDanmakuService.parseVideoDanmaku(raw: xml);
-      expect(items, isNotNull, reason: '真实 DLL 应返回解析结果');
+      expect(items, isNotNull, reason: '真实原生库 应返回解析结果');
       expect(items!.length, 2, reason: 'type2 应静默丢弃');
       final first = items.first;
       expect(first.timeMs, 500);

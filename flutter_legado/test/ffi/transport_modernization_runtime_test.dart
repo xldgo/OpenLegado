@@ -1,14 +1,14 @@
 library;
 
-// 真实 Windows DLL：实体、类型化排版与独立取消凭据。— Codex + Bridge
+// 真实宿主原生库：实体、类型化排版与独立取消凭据。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/ffi.dart' as requests;
@@ -29,20 +29,12 @@ import 'package:flutter_legado/src/data/services/rust_explore_service.dart';
 import 'package:flutter_legado/src/data/services/rust_review_service.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要本机 DLL', () {}, skip: 'Windows 宿主测试');
-    return;
-  }
   late Directory root;
   setUpAll(() async {
     root = Directory(
       '.dart_tool/typed-transport-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.open(
-        File('../rust/target/debug/legado_ffi.dll').resolveSymbolicLinksSync(),
-      ),
-    );
+    await RustLib.init(externalLibrary: nativeTestLibrary());
     await bridge.init();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });

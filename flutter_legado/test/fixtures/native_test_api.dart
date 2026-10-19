@@ -8,7 +8,9 @@ import 'package:flutter_legado/src/app/bootstrap/application_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/bridge/runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
+
+import '../helpers/native_ffi.dart';
+
 import 'package:flutter_legado/src/platform/app_environment.dart';
 
 import 'app_test_api.dart';
@@ -283,7 +285,7 @@ TestApi createTestApplication({
       bootstrap:
           bootstrap ??
           RustBootstrap(
-            runtime: const NativeRustRuntime(),
+            runtime: nativeTestRuntime(),
             environment: const NativeAppEnvironment(),
             configurationSource:
                 configurationSource ?? SettingsRuntimeConfiguration(),

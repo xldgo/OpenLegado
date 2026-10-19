@@ -1,7 +1,9 @@
 library;
 
-/// 使用已有 Windows DLL 验证校验三项直接适配，不访问真实站点。— Codex + Bridge
+/// 使用当前宿主原生库 验证校验三项直接适配，不访问真实站点。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,15 +14,10 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('校验真实 FFI 需要 Windows DLL', () {}, skip: '没有 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('单源配置、数据库批量进度及取消沿用现有 FRB，初始化保持同一实例', () async {
@@ -31,7 +28,7 @@ void main() {
     final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
-        runtime: const NativeRustRuntime(),
+        runtime: nativeTestRuntime(),
         environment: _Environment(root.absolute.path),
         configurationSource: SettingsRuntimeConfiguration(),
       ),

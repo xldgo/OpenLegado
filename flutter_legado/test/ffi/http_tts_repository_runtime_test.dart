@@ -1,7 +1,9 @@
 library;
 
-/// 使用已有 Windows DLL 复核配置 CRUD，不访问真实 TTS 网络。— Codex + Bridge
+/// 使用当前宿主原生库 复核配置 CRUD，不访问真实 TTS 网络。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,17 +11,12 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('HTTP 引擎真实 FFI 需要 Windows DLL', () {}, skip: '未提供 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('真实配置直接调用新 Repository，更新导入导出及删除沿用既有语义', () async {
     SharedPreferences.setMockInitialValues({});
@@ -29,7 +26,7 @@ void main() {
     final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
-        runtime: const NativeRustRuntime(),
+        runtime: nativeTestRuntime(),
         environment: _Environment(root.absolute.path),
         configurationSource: SettingsRuntimeConfiguration(),
       ),

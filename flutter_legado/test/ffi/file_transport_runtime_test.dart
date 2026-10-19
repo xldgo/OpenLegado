@@ -1,6 +1,8 @@
 library;
 
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,7 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/file_dto.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/services/rust_book_archive_service.dart';
 import 'package:flutter_legado/src/data/services/rust_book_export_service.dart';
 import 'package:flutter_legado/src/data/services/rust_local_book_service.dart';
@@ -19,10 +20,6 @@ import 'package:flutter_legado/src/domain/models/book_content_result.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory root;
   late File text;
@@ -35,7 +32,7 @@ void main() {
     )..createSync(recursive: true);
     text = File('${root.absolute.path}/小说😀.txt')
       ..writeAsStringSync('第一章 初见\n正文甲😀\n第二章 再见\n正文乙\n');
-    await const NativeRustRuntime().initialize();
+    await nativeTestRuntime().initialize();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });
   test('本地元数据、导入、原始字节导出和预览章节数真实贯通', () async {

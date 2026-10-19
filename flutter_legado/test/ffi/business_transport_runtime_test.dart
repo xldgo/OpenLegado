@@ -1,6 +1,8 @@
 library;
 
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,7 +15,6 @@ import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/bridge/business_dto_mapping.dart';
 import 'package:flutter_legado/src/data/repositories/rust_rss_source_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_rss_article_repository.dart';
@@ -34,17 +35,13 @@ import 'package:flutter_legado/src/models/models.dart';
 import '../fixtures/business_transport_fixtures.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory root;
   setUpAll(() async {
     root = Directory(
       '.dart_tool/business-transport-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    await const NativeRustRuntime().initialize();
+    await nativeTestRuntime().initialize();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });
   test('RSS四十四字段经真实wire和SQLite往返，更新不混入书源表', () async {

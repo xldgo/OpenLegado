@@ -1,8 +1,8 @@
 library;
 
-/// FRB StreamSink 生成链路真实 DLL 运行时验证（P1-1）
+/// FRB StreamSink 生成链路真实原生库运行时验证（P1-1）
 ///
-/// 绕过 Mock 层直接加载 rust/target/debug/legado_ffi.dll，验证
+/// 绕过 Mock 层直接加载当前宿主rust/target/debug原生库，验证
 /// 当前固定版本 flutter_rust_bridge 生成的 5 个 StreamSink 流 API 在真实
 /// wire 链路上的订阅、事件接收、正常结束与取消路径：
 ///
@@ -18,8 +18,10 @@ library;
 /// （dco_decode/sse_decode_StreamSink_String_Sse）在全部链路中无调用点；
 /// 若该分支可达，下列测试将全部抛出 UnimplementedError。
 ///
-/// 前置条件：先在 rust/ 下构建 DLL（cargo build -p legado-ffi --features quickjs）。
+/// 前置条件：先在 rust/ 下构建当前宿主原生库（cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -29,26 +31,7 @@ import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/bridge/managed_rust_stream.dart';
 import 'package:flutter_legado/src/data/bridge/stream_dto_mapping.dart';
 import 'package:flutter_legado/src/data/bridge/transport_request_mapping.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
-
-/// 从 rust/target/debug 解析真实 DLL 路径（对齐 rust_api.dart 的搜索策略）
-String _resolveDll() {
-  const libName = 'legado_ffi.dll';
-  final sep = Platform.pathSeparator;
-  final candidates = <String>[
-    // flutter test 的 Directory.current 即 flutter_legado/
-    '${Directory.current.parent.path}${sep}rust${sep}target${sep}debug$sep$libName',
-    '${Directory.current.path}$sep..${sep}rust${sep}target${sep}debug$sep$libName',
-  ];
-  for (final path in candidates) {
-    if (File(path).existsSync()) {
-      return path;
-    }
-  }
-  throw StateError('未找到 legado_ffi.dll，请先在 rust/ 下构建');
-}
 
 class _CollectResult {
   const _CollectResult(this.events, this.completed, this.error);
@@ -139,16 +122,9 @@ Stream<String> _debugStream({required String sourceUrl, required String key}) =>
     ).map((v) => jsonEncode({'state': v.state, 'msg': v.msg}));
 
 void main() {
-  // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
-  // CI（ubuntu/macOS）无产物：注册阶段整体跳过（仅留占位用例可见）
-  if (!Platform.isWindows) {
-    test("跳过 FFI 运行时流测试：需要 Windows DLL 产物（仅本机验证）", () {});
-    return;
-  }
-
   setUpAll(() async {
-    // 显式加载真实 DLL（非 frb 默认加载逻辑，非 Mock）
-    final lib = ExternalLibrary.open(_resolveDll());
+    // 显式加载真实原生库（非 frb 默认加载逻辑，非 Mock）
+    final lib = nativeTestLibrary();
     await RustLib.init(externalLibrary: lib);
     await bridge.init();
     // 隔离数据库：书源表为空且仅含本测试注入的数据，保证断言确定性
@@ -162,8 +138,8 @@ void main() {
     await bridge.dbOpen(path: dbFile.path);
   });
 
-  group('FRB StreamSink 真实 DLL 运行时验证（P1-1）', () {
-    test('前置：DLL 加载成功且 version() 经真实 wire 返回', () async {
+  group('FRB StreamSink 真实原生库运行时验证（P1-1）', () {
+    test('前置：原生库加载成功且 version() 经真实 wire 返回', () async {
       final version = await bridge.version();
       expect(version, isNotEmpty);
     });

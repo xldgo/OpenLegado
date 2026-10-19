@@ -2,7 +2,7 @@ library;
 
 /// B1/B2 音频章节文件缓存 Dart↔Rust 真实数据链运行时验证（契约 §2.47/§2.48）
 ///
-/// 加载 rust/target/debug/legado_ffi.dll（解析策略对齐
+/// 加载当前宿主rust/target/debug原生库（解析策略对齐
 /// ffi_stream_sink_runtime_test.dart），注入临时缓存根，按原版五段式命名
 /// 手工构造缓存文件，经真实 FRB wire 验证：
 ///
@@ -22,8 +22,10 @@ library;
 /// - chapterTitle = "中文"（key 9fcdcb3a067903d8，用于 ifBlank 回退验证）
 ///
 /// 写入面全链路（本地回环服务器 + DB 夹具）由 Rust 单测覆盖（不联网）。
-/// 前置条件：先在 rust/ 下构建 DLL（cargo build -p legado-ffi --features quickjs）。
+/// 前置条件：先在 rust/ 下构建当前宿主原生库（cargo build -p legado-ffi --features quickjs）。
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
@@ -31,26 +33,7 @@ import 'package:flutter_legado/src/bridge/frb_generated.dart';
 
 import '../fixtures/native_test_api.dart';
 
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
-
-/// 从 rust/target/debug 解析真实 DLL 路径（对齐 rust_api.dart 的搜索策略）
-String _resolveDll() {
-  const libName = 'legado_ffi.dll';
-  final sep = Platform.pathSeparator;
-  final candidates = <String>[
-    // flutter test 的 Directory.current 即 flutter_legado/
-    '${Directory.current.parent.path}${sep}rust${sep}target${sep}debug$sep$libName',
-    '${Directory.current.path}$sep..${sep}rust${sep}target${sep}debug$sep$libName',
-  ];
-  for (final path in candidates) {
-    if (File(path).existsSync()) {
-      return path;
-    }
-  }
-  throw StateError('未找到 legado_ffi.dll，请先在 rust/ 下构建');
-}
 
 /// 固定键向量（见文件头）
 const String _kBookUrl = 'hello';
@@ -60,20 +43,11 @@ const String _kKey16 = 'bc4b2a76b9719d91';
 const String _kTitleKey16 = '9fcdcb3a067903d8';
 
 void main() {
-  // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
-  // CI（ubuntu/macOS）无产物：注册阶段整体跳过（对齐
-  // ffi_stream_sink_runtime_test.dart / cache_download_failed_chapters_
-  // runtime_test.dart 的既有守卫——本文件 B1 批新增时漏抄，致 CI 红）
-  if (!Platform.isWindows) {
-    test("跳过音频缓存 FFI 运行时测试：需要 Windows DLL 产物（仅本机验证）", () {});
-    return;
-  }
-
   late Directory root;
   late NativeTestApi api;
 
   setUpAll(() async {
-    await RustLib.init(externalLibrary: ExternalLibrary.open(_resolveDll()));
+    await RustLib.init(externalLibrary: nativeTestLibrary());
   });
 
   setUp(() async {

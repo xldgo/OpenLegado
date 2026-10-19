@@ -993,3 +993,18 @@ reader_page_fixture只测量已给定行的字形几何，并填充正式ReaderG
 本批不调整CI任务或删减真实FFI契约测试；全模块flutter test仍可能需要当前平台原生库。
 
 编写者：Codex + UI｜2026-10-19
+
+
+## 宿主原生测试加载入口
+
+`test/helpers/native_ffi.dart`统一解析当前宿主的debug产物，Windows/Linux/macOS分别为
+legado_ffi.dll、liblegado_ffi.so、liblegado_ffi.dylib；可用LEGADO_TEST_FFI_LIBRARY显式指定。
+显式空路径、缺库、空库或加载失败均报错，不静默跳过，也不回退到release或默认加载器。
+业务测试通过NativeRustRuntime.libraryResolver注入，直接FRB测试与阅读器会话测试复用
+同一入口；生产加载策略不变。旧测试专用LEGADO_TEST_DLL入口已移除。
+
+通用业务测试不再以Platform.isWindows决定是否注册真实断言。加载器用例以临时文件验证
+路径选择与错误策略；它不验证这些文件可作为动态库加载。真正的调用、载荷及生命周期
+由test/ffi与分页集成用例负责，平台实测结果统一记录在Active计划。
+
+编写者：Codex + Bridge｜2026-10-19

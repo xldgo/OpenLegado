@@ -1,12 +1,13 @@
 library;
 
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/bridge/entity_dto_mapping.dart';
 import 'package:flutter_legado/src/data/repositories/rust_book_source_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_bookshelf_repository.dart';
@@ -22,16 +23,12 @@ import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     final root = Directory(
       '.dart_tool/source-tools-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    await const NativeRustRuntime().initialize();
+    await nativeTestRuntime().initialize();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });
   test('封面配置三态Cookie与data规则搜索保持，空配置拒绝', () async {

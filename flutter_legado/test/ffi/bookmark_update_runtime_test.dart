@@ -1,7 +1,9 @@
 library;
 
-/// 使用真实 FRB 绑定与 Windows DLL，验证书签更新不会删除后新增。
+/// 使用真实 FRB 绑定与当前宿主原生库，验证书签更新不会删除后新增。
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
@@ -14,21 +16,12 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/data/repositories/rust_bookmark_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('书签真实 FFI 更新需要本地 Windows DLL', () {}, skip: '未提供 Windows DLL');
-    return;
-  }
-
   late BookmarkRepository repository;
   setUpAll(() async {
-    final dll = File('../rust/target/debug/legado_ffi.dll')
-        .resolveSymbolicLinksSync();
-    await RustLib.init(externalLibrary: ExternalLibrary.open(dll));
+    await RustLib.init(externalLibrary: nativeTestLibrary());
     await bridge.init();
     final directory = Directory(
       '.dart_tool/bookmark-update-${DateTime.now().microsecondsSinceEpoch}',

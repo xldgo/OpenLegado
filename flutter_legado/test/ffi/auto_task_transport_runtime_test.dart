@@ -1,20 +1,17 @@
 library;
 
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/rust_auto_task_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_auto_task_service.dart';
 import 'package:flutter_legado/src/models/misc.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要Windows DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   const repository = RustAutoTaskRepository();
   const service = RustAutoTaskService();
@@ -22,7 +19,7 @@ void main() {
     final root = Directory(
       '.dart_tool/auto-task-transport-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    await const NativeRustRuntime().initialize();
+    await nativeTestRuntime().initialize();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });
   const rule = AutoTaskRule(

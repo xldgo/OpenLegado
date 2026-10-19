@@ -1,10 +1,9 @@
+import 'native_ffi.dart';
+
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/services/reader_layout_service.dart';
@@ -12,22 +11,7 @@ import 'package:flutter_legado/src/services/reader_layout_service.dart';
 /// 每个测试进程加载一次正式绑定；排版不需要数据库或应用启动。— Codex + Bridge
 void setUpNativeReaderLayout() {
   setUpAll(() async {
-    final configured = Platform.environment['LEGADO_TEST_FFI_LIBRARY'];
-    final name = Platform.isWindows
-        ? 'legado_ffi.dll'
-        : Platform.isMacOS
-        ? 'liblegado_ffi.dylib'
-        : 'liblegado_ffi.so';
-    final library = File(configured ?? '../rust/target/debug/$name');
-    if (!library.existsSync()) {
-      throw StateError(
-        '缺少当前平台的正式 FFI 库：${library.absolute.path}；请先构建 legado-ffi，'
-        '复用其他 Cargo 目录时设置 LEGADO_TEST_FFI_LIBRARY。',
-      );
-    }
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.open(library.absolute.path),
-    );
+    await RustLib.init(externalLibrary: nativeTestLibrary());
   });
   tearDown(() => nativeReaderLayout.closeRemaining());
   tearDownAll(RustLib.dispose);

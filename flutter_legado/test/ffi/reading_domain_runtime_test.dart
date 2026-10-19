@@ -1,7 +1,9 @@
 library;
 
-// 阅读域类型化结果的真实 Windows DLL 往返。— Codex + Bridge
+// 阅读域类型化结果的真实宿主原生库 往返。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
@@ -15,24 +17,14 @@ import 'package:flutter_legado/src/data/services/rust_database_maintenance_servi
 import 'package:flutter_legado/src/domain/models/book_highlight.dart';
 import 'package:flutter_legado/src/domain/models/highlight_rule.dart';
 import 'package:flutter_legado/src/models/misc.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('阅读域真实 FFI 需要 Windows DLL', () {}, skip: 'Windows 宿主测试');
-    return;
-  }
   setUpAll(() async {
     final root = Directory(
       '.dart_tool/reading-domain-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.open(
-        File('../rust/target/debug/legado_ffi.dll').resolveSymbolicLinksSync(),
-      ),
-    );
+    await RustLib.init(externalLibrary: nativeTestLibrary());
     await bridge.init();
     await bridge.dbOpen(path: '${root.absolute.path}/data.db');
   });

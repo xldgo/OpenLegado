@@ -2,6 +2,8 @@ library;
 
 /// 通过实际 DLL 验证字节传输、CBZ 与缓存，不依赖模拟桥。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -11,15 +13,9 @@ import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_book_image_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_local_book_service.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('字节真实 FFI 需要 Windows DLL', () {}, skip: '未提供 Windows DLL');
-    return;
-  }
   late Directory root;
   const images = RustBookImageRepository();
   const books = RustLocalBookService();
@@ -28,11 +24,7 @@ void main() {
     root = Directory(
       '.dart_tool/image-bytes-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.open(
-        File('../rust/target/debug/legado_ffi.dll').resolveSymbolicLinksSync(),
-      ),
-    );
+    await RustLib.init(externalLibrary: nativeTestLibrary());
     await bridge.init();
     await bridge.dbOpen(path: '${root.absolute.path}/images.db');
     await bridge.setImageCacheDir(dir: '${root.absolute.path}/cache');

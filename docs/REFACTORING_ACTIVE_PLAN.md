@@ -1,6 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
 
+### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，实施中）
+
+- 授权与基线：用户同意统一加载入口、移除无依据的Windows限制并整理CI；feature/ui-reader-selection / 7d7df8d17，单代理，逐批本地提交，不推送、不提升版本、不构建安装应用。
+- B1已完成：测试统一显式库路径或当前宿主debug产物，复用NativeRustRuntime.libraryResolver；缺库/空库/加载失败报错，不搜索release旧库。通用业务不再注册跳过占位，原生句柄、载荷与业务断言保留。
+- B2：将普通测试与原生测试显式分组，Linux CI单次构建宿主库后集中运行原生测试；保留Windows宿主冒烟、现有触发/权限及iOS手动约定。按依赖范围选择相关任务，不把Windows本地通过当作Linux验证。
+- 非目标：不调整Web/MCP服务实现、不修改生产加载器/Rust/FFI契约、不使用子代理、不安装或触发远程CI。
+- B1验证：当前源码宿主库cargo build --locked -p legado-ffi --features quickjs成功；29个FFI测试文件共71项全部通过，28个文件移除Windows跳过。加载器6项及已解除原生依赖的20项回归通过，目标静态分析无问题。日志flutter_legado/build/native-tests-b1-{cargo,runtime,fast,analyze}.log。WSL未安装Flutter/Rust，不将平台名称解析测试当作Linux或macOS真实加载证据。
+
 ### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
 
 - 授权与基线：用户同意按测试职责清理真实FFI依赖；feature/ui-reader-selection / d3cc69e08，单代理，本地提交，不推送、不提升版本、不构建安装。

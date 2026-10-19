@@ -1,24 +1,21 @@
 library;
 
-/// 使用真实 Windows DLL 复核阅读记录直接适配与每日整秒增量。— Codex + Bridge
+/// 使用真实宿主原生库 复核阅读记录直接适配与每日整秒增量。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('阅读记录真实 FFI 验证需要 Windows DLL', () {}, skip: '未提供 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('真实记录保持累计毫秒，重复写入不重复入账，CRUD 复用同一数据库', () async {
@@ -29,7 +26,7 @@ void main() {
     final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
-        runtime: const NativeRustRuntime(),
+        runtime: nativeTestRuntime(),
         environment: _Environment(root.absolute.path),
         configurationSource: SettingsRuntimeConfiguration(),
       ),

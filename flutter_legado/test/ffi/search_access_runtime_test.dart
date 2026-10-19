@@ -1,28 +1,23 @@
 library;
 
-/// 搜索访问接口的真实 Windows FFI 回归；使用隔离数据库。— Codex + Bridge
+/// 搜索访问接口的真实宿主 FFI 回归；使用隔离数据库。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 
 import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 
 import 'dart:convert';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('搜索真实 FFI 需要 Windows DLL', () {}, skip: '没有 Windows DLL');
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('历史五项和搜索七项经新接口真实调用，使用隔离库与本机 HTTP', () async {
     SharedPreferences.setMockInitialValues({});
@@ -44,13 +39,7 @@ void main() {
     final api = createTestApplication(
       useMock: false,
       bootstrap: RustBootstrap(
-        runtime: NativeRustRuntime(
-          libraryResolver: Platform.environment['LEGADO_TEST_DLL'] == null
-              ? null
-              : () => ExternalLibrary.open(
-                  Platform.environment['LEGADO_TEST_DLL']!,
-                ),
-        ),
+        runtime: nativeTestRuntime(),
         environment: _Environment(root.absolute.path),
         configurationSource: SettingsRuntimeConfiguration(),
       ),

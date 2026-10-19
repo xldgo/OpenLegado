@@ -1,12 +1,12 @@
 library;
 
-/// 真实 Windows FRB 与临时数据库验证，不使用用户数据库。— Codex + Bridge
+/// 真实宿主 FRB 与临时数据库验证，不使用用户数据库。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' as privacy;
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
@@ -15,17 +15,9 @@ import 'package:flutter_legado/src/data/repositories/rust_bookshelf_repository.d
 import 'package:flutter_legado/src/models/models.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('隐私真实 FFI 需要 Windows DLL', () {}, skip: '当前平台不提供该原生夹具');
-    return;
-  }
   late Directory directory;
   setUpAll(() async {
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.open(
-        File('../rust/target/debug/legado_ffi.dll').resolveSymbolicLinksSync(),
-      ),
-    );
+    await RustLib.init(externalLibrary: nativeTestLibrary());
     await bridge.init();
     directory = Directory(
       '.dart_tool/privacy-runtime-${DateTime.now().microsecondsSinceEpoch}',

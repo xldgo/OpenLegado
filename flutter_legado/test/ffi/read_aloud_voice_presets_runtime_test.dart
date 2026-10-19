@@ -2,12 +2,13 @@ library;
 
 /// 真实音色 CRUD 与云端请求，不使用真实账号。— Codex + Bridge
 @Timeout(Duration(minutes: 3))
+import '../helpers/native_ffi.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/data/bridge/rust_runtime.dart';
 import 'package:flutter_legado/src/data/repositories/rust_read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/data/repositories/rust_cloud_tts_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_cloud_tts_synthesizer.dart';
@@ -18,16 +19,12 @@ import 'package:flutter_legado/src/features/read_aloud/cloud_tts_settings.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
 
 void main() {
-  if (!Platform.isWindows) {
-    test('需要 Windows 原生 DLL', () {}, skip: true);
-    return;
-  }
   TestWidgetsFlutterBinding.ensureInitialized();
   test('同引擎多音色真实持久化与缓存隔离，试听草稿不写入，错绑和私有字段被拒绝', () async {
     final dir = Directory(
       '.dart_tool/tts-voice-presets-${DateTime.now().microsecondsSinceEpoch}',
     )..createSync(recursive: true);
-    const runtime = NativeRustRuntime();
+    final runtime = nativeTestRuntime();
     await runtime.initialize();
     await runtime.openDatabase('${dir.absolute.path}/db.sqlite');
     await runtime.setTtsCacheDirectory('${dir.absolute.path}/audio');
