@@ -25,6 +25,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get preDownloadPrevious => '向前预下载';
 
   @override
+  String get preDownloadNext => '向后预下载';
+
+  @override
   String get featurePending => '待实现';
 
   @override

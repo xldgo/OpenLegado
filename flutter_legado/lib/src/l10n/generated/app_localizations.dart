@@ -128,6 +128,12 @@ abstract class AppLocalizations {
   /// **'向前预下载'**
   String get preDownloadPrevious;
 
+  /// No description provided for @preDownloadNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'向后预下载'**
+  String get preDownloadNext;
+
   /// No description provided for @featurePending.
   ///
   /// In zh, this message translates to:

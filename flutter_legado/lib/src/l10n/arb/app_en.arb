@@ -4,6 +4,7 @@
   "mangaCache": "Manga cache",
   "cacheBookThreadCount": "Book cache download threads",
   "preDownloadPrevious": "Preload previous chapters",
+  "preDownloadNext": "Preload following chapters",
   "featurePending": "Not implemented yet",
   "downloadAndCache": "Downloads and cache",
   "downloadAndCacheSummary": "Concurrency, preloading, image cache and cleanup",

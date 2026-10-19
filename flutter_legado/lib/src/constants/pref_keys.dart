@@ -236,8 +236,11 @@ class PrefKeys {
   /// 图片文件保留数量（默认 100，0~999）
   static const imageRetainNum = 'imageRetainNum';
 
-  /// 预下载章节数量（默认 10，0~9999）
+  /// 当前章之后的预下载章数（默认10，0～100）。
   static const preDownloadNum = 'preDownloadNum';
+
+  /// 当前章之前的预下载章数（默认0，0～100）。
+  static const preDownloadNumPrev = 'preDownloadNumPrev';
 
   /// 新增书籍默认启用替换净化（默认 true）
   static const replaceEnableDefault = 'replaceEnableDefault';

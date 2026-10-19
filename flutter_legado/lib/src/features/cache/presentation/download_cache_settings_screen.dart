@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../domain/models/request_settings.dart';
+import '../../../domain/models/download_settings.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../providers/config_settings_provider.dart';
+import '../../../providers/download_settings_provider.dart';
 import '../../../services/cache_service.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/app_settings_sheet.dart';
@@ -24,7 +26,7 @@ class DownloadCacheSettingsScreen extends ConsumerStatefulWidget {
 class _DownloadCacheSettingsScreenState
     extends ConsumerState<DownloadCacheSettingsScreen> {
   bool _busy = false;
-  bool _editingThreads = false;
+  bool _editingSetting = false;
 
   void _toast(String message) {
     if (mounted) {
@@ -34,9 +36,9 @@ class _DownloadCacheSettingsScreenState
   }
 
   Future<void> _editThreads() async {
-    if (_busy || _editingThreads) return;
+    if (_busy || _editingSetting) return;
     // 模态弹层已阻止背景交互，仅防重入，不改变设置行外观。
-    _editingThreads = true;
+    _editingSetting = true;
     final repository = ref.read(requestSettingsRepositoryProvider);
     try {
       try {
@@ -50,8 +52,13 @@ class _DownloadCacheSettingsScreenState
       if (!mounted) return;
       final count = await AppBottomSheet.showContent<int>(
         context: context,
-        builder: (_) =>
-            _ThreadCountSheet(initial: repository.current.threadCount),
+        builder: (_) => _IntegerSettingSheet(
+          initial: repository.current.threadCount,
+          title: '更新和搜索线程数',
+          label: '线程数',
+          minimum: RequestSettings.minThreadCount,
+          maximum: RequestSettings.maxThreadCount,
+        ),
       );
       if (count == null ||
           !mounted ||
@@ -66,12 +73,55 @@ class _DownloadCacheSettingsScreenState
         _toast('并发设置保存失败，请重试');
       }
     } finally {
-      _editingThreads = false;
+      _editingSetting = false;
+    }
+  }
+
+  Future<void> _editPreDownload({required bool previous}) async {
+    if (_busy || _editingSetting) return;
+    _editingSetting = true;
+    final repository = ref.read(downloadSettingsRepositoryProvider);
+    try {
+      try {
+        await repository.reload();
+        if (!mounted) return;
+        ref.invalidate(downloadSettingsProvider);
+      } catch (_) {
+        _toast('预下载设置读取失败，请重试');
+        return;
+      }
+      if (!mounted) return;
+      final count = await AppBottomSheet.showContent<int>(
+        context: context,
+        builder: (_) => _IntegerSettingSheet(
+          initial: previous
+              ? repository.current.preDownloadNumPrev
+              : repository.current.preDownloadNum,
+          title: previous
+              ? context.l10n.preDownloadPrevious
+              : context.l10n.preDownloadNext,
+          label: '章节数',
+          minimum: DownloadSettings.minChapters,
+          maximum: DownloadSettings.maxChapters,
+        ),
+      );
+      if (count == null || !mounted) return;
+      try {
+        await repository.update(
+          (settings) => previous
+              ? settings.copyWith(preDownloadNumPrev: count)
+              : settings.copyWith(preDownloadNum: count),
+        );
+      } catch (_) {
+        _toast('预下载设置保存失败，请重试');
+      }
+    } finally {
+      _editingSetting = false;
     }
   }
 
   Future<void> _maintain({required bool shrink}) async {
-    if (_busy || _editingThreads) return;
+    if (_busy || _editingSetting) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -112,6 +162,8 @@ class _DownloadCacheSettingsScreenState
   @override
   Widget build(BuildContext context) {
     final request = ref.watch(requestSettingsProvider);
+    final download = ref.watch(downloadSettingsProvider);
+    final downloadSnapshot = download.asData?.value;
     final pending = ref.watch(pendingDownloadSettingsProvider);
     final snapshot = pending.asData?.value;
     String description(String? value) =>
@@ -162,18 +214,26 @@ class _DownloadCacheSettingsScreenState
                   enabled: false,
                 ),
                 SettingTile(
-                  title: context.l10n.advancedPreDownload,
-                  subtitle: description(
-                    snapshot == null
-                        ? null
-                        : '预先下载 ${snapshot.preDownloadNum} 章正文',
-                  ),
-                  enabled: false,
+                  title: context.l10n.preDownloadNext,
+                  value: download.hasError
+                      ? '读取失败'
+                      : downloadSnapshot == null
+                      ? '读取中…'
+                      : '${downloadSnapshot.preDownloadNum}',
+                  subtitle: '预下载当前章节之后的正文，0 表示关闭',
+                  enabled: !_busy,
+                  onTap: _busy ? null : () => _editPreDownload(previous: false),
                 ),
                 SettingTile(
                   title: context.l10n.preDownloadPrevious,
-                  subtitle: context.l10n.featurePending,
-                  enabled: false,
+                  value: download.hasError
+                      ? '读取失败'
+                      : downloadSnapshot == null
+                      ? '读取中…'
+                      : '${downloadSnapshot.preDownloadNumPrev}',
+                  subtitle: '预下载当前章节之前的正文，0 表示关闭',
+                  enabled: !_busy,
+                  onTap: _busy ? null : () => _editPreDownload(previous: true),
                 ),
               ],
             ),
@@ -244,14 +304,24 @@ class _DownloadCacheSettingsScreenState
 }
 
 /// 复用公共设置Sheet，数值校验只影响编辑态，不提前保存。— Codex + UI
-class _ThreadCountSheet extends StatefulWidget {
-  const _ThreadCountSheet({required this.initial});
+class _IntegerSettingSheet extends StatefulWidget {
+  const _IntegerSettingSheet({
+    required this.initial,
+    required this.title,
+    required this.label,
+    required this.minimum,
+    required this.maximum,
+  });
   final int initial;
+  final String title;
+  final String label;
+  final int minimum;
+  final int maximum;
   @override
-  State<_ThreadCountSheet> createState() => _ThreadCountSheetState();
+  State<_IntegerSettingSheet> createState() => _IntegerSettingSheetState();
 }
 
-class _ThreadCountSheetState extends State<_ThreadCountSheet> {
+class _IntegerSettingSheetState extends State<_IntegerSettingSheet> {
   late final TextEditingController _text = TextEditingController(
     text: '${widget.initial}',
   );
@@ -264,10 +334,8 @@ class _ThreadCountSheetState extends State<_ThreadCountSheet> {
 
   void _save() {
     final value = int.tryParse(_text.text.trim());
-    if (value == null ||
-        value < RequestSettings.minThreadCount ||
-        value > RequestSettings.maxThreadCount) {
-      setState(() => _error = '请输入 1～256 之间的整数');
+    if (value == null || value < widget.minimum || value > widget.maximum) {
+      setState(() => _error = '请输入 ${widget.minimum}～${widget.maximum} 之间的整数');
       return;
     }
     Navigator.pop(context, value);
@@ -275,7 +343,7 @@ class _ThreadCountSheetState extends State<_ThreadCountSheet> {
 
   @override
   Widget build(BuildContext context) => AppSettingsSheet(
-    title: '更新和搜索线程数',
+    title: widget.title,
     onSave: _save,
     contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
     child: TextField(
@@ -285,7 +353,7 @@ class _ThreadCountSheetState extends State<_ThreadCountSheet> {
         if (_error != null) setState(() => _error = null);
       },
       onSubmitted: (_) => _save(),
-      decoration: InputDecoration(labelText: '线程数', errorText: _error),
+      decoration: InputDecoration(labelText: widget.label, errorText: _error),
     ),
   );
 }

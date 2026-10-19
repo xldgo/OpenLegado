@@ -11,7 +11,6 @@ import '../../../services/cache_service.dart';
 typedef PendingDownloadSettings = ({
   int bitmapCacheSize,
   int imageRetainNum,
-  int preDownloadNum,
   String userAgent,
 });
 
@@ -26,10 +25,6 @@ final pendingDownloadSettingsProvider =
         imageRetainNum: await settings.getIntPref(
           PrefKeys.imageRetainNum,
           defaultValue: 100,
-        ),
-        preDownloadNum: await settings.getIntPref(
-          PrefKeys.preDownloadNum,
-          defaultValue: 10,
         ),
         userAgent: await settings.getStringPref(PrefKeys.userAgent),
       );

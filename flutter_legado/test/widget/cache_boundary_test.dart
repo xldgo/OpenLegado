@@ -10,6 +10,7 @@ import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/cache_provider.dart';
 import 'package:flutter_legado/src/features/cache/presentation/cache_settings_screen.dart';
 import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
+import 'package:flutter_legado/src/data/settings/shared_preferences_settings_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +18,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
-import '../fixtures/home_settings_storage.dart';
 import '../mocks/mocks.dart';
 
 void main() {
@@ -137,7 +137,9 @@ void main() {
 
   Future<void> openDownloads(WidgetTester tester) async {
     final settings = AppSettingsService(
-      storages: {SettingsStorageKind.preferences: HomeSettingsStorage()},
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
     );
     final container = ProviderContainer(
       overrides: mergeTestOverrides([
@@ -184,8 +186,8 @@ void main() {
         .widgetList<SettingTile>(find.byType(SettingTile))
         .where((tile) => !tile.enabled)
         .toList();
-    expect(disabled, hasLength(8));
-    for (final title in ['封面缓存', '漫画缓存', '书籍缓存下载线程数', '向前预下载']) {
+    expect(disabled, hasLength(6));
+    for (final title in ['封面缓存', '漫画缓存', '书籍缓存下载线程数']) {
       final tile = disabled.singleWhere((tile) => tile.title == title);
       expect(tile.subtitle, '待实现');
       expect(tile.value, isNull);
@@ -197,7 +199,11 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('当前最大缓存 128 MB\n待实现'), findsOneWidget);
     expect(find.text('保留已读章节数量 9\n待实现'), findsOneWidget);
-    expect(find.text('预先下载 30 章正文\n待实现'), findsOneWidget);
+    final preload = tester.widget<SettingTile>(
+      find.widgetWithText(SettingTile, '向后预下载'),
+    );
+    expect(preload.value, '30');
+    expect(preload.enabled, isTrue);
     expect(find.text('原有代理\n待实现'), findsOneWidget);
     expect(
       (await SharedPreferences.getInstance()).getInt('bitmapCacheSize'),
@@ -225,6 +231,50 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     gate.complete();
     await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('前后预下载数字编辑支持关闭、取消和边界，分别持久化', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'preDownloadNum': 6,
+      'preDownloadNumPrev': 2,
+    });
+    await openDownloads(tester);
+    final prefs = await SharedPreferences.getInstance();
+    for (final (title, key, initial, saved) in [
+      ('向后预下载', 'preDownloadNum', '6', '0'),
+      ('向前预下载', 'preDownloadNumPrev', '2', '100'),
+    ]) {
+      final label = find.text(title);
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, initial), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
+      await tester.enterText(find.byType(TextField), '50');
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(prefs.getInt(key), int.parse(initial));
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+      for (final invalid in ['-1', '101']) {
+        await tester.enterText(find.byType(TextField), invalid);
+        await tester.tap(find.byType(FilledButton));
+        await tester.pumpAndSettle();
+        expect(find.text('请输入 0～100 之间的整数'), findsOneWidget);
+        expect(prefs.getInt(key), int.parse(initial));
+      }
+      await tester.enterText(find.byType(TextField), saved);
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      expect(prefs.getInt(key), int.parse(saved));
+      expect(
+        tester
+            .widget<SettingTile>(find.widgetWithText(SettingTile, title))
+            .value,
+        saved,
+      );
+    }
+    expect(prefs.getInt('preDownloadNum'), 0);
     expect(tester.takeException(), isNull);
   });
 

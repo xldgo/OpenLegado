@@ -25,6 +25,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get preDownloadPrevious => 'Preload previous chapters';
 
   @override
+  String get preDownloadNext => 'Preload following chapters';
+
+  @override
   String get featurePending => 'Not implemented yet';
 
   @override
