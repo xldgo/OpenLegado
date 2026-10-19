@@ -13,6 +13,7 @@ import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 
 import '../mocks/mocks.dart';
 
@@ -615,6 +616,11 @@ void main() {
 
         expect(pushed, contains(AppRoutes.reader));
         expect(find.byKey(const Key('reader-stub')), findsOneWidget);
+        final origin = ModalRoute.of(
+          tester.element(find.byKey(const Key('reader-stub'))),
+        )!.settings.arguments;
+        expect(origin, isA<BookCoverOrigin>());
+        expect((origin! as BookCoverOrigin).bookUrl, book.bookUrl);
       });
 
       testWidgets('视频书（bookType=4）进入视频播放页', (tester) async {

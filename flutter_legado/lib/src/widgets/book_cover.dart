@@ -8,7 +8,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter/rendering.dart'
-    show RenderClipRRect, RenderImage, RenderObject;
+    show
+        RenderAbstractViewport,
+        RenderBox,
+        RenderClipRRect,
+        RenderImage,
+        RenderObject;
 
 import '../services/cover_decode_loader.dart';
 import '../utils/comic_image_utils.dart';
@@ -86,6 +91,21 @@ class BookCover extends ConsumerWidget {
   }
 }
 
+/// 只描述来源，不持有图片租约；路由按需克隆已显示图像并负责释放。— Codex + UI
+class BookCoverOrigin {
+  const BookCoverOrigin({
+    required this.bookUrl,
+    required this.bounds,
+    required this.image,
+    required this.borderRadius,
+  });
+
+  final String bookUrl;
+  final Rect? Function() bounds;
+  final ui.Image? Function() image;
+  final BorderRadius borderRadius;
+}
+
 /// 封面两端保留同一图片子树，飞行期间不重新开始加载或解密。
 class BookCoverHero extends StatefulWidget {
   const BookCoverHero({super.key, required this.tag, required this.child});
@@ -93,12 +113,70 @@ class BookCoverHero extends StatefulWidget {
   final Object tag;
   final Widget child;
 
+  /// 在当前路由内查找已显示封面，避免跨路由重名或全局注册表滞留来源。
+  static BookCoverOrigin? originFor(BuildContext context, String bookUrl) {
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return null;
+    final root = route.subtreeContext;
+    if (root == null) return null;
+    _BookCoverHeroState? source;
+    void visit(Element element) {
+      if (source != null) return;
+      if (element is StatefulElement) {
+        final state = element.state;
+        if (state is _BookCoverHeroState &&
+            state.widget.tag == 'book-cover:$bookUrl' &&
+            state._bounds() != null) {
+          source = state;
+          return;
+        }
+      }
+      element.visitChildElements(visit);
+    }
+
+    (root as Element).visitChildElements(visit);
+    final found = source;
+    if (found == null) return null;
+    return BookCoverOrigin(
+      bookUrl: bookUrl,
+      bounds: found._bounds,
+      image: () {
+        final frame = found._contentKey.currentContext;
+        return found.mounted && frame != null ? _coverFrame(frame).image : null;
+      },
+      borderRadius: _coverFrame(found._contentKey.currentContext!).radius,
+    );
+  }
+
   @override
   State<BookCoverHero> createState() => _BookCoverHeroState();
 }
 
 class _BookCoverHeroState extends State<BookCoverHero> {
   final _contentKey = GlobalKey();
+
+  Rect? _bounds() {
+    final context = _contentKey.currentContext;
+    if (!mounted || context == null) return null;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    if (!rect.isFinite || rect.isEmpty) return null;
+    final overlay = Navigator.maybeOf(context)?.overlay?.context
+        .findRenderObject();
+    if (overlay is RenderBox && overlay.hasSize) {
+      final screen = overlay.localToGlobal(Offset.zero) & overlay.size;
+      if (!screen.overlaps(rect)) return null;
+    }
+    final viewport = context
+        .findAncestorRenderObjectOfType<RenderAbstractViewport>();
+    final viewportBox = viewport is RenderBox ? viewport as RenderBox : null;
+    if (viewportBox != null && viewportBox.hasSize) {
+      final visible = viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
+      if (!visible.overlaps(rect)) return null;
+    }
+    return rect;
+  }
 
   @override
   Widget build(BuildContext context) => Hero(

@@ -10,6 +10,7 @@ import '../../providers/reading_provider.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_menu.dart';
+import '../../widgets/book_cover.dart';
 
 import 'dart:convert';
 import 'dart:io';
@@ -678,6 +679,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// 对齐参考版：单击按 BookType 直达阅读器或播放器，长按进入详情。— Codex + UI
   Future<void> _openBook(BuildContext context, WidgetRef ref, Book book) async {
+    if (ModalRoute.of(context)?.isCurrent == false) return;
     var typeBits = BookTypePolicy.typeBitsOf(book);
     // 书源媒体类型 / 视频启发式优先于抽图提升 — Reasonix + UI
     if (BookMetadataPolicy.isOnlineBook(book)) {
@@ -696,12 +698,16 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         }
       } catch (_) {}
     }
-    if (!context.mounted) return;
+    if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) return;
     final bookToOpen = typeBits != 0 ? book.copyWith(bookType: typeBits) : book;
     final route = BookOpenUtils.routeForTypeBits(typeBits);
     if (BookOpenUtils.needsReaderNotifier(route)) {
       ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
-      await Navigator.pushNamed(context, route);
+      await Navigator.pushNamed(
+        context,
+        route,
+        arguments: BookCoverHero.originFor(context, bookToOpen.bookUrl),
+      );
     } else {
       await Navigator.pushNamed(
         context,

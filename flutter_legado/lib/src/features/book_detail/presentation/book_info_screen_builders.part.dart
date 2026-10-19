@@ -1399,6 +1399,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       debugPrint('阅读前落库失败: $e');
     }
     if (!context.mounted) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
     final container = ProviderScope.containerOf(context);
     final bookToRead = chapterIndex != book.durChapterIndex
         ? book.copyWith(durChapterIndex: chapterIndex, bookType: typeBits)
@@ -1415,7 +1416,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       container.read(readerNotifierProvider.notifier).openBook(bookToRead);
       // [UI-fix v2.0.11 | 2026-08-10] 阅读返回后重新加载详情数据 — Reasonix
       if (!context.mounted) return;
-      await Navigator.pushNamed(context, route);
+      await Navigator.pushNamed(
+        context,
+        route,
+        arguments: BookCoverHero.originFor(context, bookToRead.bookUrl),
+      );
     } else {
       if (!context.mounted) return;
       await Navigator.pushNamed(

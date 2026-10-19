@@ -19,6 +19,7 @@ import '../../../providers/source_action_provider.dart';
 import '../../../providers/chapter_cache_provider.dart';
 import '../../privacy/privacy_controller.dart';
 import '../../../widgets/app_menu.dart';
+import '../../../widgets/book_cover.dart';
 
 import 'dart:async';
 import 'dart:convert';

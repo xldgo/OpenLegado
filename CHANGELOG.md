@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.389] - 2026-10-19
 
+### Added
+- [UI] 从书架封面或详情页阅读按钮展开进入文字阅读器，返回时收回封面。
+- [UI] 动画适配减少动态效果及来源封面不可见情况，避免快速开书重复导航。
+
 ### Fixed
 - 书源WebView请求取消或超时后返回明确错误，防止继续执行无头回退或后续脚本。
 - 清理已放弃的请求和退出的订阅，阻止迟到、重复或其他实例的回调改写Cookie。

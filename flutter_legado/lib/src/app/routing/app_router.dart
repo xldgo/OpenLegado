@@ -6,6 +6,7 @@ import '../../features/privacy/privacy_screen.dart';
 import '../../features/privacy/privacy_gate.dart';
 
 import '../../widgets/reader/read_aloud_player_transition.dart';
+import '../../widgets/reader/book_reader_route.dart';
 
 import '../../models/models.dart';
 import '../../features/settings/presentation/about_screen.dart';
@@ -405,16 +406,17 @@ class AppRouter {
         routes[settings.name] ??
         routes[AppRoutes.home] ??
         (_) => const HomeScreen();
-    return MaterialPageRoute<dynamic>(
-      builder: (context) => PrivacyAppGate(
-        child:
-            settings.name == AppRoutes.bookGroups ||
-                settings.name == AppRoutes.bookshelfManage
-            ? PrivacyVerificationGate(builder: builder)
-            : Builder(builder: builder),
-      ),
-      settings: settings,
+    Widget guardedPage(BuildContext context) => PrivacyAppGate(
+      child:
+          settings.name == AppRoutes.bookGroups ||
+              settings.name == AppRoutes.bookshelfManage
+          ? PrivacyVerificationGate(builder: builder)
+          : Builder(builder: builder),
     );
+    if (settings.name == AppRoutes.reader) {
+      return BookReaderRoute<dynamic>(builder: guardedPage, settings: settings);
+    }
+    return MaterialPageRoute<dynamic>(builder: guardedPage, settings: settings);
   }
 }
 

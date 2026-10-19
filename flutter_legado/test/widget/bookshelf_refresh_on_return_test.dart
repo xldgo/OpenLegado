@@ -1,5 +1,7 @@
 import '../fixtures/app_test_api.dart';
 
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +12,7 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 
 import '../mocks/mocks.dart';
 
@@ -132,6 +135,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('STUB_READER'), findsOneWidget);
       expect(find.text('STUB_DETAIL'), findsNothing);
+      final arguments = ModalRoute.of(tester.element(find.text('STUB_READER')))!
+          .settings
+          .arguments;
+      expect(arguments, isA<BookCoverOrigin>());
+      expect((arguments! as BookCoverOrigin).bookUrl, bookUnread.bookUrl);
       final reading = container.read(readerNotifierProvider);
       expect(reading.currentBook?.bookUrl, bookUnread.bookUrl);
       expect(reading.currentChapterIndex, 0);
@@ -160,6 +168,45 @@ void main() {
       expect(find.text('STUB_READER'), findsNothing);
     });
   }
+
+  testWidgets('异步书源查询期间连点书籍只压入一个阅读器', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final sourceQuery = Completer<List<BookSource>>();
+    final book = bookUnread.copyWith(origin: 'https://source.test');
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [book]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) => sourceQuery.future);
+    when(() => mockApi.bookshelfRepository.getBook(book.bookUrl))
+        .thenAnswer((_) async => book);
+    when(() => mockApi.readingRepository.getChapters(book.bookUrl)).thenAnswer(
+      (_) async => [
+        BookChapter(
+          bookUrl: book.bookUrl,
+          url: 'chapter://a',
+          title: '第一章',
+          index: 0,
+        ),
+      ],
+    );
+    when(() => mockApi.readingRepository.getChapterContentFull(book.bookUrl, 0))
+        .thenAnswer((_) async => '正文');
+    container = await pumpShelf(tester);
+    addTearDown(container.dispose);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('未读之书'));
+    await tester.tap(find.text('未读之书'));
+    sourceQuery.complete([]);
+    await tester.pumpAndSettle();
+    expect(find.text('STUB_READER'), findsOneWidget);
+    verify(() => mockApi.readingRepository.getChapters(book.bookUrl)).called(1);
+    Navigator.of(tester.element(find.text('STUB_READER'))).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('未读之书'), findsOneWidget);
+    expect(find.text('STUB_READER'), findsNothing);
+  });
 
   testWidgets('已读书：直开阅读器返回书架后，条目显示新进度（dci=5→6）', (tester) async {
     SharedPreferences.setMockInitialValues({});
