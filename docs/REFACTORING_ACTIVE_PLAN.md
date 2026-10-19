@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-URL-CODEC-20261019：表单编码与内建URI边界（P1）
+
+- 状态：已关闭（仅本批表单编码与URI内建边界）。用户批准开始；dep-audit / chore/dep-audit / 301157db7，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.encodeURI、AnalyzeRule/AnalyzeUrl的java绑定及Rhino标准作用域；JDK25/仓库Rhino临时探针核对Java表单与全局原生URI区别、字符集重载、null/undefined、UTF-16每个连续非安全段独立BOM。研究材料仅在忽略目录build/url-encoding-oracle；首次读取JVM输出因Windows控制台编码失败，指定stdout/stderr为UTF-8后取得有效probe.log，不将失败读取视为行为证据，不新增永久JVM依赖。
+- 实现：新增私有url_codec共用表单编解码；空格为+、加号为%2B、保留ASCII字母数字及-_.和*，其他连续段按已有字符集转换后全部字节大写百分号编码。未知/非法字符集按上游返回空串，不再回退UTF-8；仅缺参用默认，TextArg/CharsetArg区分null与undefined，ToString异常不被吞掉。
+- 注册边界：java.encodeURI仅挂宿主命名空间；四个全局URI函数保留QuickJS内建，java.encodeURIComponent既有扩展引用同一原生函数。移除重复的Rust组件编码实现和其2项纯函数测试，既有真实QuickJS保留字符/ToString/七猫语料回归保持，新增重复注册前后函数身份与畸形代理项URIError检查。
+- 扩展与范围：urlencode/urldecode仍为本地已有双入口单参UTF-8扩展，按其声明的Java表单语义共用实现；解码正确处理+/%2B及坏%HH可捕获异常。getAbsUrl内部宽松解码不变，无请求管线、加密算法、FFI签名/DTO/生成物/schema/依赖或Flutter业务修改。不宣称JVM全部字符集别名、畸形UTF-8替换分组或孤立代理项到Rust字符串的完全等价。
+- 复现与回归：改前5项真实QuickJS全部失败，修后通过，扩展为7项，连同既有数组/组件编码定向14项通过；另1项纯表单向量回归。完整JS 827通过、4既有忽略（22组，库698/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8及git diff --check通过。覆盖保留字符、中文/GBK/UTF-8/UTF-16分段与BOM/Latin1/ASCII、不可编码字符、空值、坏字符集、百分号、ToString失败与VM后续可用、原生函数身份及实际语料。
+- 契约校正：旧数组参数测试错误把charset声明为可空，期待null/undefined均默认；按上游和Rhino实测改为省略默认、undefined编码失败空串、null抛错，继续验证数组ToString，不削弱断言。新完整回归首轮通过，未运行全Rust工作区或Flutter测试。
+- 证据：build/js-byte-conversion/url-{reproduce,fixed,verified,complete,default,clippy-quickjs,clippy-default}.log；reproduce为5项改前失败，fixed为5项通过，verified为定向14项，complete为完整通过。按用户要求无子代理，仅Codex自查diff，无独立审查或远程CI。
+- 交付边界：版本2.0.403+404及双日志同步；未构建native/应用、安装模拟器或推送，不宣称设备或全JS能力验收。MuMu仍2.0.394+395，下次应用构建应重建匹配Rust库；回滚恢复本批并重建，不伪造元数据。
+
+编写者：Codex｜2026-10-19
+
 ### JS-BASE64-HEX-20261019：编码重载、flags与字体解码（P1）
 
 - 状态：已关闭（仅本批Base64/Hex及字体复用范围）。用户批准开始；dep-audit / chore/dep-audit / 4879f8c12，开始工作区干净；单代理，通过后本地提交，不推送/合并/安装，不触碰主目录。

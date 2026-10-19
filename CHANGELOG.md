@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.403] - 2026-10-19
+
+### Fixed
+- 修复书源表单URL中空格、符号及中文字符集编码错误，编码失败按上游返回空串。
+- 恢复脚本原生URI函数的保留字符与异常行为，表单解码正确区分加号并明确拒绝损坏转义。
+- 贡献者：Codex + Rust；构建号404。
+
 ## [2.0.402] - 2026-10-19
 
 ### Fixed

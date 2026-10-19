@@ -66,6 +66,8 @@ pub mod symmetric_crypto;
 pub mod time_utils;
 pub mod ui_action_queue;
 #[cfg(feature = "quickjs")]
+mod url_codec;
+#[cfg(feature = "quickjs")]
 pub(crate) mod variable_bindings;
 
 #[cfg(feature = "quickjs")]

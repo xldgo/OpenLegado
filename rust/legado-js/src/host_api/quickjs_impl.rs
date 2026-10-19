@@ -1514,43 +1514,27 @@ fn register_encoding_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // encodeURI(str, enc?) -> String（对齐原版双参重载：燃文等源
-    // java.encodeURI(String(key), "UTF8") 依赖；缺第二参默认 UTF-8）
-    mount_dual(
-        java,
-        globals,
+    // java.encodeURI是表单编码；全局encodeURI保留QuickJS原生语义。
+    java.set(
         "encodeURI",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr, enc: RhinoOptStr| -> String {
-            match enc.0 {
-                Some(e) => encoding::encode_uri_charset(&s, &e),
-                None => encoding::encode_uri(&s),
-            }
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // encodeURIComponent(value) -> String（JS 标准语义：保留 -_.!~*'()）
-    // [UI-fix 2026-08-10 | Reasonix] 对齐原版 Rhino 内建：yckceo 书源
-    // （思兔 sto66 等）searchUrl 模板 {{encodeURIComponent(key)}} 依赖此函数，
-    // 缺失致表达式求值失败 → URL 残缺 → 搜索无结果
-    // [MessageDigest 批次 2026-09-25] 入参由严格 String 改为 JS 语义 Coerced 强转：
-    // 七猫 jsLib 的 qmUrl 对非字符串值（page:1 为 JS int）调用
-    // encodeURIComponent(params[k])，Rhino/JS 原生 encodeURIComponent(1) 会 ToString
-    // 成 "1"，而宿主严格 String 签名抛 `Error converting from js 'int' into type
-    // 'string'` → qmSearch('测试',1) 整条 searchUrl 失败。改用 Coerced<String>
-    //（JS_ToString）对齐 JS 规范 ToString 语义（int/bool/null/undefined 均强转）。
-    mount_dual(
-        java,
-        globals,
-        "encodeURIComponent",
         rquickjs::Function::new(
             ctx.clone(),
-            |s: rquickjs::Coerced<std::string::String>| -> String {
-                encoding::encode_uri_component(&s.0)
+            |s: crate::quickjs_bytes::TextArg, enc: crate::quickjs_bytes::CharsetArg| -> String {
+                encoding::encode_uri_charset(&s.0, enc.0.as_deref().unwrap_or("UTF-8"))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    )
+    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+
+    // 既有java扩展复用引擎原生函数；不重写ToString、保留字符及URIError。
+    java.set(
+        "encodeURIComponent",
+        globals
+            .get::<_, rquickjs::Function>("encodeURIComponent")
+            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+    )
+    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
     // hmacMd5(data, key) -> String
     mount_dual(
@@ -1700,8 +1684,8 @@ fn register_string_apis<'js>(
         java,
         globals,
         "urlencode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            string_utils::urlencode(&s)
+        rquickjs::Function::new(ctx.clone(), |s: crate::quickjs_bytes::TextArg| -> String {
+            string_utils::urlencode(&s.0)
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -1710,9 +1694,13 @@ fn register_string_apis<'js>(
         java,
         globals,
         "urldecode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            string_utils::urldecode(&s)
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'js>, s: crate::quickjs_bytes::TextArg| {
+                string_utils::urldecode(&s.0)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 

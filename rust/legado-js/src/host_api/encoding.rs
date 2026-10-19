@@ -17,7 +17,6 @@ mod impl_encoding {
     use base64::Engine;
     use hmac::{Hmac, Mac};
     use md5::{Digest as Md5Digest, Md5};
-    use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
     use sha1::Sha1;
     use sha2::{Sha256, Sha384, Sha512};
 
@@ -101,56 +100,14 @@ mod impl_encoding {
         hex::decode(input).map_err(|e| format!("Hex decode error: {}", e))
     }
 
-    /// URI 编码（percent-encode）
-    ///
-    /// 对应 Kotlin: `encodeURI(str)`
-    /// 注意: JS 的 `encodeURIComponent` 保留 `-_.!~*'()` 不编码，
-    /// 这里使用 NON_ALPHANUMERIC 集合作为保守实现。
+    /// 宿主java.encodeURI使用Java表单编码，异常按上游约定返回空串。
     pub fn encode_uri(input: &str) -> String {
-        utf8_percent_encode(input, NON_ALPHANUMERIC).to_string()
+        encode_uri_charset(input, "UTF-8")
     }
 
-    /// 按指定字符集 URI 编码（对齐 Kotlin encodeURI(str, enc)）
-    ///
-    /// 燃文等源 `java.encodeURI(String(key), "UTF8")` 双参调用依赖；
-    /// 非 UTF-8 字符集（GBK 等）先经 encoding_rs 转码再百分号编码。
-    /// — 2026-08-17
+    /// 字符集只在表单非安全连续段参与编码，不回退未知编码。
     pub fn encode_uri_charset(input: &str, charset: &str) -> String {
-        let lower = charset.to_ascii_lowercase().replace(['-', '_'], "");
-        if lower == "utf8" || lower == "utf" {
-            return encode_uri(input);
-        }
-        if lower == "gbk" || lower == "gb2312" || lower == "gb18030" {
-            let (bytes, _, _) = encoding_rs::GBK.encode(input);
-            return bytes
-                .iter()
-                .map(|b| format!("%{:02X}", b))
-                .collect::<String>();
-        }
-        // 未知字符集：回退 UTF-8
-        encode_uri(input)
-    }
-
-    /// encodeURIComponent 语义编码（对齐 JS 标准 / Kotlin encodeURIComponent）
-    ///
-    /// [UI-fix 2026-08-10 | Reasonix] 新增：percent-encode 除 `A-Za-z0-9-_.!~*'()`
-    /// 外的全部字符（含 `;/?:@&=+$,#` 等 encodeURI 不编码的保留字符）。
-    /// 背景：yckceo 书源（思兔阅读 sto66 等）searchUrl 用 `{{encodeURIComponent(key)}}`，
-    /// 此前 quickjs 宿主未注册该函数 → 表达式求值失败 → URL 中模板被替换为空串
-    /// → 搜索 URL 残缺 →「原版能搜到、重构版搜不到」。
-    pub fn encode_uri_component(input: &str) -> String {
-        // 保留集：JS encodeURIComponent 不编码 A-Za-z0-9 与 -_.!~*'()
-        const ENCODE_URI_COMPONENT_KEEP: &AsciiSet = &NON_ALPHANUMERIC
-            .remove(b'-')
-            .remove(b'_')
-            .remove(b'.')
-            .remove(b'!')
-            .remove(b'~')
-            .remove(b'*')
-            .remove(b'\'')
-            .remove(b'(')
-            .remove(b')');
-        utf8_percent_encode(input, ENCODE_URI_COMPONENT_KEEP).to_string()
+        super::super::url_codec::encode_form(input, charset).unwrap_or_default()
     }
 
     /// SHA-256 摘要 — 返回 64 位十六进制小写字符串
@@ -587,25 +544,6 @@ mod tests {
     fn test_digest_hex_md5() {
         let result = digest_hex("hello", "MD5").unwrap();
         assert_eq!(result, "5d41402abc4b2a76b9719d911017c592");
-    }
-
-    #[test]
-    fn test_encode_uri_component_keeps_unreserved() {
-        // JS encodeURIComponent 保留 A-Za-z0-9-_.!~*'()
-        assert_eq!(
-            encode_uri_component("abcXYZ012-_.!~*'()"),
-            "abcXYZ012-_.!~*'()"
-        );
-    }
-
-    #[test]
-    fn test_encode_uri_component_percent_encodes() {
-        // 中文 UTF-8 百分号编码
-        assert_eq!(encode_uri_component("重生"), "%E9%87%8D%E7%94%9F");
-        // 空格与 +（encodeURI 不编码 +，encodeURIComponent 编码）
-        assert_eq!(encode_uri_component("a b+c"), "a%20b%2Bc");
-        // 保留字符 / ? & = 等全部编码（区别于 encodeURI）
-        assert_eq!(encode_uri_component("/?&="), "%2F%3F%26%3D");
     }
 
     #[test]

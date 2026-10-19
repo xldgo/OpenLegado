@@ -1,5 +1,23 @@
 # API 契约文档
 
+## JS URL编码与全局内建函数（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions.encodeURI、AnalyzeRule/AnalyzeUrl绑定及Rhino标准作用域。
+java.encodeURI(str[,enc])是Java表单编码：ASCII字母数字及-_.和*保留；
+空格变+，其余连续非安全字符按指定字符集编码后，全部字节用大写%HH表示。
+省略字符集用UTF-8；复用现有UTF-8/GBK/UTF-16等转换能力，UTF-16每个非安全连续段独立带BOM。
+非空String形参遵从既有TextArg/CharsetArg：null抛错，undefined转为字面字符串；
+未知/非法字符集返回空串（上游显式catch），不回退UTF-8、不返回[ERROR]，不吞ToString本身异常。
+全局encodeURI/encodeURIComponent/decodeURI/decodeURIComponent由QuickJS内建提供，
+宿主注册不再覆盖；保留各自保留字符、ToString和畸形代理项URIError语义。
+java.encodeURIComponent既有扩展复用原生函数，不再维护第二份百分号算法；不新增java.decodeURI等扩展。
+urlencode/urldecode为既有本地扩展，不宣称上游同名API：沿用java/裸双入口和单参UTF-8，
+按其声明的Java表单语义共用编解码；urldecode将+还原空格、%2B还原+，坏%HH抛可捕获异常。
+无效UTF-8字节复用既有替换转换，不承诺JVM全部字符集别名、畸形字节替换分组或孤立代理项传入Rust的等价性。
+不修改请求体/AnalyzeUrl、getAbsUrl内部宽松解码、加密算法、FFI/生成物/schema/依赖或Flutter。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS Base64/Hex转换（2026-10-19，实施前冻结）
 
 参考固定15e1337a的JsExtensions/CryptoUtils/EncoderUtils、Hutool 5.8.22及Android16 Base64。
