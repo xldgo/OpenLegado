@@ -28,6 +28,15 @@ class BottomBarSkinScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(bottomBarSkinProvider);
     final notifier = ref.read(bottomBarSkinProvider.notifier);
+    final preview = ref.watch(bottomBarSkinPreviewProvider);
+    ref.listen(bottomBarSkinPreviewProvider, (_, next) {
+      // 同名皮肤覆盖文件后清除旧解码图像，不在普通重建时重复读取。— Codex + UI
+      next.whenData((items) {
+        for (final item in items) {
+          if (item.path != null) FileImage(File(item.path!)).evict();
+        }
+      });
+    });
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
@@ -92,35 +101,36 @@ class BottomBarSkinScreen extends ConsumerWidget {
                 ),
               ),
             if (state.active.isNotEmpty)
-              FutureBuilder(
-                future: _previewRows(state.active),
-                builder: (context, snap) {
-                  final rows = snap.data;
-                  if (rows == null || rows.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SettingsSectionHeader('预览'),
-                      SettingsGroup(
-                        flat: true, // [LAYOUT_MOTION_AUDIT L2] 设置拆扁平
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SettingsSectionHeader('预览'),
+                  preview.when(
+                    skipLoadingOnRefresh: false,
+                    data: (items) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: rows,
-                            ),
-                          ),
+                          for (final item in items) _previewItem(item),
                         ],
                       ),
-                    ],
-                  );
-                },
+                    ),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => ListTile(
+                      title: Text('预览加载失败：$error'),
+                      trailing: TextButton(
+                        onPressed: () =>
+                            ref.invalidate(bottomBarSkinPreviewProvider),
+                        child: const Text('重试'),
+                      ),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
@@ -128,30 +138,19 @@ class BottomBarSkinScreen extends ConsumerWidget {
     );
   }
 
-  Future<List<Widget>> _previewRows(String skin) async {
-    final service = BottomBarSkinService.instance;
-    final widgets = <Widget>[];
-    for (final slot in BottomBarSkinFormat.mappedSlots) {
-      final icons = await service.iconsForSlot(skin, slot);
-      final path = icons.selected ?? icons.normal;
-      widgets.add(
-        Column(
-          children: [
-            if (path != null)
-              Image.file(File(path), width: 28, height: 28, fit: BoxFit.contain)
-            else
-              const Icon(Symbols.image_not_supported_rounded, size: 28),
-            const SizedBox(height: 4),
-            Text(
-              BottomBarSkinFormat.slotLabels[slot] ?? slot,
-              style: const TextStyle(fontSize: 10),
-            ),
-          ],
-        ),
-      );
-    }
-    return widgets;
-  }
+  Widget _previewItem(BottomBarSkinPreview item) => Column(
+    children: [
+      if (item.path != null)
+        Image.file(File(item.path!), width: 28, height: 28, fit: BoxFit.contain)
+      else
+        const Icon(Symbols.image_not_supported_rounded, size: 28),
+      const SizedBox(height: 4),
+      Text(
+        BottomBarSkinFormat.slotLabels[item.slot] ?? item.slot,
+        style: const TextStyle(fontSize: 10),
+      ),
+    ],
+  );
 
   Future<void> _import(
     BuildContext context,
