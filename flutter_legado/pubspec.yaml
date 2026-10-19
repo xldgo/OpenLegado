@@ -8,6 +8,7 @@ environment:
   flutter: '>=3.47.7'
 
 dependencies:
+  go_router: 18.1.0
   flutter:
     sdk: flutter
   flutter_localizations:

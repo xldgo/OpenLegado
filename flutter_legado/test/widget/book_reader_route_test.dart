@@ -1,3 +1,5 @@
+import 'package:go_router/go_router.dart';
+
 import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -118,9 +120,9 @@ class _Harness {
               Align(
                 alignment: Alignment.bottomCenter,
                 child: TextButton(
-                  onPressed: () => key.currentState!.pushNamed(
+                  onPressed: () => navigation.push(
                     AppRoutes.reader,
-                    arguments: anchored
+                    extra: anchored
                         ? BookCoverHero.originFor(context, _book.bookUrl)
                         : null,
                   ),
@@ -153,6 +155,8 @@ class _Harness {
     },
   );
 
+  late final GoRouter navigation = router.createRouter(navigatorKey: key);
+
   _Harness(this.image, {this.anchored = true});
   final ui.Image image;
   final bool anchored;
@@ -164,19 +168,19 @@ class _Harness {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
-          navigatorKey: key,
+        child: MaterialApp.router(
+          routerConfig: navigation,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
             child: child!,
           ),
-          onGenerateRoute: router.generateRoute,
         ),
       ),
     );
     await tester.pumpAndSettle();
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
+      navigation.dispose();
       container.dispose();
       offset.dispose();
       visible.dispose();
@@ -219,7 +223,7 @@ void main() {
     final h = _Harness(image);
     await h.pump(tester);
     final source = tester.element(find.byType(RawImage));
-    h.key.currentState!.pushNamed('/detail');
+    h.navigation.push('/detail');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     expect(source.mounted, isTrue);
