@@ -15,6 +15,7 @@
 
 
 - 远程复验：用户后续授权推送并仅触发Flutter CI。c47b6aba9的首次运行https://github.com/xldgo/OpenLegado/actions/runs/39235401721在changes阶段失败，普通/原生组未运行；根因为无参数workflow_dispatch实际携带inputs:null，脚本仅覆盖对象形式。现统一规范化缺省/null为空输入并选择all，非法输入类型明确失败；Windows与WSL Linux各25项编排回归通过。修复后从新提交重新触发，不重跑旧SHA。
+- 第二次远程结果：023815e4b运行https://github.com/xldgo/OpenLegado/actions/runs/39239681581的Linux原生组190项通过；普通组4184项通过、1项失败，静态分析、架构与两条生成检查通过。唯一失败为read_aloud_audio_player_test使用Windows盘符路径并断言file URI，在Linux中该路径不属于绝对路径。现测试改用宿主临时目录的绝对路径，额外断言URI往返保留完整中文路径；播放器生产实现不变。Windows播放器文件36项、目标静态分析与格式检查通过，待新提交Linux CI复验。执行者Codex + UI，2026-10-19。
 
 ### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
 

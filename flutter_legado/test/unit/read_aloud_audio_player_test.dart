@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -804,9 +805,14 @@ void main() {
     native.finish();
     native.finish();
     expect(completed, [same(tag)]);
-    await player.playLocalFile('C:/tts/音色.wav', tag: null);
+    final localPath = Directory.systemTemp.uri
+        .resolve('tts/音色.wav')
+        .toFilePath();
+    await player.playLocalFile(localPath, tag: null);
     expect(player.currentTag, isNull);
-    expect((native.sequence.single as audio.UriAudioSource).uri.scheme, 'file');
+    final localUri = (native.sequence.single as audio.UriAudioSource).uri;
+    expect(localUri.scheme, 'file');
+    expect(localUri.toFilePath(), localPath);
     expect(native.loads, 2);
   });
 
