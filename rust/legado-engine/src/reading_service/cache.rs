@@ -43,16 +43,21 @@ impl ChapterCacheService {
         })
     }
 
-    /// 清空所有章节缓存
+    /// 只清正文及附属标记，不删除共表配置、登录或任务断点。
     pub fn clear_cache(&self) -> LegadoResult<bool> {
         self.with_database(|db| {
             let conn = db.connection();
-            // 清空 cached_chapters 表
-            conn.execute("DELETE FROM cached_chapters", [])
+            let tx = rusqlite::Transaction::new_unchecked(
+                conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|e| LegadoError::Database(format!("开启清理事务失败: {e}")))?;
+            tx.execute("DELETE FROM cached_chapters", [])
                 .map_err(|e| legado_core::LegadoError::Database(format!("清空缓存失败: {e}")))?;
-            // 同时清空通用 KV 缓存
-            let cache_repo = CacheRepository::new(conn);
-            cache_repo.clear()?;
+            tx.execute("DELETE FROM caches WHERE key GLOB 'sameTitleRemoved:*'", [])
+                .map_err(|e| LegadoError::Database(format!("清理章节标记失败: {e}")))?;
+            tx.commit()
+                .map_err(|e| LegadoError::Database(format!("提交清理事务失败: {e}")))?;
             Ok(true)
         })
     }

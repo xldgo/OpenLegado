@@ -1,5 +1,24 @@
 # API 契约文档
 
+## 正文缓存清理与离线下载并发（2026-10-19，实施前冻结）
+
+用户授权按当前基线修复清理范围，再接通离线下载并发。Rust/Flutter由同一Codex执行，
+不新增FRB方法或更改已有DTO，版本不额外递增。
+
+- clearCache仅清除cached_chapters及sameTitleRemoved:*章节附属标记；不再整表清空caches。
+  config:*、下载断点/索引/序号、登录状态、音频进度及其他KV均保留；界面说明同步限定为正文缓存。
+- cacheBookThreadCount通过现有ConfigRepository存入config:cacheBookThreadCount；有效范围1～8，
+  缺失或非法值使用8（参考版CacheBook.maxDownloadConcurrency=8，配置默认16经上限收敛后为8）。
+  每个下载任务创建/恢复时捕获并发快照，修改只影响后续任务；实例内多个任务共享有界额度，
+  不因多本书而倍增实际章节并发。取消可等待在途执行收尾，但取消后不接收迟到成功/继续派发。
+- 下载断点记录连续已处理前沿及前沿之后乱序完成的章节；恢复时跳过已经完成的章节，
+  未完成的在途章重新调度。completed/failed只按真正完成的执行计数；在途查询返回全部实际执行章，
+  不将待调度章节伪装成下载中。保持同书运行任务复用、任务ID、状态与现有失败章继续策略。
+
+来源：https://github.com/HapeLee/legado-with-MD3/blob/main/app/src/main/java/io/legado/app/model/CacheBook.kt
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## Flutter 封面开书过渡（2026-10-19，实施前冻结）
 
 文字阅读器命名路由可接收BookCoverOrigin，只包含来源书籍标识、当前可见封面位置、
@@ -2013,7 +2032,7 @@ DatabaseMaintenanceService接管shrinkDatabase。应用装配共享实例并提�
 根BookApi六项旧方法及part实现移除，不保留转发。CacheService仅依赖CacheRepository，
 统计返回不可变CacheStats（totalSize/bookCount/chapterCount），不再返回动态Map。
 Rust/FRB签名、数据库及生成绑定不变；清理false视为失败，异常原样传播，不伪造成功。
-统计仍来自cached_chapters；全部清理仍清cached_chapters和通用caches表，按时间清理
+统计仍来自cached_chapters；全部清理按2026-10-19修订仅清正文及章节标记，保留其他KV，按时间清理
 仍使用毫秒截止时间并复位受影响书籍的sameTitleRemoved键，不新增文件或媒体缓存清理。
 VACUUM的0继续表示无需压缩或Rust降级，Dart不将其重新解释为确定成功。
 Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示样例，不作为真实清理证据。
@@ -2022,7 +2041,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `getCacheSize()` | 无 | `Future<int>` | 获取缓存大小（字节） |
-| `clearCache()` | 无 | `Future<void>` | 清除全部缓存 |
+| `clearCache()` | 无 | `Future<void>` | 清除全部正文缓存及章节标记，保留配置和其他持久KV |
 | `clearBookCache(String bookUrl)` | bookUrl | `Future<int>` | 清除指定书籍章节缓存，返回删除行数（对齐 BookHelp.clearCache(book)） |
 | `clearChapterCache(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<int>` | 清除指定书籍**单章**的章节缓存，返回删除行数（行不存在为 no-op 成功；对齐上游原版 `BookHelp.delContent` 章级语义——仅删本章缓存行，**不触碰** `sameTitleRemoved` 等章级开关键，不触发整书清理；空 bookUrl 返回参数错误）（STAGE3-C2B：刷新正文对齐上游强制联网重取） |
 | `getCacheBookCount()` | 无 | `Future<int>` | 获取缓存书籍数量 |

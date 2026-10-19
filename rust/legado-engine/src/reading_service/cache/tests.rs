@@ -8,6 +8,81 @@ use legado_core::{
 use legado_db::{BookRepository, repository::Repository};
 
 #[test]
+fn clear_all_preserves_durable_state_and_rolls_back_on_flag_failure() {
+    let engine = EngineContext::in_memory().unwrap();
+    let storage = engine.storage();
+    let service = ChapterCacheService::new(Some(storage.clone()));
+    let keys = [
+        "config:threadCount",
+        "config:cacheBookThreadCount",
+        "cacheDownloadTask:7",
+        "cacheDownloadTaskIndex",
+        "cacheDownloadNextId",
+        "audio_progress:book:0",
+        "loginHeader_source",
+        "userInfo_source",
+        "other",
+    ];
+    storage
+        .with_database(|db| {
+            let conn = db.connection();
+            CacheBookRepository::new(conn).insert(&CachedChapter {
+                id: 0,
+                book_url: "book".into(),
+                chapter_index: 0,
+                chapter_title: "标题".into(),
+                chapter_url: "chapter".into(),
+                content: "正文".into(),
+                cached_at: 1,
+                size_bytes: 6,
+            })?;
+            let repo = CacheRepository::new(conn);
+            for key in keys {
+                repo.put(key, "保留值", 0)?;
+            }
+            repo.put("sameTitleRemoved:book:0", "1", 0)?;
+            conn.execute_batch(
+                "CREATE TRIGGER reject_flag BEFORE DELETE ON caches
+            WHEN OLD.key GLOB 'sameTitleRemoved:*'
+            BEGIN SELECT RAISE(ABORT,'拒绝清理标记'); END;",
+            )
+            .unwrap();
+            Ok(())
+        })
+        .unwrap();
+    assert!(service.clear_cache().is_err());
+    storage
+        .with_database(|db| {
+            assert_eq!(
+                CacheBookRepository::new(db.connection())
+                    .get_stats()?
+                    .total_chapters,
+                1
+            );
+            db.connection()
+                .execute_batch("DROP TRIGGER reject_flag")
+                .unwrap();
+            Ok(())
+        })
+        .unwrap();
+    assert!(service.clear_cache().unwrap());
+    assert!(service.clear_cache().unwrap());
+    // 新服务从数据库重新读取，不能用原服务内存快照证明保留成功。
+    let rebuilt = ChapterCacheService::new(Some(storage.clone()));
+    assert_eq!(rebuilt.get_cache_size().unwrap(), 0);
+    storage
+        .with_database(|db| {
+            let repo = CacheRepository::new(db.connection());
+            assert!(!repo.contains_key("sameTitleRemoved:book:0")?);
+            for key in keys {
+                assert_eq!(repo.get(key)?.as_deref(), Some("保留值"));
+            }
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
 fn cleanup_keeps_statement_order_and_partial_failure() {
     for time_based in [false, true] {
         let engine = EngineContext::in_memory().unwrap();

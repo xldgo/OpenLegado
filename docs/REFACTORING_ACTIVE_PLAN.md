@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### CACHE-DOWNLOAD-CONCURRENCY-20261019：清理边界与离线下载并发（P1，实施中）
+
+- 授权：用户要求按更新后的计划实施；feature/ui-reader-selection / da8c2ec71，单代理，分批本地提交，不推送、安装或额外提升版本。
+- B1：清理只作用于正文缓存和sameTitleRemoved标记，防止删除共表的配置、下载断点、登录和音频进度。先冻结API契约，再以真实SQLite验证保留范围及重建后读取。
+- B2：现有CacheDownloads从串行改为受控并发；1～8、默认8，创建/恢复时读取Rust配置快照，多个任务共享实例内额度；保护乱序断点、取消、失败统计及在途章节查询。签名/DTO不变，不引入旧格式迁移工程。
+- B3：设置行接入Rust配置仓储及数字Sheet，保存失败回退、修改对新任务生效；正文前后预下载保持SharedPreferences与现有独立调度。
+- 风险依据：clear_cache此前执行DELETE FROM caches，包含config:*及cacheDownloadTask:*等持久状态；单next_index仅适合串行，不能直接用于乱序完成。
+- 验收：定向Rust真实存储/并发测试与Flutter实际设置页测试，目标静态检查及差异自查。现有取消和服务实例隔离回归保留；不以合成状态或源码字符串断言代替行为。执行者Codex，2026-10-19。
+- B1已完成：正文与章节标记在一个事务中清理，失败不留下正文已删、标记未删的半状态；其他KV全部保留。真实SQLite清理/故障注入及已有缓存服务回归3项、实际设置页13项通过；目标dart analyze无问题，cargo fmt及diff检查通过。证据build/cache-cleanup-tests.log、flutter_legado/build/cache-cleanup-widget.log。未设备验收或远程CI；B2继续实施。
+
 ### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
 
 - 授权：用户要求先将当前内容合并主目录；主目录feature/ui-reader-selection / 211503d29与chore/dep-audit / 4aa9c2533开始均干净，不推送或构建安装。

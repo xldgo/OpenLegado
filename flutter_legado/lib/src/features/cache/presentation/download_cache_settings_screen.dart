@@ -126,7 +126,7 @@ class _DownloadCacheSettingsScreenState
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(shrink ? '压缩数据库' : '清理缓存'),
-        content: Text(shrink ? '压缩数据库？' : '清除已下载章节及通用缓存？'),
+        content: Text(shrink ? '压缩数据库？' : '清除已下载正文及章节缓存标记？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -284,7 +284,7 @@ class _DownloadCacheSettingsScreenState
               children: [
                 SettingTile(
                   title: context.l10n.advancedClearCache,
-                  subtitle: '清除已下载章节及通用缓存',
+                  subtitle: '清除已下载正文及章节缓存标记',
                   enabled: !_busy,
                   onTap: _busy ? null : () => _maintain(shrink: false),
                 ),
