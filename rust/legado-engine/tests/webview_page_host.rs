@@ -246,14 +246,54 @@ fn invalid_calls_do_not_mutate_state_and_cache_has_real_expiry() {
         vec![Some("ttl"), Some("short"), Some("1")],
     )
     .unwrap();
-    assert!(
+    assert_eq!(
         api.js
             .host_resources()
             .cache
             .get_from_memory("ttl")
-            .is_none()
+            .as_deref(),
+        Some("short")
     );
+    #[cfg(feature = "quickjs")]
+    let evaluator = {
+        use legado_js::JsEngine;
+        let evaluator = engine
+            .js_resources()
+            .create_engine(legado_js::SandboxConfig::permissive())
+            .unwrap();
+        assert_eq!(
+            evaluator.eval("cache.getFromMemory('ttl')").unwrap(),
+            "short"
+        );
+        assert_eq!(
+            evaluator
+                .eval("cache.put('js-ttl','shared',1); cache.getFromMemory('js-ttl')")
+                .unwrap(),
+            "shared"
+        );
+        assert_eq!(
+            invoke(
+                &api,
+                handle.key(),
+                PageTarget::Cache,
+                "getFromMemory",
+                vec![Some("js-ttl")]
+            )
+            .unwrap(),
+            Value::String("shared".into())
+        );
+        evaluator
+    };
     std::thread::sleep(Duration::from_millis(1100));
+    #[cfg(feature = "quickjs")]
+    {
+        use legado_js::JsEngine;
+        let result = evaluator.eval("JSON.stringify([cache.get('ttl'),cache.getFromMemory('ttl'),cache.get('js-ttl'),cache.getFromMemory('js-ttl')])").unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&result).unwrap(),
+            serde_json::json!([null, null, null, null])
+        );
+    }
     assert_eq!(
         invoke(
             &api,
@@ -261,6 +301,34 @@ fn invalid_calls_do_not_mutate_state_and_cache_has_real_expiry() {
             PageTarget::Cache,
             "get",
             vec![Some("ttl")]
+        )
+        .unwrap(),
+        Value::Null
+    );
+    for (method, args) in [
+        ("getFromMemory", vec![Some("ttl")]),
+        ("get", vec![Some("ttl"), Some("true")]),
+    ] {
+        assert_eq!(
+            invoke(&api, handle.key(), PageTarget::Cache, method, args).unwrap(),
+            Value::Null
+        );
+    }
+    invoke(
+        &api,
+        handle.key(),
+        PageTarget::Cache,
+        "put",
+        vec![Some("negative"), Some("expired"), Some("-1")],
+    )
+    .unwrap();
+    assert_eq!(
+        invoke(
+            &api,
+            handle.key(),
+            PageTarget::Cache,
+            "get",
+            vec![Some("negative")]
         )
         .unwrap(),
         Value::Null

@@ -1,4 +1,4 @@
-//! JS缓存由显式所有者持有；内存LRU、普通磁盘缓存与限期文件缓存独立。
+//! JS缓存由显式所有者持有；普通缓存两层共用期限，文件缓存为独立层。
 use lru::LruCache;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -10,29 +10,24 @@ use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 const MEMORY_CACHE_CAPACITY: usize = 1024;
 pub const CACHE_DIR_ENV: &str = "LEGADO_JS_CACHE_DIR";
-#[derive(serde::Serialize, serde::Deserialize)]
-struct DiskCacheEntry {
-    v: String,
-    d: i64,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct FileCacheEntry {
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct CacheEntry {
     value: String,
-    #[serde(deserialize_with = "file_cache_deadline")]
+    #[serde(deserialize_with = "cache_deadline")]
     expires_at: Option<i64>,
 }
 
 // 永久缓存也必须显式包含null期限；缺字段的损坏文件不能被当成永久。
-fn file_cache_deadline<'de, D: serde::Deserializer<'de>>(
+fn cache_deadline<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<i64>, D::Error> {
     serde::Deserialize::deserialize(deserializer)
 }
 
 pub struct CacheStore {
+    cache_access: Mutex<()>,
     file_access: Mutex<()>,
-    memory: Mutex<LruCache<String, String>>,
+    memory: Mutex<LruCache<String, CacheEntry>>,
     directory: Mutex<Option<PathBuf>>,
     fallback: Option<PathBuf>,
     temporary: super::resource_files::ResourceFiles,
@@ -40,6 +35,7 @@ pub struct CacheStore {
 impl Default for CacheStore {
     fn default() -> Self {
         Self {
+            cache_access: Mutex::new(()),
             file_access: Mutex::new(()),
             memory: Mutex::new(LruCache::new(
                 NonZeroUsize::new(MEMORY_CACHE_CAPACITY).unwrap(),
@@ -93,39 +89,65 @@ impl CacheStore {
     }
     /// 内存层写入（`putMemory`）
     pub fn put_memory(&self, key: &str, value: &str) {
+        let _access = self.cache_access.lock().unwrap_or_else(|e| e.into_inner());
         if let Ok(mut cache) = self.memory.lock() {
-            cache.put(key.to_string(), value.to_string());
+            cache.put(
+                key.to_string(),
+                CacheEntry {
+                    value: value.into(),
+                    expires_at: None,
+                },
+            );
         }
     }
 
     /// 内存层读取（`getFromMemory`）
     pub fn get_from_memory(&self, key: &str) -> Option<String> {
-        self.memory.lock().ok()?.get(key).cloned()
+        let _access = self.cache_access.lock().unwrap_or_else(|e| e.into_inner());
+        self.memory_at(key, now_millis())
+    }
+
+    // 调用方已持有cache_access；内存回填保留原期限，不重新计时。
+    fn memory_at(&self, key: &str, now: i64) -> Option<String> {
+        let mut cache = self.memory.lock().ok()?;
+        let entry = cache.get(key)?;
+        if entry.expires_at.is_some_and(|deadline| now > deadline) {
+            cache.pop(key);
+            None
+        } else {
+            Some(entry.value.clone())
+        }
     }
 
     /// 内存层删除（`deleteMemory`）
     pub fn delete_memory(&self, key: &str) {
+        let _access = self.cache_access.lock().unwrap_or_else(|e| e.into_inner());
         if let Ok(mut cache) = self.memory.lock() {
             cache.pop(key);
         }
     }
 
-    /// 磁盘写入（`put`）：saveTime 秒，0=永久（同步内存层），非零 → 清内存层
-    ///
-    /// P2-11 ②：写盘失败（目录创建 / 序列化 / `fs::write`）均记录失败原因，
-    /// 并把新值**晋升内存层**（保留内存层语义：不 `delete_memory` 旧值、
-    /// 直接写新值）——降级说明：同进程 `get` 仍可读该值、无 deadline 强制
-    /// （内存层不过期）、`onlyDisk` 读不受影响（磁盘层为空）。成功路径不变：
-    /// 先写盘，成功后再调内存层（deadline==0 → 同步内存；非零 → 清内存，
-    /// 对齐上游 put 后 deleteMemory）。
+    /// 两层共用期限：0永久，负数已过期；写盘失败也不能把限期值变成永久。
     pub fn put(&self, key: &str, value: &str, save_time_secs: i64) -> bool {
-        let deadline = if save_time_secs <= 0 {
-            0
-        } else {
-            now_millis() + save_time_secs * 1000
+        self.put_at(key, value, save_time_secs, now_millis())
+    }
+
+    fn put_at(&self, key: &str, value: &str, save_time_secs: i64, now: i64) -> bool {
+        let _access = self.cache_access.lock().unwrap_or_else(|e| e.into_inner());
+        let entry = CacheEntry {
+            value: value.into(),
+            expires_at: (save_time_secs != 0)
+                .then_some(now.saturating_add(save_time_secs.saturating_mul(1000))),
         };
+        let persisted = self.write_disk(key, &entry);
+        if let Ok(mut cache) = self.memory.lock() {
+            cache.put(key.into(), entry);
+        }
+        persisted
+    }
+
+    fn write_disk(&self, key: &str, entry: &CacheEntry) -> bool {
         let Some(path) = self.disk_path(key) else {
-            self.put_memory(key, value);
             return false;
         };
         if let Some(parent) = path.parent()
@@ -137,13 +159,9 @@ impl CacheStore {
                     parent
                 );
             });
-            self.put_memory(key, value);
             return false;
         }
-        let json = match serde_json::to_string(&DiskCacheEntry {
-            v: value.to_string(),
-            d: deadline,
-        }) {
+        let json = match serde_json::to_string(entry) {
             Ok(j) => j,
             Err(e) => {
                 warn_once(&PUT_WRITE_FAIL_WARNED, || {
@@ -151,7 +169,6 @@ impl CacheStore {
                         "[cache_store] 序列化失败 {key}: {e}（降级保留内存层；同类失败后续不再逐条记日志）"
                     );
                 });
-                self.put_memory(key, value);
                 return false;
             }
         };
@@ -161,35 +178,32 @@ impl CacheStore {
                     "[cache_store] 写盘失败 {key} ({path:?}): {e}（降级保留内存层；同类失败后续不再逐条记日志）"
                 );
             });
-            self.put_memory(key, value);
             return false;
-        }
-        if deadline == 0 {
-            self.put_memory(key, value);
-        } else {
-            self.delete_memory(key);
         }
         true
     }
 
     /// 磁盘读取（`get`）：内存优先（only_disk 跳过），磁盘按 deadline 校验
     pub fn get(&self, key: &str, only_disk: bool) -> Option<String> {
-        if !only_disk && let Some(v) = self.get_from_memory(key) {
+        self.get_at(key, only_disk, now_millis())
+    }
+
+    fn get_at(&self, key: &str, only_disk: bool, now: i64) -> Option<String> {
+        // 覆盖、过期清理与回填串行，避免旧读取误删或盖回新值。
+        let _access = self.cache_access.lock().unwrap_or_else(|e| e.into_inner());
+        if !only_disk && let Some(v) = self.memory_at(key, now) {
             return Some(v);
         }
-        let raw = fs::read_to_string(self.disk_path(key)?).ok()?;
-        let entry: DiskCacheEntry = serde_json::from_str(&raw).ok()?;
-        if entry.d == 0 || now_millis() <= entry.d {
-            if entry.d == 0 {
-                self.put_memory(key, &entry.v);
-            }
-            Some(entry.v)
-        } else {
-            if let Some(path) = self.disk_path(key) {
-                let _ = fs::remove_file(path);
-            }
-            None
+        let path = self.disk_path(key)?;
+        let entry: CacheEntry = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
+        if entry.expires_at.is_some_and(|deadline| now > deadline) {
+            let _ = fs::remove_file(path);
+            return None;
         }
+        if !only_disk && let Ok(mut cache) = self.memory.lock() {
+            cache.put(key.into(), entry.clone());
+        }
+        Some(entry.value)
     }
 
     /// 文件缓存只写磁盘；期限按秒持久化，0永久，负数已过期。
@@ -216,7 +230,7 @@ impl CacheStore {
         // P2-11 ②：纯磁盘 API（file/ 子目录，不进内存层）——写失败无内存层
         // 可降级，仅记录失败原因（原 `.is_ok()` 静默吞错）；P2-15 剩项：
         // 限流为进程内首条（目录不合法时每次 `cache.putFile` 都会失败）
-        let entry = FileCacheEntry {
+        let entry = CacheEntry {
             value: value.into(),
             expires_at: (save_time_secs != 0).then_some(now + i64::from(save_time_secs) * 1000),
         };
@@ -251,7 +265,7 @@ impl CacheStore {
         // 与同一所有者写入/删除串行，避免旧的过期读取误删刚覆盖的新值。
         let _access = self.file_access.lock().unwrap_or_else(|e| e.into_inner());
         let path = self.file_path(key)?;
-        let entry: FileCacheEntry = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
+        let entry: CacheEntry = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
         if entry.expires_at.is_some_and(|deadline| now > deadline) {
             let _ = fs::remove_file(path);
             None
@@ -262,6 +276,7 @@ impl CacheStore {
 
     /// 删除（磁盘 + 内存）
     pub fn delete(&self, key: &str) {
+        let _access = self.cache_access.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(path) = self.disk_path(key) {
             let _ = fs::remove_file(path);
         }
@@ -271,7 +286,9 @@ impl CacheStore {
                 let _ = fs::remove_file(path);
             }
         }
-        self.delete_memory(key);
+        if let Ok(mut cache) = self.memory.lock() {
+            cache.pop(key);
+        }
     }
 }
 fn sha256_hex(input: &str) -> String {
@@ -501,6 +518,160 @@ mod tests {
     }
 
     #[test]
+    fn ordinary_cache_negative_ttl_never_returns_a_value() {
+        let cache = CacheStore::default();
+        assert!(cache.put("negative", "expired", -1));
+        assert_eq!(cache.get_from_memory("negative"), None);
+        assert_eq!(cache.get("negative", false), None);
+        assert_eq!(cache.get("negative", true), None);
+    }
+
+    #[test]
+    fn ordinary_cache_timed_put_is_present_in_memory() {
+        let cache = CacheStore::default();
+        assert!(cache.put("timed", "live", 60));
+        assert_eq!(cache.get_from_memory("timed").as_deref(), Some("live"));
+    }
+
+    #[test]
+    fn ordinary_cache_failed_disk_write_does_not_make_ttl_permanent() {
+        let _lock = lock_cache_for_test();
+        let owner = CacheStore::default();
+        let path = owner.disk_dir().unwrap().join("blocked");
+        fs::write(&path, "not-a-directory").unwrap();
+        let cache = CacheStore::default();
+        cache.set_cache_dir(path);
+        assert!(!cache.put("timed", "fallback", 1));
+        assert_eq!(cache.get_from_memory("timed").as_deref(), Some("fallback"));
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        assert_eq!(cache.get_from_memory("timed"), None);
+        assert_eq!(cache.get("timed", false), None);
+        assert_eq!(cache.get("timed", true), None);
+    }
+
+    #[test]
+    fn ordinary_cache_promotion_and_reopen_keep_original_deadline() {
+        let owner = CacheStore::default();
+        let directory = owner.disk_dir().unwrap();
+        let first = CacheStore::default();
+        first.set_cache_dir(&directory);
+        let now = 1_700_000_000_000;
+        assert!(first.put_at("key", "中文正文", 2, now));
+        assert_eq!(
+            first.memory_at("key", now + 1999).as_deref(),
+            Some("中文正文")
+        );
+        first.delete_memory("key");
+        assert_eq!(
+            first.get_at("key", true, now + 1999).as_deref(),
+            Some("中文正文")
+        );
+        assert_eq!(first.memory_at("key", now + 1999), None);
+        assert_eq!(
+            first.get_at("key", false, now + 1999).as_deref(),
+            Some("中文正文")
+        );
+        assert_eq!(
+            first.memory_at("key", now + 2000).as_deref(),
+            Some("中文正文")
+        );
+        drop(first);
+        let reopened = CacheStore::default();
+        reopened.set_cache_dir(directory);
+        assert_eq!(
+            reopened.get_at("key", false, now + 2000).as_deref(),
+            Some("中文正文")
+        );
+        assert_eq!(reopened.memory_at("key", now + 2001), None);
+        assert_eq!(reopened.get_at("key", false, now + 2001), None);
+        assert!(!reopened.disk_path("key").unwrap().exists());
+    }
+
+    #[test]
+    fn ordinary_cache_only_disk_does_not_modify_explicit_memory_value() {
+        let cache = CacheStore::default();
+        let now = 1_700_000_000_000;
+        assert!(cache.put_at("key", "disk", 1, now));
+        cache.put_memory("key", "memory");
+        assert_eq!(
+            cache.get_at("key", true, now + 500).as_deref(),
+            Some("disk")
+        );
+        assert_eq!(
+            cache.get_at("key", false, now + 500).as_deref(),
+            Some("memory")
+        );
+        assert_eq!(cache.get_at("key", true, now + 1001), None);
+        assert_eq!(cache.memory_at("key", i64::MAX).as_deref(), Some("memory"));
+        cache.delete_memory("key");
+        assert_eq!(cache.get_at("key", false, now + 1001), None);
+    }
+
+    #[test]
+    fn ordinary_cache_overwrite_changes_both_layer_deadlines() {
+        let cache = CacheStore::default();
+        let now = 1_700_000_000_000;
+        assert!(cache.put_at("key", "timed", 1, now));
+        assert!(cache.put_at("key", "permanent", 0, now + 500));
+        for disk in [false, true] {
+            assert_eq!(
+                cache.get_at("key", disk, i64::MAX).as_deref(),
+                Some("permanent")
+            );
+        }
+        assert!(cache.put_at("key", "new", 2, now + 1000));
+        assert_eq!(
+            cache.get_at("key", false, now + 1001).as_deref(),
+            Some("new")
+        );
+        assert_eq!(
+            cache.get_at("key", true, now + 3000).as_deref(),
+            Some("new")
+        );
+        assert_eq!(cache.get_at("key", false, now + 3001), None);
+        assert!(cache.put_at("key", "expired", -1, now));
+        assert_eq!(cache.get_at("key", false, now), None);
+    }
+
+    #[test]
+    fn ordinary_cache_lru_eviction_does_not_renew_disk_deadline() {
+        let cache = CacheStore::default();
+        let now = 1_700_000_000_000;
+        assert!(cache.put_at("key", "timed", 1, now));
+        for n in 0..MEMORY_CACHE_CAPACITY {
+            cache.put_memory(&n.to_string(), "other");
+        }
+        assert_eq!(cache.memory_at("key", now), None);
+        assert_eq!(
+            cache.get_at("key", false, now + 1000).as_deref(),
+            Some("timed")
+        );
+        assert_eq!(cache.get_at("key", false, now + 1001), None);
+        assert_eq!(
+            cache.memory.lock().unwrap().len(),
+            MEMORY_CACHE_CAPACITY - 1
+        );
+    }
+
+    #[test]
+    fn ordinary_cache_invalid_metadata_is_a_miss_and_extreme_ttl_does_not_overflow() {
+        let cache = CacheStore::default();
+        let path = cache.disk_path("key").unwrap();
+        for raw in [
+            "broken",
+            r#"{"value":"missing"}"#,
+            r#"{"value":"v","expires_at":"bad"}"#,
+        ] {
+            fs::write(&path, raw).unwrap();
+            assert_eq!(cache.get_at("key", false, 1000), None);
+        }
+        assert!(cache.put_at("key", "long", i64::MAX, 1000));
+        assert_eq!(cache.get_at("key", true, i64::MAX).as_deref(), Some("long"));
+        assert!(cache.put_at("key", "expired", i64::MIN, 1000));
+        assert_eq!(cache.get_at("key", false, 1000), None);
+    }
+
+    #[test]
     fn test_memory_roundtrip() {
         let _lock = lock_cache_for_test();
         let k = unique_key("mem");
@@ -541,13 +712,13 @@ mod tests {
     }
 
     #[test]
-    fn test_put_nonsync_clears_memory() {
+    fn test_timed_put_replaces_memory() {
         let _lock = lock_cache_for_test();
         let k = unique_key("memclear");
         put_memory(&k, "old");
         put(&k, "new", 3600);
-        // 非永久 put 清除内存层（对齐上游 put 后 deleteMemory）
-        assert!(get_from_memory(&k).is_none());
+        // 限期值覆盖旧内存值，两层共用新期限。
+        assert_eq!(get_from_memory(&k).as_deref(), Some("new"));
         // 磁盘层仍可读
         assert_eq!(get(&k, true).as_deref(), Some("new"));
         delete(&k);

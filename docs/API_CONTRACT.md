@@ -1,5 +1,21 @@
 # API 契约文档
 
+## 普通JS缓存统一期限（2026-10-19，用户确认的上游差异，实施前冻结）
+
+用户确认cache.put的期限应约束内存与磁盘，明确不保留参考版内存命中绕过磁盘期限的行为。
+沿用cache.put(key,value,saveTime?)、get(key,onlyDisk?)、getFromMemory、putMemory与deleteMemory，无FFI变更。
+put的两层共享写入时刻确定的截止毫秒，0永久、负值已过期；只有当前时间>截止时间才失效，与文件缓存一致。
+成功写入同步保存内存值和期限；磁盘有效命中可回填内存，但保留原截止时间，不延长寿命。
+getFromMemory同样检查put条目的期限；putMemory显式创建无期限内存值，不影响磁盘条目。
+onlyDisk只读取/检查磁盘，不回填内存，也不删除同键显式putMemory的无期限值。
+写盘失败仍返回false并日志限流，内存降级保留同一截止时间；不承诺失败的磁盘写入成功或重启后可用。
+失败写入不保证清除原有有效磁盘条目；onlyDisk仍只反映实际持久化内容。
+deleteMemory只清内存；delete清理内存/普通磁盘/独立文件缓存。目录、LRU容量和引擎归属不变。
+普通磁盘复用值/可选截止时间的内部JSON结构，无法解析的旧条目按未命中处理，不做缓存迁移或协议版本标识。
+本批限定JS缓存；不修改登录专用存储、数据库schema、业务缓存、FFI签名或平台接线。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS文件缓存期限（2026-10-19，实施前冻结）
 
 沿用cache.putFile(key,value,saveTime?)与cache.getFile(key)，没有新增FFI字段。

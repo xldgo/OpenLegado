@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.396] - 2026-10-19
+
+### Fixed
+- 书源脚本普通缓存的内存和磁盘共用期限，过期值不再通过内存继续返回。
+- 修复负期限被当成永久值、写盘失败后限期缓存变为永久值的问题。
+- 贡献者：Codex + Rust；构建号397。
+
 ## [2.0.395] - 2026-10-19
 
 ### Fixed

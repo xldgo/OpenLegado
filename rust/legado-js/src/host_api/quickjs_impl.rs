@@ -3837,7 +3837,7 @@ fn register_html_parse_apis<'js>(
 /// 对齐上游 CacheManager.kt 中 WebCacheManager 的 JS 面：
 /// put / putMemory / getFromMemory / deleteMemory / get(onlyDisk) /
 /// putFile / getFile / delete。后端由所属资源的CacheStore持有：
-/// - put沿用已有内存/磁盘规则；get可选择只读磁盘
+/// - put的内存/磁盘共用期限；get可选择只读磁盘
 /// - putFile/getFile为独立文件层，0永久、非零期限按秒持久化，过期即删
 ///
 /// 值统一字符串化后存储（上游 WebCacheManager 存 String；对象值
@@ -3854,7 +3854,7 @@ fn register_cache_apis<'js>(
         rquickjs::Object::new(ctx.clone()).map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
     // put(key, value, saveTime?) -> bool
-    // 普通put沿用既有规则：非正期限永久并同步内存，正期限写盘并清理内存。
+    // 普通put两层共用期限；0永久，负数立即过期，putMemory仍为独立永久值。
     // saveTime 上游为非空原始 Int（CacheManager.kt:60；WebCacheManager.put :172
     // 同为 `saveTime: Int = 0`，@JvmOverloads 缺省 0）：按 Rhino 原始 int 语义
     // 宽松（字符串数字可；缺参 → None → 0 — W4 探针），域判定与 int 同
@@ -7822,6 +7822,42 @@ cipher.decryptStr(b64);
                 "permanent",
                 "positive",
                 "long"
+            ])
+        );
+    }
+
+    #[test]
+    fn ordinary_cache_ttl_and_explicit_memory_in_quickjs() {
+        let engine = make_engine();
+        let result = engine
+            .eval(
+                r#"
+            cache.put('negative','expired',-1);
+            cache.put('timed','disk','60');
+            var timed = cache.getFromMemory('timed');
+            cache.putMemory('timed','memory');
+            cache.put('omitted','permanent');
+            cache.put('null','permanent',null);
+            cache.put('undefined','permanent',undefined);
+            JSON.stringify([cache.get('negative'), cache.getFromMemory('negative'),
+                cache.get('negative',true), timed, cache.get('timed',true),
+                cache.getFromMemory('timed'), cache.get('omitted'), cache.get('null'),
+                cache.get('undefined')]);
+        "#,
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&result).unwrap(),
+            serde_json::json!([
+                null,
+                null,
+                null,
+                "disk",
+                "disk",
+                "memory",
+                "permanent",
+                "permanent",
+                "permanent"
             ])
         );
     }
