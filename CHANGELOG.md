@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.404] - 2026-10-19
+
+### Fixed
+- 书源UTC时间接口支持Java数字日期格式、引号与毫秒时区偏移，空格式保持空输出。
+- 修复1970年前负毫秒时间戳处理错误，坏时间格式不再引发Rust panic。
+- 非法或暂不支持的时间格式明确报错，不再把错误混入正常日期结果。
+- 贡献者：Codex + Rust；构建号405。
+
 ## [2.0.403] - 2026-10-19
 
 ### Fixed

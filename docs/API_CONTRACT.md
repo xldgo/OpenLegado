@@ -1,5 +1,24 @@
 # API 契约文档
 
+## JS时间格式与负时间戳（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions.timeFormat/timeFormatUTC与AppConst.dateFormat；
+数字格式规则核对[Android SimpleDateFormat](https://developer.android.com/reference/java/text/SimpleDateFormat)与JDK25探针，不把Chrono格式串直接当Java格式。
+timeFormatUTC(time,format,sh)的time/sh沿用Rhino非空long/int转换，sh单位为毫秒，允许非整分钟偏移；
+format为非空String形参，null报错、undefined按字符串转换；空串输出空串，不替换成默认格式。
+本批先以ASCII数字支持常用数值字段y/yy、M/L(1~2位)、d/D/F/u、H/k/K/h/m/s/S、Z、X(1~3位)，
+数字按最小宽度补零，yy截两位，S为完整毫秒值补零而非小数截断；引号字面量、双单引号转义('')和非ASCII文字保留。
+未知格式字母、未闭合单引号及不合法X长度抛可捕获异常，不返回[ERROR]或panic。
+本批按数字范围实施；月份/星期名称、AM/PM、纪元、周历及文本时区依赖Locale，明确报不支持，
+相关扩展等待用户选择，不擅自固定为英文或中文。
+负毫秒时间戳使用正确的秒/毫秒分解；偏移通过checked时间运算应用，越界明确返回错误。
+timeFormat(time)维持系统本地时区和yyyy/MM/dd HH:mm显示；只修正负毫秒与安全错误传播。
+formatTime/parseTime为本地既有扩展，保留Chrono语法、空格式使用原默认、parseTime按UTC及失败返回-1；
+formatTime保持原错误文本约定，但通过可失败写入处理坏格式，禁止Display转String导致panic。
+不引入依赖、不改JS Date内建、FFI/生成物/schema/Flutter或平台配置；不承诺JVM全部Locale/本地化数字/历法/时间范围。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS URL编码与全局内建函数（2026-10-19，实施前冻结）
 
 参考固定15e1337a的JsExtensions.encodeURI、AnalyzeRule/AnalyzeUrl绑定及Rhino标准作用域。

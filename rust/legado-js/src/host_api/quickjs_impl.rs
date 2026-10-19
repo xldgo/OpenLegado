@@ -1906,9 +1906,9 @@ fn register_time_apis<'js>(
         java,
         globals,
         "timeFormat",
-        rquickjs::Function::new(ctx.clone(), |ts: RhinoLong| -> String {
+        rquickjs::Function::new(ctx.clone(), |ctx: rquickjs::Ctx<'js>, ts: RhinoLong| {
             time_utils::format_time(ts.0, Some("%Y/%m/%d %H:%M"))
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -1919,16 +1919,13 @@ fn register_time_apis<'js>(
         "timeFormatUTC",
         rquickjs::Function::new(
             ctx.clone(),
-            // ts/sh 上游为非空 Long/Int（:686）：Rhino 原始数值宽松（W4 探针）
-            |ts: RhinoLong, format: RhinoStr, sh: RhinoInt| -> String {
-                // 对齐 Kotlin SimpleTimeZone(sh, "UTC")：sh 为毫秒偏移
-                let fmt = if format.is_empty() {
-                    None
-                } else {
-                    Some(format.as_str())
-                };
-                time_utils::format_time_utc(ts.0, fmt, sh.0)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+            // ts/sh保留Rhino数值转换，格式为非空String；空格式不能变成默认值。
+            |ctx: rquickjs::Ctx<'js>,
+             ts: RhinoLong,
+             format: crate::quickjs_bytes::TextArg,
+             sh: RhinoInt| {
+                time_utils::format_time_utc(ts.0, Some(&format.0), sh.0)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,

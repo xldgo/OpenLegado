@@ -38,6 +38,8 @@ mod font_bridge;
 pub mod html_format;
 #[cfg(feature = "quickjs")]
 pub mod html_parse;
+#[cfg(feature = "quickjs")]
+mod java_date_format;
 /// 远程 jsLib 加载器（cap 3：URL 映射 jsLib 经共享客户端拉取 + 进程缓存
 /// + 台账降级；随 quickjs feature 门控——依赖网络/引擎宿主面）
 #[cfg(feature = "quickjs")]

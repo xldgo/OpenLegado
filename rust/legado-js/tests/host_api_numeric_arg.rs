@@ -281,20 +281,27 @@ fn truncation_then_range_check_matches_rhino_boundaries() {
         "java.base64DecodeToByteArray(\"aGVsbG8=\", -2147483649)",
     );
 
-    // i64 对应边界：2^63-1024（最大可表示上界值）与 -2^63 接受；
-    // 2^63 舍入值（字面量 9223372036854775807 / 字符串 9223372036854775806）
-    // 抛错——与现状实现一致，此用例锁定不得回退。
-    assert!(
-        eval(&engine, "String(java.timeFormat(9223372036854774784))").is_ok(),
-        "9223372036854774784（= 2^63-1024，最大可表示下界值）应接受转换"
-    );
-    assert!(
-        eval(&engine, "String(java.timeFormat(-9223372036854775808))").is_ok(),
-        "-9223372036854775808（= -2^63）应接受转换"
-    );
-    assert_err(&engine, "java.timeFormat(9223372036854775807)");
-    assert_err(&engine, "java.timeFormat(\"9223372036854775806\")");
-    assert_err(&engine, "java.timeFormat(-9223372036854777856)");
+    // 接受的long先进入日期处理，再因Chrono范围不足而明确失败；
+    // 不再把旧的[ERROR]成功字符串当作数值转换证据。
+    for value in ["9223372036854774784", "-9223372036854775808"] {
+        let error = eval(&engine, &format!("java.timeFormat({value})")).unwrap_err();
+        assert!(
+            error.contains("时间戳超出支持范围"),
+            "应已完成long转换并进入日期处理: {error}"
+        );
+    }
+    // 超出Rhino long范围的值必须在形参转换时拒绝，不能进入日期处理。
+    for code in [
+        "java.timeFormat(9223372036854775807)",
+        "java.timeFormat(\"9223372036854775806\")",
+        "java.timeFormat(-9223372036854777856)",
+    ] {
+        let error = eval(&engine, code).unwrap_err();
+        assert!(
+            !error.contains("时间戳超出支持范围"),
+            "越界值不得进入日期处理: {error}"
+        );
+    }
 }
 
 /// 可选数值形参（RhinoOptInt/RhinoOptLong）：缺参 → 缺省，显式 null/undefined

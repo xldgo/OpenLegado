@@ -13,7 +13,7 @@
 mod impl_time_utils {
     use chrono::{DateTime, Local, NaiveDateTime, Utc};
 
-    /// 默认时间格式（对应 Kotlin dateFormat）
+    /// 本地扩展的默认Chrono格式，独立于上游Java格式。
     pub const DEFAULT_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
     /// 将毫秒时间戳格式化为本地时间字符串
@@ -21,30 +21,39 @@ mod impl_time_utils {
     /// 对应 Kotlin: `timeFormat(time: Long)`
     pub fn format_time(timestamp_ms: i64, format: Option<&str>) -> Result<String, String> {
         let fmt = format.unwrap_or(DEFAULT_FORMAT);
-        let secs = timestamp_ms / 1000;
-        let nanos = ((timestamp_ms % 1000) * 1_000_000) as u32;
-        let dt =
-            DateTime::from_timestamp(secs, nanos).ok_or_else(|| "Invalid timestamp".to_string())?;
+        let dt = DateTime::from_timestamp_millis(timestamp_ms)
+            .ok_or_else(|| "时间戳超出支持范围".to_string())?;
         let local_dt = dt.with_timezone(&Local);
-        Ok(local_dt.format(fmt).to_string())
+        // 先验证本地墙上时间可表示，再格式化，避免边界日期的naive_local panic。
+        dt.naive_utc()
+            .checked_add_signed(chrono::Duration::seconds(i64::from(
+                local_dt.offset().local_minus_utc(),
+            )))
+            .ok_or_else(|| "本地时间偏移后超出支持范围".to_string())?;
+        let mut output = String::new();
+        local_dt
+            .format(fmt)
+            .write_to(&mut output)
+            .map_err(|_| "无效的Chrono时间格式".to_string())?;
+        Ok(output)
     }
 
-    /// 将毫秒时间戳格式化为指定时区偏移的时间字符串
-    ///
-    /// 对应 Kotlin: `timeFormatUTC(time, format, sh)` + `SimpleTimeZone(sh, "UTC")`
-    /// - `offset_ms` 为时区原始偏移（**毫秒**，与 Java `SimpleTimeZone` 一致）
+    /// 上游Java数字格式；offset_ms为原始毫秒偏移，不用整秒时区对象截断。
     pub fn format_time_utc(
         timestamp_ms: i64,
         format: Option<&str>,
         offset_ms: i32,
     ) -> Result<String, String> {
-        let fmt = format.unwrap_or(DEFAULT_FORMAT);
-        let secs = timestamp_ms / 1000;
-        let nanos = ((timestamp_ms % 1000) * 1_000_000) as u32;
-        let dt =
-            DateTime::from_timestamp(secs, nanos).ok_or_else(|| "Invalid timestamp".to_string())?;
-        let naive = dt.naive_utc() + chrono::Duration::milliseconds(offset_ms as i64);
-        Ok(naive.format(fmt).to_string())
+        let date = DateTime::from_timestamp_millis(timestamp_ms)
+            .and_then(|date| {
+                date.checked_add_signed(chrono::Duration::milliseconds(i64::from(offset_ms)))
+            })
+            .ok_or_else(|| "时间戳或时区偏移超出支持范围".to_string())?;
+        super::super::java_date_format::format(
+            date,
+            format.unwrap_or("yyyy-MM-dd HH:mm:ss"),
+            offset_ms,
+        )
     }
 
     /// 获取当前毫秒时间戳
@@ -56,7 +65,7 @@ mod impl_time_utils {
 
     /// 解析时间字符串为毫秒时间戳
     ///
-    /// 对应 Kotlin: `SimpleDateFormat.parse(str).time`
+    /// 本地既有扩展：按Chrono格式解析，维持UTC时间戳语义。
     pub fn parse_time(time_str: &str, format: Option<&str>) -> Result<i64, String> {
         let fmt = format.unwrap_or(DEFAULT_FORMAT);
         let naive = NaiveDateTime::parse_from_str(time_str, fmt)
@@ -90,7 +99,7 @@ mod stub_time_utils {
     pub fn format_time_utc(
         _timestamp_ms: i64,
         _format: Option<&str>,
-        _offset_seconds: i32,
+        _offset_ms: i32,
     ) -> Result<String, String> {
         Err(not_available())
     }
@@ -124,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_format_time_custom_format() {
-        let result = format_time_utc(1704067200000, Some("%Y-%m-%d"), 0).unwrap();
+        let result = format_time_utc(1704067200000, Some("yyyy-MM-dd"), 0).unwrap();
         assert_eq!(result, "2024-01-01");
     }
 
@@ -132,7 +141,7 @@ mod tests {
     fn test_format_time_with_offset() {
         // +8 hours (CST)：对齐 Kotlin SimpleTimeZone(rawOffsetMs)
         let result =
-            format_time_utc(1704067200000, Some("%Y-%m-%d %H:%M:%S"), 8 * 3600 * 1000).unwrap();
+            format_time_utc(1704067200000, Some("yyyy-MM-dd HH:mm:ss"), 8 * 3600 * 1000).unwrap();
         assert_eq!(result, "2024-01-01 08:00:00");
     }
 
@@ -157,6 +166,29 @@ mod tests {
     #[test]
     fn test_time_diff_ms() {
         assert_eq!(time_diff_ms(1000, 5000), 4000);
+    }
+
+    #[test]
+    fn timestamp_and_offset_limits_fail_without_overflow_or_panicking() {
+        for stamp in [i64::MIN, i64::MAX] {
+            assert!(format_time_utc(stamp, Some("yyyy"), 0).is_err());
+        }
+        assert!(
+            format_time_utc(
+                chrono::DateTime::<chrono::Utc>::MAX_UTC.timestamp_millis(),
+                Some("yyyy"),
+                i32::MAX
+            )
+            .is_err()
+        );
+        assert!(
+            format_time_utc(
+                chrono::DateTime::<chrono::Utc>::MIN_UTC.timestamp_millis(),
+                Some("yyyy"),
+                i32::MIN
+            )
+            .is_err()
+        );
     }
 
     #[test]

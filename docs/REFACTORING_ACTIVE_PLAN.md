@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-TIME-FORMAT-20261019：Java数字时间格式与负时间戳（P1）
+
+- 状态：已关闭（本批ASCII数字时间格式范围，Locale扩展另待用户选择）。用户批准开始；dep-audit / chore/dep-audit / a5771baa2，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.timeFormat/timeFormatUTC与AppConst.dateFormat；Android SimpleDateFormat官方文档及JDK25探针核对数字字段宽度、引号、毫秒与原始时区偏移。前轮真实QuickJS已确认Java格式输出成字面量且空格式用默认。研究材料在忽略目录build/time-format-oracle，不引入永久JVM测试宿主，也不把JDK探针当作Android真机证明。
+- 实现：新增私有java_date_format直接解释y/yy、M/L数值、d/D/F/u、四种小时、m/s/S、Z与X(1~3位)、引号/双单引号和中文/标点字面量。按Java最小宽度补零，S保留完整毫秒，偏移保留毫秒参与墙上时间运算，时区字符串按Java整分钟规则输出。timeFormatUTC不再机械使用Chrono，空格式保持空串，非法格式/null/超范围明确抛可捕获异常。
+- 负时间与安全：统一使用DateTime::from_timestamp_millis及checked偏移，修复负时间戳余数及越界。timeFormat维持系统本地时区与yyyy/MM/dd HH:mm，错误不再伪装成功。formatTime/parseTime维持本地Chrono语法、原空格式默认及失败契约，formatTime改用可失败write_to而非Display.to_string，避免坏格式panic；未修改Date内建、time_diff_ms或解析UTC约定。
+- Locale边界：当前没有系统Locale接线，已询问数字范围与完整本地化的选择，未收到答复；按已说明的推荐数字范围继续。月份/星期名称、AM/PM、纪元、周历及文本时区明确报不支持，不擅自固定语言；不宣称本地化数字、全部Java历法/历史切换或其全部Long时间范围等价。不将本批认定为整个SimpleDateFormat完全复刻。
+- 复现与测试：改前5项真实QuickJS全部失败，其中formatTime('%Q')复现Rust Display panic；修后通过，扩展为8项，加既有数值转换共15项定向通过。另2项Rust回归覆盖固定日期/闰年/宽度/中文字面量及时间戳与偏移边界；原UTC函数测试改为Java格式。完整JS 837通过、4既有忽略（23组，库700/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8与git diff --check通过。
+- 回归校正：首次数值定向与完整回归暴露旧long边界断言将旧[ERROR]成功字符串当作转换成功。改为接受范围的long进入日期处理并因日期范围抛错，超范围long在形参阶段拒绝；仍检查两阶段不同错误，没有放宽long转换。完整首轮仅该项失败，修后time-complete-final全部通过；保留所有失败证据，不把首轮计为成功。
+- 证据：build/js-byte-conversion/time-{reproduce,fixed,verified,verified-final,complete,complete-final,default,clippy-quickjs,clippy-default}.log；reproduce为5项预期失败，fixed为5项通过，verified-final为15项定向，complete-final为最终完整通过。按用户要求无子代理，仅Codex自查diff，无独立审查或远程CI。
+- 交付边界：版本2.0.404+405及双日志同步，无新依赖、FFI签名/DTO/生成物/schema/Flutter业务或平台配置变更。未构建native/应用、安装模拟器或推送；MuMu仍2.0.394+395，下次构建需重建匹配Rust库。回滚还原本批并重建，不伪造元数据。
+
+编写者：Codex｜2026-10-19
+
 ### JS-URL-CODEC-20261019：表单编码与内建URI边界（P1）
 
 - 状态：已关闭（仅本批表单编码与URI内建边界）。用户批准开始；dep-audit / chore/dep-audit / 301157db7，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
