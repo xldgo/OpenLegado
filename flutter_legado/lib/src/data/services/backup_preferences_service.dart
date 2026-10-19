@@ -155,8 +155,6 @@ class BackupPreferencesService {
     PrefKeys.cNAccent,
     PrefKeys.cNBackground,
     PrefKeys.cNBBackground,
-    PrefKeys.transparentNavBar,
-    PrefKeys.transparentNavBarNight,
     'themeConfigList',
     'bgImageBlurring',
     'bgImageNBlurring',

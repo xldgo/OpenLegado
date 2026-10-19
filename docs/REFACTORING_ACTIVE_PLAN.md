@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### THEME-DEAD-NAV-SWITCHES-20261020：删除未接线的日夜透明导航栏设置（P2，本地完成，未设备复验）
+
+- 授权：用户确认删除transparentNavBar/transparentNavBarNight，无旧键迁移、清洗或备份过滤；不增加控件存在性测试。基线feature/ui-reader-selection / c3119dbb6，单代理，本地提交，不推送、构建安装或提升版本。
+- 范围：删除两项设置行、模型字段、仓储读写、Notifier投影/方法、偏好常量及备份分类引用；保留transparentStatusBar/immNavigationBar、SystemBarService、原生逻辑和现有底栏透明度/模糊/玻璃参数。主题预设、Rust/FRB、数据库不变。
+- 验收：调整现有仓储及状态行为测试，删除失效的禁用项测试；运行受影响的系统栏与备份回归、目标静态分析和差异检查，不新增源码守卫或无效设置的兼容用例。历史日志和已完成任务证据保留原记录。编写者Codex + UI，2026-10-20。
+- 结果：生产与测试目录无两个废弃字段的引用；保留两项沉浸偏好的恢复、订阅、慢写入、保存失败及系统栏控制器回归。5份现有测试31项通过，10份目标Dart静态分析无问题，格式和diff检查通过；证据flutter_legado/build/system-bar-cleanup-{tests,analysis}.log。
+- 交付：同步设计规范与用户日志，版本保持2.0.405+406；仅本地提交，提交号以本条所在Git记录为准。无独立审查、设备、全量测试、远程CI或构建安装结果，不改原生文件和底栏样式算法。
+
 ### IOS-LAUNCH-BACKGROUND-20261020：原生启动背景与占位资源清理（P2，待复验：Xcode编译及iPhone冷启动）
 
 - 授权：用户同意保留原生LaunchScreen，移除透明占位图并适配系统深浅色；基线feature/ui-reader-selection / e024188d3。单代理，不提升版本、不推送、编译或安装，保留未提交缓存工作。

@@ -28,29 +28,22 @@ void main() {
     repository = AppSystemBarSettingsRepository(service);
   });
 
-  test('默认沉浸开启、日夜透明关闭，加载仅只读', () async {
+  test('默认沉浸开启，加载仅只读', () async {
     expect(await repository.load(), const SystemBarSettings());
     expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
     await repository.update();
     expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
   });
 
-  test('四项偏好保留原布尔键，并由新实例完整恢复', () async {
+  test('两项偏好保留原布尔键，并由新实例完整恢复', () async {
     await repository.update(
       transparentStatusBar: false,
       immNavigationBar: false,
-      transparentNavBar: true,
-      transparentNavBarNight: true,
     );
     final prefs = await SharedPreferences.getInstance();
     expect(
       {for (final key in prefs.getKeys()) key: prefs.get(key)},
-      {
-        'transparentStatusBar': false,
-        'immNavigationBar': false,
-        'transparentNavBar': true,
-        'transparentNavBarNight': true,
-      },
+      {'transparentStatusBar': false, 'immNavigationBar': false},
     );
     expect(
       await AppSystemBarSettingsRepository(createService()).load(),
@@ -61,14 +54,12 @@ void main() {
   test('异常类型只回退展示，保存指定开关不覆盖其他偏好', () async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('transparentStatusBar', 'false');
-    await prefs.setBool('transparentNavBarNight', true);
     await repository.load();
     expect(repository.current.transparentStatusBar, isTrue);
-    expect(repository.current.transparentNavBarNight, isTrue);
-    await repository.update(transparentNavBar: true);
+    expect(repository.current.immNavigationBar, isTrue);
+    await repository.update(immNavigationBar: false);
     expect(prefs.getString('transparentStatusBar'), 'false');
-    expect(prefs.getBool('transparentNavBarNight'), isTrue);
-    expect(prefs.containsKey('immNavigationBar'), isFalse);
+    expect(prefs.getBool('immNavigationBar'), isFalse);
   });
 
   test('订阅只通知系统栏字段变化，不响应其他领域偏好', () async {

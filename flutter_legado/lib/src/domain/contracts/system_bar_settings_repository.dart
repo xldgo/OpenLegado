@@ -6,10 +6,5 @@ abstract interface class SystemBarSettingsRepository {
   Stream<SystemBarSettings> watch();
   Future<SystemBarSettings> load();
   Future<void> reload();
-  Future<void> update({
-    bool? transparentStatusBar,
-    bool? immNavigationBar,
-    bool? transparentNavBar,
-    bool? transparentNavBarNight,
-  });
+  Future<void> update({bool? transparentStatusBar, bool? immNavigationBar});
 }

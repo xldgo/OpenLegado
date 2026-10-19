@@ -65,12 +65,6 @@ class PrefKeys {
   /// 夜间背景图片路径
   static const bgImageN = 'backgroundImageNight';
 
-  /// 日间导航栏透明（仅 Android 生效，默认 false）
-  static const transparentNavBar = 'transparentNavBar';
-
-  /// 夜间导航栏透明（仅 Android 生效，默认 false）
-  static const transparentNavBarNight = 'transparentNavBarNight';
-
   // ===== UI 布局同步重构开关族（UI_SYNC_REFACTOR_PLAN_20260905.md，
   // key 名对齐参考仓 PreferKey，经 SharedPreferences 透存，Rust 不解释）=====
 

@@ -77,8 +77,6 @@ void main() {
     expect(state.loaded, isTrue);
     expect(state.transparentStatusBar, isFalse);
     expect(state.immNavigationBar, isTrue);
-    expect(state.transparentNavBar, isFalse);
-    expect(state.transparentNavBarNight, isFalse);
   });
 
   test('启动恢复保留显式选择的默认值，同时恢复未修改字段', () async {
@@ -161,7 +159,7 @@ void main() {
     await flushOperations();
   });
 
-  test('恢复日夜透明开关后重读，共享快照与页面投影一致', () async {
+  test('恢复沉浸开关后重读，共享快照与页面投影一致', () async {
     final settings = DelayedSystemBarSettings({
       PrefKeys.transparentStatusBar: false,
       PrefKeys.immNavigationBar: false,
@@ -172,15 +170,11 @@ void main() {
     await flushOperations();
     settings.saved[PrefKeys.transparentStatusBar] = true;
     settings.saved[PrefKeys.immNavigationBar] = true;
-    settings.saved[PrefKeys.transparentNavBar] = true;
-    settings.saved[PrefKeys.transparentNavBarNight] = true;
     await container.read(systemBarProvider.notifier).reload();
     final state = container.read(systemBarProvider);
     expect(state.loaded, isTrue);
     expect(state.transparentStatusBar, isTrue);
     expect(state.immNavigationBar, isTrue);
-    expect(state.transparentNavBar, isTrue);
-    expect(state.transparentNavBarNight, isTrue);
   });
 
   test('替换共享设置服务后旧加载不会短暂发布过期状态', () async {

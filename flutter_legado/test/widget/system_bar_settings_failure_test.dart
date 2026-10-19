@@ -12,7 +12,6 @@ import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_notifier.dart';
-import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 import 'package:flutter_legado/src/widgets/system_bar_binder.dart';
 
 void main() {
@@ -87,54 +86,6 @@ void main() {
             : applied.last.immNavigationBar,
         isFalse,
       );
-      expect(tester.takeException(), isNull);
-    });
-  }
-
-  for (final isNight in [false, true]) {
-    final groupTitle = isNight ? '自定义主题 · 夜间' : '自定义主题 · 白天';
-    testWidgets('$groupTitle 未接线透明导航栏禁用且不保存', (tester) async {
-      await open(tester);
-      await reveal(tester, groupTitle);
-      final group = find.byWidgetPredicate(
-        (widget) => widget is SettingsGroup && widget.title == groupTitle,
-      );
-      final label = find.descendant(of: group, matching: find.text('透明导航栏'));
-      await tester.ensureVisible(label);
-      await tester.pumpAndSettle();
-      await tester.tap(label);
-      await tester.pumpAndSettle();
-      final state = container.read(systemBarProvider);
-      expect(
-        isNight ? state.transparentNavBarNight : state.transparentNavBar,
-        isFalse,
-      );
-      expect(
-        tester
-            .widget<SettingSwitchRow>(
-              find.ancestor(of: label, matching: find.byType(SettingSwitchRow)),
-            )
-            .value,
-        isFalse,
-      );
-      expect(
-        tester
-            .widget<SettingSwitchRow>(
-              find.ancestor(of: label, matching: find.byType(SettingSwitchRow)),
-            )
-            .subtitle,
-        '仅 Android 生效\n待实现',
-      );
-      expect(find.text('保存失败，请重试'), findsNothing);
-      expect(
-        tester
-            .widget<SettingSwitchRow>(
-              find.ancestor(of: label, matching: find.byType(SettingSwitchRow)),
-            )
-            .onChanged,
-        isNull,
-      );
-      expect(storage.values, isEmpty);
       expect(tester.takeException(), isNull);
     });
   }

@@ -4,7 +4,7 @@ import '../../providers/cover_provider.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
 // ThemeConfigFragment（24 项）：启动图标/欢迎页样式/沉浸式状态栏/沉浸式导航栏/
 // 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
-// 白天/夜间 主色调/强调色/背景色/底栏色/背景图片/透明导航栏/保存主题。
+// 白天/夜间 主色调/强调色/背景色/底栏色/背景图片/保存主题。
 // 颜色配置经 ThemeColorsNotifier 接入 MaterialApp ThemeData 即时生效；
 // 尚未接入功能的选项禁用并说明后续开放；已生效的平台入口保持可用；
 // 分组与设置行复用跨平台 SettingsGroup 和 SettingTile。
@@ -911,11 +911,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                             : colors.bgImage,
                         onTap: () => _showBgImageDialog(PrefKeys.bgImage),
                       ),
-                      SettingSwitchRow(
-                        title: '透明导航栏',
-                        subtitle: _pendingDescription('仅 Android 生效'),
-                        value: systemBars.transparentNavBar,
-                      ),
                       SettingTile(
                         icon: Symbols.save_rounded,
                         title: '保存白天主题',
@@ -962,11 +957,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                             ? '未设置'
                             : colors.bgImageNight,
                         onTap: () => _showBgImageDialog(PrefKeys.bgImageN),
-                      ),
-                      SettingSwitchRow(
-                        title: '透明导航栏',
-                        subtitle: _pendingDescription('仅 Android 生效'),
-                        value: systemBars.transparentNavBarNight,
                       ),
                       SettingTile(
                         icon: Symbols.save_rounded,

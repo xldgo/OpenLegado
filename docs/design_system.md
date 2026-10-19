@@ -1,5 +1,13 @@
 # Legado Flutter 设计规范文档（Material Design 3）
 
+## 系统栏设置边界（2026-10-20）
+
+系统栏偏好仅保留沉浸式状态栏transparentStatusBar与沉浸式导航栏immNavigationBar，
+复用原有SystemBarService和原生接线。移除未接线的日夜“透明导航栏”设置及其存取链路。
+应用内底栏仍由现有背景不透明度、模糊与玻璃参数控制，不与系统导航栏设置混用。
+
+编写者：Codex + UI｜2026-10-20
+
 ## 下载与缓存设置（2026-10-19）
 
 主设置“其他”分组新增“下载与缓存”，命名路由/download_cache_settings。

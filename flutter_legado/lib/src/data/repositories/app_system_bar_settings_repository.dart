@@ -18,8 +18,6 @@ final class AppSystemBarSettingsRepository
   static final _addresses = {
     _address(PrefKeys.transparentStatusBar),
     _address(PrefKeys.immNavigationBar),
-    _address(PrefKeys.transparentNavBar),
-    _address(PrefKeys.transparentNavBarNight),
   };
 
   bool _read(AppSettingsSnapshot snapshot, String key, bool fallback) {
@@ -30,12 +28,6 @@ final class AppSystemBarSettingsRepository
   SystemBarSettings _decode(AppSettingsSnapshot snapshot) => SystemBarSettings(
     transparentStatusBar: _read(snapshot, PrefKeys.transparentStatusBar, true),
     immNavigationBar: _read(snapshot, PrefKeys.immNavigationBar, true),
-    transparentNavBar: _read(snapshot, PrefKeys.transparentNavBar, false),
-    transparentNavBarNight: _read(
-      snapshot,
-      PrefKeys.transparentNavBarNight,
-      false,
-    ),
   );
 
   @override
@@ -63,15 +55,9 @@ final class AppSystemBarSettingsRepository
   }
 
   @override
-  Future<void> update({
-    bool? transparentStatusBar,
-    bool? immNavigationBar,
-    bool? transparentNavBar,
-    bool? transparentNavBarNight,
-  }) => _service.update({
-    _address(PrefKeys.transparentStatusBar): ?transparentStatusBar,
-    _address(PrefKeys.immNavigationBar): ?immNavigationBar,
-    _address(PrefKeys.transparentNavBar): ?transparentNavBar,
-    _address(PrefKeys.transparentNavBarNight): ?transparentNavBarNight,
-  });
+  Future<void> update({bool? transparentStatusBar, bool? immNavigationBar}) =>
+      _service.update({
+        _address(PrefKeys.transparentStatusBar): ?transparentStatusBar,
+        _address(PrefKeys.immNavigationBar): ?immNavigationBar,
+      });
 }

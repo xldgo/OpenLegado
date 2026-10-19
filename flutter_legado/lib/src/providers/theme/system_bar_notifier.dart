@@ -24,8 +24,6 @@ final class SystemBarState {
 
   bool get transparentStatusBar => settings.transparentStatusBar;
   bool get immNavigationBar => settings.immNavigationBar;
-  bool get transparentNavBar => settings.transparentNavBar;
-  bool get transparentNavBarNight => settings.transparentNavBarNight;
 
   @override
   bool operator ==(Object other) =>
@@ -106,8 +104,6 @@ class SystemBarNotifier extends Notifier<SystemBarState> {
   Future<void> _update({
     bool? transparentStatusBar,
     bool? immNavigationBar,
-    bool? transparentNavBar,
-    bool? transparentNavBarNight,
   }) async {
     final repository = ref.read(systemBarSettingsRepositoryProvider);
     final generation = _generation;
@@ -115,8 +111,6 @@ class SystemBarNotifier extends Notifier<SystemBarState> {
       final saving = repository.update(
         transparentStatusBar: transparentStatusBar,
         immNavigationBar: immNavigationBar,
-        transparentNavBar: transparentNavBar,
-        transparentNavBarNight: transparentNavBarNight,
       );
       _publish(repository, generation);
       await saving;
@@ -129,10 +123,6 @@ class SystemBarNotifier extends Notifier<SystemBarState> {
       _update(transparentStatusBar: value);
   Future<void> setImmNavigationBar(bool value) =>
       _update(immNavigationBar: value);
-  Future<void> setTransparentNavBar(bool value) =>
-      _update(transparentNavBar: value);
-  Future<void> setTransparentNavBarNight(bool value) =>
-      _update(transparentNavBarNight: value);
 }
 
 final systemBarProvider = NotifierProvider<SystemBarNotifier, SystemBarState>(
