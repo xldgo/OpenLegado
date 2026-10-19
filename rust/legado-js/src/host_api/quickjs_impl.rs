@@ -2333,9 +2333,13 @@ fn register_file_apis<'js>(
         java,
         globals,
         "getTxtInFolder",
-        rquickjs::Function::new(ctx.clone(), |folder_path: RhinoStr| -> String {
-            file_utils::get_txt_in_folder(&folder_path).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'js>, folder_path: RhinoStr| {
+                file_utils::get_txt_in_folder(&folder_path)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
