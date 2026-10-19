@@ -1,4 +1,4 @@
-import '../helpers/native_reader_layout.dart';
+import '../fixtures/reader_page_fixture.dart';
 
 import 'dart:ui' as ui;
 
@@ -7,18 +7,16 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
-  setUpNativeReaderLayout();
   for (final scale in [1.0, 2.0]) {
     testWidgets('跨行高亮保留统一行间留白与独立段距，文字缩放 $scale', (tester) async {
       final source = '${List.filled(8, '正文 (English)! ').join()}\n第二段正文';
       late PageInfo page;
-      await pumpNativeReaderLayout(
-        tester,
+      await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
             builder: (context, child) => MediaQuery(
@@ -27,25 +25,16 @@ void main() {
               child: child!,
             ),
             home: Scaffold(
-              body: LayoutTestBuilder(
-                builder: (context) async {
-                  page = (await ParagraphLayoutEngine(
-                    transport: nativeReaderLayout,
-                    context: context,
-                    config: ParagraphConfig(
-                      fontSize: 16,
-                      lineHeight: 1.6,
-                      paragraphSpacing: 8,
-                      indent: 32,
-                      indentCount: 2,
-                      hangingPunctuation: true,
-                      justify: false,
-                      backgroundColor: Colors.white,
-                      textColor: Colors.black,
-                      baseStyle: DefaultTextStyle.of(context).style,
-                      textScaler: MediaQuery.textScalerOf(context),
-                    ),
-                  ).paginateChapter(source, 500, 560)).first;
+              body: Builder(
+                builder: (context) {
+                  page = readerPageFixture(
+                    context,
+                    source: source,
+                    paragraphs: [
+                      List.filled(8, '正文 (English)! '),
+                      ['第二段正文'],
+                    ],
+                  );
                   return SizedBox(
                     width: 500,
                     child: ReaderTextContent(
@@ -63,11 +52,11 @@ void main() {
           ),
         ),
       );
-      await settleNativeReaderLayout(tester);
+      await tester.pumpAndSettle();
       tester
           .state<SelectableRegionState>(find.byType(SelectableRegion))
           .selectAll();
-      await settleNativeReaderLayout(tester);
+      await tester.pumpAndSettle();
       final paragraphs = find
           .byType(ReaderSelectableText)
           .evaluate()
@@ -127,8 +116,7 @@ void main() {
 
   for (final scale in [1.0, 2.0]) {
     testWidgets('中英文符号混排的原生高亮同高，文字缩放 $scale', (tester) async {
-      await pumpNativeReaderLayout(
-        tester,
+      await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SelectionArea(
@@ -161,11 +149,11 @@ void main() {
           ),
         ),
       );
-      await settleNativeReaderLayout(tester);
+      await tester.pumpAndSettle();
       tester
           .state<SelectableRegionState>(find.byType(SelectableRegion))
           .selectAll();
-      await settleNativeReaderLayout(tester);
+      await tester.pumpAndSettle();
       final paragraph = tester.renderObject<RenderParagraph>(
         find.byType(ReaderSelectableText),
       );

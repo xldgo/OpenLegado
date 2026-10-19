@@ -1,6 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
 
+### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
+
+- 授权与基线：用户同意按测试职责清理真实FFI依赖；feature/ui-reader-selection / d3cc69e08，单代理，本地提交，不推送、不提升版本、不构建安装。
+- 本批范围：选区、复制、手柄拖动、翻页手势及高亮几何使用明确给定的页面/行；测量参数和诊断采样在Flutter测量层独立验证。保留Rust算法与真实FFI载荷/生命周期测试，不实现第二份Dart分页算法，不改生产代码或FFI契约。
+- 验收：保留原有交互断言；显式指定不存在的原生库路径运行迁移用例；对应静态分析及diff检查。Web/MCP服务调整后置，CI任务拆分与其余原生测试审计另行收口，不声称已解除全模块原生依赖。
+
+- 结果：两组选区/高亮测试解除FFI初始化与异步原生等待；夹具保留正式ReaderGlyph命中/绘制路径，双页与分行由用例指定。旧测绘契约/诊断链路合并为FlutterTextShaper测试，新增Unicode字形命中与复制回归；原有交互断言保留。复制用例宿主改用既有RoutingTestApp，长按落在实际字形而非满宽行容器中心。
+- 验证：LEGADO_TEST_FFI_LIBRARY指向不存在的库路径，20项相关行为测试全部通过；日志flutter_legado/build/reader-test-boundaries.log。对应静态分析及diff检查通过；未运行远程CI、设备或原生构建。真实FFI和其余分页集成用例保留，CI拆分未实施。测试职责见FLUTTER_DATA_BOUNDARIES.md「阅读器测试职责与原生依赖」。
+- 执行者：Codex + UI，2026-10-19；本批提交见Git记录。
+
 ### UI-FOUNDATION-20261019：启动、任务边界与工程门禁（P1/P2）
 
 - 授权与基线：用户批准按审计顺序实施；主目录feature/ui-reader-selection / b856e8813，单代理，逐批本地提交，不推送、不提升版本、不自动构建安装。

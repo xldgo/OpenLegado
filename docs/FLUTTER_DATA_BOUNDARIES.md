@@ -970,3 +970,26 @@ AppServicesController消费设置、服务、访问凭据窄接口及注入的�
 页面拥有订阅并在卸载时释放。静态检查与业务运行测试分别维护。
 
 编写者：Codex + UI｜2026-10-19
+
+
+## 阅读器测试职责与原生依赖
+
+选区、复制、高亮和翻页手势测试直接消费用例给定的PageInfo与行边界。
+reader_page_fixture只测量已给定行的字形几何，并填充正式ReaderGlyph结构，
+使绘制、命中和选区继续经过生产字形路径；不执行断行、分页，不生成算法预期。
+双页用例明确给出左右页，原文偏移仍由真实选区结果验证。
+
+| 验证职责 | 当前用例 | 原生依赖 |
+|---|---|---|
+| 长按、手柄拖动、复制、缩进排除、Unicode命中及双页顺序 | widget/reader_native_selection_test.dart | 无；native指Flutter原生选区，并非Rust FFI |
+| 跨行高亮留白、混合字体符号高度与文字缩放 | widget/reader_selection_height_test.dart | 无 |
+| 测量环境、显式零字距、字形簇、诊断采样不改变测量载荷 | widget/flutter_text_shaper_test.dart | 无 |
+| 正式FRB代表载荷、会话容量与取消释放 | ffi/reader_layout_runtime_test.dart | 保留 |
+| 真实分页后的容器溢出、重排、行内段评与布局缓存 | 现有分页集成用例 | 仍保留，不宣称本批已全部解除原生依赖 |
+
+纯计算算法样例由Rust测试负责；Flutter测量测试不再借助Rust生成断点后比较。
+旧reader_layout_contract_test与reader_layout_diagnostics_test合并到Flutter测量测试，
+其职责限定为测量输入与诊断统计，不将之描述为完整阅读链路或真机视觉证据。
+本批不调整CI任务或删减真实FFI契约测试；全模块flutter test仍可能需要当前平台原生库。
+
+编写者：Codex + UI｜2026-10-19
