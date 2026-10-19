@@ -972,6 +972,25 @@ AppServicesController消费设置、服务、访问凭据窄接口及注入的�
 编写者：Codex + UI｜2026-10-19
 
 
+## 测试必须经过被保护的实现
+
+依赖替身只替换外部输入；被测页面、控制器和算法必须使用生产实现。
+测试内自建页面或服务后仅断言其自身，不构成对应功能的回归保护。
+原audio_screen_test、cache_settings_test与reader_test已删除；实际音频焦点、
+缓存清理、阅读器交互分别由audio_focus_wiring_test、cache_boundary_test及现有
+reader组件/连续翻页测试覆盖，不再维护平行的演示页面。
+
+图库二维码解码集中在features/tools/application/qr_image_decoder.dart。
+页面继续通过compute执行；测试使用同一入口验证URL、中文与无效图片，
+不复制解码和UTF-8恢复算法。图片失败占位素材经rootBundle加载并实际解码，
+不以磁盘存在、固定长度或PNG头代替资产包可用性。
+
+Widget测试的pump耗时不用于宣称设备FPS、掉帧或真实冷启动达标。
+原performance目录中的代理计时门禁已移除；真实组件交互测试继续保留。
+设备性能需独立profile测量；本批没有提供性能提速或真机性能结论。
+
+编写者：Codex + UI｜2026-10-19
+
 ## 阅读器测试职责与原生依赖
 
 选区、复制、高亮和翻页手势测试直接消费用例给定的PageInfo与行边界。

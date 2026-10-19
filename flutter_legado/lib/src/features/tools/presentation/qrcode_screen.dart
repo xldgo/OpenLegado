@@ -1,93 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:image/image.dart' as img;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:zxing2/qrcode.dart' show QRCodeReader;
-import 'package:zxing2/zxing2.dart'
-    show
-        BinaryBitmap,
-        HybridBinarizer,
-        Result,
-        ResultMetadataType,
-        RGBLuminanceSource;
 
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/legado_app_bar.dart';
+import '../application/qr_image_decoder.dart';
 
 /// 扫码结果类型
 enum _ScanResultType { legadoUrl, httpUrl, sourceJson, text }
-
-/// 顶层函数：从图片字节流解码二维码（经 [compute] 移交后台 isolate）
-///
-/// [PARITY A1] 图库解码链路：image 自动识别 png/jpg 等格式 → 4 通道 RGBA
-/// → zxing2 [RGBLuminanceSource] + [HybridBinarizer] 二值化 →
-/// [QRCodeReader] 解码。返回 null 表示非图片/未能识别二维码，调用方统一
-/// 提示，不抛异常（isolate 内异常不跨边界）。
-///
-/// 注意：img.decodeImage 的格式探测在个别畸形/截断字节流上会抛 Error
-/// （如 image 4.x PSD 探测越界读 RangeError），故全函数兜底 catch，
-/// 保证「不抛异常」契约。
-///
-/// [PARITY A1] zxing2 0.2.4 缺陷规避（CJK 二维码乱码）：其
-/// DecodedBitStreamParser 把字节段读入带符号 Int8List 后直接喂给 ECI
-/// 字符集 codec，UTF-8 内容的高字节（≥0x80）为负值被
-/// Utf8Codec(allowMalformed) 逐字节替换为 U+FFFD。本文件在结果含 U+FFFD
-/// 时经 [ResultMetadataType.byteSegments] 取回原始字节段，按无符号字节
-/// 重建后以 UTF-8 重解（重解仍含 U+FFFD 则回退原文，只升不降），见
-/// [_recoverUtf8Text]。
-String? _decodeQrInIsolate(Uint8List bytes) {
-  try {
-    final image = img.decodeImage(bytes);
-    if (image == null) return null;
-    final rgba = image.convert(numChannels: 4);
-    final pixels = rgba
-        .getBytes(order: img.ChannelOrder.rgba)
-        .buffer
-        .asInt32List();
-    final source = RGBLuminanceSource(rgba.width, rgba.height, pixels);
-    final bitmap = BinaryBitmap(HybridBinarizer(source));
-    return _recoverUtf8Text(QRCodeReader().decode(bitmap));
-  } catch (_) {
-    // 探测/二值化/zxing2 NotFoundException / ChecksumException 等：
-    // 识别失败一律按未识别处理
-    return null;
-  }
-}
-
-/// zxing2 0.2.4 的 `DecodedBitStreamParser._decodeByteSegment` 将字节段
-/// 存为带符号 [Int8List]（≥0x80 的字节为负），再交给 ECI 指定字符集的
-/// codec 解码；UTF-8 ECI（值 26）下负字节被 `Utf8Codec(allowMalformed:
-/// true)` 视为畸形序列逐字节替换为 U+FFFD，导致中日韩二维码内容全部
-/// 变替换符（纯 ASCII 内容不受影响，字节均 <0x80）。
-///
-/// 本函数在 [Result.text] 含 U+FFFD 时，从 [Result.resultMetadata] 取回
-/// zxing2 存放的原始字节段（`byteSegments`，同为带符号 Int8List），逐段
-/// 按无符号字节重建后经 UTF-8 重解。重解结果仍含 U+FFFD（内容并非
-/// UTF-8，如 Latin-1/GB18030 段）则回退原 [Result.text]，保证「只升
-/// 不降」：能修复 UTF-8/CJK，不恶化其他内容。
-String _recoverUtf8Text(Result result) {
-  final text = result.text;
-  if (!text.contains('\uFFFD')) return text;
-  final segments =
-      result.resultMetadata[ResultMetadataType.byteSegments] as List<Int8List>?;
-  if (segments == null || segments.isEmpty) return text;
-  const utf8 = Utf8Codec(allowMalformed: true);
-  final rebuilt = segments.map((segment) {
-    final unsigned = Uint8List(segment.length);
-    for (var i = 0; i < segment.length; i++) {
-      unsigned[i] = segment[i] & 0xFF;
-    }
-    return utf8.decode(unsigned);
-  }).join();
-  return rebuilt.contains('\uFFFD') ? text : rebuilt;
-}
 
 /// 二维码扫描页面
 ///
@@ -173,7 +99,7 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
       final bytes = await File(path).readAsBytes();
       // 大图解码 + zxing 识别为 CPU 重负载，compute 移交后台 isolate
       // 避免主线程卡顿（AGENTS 编码陷阱：>16ms 大负载不阻塞 UI）
-      final decoded = await compute(_decodeQrInIsolate, bytes);
+      final decoded = await compute(decodeQrImage, bytes);
       if (!mounted) return;
       final content = decoded?.trim();
       if (content == null || content.isEmpty) {

@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### UI-TEST-QUALITY-20261019：清理无效测试与重复算法（P2，本批已关闭）
+
+- 授权与基线：用户批准优化已审计的无效测试；feature/ui-reader-selection / 0b96adf93，单代理，本地提交，不提升版本、不构建安装、不触发全量CI。
+- 范围：删除audio_screen_test、cache_settings_test、reader_test内只验证自建服务/页面的29项测试；移除performance目录3份无法支持设备FPS/冷启动结论的测试。真实音频焦点、缓存、书架组件及阅读器翻页回归保留。
+- 修正：图库二维码测试改用页面实际调用的同一解码函数，移除测试中的算法副本；失败占位素材测试改为Flutter资产包加载并实际解码，不锁定文件字节数。
+- 验收：二维码URL/中文/无二维码图片/畸形字节、真实页面降级、资产解码及既有真实业务组件回归；目标静态分析、架构门禁与diff检查。生产解码行为、Rust/FFI/数据库、CI调度不变，不把删测试数量当作性能改善证据。
+- 结果：删除6份文件内35项无效/失真测试；两项磁盘素材检查合并为一项资产加载/解码，净减少36项。真实缓存页已由cache_boundary_test覆盖统计、取消/确认清理和失败恢复；书架BookGridItem、音频焦点与reader_rapid_turn等真实实现回归保留。二维码解码仅提取位置，算法与compute后台执行不变；测试不再保有生产算法副本。
+- 验证：显式指定不存在的FFI库路径，8份文件111项定向回归通过（qrcode_gallery_decode、loading_error_asset、audio_focus_wiring、cache_boundary、book_grid_item、reader_rapid_turn、reader_comic_error_placeholder、screens_overflow_regress）。URL用例补为真实compute后台执行后，二维码/资产5项复验通过，不重复累加数量；目标dart analyze、架构依赖门禁、格式与diff检查通过。命令为flutter test --no-pub --reporter expanded后接上述test/unit或test/widget文件；静态检查为dart analyze目标4文件、dart run tool/check_architecture.dart。
+- 边界：未运行全量普通/原生组、设备profile、构建安装或远程CI；本批不声称整套测试均已审计，也不承诺CI耗时下降幅度。CI范围与慢项统计仍为后续优化方向。执行者Codex + UI，2026-10-19；本批提交见Git记录。
+
 
 ### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，待复验：Linux CI）
 
