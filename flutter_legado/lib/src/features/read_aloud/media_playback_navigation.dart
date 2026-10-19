@@ -48,8 +48,7 @@ class MediaPlaybackNavigation extends NavigatorObserver {
       if (_closed ||
           _pending == null ||
           navigator == null ||
-          _routes.isEmpty ||
-          _routes.any((route) => route.settings.name == AppRoutes.welcome)) {
+          _routes.isEmpty) {
         return;
       }
       final request = _pending!;

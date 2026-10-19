@@ -66,7 +66,7 @@ class StartupReadingNavigation extends NavigatorObserver {
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
     _home = topRoute.settings.name == AppRoutes.home;
-    if (!_home && topRoute.settings.name != AppRoutes.welcome) {
+    if (!_home) {
       preferExternalAction();
     }
     _schedule();

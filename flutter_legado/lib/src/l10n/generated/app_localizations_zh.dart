@@ -3035,9 +3035,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeImportTheme => '导入主题';
 
   @override
-  String get themeWelcomeStyle => '启动界面样式';
-
-  @override
   String get themeImmersionStatusBar => '沉浸式状态栏';
 
   @override

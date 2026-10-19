@@ -936,7 +936,6 @@
   "themeManagement": "Theme Management",
   "themeManagementDescription": "Use, save, import or share themes",
   "themeImportTheme": "Import theme",
-  "themeWelcomeStyle": "Launch screen style",
   "themeImmersionStatusBar": "Immersive status bar",
   "themeStatusBarImmersion": "Make the status bar transparent",
   "themeImmNavigationBar": "Immersive navigation bar",

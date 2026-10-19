@@ -14,7 +14,6 @@ import 'theme/system_bar_notifier.dart';
 import 'theme/theme_colors_notifier.dart';
 import 'theme/theme_notifier.dart';
 import 'ui_settings/ui_settings_notifier.dart';
-import 'welcome_settings_provider.dart';
 import 'config_settings_provider.dart';
 import '../features/search/search_settings_provider.dart';
 import '../features/read_aloud/read_aloud_settings_provider.dart';
@@ -34,7 +33,6 @@ final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
     ('阅读配色', () => ref.read(readerStyleRepositoryProvider).reload()),
     ('语言', () => ref.read(localeSettingsRepositoryProvider).reload()),
     ('护眼', () => ref.read(eyeProtectionSettingsRepositoryProvider).reload()),
-    ('欢迎页', () => ref.read(welcomeSettingsRepositoryProvider).reload()),
     ('应用行为', () => ref.read(generalSettingsRepositoryProvider).reload()),
     ('备份', () => ref.read(backupSettingsRepositoryProvider).reload()),
     ('漫画设置', () => ref.read(mangaSettingsRepositoryProvider).reload()),

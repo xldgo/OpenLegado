@@ -17,6 +17,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
     _address(PrefKeys.defaultBookTreeUri),
     _address(PrefKeys.showAddToShelfAlert),
     _address(PrefKeys.webPort),
+    _address(PrefKeys.defaultToRead),
   };
 
   T _read<T>(AppSettingsSnapshot snapshot, String key, T fallback) {
@@ -28,6 +29,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
     defaultBookTreeUri: _read(snapshot, PrefKeys.defaultBookTreeUri, ''),
     showAddToShelfAlert: _read(snapshot, PrefKeys.showAddToShelfAlert, true),
     webPort: _read(snapshot, PrefKeys.webPort, 1122),
+    defaultToRead: _read(snapshot, PrefKeys.defaultToRead, false),
   );
 
   @override
@@ -57,6 +59,7 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
     String? defaultBookTreeUri,
     bool? showAddToShelfAlert,
     int? webPort,
+    bool? defaultToRead,
   }) => _service.update({
     if (defaultBookTreeUri != null)
       _address(PrefKeys.defaultBookTreeUri): defaultBookTreeUri.isEmpty
@@ -64,5 +67,6 @@ final class AppGeneralSettingsRepository implements GeneralSettingsRepository {
           : defaultBookTreeUri,
     _address(PrefKeys.showAddToShelfAlert): ?showAddToShelfAlert,
     _address(PrefKeys.webPort): ?webPort,
+    _address(PrefKeys.defaultToRead): ?defaultToRead,
   });
 }

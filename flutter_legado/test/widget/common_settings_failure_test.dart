@@ -16,11 +16,8 @@ import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_locale_notifier.dart';
 import 'package:flutter_legado/src/features/bookshelf/application/bookshelf_settings_provider.dart';
 import 'package:flutter_legado/src/providers/ui_settings/eye_protection_notifier.dart';
-import 'package:flutter_legado/src/providers/welcome_settings_provider.dart';
-import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/providers/general_settings_provider.dart';
 import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
-import 'package:flutter_legado/src/features/onboarding/presentation/welcome_config_screen.dart';
-import 'package:flutter_legado/src/features/onboarding/presentation/welcome_screen.dart';
 import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter_legado/src/widgets/eye_protection_settings.dart';
 
@@ -54,15 +51,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: RoutingTestApp(
-          home: child is WelcomeScreen ? null : child,
-          initialRoute: child is WelcomeScreen ? AppRoutes.welcome : null,
-          routes: {
-            if (child is WelcomeScreen) AppRoutes.welcome: (_) => child,
-            if (child is WelcomeScreen)
-              AppRoutes.home: (_) => const Scaffold(body: Text('启动后的主页')),
-          },
-        ),
+        child: RoutingTestApp(home: child),
       ),
     );
     await tester.pumpAndSettle();
@@ -77,71 +66,6 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
-
-  testWidgets('欢迎时长拖动为临时预览，保存失败恢复并可重试', (tester) async {
-    await open(tester, const WelcomeConfigScreen());
-    final slider = find.byType(Slider);
-    tester.widget<Slider>(slider).onChanged!(120);
-    await tester.pump();
-    expect(find.text('启动闪屏停留 120 毫秒'), findsOneWidget);
-    tester.widget<Slider>(slider).onChangeEnd!(120);
-    await tester.pumpAndSettle();
-    expect(
-      container.read(welcomeSettingsRepositoryProvider).current.showTime,
-      500,
-    );
-    expect(find.text('启动闪屏停留 500 毫秒'), findsOneWidget);
-    expect(find.text('保存失败，请重试'), findsOneWidget);
-    storage.writeFailure = false;
-    tester.widget<Slider>(slider).onChangeEnd!(120);
-    await tester.pumpAndSettle();
-    expect(storage.values['welcomeShowTime'], 120);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('自定义欢迎保存失败回退开关并提示', (tester) async {
-    await open(tester, const WelcomeConfigScreen());
-    await tester.tap(find.text('自定义欢迎页'));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(welcomeSettingsRepositoryProvider).current.customWelcome,
-      isFalse,
-    );
-    expect(find.text('保存失败，请重试'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('欢迎图片删除失败保留原路径与界面', (tester) async {
-    await open(
-      tester,
-      const WelcomeConfigScreen(),
-      initial: {'customWelcome': true, 'welcomeImagePath': 'fixtures/day.png'},
-    );
-    await tester.ensureVisible(find.text('背景图片').first);
-    await tester.tap(find.text('背景图片').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('删除'));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(welcomeSettingsRepositoryProvider).current.imageDay,
-      'fixtures/day.png',
-    );
-    expect(find.text('fixtures/day.png'), findsOneWidget);
-    expect(find.text('保存失败，请重试'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('欢迎页实际读取共享时长，零时长进入原主页路由', (tester) async {
-    await open(
-      tester,
-      const WelcomeScreen(),
-      initial: {'welcomeShowTime': 0},
-      failSaving: false,
-    );
-    expect(find.text('启动后的主页'), findsOneWidget);
-    expect(storage.writes, isEmpty);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets('护眼开关保存失败回退并显示统一提示', (tester) async {
     await open(tester, const Scaffold(body: EyeProtectionSettingsGroup()));
@@ -170,7 +94,7 @@ void main() {
     await tester.tap(find.text('自动跳转最近阅读'));
     await tester.pumpAndSettle();
     expect(
-      container.read(welcomeSettingsRepositoryProvider).current.defaultToRead,
+      container.read(generalSettingsRepositoryProvider).current.defaultToRead,
       isFalse,
     );
     expect(find.text('保存失败，请重试'), findsOneWidget);

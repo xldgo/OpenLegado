@@ -1,26 +1,16 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/app/routing/app_navigation.dart';
 import 'package:flutter_legado/src/app/routing/startup_reading_navigation.dart';
-import 'package:flutter_legado/src/app/routing/route_names.dart';
-import 'package:flutter_legado/src/features/onboarding/presentation/welcome_screen.dart';
-import 'package:flutter_legado/src/providers/welcome_settings_provider.dart';
-import 'package:flutter_legado/src/domain/contracts/welcome_settings_repository.dart';
-import 'package:flutter_legado/src/domain/models/welcome_settings.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:mocktail/mocktail.dart';
 
 import '../../fixtures/routing_test_app.dart';
-import '../../fixtures/app_test_api.dart';
-
-class _Welcome extends Mock implements WelcomeSettingsRepository {}
 
 void main() {
   const book = Book(bookUrl: 'last', name: '上次阅读', durChapterTime: 1);
-  testWidgets('真实欢迎页退出后恢复一次，无需等待主页关闭', (tester) async {
+  testWidgets('请求先于主页入栈：主页入栈后恢复一次，不重复打开', (tester) async {
     final opened = <Book>[];
     final navigation = StartupReadingNavigation(
       open: (book, current) async {
@@ -29,31 +19,11 @@ void main() {
       onError: (e, s) => fail('$e'),
     );
     addTearDown(navigation.dispose);
-    final settings = _Welcome();
-    const value = WelcomeSettings(showTime: 0, defaultToRead: true);
-    when(() => settings.load()).thenAnswer((_) async => value);
-    when(() => settings.current).thenReturn(value);
-    final api = MockBookApi();
-    for (final old in await api.bookshelfRepository.getBooks()) {
-      await api.bookshelfRepository.deleteBook(old.bookUrl);
-    }
-    await api.bookshelfRepository.addBook(book);
+    // 冷启动「默认进入阅读」在 Router 首帧前就发起请求（见 app.dart
+    // initState），此时还没有任何路由入栈。
+    navigation.request(book);
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          ...api.overrides,
-          welcomeSettingsRepositoryProvider.overrideWithValue(settings),
-          startupReadingNavigationProvider.overrideWithValue(navigation),
-        ],
-        child: RoutingTestApp(
-          initialRoute: AppRoutes.welcome,
-          navigatorObservers: [navigation],
-          routes: {
-            AppRoutes.welcome: (_) => const WelcomeScreen(),
-            AppRoutes.home: (_) => const Text('主页'),
-          },
-        ),
-      ),
+      RoutingTestApp(navigatorObservers: [navigation], home: const Text('主页')),
     );
     await tester.pumpAndSettle();
     expect(find.text('主页'), findsOneWidget);

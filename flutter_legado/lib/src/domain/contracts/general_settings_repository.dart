@@ -10,5 +10,6 @@ abstract interface class GeneralSettingsRepository {
     String? defaultBookTreeUri,
     bool? showAddToShelfAlert,
     int? webPort,
+    bool? defaultToRead,
   });
 }

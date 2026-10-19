@@ -60,8 +60,6 @@ import '../../features/toc/presentation/toc_screen.dart';
 import '../../features/rules/presentation/txt_toc_rules_screen.dart';
 import '../../features/video/presentation/video_screen.dart';
 import '../../features/settings/presentation/webdav_settings_screen.dart';
-import '../../features/onboarding/presentation/welcome_config_screen.dart';
-import '../../features/onboarding/presentation/welcome_screen.dart';
 
 import 'route_names.dart';
 import 'route_arguments.dart';
@@ -264,8 +262,6 @@ class AppRouter {
     AppRoutes.highlightRules: (_) => const HighlightRulesScreen(),
     AppRoutes.fileManage: (_) => const FileManageScreen(),
     AppRoutes.qrcode: (_) => const QrcodeScreen(),
-    AppRoutes.welcome: (_) => const WelcomeScreen(),
-    AppRoutes.welcomeConfig: (_) => const WelcomeConfigScreen(),
     AppRoutes.browser: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       final browser = args is BrowserRouteArgs

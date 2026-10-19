@@ -152,32 +152,6 @@ class PrefKeys {
   /// AMOLED 纯黑（参考仓 pure_black/isAmoled，默认关）
   static const themeAmoled = 'themeAmoled';
 
-  // ===== 欢迎页样式（pref_config_welcome.xml / WelcomeConfigFragment）=====
-
-  /// 欢迎页显示时长（毫秒，原版默认 500，范围 0~800）
-  static const welcomeShowTime = 'welcomeShowTime';
-
-  /// 自定义欢迎页（默认 false）
-  static const customWelcome = 'customWelcome';
-
-  /// 白天欢迎背景图路径（PreferKey.welcomeImage = welcomeImagePath）
-  static const welcomeImage = 'welcomeImagePath';
-
-  /// 夜间欢迎背景图路径
-  static const welcomeImageDark = 'welcomeImagePathDark';
-
-  /// 欢迎页显示文字（白天，默认 true）
-  static const welcomeShowText = 'welcomeShowText';
-
-  /// 欢迎页显示文字（夜间，默认 true）
-  static const welcomeShowTextDark = 'welcomeShowTextDark';
-
-  /// 欢迎页显示图标（白天，默认 true）
-  static const welcomeShowIcon = 'welcomeShowIcon';
-
-  /// 欢迎页显示图标（夜间，默认 true）
-  static const welcomeShowIconDark = 'welcomeShowIconDark';
-
   // ===== 封面设置（pref_config_cover.xml）=====
 
   /// 仅 Wifi 加载封面（默认 false）
@@ -200,7 +174,7 @@ class PrefKeys {
   /// 仅更新已读书籍（默认 false，依赖 auto_refresh 可见）
   static const onlyUpdateRead = 'onlyUpdateRead';
 
-  /// 打开书架书籍时默认进入阅读界面（默认 false）
+  /// 冷启动默认进入上次阅读（默认 false；对齐上游 OtherSettings.defaultToRead）
   static const defaultToRead = 'defaultToRead';
 
   /// 显示发现（默认 true）

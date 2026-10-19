@@ -175,8 +175,6 @@ class _ReadAloudCapsuleHostState extends ConsumerState<ReadAloudCapsuleHost> {
               audio.isStreamMode ||
               route == null ||
               route is PopupRoute ||
-              name == AppRoutes.welcome ||
-              name == AppRoutes.welcomeConfig ||
               (name == AppRoutes.readAloudPlayer && handoffOpacity == 0) ||
               name == AppRoutes.readAloudSettings ||
               name == AppRoutes.readAloudConfig ||

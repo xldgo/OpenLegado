@@ -5715,12 +5715,6 @@ abstract class AppLocalizations {
   /// **'导入主题'**
   String get themeImportTheme;
 
-  /// 按页面功能核对 HapeLee welcome_style；只用于显示文案。
-  ///
-  /// In zh, this message translates to:
-  /// **'启动界面样式'**
-  String get themeWelcomeStyle;
-
   /// 按页面功能核对 HapeLee immersion_status_bar；只用于显示文案。
   ///
   /// In zh, this message translates to:

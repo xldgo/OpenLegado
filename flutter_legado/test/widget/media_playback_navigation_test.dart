@@ -1,5 +1,3 @@
-import 'package:flutter_legado/src/app/routing/app_navigation.dart';
-
 import '../fixtures/routing_test_app.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -51,7 +49,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('首页'), findsOneWidget);
   });
-  testWidgets('欢迎页退出才打开播放页，失效请求不导航', (tester) async {
+  testWidgets('Navigator 就绪即打开播放页，失效请求不导航', (tester) async {
     final key = GlobalKey<NavigatorState>();
     var valid = true;
     final observer = MediaPlaybackNavigation(
@@ -64,7 +62,7 @@ void main() {
       RoutingTestApp(
         navigatorKey: key,
         navigatorObservers: [observer],
-        initialRoute: AppRoutes.welcome,
+        home: const Text('首页'),
         onGenerateRoute: (settings) => MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => Scaffold(body: Text(settings.name ?? 'home')),
@@ -73,15 +71,13 @@ void main() {
     );
     observer.open(target);
     await tester.pumpAndSettle();
-    expect(find.text(AppRoutes.welcome), findsOneWidget);
-    GoRouter.of(key.currentState!.context).replaceAppRoute('/home');
-    await tester.pumpAndSettle();
     expect(find.text(AppRoutes.readAloudPlayer), findsOneWidget);
     key.currentState!.pop();
     await tester.pumpAndSettle();
+    expect(find.text('首页'), findsOneWidget);
     valid = false;
     observer.open(target);
     await tester.pumpAndSettle();
-    expect(find.text('/home'), findsOneWidget);
+    expect(find.text('首页'), findsOneWidget);
   });
 }

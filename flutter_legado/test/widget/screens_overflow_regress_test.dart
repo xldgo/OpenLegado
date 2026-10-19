@@ -1,8 +1,6 @@
 import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
 
-import '../fixtures/routing_test_app.dart';
 
-import 'package:flutter_legado/src/app/routing/route_names.dart';
 
 import '../fixtures/app_test_api.dart';
 
@@ -79,8 +77,6 @@ import 'package:flutter_legado/src/features/appearance/appearance.dart';
 import 'package:flutter_legado/src/features/toc/presentation/toc_screen.dart';
 import 'package:flutter_legado/src/features/rules/presentation/txt_toc_rules_screen.dart';
 import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
-import 'package:flutter_legado/src/features/onboarding/presentation/welcome_config_screen.dart';
-import 'package:flutter_legado/src/features/onboarding/presentation/welcome_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -118,19 +114,12 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: screen is WelcomeScreen
-            ? RoutingTestApp(
-                home: const Scaffold(body: Text('主页')),
-                initialRoute: AppRoutes.welcome,
-                routes: {AppRoutes.welcome: (_) => screen},
-              )
-            : MaterialApp(home: screen),
+        child: MaterialApp(home: screen),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
-    if (screen is WelcomeScreen) await tester.pumpAndSettle();
   }
 
   /// 扫描屏幕清单：（屏幕名, 360dp 画布下的 fixture）。
@@ -144,7 +133,6 @@ void main() {
     ('SourceScreen', const SourceScreen()),
     ('ReadRecordScreen', const ReadRecordScreen()),
     ('ChangeSourceScreen', const ChangeSourceScreen(bookUrl: 'u')),
-    ('WelcomeScreen', const WelcomeScreen()),
     ('AudioScreen', const AudioScreen()),
     ('BookshelfManageScreen', const BookshelfManageScreen()),
     ('RssScreen', const RssScreen()),
@@ -194,7 +182,6 @@ void main() {
     ('ThemeConfigScreen', const ThemeConfigScreen()),
     ('TxtTocRulesScreen', const TxtTocRulesScreen()),
     ('WebDavSettingsScreen', const WebDavSettingsScreen()),
-    ('WelcomeConfigScreen', const WelcomeConfigScreen()),
     // ===== 搜索 / 换源 / 书源编辑 / 订阅 / 统计 =====
     (
       'SearchContentScreen',

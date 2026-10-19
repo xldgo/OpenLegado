@@ -96,8 +96,10 @@ void main() {
       }
       debugPrint('[启动] 并行初始化（prefs+FFI）耗时：${sw.elapsedMilliseconds}ms');
 
-      // 5. 冷启动始终经闪屏路由（对齐 WelcomeActivity；时长 0 则立即进主页）
-      const initialRoute = AppRoutes.welcome;
+      // 5. 冷启动直接进主页：闪屏由系统启动画面负责（对齐上游
+      // installSplashScreen + Theme.App.Starting），应用层不再自绘闪屏。
+      // 「默认进入阅读」由 startupDefaultToReadProvider 在主页入栈后处理。
+      const initialRoute = AppRoutes.home;
 
       debugPrint('[启动] 总启动耗时：${totalSw.elapsedMilliseconds}ms');
 

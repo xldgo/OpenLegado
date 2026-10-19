@@ -3234,9 +3234,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeImportTheme => 'Import theme';
 
   @override
-  String get themeWelcomeStyle => 'Launch screen style';
-
-  @override
   String get themeImmersionStatusBar => 'Immersive status bar';
 
   @override

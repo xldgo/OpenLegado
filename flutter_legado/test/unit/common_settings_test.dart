@@ -7,20 +7,20 @@ import 'package:flutter_legado/src/data/repositories/app_bookshelf_settings_repo
 import 'package:flutter_legado/src/data/repositories/app_read_record_settings_repository.dart';
 import 'package:flutter_legado/src/data/repositories/app_locale_settings_repository.dart';
 import 'package:flutter_legado/src/data/repositories/app_eye_protection_settings_repository.dart';
-import 'package:flutter_legado/src/data/repositories/app_welcome_settings_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_general_settings_repository.dart';
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/domain/models/bookshelf_settings.dart';
 import 'package:flutter_legado/src/domain/models/read_record_settings.dart';
 import 'package:flutter_legado/src/domain/models/locale_settings.dart';
 import 'package:flutter_legado/src/domain/models/eye_protection_settings.dart';
-import 'package:flutter_legado/src/domain/models/welcome_settings.dart';
+import 'package:flutter_legado/src/domain/models/general_settings.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_locale_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/eye_protection_notifier.dart';
-import 'package:flutter_legado/src/providers/welcome_settings_provider.dart';
+import 'package:flutter_legado/src/providers/general_settings_provider.dart';
 
 import '../fixtures/home_settings_storage.dart';
 
@@ -32,7 +32,7 @@ void main() {
   late AppReadRecordSettingsRepository records;
   late AppLocaleSettingsRepository locale;
   late AppEyeProtectionSettingsRepository eye;
-  late AppWelcomeSettingsRepository welcome;
+  late AppGeneralSettingsRepository general;
 
   setUp(() {
     storage = HomeSettingsStorage();
@@ -46,16 +46,16 @@ void main() {
       supportedLanguages: ['zh', 'en'],
     );
     eye = AppEyeProtectionSettingsRepository(service);
-    welcome = AppWelcomeSettingsRepository(service);
+    general = AppGeneralSettingsRepository(service);
   });
   tearDown(() => service.dispose());
 
-  test('五域共二十五项默认值保持，读取和空更新不补写存储', () async {
+  test('五域共二十项默认值保持，读取和空更新不补写存储', () async {
     expect(await shelf.load(), const BookshelfSettings());
     expect(await records.load(), const ReadRecordSettings());
     expect(await locale.load(), const LocaleSettings());
     expect(await eye.load(), const EyeProtectionSettings());
-    expect(await welcome.load(), const WelcomeSettings());
+    expect(await general.load(), const GeneralSettings());
     expect(storage.reads.toSet(), {
       'bookshelf_layout',
       'bookshelf_grid_columns',
@@ -73,23 +73,18 @@ void main() {
       'eyeProtectionSchedule',
       'eyeProtectionStartTime',
       'eyeProtectionEndTime',
-      'welcomeShowTime',
-      'customWelcome',
-      'welcomeImagePath',
-      'welcomeImagePathDark',
-      'welcomeShowText',
-      'welcomeShowIcon',
-      'welcomeShowTextDark',
-      'welcomeShowIconDark',
+      'defaultBookTreeUri',
+      'showAddToShelfAlert',
+      'webPort',
       'defaultToRead',
     });
-    expect(storage.reads, hasLength(25));
+    expect(storage.reads, hasLength(20));
     await Future.wait([
       shelf.update(),
       records.update(),
       locale.update(),
       eye.update(),
-      welcome.update(),
+      general.update(),
     ]);
     expect(storage.writes, isEmpty);
   });
@@ -189,39 +184,27 @@ void main() {
     );
   });
 
-  test('欢迎样式与默认开读保留九项键，空图路径仍是空字符串', () async {
-    await welcome.update(
-      showTime: 700,
-      customWelcome: true,
-      imageDay: 'fixtures/day.png',
-      imageNight: '',
-      showText: false,
-      showIcon: false,
-      showTextDark: false,
-      showIconDark: false,
+  test('应用行为四项原键保存，默认开读与 Web 端口可恢复', () async {
+    await general.update(
       defaultToRead: true,
+      webPort: 8080,
+      showAddToShelfAlert: false,
+      defaultBookTreeUri: 'content://books',
     );
     expect(storage.values, {
-      'welcomeShowTime': 700,
-      'customWelcome': true,
-      'welcomeImagePath': 'fixtures/day.png',
-      'welcomeImagePathDark': '',
-      'welcomeShowText': false,
-      'welcomeShowIcon': false,
-      'welcomeShowTextDark': false,
-      'welcomeShowIconDark': false,
       'defaultToRead': true,
+      'webPort': 8080,
+      'showAddToShelfAlert': false,
+      'defaultBookTreeUri': 'content://books',
     });
-    expect(await AppWelcomeSettingsRepository(service).load(), welcome.current);
+    expect(await AppGeneralSettingsRepository(service).load(), general.current);
   });
 
-  test('列数、护眼强度和欢迎时长保留现有限值', () async {
+  test('列数与护眼强度保留现有限值', () async {
     await shelf.update(gridColumns: 9);
     await eye.update(intensity: -10);
-    await welcome.update(showTime: 900);
     expect(storage.values['bookshelf_grid_columns'], 6);
     expect(storage.values['colorTemperature'], 0);
-    expect(storage.values['welcomeShowTime'], 800);
   });
 
   for (final (name, save, current, initial, updated)
@@ -255,11 +238,11 @@ void main() {
           const EyeProtectionSettings(enabled: true),
         ),
         (
-          '欢迎',
-          () => welcome.update(customWelcome: true),
-          () => welcome.current,
-          const WelcomeSettings(),
-          const WelcomeSettings(customWelcome: true),
+          '应用行为',
+          () => general.update(defaultToRead: true),
+          () => general.current,
+          const GeneralSettings(),
+          const GeneralSettings(defaultToRead: true),
         ),
       ]) {
     test('$name 保存失败回退，重试不被失败阻断', () async {
@@ -286,9 +269,9 @@ void main() {
     container.read(readRecordNotifierProvider);
     container.read(appLocaleProvider);
     container.read(eyeProtectionProvider);
-    final subscription = container.listen(welcomeSettingsProvider, (_, _) {});
+    final subscription = container.listen(generalSettingsProvider, (_, _) {});
     addTearDown(subscription.close);
-    await container.read(welcomeSettingsProvider.future);
+    await container.read(generalSettingsProvider.future);
     await Future<void>.delayed(Duration.zero);
     storage.values.addAll({
       'bookshelf_layout': true,
@@ -304,7 +287,7 @@ void main() {
       records.reload(),
       locale.reload(),
       eye.reload(),
-      welcome.reload(),
+      general.reload(),
     ]);
     await Future<void>.delayed(Duration.zero);
     expect(container.read(bookshelfNotifierProvider).isGridView, isTrue);
@@ -316,9 +299,6 @@ void main() {
     );
     expect(container.read(appLocaleProvider), 'en');
     expect(container.read(eyeProtectionProvider).enabled, isTrue);
-    expect(
-      container.read(welcomeSettingsProvider).value!.defaultToRead,
-      isTrue,
-    );
+    expect(container.read(generalSettingsProvider).value!.defaultToRead, isTrue);
   });
 }

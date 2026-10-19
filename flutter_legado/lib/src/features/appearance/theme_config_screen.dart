@@ -575,14 +575,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         subtitle: '导入主题 JSON 文件并应用',
                         onTap: _importTheme,
                       ),
-                      SettingTile(
-                        title: context.l10n.themeWelcomeStyle,
-                        subtitle: '设定显示时间，更改背景图片，是否显示文字等',
-                        onTap: () {
-                          GoRouter.of(context)
-                              .pushAppRoute(AppRoutes.welcomeConfig);
-                        },
-                      ),
                       SettingSwitchRow(
                         title: context.l10n.themeImmersionStatusBar,
                         subtitle: context.l10n.themeStatusBarImmersion,

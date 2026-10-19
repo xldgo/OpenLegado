@@ -23,7 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../../constants/pref_keys.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../providers/app_locale_notifier.dart';
-import '../../../providers/welcome_settings_provider.dart';
 import '../../../providers/general_settings_provider.dart';
 import '../../home/application/main_prefs_notifier.dart';
 import '../../../providers/providers.dart';
@@ -54,7 +53,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   bool _autoRefresh = false;
   bool _onlyUpdateRead = false;
   bool get _defaultToRead =>
-      ref.read(welcomeSettingsRepositoryProvider).current.defaultToRead;
+      ref.read(generalSettingsRepositoryProvider).current.defaultToRead;
 
   // ===== 其他分组 =====
   String _localPassword = '';
@@ -195,7 +194,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(appLocaleProvider);
-    ref.watch(welcomeSettingsProvider);
     ref.watch(generalSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
@@ -245,7 +243,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   value: _defaultToRead,
                   onChanged: (v) => _saveMainPreferences(
                     () => ref
-                        .read(welcomeSettingsRepositoryProvider)
+                        .read(generalSettingsRepositoryProvider)
                         .update(defaultToRead: v),
                   ),
                 ),

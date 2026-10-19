@@ -37,7 +37,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('七项默认值按原键读取，不补写存储或扫描凭据', () async {
+  test('八项默认值按原键读取，不补写存储或扫描凭据', () async {
     storage.values['sync_webdav_password'] = '保留的凭据';
     expect(await general.load(), const GeneralSettings());
     expect(await backup.load(), const BackupSettings());
@@ -45,6 +45,7 @@ void main() {
       'defaultBookTreeUri',
       'showAddToShelfAlert',
       'webPort',
+      'defaultToRead',
       'app_backup_path',
       'sync_book_progress',
       'sync_auto',

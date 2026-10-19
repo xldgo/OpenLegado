@@ -60,8 +60,6 @@ abstract final class AppRoutes {
   static const highlightRules = '/highlight_rules';
   static const fileManage = '/file_manage';
   static const qrcode = '/qrcode';
-  static const welcome = '/welcome';
-  static const welcomeConfig = '/welcome_config';
   static const browser = '/browser';
   static const video = '/video';
   static const webdavSettings = '/webdav_settings';

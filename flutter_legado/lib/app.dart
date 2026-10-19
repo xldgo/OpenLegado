@@ -1,4 +1,5 @@
 import 'src/data/services/file_metadata.dart';
+import 'src/app/routing/startup_default_to_read.dart';
 import 'src/app/routing/startup_reading_navigation.dart';
 import 'src/app/routing/app_navigation.dart';
 import 'src/providers/auto_task/auto_task_dependencies.dart';
@@ -44,7 +45,7 @@ import 'src/widgets/reader/read_aloud_capsule_host.dart';
 
 /// Legado App 入口 Widget
 class LegadoApp extends ConsumerStatefulWidget {
-  /// 初始路由（冷启动为闪屏 /welcome，对齐 WelcomeActivity）
+  /// 初始路由（冷启动直接进主页，闪屏由系统启动画面负责，对齐上游）
   final String initialRoute;
 
   /// 上次崩溃日志内容（null 表示无崩溃记录）
@@ -87,85 +88,54 @@ class LegadoApp extends ConsumerStatefulWidget {
     return true;
   }
 
-  /// 调度「上次崩溃」弹窗：等冷启动闪屏退出后再弹出（P2-13b）。
+  /// 调度「上次崩溃」弹窗（P2-13）。
   ///
-  /// 冷启动固定经闪屏路由（main.dart `initialRoute = AppRoutes.welcome`），
-  /// [WelcomeScreen] 延时后经 `replaceAppRoute(home)` 退出闪屏——
-  /// pushReplacement 替换的是**当时栈顶路由**：若弹窗已在首帧 postFrame
-  /// 弹出（栈顶），闪屏退出时弹窗路由会被一并替换掉，用户看不到提示
-  /// （且「确定」不会被点按，crash_log 永不清除，每次启动重复提示）。
+  /// 弹窗必须等 Navigator 装配完成后才能弹出（见 [showCrashLogDialog]）：
+  /// 冷启动首帧 [MaterialApp] 尚未构建、`navigatorKey.currentContext` 为空，
+  /// 故逐帧重试，装配成功即返回并停止；[maxFrames] 帧内仍未就绪则放弃本次
+  /// 提示——崩溃日志仍在磁盘文件中，下次启动继续提示，不丢数据、不抛异常。
   ///
-  /// 因此经 [TopRouteWatcher]（须已注册进
-  /// `MaterialApp(navigatorObservers:)`，见 [_LegadoAppState.build]）监听
-  /// 栈顶路由变化：确认栈顶不再是 [AppRoutes.welcome] 即弹窗。
-  /// 当前 SDK 的 `NavigatorState` 不再公开 `routes` 列表，
-  /// `NavigatorObserver.didChangeTop` 是受支持的栈顶路由观察 API。
-  /// 若 [maxFrames] 帧内未观察到「已非闪屏」（60Hz 下 90 帧≈1.5s，
-  /// 覆盖闪屏最大 800ms 延时 + 设置读取耗时；或 watcher 未注册）则
-  /// 兜底弹出——崩溃日志仍在磁盘文件中，下次启动继续提示，
-  /// 不丢数据、不抛异常。
+  /// 历史：P2-13b 曾在这里等待闪屏 /welcome 退出后再弹，避免弹窗路由被
+  /// `pushReplacement(home)` 连同替换。闪屏路由已按上游移除（冷启动直接进
+  /// 主页），该等待条件随之取消。
   ///
   /// [isAlive] 供宿主 State 传入 `() => mounted`：State 已卸载即停止
   /// 重试，避免对已销毁界面弹窗。
   static void scheduleCrashLogDialog(
     String crashLog,
     bool Function() isAlive, {
-    TopRouteWatcher? watcher,
     int maxFrames = 90,
   }) {
-    final probe = watcher ?? TopRouteWatcher();
     var shown = false;
 
     void attempt(int frame) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isAlive() || shown) return;
-        if (probe.didObserveTopChange &&
-            probe.topRouteName != AppRoutes.welcome) {
-          // 栈顶已确认非闪屏（含无名字路由）→ 弹出
+        if (showCrashLogDialog(crashLog)) {
           shown = true;
-          showCrashLogDialog(crashLog);
           return;
         }
-        if (frame < maxFrames) {
-          attempt(frame + 1);
-        } else {
-          // 超时兜底：事件未观察到（如 watcher 未注册）或闪屏未退出
-          shown = true;
-          showCrashLogDialog(crashLog);
-        }
+        if (frame < maxFrames) attempt(frame + 1);
       });
+      // 主动预约下一帧：否则重试只会在其他原因触发重绘时才推进，
+      // 启动阶段可能长时间停留在「未尝试」状态。
+      WidgetsBinding.instance.scheduleFrame();
     }
 
     attempt(0);
   }
 
-  /// [V-B3-ROUTE 2026-10-05] 悬浮窗回全屏导航调度：等闪屏 /welcome 退出
-  /// 栈顶后再压栈。
+  /// [V-B3-ROUTE 2026-10-05] 悬浮窗/深链回全屏导航调度：等 Navigator 就绪。
   ///
-  /// 缺陷（round2 真机 2/2 复现，`.tmp/video_qa/round2/c2_*.png`）：冷启动
-  /// 经 [AppRoutes.welcome] 闪屏；MainActivity.onCreate 把悬浮窗播放状态经
-  /// Intent 交给 Dart（[VideoFloatWindowBridge.attach] →
-  /// `_consumeInitialReturn`），回全屏导航在首帧附近触发。此时直接
-  /// `pushAppRoute(video)` 会把 /video 压在 /welcome 之上，而 [WelcomeScreen]
-  /// 延后执行的 `replaceAppRoute(home)` 替换的是**当时栈顶**——刚压入
-  /// 的 /video 被一并替换：可见播放页闪现后被书架顶掉、播放中断。
+  /// 冷启动首帧前 `navigatorKey.currentState` 为空，此时直接 push 会丢失导航；
+  /// 故按 [interval] 轮询（默认 50ms × [maxAttempts] = 3s 上限），就绪即执行，
+  /// 超时回调 [onTimeout]（宁可不导航，停留当前页）。
   ///
-  /// 门控条件取「路由栈顶已非 /welcome」（[TopRouteWatcher] 的
-  /// `didChangeTop` 由框架在路由栈变化时同步更新，天然无竞态）：
-  /// - 热路径（App 已存活，onNewIntent 回全屏）：栈顶非 welcome →
-  ///   [push] 同步执行，零额外延迟；
-  /// - 冷启动（Navigator 未就绪或闪屏未退出）：按 [interval] 轮询，
-  ///   至多 [maxAttempts] 次（默认 50ms × 60 = 3s）后放弃并回调
-  ///   [onTimeout]——宁可不导航（停留当前页），也不重演「压栈后被欢迎页
-  ///   替换」的错误导航。
-  ///
-  /// 不用「[WelcomeScreen] `_goNext` 的 `await replaceAppRoute` 之后
-  /// 置标志」：`Navigator.pushReplacement` 返回的是**新路由的 popped
-  /// future**（Flutter 3.44 `navigator.dart` `return newRoute.popped;`），
-  /// home 不弹栈该 await 永不完成，手写标志将永不置位（本批探针测试已实证）。
-  /// 路由栈本身才是权威信号，故经 [TopRouteWatcher] 观察。
+  /// 历史：闪屏 /welcome 存续期间压栈会被 `pushReplacement(home)` 整体替换
+  /// （round2 真机 2/2，`.tmp/video_qa/round2/c2_*.png`），故曾以
+  /// `TopRouteWatcher` 门控「栈顶已非 /welcome」。闪屏路由已按上游移除，
+  /// 门控退化为「Navigator 是否就绪」。
   static void scheduleFloatReturnNavigation({
-    required TopRouteWatcher watcher,
     required NavigatorState? Function() navigator,
     required void Function(NavigatorState navigator) push,
     int maxAttempts = 60,
@@ -176,10 +146,7 @@ class LegadoApp extends ConsumerStatefulWidget {
     void attempt(int attemptNo) {
       if (isAlive != null && !isAlive()) return;
       final nav = navigator();
-      final welcomeGone =
-          watcher.didObserveTopChange &&
-          watcher.topRouteName != AppRoutes.welcome;
-      if (nav != null && welcomeGone) {
+      if (nav != null) {
         push(nav);
         return;
       }
@@ -197,39 +164,12 @@ class LegadoApp extends ConsumerStatefulWidget {
   ConsumerState<LegadoApp> createState() => _LegadoAppState();
 }
 
-/// 栈顶路由观察器（P2-13b 崩溃弹窗调度的一次性事件源）
-///
-/// 经 `MaterialApp(navigatorObservers:)` 注册；栈顶路由变化时
-/// [didChangeTop]（当前 SDK 的 `NavigatorObserver` 受支持 API——
-/// `NavigatorState` 不再公开 `routes` 列表）更新 [topRouteName]。
-/// [didObserveTopChange] 用于区分「已观察到栈顶（无名路由为 null）」
-/// 与「尚未观察到任何栈顶变化事件」。
-class TopRouteWatcher extends NavigatorObserver {
-  /// 自注册以来是否已观察到栈顶路由变化事件
-  bool didObserveTopChange = false;
-
-  /// 最近观察到的栈顶路由名（路由无名时为 `null`）
-  String? topRouteName;
-
-  @override
-  void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
-    didObserveTopChange = true;
-    topRouteName = topRoute.settings.name;
-  }
-}
-
 class _LegadoAppState extends ConsumerState<LegadoApp>
     with WidgetsBindingObserver {
   late final GoRouter _router;
   late final StartupReadingNavigation _startupReading;
   late final ProviderContainer _applicationContainer;
 
-  /// 栈顶路由观察器（注册进 `MaterialApp(navigatorObservers:)`，见
-  /// [build]），两个只读消费者：
-  /// - [P2-13b] 崩溃弹窗调度（[scheduleCrashLogDialog]）；
-  /// - [V-B3-ROUTE] 悬浮窗回全屏门控（[scheduleFloatReturnNavigation]）——
-  ///   确认闪屏 /welcome 已被替换出栈顶后才压入 /video。
-  final TopRouteWatcher _topRouteWatcher = TopRouteWatcher();
   final _readAloudCapsuleObserver = ReadAloudCapsuleObserver();
   late final MediaPlaybackNavigation _mediaPlaybackNavigation;
 
@@ -265,11 +205,18 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       observers: [
         appRouteObserver,
         systemBarRouteObserver,
-        _topRouteWatcher,
         _startupReading,
         _readAloudCapsuleObserver,
         _mediaPlaybackNavigation,
       ],
+    );
+    // 冷启动「默认进入阅读」：解析一次（详见 startupDefaultToReadProvider），
+    // 交给 _startupReading 在主页入栈后打开。对齐上游
+    // MainActivity.shouldApplyDefaultToRead——无闪屏、无计时器。
+    unawaited(
+      ref.read(startupDefaultToReadProvider.future).then((book) {
+        if (book != null && mounted) _startupReading.request(book);
+      }),
     );
     _mediaPlaybackNavigation.attach(ref.read(audioServiceProvider));
     WidgetsBinding.instance.addObserver(this);
@@ -280,16 +227,13 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // **祖先**，showDialog 向上找 Navigator 时其上方并无 Navigator
     // （Navigator 是它的后代）→ 抛异常 → FlutterError.onError 重写
     // crash_log.txt 并置崩溃标记 → 下次启动再弹再抛，形成启动崩溃循环。
-    // [P2-13b 2026-09-19] 实机验证发现冷启动闪屏 /welcome 退出时
-    // 路由替换会连同栈顶的弹窗路由一起替换掉（弹窗一闪
-    // 即逝），故经 [scheduleCrashLogDialog] + [TopRouteWatcher]（didChangeTop
-    // 事件驱动 + 90 帧超时兜底）确认闪屏退出后再弹；watcher 已在下方
-    // 根Router的observers注册。
+    // [P2-13b 2026-09-19] 闪屏存续期间弹窗路由会被 `pushReplacement(home)`
+    // 一并替换（弹窗一闪即逝），当时以 TopRouteWatcher 等闪屏退出；闪屏
+    // 路由已按上游移除，现只等 Navigator 装配（逐帧重试 + 90 帧上限）。
     if (widget.lastCrashLog != null && widget.lastCrashLog!.isNotEmpty) {
       LegadoApp.scheduleCrashLogDialog(
         widget.lastCrashLog!,
         () => mounted,
-        watcher: _topRouteWatcher,
       );
     }
     // [UI-fix v2.0.3 | 2026-08-08] 定时任务应用内调度器启动装配
@@ -304,9 +248,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     );
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 复用欢迎页导航门控，避免初始导入弹窗被欢迎页的路由替换关闭。
+      // 等 Navigator 装配后再 attach（冷启动首帧前 navigatorKey 为空）。
       LegadoApp.scheduleFloatReturnNavigation(
-        watcher: _topRouteWatcher,
         isAlive: () => mounted,
         navigator: () =>
             mounted ? PlatformBridgeService.navigatorKey.currentState : null,
@@ -314,7 +257,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
           PlatformBridgeService.navigatorKey,
           onImport: _startupReading.preferExternalAction,
         ),
-        onTimeout: () => debugPrint('[DeepLink] 等待欢迎页退出超时'),
+        onTimeout: () => debugPrint('[DeepLink] 等待 Navigator 就绪超时'),
       );
     });
     // [V-B3] 视频悬浮窗：注册原生事件处理与回全屏导航后 attach
@@ -350,9 +293,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   /// [V-B3] 悬浮窗「全屏」/通知点击回传：导航到视频页从交回位置续播
   ///
-  /// [V-B3-ROUTE] 冷启动时须等闪屏 /welcome 退出栈顶后再压栈，否则会与
-  /// `replaceAppRoute(home)` 竞争、刚压入的 /video 被整体替换
-  /// （round2 真机 2/2；详见 [scheduleFloatReturnNavigation]）。
+  /// [V-B3-ROUTE] 冷启动首帧前 Navigator 未装配，压栈会丢失；改为轮询等
+  /// Navigator 就绪后再压入 /video（详见 [scheduleFloatReturnNavigation]）。
   void _openVideoFromFloatWindow(VideoFloatWindowState state, Book? book) {
     if (!mounted) return;
     _startupReading.preferExternalAction();
@@ -370,16 +312,15 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       initialSpeed: state.speed,
       initialPlaying: state.playing,
     );
-    // 统一就绪循环覆盖两段等待：冷启动首帧前 Navigator 未装配（原
-    // addPostFrameCallback 推迟逻辑）+ 闪屏 /welcome 未退出栈顶（本批修复）。
+    // 就绪循环：冷启动首帧前 Navigator 未装配（原 addPostFrameCallback
+    // 推迟逻辑的等价物）。
     LegadoApp.scheduleFloatReturnNavigation(
-      watcher: _topRouteWatcher,
       isAlive: () => mounted,
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) =>
           GoRouter.of(navigator.context)
               .pushAppRoute(AppRoutes.video, extra: args),
-      onTimeout: () => debugPrint('[VideoFloat] 闪屏未在等待窗口内退出，放弃本次回全屏导航（停留当前页）'),
+      onTimeout: () => debugPrint('[VideoFloat] Navigator 未在等待窗口内就绪，放弃本次回全屏导航（停留当前页）'),
     );
   }
 
