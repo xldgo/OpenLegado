@@ -37,6 +37,9 @@ dependencies:
   video_player: ^2.14.1
   webview_flutter: ^4.10.0
   cached_network_image: ^4.0.4
+  # 封面独立缓存复用已锁定的缓存管理器与文件系统，不升级版本。
+  flutter_cache_manager: ^3.4.5
+  file: ^7.0.1
   flutter_riverpod: ^3.4.3
   mobile_scanner: ^7.4.2
   qr_flutter: ^4.1.0

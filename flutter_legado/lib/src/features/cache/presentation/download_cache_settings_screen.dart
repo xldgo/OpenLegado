@@ -189,9 +189,43 @@ class _DownloadCacheSettingsScreenState
     }
   }
 
+  Future<void> _clearCoverCache() async {
+    if (_busy || _editingSetting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.coverCache),
+        content: const Text('清除封面缓存？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('清理'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(coverCacheRepositoryProvider).clear();
+      if (!mounted) return;
+      ref.invalidate(coverCacheSizeProvider);
+      _toast('封面缓存已清理');
+    } catch (_) {
+      _toast('封面缓存清理失败，请重试');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final request = ref.watch(requestSettingsProvider);
+    final coverSize = ref.watch(coverCacheSizeProvider);
     final cacheDownload = ref.watch(cacheDownloadSettingsProvider);
     final download = ref.watch(downloadSettingsProvider);
     final downloadSnapshot = download.asData?.value;
@@ -216,8 +250,20 @@ class _DownloadCacheSettingsScreenState
               children: [
                 SettingTile(
                   title: context.l10n.coverCache,
-                  subtitle: context.l10n.featurePending,
-                  enabled: false,
+                  value: coverSize.asData == null
+                      ? null
+                      : CacheService.formatSize(coverSize.asData!.value),
+                  subtitle: coverSize.hasError
+                      ? '缓存统计读取失败，点按重试'
+                      : coverSize.isLoading
+                      ? '读取中…'
+                      : '点击清理封面缓存',
+                  enabled: !_busy,
+                  onTap: _busy
+                      ? null
+                      : coverSize.hasError
+                      ? () => ref.invalidate(coverCacheSizeProvider)
+                      : _clearCoverCache,
                 ),
                 SettingTile(
                   title: context.l10n.mangaCache,

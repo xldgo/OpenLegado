@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../utils/comic_image_utils.dart';
+import 'cover_cache.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/book_image_repository.dart';
 
@@ -41,10 +42,7 @@ class CoverDecodeLoader {
   static const int maxConcurrent = 3;
 
   /// 解密结果内存缓存条目上限
-  static const int maxCacheEntries = 64;
-
-  static final LinkedHashMap<String, Uint8List> _bytesCache =
-      LinkedHashMap<String, Uint8List>();
+  static const int maxCacheEntries = CoverCache.maxDecodedEntries;
 
   /// 书源注册表：origin → patched sourceJson（空串=无需解密）。
   ///
@@ -72,7 +70,7 @@ class CoverDecodeLoader {
   static int get debugQueueLength => _waitQueue.length;
 
   @visibleForTesting
-  static int get debugCacheSize => _bytesCache.length;
+  static int get debugCacheSize => CoverCache.instance.decodedCount;
 
   /// 书源失效代际只用于丢弃旧请求，不额外缓存图片帧。— Codex + UI
   static int get sourceRevision => _registryGeneration;
@@ -191,7 +189,7 @@ class CoverDecodeLoader {
     ++_registryGeneration;
     _sourceRegistry = null;
     _registryLoading = null;
-    _bytesCache.clear();
+    CoverCache.instance.clearDecoded();
   }
 
   /// 是否需要走 FFI（coverDecodeJs 或复合 URL）
@@ -213,10 +211,7 @@ class CoverDecodeLoader {
       url,
       patchedSourceJson: patchedSourceJson,
     );
-    final hit = _bytesCache.remove(key);
-    if (hit == null) return null;
-    _bytesCache[key] = hit;
-    return hit;
+    return CoverCache.instance.decoded(key);
   }
 
   static void putCached(
@@ -231,11 +226,7 @@ class CoverDecodeLoader {
       url,
       patchedSourceJson: patchedSourceJson,
     );
-    _bytesCache.remove(key);
-    _bytesCache[key] = bytes;
-    while (_bytesCache.length > maxCacheEntries) {
-      _bytesCache.remove(_bytesCache.keys.first);
-    }
+    CoverCache.instance.rememberDecoded(key, bytes);
   }
 
   /// 加载解密封面字节。
@@ -423,18 +414,37 @@ class CoverDecodeLoader {
     final completer = Completer<Uint8List?>();
     _inflight[key] = completer.future;
     try {
+      Uint8List? disk;
+      try {
+        disk = await CoverCache.instance.readDecoded(key);
+      } catch (_) {
+        // 缓存不可用仍可使用原有书源解密流程。
+      }
+      final validDisk = disk != null && looksLikeImageBytes(disk);
       final sourceForFfi = patchedSourceJson.isEmpty ? '{}' : patchedSourceJson;
-      final raw = await images.fetchImageWithDecode(coverUrl, sourceForFfi);
+      final raw = validDisk
+          ? disk
+          : await images.fetchImageWithDecode(coverUrl, sourceForFfi);
       Uint8List? bytes;
       if (raw.isNotEmpty) {
         if (looksLikeImageBytes(raw)) {
           if (revision == _registryGeneration) {
-            putCached(
-              originOrEmpty,
-              coverUrl,
-              raw,
-              patchedSourceJson: patchedSourceJson,
-            );
+            if (!validDisk) {
+              try {
+                await CoverCache.instance.writeDecoded(key, raw);
+              } catch (_) {
+                // 缓存写入失败不阻断图片展示。
+              }
+            }
+            // 磁盘写入期间书源可能被编辑，仍遵守原有书源失效边界。
+            if (revision == _registryGeneration) {
+              putCached(
+                originOrEmpty,
+                coverUrl,
+                raw,
+                patchedSourceJson: patchedSourceJson,
+              );
+            }
           }
           bytes = raw;
         }
@@ -463,7 +473,7 @@ class CoverDecodeLoader {
 
   @visibleForTesting
   static void clearForTest() {
-    _bytesCache.clear();
+    CoverCache.instance.clearDecoded();
     _sourceRegistry = null;
     _registryLoading = null;
     ++_registryGeneration;

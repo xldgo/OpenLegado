@@ -1017,7 +1017,12 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         insetPadding: const EdgeInsets.all(16),
         child: InteractiveViewer(
           child: url.startsWith('http')
-              ? CachedNetworkImage(imageUrl: url, fit: BoxFit.contain)
+              ? CachedNetworkImage(
+                  imageUrl: url,
+                  cacheManager: CoverCache.instance.manager,
+                  cacheKey: url,
+                  fit: BoxFit.contain,
+                )
               : Image.file(File(url), fit: BoxFit.contain),
         ),
       ),

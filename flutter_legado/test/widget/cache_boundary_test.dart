@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+import 'package:flutter_legado/src/domain/contracts/cover_cache_repository.dart';
+import 'package:flutter_legado/src/features/cache/application/download_cache_settings.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/cache_provider.dart';
 import 'package:flutter_legado/src/features/cache/presentation/cache_settings_screen.dart';
@@ -20,9 +22,12 @@ import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../mocks/mocks.dart';
 
+class _CoverCache extends Mock implements CoverCacheRepository {}
+
 void main() {
   late CacheRepositoryMock repository;
   late DatabaseMaintenanceServiceMock maintenance;
+  late _CoverCache coverCache;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({
@@ -31,6 +36,9 @@ void main() {
     });
     repository = CacheRepositoryMock();
     maintenance = DatabaseMaintenanceServiceMock();
+    coverCache = _CoverCache();
+    when(() => coverCache.getSize()).thenAnswer((_) async => 2048);
+    when(() => coverCache.clear()).thenAnswer((_) async {});
     when(() => repository.getCacheSize()).thenAnswer((_) async => 5242880);
     when(() => repository.getCacheBookCount()).thenAnswer((_) async => 2);
     when(() => repository.getCacheChapterCount()).thenAnswer((_) async => 26);
@@ -146,6 +154,7 @@ void main() {
         ...MockBookApi().overrides,
         appSettingsServiceProvider.overrideWithValue(settings),
         cacheRepositoryProvider.overrideWithValue(repository),
+        coverCacheRepositoryProvider.overrideWithValue(coverCache),
         databaseMaintenanceServiceProvider.overrideWithValue(maintenance),
       ]),
     );
@@ -165,6 +174,70 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('封面缓存显示真实统计，取消不删除，确认后重新读取', (tester) async {
+    var cleared = false;
+    when(() => coverCache.getSize())
+        .thenAnswer((_) async => cleared ? 0 : 2048);
+    when(() => coverCache.clear()).thenAnswer((_) async => cleared = true);
+    await openDownloads(tester);
+    expect(find.text('2.0 KB'), findsOneWidget);
+    await tester.tap(find.text('封面缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    verifyNever(() => coverCache.clear());
+    await tester.tap(find.text('封面缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '清理'));
+    await tester.pumpAndSettle();
+    verify(() => coverCache.clear()).called(1);
+    expect(find.text('0 B'), findsOneWidget);
+    expect(find.text('封面缓存已清理'), findsOneWidget);
+    verifyNever(() => repository.clearCache());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('封面统计失败可重试，清理失败不伪报成功或归零', (tester) async {
+    when(() => coverCache.getSize()).thenThrow(StateError('读取失败'));
+    await openDownloads(tester);
+    expect(find.text('缓存统计读取失败，点按重试'), findsOneWidget);
+    expect(find.text('0 B'), findsNothing);
+    when(() => coverCache.getSize()).thenAnswer((_) async => 2048);
+    await tester.tap(find.text('封面缓存'));
+    await tester.pumpAndSettle();
+    expect(find.text('2.0 KB'), findsOneWidget);
+    when(() => coverCache.clear()).thenThrow(StateError('清理失败'));
+    await tester.tap(find.text('封面缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '清理'));
+    await tester.pumpAndSettle();
+    expect(find.text('封面缓存清理失败，请重试'), findsOneWidget);
+    expect(find.text('封面缓存已清理'), findsNothing);
+    expect(find.text('2.0 KB'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('封面清理期间维护互斥，离页后结果不访问已释放界面', (tester) async {
+    final gate = Completer<void>();
+    when(() => coverCache.clear()).thenAnswer((_) => gate.future);
+    await openDownloads(tester);
+    await tester.tap(find.text('封面缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '清理'));
+    await tester.pumpAndSettle();
+    for (final title in ['封面缓存', '清理缓存', '压缩数据库']) {
+      final tile = tester.widget<SettingTile>(
+        find.widgetWithText(SettingTile, title),
+      );
+      expect(tile.enabled, isFalse);
+      expect(tile.onTap, isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
+    gate.complete();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('下载设置按上游分组展示旧偏好，未接线项不产生写入', (tester) async {
     SharedPreferences.setMockInitialValues({
@@ -186,8 +259,8 @@ void main() {
         .widgetList<SettingTile>(find.byType(SettingTile))
         .where((tile) => !tile.enabled)
         .toList();
-    expect(disabled, hasLength(5));
-    for (final title in ['封面缓存', '漫画缓存']) {
+    expect(disabled, hasLength(4));
+    for (final title in ['漫画缓存']) {
       final tile = disabled.singleWhere((tile) => tile.title == title);
       expect(tile.subtitle, '待实现');
       expect(tile.value, isNull);

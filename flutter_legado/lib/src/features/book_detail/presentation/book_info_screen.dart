@@ -33,6 +33,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../services/cover_cache.dart';
+
 import '../../../l10n/app_strings.dart';
 import '../../../models/models.dart';
 import '../../automation/application/auto_task_notifier.dart';

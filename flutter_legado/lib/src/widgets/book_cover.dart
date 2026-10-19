@@ -16,6 +16,7 @@ import 'package:flutter/rendering.dart'
         RenderObject;
 
 import '../services/cover_decode_loader.dart';
+import '../services/cover_cache.dart';
 import '../utils/comic_image_utils.dart';
 
 /// 书籍封面组件 — 支持网络图片 + 默认封面 + coverDecodeJs 解密
@@ -373,6 +374,7 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
     }
     return CachedNetworkImageProvider(
       stripCompositeImageUrl(url),
+      cacheManager: CoverCache.instance.manager,
       cacheKey: CoverDecodeLoader.cacheKey(
         origin,
         url,

@@ -5,6 +5,8 @@ import 'dart:ui' show ImageFilter;
 import 'package:material_ui/material_ui.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../../services/cover_cache.dart';
+
 import '../../../../models/book.dart';
 import '../../../../widgets/ui_settings_scope.dart';
 import '../../../../widgets/custom_refresh_indicator.dart';
@@ -68,12 +70,16 @@ class BookDetailBackdrop extends StatelessWidget {
                             ),
                             child: CachedNetworkImage(
                               imageUrl: coverUrl,
+                              cacheManager: CoverCache.instance.manager,
+                              cacheKey: coverUrl,
                               fit: BoxFit.cover,
                               memCacheWidth: blurWidth,
                             ),
                           )
                         : CachedNetworkImage(
                             imageUrl: coverUrl,
+                            cacheManager: CoverCache.instance.manager,
+                            cacheKey: coverUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: blurWidth,
                           ),

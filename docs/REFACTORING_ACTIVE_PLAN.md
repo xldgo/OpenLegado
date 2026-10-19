@@ -16,6 +16,17 @@
 - 实现与自查：默认恢复等待三个初始入口完成，没有固定等待时长；初始入口失败时取消恢复并记录错误。崩溃提示使用专属路由标识，只暂停默认恢复；准备中的结果不得越过弹窗导航，关闭后继续或重新准备，用户导航/卸载仍取消。媒体与悬浮窗attach返回实际初始化Future，未修改原生通道协议。
 - 验证：9份定向测试47项通过，含正式LegadoApp延迟深链/真实导入弹窗与生产Router、崩溃弹窗打断准备后单次恢复。目标dart analyze --fatal-infos、架构依赖及diff检查通过；证据flutter_legado/build/startup-navigation-{final-tests,analysis,architecture}.log。应用根涉及进程级单例，外部入口冷启动用例独立文件运行；未运行全量CI、编译安装或真机验证，版本保持2.0.405+406。仅提交本次修复，封面缓存工作保持未提交；单代理自查，无独立审查，提交见Git记录。
 
+### COVER-HTTP-CACHE-20261019：封面缓存统计与独立清理（P2，待复验：设备与应用产物）
+
+- 授权：用户要求接通封面HTTP缓存，漫画继续占位；基线feature/ui-reader-selection / 9b51358d0，单代理，本地提交，不推送、安装或提升版本。
+- 审计：BookCover与MediaArtworkLoader普通封面使用默认CachedNetworkImage缓存，解密封面仅有CoverDecodeLoader的64项内存LRU；默认缓存还承载漫画/RSS，不能整体清空。Rust CoverCache未接入这些消费者。
+- 范围：封面独立目录和缓存管理器，复用已锁定flutter_cache_manager的HTTP缓存策略；封面、详情背景/候选/预览及通知封面接入同一范围，解密结果也写入该范围。统计只计图片实际文件，不计元数据，不清本地封面原件、漫画、正文或音频。
+- 清理：用户2026-10-20明确只清已有缓存；不取消在途HTTP或解密任务、不阻止后续回填，不等待全局下载静默。清除专属磁盘文件及解密字节LRU；保留当前显示帧，不清Flutter全局图片缓存。通知缩略图在下次加载时失效，最多8项。不迁移或清空默认混合缓存。
+- 验收：真实临时目录/HTTP与CachedNetworkImageProvider验证展示、重建命中、过期更新、统计、清理范围、清理期间请求继续完成及失败重试；实际设置页验证确认/取消/重试/互斥。保留既有封面解密、通知与开书回归，不使用源码字符串断言。编写者Codex，2026-10-20。
+- 方案收敛：用户确认cached_network_image负责展示，专属flutter_cache_manager实例负责文件缓存；撤掉自定义ImageProvider、图片句柄登记和BaseCacheManager转发实现，各界面只注入cacheManager。保留标准临时目录；长期离线保留不在本批。依赖仅将已锁定flutter_cache_manager/file声明为直接依赖，无版本升级。
+- 实现与验证：封面所有者管理唯一CacheManager、64项解密LRU和专属目录；dispose只释放索引/连接。5项真实HTTP/文件/图片Provider测试及解密、通知、设置页、开书和规则编辑共46项定向回归通过；目标dart analyze --fatal-infos无问题，架构依赖检查通过。证据flutter_legado/build/cover-cache-final-tests.log、cover-cache-analysis.log；未运行全量Flutter、真实FFI、远程CI或设备安装。
+- 交付：以本条所在Git提交为准，仅提交本批；同步保留主目录最新5d6053ec9的启动修复。按用户要求未使用子代理，无独立审查结论；单代理自查，设备结果待复验。版本保持2.0.405+406，不推送、不构建安装。
+
 ### CACHE-DOWNLOAD-CONCURRENCY-20261019：清理边界与离线下载并发（P1，待复验：设备与应用产物）
 
 - 授权：用户要求按更新后的计划实施；feature/ui-reader-selection / da8c2ec71，单代理，分批本地提交，不推送、安装或额外提升版本。

@@ -11,6 +11,7 @@ import '../models/book.dart';
 import '../domain/contracts/book_source_repository.dart';
 import '../domain/contracts/book_image_repository.dart';
 import 'cover_decode_loader.dart';
+import 'cover_cache.dart';
 
 /// 系统媒体封面复用现有图片来源，只缓存有界缩略图。— Codex + UI
 class MediaArtworkLoader {
@@ -28,12 +29,19 @@ class MediaArtworkLoader {
     return custom.isNotEmpty ? custom : book?.coverUrl?.trim() ?? '';
   }
 
+  int _cacheRevision = CoverCache.instance.revision;
   Future<Uint8List?> load(Book? book, {bool hidden = false}) {
+    final revision = CoverCache.instance.revision;
+    if (_cacheRevision != revision) {
+      _cache.clear();
+      _cacheRevision = revision;
+    }
     final url = hidden ? '' : coverUrl(book);
     final key = jsonEncode([
       url,
       hidden ? '' : book?.origin ?? '',
       CoverDecodeLoader.sourceRevision,
+      revision,
     ]);
     final hit = _cache.remove(key);
     if (hit != null) {
@@ -101,6 +109,7 @@ class MediaArtworkLoader {
     }
     return CachedNetworkImageProvider(
       url,
+      cacheManager: CoverCache.instance.manager,
       cacheKey: CoverDecodeLoader.cacheKey(
         origin,
         url,

@@ -10,6 +10,7 @@ import '../../../widgets/legado_app_bar.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
+import '../../../services/cover_cache.dart';
 import '../../../models/models.dart';
 import '../application/change_cover/change_cover_notifier.dart';
 import '../../../widgets/book_cover.dart';
@@ -119,6 +120,8 @@ class _ChangeCoverScreenState extends ConsumerState<ChangeCoverScreen> {
     }
     return CachedNetworkImage(
       imageUrl: url,
+      cacheManager: CoverCache.instance.manager,
+      cacheKey: url,
       width: width,
       height: height,
       fit: BoxFit.cover,
