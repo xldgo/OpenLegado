@@ -2,6 +2,31 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## HTTP 引擎导入导出（2026-10-19）
+
+本批固定参考上游 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)：
+`CloudTtsViewModel.importHttpTtsSource/parseHttpTtsSource/saveImportedHttpTts` 与
+`CloudTtsScreen`。按 ID 与 lastUpdateTime 比较新增、更新、已有，已有默认不勾选；
+保持用户已确认的编辑 Sheet，不恢复已放弃的全屏编辑器。
+
+- 引擎页更多菜单进入导入或勾选导出；单引擎行更多菜单预选当前引擎导出。
+- 剪贴板、UTF-8 文件、HTTP(S)、data URI、legado/yuedu 的 `/httpTTS?src=`
+  汇合至数据服务预览。`#requestWithoutUA` 沿用上游发送 `User-Agent: null` 的规则。
+  递归链接限制八层并拒绝循环；取消后的迟到预览不能保存或跳转。
+- HttpTtsTransferService 负责解析/比较/编排，平台适配器负责文件，Sheet 负责勾选和反馈。
+  确认仅调用一次既有文档导入，Rust 在同一 SQLite 事务内写全部配置与目录，提交后刷新限流。
+  非零 ID 覆盖、零 ID 新建；同批先保留显式 ID，避免自动编号覆盖。预览拒绝重复非零 ID。
+- 完整导出从配置与当前可用 HTTP 目录重建 speakersJson/emotionsJson；保留排除音色的
+  目录定义，不将设备排除标记作为分享配置。云端凭据、系统目录和登录会话不导出。
+  目录归一化为当前持久化内容，不保证原始 JSON 分组/缩进；未曾入库的未知字段不保留。
+- 上游上传为分享 URL 的操作不在此批；本批提供本地文件与剪贴板 JSON，未接入上传服务。
+  无 schema、FRB 签名、代码生成或播放队列改动。
+
+验证以真实服务调用、Widget 勾选/取消/重试以及 SQLite 触发器注入失败为依据；
+固定第三方账号、平台文件选择器与真实设备交互另行验收，不用 Mock 结果宣称真机可用。
+
+编写者：Codex + UI/Bridge｜2026-10-19。
+
 ## 系统媒体时间轴与控制（2026-10-15）
 
 本批对照[上游BaseReadAloudService](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/service/BaseReadAloudService.kt)及同版本AudioPlayService：

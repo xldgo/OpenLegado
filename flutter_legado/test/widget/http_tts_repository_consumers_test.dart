@@ -76,6 +76,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('引擎页菜单导入确认后刷新列表，单条菜单进入预选导出', (tester) async {
+    var imported = false;
+    const added = HttpTts(id: 8, name: '导入引擎', url: 'https://import.test');
+    when(() => engines.getHttpTts())
+        .thenAnswer((_) async => [engine, if (imported) added]);
+    when(() => engines.importHttpTts(any())).thenAnswer((_) async {
+      imported = true;
+      return 1;
+    });
+    await pump(tester, const ReadAloudConfigScreen(initialTab: 1));
+    await tester.tap(find.byTooltip('HTTP TTS 导入导出'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导入 HTTP TTS'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField),
+      '{"id":8,"name":"导入引擎","url":"https://import.test"}',
+    );
+    await tester.tap(find.text('预览规则'));
+    await tester.pumpAndSettle();
+    verifyNever(() => engines.importHttpTts(any()));
+    await tester.tap(find.text('导入（1）'));
+    await tester.pumpAndSettle();
+    expect(imported, isTrue);
+    expect(find.text('导入引擎'), findsOneWidget);
+    expect(find.text('已导入 1 个 HTTP TTS 引擎'), findsOneWidget);
+    await tester.tap(find.byTooltip('导入引擎更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('复制或导出规则'));
+    await tester.pumpAndSettle();
+    expect(find.text('1/2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('正文朗读条选择器复用窄接口，引擎 URL 不变', (tester) async {
     await pump(
       tester,

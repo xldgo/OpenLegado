@@ -5,6 +5,7 @@ import 'package:flutter_legado/src/data/bridge/media_dto_mapping.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/data/repositories/rust_http_tts_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -41,12 +42,46 @@ void main() {
     );
     when(() => bridge.crateFfiFfiHttpTtsList())
         .thenAnswer((_) async => [httpTtsToDto(row)]);
+    when(() => bridge.crateFfiFfiReadAloudVoiceList())
+        .thenAnswer((_) async => []);
     expect(await repository.getHttpTts(), [row]);
     expect(jsonDecode(await repository.exportHttpTts()), [row.toJson()]);
     when(() => bridge.crateFfiFfiHttpTtsList()).thenAnswer((_) async => []);
     expect(await repository.getHttpTts(), isEmpty);
     verify(() => bridge.crateFfiFfiHttpTtsList()).called(3);
+    verify(() => bridge.crateFfiFfiReadAloudVoiceList()).called(1);
     verifyNoMoreInteractions(bridge);
+  });
+
+  test('正式适配器导出合并持久化音色目录，并保留排除音色的源定义', () async {
+    const row = HttpTts(id: 17, name: '源', url: 'https://tts');
+    final voice = ReadAloudVoice(
+      id: readAloudVoiceId('http', '17', 'zh'),
+      engineType: 'http',
+      engineId: '17',
+      speakerId: 'zh',
+      displayName: '中文',
+      traitsJson: '["女"]',
+      emotionCatalogJson: '[{"emotionName":"高兴","emotionTag":"happy"}]',
+      managedBy: 'http_source_catalog',
+      excluded: true,
+    );
+    when(() => bridge.crateFfiFfiHttpTtsList())
+        .thenAnswer((_) async => [httpTtsToDto(row)]);
+    when(() => bridge.crateFfiFfiReadAloudVoiceList())
+        .thenAnswer((_) async => [readAloudVoiceToDto(voice)]);
+    final doc = (jsonDecode(await repository.exportHttpTts()) as List).single;
+    expect(jsonDecode(doc['speakersJson']), [
+      {
+        'speakerName': '中文',
+        'toneID': 'zh',
+        'tags': ['女'],
+      },
+    ]);
+    expect(jsonDecode(doc['emotionsJson']), [
+      {'emotionName': '高兴', 'emotionTag': 'happy'},
+    ]);
+    expect(doc.containsKey('excluded'), isFalse);
   });
 
   test('新增传递完整 HttpTts DTO（含并发 clamp），结果保留输入字段并采用原生 ID', () async {

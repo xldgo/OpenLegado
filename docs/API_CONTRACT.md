@@ -1833,6 +1833,16 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 2.25 HTTP TTS（6 个方法）
 
+> **2026-10-19 导入导出闭环**：保留现有 FRB 签名。`httpTtsImport(document)` 接收
+> JSON 数组，整批解析并在同一事务保存配置与源内音色目录；解析、写入或目录同步失败
+> 均整批回滚，限流配置仅在提交成功后刷新。显式非零 ID 原地覆盖；零 ID 分配新 ID，
+> 先保存显式 ID，避免同批自动编号覆盖显式记录。空名称/地址条目仍按既有规则跳过。
+> 管理页预览接受单对象/数组、HTTP(S) URL、data URI 和 legado 导入链接，按稳定 ID
+> 比较：不存在为新增、时间更新为更新、其余为已有；已有项默认不勾选，确认前不写入。
+> 重复非零 ID 在预览阶段报错。`exportHttpTts()` 仍返回 JSON 数组，附带当前可用 HTTP
+> 音色的 `speakersJson` / `emotionsJson`，不包含云端凭据、系统语音或登录会话数据。
+> 单条/勾选导出从该完整文档筛选，不经 `HttpTts.toJson()` 丢弃目录。此批不修改 schema。
+
 > **2026-10-13 批次 T1 全字段持久化与原地更新冻结**：本节六项及 §2.41 的
 > `httpTtsSetEnabled` 由 `HttpTtsRepository` 承担；根 BookApi 只提供共享
 > `httpTtsRepository` 引用。`httpTTS` 表升级至 Schema v110（补齐 `speed`、
@@ -2652,7 +2662,8 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 ### FFI-TRANSPORT-20261017 / 后续第2批朗读媒体冻结
 
 - HTTP TTS 列表/普通新增/更新采用十六字段 HttpTtsConfigDto；JSON 导入独立为
-  httpTtsImport(document)→条数，保留数组 loginUi、源内 speakersJson/emotionsJson 和逐条写入行为。
+  httpTtsImport(document)→条数，保留数组 loginUi、源内 speakersJson/emotionsJson；
+  2026-10-19 起按 §2.25 整批事务写入，任一条失败回滚配置与目录。
   导出继续生成原 JSON 文档，限流器刷新、并发归一、音色目录同步与原事务共用实现。
 - ttsSpeak/cloudTtsSpeak 返回 TtsSpeakDto(audioPath/fromCache/contentType)，不传音频字节；
   TtsRequest 的取消、活动保护及文件租约归属不变。

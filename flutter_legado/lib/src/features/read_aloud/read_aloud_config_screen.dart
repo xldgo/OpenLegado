@@ -14,6 +14,9 @@ import '../../widgets/bottom_sheet_widget.dart';
 import 'read_aloud_voice_panel.dart';
 import 'read_aloud_voice_provider.dart';
 import 'http_tts_login.dart';
+import 'http_tts_import_sheet.dart';
+import 'http_tts_export_sheet.dart';
+import '../../widgets/app_menu.dart';
 
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
@@ -226,6 +229,40 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
     }
   }
 
+  Future<void> _importEngines() async {
+    await _voicePanelKey.currentState?.stopPreview();
+    if (!mounted) return;
+    final count = await AppBottomSheet.showContent<int>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => const HttpTtsImportSheet(),
+    );
+    if (!mounted || count == null) return;
+    ref.invalidate(readAloudVoicesProvider);
+    await _loadEngines();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已导入 $count 个 HTTP TTS 引擎')));
+    }
+  }
+
+  Future<void> _exportEngines([int? id]) async {
+    final message = await AppBottomSheet.showContent<String>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => HttpTtsExportSheet(
+        engines: List.of(_engines),
+        initialIds: id == null ? null : {id},
+      ),
+    );
+    if (mounted && message != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   /// 「书」按钮：只写当前书 readConfig.ttsEngine
   ///
   /// 对齐原版 SpeakEngineDialog.kt:164-170（`ReadBook.book?.setTtsEngine(...)`，
@@ -397,10 +434,21 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
               tooltip: '编辑',
               onPressed: _cloudBusy ? null : () => _addOrEditEngine(engine),
             ),
-            IconButton(
-              icon: const Icon(Symbols.delete_rounded, size: 20),
-              tooltip: '删除',
-              onPressed: _cloudBusy ? null : () => _deleteEngine(engine),
+            AppMenuButton<String>(
+              tooltip: '${engine.name}更多操作',
+              enabled: !_cloudBusy,
+              itemBuilder: (_) => const [
+                AppMenuItem(value: 'export', child: Text('复制或导出规则')),
+                AppMenuItem(value: 'delete', child: Text('删除')),
+              ],
+              onSelected: (value) {
+                if (value == 'export') {
+                  unawaited(_exportEngines(engine.id));
+                }
+                if (value == 'delete') {
+                  unawaited(_deleteEngine(engine));
+                }
+              },
             ),
           ],
         ),
@@ -522,6 +570,22 @@ class _ReadAloudConfigScreenState extends ConsumerState<ReadAloudConfigScreen>
         ],
       ),
       actions: [
+        if (_activeTab == 1)
+          AppMenuButton<String>(
+            tooltip: 'HTTP TTS 导入导出',
+            enabled: !_loading && !_cloudBusy && !_cloudEditing,
+            itemBuilder: (_) => [
+              const AppMenuItem(value: 'import', child: Text('导入 HTTP TTS')),
+              AppMenuItem(
+                value: 'export',
+                enabled: _engines.isNotEmpty,
+                child: const Text('导出 HTTP TTS'),
+              ),
+            ],
+            onSelected: (value) => unawaited(
+              value == 'import' ? _importEngines() : _exportEngines(),
+            ),
+          ),
         IconButton(
           icon: const Icon(Symbols.help_rounded),
           tooltip: '帮助',

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.390] - 2026-10-19
+
+### Added
+- [UI] HTTP TTS 支持从剪贴板、文件与链接预览导入，勾选新增或覆盖已有引擎。
+- [UI] 支持单条和批量复制规则、导出 JSON 文件，保留高级字段及音色、情绪目录。
+
+### Fixed
+- [Rust] 批量导入失败时整批回滚，避免配置或音色残留；自动编号不覆盖同批显式 ID。
+
+贡献者：Codex。
+
 ## [2.0.389] - 2026-10-19
 
 ### Added

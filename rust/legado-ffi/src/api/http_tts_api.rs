@@ -105,19 +105,48 @@ pub fn update_http_tts_entity(
     Ok(updated)
 }
 
-/// 导入仍是 JSON 文档边界，逐项写入，不丢失内嵌目录。
+/// 文档整批解析与事务保存，失败不残留配置/目录或提前刷新限流。
 pub fn import_http_tts_json(raw: &str) -> LegadoResult<i32> {
     let items: Vec<serde_json::Value> = serde_json::from_str(raw)?;
-    let mut count = 0;
+    let mut entries = Vec::new();
     for item in items {
         let tts: HttpTts = serde_json::from_value(item.clone())?;
         if tts.name.is_empty() || tts.url.is_empty() {
             continue;
         }
-        add_http_tts_entity(tts, legado_core::tts_catalog::parse(&item))?;
-        count += 1;
+        entries.push((tts, legado_core::tts_catalog::parse(&item)));
     }
-    Ok(count)
+    // 先保留显式 ID，随后自动分配，避免同批两类记录相互覆盖。
+    let saved = with_database(|db| import_entries(db.connection(), &entries))?;
+    for (id, rate) in &saved {
+        super::source_rate_limit::registry().refresh(&format!("httpTts:{id}"), rate);
+    }
+    Ok(saved.len() as i32)
+}
+
+fn import_entries(
+    connection: &rusqlite::Connection,
+    entries: &[(HttpTts, legado_core::tts_catalog::CatalogDraft)],
+) -> LegadoResult<Vec<(i64, String)>> {
+    let tx = connection
+        .unchecked_transaction()
+        .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+    let repo = HttpTtsRepository::new(&tx);
+    let voices =
+        legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx);
+    let mut saved = Vec::new();
+    for (tts, catalog) in entries
+        .iter()
+        .filter(|(tts, _)| tts.id != 0)
+        .chain(entries.iter().filter(|(tts, _)| tts.id == 0))
+    {
+        let id = repo.insert_entity(tts)?;
+        voices.sync_http(id, catalog, tts.last_update_time)?;
+        saved.push((id, tts.concurrent_rate.clone().unwrap_or_default()));
+    }
+    tx.commit()
+        .map_err(|e| legado_core::LegadoError::Database(e.to_string()))?;
+    Ok(saved)
 }
 
 /// 删除 HTTP TTS 源
@@ -151,6 +180,96 @@ pub fn set_http_tts_enabled(id: i64, enabled: bool) -> LegadoResult<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn batch_import_rolls_back_source_and_catalog_on_write_failure() {
+        for trigger in [
+            "CREATE TRIGGER reject_batch BEFORE INSERT ON httpTTS WHEN NEW.id=2 BEGIN SELECT RAISE(ABORT,'source fixture'); END;",
+            "CREATE TRIGGER reject_batch BEFORE INSERT ON read_aloud_voices WHEN NEW.engineId='2' BEGIN SELECT RAISE(ABORT,'catalog fixture'); END;",
+        ] {
+            let conn = rusqlite::Connection::open_in_memory().unwrap();
+            conn.execute_batch(legado_db::schema::CREATE_HTTP_TTS)
+                .unwrap();
+            conn.execute_batch(legado_db::schema::CREATE_READ_ALOUD_VOICES)
+                .unwrap();
+            let old = HttpTts {
+                id: 1,
+                name: "原配置".into(),
+                url: "https://old".into(),
+                ..Default::default()
+            };
+            HttpTtsRepository::new(&conn).insert_entity(&old).unwrap();
+            let before = HttpTtsRepository::new(&conn).find_all().unwrap();
+            conn.execute_batch(trigger).unwrap();
+            let catalog = legado_core::tts_catalog::parse(
+                &serde_json::json!({"speakersJson":r#"[{"speakerName":"中文","toneID":"zh"}]"#}),
+            );
+            let entries = vec![
+                (
+                    HttpTts {
+                        name: "不应提交".into(),
+                        ..old.clone()
+                    },
+                    catalog.clone(),
+                ),
+                (
+                    HttpTts {
+                        id: 2,
+                        name: "第二条".into(),
+                        ..old
+                    },
+                    catalog,
+                ),
+            ];
+            let error = import_entries(&conn, &entries).unwrap_err();
+            assert!(error.to_string().contains("fixture"));
+            assert_eq!(HttpTtsRepository::new(&conn).find_all().unwrap(), before);
+            assert!(
+                legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(
+                    &conn
+                )
+                .list()
+                .unwrap()
+                .is_empty()
+            );
+            conn.execute_batch("DROP TRIGGER reject_batch").unwrap();
+            assert_eq!(import_entries(&conn, &entries).unwrap().len(), 2);
+        }
+    }
+
+    #[test]
+    fn batch_import_reserves_explicit_ids_before_auto_allocation() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(legado_db::schema::CREATE_HTTP_TTS)
+            .unwrap();
+        conn.execute_batch(legado_db::schema::CREATE_READ_ALOUD_VOICES)
+            .unwrap();
+        let entries = vec![
+            (
+                HttpTts {
+                    name: "自动".into(),
+                    url: "https://auto".into(),
+                    ..Default::default()
+                },
+                Default::default(),
+            ),
+            (
+                HttpTts {
+                    id: 1,
+                    name: "显式".into(),
+                    url: "https://explicit".into(),
+                    ..Default::default()
+                },
+                Default::default(),
+            ),
+        ];
+        let saved = import_entries(&conn, &entries).unwrap();
+        assert_eq!(saved.iter().map(|v| v.0).collect::<Vec<_>>(), vec![1, 2]);
+        let rows = HttpTtsRepository::new(&conn).find_all().unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows.iter().find(|v| v.id == 1).unwrap().name, "显式");
+        assert_eq!(rows.iter().find(|v| v.id == 2).unwrap().name, "自动");
+    }
 
     #[test]
     fn test_http_tts_crud() {
@@ -287,20 +406,15 @@ mod tests {
         assert!(rows.iter().all(|v| v.id != id));
     }
     #[test]
-    fn document_import_skips_empty_and_keeps_committed_items_on_later_error() {
+    fn document_import_skips_empty_and_rolls_back_on_later_error() {
         let _guard = crate::db_state::ensure_test_db();
         let raw = r#"[{"name":"","url":"https://unused"},{"id":-98126,"name":"已提交","url":"https://tts","loginUi":[{"name":"密钥"}],"speakersJson":"[{\"speakerName\":\"中文\",\"toneID\":\"zh\"}]"},null,{"id":-98127,"name":"不应执行","url":"https://tts"}]"#;
         assert!(crate::ffi::ffi::http_tts_import(raw.to_owned()).is_err());
         let rows = get_http_tts_list().unwrap();
-        let saved = rows.iter().find(|v| v.id == -98126).unwrap();
-        assert_eq!(saved.login_ui.as_deref(), Some(r#"[{"name":"密钥"}]"#));
+        assert!(!rows.iter().any(|v| v.id == -98126));
         assert!(!rows.iter().any(|v| v.id == -98127));
         let voices = super::super::read_aloud_voice_api::list().unwrap();
-        assert!(
-            voices
-                .iter()
-                .any(|v| v.engine_id == "-98126" && v.speaker_id == "zh")
-        );
+        assert!(voices.iter().all(|v| v.engine_id != "-98126"));
         assert_eq!(
             crate::ffi::ffi::http_tts_import(
                 r#"[{"name":"","url":"https://unused"},{"name":"没有地址"}]"#.to_owned()

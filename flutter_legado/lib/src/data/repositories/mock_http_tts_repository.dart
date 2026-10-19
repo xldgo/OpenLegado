@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import '../../domain/contracts/http_tts_repository.dart';
 import '../../models/models.dart';
+import '../services/http_tts_export_document.dart';
 
 /// 每个 Mock 会话只拥有一份引擎列表，ID 沿用应用装配。— Codex + Bridge
 final class MockHttpTtsRepository implements HttpTtsRepository {
@@ -94,15 +95,23 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
   @override
   Future<int> importHttpTts(String json) async {
     final list = jsonDecode(json) as List<dynamic>;
-    var count = 0;
+    // 整批预检后再写入；Mock 不允许解析失败留下半批配置。
+    final prepared = <({HttpTts tts, Map<String, dynamic> raw})>[];
     for (final item in list) {
-      if (item is! Map) {
+      if (item is! Map<String, dynamic>) {
         throw const FormatException('HTTP TTS 导入条目不是 JSON 对象');
       }
-      final parsed = HttpTts.fromJson(Map<String, dynamic>.from(item));
+      final parsed = HttpTts.fromJson(item);
       if (parsed.name.isEmpty || parsed.url.isEmpty) continue;
-      final saved = await addHttpTts(parsed);
-      voiceCatalog.importHttp(saved.id, Map<String, dynamic>.from(item));
+      prepared.add((tts: parsed, raw: item));
+    }
+    var count = 0;
+    for (final item in [
+      ...prepared.where((e) => e.tts.id != 0),
+      ...prepared.where((e) => e.tts.id == 0),
+    ]) {
+      final saved = await addHttpTts(item.tts);
+      voiceCatalog.importHttp(saved.id, item.raw);
       count++;
     }
     return count;
@@ -110,7 +119,7 @@ final class MockHttpTtsRepository implements HttpTtsRepository {
 
   @override
   Future<String> exportHttpTts() async =>
-      jsonEncode(_httpTtsList.map((t) => t.toJson()).toList());
+      httpTtsExportDocument(_httpTtsList, await voiceCatalog.list());
 
   @override
   Future<bool> httpTtsSetEnabled(int id, bool enabled) async {

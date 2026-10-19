@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-TRANSFER-20261019：HTTP 引擎导入导出闭环（P2，待复验：设备交互）
+
+- 授权：用户批准第一批；feature/ui-tts-engine / 006569b28，单代理，保留编辑 Sheet。
+- 范围：剪贴板/文件/URL 预览、按 ID 与更新时间比较/勾选确认、单条与批量复制/文件导出；整批导入事务与内嵌音色目录导出。契约先更新 §2.25，不改 FRB 签名/schema/播放队列/Provider。
+- 参考：HapeLee/legado-with-MD3 的 CloudTtsViewModel.importHttpTtsSource / saveImportedHttpTts 与 CloudTtsScreen；实现前读取上游 main，来源与固定提交记录于 TTS_ALIGNMENT。
+- 验收：取消/解析失败无写入，写入错误整批回滚，稳定 ID 与高级字段/音色目录往返；真实 Widget 勾选/确认/失败恢复、定向 Rust/Dart 测试与静态分析。不启动全量 CI，不推送；设备与真实远程源单独记录。
+- 实现：引擎页菜单接入剪贴板/文件/链接预览、查看规则、按 ID/时间默认勾选及确认导入；单条与批量勾选复制/文件导出共用完整文档。保留编辑 Sheet、播放会话及书级/全局选择。Rust 整批解析后在同一事务提交配置和目录，失败回滚；自动编号先避让同批显式 ID。导出重建当前持久化目录，不经过仅配置模型丢字段。
+- 验证：6 份相关 Flutter 文件共 57 项不同用例通过（首次 56 项，新增管理页入口用例后该文件 5 项复验，不重复累加）；Rust HTTP TTS API 定向 7 项通过，真实 SQLite 触发器分别模拟第二条配置/目录写入失败并验证回滚与重试。13 个修改的 Dart 文件严格分析无问题，架构依赖门禁与 diff 检查通过。
+- 命令：flutter test --no-pub --reporter expanded 后接 test/unit/{http_tts_transfer_service_test,http_tts_repository_test,rust_http_tts_repository_test}.dart 与 test/widget/{http_tts_transfer_sheet_test,http_tts_repository_consumers_test,read_aloud_management_test}.dart；cargo test --locked --offline -p legado-ffi --lib api::http_tts_api::tests:: -- --nocapture；dart analyze --fatal-infos 修改文件；dart run tool/check_architecture.dart。花括号仅为文件集合说明，实际向 CLI 逐一传入路径。
+- 过程：worktree 旧包配置仍指向已迁移的 C 盘缓存，按锁文件离线恢复后分析正常；没有升级依赖。首轮定向测试发现移除 requestWithoutUA 后留下空片段符号，改用 removeFragment 后复验通过。Pub 恢复触碰的无关平台注册文件已还原。
+- 边界：版本 2.0.390+391 与双日志同步；仅本地提交，不推送/构建安装/触发 CI。未做真机、系统文件选择器、真实第三方账号/远程规则、独立代理审查，不宣称设备验收通过。无上传分享 URL、新 Provider、schema 或 FRB 签名/生成物变更。单代理自查未发现本批剩余确定缺陷；设备交互保留待复验。提交见本批 Git 记录。
+- 执行者：Codex + UI/Bridge｜2026-10-19。
+
 ### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，待复验：远程接线）
 
 - 授权与基线：用户同意按改动运行CI、细化测试输入及采集慢项；feature/ui-reader-selection / cb4ab4bac，单代理，完成后本地提交，不提升版本、不自动推送或触发全量CI。
