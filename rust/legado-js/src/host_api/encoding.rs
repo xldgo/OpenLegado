@@ -6,28 +6,24 @@
 //! - Base64 编解码
 //! - Hex 编解码
 //! - URI 编码
-//! - SHA-256
-//! - HMAC-MD5
+//! - MD5及SHA-1/224/256/384/512摘要与HMAC
 
 // ============================================================
 // 启用 quickjs feature 时的真实实现
 // ============================================================
 #[cfg(feature = "quickjs")]
 mod impl_encoding {
+    use super::super::message_digest::{self, DigestAlgo};
     use base64::Engine;
-    use hmac::{Hmac, Mac};
-    use md5::{Digest as Md5Digest, Md5};
-    use sha1::Sha1;
-    use sha2::{Sha256, Sha384, Sha512};
 
     /// MD5 编码 — 返回 32 位十六进制小写字符串
     ///
     /// 对应 Kotlin: `MD5Utils.md5Encode(str)`
     pub fn md5_encode(input: &str) -> String {
-        let mut hasher = Md5::new();
-        hasher.update(input.as_bytes());
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(
+            DigestAlgo::Md5,
+            input.as_bytes(),
+        ))
     }
 
     /// MD5 编码 — 返回 16 位十六进制小写字符串（取中间 16 字符）
@@ -40,10 +36,7 @@ mod impl_encoding {
 
     /// MD5 编码字节数组
     pub fn md5_encode_bytes(input: &[u8]) -> String {
-        let mut hasher = Md5::new();
-        hasher.update(input);
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(DigestAlgo::Md5, input))
     }
 
     /// Base64 编码
@@ -112,182 +105,61 @@ mod impl_encoding {
 
     /// SHA-256 摘要 — 返回 64 位十六进制小写字符串
     pub fn sha256(input: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(input.as_bytes());
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(
+            DigestAlgo::Sha256,
+            input.as_bytes(),
+        ))
     }
 
     /// SHA-256 摘要（字节数组输入）
     pub fn sha256_bytes(input: &[u8]) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(input);
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(DigestAlgo::Sha256, input))
     }
 
-    /// HMAC-MD5 — 返回十六进制小写字符串
+    /// HMAC-MD5，沿用与通用入口相同的空密钥和异常规则。
     pub fn hmac_md5(data: &str, key: &str) -> Result<String, String> {
-        type HmacMd5 = Hmac<Md5>;
-        let mut mac = HmacMd5::new_from_slice(key.as_bytes())
-            .map_err(|e| format!("HMAC key error: {}", e))?;
-        mac.update(data.as_bytes());
-        let result = mac.finalize();
-        Ok(hex::encode(result.into_bytes()))
+        hmac_hex(data, "MD5", key)
     }
-
-    /// HMAC-SHA256 — 返回十六进制小写字符串
+    /// HMAC-SHA256，沿用与通用入口相同的空密钥和异常规则。
     pub fn hmac_sha256(data: &str, key: &str) -> Result<String, String> {
-        type HmacSha256 = Hmac<Sha256>;
-        let mut mac = HmacSha256::new_from_slice(key.as_bytes())
-            .map_err(|e| format!("HMAC key error: {}", e))?;
-        mac.update(data.as_bytes());
-        let result = mac.finalize();
-        Ok(hex::encode(result.into_bytes()))
+        hmac_hex(data, "SHA256", key)
     }
-
-    // ============================================================
-    // 通用摘要 + 编解码扩展
-    // ============================================================
-
-    /// 通用消息摘要 — digestHex(data, algorithm)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-384, SHA-512
-    ///
-    /// 对应 Kotlin: `digestHex(data, algorithm)`
+    fn digest_algorithm(algorithm: &str) -> Result<DigestAlgo, String> {
+        message_digest::parse_compact(&algorithm.to_ascii_uppercase().replace('-', ""))
+            .ok_or_else(|| format!("Unsupported algorithm: {algorithm}"))
+    }
+    /// 字符串按UTF-8计算字节摘要，再编码为Hex。
     pub fn digest_hex(data: &str, algorithm: &str) -> Result<String, String> {
-        match algorithm.to_uppercase().replace('-', "").as_str() {
-            "MD5" => Ok(md5_encode(data)),
-            "SHA1" => {
-                use sha1::Digest;
-                let mut hasher = Sha1::new();
-                hasher.update(data.as_bytes());
-                Ok(hex::encode(hasher.finalize()))
-            }
-            "SHA256" => Ok(sha256(data)),
-            "SHA384" => {
-                let mut hasher = Sha384::new();
-                hasher.update(data.as_bytes());
-                Ok(hex::encode(hasher.finalize()))
-            }
-            "SHA512" => {
-                let mut hasher = Sha512::new();
-                hasher.update(data.as_bytes());
-                Ok(hex::encode(hasher.finalize()))
-            }
-            _ => Err(format!("Unsupported algorithm: {}", algorithm)),
-        }
+        Ok(hex::encode(message_digest::hash_bytes(
+            digest_algorithm(algorithm)?,
+            data.as_bytes(),
+        )))
     }
-
-    /// 通用消息摘要 Base64 — digestBase64Str(data, algorithm)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-384, SHA-512
-    ///
-    /// 对应 Kotlin: `digestBase64Str(data, algorithm)`
+    /// 与Hex共享同一字节计算，Base64保持标准padding且不换行。
     pub fn digest_base64_str(data: &str, algorithm: &str) -> Result<String, String> {
-        let bytes: Vec<u8> = match algorithm.to_uppercase().replace('-', "").as_str() {
-            "MD5" => {
-                let mut hasher = Md5::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA1" => {
-                use sha1::Digest;
-                let mut hasher = Sha1::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA256" => {
-                let mut hasher = Sha256::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA384" => {
-                let mut hasher = Sha384::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA512" => {
-                let mut hasher = Sha512::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            _ => return Err(format!("Unsupported algorithm: {}", algorithm)),
-        };
-        Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+        Ok(
+            base64::engine::general_purpose::STANDARD.encode(message_digest::hash_bytes(
+                digest_algorithm(algorithm)?,
+                data.as_bytes(),
+            )),
+        )
     }
-
-    /// HMAC 算法名归一：大写 + 去 '-' + 剥离开头的 "HMAC" 前缀。
-    ///
-    /// 兼容 JCA 风格命名（`HmacSHA1` / `HMAC-SHA1` → `SHA1`），#135 阅文
-    /// QDSign 链路 `java.HMacBase64(sign, "HMAC-SHA1", aid)` 依赖该口径：
-    /// 归一后与既有 "SHA1"/"MD5"/"SHA256"/"SHA512" 分发臂对齐。
-    fn normalize_hmac_algorithm(algorithm: &str) -> String {
-        let n = algorithm.to_uppercase().replace('-', "");
-        n.strip_prefix("HMAC").unwrap_or(&n).to_string()
+    fn mac_bytes(data: &str, algorithm: &str, key: &str) -> Result<Vec<u8>, String> {
+        // 保留已确认阅文HMAC-SHA1及裸SHA1等别名，不引入额外空白归一。
+        let name = algorithm.to_ascii_uppercase().replace('-', "");
+        let name = name.strip_prefix("HMAC").unwrap_or(&name);
+        let parsed = message_digest::parse_compact(name)
+            .filter(|_| name != "SHA")
+            .ok_or_else(|| format!("Unsupported HMAC algorithm: {algorithm}"))?;
+        message_digest::hmac_bytes(parsed, key.as_bytes(), data.as_bytes())
     }
-
-    /// 通用 HMAC — hmacHex(data, algorithm, key)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-512（含 JCA 风格 `HMAC-SHA1` 等写法）
-    ///
-    /// 对应 Kotlin: `HMacHex(data, algorithm, key)`
+    /// 通用HMAC Hex，计算与输出编码分开。
     pub fn hmac_hex(data: &str, algorithm: &str, key: &str) -> Result<String, String> {
-        match normalize_hmac_algorithm(algorithm).as_str() {
-            "MD5" => hmac_md5(data, key),
-            "SHA1" => {
-                type HmacSha1 = Hmac<Sha1>;
-                let mut mac = HmacSha1::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                Ok(hex::encode(mac.finalize().into_bytes()))
-            }
-            "SHA256" => hmac_sha256(data, key),
-            "SHA512" => {
-                type HmacSha512 = Hmac<Sha512>;
-                let mut mac = HmacSha512::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                Ok(hex::encode(mac.finalize().into_bytes()))
-            }
-            _ => Err(format!("Unsupported HMAC algorithm: {}", algorithm)),
-        }
+        Ok(hex::encode(mac_bytes(data, algorithm, key)?))
     }
-
-    /// HMAC Base64 — hmacBase64(data, algorithm, key)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-512（含 JCA 风格 `HMAC-SHA1` 等写法）
-    ///
-    /// 对应 Kotlin: `HMacBase64(data, algorithm, key)`
+    /// 通用HMAC Base64，计算与输出编码分开。
     pub fn hmac_base64(data: &str, algorithm: &str, key: &str) -> Result<String, String> {
-        let bytes: Vec<u8> = match normalize_hmac_algorithm(algorithm).as_str() {
-            "MD5" => {
-                type HmacMd5T = Hmac<Md5>;
-                let mut mac = HmacMd5T::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            "SHA1" => {
-                type HmacSha1 = Hmac<Sha1>;
-                let mut mac = HmacSha1::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            "SHA256" => {
-                type HmacSha256T = Hmac<Sha256>;
-                let mut mac = HmacSha256T::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            "SHA512" => {
-                type HmacSha512 = Hmac<Sha512>;
-                let mut mac = HmacSha512::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            _ => return Err(format!("Unsupported HMAC algorithm: {}", algorithm)),
-        };
-        Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+        Ok(base64::engine::general_purpose::STANDARD.encode(mac_bytes(data, algorithm, key)?))
     }
 
     /// 字符串转自有字节；UTF-16遵循Java字节序，不用Web编码器替代为UTF-8。

@@ -1,5 +1,23 @@
 # API 契约文档
 
+## JS摘要与HMAC接口（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsEncodeUtils及CryptoUtils.digest/hmac；保留java与裸入口。
+补HMacHex，与既有hmacHex同源；HMacBase64/hmacBase64、hmacMd5/hmacSha256保留。
+摘要与HMAC在已有依赖内支持MD5、SHA-1/224/256/384/512，先计算字节再独立编码为小写Hex或标准带padding、不换行Base64。
+摘要计算复用同一MessageDigest核心，Packages能力预校验与实际计算同步补SHA-224/384；
+宿主算法名继续忽略大小写和连字符，并支持JCA摘要SHA别名；Packages原有更宽的规范化规则保留。
+HMAC保留已确认阅文语料HMAC-SHA1及既有裸SHA1/MD5等别名，不以JDK Provider拼写约束删除兼容。
+String形参null抛错，其他值保持Rhino ToString；undefined数据为字面字符串，未知算法抛异常；
+空数据合法，空密钥按[SecretKeySpec规则](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/javax/crypto/spec/SecretKeySpec.html)拒绝，非空Unicode及超出摘要块长的密钥正常处理。
+java.digestHex维持Java String方法对象，裸digestHex和其他既有接口维持原始字符串；
+包装层不能提前String(null)绕过宿主校验，错误不得变为[ERROR]正文或被包装成有效摘要。
+MessageDigest原生字节入口拒绝失效视图，不把复制失败当空字节；Packages增量面保持原输入数组转换与成功digest后复位，
+null/失效视图的update/digest须失败且保留此前累计内容，不改为新资源句柄或流协议。
+只统一本批已支持算法，不宣称实现JCA全部Provider/别名；不修改AES/RSA、FFI/生成物/schema/依赖或Flutter业务。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS时间格式与负时间戳（2026-10-19，实施前冻结）
 
 参考固定15e1337a的JsExtensions.timeFormat/timeFormatUTC与AppConst.dateFormat；

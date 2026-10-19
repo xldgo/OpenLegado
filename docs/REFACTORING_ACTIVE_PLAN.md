@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-DIGEST-HMAC-20261019：摘要与HMAC入口和错误边界（P1）
+
+- 状态：已关闭（本批摘要与HMAC接口范围）。用户批准开始；dep-audit / chore/dep-audit / 514a23aa6，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
+- 依据：固定参考版15e1337a的JsEncodeUtils/CryptoUtils、官方SecretKeySpec文档及JDK25/仓库Rhino探针。9组固定向量经JDK与Python标准库逐字段一致核对，研究材料在忽略目录build/digest-oracle，不新增永久JVM依赖。
+- 实现：先冻结脚本契约；新增私有digest_bridge统一java/裸入口与错误转换，补HMacHex，保留HMacBase64及小写别名。message_digest统一枚举与字节计算，encoding只负责入口策略和Hex/Base64表示；补SHA-224及HMAC/Packages的SHA-384，原字符串摘要已有SHA-384继续可用。HMAC继续用原RustCrypto Hmac，无新依赖。
+- 输入与错误：String形参null拒绝，undefined与其他值按Rhino ToString；空正文合法，空HMAC密钥拒绝。未知算法与密钥错误抛可捕获异常，不再返回[ERROR]正文。java.digestHex继续返回Java String方法对象，裸入口维持原始字符串；去掉包装层提前String(null)的绕过。MessageDigest原生字节入口复用ByteArray拒绝失效视图；Packages追加前验证视图，失败不改变此前累计内容，成功digest才复位。
+- 兼容边界：保留已确认阅文HMAC-SHA1及裸SHA1/MD5别名，与JDK Provider拼写约束的差异明确记录；Packages既有宽松名称规范化保留，宿主不新增空白归一。算法能力声明、预校验、真实计算与大小写入口已对应，不声称全JCA或全部Java方法等价。
+- 复现与验证：改前5项真实QuickJS全部失败，修后通过并扩展为8项；连同既有七猫/小小阅读/Java String回归共17项定向通过。9组JDK固定向量的Hex/Base64摘要及HMAC输出与Python独立一致，覆盖6种算法、Unicode、空正文及200字节长密钥。完整JS套件845通过、4既有忽略（24组，库700/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy通过，限定rustfmt、UTF-8与git diff --check通过。
+- 自查：核对契约→双入口注册→TextArg/ByteArray校验→算法计算→输出/Java String包装；没有吞错回退、未新增运行时JVM或网络依赖，失败字节输入与合法空视图区分。按用户要求无子代理，由Codex自查diff，无独立审查或远程CI。默认Clippy曾等待共享Cargo目录锁，正常等待后通过，未干预其他任务。
+- 证据：build/js-byte-conversion/digest-{reproduce,fixed,targeted,complete,default,clippy-quickjs,clippy-default}.log；reproduce是5项预期失败，targeted为17项通过，complete为完整通过。版本2.0.405+406及双日志同步。
+- 交付限制：无AES/RSA、FFI/生成物/schema/依赖或Flutter业务改动；未跑全workspace/Flutter测试、构建native/应用、安装或推送，不宣称真机/全平台验收。MuMu仍2.0.394+395，下次应用构建须重建匹配Rust库。
+
+编写者：Codex｜2026-10-19
+
 ### JS-TIME-FORMAT-20261019：Java数字时间格式与负时间戳（P1）
 
 - 状态：已关闭（本批ASCII数字时间格式范围，Locale扩展另待用户选择）。用户批准开始；dep-audit / chore/dep-audit / a5771baa2，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。

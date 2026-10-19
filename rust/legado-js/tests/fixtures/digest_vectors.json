@@ -1,0 +1,83 @@
+[
+  {
+    "algorithm": "MD5",
+    "data": "hello",
+    "key": "key",
+    "digestHex": "5d41402abc4b2a76b9719d911017c592",
+    "digestBase64": "XUFAKrxLKna5cZ2REBfFkg==",
+    "hmacHex": "04130747afca4d79e32e87cf2104f087",
+    "hmacBase64": "BBMHR6/KTXnjLofPIQTwhw=="
+  },
+  {
+    "algorithm": "SHA-1",
+    "data": "hello",
+    "key": "key",
+    "digestHex": "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d",
+    "digestBase64": "qvTGHdzF6KLavt4PO0gs2a6pQ00=",
+    "hmacHex": "b34ceac4516ff23a143e61d79d0fa7a4fbe5f266",
+    "hmacBase64": "s0zqxFFv8joUPmHXnQ+npPvl8mY="
+  },
+  {
+    "algorithm": "SHA-224",
+    "data": "hello",
+    "key": "key",
+    "digestHex": "ea09ae9cc6768c50fcee903ed054556e5bfc8347907f12598aa24193",
+    "digestBase64": "6gmunMZ2jFD87pA+0FRVblv8g0eQfxJZiqJBkw==",
+    "hmacHex": "6b30a4ecbe38b6a90d7dd0ac3ef17aa68c0aa8bd5c79d2b219f4e6f6",
+    "hmacBase64": "azCk7L44tqkNfdCsPvF6powKqL1cedKyGfTm9g=="
+  },
+  {
+    "algorithm": "SHA-256",
+    "data": "hello",
+    "key": "key",
+    "digestHex": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+    "digestBase64": "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=",
+    "hmacHex": "9307b3b915efb5171ff14d8cb55fbcc798c6c0ef1456d66ded1a6aa723a58b7b",
+    "hmacBase64": "kwezuRXvtRcf8U2MtV+8x5jGwO8UVtZt7RpqpyOli3s="
+  },
+  {
+    "algorithm": "SHA-384",
+    "data": "hello",
+    "key": "key",
+    "digestHex": "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f",
+    "digestBase64": "WeF0h3dEjGnea4ANejO7+5/xtGPkQ1TDVTvNucZm+pASWjx5+QOXvfX2oT3oKGhP",
+    "hmacHex": "eacbad575c301fa68afb26dae48b25bf5cd42fd08ed28c08c274ce62df7928f01249976cd8aaf1ab0681d3accedc9543",
+    "hmacBase64": "6sutV1wwH6aK+yba5Islv1zUL9CO0owIwnTOYt95KPASSZds2KrxqwaB06zO3JVD"
+  },
+  {
+    "algorithm": "SHA-512",
+    "data": "hello",
+    "key": "key",
+    "digestHex": "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
+    "digestBase64": "m3HSJL1i83hdltRq0+o9czGb+8KJDKra4t/3JRlnPKcjI8PZm6XBHXx6zG4UuMXaDEZjR1wuXDre9G9zvN7AQw==",
+    "hmacHex": "ff06ab36757777815c008d32c8e14a705b4e7bf310351a06a23b612dc4c7433e7757d20525a5593b71020ea2ee162d2311b247e9855862b270122419652c0c92",
+    "hmacBase64": "/warNnV3d4FcAI0yyOFKcFtOe/MQNRoGojthLcTHQz53V9IFJaVZO3ECDqLuFi0jEbJH6YVYYrJwEiQZZSwMkg=="
+  },
+  {
+    "algorithm": "SHA-384",
+    "data": "中文😀",
+    "key": "密钥😀",
+    "digestHex": "91465e34445abe891025ee5c11015a56d37ebae77191c3ba6ad3e93f1a037d8ff8ebcf6752a257b8b86b481ddae2e4da",
+    "digestBase64": "kUZeNERavokQJe5cEQFaVtN+uudxkcO6atPpPxoDfY/4689nUqJXuLhrSB3a4uTa",
+    "hmacHex": "cdd98e1d293735c0387e8aa9582116416cb48894511ff40ac69f9565608d9e4903702afab25df8930b7bd100983ff752",
+    "hmacBase64": "zdmOHSk3NcA4foqpWCEWQWy0iJRRH/QKxp+VZWCNnkkDcCr6sl34kwt70QCYP/dS"
+  },
+  {
+    "algorithm": "SHA-256",
+    "data": "",
+    "key": "key",
+    "digestHex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "digestBase64": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+    "hmacHex": "5d5d139563c95b5967b9bd9a8c9b233a9dedb45072794cd232dc1b74832607d0",
+    "hmacBase64": "XV0TlWPJW1lnub2ajJsjOp3ttFByeUzSMtwbdIMmB9A="
+  },
+  {
+    "algorithm": "SHA-512",
+    "data": "long-key",
+    "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+    "digestHex": "0d93dbbee6b0d3a34dfb086455d3ab64a2a65ee472f742d4afc5c8b659e8aef5e608d57644d81f1be0508e1d01a38e40ec9dc8da679e18051fc1fbdcd148def3",
+    "digestBase64": "DZPbvuaw06NN+whkVdOrZKKmXuRy90LUr8XItlnorvXmCNV2RNgfG+BQjh0Bo45A7J3I2meeGAUfwfvc0Uje8w==",
+    "hmacHex": "8d91f11ee9efecb8b8c154ec3fe6a16ff3e3d1846b64f5406f5b504614ec45bc9a6e43f66514b3654132ed2efc041b4ee6f631b1def75385bbf9b8dcf2a7c3dc",
+    "hmacBase64": "jZHxHunv7Li4wVTsP+ahb/Pj0YRrZPVAb1tQRhTsRbyabkP2ZRSzZUEy7S78BBtO5vYxsd73U4W7+bjc8qfD3A=="
+  }
+]

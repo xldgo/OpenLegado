@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.405] - 2026-10-19
+
+### Fixed
+- 补齐书源HMacHex接口及SHA-224/384算法，统一摘要与HMAC的Hex、Base64计算结果。
+- 未知算法、空密钥及无效摘要字节输入明确报错，不再将失败伪装为正常结果。
+- 保留已确认的算法别名与Java字符串方法，摘要输入失败后保留此前累计内容。
+- 贡献者：Codex + Rust；构建号406。
+
 ## [2.0.404] - 2026-10-19
 
 ### Fixed

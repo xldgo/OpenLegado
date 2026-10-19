@@ -648,11 +648,13 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
   // getInstance 登记台账 + 抛可读文案，不静默产出空摘要）；纯 Rust 计算走
   // java.messageDigestDigest(algo, bytes)。Java 语义：digest() 复位状态
   // （本 shim 直接重置 buf，与「一次 digest 后实例即重置」一致）；
-  // update/digest 均返回 this 以支持链式。
+  // update返回this支持链式，digest返回摘要字节数组。
   function JSMMessageDigestInstance(algo) {
     var buf = new Uint8Array(0);
     function append(chunk) {
-      var c = toU8(chunk || []);
+      if (chunk === null || chunk === undefined) { throw new TypeError('摘要输入不能为null'); }
+      // slice先验证原视图，拒绝分离/越界缓冲；失败时buf尚未改变。
+      var c = Uint8Array.prototype.slice.call(toU8(chunk));
       var nb = new Uint8Array(buf.length + c.length);
       nb.set(buf, 0);
       nb.set(c, buf.length);
@@ -1085,16 +1087,15 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
   // Kotlin digestHex/md5Encode/md5Encode16 返回 `String`：Rhino 里经
   // WrapFactory 包为 NativeJavaObject（Java String 方法面可调：
   // length()/substring()/getBytes()…，字符串 coercion 即内容）。
-  // 宿主绑定本体是严格 &str 入参 + JS 原始串出参（Rust 侧 digest_hex /
-  // md5_encode 不动），此处以 JS 包装层补 Rhino 语义：入参先 String()
-  // 强转（JSString 经 valueOf → 内容，Uint8Array 等其它形态亦不直送
-  // Rust 侧严格转换），返回值统一 JSString 包装。
+  // digestHex的入参由Rust TextArg执行非null检查与Rhino字符串转换；
+  // 不在这里String(null)绕过检查。md5Encode系列保留既有String强转。
+  // 返回值统一用JSString补齐Java String方法面。
   // 仅替换 java 命名空间绑定；裸全局镜像保持原始串语义（engine.rs
   // test_host_api_md5_encode 等既有断言钉住裸全局 md5Encode/md5Encode16
   // 返回原始串，且语料 URL 模板拼接经 toString/valueOf 强转两形态一致）。
   var origDigestHex = java.digestHex;
   java.digestHex = function (data, algo) {
-    return JSString(origDigestHex(String(data), String(algo)));
+    return JSString(origDigestHex(data, algo));
   };
   var origMd5Encode = java.md5Encode;
   java.md5Encode = function (s) {
@@ -1536,105 +1537,7 @@ fn register_encoding_apis<'js>(
     )
     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // hmacMd5(data, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacMd5",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr, key: RhinoStr| -> String {
-            encoding::hmac_md5(&data, &key).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hmacSha256(data, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacSha256",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr, key: RhinoStr| -> String {
-            encoding::hmac_sha256(&data, &key).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // digestHex(data, algorithm) -> String
-    mount_dual(
-        java,
-        globals,
-        "digestHex",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr| -> String {
-                encoding::digest_hex(&data, &algorithm).unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // digestBase64Str(data, algorithm) -> String
-    mount_dual(
-        java,
-        globals,
-        "digestBase64Str",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr| -> String {
-                encoding::digest_base64_str(&data, &algorithm)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hmacHex(data, algorithm, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacHex",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr, key: RhinoStr| -> String {
-                encoding::hmac_hex(&data, &algorithm, &key)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hmacBase64(data, algorithm, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacBase64",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr, key: RhinoStr| -> String {
-                encoding::hmac_base64(&data, &algorithm, &key)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // HMacBase64(data, algorithm, key) -> String
-    // #135 阅文 QDSign：java.HMacBase64(sign, "HMAC-SHA1", aid).slice(0, -4)
-    // 对齐上游 JsExtensions 的 JCA 风格命名（JS 属性访问大小写敏感，
-    // 与 hmacBase64 共存）；算法名归一支持 "HMAC-SHA1"/"HmacSHA1"
-    // （见 encoding::normalize_hmac_algorithm）。
-    mount_dual(
-        java,
-        globals,
-        "HMacBase64",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr, key: RhinoStr| -> String {
-                encoding::hmac_base64(&data, &algorithm, &key)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    super::digest_bridge::register(ctx, java, globals)?;
 
     // strToBytes(str, charset?) -> Uint8Array
     mount_dual(
@@ -3283,7 +3186,7 @@ fn register_crypto_apis<'js>(
 ///   shim 侧 `JSMMessageDigestInstance` 累积字节、`digest()` 收尾时一次性传入
 ///   本宿主函数（与 Java 增量语义等价）。
 ///
-/// 支持 MD5/SHA-1/SHA-256/SHA-512（语料 3 命中实际用法，见 message_digest 模块）；
+/// 算法集合与字符串摘要共用，见message_digest模块；
 /// 未知算法在本函数返回 Err、shim 侧转可读文案 + 台账，不静默产出空摘要。
 #[cfg(feature = "quickjs")]
 fn register_message_digest_apis<'js>(
@@ -3302,31 +3205,21 @@ fn register_message_digest_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // messageDigestDigest(algo, bytes) -> Uint8Array（字节数组，非 hex 串）
+    // 字节转换必须失败即拒绝，不能把失效视图静默作为空摘要输入。
     mount_dual(
         java,
         globals,
         "messageDigestDigest",
         rquickjs::Function::new(
             ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>,
-             algo: RhinoStr,
-             data: rquickjs::TypedArray<u8>|
-             -> rquickjs::Result<rquickjs::Value<'js>> {
+            |ctx: rquickjs::Ctx<'js>, algo: RhinoStr, data: crate::quickjs_bytes::ByteArray| {
                 use rquickjs::IntoJs;
-                let data_b = crate::quickjs_bytes::copy_bytes(&data).unwrap_or_default();
-                let out = message_digest::digest_bytes(&algo, &data_b).map_err(|e| {
-                    rquickjs::Error::FromJs {
-                        from: "MessageDigest",
-                        to: "Uint8Array",
-                        message: Some(e),
-                    }
-                })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), out)?;
-                arr.into_js(&ctx)
+                let out = message_digest::digest_bytes(&algo, &data.0)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                rquickjs::TypedArray::new(ctx.clone(), out)?.into_js(&ctx)
             },
         )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
     )?;
 
     Ok(())

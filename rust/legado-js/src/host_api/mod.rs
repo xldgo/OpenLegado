@@ -27,6 +27,8 @@ pub mod cookie_store;
 pub mod crypto_api;
 pub mod current_source;
 pub mod device_id;
+#[cfg(feature = "quickjs")]
+mod digest_bridge;
 pub mod encoding;
 pub mod env;
 #[cfg(feature = "quickjs")]
@@ -45,7 +47,7 @@ mod java_date_format;
 #[cfg(feature = "quickjs")]
 pub mod jslib_loader;
 pub mod json_utils;
-/// java.security.MessageDigest 摘要核心（MD5/SHA-1/SHA-256/SHA-512，复用
+/// java.security.MessageDigest 摘要核心（MD5及SHA-1/224/256/384/512，复用
 /// md-5/sha1/sha2 既有依赖；随 quickjs feature 门控）
 #[cfg(feature = "quickjs")]
 pub mod message_digest;
