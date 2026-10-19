@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-BYTE-CONVERSION-20261019：脚本字节转换与Java包装统一（P1）
+
+- 状态：已关闭（本批JS字节转换范围）；用户批准继续，dep-audit / chore/dep-audit / c1d081216起，成果随本条所在提交交付，单代理，本地提交，不推送/合并，不改主目录。
+- 依据：固定参考版15e1337a的JsExtensions.strToBytes/bytesToStr与仓库Rhino字节数组探针；JVM字符集核对UTF-8/UTF-16/LE/BE/GBK输出。不运行上游应用。
+- 目标：strToBytes返回字节，bytesToStr接收有效字节视图与普通数组；Java字符串/字节流移除JSON中转；验证读取端直连、字符集/错误、空/偏移/失效缓冲区与既有语料包装行为。
+- 范围：先冻结脚本契约，不改加密/网络/FFI/生成物/schema/依赖；不新增数组JSON兼容入口，不构建native/应用/模拟器。行为复现后最小修复，相关Rust回归与两档严格检查，通过后整批本地提交。
+- 修前复现：5项真实QuickJS行为测试失败，确认strToBytes返回JSON、bytesToStr不能接读取结果/视图、无效值未抛异常、UTF-16被Web编码器当作UTF-8。用仓库HtmlUnit Rhino JAR与本机JDK25作临时探针，普通数组验证有符号byte、截断、字符串数字、非法值，JVM核对UTF-8/UTF-16三种字节序及GBK无法表示字符；不是新增应用测试宿主或运行上游应用。探针初版作用域类型误用已纠正，未成功编译的输出不作证据。
+- 实现：Rust编码函数改收/返自有字节，不再序列化JSON；QuickJS双入口返回Uint8Array、接收有效Uint8Array/Int8Array或按Rhino规则转换普通数组，拒绝JSON字符串、空值、无效元素、分离/越界视图。视图先复制到Rust，再允许字符集ToString执行JS，避免跨重入保留引擎切片借用。没有新增unsafe段，原copy_bytes泛化为共用复制入口。
+- 包装与编码：java.lang.String/getBytes及输入/输出流删除JSON中转，保留原拷贝、范围与mark/reset行为；String额外识别Int8Array。UTF-16LE/BE按指定序，UTF-16非空带BE BOM、空串空输出、无BOM解码BE；UTF-8/显式端序保留BOM字符。ISO-8859-1/ASCII使用Java字符范围，其他既有Web编码器路径的不可编码字符用同一编码器写问号，避免HTML实体。未知编码/显式null、undefined字符集抛错，不转[ERROR]正文；不宣称支持JVM全部编码与别名或Java对象包装身份。
+- 行为验证：JS完整库/集成789项通过、3项既有忽略（20个结果组，库683项）；默认JS库273项通过，不重复累加。新增6项覆盖GBK/UTF-8/UTF-16/BOM/Latin1/ASCII、空值与非法字符集/数组、偏移/有符号视图、分离与缩容、字符集转换期间分离原缓冲及失败后VM恢复、文件/ZIP/7z直连、Java字符串和输入/输出流。既有真实语料、沙箱固定内存与网络生命周期保持通过；末次补UTF-16空串后21项编码回归通过，不重复全仓检查。
+- 测试环境整改：完整回归的DNS隔离用例及单项均失败；系统DNS实际将second.invalid解析为127.0.0.1，原“不带覆盖一定解析失败”前提失效。仅夹具注入实例默认地址127.0.0.2，覆盖仍为127.0.0.1；保持真实重定向、错误及请求计数检查，网络生产代码未变，完整JS复验通过。没有用反复重试、加长超时或放宽断言隐藏问题。
+- 门禁与证据：JS/Engine默认和QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8与diff检查通过。build/js-byte-conversion/{probe-fixed,probe-empty,reproduce,fixed,js-verified,encoding-final,default-library,clippy-quickjs,clippy-default,dns-environment,dns-recheck}.log；reproduce为5项预期失败，dns-recheck为环境前提问题的稳定复现，js-verified为完整通过。js-complete库通过但网络失败，不将其整批声称通过。仅单代理实现与自查，无独立外审。
+- 交付边界：版本2.0.398+399、双日志及脚本契约随本批提交；无FFI签名/DTO/生成物、schema、依赖、网络生产或Dart业务变更。不构建native/应用、不安装模拟器、不触发远程CI或推送；MuMu仍2.0.394+395。下次应用构建需重建匹配Rust产物，不修改旧元数据。不宣称全JS功能或所有平台运行已完成。
+
+编写者：Codex｜2026-10-19
+
 ### JS-ARCHIVE-READ-20261019：文件与压缩包字节读取对齐（P1）
 
 - 状态：已关闭（本批文件/压缩包读取范围）；用户批准下一批，dep-audit / chore/dep-audit / 84bb1660f起，成果随本条所在提交交付，单代理，不推送/合并，不改主目录。

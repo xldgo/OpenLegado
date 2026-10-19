@@ -339,8 +339,6 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     let shim = r#"
 (function () {
   function toU8(x) { return (x instanceof Uint8Array) ? x : new Uint8Array(x); }
-  function toJsonBytes(u8) { var a = []; for (var i = 0; i < u8.length; i++) a.push(u8[i]); return JSON.stringify(a); }
-  function fromJsonBytes(json) { return new Uint8Array(JSON.parse(json)); }
   // JSString —— Rhino NativeJavaObject（java.lang.String）模拟体。
   // toString/valueOf → 内容本身（字符串 coercion 路径：拼接、String()、
   // 模板插值、JSON.parse 参数均取回内容）。
@@ -359,7 +357,7 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     var self = {
       toString: function () { return s; },
       valueOf: function () { return s; },
-      getBytes: function (charset) { return fromJsonBytes(java.strToBytes(s, charset || 'UTF-8')); },
+      getBytes: function (charset) { return java.strToBytes(s, charset || 'UTF-8'); },
       substring: function (start, end) {
         return end === undefined ? s.substring(start) : s.substring(start, end);
       },
@@ -382,7 +380,7 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
   }
   function JavaString() {
     var a0 = arguments.length > 0 ? arguments[0] : undefined;
-    var isBytes = (a0 instanceof Uint8Array) || Array.isArray(a0);
+    var isBytes = (a0 instanceof Uint8Array) || (a0 instanceof Int8Array) || Array.isArray(a0);
     // 两种调用形态一律返回 JSString **对象**（2026-09-26 小小阅读 jsLib
     // 第二层定案，双基准裁决 .tmp/crosscheck_20260927/verdict.md 引擎缺口
     // 再深一层——Rhino WrapFactory javaPrimitiveWrap 默认 true）：
@@ -412,18 +410,18 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
       var off4 = Number(arguments[1]) || 0;
       var len4 = Number(arguments[2]) || 0;
       var sub4 = toU8(a0).slice(off4, off4 + len4);
-      var r4 = java.bytesToStr(toJsonBytes(sub4), String(arguments[3]));
+      var r4 = java.bytesToStr(sub4, String(arguments[3]));
       s = String(r4);
     } else if (arguments.length === 3 && isBytes) {
       var off3 = Number(arguments[1]) || 0;
       var len3 = Number(arguments[2]) || 0;
       var sub3 = toU8(a0).slice(off3, off3 + len3);
-      s = String(java.bytesToStr(toJsonBytes(sub3), 'UTF-8'));
+      s = String(java.bytesToStr(sub3, 'UTF-8'));
     } else if (arguments.length >= 2 && isBytes) {
-      var r = java.bytesToStr(toJsonBytes(toU8(a0)), String(arguments[1]));
+      var r = java.bytesToStr(toU8(a0), String(arguments[1]));
       s = String(r);
     } else if (arguments.length === 1 && isBytes) {
-      s = String(java.bytesToStr(toJsonBytes(toU8(a0)), 'UTF-8'));
+      s = String(java.bytesToStr(toU8(a0), 'UTF-8'));
     } else {
       s = String(arguments[0]);
     }
@@ -506,7 +504,7 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
       },
       size: function () { return len; },
       close: function () {},
-      toString: function () { return String(java.bytesToStr(toJsonBytes(this.toByteArray()), 'UTF-8')); }
+      toString: function () { return String(java.bytesToStr(this.toByteArray(), 'UTF-8')); }
     };
   }
   // P2-9 ① java.io.InputStream 最小面（语料 favcomic decode 路径，索引 703）：
@@ -548,11 +546,11 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     if (str !== null) {
       if (typeof globalThis.java !== 'undefined' && globalThis.java &&
           typeof globalThis.java.strToBytes === 'function') {
-        var json = String(globalThis.java.strToBytes(str, 'UTF-8'));
-        if (json.indexOf('[ERROR]') === 0) {
-          throw new Error('java.io.InputStream: 字符串输入转字节失败（java.strToBytes: ' + json + '）');
+        var encoded = globalThis.java.strToBytes(str, 'UTF-8');
+        if (!(encoded instanceof Uint8Array)) {
+          throw new TypeError('java.io.InputStream: 字符串编码未返回字节数组');
         }
-        return fromJsonBytes(json);
+        return new Uint8Array(encoded);
       }
       throw new Error('java.io.InputStream: 字符串输入需宿主 java.strToBytes 转换，当前不可用');
     }
@@ -1785,28 +1783,36 @@ fn register_encoding_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // strToBytes(str, charset?) -> String (JSON array)
+    // strToBytes(str, charset?) -> Uint8Array
     mount_dual(
         java,
         globals,
         "strToBytes",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr, charset: RhinoOptStr| -> String {
-            encoding::str_to_bytes(&s, charset.0.as_deref())
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'js>,
+             s: crate::quickjs_bytes::TextArg,
+             charset: crate::quickjs_bytes::CharsetArg| {
+                let bytes = encoding::str_to_bytes(&s.0, charset.0.as_deref())
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                rquickjs::TypedArray::<u8>::new(ctx, bytes)
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // bytesToStr(bytesJson, charset?) -> String
+    // bytesToStr(bytes, charset?) -> String
     mount_dual(
         java,
         globals,
         "bytesToStr",
         rquickjs::Function::new(
             ctx.clone(),
-            |bytes_json: RhinoStr, charset: RhinoOptStr| -> String {
-                encoding::bytes_to_str(&bytes_json, charset.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+            |ctx: rquickjs::Ctx<'js>,
+             bytes: crate::quickjs_bytes::ByteArray,
+             charset: crate::quickjs_bytes::CharsetArg| {
+                encoding::bytes_to_str(&bytes.0, charset.0.as_deref())
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -5922,15 +5928,195 @@ cipher.decryptStr(b64);
     #[test]
     fn test_java_str_to_bytes() {
         let engine = make_engine();
-        let result = engine.eval("java.strToBytes('Hello')").unwrap();
+        let result = engine
+            .eval("JSON.stringify(Array.from(java.strToBytes('Hello')))")
+            .unwrap();
         assert_eq!(result, "[72,101,108,108,111]");
+    }
+
+    #[test]
+    fn byte_conversion_returns_typed_bytes_and_decodes_without_json() {
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(
+                    r#"
+            var b=java.strToBytes('中文','GBK');
+            JSON.stringify([b instanceof Uint8Array,Array.from(b),bytesToStr(b,'GBK'),
+                strToBytes('') instanceof Uint8Array,bytesToStr(new Uint8Array(0))]);
+        "#
+                )
+                .unwrap(),
+            "[true,[214,208,206,196],\"中文\",true,\"\"]"
+        );
+    }
+
+    #[test]
+    fn byte_conversion_rejects_invalid_inputs_and_unknown_charsets() {
+        let engine = make_engine();
+        for arg in [
+            "null",
+            "undefined",
+            "'[65]'",
+            "[128]",
+            "[-129]",
+            "[true]",
+            "[NaN]",
+            "[Infinity]",
+            "[null]",
+            "new Uint16Array([65])",
+        ] {
+            assert!(
+                engine.eval(&format!("java.bytesToStr({arg})")).is_err(),
+                "{arg}必须抛错"
+            );
+        }
+        assert_eq!(engine.eval("java.bytesToStr(['65',66.9])").unwrap(), "AB");
+        for code in [
+            "java.strToBytes('text','unknown-charset')",
+            "java.bytesToStr(new Uint8Array([65]),'unknown-charset')",
+        ] {
+            assert!(engine.eval(code).is_err(), "{code}");
+        }
+        for code in [
+            "java.strToBytes(null)",
+            "java.strToBytes('x',null)",
+            "java.strToBytes('x',undefined)",
+            "java.bytesToStr([],null)",
+            "java.bytesToStr([],undefined)",
+        ] {
+            assert!(engine.eval(code).is_err(), "{code}");
+        }
+    }
+
+    #[test]
+    fn byte_conversion_respects_views_and_rejects_detached_or_out_of_bounds_buffers() {
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(
+                    r#"
+            var raw=new Uint8Array([0,214,208,0]);
+            JSON.stringify([java.bytesToStr(raw.subarray(1,3),'GBK'),
+                java.bytesToStr(new Int8Array(raw.buffer,1,2),'GBK'),
+                String(new java.lang.String(new Int8Array(raw.buffer,1,2),'GBK'))]);
+        "#
+                )
+                .unwrap(),
+            "[\"中\",\"中\",\"中\"]"
+        );
+        for setup in [
+            "var buffer=new ArrayBuffer(2);var view=new Uint8Array(buffer);buffer.transfer();",
+            "var buffer=new ArrayBuffer(2,{maxByteLength:4});var view=new Uint8Array(buffer,1,1);buffer.resize(0);",
+        ] {
+            engine.eval(setup).unwrap();
+            assert!(engine.eval("java.bytesToStr(view)").is_err());
+        }
+        assert_eq!(engine.eval(r#"
+            var changing=new Uint8Array([65]);
+            java.bytesToStr(changing,{toString:function(){changing.buffer.transfer();return 'UTF-8';}});
+        "#).unwrap(),"A");
+        assert_eq!(
+            engine
+                .eval("java.bytesToStr(java.strToBytes('恢复'))")
+                .unwrap(),
+            "恢复"
+        );
+    }
+
+    #[test]
+    fn byte_conversion_utf16_matches_java_and_keeps_java_wrappers() {
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval("JSON.stringify(Array.from(java.strToBytes('中😀','GBK')))")
+                .unwrap(),
+            "[214,208,63]"
+        );
+        for (label, expected) in [
+            ("UTF-16", "[254,255,78,45,216,61,222,0]"),
+            ("UTF-16LE", "[45,78,61,216,0,222]"),
+            ("UTF-16BE", "[78,45,216,61,222,0]"),
+        ] {
+            assert_eq!(
+                engine
+                    .eval(&format!(
+                        "JSON.stringify(Array.from(java.strToBytes('中😀','{label}')))"
+                    ))
+                    .unwrap(),
+                expected
+            );
+            assert_eq!(
+                engine
+                    .eval(&format!(
+                        "java.bytesToStr(java.strToBytes('中😀','{label}'),'{label}')"
+                    ))
+                    .unwrap(),
+                "中😀"
+            );
+        }
+        assert_eq!(
+            engine
+                .eval(
+                    r#"
+            var s=new java.lang.String(java.strToBytes('中文'));
+            var input=new Packages.java.io.InputStream(s);
+            var output=new Packages.java.io.ByteArrayOutputStream();
+            var b=new Uint8Array(6);var n=input.read(b);output.write(b,0,n);
+            JSON.stringify([s.getBytes() instanceof Uint8Array,output.toString(),s.substring(0,1)]);
+        "#
+                )
+                .unwrap(),
+            "[true,\"中文\",\"中\"]"
+        );
+    }
+
+    #[test]
+    fn byte_conversion_reads_files_and_archive_entries_directly() {
+        let path = create_zip_for_js(&[("text", "中文".as_bytes())]);
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.bytesToStr(java.getZipByteArrayContent({},'text'))",
+                    js_str(&path)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        let name = format!("bytes_{}", uuid::Uuid::new_v4());
+        let file = crate::host_api::file_utils::default_sandbox_root().join(&name);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "中文").unwrap();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.bytesToStr(java.readFile({}))",
+                    js_str(&name)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        std::fs::remove_file(file).unwrap();
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+        let path = create_7z_for_js(&[("text", "中文".as_bytes())]);
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.bytesToStr(java.get7zByteArrayContent({},'text'))",
+                    js_str(&path)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
     }
 
     #[test]
     fn test_java_bytes_to_str() {
         let engine = make_engine();
         let result = engine
-            .eval("java.bytesToStr('[72,101,108,108,111]')")
+            .eval("java.bytesToStr([72,101,108,108,111])")
             .unwrap();
         assert_eq!(result, "Hello");
     }

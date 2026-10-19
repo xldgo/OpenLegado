@@ -1,5 +1,21 @@
 # API 契约文档
 
+## JS字节转换统一（2026-10-19，实施前冻结）
+
+沿用strToBytes/bytesToStr的java与裸别名，无FFI变更。strToBytes返回Uint8Array，不再暴露JSON字符串。
+bytesToStr接收Uint8Array/Int8Array的有效视图或普通数组，读取当前视图范围；分离/缩容越界缓冲抛异常。
+普通数组按仓库Rhino实测的byte转换：数值向零截断后须在-128..127，允许可转数字字符串；
+拒绝布尔、null/undefined、NaN/无限值及越界项，不将字符串解析为JSON数组。字节视图保留8位位模式。
+UTF-8为默认；只有省略字符集才使用默认，显式null/undefined/未知编码抛异常，不返回[ERROR]正文。
+strToBytes不接受null字符串；转换不进行文本编码自动检测。ISO-8859-1/ASCII按Java字符范围转换，
+无法编码的字符替换为问号，不使用Web编码器的HTML数字实体。
+UTF-16LE/BE分别按指定字节序编码/解码；非空UTF-16编码带BE BOM，空串编码为空字节，解码识别BOM、无BOM用BE。
+原生Java字节数组以Rust脚本宿主现有Uint8Array表示，不复制Rhino的Java对象包装身份。
+java.lang.String/getBytes、字节输入/输出流统一消费字节；移除内部JSON字节中转。
+保持包装对象的字符串方法、输入流拷贝/偏移/mark/reset与现有错误生命周期；不改加密算法、网络、FFI或数据库。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS文件与压缩包读取（2026-10-19，实施前冻结）
 
 参考固定15e1337a的JsExtensions；沿用既有文件沙箱与资源所有者，不改FFI签名或数据库。

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.398] - 2026-10-19
+
+### Fixed
+- 书源脚本字符串与字节转换直接使用字节数组，可连接文件及ZIP/7z读取结果。
+- Java字符串和字节流移除JSON中转，正确处理字节视图和失效缓冲区。
+- 修复UTF-16字节序及常用字符集转换、错误被转为普通正文的问题。
+- 贡献者：Codex + Rust；构建号399。
+
 ## [2.0.397] - 2026-10-19
 
 ### Fixed

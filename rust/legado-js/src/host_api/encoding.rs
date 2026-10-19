@@ -350,32 +350,114 @@ mod impl_encoding {
         Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
     }
 
-    /// strToBytes(str, charset) — 字符串转字节数组（JSON 数组格式）
-    ///
-    /// 对应 Kotlin: `strToBytes(str, charset)`
-    /// 返回 JSON 数组格式，如 "[72,101,108,108,111]"
-    pub fn str_to_bytes(s: &str, charset: Option<&str>) -> Result<String, String> {
+    /// 字符串转自有字节；UTF-16遵循Java字节序，不用Web编码器替代为UTF-8。
+    pub fn str_to_bytes(s: &str, charset: Option<&str>) -> Result<Vec<u8>, String> {
         let encoding_name = charset.unwrap_or("UTF-8");
+        let utf16 = encoding_name.to_ascii_uppercase();
+        if matches!(
+            utf16.as_str(),
+            "ISO-8859-1" | "ISO_8859-1" | "ISO8859-1" | "LATIN1"
+        ) {
+            return Ok(s
+                .chars()
+                .map(|c| u8::try_from(u32::from(c)).unwrap_or(b'?'))
+                .collect());
+        }
+        if matches!(utf16.as_str(), "US-ASCII" | "ASCII") {
+            return Ok(s
+                .chars()
+                .map(|c| if c.is_ascii() { c as u8 } else { b'?' })
+                .collect());
+        }
+        if matches!(utf16.as_str(), "UTF-16" | "UTF-16LE" | "UTF-16BE") {
+            let mut bytes = Vec::new();
+            if utf16 == "UTF-16" && !s.is_empty() {
+                bytes.extend_from_slice(&[0xfe, 0xff]);
+            }
+            for unit in s.encode_utf16() {
+                bytes.extend_from_slice(&if utf16 == "UTF-16LE" {
+                    unit.to_le_bytes()
+                } else {
+                    unit.to_be_bytes()
+                });
+            }
+            return Ok(bytes);
+        }
         let encoding = encoding_rs::Encoding::for_label(encoding_name.as_bytes())
             .ok_or_else(|| format!("Unsupported charset: {}", encoding_name))?;
-        let (bytes, _enc, _had_errors) = encoding.encode(s);
-        let arr: Vec<serde_json::Value> =
-            bytes.iter().map(|&b| serde_json::Value::from(b)).collect();
-        serde_json::to_string(&arr).map_err(|e| format!("JSON serialize error: {}", e))
+        if encoding == encoding_rs::UTF_8 {
+            return Ok(s.as_bytes().to_vec());
+        }
+        // Java对无法表示的字符使用问号；encoding_rs默认会写HTML数字实体，不能直接采用。
+        let mut encoder = encoding.new_encoder();
+        let mut output = Vec::new();
+        let mut offset = 0;
+        loop {
+            let size = encoder
+                .max_buffer_length_from_utf8_without_replacement(s.len() - offset)
+                .ok_or_else(|| "字符编码输出过大".to_string())?;
+            output.reserve(size);
+            let (result, read) = encoder.encode_from_utf8_to_vec_without_replacement(
+                &s[offset..],
+                &mut output,
+                true,
+            );
+            offset += read;
+            match result {
+                encoding_rs::EncoderResult::InputEmpty => return Ok(output),
+                encoding_rs::EncoderResult::OutputFull => output.reserve(32),
+                encoding_rs::EncoderResult::Unmappable(_) => {
+                    // 仍由同一编码器写入替换字符，保留有状态编码的转义状态。
+                    output.reserve(16);
+                    let (result, read) = encoder.encode_from_utf8_to_vec_without_replacement(
+                        "?",
+                        &mut output,
+                        false,
+                    );
+                    if result != encoding_rs::EncoderResult::InputEmpty || read != 1 {
+                        return Err("字符编码替换失败".into());
+                    }
+                }
+            }
+        }
     }
 
     /// bytesToStr(bytes, charset) — 字节数组转字符串
     ///
     /// 对应 Kotlin: `bytesToStr(bytes, charset)`
-    /// 输入为 JSON 数组格式，如 "[72,101,108,108,111]"
-    pub fn bytes_to_str(bytes_json: &str, charset: Option<&str>) -> Result<String, String> {
-        let arr: Vec<i64> =
-            serde_json::from_str(bytes_json).map_err(|e| format!("JSON parse error: {}", e))?;
-        let bytes: Vec<u8> = arr.iter().map(|&v| v as u8).collect();
+    /// 不自动探测；显式UTF-8/UTF-16LE/BE保留该编码中的BOM字符。
+    pub fn bytes_to_str(bytes: &[u8], charset: Option<&str>) -> Result<String, String> {
         let encoding_name = charset.unwrap_or("UTF-8");
+        let name = encoding_name.to_ascii_uppercase();
+        if matches!(
+            name.as_str(),
+            "ISO-8859-1" | "ISO_8859-1" | "ISO8859-1" | "LATIN1"
+        ) {
+            return Ok(bytes.iter().map(|&byte| char::from(byte)).collect());
+        }
+        if matches!(name.as_str(), "US-ASCII" | "ASCII") {
+            return Ok(bytes
+                .iter()
+                .map(|&byte| {
+                    if byte.is_ascii() {
+                        char::from(byte)
+                    } else {
+                        '\u{fffd}'
+                    }
+                })
+                .collect());
+        }
+        if encoding_name.eq_ignore_ascii_case("UTF-16") {
+            let (bytes, encoding) = match bytes {
+                [0xfe, 0xff, rest @ ..] => (rest, encoding_rs::UTF_16BE),
+                [0xff, 0xfe, rest @ ..] => (rest, encoding_rs::UTF_16LE),
+                _ => (bytes, encoding_rs::UTF_16BE),
+            };
+            return Ok(encoding.decode_without_bom_handling(bytes).0.into_owned());
+        }
         let encoding = encoding_rs::Encoding::for_label(encoding_name.as_bytes())
             .ok_or_else(|| format!("Unsupported charset: {}", encoding_name))?;
-        let (result, _enc, _had_errors) = encoding.decode(&bytes);
+        let (result, _had_errors) = encoding.decode_without_bom_handling(bytes);
         Ok(result.into_owned())
     }
 }
@@ -498,12 +580,12 @@ mod stub_encoding {
     }
 
     /// strToBytes（占位）
-    pub fn str_to_bytes(_s: &str, _charset: Option<&str>) -> Result<String, String> {
+    pub fn str_to_bytes(_s: &str, _charset: Option<&str>) -> Result<Vec<u8>, String> {
         Err(not_available())
     }
 
     /// bytesToStr（占位）
-    pub fn bytes_to_str(_bytes_json: &str, _charset: Option<&str>) -> Result<String, String> {
+    pub fn bytes_to_str(_bytes: &[u8], _charset: Option<&str>) -> Result<String, String> {
         Err(not_available())
     }
 }
@@ -659,33 +741,64 @@ mod tests {
     #[test]
     fn test_str_to_bytes_utf8() {
         let result = str_to_bytes("Hello", None).unwrap();
-        assert_eq!(result, "[72,101,108,108,111]");
+        assert_eq!(result, [72, 101, 108, 108, 111]);
     }
 
     #[test]
     fn test_str_to_bytes_gbk() {
         let result = str_to_bytes("中", Some("GBK")).unwrap();
         // "中" in GBK is [0xD6, 0xD0] = [214, 208]
-        assert_eq!(result, "[214,208]");
+        assert_eq!(result, [214, 208]);
     }
 
     #[test]
     fn test_bytes_to_str_utf8() {
-        let result = bytes_to_str("[72,101,108,108,111]", None).unwrap();
+        let result = bytes_to_str(&[72, 101, 108, 108, 111], None).unwrap();
         assert_eq!(result, "Hello");
     }
 
     #[test]
     fn test_bytes_to_str_gbk() {
-        let result = bytes_to_str("[214,208]", Some("GBK")).unwrap();
+        let result = bytes_to_str(&[214, 208], Some("GBK")).unwrap();
         assert_eq!(result, "中");
     }
 
     #[test]
     fn test_str_to_bytes_roundtrip() {
         let original = "Hello, 世界!";
-        let bytes_json = str_to_bytes(original, Some("UTF-8")).unwrap();
-        let recovered = bytes_to_str(&bytes_json, Some("UTF-8")).unwrap();
+        let bytes = str_to_bytes(original, Some("UTF-8")).unwrap();
+        let recovered = bytes_to_str(&bytes, Some("UTF-8")).unwrap();
         assert_eq!(recovered, original);
+    }
+
+    #[test]
+    fn byte_conversion_bom_and_single_byte_charsets_keep_java_semantics() {
+        assert!(str_to_bytes("", Some("UTF-16")).unwrap().is_empty());
+        assert_eq!(
+            bytes_to_str(&[0xef, 0xbb, 0xbf, 65], None).unwrap(),
+            "\u{feff}A"
+        );
+        assert_eq!(
+            bytes_to_str(&[0xfe, 0xff, 0, 65], Some("UTF-16BE")).unwrap(),
+            "\u{feff}A"
+        );
+        assert_eq!(
+            bytes_to_str(&[0xff, 0xfe, 65, 0], Some("UTF-16")).unwrap(),
+            "A"
+        );
+        assert_eq!(bytes_to_str(&[0, 65], Some("UTF-16")).unwrap(), "A");
+        assert_eq!(
+            bytes_to_str(&[0x80, 0xff], Some("ISO-8859-1")).unwrap(),
+            "\u{80}ÿ"
+        );
+        assert_eq!(
+            str_to_bytes("\u{80}ÿ€", Some("ISO-8859-1")).unwrap(),
+            [0x80, 0xff, b'?']
+        );
+        assert_eq!(str_to_bytes("A中😀", Some("US-ASCII")).unwrap(), b"A??");
+        assert_eq!(
+            bytes_to_str(&[65, 128, 255], Some("US-ASCII")).unwrap(),
+            "A\u{fffd}\u{fffd}"
+        );
     }
 }

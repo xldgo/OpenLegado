@@ -101,7 +101,17 @@ fn socks4_rule_requests_use_v4_handshake_and_never_bypass_rejection() {
 #[test]
 fn rule_dns_override_follows_cross_host_redirect_without_leaking() {
     let server = Server::new("127.0.0.1:0");
-    let engine = engine();
+    // 本机DNS可能把.invalid也解析到回环；注入不同的默认地址，确定性检验覆盖是否泄漏。
+    let hosts = Arc::new(legado_net::custom_hosts::CustomHosts::default());
+    hosts
+        .apply_custom_hosts(r#"{"second.invalid":"127.0.0.2"}"#)
+        .unwrap();
+    let http =
+        Arc::new(legado_js::http_resources::HttpResources::default().with_custom_hosts(hosts));
+    let resources = legado_js::JsResources::default().with_http_resources(http);
+    let engine = resources
+        .create_engine(SandboxConfig::default().with_allow_script_run(true))
+        .unwrap();
     let url = format!("http://localhost:{}/redirect-host", server.address.port());
     let response = eval(
         &engine,
@@ -120,7 +130,7 @@ fn rule_dns_override_follows_cross_host_redirect_without_leaking() {
         ])
     );
     assert_eq!(server.requests.load(Ordering::Acquire), 2);
-    // 未携带覆盖的后续请求仍使用原DNS，不得复用上一请求的解析结果。
+    // 未携带覆盖的后续请求使用注入的默认地址；服务只监听127.0.0.1，不得复用上一覆盖。
     let failure = eval(&engine, &url, "java.ajax(url,600)");
     assert!(failure.contains("[ERROR]"), "{failure}");
     assert_eq!(server.requests.load(Ordering::Acquire), 3);
