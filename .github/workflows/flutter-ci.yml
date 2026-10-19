@@ -2,6 +2,16 @@ name: Flutter CI
 
 on:
   workflow_dispatch:
+    inputs:
+      test_scope:
+        description: '检查范围：auto按改动，fast普通组，native原生组，all完整检查'
+        type: choice
+        default: auto
+        options: [auto, fast, native, all]
+      base_sha:
+        description: 'auto比较基线的完整SHA；留空比较当前提交的上一提交'
+        type: string
+        default: ''
   push:
     branches: [dev, master]
   pull_request:
@@ -33,6 +43,9 @@ jobs:
       - name: Determine change scope
         id: changes
         uses: ./.github/actions/ci-changes
+        with:
+          flutter-scope: ${{ github.event_name == 'workflow_dispatch' && inputs.test_scope || '' }}
+          flutter-base-sha: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || '' }}
 
   flutter-checks:
     needs: changes
@@ -79,11 +92,24 @@ jobs:
         run: flutter analyze --no-pub
 
       - name: Run flutter test
+        id: tests
         if: needs.changes.outputs.flutter == 'true'
         working-directory: flutter_legado
         env:
           LEGADO_TEST_FFI_LIBRARY: /__legado_fast_tests_no_native_library__
-        run: flutter test --no-pub --exclude-tags native
+        run: flutter test --no-pub --exclude-tags native --reporter failures-only --file-reporter json:build/test-timings/fast/events.jsonl
+
+      - name: Summarize ordinary test timings
+        if: always() && steps.tests.outcome != 'skipped' && steps.tests.outcome != ''
+        run: python3 .github/scripts/flutter_test_report.py flutter_legado/build/test-timings/fast/events.jsonl --group fast --output flutter_legado/build/test-timings/fast
+
+      - name: Upload ordinary test timings
+        if: always() && steps.tests.outcome != 'skipped' && steps.tests.outcome != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: flutter-test-timings-fast
+          path: flutter_legado/build/test-timings/fast/
+          retention-days: 7
 
   native-tests:
     needs: changes
@@ -106,10 +132,23 @@ jobs:
         run: cargo build --locked -p legado-ffi --features quickjs
 
       - name: Run native contract and reader integration tests
+        id: tests
         working-directory: flutter_legado
         env:
           LEGADO_TEST_FFI_LIBRARY: ${{ github.workspace }}/rust/target/debug/liblegado_ffi.so
-        run: flutter test --no-pub --tags native
+        run: flutter test --no-pub --tags native --reporter failures-only --file-reporter json:build/test-timings/native/events.jsonl
+
+      - name: Summarize native test timings
+        if: always() && steps.tests.outcome != 'skipped' && steps.tests.outcome != ''
+        run: python3 .github/scripts/flutter_test_report.py flutter_legado/build/test-timings/native/events.jsonl --group native --output flutter_legado/build/test-timings/native
+
+      - name: Upload native test timings
+        if: always() && steps.tests.outcome != 'skipped' && steps.tests.outcome != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: flutter-test-timings-native
+          path: flutter_legado/build/test-timings/native/
+          retention-days: 7
 
   # 保留原analyze检查名，任何被选中的任务失败/取消/意外跳过都不能通过。
   analyze:

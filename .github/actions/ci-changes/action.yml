@@ -1,5 +1,12 @@
 name: 判定 CI 改动范围
 description: 按事件差异选择任务；失败时不允许跳过检查，工具回归集中在 Tooling CI。
+inputs:
+  flutter-scope:
+    description: Flutter手动范围，留空沿用其它工作流的既有行为
+    default: ''
+  flutter-base-sha:
+    description: Flutter按改动检查的基线SHA，留空比较最近一次提交
+    default: ''
 outputs:
   native_tests:
     description: 是否运行Linux宿主原生测试
@@ -37,4 +44,7 @@ runs:
     - name: 判定受影响任务
       id: changes
       shell: bash
+      env:
+        CI_FLUTTER_SCOPE: ${{ inputs.flutter-scope }}
+        CI_FLUTTER_BASE_SHA: ${{ inputs.flutter-base-sha }}
       run: python3 .github/scripts/ci_changes.py changes

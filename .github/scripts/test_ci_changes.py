@@ -19,6 +19,7 @@ class RoutingTests(unittest.TestCase):
             "rust/DEVELOPMENT.md": set(),
             ".github/scripts/ci_changes.py": {"tooling"},
             ".github/scripts/test_ci_changes.py": {"tooling"},
+            ".github/scripts/flutter_test_report.py": {"tooling", "flutter"},
             "flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart": {"flutter", "ios_build"},
             "flutter_legado/lib/src/features/book_sources/source_screen.dart": {"flutter", "ios_build"},
             "flutter_legado/lib/src/features/search/search_screen.dart": {"flutter", "ios_build"},
@@ -167,7 +168,6 @@ class NativeRoutingTests(unittest.TestCase):
             "flutter_legado/lib/src/new_shared_module/service.dart",
             "flutter_legado/pubspec.lock", "flutter_legado/dart_test.yaml",
             "flutter_legado/test/ffi/privacy_runtime_test.dart",
-            "flutter_legado/test/widget/bookshelf_test.dart",
             "flutter_legado/test/helpers/native_ffi.dart",
             ".github/workflows/flutter-ci.yml",
             ".github/actions/setup-flutter-rust/action.yml", "third_party/plugin/lib/native.dart",
@@ -247,6 +247,96 @@ class GitDiffTests(unittest.TestCase):
             "flutter_legado/test/中文 空格.dart", "rust/legado-core/src/reader.rs",
         })
 
+    def test_ordinary_test_metadata_does_not_require_native(self):
+        path = "flutter_legado/test/unit/player_test.dart"
+        self.write(path, "import 'package:flutter_test/flutter_test.dart';\nvoid main() {}")
+        self.assertFalse(ci.classify_native_test_paths([path], self.root)["native_tests"])
+        self.write(path, "@Tags(['native'])\nlibrary;\nvoid main() {}")
+        self.assertTrue(ci.classify_native_test_paths([path], self.root)["native_tests"])
+        self.write(path, "test('native边界', () {}, tags: ['native']);")
+        self.assertTrue(ci.classify_native_test_paths([path], self.root)["native_tests"])
+
+    def test_removed_native_tag_and_deleted_native_test_keep_native_check(self):
+        path = "flutter_legado/test/widget/layout_test.dart"
+        self.write(path, "@Tags(['native'])\nlibrary;\nvoid main() {}")
+        base = self.commit()
+        self.write(path, "void main() {}")
+        self.commit()
+        self.assertTrue(ci.classify_native_test_paths([path], self.root, base)["native_tests"])
+        (self.root / path).unlink()
+        self.assertTrue(ci.classify_native_test_paths([path], self.root, base)["native_tests"])
+
+    def test_deleted_ordinary_test_and_shared_support_inputs(self):
+        path = "flutter_legado/test/widget/button_test.dart"
+        self.write(path, "void main() {}")
+        base = self.commit()
+        (self.root / path).unlink()
+        self.assertFalse(ci.classify_native_test_paths([path], self.root, base)["native_tests"])
+        for support in ("fixtures/book.dart", "helpers/native_ffi.dart", "mocks/player.dart", "new/data.json"):
+            self.assertTrue(ci.classify_native_test_paths(["flutter_legado/test/" + support], self.root, base)["native_tests"])
+        self.assertTrue(ci.classify_native_test_paths(["flutter_legado/test/widget/unknown_test.dart"], self.root)["native_tests"])
+
+    def test_manual_flutter_scopes_preserve_other_workflow_platform_semantics(self):
+        for scope, expected in (
+            ("fast", {"flutter", "flutter_checks"}),
+            ("native", {"native_tests"}),
+            ("all", {"flutter", "flutter_checks", "native_tests", "dart_generate", "bridge_generate"}),
+        ):
+            with self.subTest(scope=scope):
+                selected = ci.flutter_manual_plan(self.root, scope, self.base)
+                self.assertEqual({k for k, v in selected.items() if v}, expected)
+        self.assertEqual(ci.plan(self.root, "workflow_dispatch", {"inputs": {"platform": "android"}}, self.base),
+                         {k: k == "android_ffi" for k in ci.TARGETS})
+        with self.assertRaises(ValueError):
+            ci.flutter_manual_plan(self.root, "unknown", self.base)
+
+    def test_manual_auto_last_commit_and_explicit_multi_commit_baseline(self):
+        self.write("rust/legado-net/src/client.rs", "Rust")
+        self.commit()
+        self.write("flutter_legado/test/unit/player_test.dart", "void main() {}")
+        head = self.commit()
+        selected = ci.flutter_manual_plan(self.root, "auto", head)
+        self.assertTrue(selected["flutter_checks"])
+        self.assertFalse(selected["native_tests"])
+        self.assertFalse(selected["bridge_generate"])
+        full_range = ci.flutter_manual_plan(self.root, "auto", head, self.base)
+        self.assertTrue(full_range["native_tests"])
+        for base in ("bad", "0" * 40, head):
+            with self.subTest(base=base), self.assertRaises(ValueError):
+                ci.flutter_manual_plan(self.root, "auto", head, base)
+
+    def test_manual_auto_root_commit_fails_instead_of_silently_skipping(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            ci.flutter_manual_plan(self.root, "auto", self.base)
+
+    def test_manual_auto_fetches_shallow_baseline(self):
+        self.write("rust/legado-net/src/client.rs", "Rust")
+        self.commit()
+        self.write("flutter_legado/test/unit/player_test.dart", "void main() {}")
+        head = self.commit()
+        clone = self.root / "manual-shallow"
+        self.command("clone", "--depth=2", "--no-local", self.root.as_uri(), str(clone))
+        self.assertFalse(ci.flutter_manual_plan(clone, "auto", head)["native_tests"])
+        self.assertTrue(ci.flutter_manual_plan(clone, "auto", head, self.base)["native_tests"])
+
+    def test_flutter_manual_cli_overrides_only_dispatch(self):
+        event = self.root / ".git" / "manual-event.json"
+        output = self.root / ".git" / "manual-output.txt"
+        event.write_text(json.dumps({"inputs": {"test_scope": "native"}}), encoding="utf-8")
+        with patch.object(ci, "ROOT", self.root), patch.object(
+            os.sys, "argv", ["ci_changes.py", "changes"],
+        ), patch.dict(os.environ, {
+            "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_EVENT_PATH": str(event),
+            "GITHUB_OUTPUT": str(output), "GITHUB_SHA": self.base, "CI_FLUTTER_SCOPE": "native",
+        }), patch("builtins.print"):
+            self.assertEqual(ci.main(), 0)
+        values = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines())
+        self.assertEqual({k for k, v in values.items() if v == "true"}, {"native_tests"})
+        with patch.object(os.sys, "argv", ["ci_changes.py", "changes"]), patch.dict(os.environ, {
+            "GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": str(event), "CI_FLUTTER_SCOPE": "fast",
+        }), patch("builtins.print"):
+            self.assertEqual(ci.main(), 1)
+
     def test_rename_includes_old_and_new_modules(self):
         old = "flutter_legado/windows/runner/main.cpp"
         new = "flutter_legado/android/main.cpp"
@@ -316,7 +406,7 @@ class GitDiffTests(unittest.TestCase):
         output = self.root / ".git" / "fixture-outputs.txt"
         for path, expected in (
             ("flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart", ("true", "false")),
-            ("flutter_legado/test/widget/bookshelf_test.dart", ("true", "true")),
+            ("flutter_legado/test/widget/bookshelf_test.dart", ("true", "false")),
             ("rust/legado-net/src/client.rs", ("false", "true")),
             ("rust/legado-ffi/src/api/book.rs", ("true", "true")),
             ("docs/development.md", ("false", "false")),

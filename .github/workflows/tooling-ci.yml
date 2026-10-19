@@ -30,7 +30,7 @@ jobs:
 
       - name: Verify CI orchestration rules
         if: steps.changes.outputs.tooling == 'true'
-        run: python3 -m unittest discover -s .github/scripts -p test_ci_changes.py -v
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 
       - name: Verify Python tooling and platform isolation
         if: steps.changes.outputs.tooling == 'true'

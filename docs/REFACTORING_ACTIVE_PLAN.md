@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，待复验：远程接线）
+
+- 授权与基线：用户同意按改动运行CI、细化测试输入及采集慢项；feature/ui-reader-selection / cb4ab4bac，单代理，完成后本地提交，不提升版本、不自动推送或触发全量CI。
+- 范围：Flutter CI手动auto/fast/native/all；auto默认比较最近提交，也可指定基线SHA。普通测试修改不再无条件编译Rust；检查改动前后native标记，原生目录、共享夹具及未知支持输入保守执行原生组。自动push/PR与其它Workflow手动语义不变。
+- 报告：从Flutter JSON事件分别统计装载/执行耗时、失败与未完成项，写入Job Summary及短期工件；不把并发累计耗时当成整轮墙钟时间。
+- 验收：临时Git仓库覆盖选择、删除/移除标记、多提交与浅检出；报告覆盖并发、失败、截断及真实Flutter事件；Windows/WSL标准库回归、actionlint与diff检查。保留全量入口和失败汇总，不减少用例或新增并行Runner。
+- 本地结果：Flutter手动auto/fast/native/all、可选base_sha与旧Workflow的platform入口隔离；自动事件仍覆盖完整before/after差异。测试分组同时检查基线/当前版本，删除原生标记与文件、共享夹具及未知支持文件不会漏检；普通测试仍由无原生库门禁保护。两组生成JSON事件、装载/执行/用例排名及7天工件；已有analyze汇总和失败语义不变，不新增Runner分片。
+- 验证：Windows与WSL Linux编排33项及报告7项通过（共40项不同用例，不累加复跑）。真实Flutter的5项二维码/资产测试经file-reporter输出可解析事件；临时失败/跳过探针返回预期退出码1，报告保留failure与skip且完整生成。报告原始事件与输出在flutter_legado/build/test-timings/{fast,probe}/；临时失败测试文件验证后移除。actionlint及diff检查通过。实际读取上一批cb4ab4bac差异时Flutter范围仅选择普通组，不选择原生/两条生成检查，符合本次优化目标。
+- 命令：python -m unittest discover -s .github/scripts -p 'test_*.py' -v；WSL同命令；flutter test --no-pub --reporter failures-only --file-reporter json:build/test-timings/fast/events.jsonl后接5项所在的2份文件；python .github/scripts/flutter_test_report.py按实际事件生成报告。
+- 交付边界：仅完成本地实现/回归与真实报告协议验证，未推送或触发远程Workflow，未测得全量CI耗时收益。普通/原生测试总范围未删减；下一步依据实际报告定位慢文件，再决定功能分组或分片。执行者Codex + Tool，2026-10-19；本批提交见Git记录。
+
 ### UI-TEST-QUALITY-20261019：清理无效测试与重复算法（P2，本批已关闭）
 
 - 授权与基线：用户批准优化已审计的无效测试；feature/ui-reader-selection / 0b96adf93，单代理，本地提交，不提升版本、不构建安装、不触发全量CI。

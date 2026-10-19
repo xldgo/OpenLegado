@@ -24,7 +24,7 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 | Workflow | 自动入口 | 手动入口与检查 |
 |---|---|---|
 | Tooling CI | `dev/master` push、指向两分支的 PR | 支持手动；集中执行编排规则、Python 工具回归及 actionlint，不安装 Flutter/NDK/Xcode |
-| Flutter CI | `dev/master` push、指向两分支的 PR | 保留手动完整检查；原 `analyze` 作业内按范围执行 SDK 安装、分析和测试 |
+| Flutter CI | `dev/master` push、指向两分支的 PR | 手动auto/fast/native/all；analyze汇总普通组、原生组与生成检查 |
 | Rust CI | 同上 | 新增手动完整检查；原 `check` 汇总，所需 quality/tests/audit 必须成功 |
 | Integration Smoke | 同上 | `all/android/windows`；`check` 汇总所选原生任务的结果；仅验证工具时使用 Tooling CI |
 | iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
@@ -155,3 +155,50 @@ FRB codegen版本读取运行时契约，cargo-expand固定为本轮实测1.0.12
 iOS模拟器仍仅手动，现有工作流触发器、签名、发布条件和权限保持。
 
 编写者：Codex + UI/Tool｜2026-10-19
+
+## Flutter手动范围与慢项报告（2026-10-19）
+
+Flutter CI的`test_scope`默认`auto`，仅影响本Workflow；Integration Smoke的
+`platform=all/android/windows`、其它Workflow的手动完整检查保持原样。
+
+| 范围 | 执行内容 |
+|---|---|
+| auto | 比较本次提交与第一父提交，按输入选择普通/原生/生成检查 |
+| fast | 分析、架构门禁与完整普通组；不编译Rust，不检查生成链 |
+| native | 单次构建当前Linux原生库，运行完整native组 |
+| all | 普通组、原生组及Dart/FRB生成检查全部运行 |
+
+`auto`可通过`base_sha`指定40位基线提交SHA，覆盖多个提交。空值只检查最近一次提交，
+不代表整个分支已验证；PR或集成push仍使用事件完整差异，不使用这一默认值。
+基线缺失时按SHA补取；非法SHA、无法比较或基线等于HEAD均报错，不默认跳过。
+根提交没有父提交，手动应选择`all`。运行日志打印比较范围，便于复核。
+以下为提交后的调用方式，不表示当前已推送或运行：
+
+```powershell
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=auto
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=fast
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=native
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=all
+```
+
+测试输入分组依据现有`native`标签，不维护另一份用例白名单。`test/ffi/`、
+共享`fixtures/helpers/mocks`及其它测试支持输入保守触发原生组。独立`*_test.dart`
+同时读取当前与比较基线版本，任一含native分组即触发原生组；删除标记或删除原生
+文件也不能漏检。无可读取元数据时保守运行。普通测试仍通过不存在的FFI库路径运行，
+误引入真实原生依赖会失败，不允许静默跳过。生产源码的既有保守规则不缩小。
+
+两组使用`--reporter failures-only`保留失败详情，并通过`--file-reporter json:...`
+写入完整事件。`.github/scripts/flutter_test_report.py`从事件统计装载、执行及慢用例，
+输出Job Summary和工件`flutter-test-timings-fast/native`，保留7天。原始事件、
+完整`timings.json`和前20项`summary.md`位于同一工件中。尚未进入测试步骤时不生成
+空报告；进入后失败也尝试保留报告。测试命令不加continue-on-error，报告不会覆盖其失败结果。
+
+装载耗时包含编译、进程启动和调度等待，执行时间包含钩子；它们不是CPU耗时。
+并发文件耗时不可相加解释为整轮时长，也不能作为设备FPS或冷启动指标。
+中断事件标记报告未完成；报告仅用于发现下一批优化对象，不设新的耗时门禁。
+
+编排与报告的标准库回归统一由Tooling CI执行：
+`python -m unittest discover -s .github/scripts -p 'test_*.py' -v`。
+报告解析输入协议事件，不通过检索生产代码文本断言配置正确。
+
+编写者：Codex + Tool｜2026-10-19
