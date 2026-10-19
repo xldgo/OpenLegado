@@ -1,5 +1,23 @@
 # API 契约文档
 
+## WebView嗅探匹配与结果语义（2026-10-19，实施前冻结）
+
+沿用既有webViewGetSource/webViewGetOverrideUrl请求与WebViewResponse，不增加FFI字段。
+sourceRegex/overrideUrlRegex按整个候选URL匹配，不将任意子串命中视为成功。
+资源嗅探只接受实际加载的资源；Android使用onLoadResource，持续等待首个合法命中、取消或既有总期限。
+未点击的a[href]、未加载的DOM属性不能作为资源结果；加载结束不代表后续动态资源不会出现。
+跳转捕获仅来自实际导航回调，初始URL本身不作为已发生的导航直接返回。
+结果result为命中URL，finalUrl为捕获时所属页面地址（缺失时使用输入URL）；不把资源URL冒充页面地址。
+Flutter回退使用document.URL识别实际文档，避免HTML载入的历史条目about:blank误作Cookie或结果归属。
+空资源规则保留既有空结果，不因本批事件化改为等待完整超时。
+命中/失败/取消仍走既有单次完成与清理，Cookie同步与页内宿主顺序保持，不增加全局监听表。
+Android清理先离开旧文档停止JS定时器，再延迟原生析构；不宣称已发出的网络请求可强制撤回。
+Flutter回退因公开接口无资源事件，限时观察performance资源记录，只保证可观察子集，不宣称等价原生嗅探。
+未完成或响应体未消费的fetch/流式资源可能没有performance记录；不能据此保证早期捕获媒体流。
+正则方言仍分别受Kotlin/Dart实现约束，不声称全部Java正则语法跨平台一致；不实施新缓存/登录功能。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## WebView加载阶段Cookie同步（2026-10-19，实施前冻结）
 
 新增webview_sync_cookies(key, cookies: Map<String,String>) -> Result<bool,BridgeError>。

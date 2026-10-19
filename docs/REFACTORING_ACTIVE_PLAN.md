@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### WEBVIEW-SNIFFER-20261019：资源嗅探与跳转捕获对齐（P1）
+
+- 状态：待复验；Android与通用逻辑限定场景已完成，iOS待外部测试能力。dep-audit / chore/dep-audit / 4191dc232起，单代理实现与自查，本地提交，不推送/合并，不修改主目录。
+- 依据与复现：固定参考版15e1337a的BackstageWebView.SnifferWebClient，onLoadResource连续捕获真实资源，资源/导航均matches整串正则。修前MuMu用例返回空串，确认固定延迟扫描漏掉后续资源；未点击DOM链接和containsMatchIn也存在误捕路径。
+- 实现：先冻结既有请求/响应的嗅探语义，无新FFI字段。Android改用连续资源事件，正则加载前编译一次，资源/两种导航回调均整串匹配；移除初始URL直接返回与DOM扫描。result为命中地址，finalUrl/Cookie归属保留页面地址，规则按参考版1000ms+delayTime触发；空资源规则保留既有空结果。既有超时/取消/单次完成门控保留。
+- 取消缺陷：首轮真实用例确认stopLoading后旧页面定时器仍在延迟销毁窗口请求/cancelled。立即离开旧文档，再沿用2秒延迟原生析构；修后相同断言通过。已发出的网络请求不承诺强制撤回，不宣称完成原生堆泄漏测量。
+- Flutter回退：公开接口无onLoadResource，改为请求期限内观察performance，移除未加载DOM引用与子串匹配。HTML载入时Android插件未设置historyUrl，currentUrl可为about:blank；改用document.URL进行加载Cookie和最终页面归属，真实回退用例通过。performance不记录部分未消费/未完成fetch或流式资源，不承诺媒体流早期捕获；缓存策略与Kotlin/Dart正则方言差异未改。
+- Dart验证：34项匹配、页内调用、取消作用域、边界与监听器定向回归通过；4个相关文件最终定向分析无问题。无Rust实现/签名/生成物/schema/依赖变更，不重编Rust库或重跑Rust工作区；Android正常构建仍验证已有x86_64 Debug QuickJS产物。
+- MuMu验证：按用户指定实时探测实例0/Android15/x86_64，本轮端点127.0.0.1:16384。最终9项嗅探用例全部通过，覆盖延迟资源、未点击链接、资源/导航整串匹配、初始URL实际加载、取消/迟到及新请求、空/坏正则；其中2项仅模拟Backstage入口不可用，实际使用Android webview_flutter插件验证回退performance/文档地址/Cookie和导航，不能替代iOS。前批3项正式FRB Cookie/重定向/取消prompt用例也通过，合计12个不同平台场景。
+- 过程：mumu-platform首轮取消失败，mumu-confirm的回退用例因未消费fetch响应体超时，诊断确认本地服务已收到请求但performance无记录；显式消费后资源已命中，mumu-close暴露about:blank归属，修后mumu-final全部通过。期间临时诊断与未经证实的加载等待改动均撤回，未提高测试超时或放宽断言；两条分析提示已修正。首个命令的筛选含管道符被Windows批处理拆分，未运行测试，不算失败复现证据。
+- 数据与安装：所有本批平台命令明确--no-uninstall；测试前已备份MuMu现存数据，测试后正常库legado.db及WAL/SHM与备份SHA-256一致。测试仅使用本地HTTP与临时数据库，不重置用户数据；普通APK已覆盖安装为2.0.394+395，恢复Launcher4启用/MainActivity禁用，冷启动成功、进程存活且crash缓冲为空；未做完整UI验收。
+- 证据：build/webview-sniffer/{reproduce-delay,dart-tests-final,dart-analysis-clean,mumu-platform,mumu-confirm,fallback-diagnose,mumu-close,mumu-final,data-preservation,regular-build,regular-install}.log。最终嗅探以mumu-final退出0为准；mumu-confirm整体退出1，但其中前批3项Cookie通过记录有效，不把失败整批声称通过。备份为同目录忽略文件mumu-before.tar，不提交私人数据。
+- 交付边界：版本2.0.394+395、双日志及契约随本批提交。没有修改缓存系统/登录UI、原生iOS桥接或CI；未验证iOS、全工作区或完整阅读UI，无独立外审。回滚恢复匹配APK即可，无Rust绑定/库版本变化，不伪造产物元数据。
+
+编写者：Codex｜2026-10-19
+
 ### WEBVIEW-COOKIE-ORDER-20261019：加载阶段Cookie与脚本执行顺序（P1）
 
 - 状态：本批实现与Android限定场景验证完成，iOS待复验；dep-audit / chore/dep-audit / 6f4c6c588起，单代理实现与自查，本地提交，不推送/合并，不触碰主目录并发修改。

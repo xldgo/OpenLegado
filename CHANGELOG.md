@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.394] - 2026-10-19
+
+### Fixed
+- Android后台资源嗅探持续监听实际加载事件，不再提前结束或误选未点击的链接。
+- 资源与跳转URL按完整正则匹配，返回时区分命中地址和所属页面地址。
+- 取消后台WebView时立即离开旧文档，防止延迟销毁期间页面定时器继续请求。
+- 贡献者：Codex + Bridge；构建号395。
+
 ## [2.0.393] - 2026-10-19
 
 ### Fixed

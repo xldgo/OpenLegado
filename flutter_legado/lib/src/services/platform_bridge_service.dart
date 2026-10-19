@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../platform/webview_page_bridge.dart';
+import '../platform/webview_url_matcher.dart';
 
 import 'dart:io';
 
@@ -354,9 +355,11 @@ class PlatformBridgeService {
   Future<void> _preparePage(WebViewController controller) async {
     final cookies = Zone.current[_cookieZone] as WebViewCookieBridge?;
     if (cookies != null) {
-      final url = await _waitWebView(controller.currentUrl());
+      final url = _normalizeJsResult(
+        await _evalWebView(controller, 'document.URL'),
+      );
       final snapshot = <String, String>{};
-      if (url != null && Uri.tryParse(url)?.hasAuthority == true) {
+      if (Uri.tryParse(url)?.hasAuthority == true) {
         snapshot[url] = _normalizeJsResult(
           await _evalWebView(controller, 'document.cookie'),
         );
@@ -502,33 +505,24 @@ class PlatformBridgeService {
             cookie: (payload['cookie'] ?? '').toString(),
           );
         case 'webViewGetSource':
-          return WebViewEvalOutcome(
-            await _webViewSniffSource(
-              url: url,
-              html: html,
-              js: js,
-              sourceRegex: (payload['sourceRegex'] ?? '').toString(),
-              delayMs: _delayOf(payload),
-              cacheFirst: payload['cacheFirst'] == true,
-              // B4：嗅探首请求同样携带 Rust 预取的属域 cookie（对齐
-              // Kotlin 原生路径 load 前逐对预写，动作无关）
-              cookie: (payload['cookie'] ?? '').toString(),
-            ),
-            '',
+          return await _webViewSniffSource(
+            url: url,
+            html: html,
+            js: js,
+            sourceRegex: (payload['sourceRegex'] ?? '').toString(),
+            delayMs: _delayOf(payload),
+            cacheFirst: payload['cacheFirst'] == true,
+            cookie: (payload['cookie'] ?? '').toString(),
           );
         case 'webViewGetOverrideUrl':
-          return WebViewEvalOutcome(
-            await _webViewSniffOverrideUrl(
-              url: url,
-              html: html,
-              js: js,
-              overrideUrlRegex: (payload['overrideUrlRegex'] ?? '').toString(),
-              delayMs: _delayOf(payload),
-              cacheFirst: payload['cacheFirst'] == true,
-              // B4：同 webViewGetSource——加载前预写属域 cookie
-              cookie: (payload['cookie'] ?? '').toString(),
-            ),
-            '',
+          return await _webViewSniffOverrideUrl(
+            url: url,
+            html: html,
+            js: js,
+            overrideUrlRegex: (payload['overrideUrlRegex'] ?? '').toString(),
+            delayMs: _delayOf(payload),
+            cacheFirst: payload['cacheFirst'] == true,
+            cookie: (payload['cookie'] ?? '').toString(),
           );
       }
     } catch (e) {
@@ -834,11 +828,9 @@ class PlatformBridgeService {
     }
   }
 
-  /// webViewGetSource：嗅探匹配 sourceRegex 的资源 URL（尽力对齐 Kotlin
-  /// SnifferWebClient.onLoadResource：Flutter 无资源加载回调，改为页面
-  /// 完成后经 JS 收集 performance 资源条目与 DOM 引用 URL 后按正则匹配；
-  /// 若提供 js 先执行以触发动态资源加载）
-  Future<String> _webViewSniffSource({
+  /// 公开Flutter入口没有onLoadResource；只观察performance已记录的资源，
+  /// 不把未加载的DOM链接当结果，也不宣称与原生事件等价。— Codex + Bridge
+  Future<WebViewEvalOutcome> _webViewSniffSource({
     required String url,
     required String html,
     required String js,
@@ -847,13 +839,15 @@ class PlatformBridgeService {
     bool cacheFirst = false,
     String cookie = '',
   }) async {
-    if (sourceRegex.isEmpty) return '';
+    if (sourceRegex.isEmpty) return const WebViewEvalOutcome('', '');
+    final deadline = DateTime.now().add(_webViewTimeout);
+    final matcher = WebViewUrlMatcher(sourceRegex);
     if (cacheFirst) {
-      debugPrint('[PlatformBridge] webViewGetSource cacheFirst（非 Android 回退）');
+      debugPrint(
+        '[PlatformBridge] webViewGetSource cacheFirst（非Android回退未配置原生缓存策略）',
+      );
     }
-    final regex = RegExp(sourceRegex);
     final controller = await _newController();
-    // B4：load 前预写属域 cookie（对齐 Kotlin 原生路径，动作无关）
     await _injectDomainCookies(url: url, cookie: cookie);
     final loadFailure = await _loadAndWaitFinished(
       controller,
@@ -861,47 +855,57 @@ class PlatformBridgeService {
       html: html,
     );
     if (loadFailure != null) {
-      // [iOS 视角F A1] 嗅探是尽力而为语义（保留返回 ''=未找到），但主框架
-      // 没加载起来时直接短路并留可诊断日志，避免静默「正文空且查无原因」。
-      debugPrint(
-        '[PlatformBridge] webViewGetSource 加载失败，嗅探短路：'
-        '$loadFailure（url=$url）',
+      return WebViewEvalOutcome(
+        '[ERROR] webViewGetSource加载失败：$loadFailure',
+        '',
+        finalUrl: url,
       );
-      return '';
     }
     await _preparePage(controller);
     if (js.isNotEmpty) {
-      // 触发型 JS（如点击播放按钮），fire-and-forget 后等待资源出现
+      await _webViewDelay(Duration(milliseconds: 1000 + delayMs));
       await _scriptWebView(controller, js);
     }
-    await _webViewDelay(Duration(milliseconds: delayMs > 0 ? delayMs : 900));
-    // 页面 URL 本身命中优先返回
-    final currentUrl = await _waitWebView(controller.currentUrl());
-    if (currentUrl != null && regex.hasMatch(currentUrl)) return currentUrl;
-    final collected = await _evalWebView(controller, '''
-(function(){
-  var urls = [];
-  try {
-    performance.getEntriesByType('resource').forEach(function(r){ urls.push(r.name); });
-  } catch (e) {}
-  try {
-    document.querySelectorAll('a[href],link[href],img[src],script[src],source[src],iframe[src],video[src],audio[src],embed[src],object[data]')
-      .forEach(function(el){
-        var u = el.src || el.href || el.data;
-        if (u) urls.push(u);
-      });
-  } catch (e) {}
-  return JSON.stringify(urls);
-})()
-''');
-    final urls = _decodeUrlList(collected);
-    for (final candidate in urls) {
-      if (regex.hasMatch(candidate)) return candidate;
+    while (DateTime.now().isBefore(deadline)) {
+      _checkWebView();
+      final collected = await _evalWebView(
+        controller,
+        "JSON.stringify(performance.getEntriesByType('resource').map(function(r){return r.name;}))",
+      );
+      for (final candidate in _decodeUrlList(collected)) {
+        if (matcher.matches(candidate)) {
+          return _sniffOutcome(controller, candidate, url);
+        }
+      }
+      await _webViewDelay(const Duration(milliseconds: 100));
     }
-    debugPrint(
-      '[PlatformBridge] webViewGetSource：sourceRegex($sourceRegex) 未匹配到资源',
+    return WebViewEvalOutcome(
+      '[ERROR] webViewGetSource等待资源超时',
+      '',
+      finalUrl: url,
     );
-    return '';
+  }
+
+  /// 捕获的资源/导航URL是结果，页面地址与可见Cookie单独返回。
+  Future<WebViewEvalOutcome> _sniffOutcome(
+    WebViewController controller,
+    String result,
+    String fallbackUrl,
+  ) async {
+    // HTML载入时Android公开插件没有historyUrl，getUrl可能是about:blank；
+    // document.URL才是实际文档地址，不能据历史条目丢掉页面归属。
+    final documentUrl = _normalizeJsResult(
+      await _evalWebView(controller, 'document.URL'),
+    );
+    final pageUrl = documentUrl.isEmpty ? fallbackUrl : documentUrl;
+    final cookie = _normalizeJsResult(
+      await _evalWebView(controller, 'document.cookie'),
+    );
+    return WebViewEvalOutcome(
+      result,
+      jsonEncode({pageUrl: cookie}),
+      finalUrl: pageUrl,
+    );
   }
 
   /// webViewGetOverrideUrl：拦截匹配 overrideUrlRegex 的跳转 URL
@@ -912,7 +916,7 @@ class PlatformBridgeService {
   /// 覆盖了 onNavigationRequest 捕获委托并二次加载，导致 JS 分支
   /// 嗅探必超时；现拦截捕获与加载完成等待共用同一委托，
   /// 不重设、不二次 _load。 — QoderCN
-  Future<String> _webViewSniffOverrideUrl({
+  Future<WebViewEvalOutcome> _webViewSniffOverrideUrl({
     required String url,
     required String html,
     required String js,
@@ -921,17 +925,14 @@ class PlatformBridgeService {
     bool cacheFirst = false,
     String cookie = '',
   }) async {
-    if (overrideUrlRegex.isEmpty) return '';
+    if (overrideUrlRegex.isEmpty) return const WebViewEvalOutcome('', '');
     if (cacheFirst) {
       debugPrint(
         '[PlatformBridge] webViewGetOverrideUrl cacheFirst（非 Android 回退）',
       );
     }
-    final regex = RegExp(overrideUrlRegex);
+    final matcher = WebViewUrlMatcher(overrideUrlRegex);
     final capture = Completer<String>();
-
-    // 初始 URL 即命中：直接返回（对齐 Kotlin loadUrl 前的嗅探路径）
-    if (url.isNotEmpty && regex.hasMatch(url)) return url;
 
     final controller = await _newController();
     final finished = Completer<void>();
@@ -939,6 +940,7 @@ class PlatformBridgeService {
     // 超时时并入错误串，让「等待跳转超时」可归因而非静默。
     String? loadFailure;
     String? startedUrl;
+    var initialNavigation = true;
     void completeFinished() {
       if (!finished.isCompleted) finished.complete();
     }
@@ -947,13 +949,22 @@ class PlatformBridgeService {
     controller.setNavigationDelegate(
       NavigationDelegate(
         onNavigationRequest: (request) {
-          if (!capture.isCompleted && regex.hasMatch(request.url)) {
+          // WKWebView也报告宿主主动loadRequest；它不是待捕获的后续跳转。
+          if (initialNavigation && request.url == url) {
+            initialNavigation = false;
+            return NavigationDecision.navigate;
+          }
+          initialNavigation = false;
+          if (!capture.isCompleted && matcher.matches(request.url)) {
             capture.complete(request.url);
             return NavigationDecision.prevent;
           }
           return NavigationDecision.navigate;
         },
-        onPageStarted: (u) => startedUrl = u,
+        onPageStarted: (u) {
+          initialNavigation = false;
+          startedUrl = u;
+        },
         onPageFinished: (_) => completeFinished(),
         onWebResourceError: (e) {
           if (e.isForMainFrame ?? false) {
@@ -979,8 +990,7 @@ class PlatformBridgeService {
         },
       ),
     );
-    // B4：load 前预写属域 cookie（初始 URL 即命中的早退路径无 WebView，
-    // 无需预写；此处为实际加载路径）
+    // 初始URL也必须实际加载；只在导航回调里捕获后续命中。
     await _injectDomainCookies(url: url, cookie: cookie);
     _load(controller, url: url, html: html);
     if (js.isNotEmpty) {
@@ -989,7 +999,7 @@ class PlatformBridgeService {
         finished.future
             .timeout(_webViewTimeout, onTimeout: () {})
             .then((_) => _preparePage(controller))
-            .then((_) => _webViewDelay(Duration(milliseconds: 100 + delayMs)))
+            .then((_) => _webViewDelay(Duration(milliseconds: 1000 + delayMs)))
             .then((_) => _scriptWebView(controller, js))
             .catchError((Object error, StackTrace stack) {
               if (!capture.isCompleted) capture.completeError(error, stack);
@@ -997,7 +1007,10 @@ class PlatformBridgeService {
       );
     }
     try {
-      return await _waitWebView(capture.future.timeout(_webViewTimeout));
+      final result = await _waitWebView(
+        capture.future.timeout(_webViewTimeout),
+      );
+      return await _sniffOutcome(controller, result, url);
     } on TimeoutException {
       final reason = loadFailure;
       debugPrint(
@@ -1005,8 +1018,11 @@ class PlatformBridgeService {
         '（overrideUrlRegex=$overrideUrlRegex'
         '${reason != null ? '；加载失败：$reason' : ''}）',
       );
-      return '[ERROR] webViewGetOverrideUrl 等待跳转超时'
-          '${reason != null ? '（加载失败：$reason）' : ''}';
+      return WebViewEvalOutcome(
+        '[ERROR] webViewGetOverrideUrl 等待跳转超时${reason != null ? '（加载失败：$reason）' : ''}',
+        '',
+        finalUrl: url,
+      );
     }
   }
 
