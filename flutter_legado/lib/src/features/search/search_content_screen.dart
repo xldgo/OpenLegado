@@ -1,3 +1,5 @@
+import 'application/content_search_controller.dart';
+import '../../domain/services/content_search_matcher.dart';
 import '../../providers/reading_provider.dart';
 import 'search_access_providers.dart';
 import '../../providers/chapter_cache_provider.dart';
@@ -20,19 +22,6 @@ import '../reader/application/reader_notifier.dart';
 import '../../widgets/app_progress_indicator.dart';
 import '../../widgets/empty_state.dart';
 
-/// 单条正文搜索结果
-class _ContentMatch {
-  final int chapterIndex;
-  final String chapterTitle;
-  final String snippet;
-
-  const _ContentMatch({
-    required this.chapterIndex,
-    required this.chapterTitle,
-    required this.snippet,
-  });
-}
-
 /// 正文搜索选项（对齐原版 `SearchContentViewModel.companion`：进程内静态，
 /// 关闭页面重进后保留上次选择；原版亦不做持久化）
 class _SearchContentOptions {
@@ -53,44 +42,6 @@ class _SearchContentOptions {
   static const scopeCurrent = 'current';
   static const scopeCached = 'current_and_cached';
   static const scopeNetwork = 'current_and_network';
-}
-
-/// 在正文中定位命中区间（搜索与高亮共用，纯函数便于单测）
-///
-/// 对齐原版 `SearchContentViewModel.searchPosition`：
-/// - 正则模式：`Regex(pattern).findAll` 取每处匹配区间，非法表达式返回空列表；
-/// - 普通模式：大小写不敏感的子串查找（逐处不重叠）。
-/// [maxHits] 限制单段正文的命中数，防止宽泛正则在单章内炸出上万条。
-List<({int start, int end})> findContentHits(
-  String content,
-  String query, {
-  required bool useRegex,
-  int maxHits = 50,
-}) {
-  final hits = <({int start, int end})>[];
-  if (query.isEmpty) return hits;
-  if (useRegex) {
-    try {
-      for (final m in RegExp(query).allMatches(content)) {
-        hits.add((start: m.start, end: m.end));
-        if (hits.length >= maxHits) break;
-      }
-    } catch (_) {
-      return hits;
-    }
-    return hits;
-  }
-  final lower = content.toLowerCase();
-  final lowerQuery = query.toLowerCase();
-  var from = 0;
-  var found = lower.indexOf(lowerQuery, from);
-  while (found != -1) {
-    hits.add((start: found, end: found + query.length));
-    if (hits.length >= maxHits) break;
-    from = found + query.length;
-    found = lower.indexOf(lowerQuery, from);
-  }
-  return hits;
 }
 
 /// 正文搜索页面
@@ -135,26 +86,30 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
   final ScrollController _fsController = ScrollController();
   final TextEditingController _controller = TextEditingController();
 
-  List<_ContentMatch> _results = [];
-  List<String> _history = [];
-  bool _searching = false;
-  String _query = '';
-  int _scannedChapters = 0;
-  int _totalChapters = 0;
-
-  /// 搜索代号，用于丢弃过期搜索
-  int _generation = 0;
-
-  static const _maxResults = 200;
-
-  /// 单章命中上限（防正则宽泛匹配在单章内炸出上万条）
-  static const _maxInChapter = 50;
-  static const _snippetRadius = 30;
+  late final ContentSearchController _searchController;
+  List<ContentMatch> get _results => _searchController.state.results;
+  List<String> get _history => _searchController.state.history;
+  bool get _searching => _searchController.state.searching;
+  String get _query => _searchController.state.query;
+  int get _scannedChapters => _searchController.state.scanned;
+  int get _totalChapters => _searchController.state.total;
+  void _onSearchChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    _searchController = ContentSearchController(
+      bookUrl: widget.effectiveBookUrl,
+      bookName: widget.effectiveBookName,
+      reading: ref.read(readingRepositoryProvider),
+      cache: ref.read(chapterCacheRepositoryProvider),
+      history: ref.read(searchHistoryRepositoryProvider),
+      log: (operation, error, stack) => debugPrint('$operation：$error\n$stack'),
+    );
+    _searchController.addListener(_onSearchChanged);
+    unawaited(_searchController.loadHistory());
     // 初始查询词：预填输入框并在首帧后自动触发搜索
     final q = widget.initialQuery;
     if (q != null && q.trim().isNotEmpty) {
@@ -167,162 +122,31 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
 
   @override
   void dispose() {
-    _generation++; // 使所有进行中的搜索失效
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     _fsController.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _loadHistory() async {
-    try {
-      final list = await ref
-          .read(searchHistoryRepositoryProvider)
-          .getSearchHistory(limit: 20);
-      if (!mounted) return;
-      setState(() => _history = list.map((e) => e.word).toList());
-    } catch (_) {
-      // 历史加载失败不影响搜索
-    }
-  }
-
-  Future<void> _search(String raw) async {
-    final query = raw.trim();
-    if (query.isEmpty) return;
-
-    final gen = ++_generation;
-
-    setState(() {
-      _query = query;
-      _searching = true;
-      _results = [];
-      _scannedChapters = 0;
-      _totalChapters = 0;
-    });
-    // [LAYOUT_PLAN P1] 提交藏键盘（SearchBar 无 focusNode，走 scope）
+  Future<void> _search(String query) {
     FocusScope.of(context).unfocus();
-
-    // 记录搜索历史
-    ref
-        .read(searchHistoryRepositoryProvider)
-        .addSearchKeyword(query, widget.effectiveBookName)
-        .catchError((_) {});
-
-    try {
-      final chapters = await ref
-          .read(readingRepositoryProvider)
-          .getChapters(widget.effectiveBookUrl);
-      if (gen != _generation || !mounted) return;
-      setState(() => _totalChapters = chapters.length);
-
-      // 正则模式：非法表达式按原版语义静默返回空结果（原版 try/catch 后直接返回）
-      if (_SearchContentOptions.useRegex) {
-        var valid = true;
-        try {
-          RegExp(query);
-        } catch (_) {
-          valid = false;
-        }
-        if (!valid) {
-          if (gen == _generation && mounted) {
-            setState(() => _searching = false);
-          }
-          return;
-        }
-      }
-      // 搜索范围准备：仅当前章 → 取阅读器当前章索引；
-      // 本书已缓存 → 取该书的已缓存章节 URL 集合（cacheListCachedChapterUrls）
-      final scope = _SearchContentOptions.scope;
-      final currentIndex = ref.read(readerNotifierProvider).currentChapterIndex;
-      Set<String>? cachedUrls;
-      if (scope == _SearchContentOptions.scopeCached) {
-        try {
-          cachedUrls =
-              (await ref
-                      .read(chapterCacheRepositoryProvider)
-                      .listCachedChapterUrls(widget.effectiveBookUrl))
-                  .toSet();
-        } catch (_) {
-          cachedUrls = <String>{};
-        }
-      }
-      if (gen != _generation || !mounted) return;
-
-      for (var i = 0; i < chapters.length; i++) {
-        if (gen != _generation) return; // 已被新搜索/退出取消
-        final chapter = chapters[i];
-        // 范围过滤（对齐重构版 search_content_page 的 i != durChapterIndex
-        // continue / 已缓存判定语义）
-        if (scope == _SearchContentOptions.scopeCurrent && i != currentIndex) {
-          continue;
-        }
-        if (scope == _SearchContentOptions.scopeCached &&
-            i != currentIndex &&
-            !(cachedUrls?.contains(chapter.url) ?? false)) {
-          continue;
-        }
-        try {
-          // [C4 对齐 | Qoder UI] 正文口径随「替换」开关切换（对齐原版
-          // ContentProcessor.getContent(useReplace = replaceEnabled)）：
-          // 默认关闭替换规则，避免被替换/删除的词搜不到
-          final content = _SearchContentOptions.useReplace
-              ? await ref
-                    .read(readingRepositoryProvider)
-                    .getChapterContent(widget.effectiveBookUrl, chapter.index)
-              : await ref
-                    .read(readingRepositoryProvider)
-                    .getChapterContentRaw(
-                      widget.effectiveBookUrl,
-                      chapter.index,
-                    );
-          if (gen != _generation) return;
-
-          final hits = findContentHits(
-            content,
-            query,
-            useRegex: _SearchContentOptions.useRegex,
-            maxHits: _maxInChapter,
-          );
-
-          for (final hit in hits) {
-            final start = hit.start > _snippetRadius
-                ? hit.start - _snippetRadius
-                : 0;
-            var end = hit.end + _snippetRadius;
-            if (end > content.length) end = content.length;
-            var snippet = content.substring(start, end).replaceAll('\n', ' ');
-            if (start > 0) snippet = '…$snippet';
-            if (end < content.length) snippet = '$snippet…';
-            _results.add(
-              _ContentMatch(
-                chapterIndex: chapter.index,
-                chapterTitle: chapter.title,
-                snippet: snippet,
-              ),
-            );
-            if (_results.length >= _maxResults) break;
-          }
-        } catch (_) {
-          // 单章获取失败，跳过
-        }
-        if (gen != _generation || !mounted) return;
-        setState(() => _scannedChapters = i + 1);
-        if (_results.length >= _maxResults) break;
-      }
-    } catch (_) {
-      // 目录加载失败
-    } finally {
-      if (gen == _generation && mounted) {
-        setState(() => _searching = false);
-      }
-    }
+    return _searchController.search(
+      query,
+      currentChapterIndex: ref.read(readerNotifierProvider).currentChapterIndex,
+      useRegex: _SearchContentOptions.useRegex,
+      useReplace: _SearchContentOptions.useReplace,
+      scope: switch (_SearchContentOptions.scope) {
+        _SearchContentOptions.scopeCurrent => ContentSearchScope.current,
+        _SearchContentOptions.scopeCached => ContentSearchScope.cached,
+        _ => ContentSearchScope.network,
+      },
+    );
   }
 
-  void _cancelSearch() {
-    _generation++;
-    if (mounted) setState(() => _searching = false);
-  }
+  void _cancelSearch() => _searchController.cancel();
 
-  void _jumpToResult(_ContentMatch match) {
+  void _jumpToResult(ContentMatch match) {
     final container = ProviderScope.containerOf(context);
     container
         .read(readerNotifierProvider.notifier)
@@ -432,7 +256,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
                         _SearchContentOptions.scopeNetwork;
                 }
               });
-              // 已有结果时立即按新选项重搜（旧搜索经 _generation 作废）
+              // 已有结果时立即按新选项重搜（旧搜索由Controller取消）
               if (_query.isNotEmpty) unawaited(_search(_query));
             },
             itemBuilder: (_) => [
@@ -519,10 +343,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
                     icon: const Icon(Symbols.close_rounded, size: 18),
                     onPressed: () {
                       _controller.clear();
-                      setState(() {
-                        _query = '';
-                        _results = [];
-                      });
+                      _searchController.clear();
                     },
                   ),
                 if (_searching)
@@ -592,7 +413,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
                 context.l10n.contentMatchCount(_results.length),
                 style: Theme.of(context).textTheme.labelMedium,
               ),
-              if (_results.length >= _maxResults)
+              if (_results.length >= ContentSearchController.maxResults)
                 Text(
                   context.l10n.searchResultsTruncated,
                   style: Theme.of(context).textTheme.labelSmall,
@@ -615,7 +436,7 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     );
   }
 
-  Widget _buildResultTile(_ContentMatch match) {
+  Widget _buildResultTile(ContentMatch match) {
     final theme = Theme.of(context);
     return ListTile(
       // [LAYOUT_PLAN P1] 结果行字级走 M3 Type Scale
@@ -735,12 +556,5 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
     );
   }
 
-  Future<void> _clearHistory() async {
-    try {
-      await ref.read(searchHistoryRepositoryProvider).clearSearchHistory();
-      if (mounted) setState(() => _history = []);
-    } catch (_) {
-      // 忽略
-    }
-  }
+  Future<void> _clearHistory() => _searchController.clearHistory();
 }

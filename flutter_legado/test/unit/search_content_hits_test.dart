@@ -1,5 +1,5 @@
+import 'package:flutter_legado/src/domain/services/content_search_matcher.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/features/search/search.dart';
 
 /// 正文搜索命中区间纯函数测试（差异清单 C4 对齐项：替换/正则开关）
 ///

@@ -1,8 +1,11 @@
+import '../application/app_services_controller.dart';
+
+import 'dart:async';
+
 import '../../../app/routing/app_navigation.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../../providers/domain_config_provider.dart';
 import '../../../providers/local_server_provider.dart';
-import '../../../domain/models/local_server_status.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -42,36 +45,41 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final GlobalKey _otherSectionKey = GlobalKey();
 
-  // 服务开关（对标 pref_main SwitchPreference）
-  bool _autoTaskService = false;
-  bool _webService = false;
-  bool _mcpService = false;
-  bool _webServiceBusy = false;
-  bool _mcpServiceBusy = false;
+  late final AppServicesController _services;
+  bool get _autoTaskService => _services.state.autoTask;
+  bool get _webService => _services.state.web;
+  bool get _mcpService => _services.state.mcp;
+  bool get _webServiceBusy => _services.state.webBusy;
+  bool get _mcpServiceBusy => _services.state.mcpBusy;
+  bool get _webKeepAliveUnavailable => _services.state.keepAliveUnavailable;
+  int get _mcpPort => _services.state.mcpPort;
+  bool get _mcpTokenConfigured => _services.state.tokenConfigured;
+  String get _webServiceStatus {
+    final status = _services.state.webStatus;
+    if (status == null) return '';
+    return status.running ? 'running on port ${status.port}' : 'stopped';
+  }
 
-  /// iOS 后台保活不可用（start 失败回退「仅前台可用」时，卡片副题提示）
-  bool _webKeepAliveUnavailable = false;
-  String _webServiceStatus = '';
-
-  String _describeServerStatus(LocalServerStatus status) =>
-      status.running ? 'running on port ${status.port}' : 'stopped';
-  int _mcpPort = 0;
-
-  /// Web 书源访问令牌（config:jsSourceApiToken）是否已配置。
-  ///
-  /// [2026-10-06 iOS 实测修复] MCP 独立服务的 Rust 启动守卫要求该配置非空
-  /// （`mcp_start_internal`，rust/legado-ffi/src/api/server_api.rs），未配置时
-  /// 开关必然失败——卡片副题提前给出「需先配置」提示，用户不必先点开关
-  /// 撞错误。默认 true（乐观值）：配置读取完成前不误报「未配置」。
-  bool _mcpTokenConfigured = true;
-
-  /// 端口越界兜底日志只记一次（防手改 prefs 反复刷日志）
-  bool _webPortFallbackLogged = false;
+  void _onServicesChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
-    _initServiceStates();
+    _services = AppServicesController(
+      server: ref.read(localServerServiceProvider),
+      settings: ref.read(serviceSettingsRepositoryProvider),
+      general: ref.read(generalSettingsRepositoryProvider),
+      access: ref.read(serverAccessRepositoryProvider),
+      startKeepAlive: WebKeepAliveService.instance.start,
+      stopKeepAlive: WebKeepAliveService.instance.stop,
+      refreshAuto: AutoTaskScheduler.instance.refresh,
+      cancelAuto: AutoTaskScheduler.instance.cancelAll,
+      log: (message, error) => debugPrint('$message：$error'),
+    );
+    _services.addListener(_onServicesChanged);
+    unawaited(_services.load());
     if (widget.openSettingsRequest > 0) _revealOther();
   }
 
@@ -96,128 +104,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
   }
 
-  /// 恢复服务开关持久化状态（config 键 webService / autoTaskService / mcpPort）
-  ///
-  /// [iOS 特性 | 2026-10-07 保活批核实] `webService=true` 只是 UI 镜像态
-  /// （对齐原版：原版无开机/启动自拉起，见调研报告 §二.4）：App 进程重启后
-  /// 进程内 Rust server 并不存在，此处也**不**自动 `startServer`、**不**启动
-  /// 后台保活（没有服务可保；保活生命周期严格绑定 startServer 成功）。
-  Future<void> _initServiceStates() async {
-    try {
-      final settings = ref.read(serviceSettingsRepositoryProvider);
-      await settings.reload();
-      final config = settings.current;
-      final mcpToken = await ref
-          .read(serverAccessRepositoryProvider)
-          .getToken();
-      final mcpPort = config.mcpPort;
-      if (!mounted) return;
-      setState(() {
-        _webService = config.webEnabled;
-        _autoTaskService = config.autoTaskEnabled;
-        _mcpPort = mcpPort;
-        _mcpService = mcpPort > 0;
-        _mcpTokenConfigured = (mcpToken ?? '').trim().isNotEmpty;
-      });
-      if (_webService) {
-        final status = await ref
-            .read(localServerServiceProvider)
-            .getServerStatus();
-        if (!mounted) return;
-        setState(() => _webServiceStatus = _describeServerStatus(status));
-      }
-      if (_autoTaskService) {
-        AutoTaskScheduler.instance.refresh();
-      }
-    } catch (_) {
-      // 首启无配置时静默失败，保持默认关
-    }
+  @override
+  void dispose() {
+    _services.removeListener(_onServicesChanged);
+    _services.dispose();
+    super.dispose();
   }
 
-  /// 读取「其他设置 → Web 服务端口」配置（PrefKeys.webPort，默认 1122）
-  ///
-  /// [2026-10-06 缺陷修复] 对齐原版 `WebService.kt:244`
-  /// `var port = getPrefInt(PreferKey.webPort, 1122)` → `:215 HttpServer(port)`：
-  /// 启动时使用用户配置端口。此前本页调 `api.startServer()` 不传端口，恒用
-  /// 默认 1122，使「其他设置」中的端口配置形同虚设。
-  ///
-  /// 读取写法对齐 other_settings_screen.dart 既有 `getIntPref`（同键同默认值；
-  /// getIntPref 内部已对异常回落默认值）。越界兜底：设置页已校验
-  /// 1024~60000（other_settings_screen.dart `_showWebPortDialog`），此处仅为
-  /// 防手改 prefs 绕过校验导致启动失败，越界回落 1122 并只记一次日志。
-  Future<int> _readWebPort() async {
-    const defaultPort = 1122;
-    final port =
-        (await ref.read(generalSettingsRepositoryProvider).load()).webPort;
-    if (port < 1024 || port > 60000) {
-      if (!_webPortFallbackLogged) {
-        _webPortFallbackLogged = true;
-        debugPrint('Web 服务端口配置越界（$port），回落默认 $defaultPort');
-      }
-      return defaultPort;
-    }
-    return port;
-  }
-
-  /// Web 服务开关（对标原版 pref_main SwitchPreference）
-  ///
-  /// [iOS Web 服务后台保活 | 2026-10-07 用户批准方案 C+A] iOS 无前台服务，
-  /// 平台等价物是 `UIBackgroundModes: audio` + 近静音音频会话（对应原版
-  /// WakeLock 的「防睡眠」目的，见 docs/WEB_SERVICE_KEEPALIVE_SURVEY_20261007.md）：
-  /// 启动成功后接[WebKeepAliveService.start]，停止成功后接 stop，让 App
-  /// 退后台/锁屏时局域网浏览器仍可访问。保活启动失败仅记日志并回退
-  /// 「仅前台可用」（卡片副题提示），不阻断服务开关。
-  ///
-  /// Android 侧本仓库虽有前台服务机制（platform_channel），但 Web 服务当前
-  /// 未接入保活：`webServiceWakeLock` 偏好仅持久化未接线，既有前台服务仅用于
-  /// 视频/听书播放（VideoPlayService / PlaybackForegroundService），故 Android
-  /// 后台存活同样不作保证（如实登记，未夸大；本批按红线不动 Android）。
-  Future<void> _toggleWebService(bool v) async {
-    if (_webServiceBusy) return;
-    setState(() => _webServiceBusy = true);
-    final server = ref.read(localServerServiceProvider);
+  Future<void> _toggleWebService(bool enabled) async {
     try {
-      if (v) {
-        // 启动端口取用户配置（PrefKeys.webPort），越界按 1122 兜底
-        final port = await _readWebPort();
-        await server.startServer(port: port);
-        final status = await server.getServerStatus();
-        // 服务成功即接保活（iOS 专用；其它平台 no-op）
-        final keepAlive = await WebKeepAliveService.instance.start();
-        await ref
-            .read(serviceSettingsRepositoryProvider)
-            .update((s) => s.copyWith(webEnabled: true));
-        if (!mounted) return;
-        setState(() {
-          _webService = true;
-          _webServiceStatus = _describeServerStatus(status);
-          _webKeepAliveUnavailable = keepAlive == WebKeepAliveStatus.failed;
-        });
-      } else {
-        await server.stopServer();
-        // 服务停止必须同步停保活（否则静音音轨会让进程继续存活）
-        await WebKeepAliveService.instance.stop();
-        await ref
-            .read(serviceSettingsRepositoryProvider)
-            .update((s) => s.copyWith(webEnabled: false));
-        if (!mounted) return;
-        setState(() {
-          _webService = false;
-          _webServiceStatus = '';
-          _webKeepAliveUnavailable = false;
-        });
+      await _services.setWeb(enabled);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.webServiceToggleFailed(errorMessage(error)),
+            ),
+          ),
+        );
       }
-    } catch (e) {
-      if (!mounted) return;
-      // 使用领域错误展示器保留服务失败的可读原因，避免只显示异常类型。
-      // （如「数据库未初始化」「端口绑定失败」）。
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.webServiceToggleFailed(errorMessage(e))),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _webServiceBusy = false);
     }
   }
 
@@ -234,58 +140,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return context.l10n.mcpServiceSummary;
   }
 
-  Future<void> _toggleMcpService(bool v) async {
-    if (_mcpServiceBusy) return;
-    setState(() => _mcpServiceBusy = true);
-    final server = ref.read(localServerServiceProvider);
+  Future<void> _toggleMcpService(bool enabled) async {
     try {
-      if (v) {
-        final port = _mcpPort > 0 ? _mcpPort : 1236;
-        await server.setMcpPort(port);
-        await ref.read(serviceSettingsRepositoryProvider).reload();
-        if (!mounted) return;
-        setState(() {
-          _mcpService = true;
-          _mcpPort = port;
-        });
-      } else {
-        await server.setMcpPort(0);
-        await ref.read(serviceSettingsRepositoryProvider).reload();
-        if (!mounted) return;
-        setState(() {
-          _mcpService = false;
-          _mcpPort = 0;
-        });
+      await _services.setMcp(enabled);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.mcpServiceToggleFailed(errorMessage(error)),
+            ),
+          ),
+        );
       }
-    } catch (e) {
-      if (!mounted) return;
-      // 同Web开关：领域错误提取原消息，
-      // 暴露 Rust 侧真实失败原因（token 未配置 / 端口占用 / 端口越界）。
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.mcpServiceToggleFailed(errorMessage(e))),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _mcpServiceBusy = false);
     }
   }
 
-  Future<void> _toggleAutoTaskService(bool v) async {
-    setState(() => _autoTaskService = v);
-    try {
-      await ref
-          .read(serviceSettingsRepositoryProvider)
-          .update((s) => s.copyWith(autoTaskEnabled: v));
-    } catch (_) {
-      // 持久化失败不阻断 UI 切换
-    }
-    if (v) {
-      AutoTaskScheduler.instance.refresh();
-    } else {
-      AutoTaskScheduler.instance.cancelAll();
-    }
-  }
+  Future<void> _toggleAutoTaskService(bool enabled) =>
+      _services.setAutoTask(enabled);
 
   /// 服务运行状态与后台保活提示；呈现统一使用设置开关行。
   String get _webServiceSubtitle {
