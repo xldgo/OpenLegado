@@ -163,8 +163,6 @@ void main() {
       );
       addTearDown(systemBars.dispose);
       systemBars.updateApplication((
-        transparentStatusBar: false,
-        immNavigationBar: false,
         appBarColor: Colors.white,
         navigationBarColor: Colors.white,
       ));
@@ -276,8 +274,6 @@ void main() {
       );
       addTearDown(systemBars.dispose);
       systemBars.updateApplication((
-        transparentStatusBar: false,
-        immNavigationBar: false,
         appBarColor: Colors.white,
         navigationBarColor: Colors.white,
       ));
@@ -290,8 +286,6 @@ void main() {
       await tester.pump();
 
       systemBars.updateApplication((
-        transparentStatusBar: true,
-        immNavigationBar: true,
         appBarColor: Colors.black,
         navigationBarColor: Colors.black,
       ));

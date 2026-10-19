@@ -1,5 +1,20 @@
 # API 契约文档
 
+## 普通页面系统栏固定策略（2026-10-20，实施前冻结）
+
+用户授权移除全局沉浸状态栏/导航栏开关，普通页面统一边到边布局；不处理旧偏好键。
+本批仅调整Flutter与Android私有MethodChannel，不改Rust/FRB或数据库。
+
+- SystemBarService.apply仅接受appBarColor/navigationBarColor，用于计算系统栏图标明暗。
+- legado/system_bar的apply载荷仅包含lightStatusBarIcons/lightNavigationBarIcons两个布尔值，
+  true表示浅色背景使用深色图标；Android同时更新两种图标明暗，固定透明系统栏、
+  边到边布局并关闭对比度遮罩。
+- reader与getDisplayCutoutBottomInset方法保持；阅读器显隐、菜单临时显示、路由归属和
+  退出/前台恢复继续由SystemBarController管理，不将阅读器策略改成全局固定显隐。
+- iOS普通页面恢复系统栏显示及主题图标明暗；本批不新增原生iOS接线。
+
+编写者：Codex + UI｜2026-10-20
+
 ## 正文缓存清理与离线下载并发（2026-10-19，实施前冻结）
 
 用户授权按当前基线修复清理范围，再接通离线下载并发。Rust/Flutter由同一Codex执行，

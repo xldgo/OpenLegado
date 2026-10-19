@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### SYSTEM-BARS-EDGE-TO-EDGE-20261020：移除全局沉浸开关并统一系统栏（P2，本地完成，待设备复验）
+
+- 授权：用户同意普通页面统一边到边，保留阅读器独立显隐、退出恢复和主题图标明暗；基线feature/ui-reader-selection / 17dba7918，单代理，本地提交，不推送或安装，不提升版本。
+- 范围：移除两个开关、偏好常量及已无字段的系统栏设置模型/仓储/Notifier/恢复刷新项；主页不再根据旧偏好增加顶部安全区。收敛Dart服务与Android私有通道，原生固定边到边和透明栏，同步两类系统图标明暗。Rust/FRB、数据库和阅读器显隐策略不变。
+- 契约先行：API_CONTRACT顶部冻结私有MethodChannel的两个图标布尔参数；不增加旧键迁移/过滤或控件存在性测试。删除废弃设置专属测试，保留并更新运行时归属/退出恢复用例，补充实际平台样式与主题同步行为回归。
+- 验收：定向Flutter行为测试、静态分析和Android Kotlin编译；不做APK/IPA打包、安装或全量CI。真实Android/iOS的系统栏效果和阅读器显隐受平台限制，设备结果单独记录。编写者Codex + UI，2026-10-20。
+- 实现：删除5份废弃设置实现与3份专属测试，移除4项双语文案并由flutter gen-l10n更新生成物。主页固定不重复添加顶部安全区，Binder首帧直接同步主题；平台载荷仅保留两种图标明暗。Android前台恢复避让阅读器，普通页面恢复时显示系统栏，API24～29保留必要的平台能力分支。
+- 结果：系统栏/主题/恢复/备份23项、首页导航与主题预设43项通过，共66项；目标静态分析和diff检查通过。Android :app:compileDebugKotlin通过，仅编译Kotlin，显式排除compileFlutterBuildDebug与verifyDebugRustFfiLibs等任务，不代表Rust产物或APK已验证。证据flutter_legado/build/system-bar-edge-{tests,ui-tests,analysis,kotlin}.log。
+- 交付：仅本地提交，提交号以本条Git记录为准；版本保持2.0.405+406。单代理自查，无独立审查；未重编Rust或运行依赖真实FFI的阅读器集成用例，未打包、推送、CI或设备安装，iPhone/Android实际系统栏效果待用户复验。
+
 ### THEME-DEAD-NAV-SWITCHES-20261020：删除未接线的日夜透明导航栏设置（P2，本地完成，未设备复验）
 
 - 授权：用户确认删除transparentNavBar/transparentNavBarNight，无旧键迁移、清洗或备份过滤；不增加控件存在性测试。基线feature/ui-reader-selection / c3119dbb6，单代理，本地提交，不推送、构建安装或提升版本。

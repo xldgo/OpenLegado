@@ -3234,19 +3234,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeImportTheme => 'Import theme';
 
   @override
-  String get themeImmersionStatusBar => 'Immersive status bar';
-
-  @override
-  String get themeStatusBarImmersion => 'Make the status bar transparent';
-
-  @override
-  String get themeImmNavigationBar => 'Immersive navigation bar';
-
-  @override
-  String get themeImmersiveNavigationDescription =>
-      'Make the navigation bar transparent';
-
-  @override
   String get themeBarElevation => 'Navigation bar shadow';
 
   @override

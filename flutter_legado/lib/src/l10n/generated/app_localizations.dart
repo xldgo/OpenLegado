@@ -5715,30 +5715,6 @@ abstract class AppLocalizations {
   /// **'导入主题'**
   String get themeImportTheme;
 
-  /// 按页面功能核对 HapeLee immersion_status_bar；只用于显示文案。
-  ///
-  /// In zh, this message translates to:
-  /// **'沉浸式状态栏'**
-  String get themeImmersionStatusBar;
-
-  /// 按页面功能核对 HapeLee status_bar_immersion；只用于显示文案。
-  ///
-  /// In zh, this message translates to:
-  /// **'状态栏颜色透明'**
-  String get themeStatusBarImmersion;
-
-  /// 按页面功能核对 HapeLee imm_navigation_bar；只用于显示文案。
-  ///
-  /// In zh, this message translates to:
-  /// **'沉浸式导航栏'**
-  String get themeImmNavigationBar;
-
-  /// 按页面功能核对 HapeLee imm_navigation_bar_s；只用于显示文案。
-  ///
-  /// In zh, this message translates to:
-  /// **'导航栏颜色透明'**
-  String get themeImmersiveNavigationDescription;
-
   /// 按页面功能核对 HapeLee bar_elevation；只用于显示文案。
   ///
   /// In zh, this message translates to:

@@ -421,7 +421,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             );
             // BackstageWebView DOM 通道（@webjs / 正文 webJs / java.webView*）
             wrapped = WebViewBridgeListener(child: wrapped);
-            // 沉浸式状态栏 / 导航栏：对齐原版 transparentStatusBar / immNavigationBar
+            // 普通页面系统栏跟随主题；阅读器显隐由页面归属控制器接管。
             wrapped = SystemBarBinder(child: wrapped);
             // P1-8：按当前亮度叠全局背景图（分组卡片仍自带不透明底，可读性保留）
             wrapped = _ThemeBackgroundLayer(

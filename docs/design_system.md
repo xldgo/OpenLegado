@@ -2,9 +2,11 @@
 
 ## 系统栏设置边界（2026-10-20）
 
-系统栏偏好仅保留沉浸式状态栏transparentStatusBar与沉浸式导航栏immNavigationBar，
-复用原有SystemBarService和原生接线。移除未接线的日夜“透明导航栏”设置及其存取链路。
-应用内底栏仍由现有背景不透明度、模糊与玻璃参数控制，不与系统导航栏设置混用。
+普通页面固定边到边与透明系统栏，不再提供全局沉浸开关或对应持久化设置。
+SystemBarBinder按当前主题顶底背景计算图标明暗，经SystemBarController和SystemBarService
+同步到平台；Android状态栏及导航栏图标均更新，系统对比度遮罩关闭。
+阅读器继续独立控制显隐，菜单临时显示、切页、退出和前台恢复遵循页面归属。
+应用内底栏不透明度、模糊和玻璃参数保持独立，不作为系统栏背景开关。
 
 编写者：Codex + UI｜2026-10-20
 
@@ -279,11 +281,9 @@ MenuAnchor 的 OverlayPortal 继承入口主题，根浮层中的菜单也沿用
 
 ## 系统栏与页面归属（2026-10-13）
 
-应用系统栏偏好经 SystemBarSettingsRepository 复用共享 AppSettingsService，
-SystemBarNotifier 只投影当前偏好和加载状态；外观页开关保存失败提示并回退，
-备份恢复后重读同一仓储。SystemBarBinder 在当前帧主题更新后
-向共享 SystemBarController 提交样式。阅读器只在页面可见期间接管显隐，
-全局主题及偏好变化保留为最新应用样式，离开阅读器后恢复；前台恢复重新下发当前请求。
+SystemBarBinder在当前帧主题更新后向共享SystemBarController提交普通页面样式，
+不再等待系统栏偏好加载或参与备份恢复。阅读器只在页面可见期间接管显隐，
+全局主题变化保留为最新应用样式，离开阅读器后恢复；前台恢复重新下发当前请求。
 平台调用串行执行，过期排队项忽略，Android 原生前台恢复避让阅读器归属。
 
 独立页面使用 PageRoute，模态弹层使用 PopupRoute 或标准 Dialog/BottomSheet 入口。

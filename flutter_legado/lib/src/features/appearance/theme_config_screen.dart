@@ -2,7 +2,7 @@ import '../../app/routing/app_navigation.dart';
 import '../../widgets/eye_protection_settings.dart';
 import '../../providers/cover_provider.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
-// ThemeConfigFragment（24 项）：启动图标/欢迎页样式/沉浸式状态栏/沉浸式导航栏/
+// ThemeConfigFragment：启动图标/欢迎页样式/
 // 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
 // 白天/夜间 主色调/强调色/背景色/底栏色/背景图片/保存主题。
 // 颜色配置经 ThemeColorsNotifier 接入 MaterialApp ThemeData 即时生效；
@@ -21,7 +21,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../constants/pref_keys.dart';
 import '../../domain/models/theme_colors_settings.dart';
 import '../../providers/providers.dart';
-import '../../providers/theme/system_bar_notifier.dart';
 import '../../providers/theme/theme_colors_notifier.dart';
 import '../../providers/theme/theme_notifier.dart';
 import '../../providers/ui_settings/ui_settings_notifier.dart';
@@ -414,7 +413,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
     final ui = ref.watch(uiSettingsProvider);
     final liquidBottomBar =
         ui.useFloatingBottomBar && ui.useFloatingBottomBarLiquidGlass;
-    final systemBars = ref.watch(systemBarProvider);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
@@ -574,27 +572,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: context.l10n.themeImportTheme,
                         subtitle: '导入主题 JSON 文件并应用',
                         onTap: _importTheme,
-                      ),
-                      SettingSwitchRow(
-                        title: context.l10n.themeImmersionStatusBar,
-                        subtitle: context.l10n.themeStatusBarImmersion,
-                        value: systemBars.transparentStatusBar,
-                        onChanged: (v) => _saveAppearance(
-                          () => ref
-                              .read(systemBarProvider.notifier)
-                              .setTransparentStatusBar(v),
-                        ),
-                      ),
-                      SettingSwitchRow(
-                        title: context.l10n.themeImmNavigationBar,
-                        subtitle:
-                            context.l10n.themeImmersiveNavigationDescription,
-                        value: systemBars.immNavigationBar,
-                        onChanged: (v) => _saveAppearance(
-                          () => ref
-                              .read(systemBarProvider.notifier)
-                              .setImmNavigationBar(v),
-                        ),
                       ),
                       SettingTile(
                         title: context.l10n.themeBarElevation,

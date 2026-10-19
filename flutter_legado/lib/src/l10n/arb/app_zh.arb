@@ -3612,22 +3612,6 @@
   "@themeImportTheme": {
     "description": "按页面功能核对 HapeLee import_theme；只用于显示文案。"
   },
-  "themeImmersionStatusBar": "沉浸式状态栏",
-  "@themeImmersionStatusBar": {
-    "description": "按页面功能核对 HapeLee immersion_status_bar；只用于显示文案。"
-  },
-  "themeStatusBarImmersion": "状态栏颜色透明",
-  "@themeStatusBarImmersion": {
-    "description": "按页面功能核对 HapeLee status_bar_immersion；只用于显示文案。"
-  },
-  "themeImmNavigationBar": "沉浸式导航栏",
-  "@themeImmNavigationBar": {
-    "description": "按页面功能核对 HapeLee imm_navigation_bar；只用于显示文案。"
-  },
-  "themeImmersiveNavigationDescription": "导航栏颜色透明",
-  "@themeImmersiveNavigationDescription": {
-    "description": "按页面功能核对 HapeLee imm_navigation_bar_s；只用于显示文案。"
-  },
   "themeBarElevation": "导航栏阴影",
   "@themeBarElevation": {
     "description": "按页面功能核对 HapeLee bar_elevation；只用于显示文案。"

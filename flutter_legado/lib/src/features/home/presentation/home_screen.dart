@@ -20,7 +20,6 @@ import '../../../widgets/app_bottom_bar_inset.dart';
 import '../../../widgets/navigation/app_navigation_bars.dart';
 import '../../appearance/application/bottom_bar_skin_notifier.dart';
 import '../application/main_prefs_notifier.dart';
-import '../../../providers/theme/system_bar_notifier.dart';
 import '../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../explore/presentation/explore_screen.dart';
 import 'home_tab_screen.dart';
@@ -383,13 +382,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ui.showBottomView &&
               ui.useFloatingBottomBar &&
               MediaQuery.viewInsetsOf(context).bottom == 0;
-          final safeTop = !ref.watch(
-            systemBarProvider.select((s) => s.transparentStatusBar),
-          );
           return AppScaffold(
             extendBody: extendBody,
-            // 沉浸式状态栏开启时顶栏延伸至状态栏区域（对标原版 fullScreen +
-            // AppConfig.isTransparentStatusBar）；关闭时保留顶部 SafeArea
+            // 子页面顶栏处理顶部安全区，主页不再叠加旧系统栏偏好留白。
             body: Builder(
               builder: (bodyContext) => AppBottomBarInset(
                 // Scaffold已按实际底栏布局计算，包含胶囊留白与系统安全区。
@@ -402,7 +397,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   context: bodyContext,
                   removeBottom: extendBody,
                   child: SafeArea(
-                    top: safeTop,
+                    top: false,
                     bottom: false,
                     // [UI_SYNC_REFACTOR B3] tabletInterface + sw≥600 切 NavigationRail
                     //（简版：系统图标不带皮肤，expand 持久化登记差异延后）

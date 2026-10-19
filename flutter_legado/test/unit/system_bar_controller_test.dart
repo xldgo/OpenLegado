@@ -12,14 +12,10 @@ import 'package:flutter_legado/src/widgets/reader/read_aloud_player_transition.d
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
 
 const dayBars = (
-  transparentStatusBar: false,
-  immNavigationBar: false,
   appBarColor: Color(0xffffffff),
   navigationBarColor: Color(0xffeeeeee),
 );
 const nightBars = (
-  transparentStatusBar: true,
-  immNavigationBar: true,
   appBarColor: Color(0xff000000),
   navigationBarColor: Color(0xff111111),
 );
@@ -194,8 +190,6 @@ void main() {
       navigationBarVisible: true,
     );
     await SystemBarService.apply(
-      transparentStatusBar: dayBars.transparentStatusBar,
-      immNavigationBar: dayBars.immNavigationBar,
       appBarColor: dayBars.appBarColor,
       navigationBarColor: dayBars.navigationBarColor,
     );
@@ -211,4 +205,55 @@ void main() {
     ]);
     await flushOperations();
   });
+
+  for (final lightStatus in [true, false]) {
+    test('普通页面透明系统栏分别匹配顶底背景明暗：亮状态栏=$lightStatus', () async {
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      await SystemBarService.apply(
+        appBarColor: lightStatus
+            ? const Color(0xffffffff)
+            : const Color(0xff000000),
+        navigationBarColor: lightStatus
+            ? const Color(0xff000000)
+            : const Color(0xffffffff),
+      );
+      await flushOperations();
+      final style =
+          calls
+                  .lastWhere(
+                    (call) =>
+                        call.method == 'SystemChrome.setSystemUIOverlayStyle',
+                  )
+                  .arguments
+              as Map;
+      expect(style['statusBarColor'], const Color(0x00000000).toARGB32());
+      expect(
+        style['systemNavigationBarColor'],
+        const Color(0x00000000).toARGB32(),
+      );
+      expect(
+        style['statusBarIconBrightness'],
+        lightStatus ? 'Brightness.dark' : 'Brightness.light',
+      );
+      expect(
+        style['systemNavigationBarIconBrightness'],
+        lightStatus ? 'Brightness.light' : 'Brightness.dark',
+      );
+      expect(
+        style['statusBarBrightness'],
+        lightStatus ? 'Brightness.light' : 'Brightness.dark',
+      );
+      expect(style['systemNavigationBarContrastEnforced'], isFalse);
+      expect(style['systemStatusBarContrastEnforced'], isFalse);
+    });
+  }
 }

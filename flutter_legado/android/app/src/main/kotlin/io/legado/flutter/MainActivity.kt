@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -32,11 +33,8 @@ open class MainActivity : FlutterFragmentActivity() {
     private var pendingAutoTaskMinimize = false
 
     /** 最近一次 Dart 侧下发的系统栏配置（onPostResume 时复用，避免被主题色覆盖） */
-    private var systemBarTransparent = true
-    private var systemBarImmNav = true
-    private var systemBarStatusColor = Color.TRANSPARENT
-    private var systemBarNavColor = Color.TRANSPARENT
     private var systemBarLightIcons = false
+    private var systemBarLightNavigationIcons = false
     private var systemBarReaderActive = false
 
     companion object {
@@ -228,16 +226,6 @@ open class MainActivity : FlutterFragmentActivity() {
     }
 
 
-    /** Dart MethodChannel 在部分 API 上传 32 位 ARGB 为 Long，避免 argument<Int> ClassCastException。 */
-    private fun intArgFromCall(call: MethodCall, key: String): Int? {
-        return when (val raw = call.argument<Any>(key)) {
-            is Int -> raw
-            is Long -> raw.toInt()
-            is Number -> raw.toInt()
-            else -> null
-        }
-    }
-
     private fun handleSystemBarCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "getDisplayCutoutBottomInset" -> {
@@ -265,19 +253,10 @@ open class MainActivity : FlutterFragmentActivity() {
             }
             "apply" -> {
                 systemBarReaderActive = false
-                systemBarTransparent =
-                    call.argument<Boolean>("transparentStatusBar") ?: true
-                systemBarImmNav =
-                    call.argument<Boolean>("immNavigationBar") ?: true
-                // MethodChannel 可能将 32 位 ARGB 以 Long 传递，勿直接 argument<Int>
-                intArgFromCall(call, "statusBarColor")?.let {
-                    systemBarStatusColor = it
-                }
-                intArgFromCall(call, "navigationBarColor")?.let {
-                    systemBarNavColor = it
-                }
                 systemBarLightIcons =
                     call.argument<Boolean>("lightStatusBarIcons") ?: false
+                systemBarLightNavigationIcons =
+                    call.argument<Boolean>("lightNavigationBarIcons") ?: false
                 applySystemBarFromState()
                 result.success(null)
             }
@@ -285,59 +264,46 @@ open class MainActivity : FlutterFragmentActivity() {
         }
     }
 
-    /**
-     * 应用系统栏样式（对标原版 ActivityExtensions.setStatusBarColorAuto /
-     * setNavigationBarColorAuto + fullScreen）。
-     *
-     * 沉浸式开启时状态栏透明、内容延伸至状态栏区域；关闭时使用
-     * status_bar_bag 实色条。不再强制 styles.xml 主题色，避免顶栏与
-     * 状态栏出现灰白断层。
-     */
+    /** 普通页面固定边到边；恢复可见系统栏，两类图标明暗由Dart主题同步。 */
+    @Suppress("DEPRECATION")
     private fun applySystemBarFromState() {
-        @Suppress("DEPRECATION")
-        if (systemBarTransparent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(false)
-            } else {
-                window.decorView.systemUiVisibility =
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            }
-            window.statusBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(true)
-            } else {
-                window.decorView.systemUiVisibility =
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            }
-            window.statusBarColor = systemBarStatusColor
         }
-
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-        window.navigationBarColor = systemBarNavColor
-
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.let { controller ->
-                if (systemBarLightIcons) {
-                    controller.setSystemBarsAppearance(
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    )
-                } else {
-                    controller.setSystemBarsAppearance(
-                        0,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    )
-                }
+                val status = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                val navigation = WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                val appearance = (if (systemBarLightIcons) status else 0) or
+                    (if (systemBarLightNavigationIcons) navigation else 0)
+                controller.setSystemBarsAppearance(appearance, status or navigation)
+                controller.show(WindowInsets.Type.systemBars())
             }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            @Suppress("DEPRECATION")
+        } else {
             var flags = window.decorView.systemUiVisibility
             flags = if (systemBarLightIcons) {
                 flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             } else {
                 flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags = if (systemBarLightNavigationIcons) {
+                    flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                } else {
+                    flags and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+                }
             }
             window.decorView.systemUiVisibility = flags
         }

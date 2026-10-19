@@ -16,12 +16,6 @@ class PrefKeys {
   /// 启动图标（仅 Android 生效，原版 launcherIcon）
   static const launcherIcon = 'launcherIcon';
 
-  /// 沉浸式状态栏（仅 Android 生效，默认 true）
-  static const transparentStatusBar = 'transparentStatusBar';
-
-  /// 沉浸式导航栏（仅 Android 生效，默认 true）
-  static const immNavigationBar = 'immNavigationBar';
-
   /// 导航栏阴影高度（原版 barElevation，0~32）
   static const barElevation = 'barElevation';
 

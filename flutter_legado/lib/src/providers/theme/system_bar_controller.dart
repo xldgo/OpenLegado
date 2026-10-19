@@ -7,12 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/settings_write_queue.dart';
 import '../../services/system_bar_service.dart';
 
-typedef ApplicationSystemBars = ({
-  bool transparentStatusBar,
-  bool immNavigationBar,
-  Color appBarColor,
-  Color navigationBarColor,
-});
+typedef ApplicationSystemBars = ({Color appBarColor, Color navigationBarColor});
 
 typedef ReaderSystemBars = ({bool statusBarVisible, bool navigationBarVisible});
 
@@ -86,8 +81,6 @@ class SystemBarController {
 final systemBarControllerProvider = Provider<SystemBarController>((ref) {
   final controller = SystemBarController(
     applyApplication: (configuration) => SystemBarService.apply(
-      transparentStatusBar: configuration.transparentStatusBar,
-      immNavigationBar: configuration.immNavigationBar,
       appBarColor: configuration.appBarColor,
       navigationBarColor: configuration.navigationBarColor,
     ),

@@ -1,10 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../providers/theme/system_bar_notifier.dart';
 import '../providers/theme/system_bar_controller.dart';
 
-/// 监听主题与系统栏偏好，全局同步 SystemChrome / Android Window
+/// 监听主题，全局同步 SystemChrome / Android Window
 class SystemBarBinder extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -62,9 +61,6 @@ class _SystemBarBinderState extends ConsumerState<SystemBarBinder>
 
   void _apply() {
     if (!mounted) return;
-    final systemBar = ref.read(systemBarProvider);
-    if (!systemBar.loaded) return;
-
     final theme = Theme.of(context);
     final appBarColor =
         theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface;
@@ -72,8 +68,6 @@ class _SystemBarBinderState extends ConsumerState<SystemBarBinder>
         theme.navigationBarTheme.backgroundColor ?? theme.colorScheme.surface;
 
     ref.read(systemBarControllerProvider).updateApplication((
-      transparentStatusBar: systemBar.transparentStatusBar,
-      immNavigationBar: systemBar.immNavigationBar,
       appBarColor: appBarColor,
       navigationBarColor: navBarColor,
     ));
@@ -81,7 +75,6 @@ class _SystemBarBinderState extends ConsumerState<SystemBarBinder>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<SystemBarState>(systemBarProvider, (_, _) => _scheduleApply());
     return widget.child;
   }
 }

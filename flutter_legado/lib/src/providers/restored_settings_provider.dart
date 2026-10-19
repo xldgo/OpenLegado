@@ -10,7 +10,6 @@ import 'locale_settings_provider.dart';
 import '../features/home/application/main_prefs_notifier.dart';
 import 'read_record_settings_provider.dart';
 import '../features/reader/application/reader_settings_provider.dart';
-import 'theme/system_bar_notifier.dart';
 import 'theme/theme_colors_notifier.dart';
 import 'theme/theme_notifier.dart';
 import 'ui_settings/ui_settings_notifier.dart';
@@ -25,7 +24,6 @@ final restoredSettingsRefresherProvider = Provider<RestoredSettingsRefresher>(
     ('主题颜色', () => ref.read(themeColorsProvider.notifier).reload()),
     ('主界面', () => ref.read(mainPrefsProvider.notifier).reload()),
     ('界面布局', () => ref.read(uiSettingsProvider.notifier).reload()),
-    ('系统栏', () => ref.read(systemBarProvider.notifier).reload()),
     ('书架设置', () => ref.read(bookshelfSettingsRepositoryProvider).reload()),
     ('阅读记录', () => ref.read(readRecordSettingsRepositoryProvider).reload()),
     ('基础阅读', () => ref.read(readerSettingsRepositoryProvider).reload()),

@@ -930,8 +930,6 @@ void main() {
       applyReader: (value) async => barEvents.add(value),
     );
     controller.updateApplication((
-      transparentStatusBar: false,
-      immNavigationBar: false,
       appBarColor: Colors.white,
       navigationBarColor: Colors.white,
     ));
