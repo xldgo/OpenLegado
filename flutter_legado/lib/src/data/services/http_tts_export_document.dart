@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../models/models.dart';
+import '../../domain/models/http_tts_voice_options.dart';
 
 /// 从当前持久化目录重建可交换文档，不导出设备凭据或系统语音。— Codex + Bridge
 String httpTtsExportDocument(
@@ -43,10 +44,7 @@ Map<String, dynamic> _engineDocument(
           {
             'speakerName': voice.displayName,
             'toneID': voice.speakerId,
-            'tags': switch (jsonDecode(voice.traitsJson)) {
-              List<dynamic> tags => tags,
-              _ => <String>[],
-            },
+            'tags': HttpTtsVoiceOptions(voice.traitsJson).tags,
           },
       ]),
     if (emotions.isNotEmpty)

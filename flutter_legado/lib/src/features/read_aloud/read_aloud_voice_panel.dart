@@ -74,7 +74,14 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     notifier.pause();
     await notifier.restartCurrentTts();
     if (!mounted || _disposing) return;
-    await _preview.speak(voice, text, draft: draft);
+    await _preview.speak(
+      voice,
+      text,
+      draft: draft,
+      httpSelection: !draft && voice.engineType == 'http'
+          ? _selections[voice.engineId]
+          : null,
+    );
   }
 
   Future<void> addVoice() => _action(() async {
@@ -179,6 +186,10 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
       builder: (_) => ReadAloudVoiceSheet(
         source: source,
         voice: voice,
+        httpEmotionTag:
+            voice != null && _selections[voice.engineId]?.voiceId == voice.id
+            ? _selections[voice.engineId]?.emotionTag
+            : null,
         onPreview: (voice, text) => _previewVoice(voice, text, draft: true),
         onStop: stopPreview,
       ),
@@ -187,6 +198,15 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     if (result == null || !mounted) return;
     await ref.read(readAloudVoiceRepositoryProvider).save(result);
     if (!mounted) return;
+    final selectedHttp =
+        result.engineType == 'http' &&
+        _selections[result.engineId]?.voiceId == result.id;
+    if (selectedHttp) {
+      await ref
+          .read(audioNotifierProvider.notifier)
+          .setHttpTtsVoice(int.parse(result.engineId), result);
+      if (!mounted) return;
+    }
     await ref.read(readAloudVoicesProvider.notifier).reload();
     await _refresh();
     if (!mounted) return;
@@ -195,7 +215,8 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
         notifier.resolveTtsEngineUrl() == 'cloud://${result.engineId}' &&
         _cloudSelections[result.engineId] == result.id) {
       await notifier.restartCurrentTts();
-    } else if (result.engineType == 'http' &&
+    } else if (!selectedHttp &&
+        result.engineType == 'http' &&
         await notifier.resolveTtsEngineId() == int.tryParse(result.engineId)) {
       await notifier.restartCurrentTts();
     }
@@ -447,7 +468,8 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
           ),
         );
         if (chosen == null) return;
-        emotion = chosen.isEmpty ? null : chosen;
+        // 空字符串保留用户明确选择默认情感，null 才表示跟随音色预设。
+        emotion = chosen;
       }
       await notifier.setHttpTtsVoice(
         int.parse(voice.engineId),

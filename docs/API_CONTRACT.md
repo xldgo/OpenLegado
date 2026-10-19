@@ -2136,6 +2136,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 > - `currentToneID`：音色 ID（可选，默认空串）
 > - `currentSpeakerName`：发音人名称（可选，默认空串）
 > - `currentEmotionTag`：情感标签（可选，默认空串）
+> - `currentEmotionName`：从本次捕获的源目录映射的情感名称，无匹配时为空串。
 > - 支持 URL 模板、`@Header`、`@Body`、POST/GET 方法及 `@js:` / `{{js}}` 规则求值。
 > **缓存目录**：默认为系统临时目录下 `legado_tts_cache`，由 Bootstrap 经 NativeRustRuntime 的 `setTtsCacheDirectory` 调用 `ttsSetCacheDir` 注入应用缓存目录。合成接口不初始化运行时、不改变目录或另存缓存。
 
@@ -2159,6 +2160,17 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Repository 对时间戳使用 int，Rust u64 经 FRB 生成为 BigInt，由正式适配器转换；keepBookUrl/keepChapterIndex 成对用于保留当前章。缓存保留 `audioCacheCleanTime` 单位分钟，默认 10，0 为即听即焚：停止并释放活动租约后清理；保留模式保护当前章，清理其他过期项。预下载 `audioPreDownloadNum` 默认 10 章；预合成 `ttsPreSynthesisConcurrency` 默认 3，与源 synthesisThreadCount 取小（1..8）。全局播放倍速不改变合成身份。调度只改变请求顺序，不改 Rust 规则求值、缓存键或音频格式；同输入优先复用排队/在途任务，取消不转失败估算。预合成失败不改变当前播放器状态。
 
 **T4a 音色目录（2026-10-13，实施前冻结）**：新增独立 `read_aloud_voices` 表（schema v111，仅建表，不回填历史目录），HTTP 16 字段及表列保持不变。导入 HTTP 源的原始 JSON 中 speakersJson/emotionsJson 在 Rust 解析并同步；按上游仅接受字符串内嵌 JSON，支持平铺/分组与字段别名，平铺优先、同 ID 首项保留。没有有效 speaker 时不清空目录；正常编辑不丢既有音色；删除引擎清理其目录。源与目录保存处于同一事务，不能只保存其中一半。
+
+**2026-10-19 HTTP 音色参数贯通（实施前冻结）**：不改 FRB 签名/schema。源目录 traitsJson
+数组继续表示标签；用户 HTTP 预设保存为对象，保留 `tags` 与可选默认 `emotionTag`，
+不丢未知参数。选择中的 emotionTag 为 null 时使用预设默认值，空字符串表示用户明确选择
+引擎默认情感，非空值为显式覆盖。目录内不存在的情感提示并回落默认；没有情感目录的源
+允许直接传标签，由其规则自行解释。编辑当前选中预设后重置情感覆盖，让正文使用新预设；
+列表试听使用与正文相同的选择解析，编辑草稿试听只消费草稿、不写默认选择。
+Rust 从操作捕获的源目录映射情感名称/标签：精确匹配、上游同义词、目录默认项，未知值不
+猜测私有标签；无目录保留输入标签。规则收到 currentEmotionName/currentEmotionTag，二者
+进入实际音频缓存身份。前台预合成身份继续按有效 toneId/speakerName/emotionTag 区分。
+本批不增加自动情绪识别或云端参数，不更改播放队列。
 
 目录行字段：id/engineType/engineId/speakerId/displayName/traitsJson/emotionCatalogJson/managedBy/enabled/available/excluded/revision/createdAt/updatedAt。稳定 ID 对齐 SpeechIdentity：`voice:` + SHA256(`engineType + NUL + engineId + NUL + speakerId`) 前 32 小写十六进制字符。HTTP 的 engineId 是数据库整数的字符串，speakerId 是 toneID；系统 engineId 为 `system:<设备引擎>`，speakerId 优先设备 identifier，否则 name。系统发现由现有 SystemTts 平台接口负责，Rust 不访问 TTS 插件。
 

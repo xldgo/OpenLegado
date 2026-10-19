@@ -7,8 +7,8 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.dart';
 import 'package:flutter_legado/src/data/repositories/mock_tts_cache_repository.dart';
-import 'package:flutter_legado/src/data/services/mock_http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_preview.dart';
+import 'package:flutter_legado/src/domain/models/http_tts_voice_selection.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 
 import '../mocks/mocks.dart' hide MockHttpTtsSynthesizer;
@@ -30,6 +30,33 @@ class _Cloud implements CloudTtsSynthesizer {
     options = voiceOptions;
     lastId = voiceId;
     return pending?.future ?? const HttpTtsAudio(audioPath: '/fixture.wav');
+  }
+}
+
+class _Http implements HttpTtsSynthesizer {
+  final calls =
+      <({int engine, String? tone, String? speaker, String? emotion})>[];
+  @override
+  Future<HttpTtsSynthesisResult> synthesize({
+    required int engineId,
+    required String text,
+    String? engineUrl,
+    double speed = 1,
+    double pitch = 1,
+    double volume = 1,
+    String? voiceName,
+    String? toneId,
+    String? speakerName,
+    String? emotionTag,
+    HttpTtsCancellation? cancellation,
+  }) async {
+    calls.add((
+      engine: engineId,
+      tone: toneId,
+      speaker: speakerName,
+      emotion: emotionTag,
+    ));
+    return const HttpTtsAudio(audioPath: '/http.wav');
   }
 }
 
@@ -69,6 +96,7 @@ class _System extends Fake implements SystemTts {
 
 void main() {
   late _Cloud cloud;
+  late _Http http;
   late _System system;
   late FakeStreamAudioPlayer player;
   late ReadAloudVoicePreview preview;
@@ -84,6 +112,7 @@ void main() {
   );
   setUp(() async {
     cloud = _Cloud();
+    http = _Http();
     system = _System();
     player = FakeStreamAudioPlayer();
     changes.clear();
@@ -101,7 +130,7 @@ void main() {
       system: system,
       cloud: () => cloud,
       engines: () => engines,
-      http: () => const MockHttpTtsSynthesizer(),
+      http: () => http,
       cache: () => const MockTtsCacheRepository(),
       onChanged: changes.add,
       onError: errors.add,
@@ -109,6 +138,41 @@ void main() {
   });
   tearDown(() async {
     await preview.dispose();
+  });
+  test('HTTP 试听与正文同样解析预设、显式情感、默认覆盖和失效回落', () async {
+    final v = ReadAloudVoice(
+      id: readAloudVoiceId('http', '7', 'zh'),
+      engineType: 'http',
+      engineId: '7',
+      speakerId: 'zh',
+      displayName: '中文',
+      traitsJson: '{"emotionTag":"happy"}',
+      emotionCatalogJson: '[{"emotionName":"高兴","emotionTag":"happy"},{"emotionName":"平静","emotionTag":"calm"}]',
+    );
+    await preview.speak(v, '默认预设');
+    await preview.speak(
+      v,
+      '当前正文情感',
+      httpSelection: HttpTtsVoiceSelection(v.id, emotionTag: 'calm'),
+    );
+    await preview.speak(
+      v,
+      '显式引擎默认',
+      httpSelection: HttpTtsVoiceSelection(v.id, emotionTag: ''),
+    );
+    await preview.speak(
+      v,
+      '失效情感',
+      httpSelection: HttpTtsVoiceSelection(v.id, emotionTag: 'gone'),
+    );
+    expect(http.calls.map((e) => e.emotion), ['happy', 'calm', null, null]);
+    expect(
+      http.calls.every(
+        (e) => e.engine == 7 && e.tone == 'zh' && e.speaker == '中文',
+      ),
+      isTrue,
+    );
+    expect(player.playedLocalFiles, hasLength(4));
   });
   test('不同音色以独立草稿试听，停止后迟到文件不播放', () async {
     cloud.pending = Completer();

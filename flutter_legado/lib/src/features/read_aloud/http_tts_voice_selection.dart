@@ -4,6 +4,7 @@ import '../../domain/models/http_tts_voice_selection.dart';
 export '../../domain/models/http_tts_voice_selection.dart';
 
 import '../../domain/contracts/read_aloud_voice_repository.dart';
+import '../../domain/models/http_tts_voice_options.dart';
 
 final class HttpTtsVoiceResolution {
   const HttpTtsVoiceResolution({this.voice, this.emotionTag, this.warning});
@@ -30,8 +31,13 @@ HttpTtsVoiceResolution resolveHttpTtsVoice(
     return const HttpTtsVoiceResolution(warning: '所选音色不可用，使用引擎默认音色');
   }
   final emotions = (jsonDecode(voice.emotionCatalogJson) as List).cast<Map>();
-  final emotion = selection.emotionTag;
-  if (emotion != null && emotions.every((e) => e['emotionTag'] != emotion)) {
+  final emotion =
+      selection.emotionTag ?? HttpTtsVoiceOptions(voice.traitsJson).emotionTag;
+  if (emotion == null || emotion.isEmpty) {
+    return HttpTtsVoiceResolution(voice: voice);
+  }
+  if (emotions.isNotEmpty &&
+      emotions.every((e) => e['emotionTag'] != emotion)) {
     return HttpTtsVoiceResolution(voice: voice, warning: '所选情感已不在目录中，使用默认情感');
   }
   return HttpTtsVoiceResolution(voice: voice, emotionTag: emotion);

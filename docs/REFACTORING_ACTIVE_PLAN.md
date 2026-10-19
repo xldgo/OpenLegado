@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-VOICE-PARAMS-20261019：HTTP 音色与情感参数贯通（P2，待复验：真机听感）
+
+- 授权/基线：用户批准第二批，feature/ui-tts-engine / a7e07d320，单代理；先冻结 API_CONTRACT 音色参数语义，无 FRB 签名/schema 变化。
+- 确认缺口：HTTP 编辑将源标签数组转成空对象；列表试听绕过正文的情感选择；Rust 源变量缺 currentEmotionName。源目录平铺/分组已有实现，不重复重写。
+- 范围：HTTP 预设情感编辑与标签保留、统一试听/正文选择解析、源情感名称映射及缓存身份；固定参考 HapeLee/legado-with-MD3 / c4182eb9 的 HttpTtsEmotionMapper、HttpTtsAudioSynthesizer 和 CloudTtsViewModel。
+- 验收：保存/试听/正文参数一致，显式默认覆盖不丢、失效情感可见回落，换音色不串目录；真实请求变量与缓存区分、现有系统/云端回归。播放队列、新 Provider、自动情绪识别及全量 CI 不在范围。
+- 实现：HTTP Sheet 保存默认情感并保留标签/未知参数，切角色更新情感目录；当前选中预设编辑后重置旧覆盖，列表试听与正文共用选择解析。Rust 独立纯映射模块参考上游，操作仅捕获当前引擎必要目录列；注入 currentEmotionName 与映射标签，实际缓存消费二者，缺目录回落优先来源目录。
+- 验证：7 份相关 Flutter 文件共 68 项通过，包含真实 AudioNotifier 的默认/覆盖/显式默认入参、真实 Sheet 保存/试听与面板编辑后重读、既有系统/云端/音频书回归。Rust 7 个不同用例通过：Core 映射 1、Fetcher 缓存 2、DB 目录隔离/优先级 1、Engine 合成/取消 3；默认与 QuickJS 重复运行不累加。真实本地 HTTP 验证变量、捕获后改目录不影响旧请求、新名称/标签不串缓存及缺目录回落。
+- 命令：flutter test --no-pub --reporter expanded 后接 test/unit/{read_aloud_voice_catalog_test,read_aloud_voice_preview_test,audio_tts_playback_test,http_tts_transfer_service_test}.dart 和 test/widget/{http_tts_voice_parameters_test,read_aloud_voice_screen_test,read_aloud_management_test}.dart（实际逐文件传入）；cargo test --locked --offline 分别运行 legado-core 的 tts_emotion::tests::、legado-fetcher 的 tts_fetcher::tests::test_tts_cache_、legado-db 的 http_emotion_snapshot_is_scoped_and_prefers_source_catalog、legado-engine --features quickjs 的 tts_service::http::tests::。相关 Dart 严格分析无问题，架构依赖门禁、限定格式及 diff 检查通过。
+- 过程/边界：新增正文测试初次误将真实内存仓库作为 Mock，随后发现夹具显式关闭目录支持；改用启用目录的真实内存仓库后 19 项正文测试及最终 68 项复验通过，不修改生产代码迎合夹具。单代理实现/自查，无独立外审；无真机/账号/后台听感验收，不推送/安装/触发 CI。版本 2.0.391+392 与双日志随本批本地提交，未修改 schema、FRB 签名或生成物；提交见 Git 记录。
+- 执行者：Codex + UI/Bridge｜2026-10-19。
+
 ### TTS-TRANSFER-20261019：HTTP 引擎导入导出闭环（P2，待复验：设备交互）
 
 - 授权：用户批准第一批；feature/ui-tts-engine / 006569b28，单代理，保留编辑 Sheet。

@@ -2,7 +2,7 @@
 //!
 //! 对照上游 `HapeLee/legado-with-MD3` 的 `HttpReadAloudService.kt`（L1388-1422）与 `AnalyzeUrl.kt`：
 //! 1. 建立基于 `HttpTtsConfig` 与 `TtsSpeakContext` 的 TTS 请求执行管线。
-//! 2. 注入 `speakText` / `text`、`speakSpeed` / `speed`、`currentToneID`、`currentSpeakerName`、`currentEmotionTag` 等变量。
+//! 2. 注入正文/源级语速、音色 ID/名称及 `currentEmotionName` / `currentEmotionTag`。
 //! 3. 使用 `AnalyzeUrl::parse_with_js` 解析 URL 模板、`@Header`、`@Body`、POST/GET 方法及内嵌 JS 表达式。
 //! 4. 组装源级 `header` 与 urlOption 请求头并发送请求（支持 CookieJar 门控）。
 //! 5. Content-Type 校验：`application/json` 或以 `text/` 开头视为错误上抛，并校验 `http_tts.content_type` 正则。
@@ -46,6 +46,8 @@ pub struct TtsSpeakContext<'a> {
     pub speaker_name: Option<&'a str>,
     /// 情感标签（可选）
     pub emotion_tag: Option<&'a str>,
+    /// 目录映射后的情感名称，由所属合成操作注入。
+    pub emotion_name: Option<&'a str>,
 }
 
 impl<'a> TtsSpeakContext<'a> {
@@ -62,6 +64,7 @@ impl<'a> TtsSpeakContext<'a> {
             tone_id,
             speaker_name,
             emotion_tag,
+            emotion_name: None,
         }
     }
 
@@ -83,6 +86,10 @@ impl<'a> TtsSpeakContext<'a> {
         vars.insert(
             "currentEmotionTag".to_string(),
             self.emotion_tag.unwrap_or("").to_string(),
+        );
+        vars.insert(
+            "currentEmotionName".to_string(),
+            self.emotion_name.unwrap_or("").to_string(),
         );
         vars
     }
@@ -149,7 +156,8 @@ pub fn tts_cache_key_from_context(config: &HttpTtsConfig, context: &TtsSpeakCont
         context.speak_speed,
         context.tone_id,
         context.speaker_name,
-        context.emotion_tag
+        context.emotion_tag,
+        context.emotion_name
     ]);
     legado_core::crypto::md5_hex(input.to_string().as_bytes())
 }
@@ -901,13 +909,16 @@ mod tests {
         };
         let context = TtsSpeakContext::new("正文", 10, None, None, None);
         let key = tts_cache_key_from_context(&config, &context);
-        assert_eq!(key, "e5ccc0556d13b6588c32a72fadc201f1");
         for changed in [
             TtsSpeakContext::new("其他正文", 10, None, None, None),
             TtsSpeakContext::new("正文", 11, None, None, None),
             TtsSpeakContext::new("正文", 10, Some("音色"), None, None),
             TtsSpeakContext::new("正文", 10, None, Some("发音人"), None),
             TtsSpeakContext::new("正文", 10, None, None, Some("情感")),
+            TtsSpeakContext {
+                emotion_name: Some("高兴"),
+                ..context.clone()
+            },
         ] {
             assert_ne!(key, tts_cache_key_from_context(&config, &changed));
         }

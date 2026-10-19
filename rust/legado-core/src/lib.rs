@@ -65,6 +65,7 @@ pub mod source_matcher;
 pub mod toc_updater;
 pub mod tts_cache;
 pub mod tts_catalog;
+pub mod tts_emotion;
 /// HTTP TTS 语音合成管线（url 模板替换 + 音频缓存，网络层注入）
 pub mod tts_speak;
 pub mod types;

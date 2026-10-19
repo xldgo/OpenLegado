@@ -11,6 +11,50 @@ import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_provider
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 
 void main() {
+  test('HTTP 预设默认情感、显式默认覆盖与无目录标签保持不同语义', () {
+    const voice = ReadAloudVoice(
+      id: 'preset',
+      engineType: 'http',
+      engineId: '1',
+      speakerId: 'a',
+      displayName: '预设',
+      traitsJson: '{"tags":["女"],"emotionTag":"happy"}',
+      emotionCatalogJson: '[{"emotionName":"高兴","emotionTag":"happy"},{"emotionName":"平静","emotionTag":"calm"}]',
+    );
+    expect(
+      resolveHttpTtsVoice(1, [
+        voice,
+      ], const HttpTtsVoiceSelection('preset')).emotionTag,
+      'happy',
+    );
+    expect(
+      resolveHttpTtsVoice(1, [
+        voice,
+      ], const HttpTtsVoiceSelection('preset', emotionTag: '')).emotionTag,
+      isNull,
+    );
+    expect(
+      resolveHttpTtsVoice(1, [
+        voice,
+      ], const HttpTtsVoiceSelection('preset', emotionTag: 'calm')).emotionTag,
+      'calm',
+    );
+    final stale = resolveHttpTtsVoice(1, [
+      voice,
+    ], const HttpTtsVoiceSelection('preset', emotionTag: 'removed'));
+    expect(stale.emotionTag, isNull);
+    expect(stale.warning, isNotNull);
+    final custom = voice.copyWith(
+      emotionCatalogJson: '[]',
+      traitsJson: '{"emotionTag":"custom"}',
+    );
+    expect(
+      resolveHttpTtsVoice(1, [
+        custom,
+      ], const HttpTtsVoiceSelection('preset')).emotionTag,
+      'custom',
+    );
+  });
   test('平铺优先分组，同音色首项保留，别名、标签与情感贯通', () async {
     final voices = MockReadAloudVoiceRepository();
     var id = 1;

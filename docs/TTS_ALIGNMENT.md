@@ -2,6 +2,30 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## HTTP 音色与情感参数（2026-10-19）
+
+固定参考 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)
+的 CloudTtsViewModel、HttpTtsAudioSynthesizer 与 HttpTtsEmotionMapper；沿用本项目的
+手动情感选择，不扩展自动情绪识别或云端 Provider。
+
+- HTTP 用户预设采用参数对象保存 tags 与默认 emotionTag；源目录原有数组仍表示标签。
+  编辑和导出均通过 HttpTtsVoiceOptions 读取，不把标签数组误转为空对象。原生音色 ID
+  维持稳定，切换角色更新其情感目录并清除上一角色的情感，未知自定义参数保留。
+- 列表试听和正文共用 resolveHttpTtsVoice。选择值中的 null 跟随预设默认，空字符串
+  保留用户明确要求引擎默认的意图；指定标签覆盖预设。过期目录标签回落并保留既有正文
+  提示。草稿试听只消费草稿；编辑当前选中音色保存后清除旧覆盖，使正文跟随新预设。
+- Rust 操作捕获阶段仅查询所属 HTTP 引擎的必要目录列，不加载所有系统/云端音色。
+  优先当前音色目录，缺失/为空时回落源目录；映射遵循精确匹配、固定上游同义词及目录
+  默认项，未知情绪不猜私有标签。没有目录时保留输入标签。
+- currentEmotionName 与 currentEmotionTag 一同注入模板/JS，实际缓存键同时消费二者。
+  修改目录后新请求使用新映射，已捕获请求仍使用原目录快照；相同有效输入命中缓存。
+  不增加协议版本标识、不改 FRB 签名/schema/生成物或播放队列。
+
+定向验收使用真实 Sheet 保存/试听、实际 AudioNotifier 合成入参、真实本地 HTTP 收包
+及缓存命中。设备听感、真实账号和平台后台播放不在这些测试的证明范围。
+
+编写者：Codex + UI/Bridge｜2026-10-19。
+
 ## HTTP 引擎导入导出（2026-10-19）
 
 本批固定参考上游 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)：

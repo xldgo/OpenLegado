@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../domain/contracts/cloud_tts_provider.dart';
+import '../../domain/models/http_tts_voice_options.dart';
 import '../../widgets/app_settings_sheet.dart';
 import '../../widgets/app_settings_form.dart';
 
@@ -26,11 +27,13 @@ class ReadAloudVoiceSheet extends StatefulWidget {
     super.key,
     required this.source,
     this.voice,
+    this.httpEmotionTag,
     required this.onPreview,
     required this.onStop,
   });
   final VoiceEditorSource source;
   final ReadAloudVoice? voice;
+  final String? httpEmotionTag;
   final Future<void> Function(ReadAloudVoice, String) onPreview;
   final Future<void> Function() onStop;
   @override
@@ -44,7 +47,8 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _speed,
       _style,
       _instructions,
-      _sample;
+      _sample,
+      _emotion;
   String _format = 'wav';
   bool _previewing = false;
   String? _error;
@@ -65,6 +69,9 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
     final voice = widget.voice ?? preferred ?? widget.source.voices.firstOrNull;
     final decoded = voice == null ? null : jsonDecode(voice.traitsJson);
     if (decoded is Map) _traits = Map<String, dynamic>.from(decoded);
+    if (widget.source.kind == 'http' && voice != null) {
+      _traits = HttpTtsVoiceOptions(voice.traitsJson).values;
+    }
     _speaker = TextEditingController(text: voice?.speakerId ?? '');
     _name = TextEditingController(text: voice?.displayName ?? '');
     _speed = TextEditingController(text: '${_traits['speed'] ?? 1.0}');
@@ -73,12 +80,23 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       text: _traits['instructions'] as String? ?? '',
     );
     _sample = TextEditingController(text: '这是朗读试听。欢迎使用开源阅读。');
+    _emotion = TextEditingController(
+      text: widget.httpEmotionTag ?? _traits['emotionTag'] as String? ?? '',
+    );
     if (widget.source.provider != null) {
       _format =
           _traits['format'] as String? ??
           cloudTtsProfile(widget.source.provider!).formats.first;
     }
   }
+
+  ReadAloudVoice? get _native => widget.source.voices
+      .where((v) => v.speakerId == _speaker.text.trim())
+      .firstOrNull;
+
+  List<Map<String, dynamic>> get _emotions => (jsonDecode(
+    _native?.emotionCatalogJson ?? widget.voice?.emotionCatalogJson ?? '[]',
+  ) as List).cast<Map<String, dynamic>>();
 
   ReadAloudVoice? _draft() {
     if (!_form.currentState!.validate()) return null;
@@ -89,7 +107,12 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
         .firstOrNull;
     final nativeTraits = native == null ? null : jsonDecode(native.traitsJson);
     final cloud = source.kind == 'cloud_tts';
-    final traits = cloud
+    final traits = source.kind == 'http'
+        ? HttpTtsVoiceOptions(
+            native?.traitsJson ??
+                (widget.voice == null ? '{}' : jsonEncode(_traits)),
+          ).withEmotion(_emotion.text)
+        : cloud
         ? <String, dynamic>{
             if (cloudTtsProfile(source.provider!).supportsSourceSpeed)
               'speed': double.parse(_speed.text),
@@ -135,7 +158,15 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
 
   @override
   void dispose() {
-    for (final c in [_speaker, _name, _speed, _style, _instructions, _sample]) {
+    for (final c in [
+      _speaker,
+      _name,
+      _speed,
+      _style,
+      _instructions,
+      _sample,
+      _emotion,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -168,6 +199,9 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
               readOnly: widget.voice != null || source.kind == 'system',
               decoration: const InputDecoration(labelText: '原生音色 ID'),
               validator: (v) => (v ?? '').trim().isEmpty ? '请选择音色' : null,
+              onChanged: (_) => setState(() {
+                _emotion.clear();
+              }),
             ),
             if (widget.voice == null && source.voices.isNotEmpty)
               Wrap(
@@ -181,6 +215,11 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                         setState(() {
                           _speaker.text = v.speakerId;
                           _name.text = v.displayName;
+                          if (source.kind == 'http') {
+                            _emotion.text =
+                                HttpTtsVoiceOptions(v.traitsJson).emotionTag ??
+                                '';
+                          }
                         });
                       },
                     ),
@@ -192,6 +231,41 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
               decoration: const InputDecoration(labelText: '音色名称'),
               validator: (v) => (v ?? '').trim().isEmpty ? '请输入音色名称' : null,
             ),
+            if (source.kind == 'http') ...[
+              TextFormField(
+                key: const ValueKey('voice-emotion'),
+                controller: _emotion,
+                decoration: const InputDecoration(
+                  labelText: '情感标签',
+                  hintText: '留空使用引擎默认情感',
+                ),
+                validator: (value) {
+                  final tag = value?.trim() ?? '';
+                  if (tag.isNotEmpty &&
+                      _emotions.isNotEmpty &&
+                      _emotions.every((e) => e['emotionTag'] != tag)) {
+                    return '请选择当前音色目录中的情感';
+                  }
+                  return null;
+                },
+              ),
+              Wrap(
+                spacing: 4,
+                runSpacing: 8,
+                children: [
+                  ActionChip(
+                    label: const Text('默认情感'),
+                    onPressed: _emotion.clear,
+                  ),
+                  for (final emotion in _emotions)
+                    ActionChip(
+                      label: Text(emotion['emotionName'] as String),
+                      onPressed: () =>
+                          _emotion.text = emotion['emotionTag'] as String,
+                    ),
+                ],
+              ),
+            ],
             if (profile != null) ...[
               if (profile.supportsSourceSpeed)
                 TextFormField(
