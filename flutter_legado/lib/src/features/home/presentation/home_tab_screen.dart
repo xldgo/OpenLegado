@@ -1,3 +1,4 @@
+import '../../../app/routing/route_arguments.dart';
 import '../../privacy/privacy_gate.dart';
 
 import 'package:flutter/services.dart';
@@ -486,7 +487,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     if (matched != null) {
       await _openBook(matched);
     } else {
-      await Navigator.pushNamed(context, AppRoutes.search, arguments: bookName);
+      await Navigator.pushNamed(
+        context,
+        AppRoutes.search,
+        arguments: SearchRouteArgs(query: bookName),
+      );
     }
   }
 }

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/features/browser/presentation/browser_screen.dart';
+import 'package:flutter_legado/src/features/search/search_content_screen.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -230,48 +232,68 @@ void main() {
     expect((byUrl as BookInfoScreen).bookUrl, 'book://url');
   });
 
-  testWidgets('搜索字符串、单源优先、多源与分组过滤保持原行为', (tester) async {
-    final (_, simple) = await resolve(tester, AppRoutes.search, '查询');
+  testWidgets('搜索明确接收查询、源范围与分组参数', (tester) async {
+    final (_, simple) = await resolve(
+      tester,
+      AppRoutes.search,
+      const SearchRouteArgs(query: '查询'),
+    );
     expect((simple as SearchScreen).initialQuery, '查询');
-    final (_, selected) = await resolve(tester, AppRoutes.search, {
-      'query': '查询',
-      'sourceUrl': 'source://single',
-      'sourceUrls': ['source://ignored'],
-      'groups': ['甲', 3, '乙'],
-    });
-    expect((selected as SearchScreen).initialSourceUrls, ['source://single']);
-    expect(selected.initialGroups, ['甲', '乙']);
-    final (_, multiple) = await resolve(tester, AppRoutes.search, {
-      'sourceUrls': ['source://1', false, 'source://2'],
-    });
-    expect((multiple as SearchScreen).initialSourceUrls, [
+    final (_, selected) = await resolve(
+      tester,
+      AppRoutes.search,
+      const SearchRouteArgs(
+        query: '查询',
+        sourceUrls: ['source://1', 'source://2'],
+        groups: ['甲', '乙'],
+      ),
+    );
+    expect((selected as SearchScreen).initialSourceUrls, [
       'source://1',
       'source://2',
     ]);
+    expect(selected.initialGroups, ['甲', '乙']);
+    final (_, missing) = await resolve(tester, AppRoutes.search, null);
+    expect((missing as SearchScreen).initialQuery, isNull);
   });
 
-  testWidgets('音频书与漫画保留Book、字符串和Map入口', (tester) async {
+  testWidgets('浏览器携带网页正文与标题，缺参仍为普通浏览页', (tester) async {
+    final (_, target) = await resolve(
+      tester,
+      AppRoutes.browser,
+      const BrowserRouteArgs(url: 'https://a', html: '<p>正文</p>', title: '标题'),
+    );
+    final browser = target as BrowserScreen;
+    expect(browser.initialUrl, 'https://a');
+    expect(browser.initialHtml, '<p>正文</p>');
+    expect(browser.title, '标题');
+    final (_, missing) = await resolve(tester, AppRoutes.browser, 42);
+    expect((missing as BrowserScreen).initialUrl, isNull);
+  });
+  testWidgets('正文搜索保留书籍身份与选中文本', (tester) async {
+    final (_, target) = await resolve(
+      tester,
+      AppRoutes.searchContent,
+      const ContentSearchRouteArgs(book: book, query: '选中内容'),
+    );
+    final search = target as SearchContentScreen;
+    expect(search.book, same(book));
+    expect(search.initialQuery, '选中内容');
+  });
+
+  testWidgets('音频书保留Book，漫画接收明确地址，错误参数安全回退', (tester) async {
     final (gate, audio) = await resolve(tester, AppRoutes.audio, book);
     expect((gate as PrivacyBookGate).book, same(book));
     expect((audio as AudioScreen).book, same(book));
-    final (_, byMap) = await resolve(tester, AppRoutes.audio, <String, String>{
-      'bookUrl': 'audio://1',
-      'bookName': '音频书',
-    });
-    expect((byMap as AudioScreen).bookUrl, 'audio://1');
-    expect(byMap.bookName, '音频书');
-    for (final input in <Object>[
+    final (_, missing) = await resolve(tester, AppRoutes.audio, 42);
+    expect((missing as AudioScreen).book, isNull);
+    final (comicGate, target) = await resolve(
+      tester,
+      AppRoutes.readerComic,
       'comic://1',
-      {'bookUrl': 'comic://1'},
-    ]) {
-      final (gate, target) = await resolve(
-        tester,
-        AppRoutes.readerComic,
-        input,
-      );
-      expect((gate as PrivacyBookGate).book!.bookUrl, 'comic://1');
-      expect((target as ReaderComicScreen).bookUrl, 'comic://1');
-    }
+    );
+    expect((comicGate as PrivacyBookGate).book!.bookUrl, 'comic://1');
+    expect((target as ReaderComicScreen).bookUrl, 'comic://1');
   });
 
   testWidgets('视频恢复参数完整传递，书籍入口保留隐私包裹', (tester) async {

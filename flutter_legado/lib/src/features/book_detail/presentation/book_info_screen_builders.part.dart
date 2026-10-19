@@ -553,7 +553,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       await Navigator.pushNamed(
         context,
         AppRoutes.autoTasks,
-        arguments: <String, dynamic>{'editTaskId': id},
+        arguments: AutoTaskRouteArgs(editTaskId: id),
       );
       return;
     }
@@ -573,7 +573,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     await Navigator.pushNamed(
       context,
       AppRoutes.autoTasks,
-      arguments: <String, dynamic>{'newTask': built.toJson()},
+      arguments: AutoTaskRouteArgs(newTask: built.toJson()),
     );
   }
 
@@ -945,12 +945,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     final book = _loadedBook;
     final handled = await _sourceCallBackSearch(event, q);
     if (handled || !mounted) return;
-    final args = <String, dynamic>{'query': q};
-    if (sourceUrl != null && sourceUrl.isNotEmpty) {
-      args['sourceUrl'] = sourceUrl;
-    } else if (book != null && _isOnlineBook(book)) {
-      args['sourceUrl'] = book.origin;
-    }
+    final resolvedSource = sourceUrl != null && sourceUrl.isNotEmpty
+        ? sourceUrl
+        : book != null && _isOnlineBook(book)
+        ? book.origin
+        : null;
+    final args = SearchRouteArgs(
+      query: q,
+      sourceUrls: resolvedSource == null ? null : [resolvedSource],
+    );
     await Navigator.pushNamed(context, AppRoutes.search, arguments: args);
   }
 

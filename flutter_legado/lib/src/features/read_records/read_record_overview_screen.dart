@@ -1,3 +1,5 @@
+import '../../app/routing/route_arguments.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
@@ -101,7 +103,11 @@ class _ReadRecordOverviewScreenState
     if (matchedBook != null) {
       await BookOpenUtils.openBook(context, ref, matchedBook);
     } else {
-      await Navigator.pushNamed(context, AppRoutes.search, arguments: bookName);
+      await Navigator.pushNamed(
+        context,
+        AppRoutes.search,
+        arguments: SearchRouteArgs(query: bookName),
+      );
     }
   }
 

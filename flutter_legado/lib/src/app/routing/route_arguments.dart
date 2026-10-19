@@ -26,3 +26,31 @@ class VideoScreenArgs {
     this.initialPlaying = true,
   });
 }
+
+/// 搜索入口参数，不再用字符串和Map分别表示查询、单源与分组。— Codex + UI
+class SearchRouteArgs {
+  const SearchRouteArgs({this.query, this.sourceUrls, this.groups});
+  final String? query;
+  final List<String>? sourceUrls;
+  final List<String>? groups;
+}
+
+class ContentSearchRouteArgs {
+  const ContentSearchRouteArgs({required this.book, this.query});
+  final Book book;
+  final String? query;
+}
+
+class BrowserRouteArgs {
+  const BrowserRouteArgs({this.url, this.html, this.title});
+  final String? url;
+  final String? html;
+  final String? title;
+}
+
+class AutoTaskRouteArgs {
+  const AutoTaskRouteArgs({this.editTaskId, this.newTask});
+  final String? editTaskId;
+  // 任务本身沿用既有JSON契约，不把动态字段扩散为路由参数。
+  final Map<String, dynamic>? newTask;
+}

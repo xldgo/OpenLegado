@@ -1,3 +1,4 @@
+import '../../../app/routing/route_arguments.dart';
 import '../../../widgets/app_menu.dart';
 
 import 'dart:async';
@@ -278,7 +279,11 @@ class _RssScreenState extends ConsumerState<RssScreen> {
     if (url.toLowerCase().startsWith('http://') ||
         url.toLowerCase().startsWith('https://')) {
       if (!mounted) return;
-      await Navigator.pushNamed(context, AppRoutes.browser, arguments: url);
+      await Navigator.pushNamed(
+        context,
+        AppRoutes.browser,
+        arguments: BrowserRouteArgs(url: url),
+      );
       return;
     }
     final uri = Uri.tryParse(url);

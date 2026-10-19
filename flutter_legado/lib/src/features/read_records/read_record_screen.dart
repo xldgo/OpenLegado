@@ -1,3 +1,4 @@
+import '../../app/routing/route_arguments.dart';
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_search_transition.dart';
 import '../../widgets/app_animated_text_line.dart';
@@ -103,7 +104,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
       await Navigator.pushNamed(
         context,
         AppRoutes.search,
-        arguments: entry.bookName,
+        arguments: SearchRouteArgs(query: entry.bookName),
       );
     }
   }

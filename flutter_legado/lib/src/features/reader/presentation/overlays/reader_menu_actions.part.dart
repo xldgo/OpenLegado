@@ -793,7 +793,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         } else {
           Navigator.of(context).pushNamed(
             AppRoutes.browser,
-            arguments: <String, String>{'url': url, 'title': '章节链接'},
+            arguments: BrowserRouteArgs(url: url, title: '章节链接'),
           );
         }
       case 'copy':

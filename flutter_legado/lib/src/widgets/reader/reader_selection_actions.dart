@@ -1,3 +1,5 @@
+import '../../app/routing/route_arguments.dart';
+
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -92,7 +94,10 @@ class ReaderSelectionActions {
         case ReaderSelectionAction.browser:
           final text = selection.text.trim();
           if (RegExp(r'^https?://\S+$').hasMatch(text)) {
-            await navigator.pushNamed(AppRoutes.browser, arguments: text);
+            await navigator.pushNamed(
+              AppRoutes.browser,
+              arguments: BrowserRouteArgs(url: text),
+            );
           } else if (!await launchUrl(
             Uri.https('www.bing.com', '/search', {'q': text}),
             mode: LaunchMode.externalApplication,
@@ -139,7 +144,10 @@ class ReaderSelectionActions {
         case ReaderSelectionAction.searchContent:
           await navigator.pushNamed(
             AppRoutes.searchContent,
-            arguments: {'book': state!.currentBook!, 'query': selection.text},
+            arguments: ContentSearchRouteArgs(
+              book: state!.currentBook!,
+              query: selection.text,
+            ),
           );
       }
     } catch (error) {

@@ -1,3 +1,5 @@
+import '../app/routing/route_arguments.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -908,7 +910,7 @@ class PlatformBridgeService {
     }
     navigator.pushNamed(
       AppRoutes.browser,
-      arguments: <String, String>{'url': url, 'html': html},
+      arguments: BrowserRouteArgs(url: url, html: html),
     );
   }
 
@@ -1037,10 +1039,10 @@ class PlatformBridgeService {
     }
     navigator.pushNamed(
       AppRoutes.video,
-      arguments: <String, String>{
-        'videoUrl': url,
-        'title': title.isNotEmpty ? title : '视频播放',
-      },
+      arguments: VideoScreenArgs(
+        videoUrl: url,
+        title: title.isNotEmpty ? title : '视频播放',
+      ),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/app/routing/route_arguments.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
 
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
@@ -259,7 +260,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(pushedRoute, AppRoutes.search);
-      expect(pushedArgs, '诡秘之主');
+      expect((pushedArgs as SearchRouteArgs).query, '诡秘之主');
     });
   });
 }

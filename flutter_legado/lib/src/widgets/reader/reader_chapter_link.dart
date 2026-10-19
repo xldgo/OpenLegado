@@ -1,3 +1,5 @@
+import '../../app/routing/route_arguments.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:url_launcher/url_launcher.dart';
@@ -51,7 +53,7 @@ Future<void> openReaderChapterUrl(
   if (!useSystemBrowser) {
     Navigator.of(context).pushNamed(
       AppRoutes.browser,
-      arguments: <String, String>{'url': url, 'title': '章节链接'},
+      arguments: BrowserRouteArgs(url: url, title: '章节链接'),
     );
     return;
   }

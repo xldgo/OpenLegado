@@ -749,11 +749,11 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     Navigator.pushNamed(
       context,
       AppRoutes.changeSource,
-      arguments: {
-        'bookUrl': widget.effectiveBookUrl,
-        'bookName': widget.effectiveBookName,
-        'currentSourceUrl': _origin,
-      },
+      arguments: Book(
+        bookUrl: widget.effectiveBookUrl,
+        name: widget.effectiveBookName,
+        origin: _origin,
+      ),
     );
   }
 

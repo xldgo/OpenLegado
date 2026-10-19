@@ -1,3 +1,4 @@
+import '../../../app/routing/route_arguments.dart';
 import 'views/reader_content_viewport.dart';
 import '../application/reader_exit_controller.dart';
 import 'overlays/reader_add_to_shelf_dialog.dart';
@@ -741,7 +742,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _openContentSearch(ReaderState state) {
     final book = state.currentBook;
     if (book == null) return;
-    Navigator.pushNamed(context, AppRoutes.searchContent, arguments: book);
+    Navigator.pushNamed(
+      context,
+      AppRoutes.searchContent,
+      arguments: ContentSearchRouteArgs(book: book),
+    );
   }
 
   /// loginCheckJs 判定未登录时自动拉起登录页（§5.14-18）

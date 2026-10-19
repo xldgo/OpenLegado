@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/app/routing/route_arguments.dart';
+
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/domain/contracts/source_switch_service.dart';
@@ -1532,7 +1534,8 @@ void main() {
       await tester.tap(find.text('章节网页'));
       await settleNativeReaderLayout(tester);
       expect(opened?.name, AppRoutes.browser);
-      expect(opened?.arguments, {'url': expectedUrl, 'title': '章节链接'});
+      expect((opened?.arguments as BrowserRouteArgs).url, expectedUrl);
+      expect((opened?.arguments as BrowserRouteArgs).title, '章节链接');
       expect(find.text('章节浏览页'), findsOneWidget);
       expect(reader.value.showControls, isTrue);
       _expectNoBodyEvents(hits);

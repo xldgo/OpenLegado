@@ -1,5 +1,7 @@
 library;
 
+import '../../../app/routing/route_arguments.dart';
+
 import '../../../theme/app_motion.dart';
 
 import '../../book_sources/book_source_repository_provider.dart';
@@ -388,7 +390,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     Navigator.pushNamed(
       context,
       AppRoutes.search,
-      arguments: {'sourceUrl': source.bookSourceUrl},
+      arguments: SearchRouteArgs(sourceUrls: [source.bookSourceUrl]),
     );
   }
 }
