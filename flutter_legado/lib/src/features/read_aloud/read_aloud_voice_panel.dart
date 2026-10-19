@@ -180,11 +180,28 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
   ]) async {
     await stopPreview();
     if (!mounted) return;
+    final engine = _cloudVoices
+        .where((e) => e.engine.id == source.id)
+        .firstOrNull
+        ?.engine;
+    final editorSource =
+        source.kind == 'cloud_tts' && engine?.provider == 'azure_speech'
+        ? VoiceEditorSource(
+            kind: source.kind,
+            id: source.id,
+            name: source.name,
+            provider: source.provider,
+            voices: source.voices,
+            loadCatalog: (cancel) => ref
+                .read(cloudTtsVoiceCatalogProvider)
+                .discover(engine!, cancel),
+          )
+        : source;
     final result = await AppBottomSheet.showContent<ReadAloudVoice>(
       context: context,
       showDragHandle: true,
       builder: (_) => ReadAloudVoiceSheet(
-        source: source,
+        source: editorSource,
         voice: voice,
         httpEmotionTag:
             voice != null && _selections[voice.engineId]?.voiceId == voice.id
@@ -337,7 +354,9 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
       for (final engine in engines.where((e) => e.enabled)) {
         entries.add((
           engine: engine,
-          voices: await repository.voices(engine.provider),
+          voices: engine.provider == 'azure_speech'
+              ? <String>[]
+              : await repository.voices(engine.provider),
         ));
         if (!mounted || generation != _refreshGeneration) return;
       }

@@ -2397,10 +2397,27 @@ pub mod ffi {
     pub fn cloud_tts_voices(
         provider: CloudTtsProviderDto,
     ) -> Result<Vec<CloudVoiceDescriptorDto>, BridgeError> {
-        Ok(crate::api::cloud_tts_api::voices(provider.into())
+        Ok(crate::api::cloud_tts_api::voices(provider.into())?
             .into_iter()
             .map(Into::into)
             .collect())
+    }
+    /// 远端目录只消费数据库中的引擎快照；凭据不持久化，关闭编辑器取消请求。
+    pub fn cloud_tts_engine_voices(
+        engine_id: String,
+        api_key: String,
+        credential_key: String,
+        request: &super::TtsRequest,
+    ) -> Result<Vec<CloudVoiceDescriptorDto>, BridgeError> {
+        Ok(crate::api::cloud_tts_api::engine_voices(
+            &engine_id,
+            api_key,
+            &credential_key,
+            &request.inner,
+        )?
+        .into_iter()
+        .map(Into::into)
+        .collect())
     }
     /// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
     pub fn cloud_tts_speak(

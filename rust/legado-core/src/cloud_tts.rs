@@ -12,6 +12,8 @@ pub enum CloudTtsProviderType {
     Mimo,
     #[serde(rename = "alibaba_cloud")]
     AlibabaCloud,
+    #[serde(rename = "azure_speech")]
+    AzureSpeech,
 }
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
@@ -24,6 +26,7 @@ pub struct CloudTtsEngine {
     #[serde(skip_serializing)]
     pub api_key: String,
     pub model: String,
+    pub region: String,
     pub enabled: bool,
 }
 impl Default for CloudTtsEngine {
@@ -35,6 +38,7 @@ impl Default for CloudTtsEngine {
             base_url: String::new(),
             api_key: String::new(),
             model: "gpt-4o-mini-tts".into(),
+            region: String::new(),
             enabled: true,
         }
     }
@@ -80,12 +84,15 @@ impl Default for CloudTtsSynthesisRequest {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CloudTtsVoiceDescriptor {
     pub id: String,
     pub display_name: String,
+    pub locale: String,
+    pub gender: String,
     pub styles: Vec<String>,
+    pub roles: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_rate: Option<u32>,
 }
@@ -95,14 +102,43 @@ pub enum CloudSpeechResponseKind {
     AudioBytes,
     EventStream,
 }
+#[derive(Clone, Serialize)]
+pub enum CloudSpeechBody {
+    Json(Value),
+    Ssml(String),
+}
+impl CloudSpeechBody {
+    pub fn content_type(&self) -> &'static str {
+        match self {
+            Self::Json(_) => "application/json",
+            Self::Ssml(_) => "application/ssml+xml",
+        }
+    }
+    pub fn encode(&self) -> String {
+        match self {
+            Self::Json(value) => value.to_string(),
+            Self::Ssml(text) => text.clone(),
+        }
+    }
+}
 pub struct PreparedCloudSpeech {
     pub endpoint: String,
     pub credential_header: &'static str,
     pub authorization: String,
     pub response_kind: CloudSpeechResponseKind,
     pub additional_headers: Vec<(&'static str, String)>,
-    pub body: Value,
+    pub body: CloudSpeechBody,
     pub response_format: String,
+}
+/// 远端目录的请求描述不实现 Debug，避免凭据进入诊断输出。
+pub struct PreparedCloudCatalog {
+    pub endpoint: String,
+    pub credential_header: &'static str,
+    pub authorization: String,
+}
+pub enum CloudVoiceCatalog {
+    Static(Vec<CloudTtsVoiceDescriptor>),
+    Remote(PreparedCloudCatalog),
 }
 pub struct CloudTtsAudio {
     pub bytes: Vec<u8>,
@@ -116,6 +152,12 @@ pub enum DecodedCloudSpeech {
 pub trait CloudTtsProvider: Send + Sync {
     fn provider_type(&self) -> CloudTtsProviderType;
     fn voices(&self) -> Vec<CloudTtsVoiceDescriptor>;
+    fn prepare_catalog(&self, _engine: &CloudTtsEngine) -> LegadoResult<CloudVoiceCatalog> {
+        Ok(CloudVoiceCatalog::Static(self.voices()))
+    }
+    fn decode_catalog(&self, _bytes: &[u8]) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
+        Err(invalid("此 Provider 不支持远端音色目录"))
+    }
     fn prepare(
         &self,
         engine: &CloudTtsEngine,
@@ -133,6 +175,7 @@ pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsPr
         CloudTtsProviderType::OpenAiSpeech => &crate::cloud_tts_openai::OpenAiCloudTtsProvider,
         CloudTtsProviderType::Mimo => &crate::cloud_tts_mimo::MimoCloudTtsProvider,
         CloudTtsProviderType::AlibabaCloud => &crate::cloud_tts_alibaba::AlibabaCloudTtsProvider,
+        CloudTtsProviderType::AzureSpeech => &crate::cloud_tts_azure::AzureSpeechCloudTtsProvider,
     }
 }
 pub(crate) fn invalid(message: &str) -> LegadoError {

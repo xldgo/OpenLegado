@@ -16,11 +16,27 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
       throw StateError('云端配置无效');
     }
     final options = engine.options;
-    const allowed = {'voiceId', 'speed', 'style', 'instructions', 'format'};
+    const allowed = {
+      'voiceId',
+      'locale',
+      'role',
+      'pitch',
+      'volume',
+      'sampleRate',
+      'speed',
+      'style',
+      'instructions',
+      'format',
+    };
     if (options.keys.any((k) => !allowed.contains(k))) {
       throw StateError('云端选项无效');
     }
     final previous = _engines[engine.id];
+    if (engine.provider == 'azure_speech' &&
+        engine.baseUrl.isEmpty &&
+        engine.region.trim().isEmpty) {
+      throw StateError('Azure 区域不能为空');
+    }
     if (previous != null && previous.provider != engine.provider) {
       throw StateError('已保存引擎不能更换 Provider，请新建引擎');
     }
@@ -40,6 +56,7 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
 
   @override
   Future<List<String>> voices(String provider) async {
+    if (provider == 'azure_speech') return const [];
     if (provider == 'alibaba_cloud') {
       return const ['Cherry', 'Serena', 'Ethan', 'Chelsie'];
     }

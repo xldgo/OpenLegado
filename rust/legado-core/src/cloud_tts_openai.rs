@@ -18,6 +18,7 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
             styles: Vec::new(),
             sample_rate: None,
             display_name: format!("{}{}", id[..1].to_uppercase(), &id[1..]),
+            ..Default::default()
         })
         .collect()
     }
@@ -104,7 +105,7 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
             additional_headers: Vec::new(),
             response_kind: CloudSpeechResponseKind::AudioBytes,
             authorization: format!("Bearer {}", engine.api_key),
-            body,
+            body: CloudSpeechBody::Json(body),
             response_format: format,
         })
     }
@@ -136,6 +137,12 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
 }
 #[cfg(test)]
 mod tests {
+    fn json_body(p: &super::PreparedCloudSpeech) -> serde_json::Value {
+        let super::CloudSpeechBody::Json(value) = &p.body else {
+            panic!("预期 JSON 请求")
+        };
+        value.clone()
+    }
     use super::*;
     fn engine() -> CloudTtsEngine {
         CloudTtsEngine {
@@ -161,7 +168,7 @@ mod tests {
         assert_eq!(p.endpoint, "https://api.openai.com/v1/audio/speech");
         assert_eq!(p.authorization, "Bearer fixture-key");
         assert_eq!(
-            p.body,
+            json_body(&p),
             json!({"model":"gpt-4o-mini-tts","input":"中文 \"引号\" 😀\n换行","voice":"coral","response_format":"mp3","speed":1.0,"instructions":"平静 用中文朗读"})
         );
         let mut e = engine();
@@ -172,9 +179,9 @@ mod tests {
         r.format = "WAV".into();
         let p = OpenAiCloudTtsProvider.prepare(&e, &r).unwrap();
         assert_eq!(p.endpoint, "https://local.example/v1/audio/speech");
-        assert_eq!(p.body["voice"], json!({"id":"voice_123"}));
-        assert!(p.body.get("instructions").is_none());
-        assert_eq!(p.body["response_format"], "wav");
+        assert_eq!(json_body(&p)["voice"], json!({"id":"voice_123"}));
+        assert!(json_body(&p).get("instructions").is_none());
+        assert_eq!(json_body(&p)["response_format"], "wav");
     }
     #[test]
     fn validations_and_secrets_do_not_export() {

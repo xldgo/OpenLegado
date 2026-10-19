@@ -1748,6 +1748,19 @@ Future<List<CloudVoiceDescriptorDto>> cloudTtsVoices({
   required CloudTtsProviderDto provider,
 }) => RustLib.instance.api.crateFfiFfiCloudTtsVoices(provider: provider);
 
+/// 远端目录只消费数据库中的引擎快照；凭据不持久化，关闭编辑器取消请求。
+Future<List<CloudVoiceDescriptorDto>> cloudTtsEngineVoices({
+  required String engineId,
+  required String apiKey,
+  required String credentialKey,
+  required TtsRequest request,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsEngineVoices(
+  engineId: engineId,
+  apiKey: apiKey,
+  credentialKey: credentialKey,
+  request: request,
+);
+
 /// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
 Future<TtsSpeakDto> cloudTtsSpeak({
   required String engineId,

@@ -46,6 +46,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
         'name': engine?.name ?? profile.name,
         'baseUrl': engine?.baseUrl ?? '',
         'model': engine?.model ?? profile.model,
+        'region': engine?.region ?? '',
         'apiKey': '',
       }.entries)
         entry.key: TextEditingController(text: entry.value),
@@ -63,6 +64,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       _inputs['model']!.text = next.model;
       _inputs['apiKey']!.clear();
       _inputs['baseUrl']!.clear();
+      _inputs['region']!.clear();
     });
   }
 
@@ -77,11 +79,13 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final profile = cloudTtsProfile(_provider);
     final labels = {
       'name': l.cloudTtsName,
       'baseUrl': l.cloudTtsBaseUrl,
       'model': l.cloudTtsModel,
       'apiKey': l.cloudTtsApiKey,
+      'region': '区域',
     };
     return AppSettingsSheet(
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -100,7 +104,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
             createdAt: old?.createdAt ?? 0,
             updatedAt: old?.updatedAt ?? 0,
             credentialKey: old?.credentialKey ?? '',
-            region: old?.region ?? '',
+            region: _inputs['region']!.text.trim(),
             appId: old?.appId ?? '',
             optionsJson: old?.optionsJson ?? '{}',
           ),
@@ -123,7 +127,11 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
               ],
               onChanged: widget.engine == null ? _changeProvider : null,
             ),
-            for (final e in _inputs.entries)
+            for (final e in _inputs.entries.where(
+              (e) =>
+                  (e.key != 'region' || profile.requiresRegion) &&
+                  (e.key != 'model' || profile.usesModel),
+            ))
               TextFormField(
                 key: ValueKey('cloud-${e.key}'),
                 controller: e.value,
@@ -134,6 +142,8 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
                 enableIMEPersonalizedLearning: e.key != 'apiKey',
                 validator: (v) =>
                     ({'name', 'model'}.contains(e.key) ||
+                            e.key == 'region' &&
+                                _inputs['baseUrl']!.text.trim().isEmpty ||
                             e.key == 'apiKey' && widget.engine == null) &&
                         (v ?? '').trim().isEmpty
                     ? labels[e.key]

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.406] - 2026-10-20
+
+### Added
+- [UI] 新增 Azure Speech 引擎，支持区域/自定义地址与设备安全存储密钥。
+- [UI] 添加音色时按需获取服务商目录，可设置语言、风格、角色及合成语速、音调、音量。
+- [Rust] 接入 Azure SSML 与多格式音频，目录查询可取消，输出格式与请求参数参与缓存身份。
+
+贡献者：Codex + UI / Rust；构建号407。
+
 ## [2.0.405] - 2026-10-19
 
 ### Fixed

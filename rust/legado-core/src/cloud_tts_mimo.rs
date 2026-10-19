@@ -36,6 +36,7 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
             .map(str::to_owned)
             .collect(),
             sample_rate: Some(24000),
+            ..Default::default()
         })
         .collect()
     }
@@ -104,7 +105,7 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
             authorization: engine.api_key.clone(),
             additional_headers: Vec::new(),
             response_kind: CloudSpeechResponseKind::EventStream,
-            body,
+            body: CloudSpeechBody::Json(body),
             response_format: "wav".into(),
         })
     }
@@ -184,6 +185,12 @@ fn decode_event(payload: &str, pcm: &mut Vec<u8>) -> LegadoResult<bool> {
 
 #[cfg(test)]
 mod tests {
+    fn json_body(p: &super::PreparedCloudSpeech) -> serde_json::Value {
+        let super::CloudSpeechBody::Json(value) = &p.body else {
+            panic!("预期 JSON 请求")
+        };
+        value.clone()
+    }
     use super::*;
     fn engine() -> CloudTtsEngine {
         CloudTtsEngine {
@@ -218,7 +225,7 @@ mod tests {
         assert_eq!(prepared.authorization, "fixture-private");
         assert!(prepared.response_kind == CloudSpeechResponseKind::EventStream);
         assert_eq!(
-            prepared.body,
+            json_body(&prepared),
             json!({"model":"mimo-v2.5-tts","messages":[{"role":"user","content":"用中文朗读"},{"role":"assistant","content":"(平静)中文\"引号\"😀\n换行"}],"audio":{"format":"pcm16","voice":"冰糖"},"stream":true})
         );
         let voices = MimoCloudTtsProvider.voices();
@@ -249,15 +256,15 @@ mod tests {
         r.instructions.clear();
         let p = MimoCloudTtsProvider.prepare(&engine(), &r).unwrap();
         assert_eq!(
-            p.body["messages"],
+            json_body(&p)["messages"],
             json!([{"role":"assistant","content":r.text}])
         );
         r.speed = 2.0;
         r.pitch = 0.5;
         r.volume = 0.5;
         assert_eq!(
-            MimoCloudTtsProvider.prepare(&engine(), &r).unwrap().body,
-            p.body
+            json_body(&MimoCloudTtsProvider.prepare(&engine(), &r).unwrap()),
+            json_body(&p)
         );
         let mut e = engine();
         e.base_url = "https://fixture.example/v1/chat/completions/".into();

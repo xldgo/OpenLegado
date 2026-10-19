@@ -38,7 +38,12 @@ void main() {
     );
   });
   test('云供应商穷举往返与完整元数据映射', () {
-    for (final provider in ['openai_speech', 'mimo', 'alibaba_cloud']) {
+    for (final provider in [
+      'openai_speech',
+      'mimo',
+      'alibaba_cloud',
+      'azure_speech',
+    ]) {
       const v = CloudTtsEngine(
         id: 'id',
         name: '名称',

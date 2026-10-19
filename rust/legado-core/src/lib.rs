@@ -31,6 +31,7 @@ pub mod cache_book;
 pub mod chinese_convert;
 pub mod cloud_tts;
 pub mod cloud_tts_alibaba;
+pub mod cloud_tts_azure;
 pub mod cloud_tts_mimo;
 pub mod cloud_tts_openai;
 pub mod content_help;

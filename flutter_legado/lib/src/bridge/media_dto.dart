@@ -185,17 +185,23 @@ class CloudTtsMetadataDto {
           credentialKey == other.credentialKey;
 }
 
-enum CloudTtsProviderDto { openAiSpeech, mimo, alibabaCloud }
+enum CloudTtsProviderDto { openAiSpeech, mimo, alibabaCloud, azureSpeech }
 
 class CloudVoiceDescriptorDto {
   final String id;
   final String displayName;
+  final String locale;
+  final String gender;
+  final List<String> roles;
   final List<String> styles;
   final int? sampleRate;
 
   const CloudVoiceDescriptorDto({
     required this.id,
     required this.displayName,
+    required this.locale,
+    required this.gender,
+    required this.roles,
     required this.styles,
     this.sampleRate,
   });
@@ -204,6 +210,9 @@ class CloudVoiceDescriptorDto {
   int get hashCode =>
       id.hashCode ^
       displayName.hashCode ^
+      locale.hashCode ^
+      gender.hashCode ^
+      roles.hashCode ^
       styles.hashCode ^
       sampleRate.hashCode;
 
@@ -214,6 +223,9 @@ class CloudVoiceDescriptorDto {
           runtimeType == other.runtimeType &&
           id == other.id &&
           displayName == other.displayName &&
+          locale == other.locale &&
+          gender == other.gender &&
+          roles == other.roles &&
           styles == other.styles &&
           sampleRate == other.sampleRate;
 }

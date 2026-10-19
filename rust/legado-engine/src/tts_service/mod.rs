@@ -48,4 +48,13 @@ impl TtsService {
     ) -> LegadoResult<legado_fetcher::cloud_tts::CloudTtsSynthesisResult> {
         cloud::speak(&self.resources, id, api_key, input, cancellation).await
     }
+    pub async fn cloud_voices(
+        &self,
+        id: &str,
+        api_key: String,
+        credential_key: &str,
+        cancellation: &TtsCancellation,
+    ) -> LegadoResult<Vec<legado_core::cloud_tts::CloudTtsVoiceDescriptor>> {
+        cloud::voices(&self.resources, id, api_key, credential_key, cancellation).await
+    }
 }

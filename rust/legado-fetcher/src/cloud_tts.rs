@@ -18,6 +18,12 @@ pub struct CloudTtsResponse {
     pub bytes: Vec<u8>,
 }
 pub trait CloudTtsTransport: Send + Sync {
+    fn catalog<'a>(
+        &'a self,
+        _request: &'a PreparedCloudCatalog,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async { Err(LegadoError::Network("此传输不支持音色目录".into())) })
+    }
     fn download_audio<'a>(
         &'a self,
         _url: &'a str,
@@ -62,6 +68,30 @@ impl CloudTtsHttpTransport {
     }
 }
 impl CloudTtsTransport for CloudTtsHttpTransport {
+    fn catalog<'a>(
+        &'a self,
+        request: &'a PreparedCloudCatalog,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async move {
+            let response = self
+                .client
+                .get_raw_with_timeout(
+                    &request.endpoint,
+                    Some(std::collections::HashMap::from([(
+                        request.credential_header.into(),
+                        request.authorization.clone(),
+                    )])),
+                    Some(Duration::from_secs(120)),
+                )
+                .await
+                .map_err(|_| LegadoError::Network("云端音色目录请求失败".into()))?;
+            Ok(CloudTtsResponse {
+                status: response.status,
+                content_type: response.content_type().cloned().unwrap_or_default(),
+                bytes: response.body,
+            })
+        })
+    }
     fn download_audio<'a>(&'a self, url: &'a str) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
         Box::pin(async move {
             // 下载地址可含 OSS 签名，异常不回显地址；不带合成请求凭据。
@@ -87,7 +117,7 @@ impl CloudTtsTransport for CloudTtsHttpTransport {
                     request.credential_header.into(),
                     request.authorization.clone(),
                 ),
-                ("Content-Type".into(), "application/json".into()),
+                ("Content-Type".into(), request.body.content_type().into()),
             ]);
             headers.extend(
                 request
@@ -99,7 +129,7 @@ impl CloudTtsTransport for CloudTtsHttpTransport {
                 .client
                 .post_raw_with_timeout(
                     &request.endpoint,
-                    &request.body.to_string(),
+                    &request.body.encode(),
                     Some(headers),
                     Some(Duration::from_secs(120)),
                 )
@@ -120,6 +150,38 @@ pub struct CloudTtsSynthesisResult {
     pub content_type: String,
     pub lease: AudioLease,
 }
+/// 目录发现不写音色表；取消覆盖等待与网络，请求结果由调用者持有。
+pub async fn discover_cloud_voices(
+    provider: &dyn CloudTtsProvider,
+    transport: &dyn CloudTtsTransport,
+    engine: &CloudTtsEngine,
+    cancellation: &TtsCancellation,
+) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
+    cancellation.check()?;
+    match provider.prepare_catalog(engine)? {
+        CloudVoiceCatalog::Static(voices) => Ok(voices),
+        CloudVoiceCatalog::Remote(request) => {
+            let response = cancellation.run(transport.catalog(&request)).await?;
+            cancellation.check()?;
+            if !(200..300).contains(&response.status) {
+                return Err(LegadoError::Network(format!(
+                    "云端音色目录请求失败：HTTP {}",
+                    response.status
+                )));
+            }
+            let mime = response
+                .content_type
+                .split(';')
+                .next()
+                .unwrap_or_default()
+                .trim();
+            if !mime.eq_ignore_ascii_case("application/json") {
+                return Err(LegadoError::Network("云端音色目录未返回 JSON".into()));
+            }
+            provider.decode_catalog(&response.bytes)
+        }
+    }
+}
 fn cache_key(engine: &CloudTtsEngine, prepared: &PreparedCloudSpeech) -> LegadoResult<String> {
     use sha2::{Digest, Sha256};
     // 只包含实际合成输入；播放器倍速、音量及书章位置由调用者另行管理。
@@ -129,6 +191,8 @@ fn cache_key(engine: &CloudTtsEngine, prepared: &PreparedCloudSpeech) -> LegadoR
         engine.id.as_str(),
         prepared.endpoint.as_str(),
         prepared.body.clone(),
+        prepared.response_format.as_str(),
+        &prepared.additional_headers,
         engine.api_key.as_str(),
     ))?;
     Ok(Sha256::digest(&input)

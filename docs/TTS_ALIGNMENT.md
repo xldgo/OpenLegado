@@ -2,6 +2,33 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## Azure Speech 与 Rust 边界（2026-10-20）
+
+固定参考 [c4182eb9 的 AzureSpeechCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/AzureSpeechCloudTtsProvider.kt)
+的端点、鉴权、音色目录与 SSML 语义；不移植其网络/播放组织方式。
+
+- Core 的 Provider 只准备请求与解析响应。CloudSpeechBody 用 Json/Ssml 枚举区分正文类型，
+  CloudVoiceCatalog 区分静态目录和远端请求。不会用空 JSON 或隐式字符串模拟 GET/XML。
+- Fetcher 统一执行目录 GET 和合成 POST；复用正常 TLS、无重定向/书源 Cookie、超时和取消。
+  缓存消费实际请求体、输出格式和必要头，避免 SSML 相同但输出格式不同串缓存。
+- Engine 读取所属数据库的引擎配置，核对凭据引用，任务守卫随操作结束释放；关闭根实例
+  取消等待和网络，不捕获根实例延长其生命。FFI 仅转换 DTO 和调用该服务。
+- Flutter 的独立 CloudTtsVoiceCatalog 暂时读取设备密钥并持有请求句柄，配置仓库不负责
+  新增的鉴权/网络流程。进入 Azure 音色编辑器才查询目录，关闭取消、失败可重试或手填；
+  候选目录不自动写入用户音色，语言/风格/角色随选择更新，只保存实际请求字段。
+- 默认区域端点为 `https://<region>.tts.speech.microsoft.com`；自定义地址按上游追加
+  `/cognitiveservices/voices/list` 与 `/cognitiveservices/v1`，允许带 `/tts` 的资源基址。
+  仅用 Subscription-Key；模型与朗读指令控件对 Azure 隐藏，格式为 mp3/wav/ogg/opus。
+  音调/音量百分比按上游 Float 运算/截断和区间限制；XML 正文及属性转义，非法控制字符拒绝。
+- 输出适配为现有文件播放器，Opus 使用 Ogg 文件，不引入实时 PCM 或新播放后端。
+  现有三家静态目录仍可离线查询；Azure 静态查询明确要求引擎发现，不假装返回完整目录。
+
+测试使用真实 FRB/SQLite 和本地 HTTP 验证 GET/POST、SSML、缓存、取消及旧服务商回归；
+假音频只证明协议与产物路径，不证明真实云账号、实际解码或移动后台听感。
+无数据库迁移、依赖升级和历史回填。API 与生成物需配对重编，不能混用旧原生库。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
 ## 云端音色参数与百炼语言（2026-10-19）
 
 固定参考 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)
@@ -126,7 +153,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼 Provider、独立元数据/设备凭据、配置试听和播放接线 | 其他四家 Provider、云端预合成及真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure 动态目录 | AWS Polly、火山豆包、Gemini；真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 

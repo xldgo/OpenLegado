@@ -11,6 +11,9 @@ import '../../domain/contracts/cloud_tts_credential_store.dart';
 import '../../domain/contracts/cloud_tts_synthesizer.dart';
 import '../../domain/contracts/http_tts_synthesizer.dart';
 import '../../data/services/rust_cloud_tts_synthesizer.dart';
+import '../../data/services/rust_cloud_tts_voice_catalog.dart';
+import '../../domain/contracts/cloud_tts_voice_catalog.dart';
+import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../data/repositories/mock_cloud_tts_repository.dart';
 import '../../platform/tts/cloud_tts_credential_store.dart';
 import 'cloud_tts_settings.dart';
@@ -26,6 +29,23 @@ final cloudTtsSettingsProvider = Provider<CloudTtsSettings>(
     ref.watch(cloudTtsCredentialStoreProvider),
   ),
 );
+final cloudTtsVoiceCatalogProvider = Provider<CloudTtsVoiceCatalog>(
+  (ref) => ref.watch(cloudTtsRepositoryProvider) is MockCloudTtsRepository
+      ? _MockVoiceCatalog()
+      : RustCloudTtsVoiceCatalog(
+          ref.watch(cloudTtsRepositoryProvider),
+          ref.watch(cloudTtsCredentialStoreProvider),
+        ),
+);
+
+class _MockVoiceCatalog implements CloudTtsVoiceCatalog {
+  @override
+  Future<List<CloudTtsVoiceDescriptor>> discover(
+    CloudTtsEngine engine,
+    HttpTtsCancellation cancellation,
+  ) async => const [];
+}
+
 final cloudTtsSynthesizerProvider = Provider<CloudTtsSynthesizer>(
   (ref) => ref.watch(cloudTtsRepositoryProvider) is MockCloudTtsRepository
       ? _MockSynthesizer()

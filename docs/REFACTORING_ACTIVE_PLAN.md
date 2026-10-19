@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-AZURE-20261019：Azure Speech 与动态音色目录（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户确认参考上游、内部遵循 Rust 职责与类型边界；feature/ui-tts-engine / 0c695387c，单代理。
+- 范围：先冻结 API_CONTRACT，Core 协议/显式请求体类型、Fetcher 网络、Engine 取消与凭据核对；配置区域、音色发现/参数及复用原合成缓存。参考 HapeLee/legado-with-MD3 / c4182eb9 的 AzureSpeechCloudTtsProvider。
+- 验收：SSML 转义/格式/参数与音色目录解析、实际本地 HTTP/缓存/取消/凭据隔离、FRB 配对与 Widget 交互；限定回归，不跑全量 CI、不改播放队列/数据库、不安装或推送。
+- 实现：新增 Azure 纯协议 Provider，Json/Ssml 与静态/远端目录用枚举表达；Fetcher 共用传输与缓存，Engine 读取数据库并核对凭据引用，任务守卫/取消不依赖 Flutter。Dart 独立目录服务暂读凭据；只进入 Azure 音色 Sheet 时查询，支持重试/手填/关闭取消，候选不自动持久化。区域、语言/风格/角色与数值参数接通，Azure 不展示无效模型/朗读指令控件。
+- 本地验证：48 项不同 Flutter 用例通过（6 份普通回归共 45 项、Azure/百炼/OpenAI 真实 FFI 共 3 项），复跑不累加；Rust Core 17、DB 6、Fetcher 13、Engine 4，共 40 项。真实本地 GET/SSML POST、三种输出格式缓存隔离、音色保存/草稿同缓存、请求取消/错误音频重试通过；实例关闭取消目录等待，过期凭据请求前拒绝，任务活动计数归零。
+- 命令：flutter test --no-pub --reporter expanded 后接 widget/{azure_tts_editor_test,cloud_tts_voice_parameters_test,cloud_tts_screen_test,read_aloud_management_test}.dart 与 unit/{media_dto_mapping_test,cloud_tts_settings_test}.dart；cargo build --locked --offline -p legado-ffi --features quickjs 后显式指定本 worktree DLL，运行 --tags native ffi/{azure_cloud_tts_runtime_test,alibaba_cloud_tts_runtime_test,cloud_tts_runtime_test}.dart。Rust cargo test --locked --offline 分别运行 legado-core --lib cloud_tts、legado-db --lib repository::cloud_tts_repository::tests::、legado-fetcher --features quickjs --lib cloud_tts::tests::、legado-engine --features quickjs --lib tts_service::cloud::tests::；实际逐文件传参。
+- 检查/边界：12 个 Dart 文件严格分析无问题，架构依赖门禁、限定 Rust/Dart 格式与 diff 检查通过；补齐四供应商 DTO 穷举后该文件 6 项复验通过。固定 FRB 2.13.0，生成与 generate bridge --check 隔离复核均通过；依赖锁文件/数据库结构未改。初次协议改造检查发现构造字段顺序及旧 JSON 断言未适配枚举，修正后相关回归通过；不保留伪 JSON 兼容索引。单代理自查，无独立外审、真实 Azure 账号/平台解码/后台听感验收；版本 2.0.406+407 与双日志同步，仅本地提交，不安装/推送/触发 CI。
+- 执行者：Codex + UI/Bridge｜2026-10-19～20。
+
 ### TTS-CLOUD-PARAMS-20261019：云端音色参数与百炼语言接线（P1，待复验：真实账号/设备）
 
 - 授权/基线：用户批准下一批，feature/ui-tts-engine / 1c8af9e24，单代理。

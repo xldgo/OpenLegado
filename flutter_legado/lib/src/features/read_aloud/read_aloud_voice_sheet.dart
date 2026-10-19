@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../../domain/contracts/cloud_tts_provider.dart';
+import '../../domain/contracts/cloud_tts_voice_catalog.dart';
+import '../../domain/contracts/http_tts_synthesizer.dart';
 import '../../domain/models/http_tts_voice_options.dart';
 import '../../widgets/app_settings_sheet.dart';
 import '../../widgets/app_settings_form.dart';
@@ -16,10 +19,13 @@ final class VoiceEditorSource {
     required this.name,
     required this.voices,
     this.provider,
+    this.loadCatalog,
   });
   final String kind, id, name;
   final String? provider;
   final List<ReadAloudVoice> voices;
+  final Future<List<CloudTtsVoiceDescriptor>> Function(HttpTtsCancellation)?
+  loadCatalog;
 }
 
 class ReadAloudVoiceSheet extends StatefulWidget {
@@ -49,7 +55,15 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _instructions,
       _sample,
       _emotion,
-      _locale;
+      _locale,
+      _role,
+      _pitch,
+      _volume;
+  late List<ReadAloudVoice> _voices;
+  List<CloudTtsVoiceDescriptor> _catalog = [];
+  HttpTtsCancellation? _catalogRequest;
+  bool _loadingCatalog = false;
+  String? _catalogError;
   String _format = 'wav';
   bool _previewing = false;
   String? _error;
@@ -57,6 +71,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
   @override
   void initState() {
     super.initState();
+    _voices = widget.source.voices;
     final preferred = widget.source.kind == 'system'
         ? widget.source.voices.where((v) {
             final traits = jsonDecode(v.traitsJson);
@@ -77,6 +92,9 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
     _name = TextEditingController(text: voice?.displayName ?? '');
     _speed = TextEditingController(text: '${_traits['speed'] ?? 1.0}');
     _locale = TextEditingController(text: _traits['locale'] as String? ?? '');
+    _role = TextEditingController(text: _traits['role'] as String? ?? '');
+    _pitch = TextEditingController(text: '${_traits['pitch'] ?? 1.0}');
+    _volume = TextEditingController(text: '${_traits['volume'] ?? 1.0}');
     _style = TextEditingController(text: _traits['style'] as String? ?? '');
     _instructions = TextEditingController(
       text: _traits['instructions'] as String? ?? '',
@@ -90,11 +108,70 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
           _traits['format'] as String? ??
           cloudTtsProfile(widget.source.provider!).formats.first;
     }
+    if (widget.source.loadCatalog != null) unawaited(_loadCatalog());
   }
 
-  ReadAloudVoice? get _native => widget.source.voices
-      .where((v) => v.speakerId == _speaker.text.trim())
-      .firstOrNull;
+  Future<void> _loadCatalog() async {
+    _catalogRequest?.cancel();
+    final request = HttpTtsCancellation();
+    _catalogRequest = request;
+    setState(() {
+      _loadingCatalog = true;
+      _catalogError = null;
+    });
+    try {
+      final catalog = await widget.source.loadCatalog!(request);
+      if (!mounted || request.isCancelled) return;
+      setState(() {
+        _catalog = catalog;
+        _voices = catalog
+            .map(
+              (v) => ReadAloudVoice(
+                id: readAloudVoiceId(
+                  widget.source.kind,
+                  widget.source.id,
+                  v.id,
+                ),
+                engineType: widget.source.kind,
+                engineId: widget.source.id,
+                speakerId: v.id,
+                displayName: v.name,
+                traitsJson: jsonEncode({'locale': v.locale}),
+              ),
+            )
+            .toList();
+        if (_speaker.text.isEmpty && _voices.isNotEmpty) {
+          _selectVoice(_voices.first);
+        }
+      });
+    } catch (error) {
+      if (mounted && !request.isCancelled) {
+        setState(() => _catalogError = '音色目录读取失败：$error');
+      }
+    } finally {
+      if (mounted && !request.isCancelled) {
+        setState(() => _loadingCatalog = false);
+      }
+    }
+  }
+
+  CloudTtsVoiceDescriptor? get _catalogVoice =>
+      _catalog.where((v) => v.id == _speaker.text.trim()).firstOrNull;
+  void _selectVoice(ReadAloudVoice voice) {
+    _speaker.text = voice.speakerId;
+    _name.text = voice.displayName;
+    if (widget.source.kind == 'http') {
+      _emotion.text = HttpTtsVoiceOptions(voice.traitsJson).emotionTag ?? '';
+    } else if (widget.source.kind == 'cloud_tts') {
+      final selected = _catalogVoice;
+      if (selected != null) _locale.text = selected.locale;
+      _style.clear();
+      _role.clear();
+    }
+  }
+
+  ReadAloudVoice? get _native =>
+      _voices.where((v) => v.speakerId == _speaker.text.trim()).firstOrNull;
 
   List<Map<String, dynamic>> get _emotions => (jsonDecode(
     _native?.emotionCatalogJson ?? widget.voice?.emotionCatalogJson ?? '[]',
@@ -104,9 +181,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
     if (!_form.currentState!.validate()) return null;
     final source = widget.source;
     final speaker = _speaker.text.trim();
-    final native = source.voices
-        .where((v) => v.speakerId == speaker)
-        .firstOrNull;
+    final native = _voices.where((v) => v.speakerId == speaker).firstOrNull;
     final nativeTraits = native == null ? null : jsonDecode(native.traitsJson);
     final cloud = source.kind == 'cloud_tts';
     final traits = source.kind == 'http'
@@ -120,10 +195,16 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
             ..._traits,
             if (cloudTtsProfile(source.provider!).supportsLocale)
               'locale': _locale.text.trim(),
+            if (cloudTtsProfile(source.provider!).supportsProsody) ...{
+              'role': _role.text.trim(),
+              'pitch': double.parse(_pitch.text),
+              'volume': double.parse(_volume.text),
+            },
             if (cloudTtsProfile(source.provider!).supportsSourceSpeed)
               'speed': double.parse(_speed.text),
             'style': _style.text,
-            'instructions': _instructions.text,
+            if (cloudTtsProfile(source.provider!).supportsInstructions)
+              'instructions': _instructions.text,
             'format': _format,
           }
         : <String, dynamic>{
@@ -164,6 +245,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
 
   @override
   void dispose() {
+    _catalogRequest?.cancel();
     for (final c in [
       _speaker,
       _name,
@@ -173,6 +255,9 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _sample,
       _emotion,
       _locale,
+      _role,
+      _pitch,
+      _volume,
     ]) {
       c.dispose();
     }
@@ -198,7 +283,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
         key: _form,
         child: AppSettingsForm(
           title: source.name,
-          errorText: _error,
+          errorText: _error ?? _catalogError,
           children: [
             TextFormField(
               key: const ValueKey('voice-speaker'),
@@ -210,23 +295,23 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 _emotion.clear();
               }),
             ),
-            if (widget.voice == null && source.voices.isNotEmpty)
+            if (_loadingCatalog) const LinearProgressIndicator(),
+            if (_catalogError != null)
+              TextButton(
+                onPressed: _loadingCatalog ? null : _loadCatalog,
+                child: const Text('重试获取音色'),
+              ),
+            if (widget.voice == null && _voices.isNotEmpty)
               Wrap(
                 spacing: 4,
                 runSpacing: 8,
                 children: [
-                  for (final v in source.voices)
+                  for (final v in _voices)
                     ActionChip(
                       label: Text(v.displayName),
                       onPressed: () {
                         setState(() {
-                          _speaker.text = v.speakerId;
-                          _name.text = v.displayName;
-                          if (source.kind == 'http') {
-                            _emotion.text =
-                                HttpTtsVoiceOptions(v.traitsJson).emotionTag ??
-                                '';
-                          }
+                          _selectVoice(v);
                         });
                       },
                     ),
@@ -278,9 +363,9 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 TextFormField(
                   key: const ValueKey('voice-locale'),
                   controller: _locale,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: '语言',
-                    hintText: '留空自动识别，例如 Chinese、English',
+                    hintText: profile.localeHint,
                   ),
                 ),
               if (profile.supportsSourceSpeed)
@@ -300,24 +385,58 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 controller: _style,
                 decoration: const InputDecoration(labelText: '风格'),
               ),
-              if (profile.styles.isNotEmpty)
+              if ((_catalogVoice?.styles ?? profile.styles).isNotEmpty)
                 Wrap(
                   spacing: 4,
                   runSpacing: 8,
                   children: [
-                    for (final style in profile.styles)
+                    for (final style in _catalogVoice?.styles ?? profile.styles)
                       ActionChip(
                         label: Text(style),
                         onPressed: () => _style.text = style,
                       ),
                   ],
                 ),
-              TextFormField(
-                key: const ValueKey('voice-instructions'),
-                controller: _instructions,
-                decoration: const InputDecoration(labelText: '朗读指令'),
-                maxLines: 3,
-              ),
+              if (profile.supportsProsody) ...[
+                TextFormField(
+                  key: const ValueKey('voice-role'),
+                  controller: _role,
+                  decoration: const InputDecoration(labelText: '角色'),
+                ),
+                if (_catalogVoice?.roles.isNotEmpty ?? false)
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 8,
+                    children: [
+                      for (final role in _catalogVoice!.roles)
+                        ActionChip(
+                          label: Text(role),
+                          onPressed: () => _role.text = role,
+                        ),
+                    ],
+                  ),
+                for (final entry in {'音调': _pitch, '音量': _volume}.entries)
+                  TextFormField(
+                    controller: entry.value,
+                    decoration: InputDecoration(labelText: entry.key),
+                    validator: (v) {
+                      final value = double.tryParse(v ?? '');
+                      return value == null ||
+                              !value.isFinite ||
+                              value < 0 ||
+                              value > 2
+                          ? '0.0–2.0'
+                          : null;
+                    },
+                  ),
+              ],
+              if (profile.supportsInstructions)
+                TextFormField(
+                  key: const ValueKey('voice-instructions'),
+                  controller: _instructions,
+                  decoration: const InputDecoration(labelText: '朗读指令'),
+                  maxLines: 3,
+                ),
               DropdownButtonFormField<String>(
                 initialValue: _format,
                 decoration: const InputDecoration(labelText: '音频格式'),

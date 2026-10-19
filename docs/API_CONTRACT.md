@@ -2430,6 +2430,19 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+**TTS-AZURE-20261019（实施前冻结）**：新增 azure_speech，沿用云端元数据表、凭据引用、
+音色表与播放会话。region 或自定义 baseUrl 决定端点；SSML 合成使用 Subscription-Key，
+支持 mp3/wav/ogg/opus、语言、风格、角色、语速、音调、音量，XML 必须转义。
+Core 仅构造/解析协议，Fetcher 执行网络，Engine 核对数据库与凭据引用并隔离取消生命周期。
+请求体以 JSON/SSML 枚举表达；缓存身份包含实际请求体、输出格式及必要请求头。
+新增 cloudTtsEngineVoices(engineId,apiKey,credentialKey,request:TtsRequest) 返回完整音色 DTO，
+包含 id/displayName/locale/gender/styles/roles/sampleRate；按当前保存的引擎配置发现，
+不从 Flutter 传地址绕过校验。静态 cloudTtsVoices 保留三家已有目录，Azure 必须走引擎发现。
+Flutter 通过独立 CloudTtsVoiceCatalog 窄服务查询，不让配置仓库承担凭据或网络编排；
+音色编辑器进入时获取远端目录，关闭取消，失败可重试或手动输入 ID，不写入整份目录。
+引擎 Sheet 增加区域，音色 Sheet 按能力展示参数；切换原生音色更新目录的语言/风格/角色。
+无数据库迁移、依赖升级、历史回填、播放队列改造；真实账号和移动后台另行验收。
+
 **T3b 朗读缓存与预合成（2026-10-13，实施前冻结）**：不更改 ttsSpeak 入参及三个 JSON 字段。单次 TtsRequest 在成功合成后持有返回文件的缓存租约；RustHttpTtsSynthesizer 将句柄所有权交给 HttpTtsAudio.lease，停止播放器后释放；预合成登记索引后立即释放，取消/失败在 finally 释放。请求期间保护缓存读取与发布，避免清理竞争；此保护是进程内文件生命周期，不是另一份播放状态或数据库事实。
 
 | 原生方法 | 返回 | 约束 |
@@ -2974,7 +2987,8 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 - ttsSpeak/cloudTtsSpeak 返回 TtsSpeakDto(audioPath/fromCache/contentType)，不传音频字节；
   TtsRequest 的取消、活动保护及文件租约归属不变。
 - 云端元数据、音色描述与试听参数分别为 CloudTtsMetadataDto、CloudVoiceDescriptorDto、
-  CloudSpeechInputDto/CloudVoiceOptionsDto；供应商枚举仅映射现有三种，不新增供应商。
+  CloudSpeechInputDto/CloudVoiceOptionsDto；当批仅映射已有三种供应商，2026-10-20 按
+  TTS-AZURE-20261019 追加 azure_speech、完整目录字段和引擎目录发现接口。
   明文 API Key 仍只作为调用参数，不进入元数据或持久化；凭据版本与音色归属检查不变。
 - 音色目录和设备同步使用 ReadAloudVoiceDto/SystemVoiceEntryDto；traitsJson 与
   emotionCatalogJson 为原有配置文档，不在传输层重新解释。

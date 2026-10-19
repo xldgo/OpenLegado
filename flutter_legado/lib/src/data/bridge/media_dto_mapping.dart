@@ -24,12 +24,14 @@ dto.CloudTtsProviderDto cloudProviderToDto(String v) => switch (v) {
   'openai_speech' => dto.CloudTtsProviderDto.openAiSpeech,
   'mimo' => dto.CloudTtsProviderDto.mimo,
   'alibaba_cloud' => dto.CloudTtsProviderDto.alibabaCloud,
+  'azure_speech' => dto.CloudTtsProviderDto.azureSpeech,
   _ => throw FormatException('不支持的云端供应商：$v'),
 };
 String cloudProviderFromDto(dto.CloudTtsProviderDto v) => switch (v) {
   dto.CloudTtsProviderDto.openAiSpeech => 'openai_speech',
   dto.CloudTtsProviderDto.mimo => 'mimo',
   dto.CloudTtsProviderDto.alibabaCloud => 'alibaba_cloud',
+  dto.CloudTtsProviderDto.azureSpeech => 'azure_speech',
 };
 HttpTts httpTtsFromDto(dto.HttpTtsConfigDto v) => HttpTts(
   id: v.id,

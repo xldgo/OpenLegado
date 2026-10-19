@@ -8,6 +8,8 @@ import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_voice_catalog.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_credential_store.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
@@ -59,6 +61,26 @@ class _Credentials implements CloudTtsCredentialStore {
   Future<void> delete(String key) => delegate.delete(key);
 }
 
+class _Catalog implements CloudTtsVoiceCatalog {
+  int calls = 0;
+  @override
+  Future<List<CloudTtsVoiceDescriptor>> discover(
+    CloudTtsEngine engine,
+    HttpTtsCancellation cancellation,
+  ) async {
+    calls++;
+    return const [
+      CloudTtsVoiceDescriptor(
+        id: 'zh-CN-XiaoxiaoNeural',
+        name: '晓晓',
+        locale: 'zh-CN',
+        styles: ['cheerful'],
+        roles: ['Girl'],
+      ),
+    ];
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(registerFallbacks);
@@ -66,6 +88,7 @@ void main() {
   late _Credentials credentials;
   late _System system;
   late ProviderContainer container;
+  late _Catalog catalog;
   late Map<String, String> config;
   final books = <Book>[];
   const cloud = CloudTtsEngine(
@@ -92,6 +115,7 @@ void main() {
     api = MockRustApi();
     credentials = _Credentials();
     system = _System();
+    catalog = _Catalog();
     config = {};
     books.clear();
     when(() => api.configRepository.getConfig(any()))
@@ -111,6 +135,7 @@ void main() {
         ...api.overrides,
         systemTtsServiceProvider.overrideWithValue(system),
         cloudTtsCredentialStoreProvider.overrideWithValue(credentials),
+        cloudTtsVoiceCatalogProvider.overrideWithValue(catalog),
         streamAudioPlayerProvider.overrideWithValue(FakeStreamAudioPlayer()),
         cloudTtsPreviewPlayerProvider.overrideWithValue(
           FakeStreamAudioPlayer(),
@@ -420,6 +445,34 @@ void main() {
     expect(config['cloudTtsVoice:ali'], voice('Serena').id);
     expect(credentials.writes, isNot(contains('cancelled-key')));
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('Azure 目录仅进入音色编辑器时查询，保存只添加选中音色', (tester) async {
+    await api.cloudTtsRepository.save(
+      const CloudTtsEngine(
+        id: 'azure',
+        name: 'Azure 测试',
+        provider: 'azure_speech',
+        model: '',
+        region: 'eastasia',
+        credentialKey: 'cloud-tts:azure:fixture',
+      ),
+    );
+    await pump(tester);
+    expect(catalog.calls, 0);
+    await tester.tap(find.byTooltip('添加音色'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Azure 测试'));
+    await tester.pumpAndSettle();
+    expect(catalog.calls, 1);
+    expect(find.widgetWithText(ActionChip, '晓晓'), findsOneWidget);
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final voices = (await api.readAloudVoiceRepository.list())
+        .where((v) => v.engineType == 'cloud_tts')
+        .toList();
+    expect(voices, hasLength(1));
+    expect(voices.single.speakerId, 'zh-CN-XiaoxiaoNeural');
+    expect(catalog.calls, 1);
   });
 
   testWidgets('系统目录仅作为添加候选，取消不加入，保存后显示，刷新与删除不会自动填满列表', (tester) async {

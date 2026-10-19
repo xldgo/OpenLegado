@@ -54,6 +54,7 @@ impl CloudTtsMetadata {
             base_url: self.base_url.clone(),
             api_key,
             model: self.model.clone(),
+            region: self.region.clone(),
             enabled: self.enabled,
         }
     }
@@ -67,6 +68,7 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::OpenAiSpeech => "alloy",
                     CloudTtsProviderType::Mimo => "mimo_default",
                     CloudTtsProviderType::AlibabaCloud => "Cherry",
+                    CloudTtsProviderType::AzureSpeech => "zh-CN-XiaoxiaoNeural",
                 }
                 .into()
             }),
@@ -80,6 +82,7 @@ impl CloudTtsMetadata {
             format: options.format.unwrap_or_else(|| {
                 match self.provider {
                     CloudTtsProviderType::OpenAiSpeech => "mp3",
+                    CloudTtsProviderType::AzureSpeech => "mp3",
                     CloudTtsProviderType::Mimo | CloudTtsProviderType::AlibabaCloud => "wav",
                 }
                 .into()
@@ -357,7 +360,10 @@ mod tests {
         let prepared = cloud_tts_provider(m.provider)
             .prepare(&m.engine("fixture".into()), &request)
             .unwrap();
-        assert_eq!(prepared.body["input"]["language_type"], "English");
+        let CloudSpeechBody::Json(body) = prepared.body else {
+            panic!("预期 JSON 请求")
+        };
+        assert_eq!(body["input"]["language_type"], "English");
         for options in [
             r#"{"apiKey":"不能混入"}"#,
             r#"{"baseUrl":"http://example.org"}"#,
@@ -374,5 +380,37 @@ mod tests {
         assert_eq!(request.pitch, 1.0);
         assert_eq!(request.volume, 1.0);
         assert_eq!(request.sample_rate, None);
+    }
+
+    #[test]
+    fn azure_region_defaults_and_full_voice_options_round_trip_without_secrets() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let repo = CloudTtsRepository::new(&conn);
+        let mut m = metadata();
+        m.provider = CloudTtsProviderType::AzureSpeech;
+        m.model.clear();
+        m.region = "eastasia".into();
+        m.options_json = "{}".into();
+        repo.save(&m).unwrap();
+        let current = repo.get(&m.id).unwrap();
+        assert_eq!(current.region, "eastasia");
+        let request = current.request("文本".into()).unwrap();
+        assert_eq!(request.voice_id, "zh-CN-XiaoxiaoNeural");
+        assert_eq!(request.format, "mp3");
+        m.options_json = r#"{"locale":"zh-CN","style":"cheerful","role":"Girl","pitch":1.2,"volume":0.8,"format":"ogg"}"#.into();
+        repo.save(&m).unwrap();
+        let current = repo.get(&m.id).unwrap();
+        assert_eq!(current.options_json, m.options_json);
+        assert_eq!(current.request("文本".into()).unwrap().role, "Girl");
+        assert!(
+            !serde_json::to_string(&current.engine("private-fixture".into()))
+                .unwrap()
+                .contains("private-fixture")
+        );
+        m.region.clear();
+        assert!(repo.save(&m).is_err());
+        assert_eq!(repo.get(&m.id).unwrap().region, "eastasia");
     }
 }
