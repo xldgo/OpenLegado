@@ -79,7 +79,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -730199673;
+  int get rustContentHash => 87071522;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -1271,6 +1271,11 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<bool> crateFfiFfiWebviewCancel({required String key});
+
+  Future<bool> crateFfiFfiWebviewComplete({
+    required String key,
+    required WebViewResponseDto response,
+  });
 
   Future<List<WebViewRequestDto>> crateFfiFfiWebviewPending();
 
@@ -11424,6 +11429,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "webview_cancel", argNames: ["key"]);
 
   @override
+  Future<bool> crateFfiFfiWebviewComplete({
+    required String key,
+    required WebViewResponseDto response,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(key, serializer);
+          sse_encode_box_autoadd_web_view_response_dto(response, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 311,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateFfiFfiWebviewCompleteConstMeta,
+        argValues: [key, response],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateFfiFfiWebviewCompleteConstMeta => const TaskConstMeta(
+    debugName: "webview_complete",
+    argNames: ["key", "response"],
+  );
+
+  @override
   Future<List<WebViewRequestDto>> crateFfiFfiWebviewPending() {
     return handler.executeNormal(
       NormalTask(
@@ -11432,7 +11471,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 311,
+            funcId: 312,
             port: port_,
           );
         },
@@ -11468,7 +11507,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 312,
+              funcId: 313,
               port: port_,
             );
           },
@@ -11505,7 +11544,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 313,
+            funcId: 314,
             port: port_,
           );
         },
@@ -11541,7 +11580,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 314,
+            funcId: 315,
             port: port_,
           );
         },
@@ -12415,6 +12454,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   WebChapterDto dco_decode_box_autoadd_web_chapter_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_web_chapter_dto(raw);
+  }
+
+  @protected
+  WebViewResponseDto dco_decode_box_autoadd_web_view_response_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_web_view_response_dto(raw);
   }
 
   @protected
@@ -15066,8 +15111,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   WebViewRequestDto dco_decode_web_view_request_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 14)
-      throw Exception('unexpected arr length: expect 14 but see ${arr.length}');
+    if (arr.length != 15)
+      throw Exception('unexpected arr length: expect 15 but see ${arr.length}');
     return WebViewRequestDto(
       key: dco_decode_String(arr[0]),
       action: dco_decode_String(arr[1]),
@@ -15083,6 +15128,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sourceKey: dco_decode_String(arr[11]),
       cookie: dco_decode_String(arr[12]),
       createdAtMs: dco_decode_u_64(arr[13]),
+      headers: dco_decode_Map_String_String_None(arr[14]),
+    );
+  }
+
+  @protected
+  WebViewResponseDto dco_decode_web_view_response_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return WebViewResponseDto(
+      result: dco_decode_String(arr[0]),
+      finalUrl: dco_decode_String(arr[1]),
+      error: dco_decode_opt_String(arr[2]),
+      cookies: dco_decode_Map_String_String_None(arr[3]),
     );
   }
 
@@ -16148,6 +16208,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_web_chapter_dto(deserializer));
+  }
+
+  @protected
+  WebViewResponseDto sse_decode_box_autoadd_web_view_response_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_web_view_response_dto(deserializer));
   }
 
   @protected
@@ -20005,6 +20073,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_sourceKey = sse_decode_String(deserializer);
     var var_cookie = sse_decode_String(deserializer);
     var var_createdAtMs = sse_decode_u_64(deserializer);
+    var var_headers = sse_decode_Map_String_String_None(deserializer);
     return WebViewRequestDto(
       key: var_key,
       action: var_action,
@@ -20020,6 +20089,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sourceKey: var_sourceKey,
       cookie: var_cookie,
       createdAtMs: var_createdAtMs,
+      headers: var_headers,
+    );
+  }
+
+  @protected
+  WebViewResponseDto sse_decode_web_view_response_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_result = sse_decode_String(deserializer);
+    var var_finalUrl = sse_decode_String(deserializer);
+    var var_error = sse_decode_opt_String(deserializer);
+    var var_cookies = sse_decode_Map_String_String_None(deserializer);
+    return WebViewResponseDto(
+      result: var_result,
+      finalUrl: var_finalUrl,
+      error: var_error,
+      cookies: var_cookies,
     );
   }
 
@@ -21023,6 +21110,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_web_chapter_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_web_view_response_dto(
+    WebViewResponseDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_web_view_response_dto(self, serializer);
   }
 
   @protected
@@ -24042,6 +24138,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.sourceKey, serializer);
     sse_encode_String(self.cookie, serializer);
     sse_encode_u_64(self.createdAtMs, serializer);
+    sse_encode_Map_String_String_None(self.headers, serializer);
+  }
+
+  @protected
+  void sse_encode_web_view_response_dto(
+    WebViewResponseDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.result, serializer);
+    sse_encode_String(self.finalUrl, serializer);
+    sse_encode_opt_String(self.error, serializer);
+    sse_encode_Map_String_String_None(self.cookies, serializer);
   }
 }
 

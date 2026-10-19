@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### WEBVIEW-URL-OPTIONS-20261019：脚本URL规则WebView分派（P1）
+
+- 状态：待复验；本批代码与本地边界验证已完成，真实平台DOM、Cookie与资源释放仍待设备验证。dep-audit / chore/dep-audit / f11481f2e起，单代理，不推送/合并，主目录并发UI任务保持不动。
+- 基线：固定参考版15e1337a，静态核对JsExtensions、AnalyzeUrl.executeStrRequest、BackstageWebView；未执行上游应用。POST先HTTP后HTML，其余直接平台；type优先、bodyJs仅普通HTTP；合成200/空响应头和最终URL；平台预算与HTTP分开。空HTML仍按上游平台加载规则处理。
+- 实现：先冻结契约；Core以Notify异步等待，沿用原子完成认领和Cookie提交屏障，取消/期限/丢弃发key控制事件。JS单项、普通批次及探测批次注入所属管理器，共用分派和现有限流；POST前置请求保留DNS/代理等HTTP配置，平台本身不宣称支持这些路由覆盖。结果保留最终URL/空成功/显式错误。
+- 平台：Dart监听区分取消事件与执行事件，排队取消不创建页面，在途取消停止执行且抑制迟到成功。单次取消作用域清理回调和页面；Android按key停止独立实例并延迟销毁，修复新实例先自毁造成回调失效，并保证清理分支结束调用；Flutter回退停止加载、解绑回调、加载空页并释放引用，公开API无dispose，不宣称立即原生析构。没有登录或页面布局重构。
+- Rust验证：相关Core/Engine/Fetcher/FFI/JS/Parser库815/154/156/520/655/332项通过，共2632项，44项既有忽略；6项生命周期、4项上下文及7项URL规则集成共17项通过。新增URL规则集成覆盖GET零预请求、POST正文/Header、浏览器最终URL、type/bodyJs优先级、混合批次并发/保序、探测逐项错误、普通批次失败取消、任务取消与迟到拒绝，包含真实HTTP重定向。默认/QuickJS两档六crate全目标Clippy -D warnings通过。
+- Dart与Android：21项映射/监听器/取消作用域定向行为通过，追加取消后异步失败消费的用例通过；13个变更文件及新FFI用例定向分析无问题。当前Windows QuickJS DLL构建/来源校验通过，1项真实FRB往返验证Header、最终URL、正常空正文和未知key拒绝；该用例模拟平台响应，不证明设备DOM。Android :app:compileDebugKotlin通过（仅排除Rust库校验任务，不产APK或安装），存在基线插件/原生弃用告警；首次下载阻塞取消后用7897代理完成，首次代理参数被PowerShell拆分已纠正，不算通过证据。
+- 过程：修前GET用例明确拒绝WebView；新增探测批次用例发现ajaxTestAll漏注入，补齐后通过。Dart流关闭夹具在假时钟中等待close导致挂起，改为泵事件后检查真实关闭行为；分析告警及作用域入口命名错误已修正，不放宽超时或屏蔽错误。仅单代理自查，无独立外审。
+- 证据：build/webview-url-options/{reproduce,rust-libraries,url-final,flutter-confirm,flutter-scope-final,flutter-analysis-final,flutter-new-analysis-final,clippy-quickjs,clippy-default,android-proxy-final,codegen,native-build,native-wire,url-complete}.log。reproduce为预期修前失败；rust-regressions中先通过的库/既有集成有效，但其新增探测用例失败以url-final修后结果替代。
+- 交付：FRB生成绑定、当前DLL构建、真实FRB字段往返及最终差异检查通过。版本2.0.391+392与双日志随本批本地提交；不触发远程CI，不合并/推送，不改主目录文件。后续设备验证需分别检查Android/iOS加载、平台Cookie、取消和释放，不以模拟平台或Kotlin编译代替。回滚本批需重新生成匹配绑定并重建native，不改写产物元数据。
+
+编写者：Codex｜2026-10-19
+
 ### WEBJS-CONTEXT-20261019：WebJS规则来源与元素值传递（P1）
 
 - 状态：本批限定范围已关闭；用户要求继续，dep-audit / chore/dep-audit已快进主目录4a05f91c8，单代理，本地提交，不推送/合并，不修改主目录文件。

@@ -16,5 +16,6 @@ import '../services/platform_bridge_service.dart';
 final webViewRequestExecutorProvider = Provider<WebViewRequestExecutor>(
   (ref) => NativeWebViewRequestExecutor(
     dispatch: PlatformBridgeService.instance.dispatchPayloadWithCookies,
+    cancel: PlatformBridgeService.instance.cancelWebView,
   ),
 );

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.391] - 2026-10-19
+
+### Fixed
+- 书源脚本URL规则的WebView选项接入单项、批量和探测请求，保留请求头与最终地址。
+- POST先获取HTML再交平台处理；取消请求时停止后台页面，避免迟到结果继续规则。
+- 贡献者：Codex + Rust；构建号392。
+
 ## [2.0.390] - 2026-10-19
 
 ### Fixed

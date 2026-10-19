@@ -43,6 +43,9 @@ void main() {
   setUpAll(() {
     registerFallbackValue(_Request());
     registerFallbackValue(bookSourceToDto(source));
+    registerFallbackValue(
+      WebViewResponseDto(result: '', finalUrl: '', cookies: const {}),
+    );
   });
   setUp(() {
     bridge = _Bridge();
@@ -50,6 +53,69 @@ void main() {
     when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_Request());
   });
   tearDown(RustLib.dispose);
+
+  test('WebView类型化回传保留最终URL、正常空结果与错误，原生拒绝保持false', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewComplete(
+        key: 'w',
+        response: any(named: 'response'),
+      ),
+    ).thenAnswer((_) async => false);
+    final accepted = await web.completeWebviewRequest(
+      'w',
+      WebViewExecutionResult(
+        result: '',
+        finalUrl: 'https://final.test/',
+        error: '加载失败',
+        cookies: {'final.test': 'sid=new'},
+      ),
+    );
+    expect(accepted, isFalse);
+    final captured =
+        verify(
+              () => bridge.crateFfiFfiWebviewComplete(
+                key: 'w',
+                response: captureAny(named: 'response'),
+              ),
+            ).captured.single
+            as WebViewResponseDto;
+    expect(captured.result, '');
+    expect(captured.finalUrl, 'https://final.test/');
+    expect(captured.error, '加载失败');
+    expect(captured.cookies, {'final.test': 'sid=new'});
+  });
+
+  test('平台执行器传递Header和key，并使用平台最终URL', () async {
+    final payloads = <Map<String, dynamic>>[];
+    final stopped = <String>[];
+    final executor = NativeWebViewRequestExecutor(
+      dispatch: (payload) async {
+        payloads.add(payload);
+        return const WebViewEvalOutcome(
+          '',
+          '',
+          finalUrl: 'https://final.test/',
+        );
+      },
+      cancel: (key) async {
+        stopped.add(key);
+      },
+    );
+    final result = await executor.execute(
+      const WebViewRequest(
+        key: 'owned',
+        url: 'https://initial.test/',
+        headers: {'X-Test': 'yes'},
+      ),
+    );
+    expect(payloads.single['key'], 'owned');
+    expect(payloads.single['headers'], {'X-Test': 'yes'});
+    expect(result.finalUrl, 'https://final.test/');
+    expect(result.result, '');
+    expect(result.error, isNull);
+    await executor.cancel('owned');
+    expect(stopped, ['owned']);
+  });
 
   test('编辑能力保持原生cURL参数，提取结果保留完整当前脚本', () async {
     when(() => bridge.crateFfiFfiLooksLikeCurl(text: 'curl -L url'))
@@ -203,6 +269,7 @@ void main() {
     ).thenAnswer(
       (_) => Stream.value(
         WebViewRequestDto(
+          headers: const {},
           key: 'w',
           action: 'webViewGetSource',
           html: 'html',
@@ -293,6 +360,7 @@ void main() {
     ).thenAnswer(
       (_) => Stream.value(
         WebViewRequestDto(
+          headers: const {},
           key: '',
           action: '',
           html: '',
@@ -353,6 +421,8 @@ void main() {
       ),
     );
     expect(payloads.single, {
+      'key': 'w',
+      'headers': <String, String>{},
       'action': 'webViewGetOverrideUrl',
       'html': 'html',
       'url': 'url',

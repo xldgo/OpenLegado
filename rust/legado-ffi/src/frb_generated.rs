@@ -41,7 +41,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -730199673;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 87071522;
 
 // Section: executor
 
@@ -11099,6 +11099,40 @@ fn wire__crate__ffi__ffi__webview_cancel_impl(
         },
     )
 }
+fn wire__crate__ffi__ffi__webview_complete_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "webview_complete",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_key = <String>::sse_decode(&mut deserializer);
+            let api_response = <crate::task_dto::WebViewResponseDto>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::ffi::BridgeError>((move || {
+                    let output_ok = crate::ffi::ffi::webview_complete(api_key, api_response)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__ffi__ffi__webview_pending_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -15989,6 +16023,7 @@ impl SseDecode for crate::task_dto::WebViewRequestDto {
         let mut var_sourceKey = <String>::sse_decode(deserializer);
         let mut var_cookie = <String>::sse_decode(deserializer);
         let mut var_createdAtMs = <u64>::sse_decode(deserializer);
+        let mut var_headers = <std::collections::HashMap<String, String>>::sse_decode(deserializer);
         return crate::task_dto::WebViewRequestDto {
             key: var_key,
             action: var_action,
@@ -16004,6 +16039,23 @@ impl SseDecode for crate::task_dto::WebViewRequestDto {
             source_key: var_sourceKey,
             cookie: var_cookie,
             created_at_ms: var_createdAtMs,
+            headers: var_headers,
+        };
+    }
+}
+
+impl SseDecode for crate::task_dto::WebViewResponseDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_result = <String>::sse_decode(deserializer);
+        let mut var_finalUrl = <String>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        let mut var_cookies = <std::collections::HashMap<String, String>>::sse_decode(deserializer);
+        return crate::task_dto::WebViewResponseDto {
+            result: var_result,
+            final_url: var_finalUrl,
+            error: var_error,
+            cookies: var_cookies,
         };
     }
 }
@@ -16536,12 +16588,13 @@ fn pde_ffi_dispatcher_primary_impl(
         308 => wire__crate__ffi__ffi__webdav_upload_impl(port, ptr, rust_vec_len, data_len),
         309 => wire__crate__ffi__ffi__webdav_upload_file_impl(port, ptr, rust_vec_len, data_len),
         310 => wire__crate__ffi__ffi__webview_cancel_impl(port, ptr, rust_vec_len, data_len),
-        311 => wire__crate__ffi__ffi__webview_pending_impl(port, ptr, rust_vec_len, data_len),
-        312 => {
+        311 => wire__crate__ffi__ffi__webview_complete_impl(port, ptr, rust_vec_len, data_len),
+        312 => wire__crate__ffi__ffi__webview_pending_impl(port, ptr, rust_vec_len, data_len),
+        313 => {
             wire__crate__ffi__ffi__webview_request_stream_impl(port, ptr, rust_vec_len, data_len)
         }
-        313 => wire__crate__ffi__ffi__webview_submit_impl(port, ptr, rust_vec_len, data_len),
-        314 => wire__crate__ffi__ffi__webview_submit_result_with_cookies_impl(
+        314 => wire__crate__ffi__ffi__webview_submit_impl(port, ptr, rust_vec_len, data_len),
+        315 => wire__crate__ffi__ffi__webview_submit_result_with_cookies_impl(
             port,
             ptr,
             rust_vec_len,
@@ -20179,6 +20232,7 @@ impl flutter_rust_bridge::IntoDart for crate::task_dto::WebViewRequestDto {
             self.source_key.into_into_dart().into_dart(),
             self.cookie.into_into_dart().into_dart(),
             self.created_at_ms.into_into_dart().into_dart(),
+            self.headers.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -20191,6 +20245,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::task_dto::WebViewRequestDto>
     for crate::task_dto::WebViewRequestDto
 {
     fn into_into_dart(self) -> crate::task_dto::WebViewRequestDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::task_dto::WebViewResponseDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.result.into_into_dart().into_dart(),
+            self.final_url.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+            self.cookies.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::task_dto::WebViewResponseDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::task_dto::WebViewResponseDto>
+    for crate::task_dto::WebViewResponseDto
+{
+    fn into_into_dart(self) -> crate::task_dto::WebViewResponseDto {
         self
     }
 }
@@ -23500,6 +23577,17 @@ impl SseEncode for crate::task_dto::WebViewRequestDto {
         <String>::sse_encode(self.source_key, serializer);
         <String>::sse_encode(self.cookie, serializer);
         <u64>::sse_encode(self.created_at_ms, serializer);
+        <std::collections::HashMap<String, String>>::sse_encode(self.headers, serializer);
+    }
+}
+
+impl SseEncode for crate::task_dto::WebViewResponseDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.result, serializer);
+        <String>::sse_encode(self.final_url, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+        <std::collections::HashMap<String, String>>::sse_encode(self.cookies, serializer);
     }
 }
 

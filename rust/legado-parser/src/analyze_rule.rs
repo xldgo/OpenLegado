@@ -1877,6 +1877,7 @@ impl AnalyzeRule {
                 // 来源与Cookie由宿主能力填入，Parser不反向依赖JS/网络实现。
                 source_key: String::new(),
                 cookie: String::new(),
+                headers: Default::default(),
                 created_at_ms: 0,
             };
             if let Some(result) = execute(req, legado_core::webview_channel::RULE_WEBVIEW_TIMEOUT) {

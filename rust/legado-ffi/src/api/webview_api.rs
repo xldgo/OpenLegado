@@ -98,7 +98,29 @@ impl WebViewHost {
         result: &str,
         cookies: std::collections::HashMap<String, String>,
     ) -> bool {
-        self.manager.submit_with(key, result, || {
+        self.complete(
+            key,
+            legado_core::webview_channel::WebViewResponse {
+                result: result.into(),
+                ..Default::default()
+            },
+            cookies,
+        )
+    }
+    fn complete(
+        &self,
+        key: &str,
+        response: legado_core::webview_channel::WebViewResponse,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> bool {
+        if response
+            .error
+            .as_ref()
+            .is_some_and(|error| error.trim().is_empty())
+        {
+            return false;
+        }
+        self.manager.submit_response_with(key, response, || {
             for (raw_key, cookie) in cookies {
                 if cookie.trim().is_empty() {
                     continue;
@@ -114,6 +136,18 @@ impl WebViewHost {
     }
 }
 
+pub fn complete_webview_request(key: &str, response: crate::task_dto::WebViewResponseDto) -> bool {
+    host().complete(
+        key,
+        legado_core::webview_channel::WebViewResponse {
+            result: response.result,
+            final_url: response.final_url,
+            error: response.error,
+        },
+        response.cookies,
+    )
+}
+
 pub fn cancel_webview_request(key: &str) -> bool {
     manager().cancel(key)
 }
@@ -126,6 +160,83 @@ pub fn pending_requests() -> Vec<WebViewRequest> {
 mod tests {
     use super::*;
     use std::thread;
+
+    #[test]
+    fn typed_completion_keeps_final_url_empty_success_and_claims_before_cookies() {
+        use legado_core::webview_channel::WebViewResponse;
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let request = || WebViewRequest {
+            url: "https://typed.webview.test/start".into(),
+            ..Default::default()
+        };
+        let cookies = || {
+            std::collections::HashMap::from([(
+                "https://typed.webview.test/final".into(),
+                "session=new".into(),
+            )])
+        };
+        let handle = host.manager.request(request());
+        assert!(!host.complete(
+            handle.key(),
+            WebViewResponse {
+                error: Some(" ".into()),
+                ..Default::default()
+            },
+            cookies()
+        ));
+        let domain = legado_net::cookie_store::normalize_cookie_key("https://typed.webview.test/");
+        assert!(
+            engine
+                .storage()
+                .with_database(|db| {
+                    legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+                })
+                .unwrap()
+                .is_none()
+        );
+        assert!(host.complete(
+            handle.key(),
+            WebViewResponse {
+                result: String::new(),
+                final_url: "https://typed.webview.test/final".into(),
+                error: None,
+            },
+            cookies()
+        ));
+        let response = handle
+            .wait_response(std::time::Duration::from_secs(1))
+            .unwrap();
+        assert_eq!(response.result, "");
+        assert_eq!(response.final_url, "https://typed.webview.test/final");
+        let domain = legado_net::cookie_store::normalize_cookie_key(&response.final_url);
+        let row = engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+            })
+            .unwrap();
+        assert_eq!(row.as_deref(), Some("session=new"));
+        let handle = host.manager.request(request());
+        assert!(host.complete(
+            handle.key(),
+            WebViewResponse {
+                error: Some("页面失败".into()),
+                ..Default::default()
+            },
+            Default::default()
+        ));
+        assert!(
+            handle
+                .wait_response(std::time::Duration::from_secs(1))
+                .unwrap_err()
+                .to_string()
+                .contains("页面失败")
+        );
+    }
 
     /// cookie 串按键集合比较辅助（HashMap 迭代序不保证，按键集合相等断言；
     /// 与 http_state 测试同名辅助同语义）
@@ -183,6 +294,7 @@ mod tests {
             result: String::new(),
             source_key: String::new(),
             cookie: String::new(),
+            headers: Default::default(),
             created_at_ms: 0,
         };
         let mgr = manager();
@@ -297,6 +409,7 @@ mod tests {
             result: String::new(),
             source_key: String::new(),
             cookie: String::new(),
+            headers: Default::default(),
             created_at_ms: 0,
         };
         let mgr = manager();

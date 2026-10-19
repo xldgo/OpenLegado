@@ -38,6 +38,19 @@ class _Web implements WebViewBridgeService {
   final errors = <(String, String)>[];
   final cancelled = <String>[];
   @override
+  Future<bool> completeWebviewRequest(
+    String key,
+    WebViewExecutionResult response,
+  ) async {
+    if (response.error case final error?) {
+      errors.add((key, error));
+    } else {
+      results.add((key, response.result, response.cookies));
+    }
+    return true;
+  }
+
+  @override
   Stream<WebViewRequest> webviewRequestStream() => events.stream;
   @override
   Future<bool> submitWebviewResultWithCookies(
@@ -64,6 +77,12 @@ class _Web implements WebViewBridgeService {
 
 class _Executor implements WebViewRequestExecutor {
   final started = <String>[];
+  final stopped = <String>[];
+  @override
+  Future<void> cancel(String key) async {
+    stopped.add(key);
+  }
+
   final pending = <String, Completer<WebViewExecutionResult>>{};
   @override
   Future<WebViewExecutionResult> execute(WebViewRequest request) {
@@ -80,6 +99,63 @@ class _Executor implements WebViewRequestExecutor {
 }
 
 void main() {
+  testWidgets('WebView取消移除队列、停止在途页面且拒绝迟到成功', (tester) async {
+    final web = _Web();
+    final executor = _Executor();
+    addTearDown(web.events.close);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          webViewBridgeServiceProvider.overrideWithValue(web),
+          webViewRequestExecutorProvider.overrideWithValue(executor),
+        ],
+        child: const MaterialApp(
+          home: WebViewBridgeListener(child: Scaffold()),
+        ),
+      ),
+    );
+    for (var i = 1; i <= 7; i++) {
+      web.events.add(WebViewRequest(key: '$i'));
+    }
+    web.events.add(const WebViewRequest(key: '6', action: 'cancel'));
+    web.events.add(const WebViewRequest(key: '1', action: 'cancel'));
+    await tester.pump();
+    expect(executor.stopped, ['1']);
+    executor.complete('1');
+    await tester.pump();
+    expect(executor.started, ['1', '2', '3', '4', '5', '7']);
+    expect(web.results, isEmpty);
+    expect(web.errors, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(executor.stopped.toSet(), {'1', '2', '3', '4', '5', '7'});
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('WebView流关闭停止平台，不再提交迟到结果', (tester) async {
+    final web = _Web();
+    final executor = _Executor();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          webViewBridgeServiceProvider.overrideWithValue(web),
+          webViewRequestExecutorProvider.overrideWithValue(executor),
+        ],
+        child: const MaterialApp(
+          home: WebViewBridgeListener(child: Scaffold()),
+        ),
+      ),
+    );
+    web.events.add(const WebViewRequest(key: 'a'));
+    unawaited(web.events.close());
+    await tester.pump();
+    expect(executor.stopped, ['a']);
+    executor.complete('a');
+    await tester.pump();
+    expect(web.results, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('应用builder外层监听可弹验证码，回放去重并按FIFO提交/取消', (tester) async {
     final service = _Verification();
     addTearDown(service.events.close);
@@ -208,7 +284,7 @@ void main() {
     executor.pending['bad']!.completeError(StateError('平台失败'));
     await tester.pump();
     expect(web.errors.single.$1, 'bad');
-    expect(web.errors.single.$2, contains('[ERROR]'));
+    expect(web.errors.single.$2, contains('平台失败'));
     web.events.add(const WebViewRequest(key: 'good'));
     executor.complete('good');
     await tester.pump();

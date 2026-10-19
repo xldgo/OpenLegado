@@ -243,7 +243,7 @@ fn register_apis_with_binding<'js>(
     // `java.__lgBook*` 探测后落 variable_store 裸键持久层）
     register_book_binding_bridges(ctx, &java, &variables)?;
     register_utility_apis(ctx, &java, &globals)?;
-    register_network_apis(ctx, &java, &globals, &http)?;
+    register_network_apis(ctx, &java, &globals, &http, &host.webview)?;
     register_cookie_apis(ctx, &java, &globals, &http)?;
     register_crypto_apis(ctx, &java, &globals)?;
     // java.security.MessageDigest（纯 Rust md-5/sha1/sha2）：Packages 模拟层
@@ -2700,9 +2700,11 @@ fn register_network_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     resources: &std::sync::Arc<crate::http_resources::HttpResources>,
+    manager: &std::sync::Arc<legado_core::webview_channel::WebViewManager>,
 ) -> Result<(), LegadoError> {
     // httpGet(url, headers?) -> String
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2710,8 +2712,12 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, headers: RhinoOptStr| -> String {
-                network::http_get(&http.request(), &url, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::http_get(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2719,6 +2725,7 @@ fn register_network_apis<'js>(
 
     // httpPost(url, body, headers?) -> String
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2726,8 +2733,13 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
-                network::http_post(&http.request(), &url, &body, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::http_post(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    &body,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2735,12 +2747,14 @@ fn register_network_apis<'js>(
 
     // httpHead(url) -> String（响应头 JSON）
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
         "httpHead",
         rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-            network::http_head(&http.request(), &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
+            network::http_head(&http.request_with_webview(&webview), &url)
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2756,6 +2770,7 @@ fn register_network_apis<'js>(
     // connect 的可空 Long（同为上游 `callTimeout: Long?`）同款；缺参/显式
     // null → None（arity 由 FromParam::optional 保留，单参形态不回归）。
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2771,7 +2786,7 @@ fn register_network_apis<'js>(
                         .map_err(|e| e.to_string())
                         .and_then(|evaluator| {
                             network::ajax_with_evaluator(
-                                &http.request(),
+                                &http.request_with_webview(&webview),
                                 &options.0,
                                 timeout_ms,
                                 &evaluator,
@@ -2842,6 +2857,7 @@ fn register_network_apis<'js>(
 
     // 内部 JSON 交由响应桥包装；普通批次失败抛异常并释放全部在途请求。
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2853,7 +2869,7 @@ fn register_network_apis<'js>(
                   skip_rate_limit: Opt<bool>|
                   -> rquickjs::Result<String> {
                 super::batch_request::run(
-                    &http.request(),
+                    &http.request_with_webview(&webview),
                     &urls.0,
                     None,
                     false,
@@ -2873,6 +2889,7 @@ fn register_network_apis<'js>(
     // jsHelp.md:212 的 `Int?` 系过时文档）：装箱数值 + Rhino 探针实测严格
     // （字符串数字报「方法不存在」）；使用可选Long并在发送前验证范围
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2888,7 +2905,7 @@ fn register_network_apis<'js>(
                 let result = network::call_timeout_to_request_timeout(timeout_ms.0).and_then(|timeout| {
                     let evaluator=super::rule_request::ContextEvaluator::new(ctx).map_err(|e|e.to_string())?;
                     network::connect_with_evaluator(
-                        &http.request(), &url, method.0.as_deref(), headers.0.as_deref(),
+                        &http.request_with_webview(&webview), &url, method.0.as_deref(), headers.0.as_deref(),
                         body.0.as_deref(), timeout, Some(&evaluator),
                     )
                 });
@@ -2909,6 +2926,7 @@ fn register_network_apis<'js>(
     // connectNR(url, method?, headers?, body?, timeoutMs?) -> String（完整响应 JSON，不跟随重定向）
     // 对齐原版 jsoup followRedirects(false)：java.get/post/head 拦截重定向需读 Location 头
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2925,7 +2943,7 @@ fn register_network_apis<'js>(
                 let timeout_ms = network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
                     .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))?;
                 network::connect_no_redirect_with_timeout(
-                    &http.request(),
+                    &http.request_with_webview(&webview),
                     &url,
                     method.0.as_deref(),
                     headers.0.as_deref(),
@@ -2941,6 +2959,7 @@ fn register_network_apis<'js>(
     // head(url, headers?) -> String（完整响应 JSON）
     // 对应 Kotlin: head(urlStr, headers): Connection.Response
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2948,8 +2967,12 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, headers: RhinoOptStr| -> String {
-                network::head_full(&http.request(), &url, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::head_full(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2958,6 +2981,7 @@ fn register_network_apis<'js>(
     // post(url, body, headers?) -> String（完整响应 JSON）
     // 对应 Kotlin: post(urlStr, body, headers): Connection.Response
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2965,8 +2989,13 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
-                network::post_full(&http.request(), &url, &body, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::post_full(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    &body,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4350,6 +4379,7 @@ fn register_misc_apis<'js>(
         "ajaxTestAll",
         {
             let http = resources.clone();
+            let webview = manager.clone();
             rquickjs::Function::new(
                 ctx.clone(),
                 move |ctx: rquickjs::Ctx<'js>,
@@ -4361,7 +4391,7 @@ fn register_misc_apis<'js>(
                         network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
                             .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
                     super::batch_request::run(
-                        &http.request(),
+                        &http.request_with_webview(&webview),
                         &urls.0,
                         timeout,
                         true,

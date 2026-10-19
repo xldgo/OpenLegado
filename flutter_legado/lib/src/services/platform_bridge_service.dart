@@ -13,6 +13,7 @@ import '../utils/legado_deep_link.dart';
 import '../utils/video_play_utils.dart';
 import 'deep_link_service.dart';
 import 'platform_channel.dart';
+import '../platform/webview_execution_scope.dart';
 import 'video_float_window.dart';
 
 /// webView 类载荷执行结果：结果串 + WebView 侧域 cookie 回流（项 B/B1）
@@ -21,7 +22,14 @@ import 'video_float_window.dart';
 /// cookie 串；空串表示无回流（Rust 侧按旧 `submitWebviewResult`
 /// 语义唤醒等待方，不做 cookie 持久化）。
 class WebViewEvalOutcome {
-  const WebViewEvalOutcome(this.result, this.cookiesJson);
+  const WebViewEvalOutcome(
+    this.result,
+    this.cookiesJson, {
+    this.finalUrl = '',
+    this.error,
+  });
+  final String finalUrl;
+  final String? error;
 
   /// 真实执行结果串（或 `[ERROR] ...` / 空串）
   final String result;
@@ -302,7 +310,68 @@ class PlatformBridgeService {
   /// - Flutter 回退路径：`document.cookie` 尽力读取（非 HttpOnly 子集），
   ///   仅 webView 主路径回传，嗅探类 action 回传空串（B1 偏差，Android
   ///   真机走原生路径为主）。
+  final _webViewScopes = <String, WebViewExecutionScope>{};
+  static final _scopeZone = Object();
+  static final _headersZone = Object();
+  int _localWebViewKey = 0;
+  WebViewExecutionScope? get _webViewScope =>
+      Zone.current[_scopeZone] as WebViewExecutionScope?;
+  void _checkWebView() => _webViewScope?.check();
+  Future<T> _waitWebView<T>(Future<T> future) =>
+      _webViewScope?.wait(future) ?? future;
+  Future<void> _webViewDelay(Duration duration) {
+    _checkWebView();
+    return _waitWebView(Future<void>.delayed(duration));
+  }
+
+  Future<Object> _evalWebView(WebViewController controller, String script) {
+    _checkWebView();
+    return _waitWebView(controller.runJavaScriptReturningResult(script));
+  }
+
+  Future<void> _scriptWebView(WebViewController controller, String script) {
+    _checkWebView();
+    return _waitWebView(controller.runJavaScript(script));
+  }
+
+  Future<void> cancelWebView(String key) async {
+    await _webViewScopes[key]?.close();
+  }
+
   Future<WebViewEvalOutcome> _runWebViewOutcome(
+    String action,
+    Map<String, dynamic> payload,
+  ) async {
+    final key = (payload['key'] as String?) ?? 'local-${_localWebViewKey++}';
+    final scope = WebViewExecutionScope();
+    if (_webViewScopes.containsKey(key)) throw StateError('重复WebView请求');
+    _webViewScopes[key] = scope;
+    if (Platform.isAndroid) {
+      scope.onClose(() async {
+        await PlatformChannel.webview.invokeMethod<void>('cancelBackstage', {
+          'key': key,
+        });
+      });
+    }
+    try {
+      return await runZoned(
+        () => scope.wait(
+          _performWebViewOutcome(action, {...payload, 'key': key}),
+        ),
+        zoneValues: {
+          _scopeZone: scope,
+          _headersZone: Map<String, String>.from(
+            payload['headers'] as Map? ?? {},
+          ),
+        },
+      );
+    } finally {
+      _webViewScopes.remove(key);
+      await scope.close();
+    }
+  }
+
+  Future<WebViewEvalOutcome> _performWebViewOutcome(
     String action,
     Map<String, dynamic> payload,
   ) async {
@@ -324,10 +393,8 @@ class PlatformBridgeService {
     if (Platform.isAndroid) {
       try {
         return await _nativeBackstageEval(action, payload);
-      } catch (e) {
-        debugPrint(
-          '[PlatformBridge] 原生 backstageEval 失败，回退 Flutter WebView：$e',
-        );
+      } on MissingPluginException {
+        _checkWebView();
       }
     }
 
@@ -390,9 +457,13 @@ class PlatformBridgeService {
     String action,
     Map<String, dynamic> payload,
   ) async {
-    final raw = await PlatformChannel.webview.invokeMethod<dynamic>(
-      'backstageEval',
-      <String, dynamic>{
+    final raw = await _waitWebView(
+      PlatformChannel.webview.invokeMethod<dynamic>('backstageEval', <
+        String,
+        dynamic
+      >{
+        'key': payload['key'],
+        'headers': payload['headers'] ?? <String, String>{},
         'action': action,
         'url': (payload['url'] ?? '').toString(),
         'html': (payload['html'] ?? '').toString(),
@@ -407,10 +478,19 @@ class PlatformBridgeService {
         // B4（设计文档 §3 项 B）：Rust 按请求 URL 域预取的属域 cookie
         // 透传 Kotlin，load 前 CookieManager.setCookie 逐对预写
         'cookie': (payload['cookie'] ?? '').toString(),
-      },
+      }),
     );
     final (result, cookiesJson) = _parseBackstageEnvelope(raw);
-    return WebViewEvalOutcome(result, cookiesJson);
+    String finalUrl = (payload['url'] ?? '').toString();
+    if (raw is String) {
+      try {
+        final value = jsonDecode(raw);
+        if (value is Map && value['finalUrl'] is String) {
+          finalUrl = value['finalUrl'] as String;
+        }
+      } catch (_) {}
+    }
+    return WebViewEvalOutcome(result, cookiesJson, finalUrl: finalUrl);
   }
 
   /// 解析 backstageEval 通道返回值（项 B/B1 加法式信封）
@@ -449,8 +529,20 @@ class PlatformBridgeService {
   }
 
   /// 构建基础控制器（启用 JS，对齐 Kotlin javaScriptEnabled = true）
-  WebViewController _newController() =>
-      WebViewController()..setJavaScriptMode(JavaScriptMode.unrestricted);
+  WebViewController _newController() {
+    _checkWebView();
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+    // 清理按逆序执行，各步骤独立，避免一个平台错误跳过后续清理。
+    _webViewScope?.onClose(
+      () => controller.loadHtmlString('<html></html>', baseUrl: 'about:blank'),
+    );
+    _webViewScope?.onClose(() => controller.runJavaScript('window.stop();'));
+    _webViewScope?.onClose(
+      () => controller.setNavigationDelegate(NavigationDelegate()),
+    );
+    return controller;
+  }
 
   /// 加载 html（优先）或 url；两者语义对齐 Kotlin loadDataWithBaseURL / loadUrl
   void _load(
@@ -458,6 +550,7 @@ class PlatformBridgeService {
     required String url,
     required String html,
   }) {
+    _checkWebView();
     if (html.isNotEmpty) {
       final base = Uri.tryParse(url);
       controller.loadHtmlString(
@@ -466,7 +559,13 @@ class PlatformBridgeService {
       );
     } else {
       final uri = Uri.tryParse(url);
-      if (uri != null) controller.loadRequest(uri);
+      if (uri != null) {
+        controller.loadRequest(
+          uri,
+          headers:
+              Zone.current[_headersZone] as Map<String, String>? ?? const {},
+        );
+      }
     }
   }
 
@@ -517,7 +616,7 @@ class PlatformBridgeService {
     }
     if (isRule && resultJson.isNotEmpty) {
       // resultJson 已是 Rust serde_json 字面量（对齐 GSON.toJson → window.result）
-      await controller.runJavaScript('window.result = $resultJson;');
+      await _scriptWebView(controller, 'window.result = $resultJson;');
     }
     // B2：eval 重试总预算锚点（对齐 Kotlin opStartMs 的「操作开始」
     // 口径：加载 + 等待 + 重试总耗时 ≤ _webViewTimeout=60s，加载阶段
@@ -525,7 +624,7 @@ class PlatformBridgeService {
     final opStartMs = DateTime.now().millisecondsSinceEpoch;
     // 对齐 Kotlin：无 js 时默认等待 900ms 渲染；有 js 时等待 100ms + delayTime
     final waitMs = js.isEmpty ? (delayMs > 0 ? delayMs : 900) : 100 + delayMs;
-    await Future<void>.delayed(Duration(milliseconds: waitMs));
+    await _webViewDelay(Duration(milliseconds: waitMs));
     final script = js.isNotEmpty ? js : 'document.documentElement.outerHTML';
     // B2：重试阶梯（对齐 Kotlin RETRY_LADDER_MS / MAX_EVAL_RETRIES /
     // CHALLENGE_SIGNATURES）：结果空（页面未就绪）或命中挑战签名
@@ -534,9 +633,7 @@ class PlatformBridgeService {
     // cookie，时点与 Kotlin buildEnvelope 一致且严格更新
     String result;
     for (var attempt = 0; ; attempt++) {
-      result = _normalizeJsResult(
-        await controller.runJavaScriptReturningResult(script),
-      );
+      result = _normalizeJsResult(await _evalWebView(controller, script));
       if (!_needsWebViewRetry(result) || attempt >= _webViewMaxEvalRetries) {
         break;
       }
@@ -549,16 +646,16 @@ class PlatformBridgeService {
             0,
             remainingMs,
           );
-      await Future<void>.delayed(Duration(milliseconds: nextDelayMs));
+      await _webViewDelay(Duration(milliseconds: nextDelayMs));
     }
     // B1：回退路径 cookie 尽力读取（无原生 CookieManager；document.cookie
     // 不含 HttpOnly，以当前页 URL 为键，Rust 侧归一域键后落库）
     String cookiesJson = '';
-    final pageUrl = await controller.currentUrl();
+    final pageUrl = await _waitWebView(controller.currentUrl());
     if (pageUrl != null && pageUrl.isNotEmpty) {
       try {
         final cookieStr = _normalizeJsResult(
-          await controller.runJavaScriptReturningResult('document.cookie'),
+          await _evalWebView(controller, 'document.cookie'),
         );
         if (cookieStr.isNotEmpty) {
           cookiesJson = jsonEncode(<String, String>{pageUrl: cookieStr});
@@ -567,7 +664,7 @@ class PlatformBridgeService {
         debugPrint('[PlatformBridge] document.cookie 读取失败（不影响结果）：$e');
       }
     }
-    return WebViewEvalOutcome(result, cookiesJson);
+    return WebViewEvalOutcome(result, cookiesJson, finalUrl: pageUrl ?? url);
   }
 
   /// B2 重试判定（对齐 Kotlin needsRetryResult）：结果空（页面未就绪/
@@ -608,6 +705,7 @@ class PlatformBridgeService {
       final name = pair.substring(0, eq).trim();
       final value = pair.substring(eq + 1);
       if (name.isEmpty) continue;
+      _checkWebView();
       await manager.setCookie(
         WebViewCookie(name: name, value: value, domain: domain),
       );
@@ -651,15 +749,13 @@ class PlatformBridgeService {
     }
     if (js.isNotEmpty) {
       // 触发型 JS（如点击播放按钮），fire-and-forget 后等待资源出现
-      await controller.runJavaScript(js);
+      await _scriptWebView(controller, js);
     }
-    await Future<void>.delayed(
-      Duration(milliseconds: delayMs > 0 ? delayMs : 900),
-    );
+    await _webViewDelay(Duration(milliseconds: delayMs > 0 ? delayMs : 900));
     // 页面 URL 本身命中优先返回
-    final currentUrl = await controller.currentUrl();
+    final currentUrl = await _waitWebView(controller.currentUrl());
     if (currentUrl != null && regex.hasMatch(currentUrl)) return currentUrl;
-    final collected = await controller.runJavaScriptReturningResult('''
+    final collected = await _evalWebView(controller, '''
 (function(){
   var urls = [];
   try {
@@ -769,16 +865,13 @@ class PlatformBridgeService {
       unawaited(
         finished.future
             .timeout(_webViewTimeout, onTimeout: () {})
-            .then(
-              (_) =>
-                  Future<void>.delayed(Duration(milliseconds: 100 + delayMs)),
-            )
-            .then((_) => controller.runJavaScript(js))
+            .then((_) => _webViewDelay(Duration(milliseconds: 100 + delayMs)))
+            .then((_) => _scriptWebView(controller, js))
             .catchError((Object _) {}),
       );
     }
     try {
-      return await capture.future.timeout(_webViewTimeout);
+      return await _waitWebView(capture.future.timeout(_webViewTimeout));
     } on TimeoutException {
       final reason = loadFailure;
       debugPrint(
@@ -805,6 +898,7 @@ class PlatformBridgeService {
     required String url,
     required String html,
   }) {
+    _checkWebView();
     final finished = Completer<String?>();
     String? failure;
     String? startedUrl;
@@ -854,9 +948,11 @@ class PlatformBridgeService {
       ),
     );
     _load(controller, url: url, html: html);
-    return finished.future.timeout(
-      _webViewTimeout,
-      onTimeout: () => failure ?? '加载超时（${_webViewTimeout.inSeconds}s）',
+    return _waitWebView(
+      finished.future.timeout(
+        _webViewTimeout,
+        onTimeout: () => failure ?? '加载超时（${_webViewTimeout.inSeconds}s）',
+      ),
     );
   }
 

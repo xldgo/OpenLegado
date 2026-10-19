@@ -35,12 +35,15 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class WebViewBridge {
 
+    private var requestKey: String? = null
+    private var pendingResult: SafeResult? = null
     private var webView: WebView? = null
     // [销毁竞态防护 | 2026-09-26] 已销毁标志：置位后一切后续回调立即让路
     private var destroyed = false
     private val handler = Handler(Looper.getMainLooper())
 
     companion object {
+        private val backstageRequests = ConcurrentHashMap<String, WebViewBridge>()
         private const val TIMEOUT_MS = 60_000L
 
         /** B2 eval 重试阶梯（可配置常量）：[200,400,600,800,1000]ms 循环 */
@@ -106,7 +109,20 @@ class WebViewBridge {
                 // 整个应用（真机实测：916 源并发搜索）。backstageEval 的
                 // WebView 生命周期由本次调用闭环（完成自毁 + 超时兜底），
                 // 独立实例无共享状态损失。
-                WebViewBridge().backstageEval(call, safeResult, context)
+                val key = call.argument<String>("key")?.takeIf { it.isNotEmpty() } ?: UUID.randomUUID().toString()
+                val instance = WebViewBridge().apply { requestKey = key; pendingResult = safeResult }
+                if (backstageRequests.putIfAbsent(key, instance) != null) {
+                    return safeResult.error("DUPLICATE_REQUEST", "重复WebView请求", null)
+                }
+                instance.backstageEval(call, safeResult, context)
+            }
+            "cancelBackstage" -> {
+                val key = call.argument<String>("key").orEmpty()
+                backstageRequests.remove(key)?.let { instance ->
+                    instance.pendingResult?.error("WEBVIEW_CANCELLED", "WebView请求已取消", null)
+                    instance.destroyInternal()
+                }
+                safeResult.success(null)
             }
             "close" -> {
                 destroy()
@@ -141,6 +157,7 @@ class WebViewBridge {
         // B4（设计文档 §3 项 B）：Rust 按请求 URL 域从 JS cookie store
         // 预取的属域 cookie（"k1=v1; k2=v2"，无则空串）
         val cookie = call.argument<String>("cookie").orEmpty()
+        val headers = call.argument<Map<String, String>>("headers").orEmpty()
 
         // B1（设计文档 §2.2 G4）：sourceKey 非空按 isRule 同等口径生效
         // （对齐上游 tag 语义）——注入 java/source/cache 接口、
@@ -148,13 +165,15 @@ class WebViewBridge {
         val ruleLike = isRule || sourceKey.isNotEmpty()
 
         if (url.isEmpty() && html.isEmpty()) {
-            result.success("")
+            result.success(buildEnvelope("", "", url))
+            destroyInternal()
             return
         }
 
         handler.post {
+            // 每次后台请求拥有独立实例；取消后不得重新创建页面。
+            if (destroyed || result.isCompleted) return@post
             try {
-                destroyInternal()
                 // B2：eval 重试阶梯的总预算锚点（与全局超时同一起算口径，
                 // 保证等待 + 重试总耗时不超 TIMEOUT_MS=60s）
                 val opStartMs = System.currentTimeMillis()
@@ -176,6 +195,9 @@ class WebViewBridge {
                 var capturedCookies = ""
 
                 webView = WebView(context).apply {
+                    headers.entries.firstOrNull { it.key.equals("User-Agent", true) }?.let {
+                        settings.userAgentString = it.value
+                    }
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.blockNetworkImage = true
@@ -400,10 +422,11 @@ class WebViewBridge {
                         destroyInternal()
                         return@post
                     }
-                    wv.loadUrl(url)
+                    wv.loadUrl(url, headers)
                 }
             } catch (e: Exception) {
                 result.error("WEBVIEW_ERROR", e.message, e.stackTraceToString())
+                destroyInternal()
             }
         }
     }
@@ -495,10 +518,10 @@ class WebViewBridge {
         cookies: String,
         cookieUrl: String,
     ): String {
-        if (cookies.isEmpty() || cookieUrl.isEmpty()) return resultText
         return JSONObject().apply {
             put("result", resultText)
-            put("cookies", JSONObject().apply { put(cookieUrl, cookies) })
+            put("finalUrl", cookieUrl)
+            put("cookies", JSONObject().apply { if (cookieUrl.isNotEmpty() && cookies.isNotEmpty()) put(cookieUrl, cookies) })
         }.toString()
     }
 
@@ -593,8 +616,13 @@ class WebViewBridge {
     private fun destroyInternal() {
         if (destroyed) return
         destroyed = true
+        requestKey?.let { backstageRequests.remove(it, this) }
+        pendingResult?.error("WEBVIEW_CLOSED", "WebView执行已关闭", null)
+        pendingResult = null
+        handler.removeCallbacksAndMessages(null)
         val wv = webView
         webView = null
+        try { wv?.stopLoading() } catch (_: Exception) {}
         wv?.let {
             // 真销毁延迟 2s：让在途 chromium 回调（onPageFinished 等）先
             // 落地——同步 destroy() 会把在途内部 Handler 置空，回调里的

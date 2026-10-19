@@ -1,5 +1,26 @@
 # API 契约文档
 
+## URL规则WebView执行（2026-10-19，实施前冻结）
+
+本节取代下方历史批次中“URL规则WebView仍拒绝/未接入”的限制，其余DNS/代理边界不变。
+ajax/connect/ajaxAll/ajaxTestAll共用URL规则分派。type字节模式优先；否则webView为真时，
+POST先执行既有HTTP管线，再将HTML和最终URL交平台，其他方法直接平台加载；bodyJs仅用于
+普通HTTP。源限流只获取一次，批量保序/错误/取消保持。平台加载不声称支持Rust DNS/代理
+覆盖，POST前置HTTP仍消费这些配置；无本宿主订阅明确失败，不改发普通HTTP。
+WebViewRequestDto增加headers字符串映射；action=cancel为Rust取消/超时/放弃发出的控制
+事件，只含key。平台取消清除排队或停止并释放在途页面；取消后不重试或回传成功。
+新增WebViewResponseDto{result,finalUrl,error?,cookies}及webview_complete(key,response)。
+正常空结果有效；error非空表示失败。内部保留finalUrl，HTTP适配生成合成200和空响应头，
+不虚构真实HTTP状态。既有文本提交入口委托同一完成判定；迟到/重复/未知key无Cookie副作用，
+合法认领后先持久化Cookie再唤醒，已开始的提交不强制回滚；finalUrl缺省为请求URL。
+Core提供通知驱动的异步等待，批量不阻塞Tokio worker。HTTP callTimeout只约束前置HTTP，
+WebView独立60秒，规则级WebJS仍10秒。取消释放等待句柄及平台执行。
+最小Dart/平台适配及绑定生成随同交付，不做UI布局或登录重构。Android按key销毁独立实例；
+Flutter回退停止页面、解绑回调并释放控制器引用，不宣称公开API之外的立即原生析构。
+真实DOM、平台Cookie及原生释放需要设备验证，不以模拟回传代替。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## WebJS规则上下文传递（2026-10-19，实施前冻结）
 
 沿用现有WebViewRequest和FRB签名；Parser不依赖JS实现。宿主适配器为规则请求填入

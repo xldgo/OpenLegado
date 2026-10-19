@@ -115,6 +115,7 @@ pub fn web_view_ex(
             // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
             // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
             cookie: context.cookie.to_string(),
+            headers: Default::default(),
             created_at_ms: 0,
         },
     )
@@ -166,6 +167,7 @@ pub fn web_view_get_source_ex(
             // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
             // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
             cookie: context.cookie.to_string(),
+            headers: Default::default(),
             created_at_ms: 0,
         },
     )
@@ -207,6 +209,7 @@ pub fn web_view_get_override_url(
             // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
             // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
             cookie: context.cookie.to_string(),
+            headers: Default::default(),
             created_at_ms: 0,
         },
     )

@@ -5,6 +5,11 @@ import '../../domain/models/webview_request.dart';
 class MockWebViewBridgeService implements WebViewBridgeService {
   const MockWebViewBridgeService();
   @override
+  Future<bool> completeWebviewRequest(
+    String key,
+    WebViewExecutionResult response,
+  ) async => false;
+  @override
   Stream<WebViewRequest> webviewRequestStream() => const Stream.empty();
   @override
   Future<bool> submitWebviewResult(String key, String result) async => false;

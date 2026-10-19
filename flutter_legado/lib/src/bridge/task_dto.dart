@@ -236,6 +236,7 @@ class WebViewRequestDto {
   final String sourceKey;
   final String cookie;
   final BigInt createdAtMs;
+  final Map<String, String> headers;
 
   const WebViewRequestDto({
     required this.key,
@@ -252,6 +253,7 @@ class WebViewRequestDto {
     required this.sourceKey,
     required this.cookie,
     required this.createdAtMs,
+    required this.headers,
   });
 
   @override
@@ -269,7 +271,8 @@ class WebViewRequestDto {
       result.hashCode ^
       sourceKey.hashCode ^
       cookie.hashCode ^
-      createdAtMs.hashCode;
+      createdAtMs.hashCode ^
+      headers.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -289,5 +292,35 @@ class WebViewRequestDto {
           result == other.result &&
           sourceKey == other.sourceKey &&
           cookie == other.cookie &&
-          createdAtMs == other.createdAtMs;
+          createdAtMs == other.createdAtMs &&
+          headers == other.headers;
+}
+
+/// 平台结果信封；错误与正常空结果分开。— Codex + Bridge
+class WebViewResponseDto {
+  final String result;
+  final String finalUrl;
+  final String? error;
+  final Map<String, String> cookies;
+
+  const WebViewResponseDto({
+    required this.result,
+    required this.finalUrl,
+    this.error,
+    required this.cookies,
+  });
+
+  @override
+  int get hashCode =>
+      result.hashCode ^ finalUrl.hashCode ^ error.hashCode ^ cookies.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebViewResponseDto &&
+          runtimeType == other.runtimeType &&
+          result == other.result &&
+          finalUrl == other.finalUrl &&
+          error == other.error &&
+          cookies == other.cookies;
 }

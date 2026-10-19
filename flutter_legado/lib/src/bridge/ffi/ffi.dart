@@ -301,6 +301,15 @@ Stream<WebViewRequestDto> webviewRequestStream({
   required StreamRequest request,
 }) => RustLib.instance.api.crateFfiFfiWebviewRequestStream(request: request);
 
+/// 类型化平台结果；有效请求认领后合并Cookie并发布最终URL/正文或错误。
+Future<bool> webviewComplete({
+  required String key,
+  required WebViewResponseDto response,
+}) => RustLib.instance.api.crateFfiFfiWebviewComplete(
+  key: key,
+  response: response,
+);
+
 /// 提交 WebView 执行结果，唤醒 Rust 等待方
 Future<bool> webviewSubmit({required String key, required String result}) =>
     RustLib.instance.api.crateFfiFfiWebviewSubmit(key: key, result: result);
@@ -322,7 +331,7 @@ Future<bool> webviewSubmitResultWithCookies({
   cookies: cookies,
 );
 
-/// 取消 WebView 请求（以空结果唤醒）
+/// 取消WebView请求并通知平台停止执行；等待方收到取消错误。
 Future<bool> webviewCancel({required String key}) =>
     RustLib.instance.api.crateFfiFfiWebviewCancel(key: key);
 

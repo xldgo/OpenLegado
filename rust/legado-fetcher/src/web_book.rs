@@ -3083,6 +3083,7 @@ fn apply_content_web_hooks(
                 // ETLD+1 域键 + 原始串条目合并，raw 胜；无则空串）预填，
                 // WebView 嗅探首请求即携带会话态
                 cookie: deps.cookies_for_url(page_url),
+                headers: Default::default(),
                 created_at_ms: 0,
             };
             if let Some(result) = legado_js::webview::execute(
@@ -3121,6 +3122,7 @@ fn apply_content_web_hooks(
                 // 当前引擎 jar 取属域 cookie（`cookies_for_url` 口径）
                 // 预填——webJs DOM 通道首请求即携带会话态
                 cookie: deps.cookies_for_url(page_url),
+                headers: Default::default(),
                 created_at_ms: 0,
             };
             if let Some(result) = legado_js::webview::execute(

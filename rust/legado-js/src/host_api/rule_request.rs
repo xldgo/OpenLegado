@@ -122,6 +122,9 @@ pub(super) struct PreparedRequest {
     proxy: Option<legado_net::ProxyConfig>,
 }
 impl PreparedRequest {
+    fn uses_webview(&self) -> bool {
+        self.parsed.use_web_view() && self.parsed.response_type().is_none()
+    }
     pub fn url(&self) -> &str {
         &self.request.url
     }
@@ -187,9 +190,6 @@ pub(super) fn prepare(
         None => AnalyzeUrl::parse_with_headers(input, &variables, 0, headers),
     }
     .map_err(|e| e.to_string())?;
-    if parsed.use_web_view() {
-        return Err("脚本规则请求暂不支持WebView选项".to_string());
-    }
     // 解析错误不回显原配置，避免认证信息进入ajax错误正文或日志。
     let proxy = parsed
         .proxy()
@@ -251,6 +251,73 @@ pub(super) fn prepare(
 
 /// future 可直接丢弃以停止读流，不创建脱离批次的 tokio 任务。
 pub(super) async fn send(
+    resources: &RequestResources<'_>,
+    prepared: &PreparedRequest,
+) -> legado_core::LegadoResult<LegadoRawResponse> {
+    if !prepared.uses_webview() {
+        return send_http(resources, prepared).await;
+    }
+    resources.check_active()?;
+    let manager = resources
+        .webview
+        .as_ref()
+        .ok_or_else(|| legado_core::LegadoError::Network("当前宿主未提供WebView能力".into()))?;
+    if !manager.has_subscribers() {
+        return Err(legado_core::LegadoError::Network(
+            "当前宿主没有WebView执行订阅".into(),
+        ));
+    }
+    let (url, html) = if matches!(prepared.request.method, Method::Post) {
+        let response = send_http(resources, prepared).await?;
+        let html = legado_parser::response_decode::decode_web_response(
+            &response.body,
+            &response.headers,
+            prepared.parsed.charset(),
+        );
+        (response.url, html)
+    } else {
+        (prepared.request.url.clone(), String::new())
+    };
+    resources.check_active()?;
+    let mut headers = prepared.request.headers.clone();
+    headers.retain(|key, _| {
+        !key.eq_ignore_ascii_case(legado_net::COOKIE_JAR_HEADER)
+            && !key.eq_ignore_ascii_case("proxy")
+    });
+    let request = legado_core::webview_channel::WebViewRequest {
+        action: "webView".into(),
+        html,
+        js: prepared.parsed.web_js().unwrap_or_default().into(),
+        headers,
+        source_key: resources.source.clone().unwrap_or_default(),
+        cookie: resources.http.cookies_for_url(&url),
+        url,
+        delay_time: prepared.parsed.web_view_delay_time().min(i64::MAX as u64) as i64,
+        ..Default::default()
+    };
+    let handle = manager
+        .try_request(
+            request,
+            legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
+            resources.webview_active_check(),
+        )
+        .ok_or_else(|| legado_core::LegadoError::Network("WebView执行订阅已退出".into()))?;
+    let response = handle
+        .wait_async(legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT)
+        .await?;
+    resources.check_active()?;
+    if response.result.starts_with("[ERROR]") {
+        return Err(legado_core::LegadoError::Network(response.result));
+    }
+    Ok(LegadoRawResponse {
+        status: 200,
+        headers: Default::default(),
+        url: response.final_url,
+        body: response.result.into_bytes(),
+    })
+}
+
+async fn send_http(
     resources: &RequestResources<'_>,
     prepared: &PreparedRequest,
 ) -> legado_core::LegadoResult<LegadoRawResponse> {
@@ -319,9 +386,12 @@ pub(super) fn finish(
     response: LegadoRawResponse,
     evaluator: Option<&dyn SynchronousJsEvaluator>,
 ) -> Result<HttpResponse, String> {
+    let webview = prepared.uses_webview();
     let parsed = prepared.parsed;
     let mut body = if parsed.response_type().is_some() {
         hex::encode(&response.body)
+    } else if webview {
+        String::from_utf8(response.body.clone()).map_err(|e| e.to_string())?
     } else {
         legado_parser::response_decode::decode_web_response(
             &response.body,
@@ -329,7 +399,10 @@ pub(super) fn finish(
             parsed.charset(),
         )
     };
-    if let Some(code) = parsed.body_js() {
+    if parsed.response_type().is_none()
+        && !webview
+        && let Some(code) = parsed.body_js()
+    {
         let evaluator = evaluator.ok_or("bodyJs需要当前JS上下文")?;
         let result = serde_json::to_string(&body).map_err(|e| e.to_string())?;
         body = legado_parser::analyze_url::with_current_url(&response.url, || {

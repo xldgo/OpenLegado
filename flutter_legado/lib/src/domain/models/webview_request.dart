@@ -14,6 +14,7 @@ class WebViewRequest {
     this.result = '',
     this.sourceKey = '',
     this.cookie = '',
+    this.headers = const {},
     this.createdAtMs = 0,
   });
   final String key;
@@ -29,14 +30,19 @@ class WebViewRequest {
   final String result;
   final String sourceKey;
   final String cookie;
+  final Map<String, String> headers;
   final int createdAtMs;
 }
 
 class WebViewExecutionResult {
   WebViewExecutionResult({
     required this.result,
+    this.finalUrl = '',
+    this.error,
     Map<String, String> cookies = const {},
   }) : cookies = Map.unmodifiable(cookies);
   final String result;
+  final String finalUrl;
+  final String? error;
   final Map<String, String> cookies;
 }

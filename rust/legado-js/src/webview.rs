@@ -41,6 +41,7 @@ pub fn executor(
         #[cfg(feature = "quickjs")]
         {
             request.cookie = http.cookies_for_url(&request.url);
+            request.headers = http.headers_for(&source_key);
         }
         execute(&manager, control.clone(), request, timeout)
     })
