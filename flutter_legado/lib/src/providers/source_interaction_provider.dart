@@ -21,5 +21,6 @@ final webViewRequestExecutorProvider = Provider<WebViewRequestExecutor>(
     dispatch: PlatformBridgeService.instance.dispatchPayloadWithCookies,
     cancel: PlatformBridgeService.instance.cancelWebView,
     pageCall: ref.read(webViewBridgeServiceProvider).pageCall,
+    syncCookies: ref.read(webViewBridgeServiceProvider).syncCookies,
   ),
 );

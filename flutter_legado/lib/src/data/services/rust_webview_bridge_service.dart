@@ -10,6 +10,12 @@ import '../bridge/managed_rust_stream.dart';
 class RustWebViewBridgeService implements WebViewBridgeService {
   const RustWebViewBridgeService();
   @override
+  Future<bool> syncCookies(String key, Map<String, String> cookies) =>
+      rustFuture(
+        () => bridge.webviewSyncCookies(key: key, cookies: cookies),
+        operation: 'webviewSyncCookies',
+      );
+  @override
   Future<String> pageCall(String key, WebViewPageCall call) => rustFuture(
     () => bridge.webviewPageCall(
       key: key,

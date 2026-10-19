@@ -79,7 +79,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -577415887;
+  int get rustContentHash => 161854681;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -1296,6 +1296,11 @@ abstract class RustLibApi extends BaseApi {
   Future<bool> crateFfiFfiWebviewSubmitResultWithCookies({
     required String key,
     required String result,
+    required Map<String, String> cookies,
+  });
+
+  Future<bool> crateFfiFfiWebviewSyncCookies({
+    required String key,
     required Map<String, String> cookies,
   });
 
@@ -11638,6 +11643,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "webview_submit_result_with_cookies",
         argNames: ["key", "result", "cookies"],
+      );
+
+  @override
+  Future<bool> crateFfiFfiWebviewSyncCookies({
+    required String key,
+    required Map<String, String> cookies,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(key, serializer);
+          sse_encode_Map_String_String_None(cookies, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 317,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateFfiFfiWebviewSyncCookiesConstMeta,
+        argValues: [key, cookies],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateFfiFfiWebviewSyncCookiesConstMeta =>
+      const TaskConstMeta(
+        debugName: "webview_sync_cookies",
+        argNames: ["key", "cookies"],
       );
 
   RustArcIncrementStrongCountFnType

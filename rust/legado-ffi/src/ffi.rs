@@ -581,6 +581,16 @@ pub mod ffi {
         ))
     }
 
+    /// 加载阶段同步Cookie，失效key无副作用，不结束请求，错误明确传播。
+    pub fn webview_sync_cookies(
+        key: String,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> Result<bool, BridgeError> {
+        Ok(crate::api::webview_api::sync_webview_cookies(
+            &key, cookies,
+        )?)
+    }
+
     /// 页内调用按有效请求确定来源和数据所有者，返回单个JSON值。
     pub fn webview_page_call(
         key: String,

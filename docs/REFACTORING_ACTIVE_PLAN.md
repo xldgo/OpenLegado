@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### WEBVIEW-COOKIE-ORDER-20261019：加载阶段Cookie与脚本执行顺序（P1）
+
+- 状态：本批实现与Android限定场景验证完成，iOS待复验；dep-audit / chore/dep-audit / 6f4c6c588起，单代理实现与自查，本地提交，不推送/合并，不触碰主目录并发修改。
+- 依据与复现：固定参考版15e1337a的onPageFinished/CookieStore路径，上游异步启动写回，不宣称其严格等待。修前行为用例确认最终旧Cookie快照覆盖Rust新值，修后通过。
+- 实现：先冻结webview_sync_cookies强类型Map契约。加载结束、门面注入/window.result/规则执行前等待所属请求Cookie同步；复用请求门控与原NetworkContext。每请求保存观察基线，中间/最终回传仅合并新增或变化名称，不用未变化快照覆盖较新Rust值或恢复已清除值。缺失项不作删除，Flutter回退document.cookie不包含HttpOnly；双方独立改同名值仍不承诺真实写入时序。
+- 生命周期：未知/其他引擎/取消/超时/已结束key拒绝且无副作用；同步、页内调用和完成串行，取消不等待该锁。已开始的写入不承诺强制回滚；加载同步失败上抛且不继续规则。不加全局会话表，不改schema、依赖、CI、登录/RSS界面。
+- Rust与Dart：最终Core16项、FFI9项WebView定向行为通过；Dart边界/映射/监听器等28项通过，11个相关文件定向分析无问题。Core/FFI默认与QuickJS两档全目标严格Clippy通过；FRB重新生成，Android x86_64 QuickJS库与元数据重建/校验通过。没有重跑全工作区测试。
+- 平台修复：实际Android验证发现WebView.apply内裸handler解析为未附着WebView的空Handler，引发postDelayed空指针；统一显式使用this@WebViewBridge.handler后通过。早先SDK超时与MuMu禁用MainActivity造成的启动失败不作为通过证据。
+- MuMu证据：按用户指定改用实时探测的实例0、Android15/x86_64，本轮端点127.0.0.1:16384。正式FRB/实际WebView/本地HTTP三项通过：加载Cookie供页内ajax使用且Rust响应新值保留；重定向最终域及HttpOnly；取消在途prompt后新请求仍可执行。测试子进程退出0，外围恢复入口命令因下述卸载退出1，分别记录，不混淆为测试失败或完整交付成功。
+- 安装事故：Flutter3.47.7的flutter test默认uninstall=true，本次未加--no-uninstall，测试清理卸载MuMu原同包应用，删除其私有数据。已向用户说明并致歉，用户回复“没关系”；未找到/恢复备份，不声称保留数据。用例头已明确--no-uninstall与共享设备保存数据要求。随后构建并新装普通APK，2.0.393+394，恢复Launcher4启用/MainActivity禁用，正常冷启动与进程存活，启动后crash缓冲为空。
+- 证据：build/webview-cookie-order/{reproduce,cookie-confirm,rust-webview,clippy-quickjs,clippy-default,codegen,dart-confirm,dart-analysis-confirm,android-native,mumu-confirm,mumu-regular-build,mumu-regular-install}.log。reproduce为预期修前失败，mumu-confirm记录实际三项通过；早期编译/夹具/启动失败以修后结果替代。用例日志在平台通过后仅改为debugPrint，最终分析通过。
+- 交付边界：版本2.0.393+394、双日志、契约及绑定随本批提交。MuMu仅验证上述限定场景与普通入口启动，未做完整UI验收或堆内存/原生析构测量；iOS未测，Windows DLL未重建，不以旧DLL配新绑定运行。回滚需重建匹配native，不改写产物元数据。
+
+编写者：Codex｜2026-10-19
+
 ### WEBVIEW-PAGE-HOST-20261019：后台页内宿主与状态一致性（P1）
 
 - 状态：待复验；本批实现与本地Rust/Dart/Kotlin验证已完成，真实平台DOM、Cookie与原生释放尚待设备验证。dep-audit / chore/dep-audit / 6915eb1bc起，单代理，本地提交，不推送/合并/安装，不触碰主目录并发改动。

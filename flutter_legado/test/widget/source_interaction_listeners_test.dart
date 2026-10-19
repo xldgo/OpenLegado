@@ -34,6 +34,9 @@ class _Verification implements VerificationService {
 
 class _Web implements WebViewBridgeService {
   @override
+  Future<bool> syncCookies(String key, Map<String, String> cookies) async =>
+      false;
+  @override
   Future<String> pageCall(String key, WebViewPageCall call) async =>
       throw UnsupportedError("测试未提供页内调用");
   final events = StreamController<WebViewRequest>(sync: true);

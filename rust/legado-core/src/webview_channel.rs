@@ -95,7 +95,7 @@ struct AttemptState {
     deadline: Instant,
 }
 struct Attempt {
-    page_calls: Mutex<()>,
+    page_calls: Mutex<HashMap<String, String>>,
     request: WebViewRequest,
     active: Option<ActiveCheck>,
     state: Mutex<AttemptState>,
@@ -183,7 +183,7 @@ impl WebViewManager {
                 .unwrap_or(0);
         }
         let attempt = Arc::new(Attempt {
-            page_calls: Mutex::new(()),
+            page_calls: Mutex::new(HashMap::new()),
             request: req.clone(),
             active,
             state: Mutex::new(AttemptState {
@@ -224,8 +224,18 @@ impl WebViewManager {
     pub fn submit_response_with(
         &self,
         key: &str,
-        mut response: WebViewResponse,
+        response: WebViewResponse,
         commit: impl FnOnce(),
+    ) -> bool {
+        self.submit_response_with_cookies(key, response, |_, _| commit())
+    }
+
+    /// Cookie观察基线与请求共生；认领后供完成方增量合并，不另建全局会话表。
+    pub fn submit_response_with_cookies(
+        &self,
+        key: &str,
+        mut response: WebViewResponse,
+        commit: impl FnOnce(&WebViewRequest, &mut HashMap<String, String>),
     ) -> bool {
         let Some(attempt) = self
             .state
@@ -237,7 +247,7 @@ impl WebViewManager {
         else {
             return false;
         };
-        let _page_call = attempt.page_calls.lock().unwrap_or_else(|e| e.into_inner());
+        let mut snapshots = attempt.page_calls.lock().unwrap_or_else(|e| e.into_inner());
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
         let mut status = attempt.state.lock().unwrap_or_else(|e| e.into_inner());
         if !matches!(status.phase, Phase::Pending) {
@@ -266,7 +276,7 @@ impl WebViewManager {
             response.final_url = attempt.request.url.clone();
         }
         let completion = Completion(attempt.clone());
-        commit();
+        commit(&attempt.request, &mut snapshots);
         completion.finish(Outcome::Done(response));
         true
     }
@@ -296,6 +306,34 @@ impl WebViewManager {
         let result = call(&attempt.request, lease.clone());
         lease.check()?;
         result
+    }
+    /// 加载阶段Cookie同步不结束请求；与页内调用/完成串行，取消不等待该锁。
+    pub fn sync_cookies(
+        &self,
+        key: &str,
+        update: impl FnOnce(
+            &WebViewRequest,
+            WebViewLease,
+            &mut HashMap<String, String>,
+        ) -> LegadoResult<()>,
+    ) -> LegadoResult<bool> {
+        let Some(attempt) = self
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .attempts
+            .get(key)
+            .cloned()
+        else {
+            return Ok(false);
+        };
+        let mut snapshots = attempt.page_calls.lock().unwrap_or_else(|e| e.into_inner());
+        let lease = WebViewLease(Arc::downgrade(&attempt));
+        if !lease.is_active() {
+            return Ok(false);
+        }
+        update(&attempt.request, lease.clone(), &mut snapshots)?;
+        Ok(lease.is_active())
     }
     pub fn cancel(&self, key: &str) -> bool {
         self.end(key, Outcome::Cancelled)

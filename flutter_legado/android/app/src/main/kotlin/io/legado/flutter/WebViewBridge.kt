@@ -166,7 +166,7 @@ class WebViewBridge {
             return
         }
 
-        handler.post {
+        this@WebViewBridge.handler.post {
             // 每次后台请求拥有独立实例；取消后不得重新创建页面。
             if (destroyed || result.isCompleted) return@post
             try {
@@ -259,109 +259,129 @@ class WebViewBridge {
                                     CookieManager.getInstance().getCookie(fUrl).orEmpty()
                             }
 
-                            // 对齐：window.result = cache.getFromMemory('webview_result')
-                            if (ruleLike && resultJson.isNotEmpty()) {
-                                view?.evaluateJavascript(
-                                    "window.result = $resultJson;",
-                                    null
-                                )
-                            }
+                            fun continueAfterCookieSync() {
+                                if (destroyed || result.isCompleted) return
+                                // 页面Cookie同步完成后设置原始结果，再执行规则。
+                                if (ruleLike && resultJson.isNotEmpty()) {
+                                    view?.evaluateJavascript(
+                                        "window.result = $resultJson;",
+                                        null
+                                    )
+                                }
 
-                            if (ruleLike && html.isNotEmpty() && pageScript.isNotEmpty()) {
-                                view?.evaluateJavascript(pageScript, null)
-                            }
+                                if (ruleLike && html.isNotEmpty() && pageScript.isNotEmpty()) {
+                                    view?.evaluateJavascript(pageScript, null)
+                                }
 
-                            when (action) {
-                                "webViewGetOverrideUrl" -> {
-                                    // 触发型 JS 后等待跳转；超时见下方 handler
-                                    if (js.isNotEmpty()) {
-                                        handler.postDelayed({
+                                when (action) {
+                                    "webViewGetOverrideUrl" -> {
+                                        // 触发型 JS 后等待跳转；超时见下方 handler
+                                        if (js.isNotEmpty()) {
+                                            this@WebViewBridge.handler.postDelayed({
+                                                view?.evaluateJavascript(js, null)
+                                            }, 100L + delayTime)
+                                        }
+                                    }
+                                    "webViewGetSource" -> {
+                                        val wait = if (delayTime > 0) delayTime else 900L
+                                        if (js.isNotEmpty()) {
                                             view?.evaluateJavascript(js, null)
-                                        }, 100L + delayTime)
-                                    }
-                                }
-                                "webViewGetSource" -> {
-                                    val wait = if (delayTime > 0) delayTime else 900L
-                                    if (js.isNotEmpty()) {
-                                        view?.evaluateJavascript(js, null)
-                                    }
-                                    handler.postDelayed({
-                                        if (result.isCompleted) return@postDelayed
-                                        sniffSource(view, finishedUrl, sourceRegex, result)
-                                    }, wait)
-                                }
-                                else -> {
-                                    // webView：延时后执行 JS（缺省 outerHTML）
-                                    val wait = if (js.isEmpty()) {
-                                        if (delayTime > 0) delayTime else 900L
-                                    } else {
-                                        100L + delayTime
-                                    }
-                                    // B2 eval 重试阶梯（局部递归函数：捕获局部
-                                    // capturedCookies / result / opStartMs）
-                                    //
-                                    // eval 结果空 / 命中挑战签名（CHALLENGE_SIGNATURES，
-                                    // WAF 挑战页标志）→ 按 [200,400,600,800,1000]ms
-                                    // 阶梯重试至多 MAX_EVAL_RETRIES 次；总预算受
-                                    // TIMEOUT_MS 约束（自 opStartMs 起算，剩余不足
-                                    // 直接采纳最后结果——全局超时兜底会先触发）。
-                                    // cookie 快照在最终采纳时重读（重试窗口内验证
-                                    // 流程可能新写 cookie，以最新快照为准，B1 口径）
-                                    fun evalWithRetry(wv: WebView, script: String, attempt: Int) {
-                                        wv.evaluateJavascript(script) { value ->
-                                            if (result.isCompleted) return@evaluateJavascript
-                                            val text = unescapeJsResult(value)
-                                            val remaining =
-                                                TIMEOUT_MS - (System.currentTimeMillis() - opStartMs)
-                                            if (attempt < MAX_EVAL_RETRIES &&
-                                                needsRetryResult(text) &&
-                                                remaining > 0
-                                            ) {
-                                                val delay = RETRY_LADDER_MS[
-                                                    attempt % RETRY_LADDER_MS.size
-                                                ].coerceAtMost(remaining)
-                                                handler.postDelayed({
-                                                    if (!result.isCompleted) {
-                                                        evalWithRetry(wv, script, attempt + 1)
-                                                    }
-                                                }, delay)
-                                                return@evaluateJavascript
-                                            }
-                                            val cUrl = wv.url?.toString().orEmpty()
-                                            capturedCookies =
-                                                CookieManager.getInstance()
-                                                    .getCookie(cUrl).orEmpty()
-                                            result.success(
-                                                buildEnvelope(text, capturedCookies, cUrl)
-                                            )
-                                            destroyInternal()
                                         }
+                                        this@WebViewBridge.handler.postDelayed({
+                                            if (result.isCompleted) return@postDelayed
+                                            sniffSource(view, finishedUrl, sourceRegex, result)
+                                        }, wait)
                                     }
-                                    handler.postDelayed({
-                                        // [崩溃防护 | 2026-09-26] 簇B 修复使
-                                        // java.webView(null,…) 真正可达，桥内
-                                        // 并发竞态的 NPE（WebViewBridge.kt:217
-                                        // 真机实测）会杀死整个应用——降级为日志，
-                                        // 该源按超时/空结果失败
-                                        try {
-                                            if (!result.isCompleted) {
-                                                val userJs =
-                                                    if (js.isNotEmpty()) js
-                                                    else "document.documentElement.outerHTML"
-                                                val injection =
-                                                    if (ruleLike && html.isNotEmpty()) {
-                                                        pageScript + "\n"
-                                                    } else ""
-                                                view?.let { wv ->
-                                                    evalWithRetry(wv, injection + userJs, 0)
+                                    else -> {
+                                        // webView：延时后执行 JS（缺省 outerHTML）
+                                        val wait = if (js.isEmpty()) {
+                                            if (delayTime > 0) delayTime else 900L
+                                        } else {
+                                            100L + delayTime
+                                        }
+                                        // B2 eval 重试阶梯（局部递归函数：捕获局部
+                                        // capturedCookies / result / opStartMs）
+                                        //
+                                        // eval 结果空 / 命中挑战签名（CHALLENGE_SIGNATURES，
+                                        // WAF 挑战页标志）→ 按 [200,400,600,800,1000]ms
+                                        // 阶梯重试至多 MAX_EVAL_RETRIES 次；总预算受
+                                        // TIMEOUT_MS 约束（自 opStartMs 起算，剩余不足
+                                        // 直接采纳最后结果——全局超时兜底会先触发）。
+                                        // cookie 快照在最终采纳时重读（重试窗口内验证
+                                        // 流程可能新写 cookie，以最新快照为准，B1 口径）
+                                        fun evalWithRetry(wv: WebView, script: String, attempt: Int) {
+                                            wv.evaluateJavascript(script) { value ->
+                                                if (result.isCompleted) return@evaluateJavascript
+                                                val text = unescapeJsResult(value)
+                                                val remaining =
+                                                    TIMEOUT_MS - (System.currentTimeMillis() - opStartMs)
+                                                if (attempt < MAX_EVAL_RETRIES &&
+                                                    needsRetryResult(text) &&
+                                                    remaining > 0
+                                                ) {
+                                                    val delay = RETRY_LADDER_MS[
+                                                        attempt % RETRY_LADDER_MS.size
+                                                    ].coerceAtMost(remaining)
+                                                    this@WebViewBridge.handler.postDelayed({
+                                                        if (!result.isCompleted) {
+                                                            evalWithRetry(wv, script, attempt + 1)
+                                                        }
+                                                    }, delay)
+                                                    return@evaluateJavascript
                                                 }
+                                                val cUrl = wv.url?.toString().orEmpty()
+                                                capturedCookies =
+                                                    CookieManager.getInstance()
+                                                        .getCookie(cUrl).orEmpty()
+                                                result.success(
+                                                    buildEnvelope(text, capturedCookies, cUrl)
+                                                )
+                                                destroyInternal()
                                             }
-                                        } catch (t: Throwable) {
-                                            android.util.Log.e("WebViewBridge", "webViewEval", t)
-                                            destroyInternal()
                                         }
-                                    }, wait)
+                                        this@WebViewBridge.handler.postDelayed({
+                                            // [崩溃防护 | 2026-09-26] 簇B 修复使
+                                            // java.webView(null,…) 真正可达，桥内
+                                            // 并发竞态的 NPE（WebViewBridge.kt:217
+                                            // 真机实测）会杀死整个应用——降级为日志，
+                                            // 该源按超时/空结果失败
+                                            try {
+                                                if (!result.isCompleted) {
+                                                    val userJs =
+                                                        if (js.isNotEmpty()) js
+                                                        else "document.documentElement.outerHTML"
+                                                    val injection =
+                                                        if (ruleLike && html.isNotEmpty()) {
+                                                            pageScript + "\n"
+                                                        } else ""
+                                                    view?.let { wv ->
+                                                        evalWithRetry(wv, injection + userJs, 0)
+                                                    }
+                                                }
+                                            } catch (t: Throwable) {
+                                                android.util.Log.e("WebViewBridge", "webViewEval", t)
+                                                destroyInternal()
+                                            }
+                                        }, wait)
+                                    }
                                 }
+                            }
+                            if (call.argument<Boolean>("syncCookiesEnabled") == true) {
+                                val cookies = if (fUrl.startsWith("http://") || fUrl.startsWith("https://")) mapOf(fUrl to capturedCookies) else emptyMap<String, String>()
+                                channel.invokeMethod("syncCookies", mapOf("key" to requestKey, "cookies" to cookies), object : MethodChannel.Result {
+                                    private fun failed(message: String) {
+                                        if (destroyed || result.isCompleted) return
+                                        result.error("COOKIE_SYNC_FAILED", message, null)
+                                        destroyInternal()
+                                    }
+                                    override fun success(value: Any?) {
+                                        if (value == true) continueAfterCookieSync() else failed("Cookie同步未获确认")
+                                    }
+                                    override fun error(code: String, message: String?, details: Any?) { failed(message ?: "Cookie同步失败") }
+                                    override fun notImplemented() { failed("Cookie同步宿主未注册") }
+                                })
+                            } else {
+                                continueAfterCookieSync()
                             }
                         }
 
@@ -379,7 +399,7 @@ class WebViewBridge {
                     }
                 }
 
-                handler.postDelayed({
+                this@WebViewBridge.handler.postDelayed({
                     if (!result.isCompleted) {
                         if (action == "webViewGetOverrideUrl") {
                             result.success(
@@ -538,7 +558,7 @@ class WebViewBridge {
         result: SafeResult,
         context: Context
     ) {
-        handler.post {
+        this@WebViewBridge.handler.post {
             try {
                 destroyInternal()
 
@@ -557,7 +577,7 @@ class WebViewBridge {
                             pageFinished = true
 
                             if (js != null) {
-                                handler.postDelayed({
+                                this@WebViewBridge.handler.postDelayed({
                                     evaluateJsInternal(js, result)
                                 }, 500)
                             } else {
@@ -582,7 +602,7 @@ class WebViewBridge {
                     }
                 }
 
-                handler.postDelayed({
+                this@WebViewBridge.handler.postDelayed({
                     if (!result.isCompleted) {
                         result.error("TIMEOUT", "WebView load timed out after ${TIMEOUT_MS}ms", null)
                         destroyInternal()
@@ -597,7 +617,7 @@ class WebViewBridge {
     }
 
     private fun evaluateJs(js: String, result: SafeResult) {
-        handler.post {
+        this@WebViewBridge.handler.post {
             if (webView == null) {
                 result.error("NO_WEBVIEW", "WebView not initialized. Call loadUrl first.", null)
                 return@post
@@ -616,7 +636,7 @@ class WebViewBridge {
     }
 
     fun destroy() {
-        handler.post { destroyInternal() }
+        this@WebViewBridge.handler.post { destroyInternal() }
     }
 
     private fun destroyInternal() {
@@ -627,7 +647,7 @@ class WebViewBridge {
         pendingResult = null
         pagePrompts.toList().forEach { it.cancel() }
         pagePrompts.clear()
-        handler.removeCallbacksAndMessages(null)
+        this@WebViewBridge.handler.removeCallbacksAndMessages(null)
         val wv = webView
         webView = null
         try { wv?.stopLoading() } catch (_: Exception) {}
@@ -635,7 +655,7 @@ class WebViewBridge {
             // 真销毁延迟 2s：让在途 chromium 回调（onPageFinished 等）先
             // 落地——同步 destroy() 会把在途内部 Handler 置空，回调里的
             // evaluateJavascript 再触发即 NPE（真机崩溃根因）
-            handler.postDelayed({
+            this@WebViewBridge.handler.postDelayed({
                 try {
                     it.stopLoading()
                     it.loadUrl("about:blank")

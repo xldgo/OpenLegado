@@ -19,6 +19,7 @@ import 'package:flutter_legado/src/domain/models/webview_request.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/platform/native_webview_request_executor.dart';
+import 'package:flutter_legado/src/platform/webview_page_bridge.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
@@ -61,6 +62,78 @@ void main() {
     when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_Request());
   });
   tearDown(RustLib.dispose);
+
+  test('加载Cookie同步绑定原key并保留拒绝与错误', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: any(named: 'cookies'),
+      ),
+    ).thenAnswer((_) async => true);
+    expect(
+      await web.syncCookies('owner', {'https://final.test/': 's=page'}),
+      isTrue,
+    );
+    verify(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: {'https://final.test/': 's=page'},
+      ),
+    ).called(1);
+    when(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: any(named: 'cookies'),
+      ),
+    ).thenAnswer((_) async => false);
+    expect(await web.syncCookies('owner', {}), isFalse);
+    when(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: any(named: 'cookies'),
+      ),
+    ).thenThrow(controls.BridgeError(message: 'db failed'));
+    await expectLater(
+      web.syncCookies('owner', {}),
+      throwsA(isA<AppException>()),
+    );
+  });
+
+  test('执行器等待Cookie同步成功后才执行脚本，失效拒绝继续', () async {
+    final events = <String>[];
+    final executor = NativeWebViewRequestExecutor(
+      syncCookies: (key, cookies) async {
+        expect(key, 'owner');
+        events.add('sync');
+        return true;
+      },
+      dispatch: (payload) async {
+        await (payload['cookieBridge'] as WebViewCookieBridge).sync({
+          'https://page.test/': 's=page',
+        });
+        events.add('script');
+        return const WebViewEvalOutcome('ok', '');
+      },
+    );
+    expect(
+      (await executor.execute(const WebViewRequest(key: 'owner'))).result,
+      'ok',
+    );
+    expect(events, ['sync', 'script']);
+    final rejected = NativeWebViewRequestExecutor(
+      syncCookies: (key, cookies) async => false,
+      dispatch: (payload) async {
+        await (payload['cookieBridge'] as WebViewCookieBridge).sync({});
+        events.add('must not run');
+        return const WebViewEvalOutcome('ok', '');
+      },
+    );
+    await expectLater(
+      rejected.execute(const WebViewRequest(key: 'owner')),
+      throwsStateError,
+    );
+    expect(events, ['sync', 'script']);
+  });
 
   test('页内调用DTO保留目标和null参数，Rust错误直接传播', () async {
     when(

@@ -5,6 +5,32 @@ import 'package:flutter_legado/src/domain/models/webview_request.dart';
 import 'package:flutter_legado/src/platform/webview_page_bridge.dart';
 
 void main() {
+  test('Cookie同步严格校验映射、等待确认，失败保持失败', () async {
+    final seen = <Map<String, String>>[];
+    final bridge = WebViewCookieBridge((cookies) async {
+      seen.add(cookies);
+      return true;
+    });
+    await bridge.sync({'https://page.test/': 'session=page'});
+    expect(seen.single, {'https://page.test/': 'session=page'});
+    for (final bad in [
+      null,
+      [],
+      {1: 'v'},
+      {'url': 1},
+    ]) {
+      await expectLater(bridge.sync(bad), throwsFormatException);
+    }
+    expect(seen, hasLength(1));
+    await expectLater(
+      WebViewCookieBridge((_) async => false).sync({}),
+      throwsStateError,
+    );
+    await expectLater(
+      WebViewCookieBridge((_) async => throw StateError('持久化失败')).sync({}),
+      throwsStateError,
+    );
+  });
   test('两路页内信封保留目标、null参数与真实JSON结果', () async {
     final calls = <WebViewPageCall>[];
     final bridge = WebViewPageBridge((call) async {

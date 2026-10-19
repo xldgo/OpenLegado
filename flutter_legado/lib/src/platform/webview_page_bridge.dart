@@ -80,3 +80,20 @@ String webViewPageScript(String token) =>
   window.__legadoPageHost={token:${jsonEncode(token)},source:source,cache:cache,java:java};
 })();
 """;
+
+/// 加载阶段同步失败必须阻断后续脚本，不将失效key当成成功。— Codex + Bridge
+class WebViewCookieBridge {
+  WebViewCookieBridge(this.invokeHost);
+  final Future<bool> Function(Map<String, String>) invokeHost;
+
+  Future<void> sync(Object? value) async {
+    if (value is! Map ||
+        value.keys.any((v) => v is! String) ||
+        value.values.any((v) => v is! String)) {
+      throw const FormatException('页面Cookie必须是地址与字符串的映射');
+    }
+    if (!await invokeHost(Map<String, String>.from(value))) {
+      throw StateError('WebView请求已结束或取消，Cookie未同步');
+    }
+  }
+}

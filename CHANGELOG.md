@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.393] - 2026-10-19
+
+### Fixed
+- 后台页面在规则执行前同步Cookie，使页内网络请求能使用页面新取得的登录态。
+- WebView完成时不再用未变化的旧Cookie快照覆盖Rust期间更新或清除的值。
+- 贡献者：Codex + Rust；构建号394。
+
 ## [2.0.392] - 2026-10-19
 
 ### Fixed

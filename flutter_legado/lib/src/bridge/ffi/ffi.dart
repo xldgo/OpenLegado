@@ -310,6 +310,15 @@ Future<bool> webviewComplete({
   response: response,
 );
 
+/// 加载阶段同步Cookie，失效key无副作用，不结束请求，错误明确传播。
+Future<bool> webviewSyncCookies({
+  required String key,
+  required Map<String, String> cookies,
+}) => RustLib.instance.api.crateFfiFfiWebviewSyncCookies(
+  key: key,
+  cookies: cookies,
+);
+
 /// 页内调用按有效请求确定来源和数据所有者，返回单个JSON值。
 Future<String> webviewPageCall({
   required String key,

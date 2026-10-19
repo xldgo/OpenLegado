@@ -12,8 +12,10 @@ class NativeWebViewRequestExecutor implements WebViewRequestExecutor {
     required this._dispatch,
     this._cancel,
     this._pageCall,
+    this._syncCookies,
   });
   final Future<String> Function(String, WebViewPageCall)? _pageCall;
+  final Future<bool> Function(String, Map<String, String>)? _syncCookies;
   final Future<void> Function(String)? _cancel;
   @override
   Future<void> cancel(String key) async {
@@ -24,6 +26,10 @@ class NativeWebViewRequestExecutor implements WebViewRequestExecutor {
   @override
   Future<WebViewExecutionResult> execute(WebViewRequest request) async {
     final outcome = await _dispatch({
+      if (_syncCookies != null)
+        'cookieBridge': WebViewCookieBridge(
+          (cookies) => _syncCookies(request.key, cookies),
+        ),
       if (_pageCall != null)
         'pageBridge': WebViewPageBridge((call) => _pageCall(request.key, call)),
       'key': request.key,

@@ -1,5 +1,21 @@
 # API 契约文档
 
+## WebView加载阶段Cookie同步（2026-10-19，实施前冻结）
+
+新增webview_sync_cookies(key, cookies: Map<String,String>) -> Result<bool,BridgeError>。
+平台在加载完成、规则脚本执行前读取当前页面地址和Cookie并等待同步；不结束请求。
+key决定所属请求/引擎，未知、结束、超时、取消key返回false且无副作用；数据或持久化失败上抛。
+Android沿用CookieManager，Flutter回退仅document.cookie可见子集，不宣称读取HttpOnly。
+不得在prompt暂停JS时再次调用页面JS读取Cookie。同步发生在门面、window.result与规则脚本之前。
+每个请求保存已观察的平台Cookie基线，初始请求域取WebViewRequest.cookie；域规则沿用现状。
+中间/最终回传只合并相对该基线新增或值改变的Cookie，避免未变化快照覆盖期间Rust的新值或清除。
+缺失名称不当作删除（回退读取并非完整罐）；平台与Rust均更改同名值时，不承诺获得实际写入时间顺序。
+基线仅活在请求生命周期中，页面结束清理；不添加全局会话表、不修改Cookie数据库schema。
+完成仍等待已有操作，取消不等待IO锁；已开始的同步写入不承诺回滚，失败不会继续规则脚本。
+本批不扩展登录/RSS界面、JS方法或Cookie存储模型，真实Android与iOS证据分别登记。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## 后台WebView页内宿主能力（2026-10-19，实施前冻结）
 
 新增webview_page_call(key, WebViewPageCallDto{target:source|cache|java,method,args:List<String?>})，

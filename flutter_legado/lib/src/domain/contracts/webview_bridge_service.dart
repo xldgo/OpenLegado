@@ -2,6 +2,7 @@ import '../models/webview_request.dart';
 
 /// Rust等待方的请求与结果通道；平台DOM执行单独注入。— Codex + Bridge
 abstract interface class WebViewBridgeService {
+  Future<bool> syncCookies(String key, Map<String, String> cookies);
   Future<String> pageCall(String key, WebViewPageCall call);
   Stream<WebViewRequest> webviewRequestStream();
   Future<bool> completeWebviewRequest(

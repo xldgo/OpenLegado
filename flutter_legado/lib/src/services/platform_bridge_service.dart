@@ -316,13 +316,27 @@ class PlatformBridgeService {
   ///   真机走原生路径为主）。
   final _webViewScopes = <String, WebViewExecutionScope>{};
   final _pageRequests = <String, (WebViewExecutionScope, WebViewPageBridge)>{};
+  final _cookieRequests =
+      <String, (WebViewExecutionScope, WebViewCookieBridge)>{};
+  static final _cookieZone = Object();
   static final _pageZone = Object();
   bool _pageChannelInstalled = false;
   String? get _pageToken => Zone.current[_pageZone] as String?;
 
   Future<dynamic> _onPageCall(MethodCall call) async {
-    if (call.method != 'pageCall') throw MissingPluginException();
     final args = call.arguments;
+    if (call.method == 'syncCookies') {
+      if (args is! Map || args['key'] is! String) {
+        throw const FormatException('Cookie同步缺少请求key');
+      }
+      final owner = _cookieRequests[args['key']];
+      if (owner == null || owner.$1.isCancelled) {
+        throw StateError('WebView请求已结束或取消');
+      }
+      await owner.$1.wait(owner.$2.sync(args['cookies']));
+      return true;
+    }
+    if (call.method != 'pageCall') throw MissingPluginException();
     if (args is! Map || args['key'] is! String || args['payload'] is! String) {
       return jsonEncode({'error': '页内调用信封不正确'});
     }
@@ -337,7 +351,18 @@ class PlatformBridgeService {
     }
   }
 
-  Future<void> _injectPageBridge(WebViewController controller) async {
+  Future<void> _preparePage(WebViewController controller) async {
+    final cookies = Zone.current[_cookieZone] as WebViewCookieBridge?;
+    if (cookies != null) {
+      final url = await _waitWebView(controller.currentUrl());
+      final snapshot = <String, String>{};
+      if (url != null && Uri.tryParse(url)?.hasAuthority == true) {
+        snapshot[url] = _normalizeJsResult(
+          await _evalWebView(controller, 'document.cookie'),
+        );
+      }
+      await _waitWebView(cookies.sync(snapshot));
+    }
     final token = _pageToken;
     if (token != null) {
       await _scriptWebView(controller, webViewPageScript(token));
@@ -377,6 +402,10 @@ class PlatformBridgeService {
   ) async {
     final key = (payload['key'] as String?) ?? 'local-${_localWebViewKey++}';
     final scope = WebViewExecutionScope();
+    final cookieCandidate = payload['cookieBridge'];
+    final cookieBridge = cookieCandidate is WebViewCookieBridge
+        ? cookieCandidate
+        : null;
     final candidate = payload['pageBridge'];
     final bridge =
         candidate is WebViewPageBridge &&
@@ -391,6 +420,7 @@ class PlatformBridgeService {
     if (_webViewScopes.containsKey(key)) throw StateError('重复WebView请求');
     _webViewScopes[key] = scope;
     if (bridge != null) _pageRequests[key] = (scope, bridge);
+    if (cookieBridge != null) _cookieRequests[key] = (scope, cookieBridge);
     if (Platform.isAndroid && !_pageChannelInstalled) {
       PlatformChannel.webview.setMethodCallHandler(_onPageCall);
       _pageChannelInstalled = true;
@@ -408,6 +438,7 @@ class PlatformBridgeService {
           _performWebViewOutcome(action, {
             ...payload,
             'key': key,
+            'syncCookiesEnabled': cookieBridge != null,
             'pageToken': pageToken,
             'pageScript': pageToken == null ? '' : webViewPageScript(pageToken),
           }),
@@ -415,6 +446,7 @@ class PlatformBridgeService {
         zoneValues: {
           _scopeZone: scope,
           _pageZone: pageToken,
+          _cookieZone: cookieBridge,
           _headersZone: Map<String, String>.from(
             payload['headers'] as Map? ?? {},
           ),
@@ -423,6 +455,7 @@ class PlatformBridgeService {
     } finally {
       _webViewScopes.remove(key);
       _pageRequests.remove(key);
+      _cookieRequests.remove(key);
       await scope.close();
     }
   }
@@ -519,6 +552,7 @@ class PlatformBridgeService {
         dynamic
       >{
         'key': payload['key'],
+        'syncCookiesEnabled': payload['syncCookiesEnabled'] == true,
         'pageToken': payload['pageToken'] ?? '',
         'pageScript': payload['pageScript'] ?? '',
         'headers': payload['headers'] ?? <String, String>{},
@@ -701,7 +735,7 @@ class PlatformBridgeService {
       _showSnackBar('页面加载失败：$loadFailure');
       return WebViewEvalOutcome('[ERROR] WebView 加载失败：$loadFailure', '');
     }
-    await _injectPageBridge(controller);
+    await _preparePage(controller);
     if (isRule && resultJson.isNotEmpty) {
       // resultJson 已是 Rust serde_json 字面量（对齐 GSON.toJson → window.result）
       await _scriptWebView(controller, 'window.result = $resultJson;');
@@ -835,7 +869,7 @@ class PlatformBridgeService {
       );
       return '';
     }
-    await _injectPageBridge(controller);
+    await _preparePage(controller);
     if (js.isNotEmpty) {
       // 触发型 JS（如点击播放按钮），fire-and-forget 后等待资源出现
       await _scriptWebView(controller, js);
@@ -954,10 +988,12 @@ class PlatformBridgeService {
       unawaited(
         finished.future
             .timeout(_webViewTimeout, onTimeout: () {})
-            .then((_) => _injectPageBridge(controller))
+            .then((_) => _preparePage(controller))
             .then((_) => _webViewDelay(Duration(milliseconds: 100 + delayMs)))
             .then((_) => _scriptWebView(controller, js))
-            .catchError((Object _) {}),
+            .catchError((Object error, StackTrace stack) {
+              if (!capture.isCompleted) capture.completeError(error, stack);
+            }),
       );
     }
     try {
