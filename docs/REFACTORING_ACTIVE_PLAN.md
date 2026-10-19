@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-RSA-SIGN-BOUNDARY-20261019：RSA与签名输入及会话（P1）
+
+- 状态：已关闭（本批现有RSA与签名入口范围）。用户授权开始；dep-audit / chore/dep-audit / 17416c6bb，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/安装，不触碰主目录。
+- 依据：固定参考版15e1337a的AsymmetricCrypto/Sign、[Android官方OAEP说明](https://developer.android.com/privacy-and-security/cryptography)、JCA Signature及本地rsa 0.9.10源码。普通Android Provider的主摘要与MGF1相同，保留SHA256/SHA256；JDK探针显式OAEPParameterSpec，不拿其默认SHA256/SHA1覆盖现有策略。
+- 实现：契约先冻结，严格识别RSA transformation，不再忽略任意模式或按OAEP子串猜算法。java/裸入口均支持DER Uint8/Int8视图和Java byte数组，保留PEM/Base64及PKCS1密钥扩展；参数复制、失败不替换有效密钥。密文和签名先识别偶数Hex，否则统一Hutool Base64，不再反复解码/解密试错；缺省方向为公钥，显式null按参考版走私钥，非Boolean明确拒绝。
+- 核心：空明文实际执行一次padding，空密文和不足8字节FF的type1 padding拒绝；私钥运算使用已有带随机盲化的API。不变更RSA对象原有懒生成1024位密钥时机/长度；Sign缺所需密钥直接报错，不再静默随机生成；六种原有摘要/别名保留。不宣称消除了RSA依赖的时序漏洞，不调整安全豁免。
+- Packages：KeySpec构造及getEncoded/encode均复制，KeyFactory生成时校验PKCS8/SPKI，不再返回伪密钥；Signature支持签名/验签切换、增量update、完成后重置摘要并复用密钥。初始化失败清空旧会话，非法字节update/verify不损坏已有摘要；共享原生密码学核心。固定大小DynDigest代替反复拼接全文，私钥枚举字段使用Box，不引入无界Rust正文缓冲、unsafe或JSON通道。
+- 独立向量：JDK25一次性生成专用2048位测试密钥，9组密文覆盖公/私钥、空输入、600字节分块、PKCS1及OAEP SHA1/SHA256，6种签名摘要与Unicode正文固定对照。回归只消费已提交JSON，不依赖JVM、网络、正式DLL或外部测试宿主；不使用真实用户密钥。保留原得间JavaImporter/无new KeySpec路径。
+- 验证：新增真实QuickJS 11项与既有得间4项定向通过；完整JS867项通过、4既有忽略（26组，库700/网络56包含在内，不重复累计），默认JS库274项通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8及git diff --check通过。Box调整及最后解码断言纠正后，库700项与RSA/得间15项再次通过；未新增skip或放宽400KB沙箱门禁。
+- 过程与纠正：初轮测试8项失败，其中PEM夹具未按64列换行、空数据助手误用返回null的Base64接口属于测试错误，修正夹具，不算生产缺陷。首轮编译的DER回退错误类型推断已修复；既有得间测试要求initSign/encode诊断词，保留可操作提示，未削弱断言。Clippy指出344字节私钥枚举过大，改Box后通过。默认编译发现本批模块插入遗漏runtime_bridge的quickjs标记，恢复后274项通过。最后新增断言误以为Hutool拒绝非ASCII，核对既有解码器后按其忽略规则纠正为中文空结果、波浪线报错，未修改Base64生产策略。
+- 自查与证据：逐项核对契约→java/裸入口→Packages构造/工厂→复制及状态→核心计算→格式/异常；RefCell借用不跨可重入JS属性读取。按用户要求无子代理，仅Codex自查，不宣称独立审查或远程CI。build/js-byte-conversion/rsa-{reproduce,fixed,fixed-typed,fixed-vectors,targeted,targeted-final,complete,default,default-final,clippy-quickjs,clippy-quickjs-final,clippy-default,post-review,post-review-final}.log；仅成功final项及complete作为通过证据。首次复现日志完整但日志尾部输出遇Windows编码错误，忽略目录runner已改UTF-8；研究材料build/rsa-oracle，非运行时依赖。
+- 交付限制：版本2.0.407+408与双日志同步；无依赖/FRB/生成物/数据库/Flutter业务改动。不运行全workspace/Flutter、native/应用构建、设备或远程CI；MuMu仍2.0.394+395。仅覆盖当前RSA与六类签名边界，不宣称所有JCA Provider算法/异常一致或移动平台实测。
+
+编写者：Codex + Rust/Bridge｜2026-10-19
+
 ### JS-SYMMETRIC-BOUNDARY-20261019：对称加密入口与Cipher模式（P1）
 
 - 状态：已关闭（本批现有对称加密入口与Cipher单次操作范围）。用户授权继续；dep-audit / chore/dep-audit快进同步主目录da8c2ec71，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/安装/合并或触碰主目录。

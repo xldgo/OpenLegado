@@ -911,75 +911,10 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
             return JSMMessageDigestInstance(a);
           }
         },
-        // 得间免费小说（jsLib）RSA 签名面：KeyFactory / Signature / spec。
-        // 全部加密计算委托宿主既有 asymmetric_crypto（java.createSign），
-        // 本层只做 Java API 形态适配，不重实现任何密码学：
-        // - KeyFactory.getInstance 仅接受 "RSA"（非 RSA → 登记符号 + 可读文案）
-        // - generatePrivate(spec) 取 spec.encode()（PKCS#8 DER 字节）转 Base64
-        //   字符串，供 createSign.setPrivateKey → parse_private_key 解析
-        // - Signature.update 累积、sign() 一次性委托 createSign（PKCS#1 v1.5
-        //   确定性签名），输出 Uint8Array
-        KeyFactory: {
-          getInstance: function (algo) {
-            var a = (algo == null) ? '' : String(algo);
-            if (a.toUpperCase() !== 'RSA') {
-              var full = 'java.security.KeyFactory.getInstance("' + a + '")';
-              java.reportUnknownSymbol(full);
-              throw new Error('此书源需要 Java 脚本能力（Packages.' + full + '），当前不支持');
-            }
-            return {
-              generatePrivate: function (spec) {
-                if (!spec || typeof spec.encode !== 'function') {
-                  throw new Error('KeyFactory.generatePrivate: 参数须为带 encode() 方法的 spec 对象（PKCS8EncodedKeySpec 返回值）');
-                }
-                return { _key: java.base64EncodeBytes(toU8(spec.encode())) };
-              }
-            };
-          }
-        },
-        Signature: {
-          getInstance: function (algo) {
-            var a = (algo == null) ? '' : String(algo);
-            // 提前做算法预校验：宿主 createSign 内部 parse_sign_algorithm，
-            // 未知算法在 getInstance 即抛可读错误，不拖到 sign() 才暴露
-            var base = java.createSign(a);
-            var key = null;
-            var buf = new Uint8Array(0);
-            return {
-              initSign: function (priKey) {
-                if (!priKey || typeof priKey._key !== 'string') {
-                  throw new Error('Signature.initSign: 参数须为 KeyFactory.generatePrivate 返回的密钥对象');
-                }
-                key = priKey;
-                buf = new Uint8Array(0);
-                return this;
-              },
-              update: function (data) {
-                var c = toU8(data || []);
-                var nb = new Uint8Array(buf.length + c.length);
-                nb.set(buf, 0);
-                nb.set(c, buf.length);
-                buf = nb;
-                return this;
-              },
-              sign: function () {
-                if (!key) {
-                  throw new Error('Signature.sign: 须先调用 initSign');
-                }
-                base.setPrivateKey(key._key);
-                return base.sign(buf);
-              }
-            };
-          }
-        },
-        spec: {
-          // Java 语料中 PKCS8EncodedKeySpec(bytes) 不带 new 直接调用（得间
-          // jsLib）：普通函数调用返回 spec 对象，encode() 取回原始字节
-          // （toU8 拷贝不别名）
-          PKCS8EncodedKeySpec: function (bytes) {
-            return { encode: function () { return toU8(bytes); } };
-          }
-        }
+        // RSA参数复制与签名状态由原生回调持有，保留得间Importer/无new构造路径。
+        KeyFactory: {getInstance: java.rsaKeyFactory},
+        Signature: {getInstance: java.rsaSignature},
+        spec: {PKCS8EncodedKeySpec: java.rsaPrivateSpec, X509EncodedKeySpec: java.rsaPublicSpec}
       }
     },
     android: { util: { Base64: {
@@ -2930,6 +2865,7 @@ fn register_crypto_apis<'js>(
     globals: &rquickjs::Object<'js>,
 ) -> Result<(), LegadoError> {
     super::symmetric_bridge::register(ctx, java, globals)?;
+    super::rsa_java_bridge::register(ctx, java)?;
 
     // createAsymmetricCrypto(transformation) -> RSA 对象
     // 对应 Kotlin JsEncodeUtils.createAsymmetricCrypto（AsymmetricCrypto）
@@ -2941,9 +2877,9 @@ fn register_crypto_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             |ctx: rquickjs::Ctx<'js>,
-             transformation: RhinoStr|
+             transformation: crate::quickjs_bytes::TextArg|
              -> rquickjs::Result<rquickjs::Object<'js>> {
-                asymmetric_crypto::build_asymmetric_crypto_object(ctx, &transformation)
+                asymmetric_crypto::build_asymmetric_crypto_object(ctx, &transformation.0)
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2959,9 +2895,9 @@ fn register_crypto_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             |ctx: rquickjs::Ctx<'js>,
-             algorithm: RhinoStr|
+             algorithm: crate::quickjs_bytes::TextArg|
              -> rquickjs::Result<rquickjs::Object<'js>> {
-                asymmetric_crypto::build_sign_object(ctx, &algorithm)
+                asymmetric_crypto::build_sign_object(ctx, &algorithm.0)
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,

@@ -60,6 +60,8 @@ pub mod query_ttf;
 pub mod regex_utils;
 pub(crate) mod resource_files;
 #[cfg(feature = "quickjs")]
+mod rsa_java_bridge;
+#[cfg(feature = "quickjs")]
 mod rule_request;
 #[cfg(feature = "quickjs")]
 pub mod runtime_bridge;

@@ -1,5 +1,29 @@
 # API 契约文档
 
+## JS RSA与签名边界（2026-10-19，实施前冻结）
+
+对照固定参考版15e1337a的AsymmetricCrypto/Sign与JCA；保留createAsymmetricCrypto/createSign的java及裸入口。
+RSA transformation仅接受单段RSA或RSA/{ECB|NONE}/{PKCS1Padding|OAEPPadding|OAEPWithSHA-1AndMGF1Padding|OAEPWithSHA-256AndMGF1Padding}，
+保留已支持的无连字符SHA写法；未知模式、额外字段及假OAEP名称拒绝，不新增NoPadding/SHA384/512-OAEP等算法。
+OAEP沿用[Android普通Provider](https://developer.android.com/privacy-and-security/cryptography)的主摘要=MGF1摘要，SHA256/SHA256；JDK向量显式OAEPParameterSpec选择两者，
+不使用桌面JDK默认SHA256/SHA1替换它，不声称支持Android Keystore句柄或全部Provider。
+setPublicKey/setPrivateKey支持SPKI/PKCS8原始DER字节和既有PKCS1、PEM/Base64字符串扩展；
+原始字节不经String/Base64中转，非法/空/失效输入抛异常，失败不覆盖上一个有效密钥，链式返回this。
+RSA明文和签名正文支持UTF-8字符串、有效Uint8/Int8视图与Java byte数组；密文字符串先识别偶数Hex，否则Hutool Base64，
+不通过重复尝试不同解码/解密猜格式。保留签名Hex/Base64字符串验签扩展，同一确定性解码规则。
+方向参数缺省true、显式null按上游可空Boolean走私钥，其他显式值须Boolean；错误不得静默选公钥。
+分块加解密继续按模长和padding预算，空明文也执行一次真实padding操作；畸形密文和不足8字节的type1 padding拒绝。
+既有RSA对象懒生成随机密钥对保留，不改变随机密钥长度/生成时机；签名对象必须显式设置所需密钥，不再静默随机生成。
+Sign保持6种已有RSA签名摘要及现有别名；缺密钥/无效参数抛异常，合法签名不匹配返回false，不宣称JCA全部算法或异常类型一致。
+Packages PKCS8/X509 KeySpec复制构造输入，getEncoded/既有encode返回复制；KeyFactory在generate时校验DER并提供公/私钥对象，
+Signature支持initSign/initVerify/update/sign/verify，初始化失败后不能继续使用旧会话；仅保留固定大小增量摘要状态，
+不累计完整正文，成功sign/verify（包括不匹配的false）重置摘要并保留初始化密钥。
+失效update/verify字节输入不得污染已有摘要；未初始化或模式不对必须拒绝；验证/签名计算复用同一Rust核心，不另设JSON或轮询协议。
+保留已确认得间的无new KeySpec和JavaImporter路径；不将临时JDK研究工具变成运行时或永久测试依赖。
+不升级RSA/crypto依赖、不改安全豁免、FRB/生成物、数据库或Flutter业务；不宣称修复整个RSA依赖的时序漏洞。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS对称加密边界（2026-10-19，实施前冻结）
 
 对照固定参考版15e1337a的JsEncodeUtils/SymmetricCryptoAndroid与[Java Cipher](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/javax/crypto/Cipher.html)；仅处理现有对称加密入口。
