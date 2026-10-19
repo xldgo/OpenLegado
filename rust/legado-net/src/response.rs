@@ -42,6 +42,8 @@ impl LegadoResponse {
 /// 二进制 HTTP 响应结构（Task #113：TTS 音频等二进制资源，避免 UTF-8 有损转换）
 #[derive(Debug, Clone)]
 pub struct LegadoRawResponse {
+    /// 协议来自真实响应；状态说明使用HTTP库的标准描述。
+    pub raw_summary: String,
     /// HTTP 状态码
     pub status: u16,
     /// 响应头（每个头取最后一个值）
@@ -91,7 +93,35 @@ pub struct LegadoStreamResponse {
     _permit: Option<tokio::sync::OwnedSemaphorePermit>,
 }
 
+/// 与OkHttp Response.toString相同的概要结构；说明文本取HTTP库标准描述。
+pub fn response_summary(response: &reqwest::Response) -> String {
+    let protocol = match response.version() {
+        reqwest::Version::HTTP_09 => "http/0.9",
+        reqwest::Version::HTTP_10 => "http/1.0",
+        reqwest::Version::HTTP_11 => "http/1.1",
+        reqwest::Version::HTTP_2 => "h2",
+        reqwest::Version::HTTP_3 => "h3",
+        _ => "unknown",
+    };
+    let message = if matches!(
+        response.version(),
+        reqwest::Version::HTTP_09 | reqwest::Version::HTTP_10 | reqwest::Version::HTTP_11
+    ) {
+        response.status().canonical_reason().unwrap_or("")
+    } else {
+        ""
+    };
+    format!(
+        "Response{{protocol={protocol}, code={}, message={message}, url={}}}",
+        response.status().as_u16(),
+        response.url()
+    )
+}
+
 impl LegadoStreamResponse {
+    pub fn raw_summary(&self) -> String {
+        response_summary(&self.response)
+    }
     /// 由已发送的 reqwest 响应构造（收集响应头/状态/最终 URL；body 保持未读）
     pub(crate) fn new(
         response: reqwest::Response,
@@ -245,6 +275,7 @@ mod tests {
         let mut headers = HashMap::new();
         headers.insert("Content-Type".to_string(), "audio/mpeg".to_string());
         let r = LegadoRawResponse {
+            raw_summary: String::new(),
             status: 200,
             headers,
             body: vec![0xFF, 0xFB, 0x90, 0x00],

@@ -16,8 +16,10 @@ import 'package:flutter_legado/src/data/services/rust_verification_service.dart'
 import 'package:flutter_legado/src/data/services/rust_webview_bridge_service.dart';
 import 'package:flutter_legado/src/data/services/rust_network_service.dart';
 import 'package:flutter_legado/src/domain/models/webview_request.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/platform/native_webview_request_executor.dart';
+import 'package:flutter_legado/src/platform/webview_page_bridge.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 
 class _Bridge extends Mock implements RustLibApi {}
@@ -42,7 +44,17 @@ void main() {
   );
   setUpAll(() {
     registerFallbackValue(_Request());
+    registerFallbackValue(
+      const WebViewPageCallDto(
+        target: WebViewPageTargetDto.source,
+        method: "get",
+        args: [],
+      ),
+    );
     registerFallbackValue(bookSourceToDto(source));
+    registerFallbackValue(
+      WebViewResponseDto(result: '', finalUrl: '', cookies: const {}),
+    );
   });
   setUp(() {
     bridge = _Bridge();
@@ -50,6 +62,189 @@ void main() {
     when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_Request());
   });
   tearDown(RustLib.dispose);
+
+  test('加载Cookie同步绑定原key并保留拒绝与错误', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: any(named: 'cookies'),
+      ),
+    ).thenAnswer((_) async => true);
+    expect(
+      await web.syncCookies('owner', {'https://final.test/': 's=page'}),
+      isTrue,
+    );
+    verify(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: {'https://final.test/': 's=page'},
+      ),
+    ).called(1);
+    when(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: any(named: 'cookies'),
+      ),
+    ).thenAnswer((_) async => false);
+    expect(await web.syncCookies('owner', {}), isFalse);
+    when(
+      () => bridge.crateFfiFfiWebviewSyncCookies(
+        key: 'owner',
+        cookies: any(named: 'cookies'),
+      ),
+    ).thenThrow(controls.BridgeError(message: 'db failed'));
+    await expectLater(
+      web.syncCookies('owner', {}),
+      throwsA(isA<AppException>()),
+    );
+  });
+
+  test('执行器等待Cookie同步成功后才执行脚本，失效拒绝继续', () async {
+    final events = <String>[];
+    final executor = NativeWebViewRequestExecutor(
+      syncCookies: (key, cookies) async {
+        expect(key, 'owner');
+        events.add('sync');
+        return true;
+      },
+      dispatch: (payload) async {
+        await (payload['cookieBridge'] as WebViewCookieBridge).sync({
+          'https://page.test/': 's=page',
+        });
+        events.add('script');
+        return const WebViewEvalOutcome('ok', '');
+      },
+    );
+    expect(
+      (await executor.execute(const WebViewRequest(key: 'owner'))).result,
+      'ok',
+    );
+    expect(events, ['sync', 'script']);
+    final rejected = NativeWebViewRequestExecutor(
+      syncCookies: (key, cookies) async => false,
+      dispatch: (payload) async {
+        await (payload['cookieBridge'] as WebViewCookieBridge).sync({});
+        events.add('must not run');
+        return const WebViewEvalOutcome('ok', '');
+      },
+    );
+    await expectLater(
+      rejected.execute(const WebViewRequest(key: 'owner')),
+      throwsStateError,
+    );
+    expect(events, ['sync', 'script']);
+  });
+
+  test('页内调用DTO保留目标和null参数，Rust错误直接传播', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewPageCall(
+        key: 'owner',
+        call: any(named: 'call'),
+      ),
+    ).thenAnswer((_) async => 'null');
+    expect(
+      await web.pageCall(
+        'owner',
+        WebViewPageCall(
+          target: WebViewPageTarget.source,
+          method: 'putVariable',
+          args: [null],
+        ),
+      ),
+      'null',
+    );
+    final value =
+        verify(
+              () => bridge.crateFfiFfiWebviewPageCall(
+                key: 'owner',
+                call: captureAny(named: 'call'),
+              ),
+            ).captured.single
+            as WebViewPageCallDto;
+    expect(value.target, WebViewPageTargetDto.source);
+    expect(value.method, 'putVariable');
+    expect(value.args, [null]);
+    when(
+      () => bridge.crateFfiFfiWebviewPageCall(
+        key: 'owner',
+        call: any(named: 'call'),
+      ),
+    ).thenThrow(controls.BridgeError(message: '请求已结束'));
+    await expectLater(
+      web.pageCall(
+        'owner',
+        WebViewPageCall(
+          target: WebViewPageTarget.cache,
+          method: 'get',
+          args: ['key'],
+        ),
+      ),
+      throwsA(isA<AppException>().having((e) => e.message, '原错误消息', '请求已结束')),
+    );
+  });
+
+  test('WebView类型化回传保留最终URL、正常空结果与错误，原生拒绝保持false', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewComplete(
+        key: 'w',
+        response: any(named: 'response'),
+      ),
+    ).thenAnswer((_) async => false);
+    final accepted = await web.completeWebviewRequest(
+      'w',
+      WebViewExecutionResult(
+        result: '',
+        finalUrl: 'https://final.test/',
+        error: '加载失败',
+        cookies: {'final.test': 'sid=new'},
+      ),
+    );
+    expect(accepted, isFalse);
+    final captured =
+        verify(
+              () => bridge.crateFfiFfiWebviewComplete(
+                key: 'w',
+                response: captureAny(named: 'response'),
+              ),
+            ).captured.single
+            as WebViewResponseDto;
+    expect(captured.result, '');
+    expect(captured.finalUrl, 'https://final.test/');
+    expect(captured.error, '加载失败');
+    expect(captured.cookies, {'final.test': 'sid=new'});
+  });
+
+  test('平台执行器传递Header和key，并使用平台最终URL', () async {
+    final payloads = <Map<String, dynamic>>[];
+    final stopped = <String>[];
+    final executor = NativeWebViewRequestExecutor(
+      dispatch: (payload) async {
+        payloads.add(payload);
+        return const WebViewEvalOutcome(
+          '',
+          '',
+          finalUrl: 'https://final.test/',
+        );
+      },
+      cancel: (key) async {
+        stopped.add(key);
+      },
+    );
+    final result = await executor.execute(
+      const WebViewRequest(
+        key: 'owned',
+        url: 'https://initial.test/',
+        headers: {'X-Test': 'yes'},
+      ),
+    );
+    expect(payloads.single['key'], 'owned');
+    expect(payloads.single['headers'], {'X-Test': 'yes'});
+    expect(result.finalUrl, 'https://final.test/');
+    expect(result.result, '');
+    expect(result.error, isNull);
+    await executor.cancel('owned');
+    expect(stopped, ['owned']);
+  });
 
   test('编辑能力保持原生cURL参数，提取结果保留完整当前脚本', () async {
     when(() => bridge.crateFfiFfiLooksLikeCurl(text: 'curl -L url'))
@@ -203,6 +398,7 @@ void main() {
     ).thenAnswer(
       (_) => Stream.value(
         WebViewRequestDto(
+          headers: const {},
           key: 'w',
           action: 'webViewGetSource',
           html: 'html',
@@ -293,6 +489,7 @@ void main() {
     ).thenAnswer(
       (_) => Stream.value(
         WebViewRequestDto(
+          headers: const {},
           key: '',
           action: '',
           html: '',
@@ -353,6 +550,8 @@ void main() {
       ),
     );
     expect(payloads.single, {
+      'key': 'w',
+      'headers': <String, String>{},
       'action': 'webViewGetOverrideUrl',
       'html': 'html',
       'url': 'url',

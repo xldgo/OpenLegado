@@ -26,8 +26,23 @@ pub fn execute(
         }
     })
 }
-pub fn executor(resources: &crate::JsResources) -> legado_parser::analyze_rule::WebViewExecutor {
+/// 规则来源固定，Cookie在每次请求时按页面URL读取；闭包不保留VM缓存。
+pub fn executor(
+    resources: &crate::JsResources,
+    source_key: &str,
+) -> legado_parser::analyze_rule::WebViewExecutor {
     let manager = resources.host_resources().webview.clone();
     let control = resources.cancellation().cloned();
-    Arc::new(move |request, timeout| execute(&manager, control.clone(), request, timeout))
+    let source_key = source_key.to_owned();
+    #[cfg(feature = "quickjs")]
+    let http = resources.http_resources().clone();
+    Arc::new(move |mut request, timeout| {
+        request.source_key = source_key.clone();
+        #[cfg(feature = "quickjs")]
+        {
+            request.cookie = http.cookies_for_url(&request.url);
+            request.headers = http.headers_for(&source_key);
+        }
+        execute(&manager, control.clone(), request, timeout)
+    })
 }

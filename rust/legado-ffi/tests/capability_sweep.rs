@@ -100,6 +100,7 @@ const CAPABILITY_NAMES: &[&str] = &[
     "fileExists",
     "formatTime",
     "get",
+    "get7zByteArrayContent",
     "get7zStringContent",
     "getCurrentUrl",
     "getCookie",
@@ -120,6 +121,7 @@ const CAPABILITY_NAMES: &[&str] = &[
     "getVariable",
     "getVerificationCode",
     "getWebViewUA",
+    "getZipByteArrayContent",
     "getZipStringContent",
     "head",
     "hexDecode",
@@ -225,8 +227,7 @@ const CAPABILITY_NAMES: &[&str] = &[
     "writeFile",
 ];
 
-/// 文件类 API：仅在 `allow_file_access=true` 时注册；**生产配置为 false**，
-/// 即这 9 个名字在生产的 QuickJS 引擎里不存在——源引用即缺口。
+/// 文件类API：需要allow_file_access=true；关闭时部分不注册，解压接口调用前拒绝。
 const FILE_GATED_NAMES: &[&str] = &[
     "cacheFile",
     "deleteFile",
@@ -236,6 +237,9 @@ const FILE_GATED_NAMES: &[&str] = &[
     "getTxtInFolder",
     "readFile",
     "readTxtFile",
+    "un7zFile",
+    "unArchiveFile",
+    "unzipFile",
     "writeFile",
 ];
 
@@ -766,7 +770,7 @@ fn classify_chain(chain: &str) -> Option<(String, &'static str)> {
                 if !name.contains('.') {
                     if CAPABILITY_NAMES.contains(&name) {
                         let status = if FILE_GATED_NAMES.contains(&name) {
-                            "提供*（文件门控，生产未注册）"
+                            "提供*（需要文件访问授权）"
                         } else {
                             "提供"
                         };
@@ -940,7 +944,7 @@ fn test_static_capability_reconciliation() {
     let dir = sweep_dir();
     let mut md = String::new();
     md.push_str(&format!(
-        "# 静态能力对账报告\n\n- 语料：`{}`（{} 源）\n- 含 JS 片段源数：{}\n- 耗时：{:.2}s\n- 能力面快照：quickjs_impl.rs {} 个宿主函数（双挂载 java.*/裸全局）\n- 文件门控（生产未注册）：{}\n\n",
+        "# 静态能力对账报告\n\n- 语料：`{}`（{} 源）\n- 含 JS 片段源数：{}\n- 耗时：{:.2}s\n- 能力面快照：quickjs_impl.rs {} 个宿主函数（双挂载 java.*/裸全局）\n- 文件门控（需要访问授权）：{}\n\n",
         corpus_path().display(),
         total,
         src_has_js,

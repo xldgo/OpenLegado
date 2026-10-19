@@ -54,6 +54,8 @@ pub struct HttpOptions {
 /// HTTP 响应（用于 `ajax` 通用接口返回）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpResponse {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub raw_summary: String,
     /// HTTP 状态码
     pub status_code: u16,
     /// 响应体文本
@@ -535,6 +537,7 @@ pub(crate) fn connect_no_redirect_with_timeout(
             .await
             .map_err(|e| format!("connectNR request error: {}", e))?;
         let result = HttpResponse {
+            raw_summary: String::new(),
             status_code: resp.status,
             body: resp.body,
             headers: resp.headers,
@@ -576,6 +579,7 @@ pub fn head_full(
             .await
             .map_err(|e| format!("head request error: {}", e))?;
         let result = HttpResponse {
+            raw_summary: String::new(),
             status_code: resp.status,
             body: resp.body,
             headers: resp.headers,
@@ -618,6 +622,7 @@ pub fn post_full(
             .await
             .map_err(|e| format!("post request error: {}", e))?;
         let result = HttpResponse {
+            raw_summary: String::new(),
             status_code: resp.status,
             body: resp.body,
             headers: resp.headers,

@@ -59,6 +59,7 @@ fn finish(
 fn failed(url: &str, error: String, code: i32) -> BatchResponse {
     BatchResponse {
         response: HttpResponse {
+            raw_summary: String::new(),
             status_code: 200,
             body: error,
             headers: Default::default(),

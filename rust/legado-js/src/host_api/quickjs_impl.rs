@@ -236,14 +236,14 @@ fn register_apis_with_binding<'js>(
     register_time_apis(ctx, &java, &globals)?;
     // 文件 API 仅在 allow_file_access = true 时注册（安全门控）
     if config.allow_file_access {
-        register_file_apis(ctx, &java, &globals, &http)?;
+        register_file_apis(ctx, &java, &globals, &http, &host.cache)?;
     }
     register_variable_apis(ctx, &java, &globals, &variables)?;
     // P2-11 ①：book 绑定写路径桥（java-only；FFI web_book IIFE 经
     // `java.__lgBook*` 探测后落 variable_store 裸键持久层）
     register_book_binding_bridges(ctx, &java, &variables)?;
     register_utility_apis(ctx, &java, &globals)?;
-    register_network_apis(ctx, &java, &globals, &http)?;
+    register_network_apis(ctx, &java, &globals, &http, &host.webview)?;
     register_cookie_apis(ctx, &java, &globals, &http)?;
     register_crypto_apis(ctx, &java, &globals)?;
     // java.security.MessageDigest（纯 Rust md-5/sha1/sha2）：Packages 模拟层
@@ -257,8 +257,8 @@ fn register_apis_with_binding<'js>(
     register_config_apis(ctx, &java, &globals, &host.config)?;
     register_concurrency_apis(ctx, &java, &globals, &host.concurrency)?;
     register_misc_apis(ctx, &java, &globals, &http, &host.webview)?;
-    register_archive_apis(ctx, &java, &globals, &http)?;
-    register_font_apis(ctx, &java, &globals, &http)?;
+    register_archive_apis(ctx, &java, &globals, &http, config.allow_file_access)?;
+    super::font_bridge::register(ctx, &java, &globals, &http, config.allow_file_access)?;
     // 全局 cache 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存，对齐 WebCacheManager）
     register_cache_apis(ctx, &java, &globals, &host.cache)?;
 
@@ -339,8 +339,6 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     let shim = r#"
 (function () {
   function toU8(x) { return (x instanceof Uint8Array) ? x : new Uint8Array(x); }
-  function toJsonBytes(u8) { var a = []; for (var i = 0; i < u8.length; i++) a.push(u8[i]); return JSON.stringify(a); }
-  function fromJsonBytes(json) { return new Uint8Array(JSON.parse(json)); }
   // JSString —— Rhino NativeJavaObject（java.lang.String）模拟体。
   // toString/valueOf → 内容本身（字符串 coercion 路径：拼接、String()、
   // 模板插值、JSON.parse 参数均取回内容）。
@@ -359,7 +357,7 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     var self = {
       toString: function () { return s; },
       valueOf: function () { return s; },
-      getBytes: function (charset) { return fromJsonBytes(java.strToBytes(s, charset || 'UTF-8')); },
+      getBytes: function (charset) { return java.strToBytes(s, charset || 'UTF-8'); },
       substring: function (start, end) {
         return end === undefined ? s.substring(start) : s.substring(start, end);
       },
@@ -382,7 +380,7 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
   }
   function JavaString() {
     var a0 = arguments.length > 0 ? arguments[0] : undefined;
-    var isBytes = (a0 instanceof Uint8Array) || Array.isArray(a0);
+    var isBytes = (a0 instanceof Uint8Array) || (a0 instanceof Int8Array) || Array.isArray(a0);
     // 两种调用形态一律返回 JSString **对象**（2026-09-26 小小阅读 jsLib
     // 第二层定案，双基准裁决 .tmp/crosscheck_20260927/verdict.md 引擎缺口
     // 再深一层——Rhino WrapFactory javaPrimitiveWrap 默认 true）：
@@ -412,18 +410,18 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
       var off4 = Number(arguments[1]) || 0;
       var len4 = Number(arguments[2]) || 0;
       var sub4 = toU8(a0).slice(off4, off4 + len4);
-      var r4 = java.bytesToStr(toJsonBytes(sub4), String(arguments[3]));
+      var r4 = java.bytesToStr(sub4, String(arguments[3]));
       s = String(r4);
     } else if (arguments.length === 3 && isBytes) {
       var off3 = Number(arguments[1]) || 0;
       var len3 = Number(arguments[2]) || 0;
       var sub3 = toU8(a0).slice(off3, off3 + len3);
-      s = String(java.bytesToStr(toJsonBytes(sub3), 'UTF-8'));
+      s = String(java.bytesToStr(sub3, 'UTF-8'));
     } else if (arguments.length >= 2 && isBytes) {
-      var r = java.bytesToStr(toJsonBytes(toU8(a0)), String(arguments[1]));
+      var r = java.bytesToStr(toU8(a0), String(arguments[1]));
       s = String(r);
     } else if (arguments.length === 1 && isBytes) {
-      s = String(java.bytesToStr(toJsonBytes(toU8(a0)), 'UTF-8'));
+      s = String(java.bytesToStr(toU8(a0), 'UTF-8'));
     } else {
       s = String(arguments[0]);
     }
@@ -506,7 +504,7 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
       },
       size: function () { return len; },
       close: function () {},
-      toString: function () { return String(java.bytesToStr(toJsonBytes(this.toByteArray()), 'UTF-8')); }
+      toString: function () { return String(java.bytesToStr(this.toByteArray(), 'UTF-8')); }
     };
   }
   // P2-9 ① java.io.InputStream 最小面（语料 favcomic decode 路径，索引 703）：
@@ -548,11 +546,11 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
     if (str !== null) {
       if (typeof globalThis.java !== 'undefined' && globalThis.java &&
           typeof globalThis.java.strToBytes === 'function') {
-        var json = String(globalThis.java.strToBytes(str, 'UTF-8'));
-        if (json.indexOf('[ERROR]') === 0) {
-          throw new Error('java.io.InputStream: 字符串输入转字节失败（java.strToBytes: ' + json + '）');
+        var encoded = globalThis.java.strToBytes(str, 'UTF-8');
+        if (!(encoded instanceof Uint8Array)) {
+          throw new TypeError('java.io.InputStream: 字符串编码未返回字节数组');
         }
-        return fromJsonBytes(json);
+        return new Uint8Array(encoded);
       }
       throw new Error('java.io.InputStream: 字符串输入需宿主 java.strToBytes 转换，当前不可用');
     }
@@ -650,11 +648,13 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
   // getInstance 登记台账 + 抛可读文案，不静默产出空摘要）；纯 Rust 计算走
   // java.messageDigestDigest(algo, bytes)。Java 语义：digest() 复位状态
   // （本 shim 直接重置 buf，与「一次 digest 后实例即重置」一致）；
-  // update/digest 均返回 this 以支持链式。
+  // update返回this支持链式，digest返回摘要字节数组。
   function JSMMessageDigestInstance(algo) {
     var buf = new Uint8Array(0);
     function append(chunk) {
-      var c = toU8(chunk || []);
+      if (chunk === null || chunk === undefined) { throw new TypeError('摘要输入不能为null'); }
+      // slice先验证原视图，拒绝分离/越界缓冲；失败时buf尚未改变。
+      var c = Uint8Array.prototype.slice.call(toU8(chunk));
       var nb = new Uint8Array(buf.length + c.length);
       nb.set(buf, 0);
       nb.set(c, buf.length);
@@ -983,8 +983,9 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
       }
     },
     android: { util: { Base64: {
+      DEFAULT: 0, NO_PADDING: 1, NO_WRAP: 2, CRLF: 4, URL_SAFE: 8, NO_CLOSE: 16,
       decode: function (s, flags) { return java.base64DecodeToByteArray(String(s), flags || 0); },
-      encodeToString: function (bytes, flags) { return java.base64EncodeBytes(toU8(bytes)); }
+      encodeToString: function (bytes, flags) { return java.base64EncodeBytes(toU8(bytes), flags === undefined ? 0 : flags); }
     } },
     // 语料 Packages.android.text.TextUtils.isEmpty（#135 阅文）——Kotlin 语义：
     // `cs == null || cs.length == 0`（空串/未传 → true，非空 → false）— 3b-5
@@ -1086,16 +1087,15 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
   // Kotlin digestHex/md5Encode/md5Encode16 返回 `String`：Rhino 里经
   // WrapFactory 包为 NativeJavaObject（Java String 方法面可调：
   // length()/substring()/getBytes()…，字符串 coercion 即内容）。
-  // 宿主绑定本体是严格 &str 入参 + JS 原始串出参（Rust 侧 digest_hex /
-  // md5_encode 不动），此处以 JS 包装层补 Rhino 语义：入参先 String()
-  // 强转（JSString 经 valueOf → 内容，Uint8Array 等其它形态亦不直送
-  // Rust 侧严格转换），返回值统一 JSString 包装。
+  // digestHex的入参由Rust TextArg执行非null检查与Rhino字符串转换；
+  // 不在这里String(null)绕过检查。md5Encode系列保留既有String强转。
+  // 返回值统一用JSString补齐Java String方法面。
   // 仅替换 java 命名空间绑定；裸全局镜像保持原始串语义（engine.rs
   // test_host_api_md5_encode 等既有断言钉住裸全局 md5Encode/md5Encode16
   // 返回原始串，且语料 URL 模板拼接经 toString/valueOf 强转两形态一致）。
   var origDigestHex = java.digestHex;
   java.digestHex = function (data, algo) {
-    return JSString(origDigestHex(String(data), String(algo)));
+    return JSString(origDigestHex(data, algo));
   };
   var origMd5Encode = java.md5Encode;
   java.md5Encode = function (s) {
@@ -1185,6 +1185,7 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
     var finalUrl = (r && r.url) || '';
     var h = (r && r.headers) || {};
     var raw = {
+      __summary: r.raw_summary,
       request: function () {
         return { url: function () { return finalUrl; } };
       },
@@ -1501,139 +1502,7 @@ fn register_encoding_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // base64Encode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "base64Encode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::base64_encode(&s)
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64Decode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "base64Decode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::base64_decode(&s).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64Decoder(str) -> String — base64Decode 别名（#561 语料期望；
-    // 上游无此符号，登记为兼容 shim：解码口径与 base64Decode 完全一致）
-    mount_dual(
-        java,
-        globals,
-        "base64Decoder",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::base64_decode(&s).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64DecodeToByteArray(str, flags?) -> Uint8Array（字节数组）
-    // 对应 Kotlin: base64DecodeToByteArray(str?, flags=0): ByteArray?
-    // 空白输入返回 null（对齐 Kotlin 的 null 返回）；flags 兼容 Android URL_SAFE(8)
-    // flags 上游为非空 Int（:648）：按 Rhino 原始 int 语义宽松（字符串数字可），
-    // 缺参 → None → 默认 0（W4 / 探针 CASE 2/4/21）。
-    mount_dual(
-        java,
-        globals,
-        "base64DecodeToByteArray",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>,
-             s: RhinoStr,
-             flags: RhinoOptInt|
-             -> rquickjs::Result<rquickjs::Value<'js>> {
-                use rquickjs::IntoJs;
-                if s.trim().is_empty() {
-                    // 对齐 Kotlin：isNullOrBlank -> null
-                    return Ok(rquickjs::Value::new_null(ctx.clone()));
-                }
-                let bytes = encoding::base64_decode_bytes_with_flags(&s, flags.0.unwrap_or(0))
-                    .map_err(|e| rquickjs::Error::FromJs {
-                        from: "String",
-                        to: "Uint8Array",
-                        message: Some(e),
-                    })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), bytes)?;
-                arr.into_js(&ctx)
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexDecodeToByteArray(str) -> Uint8Array（字节数组）
-    // P2-9 ①：语料 `java.hexDecodeToByteArray`（8/5），上游
-    // JsExtensions.kt:666-668 `hexDecodeToByteArray(str): ByteArray?`。
-    // 与 base64DecodeToByteArray 同一字节数组约定（空输入 → null，
-    // 非法 hex → 可捕获的 FromJs 错误，JS 侧 try/catch 降级）。
-    mount_dual(
-        java,
-        globals,
-        "hexDecodeToByteArray",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>, s: RhinoStr| -> rquickjs::Result<rquickjs::Value<'js>> {
-                use rquickjs::IntoJs;
-                if s.trim().is_empty() {
-                    return Ok(rquickjs::Value::new_null(ctx.clone()));
-                }
-                let bytes =
-                    encoding::hex_decode_bytes(&s).map_err(|e| rquickjs::Error::FromJs {
-                        from: "String",
-                        to: "Uint8Array",
-                        message: Some(e),
-                    })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), bytes)?;
-                arr.into_js(&ctx)
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexEncode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "hexEncode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::hex_encode(&s)
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexEncodeToString(str) -> String — hexEncode 别名（#324 长佩语料，
-    // 对齐上游 HexUtil.encodeHexStr 命名；输出同为小写 hex）
-    mount_dual(
-        java,
-        globals,
-        "hexEncodeToString",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::hex_encode(&s)
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexDecode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "hexDecode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            // 容错：非合法 hex 原样返回（书山等源可能传入已解码文本）
-            match encoding::hex_decode(&s) {
-                Ok(v) => v,
-                Err(_) => s.0,
-            }
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    super::binary_encoding_bridge::register(ctx, java, globals)?;
 
     // sha256(str) -> String
     mount_dual(
@@ -1646,202 +1515,62 @@ fn register_encoding_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // encodeURI(str, enc?) -> String（对齐原版双参重载：燃文等源
-    // java.encodeURI(String(key), "UTF8") 依赖；缺第二参默认 UTF-8）
-    mount_dual(
-        java,
-        globals,
+    // java.encodeURI是表单编码；全局encodeURI保留QuickJS原生语义。
+    java.set(
         "encodeURI",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr, enc: RhinoOptStr| -> String {
-            match enc.0 {
-                Some(e) => encoding::encode_uri_charset(&s, &e),
-                None => encoding::encode_uri(&s),
-            }
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |s: crate::quickjs_bytes::TextArg, enc: crate::quickjs_bytes::CharsetArg| -> String {
+                encoding::encode_uri_charset(&s.0, enc.0.as_deref().unwrap_or("UTF-8"))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    )
+    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // encodeURIComponent(value) -> String（JS 标准语义：保留 -_.!~*'()）
-    // [UI-fix 2026-08-10 | Reasonix] 对齐原版 Rhino 内建：yckceo 书源
-    // （思兔 sto66 等）searchUrl 模板 {{encodeURIComponent(key)}} 依赖此函数，
-    // 缺失致表达式求值失败 → URL 残缺 → 搜索无结果
-    // [MessageDigest 批次 2026-09-25] 入参由严格 String 改为 JS 语义 Coerced 强转：
-    // 七猫 jsLib 的 qmUrl 对非字符串值（page:1 为 JS int）调用
-    // encodeURIComponent(params[k])，Rhino/JS 原生 encodeURIComponent(1) 会 ToString
-    // 成 "1"，而宿主严格 String 签名抛 `Error converting from js 'int' into type
-    // 'string'` → qmSearch('测试',1) 整条 searchUrl 失败。改用 Coerced<String>
-    //（JS_ToString）对齐 JS 规范 ToString 语义（int/bool/null/undefined 均强转）。
-    mount_dual(
-        java,
-        globals,
+    // 既有java扩展复用引擎原生函数；不重写ToString、保留字符及URIError。
+    java.set(
         "encodeURIComponent",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |s: rquickjs::Coerced<std::string::String>| -> String {
-                encoding::encode_uri_component(&s.0)
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+        globals
+            .get::<_, rquickjs::Function>("encodeURIComponent")
+            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+    )
+    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // hmacMd5(data, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacMd5",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr, key: RhinoStr| -> String {
-            encoding::hmac_md5(&data, &key).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    super::digest_bridge::register(ctx, java, globals)?;
 
-    // hmacSha256(data, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacSha256",
-        rquickjs::Function::new(ctx.clone(), |data: RhinoStr, key: RhinoStr| -> String {
-            encoding::hmac_sha256(&data, &key).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // digestHex(data, algorithm) -> String
-    mount_dual(
-        java,
-        globals,
-        "digestHex",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr| -> String {
-                encoding::digest_hex(&data, &algorithm).unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // digestBase64Str(data, algorithm) -> String
-    mount_dual(
-        java,
-        globals,
-        "digestBase64Str",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr| -> String {
-                encoding::digest_base64_str(&data, &algorithm)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hmacHex(data, algorithm, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacHex",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr, key: RhinoStr| -> String {
-                encoding::hmac_hex(&data, &algorithm, &key)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hmacBase64(data, algorithm, key) -> String
-    mount_dual(
-        java,
-        globals,
-        "hmacBase64",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr, key: RhinoStr| -> String {
-                encoding::hmac_base64(&data, &algorithm, &key)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // HMacBase64(data, algorithm, key) -> String
-    // #135 阅文 QDSign：java.HMacBase64(sign, "HMAC-SHA1", aid).slice(0, -4)
-    // 对齐上游 JsExtensions 的 JCA 风格命名（JS 属性访问大小写敏感，
-    // 与 hmacBase64 共存）；算法名归一支持 "HMAC-SHA1"/"HmacSHA1"
-    // （见 encoding::normalize_hmac_algorithm）。
-    mount_dual(
-        java,
-        globals,
-        "HMacBase64",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |data: RhinoStr, algorithm: RhinoStr, key: RhinoStr| -> String {
-                encoding::hmac_base64(&data, &algorithm, &key)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // strToBytes(str, charset?) -> String (JSON array)
+    // strToBytes(str, charset?) -> Uint8Array
     mount_dual(
         java,
         globals,
         "strToBytes",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr, charset: RhinoOptStr| -> String {
-            encoding::str_to_bytes(&s, charset.0.as_deref())
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'js>,
+             s: crate::quickjs_bytes::TextArg,
+             charset: crate::quickjs_bytes::CharsetArg| {
+                let bytes = encoding::str_to_bytes(&s.0, charset.0.as_deref())
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                rquickjs::TypedArray::<u8>::new(ctx, bytes)
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // bytesToStr(bytesJson, charset?) -> String
+    // bytesToStr(bytes, charset?) -> String
     mount_dual(
         java,
         globals,
         "bytesToStr",
         rquickjs::Function::new(
             ctx.clone(),
-            |bytes_json: RhinoStr, charset: RhinoOptStr| -> String {
-                encoding::bytes_to_str(&bytes_json, charset.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+            |ctx: rquickjs::Ctx<'js>,
+             bytes: crate::quickjs_bytes::ByteArray,
+             charset: crate::quickjs_bytes::CharsetArg| {
+                encoding::bytes_to_str(&bytes.0, charset.0.as_deref())
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64EncodeBytes(bytes) -> String（字节数组 → Base64）
-    // Packages 模拟层 android.util.Base64.encodeToString 依赖
-    mount_dual(
-        java,
-        globals,
-        "base64EncodeBytes",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |bytes: rquickjs::TypedArray<u8>| -> rquickjs::Result<String> {
-                let data = crate::quickjs_bytes::copy_bytes(&bytes)
-                    .ok_or_else(|| rquickjs::Error::new_from_js("detached Uint8Array", "bytes"))?;
-                Ok(encoding::base64_encode_bytes(&data))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexDecodeToString(hex) -> String（书山聚合等源把 hex 编码响应还原为 JSON；
-    // 对应 Kotlin HexUtil.decodeHexStr / hexDecodeToString）
-    // 容错：输入非合法 hex 时**原样返回**（书山 toc_body 可能是 hex 或已解码文本；
-    // 绝不可返回 "[ERROR]..." 前缀——会被 JS 当源码执行报 syntax error）
-    mount_dual(
-        java,
-        globals,
-        "hexDecodeToString",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            match encoding::hex_decode(&s) {
-                Ok(v) => v,
-                Err(_) => s.0,
-            }
-        })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -1858,8 +1587,8 @@ fn register_string_apis<'js>(
         java,
         globals,
         "urlencode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            string_utils::urlencode(&s)
+        rquickjs::Function::new(ctx.clone(), |s: crate::quickjs_bytes::TextArg| -> String {
+            string_utils::urlencode(&s.0)
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -1868,9 +1597,13 @@ fn register_string_apis<'js>(
         java,
         globals,
         "urldecode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            string_utils::urldecode(&s)
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'js>, s: crate::quickjs_bytes::TextArg| {
+                string_utils::urldecode(&s.0)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2076,9 +1809,9 @@ fn register_time_apis<'js>(
         java,
         globals,
         "timeFormat",
-        rquickjs::Function::new(ctx.clone(), |ts: RhinoLong| -> String {
+        rquickjs::Function::new(ctx.clone(), |ctx: rquickjs::Ctx<'js>, ts: RhinoLong| {
             time_utils::format_time(ts.0, Some("%Y/%m/%d %H:%M"))
-                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2089,16 +1822,13 @@ fn register_time_apis<'js>(
         "timeFormatUTC",
         rquickjs::Function::new(
             ctx.clone(),
-            // ts/sh 上游为非空 Long/Int（:686）：Rhino 原始数值宽松（W4 探针）
-            |ts: RhinoLong, format: RhinoStr, sh: RhinoInt| -> String {
-                // 对齐 Kotlin SimpleTimeZone(sh, "UTC")：sh 为毫秒偏移
-                let fmt = if format.is_empty() {
-                    None
-                } else {
-                    Some(format.as_str())
-                };
-                time_utils::format_time_utc(ts.0, fmt, sh.0)
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+            // ts/sh保留Rhino数值转换，格式为非空String；空格式不能变成默认值。
+            |ctx: rquickjs::Ctx<'js>,
+             ts: RhinoLong,
+             format: crate::quickjs_bytes::TextArg,
+             sh: RhinoInt| {
+                time_utils::format_time_utc(ts.0, Some(&format.0), sh.0)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2136,13 +1866,16 @@ fn register_file_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     http: &std::sync::Arc<crate::http_resources::HttpResources>,
+    cache: &std::sync::Arc<super::cache_store::CacheStore>,
 ) -> Result<(), LegadoError> {
     mount_dual(
         java,
         globals,
         "readFile",
-        rquickjs::Function::new(ctx.clone(), |path: RhinoStr| -> String {
-            file_utils::read_file(&path).unwrap_or_default()
+        rquickjs::Function::new(ctx.clone(), |ctx: rquickjs::Ctx<'js>, path: RhinoStr| {
+            let bytes = file_utils::read_file_bytes(&path)
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+            super::archive_read::bytes_to_js(&ctx, bytes)
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2184,16 +1917,15 @@ fn register_file_apis<'js>(
         "readTxtFile",
         rquickjs::Function::new(
             ctx.clone(),
-            |path: RhinoStr, charset: RhinoOptStr| -> String {
-                file_utils::read_txt_file(&path, charset.0.as_deref()).unwrap_or_default()
+            |ctx: rquickjs::Ctx<'js>, path: RhinoStr, charset: RhinoOptStr| {
+                file_utils::read_txt_file(&path, charset.0.as_deref())
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // downloadFile 重载对齐 Kotlin JsExtensions：
-    // - downloadFile(url) / downloadFile(url, fileName?)
-    // - downloadFile(contentHex, url)（@Deprecated：十六进制内容落盘）
+    // 只按参数数量区分上游的一参数下载与两参数十六进制落盘。
     mount_dual(
         java,
         globals,
@@ -2202,22 +1934,19 @@ fn register_file_apis<'js>(
             let http = http.clone();
             rquickjs::Function::new(
                 ctx.clone(),
-                move |arg1: RhinoStr, arg2: RhinoOptStr| -> String {
-                    match arg2.0.as_deref() {
-                        None => file_utils::download_file(&http, &arg1, None)
-                            .unwrap_or_else(|e| format!("[ERROR] {}", e)),
-                        Some(second)
-                            if second.starts_with("http://")
-                                || second.starts_with("https://")
-                                || second.contains(",{") =>
-                        {
-                            // 废弃重载：content(hex) + url
-                            file_utils::download_file_from_hex(&arg1, second)
-                                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                move |ctx: rquickjs::Ctx<'js>,
+                      first: RhinoStr,
+                      rest: rquickjs::function::Rest<rquickjs::Value<'js>>| {
+                    use rquickjs::FromJs;
+                    let result = match rest.0.as_slice() {
+                        [] => super::file_download::download(&ctx, &http, &first, None),
+                        [second] if !second.is_null() && !second.is_undefined() => {
+                            let url = RhinoStr::from_js(&ctx, second.clone())?;
+                            super::file_download::download(&ctx, &http, &url, Some(&first))
                         }
-                        Some(file_name) => file_utils::download_file(&http, &arg1, Some(file_name))
-                            .unwrap_or_else(|e| format!("[ERROR] {}", e)),
-                    }
+                        _ => Err("downloadFile仅接受url或contentHex,url".into()),
+                    };
+                    result.map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
                 },
             )
         }
@@ -2272,30 +2001,52 @@ fn register_file_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // cacheFile(url) -> String
+    // 文本缓存与脚本导入共享所有者和期限，不把下载路径作为正文返回。
     mount_dual(
         java,
         globals,
         "cacheFile",
         {
             let http = http.clone();
-            rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-                file_utils::cache_file(&http, &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
-            })
+            let cache = cache.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>,
+                      url: RhinoStr,
+                      rest: rquickjs::function::Rest<rquickjs::Value<'js>>| {
+                    use rquickjs::FromJs;
+                    let seconds = match rest.0.as_slice() {
+                        [] => 0,
+                        [value] => RhinoInt::from_js(&ctx, value.clone())?.0,
+                        _ => {
+                            return Err(rquickjs::Exception::throw_message(
+                                &ctx,
+                                "cacheFile仅接受url和可选秒数",
+                            ));
+                        }
+                    };
+                    super::file_download::cache_text(&ctx, &http, &cache, &url, seconds)
+                        .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                },
+            )
         }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // importScript(url) -> String
     mount_dual(
         java,
         globals,
         "importScript",
         {
             let http = http.clone();
-            rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-                file_utils::import_script(&http, &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
-            })
+            let cache = cache.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>, path: RhinoStr| {
+                    super::file_download::import(&ctx, &http, &cache, &path)
+                        .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                },
+            )
         }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2305,9 +2056,13 @@ fn register_file_apis<'js>(
         java,
         globals,
         "getTxtInFolder",
-        rquickjs::Function::new(ctx.clone(), |folder_path: RhinoStr| -> String {
-            file_utils::get_txt_in_folder(&folder_path).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
+        rquickjs::Function::new(
+            ctx.clone(),
+            |ctx: rquickjs::Ctx<'js>, folder_path: RhinoStr| {
+                file_utils::get_txt_in_folder(&folder_path)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+            },
+        )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -2700,9 +2455,11 @@ fn register_network_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     resources: &std::sync::Arc<crate::http_resources::HttpResources>,
+    manager: &std::sync::Arc<legado_core::webview_channel::WebViewManager>,
 ) -> Result<(), LegadoError> {
     // httpGet(url, headers?) -> String
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2710,8 +2467,12 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, headers: RhinoOptStr| -> String {
-                network::http_get(&http.request(), &url, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::http_get(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2719,6 +2480,7 @@ fn register_network_apis<'js>(
 
     // httpPost(url, body, headers?) -> String
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2726,8 +2488,13 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
-                network::http_post(&http.request(), &url, &body, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::http_post(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    &body,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2735,12 +2502,14 @@ fn register_network_apis<'js>(
 
     // httpHead(url) -> String（响应头 JSON）
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
         "httpHead",
         rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-            network::http_head(&http.request(), &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
+            network::http_head(&http.request_with_webview(&webview), &url)
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2756,6 +2525,7 @@ fn register_network_apis<'js>(
     // connect 的可空 Long（同为上游 `callTimeout: Long?`）同款；缺参/显式
     // null → None（arity 由 FromParam::optional 保留，单参形态不回归）。
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2771,7 +2541,7 @@ fn register_network_apis<'js>(
                         .map_err(|e| e.to_string())
                         .and_then(|evaluator| {
                             network::ajax_with_evaluator(
-                                &http.request(),
+                                &http.request_with_webview(&webview),
                                 &options.0,
                                 timeout_ms,
                                 &evaluator,
@@ -2842,6 +2612,7 @@ fn register_network_apis<'js>(
 
     // 内部 JSON 交由响应桥包装；普通批次失败抛异常并释放全部在途请求。
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2853,7 +2624,7 @@ fn register_network_apis<'js>(
                   skip_rate_limit: Opt<bool>|
                   -> rquickjs::Result<String> {
                 super::batch_request::run(
-                    &http.request(),
+                    &http.request_with_webview(&webview),
                     &urls.0,
                     None,
                     false,
@@ -2873,6 +2644,7 @@ fn register_network_apis<'js>(
     // jsHelp.md:212 的 `Int?` 系过时文档）：装箱数值 + Rhino 探针实测严格
     // （字符串数字报「方法不存在」）；使用可选Long并在发送前验证范围
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2888,13 +2660,14 @@ fn register_network_apis<'js>(
                 let result = network::call_timeout_to_request_timeout(timeout_ms.0).and_then(|timeout| {
                     let evaluator=super::rule_request::ContextEvaluator::new(ctx).map_err(|e|e.to_string())?;
                     network::connect_with_evaluator(
-                        &http.request(), &url, method.0.as_deref(), headers.0.as_deref(),
+                        &http.request_with_webview(&webview), &url, method.0.as_deref(), headers.0.as_deref(),
                         body.0.as_deref(), timeout, Some(&evaluator),
                     )
                 });
                 result.unwrap_or_else(|error| {
                     // 仅JS兼容面使用上游StrResponse(url,error)的合成状态，不代表真实HTTP成功。
                     serde_json::json!({
+                        "raw_summary": format!("Response{{protocol=http/1.1, code=200, message=OK, url={}}}", url::Url::parse(&url).map(|u|u.to_string()).unwrap_or_else(|_|"http://localhost/".into())),
                         "status_code": 200,
                         "body": format!("[ERROR] {error}"),
                         "headers": {},
@@ -2909,6 +2682,7 @@ fn register_network_apis<'js>(
     // connectNR(url, method?, headers?, body?, timeoutMs?) -> String（完整响应 JSON，不跟随重定向）
     // 对齐原版 jsoup followRedirects(false)：java.get/post/head 拦截重定向需读 Location 头
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2925,7 +2699,7 @@ fn register_network_apis<'js>(
                 let timeout_ms = network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
                     .map_err(|e| rquickjs::Exception::throw_message(&ctx, &e))?;
                 network::connect_no_redirect_with_timeout(
-                    &http.request(),
+                    &http.request_with_webview(&webview),
                     &url,
                     method.0.as_deref(),
                     headers.0.as_deref(),
@@ -2941,6 +2715,7 @@ fn register_network_apis<'js>(
     // head(url, headers?) -> String（完整响应 JSON）
     // 对应 Kotlin: head(urlStr, headers): Connection.Response
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2948,8 +2723,12 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, headers: RhinoOptStr| -> String {
-                network::head_full(&http.request(), &url, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::head_full(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -2958,6 +2737,7 @@ fn register_network_apis<'js>(
     // post(url, body, headers?) -> String（完整响应 JSON）
     // 对应 Kotlin: post(urlStr, body, headers): Connection.Response
     let http = resources.clone();
+    let webview = manager.clone();
     mount_dual(
         java,
         globals,
@@ -2965,8 +2745,13 @@ fn register_network_apis<'js>(
         rquickjs::Function::new(
             ctx.clone(),
             move |url: RhinoStr, body: RhinoStr, headers: RhinoOptStr| -> String {
-                network::post_full(&http.request(), &url, &body, headers.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                network::post_full(
+                    &http.request_with_webview(&webview),
+                    &url,
+                    &body,
+                    headers.0.as_deref(),
+                )
+                .unwrap_or_else(|e| format!("[ERROR] {}", e))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -3401,7 +3186,7 @@ fn register_crypto_apis<'js>(
 ///   shim 侧 `JSMMessageDigestInstance` 累积字节、`digest()` 收尾时一次性传入
 ///   本宿主函数（与 Java 增量语义等价）。
 ///
-/// 支持 MD5/SHA-1/SHA-256/SHA-512（语料 3 命中实际用法，见 message_digest 模块）；
+/// 算法集合与字符串摘要共用，见message_digest模块；
 /// 未知算法在本函数返回 Err、shim 侧转可读文案 + 台账，不静默产出空摘要。
 #[cfg(feature = "quickjs")]
 fn register_message_digest_apis<'js>(
@@ -3420,31 +3205,21 @@ fn register_message_digest_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // messageDigestDigest(algo, bytes) -> Uint8Array（字节数组，非 hex 串）
+    // 字节转换必须失败即拒绝，不能把失效视图静默作为空摘要输入。
     mount_dual(
         java,
         globals,
         "messageDigestDigest",
         rquickjs::Function::new(
             ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>,
-             algo: RhinoStr,
-             data: rquickjs::TypedArray<u8>|
-             -> rquickjs::Result<rquickjs::Value<'js>> {
+            |ctx: rquickjs::Ctx<'js>, algo: RhinoStr, data: crate::quickjs_bytes::ByteArray| {
                 use rquickjs::IntoJs;
-                let data_b = crate::quickjs_bytes::copy_bytes(&data).unwrap_or_default();
-                let out = message_digest::digest_bytes(&algo, &data_b).map_err(|e| {
-                    rquickjs::Error::FromJs {
-                        from: "MessageDigest",
-                        to: "Uint8Array",
-                        message: Some(e),
-                    }
-                })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), out)?;
-                arr.into_js(&ctx)
+                let out = message_digest::digest_bytes(&algo, &data.0)
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                rquickjs::TypedArray::new(ctx.clone(), out)?.into_js(&ctx)
             },
         )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
     )?;
 
     Ok(())
@@ -3803,13 +3578,11 @@ fn register_html_parse_apis<'js>(
 
 /// 注册全局 `cache` 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存）
 ///
-/// 对齐上游 WebCacheManager（help/WebCacheManager.kt:171-206）JS 面：
+/// 对齐上游 CacheManager.kt 中 WebCacheManager 的 JS 面：
 /// put / putMemory / getFromMemory / deleteMemory / get(onlyDisk) /
-/// putFile / getFile / delete。后端为 `cache_store` 模块的进程级
-/// LRU 内存 + 磁盘文件，语义对齐 CacheManager.kt:60-98：
-/// - saveTime <= 0 → 仅内存（putMemory），永久有效
-/// - saveTime > 0  → 磁盘条目 + 截止时间，读取时过期即删
-/// - putFile/getFile：磁盘裸文件，无过期
+/// putFile / getFile / delete。后端由所属资源的CacheStore持有：
+/// - put的内存/磁盘共用期限；get可选择只读磁盘
+/// - putFile/getFile为独立文件层，0永久、非零期限按秒持久化，过期即删
 ///
 /// 值统一字符串化后存储（上游 WebCacheManager 存 String；对象值
 /// 走 JSON.stringify 为兼容超集）；缺失键返回显式 **null**
@@ -3825,7 +3598,7 @@ fn register_cache_apis<'js>(
         rquickjs::Object::new(ctx.clone()).map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
     // put(key, value, saveTime?) -> bool
-    // saveTime<=0 语义对齐 CacheManager.kt:60-98：仅内存、无过期
+    // 普通put两层共用期限；0永久，负数立即过期，putMemory仍为独立永久值。
     // saveTime 上游为非空原始 Int（CacheManager.kt:60；WebCacheManager.put :172
     // 同为 `saveTime: Int = 0`，@JvmOverloads 缺省 0）：按 Rhino 原始 int 语义
     // 宽松（字符串数字可；缺参 → None → 0 — W4 探针），域判定与 int 同
@@ -3986,7 +3759,7 @@ fn register_cache_apis<'js>(
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // putFile(key, value) -> bool（磁盘裸文件，无过期）
+    // putFile(key, value, saveTime?) -> bool（文件层，期限按秒）
     cache
         .set(
             "putFile",
@@ -3996,9 +3769,14 @@ fn register_cache_apis<'js>(
                     ctx.clone(),
                     move |ctx: rquickjs::Ctx<'js>,
                           key: RhinoStr,
-                          value: rquickjs::Value<'js>|
+                          value: rquickjs::Value<'js>,
+                          save_time: RhinoOptInt|
                           -> bool {
-                        cache_store.put_file(&key, &stringify_cache_value(&ctx, &value))
+                        cache_store.put_file(
+                            &key,
+                            &stringify_cache_value(&ctx, &value),
+                            save_time.0.unwrap_or(0),
+                        )
                     },
                 )
             }
@@ -4350,6 +4128,7 @@ fn register_misc_apis<'js>(
         "ajaxTestAll",
         {
             let http = resources.clone();
+            let webview = manager.clone();
             rquickjs::Function::new(
                 ctx.clone(),
                 move |ctx: rquickjs::Ctx<'js>,
@@ -4361,7 +4140,7 @@ fn register_misc_apis<'js>(
                         network::call_timeout_to_request_timeout(timeout.0.map(i64::from))
                             .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
                     super::batch_request::run(
-                        &http.request(),
+                        &http.request_with_webview(&webview),
                         &urls.0,
                         timeout,
                         true,
@@ -4770,20 +4549,27 @@ fn register_archive_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     http: &std::sync::Arc<crate::http_resources::HttpResources>,
+    allow_file_access: bool,
 ) -> Result<(), LegadoError> {
     // unzipFile / unArchiveFile(zipPath) -> String（解压目标目录）
     // 对应 Kotlin: unzipFile → unArchiveFile；空路径返回空串
     let unarchive = rquickjs::Function::new(
         ctx.clone(),
-        |ctx: rquickjs::Ctx<'_>, zip_path: RhinoStr| -> rquickjs::Result<String> {
+        move |ctx: rquickjs::Ctx<'_>, zip_path: RhinoStr| -> rquickjs::Result<String> {
             if zip_path.is_empty() {
                 return Ok(String::new());
+            }
+            if !allow_file_access {
+                return Err(rquickjs::Exception::throw_message(
+                    &ctx,
+                    "档案解压需要文件访问授权",
+                ));
             }
             match archive_utils::un_archive_file(&zip_path, None) {
                 Err(e) if e == archive_utils::RAR_UNSUPPORTED => {
                     Err(rquickjs::Exception::throw_message(&ctx, &e))
                 }
-                result => Ok(result.unwrap_or_else(|e| format!("[ERROR] {e}"))),
+                result => result.map_err(|error| rquickjs::Exception::throw_message(&ctx, &error)),
             }
         },
     )
@@ -4799,24 +4585,47 @@ fn register_archive_apis<'js>(
         .set("unArchiveFile", unarchive)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // getZipStringContent(url, path, charsetName?) -> String
-    // 对应 Kotlin: getZipStringContent(url, path[, charsetName])；
-    // url 可为本地 ZIP 路径 / 网络 URL / 十六进制字符串；失败返回空串（对齐 Kotlin）
-    mount_dual(
-        java,
-        globals,
-        "getZipStringContent",
-        {
-            let http = http.clone();
+    // 文字与字节入口共用来源/条目读取，禁止异常被伪装成缺失内容。
+    use super::archive_read::{ArchiveKind, bytes_to_js, read_entry};
+    for (name, kind, binary) in [
+        ("getZipStringContent", ArchiveKind::Zip, false),
+        ("getZipByteArrayContent", ArchiveKind::Zip, true),
+        ("get7zStringContent", ArchiveKind::SevenZip, false),
+        ("get7zByteArrayContent", ArchiveKind::SevenZip, true),
+    ] {
+        let http = http.clone();
+        mount_dual(
+            java,
+            globals,
+            name,
             rquickjs::Function::new(
                 ctx.clone(),
-                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                    get_zip_string_content_js(&http, &url, &entry, charset.0.as_deref())
+                move |ctx: rquickjs::Ctx<'js>,
+                      source: RhinoStr,
+                      entry: RhinoStr,
+                      charset: RhinoOptStr|
+                      -> rquickjs::Result<rquickjs::Value<'js>> {
+                    use rquickjs::IntoJs;
+                    let bytes =
+                        read_entry(&ctx, &http, &source, &entry, kind, allow_file_access)
+                            .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                    if binary {
+                        bytes_to_js(&ctx, bytes)
+                    } else {
+                        let text = match bytes {
+                            Some(bytes) => file_utils::decode_text(&bytes, charset.0.as_deref())
+                                .map_err(|error| {
+                                    rquickjs::Exception::throw_message(&ctx, &error)
+                                })?,
+                            None => String::new(),
+                        };
+                        text.into_js(&ctx)
+                    }
                 },
             )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+            .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
+        )?;
+    }
 
     // un7zFile(7zPath, outputPath?) -> String（解压目标目录）
     // 使用 sevenz-rust2 纯 Rust 实现解压 7z 格式
@@ -4826,9 +4635,15 @@ fn register_archive_apis<'js>(
         "un7zFile",
         rquickjs::Function::new(
             ctx.clone(),
-            |seven_z_path: RhinoStr, output_path: RhinoOptStr| -> String {
+            move |ctx: rquickjs::Ctx<'js>, seven_z_path: RhinoStr, output_path: RhinoOptStr| {
+                if !allow_file_access {
+                    return Err(rquickjs::Exception::throw_message(
+                        &ctx,
+                        "档案解压需要文件访问授权",
+                    ));
+                }
                 archive_utils::un7z_file(&seven_z_path, output_path.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4855,243 +4670,35 @@ fn register_archive_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // get7zStringContent(url, path, charsetName?) -> String
-    // 对应 Kotlin: get7zStringContent(url, path[, charsetName])；
-    // url 可为本地 7z 路径 / 网络 URL / 十六进制字符串；失败返回空串（对齐 Kotlin）
-    mount_dual(
-        java,
-        globals,
-        "get7zStringContent",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(
-                ctx.clone(),
-                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                    get_7z_string_content_js(&http, &url, &entry, charset.0.as_deref())
-                },
-            )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
     // 不解析来源、不发请求、不创建临时目录，避免读条目接口绕过停用边界。
-    mount_dual(
-        java,
-        globals,
-        "getRarStringContent",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'_>,
-             _url: RhinoStr,
-             _entry: RhinoStr,
-             _charset: RhinoOptStr|
-             -> rquickjs::Result<String> {
-                Err(rquickjs::Exception::throw_message(
-                    &ctx,
-                    archive_utils::RAR_UNSUPPORTED,
-                ))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    Ok(())
-}
-
-/// getZipStringContent 的 JS 入口实现：解析 ZIP 来源并读取指定条目的字符串内容
-///
-/// 对应 Kotlin `getZipByteArrayContent` + `getZipStringContent`：
-/// - 绝对 URL → 经 legado-net 下载 ZIP 字节
-/// - 本地存在的文件路径 → 直接读取
-/// - 其余按十六进制字符串解码
-///   失败时记录日志并返回空串（对齐 Kotlin `log("getZipContent 未发现内容")` + `return ""`）
-fn get_zip_string_content_js(
-    http: &crate::http_resources::HttpResources,
-    url: &str,
-    entry: &str,
-    charset: Option<&str>,
-) -> String {
-    let bytes = match resolve_zip_bytes(http, url) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("[getZipStringContent] ZIP 来源解析失败: {e}");
-            return String::new();
-        }
-    };
-    match archive_utils::zip_entry_bytes(&bytes, entry) {
-        Ok(b) => decode_bytes_with_charset(&b, charset),
-        Err(e) => {
-            eprintln!("[getZipStringContent] {e}");
-            String::new()
-        }
-    }
-}
-
-/// 解析 getZipStringContent 的 ZIP 来源为字节数据
-fn resolve_zip_bytes(
-    http: &crate::http_resources::HttpResources,
-    source: &str,
-) -> Result<Vec<u8>, String> {
-    resolve_archive_bytes(http, source, "ZIP")
-}
-
-/// get7zStringContent 的 JS 入口实现：解析 7z 来源并读取指定条目的字符串内容
-///
-/// 对应 Kotlin `get7zByteArrayContent` + `get7zStringContent`；
-/// 失败时记录日志并返回空串（对齐 Kotlin `?: return ""`）
-fn get_7z_string_content_js(
-    http: &crate::http_resources::HttpResources,
-    url: &str,
-    entry: &str,
-    charset: Option<&str>,
-) -> String {
-    let bytes = match resolve_archive_bytes(http, url, "7z") {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("[get7zStringContent] 7z 来源解析失败: {e}");
-            return String::new();
-        }
-    };
-    match archive_utils::seven_z_entry_bytes(&bytes, entry) {
-        Ok(b) => decode_bytes_with_charset(&b, charset),
-        Err(e) => {
-            eprintln!("[get7zStringContent] {e}");
-            String::new()
-        }
-    }
-}
-
-/// 解析压缩档案来源为字节数据（ZIP / 7z / RAR 共用）
-fn resolve_archive_bytes(
-    http: &crate::http_resources::HttpResources,
-    source: &str,
-    kind: &str,
-) -> Result<Vec<u8>, String> {
-    // 网络 URL 使用本资源的二进制响应，不经字符串转换。
-    if source.starts_with("http://") || source.starts_with("https://") {
-        return super::runtime_bridge::block_on_cancellable(async {
-            // 同一资源复用连接池，保持回环直连策略。
-            let client = http
-                .client_for_url(source, false)
-                .map_err(|e| format!("网络客户端初始化失败: {e}"))?;
-            client
-                .get_raw(source, None)
-                .await
-                .map(|response| response.body)
-                .map_err(|e| format!("{kind} 下载失败: {e}"))
-        });
-    }
-    // 本地文件路径
-    let path = std::path::Path::new(source);
-    if path.exists() {
-        return std::fs::read(path).map_err(|e| format!("读取本地 {kind} 文件失败: {e}"));
-    }
-    // 十六进制字符串（对齐 Kotlin HexUtil.decodeHex 分支）
-    hex::decode(source).map_err(|e| format!("十六进制 {kind} 数据解析失败: {e}"))
-}
-
-/// 按指定字符集解码 ZIP 条目字节
-///
-/// Kotlin 侧默认用 EncodingDetect 自动探测编码；Rust 侧未指定字符集时
-/// 优先按严格 UTF-8 解码，非法则 lossy 回退；指定字符集时用 encoding_rs 解码
-fn decode_bytes_with_charset(bytes: &[u8], charset: Option<&str>) -> String {
-    match charset {
-        Some(cs) if !cs.trim().is_empty() => {
-            match encoding_rs::Encoding::for_label(cs.trim().as_bytes()) {
-                Some(enc) => {
-                    let (decoded, _, _) = enc.decode(bytes);
-                    decoded.into_owned()
-                }
-                None => String::from_utf8_lossy(bytes).into_owned(),
-            }
-        }
-        _ => String::from_utf8(bytes.to_vec())
-            .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()),
-    }
-}
-
-/// 注册字体 API
-///
-/// 对应 Kotlin 端 `JsExtensions` 中的 queryTTF / queryBase64TTF / replaceFont 方法。
-fn register_font_apis<'js>(
-    ctx: &rquickjs::Ctx<'js>,
-    java: &rquickjs::Object<'js>,
-    globals: &rquickjs::Object<'js>,
-    http: &std::sync::Arc<crate::http_resources::HttpResources>,
-) -> Result<(), LegadoError> {
-    // queryTTF(data, useCache?) -> String（字体句柄 JSON）
-    // 对应 Kotlin: queryTTF(data: Any?, useCache: Boolean): QueryTTF?
-    // useCache 上游为非空 Boolean（:1014）：Rhino 布尔严格（W4 探针）
-    mount_dual(
-        java,
-        globals,
-        "queryTTF",
-        {
-            let http = http.clone();
+    for name in ["getRarStringContent", "getRarByteArrayContent"] {
+        mount_dual(
+            java,
+            globals,
+            name,
             rquickjs::Function::new(
                 ctx.clone(),
-                move |data: RhinoStr, use_cache: Opt<bool>| -> String {
-                    http.fonts().query_ttf(
-                        &|url| http.download_font(url),
-                        &data,
-                        use_cache.0.unwrap_or(true),
-                    )
+                |ctx: rquickjs::Ctx<'_>,
+                 _url: RhinoStr,
+                 _entry: RhinoStr,
+                 _charset: RhinoOptStr|
+                 -> rquickjs::Result<String> {
+                    Err(rquickjs::Exception::throw_message(
+                        &ctx,
+                        archive_utils::RAR_UNSUPPORTED,
+                    ))
                 },
             )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // queryBase64TTF(data) -> String（已废弃，等价于 queryTTF）
-    // 对应 Kotlin: @Deprecated queryBase64TTF(data): QueryTTF?
-    mount_dual(
-        java,
-        globals,
-        "queryBase64TTF",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(ctx.clone(), move |data: RhinoStr| -> String {
-                http.fonts()
-                    .query_base64_ttf(&|url| http.download_font(url), &data)
-            })
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // replaceFont(text, errorFontData, correctFontData, filter?) -> String
-    // 对应 Kotlin: replaceFont(text, errorQueryTTF, correctQueryTTF, filter): String
-    // filter 上游为非空 Boolean（:1068/:1105）：Rhino 布尔严格（W4 探针）
-    mount_dual(
-        java,
-        globals,
-        "replaceFont",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(
-                ctx.clone(),
-                move |text: RhinoStr,
-                      error_font: RhinoStr,
-                      correct_font: RhinoStr,
-                      filter: Opt<bool>|
-                      -> String {
-                    http.fonts().replace_font(
-                        &|url| http.download_font(url),
-                        &text,
-                        &error_font,
-                        &correct_font,
-                        filter.0.unwrap_or(false),
-                    )
-                },
-            )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        )?;
+    }
 
     Ok(())
 }
 
 #[cfg(test)]
 mod resource_network_tests {
+    use crate::host_api::file_utils;
     use crate::host_api::font_api::tests::{Segment, build_minimal_ttf};
     use crate::{JsEngine, QuickJsEngine, SandboxConfig};
     use std::io::{Read, Write};
@@ -5197,29 +4804,23 @@ mod resource_network_tests {
             .unwrap();
             let url = quote(&format!("{base}/auto.js"));
             let cached = vm.eval(&format!("java.cacheFile({url})")).unwrap();
-            assert_eq!(
-                vm.eval(&format!("java.readFile({})", quote(&cached)))
-                    .unwrap(),
-                owner
-            );
+            assert_eq!(cached, owner);
             assert_eq!(
                 vm.eval(&format!("java.importScript({url})")).unwrap(),
                 owner
             );
             assert_eq!(vm.eval(&format!("java.cacheFile({url})")).unwrap(), cached);
-            let file_name = format!("resource_download_{}_{}.bin", std::process::id(), owner);
             let downloaded = vm
                 .eval(&format!(
-                    "java.downloadFile({}, {})",
-                    quote(&format!("{base}/file.bin")),
-                    quote(&file_name)
+                    "java.downloadFile({})",
+                    quote(&format!("{base}/file.bin"))
                 ))
                 .unwrap();
+            let downloaded = file_utils::resolve_safe_path(&downloaded).unwrap();
             assert_eq!(
                 std::fs::read(&downloaded).unwrap(),
                 [vec![0xff, 0x00, 0x80], owner.as_bytes().to_vec()].concat()
             );
-            std::fs::remove_file(downloaded).unwrap();
             assert_eq!(
                 vm.eval(&format!(
                     "java.getZipStringContent({}, 'owner.txt')",
@@ -5245,10 +4846,7 @@ mod resource_network_tests {
             )
             .unwrap();
             assert_eq!(result[0]["statusCode"], 200);
-            let files_dir = std::path::PathBuf::from(cached)
-                .parent()
-                .unwrap()
-                .to_path_buf();
+            let files_dir = downloaded.parent().unwrap().to_path_buf();
             held.push((vm, files_dir));
         }
         server.join().unwrap();
@@ -5974,15 +5572,195 @@ cipher.decryptStr(b64);
     #[test]
     fn test_java_str_to_bytes() {
         let engine = make_engine();
-        let result = engine.eval("java.strToBytes('Hello')").unwrap();
+        let result = engine
+            .eval("JSON.stringify(Array.from(java.strToBytes('Hello')))")
+            .unwrap();
         assert_eq!(result, "[72,101,108,108,111]");
+    }
+
+    #[test]
+    fn byte_conversion_returns_typed_bytes_and_decodes_without_json() {
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(
+                    r#"
+            var b=java.strToBytes('中文','GBK');
+            JSON.stringify([b instanceof Uint8Array,Array.from(b),bytesToStr(b,'GBK'),
+                strToBytes('') instanceof Uint8Array,bytesToStr(new Uint8Array(0))]);
+        "#
+                )
+                .unwrap(),
+            "[true,[214,208,206,196],\"中文\",true,\"\"]"
+        );
+    }
+
+    #[test]
+    fn byte_conversion_rejects_invalid_inputs_and_unknown_charsets() {
+        let engine = make_engine();
+        for arg in [
+            "null",
+            "undefined",
+            "'[65]'",
+            "[128]",
+            "[-129]",
+            "[true]",
+            "[NaN]",
+            "[Infinity]",
+            "[null]",
+            "new Uint16Array([65])",
+        ] {
+            assert!(
+                engine.eval(&format!("java.bytesToStr({arg})")).is_err(),
+                "{arg}必须抛错"
+            );
+        }
+        assert_eq!(engine.eval("java.bytesToStr(['65',66.9])").unwrap(), "AB");
+        for code in [
+            "java.strToBytes('text','unknown-charset')",
+            "java.bytesToStr(new Uint8Array([65]),'unknown-charset')",
+        ] {
+            assert!(engine.eval(code).is_err(), "{code}");
+        }
+        for code in [
+            "java.strToBytes(null)",
+            "java.strToBytes('x',null)",
+            "java.strToBytes('x',undefined)",
+            "java.bytesToStr([],null)",
+            "java.bytesToStr([],undefined)",
+        ] {
+            assert!(engine.eval(code).is_err(), "{code}");
+        }
+    }
+
+    #[test]
+    fn byte_conversion_respects_views_and_rejects_detached_or_out_of_bounds_buffers() {
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(
+                    r#"
+            var raw=new Uint8Array([0,214,208,0]);
+            JSON.stringify([java.bytesToStr(raw.subarray(1,3),'GBK'),
+                java.bytesToStr(new Int8Array(raw.buffer,1,2),'GBK'),
+                String(new java.lang.String(new Int8Array(raw.buffer,1,2),'GBK'))]);
+        "#
+                )
+                .unwrap(),
+            "[\"中\",\"中\",\"中\"]"
+        );
+        for setup in [
+            "var buffer=new ArrayBuffer(2);var view=new Uint8Array(buffer);buffer.transfer();",
+            "var buffer=new ArrayBuffer(2,{maxByteLength:4});var view=new Uint8Array(buffer,1,1);buffer.resize(0);",
+        ] {
+            engine.eval(setup).unwrap();
+            assert!(engine.eval("java.bytesToStr(view)").is_err());
+        }
+        assert_eq!(engine.eval(r#"
+            var changing=new Uint8Array([65]);
+            java.bytesToStr(changing,{toString:function(){changing.buffer.transfer();return 'UTF-8';}});
+        "#).unwrap(),"A");
+        assert_eq!(
+            engine
+                .eval("java.bytesToStr(java.strToBytes('恢复'))")
+                .unwrap(),
+            "恢复"
+        );
+    }
+
+    #[test]
+    fn byte_conversion_utf16_matches_java_and_keeps_java_wrappers() {
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval("JSON.stringify(Array.from(java.strToBytes('中😀','GBK')))")
+                .unwrap(),
+            "[214,208,63]"
+        );
+        for (label, expected) in [
+            ("UTF-16", "[254,255,78,45,216,61,222,0]"),
+            ("UTF-16LE", "[45,78,61,216,0,222]"),
+            ("UTF-16BE", "[78,45,216,61,222,0]"),
+        ] {
+            assert_eq!(
+                engine
+                    .eval(&format!(
+                        "JSON.stringify(Array.from(java.strToBytes('中😀','{label}')))"
+                    ))
+                    .unwrap(),
+                expected
+            );
+            assert_eq!(
+                engine
+                    .eval(&format!(
+                        "java.bytesToStr(java.strToBytes('中😀','{label}'),'{label}')"
+                    ))
+                    .unwrap(),
+                "中😀"
+            );
+        }
+        assert_eq!(
+            engine
+                .eval(
+                    r#"
+            var s=new java.lang.String(java.strToBytes('中文'));
+            var input=new Packages.java.io.InputStream(s);
+            var output=new Packages.java.io.ByteArrayOutputStream();
+            var b=new Uint8Array(6);var n=input.read(b);output.write(b,0,n);
+            JSON.stringify([s.getBytes() instanceof Uint8Array,output.toString(),s.substring(0,1)]);
+        "#
+                )
+                .unwrap(),
+            "[true,\"中文\",\"中\"]"
+        );
+    }
+
+    #[test]
+    fn byte_conversion_reads_files_and_archive_entries_directly() {
+        let path = create_zip_for_js(&[("text", "中文".as_bytes())]);
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.bytesToStr(java.getZipByteArrayContent({},'text'))",
+                    js_str(&path)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        let name = format!("bytes_{}", uuid::Uuid::new_v4());
+        let file = crate::host_api::file_utils::default_sandbox_root().join(&name);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "中文").unwrap();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.bytesToStr(java.readFile({}))",
+                    js_str(&name)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        std::fs::remove_file(file).unwrap();
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+        let path = create_7z_for_js(&[("text", "中文".as_bytes())]);
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.bytesToStr(java.get7zByteArrayContent({},'text'))",
+                    js_str(&path)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
     }
 
     #[test]
     fn test_java_bytes_to_str() {
         let engine = make_engine();
         let result = engine
-            .eval("java.bytesToStr('[72,101,108,108,111]')")
+            .eval("java.bytesToStr([72,101,108,108,111])")
             .unwrap();
         assert_eq!(result, "Hello");
     }
@@ -6153,52 +5931,46 @@ cipher.decryptStr(b64);
     #[test]
     fn test_java_query_ttf() {
         let engine = make_engine();
-        let result = engine
-            .eval("java.queryTTF('https://example.com/font.ttf')")
-            .unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "url");
-        // 真实实现：字体下载/解析失败时句柄标记 valid=false（降级）
-        assert_eq!(parsed["valid"], false);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/font.ttf", listener.local_addr().unwrap());
+        drop(listener);
+        assert!(
+            engine
+                .eval(&format!(
+                    "java.queryTTF({})",
+                    serde_json::to_string(&url).unwrap()
+                ))
+                .is_err()
+        );
     }
-
     #[test]
     fn test_java_query_ttf_empty() {
-        let engine = make_engine();
-        let result = engine.eval("java.queryTTF('')").unwrap();
-        assert_eq!(result, "null");
+        assert!(make_engine().eval("java.queryTTF('')").is_err());
     }
-
     #[test]
     fn test_java_query_base64_ttf() {
-        let engine = make_engine();
-        let result = engine.eval("java.queryBase64TTF('AAECAwQF')").unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        // 真实实现：非法 base64 字体解析失败 → valid=false
-        assert_eq!(parsed["valid"], false);
+        assert!(
+            make_engine()
+                .eval("java.queryBase64TTF('AAECAwQF')")
+                .is_err()
+        );
     }
-
     #[test]
     fn test_java_replace_font_null_handles() {
-        let engine = make_engine();
-        let result = engine
-            .eval("java.replaceFont('hello', 'null', 'null')")
-            .unwrap();
-        assert_eq!(result, "hello");
+        assert_eq!(
+            make_engine()
+                .eval("java.replaceFont('hello',null,null)")
+                .unwrap(),
+            "hello"
+        );
     }
-
     #[test]
-    fn test_java_replace_font_stub() {
-        let engine = make_engine();
-        // 句柄无效（下载失败）时降级原样返回，与 Kotlin null 句柄分支一致
-        let result = engine
-            .eval(
-                "var e = java.queryTTF('https://e.com/f.ttf'); \
-                 var c = java.queryTTF('https://c.com/f.ttf'); \
-                 java.replaceFont('测试', e, c)",
-            )
-            .unwrap();
-        assert_eq!(result, "测试");
+    fn test_java_replace_font_rejects_forged_handles() {
+        assert!(
+            make_engine()
+                .eval("java.replaceFont('测试','null','null')")
+                .is_err()
+        );
     }
 
     #[test]
@@ -6382,6 +6154,165 @@ cipher.decryptStr(b64);
         let engine = make_engine();
         let result = engine.eval("typeof java.unzipFile").unwrap();
         assert_eq!(result, "function");
+    }
+
+    #[test]
+    fn archive_read_binary_missing_and_errors_are_distinct() {
+        let path = create_zip_for_js(&[("binary", &[0, 128, 255]), ("empty", &[])]);
+        let engine = make_engine();
+        let code = format!(
+            r#"
+            var archive={};
+            JSON.stringify([Array.from(java.getZipByteArrayContent(archive,'binary')),
+                Array.from(getZipByteArrayContent(archive,'empty')),
+                java.getZipByteArrayContent(archive,'missing'),
+                java.getZipStringContent(archive,'missing')]);
+        "#,
+            js_str(&path)
+        );
+        assert_eq!(engine.eval(&code).unwrap(), "[[0,128,255],[],null,\"\"]");
+        for code in [
+            "java.getZipStringContent('invalid-hex','entry')",
+            "java.get7zStringContent('00010203','entry')",
+        ] {
+            assert!(engine.eval(code).is_err(), "{code}");
+        }
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_automatic_encoding_and_invalid_charset() {
+        let text = "这是用于检测中文小说编码的正文，山川河流与人物故事。";
+        let (gbk, _, _) = encoding_rs::GBK.encode(text);
+        let path = create_zip_for_js(&[("chapter", &gbk)]);
+        let engine = make_engine();
+        let code = format!("java.getZipStringContent({},'chapter')", js_str(&path));
+        assert_eq!(engine.eval(&code).unwrap(), text);
+        let code = format!(
+            "java.getZipStringContent({},'chapter','invalid-charset')",
+            js_str(&path)
+        );
+        assert!(engine.eval(&code).is_err());
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_file_bytes_and_text_errors_reach_script() {
+        let root = crate::host_api::file_utils::default_sandbox_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let name = format!("archive_read_{}.bin", uuid::Uuid::new_v4());
+        let path = root.join(&name);
+        std::fs::write(&path, [0, 128, 255]).unwrap();
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "JSON.stringify(Array.from(java.readFile({})))",
+                    js_str(&name)
+                ))
+                .unwrap(),
+            "[0,128,255]"
+        );
+        let text = "这是用于检测中文小说编码的正文，山川河流与人物故事。";
+        let (gbk, _, _) = encoding_rs::GBK.encode(text);
+        std::fs::write(&path, gbk.as_ref()).unwrap();
+        assert_eq!(
+            engine
+                .eval(&format!("java.readTxtFile({})", js_str(&name)))
+                .unwrap(),
+            text
+        );
+        assert!(engine.eval("java.readTxtFile('../outside')").is_err());
+        let error = engine
+            .eval(&format!(
+                "java.readTxtFile({},'unknown-charset')",
+                js_str(&name)
+            ))
+            .unwrap_err();
+        assert!(error.to_string().contains("不支持的字符集"));
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(
+            engine
+                .eval(&format!("java.readFile({})===null", js_str(&name)))
+                .unwrap(),
+            "true"
+        );
+    }
+
+    #[test]
+    fn archive_read_local_source_obeys_file_access_gate() {
+        let path = create_zip_for_js(&[("secret", b"local")]);
+        let engine = QuickJsEngine::new(SandboxConfig::default()).unwrap();
+        assert!(
+            engine
+                .eval(&format!(
+                    "java.getZipStringContent({},'secret')",
+                    js_str(&path)
+                ))
+                .is_err()
+        );
+        let hex = hex::encode(std::fs::read(&path).unwrap());
+        assert_eq!(
+            engine
+                .eval(&format!("java.getZipStringContent('{hex}','secret')"))
+                .unwrap(),
+            "local"
+        );
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_seven_zip_binary_hex_and_rar_rejection() {
+        let path = create_7z_for_js(&[("binary", &[0, 128, 255]), ("empty", &[])]);
+        let hex = hex::encode(std::fs::read(&path).unwrap());
+        let engine = make_engine();
+        assert_eq!(engine.eval(&format!(r#"
+            JSON.stringify([Array.from(java.get7zByteArrayContent('{hex}','binary')),
+                Array.from(get7zByteArrayContent('{hex}','empty')),
+                java.get7zByteArrayContent('{hex}','missing'),get7zStringContent('{hex}','missing')]);
+        "#)).unwrap(), "[[0,128,255],[],null,\"\"]");
+        for method in ["getRarStringContent", "getRarByteArrayContent"] {
+            let error = engine
+                .eval(&format!(
+                    "java.{method}('http://127.0.0.1:1/never','entry')"
+                ))
+                .unwrap_err();
+            assert!(error.to_string().contains(archive_utils::RAR_UNSUPPORTED));
+        }
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_crc_failure_and_bom_decode() {
+        let path = create_zip_for_js(&[
+            ("crc", b"payload-CRC"),
+            ("bom", &[0xff, 0xfe, 0x2d, 0x4e, 0x87, 0x65]),
+        ]);
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.getZipStringContent({},'bom')",
+                    js_str(&path)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        let mut bytes = std::fs::read(&path).unwrap();
+        let position = bytes
+            .windows(b"payload-CRC".len())
+            .position(|s| s == b"payload-CRC")
+            .unwrap();
+        bytes[position] ^= 1;
+        assert!(
+            engine
+                .eval(&format!(
+                    "java.getZipStringContent('{}','crc')",
+                    hex::encode(bytes)
+                ))
+                .is_err()
+        );
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
     }
 
     #[test]
@@ -6677,9 +6608,8 @@ cipher.decryptStr(b64);
     #[test]
     fn test_bare_query_ttf() {
         let engine = make_engine();
-        let result = engine.eval("queryTTF('/fonts/test.ttf')").unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "file");
+        assert!(engine.eval("queryTTF('/fonts/test.ttf')").is_err());
+        assert_eq!(engine.eval("queryTTF(null)===null").unwrap(), "true");
     }
 
     // ===== P2-6(e) java.getString 规则分派：绑定级回归测试 =====
@@ -7021,7 +6951,7 @@ cipher.decryptStr(b64);
                 JSON.stringify({
                     len: b.length,
                     c0: b[0],
-                    empty: java.hexDecodeToByteArray('') === null
+                    empty: java.hexDecodeToByteArray('').length === 0
                 });
                 "#,
             )
@@ -7757,11 +7687,76 @@ cipher.decryptStr(b64);
         assert!(result.contains("\"pbNullFalse\":true"), "got: {result}");
     }
 
-    /// 全局 cache 对象（对齐 WebCacheManager）：记忆三件套 + 磁盘/文件缓存
-    ///
-    /// P2-11 ②：取磁盘层测试串行锁——cache_store 注入目录测试会切换
-    /// INJECTED_DIR/env/清理临时目录，互斥防止目录切换/清理干扰本测试
-    /// 磁盘读写。
+    /// 文件缓存期限沿用Rhino可选整数转换；返回值与原有bool保持一致。
+    #[test]
+    fn file_cache_ttl_accepts_optional_seconds_in_quickjs() {
+        let engine = make_engine();
+        let result = engine
+            .eval(
+                r#"
+            cache.putFile('negative','value',-1);
+            cache.putFile('minimum','value',-2147483648);
+            cache.putFile('omitted','permanent');
+            cache.putFile('null','permanent',null);
+            cache.putFile('undefined','permanent',undefined);
+            cache.putFile('string','positive','60');
+            cache.putFile('maximum','long',2147483647);
+            JSON.stringify(['negative','minimum','omitted','null','undefined','string','maximum']
+                .map(function(key){return cache.getFile(key);}));
+        "#,
+            )
+            .unwrap();
+        let values: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(
+            values,
+            serde_json::json!([
+                null,
+                null,
+                "permanent",
+                "permanent",
+                "permanent",
+                "positive",
+                "long"
+            ])
+        );
+    }
+
+    #[test]
+    fn ordinary_cache_ttl_and_explicit_memory_in_quickjs() {
+        let engine = make_engine();
+        let result = engine
+            .eval(
+                r#"
+            cache.put('negative','expired',-1);
+            cache.put('timed','disk','60');
+            var timed = cache.getFromMemory('timed');
+            cache.putMemory('timed','memory');
+            cache.put('omitted','permanent');
+            cache.put('null','permanent',null);
+            cache.put('undefined','permanent',undefined);
+            JSON.stringify([cache.get('negative'), cache.getFromMemory('negative'),
+                cache.get('negative',true), timed, cache.get('timed',true),
+                cache.getFromMemory('timed'), cache.get('omitted'), cache.get('null'),
+                cache.get('undefined')]);
+        "#,
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&result).unwrap(),
+            serde_json::json!([
+                null,
+                null,
+                null,
+                "disk",
+                "disk",
+                "memory",
+                "permanent",
+                "permanent",
+                "permanent"
+            ])
+        );
+    }
+
     #[test]
     fn test_cache_global_roundtrip() {
         let _lock = crate::host_api::cache_store::lock_cache_for_test();

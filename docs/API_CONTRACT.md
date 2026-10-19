@@ -12,6 +12,284 @@
 无Rust/FRB/数据库变更，不改变媒体路由。
 
 编写者：Codex + UI｜2026-10-19
+## JS摘要与HMAC接口（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsEncodeUtils及CryptoUtils.digest/hmac；保留java与裸入口。
+补HMacHex，与既有hmacHex同源；HMacBase64/hmacBase64、hmacMd5/hmacSha256保留。
+摘要与HMAC在已有依赖内支持MD5、SHA-1/224/256/384/512，先计算字节再独立编码为小写Hex或标准带padding、不换行Base64。
+摘要计算复用同一MessageDigest核心，Packages能力预校验与实际计算同步补SHA-224/384；
+宿主算法名继续忽略大小写和连字符，并支持JCA摘要SHA别名；Packages原有更宽的规范化规则保留。
+HMAC保留已确认阅文语料HMAC-SHA1及既有裸SHA1/MD5等别名，不以JDK Provider拼写约束删除兼容。
+String形参null抛错，其他值保持Rhino ToString；undefined数据为字面字符串，未知算法抛异常；
+空数据合法，空密钥按[SecretKeySpec规则](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/javax/crypto/spec/SecretKeySpec.html)拒绝，非空Unicode及超出摘要块长的密钥正常处理。
+java.digestHex维持Java String方法对象，裸digestHex和其他既有接口维持原始字符串；
+包装层不能提前String(null)绕过宿主校验，错误不得变为[ERROR]正文或被包装成有效摘要。
+MessageDigest原生字节入口拒绝失效视图，不把复制失败当空字节；Packages增量面保持原输入数组转换与成功digest后复位，
+null/失效视图的update/digest须失败且保留此前累计内容，不改为新资源句柄或流协议。
+只统一本批已支持算法，不宣称实现JCA全部Provider/别名；不修改AES/RSA、FFI/生成物/schema/依赖或Flutter业务。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS时间格式与负时间戳（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions.timeFormat/timeFormatUTC与AppConst.dateFormat；
+数字格式规则核对[Android SimpleDateFormat](https://developer.android.com/reference/java/text/SimpleDateFormat)与JDK25探针，不把Chrono格式串直接当Java格式。
+timeFormatUTC(time,format,sh)的time/sh沿用Rhino非空long/int转换，sh单位为毫秒，允许非整分钟偏移；
+format为非空String形参，null报错、undefined按字符串转换；空串输出空串，不替换成默认格式。
+本批先以ASCII数字支持常用数值字段y/yy、M/L(1~2位)、d/D/F/u、H/k/K/h/m/s/S、Z、X(1~3位)，
+数字按最小宽度补零，yy截两位，S为完整毫秒值补零而非小数截断；引号字面量、双单引号转义('')和非ASCII文字保留。
+未知格式字母、未闭合单引号及不合法X长度抛可捕获异常，不返回[ERROR]或panic。
+本批按数字范围实施；月份/星期名称、AM/PM、纪元、周历及文本时区依赖Locale，明确报不支持，
+相关扩展等待用户选择，不擅自固定为英文或中文。
+负毫秒时间戳使用正确的秒/毫秒分解；偏移通过checked时间运算应用，越界明确返回错误。
+timeFormat(time)维持系统本地时区和yyyy/MM/dd HH:mm显示；只修正负毫秒与安全错误传播。
+formatTime/parseTime为本地既有扩展，保留Chrono语法、空格式使用原默认、parseTime按UTC及失败返回-1；
+formatTime保持原错误文本约定，但通过可失败写入处理坏格式，禁止Display转String导致panic。
+不引入依赖、不改JS Date内建、FFI/生成物/schema/Flutter或平台配置；不承诺JVM全部Locale/本地化数字/历法/时间范围。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS URL编码与全局内建函数（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions.encodeURI、AnalyzeRule/AnalyzeUrl绑定及Rhino标准作用域。
+java.encodeURI(str[,enc])是Java表单编码：ASCII字母数字及-_.和*保留；
+空格变+，其余连续非安全字符按指定字符集编码后，全部字节用大写%HH表示。
+省略字符集用UTF-8；复用现有UTF-8/GBK/UTF-16等转换能力，UTF-16每个非安全连续段独立带BOM。
+非空String形参遵从既有TextArg/CharsetArg：null抛错，undefined转为字面字符串；
+未知/非法字符集返回空串（上游显式catch），不回退UTF-8、不返回[ERROR]，不吞ToString本身异常。
+全局encodeURI/encodeURIComponent/decodeURI/decodeURIComponent由QuickJS内建提供，
+宿主注册不再覆盖；保留各自保留字符、ToString和畸形代理项URIError语义。
+java.encodeURIComponent既有扩展复用原生函数，不再维护第二份百分号算法；不新增java.decodeURI等扩展。
+urlencode/urldecode为既有本地扩展，不宣称上游同名API：沿用java/裸双入口和单参UTF-8，
+按其声明的Java表单语义共用编解码；urldecode将+还原空格、%2B还原+，坏%HH抛可捕获异常。
+无效UTF-8字节复用既有替换转换，不承诺JVM全部字符集别名、畸形字节替换分组或孤立代理项传入Rust的等价性。
+不修改请求体/AnalyzeUrl、getAbsUrl内部宽松解码、加密算法、FFI/生成物/schema/依赖或Flutter。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS Base64/Hex转换（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions/CryptoUtils/EncoderUtils、Hutool 5.8.22及Android16 Base64。
+沿用java/裸入口；base64Decoder、hexDecode等既有别名保留，无FFI/数据库/依赖变更。
+base64Decode(str?)及(str?,charset)使用Hutool路径：支持缺padding、双字母表及跳过表内无效字节；
+按固定版本对超出查表范围的ASCII报错，不复刻数组越界或Rust panic。null返回空串，undefined按字符串转换。
+第二参数number走Android flags，其余按字符集字符串转换；null字符集抛错，未知编码抛错。
+Android路径接受缺padding和非零尾位，跳过非所选字母表字节，但拒绝错误位置/数量的padding。
+base64DecodeToByteArray(str?,flags?)默认0，null/空白返回null；非空返回Uint8Array。
+base64Encode(str,flags?)及内部base64EncodeBytes默认2，支持NO_PADDING(1)/NO_WRAP(2)/CRLF(4)/URL_SAFE(8)。
+换行按76字符分组，非空且启用换行时含结尾换行；其他位忽略。Android Packages的Base64转发flags及标准常量，Java util原无flags的包装保持不变。
+flags显式值按现有RhinoInt语义转换，省略使用默认；错误抛可捕获异常，不返回[ERROR]正文。
+Hex空字符串解码为长度0的Uint8Array，合法字节到文本使用UTF-8替换无效序列；不污染后续VM状态。
+用户明确裁决移除非法Hex文本原样返回兼容；hexDecode/hexDecodeToString与字节接口统一抛错。
+字体非网络字符串复用同一Hutool路径；不改变字体解析/缓存或AES/DES等加密算法。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS字体输入、请求与缓存（2026-10-19，实施前冻结）
+
+参考固定15e1337a的queryTTF/queryBase64TTF/replaceFont，沿用java与裸别名，无FFI或数据库变更。
+queryTTF支持实际字符串及有效Uint8Array/Int8Array视图；字节输入在JS边界即复制，保留视图范围。
+null/undefined及不支持的Any类型返回真实JS null；空字符串、损坏字体、非法Base64、失效视图和下载失败抛异常。
+HTTP(S)字体规则复用当前VM的AnalyzeUrl与原始HTTP字节管线，支持POST、请求头、Cookie、路由、限流、取消；
+不执行bodyJs/type文本转换/WebView，不增加专用网络实现；规则求值和网络等待不持字体缓存锁。
+并发冷加载可重复请求，完整解析后只发布有效缓存；失败不污染已有解析结果。
+保留既有本地路径扩展，但必须allow_file_access且通过文件沙箱检查，授权与路径检查先于缓存命中。
+queryBase64TTF保留上游字符串重载，委托同一字体查询；不增加本地文件或数据URI的上游承诺。
+成功返回当前QuickJS拥有的字体对象，直接持有Arc解析结果，不暴露JSON重载数据或全局ID。
+replaceFont仅消费真实字体对象或null，无效/伪造对象抛异常，null字体返回原文；不再静默吞下载/解析错误。
+资源缓存容量4，按SHA-256标识及LRU淘汰；useCache=false严格绕过读写，不保留字体磁盘缓存或无限句柄表。
+JS仍持有的字体不因LRU淘汰失效；最后一个JS对象和缓存引用释放后释放解析结果，不二次下载或读取文件。
+useCache/filter省略分别默认true/false，显式传参必须为Boolean；轮廓反查、过滤和空白处理算法不变。
+不扩展QueryTTF的其余Java方法，不改TTF解析器、书源规则、Flutter或平台构建。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS目录文本读取与清理（2026-10-19，实施前冻结）
+
+沿用getTxtInFolder(path)的java/裸别名及allow_file_access门控，无FFI或数据库变更。
+参考固定15e1337a的JsExtensions.kt:828-847：按目录直接子项的枚举顺序读取，不按扩展名过滤、不递归。
+每个文件使用现有文本自动检测解码，以一个换行连接，不额外追加末尾换行；空文件仍保留其分隔位置。
+空字符串直接返回空串且不操作沙箱；空目录返回空串并清理该目录，不复制上游空集合越界错误。
+明确拒绝沙箱根目录及其别名、非目录、目录链接；每个子项须经沙箱校验且指向普通文件。
+子目录、坏链接、越界链接、读取/枚举失败抛可捕获JS异常，不跳过文件、不返回[ERROR]或部分结果。
+所有文件完整读取后才开始清理：只移除已读取的直接子项，再以非递归删除移除空目录。
+读取失败或清理前观察到任务取消时不清理；新出现的未读取子项不递归删除，目录删除失败报错。
+清理不是文件系统事务，清理阶段IO错误可能已移除部分已读项；不承诺外部并发换路径的原子防护。
+不修改deleteFile、压缩解包、下载、缓存、字体或平台接线。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS下载、文本缓存与脚本导入（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions；沿用java/裸别名及allow_file_access门控，无FFI或数据库变更。
+downloadFile(url)复用当前VM的AnalyzeUrl与原始HTTP字节管线，保留POST、来源头、Cookie、路由、限流和取消。
+返回沙箱内相对路径，文件名取原规则字符串MD5中间16位，加type或合法URL后缀（无后缀为ext）。
+downloadFile(contentHex,url)仅为上游废弃重载：用规则type，无type返回空串，不发网络请求。
+删除仓库仅测试使用的自定义文件名重载；不再根据第二参数字符串猜测重载。
+自动下载文件仍属于HttpResources私有目录，销毁资源时清理；扩展名不得用于路径逃逸。
+cacheFile(url,saveTime?)返回自动检测编码后的文本，不返回路径；省略saveTime为0永久，单位秒。
+缓存保存下载路径，文件缺失时重新下载；遵守用户确认的严格期限，两层均受截止时间约束，负值立即过期。
+命中不续期，失败不发布缓存元数据；URL求值和网络等待不持文件锁，锁只协调发布。
+并发未命中可能重复请求；发布前再次检查缓存，已有有效值时复用且不续期。
+importScript(path)对http前缀使用文本缓存，其余按沙箱本地文本读取；空白内容、IO或网络失败抛异常。
+三个接口失败抛可捕获JS异常，不返回[ERROR]正文；取消后不发布下载文件或新缓存路径。
+不执行导入脚本、不新增全局服务，不改getTxtInFolder、字体下载、FFI或平台构建。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS字节转换统一（2026-10-19，实施前冻结）
+
+沿用strToBytes/bytesToStr的java与裸别名，无FFI变更。strToBytes返回Uint8Array，不再暴露JSON字符串。
+bytesToStr接收Uint8Array/Int8Array的有效视图或普通数组，读取当前视图范围；分离/缩容越界缓冲抛异常。
+普通数组按仓库Rhino实测的byte转换：数值向零截断后须在-128..127，允许可转数字字符串；
+拒绝布尔、null/undefined、NaN/无限值及越界项，不将字符串解析为JSON数组。字节视图保留8位位模式。
+UTF-8为默认；只有省略字符集才使用默认，显式null/undefined/未知编码抛异常，不返回[ERROR]正文。
+strToBytes不接受null字符串；转换不进行文本编码自动检测。ISO-8859-1/ASCII按Java字符范围转换，
+无法编码的字符替换为问号，不使用Web编码器的HTML数字实体。
+UTF-16LE/BE分别按指定字节序编码/解码；非空UTF-16编码带BE BOM，空串编码为空字节，解码识别BOM、无BOM用BE。
+原生Java字节数组以Rust脚本宿主现有Uint8Array表示，不复制Rhino的Java对象包装身份。
+java.lang.String/getBytes、字节输入/输出流统一消费字节；移除内部JSON字节中转。
+保持包装对象的字符串方法、输入流拷贝/偏移/mark/reset与现有错误生命周期；不改加密算法、网络、FFI或数据库。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS文件与压缩包读取（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions；沿用既有文件沙箱与资源所有者，不改FFI签名或数据库。
+readFile返回Uint8Array或文件不存在时null；readTxtFile不存在时空串，省略编码自动检测，显式未知编码抛异常。
+ZIP/7z的get*ByteArrayContent返回Uint8Array，条目不存在为null；get*StringContent对应空串。
+损坏档案、无效十六进制、下载/读取失败及不支持的显式编码抛可捕获JS异常，不冒充缺失内容。
+远程档案复用当前VM的AnalyzeUrl准备与HTTP二进制发送：保留来源头、Cookie、路由、期限、限流及取消；
+不经过文本解码、type十六进制转换、bodyJs或WebView正文求值，与上游getByteArray路径一致。
+保留已有本地档案路径扩展；allow_file_access=false时不读取本地档案，网络/十六进制读取仍可用。
+本地普通文件仍经沙箱检查；拒绝词法逃逸及已存在链接指向沙箱外，不承诺抵御外部进程同时替换路径。
+文本自动检测复用现有BOM/统计检测；不保证不同检测库对所有短/歧义文本的结果完全相同。
+两个字节接口同时注册java命名空间与裸别名，RAR三类入口继续在任何IO之前明确拒绝。
+本批不改downloadFile/cacheFile/importScript策略、目录拼接产品规则、文件夹批量读取或原生平台实现。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## 普通JS缓存统一期限（2026-10-19，用户确认的上游差异，实施前冻结）
+
+用户确认cache.put的期限应约束内存与磁盘，明确不保留参考版内存命中绕过磁盘期限的行为。
+沿用cache.put(key,value,saveTime?)、get(key,onlyDisk?)、getFromMemory、putMemory与deleteMemory，无FFI变更。
+put的两层共享写入时刻确定的截止毫秒，0永久、负值已过期；只有当前时间>截止时间才失效，与文件缓存一致。
+成功写入同步保存内存值和期限；磁盘有效命中可回填内存，但保留原截止时间，不延长寿命。
+getFromMemory同样检查put条目的期限；putMemory显式创建无期限内存值，不影响磁盘条目。
+onlyDisk只读取/检查磁盘，不回填内存，也不删除同键显式putMemory的无期限值。
+写盘失败仍返回false并日志限流，内存降级保留同一截止时间；不承诺失败的磁盘写入成功或重启后可用。
+失败写入不保证清除原有有效磁盘条目；onlyDisk仍只反映实际持久化内容。
+deleteMemory只清内存；delete清理内存/普通磁盘/独立文件缓存。目录、LRU容量和引擎归属不变。
+普通磁盘复用值/可选截止时间的内部JSON结构，无法解析的旧条目按未命中处理，不做缓存迁移或协议版本标识。
+本批限定JS缓存；不修改登录专用存储、数据库schema、业务缓存、FFI签名或平台接线。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## JS文件缓存期限（2026-10-19，实施前冻结）
+
+沿用cache.putFile(key,value,saveTime?)与cache.getFile(key)，没有新增FFI字段。
+QuickJS可选期限沿用现有RhinoOptInt转换；省略/null/undefined为0。页内宿主省略/null为0，提供字符串需可解析为i32整数秒。
+0永久，正值为写入时间加秒数，负值已过期；当前时间严格大于截止时间才失效，边界毫秒仍可读。
+getFile过期返回null并移除该文件；重开相同目录保留截止时间，覆盖写入替换旧值和期限。
+文件缓存与内存/普通cache.put层分离；delete同时移除对应各层，独立引擎目录不互相影响。
+文件缓存采用内部JSON值/可选截止时间，不增加协议版本标识；无法按当前结构解析的条目作未命中，由规则重建，不实施旧格式迁移。
+QuickJS保留现有写入bool，页内保留现有void/null；失败仍走原日志/false规则，无内存降级，不扩大为全缓存错误改造。
+本批仅文件缓存期限行为对齐；普通cache.put的已有负值/失败降级规则不在范围内。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## WebView嗅探匹配与结果语义（2026-10-19，实施前冻结）
+
+沿用既有webViewGetSource/webViewGetOverrideUrl请求与WebViewResponse，不增加FFI字段。
+sourceRegex/overrideUrlRegex按整个候选URL匹配，不将任意子串命中视为成功。
+资源嗅探只接受实际加载的资源；Android使用onLoadResource，持续等待首个合法命中、取消或既有总期限。
+未点击的a[href]、未加载的DOM属性不能作为资源结果；加载结束不代表后续动态资源不会出现。
+跳转捕获仅来自实际导航回调，初始URL本身不作为已发生的导航直接返回。
+结果result为命中URL，finalUrl为捕获时所属页面地址（缺失时使用输入URL）；不把资源URL冒充页面地址。
+Flutter回退使用document.URL识别实际文档，避免HTML载入的历史条目about:blank误作Cookie或结果归属。
+空资源规则保留既有空结果，不因本批事件化改为等待完整超时。
+命中/失败/取消仍走既有单次完成与清理，Cookie同步与页内宿主顺序保持，不增加全局监听表。
+Android清理先离开旧文档停止JS定时器，再延迟原生析构；不宣称已发出的网络请求可强制撤回。
+Flutter回退因公开接口无资源事件，限时观察performance资源记录，只保证可观察子集，不宣称等价原生嗅探。
+未完成或响应体未消费的fetch/流式资源可能没有performance记录；不能据此保证早期捕获媒体流。
+正则方言仍分别受Kotlin/Dart实现约束，不声称全部Java正则语法跨平台一致；不实施新缓存/登录功能。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## WebView加载阶段Cookie同步（2026-10-19，实施前冻结）
+
+新增webview_sync_cookies(key, cookies: Map<String,String>) -> Result<bool,BridgeError>。
+平台在加载完成、规则脚本执行前读取当前页面地址和Cookie并等待同步；不结束请求。
+key决定所属请求/引擎，未知、结束、超时、取消key返回false且无副作用；数据或持久化失败上抛。
+Android沿用CookieManager，Flutter回退仅document.cookie可见子集，不宣称读取HttpOnly。
+不得在prompt暂停JS时再次调用页面JS读取Cookie。同步发生在门面、window.result与规则脚本之前。
+每个请求保存已观察的平台Cookie基线，初始请求域取WebViewRequest.cookie；域规则沿用现状。
+中间/最终回传只合并相对该基线新增或值改变的Cookie，避免未变化快照覆盖期间Rust的新值或清除。
+缺失名称不当作删除（回退读取并非完整罐）；平台与Rust均更改同名值时，不承诺获得实际写入时间顺序。
+基线仅活在请求生命周期中，页面结束清理；不添加全局会话表、不修改Cookie数据库schema。
+完成仍等待已有操作，取消不等待IO锁；已开始的同步写入不承诺回滚，失败不会继续规则脚本。
+本批不扩展登录/RSS界面、JS方法或Cookie存储模型，真实Android与iOS证据分别登记。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## 后台WebView页内宿主能力（2026-10-19，实施前冻结）
+
+新增webview_page_call(key, WebViewPageCallDto{target:source|cache|java,method,args:List<String?>})，
+返回单个JSON值文本；动态页内调用经白名单/参数验证，不开放任意eval。请求key唯一确定来源和
+所属引擎，不接受平台另报来源；仅仍有效且已具备HTML/规则接口的请求可调用。结束/过期/取消/
+其他实例key均失败；串行同请求页内调用，完成回传等待已开始操作结束，取消可唤醒正在等待的网络。
+开始后的同步副作用不承诺回滚；取消后不再开始新的写入或发布成功，不写全局当前来源。
+source.get/put、getVariable/putVariable、登录信息/Header复用Rust现有来源键和登录服务；cache
+复用所属JsHostResources.cache，保留内存/磁盘/TTL区别，不建平台镜像，不在完整结果返回时回填快照。
+java.get/put按上游RssJsExtensions委托source；同步ajax/connect/get/head/post和getString/List
+复用Rust网络/解析器，独立执行视图避免重入正在等待WebView的父VM。source.login复用已配置的
+源登录脚本，不打开登录UI。缓存putFile的期限现已按本文“JS文件缓存期限”扩展，统一委托所属CacheStore。
+后台无Activity：java.request异步分派不执行（与参考版后台一致），不补RSS导航/界面回调。
+Android通过原生prompt回调及现有MethodChannel转发，主线程只异步处理；Flutter回退使用
+公开prompt回调保持页内同步返回。两路消费相同Dart参数校验/错误信封与Rust执行，不把失败转空串。
+同步ajax按上游返回错误文本，connect返回上游WebJsExtensions的响应概要字符串；协议取真实响应，
+JS内部响应增加raw_summary供概要读取（不替换正文/字段），没有元数据不伪造真实协议。
+HTTP/1说明取库的标准描述（不保证非标准自定义reason短语），HTTP/2、3无reason；失败使用
+既有合成200概要，不将其当真实HTTP成功。get/head/post及解析失败明确抛出。
+需要配置的调用找不到书源/未提供页内宿主、未知方法和坏参数均显式失败，不伪装成功。真实DOM/平台Cookie/
+原生释放仍需设备验证。本批不改数据库schema、依赖、登录UI或RSS页面。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## URL规则WebView执行（2026-10-19，实施前冻结）
+
+本节取代下方历史批次中“URL规则WebView仍拒绝/未接入”的限制，其余DNS/代理边界不变。
+ajax/connect/ajaxAll/ajaxTestAll共用URL规则分派。type字节模式优先；否则webView为真时，
+POST先执行既有HTTP管线，再将HTML和最终URL交平台，其他方法直接平台加载；bodyJs仅用于
+普通HTTP。源限流只获取一次，批量保序/错误/取消保持。平台加载不声称支持Rust DNS/代理
+覆盖，POST前置HTTP仍消费这些配置；无本宿主订阅明确失败，不改发普通HTTP。
+WebViewRequestDto增加headers字符串映射；action=cancel为Rust取消/超时/放弃发出的控制
+事件，只含key。平台取消清除排队或停止并释放在途页面；取消后不重试或回传成功。
+新增WebViewResponseDto{result,finalUrl,error?,cookies}及webview_complete(key,response)。
+正常空结果有效；error非空表示失败。内部保留finalUrl，HTTP适配生成合成200和空响应头，
+不虚构真实HTTP状态。既有文本提交入口委托同一完成判定；迟到/重复/未知key无Cookie副作用，
+合法认领后先持久化Cookie再唤醒，已开始的提交不强制回滚；finalUrl缺省为请求URL。
+Core提供通知驱动的异步等待，批量不阻塞Tokio worker。HTTP callTimeout只约束前置HTTP，
+WebView独立60秒，规则级WebJS仍10秒。取消释放等待句柄及平台执行。
+最小Dart/平台适配及绑定生成随同交付，不做UI布局或登录重构。Android按key销毁独立实例；
+Flutter回退停止页面、解绑回调并释放控制器引用，不宣称公开API之外的立即原生析构。
+真实DOM、平台Cookie及原生释放需要设备验证，不以模拟回传代替。
+
+编写者：Codex + Bridge｜2026-10-19
+
+## WebJS规则上下文传递（2026-10-19，实施前冻结）
+
+沿用现有WebViewRequest和FRB签名；Parser不依赖JS实现。宿主适配器为规则请求填入
+实际source_tag；QuickJS档从所属HttpResources按本次页面URL读取Cookie，禁止按书源
+URL代替页面域或缓存首个Cookie值。无QuickJS档传递source_tag，沿用无Cookie读者的边界。
+适配闭包只捕获管理器、取消能力及HTTP数据资源，不捕获根Engine、VM缓存或整个JsResources。
+解析器派生子规则时共享已注入的WebView执行能力，显式回调不能被重新推导覆盖。
+WebJS result的JSON保留现有结构化元素语义：普通内容为字符串，标记为元素的合法对象/
+数组保留类型，非法JSON或标量仍为字符串；正常与无头路径使用同一值序列化逻辑。
+保留当前拆链、HTML输入、取消、期限、Cookie回流和无订阅回退；不新增请求头/登录事件、
+WebView URL选项或平台DOM实现。仅Rust行为测试验证，不构建DLL/应用/模拟器。
+
+编写者：Codex + Bridge｜2026-10-19
 
 ## WebView 请求生命周期与结果回传（2026-10-19，实施前冻结）
 
@@ -762,6 +1040,9 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 - 本子批完成不等于监督关闭已完成；R5/R6 的任务资源捕获和关闭协议继续单独推进。
 
 ## 间接下载与字体缓存实例归属（2026-10-16，R4c3 内部边界）
+
+> 本节保留R4c3当时的接线记录。当前脚本下载、缓存、目录与字体行为按顶部2026-10-19契约执行；
+> 旧错误降级、JSON字体句柄/磁盘字体及同URL网络串行规则已被覆盖，资源实例归属原则继续有效。
 
 - 文件下载、cacheFile/importScript、字体与压缩包的网络读取使用所属 HttpResources，
   维持现有方法、超时、代理、重定向、返回结构与错误降级；不隐式加入新的来源 Header 或 CookieJar 开关。

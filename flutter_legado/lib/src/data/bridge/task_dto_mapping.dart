@@ -30,6 +30,7 @@ WebViewRequest webViewFromDto(dto.WebViewRequestDto v) {
   if (v.key.isEmpty) throw const FormatException('通道请求缺少有效key');
   return WebViewRequest(
     key: v.key,
+    headers: Map.unmodifiable(v.headers),
     action: v.action,
     html: v.html,
     url: v.url,

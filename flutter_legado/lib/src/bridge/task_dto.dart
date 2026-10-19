@@ -221,6 +221,33 @@ class VerificationRequestDto {
           createdAtMs == other.createdAtMs;
 }
 
+class WebViewPageCallDto {
+  final WebViewPageTargetDto target;
+  final String method;
+  final List<String?> args;
+
+  const WebViewPageCallDto({
+    required this.target,
+    required this.method,
+    required this.args,
+  });
+
+  @override
+  int get hashCode => target.hashCode ^ method.hashCode ^ args.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebViewPageCallDto &&
+          runtimeType == other.runtimeType &&
+          target == other.target &&
+          method == other.method &&
+          args == other.args;
+}
+
+/// 动态页内方法仍按目标与参数形状分派，不执行任意传入的Rust方法名。
+enum WebViewPageTargetDto { source, cache, java }
+
 class WebViewRequestDto {
   final String key;
   final String action;
@@ -236,6 +263,7 @@ class WebViewRequestDto {
   final String sourceKey;
   final String cookie;
   final BigInt createdAtMs;
+  final Map<String, String> headers;
 
   const WebViewRequestDto({
     required this.key,
@@ -252,6 +280,7 @@ class WebViewRequestDto {
     required this.sourceKey,
     required this.cookie,
     required this.createdAtMs,
+    required this.headers,
   });
 
   @override
@@ -269,7 +298,8 @@ class WebViewRequestDto {
       result.hashCode ^
       sourceKey.hashCode ^
       cookie.hashCode ^
-      createdAtMs.hashCode;
+      createdAtMs.hashCode ^
+      headers.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -289,5 +319,35 @@ class WebViewRequestDto {
           result == other.result &&
           sourceKey == other.sourceKey &&
           cookie == other.cookie &&
-          createdAtMs == other.createdAtMs;
+          createdAtMs == other.createdAtMs &&
+          headers == other.headers;
+}
+
+/// 平台结果信封；错误与正常空结果分开。— Codex + Bridge
+class WebViewResponseDto {
+  final String result;
+  final String finalUrl;
+  final String? error;
+  final Map<String, String> cookies;
+
+  const WebViewResponseDto({
+    required this.result,
+    required this.finalUrl,
+    this.error,
+    required this.cookies,
+  });
+
+  @override
+  int get hashCode =>
+      result.hashCode ^ finalUrl.hashCode ^ error.hashCode ^ cookies.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebViewResponseDto &&
+          runtimeType == other.runtimeType &&
+          result == other.result &&
+          finalUrl == other.finalUrl &&
+          error == other.error &&
+          cookies == other.cookies;
 }

@@ -1,16 +1,39 @@
 import 'dart:convert';
 
+import 'webview_page_bridge.dart';
+
 import '../domain/contracts/webview_bridge_service.dart';
 import '../domain/models/webview_request.dart';
 import '../services/platform_bridge_service.dart';
 
 /// 平台载荷字段映射与Cookie解码不进入监听控件。— Codex + Bridge
 class NativeWebViewRequestExecutor implements WebViewRequestExecutor {
-  NativeWebViewRequestExecutor({required this._dispatch});
+  NativeWebViewRequestExecutor({
+    required this._dispatch,
+    this._cancel,
+    this._pageCall,
+    this._syncCookies,
+  });
+  final Future<String> Function(String, WebViewPageCall)? _pageCall;
+  final Future<bool> Function(String, Map<String, String>)? _syncCookies;
+  final Future<void> Function(String)? _cancel;
+  @override
+  Future<void> cancel(String key) async {
+    await _cancel?.call(key);
+  }
+
   final Future<WebViewEvalOutcome> Function(Map<String, dynamic>) _dispatch;
   @override
   Future<WebViewExecutionResult> execute(WebViewRequest request) async {
     final outcome = await _dispatch({
+      if (_syncCookies != null)
+        'cookieBridge': WebViewCookieBridge(
+          (cookies) => _syncCookies(request.key, cookies),
+        ),
+      if (_pageCall != null)
+        'pageBridge': WebViewPageBridge((call) => _pageCall(request.key, call)),
+      'key': request.key,
+      'headers': request.headers,
       'action': request.action,
       'html': request.html,
       'url': request.url,
@@ -32,6 +55,13 @@ class NativeWebViewRequestExecutor implements WebViewRequestExecutor {
       }
       cookies.addAll(raw.cast<String, String>());
     }
-    return WebViewExecutionResult(result: outcome.result, cookies: cookies);
+    return WebViewExecutionResult(
+      result: outcome.result,
+      finalUrl: outcome.finalUrl.isEmpty ? request.url : outcome.finalUrl,
+      error:
+          outcome.error ??
+          (outcome.result.startsWith('[ERROR]') ? outcome.result : null),
+      cookies: cookies,
+    );
   }
 }

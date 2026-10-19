@@ -65,7 +65,7 @@ impl QuickJsExecutor {
 
 impl JsExecutor for QuickJsExecutor {
     fn webview_executor(&self) -> Option<legado_parser::analyze_rule::WebViewExecutor> {
-        Some(crate::webview::executor(&self.resources))
+        Some(crate::webview::executor(&self.resources, &self.source_tag))
     }
     fn read_variable(&self, key: &str) -> Option<String> {
         if let Some(value) = self.resources.read_login_variable(key) {

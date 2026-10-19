@@ -571,6 +571,34 @@ pub mod ffi {
         Ok(())
     }
 
+    /// 类型化平台结果；有效请求认领后合并Cookie并发布最终URL/正文或错误。
+    pub fn webview_complete(
+        key: String,
+        response: crate::task_dto::WebViewResponseDto,
+    ) -> Result<bool, BridgeError> {
+        Ok(crate::api::webview_api::complete_webview_request(
+            &key, response,
+        ))
+    }
+
+    /// 加载阶段同步Cookie，失效key无副作用，不结束请求，错误明确传播。
+    pub fn webview_sync_cookies(
+        key: String,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> Result<bool, BridgeError> {
+        Ok(crate::api::webview_api::sync_webview_cookies(
+            &key, cookies,
+        )?)
+    }
+
+    /// 页内调用按有效请求确定来源和数据所有者，返回单个JSON值。
+    pub fn webview_page_call(
+        key: String,
+        call: crate::task_dto::WebViewPageCallDto,
+    ) -> Result<String, BridgeError> {
+        Ok(crate::api::webview_api::page_call(&key, call)?)
+    }
+
     /// 提交 WebView 执行结果，唤醒 Rust 等待方
     pub fn webview_submit(key: String, result: String) -> Result<bool, BridgeError> {
         Ok(crate::api::webview_api::submit_webview_result(
@@ -593,7 +621,7 @@ pub mod ffi {
         Ok(crate::api::webview_api::submit_webview_result_with_cookie_map(&key, &result, cookies))
     }
 
-    /// 取消 WebView 请求（以空结果唤醒）
+    /// 取消WebView请求并通知平台停止执行；等待方收到取消错误。
     pub fn webview_cancel(key: String) -> Result<bool, BridgeError> {
         Ok(crate::api::webview_api::cancel_webview_request(&key))
     }

@@ -49,7 +49,7 @@ pub fn decode_web_response(
 ///   非法字节几乎总成功（GBK 码位覆盖极广），个别乱码正文会以有损结果进入
 ///   规则解析——与上游「无置信阈值」口径一致的选择；JSON 等纯 ASCII 响应
 ///   不受影响（UTF-8 猜测直接走 lossy UTF-8，ASCII 解码逐字一致）。
-fn decode_detected_or_lossy(bytes: &[u8]) -> String {
+pub fn decode_detected_or_lossy(bytes: &[u8]) -> String {
     if let Some((encoding, bom_len)) = Encoding::for_bom(bytes) {
         // BOM 权威：decode_without_bom_handling 为有损替换解码（对齐上游
         // `String(bytes, Charset.forName(BOM 编码))`）

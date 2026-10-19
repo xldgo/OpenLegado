@@ -213,19 +213,18 @@ fn ajax_array_arg_requests_first_element() {
     });
 }
 
-/// 可空 `String` 入参（RhinoOptStr）：null/undefined → 缺省；同时覆盖
-/// 同一次调用里标量入参为数组的宽松转换
+/// 数组按Rhino转String，非空charset的省略/null/undefined分别处理。
 #[test]
-fn optional_string_param_null_and_array_coerce() {
+fn charset_string_param_array_coercion_keeps_null_and_undefined_distinct() {
     let engine = production_engine();
     current_source::with_current_source_tag("e2e.loose-opt-str", || {
-        // encodeURI(s, enc?)：enc 省略 → UTF-8 默认编码；数组 s → "a,b"
-        let out = JsEngine::eval(&engine, "java.encodeURI(['a','b'], undefined)")
-            .expect("数组 + undefined 可空参不得抛转换错误");
-        assert_eq!(out, "a%2Cb", "数组应转 \"a,b\" 后编码；观测: {out}");
-
-        let out_null = JsEngine::eval(&engine, "java.encodeURI(['a','b'], null)")
-            .expect("显式 null 可空参不得抛转换错误");
-        assert_eq!(out_null, "a%2Cb", "null 应视为缺省；观测: {out_null}");
+        let out = JsEngine::eval(&engine, "java.encodeURI(['a','b'])").unwrap();
+        assert_eq!(out, "a%2Cb");
+        let undefined = JsEngine::eval(&engine, "java.encodeURI(['a','b'], undefined)").unwrap();
+        assert_eq!(undefined, "", "undefined转字符集名称后失败，不使用默认编码");
+        assert!(JsEngine::eval(&engine, "java.encodeURI(['a','b'], null)").is_err());
+        let array_charset =
+            JsEngine::eval(&engine, "java.encodeURI(['a','b'], ['UTF-8'])").unwrap();
+        assert_eq!(array_charset, "a%2Cb");
     });
 }

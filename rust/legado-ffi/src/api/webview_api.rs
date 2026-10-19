@@ -98,24 +98,154 @@ impl WebViewHost {
         result: &str,
         cookies: std::collections::HashMap<String, String>,
     ) -> bool {
-        self.manager.submit_with(key, result, || {
-            for (raw_key, cookie) in cookies {
-                if cookie.trim().is_empty() {
-                    continue;
-                }
-                let domain = legado_net::cookie_store::normalize_cookie_key(&raw_key);
-                if !domain.is_empty()
-                    && let Err(error) = self.network.set_cookie(&domain, &cookie)
-                {
-                    log::warn!("合并持久化WebView Cookie失败: {error}");
-                }
-            }
+        self.complete(
+            key,
+            legado_core::webview_channel::WebViewResponse {
+                result: result.into(),
+                ..Default::default()
+            },
+            cookies,
+        )
+    }
+    fn sync_cookies(
+        &self,
+        key: &str,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> legado_core::LegadoResult<bool> {
+        self.manager.sync_cookies(key, |request, lease, snapshots| {
+            self.merge_cookies(request, snapshots, cookies, || lease.check())
         })
     }
+    fn merge_cookies(
+        &self,
+        request: &WebViewRequest,
+        snapshots: &mut std::collections::HashMap<String, String>,
+        incoming: std::collections::HashMap<String, String>,
+        check: impl Fn() -> legado_core::LegadoResult<()>,
+    ) -> legado_core::LegadoResult<()> {
+        use legado_net::CookieStore;
+        let initial_domain = legado_net::cookie_store::normalize_cookie_key(&request.url);
+        if !initial_domain.is_empty() {
+            snapshots
+                .entry(initial_domain)
+                .or_insert_with(|| request.cookie.clone());
+        }
+        // 同批地址可能归一到相同域；先合并，避免HashMap遍历顺序影响观察基线。
+        let mut domains =
+            std::collections::BTreeMap::<String, std::collections::BTreeMap<String, String>>::new();
+        let mut entries = incoming.into_iter().collect::<Vec<_>>();
+        entries.sort();
+        for (url, cookie) in entries {
+            let domain = legado_net::cookie_store::normalize_cookie_key(&url);
+            if domain.is_empty() {
+                continue;
+            }
+            domains
+                .entry(domain)
+                .or_default()
+                .extend(CookieStore::cookie_string_to_map(&cookie));
+        }
+        for (domain, observed) in domains {
+            let mut previous = CookieStore::cookie_string_to_map(
+                snapshots.get(&domain).map(String::as_str).unwrap_or(""),
+            );
+            let changed = observed
+                .iter()
+                .filter(|(name, value)| previous.get(*name) != Some(*value))
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>()
+                .join("; ");
+            if !changed.is_empty() {
+                check()?;
+                self.network.set_cookie(&domain, &changed)?;
+            }
+            // 不可见/缺失项不能作为删除，更不能令下次快照把旧值视为新增。
+            previous.extend(observed);
+            let mut pairs = previous
+                .into_iter()
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>();
+            pairs.sort();
+            snapshots.insert(domain, pairs.join("; "));
+        }
+        Ok(())
+    }
+    fn complete(
+        &self,
+        key: &str,
+        response: legado_core::webview_channel::WebViewResponse,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> bool {
+        if response
+            .error
+            .as_ref()
+            .is_some_and(|error| error.trim().is_empty())
+        {
+            return false;
+        }
+        self.manager
+            .submit_response_with_cookies(key, response, |request, snapshots| {
+                if let Err(error) = self.merge_cookies(request, snapshots, cookies, || Ok(())) {
+                    log::warn!("合并持久化WebView Cookie失败: {error}");
+                }
+            })
+    }
+}
+
+pub fn complete_webview_request(key: &str, response: crate::task_dto::WebViewResponseDto) -> bool {
+    host().complete(
+        key,
+        legado_core::webview_channel::WebViewResponse {
+            result: response.result,
+            final_url: response.final_url,
+            error: response.error,
+        },
+        response.cookies,
+    )
 }
 
 pub fn cancel_webview_request(key: &str) -> bool {
     manager().cancel(key)
+}
+
+pub fn sync_webview_cookies(
+    key: &str,
+    cookies: std::collections::HashMap<String, String>,
+) -> legado_core::LegadoResult<bool> {
+    host().sync_cookies(key, cookies)
+}
+
+pub fn page_call(
+    key: &str,
+    call: crate::task_dto::WebViewPageCallDto,
+) -> legado_core::LegadoResult<String> {
+    use crate::task_dto::WebViewPageTargetDto;
+    use legado_engine::webview_page_service::{PageCall, PageTarget, WebViewPageService};
+    let js = crate::engine_holder::js_resources();
+    let manager = js.host_resources().webview.clone();
+    let service = WebViewPageService {
+        js,
+        storage: crate::engine_holder::current()
+            .ok()
+            .map(|engine| engine.storage().clone()),
+    };
+    let target = match call.target {
+        WebViewPageTargetDto::Source => PageTarget::Source,
+        WebViewPageTargetDto::Cache => PageTarget::Cache,
+        WebViewPageTargetDto::Java => PageTarget::Java,
+    };
+    let value = manager.with_page_call(key, |request, lease| {
+        service.call(
+            request,
+            lease,
+            PageCall {
+                target,
+                method: call.method,
+                args: call.args,
+            },
+        )
+    })?;
+    Ok(serde_json::to_string(&value)?)
 }
 
 pub fn pending_requests() -> Vec<WebViewRequest> {
@@ -126,6 +256,285 @@ pub fn pending_requests() -> Vec<WebViewRequest> {
 mod tests {
     use super::*;
     use std::thread;
+
+    #[tokio::test]
+    async fn loading_cookie_is_used_by_http_and_final_snapshot_keeps_new_response_cookie() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let server = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", server.local_addr().unwrap());
+        let endpoint = url.clone();
+        let serving = tokio::spawn(async move {
+            let (mut socket, _) = server.accept().await.unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                header.push(socket.read_u8().await.unwrap());
+                assert!(header.len() < 65536);
+            }
+            let header = String::from_utf8(header).unwrap().to_ascii_lowercase();
+            assert!(header.contains("cookie: session=page"));
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nSet-Cookie: session=rust; Path=/\r\nConnection: close\r\n\r\nok").await.unwrap();
+        });
+        let handle = host.manager.request(WebViewRequest {
+            url: url.clone(),
+            ..Default::default()
+        });
+        let snapshot = std::collections::HashMap::from([(url.clone(), "session=page".into())]);
+        assert!(host.sync_cookies(handle.key(), snapshot.clone()).unwrap());
+        assert!(host.manager.pending().iter().any(|r| r.key == handle.key()));
+        engine
+            .network()
+            .client()
+            .unwrap()
+            .get_raw(
+                &endpoint,
+                Some(std::collections::HashMap::from([(
+                    "CookieJar".into(),
+                    "1".into(),
+                )])),
+            )
+            .await
+            .unwrap();
+        serving.await.unwrap();
+        assert!(host.submit(handle.key(), "done", snapshot));
+        let domain = legado_net::cookie_store::normalize_cookie_key(&url);
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(&url),
+            "session=rust"
+        );
+        let stored = engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+            })
+            .unwrap();
+        assert_eq!(stored.as_deref(), Some("session=rust"));
+    }
+
+    #[test]
+    fn cookie_sync_tracks_redirect_domain_and_rejects_other_owner_or_ended_key() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let other = legado_engine::EngineContext::in_memory().unwrap();
+        let other_host = WebViewHost {
+            manager: other.js_resources().host_resources().webview.clone(),
+            network: other.network().clone(),
+        };
+        let url = "https://redirect.cookie.test/path";
+        let cookies = || std::collections::HashMap::from([(url.into(), "s=page".into())]);
+        let handle = host.manager.request(WebViewRequest {
+            url: "https://start.other.test/".into(),
+            cookie: "start=old".into(),
+            ..Default::default()
+        });
+        assert!(!other_host.sync_cookies(handle.key(), cookies()).unwrap());
+        assert!(host.sync_cookies(handle.key(), cookies()).unwrap());
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key("https://start.other.test/"),
+            ""
+        );
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url),
+            "s=page"
+        );
+        assert!(host.manager.cancel(handle.key()));
+        assert!(!host.sync_cookies(handle.key(), cookies()).unwrap());
+        assert!(!host.sync_cookies("unknown", cookies()).unwrap());
+        let handle = host.manager.request(WebViewRequest::default());
+        let expired_key = handle.key().to_owned();
+        assert!(handle.wait(std::time::Duration::ZERO).is_err());
+        assert!(!host.sync_cookies(&expired_key, cookies()).unwrap());
+        assert!(other_host.network.cookie_store().read().unwrap().is_empty());
+    }
+
+    #[test]
+    fn unchanged_snapshot_cannot_resurrect_cleared_cookies_and_sync_errors_propagate() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let url = "https://cookie-order.test/";
+        let domain = legado_net::cookie_store::normalize_cookie_key(url);
+        host.network
+            .set_cookie(&domain, "session=old; hidden=kept")
+            .unwrap();
+        let handle = host.manager.request(WebViewRequest {
+            url: url.into(),
+            cookie: "session=old".into(),
+            ..Default::default()
+        });
+        assert!(
+            host.sync_cookies(
+                handle.key(),
+                std::collections::HashMap::from([(url.into(), "session=old".into())])
+            )
+            .unwrap()
+        );
+        assert!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url)
+                .contains("hidden=kept")
+        );
+        host.network.clear_cookie_domain(&domain).unwrap();
+        assert!(host.submit(
+            handle.key(),
+            "done",
+            std::collections::HashMap::from([(url.into(), "session=old".into())])
+        ));
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url),
+            ""
+        );
+        engine.storage().with_database(|db| { db.connection().execute_batch("CREATE TRIGGER reject_cookie BEFORE INSERT ON cookies BEGIN SELECT RAISE(ABORT,'cookie write denied'); END;").unwrap(); Ok(()) }).unwrap();
+        let handle = host.manager.request(WebViewRequest {
+            url: url.into(),
+            ..Default::default()
+        });
+        let error = host
+            .sync_cookies(
+                handle.key(),
+                std::collections::HashMap::from([(url.into(), "session=failed".into())]),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("cookie write denied"));
+        assert!(host.manager.pending().iter().any(|r| r.key == handle.key()));
+    }
+
+    #[test]
+    fn unchanged_platform_snapshot_does_not_overwrite_newer_rust_cookie() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let url = "https://cookie-order.test/";
+        let domain = legado_net::cookie_store::normalize_cookie_key(url);
+        host.network.set_cookie(&domain, "session=old").unwrap();
+        let handle = host.manager.request(WebViewRequest {
+            url: url.into(),
+            cookie: "session=old".into(),
+            ..Default::default()
+        });
+        // 页面还保留初始值，Rust HTTP已接收到更新；完成不应写回旧值。
+        host.network.set_cookie(&domain, "session=new").unwrap();
+        assert!(host.submit(
+            handle.key(),
+            "done",
+            std::collections::HashMap::from([(url.into(), "session=old".into())])
+        ));
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url),
+            "session=new"
+        );
+    }
+
+    #[test]
+    fn typed_completion_keeps_final_url_empty_success_and_claims_before_cookies() {
+        use legado_core::webview_channel::WebViewResponse;
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let request = || WebViewRequest {
+            url: "https://typed.webview.test/start".into(),
+            ..Default::default()
+        };
+        let cookies = || {
+            std::collections::HashMap::from([(
+                "https://typed.webview.test/final".into(),
+                "session=new".into(),
+            )])
+        };
+        let handle = host.manager.request(request());
+        assert!(!host.complete(
+            handle.key(),
+            WebViewResponse {
+                error: Some(" ".into()),
+                ..Default::default()
+            },
+            cookies()
+        ));
+        let domain = legado_net::cookie_store::normalize_cookie_key("https://typed.webview.test/");
+        assert!(
+            engine
+                .storage()
+                .with_database(|db| {
+                    legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+                })
+                .unwrap()
+                .is_none()
+        );
+        assert!(host.complete(
+            handle.key(),
+            WebViewResponse {
+                result: String::new(),
+                final_url: "https://typed.webview.test/final".into(),
+                error: None,
+            },
+            cookies()
+        ));
+        let response = handle
+            .wait_response(std::time::Duration::from_secs(1))
+            .unwrap();
+        assert_eq!(response.result, "");
+        assert_eq!(response.final_url, "https://typed.webview.test/final");
+        let domain = legado_net::cookie_store::normalize_cookie_key(&response.final_url);
+        let row = engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+            })
+            .unwrap();
+        assert_eq!(row.as_deref(), Some("session=new"));
+        let handle = host.manager.request(request());
+        assert!(host.complete(
+            handle.key(),
+            WebViewResponse {
+                error: Some("页面失败".into()),
+                ..Default::default()
+            },
+            Default::default()
+        ));
+        assert!(
+            handle
+                .wait_response(std::time::Duration::from_secs(1))
+                .unwrap_err()
+                .to_string()
+                .contains("页面失败")
+        );
+    }
 
     /// cookie 串按键集合比较辅助（HashMap 迭代序不保证，按键集合相等断言；
     /// 与 http_state 测试同名辅助同语义）
@@ -183,6 +592,7 @@ mod tests {
             result: String::new(),
             source_key: String::new(),
             cookie: String::new(),
+            headers: Default::default(),
             created_at_ms: 0,
         };
         let mgr = manager();
@@ -297,6 +707,7 @@ mod tests {
             result: String::new(),
             source_key: String::new(),
             cookie: String::new(),
+            headers: Default::default(),
             created_at_ms: 0,
         };
         let mgr = manager();

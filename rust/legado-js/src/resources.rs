@@ -40,6 +40,18 @@ impl Default for JsResources {
 }
 
 impl JsResources {
+    /// 页内调用只共享数据，不能重入正在等待平台的父VM缓存。
+    pub fn isolated_execution(&self) -> Self {
+        #[cfg(feature = "quickjs")]
+        let view = Self {
+            cache: Default::default(),
+            lexical_scripts: Default::default(),
+            ..self.clone()
+        };
+        #[cfg(not(feature = "quickjs"))]
+        let view = self.clone();
+        view
+    }
     /// 执行视图共享缓存；任务不会写入缓存身份或HTTP的常驻能力槽。
     pub fn with_cancellation(
         &self,

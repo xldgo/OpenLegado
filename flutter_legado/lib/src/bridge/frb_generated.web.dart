@@ -363,6 +363,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   WebChapterDto dco_decode_box_autoadd_web_chapter_dto(dynamic raw);
 
   @protected
+  WebViewPageCallDto dco_decode_box_autoadd_web_view_page_call_dto(dynamic raw);
+
+  @protected
+  WebViewResponseDto dco_decode_box_autoadd_web_view_response_dto(dynamic raw);
+
+  @protected
   LayoutParagraphDto dco_decode_box_layout_paragraph_dto(dynamic raw);
 
   @protected
@@ -1046,7 +1052,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   WebSearchResultDto dco_decode_web_search_result_dto(dynamic raw);
 
   @protected
+  WebViewPageCallDto dco_decode_web_view_page_call_dto(dynamic raw);
+
+  @protected
+  WebViewPageTargetDto dco_decode_web_view_page_target_dto(dynamic raw);
+
+  @protected
   WebViewRequestDto dco_decode_web_view_request_dto(dynamic raw);
+
+  @protected
+  WebViewResponseDto dco_decode_web_view_response_dto(dynamic raw);
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
@@ -1428,6 +1443,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebChapterDto sse_decode_box_autoadd_web_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewPageCallDto sse_decode_box_autoadd_web_view_page_call_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewResponseDto sse_decode_box_autoadd_web_view_response_dto(
     SseDeserializer deserializer,
   );
 
@@ -2351,7 +2376,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  WebViewPageCallDto sse_decode_web_view_page_call_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewPageTargetDto sse_decode_web_view_page_target_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   WebViewRequestDto sse_decode_web_view_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewResponseDto sse_decode_web_view_response_dto(
     SseDeserializer deserializer,
   );
 
@@ -2820,6 +2860,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_web_chapter_dto(
     WebChapterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_web_view_page_call_dto(
+    WebViewPageCallDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_web_view_response_dto(
+    WebViewResponseDto self,
     SseSerializer serializer,
   );
 
@@ -4009,8 +4061,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_web_view_page_call_dto(
+    WebViewPageCallDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_page_target_dto(
+    WebViewPageTargetDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_web_view_request_dto(
     WebViewRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_response_dto(
+    WebViewResponseDto self,
     SseSerializer serializer,
   );
 }

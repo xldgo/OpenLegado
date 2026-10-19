@@ -287,12 +287,14 @@ impl AnalyzeRule {
         }
     }
 
-    /// 克隆变量 Arc 到子解析器（链式/子元素解析共享 put/get 状态）
-    fn share_variable_store_into(&self, child: &mut AnalyzeRule) {
+    /// 子解析器继承同一组已注入能力，不重新推导或覆盖显式WebView回调。
+    fn share_context_into(&self, child: &mut AnalyzeRule) {
         child.variables = Arc::clone(&self.variables);
         child.local_bindings = Arc::clone(&self.local_bindings);
         child.variable_reader = self.variable_reader.clone();
         child.redirect_url = self.redirect_url.clone();
+        child.js_executor = self.js_executor.clone();
+        child.webview = self.webview.clone();
     }
 
     /// 设置重定向 URL（对齐原版 `AnalyzeRule.setRedirectUrl`）
@@ -635,10 +637,7 @@ impl AnalyzeRule {
                     js_result.join("\n")
                 };
                 let mut sub = AnalyzeRule::new(content, self.base_url.clone());
-                self.share_variable_store_into(&mut sub);
-                if let Some(exec) = self.js_executor() {
-                    sub.set_js_executor(exec);
-                }
+                self.share_context_into(&mut sub);
                 for (n, v) in &self.js_bindings {
                     sub.add_js_binding(n, v);
                 }
@@ -736,10 +735,7 @@ impl AnalyzeRule {
                     }
                     // 临时以当前 content 解析（链式：后段基于前段结果文本）
                     let mut sub = AnalyzeRule::new(current_content.clone(), self.base_url.clone());
-                    self.share_variable_store_into(&mut sub);
-                    if let Some(exec) = self.js_executor() {
-                        sub.set_js_executor(exec);
-                    }
+                    self.share_context_into(&mut sub);
                     for (n, v) in &self.js_bindings {
                         sub.add_js_binding(n, v);
                     }
@@ -756,10 +752,7 @@ impl AnalyzeRule {
                 JsChainStep::Js(code) => {
                     // 以当前结果为 content，使 execute_js_rule 注入 result/src
                     let mut sub = AnalyzeRule::new(current_content.clone(), self.base_url.clone());
-                    self.share_variable_store_into(&mut sub);
-                    if let Some(exec) = self.js_executor() {
-                        sub.set_js_executor(exec);
-                    }
+                    self.share_context_into(&mut sub);
                     for (n, v) in &self.js_bindings {
                         sub.add_js_binding(n, v);
                     }
@@ -814,10 +807,7 @@ impl AnalyzeRule {
         // 回填，此处只处理 `{$`（process_inner_rules 内部对 `{{$` 幂等）。
         let out = if out.contains("{$") {
             let mut sub = AnalyzeRule::new(content.to_string(), self.base_url.clone());
-            self.share_variable_store_into(&mut sub);
-            if let Some(exec) = self.js_executor() {
-                sub.set_js_executor(exec);
-            }
+            self.share_context_into(&mut sub);
             for (n, v) in &self.js_bindings {
                 sub.add_js_binding(n, v);
             }
@@ -841,10 +831,7 @@ impl AnalyzeRule {
             // （上游单源规则 splitRegex 对参数串拆分）
             let (core, spec) = split_hash_replace(expr);
             let mut sub = AnalyzeRule::new(content.to_string(), self.base_url.clone());
-            self.share_variable_store_into(&mut sub);
-            if let Some(exec) = self.js_executor() {
-                sub.set_js_executor(exec);
-            }
+            self.share_context_into(&mut sub);
             for (n, v) in &self.js_bindings {
                 sub.add_js_binding(n, v);
             }
@@ -860,10 +847,7 @@ impl AnalyzeRule {
         }
         // JS 表达式参数：以 content（前序步结果 / 当前内容）为 result 执行
         let mut sub = AnalyzeRule::new(content.to_string(), self.base_url.clone());
-        self.share_variable_store_into(&mut sub);
-        if let Some(exec) = self.js_executor() {
-            sub.set_js_executor(exec);
-        }
+        self.share_context_into(&mut sub);
         for (n, v) in &self.js_bindings {
             sub.add_js_binding(n, v);
         }
@@ -1145,10 +1129,7 @@ impl AnalyzeRule {
                             pending_js.clear();
                             // 提取段以 JS 末步输出为内容（上游链式 result 传递）
                             let mut sub_extract = AnalyzeRule::new(current, self.base_url.clone());
-                            self.share_variable_store_into(&mut sub_extract);
-                            if let Some(exec) = self.js_executor() {
-                                sub_extract.set_js_executor(exec);
-                            }
+                            self.share_context_into(&mut sub_extract);
                             for (n, v) in &self.js_bindings {
                                 sub_extract.add_js_binding(n, v);
                             }
@@ -1222,10 +1203,7 @@ impl AnalyzeRule {
         let mut last_out = Vec::new();
         for code in codes {
             let mut sub = AnalyzeRule::new(current.clone(), self.base_url.clone());
-            self.share_variable_store_into(&mut sub);
-            if let Some(exec) = self.js_executor() {
-                sub.set_js_executor(exec);
-            }
+            self.share_context_into(&mut sub);
             for (n, v) in &self.js_bindings {
                 sub.add_js_binding(n, v);
             }
@@ -1269,10 +1247,7 @@ impl AnalyzeRule {
                         js_result.join("\n")
                     };
                     let mut sub = AnalyzeRule::new(content, self.base_url.clone());
-                    self.share_variable_store_into(&mut sub);
-                    if let Some(exec) = self.js_executor() {
-                        sub.set_js_executor(exec);
-                    }
+                    self.share_context_into(&mut sub);
                     for (n, v) in &self.js_bindings {
                         sub.add_js_binding(n, v);
                     }
@@ -1635,16 +1610,7 @@ impl AnalyzeRule {
 "
                     ));
                 } else {
-                    let result_literal = if self.json_element_mode {
-                        match serde_json::from_str::<serde_json::Value>(&self.content) {
-                            Ok(v) if v.is_object() || v.is_array() => {
-                                serde_json::to_string(&v).unwrap_or_else(|_| content_json.clone())
-                            }
-                            _ => content_json.clone(),
-                        }
-                    } else {
-                        content_json.clone()
-                    };
+                    let result_literal = self.result_literal(&content_json);
                     prologue.push_str(&format!(
                         "globalThis.result = {result_literal};
 "
@@ -1868,6 +1834,20 @@ impl AnalyzeRule {
         (rule_type, actual_rule)
     }
 
+    /// 仅显式结构化元素保留对象/数组类型，其他内容保持字符串语义。
+    fn result_literal(&self, content_json: &str) -> String {
+        if self.json_element_mode {
+            match serde_json::from_str::<serde_json::Value>(&self.content) {
+                Ok(value) if value.is_object() || value.is_array() => {
+                    serde_json::to_string(&value).unwrap_or_else(|_| content_json.to_owned())
+                }
+                _ => content_json.to_owned(),
+            }
+        } else {
+            content_json.to_owned()
+        }
+    }
+
     /// 执行 `@webjs:`（对齐原版 `getWebJsResult`）
     ///
     /// 优先：Flutter 已订阅时经 `webview_channel` 走真实 DOM（BackstageWebView 语义）；
@@ -1879,8 +1859,9 @@ impl AnalyzeRule {
     fn execute_web_js_rule(&self, js_code: &str) -> LegadoResult<String> {
         // 1) DOM 通道（对齐 AnalyzeRule.getWebJsResult → BackstageWebView isRule）
         if let Some(execute) = &self.webview {
-            let result_json =
+            let content_json =
                 serde_json::to_string(&self.content).unwrap_or_else(|_| "\"\"".into());
+            let result_json = self.result_literal(&content_json);
             let req = legado_core::webview_channel::WebViewRequest {
                 key: String::new(),
                 action: "webView".into(),
@@ -1893,18 +1874,10 @@ impl AnalyzeRule {
                 delay_time: 0,
                 is_rule: true,
                 result: result_json,
-                // B1 加法式字段：规则解析层（legado-parser）不依赖
-                // legado-js（反向依赖成环），无 JS 书源上下文可填；
-                // Kotlin 侧由 is_rule 触发 java/source/cache 注入，
-                // sourceKey 空串即无 tag 语义（对齐上游 tag 可为空）
+                // 来源与Cookie由宿主能力填入，Parser不反向依赖JS/网络实现。
                 source_key: String::new(),
-                // B4（设计文档 §3 项 B 偏差记录）：cookie 推入仅在能触达
-                // JS cookie store 的层做——JS 执行路径（legado-js
-                // platform.rs）与 FFI 内容钩子（legado-ffi web_book.rs）
-                // 按请求 URL 域 `cookies_for_url` 填入；规则解析层
-                // （本 crate）仅依赖 legado-core，若依赖 legado-js 即成
-                // 环（legado-js 反向依赖本 crate），故此处恒空
                 cookie: String::new(),
+                headers: Default::default(),
                 created_at_ms: 0,
             };
             if let Some(result) = execute(req, legado_core::webview_channel::RULE_WEBVIEW_TIMEOUT) {
@@ -1916,12 +1889,13 @@ impl AnalyzeRule {
         let Some(executor) = self.js_executor.as_ref() else {
             return Ok(String::new());
         };
-        let result_lit = serde_json::to_string(&self.content).unwrap_or_else(|_| "\"\"".into());
+        let content_lit = serde_json::to_string(&self.content).unwrap_or_else(|_| "\"\"".into());
+        let result_lit = self.result_literal(&content_lit);
         let base_lit = serde_json::to_string(&self.base_url).unwrap_or_else(|_| "\"\"".into());
         let mut prologue = format!(
             "globalThis.result = {result_lit};\n\
-             globalThis.src = {result_lit};\n\
-             globalThis.html = {result_lit};\n\
+             globalThis.src = {content_lit};\n\
+             globalThis.html = {content_lit};\n\
              globalThis.baseUrl = {base_lit};\n"
         );
         for (name, lit) in &self.js_bindings {
@@ -2876,6 +2850,70 @@ mod tests {
         let result = rule.get_strings("//item").unwrap();
         assert!(!result.is_empty());
         assert_eq!(result[0], "<item>test</item>");
+    }
+
+    #[test]
+    fn webjs_retains_element_value_types_and_plain_content_stays_string() {
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let output = observed.clone();
+        let mut analyzer = AnalyzeRule::new(String::new(), "https://page.test/".into())
+            .with_webview_executor(Arc::new(move |request, _| {
+                output
+                    .lock()
+                    .unwrap()
+                    .push(serde_json::from_str::<serde_json::Value>(&request.result).unwrap());
+                Some(Ok("done".into()))
+            }));
+        for (input, element, expected) in [
+            (
+                r#"{"title":"书名"}"#,
+                false,
+                serde_json::json!(r#"{"title":"书名"}"#),
+            ),
+            (
+                r#"{"title":"书名"}"#,
+                true,
+                serde_json::json!({"title":"书名"}),
+            ),
+            (r#"["甲","乙"]"#, true, serde_json::json!(["甲", "乙"])),
+            ("123", true, serde_json::json!("123")),
+            ("{broken", true, serde_json::json!("{broken")),
+        ] {
+            if element {
+                analyzer.set_element_content(input.into());
+            } else {
+                analyzer.set_content(input.into());
+            }
+            assert_eq!(analyzer.get_string("@webjs:result").unwrap(), "done");
+            assert_eq!(observed.lock().unwrap().pop().unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn derived_rule_keeps_explicit_webview_callback_and_current_result() {
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let output = observed.clone();
+        let analyzer = AnalyzeRule::with_js_executor(
+            "原始正文".into(),
+            "https://page.test/".into(),
+            Arc::new(MockJsExecutor {
+                result: "前一步结果".into(),
+            }),
+        )
+        .with_webview_executor(Arc::new(move |request, _| {
+            output.lock().unwrap().push(request.result);
+            Some(Ok("平台结果".into()))
+        }));
+        assert_eq!(
+            analyzer
+                .get_string("<js>'前一步结果'</js>@webjs:result")
+                .unwrap(),
+            "平台结果"
+        );
+        assert_eq!(
+            *observed.lock().unwrap(),
+            vec![serde_json::to_string("前一步结果").unwrap()]
+        );
     }
 
     // --- JsExecutor 测试 ---
@@ -4480,7 +4518,7 @@ mod tests {
         let analyzer = analyzer
             .with_variable_reader(Arc::new(|key| (key == "shared").then(|| "explicit".into())));
         let mut child = AnalyzeRule::new(String::new(), String::new());
-        analyzer.share_variable_store_into(&mut child);
+        analyzer.share_context_into(&mut child);
         child.set_js_executor(analyzer.js_executor().unwrap());
         assert_eq!(child.get_string("@get:{shared}").unwrap(), "explicit");
         analyzer.put("shared", "local");
