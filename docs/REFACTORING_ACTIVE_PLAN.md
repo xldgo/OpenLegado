@@ -14,6 +14,8 @@
 - 交付边界：本批本地代码与流程验证完成，生产代码/SDK/依赖/版本号未修改；未推送、未构建安装应用或触发Actions。Linux/macOS真实加载未运行，Linux CI结果保留待复验；不得把Windows的190项等同于跨平台验收。执行者Codex + UI/Bridge，2026-10-19；B2提交见Git记录。
 
 
+- 远程复验：用户后续授权推送并仅触发Flutter CI。c47b6aba9的首次运行https://github.com/xldgo/OpenLegado/actions/runs/39235401721在changes阶段失败，普通/原生组未运行；根因为无参数workflow_dispatch实际携带inputs:null，脚本仅覆盖对象形式。现统一规范化缺省/null为空输入并选择all，非法输入类型明确失败；Windows与WSL Linux各25项编排回归通过。修复后从新提交重新触发，不重跑旧SHA。
+
 ### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
 
 - 授权与基线：用户同意按测试职责清理真实FFI依赖；feature/ui-reader-selection / d3cc69e08，单代理，本地提交，不推送、不提升版本、不构建安装。

@@ -197,9 +197,22 @@ def changed_paths(root, event_name, event, head):
     return git(root, "diff", "--no-renames", "--name-only", "-z", base, head).split("\0")[:-1]
 
 
+def manual_scope(event):
+    """无参数workflow_dispatch的inputs可能是null，统一视为全量手动检查。"""
+    inputs = event.get("inputs")
+    if inputs is None:
+        return "all"
+    if not isinstance(inputs, dict):
+        raise ValueError("手动触发inputs必须为对象或null")
+    platform = inputs.get("platform", "all")
+    if platform not in ("all", "android", "windows"):
+        raise ValueError(f"未知手动验证范围：{platform}")
+    return platform
+
+
 def plan(root, event_name, event, head):
     if event_name == "workflow_dispatch":
-        platform = event.get("inputs", {}).get("platform", "all")
+        platform = manual_scope(event)
         if platform == "all":
             return dict.fromkeys(TARGETS, True)
         if platform in ("android", "windows"):
@@ -238,8 +251,9 @@ def main():
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
             if os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
                 selected = plan(ROOT, "workflow_dispatch", event, os.environ["GITHUB_SHA"])
-                generation = dict.fromkeys(("dart_generate", "bridge_generate"), event.get("inputs", {}).get("platform", "all") == "all")
-                native = {"native_tests": event.get("inputs", {}).get("platform", "all") == "all"}
+                all_checks = manual_scope(event) == "all"
+                generation = dict.fromkeys(("dart_generate", "bridge_generate"), all_checks)
+                native = {"native_tests": all_checks}
             else:
                 paths = changed_paths(ROOT, os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"])
                 selected = classify_paths(paths)

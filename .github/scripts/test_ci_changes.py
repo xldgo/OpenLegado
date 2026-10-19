@@ -112,6 +112,17 @@ class RoutingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ci.changed_paths(ci.ROOT, "schedule", {}, "a" * 40)
 
+    def test_manual_missing_null_and_empty_inputs_select_all(self):
+        for event in ({}, {"inputs": None}, {"inputs": {}}):
+            with self.subTest(event=event):
+                self.assertEqual(ci.plan(ci.ROOT, "workflow_dispatch", event, "unused"),
+                                 dict.fromkeys(ci.TARGETS, True))
+
+    def test_manual_invalid_inputs_are_rejected(self):
+        for inputs in ([], "", False, 1, {"platform": None}, {"platform": []}):
+            with self.subTest(inputs=inputs), self.assertRaises(ValueError):
+                ci.manual_scope({"inputs": inputs})
+
 
 class SummaryTests(unittest.TestCase):
     def needs(self, selected="true", result="success"):
@@ -324,6 +335,23 @@ class GitDiffTests(unittest.TestCase):
                 self.assertEqual(ci.main(), 0)
             values = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines())
             self.assertEqual((values["flutter_checks"], values["native_tests"]), expected)
+
+    def test_manual_cli_accepts_real_no_input_payload(self):
+        event = self.root / ".git" / "fixture-event.json"
+        output = self.root / ".git" / "fixture-outputs.txt"
+        for payload in ({}, {"inputs": None}, {"inputs": {}}):
+            event.write_text(json.dumps(payload), encoding="utf-8")
+            output.write_text("", encoding="utf-8")
+            environment = dict(os.environ, GITHUB_EVENT_NAME="workflow_dispatch",
+                               GITHUB_EVENT_PATH=str(event), GITHUB_OUTPUT=str(output),
+                               GITHUB_SHA=self.base, PYTHONIOENCODING="utf-8")
+            result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
+                                    env=environment, capture_output=True, text=True, encoding="utf-8")
+            with self.subTest(payload=payload):
+                self.assertEqual(result.returncode, 0, result.stderr)
+                values = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines())
+                self.assertEqual(set(values), {*ci.TARGETS, "dart_generate", "bridge_generate", "native_tests", "flutter_checks"})
+                self.assertEqual(set(values.values()), {"true"})
 
 
 if __name__ == "__main__":
