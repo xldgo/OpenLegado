@@ -78,7 +78,7 @@ jobs:
 
       - name: Install Flutter dependencies
         working-directory: flutter_legado
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       # 设备静态库只使用 iphoneos SDK，最低系统版本与 App 的 15.0 对齐。
       - name: Build device Rust static library

@@ -61,7 +61,8 @@ def main(argv=None):
     fingerprint.add_argument("component", choices=("rust",))
     generate = commands.add_parser("generate", help="生成 Dart 或 FRB 绑定，不重编应用")
     generators = generate.add_subparsers(dest="component", required=True)
-    generators.add_parser("dart", help="按锁文件执行 Dart build_runner")
+    dart_generate = generators.add_parser("dart", help="按锁文件执行 Dart build_runner")
+    dart_generate.add_argument("--check", action="store_true", help="隔离复核Dart生成物，不修改原工作区")
     bridge = generators.add_parser("bridge", help="执行固定版本的 FRB 生成器")
     bridge.add_argument("--check", action="store_true", help="隔离复核当前输入的生成物，不改写原工作区")
     build = commands.add_parser("build", help="编译各平台 FFI 或构建 Android/Windows 应用")
@@ -143,7 +144,7 @@ def main(argv=None):
         elif args.command == "generate":
             if args.component == "dart":
                 from tooling.bridge import generate_dart
-                generate_dart(ROOT)
+                generate_dart(ROOT, check=args.check)
             else:
                 from tooling.bridge import generate_bridge
                 generate_bridge(ROOT, args.check)

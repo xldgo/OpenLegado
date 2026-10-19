@@ -47,6 +47,40 @@ class BridgeTests(unittest.TestCase):
         generate_dart(self.root)
         self.assertEqual([args[1:] for args in self.commands], [["pub", "get", "--enforce-lockfile"], ["run", "build_runner", "build"]])
 
+    def test_dart_check_detects_added_deleted_changed_outputs_without_touching_workspace(self):
+        source = self.root / "flutter_legado/lib/model.dart"
+        output = self.root / "flutter_legado/lib/model.g.dart"
+        write(source, "class Model {}")
+        write(output, "旧生成物")
+        before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in (source, output)}
+        for operation in ("change", "delete", "add"):
+            def generate(args, cwd, env, capture=False):
+                if args[1:3] == ["run", "build_runner"]:
+                    if operation == "delete":
+                        (cwd / "lib/model.g.dart").unlink()
+                    else:
+                        write(cwd / ("lib/new.g.dart" if operation == "add" else "lib/model.g.dart"), "新生成物")
+                return ""
+            with self.subTest(operation=operation), patch("tooling.bridge.run_command", side_effect=generate):
+                with self.assertRaisesRegex(ToolError, "不一致"):
+                    generate_dart(self.root, check=True)
+            self.assertEqual({p: (p.read_bytes(), p.stat().st_mtime_ns) for p in before}, before)
+
+    def test_dart_check_rejects_generator_dependency_changes(self):
+        original = (self.root / "flutter_legado/pubspec.yaml").read_bytes()
+        def mutate(args, cwd, env, capture=False):
+            if args[1:3] == ["run", "build_runner"]:
+                write(cwd / "pubspec.yaml", "不应修改依赖")
+            return ""
+        with patch("tooling.bridge.run_command", side_effect=mutate):
+            with self.assertRaisesRegex(ToolError, "依赖声明"):
+                generate_dart(self.root, check=True)
+        self.assertEqual((self.root / "flutter_legado/pubspec.yaml").read_bytes(), original)
+
+    def test_dart_check_accepts_matching_outputs(self):
+        generate_dart(self.root, check=True)
+        self.assertTrue(all(Path(args[0]).name == "dart" for args in self.commands))
+
     def test_generator_lockfile_change_is_reported(self):
         original = self.fake_run
 

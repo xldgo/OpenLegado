@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Flutter dependencies
         working-directory: flutter_legado
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Build simulator Rust static library
         run: python3 scripts/dev.py build ffi ios --target simulator --profile release

@@ -57,7 +57,11 @@ class BoundedLogWriter {
           );
         } catch (error, stack) {
           // 日志失败不能向业务路径抛错，也不能递归写同一日志。
-          onError?.call(error, stack);
+          try {
+            onError?.call(error, stack);
+          } catch (_) {
+            // 诊断回调本身失败时也不能制造未捕获异常。
+          }
         }
       }
     } finally {

@@ -16,6 +16,7 @@ Python 3.11+，使用 PATH 中已安装的 Rust、Dart、FRB 和 SDK。以下为
 
 ```powershell
 python scripts/dev.py generate dart
+python scripts/dev.py generate dart --check
 python scripts/dev.py generate bridge
 python scripts/dev.py generate bridge --check
 python scripts/dev.py build ffi android --profile debug --abis arm64-v8a,x86_64
@@ -31,7 +32,8 @@ python scripts/dev.py test tooling
 ## 生成行为
 
 - Dart：`dart pub get --enforce-lockfile` 后执行 `dart run build_runner build`。不升级
-  依赖，不默认删除冲突输出。
+  依赖，不默认删除冲突输出。`--check`复制当前lib与生成配置到临时目录，实际生成并比对
+  新增/删除/修改，核对依赖声明及锁文件；不覆盖原工作区。
 - FRB：从双方 runtime 读取精确版本，检查已安装生成器版本和 cargo-expand；执行现有
   `flutter_rust_bridge.yaml`，生成后核对两端 hash/版本。缺少工具时报告安装命令，不由
   Python 安装；不关闭应用，不重编 DLL，也没有增加 `--skip-fvm-install`。

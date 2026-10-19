@@ -961,3 +961,12 @@ AppServicesController消费设置、服务、访问凭据窄接口及注入的�
 已接受的服务动作在页面卸载后继续完成必要持久化，停止向销毁的界面发布状态。
 
 编写者：Codex + UI｜2026-10-19
+
+## 静态依赖门禁
+
+`dart run tool/check_architecture.dart`解析import/export/part与条件分支的语法树，
+检查features/widgets/providers直接桥接依赖，以及domain对界面、平台和数据实现的反向依赖。
+规则不要求改用其他状态管理方式；ChangeNotifier形式的页面Controller仍通过构造器接收窄接口，
+页面拥有订阅并在卸载时释放。静态检查与业务运行测试分别维护。
+
+编写者：Codex + UI｜2026-10-19

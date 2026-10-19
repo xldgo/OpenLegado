@@ -1,6 +1,12 @@
 name: 判定 CI 改动范围
 description: 按事件差异选择任务；失败时不允许跳过检查，工具回归集中在 Tooling CI。
 outputs:
+  dart_generate:
+    description: 是否复核Dart生成物
+    value: ${{ steps.changes.outputs.dart_generate }}
+  bridge_generate:
+    description: 是否复核FRB生成物
+    value: ${{ steps.changes.outputs.bridge_generate }}
   tooling:
     description: 是否运行工具回归
     value: ${{ steps.changes.outputs.tooling }}

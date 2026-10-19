@@ -75,7 +75,7 @@ jobs:
 
       - name: Run flutter pub get
         working-directory: flutter_legado
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Build release APKs
         working-directory: flutter_legado
@@ -122,7 +122,7 @@ jobs:
 
       - name: Run flutter pub get
         working-directory: flutter_legado
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Build Windows release package
         run: python scripts/dev.py build windows --profile release

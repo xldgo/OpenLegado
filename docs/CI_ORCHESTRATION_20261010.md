@@ -124,3 +124,21 @@ Git 推送使用本次进程的 SSH HTTP CONNECT 代理 `127.0.0.1:7897`，没�
 编写者：Codex｜2026-10-10
 
 修订者：Codex｜2026-10-11（工具回归集中与平台范围共享）
+
+## 生成一致性与静态门禁（2026-10-19）
+
+显式Flutter依赖恢复统一使用`pub get --enforce-lockfile`；Flutter CI不再放行info级lint。
+架构规则由`flutter_legado/tool/check_architecture.dart`解析Dart指令语法树，覆盖条件导入、
+转导出及路径规范化：features/widgets/providers禁止直接引用生成桥接，domain不得依赖UI或具体实现。
+此检查是静态门禁，业务、取消和生命周期仍以运行行为测试验收。
+
+生成检查独立按输入选择：Dart模型目录、状态及Freezed/JSON生成物、build.yaml；FRB桥接目录、
+FFI源码/清单、Rust工作区清单/锁文件、FRB配置。两者共享pubspec及生成工具输入。
+新增生成输入若不属于上述路径，须同时扩展判定器及范围测试；普通页面改动不重新生成。
+手动完整Flutter CI复核两种生成链；Integration单选Android/Windows不运行生成检查。
+FRB codegen版本读取运行时契约，cargo-expand固定为本轮实测1.0.127；不改变Rust stable策略。
+
+生成复核使用临时目录，检出新增/删除/修改并拒绝依赖声明漂移；原工作区保持不变。
+iOS模拟器仍仅手动，现有工作流触发器、签名、发布条件和权限保持。
+
+编写者：Codex + UI/Tool｜2026-10-19

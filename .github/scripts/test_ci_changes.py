@@ -72,6 +72,23 @@ class RoutingTests(unittest.TestCase):
                 selected = ci.classify_paths([path])
                 self.assertEqual({key for key, value in selected.items() if value}, expected)
 
+    def test_generation_scope_follows_inputs_not_ordinary_ui(self):
+        cases = {
+            "flutter_legado/lib/src/features/search/search_screen.dart": (False, False),
+            "flutter_legado/lib/src/models/book.dart": (True, False),
+            "flutter_legado/lib/src/features/search/search_state.dart": (True, False),
+            "flutter_legado/lib/src/features/search/search_state.freezed.dart": (True, False),
+            "flutter_legado/lib/src/bridge/frb_generated.dart": (False, True),
+            "rust/legado-ffi/src/api/book_api.rs": (False, True),
+            "rust/legado-ffi/tests/book_api.rs": (False, False),
+            "flutter_legado/pubspec.lock": (True, True),
+            "scripts/tooling/bridge.py": (True, True),
+        }
+        for path, (dart, bridge) in cases.items():
+            with self.subTest(path=path):
+                self.assertEqual(ci.classify_generation_paths([path]),
+                                 {"dart_generate": dart, "bridge_generate": bridge})
+
     def test_multiple_modules_are_combined(self):
         self.assertEqual(ci.classify_paths([
             "flutter_legado/test/widget/a.dart", "rust/legado-core/src/reader.rs",
@@ -209,7 +226,7 @@ class GitDiffTests(unittest.TestCase):
                                 env=environment, capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(output.read_text(encoding="utf-8").splitlines(),
-                         [f"{key}={'true' if key == 'android_ffi' else 'false'}" for key in ci.TARGETS])
+                         [f"{key}={'true' if key == 'android_ffi' else 'false'}" for key in (*ci.TARGETS, "dart_generate", "bridge_generate")])
         event.write_text(json.dumps({"inputs": {"platform": "unknown"}}), encoding="utf-8")
         result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
                                 env=environment, capture_output=True, text=True, encoding="utf-8")

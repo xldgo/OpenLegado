@@ -43,7 +43,7 @@ mixin _$SearchState {
   /// 精准搜索：选中的分组
   Set<String> get selectedGroups;
 
-  /// 搜索历史（最近 20 条，经 BookApi 持久化至 Rust search_keywords 表）
+  /// 搜索历史（最近 20 条，经 SearchHistoryRepository 持久化至 Rust search_keywords 表）
   /// [审计修复 §4.5] 清理陈旧注释（实际已不走 SharedPreferences） — Qoder
   List<String> get searchHistory;
 
@@ -630,11 +630,11 @@ class _SearchState implements SearchState {
     return EqualUnmodifiableSetView(_selectedGroups);
   }
 
-  /// 搜索历史（最近 20 条，经 BookApi 持久化至 Rust search_keywords 表）
+  /// 搜索历史（最近 20 条，经 SearchHistoryRepository 持久化至 Rust search_keywords 表）
   /// [审计修复 §4.5] 清理陈旧注释（实际已不走 SharedPreferences） — Qoder
   final List<String> _searchHistory;
 
-  /// 搜索历史（最近 20 条，经 BookApi 持久化至 Rust search_keywords 表）
+  /// 搜索历史（最近 20 条，经 SearchHistoryRepository 持久化至 Rust search_keywords 表）
   /// [审计修复 §4.5] 清理陈旧注释（实际已不走 SharedPreferences） — Qoder
   @override
   @JsonKey()

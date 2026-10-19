@@ -57,4 +57,13 @@ void main() {
     await writer.flush();
     expect(await file.readAsString(), '成功');
   });
+  test('错误回调再次抛错也不产生未捕获异常', () async {
+    final writer = BoundedLogWriter(
+      File('${root.path}/missing/log'),
+      onError: (_, _) => throw StateError('诊断回调失败'),
+    );
+    writer.add('日志');
+    await writer.flush();
+    await writer.close();
+  });
 }

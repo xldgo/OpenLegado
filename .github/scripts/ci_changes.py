@@ -94,6 +94,24 @@ def classify_paths(paths):
     return selected
 
 
+def classify_generation_paths(paths):
+    """生成检查只跟随契约/模型/生成配置输入，不随普通页面重跑。"""
+    selected = {"dart_generate": False, "bridge_generate": False}
+    for path in paths:
+        shared = path in ("flutter_legado/pubspec.yaml", "flutter_legado/pubspec.lock",
+                          "scripts/tooling/bridge.py", "scripts/dev.py",
+                          ".github/workflows/flutter-ci.yml") or path.startswith("third_party/")
+        if shared or path in ("flutter_legado/build.yaml",) or (
+            path.startswith("flutter_legado/lib/") and
+            (path.startswith(("flutter_legado/lib/src/models/", "flutter_legado/lib/src/domain/models/"))
+             or path.endswith(("_state.dart", ".freezed.dart", ".g.dart")))):
+            selected["dart_generate"] = True
+        if shared or path in ("flutter_legado/flutter_rust_bridge.yaml", "rust/Cargo.toml", "rust/Cargo.lock") or (
+            path.startswith("rust/legado-ffi/") and path.endswith((".rs", ".toml")) and not path.startswith("rust/legado-ffi/tests/")) or path.startswith("flutter_legado/lib/src/bridge/"):
+            selected["bridge_generate"] = True
+    return selected
+
+
 def git(root, *args):
     result = subprocess.run(
         ["git", *args], cwd=root, check=True, stdout=subprocess.PIPE,
@@ -175,6 +193,11 @@ def main():
         if args.command == "changes":
             event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
             selected = plan(ROOT, os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"])
+            if os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
+                generation = dict.fromkeys(("dart_generate", "bridge_generate"), event.get("inputs", {}).get("platform", "all") == "all")
+            else:
+                generation = classify_generation_paths(changed_paths(ROOT, os.environ["GITHUB_EVENT_NAME"], event, os.environ["GITHUB_SHA"]))
+            selected.update(generation)
             payload = "".join(f"{target}={str(value).lower()}\n" for target, value in selected.items())
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8", newline="\n") as output:
                 output.write(payload)

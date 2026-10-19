@@ -12,11 +12,42 @@ from .fingerprint import tree_fingerprint
 from .toolchains import dart_environment, find_tool, rust_environment
 
 
-def generate_dart(root: Path):
+def generate_dart(root: Path, check=False):
     dart, env = dart_environment(dict(os.environ))
     app = root / "flutter_legado"
-    run_command([dart, "pub", "get", "--enforce-lockfile"], app, env)
-    run_command([dart, "run", "build_runner", "build"], app, env)
+    if not check:
+        run_command([dart, "pub", "get", "--enforce-lockfile"], app, env)
+        run_command([dart, "run", "build_runner", "build"], app, env)
+        return
+    tree_fingerprint(app / "lib")
+    before = dart_manifest(app)
+    inputs = {name: (app / name).read_bytes() for name in ("pubspec.yaml", "pubspec.lock", "build.yaml", "analysis_options.yaml") if (app / name).is_file()}
+    with tempfile.TemporaryDirectory(prefix="legado-dart-") as name:
+        isolated = Path(name)
+        tree_fingerprint(app / "lib")
+        shutil.copytree(app / "lib", isolated / "lib")
+        protected = ("pubspec.yaml", "pubspec.lock", "build.yaml", "analysis_options.yaml")
+        for relative in protected:
+            source = app / relative
+            if source.exists():
+                shutil.copyfile(source, isolated / relative)
+        declarations = {name: (isolated / name).read_bytes() for name in ("pubspec.yaml", "pubspec.lock")}
+        run_command([dart, "pub", "get", "--enforce-lockfile"], isolated, env)
+        run_command([dart, "run", "build_runner", "build"], isolated, env)
+        if any(not (isolated / name).is_file() or (isolated / name).read_bytes() != value for name, value in declarations.items()):
+            raise ToolError("Dart生成过程改动依赖声明或锁文件。")
+        after = dart_manifest(isolated)
+        differences = sorted(path for path in before.keys() | after.keys() if before.get(path) != after.get(path))
+        if differences:
+            raise ToolError("Dart生成物与输入不一致（新增、删除或内容改变）：\n" + "\n".join(differences))
+        if dart_manifest(app) != before or any(not (app / name).is_file() or (app / name).read_bytes() != value for name, value in inputs.items()):
+            raise ToolError("复核期间原工作区输入发生变化，请重新复核。")
+
+
+def dart_manifest(app: Path) -> dict[str, bytes]:
+    return {path.relative_to(app).as_posix(): path.read_bytes().replace(b"\r\n", b"\n")
+            for path in (app / "lib").rglob("*.dart") if path.is_file()}
+
 
 
 def validate_config(root: Path):
