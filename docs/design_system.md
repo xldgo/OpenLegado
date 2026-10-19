@@ -21,9 +21,14 @@ Sheet复用AppSettingsSheet，仅保留数字输入框，1～256限制在非法�
 预取最多2个辅助请求同时执行，切书/换源/离页停止旧窗口后续调度；已发出的FFI请求允许收尾。
 
 未接线的图片缓存容量/保留和User-Agent继续只读展示旧值并标明待实现，
-不新增无消费者的设置写入。封面缓存、漫画缓存、书籍缓存下载线程数保留禁用占位，
+不新增无消费者的设置写入。封面缓存、漫画缓存保留禁用占位，
 副说明统一为“待实现”，不显示虚构缓存大小或默认配置值，
 不提供清理或编辑回调；对应底层能力及Cronet未实现，不宣称已交付全部上游功能。
+
+书籍缓存下载线程数使用独立CacheDownloadSettingsRepository，经共享AppSettingsService
+写入Rust配置cacheBookThreadCount；范围1～8、默认8，数字Sheet取消不写入、失败回退。
+副说明明确新任务生效。多个显式离线任务按书籍FIFO，队首书内并发，保留原取消与断点恢复。
+不复用搜索线程数或正文前后预下载的SharedPreferences键。
 
 来源：[上游页面](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt)。
 

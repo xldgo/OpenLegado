@@ -186,8 +186,8 @@ void main() {
         .widgetList<SettingTile>(find.byType(SettingTile))
         .where((tile) => !tile.enabled)
         .toList();
-    expect(disabled, hasLength(6));
-    for (final title in ['封面缓存', '漫画缓存', '书籍缓存下载线程数']) {
+    expect(disabled, hasLength(5));
+    for (final title in ['封面缓存', '漫画缓存']) {
       final tile = disabled.singleWhere((tile) => tile.title == title);
       expect(tile.subtitle, '待实现');
       expect(tile.value, isNull);

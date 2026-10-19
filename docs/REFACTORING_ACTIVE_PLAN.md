@@ -1,6 +1,6 @@
 # Legado 后续重构执行计划（Active）
 
-### CACHE-DOWNLOAD-CONCURRENCY-20261019：清理边界与离线下载并发（P1，实施中）
+### CACHE-DOWNLOAD-CONCURRENCY-20261019：清理边界与离线下载并发（P1，待复验：设备与应用产物）
 
 - 授权：用户要求按更新后的计划实施；feature/ui-reader-selection / da8c2ec71，单代理，分批本地提交，不推送、安装或额外提升版本。
 - B1：清理只作用于正文缓存和sameTitleRemoved标记，防止删除共表的配置、下载断点、登录和音频进度。先冻结API契约，再以真实SQLite验证保留范围及重建后读取。
@@ -11,6 +11,9 @@
 - B1已完成：正文与章节标记在一个事务中清理，失败不留下正文已删、标记未删的半状态；其他KV全部保留。真实SQLite清理/故障注入及已有缓存服务回归3项、实际设置页13项通过；目标dart analyze无问题，cargo fmt及diff检查通过。证据build/cache-cleanup-tests.log、flutter_legado/build/cache-cleanup-widget.log。未设备验收或远程CI；B2继续实施。
 - B2已完成：显式离线任务按书籍FIFO，队首以创建/恢复时捕获的1～8额度执行，取消的排队书不发请求。连续断点前沿与有界processedAhead保存乱序结果；慢章阻挡时停止扩展窗口，重建任务跳过已完成章并重做缺口；在途查询返回实际执行集合。作用域线程全部收尾后才释放TaskHandle与FIFO位置，保留原取消/发布门控。
 - B2验证：定向下载12项通过（新增4项真实线程/SQLite行为）；legado-engine启用quickjs的159项单元测试全通过，clippy --lib --features quickjs --no-deps -- -D warnings通过。证据build/cache-concurrency-tests.log、build/cache-engine-quickjs-tests.log、build/cache-engine-clippy.log。无新增FFI签名或生成物；单代理自查，未独立审查或设备验收。B3继续接线，不宣称整个缓存体系已完成。
+- B3实现：CacheDownloadSettingsRepository独立投影config:cacheBookThreadCount，范围1～8、默认8；复用共享Rust配置服务与公共数字Sheet，修改新任务生效，不写SP、不覆盖搜索并发或前后预下载。未接线占位剩5项。配置重建、读写失败、取消/越界及实际页面/路由/360dp回归94项通过；证据flutter_legado/build/cache-download-settings-tests.log。版本保持2.0.405+406。
+- B3门禁：目标dart analyze --fatal-infos无问题，架构静态依赖检查、格式与git diff --check通过；自查确认数字解析与Rust一致，不接受十六进制字符串，不改配置备份或既有FRB绑定。
+- 交付边界：三批仅本地提交，无推送、设备安装或IPA/APK构建；本轮未使用子代理。下次应用构建须重编当前Rust源对应的原生库；本地引擎测试不代替Android/iOS网络、平台后台行为或真机性能验收。
 
 ### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
 
@@ -28,7 +31,7 @@
 - 授权与基线：用户要求参照上游独立设置页；主目录feature/ui-reader-selection / 006569b28，单代理，完成后本地提交，不提升版本、不自动安装或推送。
 - 上游：HapeLee/legado-with-MD3 main / c4182eb9bcdd2e52eb6bb44d14c37856e592a99a，ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt及其Contract/ViewModel。采用下载设置、图片缓存、网络、其他操作分组；保留本项目SettingsGroup和公共Sheet。
 - 范围：主设置页增加独立入口和命名路由，将其他设置中的线程数、预下载、图片缓存/保留、User-Agent、清理缓存与压缩数据库迁出；既有离线缓存管理和缓存统计页不混为配置页。已接线线程配置与清理/压缩保持，未接线项继续禁用并标明原因。
-- 边界：不扩展Rust/FFI/数据库；独立封面/漫画HTTP缓存、书籍缓存下载线程数保留禁用占位；正文前后预下载按后续用户授权接通实际消费者，不新增无消费者的设置写入；Cronet仍不纳入本批。真实配置写入失败回退、取消清理、重复操作和路由返回须有回归，验证真实页面，不自建测试替身界面。
+- 边界：本页迁移阶段不扩展Rust/FFI/数据库；书籍下载并发后续由CACHE-DOWNLOAD-CONCURRENCY-20261019接线，独立封面/漫画HTTP缓存仍禁用占位；正文前后预下载按后续用户授权接通实际消费者，不新增无消费者的设置写入；Cronet仍不纳入本批。真实配置写入失败回退、取消清理、重复操作和路由返回须有回归，验证真实页面，不自建测试替身界面。
 - 验收：定向widget测试、目标静态分析及架构门禁；设备视觉/安装和远程CI不自动执行。执行者Codex + UI，2026-10-19。
 - 本地结果：新增DownloadCacheSettingsScreen及/download_cache_settings命名路由，主设置新增入口；原高级页移除7项重复入口与旧维护方法。线程编辑使用公共AppSettingsSheet的整数滑块/输入，保持Rust配置单源、取消不写入、越界拒绝与保存失败回退；维护操作抽至DownloadCacheActions，清理后同步章级镜像，操作互斥且离页不显示迟到结果。未接线4项只读偏好离页后释放，重进重新读取；现有缓存统计及离线下载列表保留。中英文导航/分组文案经flutter gen-l10n生成，版本不变。
 - 验证：显式缺失FFI库运行5份实际widget测试共90项通过（cache_boundary、request_settings、general_backup_settings、settings、screens_overflow_regress），覆盖真实AppRouter进入/返回、360dp布局、取消/失败、互斥/离页和旧值保留；目标dart analyze --fatal-infos、架构门禁及diff检查通过。首次验证修复共享服务导入遗漏，并将路由测试从禁止未提供路由的旧宿主改为实际AppRouter；没有删减业务断言。未安装设备或触发当前页面的远程CI，不能以widget结果代替视觉验收。

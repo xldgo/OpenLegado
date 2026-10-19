@@ -1,4 +1,7 @@
 import '../data/repositories/app_request_settings_repository.dart';
+import '../data/repositories/app_cache_download_settings_repository.dart';
+import '../domain/contracts/cache_download_settings_repository.dart';
+import '../domain/models/cache_download_settings.dart';
 import '../domain/contracts/request_settings_repository.dart';
 import '../domain/models/request_settings.dart';
 
@@ -40,6 +43,21 @@ final requestSettingsRepositoryProvider = Provider<RequestSettingsRepository>(
 );
 final requestSettingsProvider = StreamProvider<RequestSettings>((ref) async* {
   final repository = ref.watch(requestSettingsRepositoryProvider);
+  await repository.load();
+  yield* repository.watch();
+});
+
+/// 离线下载配置有独立投影，避免改变搜索并发或正文预下载设置。
+final cacheDownloadSettingsRepositoryProvider =
+    Provider<CacheDownloadSettingsRepository>(
+      (ref) => AppCacheDownloadSettingsRepository(
+        ref.watch(appSettingsServiceProvider),
+      ),
+    );
+final cacheDownloadSettingsProvider = StreamProvider<CacheDownloadSettings>((
+  ref,
+) async* {
+  final repository = ref.watch(cacheDownloadSettingsRepositoryProvider);
   await repository.load();
   yield* repository.watch();
 });

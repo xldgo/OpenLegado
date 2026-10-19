@@ -15,6 +15,88 @@ import '../fixtures/app_test_api.dart';
 import '../fixtures/config_repository.dart';
 
 void main() {
+  testWidgets('离线并发数字Sheet取消不写，越界拒绝，失败回退且不覆盖其他配置', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final values = {'threadCount': '17', 'cacheBookThreadCount': '2'};
+    var failRead = false, failWrite = false;
+    final config = TestConfigRepository(
+      read: (key) async {
+        if (key == 'cacheBookThreadCount' && failRead) throw StateError('读取失败');
+        return values[key];
+      },
+      write: (key, value) async {
+        if (failWrite) throw StateError('保存失败');
+        values[key] = value;
+      },
+    );
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
+        configRepositoryProvider.overrideWithValue(config),
+      ]),
+    );
+    addTearDown(() {
+      final service = container.read(appSettingsServiceProvider);
+      container.dispose();
+      unawaited(service.dispose());
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: DownloadCacheSettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final label = find.text('书籍缓存下载线程数');
+    await tester.dragUntilVisible(
+      label,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    failRead = true;
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    expect(find.byType(AppSettingsSheet), findsNothing);
+    expect(find.text('下载并发设置读取失败，请重试'), findsOneWidget);
+    failRead = false;
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, '2'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '8');
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(values['cacheBookThreadCount'], '2');
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    for (final invalid in ['0', '9']) {
+      await tester.enterText(find.byType(TextField), invalid);
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      expect(find.text('请输入 1～8 之间的整数'), findsOneWidget);
+    }
+    await tester.enterText(find.byType(TextField), '8');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+    expect(values['cacheBookThreadCount'], '8');
+    expect(values['threadCount'], '17');
+    failWrite = true;
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '1');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+    expect(values['cacheBookThreadCount'], '8');
+    expect(
+      container
+          .read(cacheDownloadSettingsRepositoryProvider)
+          .current
+          .threadCount,
+      8,
+    );
+    expect(find.text('下载并发设置保存失败，请重试'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('并发输入保存到Rust配置，拒绝非法值且保存失败回退', (tester) async {
     SharedPreferences.setMockInitialValues({'threadCount': 99});
     var stored = '3';

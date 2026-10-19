@@ -1,4 +1,5 @@
 import 'package:flutter_legado/src/data/repositories/app_request_settings_repository.dart';
+import 'package:flutter_legado/src/data/repositories/app_cache_download_settings_repository.dart';
 
 import 'dart:async';
 
@@ -18,6 +19,43 @@ import '../fixtures/config_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('离线下载并发独立存Rust配置并在重新装配后读取，范围与Rust一致', () async {
+    SharedPreferences.setMockInitialValues({
+      'preDownloadNum': 12,
+      'cacheBookThreadCount': 99,
+    });
+    final config = MockConfigRepository(
+      values: {'threadCount': '23', 'cacheBookThreadCount': '2'},
+    );
+    final service = createAppSettingsService(configRepository: () => config);
+    addTearDown(service.dispose);
+    final repository = AppCacheDownloadSettingsRepository(service);
+    expect((await repository.load()).threadCount, 2);
+    await repository.update((s) => s.copyWith(threadCount: 1));
+    expect(await config.getConfig('cacheBookThreadCount'), '1');
+    await repository.update((s) => s.copyWith(threadCount: 8));
+    expect(await config.getConfig('threadCount'), '23');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('preDownloadNum'), 12);
+    expect(prefs.getInt('cacheBookThreadCount'), 99);
+    final rebuilt = createAppSettingsService(configRepository: () => config);
+    addTearDown(rebuilt.dispose);
+    expect(
+      (await AppCacheDownloadSettingsRepository(rebuilt).load()).threadCount,
+      8,
+    );
+    for (final count in [0, 9]) {
+      await expectLater(
+        repository.update((s) => s.copyWith(threadCount: count)),
+        throwsRangeError,
+      );
+    }
+    for (final value in ['0', '-1', '9', '16', 'bad', '0x2', '']) {
+      await config.setConfig('cacheBookThreadCount', value);
+      await repository.reload();
+      expect(repository.current.threadCount, 8);
+    }
+  });
   test('并发只存Rust配置，忽略未接线的SP旧值并拒绝越界写入', () async {
     SharedPreferences.setMockInitialValues({'threadCount': 99});
     final config = MockConfigRepository(values: {'threadCount': '3'});

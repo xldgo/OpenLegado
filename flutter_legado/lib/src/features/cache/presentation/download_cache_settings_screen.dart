@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../domain/models/request_settings.dart';
+import '../../../domain/models/cache_download_settings.dart';
+import '../../../domain/contracts/settings_repository.dart';
 import '../../../domain/models/download_settings.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../providers/config_settings_provider.dart';
@@ -35,42 +37,70 @@ class _DownloadCacheSettingsScreenState
     }
   }
 
-  Future<void> _editThreads() async {
+  Future<void> _editThreads() => _editRustCount<RequestSettings>(
+    repository: ref.read(requestSettingsRepositoryProvider),
+    count: (s) => s.threadCount,
+    change: (s, value) => s.copyWith(threadCount: value),
+    title: '更新和搜索线程数',
+    minimum: RequestSettings.minThreadCount,
+    maximum: RequestSettings.maxThreadCount,
+    errorPrefix: '并发设置',
+    refresh: () => ref.invalidate(requestSettingsProvider),
+  );
+
+  Future<void> _editCacheThreads() => _editRustCount<CacheDownloadSettings>(
+    repository: ref.read(cacheDownloadSettingsRepositoryProvider),
+    count: (s) => s.threadCount,
+    change: (s, value) => s.copyWith(threadCount: value),
+    title: context.l10n.cacheBookThreadCount,
+    minimum: CacheDownloadSettings.minThreadCount,
+    maximum: CacheDownloadSettings.maxThreadCount,
+    errorPrefix: '下载并发设置',
+    refresh: () => ref.invalidate(cacheDownloadSettingsProvider),
+  );
+
+  Future<void> _editRustCount<T>({
+    required SettingsRepository<T> repository,
+    required int Function(T) count,
+    required T Function(T, int) change,
+    required String title,
+    required int minimum,
+    required int maximum,
+    required String errorPrefix,
+    required VoidCallback refresh,
+  }) async {
     if (_busy || _editingSetting) return;
     // 模态弹层已阻止背景交互，仅防重入，不改变设置行外观。
     _editingSetting = true;
-    final repository = ref.read(requestSettingsRepositoryProvider);
     try {
       try {
         await repository.reload();
         if (!mounted) return;
-        ref.invalidate(requestSettingsProvider);
+        refresh();
       } catch (_) {
-        _toast('并发设置读取失败，请重试');
+        _toast('$errorPrefix读取失败，请重试');
         return;
       }
       if (!mounted) return;
-      final count = await AppBottomSheet.showContent<int>(
+      final selected = await AppBottomSheet.showContent<int>(
         context: context,
         builder: (_) => _IntegerSettingSheet(
-          initial: repository.current.threadCount,
-          title: '更新和搜索线程数',
+          initial: count(repository.current),
+          title: title,
           label: '线程数',
-          minimum: RequestSettings.minThreadCount,
-          maximum: RequestSettings.maxThreadCount,
+          minimum: minimum,
+          maximum: maximum,
         ),
       );
-      if (count == null ||
+      if (selected == null ||
           !mounted ||
-          count == repository.current.threadCount) {
+          selected == count(repository.current)) {
         return;
       }
       try {
-        await repository.update(
-          (settings) => settings.copyWith(threadCount: count),
-        );
+        await repository.update((settings) => change(settings, selected));
       } catch (_) {
-        _toast('并发设置保存失败，请重试');
+        _toast('$errorPrefix保存失败，请重试');
       }
     } finally {
       _editingSetting = false;
@@ -162,6 +192,7 @@ class _DownloadCacheSettingsScreenState
   @override
   Widget build(BuildContext context) {
     final request = ref.watch(requestSettingsProvider);
+    final cacheDownload = ref.watch(cacheDownloadSettingsProvider);
     final download = ref.watch(downloadSettingsProvider);
     final downloadSnapshot = download.asData?.value;
     final pending = ref.watch(pendingDownloadSettingsProvider);
@@ -210,8 +241,14 @@ class _DownloadCacheSettingsScreenState
                 ),
                 SettingTile(
                   title: context.l10n.cacheBookThreadCount,
-                  subtitle: context.l10n.featurePending,
-                  enabled: false,
+                  value: cacheDownload.hasError
+                      ? '读取失败'
+                      : cacheDownload.asData == null
+                      ? '读取中…'
+                      : '${cacheDownload.asData!.value.threadCount}',
+                  subtitle: '控制离线下载并发，新任务生效',
+                  enabled: !_busy,
+                  onTap: _busy ? null : _editCacheThreads,
                 ),
                 SettingTile(
                   title: context.l10n.preDownloadNext,
