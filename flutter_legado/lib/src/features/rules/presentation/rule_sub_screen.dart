@@ -1,8 +1,6 @@
+import '../application/subscriptions/rule_sub_import_provider.dart';
+import '../application/subscriptions/rule_sub_import_service.dart';
 import '../../../domain/models/rule_sub_update_result.dart';
-import '../../../providers/replace_rule_repository_provider.dart';
-import '../../../providers/rss_repository_provider.dart';
-
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -13,12 +11,9 @@ import '../../../widgets/legado_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../../../providers/network_provider.dart';
-
 import '../../../models/models.dart';
 import '../application/subscriptions/rule_sub_notifier.dart';
 import '../../book_sources/book_sources.dart';
-import '../../../domain/models/source_preview.dart';
 import '../../../widgets/confirm_dialog.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/error_view.dart';
@@ -41,6 +36,15 @@ class RuleSubScreen extends ConsumerStatefulWidget {
 }
 
 class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
+  bool _preparingImport = false;
+  int _importGeneration = 0;
+
+  @override
+  void dispose() {
+    _importGeneration++;
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -314,186 +318,94 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
     await notifier.saveSub(result);
   }
 
-  /// 点击条目按类型打开导入（对标原版 openSubscription）
+  /// 页面只负责加载提示、确认页导航与结果展示。— Codex + UI
   Future<void> _openSubscription(BuildContext context, RuleSub sub) async {
-    switch (sub.subType) {
-      case RuleSub.bookSource:
-        await _importBookSources(context, sub);
-      case RuleSub.rssSource:
-        await _importRssSources(context, sub);
-      case RuleSub.replaceRule:
-        await _importReplaceRules(context, sub);
-      default:
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('未知订阅类型：${sub.subType}')));
-    }
-  }
-
-  /// 书源订阅导入（对标 ImportBookSourceDialog：拉取→勾选确认→入库）
-  Future<void> _importBookSources(BuildContext context, RuleSub sub) async {
+    if (_preparingImport) return;
+    final generation = ++_importGeneration;
+    final service = ref.read(ruleSubImportServiceProvider);
+    final localSources = List<BookSource>.of(
+      ref.read(sourceNotifierProvider).sources,
+    );
+    final navigator = Navigator.of(context);
+    final owner = ModalRoute.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    showDialog<void>(
+    final label = switch (sub.subType) {
+      RuleSub.bookSource => '书源',
+      RuleSub.rssSource => '订阅源',
+      RuleSub.replaceRule => '替换规则',
+      _ => '订阅',
+    };
+    final dialog = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-    List<SourcePreview> sources;
+    var finished = false;
+    var cancelled = false;
+    _preparingImport = true;
+    navigator.push(dialog).then((_) {
+      if (!finished) cancelled = true;
+    });
+    RuleSubImportPreview preview;
     try {
-      sources = await ref
-          .read(sourceNotifierProvider.notifier)
-          .importService
-          .fetchSourcesFromUrl(sub.url);
-    } catch (e) {
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      preview = await service.prepare(sub, localBookSources: localSources);
+    } catch (error) {
+      finished = true;
+      if (dialog.isActive) navigator.removeRoute(dialog);
+      if (mounted &&
+          !cancelled &&
+          generation == _importGeneration &&
+          owner?.isCurrent != false) {
+        messenger.showSnackBar(SnackBar(content: Text('获取$label失败：$error')));
       }
-      messenger.showSnackBar(SnackBar(content: Text('获取书源失败：$e')));
+      return;
+    } finally {
+      _preparingImport = false;
+    }
+    finished = true;
+    // 只移除本次操作拥有的加载框，不能误弹出后来打开的页面。
+    if (dialog.isActive) navigator.removeRoute(dialog);
+    if (!context.mounted ||
+        cancelled ||
+        generation != _importGeneration ||
+        owner?.isCurrent == false) {
       return;
     }
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // 关闭加载指示
-
-    if (sources.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到书源')));
+    if (preview.isEmpty) {
+      messenger.showSnackBar(SnackBar(content: Text('格式错误，未解析到$label')));
       return;
     }
-
-    final localSources = ref.read(sourceNotifierProvider).sources;
-    final ok = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => SourceImportConfirmScreen(
-          sources: sources,
-          localSources: localSources,
+    final Object? result = switch (preview) {
+      RuleSubBookSources(:final items, :final local) =>
+        await navigator.push<bool>(
+          MaterialPageRoute(
+            builder: (_) =>
+                SourceImportConfirmScreen(sources: items, localSources: local),
+          ),
         ),
-      ),
-    );
-    if (ok == true && mounted) {
+      RuleSubRssSources(:final items, :final local) =>
+        await navigator.push<bool>(
+          MaterialPageRoute(
+            builder: (_) => RssSourceImportConfirmScreen(
+              sources: items,
+              localSources: local,
+            ),
+          ),
+        ),
+      RuleSubReplaceRules(:final items, :final local) =>
+        await navigator.push<int>(
+          MaterialPageRoute(
+            builder: (_) =>
+                ReplaceRuleImportConfirmScreen(raws: items, localRules: local),
+          ),
+        ),
+    };
+    if (!mounted || generation != _importGeneration) return;
+    if (result == true) {
       messenger.showSnackBar(const SnackBar(content: Text('导入完成')));
+    } else if (result is int && result > 0) {
+      messenger.showSnackBar(SnackBar(content: Text('已导入 $result 条替换规则')));
     }
-  }
-
-  /// 订阅源导入（对标 ImportRssSourceDialog：拉取→勾选确认→入库）
-  Future<void> _importRssSources(BuildContext context, RuleSub sub) async {
-    final messenger = ScaffoldMessenger.of(context);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    List<dynamic> items;
-    try {
-      items = await _fetchJsonArray(sub.url);
-    } catch (e) {
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-      messenger.showSnackBar(SnackBar(content: Text('获取订阅源失败：$e')));
-      return;
-    }
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // 关闭加载指示
-
-    if (items.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到订阅源')));
-      return;
-    }
-
-    final candidates = [
-      for (final item in items)
-        if (item is Map<String, dynamic>) item,
-    ];
-    // 本地订阅源用于新增/更新状态判定与保留选项合并
-    List<RssSource> localSources;
-    try {
-      localSources = await ref
-          .read(rssSourceRepositoryProvider)
-          .getRssSources();
-    } catch (_) {
-      localSources = [];
-    }
-    if (!context.mounted) return;
-
-    final ok = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => RssSourceImportConfirmScreen(
-          sources: candidates,
-          localSources: localSources,
-        ),
-      ),
-    );
-    if (ok == true && mounted) {
-      messenger.showSnackBar(const SnackBar(content: Text('导入完成')));
-    }
-  }
-
-  /// 替换规则导入（对标 ImportReplaceRuleDialog：拉取→勾选确认→入库）
-  Future<void> _importReplaceRules(BuildContext context, RuleSub sub) async {
-    final messenger = ScaffoldMessenger.of(context);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    List<dynamic> items;
-    try {
-      items = await _fetchJsonArray(sub.url);
-    } catch (e) {
-      if (context.mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-      messenger.showSnackBar(SnackBar(content: Text('获取替换规则失败：$e')));
-      return;
-    }
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // 关闭加载指示
-
-    if (items.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('格式错误，未解析到替换规则')));
-      return;
-    }
-
-    final candidates = [
-      for (final item in items)
-        if (item is Map<String, dynamic>) item,
-    ];
-    // 本地规则用于新增/更新状态判定与同 id 更新入库
-    List<ReplaceRule> localRules;
-    try {
-      localRules = await ref
-          .read(replaceRuleRepositoryProvider)
-          .getReplaceRules();
-    } catch (_) {
-      localRules = [];
-    }
-    if (!context.mounted) return;
-
-    final count = await Navigator.of(context).push<int>(
-      MaterialPageRoute(
-        builder: (_) => ReplaceRuleImportConfirmScreen(
-          raws: candidates,
-          localRules: localRules,
-        ),
-      ),
-    );
-    if (count != null && count > 0 && mounted) {
-      messenger.showSnackBar(SnackBar(content: Text('已导入 $count 条替换规则')));
-    }
-  }
-
-  /// 拉取订阅 URL 并解析为 JSON 数组（对象包装时收拢为单元素数组）
-  Future<List<dynamic>> _fetchJsonArray(String url) async {
-    final network = ref.read(networkServiceProvider);
-    final response = await network.httpGet(
-      url,
-      timeout: const Duration(seconds: 30),
-    );
-    if (!response.isSuccess) {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-    final decoded = jsonDecode(response.body);
-    if (decoded is List) return decoded;
-    if (decoded is Map<String, dynamic>) return [decoded];
-    throw const FormatException('订阅内容不是 JSON 数组或对象');
   }
 }
 
