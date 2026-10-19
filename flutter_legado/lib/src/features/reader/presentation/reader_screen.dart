@@ -38,7 +38,7 @@ import 'overlays/reader_settings_sheet.dart';
 import 'overlays/reader_controls_overlay.dart';
 import '../../../widgets/reader/reader_menu_theme.dart';
 import '../../../widgets/reader/review_detail_sheet.dart';
-import '../../../utils/comic_image_utils.dart';
+import '../application/reader_presentation_provider.dart';
 import '../../../utils/source_login_prompt.dart';
 
 /// 阅读器页面：系统显示、交互调度与组件组合。
@@ -399,22 +399,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(readerNotifierProvider);
+    ref.watch(readerScreenDependenciesProvider);
+    final state = ref.read(readerNotifierProvider);
     final notifier = ref.read(readerNotifierProvider.notifier);
-    // 朗读控制条显隐依赖全局朗读状态（朗读进行中时替代底部功能栏）
-    final audio = ref.watch(audioNotifierProvider);
-    final book = state.currentBook;
-    final aloudActive =
-        book != null &&
-        audio.bookUrl == book.bookUrl &&
-        audio.state != PlayerState.idle;
-
-    // 必应漫画等：正文仅为 <img> HTML 时勿走文本排版（会刷裸标签）
+    final aloudActive = ref.watch(readerReadAloudActiveProvider);
     final imageDominant =
-        book != null &&
+        state.currentBook != null &&
         !state.isLoading &&
-        state.chapterContent.isNotEmpty &&
-        isImageDominantContent(state.chapterContent);
+        ref.watch(readerImageDominantProvider);
 
     // [UI-fix v2.0.3 | 2026-08-08] 自动换源监听：章节加载新产生错误时，
     // autoChangeSource 开启且在线书 → 自动搜索替代书源并切换（对标原版

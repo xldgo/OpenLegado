@@ -34,6 +34,9 @@ class _LoadingReader extends ReaderNotifier {
     );
   }
 
+  void setMenu(bool visible) => state = state.copyWith(showControls: visible);
+  void sampleProgress() =>
+      state = state.copyWith(currentChapterPos: 0, globalPageIndex: 1);
   void startLoading() => state = state.copyWith(isLoading: true);
 }
 
@@ -85,6 +88,16 @@ void main() {
     await settleNativeReaderLayout(tester);
     expect(find.byType(GlassProgressIndicator), findsNothing);
     expect(find.byType(ReaderTextContent), findsWidgets);
+
+    final page = tester.state<ReaderPageViewState>(find.byType(ReaderPageView));
+    final measurements = page.layoutMeasurements;
+    reader.setMenu(true);
+    await settleNativeReaderLayout(tester);
+    reader.setMenu(false);
+    reader.sampleProgress();
+    await settleNativeReaderLayout(tester);
+    expect(identical(tester.state(find.byType(ReaderPageView)), page), isTrue);
+    expect(page.layoutMeasurements, measurements);
 
     reader.startLoading();
     await tester.pump();

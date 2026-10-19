@@ -1,3 +1,5 @@
+import '../../application/reader_presentation_provider.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -42,15 +44,15 @@ class ReaderControlsOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final audio = ref.watch(audioNotifierProvider);
-    final capsule = ref.watch(readAloudCapsuleProvider);
-    final book = state.currentBook;
-    final aloudActive =
-        book != null &&
-        audio.bookUrl == book.bookUrl &&
-        audio.state != PlayerState.idle;
+    final (isStreamMode, isLoading) = ref.watch(
+      audioNotifierProvider.select((a) => (a.isStreamMode, a.isLoading)),
+    );
+    final classicExpanded = ref.watch(
+      readAloudCapsuleProvider.select((s) => s.classicExpanded),
+    );
+    final aloudActive = ref.watch(readerReadAloudActiveProvider);
     return ReaderMenuTheme(
-      builder: (context) => aloudActive && capsule.classicExpanded
+      builder: (context) => aloudActive && classicExpanded
           ? ReadAloudBar(
               onDismiss: () => ref
                   .read(readAloudCapsuleProvider.notifier)
@@ -63,8 +65,7 @@ class ReaderControlsOverlay extends ConsumerWidget {
             )
           : ReaderMenuPanel(
               visible: state.showControls,
-              bottomAccessory:
-                  aloudActive && !audio.isStreamMode && !imageDominant
+              bottomAccessory: aloudActive && !isStreamMode && !imageDominant
                   ? ValueListenableBuilder<bool>(
                       valueListenable: ref
                           .read(audioNotifierProvider.notifier)
@@ -90,7 +91,7 @@ class ReaderControlsOverlay extends ConsumerWidget {
                                   context,
                                   icon: Icons.my_location,
                                   label: context.l10n.readAloudReturnToPosition,
-                                  onPressed: audio.isLoading
+                                  onPressed: isLoading
                                       ? null
                                       : ref
                                             .read(
@@ -102,7 +103,7 @@ class ReaderControlsOverlay extends ConsumerWidget {
                                   context,
                                   icon: Icons.play_arrow,
                                   label: context.l10n.readAloudFromThisPage,
-                                  onPressed: state.isLoading || audio.isLoading
+                                  onPressed: state.isLoading || isLoading
                                       ? null
                                       : () =>
                                             unawaited(onReadFromVisiblePage()),

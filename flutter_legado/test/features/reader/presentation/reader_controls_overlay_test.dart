@@ -1,3 +1,4 @@
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,7 +144,7 @@ void main() {
         .read(readerNotifierProvider.notifier)
         .updateChapterPageCount(0, 4);
     await tester.pump();
-    final slider = find.byType(Slider);
+    final slider = find.byType(GlassSlider);
     await tester.drag(slider, const Offset(200, 0));
     await tester.pump();
     expect(actions.pages, isNotEmpty);
