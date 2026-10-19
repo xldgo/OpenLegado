@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/theme/app_theme.dart';
+import 'package:flutter_legado/src/domain/models/appearance_settings.dart';
 import 'package:flutter_legado/src/theme/app_theme_resolver.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
 
@@ -63,42 +64,66 @@ void main() {
     expect(themes.light.appBarTheme.foregroundColor, Colors.white);
   });
 
-  test('动态色缺失时保留全部自定义颜色', () {
+  test('动态取色不可用时明暗分别使用绿色回退，不混入自定义四色', () {
     final themes = resolveAppThemes(
       preferences: const AppThemePreferences(
-        followWallpaper: true,
+        paletteId: AppearanceSettings.dynamicPaletteId,
+        style: 'expressive',
         lightColors: day,
         darkColors: night,
       ),
     );
-    expectCustomColors(themes.light, day);
-    expectCustomColors(themes.dark, night);
+    expect(themes.light.colorScheme, md3LightScheme(Md3Palettes.gr));
+    expect(themes.dark.colorScheme, md3DarkScheme(Md3Palettes.gr));
   });
 
-  test('动态色按对应亮度生效，缺失的一侧独立回退', () {
+  test('动态取色保留完整角色，缺失的一侧独立回退', () {
     final dynamic = ColorScheme.fromSeed(seedColor: Colors.green);
     final themes = resolveAppThemes(
       preferences: const AppThemePreferences(
-        followWallpaper: true,
+        paletteId: AppearanceSettings.dynamicPaletteId,
+        style: 'monochrome',
+        contrastLevel: 0.5,
         lightColors: day,
         darkColors: night,
       ),
       lightDynamic: dynamic,
     );
-    expect(themes.light.appBarTheme.backgroundColor, dynamic.primary);
-    expect(themes.light.colorScheme.primary, dynamic.tertiary);
-    expect(
-      themes.light.scaffoldBackgroundColor,
-      Color(Md3Palettes.def.light.surface),
-    );
+    expect(themes.light.colorScheme, dynamic);
+    expect(themes.light.appBarTheme.backgroundColor, dynamic.surface);
+    expect(themes.light.scaffoldBackgroundColor, dynamic.surface);
     expect(
       themes.light.navigationBarTheme.backgroundColor,
-      Color(Md3Palettes.def.light.surfaceContainer),
+      dynamic.surfaceContainer,
     );
-    expectCustomColors(themes.dark, night);
+    expect(themes.light.cardTheme.color, dynamic.surfaceContainerLowest);
+    expect(themes.dark.colorScheme, md3DarkScheme(Md3Palettes.gr));
   });
 
-  test('未开启壁纸取色时忽略平台动态色', () {
+  test('系统深色和纯黑模式仍沿用统一组件装配', () {
+    final dynamic = ColorScheme.fromSeed(
+      seedColor: Colors.purple,
+      brightness: Brightness.dark,
+    );
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(
+        paletteId: AppearanceSettings.dynamicPaletteId,
+        amoledDark: true,
+        cardRadius: 14,
+      ),
+      darkDynamic: dynamic,
+    );
+    expect(themes.dark.colorScheme.primary, dynamic.primary);
+    expect(
+      themes.dark.colorScheme.onPrimaryContainer,
+      dynamic.onPrimaryContainer,
+    );
+    expect(themes.dark.colorScheme.surface, Colors.black);
+    expect(themes.dark.scaffoldBackgroundColor, Colors.black);
+    expect(cardRadius(themes.dark), BorderRadius.circular(14));
+  });
+
+  test('选择普通配色时忽略平台动态色并保留自定义配置', () {
     final dynamic = ColorScheme.fromSeed(seedColor: Colors.green);
     final themes = resolveAppThemes(
       preferences: const AppThemePreferences(

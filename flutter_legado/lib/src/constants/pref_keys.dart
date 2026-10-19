@@ -22,13 +22,6 @@ class PrefKeys {
   /// 底部操作栏皮肤跟随背景（仅 Android 生效）
   static const bottomBarSkin = 'bottomBarSkin';
 
-  /// 使用壁纸取色（Android 12+/iOS 动态色均可用——R1 接通 dynamic_color；
-  /// 默认 false）
-  static const wallpaperColorFollow = 'wallpaperColorFollow';
-
-  /// 壁纸变化时自动更新取色（仅 Android 生效，默认 true）
-  static const wallpaperColorAutoUpdate = 'wallpaperColorAutoUpdate';
-
   /// 日间主色调（ARGB int）
   static const cPrimary = 'colorPrimary';
 

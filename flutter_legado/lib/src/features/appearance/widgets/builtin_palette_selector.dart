@@ -1,39 +1,51 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../domain/models/appearance_settings.dart';
+import '../../../l10n/app_localization.dart';
 import '../../../theme/md3_colors.dart';
+import '../../../theme/platform_dynamic_colors.dart';
 
-/// 内置 MD3 调色板横滑选择行（UI_MD3_PLAN.md Batch 1「内置 13 主题」区，
-/// 阶段D 2.0.270 起 13 套：def「默认」为默认选中，wh 黑白等 12 套保留）
-///
-/// [队列⑦a A2] 形态对齐参考 ThemeColorSelector（ThemeConfigScreen.kt:1020，
-/// LazyRow 横滑一行 + Arrangement.spacedBy(16.dp) :1031-1032）。
-/// 每张卡片左半为亮色预览、右半为暗色预览（tonal 配对），底部显示
-/// 中文主题名；选中项 2dp 主色描边 + 40dp 主色圆角底对勾。点按经
-/// [ThemeNotifier] 全局实时生效并持久化 paletteId。
+/// 配色横滑行：动态取色置首，预览遵循参考版圆形三色布局。— Codex + UI
 class BuiltinPaletteSelector extends StatelessWidget {
-  final String selectedId;
-  final ValueChanged<String> onSelected;
-
   const BuiltinPaletteSelector({
     super.key,
     required this.selectedId,
     required this.onSelected,
   });
 
+  final String selectedId;
+  final ValueChanged<String> onSelected;
+
   @override
   Widget build(BuildContext context) {
-    // 横滑一行（参考 LazyRow；卡间距 16 对齐 spacedBy(16.dp)）
+    final brightness = Theme.of(context).brightness;
+    final dynamicColors =
+        PlatformDynamicColors.of(context, brightness) ??
+        (brightness == Brightness.light
+            ? md3LightScheme(Md3Palettes.gr)
+            : md3DarkScheme(Md3Palettes.gr));
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      // 为两端色卡及水波纹留出空间，避开设置分组的圆角裁剪区。
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < Md3Palettes.all.length; i += 1) ...[
-            if (i > 0) const SizedBox(width: 16),
+          _PaletteCard(
+            label: context.l10n.themeDynamicColor,
+            colors: dynamicColors,
+            selected: selectedId == AppearanceSettings.dynamicPaletteId,
+            onSelected: () => onSelected(AppearanceSettings.dynamicPaletteId),
+          ),
+          for (final palette in Md3Palettes.all) ...[
+            const SizedBox(width: 16),
             _PaletteCard(
-              palette: Md3Palettes.all[i],
-              selected: Md3Palettes.all[i].id == selectedId,
-              onSelected: () => onSelected(Md3Palettes.all[i].id),
+              label: palette.label,
+              colors: brightness == Brightness.light
+                  ? md3LightScheme(palette)
+                  : md3DarkScheme(palette),
+              selected: palette.id == selectedId,
+              onSelected: () => onSelected(palette.id),
             ),
           ],
         ],
@@ -42,149 +54,101 @@ class BuiltinPaletteSelector extends StatelessWidget {
   }
 }
 
-/// 单张调色板预览卡片（64x64 方卡，形态对齐参考 ThemeColorButton
-/// ThemeConfigScreen.kt:1054：size(64.dp) + RoundedCornerShape(16.dp)
-/// :1089-1096；选中 2dp 主色描边 :1092-1095；选中 40dp/12dp 圆角主色底
-/// 24dp 对勾 :1134-1148；12dp 下距 :1152；labelSmall 标签
-/// :1154-1158）
-///
-/// 卡片内部保留我方左亮/右暗 surface 预览 + 色点（功能实现倾向我方；
-/// 参考为 48dp 半圆 arc 单模式预览 :1102-1132）。
 class _PaletteCard extends StatelessWidget {
-  final Md3Palette palette;
-  final bool selected;
-  final VoidCallback onSelected;
-
   const _PaletteCard({
-    required this.palette,
+    required this.label,
+    required this.colors,
     required this.selected,
     required this.onSelected,
   });
 
+  final String label;
+  final ColorScheme colors;
+  final bool selected;
+  final VoidCallback onSelected;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final light = Color(palette.light.surface);
-    final dark = Color(palette.dark.surface);
-    final primary = Color(palette.light.primary);
-    final secondary = Color(palette.light.secondary);
-    final tertiary = Color(palette.light.tertiary);
-
-    return SizedBox(
-      width: 64,
-      child: InkWell(
-        onTap: onSelected,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 64,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(16),
-                      // 参考：选中 2dp 主色描边，未选中无描边（:1092-1095 else null）
-                      border: selected
-                          ? Border.all(color: primary, width: 2)
-                          : null,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    // 左亮右暗：展示该套调色板的 tonal 亮暗配对
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ColoredBox(
-                            color: light,
-                            child: Center(
-                              child: _PaletteDots(
-                                primary: primary,
-                                secondary: secondary,
-                                tertiary: tertiary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ColoredBox(
-                            color: dark,
-                            child: Center(
-                              child: _PaletteDots(
-                                primary: primary,
-                                secondary: secondary,
-                                tertiary: tertiary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+    final theme = Theme.of(context);
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: SizedBox(
+        width: 64,
+        child: InkWell(
+          onTap: onSelected,
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox.square(
+                dimension: 64,
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  elevation: 0,
+                  color: colors.surfaceContainer,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: selected
+                        ? BorderSide(color: theme.colorScheme.primary, width: 2)
+                        : BorderSide.none,
                   ),
-                  if (selected)
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: primary,
-                        borderRadius: BorderRadius.circular(12),
+                  // Card 在前景绘制轮廓，子内容不会盖住选中边框。
+                  borderOnForeground: true,
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.square(
+                        dimension: 48,
+                        child: ClipOval(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: ColoredBox(color: colors.secondary),
+                              ),
+                              Expanded(
+                                child: ColoredBox(color: colors.tertiary),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: Icon(
-                        Icons.check,
-                        size: 24,
-                        color: scheme.onPrimary,
+                      Container(
+                        width: selected ? 40 : 24,
+                        height: selected ? 40 : 24,
+                        decoration: BoxDecoration(
+                          color: colors.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: selected
+                            ? Icon(
+                                Icons.check,
+                                size: 24,
+                                color: colors.onPrimary,
+                              )
+                            : null,
                       ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              palette.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.copyWith(color: selected ? primary : scheme.onSurface),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-/// 预览色点行（primary/secondary/tertiary 三点示意）
-class _PaletteDots extends StatelessWidget {
-  final Color primary;
-  final Color secondary;
-  final Color tertiary;
-
-  const _PaletteDots({
-    required this.primary,
-    required this.secondary,
-    required this.tertiary,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // FittedBox 兜底：[队列⑦a A2] 64px 方卡内左/右半预览区约 30px 宽，
-    // 色点行 39px 需缩放下放（原 4 列网格半卡 ~37dp 时的兜底同样适用，
-    // md3_acceptance_matrix_test 回归守护）
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final color in [primary, secondary, tertiary]) ...[
-            Container(
-              width: 10,
-              height: 10,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-          ],
-        ],
       ),
     );
   }

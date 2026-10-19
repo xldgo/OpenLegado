@@ -3,7 +3,7 @@ import '../../widgets/eye_protection_settings.dart';
 import '../../providers/cover_provider.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
 // ThemeConfigFragment：启动图标/欢迎页样式/
-// 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤/壁纸取色 ×2 +
+// 导航栏阴影/字体缩放/封面设置/主题列表/底栏皮肤 +
 // 白天/夜间 主色调/强调色/背景色/底栏色/背景图片/保存主题。
 // 颜色配置经 ThemeColorsNotifier 接入 MaterialApp ThemeData 即时生效；
 // 尚未接入功能的选项禁用并说明后续开放；已生效的平台入口保持可用；
@@ -55,7 +55,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   String get _launcherIcon =>
       ref.read(appearanceSettingsRepositoryProvider).current.launcherIcon;
   int _barElevation = 0;
-  bool _wallpaperColorAutoUpdate = true;
 
   /// 颜色选择器预设色板（对齐原版 ColorPreference cpv_dialogType="preset"）
   static const _presetColors = [
@@ -130,14 +129,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
       PrefKeys.barElevation,
       defaultValue: 0,
     );
-    final wallpaperColorAutoUpdate = await _settings.getBoolPref(
-      PrefKeys.wallpaperColorAutoUpdate,
-      defaultValue: true,
-    );
     if (!mounted) return;
     setState(() {
       _barElevation = barElevation;
-      _wallpaperColorAutoUpdate = wallpaperColorAutoUpdate;
       _loading = false;
     });
   }
@@ -448,9 +442,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                           () => themeNotifier.setThemeMode(mode),
                         ),
                       ),
-                      // 13 套内置 MD3 preset 选择器（UI_MD3_PLAN.md Batch 1，
-                      // [队列⑦a A2] 13 色卡横滑一行形态；paletteId 持久化，
-                      // 与自定义主题并存——第九节并存模型）
+                      // 系统动态取色置于行首，与内置配色互斥并共用 paletteId。
                       BuiltinPaletteSelector(
                         selectedId: themeState.paletteId,
                         onSelected: (id) => _saveAppearance(
@@ -592,22 +584,6 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                             GoRouter.of(context)
                                 .pushAppRoute(AppRoutes.bottomBarSkin),
                       ),
-                      SettingSwitchRow(
-                        title: '跟随壁纸配色',
-                        subtitle: '使用系统壁纸色板生成日间和夜间主题（Android 12+/iOS）',
-                        value: ui.wallpaperColorFollow,
-                        onChanged: (v) => _saveAppearance(
-                          () => ref
-                              .read(uiSettingsProvider.notifier)
-                              .setWallpaperColorFollow(v),
-                        ),
-                      ),
-                      if (ui.wallpaperColorFollow)
-                        SettingSwitchRow(
-                          title: '壁纸变化时自动更新',
-                          subtitle: _pendingDescription('系统壁纸变化后自动应用新色板'),
-                          value: _wallpaperColorAutoUpdate,
-                        ),
                     ],
                   ),
 

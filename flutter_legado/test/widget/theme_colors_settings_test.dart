@@ -178,15 +178,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('阴影和壁纸自动更新不可点击且不改原值，取色开关仍可用', (tester) async {
-    await open(
-      tester,
-      preferences: {
-        PrefKeys.barElevation: 12,
-        PrefKeys.wallpaperColorAutoUpdate: false,
-      },
-      values: {PrefKeys.wallpaperColorFollow: true},
-    );
+  testWidgets('未接线的导航栏阴影禁用且不改写保存值', (tester) async {
+    await open(tester, preferences: {PrefKeys.barElevation: 12});
     await reveal(tester, find.text('导航栏阴影'));
     final tile = find.ancestor(
       of: find.text('导航栏阴影'),
@@ -200,27 +193,9 @@ void main() {
     await tester.tap(find.text('导航栏阴影'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
-    await reveal(tester, find.text('壁纸变化时自动更新'));
-    final pending = find.ancestor(
-      of: find.text('壁纸变化时自动更新'),
-      matching: find.byType(SettingSwitchRow),
-    );
-    expect(tester.widget<SettingSwitchRow>(pending).onChanged, isNull);
-    expect(
-      tester.widget<SettingSwitchRow>(pending).subtitle,
-      '系统壁纸变化后自动应用新色板\n待实现',
-    );
-    await tester.tap(find.text('壁纸变化时自动更新'));
-    await tester.pumpAndSettle();
-    final active = find.ancestor(
-      of: find.text('跟随壁纸配色'),
-      matching: find.byType(SettingSwitchRow),
-    );
-    expect(tester.widget<SettingSwitchRow>(active).onChanged, isNotNull);
     expect(storage.writes, isEmpty);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getInt(PrefKeys.barElevation), 12);
-    expect(prefs.getBool(PrefKeys.wallpaperColorAutoUpdate), isFalse);
     expect(tester.takeException(), isNull);
   });
 

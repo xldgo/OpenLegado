@@ -10,6 +10,9 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get themeDynamicColor => '动态取色';
+
+  @override
   String get httpCache => 'HTTP 缓存';
 
   @override

@@ -10,6 +10,9 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get themeDynamicColor => 'Dynamic color';
+
+  @override
   String get httpCache => 'HTTP cache';
 
   @override

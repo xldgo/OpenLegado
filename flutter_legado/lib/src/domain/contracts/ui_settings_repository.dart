@@ -27,7 +27,6 @@ abstract interface class UiSettingsRepository {
     double? topBarBlurTintOpacity,
     double? bottomBarBlurSigma,
     double? bottomBarBlurTintOpacity,
-    bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,
     String? themeStyle,

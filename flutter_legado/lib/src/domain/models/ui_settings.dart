@@ -131,9 +131,6 @@ final class UiSettings {
   /// 底栏模糊底色不透明度 0–1
   final double bottomBarBlurTintOpacity;
 
-  /// 跟随壁纸取色（Android 12+ Material You / iOS 动态色均接通）
-  final bool wallpaperColorFollow;
-
   /// 设置行分隔线开关
   final bool enableItemDivider;
 
@@ -171,7 +168,6 @@ final class UiSettings {
     this.topBarBlurTintOpacity = UiSettingsValues.topBarBlurTintOpacity,
     this.bottomBarBlurSigma = UiSettingsValues.bottomBarBlurSigma,
     this.bottomBarBlurTintOpacity = UiSettingsValues.bottomBarBlurTintOpacity,
-    this.wallpaperColorFollow = false,
     this.enableItemDivider = false,
     this.railExtended = false,
     this.themeStyle = 'none',
@@ -200,7 +196,6 @@ final class UiSettings {
     double? topBarBlurTintOpacity,
     double? bottomBarBlurSigma,
     double? bottomBarBlurTintOpacity,
-    bool? wallpaperColorFollow,
     bool? enableItemDivider,
     bool? railExtended,
     String? themeStyle,
@@ -238,7 +233,6 @@ final class UiSettings {
       bottomBarBlurSigma: bottomBarBlurSigma ?? this.bottomBarBlurSigma,
       bottomBarBlurTintOpacity:
           bottomBarBlurTintOpacity ?? this.bottomBarBlurTintOpacity,
-      wallpaperColorFollow: wallpaperColorFollow ?? this.wallpaperColorFollow,
       enableItemDivider: enableItemDivider ?? this.enableItemDivider,
       railExtended: railExtended ?? this.railExtended,
       themeStyle: themeStyle ?? this.themeStyle,
@@ -271,7 +265,6 @@ final class UiSettings {
       topBarBlurTintOpacity == other.topBarBlurTintOpacity &&
       bottomBarBlurSigma == other.bottomBarBlurSigma &&
       bottomBarBlurTintOpacity == other.bottomBarBlurTintOpacity &&
-      wallpaperColorFollow == other.wallpaperColorFollow &&
       enableItemDivider == other.enableItemDivider &&
       railExtended == other.railExtended &&
       themeStyle == other.themeStyle &&
@@ -300,7 +293,6 @@ final class UiSettings {
     topBarBlurTintOpacity,
     bottomBarBlurSigma,
     bottomBarBlurTintOpacity,
-    wallpaperColorFollow,
     enableItemDivider,
     railExtended,
     themeStyle,

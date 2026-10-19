@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### THEME-DYNAMIC-PALETTE-20261020：统一动态取色入口并修复色卡描边（P2，本地完成，待设备复验）
+
+- 授权：用户要求参照HapeLee将壁纸取色移至配色横滑行首并修复边框裁剪；基线feature/ui-reader-selection / 6ae6e9d9d，单代理，不提升版本、不推送或安装。
+- 根因：独立开关优先于内置选择，仅以系统primary/tertiary覆写部分颜色，混用了两套色板；预览子内容覆盖背景描边，滚动两端没有圆角避让空间。原文案错误宣称iOS壁纸取色可用。
+- 范围：动态取色使用同一paletteId互斥保存，整套系统明暗色板进入统一组件装配；不可用的一侧依参考版回退GR。移除两个旧偏好及独立/占位开关，不清洗或兼容旧键。动态模式不叠加自定义四色或参数化风格；纯黑和圆角仍生效。
+- 界面：64dp色卡、48dp次色/第三色圆盘、24dp主色点、40dp选中勾，前景绘制2dp主题主色描边；滚动两端16dp、上下8dp留白。预览共享应用平台色板，返回前台重新读取系统颜色。
+- 参考：HapeLee main的ThemeConfigScreen.ThemeColorSelector/ThemeColorButton与ThemeEngine.resolveDynamicColorScheme；dynamic_color 2.1.0支持Android12+壁纸色与桌面系统强调色，不支持iOS系统壁纸取色，未增加原生桥接。
+- 验收：定向配色解析、保存/切换、主题仓储与组件行为回归，窄容器/大字的真实边框像素检查、静态分析和架构检查；设备视觉及系统壁纸变更另行复验。编写者Codex + UI，2026-10-20。
+- 结果：7份定向测试63项通过，涵盖完整角色、单侧回退、纯黑、保存及普通配色切回、仓储失败和首尾卡片真实边框像素；目标静态分析、架构依赖及diff检查通过。证据flutter_legado/build/dynamic-theme-{tests,analysis,architecture}.log。
+- 交付：单代理自查，无独立审查；仅本地提交，提交号以本条Git记录为准，版本保持2.0.405+406。未运行全量CI、编译安装或设备验收；Android壁纸更换、桌面强调色及前后台实际刷新效果待复验，不宣称iOS支持系统壁纸取色。
+
 ### SYSTEM-BARS-EDGE-TO-EDGE-20261020：移除全局沉浸开关并统一系统栏（P2，本地完成，待设备复验）
 
 - 授权：用户同意普通页面统一边到边，保留阅读器独立显隐、退出恢复和主题图标明暗；基线feature/ui-reader-selection / 17dba7918，单代理，本地提交，不推送或安装，不提升版本。

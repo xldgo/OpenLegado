@@ -122,9 +122,6 @@ class UiSettingsNotifier extends Notifier<UiSettings> {
   Future<void> setBottomBarBlurTintOpacity(double value) =>
       _save((repository) => repository.update(bottomBarBlurTintOpacity: value));
 
-  Future<void> setWallpaperColorFollow(bool value) =>
-      _save((repository) => repository.update(wallpaperColorFollow: value));
-
   Future<void> setEnableItemDivider(bool value) =>
       _save((repository) => repository.update(enableItemDivider: value));
 

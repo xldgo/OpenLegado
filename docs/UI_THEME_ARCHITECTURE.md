@@ -81,14 +81,19 @@ flowchart TD
 
 `src/theme/app_theme_resolver.dart` 定义绘制输入和 `resolveAppThemes`：
 
-- `AppThemePreferences` 包含色板、风格、对比度、纯黑、壁纸取色、卡片圆角及日夜四色。
+- `AppThemePreferences` 包含色板、风格、对比度、纯黑、卡片圆角及日夜四色。
   `ThemeColorOverrides` 只表达主色、强调色、背景和底栏颜色，不包含持久化操作。
 - `app.dart` 从现有 Provider 映射这些输入，并将 DynamicColorBuilder 的日夜结果传入。
   主题模式、字体缩放、背景图可用性、应用宿主装配继续由入口负责。
 - 解析顺序为内置色板 → 可选参数化角色 → 纯黑 → 有效颜色覆盖。参数化保留日间
   主色作为两套角色的共同种子；自定义主色仍表示标题栏背景，强调色仍表示全局 Tint。
-- 动态色按日夜分别判断：开关开启且对应动态色存在时，以动态主色和 tertiary 覆盖
-  原四色输入；缺失的一侧完整回退自定义四色。不会因为只有一侧可用就丢弃另一侧配置。
+- 动态取色为 `paletteId=dynamic`，与内置配色互斥；直接传入整套系统 `ColorScheme`，
+  不再以primary/tertiary局部替换原四色。动态模式忽略自定义四色及参数化风格，明暗
+  各自缺失时回退GR，与参考版不支持动态色时的策略一致；纯黑和圆角仍统一装配。
+- 应用入口通过 `PlatformDynamicColors` 共享插件结果；色卡预览不重复查询平台，
+  返回前台重新读取系统色板。Android12+支持壁纸色，桌面支持系统强调色，iOS回退GR。
+- 动态选项位于配色横滑行首，前景绘制选中轮廓并为滚动两端保留16dp内边距。
+  移除旧壁纸取色与自动更新占位开关及其偏好，不进行旧键迁移或清洗。
 - `AppTheme.palette` / `lightCustom` / `darkCustom` 显式接收 `cardRadius`，默认 20dp；
   用户覆写由应用输入提供。`withColorScheme` 继承基础主题的卡片形状并重新装配颜色。
   主题计算与装配不依赖全局 uiSettingsListenable、文件系统或持久化。

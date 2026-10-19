@@ -33,6 +33,8 @@ import 'src/theme/app_glass_theme.dart';
 
 import 'package:dynamic_color/dynamic_color.dart';
 
+import 'src/theme/platform_dynamic_colors.dart';
+
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
 import 'src/widgets/system_bar_binder.dart';
@@ -170,6 +172,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   late final StartupReadingNavigation _startupReading;
   late final ProviderContainer _applicationContainer;
   final _initialDeepLinkReady = Completer<void>();
+  final _dynamicColorsKey = GlobalKey<DynamicColorBuilderState>();
 
   final _readAloudCapsuleObserver = ReadAloudCapsuleObserver();
   late final MediaPlaybackNavigation _mediaPlaybackNavigation;
@@ -302,6 +305,14 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 壁纸或系统强调色可能在后台改变，回到前台时重新读取并共享预览。
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_dynamicColorsKey.currentState?.initPlatformState());
+    }
+  }
+
+  @override
   void dispose() {
     _completeInitialDeepLink();
     AutoTaskScheduler.instance.detach();
@@ -376,6 +387,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
     // 平台动态色与本地背景图由应用入口提供，主题解析只消费绘制输入。
     return DynamicColorBuilder(
+      key: _dynamicColorsKey,
       builder: (lightDynamic, darkDynamic) {
         final themes = resolveAppThemes(
           preferences: preferences,
@@ -441,6 +453,11 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
             wrapped = UiSettingsHost(child: wrapped);
             wrapped = AppGlassHost(
               available: widget.glassAvailable,
+              child: wrapped,
+            );
+            wrapped = PlatformDynamicColors(
+              light: lightDynamic,
+              dark: darkDynamic,
               child: wrapped,
             );
             if (scale == null) return wrapped;

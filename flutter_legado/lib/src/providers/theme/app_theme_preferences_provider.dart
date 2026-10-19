@@ -12,19 +12,17 @@ final appThemePreferencesProvider = riverpod.Provider<AppThemePreferences>((
   ref,
 ) {
   final paletteId = ref.watch(themeNotifierProvider.select((s) => s.paletteId));
-  final (style, contrast, amoled, wallpaper, overrideRadius, radius) = ref
-      .watch(
-        uiSettingsProvider.select(
-          (s) => (
-            s.themeStyle,
-            s.themeContrastLevel,
-            s.themeAmoled,
-            s.wallpaperColorFollow,
-            s.overrideBaseCardCornerRadius,
-            s.baseCardCornerRadius,
-          ),
-        ),
-      );
+  final (style, contrast, amoled, overrideRadius, radius) = ref.watch(
+    uiSettingsProvider.select(
+      (s) => (
+        s.themeStyle,
+        s.themeContrastLevel,
+        s.themeAmoled,
+        s.overrideBaseCardCornerRadius,
+        s.baseCardCornerRadius,
+      ),
+    ),
+  );
   final (
     primary,
     accent,
@@ -54,7 +52,6 @@ final appThemePreferencesProvider = riverpod.Provider<AppThemePreferences>((
     style: style,
     contrastLevel: double.tryParse(contrast) ?? 0,
     amoledDark: amoled,
-    followWallpaper: wallpaper,
     cardRadius: overrideRadius ? radius.toDouble() : AppTheme.defaultCardRadius,
     lightColors: ThemeColorOverrides(
       primary: color(primary),

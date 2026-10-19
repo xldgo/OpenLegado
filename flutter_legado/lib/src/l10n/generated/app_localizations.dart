@@ -98,6 +98,12 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @themeDynamicColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'动态取色'**
+  String get themeDynamicColor;
+
   /// No description provided for @httpCache.
   ///
   /// In zh, this message translates to:

@@ -2,6 +2,9 @@
 enum AppThemeMode { system, light, dark }
 
 final class AppearanceSettings {
+  /// 系统动态取色与内置配色共用同一选择，不叠加独立开关。
+  static const dynamicPaletteId = 'dynamic';
+
   const AppearanceSettings({
     this.themeMode = AppThemeMode.system,
     this.fontScaleRaw = 0,

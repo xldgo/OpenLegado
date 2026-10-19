@@ -98,6 +98,7 @@ class AppTheme {
   static ThemeData palette({
     required Brightness brightness,
     required Md3Palette palette,
+    ColorScheme? colorScheme,
     bool amoledDark = false,
     Color? primary,
     Color? accent,
@@ -105,12 +106,16 @@ class AppTheme {
     Color? bottomBackground,
     double cardRadius = defaultCardRadius,
   }) {
-    var scheme = brightness == Brightness.light
-        ? md3LightScheme(palette)
-        : md3DarkScheme(palette);
+    var scheme =
+        colorScheme ??
+        (brightness == Brightness.light
+            ? md3LightScheme(palette)
+            : md3DarkScheme(palette));
 
     // 默认深色主题的页面底色已变暗，容器层次同步收敛，避免混用旧亮灰色。
-    if (brightness == Brightness.dark && palette.id == 'def') {
+    if (colorScheme == null &&
+        brightness == Brightness.dark &&
+        palette.id == 'def') {
       scheme = scheme.copyWith(
         surfaceContainerLowest: const Color(0xFF0B0F12),
         surfaceContainer: const Color(0xFF24282C),

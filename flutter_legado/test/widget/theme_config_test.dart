@@ -15,6 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 import 'package:flutter_legado/src/features/appearance/appearance.dart';
+import 'package:flutter_legado/src/features/appearance/widgets/builtin_palette_selector.dart';
+import 'package:flutter_legado/src/domain/models/appearance_settings.dart';
 
 void main() {
   late ProviderContainer container;
@@ -40,6 +42,8 @@ void main() {
       find.byType(ListView),
       const Offset(0, -200),
     );
+    await tester.ensureVisible(find.text('顶栏按钮样式'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('顶栏按钮样式'));
     await tester.pumpAndSettle();
     expect(find.text('液态玻璃（暂用玻璃底色）'), findsNothing);
@@ -156,12 +160,25 @@ void main() {
     // 默认调色板为 def「默认」（阶段D 2.0.270 起；黑白等 12 套保留可切换）
     expect(container.read(themeNotifierProvider).paletteId, equals('def'));
 
-    // [队列⑦c A3] 色卡行位于页首「主题模式」分组，先滚动到可见区
-    // [队列⑦a A2] koharu 显示名 小春→春（对齐参考 zh 名）
-    await tester.dragUntilVisible(
+    await tester.tap(find.text('动态取色'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(themeNotifierProvider).paletteId,
+      AppearanceSettings.dynamicPaletteId,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString('app_palette_id'),
+      AppearanceSettings.dynamicPaletteId,
+    );
+    final horizontalScroll = find.descendant(
+      of: find.byType(BuiltinPaletteSelector),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
       find.text('春'),
-      find.byType(ListView),
-      const Offset(0, -120),
+      160,
+      scrollable: horizontalScroll,
     );
     await tester.pumpAndSettle();
 
@@ -169,6 +186,7 @@ void main() {
     await tester.tap(find.text('春'));
     await tester.pumpAndSettle();
     expect(container.read(themeNotifierProvider).paletteId, equals('koharu'));
+    expect(prefs.getString('app_palette_id'), 'koharu');
 
     await tester.dragUntilVisible(
       find.text('配色风格'),
