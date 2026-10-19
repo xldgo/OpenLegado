@@ -1,5 +1,24 @@
 # API 契约文档
 
+## JS字体输入、请求与缓存（2026-10-19，实施前冻结）
+
+参考固定15e1337a的queryTTF/queryBase64TTF/replaceFont，沿用java与裸别名，无FFI或数据库变更。
+queryTTF支持实际字符串及有效Uint8Array/Int8Array视图；字节输入在JS边界即复制，保留视图范围。
+null/undefined及不支持的Any类型返回真实JS null；空字符串、损坏字体、非法Base64、失效视图和下载失败抛异常。
+HTTP(S)字体规则复用当前VM的AnalyzeUrl与原始HTTP字节管线，支持POST、请求头、Cookie、路由、限流、取消；
+不执行bodyJs/type文本转换/WebView，不增加专用网络实现；规则求值和网络等待不持字体缓存锁。
+并发冷加载可重复请求，完整解析后只发布有效缓存；失败不污染已有解析结果。
+保留既有本地路径扩展，但必须allow_file_access且通过文件沙箱检查，授权与路径检查先于缓存命中。
+queryBase64TTF保留上游字符串重载，委托同一字体查询；不增加本地文件或数据URI的上游承诺。
+成功返回当前QuickJS拥有的字体对象，直接持有Arc解析结果，不暴露JSON重载数据或全局ID。
+replaceFont仅消费真实字体对象或null，无效/伪造对象抛异常，null字体返回原文；不再静默吞下载/解析错误。
+资源缓存容量4，按SHA-256标识及LRU淘汰；useCache=false严格绕过读写，不保留字体磁盘缓存或无限句柄表。
+JS仍持有的字体不因LRU淘汰失效；最后一个JS对象和缓存引用释放后释放解析结果，不二次下载或读取文件。
+useCache/filter省略分别默认true/false，显式传参必须为Boolean；轮廓反查、过滤和空白处理算法不变。
+不扩展QueryTTF的其余Java方法，不改TTF解析器、书源规则、Flutter或平台构建。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS目录文本读取与清理（2026-10-19，实施前冻结）
 
 沿用getTxtInFolder(path)的java/裸别名及allow_file_access门控，无FFI或数据库变更。
@@ -936,6 +955,9 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 - 本子批完成不等于监督关闭已完成；R5/R6 的任务资源捕获和关闭协议继续单独推进。
 
 ## 间接下载与字体缓存实例归属（2026-10-16，R4c3 内部边界）
+
+> 本节保留R4c3当时的接线记录。当前脚本下载、缓存、目录与字体行为按顶部2026-10-19契约执行；
+> 旧错误降级、JSON字体句柄/磁盘字体及同URL网络串行规则已被覆盖，资源实例归属原则继续有效。
 
 - 文件下载、cacheFile/importScript、字体与压缩包的网络读取使用所属 HttpResources，
   维持现有方法、超时、代理、重定向、返回结构与错误降级；不隐式加入新的来源 Header 或 CookieJar 开关。

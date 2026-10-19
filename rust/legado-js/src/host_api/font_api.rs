@@ -1,258 +1,100 @@
-//! 字体 API（字体反爬 cmap 真实替换）
-//!
-//! 对应 Kotlin 端 `JsExtensions` 中的 queryTTF / replaceFont / queryBase64TTF 方法，
-//! 以及 `AppCacheManager` 的 QueryTTF LRU 缓存语义。
-//!
-//! # 实现说明（方案 A：Rust 侧解析）
-//!
-//! 1. [`FontResources::query_ttf`] 接收 URL / 本地文件路径 / Base64 字符串：
-//!    - URL：先查资源私有磁盘缓存（文件名 = SHA-256(data)），
-//!      未命中时经 legado-net 下载并落盘；
-//!    - 文件：直接读取；Base64：解码。
-//!
-//!    解析成功后得到 [`crate::host_api::query_ttf::QueryTtf`]（cmap 与 glyf 轮廓签名），
-//!    存入内存 LRU 缓存，并返回结构化 JSON 字体句柄。
-//! 2. [`FontResources::replace_font`] 与 Kotlin `replaceFont` 逐行对齐：
-//!    错误字体中每个字符经 cmap 取 glyphId → glyf 轮廓签名 →
-//!    在正确字体中以轮廓签名反查 unicode → 逐码点替换正文。
-//!
-//! # JS 契约
-//!
-//! 入参 / 出参与桩化实现完全一致：`queryTTF` 返回
-//! `{"fontId":"...","type":"url|file|base64","data":"...","valid":bool}`，
-//! `replaceFont(text, errorHandle, correctHandle, filter?)` 返回替换后文本；
-//! 书源 JS 调用方式无需任何改动。
-
-use std::collections::HashMap;
-use std::sync::Mutex;
+//! 字体反混淆：纯解析结果由Arc持有，资源缓存仅保留4项；不重载JSON句柄或磁盘字体。
+//! — Codex + Bridge
 
 use crate::host_api::query_ttf::QueryTtf;
+use std::sync::{Arc, Mutex};
 
-/// 内存 LRU 缓存容量（对应 Kotlin `AppCacheManager.queryTTFMap = LruCache(4)`）
 const FONT_LRU_CAPACITY: usize = 4;
-
-/// 字体句柄和解析结果由资源实例持有；回调不捕获根引擎。
 #[derive(Default)]
 pub struct FontResources {
-    handles: Mutex<HashMap<String, String>>,
-    lru: Mutex<Vec<(String, QueryTtf)>>,
-    files: super::resource_files::ResourceFiles,
-    downloads: legado_core::write_coordinator::KeyedWriteCoordinator,
+    lru: Mutex<Vec<(String, Arc<QueryTtf>)>>,
 }
-
-/// 下载器按次借用；未启用网络的调用方可明确返回不可用。
 pub type FontDownloader<'a> = dyn Fn(&str) -> Result<Vec<u8>, String> + 'a;
 
-/// SHA-256 十六进制摘要（缓存 key，对齐 Kotlin `MessageDigest("SHA-256").toHexString()`）
 fn sha256_hex(data: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(data))
 }
 
-/// QueryTtf 深拷贝（LRU 取出副本，避免持锁返回）
-fn clone_query_ttf(ttf: &QueryTtf) -> QueryTtf {
-    // QueryTtf 仅含三个 HashMap，克隆成本可接受（LRU 容量 4）
-    ttf.clone()
-}
-
-/// 判断 data 类型（与原桩化实现一致的判定规则）
-fn classify(data: &str) -> &'static str {
-    if data.starts_with("http://") || data.starts_with("https://") {
-        "url"
-    } else if data.starts_with('/')
-        || data.starts_with("file://")
-        || (data.len() > 2 && data[1..].starts_with(":\\"))
-    {
-        "file"
-    } else {
-        "base64"
-    }
+/// 不按UTF-8字节边界切片；与上游isAbsUrl一样忽略HTTP(S)大小写。
+pub(crate) fn is_remote(data: &str) -> bool {
+    data.get(..7)
+        .is_some_and(|s| s.eq_ignore_ascii_case("http://"))
+        || data
+            .get(..8)
+            .is_some_and(|s| s.eq_ignore_ascii_case("https://"))
 }
 
 impl FontResources {
-    /// LRU 查询（命中时移到队首）
-    fn lru_get(&self, key: &str) -> Option<QueryTtf> {
-        // QueryTtf 内部均为 HashMap，Clone 成本可接受；LRU 容量仅 4
-        let mut guard = self.lru.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(idx) = guard.iter().position(|(k, _)| k == key) {
-            let (_, v) = guard.remove(idx);
-            let cloned = clone_query_ttf(&v);
-            guard.insert(0, (key.to_string(), v));
-            return Some(cloned);
-        }
-        None
+    fn lru_get(cache: &mut Vec<(String, Arc<QueryTtf>)>, key: &str) -> Option<Arc<QueryTtf>> {
+        let index = cache.iter().position(|(k, _)| k == key)?;
+        let entry = cache.remove(index);
+        let font = entry.1.clone();
+        cache.insert(0, entry);
+        Some(font)
     }
-
-    /// LRU 写入（超容量淘汰最久未用）
-    fn lru_put(&self, key: String, value: QueryTtf) {
-        let mut guard = self.lru.lock().unwrap_or_else(|p| p.into_inner());
-        guard.retain(|(k, _)| k != &key);
-        guard.insert(0, (key, value));
-        guard.truncate(FONT_LRU_CAPACITY);
-    }
-
-    /// queryTTF(data, useCache?) → 字体查询句柄 JSON
-    ///
-    /// 对应 Kotlin: `queryTTF(data: Any?, useCache: Boolean): QueryTTF?`
-    ///
-    /// `data` 支持 URL / 本地文件路径 / Base64 字符串（自动判断）。
-    /// 返回 JSON 句柄，供 `replaceFont` 使用；若 data 为空则返回 "null"；
-    /// 字体获取或解析失败时返回 `valid=false` 的句柄（调用端 replaceFont 将降级返回原文）。
-    ///
-    /// 返回格式：
-    /// ```json
-    /// {"fontId":"...","type":"url|file|base64","data":"...","valid":true}
-    /// ```
-    pub fn query_ttf(&self, download: &FontDownloader<'_>, data: &str, use_cache: bool) -> String {
-        if data.is_empty() {
-            return "null".to_string();
+    fn load(
+        &self,
+        key: String,
+        use_cache: bool,
+        load: impl FnOnce() -> Result<Vec<u8>, String>,
+    ) -> Result<Arc<QueryTtf>, String> {
+        crate::cancellation::check().map_err(|e| e.to_string())?;
+        if use_cache
+            && let Some(font) = Self::lru_get(
+                &mut self.lru.lock().unwrap_or_else(|p| p.into_inner()),
+                &key,
+            )
+        {
+            return Ok(font);
         }
-
-        // 缓存 key：SHA-256(data)，对齐 Kotlin
-        let cache_key = sha256_hex(data.as_bytes());
-
-        // 检查句柄缓存（对齐 Kotlin AppCacheManager.getQueryTTF）
+        // 网络与当前VM规则求值均在锁外；不通过静态表或磁盘持有额外引用。
+        let bytes = load()?;
+        crate::cancellation::check().map_err(|e| e.to_string())?;
+        let font = Arc::new(QueryTtf::parse(&bytes).map_err(|error| error.to_string())?);
+        crate::cancellation::check().map_err(|e| e.to_string())?;
         if use_cache {
-            let guard = self.handles.lock().unwrap_or_else(|p| p.into_inner());
-            if let Some(cached) = guard.get(&cache_key) {
-                return cached.clone();
+            let mut cache = self.lru.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some(existing) = Self::lru_get(&mut cache, &key) {
+                return Ok(existing);
             }
+            cache.insert(0, (key, font.clone()));
+            cache.truncate(FONT_LRU_CAPACITY);
         }
-
-        let font_type = classify(data);
-
-        // 加载字体二进制：磁盘缓存 → 下载 / 读文件 / base64 解码
-        let font_bytes = self.load_font_bytes(download, data, font_type, &cache_key);
-        let (font_bytes, valid) = match font_bytes {
-            Ok(bytes) => (Some(bytes), true),
-            Err(_) => (None, false),
-        };
-
-        // 解析字体（cmap + glyf 轮廓签名）
-        let parsed = font_bytes
-            .as_ref()
-            .and_then(|bytes| QueryTtf::parse(bytes).ok());
-
-        let handle = serde_json::json!({
-            "fontId": cache_key,
-            "type": font_type,
-            "data": data,
-            "valid": valid && parsed.is_some()
-        })
-        .to_string();
-
-        // 写入缓存（对齐 Kotlin：key != null 时 put）
-        if use_cache && parsed.is_some() {
-            if let Some(ttf) = parsed {
-                self.lru_put(cache_key.clone(), ttf);
-            }
-            self.handles
-                .lock()
-                .unwrap_or_else(|p| p.into_inner())
-                .insert(cache_key, handle.clone());
-        }
-
-        handle
+        Ok(font)
     }
-
-    /// 加载字体二进制（URL 走磁盘缓存 + legado-net 下载，file 直接读取，base64 解码）
-    fn load_font_bytes(
+    /// 字符串只解析URL规则或Base64；本地扩展由JS边界校验授权、路径后传入字节。
+    pub fn query_ttf(
         &self,
         download: &FontDownloader<'_>,
         data: &str,
-        font_type: &str,
-        cache_key: &str,
-    ) -> Result<Vec<u8>, String> {
-        match font_type {
-            "url" => self.downloads.with_domain(cache_key, || {
-                let cache_path = self
-                    .files
-                    .directory()
-                    .ok()
-                    .map(|dir| dir.join(format!("{}.ttf", cache_key)));
-                // 已缓存直接用（对齐 TTS 缓存模式）
-                if let Some(cache_path) = &cache_path
-                    && let Ok(bytes) = std::fs::read(cache_path)
-                    && !bytes.is_empty()
-                {
-                    return Ok(bytes);
-                }
-                let bytes = download(data)?;
-                // 下载成功落盘缓存（失败忽略）
-                if !bytes.is_empty() && cache_path.is_some() {
-                    let _ = self.files.publish(&format!("{cache_key}.ttf"), &bytes);
-                }
-                Ok(bytes)
-            }),
-            "file" => {
-                let path = data.strip_prefix("file://").unwrap_or(data);
-                std::fs::read(path).map_err(|e| format!("read font file error: {}", e))
-            }
-            _ => {
+        use_cache: bool,
+    ) -> Result<Arc<QueryTtf>, String> {
+        self.load(sha256_hex(data.as_bytes()), use_cache, || {
+            if is_remote(data) {
+                download(data)
+            } else {
                 use base64::Engine;
                 base64::engine::general_purpose::STANDARD
                     .decode(data.trim())
-                    .map_err(|e| format!("base64 font decode error: {}", e))
+                    .map_err(|e| format!("字体Base64解码失败: {e}"))
             }
-        }
+        })
     }
-
-    /// queryBase64TTF(data) → 字体查询句柄 JSON（已废弃，等价于 queryTTF）
-    ///
-    /// 对应 Kotlin: `@Deprecated queryBase64TTF(data: String?): QueryTTF?`
-    /// Kotlin 端已标注废弃，建议改用 `queryTTF`；此处保留兼容性。
-    pub fn query_base64_ttf(&self, download: &FontDownloader<'_>, data: &str) -> String {
-        self.query_ttf(download, data, true)
+    /// 字节视图已由JS边界复制，不保留引擎缓冲借用。
+    pub fn query_bytes(&self, data: &[u8], use_cache: bool) -> Result<Arc<QueryTtf>, String> {
+        self.load(sha256_hex(data), use_cache, || Ok(data.to_vec()))
     }
-
-    /// replaceFont(text, errorFontData, correctFontData, filter?) → 替换后文本
-    ///
-    /// 对应 Kotlin: `replaceFont(text, errorQueryTTF, correctQueryTTF, filter): String`
-    ///
-    /// 逐码点处理（对齐 `text.toStringArray()` 的多字节码点语义）：
-    /// 1. 空白字符（`isBlankUnicode` 白名单）跳过；
-    /// 2. 取错误字体的轮廓签名；glyphId 为 0 时视为无轮廓；
-    /// 3. `filter=true` 且轮廓不存在 → 删除该字符；
-    /// 4. 以轮廓签名在正确字体反查 unicode，命中则替换。
+    /// 保持既有逐码点轮廓反查、空白及过滤规则；无IO，不会因LRU淘汰重新下载。
     pub fn replace_font(
-        &self,
-        download: &FontDownloader<'_>,
         text: &str,
-        error_font_data: &str,
-        correct_font_data: &str,
+        error: Option<&QueryTtf>,
+        correct: Option<&QueryTtf>,
         filter: bool,
     ) -> String {
-        // 任一句柄为空或 null 时直接返回原文
-        if error_font_data.is_empty()
-            || error_font_data == "null"
-            || correct_font_data.is_empty()
-            || correct_font_data == "null"
-        {
-            return text.to_string();
-        }
-
-        // 尝试解析句柄 JSON，验证有效性
-        let error_valid = serde_json::from_str::<serde_json::Value>(error_font_data)
-            .map(|v| v.get("valid").and_then(|b| b.as_bool()).unwrap_or(false))
-            .unwrap_or(false);
-
-        let correct_valid = serde_json::from_str::<serde_json::Value>(correct_font_data)
-            .map(|v| v.get("valid").and_then(|b| b.as_bool()).unwrap_or(false))
-            .unwrap_or(false);
-
-        if !error_valid || !correct_valid {
-            return text.to_string();
-        }
-
-        // 取得两个已解析字体（LRU 命中优先，否则按句柄重新加载）
-        let (Some(error_font), Some(correct_font)) = (
-            self.resolve_font(download, error_font_data),
-            self.resolve_font(download, correct_font_data),
-        ) else {
-            // 任一字体不可用：降级返回原文（对应 Kotlin 端 null 句柄分支）
+        let (Some(error_font), Some(correct_font)) = (error, correct) else {
             return text.to_string();
         };
-
         let mut out = String::with_capacity(text.len());
         for ch in text.chars() {
             let code = ch as u32;
@@ -284,25 +126,6 @@ impl FontResources {
             out.push(ch);
         }
         out
-    }
-
-    /// 从句柄 JSON 还原已解析字体：LRU 命中优先，否则按 type/data 重新加载解析
-    fn resolve_font(&self, download: &FontDownloader<'_>, handle_json: &str) -> Option<QueryTtf> {
-        let handle: serde_json::Value = serde_json::from_str(handle_json).ok()?;
-        let font_id = handle.get("fontId")?.as_str()?;
-
-        if let Some(ttf) = self.lru_get(font_id) {
-            return Some(ttf);
-        }
-
-        let data = handle.get("data")?.as_str()?;
-        let font_type = handle.get("type")?.as_str()?;
-        let bytes = self
-            .load_font_bytes(download, data, font_type, font_id)
-            .ok()?;
-        let ttf = QueryTtf::parse(&bytes).ok()?;
-        self.lru_put(font_id.to_string(), clone_query_ttf(&ttf));
-        Some(ttf)
     }
 }
 
@@ -534,82 +357,42 @@ pub mod tests {
 
     #[test]
     fn test_query_ttf_empty() {
-        let fonts = FontResources::default();
-        assert_eq!(fonts.query_ttf(&no_download, "", true), "null");
+        assert!(
+            FontResources::default()
+                .query_ttf(&no_download, "", true)
+                .is_err()
+        );
     }
-
     #[test]
     fn test_query_ttf_base64_real_font() {
-        let fonts = FontResources::default();
-        let result = fonts.query_ttf(&no_download, &error_font_b64(), false);
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "base64");
-        assert_eq!(parsed["valid"], true);
+        let font = FontResources::default()
+            .query_ttf(&no_download, &error_font_b64(), false)
+            .unwrap();
+        assert_eq!(font.glyf_id_by_unicode(0xE001), 1);
     }
-
     #[test]
     fn test_query_ttf_base64_invalid() {
-        let fonts = FontResources::default();
-        let result = fonts.query_ttf(&no_download, "AAECAwQF", false);
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "base64");
-        assert_eq!(parsed["valid"], false);
+        assert!(
+            FontResources::default()
+                .query_ttf(&no_download, "AAECAwQF", false)
+                .is_err()
+        );
     }
-
-    #[test]
-    fn test_query_ttf_file_real_font() {
-        let fonts = FontResources::default();
-        // 写入临时文件后以路径加载
-        let dir = std::env::temp_dir().join(format!("legado_font_test_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("fixture.ttf");
-        std::fs::write(
-            &path,
-            build_minimal_ttf(
-                &[Segment {
-                    start: 0x41,
-                    end: 0x41,
-                    id_delta: -0x40,
-                }],
-                false,
-            ),
-        )
-        .unwrap();
-        let result = fonts.query_ttf(&no_download, path.to_str().unwrap(), false);
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "file");
-        assert_eq!(parsed["valid"], true);
-    }
-
     #[test]
     fn test_query_ttf_cache_hit() {
         let fonts = FontResources::default();
-        // 相同 data 使用缓存应返回相同句柄且不重复解析
-        let b64 = error_font_b64();
-        let r1 = fonts.query_ttf(&no_download, &b64, true);
-        let r2 = fonts.query_ttf(&no_download, &b64, true);
-        assert_eq!(r1, r2);
-        let parsed: serde_json::Value = serde_json::from_str(&r1).unwrap();
-        assert_eq!(parsed["valid"], true);
+        let one = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        let two = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        assert!(Arc::ptr_eq(&one, &two));
     }
-
-    #[test]
-    fn test_query_base64_ttf() {
-        let fonts = FontResources::default();
-        let result = fonts.query_base64_ttf(&no_download, &correct_font_b64());
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["valid"], true);
-    }
-
     #[test]
     fn test_replace_font_null_handles() {
-        let fonts = FontResources::default();
         assert_eq!(
-            fonts.replace_font(&no_download, "hello", "null", "null", false),
-            "hello"
-        );
-        assert_eq!(
-            fonts.replace_font(&no_download, "hello", "", "", false),
+            FontResources::replace_font("hello", None, None, false),
             "hello"
         );
     }
@@ -618,11 +401,15 @@ pub mod tests {
     fn test_replace_font_real_mapping() {
         let fonts = FontResources::default();
         // \uE001\uE002\uE003 → ABC（轮廓签名跨字体对齐）
-        let err = fonts.query_ttf(&no_download, &error_font_b64(), true);
-        let ok = fonts.query_ttf(&no_download, &correct_font_b64(), true);
+        let err = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        let ok = fonts
+            .query_ttf(&no_download, &correct_font_b64(), true)
+            .unwrap();
         let text = "\u{E001}\u{E002}\u{E003}尾部";
         assert_eq!(
-            fonts.replace_font(&no_download, text, &err, &ok, false),
+            FontResources::replace_font(text, Some(&err), Some(&ok), false),
             "ABC尾部"
         );
     }
@@ -631,10 +418,14 @@ pub mod tests {
     fn test_replace_font_multi_char_codepoint() {
         let fonts = FontResources::default();
         // 多字节码点（中文）不参与映射时保留原样，验证逐码点而非逐字节处理
-        let err = fonts.query_ttf(&no_download, &error_font_b64(), true);
-        let ok = fonts.query_ttf(&no_download, &correct_font_b64(), true);
+        let err = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        let ok = fonts
+            .query_ttf(&no_download, &correct_font_b64(), true)
+            .unwrap();
         assert_eq!(
-            fonts.replace_font(&no_download, "第一章\u{E001}", &err, &ok, false),
+            FontResources::replace_font("第一章\u{E001}", Some(&err), Some(&ok), false),
             "第一章A"
         );
     }
@@ -643,10 +434,14 @@ pub mod tests {
     fn test_replace_font_unmapped_kept() {
         let fonts = FontResources::default();
         // 错误字体中不存在的字符保留原样
-        let err = fonts.query_ttf(&no_download, &error_font_b64(), true);
-        let ok = fonts.query_ttf(&no_download, &correct_font_b64(), true);
+        let err = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        let ok = fonts
+            .query_ttf(&no_download, &correct_font_b64(), true)
+            .unwrap();
         assert_eq!(
-            fonts.replace_font(&no_download, "XYZ", &err, &ok, false),
+            FontResources::replace_font("XYZ", Some(&err), Some(&ok), false),
             "XYZ"
         );
     }
@@ -655,11 +450,15 @@ pub mod tests {
     fn test_replace_font_filter_removes_unmapped() {
         let fonts = FontResources::default();
         // filter=true：错误字体中无轮廓的字符被删除
-        let err = fonts.query_ttf(&no_download, &error_font_b64(), true);
-        let ok = fonts.query_ttf(&no_download, &correct_font_b64(), true);
+        let err = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        let ok = fonts
+            .query_ttf(&no_download, &correct_font_b64(), true)
+            .unwrap();
         let text = "\u{E001}杂\u{E002}";
         assert_eq!(
-            fonts.replace_font(&no_download, text, &err, &ok, true),
+            FontResources::replace_font(text, Some(&err), Some(&ok), true),
             "AB"
         );
     }
@@ -668,95 +467,179 @@ pub mod tests {
     fn test_replace_font_blank_kept() {
         let fonts = FontResources::default();
         // 空白字符原样保留（不参与替换/filter）
-        let err = fonts.query_ttf(&no_download, &error_font_b64(), true);
-        let ok = fonts.query_ttf(&no_download, &correct_font_b64(), true);
+        let err = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
+            .unwrap();
+        let ok = fonts
+            .query_ttf(&no_download, &correct_font_b64(), true)
+            .unwrap();
         let text = "\u{E001} \u{E002}";
         assert_eq!(
-            fonts.replace_font(&no_download, text, &err, &ok, true),
+            FontResources::replace_font(text, Some(&err), Some(&ok), true),
             "A B"
         );
     }
 
     #[test]
-    fn test_replace_font_invalid_handle_degrades() {
+    fn font_boundary_lru_eviction_does_not_revoke_live_fonts_and_releases_unheld_fonts() {
         let fonts = FontResources::default();
-        // 无效句柄（valid=false）降级返回原文
-        let err = fonts.query_ttf(&no_download, "AAECAwQF", false);
-        let ok = fonts.query_ttf(&no_download, &correct_font_b64(), true);
-        assert_eq!(
-            fonts.replace_font(&no_download, "hello", &err, &ok, false),
-            "hello"
-        );
-    }
-
-    #[test]
-    fn test_font_disk_cache_roundtrip() {
-        let fonts = FontResources::default();
-        // URL 分支的磁盘缓存逻辑（直接调用 load_font_bytes 的缓存路径）
-        let dir = fonts.files.directory().unwrap();
-        let key = sha256_hex(b"https://cached.example.com/font.ttf");
-        let cache_path = dir.join(format!("{}.ttf", key));
-        std::fs::create_dir_all(&dir).unwrap();
-        let font = build_minimal_ttf(
-            &[Segment {
-                start: 0x41,
-                end: 0x43,
-                id_delta: -0x40,
-            }],
-            false,
-        );
-        std::fs::write(&cache_path, &font).unwrap();
-        // 磁盘缓存命中：不触发网络下载
-        let bytes = fonts
-            .load_font_bytes(
-                &no_download,
-                "https://cached.example.com/font.ttf",
-                "url",
-                &key,
-            )
+        let held = fonts
+            .query_ttf(&no_download, &error_font_b64(), true)
             .unwrap();
-        assert_eq!(bytes, font);
-        // 清理
-        let _ = std::fs::remove_file(&cache_path);
+        let old = Arc::downgrade(&held);
+        for i in 0..5 {
+            let data = format!("https://font.invalid/{i}");
+            fonts
+                .query_ttf(
+                    &|_| {
+                        Ok(base64::Engine::decode(
+                            &base64::engine::general_purpose::STANDARD,
+                            correct_font_b64(),
+                        )
+                        .unwrap())
+                    },
+                    &data,
+                    true,
+                )
+                .unwrap();
+        }
+        assert_eq!(fonts.lru.lock().unwrap().len(), 4);
+        let correct = fonts
+            .query_ttf(&no_download, &correct_font_b64(), false)
+            .unwrap();
+        assert_eq!(
+            FontResources::replace_font("\u{E001}", Some(&held), Some(&correct), false),
+            "A"
+        );
+        drop(held);
+        assert!(old.upgrade().is_none());
+        let cached = Arc::downgrade(&fonts.lru.lock().unwrap()[0].1);
+        drop(fonts);
+        assert!(cached.upgrade().is_none());
     }
 
     #[test]
-    fn concurrent_font_queries_share_only_a_complete_instance_cache_entry() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+    fn concurrent_font_queries_share_only_complete_parsed_cache_entries() {
         let fonts = FontResources::default();
-        let downloads = AtomicUsize::new(0);
         let start = std::sync::Barrier::new(8);
-        let bytes = build_minimal_ttf(
-            &[Segment {
-                start: 0x41,
-                end: 0x43,
-                id_delta: -0x40,
-            }],
-            false,
-        );
-        let download = |_: &str| {
-            downloads.fetch_add(1, Ordering::Relaxed);
-            std::thread::sleep(std::time::Duration::from_millis(10));
-            Ok(bytes.clone())
-        };
         std::thread::scope(|scope| {
-            for _ in 0..8 {
-                scope.spawn(|| {
-                    start.wait();
-                    let handle: serde_json::Value = serde_json::from_str(&fonts.query_ttf(
-                        &download,
-                        "https://font.test/shared.ttf",
-                        true,
-                    ))
-                    .unwrap();
-                    assert_eq!(handle["valid"], true);
-                });
-            }
+            let workers: Vec<_> = (0..8)
+                .map(|_| {
+                    scope.spawn(|| {
+                        start.wait();
+                        fonts
+                            .query_ttf(&no_download, &error_font_b64(), true)
+                            .unwrap()
+                    })
+                })
+                .collect();
+            let fonts: Vec<_> = workers.into_iter().map(|w| w.join().unwrap()).collect();
+            assert!(fonts.iter().all(|font| Arc::ptr_eq(&fonts[0], font)));
         });
-        assert_eq!(downloads.load(Ordering::Relaxed), 1);
         assert_eq!(fonts.lru.lock().unwrap().len(), 1);
-        let directory = fonts.files.directory().unwrap();
-        drop(fonts);
-        assert!(!directory.exists());
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn font_boundary_any_null_and_byte_views_are_real_fonts() {
+        use crate::{JsEngine, QuickJsEngine, SandboxConfig};
+        let vm = QuickJsEngine::new(SandboxConfig::default().with_allow_script_run(true)).unwrap();
+        assert_eq!(vm.eval("JSON.stringify([queryTTF(null)===null,java.queryTTF({})===null,queryTTF(undefined)===null,queryBase64TTF(null)===null])").unwrap(),"[true,true,true,true]");
+        let code = format!(
+            "var err=java.base64DecodeToByteArray('{}');var ok=java.base64DecodeToByteArray('{}');var padded=new Uint8Array(err.length+2);padded.set(err,1);var font=queryTTF(padded.subarray(1,1+err.length));JSON.stringify([typeof font,java.replaceFont('\\uE001',font,queryTTF(new Int8Array(ok.buffer)))])",
+            error_font_b64(),
+            correct_font_b64()
+        );
+        assert_eq!(vm.eval(&code).unwrap(), r#"["object","A"]"#);
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn font_boundary_invalid_data_throws_without_panicking_or_poisoning_vm() {
+        use crate::{JsEngine, QuickJsEngine, SandboxConfig};
+        let vm = QuickJsEngine::new(SandboxConfig::default().with_allow_script_run(true)).unwrap();
+        for expression in [
+            "queryTTF('AAECAwQF')",
+            "queryTTF('中文')",
+            "queryTTF('')",
+            "queryTTF(new Uint8Array([0,1]))",
+            "replaceFont('abc',{},null)",
+            "queryTTF(null,null)",
+            "queryTTF(null,undefined)",
+        ] {
+            assert_eq!(
+                vm.eval(&format!("try {{{expression};'bad'}}catch(e){{'caught'}}"))
+                    .unwrap(),
+                "caught",
+                "{expression}"
+            );
+            assert_eq!(vm.eval("1+1").unwrap(), "2");
+        }
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn font_boundary_local_path_needs_permission_and_cannot_escape_sandbox() {
+        use crate::{JsEngine, QuickJsEngine, SandboxConfig};
+        let name = format!("font_boundary_{}.ttf", uuid::Uuid::new_v4());
+        let path = super::super::file_utils::default_sandbox_root().join(&name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, error_font_b64())
+                .unwrap(),
+        )
+        .unwrap();
+        let quoted = serde_json::to_string(path.to_str().unwrap()).unwrap();
+        let strict = QuickJsEngine::new(SandboxConfig::default()).unwrap();
+        let actual = strict
+            .eval(&format!(
+                "try {{queryTTF({quoted});'bad'}}catch(e){{'denied'}}"
+            ))
+            .unwrap();
+        assert_eq!(actual, "denied");
+        let permissive = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+        assert_eq!(
+            permissive
+                .eval(&format!("typeof queryTTF({quoted})"))
+                .unwrap(),
+            "object"
+        );
+        let outside = std::env::temp_dir().join(&name);
+        std::fs::copy(&path, &outside).unwrap();
+        let outside_result = permissive.eval(&format!(
+            "queryTTF({})",
+            serde_json::to_string(outside.to_str().unwrap()).unwrap()
+        ));
+        std::fs::remove_file(outside).unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert!(outside_result.is_err());
+    }
+
+    #[test]
+    fn font_boundary_cache_false_bypasses_all_layers() {
+        let fonts = FontResources::default();
+        let calls = std::cell::Cell::new(0);
+        let download =
+            |_: &str| {
+                calls.set(calls.get() + 1);
+                Ok(base64::Engine::decode(
+                    &base64::engine::general_purpose::STANDARD,
+                    error_font_b64(),
+                )
+                .unwrap())
+            };
+        let original = fonts
+            .query_ttf(&download, "https://font.invalid/a.ttf", true)
+            .unwrap();
+        let fresh = fonts
+            .query_ttf(&download, "https://font.invalid/a.ttf", false)
+            .unwrap();
+        let cached = fonts
+            .query_ttf(&download, "https://font.invalid/a.ttf", true)
+            .unwrap();
+        assert!(!Arc::ptr_eq(&original, &fresh));
+        assert!(Arc::ptr_eq(&original, &cached));
+        assert_eq!(calls.get(), 2, "关闭缓存不能读取旧磁盘字体");
     }
 }

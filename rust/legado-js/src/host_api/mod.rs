@@ -30,6 +30,8 @@ pub mod env;
 mod file_download;
 pub mod file_utils;
 pub mod font_api;
+#[cfg(feature = "quickjs")]
+mod font_bridge;
 pub mod html_format;
 #[cfg(feature = "quickjs")]
 pub mod html_parse;

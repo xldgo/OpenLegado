@@ -258,7 +258,7 @@ fn register_apis_with_binding<'js>(
     register_concurrency_apis(ctx, &java, &globals, &host.concurrency)?;
     register_misc_apis(ctx, &java, &globals, &http, &host.webview)?;
     register_archive_apis(ctx, &java, &globals, &http, config.allow_file_access)?;
-    register_font_apis(ctx, &java, &globals, &http)?;
+    super::font_bridge::register(ctx, &java, &globals, &http, config.allow_file_access)?;
     // 全局 cache 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存，对齐 WebCacheManager）
     register_cache_apis(ctx, &java, &globals, &host.cache)?;
 
@@ -4983,86 +4983,6 @@ fn register_archive_apis<'js>(
     Ok(())
 }
 
-/// 注册字体 API
-///
-/// 对应 Kotlin 端 `JsExtensions` 中的 queryTTF / queryBase64TTF / replaceFont 方法。
-fn register_font_apis<'js>(
-    ctx: &rquickjs::Ctx<'js>,
-    java: &rquickjs::Object<'js>,
-    globals: &rquickjs::Object<'js>,
-    http: &std::sync::Arc<crate::http_resources::HttpResources>,
-) -> Result<(), LegadoError> {
-    // queryTTF(data, useCache?) -> String（字体句柄 JSON）
-    // 对应 Kotlin: queryTTF(data: Any?, useCache: Boolean): QueryTTF?
-    // useCache 上游为非空 Boolean（:1014）：Rhino 布尔严格（W4 探针）
-    mount_dual(
-        java,
-        globals,
-        "queryTTF",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(
-                ctx.clone(),
-                move |data: RhinoStr, use_cache: Opt<bool>| -> String {
-                    http.fonts().query_ttf(
-                        &|url| http.download_font(url),
-                        &data,
-                        use_cache.0.unwrap_or(true),
-                    )
-                },
-            )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // queryBase64TTF(data) -> String（已废弃，等价于 queryTTF）
-    // 对应 Kotlin: @Deprecated queryBase64TTF(data): QueryTTF?
-    mount_dual(
-        java,
-        globals,
-        "queryBase64TTF",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(ctx.clone(), move |data: RhinoStr| -> String {
-                http.fonts()
-                    .query_base64_ttf(&|url| http.download_font(url), &data)
-            })
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // replaceFont(text, errorFontData, correctFontData, filter?) -> String
-    // 对应 Kotlin: replaceFont(text, errorQueryTTF, correctQueryTTF, filter): String
-    // filter 上游为非空 Boolean（:1068/:1105）：Rhino 布尔严格（W4 探针）
-    mount_dual(
-        java,
-        globals,
-        "replaceFont",
-        {
-            let http = http.clone();
-            rquickjs::Function::new(
-                ctx.clone(),
-                move |text: RhinoStr,
-                      error_font: RhinoStr,
-                      correct_font: RhinoStr,
-                      filter: Opt<bool>|
-                      -> String {
-                    http.fonts().replace_font(
-                        &|url| http.download_font(url),
-                        &text,
-                        &error_font,
-                        &correct_font,
-                        filter.0.unwrap_or(false),
-                    )
-                },
-            )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod resource_network_tests {
     use crate::host_api::file_utils;
@@ -6298,52 +6218,46 @@ cipher.decryptStr(b64);
     #[test]
     fn test_java_query_ttf() {
         let engine = make_engine();
-        let result = engine
-            .eval("java.queryTTF('https://example.com/font.ttf')")
-            .unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "url");
-        // 真实实现：字体下载/解析失败时句柄标记 valid=false（降级）
-        assert_eq!(parsed["valid"], false);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/font.ttf", listener.local_addr().unwrap());
+        drop(listener);
+        assert!(
+            engine
+                .eval(&format!(
+                    "java.queryTTF({})",
+                    serde_json::to_string(&url).unwrap()
+                ))
+                .is_err()
+        );
     }
-
     #[test]
     fn test_java_query_ttf_empty() {
-        let engine = make_engine();
-        let result = engine.eval("java.queryTTF('')").unwrap();
-        assert_eq!(result, "null");
+        assert!(make_engine().eval("java.queryTTF('')").is_err());
     }
-
     #[test]
     fn test_java_query_base64_ttf() {
-        let engine = make_engine();
-        let result = engine.eval("java.queryBase64TTF('AAECAwQF')").unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        // 真实实现：非法 base64 字体解析失败 → valid=false
-        assert_eq!(parsed["valid"], false);
+        assert!(
+            make_engine()
+                .eval("java.queryBase64TTF('AAECAwQF')")
+                .is_err()
+        );
     }
-
     #[test]
     fn test_java_replace_font_null_handles() {
-        let engine = make_engine();
-        let result = engine
-            .eval("java.replaceFont('hello', 'null', 'null')")
-            .unwrap();
-        assert_eq!(result, "hello");
+        assert_eq!(
+            make_engine()
+                .eval("java.replaceFont('hello',null,null)")
+                .unwrap(),
+            "hello"
+        );
     }
-
     #[test]
-    fn test_java_replace_font_stub() {
-        let engine = make_engine();
-        // 句柄无效（下载失败）时降级原样返回，与 Kotlin null 句柄分支一致
-        let result = engine
-            .eval(
-                "var e = java.queryTTF('https://e.com/f.ttf'); \
-                 var c = java.queryTTF('https://c.com/f.ttf'); \
-                 java.replaceFont('测试', e, c)",
-            )
-            .unwrap();
-        assert_eq!(result, "测试");
+    fn test_java_replace_font_rejects_forged_handles() {
+        assert!(
+            make_engine()
+                .eval("java.replaceFont('测试','null','null')")
+                .is_err()
+        );
     }
 
     #[test]
@@ -6981,9 +6895,8 @@ cipher.decryptStr(b64);
     #[test]
     fn test_bare_query_ttf() {
         let engine = make_engine();
-        let result = engine.eval("queryTTF('/fonts/test.ttf')").unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert_eq!(parsed["type"], "file");
+        assert!(engine.eval("queryTTF('/fonts/test.ttf')").is_err());
+        assert_eq!(engine.eval("queryTTF(null)===null").unwrap(), "true");
     }
 
     // ===== P2-6(e) java.getString 规则分派：绑定级回归测试 =====

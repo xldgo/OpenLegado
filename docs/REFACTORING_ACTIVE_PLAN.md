@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-FONT-BOUNDARY-20261019：字体输入、请求与缓存收口（P1）
+
+- 状态：已关闭（本批字体输入/请求/缓存范围）。用户批准下一步计划；dep-audit / chore/dep-audit / 81f74207d，开始工作区干净；单代理，成果随本条所在本地提交交付；未推送/合并，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.queryTTF/queryBase64TTF/replaceFont及AppCacheManager；仓库只有测试依赖JSON句柄。旧实现仅字符串、裸GET、错误吞掉、本地文件无门控、关闭缓存仍命中磁盘且句柄无界，分类按UTF-8字节切片有panic风险。原版注释提本地文件，但当前参考代码字符串实际只分HTTP(S)/Base64，本地扩展保留并明确收紧授权。
+- 实现与边界：新增私有font_bridge负责JS类型/授权/当前Ctx，FontResources只负责4项LRU及纯解析结果；queryTTF消费真实字符串或有效Uint8Array/Int8Array视图，提前复制视图字节，null/undefined/不支持Any类型返回原生null。空串/损坏字体/非法Base64/失效视图/网络失败抛异常；移除非ASCII字节切片。queryBase64TTF委托同一路径，useCache/filter显式值严格Boolean。
+- 网络与权限：HTTP(S)字体复用ContextEvaluator与现有原始字节请求，保留POST、动态模板、来源Header/Cookie、代理/DNS/重定向/超时策略、限流和取消；不执行type文本转换/bodyJs/WebView。删除专用download_font裸GET。规则求值及网络等待均在缓存锁外，嵌套字体查询不死锁；并发冷加载可重复请求，但缓存只发布完整解析结果。文件扩展先检查allow_file_access及沙箱，再读字节，不能通过缓存命中绕过授权；无FFI/数据库变更。
+- 缓存与生命周期：用Arc<QueryTtf>替代深拷贝和JSON句柄，移除无界handles与字体磁盘目录；useCache=false跳过缓存读写，不覆盖原有效项。JS字体对象直接持有解析结果，LRU淘汰后仍可replaceFont，无需重读文件或重下；无效/伪造句柄抛异常，真实null保留原文。资源缓存仅4项，调用方仍持有的对象按其实际生命周期释放，不宣称整个进程最多4份字体或RSS缩减数值。
+- 原生对象安全：复用rquickjs Class安全封装，不自行操作裸指针；手工JsLifetime实现只包含静态Rust Arc<QueryTtf>，Changed为同一类型，无JS值/借用；Trace无内部JS引用。按本机rquickjs-core 0.14的JsLifetime/Trace定义核对，真实GC循环用例证明释放。无新依赖，不扩展QueryTTF其余Java方法，不修改TTF解析器或轮廓反查/过滤/空白算法。
+- 复现与验证：改前4项真实行为测试全部失败；修复后通过。完整JS套件810通过、4既有忽略（20组，库696/网络56，不重复累计），默认JS库271通过，JS/Engine两种特性all-targets严格Clippy通过；限定rustfmt、UTF-8及git diff --check通过。覆盖字节偏移/Int8/失效视图、空值/Unicode、实际本地授权/越界、有效字体替换、关闭缓存不覆盖、LRU淘汰/并发完整发布/弱引用释放及JS循环GC、本地HTTP规则POST/嵌套JS/来源头/Cookie/body原始字节、失败重试、HTTP和限流等待取消及VM恢复。原JSON/磁盘/静默降级测试按新契约替换，保留原轮廓映射/Unicode/未映射/过滤/空白行为断言，去掉测试对公网字体URL的依赖。
+- 收尾与证据：build/js-byte-conversion/font-{reproduce,fixed,library,complete,default,clippy-quickjs,clippy-default}.log；reproduce为改前4失败，complete为完整通过。实现初次缺闭合括号导致编译失败已修正；默认Clippy发现publish仅剩QuickJS生产使用，改为quickjs或test条件编译并复验，不抑制告警。旧R4c3契约加后续覆盖说明，避免旧JSON/磁盘/网络串行记录被误用。按用户要求无子代理，由Codex自查diff，无独立审查或远程CI。
+- 交付限制：版本2.0.401+402及双日志同步；无FFI签名/DTO/生成物、schema、依赖版本、Flutter业务、平台接线修改。未构建native/应用、安装模拟器或推送，不宣称设备/跨平台性能验收。MuMu仍为2.0.394+395，下次应用构建须重建匹配Rust库。
+
+编写者：Codex｜2026-10-19
+
 ### JS-FOLDER-TEXT-20261019：目录文本读取与成功清理（P1）
 
 - 状态：已关闭（仅本批目录文本接口范围）。用户批准下一步计划；dep-audit / chore/dep-audit / c257f01b6，开始工作区干净；单代理，验证通过后本地提交，提交号以本条所属提交为准；未推送/合并，不触碰主目录。

@@ -11,6 +11,7 @@ pub(crate) struct ResourceFiles {
 
 impl ResourceFiles {
     /// 完整写入临时文件后再发布；失败不留下可被下次命中的半份目标文件。
+    #[cfg(any(feature = "quickjs", test))]
     pub(crate) fn publish(&self, name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
         let directory = self.directory()?;
         let target = directory.join(name);

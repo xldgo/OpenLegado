@@ -2216,3 +2216,41 @@ fn file_download_failed_publication_cleans_partial_and_can_retry() {
         "只保留探针和完整下载文件"
     );
 }
+
+#[test]
+fn font_requests_cancel_body_and_rate_wait_without_swallowing_the_error() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let token = Arc::new(Cancellation::default());
+    let (worker, rx) = start_cancellable(
+        &engine,
+        &token,
+        format!(
+            "queryTTF({})",
+            serde_json::to_string(&server.url("/pending")).unwrap()
+        ),
+    );
+    wait_for(|| server.requests.load(Ordering::Acquire) == 1);
+    finish_cancelled(&token, worker, rx);
+    wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 1);
+    let gate = Arc::new(Gate::default());
+    gate.entered.store(1, Ordering::Release);
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(1),
+        gate: Some(gate.clone()),
+    }));
+    let token = Arc::new(Cancellation::default());
+    let (worker, rx) = start_cancellable(
+        &engine,
+        &token,
+        format!(
+            "queryTTF({})",
+            serde_json::to_string(&server.url("/echo")).unwrap()
+        ),
+    );
+    wait_for(|| gate.entered.load(Ordering::Acquire) == 2);
+    finish_cancelled(&token, worker, rx);
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 1);
+    assert_eq!(engine.eval("1+1").unwrap(), "2");
+}

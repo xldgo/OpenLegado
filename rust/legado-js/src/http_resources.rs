@@ -128,22 +128,6 @@ impl HttpResources {
         self.files.publish(name, bytes)
     }
 
-    pub(crate) fn download_font(&self, url: &str) -> Result<Vec<u8>, String> {
-        crate::host_api::runtime_bridge::block_on_cancellable(async {
-            let client = self
-                .client_for_url(url, false)
-                .map_err(|e| format!("build client error: {e}"))?;
-            let response = client
-                .get_raw(url, None)
-                .await
-                .map_err(|e| format!("download font error: {e}"))?;
-            if !response.is_success() {
-                return Err(format!("download font http status {}", response.status));
-            }
-            Ok(response.body)
-        })
-    }
-
     pub fn cookie_store(&self) -> &Arc<RwLock<CookieStore>> {
         &self.store
     }
