@@ -74,10 +74,7 @@ impl FontResources {
             if is_remote(data) {
                 download(data)
             } else {
-                use base64::Engine;
-                base64::engine::general_purpose::STANDARD
-                    .decode(data.trim())
-                    .map_err(|e| format!("字体Base64解码失败: {e}"))
+                super::base64_codec::decode_hutool(data)
             }
         })
     }
@@ -367,6 +364,23 @@ pub mod tests {
     fn test_query_ttf_base64_real_font() {
         let font = FontResources::default()
             .query_ttf(&no_download, &error_font_b64(), false)
+            .unwrap();
+        assert_eq!(font.glyf_id_by_unicode(0xE001), 1);
+    }
+    #[test]
+    fn font_base64_uses_shared_unpadded_urlsafe_whitespace_rules() {
+        let encoded = error_font_b64()
+            .trim_end_matches('=')
+            .replace('+', "-")
+            .replace('/', "_");
+        let input = encoded
+            .as_bytes()
+            .chunks(37)
+            .map(|s| std::str::from_utf8(s).unwrap())
+            .collect::<Vec<_>>()
+            .join(" \n");
+        let font = FontResources::default()
+            .query_ttf(&no_download, &input, false)
             .unwrap();
         assert_eq!(font.glyf_id_by_unicode(0xE001), 1);
     }

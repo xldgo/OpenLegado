@@ -63,34 +63,17 @@ mod impl_encoding {
     ///
     /// 对应 Kotlin: `base64Decode(str)`
     pub fn base64_decode(input: &str) -> Result<String, String> {
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(input)
-            .map_err(|e| format!("Base64 decode error: {}", e))?;
-        String::from_utf8(bytes).map_err(|e| format!("UTF-8 decode error: {}", e))
+        bytes_to_str(&super::super::base64_codec::decode_hutool(input)?, None)
     }
 
-    /// Base64 解码为字节数组
+    /// 无flags文本路径使用Hutool；字节接口始终显式走Android策略。
     pub fn base64_decode_bytes(input: &str) -> Result<Vec<u8>, String> {
-        base64::engine::general_purpose::STANDARD
-            .decode(input)
-            .map_err(|e| format!("Base64 decode error: {}", e))
+        super::super::base64_codec::decode_hutool(input)
     }
 
-    /// Base64 解码为字节数组（带 Android Base64 flags）
-    ///
-    /// 对应 Kotlin: `base64DecodeToByteArray(str, flags)`
-    /// 兼容 Android `Base64.URL_SAFE`(8)；NO_WRAP 等标志不影响解码行为
+    /// Android flags只影响所选字母表，不改变padding校验。
     pub fn base64_decode_bytes_with_flags(input: &str, flags: i32) -> Result<Vec<u8>, String> {
-        // Android Base64.URL_SAFE == 8（'-' 与 '_' 替代 '+' 与 '/'）
-        let url_safe = flags & 8 != 0;
-        let engine = if url_safe {
-            base64::engine::general_purpose::URL_SAFE
-        } else {
-            base64::engine::general_purpose::STANDARD
-        };
-        engine
-            .decode(input)
-            .map_err(|e| format!("Base64 decode error: {}", e))
+        super::super::base64_codec::decode_android(input, flags)
     }
 
     /// Hex 编码 — UTF-8 字符串转十六进制字符串
@@ -110,7 +93,7 @@ mod impl_encoding {
     /// 对应 Kotlin: `hexDecodeToString(hex)`
     pub fn hex_decode(input: &str) -> Result<String, String> {
         let bytes = hex::decode(input).map_err(|e| format!("Hex decode error: {}", e))?;
-        String::from_utf8(bytes).map_err(|e| format!("UTF-8 decode error: {}", e))
+        bytes_to_str(&bytes, None)
     }
 
     /// Hex 解码为字节数组

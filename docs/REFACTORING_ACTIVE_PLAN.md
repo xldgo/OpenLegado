@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-BASE64-HEX-20261019：编码重载、flags与字体解码（P1）
+
+- 状态：已关闭（仅本批Base64/Hex及字体复用范围）。用户批准开始；dep-audit / chore/dep-audit / 4879f8c12，开始工作区干净；单代理，通过后本地提交，不推送/合并/安装，不触碰主目录。
+- 依据：参考版15e1337a的JsExtensions/CryptoUtils/EncoderUtils、Hutool5.8.22及Android16固定源码。临时JDK25/仓库Rhino探针确认数字走flags、字符串/对象走charset，null/undefined区别及两条解码路径的padding/字母表/跳过规则；研究材料在忽略目录build/base64-oracle，不进入生产或永久测试依赖。初版探针误用Scope类型的编译错误已纠正，不当作行为证据。
+- 实现：新增私有base64_codec统一Hutool与Android策略、binary_encoding_bridge处理重载和原生字节；从quickjs_impl移除重复注册。无flags文本/字体走Hutool，flags及字节解码走Android；支持缺padding但保留各自无效padding、字符跳过和尾位规则，Hutool越界字符安全报错，不复制panic。charset复用已有转换器，不宣称支持JVM全部字符集或所有畸形UTF-8的替换分组。
+- flags/边界：编码支持NO_PADDING/NO_WRAP/CRLF/URL_SAFE，按76字符及末尾换行；Android Packages透传flags并暴露标准常量，Java util无flags包装保持。参数省略与显式null/undefined区分，非法flags/charset可捕获。字节视图在flags可能重入JS前复制，覆盖偏移/有符号/分离视图；java、裸入口与base64Decoder同源，不加JSON中转。
+- 用户裁决：明确移除非法Hex原样返回兼容，hexDecode/hexDecodeToString统一抛异常；空Hex返回长度0字节数组，合法字节文本用已有UTF-8替换策略。字体输入复用Hutool解码，不改字体解析/LRU或AES/DES等算法；无FFI签名/DTO/生成物/schema/依赖及Flutter业务修改。
+- 验证：改前5项真实QuickJS回归全部失败，修后扩为8项全部通过；另2项固定codec向量及1项真实字体回归。完整JS 821通过、4既有忽略（21组，库699/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8及git diff --check通过。覆盖GBK/UTF-8、两种padding、URL安全字母表、换行/空输入、非法Hex抛错、flags重入/失效视图及失败后VM继续可用；既有加密/书源语料/网络生命周期继续通过。
+- 过程：全套初次被新测试空数组类型推断错误阻断，已改为空集合行为断言；随后旧Android flags=0断言错误要求无换行，按已核实上游更新为结尾换行，最终完整通过。严格Clippy命中新增手写整除写法，改is_multiple_of，不关闭告警。按用户要求无子代理，仅Codex自查diff，无独立审查或远程CI。
+- 证据：build/js-byte-conversion/base64-{reproduce,fixed,complete,complete-fixed,complete-final,default,clippy-quickjs,clippy-quickjs-final,clippy-default-final}.log；reproduce是5项预期失败，fixed是8项通过，complete-final是完整通过，不将前两次失败全套声称成功。版本2.0.402+403及双日志同步。
+- 交付边界：未构建native/应用、安装模拟器或推送；不宣称全JS能力或跨平台设备验收。MuMu仍2.0.394+395，下次应用构建需要重建匹配Rust库；回滚还原本批代码并重建，不伪造元数据。
+
+编写者：Codex｜2026-10-19
+
 ### JS-FONT-BOUNDARY-20261019：字体输入、请求与缓存收口（P1）
 
 - 状态：已关闭（本批字体输入/请求/缓存范围）。用户批准下一步计划；dep-audit / chore/dep-audit / 81f74207d，开始工作区干净；单代理，成果随本条所在本地提交交付；未推送/合并，不触碰主目录。

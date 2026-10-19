@@ -9,8 +9,11 @@ mod archive_read;
 pub mod archive_utils;
 #[cfg(feature = "quickjs")]
 pub mod asymmetric_crypto;
+mod base64_codec;
 #[cfg(feature = "quickjs")]
 mod batch_request;
+#[cfg(feature = "quickjs")]
+mod binary_encoding_bridge;
 pub mod cache_store;
 /// 能力受限台账：未知 Java 符号 + jsLib 加载失败登记（队列④，无 feature 门控）
 pub mod capability_ledger;

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.402] - 2026-10-19
+
+### Fixed
+- 书源Base64解码区分字符集和Android flags，支持上游缺省padding及对应的换行、URL安全字母表。
+- 字体Base64输入复用同一规则；Hex空输入返回空字节数组，非法输入明确抛错，移除原样返回兼容。
+- 贡献者：Codex + Rust；构建号403。
+
 ## [2.0.401] - 2026-10-19
 
 ### Fixed

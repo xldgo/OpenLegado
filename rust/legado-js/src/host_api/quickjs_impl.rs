@@ -981,8 +981,9 @@ fn inject_packages_shim<'js>(ctx: &rquickjs::Ctx<'js>) -> Result<(), LegadoError
       }
     },
     android: { util: { Base64: {
+      DEFAULT: 0, NO_PADDING: 1, NO_WRAP: 2, CRLF: 4, URL_SAFE: 8, NO_CLOSE: 16,
       decode: function (s, flags) { return java.base64DecodeToByteArray(String(s), flags || 0); },
-      encodeToString: function (bytes, flags) { return java.base64EncodeBytes(toU8(bytes)); }
+      encodeToString: function (bytes, flags) { return java.base64EncodeBytes(toU8(bytes), flags === undefined ? 0 : flags); }
     } },
     // 语料 Packages.android.text.TextUtils.isEmpty（#135 阅文）——Kotlin 语义：
     // `cs == null || cs.length == 0`（空串/未传 → true，非空 → false）— 3b-5
@@ -1500,139 +1501,7 @@ fn register_encoding_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // base64Encode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "base64Encode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::base64_encode(&s)
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64Decode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "base64Decode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::base64_decode(&s).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64Decoder(str) -> String — base64Decode 别名（#561 语料期望；
-    // 上游无此符号，登记为兼容 shim：解码口径与 base64Decode 完全一致）
-    mount_dual(
-        java,
-        globals,
-        "base64Decoder",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::base64_decode(&s).unwrap_or_else(|e| format!("[ERROR] {}", e))
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64DecodeToByteArray(str, flags?) -> Uint8Array（字节数组）
-    // 对应 Kotlin: base64DecodeToByteArray(str?, flags=0): ByteArray?
-    // 空白输入返回 null（对齐 Kotlin 的 null 返回）；flags 兼容 Android URL_SAFE(8)
-    // flags 上游为非空 Int（:648）：按 Rhino 原始 int 语义宽松（字符串数字可），
-    // 缺参 → None → 默认 0（W4 / 探针 CASE 2/4/21）。
-    mount_dual(
-        java,
-        globals,
-        "base64DecodeToByteArray",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>,
-             s: RhinoStr,
-             flags: RhinoOptInt|
-             -> rquickjs::Result<rquickjs::Value<'js>> {
-                use rquickjs::IntoJs;
-                if s.trim().is_empty() {
-                    // 对齐 Kotlin：isNullOrBlank -> null
-                    return Ok(rquickjs::Value::new_null(ctx.clone()));
-                }
-                let bytes = encoding::base64_decode_bytes_with_flags(&s, flags.0.unwrap_or(0))
-                    .map_err(|e| rquickjs::Error::FromJs {
-                        from: "String",
-                        to: "Uint8Array",
-                        message: Some(e),
-                    })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), bytes)?;
-                arr.into_js(&ctx)
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexDecodeToByteArray(str) -> Uint8Array（字节数组）
-    // P2-9 ①：语料 `java.hexDecodeToByteArray`（8/5），上游
-    // JsExtensions.kt:666-668 `hexDecodeToByteArray(str): ByteArray?`。
-    // 与 base64DecodeToByteArray 同一字节数组约定（空输入 → null，
-    // 非法 hex → 可捕获的 FromJs 错误，JS 侧 try/catch 降级）。
-    mount_dual(
-        java,
-        globals,
-        "hexDecodeToByteArray",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'js>, s: RhinoStr| -> rquickjs::Result<rquickjs::Value<'js>> {
-                use rquickjs::IntoJs;
-                if s.trim().is_empty() {
-                    return Ok(rquickjs::Value::new_null(ctx.clone()));
-                }
-                let bytes =
-                    encoding::hex_decode_bytes(&s).map_err(|e| rquickjs::Error::FromJs {
-                        from: "String",
-                        to: "Uint8Array",
-                        message: Some(e),
-                    })?;
-                let arr: rquickjs::TypedArray<u8> = rquickjs::TypedArray::new(ctx.clone(), bytes)?;
-                arr.into_js(&ctx)
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexEncode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "hexEncode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::hex_encode(&s)
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexEncodeToString(str) -> String — hexEncode 别名（#324 长佩语料，
-    // 对齐上游 HexUtil.encodeHexStr 命名；输出同为小写 hex）
-    mount_dual(
-        java,
-        globals,
-        "hexEncodeToString",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            encoding::hex_encode(&s)
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexDecode(str) -> String
-    mount_dual(
-        java,
-        globals,
-        "hexDecode",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            // 容错：非合法 hex 原样返回（书山等源可能传入已解码文本）
-            match encoding::hex_decode(&s) {
-                Ok(v) => v,
-                Err(_) => s.0,
-            }
-        })
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+    super::binary_encoding_bridge::register(ctx, java, globals)?;
 
     // sha256(str) -> String
     mount_dual(
@@ -1815,40 +1684,6 @@ fn register_encoding_apis<'js>(
                     .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // base64EncodeBytes(bytes) -> String（字节数组 → Base64）
-    // Packages 模拟层 android.util.Base64.encodeToString 依赖
-    mount_dual(
-        java,
-        globals,
-        "base64EncodeBytes",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |bytes: rquickjs::TypedArray<u8>| -> rquickjs::Result<String> {
-                let data = crate::quickjs_bytes::copy_bytes(&bytes)
-                    .ok_or_else(|| rquickjs::Error::new_from_js("detached Uint8Array", "bytes"))?;
-                Ok(encoding::base64_encode_bytes(&data))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // hexDecodeToString(hex) -> String（书山聚合等源把 hex 编码响应还原为 JSON；
-    // 对应 Kotlin HexUtil.decodeHexStr / hexDecodeToString）
-    // 容错：输入非合法 hex 时**原样返回**（书山 toc_body 可能是 hex 或已解码文本；
-    // 绝不可返回 "[ERROR]..." 前缀——会被 JS 当源码执行报 syntax error）
-    mount_dual(
-        java,
-        globals,
-        "hexDecodeToString",
-        rquickjs::Function::new(ctx.clone(), |s: RhinoStr| -> String {
-            match encoding::hex_decode(&s) {
-                Ok(v) => v,
-                Err(_) => s.0,
-            }
-        })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
@@ -7238,7 +7073,7 @@ cipher.decryptStr(b64);
                 JSON.stringify({
                     len: b.length,
                     c0: b[0],
-                    empty: java.hexDecodeToByteArray('') === null
+                    empty: java.hexDecodeToByteArray('').length === 0
                 });
                 "#,
             )

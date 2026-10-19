@@ -1,5 +1,23 @@
 # API 契约文档
 
+## JS Base64/Hex转换（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions/CryptoUtils/EncoderUtils、Hutool 5.8.22及Android16 Base64。
+沿用java/裸入口；base64Decoder、hexDecode等既有别名保留，无FFI/数据库/依赖变更。
+base64Decode(str?)及(str?,charset)使用Hutool路径：支持缺padding、双字母表及跳过表内无效字节；
+按固定版本对超出查表范围的ASCII报错，不复刻数组越界或Rust panic。null返回空串，undefined按字符串转换。
+第二参数number走Android flags，其余按字符集字符串转换；null字符集抛错，未知编码抛错。
+Android路径接受缺padding和非零尾位，跳过非所选字母表字节，但拒绝错误位置/数量的padding。
+base64DecodeToByteArray(str?,flags?)默认0，null/空白返回null；非空返回Uint8Array。
+base64Encode(str,flags?)及内部base64EncodeBytes默认2，支持NO_PADDING(1)/NO_WRAP(2)/CRLF(4)/URL_SAFE(8)。
+换行按76字符分组，非空且启用换行时含结尾换行；其他位忽略。Android Packages的Base64转发flags及标准常量，Java util原无flags的包装保持不变。
+flags显式值按现有RhinoInt语义转换，省略使用默认；错误抛可捕获异常，不返回[ERROR]正文。
+Hex空字符串解码为长度0的Uint8Array，合法字节到文本使用UTF-8替换无效序列；不污染后续VM状态。
+用户明确裁决移除非法Hex文本原样返回兼容；hexDecode/hexDecodeToString与字节接口统一抛错。
+字体非网络字符串复用同一Hutool路径；不改变字体解析/缓存或AES/DES等加密算法。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS字体输入、请求与缓存（2026-10-19，实施前冻结）
 
 参考固定15e1337a的queryTTF/queryBase64TTF/replaceFont，沿用java与裸别名，无FFI或数据库变更。
