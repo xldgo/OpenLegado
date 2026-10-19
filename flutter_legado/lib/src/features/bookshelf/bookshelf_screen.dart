@@ -3,11 +3,9 @@ import 'application/bookshelf_import_controller.dart';
 import 'application/bookshelf_import_provider.dart';
 import '../../utils/error_message.dart';
 
-import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
-import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
+import '../book_detail/book_detail_notifier.dart';
 
 import '../../providers/reading_provider.dart';
-import '../book_sources/book_source_repository_provider.dart';
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_menu.dart';
 import '../../widgets/book_cover.dart';
@@ -680,26 +678,12 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 对齐参考版：单击按 BookType 直达阅读器或播放器，长按进入详情。— Codex + UI
   Future<void> _openBook(BuildContext context, WidgetRef ref, Book book) async {
     if (ModalRoute.of(context)?.isCurrent == false) return;
-    var typeBits = BookTypePolicy.typeBitsOf(book);
-    // 书源媒体类型 / 视频启发式优先于抽图提升 — Reasonix + UI
-    if (BookMetadataPolicy.isOnlineBook(book)) {
-      try {
-        final sources = await ref
-            .read(bookSourceRepositoryProvider)
-            .getBookSources();
-        // 去掉尾斜杠，避免 `https://ukuzy.com/` 与 origin 失配 — Reasonix + UI
-        String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
-        final o = norm(book.origin);
-        for (final s in sources) {
-          if (norm(s.bookSourceUrl) == o || s.bookSourceUrl == book.origin) {
-            typeBits = BookTypePolicy.resolveTypeBits(typeBits, s);
-            break;
-          }
-        }
-      } catch (_) {}
-    }
+    final prepared = await ref
+        .read(bookDetailServiceProvider)
+        .resolveReading(book);
     if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) return;
-    final bookToOpen = typeBits != 0 ? book.copyWith(bookType: typeBits) : book;
+    final bookToOpen = prepared.book;
+    final typeBits = prepared.typeBits;
     final route = BookOpenUtils.routeForTypeBits(typeBits);
     if (BookOpenUtils.needsReaderNotifier(route)) {
       ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);

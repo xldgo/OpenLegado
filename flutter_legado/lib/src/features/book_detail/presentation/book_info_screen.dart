@@ -10,11 +10,9 @@ import '../book_detail_notifier.dart';
 import '../book_detail_state.dart';
 
 import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
-import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 
 import '../../../providers/backup_provider.dart';
 import '../../book_sources/book_source_repository_provider.dart';
-import '../../../providers/reading_provider.dart';
 import '../../../providers/source_action_provider.dart';
 import '../../../providers/chapter_cache_provider.dart';
 import '../../privacy/privacy_controller.dart';

@@ -55,7 +55,7 @@ BackupSettingsRepository；图标和删除提醒分别扩展已有外观、书�
 ## 路由装配边界
 
 `app/routing/route_names.dart`只定义路由名称，不导入页面或Flutter；
-`route_arguments.dart`保存BookInfoArgs和VideoScreenArgs，只依赖Book模型。
+`route_arguments.dart`保存VideoScreenArgs，只依赖Book模型；详情页接收Book，不再有未读自动开读参数。
 feature、公共Widget及服务只消费名称或参数，不能反向导入页面路由表。
 
 `AppRouter`统一装配既有目标页面、参数处理与特殊转场，正式实例由LegadoApp持有；
@@ -893,3 +893,13 @@ ThemeFileService 继续处理实际平台文件选择和导入导出，平台图
 Active 计划登记。
 
 编写者：Codex｜2026-10-14
+
+
+## 开书准备
+
+BookDetailService.resolveReading统一书源匹配与媒体类型解析，供书架、公共开书工具和详情复用。
+prepareReading负责详情开读前临时书落库、媒体位回写和非文本目录准备，保留notShelf及原有失败继续开读规则。
+返回BookReadingPreparation纯数据，不持Context、Ref或路由；UI负责异步完成后的当前路由校验、
+ReaderNotifier装载、封面起点、导航及返回刷新。未修改Rust/FFI或书架显式入架行为。
+
+编写者：Codex + UI｜2026-10-19

@@ -4,6 +4,7 @@ import '../../domain/contracts/bookshelf_repository.dart';
 import '../../domain/contracts/reading_repository.dart';
 import '../../domain/models/book_detail_data.dart';
 import '../../domain/services/book_metadata_policy.dart';
+import '../../domain/services/book_type_policy.dart';
 import '../../models/models.dart';
 
 /// 详情与目录的查询、合并和写回共用同一次依赖装配。— Codex + Bridge
@@ -22,6 +23,62 @@ class BookDetailService {
   final BookSourceQueryService _query;
   final void Function(String) _log;
   static void _ignoreLog(String _) {}
+
+  /// 书架、公共开书入口和详情页共享书源匹配与类型判断。— Codex + UI
+  Future<BookReadingPreparation> resolveReading(Book book) async {
+    final source = BookMetadataPolicy.isOnlineBook(book)
+        ? await findSource(book.origin)
+        : null;
+    final bits = BookTypePolicy.resolveTypeBits(
+      BookTypePolicy.typeBitsOf(book),
+      source,
+    );
+    return BookReadingPreparation(
+      book: bits != 0 ? book.copyWith(bookType: bits) : book,
+      typeBits: bits,
+      source: source,
+    );
+  }
+
+  /// 详情页开读前准备临时书及媒体目录；失败维持原有继续开读的行为。
+  Future<BookReadingPreparation> prepareReading(
+    Book book,
+    int chapterIndex,
+  ) async {
+    final resolved = await resolveReading(book);
+    final bits = resolved.typeBits;
+    if (BookMetadataPolicy.isOnlineBook(book)) {
+      try {
+        final existing = await _bookshelf.getBook(book.bookUrl);
+        if (existing == null) {
+          await _bookshelf.addBook(
+            book.copyWith(bookType: bits | BookType.notShelf),
+          );
+        } else if (bits != 0 &&
+            (existing.bookType & BookTypePolicy.typeMask) != bits) {
+          await _bookshelf.updateBook(
+            existing.copyWith(
+              bookType: (existing.bookType & ~BookTypePolicy.typeMask) | bits,
+            ),
+          );
+        }
+        final media = bits & (BookType.video | BookType.audio | BookType.image);
+        if (media != 0) {
+          final chapters = await _reading.getChapters(book.bookUrl);
+          if (chapters.isEmpty && book.origin.isNotEmpty) {
+            await _reading.refreshToc(book.bookUrl, book.origin);
+          }
+        }
+      } catch (error) {
+        _log('阅读前落库失败: $error');
+      }
+    }
+    return BookReadingPreparation(
+      book: book.copyWith(durChapterIndex: chapterIndex, bookType: bits),
+      typeBits: bits,
+      source: resolved.source,
+    );
+  }
 
   Future<BookDetailData> readLocal(BookDetailRequest request) async {
     final stored = request.bookUrl.isEmpty
@@ -176,4 +233,16 @@ class BookDetailService {
         ? _reading.refreshToc(book.bookUrl, book.origin)
         : queryOnlineChapters(book, source: data.source);
   }
+}
+
+/// 开书准备结果不携带路由、Context或Ref。— Codex + UI
+class BookReadingPreparation {
+  const BookReadingPreparation({
+    required this.book,
+    required this.typeBits,
+    this.source,
+  });
+  final Book book;
+  final int typeBits;
+  final BookSource? source;
 }

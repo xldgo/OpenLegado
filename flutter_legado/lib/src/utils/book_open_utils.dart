@@ -1,7 +1,4 @@
-import 'package:flutter_legado/src/domain/services/book_metadata_policy.dart';
-import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
-
-import '../features/book_sources/book_source_repository_provider.dart';
+import '../features/book_detail/book_detail_notifier.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -50,7 +47,7 @@ class BookOpenUtils {
   /// 「typeBits 解析 + 路由分发」拷贝漂移。
   ///
   /// 流程：
-  /// 1. 在线书籍（[BookMetadataPolicy.isOnlineBook]）按 [Book.origin] 在书源列表匹配
+  /// 1. 在线书籍（在线书籍）按 [Book.origin] 在书源列表匹配
   ///    （两侧去尾斜杠归一后比较，兼容存量源 URL 尾斜杠差异），经
   ///    [BookTypePolicy.resolveTypeBits] 得到最终类型位；匹配失败/异常沿用书籍已有位；
   /// 2. [routeForTypeBits] 选路由：文本阅读器先经 `ReaderNotifier.openBook`
@@ -71,26 +68,12 @@ class BookOpenUtils {
         ? PlatformBridgeService.navigatorKey.currentState
         : Navigator.of(context);
     if (navigator == null) return;
-    var typeBits = BookTypePolicy.typeBitsOf(book);
-    if (BookMetadataPolicy.isOnlineBook(book)) {
-      try {
-        final sources = await ref
-            .read(bookSourceRepositoryProvider)
-            .getBookSources();
-        String norm(String u) => u.trim().replaceAll(RegExp(r'/+$'), '');
-        final o = norm(book.origin);
-        for (final s in sources) {
-          if (norm(s.bookSourceUrl) == o || s.bookSourceUrl == book.origin) {
-            typeBits = BookTypePolicy.resolveTypeBits(typeBits, s);
-            break;
-          }
-        }
-      } catch (_) {
-        // 书源匹配失败按书籍已有类型位继续（与各屏原兜底一致）
-      }
-    }
+    final prepared = await ref
+        .read(bookDetailServiceProvider)
+        .resolveReading(book);
     if (!useGlobalNavigator && !context.mounted) return;
-    final bookToOpen = typeBits != 0 ? book.copyWith(bookType: typeBits) : book;
+    final bookToOpen = prepared.book;
+    final typeBits = prepared.typeBits;
     final route = routeForTypeBits(typeBits);
     if (needsReaderNotifier(route)) {
       ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);

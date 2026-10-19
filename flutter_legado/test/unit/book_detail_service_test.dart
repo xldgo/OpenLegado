@@ -16,6 +16,49 @@ void main() {
   const source = BookDetailFixture.source;
   const chapter = BookDetailFixture.chapter;
 
+  test('开读准备保留临时书标记、章节选择及媒体目录', () async {
+    fixture.availableSources = [
+      source.copyWith(bookSourceType: BookSourceType.audio),
+    ];
+    when(() => fixture.bookshelf.addBook(any())).thenAnswer((_) async => book);
+    final result = await fixture.service.prepareReading(book, 3);
+    expect(result.typeBits, BookType.audio);
+    expect(result.book.durChapterIndex, 3);
+    final stored =
+        verify(() => fixture.bookshelf.addBook(captureAny())).captured.single
+            as Book;
+    expect(stored.bookType, BookType.audio | BookType.notShelf);
+    verify(() => fixture.reading.refreshToc(book.bookUrl, book.origin))
+        .called(1);
+  });
+
+  test('已有书更新媒体位时保留其他标记，不重建已有目录', () async {
+    fixture.stored = book.copyWith(bookType: BookType.notShelf | BookType.text);
+    fixture.cachedChapters = [chapter];
+    fixture.availableSources = [
+      source.copyWith(bookSourceType: BookSourceType.image),
+    ];
+    final result = await fixture.service.prepareReading(book, 1);
+    expect(result.typeBits, BookType.image);
+    final stored =
+        verify(() => fixture.bookshelf.updateBook(captureAny())).captured.single
+            as Book;
+    expect(stored.bookType, BookType.notShelf | BookType.image);
+    verifyNever(() => fixture.reading.refreshToc(any(), any()));
+  });
+
+  test('落库失败保留开读结果，书源获取失败沿用已有媒体位', () async {
+    when(fixture.sources.getBookSources).thenThrow(StateError('书源失败'));
+    when(() => fixture.bookshelf.getBook(any())).thenThrow(StateError('存储失败'));
+    final result = await fixture.service.prepareReading(
+      book.copyWith(bookType: BookType.video),
+      2,
+    );
+    expect(result.book.durChapterIndex, 2);
+    expect(result.typeBits, BookType.video);
+    expect(fixture.logs, hasLength(2));
+  });
+
   test('本地首屏先读存储，路由补全保留稳定主键和数据库抓取地址', () async {
     fixture.stored = book.copyWith(
       bookType: BookType.notShelf,

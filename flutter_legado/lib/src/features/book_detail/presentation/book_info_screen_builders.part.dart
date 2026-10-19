@@ -1336,82 +1336,13 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     Book book,
     int chapterIndex,
   ) async {
-    // [UI-fix v2.0.3 | 2026-08-06] 对齐原版 readBook：未入库在线书阅读前先落库 — Qoder
-    // 带正确 origin 落库，使阅读器 DB 依赖成立（get_chapter_content_full 按
-    // book.origin 找书源取正文），规避「章节不存在 / 未配置书源」；已入库则幂等跳过。
-
-    // [UI-fix v2.0.12 | 2026-08-10] 解析书籍类型位（对齐原版 BookType 位标记）：
-    // 搜索输出不带 type（bookType=0）或旧库只有 notShelf 位时，按书源类型
-    // （bookSourceType：1=音频/2=图片/3=文件/4=视频）映射补全，保证分流与
-    // 落库类型正确（修复图片/音频/视频源「打不开」——类型位丢失致分流落回
-    // 文本阅读器）— Reasonix
-    // 分流逻辑抽至 BookOpenUtils，与书架 startActivityForBook 对齐 — Reasonix + UI
-    const typeMask = BookTypePolicy.typeMask;
-    var typeBits = BookTypePolicy.typeBitsOf(book);
-    BookSource? matchedSource;
-    if (_isOnlineBook(book)) {
-      matchedSource = await _findSourceByOrigin(book.origin);
-      // 书源媒体类型 / 视频启发式优先于抽图提升（非凡 type=0 MacCMS 等）
-      // — Reasonix + UI
-      typeBits = BookTypePolicy.resolveTypeBits(typeBits, matchedSource);
-    }
-    try {
-      if (_isOnlineBook(book)) {
-        final existing = await ref
-            .read(bookshelfRepositoryProvider)
-            .getBook(book.bookUrl);
-        if (existing == null) {
-          // 以正确类型位 + notShelf 位标记临时落库：阅读器 DB 依赖成立
-          // （按 origin 取正文），但不进书架列表；用户显式「加入书架」时再
-          // 清标记转正（见 _toggleShelf）。
-          await ref
-              .read(bookshelfRepositoryProvider)
-              .addBook(book.copyWith(bookType: typeBits | BookType.notShelf));
-        } else if (typeBits != 0 &&
-            (existing.bookType & typeMask) != typeBits) {
-          // 缺类型位，或文本→图片提升（必应漫画）→ 回填媒体位
-          await ref
-              .read(bookshelfRepositoryProvider)
-              .updateBook(
-                existing.copyWith(
-                  bookType: (existing.bookType & ~typeMask) | typeBits,
-                ),
-              );
-        }
-        // 漫画/视频等非文本阅读器只收 bookUrl，不会走 ReaderNotifier 的
-        // 空目录自愈；详情页「未入库」路径又不落库章节 → 必须在开读前
-        // 把目录写入 DB，否则进 comic/video 仍是「暂无章节」。
-        // 对齐原版 readBook 前确保目录可用。— Reasonix + UI
-        if (!BookOpenUtils.needsReaderNotifier(
-          BookOpenUtils.routeForTypeBits(typeBits),
-        )) {
-          final existingChapters = await ref
-              .read(readingRepositoryProvider)
-              .getChapters(book.bookUrl);
-          if (existingChapters.isEmpty && book.origin.isNotEmpty) {
-            await ref
-                .read(readingRepositoryProvider)
-                .refreshToc(book.bookUrl, book.origin);
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('阅读前落库失败: $e');
-    }
-    if (!context.mounted) return;
-    if (ModalRoute.of(context)?.isCurrent == false) return;
+    final prepared = await ref
+        .read(bookDetailServiceProvider)
+        .prepareReading(book, chapterIndex);
+    if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) return;
     final container = ProviderScope.containerOf(context);
-    final bookToRead = chapterIndex != book.durChapterIndex
-        ? book.copyWith(durChapterIndex: chapterIndex, bookType: typeBits)
-        : book.copyWith(bookType: typeBits);
-    // 按类型分流（对齐原版 BookInfoActivity.startReadActivity）— Reasonix + UI
-    final route = BookOpenUtils.routeForTypeBits(typeBits);
-    debugPrint(
-      '[BookOpen] name=${book.name} origin=${book.origin} '
-      'typeBits=$typeBits route=$route '
-      'srcType=${matchedSource?.bookSourceType} '
-      'videoLike=${BookTypePolicy.looksLikeVideoSource(matchedSource)}',
-    );
+    final bookToRead = prepared.book;
+    final route = BookOpenUtils.routeForTypeBits(prepared.typeBits);
     if (BookOpenUtils.needsReaderNotifier(route)) {
       container.read(readerNotifierProvider.notifier).openBook(bookToRead);
       // [UI-fix v2.0.11 | 2026-08-10] 阅读返回后重新加载详情数据 — Reasonix
