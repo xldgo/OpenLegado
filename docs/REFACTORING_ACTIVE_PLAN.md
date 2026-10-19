@@ -1,5 +1,12 @@
 # Legado 后续重构执行计划（Active）
 
+### IOS-LAUNCH-BACKGROUND-20261020：原生启动背景与占位资源清理（P2，待复验：Xcode编译及iPhone冷启动）
+
+- 授权：用户同意保留原生LaunchScreen，移除透明占位图并适配系统深浅色；基线feature/ui-reader-selection / e024188d3。单代理，不提升版本、不推送、编译或安装，保留未提交缓存工作。
+- 范围：LaunchScreen.storyboard使用LaunchBackground颜色资源；浅色#F5F5F5、深色#101418，与当前默认Flutter主题surface一致。删除LaunchImage图片集、ImageView和关联约束，不新增图标/文字/动画/延迟、依赖或Flutter欢迎页，不读取用户自定义主题。
+- 验收边界：Windows仅执行资源XML/JSON/Info.plist结构及资源引用核对、现有iOS图标输入校验和diff检查；无Xcode/ibtool，不能替代原生资源编译及iPhone深浅色冷启动验收。编写者Codex + UI，2026-10-20。
+- 实现与核对：LaunchBackground颜色集的通用/深色分支已配置，Info.plist继续引用现有LaunchScreen，Xcode资源目录无需新增工程条目。三份1×1透明PNG及原图片集说明、声明已删除；无残留LaunchImage引用。结构/引用核对、六个备选图标输入校验及diff检查通过，证据flutter_legado/build/ios-launch-background-validation.json；不新增形式主义配置测试。应用自定义主题不参与原生启动取色，未宣称消除所有自定义主题的颜色切换；本地提交见Git记录，版本仍为2.0.405+406。
+
 ### STARTUP-NAVIGATION-20261020：初始入口仲裁与崩溃提示后恢复（P2，待复验：设备冷启动）
 
 - 授权：用户要求修复启动界面删除审查发现的两个问题；基线feature/ui-reader-selection / b6bc934f2，单代理，保留未提交封面缓存工作，不提升版本、不推送或安装。
