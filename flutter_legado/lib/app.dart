@@ -1,12 +1,12 @@
+import 'src/data/services/file_metadata.dart';
 import 'src/app/routing/startup_reading_navigation.dart';
 import 'src/app/routing/app_navigation.dart';
 import 'src/providers/auto_task/auto_task_dependencies.dart';
 import 'src/providers/config_settings_provider.dart';
 
 import 'dart:async';
-import 'dart:io' show File;
+import 'dart:io' show File, FileSystemEntityType;
 
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -21,6 +21,7 @@ import 'src/app/routing/route_names.dart';
 import 'src/app/routing/route_arguments.dart';
 import 'src/app/routing/app_router.dart';
 import 'src/services/auto_task_scheduler.dart';
+import 'src/services/crash_log_service.dart';
 import 'src/services/deep_link_service.dart';
 import 'src/features/audio/application/audio_notifier.dart';
 import 'src/features/read_aloud/media_playback_navigation.dart';
@@ -170,8 +171,10 @@ class LegadoApp extends ConsumerStatefulWidget {
     int maxAttempts = 60,
     Duration interval = const Duration(milliseconds: 50),
     VoidCallback? onTimeout,
+    bool Function()? isAlive,
   }) {
     void attempt(int attemptNo) {
+      if (isAlive != null && !isAlive()) return;
       final nav = navigator();
       final welcomeGone =
           watcher.didObserveTopChange &&
@@ -304,6 +307,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       // 复用欢迎页导航门控，避免初始导入弹窗被欢迎页的路由替换关闭。
       LegadoApp.scheduleFloatReturnNavigation(
         watcher: _topRouteWatcher,
+        isAlive: () => mounted,
         navigator: () =>
             mounted ? PlatformBridgeService.navigatorKey.currentState : null,
         push: (_) => DeepLinkService.instance.attach(
@@ -328,6 +332,13 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   @override
   void dispose() {
+    AutoTaskScheduler.instance.detach();
+    unawaited(DeepLinkService.instance.detach());
+    VideoFloatWindowBridge.instance.detach();
+    VideoFloatWindowCoordinator.instance
+      ..openFullscreen = null
+      ..onNotice = null;
+    unawaited(CrashLogService.instance.flush());
     _startupReading.dispose();
     _applicationContainer.invalidate(startupReadingNavigationProvider);
     _router.dispose();
@@ -343,6 +354,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   /// `replaceAppRoute(home)` 竞争、刚压入的 /video 被整体替换
   /// （round2 真机 2/2；详见 [scheduleFloatReturnNavigation]）。
   void _openVideoFromFloatWindow(VideoFloatWindowState state, Book? book) {
+    if (!mounted) return;
     _startupReading.preferExternalAction();
     final args = VideoScreenArgs(
       videoUrl: state.directUrl ?? book?.bookUrl ?? '',
@@ -362,6 +374,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // addPostFrameCallback 推迟逻辑）+ 闪屏 /welcome 未退出栈顶（本批修复）。
     LegadoApp.scheduleFloatReturnNavigation(
       watcher: _topRouteWatcher,
+      isAlive: () => mounted,
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) =>
           GoRouter.of(navigator.context)
@@ -473,21 +486,27 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   /// 本地背景图可用时让 Scaffold 透明，露出下层壁纸
   ThemeData _withOptionalTransparentScaffold(ThemeData base, String path) {
-    if (!_bgFileUsable(path)) return base;
+    if (ref.watch(fileMetadataProvider(path)).value?.type !=
+        FileSystemEntityType.file) {
+      return base;
+    }
     return base.copyWith(scaffoldBackgroundColor: Colors.transparent);
   }
 }
 
 /// 全局主题背景图层（对齐原版 ThemeConfig.getBgImage）
-class _ThemeBackgroundLayer extends StatelessWidget {
+class _ThemeBackgroundLayer extends ConsumerWidget {
   final String path;
   final Widget child;
 
   const _ThemeBackgroundLayer({required this.path, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    if (!_bgFileUsable(path)) return child;
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(fileMetadataProvider(path)).value?.type !=
+        FileSystemEntityType.file) {
+      return child;
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         image: DecorationImage(
@@ -498,14 +517,5 @@ class _ThemeBackgroundLayer extends StatelessWidget {
       ),
       child: child,
     );
-  }
-}
-
-bool _bgFileUsable(String path) {
-  if (kIsWeb || path.isEmpty) return false;
-  try {
-    return File(path).existsSync();
-  } catch (_) {
-    return false;
   }
 }

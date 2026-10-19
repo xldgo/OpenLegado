@@ -108,7 +108,7 @@ class BottomBarSkinService {
     final dir = Directory(
       '${(await _rootDir()).path}${Platform.pathSeparator}$name',
     );
-    return dir.existsSync();
+    return dir.exists();
   }
 
   Future<bool> delete(String name) async {

@@ -1,3 +1,4 @@
+import '../../../data/services/file_metadata.dart';
 import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import '../../../theme/app_motion.dart';

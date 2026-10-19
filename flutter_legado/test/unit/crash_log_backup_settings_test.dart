@@ -51,7 +51,7 @@ void main() {
       'before.log',
     );
     CrashLogService.instance.logError(StateError('原目录备份'), StackTrace.current);
-    await Future<void>.delayed(Duration.zero);
+    await CrashLogService.instance.flush();
     expect(
       before.listSync().whereType<File>().any(
         (file) =>
@@ -71,7 +71,7 @@ void main() {
       '恢复后内容',
     );
     CrashLogService.instance.logError(StateError('恢复后备份'), StackTrace.current);
-    await Future<void>.delayed(Duration.zero);
+    await CrashLogService.instance.flush();
     expect(
       restored.listSync().whereType<File>().any(
         (file) =>

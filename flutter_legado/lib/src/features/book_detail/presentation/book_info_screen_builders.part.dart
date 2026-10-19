@@ -906,17 +906,10 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         .where(isMeaningfulText)
         .toList();
     if (!_isOnlineBook(book)) {
-      try {
-        // [iOS 视角F C1] bookUrl 可能是「相对 Documents 可迁移标识」（books/x.epub），
-        // 需解析为当前容器真实路径后再取文件大小；绝对/Web 原样透传。
-        final file = File(LocalBookStore.resolveSync(book.bookUrl));
-        if (file.existsSync()) {
-          final size = file.lengthSync();
-          if (size > 0) {
-            kinds.add(_formatFileSize(size));
-          }
-        }
-      } catch (_) {}
+      final stat = ref
+          .watch(fileMetadataProvider(LocalBookStore.resolveSync(book.bookUrl)))
+          .value;
+      if (stat != null && stat.size > 0) kinds.add(_formatFileSize(stat.size));
     }
     return kinds;
   }

@@ -1,3 +1,4 @@
+import '../../../data/services/file_metadata.dart';
 import '../../../app/routing/app_navigation.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 
@@ -128,7 +129,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     final path = isDark ? _bgImageNight : _bgImageDay;
 
     DecorationImage? bgImage;
-    if (_welcome.customWelcome && path != null && File(path).existsSync()) {
+    if (_welcome.customWelcome &&
+        path != null &&
+        ref.watch(fileMetadataProvider(path)).value != null) {
       bgImage = DecorationImage(
         image: FileImage(File(path)),
         fit: BoxFit.cover,

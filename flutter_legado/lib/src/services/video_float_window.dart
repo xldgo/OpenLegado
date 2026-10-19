@@ -283,17 +283,22 @@ class VideoFloatWindowBridge {
 
   /// 注册原生事件处理器并拉取冷启动的「回全屏」状态。
   /// 在 [LegadoApp] 首帧前调用（app.dart），重复调用安全。
+  int _attachment = 0;
+
   void attach() {
     if (!isSupported) return;
+    final attachment = ++_attachment;
     channel.setMethodCallHandler((call) async {
+      if (attachment != _attachment) return null;
       return VideoFloatWindowCoordinator.instance.handleNativeEvent(call);
     });
-    unawaited(_consumeInitialReturn());
+    unawaited(_consumeInitialReturn(attachment));
   }
 
-  Future<void> _consumeInitialReturn() async {
+  Future<void> _consumeInitialReturn(int attachment) async {
     try {
       final raw = await channel.invokeMethod<dynamic>('getInitialFloatReturn');
+      if (attachment != _attachment) return;
       if (raw != null) {
         await VideoFloatWindowCoordinator.instance.handleReturnState(raw);
       }
@@ -302,6 +307,7 @@ class VideoFloatWindowBridge {
 
   /// 注销事件处理器（进程级单例一般不调用；保留以备测试与热重载）
   void detach() {
+    _attachment++;
     channel.setMethodCallHandler(null);
   }
 }

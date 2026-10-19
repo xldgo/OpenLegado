@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -152,6 +154,22 @@ void main() {
       service: service,
       readEnabled: () async => false,
     );
+    await tester.pump(const Duration(minutes: 10));
+    verifyNever(() => repository.listRules());
+    verifyZeroInteractions(service);
+  });
+  testWidgets('注销使尚未返回的开关读取失效，不再调度或读取规则', (tester) async {
+    final repository = AutoTaskRepositoryMock();
+    final service = AutoTaskServiceMock();
+    final enabled = Completer<bool>();
+    final scheduler = AutoTaskScheduler();
+    scheduler.attach(
+      repository: repository,
+      service: service,
+      readEnabled: () => enabled.future,
+    );
+    scheduler.detach();
+    enabled.complete(true);
     await tester.pump(const Duration(minutes: 10));
     verifyNever(() => repository.listRules());
     verifyZeroInteractions(service);

@@ -62,6 +62,7 @@ class AutoTaskScheduler with WidgetsBindingObserver {
 
   /// 刷新代数：并发的 [refresh] 互相作废旧一代的延迟结果
   int _generation = 0;
+  int _attachment = 0;
 
   static const MethodChannel _jobChannel = MethodChannel(
     'legado/auto_task_job',
@@ -77,6 +78,7 @@ class AutoTaskScheduler with WidgetsBindingObserver {
     required AutoTaskService service,
     required Future<bool> Function() readEnabled,
   }) {
+    detach();
     _repository = repository;
     _service = service;
     _readEnabled = readEnabled;
@@ -141,6 +143,20 @@ class AutoTaskScheduler with WidgetsBindingObserver {
     await _cancelNativeSchedule();
   }
 
+  /// 释放应用内观察与计时器；不改动原生持久任务和用户开关。— Codex + UI
+  void detach() {
+    _attachment++;
+    _generation++;
+    _timer?.cancel();
+    _timer = null;
+    _repository = null;
+    _service = null;
+    _readEnabled = null;
+    WidgetsBinding.instance.removeObserver(this);
+    if (_jobHandlerBound) _jobChannel.setMethodCallHandler(null);
+    _jobHandlerBound = false;
+  }
+
   /// 重算调度（对标 AutoTaskScheduler.refresh）
   ///
   /// [afterBatch] 为 true 时以当前时间为基准计算下次执行
@@ -152,7 +168,9 @@ class AutoTaskScheduler with WidgetsBindingObserver {
     if (repository == null || service == null) return;
     final generation = ++_generation;
     try {
-      if (!await _isEnabled()) {
+      final enabled = await _isEnabled();
+      if (generation != _generation) return;
+      if (!enabled) {
         _timer?.cancel();
         _timer = null;
         await _cancelNativeSchedule();
@@ -256,17 +274,25 @@ class AutoTaskScheduler with WidgetsBindingObserver {
     final service = _service;
     if (repository == null || service == null) return;
     _running = true;
+    final attachment = _attachment;
+    bool attached() =>
+        attachment == _attachment &&
+        identical(_repository, repository) &&
+        identical(_service, service);
     try {
-      if (!await _isEnabled()) return;
+      if (!await _isEnabled() || !attached()) return;
       final rules = await repository.listRules();
+      if (!attached()) return;
       final now = _nowMs();
       final due = await _dueRules(service, rules, now);
+      if (!attached()) return;
       if (due.isEmpty) {
         // 无到期任务：按批次后策略重排下一轮（对标 shouldRetry 分支）
         await refresh(afterBatch: true);
         return;
       }
       for (final rule in due) {
+        if (!attached()) return;
         // 单任务失败不影响整批（对标 runTask 逐任务 try/catch 持久化）
         try {
           final id = rule.id;
@@ -281,13 +307,14 @@ class AutoTaskScheduler with WidgetsBindingObserver {
         }
       }
       // 批次完成：以当前时间为基准调度下一轮（对标 refresh(afterBatch=true)）
-      await refresh(afterBatch: true);
+      if (attached()) await refresh(afterBatch: true);
     } catch (e) {
       // 批次级失败（FFI 异常等）：退避重试（对标 jobFinished(retry=true)
       // + BACKOFF_POLICY_LINEAR 60s）
       debugPrint(
         '[AutoTaskScheduler] 批次执行失败，${_retryBackoff.inSeconds}s 后重试: $e',
       );
+      if (!attached()) return;
       _generation++;
       _timer?.cancel();
       _timer = Timer(_retryBackoff, _onTimer);

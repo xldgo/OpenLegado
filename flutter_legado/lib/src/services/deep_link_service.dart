@@ -17,6 +17,7 @@ class DeepLinkService {
 
   GlobalKey<NavigatorState>? navigatorKey;
   bool _attached = false;
+  int _generation = 0;
   VoidCallback? _onImport;
   String? _lastHandled;
   StreamSubscription<Uri>? _iosLinkSub;
@@ -30,18 +31,21 @@ class DeepLinkService {
     navigatorKey = key;
     if (_attached) return;
     _attached = true;
+    final generation = ++_generation;
     // [iOS 轨 P2] iOS 走 app_links（Info.plist 已注册 legado/yuedu scheme）；
     // Android 保持 DeepLinkService 通道
     if (Platform.isIOS) {
       final links = AppLinks();
       try {
         final initial = await links.getInitialLink();
+        if (generation != _generation || !_attached) return;
         if (initial != null && initial.toString().isNotEmpty) {
           await handleUrl(initial.toString());
         }
       } catch (e) {
         debugPrint('[DeepLink] 初始链路失败：$e');
       }
+      if (generation != _generation || !_attached) return;
       _iosLinkSub = links.uriLinkStream.listen(
         (uri) => handleUrl(uri.toString()),
         onError: (e) => debugPrint('[DeepLink] 链路流错误：$e'),
@@ -51,6 +55,7 @@ class DeepLinkService {
     _channel.setMethodCallHandler(_onMethodCall);
     try {
       final initial = await _channel.invokeMethod<String>('getInitialLink');
+      if (generation != _generation || !_attached) return;
       if (initial != null && initial.isNotEmpty) {
         await handleUrl(initial);
       }
@@ -61,9 +66,15 @@ class DeepLinkService {
 
   /// 取消 iOS 链路流订阅（进程级单例一般不调用；保留以备测试与热重载）
   Future<void> detach() async {
-    await _iosLinkSub?.cancel();
-    _iosLinkSub = null;
+    _generation++;
     _attached = false;
+    _channel.setMethodCallHandler(null);
+    navigatorKey = null;
+    _onImport = null;
+    _lastHandled = null;
+    final subscription = _iosLinkSub;
+    _iosLinkSub = null;
+    await subscription?.cancel();
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
@@ -78,14 +89,20 @@ class DeepLinkService {
   /// 处理深链或平台桥 openUrl 转来的 legado/yuedu URI
   Future<void> handleUrl(String url) async {
     if (!LegadoDeepLink.isImportScheme(url)) return;
+    final generation = _generation;
     if (_lastHandled == url) return;
     _onImport?.call();
     _lastHandled = url;
 
     final parsed = LegadoDeepLink.tryParse(url);
     final nav = navigatorKey?.currentState;
+    if (nav == null && !_attached) {
+      _lastHandled = null;
+      return;
+    }
     if (nav == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (generation != _generation) return;
         _lastHandled = null;
         handleUrl(url);
       });
