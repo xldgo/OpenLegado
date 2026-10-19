@@ -384,6 +384,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .pushAppRoute(AppRoutes.otherSettings),
                     ),
                     SettingTile(
+                      icon: Symbols.downloading_rounded,
+                      title: context.l10n.downloadAndCache,
+                      subtitle: context.l10n.downloadAndCacheSummary,
+                      onTap: () =>
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.downloadCacheSettings),
+                    ),
+                    SettingTile(
                       icon: Symbols.bookmark_rounded,
                       title: context.l10n.bookmarks,
                       subtitle: context.l10n.allBookmarks,

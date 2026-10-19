@@ -56,10 +56,10 @@ open class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
 
         // 注册 WebView 通道
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_WEBVIEW)
-            .setMethodCallHandler { call, result ->
-                webViewBridge.handleMethodCall(call, result, this)
-            }
+        val webviewChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_WEBVIEW)
+        webviewChannel.setMethodCallHandler { call, result ->
+            webViewBridge.handleMethodCall(call, result, this, webviewChannel)
+        }
 
         // 注册 TTS 通道
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_TTS)

@@ -10,6 +10,39 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get httpCache => 'HTTP 缓存';
+
+  @override
+  String get coverCache => '封面缓存';
+
+  @override
+  String get mangaCache => '漫画缓存';
+
+  @override
+  String get cacheBookThreadCount => '书籍缓存下载线程数';
+
+  @override
+  String get preDownloadPrevious => '向前预下载';
+
+  @override
+  String get preDownloadNext => '向后预下载';
+
+  @override
+  String get featurePending => '待实现';
+
+  @override
+  String get downloadAndCache => '下载与缓存';
+
+  @override
+  String get downloadAndCacheSummary => '下载并发、预下载、图片缓存与清理';
+
+  @override
+  String get downloadSettings => '下载设置';
+
+  @override
+  String get imageCache => '图片缓存';
+
+  @override
   String get themeLiquidBottomBar => '悬浮底栏液态玻璃';
 
   @override

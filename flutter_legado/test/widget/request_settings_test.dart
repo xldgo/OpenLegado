@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
+import 'package:flutter_legado/src/widgets/app_settings_sheet.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 import 'package:flutter_legado/src/providers/config_provider.dart';
 import 'package:flutter_legado/src/providers/config_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
@@ -40,11 +42,11 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: OtherSettingsScreen()),
+        child: const MaterialApp(home: DownloadCacheSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
-    final label = find.text('更新和搜索线程数（太多会卡顿）');
+    final label = find.text('更新和搜索线程数');
     await tester.dragUntilVisible(
       label,
       find.byType(ListView),
@@ -57,11 +59,33 @@ void main() {
     );
     await tester.tap(label);
     await tester.pumpAndSettle();
+    final row = find.widgetWithText(SettingTile, '更新和搜索线程数');
+    expect(tester.widget<SettingTile>(row).enabled, isTrue);
+    expect(
+      find.descendant(
+        of: row,
+        matching: find.byIcon(Icons.chevron_right_rounded),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('线程数太多会卡顿'), findsOneWidget);
+    expect(find.byType(Slider), findsNothing);
+    expect(find.widgetWithText(TextField, '3'), findsOneWidget);
+    tester.widget<SettingTile>(row).onTap!();
+    await tester.pumpAndSettle();
+    expect(find.byType(AppSettingsSheet), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '8');
+    await tester.tap(find.widgetWithText(TextButton, '取消'));
+    await tester.pumpAndSettle();
+    expect(stored, '3');
+    await tester.tap(label);
+    await tester.pumpAndSettle();
     expect(find.widgetWithText(TextField, '3'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '257');
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(AppSettingsSheet), findsOneWidget);
+    expect(find.text('请输入 1～256 之间的整数'), findsOneWidget);
     expect(stored, '3');
     await tester.enterText(find.byType(TextField), '7');
     await tester.tap(find.byType(FilledButton));
@@ -113,11 +137,11 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: OtherSettingsScreen()),
+        child: const MaterialApp(home: DownloadCacheSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
-    final label = find.text('更新和搜索线程数（太多会卡顿）');
+    final label = find.text('更新和搜索线程数');
     await tester.dragUntilVisible(
       label,
       find.byType(ListView),
@@ -127,7 +151,7 @@ void main() {
     expect(find.text('读取失败'), findsOneWidget);
     await tester.tap(label);
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(AppSettingsSheet), findsNothing);
     expect(find.text('并发设置读取失败，请重试'), findsOneWidget);
     fail = false;
     await tester.tap(label);

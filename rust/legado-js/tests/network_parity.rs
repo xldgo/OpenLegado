@@ -101,7 +101,17 @@ fn socks4_rule_requests_use_v4_handshake_and_never_bypass_rejection() {
 #[test]
 fn rule_dns_override_follows_cross_host_redirect_without_leaking() {
     let server = Server::new("127.0.0.1:0");
-    let engine = engine();
+    // 本机DNS可能把.invalid也解析到回环；注入不同的默认地址，确定性检验覆盖是否泄漏。
+    let hosts = Arc::new(legado_net::custom_hosts::CustomHosts::default());
+    hosts
+        .apply_custom_hosts(r#"{"second.invalid":"127.0.0.2"}"#)
+        .unwrap();
+    let http =
+        Arc::new(legado_js::http_resources::HttpResources::default().with_custom_hosts(hosts));
+    let resources = legado_js::JsResources::default().with_http_resources(http);
+    let engine = resources
+        .create_engine(SandboxConfig::default().with_allow_script_run(true))
+        .unwrap();
     let url = format!("http://localhost:{}/redirect-host", server.address.port());
     let response = eval(
         &engine,
@@ -120,7 +130,7 @@ fn rule_dns_override_follows_cross_host_redirect_without_leaking() {
         ])
     );
     assert_eq!(server.requests.load(Ordering::Acquire), 2);
-    // 未携带覆盖的后续请求仍使用原DNS，不得复用上一请求的解析结果。
+    // 未携带覆盖的后续请求使用注入的默认地址；服务只监听127.0.0.1，不得复用上一覆盖。
     let failure = eval(&engine, &url, "java.ajax(url,600)");
     assert!(failure.contains("[ERROR]"), "{failure}");
     assert_eq!(server.requests.load(Ordering::Acquire), 3);
@@ -632,6 +642,82 @@ struct Server {
     metrics: Arc<BatchMetrics>,
 }
 
+#[test]
+fn archive_read_remote_rules_keep_raw_bytes_and_current_context() {
+    use legado_js::host_api::current_source::with_current_source_tag;
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let rule = format!(
+        "{},{}",
+        server.url("/archive.zip"),
+        serde_json::json!({
+            "method":"POST", "body":"{{'payload'}}", "headers":{"X-Marker":"{{'archive'}}"},
+            "type":"zip", "bodyJs":"throw new Error('不得作为文本求值')"
+        })
+    );
+    let value = with_current_source_tag(&server.url("/"), || {
+        eval(
+            &engine,
+            &rule,
+            r#"
+        java.putGlobalHeaders(JSON.stringify({'X-Source':'source','Cookie':'session=archive'}));
+        globalThis.result='outer';
+        var first=java.getZipStringContent(url,'request');
+        var raw=Array.from(java.getZipByteArrayContent(url,'binary'));
+        JSON.stringify([JSON.parse(first),raw,result]);
+    "#,
+        )
+    });
+    let value: serde_json::Value = serde_json::from_str(&value).unwrap();
+    assert_eq!(value[0]["method"], "POST");
+    assert_eq!(value[0]["body"], "payload");
+    assert_eq!(value[0]["marker"], "archive");
+    assert_eq!(value[0]["source"], "source");
+    assert_eq!(value[0]["cookie"], "session=archive");
+    assert_eq!(value[1], serde_json::json!([0, 128, 255]));
+    assert_eq!(value[2], "outer");
+    assert_eq!(
+        eval(
+            &engine,
+            &server.url("/archive.zip"),
+            "JSON.stringify(Array.from(java.getZipByteArrayContent('@js: url','binary')))"
+        ),
+        "[0,128,255]"
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), 3);
+}
+
+#[test]
+fn archive_read_cancellation_interrupts_body_and_rate_wait() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let token = Arc::new(Cancellation::default());
+    let code = format!(
+        "java.getZipByteArrayContent({},'entry')",
+        serde_json::to_string(&server.url("/pending")).unwrap()
+    );
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| server.requests.load(Ordering::Acquire) == 1);
+    finish_cancelled(&token, worker, rx);
+    wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 1);
+    let gate = Arc::new(Gate::default());
+    gate.entered.store(1, Ordering::Release);
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(2),
+        gate: Some(gate.clone()),
+    }));
+    let token = Arc::new(Cancellation::default());
+    let code = format!(
+        "java.get7zByteArrayContent({},'entry')",
+        serde_json::to_string(&server.url("/archive.zip")).unwrap()
+    );
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| gate.entered.load(Ordering::Acquire) == 2);
+    finish_cancelled(&token, worker, rx);
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 1);
+}
+
 impl Server {
     fn new(address: &str) -> Self {
         let listener = TcpListener::bind(address).expect("绑定回环HTTP服务");
@@ -722,6 +808,22 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize, metrics: &BatchMetrics) 
         return;
     }
     let request_number = requests.fetch_add(1, Ordering::AcqRel) + 1;
+    if path == "/archive.zip" {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        writer.start_file("request", options).unwrap();
+        writer.write_all(serde_json::json!({"method":method,"body":String::from_utf8(body).unwrap(),"marker":header("X-Marker"),"source":header("X-Source"),"cookie":header("Cookie")}).to_string().as_bytes()).unwrap();
+        writer.start_file("binary", options).unwrap();
+        writer.write_all(&[0, 128, 255]).unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+        let _ = write!(
+            socket,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            bytes.len()
+        );
+        let _ = socket.write_all(&bytes);
+        return;
+    }
     if path == "/pending" || path == "/no-headers" {
         if path == "/pending" {
             let _ = socket
@@ -1337,7 +1439,7 @@ fn rule_response_charset_redirect_retry_and_hex_options_are_applied() {
 }
 
 #[test]
-fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fail() {
+fn rule_timeout_and_missing_webview_host_do_not_fall_back_to_http() {
     let server = Server::new("127.0.0.1:0");
     let engine = engine();
     let response = eval(
@@ -1354,11 +1456,14 @@ fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fai
         &server.url("/echo"),
         r#"java.ajax(url+',{"webView":true}')"#,
     );
-    assert!(response.contains("暂不支持"), "{response}");
+    assert!(
+        response.contains("[ERROR]") && response.contains("当前宿主没有WebView执行订阅"),
+        "{response}"
+    );
     assert_eq!(
         server.requests.load(Ordering::Acquire),
         1,
-        "不支持的网络策略不得退化为普通HTTP请求"
+        "缺少WebView宿主时不得退化为普通HTTP请求"
     );
 }
 
@@ -1802,4 +1907,350 @@ fn response_bridge_reuses_webview_adapter_and_normalizes_setup_replacement_once(
         "[\"正文\",null,null,null,4]"
     );
     assert_eq!(engine.eval("webViewCalls").unwrap(), "1");
+}
+
+#[test]
+fn file_download_cache_returns_text_and_reloads_missing_or_expired_files() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+    let url = server.url("/echo");
+    assert_eq!(
+        eval(&engine, &url, "JSON.parse(java.cacheFile(url)).path"),
+        "/echo"
+    );
+    assert_eq!(
+        eval(&engine, &url, "JSON.parse(cacheFile(url,1)).path"),
+        "/echo"
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), 1, "命中不刷新期限");
+    assert_eq!(
+        eval(
+            &engine,
+            &url,
+            "java.deleteFile(cache.get(java.md5Encode16(url))); JSON.parse(java.importScript(url)).path"
+        ),
+        "/echo"
+    );
+    assert_eq!(
+        server.requests.load(Ordering::Acquire),
+        2,
+        "缓存目标丢失必须重下"
+    );
+    let expired = server.url("/echo?expired");
+    for _ in 0..2 {
+        assert_eq!(
+            eval(&engine, &expired, "JSON.parse(cacheFile(url,-1)).path"),
+            "/echo?expired"
+        );
+    }
+    assert_eq!(server.requests.load(Ordering::Acquire), 4);
+    let short = server.url("/echo?short");
+    eval(&engine, &short, "cacheFile(url,1)");
+    std::thread::sleep(Duration::from_millis(1100));
+    eval(&engine, &short, "cacheFile(url,1)");
+    assert_eq!(server.requests.load(Ordering::Acquire), 6);
+}
+
+#[test]
+fn file_download_rules_keep_post_headers_cookie_and_raw_body() {
+    use legado_js::host_api::current_source::with_current_source_tag;
+    let server = Server::new("127.0.0.1:0");
+    let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+    let rule = format!(
+        "{},{}",
+        server.url("/echo"),
+        serde_json::json!({"method":"POST","body":"{{'payload'}}","headers":{"X-Marker":"{{'download'}}"},"type":"txt","bodyJs":"throw Error('不应执行')"})
+    );
+    let output = with_current_source_tag(&server.url("/"), || {
+        eval(
+            &engine,
+            &rule,
+            r#"
+        java.putGlobalHeaders(JSON.stringify({'Cookie':'session=file'}));
+        globalThis.result='outer';
+        var path=java.downloadFile('@js: url');
+        var body=JSON.parse(java.readTxtFile(path));
+        JSON.stringify([body,path.endsWith(java.md5Encode16('@js: url')+'.txt'),result,java.getFile(path).exists()]);
+    "#,
+        )
+    });
+    let value: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(value[0]["method"], "POST");
+    assert_eq!(value[0]["body"], "payload");
+    assert_eq!(value[0]["marker"], "download");
+    assert_eq!(value[0]["cookie"], "session=file");
+    assert_eq!(value[1], true);
+    assert_eq!(value[2], "outer");
+    assert_eq!(value[3], true);
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+}
+
+#[test]
+fn file_download_hex_overload_and_local_import_obey_upstream_and_sandbox() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+    let rule = format!(
+        "{},{}",
+        server.url("/unused"),
+        serde_json::json!({"type":"js"})
+    );
+    assert_eq!(
+        eval(
+            &engine,
+            &rule,
+            r#"
+        var path=downloadFile('7661722078203d20313b',url);
+        JSON.stringify([java.importScript(path),importScript(path),path.endsWith(java.md5Encode16(url)+'.js'),typeof x]);
+    "#
+        ),
+        r#"["var x = 1;","var x = 1;",true,"undefined"]"#
+    );
+    assert_eq!(
+        eval(&engine, &server.url("/unused.js"), "downloadFile('00',url)"),
+        ""
+    );
+    for script in [
+        "importScript('../outside.js')",
+        "java.importScript('missing-import.js')",
+        "downloadFile('not-hex',url)",
+        "downloadFile('00',url.replace('js','../escape'))",
+        "java.cacheFile(url,undefined)",
+        "cacheFile(url,null)",
+        "cacheFile(url,NaN)",
+        "cacheFile(url,2147483648)",
+    ] {
+        assert!(
+            engine
+                .eval_with_bindings(script, &[("url", JsValue::String(rule.clone()))])
+                .is_err(),
+            "{script}"
+        );
+        assert_eq!(engine.eval("1+1").unwrap(), "2");
+    }
+    assert_eq!(server.requests.load(Ordering::Acquire), 0);
+    assert_eq!(
+        eval(
+            &engine,
+            &rule,
+            "var empty=downloadFile('202009',url); try {importScript(empty); 'bad'} catch(e) {'empty'}"
+        ),
+        "empty"
+    );
+    assert_eq!(
+        QuickJsEngine::new(SandboxConfig::default())
+            .unwrap()
+            .eval("typeof java.cacheFile + ':' + typeof importScript")
+            .unwrap(),
+        "undefined:undefined"
+    );
+}
+
+#[test]
+fn file_download_failures_throw_and_do_not_poison_cache_or_vm() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+    for call in ["downloadFile", "java.cacheFile", "importScript"] {
+        let script = format!("try {{{call}(url);'bad'}} catch(e) {{'caught'}}");
+        assert_eq!(eval(&engine, &server.url("/disconnect"), &script), "caught");
+        assert_eq!(
+            eval(
+                &engine,
+                &server.url("/disconnect"),
+                "String(cache.get(java.md5Encode16(url)))"
+            ),
+            "null"
+        );
+    }
+    assert_eq!(eval(&engine, &server.url("/gbk"), "cacheFile(url)"), "中文");
+    assert_eq!(server.requests.load(Ordering::Acquire), 4);
+}
+
+#[test]
+fn file_download_cancel_stops_body_and_rate_wait_without_cache_publication() {
+    let server = Server::new("127.0.0.1:0");
+    for (index, call) in ["java.downloadFile", "cacheFile", "java.importScript"]
+        .into_iter()
+        .enumerate()
+    {
+        let engine = Arc::new(QuickJsEngine::new(SandboxConfig::permissive()).unwrap());
+        let token = Arc::new(Cancellation::default());
+        let code = format!(
+            "{call}({})",
+            serde_json::to_string(&server.url("/pending")).unwrap()
+        );
+        let (worker, rx) = start_cancellable(&engine, &token, code);
+        wait_for(|| server.requests.load(Ordering::Acquire) == index + 1);
+        finish_cancelled(&token, worker, rx);
+        wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == index + 1);
+        assert_eq!(
+            eval(
+                &engine,
+                &server.url("/pending"),
+                "String(cache.get(java.md5Encode16(url)))"
+            ),
+            "null"
+        );
+    }
+    let engine = Arc::new(QuickJsEngine::new(SandboxConfig::permissive()).unwrap());
+    let gate = Arc::new(Gate::default());
+    gate.entered.store(1, Ordering::Release);
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(1),
+        gate: Some(gate.clone()),
+    }));
+    let token = Arc::new(Cancellation::default());
+    let (worker, rx) = start_cancellable(
+        &engine,
+        &token,
+        format!(
+            "cacheFile({})",
+            serde_json::to_string(&server.url("/echo")).unwrap()
+        ),
+    );
+    wait_for(|| gate.entered.load(Ordering::Acquire) == 2);
+    finish_cancelled(&token, worker, rx);
+    assert_eq!(server.requests.load(Ordering::Acquire), 3);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 1);
+}
+
+#[test]
+fn file_download_nested_local_import_and_cached_rules_keep_context() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+    let text = hex::encode(server.url("/echo"));
+    let local_rule = format!(
+        "{},{}",
+        server.url("/local"),
+        serde_json::json!({"type":"txt"})
+    );
+    let path = eval(
+        &engine,
+        &local_rule,
+        &format!(
+            "downloadFile({},url)",
+            serde_json::to_string(&text).unwrap()
+        ),
+    );
+    let nested = format!(
+        "@js: java.importScript({})",
+        serde_json::to_string(&path).unwrap()
+    );
+    for _ in 0..2 {
+        assert_eq!(
+            eval(
+                &engine,
+                &nested,
+                "globalThis.result='outer'; var text=JSON.parse(cacheFile(url)); JSON.stringify([text.path,result])"
+            ),
+            r#"["/echo","outer"]"#
+        );
+    }
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+    assert_eq!(
+        eval(
+            &engine,
+            &local_rule,
+            "var path=downloadFile('d6d0cec4',url);importScript(path)"
+        ),
+        "中文"
+    );
+    for (url, suffix) in [
+        (server.url("/file.PDF?q=1#x"), "PDF"),
+        (format!("{}, {{}}", server.url("/file.txt")), "txt"),
+        (server.url("/no-suffix"), "ext"),
+    ] {
+        let path = eval(&engine, &url, "downloadFile(url)");
+        let expected = format!(
+            "{}.{}",
+            legado_js::host_api::encoding::md5_encode_16(&url),
+            suffix
+        );
+        assert!(path.ends_with(&expected), "{path}");
+        assert!(!std::path::Path::new(&path).is_absolute());
+        assert!(
+            legado_js::host_api::file_utils::resolve_safe_path(&path)
+                .unwrap()
+                .is_file()
+        );
+    }
+}
+
+#[test]
+fn file_download_failed_publication_cleans_partial_and_can_retry() {
+    use legado_js::host_api::{encoding, file_utils};
+    let server = Server::new("127.0.0.1:0");
+    let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+    let probe_rule = format!(
+        "{},{}",
+        server.url("/probe"),
+        serde_json::json!({"type":"bin"})
+    );
+    let probe = eval(&engine, &probe_rule, "downloadFile('00',url)");
+    let directory = file_utils::resolve_safe_path(&probe)
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let url = server.url("/echo");
+    let name = format!("{}.ext", encoding::md5_encode_16(&url));
+    let blocked = directory.join(&name);
+    std::fs::create_dir(&blocked).unwrap();
+    assert_eq!(
+        eval(&engine, &url, "try{cacheFile(url);'bad'}catch(e){'failed'}"),
+        "failed"
+    );
+    assert!(!directory.join(format!("{name}.part")).exists());
+    assert_eq!(
+        eval(&engine, &url, "String(cache.get(java.md5Encode16(url)))"),
+        "null"
+    );
+    std::fs::remove_dir(blocked).unwrap();
+    assert_eq!(
+        eval(&engine, &url, "JSON.parse(cacheFile(url)).path"),
+        "/echo"
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), 2);
+    assert_eq!(
+        std::fs::read_dir(directory).unwrap().count(),
+        2,
+        "只保留探针和完整下载文件"
+    );
+}
+
+#[test]
+fn font_requests_cancel_body_and_rate_wait_without_swallowing_the_error() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let token = Arc::new(Cancellation::default());
+    let (worker, rx) = start_cancellable(
+        &engine,
+        &token,
+        format!(
+            "queryTTF({})",
+            serde_json::to_string(&server.url("/pending")).unwrap()
+        ),
+    );
+    wait_for(|| server.requests.load(Ordering::Acquire) == 1);
+    finish_cancelled(&token, worker, rx);
+    wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 1);
+    let gate = Arc::new(Gate::default());
+    gate.entered.store(1, Ordering::Release);
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(1),
+        gate: Some(gate.clone()),
+    }));
+    let token = Arc::new(Cancellation::default());
+    let (worker, rx) = start_cancellable(
+        &engine,
+        &token,
+        format!(
+            "queryTTF({})",
+            serde_json::to_string(&server.url("/echo")).unwrap()
+        ),
+    );
+    wait_for(|| gate.entered.load(Ordering::Acquire) == 2);
+    finish_cancelled(&token, worker, rx);
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 1);
+    assert_eq!(engine.eval("1+1").unwrap(), "2");
 }

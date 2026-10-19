@@ -1072,8 +1072,8 @@ mod quickjs_tests {
         let result = engine.eval(js).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(
-            parsed["b64"], "aGVsbG8=",
-            "Base64.encodeToString 应输出字节数组的 Base64"
+            parsed["b64"], "aGVsbG8=\n",
+            "Android Base64 flags=0 应保留结尾换行"
         );
         assert_eq!(parsed["uuidLen"], 36, "UUID 应为标准 36 位格式");
         assert_eq!(

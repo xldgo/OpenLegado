@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('其他设置未接线的二十一行禁用，保留说明及已保存值', (tester) async {
+  testWidgets('其他设置未接线的十七行禁用，保留说明及已保存值', (tester) async {
     await open(
       tester,
       const OtherSettingsScreen(),
@@ -85,12 +85,12 @@ void main() {
         .widgetList<SettingTile>(find.byType(SettingTile))
         .where((row) => !row.enabled)
         .toList();
-    expect(disabled, hasLength(21));
+    expect(disabled, hasLength(17));
     for (final row in disabled) {
       expect(row.onTap, isNull, reason: row.title);
       expect(row.subtitle, contains('待实现'), reason: row.title);
     }
-    expect(find.text('原有浏览器标识\n待实现'), findsOneWidget);
+    expect(find.text('原有浏览器标识\n待实现'), findsNothing);
     expect(find.text('在内存中保留最近 50 条已脱敏的请求与响应记录\n待实现'), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('userAgent'), '原有浏览器标识');

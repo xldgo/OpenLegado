@@ -7,6 +7,7 @@ import '../application/reader_chapter_coordinator.dart';
 import '../application/reader_source_recovery_controller.dart';
 
 import '../../../providers/chapter_content_provider.dart';
+import '../../../providers/download_settings_provider.dart';
 import '../../book_sources/book_source_repository_provider.dart';
 import '../../../providers/change_source/source_switch_dependencies.dart';
 import '../../../providers/book_content_provider.dart';
@@ -121,6 +122,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _systemBars = ref.read(systemBarControllerProvider);
     _chapters = ReaderChapterCoordinator(
       content: ref.read(chapterContentServiceProvider),
+      settings: ref.read(downloadSettingsRepositoryProvider),
       sources: ref.read(bookSourceRepositoryProvider),
       reviews: ref.read(reviewServiceProvider),
     )..observe(ref.read(readerNotifierProvider));

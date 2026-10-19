@@ -72,12 +72,12 @@ pub fn construct_analyzer_with_js_lib(
     resources: &std::sync::Arc<legado_js::JsResources>,
     content: String,
     base_url: String,
-    _source_tag: &str,
+    source_tag: &str,
     _js_lib: Option<&str>,
 ) -> AnalyzeRule {
     AnalyzeRule::new(content, base_url)
         .with_variable_reader(variable_reader(resources))
-        .with_webview_executor(legado_js::webview::executor(resources))
+        .with_webview_executor(legado_js::webview::executor(resources, source_tag))
 }
 
 /// 构造规则解析器：注入书源 jsLib + 书源上下文 setup（source/cookie 绑定）
@@ -110,13 +110,13 @@ pub fn construct_analyzer_with_source_context(
     resources: &std::sync::Arc<legado_js::JsResources>,
     content: String,
     base_url: String,
-    _source_tag: &str,
+    source_tag: &str,
     _js_lib: Option<&str>,
     _setup_script: Option<String>,
 ) -> AnalyzeRule {
     AnalyzeRule::new(content, base_url)
         .with_variable_reader(variable_reader(resources))
-        .with_webview_executor(legado_js::webview::executor(resources))
+        .with_webview_executor(legado_js::webview::executor(resources, source_tag))
 }
 
 /// 目录分页共享上下文（循环不变部分收敛）
@@ -176,13 +176,13 @@ pub struct TocPageContext(
 #[cfg(not(feature = "quickjs"))]
 pub fn build_toc_page_context(
     resources: &std::sync::Arc<legado_js::JsResources>,
-    _source_tag: &str,
+    source_tag: &str,
     _js_lib: Option<&str>,
     _setup_script: Option<String>,
 ) -> TocPageContext {
     TocPageContext(
         variable_reader(resources),
-        legado_js::webview::executor(resources),
+        legado_js::webview::executor(resources, source_tag),
     )
 }
 

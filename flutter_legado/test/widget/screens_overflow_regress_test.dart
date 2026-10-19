@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
+
 import '../fixtures/routing_test_app.dart';
 
 import 'package:flutter_legado/src/app/routing/route_names.dart';
@@ -183,6 +185,7 @@ void main() {
     ('ImportScreen', const ImportScreen()),
     ('OfflineCacheScreen', const OfflineCacheScreen()),
     ('OtherSettingsScreen', const OtherSettingsScreen()),
+    ('DownloadCacheSettingsScreen', const DownloadCacheSettingsScreen()),
     ('QrcodeScreen', const QrcodeScreen()),
     ('ReadAloudConfigScreen', const ReadAloudConfigScreen()),
     ('RemoteBookScreen', const RemoteBookScreen()),

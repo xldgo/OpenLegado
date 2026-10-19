@@ -1,11 +1,81 @@
-//! 将 QuickJS 缓冲区复制为 Rust 自有字节，避免跨 JS 调用持有引擎内存的借用。
+//! 字节参数转换与安全复制，避免跨JS调用持有引擎缓冲区借用。
 
-use rquickjs::TypedArray;
+use rquickjs::{FromJs, TypedArray};
 
-pub(crate) fn copy_bytes(array: &TypedArray<'_, u8>) -> Option<Vec<u8>> {
+pub(crate) fn copy_bytes<T>(array: &TypedArray<'_, T>) -> Option<Vec<u8>> {
     // 安全性：调用方持有 Context 锁；从取得切片到完成复制之间只运行 Rust
     // 内存复制，不调用 JS、不调整或分离缓冲区，也不将借用带出此函数。
     unsafe { array.as_bytes().map(<[u8]>::to_vec) }
+}
+
+/// 脚本字节输入在参数转换时即复制，后续字符集ToString可执行JS或分离原缓冲。
+pub(crate) struct ByteArray(pub Vec<u8>);
+
+impl<'js> FromJs<'js> for ByteArray {
+    fn from_js(ctx: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
+        if let Ok(array) = TypedArray::<u8>::from_value(value.clone()) {
+            return copy_bytes(&array).map(Self).ok_or_else(|| {
+                rquickjs::Error::new_from_js_message("Uint8Array", "bytes", "字节视图已分离或越界")
+            });
+        }
+        if let Ok(array) = TypedArray::<i8>::from_value(value.clone()) {
+            return copy_bytes(&array).map(Self).ok_or_else(|| {
+                rquickjs::Error::new_from_js_message("Int8Array", "bytes", "字节视图已分离或越界")
+            });
+        }
+        if let Some(array) = value.as_array() {
+            let mut bytes = Vec::new();
+            for item in array.iter::<rquickjs::Value>() {
+                let number = crate::host_api::coerce::RhinoInt::from_js(ctx, item?)?.0;
+                let byte = i8::try_from(number).map_err(|_| {
+                    rquickjs::Error::new_from_js_message(
+                        "number",
+                        "byte",
+                        "数组元素超出Java byte范围",
+                    )
+                })?;
+                bytes.push(byte as u8);
+            }
+            return Ok(Self(bytes));
+        }
+        Err(rquickjs::Error::new_from_js_message(
+            value.type_of().as_str(),
+            "byte[]",
+            "需要8位字节视图或Java byte数组",
+        ))
+    }
+}
+
+/// 非空Java String形参；保留Rhino其余值的ToString转换。
+pub(crate) struct TextArg(pub String);
+impl<'js> FromJs<'js> for TextArg {
+    fn from_js(ctx: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
+        if value.is_null() {
+            return Err(rquickjs::Error::new_from_js_message(
+                "null",
+                "String",
+                "字符串不能为null",
+            ));
+        }
+        Ok(Self(rquickjs::Coerced::<String>::from_js(ctx, value)?.0))
+    }
+}
+
+/// 缺省对应单参重载；显式null/undefined不是缺省字符集。
+pub(crate) struct CharsetArg(pub Option<String>);
+impl<'js> rquickjs::function::FromParam<'js> for CharsetArg {
+    fn param_requirement() -> rquickjs::function::ParamRequirement {
+        rquickjs::function::ParamRequirement::optional()
+    }
+    fn from_param<'a>(
+        params: &mut rquickjs::function::ParamsAccessor<'a, 'js>,
+    ) -> rquickjs::Result<Self> {
+        if params.is_empty() {
+            return Ok(Self(None));
+        }
+        let ctx = params.ctx().clone();
+        Ok(Self(Some(TextArg::from_js(&ctx, params.arg())?.0)))
+    }
 }
 
 #[cfg(test)]

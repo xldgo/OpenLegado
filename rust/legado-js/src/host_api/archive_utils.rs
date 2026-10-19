@@ -108,20 +108,31 @@ pub fn get_zip_byte_array_content(zip_path: &str, entry_name: &str) -> Result<Ve
 /// 对应 Kotlin `getZipByteArrayContent` 的 ZipInputStream 逻辑：
 /// 用于网络 ZIP / 十六进制字符串等非本地文件场景。
 pub fn zip_entry_bytes(zip_bytes: &[u8], entry_name: &str) -> Result<Vec<u8>, String> {
+    zip_entry_bytes_optional(zip_bytes, entry_name)?
+        .ok_or_else(|| format!("Entry '{entry_name}' not found in ZIP"))
+}
+
+/// 不存在的条目与坏档案/CRC读取失败分别返回None与Err。
+pub(crate) fn zip_entry_bytes_optional(
+    zip_bytes: &[u8],
+    entry_name: &str,
+) -> Result<Option<Vec<u8>>, String> {
     let cursor = std::io::Cursor::new(zip_bytes);
     let mut archive =
         zip::ZipArchive::new(cursor).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
 
-    let mut entry = archive
-        .by_name(entry_name)
-        .map_err(|e| format!("Entry '{entry_name}' not found in ZIP: {e}"))?;
+    let mut entry = match archive.by_name(entry_name) {
+        Ok(entry) => entry,
+        Err(zip::result::ZipError::FileNotFound) => return Ok(None),
+        Err(error) => return Err(format!("读取ZIP条目失败: {error}")),
+    };
 
     let mut buf = Vec::new();
     entry
         .read_to_end(&mut buf)
         .map_err(|e| format!("Failed to read entry '{entry_name}': {e}"))?;
 
-    Ok(buf)
+    Ok(Some(buf))
 }
 
 /// un7zFile(7zPath, outputPath?) — 解压 7z 文件
@@ -173,12 +184,23 @@ pub fn unrar_file(_rar_path: &str, _output_path: Option<&str>) -> Result<String,
 /// 用于网络 7z / 十六进制字符串等非本地文件场景。
 #[cfg(feature = "quickjs")]
 pub fn seven_z_entry_bytes(seven_z_bytes: &[u8], entry_name: &str) -> Result<Vec<u8>, String> {
+    seven_z_entry_bytes_optional(seven_z_bytes, entry_name)?
+        .ok_or_else(|| format!("Entry '{entry_name}' not found in 7z"))
+}
+
+#[cfg(feature = "quickjs")]
+pub(crate) fn seven_z_entry_bytes_optional(
+    seven_z_bytes: &[u8],
+    entry_name: &str,
+) -> Result<Option<Vec<u8>>, String> {
     let cursor = std::io::Cursor::new(seven_z_bytes);
     let mut reader = sevenz_rust2::ArchiveReader::new(cursor, sevenz_rust2::Password::empty())
         .map_err(|e| format!("Invalid 7z archive: {e}"))?;
-    reader
-        .read_file(entry_name)
-        .map_err(|e| format!("Entry '{entry_name}' not found in 7z: {e}"))
+    match reader.read_file(entry_name) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(sevenz_rust2::Error::FileNotFound) => Ok(None),
+        Err(error) => Err(format!("读取7z条目失败: {error}")),
+    }
 }
 
 /// sevenZEntryBytes — 无 quickjs feature 时的回退桩

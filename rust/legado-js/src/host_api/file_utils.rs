@@ -6,11 +6,9 @@
 //! - fileExists — 检查文件是否存在
 //! - deleteFile — 删除文件
 //! - readTxtFile — 读取文本文件（支持编码）
-//! - downloadFile — 下载文件到沙箱
-//! - cacheFile — 缓存文件（URL hash 为文件名）
-//! - importScript — 下载并读取 JS 脚本
 //! - getTxtInFolder — 获取文件夹下文本文件内容
 //!
+//! 下载/文本缓存/脚本导入由私有file_download复用规则请求实现。
 //! 所有路径操作均限制在沙箱目录内，防止路径穿越攻击。
 
 // ============================================================
@@ -64,21 +62,30 @@ mod impl_file_utils {
             sandbox_root.join(path)
         };
 
-        // 运行时检查：canonicalize 后确认路径在沙箱内
-        if let Ok(canonical_sandbox) = sandbox_root.canonicalize()
-            && let Some(parent) = resolved.parent()
-            && parent.exists()
-            && let Ok(canonical_parent) = parent.canonicalize()
-            && !canonical_parent.starts_with(&canonical_sandbox)
-        {
+        // 先拒绝沙箱外绝对路径，即使目标的父目录尚不存在。
+        if !resolved.starts_with(&sandbox_root) {
             return Err(format!("Path traversal blocked: {}", path));
+        }
+        let canonical_sandbox = sandbox_root.canonicalize().map_err(|e| e.to_string())?;
+        // 检查目标本身及最近存在的祖先，涵盖文件链接与缺少多级父目录的写入。
+        // 不承诺抵御外部进程在检查后并发替换链接。
+        for ancestor in resolved.ancestors() {
+            match fs::symlink_metadata(ancestor) {
+                Ok(_) => {
+                    let actual = ancestor.canonicalize().map_err(|e| e.to_string())?;
+                    if !actual.starts_with(&canonical_sandbox) {
+                        return Err(format!("Path traversal blocked: {}", path));
+                    }
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error.to_string()),
+            }
         }
         Ok(resolved)
     }
 
-    /// 读取文件内容（文本）
-    ///
-    /// 对应 Kotlin: `readFile(path)`
+    /// Rust内部UTF-8文本辅助；脚本readFile使用字节入口read_file_bytes。
     pub fn read_file(relative_path: &str) -> Result<String, String> {
         let path = resolve_safe_path(relative_path)?;
         if !path.exists() {
@@ -88,12 +95,13 @@ mod impl_file_utils {
     }
 
     /// 读取文件内容（字节）
-    pub fn read_file_bytes(relative_path: &str) -> Result<Vec<u8>, String> {
+    pub fn read_file_bytes(relative_path: &str) -> Result<Option<Vec<u8>>, String> {
         let path = resolve_safe_path(relative_path)?;
-        if !path.exists() {
-            return Ok(Vec::new());
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(format!("读取文件失败: {error}")),
         }
-        fs::read(&path).map_err(|e| format!("Read error: {}", e))
     }
 
     /// 写入文件
@@ -153,197 +161,103 @@ mod impl_file_utils {
     /// readTxtFile(path, charset?) — 读取文本文件（支持编码指定）
     ///
     /// 对应 Kotlin: `readTxtFile(path, charset)`
-    /// charset 支持: utf-8(默认), gbk, gb2312, big5, utf-16le, utf-16be 等
+    /// 未指定编码时自动检测，显式编码不被探测结果覆盖。
     pub fn read_txt_file(path: &str, charset: Option<&str>) -> Result<String, String> {
-        let resolved = resolve_safe_path(path)?;
-        if !resolved.exists() {
+        match read_file_bytes(path)? {
+            Some(bytes) => decode_text(&bytes, charset),
+            None => Ok(String::new()),
+        }
+    }
+
+    /// 普通文件与压缩条目共用编码语义，不把文本内容误当HTML响应扫描meta。
+    pub(crate) fn decode_text(bytes: &[u8], charset: Option<&str>) -> Result<String, String> {
+        match charset {
+            None => Ok(legado_parser::response_decode::decode_detected_or_lossy(
+                bytes,
+            )),
+            Some(label) => {
+                let encoding = encoding_rs::Encoding::for_label(label.trim().as_bytes())
+                    .ok_or_else(|| format!("不支持的字符集: {label}"))?;
+                Ok(encoding.decode(bytes).0.into_owned())
+            }
+        }
+    }
+
+    /// 读取直接子文件并在全部成功后清理；不筛扩展名、不递归读取或删除子目录。
+    pub fn get_txt_in_folder(folder_path: &str) -> Result<String, String> {
+        if folder_path.is_empty() {
             return Ok(String::new());
         }
-        let bytes = fs::read(&resolved).map_err(|e| format!("Read error: {}", e))?;
-
-        let encoding_name = charset.unwrap_or("utf-8");
-        let encoding = encoding_rs::Encoding::for_label(encoding_name.as_bytes())
-            .unwrap_or(encoding_rs::UTF_8);
-
-        let (decoded, _, had_errors) = encoding.decode(&bytes);
-        if had_errors {
-            // 回退到 lossy UTF-8
-            return Ok(String::from_utf8_lossy(&bytes).into_owned());
-        }
-        Ok(decoded.into_owned())
-    }
-
-    /// downloadFile(url, fileName?) — 下载文件到沙箱
-    ///
-    /// 对应 Kotlin: `downloadFile(url, fileName)`
-    /// 返回沙箱内文件路径
-    pub fn download_file(
-        http: &crate::http_resources::HttpResources,
-        url: &str,
-        file_name: Option<&str>,
-    ) -> Result<String, String> {
-        let name = match file_name {
-            Some(n) if !n.is_empty() => n.to_string(),
-            _ => {
-                // 从 URL 提取文件名
-                url.rsplit('/')
-                    .next()
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or("download")
-                    .to_string()
-            }
-        };
-
-        let dest = resolve_safe_path(&name)?;
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("Cannot create dir: {}", e))?;
-        }
-
-        // 下载使用所属资源连接池；显式文件名仍按原沙箱规则解析。
-        let bytes = crate::host_api::runtime_bridge::block_on_cancellable(async {
-            let client = http
-                .client_for_url(url, false)
-                .map_err(|e| format!("Download client error: {}", e))?;
-            client
-                .get_raw(url, None)
-                .await
-                .map(|response| response.body)
-                .map_err(|e| format!("Download error: {}", e))
-        })?;
-
-        fs::write(&dest, &bytes).map_err(|e| format!("Write error: {}", e))?;
-        Ok(dest.to_string_lossy().into_owned())
-    }
-
-    /// downloadFile(contentHex, url) — 废弃重载：十六进制内容按 url 类型落盘
-    ///
-    /// 对应 Kotlin: `@Deprecated downloadFile(content, url)`
-    pub fn download_file_from_hex(content_hex: &str, url: &str) -> Result<String, String> {
-        use md5::{Digest, Md5};
-
-        // 从 url 猜扩展名（对齐 AnalyzeUrl.type / UrlUtil.getSuffix 的轻量近似）
-        let type_hint = url
-            .split(',')
-            .next()
-            .unwrap_or(url)
-            .rsplit('.')
-            .next()
-            .filter(|s| s.len() <= 8 && s.chars().all(|c| c.is_ascii_alphanumeric()))
-            .unwrap_or("bin");
-
-        let mut hasher = Md5::new();
-        hasher.update(url.as_bytes());
-        let hash16 = hex::encode(hasher.finalize());
-        let hash16 = if hash16.len() >= 16 {
-            &hash16[..16]
-        } else {
-            &hash16
-        };
-        let name = format!("{hash16}.{type_hint}");
-        let dest = resolve_safe_path(&name)?;
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("Cannot create dir: {}", e))?;
-        }
-        let bytes =
-            hex::decode(content_hex.trim()).map_err(|e| format!("Hex decode error: {}", e))?;
-        fs::write(&dest, &bytes).map_err(|e| format!("Write error: {}", e))?;
-        // 返回相对路径（对齐 Kotlin substring(cachePath.length)）
-        Ok(name)
-    }
-
-    /// cacheFile(url) — 缓存文件（URL MD5 hash 为文件名）
-    ///
-    /// 对应 Kotlin: `cacheFile(url)`
-    /// 如果缓存已存在则直接返回路径，否则下载后缓存
-    pub fn cache_file(
-        http: &crate::http_resources::HttpResources,
-        url: &str,
-    ) -> Result<String, String> {
-        use md5::{Digest, Md5};
-
-        // 计算 URL 的 MD5 作为缓存文件名
-        let mut hasher = Md5::new();
-        hasher.update(url.as_bytes());
-        let hash_hex = hex::encode(hasher.finalize());
-
-        // 保留原始扩展名
-        let ext = url
-            .rsplit('.')
-            .next()
-            .filter(|s| s.len() <= 5 && s.chars().all(|c| c.is_alphanumeric()))
-            .unwrap_or("cache");
-        let cache_name = format!("{}.{}", hash_hex, ext);
-
-        http.with_file_cache(url, || {
-            let cache_path = http.file_cache_dir()?.join(&cache_name);
-
-            // 缓存命中
-            if cache_path.exists() {
-                return Ok(cache_path.to_string_lossy().into_owned());
-            }
-
-            // 下载并写入缓存
-            {
-                let bytes = crate::host_api::runtime_bridge::block_on_cancellable(async {
-                    http.client_for_url(url, false)?
-                        .get_raw(url, None)
-                        .await
-                        .map(|response| response.body)
-                        .map_err(|e| format!("Download error: {e}"))
-                })?;
-                let path = http.publish_file_cache(&cache_name, &bytes)?;
-                Ok(path.to_string_lossy().into_owned())
-            }
-        })
-    }
-
-    /// importScript(url) — 下载并读取 JS 脚本内容
-    ///
-    /// 对应 Kotlin: `importScript(url)`
-    /// 先检查沙箱缓存，若不存在则下载后读取
-    pub fn import_script(
-        http: &crate::http_resources::HttpResources,
-        url: &str,
-    ) -> Result<String, String> {
-        // 先尝试缓存
-        let cached_path = cache_file(http, url)?;
-        // 读取缓存文件内容
-        let content = fs::read_to_string(&cached_path)
-            .map_err(|e| format!("importScript read error: {}", e))?;
-        Ok(content)
-    }
-
-    /// getTxtInFolder(folderPath) — 获取文件夹下所有文本文件内容（拼接）
-    ///
-    /// 对应 Kotlin: `getTxtInFolder(folderPath)`
-    /// 读取文件夹内所有 .txt 文件内容并以换行拼接
-    pub fn get_txt_in_folder(folder_path: &str) -> Result<String, String> {
+        let check_active = || crate::cancellation::check().map_err(|error| error.to_string());
+        check_active()?;
         let resolved = resolve_safe_path(folder_path)?;
-        if !resolved.exists() {
-            return Err(format!("Folder not found: {}", folder_path));
+        let metadata = fs::symlink_metadata(&resolved).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                format!("Folder not found: {folder_path}")
+            } else {
+                format!("读取目录状态失败: {error}")
+            }
+        })?;
+        let canonical = resolved.canonicalize().map_err(|error| error.to_string())?;
+        let root = default_sandbox_root()
+            .canonicalize()
+            .map_err(|error| error.to_string())?;
+        if canonical == root || !canonical.starts_with(&root) {
+            return Err("不允许读取并清理脚本沙箱根目录或外部目录".into());
         }
-        if !resolved.is_dir() {
-            return Err(format!("Not a directory: {}", folder_path));
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(format!("Not a directory or directory link: {folder_path}"));
         }
-
-        let entries = fs::read_dir(&resolved).map_err(|e| format!("ReadDir error: {}", e))?;
-        let mut contents = Vec::new();
-
-        for entry in entries {
-            let entry = entry.map_err(|e| format!("Entry error: {}", e))?;
-            let path = entry.path();
-            if path.is_file() {
-                // 只读取 .txt 文件
-                if let Some(ext) = path.extension()
-                    && ext.eq_ignore_ascii_case("txt")
-                    && let Ok(text) = fs::read_to_string(&path)
-                {
-                    contents.push(text);
-                }
+        // 也拒绝link/.或link/子目录形式，避免经目录别名清理另一个指定目录。
+        let sandbox = default_sandbox_root();
+        for ancestor in resolved
+            .ancestors()
+            .take_while(|path| *path != sandbox.as_path())
+        {
+            if fs::symlink_metadata(ancestor)
+                .map_err(|error| format!("读取目录路径状态失败: {error}"))?
+                .file_type()
+                .is_symlink()
+            {
+                return Err("不允许通过目录链接读取并清理文件夹".into());
             }
         }
-
-        Ok(contents.join("\n"))
+        // 先核对所有直接子项；目录/坏链接/非普通文件不能被跳过后一起删除。
+        let mut files = Vec::new();
+        for entry in fs::read_dir(&resolved).map_err(|error| format!("枚举目录失败: {error}"))?
+        {
+            check_active()?;
+            let path = entry
+                .map_err(|error| format!("枚举目录项失败: {error}"))?
+                .path();
+            let path = resolve_safe_path(path.to_str().ok_or("目录项路径不是有效UTF-8")?)?;
+            if !fs::metadata(&path)
+                .map_err(|error| format!("读取目录项状态失败: {error}"))?
+                .is_file()
+            {
+                return Err("目录包含非普通文件，未读取或清理该目录".into());
+            }
+            files.push(path);
+        }
+        let mut contents = String::new();
+        for (index, path) in files.iter().enumerate() {
+            check_active()?;
+            resolve_safe_path(path.to_str().ok_or("目录项路径不是有效UTF-8")?)?;
+            let bytes = fs::read(path).map_err(|error| format!("读取目录文件失败: {error}"))?;
+            if index != 0 {
+                contents.push('\n');
+            }
+            contents.push_str(&decode_text(&bytes, None)?);
+        }
+        // 清理开始前最后一次观察取消；读取失败时以上流程不会删除任何文件。
+        check_active()?;
+        for path in &files {
+            resolve_safe_path(path.to_str().ok_or("目录项路径不是有效UTF-8")?)?;
+            fs::remove_file(path).map_err(|error| format!("清理已读取文件失败: {error}"))?;
+        }
+        // 非递归删除拒绝清除后来新增的未读取项；清理阶段IO失败不承诺原子回滚。
+        fs::remove_dir(&canonical).map_err(|error| format!("清理已读取目录失败: {error}"))?;
+        Ok(contents)
     }
 }
 
@@ -373,7 +287,7 @@ mod stub_file_utils {
     pub fn read_file(_relative_path: &str) -> Result<String, String> {
         Err(not_available())
     }
-    pub fn read_file_bytes(_relative_path: &str) -> Result<Vec<u8>, String> {
+    pub fn read_file_bytes(_relative_path: &str) -> Result<Option<Vec<u8>>, String> {
         Err(not_available())
     }
     pub fn write_file(_relative_path: &str, _content: &str) -> Result<(), String> {
@@ -391,18 +305,6 @@ mod stub_file_utils {
     pub fn read_txt_file(_path: &str, _charset: Option<&str>) -> Result<String, String> {
         Err(not_available())
     }
-    pub fn download_file(_url: &str, _file_name: Option<&str>) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn download_file_from_hex(_content_hex: &str, _url: &str) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn cache_file(_url: &str) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn import_script(_url: &str) -> Result<String, String> {
-        Err(not_available())
-    }
     pub fn get_txt_in_folder(_folder_path: &str) -> Result<String, String> {
         Err(not_available())
     }
@@ -418,6 +320,7 @@ pub use stub_file_utils::*;
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::PathBuf;
 
     fn setup_sandbox() {
         let root = sandbox_root();
@@ -558,6 +461,36 @@ mod tests {
         assert!(result.is_err(), "嵌套路径穿越应被阻止, got: {:?}", result);
     }
 
+    #[test]
+    fn archive_read_outside_path_is_rejected_even_with_missing_parents() {
+        let outside = default_sandbox_root()
+            .parent()
+            .unwrap()
+            .join(format!("outside_{}", uuid::Uuid::new_v4()))
+            .join("missing/file");
+        assert!(!outside.parent().unwrap().exists());
+        assert!(resolve_safe_path(outside.to_str().unwrap()).is_err());
+        assert!(!outside.parent().unwrap().exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn archive_read_file_and_directory_symlinks_cannot_escape_sandbox() {
+        let name = format!("links_{}", uuid::Uuid::new_v4());
+        let inside = default_sandbox_root().join(&name);
+        let outside = std::env::temp_dir().join(format!("outside_{name}"));
+        fs::create_dir_all(&inside).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret"), "secret").unwrap();
+        std::os::unix::fs::symlink(outside.join("secret"), inside.join("file")).unwrap();
+        std::os::unix::fs::symlink(&outside, inside.join("directory")).unwrap();
+        assert!(read_file_bytes(&format!("{name}/file")).is_err());
+        assert!(write_file(&format!("{name}/directory/missing/file"), "bad").is_err());
+        assert!(!outside.join("missing").exists());
+        fs::remove_dir_all(inside).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
     // ---- readTxtFile 编码测试 ----
 
     #[test]
@@ -622,15 +555,15 @@ mod tests {
         let files = list_files(test_dir).unwrap();
         assert_eq!(files.len(), 3);
 
-        // getTxtInFolder 只读取 .txt
-        let txt_content = get_txt_in_folder(test_dir).unwrap();
-        assert!(txt_content.contains("file a"));
-        assert!(txt_content.contains("file b"));
-        assert!(!txt_content.contains("log c"));
-
-        // 删除文件
+        // 普通单文件删除保持原行为。
         assert!(delete_file("test_ops_dir/a.txt").unwrap());
         assert!(!file_exists("test_ops_dir/a.txt").unwrap());
+
+        // 目录读取包含全部直接文件，成功后清理目录。
+        let txt_content = get_txt_in_folder(test_dir).unwrap();
+        assert!(txt_content.contains("file b"));
+        assert!(txt_content.contains("log c"));
+        assert!(!file_exists(test_dir).unwrap());
 
         // 清理
         cleanup_test_dir(test_dir);
@@ -653,5 +586,229 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Not a directory"));
         cleanup_test_file("not_a_dir.txt");
+    }
+
+    // 每个用例只持有随机命名的子目录，结束时清理本用例遗留。
+    struct FolderFixture(PathBuf);
+    impl FolderFixture {
+        fn new() -> Self {
+            let path = default_sandbox_root().join(format!("folder_text_{}", uuid::Uuid::new_v4()));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+        fn path(&self) -> &str {
+            self.0.to_str().unwrap()
+        }
+    }
+    impl Drop for FolderFixture {
+        fn drop(&mut self) {
+            assert!(self.0.starts_with(default_sandbox_root()));
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn folder_text_reads_all_extensions_in_enumeration_order_and_cleans_after_success() {
+        use std::collections::HashMap;
+        let folder = FolderFixture::new();
+        let expected = HashMap::from([
+            ("a.txt", "UTF-8正文"),
+            ("b.log", "中文内容，自动识别编码。"),
+            ("no_extension", "带BOM的正文"),
+            ("empty.bin", ""),
+        ]);
+        fs::write(folder.0.join("a.txt"), expected["a.txt"]).unwrap();
+        let (gbk, _, _) = encoding_rs::GBK.encode(expected["b.log"]);
+        fs::write(folder.0.join("b.log"), gbk).unwrap();
+        let utf16: Vec<u8> = [0xff, 0xfe]
+            .into_iter()
+            .chain(
+                expected["no_extension"]
+                    .encode_utf16()
+                    .flat_map(u16::to_le_bytes),
+            )
+            .collect();
+        fs::write(folder.0.join("no_extension"), utf16).unwrap();
+        fs::write(folder.0.join("empty.bin"), []).unwrap();
+        let contents: Vec<_> = fs::read_dir(&folder.0)
+            .unwrap()
+            .map(|entry| expected[entry.unwrap().file_name().to_str().unwrap()])
+            .collect();
+        assert_eq!(
+            get_txt_in_folder(folder.path()).unwrap(),
+            contents.join("\n")
+        );
+        assert!(!folder.0.exists(), "完整读取后清理指定子目录");
+    }
+
+    #[test]
+    fn folder_text_empty_directory_is_an_empty_result_and_is_cleaned() {
+        let folder = FolderFixture::new();
+        assert_eq!(get_txt_in_folder(folder.path()).unwrap(), "");
+        assert!(!folder.0.exists());
+    }
+
+    #[test]
+    fn folder_text_empty_path_is_noop_and_root_aliases_are_rejected() {
+        let marker = FolderFixture::new();
+        fs::write(marker.0.join("keep"), "保留").unwrap();
+        assert_eq!(get_txt_in_folder("").unwrap(), "");
+        for path in [
+            PathBuf::from("."),
+            default_sandbox_root(),
+            default_sandbox_root().join("."),
+        ] {
+            assert!(
+                get_txt_in_folder(path.to_str().unwrap()).is_err(),
+                "根目录必须拒绝: {path:?}"
+            );
+        }
+        assert_eq!(fs::read_to_string(marker.0.join("keep")).unwrap(), "保留");
+    }
+
+    #[test]
+    fn folder_text_non_file_entry_aborts_without_deleting_any_input() {
+        let folder = FolderFixture::new();
+        fs::write(folder.0.join("readme.txt"), "不得删除").unwrap();
+        fs::create_dir(folder.0.join("nested")).unwrap();
+        fs::write(folder.0.join("nested/keep"), "嵌套内容").unwrap();
+        assert!(get_txt_in_folder(folder.path()).is_err());
+        assert_eq!(
+            fs::read_to_string(folder.0.join("readme.txt")).unwrap(),
+            "不得删除"
+        );
+        assert_eq!(
+            fs::read_to_string(folder.0.join("nested/keep")).unwrap(),
+            "嵌套内容"
+        );
+    }
+
+    #[test]
+    fn folder_text_dual_js_entries_throw_on_failure_and_keep_vm_usable() {
+        use crate::{JsEngine, QuickJsEngine, SandboxConfig};
+        let vm = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+        for call in ["getTxtInFolder", "java.getTxtInFolder"] {
+            let folder = FolderFixture::new();
+            fs::write(folder.0.join("body.log"), "正文").unwrap();
+            let path = serde_json::to_string(folder.path()).unwrap();
+            assert_eq!(vm.eval(&format!("{call}({path})")).unwrap(), "正文");
+            assert!(!folder.0.exists());
+            assert_eq!(
+                vm.eval(&format!(
+                    "try {{{call}({path}); 'bad'}} catch(e) {{'caught'}}"
+                ))
+                .unwrap(),
+                "caught"
+            );
+            assert_eq!(vm.eval("1+1").unwrap(), "2");
+        }
+        let strict = QuickJsEngine::new(SandboxConfig::default()).unwrap();
+        assert_eq!(
+            strict
+                .eval("typeof java.getTxtInFolder + ':' + typeof getTxtInFolder")
+                .unwrap(),
+            "undefined:undefined"
+        );
+    }
+
+    #[test]
+    fn folder_text_observed_cancellation_preserves_inputs() {
+        struct Cancelled;
+        impl crate::cancellation::JsCancellation for Cancelled {
+            fn is_cancelled(&self) -> bool {
+                true
+            }
+            fn cancelled(&self) -> crate::cancellation::CancelWait<'_> {
+                Box::pin(async {})
+            }
+        }
+        let folder = FolderFixture::new();
+        fs::write(folder.0.join("body.txt"), "保留").unwrap();
+        let _scope = crate::cancellation::Scope::enter(Some(std::sync::Arc::new(Cancelled)));
+        let error = get_txt_in_folder(folder.path()).expect_err("取消不能消费目录");
+        assert!(error.contains(crate::cancellation::CANCELLED));
+        assert_eq!(
+            fs::read_to_string(folder.0.join("body.txt")).unwrap(),
+            "保留"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn folder_text_read_failure_preserves_all_files() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let folder = FolderFixture::new();
+        fs::write(folder.0.join("readable.txt"), "保留可读内容").unwrap();
+        let locked = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .share_mode(0)
+            .open(folder.0.join("locked.log"))
+            .unwrap();
+        assert!(
+            get_txt_in_folder(folder.path()).is_err(),
+            "共享锁导致的读取失败不得静默跳过"
+        );
+        assert_eq!(
+            fs::read_to_string(folder.0.join("readable.txt")).unwrap(),
+            "保留可读内容"
+        );
+        drop(locked);
+        assert!(folder.0.join("locked.log").exists());
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    #[cfg_attr(windows, ignore = "需要Windows符号链接权限，在具备权限的环境单独复验")]
+    fn folder_text_external_links_and_root_link_aliases_cannot_be_consumed() {
+        #[cfg(unix)]
+        use std::os::unix::fs::{symlink as symlink_file, symlink as symlink_dir};
+        #[cfg(windows)]
+        use std::os::windows::fs::{symlink_dir, symlink_file};
+        let folder = FolderFixture::new();
+        let outside =
+            std::env::temp_dir().join(format!("outside_folder_text_{}", uuid::Uuid::new_v4()));
+        fs::write(&outside, "外部数据").unwrap();
+        fs::write(folder.0.join("readable.txt"), "保留").unwrap();
+        symlink_file(&outside, folder.0.join("escape.txt")).unwrap();
+        assert!(get_txt_in_folder(folder.path()).is_err());
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "外部数据");
+        assert!(folder.0.join("readable.txt").exists());
+        let alias = folder.0.join("root_alias");
+        symlink_dir(default_sandbox_root(), &alias).unwrap();
+        assert!(get_txt_in_folder(alias.to_str().unwrap()).is_err());
+        let target = FolderFixture::new();
+        fs::write(target.0.join("keep"), "链接目标保留").unwrap();
+        let link = folder.0.join("other_alias");
+        symlink_dir(&target.0, &link).unwrap();
+        for path in [link.clone(), link.join(".")] {
+            assert!(get_txt_in_folder(path.to_str().unwrap()).is_err());
+        }
+        assert!(target.0.join("keep").exists());
+        fs::remove_file(outside).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn folder_text_cleanup_failure_is_visible_and_does_not_report_success() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let folder = FolderFixture::new();
+        fs::write(folder.0.join("readable.txt"), "可以读取，暂不可删除").unwrap();
+        let held = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(folder.0.join("readable.txt"))
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(folder.0.join("readable.txt")).unwrap(),
+            "可以读取，暂不可删除"
+        );
+        let error = get_txt_in_folder(folder.path()).expect_err("清理失败不能返回成功内容");
+        assert!(error.contains("清理已读取文件失败"), "{error}");
+        drop(held);
+        assert_eq!(
+            fs::read_to_string(folder.0.join("readable.txt")).unwrap(),
+            "可以读取，暂不可删除"
+        );
     }
 }

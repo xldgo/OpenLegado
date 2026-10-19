@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import '../../../data/services/chapter_content_service.dart';
 import '../../../domain/contracts/book_source_repository.dart';
 import '../../../domain/contracts/review_service.dart';
+import '../../../domain/contracts/download_settings_repository.dart';
+import '../../../domain/models/download_settings.dart';
+import 'reader_chapter_prefetcher.dart';
 import 'reader_state.dart';
 
 typedef _ChapterKey = ({
@@ -55,15 +58,21 @@ _ChapterKey? _keyFor(ReaderState state) {
 /// 观察章节加载完成，协调缓存预取和段评摘要；不持有页面或Ref。— Codex + UI
 final class ReaderChapterCoordinator extends ValueNotifier<ReaderReviewState> {
   ReaderChapterCoordinator({
-    required this._content,
+    required ChapterContentService content,
+    required DownloadSettingsRepository settings,
     required this._sources,
     required this._reviews,
-  }) : super(const ReaderReviewState.empty());
+  }) : _prefetcher = ReaderChapterPrefetcher(content),
+       super(const ReaderReviewState.empty()) {
+    unawaited(_loadSettings(settings));
+  }
 
-  final ChapterContentService _content;
+  final ReaderChapterPrefetcher _prefetcher;
+  StreamSubscription<DownloadSettings>? _settingsSubscription;
+  DownloadSettings? _settings;
+  ReaderState? _ready;
   final BookSourceRepository _sources;
   final ReviewService _reviews;
-  bool _wasLoading = false;
   bool _disposed = false;
   int _reviewGeneration = 0;
   _ChapterKey? _observed;
@@ -75,37 +84,38 @@ final class ReaderChapterCoordinator extends ValueNotifier<ReaderReviewState> {
     if (key != _observed) {
       _observed = key;
       _lastReady = null;
+      _ready = null;
+      _prefetcher.stop();
       _reviewGeneration++;
       if (value.sourceJson != null) value = const ReaderReviewState.empty();
     }
-    final completed = _wasLoading && !state.isLoading && state.error == null;
-    _wasLoading = state.isLoading;
-    if (!completed || key == null || key == _lastReady) return;
+    if (state.isLoading || state.error != null || key == null) {
+      _ready = null;
+      _prefetcher.pause();
+      return;
+    }
+    final wasReady = _ready != null;
+    _ready = state;
+    if (_settings case final settings? when !wasReady) {
+      _prefetcher.plan(state, settings);
+    }
+    if (key == _lastReady) return;
     _lastReady = key;
-    _prefetch(state);
     unawaited(_loadReviews(state, key, ++_reviewGeneration));
   }
 
-  void _prefetch(ReaderState state) {
-    final book = state.currentBook!;
-    final index = state.currentChapterIndex;
-    for (var distance = 1; distance <= 2; distance++) {
-      final next = index + distance;
-      final previous = index - distance;
-      if (next < state.chapters.length) {
-        unawaited(_prefetchChapter(book.bookUrl, next));
-      }
-      if (previous >= 0) {
-        unawaited(_prefetchChapter(book.bookUrl, previous));
-      }
-    }
-  }
-
-  Future<void> _prefetchChapter(String bookUrl, int index) async {
+  Future<void> _loadSettings(DownloadSettingsRepository repository) async {
     try {
-      await _content.read(bookUrl, index);
-    } catch (_) {
-      // 暖缓存失败不影响当前章节，不发布错误或伪造正文。
+      await repository.load();
+      if (_disposed) return;
+      _settingsSubscription = repository.watch().listen((settings) {
+        if (_disposed) return;
+        _settings = settings;
+        if (_ready case final state?) _prefetcher.plan(state, settings);
+      });
+    } catch (error) {
+      // 配置读取失败时不按默认值发出网络请求，当前阅读继续。
+      debugPrint('预下载设置读取失败：$error');
     }
   }
 
@@ -156,6 +166,8 @@ final class ReaderChapterCoordinator extends ValueNotifier<ReaderReviewState> {
   void dispose() {
     _disposed = true;
     _reviewGeneration++;
+    _prefetcher.dispose();
+    unawaited(_settingsSubscription?.cancel());
     super.dispose();
   }
 }

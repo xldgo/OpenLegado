@@ -1154,6 +1154,7 @@ mod tests {
             Some("saved")
         );
         let response = LegadoRawResponse {
+            raw_summary: String::new(),
             status: 200,
             headers: HashMap::new(),
             body: vec![0, 255],

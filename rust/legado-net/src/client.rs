@@ -878,6 +878,7 @@ impl LegadoClient {
         &self,
         response: reqwest::Response,
     ) -> LegadoResult<crate::response::LegadoRawResponse> {
+        let raw_summary = crate::response::response_summary(&response);
         let final_url = response.url().to_string();
         let status = response.status().as_u16();
 
@@ -902,6 +903,7 @@ impl LegadoClient {
             .to_vec();
 
         Ok(crate::response::LegadoRawResponse {
+            raw_summary,
             status,
             headers,
             body,

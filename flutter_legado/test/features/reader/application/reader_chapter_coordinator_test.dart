@@ -5,6 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/data/repositories/app_download_settings_repository.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+
+import '../../../fixtures/home_settings_storage.dart';
+
 import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/review_service.dart';
 import 'package:flutter_legado/src/domain/models/review.dart';
@@ -35,6 +41,7 @@ void main() {
   late ReaderState state;
   late List<(String, int)> reads;
   late bool disposed;
+  late AppDownloadSettingsRepository downloadSettings;
 
   setUpAll(() => registerFallbackValue(<String, dynamic>{}));
   setUp(() {
@@ -61,8 +68,17 @@ void main() {
     when(() => reviews.reviewGetSummary(any(), any())).thenAnswer(
       (_) async => ReviewSummary(counts: {1: 3}, keys: {1: '段落查询参数'}),
     );
+    final settingsService = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: HomeSettingsStorage()
+          ..values.addAll({'preDownloadNum': 2, 'preDownloadNumPrev': 2}),
+      },
+    );
+    addTearDown(settingsService.dispose);
+    downloadSettings = AppDownloadSettingsRepository(settingsService);
     coordinator = ReaderChapterCoordinator(
       content: content,
+      settings: downloadSettings,
       sources: sources,
       reviews: reviews,
     );
@@ -107,6 +123,31 @@ void main() {
     coordinator.observe(state.copyWith(fontSize: 27, showControls: true));
     await completeChapter(state);
     expect(reads, hasLength(4));
+    verify(() => sources.getBookSources()).called(1);
+  });
+
+  test('进入已就绪章节仍会预取，刷新加载时不推进窗口', () async {
+    coordinator.observe(state);
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, hasLength(4));
+    coordinator.observe(state.copyWith(isLoading: true));
+    await downloadSettings.update(
+      (s) => s.copyWith(preDownloadNum: 0, preDownloadNumPrev: 0),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, hasLength(4));
+  });
+
+  test('共享设置变更重建当前预取窗口，不重复触发段评或改动阅读位置', () async {
+    await downloadSettings.update(
+      (s) => s.copyWith(preDownloadNum: 0, preDownloadNumPrev: 0),
+    );
+    await completeChapter(state);
+    expect(reads, isEmpty);
+    await downloadSettings.update((s) => s.copyWith(preDownloadNumPrev: 1));
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, [(book.bookUrl, 1)]);
+    expect(state.currentChapterIndex, 2);
     verify(() => sources.getBookSources()).called(1);
   });
 

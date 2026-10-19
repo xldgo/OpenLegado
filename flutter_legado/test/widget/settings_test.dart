@@ -20,8 +20,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
 import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
 import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 
@@ -60,6 +62,33 @@ void main() {
   }
 
   group('SettingsScreen 枢纽菜单', () {
+    testWidgets('下载与缓存入口进入真实独立页，返回仍为设置枢纽', (tester) async {
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      final navigation = AppRouter(
+        routes: {
+          ...AppRouter().routes,
+          AppRoutes.home: (_) => const SettingsScreen(),
+        },
+      ).createRouter();
+      addTearDown(navigation.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: navigation),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await dragTo(tester, '下载与缓存');
+      await tester.tap(find.text('下载与缓存'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadCacheSettingsScreen), findsOneWidget);
+      expect(find.text('下载设置'), findsOneWidget);
+      navigation.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.byType(DownloadCacheSettingsScreen), findsNothing);
+    });
     testWidgets('渲染顶部管理入口与设置/其他分组', (tester) async {
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -434,7 +463,7 @@ void main() {
   });
 
   group('OtherSettingsScreen 其他设置', () {
-    testWidgets('渲染语言/主界面/清理缓存（无创意阅读网络分组）', (tester) async {
+    testWidgets('保留语言和主界面，下载与缓存设置迁到独立页', (tester) async {
       when(() => mockApi.configRepository.getConfig(any()))
           .thenAnswer((_) async => null);
 
@@ -449,9 +478,9 @@ void main() {
       expect(find.text('网络设置'), findsNothing);
       expect(find.text('缓存管理'), findsNothing);
 
-      await tester.scrollUntilVisible(find.text('清理缓存'), 100);
-      await tester.pumpAndSettle();
-      expect(find.text('清理缓存'), findsOneWidget);
+      expect(find.text('清理缓存'), findsNothing);
+      expect(find.text('压缩数据库'), findsNothing);
+      expect(find.text('更新和搜索线程数'), findsNothing);
     });
   });
 }

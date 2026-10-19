@@ -128,22 +128,6 @@ impl HttpResources {
         self.files.publish(name, bytes)
     }
 
-    pub(crate) fn download_font(&self, url: &str) -> Result<Vec<u8>, String> {
-        crate::host_api::runtime_bridge::block_on_cancellable(async {
-            let client = self
-                .client_for_url(url, false)
-                .map_err(|e| format!("build client error: {e}"))?;
-            let response = client
-                .get_raw(url, None)
-                .await
-                .map_err(|e| format!("download font error: {e}"))?;
-            if !response.is_success() {
-                return Err(format!("download font http status {}", response.status));
-            }
-            Ok(response.body)
-        })
-    }
-
     pub fn cookie_store(&self) -> &Arc<RwLock<CookieStore>> {
         &self.store
     }
@@ -237,9 +221,19 @@ impl HttpResources {
         self.request_for(crate::host_api::current_source::current_source_tag().as_deref())
     }
 
+    pub fn request_with_webview(
+        &self,
+        manager: &Arc<legado_core::webview_channel::WebViewManager>,
+    ) -> RequestResources<'_> {
+        let mut request = self.request();
+        request.webview = Some(manager.clone());
+        request
+    }
+
     pub fn request_for(&self, source: Option<&str>) -> RequestResources<'_> {
         RequestResources {
             http: self,
+            webview: None,
             cancellation: crate::cancellation::current(),
             source: source.map(str::to_owned),
             cookie_jar_enabled: source.and_then(|source| (self.lookup)(source)) == Some(true),
@@ -347,12 +341,18 @@ impl HttpResources {
 pub struct RequestResources<'a> {
     cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
     pub http: &'a HttpResources,
+    pub webview: Option<Arc<legado_core::webview_channel::WebViewManager>>,
     pub source: Option<String>,
     pub cookie_jar_enabled: bool,
     pub headers: HashMap<String, String>,
 }
 
 impl RequestResources<'_> {
+    pub(crate) fn webview_active_check(&self) -> Option<legado_core::webview_channel::ActiveCheck> {
+        self.cancellation.clone().map(|control| {
+            Arc::new(move || !control.is_cancelled()) as legado_core::webview_channel::ActiveCheck
+        })
+    }
     pub(crate) fn check_active(&self) -> legado_core::LegadoResult<()> {
         if self
             .cancellation

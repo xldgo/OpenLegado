@@ -13,6 +13,8 @@
 - 过程/边界：新增表单先复现 5 项失败，修复后通过；最终收紧夹具为合法参数并复验 6 项。FRB 固定 2.13.0，generate bridge 与 --check 均通过，7 个 Dart 文件严格分析、架构依赖门禁、限定格式/diff 检查通过；依赖锁文件未改。生成器 hash 本批不变，实际使用新编译库验证字段编码，不能仅靠 hash 判断兼容。版本 2.0.392+393 与双日志同步；单代理自查，无独立外审、真实云账号/设备听感/后台验收，不推送或安装。
 - 执行者：Codex + UI/Bridge｜2026-10-19。
 
+- 基线同步（2026-10-19）：按用户要求将主目录 feature/ui-reader-selection / da8c2ec71 合入 TTS 分支，保留 a7e07d320、1c8af9e24、a2707393a；版本沿用 2.0.405+406，双日志按原版本合并，双方任务记录保留。31 项 Flutter 定向回归与 QuickJS HTTP TTS 3 项通过，隔离 FRB 生成复核及 diff 检查通过；主目录同步期间新增的未提交改动不在范围。合并提交见 Git 记录。
+
 ### TTS-VOICE-PARAMS-20261019：HTTP 音色与情感参数贯通（P2，待复验：真机听感）
 
 - 授权/基线：用户批准第二批，feature/ui-tts-engine / a7e07d320，单代理；先冻结 API_CONTRACT 音色参数语义，无 FRB 签名/schema 变化。
@@ -40,6 +42,37 @@
 
 ### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，待复验：远程接线）
 
+### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
+
+- 授权：用户要求先将当前内容合并主目录；主目录feature/ui-reader-selection / 211503d29与chore/dep-audit / 4aa9c2533开始均干净，不推送或构建安装。
+- 范围：合入worktree相对共同基线4a05f91c8新增的16个提交，保留主目录28个独立提交；版本采用2.0.405+406，未额外提升。Rust结果与源分支一致；共享平台服务同时保留主目录GoRouter导航和worktree的WebView实现。
+- 状态：本地合并完成，提交以本条所在Git记录为准；API_CONTRACT与Active均为顶部独立新增段，完整保留双方；双日志自动合并，未采用整文件覆盖。
+- 合并核对：主目录独有261个、worktree独有86个改动路径逐项对象摘要一致；Rust合并树与4aa9c2533完全一致。共享平台服务相对源分支仅保留主目录路由导入及浏览器/视频GoRouter调用，未丢失WebView实现；无残留冲突，git diff --check通过。
+- 定向验证：共享platform_bridge_service.dart执行dart analyze --fatal-infos无问题；webview_execution_scope、webview_page_bridge、webview_url_matcher、source_interaction_listeners四份测试18项通过，退出0，含预期错误传播日志。证据build/merge-dep-audit-20261019/{platform-analysis,webview-tests}.log；未重复运行Rust、全Flutter或CI，不宣称设备验收。
+- 交付：单代理合并与自查，未独立审查、推送、重建native/应用或安装；保留dep-audit工作树及分支，未开启下一批对称加密任务。
+
+编写者：Codex｜2026-10-19
+
+### UI-DOWNLOAD-CACHE-20261019：独立下载与缓存设置页（P2，待复验：设备视觉）
+
+- 授权与基线：用户要求参照上游独立设置页；主目录feature/ui-reader-selection / 006569b28，单代理，完成后本地提交，不提升版本、不自动安装或推送。
+- 上游：HapeLee/legado-with-MD3 main / c4182eb9bcdd2e52eb6bb44d14c37856e592a99a，ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt及其Contract/ViewModel。采用下载设置、图片缓存、网络、其他操作分组；保留本项目SettingsGroup和公共Sheet。
+- 范围：主设置页增加独立入口和命名路由，将其他设置中的线程数、预下载、图片缓存/保留、User-Agent、清理缓存与压缩数据库迁出；既有离线缓存管理和缓存统计页不混为配置页。已接线线程配置与清理/压缩保持，未接线项继续禁用并标明原因。
+- 边界：不扩展Rust/FFI/数据库；独立封面/漫画HTTP缓存、书籍缓存下载线程数保留禁用占位；正文前后预下载按后续用户授权接通实际消费者，不新增无消费者的设置写入；Cronet仍不纳入本批。真实配置写入失败回退、取消清理、重复操作和路由返回须有回归，验证真实页面，不自建测试替身界面。
+- 验收：定向widget测试、目标静态分析及架构门禁；设备视觉/安装和远程CI不自动执行。执行者Codex + UI，2026-10-19。
+- 本地结果：新增DownloadCacheSettingsScreen及/download_cache_settings命名路由，主设置新增入口；原高级页移除7项重复入口与旧维护方法。线程编辑使用公共AppSettingsSheet的整数滑块/输入，保持Rust配置单源、取消不写入、越界拒绝与保存失败回退；维护操作抽至DownloadCacheActions，清理后同步章级镜像，操作互斥且离页不显示迟到结果。未接线4项只读偏好离页后释放，重进重新读取；现有缓存统计及离线下载列表保留。中英文导航/分组文案经flutter gen-l10n生成，版本不变。
+- 验证：显式缺失FFI库运行5份实际widget测试共90项通过（cache_boundary、request_settings、general_backup_settings、settings、screens_overflow_regress），覆盖真实AppRouter进入/返回、360dp布局、取消/失败、互斥/离页和旧值保留；目标dart analyze --fatal-infos、架构门禁及diff检查通过。首次验证修复共享服务导入遗漏，并将路由测试从禁止未提供路由的旧宿主改为实际AppRouter；没有删减业务断言。未安装设备或触发当前页面的远程CI，不能以widget结果代替视觉验收。
+- 页面迁移批次的差异记录：当时独立HTTP封面/漫画缓存、缓存下载专用并发、向前预下载、Cronet及4项旧禁用配置尚未接通；后续正文预下载落点见下。提交见Git记录，Codex + UI，2026-10-19。
+- 用户实测后调整：标题说明下移，移除生效/范围常驻说明；线程编辑只保留数字输入框与非法值提示。原_busy跨越弹层生命周期导致行onTap置空、箭头消失，现弹层重入标记与维护忙态分离，背景行不改外观。该调整按用户反馈实施，不改变公共SettingTile或配置存储。request_settings/cache_boundary/settings共26项通过，补取消/重复打开后的request_settings两项复验通过，不累加次数；目标静态分析、格式及diff检查通过。未再次安装或推送。
+
+- 占位补齐：用户允许难以快速实现的功能占位。新增HTTP缓存分组（封面/漫画），下载设置增加书籍缓存下载线程数和向前预下载；四行禁用并标注待实现，不显示虚假大小/默认值，无编辑或清理回调。仅补页面与中英文文案，不修改后端。执行者Codex + UI，2026-10-19。
+- 占位验证：flutter gen-l10n成功；cache_boundary/request_settings/settings/screens_overflow_regress共85项通过，覆盖占位点击无操作、原设置/维护/路由回归及360dp布局；目标dart analyze --fatal-infos无问题，git diff --check通过。未重新安装、推送或触发远程CI，设备视觉仍待复验。
+- 正文预下载批次：用户确认设置位置与上游语义后授权实施，基线29f3f78e4。DownloadSettingsRepository通过AppSettingsService读写SharedPreferences的preDownloadNum/preDownloadNumPrev，默认10/0、范围0～100，0关闭对应方向；页面两个设置改为公共数字Sheet，取消不写、越界拒绝、保存失败回退，其余6个待实现项仍禁用。
+- 预取实现：ReaderChapterCoordinator订阅同一仓储，替换固定前后各2章；ReaderChapterPrefetcher按距离分派前后章节，最多2个辅助请求并发，合并同窗口在途/成功请求，复用Full正文持久缓存。进入已就绪章节和设置变更均可重新建立窗口；加载/错误时暂停，切书/换源/离页停止旧窗口后续调度。现有FFI无法取消已发请求，允许收尾，不宣称取消了网络传输；不修改朗读预合成或离线下载任务。执行者Codex + UI，2026-10-19。
+- 正文预下载验证：8份定向测试共113项通过（download_settings、reader_chapter_prefetcher、reader_chapter_coordinator、cache_boundary、request_settings、settings、screens_overflow_regress、general_backup_settings），包括实际SharedPreferences重建/共享更新、失败回退、数字Sheet取消/越界、受控队列与旧任务收尾；日志flutter_legado/build/prefetch-tests.log。目标dart analyze --fatal-infos、tool/check_architecture.dart及git diff --check通过。未运行全量测试、未构建安装、未推送或触发远程CI；设备网络/视觉仍待用户复验。
+
+### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，本批已关闭）
+
 - 授权与基线：用户同意按改动运行CI、细化测试输入及采集慢项；feature/ui-reader-selection / cb4ab4bac，单代理，完成后本地提交，不提升版本、不自动推送或触发全量CI。
 - 范围：Flutter CI手动auto/fast/native/all；auto默认比较最近提交，也可指定基线SHA。普通测试修改不再无条件编译Rust；检查改动前后native标记，原生目录、共享夹具及未知支持输入保守执行原生组。自动push/PR与其它Workflow手动语义不变。
 - 报告：从Flutter JSON事件分别统计装载/执行耗时、失败与未完成项，写入Job Summary及短期工件；不把并发累计耗时当成整轮墙钟时间。
@@ -48,6 +81,7 @@
 - 验证：Windows与WSL Linux编排33项及报告7项通过（共40项不同用例，不累加复跑）。真实Flutter的5项二维码/资产测试经file-reporter输出可解析事件；临时失败/跳过探针返回预期退出码1，报告保留failure与skip且完整生成。报告原始事件与输出在flutter_legado/build/test-timings/{fast,probe}/；临时失败测试文件验证后移除。actionlint及diff检查通过。实际读取上一批cb4ab4bac差异时Flutter范围仅选择普通组，不选择原生/两条生成检查，符合本次优化目标。
 - 命令：python -m unittest discover -s .github/scripts -p 'test_*.py' -v；WSL同命令；flutter test --no-pub --reporter failures-only --file-reporter json:build/test-timings/fast/events.jsonl后接5项所在的2份文件；python .github/scripts/flutter_test_report.py按实际事件生成报告。
 - 交付边界：仅完成本地实现/回归与真实报告协议验证，未推送或触发远程Workflow，未测得全量CI耗时收益。普通/原生测试总范围未删减；下一步依据实际报告定位慢文件，再决定功能分组或分片。执行者Codex + Tool，2026-10-19；本批提交见Git记录。
+- 远程后续证据：用户随后授权推送并以test_scope=all触发006569b28，https://github.com/xldgo/OpenLegado/actions/runs/39244916290全部通过；普通4149项、原生190项及两条生成链成功，两组报告工件生成。下载到flutter_legado/build/ci-timings-39244916290/。普通事件跨度619.403s，491个文件；原生534.746s，却装载534个文件，其中491个没有执行用例。确认--tags包含筛选仍存在大量无关文件装载，后续优先研究显式文件选择，而不是先删除业务测试或增加Runner。该远程证据不包含后续独立下载设置页的代码。
 
 ### UI-TEST-QUALITY-20261019：清理无效测试与重复算法（P2，本批已关闭）
 
@@ -60,7 +94,7 @@
 - 边界：未运行全量普通/原生组、设备profile、构建安装或远程CI；本批不声称整套测试均已审计，也不承诺CI耗时下降幅度。CI范围与慢项统计仍为后续优化方向。执行者Codex + UI，2026-10-19；本批提交见Git记录。
 
 
-### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，待复验：Linux CI）
+### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，本批已关闭）
 
 - 授权与基线：用户同意统一加载入口、移除无依据的Windows限制并整理CI；feature/ui-reader-selection / 7d7df8d17，单代理，逐批本地提交，不推送、不提升版本、不构建安装应用。
 - B1已完成（ea77e5ed5）：测试统一显式库路径或当前宿主debug产物，复用NativeRustRuntime.libraryResolver；缺库/空库/加载失败报错，不搜索release旧库。通用业务不再注册跳过占位，原生句柄、载荷与业务断言保留。
@@ -75,6 +109,7 @@
 
 - 远程复验：用户后续授权推送并仅触发Flutter CI。c47b6aba9的首次运行https://github.com/xldgo/OpenLegado/actions/runs/39235401721在changes阶段失败，普通/原生组未运行；根因为无参数workflow_dispatch实际携带inputs:null，脚本仅覆盖对象形式。现统一规范化缺省/null为空输入并选择all，非法输入类型明确失败；Windows与WSL Linux各25项编排回归通过。修复后从新提交重新触发，不重跑旧SHA。
 - 第二次远程结果：023815e4b运行https://github.com/xldgo/OpenLegado/actions/runs/39239681581的Linux原生组190项通过；普通组4184项通过、1项失败，静态分析、架构与两条生成检查通过。唯一失败为read_aloud_audio_player_test使用Windows盘符路径并断言file URI，在Linux中该路径不属于绝对路径。现测试改用宿主临时目录的绝对路径，额外断言URI往返保留完整中文路径；播放器生产实现不变。Windows播放器文件36项、目标静态分析与格式检查通过，待新提交Linux CI复验。执行者Codex + UI，2026-10-19。
+- 关闭证据：后续006569b28的完整Flutter CI https://github.com/xldgo/OpenLegado/actions/runs/39244916290全部通过，Linux真实190项成功，普通4149项成功（另批清理净减36项），生成和分析成功；不再保留Linux待复验状态。未据此宣称macOS或移动设备实测。
 
 ### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
 
@@ -147,6 +182,240 @@
 - 状态：本批代码与本地验证完成，随本记录提交；版本保持2.0.389+390，双日志及设计规范同步。单代理实现与自查，未推送、构建安装、远程CI、iOS设备视觉或profile验证。仅书架列表/网格与详情按钮提供封面起点，其余文字阅读入口采用短淡入；无Rust/FFI或媒体行为变更。
 
 编写者：Codex + UI｜2026-10-19
+### JS-DIGEST-HMAC-20261019：摘要与HMAC入口和错误边界（P1）
+
+- 状态：已关闭（本批摘要与HMAC接口范围）。用户批准开始；dep-audit / chore/dep-audit / 514a23aa6，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
+- 依据：固定参考版15e1337a的JsEncodeUtils/CryptoUtils、官方SecretKeySpec文档及JDK25/仓库Rhino探针。9组固定向量经JDK与Python标准库逐字段一致核对，研究材料在忽略目录build/digest-oracle，不新增永久JVM依赖。
+- 实现：先冻结脚本契约；新增私有digest_bridge统一java/裸入口与错误转换，补HMacHex，保留HMacBase64及小写别名。message_digest统一枚举与字节计算，encoding只负责入口策略和Hex/Base64表示；补SHA-224及HMAC/Packages的SHA-384，原字符串摘要已有SHA-384继续可用。HMAC继续用原RustCrypto Hmac，无新依赖。
+- 输入与错误：String形参null拒绝，undefined与其他值按Rhino ToString；空正文合法，空HMAC密钥拒绝。未知算法与密钥错误抛可捕获异常，不再返回[ERROR]正文。java.digestHex继续返回Java String方法对象，裸入口维持原始字符串；去掉包装层提前String(null)的绕过。MessageDigest原生字节入口复用ByteArray拒绝失效视图；Packages追加前验证视图，失败不改变此前累计内容，成功digest才复位。
+- 兼容边界：保留已确认阅文HMAC-SHA1及裸SHA1/MD5别名，与JDK Provider拼写约束的差异明确记录；Packages既有宽松名称规范化保留，宿主不新增空白归一。算法能力声明、预校验、真实计算与大小写入口已对应，不声称全JCA或全部Java方法等价。
+- 复现与验证：改前5项真实QuickJS全部失败，修后通过并扩展为8项；连同既有七猫/小小阅读/Java String回归共17项定向通过。9组JDK固定向量的Hex/Base64摘要及HMAC输出与Python独立一致，覆盖6种算法、Unicode、空正文及200字节长密钥。完整JS套件845通过、4既有忽略（24组，库700/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy通过，限定rustfmt、UTF-8与git diff --check通过。
+- 自查：核对契约→双入口注册→TextArg/ByteArray校验→算法计算→输出/Java String包装；没有吞错回退、未新增运行时JVM或网络依赖，失败字节输入与合法空视图区分。按用户要求无子代理，由Codex自查diff，无独立审查或远程CI。默认Clippy曾等待共享Cargo目录锁，正常等待后通过，未干预其他任务。
+- 证据：build/js-byte-conversion/digest-{reproduce,fixed,targeted,complete,default,clippy-quickjs,clippy-default}.log；reproduce是5项预期失败，targeted为17项通过，complete为完整通过。版本2.0.405+406及双日志同步。
+- 交付限制：无AES/RSA、FFI/生成物/schema/依赖或Flutter业务改动；未跑全workspace/Flutter测试、构建native/应用、安装或推送，不宣称真机/全平台验收。MuMu仍2.0.394+395，下次应用构建须重建匹配Rust库。
+
+编写者：Codex｜2026-10-19
+
+### JS-TIME-FORMAT-20261019：Java数字时间格式与负时间戳（P1）
+
+- 状态：已关闭（本批ASCII数字时间格式范围，Locale扩展另待用户选择）。用户批准开始；dep-audit / chore/dep-audit / a5771baa2，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.timeFormat/timeFormatUTC与AppConst.dateFormat；Android SimpleDateFormat官方文档及JDK25探针核对数字字段宽度、引号、毫秒与原始时区偏移。前轮真实QuickJS已确认Java格式输出成字面量且空格式用默认。研究材料在忽略目录build/time-format-oracle，不引入永久JVM测试宿主，也不把JDK探针当作Android真机证明。
+- 实现：新增私有java_date_format直接解释y/yy、M/L数值、d/D/F/u、四种小时、m/s/S、Z与X(1~3位)、引号/双单引号和中文/标点字面量。按Java最小宽度补零，S保留完整毫秒，偏移保留毫秒参与墙上时间运算，时区字符串按Java整分钟规则输出。timeFormatUTC不再机械使用Chrono，空格式保持空串，非法格式/null/超范围明确抛可捕获异常。
+- 负时间与安全：统一使用DateTime::from_timestamp_millis及checked偏移，修复负时间戳余数及越界。timeFormat维持系统本地时区与yyyy/MM/dd HH:mm，错误不再伪装成功。formatTime/parseTime维持本地Chrono语法、原空格式默认及失败契约，formatTime改用可失败write_to而非Display.to_string，避免坏格式panic；未修改Date内建、time_diff_ms或解析UTC约定。
+- Locale边界：当前没有系统Locale接线，已询问数字范围与完整本地化的选择，未收到答复；按已说明的推荐数字范围继续。月份/星期名称、AM/PM、纪元、周历及文本时区明确报不支持，不擅自固定语言；不宣称本地化数字、全部Java历法/历史切换或其全部Long时间范围等价。不将本批认定为整个SimpleDateFormat完全复刻。
+- 复现与测试：改前5项真实QuickJS全部失败，其中formatTime('%Q')复现Rust Display panic；修后通过，扩展为8项，加既有数值转换共15项定向通过。另2项Rust回归覆盖固定日期/闰年/宽度/中文字面量及时间戳与偏移边界；原UTC函数测试改为Java格式。完整JS 837通过、4既有忽略（23组，库700/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8与git diff --check通过。
+- 回归校正：首次数值定向与完整回归暴露旧long边界断言将旧[ERROR]成功字符串当作转换成功。改为接受范围的long进入日期处理并因日期范围抛错，超范围long在形参阶段拒绝；仍检查两阶段不同错误，没有放宽long转换。完整首轮仅该项失败，修后time-complete-final全部通过；保留所有失败证据，不把首轮计为成功。
+- 证据：build/js-byte-conversion/time-{reproduce,fixed,verified,verified-final,complete,complete-final,default,clippy-quickjs,clippy-default}.log；reproduce为5项预期失败，fixed为5项通过，verified-final为15项定向，complete-final为最终完整通过。按用户要求无子代理，仅Codex自查diff，无独立审查或远程CI。
+- 交付边界：版本2.0.404+405及双日志同步，无新依赖、FFI签名/DTO/生成物/schema/Flutter业务或平台配置变更。未构建native/应用、安装模拟器或推送；MuMu仍2.0.394+395，下次构建需重建匹配Rust库。回滚还原本批并重建，不伪造元数据。
+
+编写者：Codex｜2026-10-19
+
+### JS-URL-CODEC-20261019：表单编码与内建URI边界（P1）
+
+- 状态：已关闭（仅本批表单编码与URI内建边界）。用户批准开始；dep-audit / chore/dep-audit / 301157db7，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/构建安装，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.encodeURI、AnalyzeRule/AnalyzeUrl的java绑定及Rhino标准作用域；JDK25/仓库Rhino临时探针核对Java表单与全局原生URI区别、字符集重载、null/undefined、UTF-16每个连续非安全段独立BOM。研究材料仅在忽略目录build/url-encoding-oracle；首次读取JVM输出因Windows控制台编码失败，指定stdout/stderr为UTF-8后取得有效probe.log，不将失败读取视为行为证据，不新增永久JVM依赖。
+- 实现：新增私有url_codec共用表单编解码；空格为+、加号为%2B、保留ASCII字母数字及-_.和*，其他连续段按已有字符集转换后全部字节大写百分号编码。未知/非法字符集按上游返回空串，不再回退UTF-8；仅缺参用默认，TextArg/CharsetArg区分null与undefined，ToString异常不被吞掉。
+- 注册边界：java.encodeURI仅挂宿主命名空间；四个全局URI函数保留QuickJS内建，java.encodeURIComponent既有扩展引用同一原生函数。移除重复的Rust组件编码实现和其2项纯函数测试，既有真实QuickJS保留字符/ToString/七猫语料回归保持，新增重复注册前后函数身份与畸形代理项URIError检查。
+- 扩展与范围：urlencode/urldecode仍为本地已有双入口单参UTF-8扩展，按其声明的Java表单语义共用实现；解码正确处理+/%2B及坏%HH可捕获异常。getAbsUrl内部宽松解码不变，无请求管线、加密算法、FFI签名/DTO/生成物/schema/依赖或Flutter业务修改。不宣称JVM全部字符集别名、畸形UTF-8替换分组或孤立代理项到Rust字符串的完全等价。
+- 复现与回归：改前5项真实QuickJS全部失败，修后通过，扩展为7项，连同既有数组/组件编码定向14项通过；另1项纯表单向量回归。完整JS 827通过、4既有忽略（22组，库698/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8及git diff --check通过。覆盖保留字符、中文/GBK/UTF-8/UTF-16分段与BOM/Latin1/ASCII、不可编码字符、空值、坏字符集、百分号、ToString失败与VM后续可用、原生函数身份及实际语料。
+- 契约校正：旧数组参数测试错误把charset声明为可空，期待null/undefined均默认；按上游和Rhino实测改为省略默认、undefined编码失败空串、null抛错，继续验证数组ToString，不削弱断言。新完整回归首轮通过，未运行全Rust工作区或Flutter测试。
+- 证据：build/js-byte-conversion/url-{reproduce,fixed,verified,complete,default,clippy-quickjs,clippy-default}.log；reproduce为5项改前失败，fixed为5项通过，verified为定向14项，complete为完整通过。按用户要求无子代理，仅Codex自查diff，无独立审查或远程CI。
+- 交付边界：版本2.0.403+404及双日志同步；未构建native/应用、安装模拟器或推送，不宣称设备或全JS能力验收。MuMu仍2.0.394+395，下次应用构建应重建匹配Rust库；回滚恢复本批并重建，不伪造元数据。
+
+编写者：Codex｜2026-10-19
+
+### JS-BASE64-HEX-20261019：编码重载、flags与字体解码（P1）
+
+- 状态：已关闭（仅本批Base64/Hex及字体复用范围）。用户批准开始；dep-audit / chore/dep-audit / 4879f8c12，开始工作区干净；单代理，通过后本地提交，不推送/合并/安装，不触碰主目录。
+- 依据：参考版15e1337a的JsExtensions/CryptoUtils/EncoderUtils、Hutool5.8.22及Android16固定源码。临时JDK25/仓库Rhino探针确认数字走flags、字符串/对象走charset，null/undefined区别及两条解码路径的padding/字母表/跳过规则；研究材料在忽略目录build/base64-oracle，不进入生产或永久测试依赖。初版探针误用Scope类型的编译错误已纠正，不当作行为证据。
+- 实现：新增私有base64_codec统一Hutool与Android策略、binary_encoding_bridge处理重载和原生字节；从quickjs_impl移除重复注册。无flags文本/字体走Hutool，flags及字节解码走Android；支持缺padding但保留各自无效padding、字符跳过和尾位规则，Hutool越界字符安全报错，不复制panic。charset复用已有转换器，不宣称支持JVM全部字符集或所有畸形UTF-8的替换分组。
+- flags/边界：编码支持NO_PADDING/NO_WRAP/CRLF/URL_SAFE，按76字符及末尾换行；Android Packages透传flags并暴露标准常量，Java util无flags包装保持。参数省略与显式null/undefined区分，非法flags/charset可捕获。字节视图在flags可能重入JS前复制，覆盖偏移/有符号/分离视图；java、裸入口与base64Decoder同源，不加JSON中转。
+- 用户裁决：明确移除非法Hex原样返回兼容，hexDecode/hexDecodeToString统一抛异常；空Hex返回长度0字节数组，合法字节文本用已有UTF-8替换策略。字体输入复用Hutool解码，不改字体解析/LRU或AES/DES等算法；无FFI签名/DTO/生成物/schema/依赖及Flutter业务修改。
+- 验证：改前5项真实QuickJS回归全部失败，修后扩为8项全部通过；另2项固定codec向量及1项真实字体回归。完整JS 821通过、4既有忽略（21组，库699/网络56，不重复累计），默认JS库274通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8及git diff --check通过。覆盖GBK/UTF-8、两种padding、URL安全字母表、换行/空输入、非法Hex抛错、flags重入/失效视图及失败后VM继续可用；既有加密/书源语料/网络生命周期继续通过。
+- 过程：全套初次被新测试空数组类型推断错误阻断，已改为空集合行为断言；随后旧Android flags=0断言错误要求无换行，按已核实上游更新为结尾换行，最终完整通过。严格Clippy命中新增手写整除写法，改is_multiple_of，不关闭告警。按用户要求无子代理，仅Codex自查diff，无独立审查或远程CI。
+- 证据：build/js-byte-conversion/base64-{reproduce,fixed,complete,complete-fixed,complete-final,default,clippy-quickjs,clippy-quickjs-final,clippy-default-final}.log；reproduce是5项预期失败，fixed是8项通过，complete-final是完整通过，不将前两次失败全套声称成功。版本2.0.402+403及双日志同步。
+- 交付边界：未构建native/应用、安装模拟器或推送；不宣称全JS能力或跨平台设备验收。MuMu仍2.0.394+395，下次应用构建需要重建匹配Rust库；回滚还原本批代码并重建，不伪造元数据。
+
+编写者：Codex｜2026-10-19
+
+### JS-FONT-BOUNDARY-20261019：字体输入、请求与缓存收口（P1）
+
+- 状态：已关闭（本批字体输入/请求/缓存范围）。用户批准下一步计划；dep-audit / chore/dep-audit / 81f74207d，开始工作区干净；单代理，成果随本条所在本地提交交付；未推送/合并，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.queryTTF/queryBase64TTF/replaceFont及AppCacheManager；仓库只有测试依赖JSON句柄。旧实现仅字符串、裸GET、错误吞掉、本地文件无门控、关闭缓存仍命中磁盘且句柄无界，分类按UTF-8字节切片有panic风险。原版注释提本地文件，但当前参考代码字符串实际只分HTTP(S)/Base64，本地扩展保留并明确收紧授权。
+- 实现与边界：新增私有font_bridge负责JS类型/授权/当前Ctx，FontResources只负责4项LRU及纯解析结果；queryTTF消费真实字符串或有效Uint8Array/Int8Array视图，提前复制视图字节，null/undefined/不支持Any类型返回原生null。空串/损坏字体/非法Base64/失效视图/网络失败抛异常；移除非ASCII字节切片。queryBase64TTF委托同一路径，useCache/filter显式值严格Boolean。
+- 网络与权限：HTTP(S)字体复用ContextEvaluator与现有原始字节请求，保留POST、动态模板、来源Header/Cookie、代理/DNS/重定向/超时策略、限流和取消；不执行type文本转换/bodyJs/WebView。删除专用download_font裸GET。规则求值及网络等待均在缓存锁外，嵌套字体查询不死锁；并发冷加载可重复请求，但缓存只发布完整解析结果。文件扩展先检查allow_file_access及沙箱，再读字节，不能通过缓存命中绕过授权；无FFI/数据库变更。
+- 缓存与生命周期：用Arc<QueryTtf>替代深拷贝和JSON句柄，移除无界handles与字体磁盘目录；useCache=false跳过缓存读写，不覆盖原有效项。JS字体对象直接持有解析结果，LRU淘汰后仍可replaceFont，无需重读文件或重下；无效/伪造句柄抛异常，真实null保留原文。资源缓存仅4项，调用方仍持有的对象按其实际生命周期释放，不宣称整个进程最多4份字体或RSS缩减数值。
+- 原生对象安全：复用rquickjs Class安全封装，不自行操作裸指针；手工JsLifetime实现只包含静态Rust Arc<QueryTtf>，Changed为同一类型，无JS值/借用；Trace无内部JS引用。按本机rquickjs-core 0.14的JsLifetime/Trace定义核对，真实GC循环用例证明释放。无新依赖，不扩展QueryTTF其余Java方法，不修改TTF解析器或轮廓反查/过滤/空白算法。
+- 复现与验证：改前4项真实行为测试全部失败；修复后通过。完整JS套件810通过、4既有忽略（20组，库696/网络56，不重复累计），默认JS库271通过，JS/Engine两种特性all-targets严格Clippy通过；限定rustfmt、UTF-8及git diff --check通过。覆盖字节偏移/Int8/失效视图、空值/Unicode、实际本地授权/越界、有效字体替换、关闭缓存不覆盖、LRU淘汰/并发完整发布/弱引用释放及JS循环GC、本地HTTP规则POST/嵌套JS/来源头/Cookie/body原始字节、失败重试、HTTP和限流等待取消及VM恢复。原JSON/磁盘/静默降级测试按新契约替换，保留原轮廓映射/Unicode/未映射/过滤/空白行为断言，去掉测试对公网字体URL的依赖。
+- 收尾与证据：build/js-byte-conversion/font-{reproduce,fixed,library,complete,default,clippy-quickjs,clippy-default}.log；reproduce为改前4失败，complete为完整通过。实现初次缺闭合括号导致编译失败已修正；默认Clippy发现publish仅剩QuickJS生产使用，改为quickjs或test条件编译并复验，不抑制告警。旧R4c3契约加后续覆盖说明，避免旧JSON/磁盘/网络串行记录被误用。按用户要求无子代理，由Codex自查diff，无独立审查或远程CI。
+- 交付限制：版本2.0.401+402及双日志同步；无FFI签名/DTO/生成物、schema、依赖版本、Flutter业务、平台接线修改。未构建native/应用、安装模拟器或推送，不宣称设备/跨平台性能验收。MuMu仍为2.0.394+395，下次应用构建须重建匹配Rust库。
+
+编写者：Codex｜2026-10-19
+
+### JS-FOLDER-TEXT-20261019：目录文本读取与成功清理（P1）
+
+- 状态：已关闭（仅本批目录文本接口范围）。用户批准下一步计划；dep-audit / chore/dep-audit / c257f01b6，开始工作区干净；单代理，验证通过后本地提交，提交号以本条所属提交为准；未推送/合并，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.kt:828-847；当前仅TXT/UTF-8、静默跳过失败、错误转正文且不清理目录。用户确认完整读取后清理指定子目录，以及空路径/根目录/读取失败的保护；不复制参考版空集合越界或对非目录输入的删除副作用。
+- 实现：getTxtInFolder按直接子项枚举顺序读取全部普通文件，不筛扩展名、不新增排序、不递归；每个文件复用decode_text自动检测，空文件仍保留分隔位置。空输入不操作文件系统；空目录返回空串并移除该目录。java与裸入口共用实现，失败抛可捕获异常，不返回部分内容或[ERROR]正文。
+- 安全与清理：先验证全部子项，拒绝根目录及其别名、目录链接及link/.形式、子目录/坏链接/越界项；读取与清理前均检查边界。全部读取完成且清理前未观察到取消，才逐个删除已读取文件，最后非递归移除空目录。读取失败保留输入，不递归删除后来出现的未读项；清理IO失败可已删除部分已读文件，明确报错，不承诺文件系统事务或外部并发换路径防护。
+- 复现与测试：新增7项真实文件/QuickJS测试在改前全部失败，修复后全部通过；再补Windows可读但不可删除的清理失败用例。覆盖UTF-8/GBK/UTF-16 BOM、混合扩展名/无扩展名/空文件、顺序和换行、成功清理、空目录、根目录别名、子目录拒绝、真实共享锁读取失败、取消、双入口与失败后VM恢复。原综合文件操作测试按读后清理语义更新，普通单文件删除不变。
+- 链接专项：本机确认Windows原生符号链接可用，实跑目录外文件链接、根目录别名、内部目录别名及link/.保护测试1项通过，外部和链接目标内容保留。该测试跨Unix/Windows编译，Windows默认忽略以避免无链接权限的环境失败，具备权限时显式--ignored执行；未使用WSL或外部宿主。
+- 验证：完整JS测试804通过、3既有忽略（20组，库691、网络55，不重复累计）；随后仅补上上述Windows权限型链接测试并单独通过，生产代码未再改变，未为此重复全套。默认JS库273通过，JS/Engine两种特性all-targets严格Clippy通过；限定rustfmt、UTF-8与git diff --check通过。按用户要求不使用子代理，Codex自查diff，不冒充独立审查或远程CI结果。
+- 证据：build/js-byte-conversion/folder-{reproduce,fixed,complete,links,default-library,clippy-quickjs,clippy-default}.log；reproduce为7项预期失败，fixed为7项通过，complete为完整成功，links为独立链接专项成功。最初测试缺PathBuf导入导致编译失败，补导入后才取得reproduce行为失败证据，不把编译错误计入功能复现。
+- 交付边界：版本2.0.400+401、双日志与脚本契约同步。无FFI签名/DTO/生成物、schema、依赖、Flutter业务或平台接线改动，不改其他文件/下载/缓存/字体接口；未构建native/应用或安装模拟器，不宣称跨平台设备验证。MuMu仍为2.0.394+395，下次应用构建应重建匹配Rust库。
+
+编写者：Codex｜2026-10-19
+
+### JS-FILE-DOWNLOAD-20261019：规则下载、文本缓存与脚本导入（P1）
+
+- 状态：已关闭（仅本批JS文件接口范围）。用户批准下一步计划；沿用dep-audit / chore/dep-audit / f86d2c0b6，开始工作区干净；单代理，通过后本地提交，提交号以本条所属提交为准；不推送/合并，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.kt:384-498、UrlUtil.getSuffix和MD5Utils.md5Encode16；cacheFile错误返回路径，importScript不支持本地/空内容报错，下载绕过规则管线。额外自定义文件名重载仅测试使用，已按上游两参数语义收口。
+- 实现：新增私有file_download，复用当前VM规则准备与原始HTTP字节发送；准备请求暴露type及独立字节发送，不重复解析规则、不执行bodyJs或WebView正文。downloadFile返回资源私有目录下的沙箱相对路径，使用原规则MD5中间16位和type/合法URL后缀；两参数仅为十六进制落盘，无type返回空串且不发请求。不安全扩展名与目标/临时链接经沙箱检查。
+- 缓存与导入：cacheFile返回自动检测编码后的文本；路径元数据复用所属普通CacheStore，秒数为Rhino非空int，省略0永久、负值立即过期，遵守已批准的严格双层TTL。命中不续期，目标缺失时重下；拒绝命中其他HttpResources目录。importScript支持http前缀网络与沙箱本地文件，空白/缺失/失败抛异常，不自动执行导入内容。
+- 并发与失败：文件锁只协调完整文件及元数据发布，JS求值和网络等待均在锁外，避免嵌套求值死锁及取消被另一下载的网络锁阻塞。并发未命中可能重复请求，发布前二次命中复用已有结果且不续期；没有承诺跨进程原子性或抵御外部同时替换链接。失败清理临时文件，取消后不发布成功路径；不伪造缓存元数据，不把错误当正文。
+- 复现：5个新增真实QuickJS/本地HTTP测试在改前全部失败，修复后通过；再补2项嵌套本地导入/后缀与失败发布重试。覆盖规则POST/动态URL/来源Cookie、原始body、当前VM绑定恢复、永久/负/正TTL、缺失文件重下、GBK本地及网络文本、空内容、类型/参数错误、路径穿越、网络/限流取消与VM后续可用。
+- 验证：cargo test -p legado-js --features quickjs共796通过、3忽略（20组含文档，网络55项、库683项；不重复累计）；默认JS库273通过。JS/Engine两种特性all-targets严格Clippy通过；限定rustfmt、UTF-8与git diff --check通过。初次Clippy命中文档列表格式告警，已调整注释并复验通过，没有关闭告警。原资源归属测试按文本返回与相对路径适配，继续证明独立Cookie/缓存及所有者销毁清理。
+- 证据：build/js-byte-conversion/download-{reproduce,fixed,library,network,complete,default-library,clippy-quickjs,clippy-default}.log；reproduce为改前5项预期失败，complete为最终完整成功。按用户不使用子代理要求由Codex自查diff，无独立审查或远程CI，不以自查冒充独立审查。
+- 交付边界：版本2.0.399+400、双日志和脚本契约同步。无FFI签名/DTO/生成物、数据库schema、依赖、Flutter业务及平台接线修改；没有native/应用构建或模拟器安装，不宣称设备/跨平台验收。MuMu仍为2.0.394+395，下次应用构建需重建匹配Rust库。本批不处理getTxtInFolder、字体下载或完整JS/JVM兼容。
+
+编写者：Codex｜2026-10-19
+
+### JS-BYTE-CONVERSION-20261019：脚本字节转换与Java包装统一（P1）
+
+- 状态：已关闭（本批JS字节转换范围）；用户批准继续，dep-audit / chore/dep-audit / c1d081216起，成果随本条所在提交交付，单代理，本地提交，不推送/合并，不改主目录。
+- 依据：固定参考版15e1337a的JsExtensions.strToBytes/bytesToStr与仓库Rhino字节数组探针；JVM字符集核对UTF-8/UTF-16/LE/BE/GBK输出。不运行上游应用。
+- 目标：strToBytes返回字节，bytesToStr接收有效字节视图与普通数组；Java字符串/字节流移除JSON中转；验证读取端直连、字符集/错误、空/偏移/失效缓冲区与既有语料包装行为。
+- 范围：先冻结脚本契约，不改加密/网络/FFI/生成物/schema/依赖；不新增数组JSON兼容入口，不构建native/应用/模拟器。行为复现后最小修复，相关Rust回归与两档严格检查，通过后整批本地提交。
+- 修前复现：5项真实QuickJS行为测试失败，确认strToBytes返回JSON、bytesToStr不能接读取结果/视图、无效值未抛异常、UTF-16被Web编码器当作UTF-8。用仓库HtmlUnit Rhino JAR与本机JDK25作临时探针，普通数组验证有符号byte、截断、字符串数字、非法值，JVM核对UTF-8/UTF-16三种字节序及GBK无法表示字符；不是新增应用测试宿主或运行上游应用。探针初版作用域类型误用已纠正，未成功编译的输出不作证据。
+- 实现：Rust编码函数改收/返自有字节，不再序列化JSON；QuickJS双入口返回Uint8Array、接收有效Uint8Array/Int8Array或按Rhino规则转换普通数组，拒绝JSON字符串、空值、无效元素、分离/越界视图。视图先复制到Rust，再允许字符集ToString执行JS，避免跨重入保留引擎切片借用。没有新增unsafe段，原copy_bytes泛化为共用复制入口。
+- 包装与编码：java.lang.String/getBytes及输入/输出流删除JSON中转，保留原拷贝、范围与mark/reset行为；String额外识别Int8Array。UTF-16LE/BE按指定序，UTF-16非空带BE BOM、空串空输出、无BOM解码BE；UTF-8/显式端序保留BOM字符。ISO-8859-1/ASCII使用Java字符范围，其他既有Web编码器路径的不可编码字符用同一编码器写问号，避免HTML实体。未知编码/显式null、undefined字符集抛错，不转[ERROR]正文；不宣称支持JVM全部编码与别名或Java对象包装身份。
+- 行为验证：JS完整库/集成789项通过、3项既有忽略（20个结果组，库683项）；默认JS库273项通过，不重复累加。新增6项覆盖GBK/UTF-8/UTF-16/BOM/Latin1/ASCII、空值与非法字符集/数组、偏移/有符号视图、分离与缩容、字符集转换期间分离原缓冲及失败后VM恢复、文件/ZIP/7z直连、Java字符串和输入/输出流。既有真实语料、沙箱固定内存与网络生命周期保持通过；末次补UTF-16空串后21项编码回归通过，不重复全仓检查。
+- 测试环境整改：完整回归的DNS隔离用例及单项均失败；系统DNS实际将second.invalid解析为127.0.0.1，原“不带覆盖一定解析失败”前提失效。仅夹具注入实例默认地址127.0.0.2，覆盖仍为127.0.0.1；保持真实重定向、错误及请求计数检查，网络生产代码未变，完整JS复验通过。没有用反复重试、加长超时或放宽断言隐藏问题。
+- 门禁与证据：JS/Engine默认和QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8与diff检查通过。build/js-byte-conversion/{probe-fixed,probe-empty,reproduce,fixed,js-verified,encoding-final,default-library,clippy-quickjs,clippy-default,dns-environment,dns-recheck}.log；reproduce为5项预期失败，dns-recheck为环境前提问题的稳定复现，js-verified为完整通过。js-complete库通过但网络失败，不将其整批声称通过。仅单代理实现与自查，无独立外审。
+- 交付边界：版本2.0.398+399、双日志及脚本契约随本批提交；无FFI签名/DTO/生成物、schema、依赖、网络生产或Dart业务变更。不构建native/应用、不安装模拟器、不触发远程CI或推送；MuMu仍2.0.394+395。下次应用构建需重建匹配Rust产物，不修改旧元数据。不宣称全JS功能或所有平台运行已完成。
+
+编写者：Codex｜2026-10-19
+
+### JS-ARCHIVE-READ-20261019：文件与压缩包字节读取对齐（P1）
+
+- 状态：已关闭（本批文件/压缩包读取范围）；用户批准下一批，dep-audit / chore/dep-audit / 84bb1660f起，成果随本条所在提交交付，单代理，不推送/合并，不改主目录。
+- 依据：本地固定参考版15e1337a的JsExtensions文件/压缩包方法、AnalyzeUrl.getByteArray；不运行上游应用。
+- 目标：远程ZIP/7z复用已有规则准备与HTTP原始字节发送，补java/裸别名字节接口与readFile字节返回；共享编码检测，区分缺失与失败，核对沙箱路径边界。RAR继续停用。
+- 边界：先冻结脚本契约；不新增依赖、FFI/生成物/schema，不改下载命名、自动文件缓存、批量文件夹读取或UI；不构建DLL/应用/模拟器，不运行远程CI。
+- 验收：行为复现→最小修复→真实QuickJS/本地HTTP/ZIP及7z回归、默认/QuickJS严格Clippy；验证来源/POST/动态规则/原始字节/错误/编码/缺失/沙箱/取消，完成整批本地提交。按用户要求无子代理，仅自查。
+- 修前复现：4项QuickJS行为失败，确认字节接口缺失、GBK未自动检测、readFile返回字符串、本地档案绕过访问开关；1项真实HTTP失败确认带选项URL按裸GET发送且返回非ZIP内容。最初夹具漏模块限定名的编译失败已纠正，不作为缺陷复现。
+- 实现：新增私有archive_read集中档案来源、可选条目与Uint8Array/null转换；java及裸别名共用。远程来源复用rule_request的prepare/send_http和当前Ctx求值，不走finish的文本、type、bodyJs/WebView处理；保留来源头、Cookie、DNS/代理、期限、限流和取消，无独立下载器/新VM。保留本地档案路径扩展和原有存在路径优先级，关闭文件访问时不探测路径；普通文件仍在沙箱内。
+- 编码与失败：readFile返回字节/缺失null，readTxtFile和档案文字共用现有Parser BOM/统计检测，显式未知编码抛错。ZIP/7z内部用Option区分缺失与错误，损坏/CRC/网络/读取失败不吞成空串。普通文件检查目标本身和最近存在祖先，拒绝沙箱外绝对路径及链接逃逸；不宣称抵御并发路径替换。RAR的字节、文字、解压入口均在IO前拒绝；通用解压无授权时先拒绝访问，有授权时仍按RAR魔数拒绝。
+- 验证：JS完整库/集成783项通过、3项既有忽略（20个测试结果组）；默认JS库273项、Parser库332项通过，不重复累加。新增7项Windows库用例和2项真实HTTP用例，覆盖ZIP/7z真实压缩包、空/缺失/坏档案/CRC、Uint8Array、GBK/BOM/显式未知编码、文件读取/缺失、双别名/访问开关、POST/动态URL与参数/来源头/Cookie/外层result恢复、在途读流和限流等待取消。Unix链接用例已添加但本机Windows未执行；不宣称平台全覆盖或完整编码同源。
+- 回归整改：旧资源归属用例改用已有java.lang.String字节构造器消费readFile，保留内容与资源释放断言；旧WebView“不支持”断言改为具体缺少执行订阅错误且仍验证未发普通HTTP；RAR通用别名回归扩为两档，分别验证授权拒绝/魔数拒绝及无产物。未降低沙箱内存、生产期限或原断言强度，最终完整JS复验通过。能力审计清单同步字节接口与授权说明，仅元数据自查，未运行该FFI语料扫描或独立FFI构建。
+- 门禁与证据：JS/Parser/Engine默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8及diff检查通过。build/js-archive-read/{reproduce-behavior,reproduce-network,fixed-behavior,fixed-network,js-verified,default-libraries,clippy-quickjs,clippy-default}.log；前两项为预期失败。regression/js-final/js-complete分别记录上述整改过程，不作为整批通过证据。只有单代理实现/自查，无独立外审。
+- 交付边界：版本2.0.397+398、双日志及脚本契约随本批提交。没有FFI签名/DTO/生成物/schema/依赖或Dart业务变更；不构建native/应用、不安装设备、不触发远程CI。MuMu仍为2.0.394+395，下次应用构建需重建匹配Rust产物，不改写旧元数据。下载命名/缓存/importScript、批量文件夹读取及平台实现未扩改，不宣称全JS能力对齐。
+
+编写者：Codex｜2026-10-19
+
+### JS-CACHE-TTL-CONSISTENCY-20261019：普通缓存两层期限一致性（P1）
+
+- 状态：已关闭（本批普通JS缓存期限范围）；用户确认统一期限并要求继续。dep-audit / chore/dep-audit / a62bc61ec起，成果随本条所在提交交付，单代理，本地提交，不推送/合并，不修改主目录。
+- 决策：固定参考版15e1337a普通CacheManager先读不带期限的内存，可超过磁盘期限；本批按用户裁决有意偏离，put的两层均受原截止时间约束，putMemory仍无期限。文件缓存规则保留。
+- 目标：内存保留期限、有效磁盘回填不续期、负值立即过期、失败降级不变永久，onlyDisk不改变独立内存语义。共用数据所有者，保持LRU与目录/专用登录存储边界；不引入全仓缓存或错误架构改造。
+- 验收：先行为复现，再测两入口、内存/磁盘/失败/重开/覆盖/淘汰、删除与实例隔离；边界使用真实磁盘和可控时刻，入口含真实时钟失效。Rust定向回归及两档严格Clippy，无模拟器/应用构建或远程CI。
+- 修前复现：负期限被当成永久值、正期限成功写入后内存为空、写盘失败的1秒值在期后仍可读，三项行为测试均先失败，修后通过。
+- 实现：内存LRU改存值与可选截止毫秒；普通磁盘与文件缓存复用条目结构，缺期限字段拒绝，无法解析的旧缓存按未命中处理。普通put两层保存同一期限，写盘失败返回false并保留限期内存回退；有效磁盘回填不续期。putMemory始终无期限，onlyDisk不回填或改变独立内存值。无效/负期限不创建永久值，Rust直接调用的极端秒数饱和计算防溢出；脚本仍沿用既有可选i32转换。
+- 并发与边界：普通缓存读写、回填、过期删除由同一所有者的实例锁串行，避免旧读取覆盖或删除新值；文件层仍独立。保持1024项LRU、目录选择与Engine归属；不承诺不同进程/所有者共享同一目录的事务隔离。写盘失败不保证清除旧的有效磁盘内容，不伪造持久化成功。
+- 行为验证：默认档23项缓存测试通过；QuickJS库670项通过、2项既有忽略；页内宿主QuickJS6项和默认档3项通过，不重复累加。新增覆盖期限前/相等/之后、重开、覆盖、负值、LRU淘汰、坏元数据、失败回退、两入口互读及真实1秒过期。复用既有删除/实例隔离回归；不使用源码字符串断言。
+- 门禁：JS/Engine默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8与git diff --check通过。没有运行全工作区或Flutter全套检查，不把定向结果表述成全仓通过。
+- 证据：build/js-cache-ttl-consistency/{reproduce,fixed-cache,js-library,page-host,default-page,clippy-quickjs,clippy-default}.log；reproduce为三项预期失败，其余为对应验证输出。单代理实现与自查，无独立外审。
+- 交付边界：版本2.0.396+397、双日志及契约随本批提交。无FFI签名/DTO/生成物、数据库、依赖、Dart业务或平台接线改动；未构建native/应用、安装模拟器或触发远程CI。MuMu仍为2.0.394+395；下次应用构建需重建匹配Rust产物，不修改旧元数据。
+
+编写者：Codex｜2026-10-19
+
+### JS-FILE-CACHE-TTL-20261019：JS文件缓存期限贯通（P1）
+
+- 状态：已关闭（本批Rust脚本文件缓存范围）；dep-audit / chore/dep-audit / d747375b7起，单代理实现与自查，本地提交，不推送/合并，不修改主目录。
+- 依据：参考版固定15e1337a的WebCacheManager.putFile → CacheManager.putFile → ACache.put/getAsString。秒为单位，0永久、负数已过期，now>截止时间失效并移除文件；未运行上游应用。
+- 修前复现：QuickJS实测忽略第三参数，负期限读回value；页内入口同例报“现有文件缓存尚不支持非零期限”。两项真实调用均先失败，修后通过，不以源码字符串检索充当测试。
+- 实现：先冻结脚本契约，QuickJS沿用RhinoOptInt可选整数转换，页内第三参数解析i32秒，统一委托所属CacheStore。文件缓存独立保存JSON值与可选截止毫秒，永久明确为null、缺期限字段拒绝，过期返回空并删除；无新增版本标识。无法按当前结构解析的条目视为未命中，不迁移旧缓存或用户数据库。普通cache.put、内存LRU、目录归属、写失败日志/false策略保持，页内void/null返回不变。
+- 并发与隔离：同一CacheStore的文件读写/删除共用实例锁，避免旧过期读取误删刚更新的文件；不加全局会话表或进程锁。跨所有者独立目录互不影响；不承诺不同进程共享同一目录的事务隔离。
+- 验证：QuickJS库661项通过、2项既有忽略；页内宿主6项集成通过。默认档另有15项缓存与3项页内通过，不重复累加。新增覆盖严格截止边界、重新创建所有者后的持久期限、覆盖更新、永久/负数/完整i32范围及截止为0、删除/实例隔离、坏JSON/缺字段、可选/null/undefined/数字字符串、两入口互读、无效期限不覆盖及取消后迟到拒绝。边界用显式时刻的生产读写路径配真实磁盘；页内另有1秒真实时钟失效测试，不用整批长等待。
+- 门禁：JS/Engine默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8与diff检查通过。末次追加缺字段夹具后单项复验通过；其余受影响回归通过后未反复跑全仓检查。只有单代理自查，无独立外审。
+- 证据：build/js-file-cache-ttl/{reproduce-quickjs,reproduce-page,fixed-quickjs,fixed-page,js-library,page-host,default-cache,default-page,clippy-quickjs,clippy-default,malformed-final}.log。前两项为预期修前失败，其余通过；早期共享Cargo目录等待不算构建性能测量。
+- 交付边界：版本2.0.395+396、双日志及契约随本批提交。无FFI签名/DTO/生成物/数据库schema/依赖或UI改动；未构建native/应用、安装模拟器或触发CI，MuMu仍为上批版本。下次应用构建需重建匹配Rust产物，不改写旧元数据。普通cache.put负值/失败降级与上游差异未在本批改变，不宣称全JS缓存语义完成。
+
+编写者：Codex｜2026-10-19
+
+### WEBVIEW-SNIFFER-20261019：资源嗅探与跳转捕获对齐（P1）
+
+- 状态：待复验；Android与通用逻辑限定场景已完成，iOS待外部测试能力。dep-audit / chore/dep-audit / 4191dc232起，单代理实现与自查，本地提交，不推送/合并，不修改主目录。
+- 依据与复现：固定参考版15e1337a的BackstageWebView.SnifferWebClient，onLoadResource连续捕获真实资源，资源/导航均matches整串正则。修前MuMu用例返回空串，确认固定延迟扫描漏掉后续资源；未点击DOM链接和containsMatchIn也存在误捕路径。
+- 实现：先冻结既有请求/响应的嗅探语义，无新FFI字段。Android改用连续资源事件，正则加载前编译一次，资源/两种导航回调均整串匹配；移除初始URL直接返回与DOM扫描。result为命中地址，finalUrl/Cookie归属保留页面地址，规则按参考版1000ms+delayTime触发；空资源规则保留既有空结果。既有超时/取消/单次完成门控保留。
+- 取消缺陷：首轮真实用例确认stopLoading后旧页面定时器仍在延迟销毁窗口请求/cancelled。立即离开旧文档，再沿用2秒延迟原生析构；修后相同断言通过。已发出的网络请求不承诺强制撤回，不宣称完成原生堆泄漏测量。
+- Flutter回退：公开接口无onLoadResource，改为请求期限内观察performance，移除未加载DOM引用与子串匹配。HTML载入时Android插件未设置historyUrl，currentUrl可为about:blank；改用document.URL进行加载Cookie和最终页面归属，真实回退用例通过。performance不记录部分未消费/未完成fetch或流式资源，不承诺媒体流早期捕获；缓存策略与Kotlin/Dart正则方言差异未改。
+- Dart验证：34项匹配、页内调用、取消作用域、边界与监听器定向回归通过；4个相关文件最终定向分析无问题。无Rust实现/签名/生成物/schema/依赖变更，不重编Rust库或重跑Rust工作区；Android正常构建仍验证已有x86_64 Debug QuickJS产物。
+- MuMu验证：按用户指定实时探测实例0/Android15/x86_64，本轮端点127.0.0.1:16384。最终9项嗅探用例全部通过，覆盖延迟资源、未点击链接、资源/导航整串匹配、初始URL实际加载、取消/迟到及新请求、空/坏正则；其中2项仅模拟Backstage入口不可用，实际使用Android webview_flutter插件验证回退performance/文档地址/Cookie和导航，不能替代iOS。前批3项正式FRB Cookie/重定向/取消prompt用例也通过，合计12个不同平台场景。
+- 过程：mumu-platform首轮取消失败，mumu-confirm的回退用例因未消费fetch响应体超时，诊断确认本地服务已收到请求但performance无记录；显式消费后资源已命中，mumu-close暴露about:blank归属，修后mumu-final全部通过。期间临时诊断与未经证实的加载等待改动均撤回，未提高测试超时或放宽断言；两条分析提示已修正。首个命令的筛选含管道符被Windows批处理拆分，未运行测试，不算失败复现证据。
+- 数据与安装：所有本批平台命令明确--no-uninstall；测试前已备份MuMu现存数据，测试后正常库legado.db及WAL/SHM与备份SHA-256一致。测试仅使用本地HTTP与临时数据库，不重置用户数据；普通APK已覆盖安装为2.0.394+395，恢复Launcher4启用/MainActivity禁用，冷启动成功、进程存活且crash缓冲为空；未做完整UI验收。
+- 证据：build/webview-sniffer/{reproduce-delay,dart-tests-final,dart-analysis-clean,mumu-platform,mumu-confirm,fallback-diagnose,mumu-close,mumu-final,data-preservation,regular-build,regular-install}.log。最终嗅探以mumu-final退出0为准；mumu-confirm整体退出1，但其中前批3项Cookie通过记录有效，不把失败整批声称通过。备份为同目录忽略文件mumu-before.tar，不提交私人数据。
+- 交付边界：版本2.0.394+395、双日志及契约随本批提交。没有修改缓存系统/登录UI、原生iOS桥接或CI；未验证iOS、全工作区或完整阅读UI，无独立外审。回滚恢复匹配APK即可，无Rust绑定/库版本变化，不伪造产物元数据。
+
+编写者：Codex｜2026-10-19
+
+### WEBVIEW-COOKIE-ORDER-20261019：加载阶段Cookie与脚本执行顺序（P1）
+
+- 状态：本批实现与Android限定场景验证完成，iOS待复验；dep-audit / chore/dep-audit / 6f4c6c588起，单代理实现与自查，本地提交，不推送/合并，不触碰主目录并发修改。
+- 依据与复现：固定参考版15e1337a的onPageFinished/CookieStore路径，上游异步启动写回，不宣称其严格等待。修前行为用例确认最终旧Cookie快照覆盖Rust新值，修后通过。
+- 实现：先冻结webview_sync_cookies强类型Map契约。加载结束、门面注入/window.result/规则执行前等待所属请求Cookie同步；复用请求门控与原NetworkContext。每请求保存观察基线，中间/最终回传仅合并新增或变化名称，不用未变化快照覆盖较新Rust值或恢复已清除值。缺失项不作删除，Flutter回退document.cookie不包含HttpOnly；双方独立改同名值仍不承诺真实写入时序。
+- 生命周期：未知/其他引擎/取消/超时/已结束key拒绝且无副作用；同步、页内调用和完成串行，取消不等待该锁。已开始的写入不承诺强制回滚；加载同步失败上抛且不继续规则。不加全局会话表，不改schema、依赖、CI、登录/RSS界面。
+- Rust与Dart：最终Core16项、FFI9项WebView定向行为通过；Dart边界/映射/监听器等28项通过，11个相关文件定向分析无问题。Core/FFI默认与QuickJS两档全目标严格Clippy通过；FRB重新生成，Android x86_64 QuickJS库与元数据重建/校验通过。没有重跑全工作区测试。
+- 平台修复：实际Android验证发现WebView.apply内裸handler解析为未附着WebView的空Handler，引发postDelayed空指针；统一显式使用this@WebViewBridge.handler后通过。早先SDK超时与MuMu禁用MainActivity造成的启动失败不作为通过证据。
+- MuMu证据：按用户指定改用实时探测的实例0、Android15/x86_64，本轮端点127.0.0.1:16384。正式FRB/实际WebView/本地HTTP三项通过：加载Cookie供页内ajax使用且Rust响应新值保留；重定向最终域及HttpOnly；取消在途prompt后新请求仍可执行。测试子进程退出0，外围恢复入口命令因下述卸载退出1，分别记录，不混淆为测试失败或完整交付成功。
+- 安装事故：Flutter3.47.7的flutter test默认uninstall=true，本次未加--no-uninstall，测试清理卸载MuMu原同包应用，删除其私有数据。已向用户说明并致歉，用户回复“没关系”；未找到/恢复备份，不声称保留数据。用例头已明确--no-uninstall与共享设备保存数据要求。随后构建并新装普通APK，2.0.393+394，恢复Launcher4启用/MainActivity禁用，正常冷启动与进程存活，启动后crash缓冲为空。
+- 证据：build/webview-cookie-order/{reproduce,cookie-confirm,rust-webview,clippy-quickjs,clippy-default,codegen,dart-confirm,dart-analysis-confirm,android-native,mumu-confirm,mumu-regular-build,mumu-regular-install}.log。reproduce为预期修前失败，mumu-confirm记录实际三项通过；早期编译/夹具/启动失败以修后结果替代。用例日志在平台通过后仅改为debugPrint，最终分析通过。
+- 交付边界：版本2.0.393+394、双日志、契约及绑定随本批提交。MuMu仅验证上述限定场景与普通入口启动，未做完整UI验收或堆内存/原生析构测量；iOS未测，Windows DLL未重建，不以旧DLL配新绑定运行。回滚需重建匹配native，不改写产物元数据。
+
+编写者：Codex｜2026-10-19
+
+### WEBVIEW-PAGE-HOST-20261019：后台页内宿主与状态一致性（P1）
+
+- 状态：待复验；本批实现与本地Rust/Dart/Kotlin验证已完成，真实平台DOM、Cookie与原生释放尚待设备验证。dep-audit / chore/dep-audit / 6915eb1bc起，单代理，本地提交，不推送/合并/安装，不触碰主目录并发改动。
+- 基线：参考版固定15e1337a，静态核对BackstageWebView、WebJsExtensions、RssJsExtensions、BaseSource及WebCacheManager，未运行上游应用。后台同步网络/解析可用；java.request依赖Activity，后台不执行，不把它误列为待实现完整异步桥。
+- 实现：先冻结强类型调用信封；key唯一定位原请求/来源/引擎，同请求串行页内调用，完成回传等待已开始操作，取消及时唤醒网络且拒绝迟到调用。来源变量、登录信息/Header、缓存复用所属Rust能力，无平台快照/延迟回填；独立VM执行视图避免重入正在等待WebView的父VM，不强持根Engine。
+- 平台：Android移除临时source/cache/java副本，以WebChromeClient同步prompt转现有MethodChannel；主线程只异步转发，取消清除未完成prompt。Flutter回退消费同一Dart参数校验/错误信封与门面，使用公开prompt回调，结束时解绑；重复注入复用原门面。不扩展登录/RSS界面，不宣称公开API之外的立即原生析构。
+- 语义：java.get/put委托source；ajax、connect、get/head/post及getString/List复用现有网络和解析器。ajax错误文本、connect响应概要及get/head/post抛错分别保留。协议/最终地址来自真实响应，HTTP/1说明用标准reason而非保留任意自定义短语；失败沿用合成概要，不作真实HTTP成功。source.login只运行配置脚本；文件缓存非零TTL显式不支持，本批未重做既有Rust缓存规则。
+- Rust验证：Core/Engine/Fetcher/FFI/JS/Net/Parser库817/154/156/520/655/262/332项通过，共2896项，44项既有忽略；生命周期6、页内宿主5、上下文4、URL规则7项集成共22项通过。新增覆盖跨请求/来源/引擎状态、内存/磁盘/真实TTL、登录信息、未知方法/坏参数、完成竞争、真实HTTP协议/正文/请求形状、解析、配置登录脚本、父VM等待时执行以及IO取消。默认/QuickJS两档相关七crate全目标Clippy -D warnings通过；修正夹具后5项页内宿主重跑通过。
+- Dart与Android：25项调用映射、参数/错误、监听器及取消作用域行为通过；12个变更文件（含真实FRB用例）定向分析无问题。当前Windows QuickJS DLL编译及来源门禁通过，3项真实FRB测试验证所属来源/缓存、结束key拒绝、共用JS门面的同步/空值/异常/重复安装及既有URL规则往返；使用模拟平台响应而非真实DOM。Android :app:compileDebugKotlin通过，未打APK或安装；仅排除Rust产物门禁，存在基线原生/插件弃用告警。
+- 过程：新增完整响应门面曾增加启动内存，导致既有两个固定400KB沙箱用例初始化OOM；缩减为最小元数据读取后原限额/断言不变，22项沙箱回归通过、1项既有忽略，完整JS库最终通过。首轮Clippy发现新HTTP夹具未消费读取长度，改为读完有界Header后两档检查通过；自查将prompt解绑提前登记，避免安装期间取消遗留请求引用；未增加allow或放宽测试。
+- 证据：build/webview-page-host/{codegen,rust-final,page-fixture-final,clippy-quickjs-final,clippy-default,oom-regression,flutter-confirm,dart-final,kotlin}.log。rust-regressions记录修前OOM失败，clippy-quickjs记录修前夹具告警，最终结果以上述修后日志为准；DLL/FRB证据为native-build/native-wire.log，最终回调清理改动的Dart复验为flutter-close-final/dart-close-final.log。仅单代理实现与自查，无独立外审，不用源码文本断言充当验证。
+- 边界：本批不改schema、依赖、CI或阅读UI。设备DOM、平台Cookie、释放、iOS/Android真实prompt往返尚无证据；本地模拟平台与QuickJS门面验证不能替代这些验收。版本2.0.392+393、双日志及契约随本批提交；回滚后重建native，不改写来源元数据。
+
+编写者：Codex｜2026-10-19
+
+### WEBVIEW-URL-OPTIONS-20261019：脚本URL规则WebView分派（P1）
+
+- 状态：待复验；本批代码与本地边界验证已完成，真实平台DOM、Cookie与资源释放仍待设备验证。dep-audit / chore/dep-audit / f11481f2e起，单代理，不推送/合并，主目录并发UI任务保持不动。
+- 基线：固定参考版15e1337a，静态核对JsExtensions、AnalyzeUrl.executeStrRequest、BackstageWebView；未执行上游应用。POST先HTTP后HTML，其余直接平台；type优先、bodyJs仅普通HTTP；合成200/空响应头和最终URL；平台预算与HTTP分开。空HTML仍按上游平台加载规则处理。
+- 实现：先冻结契约；Core以Notify异步等待，沿用原子完成认领和Cookie提交屏障，取消/期限/丢弃发key控制事件。JS单项、普通批次及探测批次注入所属管理器，共用分派和现有限流；POST前置请求保留DNS/代理等HTTP配置，平台本身不宣称支持这些路由覆盖。结果保留最终URL/空成功/显式错误。
+- 平台：Dart监听区分取消事件与执行事件，排队取消不创建页面，在途取消停止执行且抑制迟到成功。单次取消作用域清理回调和页面；Android按key停止独立实例并延迟销毁，修复新实例先自毁造成回调失效，并保证清理分支结束调用；Flutter回退停止加载、解绑回调、加载空页并释放引用，公开API无dispose，不宣称立即原生析构。没有登录或页面布局重构。
+- Rust验证：相关Core/Engine/Fetcher/FFI/JS/Parser库815/154/156/520/655/332项通过，共2632项，44项既有忽略；6项生命周期、4项上下文及7项URL规则集成共17项通过。新增URL规则集成覆盖GET零预请求、POST正文/Header、浏览器最终URL、type/bodyJs优先级、混合批次并发/保序、探测逐项错误、普通批次失败取消、任务取消与迟到拒绝，包含真实HTTP重定向。默认/QuickJS两档六crate全目标Clippy -D warnings通过。
+- Dart与Android：21项映射/监听器/取消作用域定向行为通过，追加取消后异步失败消费的用例通过；13个变更文件及新FFI用例定向分析无问题。当前Windows QuickJS DLL构建/来源校验通过，1项真实FRB往返验证Header、最终URL、正常空正文和未知key拒绝；该用例模拟平台响应，不证明设备DOM。Android :app:compileDebugKotlin通过（仅排除Rust库校验任务，不产APK或安装），存在基线插件/原生弃用告警；首次下载阻塞取消后用7897代理完成，首次代理参数被PowerShell拆分已纠正，不算通过证据。
+- 过程：修前GET用例明确拒绝WebView；新增探测批次用例发现ajaxTestAll漏注入，补齐后通过。Dart流关闭夹具在假时钟中等待close导致挂起，改为泵事件后检查真实关闭行为；分析告警及作用域入口命名错误已修正，不放宽超时或屏蔽错误。仅单代理自查，无独立外审。
+- 证据：build/webview-url-options/{reproduce,rust-libraries,url-final,flutter-confirm,flutter-scope-final,flutter-analysis-final,flutter-new-analysis-final,clippy-quickjs,clippy-default,android-proxy-final,codegen,native-build,native-wire,url-complete}.log。reproduce为预期修前失败；rust-regressions中先通过的库/既有集成有效，但其新增探测用例失败以url-final修后结果替代。
+- 交付：FRB生成绑定、当前DLL构建、真实FRB字段往返及最终差异检查通过。版本2.0.391+392与双日志随本批本地提交；不触发远程CI，不合并/推送，不改主目录文件。后续设备验证需分别检查Android/iOS加载、平台Cookie、取消和释放，不以模拟平台或Kotlin编译代替。回滚本批需重新生成匹配绑定并重建native，不改写产物元数据。
+
+编写者：Codex｜2026-10-19
+
+### WEBJS-CONTEXT-20261019：WebJS规则来源与元素值传递（P1）
+
+- 状态：本批限定范围已关闭；用户要求继续，dep-audit / chore/dep-audit已快进主目录4a05f91c8，单代理，本地提交，不推送/合并，不修改主目录文件。
+- 依据与复现：固定参考版15e1337a的AnalyzeRule.getWebJsResult传getSource().getKey()及GSON.toJson(result)。4项修前真实行为失败确认本地来源/Cookie恒空、派生规则丢显式WebView能力、元素对象被二次编码成字符串。
+- 实现：来源由现有工厂固定；QuickJS档Cookie按每次页面URL从所属HttpResources读取，不用书源域代替、不冻结首值。默认档三类工厂同样传source_tag。闭包仅保留管理器、取消快照与HTTP数据，不回指根Engine或VM/JsResources所有者。
+- 解析边界：子解析器统一继承已注入的JS/WebView与变量能力，去掉9处重复重新推导执行器；显式WebView回调不再被默认getter覆盖。普通JS、WebJS及其无头路径复用元素JSON表示，对象/数组保留类型，普通内容、标量与坏JSON仍按字符串，不改变原HTML输入/拆链策略。
+- 验证：Parser默认库332项通过；JS/Fetcher/Engine QuickJS库655/156/154项通过，既有2项忽略；4项新上下文集成及6项前批生命周期回归通过，去重1307项。默认档另跑2项同组集成，不重复累加。覆盖三类工厂、页面Cookie更新/跨域/实例隔离、回调不持资源所有者、根Engine释放、元素与普通结果、子规则前序结果以及真实QuickJS无头与普通JS一致性。
+- 门禁：Parser/JS/Fetcher/Engine/FFI默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8及diff检查通过。主目录HEAD保持4a05f91c8，收尾时发现另有未提交UI/契约/计划修改，本批未触碰；受保护文档的内容与存在状态保持开始快照。只有单代理自查，无独立外审。
+- 过程：修前4项失败均保留日志；批量改名误触非QuickJS搜索辅助函数的未使用参数，已按基线恢复两档名称，最终严格检查无告警。首次准备未生成用例的0项筛选运行不计证据；不放宽断言或生产超时。
+- 证据：build/webview-rule-context/{reproduce-parser,reproduce-child,reproduce-host,fixed-parser,fixed-host,host-default,regressions,clippy-quickjs,clippy-default}.log。前三者为预期修前失败；host-default的早期未使用参数告警已在最终严格检查消除。
+- 交付：版本2.0.390+391、双日志与契约随本批本地提交。无FRB/DTO/生成物/schema/依赖变化，不构建DLL/应用/模拟器、不触发远程CI。默认档仍无Cookie读取能力；真实平台Cookie、DOM/页内接口、WebView URL选项、请求头和登录回调均未验收，不宣称完整WebView对齐。回滚本批后正常重建native，不改写旧元数据。
+
+编写者：Codex｜2026-10-19
 
 ### WEBVIEW-LIFECYCLE-20261019：WebView取消、归属与回传收口（P1）
 

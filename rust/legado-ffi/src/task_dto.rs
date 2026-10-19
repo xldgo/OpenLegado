@@ -168,10 +168,12 @@ pub struct WebViewRequestDto {
     pub source_key: String,
     pub cookie: String,
     pub created_at_ms: u64,
+    pub headers: std::collections::HashMap<String, String>,
 }
 impl From<legado_core::webview_channel::WebViewRequest> for WebViewRequestDto {
     fn from(v: legado_core::webview_channel::WebViewRequest) -> Self {
         Self {
+            headers: v.headers,
             key: v.key,
             action: v.action,
             html: v.html,
@@ -188,4 +190,27 @@ impl From<legado_core::webview_channel::WebViewRequest> for WebViewRequestDto {
             created_at_ms: v.created_at_ms,
         }
     }
+}
+
+/// 平台结果信封；错误与正常空结果分开。— Codex + Bridge
+#[derive(Debug, Clone)]
+pub struct WebViewResponseDto {
+    pub result: String,
+    pub final_url: String,
+    pub error: Option<String>,
+    pub cookies: std::collections::HashMap<String, String>,
+}
+
+/// 动态页内方法仍按目标与参数形状分派，不执行任意传入的Rust方法名。
+#[derive(Debug, Clone, Copy)]
+pub enum WebViewPageTargetDto {
+    Source,
+    Cache,
+    Java,
+}
+#[derive(Debug, Clone)]
+pub struct WebViewPageCallDto {
+    pub target: WebViewPageTargetDto,
+    pub method: String,
+    pub args: Vec<Option<String>>,
 }
