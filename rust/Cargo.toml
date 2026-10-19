@@ -29,3 +29,27 @@ ecb = "0.2"
 des = "0.9"
 base64 = "0.23"
 regex = "1"
+
+# 发布档只显式声明非默认项：opt-level = 3、panic = "unwind"、codegen-units = 16
+# 都是 Cargo 的 release 默认值，不重复写。
+#
+# 只开 thin LTO：跨 crate 内联与死代码消除，链接耗时远小于 fat，收益接近。
+#
+# 不设 strip：Windows 产物没有可剥的符号（PE 符号在 PDB 里，release 默认
+# debug = 0 不生成 PDB）；iOS 产物是 staticlib，rustc 的 strip 只在链接阶段
+# 生效、对归档无效；Android 已由 scripts/tooling/android.py 用 NDK llvm-strip
+# 处理，且工具链契约要求"只剥打包副本"（sourceSha256 与 packagedSha256 必须
+# 不同），在 profile 层面剥会破坏该不变量。
+#
+# 不设 codegen-units：与 thin LTO 同开会削弱其跨模块并行导入，收益仅个位数
+# 百分比，待单独实测增量后再定。
+#
+# 不设 panic = "abort"：生产代码有 3 处 catch_unwind 依赖 unwind 做失败隔离
+# （legado-engine 的 source_batches / cache_downloads），改为 abort 会让单源
+# 搜索崩溃升级为整个应用退出；且 iOS 不允许进程隔离，没有兜底方案。
+#
+# 不改 opt-level：正文排版、书源规则解析、QuickJS 执行是 CPU 密集路径，降到
+# "s"/"z" 还会连带把 C 依赖（rquickjs-sys / libsqlite3-sys / ring）压到
+# -Os/-Oz，得不偿失。
+[profile.release]
+lto = "thin"
