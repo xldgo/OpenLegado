@@ -1,5 +1,19 @@
 # API 契约文档
 
+## WebJS规则上下文传递（2026-10-19，实施前冻结）
+
+沿用现有WebViewRequest和FRB签名；Parser不依赖JS实现。宿主适配器为规则请求填入
+实际source_tag；QuickJS档从所属HttpResources按本次页面URL读取Cookie，禁止按书源
+URL代替页面域或缓存首个Cookie值。无QuickJS档传递source_tag，沿用无Cookie读者的边界。
+适配闭包只捕获管理器、取消能力及HTTP数据资源，不捕获根Engine、VM缓存或整个JsResources。
+解析器派生子规则时共享已注入的WebView执行能力，显式回调不能被重新推导覆盖。
+WebJS result的JSON保留现有结构化元素语义：普通内容为字符串，标记为元素的合法对象/
+数组保留类型，非法JSON或标量仍为字符串；正常与无头路径使用同一值序列化逻辑。
+保留当前拆链、HTML输入、取消、期限、Cookie回流和无订阅回退；不新增请求头/登录事件、
+WebView URL选项或平台DOM实现。仅Rust行为测试验证，不构建DLL/应用/模拟器。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## WebView 请求生命周期与结果回传（2026-10-19，实施前冻结）
 
 本批不改FRB签名、DTO、数据库schema、Flutter界面或WebView执行器；只收口Rust通道。

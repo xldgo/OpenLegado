@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### WEBJS-CONTEXT-20261019：WebJS规则来源与元素值传递（P1）
+
+- 状态：本批限定范围已关闭；用户要求继续，dep-audit / chore/dep-audit已快进主目录4a05f91c8，单代理，本地提交，不推送/合并，不修改主目录文件。
+- 依据与复现：固定参考版15e1337a的AnalyzeRule.getWebJsResult传getSource().getKey()及GSON.toJson(result)。4项修前真实行为失败确认本地来源/Cookie恒空、派生规则丢显式WebView能力、元素对象被二次编码成字符串。
+- 实现：来源由现有工厂固定；QuickJS档Cookie按每次页面URL从所属HttpResources读取，不用书源域代替、不冻结首值。默认档三类工厂同样传source_tag。闭包仅保留管理器、取消快照与HTTP数据，不回指根Engine或VM/JsResources所有者。
+- 解析边界：子解析器统一继承已注入的JS/WebView与变量能力，去掉9处重复重新推导执行器；显式WebView回调不再被默认getter覆盖。普通JS、WebJS及其无头路径复用元素JSON表示，对象/数组保留类型，普通内容、标量与坏JSON仍按字符串，不改变原HTML输入/拆链策略。
+- 验证：Parser默认库332项通过；JS/Fetcher/Engine QuickJS库655/156/154项通过，既有2项忽略；4项新上下文集成及6项前批生命周期回归通过，去重1307项。默认档另跑2项同组集成，不重复累加。覆盖三类工厂、页面Cookie更新/跨域/实例隔离、回调不持资源所有者、根Engine释放、元素与普通结果、子规则前序结果以及真实QuickJS无头与普通JS一致性。
+- 门禁：Parser/JS/Fetcher/Engine/FFI默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8及diff检查通过。主目录HEAD保持4a05f91c8，收尾时发现另有未提交UI/契约/计划修改，本批未触碰；受保护文档的内容与存在状态保持开始快照。只有单代理自查，无独立外审。
+- 过程：修前4项失败均保留日志；批量改名误触非QuickJS搜索辅助函数的未使用参数，已按基线恢复两档名称，最终严格检查无告警。首次准备未生成用例的0项筛选运行不计证据；不放宽断言或生产超时。
+- 证据：build/webview-rule-context/{reproduce-parser,reproduce-child,reproduce-host,fixed-parser,fixed-host,host-default,regressions,clippy-quickjs,clippy-default}.log。前三者为预期修前失败；host-default的早期未使用参数告警已在最终严格检查消除。
+- 交付：版本2.0.390+391、双日志与契约随本批本地提交。无FRB/DTO/生成物/schema/依赖变化，不构建DLL/应用/模拟器、不触发远程CI。默认档仍无Cookie读取能力；真实平台Cookie、DOM/页内接口、WebView URL选项、请求头和登录回调均未验收，不宣称完整WebView对齐。回滚本批后正常重建native，不改写旧元数据。
+
+编写者：Codex｜2026-10-19
+
 ### WEBVIEW-LIFECYCLE-20261019：WebView取消、归属与回传收口（P1）
 
 - 状态：本批Rust通道范围已关闭；dep-audit / chore/dep-audit从主目录7e542e6d9快进基线开始，单代理、本地提交，不推送/合并、不修改主目录三份用户文件。

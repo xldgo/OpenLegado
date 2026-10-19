@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.390] - 2026-10-19
+
+### Fixed
+- WebJS规则传递正确书源标识，并按页面地址读取当前引擎Cookie。
+- 派生规则保留WebView执行能力，结构化元素的result保持对象或数组类型。
+- 贡献者：Codex + Rust；构建号391。
+
 ## [2.0.389] - 2026-10-19
 
 ### Fixed
