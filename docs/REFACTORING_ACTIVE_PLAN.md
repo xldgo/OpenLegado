@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-ARCHIVE-READ-20261019：文件与压缩包字节读取对齐（P1）
+
+- 状态：已关闭（本批文件/压缩包读取范围）；用户批准下一批，dep-audit / chore/dep-audit / 84bb1660f起，成果随本条所在提交交付，单代理，不推送/合并，不改主目录。
+- 依据：本地固定参考版15e1337a的JsExtensions文件/压缩包方法、AnalyzeUrl.getByteArray；不运行上游应用。
+- 目标：远程ZIP/7z复用已有规则准备与HTTP原始字节发送，补java/裸别名字节接口与readFile字节返回；共享编码检测，区分缺失与失败，核对沙箱路径边界。RAR继续停用。
+- 边界：先冻结脚本契约；不新增依赖、FFI/生成物/schema，不改下载命名、自动文件缓存、批量文件夹读取或UI；不构建DLL/应用/模拟器，不运行远程CI。
+- 验收：行为复现→最小修复→真实QuickJS/本地HTTP/ZIP及7z回归、默认/QuickJS严格Clippy；验证来源/POST/动态规则/原始字节/错误/编码/缺失/沙箱/取消，完成整批本地提交。按用户要求无子代理，仅自查。
+- 修前复现：4项QuickJS行为失败，确认字节接口缺失、GBK未自动检测、readFile返回字符串、本地档案绕过访问开关；1项真实HTTP失败确认带选项URL按裸GET发送且返回非ZIP内容。最初夹具漏模块限定名的编译失败已纠正，不作为缺陷复现。
+- 实现：新增私有archive_read集中档案来源、可选条目与Uint8Array/null转换；java及裸别名共用。远程来源复用rule_request的prepare/send_http和当前Ctx求值，不走finish的文本、type、bodyJs/WebView处理；保留来源头、Cookie、DNS/代理、期限、限流和取消，无独立下载器/新VM。保留本地档案路径扩展和原有存在路径优先级，关闭文件访问时不探测路径；普通文件仍在沙箱内。
+- 编码与失败：readFile返回字节/缺失null，readTxtFile和档案文字共用现有Parser BOM/统计检测，显式未知编码抛错。ZIP/7z内部用Option区分缺失与错误，损坏/CRC/网络/读取失败不吞成空串。普通文件检查目标本身和最近存在祖先，拒绝沙箱外绝对路径及链接逃逸；不宣称抵御并发路径替换。RAR的字节、文字、解压入口均在IO前拒绝；通用解压无授权时先拒绝访问，有授权时仍按RAR魔数拒绝。
+- 验证：JS完整库/集成783项通过、3项既有忽略（20个测试结果组）；默认JS库273项、Parser库332项通过，不重复累加。新增7项Windows库用例和2项真实HTTP用例，覆盖ZIP/7z真实压缩包、空/缺失/坏档案/CRC、Uint8Array、GBK/BOM/显式未知编码、文件读取/缺失、双别名/访问开关、POST/动态URL与参数/来源头/Cookie/外层result恢复、在途读流和限流等待取消。Unix链接用例已添加但本机Windows未执行；不宣称平台全覆盖或完整编码同源。
+- 回归整改：旧资源归属用例改用已有java.lang.String字节构造器消费readFile，保留内容与资源释放断言；旧WebView“不支持”断言改为具体缺少执行订阅错误且仍验证未发普通HTTP；RAR通用别名回归扩为两档，分别验证授权拒绝/魔数拒绝及无产物。未降低沙箱内存、生产期限或原断言强度，最终完整JS复验通过。能力审计清单同步字节接口与授权说明，仅元数据自查，未运行该FFI语料扫描或独立FFI构建。
+- 门禁与证据：JS/Parser/Engine默认与QuickJS两档全目标Clippy -D warnings通过；限定rustfmt、UTF-8及diff检查通过。build/js-archive-read/{reproduce-behavior,reproduce-network,fixed-behavior,fixed-network,js-verified,default-libraries,clippy-quickjs,clippy-default}.log；前两项为预期失败。regression/js-final/js-complete分别记录上述整改过程，不作为整批通过证据。只有单代理实现/自查，无独立外审。
+- 交付边界：版本2.0.397+398、双日志及脚本契约随本批提交。没有FFI签名/DTO/生成物/schema/依赖或Dart业务变更；不构建native/应用、不安装设备、不触发远程CI。MuMu仍为2.0.394+395，下次应用构建需重建匹配Rust产物，不改写旧元数据。下载命名/缓存/importScript、批量文件夹读取及平台实现未扩改，不宣称全JS能力对齐。
+
+编写者：Codex｜2026-10-19
+
 ### JS-CACHE-TTL-CONSISTENCY-20261019：普通缓存两层期限一致性（P1）
 
 - 状态：已关闭（本批普通JS缓存期限范围）；用户确认统一期限并要求继续。dep-audit / chore/dep-audit / a62bc61ec起，成果随本条所在提交交付，单代理，本地提交，不推送/合并，不修改主目录。

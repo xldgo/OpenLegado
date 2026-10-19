@@ -21,6 +21,10 @@ fn rar_rejected_before_network_or_file_access_in_both_sandboxes() {
                 &engine,
                 &format!("{prefix}getRarStringContent('http://127.0.0.1:0/a.rar', '../secret')"),
             );
+            rejected(
+                &engine,
+                &format!("{prefix}getRarByteArrayContent('http://127.0.0.1:0/a.rar', '../secret')"),
+            );
         }
         assert_eq!(engine.eval("1 + 1").unwrap(), "2");
     }
@@ -33,14 +37,28 @@ fn generic_archive_aliases_cannot_bypass_rar_rejection() {
     let path = dir.join("disguised.zip");
     std::fs::write(&path, b"Rar!\x1a\x07\x01\x00").unwrap();
     let arg = serde_json::to_string(path.to_str().unwrap()).unwrap();
-    let engine = QuickJsEngine::new(SandboxConfig::default()).unwrap();
-    for name in [
-        "java.unArchiveFile",
-        "java.unzipFile",
-        "unArchiveFile",
-        "unzipFile",
-    ] {
-        rejected(&engine, &format!("{name}({arg})"));
+    for config in [SandboxConfig::default(), SandboxConfig::permissive()] {
+        let allow_file_access = config.allow_file_access;
+        let engine = QuickJsEngine::new(config).unwrap();
+        for name in [
+            "java.unArchiveFile",
+            "java.unzipFile",
+            "unArchiveFile",
+            "unzipFile",
+        ] {
+            let script = format!("{name}({arg})");
+            if allow_file_access {
+                rejected(&engine, &script);
+            } else {
+                let error = engine
+                    .eval(&script)
+                    .expect_err("无文件授权时必须先拒绝路径访问");
+                assert!(
+                    error.to_string().contains("档案解压需要文件访问授权"),
+                    "{error}"
+                );
+            }
+        }
     }
     assert!(!dir.join("disguised").exists());
     std::fs::remove_dir_all(dir).unwrap();

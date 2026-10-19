@@ -4,6 +4,8 @@
 //! 参考 Kotlin 端 `JsExtensions` 接口的方法分组。
 
 #[cfg(feature = "quickjs")]
+mod archive_read;
+#[cfg(feature = "quickjs")]
 pub mod archive_utils;
 #[cfg(feature = "quickjs")]
 pub mod asymmetric_crypto;

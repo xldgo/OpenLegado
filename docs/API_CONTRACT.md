@@ -1,5 +1,21 @@
 # API 契约文档
 
+## JS文件与压缩包读取（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions；沿用既有文件沙箱与资源所有者，不改FFI签名或数据库。
+readFile返回Uint8Array或文件不存在时null；readTxtFile不存在时空串，省略编码自动检测，显式未知编码抛异常。
+ZIP/7z的get*ByteArrayContent返回Uint8Array，条目不存在为null；get*StringContent对应空串。
+损坏档案、无效十六进制、下载/读取失败及不支持的显式编码抛可捕获JS异常，不冒充缺失内容。
+远程档案复用当前VM的AnalyzeUrl准备与HTTP二进制发送：保留来源头、Cookie、路由、期限、限流及取消；
+不经过文本解码、type十六进制转换、bodyJs或WebView正文求值，与上游getByteArray路径一致。
+保留已有本地档案路径扩展；allow_file_access=false时不读取本地档案，网络/十六进制读取仍可用。
+本地普通文件仍经沙箱检查；拒绝词法逃逸及已存在链接指向沙箱外，不承诺抵御外部进程同时替换路径。
+文本自动检测复用现有BOM/统计检测；不保证不同检测库对所有短/歧义文本的结果完全相同。
+两个字节接口同时注册java命名空间与裸别名，RAR三类入口继续在任何IO之前明确拒绝。
+本批不改downloadFile/cacheFile/importScript策略、目录拼接产品规则、文件夹批量读取或原生平台实现。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## 普通JS缓存统一期限（2026-10-19，用户确认的上游差异，实施前冻结）
 
 用户确认cache.put的期限应约束内存与磁盘，明确不保留参考版内存命中绕过磁盘期限的行为。

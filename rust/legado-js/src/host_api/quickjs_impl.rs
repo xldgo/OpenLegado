@@ -257,7 +257,7 @@ fn register_apis_with_binding<'js>(
     register_config_apis(ctx, &java, &globals, &host.config)?;
     register_concurrency_apis(ctx, &java, &globals, &host.concurrency)?;
     register_misc_apis(ctx, &java, &globals, &http, &host.webview)?;
-    register_archive_apis(ctx, &java, &globals, &http)?;
+    register_archive_apis(ctx, &java, &globals, &http, config.allow_file_access)?;
     register_font_apis(ctx, &java, &globals, &http)?;
     // 全局 cache 对象（P2-9 ① 记忆缓存三件套 + 磁盘缓存，对齐 WebCacheManager）
     register_cache_apis(ctx, &java, &globals, &host.cache)?;
@@ -2142,8 +2142,10 @@ fn register_file_apis<'js>(
         java,
         globals,
         "readFile",
-        rquickjs::Function::new(ctx.clone(), |path: RhinoStr| -> String {
-            file_utils::read_file(&path).unwrap_or_default()
+        rquickjs::Function::new(ctx.clone(), |ctx: rquickjs::Ctx<'js>, path: RhinoStr| {
+            let bytes = file_utils::read_file_bytes(&path)
+                .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+            super::archive_read::bytes_to_js(&ctx, bytes)
         })
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -2185,8 +2187,9 @@ fn register_file_apis<'js>(
         "readTxtFile",
         rquickjs::Function::new(
             ctx.clone(),
-            |path: RhinoStr, charset: RhinoOptStr| -> String {
-                file_utils::read_txt_file(&path, charset.0.as_deref()).unwrap_or_default()
+            |ctx: rquickjs::Ctx<'js>, path: RhinoStr, charset: RhinoOptStr| {
+                file_utils::read_txt_file(&path, charset.0.as_deref())
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4805,20 +4808,27 @@ fn register_archive_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     http: &std::sync::Arc<crate::http_resources::HttpResources>,
+    allow_file_access: bool,
 ) -> Result<(), LegadoError> {
     // unzipFile / unArchiveFile(zipPath) -> String（解压目标目录）
     // 对应 Kotlin: unzipFile → unArchiveFile；空路径返回空串
     let unarchive = rquickjs::Function::new(
         ctx.clone(),
-        |ctx: rquickjs::Ctx<'_>, zip_path: RhinoStr| -> rquickjs::Result<String> {
+        move |ctx: rquickjs::Ctx<'_>, zip_path: RhinoStr| -> rquickjs::Result<String> {
             if zip_path.is_empty() {
                 return Ok(String::new());
+            }
+            if !allow_file_access {
+                return Err(rquickjs::Exception::throw_message(
+                    &ctx,
+                    "档案解压需要文件访问授权",
+                ));
             }
             match archive_utils::un_archive_file(&zip_path, None) {
                 Err(e) if e == archive_utils::RAR_UNSUPPORTED => {
                     Err(rquickjs::Exception::throw_message(&ctx, &e))
                 }
-                result => Ok(result.unwrap_or_else(|e| format!("[ERROR] {e}"))),
+                result => result.map_err(|error| rquickjs::Exception::throw_message(&ctx, &error)),
             }
         },
     )
@@ -4834,24 +4844,47 @@ fn register_archive_apis<'js>(
         .set("unArchiveFile", unarchive)
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
 
-    // getZipStringContent(url, path, charsetName?) -> String
-    // 对应 Kotlin: getZipStringContent(url, path[, charsetName])；
-    // url 可为本地 ZIP 路径 / 网络 URL / 十六进制字符串；失败返回空串（对齐 Kotlin）
-    mount_dual(
-        java,
-        globals,
-        "getZipStringContent",
-        {
-            let http = http.clone();
+    // 文字与字节入口共用来源/条目读取，禁止异常被伪装成缺失内容。
+    use super::archive_read::{ArchiveKind, bytes_to_js, read_entry};
+    for (name, kind, binary) in [
+        ("getZipStringContent", ArchiveKind::Zip, false),
+        ("getZipByteArrayContent", ArchiveKind::Zip, true),
+        ("get7zStringContent", ArchiveKind::SevenZip, false),
+        ("get7zByteArrayContent", ArchiveKind::SevenZip, true),
+    ] {
+        let http = http.clone();
+        mount_dual(
+            java,
+            globals,
+            name,
             rquickjs::Function::new(
                 ctx.clone(),
-                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                    get_zip_string_content_js(&http, &url, &entry, charset.0.as_deref())
+                move |ctx: rquickjs::Ctx<'js>,
+                      source: RhinoStr,
+                      entry: RhinoStr,
+                      charset: RhinoOptStr|
+                      -> rquickjs::Result<rquickjs::Value<'js>> {
+                    use rquickjs::IntoJs;
+                    let bytes =
+                        read_entry(&ctx, &http, &source, &entry, kind, allow_file_access)
+                            .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))?;
+                    if binary {
+                        bytes_to_js(&ctx, bytes)
+                    } else {
+                        let text = match bytes {
+                            Some(bytes) => file_utils::decode_text(&bytes, charset.0.as_deref())
+                                .map_err(|error| {
+                                    rquickjs::Exception::throw_message(&ctx, &error)
+                                })?,
+                            None => String::new(),
+                        };
+                        text.into_js(&ctx)
+                    }
                 },
             )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+            .map_err(|error| LegadoError::JsEngine(error.to_string()))?,
+        )?;
+    }
 
     // un7zFile(7zPath, outputPath?) -> String（解压目标目录）
     // 使用 sevenz-rust2 纯 Rust 实现解压 7z 格式
@@ -4861,9 +4894,15 @@ fn register_archive_apis<'js>(
         "un7zFile",
         rquickjs::Function::new(
             ctx.clone(),
-            |seven_z_path: RhinoStr, output_path: RhinoOptStr| -> String {
+            move |ctx: rquickjs::Ctx<'js>, seven_z_path: RhinoStr, output_path: RhinoOptStr| {
+                if !allow_file_access {
+                    return Err(rquickjs::Exception::throw_message(
+                        &ctx,
+                        "档案解压需要文件访问授权",
+                    ));
+                }
                 archive_utils::un7z_file(&seven_z_path, output_path.0.as_deref())
-                    .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                    .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
             },
         )
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
@@ -4890,159 +4929,30 @@ fn register_archive_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // get7zStringContent(url, path, charsetName?) -> String
-    // 对应 Kotlin: get7zStringContent(url, path[, charsetName])；
-    // url 可为本地 7z 路径 / 网络 URL / 十六进制字符串；失败返回空串（对齐 Kotlin）
-    mount_dual(
-        java,
-        globals,
-        "get7zStringContent",
-        {
-            let http = http.clone();
+    // 不解析来源、不发请求、不创建临时目录，避免读条目接口绕过停用边界。
+    for name in ["getRarStringContent", "getRarByteArrayContent"] {
+        mount_dual(
+            java,
+            globals,
+            name,
             rquickjs::Function::new(
                 ctx.clone(),
-                move |url: RhinoStr, entry: RhinoStr, charset: RhinoOptStr| -> String {
-                    get_7z_string_content_js(&http, &url, &entry, charset.0.as_deref())
+                |ctx: rquickjs::Ctx<'_>,
+                 _url: RhinoStr,
+                 _entry: RhinoStr,
+                 _charset: RhinoOptStr|
+                 -> rquickjs::Result<String> {
+                    Err(rquickjs::Exception::throw_message(
+                        &ctx,
+                        archive_utils::RAR_UNSUPPORTED,
+                    ))
                 },
             )
-        }
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
-
-    // 不解析来源、不发请求、不创建临时目录，避免读条目接口绕过停用边界。
-    mount_dual(
-        java,
-        globals,
-        "getRarStringContent",
-        rquickjs::Function::new(
-            ctx.clone(),
-            |ctx: rquickjs::Ctx<'_>,
-             _url: RhinoStr,
-             _entry: RhinoStr,
-             _charset: RhinoOptStr|
-             -> rquickjs::Result<String> {
-                Err(rquickjs::Exception::throw_message(
-                    &ctx,
-                    archive_utils::RAR_UNSUPPORTED,
-                ))
-            },
-        )
-        .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
-    )?;
+            .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
+        )?;
+    }
 
     Ok(())
-}
-
-/// getZipStringContent 的 JS 入口实现：解析 ZIP 来源并读取指定条目的字符串内容
-///
-/// 对应 Kotlin `getZipByteArrayContent` + `getZipStringContent`：
-/// - 绝对 URL → 经 legado-net 下载 ZIP 字节
-/// - 本地存在的文件路径 → 直接读取
-/// - 其余按十六进制字符串解码
-///   失败时记录日志并返回空串（对齐 Kotlin `log("getZipContent 未发现内容")` + `return ""`）
-fn get_zip_string_content_js(
-    http: &crate::http_resources::HttpResources,
-    url: &str,
-    entry: &str,
-    charset: Option<&str>,
-) -> String {
-    let bytes = match resolve_zip_bytes(http, url) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("[getZipStringContent] ZIP 来源解析失败: {e}");
-            return String::new();
-        }
-    };
-    match archive_utils::zip_entry_bytes(&bytes, entry) {
-        Ok(b) => decode_bytes_with_charset(&b, charset),
-        Err(e) => {
-            eprintln!("[getZipStringContent] {e}");
-            String::new()
-        }
-    }
-}
-
-/// 解析 getZipStringContent 的 ZIP 来源为字节数据
-fn resolve_zip_bytes(
-    http: &crate::http_resources::HttpResources,
-    source: &str,
-) -> Result<Vec<u8>, String> {
-    resolve_archive_bytes(http, source, "ZIP")
-}
-
-/// get7zStringContent 的 JS 入口实现：解析 7z 来源并读取指定条目的字符串内容
-///
-/// 对应 Kotlin `get7zByteArrayContent` + `get7zStringContent`；
-/// 失败时记录日志并返回空串（对齐 Kotlin `?: return ""`）
-fn get_7z_string_content_js(
-    http: &crate::http_resources::HttpResources,
-    url: &str,
-    entry: &str,
-    charset: Option<&str>,
-) -> String {
-    let bytes = match resolve_archive_bytes(http, url, "7z") {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("[get7zStringContent] 7z 来源解析失败: {e}");
-            return String::new();
-        }
-    };
-    match archive_utils::seven_z_entry_bytes(&bytes, entry) {
-        Ok(b) => decode_bytes_with_charset(&b, charset),
-        Err(e) => {
-            eprintln!("[get7zStringContent] {e}");
-            String::new()
-        }
-    }
-}
-
-/// 解析压缩档案来源为字节数据（ZIP / 7z / RAR 共用）
-fn resolve_archive_bytes(
-    http: &crate::http_resources::HttpResources,
-    source: &str,
-    kind: &str,
-) -> Result<Vec<u8>, String> {
-    // 网络 URL 使用本资源的二进制响应，不经字符串转换。
-    if source.starts_with("http://") || source.starts_with("https://") {
-        return super::runtime_bridge::block_on_cancellable(async {
-            // 同一资源复用连接池，保持回环直连策略。
-            let client = http
-                .client_for_url(source, false)
-                .map_err(|e| format!("网络客户端初始化失败: {e}"))?;
-            client
-                .get_raw(source, None)
-                .await
-                .map(|response| response.body)
-                .map_err(|e| format!("{kind} 下载失败: {e}"))
-        });
-    }
-    // 本地文件路径
-    let path = std::path::Path::new(source);
-    if path.exists() {
-        return std::fs::read(path).map_err(|e| format!("读取本地 {kind} 文件失败: {e}"));
-    }
-    // 十六进制字符串（对齐 Kotlin HexUtil.decodeHex 分支）
-    hex::decode(source).map_err(|e| format!("十六进制 {kind} 数据解析失败: {e}"))
-}
-
-/// 按指定字符集解码 ZIP 条目字节
-///
-/// Kotlin 侧默认用 EncodingDetect 自动探测编码；Rust 侧未指定字符集时
-/// 优先按严格 UTF-8 解码，非法则 lossy 回退；指定字符集时用 encoding_rs 解码
-fn decode_bytes_with_charset(bytes: &[u8], charset: Option<&str>) -> String {
-    match charset {
-        Some(cs) if !cs.trim().is_empty() => {
-            match encoding_rs::Encoding::for_label(cs.trim().as_bytes()) {
-                Some(enc) => {
-                    let (decoded, _, _) = enc.decode(bytes);
-                    decoded.into_owned()
-                }
-                None => String::from_utf8_lossy(bytes).into_owned(),
-            }
-        }
-        _ => String::from_utf8(bytes.to_vec())
-            .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned()),
-    }
 }
 
 /// 注册字体 API
@@ -5233,8 +5143,11 @@ mod resource_network_tests {
             let url = quote(&format!("{base}/auto.js"));
             let cached = vm.eval(&format!("java.cacheFile({url})")).unwrap();
             assert_eq!(
-                vm.eval(&format!("java.readFile({})", quote(&cached)))
-                    .unwrap(),
+                vm.eval(&format!(
+                    "new java.lang.String(java.readFile({})).toString()",
+                    quote(&cached)
+                ))
+                .unwrap(),
                 owner
             );
             assert_eq!(
@@ -6417,6 +6330,165 @@ cipher.decryptStr(b64);
         let engine = make_engine();
         let result = engine.eval("typeof java.unzipFile").unwrap();
         assert_eq!(result, "function");
+    }
+
+    #[test]
+    fn archive_read_binary_missing_and_errors_are_distinct() {
+        let path = create_zip_for_js(&[("binary", &[0, 128, 255]), ("empty", &[])]);
+        let engine = make_engine();
+        let code = format!(
+            r#"
+            var archive={};
+            JSON.stringify([Array.from(java.getZipByteArrayContent(archive,'binary')),
+                Array.from(getZipByteArrayContent(archive,'empty')),
+                java.getZipByteArrayContent(archive,'missing'),
+                java.getZipStringContent(archive,'missing')]);
+        "#,
+            js_str(&path)
+        );
+        assert_eq!(engine.eval(&code).unwrap(), "[[0,128,255],[],null,\"\"]");
+        for code in [
+            "java.getZipStringContent('invalid-hex','entry')",
+            "java.get7zStringContent('00010203','entry')",
+        ] {
+            assert!(engine.eval(code).is_err(), "{code}");
+        }
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_automatic_encoding_and_invalid_charset() {
+        let text = "这是用于检测中文小说编码的正文，山川河流与人物故事。";
+        let (gbk, _, _) = encoding_rs::GBK.encode(text);
+        let path = create_zip_for_js(&[("chapter", &gbk)]);
+        let engine = make_engine();
+        let code = format!("java.getZipStringContent({},'chapter')", js_str(&path));
+        assert_eq!(engine.eval(&code).unwrap(), text);
+        let code = format!(
+            "java.getZipStringContent({},'chapter','invalid-charset')",
+            js_str(&path)
+        );
+        assert!(engine.eval(&code).is_err());
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_file_bytes_and_text_errors_reach_script() {
+        let root = crate::host_api::file_utils::default_sandbox_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let name = format!("archive_read_{}.bin", uuid::Uuid::new_v4());
+        let path = root.join(&name);
+        std::fs::write(&path, [0, 128, 255]).unwrap();
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "JSON.stringify(Array.from(java.readFile({})))",
+                    js_str(&name)
+                ))
+                .unwrap(),
+            "[0,128,255]"
+        );
+        let text = "这是用于检测中文小说编码的正文，山川河流与人物故事。";
+        let (gbk, _, _) = encoding_rs::GBK.encode(text);
+        std::fs::write(&path, gbk.as_ref()).unwrap();
+        assert_eq!(
+            engine
+                .eval(&format!("java.readTxtFile({})", js_str(&name)))
+                .unwrap(),
+            text
+        );
+        assert!(engine.eval("java.readTxtFile('../outside')").is_err());
+        let error = engine
+            .eval(&format!(
+                "java.readTxtFile({},'unknown-charset')",
+                js_str(&name)
+            ))
+            .unwrap_err();
+        assert!(error.to_string().contains("不支持的字符集"));
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(
+            engine
+                .eval(&format!("java.readFile({})===null", js_str(&name)))
+                .unwrap(),
+            "true"
+        );
+    }
+
+    #[test]
+    fn archive_read_local_source_obeys_file_access_gate() {
+        let path = create_zip_for_js(&[("secret", b"local")]);
+        let engine = QuickJsEngine::new(SandboxConfig::default()).unwrap();
+        assert!(
+            engine
+                .eval(&format!(
+                    "java.getZipStringContent({},'secret')",
+                    js_str(&path)
+                ))
+                .is_err()
+        );
+        let hex = hex::encode(std::fs::read(&path).unwrap());
+        assert_eq!(
+            engine
+                .eval(&format!("java.getZipStringContent('{hex}','secret')"))
+                .unwrap(),
+            "local"
+        );
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_seven_zip_binary_hex_and_rar_rejection() {
+        let path = create_7z_for_js(&[("binary", &[0, 128, 255]), ("empty", &[])]);
+        let hex = hex::encode(std::fs::read(&path).unwrap());
+        let engine = make_engine();
+        assert_eq!(engine.eval(&format!(r#"
+            JSON.stringify([Array.from(java.get7zByteArrayContent('{hex}','binary')),
+                Array.from(get7zByteArrayContent('{hex}','empty')),
+                java.get7zByteArrayContent('{hex}','missing'),get7zStringContent('{hex}','missing')]);
+        "#)).unwrap(), "[[0,128,255],[],null,\"\"]");
+        for method in ["getRarStringContent", "getRarByteArrayContent"] {
+            let error = engine
+                .eval(&format!(
+                    "java.{method}('http://127.0.0.1:1/never','entry')"
+                ))
+                .unwrap_err();
+            assert!(error.to_string().contains(archive_utils::RAR_UNSUPPORTED));
+        }
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
+    }
+
+    #[test]
+    fn archive_read_crc_failure_and_bom_decode() {
+        let path = create_zip_for_js(&[
+            ("crc", b"payload-CRC"),
+            ("bom", &[0xff, 0xfe, 0x2d, 0x4e, 0x87, 0x65]),
+        ]);
+        let engine = make_engine();
+        assert_eq!(
+            engine
+                .eval(&format!(
+                    "java.getZipStringContent({},'bom')",
+                    js_str(&path)
+                ))
+                .unwrap(),
+            "中文"
+        );
+        let mut bytes = std::fs::read(&path).unwrap();
+        let position = bytes
+            .windows(b"payload-CRC".len())
+            .position(|s| s == b"payload-CRC")
+            .unwrap();
+        bytes[position] ^= 1;
+        assert!(
+            engine
+                .eval(&format!(
+                    "java.getZipStringContent('{}','crc')",
+                    hex::encode(bytes)
+                ))
+                .is_err()
+        );
+        let _ = std::fs::remove_dir_all(std::path::Path::new(&path).parent().unwrap());
     }
 
     #[test]

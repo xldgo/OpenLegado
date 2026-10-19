@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.397] - 2026-10-19
+
+### Fixed
+- 远程ZIP/7z读取支持书源请求规则，保留POST、来源请求头及原始二进制内容。
+- 补齐压缩条目字节读取，文件读取返回字节；中文文本可自动检测编码。
+- 区分条目缺失与读取失败，文件访问限制覆盖本地档案读取。
+- 贡献者：Codex + Rust；构建号398。
+
 ## [2.0.396] - 2026-10-19
 
 ### Fixed

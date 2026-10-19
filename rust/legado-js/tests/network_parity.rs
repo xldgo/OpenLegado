@@ -632,6 +632,82 @@ struct Server {
     metrics: Arc<BatchMetrics>,
 }
 
+#[test]
+fn archive_read_remote_rules_keep_raw_bytes_and_current_context() {
+    use legado_js::host_api::current_source::with_current_source_tag;
+    let server = Server::new("127.0.0.1:0");
+    let engine = engine();
+    let rule = format!(
+        "{},{}",
+        server.url("/archive.zip"),
+        serde_json::json!({
+            "method":"POST", "body":"{{'payload'}}", "headers":{"X-Marker":"{{'archive'}}"},
+            "type":"zip", "bodyJs":"throw new Error('不得作为文本求值')"
+        })
+    );
+    let value = with_current_source_tag(&server.url("/"), || {
+        eval(
+            &engine,
+            &rule,
+            r#"
+        java.putGlobalHeaders(JSON.stringify({'X-Source':'source','Cookie':'session=archive'}));
+        globalThis.result='outer';
+        var first=java.getZipStringContent(url,'request');
+        var raw=Array.from(java.getZipByteArrayContent(url,'binary'));
+        JSON.stringify([JSON.parse(first),raw,result]);
+    "#,
+        )
+    });
+    let value: serde_json::Value = serde_json::from_str(&value).unwrap();
+    assert_eq!(value[0]["method"], "POST");
+    assert_eq!(value[0]["body"], "payload");
+    assert_eq!(value[0]["marker"], "archive");
+    assert_eq!(value[0]["source"], "source");
+    assert_eq!(value[0]["cookie"], "session=archive");
+    assert_eq!(value[1], serde_json::json!([0, 128, 255]));
+    assert_eq!(value[2], "outer");
+    assert_eq!(
+        eval(
+            &engine,
+            &server.url("/archive.zip"),
+            "JSON.stringify(Array.from(java.getZipByteArrayContent('@js: url','binary')))"
+        ),
+        "[0,128,255]"
+    );
+    assert_eq!(server.requests.load(Ordering::Acquire), 3);
+}
+
+#[test]
+fn archive_read_cancellation_interrupts_body_and_rate_wait() {
+    let server = Server::new("127.0.0.1:0");
+    let engine = Arc::new(engine());
+    let token = Arc::new(Cancellation::default());
+    let code = format!(
+        "java.getZipByteArrayContent({},'entry')",
+        serde_json::to_string(&server.url("/pending")).unwrap()
+    );
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| server.requests.load(Ordering::Acquire) == 1);
+    finish_cancelled(&token, worker, rx);
+    wait_for(|| server.metrics.cancelled.load(Ordering::Acquire) == 1);
+    let gate = Arc::new(Gate::default());
+    gate.entered.store(1, Ordering::Release);
+    engine.http_resources().set_request_policy(Arc::new(Policy {
+        concurrency: AtomicUsize::new(2),
+        gate: Some(gate.clone()),
+    }));
+    let token = Arc::new(Cancellation::default());
+    let code = format!(
+        "java.get7zByteArrayContent({},'entry')",
+        serde_json::to_string(&server.url("/archive.zip")).unwrap()
+    );
+    let (worker, rx) = start_cancellable(&engine, &token, code);
+    wait_for(|| gate.entered.load(Ordering::Acquire) == 2);
+    finish_cancelled(&token, worker, rx);
+    assert_eq!(server.requests.load(Ordering::Acquire), 1);
+    assert_eq!(gate.cancelled.load(Ordering::Acquire), 1);
+}
+
 impl Server {
     fn new(address: &str) -> Self {
         let listener = TcpListener::bind(address).expect("绑定回环HTTP服务");
@@ -722,6 +798,22 @@ fn serve(mut socket: TcpStream, requests: &AtomicUsize, metrics: &BatchMetrics) 
         return;
     }
     let request_number = requests.fetch_add(1, Ordering::AcqRel) + 1;
+    if path == "/archive.zip" {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        writer.start_file("request", options).unwrap();
+        writer.write_all(serde_json::json!({"method":method,"body":String::from_utf8(body).unwrap(),"marker":header("X-Marker"),"source":header("X-Source"),"cookie":header("Cookie")}).to_string().as_bytes()).unwrap();
+        writer.start_file("binary", options).unwrap();
+        writer.write_all(&[0, 128, 255]).unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+        let _ = write!(
+            socket,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            bytes.len()
+        );
+        let _ = socket.write_all(&bytes);
+        return;
+    }
     if path == "/pending" || path == "/no-headers" {
         if path == "/pending" {
             let _ = socket
@@ -1337,7 +1429,7 @@ fn rule_response_charset_redirect_retry_and_hex_options_are_applied() {
 }
 
 #[test]
-fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fail() {
+fn rule_timeout_and_missing_webview_host_do_not_fall_back_to_http() {
     let server = Server::new("127.0.0.1:0");
     let engine = engine();
     let response = eval(
@@ -1354,11 +1446,14 @@ fn rule_timeout_is_used_unless_explicitly_overridden_and_unsupported_options_fai
         &server.url("/echo"),
         r#"java.ajax(url+',{"webView":true}')"#,
     );
-    assert!(response.contains("暂不支持"), "{response}");
+    assert!(
+        response.contains("[ERROR]") && response.contains("当前宿主没有WebView执行订阅"),
+        "{response}"
+    );
     assert_eq!(
         server.requests.load(Ordering::Acquire),
         1,
-        "不支持的网络策略不得退化为普通HTTP请求"
+        "缺少WebView宿主时不得退化为普通HTTP请求"
     );
 }
 

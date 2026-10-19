@@ -64,21 +64,30 @@ mod impl_file_utils {
             sandbox_root.join(path)
         };
 
-        // 运行时检查：canonicalize 后确认路径在沙箱内
-        if let Ok(canonical_sandbox) = sandbox_root.canonicalize()
-            && let Some(parent) = resolved.parent()
-            && parent.exists()
-            && let Ok(canonical_parent) = parent.canonicalize()
-            && !canonical_parent.starts_with(&canonical_sandbox)
-        {
+        // 先拒绝沙箱外绝对路径，即使目标的父目录尚不存在。
+        if !resolved.starts_with(&sandbox_root) {
             return Err(format!("Path traversal blocked: {}", path));
+        }
+        let canonical_sandbox = sandbox_root.canonicalize().map_err(|e| e.to_string())?;
+        // 检查目标本身及最近存在的祖先，涵盖文件链接与缺少多级父目录的写入。
+        // 不承诺抵御外部进程在检查后并发替换链接。
+        for ancestor in resolved.ancestors() {
+            match fs::symlink_metadata(ancestor) {
+                Ok(_) => {
+                    let actual = ancestor.canonicalize().map_err(|e| e.to_string())?;
+                    if !actual.starts_with(&canonical_sandbox) {
+                        return Err(format!("Path traversal blocked: {}", path));
+                    }
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error.to_string()),
+            }
         }
         Ok(resolved)
     }
 
-    /// 读取文件内容（文本）
-    ///
-    /// 对应 Kotlin: `readFile(path)`
+    /// Rust内部UTF-8文本辅助；脚本readFile使用字节入口read_file_bytes。
     pub fn read_file(relative_path: &str) -> Result<String, String> {
         let path = resolve_safe_path(relative_path)?;
         if !path.exists() {
@@ -88,12 +97,13 @@ mod impl_file_utils {
     }
 
     /// 读取文件内容（字节）
-    pub fn read_file_bytes(relative_path: &str) -> Result<Vec<u8>, String> {
+    pub fn read_file_bytes(relative_path: &str) -> Result<Option<Vec<u8>>, String> {
         let path = resolve_safe_path(relative_path)?;
-        if !path.exists() {
-            return Ok(Vec::new());
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(format!("读取文件失败: {error}")),
         }
-        fs::read(&path).map_err(|e| format!("Read error: {}", e))
     }
 
     /// 写入文件
@@ -153,24 +163,26 @@ mod impl_file_utils {
     /// readTxtFile(path, charset?) — 读取文本文件（支持编码指定）
     ///
     /// 对应 Kotlin: `readTxtFile(path, charset)`
-    /// charset 支持: utf-8(默认), gbk, gb2312, big5, utf-16le, utf-16be 等
+    /// 未指定编码时自动检测，显式编码不被探测结果覆盖。
     pub fn read_txt_file(path: &str, charset: Option<&str>) -> Result<String, String> {
-        let resolved = resolve_safe_path(path)?;
-        if !resolved.exists() {
-            return Ok(String::new());
+        match read_file_bytes(path)? {
+            Some(bytes) => decode_text(&bytes, charset),
+            None => Ok(String::new()),
         }
-        let bytes = fs::read(&resolved).map_err(|e| format!("Read error: {}", e))?;
+    }
 
-        let encoding_name = charset.unwrap_or("utf-8");
-        let encoding = encoding_rs::Encoding::for_label(encoding_name.as_bytes())
-            .unwrap_or(encoding_rs::UTF_8);
-
-        let (decoded, _, had_errors) = encoding.decode(&bytes);
-        if had_errors {
-            // 回退到 lossy UTF-8
-            return Ok(String::from_utf8_lossy(&bytes).into_owned());
+    /// 普通文件与压缩条目共用编码语义，不把文本内容误当HTML响应扫描meta。
+    pub(crate) fn decode_text(bytes: &[u8], charset: Option<&str>) -> Result<String, String> {
+        match charset {
+            None => Ok(legado_parser::response_decode::decode_detected_or_lossy(
+                bytes,
+            )),
+            Some(label) => {
+                let encoding = encoding_rs::Encoding::for_label(label.trim().as_bytes())
+                    .ok_or_else(|| format!("不支持的字符集: {label}"))?;
+                Ok(encoding.decode(bytes).0.into_owned())
+            }
         }
-        Ok(decoded.into_owned())
     }
 
     /// downloadFile(url, fileName?) — 下载文件到沙箱
@@ -373,7 +385,7 @@ mod stub_file_utils {
     pub fn read_file(_relative_path: &str) -> Result<String, String> {
         Err(not_available())
     }
-    pub fn read_file_bytes(_relative_path: &str) -> Result<Vec<u8>, String> {
+    pub fn read_file_bytes(_relative_path: &str) -> Result<Option<Vec<u8>>, String> {
         Err(not_available())
     }
     pub fn write_file(_relative_path: &str, _content: &str) -> Result<(), String> {
@@ -556,6 +568,36 @@ mod tests {
         // 嵌套路径穿越
         let result = resolve_safe_path("subdir/../../..");
         assert!(result.is_err(), "嵌套路径穿越应被阻止, got: {:?}", result);
+    }
+
+    #[test]
+    fn archive_read_outside_path_is_rejected_even_with_missing_parents() {
+        let outside = default_sandbox_root()
+            .parent()
+            .unwrap()
+            .join(format!("outside_{}", uuid::Uuid::new_v4()))
+            .join("missing/file");
+        assert!(!outside.parent().unwrap().exists());
+        assert!(resolve_safe_path(outside.to_str().unwrap()).is_err());
+        assert!(!outside.parent().unwrap().exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn archive_read_file_and_directory_symlinks_cannot_escape_sandbox() {
+        let name = format!("links_{}", uuid::Uuid::new_v4());
+        let inside = default_sandbox_root().join(&name);
+        let outside = std::env::temp_dir().join(format!("outside_{name}"));
+        fs::create_dir_all(&inside).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret"), "secret").unwrap();
+        std::os::unix::fs::symlink(outside.join("secret"), inside.join("file")).unwrap();
+        std::os::unix::fs::symlink(&outside, inside.join("directory")).unwrap();
+        assert!(read_file_bytes(&format!("{name}/file")).is_err());
+        assert!(write_file(&format!("{name}/directory/missing/file"), "bad").is_err());
+        assert!(!outside.join("missing").exists());
+        fs::remove_dir_all(inside).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     // ---- readTxtFile 编码测试 ----

@@ -156,6 +156,29 @@ pub(super) fn execute(
     finish(prepared, response, evaluator)
 }
 
+/// 文件/档案取原始字节，复用规则与策略，但不执行正文JS、type转换或WebView。
+/// 对应上游AnalyzeUrl.getByteArray的HTTP路径，不能借用文本execute/finish。
+pub(super) fn execute_bytes(
+    resources: &RequestResources<'_>,
+    input: &str,
+    evaluator: &dyn SynchronousJsEvaluator,
+) -> Result<Vec<u8>, String> {
+    let prepared = prepare(
+        resources,
+        input,
+        RequestOverrides::default(),
+        Some(evaluator),
+    )?;
+    let policy = resources.policy()?;
+    super::runtime_bridge::block_on_cancellable(async {
+        prepared.wait(&policy, false).await;
+        send_http(resources, &prepared)
+            .await
+            .map(|response| response.body)
+    })
+    .map_err(|error| error.to_string())
+}
+
 pub(super) fn prepare(
     resources: &RequestResources<'_>,
     input: &str,
