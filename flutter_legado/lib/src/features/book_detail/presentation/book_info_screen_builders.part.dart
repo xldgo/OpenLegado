@@ -1371,10 +1371,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
 
   /// 打开换源页面，换源成功后用新的 bookUrl 重新加载详情页
   Future<void> _showChangeSourceDialog(Book book) async {
-    // [fix Task#24 | 2026-08-08] routes 表统一生成 MaterialPageRoute<dynamic>，
-    // pushNamed<String> 会触发运行时强转崩溃
-    // （'MaterialPageRoute<dynamic>' is not a subtype of 'Route<String?>?'），
-    // 表现为点「换源」无任何反应。改用无类型 pushNamed + is 判定（与 _openTocScreen 一致）— Qoder
+    // 关闭换源面板后按新地址替换详情页，保留原结果语义。— Codex + UI
     final result = await GoRouter.of(context)
         .pushAppRoute(AppRoutes.changeSource, extra: book);
     if (!mounted) return;

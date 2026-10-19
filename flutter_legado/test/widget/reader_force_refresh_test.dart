@@ -43,7 +43,6 @@ import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/app/routing/route_names.dart';
-import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 
 import '../mocks/mocks.dart';
@@ -394,22 +393,6 @@ void main() {
   });
 
   group('④ 换源路由真实类型回归（PopupRoute<dynamic> 不崩溃）', () {
-    test('generateRoute 对 /change_source 返回 dynamic 型路由（非 Route<String?>）', () {
-      // 类型守卫：生产路由 _ChangeSourceSheetRoute 继承
-      // PopupRoute<dynamic>，不是 Route<String?>
-      // 的子类型——任何 pushNamed<String>(AppRoutes.changeSource) 都会
-      // 在运行期强转处抛 TypeError（真机崩溃，证据
-      // docs/parity_shots/verify_ui_20260922/p29_crash_dialog_change_source.xml）
-      final route = AppRouter().generateRoute(
-        const RouteSettings(name: AppRoutes.changeSource),
-      );
-      expect(route, isA<PopupRoute<dynamic>>());
-      // PopupRoute<dynamic> 不是 Route<String?> 的子类型
-      // （dynamic 非 String? 子类型）：类型化 pushNamed<String> 的
-      // 运行期强转即在此断裂
-      expect(route is Route<String?>, isFalse);
-    });
-
     testWidgets('菜单面板换源（dynamic 型路由）不崩溃且重载完成', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockRustApi();
@@ -458,9 +441,7 @@ void main() {
 
       // 在线书渲染两处换源入口（顶栏 IconButton + 中部快捷钮），
       // 此处只取顶栏 IconButton
-      await tester.tap(
-        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '换源'),
-      );
+      await tester.tap(find.byTooltip('换源'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('换书源'));
       // 改造前此处抛 "type _ChangeSourceSheetRoute is not a subtype
@@ -594,9 +575,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '换源'),
-      );
+      await tester.tap(find.byTooltip('换源'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('换书源'));
       await tester.pumpAndSettle(); // 换源路由自动 pop + 重载启动（getBook 悬置）

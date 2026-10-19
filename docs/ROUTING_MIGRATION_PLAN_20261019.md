@@ -1,7 +1,8 @@
 # 路由迁移方案
 
 代码基线：主目录 `feature/ui-reader-selection`，A～F 整理提交 `fd544317d`～`e3b412895`，订阅导航补验 `1c2fe833f`。
-本文件只分析后续方案，没有引入路由依赖或切换导航。执行状态仅见 [活动计划](REFACTORING_ACTIVE_PLAN.md)。
+本文件记录迁移方案与设计约束；执行状态和验证只见 [活动计划](REFACTORING_ACTIVE_PLAN.md)。
+具体输入与结果见 [57项路由清单](ROUTE_INPUTS_20261019.md)。
 
 ## 结论与选型
 
@@ -49,10 +50,12 @@
    当前UI门禁不等于所有入口都尚未加载数据，必须独立验证装载发生的时机。
 4. 普通详情/阅读/目录/编辑使用push并等待pop结果。go只用于明确的启动完成/根目的地重置；
    它会按目的地重建栈，不能批量替换现有push，否则书架返回刷新、目录结果和退出路径会变化。
-5. Page key稳定，并按实际入口区分需要的独立实例；保留RouteSettings.name与arguments语义，
+5. Page key由入口key与完整URI共同确定：主题重建保持实例，同路径更换查询参数创建新实例，
+   避免沿用旧初始化输入；保留RouteSettings.name与arguments语义，
    原Observer仍比较`/welcome`、`/audio`等名字，不能让Page名称悄悄变成另一套标识。
 6. 首轮保持现有扁平路径，`/sources/edit`的前缀不自动意味着源列表必须作为父页面留在栈中。
-   未知路径当前回到首页；迁移保持该行为，不默认暴露英文Page Not Found。
+   未知路径回到首页；通过末尾正常匹配的兜底GoRoute承载，保留原路径名称及继续导航能力，
+   不把正常兜底放在无法继续压栈的错误匹配状态，不默认暴露英文Page Not Found。
    缺参回退和readingStats别名等逐项列入R1，不顺便改变错误页面或新增导航功能。
 7. 局部确认框、设置Sheet、导入确认页可继续用Navigator.push/pop。
    直接压入的页面不会自动成为可深链地址，父路由被go替换时也会移除，应按操作会话收尾。
@@ -62,10 +65,14 @@
 
 GoRoute.pageBuilder提供自定义Page，Page.createRoute返回现有BookReaderRoute、
 ReadAloudPlayerRoute或换源PopupRoute，**settings传Page自身**，使Navigator的Page/Route归属成立。
-封面起点可由该Page的arguments提供，书籍身份由独立字段或已解析目标提供；不能再临时创建
+封面起点由该Page的arguments提供，书籍身份同时编码入URI；不能再临时创建
 另一个RouteSettings取代Page。Route完成和销毁语义保持，先用独立测试应用证明再接正式入口。
 
-普通页使用material_ui.MaterialPage；发行源码已支持该设计包，仍需验证Hero、主题、本地化和iOS转场。
+胶囊展开仍直接push同一个ReadAloudPlayerRoute并等待其completed，保留路由动画与图片交接监听。
+通知等无锚点入口通过AppRoutePage创建该Route，不为统一表面API额外制造动画移交协议。
+这类局部Navigator导航是go_router支持的用法，不存在第二份命名路由或旧框架回退。
+
+普通页使用material_ui.MaterialPageRoute，由AppRoutePage创建；发行源码已支持该设计包，仍需验证Hero、主题、本地化和iOS转场。
 保留appRouteObserver、systemBarRouteObserver、TopRouteWatcher、ReadAloudCapsuleObserver、
 MediaPlaybackNavigation在同一根Navigator。Router由State初始化并在dispose释放，不放build内创建。
 AppGlassHost、兼容主题桥、验证码/WebView监听、系统栏和朗读胶囊宿主继续包裹router child。

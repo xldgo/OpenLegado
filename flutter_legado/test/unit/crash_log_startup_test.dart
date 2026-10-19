@@ -185,7 +185,9 @@ void main() {
     // pushReplacement 同步 flush → didChangeTop(/home, /welcome)
     GoRouter.of(PlatformBridgeService.navigatorKey.currentState!.context)
         .replaceAppRoute(AppRoutes.home);
-    expect(watcher.topRouteName, AppRoutes.home);
+    await tester.pumpAndSettle(); // 等待Router提交与崩溃提示调度，不假设同步flush。
+    expect(find.text('splash', skipOffstage: false), findsNothing);
+    expect(find.text('home'), findsOneWidget);
 
     // 3) 栈顶变为 /home → 重试循环在下一帧 postFrame 弹出
     await tester.pump();

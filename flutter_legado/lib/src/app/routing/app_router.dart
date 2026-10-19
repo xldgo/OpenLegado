@@ -10,9 +10,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../features/privacy/privacy_screen.dart';
 import '../../features/privacy/privacy_gate.dart';
 
-import '../../widgets/reader/read_aloud_player_transition.dart';
-import '../../widgets/reader/book_reader_route.dart';
-
 import '../../models/models.dart';
 import '../../features/settings/presentation/about_screen.dart';
 import '../../features/logs/presentation/app_log_screen.dart';
@@ -146,8 +143,7 @@ class AppRouter {
           builder: (_) => BookInfoScreen(book: args),
         );
       }
-      // 向后兼容：支持 String(bookUrl) 传参
-      final bookUrl = args is String ? args : '';
+      const bookUrl = ''; // 缺参保留原空页面，不再读取旧字符串参数。
       return PrivacyBookGate(
         book: Book(bookUrl: bookUrl),
         builder: (_) => BookInfoScreen(bookUrl: bookUrl),
@@ -228,7 +224,7 @@ class AppRouter {
     },
     AppRoutes.about: (_) => const AboutScreen(),
     // [UI-fix v2.0.3 | 2026-08-08] 独立目录页（对齐原版 TocActivity）：
-    // 优先接收 Book 对象，兼容 Map 传参（is Map 运行时判定规范） — Qoder
+    // 接收完整 Book 对象，缺参回到首页。— Codex + UI
     AppRoutes.toc: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Book) {
@@ -310,7 +306,7 @@ class AppRouter {
     AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
   };
 
-  /// Router实例由App的State持有，主题变化不重建栈。— Codex + UI
+  /// Router由App的State持有；Page区分URI变化，主题重建保持导航栈。— Codex + UI
   GoRouter createRouter({
     String initialLocation = AppRoutes.home,
     GlobalKey<NavigatorState>? navigatorKey,
@@ -326,7 +322,7 @@ class AppRouter {
           path: entry.key,
           name: entry.key,
           pageBuilder: (_, state) => AppRoutePage(
-            key: state.pageKey,
+            key: ValueKey((state.pageKey, state.uri)),
             name: entry.key,
             arguments: _arguments(state),
             builder: entry.value,
@@ -335,7 +331,7 @@ class AppRouter {
       GoRoute(
         path: '/:unknown(.*)',
         pageBuilder: (_, state) => AppRoutePage(
-          key: state.pageKey,
+          key: ValueKey((state.pageKey, state.uri)),
           name: state.uri.path,
           arguments: state.extra,
           builder: routes[AppRoutes.home] ?? (_) => const HomeScreen(),
@@ -343,7 +339,7 @@ class AppRouter {
       ),
     ],
     errorPageBuilder: (_, state) => AppRoutePage(
-      key: state.pageKey,
+      key: ValueKey((state.pageKey, state.uri)),
       name: state.uri.path,
       arguments: _arguments(state),
       builder: routes[AppRoutes.home] ?? (_) => const HomeScreen(),
@@ -382,36 +378,5 @@ class AppRouter {
       }
     }
     return null;
-  }
-
-  Route<dynamic> generateRoute(RouteSettings settings) {
-    if (settings.name == AppRoutes.readAloudPlayer) {
-      return ReadAloudPlayerRoute(settings: settings);
-    }
-    // [A2 形态对齐 | full-stack-engineer + UI] 换源页改用「底部弹层」形态
-    // （对标原版 ChangeBookSourceDialog BaseDialogFragment + 参考版 kazusa
-    // 底部弹层实机截图）：非不透明路由承载——半透明遮罩压住前页、面板自底部
-    // 滑入；5 处调用方仍走 pushNamed 并回收新 bookUrl 路由结果，不改。
-    if (settings.name == AppRoutes.changeSource) {
-      return ChangeSourceSheetRoute(
-        builder: routes[AppRoutes.changeSource]!,
-        settings: settings,
-      );
-    }
-    final builder =
-        routes[settings.name] ??
-        routes[AppRoutes.home] ??
-        (_) => const HomeScreen();
-    Widget guardedPage(BuildContext context) => PrivacyAppGate(
-      child:
-          settings.name == AppRoutes.bookGroups ||
-              settings.name == AppRoutes.bookshelfManage
-          ? PrivacyVerificationGate(builder: builder)
-          : Builder(builder: builder),
-    );
-    if (settings.name == AppRoutes.reader) {
-      return BookReaderRoute<dynamic>(builder: guardedPage, settings: settings);
-    }
-    return MaterialPageRoute<dynamic>(builder: guardedPage, settings: settings);
   }
 }

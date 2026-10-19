@@ -89,7 +89,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: RoutingTestApp(
-        onGenerateRoute: AppRouter().generateRoute,
+        routes: AppRouter().routes,
         home: const ExploreScreen(),
       ),
     );

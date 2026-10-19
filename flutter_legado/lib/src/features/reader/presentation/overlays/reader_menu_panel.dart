@@ -417,7 +417,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
   // 共用）：notifier 级共享重入锁（在途第二触发静默忽略）+ 必收清理
   // （clearSnackBars，离场/异常也不留残留）+ 结果去重（成功反馈只保留
   // 换源页「已切换到」，阅读器侧只弹失败条）。原 [P2-9 fix/fix2] 的
-  // 无类型 pushNamed 与 10min 进行中条语义见 change_source_flow.dart。
+  // Router结果回传与10min 进行中条语义见 change_source_flow.dart。
 
   // [P2-9 | 2026-09-24] 刷新正文流程（Fix A）：强制联网抓取（绕过缓存，
   // 见 ReaderNotifier.refreshChapterContent）→ 显式成功反馈 / 失败反馈

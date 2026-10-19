@@ -88,7 +88,7 @@ class LegadoApp extends ConsumerStatefulWidget {
   /// 调度「上次崩溃」弹窗：等冷启动闪屏退出后再弹出（P2-13b）。
   ///
   /// 冷启动固定经闪屏路由（main.dart `initialRoute = AppRoutes.welcome`），
-  /// [WelcomeScreen] 延时后经 `pushReplacementNamed(home)` 退出闪屏——
+  /// [WelcomeScreen] 延时后经 `replaceAppRoute(home)` 退出闪屏——
   /// pushReplacement 替换的是**当时栈顶路由**：若弹窗已在首帧 postFrame
   /// 弹出（栈顶），闪屏退出时弹窗路由会被一并替换掉，用户看不到提示
   /// （且「确定」不会被点按，crash_log 永不清除，每次启动重复提示）。
@@ -144,8 +144,8 @@ class LegadoApp extends ConsumerStatefulWidget {
   /// 经 [AppRoutes.welcome] 闪屏；MainActivity.onCreate 把悬浮窗播放状态经
   /// Intent 交给 Dart（[VideoFloatWindowBridge.attach] →
   /// `_consumeInitialReturn`），回全屏导航在首帧附近触发。此时直接
-  /// `pushNamed(video)` 会把 /video 压在 /welcome 之上，而 [WelcomeScreen]
-  /// 延后执行的 `pushReplacementNamed(home)` 替换的是**当时栈顶**——刚压入
+  /// `pushAppRoute(video)` 会把 /video 压在 /welcome 之上，而 [WelcomeScreen]
+  /// 延后执行的 `replaceAppRoute(home)` 替换的是**当时栈顶**——刚压入
   /// 的 /video 被一并替换：可见播放页闪现后被书架顶掉、播放中断。
   ///
   /// 门控条件取「路由栈顶已非 /welcome」（[TopRouteWatcher] 的
@@ -157,7 +157,7 @@ class LegadoApp extends ConsumerStatefulWidget {
   ///   [onTimeout]——宁可不导航（停留当前页），也不重演「压栈后被欢迎页
   ///   替换」的错误导航。
   ///
-  /// 不用「[WelcomeScreen] `_goNext` 的 `await pushReplacementNamed` 之后
+  /// 不用「[WelcomeScreen] `_goNext` 的 `await replaceAppRoute` 之后
   /// 置标志」：`Navigator.pushReplacement` 返回的是**新路由的 popped
   /// future**（Flutter 3.44 `navigator.dart` `return newRoute.popped;`），
   /// home 不弹栈该 await 永不完成，手写标志将永不置位（本批探针测试已实证）。
@@ -271,10 +271,10 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // （Navigator 是它的后代）→ 抛异常 → FlutterError.onError 重写
     // crash_log.txt 并置崩溃标记 → 下次启动再弹再抛，形成启动崩溃循环。
     // [P2-13b 2026-09-19] 实机验证发现冷启动闪屏 /welcome 退出时
-    // pushReplacementNamed 会连同栈顶的弹窗路由一起替换掉（弹窗一闪
+    // 路由替换会连同栈顶的弹窗路由一起替换掉（弹窗一闪
     // 即逝），故经 [scheduleCrashLogDialog] + [TopRouteWatcher]（didChangeTop
     // 事件驱动 + 90 帧超时兜底）确认闪屏退出后再弹；watcher 已在下方
-    // MaterialApp.navigatorObservers 注册。
+    // 根Router的observers注册。
     if (widget.lastCrashLog != null && widget.lastCrashLog!.isNotEmpty) {
       LegadoApp.scheduleCrashLogDialog(
         widget.lastCrashLog!,
@@ -329,7 +329,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   /// [V-B3] 悬浮窗「全屏」/通知点击回传：导航到视频页从交回位置续播
   ///
   /// [V-B3-ROUTE] 冷启动时须等闪屏 /welcome 退出栈顶后再压栈，否则会与
-  /// `pushReplacementNamed(home)` 竞争、刚压入的 /video 被整体替换
+  /// `replaceAppRoute(home)` 竞争、刚压入的 /video 被整体替换
   /// （round2 真机 2/2；详见 [scheduleFloatReturnNavigation]）。
   void _openVideoFromFloatWindow(VideoFloatWindowState state, Book? book) {
     final args = VideoScreenArgs(

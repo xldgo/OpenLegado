@@ -18,12 +18,7 @@ class AppRoutePage extends Page<dynamic> {
   @override
   Route<dynamic> createRoute(BuildContext context) {
     if (name == AppRoutes.readAloudPlayer) {
-      return ReadAloudPlayerRoute(
-        settings: this,
-        anchor: arguments is ReadAloudCapsuleAnchor
-            ? arguments as ReadAloudCapsuleAnchor
-            : null,
-      );
+      return ReadAloudPlayerRoute(settings: this);
     }
     if (name == AppRoutes.changeSource) {
       return ChangeSourceSheetRoute(settings: this, builder: builder);

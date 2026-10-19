@@ -716,7 +716,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// [队列⑫ P3 | 2026-09-22] 从阅读器/详情页返回书架：单本定向刷新
   ///
-  /// 上方 `await Navigator.pushNamed` 在阅读器或播放器弹回书架时才返回，
+  /// 上方 `await pushAppRoute` 在阅读器或播放器弹回书架时才返回，
   /// 此刻重拉该书最新进度写回内存（BookshelfNotifier.refreshBook），
   /// 「刚读完的书」进度行/进度条随返回同步。不做整页重建、不新增 UI；
   /// 书若在阅读期间被移除，notifier 内部回退全量 refresh 保持一致。

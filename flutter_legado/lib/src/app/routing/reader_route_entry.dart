@@ -27,6 +27,7 @@ class ReaderRouteEntry extends ConsumerStatefulWidget {
 
 class _ReaderRouteEntryState extends ConsumerState<ReaderRouteEntry> {
   late Future<Book?> _book;
+  bool _joinedSession = false;
   @override
   void initState() {
     super.initState();
@@ -36,7 +37,10 @@ class _ReaderRouteEntryState extends ConsumerState<ReaderRouteEntry> {
   @override
   void didUpdateWidget(covariant ReaderRouteEntry oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.bookUrl != widget.bookUrl) _book = _resolve();
+    if (oldWidget.bookUrl != widget.bookUrl) {
+      _joinedSession = false;
+      _book = _resolve();
+    }
   }
 
   Future<Book?> _resolve() async {
@@ -50,29 +54,37 @@ class _ReaderRouteEntryState extends ConsumerState<ReaderRouteEntry> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<Book?>(
-    future: _book,
-    builder: (context, snapshot) {
-      if (snapshot.hasError) {
-        return ErrorView(
-          message: '无法打开书籍：${snapshot.error}',
-          onRetry: () => setState(() => _book = _resolve()),
+  Widget build(BuildContext context) {
+    final currentBook = ref.watch(
+      readerNotifierProvider.select((s) => s.currentBook),
+    );
+    return FutureBuilder<Book?>(
+      future: _book,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorView(
+            message: '无法打开书籍：${snapshot.error}',
+            onRetry: () => setState(() => _book = _resolve()),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
+        final book = snapshot.data;
+        if (currentBook?.bookUrl == book?.bookUrl) _joinedSession = true;
+        // 激活后正文继续消费全局会话；换源或换书时门禁必须保护实际正文。
+        final protectedBook = _joinedSession ? currentBook ?? book : book;
+        return PrivacyBookGate(
+          book: protectedBook,
+          builder: (_) => _ReaderActivation(
+            key: ValueKey(widget.bookUrl ?? book?.bookUrl),
+            book: protectedBook,
+            builder: widget.builder,
+          ),
         );
-      }
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const SizedBox.shrink();
-      }
-      final book = snapshot.data;
-      return PrivacyBookGate(
-        book: book,
-        builder: (_) => _ReaderActivation(
-          key: ValueKey(book?.bookUrl),
-          book: book,
-          builder: widget.builder,
-        ),
-      );
-    },
-  );
+      },
+    );
+  }
 }
 
 class _ReaderActivation extends ConsumerStatefulWidget {

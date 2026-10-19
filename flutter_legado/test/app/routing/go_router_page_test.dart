@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/app/routing/route_arguments.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +28,45 @@ class _CounterState extends State<_Counter> {
   );
 }
 
+class _QueryProbe extends StatefulWidget {
+  const _QueryProbe(this.value);
+  final String value;
+  @override
+  State<_QueryProbe> createState() => _QueryProbeState();
+}
+
+class _QueryProbeState extends State<_QueryProbe> {
+  late final String initial = widget.value;
+  @override
+  Widget build(BuildContext context) => Text(initial);
+}
+
 void main() {
+  testWidgets('同一路径更换URI参数创建新页面，避免保留旧初始化输入', (tester) async {
+    final router = AppRouter(
+      routes: {
+        AppRoutes.home: (_) => const SizedBox(),
+        AppRoutes.search: (context) => _QueryProbe(
+          (ModalRoute.of(context)!.settings.arguments as SearchRouteArgs)
+              .query!,
+        ),
+      },
+    ).createRouter(initialLocation: '/search?q=甲');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [privacyControllerProvider.overrideWith(_Privacy.new)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('甲'), findsOneWidget);
+    router.go('/search?q=乙');
+    await tester.pumpAndSettle();
+    expect(find.text('乙'), findsOneWidget);
+    expect(find.text('甲'), findsNothing);
+  });
+
   testWidgets('换源Page保留PopupRoute与类型结果，主题重建不替换导航栈', (tester) async {
     final navigator = GlobalKey<NavigatorState>();
     final router = AppRouter(

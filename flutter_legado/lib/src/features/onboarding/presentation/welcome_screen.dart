@@ -109,9 +109,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     // [V-B3-ROUTE 2026-10-05] 本替换与悬浮窗冷启动「回全屏」的 push 共用
     // 路由栈：app.dart [LegadoApp.scheduleFloatReturnNavigation] 已按
     // 「栈顶非 /welcome」门控，等本替换完成后才压入 /video；此处保持
-    // pushReplacementNamed 不改（改 pushNamed 会把欢迎页留在栈底）。
+    // replaceAppRoute保留替换语义，普通push会把欢迎页留在栈底。
     //
-    // 注意（既有缺陷登记，不在本批范围）：pushReplacementNamed 返回的是
+    // 注意（既有缺陷登记，不在本批范围）：replaceAppRoute返回的是
     // **新路由（home）的 popped future**，home 不弹栈该 await 永不完成
     // → 下方 lastRead 直达分支实际不可达（探针测试实证）。因此
     // `_openLastRead` 不会与浮窗回全屏竞争；若后续修复该 await 语义，须先

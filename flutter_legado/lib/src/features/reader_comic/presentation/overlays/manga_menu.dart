@@ -14,7 +14,7 @@ import 'package:material_symbols_icons/symbols.dart';
 ///   Row1 = 返回（图标无底、onSurface）+ Spacer + 右上图标组
 ///   （[P4-3 M3 修2] 换源（Symbols.shuffle）+ 刷新 + 更多 more_vert 三点，
 ///   onSurface、无胶囊底、间距均布——换源键复用既有换源底部弹层
-///   ChangeSourceScreen（详情页/听书页同款 pushNamed 先例，真实功能非
+///   ChangeSourceScreen（详情页/听书页同款导航入口，真实功能非
 ///   假按钮）；「更多」= 打开页操作底栏，复用既有页操作菜单）；
 ///   Row2 标题区（左对齐 padding 16）=
 ///   书名大字（24sp w600 onSurface）+ 次行 Row（章节名 14sp
@@ -106,7 +106,7 @@ class MangaMenuTopBar extends StatelessWidget {
   final VoidCallback onBack;
 
   /// [P4-3 M3 修2] 「换源」键（Symbols.shuffle）：复用既有换源底部弹层
-  /// ChangeSourceScreen（详情页/听书页同款 pushNamed 先例，真实功能）；
+  /// ChangeSourceScreen（详情页/听书页同款导航入口，真实功能）；
   /// 换源成功后屏幕层整书重载
   final VoidCallback onChangeSource;
 

@@ -58,13 +58,20 @@ BackupSettingsRepository；图标和删除提醒分别扩展已有外观、书�
 `route_arguments.dart`保存VideoScreenArgs，只依赖Book模型；详情页接收Book，不再有未读自动开读参数。
 feature、公共Widget及服务只消费名称或参数，不能反向导入页面路由表。
 
-`AppRouter`统一装配既有目标页面、参数处理与特殊转场，正式实例由LegadoApp持有；
-构造函数可接收完整路由表，各实例复制并只读持有自己的表。默认页面工厂、隐私门禁、
-换源结果及朗读转场保持原样；未命中路径使用实例首页，未提供首页时仍回正式HomeScreen。
-测试可独立注入路由表验证导航，不需要修改全局表或启动原生播放。旧routes.dart入口删除，
-不保留重导出它的同义兼容层。任务状态和证据仍只维护在活动计划。
+`AppRouter`持有唯一页面工厂表，createRouter装配go_router和AppRoutePage；正式实例随LegadoApp的State存活，
+主题变化不新建Router；Page身份同时包含入口key和完整URI，查询参数变化不沿用旧页面初始化状态。
+Page.createRoute复用原封面、换源和朗读Route，settings始终为Page自身。
+AppNavigation只统一稳定身份的URI编码与push/替换语义，局部Sheet和操作页继续直接Navigator，
+生产不保留generateRoute、pushNamed或缺Router时的旧框架回退。胶囊展开直接复用原朗读Route以等待图片交接完成。
 
-编写者：Codex + UI｜2026-10-18
+搜索、正文搜索、浏览器和任务参数使用明确类型；Book及动效引用放extra，稳定书籍键/搜索范围进入URI。
+ReaderRouteEntry在initState缓存身份读取，门禁后最多激活一次；激活后门禁跟随实际全局阅读会话，
+换源或换书不会继续拿旧快照授权新正文，重新授权也不重开旧书。不存在的书籍展示可重试错误。
+新地址不使用最小Book覆盖目录/编辑所需的完整数据，这些操作页缺参沿用原首页兜底。
+未知路径以正常匹配的首页承载，避免错误匹配状态妨碍后续导航；57项输入/结果及方案见
+[路由清单](ROUTE_INPUTS_20261019.md)、[迁移约束](ROUTING_MIGRATION_PLAN_20261019.md)。
+
+编写者：Codex + UI｜2026-10-19
 
 ## 视频播放会话
 

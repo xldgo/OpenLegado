@@ -7,7 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/services/system_bar_service.dart';
 import 'package:flutter_legado/src/app/routing/route_names.dart';
-import 'package:flutter_legado/src/app/routing/app_router.dart';
+import 'package:flutter_legado/src/app/routing/app_route_page.dart';
+import 'package:flutter_legado/src/widgets/reader/read_aloud_player_transition.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
 
 const dayBars = (
@@ -51,11 +52,12 @@ void main() {
     final editor = PageRouteBuilder<void>(
       pageBuilder: (_, _, _) => const SizedBox(),
     );
-    final sheet = AppRouter().generateRoute(
-      const RouteSettings(name: AppRoutes.changeSource),
+    final sheet = ChangeSourceSheetRoute(
+      settings: const RouteSettings(name: AppRoutes.changeSource),
+      builder: (_) => const SizedBox(),
     );
-    final player = AppRouter().generateRoute(
-      const RouteSettings(name: AppRoutes.readAloudPlayer),
+    final player = ReadAloudPlayerRoute(
+      settings: const RouteSettings(name: AppRoutes.readAloudPlayer),
     );
     expect(sheet, isA<PopupRoute<dynamic>>());
     expect(player, isA<PageRoute<dynamic>>());

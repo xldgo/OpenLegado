@@ -185,7 +185,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
   /// [A2 形态对齐 | full-stack-engineer + UI] 关闭弹层：对标原版
   /// ChangeBookSourceDialog（BaseDialogFragment）的 dismiss 语义——
   /// 点遮罩 / 高级菜单「关闭」项 / 系统返回键均收敛为 pop 本路由，
-  /// 调用方（pushNamed）按原语义取回路由结果（新 bookUrl 或 null）。
+  /// 调用方（pushAppRoute）按原语义取回路由结果（新 bookUrl 或 null）。
   void _closeSheet() {
     if (!mounted) return;
     Navigator.pop(context);

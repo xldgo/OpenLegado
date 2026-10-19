@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/app/routing/app_navigation.dart';
+import 'package:flutter_legado/src/app/routing/app_route_page.dart';
+
 import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
@@ -132,19 +135,18 @@ void main() {
                 builder: (_) => const Text('HOME_PAGE'),
               );
             }
-            return AppRouter().generateRoute(settings);
+            return ChangeSourceSheetRoute(
+              settings: settings,
+              builder: AppRouter().routes[settings.name]!,
+            );
           },
         ),
       ),
     );
     final navState = tester.state<NavigatorState>(find.byType(Navigator));
-    navState.pushNamed(
+    GoRouter.of(navState.context).pushAppRoute(
       AppRoutes.changeSource,
-      arguments: {
-        'bookName': '斗破苍穹',
-        'author': '天蚕土豆',
-        'currentSourceUrl': currentSourceUrl,
-      },
+      extra: Book(name: '斗破苍穹', author: '天蚕土豆', origin: currentSourceUrl),
     );
     await tester.pumpAndSettle();
   }
@@ -187,30 +189,6 @@ void main() {
   }
 
   group('ChangeSourceScreen', () {
-    // [A2 形态对齐] 路由承载弹层：换源路由须为非不透明路由（底部弹层）
-    test('generateRoute 换源路由为非不透明底部弹层路由', () {
-      final route = AppRouter().generateRoute(
-        const RouteSettings(name: AppRoutes.changeSource),
-      );
-      // 非不透明（opaque: false）→ 前页保持可见，由屏障压暗
-      expect(route, isA<PopupRoute>());
-      final popup = route as PopupRoute;
-      expect(popup.opaque, isFalse);
-      expect(popup.barrierColor, Colors.black54);
-      expect(popup.transitionDuration, const Duration(milliseconds: 300));
-      expect(
-        popup.reverseTransitionDuration,
-        const Duration(milliseconds: 250),
-      );
-    });
-
-    test('generateRoute 其余路由仍为普通整页路由', () {
-      final route = AppRouter().generateRoute(
-        const RouteSettings(name: AppRoutes.bookInfo),
-      ) as PageRoute;
-      expect(route.opaque, isTrue);
-    });
-
     testWidgets('换源筛选区域展开收起有中间高度且不改变顶栏', (tester) async {
       stubSearchStream(
         Stream.value(

@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/app/routing/app_navigation.dart';
+import 'package:flutter_legado/src/app/routing/app_route_page.dart';
 import 'package:flutter_legado/src/features/browser/presentation/browser_screen.dart';
 import 'package:flutter_legado/src/features/search/search_content_screen.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +19,6 @@ import 'package:flutter_legado/src/features/reader_comic/presentation/reader_com
 import 'package:flutter_legado/src/features/search/search_screen.dart';
 import 'package:flutter_legado/src/features/video/presentation/video_screen.dart';
 import 'package:flutter_legado/src/models/book.dart';
-import 'package:flutter_legado/src/widgets/reader/read_aloud_player_transition.dart';
 
 /// 路由测试只替换隐私状态，不启动原生库、播放或业务加载。— Codex + UI
 class _Privacy extends PrivacyController {
@@ -43,25 +44,28 @@ void main() {
     final router = AppRouter();
     final key = GlobalKey<NavigatorState>();
     late (Widget, Widget) result;
+    final navigation = AppRouter(
+      routes: {
+        AppRoutes.home: (_) => const SizedBox(),
+        name: (context) {
+          final page = router.routes[name]!(context);
+          result = (
+            page,
+            page is PrivacyBookGate ? page.builder(context) : page,
+          );
+          return const SizedBox();
+        },
+      },
+    ).createRouter(navigatorKey: key);
+    addTearDown(navigation.dispose);
     await tester.pumpWidget(
-      MaterialApp(
-        key: UniqueKey(),
-        navigatorKey: key,
-        home: const SizedBox(),
-        onGenerateRoute: (settings) => MaterialPageRoute<void>(
-          settings: settings,
-          builder: (context) {
-            final page = router.routes[name]!(context);
-            result = (
-              page,
-              page is PrivacyBookGate ? page.builder(context) : page,
-            );
-            return const SizedBox();
-          },
-        ),
+      ProviderScope(
+        overrides: [privacyControllerProvider.overrideWith(_Privacy.new)],
+        child: MaterialApp.router(key: UniqueKey(), routerConfig: navigation),
       ),
     );
-    key.currentState!.pushNamed(name, arguments: arguments);
+    await tester.pumpAndSettle();
+    navigation.pushAppRoute(name, extra: arguments);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     return result;
@@ -72,19 +76,20 @@ void main() {
     AppRouter router,
     GlobalKey<NavigatorState> key, {
     PrivacySettings privacy = const PrivacySettings(),
-  }) => tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        privacyControllerProvider.overrideWith(
-          () => _Privacy(settings: privacy),
-        ),
-      ],
-      child: MaterialApp(
-        navigatorKey: key,
-        onGenerateRoute: router.generateRoute,
+  }) {
+    final navigation = router.createRouter(navigatorKey: key);
+    addTearDown(navigation.dispose);
+    return tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          privacyControllerProvider.overrideWith(
+            () => _Privacy(settings: privacy),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: navigation),
       ),
-    ),
-  );
+    );
+  }
 
   test('路由表独立构造且不受调用方后续修改影响', () {
     Widget buildA(BuildContext _) => const Text('甲');
@@ -111,7 +116,8 @@ void main() {
     );
     await pumpRouter(tester, router, key);
     await tester.pumpAndSettle();
-    final result = key.currentState!.pushNamed('/probe', arguments: '目标参数');
+    final result = GoRouter.of(key.currentContext!)
+        .pushAppRoute('/probe', extra: '目标参数');
     await tester.pumpAndSettle();
     await tester.tap(find.text('目标参数'));
     await tester.pumpAndSettle();
@@ -133,7 +139,7 @@ void main() {
     );
     await pumpRouter(tester, router, key);
     await tester.pumpAndSettle();
-    key.currentState!.pushNamed('/unknown', arguments: book);
+    GoRouter.of(key.currentContext!).pushAppRoute('/unknown', extra: book);
     await tester.pumpAndSettle();
     expect(find.text('首页兜底'), findsOneWidget);
     expect(received['/unknown']!.name, '/unknown');
@@ -180,7 +186,7 @@ void main() {
       privacy: const PrivacySettings(enabled: true),
     );
     await tester.pumpAndSettle();
-    key.currentState!.pushNamed(AppRoutes.bookGroups);
+    GoRouter.of(key.currentContext!).pushAppRoute(AppRoutes.bookGroups);
     await tester.pumpAndSettle();
     expect(find.text('验证后管理'), findsOneWidget);
     expect(builds, 0);
@@ -197,39 +203,32 @@ void main() {
         ),
       },
     );
-    final settings = const RouteSettings(
-      name: AppRoutes.changeSource,
-      arguments: book,
-    );
-    final popup = router.generateRoute(settings);
-    expect(popup, isA<PopupRoute<dynamic>>());
-    expect((popup as PopupRoute<dynamic>).opaque, isFalse);
-    expect(popup.settings, same(settings));
-    expect(
-      router.generateRoute(
-        const RouteSettings(name: AppRoutes.readAloudPlayer),
-      ),
-      isA<ReadAloudPlayerRoute>(),
-    );
     await pumpRouter(tester, router, key);
     await tester.pumpAndSettle();
-    final result = key.currentState!.pushNamed(
-      AppRoutes.changeSource,
-      arguments: book,
-    );
+    final result = GoRouter.of(key.currentContext!)
+        .pushAppRoute<String>(AppRoutes.changeSource, extra: book);
     await tester.pumpAndSettle();
+    final popup = ModalRoute.of(tester.element(find.text('选择书源')))!;
+    expect(popup, isA<PopupRoute<dynamic>>());
+    expect(popup.opaque, isFalse);
+    expect(popup.settings, isA<AppRoutePage>());
+    expect(popup.settings.arguments, same(book));
     expect(find.text('首页'), findsOneWidget);
     await tester.tap(find.text('选择书源'));
     await tester.pumpAndSettle();
     expect(await result, 'new://book');
   });
 
-  testWidgets('详情参数保留书籍身份、隐私门禁及字符串入口', (tester) async {
+  testWidgets('详情参数保留完整书籍与稳定地址快照、隐私门禁', (tester) async {
     final (gate, target) = await resolve(tester, AppRoutes.bookInfo, book);
     expect((gate as PrivacyBookGate).book, same(book));
     expect((target as BookInfoScreen).book, same(book));
-    final (_, byUrl) = await resolve(tester, AppRoutes.bookInfo, 'book://url');
-    expect((byUrl as BookInfoScreen).bookUrl, 'book://url');
+    final (_, byUrl) = await resolve(
+      tester,
+      AppRoutes.bookInfo,
+      const Book(bookUrl: 'book://url'),
+    );
+    expect((byUrl as BookInfoScreen).book?.bookUrl, 'book://url');
   });
 
   testWidgets('搜索明确接收查询、源范围与分组参数', (tester) async {

@@ -95,7 +95,7 @@ void main() {
     return ProviderScope(
       overrides: mergeTestOverrides([...mockApi.overrides]),
       child: RoutingTestApp(
-        onGenerateRoute: AppRouter().generateRoute,
+        routes: AppRouter().routes,
         home: const ExploreScreen(),
       ),
     );

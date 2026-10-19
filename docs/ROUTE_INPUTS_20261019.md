@@ -6,7 +6,7 @@
 | 名称 | 路径 | 输入 | 返回 | 外部动作 |
 |---|---|---|---|---|
 | home | `/` | 无 | 关闭/调用方刷新 | 启动完成 |
-| reader | `/reader` | ReaderNotifier当前书籍 + BookCoverOrigin（瞬时） | 关闭/调用方刷新 | 公共开书 |
+| reader | `/reader` | Book/ReaderRouteArgs稳定身份 + 可选BookCoverOrigin（瞬时） | 关闭/调用方刷新 | 公共开书 |
 | readerComic | `/reader-comic` | String书籍地址 | 关闭/调用方刷新 | — |
 | search | `/search` | SearchRouteArgs | 关闭/调用方刷新 | — |
 | sources | `/sources` | 无 | 关闭/调用方刷新 | — |
@@ -21,7 +21,7 @@
 | rss | `/rss` | 无 | 关闭/调用方刷新 | — |
 | ruleSub | `/rule_sub` | 无 | 关闭/调用方刷新 | — |
 | audio | `/audio` | Book? | 关闭/调用方刷新 | 媒体通知 |
-| bookInfo | `/book_info` | Book或String地址 | 关闭/调用方刷新 | — |
+| bookInfo | `/book_info` | Book；URI稳定地址恢复Book快照 | 关闭/调用方刷新 | — |
 | editBookInfo | `/edit_book_info` | Book，缺失回首页 | 关闭/调用方刷新 | — |
 | changeSource | `/change_source` | Book? | String新书籍地址? | — |
 | readingStats | `/reading_stats` | 无 | 关闭/调用方刷新 | — |
@@ -35,7 +35,7 @@
 | rssSourceEdit | `/rss/edit` | RssSource? | bool/调用方刷新 | — |
 | readAloudConfig | `/read_aloud_config` | 无 | 关闭/调用方刷新 | — |
 | readAloudSettings | `/read_aloud_settings` | 无 | 关闭/调用方刷新 | — |
-| readAloudPlayer | `/read_aloud_player` | 当前播放会话 + 胶囊锚点（瞬时） | String阅读动作? | 媒体通知/胶囊 |
+| readAloudPlayer | `/read_aloud_player` | 通知Page使用当前播放会话；胶囊直接Route持瞬时锚点 | String阅读动作? | 媒体通知/胶囊 |
 | themeConfig | `/theme_config` | 无 | 关闭/调用方刷新 | — |
 | bottomBarSkin | `/bottom_bar_skin` | 无 | 关闭/调用方刷新 | — |
 | importBooks | `/import_books` | 无 | 关闭/调用方刷新 | — |
