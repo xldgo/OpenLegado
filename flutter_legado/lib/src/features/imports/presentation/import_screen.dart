@@ -1,3 +1,4 @@
+import '../../../data/services/file_directory_service.dart';
 import '../../../providers/book_content_provider.dart';
 
 import 'dart:io';
@@ -74,7 +75,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
   Directory? _currentDir;
   List<Directory> _dirs = [];
-  List<File> _files = [];
+  List<FileEntrySnapshot> _files = [];
+  int _directoryGeneration = 0;
   bool _loading = true;
   String? _error;
 
@@ -124,6 +126,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   }
 
   Future<void> _enterDir(Directory dir) async {
+    final generation = ++_directoryGeneration;
     setState(() {
       _currentDir = dir;
       _loading = true;
@@ -131,17 +134,18 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     });
     try {
       final dirs = <Directory>[];
-      final files = <File>[];
-      await for (final entity in dir.list(followLinks: false)) {
-        if (entity is Directory) {
-          final name = entity.uri.pathSegments
+      final files = <FileEntrySnapshot>[];
+      final entries = await ref.read(fileDirectoryServiceProvider).load(dir);
+      for (final entity in entries) {
+        if (entity.isDirectory) {
+          final name = Directory(entity.path).uri.pathSegments
               .where((s) => s.isNotEmpty)
               .lastOrNull;
           // 跳过隐藏目录
           if (name != null && !name.startsWith('.')) {
-            dirs.add(entity);
+            dirs.add(Directory(entity.path));
           }
-        } else if (entity is File) {
+        } else if (entity.type == FileSystemEntityType.file) {
           final ext = _extOf(entity.path);
           if (_allBrowsableFormats.contains(ext)) {
             files.add(entity);
@@ -152,14 +156,14 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       files.sort(
         (a, b) => _displayName(a.path).compareTo(_displayName(b.path)),
       );
-      if (!mounted) return;
+      if (!mounted || generation != _directoryGeneration) return;
       setState(() {
         _dirs = dirs;
         _files = files;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _directoryGeneration) return;
       setState(() {
         _error = errorMessage(e);
         _loading = false;
@@ -179,7 +183,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   }
 
   /// 当前过滤条件下可见的文件
-  List<File> get _visibleFiles =>
+  List<FileEntrySnapshot> get _visibleFiles =>
       _activeFormats.length == _allBrowsableFormats.length
       ? _files
       : _files.where((f) => _activeFormats.contains(_extOf(f.path))).toList();
@@ -211,6 +215,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     // 已到达某个根目录，返回根选择
     if (_roots.any((r) => r.path == current.path)) {
       if (_roots.length > 1) {
+        _directoryGeneration++;
         setState(() {
           _currentDir = null;
           _loading = false;
@@ -468,82 +473,60 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     );
   }
 
-  Widget _buildFileTile(File file) {
+  Widget _buildFileTile(FileEntrySnapshot file) {
     final path = file.path;
+    final size = file.size;
     final ext = _extOf(path);
     final isArchive = _archiveFormats.contains(ext);
     // 压缩包文件：点击直接打开压缩包导入对话框，不用 Checkbox 选择
     if (isArchive) {
-      return FutureBuilder<FileStat>(
-        future: file.stat(),
-        builder: (context, snap) {
-          final size = snap.data?.size ?? 0;
-          return ListTile(
-            // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 12,
-            ),
-            leading: Icon(
-              Symbols.folder_zip_rounded,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            title: Text(
-              _displayName(path),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            subtitle: Text(
-              '${ext.toUpperCase()} · ${_formatSize(size)}',
-              // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            onTap: () => _openArchiveImport(path),
-          );
-        },
+      return ListTile(
+        // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        leading: Icon(
+          Symbols.folder_zip_rounded,
+          color: Theme.of(context).colorScheme.secondary,
+        ),
+        title: Text(
+          _displayName(path),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        subtitle: Text(
+          '${ext.toUpperCase()} · ${_formatSize(size)}',
+          // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        onTap: () => _openArchiveImport(path),
       );
     }
     // 普通书籍文件：原有 Checkbox 多选逻辑
     final selected = _selected.contains(path);
-    return FutureBuilder<FileStat>(
-      future: file.stat(),
-      builder: (context, snap) {
-        final size = snap.data?.size ?? 0;
-        return ListTile(
-          // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 12,
-          ),
-          leading: Checkbox(
-            value: selected,
-            onChanged: (_) => _toggleFile(path),
-          ),
-          title: Text(
-            _displayName(path),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-              color: selected ? Theme.of(context).colorScheme.primary : null,
-            ),
-          ),
-          subtitle: Text(
-            '${ext.toUpperCase()} · ${_formatSize(size)}',
-            // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          trailing: Icon(_iconForFormat(ext), size: 20),
-          onTap: () => _toggleFile(path),
-        );
-      },
+    return ListTile(
+      // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      leading: Checkbox(value: selected, onChanged: (_) => _toggleFile(path)),
+      title: Text(
+        _displayName(path),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          color: selected ? Theme.of(context).colorScheme.primary : null,
+        ),
+      ),
+      subtitle: Text(
+        '${ext.toUpperCase()} · ${_formatSize(size)}',
+        // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+      trailing: Icon(_iconForFormat(ext), size: 20),
+      onTap: () => _toggleFile(path),
     );
   }
 
@@ -603,7 +586,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     }
   }
 
-  String _formatSize(int bytes) {
+  String _formatSize(int? bytes) {
+    if (bytes == null) return '大小未知';
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';

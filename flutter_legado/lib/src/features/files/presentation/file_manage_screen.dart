@@ -1,3 +1,6 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../../data/services/file_directory_service.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
 
 import 'dart:io';
@@ -26,14 +29,14 @@ import '../../../utils/error_message.dart';
 ///
 /// 根目录为应用沙盒文档目录（getApplicationDocumentsDirectory），
 /// 对齐原版 rootDoc 的「应用可见文件」语义且不越出沙盒边界。
-class FileManageScreen extends StatefulWidget {
+class FileManageScreen extends ConsumerStatefulWidget {
   const FileManageScreen({super.key});
 
   @override
-  State<FileManageScreen> createState() => _FileManageScreenState();
+  ConsumerState<FileManageScreen> createState() => _FileManageScreenState();
 }
 
-class _FileManageScreenState extends State<FileManageScreen> {
+class _FileManageScreenState extends ConsumerState<FileManageScreen> {
   final _searchCtrl = TextEditingController();
   bool _searchExpanded = false;
   String _filter = '';
@@ -44,7 +47,8 @@ class _FileManageScreenState extends State<FileManageScreen> {
   /// 相对根目录的子目录链（面包屑）
   final List<Directory> _subDocs = [];
 
-  List<FileSystemEntity> _files = [];
+  List<FileEntrySnapshot> _files = [];
+  int _directoryGeneration = 0;
   bool _loading = true;
   String? _error;
 
@@ -83,24 +87,31 @@ class _FileManageScreenState extends State<FileManageScreen> {
 
   /// 加载当前目录内容（目录优先，名称升序；对标原版排序行为）
   Future<void> _upFiles() async {
-    setState(() => _loading = true);
+    final generation = ++_directoryGeneration;
+    final directory = _currentDir;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final entries = await _currentDir.list().toList();
+      final entries =
+          (await ref.read(fileDirectoryServiceProvider).load(directory))
+              .toList();
       entries.sort((a, b) {
-        final aDir = FileSystemEntity.isDirectorySync(a.path);
-        final bDir = FileSystemEntity.isDirectorySync(b.path);
+        final aDir = a.isDirectory;
+        final bDir = b.isDirectory;
         if (aDir != bDir) return aDir ? -1 : 1;
         return _baseName(a.path)
             .toLowerCase()
             .compareTo(_baseName(b.path).toLowerCase());
       });
-      if (!mounted) return;
+      if (!mounted || generation != _directoryGeneration) return;
       setState(() {
         _files = entries;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _directoryGeneration) return;
       setState(() {
         _loading = false;
         _error = errorMessage(e);
@@ -111,7 +122,7 @@ class _FileManageScreenState extends State<FileManageScreen> {
   String _baseName(String path) => path.split(Platform.pathSeparator).last;
 
   /// 过滤后的列表（对标 updateFiles：搜索时保留「..」与匹配项）
-  List<FileSystemEntity> get _filteredFiles => _filter.isEmpty
+  List<FileEntrySnapshot> get _filteredFiles => _filter.isEmpty
       ? _files
       : _files.where((f) {
           final name = _baseName(f.path);
@@ -319,7 +330,7 @@ class _FileManageScreenState extends State<FileManageScreen> {
           );
         }
         final entity = files[atRoot ? index : index - 1];
-        final isDir = FileSystemEntity.isDirectorySync(entity.path);
+        final isDir = entity.isDirectory;
         final name = _baseName(entity.path);
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(
@@ -353,20 +364,17 @@ class _FileManageScreenState extends State<FileManageScreen> {
               _openFile(File(entity.path));
             }
           },
-          onLongPress: () => _showFileMenu(entity),
+          onLongPress: () => _showFileMenu(entity.entity),
         );
       },
     );
   }
 
-  String _formatSize(FileSystemEntity entity) {
-    try {
-      final size = File(entity.path).lengthSync();
-      if (size < 1024) return '$size B';
-      if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
-      return '${(size / 1024 / 1024).toStringAsFixed(1)} MB';
-    } catch (_) {
-      return '';
-    }
+  String _formatSize(FileEntrySnapshot entity) {
+    final size = entity.size;
+    if (size == null) return '大小未知';
+    if (size < 1024) return '$size B';
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+    return '${(size / 1024 / 1024).toStringAsFixed(1)} MB';
   }
 }
