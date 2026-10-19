@@ -10,6 +10,19 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get downloadAndCache => 'Downloads and cache';
+
+  @override
+  String get downloadAndCacheSummary =>
+      'Concurrency, preloading, image cache and cleanup';
+
+  @override
+  String get downloadSettings => 'Download settings';
+
+  @override
+  String get imageCache => 'Image cache';
+
+  @override
   String get themeLiquidBottomBar => 'Liquid glass floating bar';
 
   @override

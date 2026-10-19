@@ -1,6 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
-### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，待复验：远程接线）
+### UI-DOWNLOAD-CACHE-20261019：独立下载与缓存设置页（P2，待复验：设备视觉）
+
+- 授权与基线：用户要求参照上游独立设置页；主目录feature/ui-reader-selection / 006569b28，单代理，完成后本地提交，不提升版本、不自动安装或推送。
+- 上游：HapeLee/legado-with-MD3 main / c4182eb9bcdd2e52eb6bb44d14c37856e592a99a，ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt及其Contract/ViewModel。采用下载设置、图片缓存、网络、其他操作分组；保留本项目SettingsGroup和公共Sheet。
+- 范围：主设置页增加独立入口和命名路由，将其他设置中的线程数、预下载、图片缓存/保留、User-Agent、清理缓存与压缩数据库迁出；既有离线缓存管理和缓存统计页不混为配置页。已接线线程配置与清理/压缩保持，未接线项继续禁用并标明原因。
+- 边界：不扩展Rust/FFI/数据库、独立封面/漫画HTTP缓存或Cronet；不新增无消费者的设置写入。真实配置写入失败回退、取消清理、重复操作和路由返回须有回归，验证真实页面，不自建测试替身界面。
+- 验收：定向widget测试、目标静态分析及架构门禁；设备视觉/安装和远程CI不自动执行。执行者Codex + UI，2026-10-19。
+- 本地结果：新增DownloadCacheSettingsScreen及/download_cache_settings命名路由，主设置新增入口；原高级页移除7项重复入口与旧维护方法。线程编辑使用公共AppSettingsSheet的整数滑块/输入，保持Rust配置单源、取消不写入、越界拒绝与保存失败回退；维护操作抽至DownloadCacheActions，清理后同步章级镜像，操作互斥且离页不显示迟到结果。未接线4项只读偏好离页后释放，重进重新读取；现有缓存统计及离线下载列表保留。中英文导航/分组文案经flutter gen-l10n生成，版本不变。
+- 验证：显式缺失FFI库运行5份实际widget测试共90项通过（cache_boundary、request_settings、general_backup_settings、settings、screens_overflow_regress），覆盖真实AppRouter进入/返回、360dp布局、取消/失败、互斥/离页和旧值保留；目标dart analyze --fatal-infos、架构门禁及diff检查通过。首次验证修复共享服务导入遗漏，并将路由测试从禁止未提供路由的旧宿主改为实际AppRouter；没有删减业务断言。未安装设备或触发当前页面的远程CI，不能以widget结果代替视觉验收。
+- 剩余上游差异：独立HTTP封面/漫画缓存、缓存下载专用并发、向前预下载、Cronet及4项旧禁用配置的后端消费未在本轮实施；本批完成的是页面独立与现有能力迁移，不宣称上游功能全量对齐。提交见Git记录，Codex + UI，2026-10-19。
+
+### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，本批已关闭）
 
 - 授权与基线：用户同意按改动运行CI、细化测试输入及采集慢项；feature/ui-reader-selection / cb4ab4bac，单代理，完成后本地提交，不提升版本、不自动推送或触发全量CI。
 - 范围：Flutter CI手动auto/fast/native/all；auto默认比较最近提交，也可指定基线SHA。普通测试修改不再无条件编译Rust；检查改动前后native标记，原生目录、共享夹具及未知支持输入保守执行原生组。自动push/PR与其它Workflow手动语义不变。
@@ -10,6 +21,7 @@
 - 验证：Windows与WSL Linux编排33项及报告7项通过（共40项不同用例，不累加复跑）。真实Flutter的5项二维码/资产测试经file-reporter输出可解析事件；临时失败/跳过探针返回预期退出码1，报告保留failure与skip且完整生成。报告原始事件与输出在flutter_legado/build/test-timings/{fast,probe}/；临时失败测试文件验证后移除。actionlint及diff检查通过。实际读取上一批cb4ab4bac差异时Flutter范围仅选择普通组，不选择原生/两条生成检查，符合本次优化目标。
 - 命令：python -m unittest discover -s .github/scripts -p 'test_*.py' -v；WSL同命令；flutter test --no-pub --reporter failures-only --file-reporter json:build/test-timings/fast/events.jsonl后接5项所在的2份文件；python .github/scripts/flutter_test_report.py按实际事件生成报告。
 - 交付边界：仅完成本地实现/回归与真实报告协议验证，未推送或触发远程Workflow，未测得全量CI耗时收益。普通/原生测试总范围未删减；下一步依据实际报告定位慢文件，再决定功能分组或分片。执行者Codex + Tool，2026-10-19；本批提交见Git记录。
+- 远程后续证据：用户随后授权推送并以test_scope=all触发006569b28，https://github.com/xldgo/OpenLegado/actions/runs/39244916290全部通过；普通4149项、原生190项及两条生成链成功，两组报告工件生成。下载到flutter_legado/build/ci-timings-39244916290/。普通事件跨度619.403s，491个文件；原生534.746s，却装载534个文件，其中491个没有执行用例。确认--tags包含筛选仍存在大量无关文件装载，后续优先研究显式文件选择，而不是先删除业务测试或增加Runner。该远程证据不包含后续独立下载设置页的代码。
 
 ### UI-TEST-QUALITY-20261019：清理无效测试与重复算法（P2，本批已关闭）
 
@@ -22,7 +34,7 @@
 - 边界：未运行全量普通/原生组、设备profile、构建安装或远程CI；本批不声称整套测试均已审计，也不承诺CI耗时下降幅度。CI范围与慢项统计仍为后续优化方向。执行者Codex + UI，2026-10-19；本批提交见Git记录。
 
 
-### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，待复验：Linux CI）
+### UI-NATIVE-TESTS-20261019：宿主FFI测试与CI分层（P2，本批已关闭）
 
 - 授权与基线：用户同意统一加载入口、移除无依据的Windows限制并整理CI；feature/ui-reader-selection / 7d7df8d17，单代理，逐批本地提交，不推送、不提升版本、不构建安装应用。
 - B1已完成（ea77e5ed5）：测试统一显式库路径或当前宿主debug产物，复用NativeRustRuntime.libraryResolver；缺库/空库/加载失败报错，不搜索release旧库。通用业务不再注册跳过占位，原生句柄、载荷与业务断言保留。
@@ -37,6 +49,7 @@
 
 - 远程复验：用户后续授权推送并仅触发Flutter CI。c47b6aba9的首次运行https://github.com/xldgo/OpenLegado/actions/runs/39235401721在changes阶段失败，普通/原生组未运行；根因为无参数workflow_dispatch实际携带inputs:null，脚本仅覆盖对象形式。现统一规范化缺省/null为空输入并选择all，非法输入类型明确失败；Windows与WSL Linux各25项编排回归通过。修复后从新提交重新触发，不重跑旧SHA。
 - 第二次远程结果：023815e4b运行https://github.com/xldgo/OpenLegado/actions/runs/39239681581的Linux原生组190项通过；普通组4184项通过、1项失败，静态分析、架构与两条生成检查通过。唯一失败为read_aloud_audio_player_test使用Windows盘符路径并断言file URI，在Linux中该路径不属于绝对路径。现测试改用宿主临时目录的绝对路径，额外断言URI往返保留完整中文路径；播放器生产实现不变。Windows播放器文件36项、目标静态分析与格式检查通过，待新提交Linux CI复验。执行者Codex + UI，2026-10-19。
+- 关闭证据：后续006569b28的完整Flutter CI https://github.com/xldgo/OpenLegado/actions/runs/39244916290全部通过，Linux真实190项成功，普通4149项成功（另批清理净减36项），生成和分析成功；不再保留Linux待复验状态。未据此宣称macOS或移动设备实测。
 
 ### UI-TEST-BOUNDARIES-20261019：阅读器测试依赖清理（P2，本批已关闭）
 

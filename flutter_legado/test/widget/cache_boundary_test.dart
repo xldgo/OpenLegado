@@ -9,12 +9,13 @@ import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/providers/cache_provider.dart';
 import 'package:flutter_legado/src/features/cache/presentation/cache_settings_screen.dart';
-import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../fixtures/home_settings_storage.dart';
 import '../mocks/mocks.dart';
@@ -134,7 +135,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  Future<void> openOther(WidgetTester tester) async {
+  Future<void> openDownloads(WidgetTester tester) async {
     final settings = AppSettingsService(
       storages: {SettingsStorageKind.preferences: HomeSettingsStorage()},
     );
@@ -157,14 +158,62 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: OtherSettingsScreen()),
+        child: const MaterialApp(home: DownloadCacheSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  testWidgets('其他设置取消缓存清理与压缩不调用后端', (tester) async {
-    await openOther(tester);
+  testWidgets('下载设置按上游分组展示旧偏好，未接线项不产生写入', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'bitmapCacheSize': 128,
+      'imageRetainNum': 9,
+      'preDownloadNum': 30,
+      'userAgent': '原有代理',
+    });
+    await openDownloads(tester);
+    final groups = tester.widgetList<SettingsGroup>(find.byType(SettingsGroup));
+    expect(groups.map((group) => group.title), ['下载设置', '图片缓存', '网络设置', '其他']);
+    final disabled = tester
+        .widgetList<SettingTile>(find.byType(SettingTile))
+        .where((tile) => !tile.enabled)
+        .toList();
+    expect(disabled, hasLength(4));
+    expect(find.text('当前最大缓存 128 MB\n待实现'), findsOneWidget);
+    expect(find.text('保留已读章节数量 9\n待实现'), findsOneWidget);
+    expect(find.text('预先下载 30 章正文\n待实现'), findsOneWidget);
+    expect(find.text('原有代理\n待实现'), findsOneWidget);
+    expect(
+      (await SharedPreferences.getInstance()).getInt('bitmapCacheSize'),
+      128,
+    );
+    verifyNever(() => repository.clearCache());
+    verifyNever(() => maintenance.shrinkDatabase());
+  });
+
+  testWidgets('下载设置清理期间禁用维护操作，离页后不发布迟到提示', (tester) async {
+    final gate = Completer<void>();
+    when(() => repository.clearCache()).thenAnswer((_) => gate.future);
+    await openDownloads(tester);
+    await tester.tap(find.text('清理缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '清理'));
+    await tester.pumpAndSettle();
+    final shrink = tester.widget<SettingTile>(
+      find.ancestor(of: find.text('压缩数据库'), matching: find.byType(SettingTile)),
+    );
+    expect(shrink.enabled, isFalse);
+    expect(shrink.onTap, isNull);
+    verify(() => repository.clearCache()).called(1);
+    verifyNever(() => maintenance.shrinkDatabase());
+    await tester.pumpWidget(const SizedBox());
+    gate.complete();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('下载设置取消缓存清理与压缩不调用后端', (tester) async {
+    await openDownloads(tester);
     for (final title in ['清理缓存', '压缩数据库']) {
       await tester.tap(find.text(title));
       await tester.pumpAndSettle();
@@ -177,11 +226,11 @@ void main() {
   });
 
   for (final fail in [false, true]) {
-    testWidgets('其他设置通过窄仓储清理，失败=$fail', (tester) async {
+    testWidgets('下载设置通过窄仓储清理，失败=$fail', (tester) async {
       when(() => repository.clearCache()).thenAnswer((_) async {
         if (fail) throw StateError('拒绝清理');
       });
-      await openOther(tester);
+      await openDownloads(tester);
       await tester.tap(find.text('清理缓存'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '清理'));
@@ -195,12 +244,12 @@ void main() {
   }
 
   for (final result in [0, 10485760, null]) {
-    testWidgets('其他设置压缩结果$result不误报成功', (tester) async {
+    testWidgets('下载设置压缩结果$result不误报成功', (tester) async {
       when(() => maintenance.shrinkDatabase()).thenAnswer((_) async {
         if (result == null) throw StateError('压缩失败');
         return result;
       });
-      await openOther(tester);
+      await openDownloads(tester);
       await tester.tap(find.text('压缩数据库'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '确定'));
@@ -208,7 +257,7 @@ void main() {
       verify(() => maintenance.shrinkDatabase()).called(1);
       final expected = switch (result) {
         0 => '无需压缩或压缩失败',
-        null => '压缩失败:',
+        null => '压缩失败：',
         _ => '压缩完成，释放 10.0 MB',
       };
       expect(find.textContaining(expected), findsOneWidget);

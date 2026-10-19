@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
+import 'package:flutter_legado/src/widgets/app_settings_sheet.dart';
 import 'package:flutter_legado/src/providers/config_provider.dart';
 import 'package:flutter_legado/src/providers/config_settings_provider.dart';
 import 'package:flutter_legado/src/providers/app_settings_provider.dart';
@@ -40,7 +41,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: OtherSettingsScreen()),
+        child: const MaterialApp(home: DownloadCacheSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -61,7 +62,7 @@ void main() {
     await tester.enterText(find.byType(TextField), '257');
     await tester.tap(find.byType(FilledButton));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(AppSettingsSheet), findsOneWidget);
     expect(stored, '3');
     await tester.enterText(find.byType(TextField), '7');
     await tester.tap(find.byType(FilledButton));
@@ -113,7 +114,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: OtherSettingsScreen()),
+        child: const MaterialApp(home: DownloadCacheSettingsScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -127,7 +128,7 @@ void main() {
     expect(find.text('读取失败'), findsOneWidget);
     await tester.tap(label);
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(AppSettingsSheet), findsNothing);
     expect(find.text('并发设置读取失败，请重试'), findsOneWidget);
     fail = false;
     await tester.tap(label);

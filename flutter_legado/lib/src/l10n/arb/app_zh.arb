@@ -1,4 +1,8 @@
 {
+  "downloadAndCache": "下载与缓存",
+  "downloadAndCacheSummary": "下载并发、预下载、图片缓存与清理",
+  "downloadSettings": "下载设置",
+  "imageCache": "图片缓存",
   "@@locale": "zh",
   "themeLiquidBottomBar": "悬浮底栏液态玻璃",
   "themeLiquidBottomBarSummary": "折射背景与滑动选中效果",

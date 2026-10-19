@@ -98,6 +98,30 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @downloadAndCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载与缓存'**
+  String get downloadAndCache;
+
+  /// No description provided for @downloadAndCacheSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载并发、预下载、图片缓存与清理'**
+  String get downloadAndCacheSummary;
+
+  /// No description provided for @downloadSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载设置'**
+  String get downloadSettings;
+
+  /// No description provided for @imageCache.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片缓存'**
+  String get imageCache;
+
   /// No description provided for @themeLiquidBottomBar.
   ///
   /// In zh, this message translates to:

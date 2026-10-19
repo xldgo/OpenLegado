@@ -1,5 +1,25 @@
 # Legado Flutter 设计规范文档（Material Design 3）
 
+## 下载与缓存设置（2026-10-19）
+
+主设置“其他”分组新增“下载与缓存”，命名路由/download_cache_settings。
+参照HapeLee main/c4182eb9的DownloadCacheConfigScreen，页面按下载设置、
+图片缓存、网络、其他操作分组，复用SettingsBody/SettingsGroup/SettingTile。
+原高级页移除对应项，既有离线缓存列表和缓存统计页面保持各自职责。
+
+已接线并发配置使用1～256整数滑块及输入框，复用AppSettingsSheet，
+取消不写入、非法值保留编辑、失败显示提示并由仓储回退。
+清理和压缩继续确认，执行时互斥禁用，离页后不发布迟到提示；
+不将无释放量的压缩返回值报告为成功。清理章节后同步清除章级重复标题镜像标记。
+
+未接线的预下载、图片缓存容量/保留和User-Agent继续只读展示旧值并标明待实现，
+不新增无消费者的设置写入。上游封面/漫画HTTP缓存分区、下载专用并发、
+向前预下载及Cronet在本批范围之外；本页不宣称已交付全部上游后端能力。
+
+来源：[上游页面](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/ui/config/downloadCacheConfig/DownloadCacheConfigScreen.kt)。
+
+编写者：Codex + UI｜2026-10-19
+
 ## 开书导航（2026-10-19）
 
 对齐参考版main / 15e1337a：书架单击不区分是否未读，按书籍类型直接进入阅读器或

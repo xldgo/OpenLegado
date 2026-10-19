@@ -1,27 +1,13 @@
-import '../../../domain/models/request_settings.dart';
 import '../../../utils/error_message.dart';
-import '../../../providers/config_settings_provider.dart';
 import '../../../providers/domain_config_provider.dart';
+import '../../../providers/config_settings_provider.dart'
+    show serviceSettingsRepositoryProvider;
 import '../../../providers/local_server_provider.dart';
 import '../../../providers/network_provider.dart';
 
-// [UI-fix v2.0.5 | 2026-08-08] 其他设置页对齐原版 pref_config_other.xml +
-// OtherConfigFragment（33 项）：语言 + 主界面分组（自动刷新/仅更新已读/
-// 默认进入阅读/显示发现/显示订阅/默认首页）+ 其他分组（本地密码/UserAgent/
-// Web 服务唤醒锁/默认书籍保存位置/源编辑最大行数/抗锯齿/图片缓存/图片保留/
-// 预下载/替换净化默认/媒体按钮 ×3/自动清除过期/加书架提示/变种更新/漫画界面/
-// Web 端口/缓存管理/线程数/文本菜单/记录日志 ×3）。
-// 显示发现/显示订阅/默认首页经 MainPrefsNotifier 接通首页底栏；
-// Web 端口经 LocalServerService.setServerPort 接通；尚未接线的开关只读展示并标记待实现；
-// Android 专属项持久化并以灰字"仅 Android 生效"标注；
-// customHosts/mcpPort 已于 Task #74 接线（契约 §2.20.3/§2.22.5，
-// 回读经 ConfigRepository 读 Rust 持久化 config:customHosts/config:mcpPort）；
-// videoSetting / jsSourceApiToken / clearWebViewData：2026-08-12 已接线；
-// uploadRule（直链上传规则）/ Cronet：缺引擎支撑，诚实不展示空壳；
-// [Task #40 | 2026-08-09] checkSource 配置入口已接线（§5.13-2，
-// 「校验书源配置」对话框经 CheckSourceNotifier 持久化并入 configJson）；
-// [Task #52 | 2026-08-10] 压缩数据库已接线（§5.13-9，经 DatabaseMaintenanceService.shrinkDatabase
-// 接通 cacheShrinkDatabase FFI，契约 §2.16.6） — Qoder
+// 其他设置保留通用偏好、平台服务和书源辅助配置。
+// 下载并发、图片缓存、User-Agent与维护操作已迁到独立下载与缓存页。
+// 未接线项只读展示，已接线项沿用现有窄接口。— Codex + UI
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -42,7 +28,6 @@ import '../../../providers/general_settings_provider.dart';
 import '../../home/application/main_prefs_notifier.dart';
 import '../../../providers/providers.dart';
 import '../../book_sources/application/source_check/check_source_notifier.dart';
-import '../../../providers/cache_provider.dart';
 import '../../../services/crash_log_service.dart';
 import '../../../services/settings_service.dart';
 import '../../../widgets/settings_widgets.dart';
@@ -50,7 +35,7 @@ import '../../../widgets/video_settings_dialog.dart';
 
 /// 其他设置页面（对齐原版 OtherConfigFragment）
 ///
-/// 分组与排序严格对齐原版 pref_config_other.xml：语言 → 主界面 → 其他。
+/// 保留语言、主界面和其他偏好；下载与缓存配置已迁到独立页面。
 /// 已移除原版不存在的「默认阅读设置 / 网络设置」创意分组。
 /// Cronet / 直链上传规则：F4-5 按 RESIDUAL「不做」销记，不展示空壳控件。
 class OtherSettingsScreen extends ConsumerStatefulWidget {
@@ -73,15 +58,11 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
 
   // ===== 其他分组 =====
   String _localPassword = '';
-  String _userAgent = '';
   bool _webServiceWakeLock = false;
   String get _defaultBookTreeUri =>
       ref.read(generalSettingsRepositoryProvider).current.defaultBookTreeUri;
   int _sourceEditMaxLine = 99;
   bool _antiAlias = false;
-  int _bitmapCacheSize = 50;
-  int _imageRetainNum = 100;
-  int _preDownloadNum = 10;
   bool _replaceEnableDefault = true;
   bool _mediaButtonOnExit = true;
   bool _readAloudByMediaButton = false;
@@ -94,8 +75,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   String _jsSourceApiToken = '';
   int get _webPort =>
       ref.read(generalSettingsRepositoryProvider).current.webPort;
-  int get _threadCount =>
-      ref.read(requestSettingsRepositoryProvider).current.threadCount;
   bool _processText = true;
   bool _recordLog = false;
   bool _recordHttpLog = false;
@@ -140,7 +119,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       defaultValue: false,
     );
     _localPassword = await s.getStringPref(PrefKeys.localPassword);
-    _userAgent = await s.getStringPref(PrefKeys.userAgent);
     _webServiceWakeLock = await s.getBoolPref(
       PrefKeys.webServiceWakeLock,
       defaultValue: false,
@@ -150,18 +128,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       defaultValue: 99,
     );
     _antiAlias = await s.getBoolPref(PrefKeys.antiAlias, defaultValue: false);
-    _bitmapCacheSize = await s.getIntPref(
-      PrefKeys.bitmapCacheSize,
-      defaultValue: 50,
-    );
-    _imageRetainNum = await s.getIntPref(
-      PrefKeys.imageRetainNum,
-      defaultValue: 100,
-    );
-    _preDownloadNum = await s.getIntPref(
-      PrefKeys.preDownloadNum,
-      defaultValue: 10,
-    );
     _replaceEnableDefault = await s.getBoolPref(
       PrefKeys.replaceEnableDefault,
       defaultValue: true,
@@ -232,7 +198,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     ref.watch(welcomeSettingsProvider);
     ref.watch(generalSettingsProvider);
     final mainPrefs = ref.watch(mainPrefsProvider);
-    final requestSettings = ref.watch(requestSettingsProvider);
     final mainPrefsNotifier = ref.read(mainPrefsProvider.notifier);
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
@@ -323,16 +288,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   enabled: false,
                 ),
                 SettingTile(
-                  title: context.l10n.advancedUserAgent,
-                  subtitle: _pendingDescription(
-                    _userAgent.isEmpty
-                        ? context.l10n.readerDefault
-                        : _userAgent,
-                  ),
-                  onTap: null,
-                  enabled: false,
-                ),
-                SettingTile(
                   title: '自定义Hosts',
                   subtitle: _customHostsSummary.isEmpty
                       ? '域名到IP的映射'
@@ -371,24 +326,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   ),
                   value: _antiAlias,
                   onChanged: null,
-                ),
-                SettingTile(
-                  title: context.l10n.advancedBitmapCache,
-                  subtitle: _pendingDescription('当前最大缓存 $_bitmapCacheSize MB'),
-                  onTap: null,
-                  enabled: false,
-                ),
-                SettingTile(
-                  title: context.l10n.advancedMangaRetention,
-                  subtitle: _pendingDescription('保留已读章节数量 $_imageRetainNum'),
-                  onTap: null,
-                  enabled: false,
-                ),
-                SettingTile(
-                  title: context.l10n.advancedPreDownload,
-                  subtitle: _pendingDescription('预先下载 $_preDownloadNum 章正文'),
-                  onTap: null,
-                  enabled: false,
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedReplaceByDefault,
@@ -475,27 +412,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                   onTap: _editJsSourceApiToken,
                 ),
                 SettingTile(
-                  title: context.l10n.advancedClearCache,
-                  subtitle: context.l10n.advancedClearCacheDescription,
-                  onTap: _cleanCache,
-                ),
-                SettingTile(
                   title: context.l10n.advancedClearWebView,
                   subtitle: context.l10n.advancedClearWebViewDescription,
                   onTap: _clearWebViewData,
-                ),
-                SettingTile(
-                  title: context.l10n.advancedShrinkDatabase,
-                  subtitle: context.l10n.advancedShrinkDatabaseDescription,
-                  onTap: _shrinkDatabase,
-                ),
-                SettingTile(
-                  title: '更新和搜索线程数（太多会卡顿）',
-                  value: requestSettings.hasError ? '读取失败' : '$_threadCount',
-                  onTap: _showThreadCountDialog,
-                  subtitle: requestSettings.hasError
-                      ? '点按重试'
-                      : '新任务生效，范围 1～256',
                 ),
                 SettingSwitchRow(
                   title: context.l10n.advancedSearchTextActions,
@@ -650,36 +569,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     }
   }
 
-  /// 网络任务并发设置经共享配置服务保存，读取失败允许重试。
-  Future<void> _showThreadCountDialog() async {
-    final repository = ref.read(requestSettingsRepositoryProvider);
-    try {
-      await repository.reload();
-      if (!mounted) return;
-      ref.invalidate(requestSettingsProvider);
-    } catch (error) {
-      if (mounted) _toast('并发设置读取失败，请重试');
-      return;
-    }
-    if (!mounted) return;
-    final value = await _showNumberInputDialog(
-      title: '更新和搜索线程数',
-      current: repository.current.threadCount,
-      min: RequestSettings.minThreadCount,
-      max: RequestSettings.maxThreadCount,
-    );
-    if (value == null || !mounted || value == repository.current.threadCount) {
-      return;
-    }
-    try {
-      await repository.update(
-        (settings) => settings.copyWith(threadCount: value),
-      );
-    } catch (error) {
-      if (mounted) _toast('并发设置保存失败，请重试');
-    }
-  }
-
   /// Web 服务端口设置（对齐原版 webPort 1024~60000；
   /// 经 LocalServerService.setServerPort 写入引擎配置，重启 Web 服务后生效）
   Future<void> _showWebPortDialog() async {
@@ -827,34 +716,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     }
   }
 
-  /// 清理缓存（对齐原版 cleanCache）
-  Future<void> _cleanCache() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('清理缓存'),
-        content: const Text('清除已下载书籍和字体缓存？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('清理'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await ref.read(cacheRepositoryProvider).clearCache();
-      if (mounted) _toast('成功清理缓存');
-    } catch (e) {
-      if (mounted) _toast('清理失败：$e');
-    }
-  }
-
   Future<void> _clearWebViewData() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -880,56 +741,6 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
     } catch (e) {
       _toast('清除失败：$e');
     }
-  }
-
-  /// 压缩数据库（对齐原版 OtherConfigFragment.shrinkDatabase：
-  /// 确认对话框 → VACUUM → Toast 提示）
-  /// [Task #52 | 2026-08-10] §5.13-9，契约 §2.16.6 — Qoder
-  Future<void> _shrinkDatabase() async {
-    // 原版确认对话框（alert(sure, shrink_database)）
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认'),
-        content: const Text('压缩数据库？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(context.l10n.confirm),
-          ),
-        ],
-      ),
-    );
-    // 异步对话框返回后先检查 mounted，再执行压缩
-    if (confirmed != true || !mounted) return;
-    _toast('正在压缩数据库…');
-    try {
-      final freed = await ref
-          .read(databaseMaintenanceServiceProvider)
-          .shrinkDatabase();
-      if (!mounted) return;
-      if (freed <= 0) {
-        // 契约约定：失败/未初始化降级返回 0
-        _toast('无需压缩或压缩失败');
-      } else {
-        _toast('压缩完成，释放 ${_formatBytes(freed)}');
-      }
-    } catch (e) {
-      debugPrint('OtherSettingsScreen 压缩数据库异常: $e');
-      if (mounted) _toast('压缩失败: $e');
-    }
-  }
-
-  /// 字节数格式化（KB/MB 展示，对齐任务要求的释放空间提示格式）
-  String _formatBytes(int bytes) {
-    if (bytes >= 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / 1024).toStringAsFixed(1)} KB';
   }
 
   /// 校验书源配置摘要（对齐原版 CheckSource.summary：超时 + 已启用校验项）

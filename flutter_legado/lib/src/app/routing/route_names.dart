@@ -10,6 +10,7 @@ abstract final class AppRoutes {
   static const settings = '/settings';
   static const privacy = '/privacy';
   static const otherSettings = '/other_settings';
+  static const downloadCacheSettings = '/download_cache_settings';
   // [UI_SYNC_REFACTOR S6 | 2026-09-08] 设置主页（集中化分组入口）— Qoder
   static const cacheSettings = '/cache_settings';
   static const cacheDownloads = '/cache_downloads';

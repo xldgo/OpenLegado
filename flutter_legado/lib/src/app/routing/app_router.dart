@@ -22,6 +22,7 @@ import '../../features/bookshelf/bookshelf.dart';
 import '../../features/book_detail/presentation/book_info_screen.dart';
 import '../../features/cache/presentation/cache_download_screen.dart';
 import '../../features/cache/presentation/cache_settings_screen.dart';
+import '../../features/cache/presentation/download_cache_settings_screen.dart';
 import '../../features/cache/presentation/offline_cache_screen.dart';
 import '../../features/book_detail/presentation/edit_book_info_screen.dart';
 import '../../features/bookmarks/bookmarks.dart';
@@ -119,6 +120,7 @@ class AppRouter {
     AppRoutes.settings: (_) => const SettingsScreen(),
     AppRoutes.otherSettings: (_) => const OtherSettingsScreen(),
     AppRoutes.cacheSettings: (_) => const CacheSettingsScreen(),
+    AppRoutes.downloadCacheSettings: (_) => const DownloadCacheSettingsScreen(),
     AppRoutes.cacheDownloads: (_) => const CacheDownloadScreen(),
     AppRoutes.offlineCache: (_) => const OfflineCacheScreen(),
     AppRoutes.rss: (_) => const RssScreen(),
