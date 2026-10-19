@@ -221,6 +221,33 @@ class VerificationRequestDto {
           createdAtMs == other.createdAtMs;
 }
 
+class WebViewPageCallDto {
+  final WebViewPageTargetDto target;
+  final String method;
+  final List<String?> args;
+
+  const WebViewPageCallDto({
+    required this.target,
+    required this.method,
+    required this.args,
+  });
+
+  @override
+  int get hashCode => target.hashCode ^ method.hashCode ^ args.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebViewPageCallDto &&
+          runtimeType == other.runtimeType &&
+          target == other.target &&
+          method == other.method &&
+          args == other.args;
+}
+
+/// 动态页内方法仍按目标与参数形状分派，不执行任意传入的Rust方法名。
+enum WebViewPageTargetDto { source, cache, java }
+
 class WebViewRequestDto {
   final String key;
   final String action;

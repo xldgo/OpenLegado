@@ -10,6 +10,22 @@ import '../bridge/managed_rust_stream.dart';
 class RustWebViewBridgeService implements WebViewBridgeService {
   const RustWebViewBridgeService();
   @override
+  Future<String> pageCall(String key, WebViewPageCall call) => rustFuture(
+    () => bridge.webviewPageCall(
+      key: key,
+      call: dto.WebViewPageCallDto(
+        target: switch (call.target) {
+          WebViewPageTarget.source => dto.WebViewPageTargetDto.source,
+          WebViewPageTarget.cache => dto.WebViewPageTargetDto.cache,
+          WebViewPageTarget.java => dto.WebViewPageTargetDto.java,
+        },
+        method: call.method,
+        args: call.args,
+      ),
+    ),
+    operation: 'webviewPageCall',
+  );
+  @override
   Future<bool> completeWebviewRequest(
     String key,
     WebViewExecutionResult response,

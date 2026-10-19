@@ -310,6 +310,12 @@ Future<bool> webviewComplete({
   response: response,
 );
 
+/// 页内调用按有效请求确定来源和数据所有者，返回单个JSON值。
+Future<String> webviewPageCall({
+  required String key,
+  required WebViewPageCallDto call,
+}) => RustLib.instance.api.crateFfiFfiWebviewPageCall(key: key, call: call);
+
 /// 提交 WebView 执行结果，唤醒 Rust 等待方
 Future<bool> webviewSubmit({required String key, required String result}) =>
     RustLib.instance.api.crateFfiFfiWebviewSubmit(key: key, result: result);

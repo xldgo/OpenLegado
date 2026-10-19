@@ -45,6 +45,7 @@ mod tasks;
 mod test_http_fixture;
 pub mod tts_service;
 pub mod webdav_service;
+pub mod webview_page_service;
 
 pub use cache_downloads::{CacheDownloadTask, CacheDownloads, ChapterDownload};
 pub use media::{AudioTransfer, MediaState};

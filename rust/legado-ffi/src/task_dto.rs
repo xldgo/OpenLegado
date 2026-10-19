@@ -200,3 +200,17 @@ pub struct WebViewResponseDto {
     pub error: Option<String>,
     pub cookies: std::collections::HashMap<String, String>,
 }
+
+/// 动态页内方法仍按目标与参数形状分派，不执行任意传入的Rust方法名。
+#[derive(Debug, Clone, Copy)]
+pub enum WebViewPageTargetDto {
+    Source,
+    Cache,
+    Java,
+}
+#[derive(Debug, Clone)]
+pub struct WebViewPageCallDto {
+    pub target: WebViewPageTargetDto,
+    pub method: String,
+    pub args: Vec<Option<String>>,
+}

@@ -34,6 +34,7 @@ pub(crate) fn evaluate_tts_response_with_headers(
         ));
     }
     Ok(LegadoRawResponse {
+        raw_summary: response.raw_summary,
         status: serde_json::from_value(value["status"].clone())?,
         headers: serde_json::from_value(value["headers"].clone())?,
         body: serde_json::from_value(value["body"].clone())?,

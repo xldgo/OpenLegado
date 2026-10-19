@@ -4,7 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.JsPromptResult
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.CookieManager
@@ -25,8 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * 支持方法：
  * - loadUrl / evaluateJs / close：既有验证码通道（纯字符串语义不变）
  * - backstageEval：对齐 Kotlin BackstageWebView（cacheFirst→LOAD_CACHE_ELSE_NETWORK；
- *   isRule 或 sourceKey 非空时注入 java/source/cache JavascriptInterface +
- *   getInjectionString；B1 加法式返回 cookie 回流信封，见 [buildEnvelope]；
+ *   规则HTML通过同步prompt门面访问Rust的java/source/cache；B1 加法式返回 cookie 回流信封，见 [buildEnvelope]；
  *   B2 webView 主路径 eval 结果空/命中挑战签名时按阶梯重试，见
  *   [RETRY_LADDER_MS] / [CHALLENGE_SIGNATURES]）
  *
@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class WebViewBridge {
 
+    private val pagePrompts = mutableSetOf<JsPromptResult>()
     private var requestKey: String? = null
     private var pendingResult: SafeResult? = null
     private var webView: WebView? = null
@@ -55,12 +56,7 @@ class WebViewBridge {
         /** B2 挑战签名（可配置常量）：WAF 挑战页标志，命中即按阶梯重试 */
         private val CHALLENGE_SIGNATURES = listOf("acw_sc__v2", "setCookie", "正在验证")
 
-        /** 对齐 WebJsExtensions 随机接口名，避免与页面全局冲突 */
-        private fun randomIfaceName(): String {
-            val u = UUID.randomUUID().toString().replace("-", "")
-            val letter = ('a' + (u[0].code % 26))
-            return letter + u.substring(1, 12)
-        }
+
     }
 
     /** 包装 MethodChannel.Result，防止重复回复 */
@@ -88,7 +84,7 @@ class WebViewBridge {
         }
     }
 
-    fun handleMethodCall(call: MethodCall, result: MethodChannel.Result, context: Context) {
+    fun handleMethodCall(call: MethodCall, result: MethodChannel.Result, context: Context, channel: MethodChannel) {
         val safeResult = SafeResult(result)
         when (call.method) {
             "loadUrl" -> {
@@ -114,7 +110,7 @@ class WebViewBridge {
                 if (backstageRequests.putIfAbsent(key, instance) != null) {
                     return safeResult.error("DUPLICATE_REQUEST", "重复WebView请求", null)
                 }
-                instance.backstageEval(call, safeResult, context)
+                instance.backstageEval(call, safeResult, context, channel)
             }
             "cancelBackstage" -> {
                 val key = call.argument<String>("key").orEmpty()
@@ -142,7 +138,7 @@ class WebViewBridge {
      * 旧版 Kotlin 返回的纯串 Dart 侧按「非信封」兜底解析）。
      */
     @SuppressLint("SetJavaScriptEnabled")
-    private fun backstageEval(call: MethodCall, result: SafeResult, context: Context) {
+    private fun backstageEval(call: MethodCall, result: SafeResult, context: Context, channel: MethodChannel) {
         val action = call.argument<String>("action") ?: "webView"
         val url = call.argument<String>("url").orEmpty()
         val html = call.argument<String>("html").orEmpty()
@@ -177,17 +173,8 @@ class WebViewBridge {
                 // B2：eval 重试阶梯的总预算锚点（与全局超时同一起算口径，
                 // 保证等待 + 重试总耗时不超 TIMEOUT_MS=60s）
                 val opStartMs = System.currentTimeMillis()
-                val nameJava = randomIfaceName()
-                val nameSource = randomIfaceName()
-                val nameCache = randomIfaceName()
-                val cacheIface = WebCacheJsInterface()
-                val sourceIface = SourceJsInterface(sourceKey)
-                val javaIface = JavaJsInterface(sourceIface, cacheIface)
-
-                if (resultJson.isNotEmpty()) {
-                    cacheIface.putMemory("webview_result", resultJson)
-                }
-
+                val pageScript = call.argument<String>("pageScript").orEmpty()
+                val pageToken = call.argument<String>("pageToken").orEmpty()
                 val capturedOverride = AtomicBoolean(false)
                 var overrideHit: String? = null
                 // B1：当前页 cookie 快照（onPageFinished 捕获 + 最终 eval
@@ -206,12 +193,27 @@ class WebViewBridge {
                         if (cacheFirst) WebSettings.LOAD_CACHE_ELSE_NETWORK
                         else WebSettings.LOAD_DEFAULT
 
-                    // 对齐 BackstageWebView：ruleLike（isRule 或 sourceKey 非空）
-                    // + html 时注入 java/source/cache（B1 同等口径）
-                    if (ruleLike && html.isNotEmpty()) {
-                        addJavascriptInterface(cacheIface, nameCache)
-                        addJavascriptInterface(sourceIface, nameSource)
-                        addJavascriptInterface(javaIface, nameJava)
+                    // prompt在JS侧同步返回；主线程只异步转发到所属Rust请求，不阻塞等待。
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onJsPrompt(view: WebView?, pageUrl: String?, message: String?, defaultValue: String?, prompt: JsPromptResult): Boolean {
+                            if (destroyed || result.isCompleted || pageToken.isEmpty() || message != pageToken || !ruleLike || html.isEmpty()) {
+                                prompt.cancel()
+                                return true
+                            }
+                            pagePrompts.add(prompt)
+                            channel.invokeMethod("pageCall", mapOf("key" to requestKey, "payload" to defaultValue), object : MethodChannel.Result {
+                                override fun success(value: Any?) {
+                                    if (pagePrompts.remove(prompt)) prompt.confirm(value as? String ?: pageError("页内宿主返回了无效结果"))
+                                }
+                                override fun error(code: String, message: String?, details: Any?) {
+                                    if (pagePrompts.remove(prompt)) prompt.confirm(pageError(message ?: "页内调用失败"))
+                                }
+                                override fun notImplemented() {
+                                    if (pagePrompts.remove(prompt)) prompt.confirm(pageError("页内宿主未注册"))
+                                }
+                            })
+                            return true
+                        }
                     }
 
                     webViewClient = object : WebViewClient() {
@@ -260,9 +262,13 @@ class WebViewBridge {
                             // 对齐：window.result = cache.getFromMemory('webview_result')
                             if (ruleLike && resultJson.isNotEmpty()) {
                                 view?.evaluateJavascript(
-                                    "window.result = $nameCache.getFromMemory('webview_result');",
+                                    "window.result = $resultJson;",
                                     null
                                 )
+                            }
+
+                            if (ruleLike && html.isNotEmpty() && pageScript.isNotEmpty()) {
+                                view?.evaluateJavascript(pageScript, null)
                             }
 
                             when (action) {
@@ -344,7 +350,7 @@ class WebViewBridge {
                                                     else "document.documentElement.outerHTML"
                                                 val injection =
                                                     if (ruleLike && html.isNotEmpty()) {
-                                                        "try{var cache=$nameCache,source=$nameSource,java=$nameJava;}catch(e){}\n"
+                                                        pageScript + "\n"
                                                     } else ""
                                                 view?.let { wv ->
                                                     evalWithRetry(wv, injection + userJs, 0)
@@ -619,6 +625,8 @@ class WebViewBridge {
         requestKey?.let { backstageRequests.remove(it, this) }
         pendingResult?.error("WEBVIEW_CLOSED", "WebView执行已关闭", null)
         pendingResult = null
+        pagePrompts.toList().forEach { it.cancel() }
+        pagePrompts.clear()
         handler.removeCallbacksAndMessages(null)
         val wv = webView
         webView = null
@@ -662,131 +670,5 @@ class WebViewBridge {
         }
     }
 
-    // ─── JavascriptInterface：对齐 WebCacheManager / BaseSource / 精简 java ───
-
-    class WebCacheJsInterface {
-        private val memory = ConcurrentHashMap<String, String>()
-
-        @JavascriptInterface
-        fun put(key: String, value: String) {
-            memory[key] = value
-        }
-
-        @JavascriptInterface
-        fun putMemory(key: String, value: String) {
-            memory[key] = value
-        }
-
-        @JavascriptInterface
-        fun getFromMemory(key: String): String? = memory[key]
-
-        @JavascriptInterface
-        fun deleteMemory(key: String) {
-            memory.remove(key)
-        }
-
-        @JavascriptInterface
-        fun get(key: String): String? = memory[key]
-
-        @JavascriptInterface
-        fun delete(key: String) {
-            memory.remove(key)
-        }
-    }
-
-    class SourceJsInterface(private val sourceKey: String) {
-        private val vars = ConcurrentHashMap<String, String>()
-        private var variable: String = ""
-        private var loginHeader: String = ""
-        private var loginInfo: String = ""
-
-        @JavascriptInterface
-        fun getKey(): String = sourceKey
-
-        @JavascriptInterface
-        fun get(key: String): String = vars[key] ?: ""
-
-        @JavascriptInterface
-        fun put(key: String, value: String): String {
-            vars[key] = value
-            return value
-        }
-
-        @JavascriptInterface
-        fun getVariable(): String = variable
-
-        @JavascriptInterface
-        fun putVariable(value: String?) {
-            variable = value ?: ""
-        }
-
-        @JavascriptInterface
-        fun getLoginHeader(): String? = loginHeader.ifEmpty { null }
-
-        @JavascriptInterface
-        fun getLoginInfo(): String? = loginInfo.ifEmpty { null }
-
-        @JavascriptInterface
-        fun putLoginInfo(info: String): Boolean {
-            loginInfo = info
-            return true
-        }
-
-        @JavascriptInterface
-        fun removeLoginInfo() {
-            loginInfo = ""
-        }
-
-        @JavascriptInterface
-        fun login() {
-            // 页内登录钩子：完整登录链在无头 QuickJS；此处为可调用空实现
-        }
-    }
-
-    /**
-     * 精简 `java` 桥：页内常用同步 API + 变量读写。
-     * 网络类 API（ajax 等）返回空串，复杂逻辑仍走无头宿主。
-     */
-    class JavaJsInterface(
-        private val source: SourceJsInterface,
-        private val cache: WebCacheJsInterface
-    ) {
-        @JavascriptInterface
-        fun get(key: String): String = source.get(key)
-
-        @JavascriptInterface
-        fun put(key: String, value: String): String = source.put(key, value)
-
-        @JavascriptInterface
-        fun getString(rule: String?): String = ""
-
-        @JavascriptInterface
-        fun ajax(url: String?): String = ""
-
-        @JavascriptInterface
-        fun getSource(): SourceJsInterface = source
-
-        @JavascriptInterface
-        fun toast(msg: String?) {
-            // no-op：后台 WebView 无 UI
-        }
-
-        @JavascriptInterface
-        fun log(msg: String?) {
-            android.util.Log.d("LegadoWebJs", msg ?: "")
-        }
-
-        @JavascriptInterface
-        fun getWebView(): String = ""
-
-        /** 对齐 WebJsExtensions.request：异步结果写入 cache，由页内 Promise 轮询 */
-        @JavascriptInterface
-        fun request(funName: String, jsParam: Array<String?>, id: String) {
-            cache.putMemory(id, "")
-            android.util.Log.d(
-                "LegadoWebJs",
-                "java.request($funName) 页内异步未全量实现，返回空（id=$id）"
-            )
-        }
-    }
+    private fun pageError(message: String): String = JSONObject().put("error", message).toString()
 }

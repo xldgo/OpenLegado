@@ -1,5 +1,29 @@
 # API 契约文档
 
+## 后台WebView页内宿主能力（2026-10-19，实施前冻结）
+
+新增webview_page_call(key, WebViewPageCallDto{target:source|cache|java,method,args:List<String?>})，
+返回单个JSON值文本；动态页内调用经白名单/参数验证，不开放任意eval。请求key唯一确定来源和
+所属引擎，不接受平台另报来源；仅仍有效且已具备HTML/规则接口的请求可调用。结束/过期/取消/
+其他实例key均失败；串行同请求页内调用，完成回传等待已开始操作结束，取消可唤醒正在等待的网络。
+开始后的同步副作用不承诺回滚；取消后不再开始新的写入或发布成功，不写全局当前来源。
+source.get/put、getVariable/putVariable、登录信息/Header复用Rust现有来源键和登录服务；cache
+复用所属JsHostResources.cache，保留内存/磁盘/TTL区别，不建平台镜像，不在完整结果返回时回填快照。
+java.get/put按上游RssJsExtensions委托source；同步ajax/connect/get/head/post和getString/List
+复用Rust网络/解析器，独立执行视图避免重入正在等待WebView的父VM。source.login复用已配置的
+源登录脚本，不打开登录UI。缓存putFile沿用Rust既有文件语义，不附带改造TTL。
+后台无Activity：java.request异步分派不执行（与参考版后台一致），不补RSS导航/界面回调。
+Android通过原生prompt回调及现有MethodChannel转发，主线程只异步处理；Flutter回退使用
+公开prompt回调保持页内同步返回。两路消费相同Dart参数校验/错误信封与Rust执行，不把失败转空串。
+同步ajax按上游返回错误文本，connect返回上游WebJsExtensions的响应概要字符串；协议取真实响应，
+JS内部响应增加raw_summary供概要读取（不替换正文/字段），没有元数据不伪造真实协议。
+HTTP/1说明取库的标准描述（不保证非标准自定义reason短语），HTTP/2、3无reason；失败使用
+既有合成200概要，不将其当真实HTTP成功。get/head/post及解析失败明确抛出。
+需要配置的调用找不到书源/未提供页内宿主、未知方法和坏参数均显式失败，不伪装成功。真实DOM/平台Cookie/
+原生释放仍需设备验证。本批不改数据库schema、依赖、登录UI或RSS页面。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## URL规则WebView执行（2026-10-19，实施前冻结）
 
 本节取代下方历史批次中“URL规则WebView仍拒绝/未接入”的限制，其余DNS/代理边界不变。

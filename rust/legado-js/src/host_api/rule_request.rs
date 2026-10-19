@@ -310,6 +310,10 @@ pub(super) async fn send(
         return Err(legado_core::LegadoError::Network(response.result));
     }
     Ok(LegadoRawResponse {
+        raw_summary: format!(
+            "Response{{protocol=http/1.1, code=200, message=OK, url={}}}",
+            response.final_url
+        ),
         status: 200,
         headers: Default::default(),
         url: response.final_url,
@@ -326,6 +330,10 @@ async fn send_http(
     let request = &prepared.request;
     if parsed.is_data_uri() {
         return Ok(LegadoRawResponse {
+            raw_summary: format!(
+                "Response{{protocol=http/1.1, code=200, message=OK, url={}}}",
+                request.url
+            ),
             status: 200,
             headers: HashMap::new(),
             url: request.url.clone(),
@@ -361,6 +369,7 @@ async fn send_http(
         |client| async move {
             resources.check_active()?;
             let mut stream = client.send_stream(request).await?;
+            let raw_summary = stream.raw_summary();
             let (status, headers, url) = (
                 stream.status(),
                 stream.headers().clone(),
@@ -371,6 +380,7 @@ async fn send_http(
                 bytes.extend_from_slice(&chunk);
             }
             Ok(LegadoRawResponse {
+                raw_summary,
                 status,
                 headers,
                 url,
@@ -410,6 +420,7 @@ pub(super) fn finish(
         })?;
     }
     Ok(HttpResponse {
+        raw_summary: response.raw_summary,
         status_code: response.status,
         body,
         headers: response.headers,

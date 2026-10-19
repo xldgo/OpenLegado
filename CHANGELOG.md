@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.392] - 2026-10-19
+
+### Fixed
+- 后台WebView页内脚本共享所属书源的变量、登录信息和缓存，避免临时状态丢失。
+- 接通页内同步网络与解析调用，取消或结束后拒绝迟到操作，失败不再伪装为空响应。
+- 贡献者：Codex + Rust；构建号393。
+
 ## [2.0.391] - 2026-10-19
 
 ### Fixed

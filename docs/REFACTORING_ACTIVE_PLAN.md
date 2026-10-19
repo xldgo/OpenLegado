@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### WEBVIEW-PAGE-HOST-20261019：后台页内宿主与状态一致性（P1）
+
+- 状态：待复验；本批实现与本地Rust/Dart/Kotlin验证已完成，真实平台DOM、Cookie与原生释放尚待设备验证。dep-audit / chore/dep-audit / 6915eb1bc起，单代理，本地提交，不推送/合并/安装，不触碰主目录并发改动。
+- 基线：参考版固定15e1337a，静态核对BackstageWebView、WebJsExtensions、RssJsExtensions、BaseSource及WebCacheManager，未运行上游应用。后台同步网络/解析可用；java.request依赖Activity，后台不执行，不把它误列为待实现完整异步桥。
+- 实现：先冻结强类型调用信封；key唯一定位原请求/来源/引擎，同请求串行页内调用，完成回传等待已开始操作，取消及时唤醒网络且拒绝迟到调用。来源变量、登录信息/Header、缓存复用所属Rust能力，无平台快照/延迟回填；独立VM执行视图避免重入正在等待WebView的父VM，不强持根Engine。
+- 平台：Android移除临时source/cache/java副本，以WebChromeClient同步prompt转现有MethodChannel；主线程只异步转发，取消清除未完成prompt。Flutter回退消费同一Dart参数校验/错误信封与门面，使用公开prompt回调，结束时解绑；重复注入复用原门面。不扩展登录/RSS界面，不宣称公开API之外的立即原生析构。
+- 语义：java.get/put委托source；ajax、connect、get/head/post及getString/List复用现有网络和解析器。ajax错误文本、connect响应概要及get/head/post抛错分别保留。协议/最终地址来自真实响应，HTTP/1说明用标准reason而非保留任意自定义短语；失败沿用合成概要，不作真实HTTP成功。source.login只运行配置脚本；文件缓存非零TTL显式不支持，本批未重做既有Rust缓存规则。
+- Rust验证：Core/Engine/Fetcher/FFI/JS/Net/Parser库817/154/156/520/655/262/332项通过，共2896项，44项既有忽略；生命周期6、页内宿主5、上下文4、URL规则7项集成共22项通过。新增覆盖跨请求/来源/引擎状态、内存/磁盘/真实TTL、登录信息、未知方法/坏参数、完成竞争、真实HTTP协议/正文/请求形状、解析、配置登录脚本、父VM等待时执行以及IO取消。默认/QuickJS两档相关七crate全目标Clippy -D warnings通过；修正夹具后5项页内宿主重跑通过。
+- Dart与Android：25项调用映射、参数/错误、监听器及取消作用域行为通过；12个变更文件（含真实FRB用例）定向分析无问题。当前Windows QuickJS DLL编译及来源门禁通过，3项真实FRB测试验证所属来源/缓存、结束key拒绝、共用JS门面的同步/空值/异常/重复安装及既有URL规则往返；使用模拟平台响应而非真实DOM。Android :app:compileDebugKotlin通过，未打APK或安装；仅排除Rust产物门禁，存在基线原生/插件弃用告警。
+- 过程：新增完整响应门面曾增加启动内存，导致既有两个固定400KB沙箱用例初始化OOM；缩减为最小元数据读取后原限额/断言不变，22项沙箱回归通过、1项既有忽略，完整JS库最终通过。首轮Clippy发现新HTTP夹具未消费读取长度，改为读完有界Header后两档检查通过；自查将prompt解绑提前登记，避免安装期间取消遗留请求引用；未增加allow或放宽测试。
+- 证据：build/webview-page-host/{codegen,rust-final,page-fixture-final,clippy-quickjs-final,clippy-default,oom-regression,flutter-confirm,dart-final,kotlin}.log。rust-regressions记录修前OOM失败，clippy-quickjs记录修前夹具告警，最终结果以上述修后日志为准；DLL/FRB证据为native-build/native-wire.log，最终回调清理改动的Dart复验为flutter-close-final/dart-close-final.log。仅单代理实现与自查，无独立外审，不用源码文本断言充当验证。
+- 边界：本批不改schema、依赖、CI或阅读UI。设备DOM、平台Cookie、释放、iOS/Android真实prompt往返尚无证据；本地模拟平台与QuickJS门面验证不能替代这些验收。版本2.0.392+393、双日志及契约随本批提交；回滚后重建native，不改写来源元数据。
+
+编写者：Codex｜2026-10-19
+
 ### WEBVIEW-URL-OPTIONS-20261019：脚本URL规则WebView分派（P1）
 
 - 状态：待复验；本批代码与本地边界验证已完成，真实平台DOM、Cookie与资源释放仍待设备验证。dep-audit / chore/dep-audit / f11481f2e起，单代理，不推送/合并，主目录并发UI任务保持不动。

@@ -95,6 +95,7 @@ struct AttemptState {
     deadline: Instant,
 }
 struct Attempt {
+    page_calls: Mutex<()>,
     request: WebViewRequest,
     active: Option<ActiveCheck>,
     state: Mutex<AttemptState>,
@@ -182,6 +183,7 @@ impl WebViewManager {
                 .unwrap_or(0);
         }
         let attempt = Arc::new(Attempt {
+            page_calls: Mutex::new(()),
             request: req.clone(),
             active,
             state: Mutex::new(AttemptState {
@@ -225,10 +227,18 @@ impl WebViewManager {
         mut response: WebViewResponse,
         commit: impl FnOnce(),
     ) -> bool {
-        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        let Some(attempt) = state.attempts.get(key).cloned() else {
+        let Some(attempt) = self
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .attempts
+            .get(key)
+            .cloned()
+        else {
             return false;
         };
+        let _page_call = attempt.page_calls.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
         let mut status = attempt.state.lock().unwrap_or_else(|e| e.into_inner());
         if !matches!(status.phase, Phase::Pending) {
             return false;
@@ -255,10 +265,37 @@ impl WebViewManager {
         if response.final_url.is_empty() {
             response.final_url = attempt.request.url.clone();
         }
-        let completion = Completion(attempt);
+        let completion = Completion(attempt.clone());
         commit();
         completion.finish(Outcome::Done(response));
         true
+    }
+
+    /// 页内操作串行，但不持请求表/状态锁执行IO；结束回传等待已开始的操作。
+    pub fn with_page_call<T>(
+        &self,
+        key: &str,
+        call: impl FnOnce(&WebViewRequest, WebViewLease) -> LegadoResult<T>,
+    ) -> LegadoResult<T> {
+        let attempt = self
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .attempts
+            .get(key)
+            .cloned()
+            .ok_or_else(|| LegadoError::Network("WebView请求不存在或已结束".into()))?;
+        let _operation = attempt.page_calls.lock().unwrap_or_else(|e| e.into_inner());
+        let lease = WebViewLease(Arc::downgrade(&attempt));
+        lease.check()?;
+        if attempt.request.html.is_empty()
+            || (!attempt.request.is_rule && attempt.request.source_key.is_empty())
+        {
+            return Err(LegadoError::JsEngine("该WebView请求未开放页内宿主".into()));
+        }
+        let result = call(&attempt.request, lease.clone());
+        lease.check()?;
+        result
     }
     pub fn cancel(&self, key: &str) -> bool {
         self.end(key, Outcome::Cancelled)
@@ -348,6 +385,42 @@ impl WebViewManager {
             .collect();
         requests.sort_by(|a, b| a.key.cmp(&b.key));
         requests
+    }
+}
+
+/// 只保留请求弱引用，供页内IO取消及副作用前检查；不持引擎或平台对象。
+#[derive(Clone)]
+pub struct WebViewLease(Weak<Attempt>);
+impl WebViewLease {
+    pub fn is_active(&self) -> bool {
+        self.0.upgrade().is_some_and(|a| a.is_pending())
+    }
+    pub fn check(&self) -> LegadoResult<()> {
+        if self.is_active() {
+            Ok(())
+        } else {
+            Err(LegadoError::Network("WebView请求已结束或取消".into()))
+        }
+    }
+    pub async fn cancelled(&self) {
+        loop {
+            let Some(attempt) = self.0.upgrade() else {
+                return;
+            };
+            let wake = attempt.wake.notified();
+            tokio::pin!(wake);
+            wake.as_mut().enable();
+            if !attempt.is_pending() {
+                return;
+            }
+            let deadline = attempt
+                .state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .deadline;
+            let _ = tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), wake)
+                .await;
+        }
     }
 }
 
@@ -912,6 +985,86 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("加载失败")
+        );
+    }
+    #[test]
+    fn page_calls_are_owned_by_live_request_and_completion_waits_for_them() {
+        let manager = Arc::new(WebViewManager::default());
+        let request = WebViewRequest {
+            html: "<html>".into(),
+            source_key: "source-one".into(),
+            ..Default::default()
+        };
+        let handle = manager.request(request);
+        let key = handle.key().to_owned();
+        let other = Arc::new(WebViewManager::default());
+        assert!(other.with_page_call(&key, |_, _| Ok(())).is_err());
+        let (entered, ready) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel();
+        let thread = {
+            let manager = manager.clone();
+            let key = key.clone();
+            std::thread::spawn(move || {
+                manager.with_page_call(&key, |request, lease| {
+                    assert_eq!(request.source_key, "source-one");
+                    entered.send(lease).unwrap();
+                    released.recv().unwrap();
+                    Ok(())
+                })
+            })
+        };
+        let lease = ready.recv().unwrap();
+        let (done, finished) = std::sync::mpsc::channel();
+        let submit = {
+            let manager = manager.clone();
+            let key = key.clone();
+            std::thread::spawn(move || {
+                done.send(manager.submit(&key, "done")).unwrap();
+            })
+        };
+        assert!(finished.recv_timeout(Duration::from_millis(30)).is_err());
+        assert!(lease.is_active());
+        release.send(()).unwrap();
+        thread.join().unwrap().unwrap();
+        assert!(finished.recv().unwrap());
+        submit.join().unwrap();
+        assert_eq!(handle.wait(Duration::from_secs(1)).unwrap(), "done");
+        assert!(!lease.is_active());
+        assert!(
+            manager
+                .with_page_call::<()>(&key, |_, _| panic!("结束后不得调用"))
+                .is_err()
+        );
+    }
+    #[tokio::test]
+    async fn page_io_cancellation_wakes_without_waiting_for_operation_lock() {
+        let manager = Arc::new(WebViewManager::default());
+        let handle = manager.request(WebViewRequest {
+            html: "<html>".into(),
+            is_rule: true,
+            ..Default::default()
+        });
+        let key = handle.key().to_owned();
+        let lease = manager.with_page_call(&key, |_, lease| Ok(lease)).unwrap();
+        let waiter = tokio::spawn(async move {
+            lease.cancelled().await;
+            assert!(!lease.is_active());
+        });
+        manager.cancel(&key);
+        tokio::time::timeout(Duration::from_secs(1), waiter)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            manager
+                .with_page_call::<()>(&key, |_, _| panic!("取消后不得调用"))
+                .is_err()
+        );
+        let handle = manager.request(WebViewRequest::default());
+        assert!(
+            manager
+                .with_page_call::<()>(handle.key(), |_, _| panic!("URL页面没有页内宿主"))
+                .is_err()
         );
     }
 }

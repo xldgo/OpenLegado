@@ -152,6 +152,39 @@ pub fn cancel_webview_request(key: &str) -> bool {
     manager().cancel(key)
 }
 
+pub fn page_call(
+    key: &str,
+    call: crate::task_dto::WebViewPageCallDto,
+) -> legado_core::LegadoResult<String> {
+    use crate::task_dto::WebViewPageTargetDto;
+    use legado_engine::webview_page_service::{PageCall, PageTarget, WebViewPageService};
+    let js = crate::engine_holder::js_resources();
+    let manager = js.host_resources().webview.clone();
+    let service = WebViewPageService {
+        js,
+        storage: crate::engine_holder::current()
+            .ok()
+            .map(|engine| engine.storage().clone()),
+    };
+    let target = match call.target {
+        WebViewPageTargetDto::Source => PageTarget::Source,
+        WebViewPageTargetDto::Cache => PageTarget::Cache,
+        WebViewPageTargetDto::Java => PageTarget::Java,
+    };
+    let value = manager.with_page_call(key, |request, lease| {
+        service.call(
+            request,
+            lease,
+            PageCall {
+                target,
+                method: call.method,
+                args: call.args,
+            },
+        )
+    })?;
+    Ok(serde_json::to_string(&value)?)
+}
+
 pub fn pending_requests() -> Vec<WebViewRequest> {
     manager().pending()
 }

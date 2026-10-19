@@ -46,3 +46,16 @@ class WebViewExecutionResult {
   final String? error;
   final Map<String, String> cookies;
 }
+
+enum WebViewPageTarget { source, cache, java }
+
+class WebViewPageCall {
+  WebViewPageCall({
+    required this.target,
+    required this.method,
+    required List<String?> args,
+  }) : args = List.unmodifiable(args);
+  final WebViewPageTarget target;
+  final String method;
+  final List<String?> args;
+}

@@ -1185,6 +1185,7 @@ pub const RESPONSE_BRIDGE_JS: &str = r#"
     var finalUrl = (r && r.url) || '';
     var h = (r && r.headers) || {};
     var raw = {
+      __summary: r.raw_summary,
       request: function () {
         return { url: function () { return finalUrl; } };
       },
@@ -2912,6 +2913,7 @@ fn register_network_apis<'js>(
                 result.unwrap_or_else(|error| {
                     // 仅JS兼容面使用上游StrResponse(url,error)的合成状态，不代表真实HTTP成功。
                     serde_json::json!({
+                        "raw_summary": format!("Response{{protocol=http/1.1, code=200, message=OK, url={}}}", url::Url::parse(&url).map(|u|u.to_string()).unwrap_or_else(|_|"http://localhost/".into())),
                         "status_code": 200,
                         "body": format!("[ERROR] {error}"),
                         "headers": {},

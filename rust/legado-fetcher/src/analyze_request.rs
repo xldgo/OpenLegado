@@ -157,6 +157,7 @@ async fn send_raw_internal(
     // data: URI 短路：本地解码、绝不进 reqwest（P2-15，实机 builder error）
     if let Some(result) = data_uri_body(analyze_url) {
         return Ok(LegadoRawResponse {
+            raw_summary: String::new(),
             status: 200,
             headers: data_uri_headers(),
             body: result?,

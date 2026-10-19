@@ -1,12 +1,19 @@
 import 'dart:convert';
 
+import 'webview_page_bridge.dart';
+
 import '../domain/contracts/webview_bridge_service.dart';
 import '../domain/models/webview_request.dart';
 import '../services/platform_bridge_service.dart';
 
 /// 平台载荷字段映射与Cookie解码不进入监听控件。— Codex + Bridge
 class NativeWebViewRequestExecutor implements WebViewRequestExecutor {
-  NativeWebViewRequestExecutor({required this._dispatch, this._cancel});
+  NativeWebViewRequestExecutor({
+    required this._dispatch,
+    this._cancel,
+    this._pageCall,
+  });
+  final Future<String> Function(String, WebViewPageCall)? _pageCall;
   final Future<void> Function(String)? _cancel;
   @override
   Future<void> cancel(String key) async {
@@ -17,6 +24,8 @@ class NativeWebViewRequestExecutor implements WebViewRequestExecutor {
   @override
   Future<WebViewExecutionResult> execute(WebViewRequest request) async {
     final outcome = await _dispatch({
+      if (_pageCall != null)
+        'pageBridge': WebViewPageBridge((call) => _pageCall(request.key, call)),
       'key': request.key,
       'headers': request.headers,
       'action': request.action,

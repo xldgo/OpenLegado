@@ -16,6 +16,7 @@ import 'package:flutter_legado/src/data/services/rust_verification_service.dart'
 import 'package:flutter_legado/src/data/services/rust_webview_bridge_service.dart';
 import 'package:flutter_legado/src/data/services/rust_network_service.dart';
 import 'package:flutter_legado/src/domain/models/webview_request.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/platform/native_webview_request_executor.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
@@ -42,6 +43,13 @@ void main() {
   );
   setUpAll(() {
     registerFallbackValue(_Request());
+    registerFallbackValue(
+      const WebViewPageCallDto(
+        target: WebViewPageTargetDto.source,
+        method: "get",
+        args: [],
+      ),
+    );
     registerFallbackValue(bookSourceToDto(source));
     registerFallbackValue(
       WebViewResponseDto(result: '', finalUrl: '', cookies: const {}),
@@ -53,6 +61,54 @@ void main() {
     when(() => bridge.crateFfiStreamRequestNew()).thenReturn(_Request());
   });
   tearDown(RustLib.dispose);
+
+  test('页内调用DTO保留目标和null参数，Rust错误直接传播', () async {
+    when(
+      () => bridge.crateFfiFfiWebviewPageCall(
+        key: 'owner',
+        call: any(named: 'call'),
+      ),
+    ).thenAnswer((_) async => 'null');
+    expect(
+      await web.pageCall(
+        'owner',
+        WebViewPageCall(
+          target: WebViewPageTarget.source,
+          method: 'putVariable',
+          args: [null],
+        ),
+      ),
+      'null',
+    );
+    final value =
+        verify(
+              () => bridge.crateFfiFfiWebviewPageCall(
+                key: 'owner',
+                call: captureAny(named: 'call'),
+              ),
+            ).captured.single
+            as WebViewPageCallDto;
+    expect(value.target, WebViewPageTargetDto.source);
+    expect(value.method, 'putVariable');
+    expect(value.args, [null]);
+    when(
+      () => bridge.crateFfiFfiWebviewPageCall(
+        key: 'owner',
+        call: any(named: 'call'),
+      ),
+    ).thenThrow(controls.BridgeError(message: '请求已结束'));
+    await expectLater(
+      web.pageCall(
+        'owner',
+        WebViewPageCall(
+          target: WebViewPageTarget.cache,
+          method: 'get',
+          args: ['key'],
+        ),
+      ),
+      throwsA(isA<AppException>().having((e) => e.message, '原错误消息', '请求已结束')),
+    );
+  });
 
   test('WebView类型化回传保留最终URL、正常空结果与错误，原生拒绝保持false', () async {
     when(

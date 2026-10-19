@@ -7,6 +7,9 @@ export '../app/bootstrap/application_dependencies.dart'
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/bootstrap/application_dependencies.dart'
+    show webViewBridgeServiceProvider;
+
 import '../domain/contracts/webview_bridge_service.dart';
 import '../platform/native_webview_request_executor.dart';
 import '../services/platform_bridge_service.dart';
@@ -17,5 +20,6 @@ final webViewRequestExecutorProvider = Provider<WebViewRequestExecutor>(
   (ref) => NativeWebViewRequestExecutor(
     dispatch: PlatformBridgeService.instance.dispatchPayloadWithCookies,
     cancel: PlatformBridgeService.instance.cancelWebView,
+    pageCall: ref.read(webViewBridgeServiceProvider).pageCall,
   ),
 );

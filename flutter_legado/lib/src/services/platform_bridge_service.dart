@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
+
+import '../platform/webview_page_bridge.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -311,6 +315,35 @@ class PlatformBridgeService {
   ///   仅 webView 主路径回传，嗅探类 action 回传空串（B1 偏差，Android
   ///   真机走原生路径为主）。
   final _webViewScopes = <String, WebViewExecutionScope>{};
+  final _pageRequests = <String, (WebViewExecutionScope, WebViewPageBridge)>{};
+  static final _pageZone = Object();
+  bool _pageChannelInstalled = false;
+  String? get _pageToken => Zone.current[_pageZone] as String?;
+
+  Future<dynamic> _onPageCall(MethodCall call) async {
+    if (call.method != 'pageCall') throw MissingPluginException();
+    final args = call.arguments;
+    if (args is! Map || args['key'] is! String || args['payload'] is! String) {
+      return jsonEncode({'error': '页内调用信封不正确'});
+    }
+    final owner = _pageRequests[args['key']];
+    if (owner == null || owner.$1.isCancelled) {
+      return jsonEncode({'error': 'WebView请求已结束或取消'});
+    }
+    try {
+      return await owner.$1.wait(owner.$2.invoke(args['payload'] as String));
+    } catch (error) {
+      return jsonEncode({'error': error.toString()});
+    }
+  }
+
+  Future<void> _injectPageBridge(WebViewController controller) async {
+    final token = _pageToken;
+    if (token != null) {
+      await _scriptWebView(controller, webViewPageScript(token));
+    }
+  }
+
   static final _scopeZone = Object();
   static final _headersZone = Object();
   int _localWebViewKey = 0;
@@ -344,8 +377,24 @@ class PlatformBridgeService {
   ) async {
     final key = (payload['key'] as String?) ?? 'local-${_localWebViewKey++}';
     final scope = WebViewExecutionScope();
+    final candidate = payload['pageBridge'];
+    final bridge =
+        candidate is WebViewPageBridge &&
+            (payload['html'] ?? '').toString().isNotEmpty &&
+            (payload['isRule'] == true ||
+                (payload['sourceKey'] ?? '').toString().isNotEmpty)
+        ? candidate
+        : null;
+    final pageToken = bridge == null
+        ? null
+        : 'legado-page-${Random.secure().nextInt(1 << 32)}-${_localWebViewKey++}';
     if (_webViewScopes.containsKey(key)) throw StateError('重复WebView请求');
     _webViewScopes[key] = scope;
+    if (bridge != null) _pageRequests[key] = (scope, bridge);
+    if (Platform.isAndroid && !_pageChannelInstalled) {
+      PlatformChannel.webview.setMethodCallHandler(_onPageCall);
+      _pageChannelInstalled = true;
+    }
     if (Platform.isAndroid) {
       scope.onClose(() async {
         await PlatformChannel.webview.invokeMethod<void>('cancelBackstage', {
@@ -356,10 +405,16 @@ class PlatformBridgeService {
     try {
       return await runZoned(
         () => scope.wait(
-          _performWebViewOutcome(action, {...payload, 'key': key}),
+          _performWebViewOutcome(action, {
+            ...payload,
+            'key': key,
+            'pageToken': pageToken,
+            'pageScript': pageToken == null ? '' : webViewPageScript(pageToken),
+          }),
         ),
         zoneValues: {
           _scopeZone: scope,
+          _pageZone: pageToken,
           _headersZone: Map<String, String>.from(
             payload['headers'] as Map? ?? {},
           ),
@@ -367,6 +422,7 @@ class PlatformBridgeService {
       );
     } finally {
       _webViewScopes.remove(key);
+      _pageRequests.remove(key);
       await scope.close();
     }
   }
@@ -463,6 +519,8 @@ class PlatformBridgeService {
         dynamic
       >{
         'key': payload['key'],
+        'pageToken': payload['pageToken'] ?? '',
+        'pageScript': payload['pageScript'] ?? '',
         'headers': payload['headers'] ?? <String, String>{},
         'action': action,
         'url': (payload['url'] ?? '').toString(),
@@ -529,10 +587,9 @@ class PlatformBridgeService {
   }
 
   /// 构建基础控制器（启用 JS，对齐 Kotlin javaScriptEnabled = true）
-  WebViewController _newController() {
+  Future<WebViewController> _newController() async {
     _checkWebView();
-    final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+    final controller = WebViewController();
     // 清理按逆序执行，各步骤独立，避免一个平台错误跳过后续清理。
     _webViewScope?.onClose(
       () => controller.loadHtmlString('<html></html>', baseUrl: 'about:blank'),
@@ -541,6 +598,36 @@ class PlatformBridgeService {
     _webViewScope?.onClose(
       () => controller.setNavigationDelegate(NavigationDelegate()),
     );
+    await _waitWebView(
+      controller.setJavaScriptMode(JavaScriptMode.unrestricted),
+    );
+    _checkWebView();
+    final token = _pageToken;
+    final scope = _webViewScope;
+    if (token != null && scope != null) {
+      final owner = _pageRequests.values.firstWhere(
+        (owner) => identical(owner.$1, scope),
+      );
+      // 先登记解绑，避免安装回调期间取消后遗留对请求的引用。
+      scope.onClose(
+        () => controller.setOnJavaScriptTextInputDialog(
+          (_) async => jsonEncode({'error': '页内宿主已释放'}),
+        ),
+      );
+      await scope.wait(
+        controller.setOnJavaScriptTextInputDialog((request) async {
+          if (request.message != token || scope.isCancelled) {
+            return jsonEncode({'error': '页内调用已取消或标识无效'});
+          }
+          try {
+            return await scope.wait(owner.$2.invoke(request.defaultText ?? ''));
+          } catch (error) {
+            return jsonEncode({'error': error.toString()});
+          }
+        }),
+      );
+    }
+    _checkWebView();
     return controller;
   }
 
@@ -593,7 +680,7 @@ class PlatformBridgeService {
     if (cacheFirst) {
       debugPrint('[PlatformBridge] cacheFirst=true（非 Android 回退路径无 cacheMode）');
     }
-    final controller = _newController();
+    final controller = await _newController();
     // B4：load 前预写属域 cookie（同 _webViewSniffSource /
     // _webViewSniffOverrideUrl；cookie 与 url 同生同灭，html-only 无
     // url 时 Rust 侧恒空，天然跳过）
@@ -614,6 +701,7 @@ class PlatformBridgeService {
       _showSnackBar('页面加载失败：$loadFailure');
       return WebViewEvalOutcome('[ERROR] WebView 加载失败：$loadFailure', '');
     }
+    await _injectPageBridge(controller);
     if (isRule && resultJson.isNotEmpty) {
       // resultJson 已是 Rust serde_json 字面量（对齐 GSON.toJson → window.result）
       await _scriptWebView(controller, 'window.result = $resultJson;');
@@ -730,7 +818,7 @@ class PlatformBridgeService {
       debugPrint('[PlatformBridge] webViewGetSource cacheFirst（非 Android 回退）');
     }
     final regex = RegExp(sourceRegex);
-    final controller = _newController();
+    final controller = await _newController();
     // B4：load 前预写属域 cookie（对齐 Kotlin 原生路径，动作无关）
     await _injectDomainCookies(url: url, cookie: cookie);
     final loadFailure = await _loadAndWaitFinished(
@@ -747,6 +835,7 @@ class PlatformBridgeService {
       );
       return '';
     }
+    await _injectPageBridge(controller);
     if (js.isNotEmpty) {
       // 触发型 JS（如点击播放按钮），fire-and-forget 后等待资源出现
       await _scriptWebView(controller, js);
@@ -810,7 +899,7 @@ class PlatformBridgeService {
     // 初始 URL 即命中：直接返回（对齐 Kotlin loadUrl 前的嗅探路径）
     if (url.isNotEmpty && regex.hasMatch(url)) return url;
 
-    final controller = _newController();
+    final controller = await _newController();
     final finished = Completer<void>();
     // [iOS 视角F A1] 记录主框架加载失败原因（ATS 拦截/DNS/连接等），
     // 超时时并入错误串，让「等待跳转超时」可归因而非静默。
@@ -865,6 +954,7 @@ class PlatformBridgeService {
       unawaited(
         finished.future
             .timeout(_webViewTimeout, onTimeout: () {})
+            .then((_) => _injectPageBridge(controller))
             .then((_) => _webViewDelay(Duration(milliseconds: 100 + delayMs)))
             .then((_) => _scriptWebView(controller, js))
             .catchError((Object _) {}),

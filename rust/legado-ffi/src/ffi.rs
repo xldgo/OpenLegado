@@ -581,6 +581,14 @@ pub mod ffi {
         ))
     }
 
+    /// 页内调用按有效请求确定来源和数据所有者，返回单个JSON值。
+    pub fn webview_page_call(
+        key: String,
+        call: crate::task_dto::WebViewPageCallDto,
+    ) -> Result<String, BridgeError> {
+        Ok(crate::api::webview_api::page_call(&key, call)?)
+    }
+
     /// 提交 WebView 执行结果，唤醒 Rust 等待方
     pub fn webview_submit(key: String, result: String) -> Result<bool, BridgeError> {
         Ok(crate::api::webview_api::submit_webview_result(
