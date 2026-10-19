@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/backup_provider.dart';
 import '../../../domain/models/book_content_result.dart';
@@ -298,7 +299,7 @@ class _OfflineCacheScreenState extends ConsumerState<OfflineCacheScreen> {
       case 'stop_all':
         _stopAll();
       case 'queue':
-        Navigator.pushNamed(context, AppRoutes.cacheDownloads);
+        GoRouter.of(context).pushAppRoute(AppRoutes.cacheDownloads);
     }
   }
 

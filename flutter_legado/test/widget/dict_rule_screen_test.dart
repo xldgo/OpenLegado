@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/models/misc.dart' show DictRule;
@@ -36,7 +37,7 @@ void main() {
   Widget wrap(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: RoutingTestApp(home: child),
     );
   }
 
@@ -313,7 +314,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: const DictRuleScreen(),
             // 桩路由：替代真实 QrcodeScreen，首帧后 pop 固定扫码内容
             routes: {
@@ -349,7 +350,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: const DictRuleScreen(),
             // 桩路由：模拟扫码页取消（pop 无值 → null）
             routes: {AppRoutes.qrcode: (_) => const _StubQrcodePage()},

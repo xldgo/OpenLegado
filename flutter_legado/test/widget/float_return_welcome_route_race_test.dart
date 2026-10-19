@@ -1,3 +1,6 @@
+import 'package:flutter_legado/src/app/routing/app_navigation.dart';
+
+import '../fixtures/routing_test_app.dart';
 // [V-B3-ROUTE 2026-10-05] 冷启动悬浮窗回全屏 × 欢迎页路由竞争回归
 //
 // 缺陷（round2 真机 2/2 复现，QA 证据 .tmp/video_qa/round2/c2_*.png）：
@@ -39,7 +42,7 @@ String _label(String? name) => switch (name) {
 Widget _buildApp({
   required TopRouteWatcher watcher,
   String initialRoute = AppRoutes.welcome,
-}) => MaterialApp(
+}) => RoutingTestApp(
   // 与 app.dart build() 同源：生产全局 navigatorKey
   navigatorKey: PlatformBridgeService.navigatorKey,
   navigatorObservers: [watcher],
@@ -61,7 +64,7 @@ void main() {
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) {
         pushed.add(AppRoutes.video);
-        navigator.pushNamed(AppRoutes.video);
+        GoRouter.of(navigator.context).pushAppRoute(AppRoutes.video);
       },
       maxAttempts: 5,
       interval: const Duration(milliseconds: 50),
@@ -74,9 +77,8 @@ void main() {
     expect(pushed, isEmpty, reason: '闪屏仍在栈顶，push 必须等待（原竞争点）');
 
     // 复刻 WelcomeScreen._goNext：闪屏 pushReplacementNamed(home)
-    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
-      AppRoutes.home,
-    );
+    GoRouter.of(PlatformBridgeService.navigatorKey.currentState!.context)
+        .replaceAppRoute(AppRoutes.home);
     await tester.pump(const Duration(milliseconds: 50));
     // 冲刷转场动画：闪屏退出转场结束后旧路由才被销毁
     await tester.pumpAndSettle();
@@ -109,7 +111,7 @@ void main() {
         navigator: () => PlatformBridgeService.navigatorKey.currentState,
         push: (navigator) {
           pushed.add(state.url);
-          navigator.pushNamed(AppRoutes.video);
+          GoRouter.of(navigator.context).pushAppRoute(AppRoutes.video);
         },
         maxAttempts: 5,
         interval: const Duration(milliseconds: 50),
@@ -127,9 +129,8 @@ void main() {
     });
     expect(pushed, isEmpty, reason: '闪屏未退出，回全屏 push 必须推迟（原竞争点）');
 
-    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
-      AppRoutes.home,
-    );
+    GoRouter.of(PlatformBridgeService.navigatorKey.currentState!.context)
+        .replaceAppRoute(AppRoutes.home);
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
 
@@ -142,9 +143,8 @@ void main() {
     final watcher = TopRouteWatcher();
     final pushed = <String>[];
     await tester.pumpWidget(_buildApp(watcher: watcher));
-    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
-      AppRoutes.home,
-    );
+    GoRouter.of(PlatformBridgeService.navigatorKey.currentState!.context)
+        .replaceAppRoute(AppRoutes.home);
     await tester.pump();
 
     LegadoApp.scheduleFloatReturnNavigation(
@@ -152,7 +152,7 @@ void main() {
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) {
         pushed.add(AppRoutes.video);
-        navigator.pushNamed(AppRoutes.video);
+        GoRouter.of(navigator.context).pushAppRoute(AppRoutes.video);
       },
       maxAttempts: 1,
       interval: const Duration(seconds: 1),
@@ -177,7 +177,7 @@ void main() {
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) {
         pushed.add(AppRoutes.video);
-        navigator.pushNamed(AppRoutes.video);
+        GoRouter.of(navigator.context).pushAppRoute(AppRoutes.video);
       },
       maxAttempts: 1,
       interval: const Duration(seconds: 1),
@@ -205,7 +205,7 @@ void main() {
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) {
         pushed.add(AppRoutes.video);
-        navigator.pushNamed(AppRoutes.video);
+        GoRouter.of(navigator.context).pushAppRoute(AppRoutes.video);
       },
       maxAttempts: 2,
       interval: const Duration(milliseconds: 50),

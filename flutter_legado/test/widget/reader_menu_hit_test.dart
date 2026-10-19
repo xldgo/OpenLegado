@@ -1,3 +1,5 @@
+import '../fixtures/routing_test_app.dart';
+
 import 'package:flutter_legado/src/app/routing/route_arguments.dart';
 
 import '../fixtures/app_test_api.dart';
@@ -247,7 +249,7 @@ Future<(_Reader, _Hits)> _pumpMenu(
     tester,
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
+      child: RoutingTestApp(
         builder: (context, child) => nativeReaderLayoutBuilder(
           context,
           MediaQuery(
@@ -349,7 +351,7 @@ Future<ProviderContainer> _pumpReader(
     tester,
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(
+      child: const RoutingTestApp(
         builder: nativeReaderLayoutBuilder,
         home: ReaderScreen(),
       ),
@@ -963,7 +965,7 @@ void main() {
       tester,
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: navigator,
           navigatorObservers: [systemBarRouteObserver],
           builder: (context, child) => nativeReaderLayoutBuilder(
@@ -1391,7 +1393,7 @@ void main() {
         tester,
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(
+          child: const RoutingTestApp(
             builder: nativeReaderLayoutBuilder,
             home: ReaderScreen(),
           ),

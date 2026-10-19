@@ -1,5 +1,7 @@
 library;
 
+import '../../../app/routing/app_navigation.dart';
+
 import '../../../app/routing/route_arguments.dart';
 
 import '../../../theme/app_motion.dart';
@@ -280,11 +282,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   collapseSignal: widget.collapseSignal,
                   expandDuration: _kExpandDuration,
                   onEdit: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.sourceEdit,
-                      arguments: source,
-                    );
+                    GoRouter.of(context)
+                        .pushAppRoute(AppRoutes.sourceEdit, extra: source);
                   },
                   onUninstall: () => _onUninstall(source.bookSourceUrl),
                   onTop: () => _onTopSource(source),
@@ -325,7 +324,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       setState(() => _selectedCategory = args);
       return;
     }
-    Navigator.pushNamed(context, AppRoutes.exploreShow, arguments: args);
+    GoRouter.of(context).pushAppRoute(AppRoutes.exploreShow, extra: args);
   }
 
   Future<void> _onUninstall(String sourceUrl) async {
@@ -387,10 +386,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   /// 按指定书源搜索（对齐原版 ExploreAdapter "search" → SearchActivity.start）— R2
   void _onSearchSource(BookSource source) {
-    Navigator.pushNamed(
-      context,
+    GoRouter.of(context).pushAppRoute(
       AppRoutes.search,
-      arguments: SearchRouteArgs(sourceUrls: [source.bookSourceUrl]),
+      extra: SearchRouteArgs(sourceUrls: [source.bookSourceUrl]),
     );
   }
 }

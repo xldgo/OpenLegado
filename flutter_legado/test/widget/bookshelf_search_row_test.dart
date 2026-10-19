@@ -1,9 +1,9 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 // [骨架对齐 2.0.260 | 台账 1-3] 书架搜索入口守护：页内全宽搜索行已移除，
 // 搜索入口收敛为顶栏 🔍 图标（路由 AppRoutes.search 不变）——
 // 无分组 / 分组两种头部形态下顶栏搜索图标必须可见。
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -27,7 +27,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
-        child: const MaterialApp(home: BookshelfScreen()),
+        child: const RoutingTestApp(home: BookshelfScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -49,7 +49,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
-        child: const MaterialApp(home: BookshelfScreen()),
+        child: const RoutingTestApp(home: BookshelfScreen()),
       ),
     );
     await tester.pumpAndSettle();

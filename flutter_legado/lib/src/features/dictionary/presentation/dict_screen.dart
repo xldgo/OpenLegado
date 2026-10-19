@@ -1,3 +1,5 @@
+import '../../../app/routing/app_navigation.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -98,7 +100,7 @@ class _DictScreenState extends ConsumerState<DictScreen> {
             icon: const Icon(Symbols.manage_search_rounded),
             tooltip: '规则管理',
             onPressed: () async {
-              await Navigator.of(context).pushNamed(AppRoutes.dictRule);
+              await GoRouter.of(context).pushAppRoute(AppRoutes.dictRule);
               if (mounted) {
                 await ref.read(dictNotifierProvider.notifier).loadRules();
               }

@@ -1,5 +1,7 @@
 library;
 
+import '../fixtures/routing_test_app.dart';
+
 import '../fixtures/app_test_api.dart';
 
 /// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
@@ -23,7 +25,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(home: ReaderSettingsSheet(fullPage: true)),
+          child: RoutingTestApp(home: ReaderSettingsSheet(fullPage: true)),
         ),
       );
       await tester.pump();
@@ -60,7 +62,7 @@ void main() {
             ...mockApi.overrides,
             readerSettingsRepositoryProvider.overrideWithValue(repository),
           ]),
-          child: MaterialApp(
+          child: RoutingTestApp(
             // 「字体」跳转 AppRoutes.fonts：以桩路由承接，验证链路不丢失
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.fonts) {
@@ -125,7 +127,7 @@ void main() {
             ...mockApi.overrides,
             readerSettingsRepositoryProvider.overrideWithValue(repository),
           ]),
-          child: MaterialApp(
+          child: RoutingTestApp(
             key: UniqueKey(),
             home: Scaffold(
               body: ReaderConfigPanel(section: ReaderConfigSection.content),

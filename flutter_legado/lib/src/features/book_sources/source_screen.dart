@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_names.dart';
 import '../../widgets/dynamic_search_app_bar.dart';
 import '../../l10n/app_localization.dart';

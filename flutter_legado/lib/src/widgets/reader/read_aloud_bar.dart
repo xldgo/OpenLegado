@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
 import '../../features/read_aloud/cloud_tts_providers.dart';
 
@@ -427,7 +428,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
             icon: const Icon(Icons.open_in_full),
             tooltip: context.l10n.readAloudPlayer,
             onPressed: () =>
-                Navigator.pushNamed(context, AppRoutes.readAloudPlayer),
+                GoRouter.of(context).pushAppRoute(AppRoutes.readAloudPlayer),
           ),
           IconButton(
             icon: const Icon(Icons.expand_more),
@@ -585,7 +586,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
               label: Text(context.l10n.readAloudSettingsTitle),
               style: _compactButtonStyle,
               onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.readAloudSettings),
+                  GoRouter.of(context)
+                      .pushAppRoute(AppRoutes.readAloudSettings),
             ),
           ),
           Expanded(

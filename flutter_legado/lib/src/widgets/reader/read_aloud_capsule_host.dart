@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../features/privacy/privacy_controller.dart';
 
 import 'dart:async';
@@ -107,7 +108,10 @@ class _ReadAloudCapsuleHostState extends ConsumerState<ReadAloudCapsuleHost> {
             (widget.observer.top.value?.settings.name != AppRoutes.reader ||
                 ref.read(readerNotifierProvider).currentBook?.bookUrl !=
                     book.bookUrl)) {
-          unawaited(navigator.pushNamed(AppRoutes.reader, arguments: book));
+          unawaited(
+            GoRouter.of(navigator.context)
+                .pushAppRoute(AppRoutes.reader, extra: book),
+          );
         }
       }
     } finally {

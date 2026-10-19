@@ -374,7 +374,7 @@ extension _SourceEditActions on _SourceEditScreenState {
         await _shareSource();
       case 'log':
         // [UI-FIX v2.0.1 | 2026-08-06] 日志菜单接通 AppLogScreen（对标原版 menu_log → AppLogDialog） — Qoder
-        Navigator.pushNamed(context, AppRoutes.appLog);
+        GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
       case 'help':
         _showHelp();
     }
@@ -394,7 +394,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       final search = ref.read(searchNotifierProvider.notifier);
       search.clearAllFilter();
       search.toggleSource(source.bookSourceUrl);
-      await Navigator.of(context).pushNamed(AppRoutes.search);
+      await GoRouter.of(context).pushAppRoute(AppRoutes.search);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -570,7 +570,7 @@ extension _SourceEditActions on _SourceEditScreenState {
     final l10n = context.l10n;
     // [fix Task#24 | 2026-08-08] 去掉 <String> 泛型，避免 routes 表
     // MaterialPageRoute<dynamic> 运行时强转崩溃 — Qoder
-    final raw = await Navigator.of(context).pushNamed(AppRoutes.qrcode);
+    final raw = await GoRouter.of(context).pushAppRoute(AppRoutes.qrcode);
     final content = raw is String ? raw : null;
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -624,8 +624,8 @@ extension _SourceEditActions on _SourceEditScreenState {
       await notifier.saveSource(source);
       _afterSaveRefresh();
       if (!mounted) return;
-      Navigator.of(context)
-          .pushNamed(AppRoutes.sourceDebug, arguments: source.bookSourceUrl);
+      GoRouter.of(context)
+          .pushAppRoute(AppRoutes.sourceDebug, extra: source.bookSourceUrl);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

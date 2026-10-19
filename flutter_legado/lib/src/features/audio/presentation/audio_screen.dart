@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/reading_provider.dart';
 import '../../../providers/config_settings_provider.dart';
@@ -571,7 +572,8 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
         leading: const Icon(Symbols.tune_rounded),
         title: Text(context.l10n.readAloudSettingsTitle),
         subtitle: Text(context.l10n.readAloudEnginesSummary),
-        onTap: () => Navigator.pushNamed(context, AppRoutes.readAloudSettings),
+        onTap: () =>
+            GoRouter.of(context).pushAppRoute(AppRoutes.readAloudSettings),
       );
     }
     return Padding(
@@ -725,7 +727,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       case 'editSource':
         _openEditSource();
       case 'log':
-        if (mounted) Navigator.pushNamed(context, AppRoutes.appLog);
+        if (mounted) GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
     }
   }
 
@@ -743,13 +745,12 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
   void _openChangeSource() {
     final book = widget.book;
     if (book != null) {
-      Navigator.pushNamed(context, AppRoutes.changeSource, arguments: book);
+      GoRouter.of(context).pushAppRoute(AppRoutes.changeSource, extra: book);
       return;
     }
-    Navigator.pushNamed(
-      context,
+    GoRouter.of(context).pushAppRoute(
       AppRoutes.changeSource,
-      arguments: Book(
+      extra: Book(
         bookUrl: widget.effectiveBookUrl,
         name: widget.effectiveBookName,
         origin: _origin,

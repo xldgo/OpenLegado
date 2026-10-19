@@ -105,6 +105,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('首页'), findsOneWidget);
     expect(router.state.uri.path, '/unknown');
+    router.push<void>('/blocked');
+    await tester.pumpAndSettle();
+    expect(find.text('保护页面'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/unknown');
   });
   testWidgets('朗读Page继续创建既有非不透明Route并保持Page归属', (tester) async {
     final page = AppRoutePage(

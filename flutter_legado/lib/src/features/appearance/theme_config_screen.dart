@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../widgets/eye_protection_settings.dart';
 import '../../providers/cover_provider.dart';
 // [UI-fix v2.0.5 | 2026-08-08] 主题设置页对齐原版 pref_config_theme.xml +
@@ -578,8 +579,8 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                         title: context.l10n.themeWelcomeStyle,
                         subtitle: '设定显示时间，更改背景图片，是否显示文字等',
                         onTap: () {
-                          Navigator.of(context)
-                              .pushNamed(AppRoutes.welcomeConfig);
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.welcomeConfig);
                         },
                       ),
                       SettingSwitchRow(
@@ -618,10 +619,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       SettingTile(
                         title: '底栏图集',
                         subtitle: '导入 zip 自定义底栏图标',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.bottomBarSkin,
-                        ),
+                        onTap: () =>
+                            GoRouter.of(context)
+                                .pushAppRoute(AppRoutes.bottomBarSkin),
                       ),
                       SettingSwitchRow(
                         title: '跟随壁纸配色',

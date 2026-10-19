@@ -791,9 +791,9 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         if (choice == 'system') {
           await _openUrlInSystemBrowser(context, url);
         } else {
-          Navigator.of(context).pushNamed(
+          GoRouter.of(context).pushAppRoute(
             AppRoutes.browser,
-            arguments: BrowserRouteArgs(url: url, title: '章节链接'),
+            extra: BrowserRouteArgs(url: url, title: '章节链接'),
           );
         }
       case 'copy':
@@ -806,7 +806,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       case 'addBookmark':
         widget.onAddBookmark();
       case 'highlightRule':
-        Navigator.pushNamed(context, AppRoutes.highlightRules);
+        GoRouter.of(context).pushAppRoute(AppRoutes.highlightRules);
       case 'replace':
         widget.onOpenReplaceRules();
       case 'editContent':
@@ -836,7 +836,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       case 'charset':
         _showCharsetDialog(context, ref);
       case 'log':
-        Navigator.pushNamed(context, AppRoutes.appLog);
+        GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
       case 'help':
         _showHelpDialog(context);
     }

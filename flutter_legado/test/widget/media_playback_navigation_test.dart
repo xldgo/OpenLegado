@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/routing/app_navigation.dart';
+
+import '../fixtures/routing_test_app.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/features/read_aloud/media_playback_navigation.dart';
@@ -22,7 +26,7 @@ void main() {
     );
     addTearDown(observer.dispose);
     await tester.pumpWidget(
-      MaterialApp(
+      RoutingTestApp(
         navigatorKey: key,
         navigatorObservers: [observer],
         home: const Text('首页'),
@@ -57,7 +61,7 @@ void main() {
     );
     addTearDown(observer.dispose);
     await tester.pumpWidget(
-      MaterialApp(
+      RoutingTestApp(
         navigatorKey: key,
         navigatorObservers: [observer],
         initialRoute: AppRoutes.welcome,
@@ -70,7 +74,7 @@ void main() {
     observer.open(target);
     await tester.pumpAndSettle();
     expect(find.text(AppRoutes.welcome), findsOneWidget);
-    key.currentState!.pushReplacementNamed('/home');
+    GoRouter.of(key.currentState!.context).replaceAppRoute('/home');
     await tester.pumpAndSettle();
     expect(find.text(AppRoutes.readAloudPlayer), findsOneWidget);
     key.currentState!.pop();

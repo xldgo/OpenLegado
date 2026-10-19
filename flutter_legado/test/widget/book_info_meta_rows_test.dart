@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 // [08 元信息区对齐 | 台账 0922 修订] 书籍详情页元信息区元素集回归守卫：
@@ -66,7 +67,7 @@ void main() {
   Widget wrap(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: RoutingTestApp(home: child),
     );
   }
 
@@ -362,7 +363,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: BookInfoScreen(book: book),
             routes: routes,
             navigatorObservers: [observer],

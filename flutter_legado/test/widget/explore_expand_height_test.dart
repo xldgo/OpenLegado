@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 // 发现页展开区「实机路径等价」回归测试
@@ -87,7 +88,7 @@ void main() {
   Widget buildApp() {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
+      child: RoutingTestApp(
         onGenerateRoute: AppRouter().generateRoute,
         home: const ExploreScreen(),
       ),

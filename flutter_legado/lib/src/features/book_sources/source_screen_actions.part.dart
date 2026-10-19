@@ -433,7 +433,7 @@ extension _SourceActions on _SourceScreenState {
   Future<void> _importFromQrCode(BuildContext context) async {
     // [fix Task#24 | 2026-08-08] 去掉 <String> 泛型，避免 routes 表
     // MaterialPageRoute<dynamic> 运行时强转崩溃 — Qoder
-    final raw = await Navigator.of(context).pushNamed(AppRoutes.qrcode);
+    final raw = await GoRouter.of(context).pushAppRoute(AppRoutes.qrcode);
     final content = raw is String ? raw : null;
     if (!context.mounted) return;
     if (content == null || content.trim().isEmpty) return;

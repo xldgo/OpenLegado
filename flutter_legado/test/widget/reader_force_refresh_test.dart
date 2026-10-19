@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 // [P2-9 | 2026-09-24] 阅读器「强制刷新正文 + 换书源后重载」UI 级回归
 //
@@ -126,7 +127,7 @@ Widget wrapMenuPanel(
 }) {
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(
+    child: RoutingTestApp(
       onGenerateRoute: onGenerateRoute,
       home: Scaffold(
         body: Stack(
@@ -153,7 +154,7 @@ Widget wrapMenuPanel(
 Widget wrapTopBar(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(
+    child: RoutingTestApp(
       home: Scaffold(
         body: Stack(children: [buildReaderMenu(onAddBookmark: () {})]),
       ),
@@ -269,7 +270,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             initialRoute: '/reader',
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.changeSource) {
@@ -700,7 +701,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             initialRoute: '/reader',
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.changeSource) {

@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
@@ -561,7 +562,7 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
   Future<void> _importFromQrCode() async {
     // [fix Task#24 | 2026-08-08] 去掉 <String> 泛型，避免 routes 表
     // MaterialPageRoute<dynamic> 运行时强转崩溃 — Qoder
-    final raw = await Navigator.of(context).pushNamed(AppRoutes.qrcode);
+    final raw = await GoRouter.of(context).pushAppRoute(AppRoutes.qrcode);
     final content = raw is String ? raw : null;
     if (!mounted) return;
     if (content == null || content.trim().isEmpty) return;

@@ -1,3 +1,5 @@
+import '../fixtures/routing_test_app.dart';
+
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.dart';
 import 'package:flutter_legado/src/models/misc.dart';
@@ -26,7 +28,7 @@ void main() {
           dictRuleRepositoryProvider.overrideWithValue(repository),
           dictionaryServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(
+        child: RoutingTestApp(
           home: const DictScreen(),
           routes: {AppRoutes.dictRule: (_) => const DictRuleScreen()},
         ),
@@ -64,7 +66,7 @@ void main() {
           dictRuleRepositoryProvider.overrideWithValue(repository),
           dictionaryServiceProvider.overrideWithValue(service),
         ],
-        child: const MaterialApp(
+        child: const RoutingTestApp(
           home: Scaffold(body: DictDialog(word: 'chapter')),
         ),
       ),
@@ -87,7 +89,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [dictRuleRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(home: DictRuleScreen()),
+        child: const RoutingTestApp(home: DictRuleScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -110,7 +112,7 @@ void main() {
           ),
           dictionaryServiceProvider.overrideWithValue(service),
         ],
-        child: const MaterialApp(home: DictScreen()),
+        child: const RoutingTestApp(home: DictScreen()),
       ),
     );
     await tester.pumpAndSettle();

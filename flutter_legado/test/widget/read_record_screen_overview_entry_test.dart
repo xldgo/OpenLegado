@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/domain/contracts/read_record_repository.dart';
@@ -42,7 +43,7 @@ void main() {
         ...mockApi.overrides,
         readRecordRepositoryProvider.overrideWithValue(mockRepo),
       ]),
-      child: MaterialApp(
+      child: RoutingTestApp(
         navigatorObservers: observer != null ? [observer] : [],
         routes: {
           AppRoutes.readRecordOverview: (context) =>

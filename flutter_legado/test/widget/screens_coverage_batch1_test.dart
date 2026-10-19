@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -60,7 +61,7 @@ void main() {
   Widget wrap(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: RoutingTestApp(home: child),
     );
   }
 
@@ -518,7 +519,7 @@ void main() {
             const Scaffold(key: Key('comic-stub'), body: Text('漫画阅读页'));
         return UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: child,
             routes: routes,
             navigatorObservers: [observer],
@@ -697,7 +698,7 @@ void main() {
             const Scaffold(key: Key('reader-stub'), body: Text('文本阅读页'));
         return UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: child,
             routes: routes,
             navigatorObservers: [observer],

@@ -1,3 +1,4 @@
+import '../app/routing/app_navigation.dart';
 import '../features/book_detail/book_detail_notifier.dart';
 
 import 'package:flutter/widgets.dart';
@@ -68,6 +69,7 @@ class BookOpenUtils {
         ? PlatformBridgeService.navigatorKey.currentState
         : Navigator.of(context);
     if (navigator == null) return;
+    final router = GoRouter.of(navigator.context);
     final prepared = await ref
         .read(bookDetailServiceProvider)
         .resolveReading(book);
@@ -77,12 +79,12 @@ class BookOpenUtils {
     final route = routeForTypeBits(typeBits);
     if (needsReaderNotifier(route)) {
       ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
-      await navigator.pushNamed(route);
+      await router.pushAppRoute(route, extra: bookToOpen);
       return;
     }
-    await navigator.pushNamed(
+    await router.pushAppRoute(
       route,
-      arguments: argumentsForRoute(route, bookToOpen),
+      extra: argumentsForRoute(route, bookToOpen),
     );
   }
 }

@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../utils/error_message.dart';
 import '../book_source_repository_provider.dart';
 import '../../../providers/config_settings_provider.dart';
@@ -639,7 +640,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
         setState(() => _stopped = !_stopped);
       case 'sourceManage':
         // 对标 menu_source_manage → SourceActivity
-        Navigator.pushNamed(context, AppRoutes.sources);
+        GoRouter.of(context).pushAppRoute(AppRoutes.sources);
       case 'refreshList':
         // 对标 menu_refresh_list：强制网络重搜（对齐 startSearch）
         if (!_stopped) await _search(forceRefresh: true);
@@ -897,7 +898,7 @@ class _ChangeSourceScreenState extends ConsumerState<ChangeSourceScreen>
       case 'bottom':
         notifier.moveToBottom(item.bookUrl);
       case 'edit':
-        Navigator.pushNamed(context, AppRoutes.sources);
+        GoRouter.of(context).pushAppRoute(AppRoutes.sources);
       case 'disable':
         try {
           await notifier.disableAndRemove(item);

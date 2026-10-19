@@ -1,5 +1,7 @@
 library;
 
+import '../fixtures/routing_test_app.dart';
+
 import '../fixtures/app_test_api.dart';
 
 /// 标题字体贯通测试（差异清单 C3 收尾：对齐原版 #1072 ReadBookConfig.titleFont）
@@ -82,7 +84,7 @@ void main() {
     const pageInfo = PageInfo(paragraphs: [], totalHeight: 0);
 
     Widget page({required ReaderPageChromeConfig chrome, String? bodyFont}) {
-      return MaterialApp(
+      return RoutingTestApp(
         home: Scaffold(
           body: ReaderTypographicPage(
             pageInfo: pageInfo,
@@ -153,7 +155,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: mergeTestOverrides([...MockBookApi().overrides]),
-          child: MaterialApp(
+          child: RoutingTestApp(
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.fonts) {
                 capturedArgs = settings.arguments as String?;
@@ -190,7 +192,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: mergeTestOverrides([...MockBookApi().overrides]),
-          child: MaterialApp(home: ReaderFontPanel(titleOnly: true)),
+          child: RoutingTestApp(home: ReaderFontPanel(titleOnly: true)),
         ),
       );
       await tester.pump();

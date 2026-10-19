@@ -1,3 +1,5 @@
+import '../fixtures/routing_test_app.dart';
+
 import 'package:flutter_legado/src/app/routing/route_arguments.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
 
@@ -78,7 +80,7 @@ void main() {
           () => _FakeOverviewNotifier(effectiveState),
         ),
       ],
-      child: MaterialApp(
+      child: RoutingTestApp(
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: themeMode,
@@ -222,7 +224,7 @@ void main() {
               ),
             ),
           ],
-          child: MaterialApp(
+          child: RoutingTestApp(
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.search) {
                 pushedRoute = settings.name;

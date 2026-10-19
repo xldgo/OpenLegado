@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_arguments.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -51,9 +52,9 @@ Future<void> openReaderChapterUrl(
   }
   if (!context.mounted) return;
   if (!useSystemBrowser) {
-    Navigator.of(context).pushNamed(
+    GoRouter.of(context).pushAppRoute(
       AppRoutes.browser,
-      arguments: BrowserRouteArgs(url: url, title: '章节链接'),
+      extra: BrowserRouteArgs(url: url, title: '章节链接'),
     );
     return;
   }

@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../utils/error_message.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
@@ -389,7 +390,8 @@ class _DictRuleScreenState extends ConsumerState<DictRuleScreen> {
   /// 取消（pop null）或空内容仅提示不导入。
   Future<void> _importFromQr() async {
     final navigator = Navigator.of(context);
-    final raw = await navigator.pushNamed(AppRoutes.qrcode);
+    final raw = await GoRouter.of(navigator.context)
+        .pushAppRoute(AppRoutes.qrcode);
     final payload = raw is String ? raw.trim() : '';
     if (!mounted) return;
     if (payload.isEmpty) {

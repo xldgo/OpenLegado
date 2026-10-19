@@ -1,3 +1,4 @@
+import '../../../../app/routing/app_navigation.dart';
 import '../../application/reader_presentation_provider.dart';
 
 import 'dart:async';
@@ -123,7 +124,7 @@ class ReaderControlsOverlay extends ConsumerWidget {
               onReadAloud: onReadAloud,
               onToggleAutoPage: onToggleAutoPage,
               onOpenReplaceRules: () =>
-                  Navigator.pushNamed(context, AppRoutes.replaceRules),
+                  GoRouter.of(context).pushAppRoute(AppRoutes.replaceRules),
               progressBehavior: progressBehavior,
               onSeekPage: onSeekPage,
             ),

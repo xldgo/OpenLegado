@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import '../../../theme/app_motion.dart';
 import '../../../utils/error_message.dart';
@@ -80,6 +81,7 @@ class BookInfoScreen extends ConsumerStatefulWidget {
 }
 
 class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
+  bool _openingReader = false;
   final ScrollController _scrollController = ScrollController();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   Object? _coverThemeKey;
@@ -189,11 +191,8 @@ class _BookInfoScreenState extends ConsumerState<BookInfoScreen> {
               if (!mounted) return;
               // [fix Task#24 | 2026-08-08] 去掉 <bool> 泛型，避免 routes 表
               // MaterialPageRoute<dynamic> 运行时强转崩溃 — Qoder
-              final saved = await Navigator.pushNamed(
-                context,
-                AppRoutes.editBookInfo,
-                arguments: book,
-              );
+              final saved = await GoRouter.of(context)
+                  .pushAppRoute(AppRoutes.editBookInfo, extra: book);
               // 编辑保存成功后重新加载书籍信息
               if (saved == true && mounted) {
                 _reload();

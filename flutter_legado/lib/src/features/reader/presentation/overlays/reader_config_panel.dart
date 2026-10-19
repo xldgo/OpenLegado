@@ -1,3 +1,4 @@
+import '../../../../app/routing/app_navigation.dart';
 import '../../../../app/routing/route_names.dart';
 import '../../application/reader_settings_provider.dart';
 import '../../../../domain/models/reader_text_layout_settings.dart';

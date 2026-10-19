@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../data/services/file_directory_service.dart';
 import '../../../providers/book_content_provider.dart';
 
@@ -312,7 +313,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         IconButton(
           icon: const Icon(Symbols.link_rounded),
           tooltip: '远程导入',
-          onPressed: () => Navigator.pushNamed(context, AppRoutes.remoteBooks),
+          onPressed: () =>
+              GoRouter.of(context).pushAppRoute(AppRoutes.remoteBooks),
         ),
         if (_currentDir != null)
           IconButton(

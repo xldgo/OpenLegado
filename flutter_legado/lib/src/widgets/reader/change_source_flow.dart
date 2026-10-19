@@ -1,3 +1,5 @@
+import '../../app/routing/app_navigation.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -52,11 +54,8 @@ Future<void> runChangeSourceFlow(
   // [SB-HUNT] 共享重入守卫：在途 → 静默忽略（轻提示 = 已在展示的进行中条）
   if (!notifier.tryBeginChangeSourceFlow()) return;
   final messenger = ScaffoldMessenger.of(context);
-  final result = await Navigator.pushNamed(
-    context,
-    AppRoutes.changeSource,
-    arguments: book,
-  );
+  final result = await GoRouter.of(context)
+      .pushAppRoute(AppRoutes.changeSource, extra: book);
   // 导航阶段锁释放：同步交接给重载阶段锁（reloadAfterSourceChange 入口
   // 置位 + finally 复位），中间无 await、无用户输入窗口
   notifier.endChangeSourceFlow();

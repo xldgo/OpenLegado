@@ -88,11 +88,8 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
       SettingTile(title: title, value: value, onTap: onTap);
 
   Future<void> _selectFont({bool title = false}) async {
-    await Navigator.pushNamed(
-      context,
-      AppRoutes.fonts,
-      arguments: title ? 'title' : null,
-    );
+    await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.fonts, extra: title ? 'title' : null);
   }
 
   @override

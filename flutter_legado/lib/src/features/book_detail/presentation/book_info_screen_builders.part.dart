@@ -172,7 +172,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         break;
       case 'log':
         // [UI-fix v2.0.1 | 2026-08-06] 日志菜单接通 AppLogScreen（对标原版 menu_log → AppLogDialog） — Qoder
-        Navigator.pushNamed(context, AppRoutes.appLog);
+        GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
         break;
       case 'login':
         // [UI-fix v2.0.2 | 2026-08-06] 登录接通书源登录链路（V2 动态协议/旧版凭据页） — Qoder
@@ -189,7 +189,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       case 'cacheDownloads':
         // [UI-fix v2.0.16 | 2026-08-10] 缓存下载队列页（对齐原版 CacheActivity）— Reasonix
         if (!context.mounted) break;
-        await Navigator.pushNamed(context, AppRoutes.cacheDownloads);
+        await GoRouter.of(context).pushAppRoute(AppRoutes.cacheDownloads);
         break;
       case 'deleteAlert':
         // [UI-fix v2.0.3 | 2026-08-08] 删除提醒开关持久化（对齐原版
@@ -436,7 +436,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     );
     // 异步对话框返回后先检查 mounted，再跳转
     if (goSettings == true && mounted) {
-      Navigator.pushNamed(context, AppRoutes.webdavSettings);
+      GoRouter.of(context).pushAppRoute(AppRoutes.webdavSettings);
     }
   }
 
@@ -550,10 +550,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     if (!mounted) return;
     if (existing != null) {
       final id = existing.id;
-      await Navigator.pushNamed(
-        context,
+      await GoRouter.of(context).pushAppRoute(
         AppRoutes.autoTasks,
-        arguments: AutoTaskRouteArgs(editTaskId: id),
+        extra: AutoTaskRouteArgs(editTaskId: id),
       );
       return;
     }
@@ -570,10 +569,9 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       _snack('创建任务失败');
       return;
     }
-    await Navigator.pushNamed(
-      context,
+    await GoRouter.of(context).pushAppRoute(
       AppRoutes.autoTasks,
-      arguments: AutoTaskRouteArgs(newTask: built.toJson()),
+      extra: AutoTaskRouteArgs(newTask: built.toJson()),
     );
   }
 
@@ -954,7 +952,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       query: q,
       sourceUrls: resolvedSource == null ? null : [resolvedSource],
     );
-    await Navigator.pushNamed(context, AppRoutes.search, arguments: args);
+    await GoRouter.of(context).pushAppRoute(AppRoutes.search, extra: args);
   }
 
   /// 返回 true 表示 JS 回调已接管，不应再执行默认动作
@@ -994,17 +992,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       return;
     }
     if (!mounted) return;
-    await Navigator.pushNamed(context, AppRoutes.sourceEdit, arguments: source);
+    await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.sourceEdit, extra: source);
     if (mounted) _reload();
   }
 
   /// 更换封面（对齐原版 ivCover → ChangeCoverDialog.coverChangeTo）
   Future<void> _openChangeCover(Book book) async {
-    final result = await Navigator.pushNamed(
-      context,
-      AppRoutes.changeCover,
-      arguments: book,
-    );
+    final result = await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.changeCover, extra: book);
     if (result is! String || result.isEmpty || !mounted) return;
     final updated = book.copyWith(customCoverUrl: result);
     _detailNotifier.updateBook(updated);
@@ -1120,11 +1116,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
       }
     }
     if (!mounted) return;
-    final result = await Navigator.pushNamed(
-      context,
-      AppRoutes.toc,
-      arguments: book,
-    );
+    final result = await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.toc, extra: book);
     if (!mounted) return;
     if (result is int) {
       await _openReader(context, book, result);
@@ -1339,32 +1332,40 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     Book book,
     int chapterIndex,
   ) async {
-    final prepared = await ref
-        .read(bookDetailServiceProvider)
-        .prepareReading(book, chapterIndex);
-    if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) return;
-    final container = ProviderScope.containerOf(context);
-    final bookToRead = prepared.book;
-    final route = BookOpenUtils.routeForTypeBits(prepared.typeBits);
-    if (BookOpenUtils.needsReaderNotifier(route)) {
-      container.read(readerNotifierProvider.notifier).openBook(bookToRead);
-      // [UI-fix v2.0.11 | 2026-08-10] 阅读返回后重新加载详情数据 — Reasonix
-      if (!context.mounted) return;
-      await Navigator.pushNamed(
-        context,
-        route,
-        arguments: BookCoverHero.originFor(context, bookToRead.bookUrl),
-      );
-    } else {
-      if (!context.mounted) return;
-      await Navigator.pushNamed(
-        context,
-        route,
-        arguments: BookOpenUtils.argumentsForRoute(route, bookToRead),
-      );
-    }
-    if (mounted) {
-      _reload();
+    if (_openingReader) return;
+    _openingReader = true;
+    try {
+      final prepared = await ref
+          .read(bookDetailServiceProvider)
+          .prepareReading(book, chapterIndex);
+      if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
+      final container = ProviderScope.containerOf(context);
+      final bookToRead = prepared.book;
+      final route = BookOpenUtils.routeForTypeBits(prepared.typeBits);
+      if (BookOpenUtils.needsReaderNotifier(route)) {
+        container.read(readerNotifierProvider.notifier).openBook(bookToRead);
+        // [UI-fix v2.0.11 | 2026-08-10] 阅读返回后重新加载详情数据 — Reasonix
+        if (!context.mounted) return;
+        await GoRouter.of(context).pushAppRoute(
+          route,
+          extra:
+              BookCoverHero.originFor(context, bookToRead.bookUrl) ??
+              bookToRead,
+        );
+      } else {
+        if (!context.mounted) return;
+        await GoRouter.of(context).pushAppRoute(
+          route,
+          extra: BookOpenUtils.argumentsForRoute(route, bookToRead),
+        );
+      }
+      if (mounted) {
+        _reload();
+      }
+    } finally {
+      _openingReader = false;
     }
   }
 
@@ -1374,19 +1375,15 @@ extension _BookInfoBuilders on _BookInfoScreenState {
     // pushNamed<String> 会触发运行时强转崩溃
     // （'MaterialPageRoute<dynamic>' is not a subtype of 'Route<String?>?'），
     // 表现为点「换源」无任何反应。改用无类型 pushNamed + is 判定（与 _openTocScreen 一致）— Qoder
-    final result = await Navigator.pushNamed(
-      context,
-      AppRoutes.changeSource,
-      arguments: book,
-    );
+    final result = await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.changeSource, extra: book);
     if (!mounted) return;
     final newBookUrl = result is String ? result : null;
     // 换源成功后 bookUrl 会变化，需要用新 URL 替换当前详情页
     if (newBookUrl != null && newBookUrl.isNotEmpty) {
-      Navigator.pushReplacementNamed(
-        context,
+      GoRouter.of(context).replaceAppRoute(
         AppRoutes.bookInfo,
-        arguments: book.copyWith(bookUrl: newBookUrl),
+        extra: book.copyWith(bookUrl: newBookUrl),
       );
     }
   }

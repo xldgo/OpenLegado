@@ -1,3 +1,4 @@
+import '../../../fixtures/routing_test_app.dart';
 import '../../../fixtures/app_test_api.dart';
 import '../../../mocks/mocks.dart';
 
@@ -40,7 +41,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...api.overrides]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: navigator,
           navigatorObservers: [appRouteObserver],
           home: const TocScreen(book: book),
@@ -95,7 +96,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...api.overrides]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: navigator,
           navigatorObservers: [appRouteObserver],
           home: const Scaffold(body: Text('入口')),

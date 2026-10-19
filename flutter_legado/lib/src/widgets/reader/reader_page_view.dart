@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../features/reader/application/reader_pagination_policy.dart';
 import '../../providers/chapter_content_provider.dart';
 import '../../domain/models/read_aloud_content.dart';
@@ -1187,11 +1188,9 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           }
         },
         onSecondaryAction: isOnline
-            ? () => Navigator.pushNamed(
-                context,
-                AppRoutes.changeSource,
-                arguments: book,
-              )
+            ? () =>
+                  GoRouter.of(context)
+                      .pushAppRoute(AppRoutes.changeSource, extra: book)
             : null,
         secondaryActionLabel: '换源',
         secondaryActionIcon: Icons.swap_horiz,

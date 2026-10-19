@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../book_sources/book_source_repository_provider.dart';
 import '../../../widgets/app_menu.dart';
 
@@ -535,7 +536,8 @@ class _AssociationImportDialogState
                   final navigator = Navigator.of(context);
                   // [fix Task#24 | 2026-08-08] 去掉 <String> 泛型，避免 routes 表
                   // MaterialPageRoute<dynamic> 运行时强转崩溃 — Qoder
-                  final raw = await navigator.pushNamed(AppRoutes.qrcode);
+                  final raw = await GoRouter.of(navigator.context)
+                      .pushAppRoute(AppRoutes.qrcode);
                   final result = raw is String ? raw : null;
                   if (result != null && result.isNotEmpty) {
                     _urlController.text = result;

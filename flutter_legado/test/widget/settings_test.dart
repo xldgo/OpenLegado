@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/domain/models/local_server_status.dart';
@@ -48,7 +49,7 @@ void main() {
   Widget wrap(Widget child, {Map<String, WidgetBuilder>? routes}) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child, routes: routes ?? const {}),
+      child: RoutingTestApp(home: child, routes: routes ?? const {}),
     );
   }
 

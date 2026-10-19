@@ -54,3 +54,9 @@ class AutoTaskRouteArgs {
   // 任务本身沿用既有JSON契约，不把动态字段扩散为路由参数。
   final Map<String, dynamic>? newTask;
 }
+
+/// 地址恢复只有稳定身份，不伪造完整书籍快照。— Codex + UI
+class ReaderRouteArgs {
+  const ReaderRouteArgs({required this.bookUrl});
+  final String bookUrl;
+}

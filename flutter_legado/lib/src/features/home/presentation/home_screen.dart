@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../theme/app_surface_material.dart';
 import '../../../theme/app_glass_theme.dart';
 
@@ -495,7 +496,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       extended: ui.railExtended,
       onSelect: (index) => _onDestinationSelected(tabs, index),
       onToggleExtended: () => _saveRailExtended(!ui.railExtended),
-      onSearch: () => Navigator.of(context).pushNamed(AppRoutes.search),
+      onSearch: () => GoRouter.of(context).pushAppRoute(AppRoutes.search),
       bookshelfIndex: tabs.indexOf(_HomeTab.bookshelf),
       groups: [
         for (final g in bookshelf.groups) bookshelfGroupLabel(context, g),

@@ -1,3 +1,4 @@
+import 'src/app/routing/app_navigation.dart';
 import 'src/providers/auto_task/auto_task_dependencies.dart';
 import 'src/providers/config_settings_provider.dart';
 
@@ -215,7 +216,7 @@ class TopRouteWatcher extends NavigatorObserver {
 
 class _LegadoAppState extends ConsumerState<LegadoApp>
     with WidgetsBindingObserver {
-  final _router = AppRouter();
+  late final GoRouter _router;
 
   /// 栈顶路由观察器（注册进 `MaterialApp(navigatorObservers:)`，见
   /// [build]），两个只读消费者：
@@ -248,6 +249,17 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
               ),
         );
       },
+    );
+    _router = AppRouter().createRouter(
+      initialLocation: widget.initialRoute,
+      navigatorKey: PlatformBridgeService.navigatorKey,
+      observers: [
+        appRouteObserver,
+        systemBarRouteObserver,
+        _topRouteWatcher,
+        _readAloudCapsuleObserver,
+        _mediaPlaybackNavigation,
+      ],
     );
     _mediaPlaybackNavigation.attach(ref.read(audioServiceProvider));
     WidgetsBinding.instance.addObserver(this);
@@ -307,6 +319,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   @override
   void dispose() {
+    _router.dispose();
     _mediaPlaybackNavigation.dispose();
     _readAloudCapsuleObserver.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -339,7 +352,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       watcher: _topRouteWatcher,
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) =>
-          navigator.pushNamed(AppRoutes.video, arguments: args),
+          GoRouter.of(navigator.context)
+              .pushAppRoute(AppRoutes.video, extra: args),
       onTimeout: () => debugPrint('[VideoFloat] 闪屏未在等待窗口内退出，放弃本次回全屏导航（停留当前页）'),
     );
   }
@@ -381,24 +395,11 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
           themeColors.bgImageNight,
         );
 
-        return MaterialApp(
+        return MaterialApp.router(
           onGenerateTitle: (context) => context.l10n.appTitle,
           // [UI-FIX v2.0.2 | 2026-08-06] 平台桥接服务经此 Key 分发页面跳转 / SnackBar
           //（Task #114，服务层无 BuildContext） — QoderCN
-          navigatorKey: PlatformBridgeService.navigatorKey,
-          // [UI-FIX v2.0.7 | 2026-08-09] 全局路由观察器（Task #26）：目录页等
-          // 「返回重现需刷新」的页面经 RouteAware 订阅，从阅读器返回时
-          // 即时刷新缓存云图标/当前章节（对齐原版 SAVE_CONTENT 事件刷新）
-          // [P2-13b 2026-09-19] _topRouteWatcher：崩溃弹窗调度器（见
-          // [LegadoApp.scheduleCrashLogDialog]）监听 didChangeTop，确认冷启动
-          // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
-          navigatorObservers: [
-            appRouteObserver,
-            systemBarRouteObserver,
-            _topRouteWatcher,
-            _readAloudCapsuleObserver,
-            _mediaPlaybackNavigation,
-          ],
+          routerConfig: _router,
           debugShowCheckedModeBanner: false,
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -453,9 +454,6 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
               child: wrapped,
             );
           },
-          initialRoute: widget.initialRoute,
-          // 命名路由统一由 AppRouter 构建；普通页面使用平台默认转场。
-          onGenerateRoute: _router.generateRoute,
         );
       },
     );

@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../widgets/app_menu.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -133,10 +134,8 @@ class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
                   case 'sort_time':
                     notifier.setSort(RemoteBookSort.time);
                   case 'webdav_settings':
-                    await Navigator.pushNamed(
-                      context,
-                      AppRoutes.webdavSettings,
-                    );
+                    await GoRouter.of(context)
+                        .pushAppRoute(AppRoutes.webdavSettings);
                     await _runServerChange(notifier.init, '服务器配置读取失败，请重试');
                 }
               },

@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../bookshelf/bookshelf_repositories.dart';
 
 import 'dart:async';
@@ -115,7 +116,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     // → 下方 lastRead 直达分支实际不可达（探针测试实证）。因此
     // `_openLastRead` 不会与浮窗回全屏竞争；若后续修复该 await 语义，须先
     // 约定「直达阅读器 vs 浮窗回全屏」的压栈优先级，避免新竞争。
-    await Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+    await GoRouter.of(context).replaceAppRoute(AppRoutes.home);
     if (lastRead != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openLastRead(lastRead!);

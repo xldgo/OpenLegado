@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../providers/network_provider.dart';
 import '../../../providers/rss_repository_provider.dart';
 import '../../../l10n/app_localization.dart';
@@ -536,9 +537,9 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     switch (action) {
       case 'debug':
         final url = _ctrls['sourceUrl']!.text.trim();
-        Navigator.of(context).pushNamed(
+        GoRouter.of(context).pushAppRoute(
           AppRoutes.rssSourceDebug,
-          arguments: url.isEmpty ? null : url,
+          extra: url.isEmpty ? null : url,
         );
       case 'copy':
         final json = const JsonEncoder.withIndent('  ')

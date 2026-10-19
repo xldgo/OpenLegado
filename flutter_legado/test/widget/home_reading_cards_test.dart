@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
@@ -47,7 +48,7 @@ void main() {
         ...mockApi.overrides,
         homeReadRecordOverviewProvider.overrideWithValue(state),
       ]),
-      child: MaterialApp(
+      child: RoutingTestApp(
         routes: {
           AppRoutes.readRecordOverview: (_) =>
               const Scaffold(body: Text('总览目标页')),

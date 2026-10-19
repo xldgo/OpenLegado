@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../widgets/app_content_transition.dart';
 import '../../app/routing/route_names.dart';
 import '../book_sources/book_source_repository_provider.dart';

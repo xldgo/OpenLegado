@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../book_sources/book_source_repository_provider.dart';
 import 'bookshelf_repositories.dart';
 import '../../widgets/app_menu.dart';
@@ -372,7 +373,7 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
   Future<void> _handleMenu(String value) async {
     switch (value) {
       case 'group_manage':
-        Navigator.pushNamed(context, AppRoutes.bookGroups);
+        GoRouter.of(context).pushAppRoute(AppRoutes.bookGroups);
         break;
       case 'export_all':
         await _exportAllUsedBookSources();
@@ -499,11 +500,9 @@ class _BookshelfManageScreenState extends ConsumerState<BookshelfManageScreen> {
           Expanded(
             child: InkWell(
               onTap: _openInfoByTitle
-                  ? () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.bookInfo,
-                      arguments: book,
-                    )
+                  ? () =>
+                        GoRouter.of(context)
+                            .pushAppRoute(AppRoutes.bookInfo, extra: book)
                   : () => _notifier.toggleSelect(book.bookUrl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

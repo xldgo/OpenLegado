@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 // [SB-HUNT | 2026-09-25] 换源后「第二条/残留 SnackBar」回归
 //
@@ -98,7 +99,7 @@ Widget wrapReader(
 }) {
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(
+    child: RoutingTestApp(
       onGenerateRoute: onGenerateRoute,
       home: Scaffold(
         body: Stack(children: [buildReaderMenu(onAddBookmark: () {})]),
@@ -117,7 +118,7 @@ Widget _topBarTree(
 }) {
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp(
+    child: RoutingTestApp(
       onGenerateRoute: onGenerateRoute,
       home: _Home(withReader: withReader),
     ),

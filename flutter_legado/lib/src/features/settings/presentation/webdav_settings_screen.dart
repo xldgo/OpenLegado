@@ -1,3 +1,5 @@
+import '../../../app/routing/app_navigation.dart';
+
 import 'dart:convert';
 
 import '../../../providers/backup_provider.dart';
@@ -466,7 +468,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                 case 'import_old':
                   _doImportOldData();
                 case 'log':
-                  Navigator.pushNamed(context, AppRoutes.appLog);
+                  GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
               }
             },
             itemBuilder: (ctx) => [

@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'dart:async';
@@ -53,7 +54,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: RoutingTestApp(
           home: child is WelcomeScreen ? null : child,
           initialRoute: child is WelcomeScreen ? AppRoutes.welcome : null,
           routes: {

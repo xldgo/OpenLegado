@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 // 发现页 A4/C8 形态对齐 widget 测试
@@ -93,7 +94,7 @@ void main() {
   Widget buildApp() {
     return ProviderScope(
       overrides: mergeTestOverrides([...mockApi.overrides]),
-      child: MaterialApp(
+      child: RoutingTestApp(
         onGenerateRoute: AppRouter().generateRoute,
         home: const ExploreScreen(),
       ),

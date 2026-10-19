@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../utils/error_message.dart';
 import 'components/toc_overflow_menu.dart';
 import '../application/toc_filter_controller.dart';
@@ -371,7 +372,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
     switch (value) {
       case 'tocRegex':
         // 跳转已有 TXT 目录规则页（对齐原版 menu_toc_regex → TxtTocRuleDialog）
-        Navigator.pushNamed(context, AppRoutes.txtTocRules);
+        GoRouter.of(context).pushAppRoute(AppRoutes.txtTocRules);
         break;
       case 'splitLongChapter':
         // 拆分长章节存于 ReadConfig（参照 book_info_screen 已有实现）
@@ -422,7 +423,7 @@ class _TocScreenState extends ConsumerState<TocScreen>
         await _exportBookmarks(asMarkdown: true);
         break;
       case 'log':
-        Navigator.pushNamed(context, AppRoutes.appLog);
+        GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
         break;
     }
   }

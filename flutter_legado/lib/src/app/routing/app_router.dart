@@ -1,11 +1,12 @@
+import 'reader_route_entry.dart';
+import '../../widgets/book_cover.dart';
+
 import 'package:go_router/go_router.dart';
 
 import 'app_route_page.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/reader/application/reader_notifier.dart';
 import '../../features/privacy/privacy_screen.dart';
 import '../../features/privacy/privacy_gate.dart';
 
@@ -39,7 +40,6 @@ import '../../features/imports/presentation/import_screen.dart';
 import '../../features/tools/presentation/qrcode_screen.dart';
 import '../../features/search/search.dart';
 import '../../features/read_records/read_records.dart';
-import '../../features/reader/presentation/reader_screen.dart';
 import '../../features/reader_comic/presentation/reader_comic_screen.dart';
 import '../../features/remote_books/presentation/remote_book_screen.dart';
 import '../../features/rules/presentation/replace_rules_screen.dart';
@@ -77,12 +77,18 @@ class AppRouter {
 
   static Map<String, WidgetBuilder> get _defaultRoutes => {
     AppRoutes.home: (_) => const HomeScreen(),
-    AppRoutes.reader: (_) => Consumer(
-      builder: (context, ref, _) => PrivacyBookGate(
-        book: ref.watch(readerNotifierProvider).currentBook,
-        builder: (_) => const ReaderScreen(),
-      ),
-    ),
+    AppRoutes.reader: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      return ReaderRouteEntry(
+        bookUrl: switch (args) {
+          Book(:final bookUrl) ||
+          BookCoverOrigin(:final bookUrl) ||
+          ReaderRouteArgs(:final bookUrl) => bookUrl,
+          _ => null,
+        },
+        snapshot: args is Book ? args : null,
+      );
+    },
     AppRoutes.privacy: (_) => const PrivacyScreen(),
     AppRoutes.readerComic: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -322,18 +328,61 @@ class AppRouter {
           pageBuilder: (_, state) => AppRoutePage(
             key: state.pageKey,
             name: entry.key,
-            arguments: state.extra,
+            arguments: _arguments(state),
             builder: entry.value,
           ),
         ),
+      GoRoute(
+        path: '/:unknown(.*)',
+        pageBuilder: (_, state) => AppRoutePage(
+          key: state.pageKey,
+          name: state.uri.path,
+          arguments: state.extra,
+          builder: routes[AppRoutes.home] ?? (_) => const HomeScreen(),
+        ),
+      ),
     ],
     errorPageBuilder: (_, state) => AppRoutePage(
       key: state.pageKey,
       name: state.uri.path,
-      arguments: state.extra,
+      arguments: _arguments(state),
       builder: routes[AppRoutes.home] ?? (_) => const HomeScreen(),
     ),
   );
+
+  Object? _arguments(GoRouterState state) {
+    if (state.extra != null) return state.extra;
+    final query = state.uri.queryParameters;
+    final bookUrl = query['book'];
+    if (state.uri.path == AppRoutes.search) {
+      return SearchRouteArgs(
+        query: query['q'],
+        sourceUrls: state.uri.queryParametersAll['source'],
+        groups: state.uri.queryParametersAll['group'],
+      );
+    }
+    if (bookUrl != null && bookUrl.isNotEmpty) {
+      if (state.uri.path == AppRoutes.reader) {
+        return ReaderRouteArgs(bookUrl: bookUrl);
+      }
+      if (state.uri.path == AppRoutes.readerComic) return bookUrl;
+      if (state.uri.path == AppRoutes.searchContent) {
+        return ContentSearchRouteArgs(
+          book: Book(bookUrl: bookUrl),
+          query: query['q'],
+        );
+      }
+      // 目录/编辑等必须持有完整Book的操作页仍保持缺参回首页，不使用空快照覆盖字段。
+      if ({
+        AppRoutes.bookInfo,
+        AppRoutes.audio,
+        AppRoutes.video,
+      }.contains(state.uri.path)) {
+        return Book(bookUrl: bookUrl);
+      }
+    }
+    return null;
+  }
 
   Route<dynamic> generateRoute(RouteSettings settings) {
     if (settings.name == AppRoutes.readAloudPlayer) {

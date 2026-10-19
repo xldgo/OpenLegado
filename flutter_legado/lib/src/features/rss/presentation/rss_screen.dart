@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import '../../../widgets/app_menu.dart';
 
@@ -146,7 +147,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
             ),
             tooltip: context.l10n.favorites,
             onPressed: () =>
-                Navigator.pushNamed(context, AppRoutes.rssFavorites),
+                GoRouter.of(context).pushAppRoute(AppRoutes.rssFavorites),
           ),
           // 分组筛选：对齐原版 RssFragment 的分组菜单（ic_groups 图标，linkedSetOf 保序聚合）
           AppMenuButton<String?>(
@@ -176,7 +177,8 @@ class _RssScreenState extends ConsumerState<RssScreen> {
             ),
             tooltip: context.l10n.rssSourceManagement,
             onPressed: () async {
-              await Navigator.pushNamed(context, AppRoutes.rssSourceManage);
+              await GoRouter.of(context)
+                  .pushAppRoute(AppRoutes.rssSourceManage);
               if (mounted) notifier.loadSources();
             },
           ),
@@ -218,17 +220,18 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                         context,
                         Icons.subscriptions,
                         context.l10n.ruleSubscriptions,
-                        () => Navigator.pushNamed(context, AppRoutes.ruleSub),
+                        () =>
+                            GoRouter.of(context)
+                                .pushAppRoute(AppRoutes.ruleSub),
                       ),
                       const SizedBox(width: 12),
                       _buildEntryCard(
                         context,
                         Icons.star,
                         context.l10n.favorites,
-                        () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.rssFavorites,
-                        ),
+                        () =>
+                            GoRouter.of(context)
+                                .pushAppRoute(AppRoutes.rssFavorites),
                       ),
                     ],
                   ),
@@ -279,11 +282,8 @@ class _RssScreenState extends ConsumerState<RssScreen> {
     if (url.toLowerCase().startsWith('http://') ||
         url.toLowerCase().startsWith('https://')) {
       if (!mounted) return;
-      await Navigator.pushNamed(
-        context,
-        AppRoutes.browser,
-        arguments: BrowserRouteArgs(url: url),
-      );
+      await GoRouter.of(context)
+          .pushAppRoute(AppRoutes.browser, extra: BrowserRouteArgs(url: url));
       return;
     }
     final uri = Uri.tryParse(url);

@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../theme/app_motion.dart';
 import '../application/comic_settings_controller.dart';
 import '../application/comic_image_actions_service.dart';
@@ -676,8 +677,8 @@ class _ReaderComicScreenState extends ConsumerState<ReaderComicScreen>
     final book = _book;
     if (book == null) return;
     unawaited(
-      Navigator.of(context)
-          .pushNamed(AppRoutes.changeSource, arguments: book)
+      GoRouter.of(context)
+          .pushAppRoute(AppRoutes.changeSource, extra: book)
           .then((dynamic result) {
             final newBookUrl = result is String ? result : null;
             if (newBookUrl == null || newBookUrl.isEmpty || !mounted) return;

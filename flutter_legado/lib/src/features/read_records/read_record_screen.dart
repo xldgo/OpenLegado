@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_arguments.dart';
 import '../privacy/privacy_gate.dart';
 import '../../widgets/app_search_transition.dart';
@@ -101,10 +102,9 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     if (book != null) {
       await BookOpenUtils.openBook(context, ref, book);
     } else if (mounted) {
-      await Navigator.pushNamed(
-        context,
+      await GoRouter.of(context).pushAppRoute(
         AppRoutes.search,
-        arguments: SearchRouteArgs(query: entry.bookName),
+        extra: SearchRouteArgs(query: entry.bookName),
       );
     }
   }
@@ -480,7 +480,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () =>
-              Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+              GoRouter.of(context).pushAppRoute(AppRoutes.readRecordOverview),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(

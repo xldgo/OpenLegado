@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_arguments.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -103,11 +104,9 @@ class _ReadRecordOverviewScreenState
     if (matchedBook != null) {
       await BookOpenUtils.openBook(context, ref, matchedBook);
     } else {
-      await Navigator.pushNamed(
+      await GoRouter.of(
         context,
-        AppRoutes.search,
-        arguments: SearchRouteArgs(query: bookName),
-      );
+      ).pushAppRoute(AppRoutes.search, extra: SearchRouteArgs(query: bookName));
     }
   }
 

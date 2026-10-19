@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../domain/models/read_aloud_content.dart';
 import '../../../widgets/bottom_sheet_widget.dart';
 import '../../../widgets/app_settings_sheet.dart';
@@ -324,7 +325,8 @@ class _ReadAloudSettingsScreenState
                 title: strings.readAloudEngines,
                 subtitle: strings.readAloudEnginesSummary,
                 onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.readAloudConfig),
+                    GoRouter.of(context)
+                        .pushAppRoute(AppRoutes.readAloudConfig),
               ),
             ],
           ),

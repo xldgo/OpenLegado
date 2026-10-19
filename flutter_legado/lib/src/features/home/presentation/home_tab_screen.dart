@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import '../../privacy/privacy_gate.dart';
 
@@ -245,10 +246,9 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             children: [
               Expanded(
                 child: _HomeCard(
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.readRecordOverview,
-                  ),
+                  onTap: () =>
+                      GoRouter.of(context)
+                          .pushAppRoute(AppRoutes.readRecordOverview),
                   child: Row(
                     children: [
                       Icon(Symbols.bar_chart_rounded, color: cs.primary),
@@ -281,7 +281,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               Expanded(
                 child: _HomeCard(
                   onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.readRecord),
+                      GoRouter.of(context).pushAppRoute(AppRoutes.readRecord),
                   child: Row(
                     children: [
                       Icon(Symbols.schedule_rounded, color: cs.primary),
@@ -416,7 +416,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               tooltip: '阅读总览',
               icon: const Icon(Symbols.chevron_right_rounded),
               onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+                  GoRouter.of(context)
+                      .pushAppRoute(AppRoutes.readRecordOverview),
             ),
           ),
           const SizedBox(height: 12),
@@ -429,7 +430,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               tooltip: '更多排行',
               icon: const Icon(Symbols.chevron_right_rounded),
               onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+                  GoRouter.of(context)
+                      .pushAppRoute(AppRoutes.readRecordOverview),
             ),
           ),
           const SizedBox(height: 12),
@@ -442,7 +444,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               tooltip: '查看日历',
               icon: const Icon(Symbols.chevron_right_rounded),
               onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.readRecordOverview),
+                  GoRouter.of(context)
+                      .pushAppRoute(AppRoutes.readRecordOverview),
             ),
           ),
         ],
@@ -487,11 +490,9 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     if (matched != null) {
       await _openBook(matched);
     } else {
-      await Navigator.pushNamed(
+      await GoRouter.of(
         context,
-        AppRoutes.search,
-        arguments: SearchRouteArgs(query: bookName),
-      );
+      ).pushAppRoute(AppRoutes.search, extra: SearchRouteArgs(query: bookName));
     }
   }
 }

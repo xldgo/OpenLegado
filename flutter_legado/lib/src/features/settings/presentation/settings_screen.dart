@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../../providers/domain_config_provider.dart';
 import '../../../providers/local_server_provider.dart';
@@ -334,52 +335,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: context.l10n.sourceManagement,
                       subtitle: context.l10n.sourceManagementSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.sources),
+                          GoRouter.of(context).pushAppRoute(AppRoutes.sources),
                     ),
                     SettingTile(
                       icon: Symbols.rss_feed_rounded,
                       title: context.l10n.rssSourceManagement,
                       subtitle: context.l10n.rssSourceManagementSummary,
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.rssSourceManage,
-                      ),
+                      onTap: () =>
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.rssSourceManage),
                     ),
                     SettingTile(
                       icon: Symbols.toc_rounded,
                       title: context.l10n.txtTocRules,
                       subtitle: context.l10n.txtTocRulesSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.txtTocRules),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.txtTocRules),
                     ),
                     SettingTile(
                       icon: Symbols.find_replace_rounded,
                       title: context.l10n.replaceRules,
                       subtitle: context.l10n.replaceRulesSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.replaceRules),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.replaceRules),
                     ),
                     SettingTile(
                       icon: Symbols.translate_rounded,
                       title: context.l10n.dictionaryLookup,
                       subtitle: context.l10n.dictionaryLookupSummary,
-                      onTap: () => Navigator.pushNamed(context, AppRoutes.dict),
+                      onTap: () =>
+                          GoRouter.of(context).pushAppRoute(AppRoutes.dict),
                     ),
                     SettingTile(
                       icon: Symbols.manage_search_rounded,
                       title: context.l10n.dictionaryRules,
                       subtitle: context.l10n.dictionaryRulesSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.dictRule),
+                          GoRouter.of(context).pushAppRoute(AppRoutes.dictRule),
                     ),
                     SettingTile(
                       icon: Icons.sell_rounded,
                       title: context.l10n.highlightRules,
                       subtitle: context.l10n.highlightRulesSummary,
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.highlightRules,
-                      ),
+                      onTap: () =>
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.highlightRules),
                     ),
                   ],
                 ),
@@ -392,7 +394,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: context.l10n.appearance,
                       subtitle: context.l10n.appearanceSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.themeConfig),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.themeConfig),
                     ),
                     SettingTile(
                       icon: Symbols.style_rounded,
@@ -403,10 +406,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     SettingTile(
                       icon: Symbols.record_voice_over_rounded,
                       title: context.l10n.readAloudSettingsTitle,
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.readAloudSettings,
-                      ),
+                      onTap: () =>
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.readAloudSettings),
                     ),
                   ],
                 ),
@@ -454,17 +456,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       icon: Symbols.backup_rounded,
                       title: context.l10n.backupAndRestore,
                       subtitle: context.l10n.backupAndRestoreSummary,
-                      onTap: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.webdavSettings,
-                      ),
+                      onTap: () =>
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.webdavSettings),
                     ),
                     SettingTile(
                       icon: Symbols.download_rounded,
                       title: context.l10n.cacheManagement,
                       subtitle: context.l10n.cacheManagementSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.offlineCache),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.offlineCache),
                     ),
                   ],
                 ),
@@ -477,7 +479,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: context.l10n.scheduledTasks,
                       subtitle: context.l10n.scheduledTasksSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.autoTasks),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.autoTasks),
                     ),
                     SettingSwitchRow(
                       icon: Symbols.autorenew_rounded,
@@ -498,41 +501,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: '隐私',
                       subtitle: '私密内容与访问验证',
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.privacy),
+                          GoRouter.of(context).pushAppRoute(AppRoutes.privacy),
                     ),
                     SettingTile(
                       icon: Symbols.tune_rounded,
                       title: context.l10n.advanced,
                       subtitle: context.l10n.advancedSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.otherSettings),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.otherSettings),
                     ),
                     SettingTile(
                       icon: Symbols.bookmark_rounded,
                       title: context.l10n.bookmarks,
                       subtitle: context.l10n.allBookmarks,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.bookmarks),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.bookmarks),
                     ),
                     SettingTile(
                       icon: Symbols.history_rounded,
                       title: context.l10n.readingRecords,
                       subtitle: context.l10n.readingRecordsSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.readRecord),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.readRecord),
                     ),
                     SettingTile(
                       icon: Symbols.folder_rounded,
                       title: context.l10n.fileManagement,
                       subtitle: context.l10n.fileManagementSummary,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.fileManage),
+                          GoRouter.of(context)
+                              .pushAppRoute(AppRoutes.fileManage),
                     ),
                     SettingTile(
                       icon: Symbols.info_rounded,
                       title: context.l10n.aboutSettings,
                       onTap: () =>
-                          Navigator.pushNamed(context, AppRoutes.about),
+                          GoRouter.of(context).pushAppRoute(AppRoutes.about),
                     ),
                     SettingTile(
                       icon: Symbols.logout_rounded,

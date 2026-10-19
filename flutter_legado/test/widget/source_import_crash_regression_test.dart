@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 // 复现回归：网络导入书源 _dependents.isEmpty 断言
@@ -40,7 +41,7 @@ void main() {
   Widget wrapSourceScreen() {
     return ProviderScope(
       overrides: mergeTestOverrides([...mockApi.overrides]),
-      child: const MaterialApp(home: SourceScreen()),
+      child: const RoutingTestApp(home: SourceScreen()),
     );
   }
 
@@ -80,7 +81,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           home: const SourceScreen(),
           onGenerateRoute: (settings) {
             if (settings.name == AppRoutes.qrcode) {
@@ -137,7 +138,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           home: SourceImportConfirmScreen(
             sources: [SourcePreview.fromRaw(raw)],
             localSources: const [],

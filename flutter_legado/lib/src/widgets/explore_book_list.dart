@@ -1,7 +1,10 @@
+library;
+
+import '../app/routing/app_navigation.dart';
+
 /// 发现分类书籍列表组件（ExploreBookList）
 ///
 /// iOS inset 列表：系统灰阶、hairline 分隔、中性交互色。
-library;
 
 import '../l10n/app_localization.dart';
 
@@ -363,7 +366,7 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
       latestChapterTitle: book.latestChapterTitle,
       wordCount: book.wordCount,
     );
-    Navigator.pushNamed(context, AppRoutes.bookInfo, arguments: bookObj);
+    GoRouter.of(context).pushAppRoute(AppRoutes.bookInfo, extra: bookObj);
   }
 }
 

@@ -1,3 +1,5 @@
+import '../../app/routing/app_navigation.dart';
+
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
@@ -63,7 +65,8 @@ class MediaPlaybackNavigation extends NavigatorObserver {
         navigator!.popUntil((route) => identical(route, existing));
       } else {
         unawaited(
-          navigator!.pushNamed(destination.route, arguments: destination.book),
+          GoRouter.of(navigator!.context)
+              .pushAppRoute(destination.route, extra: destination.book),
         );
       }
     });

@@ -743,10 +743,10 @@ extension _SourceBuilders on _SourceScreenState {
         final search = ref.read(searchNotifierProvider.notifier);
         search.clearAllFilter();
         search.toggleSource(source.bookSourceUrl);
-        Navigator.of(context).pushNamed(AppRoutes.search);
+        GoRouter.of(context).pushAppRoute(AppRoutes.search);
       case 'debug':
-        Navigator.of(context)
-            .pushNamed(AppRoutes.sourceDebug, arguments: source.bookSourceUrl);
+        GoRouter.of(context)
+            .pushAppRoute(AppRoutes.sourceDebug, extra: source.bookSourceUrl);
       case 'delete':
         final confirmed = await showConfirmDialog(
           context,

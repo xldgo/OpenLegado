@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_arguments.dart';
 
 import 'dart:convert';
@@ -69,7 +70,7 @@ class ReaderSelectionActions {
     final highlights = action == ReaderSelectionAction.highlight
         ? ref.read(highlightRepositoryProvider)
         : null;
-    final navigator = Navigator.of(context, rootNavigator: true);
+    final router = GoRouter.of(context);
     final size = MediaQuery.sizeOf(context);
     final shareOrigin = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2),
@@ -94,9 +95,9 @@ class ReaderSelectionActions {
         case ReaderSelectionAction.browser:
           final text = selection.text.trim();
           if (RegExp(r'^https?://\S+$').hasMatch(text)) {
-            await navigator.pushNamed(
+            await router.pushAppRoute(
               AppRoutes.browser,
-              arguments: BrowserRouteArgs(url: text),
+              extra: BrowserRouteArgs(url: text),
             );
           } else if (!await launchUrl(
             Uri.https('www.bing.com', '/search', {'q': text}),
@@ -137,14 +138,14 @@ class ReaderSelectionActions {
         case ReaderSelectionAction.dictionary:
           await showDictDialog(context, word: selection.text.trim());
         case ReaderSelectionAction.replace:
-          await navigator.pushNamed(
+          await router.pushAppRoute(
             AppRoutes.replaceRules,
-            arguments: selection.text,
+            extra: selection.text,
           );
         case ReaderSelectionAction.searchContent:
-          await navigator.pushNamed(
+          await router.pushAppRoute(
             AppRoutes.searchContent,
-            arguments: ContentSearchRouteArgs(
+            extra: ContentSearchRouteArgs(
               book: state!.currentBook!,
               query: selection.text,
             ),

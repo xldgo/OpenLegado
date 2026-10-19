@@ -1,3 +1,4 @@
+import '../app/routing/app_navigation.dart';
 import '../domain/contracts/source_login_session.dart';
 import '../domain/models/explore_action_result.dart';
 import '../l10n/app_localization.dart';
@@ -385,7 +386,7 @@ class ClassicLoginDialogState extends State<ClassicLoginDialog> {
         await _putHeader('');
         _snack(l10n.loginInfoCleared);
       case 'log':
-        await Navigator.of(context).pushNamed(AppRoutes.appLog);
+        await GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
     }
   }
 

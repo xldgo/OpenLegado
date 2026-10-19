@@ -1,3 +1,4 @@
+import '../../app/routing/app_navigation.dart';
 import '../../widgets/app_content_transition.dart';
 import 'application/bookshelf_import_controller.dart';
 import 'application/bookshelf_import_provider.dart';
@@ -64,6 +65,7 @@ class BookshelfScreen extends ConsumerStatefulWidget {
 // 而非 SingleTickerProviderStateMixin（后者对第二个 ticker 抛断言）
 class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     with TickerProviderStateMixin {
+  bool _openingBook = false;
   TabController? _tabController;
   int _tabControllerLen = 0;
   final ScrollController _scrollController = ScrollController();
@@ -345,7 +347,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       IconButton(
         icon: const Icon(Symbols.search_rounded),
         tooltip: context.l10n.search,
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
+        onPressed: () => GoRouter.of(context).pushAppRoute(AppRoutes.search),
       ),
       // 原版 main_bookshelf.xml 无常驻视图切换按钮，网格/列表切换在溢出菜单「布局设置」
       AppMenuButton<String>(
@@ -677,31 +679,39 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// 对齐参考版：单击按 BookType 直达阅读器或播放器，长按进入详情。— Codex + UI
   Future<void> _openBook(BuildContext context, WidgetRef ref, Book book) async {
-    if (ModalRoute.of(context)?.isCurrent == false) return;
-    final prepared = await ref
-        .read(bookDetailServiceProvider)
-        .resolveReading(book);
-    if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) return;
-    final bookToOpen = prepared.book;
-    final typeBits = prepared.typeBits;
-    final route = BookOpenUtils.routeForTypeBits(typeBits);
-    if (BookOpenUtils.needsReaderNotifier(route)) {
-      ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
-      await Navigator.pushNamed(
-        context,
-        route,
-        arguments: BookCoverHero.originFor(context, bookToOpen.bookUrl),
-      );
-    } else {
-      await Navigator.pushNamed(
-        context,
-        route,
-        arguments: BookOpenUtils.argumentsForRoute(route, bookToOpen),
-      );
+    if (_openingBook) return;
+    _openingBook = true;
+    try {
+      if (ModalRoute.of(context)?.isCurrent == false) return;
+      final prepared = await ref
+          .read(bookDetailServiceProvider)
+          .resolveReading(book);
+      if (!context.mounted || ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
+      final bookToOpen = prepared.book;
+      final typeBits = prepared.typeBits;
+      final route = BookOpenUtils.routeForTypeBits(typeBits);
+      if (BookOpenUtils.needsReaderNotifier(route)) {
+        ref.read(readerNotifierProvider.notifier).openBook(bookToOpen);
+        await GoRouter.of(context).pushAppRoute(
+          route,
+          extra:
+              BookCoverHero.originFor(context, bookToOpen.bookUrl) ??
+              bookToOpen,
+        );
+      } else {
+        await GoRouter.of(context).pushAppRoute(
+          route,
+          extra: BookOpenUtils.argumentsForRoute(route, bookToOpen),
+        );
+      }
+      // [队列⑫ P3 | 2026-09-22] 弹回书架后单本定向刷新（进度同步）
+      if (!context.mounted) return;
+      await _refreshBookOnReturn(context, ref, book);
+    } finally {
+      _openingBook = false;
     }
-    // [队列⑫ P3 | 2026-09-22] 弹回书架后单本定向刷新（进度同步）
-    if (!context.mounted) return;
-    await _refreshBookOnReturn(context, ref, book);
   }
 
   /// [队列⑫ P3 | 2026-09-22] 从阅读器/详情页返回书架：单本定向刷新
@@ -723,7 +733,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
 
   /// 长按封面/书名直接打开书籍信息页（对齐安卓原版行为）
   void _openBookInfo(BuildContext context, Book book) {
-    Navigator.pushNamed(context, AppRoutes.bookInfo, arguments: book);
+    GoRouter.of(context).pushAppRoute(AppRoutes.bookInfo, extra: book);
   }
 
   /// 选择本地书籍文件并导入书架
@@ -946,7 +956,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         // 原版添加本地：直接选择本地书籍文件导入
         _addLocalBook(context, ref);
       case 'remote':
-        Navigator.pushNamed(context, AppRoutes.remoteBooks);
+        GoRouter.of(context).pushAppRoute(AppRoutes.remoteBooks);
       case 'add_url':
         // [UI-fix v2.0.2 | 2026-08-06] 添加网址接通 WebBook 入库链路（对标原版 addBookByUrl） — Qoder
         _showAddByUrlDialog();
@@ -955,14 +965,14 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         break;
       case 'manage':
         // 进入书架管理页（对标原版 BookshelfManageActivity）
-        Navigator.pushNamed(context, AppRoutes.bookshelfManage);
+        GoRouter.of(context).pushAppRoute(AppRoutes.bookshelfManage);
       case 'offline_cache':
         // [UI-fix v2.0.17 | 2026-08-11] 离线缓存页（对齐原版书架菜单
         // menu_download → CacheActivity：书籍列表/缓存进度/下载控制/单本导出）
         // — Reasonix
-        Navigator.pushNamed(context, AppRoutes.offlineCache);
+        GoRouter.of(context).pushAppRoute(AppRoutes.offlineCache);
       case 'groups':
-        Navigator.pushNamed(context, AppRoutes.bookGroups);
+        GoRouter.of(context).pushAppRoute(AppRoutes.bookGroups);
       case 'layout':
         _showLayoutDialog();
       case 'export_list':
@@ -973,7 +983,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
         _showImportBookshelfDialog();
       case 'log':
         // [UI-fix v2.0.1 | 2026-08-06] 日志菜单接通 AppLogScreen（对标原版 menu_log → AppLogDialog） — Qoder
-        Navigator.pushNamed(context, AppRoutes.appLog);
+        GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
     }
   }
 

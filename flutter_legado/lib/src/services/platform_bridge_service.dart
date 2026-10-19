@@ -1,3 +1,4 @@
+import '../app/routing/app_navigation.dart';
 import '../app/routing/route_arguments.dart';
 
 import 'dart:async';
@@ -908,9 +909,9 @@ class PlatformBridgeService {
       debugPrint('[PlatformBridge] openBrowser：Navigator 未装配，忽略 url=$url');
       return;
     }
-    navigator.pushNamed(
+    GoRouter.of(navigator.context).pushAppRoute(
       AppRoutes.browser,
-      arguments: BrowserRouteArgs(url: url, html: html),
+      extra: BrowserRouteArgs(url: url, html: html),
     );
   }
 
@@ -1037,9 +1038,9 @@ class PlatformBridgeService {
         return;
       }
     }
-    navigator.pushNamed(
+    GoRouter.of(navigator.context).pushAppRoute(
       AppRoutes.video,
-      arguments: VideoScreenArgs(
+      extra: VideoScreenArgs(
         videoUrl: url,
         title: title.isNotEmpty ? title : '视频播放',
       ),

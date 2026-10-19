@@ -1,3 +1,5 @@
+import '../fixtures/routing_test_app.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -21,7 +23,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides(api.overrides),
-        child: MaterialApp(
+        child: RoutingTestApp(
           home: const BookshelfScreen(),
           routes: {
             AppRoutes.search: (_) => const Scaffold(body: Text('搜索目标页')),

@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -35,7 +36,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: mergeTestOverrides([...mockApi.overrides]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           home: const BookshelfScreen(),
           routes: {
             AppRoutes.bookInfo: (_) => const _StubPage(label: 'STUB_DETAIL'),

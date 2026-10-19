@@ -463,7 +463,7 @@ extension _SearchBuilders on _SearchScreenState {
       case 'log':
         // [UI-fix v2.0.1 | 2026-08-06] 日志菜单接通 AppLogScreen（对标原版
         // menu_log → AppLogDialog） — Qoder
-        Navigator.pushNamed(context, AppRoutes.appLog);
+        GoRouter.of(context).pushAppRoute(AppRoutes.appLog);
         break;
     }
   }
@@ -659,11 +659,9 @@ extension _SearchBuilders on _SearchScreenState {
     final tile = InkWell(
       key: ValueKey('${result.sourceName}:${book.bookUrl}'),
       // [UI-fix v2.0.3 | 2026-08-06] 搜索结果直达书详情页（对齐原版 SearchActivity→BookInfoActivity，含开始阅读入口） — Qoder
-      onTap: () => Navigator.pushNamed(
-        context,
-        AppRoutes.bookInfo,
-        arguments: result.book,
-      ),
+      onTap: () =>
+          GoRouter.of(context)
+              .pushAppRoute(AppRoutes.bookInfo, extra: result.book),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Row(
@@ -841,7 +839,7 @@ extension _SearchBuilders on _SearchScreenState {
   /// 打开书源管理页（顶栏「设置⚙」弹层「书源管理」项入口）。
   /// 范围弹层打开时自行实时拉取书源（_showSearchScopeDialog），无需缓存。
   void _openSourceManage() {
-    Navigator.pushNamed(context, '/sources');
+    GoRouter.of(context).pushAppRoute('/sources');
   }
 
   /// 解析屏蔽词表（对齐原版 filterSearchResults 词解析：
@@ -1182,7 +1180,8 @@ extension _SearchBuilders on _SearchScreenState {
       for (final book in books)
         InkWell(
           onTap: () =>
-              Navigator.pushNamed(context, AppRoutes.bookInfo, arguments: book),
+              GoRouter.of(context)
+                  .pushAppRoute(AppRoutes.bookInfo, extra: book),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(

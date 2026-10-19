@@ -1,3 +1,4 @@
+import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import 'views/reader_content_viewport.dart';
 import '../application/reader_exit_controller.dart';
@@ -581,11 +582,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _openToc() async {
     final book = ref.read(readerNotifierProvider).currentBook;
     if (book == null) return;
-    final result = await Navigator.pushNamed(
-      context,
-      AppRoutes.toc,
-      arguments: book,
-    );
+    final result = await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.toc, extra: book);
     if (!mounted) return;
     if (result is int) {
       await ref.read(readerNotifierProvider.notifier).goToChapter(result);
@@ -742,10 +740,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _openContentSearch(ReaderState state) {
     final book = state.currentBook;
     if (book == null) return;
-    Navigator.pushNamed(
-      context,
+    GoRouter.of(context).pushAppRoute(
       AppRoutes.searchContent,
-      arguments: ContentSearchRouteArgs(book: book),
+      extra: ContentSearchRouteArgs(book: book),
     );
   }
 

@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -131,7 +132,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: RoutingTestApp(
           theme: AppTheme.light,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
@@ -644,7 +645,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: RoutingTestApp(
           theme: AppTheme.light,
           home: const ReadAloudSettingsScreen(),
         ),

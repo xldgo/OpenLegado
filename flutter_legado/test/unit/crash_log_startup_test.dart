@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/routing/app_navigation.dart';
+
+import '../fixtures/routing_test_app.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -65,7 +69,7 @@ void main() {
       _CrashDialogHarness(
         lastCrashLog: _sampleCrashLog,
         watcher: watcher,
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: PlatformBridgeService.navigatorKey,
           navigatorObservers: [watcher],
           home: const Scaffold(body: Center(child: Text('home'))),
@@ -109,7 +113,7 @@ void main() {
       _CrashDialogHarness(
         lastCrashLog: _sampleCrashLog,
         watcher: watcher,
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: isolatedKey,
           navigatorObservers: [watcher],
           home: const Scaffold(body: Center(child: Text('home'))),
@@ -133,7 +137,7 @@ void main() {
   testWidgets('lastCrashLog 为空：不调度弹窗', (tester) async {
     await tester.pumpWidget(
       _CrashDialogHarness(
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: PlatformBridgeService.navigatorKey,
           home: const Scaffold(body: Center(child: Text('home'))),
         ),
@@ -156,7 +160,7 @@ void main() {
       _CrashDialogHarness(
         lastCrashLog: _sampleCrashLog,
         watcher: watcher,
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorKey: PlatformBridgeService.navigatorKey,
           navigatorObservers: [watcher],
           initialRoute: AppRoutes.welcome,
@@ -179,9 +183,8 @@ void main() {
 
     // 2) 模拟闪屏退出（对应 WelcomeScreen._goNext L132）：
     // pushReplacement 同步 flush → didChangeTop(/home, /welcome)
-    PlatformBridgeService.navigatorKey.currentState!.pushReplacementNamed(
-      AppRoutes.home,
-    );
+    GoRouter.of(PlatformBridgeService.navigatorKey.currentState!.context)
+        .replaceAppRoute(AppRoutes.home);
     expect(watcher.topRouteName, AppRoutes.home);
 
     // 3) 栈顶变为 /home → 重试循环在下一帧 postFrame 弹出

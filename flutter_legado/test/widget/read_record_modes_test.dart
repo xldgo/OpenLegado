@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/widgets/book_cover.dart';
@@ -57,7 +58,7 @@ void main() {
           ...api.overrides,
           readRecordRepositoryProvider.overrideWithValue(repo),
         ]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           theme: AppTheme.light,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(

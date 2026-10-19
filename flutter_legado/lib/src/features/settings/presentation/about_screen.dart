@@ -1,3 +1,5 @@
+import '../../../app/routing/app_navigation.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../../widgets/app_scaffold.dart';
@@ -172,7 +174,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               children: [
                 SettingTile(
                   title: '崩溃日志',
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.appLog),
+                  onTap: () =>
+                      GoRouter.of(context).pushAppRoute(AppRoutes.appLog),
                 ),
                 SettingTile(title: '保存日志', onTap: _saveLog),
                 SettingTile(title: '创建堆转储', onTap: _createHeapDumpPlaceholder),

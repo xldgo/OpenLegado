@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 import '../helpers/native_reader_layout.dart';
 // [P2-30 | 未入架书退出阅读缺「放入书架」提示] 退出判定 widget 测试
@@ -107,7 +108,7 @@ void main() {
           if (systemBars != null)
             systemBarControllerProvider.overrideWithValue(systemBars),
         ]),
-        child: MaterialApp(
+        child: RoutingTestApp(
           navigatorObservers: [systemBarRouteObserver],
           builder: nativeReaderLayoutBuilder,
           home: Builder(

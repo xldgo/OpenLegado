@@ -1,3 +1,5 @@
+import '../../../app/routing/app_navigation.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -151,7 +153,8 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
                 tooltip: strings.readAloudSettingsTitle,
                 icon: const Icon(Icons.settings_outlined),
                 onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.readAloudSettings),
+                    GoRouter.of(context)
+                        .pushAppRoute(AppRoutes.readAloudSettings),
               ),
             ],
           ),

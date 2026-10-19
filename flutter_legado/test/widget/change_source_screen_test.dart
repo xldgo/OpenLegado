@@ -1,3 +1,4 @@
+import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
@@ -90,7 +91,7 @@ void main() {
   Widget wrap(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: RoutingTestApp(home: child),
     );
   }
 
@@ -123,7 +124,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: RoutingTestApp(
           initialRoute: '/home',
           onGenerateRoute: (settings) {
             if (settings.name == '/home') {

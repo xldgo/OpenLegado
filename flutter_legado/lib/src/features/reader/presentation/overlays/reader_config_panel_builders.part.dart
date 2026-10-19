@@ -340,7 +340,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           title: '阅读字体',
           subtitle: _fontLabel ?? context.l10n.readerDefaultFont,
           onTap: () async {
-            await Navigator.pushNamed(context, AppRoutes.fonts);
+            await GoRouter.of(context).pushAppRoute(AppRoutes.fonts);
             if (!mounted) return;
             await _loadReaderSettings();
           },

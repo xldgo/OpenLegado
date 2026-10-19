@@ -1,3 +1,5 @@
+import '../fixtures/routing_test_app.dart';
+
 import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 
 import '../fixtures/app_test_api.dart';
@@ -51,7 +53,7 @@ void main() {
         if (readerNotifier != null)
           readerNotifierProvider.overrideWith(() => readerNotifier),
       ]),
-      child: MaterialApp(
+      child: RoutingTestApp(
         navigatorKey: useGlobalNavigator
             ? PlatformBridgeService.navigatorKey
             : null,
@@ -91,7 +93,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(observer.lastName, AppRoutes.reader);
-    expect(observer.lastArguments, isNull);
+    expect((observer.lastArguments as Book).bookUrl, book.bookUrl);
     expect(reader.openedBook, book);
     expect(
       observer.routes.map((route) => route.settings.name),
@@ -161,11 +163,11 @@ void main() {
 
     // 全局导航与页面导航均直接打开对应阅读器。
     expect(observer.lastName, AppRoutes.reader);
-    expect(observer.lastArguments, isNull);
+    expect((observer.lastArguments as Book).bookUrl, book.bookUrl);
     expect(reader.openedBook?.bookUrl, book.bookUrl);
   });
 
-  testWidgets('文本阅读器：先装载 ReaderNotifier 再推 /reader（无参数）', (tester) async {
+  testWidgets('文本阅读器：先装载 ReaderNotifier 再推 /reader（携带身份快照）', (tester) async {
     const book = Book(
       bookUrl: 'loc_book_2',
       name: '本地已读书',
@@ -184,7 +186,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(observer.lastName, AppRoutes.reader);
-    expect(observer.lastArguments, isNull);
+    expect((observer.lastArguments as Book).bookUrl, book.bookUrl);
     expect(reader.openedBook, book);
   });
 
