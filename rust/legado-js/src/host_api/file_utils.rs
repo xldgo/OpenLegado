@@ -6,11 +6,9 @@
 //! - fileExists — 检查文件是否存在
 //! - deleteFile — 删除文件
 //! - readTxtFile — 读取文本文件（支持编码）
-//! - downloadFile — 下载文件到沙箱
-//! - cacheFile — 缓存文件（URL hash 为文件名）
-//! - importScript — 下载并读取 JS 脚本
 //! - getTxtInFolder — 获取文件夹下文本文件内容
 //!
+//! 下载/文本缓存/脚本导入由私有file_download复用规则请求实现。
 //! 所有路径操作均限制在沙箱目录内，防止路径穿越攻击。
 
 // ============================================================
@@ -185,146 +183,6 @@ mod impl_file_utils {
         }
     }
 
-    /// downloadFile(url, fileName?) — 下载文件到沙箱
-    ///
-    /// 对应 Kotlin: `downloadFile(url, fileName)`
-    /// 返回沙箱内文件路径
-    pub fn download_file(
-        http: &crate::http_resources::HttpResources,
-        url: &str,
-        file_name: Option<&str>,
-    ) -> Result<String, String> {
-        let name = match file_name {
-            Some(n) if !n.is_empty() => n.to_string(),
-            _ => {
-                // 从 URL 提取文件名
-                url.rsplit('/')
-                    .next()
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or("download")
-                    .to_string()
-            }
-        };
-
-        let dest = resolve_safe_path(&name)?;
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("Cannot create dir: {}", e))?;
-        }
-
-        // 下载使用所属资源连接池；显式文件名仍按原沙箱规则解析。
-        let bytes = crate::host_api::runtime_bridge::block_on_cancellable(async {
-            let client = http
-                .client_for_url(url, false)
-                .map_err(|e| format!("Download client error: {}", e))?;
-            client
-                .get_raw(url, None)
-                .await
-                .map(|response| response.body)
-                .map_err(|e| format!("Download error: {}", e))
-        })?;
-
-        fs::write(&dest, &bytes).map_err(|e| format!("Write error: {}", e))?;
-        Ok(dest.to_string_lossy().into_owned())
-    }
-
-    /// downloadFile(contentHex, url) — 废弃重载：十六进制内容按 url 类型落盘
-    ///
-    /// 对应 Kotlin: `@Deprecated downloadFile(content, url)`
-    pub fn download_file_from_hex(content_hex: &str, url: &str) -> Result<String, String> {
-        use md5::{Digest, Md5};
-
-        // 从 url 猜扩展名（对齐 AnalyzeUrl.type / UrlUtil.getSuffix 的轻量近似）
-        let type_hint = url
-            .split(',')
-            .next()
-            .unwrap_or(url)
-            .rsplit('.')
-            .next()
-            .filter(|s| s.len() <= 8 && s.chars().all(|c| c.is_ascii_alphanumeric()))
-            .unwrap_or("bin");
-
-        let mut hasher = Md5::new();
-        hasher.update(url.as_bytes());
-        let hash16 = hex::encode(hasher.finalize());
-        let hash16 = if hash16.len() >= 16 {
-            &hash16[..16]
-        } else {
-            &hash16
-        };
-        let name = format!("{hash16}.{type_hint}");
-        let dest = resolve_safe_path(&name)?;
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("Cannot create dir: {}", e))?;
-        }
-        let bytes =
-            hex::decode(content_hex.trim()).map_err(|e| format!("Hex decode error: {}", e))?;
-        fs::write(&dest, &bytes).map_err(|e| format!("Write error: {}", e))?;
-        // 返回相对路径（对齐 Kotlin substring(cachePath.length)）
-        Ok(name)
-    }
-
-    /// cacheFile(url) — 缓存文件（URL MD5 hash 为文件名）
-    ///
-    /// 对应 Kotlin: `cacheFile(url)`
-    /// 如果缓存已存在则直接返回路径，否则下载后缓存
-    pub fn cache_file(
-        http: &crate::http_resources::HttpResources,
-        url: &str,
-    ) -> Result<String, String> {
-        use md5::{Digest, Md5};
-
-        // 计算 URL 的 MD5 作为缓存文件名
-        let mut hasher = Md5::new();
-        hasher.update(url.as_bytes());
-        let hash_hex = hex::encode(hasher.finalize());
-
-        // 保留原始扩展名
-        let ext = url
-            .rsplit('.')
-            .next()
-            .filter(|s| s.len() <= 5 && s.chars().all(|c| c.is_alphanumeric()))
-            .unwrap_or("cache");
-        let cache_name = format!("{}.{}", hash_hex, ext);
-
-        http.with_file_cache(url, || {
-            let cache_path = http.file_cache_dir()?.join(&cache_name);
-
-            // 缓存命中
-            if cache_path.exists() {
-                return Ok(cache_path.to_string_lossy().into_owned());
-            }
-
-            // 下载并写入缓存
-            {
-                let bytes = crate::host_api::runtime_bridge::block_on_cancellable(async {
-                    http.client_for_url(url, false)?
-                        .get_raw(url, None)
-                        .await
-                        .map(|response| response.body)
-                        .map_err(|e| format!("Download error: {e}"))
-                })?;
-                let path = http.publish_file_cache(&cache_name, &bytes)?;
-                Ok(path.to_string_lossy().into_owned())
-            }
-        })
-    }
-
-    /// importScript(url) — 下载并读取 JS 脚本内容
-    ///
-    /// 对应 Kotlin: `importScript(url)`
-    /// 先检查沙箱缓存，若不存在则下载后读取
-    pub fn import_script(
-        http: &crate::http_resources::HttpResources,
-        url: &str,
-    ) -> Result<String, String> {
-        // 先尝试缓存
-        let cached_path = cache_file(http, url)?;
-        // 读取缓存文件内容
-        let content = fs::read_to_string(&cached_path)
-            .map_err(|e| format!("importScript read error: {}", e))?;
-        Ok(content)
-    }
-
     /// getTxtInFolder(folderPath) — 获取文件夹下所有文本文件内容（拼接）
     ///
     /// 对应 Kotlin: `getTxtInFolder(folderPath)`
@@ -401,18 +259,6 @@ mod stub_file_utils {
         Err(not_available())
     }
     pub fn read_txt_file(_path: &str, _charset: Option<&str>) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn download_file(_url: &str, _file_name: Option<&str>) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn download_file_from_hex(_content_hex: &str, _url: &str) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn cache_file(_url: &str) -> Result<String, String> {
-        Err(not_available())
-    }
-    pub fn import_script(_url: &str) -> Result<String, String> {
         Err(not_available())
     }
     pub fn get_txt_in_folder(_folder_path: &str) -> Result<String, String> {

@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### JS-FILE-DOWNLOAD-20261019：规则下载、文本缓存与脚本导入（P1）
+
+- 状态：已关闭（仅本批JS文件接口范围）。用户批准下一步计划；沿用dep-audit / chore/dep-audit / f86d2c0b6，开始工作区干净；单代理，通过后本地提交，提交号以本条所属提交为准；不推送/合并，不触碰主目录。
+- 依据：固定参考版15e1337a的JsExtensions.kt:384-498、UrlUtil.getSuffix和MD5Utils.md5Encode16；cacheFile错误返回路径，importScript不支持本地/空内容报错，下载绕过规则管线。额外自定义文件名重载仅测试使用，已按上游两参数语义收口。
+- 实现：新增私有file_download，复用当前VM规则准备与原始HTTP字节发送；准备请求暴露type及独立字节发送，不重复解析规则、不执行bodyJs或WebView正文。downloadFile返回资源私有目录下的沙箱相对路径，使用原规则MD5中间16位和type/合法URL后缀；两参数仅为十六进制落盘，无type返回空串且不发请求。不安全扩展名与目标/临时链接经沙箱检查。
+- 缓存与导入：cacheFile返回自动检测编码后的文本；路径元数据复用所属普通CacheStore，秒数为Rhino非空int，省略0永久、负值立即过期，遵守已批准的严格双层TTL。命中不续期，目标缺失时重下；拒绝命中其他HttpResources目录。importScript支持http前缀网络与沙箱本地文件，空白/缺失/失败抛异常，不自动执行导入内容。
+- 并发与失败：文件锁只协调完整文件及元数据发布，JS求值和网络等待均在锁外，避免嵌套求值死锁及取消被另一下载的网络锁阻塞。并发未命中可能重复请求，发布前二次命中复用已有结果且不续期；没有承诺跨进程原子性或抵御外部同时替换链接。失败清理临时文件，取消后不发布成功路径；不伪造缓存元数据，不把错误当正文。
+- 复现：5个新增真实QuickJS/本地HTTP测试在改前全部失败，修复后通过；再补2项嵌套本地导入/后缀与失败发布重试。覆盖规则POST/动态URL/来源Cookie、原始body、当前VM绑定恢复、永久/负/正TTL、缺失文件重下、GBK本地及网络文本、空内容、类型/参数错误、路径穿越、网络/限流取消与VM后续可用。
+- 验证：cargo test -p legado-js --features quickjs共796通过、3忽略（20组含文档，网络55项、库683项；不重复累计）；默认JS库273通过。JS/Engine两种特性all-targets严格Clippy通过；限定rustfmt、UTF-8与git diff --check通过。初次Clippy命中文档列表格式告警，已调整注释并复验通过，没有关闭告警。原资源归属测试按文本返回与相对路径适配，继续证明独立Cookie/缓存及所有者销毁清理。
+- 证据：build/js-byte-conversion/download-{reproduce,fixed,library,network,complete,default-library,clippy-quickjs,clippy-default}.log；reproduce为改前5项预期失败，complete为最终完整成功。按用户不使用子代理要求由Codex自查diff，无独立审查或远程CI，不以自查冒充独立审查。
+- 交付边界：版本2.0.399+400、双日志和脚本契约同步。无FFI签名/DTO/生成物、数据库schema、依赖、Flutter业务及平台接线修改；没有native/应用构建或模拟器安装，不宣称设备/跨平台验收。MuMu仍为2.0.394+395，下次应用构建需重建匹配Rust库。本批不处理getTxtInFolder、字体下载或完整JS/JVM兼容。
+
+编写者：Codex｜2026-10-19
+
 ### JS-BYTE-CONVERSION-20261019：脚本字节转换与Java包装统一（P1）
 
 - 状态：已关闭（本批JS字节转换范围）；用户批准继续，dep-audit / chore/dep-audit / c1d081216起，成果随本条所在提交交付，单代理，本地提交，不推送/合并，不改主目录。

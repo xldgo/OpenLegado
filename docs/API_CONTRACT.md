@@ -1,5 +1,23 @@
 # API 契约文档
 
+## JS下载、文本缓存与脚本导入（2026-10-19，实施前冻结）
+
+参考固定15e1337a的JsExtensions；沿用java/裸别名及allow_file_access门控，无FFI或数据库变更。
+downloadFile(url)复用当前VM的AnalyzeUrl与原始HTTP字节管线，保留POST、来源头、Cookie、路由、限流和取消。
+返回沙箱内相对路径，文件名取原规则字符串MD5中间16位，加type或合法URL后缀（无后缀为ext）。
+downloadFile(contentHex,url)仅为上游废弃重载：用规则type，无type返回空串，不发网络请求。
+删除仓库仅测试使用的自定义文件名重载；不再根据第二参数字符串猜测重载。
+自动下载文件仍属于HttpResources私有目录，销毁资源时清理；扩展名不得用于路径逃逸。
+cacheFile(url,saveTime?)返回自动检测编码后的文本，不返回路径；省略saveTime为0永久，单位秒。
+缓存保存下载路径，文件缺失时重新下载；遵守用户确认的严格期限，两层均受截止时间约束，负值立即过期。
+命中不续期，失败不发布缓存元数据；URL求值和网络等待不持文件锁，锁只协调发布。
+并发未命中可能重复请求；发布前再次检查缓存，已有有效值时复用且不续期。
+importScript(path)对http前缀使用文本缓存，其余按沙箱本地文本读取；空白内容、IO或网络失败抛异常。
+三个接口失败抛可捕获JS异常，不返回[ERROR]正文；取消后不发布下载文件或新缓存路径。
+不执行导入脚本、不新增全局服务，不改getTxtInFolder、字体下载、FFI或平台构建。
+
+编写者：Codex + Bridge｜2026-10-19
+
 ## JS字节转换统一（2026-10-19，实施前冻结）
 
 沿用strToBytes/bytesToStr的java与裸别名，无FFI变更。strToBytes返回Uint8Array，不再暴露JSON字符串。

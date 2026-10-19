@@ -236,7 +236,7 @@ fn register_apis_with_binding<'js>(
     register_time_apis(ctx, &java, &globals)?;
     // 文件 API 仅在 allow_file_access = true 时注册（安全门控）
     if config.allow_file_access {
-        register_file_apis(ctx, &java, &globals, &http)?;
+        register_file_apis(ctx, &java, &globals, &http, &host.cache)?;
     }
     register_variable_apis(ctx, &java, &globals, &variables)?;
     // P2-11 ①：book 绑定写路径桥（java-only；FFI web_book IIFE 经
@@ -2143,6 +2143,7 @@ fn register_file_apis<'js>(
     java: &rquickjs::Object<'js>,
     globals: &rquickjs::Object<'js>,
     http: &std::sync::Arc<crate::http_resources::HttpResources>,
+    cache: &std::sync::Arc<super::cache_store::CacheStore>,
 ) -> Result<(), LegadoError> {
     mount_dual(
         java,
@@ -2201,9 +2202,7 @@ fn register_file_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // downloadFile 重载对齐 Kotlin JsExtensions：
-    // - downloadFile(url) / downloadFile(url, fileName?)
-    // - downloadFile(contentHex, url)（@Deprecated：十六进制内容落盘）
+    // 只按参数数量区分上游的一参数下载与两参数十六进制落盘。
     mount_dual(
         java,
         globals,
@@ -2212,22 +2211,19 @@ fn register_file_apis<'js>(
             let http = http.clone();
             rquickjs::Function::new(
                 ctx.clone(),
-                move |arg1: RhinoStr, arg2: RhinoOptStr| -> String {
-                    match arg2.0.as_deref() {
-                        None => file_utils::download_file(&http, &arg1, None)
-                            .unwrap_or_else(|e| format!("[ERROR] {}", e)),
-                        Some(second)
-                            if second.starts_with("http://")
-                                || second.starts_with("https://")
-                                || second.contains(",{") =>
-                        {
-                            // 废弃重载：content(hex) + url
-                            file_utils::download_file_from_hex(&arg1, second)
-                                .unwrap_or_else(|e| format!("[ERROR] {}", e))
+                move |ctx: rquickjs::Ctx<'js>,
+                      first: RhinoStr,
+                      rest: rquickjs::function::Rest<rquickjs::Value<'js>>| {
+                    use rquickjs::FromJs;
+                    let result = match rest.0.as_slice() {
+                        [] => super::file_download::download(&ctx, &http, &first, None),
+                        [second] if !second.is_null() && !second.is_undefined() => {
+                            let url = RhinoStr::from_js(&ctx, second.clone())?;
+                            super::file_download::download(&ctx, &http, &url, Some(&first))
                         }
-                        Some(file_name) => file_utils::download_file(&http, &arg1, Some(file_name))
-                            .unwrap_or_else(|e| format!("[ERROR] {}", e)),
-                    }
+                        _ => Err("downloadFile仅接受url或contentHex,url".into()),
+                    };
+                    result.map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
                 },
             )
         }
@@ -2282,30 +2278,52 @@ fn register_file_apis<'js>(
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // cacheFile(url) -> String
+    // 文本缓存与脚本导入共享所有者和期限，不把下载路径作为正文返回。
     mount_dual(
         java,
         globals,
         "cacheFile",
         {
             let http = http.clone();
-            rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-                file_utils::cache_file(&http, &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
-            })
+            let cache = cache.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>,
+                      url: RhinoStr,
+                      rest: rquickjs::function::Rest<rquickjs::Value<'js>>| {
+                    use rquickjs::FromJs;
+                    let seconds = match rest.0.as_slice() {
+                        [] => 0,
+                        [value] => RhinoInt::from_js(&ctx, value.clone())?.0,
+                        _ => {
+                            return Err(rquickjs::Exception::throw_message(
+                                &ctx,
+                                "cacheFile仅接受url和可选秒数",
+                            ));
+                        }
+                    };
+                    super::file_download::cache_text(&ctx, &http, &cache, &url, seconds)
+                        .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                },
+            )
         }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
 
-    // importScript(url) -> String
     mount_dual(
         java,
         globals,
         "importScript",
         {
             let http = http.clone();
-            rquickjs::Function::new(ctx.clone(), move |url: RhinoStr| -> String {
-                file_utils::import_script(&http, &url).unwrap_or_else(|e| format!("[ERROR] {}", e))
-            })
+            let cache = cache.clone();
+            rquickjs::Function::new(
+                ctx.clone(),
+                move |ctx: rquickjs::Ctx<'js>, path: RhinoStr| {
+                    super::file_download::import(&ctx, &http, &cache, &path)
+                        .map_err(|error| rquickjs::Exception::throw_message(&ctx, &error))
+                },
+            )
         }
         .map_err(|e| LegadoError::JsEngine(e.to_string()))?,
     )?;
@@ -5043,6 +5061,7 @@ fn register_font_apis<'js>(
 
 #[cfg(test)]
 mod resource_network_tests {
+    use crate::host_api::file_utils;
     use crate::host_api::font_api::tests::{Segment, build_minimal_ttf};
     use crate::{JsEngine, QuickJsEngine, SandboxConfig};
     use std::io::{Read, Write};
@@ -5148,32 +5167,23 @@ mod resource_network_tests {
             .unwrap();
             let url = quote(&format!("{base}/auto.js"));
             let cached = vm.eval(&format!("java.cacheFile({url})")).unwrap();
-            assert_eq!(
-                vm.eval(&format!(
-                    "new java.lang.String(java.readFile({})).toString()",
-                    quote(&cached)
-                ))
-                .unwrap(),
-                owner
-            );
+            assert_eq!(cached, owner);
             assert_eq!(
                 vm.eval(&format!("java.importScript({url})")).unwrap(),
                 owner
             );
             assert_eq!(vm.eval(&format!("java.cacheFile({url})")).unwrap(), cached);
-            let file_name = format!("resource_download_{}_{}.bin", std::process::id(), owner);
             let downloaded = vm
                 .eval(&format!(
-                    "java.downloadFile({}, {})",
-                    quote(&format!("{base}/file.bin")),
-                    quote(&file_name)
+                    "java.downloadFile({})",
+                    quote(&format!("{base}/file.bin"))
                 ))
                 .unwrap();
+            let downloaded = file_utils::resolve_safe_path(&downloaded).unwrap();
             assert_eq!(
                 std::fs::read(&downloaded).unwrap(),
                 [vec![0xff, 0x00, 0x80], owner.as_bytes().to_vec()].concat()
             );
-            std::fs::remove_file(downloaded).unwrap();
             assert_eq!(
                 vm.eval(&format!(
                     "java.getZipStringContent({}, 'owner.txt')",
@@ -5199,10 +5209,7 @@ mod resource_network_tests {
             )
             .unwrap();
             assert_eq!(result[0]["statusCode"], 200);
-            let files_dir = std::path::PathBuf::from(cached)
-                .parent()
-                .unwrap()
-                .to_path_buf();
+            let files_dir = downloaded.parent().unwrap().to_path_buf();
             held.push((vm, files_dir));
         }
         server.join().unwrap();

@@ -26,6 +26,8 @@ pub mod current_source;
 pub mod device_id;
 pub mod encoding;
 pub mod env;
+#[cfg(feature = "quickjs")]
+mod file_download;
 pub mod file_utils;
 pub mod font_api;
 pub mod html_format;

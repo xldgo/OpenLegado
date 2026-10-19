@@ -125,6 +125,10 @@ impl PreparedRequest {
     fn uses_webview(&self) -> bool {
         self.parsed.use_web_view() && self.parsed.response_type().is_none()
     }
+    pub fn file_type(&self) -> Option<&str> {
+        self.parsed.response_type()
+    }
+
     pub fn url(&self) -> &str {
         &self.request.url
     }
@@ -169,10 +173,18 @@ pub(super) fn execute_bytes(
         RequestOverrides::default(),
         Some(evaluator),
     )?;
+    execute_prepared_bytes(resources, &prepared)
+}
+
+/// 已完成当前VM求值的请求独立发送，不再执行JS；调用方不应持文件锁等待网络。
+pub(super) fn execute_prepared_bytes(
+    resources: &RequestResources<'_>,
+    prepared: &PreparedRequest,
+) -> Result<Vec<u8>, String> {
     let policy = resources.policy()?;
     super::runtime_bridge::block_on_cancellable(async {
         prepared.wait(&policy, false).await;
-        send_http(resources, &prepared)
+        send_http(resources, prepared)
             .await
             .map(|response| response.body)
     })

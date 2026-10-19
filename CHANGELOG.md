@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.399] - 2026-10-19
+
+### Fixed
+- 书源脚本文件下载应用URL规则、POST、请求头、Cookie及取消控制。
+- 文件缓存返回文本内容，支持缓存秒数；缺失文件与到期内容重新下载。
+- 脚本导入支持沙箱本地文件，下载、导入失败抛出可捕获异常。
+- 贡献者：Codex + Rust；构建号400。
+
 ## [2.0.398] - 2026-10-19
 
 ### Fixed
