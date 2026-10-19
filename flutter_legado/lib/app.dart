@@ -169,6 +169,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   late final GoRouter _router;
   late final StartupReadingNavigation _startupReading;
   late final ProviderContainer _applicationContainer;
+  final _initialDeepLinkReady = Completer<void>();
 
   final _readAloudCapsuleObserver = ReadAloudCapsuleObserver();
   late final MediaPlaybackNavigation _mediaPlaybackNavigation;
@@ -218,7 +219,9 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
         if (book != null && mounted) _startupReading.request(book);
       }),
     );
-    _mediaPlaybackNavigation.attach(ref.read(audioServiceProvider));
+    final initialMedia = _mediaPlaybackNavigation.attach(
+      ref.read(audioServiceProvider),
+    );
     WidgetsBinding.instance.addObserver(this);
     // 系统栏样式由 [SystemBarBinder] 按偏好与主题统一驱动
     // 首帧渲染后检查上次崩溃日志并弹窗提示
@@ -231,10 +234,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // 一并替换（弹窗一闪即逝），当时以 TopRouteWatcher 等闪屏退出；闪屏
     // 路由已按上游移除，现只等 Navigator 装配（逐帧重试 + 90 帧上限）。
     if (widget.lastCrashLog != null && widget.lastCrashLog!.isNotEmpty) {
-      LegadoApp.scheduleCrashLogDialog(
-        widget.lastCrashLog!,
-        () => mounted,
-      );
+      LegadoApp.scheduleCrashLogDialog(widget.lastCrashLog!, () => mounted);
     }
     // [UI-fix v2.0.3 | 2026-08-08] 定时任务应用内调度器启动装配
     //（Task #146，对齐原版 App.kt 启动时 AutoTaskScheduler.refresh；
@@ -253,11 +253,28 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
         isAlive: () => mounted,
         navigator: () =>
             mounted ? PlatformBridgeService.navigatorKey.currentState : null,
-        push: (_) => DeepLinkService.instance.attach(
-          PlatformBridgeService.navigatorKey,
-          onImport: _startupReading.preferExternalAction,
-        ),
-        onTimeout: () => debugPrint('[DeepLink] 等待 Navigator 就绪超时'),
+        push: (_) {
+          unawaited(
+            DeepLinkService.instance
+                .attach(
+                  PlatformBridgeService.navigatorKey,
+                  onImport: _startupReading.preferExternalAction,
+                )
+                .then(
+                  (_) => _completeInitialDeepLink(),
+                  onError: (Object error, StackTrace stack) {
+                    if (!_initialDeepLinkReady.isCompleted) {
+                      _initialDeepLinkReady.completeError(error, stack);
+                    }
+                  },
+                ),
+          );
+        },
+        onTimeout: () {
+          _startupReading.preferExternalAction();
+          _completeInitialDeepLink();
+          debugPrint('[DeepLink] 等待 Navigator 就绪超时');
+        },
       );
     });
     // [V-B3] 视频悬浮窗：注册原生事件处理与回全屏导航后 attach
@@ -265,7 +282,18 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     VideoFloatWindowCoordinator.instance
       ..openFullscreen = _openVideoFromFloatWindow
       ..onNotice = _showFloatWindowNotice;
-    VideoFloatWindowBridge.instance.attach();
+    final initialVideo = VideoFloatWindowBridge.instance.attach();
+    _startupReading.waitForInitialActions(
+      Future.wait<void>([
+        _initialDeepLinkReady.future,
+        initialMedia,
+        initialVideo,
+      ]),
+    );
+  }
+
+  void _completeInitialDeepLink() {
+    if (!_initialDeepLinkReady.isCompleted) _initialDeepLinkReady.complete();
   }
 
   @override
@@ -275,6 +303,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
 
   @override
   void dispose() {
+    _completeInitialDeepLink();
     AutoTaskScheduler.instance.detach();
     unawaited(DeepLinkService.instance.detach());
     VideoFloatWindowBridge.instance.detach();
@@ -320,7 +349,8 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       push: (navigator) =>
           GoRouter.of(navigator.context)
               .pushAppRoute(AppRoutes.video, extra: args),
-      onTimeout: () => debugPrint('[VideoFloat] Navigator 未在等待窗口内就绪，放弃本次回全屏导航（停留当前页）'),
+      onTimeout: () =>
+          debugPrint('[VideoFloat] Navigator 未在等待窗口内就绪，放弃本次回全屏导航（停留当前页）'),
     );
   }
 

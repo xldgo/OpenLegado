@@ -15,7 +15,7 @@ final class MediaPlaybackDestination {
   final Book? book;
 }
 
-/// 导航只消费有效会话，不创建播放；欢迎页未退出时保留最新点击。— Codex + UI
+/// 导航只消费有效会话，不创建播放；Navigator 就绪后消费最新点击。— Codex + UI
 class MediaPlaybackNavigation extends NavigatorObserver {
   MediaPlaybackNavigation({required this.resolve, this.onOpenRequested});
   final VoidCallback? onOpenRequested;
@@ -25,12 +25,10 @@ class MediaPlaybackNavigation extends NavigatorObserver {
   MediaPlaybackTarget? _pending;
   bool _closed = false, _scheduled = false;
 
-  void attach(AudioService service) {
+  Future<void> attach(AudioService service) async {
     _subscription = service.openPlaybackStream.listen(open);
-    unawaited(() async {
-      final initial = await service.takePendingOpen();
-      if (!_closed && initial != null) open(initial);
-    }());
+    final initial = await service.takePendingOpen();
+    if (!_closed && initial != null) open(initial);
   }
 
   void open(MediaPlaybackTarget target) {
@@ -45,10 +43,7 @@ class MediaPlaybackNavigation extends NavigatorObserver {
     _scheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
-      if (_closed ||
-          _pending == null ||
-          navigator == null ||
-          _routes.isEmpty) {
+      if (_closed || _pending == null || navigator == null || _routes.isEmpty) {
         return;
       }
       final request = _pending!;

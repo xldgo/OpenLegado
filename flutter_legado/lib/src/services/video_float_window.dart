@@ -285,14 +285,14 @@ class VideoFloatWindowBridge {
   /// 在 [LegadoApp] 首帧前调用（app.dart），重复调用安全。
   int _attachment = 0;
 
-  void attach() {
+  Future<void> attach() async {
     if (!isSupported) return;
     final attachment = ++_attachment;
     channel.setMethodCallHandler((call) async {
       if (attachment != _attachment) return null;
       return VideoFloatWindowCoordinator.instance.handleNativeEvent(call);
     });
-    unawaited(_consumeInitialReturn(attachment));
+    await _consumeInitialReturn(attachment);
   }
 
   Future<void> _consumeInitialReturn(int attachment) async {
