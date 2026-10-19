@@ -9,6 +9,8 @@
 - 风险依据：clear_cache此前执行DELETE FROM caches，包含config:*及cacheDownloadTask:*等持久状态；单next_index仅适合串行，不能直接用于乱序完成。
 - 验收：定向Rust真实存储/并发测试与Flutter实际设置页测试，目标静态检查及差异自查。现有取消和服务实例隔离回归保留；不以合成状态或源码字符串断言代替行为。执行者Codex，2026-10-19。
 - B1已完成：正文与章节标记在一个事务中清理，失败不留下正文已删、标记未删的半状态；其他KV全部保留。真实SQLite清理/故障注入及已有缓存服务回归3项、实际设置页13项通过；目标dart analyze无问题，cargo fmt及diff检查通过。证据build/cache-cleanup-tests.log、flutter_legado/build/cache-cleanup-widget.log。未设备验收或远程CI；B2继续实施。
+- B2已完成：显式离线任务按书籍FIFO，队首以创建/恢复时捕获的1～8额度执行，取消的排队书不发请求。连续断点前沿与有界processedAhead保存乱序结果；慢章阻挡时停止扩展窗口，重建任务跳过已完成章并重做缺口；在途查询返回实际执行集合。作用域线程全部收尾后才释放TaskHandle与FIFO位置，保留原取消/发布门控。
+- B2验证：定向下载12项通过（新增4项真实线程/SQLite行为）；legado-engine启用quickjs的159项单元测试全通过，clippy --lib --features quickjs --no-deps -- -D warnings通过。证据build/cache-concurrency-tests.log、build/cache-engine-quickjs-tests.log、build/cache-engine-clippy.log。无新增FFI签名或生成物；单代理自查，未独立审查或设备验收。B3继续接线，不宣称整个缓存体系已完成。
 
 ### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
 

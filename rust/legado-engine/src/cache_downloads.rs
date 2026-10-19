@@ -1,7 +1,9 @@
 //! 实例章节下载队列；执行器只捕获数据能力，状态表不保活执行凭据。
 
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, Weak};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex, Weak};
+use std::time::Duration;
 
 use legado_core::{LegadoError, LegadoResult};
 use legado_db::{BookChapterRepository, BookRepository, CacheRepository};
@@ -12,6 +14,7 @@ use crate::{StorageContext, TaskGroup, TaskHandle};
 const PREFIX: &str = "cacheDownloadTask:";
 const INDEX: &str = "cacheDownloadTaskIndex";
 const NEXT: &str = "cacheDownloadNextId";
+const MAX_CONCURRENCY: usize = 8;
 
 /// 执行器的正文/副内容提交必须使用传入凭据的 with_active；抓取不能放进发布门控。
 pub type ChapterDownload = Arc<dyn Fn(&str, i32, &TaskHandle) -> LegadoResult<()> + Send + Sync>;
@@ -56,6 +59,9 @@ struct Checkpoint {
     status: String,
     #[serde(default)]
     failed_chapters: Vec<i32>,
+    /// 连续前沿之后已处理的乱序章；仅记录最多一个并发窗口的空洞。
+    #[serde(default)]
+    processed_ahead: Vec<i32>,
 }
 
 impl Checkpoint {
@@ -74,6 +80,8 @@ impl Checkpoint {
 struct Record {
     row: Mutex<Checkpoint>,
     running: Weak<TaskHandle>,
+    concurrency: usize,
+    active: Mutex<HashSet<i32>>,
 }
 
 struct State {
@@ -93,6 +101,9 @@ pub struct CacheDownloads {
     checkpoint: Mutex<()>,
     state: Mutex<State>,
     changed: tokio::sync::watch::Sender<()>,
+    /// 显式离线任务按书籍FIFO执行，书内共享该任务捕获的并发额度。
+    queue: Mutex<VecDeque<u64>>,
+    turn: Condvar,
 }
 
 impl CacheDownloads {
@@ -115,12 +126,24 @@ impl CacheDownloads {
                 records: HashMap::new(),
             }),
             changed: tokio::sync::watch::channel(()).0,
+            queue: Mutex::new(VecDeque::new()),
+            turn: Condvar::new(),
         }
     }
 
     /// 只订阅变化，不持有或取消执行凭据；订阅后应读取一次完整快照。
     pub fn subscribe(&self) -> tokio::sync::watch::Receiver<()> {
         self.changed.subscribe()
+    }
+
+    fn concurrency(&self) -> LegadoResult<usize> {
+        self.storage.with_database(|db| {
+            let value = CacheRepository::new(db.connection()).get("config:cacheBookThreadCount")?;
+            Ok(value
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|v| (1..=MAX_CONCURRENCY).contains(v))
+                .unwrap_or(MAX_CONCURRENCY))
+        })
     }
 
     fn persist(&self, row: &Checkpoint) -> LegadoResult<()> {
@@ -240,6 +263,7 @@ impl CacheDownloads {
                 continue;
             }
             row.next_index = row.next_index.max(row.start_chapter);
+            let concurrency = self.concurrency()?;
             let handle = Arc::new(
                 self.tasks
                     .begin()
@@ -249,6 +273,8 @@ impl CacheDownloads {
             let record = Arc::new(Record {
                 row: Mutex::new(row),
                 running: Arc::downgrade(&handle),
+                concurrency,
+                active: Mutex::new(HashSet::new()),
             });
             self.state
                 .lock()
@@ -277,12 +303,20 @@ impl CacheDownloads {
     ) -> LegadoResult<()> {
         let service = self.clone();
         let worker_record = record.clone();
+        self.queue
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .push_back(id);
         if let Err(error) = (self.spawn)(
             format!("cache-download-{id}"),
             Box::new(move || {
                 // 凭据覆盖网络、CPU、状态收尾和最后一次断点保存。
                 let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    service.run(&worker_record, &handle)
+                    if service.wait_turn(id, &handle) {
+                        service.run(&worker_record, &handle);
+                    } else {
+                        service.finish_cancelled(&worker_record);
+                    }
                 }))
                 .is_err();
                 if panicked
@@ -294,12 +328,38 @@ impl CacheDownloads {
                 {
                     service.finish_cancelled(&worker_record);
                 }
+                service.release_turn(id);
             }),
         ) {
+            self.release_turn(id);
             self.update(&record, |row| row.status = "failed".into());
             return Err(LegadoError::Ffi(format!("下载线程启动失败: {error}")));
         }
         Ok(())
+    }
+
+    fn wait_turn(&self, id: u64, handle: &TaskHandle) -> bool {
+        let mut queue = self.queue.lock().unwrap_or_else(|p| p.into_inner());
+        while queue.front() != Some(&id) {
+            if handle.is_cancelled() {
+                return false;
+            }
+            // 任务组关闭也能结束排队，不依赖UI显式cancel唤醒。
+            queue = self
+                .turn
+                .wait_timeout(queue, Duration::from_millis(25))
+                .unwrap_or_else(|p| p.into_inner())
+                .0;
+        }
+        !handle.is_cancelled()
+    }
+
+    fn release_turn(&self, id: u64) {
+        self.queue
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .retain(|queued| *queued != id);
+        self.turn.notify_all();
     }
 
     pub fn start(self: &Arc<Self>, book: &str, start: i32, end: i32) -> LegadoResult<u64> {
@@ -340,6 +400,7 @@ impl CacheDownloads {
                 "章节范围非法: start={start} > end={end}"
             )));
         }
+        let concurrency = self.concurrency()?;
         let handle = Arc::new(
             self.tasks
                 .begin()
@@ -364,10 +425,13 @@ impl CacheDownloads {
             next_index: start,
             status: "running".into(),
             failed_chapters: Vec::new(),
+            processed_ahead: Vec::new(),
         };
         let record = Arc::new(Record {
             row: Mutex::new(row.clone()),
             running: Arc::downgrade(&handle),
+            concurrency,
+            active: Mutex::new(HashSet::new()),
         });
         handle
             .with_active(|| {
@@ -388,58 +452,122 @@ impl CacheDownloads {
     }
 
     fn run(&self, record: &Record, handle: &TaskHandle) {
-        loop {
-            let row = record.row.lock().unwrap_or_else(|p| p.into_inner()).clone();
-            if handle.is_cancelled() {
-                self.finish_cancelled(record);
-                return;
-            }
-            if row.next_index > row.end_chapter {
-                if handle
-                    .with_active(|| {
-                        self.update(record, |row| {
-                            row.status = if row.failed == row.total {
-                                "failed"
-                            } else {
-                                "completed"
-                            }
-                            .into()
-                        })
-                    })
-                    .is_some()
-                {
-                    return;
-                }
-                continue;
-            }
-            if handle
-                .with_active(|| self.clear_failed(&row.book_url, row.next_index))
-                .is_none()
-            {
-                continue;
-            }
-            let result = (self.execute)(&row.book_url, row.next_index, handle);
-            if handle
-                .with_active(|| {
-                    self.update(record, |current| {
-                        if result.is_ok() {
-                            current.completed += 1;
-                            current
-                                .failed_chapters
-                                .retain(|index| *index != row.next_index);
-                        } else {
-                            current.failed += 1;
-                            current.failed_chapters.push(row.next_index);
-                            current.failed_chapters.sort_unstable();
-                            current.failed_chapters.dedup();
+        let initial = record.row.lock().unwrap_or_else(|p| p.into_inner()).clone();
+        let cursor = Mutex::new(initial.next_index);
+        let advanced = Condvar::new();
+        let fatal = AtomicBool::new(false);
+        let workers = record
+            .concurrency
+            .min((initial.end_chapter - initial.next_index + 1).max(0) as usize);
+        // 作用域线程全部退出后才释放任务凭据和FIFO位置。
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                let initial = &initial;
+                let cursor = &cursor;
+                let advanced = &advanced;
+                let fatal = &fatal;
+                scope.spawn(move || {
+                    while !handle.is_cancelled() && !fatal.load(Ordering::Acquire) {
+                        let mut next = cursor.lock().unwrap_or_else(|p| p.into_inner());
+                        while *next <= initial.end_chapter
+                            && initial.processed_ahead.contains(&*next)
+                        {
+                            *next += 1;
                         }
-                        current.next_index = row.next_index + 1;
-                    })
-                })
-                .is_none()
-            {
-                continue;
+                        // 前沿被慢章阻挡时不无限向后派发，断点的乱序集合因此保持有界。
+                        loop {
+                            let frontier = record
+                                .row
+                                .lock()
+                                .unwrap_or_else(|p| p.into_inner())
+                                .next_index;
+                            if i64::from(*next) < i64::from(frontier) + record.concurrency as i64
+                                || *next > initial.end_chapter
+                            {
+                                break;
+                            }
+                            if handle.is_cancelled() || fatal.load(Ordering::Acquire) {
+                                return;
+                            }
+                            next = advanced
+                                .wait_timeout(next, Duration::from_millis(25))
+                                .unwrap_or_else(|p| p.into_inner())
+                                .0;
+                        }
+                        let index = handle
+                            .with_active(|| {
+                                if *next > initial.end_chapter {
+                                    return None;
+                                }
+                                let index = *next;
+                                *next += 1;
+                                self.clear_failed(&initial.book_url, index);
+                                record
+                                    .active
+                                    .lock()
+                                    .unwrap_or_else(|p| p.into_inner())
+                                    .insert(index);
+                                self.changed.send_replace(());
+                                Some(index)
+                            })
+                            .flatten();
+                        drop(next);
+                        let Some(index) = index else {
+                            break;
+                        };
+                        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            (self.execute)(&initial.book_url, index, handle)
+                        }));
+                        record
+                            .active
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner())
+                            .remove(&index);
+                        let panicked = result.is_err();
+                        if panicked {
+                            fatal.store(true, Ordering::Release);
+                        }
+                        let success = matches!(result, Ok(Ok(())));
+                        handle.with_active(|| {
+                            self.update(record, |row| {
+                                if success {
+                                    row.completed += 1;
+                                    row.failed_chapters.retain(|failed| *failed != index);
+                                } else {
+                                    row.failed += 1;
+                                    row.failed_chapters.push(index);
+                                    row.failed_chapters.sort_unstable();
+                                    row.failed_chapters.dedup();
+                                }
+                                row.processed_ahead.push(index);
+                                row.processed_ahead.sort_unstable();
+                                row.processed_ahead.dedup();
+                                while row.processed_ahead.first() == Some(&row.next_index) {
+                                    row.processed_ahead.remove(0);
+                                    row.next_index += 1;
+                                }
+                            });
+                        });
+                        self.changed.send_replace(());
+                        advanced.notify_all();
+                    }
+                });
             }
+        });
+        if handle
+            .with_active(|| {
+                self.update(record, |row| {
+                    row.status = if fatal.load(Ordering::Acquire) || row.failed == row.total {
+                        "failed"
+                    } else {
+                        "completed"
+                    }
+                    .into();
+                });
+            })
+            .is_none()
+        {
+            self.finish_cancelled(record);
         }
     }
 
@@ -545,10 +673,15 @@ impl CacheDownloads {
             }
             if failed {
                 indices.extend(row.failed_chapters.iter().copied());
-            } else if row.status == "running"
-                && (row.start_chapter..=row.end_chapter).contains(&row.next_index)
-            {
-                indices.insert(row.next_index);
+            } else if row.status == "running" {
+                indices.extend(
+                    record
+                        .active
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                        .iter()
+                        .copied(),
+                );
             }
         }
         let mut indices: Vec<_> = indices.into_iter().collect();
@@ -556,6 +689,9 @@ impl CacheDownloads {
         Ok(indices)
     }
 }
+
+#[cfg(test)]
+mod concurrency_tests;
 
 #[cfg(test)]
 mod tests {
