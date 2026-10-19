@@ -913,3 +913,24 @@ SourceImportService，不另建确认/写入实现。返回三类预览，由原
 页面持有本次加载DialogRoute并精确关闭，用户取消或离开后丢弃迟到结果；不声称取消底层网络。
 
 编写者：Codex + UI｜2026-10-19
+
+
+## 界面测试边界
+
+书架回归挂载实际BookshelfScreen，只对窄依赖与目标页面使用替身；自行拼接Scaffold不能代表书架行为。
+
+| 行为 | 实际回归文件（flutter_legado/test/） |
+|---|---|
+| 空态、搜索入口与返回 | widget/bookshelf_test.dart |
+| 零进度直开、长按详情、连点防重与返回进度 | widget/bookshelf_refresh_on_return_test.dart |
+| 列表/网格批量勾选及封面元素保持 | widget/bookshelf_batch_mode_test.dart、bookshelf_grid_mode_test.dart |
+| 菜单关闭与目标导航 | widget/bookshelf_card_menu_overlay_test.dart |
+| 公共开书媒体分流 | widget/book_open_utils_orchestration_test.dart |
+| 详情显式阅读与返回刷新 | widget/screens_coverage_batch1_test.dart |
+| 分享文案纯函数 | unit/book_share_text_test.dart |
+
+阅读器正文分类仅随文本变化求值；外层组合只订阅其使用的字段，页码/总页数由正文与菜单局部订阅。
+朗读显隐及菜单模式不消费播放位置采样；跟随高亮保留现有局部监听。测试核对分类次数、通知次数、
+实际菜单拖动和原生排版测量次数，不把这些行为计数等同于profile耗时或设备视觉证据。
+
+编写者：Codex + UI｜2026-10-19
