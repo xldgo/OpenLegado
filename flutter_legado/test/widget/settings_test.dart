@@ -480,7 +480,7 @@ void main() {
 
       expect(find.text('清理缓存'), findsNothing);
       expect(find.text('压缩数据库'), findsNothing);
-      expect(find.text('更新和搜索线程数（太多会卡顿）'), findsNothing);
+      expect(find.text('更新和搜索线程数'), findsNothing);
     });
   });
 }

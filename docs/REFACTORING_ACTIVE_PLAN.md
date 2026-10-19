@@ -10,6 +10,7 @@
 - 本地结果：新增DownloadCacheSettingsScreen及/download_cache_settings命名路由，主设置新增入口；原高级页移除7项重复入口与旧维护方法。线程编辑使用公共AppSettingsSheet的整数滑块/输入，保持Rust配置单源、取消不写入、越界拒绝与保存失败回退；维护操作抽至DownloadCacheActions，清理后同步章级镜像，操作互斥且离页不显示迟到结果。未接线4项只读偏好离页后释放，重进重新读取；现有缓存统计及离线下载列表保留。中英文导航/分组文案经flutter gen-l10n生成，版本不变。
 - 验证：显式缺失FFI库运行5份实际widget测试共90项通过（cache_boundary、request_settings、general_backup_settings、settings、screens_overflow_regress），覆盖真实AppRouter进入/返回、360dp布局、取消/失败、互斥/离页和旧值保留；目标dart analyze --fatal-infos、架构门禁及diff检查通过。首次验证修复共享服务导入遗漏，并将路由测试从禁止未提供路由的旧宿主改为实际AppRouter；没有删减业务断言。未安装设备或触发当前页面的远程CI，不能以widget结果代替视觉验收。
 - 剩余上游差异：独立HTTP封面/漫画缓存、缓存下载专用并发、向前预下载、Cronet及4项旧禁用配置的后端消费未在本轮实施；本批完成的是页面独立与现有能力迁移，不宣称上游功能全量对齐。提交见Git记录，Codex + UI，2026-10-19。
+- 用户实测后调整：标题说明下移，移除生效/范围常驻说明；线程编辑只保留数字输入框与非法值提示。原_busy跨越弹层生命周期导致行onTap置空、箭头消失，现弹层重入标记与维护忙态分离，背景行不改外观。该调整按用户反馈实施，不改变公共SettingTile或配置存储。request_settings/cache_boundary/settings共26项通过，补取消/重复打开后的request_settings两项复验通过，不累加次数；目标静态分析、格式及diff检查通过。未再次安装或推送。
 
 ### CI-FLUTTER-SCOPE-20261019：手动范围与慢项报告（P2，本批已关闭）
 

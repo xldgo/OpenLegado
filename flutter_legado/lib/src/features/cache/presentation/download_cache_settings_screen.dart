@@ -24,6 +24,7 @@ class DownloadCacheSettingsScreen extends ConsumerStatefulWidget {
 class _DownloadCacheSettingsScreenState
     extends ConsumerState<DownloadCacheSettingsScreen> {
   bool _busy = false;
+  bool _editingThreads = false;
 
   void _toast(String message) {
     if (mounted) {
@@ -33,8 +34,9 @@ class _DownloadCacheSettingsScreenState
   }
 
   Future<void> _editThreads() async {
-    if (_busy) return;
-    setState(() => _busy = true);
+    if (_busy || _editingThreads) return;
+    // 模态弹层已阻止背景交互，仅防重入，不改变设置行外观。
+    _editingThreads = true;
     final repository = ref.read(requestSettingsRepositoryProvider);
     try {
       try {
@@ -64,12 +66,12 @@ class _DownloadCacheSettingsScreenState
         _toast('并发设置保存失败，请重试');
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _editingThreads = false;
     }
   }
 
   Future<void> _maintain({required bool shrink}) async {
-    if (_busy) return;
+    if (_busy || _editingThreads) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -130,11 +132,11 @@ class _DownloadCacheSettingsScreenState
               title: context.l10n.downloadSettings,
               children: [
                 SettingTile(
-                  title: '更新和搜索线程数（太多会卡顿）',
+                  title: '更新和搜索线程数',
                   value: request.hasError
                       ? '读取失败'
                       : '${ref.read(requestSettingsRepositoryProvider).current.threadCount}',
-                  subtitle: request.hasError ? '点按重试' : '新任务生效，范围 1～256',
+                  subtitle: request.hasError ? '读取失败，点按重试' : '线程数太多会卡顿',
                   enabled: !_busy,
                   onTap: _busy ? null : _editThreads,
                 ),
@@ -227,7 +229,6 @@ class _ThreadCountSheetState extends State<_ThreadCountSheet> {
   late final TextEditingController _text = TextEditingController(
     text: '${widget.initial}',
   );
-  late int _preview = widget.initial;
   String? _error;
   @override
   void dispose() {
@@ -251,43 +252,14 @@ class _ThreadCountSheetState extends State<_ThreadCountSheet> {
     title: '更新和搜索线程数',
     onSave: _save,
     contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextField(
-          controller: _text,
-          keyboardType: TextInputType.number,
-          onChanged: (text) => setState(() {
-            _error = null;
-            final parsed = int.tryParse(text.trim());
-            if (parsed != null &&
-                parsed >= RequestSettings.minThreadCount &&
-                parsed <= RequestSettings.maxThreadCount) {
-              _preview = parsed;
-            }
-          }),
-          onSubmitted: (_) => _save(),
-          decoration: InputDecoration(
-            labelText: '线程数',
-            helperText: '1～256，新任务生效',
-            errorText: _error,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Slider(
-          min: RequestSettings.minThreadCount.toDouble(),
-          max: RequestSettings.maxThreadCount.toDouble(),
-          divisions:
-              RequestSettings.maxThreadCount - RequestSettings.minThreadCount,
-          value: _preview.toDouble(),
-          label: '$_preview',
-          onChanged: (value) => setState(() {
-            _preview = value.round();
-            _text.text = '$_preview';
-            _error = null;
-          }),
-        ),
-      ],
+    child: TextField(
+      controller: _text,
+      keyboardType: TextInputType.number,
+      onChanged: (_) {
+        if (_error != null) setState(() => _error = null);
+      },
+      onSubmitted: (_) => _save(),
+      decoration: InputDecoration(labelText: '线程数', errorText: _error),
     ),
   );
 }
