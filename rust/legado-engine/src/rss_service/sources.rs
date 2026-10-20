@@ -4,7 +4,7 @@ impl RssService {
     pub fn list_rss_sources(&self) -> LegadoResult<Vec<RssSource>> {
         self.with_database(|db| {
             RssSourceRepository::new(db.connection())
-                .find_all_skip_invalid()
+                .find_all()
                 .map_err(LegadoError::Database)
         })
     }

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.408] - 2026-10-20
+
+### Fixed
+- 旧查询吞掉坏行且保存把读取失败当成新书，现正常查询严格报错并以短写事务保护来源合并；数据库及Engine回归通过，最终库371及138项与列表坏行用例通过。
+- 贡献者：Codex + Rust；构建号409。
+
 ## [2.0.407] - 2026-10-19
 
 ### Fixed

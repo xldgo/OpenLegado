@@ -32,8 +32,10 @@ impl<'a> BookChapterRepository<'a> {
         let chapters = stmt
             .query_map(params![book_url], row_to_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("book_chapter_repository行解析失败: {e}"))
+            })?;
         Ok(chapters)
     }
 
@@ -319,8 +321,10 @@ impl<'a> Repository<BookChapter> for BookChapterRepository<'a> {
         let chapters = stmt
             .query_map([], row_to_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("book_chapter_repository行解析失败: {e}"))
+            })?;
         Ok(chapters)
     }
 

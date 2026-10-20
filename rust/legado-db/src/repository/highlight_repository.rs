@@ -130,8 +130,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map([], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -147,8 +147,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![book_url], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -168,8 +168,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![book_url, chapter_index], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -189,8 +189,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![book_url, pattern], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -209,8 +209,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![pattern], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

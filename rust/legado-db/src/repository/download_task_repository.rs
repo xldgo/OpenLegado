@@ -55,8 +55,10 @@ impl<'a> DownloadTaskRepository<'a> {
         let tasks = stmt
             .query_map(params![book_url], row_to_download_task)
             .map_err(|e| LegadoError::Database(format!("查询失败：{e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("download_task_repository行解析失败: {e}"))
+            })?;
         Ok(tasks)
     }
 }
@@ -76,8 +78,10 @@ impl<'a> Repository<DownloadTask> for DownloadTaskRepository<'a> {
         let tasks = stmt
             .query_map([], row_to_download_task)
             .map_err(|e| LegadoError::Database(format!("查询失败：{e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("download_task_repository行解析失败: {e}"))
+            })?;
         Ok(tasks)
     }
 

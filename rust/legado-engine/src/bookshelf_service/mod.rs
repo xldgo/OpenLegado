@@ -32,8 +32,15 @@ impl BookshelfService {
             let repo = BookRepository::new(db.connection());
             // Task#125 P0：用原地 UPDATE 语义的 upsert，避免对已存在的临时书
             // 触发 INSERT OR REPLACE 级联删除其章节目录（转正/重复加入书架时安全）
+            let tx = rusqlite::Transaction::new_unchecked(
+                db.connection(),
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|e| LegadoError::Database(format!("开启书籍保存事务失败: {e}")))?;
             merge_source_fields(&repo, &mut book)?; // [B-2 / P2-8 P1-1] 书源字段防回退
             repo.update(&book)?;
+            tx.commit()
+                .map_err(|e| LegadoError::Database(format!("提交书籍保存事务失败: {e}")))?;
             Ok(book)
         })
     }
@@ -41,8 +48,15 @@ impl BookshelfService {
     pub fn update_book_entity(&self, mut book: Book) -> LegadoResult<()> {
         self.with_database(|db| {
             let repo = BookRepository::new(db.connection());
+            let tx = rusqlite::Transaction::new_unchecked(
+                db.connection(),
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|e| LegadoError::Database(format!("开启书籍保存事务失败: {e}")))?;
             merge_source_fields(&repo, &mut book)?; // [B-2] 陈旧快照不得撤销换源结果
-            repo.update(&book)
+            repo.update(&book)?;
+            tx.commit()
+                .map_err(|e| LegadoError::Database(format!("提交书籍保存事务失败: {e}")))
         })
     }
 
@@ -142,7 +156,7 @@ impl BookshelfService {
 }
 
 fn merge_source_fields(repo: &BookRepository<'_>, book: &mut Book) -> LegadoResult<()> {
-    let Ok(Some(existing)) = repo.find_by_url(&book.book_url) else {
+    let Some(existing) = repo.find_by_url(&book.book_url)? else {
         return Ok(());
     };
     if !existing.origin.trim().is_empty() {
