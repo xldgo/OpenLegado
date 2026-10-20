@@ -231,7 +231,13 @@ Rect _reveal(WidgetTester tester) {
   final clip = tester.widget<ClipPath>(
     find.byKey(const ValueKey('book-reader-reveal')),
   );
-  return clip.clipper!.getClip(const Size(400, 800)).getBounds();
+  final box = tester.renderObject<RenderBox>(
+    find.byKey(const ValueKey('book-reader-reveal')),
+  );
+  return MatrixUtils.transformRect(
+    box.getTransformTo(null),
+    clip.clipper!.getClip(box.size).getBounds(),
+  );
 }
 
 void main() {
@@ -435,6 +441,38 @@ void main() {
     );
     hinge = tester.widget<Transform>(hingeFinder);
     expect(hinge.transform.entry(0, 0), lessThan(0));
+    await tester.pumpAndSettle();
+    expect(h.probe.initialized, 1);
+    expect(h.probe.disposed, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('正文实际等比缩放，封面不随纸面比例重新裁切', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    await h.open(tester);
+    final body = tester.renderObject<RenderBox>(find.byType(_ReaderProbe));
+    final bodySize = body.size;
+    double scale() => body.getTransformTo(null).entry(0, 0);
+    final firstScale = scale();
+    expect(firstScale, closeTo(0.2, 0.001), reason: '正文须缩小到封面宽度，而非保持原尺寸只裁剪');
+    final hingeFinder = find.byKey(const ValueKey('book-reader-cover-hinge'));
+    Size coverSize() => tester.getSize(hingeFinder);
+    final initialCover = coverSize();
+    expect(initialCover.aspectRatio, closeTo(80 / 112, 0.001));
+
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(scale(), inExclusiveRange(firstScale, 1));
+    final transform = body.getTransformTo(null);
+    expect(transform.entry(1, 1), closeTo(scale(), 0.001), reason: '文字不能非等比拉伸');
+    expect(body.size, bodySize, reason: '绘制缩放不改变正文排版约束');
+    expect(coverSize(), initialCover, reason: '封面只做绘制变换，不随窗口改变裁切比例');
+    final forwardScale = scale();
+    h.key.currentState!.pop();
+    await tester.pump();
+    expect(scale(), closeTo(forwardScale, 0.001), reason: '中途返回不跳变');
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(scale(), lessThan(forwardScale));
     await tester.pumpAndSettle();
     expect(h.probe.initialized, 1);
     expect(h.probe.disposed, 1);

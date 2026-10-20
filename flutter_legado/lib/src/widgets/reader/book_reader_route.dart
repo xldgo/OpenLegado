@@ -8,7 +8,7 @@ import '../../features/privacy/privacy_controller.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../book_cover.dart';
 
-/// 封面沿左侧书脊翻开的导航层，正文固定全屏布局，不参与三维变换。
+/// 纸面与封面整体缩放位移，封面沿书脊翻开；正文始终按最终视口排版。
 /// 沿用 PageRoute 的返回、退出门禁与不透明路由生命周期。— Codex + UI
 class BookReaderRoute<T> extends MaterialPageRoute<T> {
   BookReaderRoute({required super.builder, required RouteSettings settings})
@@ -147,12 +147,28 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
             // 翻盖与放大共用完整进度，避免先展开再翻开；返回也同步合上缩回。
             final motion = Curves.easeInOutCubic.transform(progress);
             final bounds = morph ? Rect.lerp(source, full, motion)! : full;
+            // 文字按最终尺寸布局，再与封面共用绘制变换，不靠扩大裁剪窗口模拟缩放。
+            final scale = bounds.width / size.width;
+            final paperBounds = Rect.fromLTWH(
+              0,
+              0,
+              size.width,
+              bounds.height / scale,
+            );
+            // 封面只在来源比例下裁切一次，翻开中不再跟随屏幕比例重新裁切。
+            final coverBounds = Rect.fromLTWH(
+              0,
+              0,
+              size.width,
+              morph ? size.width * source.height / source.width : size.height,
+            );
             final radius = morph
                 ? BorderRadius.lerp(
-                    origin!.borderRadius,
-                    BorderRadius.zero,
-                    motion,
-                  )!
+                        origin!.borderRadius,
+                        BorderRadius.zero,
+                        motion,
+                      )! /
+                      scale
                 : BorderRadius.zero;
             final contentOpacity = morph
                 ? const Interval(
@@ -168,106 +184,120 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
             final paper = protected
                 ? Theme.of(context).scaffoldBackgroundColor
                 : visual.background;
-            // 裁剪、透明度与输入层始终保留，完成时不卸载重建 ReaderScreen。
-            return Stack(
-              key: const ValueKey('book-reader-transition'),
-              fit: StackFit.expand,
-              children: [
-                Positioned.fromRect(
-                  rect: bounds,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: paper,
-                      borderRadius: radius,
-                      boxShadow: [
-                        if (morph && !complete)
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: 0.18 * (1 - motion),
-                            ),
-                            blurRadius: 20,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                ClipPath(
-                  key: const ValueKey('book-reader-reveal'),
-                  clipBehavior: complete || !morph ? Clip.none : Clip.antiAlias,
-                  clipper: _BookRevealClipper(bounds, radius),
-                  child: IgnorePointer(
-                    ignoring: !complete,
-                    child: Opacity(opacity: contentOpacity, child: child),
-                  ),
-                ),
-                if (morph && motion > 0 && motion < 1)
+            // 固定正文布局与元素身份；裁剪只处理纸面比例/圆角，整体缩放由矩阵完成。
+            return Transform(
+              key: const ValueKey('book-reader-surface-transform'),
+              transform: Matrix4.identity()
+                ..setEntry(0, 0, scale)
+                ..setEntry(1, 1, scale)
+                ..setTranslationRaw(bounds.left, bounds.top, 0),
+              child: Stack(
+                key: const ValueKey('book-reader-transition'),
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: [
                   Positioned.fromRect(
-                    rect: bounds,
-                    child: IgnorePointer(
-                      child: ClipRRect(
+                    rect: paperBounds,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: paper,
                         borderRadius: radius,
-                        child: DecoratedBox(
-                          key: const ValueKey('book-reader-page-shadow'),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.black.withValues(
-                                  alpha: 0.16 * math.sin(math.pi * motion),
-                                ),
-                                Colors.transparent,
-                              ],
-                              stops: const [0, 0.65],
+                        boxShadow: [
+                          if (morph && !complete)
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: 0.18 * (1 - motion),
+                              ),
+                              blurRadius: 20,
                             ),
-                          ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                if (coverOpacity > 0 && _image != null)
-                  Positioned.fromRect(
-                    rect: bounds,
+                  ClipPath(
+                    key: const ValueKey('book-reader-reveal'),
+                    clipBehavior: complete || !morph
+                        ? Clip.none
+                        : Clip.antiAlias,
+                    clipper: _BookRevealClipper(paperBounds, radius),
                     child: IgnorePointer(
-                      child: ExcludeSemantics(
-                        child: Opacity(
-                          opacity: coverOpacity,
-                          child: Transform(
-                            key: const ValueKey('book-reader-cover-hinge'),
-                            alignment: Alignment.centerLeft,
-                            transform: Matrix4.identity()
-                              ..setEntry(3, 2, -0.6 / size.longestSide)
-                              ..rotateY(-math.pi * motion),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: radius,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(
-                                      alpha: 0.20 * math.sin(math.pi * motion),
-                                    ),
-                                    blurRadius: 16,
-                                    offset: const Offset(4, 0),
+                      ignoring: !complete,
+                      child: Opacity(opacity: contentOpacity, child: child),
+                    ),
+                  ),
+                  if (morph && motion > 0 && motion < 1)
+                    Positioned.fromRect(
+                      rect: paperBounds,
+                      child: IgnorePointer(
+                        child: ClipRRect(
+                          borderRadius: radius,
+                          child: DecoratedBox(
+                            key: const ValueKey('book-reader-page-shadow'),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withValues(
+                                    alpha: 0.16 * math.sin(math.pi * motion),
                                   ),
+                                  Colors.transparent,
                                 ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: radius,
-                                child: motion <= 0.5
-                                    ? RawImage(image: _image, fit: BoxFit.cover)
-                                    // 翻过侧面后展示纸张背面，不反向绘制封面文字。
-                                    : ColoredBox(
-                                        key: const ValueKey(
-                                          'book-reader-cover-back',
-                                        ),
-                                        color: paper,
-                                      ),
+                                stops: const [0, 0.65],
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                  if (coverOpacity > 0 && _image != null)
+                    Positioned.fromRect(
+                      rect: coverBounds,
+                      child: IgnorePointer(
+                        child: ExcludeSemantics(
+                          child: Opacity(
+                            opacity: coverOpacity,
+                            child: Transform(
+                              key: const ValueKey('book-reader-cover-hinge'),
+                              alignment: Alignment.centerLeft,
+                              transform: Matrix4.identity()
+                                ..setEntry(3, 2, -0.6 / size.longestSide)
+                                ..rotateY(-math.pi * motion),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  borderRadius: radius,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha:
+                                            0.20 * math.sin(math.pi * motion),
+                                      ),
+                                      blurRadius: 16,
+                                      offset: const Offset(4, 0),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: radius,
+                                  child: motion <= 0.5
+                                      ? RawImage(
+                                          image: _image,
+                                          fit: BoxFit.cover,
+                                        )
+                                      // 翻过侧面后展示纸张背面，不反向绘制封面文字。
+                                      : ColoredBox(
+                                          key: const ValueKey(
+                                            'book-reader-cover-back',
+                                          ),
+                                          color: paper,
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             );
           },
         ),
