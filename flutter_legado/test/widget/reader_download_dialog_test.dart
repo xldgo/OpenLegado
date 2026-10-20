@@ -32,6 +32,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 
@@ -77,6 +78,7 @@ Widget wrapMenuPanel(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
+      theme: AppTheme.light,
       home: Scaffold(
         body: Stack(
           children: [
@@ -103,6 +105,7 @@ Widget wrapTopBar(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
+      theme: AppTheme.light,
       home: Scaffold(
         body: Stack(children: [buildReaderMenu(onAddBookmark: () {})]),
       ),
@@ -193,6 +196,30 @@ void main() {
       final values = dialogFieldValues(tester);
       expect(values.first, '2');
       expect(values.last, '2');
+      final fields = find.byType(TextField);
+      expect(
+        tester.getRect(fields.at(1)).top - tester.getRect(fields.at(0)).bottom,
+        12,
+      );
+      expect(find.text('结束章节序号'), findsOneWidget);
+      expect(find.text('共 2 章'), findsOneWidget);
+      final decoration = tester
+          .widget<InputDecorator>(
+            find.descendant(
+              of: fields.first,
+              matching: find.byType(InputDecorator),
+            ),
+          )
+          .decoration;
+      expect(decoration.filled, isTrue);
+      expect(
+        decoration.fillColor,
+        AppTheme.light.colorScheme.surfaceContainerLow,
+      );
+      expect(
+        (decoration.enabledBorder! as OutlineInputBorder).borderRadius,
+        BorderRadius.circular(12),
+      );
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
     });

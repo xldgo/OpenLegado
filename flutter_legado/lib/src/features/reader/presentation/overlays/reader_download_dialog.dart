@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../../models/models.dart';
+import '../../../../widgets/app_settings_form.dart';
 import '../../application/reader_notifier.dart';
 
 /// 阅读器「离线缓存」章节范围选择对话框（两个阅读顶栏共享实现）
@@ -45,8 +46,8 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('离线缓存'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      // 表单统一控件间距；填充、圆角及状态描边继承阅读菜单主题。— Codex + UI
+      content: AppSettingsForm(
         children: [
           TextField(
             controller: startCtrl,
@@ -57,7 +58,8 @@ void showReaderOfflineCacheDialog(BuildContext context, WidgetRef ref) {
             controller: endCtrl,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              labelText: '结束章节序号（共 $totalChapters 章）',
+              labelText: '结束章节序号',
+              helperText: '共 $totalChapters 章',
             ),
           ),
         ],
