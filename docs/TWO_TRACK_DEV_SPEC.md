@@ -138,6 +138,16 @@ Android 旧入口已删除；APK 与安装参数见 [Android 入口说明](PYTHO
 - DLL 被运行进程锁定时提示用户手动关闭应用，生成器和构建入口均不强制终止进程。
 - iOS 正式静态库由 `python scripts/dev.py build ffi ios --target device --profile release` 编译，模拟器使用 `--target simulator`；保留 CocoaPods `RustFFI` 的 `-force_load`。最终应用的 PDE 符号由同一 Python 入口检查；模拟器兼顾 `Runner.debug.dylib`。元数据与平台边界见 [iOS 工具说明](PYTHON_IOS_TOOLING_20261011.md)，历史 XCFramework 不接入本流程。
 
+Android应用和插件使用AGP内置Kotlin（`android.builtInKotlin=true`），模块不再显式应用
+`kotlin-android`。`settings.gradle.kts`保留2.4.21的`apply false`声明以固定编译器类路径，
+不能直接删除，否则当前AGP默认解析的2.2.10低于Flutter下限；该声明本身不应用旧插件。
+`android.newDsl=false`仍保留，内置Kotlin和新Android DSL分开迁移，Java/Kotlin目标仍为17。
+`flutter_tts`使用nguyen703维护的4.2.5构建补丁，固定Git提交
+`f6af434f7016c7b1f4709f4f8f421543abc08635`；官方发布迁移版后另批评估切回，
+不修改Pub缓存中的插件代码。升级后用正式Android入口构建并检查原有KGP迁移告警是否消失。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### 3.5 frb 构件配对纪律（评审 W2 登记，持久约束）
 
 两侧生成物（Dart 侧 `bridge/ffi/ffi.dart` 等 + Rust 侧 `frb_generated.rs` + 编译产物

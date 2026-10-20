@@ -55,7 +55,11 @@ dependencies:
   material_symbols_icons: ^4.2960.0
 
   # ── [iOS 轨 P2] 原生功能补齐（Android 走既有 Kotlin 桥，不回归）──
-  flutter_tts: ^4.2.0
+  # AGP 内置 Kotlin 迁移补丁，固定提交避免跟随分支变动。
+  flutter_tts:
+    git:
+      url: https://github.com/nguyen703/flutter_tts.git
+      ref: f6af434f7016c7b1f4709f4f8f421543abc08635
   device_info_plus: ^13.3.0
   screen_brightness: ^2.0.0
   flutter_local_notifications: ^22.3.1

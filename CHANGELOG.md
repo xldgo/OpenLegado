@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.413] - 2026-10-20
 
+### Maintenance
+- Android构建启用AGP内置Kotlin，固定flutter_tts迁移补丁；保持原有编译器和JVM目标。贡献者：Codex + Tool。
+
 ### Fixed
 - 调整液态玻璃胶囊导航的图文比例，减少图文间距及底部额外留白。贡献者：Codex + UI。
 - 修复部分书源同步网络调用在不支持的运行环境中导致崩溃的问题，改为明确报错。

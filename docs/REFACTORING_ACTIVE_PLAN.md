@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-BUILTIN-KOTLIN-20261020：固定TTS迁移补丁并启用内置Kotlin（P2，本地完成，系统语音待设备验收）
+
+- 授权：用户同意采用nguyen703/flutter_tts验证AGP内置Kotlin迁移；feature/ui-reader-selection / bed2f8b20，单代理，不提升应用版本、不推送，不修改朗读业务、Rust/FRB或新Android DSL。
+- 依赖：flutter_tts仍为4.2.5，Git来源固定f6af434f7016c7b1f4709f4f8f421543abc08635，锁文件同步resolved-ref；pub get仅改变该依赖。与已发布包逐项核对lib及Android/iOS/macOS/Windows目录，运行时代码一致，差异为Android构建脚本和发行包省略的Git占位文件；fork另有示例及SDK下限修改。
+- 构建：应用移除kotlin-android，android.builtInKotlin=true；保留AGP9.2.1、Gradle9.4.1、JVM17目标和android.newDsl=false。settings保留2.4.21的apply false声明，仅固定内置Kotlin所用编译器，不在模块显式应用旧KGP。
+- 发现：首轮删除版本声明后AGP默认解析到Kotlin2.2.10，低于当前Flutter要求；在根buildscript指定版本仍被settings解析的上层类路径覆盖，恢复settings的未应用版本声明后重新构建。没有跳过依赖检查、修改SDK或恢复旧KGP应用，前两次失败日志保留。
+- 验收：系统TTS、朗读控制、音色试听三份现有回归62项通过，目标静态分析无问题；证据flutter_legado/build/tts-builtin-kotlin-{pub,tests,analysis}.log。MuMu实时探测在线，但tts_default_synth为空且没有TTS_SERVICE，真实中文发声与原生暂停恢复待有语音引擎的设备验收；Mock测试不代表真机已测。
+- 构建结果：正式Python入口复用已严格校验的双ABI Debug原生库，APK构建与包内原生库校验通过；应用与flutter_tts旧KGP迁移告警均消失。真实Gradle临时诊断任务确认两模块没有应用kotlin-android/org.jetbrains.kotlin.android，Kotlin扩展及compileDebugKotlin任务存在；应用目标JVM17、插件目标JVM11保持原值。保留android.newDsl=false及applicationVariants弃用提示，不宣称已消除全部构建告警。
+- 证据与交付：build/tts-builtin-kotlin-build-verified.log、build/tts-builtin-kotlin-runtime.log；覆盖安装MuMu保留数据，使用现有Launcher4入口启动，恢复阅读后返回书架，7项冒烟通过，日志build/tts-builtin-kotlin-smoke.log。此前两次构建失败分别留在build/tts-builtin-kotlin-build.log与build/tts-builtin-kotlin-build-final.log。单代理自查，仅本地提交、未推送；版本保持2.0.413+414，没有iOS构建或真机朗读结论。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### GLASS-BOTTOM-LAYOUT-20261020：玻璃胶囊图文与底部间距（P2，本地完成，已安装MuMu）
 
 - 授权：用户要求修改后编译安装MuMu；沿用feature/ui-reader-selection / e53a96fa2，单代理，不提升版本、不推送。普通胶囊、标准底栏及侧栏布局保持原样。
