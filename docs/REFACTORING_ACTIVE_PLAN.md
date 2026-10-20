@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-PRACTICES-AUDIT-20261020：主目录Rust实践审查（核查已结束，缺陷待修）
+
+- 授权与基线：用户要求合并worktree后检查Rust最佳实践；主目录合并0f13ea76d，单代理；只审查，不自动修复生产代码、不推送、构建应用或安装。后续独立UI提交6f69ca797的Rust树与基线一致，不归入本轮成果。
+- 范围与结果：11个crate配置及Engine/DB/JS/网络/本地书/FFI/Server关键路径静态核查，非全仓逐行审计。现有实例上下文、RAII凭据、有界调度、DTO/Stream/Opaque边界方向合理；详细证据和出处见[Rust实践审查](RUST_PRACTICES_AUDIT_20261020.md)。
+- 已确认待修：R1正常列表查询过滤行错误；R2书籍读取失败后仍保存陈旧来源；R3实际Web音频路由speed=0.5整数除零；R6JS桥在current_thread Runtime下panic。前三项优先；真实SQLite/Router/JS桥探针已分别断言，异常由隔离任务捕获，不能把它们概括为Flutter正式朗读必崩。
+- 风险与维护项：R5归档/CBZ解压预算缺失，未做OOM实测；R4部分REST TTS网络旁路；R7内部驱动错误字符串化与文案重试；R8MOBI可去除的UnsafeCell。未认定现有MOBI实现必然UB，不量化未测性能/内存收益，不开展旧数据迁移或全面错误类型重写。
+- 验证：Windows默认与QuickJS两档workspace/all-targets/locked严格Clippy均通过；真实行为探针退出0，临时crate入口已移除，源码和日志留在build/rust-practices-audit。全仓cargo fmt --check退出1，6个既有文件存在排版差异，完整清单见报告；没有批量格式化，不宣称所有CI门禁通过。
+- 后续顺序：先独立处理阻断CI的格式问题，再R1/R2数据库错误传播与保存原子性 → R3低速panic → R5资源预算 → R4/R6宿主边界 → R7/R8局部整理；需要实施授权后才修改。契约变化须先冻结，不以减少static/unwrap/文件行数本身作为目标。
+- 交付：本轮仅报告与本记录的文档提交；生产Rust/FFI/依赖/版本不变，保持2.0.407+408。无子代理或独立审查、远程CI、全量测试、设备/Miri验收；提交号以本条Git记录为准。
+
+编写者：Codex + Rust｜2026-10-20
+
 ### READER-COVER-OPENING-20261020：开书封面书脊翻转（P2，本地完成，待设备复验）
 
 - 授权：用户要求打开阅读器呈现封面翻开效果；沿用当前分支feature/ui-reader-selection，不新建分支/工作树，不使用子代理，不推送、提升版本或安装。开始时另一批Rust变更已暂存，随后由原任务提交0f13ea76d，本批保留该成果。
