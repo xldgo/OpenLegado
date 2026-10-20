@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-DEPS-GROUP-20261020：Flutter依赖分类（P2，已关闭）
+
+- 授权：用户要求按用途分类Flutter依赖；仅整理pubspec.yaml顺序和中文注释，不修改依赖集合、版本、Git来源、应用版本或其他配置。
+- 结果：48项运行依赖分为SDK/本地化、组件/图标、主题、路由/状态、Rust/模型、网络/网页、文件/持久化、图片/缓存、文本、音视频/朗读、扫码、系统交互12组；8项开发依赖分为测试、静态分析、生成3组，清理过时阶段注释。
+- 验证：用YAML解析器比较调整前后完整配置，语义完全一致；pub get --enforce-lockfile通过，锁文件字节不变，diff检查通过。日志flutter_legado/build/pubspec-categories-pub-get.log。仅本地提交，不推送或触发CI，不重编安装。
+
+编写者：Codex + UI｜2026-10-20
+
 ### READER-HEIGHT-CURVE-20261020：纸面高度单次缓动试验（P2，待iOS验收）
 
 - 授权：用户最初要求试改不提交；MuMu安装后进一步授权提交、推送并仅手动触发iOS Build，提交须带[skip ci]避免其他CI。沿用dev / 5557aa069，不提升版本。

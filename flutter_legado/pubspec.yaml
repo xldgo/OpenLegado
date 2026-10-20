@@ -8,26 +8,61 @@ environment:
   flutter: '>=3.47.7'
 
 dependencies:
-  go_router: 18.1.0
+  # Flutter SDK 与本地化
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.3
+
+  # 界面组件与图标
+  material_ui: 1.6.0
+  cupertino_ui: 1.1.2
+  liquid_glass_widgets: 1.13.0
   cupertino_icons: ^2.0.0
-  file_picker: ^13.1.0
+  material_symbols_icons: ^4.2960.0
+
+  # 主题配色
+  dynamic_color: ^2.1.0
+  material_color_utilities: ^0.13.0
+  palette_generator_plus: ^1.0.0
+
+  # 路由与状态管理
+  go_router: 18.1.0
+  flutter_riverpod: ^3.4.3
+
+  # Rust 桥接与数据模型
   flutter_rust_bridge: 2.13.0
   freezed_annotation: ^3.1.0
   json_annotation: ^4.12.0
-  shared_preferences: ^2.5.6
-  # Mock 音色稳定 ID 与 Rust/上游共享 SHA-256 算法，使用已有锁定版本。
+  # Mock 音色稳定 ID 与 Rust/上游共用 SHA-256 算法。
   crypto: ^3.0.7
-  flutter_secure_storage: ^11.2.0
-  characters: ^1.4.1
+
+  # 网络与内嵌网页
   http: ^1.2.0
+  webview_flutter: ^4.10.0
+
+  # 文件与持久化
+  file_picker: ^13.1.0
+  saf: ^2.1.2
   path_provider: ^2.0.0
-  share_plus: ^13.3.1
-  url_launcher: ^6.3.3
+  file: ^7.0.1
+  archive: ^4.4.0
+  shared_preferences: ^2.5.6
+  flutter_secure_storage: ^11.2.0
+
+  # 图片展示、处理与缓存
+  cached_network_image: ^4.0.4
+  # 封面缓存使用专属缓存管理器，配合 file 管理文件系统。
+  flutter_cache_manager: ^3.4.5
+  image: ^4.10.2
+
+  # 文本与 Markdown
+  characters: ^1.4.1
+  flutter_markdown_plus: ^1.0.12
+  markdown: ^7.3.0
+
+  # 音视频与朗读
   audio_session: ^0.2.4
   audio_service: ^0.18.19
   just_audio:
@@ -37,57 +72,47 @@ dependencies:
       path: just_audio
   just_audio_windows: ^0.2.3
   video_player: ^2.14.1
-  webview_flutter: ^4.10.0
-  cached_network_image: ^4.0.4
-  # 封面独立缓存复用已锁定的缓存管理器与文件系统，不升级版本。
-  flutter_cache_manager: ^3.4.5
-  file: ^7.0.1
-  flutter_riverpod: ^3.4.3
-  mobile_scanner: ^7.4.2
-  qr_flutter: ^4.1.0
-  # [PARITY A1] 图库二维码解码：参考版扫码页右上图库按钮，选中图片后本地
-  # 解码 QR（zxing2 纯 Dart 解码器 + image 解图），不依赖相机即可导入
-  zxing2: ^0.2.4
-  image: ^4.10.2
-  saf: ^2.1.2
-  archive: ^4.4.0
-  package_info_plus: ^10.2.2
-  flutter_markdown_plus: ^1.0.12
-  markdown: ^7.3.0
-  material_symbols_icons: ^4.2960.0
-
-  # ── [iOS 轨 P2] 原生功能补齐（Android 走既有 Kotlin 桥，不回归）──
   # AGP 内置 Kotlin 迁移补丁，固定提交避免跟随分支变动。
   flutter_tts:
     git:
       url: https://github.com/nguyen703/flutter_tts.git
       ref: f6af434f7016c7b1f4709f4f8f421543abc08635
+
+  # 扫码与二维码
+  mobile_scanner: ^7.4.2
+  qr_flutter: ^4.1.0
+  # 图库二维码解码，配合 image 本地读取图片，不依赖相机。
+  zxing2: ^0.2.4
+
+  # 设备能力与系统交互
   device_info_plus: ^13.3.0
+  package_info_plus: ^10.2.2
   screen_brightness: ^2.0.0
   flutter_local_notifications: ^22.3.1
   app_links: ^7.2.2
-  palette_generator_plus: ^1.0.0
-  dynamic_color: ^2.1.0
-  material_color_utilities: ^0.13.0
-  material_ui: 1.6.0
-  cupertino_ui: 1.1.2
-  liquid_glass_widgets: 1.13.0
+  share_plus: ^13.3.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
-  # 架构静态门禁使用现有锁定的Dart分析器。
-  analyzer: ^14.5.0
+  # 测试与替身
   flutter_test:
     sdk: flutter
   integration_test:
     sdk: flutter
+  mocktail: ^1.0.0
+
+  # 静态分析与代码规范
+  # 架构静态门禁使用现有锁定的 Dart 分析器。
+  analyzer: ^14.5.0
   flutter_lints: ^6.0.0
+
+  # 代码生成
   # Freezed 4 支持 Dart 3.13，生成器共同约束 analyzer 14。
   build_runner: ^2.16.2
   freezed: ^4.0.2
   json_serializable: ^6.14.1
-  mocktail: ^1.0.0
-  # codegen 通过 cargo install flutter_rust_bridge_codegen 安装
-  # 运行: flutter_rust_bridge_codegen generate
+
+  # FRB 绑定生成器通过 Cargo 安装，版本与 runtime 保持一致，不属于 Dart 依赖。
 
 flutter:
   generate: true
