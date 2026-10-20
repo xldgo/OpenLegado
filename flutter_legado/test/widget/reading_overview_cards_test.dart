@@ -111,7 +111,7 @@ void main() {
           width: 360,
           child: ReadingRankingCard(
             topBooks: books,
-            onBookTap: (b) => tappedBook = b,
+            onBookTap: (_, b) => tappedBook = b,
           ),
         ),
       );

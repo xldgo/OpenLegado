@@ -13,6 +13,8 @@ import 'package:flutter/rendering.dart'
         RenderBox,
         RenderClipRRect,
         RenderImage,
+        RenderOffstage,
+        RenderOpacity,
         RenderObject;
 
 import '../services/cover_decode_loader.dart';
@@ -105,6 +107,106 @@ class BookCoverOrigin {
   final Rect? Function() bounds;
   final ui.Image? Function() image;
   final BorderRadius borderRadius;
+
+  /// 从点击的卡片内取封面，不要求 Hero，也不跨行或跨页面猜测来源。
+  static BookCoverOrigin? fromContext(BuildContext context, String bookUrl) {
+    if (!context.mounted || bookUrl.isEmpty) return null;
+    Element? source;
+    void visit(Element element) {
+      if (source != null) return;
+      if (element.widget case Offstage(offstage: true)) return;
+      if (element.widget is BookCover || element.widget is BookCoverHero) {
+        if (_visibleCoverBounds(element, allowCoveredRoute: false) != null) {
+          source = element;
+        }
+        return;
+      }
+      element.visitChildElements(visit);
+    }
+
+    visit(context as Element);
+    final found = source;
+    if (found == null) return null;
+    return BookCoverOrigin(
+      bookUrl: bookUrl,
+      bounds: () => _visibleCoverBounds(found),
+      image: _coverImageReader(found),
+      borderRadius: _coverFrame(found).radius,
+    );
+  }
+}
+
+/// 仅复用真实封面帧，缺图或尚未加载时交给默认页面转场。
+ui.Image? Function() _coverImageReader(BuildContext context) {
+  var ready = true;
+  _CoverImageState? loader;
+  void check(Widget widget) {
+    if (widget is BookCover && widget.coverUrl?.isNotEmpty != true) {
+      ready = false;
+    }
+  }
+
+  check(context.widget);
+  context.visitAncestorElements((element) {
+    check(element.widget);
+    return element.widget is! BookCover;
+  });
+  void visit(Element element) {
+    check(element.widget);
+    if (element case StatefulElement(state: final _CoverImageState state)) {
+      loader = state;
+    }
+    element.visitChildElements(visit);
+  }
+
+  visit(context as Element);
+  // 元素查找只在点击时完成；路由创建处于build阶段，仅允许读取已捕获状态和绘制树。
+  return () {
+    final currentLoader = loader;
+    if (!context.mounted ||
+        !ready ||
+        currentLoader != null &&
+            (!currentLoader.mounted || !currentLoader._hasFrame)) {
+      return null;
+    }
+    return _coverFrame(context).image;
+  };
+}
+
+Rect? _visibleCoverBounds(
+  BuildContext context, {
+  bool allowCoveredRoute = true,
+}) {
+  if (!context.mounted) return null;
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+  RenderObject? ancestor = box;
+  while (ancestor != null) {
+    // 返回时来源路由被阅读器遮住属正常；滚出视口或业务隐藏仍不可作为目标。
+    if (ancestor is RenderOffstage &&
+            ancestor.offstage &&
+            (!allowCoveredRoute || ModalRoute.of(context)?.isCurrent == true) ||
+        ancestor is RenderOpacity && ancestor.opacity == 0) {
+      return null;
+    }
+    ancestor = ancestor.parent;
+  }
+  final rect = box.localToGlobal(Offset.zero) & box.size;
+  if (!rect.isFinite || rect.isEmpty) return null;
+  final overlay = Navigator.maybeOf(context)?.overlay?.context
+      .findRenderObject();
+  if (overlay is RenderBox && overlay.hasSize) {
+    final screen = overlay.localToGlobal(Offset.zero) & overlay.size;
+    if (!screen.overlaps(rect)) return null;
+  }
+  final viewport = context
+      .findAncestorRenderObjectOfType<RenderAbstractViewport>();
+  final viewportBox = viewport is RenderBox ? viewport as RenderBox : null;
+  if (viewportBox != null && viewportBox.hasSize) {
+    final visible = viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
+    if (!visible.overlaps(rect)) return null;
+  }
+  return rect;
 }
 
 /// 封面两端保留同一图片子树，飞行期间不重新开始加载或解密。
@@ -138,13 +240,11 @@ class BookCoverHero extends StatefulWidget {
     (root as Element).visitChildElements(visit);
     final found = source;
     if (found == null) return null;
+    final readImage = _coverImageReader(found._contentKey.currentContext!);
     return BookCoverOrigin(
       bookUrl: bookUrl,
       bounds: found._bounds,
-      image: () {
-        final frame = found._contentKey.currentContext;
-        return found.mounted && frame != null ? _coverFrame(frame).image : null;
-      },
+      image: readImage,
       borderRadius: _coverFrame(found._contentKey.currentContext!).radius,
     );
   }
@@ -158,25 +258,7 @@ class _BookCoverHeroState extends State<BookCoverHero> {
 
   Rect? _bounds() {
     final context = _contentKey.currentContext;
-    if (!mounted || context == null) return null;
-    final box = context.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
-    final rect = box.localToGlobal(Offset.zero) & box.size;
-    if (!rect.isFinite || rect.isEmpty) return null;
-    final overlay = Navigator.maybeOf(context)?.overlay?.context
-        .findRenderObject();
-    if (overlay is RenderBox && overlay.hasSize) {
-      final screen = overlay.localToGlobal(Offset.zero) & overlay.size;
-      if (!screen.overlaps(rect)) return null;
-    }
-    final viewport = context
-        .findAncestorRenderObjectOfType<RenderAbstractViewport>();
-    final viewportBox = viewport is RenderBox ? viewport as RenderBox : null;
-    if (viewportBox != null && viewportBox.hasSize) {
-      final visible = viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
-      if (!visible.overlaps(rect)) return null;
-    }
-    return rect;
+    return mounted && context != null ? _visibleCoverBounds(context) : null;
   }
 
   @override

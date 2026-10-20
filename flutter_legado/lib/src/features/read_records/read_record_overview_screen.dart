@@ -102,7 +102,12 @@ class _ReadRecordOverviewScreenState
     }
 
     if (matchedBook != null) {
-      await BookOpenUtils.openBook(context, ref, matchedBook);
+      await BookOpenUtils.openBook(
+        context,
+        ref,
+        matchedBook,
+        coverContext: context,
+      );
     } else {
       await GoRouter.of(
         context,
@@ -250,8 +255,8 @@ class _ReadRecordOverviewScreenState
                   // (4) 阅读时长榜
                   ReadingRankingCard(
                     topBooks: state.topBooks,
-                    onBookTap: (ranking) => _handleBookTap(
-                      context,
+                    onBookTap: (coverContext, ranking) => _handleBookTap(
+                      coverContext,
                       ref,
                       ranking.bookName,
                       ranking.author,

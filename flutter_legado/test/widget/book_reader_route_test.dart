@@ -18,6 +18,25 @@ import 'package:flutter_legado/src/widgets/reader/book_reader_route.dart';
 
 const _book = Book(bookUrl: 'book://transition', name: '封面展开');
 
+class _DefaultPageTransitions extends PageTransitionsBuilder {
+  const _DefaultPageTransitions();
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => SlideTransition(
+    key: ValueKey('default-transition:${route.settings.name}'),
+    position: Tween(
+      begin: const Offset(1, 0),
+      end: Offset.zero,
+    ).animate(animation),
+    child: child,
+  );
+}
+
 class _Reader extends ReaderNotifier {
   @override
   ReaderState build() => const ReaderState(
@@ -171,6 +190,15 @@ class _Harness {
         container: container,
         child: MaterialApp.router(
           routerConfig: navigation,
+          theme: ThemeData(
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: _DefaultPageTransitions(),
+                TargetPlatform.iOS: _DefaultPageTransitions(),
+                TargetPlatform.windows: _DefaultPageTransitions(),
+              },
+            ),
+          ),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
             child: child!,
@@ -219,6 +247,84 @@ void main() {
     picture.dispose();
   });
   tearDownAll(() => image.dispose());
+
+  testWidgets('相同书籍出现多次时只从点击卡片读取封面，不依赖标准Hero标签', (tester) async {
+    late BuildContext selectedContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              BookCoverHero(
+                tag: 'duplicate:first',
+                child: RawImage(image: image, width: 80, height: 112),
+              ),
+              Builder(
+                builder: (context) {
+                  selectedContext = context;
+                  return BookCoverHero(
+                    tag: 'duplicate:second',
+                    child: RawImage(image: image, width: 120, height: 168),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final origin = BookCoverOrigin.fromContext(selectedContext, _book.bookUrl);
+    expect(origin, isNotNull);
+    expect(origin!.bounds(), tester.getRect(find.byType(BookCoverHero).last));
+    expect(origin.bounds()!.top, 112);
+    expect(origin.image()!.isCloneOf(image), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(origin.bounds(), isNull);
+    expect(origin.image(), isNull);
+  });
+
+  testWidgets('默认封面不作为真实图片翻开，隐藏卡片不作为来源', (tester) async {
+    late BuildContext visibleContext;
+    late BuildContext hiddenContext;
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: SizedBox())),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Builder(
+                  builder: (context) {
+                    visibleContext = context;
+                    return const BookCover();
+                  },
+                ),
+                Offstage(
+                  child: Builder(
+                    builder: (context) {
+                      hiddenContext = context;
+                      return BookCoverHero(
+                        tag: 'hidden',
+                        child: RawImage(image: image, width: 80, height: 112),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final origin = BookCoverOrigin.fromContext(visibleContext, _book.bookUrl);
+    expect(origin?.bounds(), isNotNull);
+    expect(origin?.image(), isNull);
+    expect(BookCoverOrigin.fromContext(hiddenContext, _book.bookUrl), isNull);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('原有书架详情 Hero 过渡保留来源图片元素', (tester) async {
     final h = _Harness(image);
@@ -360,7 +466,7 @@ void main() {
   });
 
   for (final removed in [false, true]) {
-    testWidgets('封面${removed ? '移除' : '移出视口'}时返回淡出', (tester) async {
+    testWidgets('封面${removed ? '移除' : '移出视口'}时返回默认转场', (tester) async {
       final h = _Harness(image);
       await h.pump(tester);
       await h.open(tester);
@@ -374,7 +480,13 @@ void main() {
       h.key.currentState!.pop();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
+      expect(find.byKey(const ValueKey('book-reader-reveal')), findsNothing);
+      expect(h.probe.initialized, 1, reason: '更换返回动效不重新初始化正文');
+      expect(h.probe.disposed, 0);
+      expect(
+        find.byKey(const ValueKey('default-transition:/reader')),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('book-reader-transition')),
@@ -400,25 +512,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('没有来源封面时短淡入，正文布局保持不变', (tester) async {
+  testWidgets('没有来源封面时使用主题默认转场，正文布局保持不变', (tester) async {
     final h = _Harness(image, anchored: false);
     await h.pump(tester);
     final route = await h.open(tester);
-    expect(route.transitionDuration, const Duration(milliseconds: 160));
+    expect(route.transitionDuration, const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 80));
-    expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
+    expect(find.byKey(const ValueKey('book-reader-reveal')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('default-transition:/reader')),
+      findsOneWidget,
+    );
     expect(h.probe.sizes, everyElement(const Size(400, 800)));
     await tester.pumpAndSettle();
   });
 
-  testWidgets('来源图片尚未解码时短淡入，不翻开空白封面', (tester) async {
+  testWidgets('来源图片尚未解码时使用默认转场，不翻开空白封面', (tester) async {
     final h = _Harness(image, decodedCover: false);
     await h.pump(tester);
     final route = await h.open(tester);
-    expect(route.transitionDuration, const Duration(milliseconds: 160));
-    expect(route.reverseTransitionDuration, const Duration(milliseconds: 160));
+    expect(route.transitionDuration, const Duration(milliseconds: 300));
+    expect(route.reverseTransitionDuration, const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 80));
-    expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
+    expect(find.byKey(const ValueKey('book-reader-reveal')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('default-transition:/reader')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('book-reader-cover-hinge')), findsNothing);
     expect(h.probe.sizes, everyElement(const Size(400, 800)));
     await tester.pumpAndSettle();

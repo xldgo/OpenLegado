@@ -81,7 +81,10 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         });
   }
 
-  Future<void> _open(ReadRecordListEntry entry) async {
+  Future<void> _open(
+    BuildContext coverContext,
+    ReadRecordListEntry entry,
+  ) async {
     if (_selected.isNotEmpty) {
       setState(
         () => _selected.contains(entry.key)
@@ -100,7 +103,12 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         .where((b) => entry.bookUrl.isEmpty || b.bookUrl == entry.bookUrl)
         .firstOrNull;
     if (book != null) {
-      await BookOpenUtils.openBook(context, ref, book);
+      await BookOpenUtils.openBook(
+        context,
+        ref,
+        book,
+        coverContext: coverContext,
+      );
     } else if (mounted) {
       await GoRouter.of(context).pushAppRoute(
         AppRoutes.search,
@@ -358,7 +366,8 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                             itemCount: entries.length,
                             itemBuilder: (_, index) => Consumer(
                               key: ValueKey(entries[index].key),
-                              builder: (_, tileRef, _) => _tile(
+                              builder: (tileContext, tileRef, _) => _tile(
+                                tileContext,
                                 entries[index],
                                 controls.displayMode,
                                 tileRef,
@@ -455,8 +464,8 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                   if (mode == ReadRecordDisplayMode.aggregate && i > 0)
                     Divider(height: 1, thickness: 1, color: cs.surface),
                   Consumer(
-                    builder: (_, tileRef, _) =>
-                        _tile(group.entries[i], mode, tileRef),
+                    builder: (tileContext, tileRef, _) =>
+                        _tile(tileContext, group.entries[i], mode, tileRef),
                   ),
                 ],
               ],
@@ -551,6 +560,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
   }
 
   Widget _tile(
+    BuildContext coverContext,
     ReadRecordListEntry entry,
     ReadRecordDisplayMode mode,
     WidgetRef tileRef,
@@ -576,7 +586,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         : null;
     final content = mode == ReadRecordDisplayMode.aggregate
         ? InkWell(
-            onTap: () => _open(entry),
+            onTap: () => _open(coverContext, entry),
             onLongPress: () => setState(
               () => selected
                   ? _selected.remove(entry.key)
@@ -648,7 +658,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         ? Semantics(
             label: formatDuring(entry.durationMs),
             child: InkWell(
-              onTap: () => _open(entry),
+              onTap: () => _open(coverContext, entry),
               onLongPress: () => setState(
                 () => selected
                     ? _selected.remove(entry.key)
@@ -737,7 +747,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
             ),
           )
         : InkWell(
-            onTap: () => _open(entry),
+            onTap: () => _open(coverContext, entry),
             onLongPress: () => setState(
               () => selected
                   ? _selected.remove(entry.key)
@@ -831,7 +841,7 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
     return PrivacyMaskedContent(
       bookName: entry.bookName,
       author: entry.author,
-      onTap: () => _open(entry),
+      onTap: () => _open(coverContext, entry),
       child: Dismissible(
         key: ValueKey(entry.key),
         // 选择态只禁用滑动，保留封面所在的元素树。— Codex + UI

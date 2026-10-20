@@ -1,5 +1,7 @@
 import '../fixtures/routing_test_app.dart';
 
+import 'dart:ui' as ui;
+
 import 'package:flutter_legado/src/domain/services/book_type_policy.dart';
 
 import '../fixtures/app_test_api.dart';
@@ -15,6 +17,7 @@ import 'package:flutter_legado/src/features/reader/application/reader_notifier.d
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 import 'package:flutter_legado/src/utils/book_open_utils.dart';
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 
 import '../mocks/mocks.dart';
 
@@ -26,7 +29,19 @@ import '../mocks/mocks.dart';
 /// - 文本阅读器：先经 ReaderNotifier.openBook 装载再导航（无 arguments）。
 /// — 全栈工程师 + UI
 void main() {
-  setUpAll(registerFallbacks);
+  late ui.Image cover;
+  setUpAll(() async {
+    registerFallbacks();
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawRect(
+      const Rect.fromLTWH(0, 0, 40, 56),
+      Paint()..color = Colors.orange,
+    );
+    final picture = recorder.endRecording();
+    cover = await picture.toImage(40, 56);
+    picture.dispose();
+  });
+  tearDownAll(() => cover.dispose());
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -46,6 +61,7 @@ void main() {
     required MockRustApi api,
     _RecordingReaderNotifier? readerNotifier,
     bool useGlobalNavigator = false,
+    bool withCover = false,
   }) {
     return ProviderScope(
       overrides: mergeTestOverrides([
@@ -65,14 +81,25 @@ void main() {
         home: Consumer(
           builder: (context, ref, _) => Scaffold(
             body: Center(
-              child: ElevatedButton(
-                onPressed: () => BookOpenUtils.openBook(
-                  context,
-                  ref,
-                  book,
-                  useGlobalNavigator: useGlobalNavigator,
-                ),
-                child: const Text('open'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (withCover)
+                    BookCoverHero(
+                      tag: 'entry:${book.bookUrl}',
+                      child: RawImage(image: cover, width: 80, height: 112),
+                    ),
+                  ElevatedButton(
+                    onPressed: () => BookOpenUtils.openBook(
+                      context,
+                      ref,
+                      book,
+                      useGlobalNavigator: useGlobalNavigator,
+                      coverContext: withCover ? context : null,
+                    ),
+                    child: const Text('open'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -102,6 +129,33 @@ void main() {
     Navigator.of(tester.element(find.text('stub:${AppRoutes.reader}'))).pop();
     await tester.pumpAndSettle();
     expect(find.text('open'), findsOneWidget);
+  });
+
+  testWidgets('普通开书入口传递点击区域内的封面，保留书籍身份及正文装载', (tester) async {
+    const book = Book(bookUrl: 'book://local-cover', name: '普通入口封面');
+    final reader = _RecordingReaderNotifier();
+    await tester.pumpWidget(
+      harness(
+        book: book,
+        api: MockRustApi(),
+        readerNotifier: reader,
+        withCover: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final bounds = tester.getRect(find.byType(BookCoverHero));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(observer.lastName, AppRoutes.reader);
+    final origin = observer.lastArguments! as BookCoverOrigin;
+    expect(origin.bookUrl, book.bookUrl);
+    expect(origin.bounds()?.size, bounds.size);
+    expect(
+      origin.bounds(),
+      tester.getRect(find.byType(BookCoverHero, skipOffstage: false)),
+    );
+    expect(origin.image()!.isCloneOf(cover), isTrue);
+    expect(reader.openedBook, book);
   });
 
   testWidgets('零进度在线书源匹配（尾斜杠归一 type=4）→ 视频路由且带类型位更新', (tester) async {

@@ -170,73 +170,76 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         ),
         children: [
           // ===== 最近阅读卡 =====
-          if (recent != null)
+          if (recent case final recentBook?)
             PrivacyMaskedContent(
               book: recent,
-              onTap: () => _openBook(recent!),
-              child: _HomeCard(
-                onTap: () => _openBook(recent!),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 64,
-                      height: 88,
-                      child: BookCover(
-                        coverUrl: recent.coverUrl,
+              onTap: () => _openBook(recentBook),
+              child: Builder(
+                builder: (coverContext) => _HomeCard(
+                  onTap: () =>
+                      _openBook(recentBook, coverContext: coverContext),
+                  child: Row(
+                    children: [
+                      SizedBox(
                         width: 64,
                         height: 88,
+                        child: BookCover(
+                          coverUrl: recentBook.coverUrl,
+                          width: 64,
+                          height: 88,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Symbols.menu_book_rounded,
-                                size: 18,
-                                color: cs.primary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                context.l10n.recentReading,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(color: cs.primary),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            recent.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            recent.author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                          if (recent.durChapterTitle != null) ...[
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Symbols.menu_book_rounded,
+                                  size: 18,
+                                  color: cs.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  context.l10n.recentReading,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(color: cs.primary),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              recentBook.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                             const SizedBox(height: 4),
                             Text(
-                              recent.durChapterTitle!,
+                              recentBook.author,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: cs.onSurfaceVariant),
                             ),
+                            if (recentBook.durChapterTitle != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                recentBook.durChapterTitle!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    _progressBadge(recent, cs),
-                  ],
+                      _progressBadge(recentBook, cs),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -424,8 +427,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           // ===== 阅读时长榜卡片 =====
           ReadingRankingCard(
             topBooks: overviewState.topBooks.take(5).toList(),
-            onBookTap: (ranking) =>
-                _openBookByIdentity(ranking.bookName, ranking.author),
+            onBookTap: (coverContext, ranking) => _openBookByIdentity(
+              coverContext,
+              ranking.bookName,
+              ranking.author,
+            ),
             trailing: IconButton(
               tooltip: '更多排行',
               icon: const Icon(Symbols.chevron_right_rounded),
@@ -472,13 +478,22 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     );
   }
 
-  Future<void> _openBook(Book book) async {
+  Future<void> _openBook(Book book, {BuildContext? coverContext}) async {
     // 与阅读记录页同链路：分流编排统一在 BookOpenUtils.openBook
     // （书源类型位解析后直接进入阅读器或播放器）
-    await BookOpenUtils.openBook(context, ref, book);
+    await BookOpenUtils.openBook(
+      context,
+      ref,
+      book,
+      coverContext: coverContext,
+    );
   }
 
-  Future<void> _openBookByIdentity(String bookName, String author) async {
+  Future<void> _openBookByIdentity(
+    BuildContext coverContext,
+    String bookName,
+    String author,
+  ) async {
     final books = ref.read(bookshelfNotifierProvider).books;
     Book? matched;
     for (final b in books) {
@@ -488,7 +503,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       }
     }
     if (matched != null) {
-      await _openBook(matched);
+      await _openBook(matched, coverContext: coverContext);
     } else {
       await GoRouter.of(
         context,

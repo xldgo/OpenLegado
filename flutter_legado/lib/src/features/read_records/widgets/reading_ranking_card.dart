@@ -11,7 +11,7 @@ import '../read_record_screen.dart' show formatDuring;
 class ReadingRankingCard extends StatelessWidget {
   final String title;
   final List<ReadBookRanking> topBooks;
-  final ValueChanged<ReadBookRanking>? onBookTap;
+  final void Function(BuildContext context, ReadBookRanking book)? onBookTap;
   final Widget? trailing;
 
   const ReadingRankingCard({
@@ -75,10 +75,14 @@ class ReadingRankingCard extends StatelessWidget {
                   return PrivacyMaskedContent(
                     bookName: book.bookName,
                     author: book.author,
-                    onTap: onBookTap == null ? null : () => onBookTap!(book),
+                    onTap: onBookTap == null
+                        ? null
+                        : () => onBookTap!(context, book),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: onBookTap != null ? () => onBookTap!(book) : null,
+                      onTap: onBookTap != null
+                          ? () => onBookTap!(context, book)
+                          : null,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           vertical: 6,

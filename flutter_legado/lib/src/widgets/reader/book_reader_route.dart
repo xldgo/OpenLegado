@@ -25,6 +25,9 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   Rect? _returnBounds;
   ui.Image? _image;
   bool _returning = false;
+  final _contentKey = GlobalKey();
+
+  bool get _hasCover => _start != null && _image != null;
 
   bool get _reduced =>
       navigator != null && MediaQuery.disableAnimationsOf(navigator!.context);
@@ -32,16 +35,21 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   @override
   Duration get transitionDuration => _reduced
       ? Duration.zero
-      : Duration(milliseconds: _start == null || _image == null ? 160 : 480);
+      : _hasCover
+      ? const Duration(milliseconds: 480)
+      : super.transitionDuration;
 
   @override
   Duration get reverseTransitionDuration => _reduced
       ? Duration.zero
-      : Duration(milliseconds: _start == null || _image == null ? 160 : 400);
+      : _hasCover
+      ? const Duration(milliseconds: 400)
+      : super.reverseTransitionDuration;
 
   // 来源页面不再叠加默认导航的横移、缩放或封面 Hero 飞行。
   @override
-  bool canTransitionFrom(TransitionRoute<dynamic> previousRoute) => false;
+  bool canTransitionFrom(TransitionRoute<dynamic> previousRoute) =>
+      !_hasCover && super.canTransitionFrom(previousRoute);
 
   @override
   bool didPop(T? result) {
@@ -81,6 +89,24 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
+  ) {
+    // 来源消失而更换外层转场时，保留同一正文元素及其会话。
+    final content = KeyedSubtree(key: _contentKey, child: child);
+    if (MediaQuery.disableAnimationsOf(context)) return content;
+    if (!_hasCover || (_returning && _returnBounds == null)) {
+      return super.buildTransitions(
+        context,
+        animation,
+        secondaryAnimation,
+        content,
+      );
+    }
+    return _buildCoverTransition(animation, content);
+  }
+
+  Widget _buildCoverTransition(
+    Animation<double> animation,
+    Widget content,
   ) => Consumer(
     builder: (context, ref, _) {
       final privacy = ref.watch(privacyControllerProvider);
@@ -102,7 +128,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
       return LayoutBuilder(
         builder: (context, constraints) => AnimatedBuilder(
           animation: animation,
-          child: child,
+          child: content,
           builder: (context, child) {
             final size = constraints.biggest;
             final full = Offset.zero & size;
