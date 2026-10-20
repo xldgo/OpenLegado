@@ -149,10 +149,13 @@ class NativeRoutingTests(unittest.TestCase):
             "rust/legado-layout/tests/fixtures/md3.json.gz",
             "rust/legado-ffi/tests/fixtures/layout_transport.json",
             "flutter_legado/lib/src/data/bridge/rust_runtime.dart",
-            "flutter_legado/lib/src/widgets/reader/reader_text_content.dart",
-            "flutter_legado/lib/src/features/reader/application/reader_state.dart",
-            "flutter_legado/lib/src/features/read_aloud/playback/file_read_aloud_playlist.dart",
-            "flutter_legado/lib/src/app/routing/app_router.dart",
+            "flutter_legado/lib/src/data/services/rust_http_tts_synthesizer.dart",
+            "flutter_legado/lib/src/data/repositories/rust_book_source_repository.dart",
+            "flutter_legado/lib/src/domain/contracts/http_tts_synthesizer.dart",
+            "flutter_legado/lib/src/domain/models/book_content_result.dart",
+            "flutter_legado/lib/src/models/book.dart",
+            "flutter_legado/lib/src/app/bootstrap/rust_bootstrap.dart",
+            "flutter_legado/lib/src/services/reader_layout_service.dart",
             "flutter_legado/lib/src/new_shared_module/service.dart",
             "flutter_legado/pubspec.lock", "flutter_legado/dart_test.yaml",
             "flutter_legado/test/ffi/privacy_runtime_test.dart",
@@ -169,6 +172,16 @@ class NativeRoutingTests(unittest.TestCase):
             "flutter_legado/lib/src/widgets/top_bar_button.dart",
             "flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart",
             "flutter_legado/lib/src/features/settings/presentation/settings_screen.dart",
+            "flutter_legado/lib/src/widgets/reader/reader_text_content.dart",
+            "flutter_legado/lib/src/widgets/paragraph_layout_engine.dart",
+            "flutter_legado/lib/src/features/reader/application/reader_state.dart",
+            "flutter_legado/lib/src/features/search/application/search_notifier.dart",
+            "flutter_legado/lib/src/features/read_aloud/playback/file_read_aloud_playlist.dart",
+            "flutter_legado/lib/src/features/audio/application/audio_notifier.dart",
+            "flutter_legado/lib/src/app/routing/app_router.dart",
+            "flutter_legado/lib/src/providers/theme/app_theme_preferences_provider.dart",
+            "flutter_legado/lib/src/theme/app_theme.dart",
+            "flutter_legado/lib/src/l10n/app_zh.arb",
             "flutter_legado/android/app/build.gradle.kts", "flutter_legado/ios/Runner/Info.plist",
             "rust/legado-net/tests/client.rs", "flutter_legado/assets/updateLog.md",
         ):
@@ -178,6 +191,12 @@ class NativeRoutingTests(unittest.TestCase):
     def test_native_input_is_not_hidden_by_unrelated_changes(self):
         self.assertEqual(ci.classify_native_test_paths([
             "README.md", "flutter_legado/lib/src/bridge/frb_generated.dart",
+        ]), {"native_tests": True})
+
+    def test_ui_change_does_not_hide_changed_data_boundary(self):
+        self.assertEqual(ci.classify_native_test_paths([
+            "flutter_legado/lib/src/features/reader/application/reader_state.dart",
+            "flutter_legado/lib/src/data/services/rust_reading_content_service.dart",
         ]), {"native_tests": True})
 
     def test_aggregate_rejects_native_failure_or_unexpected_skip(self):
@@ -390,6 +409,8 @@ class GitDiffTests(unittest.TestCase):
             ("flutter_legado/lib/src/features/bookshelf/bookshelf_screen.dart", ("true", "false")),
             ("flutter_legado/test/widget/bookshelf_test.dart", ("true", "false")),
             ("rust/legado-net/src/client.rs", ("false", "true")),
+            ("flutter_legado/lib/src/features/read_aloud/playback/file_read_aloud_playlist.dart", ("true", "false")),
+            ("flutter_legado/lib/src/data/services/rust_http_tts_synthesizer.dart", ("true", "true")),
             ("rust/legado-ffi/src/api/book.rs", ("true", "true")),
             ("docs/development.md", ("false", "false")),
         ):

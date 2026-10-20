@@ -266,8 +266,10 @@ flutter analyze
 ### CI 流水线
 
 Flutter/Rust 自动检查针对 `dev/master` push 和指向这两个分支的 PR，
-按改动选择任务；开发分支可通过 PR 或手动入口验证。Rust CI 保留默认 feature 与
-QuickJS 的质量/测试以及依赖审计；Flutter CI 执行分析与测试。
+按改动选择任务；开发分支可通过PR或手动入口验证。Rust CI对默认功能与QuickJS运行
+全目标Clippy，执行一次QuickJS工作区测试及依赖审计；不再默认/QuickJS重复跑整套测试。
+Flutter CI执行分析与测试；页面、状态编排及渲染改动走普通组，桥接、数据、契约等输入
+再触发Linux原生组。手动native/all范围仍可完整复核原生组。
 
 Tooling CI 集中运行编排回归、Python 工具回归与 workflow 语法检查，也可手动运行；
 其他 workflow 的范围判定步骤只读取 Git 差异。iOS Build 仅对 dev/master 的应用相关改动

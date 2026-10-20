@@ -30,7 +30,7 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 |---|---|---|
 | Tooling CI | `dev/master` push、指向两分支的 PR | 支持手动；集中执行编排规则、Python 工具回归及 actionlint，不安装 Flutter/NDK/Xcode |
 | Flutter CI | `dev/master` push、指向两分支的 PR | 手动auto/fast/native/all；analyze汇总普通组、原生组与生成检查 |
-| Rust CI | 同上 | 新增手动完整检查；原 `check` 汇总，所需 quality/tests/audit 必须成功 |
+| Rust CI | 同上 | 手动完整检查；双档Clippy、一次QuickJS工作区测试与审计，`check`汇总 |
 | iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
 | iOS CI | 无自动入口 | 保持仅手动模拟器验证 |
 | Android Release | `v*` tag | 保持手动只构建；Tag 发布条件、产物 ID 和 publish 权限不变 |
@@ -76,8 +76,9 @@ Flutter CI分为changes、flutter-checks、native-tests与analyze汇总。保留
 - native-tests在Linux单次执行`cargo build --locked -p legado-ffi --features quickjs`，
   显式传入本次debug `.so`，运行`flutter test --no-pub --tags native`。
   标签覆盖通用FFI契约与仍依赖真实分页的阅读器集成用例，不按所在目录假定测试类型。
-- 原生组选中范围包括Rust生产输入、FRB与数据/领域/平台/共享状态、阅读器/搜索/朗读、
-  依赖锁文件和相关编排。独立书架/设置页面及非阅读器普通组件实现变化不单独选择原生组。
+- 原生组选中范围包括Rust生产输入、FRB与数据/领域/平台、启动及未知共享目录、
+  依赖锁文件和相关编排。features/widgets/providers/theme/l10n/design_system及app/routing
+  改动只运行普通组；包括阅读器/搜索/朗读的页面、状态编排和渲染，不因功能名称触发整组原生测试。
   本轮测试文件和共享夹具变化先保守选择两组，不声称已做到逐用例最小依赖选择。
 - Rust crate独立集成测试变化只走Rust CI；两处正式排版测试载荷目录因被Dart读取，仍选原生组。
   纯文档变化不启动原生编译；iOS模拟器手动约定及设备包触发保持。
@@ -188,7 +189,7 @@ gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=a
 共享`fixtures/helpers/mocks`及其它测试支持输入保守触发原生组。独立`*_test.dart`
 同时读取当前与比较基线版本，任一含native分组即触发原生组；删除标记或删除原生
 文件也不能漏检。无可读取元数据时保守运行。普通测试仍通过不存在的FFI库路径运行，
-误引入真实原生依赖会失败，不允许静默跳过。生产源码的既有保守规则不缩小。
+误引入真实原生依赖会失败，不允许静默跳过；生产输入按上文最新目录边界选择。
 
 两组使用`--reporter failures-only`保留失败详情，并通过`--file-reporter json:...`
 写入完整事件。`.github/scripts/flutter_test_report.py`从事件统计装载、执行及慢用例，
@@ -207,3 +208,30 @@ gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=a
 编写者：Codex + Tool｜2026-10-19
 
 修订者：Codex + Tool｜2026-10-20（移除独立Integration Smoke及专属编排）
+
+## Rust与iOS重复工作收敛（2026-10-20）
+
+Rust CI默认功能档继续执行全工作区/全目标Clippy以检查无QuickJS构建；QuickJS档的
+Clippy保留原有JS/FFI/Server三个入口。测试统一执行一次：
+
+```powershell
+cd rust
+cargo test --locked --workspace --features legado-js/quickjs,legado-ffi/quickjs,legado-server/quickjs
+```
+
+不再先执行默认工作区测试、再分三个crate执行QuickJS测试。Cargo在同一次调用中统一
+feature，保留QuickJS完整测试（含沙箱OOM），默认档不再自动执行测试体；这是一项明确的
+覆盖取舍，不声称两档行为完全等价。依赖审计、格式、失败汇总仍保留，不新增跳过失败选项。
+
+iOS CI仍仅手动运行。Setup已安装Rust target及LLVM组件，不再重复安装；使用
+integration_test/ios_suite_test.dart注册图标与离线阅读两类测试，共用一次宿主构建和安装。
+Flutter测试命令按需安装Pods，不再预先pod install --repo-update和构建普通Runner。
+测试通过后校验实际测试宿主的PDE符号，Runner.app工件仍是测试宿主，不作为生产包验收。
+证据日志统一为ios_simulator_test.log，设备包的ios-build签名/图标流程不变。
+
+图标用例保留原生通道与已安装资源断言，移除无断言、最多等待8秒的真实切换操作，
+避免系统提示影响同宿主后续用例。阅读用例必须经右缘点击进入下一章，失败直接报错，
+不再调用Notifier.nextChapter掩盖交互失败。合并后模拟器运行仍需macOS/Xcode实际复验。
+没有测得远程耗时前，不报告节省分钟数或百分比。
+
+编写者：Codex + Tool｜2026-10-20

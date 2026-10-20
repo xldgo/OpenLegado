@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### CI-OVERLAP-20261020：收敛Rust/Flutter/iOS验证重复工作（待复验）
+
+- 授权：用户要求优化三个CI的重复验证，沿用dev / e1d43f7a6，单代理，不提升版本、不推送或触发远程CI；不修改生产业务代码。
+- Rust：默认功能档保留全工作区全目标Clippy，QuickJS Clippy保留原有三个入口；原四条cargo test合并为一次锁定依赖的QuickJS工作区测试。不再自动执行默认功能档测试体，保留QuickJS完整回归，不按名称过滤OOM用例。
+- Flutter：保留native标签与手动native/all；features/widgets/providers/theme/l10n/design_system和app/routing变化只走普通组，桥接/数据/契约/启动/平台/未知共享目录及原生测试输入继续保守选择原生组。没有按新白名单删除用例或跳过失败。
+- iOS：移除重复target/组件安装及预先Pods更新、普通Runner构建；图标与阅读测试共用ios_suite_test.dart一次宿主构建和安装，之后验证实际测试宿主PDE符号。图标无断言切换取证移除，阅读翻页失败不再直接调用切章兜底；手动触发、设备包构建、签名及权限保持原样。
+- 验收：40项编排与报告回归、actionlint、三个iOS测试文件静态分析及git diff --check通过；Dart首轮新增入口的注释lint已修正。证据build/ci-overlap-tests.log、build/ci-overlap-actionlint-final.log及flutter_legado/build/ci-overlap-ios-analysis-final.log。
+- Rust结果：Windows统一工作区命令使用--no-fail-fast核查全部101个测试目标，4167项通过、7项失败、50项既有忽略；证据build/ci-overlap-rust-complete.log。搜索取消用例阶段1提前返回，以及server_engine_cache/server_engine_js的caches表缺失，共3项在原CI单crate命令下也复现；证据build/ci-overlap-rust-probe-{unified,original,cache-original}.log。不跳过失败、不修改搜索或数据库业务，保留为独立待修项，不宣称Rust全绿。
+- 超时复核：另4项服务端外网端点首次返回504；原Server完整组和统一组合构建的Server完整组复验均217项通过，端点子组也通过，不能将首次失败抹去或据此宣称已定位超时原因。证据build/ci-overlap-rust-probe-server-{original,full-original,unified}.log与build/ci-overlap-rust-server-unified-full-recheck.log。
+- 平台边界：本机无Xcode，合并后的iOS模拟器测试入口仍待macOS复验；未推送、触发远程CI或测得远程节省耗时。单代理自查，不以静态分析或已有测试缺陷的对比结论代替平台验收。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### REMOVE-INTEGRATION-SMOKE-20261020：移除独立原生冒烟工作流（本地完成）
 
 - 授权：用户明确要求直接移除，沿用dev / b6f2433bb，单代理，不提升版本、不推送或运行远程CI。

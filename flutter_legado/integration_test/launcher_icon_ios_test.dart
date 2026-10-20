@@ -1,4 +1,4 @@
-// iOS 运行时换图标验证（Bug1 证据采集 + 常驻回归门禁）
+// iOS图标通道与已安装资源验证。
 //
 // 背景：真机点"更换图标"提示"当前平台或系统版本不支持"。静态核查确认
 // LauncherIconBridge / AppDelegate 注册 / Info.plist CFBundleAlternateIcons /
@@ -18,15 +18,13 @@
 //     全部变体 appiconset 名（第五轮：变体资产真实入包门禁，与 CI
 //     静态 car 校验互证）。
 //
-// 仅取证（不断言，平台行为随版本/模拟器而异）：
-//   - 真实 set icon1：iOS 模拟器的 setAlternateIconName completion
-//     不回调（已知限制），故带超时守护只记录结果；真机切换成败以人工验收为准。
+// 不在本用例切换图标，避免系统提示和异步回调干扰同一宿主内后续阅读用例。
+// 真机图标切换成败仍由设备验收。
 //
-// 运行方式（CI ios-build.yml；本地 macOS）：
+// 运行方式（CI使用ios_suite_test.dart统一入口；单独复核需macOS）：
 //   flutter test integration_test/launcher_icon_ios_test.dart -d <模拟器UDID>
 //
 // 说明：
-//   - iOS 每次启动仅允许切换一次图标，故本测试最多发起一次真实 set；
 //   - 本文件位于 integration_test/，不会被 `flutter test` 自动拾取。
 
 import 'dart:io';
@@ -132,20 +130,6 @@ void main() {
       reason:
           '已安装 Assets.car 应含 launcher1~6 全部 appiconset；'
           '实际=$carNames → 变体资产未入包（actool/构建设置回归）',
-    );
-
-    // ── 2) 仅取证：真实 set icon1（模拟器 completion 不回调 → 超时守护，不断言）──
-    Object? setError;
-    try {
-      await channel
-          .invokeMethod('set', <String, Object>{'icon': 'icon1'})
-          .timeout(const Duration(seconds: 8));
-    } catch (e) {
-      setError = e;
-    }
-    debugPrint(
-      '[LauncherIconTest] set icon1 → '
-      '${setError == null ? 'OK（UIKit 已确认）' : '无回调/被拒: $setError'}',
     );
   });
 }

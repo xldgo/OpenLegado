@@ -36,34 +36,12 @@ jobs:
           rust-targets: aarch64-apple-ios-sim
           rust-components: llvm-tools-preview
 
-      # 在工作区内补装目标，确保使用 rust-toolchain.toml 锁定的工具链。
-      - name: Verify workspace simulator target
-        working-directory: rust
-        run: |
-          rustup target add aarch64-apple-ios-sim
-          rustup component add llvm-tools-preview
-          rustup target list --installed
-
       - name: Install Flutter dependencies
         working-directory: flutter_legado
         run: flutter pub get --enforce-lockfile
 
       - name: Build simulator Rust static library
         run: python3 scripts/dev.py build ffi ios --target simulator --profile release
-
-      - name: Install simulator CocoaPods dependencies
-        working-directory: flutter_legado/ios
-        run: pod install --repo-update
-
-      - name: Build simulator application
-        working-directory: flutter_legado
-        run: |
-          set -euo pipefail
-          flutter build ios --simulator --debug 2>&1 | tee ios_simulator_build.log
-
-      # Debug 主体可能位于 Runner.debug.dylib，不能只检查 Runner 加载桩。
-      - name: Verify simulator PDE symbols
-        run: python3 scripts/dev.py verify app ios --target simulator --profile release --app flutter_legado/build/ios/iphonesimulator/Runner.app --cargo-target-dir rust/target
 
       - name: Select and boot test simulator
         run: |
@@ -74,19 +52,16 @@ jobs:
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
 
-      # 校验通道接线和已安装声明；真实切图标仍是测试内的非断言取证。
-      - name: Run icon state integration tests
+      # 共享一次测试宿主构建和安装；Flutter按需安装Pods，不预先重复构建普通Runner。
+      - name: Run icon and offline reading integration tests
         working-directory: flutter_legado
         run: |
           set -euo pipefail
-          flutter test integration_test/launcher_icon_ios_test.dart -d "$UDID" 2>&1 | tee ios_launcher_icon_test.log
+          flutter test --no-pub integration_test/ios_suite_test.dart -d "$UDID" 2>&1 | tee ios_simulator_test.log
 
-      # 搜索、进书和翻章走本地回环书源，保持原测试断言，失败必须使作业变红。
-      - name: Run offline search and reading tests
-        working-directory: flutter_legado
-        run: |
-          set -euo pipefail
-          flutter test integration_test/e2e_search_read_ios_test.dart -d "$UDID" 2>&1 | tee ios_search_read_test.log
+      # 核对实际运行的测试宿主；Debug主体可能位于Runner.debug.dylib。
+      - name: Verify simulator PDE symbols
+        run: python3 scripts/dev.py verify app ios --target simulator --profile release --app flutter_legado/build/ios/iphonesimulator/Runner.app --cargo-target-dir rust/target
 
       # Flutter 集成测试会覆写 Runner.app；不将测试宿主重新启动当作生产首屏验收。
       - name: Collect simulator test evidence
@@ -112,9 +87,7 @@ jobs:
           name: ios-ci-evidence
           path: |
             ios-ci-evidence/
-            flutter_legado/ios_simulator_build.log
-            flutter_legado/ios_launcher_icon_test.log
-            flutter_legado/ios_search_read_test.log
+            flutter_legado/ios_simulator_test.log
             flutter_legado/build/ios/iphonesimulator/Runner.app/
           retention-days: 2
           if-no-files-found: warn

@@ -25,7 +25,9 @@
 //      不含 E2E-MARKER-CH1；FFI 直取第 2 章正文复核。
 //
 // 运行方式：
-//   CI（iOS 模拟器，见 .github/workflows/ios-build.yml「Run search-read e2e」）：
+//   CI共用入口（iOS模拟器，见.github/workflows/ios-ci.yml）：
+//     flutter test integration_test/ios_suite_test.dart -d <模拟器UDID>
+//   单独复核本文件：
 //     flutter test integration_test/e2e_search_read_ios_test.dart -d <模拟器UDID>
 //   本地（Windows 桌面，先构建 FFI：cd rust && cargo build -p legado-ffi --features quickjs）：
 //     cd flutter_legado && flutter test integration_test/e2e_search_read_ios_test.dart -d windows
@@ -499,17 +501,8 @@ void main() {
       turnedByUi =
           s.currentChapterIndex == 1 && s.chapterContent.contains(_markerCh2);
     }
-    if (!turnedByUi) {
-      // 兜底：与「章边界翻页」完全相同的代码路径（notifier.nextChapter），
-      // 仅当本平台 UI 手势未生效时启用，留痕便于 CI 定位
-      debugPrint('[E2E] UI 右缘翻章未生效，回退 notifier.nextChapter()（同一状态机路径）');
-      await tester.runAsync(
-        () => container.read(readerNotifierProvider.notifier).nextChapter(),
-      );
-      await _settle(tester);
-    } else {
-      debugPrint('[E2E] 已经右缘点击翻章（UI 手势路径）');
-    }
+    expect(turnedByUi, isTrue, reason: '右缘翻页应经UI进入第2章，不允许直接调用切章绕过交互');
+    debugPrint('[E2E] 已经右缘点击翻章（UI 手势路径）');
 
     // ── 8. 断言翻章结果：第 2 章标题 + 正文标记 ──
     final turned = await _waitUntil(tester, 30, const Duration(seconds: 2), () {

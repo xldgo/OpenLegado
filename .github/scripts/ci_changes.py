@@ -154,14 +154,12 @@ def classify_native_test_paths(paths, root=None, base=None):
                 return {"native_tests": True}
             continue
         if relative.startswith("lib/"):
-            native_features = (
-                "lib/src/features/reader/", "lib/src/features/search/",
-                "lib/src/features/read_aloud/", "lib/src/features/audio/",
-            )
-            if relative.startswith("lib/src/features/") and not relative.startswith(native_features):
-                continue
-            if relative.startswith("lib/src/widgets/") and not relative.startswith((
-                "lib/src/widgets/reader/", "lib/src/widgets/paragraph_layout_engine.dart",
+            # 页面、状态编排与渲染交互走普通组，不因所在功能启动整组原生回归。
+            # 数据/桥接/契约/运行时及未知共享目录仍保守选择原生组。
+            if relative.startswith((
+                "lib/src/features/", "lib/src/widgets/", "lib/src/providers/",
+                "lib/src/theme/", "lib/src/l10n/", "lib/src/design_system/",
+                "lib/src/app/routing/",
             )):
                 continue
             # 其它共享层或新目录默认进入原生组，避免只维护已知依赖白名单。

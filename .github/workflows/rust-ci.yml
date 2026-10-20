@@ -51,11 +51,11 @@ jobs:
 
       - name: Run cargo clippy (default features)
         working-directory: rust
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Run cargo clippy (quickjs features)
         working-directory: rust
-        run: cargo clippy -p legado-js -p legado-ffi -p legado-server --features quickjs --all-targets -- -D warnings
+        run: cargo clippy --locked -p legado-js -p legado-ffi -p legado-server --features quickjs --all-targets -- -D warnings
 
   tests:
     needs: changes
@@ -71,22 +71,11 @@ jobs:
         with:
           flutter-version: 'none'
 
-      - name: Run cargo test
+      # 运行一次真实QuickJS组合；默认功能档由quality中的全目标Clippy检查编译。
+      # 保留QuickJS全部用例，不过滤沙箱OOM或其它测试。
+      - name: Run workspace tests (quickjs)
         working-directory: rust
-        run: cargo test --workspace
-
-      # 保留 QuickJS 全量回归，不跳过沙箱 OOM 用例。
-      - name: Run cargo test (quickjs)
-        working-directory: rust
-        run: cargo test -p legado-js --features quickjs
-
-      - name: Run cargo test legado-ffi full (quickjs)
-        working-directory: rust
-        run: cargo test -p legado-ffi --features quickjs
-
-      - name: Run cargo test legado-server (quickjs)
-        working-directory: rust
-        run: cargo test -p legado-server --features quickjs
+        run: cargo test --locked --workspace --features legado-js/quickjs,legado-ffi/quickjs,legado-server/quickjs
 
   audit:
     needs: changes
