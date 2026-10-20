@@ -45,7 +45,12 @@ class ReadingCalendarCard extends StatelessWidget {
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, trailing == null ? 16 : 4, 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          trailing == null ? 16 : 8,
+          trailing == null ? 16 : 8,
+          16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -65,7 +70,7 @@ class ReadingCalendarCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: EdgeInsets.only(right: trailing == null ? 0 : 12),
+              padding: EdgeInsets.only(right: trailing == null ? 0 : 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,

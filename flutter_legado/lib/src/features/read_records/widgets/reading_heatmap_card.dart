@@ -111,8 +111,8 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           16,
-          16,
-          widget.trailing == null ? 16 : 4,
+          widget.trailing == null ? 16 : 8,
+          widget.trailing == null ? 16 : 8,
           16,
         ),
         child: Column(
@@ -137,7 +137,7 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
               ],
             ),
             Padding(
-              padding: EdgeInsets.only(right: widget.trailing == null ? 0 : 12),
+              padding: EdgeInsets.only(right: widget.trailing == null ? 0 : 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
