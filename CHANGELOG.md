@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.410] - 2026-10-20
+
+### Fixed
+- 旧时长公式先将语速转为整数，低速导致除零，小数倍速失真，现先校验语速再浮点计算和舍入；真实Router两项回归通过，覆盖四种正常语速及请求前拒绝非法语速。
+- 贡献者：Codex + Rust；构建号411。
+
 ## [2.0.409] - 2026-10-20
 
 ### Fixed

@@ -131,6 +131,16 @@ pub async fn speak(
     State(_state): State<Arc<AppState>>,
     Json(req): Json<AudioSpeakRequest>,
 ) -> Result<Json<AudioSpeakResponse>, ApiError> {
+    let char_count = req.text.chars().count();
+    let speed = f64::from(req.speed.unwrap_or(1.0));
+    if !speed.is_finite() || speed <= 0.0 {
+        return Err(ApiError(LegadoError::Parser("语速必须是有限正数".into())));
+    }
+    let duration = (char_count as f64 * 200.0 / speed).round();
+    if !duration.is_finite() || duration >= i64::MAX as f64 {
+        return Err(ApiError(LegadoError::Parser("预估朗读时长超出范围".into())));
+    }
+    let estimated_duration_ms = Some(duration as i64);
     // 构建 TTS URL
     let encoded_text = urlencoding::encode(&req.text);
     let mut url = req.engine_url.replace("{speakText}", &encoded_text);
@@ -162,11 +172,6 @@ pub async fn speak(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("audio/mpeg")
         .to_string();
-
-    // 预估时长（粗略估计：每字 200ms，根据语速调整）
-    let speed_factor = req.speed.unwrap_or(1.0);
-    let char_count = req.text.chars().count();
-    let estimated_duration_ms = Some((char_count as i64 * 200) / speed_factor.max(0.1) as i64);
 
     // 检查是否为音频二进制响应
     if content_type.starts_with("audio/") {
