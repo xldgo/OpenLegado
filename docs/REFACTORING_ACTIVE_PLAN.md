@@ -255,6 +255,100 @@
 
 编写者：Codex｜2026-10-19
 
+### TTS-GEMINI-20261020：Gemini 3.8 云朗读（P1，待复验：真实账号/设备）
+
+- 集成：用户授权将 feature/ui-tts-engine / c19821457 合入主目录 feature/ui-reader-selection / 2732c914c；主目录独有 200 个路径、TTS 独有 80 个路径的 Git 对象摘要均保持，共同修改仅文档/双日志/版本五文件。保留双方记录及主目录 2.0.413+414，删除重复且过时的 CI 任务标题；无代码冲突，差异检查通过，不重复运行已通过的源分支测试，不推送或构建安装。
+
+- 授权/基线：用户确认采用当前 Gemini 3.8 官方协议；feature/ui-tts-engine / 7ea9949f4，单代理。
+- 范围：Core 纯协议 Provider、既有 DB/FFI 类型分派、引擎/音色 Sheet、JSON 音频与缓存/取消定向回归；不改数据库、播放队列或其他 Provider 协议。
+- 验收：结构化风格与正文隔离、API Key 头、模型/音色/格式一致、错误拒绝、缓存与取消、真实 FRB 本机 HTTP 贯通；本地提交，不推送或启动设备/远程 CI。
+- 实现：先冻结契约，Core 新增 Gemini 3.8 单音色 Provider，默认 Flash、可选 Flash Lite；正文原样放入 text，style/instructions 合并到结构化 speech_metadata.style，Key 仅放鉴权头。显式请求 WAV，完整容器原样落盘，明确标记的 24 kHz PCM 按序合并后包装；拒绝阻断/部分响应、未知 MIME、无效 Base64 和坏容器，不回显私人载荷。既有 Fetcher/Engine 复用缓存、取消、租约与凭据检查。
+- Flutter：引擎 Sheet 增加 Gemini，音色 Sheet 消费 30 个官方内置候选及风格/指令；候选只手动保存，不展示无效合成数值参数。DTO 枚举与 Rust/DB 默认值完整接通，版本 2.0.409+410；不新增依赖、schema 或播放队列改动。
+- 验证：Core 29、DB 9、Fetcher 17 共 55 项 Rust 定向回归通过；普通 Flutter 48 项、真实 FFI 6 项通过，复跑不累加。新增真实本机 HTTP 覆盖头/路径/正文、音色 CRUD、PCM/WAV、保存音色与草稿共用缓存、阻断/部分输出/MIME 错误重试与取消；同时复验既有云 Provider。5 份手写 Dart 分析和格式、Core 严格 Clippy、架构依赖与差异检查通过。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；cargo build --locked --offline -p legado-ffi --features quickjs。Flutter 定向 media_dto_mapping、cloud_tts_settings、gemini_tts_editor、cloud_tts_voice_parameters、cloud_tts_screen、read_aloud_management；native 显式加载本 worktree 新 DLL，执行 gemini/volcengine/polly/azure/alibaba/cloud 六个 runtime 文件。python scripts/dev.py generate bridge 及 --check。
+- 过程/边界：首次生成因我在生成期间格式化输入而被门禁拒绝，未发布输出；输入固定后重新生成。单代理实现与自查，无独立审查；真实账号、音频解码与后台/蓝牙听感仍需设备复验，合成夹具不构成该证据。不推送、合并、安装或触发远程 CI；本批提交见 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
+### TTS-VOLCENGINE-20261020：火山 V1 云朗读（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户要求继续参考上游、沿用 Rust 分层；feature/ui-tts-engine / e9116daa4，单代理。
+- 范围：V1 App ID/Token/集群、JSON Base64 音频、四个候选音色、音色参数及 UTF-8 字节分片；不改数据库或播放队列，不接入 V3/豆包 2.0。
+- 验收：实际请求与稳定缓存、唯一请求 ID、错误拒绝/取消、Unicode 字节边界与偏移、Sheet 和真实 FFI 定向回归；本地提交，不自动推送/安装/远程 CI。
+- 实现：Core 新增 V1 Provider，稳定请求与唯一 UUID reqid 分离，显式 JsonAudio 响应解码 Base64；Fetcher 发送前准备请求，复用现有去重、取消、缓存与租约。App ID/集群复用元数据字段，Token 继续放安全存储，无数据库迁移；UID 固定 legado，不新增任意 JSON 参数设置。四个真实候选描述通过现有类型化目录保留中文名，只有用户选择才落音色表。
+- Flutter：App ID/Token/业务集群表单、协议对应的音色情感/语速/音调/音量与格式；按 Provider 提供范围，不展示角色/语言/指令。共享请求分片增加可选 UTF-8 字节上限，单段、队列及后续章预合成均消费 1024 字节限制，原文 UTF-16 范围与字形簇保持；不改原生播放队列。版本 2.0.408+409；UUID 仅新增已有锁定依赖的直接引用，无版本升级。
+- 验证：Core 25、DB 8、Fetcher 17 共 50 项 Rust 定向回归通过；普通 Flutter 73 项不同用例、真实 FFI 5 项通过，复跑不累加。覆盖请求/编号与缓存、全部四种格式、失败重试/取消、字节分片与偏移、前台及预合成一致、真实管理页中文候选与 ID 保存、旧 Provider 回归；13 份初始/16 份最终手写 Dart 分析与格式、Core 严格 Clippy、架构与差异门禁通过，隔离生成复核通过。首次两条花括号 lint 修正后复验，不以屏蔽规则消除。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；cargo build --locked --offline -p legado-ffi --features quickjs。Flutter 定向 content、cloud engine/prefetch、管理/参数/编辑器、DTO 与 settings 文件，native 显式加载本 worktree 新 DLL，执行 volcengine/polly/azure/alibaba/cloud 五个 runtime 测试；python scripts/dev.py generate bridge 及 --check。
+- 交付边界：单代理实现与自查，未独立审查、应用构建安装、推送、合并或远程 CI。V1 不支持豆包 2.0；真实账号权限、实际音频解码与设备后台/蓝牙听感待用户复验，本机合成夹具不替代该证据。提交见本条 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
+### TTS-POLLY-20261020：AWS Polly 与分页音色目录（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户确认接入 Polly，PCM/WAV 按官方默认 16 kHz；feature/ui-tts-engine / 6fa9d76d0，单代理。
+- 范围：成组安全凭据、纯 SigV4 签名、分页音色目录、合成与缓存；沿用既有播放、Sheet、数据库与窄接口，不引入 STS。
+- 验收：固定签名向量、采样率/分页/取消/缓存行为、配置失败回滚、目标静态分析、生成复核及本地真实 FFI；不自动设备安装或远程 CI。
+- 本地实现：新增 Core Polly Provider，固定时间 SigV4/HMAC-SHA256 与实际 JSON/采样率；Fetcher 支持认证头、分页去重/重复令牌拒绝、全分页取消及发送前刷新签名；稳定缓存输入不包含认证时间。Engine 从安全载荷组装运行态凭据，配置元数据不落密钥；既有静态目录与 Azure 请求保持。
+- Flutter：引擎 Sheet 增加区域/模型与两项密钥，单项编辑成组轮换并保持失败回滚；音色 Sheet 按需发现分页目录，显示可用模型、语言/格式/采样率，不展示未消费的风格/速度/指令；候选不自动保存，关闭仍取消。无数据库迁移、播放队列改动或依赖版本更新；版本 2.0.407+408。
+- 验证：Core 21、DB 7、Fetcher 15、Engine 4 共 47 项定向 Rust 回归；普通 Flutter 50 项不同用例与真实 FFI 4 项通过。首次 Widget 回归发现共用样本给 Polly 设置 24 kHz WAV，改成合法 16 kHz 后对应测试通过，保留原参数保真断言，不重复累加复跑。14 份手写 Dart 静态分析/格式、Core 严格 Clippy、Flutter 架构及差异检查通过。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo test --locked --offline -p legado-engine --lib tts_service::cloud::tests；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；Flutter 按 settings、Polly/Azure 编辑器、云配置/音色参数、凭据、DTO、播放与预合成文件定向执行，native 组显式加载本 worktree 新编译 legado_ffi.dll。
+- 边界：真实账号授权、音频解码听感和后台播放待用户设备复验；不以本地夹具替代该证据。单代理自查，未执行独立审查、应用构建安装、推送、合并或远程 CI；本批提交见 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
+
+### TTS-AZURE-20261019：Azure Speech 与动态音色目录（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户确认参考上游、内部遵循 Rust 职责与类型边界；feature/ui-tts-engine / 0c695387c，单代理。
+- 范围：先冻结 API_CONTRACT，Core 协议/显式请求体类型、Fetcher 网络、Engine 取消与凭据核对；配置区域、音色发现/参数及复用原合成缓存。参考 HapeLee/legado-with-MD3 / c4182eb9 的 AzureSpeechCloudTtsProvider。
+- 验收：SSML 转义/格式/参数与音色目录解析、实际本地 HTTP/缓存/取消/凭据隔离、FRB 配对与 Widget 交互；限定回归，不跑全量 CI、不改播放队列/数据库、不安装或推送。
+- 实现：新增 Azure 纯协议 Provider，Json/Ssml 与静态/远端目录用枚举表达；Fetcher 共用传输与缓存，Engine 读取数据库并核对凭据引用，任务守卫/取消不依赖 Flutter。Dart 独立目录服务暂读凭据；只进入 Azure 音色 Sheet 时查询，支持重试/手填/关闭取消，候选不自动持久化。区域、语言/风格/角色与数值参数接通，Azure 不展示无效模型/朗读指令控件。
+- 本地验证：48 项不同 Flutter 用例通过（6 份普通回归共 45 项、Azure/百炼/OpenAI 真实 FFI 共 3 项），复跑不累加；Rust Core 17、DB 6、Fetcher 13、Engine 4，共 40 项。真实本地 GET/SSML POST、三种输出格式缓存隔离、音色保存/草稿同缓存、请求取消/错误音频重试通过；实例关闭取消目录等待，过期凭据请求前拒绝，任务活动计数归零。
+- 命令：flutter test --no-pub --reporter expanded 后接 widget/{azure_tts_editor_test,cloud_tts_voice_parameters_test,cloud_tts_screen_test,read_aloud_management_test}.dart 与 unit/{media_dto_mapping_test,cloud_tts_settings_test}.dart；cargo build --locked --offline -p legado-ffi --features quickjs 后显式指定本 worktree DLL，运行 --tags native ffi/{azure_cloud_tts_runtime_test,alibaba_cloud_tts_runtime_test,cloud_tts_runtime_test}.dart。Rust cargo test --locked --offline 分别运行 legado-core --lib cloud_tts、legado-db --lib repository::cloud_tts_repository::tests::、legado-fetcher --features quickjs --lib cloud_tts::tests::、legado-engine --features quickjs --lib tts_service::cloud::tests::；实际逐文件传参。
+- 检查/边界：12 个 Dart 文件严格分析无问题，架构依赖门禁、限定 Rust/Dart 格式与 diff 检查通过；补齐四供应商 DTO 穷举后该文件 6 项复验通过。固定 FRB 2.13.0，生成与 generate bridge --check 隔离复核均通过；依赖锁文件/数据库结构未改。初次协议改造检查发现构造字段顺序及旧 JSON 断言未适配枚举，修正后相关回归通过；不保留伪 JSON 兼容索引。单代理自查，无独立外审、真实 Azure 账号/平台解码/后台听感验收；版本 2.0.406+407 与双日志同步，仅本地提交，不安装/推送/触发 CI。
+- 执行者：Codex + UI/Bridge｜2026-10-19～20。
+
+### TTS-CLOUD-PARAMS-20261019：云端音色参数与百炼语言接线（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户批准下一批，feature/ui-tts-engine / 1c8af9e24，单代理。
+- 审计更正：百炼 Provider/目录/传输已存在，不重复接入；确认云端编辑重建参数导致丢字段，DB 解析与试听 DTO 也缺 locale 等已有 Core 字段。
+- 范围：先冻结 API_CONTRACT，贯通 locale/role/pitch/volume/sampleRate 的窄 DTO、DB 请求解析与生成绑定；音色编辑保留未展示参数，百炼提供语言设置，试听/保存一致。保持未知字段拒绝及凭据隔离。
+- 参考：HapeLee/legado-with-MD3 / c4182eb9 的 CloudTtsViewModel、AlibabaCloudTtsProvider；语言语义另核对百炼官方 API。
+- 验收：真实 Sheet 重命名/试听/保存及清空语言、三 Provider 回归；DTO 映射与无效参数拒绝；真实 SQLite/SSE 请求及语言缓存隔离。无新 Provider、schema、播放队列或设备安装改动；仅本地提交，不推送/触发 CI。
+- 实现：云端表单保留原参数，百炼可编辑 locale；DB/DTO/映射补齐已有 Core 字段，生成绑定。草稿非有限数字在 JSON 编码前拒绝，防止变成 null 后被默认值掩盖。未知参数/凭据仍不准参与合成。
+- 验证：44 项不同 Flutter 用例通过（7 份普通回归共 43 项、真实 FFI 1 项，不累计复跑）；Rust DB 5 项与 QuickJS Engine 3 项通过。真实宿主 DLL 在本 worktree 独立构建，SQLite 保存音色与草稿命中同一缓存，英文/中文请求互不串缓存，清空语言命中 Auto，签名下载不带凭据。
+- 命令：flutter test --no-pub --reporter expanded 后接 widget/{cloud_tts_voice_parameters_test,http_tts_voice_parameters_test,cloud_tts_screen_test,read_aloud_management_test}.dart 与 unit/{media_dto_mapping_test,audio_cloud_tts_test,cloud_tts_settings_test}.dart；真实库 cargo build --locked --offline -p legado-ffi --features quickjs 后运行 --tags native test/ffi/alibaba_cloud_tts_runtime_test.dart。Rust 定向 cargo test --locked --offline 分别为 legado-db --lib repository::cloud_tts_repository::tests::、legado-engine --features quickjs --lib tts_service::cloud::tests::；实际逐一传入路径。
+- 过程/边界：新增表单先复现 5 项失败，修复后通过；最终收紧夹具为合法参数并复验 6 项。FRB 固定 2.13.0，generate bridge 与 --check 均通过，7 个 Dart 文件严格分析、架构依赖门禁、限定格式/diff 检查通过；依赖锁文件未改。生成器 hash 本批不变，实际使用新编译库验证字段编码，不能仅靠 hash 判断兼容。版本 2.0.392+393 与双日志同步；单代理自查，无独立外审、真实云账号/设备听感/后台验收，不推送或安装。
+- 执行者：Codex + UI/Bridge｜2026-10-19。
+
+- 基线同步（2026-10-19）：按用户要求将主目录 feature/ui-reader-selection / da8c2ec71 合入 TTS 分支，保留 a7e07d320、1c8af9e24、a2707393a；版本沿用 2.0.405+406，双日志按原版本合并，双方任务记录保留。31 项 Flutter 定向回归与 QuickJS HTTP TTS 3 项通过，隔离 FRB 生成复核及 diff 检查通过；主目录同步期间新增的未提交改动不在范围。合并提交见 Git 记录。
+
+### TTS-VOICE-PARAMS-20261019：HTTP 音色与情感参数贯通（P2，待复验：真机听感）
+
+- 授权/基线：用户批准第二批，feature/ui-tts-engine / a7e07d320，单代理；先冻结 API_CONTRACT 音色参数语义，无 FRB 签名/schema 变化。
+- 确认缺口：HTTP 编辑将源标签数组转成空对象；列表试听绕过正文的情感选择；Rust 源变量缺 currentEmotionName。源目录平铺/分组已有实现，不重复重写。
+- 范围：HTTP 预设情感编辑与标签保留、统一试听/正文选择解析、源情感名称映射及缓存身份；固定参考 HapeLee/legado-with-MD3 / c4182eb9 的 HttpTtsEmotionMapper、HttpTtsAudioSynthesizer 和 CloudTtsViewModel。
+- 验收：保存/试听/正文参数一致，显式默认覆盖不丢、失效情感可见回落，换音色不串目录；真实请求变量与缓存区分、现有系统/云端回归。播放队列、新 Provider、自动情绪识别及全量 CI 不在范围。
+- 实现：HTTP Sheet 保存默认情感并保留标签/未知参数，切角色更新情感目录；当前选中预设编辑后重置旧覆盖，列表试听与正文共用选择解析。Rust 独立纯映射模块参考上游，操作仅捕获当前引擎必要目录列；注入 currentEmotionName 与映射标签，实际缓存消费二者，缺目录回落优先来源目录。
+- 验证：7 份相关 Flutter 文件共 68 项通过，包含真实 AudioNotifier 的默认/覆盖/显式默认入参、真实 Sheet 保存/试听与面板编辑后重读、既有系统/云端/音频书回归。Rust 7 个不同用例通过：Core 映射 1、Fetcher 缓存 2、DB 目录隔离/优先级 1、Engine 合成/取消 3；默认与 QuickJS 重复运行不累加。真实本地 HTTP 验证变量、捕获后改目录不影响旧请求、新名称/标签不串缓存及缺目录回落。
+- 命令：flutter test --no-pub --reporter expanded 后接 test/unit/{read_aloud_voice_catalog_test,read_aloud_voice_preview_test,audio_tts_playback_test,http_tts_transfer_service_test}.dart 和 test/widget/{http_tts_voice_parameters_test,read_aloud_voice_screen_test,read_aloud_management_test}.dart（实际逐文件传入）；cargo test --locked --offline 分别运行 legado-core 的 tts_emotion::tests::、legado-fetcher 的 tts_fetcher::tests::test_tts_cache_、legado-db 的 http_emotion_snapshot_is_scoped_and_prefers_source_catalog、legado-engine --features quickjs 的 tts_service::http::tests::。相关 Dart 严格分析无问题，架构依赖门禁、限定格式及 diff 检查通过。
+- 过程/边界：新增正文测试初次误将真实内存仓库作为 Mock，随后发现夹具显式关闭目录支持；改用启用目录的真实内存仓库后 19 项正文测试及最终 68 项复验通过，不修改生产代码迎合夹具。单代理实现/自查，无独立外审；无真机/账号/后台听感验收，不推送/安装/触发 CI。版本 2.0.391+392 与双日志随本批本地提交，未修改 schema、FRB 签名或生成物；提交见 Git 记录。
+- 执行者：Codex + UI/Bridge｜2026-10-19。
+
+### TTS-TRANSFER-20261019：HTTP 引擎导入导出闭环（P2，待复验：设备交互）
+
+- 授权：用户批准第一批；feature/ui-tts-engine / 006569b28，单代理，保留编辑 Sheet。
+- 范围：剪贴板/文件/URL 预览、按 ID 与更新时间比较/勾选确认、单条与批量复制/文件导出；整批导入事务与内嵌音色目录导出。契约先更新 §2.25，不改 FRB 签名/schema/播放队列/Provider。
+- 参考：HapeLee/legado-with-MD3 的 CloudTtsViewModel.importHttpTtsSource / saveImportedHttpTts 与 CloudTtsScreen；实现前读取上游 main，来源与固定提交记录于 TTS_ALIGNMENT。
+- 验收：取消/解析失败无写入，写入错误整批回滚，稳定 ID 与高级字段/音色目录往返；真实 Widget 勾选/确认/失败恢复、定向 Rust/Dart 测试与静态分析。不启动全量 CI，不推送；设备与真实远程源单独记录。
+- 实现：引擎页菜单接入剪贴板/文件/链接预览、查看规则、按 ID/时间默认勾选及确认导入；单条与批量勾选复制/文件导出共用完整文档。保留编辑 Sheet、播放会话及书级/全局选择。Rust 整批解析后在同一事务提交配置和目录，失败回滚；自动编号先避让同批显式 ID。导出重建当前持久化目录，不经过仅配置模型丢字段。
+- 验证：6 份相关 Flutter 文件共 57 项不同用例通过（首次 56 项，新增管理页入口用例后该文件 5 项复验，不重复累加）；Rust HTTP TTS API 定向 7 项通过，真实 SQLite 触发器分别模拟第二条配置/目录写入失败并验证回滚与重试。13 个修改的 Dart 文件严格分析无问题，架构依赖门禁与 diff 检查通过。
+- 命令：flutter test --no-pub --reporter expanded 后接 test/unit/{http_tts_transfer_service_test,http_tts_repository_test,rust_http_tts_repository_test}.dart 与 test/widget/{http_tts_transfer_sheet_test,http_tts_repository_consumers_test,read_aloud_management_test}.dart；cargo test --locked --offline -p legado-ffi --lib api::http_tts_api::tests:: -- --nocapture；dart analyze --fatal-infos 修改文件；dart run tool/check_architecture.dart。花括号仅为文件集合说明，实际向 CLI 逐一传入路径。
+- 过程：worktree 旧包配置仍指向已迁移的 C 盘缓存，按锁文件离线恢复后分析正常；没有升级依赖。首轮定向测试发现移除 requestWithoutUA 后留下空片段符号，改用 removeFragment 后复验通过。Pub 恢复触碰的无关平台注册文件已还原。
+- 边界：版本 2.0.390+391 与双日志同步；仅本地提交，不推送/构建安装/触发 CI。未做真机、系统文件选择器、真实第三方账号/远程规则、独立代理审查，不宣称设备验收通过。无上传分享 URL、新 Provider、schema 或 FRB 签名/生成物变更。单代理自查未发现本批剩余确定缺陷；设备交互保留待复验。提交见本批 Git 记录。
+- 执行者：Codex + UI/Bridge｜2026-10-19。
+
+
 ### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
 
 - 授权：用户要求先将当前内容合并主目录；主目录feature/ui-reader-selection / 211503d29与chore/dep-audit / 4aa9c2533开始均干净，不推送或构建安装。

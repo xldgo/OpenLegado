@@ -12,6 +12,14 @@ pub enum CloudTtsProviderType {
     Mimo,
     #[serde(rename = "alibaba_cloud")]
     AlibabaCloud,
+    #[serde(rename = "azure_speech")]
+    AzureSpeech,
+    #[serde(rename = "aws_polly")]
+    AwsPolly,
+    #[serde(rename = "volcengine")]
+    Volcengine,
+    #[serde(rename = "gemini_tts")]
+    GeminiTts,
 }
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
@@ -23,7 +31,11 @@ pub struct CloudTtsEngine {
     pub base_url: String,
     #[serde(skip_serializing)]
     pub api_key: String,
+    #[serde(skip_serializing)]
+    pub secret_key: String,
     pub model: String,
+    pub region: String,
+    pub app_id: String,
     pub enabled: bool,
 }
 impl Default for CloudTtsEngine {
@@ -34,7 +46,10 @@ impl Default for CloudTtsEngine {
             provider: CloudTtsProviderType::OpenAiSpeech,
             base_url: String::new(),
             api_key: String::new(),
+            secret_key: String::new(),
             model: "gpt-4o-mini-tts".into(),
+            region: String::new(),
+            app_id: String::new(),
             enabled: true,
         }
     }
@@ -80,12 +95,16 @@ impl Default for CloudTtsSynthesisRequest {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CloudTtsVoiceDescriptor {
     pub id: String,
     pub display_name: String,
+    pub locale: String,
+    pub gender: String,
     pub styles: Vec<String>,
+    pub roles: Vec<String>,
+    pub supported_models: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_rate: Option<u32>,
 }
@@ -94,6 +113,26 @@ pub struct CloudTtsVoiceDescriptor {
 pub enum CloudSpeechResponseKind {
     AudioBytes,
     EventStream,
+    JsonAudio,
+}
+#[derive(Clone, Serialize)]
+pub enum CloudSpeechBody {
+    Json(Value),
+    Ssml(String),
+}
+impl CloudSpeechBody {
+    pub fn content_type(&self) -> &'static str {
+        match self {
+            Self::Json(_) => "application/json",
+            Self::Ssml(_) => "application/ssml+xml",
+        }
+    }
+    pub fn encode(&self) -> String {
+        match self {
+            Self::Json(value) => value.to_string(),
+            Self::Ssml(text) => text.clone(),
+        }
+    }
 }
 pub struct PreparedCloudSpeech {
     pub endpoint: String,
@@ -101,8 +140,26 @@ pub struct PreparedCloudSpeech {
     pub authorization: String,
     pub response_kind: CloudSpeechResponseKind,
     pub additional_headers: Vec<(&'static str, String)>,
-    pub body: Value,
+    /// 瞬时认证数据不参与缓存身份。
+    pub authentication_headers: Vec<(&'static str, String)>,
+    pub body: CloudSpeechBody,
     pub response_format: String,
+}
+/// 单页候选与继续令牌；分页由抓取层推进。
+pub struct CloudCatalogPage {
+    pub voices: Vec<CloudTtsVoiceDescriptor>,
+    pub next_token: Option<String>,
+}
+/// 远端目录请求不实现 Debug，避免凭据进入诊断输出。
+pub struct PreparedCloudCatalog {
+    pub authentication_headers: Vec<(&'static str, String)>,
+    pub endpoint: String,
+    pub credential_header: &'static str,
+    pub authorization: String,
+}
+pub enum CloudVoiceCatalog {
+    Static(Vec<CloudTtsVoiceDescriptor>),
+    Remote(PreparedCloudCatalog),
 }
 pub struct CloudTtsAudio {
     pub bytes: Vec<u8>,
@@ -116,11 +173,41 @@ pub enum DecodedCloudSpeech {
 pub trait CloudTtsProvider: Send + Sync {
     fn provider_type(&self) -> CloudTtsProviderType;
     fn voices(&self) -> Vec<CloudTtsVoiceDescriptor>;
+    fn prepare_catalog(&self, _engine: &CloudTtsEngine) -> LegadoResult<CloudVoiceCatalog> {
+        Ok(CloudVoiceCatalog::Static(self.voices()))
+    }
+    fn prepare_catalog_page(
+        &self,
+        engine: &CloudTtsEngine,
+        token: Option<&str>,
+    ) -> LegadoResult<CloudVoiceCatalog> {
+        if token.is_some() {
+            return Err(invalid("此 Provider 不支持目录分页"));
+        }
+        self.prepare_catalog(engine)
+    }
+    fn decode_catalog_page(&self, bytes: &[u8]) -> LegadoResult<CloudCatalogPage> {
+        Ok(CloudCatalogPage {
+            voices: self.decode_catalog(bytes)?,
+            next_token: None,
+        })
+    }
+    fn decode_catalog(&self, _bytes: &[u8]) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
+        Err(invalid("此 Provider 不支持远端音色目录"))
+    }
     fn prepare(
         &self,
         engine: &CloudTtsEngine,
         request: &CloudTtsSynthesisRequest,
     ) -> LegadoResult<PreparedCloudSpeech>;
+    /// 默认复用准备逻辑以刷新认证；Provider 可在此追加不参与缓存的请求标识。
+    fn prepare_for_send(
+        &self,
+        engine: &CloudTtsEngine,
+        request: &CloudTtsSynthesisRequest,
+    ) -> LegadoResult<PreparedCloudSpeech> {
+        self.prepare(engine, request)
+    }
     fn decode_audio(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<CloudTtsAudio>;
     fn decode_response(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<DecodedCloudSpeech> {
         self.decode_audio(format, bytes)
@@ -133,6 +220,12 @@ pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsPr
         CloudTtsProviderType::OpenAiSpeech => &crate::cloud_tts_openai::OpenAiCloudTtsProvider,
         CloudTtsProviderType::Mimo => &crate::cloud_tts_mimo::MimoCloudTtsProvider,
         CloudTtsProviderType::AlibabaCloud => &crate::cloud_tts_alibaba::AlibabaCloudTtsProvider,
+        CloudTtsProviderType::AzureSpeech => &crate::cloud_tts_azure::AzureSpeechCloudTtsProvider,
+        CloudTtsProviderType::AwsPolly => &crate::cloud_tts_polly::AwsPollyCloudTtsProvider,
+        CloudTtsProviderType::Volcengine => {
+            &crate::cloud_tts_volcengine::VolcengineCloudTtsProvider
+        }
+        CloudTtsProviderType::GeminiTts => &crate::cloud_tts_gemini::GeminiCloudTtsProvider,
     }
 }
 pub(crate) fn invalid(message: &str) -> LegadoError {

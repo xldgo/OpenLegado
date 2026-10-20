@@ -1,11 +1,11 @@
 import '../bridge/rust_errors.dart';
 
-import 'dart:convert';
-
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/http_tts_repository.dart';
 import '../../models/models.dart';
 import '../bridge/media_dto_mapping.dart';
+import 'rust_read_aloud_voice_repository.dart';
+import '../services/http_tts_export_document.dart';
 
 /// HTTP 引擎配置直接访问既有 FRB，不承担初始化或朗读。— Codex + Bridge
 final class RustHttpTtsRepository implements HttpTtsRepository {
@@ -78,7 +78,10 @@ final class RustHttpTtsRepository implements HttpTtsRepository {
   @override
   Future<String> exportHttpTts() async {
     final list = await getHttpTts();
-    return jsonEncode(list.map((e) => e.toJson()).toList());
+    return httpTtsExportDocument(
+      list,
+      await const RustReadAloudVoiceRepository().list(),
+    );
   }
 
   /// 设置 HTTP TTS 源启用/禁用（F3-20）

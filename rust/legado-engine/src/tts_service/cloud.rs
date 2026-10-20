@@ -11,6 +11,40 @@ pub struct CloudSpeechInput {
     #[serde(default)]
     pub voice_options: Option<legado_db::repository::cloud_tts_repository::CloudVoiceOptions>,
 }
+pub(super) async fn voices(
+    resources: &super::TtsResources,
+    id: &str,
+    api_key: String,
+    credential_key: &str,
+    cancellation: &legado_fetcher::tts_control::TtsCancellation,
+) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
+    cancellation.check()?;
+    let task = resources
+        .tasks
+        .begin()
+        .map_err(|e| legado_core::LegadoError::Ffi(e.to_string()))?;
+    let _guard = task.guard();
+    let metadata = resources
+        .storage
+        .with_database(|db| CloudTtsRepository::new(db.connection()).get(id))?;
+    if !metadata.enabled || metadata.credential_key != credential_key {
+        return Err(legado_core::LegadoError::Ffi(
+            "云端引擎已停用或凭据已变更，请重试".into(),
+        ));
+    }
+    let engine = metadata.engine_with_credentials(api_key)?;
+    let transport = resources
+        .media
+        .cloud_transport(resources.network.custom_hosts().clone())?;
+    let result = tokio::select! {
+        biased;
+        _ = task.cancelled() => return Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())),
+        result = legado_fetcher::cloud_tts::discover_cloud_voices(cloud_tts_provider(engine.provider), transport.as_ref(), &engine, cancellation) => result?,
+    };
+    cancellation.check()?;
+    task.with_active(|| Ok(result))
+        .unwrap_or_else(|| Err(legado_core::LegadoError::Ffi("TTS_CANCELLED".into())))
+}
 pub(super) async fn speak(
     resources: &super::TtsResources,
     id: &str,
@@ -62,10 +96,11 @@ pub(super) async fn speak(
         traits.insert("voiceId".into(), serde_json::json!(voice.speaker_id));
         metadata.options_json = serde_json::to_string(&traits)?;
     } else if let Some(options) = input.voice_options {
+        options.validate()?;
         metadata.options_json = serde_json::to_string(&options)?;
     }
     let request = metadata.request(input.text)?;
-    let engine = metadata.engine(api_key);
+    let engine = metadata.engine_with_credentials(api_key)?;
     let transport = media.cloud_transport(hosts)?;
     let result = async {
         tokio::select! {
@@ -125,6 +160,107 @@ mod tests {
             credential_key: credential.into(),
             voice_id: None,
             voice_options: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn catalog_rejects_stale_credentials_and_root_close_cancels_wait() {
+        let mut fixture = Fixture::with_content_type(1, true, "application/json", |_| "[]".into());
+        let engine = Arc::new(EngineContext::in_memory().unwrap());
+        engine
+            .storage()
+            .with_database(|db| {
+                CloudTtsRepository::new(db.connection()).save(&CloudTtsMetadata {
+                    id: "azure".into(),
+                    name: "Azure".into(),
+                    provider: CloudTtsProviderType::AzureSpeech,
+                    base_url: fixture.url.clone(),
+                    model: String::new(),
+                    options_json: "{}".into(),
+                    region: String::new(),
+                    app_id: String::new(),
+                    enabled: true,
+                    created_at: 0,
+                    updated_at: 0,
+                    credential_key: "cloud-tts:azure:current".into(),
+                })
+            })
+            .unwrap();
+        let service = engine.tts_service();
+        let error = service
+            .cloud_voices(
+                "azure",
+                "unused".into(),
+                "cloud-tts:azure:old",
+                &TtsCancellation::default(),
+            )
+            .await
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("凭据已变更"));
+        assert_eq!(engine.tasks().active_count(), 0);
+        let tasks = engine.tasks().clone();
+        let weak = Arc::downgrade(&engine);
+        let worker = tokio::spawn(async move {
+            service
+                .cloud_voices(
+                    "azure",
+                    "fixture".into(),
+                    "cloud-tts:azure:current",
+                    &TtsCancellation::default(),
+                )
+                .await
+        });
+        assert!(
+            fixture
+                .request()
+                .await
+                .starts_with("GET /cognitiveservices/voices/list ")
+        );
+        drop(engine);
+        assert!(weak.upgrade().is_none());
+        let error = tokio::time::timeout(std::time::Duration::from_secs(3), worker)
+            .await
+            .unwrap()
+            .unwrap()
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("TTS_CANCELLED"));
+        assert_eq!(tasks.active_count(), 0);
+        fixture.release.send(()).unwrap();
+        fixture.worker.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn draft_non_finite_numbers_fail_before_json_can_erase_them() {
+        use legado_db::repository::cloud_tts_repository::CloudVoiceOptions;
+        let engine = engine("http://127.0.0.1:1", "cloud-tts:same-cloud:finite");
+        for (key, value) in [
+            ("speed", f64::NAN),
+            ("pitch", f64::INFINITY),
+            ("volume", f64::NEG_INFINITY),
+        ] {
+            let mut options = CloudVoiceOptions::default();
+            match key {
+                "speed" => options.speed = Some(value),
+                "pitch" => options.pitch = Some(value),
+                _ => options.volume = Some(value),
+            }
+            let mut request = input("cloud-tts:same-cloud:finite");
+            request.voice_options = Some(options);
+            let error = engine
+                .tts_service()
+                .cloud_speak(
+                    "same-cloud",
+                    "fixture".into(),
+                    request,
+                    &TtsCancellation::default(),
+                )
+                .await
+                .err()
+                .unwrap();
+            assert!(error.to_string().contains("数值必须为有限值"));
+            assert_eq!(engine.tasks().active_count(), 0);
         }
     }
 

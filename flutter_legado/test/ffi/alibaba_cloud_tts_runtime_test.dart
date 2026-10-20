@@ -11,9 +11,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/data/repositories/rust_cloud_tts_repository.dart';
+import 'package:flutter_legado/src/data/repositories/rust_read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/data/services/rust_cloud_tts_synthesizer.dart';
 import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
 import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
 import 'package:flutter_legado/src/features/read_aloud/cloud_tts_settings.dart';
 import 'package:flutter_legado/src/platform/tts/cloud_tts_credential_store.dart';
 
@@ -55,7 +57,7 @@ void main() {
         ) as Map<String, dynamic>;
         bodies.add(body);
         final input = body['input'] as Map<String, dynamic>;
-        expect(input['language_type'], 'Auto');
+        expect(input['language_type'], isIn(['Auto', 'English', 'Chinese']));
         expect(input['voice'], 'Serena');
         expect(input['instructions'], '平静；用中文朗读');
         expect(input.containsKey('speed'), false);
@@ -118,6 +120,89 @@ void main() {
     }
     expect(bodies, hasLength(2));
     expect(downloads, 1);
+    const options = {
+      'voiceId': 'Serena',
+      'locale': 'English',
+      'style': '平静',
+      'role': '旁白',
+      'instructions': '用中文朗读',
+      'pitch': 1.2,
+      'volume': 0.8,
+      'sampleRate': 24000,
+      'format': 'wav',
+    };
+    final draft = await synth.synthesize(
+      engineId: engine.id,
+      text: 'PCM 中文😀',
+      voiceOptions: options,
+    ) as HttpTtsAudio;
+    expect(draft.fromCache, false);
+    final cachedDraft = await synth.synthesize(
+      engineId: engine.id,
+      text: 'PCM 中文😀',
+      voiceOptions: options,
+    ) as HttpTtsAudio;
+    expect(cachedDraft.fromCache, true);
+    final voiceId = readAloudVoiceId('cloud_tts', engine.id, 'Serena');
+    const voices = RustReadAloudVoiceRepository();
+    final traits = {...options}..remove('voiceId');
+    await voices.save(
+      ReadAloudVoice(
+        id: voiceId,
+        engineType: 'cloud_tts',
+        engineId: engine.id,
+        speakerId: 'Serena',
+        displayName: '英文音色',
+        traitsJson: jsonEncode(traits),
+        managedBy: 'user',
+      ),
+    );
+    final saved = await synth.synthesize(
+      engineId: engine.id,
+      text: 'PCM 中文😀',
+      voiceId: voiceId,
+    ) as HttpTtsAudio;
+    expect(saved.fromCache, true);
+    final original = (await voices.list()).single;
+    await voices.save(
+      original.copyWith(
+        traitsJson: jsonEncode({...traits, 'locale': 'Chinese'}),
+      ),
+    );
+    final chinese = await synth.synthesize(
+      engineId: engine.id,
+      text: 'PCM 中文😀',
+      voiceId: voiceId,
+    ) as HttpTtsAudio;
+    expect(chinese.fromCache, false);
+    await voices.save(
+      original.copyWith(traitsJson: jsonEncode({...traits, 'locale': ''})),
+    );
+    final automatic = await synth.synthesize(
+      engineId: engine.id,
+      text: 'PCM 中文😀',
+      voiceId: voiceId,
+    ) as HttpTtsAudio;
+    expect(automatic.fromCache, true);
+    expect(bodies.map((body) => (body['input'] as Map)['language_type']), [
+      'Auto',
+      'Auto',
+      'English',
+      'Chinese',
+    ]);
+    for (final audio in [draft, cachedDraft, saved, chinese, automatic]) {
+      expect(await File(audio.audioPath).readAsBytes(), wave);
+      await audio.lease!.release();
+    }
+    await expectLater(
+      synth.synthesize(
+        engineId: engine.id,
+        text: '拒绝未知草稿',
+        voiceOptions: {...options, 'apiKey': '不能混入'},
+      ),
+      throwsFormatException,
+    );
+    expect(bodies, hasLength(4));
   });
 }
 

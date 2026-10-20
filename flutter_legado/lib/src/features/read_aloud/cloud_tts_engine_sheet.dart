@@ -9,7 +9,11 @@ import '../../widgets/app_settings_sheet.dart';
 import '../../widgets/app_settings_form.dart';
 import '../../widgets/bottom_sheet_widget.dart';
 
-typedef CloudTtsEditResult = ({CloudTtsEngine engine, String? key});
+typedef CloudTtsEditResult = ({
+  CloudTtsEngine engine,
+  String? key,
+  String? secretKey,
+});
 
 /// 引擎仅管理连接和凭据，音色参数在独立音色 Sheet 配置。— Codex + UI
 Future<CloudTtsEditResult?> showCloudTtsEngineEditor(
@@ -46,7 +50,10 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
         'name': engine?.name ?? profile.name,
         'baseUrl': engine?.baseUrl ?? '',
         'model': engine?.model ?? profile.model,
+        'appId': engine?.appId ?? '',
+        'region': engine?.region ?? '',
         'apiKey': '',
+        'secretKey': '',
       }.entries)
         entry.key: TextEditingController(text: entry.value),
     };
@@ -62,7 +69,10 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       if (_inputs['name']!.text == old.name) _inputs['name']!.text = next.name;
       _inputs['model']!.text = next.model;
       _inputs['apiKey']!.clear();
+      _inputs['secretKey']!.clear();
       _inputs['baseUrl']!.clear();
+      _inputs['region']!.clear();
+      _inputs['appId']!.clear();
     });
   }
 
@@ -77,11 +87,17 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final profile = cloudTtsProfile(_provider);
     final labels = {
       'name': l.cloudTtsName,
       'baseUrl': l.cloudTtsBaseUrl,
-      'model': l.cloudTtsModel,
-      'apiKey': l.cloudTtsApiKey,
+      'model': profile.modelLabel ?? l.cloudTtsModel,
+      'appId': 'App ID',
+      'apiKey':
+          profile.apiKeyLabel ??
+          (profile.usesSecretKey ? 'Access Key ID' : l.cloudTtsApiKey),
+      'secretKey': 'Secret Access Key',
+      'region': '区域',
     };
     return AppSettingsSheet(
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -100,10 +116,13 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
             createdAt: old?.createdAt ?? 0,
             updatedAt: old?.updatedAt ?? 0,
             credentialKey: old?.credentialKey ?? '',
-            region: old?.region ?? '',
-            appId: old?.appId ?? '',
+            region: _inputs['region']!.text.trim(),
+            appId: _inputs['appId']!.text.trim(),
             optionsJson: old?.optionsJson ?? '{}',
           ),
+          secretKey: _inputs['secretKey']!.text.trim().isEmpty
+              ? null
+              : _inputs['secretKey']!.text,
           key: _inputs['apiKey']!.text.trim().isEmpty
               ? null
               : _inputs['apiKey']!.text,
@@ -123,18 +142,31 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
               ],
               onChanged: widget.engine == null ? _changeProvider : null,
             ),
-            for (final e in _inputs.entries)
+            for (final e in _inputs.entries.where(
+              (e) =>
+                  (e.key != 'secretKey' || profile.usesSecretKey) &&
+                  (e.key != 'appId' || profile.requiresAppId) &&
+                  (e.key != 'region' || profile.requiresRegion) &&
+                  (e.key != 'model' || profile.usesModel),
+            ))
               TextFormField(
                 key: ValueKey('cloud-${e.key}'),
                 controller: e.value,
                 decoration: InputDecoration(labelText: labels[e.key]),
-                obscureText: e.key == 'apiKey',
-                enableSuggestions: e.key != 'apiKey',
-                autocorrect: e.key != 'apiKey',
-                enableIMEPersonalizedLearning: e.key != 'apiKey',
+                obscureText: {'apiKey', 'secretKey'}.contains(e.key),
+                enableSuggestions: !{'apiKey', 'secretKey'}.contains(e.key),
+                autocorrect: !{'apiKey', 'secretKey'}.contains(e.key),
+                enableIMEPersonalizedLearning: !{
+                  'apiKey',
+                  'secretKey',
+                }.contains(e.key),
                 validator: (v) =>
-                    ({'name', 'model'}.contains(e.key) ||
-                            e.key == 'apiKey' && widget.engine == null) &&
+                    ({'name', 'model', 'appId'}.contains(e.key) ||
+                            e.key == 'region' &&
+                                (profile.usesSecretKey ||
+                                    _inputs['baseUrl']!.text.trim().isEmpty) ||
+                            {'apiKey', 'secretKey'}.contains(e.key) &&
+                                widget.engine == null) &&
                         (v ?? '').trim().isEmpty
                     ? labels[e.key]
                     : null,

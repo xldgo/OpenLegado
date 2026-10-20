@@ -95,6 +95,68 @@ aesDecryptBytes复用自有ByteArray转换，失效/越界视图不得当空数�
 
 编写者：Codex + Bridge｜2026-10-19
 
+## Gemini 3.8 接入（TTS-GEMINI-20261020，实施前冻结）
+
+用户已选择当前官方 Gemini 3.8 协议，而非参考版早期预览模型的文本指令拼接。
+新增 provider=`gemini_tts`，沿用 §2.42 的配置、音色、合成与取消/租约接口，
+不迁移数据库。默认 model=`gemini-3.8-flash-tts`，支持同协议的
+`gemini-3.8-flash-lite-tts`；可带 `models/` 前缀，其他模型明确拒绝，避免误用协议。
+默认基址 https://generativelanguage.googleapis.com/v1beta，自定义基址可去掉尾部 /openai；
+固定 POST /models/{model}:generateContent，密钥仅放 x-goog-api-key 头，不放 URL。
+正文逐字保留于 contents[0].parts[0].text；非空 style 与 instructions 按换行合并到
+speech_metadata.style。voiceConfig.voice 使用真实音色 ID，单音色、非流式、请求 WAV。
+不发送旧 DIRECTOR'S NOTES 提示词，不添加文本标签，不支持数值合成语速/音调/音量。
+音色默认 Kore，提供官方 30 个内置候选（含参考版未列出的 Zephyr），仍只手动保存用户选择。
+JsonAudio 仅接受 application/json 响应；第一候选必须 STOP，阻断/错误/空音频/
+无效 Base64/未知 MIME 均失败，不回显服务端正文或凭据。WAV 验证容器后原样保存；
+明确标记 audio/L16、codec=pcm、rate=24000 的单声道 16-bit LE 音频才包装 WAV，
+同格式 PCM 多片按序拼接，多个 WAV 容器拒绝，禁止把未知二进制猜作 PCM。
+缓存继续覆盖实际模型、正文、音色、风格/指令与凭据；取消和租约沿用既有执行层。
+不改原生队列、全局播放倍速、分段策略或安全存储格式。
+
+依据：[官方 GenerateContent TTS](https://ai.google.dev/gemini-api/docs/generate-content/speech-generation)。
+编写者：Codex + Bridge｜2026-10-20
+
+## 火山 V1 接入（TTS-VOLCENGINE-20261020，实施前冻结）
+
+新增 provider=`volcengine`，对齐固定 c4182eb9 的 VolcengineCloudTtsProvider。
+沿用云配置与凭据接口：appId 为必填非秘密应用标识，apiKey 参数/安全存储值为原始
+Access Token；model 对此 Provider 表示业务集群，默认 volcano_tts，用户 uid 固定 legado。
+不将 App ID 当作密钥，不新增数据库列，不新增 STS/V3 或音色管理 API。
+默认端点 https://openspeech.bytedance.com/api/v1/tts，自定义地址为完整 HTTP(S) 端点。
+Authorization 使用 Bearer;token，JSON app/token 同源；只有发送请求时生成唯一 UUID reqid，
+稳定合成描述不包含 reqid。缓存必须覆盖集群、App ID、音色、正文和实际音频参数，
+相同正文重试/并发不因请求编号变化而失去缓存去重。
+合成响应类型新增 JsonAudio，与普通音频及 SSE 显式区分；仅在此类型接受 JSON，
+要求整数 code=0 或 3000 及有效非空 Base64 data，错误不回显凭据或正文，不缓存部分数据。
+四个候选音色 BV001/BV002/BV700/BV701_streaming；只手动保存用户选择，不自动添加。
+音色参数支持 speed 0.2..=3、pitch/volume 0.1..=3、style（情感）；格式
+mp3/ogg_opus/wav/pcm。PCM 按官方默认 24000 Hz 包装 WAV，Ogg 文件扩展名为 ogg。
+前台及预合成共用新增 UTF-8 1024 字节分片约束，不拆字形簇，UTF-16 位置仍映射原文；
+不改变段落划分、翻页或原生播放队列。单字形簇超限明确失败，不截断文字。
+不提供 V3/豆包 2.0 支持，相关账号和设备听感另行验收。
+
+编写者：Codex + Bridge｜2026-10-20
+
+## AWS Polly 接入（TTS-POLLY-20261020，实施前冻结）
+
+沿用 §2.42 的云引擎/音色/合成接口，新增 provider=`aws_polly`，默认 model=`neural`。
+region 必填，支持自定义 HTTP(S) 服务地址；数据库仍只保存 credentialKey，不增加密钥列。
+此 Provider 的安全存储值及调用时 apiKey 参数为严格 JSON 对象
+`{"apiKey":"Access Key ID","secretKey":"Secret Access Key"}`，两者成组轮换；
+Rust 在 Engine 边界按 Provider 解码，错误不回显载荷，其他 Provider 仍传原单密钥字符串。
+表单空编辑保留原值，单独更新其中一项须与安全存储中的另一项组成完整凭据。
+CloudTtsVoiceDescriptor 新增 supportedModels 字符串数组；只作为候选目录信息，
+不写入音色 traitsJson。远端音色目录按 Engine 查询并消费 NextToken，去重 ID，
+重复令牌报错，取消覆盖全部分页；配置仓库不隐式执行网络发现。
+合成沿用纯文本 POST /v1/speech，语言可选，支持 mp3/ogg_vorbis/pcm/wav；
+PCM/WAV 按用户裁决采用 AWS 官方 16 kHz 默认，显式仅允许 8/16 kHz。
+SigV4 使用明确 UTC 时间的纯函数；请求认证头与稳定合成头分开，日期及签名不参与
+缓存键，区域、模型、输出格式、实际采样率和成组凭据参与缓存身份。
+不调整播放队列、不引入 STS、不做数据库迁移；真实账号音频及设备验收另行记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ## Flutter 封面开书过渡（2026-10-19，实施前冻结）
 
 文字阅读器命名路由可接收BookCoverOrigin，只包含来源书籍标识、当前可见封面位置、
@@ -2209,6 +2271,16 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 2.25 HTTP TTS（6 个方法）
 
+> **2026-10-19 导入导出闭环**：保留现有 FRB 签名。`httpTtsImport(document)` 接收
+> JSON 数组，整批解析并在同一事务保存配置与源内音色目录；解析、写入或目录同步失败
+> 均整批回滚，限流配置仅在提交成功后刷新。显式非零 ID 原地覆盖；零 ID 分配新 ID，
+> 先保存显式 ID，避免同批自动编号覆盖显式记录。空名称/地址条目仍按既有规则跳过。
+> 管理页预览接受单对象/数组、HTTP(S) URL、data URI 和 legado 导入链接，按稳定 ID
+> 比较：不存在为新增、时间更新为更新、其余为已有；已有项默认不勾选，确认前不写入。
+> 重复非零 ID 在预览阶段报错。`exportHttpTts()` 仍返回 JSON 数组，附带当前可用 HTTP
+> 音色的 `speakersJson` / `emotionsJson`，不包含云端凭据、系统语音或登录会话数据。
+> 单条/勾选导出从该完整文档筛选，不经 `HttpTts.toJson()` 丢弃目录。此批不修改 schema。
+
 > **2026-10-13 批次 T1 全字段持久化与原地更新冻结**：本节六项及 §2.41 的
 > `httpTtsSetEnabled` 由 `HttpTtsRepository` 承担；根 BookApi 只提供共享
 > `httpTtsRepository` 引用。`httpTTS` 表升级至 Schema v110（补齐 `speed`、
@@ -2502,6 +2574,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 > - `currentToneID`：音色 ID（可选，默认空串）
 > - `currentSpeakerName`：发音人名称（可选，默认空串）
 > - `currentEmotionTag`：情感标签（可选，默认空串）
+> - `currentEmotionName`：从本次捕获的源目录映射的情感名称，无匹配时为空串。
 > - 支持 URL 模板、`@Header`、`@Body`、POST/GET 方法及 `@js:` / `{{js}}` 规则求值。
 > **缓存目录**：默认为系统临时目录下 `legado_tts_cache`，由 Bootstrap 经 NativeRustRuntime 的 `setTtsCacheDirectory` 调用 `ttsSetCacheDir` 注入应用缓存目录。合成接口不初始化运行时、不改变目录或另存缓存。
 
@@ -2514,6 +2587,23 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
+Gemini 3.8 与火山 V1 增量见本文顶部 TTS-GEMINI-20261020、TTS-VOLCENGINE-20261020；方法签名和元数据表不变。
+
+Polly 增量契约见本文顶部 TTS-POLLY-20261020；新增 aws_polly、成组调用凭据及 supportedModels，既有方法签名不变。
+
+**TTS-AZURE-20261019（实施前冻结）**：新增 azure_speech，沿用云端元数据表、凭据引用、
+音色表与播放会话。region 或自定义 baseUrl 决定端点；SSML 合成使用 Subscription-Key，
+支持 mp3/wav/ogg/opus、语言、风格、角色、语速、音调、音量，XML 必须转义。
+Core 仅构造/解析协议，Fetcher 执行网络，Engine 核对数据库与凭据引用并隔离取消生命周期。
+请求体以 JSON/SSML 枚举表达；缓存身份包含实际请求体、输出格式及必要请求头。
+新增 cloudTtsEngineVoices(engineId,apiKey,credentialKey,request:TtsRequest) 返回完整音色 DTO，
+包含 id/displayName/locale/gender/styles/roles/sampleRate；按当前保存的引擎配置发现，
+不从 Flutter 传地址绕过校验。静态 cloudTtsVoices 保留三家已有目录，Azure 必须走引擎发现。
+Flutter 通过独立 CloudTtsVoiceCatalog 窄服务查询，不让配置仓库承担凭据或网络编排；
+音色编辑器进入时获取远端目录，关闭取消，失败可重试或手动输入 ID，不写入整份目录。
+引擎 Sheet 增加区域，音色 Sheet 按能力展示参数；切换原生音色更新目录的语言/风格/角色。
+无数据库迁移、依赖升级、历史回填、播放队列改造；真实账号和移动后台另行验收。
+
 **T3b 朗读缓存与预合成（2026-10-13，实施前冻结）**：不更改 ttsSpeak 入参及三个 JSON 字段。单次 TtsRequest 在成功合成后持有返回文件的缓存租约；RustHttpTtsSynthesizer 将句柄所有权交给 HttpTtsAudio.lease，停止播放器后释放；预合成登记索引后立即释放，取消/失败在 finally 释放。请求期间保护缓存读取与发布，避免清理竞争；此保护是进程内文件生命周期，不是另一份播放状态或数据库事实。
 
 | 原生方法 | 返回 | 约束 |
@@ -2525,6 +2615,17 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Repository 对时间戳使用 int，Rust u64 经 FRB 生成为 BigInt，由正式适配器转换；keepBookUrl/keepChapterIndex 成对用于保留当前章。缓存保留 `audioCacheCleanTime` 单位分钟，默认 10，0 为即听即焚：停止并释放活动租约后清理；保留模式保护当前章，清理其他过期项。预下载 `audioPreDownloadNum` 默认 10 章；预合成 `ttsPreSynthesisConcurrency` 默认 3，与源 synthesisThreadCount 取小（1..8）。全局播放倍速不改变合成身份。调度只改变请求顺序，不改 Rust 规则求值、缓存键或音频格式；同输入优先复用排队/在途任务，取消不转失败估算。预合成失败不改变当前播放器状态。
 
 **T4a 音色目录（2026-10-13，实施前冻结）**：新增独立 `read_aloud_voices` 表（schema v111，仅建表，不回填历史目录），HTTP 16 字段及表列保持不变。导入 HTTP 源的原始 JSON 中 speakersJson/emotionsJson 在 Rust 解析并同步；按上游仅接受字符串内嵌 JSON，支持平铺/分组与字段别名，平铺优先、同 ID 首项保留。没有有效 speaker 时不清空目录；正常编辑不丢既有音色；删除引擎清理其目录。源与目录保存处于同一事务，不能只保存其中一半。
+
+**2026-10-19 HTTP 音色参数贯通（实施前冻结）**：不改 FRB 签名/schema。源目录 traitsJson
+数组继续表示标签；用户 HTTP 预设保存为对象，保留 `tags` 与可选默认 `emotionTag`，
+不丢未知参数。选择中的 emotionTag 为 null 时使用预设默认值，空字符串表示用户明确选择
+引擎默认情感，非空值为显式覆盖。目录内不存在的情感提示并回落默认；没有情感目录的源
+允许直接传标签，由其规则自行解释。编辑当前选中预设后重置情感覆盖，让正文使用新预设；
+列表试听使用与正文相同的选择解析，编辑草稿试听只消费草稿、不写默认选择。
+Rust 从操作捕获的源目录映射情感名称/标签：精确匹配、上游同义词、目录默认项，未知值不
+猜测私有标签；无目录保留输入标签。规则收到 currentEmotionName/currentEmotionTag，二者
+进入实际音频缓存身份。前台预合成身份继续按有效 toneId/speakerName/emotionTag 区分。
+本批不增加自动情绪识别或云端参数，不更改播放队列。
 
 目录行字段：id/engineType/engineId/speakerId/displayName/traitsJson/emotionCatalogJson/managedBy/enabled/available/excluded/revision/createdAt/updatedAt。稳定 ID 对齐 SpeechIdentity：`voice:` + SHA256(`engineType + NUL + engineId + NUL + speakerId`) 前 32 小写十六进制字符。HTTP 的 engineId 是数据库整数的字符串，speakerId 是 toneID；系统 engineId 为 `system:<设备引擎>`，speakerId 优先设备 identifier，否则 name。系统发现由现有 SystemTts 平台接口负责，Rust 不访问 TTS 插件。
 
@@ -2571,6 +2672,19 @@ CloudTtsRepository 窄接口仅管理元数据；CloudTtsCredentialStore 独立�
 MiMo 源选项保留 voiceId/style/instructions/format，format 为 wav；源 speed 不改变请求（上游未消费），配置页不显示该无效控制，播放倍速仍由播放器处理。Rust 准备 POST /chat/completions（兼容显式完整端点），使用 api-key 头，不添加 Bearer。instructions 作为可选 user 消息，style 非空时以 `(style)` 前缀进入 assistant 正文，audio 为 pcm16/voice，stream=true。网络传输只遵从 Provider 明确的鉴权头与响应类型，不让页面实现 SSE 或 Base64。
 
 Provider 解码 text/event-stream 的 choices[0].delta.audio.data，按到达顺序拼接 Base64 PCM，使用 24kHz/16-bit/单声道/小端 WAV 适配。错误事件、坏 JSON/Base64、空音频或未完成流不能落盘；完成以 [DONE] 或 finish_reason=stop 为证，拒绝 length 等截断原因。保留 120 秒超时、完整响应后播放、取消、缓存去重/原子提交及租约，不新增边合成边播放或云端后台预合成。OpenAI 仍使用 Bearer 与直接音频响应，其原有 JSON/text 错误拒绝不能因 SSE 支持而放宽。不调用真实云账号。
+
+**2026-10-19 云端音色参数保留（实施前冻结）**：不新增 FRB 方法、不改数据库 schema 或 Provider 协议。
+CloudVoiceOptions 与 CloudVoiceOptionsDto 同步补齐可选 locale/role/pitch/volume/sampleRate，
+同步生成绑定并重编原生库，不混用旧二进制；生成器 hash 一致不能替代字段兼容验证。
+保存音色、引擎默认配置与试听草稿均映射至
+已有 CloudTtsSynthesisRequest；缺省字符串为空、pitch/volume 为 1、sampleRate 为 null。
+草稿与配置继续拒绝未知字段/地址/凭据，数字必须有限，sampleRate 为非负 u32；具体支持由
+Provider 决定，不给百炼添加其接口不支持的数值调音能力。
+云端音色编辑/试听以原 traitsJson 对象为底，仅覆盖表单实际编辑字段；保留未展示的
+locale、role、pitch、volume、sampleRate 等参数。百炼增加语言编辑，保存去除首尾空白的
+locale；空值沿用 Rust 的 Auto 默认语义，试听与保存使用同一草稿。不支持源级语速的
+Provider 不新增 speed，但编辑不能删除已有字段；是否参与请求仍由 Rust Provider 决定。
+参考固定 c4182eb9 的 CloudTtsViewModel.buildVoice/buildRequest 及 AlibabaCloudTtsProvider。
 
 **T4b-4 阿里云百炼（2026-10-14，实施前冻结）**：新增 provider `alibaba_cloud`，保持 schema v112、五个 FRB 签名和设备凭据引用。对照固定上游 070ca1a AlibabaCloudTtsProvider：默认 qwen3-tts-flash、Cherry，四个内置音色 Cherry/Serena/Ethan/Chelsie，格式仅 WAV。POST multimodal-generation/generation，Bearer 鉴权及 X-DashScope-SSE: enable；input 为 text/voice/language_type（默认 Auto），仅 instruct 模型发送 style 与 instructions 以中文分号连接后的 instructions。源级数值速度不发送，播放倍速仍独立。
 
@@ -3028,12 +3142,14 @@ DTO 字段如下（Rust snake_case，生成 Dart camelCase；所有 Option 保�
 ### FFI-TRANSPORT-20261017 / 后续第2批朗读媒体冻结
 
 - HTTP TTS 列表/普通新增/更新采用十六字段 HttpTtsConfigDto；JSON 导入独立为
-  httpTtsImport(document)→条数，保留数组 loginUi、源内 speakersJson/emotionsJson 和逐条写入行为。
+  httpTtsImport(document)→条数，保留数组 loginUi、源内 speakersJson/emotionsJson；
+  2026-10-19 起按 §2.25 整批事务写入，任一条失败回滚配置与目录。
   导出继续生成原 JSON 文档，限流器刷新、并发归一、音色目录同步与原事务共用实现。
 - ttsSpeak/cloudTtsSpeak 返回 TtsSpeakDto(audioPath/fromCache/contentType)，不传音频字节；
   TtsRequest 的取消、活动保护及文件租约归属不变。
 - 云端元数据、音色描述与试听参数分别为 CloudTtsMetadataDto、CloudVoiceDescriptorDto、
-  CloudSpeechInputDto/CloudVoiceOptionsDto；供应商枚举仅映射现有三种，不新增供应商。
+  CloudSpeechInputDto/CloudVoiceOptionsDto；当批仅映射已有三种供应商，2026-10-20 按
+  TTS-AZURE-20261019 追加 azure_speech、完整目录字段和引擎目录发现接口。
   明文 API Key 仍只作为调用参数，不进入元数据或持久化；凭据版本与音色归属检查不变。
 - 音色目录和设备同步使用 ReadAloudVoiceDto/SystemVoiceEntryDto；traitsJson 与
   emotionCatalogJson 为原有配置文档，不在传输层重新解释。

@@ -60,6 +60,69 @@ void main() {
       newId: () => 'fixture${id++}',
     );
   });
+  const polly = CloudTtsEngine(
+    id: 'polly',
+    name: 'Polly',
+    provider: 'aws_polly',
+    region: 'us-east-1',
+    model: 'neural',
+  );
+  test('Polly 成组凭据可分别轮换，未修改项保留，不进入元数据', () async {
+    await settings.save(polly, apiKey: 'access', secretKey: 'secret');
+    var saved = (await repo.list()).single;
+    expect(jsonDecode(credentials.values[saved.credentialKey]!), {
+      'apiKey': 'access',
+      'secretKey': 'secret',
+    });
+    expect(jsonEncode(saved.toJson()), isNot(contains('secret')));
+    final first = saved.credentialKey;
+    await settings.save(polly);
+    expect((await repo.list()).single.credentialKey, first);
+    await settings.save(polly, secretKey: 'second');
+    saved = (await repo.list()).single;
+    expect(credentials.values, hasLength(1));
+    expect(jsonDecode(credentials.values[saved.credentialKey]!), {
+      'apiKey': 'access',
+      'secretKey': 'second',
+    });
+    await settings.save(polly, apiKey: 'next');
+    saved = (await repo.list()).single;
+    expect(jsonDecode(credentials.values[saved.credentialKey]!), {
+      'apiKey': 'next',
+      'secretKey': 'second',
+    });
+    await settings.delete(saved);
+    expect(credentials.values, isEmpty);
+  });
+  test('Polly 缺项拒绝保存，数据库失败保留整组旧凭据', () async {
+    await expectLater(settings.save(polly, apiKey: 'access'), throwsStateError);
+    expect(credentials.values, isEmpty);
+    await settings.save(polly, apiKey: 'access', secretKey: 'secret');
+    final old = (await repo.list()).single;
+    repo.failSave = true;
+    await expectLater(
+      settings.save(polly, secretKey: 'new-secret'),
+      throwsStateError,
+    );
+    expect(credentials.values, {
+      old.credentialKey: jsonEncode({
+        'apiKey': 'access',
+        'secretKey': 'secret',
+      }),
+    });
+    expect((await repo.list()).single.credentialKey, old.credentialKey);
+  });
+  test('Polly 原密钥损坏须成组重填，不回显内容', () async {
+    await settings.save(polly, apiKey: 'access', secretKey: 'secret');
+    final old = (await repo.list()).single;
+    credentials.values[old.credentialKey] = 'broken-private';
+    await expectLater(
+      settings.save(polly, apiKey: 'next'),
+      throwsA(predicate((e) => !e.toString().contains('broken-private'))),
+    );
+    await settings.save(polly, apiKey: 'next', secretKey: 'new');
+    expect(credentials.values, hasLength(1));
+  });
   test('凭据与元数据分开，更新引用后才清理旧凭据，空编辑保留', () async {
     await settings.save(engine, apiKey: 'private');
     final first = (await repo.list()).single;

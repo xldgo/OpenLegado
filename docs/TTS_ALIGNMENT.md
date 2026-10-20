@@ -2,6 +2,181 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## Gemini 3.8 协议差异与音频边界（2026-10-20）
+
+参考 [c4182eb9 的 GeminiCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/GeminiCloudTtsProvider.kt)
+的 Provider、鉴权、手动音色与文件播放路径；用户已裁决请求协议采用
+[当前官方 Gemini 3.8](https://ai.google.dev/gemini-api/docs/generate-content/speech-generation)。
+
+- 使用 GenerateContent 的单音色、非流式 REST 请求，默认 gemini-3.8-flash-tts，
+  同时支持 Flash Lite；不将旧预览模型传入新协议。模型可带 models/ 前缀。
+  自定义基址移除末尾 /openai，Key 只通过 x-goog-api-key 头发送。
+- 与参考版的已裁决差异：不再把 DIRECTOR'S NOTES 拼到正文；原文不增删，
+  风格与指令合并到 speech_metadata.style，voiceConfig.voice 传真实音色 ID。
+  仅展示请求实际消费的音色、风格、指令与 WAV，不展示数值合成速度/音调等字段。
+- 官方现行 unary 默认返回完整 WAV，显式请求 AUDIO_WAV；解析 inlineData 的 MIME，
+  WAV 验证 RIFF/fmt/data 与 24 kHz 单声道 16-bit PCM 后原样存储，不重复加头。
+  明确标识的 24 kHz PCM 可按序合并包装 WAV；未知类型、多个 WAV 容器、
+  截断/错误/阻断响应全部失败，不把任意 Base64 字节当音频。
+- 官方 30 个内置候选包含参考版遗漏的 Zephyr；候选不自动保存到用户音色列表。
+  扩展目录、音色设计/克隆、多说话人和流式播放不在本批范围。
+- Core 负责纯协议，Fetcher/Engine 复用已有缓存、取消、租约与凭据引用检查，
+  FFI 只新增 Provider 枚举映射；不新增依赖、数据库迁移或播放队列逻辑。
+  本机 HTTP 与真实 FRB 仅验证接口贯通，不替代真实云账号、音频解码或后台听感验收。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
+## 火山 V1 请求与缓存（2026-10-20）
+
+参考 [c4182eb9 的 VolcengineCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/VolcengineCloudTtsProvider.kt)
+的 V1 非流式路径；不是 V3 或豆包 2.0 接入。默认完整端点 `/api/v1/tts`，
+以 App ID/Access Token/业务集群配置，沿用四个 BV 系列候选音色，手动保存。
+静态描述复用类型化目录入口，不发送 HTTP；显示中文名，保存仍使用 BV 音色 ID。
+
+- 元数据复用 appId，model 对该 Provider 表示业务集群，默认 volcano_tts；uid 固定 legado。
+  上游把 cluster/uid 放在可选 JSON 中，本项目提供明确的集群表单，不新增任意 JSON 配置或用户标识设置。
+  Token 仍由安全存储持有，调用时临时读取；数据库不增加凭据列。
+- Core 的稳定请求包含实际合成参数，发送时再增加新 UUID reqid。
+  Fetcher 先用稳定请求做锁/缓存判定，再调用 prepare_for_send；已有 Provider 默认仍刷新准备逻辑，
+  保留 Polly 签名更新。随机编号不参与缓存，相同草稿与保存音色共用合成结果。
+- JsonAudio 与普通音频、SSE 显式区分，只在该路径接受 JSON 封装；严格核对状态码、
+  Base64、非空音频及相应容器，非终结分片拒绝落盘；错误不回显服务端私人载荷。
+  PCM 按官方 24 kHz 默认包装 WAV，Ogg Opus 以 .ogg 交给现有文件播放器。
+- 语速 0.2～3、音调/音量 0.1～3 和情感按上游消费；不展示角色、语言、指令或其他未消费参数。
+  音色按对应账号授权可用，不凭候选列表声称账号已开通。
+- [官方 V1 参数说明](https://docs.volcengine.com/docs/DoubaoVoice/Parameterbasicdescription?lang=zh)
+  对标准音色限制 1024 UTF-8 字节；共享分片器增加可选字节前缀和，不拆字形簇，
+  原文坐标仍是 UTF-16。单段播放、原生队列请求与后续章预合成消费同一限制，
+  不修改用户段落/符号/页面划分或原生播放队列算法。
+
+[官方现行说明](https://docs.volcengine.com/docs/DoubaoVoice/HTTPone-timecompositenon-streaminginterface-V1notrecommended?lang=zh)
+推荐 V3，V1 不支持豆包 2.0 音色；本批明确按参考版 V1 范围交付，V3 另行评估。
+本机 HTTP/FRB 只证明协议、缓存及取消，不证明真实账号、音频解码或设备后台/蓝牙听感。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
+## AWS Polly 协议与认证边界（2026-10-20）
+
+参考 [c4182eb9 的 AwsPollyCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/AwsPollyCloudTtsProvider.kt)，
+沿用纯文本合成、区域、模型、分页目录和手动保存音色，不复制 Android 网络/播放实现。
+
+- 两项密钥以严格 JSON 成组保存在既有安全存储，凭据引用仍是一项；只在调用时解码。
+  单项编辑合并原值后轮换引用，数据库失败清理新组，普通元数据不含明文；不引入 STS。
+- Core 构造固定资源路径与 JSON，SigV4 的 UTC 时间显式传入纯函数；认证头与稳定请求头分离。
+  Fetcher 等待合成锁后重新准备签名；缓存区分实际正文、语言、模型、格式、采样率与凭据，
+  时间及签名不导致重复合成。签名验证采用 RFC4231 HMAC 向量及独立 Python/Dart 实现。
+- 音色目录按 NextToken 逐页获取、按 ID 去重；重复令牌报错、失败不返回部分成功，
+  每页可取消及超时。supportedModels 仅为候选信息，不写入音色 traitsJson。
+- 与参考版的已裁决差异：参考版 PCM 默认以 24 kHz 包 WAV；
+  [AWS 官方](https://docs.aws.amazon.com/polly/latest/APIReference/API_SynthesizeSpeech.html)
+  规定 PCM 默认 16 kHz、仅支持 8/16 kHz。用户已选择按官方规则，显式发送实际采样率，
+  WAV 头与该值一致。MP3/Ogg 及普通文件播放路径保持。
+- 引擎 Sheet 只配置端点、区域、模型与凭据；音色 Sheet 查询目录、选择语言/格式/采样率，
+  不展示协议未消费的风格、合成速度、音调、音量或指令；全局播放器倍速继续独立。
+
+本地 HTTP/FRB 可验证协议、数据库、缓存及取消，合成夹具不证明真实云账号可用、
+音频解码、蓝牙或设备后台表现。无数据库迁移；直接引用工作区已锁定的 HMAC/SHA256/Chrono，
+不更新依赖版本。生成物与新原生库配对使用。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
+## Azure Speech 与 Rust 边界（2026-10-20）
+
+固定参考 [c4182eb9 的 AzureSpeechCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/AzureSpeechCloudTtsProvider.kt)
+的端点、鉴权、音色目录与 SSML 语义；不移植其网络/播放组织方式。
+
+- Core 的 Provider 只准备请求与解析响应。CloudSpeechBody 用 Json/Ssml 枚举区分正文类型，
+  CloudVoiceCatalog 区分静态目录和远端请求。不会用空 JSON 或隐式字符串模拟 GET/XML。
+- Fetcher 统一执行目录 GET 和合成 POST；复用正常 TLS、无重定向/书源 Cookie、超时和取消。
+  缓存消费实际请求体、输出格式和必要头，避免 SSML 相同但输出格式不同串缓存。
+- Engine 读取所属数据库的引擎配置，核对凭据引用，任务守卫随操作结束释放；关闭根实例
+  取消等待和网络，不捕获根实例延长其生命。FFI 仅转换 DTO 和调用该服务。
+- Flutter 的独立 CloudTtsVoiceCatalog 暂时读取设备密钥并持有请求句柄，配置仓库不负责
+  新增的鉴权/网络流程。进入 Azure 音色编辑器才查询目录，关闭取消、失败可重试或手填；
+  候选目录不自动写入用户音色，语言/风格/角色随选择更新，只保存实际请求字段。
+- 默认区域端点为 `https://<region>.tts.speech.microsoft.com`；自定义地址按上游追加
+  `/cognitiveservices/voices/list` 与 `/cognitiveservices/v1`，允许带 `/tts` 的资源基址。
+  仅用 Subscription-Key；模型与朗读指令控件对 Azure 隐藏，格式为 mp3/wav/ogg/opus。
+  音调/音量百分比按上游 Float 运算/截断和区间限制；XML 正文及属性转义，非法控制字符拒绝。
+- 输出适配为现有文件播放器，Opus 使用 Ogg 文件，不引入实时 PCM 或新播放后端。
+  现有三家静态目录仍可离线查询；Azure 静态查询明确要求引擎发现，不假装返回完整目录。
+
+测试使用真实 FRB/SQLite 和本地 HTTP 验证 GET/POST、SSML、缓存、取消及旧服务商回归；
+假音频只证明协议与产物路径，不证明真实云账号、实际解码或移动后台听感。
+无数据库迁移、依赖升级和历史回填。API 与生成物需配对重编，不能混用旧原生库。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
+## 云端音色参数与百炼语言（2026-10-19）
+
+固定参考 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)
+的 CloudTtsViewModel.buildVoice/buildRequest 与 AlibabaCloudTtsProvider。百炼已有正式
+Provider、四个音色、SSE/签名地址下载与缓存实现，本批修复参数接线，不重复实现 Provider。
+
+- 云端编辑以已有参数为底，只覆盖可编辑项。隐藏的语言、角色、音调、音量与采样率不得
+  因重命名丢失；保留未知字段不代表允许合成，DB/试听映射仍拒绝未知字段及地址、凭据。
+- 保存音色、引擎默认配置与试听草稿共用完整 CloudVoiceOptions，映射到已有 Core 请求。
+  仅扩展可选 DTO 字段并重新生成绑定，无数据库迁移；构建必须使用新绑定对应的原生库。
+- 百炼语言输入去除首尾空白，留空使用 Auto；与上游一样传递服务商语言名称，不转换成
+  系统 TTS 的设备 locale。支持参数与默认行为参见[百炼官方 API](https://help.aliyun.com/zh/model-studio/qwen-tts-api)。
+  百炼仍仅 instruct 模型发送风格/指令，不发送接口不支持的数值语速、音调或音量。
+- 实际请求缓存区分有效语言；保存音色与相同试听草稿应命中同一结果，清空语言恢复
+  自动识别的缓存。纯隐藏参数若不参与某 Provider 请求，不制造额外缓存身份。
+
+验证采用真实 Sheet、DTO 数值与字段门禁、SQLite 请求构建和本地 SSE 的真实 FFI 链路；
+本地假服务不证明真实账号、发音效果、设备后台与蓝牙播放正常。
+
+编写者：Codex + UI/Bridge｜2026-10-19。
+
+## HTTP 音色与情感参数（2026-10-19）
+
+固定参考 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)
+的 CloudTtsViewModel、HttpTtsAudioSynthesizer 与 HttpTtsEmotionMapper；沿用本项目的
+手动情感选择，不扩展自动情绪识别或云端 Provider。
+
+- HTTP 用户预设采用参数对象保存 tags 与默认 emotionTag；源目录原有数组仍表示标签。
+  编辑和导出均通过 HttpTtsVoiceOptions 读取，不把标签数组误转为空对象。原生音色 ID
+  维持稳定，切换角色更新其情感目录并清除上一角色的情感，未知自定义参数保留。
+- 列表试听和正文共用 resolveHttpTtsVoice。选择值中的 null 跟随预设默认，空字符串
+  保留用户明确要求引擎默认的意图；指定标签覆盖预设。过期目录标签回落并保留既有正文
+  提示。草稿试听只消费草稿；编辑当前选中音色保存后清除旧覆盖，使正文跟随新预设。
+- Rust 操作捕获阶段仅查询所属 HTTP 引擎的必要目录列，不加载所有系统/云端音色。
+  优先当前音色目录，缺失/为空时回落源目录；映射遵循精确匹配、固定上游同义词及目录
+  默认项，未知情绪不猜私有标签。没有目录时保留输入标签。
+- currentEmotionName 与 currentEmotionTag 一同注入模板/JS，实际缓存键同时消费二者。
+  修改目录后新请求使用新映射，已捕获请求仍使用原目录快照；相同有效输入命中缓存。
+  不增加协议版本标识、不改 FRB 签名/schema/生成物或播放队列。
+
+定向验收使用真实 Sheet 保存/试听、实际 AudioNotifier 合成入参、真实本地 HTTP 收包
+及缓存命中。设备听感、真实账号和平台后台播放不在这些测试的证明范围。
+
+编写者：Codex + UI/Bridge｜2026-10-19。
+
+## HTTP 引擎导入导出（2026-10-19）
+
+本批固定参考上游 [`c4182eb9`](https://github.com/HapeLee/legado-with-MD3/tree/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a)：
+`CloudTtsViewModel.importHttpTtsSource/parseHttpTtsSource/saveImportedHttpTts` 与
+`CloudTtsScreen`。按 ID 与 lastUpdateTime 比较新增、更新、已有，已有默认不勾选；
+保持用户已确认的编辑 Sheet，不恢复已放弃的全屏编辑器。
+
+- 引擎页更多菜单进入导入或勾选导出；单引擎行更多菜单预选当前引擎导出。
+- 剪贴板、UTF-8 文件、HTTP(S)、data URI、legado/yuedu 的 `/httpTTS?src=`
+  汇合至数据服务预览。`#requestWithoutUA` 沿用上游发送 `User-Agent: null` 的规则。
+  递归链接限制八层并拒绝循环；取消后的迟到预览不能保存或跳转。
+- HttpTtsTransferService 负责解析/比较/编排，平台适配器负责文件，Sheet 负责勾选和反馈。
+  确认仅调用一次既有文档导入，Rust 在同一 SQLite 事务内写全部配置与目录，提交后刷新限流。
+  非零 ID 覆盖、零 ID 新建；同批先保留显式 ID，避免自动编号覆盖。预览拒绝重复非零 ID。
+- 完整导出从配置与当前可用 HTTP 目录重建 speakersJson/emotionsJson；保留排除音色的
+  目录定义，不将设备排除标记作为分享配置。云端凭据、系统目录和登录会话不导出。
+  目录归一化为当前持久化内容，不保证原始 JSON 分组/缩进；未曾入库的未知字段不保留。
+- 上游上传为分享 URL 的操作不在此批；本批提供本地文件与剪贴板 JSON，未接入上传服务。
+  无 schema、FRB 签名、代码生成或播放队列改动。
+
+验证以真实服务调用、Widget 勾选/取消/重试以及 SQLite 触发器注入失败为依据；
+固定第三方账号、平台文件选择器与真实设备交互另行验收，不用 Mock 结果宣称真机可用。
+
+编写者：Codex + UI/Bridge｜2026-10-19。
+
 ## 系统媒体时间轴与控制（2026-10-15）
 
 本批对照[上游BaseReadAloudService](https://github.com/HapeLee/legado-with-MD3/blob/4ef08aafe7901ca0bf552d3bc0aaf2d6ce1a20d5/app/src/main/java/io/legado/app/service/BaseReadAloudService.kt)及同版本AudioPlayService：
@@ -56,7 +231,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼 Provider、独立元数据/设备凭据、配置试听和播放接线 | 其他四家 Provider、云端预合成及真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1/Gemini3.8 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 火山V3；真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 

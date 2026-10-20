@@ -185,17 +185,33 @@ class CloudTtsMetadataDto {
           credentialKey == other.credentialKey;
 }
 
-enum CloudTtsProviderDto { openAiSpeech, mimo, alibabaCloud }
+enum CloudTtsProviderDto {
+  openAiSpeech,
+  mimo,
+  alibabaCloud,
+  azureSpeech,
+  awsPolly,
+  volcengine,
+  geminiTts,
+}
 
 class CloudVoiceDescriptorDto {
   final String id;
   final String displayName;
+  final String locale;
+  final String gender;
+  final List<String> roles;
+  final List<String> supportedModels;
   final List<String> styles;
   final int? sampleRate;
 
   const CloudVoiceDescriptorDto({
     required this.id,
     required this.displayName,
+    required this.locale,
+    required this.gender,
+    required this.roles,
+    required this.supportedModels,
     required this.styles,
     this.sampleRate,
   });
@@ -204,6 +220,10 @@ class CloudVoiceDescriptorDto {
   int get hashCode =>
       id.hashCode ^
       displayName.hashCode ^
+      locale.hashCode ^
+      gender.hashCode ^
+      roles.hashCode ^
+      supportedModels.hashCode ^
       styles.hashCode ^
       sampleRate.hashCode;
 
@@ -214,32 +234,51 @@ class CloudVoiceDescriptorDto {
           runtimeType == other.runtimeType &&
           id == other.id &&
           displayName == other.displayName &&
+          locale == other.locale &&
+          gender == other.gender &&
+          roles == other.roles &&
+          supportedModels == other.supportedModels &&
           styles == other.styles &&
           sampleRate == other.sampleRate;
 }
 
 class CloudVoiceOptionsDto {
   final String? voiceId;
+  final String? locale;
   final String? style;
+  final String? role;
   final String? instructions;
   final double? speed;
+  final double? pitch;
+  final double? volume;
   final String? format;
+  final int? sampleRate;
 
   const CloudVoiceOptionsDto({
     this.voiceId,
+    this.locale,
     this.style,
+    this.role,
     this.instructions,
     this.speed,
+    this.pitch,
+    this.volume,
     this.format,
+    this.sampleRate,
   });
 
   @override
   int get hashCode =>
       voiceId.hashCode ^
+      locale.hashCode ^
       style.hashCode ^
+      role.hashCode ^
       instructions.hashCode ^
       speed.hashCode ^
-      format.hashCode;
+      pitch.hashCode ^
+      volume.hashCode ^
+      format.hashCode ^
+      sampleRate.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -247,10 +286,15 @@ class CloudVoiceOptionsDto {
       other is CloudVoiceOptionsDto &&
           runtimeType == other.runtimeType &&
           voiceId == other.voiceId &&
+          locale == other.locale &&
           style == other.style &&
+          role == other.role &&
           instructions == other.instructions &&
           speed == other.speed &&
-          format == other.format;
+          pitch == other.pitch &&
+          volume == other.volume &&
+          format == other.format &&
+          sampleRate == other.sampleRate;
 }
 
 class HttpTtsConfigDto {

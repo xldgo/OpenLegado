@@ -10,6 +10,7 @@ pub struct HttpTtsOperation {
     rates: std::sync::Arc<legado_fetcher::rate_limit::RateLimiterRegistry>,
     store: std::sync::Arc<super::source::DbTtsSourceStore>,
     task: crate::TaskHandle,
+    emotion_catalogs: Vec<(String, String)>,
 }
 impl HttpTtsOperation {
     pub(super) fn capture(
@@ -22,6 +23,12 @@ impl HttpTtsOperation {
             .begin()
             .map_err(|e| legado_core::LegadoError::Ffi(e.to_string()))?;
         let config = super::source::config_for_storage(&engine.storage, id)?;
+        let emotion_catalogs = engine.storage.with_database(|db| {
+            legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(
+                db.connection(),
+            )
+            .http_emotion_catalogs(id)
+        })?;
         Ok(Self {
             config,
             cache_dir: engine.media.tts_directory(),
@@ -32,6 +39,7 @@ impl HttpTtsOperation {
                     .with_task(task.clone(), Some(cancellation.clone())),
             ),
             task,
+            emotion_catalogs,
         })
     }
     pub async fn speak(
@@ -43,13 +51,28 @@ impl HttpTtsOperation {
         cancellation: &legado_fetcher::tts_control::TtsCancellation,
     ) -> LegadoResult<legado_fetcher::tts_fetcher::TtsFetchResult> {
         let _guard = self.task.guard();
-        let context = TtsSpeakContext::new(
+        let catalog = self
+            .emotion_catalogs
+            .iter()
+            .filter(|(speaker, _)| Some(speaker.as_str()) == tone_id.as_deref())
+            .chain(self.emotion_catalogs.iter())
+            .find_map(|(_, json)| {
+                serde_json::from_str::<Vec<legado_core::tts_catalog::EmotionDraft>>(json)
+                    .ok()
+                    .filter(|catalog| !catalog.is_empty())
+            })
+            .unwrap_or_default();
+        let emotion =
+            legado_core::tts_emotion::map_emotion(emotion_tag.as_deref().unwrap_or(""), &catalog);
+        let mut context = TtsSpeakContext::new(
             text,
             self.config.effective_speed(),
             tone_id.as_deref(),
             speaker_name.as_deref(),
-            emotion_tag.as_deref(),
+            (!emotion.emotion_tag.is_empty()).then_some(emotion.emotion_tag.as_str()),
         );
+        context.emotion_name =
+            (!emotion.emotion_name.is_empty()).then_some(emotion.emotion_name.as_str());
         let client = self.network.client()?;
         let result = async {
             tokio::select! {
@@ -106,6 +129,73 @@ mod tests {
             })
             .unwrap();
         engine
+    }
+
+    #[test]
+    fn voice_variables_and_emotion_catalog_snapshot_control_cache() {
+        use crate::test_http_fixture::Fixture;
+        let mut fixture =
+            Fixture::with_content_type(3, false, "audio/mpeg", |_| "ID3-audio".into());
+        let engine = isolated_engine(&format!(
+            "{}/tts?tone={{{{currentToneID}}}}&speaker={{{{currentSpeakerName}}}}&emotion={{{{currentEmotionTag}}}}&name={{{{currentEmotionName}}}}",
+            fixture.url
+        ));
+        let sync = |name: &str| {
+            engine.storage().with_database(|db| {
+            let draft = legado_core::tts_catalog::parse(&serde_json::json!({
+                "speakersJson": r#"[{"speakerName":"Speaker","toneID":"a"},{"speakerName":"Other","toneID":"b"}]"#,
+                "emotionsJson": serde_json::json!([
+                    {"emotionName": name, "emotionTag": "private_happy"},
+                    {"emotionName": "Sad", "emotionTag": "private_sad"},
+                ]).to_string(),
+            }));
+            legado_db::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(db.connection()).sync_http(12345, &draft, 1)
+        }).unwrap()
+        };
+        sync("Cheerful");
+        let cancellation = legado_fetcher::tts_control::TtsCancellation::default();
+        let old = prepare(&engine, &cancellation);
+        sync("CheerfulB");
+        let speak = |operation: HttpTtsOperation, emotion: &str| {
+            block_on(operation.speak(
+                "同一正文",
+                Some("a".into()),
+                Some("Speaker".into()),
+                Some(emotion.into()),
+                &cancellation,
+            ))
+        };
+        let first = speak(old, "private_happy").unwrap();
+        let changed = speak(prepare(&engine, &cancellation), "private_happy").unwrap();
+        let cached = speak(prepare(&engine, &cancellation), "private_happy").unwrap();
+        let sad = speak(prepare(&engine, &cancellation), "private_sad").unwrap();
+        assert!(!first.from_cache && !changed.from_cache && !sad.from_cache);
+        assert!(cached.from_cache);
+        assert_eq!(changed.audio_path, cached.audio_path);
+        assert_ne!(first.audio_path, changed.audio_path);
+        assert_ne!(changed.audio_path, sad.audio_path);
+        engine.storage().with_database(|db| {
+            db.connection().execute("UPDATE read_aloud_voices SET emotionCatalogJson='[]' WHERE engineId='12345' AND speakerId='a'", [])
+                .map_err(|e|legado_core::LegadoError::Database(e.to_string()))?;
+            Ok(())
+        }).unwrap();
+        let fallback = speak(prepare(&engine, &cancellation), "private_sad").unwrap();
+        assert!(fallback.from_cache);
+        assert_eq!(fallback.audio_path, sad.audio_path);
+        let requests = block_on(async {
+            vec![
+                fixture.request().await,
+                fixture.request().await,
+                fixture.request().await,
+            ]
+        });
+        assert!(
+            requests[0].contains("tone=a&speaker=Speaker&emotion=private_happy&name=Cheerful ")
+        );
+        assert!(requests[1].contains("name=CheerfulB "));
+        assert!(requests[2].contains("emotion=private_sad&name=Sad "));
+        fixture.worker.join().unwrap();
+        assert_eq!(engine.tasks().active_count(), 0);
     }
 
     #[test]

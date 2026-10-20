@@ -142,6 +142,7 @@ final class CloudReadAloudEngine
     _parent = session;
     _request = request;
     var limit = 4000;
+    int? maxUtf8Bytes;
     final resolveRepository = repository;
     if (resolveRepository != null) {
       final engines = await resolveRepository().list();
@@ -152,9 +153,15 @@ final class CloudReadAloudEngine
           .where((e) => e.id == cloudTtsId(request.engineUrl))
           .firstOrNull;
       if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
-      limit = cloudTtsProfile(engine.provider).textLimit;
+      final profile = cloudTtsProfile(engine.provider);
+      limit = profile.textLimit;
+      maxUtf8Bytes = profile.maxUtf8Bytes;
     }
-    _parts = splitCloudSpeechText(request.text, limit: limit);
+    _parts = splitCloudSpeechText(
+      request.text,
+      limit: limit,
+      maxUtf8Bytes: maxUtf8Bytes,
+    );
     _index = 0;
     if (_parts.isEmpty) return ReadAloudStart.noAudio;
     return _speakPart(session);
@@ -192,5 +199,12 @@ final class CloudReadAloudEngine
 }
 
 /// 4000 UTF-16 上限比远端字符上限保守；不拆代理对、组合音标或 ZWJ 字形簇。
-List<String> splitCloudSpeechText(String text, {int limit = 4000}) =>
-    splitSpeechRequests(text, limit: limit).map((part) => part.text).toList();
+List<String> splitCloudSpeechText(
+  String text, {
+  int limit = 4000,
+  int? maxUtf8Bytes,
+}) => splitSpeechRequests(
+  text,
+  limit: limit,
+  maxUtf8Bytes: maxUtf8Bytes,
+).map((part) => part.text).toList();

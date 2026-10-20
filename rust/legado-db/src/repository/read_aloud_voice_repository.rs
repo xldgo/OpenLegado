@@ -72,6 +72,25 @@ impl<'a> ReadAloudVoiceRepository<'a> {
             .map_err(db_error)?;
         rows.collect::<Result<Vec<_>, _>>().map_err(db_error)
     }
+    /// 合成仅捕获当前 HTTP 引擎的情感目录；默认回落优先来源目录。
+    pub fn http_emotion_catalogs(&self, engine_id: i64) -> LegadoResult<Vec<(String, String)>> {
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT speakerId,emotionCatalogJson FROM read_aloud_voices
+             WHERE engineType='http' AND engineId=?1
+             ORDER BY CASE WHEN managedBy='http_source_catalog' THEN 0 ELSE 1 END,
+                      available DESC,displayName COLLATE NOCASE,id",
+            )
+            .map_err(db_error)?;
+        let rows = statement
+            .query_map([engine_id.to_string()], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .map_err(db_error)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(db_error)
+    }
+
     pub fn get(&self, id: &str) -> LegadoResult<ReadAloudVoice> {
         self.list()?
             .into_iter()
@@ -272,6 +291,27 @@ mod tests {
         c.execute_batch(crate::schema::CREATE_READ_ALOUD_VOICES)
             .unwrap();
         c
+    }
+    #[test]
+    fn http_emotion_snapshot_is_scoped_and_prefers_source_catalog() {
+        let conn = conn();
+        let repo = ReadAloudVoiceRepository::new(&conn);
+        let input = serde_json::json!({"speakersJson":r#"[{"speakerName":"A","toneID":"a"},{"speakerName":"Z","toneID":"z"}]"#, "emotionsJson":r#"[{"emotionName":"高兴","emotionTag":"happy"}]"#});
+        repo.sync_http(1, &legado_core::tts_catalog::parse(&input), 1)
+            .unwrap();
+        repo.sync_http(2, &draft("other"), 1).unwrap();
+        conn.execute("UPDATE read_aloud_voices SET managedBy='user',emotionCatalogJson='[]' WHERE engineId='1' AND speakerId='a'", []).unwrap();
+        let snapshot = repo.http_emotion_catalogs(1).unwrap();
+        assert_eq!(snapshot.len(), 2);
+        assert_eq!(snapshot[0].0, "z");
+        assert_eq!(snapshot[1], ("a".into(), "[]".into()));
+        assert_eq!(
+            serde_json::from_str::<Vec<legado_core::tts_catalog::EmotionDraft>>(&snapshot[0].1)
+                .unwrap()[0]
+                .emotion_tag,
+            "happy"
+        );
+        assert!(repo.http_emotion_catalogs(99).unwrap().is_empty());
     }
     fn draft(id: &str) -> CatalogDraft {
         legado_core::tts_catalog::parse(

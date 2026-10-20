@@ -53,7 +53,11 @@ mixin _CloudEngineManagement on ConsumerState<ReadAloudConfigScreen> {
         if (!mounted) return;
         await ref
             .read(cloudTtsSettingsProvider)
-            .save(result.engine, apiKey: result.key);
+            .save(
+              result.engine,
+              apiKey: result.key,
+              secretKey: result.secretKey,
+            );
         if (!mounted) return;
         await _loadEngines();
         if (!mounted) return;

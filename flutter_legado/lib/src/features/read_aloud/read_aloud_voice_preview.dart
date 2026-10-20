@@ -11,6 +11,7 @@ import '../../services/stream_audio_player.dart';
 import 'playback/cloud_read_aloud_engine.dart';
 import 'playback/http_read_aloud_engine.dart';
 import 'playback/read_aloud_engine.dart';
+import 'http_tts_voice_selection.dart';
 
 /// 音色试听只持有独立播放会话，不拥有正文队列或默认选择。— Codex + UI
 final class ReadAloudVoicePreview {
@@ -71,6 +72,7 @@ final class ReadAloudVoicePreview {
     ReadAloudVoice voice,
     String text, {
     bool draft = false,
+    HttpTtsVoiceSelection? httpSelection,
   }) async {
     await stop();
     if (_closed) return;
@@ -108,6 +110,15 @@ final class ReadAloudVoicePreview {
       final cloud = voice.engineType == 'cloud_tts';
       _active = cloud ? _cloud : _http;
       final traits = jsonDecode(voice.traitsJson);
+      final httpVoice = cloud
+          ? const HttpTtsVoiceResolution()
+          : resolveHttpTtsVoice(
+              int.parse(voice.engineId),
+              [voice],
+              httpSelection?.voiceId == voice.id
+                  ? httpSelection
+                  : HttpTtsVoiceSelection(voice.id),
+            );
       final result = await _active!.speak(
         ReadAloudRequest(
           text: text,
@@ -115,7 +126,7 @@ final class ReadAloudVoicePreview {
           engineId: cloud ? 0 : int.parse(voice.engineId),
           toneId: cloud ? null : voice.speakerId,
           speakerName: voice.displayName,
-          emotionTag: traits is Map ? traits['emotionTag'] as String? : null,
+          emotionTag: cloud ? null : httpVoice.emotionTag,
           voicePresetId: cloud && !draft ? voice.id : null,
           cloudVoiceOptions: cloud && draft
               ? Map<String, dynamic>.unmodifiable({

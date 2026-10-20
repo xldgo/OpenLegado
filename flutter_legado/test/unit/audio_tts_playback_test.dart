@@ -18,6 +18,10 @@ import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // 计时推进用 testWidgets 的 FakeAsync（tester.pump(duration) 推时钟），
 // 播放器经 streamAudioPlayerProvider 注入 Fake，不触真实 video_player 平台通道。
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_aloud_voice_repository.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +32,12 @@ import 'package:flutter_legado/src/features/audio/application/audio_notifier.dar
 import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
 import '../mocks/mocks.dart';
+
+class _VoiceApi extends MockRustApi {
+  final _voices = MockReadAloudVoiceRepository();
+  @override
+  ReadAloudVoiceRepository get readAloudVoiceRepository => _voices;
+}
 
 void main() {
   late MockRustApi mockApi;
@@ -45,7 +55,7 @@ void main() {
   });
 
   setUp(() {
-    mockApi = MockRustApi();
+    mockApi = _VoiceApi();
     when(() => mockApi.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => const [
         HttpTts(id: 1, name: '默认引擎', url: 'https://tts.example.com/{{text}}'),
@@ -107,6 +117,65 @@ void main() {
     );
     readNotifier().updateConfig(speed: speed);
     await readNotifier().play();
+  }
+
+  for (final choice in <({String? selected, String? expected})>[
+    (selected: null, expected: 'happy'),
+    (selected: 'calm', expected: 'calm'),
+    (selected: '', expected: null),
+  ]) {
+    testWidgets('正文使用同一音色预设解析情感：${choice.selected}', (tester) async {
+      stubChapter();
+      final voice = ReadAloudVoice(
+        id: readAloudVoiceId('http', '1', 'zh'),
+        engineType: 'http',
+        engineId: '1',
+        speakerId: 'zh',
+        displayName: '中文',
+        traitsJson: '{"tags":["女"],"emotionTag":"happy"}',
+        emotionCatalogJson: '[{"emotionName":"高兴","emotionTag":"happy"},{"emotionName":"平静","emotionTag":"calm"}]',
+      );
+      await mockApi.readAloudVoiceRepository.save(voice);
+      when(() => mockApi.configRepository.getConfig('ttsVoice:1')).thenAnswer(
+        (_) async =>
+            jsonEncode({'voiceId': voice.id, 'emotionTag': choice.selected}),
+      );
+      final received = <({String? tone, String? name, String? emotion})>[];
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+          toneId: any(named: 'toneId'),
+          speakerName: any(named: 'speakerName'),
+          emotionTag: any(named: 'emotionTag'),
+          cancellation: any(named: 'cancellation'),
+        ),
+      ).thenAnswer((call) async {
+        received.add((
+          tone: call.namedArguments[#toneId] as String?,
+          name: call.namedArguments[#speakerName] as String?,
+          emotion: call.namedArguments[#emotionTag] as String?,
+        ));
+        return const HttpTtsAudio(audioPath: '/voice.wav');
+      });
+      await readNotifier().loadChapters('url');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+        engineId: 1,
+      );
+      await readNotifier().play();
+      expect(received.first, (
+        tone: 'zh',
+        name: '中文',
+        emotion: choice.expected,
+      ));
+      expect(fakePlayer.playedLocalFiles.first.path, '/voice.wav');
+    });
   }
 
   group('TTS 段落真实播放（完成回调驱动）', () {

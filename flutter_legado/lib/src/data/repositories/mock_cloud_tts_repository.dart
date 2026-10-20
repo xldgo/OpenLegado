@@ -15,12 +15,32 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
         engine.credentialKey.isEmpty) {
       throw StateError('云端配置无效');
     }
+    if (cloudTtsProfile(engine.provider).requiresAppId &&
+        engine.appId.trim().isEmpty) {
+      throw StateError('App ID 不能为空');
+    }
     final options = engine.options;
-    const allowed = {'voiceId', 'speed', 'style', 'instructions', 'format'};
+    const allowed = {
+      'voiceId',
+      'locale',
+      'role',
+      'pitch',
+      'volume',
+      'sampleRate',
+      'speed',
+      'style',
+      'instructions',
+      'format',
+    };
     if (options.keys.any((k) => !allowed.contains(k))) {
       throw StateError('云端选项无效');
     }
     final previous = _engines[engine.id];
+    if ((engine.provider == 'aws_polly' ||
+            engine.provider == 'azure_speech' && engine.baseUrl.isEmpty) &&
+        engine.region.trim().isEmpty) {
+      throw StateError('Azure 区域不能为空');
+    }
     if (previous != null && previous.provider != engine.provider) {
       throw StateError('已保存引擎不能更换 Provider，请新建引擎');
     }
@@ -40,6 +60,49 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
 
   @override
   Future<List<String>> voices(String provider) async {
+    if (cloudTtsProfile(provider).remoteCatalog) return const [];
+    if (provider == 'gemini_tts') {
+      return const [
+        'Kore',
+        'Puck',
+        'Charon',
+        'Fenrir',
+        'Leda',
+        'Orus',
+        'Aoede',
+        'Callirrhoe',
+        'Autonoe',
+        'Enceladus',
+        'Iapetus',
+        'Umbriel',
+        'Algieba',
+        'Despina',
+        'Erinome',
+        'Algenib',
+        'Rasalgethi',
+        'Laomedeia',
+        'Achernar',
+        'Alnilam',
+        'Schedar',
+        'Gacrux',
+        'Pulcherrima',
+        'Achird',
+        'Zubenelgenubi',
+        'Vindemiatrix',
+        'Sadachbia',
+        'Sadaltager',
+        'Sulafat',
+        'Zephyr',
+      ];
+    }
+    if (provider == 'volcengine') {
+      return const [
+        'BV001_streaming',
+        'BV002_streaming',
+        'BV700_streaming',
+        'BV701_streaming',
+      ];
+    }
     if (provider == 'alibaba_cloud') {
       return const ['Cherry', 'Serena', 'Ethan', 'Chelsie'];
     }

@@ -18,6 +18,12 @@ pub struct CloudTtsResponse {
     pub bytes: Vec<u8>,
 }
 pub trait CloudTtsTransport: Send + Sync {
+    fn catalog<'a>(
+        &'a self,
+        _request: &'a PreparedCloudCatalog,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async { Err(LegadoError::Network("此传输不支持音色目录".into())) })
+    }
     fn download_audio<'a>(
         &'a self,
         _url: &'a str,
@@ -62,6 +68,37 @@ impl CloudTtsHttpTransport {
     }
 }
 impl CloudTtsTransport for CloudTtsHttpTransport {
+    fn catalog<'a>(
+        &'a self,
+        request: &'a PreparedCloudCatalog,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async move {
+            let mut headers = std::collections::HashMap::from([(
+                request.credential_header.into(),
+                request.authorization.clone(),
+            )]);
+            headers.extend(
+                request
+                    .authentication_headers
+                    .iter()
+                    .map(|(k, v)| ((*k).into(), v.clone())),
+            );
+            let response = self
+                .client
+                .get_raw_with_timeout(
+                    &request.endpoint,
+                    Some(headers),
+                    Some(Duration::from_secs(120)),
+                )
+                .await
+                .map_err(|_| LegadoError::Network("云端音色目录请求失败".into()))?;
+            Ok(CloudTtsResponse {
+                status: response.status,
+                content_type: response.content_type().cloned().unwrap_or_default(),
+                bytes: response.body,
+            })
+        })
+    }
     fn download_audio<'a>(&'a self, url: &'a str) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
         Box::pin(async move {
             // 下载地址可含 OSS 签名，异常不回显地址；不带合成请求凭据。
@@ -87,7 +124,7 @@ impl CloudTtsTransport for CloudTtsHttpTransport {
                     request.credential_header.into(),
                     request.authorization.clone(),
                 ),
-                ("Content-Type".into(), "application/json".into()),
+                ("Content-Type".into(), request.body.content_type().into()),
             ]);
             headers.extend(
                 request
@@ -95,11 +132,17 @@ impl CloudTtsTransport for CloudTtsHttpTransport {
                     .iter()
                     .map(|(key, value)| ((*key).into(), value.clone())),
             );
+            headers.extend(
+                request
+                    .authentication_headers
+                    .iter()
+                    .map(|(k, v)| ((*k).into(), v.clone())),
+            );
             let response = self
                 .client
                 .post_raw_with_timeout(
                     &request.endpoint,
-                    &request.body.to_string(),
+                    &request.body.encode(),
                     Some(headers),
                     Some(Duration::from_secs(120)),
                 )
@@ -120,6 +163,60 @@ pub struct CloudTtsSynthesisResult {
     pub content_type: String,
     pub lease: AudioLease,
 }
+/// 目录发现不写音色表；取消覆盖等待与网络，请求结果由调用者持有。
+pub async fn discover_cloud_voices(
+    provider: &dyn CloudTtsProvider,
+    transport: &dyn CloudTtsTransport,
+    engine: &CloudTtsEngine,
+    cancellation: &TtsCancellation,
+) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
+    cancellation.check()?;
+    let mut token: Option<String> = None;
+    let mut tokens = std::collections::HashSet::new();
+    let mut ids = std::collections::HashSet::new();
+    let mut voices = Vec::new();
+    loop {
+        cancellation.check()?;
+        match provider.prepare_catalog_page(engine, token.as_deref())? {
+            CloudVoiceCatalog::Static(result) => return Ok(result),
+            CloudVoiceCatalog::Remote(request) => {
+                let response = cancellation
+                    .run(async {
+                        tokio::time::timeout(Duration::from_secs(120), transport.catalog(&request))
+                            .await
+                            .map_err(|_| {
+                                LegadoError::Timeout("云端音色目录请求超时 (120s)".into())
+                            })?
+                    })
+                    .await?;
+                cancellation.check()?;
+                if !(200..300).contains(&response.status) {
+                    return Err(LegadoError::Network(format!(
+                        "云端音色目录请求失败：HTTP {}",
+                        response.status
+                    )));
+                }
+                let mime = response
+                    .content_type
+                    .split(';')
+                    .next()
+                    .unwrap_or_default()
+                    .trim();
+                if !mime.eq_ignore_ascii_case("application/json") {
+                    return Err(LegadoError::Network("云端音色目录未返回 JSON".into()));
+                }
+                let page = provider.decode_catalog_page(&response.bytes)?;
+                voices.extend(page.voices.into_iter().filter(|v| ids.insert(v.id.clone())));
+                match page.next_token {
+                    None => return Ok(voices),
+                    Some(next) if tokens.insert(next.clone()) => token = Some(next),
+                    Some(_) => return Err(LegadoError::Network("云端音色目录重复分页令牌".into())),
+                }
+            }
+        }
+    }
+}
+
 fn cache_key(engine: &CloudTtsEngine, prepared: &PreparedCloudSpeech) -> LegadoResult<String> {
     use sha2::{Digest, Sha256};
     // 只包含实际合成输入；播放器倍速、音量及书章位置由调用者另行管理。
@@ -129,7 +226,11 @@ fn cache_key(engine: &CloudTtsEngine, prepared: &PreparedCloudSpeech) -> LegadoR
         engine.id.as_str(),
         prepared.endpoint.as_str(),
         prepared.body.clone(),
+        prepared.response_format.as_str(),
+        &prepared.additional_headers,
         engine.api_key.as_str(),
+        engine.secret_key.as_str(),
+        engine.region.as_str(),
     ))?;
     Ok(Sha256::digest(&input)
         .iter()
@@ -167,7 +268,13 @@ fn validate_response(
         .unwrap_or("")
         .trim()
         .to_lowercase();
-    if kind == CloudSpeechResponseKind::EventStream {
+    if kind == CloudSpeechResponseKind::JsonAudio {
+        if mime != "application/json" {
+            return Err(LegadoError::Network(
+                "云端 TTS 未返回要求的 JSON 音频封装".into(),
+            ));
+        }
+    } else if kind == CloudSpeechResponseKind::EventStream {
         if mime != "text/event-stream" {
             return Err(LegadoError::Network(
                 "云端 TTS 未返回要求的 SSE 音频流".into(),
@@ -244,6 +351,8 @@ pub async fn synthesize_cloud_tts_with_publish(
                 .to_owned();
         return result(path, true, content_type, &activity_cache);
     }
+    // 等待同键合成锁后刷新瞬时签名，避免等待期间认证过期。
+    let prepared = provider.prepare_for_send(engine, request)?;
     let response = cancellation
         .run(async {
             tokio::time::timeout(Duration::from_secs(120), transport.send(&prepared))

@@ -17,6 +17,7 @@ impl CloudTtsProvider for AlibabaCloudTtsProvider {
                 display_name: id.into(),
                 styles: Vec::new(),
                 sample_rate: Some(24000),
+                ..Default::default()
             })
             .collect()
     }
@@ -77,12 +78,13 @@ impl CloudTtsProvider for AlibabaCloudTtsProvider {
             ));
         }
         Ok(PreparedCloudSpeech {
+            authentication_headers: Vec::new(),
             endpoint: url.to_string(),
             credential_header: "Authorization",
             authorization: format!("Bearer {}", engine.api_key),
             additional_headers: vec![("X-DashScope-SSE", "enable".into())],
             response_kind: CloudSpeechResponseKind::EventStream,
-            body: json!({"model":engine.model,"input":input}),
+            body: CloudSpeechBody::Json(json!({"model":engine.model,"input":input})),
             response_format: "wav".into(),
         })
     }
@@ -207,6 +209,12 @@ fn decode_event(payload: &str, pcm: &mut Vec<u8>, audio_url: &mut String) -> Leg
 
 #[cfg(test)]
 mod tests {
+    fn json_body(p: &super::PreparedCloudSpeech) -> serde_json::Value {
+        let super::CloudSpeechBody::Json(value) = &p.body else {
+            panic!("预期 JSON 请求")
+        };
+        value.clone()
+    }
     use super::*;
     pub fn engine() -> CloudTtsEngine {
         CloudTtsEngine {
@@ -243,19 +251,19 @@ mod tests {
             vec![("X-DashScope-SSE", "enable".into())]
         );
         assert_eq!(
-            p.body,
+            json_body(&p),
             json!({"model":"qwen3-tts-flash","input":{"text":r.text,"voice":"Cherry","language_type":"Auto"}})
         );
         e.model = "qwen3-tts-instruct-flash".into();
         e.base_url = p.endpoint.clone();
         r.locale = "Chinese".into();
         let p = provider.prepare(&e, &r).unwrap();
-        assert_eq!(p.body["input"]["instructions"], "平静；用中文朗读");
-        assert_eq!(p.body["input"]["language_type"], "Chinese");
+        assert_eq!(json_body(&p)["input"]["instructions"], "平静；用中文朗读");
+        assert_eq!(json_body(&p)["input"]["language_type"], "Chinese");
         assert_eq!(provider.voices().len(), 4);
         r.speed = 2.5;
         assert!(
-            provider.prepare(&e, &r).unwrap().body["input"]
+            json_body(&provider.prepare(&e, &r).unwrap())["input"]
                 .get("speed")
                 .is_none()
         );

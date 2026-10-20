@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../audio/application/audio_notifier.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../domain/contracts/cloud_tts_provider.dart';
 import 'http_tts_repository_provider.dart';
 import 'read_aloud_voice_sheet.dart';
 import 'read_aloud_voice_preview.dart';
@@ -74,7 +75,14 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     notifier.pause();
     await notifier.restartCurrentTts();
     if (!mounted || _disposing) return;
-    await _preview.speak(voice, text, draft: draft);
+    await _preview.speak(
+      voice,
+      text,
+      draft: draft,
+      httpSelection: !draft && voice.engineType == 'http'
+          ? _selections[voice.engineId]
+          : null,
+    );
   }
 
   Future<void> addVoice() => _action(() async {
@@ -173,12 +181,35 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
   ]) async {
     await stopPreview();
     if (!mounted) return;
+    final engine = _cloudVoices
+        .where((e) => e.engine.id == source.id)
+        .firstOrNull
+        ?.engine;
+    final editorSource =
+        source.kind == 'cloud_tts' &&
+            engine != null &&
+            (cloudTtsProfile(engine.provider).remoteCatalog ||
+                cloudTtsProfile(engine.provider).staticVoiceDescriptors)
+        ? VoiceEditorSource(
+            kind: source.kind,
+            id: source.id,
+            name: source.name,
+            provider: source.provider,
+            voices: source.voices,
+            loadCatalog: (cancel) =>
+                ref.read(cloudTtsVoiceCatalogProvider).discover(engine, cancel),
+          )
+        : source;
     final result = await AppBottomSheet.showContent<ReadAloudVoice>(
       context: context,
       showDragHandle: true,
       builder: (_) => ReadAloudVoiceSheet(
-        source: source,
+        source: editorSource,
         voice: voice,
+        httpEmotionTag:
+            voice != null && _selections[voice.engineId]?.voiceId == voice.id
+            ? _selections[voice.engineId]?.emotionTag
+            : null,
         onPreview: (voice, text) => _previewVoice(voice, text, draft: true),
         onStop: stopPreview,
       ),
@@ -187,6 +218,15 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     if (result == null || !mounted) return;
     await ref.read(readAloudVoiceRepositoryProvider).save(result);
     if (!mounted) return;
+    final selectedHttp =
+        result.engineType == 'http' &&
+        _selections[result.engineId]?.voiceId == result.id;
+    if (selectedHttp) {
+      await ref
+          .read(audioNotifierProvider.notifier)
+          .setHttpTtsVoice(int.parse(result.engineId), result);
+      if (!mounted) return;
+    }
     await ref.read(readAloudVoicesProvider.notifier).reload();
     await _refresh();
     if (!mounted) return;
@@ -195,7 +235,8 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
         notifier.resolveTtsEngineUrl() == 'cloud://${result.engineId}' &&
         _cloudSelections[result.engineId] == result.id) {
       await notifier.restartCurrentTts();
-    } else if (result.engineType == 'http' &&
+    } else if (!selectedHttp &&
+        result.engineType == 'http' &&
         await notifier.resolveTtsEngineId() == int.tryParse(result.engineId)) {
       await notifier.restartCurrentTts();
     }
@@ -316,7 +357,9 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
       for (final engine in engines.where((e) => e.enabled)) {
         entries.add((
           engine: engine,
-          voices: await repository.voices(engine.provider),
+          voices: cloudTtsProfile(engine.provider).remoteCatalog
+              ? <String>[]
+              : await repository.voices(engine.provider),
         ));
         if (!mounted || generation != _refreshGeneration) return;
       }
@@ -447,7 +490,8 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
           ),
         );
         if (chosen == null) return;
-        emotion = chosen.isEmpty ? null : chosen;
+        // 空字符串保留用户明确选择默认情感，null 才表示跟随音色预设。
+        emotion = chosen;
       }
       await notifier.setHttpTtsVoice(
         int.parse(voice.engineId),
