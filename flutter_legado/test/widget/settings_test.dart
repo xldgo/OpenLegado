@@ -8,11 +8,9 @@ import 'package:flutter_legado/src/domain/models/local_server_status.dart';
 // 对齐 2026-08-13「我的」设置树（pref_main / pref_config_other）：
 // - SettingsScreen：字典规则、备份与恢复全页、无导出日志
 // - OtherSettingsScreen：语言/主界面/清理缓存；无创意「阅读/网络」分组
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -27,11 +25,16 @@ import 'package:flutter_legado/src/features/cache/presentation/download_cache_se
 import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 
+import 'package:flutter_legado/src/providers/web_keep_alive_provider.dart';
+
 import '../mocks/mocks.dart';
+
+class _WebKeepAlive extends Mock implements WebKeepAliveService {}
 
 void main() {
   late MockRustApi mockApi;
   late ProviderContainer container;
+  late _WebKeepAlive keepAlive;
 
   setUpAll(() {
     registerFallbacks();
@@ -40,12 +43,18 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    keepAlive = _WebKeepAlive();
+    when(() => keepAlive.start())
+        .thenAnswer((_) async => WebKeepAliveStatus.notApplicable);
+    when(() => keepAlive.stop())
+        .thenAnswer((_) async => WebKeepAliveStatus.idle);
     container = ProviderContainer(
-      overrides: mergeTestOverrides([...mockApi.overrides]),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        webKeepAliveServiceProvider.overrideWithValue(keepAlive),
+      ]),
     );
     addTearDown(container.dispose);
-    // 保活单例为进程单例：逐用例复位，防跨用例状态泄漏
-    WebKeepAliveService.instance.debugReset();
   });
 
   Widget wrap(Widget child, {Map<String, WidgetBuilder>? routes}) {
@@ -309,29 +318,10 @@ void main() {
       expect(startedPorts, [1122], reason: '越界端口（<1024）按默认 1122 兜底');
     });
 
-    // [2026-10-07 | iOS Web 服务后台保活批] 接线回归：服务 start/stop 成功
-    // 必须伴随保活 setEnabled(true/false)——静音音轨生命周期严格绑定 Web 服务
-    //（对齐原版 WakeLock 的「防睡眠」目的，见 WEB_SERVICE_KEEPALIVE_SURVEY_20261007.md）。
+    // 页面只验证保活能力接线；音轨、共享会话与平台失败由服务单元测试覆盖。
     testWidgets('Web 服务开关：start 成功接保活 true，stop 成功接保活 false', (tester) async {
-      WebKeepAliveService.platformIsIOS = () => true;
-      addTearDown(
-        () => WebKeepAliveService.platformIsIOS = () => Platform.isIOS,
-      );
-      final calls = <MethodCall>[];
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(WebKeepAliveService.channel, (
-        call,
-      ) async {
-        calls.add(call);
-        return true;
-      });
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(
-          WebKeepAliveService.channel,
-          null,
-        ),
-      );
+      when(() => keepAlive.start())
+          .thenAnswer((_) async => WebKeepAliveStatus.active);
 
       when(() => mockApi.configRepository.getConfig(any()))
           .thenAnswer((_) async => null);
@@ -365,36 +355,21 @@ void main() {
       tester.widget<Switch>(switchFinder).onChanged!(true);
       await tester.pumpAndSettle();
 
-      expect(calls, hasLength(1), reason: 'startServer 成功后应启动保活');
-      expect(calls.single.method, 'setEnabled');
-      expect((calls.single.arguments as Map)['enabled'], isTrue);
+      verify(() => keepAlive.start()).called(1);
+      expect(tester.widget<Switch>(switchFinder).value, isTrue);
 
       tester.widget<Switch>(switchFinder).onChanged!(false);
       await tester.pumpAndSettle();
 
-      expect(calls, hasLength(2), reason: 'stopServer 成功后应停止保活');
-      expect((calls.last.arguments as Map)['enabled'], isFalse);
+      verify(() => keepAlive.stop()).called(1);
+      expect(tester.widget<Switch>(switchFinder).value, isFalse);
     });
 
     // [2026-10-07 | 方案 A 兜底] 保活启动失败不得阻断 Web 服务：开关仍开启、
     // 副题提示「后台保活不可用，请保持 App 打开」。
     testWidgets('Web 服务开关：保活失败回退提示且不阻断服务开启', (tester) async {
-      WebKeepAliveService.platformIsIOS = () => true;
-      addTearDown(
-        () => WebKeepAliveService.platformIsIOS = () => Platform.isIOS,
-      );
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(
-        WebKeepAliveService.channel,
-        (call) async => false, // 平台侧启动失败（如会话激活失败）
-      );
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(
-          WebKeepAliveService.channel,
-          null,
-        ),
-      );
+      when(() => keepAlive.start())
+          .thenAnswer((_) async => WebKeepAliveStatus.failed);
 
       when(() => mockApi.configRepository.getConfig(any()))
           .thenAnswer((_) async => null);

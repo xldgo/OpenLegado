@@ -20,7 +20,7 @@ import '../../../app/routing/route_names.dart';
 import '../../../providers/general_settings_provider.dart';
 import '../../../utils/error_message.dart';
 import '../../../services/auto_task_scheduler.dart';
-import '../../../services/web_keep_alive_service.dart';
+import '../../../providers/web_keep_alive_provider.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/app_bottom_bar_inset.dart';
 import '../../../widgets/settings_widgets.dart';
@@ -67,13 +67,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    final keepAlive = ref.read(webKeepAliveServiceProvider);
     _services = AppServicesController(
       server: ref.read(localServerServiceProvider),
       settings: ref.read(serviceSettingsRepositoryProvider),
       general: ref.read(generalSettingsRepositoryProvider),
       access: ref.read(serverAccessRepositoryProvider),
-      startKeepAlive: WebKeepAliveService.instance.start,
-      stopKeepAlive: WebKeepAliveService.instance.stop,
+      startKeepAlive: keepAlive.start,
+      stopKeepAlive: keepAlive.stop,
       refreshAuto: AutoTaskScheduler.instance.refresh,
       cancelAuto: AutoTaskScheduler.instance.cancelAll,
       log: (message, error) => debugPrint('$message：$error'),

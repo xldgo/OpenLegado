@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### CI-REGRESSION-20261020：修复Rust与Flutter失败（P1，待CI复验）
+
+- 基线：dev / 161427c68，用户报告Rust CI 39436476108与Flutter CI 39436475696失败；质量/审计与代码生成已通过，不重跑无关构建。
+- 已确认：Rust目录文本清理漏检link/.路径；Flutter设置页测试仍使用已移除保活全局钩子；原生启动用例误将未授权本地解包判为RAR停用错误。
+- 范围：只修目录消费入口的路径规范化与原有链接回归；设置页通过Provider获取保活服务，测试注入独立实例；按现有授权边界更新原生错误断言。不恢复过期接口、不弱化路径安全、不改FFI或数据库。
+- Flutter结果：全量analyze无问题、架构检查通过；设置页/保活/控制器4份测试共31项通过，重建当前Windows宿主FFI后原生启动1项通过。页面测试只注入保活能力，不恢复旧debugReset/platformIsIOS，也不重复平台会话单元覆盖。
+- Rust结果：目录模块28项通过、原链接测试默认Windows忽略1项；确认本机有符号链接权限后显式运行该项通过。新增真实目录带/.仍可读取清理的正向用例，并避免子目录提前拒绝掩盖链接回归。格式及严格Clippy通过；默认功能/全工作区不重复运行。
+- Linux证据：已有WSL没有Rust工具链，未另装；Python标准库文件系统探针复现lstat(link/.)隐藏符号链接属性，规范化后恢复链接识别，日志build/ci-failure-20261020/linux-link-probe.log。Windows原用例修前也通过，不以Windows结果替代Ubuntu Rust整套复验。其余证据同目录flutter-{analysis,architecture,target-tests,native-bootstrap}.log、rust-{file-tests,link-fixed,clippy}.log、host-ffi-build.log。
+- 交付：双更新日志同步、应用版本保持2.0.416+417；单代理自查，仅本地提交，未推送或触发CI。此前iOS Build 39436475712已成功，Android Release 39436869090仍在执行。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### APKSIGNER-FORMAT-20261020：兼容签名证书输出格式（P1，待CI复验）
 
 - 来源：用户提供Build Tools 37的V2/V3.0 Signer前缀与旧Signer #N差异，当前脚本只接受旧前缀，未匹配错误被归为证书不符。

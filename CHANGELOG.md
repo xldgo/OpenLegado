@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.416] - 2026-10-20
 
+### Fixed
+- 修复脚本目录清理对带点号目录链接的识别，避免误清理链接目标。贡献者：Codex + Rust。
+
 ### Maintenance
 - 兼容新版Android Build Tools的签名证书输出，区分解析失败与指纹不符。贡献者：Codex + Tool。
 

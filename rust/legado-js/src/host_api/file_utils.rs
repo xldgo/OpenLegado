@@ -190,7 +190,9 @@ mod impl_file_utils {
         }
         let check_active = || crate::cancellation::check().map_err(|error| error.to_string());
         check_active()?;
-        let resolved = resolve_safe_path(folder_path)?;
+        // 先按组件去掉尾部/.和重复分隔符，再检查链接；Unix的link/.元数据会跟随链接。
+        // 不使用canonicalize替代该步骤，否则会提前丢失需要拒绝的目录别名。
+        let resolved: PathBuf = resolve_safe_path(folder_path)?.components().collect();
         let metadata = fs::symlink_metadata(&resolved).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
                 format!("Folder not found: {folder_path}")
@@ -757,6 +759,18 @@ mod tests {
         assert!(folder.0.join("locked.log").exists());
     }
 
+    #[test]
+    fn folder_text_dot_suffix_is_allowed_for_a_real_directory() {
+        let folder = FolderFixture::new();
+        fs::write(folder.0.join("keep.txt"), "正常目录正文").unwrap();
+        let dotted = folder.0.join(".");
+        assert_eq!(
+            get_txt_in_folder(dotted.to_str().unwrap()).unwrap(),
+            "正常目录正文"
+        );
+        assert!(!folder.0.exists());
+    }
+
     #[cfg(any(unix, windows))]
     #[test]
     #[cfg_attr(windows, ignore = "需要Windows符号链接权限，在具备权限的环境单独复验")]
@@ -781,10 +795,22 @@ mod tests {
         fs::write(target.0.join("keep"), "链接目标保留").unwrap();
         let link = folder.0.join("other_alias");
         symlink_dir(&target.0, &link).unwrap();
-        for path in [link.clone(), link.join(".")] {
-            assert!(get_txt_in_folder(path.to_str().unwrap()).is_err());
+        for path in [link.clone(), link.join("."), link.join(".").join(".")] {
+            assert!(
+                get_txt_in_folder(path.to_str().unwrap()).is_err(),
+                "目录别名不得被消费: {}",
+                path.display()
+            );
         }
         assert!(target.0.join("keep").exists());
+        // 单独建立子目录，避免它作为非普通文件提前拒绝、掩盖上面的link/.回归。
+        let nested = target.0.join("nested");
+        fs::create_dir(&nested).unwrap();
+        fs::write(nested.join("keep"), "子目录链接目标保留").unwrap();
+        for path in [link.join("nested"), link.join("nested").join(".")] {
+            assert!(get_txt_in_folder(path.to_str().unwrap()).is_err());
+        }
+        assert!(nested.join("keep").exists());
         fs::remove_file(outside).unwrap();
     }
 

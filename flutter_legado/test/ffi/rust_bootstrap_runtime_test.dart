@@ -47,20 +47,23 @@ void main() {
     expect(await initializeTestApplication(api: api), same(api));
     expect(await api.runtime.getVersion(), isNotEmpty);
     expect(await api.bookmarkRepository.getAllBookmarks(), isEmpty);
-    // 仅检查本批安全停用穿过正式FFI，不重复排版算法或渲染测试。
+    // 检查专用RAR入口停用及通用解包的授权边界，不读取未授权本地档案。
     final rar = File('${root.path}/fixture.rar')
       ..writeAsBytesSync([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00]);
-    for (final script in [
-      "java.unrarFile('unused.rar')",
-      "java.getRarStringContent('http://127.0.0.1:0/unused.rar', '../secret')",
-      'java.unArchiveFile(${jsonEncode(rar.absolute.path)})',
-      'java.unzipFile(${jsonEncode(rar.absolute.path)})',
+    for (final (script, expectedError) in [
+      ("java.unrarFile('unused.rar')", 'JS RAR 功能暂不支持'),
+      (
+        "java.getRarStringContent('http://127.0.0.1:0/unused.rar', '../secret')",
+        'JS RAR 功能暂不支持',
+      ),
+      ('java.unArchiveFile(${jsonEncode(rar.absolute.path)})', '档案解压需要文件访问授权'),
+      ('java.unzipFile(${jsonEncode(rar.absolute.path)})', '档案解压需要文件访问授权'),
     ]) {
       await expectLater(
         api.ruleExecutionService.evalJs(script),
         throwsA(
           predicate<Object>(
-            (error) => error.toString().contains('JS RAR 功能暂不支持'),
+            (error) => error.toString().contains(expectedError),
           ),
         ),
       );

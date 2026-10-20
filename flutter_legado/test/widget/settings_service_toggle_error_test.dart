@@ -20,7 +20,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
-import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../mocks/mocks.dart';
@@ -38,7 +37,6 @@ void main() {
       overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
-    WebKeepAliveService.instance.debugReset();
   });
 
   Widget wrap() {
