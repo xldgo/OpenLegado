@@ -10,6 +10,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../widgets/legado_app_bar.dart';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -410,11 +412,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () =>
                           GoRouter.of(context).pushAppRoute(AppRoutes.about),
                     ),
-                    SettingTile(
-                      icon: Symbols.logout_rounded,
-                      title: context.l10n.exitApp,
-                      onTap: _confirmExit,
-                    ),
+                    if (defaultTargetPlatform != TargetPlatform.iOS)
+                      SettingTile(
+                        icon: Symbols.logout_rounded,
+                        title: context.l10n.exitApp,
+                        onTap: _confirmExit,
+                      ),
                   ],
                 ),
               ],

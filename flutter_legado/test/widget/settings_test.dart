@@ -128,17 +128,30 @@ void main() {
       expect(find.text('词典规则'), findsNothing);
     });
 
-    testWidgets('滚动可见其他分组（书签/阅读记录/关于）', (tester) async {
-      await tester.pumpWidget(wrap(const SettingsScreen()));
-      await tester.pumpAndSettle();
+    testWidgets(
+      '其他分组入口可见，退出仅在非iOS显示',
+      (tester) async {
+        await tester.pumpWidget(wrap(const SettingsScreen()));
+        await tester.pumpAndSettle();
 
-      await dragTo(tester, '关于');
-      await tester.pumpAndSettle();
+        await dragTo(tester, '关于');
+        await tester.pumpAndSettle();
 
-      expect(find.text('书签'), findsOneWidget);
-      expect(find.text('阅读记录'), findsOneWidget);
-      expect(find.text('关于'), findsOneWidget);
-    });
+        expect(find.text('书签'), findsOneWidget);
+        expect(find.text('阅读记录'), findsOneWidget);
+        expect(find.text('关于'), findsOneWidget);
+        expect(
+          find.text('退出'),
+          defaultTargetPlatform == TargetPlatform.iOS
+              ? findsNothing
+              : findsOneWidget,
+        );
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
 
     // [2026-10-06 登记待修 → 本批已修复] iOS 实机开启 Web 服务不可用：
     // 根因见 docs/IOS_WEB_SERVICE_ROOT_CAUSE_SURVEY_20261006.md（缺陷 A/B/C
