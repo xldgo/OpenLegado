@@ -37,7 +37,7 @@ class ReadingRankingCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            padding: EdgeInsets.fromLTRB(16, 16, trailing == null ? 16 : 4, 12),
             child: Row(
               children: [
                 Icon(Symbols.leaderboard_rounded, size: 20, color: cs.primary),

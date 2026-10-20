@@ -109,7 +109,12 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          widget.trailing == null ? 16 : 4,
+          16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -131,16 +136,25 @@ class _ReadingHeatmapCardState extends State<ReadingHeatmapCard> {
                 if (widget.trailing != null) widget.trailing!,
               ],
             ),
-            const SizedBox(height: 12),
-            Md3HeatmapCalendar(
-              dailySeconds: widget.dailySeconds,
-              dailyCounts: widget.dailyCounts,
-              mode: activeMode,
-              endDate: effectiveEndDate,
-              weeks: widget.weeks,
-              footerLeading: _ModeSwitchButton(
-                currentMode: activeMode,
-                onModeChanged: _onModeChanged,
+            Padding(
+              padding: EdgeInsets.only(right: widget.trailing == null ? 0 : 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Md3HeatmapCalendar(
+                    dailySeconds: widget.dailySeconds,
+                    dailyCounts: widget.dailyCounts,
+                    mode: activeMode,
+                    endDate: effectiveEndDate,
+                    weeks: widget.weeks,
+                    footerLeading: _ModeSwitchButton(
+                      currentMode: activeMode,
+                      onModeChanged: _onModeChanged,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

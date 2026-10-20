@@ -45,7 +45,7 @@ class ReadingCalendarCard extends StatelessWidget {
       color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, trailing == null ? 16 : 4, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -64,65 +64,77 @@ class ReadingCalendarCard extends StatelessWidget {
                 ?trailing,
               ],
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: weekDays.map((day) {
-                return Expanded(
-                  child: Text(
-                    day,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-            for (int i = 0; i < totalCells; i += 7) ...[
-              Row(
+            Padding(
+              padding: EdgeInsets.only(right: trailing == null ? 0 : 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (int j = 0; j < 7; j++) ...[
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: AspectRatio(
-                          aspectRatio: 0.75,
-                          child: Builder(
-                            builder: (context) {
-                              final cellIndex = i + j;
-                              final dayOfMonth = cellIndex - firstDayOfWeek + 1;
-                              if (dayOfMonth < 1 || dayOfMonth > daysInMonth) {
-                                return const SizedBox.shrink();
-                              }
-
-                              final date = DateTime(
-                                currentYear,
-                                currentMonth,
-                                dayOfMonth,
-                              );
-                              final dateKey =
-                                  '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                              final topBook = dailyTopBook[dateKey];
-
-                              return _CalendarDayCell(
-                                date: date,
-                                topBook: topBook,
-                                onTap: topBook != null && onDateTap != null
-                                    ? () => onDateTap!(date)
-                                    : null,
-                              );
-                            },
+                  const SizedBox(height: 16),
+                  Row(
+                    children: weekDays.map((day) {
+                      return Expanded(
+                        child: Text(
+                          day,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  for (int i = 0; i < totalCells; i += 7) ...[
+                    Row(
+                      children: [
+                        for (int j = 0; j < 7; j++) ...[
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: AspectRatio(
+                                aspectRatio: 0.75,
+                                child: Builder(
+                                  builder: (context) {
+                                    final cellIndex = i + j;
+                                    final dayOfMonth =
+                                        cellIndex - firstDayOfWeek + 1;
+                                    if (dayOfMonth < 1 ||
+                                        dayOfMonth > daysInMonth) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    final date = DateTime(
+                                      currentYear,
+                                      currentMonth,
+                                      dayOfMonth,
+                                    );
+                                    final dateKey =
+                                        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                    final topBook = dailyTopBook[dateKey];
+
+                                    return _CalendarDayCell(
+                                      date: date,
+                                      topBook: topBook,
+                                      onTap:
+                                          topBook != null && onDateTap != null
+                                          ? () => onDateTap!(date)
+                                          : null,
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
+                    if (i + 7 < totalCells) const SizedBox(height: 4),
                   ],
                 ],
               ),
-              if (i + 7 < totalCells) const SizedBox(height: 4),
-            ],
+            ),
           ],
         ),
       ),
