@@ -797,6 +797,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChapterDto? dco_decode_opt_box_autoadd_chapter_dto(dynamic raw);
 
   @protected
+  CloudTtsMetadataDto? dco_decode_opt_box_autoadd_cloud_tts_metadata_dto(
+    dynamic raw,
+  );
+
+  @protected
   CloudVoiceOptionsDto? dco_decode_opt_box_autoadd_cloud_voice_options_dto(
     dynamic raw,
   );
@@ -2049,6 +2054,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChapterDto? sse_decode_opt_box_autoadd_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsMetadataDto? sse_decode_opt_box_autoadd_cloud_tts_metadata_dto(
     SseDeserializer deserializer,
   );
 
@@ -3644,6 +3654,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_chapter_dto(
     ChapterDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_cloud_tts_metadata_dto(
+    CloudTtsMetadataDto? self,
     SseSerializer serializer,
   );
 

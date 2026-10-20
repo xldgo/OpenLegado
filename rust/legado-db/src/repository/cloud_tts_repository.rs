@@ -156,45 +156,44 @@ fn now() -> i64 {
         .unwrap_or_default()
         .as_millis() as i64
 }
+fn metadata_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CloudTtsMetadata> {
+    let provider: String = r.get(2)?;
+    let provider = serde_json::from_value(serde_json::json!(provider)).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e))
+    })?;
+    Ok(CloudTtsMetadata {
+        id: r.get(0)?,
+        name: r.get(1)?,
+        provider,
+        base_url: r.get(3)?,
+        model: r.get(4)?,
+        options_json: r.get(5)?,
+        region: r.get(6)?,
+        app_id: r.get(7)?,
+        enabled: r.get(8)?,
+        created_at: r.get(9)?,
+        updated_at: r.get(10)?,
+        credential_key: r.get(11)?,
+    })
+}
 impl<'a> CloudTtsRepository<'a> {
     pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
     }
     pub fn list(&self) -> LegadoResult<Vec<CloudTtsMetadata>> {
         let mut statement=self.conn.prepare("SELECT id,name,provider,baseUrl,model,optionsJson,region,appId,enabled,createdAt,updatedAt,credentialKey FROM cloud_tts_engines ORDER BY createdAt,id").map_err(db)?;
-        let rows = statement
-            .query_map([], |r| {
-                let provider: String = r.get(2)?;
-                let provider =
-                    serde_json::from_value(serde_json::json!(provider)).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            2,
-                            rusqlite::types::Type::Text,
-                            Box::new(e),
-                        )
-                    })?;
-                Ok(CloudTtsMetadata {
-                    id: r.get(0)?,
-                    name: r.get(1)?,
-                    provider,
-                    base_url: r.get(3)?,
-                    model: r.get(4)?,
-                    options_json: r.get(5)?,
-                    region: r.get(6)?,
-                    app_id: r.get(7)?,
-                    enabled: r.get(8)?,
-                    created_at: r.get(9)?,
-                    updated_at: r.get(10)?,
-                    credential_key: r.get(11)?,
-                })
-            })
-            .map_err(db)?;
+        let rows = statement.query_map([], metadata_row).map_err(db)?;
         rows.collect::<Result<Vec<_>, _>>().map_err(db)
     }
+    /// 缺项与读取错误分开；单项查询不解码无关配置。
+    pub fn find(&self, id: &str) -> LegadoResult<Option<CloudTtsMetadata>> {
+        self.conn.query_row(
+            "SELECT id,name,provider,baseUrl,model,optionsJson,region,appId,enabled,createdAt,updatedAt,credentialKey FROM cloud_tts_engines WHERE id=?1",
+            [id], metadata_row,
+        ).optional().map_err(db)
+    }
     pub fn get(&self, id: &str) -> LegadoResult<CloudTtsMetadata> {
-        self.list()?
-            .into_iter()
-            .find(|e| e.id == id)
+        self.find(id)?
             .ok_or_else(|| LegadoError::Ffi("云端朗读引擎不存在".into()))
     }
     pub fn save(&self, engine: &CloudTtsMetadata) -> LegadoResult<()> {
@@ -239,6 +238,41 @@ impl<'a> CloudTtsRepository<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lookup_decodes_only_the_target_but_list_and_bad_target_still_fail() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let repo = CloudTtsRepository::new(&conn);
+        let good = metadata();
+        repo.save(&good).unwrap();
+        let mut bad = good.clone();
+        bad.id = "unrelated".into();
+        repo.save(&bad).unwrap();
+        conn.execute(
+            "UPDATE cloud_tts_engines SET provider='invalid-provider' WHERE id=?1",
+            [&bad.id],
+        )
+        .unwrap();
+        let current = repo.find(&good.id).unwrap().unwrap();
+        let mut expected = good.clone();
+        expected.created_at = current.created_at;
+        expected.updated_at = current.updated_at;
+        assert!(current.created_at > 0);
+        assert_eq!(
+            serde_json::to_value(&current).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        assert_eq!(current.name, good.name);
+        assert_eq!(current.credential_key, good.credential_key);
+        assert!(repo.find("missing").unwrap().is_none());
+        assert!(repo.find("' OR 1=1 --").unwrap().is_none());
+        assert!(repo.get("missing").is_err());
+        assert!(repo.find(&bad.id).is_err());
+        assert!(repo.list().is_err());
+        conn.execute("DROP TABLE cloud_tts_engines", []).unwrap();
+        assert!(repo.find(&good.id).is_err());
+    }
     #[test]
     fn polly_metadata_validates_and_credentials_decode_only_at_call_boundary() {
         let mut meta = metadata();

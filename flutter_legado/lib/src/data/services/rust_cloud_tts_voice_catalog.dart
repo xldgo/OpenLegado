@@ -17,9 +17,7 @@ final class RustCloudTtsVoiceCatalog implements CloudTtsVoiceCatalog {
     HttpTtsCancellation cancellation,
   ) async {
     if (cancellation.isCancelled) throw StateError('音色发现已取消');
-    final current = (await repository.list())
-        .where((e) => e.id == engine.id)
-        .firstOrNull;
+    final current = await repository.get(engine.id);
     if (current == null ||
         !current.enabled ||
         current.provider != engine.provider) {

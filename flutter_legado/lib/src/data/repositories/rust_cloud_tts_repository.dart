@@ -6,6 +6,15 @@ import '../bridge/media_dto_mapping.dart';
 final class RustCloudTtsRepository implements CloudTtsRepository {
   const RustCloudTtsRepository();
   @override
+  Future<CloudTtsEngine?> get(String id) async {
+    final value = await rustFuture(
+      () => bridge.cloudTtsGet(id: id),
+      operation: 'cloudTtsGet',
+    );
+    return value == null ? null : cloudEngineFromDto(value);
+  }
+
+  @override
   Future<List<CloudTtsEngine>> list() async => (await rustFuture(
     () => bridge.cloudTtsList(),
     operation: 'cloudTtsList',

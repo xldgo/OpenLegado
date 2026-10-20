@@ -6,6 +6,8 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   final void Function(String)? onDelete;
   final _engines = <String, CloudTtsEngine>{};
   @override
+  Future<CloudTtsEngine?> get(String id) async => _engines[id];
+  @override
   Future<List<CloudTtsEngine>> list() async =>
       List.unmodifiable(_engines.values);
   @override

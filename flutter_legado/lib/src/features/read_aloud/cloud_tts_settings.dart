@@ -26,9 +26,7 @@ final class CloudTtsSettings {
     String? apiKey,
     String? secretKey,
   }) => _serial(() async {
-    final existing = (await repository.list())
-        .where((e) => e.id == engine.id)
-        .firstOrNull;
+    final existing = await repository.get(engine.id);
     final previous = existing?.credentialKey;
     String? created;
     String? payload = apiKey;
@@ -92,9 +90,7 @@ final class CloudTtsSettings {
     }
   });
   Future<void> delete(CloudTtsEngine engine) => _serial(() async {
-    final current = (await repository.list())
-        .where((e) => e.id == engine.id)
-        .firstOrNull;
+    final current = await repository.get(engine.id);
     if (current == null) throw StateError('云端引擎不存在');
     await repository.delete(engine.id);
     try {

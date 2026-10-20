@@ -364,9 +364,7 @@ class ReadAloudController {
       CloudTtsEngine? cloud;
       String? cloudVersion;
       if (isCloudTts(engineUrl)) {
-        cloud = (await _cloudTts.list())
-            .where((e) => e.id == cloudTtsId(engineUrl))
-            .firstOrNull;
+        cloud = await _cloudTts.get(cloudTtsId(engineUrl));
         if (isStale(token, gen)) return;
         if (cloud == null || !cloud.enabled) throw StateError('云端引擎不存在或已停用');
         final voices = await _voices.list();
@@ -739,11 +737,8 @@ class ReadAloudController {
     if (isCloudTts(_host.resolveEngineUrl()) &&
         _state.isPlaying &&
         !_state.isStreamMode) {
-      final clouds = await _cloudTts.list();
+      final cloud = await _cloudTts.get(cloudTtsId(_host.resolveEngineUrl()));
       if (isStale(token, gen)) return;
-      final cloud = clouds
-          .where((e) => e.id == cloudTtsId(_host.resolveEngineUrl()))
-          .firstOrNull;
       final request = _cloudEngine.currentRequest;
       if (cloud != null && request != null && _ttsCache.supportsAudioFiles) {
         _synthesisQueue.cancelBackground();

@@ -1,5 +1,21 @@
 # API 契约文档
 
+## 云 TTS 按 ID 查询（TTS-LOOKUP-20261020，实施前冻结）
+
+新增 cloudTtsGet(id: String) -> CloudTtsMetadataDto?，Flutter CloudTtsRepository.get(id)
+返回 CloudTtsEngine?；缺项为 null，查询/解码错误抛出，不把错误解释为缺项。
+复用既有 DTO，不返回平台凭据，不修改 schema 或保存/删除语义。
+Rust 仓库新增 find(id) 可选查询，既有 get(id) 保持缺项报错；两者最终均执行
+参数化 WHERE id=?1，不调用全量 list；list 保持完整列举与任一坏行失败语义。
+单项查询不解析其他记录，目标记录坏行仍失败；不新增历史迁移或数据修复。
+Flutter 合成、音色发现、播放参数解析及已知 ID 的配置操作改用单项查询，
+列表管理继续使用 list。每次请求仍读当前启用态及设备凭据；Rust 再核对凭据引用、
+音色归属与可用性，不新增会话/全局凭据缓存，不改预下载、原生队列或流式播放。
+真实 FFI 定向计数区分 list/get、安全存储接口读取、HTTP 次数；
+不以调用计数或内存凭据替身推断设备 IPC 耗时、功耗或首段延迟改善。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ## 火山 V3／豆包 2.0（TTS-VOLCENGINE-V3-20261020，实施前冻结）
 
 本批新增 provider=`volcengine_v3`，保留独立 V1 `volcengine`，不自动迁移或回退。
@@ -2613,6 +2629,8 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `ttsSetCacheDir({required String path})` | path: 缓存目录绝对路径 | `Future<bool>` | 设置 TTS 音频缓存目录（全局生效） |
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
+
+按 ID 元数据入口 cloudTtsGet 的可空 DTO 与错误语义见顶部 TTS-LOOKUP-20261020。
 
 Gemini 3.8 与火山 V1/V3 增量见本文顶部 TTS-GEMINI-20261020、TTS-VOLCENGINE-20261020、TTS-VOLCENGINE-V3-20261020；方法签名和元数据表不变。
 

@@ -9,6 +9,8 @@ import 'package:flutter_legado/src/features/read_aloud/cloud_tts_settings.dart';
 class _Repository implements CloudTtsRepository {
   final inner = MockCloudTtsRepository();
   @override
+  Future<CloudTtsEngine?> get(String id) => inner.get(id);
+  @override
   Future<List<CloudTtsEngine>> list() => inner.list();
   @override
   Future<List<String>> voices(String provider) => inner.voices(provider);

@@ -1738,6 +1738,10 @@ Future<TtsSpeakDto> ttsSpeak({
 Future<List<CloudTtsMetadataDto>> cloudTtsList() =>
     RustLib.instance.api.crateFfiFfiCloudTtsList();
 
+/// 单项元数据；缺项为空，查询错误仍返回错误，不含平台凭据。
+Future<CloudTtsMetadataDto?> cloudTtsGet({required String id}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsGet(id: id);
+
 Future<void> cloudTtsSave({required CloudTtsMetadataDto engine}) =>
     RustLib.instance.api.crateFfiFfiCloudTtsSave(engine: engine);
 

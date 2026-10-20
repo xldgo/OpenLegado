@@ -34,6 +34,9 @@ class _Synth implements CloudTtsSynthesizer {
 
 class _DelayedRepository implements CloudTtsRepository {
   @override
+  Future<CloudTtsEngine?> get(String id) async =>
+      (await pending.future).where((e) => e.id == id).firstOrNull;
+  @override
   Future<void> save(CloudTtsEngine engine) async {}
   @override
   Future<void> delete(String id) async {}

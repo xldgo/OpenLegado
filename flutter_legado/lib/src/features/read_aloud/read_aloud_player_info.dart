@@ -62,9 +62,7 @@ final readAloudPlayerInfoProvider = FutureProvider.autoDispose((ref) async {
     final id = cloudTtsId(selection);
     final repository = ref.read(cloudTtsRepositoryProvider);
     final voices = await catalog;
-    final engine = (await repository.list())
-        .where((e) => e.id == id)
-        .firstOrNull;
+    final engine = await repository.get(id);
     if (engine == null) throw StateError('当前云端引擎已不存在');
     final selectedVoice = await selectionsRepository.getCloudVoice(id);
     final voice = voices

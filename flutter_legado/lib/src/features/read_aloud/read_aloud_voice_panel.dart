@@ -377,9 +377,9 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
   }
 
   Future<void> _chooseCloudVoice(ReadAloudVoice voice) async {
-    final current = (await ref.read(cloudTtsRepositoryProvider).list())
-        .where((e) => e.id == voice.engineId)
-        .firstOrNull;
+    final current = await ref
+        .read(cloudTtsRepositoryProvider)
+        .get(voice.engineId);
     if (current == null || !current.enabled) throw StateError('云端引擎不存在或已停用');
     await ref
         .read(audioNotifierProvider.notifier)

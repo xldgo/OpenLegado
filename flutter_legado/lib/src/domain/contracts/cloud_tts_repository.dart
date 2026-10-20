@@ -85,6 +85,9 @@ String cloudTtsId(String selection) {
 
 abstract interface class CloudTtsRepository {
   Future<List<CloudTtsEngine>> list();
+
+  /// 缺项返回 null；查询或解码错误继续抛出。— Codex + Bridge
+  Future<CloudTtsEngine?> get(String id);
   Future<void> save(CloudTtsEngine engine);
   Future<void> delete(String id);
   Future<List<String>> voices(String provider);

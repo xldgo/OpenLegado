@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-LOOKUP-20261020：云朗读单项查询与重复读取测量（P2，本地完成）
+
+- 授权/基线：用户同意优先贯通按 ID 查询、测量重复读取；feature/ui-tts-engine / 0ee96b364，开始工作树干净，单代理。
+- 范围：Rust 参数化单项查询、可空 FFI 入口、Dart 仓库与明确单项消费者、真实 FFI 计数和安全边界回归；不改预下载/队列/流式播放，不缓存凭据或去掉 Rust 校验。
+- 修改前证据：本机真实 FFI + HTTP 三次相同文本（两次缓存命中），Flutter list=3、凭据接口 read=3、HTTP=1；进程内凭据替身计数不代表平台安全存储耗时。Rust get 内部全量 list 已按调用链确认。
+- 验收：缺项/坏行/无关坏记录、全字段返回，单项消费者不再列举，缓存命中仍验证停用/凭据变化，相关播放/配置回归；本地提交，不推送或设备/远程 CI。
+- 实现：Rust find/get 共用全字段映射并执行参数化 WHERE id=?1；cloudTtsGet 返回可空 DTO，Dart 仓库和合成、音色发现、播放参数及单项配置消费者贯通。管理页的真实列表操作保留 list，既有缺项与读取错误语义不混淆；版本 2.0.415+416，没有 schema 或依赖变更。
+- 对照结果：相同本机真实 FFI/HTTP 路径，三次合成（两次缓存命中）从 list=3 改为 list=0/get=3，凭据 read=3、HTTP=1 均不变。只缩小查询与解码范围，没有减少元数据 FFI 调用次数或平台凭据读取，不声称已测得 IPC、功耗或首段等待改善。
+- 验证：Rust DB 11 项与 Engine 4 项、普通 Flutter 77 项、真实 FFI 8 项通过，重复执行不累计。新增查询测试覆盖无关坏行隔离、目标坏行/数据库错误、缺项和参数化 ID；真实缓存测试验证 Flutter 查询后停用/替换凭据引用仍由 Rust 拒绝，同步复验 V3/V1、Gemini、Polly、Azure、百炼及原云入口。
+- 检查：14 份手写 Dart 定向分析、架构检查、DB 严格 Clippy、FRB 生成及隔离 --check 通过；生成文件由固定生成器更新。执行 cargo test --locked --offline -p legado-db cloud_tts、cargo test --locked --offline -p legado-engine --lib tts_service::cloud::tests、cargo build --locked --offline -p legado-ffi --features quickjs；Flutter 显式装载本 worktree 新 DLL，使用本机 HTTP，不请求供应商账号。
+- 边界：单代理实现与自查，无独立审查；仅本地提交，不推送/合并/应用构建安装/远程 CI。真实账号、安全存储 IPC、设备后台/蓝牙听感及性能未测，保留现有安全检查、预下载配置和播放行为。提交号见本条 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ### TTS-VOLCENGINE-V3-20261020：豆包 2.0 独立引擎（P1，待复验：真实账号/设备）
 
 - 授权/基线：用户要求继续 V3；询问后确认官方仍保留 V1 文档，尚未授权删除，按原计划保留两套独立入口；feature/ui-tts-engine / b6f2433bb，工作树干净，单代理。

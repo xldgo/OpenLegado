@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.415] - 2026-10-20
+
+### Changed
+- 云朗读按 ID 读取引擎配置，减少合成与缓存命中时不必要的全量列表读取。
+- 保留每次请求的停用、凭据与音色校验。贡献者：Codex；构建号416。
+
 ## [2.0.414] - 2026-10-20
 
 ### Added

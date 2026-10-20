@@ -145,13 +145,12 @@ final class CloudReadAloudEngine
     int? maxUtf8Bytes;
     final resolveRepository = repository;
     if (resolveRepository != null) {
-      final engines = await resolveRepository().list();
+      final engine = await resolveRepository().get(
+        cloudTtsId(request.engineUrl),
+      );
       if (!identical(_parent, session) || !session.isCurrent) {
         return ReadAloudStart.cancelled;
       }
-      final engine = engines
-          .where((e) => e.id == cloudTtsId(request.engineUrl))
-          .firstOrNull;
       if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
       final profile = cloudTtsProfile(engine.provider);
       limit = profile.textLimit;
