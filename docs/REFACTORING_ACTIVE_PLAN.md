@@ -1,5 +1,12 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-PRACTICES-B7-20261020：refactor(rust): 用安全借用管理MOBI递归字典缓存
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：以RefCell管理MOBI递归字典缓存，递归前释放借用、完成后更新缓存，移除原始指针解引用；Book库175项通过，覆盖嵌套缓存复用与循环字典受控报错。；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
 ### RUST-PRACTICES-B6-20261020：fix(rust): 显式拒绝不支持的JS同步运行环境
 
 - 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
