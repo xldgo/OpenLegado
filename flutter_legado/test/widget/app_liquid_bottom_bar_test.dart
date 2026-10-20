@@ -30,6 +30,7 @@ void main() {
     ValueChanged<int>? onSelect,
     bool showLabels = true,
     double textScale = 1,
+    double bottomInset = 0,
     Size window = const Size(390, 844),
   }) async {
     tester.view.physicalSize = window;
@@ -40,6 +41,8 @@ void main() {
         theme: ThemeData(brightness: brightness),
         home: MediaQuery(
           data: MediaQueryData(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            viewPadding: EdgeInsets.only(bottom: bottomInset),
             disableAnimations: reduced,
             textScaler: TextScaler.linear(textScale),
           ),
@@ -89,6 +92,19 @@ void main() {
       rect.left + rect.width * (physicalIndex + 0.5) / count,
       rect.center.dy,
     );
+  }
+
+  for (final inset in [0.0, 24.0, 34.0]) {
+    testWidgets('玻璃胶囊底部安全区不叠加悬浮留白：$inset', (tester) async {
+      await show(tester, bottomInset: inset);
+      final bar = tester.getRect(find.byType(GlassTabBar));
+      expect(844 - bar.bottom, inset < 12 ? 12 : inset);
+      final icon = find.byIcon(Icons.home_rounded).first;
+      final label = find.text('首页').first;
+      expect(tester.getSize(icon), const Size(28, 28));
+      expect(tester.getRect(label).top, tester.getRect(icon).bottom);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final flags in [(true, true), (false, true), (true, false)]) {

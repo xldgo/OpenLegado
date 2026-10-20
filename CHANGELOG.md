@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.413] - 2026-10-20
 
 ### Fixed
+- 调整液态玻璃胶囊导航的图文比例，减少图文间距及底部额外留白。贡献者：Codex + UI。
 - 修复部分书源同步网络调用在不支持的运行环境中导致崩溃的问题，改为明确报错。
 - 贡献者：Codex + Rust；构建号414。
 

@@ -38,6 +38,7 @@ class SkinNavIcon extends StatelessWidget {
   final String slot;
   final bool selected;
   final Widget fallback;
+  final double size;
 
   const SkinNavIcon({
     super.key,
@@ -45,6 +46,7 @@ class SkinNavIcon extends StatelessWidget {
     required this.slot,
     required this.selected,
     required this.fallback,
+    this.size = 24,
   });
 
   @override
@@ -60,8 +62,8 @@ class SkinNavIcon extends StatelessWidget {
         final child = Image.file(
           // ignore: avoid_slow_placeholder_io
           File(path),
-          width: 24,
-          height: 24,
+          width: size,
+          height: size,
           errorBuilder: (_, _, _) => fallback,
         );
         return child;
@@ -144,15 +146,16 @@ class AppFloatingBottomBar extends StatelessWidget {
     this.showLabels = true,
   });
 
-  Widget _icon(int index, {required bool selected}) {
+  Widget _icon(int index, {required bool selected, double size = 24}) {
     final spec = specs[index];
-    final fallback = Icon(spec.symbol, size: 24, fill: selected ? 1 : 0);
+    final fallback = Icon(spec.symbol, size: size, fill: selected ? 1 : 0);
     if (activeSkin.isEmpty || spec.skinSlot == null) return fallback;
     return SkinNavIcon(
       skin: activeSkin,
       slot: spec.skinSlot!,
       selected: selected,
       fallback: fallback,
+      size: size,
     );
   }
 
@@ -185,8 +188,8 @@ class AppFloatingBottomBar extends StatelessWidget {
         tabs: [
           for (var i = 0; i < specs.length; i++)
             GlassTab(
-              icon: _icon(i, selected: false),
-              activeIcon: _icon(i, selected: true),
+              icon: _icon(i, selected: false, size: 28),
+              activeIcon: _icon(i, selected: true, size: 28),
               label: showLabels ? specs[i].label : null,
               semanticLabel: specs[i].label,
             ),
@@ -201,6 +204,8 @@ class AppFloatingBottomBar extends StatelessWidget {
         textStyle: labelStyle,
         selectedLabelStyle: TextStyle(fontWeight: selectedWeight),
         unselectedLabelStyle: TextStyle(fontWeight: unselectedWeight),
+        iconSize: 28,
+        iconLabelSpacing: 0,
         horizontalPadding: 0,
         verticalPadding: 0,
         barHeight: barHeight,
@@ -250,11 +255,12 @@ class AppFloatingBottomBar extends StatelessWidget {
         ),
       );
     }
-    // 留白、安全区只计算一次，不把整个底栏槽当作可见玻璃面。
+    // 玻璃胶囊以安全区和最小留白取较大值，避免额外抬高；普通胶囊保持原间距。
     return SafeArea(
       top: false,
+      minimum: EdgeInsets.only(bottom: useGlass ? 12 : 0),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, useGlass ? 0 : 12),
         child: capsule,
       ),
     );

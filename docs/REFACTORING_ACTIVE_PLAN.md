@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### GLASS-BOTTOM-LAYOUT-20261020：玻璃胶囊图文与底部间距（P2，本地完成，已安装MuMu）
+
+- 授权：用户要求修改后编译安装MuMu；沿用feature/ui-reader-selection / e53a96fa2，单代理，不提升版本、不推送。普通胶囊、标准底栏及侧栏布局保持原样。
+- 范围：玻璃胶囊图标从24改28、图文间距从库默认4改为显式0，保留labelSmall默认11sp和界面字体；皮肤图片同步28，其他入口默认24。底部间距由安全区加12改为取安全区与12的较大值，正文仍消费实际测得的底栏占用。
+- 验收：相关玻璃/普通胶囊交互回归，新增0/24/34安全区下的实际几何与图文盒间距检查，目标静态分析；经正式Python入口构建Debug APK并校验原生库，再安装MuMu冒烟。iOS真机位置与GPU观感仍待设备验收，不能以Android模拟器宣称与系统Tab Bar完全一致。
+- 构建前核查：现有Android原生库contentHash与当前生成契约不一致，按正常入口重编arm64-v8a与x86_64，未绕过门禁或伪造元数据。
+- 结果：两份胶囊回归共20项通过，目标静态分析及diff检查通过。正式Python入口完成双ABI Debug构建与APK内原生库校验，版本保持2.0.413+414；证据flutter_legado/build/glass-bottom-layout-{tests,analysis}.log及build/glass-bottom-build.log。
+- 设备：adb实时探测MuMu为127.0.0.1:16384，覆盖安装并保留数据。原测试包版本码4408高于当前414，使用Debug降级安装参数-d；没有修改源码版本。首次冒烟固定启动已被桌面图标切换禁用的MainActivity，未找到进程，不能把当时参考应用的界面当作新包验收；查明实际启用Launcher4后按该入口重跑，7项通过，并核对前台包名与进程为io.legado.flutter_legado。
+- 交付：build/glass-bottom-smoke.log保留首次失败，最终证据build/glass-bottom-smoke-launcher4.log及build/glass-bottom-mumu.png；返回书架核对胶囊图文可见。仅本地提交、不推送；iOS真机位置、系统Tab Bar像素对齐及GPU性能仍未验收，未修改原生启动入口或图标偏好。
+
+编写者：Codex + UI｜2026-10-20
+
 ### INTEGRATE-RUST-PRACTICES-20261020：合入Rust实践修复
 
 - 授权：用户要求合入主目录；合并前主目录feature/ui-reader-selection / 55d7f43af与worktree chore/dep-audit / 808cce378均干净。保留主目录外观字体与封面入口两个独立UI提交，不推送、不构建安装。
