@@ -89,6 +89,7 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::AzureSpeech => "zh-CN-XiaoxiaoNeural",
                     CloudTtsProviderType::AwsPolly => "Zhiyu",
                     CloudTtsProviderType::Volcengine => "BV001_streaming",
+                    CloudTtsProviderType::GeminiTts => "Kore",
                 }
                 .into()
             }),
@@ -105,7 +106,9 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::AzureSpeech
                     | CloudTtsProviderType::AwsPolly
                     | CloudTtsProviderType::Volcengine => "mp3",
-                    CloudTtsProviderType::Mimo | CloudTtsProviderType::AlibabaCloud => "wav",
+                    CloudTtsProviderType::Mimo
+                    | CloudTtsProviderType::AlibabaCloud
+                    | CloudTtsProviderType::GeminiTts => "wav",
                 }
                 .into()
             }),
@@ -296,6 +299,31 @@ mod tests {
         meta.model = "custom_cluster".into();
         repo.save(&meta).unwrap();
         assert_eq!(repo.get(&meta.id).unwrap().app_id, "new-app");
+    }
+
+    #[test]
+    fn gemini_metadata_defaults_and_instructions_round_trip() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let repo = CloudTtsRepository::new(&conn);
+        let mut meta = metadata();
+        meta.provider = CloudTtsProviderType::GeminiTts;
+        meta.model = "gemini-3.8-flash-tts".into();
+        meta.options_json = "{}".into();
+        repo.save(&meta).unwrap();
+        let current = repo.get(&meta.id).unwrap();
+        let request = current.request(" 原文😀 ".into()).unwrap();
+        assert_eq!(request.voice_id, "Kore");
+        assert_eq!(request.format, "wav");
+        assert_eq!(request.text, " 原文😀 ");
+        meta.options_json =
+            r#"{"voiceId":"Zephyr","style":"平静","instructions":"慢读","format":"wav"}"#.into();
+        repo.save(&meta).unwrap();
+        assert_eq!(repo.get(&meta.id).unwrap().options_json, meta.options_json);
+        meta.model = "gemini-2.5-pro-preview-tts".into();
+        assert!(repo.save(&meta).is_err());
+        assert_eq!(repo.get(&meta.id).unwrap().model, "gemini-3.8-flash-tts");
     }
     fn metadata() -> CloudTtsMetadata {
         CloudTtsMetadata {

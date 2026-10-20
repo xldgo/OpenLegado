@@ -49,6 +49,13 @@ final class CloudTtsProviderProfile {
 }
 
 const cloudTtsProviderProfiles = {
+  'gemini_tts': CloudTtsProviderProfile(
+    name: 'Gemini TTS',
+    model: 'gemini-3.8-flash-tts',
+    voice: 'Kore',
+    formats: ['wav'],
+    supportsRole: false,
+  ),
   'volcengine': CloudTtsProviderProfile(
     name: '火山引擎（V1）',
     staticVoiceDescriptors: true,

@@ -2,6 +2,30 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## Gemini 3.8 协议差异与音频边界（2026-10-20）
+
+参考 [c4182eb9 的 GeminiCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/GeminiCloudTtsProvider.kt)
+的 Provider、鉴权、手动音色与文件播放路径；用户已裁决请求协议采用
+[当前官方 Gemini 3.8](https://ai.google.dev/gemini-api/docs/generate-content/speech-generation)。
+
+- 使用 GenerateContent 的单音色、非流式 REST 请求，默认 gemini-3.8-flash-tts，
+  同时支持 Flash Lite；不将旧预览模型传入新协议。模型可带 models/ 前缀。
+  自定义基址移除末尾 /openai，Key 只通过 x-goog-api-key 头发送。
+- 与参考版的已裁决差异：不再把 DIRECTOR'S NOTES 拼到正文；原文不增删，
+  风格与指令合并到 speech_metadata.style，voiceConfig.voice 传真实音色 ID。
+  仅展示请求实际消费的音色、风格、指令与 WAV，不展示数值合成速度/音调等字段。
+- 官方现行 unary 默认返回完整 WAV，显式请求 AUDIO_WAV；解析 inlineData 的 MIME，
+  WAV 验证 RIFF/fmt/data 与 24 kHz 单声道 16-bit PCM 后原样存储，不重复加头。
+  明确标识的 24 kHz PCM 可按序合并包装 WAV；未知类型、多个 WAV 容器、
+  截断/错误/阻断响应全部失败，不把任意 Base64 字节当音频。
+- 官方 30 个内置候选包含参考版遗漏的 Zephyr；候选不自动保存到用户音色列表。
+  扩展目录、音色设计/克隆、多说话人和流式播放不在本批范围。
+- Core 负责纯协议，Fetcher/Engine 复用已有缓存、取消、租约与凭据引用检查，
+  FFI 只新增 Provider 枚举映射；不新增依赖、数据库迁移或播放队列逻辑。
+  本机 HTTP 与真实 FRB 仅验证接口贯通，不替代真实云账号、音频解码或后台听感验收。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
 ## 火山 V1 请求与缓存（2026-10-20）
 
 参考 [c4182eb9 的 VolcengineCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/VolcengineCloudTtsProvider.kt)
@@ -207,7 +231,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | Gemini、火山V3；真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1/Gemini3.8 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 火山V3；真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 

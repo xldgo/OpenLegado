@@ -61,6 +61,40 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   @override
   Future<List<String>> voices(String provider) async {
     if (cloudTtsProfile(provider).remoteCatalog) return const [];
+    if (provider == 'gemini_tts') {
+      return const [
+        'Kore',
+        'Puck',
+        'Charon',
+        'Fenrir',
+        'Leda',
+        'Orus',
+        'Aoede',
+        'Callirrhoe',
+        'Autonoe',
+        'Enceladus',
+        'Iapetus',
+        'Umbriel',
+        'Algieba',
+        'Despina',
+        'Erinome',
+        'Algenib',
+        'Rasalgethi',
+        'Laomedeia',
+        'Achernar',
+        'Alnilam',
+        'Schedar',
+        'Gacrux',
+        'Pulcherrima',
+        'Achird',
+        'Zubenelgenubi',
+        'Vindemiatrix',
+        'Sadachbia',
+        'Sadaltager',
+        'Sulafat',
+        'Zephyr',
+      ];
+    }
     if (provider == 'volcengine') {
       return const [
         'BV001_streaming',

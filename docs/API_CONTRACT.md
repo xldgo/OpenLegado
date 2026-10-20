@@ -1,5 +1,27 @@
 # API 契约文档
 
+## Gemini 3.8 接入（TTS-GEMINI-20261020，实施前冻结）
+
+用户已选择当前官方 Gemini 3.8 协议，而非参考版早期预览模型的文本指令拼接。
+新增 provider=`gemini_tts`，沿用 §2.42 的配置、音色、合成与取消/租约接口，
+不迁移数据库。默认 model=`gemini-3.8-flash-tts`，支持同协议的
+`gemini-3.8-flash-lite-tts`；可带 `models/` 前缀，其他模型明确拒绝，避免误用协议。
+默认基址 https://generativelanguage.googleapis.com/v1beta，自定义基址可去掉尾部 /openai；
+固定 POST /models/{model}:generateContent，密钥仅放 x-goog-api-key 头，不放 URL。
+正文逐字保留于 contents[0].parts[0].text；非空 style 与 instructions 按换行合并到
+speech_metadata.style。voiceConfig.voice 使用真实音色 ID，单音色、非流式、请求 WAV。
+不发送旧 DIRECTOR'S NOTES 提示词，不添加文本标签，不支持数值合成语速/音调/音量。
+音色默认 Kore，提供官方 30 个内置候选（含参考版未列出的 Zephyr），仍只手动保存用户选择。
+JsonAudio 仅接受 application/json 响应；第一候选必须 STOP，阻断/错误/空音频/
+无效 Base64/未知 MIME 均失败，不回显服务端正文或凭据。WAV 验证容器后原样保存；
+明确标记 audio/L16、codec=pcm、rate=24000 的单声道 16-bit LE 音频才包装 WAV，
+同格式 PCM 多片按序拼接，多个 WAV 容器拒绝，禁止把未知二进制猜作 PCM。
+缓存继续覆盖实际模型、正文、音色、风格/指令与凭据；取消和租约沿用既有执行层。
+不改原生队列、全局播放倍速、分段策略或安全存储格式。
+
+依据：[官方 GenerateContent TTS](https://ai.google.dev/gemini-api/docs/generate-content/speech-generation)。
+编写者：Codex + Bridge｜2026-10-20
+
 ## 火山 V1 接入（TTS-VOLCENGINE-20261020，实施前冻结）
 
 新增 provider=`volcengine`，对齐固定 c4182eb9 的 VolcengineCloudTtsProvider。
@@ -2470,7 +2492,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
-火山 V1 增量见本文顶部 TTS-VOLCENGINE-20261020；方法签名和元数据表不变。
+Gemini 3.8 与火山 V1 增量见本文顶部 TTS-GEMINI-20261020、TTS-VOLCENGINE-20261020；方法签名和元数据表不变。
 
 Polly 增量契约见本文顶部 TTS-POLLY-20261020；新增 aws_polly、成组调用凭据及 supportedModels，既有方法签名不变。
 

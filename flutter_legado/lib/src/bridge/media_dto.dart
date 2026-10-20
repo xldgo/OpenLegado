@@ -192,6 +192,7 @@ enum CloudTtsProviderDto {
   azureSpeech,
   awsPolly,
   volcengine,
+  geminiTts,
 }
 
 class CloudVoiceDescriptorDto {

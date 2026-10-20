@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-GEMINI-20261020：Gemini 3.8 云朗读（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户确认采用当前 Gemini 3.8 官方协议；feature/ui-tts-engine / 7ea9949f4，单代理。
+- 范围：Core 纯协议 Provider、既有 DB/FFI 类型分派、引擎/音色 Sheet、JSON 音频与缓存/取消定向回归；不改数据库、播放队列或其他 Provider 协议。
+- 验收：结构化风格与正文隔离、API Key 头、模型/音色/格式一致、错误拒绝、缓存与取消、真实 FRB 本机 HTTP 贯通；本地提交，不推送或启动设备/远程 CI。
+- 实现：先冻结契约，Core 新增 Gemini 3.8 单音色 Provider，默认 Flash、可选 Flash Lite；正文原样放入 text，style/instructions 合并到结构化 speech_metadata.style，Key 仅放鉴权头。显式请求 WAV，完整容器原样落盘，明确标记的 24 kHz PCM 按序合并后包装；拒绝阻断/部分响应、未知 MIME、无效 Base64 和坏容器，不回显私人载荷。既有 Fetcher/Engine 复用缓存、取消、租约与凭据检查。
+- Flutter：引擎 Sheet 增加 Gemini，音色 Sheet 消费 30 个官方内置候选及风格/指令；候选只手动保存，不展示无效合成数值参数。DTO 枚举与 Rust/DB 默认值完整接通，版本 2.0.409+410；不新增依赖、schema 或播放队列改动。
+- 验证：Core 29、DB 9、Fetcher 17 共 55 项 Rust 定向回归通过；普通 Flutter 48 项、真实 FFI 6 项通过，复跑不累加。新增真实本机 HTTP 覆盖头/路径/正文、音色 CRUD、PCM/WAV、保存音色与草稿共用缓存、阻断/部分输出/MIME 错误重试与取消；同时复验既有云 Provider。5 份手写 Dart 分析和格式、Core 严格 Clippy、架构依赖与差异检查通过。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；cargo build --locked --offline -p legado-ffi --features quickjs。Flutter 定向 media_dto_mapping、cloud_tts_settings、gemini_tts_editor、cloud_tts_voice_parameters、cloud_tts_screen、read_aloud_management；native 显式加载本 worktree 新 DLL，执行 gemini/volcengine/polly/azure/alibaba/cloud 六个 runtime 文件。python scripts/dev.py generate bridge 及 --check。
+- 过程/边界：首次生成因我在生成期间格式化输入而被门禁拒绝，未发布输出；输入固定后重新生成。单代理实现与自查，无独立审查；真实账号、音频解码与后台/蓝牙听感仍需设备复验，合成夹具不构成该证据。不推送、合并、安装或触发远程 CI；本批提交见 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ### TTS-VOLCENGINE-20261020：火山 V1 云朗读（P1，待复验：真实账号/设备）
 
 - 授权/基线：用户要求继续参考上游、沿用 Rust 分层；feature/ui-tts-engine / e9116daa4，单代理。
