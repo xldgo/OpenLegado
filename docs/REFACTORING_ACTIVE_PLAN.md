@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-KEYBOARD-VIEWPORT-20261021：输入弹层保持正文视口（P1，待设备复验）
+
+- 授权：用户确认修复书签sheet键盘触发正文重排，并询问GlassScaffold适用性；沿用dev / 628bab0d9，单代理，不提升版本。
+- 根因：ReaderScreen原生Scaffold默认避让键盘，正文LayoutBuilder实际高度缩小，分页器正确识别为视口变化而重新排版。书签面板已有独立viewInsets避让，不需要压缩底层正文。
+- 实现：阅读器Scaffold关闭resizeToAvoidBottomInset；分页尺寸判定、原文锚点、窗口变化处理及书签编辑逻辑保留。
+- 组件核对：本机liquid_glass_widgets 1.13.0的GlassScaffold额外封装GlassPage、CupertinoPageScaffold、边缘渐隐与栏位避让，键盘避让仍默认true。本批保留原生页壳，现有Glass控件与页面玻璃环境不变。
+- 验证：真实ReaderScreen加真实书签弹层的加载态测试在修复前两平台均复现844→524高度变化；修复后正文几何与State保持、备注可保存、键盘收起恢复以及横屏尺寸响应通过。连同既有书签面板共10项通过，目标静态分析及diff检查通过。证据flutter_legado/build/reader-keyboard-{before,tests,analysis}.log。
+- 边界：加载态用例隔离文字测量和Rust，不声称验证完整分页/选区或设备键盘动画；未编译安装、未推送或触发CI，仅本地提交带[skip ci]。
+
+编写者：Codex + UI｜2026-10-21
+
 ### IOS-HIDE-EXIT-20261021：隐藏无效退出入口（P2，待设备复验）
 
 - 授权：用户确认仅在iOS隐藏退出；沿用dev / 573129a57，单代理，不提升版本。

@@ -463,6 +463,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       },
       child: Scaffold(
         backgroundColor: state.backgroundColor,
+        // 输入面板自行避让键盘，正文保持原视口，避免键盘开关触发重分页。
+        resizeToAvoidBottomInset: false,
         // F6：刘海/挖孔边距（paddingDisplayCutouts / readBodyToLh）
         body: ReaderMenuThemeHost(
           config:

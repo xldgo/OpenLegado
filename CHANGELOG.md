@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - 阅读器底栏默认仅显示图标，菜单工具栏新增“显示图标文字”开关。贡献者：Codex + UI。
 
 ### Fixed
+- 修复书签备注弹出键盘时阅读正文被压缩并触发重新分页。贡献者：Codex + UI。
 - iOS隐藏无法关闭独立应用的“退出”入口。贡献者：Codex + UI。
 - 阅读器底部菜单对齐主导航玻璃底栏，iOS固定20逻辑像素留白。贡献者：Codex + UI。
 - 修复阅读器离线缓存弹窗输入框紧贴，分离章节标签与总章数说明。贡献者：Codex + UI。
