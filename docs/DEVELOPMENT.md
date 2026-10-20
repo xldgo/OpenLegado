@@ -265,18 +265,19 @@ flutter analyze
 
 ### CI 流水线
 
-Flutter/Rust/Integration 自动检查针对 `dev/master` push 和指向这两个分支的 PR，
+Flutter/Rust 自动检查针对 `dev/master` push 和指向这两个分支的 PR，
 按改动选择任务；开发分支可通过 PR 或手动入口验证。Rust CI 保留默认 feature 与
 QuickJS 的质量/测试以及依赖审计；Flutter CI 执行分析与测试。
 
 Tooling CI 集中运行编排回归、Python 工具回归与 workflow 语法检查，也可手动运行；
-其他 workflow 的范围判定步骤只读取 Git 差异。Integration Smoke 手动范围支持
-`all`、`android`、`windows`。iOS Build 仅对 dev/master 的应用相关改动自动构建设备包，其他分支
-手动；iOS CI 保持仅手动模拟器验证。Android Release 保持 Tag 发布与手动只构建。
+其他 workflow 的范围判定步骤只读取 Git 差异。iOS Build 仅对 dev/master 的应用相关改动
+自动构建设备包，其他分支手动；iOS CI 保持仅手动模拟器验证。Integration Smoke已移除，
+Android/Windows平台构建通过Release的Tag发布与手动只构建入口验证。
 
 任务范围、门禁语义与轻量回归命令见 [CI 编排说明](CI_ORCHESTRATION_20261010.md)。
 工具的原生输入由 `scripts/tooling/input_scopes.py` 统一分类：平台原生模块只影响自身，
-打包工具不进入 Rust 库指纹，共享与尚未分类的工具影响三个原生平台。
+打包工具不进入 Rust 库指纹，共享与尚未分类的工具影响三个原生平台的构建输入；
+自动CI只选择仍有消费者的任务，不为Android/Windows额外启动原生冒烟。
 
 ---
 

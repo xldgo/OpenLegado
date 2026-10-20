@@ -4,6 +4,11 @@
 `CI-ORCH-20261010`，实施基线 `bdea9b155`；2026-10-11 的工具集中与平台隔离任务为
 `CI-PLATFORM-SCOPING-20261011`，实施基线 dev `d087e3db9`。
 
+2026-10-20按用户要求移除Integration Smoke及专用ffi_smoke_test.dart，删除对应
+android_ffi/windows_ffi输出和all/android/windows手动范围。Android/Windows构建
+通过现有Release手动或Tag入口验证；Flutter CI的Linux原生组与Rust CI保持。
+下文历史运行证据只用于追溯，不表示已移除的工作流仍可调用。
+
 ## 决策与范围
 
 此前普通开发分支 push 和 PR 都会触发检查，Flutter/Rust 任意改动都会启动两个
@@ -26,12 +31,11 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 | Tooling CI | `dev/master` push、指向两分支的 PR | 支持手动；集中执行编排规则、Python 工具回归及 actionlint，不安装 Flutter/NDK/Xcode |
 | Flutter CI | `dev/master` push、指向两分支的 PR | 手动auto/fast/native/all；analyze汇总普通组、原生组与生成检查 |
 | Rust CI | 同上 | 新增手动完整检查；原 `check` 汇总，所需 quality/tests/audit 必须成功 |
-| Integration Smoke | 同上 | `all/android/windows`；`check` 汇总所选原生任务的结果；仅验证工具时使用 Tooling CI |
 | iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
 | iOS CI | 无自动入口 | 保持仅手动模拟器验证 |
 | Android Release | `v*` tag | 保持手动只构建；Tag 发布条件、产物 ID 和 publish 权限不变 |
 
-Tooling/Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳过；无关改动也提供
+Tooling/Flutter/Rust 的自动 workflow 不再通过顶层 paths 跳过；无关改动也提供
 轻量检查结果，避免将来设置必需检查时长期 Pending。当前仓库 dev/master 未受保护，
 本批不修改保护或 Ruleset。选择失败、必要任务失败/取消/意外跳过，汇总均失败；
 只有明确判定不需要的 job 才允许 skipped。
@@ -76,7 +80,7 @@ Flutter CI分为changes、flutter-checks、native-tests与analyze汇总。保留
   依赖锁文件和相关编排。独立书架/设置页面及非阅读器普通组件实现变化不单独选择原生组。
   本轮测试文件和共享夹具变化先保守选择两组，不声称已做到逐用例最小依赖选择。
 - Rust crate独立集成测试变化只走Rust CI；两处正式排版测试载荷目录因被Dart读取，仍选原生组。
-  纯文档变化不启动原生编译；iOS模拟器手动约定、设备包触发和Windows宿主冒烟保持。
+  纯文档变化不启动原生编译；iOS模拟器手动约定及设备包触发保持。
 - `dart_test.yaml`登记native标签；新增原生用例须显式标记。普通组缺库即失败，用来暴露遗漏分组，
   不通过skip或退回Mock消除失败。全量本地`flutter test`仍会运行两组，需先构建宿主库。
 
@@ -84,14 +88,14 @@ Flutter CI分为changes、flutter-checks、native-tests与analyze汇总。保留
 编排静态检查通过也不代表远程Actions已通过。不以分组前后单次本地耗时推断远程成本下降。
 
 - 普通 Dart 页面走 Flutter 检查；在 dev/master 上影响应用内容时构建 iOS 设备包。
-- Android/Windows/iOS 平台目录分别选择所属平台；Android FFI 作业只证明原生库
-  编译和复制校验，不替代 APK/Gradle 宿主构建。
+- iOS平台目录选择设备包构建；Android/Windows平台目录不再单独启动自动原生构建，
+  需要时手动运行Release验证完整宿主及包内原生库。
 - Rust 生产源码、Cargo 输入、FRB 绑定、Dart native 入口、模型、设备桥接与依赖
-  文件覆盖相应原生检查；资源 Markdown 属于应用输入，不作为纯文档忽略。
+  文件继续选择Flutter/Rust/iOS的相关检查；资源Markdown属于应用输入，不作为纯文档忽略。
 - 工具的权威范围为 [input_scopes.py](../scripts/tooling/input_scopes.py)，指纹与路由共用。
-  Android、Windows、iOS 的已分类工具只选择自身平台及 Tooling CI；共享模块、CLI 和
-  尚未分类的工具选择三个原生平台及 Tooling CI，不因工具改动启动 Flutter/Rust 业务测试。
-  打包工具修改仍验证所属平台，但不改变 Rust 库指纹；代码生成工具修改先运行 Tooling CI，
+  已分类工具选择Tooling CI，iOS工具另选设备包；共享模块、CLI和
+  尚未分类的工具选择iOS及Tooling CI，不因工具改动启动Flutter/Rust业务测试。
+  Android/Windows工具的平台构建按需手动验证；打包工具不改变Rust库指纹；代码生成工具修改先运行Tooling CI，
   真正生成的 Rust/Dart 源码变化再选择各自消费者。
 - Tooling CI 是编排与 Python 工具回归的唯一自动入口；其他 workflow 的本地 action
   只计算差异。测试、编排脚本/action 修改仅选择 Tooling CI；workflow 修改另选自身消费者。
@@ -148,7 +152,7 @@ Git 推送使用本次进程的 SSH HTTP CONNECT 代理 `127.0.0.1:7897`，没�
 生成检查独立按输入选择：Dart模型目录、状态及Freezed/JSON生成物、build.yaml；FRB桥接目录、
 FFI源码/清单、Rust工作区清单/锁文件、FRB配置。两者共享pubspec及生成工具输入。
 新增生成输入若不属于上述路径，须同时扩展判定器及范围测试；普通页面改动不重新生成。
-手动完整Flutter CI复核两种生成链；Integration单选Android/Windows不运行生成检查。
+手动完整Flutter CI复核两种生成链，平台Release构建不运行生成检查。
 FRB codegen版本读取运行时契约，cargo-expand固定为本轮实测1.0.127；不改变Rust stable策略。
 
 生成复核使用临时目录，检出新增/删除/修改并拒绝依赖声明漂移；原工作区保持不变。
@@ -158,8 +162,7 @@ iOS模拟器仍仅手动，现有工作流触发器、签名、发布条件和�
 
 ## Flutter手动范围与慢项报告（2026-10-19）
 
-Flutter CI的`test_scope`默认`auto`，仅影响本Workflow；Integration Smoke的
-`platform=all/android/windows`、其它Workflow的手动完整检查保持原样。
+Flutter CI的`test_scope`默认`auto`，仅影响本Workflow；其它Workflow的手动完整检查保持原样。
 
 | 范围 | 执行内容 |
 |---|---|
@@ -202,3 +205,5 @@ gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=a
 报告解析输入协议事件，不通过检索生产代码文本断言配置正确。
 
 编写者：Codex + Tool｜2026-10-19
+
+修订者：Codex + Tool｜2026-10-20（移除独立Integration Smoke及专属编排）

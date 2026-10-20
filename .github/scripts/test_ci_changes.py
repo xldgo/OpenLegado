@@ -26,46 +26,45 @@ class RoutingTests(unittest.TestCase):
             "flutter_legado/lib/src/domain/services/search_result_aggregator.dart": {"flutter", "ios_build"},
             "flutter_legado/test/widget/bookshelf_test.dart": {"flutter"},
             "flutter_legado/assets/updateLog.md": {"flutter", "ios_build"},
-            "flutter_legado/android/app/build.gradle.kts": {"android_ffi"},
+            "flutter_legado/android/app/build.gradle.kts": set(),
             "flutter_legado/ios/Runner/AppDelegate.swift": {"ios_build"},
-            "flutter_legado/windows/runner/main.cpp": {"windows_ffi"},
-            "flutter_legado/lib/src/services/rust_api.dart": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
-            "flutter_legado/lib/src/services/rust_api_sources.part.dart": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
-            "flutter_legado/lib/src/bridge/frb_generated.dart": {"flutter", "android_ffi", "windows_ffi", "ios_build"},
-            "flutter_legado/pubspec.lock": {"flutter", "android_ffi", "windows_ffi", "ios_build", "tooling"},
-            "rust/legado-core/src/reader.rs": {"rust", "android_ffi", "windows_ffi", "ios_build"},
+            "flutter_legado/windows/runner/main.cpp": set(),
+            "flutter_legado/lib/src/services/rust_api.dart": {"flutter", "ios_build"},
+            "flutter_legado/lib/src/services/rust_api_sources.part.dart": {"flutter", "ios_build"},
+            "flutter_legado/lib/src/bridge/frb_generated.dart": {"flutter", "ios_build"},
+            "flutter_legado/pubspec.lock": {"flutter", "ios_build", "tooling"},
+            "rust/legado-core/src/reader.rs": {"rust", "ios_build"},
             "rust/legado-ffi/src/ffi.rs": set(ci.TARGETS) - {"tooling"},
             "rust/legado-core/tests/reader.rs": {"rust"},
-            "rust/legado-layout/src/paginator.rs": {"flutter", "rust", "android_ffi", "windows_ffi", "ios_build"},
+            "rust/legado-layout/src/paginator.rs": {"flutter", "rust", "ios_build"},
             "rust/legado-layout/tests/upstream_parity.rs": {"flutter", "rust"},
-            "rust/legado-core/src/tests/reader.rs": {"rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/legado-server/assets/web/help/md/jsHelp.md": {"rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/Cargo.lock": {"rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/.cargo/config.toml": {"rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/rust-toolchain.toml": {"rust", "android_ffi", "windows_ffi", "ios_build"},
+            "rust/legado-core/src/tests/reader.rs": {"rust", "ios_build"},
+            "rust/legado-server/assets/web/help/md/jsHelp.md": {"rust", "ios_build"},
+            "rust/Cargo.lock": {"rust", "ios_build"},
+            "rust/.cargo/config.toml": {"rust", "ios_build"},
+            "rust/rust-toolchain.toml": {"rust", "ios_build"},
             "rust/scripts/build-ios.sh": {"tooling", "ios_build"},
             "rust/scripts/gen_rar5_fixture.py": {"tooling", "rust"},
-            "rust/scripts/build-ios-new.sh": {"tooling", "rust", "android_ffi", "windows_ffi", "ios_build"},
-            "rust/scripts/new_input.md": {"tooling", "rust", "android_ffi", "windows_ffi", "ios_build"},
-            "scripts/emulator_smoke_test.ps1": {"tooling", "android_ffi"},
-            "scripts/tooling/android_app.py": {"tooling", "android_ffi"},
-            "scripts/tooling/windows.py": {"tooling", "windows_ffi"},
-            "scripts/tooling/windows_app.py": {"tooling", "windows_ffi"},
-            "scripts/tooling/android.py": {"tooling", "android_ffi"},
-            "scripts/tooling/android_toolchain.py": {"tooling", "android_ffi"},
+            "rust/scripts/build-ios-new.sh": {"tooling", "rust", "ios_build"},
+            "rust/scripts/new_input.md": {"tooling", "rust", "ios_build"},
+            "scripts/emulator_smoke_test.ps1": {"tooling"},
+            "scripts/tooling/android_app.py": {"tooling"},
+            "scripts/tooling/windows.py": {"tooling"},
+            "scripts/tooling/windows_app.py": {"tooling"},
+            "scripts/tooling/android.py": {"tooling"},
+            "scripts/tooling/android_toolchain.py": {"tooling"},
             "scripts/tooling/ios.py": {"tooling", "ios_build"},
             "scripts/tooling/ios_bundle.py": {"tooling", "ios_build"},
             "scripts/tooling/bridge.py": {"tooling"},
             "tests/tooling/test_ios.py": {"tooling"},
-            "scripts/tooling/new_tool.py": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
-            "scripts/tooling/new_data.md": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
-            "scripts/tooling/contracts.py": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
-            "scripts/dev.py": {"tooling", "android_ffi", "windows_ffi", "ios_build"},
+            "scripts/tooling/new_tool.py": {"tooling", "ios_build"},
+            "scripts/tooling/new_data.md": {"tooling", "ios_build"},
+            "scripts/tooling/contracts.py": {"tooling", "ios_build"},
+            "scripts/dev.py": {"tooling", "ios_build"},
             "third_party/quickjs/quickjs.c": set(ci.TARGETS),
             ".github/workflows/flutter-ci.yml": {"tooling", "flutter"},
             ".github/workflows/rust-ci.yml": {"tooling", "rust"},
-            ".github/workflows/integration-smoke.yml": {"tooling", "android_ffi", "windows_ffi"},
-            ".github/workflows/release.yml": {"tooling", "android_ffi"},
+            ".github/workflows/release.yml": {"tooling"},
             ".github/workflows/ios-build.yml": {"tooling", "ios_build"},
             ".github/workflows/tooling-ci.yml": {"tooling"},
         }
@@ -96,17 +95,6 @@ class RoutingTests(unittest.TestCase):
             "flutter_legado/test/widget/a.dart", "rust/legado-core/src/reader.rs",
         ]), {target: target != "tooling" for target in ci.TARGETS})
 
-    def test_manual_scope(self):
-        for scope, expected in (
-            ("all", set(ci.TARGETS)),
-            ("android", {"android_ffi"}), ("windows", {"windows_ffi"}),
-        ):
-            with self.subTest(scope=scope):
-                selected = ci.plan(ci.ROOT, "workflow_dispatch", {"inputs": {"platform": scope}}, "unused")
-                self.assertEqual({key for key, value in selected.items() if value}, expected)
-        with self.assertRaises(ValueError):
-            ci.plan(ci.ROOT, "workflow_dispatch", {"inputs": {"platform": "unknown"}}, "unused")
-
     def test_bad_event_or_sha_fails(self):
         with self.assertRaises(ValueError):
             ci.changed_paths(ci.ROOT, "push", {"before": "bad"}, "a" * 40)
@@ -120,9 +108,9 @@ class RoutingTests(unittest.TestCase):
                                  dict.fromkeys(ci.TARGETS, True))
 
     def test_manual_invalid_inputs_are_rejected(self):
-        for inputs in ([], "", False, 1, {"platform": None}, {"platform": []}):
+        for inputs in ([], "", False, 1):
             with self.subTest(inputs=inputs), self.assertRaises(ValueError):
-                ci.manual_scope({"inputs": inputs})
+                ci.plan(ci.ROOT, "workflow_dispatch", {"inputs": inputs}, "unused")
 
 
 class SummaryTests(unittest.TestCase):
@@ -276,7 +264,7 @@ class GitDiffTests(unittest.TestCase):
             self.assertTrue(ci.classify_native_test_paths(["flutter_legado/test/" + support], self.root, base)["native_tests"])
         self.assertTrue(ci.classify_native_test_paths(["flutter_legado/test/widget/unknown_test.dart"], self.root)["native_tests"])
 
-    def test_manual_flutter_scopes_preserve_other_workflow_platform_semantics(self):
+    def test_manual_flutter_scopes_do_not_change_other_workflows(self):
         for scope, expected in (
             ("fast", {"flutter", "flutter_checks"}),
             ("native", {"native_tests"}),
@@ -285,8 +273,8 @@ class GitDiffTests(unittest.TestCase):
             with self.subTest(scope=scope):
                 selected = ci.flutter_manual_plan(self.root, scope, self.base)
                 self.assertEqual({k for k, v in selected.items() if v}, expected)
-        self.assertEqual(ci.plan(self.root, "workflow_dispatch", {"inputs": {"platform": "android"}}, self.base),
-                         {k: k == "android_ffi" for k in ci.TARGETS})
+        self.assertEqual(ci.plan(self.root, "workflow_dispatch", {"inputs": {}}, self.base),
+                         dict.fromkeys(ci.TARGETS, True))
         with self.assertRaises(ValueError):
             ci.flutter_manual_plan(self.root, "unknown", self.base)
 
@@ -376,30 +364,24 @@ class GitDiffTests(unittest.TestCase):
             "flutter_legado/test/a.dart", "flutter_legado/test/b.dart",
         })
 
-    def test_cli_writes_outputs_and_rejects_invalid_scope(self):
+    def test_cli_writes_manual_outputs_and_rejects_invalid_inputs(self):
         event = self.root / "event.json"
         output = self.root / "outputs.txt"
-        event.write_text(json.dumps({"inputs": {"platform": "android"}}), encoding="utf-8")
+        event.write_text(json.dumps({"inputs": {}}), encoding="utf-8")
         environment = dict(os.environ, GITHUB_EVENT_NAME="workflow_dispatch", GITHUB_EVENT_PATH=str(event),
                            GITHUB_OUTPUT=str(output), GITHUB_SHA=self.base, PYTHONIOENCODING="utf-8")
         result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
                                 env=environment, capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(output.read_text(encoding="utf-8").splitlines(),
-                         [f"{key}={'true' if key == 'android_ffi' else 'false'}" for key in (*ci.TARGETS, "dart_generate", "bridge_generate", "native_tests", "flutter_checks")])
-        event.write_text(json.dumps({"inputs": {"platform": "unknown"}}), encoding="utf-8")
-        result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
-                                env=environment, capture_output=True, text=True, encoding="utf-8")
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("未知手动验证范围", result.stderr)
-
-        event.write_text(json.dumps({"inputs": {"platform": "all"}}), encoding="utf-8")
+        self.assertEqual(dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines()),
+                         dict.fromkeys((*ci.TARGETS, "dart_generate", "bridge_generate", "native_tests", "flutter_checks"), "true"))
+        event.write_text(json.dumps({"inputs": []}), encoding="utf-8")
         output.write_text("", encoding="utf-8")
         result = subprocess.run([os.sys.executable, str(ci.ROOT / ".github/scripts/ci_changes.py"), "changes"],
                                 env=environment, capture_output=True, text=True, encoding="utf-8")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines()),
-                         dict.fromkeys((*ci.TARGETS, "dart_generate", "bridge_generate", "native_tests", "flutter_checks"), "true"))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("手动触发inputs必须为对象或null", result.stderr)
+        self.assertEqual(output.read_text(encoding="utf-8"), "")
 
     def test_automatic_cli_emits_flutter_and_native_groups(self):
         event = self.root / ".git" / "fixture-event.json"

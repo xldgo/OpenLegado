@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 from tooling.input_scopes import RUST_DRIVERS, tooling_platforms
 
-TARGETS = ("flutter", "rust", "android_ffi", "windows_ffi", "ios_build", "tooling")
-PLATFORM_TARGETS = {"android": "android_ffi", "windows": "windows_ffi", "ios": "ios_build", "rust": "rust"}
+TARGETS = ("flutter", "rust", "ios_build", "tooling")
+PLATFORM_TARGETS = {"ios": "ios_build", "rust": "rust"}
 
 
 def classify_paths(paths):
@@ -28,14 +28,14 @@ def classify_paths(paths):
     for path in paths:
         platforms = tooling_platforms(path)
         if platforms is not None:
-            select("tooling", *(PLATFORM_TARGETS[platform] for platform in platforms))
+            select("tooling", *(PLATFORM_TARGETS[platform] for platform in platforms if platform in PLATFORM_TARGETS))
             continue
         if path in RUST_DRIVERS:
-            select("tooling", *(PLATFORM_TARGETS[platform] for platform in RUST_DRIVERS[path]))
+            select("tooling", *(PLATFORM_TARGETS[platform] for platform in RUST_DRIVERS[path] if platform in PLATFORM_TARGETS))
             continue
         if path.startswith("rust/scripts/"):
             # 未登记的 Rust 脚本仍在共享源码指纹中，不能仅按名称缩小检查范围。
-            select("tooling", "rust", "android_ffi", "windows_ffi", "ios_build")
+            select("tooling", "rust", "ios_build")
             continue
         if path.startswith(("tests/tooling/", ".github/actions/", ".github/scripts/", ".github/workflows/")):
             select("tooling")
@@ -52,43 +52,31 @@ def classify_paths(paths):
             parts = path.split("/")
             integration_test = len(parts) > 3 and parts[2] == "tests"
             if not integration_test:
-                select("android_ffi", "windows_ffi", "ios_build")
+                select("ios_build")
             if path.startswith("rust/legado-layout/") or (path.startswith("rust/legado-ffi/") and not integration_test):
                 select("flutter")
         elif path.startswith("flutter_legado/"):
             relative = path.removeprefix("flutter_legado/")
-            if relative.startswith("android/"):
-                select("android_ffi")
-            elif relative.startswith("windows/"):
-                select("windows_ffi")
+            if relative.startswith(("android/", "windows/")):
+                # Android/Windows平台构建由Release工作流负责，不自动选择额外原生任务。
+                continue
             elif relative.startswith("ios/"):
                 select("ios_build")
             elif relative.startswith("scripts/"):
                 if not relative.startswith("scripts/archive/"):
-                    select("flutter", "android_ffi", "windows_ffi", "ios_build")
+                    select("flutter", "ios_build")
             else:
                 select("flutter")
                 if relative in ("pubspec.yaml", "pubspec.lock", ".metadata", "flutter_rust_bridge.yaml"):
-                    select("tooling", "android_ffi", "windows_ffi", "ios_build")
+                    select("tooling", "ios_build")
                 elif relative.startswith(("lib/", "assets/")):
                     select("ios_build")
-                if relative.startswith((
-                    "lib/src/bridge/", "lib/src/services/rust_api",
-                    "lib/src/services/book_api.", "lib/src/services/platform_bridge_service.",
-                    "lib/src/models/", "lib/main.dart", "lib/src/app.dart",
-                    "integration_test/ffi_smoke_test.",
-                )):
-                    select("android_ffi", "windows_ffi")
         elif path == "scripts/emulator_smoke_test.ps1":
-            select("tooling", "android_ffi")
+            select("tooling")
         elif path in (".github/workflows/flutter-ci.yml", ".github/scripts/flutter_test_report.py"):
             select("flutter")
         elif path == ".github/workflows/rust-ci.yml":
             select("rust")
-        elif path == ".github/workflows/integration-smoke.yml":
-            select("android_ffi", "windows_ffi")
-        elif path == ".github/workflows/release.yml":
-            select("android_ffi")
         elif path == ".github/workflows/ios-build.yml":
             select("ios_build")
     return selected
@@ -227,7 +215,7 @@ def changed_paths(root, event_name, event, head):
 
 
 def flutter_manual_plan(root, scope, head, base_sha=""):
-    """仅Flutter Workflow使用；其它工作流保留既有platform语义。"""
+    """仅Flutter Workflow使用；其它工作流手动运行完整检查。"""
     if scope not in ("auto", "fast", "native", "all"):
         raise ValueError(f"未知Flutter手动范围：{scope}")
     if scope == "auto":
@@ -260,29 +248,11 @@ def path_plan(root, paths, base=None):
     return selected
 
 
-def manual_scope(event):
-    """无参数workflow_dispatch的inputs可能是null，统一视为全量手动检查。"""
-    inputs = event.get("inputs")
-    if inputs is None:
-        return "all"
-    if not isinstance(inputs, dict):
-        raise ValueError("手动触发inputs必须为对象或null")
-    platform = inputs.get("platform", "all")
-    if platform not in ("all", "android", "windows"):
-        raise ValueError(f"未知手动验证范围：{platform}")
-    return platform
-
-
 def plan(root, event_name, event, head):
     if event_name == "workflow_dispatch":
-        platform = manual_scope(event)
-        if platform == "all":
-            return dict.fromkeys(TARGETS, True)
-        if platform in ("android", "windows"):
-            selected = dict.fromkeys(TARGETS, False)
-            selected[f"{platform}_ffi"] = True
-            return selected
-        raise ValueError(f"未知手动验证范围：{platform}")
+        if event.get("inputs") is not None and not isinstance(event["inputs"], dict):
+            raise ValueError("手动触发inputs必须为对象或null")
+        return dict.fromkeys(TARGETS, True)
     return classify_paths(changed_paths(root, event_name, event, head))
 
 
@@ -320,9 +290,8 @@ def main():
                                                os.environ.get("CI_FLUTTER_BASE_SHA", ""))
             elif os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch":
                 selected = plan(ROOT, "workflow_dispatch", event, os.environ["GITHUB_SHA"])
-                all_checks = manual_scope(event) == "all"
-                generation = dict.fromkeys(("dart_generate", "bridge_generate"), all_checks)
-                native = {"native_tests": all_checks}
+                generation = dict.fromkeys(("dart_generate", "bridge_generate"), True)
+                native = {"native_tests": True}
                 selected.update(generation)
                 selected.update(native)
                 selected["flutter_checks"] = selected["flutter"] or any(generation.values())

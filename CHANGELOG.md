@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.413] - 2026-10-20
 
 ### Maintenance
+- 移除独立Integration Smoke工作流及专属编排，平台构建使用现有Release入口。贡献者：Codex + Tool。
 - Android构建启用AGP内置Kotlin，固定flutter_tts迁移补丁；保持原有编译器和JVM目标。贡献者：Codex + Tool。
 
 ### Fixed

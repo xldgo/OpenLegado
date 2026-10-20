@@ -29,12 +29,6 @@ outputs:
   rust:
     description: 是否运行 Rust 检查
     value: ${{ steps.changes.outputs.rust }}
-  android_ffi:
-    description: 是否运行 Android FFI 构建
-    value: ${{ steps.changes.outputs.android_ffi }}
-  windows_ffi:
-    description: 是否运行 Windows FFI 冒烟
-    value: ${{ steps.changes.outputs.windows_ffi }}
   ios_build:
     description: 是否构建 iOS 设备包
     value: ${{ steps.changes.outputs.ios_build }}

@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### REMOVE-INTEGRATION-SMOKE-20261020：移除独立原生冒烟工作流（本地完成）
+
+- 授权：用户明确要求直接移除，沿用dev / b6f2433bb，单代理，不提升版本、不推送或运行远程CI。
+- 范围：删除integration-smoke.yml和仅供其调用的ffi_smoke_test.dart，清理Composite Action的android_ffi/windows_ffi输出及判定器对应规则、platform手动选择和专用测试。Flutter/Rust/iOS现有任务与Release工作流不变，本地Python原生构建命令继续保留。
+- 文档：README、AGENTS、开发说明与CI编排说明同步；旧运行URL等历史证据保留并明确工作流已移除。Android/Windows平台构建按需使用Release，日常不再有这两个独立原生任务；不承诺Release实际运行应用。
+- 验证：编排、真实临时Git差异、手动CLI和测试报告共39项回归通过，actionlint及git diff --check通过。证据build/remove-integration-tests.log、build/remove-integration-actionlint.log；没有运行Flutter/Rust全量测试或应用构建，本批不改业务代码。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### REMOVE-COMMITIZEN-20261020：清理无构建用途的根Node配置（本地完成）
 
 - 授权：用户同意删除根package.json及专用配置，沿用dev，保留Conventional Commits和通用node_modules忽略规则；不提升版本、不推送。
