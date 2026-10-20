@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.412] - 2026-10-20
+
+### Fixed
+- 旧REST朗读自行创建客户端并把错误正文当作音频地址，现复用引擎客户端并限制状态响应与任务期限；Server库215项及音频Router通过，四项最终定向覆盖代理HostsCookie配置及取消超时，响应32MiB和60秒上限。
+- 贡献者：Codex + Rust；构建号413。
+
 ## [2.0.411] - 2026-10-20
 
 ### Fixed

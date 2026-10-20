@@ -20,4 +20,5 @@ pub mod source_check;
 pub mod source_update;
 pub mod toc_update;
 pub mod tts;
+mod tts_http;
 pub mod web_book;

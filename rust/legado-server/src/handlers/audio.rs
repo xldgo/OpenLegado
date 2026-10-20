@@ -128,7 +128,7 @@ pub async fn get_chapters(
 
 /// POST /api/audio/speak — 文本转语音（增强版，支持更多参数）
 pub async fn speak(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AudioSpeakRequest>,
 ) -> Result<Json<AudioSpeakResponse>, ApiError> {
     let char_count = req.text.chars().count();
@@ -141,83 +141,25 @@ pub async fn speak(
         return Err(ApiError(LegadoError::Parser("预估朗读时长超出范围".into())));
     }
     let estimated_duration_ms = Some(duration as i64);
-    // 构建 TTS URL
-    let encoded_text = urlencoding::encode(&req.text);
-    let mut url = req.engine_url.replace("{speakText}", &encoded_text);
-
-    if let Some(voice) = &req.voice_name {
-        url = append_query(&url, "voice", voice);
+    let mut parameters = Vec::new();
+    if let Some(voice) = req.voice_name {
+        parameters.push(("voice", voice));
     }
     if let Some(speed) = req.speed {
-        url = append_query(&url, "speed", &speed.to_string());
+        parameters.push(("speed", speed.to_string()));
     }
     if let Some(pitch) = req.pitch {
-        url = append_query(&url, "pitch", &pitch.to_string());
+        parameters.push(("pitch", pitch.to_string()));
     }
     if let Some(volume) = req.volume {
-        url = append_query(&url, "volume", &volume.to_string());
+        parameters.push(("volume", volume.to_string()));
     }
-
-    let client = legado_net::tls::client();
-    let response = client.get(&url).send().await.map_err(|e| {
-        ApiError(LegadoError::Network(format!(
-            "Audio TTS request failed: {}",
-            e
-        )))
-    })?;
-
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("audio/mpeg")
-        .to_string();
-
-    // 检查是否为音频二进制响应
-    if content_type.starts_with("audio/") {
-        let bytes = response.bytes().await.map_err(|e| {
-            ApiError(LegadoError::Network(format!(
-                "Audio read bytes failed: {}",
-                e
-            )))
-        })?;
-
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
-        let audio_data = STANDARD.encode(&bytes);
-
-        return Ok(Json(AudioSpeakResponse {
-            audio_url: None,
-            audio_data: Some(audio_data),
-            content_type,
-            text_length: char_count,
-            estimated_duration_ms,
-        }));
-    }
-
-    // 非音频响应，可能是 JSON 含 audio_url
-    let text = response.text().await.map_err(|e| {
-        ApiError(LegadoError::Network(format!(
-            "Audio read text failed: {}",
-            e
-        )))
-    })?;
-
-    if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text)
-        && let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str())
-    {
-        return Ok(Json(AudioSpeakResponse {
-            audio_url: Some(audio_url.to_string()),
-            audio_data: None,
-            content_type: "audio/mpeg".to_string(),
-            text_length: char_count,
-            estimated_duration_ms,
-        }));
-    }
-
+    let audio =
+        super::tts_http::synthesize(&state, &req.engine_url, &req.text, &parameters).await?;
     Ok(Json(AudioSpeakResponse {
-        audio_url: Some(text),
-        audio_data: None,
-        content_type,
+        audio_url: audio.audio_url,
+        audio_data: audio.audio_data,
+        content_type: audio.content_type,
         text_length: char_count,
         estimated_duration_ms,
     }))
@@ -420,18 +362,9 @@ pub async fn get_chapter_media(
     }))
 }
 
-/// 辅助：向 URL 追加 query 参数
-fn append_query(url: &str, key: &str, value: &str) -> String {
-    let encoded_value = urlencoding::encode(value);
-    if url.contains('?') {
-        format!("{}&{}={}", url, key, encoded_value)
-    } else {
-        format!("{}?{}={}", url, key, encoded_value)
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::tts_http::append_query;
     use super::*;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -534,9 +467,9 @@ mod tests {
     #[test]
     fn test_append_query_audio() {
         let url = "https://tts.example.com/speak";
-        let result = append_query(url, "voice", "zh-CN");
+        let result = append_query(url, "voice", "zh-CN").unwrap();
         assert_eq!(result, "https://tts.example.com/speak?voice=zh-CN");
-        let result2 = append_query(&result, "speed", "2.0");
+        let result2 = append_query(&result, "speed", "2.0").unwrap();
         assert_eq!(
             result2,
             "https://tts.example.com/speak?voice=zh-CN&speed=2.0"

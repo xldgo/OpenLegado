@@ -1,5 +1,12 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-PRACTICES-B5-20261020：fix(rust): 统一REST朗读网络资源与响应边界
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：旧REST朗读自行创建客户端并把错误正文当作音频地址，现复用引擎客户端并限制状态响应与任务期限；Server库215项及音频Router通过，四项最终定向覆盖代理HostsCookie配置及取消超时，响应32MiB和60秒上限。；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
 ### RUST-PRACTICES-B4-20261020：fix(rust): 限制归档输出并暂存ZIP导入条目
 
 - 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
