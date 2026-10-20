@@ -42,6 +42,46 @@ void main() {
     expect(fixture.actions, ['暂停']);
   });
 
+  testSession('暂停等待原生屏障，期间新播放接管后旧暂停不释放焦点', (tester) async {
+    await fixture.start();
+    final paused = Completer<void>();
+    fixture.coordinator.preparePause();
+    fixture.state = fixture.state.copyWith(state: PlayerState.paused);
+    final releasing = fixture.coordinator.notifyPaused(after: paused.future);
+    await tester.pump();
+    expect(fixture.audio.focusAbandons, 0);
+    fixture.token++;
+    fixture.coordinator.prepareResume();
+    fixture.state = fixture.state.copyWith(state: PlayerState.playing);
+    await fixture.coordinator.activate();
+    paused.complete();
+    await releasing;
+    expect(fixture.audio.focusAbandons, 0);
+  });
+
+  testSession('停止等待原生音频结束后释放，迟到停止不释放新会话', (tester) async {
+    await fixture.start();
+    final stopped = Completer<void>();
+    fixture.token++;
+    fixture.coordinator.invalidate();
+    fixture.state = fixture.state.copyWith(state: PlayerState.idle);
+    fixture.coordinator.notifyStopped(after: stopped.future);
+    await tester.pump();
+    expect(fixture.audio.focusAbandons, 0);
+    stopped.complete();
+    await tester.pump();
+    expect(fixture.audio.focusAbandons, 1);
+    await fixture.start();
+    final late = Completer<void>();
+    fixture.state = fixture.state.copyWith(state: PlayerState.idle);
+    fixture.coordinator.notifyStopped(after: late.future);
+    fixture.token++;
+    await fixture.start();
+    late.complete();
+    await tester.pump();
+    expect(fixture.audio.focusAbandons, 1);
+  });
+
   testSession('媒体按钮按设置切段或切章，音频书始终按章', (tester) async {
     await fixture.start(stream: false);
     fixture.audio.buttons.add(MediaButtonEvent.skipToNext);
@@ -69,7 +109,26 @@ void main() {
     await tester.pump();
     expect(fixture.actions.sublist(5), ['暂停', '恢复', '停止']);
     expect(fixture.state.state, PlayerState.idle);
-    expect(fixture.audio.focusAbandons, 1);
+    expect(fixture.audio.focusAbandons, 2);
+  });
+
+  testSession('中断期间切换会话，旧 gain 不恢复新书；重复中断保留同次恢复意图', (tester) async {
+    await fixture.start();
+    fixture.audio.focus.add(AudioFocusEvent.lossTransient);
+    await tester.pump();
+    fixture.audio.focus.add(AudioFocusEvent.lossTransient);
+    await tester.pump();
+    fixture.audio.focus.add(AudioFocusEvent.gain);
+    await tester.pump();
+    expect(fixture.actions, ['暂停', '恢复']);
+    fixture.audio.focus.add(AudioFocusEvent.lossTransient);
+    await tester.pump();
+    fixture.token++;
+    fixture.state = fixture.state.copyWith(bookUrl: '另一书');
+    fixture.audio.focus.add(AudioFocusEvent.gain);
+    await tester.pump();
+    expect(fixture.actions, ['暂停', '恢复', '暂停']);
+    expect(fixture.state.state, PlayerState.paused);
   });
 
   testSession('临时焦点中断恢复，手动暂停及永久失焦取消恢复，duck保持播放', (tester) async {

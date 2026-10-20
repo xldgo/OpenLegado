@@ -254,10 +254,11 @@ class ReadAloudController {
       }
     } catch (e) {
       if (token != _playToken || _disposed) return;
+      _host.pause();
       // [P0 | 2026-10-03] 在线书正文抓取失败（网络/书源失效等）必须有用户
       // 可见提示：errorMessage 由朗读条警示条/听书页错误行展示（不静默）
       _state = _state.copyWith(
-        errorMessage: '章节正文获取失败，无法朗读：$e',
+        errorMessage: '无法开始朗读：$e',
         state: PlayerState.error,
       );
     }
@@ -1135,7 +1136,7 @@ class ReadAloudController {
     await play(startPlaying: playing);
   }
 
-  void pause() {
+  Future<void> pause() {
     _synthesisQueue.cancelBackground();
     _paragraphTimer?.cancel();
     _host.advanceToken();
@@ -1151,6 +1152,7 @@ class ReadAloudController {
     ]).then<void>((_) {});
     observeControl(_ttsPauseBarrier, errorPrefix: '朗读暂停失败');
     _waitingForParagraph = false;
+    return _ttsPauseBarrier;
   }
 
   /// true表示本次暂停续播已处理，false交由上层重新起播。
@@ -1172,10 +1174,10 @@ class ReadAloudController {
     final token = _host.advanceToken();
     final gen = ++_speakGeneration;
     _state = _state.copyWith(state: PlayerState.playing, errorMessage: null);
-    await _host.activateMedia();
-    if (isStale(token, gen)) return true;
     final session = _createReadAloudSession(token, gen, engineUrl);
     try {
+      await _host.activateMedia();
+      if (isStale(token, gen)) return true;
       await engine.resume(session);
       if (!isStale(token, gen) && engineUrl != systemTtsEngineUrl) {
         unawaited(refreshPrefetchSettings());
@@ -1187,7 +1189,7 @@ class ReadAloudController {
   }
 
   /// 宿主先使全局播放标识失效；本方法只清理朗读会话。
-  void stop(AudioState snapshot) {
+  Future<void> stop(AudioState snapshot) {
     _synthesisQueue.cancelAll();
     final retention = _settings.current.audioCacheCleanTime;
     _cacheRetentionMinutes = retention;
@@ -1197,7 +1199,8 @@ class ReadAloudController {
     _noEngineHintShown = false;
     _speakGeneration++;
     final token = _playToken;
-    observeControl(_systemEngine.stop());
+    final systemStopped = _systemEngine.stop();
+    observeControl(systemStopped);
     _paragraphs = [];
     _paragraphUnits = [];
     readAloudPosition.value = null;
@@ -1207,13 +1210,15 @@ class ReadAloudController {
     _pendingChapterPos = null;
     _pendingParagraphIndex = null;
     _waitingForParagraph = false;
+    final filesStopped = stopFilePlayback();
     observeControl(
-      stopFilePlayback().then(
+      filesStopped.then(
         (_) => _cleanTtsCache(snapshot, retention, token: token),
       ),
       errorPrefix: '音频播放控制失败',
     );
     _host.changed();
+    return Future.wait([systemStopped, filesStopped]).then<void>((_) {});
   }
 
   /// 两种宿主释放入口共用同一次清理，不在释放后访问Ref或重新读取状态。

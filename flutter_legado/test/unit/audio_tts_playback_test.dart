@@ -43,6 +43,19 @@ void main() {
   late MockRustApi mockApi;
   late FakeStreamAudioPlayer fakePlayer;
   late ProviderContainer container;
+  late List<ProviderContainer> testContainers;
+
+  void testPlayback(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        for (final instance in testContainers.reversed) {
+          instance.dispose();
+        }
+      }
+    });
+  }
 
   /// audioSpeak 入参语速记录（每用例清空）
   final speakSpeeds = <double>[];
@@ -55,6 +68,7 @@ void main() {
   });
 
   setUp(() {
+    testContainers = [];
     mockApi = _VoiceApi();
     when(() => mockApi.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => const [
@@ -70,7 +84,7 @@ void main() {
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
       ]),
     );
-    addTearDown(container.dispose);
+    testContainers.add(container);
   });
 
   AudioState readState() => container.read(audioNotifierProvider);
@@ -124,7 +138,7 @@ void main() {
     (selected: 'calm', expected: 'calm'),
     (selected: '', expected: null),
   ]) {
-    testWidgets('正文使用同一音色预设解析情感：${choice.selected}', (tester) async {
+    testPlayback('正文使用同一音色预设解析情感：${choice.selected}', (tester) async {
       stubChapter();
       final voice = ReadAloudVoice(
         id: readAloudVoiceId('http', '1', 'zh'),
@@ -179,7 +193,7 @@ void main() {
   }
 
   group('TTS 段落真实播放（完成回调驱动）', () {
-    testWidgets('audioSpeak 返回 audioPath → 播放该本地文件', (tester) async {
+    testPlayback('audioSpeak 返回 audioPath → 播放该本地文件', (tester) async {
       await startTts(speed: 2.0);
 
       expect(readState().state, PlayerState.playing);
@@ -191,7 +205,7 @@ void main() {
       expect(readState().errorMessage, isNull);
     });
 
-    testWidgets('段落推进由播放完成回调触发（估算 Timer 不推进）', (tester) async {
+    testPlayback('段落推进由播放完成回调触发（估算 Timer 不推进）', (tester) async {
       await startTts();
       expect(readNotifier().currentParagraphIndex, 0);
       expect(fakePlayer.playedLocalFiles, hasLength(1));
@@ -221,7 +235,7 @@ void main() {
       expect(readState().state, PlayerState.idle);
     });
 
-    testWidgets('手动切段：先停旧音频再合成播放新段（不叠音）', (tester) async {
+    testPlayback('手动切段：先停旧音频再合成播放新段（不叠音）', (tester) async {
       await startTts();
       final stopBefore = fakePlayer.stopCount;
 
@@ -236,7 +250,7 @@ void main() {
   });
 
   group('失败降级（估算时长 + 用户可见提示）', () {
-    testWidgets('本地播放失败 → 提示 + 估算时长推进', (tester) async {
+    testPlayback('本地播放失败 → 提示 + 估算时长推进', (tester) async {
       stubChapter();
       stubAudioSpeak();
       await readNotifier().loadChapters('url');
@@ -259,7 +273,7 @@ void main() {
       readNotifier().stop();
     });
 
-    testWidgets('合成失败 → 提示 + 估算时长推进', (tester) async {
+    testPlayback('合成失败 → 提示 + 估算时长推进', (tester) async {
       stubChapter();
       when(
         () => mockApi.httpTtsSynthesizer.synthesize(
@@ -289,7 +303,7 @@ void main() {
       readNotifier().stop();
     });
 
-    testWidgets('合成返回空路径 → 视为失败降级并提示', (tester) async {
+    testPlayback('合成返回空路径 → 视为失败降级并提示', (tester) async {
       stubChapter();
       when(
         () => mockApi.httpTtsSynthesizer.synthesize(
@@ -320,7 +334,7 @@ void main() {
   });
 
   group('停止/取消', () {
-    testWidgets('stop 后在途合成失效、完成回调不再推进', (tester) async {
+    testPlayback('stop 后在途合成失效、完成回调不再推进', (tester) async {
       stubChapter();
       final completer = Completer<HttpTtsSynthesisResult>();
       when(
@@ -362,7 +376,7 @@ void main() {
       await playFuture;
     });
 
-    testWidgets('暂停后从同一音频位置续播，新会话完成推进且旧会话无效', (tester) async {
+    testPlayback('暂停后从同一音频位置续播，新会话完成推进且旧会话无效', (tester) async {
       await startTts();
       final notifier = readNotifier();
       final oldTag = fakePlayer.currentTag;
@@ -405,7 +419,7 @@ void main() {
       expect(fakePlayer.playedLocalFiles, hasLength(2));
     });
 
-    testWidgets('从段内起点朗读，暂停续播仍按原请求映射正文偏移', (tester) async {
+    testPlayback('从段内起点朗读，暂停续播仍按原请求映射正文偏移', (tester) async {
       await startTts();
       final notifier = readNotifier();
       notifier.pause();
@@ -438,7 +452,7 @@ void main() {
       );
     });
 
-    testWidgets('快速暂停恢复等待确认，等待时停止不再恢复', (tester) async {
+    testPlayback('快速暂停恢复等待确认，等待时停止不再恢复', (tester) async {
       await startTts();
       final barrier = Completer<void>();
       fakePlayer.pauseBarrier = barrier.future;
@@ -455,7 +469,7 @@ void main() {
       expect(fakePlayer.playedLocalFiles, hasLength(1));
     });
 
-    testWidgets('暂停后手动换段重新起播，不复用上一段音频', (tester) async {
+    testPlayback('暂停后手动换段重新起播，不复用上一段音频', (tester) async {
       await startTts();
       readNotifier().pause();
       await tester.pump();
@@ -466,7 +480,7 @@ void main() {
       expect(fakePlayer.playedLocalFiles.last.path, '/tmp/tts/para_2.mp3');
     });
 
-    testWidgets('暂停后更换 HTTP 引擎使原音频失效', (tester) async {
+    testPlayback('暂停后更换 HTTP 引擎使原音频失效', (tester) async {
       await startTts();
       readNotifier().pause();
       await tester.pump();
@@ -480,7 +494,7 @@ void main() {
       expect(fakePlayer.playedLocalFiles, hasLength(2));
     });
 
-    testWidgets('暂停期间更改倍速保留音频，续播失败保持暂停并显示错误', (tester) async {
+    testPlayback('暂停期间更改倍速保留音频，续播失败保持暂停并显示错误', (tester) async {
       await startTts();
       readNotifier().pause();
       await tester.pump();
@@ -496,7 +510,7 @@ void main() {
   });
 
   for (final hasAudio in [true, false]) {
-    testWidgets('独立覆盖合成接口：${hasAudio ? '缓存音频正常播放' : '探活成功仍提示并估算'}', (
+    testPlayback('独立覆盖合成接口：${hasAudio ? '缓存音频正常播放' : '探活成功仍提示并估算'}', (
       tester,
     ) async {
       stubChapter();
@@ -528,7 +542,7 @@ void main() {
           httpTtsSynthesizerProvider.overrideWithValue(synthesis),
         ]),
       );
-      addTearDown(isolated.dispose);
+      testContainers.add(isolated);
       final notifier = isolated.read(audioNotifierProvider.notifier);
       await notifier.loadChapters('url');
       notifier.updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
@@ -565,7 +579,7 @@ void main() {
   }
 
   group('网络流（音频书）路径回归', () {
-    testWidgets('playUrl 播放 + 完成回调驱动下一章', (tester) async {
+    testPlayback('playUrl 播放 + 完成回调驱动下一章', (tester) async {
       when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: 'ch1', index: 0),

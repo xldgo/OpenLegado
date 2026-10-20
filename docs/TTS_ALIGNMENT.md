@@ -2,6 +2,31 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 统一音频会话（2026-10-20）
+
+audio_session 0.2.4 从既有间接依赖改为直接依赖，不升级插件；
+参考 [官方配置](https://pub.dev/packages/audio_session/versions/0.2.4) 与本地锁定源码。
+
+- AppAudioSession 只拥有系统会话和独立使用凭据，串行配置/激活/释放；
+  正文、音频书、试听必须先获准再播放。最后一个使用方释放才降激活，旧凭据重复释放无副作用。
+- 使用 speech 配置：iOS playback/spokenAudio，Android media/speech、需要 duck 时暂停。
+  just_audio 不自行激活/处理中断，开启 Android 属性消费；不修改原生播放队列。
+- Android 永久失焦映射为不可自动恢复；iOS 开始中断的 unknown 仅代表开始，
+  结束时是否 shouldResume 决定恢复许可。媒体协调层再核对当前播放代次、书籍和用户意图；
+  暂停/停止等待实际播放控制屏障后释放，旧屏障不能释放新会话。耳机断开暂停，重连不自动播。
+- 试听遇到中断直接结束，不自动恢复。系统 TTS 仅禁用插件自动释放共享会话，
+  不再自行 setSharedInstance/setIosAudioCategory；启动应用也不再立即激活会话。
+- Web 保活持有非真实音频使用凭据；真实播放（含试听）或外部中断时停止近静音音轨，
+  不重新激活共享会话。原生 WebKeepAlive 只管理音轨，Dart 协调最新启停意图和释放。
+- MediaSessionBridge/NowPlayingBridge 删除原生焦点申请与中断监听，保留通知、封面、
+  锁屏/耳机按钮、进度/定位与既有前台服务。没有引入 audio_service；Windows 保留原播放器，
+  不宣称已有系统音频焦点或 SMTC；视频路径保持独立，未纳入本批平台验收。
+
+行为替身只能证明上述状态与调用顺序；iOS 编译、真实来电/Siri、耳机与后台播放仍需设备验收。
+具体执行结果只见 Active 中 TTS-AUDIO-SESSION-20261020。
+
+编写者：Codex + UI｜2026-10-20
+
 ## 云端配置按 ID 查询与测量口径（2026-10-20）
 
 这是现有调用边界内的读取优化，不改变参考版的预下载或播放行为。
@@ -478,7 +503,8 @@ HTTP 失败时原有提示与估算推进保留，不自动切换系统引擎。
   Windows 配套 [just_audio_windows 0.2.3](https://pub.dev/packages/just_audio_windows/versions/0.2.3)。
   `ReadAloudAudioPlayer` 最初只接管正文 TTS 本地队列；后续按2026-10-15纯音频统一批次
   接管音频书URL与独立试听，视频仍保留原实现。
-  关闭插件自行管理焦点、中断和音频会话，由既有 MediaSessionBridge 处理；不新增第二个后台服务。
+  关闭插件自行管理焦点、中断和音频会话；2026-10-20 起由 AppAudioSession 处理，
+  MediaSessionBridge 仅保留系统媒体控制，不新增第二个后台服务。
 - `AudioNotifier` 生成当前章的 cue：逻辑段落、UTF-16 原文起点和不可变合成请求。
   零停顿排当前章剩余正文，有停顿只排同段长度分片；不提前排下一章，章末定时和循环仍归协调层。
 - `FileReadAloudPlaylist` 只管理本地文件入队与租约，最多当前项加两个后续项。

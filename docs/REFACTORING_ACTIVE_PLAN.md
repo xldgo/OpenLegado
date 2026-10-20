@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-AUDIO-SESSION-20261020：统一音频会话与中断（P1，代码完成，待平台验收）
+
+- 授权/基线：用户同意先完成第一批 audio_session 接入；feature/ui-tts-engine / c5e302706，工作树干净，单代理。
+- 范围：直接声明既有 audio_session 0.2.4，统一正文/音频书/试听的会话激活、拒绝与中断，Web 保活以独立使用凭据共享；移除同职责原生焦点/激活操作，保留媒体通知/锁屏/服务路径。无 Rust/FFI 变更，不迁移 audio_service，不改预合成和播放队列。
+- 验收：激活失败不得开始/恢复播放，耳机断开暂停且不自动恢复，中断恢复核验会话/用户意图，多使用方释放互不影响，保活不得中断期间抢占。行为单测与定向分析；平台真实中断/后台/蓝牙留待设备验收，仅本地提交不推送。
+- 实现：新增平台 AppAudioSession 和可独立释放的使用凭据；应用按需 speech 配置与激活，正文/音频书/试听先获准再起播或恢复。媒体协调层过滤旧代次/书籍的恢复，永久失焦或耳机断开取消恢复意图；暂停/停止等待原生控制完成，迟到屏障不释放新会话。系统 TTS 不再自行配置/激活，Web 保活让位于真实音频与外部中断，原生仅启停音轨；既有通知、锁屏、定位和前台服务保留。
+- 平台语义：audio_session 的 iOS unknown 开始映射为临时中断，结束时按恢复许可裁决；Android unknown 表示永久失焦。语音场景遇 duck 暂停；just_audio 保持手动中断/激活，启用 Android 音频属性消费。Windows 继续本地播放，不虚构焦点或 SMTC；未迁移视频或 audio_service，无 Rust/FRB/schema 变化。
+- 验证：12 份定向 Flutter 测试最终 170 项通过，重复执行不累计；含会话拒绝、并发持有、停止后迟到申请、中断期间保活、异步保活启停、试听取消、暂停停止屏障、现有 HTTP/云预取/系统 TTS 与原生队列状态机。22 份手写 Dart 定向分析与格式、架构检查通过；证据 flutter_legado/build/tts-audio-session-final.log。测试默认显式提供媒体平台及封面替身，HTTP 播放测试在用例体内销毁容器，不绕过生产门禁。
+- Android：本机缺 Gradle wrapper，改用已缓存 Gradle 9.4.1；常规 compileDebugKotlin 被当前 worktree 缺 arm64 Rust 库的正式校验阻止。随后仅运行 Kotlin 编译，命令 :app:compileDebugKotlin -x :app:verifyDebugRustFfiLibs -x :app:compileFlutterBuildDebug --offline --console=plain，通过；此结果仅证明 Kotlin 可编译，不代表 APK/FFI 验收，不修改正式门禁。保留既有 AGP/插件弃用告警。
+- 过程：初始平台映射测试的非 const 构造与遗漏导入经分析发现后修正；扩大回归暴露原测试依赖未初始化媒体会话、容器/封面计时器清理不完整，补齐显式替身和用例内释放后收口，没有放宽生产校验。版本 2.0.416+417；audio_session 锁定仍为 0.2.4，仅从间接改为直接依赖。
+- 交付边界：单代理实现与自查，无独立审查。Windows 无 Xcode，未执行 iOS 编译、真机中文发声、来电/Siri、蓝牙断连及后台连续播放；未打包/安装/触发 CI，不以单测代替设备验收。本地提交，不推送或合并，提交号见本条 Git 记录。
+
+编写者：Codex + UI｜2026-10-20
+
 ### TTS-LOOKUP-20261020：云朗读单项查询与重复读取测量（P2，本地完成）
 
 - 授权/基线：用户同意优先贯通按 ID 查询、测量重复读取；feature/ui-tts-engine / 0ee96b364，开始工作树干净，单代理。

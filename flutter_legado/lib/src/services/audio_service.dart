@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 import 'media_session_models.dart';
+import '../platform/audio/app_audio_session.dart';
 
 /// 音频焦点事件类型
 enum AudioFocusEvent {
@@ -39,8 +41,8 @@ enum MediaButtonEvent {
 
 /// 音频服务 — 后台媒体按钮 + 焦点管理
 ///
-/// 通过 Platform Channel 与 Android MediaSession / iOS Now Playing 通信，
-/// 复刻原版 BaseReadAloudService 中的媒体会话和焦点管理逻辑。
+/// 媒体控制通过 Platform Channel 连接 Android MediaSession / iOS Now Playing，
+/// 音频焦点与中断统一委托 AppAudioSession，不由媒体桥接重复持有。
 ///
 /// 功能：
 /// - 初始化/释放 MediaSession
@@ -49,9 +51,16 @@ enum MediaButtonEvent {
 /// - 监听媒体按钮事件（播放/暂停/上一首/下一首/停止）
 /// - 监听音频焦点变化（获得/丢失/暂时丢失）
 class AudioService {
-  AudioService._();
+  AudioService._() : _session = AppAudioSession.instance;
+
+  @visibleForTesting
+  AudioService.forTesting(this._session);
 
   static final AudioService _instance = AudioService._();
+  final AppAudioSession _session;
+  StreamSubscription<AppAudioEvent>? _focusSubscription;
+  AppAudioLease? _focusLease;
+  int _focusGeneration = 0;
 
   /// 单例实例
   static AudioService get instance => _instance;
@@ -75,22 +84,20 @@ class AudioService {
   /// 是否已注册通道回调
   bool _handlerRegistered = false;
 
-  /// 真实音频（听书/TTS）播放态广播流控制器
-  ///
-  /// [iOS Web 服务保活 | 2026-10-07] Web 服务运行期间 iOS 用近静音音轨维持
-  /// 后台存活；真实音频播放时静音音轨应暂停（音频会话本身即保活），停止后
-  /// 恢复。播放态经 notifyPlaying / notifyPaused / notifyStopped 汇聚
-  /// （audio_notifier 的全部播放态变更都走这三个便捷方法），此处以广播流
-  /// 暴露，供 WebKeepAliveService 决策，与平台通道是否初始化无关。
-  final StreamController<bool> _playbackActiveController =
-      StreamController<bool>.broadcast();
-
-  bool _playbackActive = false;
-
   // ===== 公开属性 =====
 
   /// 音频焦点事件流
-  Stream<AudioFocusEvent> get audioFocusStream => _audioFocusController.stream;
+  Stream<AudioFocusEvent> get audioFocusStream {
+    _focusSubscription ??= _session.events.listen((event) {
+      _audioFocusController.add(switch (event) {
+        AppAudioEvent.pause => AudioFocusEvent.lossTransient,
+        AppAudioEvent.resume => AudioFocusEvent.gain,
+        AppAudioEvent.stop => AudioFocusEvent.loss,
+        AppAudioEvent.loss => AudioFocusEvent.loss,
+      });
+    });
+    return _audioFocusController.stream;
+  }
 
   /// 媒体按钮事件流
   Stream<MediaButtonEvent> get mediaButtonStream =>
@@ -130,12 +137,6 @@ class AudioService {
   /// 是否已初始化
   bool get isInitialized => _initialized;
 
-  /// 真实音频（听书/TTS）播放态流（Web 服务保活共存判断用）
-  Stream<bool> get playbackActiveStream => _playbackActiveController.stream;
-
-  /// 真实音频（听书/TTS）当前是否正在播放
-  bool get playbackActive => _playbackActive;
-
   // ===== 生命周期方法 =====
 
   /// 初始化媒体会话
@@ -164,6 +165,9 @@ class AudioService {
   ///
   /// 在播放会话销毁时调用，释放 MediaSession 和音频焦点。
   Future<void> dispose() async {
+    await abandonAudioFocus();
+    await _focusSubscription?.cancel();
+    _focusSubscription = null;
     if (!_initialized) return;
 
     try {
@@ -184,31 +188,27 @@ class AudioService {
   /// 复刻原版 requestFocus()，在播放前调用。
   /// 返回 true 表示成功获取焦点。
   Future<bool> requestAudioFocus() async {
-    if (!_initialized) return false;
-
-    try {
-      final result = await _channel.invokeMethod<bool>('requestAudioFocus');
-      return result ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
+    final generation = ++_focusGeneration;
+    final lease = await _session.acquire();
+    if (generation != _focusGeneration) {
+      await lease?.release();
       return false;
     }
+    if (lease == null) return false;
+    final previous = _focusLease;
+    _focusLease = lease;
+    await previous?.release();
+    return true;
   }
 
   /// 放弃音频焦点
   ///
   /// 复刻原版 abandonFocus()，在停止播放或页面销毁时调用。
   Future<void> abandonAudioFocus() async {
-    if (!_initialized) return;
-
-    try {
-      await _channel.invokeMethod<void>('abandonAudioFocus');
-    } on PlatformException {
-      // 静默处理
-    } on MissingPluginException {
-      // 静默处理
-    }
+    _focusGeneration++;
+    final lease = _focusLease;
+    _focusLease = null;
+    await lease?.release();
   }
 
   // ===== 播放状态方法 =====
@@ -317,30 +317,20 @@ class AudioService {
 
   /// 通知系统当前正在播放
   Future<void> notifyPlaying({int position = 0}) async {
-    _setPlaybackActive(true);
     await setPlaying(true);
     await updatePlaybackState(state: 'playing', position: position);
   }
 
   /// 通知系统当前已暂停
   Future<void> notifyPaused({int position = 0}) async {
-    _setPlaybackActive(false);
     await setPlaying(false);
     await updatePlaybackState(state: 'paused', position: position);
   }
 
   /// 通知系统当前已停止
   Future<void> notifyStopped() async {
-    _setPlaybackActive(false);
     await setPlaying(false);
     await updatePlaybackState(state: 'stopped');
-  }
-
-  /// 更新真实音频播放态（值变化才广播；供 Web 保活共存的启停判断）
-  void _setPlaybackActive(bool active) {
-    if (_playbackActive == active) return;
-    _playbackActive = active;
-    _playbackActiveController.add(active);
   }
 
   // ===== 内部方法 =====
@@ -368,28 +358,7 @@ class AudioService {
           _mediaButtonController.add(MediaButtonEvent.skipToPrevious);
         case 'onStop':
           _mediaButtonController.add(MediaButtonEvent.stop);
-        case 'onAudioFocusChange':
-          final event = _parseFocusEvent(call.arguments as String?);
-          if (event != null) {
-            _audioFocusController.add(event);
-          }
       }
     });
-  }
-
-  /// 解析焦点事件字符串为枚举
-  AudioFocusEvent? _parseFocusEvent(String? value) {
-    switch (value) {
-      case 'gain':
-        return AudioFocusEvent.gain;
-      case 'loss':
-        return AudioFocusEvent.loss;
-      case 'lossTransient':
-        return AudioFocusEvent.lossTransient;
-      case 'lossTransientCanDuck':
-        return AudioFocusEvent.lossTransientCanDuck;
-      default:
-        return null;
-    }
   }
 }

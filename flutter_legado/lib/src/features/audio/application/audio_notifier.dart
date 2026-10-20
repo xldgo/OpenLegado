@@ -103,6 +103,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
 
   Book? _book;
   bool _disposed = false;
+  Future<void> _pauseCompletion = Future.value();
 
   /// A4：定时停止（下沉 Notifier，退出听书页不失效）
   ///
@@ -770,13 +771,23 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     if (state.state == PlayerState.playing ||
         state.state == PlayerState.loading) {
       _readAloud.cancelPendingAdvance();
-      if (state.isStreamMode) {
-        _audioBookController.pause();
-      } else {
-        _readAloud.pause();
-      }
+      final paused = state.isStreamMode
+          ? _audioBookController.pause()
+          : _readAloud.pause();
+      _pauseCompletion = paused;
       state = state.copyWith(state: PlayerState.paused);
-      _media.notifyPaused();
+      unawaited(
+        _media.notifyPaused(after: paused).catchError((Object error) {
+          debugPrint('暂停音频会话失败：$error');
+        }),
+      );
+    } else if (!dueToInterruption && state.state == PlayerState.paused) {
+      // 中断已暂停后用户明确暂停：取消恢复意图，并等待同一原生屏障再交还会话。
+      unawaited(
+        _media.notifyPaused(after: _pauseCompletion).catchError((Object error) {
+          debugPrint('释放暂停音频会话失败：$error');
+        }),
+      );
     }
   }
 
@@ -802,7 +813,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     unawaited(_audioBookController.persistPosition(force: true));
     _media.prepareResume();
     _playToken++;
-    _readAloud.stop(snapshot);
+    final stopped = _readAloud.stop(snapshot);
     state = state.copyWith(
       state: PlayerState.idle,
       mediaUrl: '',
@@ -810,7 +821,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       durationMs: 0,
       lyric: null,
     );
-    _media.notifyStopped();
+    _media.notifyStopped(after: stopped);
   }
 
   Future<void> next() async {

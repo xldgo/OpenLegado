@@ -1,17 +1,16 @@
-import AVFoundation
 import Flutter
 import MediaPlayer
 import UIKit
 
 /// [iOS 轨 P2-C] 锁屏控制 / Now Playing——对齐 Android MediaSessionBridge 的通道协议：
-/// Flutter→Native: init / release / requestAudioFocus / abandonAudioFocus /
+/// Flutter→Native: init / release /
 ///   updatePlaybackState{state,position} / updateMetadata / updateArtwork /
 ///   setPlaying{playing} / setWakeLock{enabled}
 /// Native→Flutter: onPlay / onPause / onSkipToNext / onSkipToPrevious / onStop /
-///   onAudioFocusChange{gain|loss|lossTransient|lossTransientCanDuck}
+/// 音频会话及中断由 Dart AppAudioSession 统一处理。
 ///
 /// iOS 无前台服务/WakeLock 概念（后台运行由 UIBackgroundModes=audio +
-/// AppDelegate 的 AVAudioSession playback 类别保障），setWakeLock 为空实现。
+/// AppAudioSession 的 playback 类别保障），setWakeLock 为空实现。
 /// 媒体进度使用毫秒协议，拖动回传当前书章与会话身份。
 @objc class NowPlayingBridge: NSObject {
   static let shared = NowPlayingBridge()
@@ -19,7 +18,6 @@ import UIKit
   private var channel: FlutterMethodChannel?
   private var isPlaying = false
   private var commandsConfigured = false
-  private var interruptionsObserved = false
 
   private override init() {
     super.init()
@@ -39,23 +37,15 @@ import UIKit
     switch call.method {
     case "init":
       configureRemoteCommands()
-      observeInterruptions()
       result(true)
     case "release":
       clearNowPlaying()
       result(nil)
-    case "requestAudioFocus":
-      // iOS 无竞争焦点模型：会话已在 AppDelegate 设为 playback，
-      // 中断经 interruptionNotification 下发（见 observeInterruptions）
-      result(true)
     case "takePendingOpen":
       // iOS由系统点击媒体面板打开应用，不接管系统页面跳转。
       result(nil)
     case "updateProgress":
       updateProgress(call.arguments as? [String: Any] ?? [:])
-      result(nil)
-    case "abandonAudioFocus":
-      // 保持会话激活（退出后台继续播放），不做降激活
       result(nil)
     case "updatePlaybackState":
       let args = call.arguments as? [String: Any] ?? [:]
@@ -255,37 +245,6 @@ import UIKit
         "position": Int64(max(0, change.positionTime) * 1000.0),
       ])
       return .success
-    }
-  }
-
-  // MARK: - 系统中断（来电/Siri）→ 焦点事件映射
-
-  private func observeInterruptions() {
-    guard !interruptionsObserved else { return }
-    interruptionsObserved = true
-    NotificationCenter.default.addObserver(
-      forName: AVAudioSession.interruptionNotification,
-      object: AVAudioSession.sharedInstance(),
-      queue: .main
-    ) { [weak self] notification in
-      guard
-        let info = notification.userInfo,
-        let typeRaw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
-        let type = AVAudioSession.InterruptionType(rawValue: typeRaw)
-      else { return }
-      switch type {
-      case .began:
-        self?.notifyFlutter("onAudioFocusChange", "lossTransient")
-      case .ended:
-        let optionRaw = info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-        let options = AVAudioSession.InterruptionOptions(rawValue: optionRaw)
-        self?.notifyFlutter(
-          "onAudioFocusChange",
-          options.contains(.shouldResume) ? "gain" : "loss"
-        )
-      @unknown default:
-        break
-      }
     }
   }
 

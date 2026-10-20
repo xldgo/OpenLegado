@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.416] - 2026-10-20
+
+### Changed
+- 统一朗读、音频书与音色试听的音频会话，申请被拒绝时不开始播放。
+- 耳机断开暂停，中断恢复核对当前会话；Web 保活让位于真实音频与外部中断。
+- 贡献者：Codex；构建号417。
+
 ## [2.0.415] - 2026-10-20
 
 ### Changed

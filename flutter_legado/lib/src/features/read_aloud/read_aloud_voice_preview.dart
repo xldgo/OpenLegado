@@ -7,6 +7,7 @@ import '../../domain/contracts/cloud_tts_synthesizer.dart';
 import '../../domain/contracts/http_tts_synthesizer.dart';
 import '../../domain/contracts/tts_cache_repository.dart';
 import '../../platform/tts/system_tts.dart';
+import '../../platform/audio/app_audio_session.dart';
 import '../../services/stream_audio_player.dart';
 import 'playback/cloud_read_aloud_engine.dart';
 import 'playback/http_read_aloud_engine.dart';
@@ -24,7 +25,12 @@ final class ReadAloudVoicePreview {
     required TtsCacheRepository Function() cache,
     required this.onChanged,
     required this.onError,
-  }) {
+    AppAudioSession? audioSession,
+  }) : _audioSession = audioSession ?? AppAudioSession.instance {
+    _audioEvents = _audioSession.events.listen((event) {
+      // 试听不自动恢复；耳机断开/中断使本次试听彻底失效。
+      if (event != AppAudioEvent.resume) unawaited(stop());
+    });
     _cloud = CloudReadAloudEngine(
       synthesizer: cloud,
       repository: engines,
@@ -47,6 +53,9 @@ final class ReadAloudVoicePreview {
   }
   final StreamAudioPlayer player;
   final SystemTts system;
+  final AppAudioSession _audioSession;
+  late final StreamSubscription<AppAudioEvent> _audioEvents;
+  AppAudioLease? _audioLease;
   final void Function(String?) onChanged;
   final void Function(Object) onError;
   late final CloudReadAloudEngine _cloud;
@@ -62,10 +71,16 @@ final class ReadAloudVoicePreview {
     final active = _active;
     _active = null;
     final wasSystem = _systemActive;
+    final lease = _audioLease;
+    _audioLease = null;
     _systemActive = false;
     onChanged(null);
-    await active?.stop();
-    if (wasSystem) await system.stop();
+    try {
+      await active?.stop();
+      if (wasSystem) await system.stop();
+    } finally {
+      await lease?.release();
+    }
   }
 
   Future<void> speak(
@@ -90,6 +105,13 @@ final class ReadAloudVoicePreview {
     _session = session;
     onChanged(voice.id);
     try {
+      final lease = await _audioSession.acquire();
+      if (!session.isCurrent) {
+        await lease?.release();
+        return;
+      }
+      if (lease == null) throw StateError('无法取得试听音频会话，请稍后重试');
+      _audioLease = lease;
       if (voice.engineType == 'system') {
         if (voice.engineId != 'system:${system.selectedEngine}') {
           throw StateError('请先选择对应系统引擎');
@@ -146,6 +168,7 @@ final class ReadAloudVoicePreview {
 
   Future<void> dispose() async {
     _closed = true;
+    await _audioEvents.cancel();
     await stop();
     await player.dispose();
   }

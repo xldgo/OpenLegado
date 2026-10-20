@@ -1,3 +1,10 @@
+import 'dart:async';
+
+import 'media_audio_service.dart';
+import 'media_artwork_loader.dart';
+
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart'
+    show audioServiceProvider, mediaArtworkLoaderProvider;
 import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
 
 import 'mock_book_api.dart';
@@ -274,5 +281,15 @@ extension TestApiOverrides on TestApi {
 }
 
 /// 组合夹具先提供缺省依赖，单个用例后声明的替身优先。
-List<Override> mergeTestOverrides(List<Override> values) =>
-    {for (final value in values) value.origin: value}.values.toList();
+List<Override> mergeTestOverrides(List<Override> values) => {
+  for (final value in [
+    mediaArtworkLoaderProvider.overrideWithValue(FakeMediaArtworkLoader()),
+    audioServiceProvider.overrideWith((ref) {
+      final audio = TestMediaAudioService();
+      ref.onDispose(() => unawaited(audio.closeStreams()));
+      return audio;
+    }),
+    ...values,
+  ])
+    value.origin: value,
+}.values.toList();

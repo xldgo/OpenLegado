@@ -25,11 +25,9 @@ import Flutter
 ///   `docs/WEB_SERVICE_KEEPALIVE_SURVEY_20261007.md` §五）。
 ///
 /// ## 会话与 NowPlaying
-/// - 会话不切类别/模式（AppDelegate 已设 `.playback` + `.spokenAudio`，
-///   切换会干扰听书/TTS），仅确保 `setActive(true)`（幂等）；被来电/Siri
-///   中断时激活抛错 → 返回 false，上层回退「仅前台可用」。
-/// - 停止时**不** `setActive(false)`：会话为进程共享资源，听书/TTS 可能正在
-///   使用；停掉播放器后若确实无其它音频，系统会自然回收后台执行权。
+/// - 会话由 Dart AppAudioSession 统一配置与持有；此处只启停近静音音轨。
+/// - 停止时不调用 setActive(false)：释放使用凭据由 Dart 协调，避免影响真实音频。
+///   停掉播放器后若确实无其它音频，系统会自然回收后台执行权。
 /// - **不发布** MPNowPlayingInfoCenter（避免状态栏/控制中心出现「正在播放」
 ///   残留卡片）。注意冲突面：TTS/听书播放时 NowPlayingBridge 会发布自己的
 ///   metadata 并在 stopped 时清空；保活期间若有该发布，属 TTS 语义、与本类
@@ -106,8 +104,7 @@ import Flutter
   private func startKeepAlive() -> Bool {
     if player != nil { return true } // 幂等：Dart 侧已去重，这里再兜一层
     do {
-      // 仅激活会话，不改类别/模式（AppDelegate 已配置 playback/spokenAudio）
-      try AVAudioSession.sharedInstance().setActive(true)
+      // Dart 已持有保活使用凭据；此处只启停音轨，不修改共享会话。
       let data = WebKeepAlive.makeNearSilentWavData()
       let p = try AVAudioPlayer(data: data)
       p.numberOfLoops = -1

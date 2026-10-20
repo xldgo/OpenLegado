@@ -1,5 +1,15 @@
 # API 契约文档
 
+## 音频平台职责收敛（TTS-AUDIO-SESSION-20261020）
+
+本批不改 Rust/FRB；legado/media_session 移除 requestAudioFocus、abandonAudioFocus 与
+onAudioFocusChange 原生通道分派，由 Dart AppAudioSession/audio_session 统一激活、释放和事件映射。
+原有通知、元数据、封面、进度、定位、媒体按钮与 Web 保活 setEnabled 协议保持；
+Web 保活调用方先持有独立音频会话使用凭据，原生只启停近静音音轨，不再修改共享会话。
+不保留双重焦点监听或旧通道回退，不改变应用数据契约；行为边界与平台差异见 TTS_ALIGNMENT。
+
+编写者：Codex + UI｜2026-10-20
+
 ## 云 TTS 按 ID 查询（TTS-LOOKUP-20261020，实施前冻结）
 
 新增 cloudTtsGet(id: String) -> CloudTtsMetadataDto?，Flutter CloudTtsRepository.get(id)

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../../../domain/models/read_aloud_media_timeline.dart';
 import '../../../models/book.dart';
 import '../application/audio_state.dart';
@@ -31,6 +33,7 @@ final class MediaSessionCoordinator {
   bool get _disposed => _released || _host.isDisposed();
   bool _released = false;
   bool _resumeAfterInterruption = false;
+  (int, String)? _interruptionTarget;
   Future<void>? _initializing;
   StreamSubscription<MediaButtonEvent>? _mediaButtonSub;
   StreamSubscription<AudioFocusEvent>? _audioFocusSub;
@@ -76,15 +79,44 @@ final class MediaSessionCoordinator {
 
   void preparePause({bool dueToInterruption = false}) {
     _resumeAfterInterruption = dueToInterruption && _state.isPlaying;
+    if (!dueToInterruption) {
+      _interruptionTarget = null;
+    }
   }
 
-  void prepareResume() => _resumeAfterInterruption = false;
+  void prepareResume() {
+    _resumeAfterInterruption = false;
+    _interruptionTarget = null;
+  }
 
-  Future<void> notifyPaused() => _audioService.notifyPaused();
+  Future<void> notifyPaused({Future<void>? after}) async {
+    final token = _playToken;
+    await _audioService.notifyPaused();
+    await after;
+    if (!_disposed &&
+        token == _playToken &&
+        !_resumeAfterInterruption &&
+        (_state.state == PlayerState.paused ||
+            _state.state == PlayerState.error)) {
+      await _audioService.abandonAudioFocus();
+    }
+  }
 
-  void notifyStopped() {
+  void notifyStopped({Future<void>? after}) {
+    final token = _playToken;
     unawaited(_audioService.notifyStopped());
-    unawaited(_audioService.abandonAudioFocus());
+    unawaited(
+      Future<void>.sync(() async {
+        await after;
+        if (!_disposed &&
+            token == _playToken &&
+            _state.state == PlayerState.idle) {
+          await _audioService.abandonAudioFocus();
+        }
+      }).catchError((Object error) {
+        debugPrint('释放停止音频会话失败：$error');
+      }),
+    );
   }
 
   Future<void> setWakeLock(bool enabled) => _audioService.setWakeLock(enabled);
@@ -115,16 +147,21 @@ final class MediaSessionCoordinator {
     _audioFocusSub = _audioService.audioFocusStream.listen((event) {
       switch (event) {
         case AudioFocusEvent.gain:
-          final resume = _resumeAfterInterruption;
-          _resumeAfterInterruption = false;
+          final resume =
+              _resumeAfterInterruption &&
+              _interruptionTarget == (_playToken, _state.bookUrl);
+          prepareResume();
           if (resume && _state.state == PlayerState.paused) {
             unawaited(_host.resumeOrPlay());
           }
         case AudioFocusEvent.loss:
-          _resumeAfterInterruption = false;
+          prepareResume();
           _host.pause();
         case AudioFocusEvent.lossTransient:
-          _host.pause(dueToInterruption: true);
+          if (_state.state != PlayerState.paused) {
+            _host.pause(dueToInterruption: true);
+            _interruptionTarget = (_playToken, _state.bookUrl);
+          }
         case AudioFocusEvent.lossTransientCanDuck:
           break;
       }
@@ -144,8 +181,14 @@ final class MediaSessionCoordinator {
   }
 
   Future<void> activate() async {
-    if (_disposed || !_state.isMediaSessionReady) return;
-    await _audioService.requestAudioFocus();
+    if (_disposed) return;
+    final token = _playToken;
+    if (!_state.isMediaSessionReady) await init();
+    if (_disposed || token != _playToken) return;
+    final granted = await _audioService.requestAudioFocus();
+    if (_disposed || token != _playToken || !_state.isPlaying) return;
+    if (!granted) throw StateError('无法取得音频会话，请稍后重试');
+    if (!_state.isMediaSessionReady) return;
     await updateMetadata();
     await _audioService.notifyPlaying();
     await publishProgress(force: true);
@@ -387,7 +430,7 @@ final class MediaSessionCoordinator {
   }
 
   void invalidate() {
-    _resumeAfterInterruption = false;
+    prepareResume();
     _mediaSeekGeneration++;
     _publishedMediaChapter = null;
     _lastProgressSignature = '';
