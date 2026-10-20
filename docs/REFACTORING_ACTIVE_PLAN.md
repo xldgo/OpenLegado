@@ -1,5 +1,12 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-PRACTICES-B6-20261020：fix(rust): 显式拒绝不支持的JS同步运行环境
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：旧同步桥将任意Tokio环境当作多线程导致panic，现返回可捕获的环境错误并保留受支持宿主路径；JS870项通过、4项既有忽略，Engine真实网络7项通过。；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
 ### RUST-PRACTICES-B5-20261020：fix(rust): 统一REST朗读网络资源与响应边界
 
 - 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。

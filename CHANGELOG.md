@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.413] - 2026-10-20
+
+### Fixed
+- 旧同步桥将任意Tokio环境当作多线程导致panic，现返回可捕获的环境错误并保留受支持宿主路径
+- 贡献者：Codex + Rust；构建号414。
+
 ## [2.0.412] - 2026-10-20
 
 ### Fixed

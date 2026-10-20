@@ -125,6 +125,7 @@ fn js_requests_share_the_engine_source_rate_window() {
             )
             .await
         });
+        let shared = shared.expect("测试宿主支持同步网络桥");
         assert!(shared.is_err(), "{call}未占用共享源限流窗口");
     }
     legado_js::host_api::current_source::with_current_source_tag(&url, || {

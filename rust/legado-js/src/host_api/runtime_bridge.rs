@@ -14,8 +14,8 @@ static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 /// 任务 #60 ②：原 `Runtime::new()` 无 thread_name 且 worker 栈为默认约 2MB，
 /// 是搜索崩溃（regex-syntax 深递归击穿 worker 栈）的主要宿主。
 /// 改为 Builder 显式配置：worker 栈扩到 8MB（对齐原版 JVM 线程栈水位）
-/// + thread_name 便于崩溃诊断。tokio blocking 池为按需创建无法配置栈，
-///   其风险由 regex_safe 非递归预检兜底。
+/// + thread_name 便于崩溃诊断；当前Tokio也将thread_stack_size用于按需创建的blocking线程。
+/// 正则仍须经过regex_safe预检，扩栈不替代输入防护。
 pub fn get_runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| {
         Builder::new_multi_thread()
@@ -27,33 +27,44 @@ pub fn get_runtime() -> &'static Runtime {
     })
 }
 
-/// 在 JS 线程中同步执行异步操作
-///
-/// # 安全约束
-/// 此函数只能在非 tokio worker 线程中调用（即 JS 专用 OS 线程）。
-/// 在 tokio worker 中调用 block_on 会导致死锁。
-pub fn block_on<F: std::future::Future>(future: F) -> F::Output {
+/// 不支持的执行环境明确返回错误，不在单线程运行时阻塞其唯一驱动线程。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnsupportedRuntime;
+impl std::fmt::Display for UnsupportedRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("同步JS网络桥不能在Tokio单线程运行时执行，请使用宿主阻塞任务或专用线程")
+    }
+}
+impl std::error::Error for UnsupportedRuntime {}
+/// 同步桥只接受普通线程或多线程运行时；不移动QuickJS对象或创建每请求线程。
+pub fn block_on<F: std::future::Future>(future: F) -> Result<F::Output, UnsupportedRuntime> {
     match tokio::runtime::Handle::try_current() {
-        // 已在 tokio runtime 内（探索/搜索等 async 上下文内执行书源 JS →
-        // java.ajax 等网络调用）：用 block_in_place 让出当前 worker 后
-        // 再驱动 legado-js runtime，避免嵌套 Runtime::block_on 触发
-        // "Cannot start a runtime from within a runtime"（七猫四合一书源
-        // 点分类报错根因；要求外层 runtime 为 multi-thread，legado-ffi
-        // runtime 满足）。— DeepSeek Harness + Bridge（2026-08-15）
-        Ok(_) => tokio::task::block_in_place(|| get_runtime().block_on(future)),
-        Err(_) => get_runtime().block_on(future),
+        Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
+            Ok(tokio::task::block_in_place(|| {
+                get_runtime().block_on(future)
+            }))
+        }
+        Ok(_) => Err(UnsupportedRuntime),
+        Err(_) => Ok(get_runtime().block_on(future)),
     }
 }
 
 pub(crate) trait CancelError {
     fn cancelled() -> Self;
+    fn unsupported_runtime(error: UnsupportedRuntime) -> Self;
 }
 impl CancelError for String {
+    fn unsupported_runtime(error: UnsupportedRuntime) -> Self {
+        error.to_string()
+    }
     fn cancelled() -> Self {
         crate::cancellation::CANCELLED.into()
     }
 }
 impl CancelError for legado_core::LegadoError {
+    fn unsupported_runtime(error: UnsupportedRuntime) -> Self {
+        Self::JsEngine(error.to_string())
+    }
     fn cancelled() -> Self {
         crate::cancellation::error()
     }
@@ -83,6 +94,7 @@ where
             result
         }
     })
+    .map_err(E::unsupported_runtime)?
 }
 
 #[cfg(test)]
@@ -99,7 +111,60 @@ mod tests {
 
     #[test]
     fn test_block_on_simple() {
-        let result = block_on(async { 42 });
+        let result = block_on(async { 42 }).unwrap();
         assert_eq!(result, 42);
+    }
+}
+
+#[cfg(test)]
+mod environment_tests {
+    use super::*;
+    #[test]
+    fn current_thread_is_rejected_before_polling_and_runtime_stays_usable() {
+        let rt = Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            let polled = std::cell::Cell::new(false);
+            let result = block_on(async {
+                polled.set(true);
+                42
+            });
+            assert_eq!(result, Err(UnsupportedRuntime));
+            assert!(!polled.get());
+            tokio::task::yield_now().await;
+        });
+    }
+    #[test]
+    fn multi_thread_and_blocking_host_are_supported() {
+        let rt = Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            assert_eq!(
+                block_on(async {
+                    tokio::task::yield_now().await;
+                    42
+                })
+                .unwrap(),
+                42
+            );
+            assert_eq!(
+                tokio::task::spawn_blocking(|| block_on(async { 43 }).unwrap())
+                    .await
+                    .unwrap(),
+                43
+            );
+        });
+    }
+    #[test]
+    fn real_js_network_returns_catchable_error_instead_of_panicking() {
+        use crate::engine::JsEngine;
+        let vm = crate::engine::QuickJsEngine::new(
+            crate::sandbox::SandboxConfig::default().with_allow_script_run(true),
+        )
+        .unwrap();
+        let rt = Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {assert_eq!(vm.eval("try { java.get('http://127.0.0.1:1/never',{}); false } catch(e) { String(e).includes('单线程') }").unwrap(),"true");assert_eq!(vm.eval("1+1").unwrap(),"2");});
     }
 }
