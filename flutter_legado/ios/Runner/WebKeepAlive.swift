@@ -29,7 +29,7 @@ import Flutter
 /// - 停止时不调用 setActive(false)：释放使用凭据由 Dart 协调，避免影响真实音频。
 ///   停掉播放器后若确实无其它音频，系统会自然回收后台执行权。
 /// - **不发布** MPNowPlayingInfoCenter（避免状态栏/控制中心出现「正在播放」
-///   残留卡片）。注意冲突面：TTS/听书播放时 NowPlayingBridge 会发布自己的
+///   残留卡片）。注意冲突面：TTS/听书播放时 audio_service 会发布自己的
 ///   metadata 并在 stopped 时清空；保活期间若有该发布，属 TTS 语义、与本类
 ///   无关（残留与否待实机验证）。
 ///

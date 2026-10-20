@@ -9,7 +9,7 @@ import 'package:video_player/video_player.dart';
 ///
 /// [videoPlayerOptions] 由 `StreamAudioPlayer.playbackOptions` 传入：
 /// `mixWithOthers=true` → media3 `handleAudioFocus=false`，避免底层播放器
-/// 与 MediaSessionBridge 互抢焦点（D1 真机修复，2026-10-03）。
+/// 与应用音频会话互抢焦点；正文纯音频现已使用 just_audio，此文件仅保留视频用途。
 VideoPlayerController createLocalFileController(
   String source, {
   VideoPlayerOptions? videoPlayerOptions,

@@ -2,6 +2,36 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 系统媒体服务迁移（2026-10-20）
+
+用户批准引入 [audio_service 0.18.19](https://pub.dev/packages/audio_service/versions/0.18.19)，
+替换自建 Android/iOS 媒体控制。保留以下职责分界：
+
+- ReadAloudAudioHandler 只消费现有元数据/时间轴快照、转发系统 play/pause/stop/skip/seek，
+  不创建播放器，不向系统队列暴露正文分片。操作仍由 MediaSessionCoordinator 与原控制器执行；
+  seek 携带当前书籍/代次/章节身份，未知时长不开放拖动。
+- MediaItem 使用书名作为主标题、章节作为次标题，定时使用 displayDescription，
+  不挤占书名与章节。Android 插件将其映射到通知辅助字段；iOS 插件不映射该辅助字段，
+  系统面板不保证展示定时，应用内定时及章节时间轴不变。
+- 已校验的封面缩略图写入应用临时目录、以 file URI 交给插件；仅接受当前媒体身份，
+  缓存上限8份，清理保留当前文件，不下载原图或暴露源凭据。换书/隐私变化先清除旧封面。
+- Android 使用 AudioServiceFragmentActivity 共享 FlutterEngine，插件媒体服务和按钮接收器
+  按官方 Manifest 接线。Activity 销毁不释放媒体资源；划掉任务由 Handler 保持播放，
+  真正停止发布 idle 交由插件退出前台。暂停时保持前台服务，避免后台续播重新启动服务受限；
+  androidResumeOnClick=false，通知点击只导航，不隐式恢复播放。
+- 通知点击通过官方 notificationClicked 流定位当前有效书章；导航未就绪时只保留最新请求。
+  iOS 保留系统媒体面板打开应用行为，不额外接管其导航。旧原生通知 Intent/数值协议测试
+  随实现删除，由实际 Handler 和导航行为测试接替。
+- audio_service 注册为进程级单次操作，释放媒体后复用 Handler，不重复调用插件 init；
+  若插件初始化失败，保留原始失败并保持未就绪，不通过再次注册或旧实现回退伪造成功。
+  单元测试使用初始化缝隙，测试 Handler 状态与转发，不代表插件原生运行已验证。
+- audio_session 继续唯一负责焦点/中断，just_audio 队列与 Rust 合成缓存不变。
+  可选额外 PARTIAL_WAKE_LOCK 独立为引擎插件；audio_service 自己的播放期间唤醒锁不受该选项控制。
+  视频仍使用独立路径；Windows 保留本地播放，不宣称提供 SMTC。macOS 注册文件由 Flutter 更新，
+  本批没有开启其系统媒体控制或进行验收。
+
+编写者：Codex + UI｜2026-10-20
+
 ## 统一音频会话（2026-10-20）
 
 audio_session 0.2.4 从既有间接依赖改为直接依赖，不升级插件；
@@ -18,8 +48,8 @@ audio_session 0.2.4 从既有间接依赖改为直接依赖，不升级插件；
   不再自行 setSharedInstance/setIosAudioCategory；启动应用也不再立即激活会话。
 - Web 保活持有非真实音频使用凭据；真实播放（含试听）或外部中断时停止近静音音轨，
   不重新激活共享会话。原生 WebKeepAlive 只管理音轨，Dart 协调最新启停意图和释放。
-- MediaSessionBridge/NowPlayingBridge 删除原生焦点申请与中断监听，保留通知、封面、
-  锁屏/耳机按钮、进度/定位与既有前台服务。没有引入 audio_service；Windows 保留原播放器，
+- 该批从 MediaSessionBridge/NowPlayingBridge 删除原生焦点申请与中断监听，保留通知、封面、
+  锁屏/耳机按钮、进度/定位与既有前台服务；后续媒体迁移见本文上一节。Windows 保留原播放器，
   不宣称已有系统音频焦点或 SMTC；视频路径保持独立，未纳入本批平台验收。
 
 行为替身只能证明上述状态与调用顺序；iOS 编译、真实来电/Siri、耳机与后台播放仍需设备验收。

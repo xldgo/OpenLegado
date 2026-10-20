@@ -19,15 +19,12 @@ void main() {
   testWidgets('正式应用等待迟到的初始深链，导入关闭后也不自动开读', (tester) async {
     SharedPreferences.setMockInitialValues({});
     const channel = MethodChannel('legado/deep_link');
-    const mediaChannel = MethodChannel('legado/media_session');
     final initial = Completer<String?>();
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(channel, (_) => initial.future);
-    messenger.setMockMethodCallHandler(mediaChannel, (_) async => null);
     addTearDown(() {
       messenger.setMockMethodCallHandler(channel, null);
-      messenger.setMockMethodCallHandler(mediaChannel, null);
     });
     final opened = <Book>[];
     final navigation = StartupReadingNavigation(

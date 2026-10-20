@@ -178,14 +178,22 @@
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="false" />
 
-        <!-- [体检 N1] 听书前台服务：MediaSessionBridge 播放态变化经
-             startForegroundService 驱动，未注册组件在 Android 8+ 会抛
-             IllegalStateException（播放即崩）；mediaPlayback 类型与
-             FOREGROUND_SERVICE_MEDIA_PLAYBACK 权限配套（Android 14 要求） -->
+        <!-- 系统媒体会话与前台服务由 audio_service 持有，不依附 Activity。 -->
         <service
-            android:name=".PlaybackForegroundService"
+            android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
         <!-- [V-B3] 视频悬浮窗服务：全局 overlay 承载原生 Media3 ExoPlayer
              （对齐原版 VideoPlayService.kt + manifest:555-557；与听书服务

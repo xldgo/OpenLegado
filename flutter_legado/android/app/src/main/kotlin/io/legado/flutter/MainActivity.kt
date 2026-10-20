@@ -9,18 +9,17 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterFragmentActivity
+import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 // open：供图标变体桩类 Launcher1~6 继承（对齐原版 WelcomeActivity ×6 子类机制）
-open class MainActivity : FlutterFragmentActivity() {
+open class MainActivity : AudioServiceFragmentActivity() {
 
     private val webViewBridge = WebViewBridge()
     private val ttsBridge = TtsBridge()
     private val filePickerBridge = FilePickerBridge()
-    private val mediaSessionBridge = MediaSessionBridge()
     private val cookieBridge = CookieBridge()
     private val storageBridge = StorageBridge()
     private val readerKeysBridge = ReaderKeysBridge()
@@ -42,7 +41,6 @@ open class MainActivity : FlutterFragmentActivity() {
         private const val CHANNEL_TTS = "legado/tts"
         private const val CHANNEL_FILE_PICKER = "legado/file_picker"
         private const val CHANNEL_NOTIFICATION = "legado/notification"
-        private const val CHANNEL_MEDIA_SESSION = "legado/media_session"
         private const val CHANNEL_DEEP_LINK = "legado/deep_link"
         private const val CHANNEL_SYSTEM_BAR = "legado/system_bar"
         private const val CHANNEL_DEVICE_ID = "legado/device_id"
@@ -107,13 +105,9 @@ open class MainActivity : FlutterFragmentActivity() {
                 NotificationService.handleMethodCall(call, result, this)
             }
 
-        // 注册媒体会话通道（后台播放 + 媒体按钮 + 音频焦点）
-        val mediaSessionChannel = MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger, CHANNEL_MEDIA_SESSION
-        )
-        mediaSessionBridge.setMethodChannel(mediaSessionChannel)
-        mediaSessionChannel.setMethodCallHandler { call, result ->
-            mediaSessionBridge.handleMethodCall(call, result, this)
+        // 额外唤醒锁按 FlutterEngine 持有，Activity 销毁不释放后台播放资源。
+        if (!flutterEngine.plugins.has(PlaybackWakeLockPlugin::class.java)) {
+            flutterEngine.plugins.add(PlaybackWakeLockPlugin())
         }
 
         // P1-11：legado:// / yuedu:// 深链
@@ -178,7 +172,6 @@ open class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initialDeepLink = intent?.dataString
-        mediaSessionBridge.handlePlaybackIntent(intent)
         pendingAutoTaskDue =
             intent?.getBooleanExtra(AutoTaskJobBridge.EXTRA_AUTO_TASK_DUE, false) == true
         pendingAutoTaskMinimize =
@@ -191,7 +184,6 @@ open class MainActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        mediaSessionBridge.handlePlaybackIntent(intent)
         val link = intent.dataString
         if (!link.isNullOrEmpty()) {
             deepLinkChannel?.invokeMethod("onLink", link)
@@ -328,7 +320,6 @@ open class MainActivity : FlutterFragmentActivity() {
         super.onDestroy()
         ttsBridge.release()
         webViewBridge.destroy()
-        mediaSessionBridge.release()
         videoFloatBridge.dispose()
     }
 }
