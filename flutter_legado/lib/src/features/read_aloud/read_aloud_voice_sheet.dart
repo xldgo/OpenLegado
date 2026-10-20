@@ -198,7 +198,8 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
             if (cloudTtsProfile(source.provider!).supportsLocale)
               'locale': _locale.text.trim(),
             if (cloudTtsProfile(source.provider!).supportsProsody) ...{
-              'role': _role.text.trim(),
+              if (cloudTtsProfile(source.provider!).supportsRole)
+                'role': _role.text.trim(),
               'pitch': double.parse(_pitch.text),
               'volume': double.parse(_volume.text),
             },
@@ -381,8 +382,11 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                   decoration: const InputDecoration(labelText: '合成语速'),
                   validator: (v) {
                     final n = double.tryParse(v ?? '');
-                    return n == null || !n.isFinite || n < 0.25 || n > 4
-                        ? '0.25–4.0'
+                    return n == null ||
+                            !n.isFinite ||
+                            n < profile.sourceSpeedRange.min ||
+                            n > profile.sourceSpeedRange.max
+                        ? '${profile.sourceSpeedRange.min}–${profile.sourceSpeedRange.max}'
                         : null;
                   },
                 ),
@@ -390,7 +394,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 TextFormField(
                   key: const ValueKey('voice-style'),
                   controller: _style,
-                  decoration: const InputDecoration(labelText: '风格'),
+                  decoration: InputDecoration(labelText: profile.styleLabel),
                 ),
               if (profile.supportsStyle &&
                   (_catalogVoice?.styles ?? profile.styles).isNotEmpty)
@@ -406,11 +410,12 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                   ],
                 ),
               if (profile.supportsProsody) ...[
-                TextFormField(
-                  key: const ValueKey('voice-role'),
-                  controller: _role,
-                  decoration: const InputDecoration(labelText: '角色'),
-                ),
+                if (profile.supportsRole)
+                  TextFormField(
+                    key: const ValueKey('voice-role'),
+                    controller: _role,
+                    decoration: const InputDecoration(labelText: '角色'),
+                  ),
                 if (_catalogVoice?.roles.isNotEmpty ?? false)
                   Wrap(
                     spacing: 4,
@@ -425,15 +430,18 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                   ),
                 for (final entry in {'音调': _pitch, '音量': _volume}.entries)
                   TextFormField(
+                    key: ValueKey(
+                      entry.key == '音调' ? 'voice-pitch' : 'voice-volume',
+                    ),
                     controller: entry.value,
                     decoration: InputDecoration(labelText: entry.key),
                     validator: (v) {
                       final value = double.tryParse(v ?? '');
                       return value == null ||
                               !value.isFinite ||
-                              value < 0 ||
-                              value > 2
-                          ? '0.0–2.0'
+                              value < profile.prosodyRange.min ||
+                              value > profile.prosodyRange.max
+                          ? '${profile.prosodyRange.min}–${profile.prosodyRange.max}'
                           : null;
                     },
                   ),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter_legado/src/data/repositories/mock_cloud_tts_repository.dart';
@@ -50,6 +51,56 @@ Future<void> flush() async {
 }
 
 void main() {
+  test('火山按字节分片，分片进度沿用原文偏移且只完成整段一次', () async {
+    final repo = MockCloudTtsRepository();
+    await repo.save(
+      const CloudTtsEngine(
+        id: 'volc',
+        name: '火山',
+        provider: 'volcengine',
+        appId: 'app',
+        model: 'volcano_tts',
+        credentialKey: 'cloud-tts:volc:fixture',
+      ),
+    );
+    final synth = _Synth();
+    final player = FakeStreamAudioPlayer()
+      ..loadedDuration = const Duration(seconds: 10);
+    final engine = CloudReadAloudEngine(
+      synthesizer: () => synth,
+      player: player,
+      cache: () => const MockTtsCacheRepository(),
+      repository: () => repo,
+    );
+    player.onCompleted = engine.handleCompleted;
+    final progress = <int>[];
+    var finished = 0;
+    final text = '${'甲' * 340}😀${'乙' * 400}';
+    final session = ReadAloudSession(
+      isCurrent: () => true,
+      onCompleted: () => finished++,
+      onProgress: progress.add,
+      onError: (e) => fail('$e'),
+    );
+    await engine.speak(
+      ReadAloudRequest(text: text, engineUrl: 'cloud://volc'),
+      session,
+    );
+    expect(synth.texts.single, '${'甲' * 340}😀');
+    for (var i = 0; i < 4 && finished == 0; i++) {
+      player.completePlayback();
+      await flush();
+    }
+    expect(synth.texts.join(), text);
+    expect(
+      synth.texts.every((text) => utf8.encode(text).length <= 1024),
+      isTrue,
+    );
+    expect(progress, contains(342));
+    expect(finished, 1);
+    await engine.stop();
+  });
+
   test('分片不拆 emoji/组合字符，拼回完整原文且限宽正常退出', () {
     const text = '甲😀é👨‍👩‍👧‍👦乙';
     final parts = splitCloudSpeechText(text, limit: 12);

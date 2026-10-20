@@ -1012,3 +1012,174 @@ async fn polly_catalog_pages_deduplicate_reject_cycles_and_cancel_in_flight() {
     assert!(result.err().unwrap().to_string().contains("TTS_CANCELLED"));
     assert_eq!(transport.calls.load(Ordering::SeqCst), 2);
 }
+
+struct VolcTransport {
+    calls: AtomicUsize,
+    ids: std::sync::Mutex<Vec<String>>,
+    fail: std::sync::atomic::AtomicBool,
+}
+impl CloudTtsTransport for VolcTransport {
+    fn send<'a>(
+        &'a self,
+        request: &'a PreparedCloudSpeech,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async move {
+            use base64::{Engine, engine::general_purpose::STANDARD};
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            let CloudSpeechBody::Json(body) = &request.body else {
+                panic!("预期 JSON")
+            };
+            let id = body["request"]["reqid"].as_str().unwrap();
+            let mut ids = self.ids.lock().unwrap();
+            assert!(!ids.iter().any(|old| old == id));
+            ids.push(id.into());
+            assert_eq!(body["app"]["appid"], "app");
+            assert_eq!(request.authorization, "Bearer;local-fixture-key");
+            let envelope = if self.fail.load(Ordering::SeqCst) {
+                serde_json::json!({"code":3001,"message":"private"})
+            } else {
+                serde_json::json!({"code":3000,"sequence":-1,"data":STANDARD.encode(b"ID3fixture")})
+            };
+            Ok(CloudTtsResponse {
+                status: 200,
+                content_type: "application/json; charset=utf-8".into(),
+                bytes: envelope.to_string().into_bytes(),
+            })
+        })
+    }
+}
+#[tokio::test]
+async fn volcengine_unique_wire_ids_do_not_defeat_cache_and_errors_retry_without_reusing_ids() {
+    use legado_core::cloud_tts_volcengine::VolcengineCloudTtsProvider;
+    let dir = Directory::new();
+    let mut engine = engine();
+    engine.provider = CloudTtsProviderType::Volcengine;
+    engine.app_id = "app".into();
+    engine.model = "volcano_tts".into();
+    let mut request = CloudTtsSynthesisRequest {
+        voice_id: "BV001_streaming".into(),
+        format: "mp3".into(),
+        ..request()
+    };
+    let transport = VolcTransport {
+        calls: AtomicUsize::new(0),
+        ids: Default::default(),
+        fail: false.into(),
+    };
+    let cancellation = TtsCancellation::default();
+    let provider = VolcengineCloudTtsProvider;
+    let first = synthesize_cloud_tts(
+        &provider,
+        &transport,
+        &engine,
+        &request,
+        &dir.0,
+        &cancellation,
+    )
+    .await
+    .unwrap();
+    let cached = synthesize_cloud_tts(
+        &provider,
+        &transport,
+        &engine,
+        &request,
+        &dir.0,
+        &cancellation,
+    )
+    .await
+    .unwrap();
+    assert!(!first.from_cache);
+    assert!(cached.from_cache);
+    assert_eq!(first.audio_path, cached.audio_path);
+    assert_eq!(transport.calls.load(Ordering::SeqCst), 1);
+    request.style = "happy".into();
+    let changed = synthesize_cloud_tts(
+        &provider,
+        &transport,
+        &engine,
+        &request,
+        &dir.0,
+        &cancellation,
+    )
+    .await
+    .unwrap();
+    assert!(!changed.from_cache);
+    assert_ne!(first.audio_path, changed.audio_path);
+    request.text.push_str(" retry");
+    transport.fail.store(true, Ordering::SeqCst);
+    assert!(
+        synthesize_cloud_tts(
+            &provider,
+            &transport,
+            &engine,
+            &request,
+            &dir.0,
+            &cancellation
+        )
+        .await
+        .is_err()
+    );
+    transport.fail.store(false, Ordering::SeqCst);
+    let retried = synthesize_cloud_tts(
+        &provider,
+        &transport,
+        &engine,
+        &request,
+        &dir.0,
+        &cancellation,
+    )
+    .await
+    .unwrap();
+    assert!(!retried.from_cache);
+    assert_eq!(transport.ids.lock().unwrap().len(), 4);
+}
+#[tokio::test]
+async fn volcengine_json_envelope_mime_and_cancel_are_fail_closed() {
+    use legado_core::cloud_tts_volcengine::VolcengineCloudTtsProvider;
+    let dir = Directory::new();
+    let mut engine = engine();
+    engine.provider = CloudTtsProviderType::Volcengine;
+    engine.app_id = "app".into();
+    engine.model = "volcano_tts".into();
+    let request = CloudTtsSynthesisRequest {
+        voice_id: "BV001_streaming".into(),
+        format: "mp3".into(),
+        ..request()
+    };
+    let mut transport = Transport::new();
+    transport.mime = "audio/mpeg".into();
+    let result = synthesize_cloud_tts(
+        &VolcengineCloudTtsProvider,
+        &transport,
+        &engine,
+        &request,
+        &dir.0,
+        &TtsCancellation::default(),
+    )
+    .await;
+    assert!(result.err().unwrap().to_string().contains("JSON"));
+    transport.mime = "application/json".into();
+    transport.blocking = true;
+    let cancellation = TtsCancellation::default();
+    let speak = synthesize_cloud_tts(
+        &VolcengineCloudTtsProvider,
+        &transport,
+        &engine,
+        &request,
+        &dir.0,
+        &cancellation,
+    );
+    let cancel = async {
+        transport.entered.notified().await;
+        cancellation.cancel();
+    };
+    let (result, ()) = tokio::join!(speak, cancel);
+    assert!(result.err().unwrap().to_string().contains("TTS_CANCELLED"));
+    assert!(!std::fs::read_dir(&dir.0).unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .path()
+            .extension()
+            .is_some_and(|ext| ext == "mp3")
+    }));
+}

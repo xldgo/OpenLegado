@@ -43,7 +43,37 @@ class _MockVoiceCatalog implements CloudTtsVoiceCatalog {
   Future<List<CloudTtsVoiceDescriptor>> discover(
     CloudTtsEngine engine,
     HttpTtsCancellation cancellation,
-  ) async => const [];
+  ) async {
+    if (cancellation.isCancelled) throw StateError('音色发现已取消');
+    if (engine.provider != 'volcengine') return const [];
+    // 固定参考版的真实静态目录；不伪造远端账号音色。— Codex + UI
+    return const [
+      CloudTtsVoiceDescriptor(
+        id: 'BV001_streaming',
+        name: '通用女声',
+        locale: 'zh-CN',
+        gender: 'Female',
+      ),
+      CloudTtsVoiceDescriptor(
+        id: 'BV002_streaming',
+        name: '通用男声',
+        locale: 'zh-CN',
+        gender: 'Male',
+      ),
+      CloudTtsVoiceDescriptor(
+        id: 'BV700_streaming',
+        name: '灿灿',
+        locale: 'zh-CN',
+        gender: 'Female',
+      ),
+      CloudTtsVoiceDescriptor(
+        id: 'BV701_streaming',
+        name: '擎苍',
+        locale: 'zh-CN',
+        gender: 'Male',
+      ),
+    ];
+  }
 }
 
 final cloudTtsSynthesizerProvider = Provider<CloudTtsSynthesizer>(

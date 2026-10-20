@@ -13,10 +13,19 @@ final class CloudTtsProviderProfile {
     this.usesModel = true,
     this.usesSecretKey = false,
     this.remoteCatalog = false,
+    this.staticVoiceDescriptors = false,
     this.supportsInstructions = true,
     this.supportsStyle = true,
     this.localeHint = '留空自动识别，例如 Chinese、English',
     this.textLimit = 4000,
+    this.maxUtf8Bytes,
+    this.requiresAppId = false,
+    this.supportsRole = true,
+    this.modelLabel,
+    this.apiKeyLabel,
+    this.styleLabel = '风格',
+    this.sourceSpeedRange = (min: 0.25, max: 4.0),
+    this.prosodyRange = (min: 0.0, max: 2.0),
   });
   final String name, model, voice;
   final String localeHint;
@@ -28,12 +37,36 @@ final class CloudTtsProviderProfile {
       usesModel,
       usesSecretKey,
       remoteCatalog,
+      staticVoiceDescriptors,
       supportsInstructions,
       supportsStyle;
   final int textLimit;
+  final int? maxUtf8Bytes;
+  final bool requiresAppId, supportsRole;
+  final String? modelLabel, apiKeyLabel;
+  final String styleLabel;
+  final ({double min, double max}) sourceSpeedRange, prosodyRange;
 }
 
 const cloudTtsProviderProfiles = {
+  'volcengine': CloudTtsProviderProfile(
+    name: '火山引擎（V1）',
+    staticVoiceDescriptors: true,
+    model: 'volcano_tts',
+    voice: 'BV001_streaming',
+    formats: ['mp3', 'ogg_opus', 'wav', 'pcm'],
+    requiresAppId: true,
+    supportsSourceSpeed: true,
+    supportsProsody: true,
+    supportsRole: false,
+    supportsInstructions: false,
+    maxUtf8Bytes: 1024,
+    modelLabel: '业务集群',
+    apiKeyLabel: 'Access Token',
+    styleLabel: '情感',
+    sourceSpeedRange: (min: 0.2, max: 3.0),
+    prosodyRange: (min: 0.1, max: 3.0),
+  ),
   'aws_polly': CloudTtsProviderProfile(
     name: 'AWS Polly',
     model: 'neural',

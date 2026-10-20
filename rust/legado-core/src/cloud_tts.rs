@@ -16,6 +16,8 @@ pub enum CloudTtsProviderType {
     AzureSpeech,
     #[serde(rename = "aws_polly")]
     AwsPolly,
+    #[serde(rename = "volcengine")]
+    Volcengine,
 }
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
@@ -31,6 +33,7 @@ pub struct CloudTtsEngine {
     pub secret_key: String,
     pub model: String,
     pub region: String,
+    pub app_id: String,
     pub enabled: bool,
 }
 impl Default for CloudTtsEngine {
@@ -44,6 +47,7 @@ impl Default for CloudTtsEngine {
             secret_key: String::new(),
             model: "gpt-4o-mini-tts".into(),
             region: String::new(),
+            app_id: String::new(),
             enabled: true,
         }
     }
@@ -107,6 +111,7 @@ pub struct CloudTtsVoiceDescriptor {
 pub enum CloudSpeechResponseKind {
     AudioBytes,
     EventStream,
+    JsonAudio,
 }
 #[derive(Clone, Serialize)]
 pub enum CloudSpeechBody {
@@ -193,6 +198,14 @@ pub trait CloudTtsProvider: Send + Sync {
         engine: &CloudTtsEngine,
         request: &CloudTtsSynthesisRequest,
     ) -> LegadoResult<PreparedCloudSpeech>;
+    /// 默认复用准备逻辑以刷新认证；Provider 可在此追加不参与缓存的请求标识。
+    fn prepare_for_send(
+        &self,
+        engine: &CloudTtsEngine,
+        request: &CloudTtsSynthesisRequest,
+    ) -> LegadoResult<PreparedCloudSpeech> {
+        self.prepare(engine, request)
+    }
     fn decode_audio(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<CloudTtsAudio>;
     fn decode_response(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<DecodedCloudSpeech> {
         self.decode_audio(format, bytes)
@@ -207,6 +220,9 @@ pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsPr
         CloudTtsProviderType::AlibabaCloud => &crate::cloud_tts_alibaba::AlibabaCloudTtsProvider,
         CloudTtsProviderType::AzureSpeech => &crate::cloud_tts_azure::AzureSpeechCloudTtsProvider,
         CloudTtsProviderType::AwsPolly => &crate::cloud_tts_polly::AwsPollyCloudTtsProvider,
+        CloudTtsProviderType::Volcengine => {
+            &crate::cloud_tts_volcengine::VolcengineCloudTtsProvider
+        }
     }
 }
 pub(crate) fn invalid(message: &str) -> LegadoError {

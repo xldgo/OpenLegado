@@ -35,6 +35,7 @@ pub mod cloud_tts_azure;
 pub mod cloud_tts_mimo;
 pub mod cloud_tts_openai;
 pub mod cloud_tts_polly;
+pub mod cloud_tts_volcengine;
 pub mod content_help;
 pub mod content_processor;
 pub mod cron;

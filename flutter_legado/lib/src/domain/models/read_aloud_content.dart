@@ -1,5 +1,7 @@
 import 'package:characters/characters.dart';
 
+import 'dart:convert';
+
 /// 用户划分粒度与服务商请求长度分片分别建模。— Codex + UI
 enum ReadAloudSplitMode { paragraph, symbols, page }
 
@@ -105,20 +107,35 @@ List<ReadAloudUnit> _splitSymbols(ReadAloudUnit unit, Set<String> symbols) {
 }
 
 /// 分片携带文本中的UTF-16范围，拼接严格还原输入；先句末、再词边界、最后字形簇。
-List<ReadAloudUnit> splitSpeechRequests(String text, {required int limit}) {
+List<ReadAloudUnit> splitSpeechRequests(
+  String text, {
+  required int limit,
+  int? maxUtf8Bytes,
+}) {
+  if (maxUtf8Bytes != null && maxUtf8Bytes < 1) {
+    throw ArgumentError.value(maxUtf8Bytes, 'maxUtf8Bytes');
+  }
   if (limit < 1) throw ArgumentError.value(limit, 'limit');
   final clusters = text.characters.toList();
   final offsets = <int>[0];
+  final byteOffsets = <int>[0];
   for (final c in clusters) {
     if (c.length > limit) throw StateError('单个字形簇超过云端朗读长度限制');
     offsets.add(offsets.last + c.length);
+    if (maxUtf8Bytes != null) {
+      final bytes = utf8.encode(c).length;
+      if (bytes > maxUtf8Bytes) throw StateError('单个字形簇超过云端朗读字节限制');
+      byteOffsets.add(byteOffsets.last + bytes);
+    }
   }
   final result = <ReadAloudUnit>[];
   var start = 0;
   while (start < clusters.length) {
     var end = start;
     while (end < clusters.length &&
-        offsets[end + 1] - offsets[start] <= limit) {
+        offsets[end + 1] - offsets[start] <= limit &&
+        (maxUtf8Bytes == null ||
+            byteOffsets[end + 1] - byteOffsets[start] <= maxUtf8Bytes)) {
       end++;
     }
     var cut = end;

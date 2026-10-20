@@ -191,6 +191,7 @@ enum CloudTtsProviderDto {
   alibabaCloud,
   azureSpeech,
   awsPolly,
+  volcengine,
 }
 
 class CloudVoiceDescriptorDto {

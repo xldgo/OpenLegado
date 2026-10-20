@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-VOLCENGINE-20261020：火山 V1 云朗读（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户要求继续参考上游、沿用 Rust 分层；feature/ui-tts-engine / e9116daa4，单代理。
+- 范围：V1 App ID/Token/集群、JSON Base64 音频、四个候选音色、音色参数及 UTF-8 字节分片；不改数据库或播放队列，不接入 V3/豆包 2.0。
+- 验收：实际请求与稳定缓存、唯一请求 ID、错误拒绝/取消、Unicode 字节边界与偏移、Sheet 和真实 FFI 定向回归；本地提交，不自动推送/安装/远程 CI。
+- 实现：Core 新增 V1 Provider，稳定请求与唯一 UUID reqid 分离，显式 JsonAudio 响应解码 Base64；Fetcher 发送前准备请求，复用现有去重、取消、缓存与租约。App ID/集群复用元数据字段，Token 继续放安全存储，无数据库迁移；UID 固定 legado，不新增任意 JSON 参数设置。四个真实候选描述通过现有类型化目录保留中文名，只有用户选择才落音色表。
+- Flutter：App ID/Token/业务集群表单、协议对应的音色情感/语速/音调/音量与格式；按 Provider 提供范围，不展示角色/语言/指令。共享请求分片增加可选 UTF-8 字节上限，单段、队列及后续章预合成均消费 1024 字节限制，原文 UTF-16 范围与字形簇保持；不改原生播放队列。版本 2.0.408+409；UUID 仅新增已有锁定依赖的直接引用，无版本升级。
+- 验证：Core 25、DB 8、Fetcher 17 共 50 项 Rust 定向回归通过；普通 Flutter 73 项不同用例、真实 FFI 5 项通过，复跑不累加。覆盖请求/编号与缓存、全部四种格式、失败重试/取消、字节分片与偏移、前台及预合成一致、真实管理页中文候选与 ID 保存、旧 Provider 回归；13 份初始/16 份最终手写 Dart 分析与格式、Core 严格 Clippy、架构与差异门禁通过，隔离生成复核通过。首次两条花括号 lint 修正后复验，不以屏蔽规则消除。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；cargo build --locked --offline -p legado-ffi --features quickjs。Flutter 定向 content、cloud engine/prefetch、管理/参数/编辑器、DTO 与 settings 文件，native 显式加载本 worktree 新 DLL，执行 volcengine/polly/azure/alibaba/cloud 五个 runtime 测试；python scripts/dev.py generate bridge 及 --check。
+- 交付边界：单代理实现与自查，未独立审查、应用构建安装、推送、合并或远程 CI。V1 不支持豆包 2.0；真实账号权限、实际音频解码与设备后台/蓝牙听感待用户复验，本机合成夹具不替代该证据。提交见本条 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ### TTS-POLLY-20261020：AWS Polly 与分页音色目录（P1，待复验：真实账号/设备）
 
 - 授权/基线：用户确认接入 Polly，PCM/WAV 按官方默认 16 kHz；feature/ui-tts-engine / 6fa9d76d0，单代理。

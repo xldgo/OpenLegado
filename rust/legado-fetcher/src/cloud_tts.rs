@@ -268,7 +268,13 @@ fn validate_response(
         .unwrap_or("")
         .trim()
         .to_lowercase();
-    if kind == CloudSpeechResponseKind::EventStream {
+    if kind == CloudSpeechResponseKind::JsonAudio {
+        if mime != "application/json" {
+            return Err(LegadoError::Network(
+                "云端 TTS 未返回要求的 JSON 音频封装".into(),
+            ));
+        }
+    } else if kind == CloudSpeechResponseKind::EventStream {
         if mime != "text/event-stream" {
             return Err(LegadoError::Network(
                 "云端 TTS 未返回要求的 SSE 音频流".into(),
@@ -346,7 +352,7 @@ pub async fn synthesize_cloud_tts_with_publish(
         return result(path, true, content_type, &activity_cache);
     }
     // 等待同键合成锁后刷新瞬时签名，避免等待期间认证过期。
-    let prepared = provider.prepare(engine, request)?;
+    let prepared = provider.prepare_for_send(engine, request)?;
     let response = cancellation
         .run(async {
             tokio::time::timeout(Duration::from_secs(120), transport.send(&prepared))

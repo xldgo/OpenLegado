@@ -2,6 +2,35 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 火山 V1 请求与缓存（2026-10-20）
+
+参考 [c4182eb9 的 VolcengineCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/VolcengineCloudTtsProvider.kt)
+的 V1 非流式路径；不是 V3 或豆包 2.0 接入。默认完整端点 `/api/v1/tts`，
+以 App ID/Access Token/业务集群配置，沿用四个 BV 系列候选音色，手动保存。
+静态描述复用类型化目录入口，不发送 HTTP；显示中文名，保存仍使用 BV 音色 ID。
+
+- 元数据复用 appId，model 对该 Provider 表示业务集群，默认 volcano_tts；uid 固定 legado。
+  上游把 cluster/uid 放在可选 JSON 中，本项目提供明确的集群表单，不新增任意 JSON 配置或用户标识设置。
+  Token 仍由安全存储持有，调用时临时读取；数据库不增加凭据列。
+- Core 的稳定请求包含实际合成参数，发送时再增加新 UUID reqid。
+  Fetcher 先用稳定请求做锁/缓存判定，再调用 prepare_for_send；已有 Provider 默认仍刷新准备逻辑，
+  保留 Polly 签名更新。随机编号不参与缓存，相同草稿与保存音色共用合成结果。
+- JsonAudio 与普通音频、SSE 显式区分，只在该路径接受 JSON 封装；严格核对状态码、
+  Base64、非空音频及相应容器，非终结分片拒绝落盘；错误不回显服务端私人载荷。
+  PCM 按官方 24 kHz 默认包装 WAV，Ogg Opus 以 .ogg 交给现有文件播放器。
+- 语速 0.2～3、音调/音量 0.1～3 和情感按上游消费；不展示角色、语言、指令或其他未消费参数。
+  音色按对应账号授权可用，不凭候选列表声称账号已开通。
+- [官方 V1 参数说明](https://docs.volcengine.com/docs/DoubaoVoice/Parameterbasicdescription?lang=zh)
+  对标准音色限制 1024 UTF-8 字节；共享分片器增加可选字节前缀和，不拆字形簇，
+  原文坐标仍是 UTF-16。单段播放、原生队列请求与后续章预合成消费同一限制，
+  不修改用户段落/符号/页面划分或原生播放队列算法。
+
+[官方现行说明](https://docs.volcengine.com/docs/DoubaoVoice/HTTPone-timecompositenon-streaminginterface-V1notrecommended?lang=zh)
+推荐 V3，V1 不支持豆包 2.0 音色；本批明确按参考版 V1 范围交付，V3 另行评估。
+本机 HTTP/FRB 只证明协议、缓存及取消，不证明真实账号、音频解码或设备后台/蓝牙听感。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
 ## AWS Polly 协议与认证边界（2026-10-20）
 
 参考 [c4182eb9 的 AwsPollyCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/AwsPollyCloudTtsProvider.kt)，
@@ -178,7 +207,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 火山豆包、Gemini；真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | Gemini、火山V3；真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 

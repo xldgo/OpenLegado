@@ -50,6 +50,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
         'name': engine?.name ?? profile.name,
         'baseUrl': engine?.baseUrl ?? '',
         'model': engine?.model ?? profile.model,
+        'appId': engine?.appId ?? '',
         'region': engine?.region ?? '',
         'apiKey': '',
         'secretKey': '',
@@ -71,6 +72,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       _inputs['secretKey']!.clear();
       _inputs['baseUrl']!.clear();
       _inputs['region']!.clear();
+      _inputs['appId']!.clear();
     });
   }
 
@@ -89,8 +91,11 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
     final labels = {
       'name': l.cloudTtsName,
       'baseUrl': l.cloudTtsBaseUrl,
-      'model': l.cloudTtsModel,
-      'apiKey': profile.usesSecretKey ? 'Access Key ID' : l.cloudTtsApiKey,
+      'model': profile.modelLabel ?? l.cloudTtsModel,
+      'appId': 'App ID',
+      'apiKey':
+          profile.apiKeyLabel ??
+          (profile.usesSecretKey ? 'Access Key ID' : l.cloudTtsApiKey),
       'secretKey': 'Secret Access Key',
       'region': '区域',
     };
@@ -112,7 +117,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
             updatedAt: old?.updatedAt ?? 0,
             credentialKey: old?.credentialKey ?? '',
             region: _inputs['region']!.text.trim(),
-            appId: old?.appId ?? '',
+            appId: _inputs['appId']!.text.trim(),
             optionsJson: old?.optionsJson ?? '{}',
           ),
           secretKey: _inputs['secretKey']!.text.trim().isEmpty
@@ -140,6 +145,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
             for (final e in _inputs.entries.where(
               (e) =>
                   (e.key != 'secretKey' || profile.usesSecretKey) &&
+                  (e.key != 'appId' || profile.requiresAppId) &&
                   (e.key != 'region' || profile.requiresRegion) &&
                   (e.key != 'model' || profile.usesModel),
             ))
@@ -155,7 +161,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
                   'secretKey',
                 }.contains(e.key),
                 validator: (v) =>
-                    ({'name', 'model'}.contains(e.key) ||
+                    ({'name', 'model', 'appId'}.contains(e.key) ||
                             e.key == 'region' &&
                                 (profile.usesSecretKey ||
                                     _inputs['baseUrl']!.text.trim().isEmpty) ||

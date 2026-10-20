@@ -188,7 +188,8 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
     final editorSource =
         source.kind == 'cloud_tts' &&
             engine != null &&
-            cloudTtsProfile(engine.provider).remoteCatalog
+            (cloudTtsProfile(engine.provider).remoteCatalog ||
+                cloudTtsProfile(engine.provider).staticVoiceDescriptors)
         ? VoiceEditorSource(
             kind: source.kind,
             id: source.id,

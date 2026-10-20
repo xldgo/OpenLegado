@@ -18,6 +18,7 @@ base64 = { workspace = true }
 md-5 = { workspace = true }
 # 云端 Provider 地址解析和缓存摘要，沿用已锁定依赖版本。
 url = "2"
+uuid = { version = "1", features = ["v4"] }
 sha2 = "0.11"
 hmac = "0.13"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

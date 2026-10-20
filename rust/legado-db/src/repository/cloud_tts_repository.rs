@@ -56,6 +56,7 @@ impl CloudTtsMetadata {
             secret_key: String::new(),
             model: self.model.clone(),
             region: self.region.clone(),
+            app_id: self.app_id.clone(),
             enabled: self.enabled,
         }
     }
@@ -87,6 +88,7 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::AlibabaCloud => "Cherry",
                     CloudTtsProviderType::AzureSpeech => "zh-CN-XiaoxiaoNeural",
                     CloudTtsProviderType::AwsPolly => "Zhiyu",
+                    CloudTtsProviderType::Volcengine => "BV001_streaming",
                 }
                 .into()
             }),
@@ -100,7 +102,9 @@ impl CloudTtsMetadata {
             format: options.format.unwrap_or_else(|| {
                 match self.provider {
                     CloudTtsProviderType::OpenAiSpeech => "mp3",
-                    CloudTtsProviderType::AzureSpeech | CloudTtsProviderType::AwsPolly => "mp3",
+                    CloudTtsProviderType::AzureSpeech
+                    | CloudTtsProviderType::AwsPolly
+                    | CloudTtsProviderType::Volcengine => "mp3",
                     CloudTtsProviderType::Mimo | CloudTtsProviderType::AlibabaCloud => "wav",
                 }
                 .into()
@@ -259,6 +263,39 @@ mod tests {
                 .to_string();
             assert!(!error.contains("secret-private"));
         }
+    }
+    #[test]
+    fn volcengine_app_and_cluster_round_trip_without_credentials_or_migration() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let repo = CloudTtsRepository::new(&connection);
+        let mut meta = metadata();
+        meta.provider = CloudTtsProviderType::Volcengine;
+        meta.model = "volcano_tts".into();
+        meta.options_json = "{}".into();
+        assert!(repo.save(&meta).is_err());
+        meta.app_id = "app-fixture".into();
+        repo.save(&meta).unwrap();
+        let saved = repo.get(&meta.id).unwrap();
+        let engine = saved
+            .engine_with_credentials("private-token".into())
+            .unwrap();
+        assert_eq!(engine.app_id, "app-fixture");
+        assert_eq!(engine.model, "volcano_tts");
+        assert!(
+            !serde_json::to_string(&saved)
+                .unwrap()
+                .contains("private-token")
+        );
+        let request = saved.request("测试".into()).unwrap();
+        assert_eq!(request.voice_id, "BV001_streaming");
+        assert_eq!(request.format, "mp3");
+        meta.app_id = "new-app".into();
+        meta.model = "custom_cluster".into();
+        repo.save(&meta).unwrap();
+        assert_eq!(repo.get(&meta.id).unwrap().app_id, "new-app");
     }
     fn metadata() -> CloudTtsMetadata {
         CloudTtsMetadata {

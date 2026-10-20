@@ -497,6 +497,7 @@ class ReadAloudController {
           : splitSpeechRequests(
               text,
               limit: cloudTtsProfile(cloud.provider).textLimit,
+              maxUtf8Bytes: cloudTtsProfile(cloud.provider).maxUtf8Bytes,
             ).map((part) => (text: part.text, start: part.start)).toList();
       for (final part in parts) {
         cues.add(
@@ -605,6 +606,7 @@ class ReadAloudController {
       for (final part in splitSpeechRequests(
         text,
         limit: cloudTtsProfile(cloud.provider).textLimit,
+        maxUtf8Bytes: cloudTtsProfile(cloud.provider).maxUtf8Bytes,
       ))
         request.copyWith(
           text: part.text,

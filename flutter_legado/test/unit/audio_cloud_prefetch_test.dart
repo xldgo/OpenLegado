@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../fixtures/app_test_api.dart';
 
 import 'dart:async';
@@ -161,6 +163,39 @@ void main() {
     notifier().stop();
     await flush();
     container.dispose();
+  });
+  test('火山前台及后续章预合成采用相同字节分片，不提前播放', () async {
+    final text = '${'甲' * 340}😀${'乙' * 400}';
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
+        .thenAnswer(
+          (call) async => call.positionalArguments[1] == 0 ? text : '下一章。',
+        );
+    await api.cloudTtsRepository.save(
+      const CloudTtsEngine(
+        id: 'volc',
+        name: '火山',
+        provider: 'volcengine',
+        appId: 'app',
+        model: 'volcano_tts',
+        credentialKey: 'cloud-tts:volc:fixture',
+      ),
+    );
+    await notifier().loadChapters('volc-book');
+    await notifier().setGlobalTtsEngine('cloud://volc');
+    await notifier().play();
+    await flush();
+    expect(synth.remote.first, '${'甲' * 340}😀');
+    expect(
+      synth.remote.every((text) => utf8.encode(text).length <= 1024),
+      isTrue,
+    );
+    expect(synth.remote, contains('下一章。'));
+    expect(player.playedLocalFiles, hasLength(1));
+    expect(api.cache.records.first.text, synth.remote.first);
+    player.completePlayback();
+    await flush();
+    expect(notifier().currentParagraphIndex, 0);
+    expect(player.playedLocalFiles, hasLength(2));
   });
   test('提前合成剩余分片/段落/后续章，缓存文本为实际分片且不提前播放', () async {
     await notifier().play();

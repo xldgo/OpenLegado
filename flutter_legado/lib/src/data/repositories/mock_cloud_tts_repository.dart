@@ -15,6 +15,10 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
         engine.credentialKey.isEmpty) {
       throw StateError('云端配置无效');
     }
+    if (cloudTtsProfile(engine.provider).requiresAppId &&
+        engine.appId.trim().isEmpty) {
+      throw StateError('App ID 不能为空');
+    }
     final options = engine.options;
     const allowed = {
       'voiceId',
@@ -57,6 +61,14 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   @override
   Future<List<String>> voices(String provider) async {
     if (cloudTtsProfile(provider).remoteCatalog) return const [];
+    if (provider == 'volcengine') {
+      return const [
+        'BV001_streaming',
+        'BV002_streaming',
+        'BV700_streaming',
+        'BV701_streaming',
+      ];
+    }
     if (provider == 'alibaba_cloud') {
       return const ['Cherry', 'Serena', 'Ethan', 'Chelsie'];
     }

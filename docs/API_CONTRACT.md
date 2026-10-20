@@ -1,5 +1,26 @@
 # API 契约文档
 
+## 火山 V1 接入（TTS-VOLCENGINE-20261020，实施前冻结）
+
+新增 provider=`volcengine`，对齐固定 c4182eb9 的 VolcengineCloudTtsProvider。
+沿用云配置与凭据接口：appId 为必填非秘密应用标识，apiKey 参数/安全存储值为原始
+Access Token；model 对此 Provider 表示业务集群，默认 volcano_tts，用户 uid 固定 legado。
+不将 App ID 当作密钥，不新增数据库列，不新增 STS/V3 或音色管理 API。
+默认端点 https://openspeech.bytedance.com/api/v1/tts，自定义地址为完整 HTTP(S) 端点。
+Authorization 使用 Bearer;token，JSON app/token 同源；只有发送请求时生成唯一 UUID reqid，
+稳定合成描述不包含 reqid。缓存必须覆盖集群、App ID、音色、正文和实际音频参数，
+相同正文重试/并发不因请求编号变化而失去缓存去重。
+合成响应类型新增 JsonAudio，与普通音频及 SSE 显式区分；仅在此类型接受 JSON，
+要求整数 code=0 或 3000 及有效非空 Base64 data，错误不回显凭据或正文，不缓存部分数据。
+四个候选音色 BV001/BV002/BV700/BV701_streaming；只手动保存用户选择，不自动添加。
+音色参数支持 speed 0.2..=3、pitch/volume 0.1..=3、style（情感）；格式
+mp3/ogg_opus/wav/pcm。PCM 按官方默认 24000 Hz 包装 WAV，Ogg 文件扩展名为 ogg。
+前台及预合成共用新增 UTF-8 1024 字节分片约束，不拆字形簇，UTF-16 位置仍映射原文；
+不改变段落划分、翻页或原生播放队列。单字形簇超限明确失败，不截断文字。
+不提供 V3/豆包 2.0 支持，相关账号和设备听感另行验收。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ## AWS Polly 接入（TTS-POLLY-20261020，实施前冻结）
 
 沿用 §2.42 的云引擎/音色/合成接口，新增 provider=`aws_polly`，默认 model=`neural`。
@@ -2448,6 +2469,8 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `ttsSetCacheDir({required String path})` | path: 缓存目录绝对路径 | `Future<bool>` | 设置 TTS 音频缓存目录（全局生效） |
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
+
+火山 V1 增量见本文顶部 TTS-VOLCENGINE-20261020；方法签名和元数据表不变。
 
 Polly 增量契约见本文顶部 TTS-POLLY-20261020；新增 aws_polly、成组调用凭据及 supportedModels，既有方法签名不变。
 

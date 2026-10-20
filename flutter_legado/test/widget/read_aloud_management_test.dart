@@ -69,15 +69,28 @@ class _Catalog implements CloudTtsVoiceCatalog {
     HttpTtsCancellation cancellation,
   ) async {
     calls++;
-    return const [
-      CloudTtsVoiceDescriptor(
-        id: 'zh-CN-XiaoxiaoNeural',
-        name: '晓晓',
-        locale: 'zh-CN',
-        styles: ['cheerful'],
-        roles: ['Girl'],
-      ),
-    ];
+    return engine.provider == 'volcengine'
+        ? const [
+            CloudTtsVoiceDescriptor(
+              id: 'BV001_streaming',
+              name: '通用女声',
+              locale: 'zh-CN',
+            ),
+            CloudTtsVoiceDescriptor(
+              id: 'BV700_streaming',
+              name: '灿灿',
+              locale: 'zh-CN',
+            ),
+          ]
+        : const [
+            CloudTtsVoiceDescriptor(
+              id: 'zh-CN-XiaoxiaoNeural',
+              name: '晓晓',
+              locale: 'zh-CN',
+              styles: ['cheerful'],
+              roles: ['Girl'],
+            ),
+          ];
   }
 }
 
@@ -445,6 +458,35 @@ void main() {
     expect(config['cloudTtsVoice:ali'], voice('Serena').id);
     expect(credentials.writes, isNot(contains('cancelled-key')));
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('火山静态目录经实际管理页展示名称，保存使用音色 ID', (tester) async {
+    await api.cloudTtsRepository.save(
+      const CloudTtsEngine(
+        id: 'volc',
+        name: '火山测试',
+        provider: 'volcengine',
+        appId: 'app',
+        model: 'volcano_tts',
+        credentialKey: 'cloud-tts:volc:fixture',
+      ),
+    );
+    await pump(tester, size: const Size(480, 1000));
+    expect(catalog.calls, 0);
+    await tester.tap(find.byTooltip('添加音色'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, '火山测试'));
+    await tester.pumpAndSettle();
+    expect(catalog.calls, 1);
+    expect(find.widgetWithText(ActionChip, '通用女声'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ActionChip, '灿灿'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, '保存'));
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    final saved = (await api.readAloudVoiceRepository.list()).single;
+    expect(saved.speakerId, 'BV700_streaming');
+    expect(saved.displayName, '灿灿');
+    expect(saved.engineId, 'volc');
   });
   testWidgets('Azure 目录仅进入音色编辑器时查询，保存只添加选中音色', (tester) async {
     await api.cloudTtsRepository.save(
