@@ -1,6 +1,5 @@
 //! 数据访问层（Repository 模式）
 
-pub mod privacy_credentials;
 pub mod auto_task_repository;
 pub mod book_chapter_repository;
 pub mod book_group_repository;
@@ -17,6 +16,7 @@ pub mod highlight_repository;
 pub mod highlight_rule_repository;
 pub mod http_tts_repository;
 pub mod keyboard_assist_repository;
+pub mod privacy_credentials;
 pub mod read_aloud_voice_repository;
 pub mod read_record_repository;
 pub mod read_record_sessions;

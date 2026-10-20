@@ -308,7 +308,7 @@ mod tests {
     fn test_migration_registry_list() {
         let registry = MigrationRegistry::new();
         let list = registry.list_migrations();
-        assert_eq!(list.len(), (crate::schema::SCHEMA_VERSION-90) as usize);
+        assert_eq!(list.len(), (crate::schema::SCHEMA_VERSION - 90) as usize);
         assert_eq!(list[0].0, 90);
         assert_eq!(list[0].1, 91);
     }

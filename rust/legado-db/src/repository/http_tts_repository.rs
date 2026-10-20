@@ -25,9 +25,9 @@ where
     match val {
         None | Some(serde_json::Value::Null) => Ok(None),
         Some(serde_json::Value::String(s)) => Ok(Some(s)),
-        Some(serde_json::Value::Array(arr)) => {
-            serde_json::to_string(&arr).map(Some).map_err(de::Error::custom)
-        }
+        Some(serde_json::Value::Array(arr)) => serde_json::to_string(&arr)
+            .map(Some)
+            .map_err(de::Error::custom),
         Some(other) => Ok(Some(other.to_string())),
     }
 }
@@ -67,9 +67,7 @@ where
     D: Deserializer<'de>,
 {
     let val: Option<i32> = Option::deserialize(deserializer)?;
-    Ok(val
-        .unwrap_or(1)
-        .clamp(1, MAX_SYNTHESIS_THREAD_COUNT))
+    Ok(val.unwrap_or(1).clamp(1, MAX_SYNTHESIS_THREAD_COUNT))
 }
 
 /// HTTP TTS 朗读源（全字段 camelCase 对齐 Dart `HttpTts` 与上游 `HttpTTS`）
@@ -416,8 +414,9 @@ impl<'a> HttpTtsRepository<'a> {
 
     /// 获取所有已启用的 TTS 源
     pub fn find_enabled(&self) -> LegadoResult<Vec<HttpTts>> {
-        let sql =
-            format!("{SELECT_ALL_COLUMNS} WHERE isEnabled = 1 ORDER BY lastUpdateTime DESC, id ASC");
+        let sql = format!(
+            "{SELECT_ALL_COLUMNS} WHERE isEnabled = 1 ORDER BY lastUpdateTime DESC, id ASC"
+        );
         let mut stmt = self
             .conn
             .prepare(&sql)
@@ -642,8 +641,7 @@ mod tests {
             all_inserted_ids.extend(ids);
         }
 
-        let unique_ids: std::collections::HashSet<i64> =
-            all_inserted_ids.iter().copied().collect();
+        let unique_ids: std::collections::HashSet<i64> = all_inserted_ids.iter().copied().collect();
         assert_eq!(unique_ids.len(), THREAD_COUNT * INSERTS_PER_THREAD);
 
         let verify_db = crate::init_database(db_path.to_str().unwrap()).unwrap();

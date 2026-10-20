@@ -59,7 +59,12 @@ pub fn repair_legacy_columns(conn: &Connection) -> LegadoResult<()> {
     conn.execute_batch(crate::repository::privacy_credentials::CREATE_PRIVACY_CREDENTIALS)
         .map_err(|e| LegadoError::Database(format!("创建隐私凭据表失败: {e}")))?;
     if table_exists(conn, "book_groups")? {
-        add_column_if_not_exists(conn, "book_groups", "isPrivate", "INTEGER NOT NULL DEFAULT 0")?;
+        add_column_if_not_exists(
+            conn,
+            "book_groups",
+            "isPrivate",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
     }
     // books 表补列（仅当表存在时）
     if table_exists(conn, "books")? {
