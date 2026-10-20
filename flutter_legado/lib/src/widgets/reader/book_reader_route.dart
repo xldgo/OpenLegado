@@ -8,6 +8,13 @@ import '../../features/privacy/privacy_controller.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../book_cover.dart';
 
+typedef _BookTransitionFrame = ({
+  Rect bounds,
+  BorderRadius radius,
+  double coverAspect,
+  double opening,
+});
+
 /// 纸面与封面整体缩放位移，封面沿书脊翻开；正文始终按最终视口排版。
 /// 沿用 PageRoute 的返回、退出门禁与不透明路由生命周期。— Codex + UI
 class BookReaderRoute<T> extends MaterialPageRoute<T> {
@@ -25,6 +32,9 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   Rect? _returnBounds;
   ui.Image? _image;
   bool _returning = false;
+  _BookTransitionFrame? _lastFrame;
+  _BookTransitionFrame? _returnFrame;
+  double _returnProgress = 1;
   final _contentKey = GlobalKey();
 
   bool get _hasCover => _start != null && _image != null;
@@ -54,11 +64,16 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   @override
   bool didPop(T? result) {
     final destination = origin?.bounds();
+    final frame = _lastFrame;
+    final progress = animation?.value ?? 1;
+    final refreshImage = animation?.status == AnimationStatus.completed;
     final popped = super.didPop(result);
     if (popped) {
       _returning = true;
       _returnBounds = destination;
-      if (destination != null) {
+      _returnFrame = frame;
+      _returnProgress = progress;
+      if (destination != null && refreshImage) {
         final fresh = origin?.image()?.clone();
         if (fresh != null) {
           _image?.dispose();
@@ -117,7 +132,10 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
         ),
       );
       final book = visual.book;
-      final privateBook = privacy.find(book?.bookUrl ?? '') ?? book;
+      final matchesTarget = book?.bookUrl == origin?.bookUrl;
+      // 等待会话切书时按目标书判定封面隐私，不能读取上一本文字作为动画内容。
+      final privateBook =
+          privacy.find(origin?.bookUrl ?? '') ?? (matchesTarget ? book : null);
       final protected =
           privacy.loading ||
           privacy.error != null ||
@@ -138,15 +156,56 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
               size,
             );
             final morph =
-                !reduced &&
-                !protected &&
-                _image != null &&
-                source != null &&
-                book?.bookUrl == origin?.bookUrl;
+                !reduced && !protected && _image != null && source != null;
             final progress = reduced || protected ? 1.0 : animation.value;
             // 翻盖与放大共用完整进度，避免先展开再翻开；返回也同步合上缩回。
-            final motion = Curves.easeInOutCubic.transform(progress);
-            final bounds = morph ? Rect.lerp(source, full, motion)! : full;
+            final retreat = _returnProgress > 0
+                ? Curves.easeInOutCubic.transform(
+                    (1 - progress / _returnProgress).clamp(0.0, 1.0),
+                  )
+                : 1.0;
+            final returning = _returning ? _returnFrame : null;
+            final motion = returning != null
+                ? returning.opening * (1 - retreat)
+                : Curves.easeInOutCubic.transform(progress);
+            final coverAspect = morph
+                ? returning != null
+                      ? ui.lerpDouble(
+                          returning.coverAspect,
+                          source.height / source.width,
+                          retreat,
+                        )!
+                      : _start!.height / _start!.width
+                : size.height / size.width;
+            // 正面封盖与纸面同高，翻过侧面后再扩展为屏幕比例；返回时反向收拢。
+            final pageAspect = returning != null
+                ? coverAspect +
+                      (returning.bounds.height / returning.bounds.width -
+                              returning.coverAspect) *
+                          (returning.opening > 0.5
+                              ? ((motion - 0.5) / (returning.opening - 0.5))
+                                    .clamp(0.0, 1.0)
+                              : 0)
+                : ui.lerpDouble(
+                    coverAspect,
+                    size.height / size.width,
+                    const Interval(
+                      0.5,
+                      1,
+                      curve: Curves.easeInOutCubic,
+                    ).transform(motion),
+                  )!;
+            final placement = morph
+                ? returning != null
+                      ? Rect.lerp(returning.bounds, source, retreat)!
+                      : Rect.lerp(source, full, motion)!
+                : full;
+            final bounds = Rect.fromLTWH(
+              placement.left,
+              placement.top,
+              placement.width,
+              morph ? placement.width * pageAspect : size.height,
+            );
             // 文字按最终尺寸布局，再与封面共用绘制变换，不靠扩大裁剪窗口模拟缩放。
             final scale = bounds.width / size.width;
             final paperBounds = Rect.fromLTWH(
@@ -160,23 +219,30 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
               0,
               0,
               size.width,
-              morph ? size.width * source.height / source.width : size.height,
+              size.width * coverAspect,
             );
-            final radius = morph
-                ? BorderRadius.lerp(
-                        origin!.borderRadius,
-                        BorderRadius.zero,
-                        motion,
-                      )! /
-                      scale
+            final screenRadius = morph
+                ? returning != null
+                      ? BorderRadius.lerp(
+                          returning.radius,
+                          origin!.borderRadius,
+                          retreat,
+                        )!
+                      : BorderRadius.lerp(
+                          origin!.borderRadius,
+                          BorderRadius.zero,
+                          motion,
+                        )!
                 : BorderRadius.zero;
-            final contentOpacity = morph
-                ? const Interval(
-                    0,
-                    0.24,
-                    curve: Curves.easeOut,
-                  ).transform(progress)
-                : progress;
+            final radius = screenRadius / scale;
+            if (morph) {
+              _lastFrame = (
+                bounds: bounds,
+                radius: screenRadius,
+                coverAspect: coverAspect,
+                opening: motion,
+              );
+            }
             final coverOpacity = morph
                 ? 1 - const Interval(0.88, 1).transform(progress)
                 : 0.0;
@@ -214,7 +280,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                       ),
                     ),
                   ),
-                  ClipPath(
+                  ClipRRect(
                     key: const ValueKey('book-reader-reveal'),
                     clipBehavior: complete || !morph
                         ? Clip.none
@@ -222,7 +288,11 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                     clipper: _BookRevealClipper(paperBounds, radius),
                     child: IgnorePointer(
                       ignoring: !complete,
-                      child: Opacity(opacity: contentOpacity, child: child),
+                      // 只切换可见性，不对整屏正文做渐变透明合成；门禁内容仍及时显示。
+                      child: Opacity(
+                        opacity: protected || matchesTarget || complete ? 1 : 0,
+                        child: child,
+                      ),
                     ),
                   ),
                   if (morph && motion > 0 && motion < 1)
@@ -261,35 +331,18 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                               transform: Matrix4.identity()
                                 ..setEntry(3, 2, -0.6 / size.longestSide)
                                 ..rotateY(-math.pi * motion),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  borderRadius: radius,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha:
-                                            0.20 * math.sin(math.pi * motion),
-                                      ),
-                                      blurRadius: 16,
-                                      offset: const Offset(4, 0),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: radius,
-                                  child: motion <= 0.5
-                                      ? RawImage(
-                                          image: _image,
-                                          fit: BoxFit.cover,
-                                        )
-                                      // 翻过侧面后展示纸张背面，不反向绘制封面文字。
-                                      : ColoredBox(
-                                          key: const ValueKey(
-                                            'book-reader-cover-back',
-                                          ),
-                                          color: paper,
+                              // 共用纸面外阴影和书脊渐变，不再叠加旋转封面的模糊阴影。
+                              child: ClipRRect(
+                                borderRadius: radius,
+                                child: motion <= 0.5
+                                    ? RawImage(image: _image, fit: BoxFit.cover)
+                                    // 翻过侧面后展示纸张背面，不反向绘制封面文字。
+                                    : ColoredBox(
+                                        key: const ValueKey(
+                                          'book-reader-cover-back',
                                         ),
-                                ),
+                                        color: paper,
+                                      ),
                               ),
                             ),
                           ),
@@ -313,13 +366,13 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   }
 }
 
-class _BookRevealClipper extends CustomClipper<Path> {
+class _BookRevealClipper extends CustomClipper<RRect> {
   const _BookRevealClipper(this.bounds, this.radius);
   final Rect bounds;
   final BorderRadius radius;
 
   @override
-  Path getClip(Size size) => Path()..addRRect(radius.toRRect(bounds));
+  RRect getClip(Size size) => radius.toRRect(bounds);
 
   @override
   bool shouldReclip(_BookRevealClipper oldClipper) =>

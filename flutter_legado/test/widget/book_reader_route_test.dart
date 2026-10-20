@@ -46,6 +46,7 @@ class _Reader extends ReaderNotifier {
   );
 
   void loaded() => state = state.copyWith(isLoading: false);
+  void showBook(Book? book) => state = state.copyWith(currentBook: book);
 }
 
 class _Privacy extends PrivacyController {
@@ -103,6 +104,7 @@ class _Harness {
   final key = GlobalKey<NavigatorState>();
   final offset = ValueNotifier(const Offset(32, 80));
   final visible = ValueNotifier(true);
+  final coverSize = ValueNotifier(const Size(80, 112));
   final probe = _ProbeState();
   final reader = _Reader();
   final privacy = _Privacy();
@@ -116,7 +118,7 @@ class _Harness {
     routes: {
       AppRoutes.home: (context) => Scaffold(
         body: ListenableBuilder(
-          listenable: Listenable.merge([offset, visible]),
+          listenable: Listenable.merge([offset, visible, coverSize]),
           builder: (context, _) => Stack(
             children: [
               if (visible.value)
@@ -129,8 +131,8 @@ class _Harness {
                       borderRadius: BorderRadius.circular(6),
                       child: RawImage(
                         image: decodedCover ? image : null,
-                        width: 80,
-                        height: 112,
+                        width: coverSize.value.width,
+                        height: coverSize.value.height,
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -213,6 +215,7 @@ class _Harness {
       container.dispose();
       offset.dispose();
       visible.dispose();
+      coverSize.dispose();
     });
   }
 
@@ -228,7 +231,7 @@ class _Harness {
 }
 
 Rect _reveal(WidgetTester tester) {
-  final clip = tester.widget<ClipPath>(
+  final clip = tester.widget<ClipRRect>(
     find.byKey(const ValueKey('book-reader-reveal')),
   );
   final box = tester.renderObject<RenderBox>(
@@ -236,7 +239,7 @@ Rect _reveal(WidgetTester tester) {
   );
   return MatrixUtils.transformRect(
     box.getTransformTo(null),
-    clip.clipper!.getClip(box.size).getBounds(),
+    clip.clipper!.getClip(box.size).outerRect,
   );
 }
 
@@ -477,6 +480,121 @@ void main() {
     expect(h.probe.initialized, 1);
     expect(h.probe.disposed, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  for (final previous in [
+    null,
+    const Book(bookUrl: 'book://previous', name: '旧书'),
+  ]) {
+    testWidgets('目标会话未就绪时保留封面轨迹且隐藏${previous == null ? '空' : '旧书'}正文', (
+      tester,
+    ) async {
+      final h = _Harness(image);
+      await h.pump(tester);
+      h.container.read(readerNotifierProvider);
+      h.reader.showBook(previous);
+      await tester.pump();
+      await h.open(tester);
+      await tester.pump(const Duration(milliseconds: 80));
+      final before = _reveal(tester);
+      final hingeFinder = find.byKey(const ValueKey('book-reader-cover-hinge'));
+      final angle = tester.widget<Transform>(hingeFinder).transform.clone();
+      Opacity bodyVisibility() => tester.widget<Opacity>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('book-reader-reveal')),
+              matching: find.byType(Opacity),
+            )
+            .first,
+      );
+      expect(before.width, inExclusiveRange(80, 400));
+      expect(bodyVisibility().opacity, 0);
+      h.reader.showBook(_book);
+      await tester.pump();
+      expect(_reveal(tester), before, reason: '正文就绪不改变转场轨迹');
+      expect(tester.widget<Transform>(hingeFinder).transform, angle);
+      expect(bodyVisibility().opacity, 1);
+      await tester.pumpAndSettle();
+      h.reader.showBook(const Book(bookUrl: 'book://next', name: '后续会话'));
+      await tester.pump();
+      expect(bodyVisibility().opacity, 1, reason: '转场结束后不遮挡后续会话或页面错误提示');
+      expect(h.probe.initialized, 1);
+      expect(h.probe.disposed, 0);
+    });
+  }
+
+  testWidgets('目标会话未就绪仍按目标书阻止私密封面飞行', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    h.container.read(readerNotifierProvider);
+    h.reader.showBook(null);
+    h.privacy.relock();
+    await tester.pump();
+    await h.open(tester);
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(const ValueKey('book-reader-cover-hinge')), findsNothing);
+    expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
+    await tester.pumpAndSettle();
+  });
+
+  for (final elapsed in [180, 320]) {
+    testWidgets('进场${elapsed}ms返回到已移动且改变尺寸的来源，首帧保持位置尺寸和角度', (tester) async {
+      final h = _Harness(image);
+      await h.pump(tester);
+      await h.open(tester);
+      await tester.pump(Duration(milliseconds: elapsed));
+      h.offset.value = const Offset(160, 220);
+      h.coverSize.value = const Size(96, 120);
+      await tester.pump();
+      final before = _reveal(tester);
+      final hingeFinder = find.byKey(const ValueKey('book-reader-cover-hinge'));
+      final angle = tester.widget<Transform>(hingeFinder).transform.clone();
+      final cover = tester.getSize(hingeFinder);
+      h.key.currentState!.pop();
+      await tester.pump();
+      expect(_reveal(tester), before);
+      expect(tester.widget<Transform>(hingeFinder).transform, angle);
+      expect(tester.getSize(hingeFinder), cover);
+      await tester.pump(
+        Duration(milliseconds: (elapsed / 480 * 400).ceil() - 1),
+      );
+      final nearEnd = _reveal(tester);
+      expect(nearEnd.left, closeTo(160, 1));
+      expect(nearEnd.top, closeTo(220, 1));
+      expect(nearEnd.width, closeTo(96, 1));
+      expect(nearEnd.height, closeTo(120, 1));
+      await tester.pumpAndSettle();
+      expect(h.probe.initialized, 1);
+      expect(h.probe.disposed, 1);
+    });
+  }
+
+  testWidgets('封面正面可见时纸面同高，翻过侧面后再延展到屏幕', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    await h.open(tester);
+    final surfaceFinder = find.byKey(
+      const ValueKey('book-reader-surface-transform'),
+    );
+    final hingeFinder = find.byKey(const ValueKey('book-reader-cover-hinge'));
+    double coverHeight() =>
+        tester.getSize(hingeFinder).height *
+        tester.widget<Transform>(surfaceFinder).transform.entry(1, 1);
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(_reveal(tester).height, closeTo(coverHeight(), 0.001));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.byKey(const ValueKey('book-reader-cover-back')),
+      findsOneWidget,
+    );
+    expect(_reveal(tester).height, greaterThan(coverHeight()));
+    await tester.pumpAndSettle();
+    expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
+    h.key.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(_reveal(tester).height, closeTo(coverHeight(), 0.001));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('返回重新测量来源封面的位置', (tester) async {
