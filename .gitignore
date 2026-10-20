@@ -97,8 +97,6 @@ flutter_legado/test_out.txt
 .oh.xml
 # Windows 下 `> nul` 的重定向产物（Git Bash 会把它建成真实文件）
 nul
-# 根 package.json（commitizen 用）被 pnpm 生成的锁文件，内容含机器本地路径，与构建链无关
-pnpm-lock.yaml
 # Python 字节码缓存
 __pycache__/
 # 崩溃核心转储（Linux/WSL 下 SIGSEGV 落盘；本仓已有 0 字节占位残留）

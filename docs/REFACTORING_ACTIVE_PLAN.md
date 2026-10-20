@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### REMOVE-COMMITIZEN-20261020：清理无构建用途的根Node配置（本地完成）
+
+- 授权：用户同意删除根package.json及专用配置，沿用dev，保留Conventional Commits和通用node_modules忽略规则；不提升版本、不推送。
+- 范围：删除仅配置Commitizen适配器的package.json，移除专属pnpm锁文件忽略项，Rust开发文档改用直接Git提交。没有跟踪的Node锁文件，不删除本地依赖或其他目录的Node工具；历史归档及工具生成的知识缓存保留追溯。
+- 核对：当前构建脚本及CI无依赖引用，git diff --check通过；配置和说明清理不运行应用构建或新增测试，提交号以Git记录为准。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### INTEGRATE-DEV-20261020：当前开发分支合入dev（本地完成）
 
 - 授权：用户要求将当前分支内容合入dev且不触发CI；合并前工作区干净，dev为d0d52a87b，feature/ui-reader-selection为9e31da758，dev无独有提交，合入343个已有提交。

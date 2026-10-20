@@ -632,16 +632,12 @@ cargo test --workspace test_search
 
 ### Git 提交规范
 
-项目使用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/) 规范，通过 commitizen 辅助：
+项目使用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/) 规范，直接使用 Git 提交；
+类型、作用域及中文描述要求以根目录 `AGENTS.md` 和 `docs/DEVELOPMENT_CONVENTIONS.md` 为准。
 
-```bash
-# 使用 commitizen 交互式提交
-git cz
-
-# 或手动遵循格式
-git commit -m "feat: 新增书源批量导出功能"
-git commit -m "fix: 修复阅读器翻页闪烁"
-git commit -m "perf: 优化引擎池化内存占用"
+```powershell
+git commit -m "feat(rust): 新增书源批量导出功能"
+git commit -m "perf(rust): 优化引擎池化内存占用"
 ```
 
 **类型前缀**：
