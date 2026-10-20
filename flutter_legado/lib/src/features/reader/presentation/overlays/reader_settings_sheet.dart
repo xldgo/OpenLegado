@@ -333,17 +333,18 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
     return SettingsGroup(
       showDividers: false,
       children: [
-        SettingMenuRow<ReaderThemeMode>(
-          title: '阅读模式',
-          value: themeMode,
-          options: const {
-            ReaderThemeMode.followApp: '跟随应用',
-            ReaderThemeMode.day: '日间',
-            ReaderThemeMode.night: '夜间',
-          },
-          onChanged: (mode) =>
-              _saveColors(() => notifier.updateReaderThemeMode(mode)),
-        ),
+        if (widget.fullPage)
+          SettingMenuRow<ReaderThemeMode>(
+            title: '阅读模式',
+            value: themeMode,
+            options: const {
+              ReaderThemeMode.followApp: '跟随应用',
+              ReaderThemeMode.day: '日间',
+              ReaderThemeMode.night: '夜间',
+            },
+            onChanged: (mode) =>
+                _saveColors(() => notifier.updateReaderThemeMode(mode)),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(

@@ -79,12 +79,19 @@ void main() {
 
   Future<void> mode(WidgetTester tester, String label) async {
     final selector = find.byType(SettingMenuRow<ReaderThemeMode>);
+    if (selector.evaluate().isEmpty) {
+      final toggle = find.byTooltip(label == '夜间' ? '切换夜间' : '切换日间');
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      return;
+    }
     await tester.ensureVisible(selector);
     await tester.tap(
       find.descendant(of: selector, matching: find.text('阅读模式')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(label).last);
+    await tester.tap(find.widgetWithText(CheckboxMenuButton, label));
     await tester.pumpAndSettle();
   }
 
@@ -137,6 +144,7 @@ void main() {
   testWidgets('六套模板显示并选择，日夜颜色与预览同步，阅读模式不改应用主题', (tester) async {
     initialize();
     await show(tester);
+    expect(find.text('阅读模式'), findsNothing);
     for (final style in readerStylePresets) {
       expect(find.byKey(ValueKey('reader-style-${style.id}')), findsOneWidget);
     }
@@ -216,24 +224,23 @@ void main() {
     storage.writeFailure = false;
     await select(tester, 'preset5');
     await show(tester, fullPage: true);
+    expect(find.text('阅读模式'), findsOneWidget);
     colors(0xFF3C3F43, 0xFF90BFF5);
     await mode(tester, '夜间');
     colors(0xFF3C3F43, 0xFF90BFF5);
     await show(tester);
-    expect(
-      tester
-          .widget<SettingMenuRow<ReaderThemeMode>>(
-            find.byType(SettingMenuRow<ReaderThemeMode>),
-          )
-          .value,
-      ReaderThemeMode.night,
-    );
+    expect(find.text('阅读模式'), findsNothing);
+    expect(find.byTooltip('切换日间'), findsOneWidget);
     expect(storage.values.containsKey('reader_theme_mode'), isFalse);
     final writes = storage.writes.length;
     await mode(tester, '日间');
     expect(storage.writes.length, writes);
-    container.read(readerThemeSessionProvider).reset();
-    await tester.pumpAndSettle();
+    await show(tester, fullPage: true);
+    await mode(tester, '跟随应用');
+    expect(
+      container.read(readerThemeSessionProvider).mode,
+      ReaderThemeMode.followApp,
+    );
     expect(
       tester
           .widget<SettingMenuRow<ReaderThemeMode>>(
