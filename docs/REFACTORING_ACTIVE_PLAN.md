@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### APKSIGNER-FORMAT-20261020：兼容签名证书输出格式（P1，待CI复验）
+
+- 来源：用户提供Build Tools 37的V2/V3.0 Signer前缀与旧Signer #N差异，当前脚本只接受旧前缀，未匹配错误被归为证书不符。
+- 范围：仅修复Android APK签名输出解析；忽略Source Stamp和公钥摘要，对签名证书SHA-256规范化、去重并严格比较，解析失败与身份不符分别报错。保留签名工具验签退出码和现有稳定Build Tools选择策略，不改密钥、Secrets、发行权限或原生编译。
+- 回归：新增10项签名解析/验签边界测试通过，包含同一真实Debug APK的36/37输出夹具、V3格式、来源戳排除、去重、不同签名、坏摘要和退出码。工具组此前197项中194项通过、3项因宿主能力跳过；末次新增真实夹具用例后目标10项复验通过。证据build/apksigner-format-tests.log、build/apksigner-tooling-regression.log。
+- 实测：从官方仓库下载37 Windows包，仅向build/apksigner-format提取jar，核对清单61077164字节及SHA1 e9c97e26b5b5678002e9d3fed632c841ae62d99f。已有Debug APK由36和37只读验签，分别输出Signer #1与V2 Signer:；相同/冒号大写指纹通过，错误指纹拒绝，APK SHA-256前后一致。证据build/apksigner-real-validation.log。未读取、重签或更换发行私钥，未重新构建应用。
+- 交付：CI编排说明与CHANGELOG同步，保留当前2.0.416+417。单代理自查、仅本地提交，未推送或触发CI；真实Release APK及远程收集步骤待后续CI复验。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### READING-CARD-ARROW-20261020：阅读卡片箭头右侧留白（P2，待设备复验）
 
 - 授权：用户要求继续优化阅读时长榜、读书日历、阅读热力图的右箭头间距；沿用dev，单代理、不提升版本、不推送或自动编译安装。

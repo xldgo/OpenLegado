@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.416] - 2026-10-20
 
+### Maintenance
+- 兼容新版Android Build Tools的签名证书输出，区分解析失败与指纹不符。贡献者：Codex + Tool。
+
 ### Changed
 - 统一朗读、音频书与音色试听的音频会话，申请被拒绝时不开始播放。
 - 耳机断开暂停，中断恢复核对当前会话；Web 保活让位于真实音频与外部中断。

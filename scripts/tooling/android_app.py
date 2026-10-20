@@ -21,6 +21,22 @@ PACKAGE = "io.legado.flutter_legado"
 ACTIVITY = "io.legado.flutter.MainActivity"
 
 
+def parse_apk_signer_certificates(output: str) -> set[str]:
+    """读取签名证书摘要，不依赖签名方案前缀；来源戳证书不参与发行身份比较。"""
+    certificates = set()
+    for line in output.splitlines():
+        label, separator, value = line.strip().partition(" certificate SHA-256 digest:")
+        if not separator or label.removesuffix(":") == "Source Stamp Signer":
+            continue
+        digest = value.strip().replace(":", "").lower()
+        if not label or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ToolError("apksigner输出的签名证书SHA-256摘要格式无效。")
+        certificates.add(digest)
+    if not certificates:
+        raise ToolError("apksigner输出中未解析到APK签名证书SHA-256摘要，请核对Build Tools输出格式。")
+    return certificates
+
+
 def verify_apk_signature(root: Path, apk: Path, expected: str):
     """使用SDK自带apksigner检查最终APK签名与发行证书，不改写包。"""
     wanted = expected.strip().replace(":", "").lower()
@@ -40,12 +56,16 @@ def verify_apk_signature(root: Path, apk: Path, expected: str):
     if not jars:
         raise ToolError("Android SDK缺少Build Tools/apksigner.jar。")
     # 直接执行JAR，避免Windows批处理与Shell参数转义差异。
-    output = run_command([find_tool("java", env), "-jar", max(jars)[1], "verify", "--print-certs", apk],
+    jar = max(jars)[1]
+    output = run_command([find_tool("java", env), "-jar", jar, "verify", "--print-certs", apk],
                          root, env, capture=True)
-    certificates = re.findall(r"^Signer #\d+ certificate SHA-256 digest:\s*([0-9a-fA-F:]+)\s*$",
-                              output, re.MULTILINE)
-    if len(certificates) != 1 or certificates[0].replace(":", "").lower() != wanted:
-        raise ToolError(f"{apk.name}：APK签名证书与预期发行证书不匹配。")
+    try:
+        certificates = parse_apk_signer_certificates(output)
+    except ToolError as exc:
+        raise ToolError(f"{apk.name}：{exc}（apksigner：{jar}）") from exc
+    if certificates != {wanted}:
+        raise ToolError(f"{apk.name}：APK签名证书与预期发行证书不匹配；"
+                        f"预期：{wanted}；实际：{', '.join(sorted(certificates))}。")
 
 
 def verify_android_apk(root: Path, apk: Path, profile: str, abis: tuple[str, ...],

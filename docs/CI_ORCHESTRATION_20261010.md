@@ -58,6 +58,14 @@ GitHub Actions 需设置四项 Repository Secrets：`ANDROID_KEYSTORE_BASE64`（
 现有 `collect apk android` 使用 `--signing-cert-sha256` 检查三个 APK 的签名有效性和证书指纹，
 原有 Rust 库校验继续执行，全部通过才收集上传。不新增签名 CLI 或独立预检工具。
 
+apksigner输出前缀随Build Tools版本变化（36：Signer #N；37：V2/V3.0 Signer:）。
+工具按certificate SHA-256字段解析，忽略Source Stamp及公钥摘要，将签名证书指纹
+规范化去重后严格比较预期集合；未解析到证书与指纹不符分别报错。继续使用已安装的
+最高稳定版本，签名工具验签失败立即终止，不依靠旧版本绕过格式问题。
+真实输出回归夹具来自同一Debug APK经官方36/37版只读验签，不包含密钥。
+
+编写者：Codex + Tool｜2026-10-20
+
 Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地检查不代表远程发行包已构建；
 当前验证状态见 Active 计划。签名接入依据：[Flutter 签名配置](https://docs.flutter.dev/deployment/android#configure-signing-in-gradle)、
 [Android apksigner](https://developer.android.com/tools/apksigner)。
