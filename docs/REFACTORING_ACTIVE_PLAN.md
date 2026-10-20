@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### INTEGRATE-JS-CRYPTO-20261020：合并对称加密与RSA核查成果
+
+- 授权与基线：用户要求合并主目录后审查Rust最佳实践；主目录feature/ui-reader-selection / 12feb685e与worktree chore/dep-audit / 1a6a6a371均干净，单代理，不推送、不构建安装。
+- 范围：合入17416c6bb与1a6a6a371两次修复，保留主目录独立的12次提交；版本采用2.0.407+408，不额外递增。Rust代码自动合并，契约、Active和应用更新日志按双方新增内容合并，不采用整文件覆盖。
+- 验证：逐项比较主目录/源分支独有改动路径与暂存树对象一致；双方Rust修改没有交叉文件。git diff --check通过，原回归证据见对应JS批次；不重复运行无代码冲突的整套测试，不宣称远程或设备验收。
+- 状态：本地合并完成，提交号见本条Git记录；后续Rust静态审查单独记录，不夹带生产修复。
+
+编写者：Codex｜2026-10-20
+
 ### THEME-DYNAMIC-PALETTE-20261020：统一动态取色入口并修复色卡描边（P2，本地完成，待设备复验）
 
 - 授权：用户要求参照HapeLee将壁纸取色移至配色横滑行首并修复边框裁剪；基线feature/ui-reader-selection / 6ae6e9d9d，单代理，不提升版本、不推送或安装。
@@ -70,6 +79,36 @@
 - B3实现：CacheDownloadSettingsRepository独立投影config:cacheBookThreadCount，范围1～8、默认8；复用共享Rust配置服务与公共数字Sheet，修改新任务生效，不写SP、不覆盖搜索并发或前后预下载。未接线占位剩5项。配置重建、读写失败、取消/越界及实际页面/路由/360dp回归94项通过；证据flutter_legado/build/cache-download-settings-tests.log。版本保持2.0.405+406。
 - B3门禁：目标dart analyze --fatal-infos无问题，架构静态依赖检查、格式与git diff --check通过；自查确认数字解析与Rust一致，不接受十六进制字符串，不改配置备份或既有FRB绑定。
 - 交付边界：三批仅本地提交，无推送、设备安装或IPA/APK构建；本轮未使用子代理。下次应用构建须重编当前Rust源对应的原生库；本地引擎测试不代替Android/iOS网络、平台后台行为或真机性能验收。
+### JS-RSA-SIGN-BOUNDARY-20261019：RSA与签名输入及会话（P1）
+
+- 状态：已关闭（本批现有RSA与签名入口范围）。用户授权开始；dep-audit / chore/dep-audit / 17416c6bb，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/合并/安装，不触碰主目录。
+- 依据：固定参考版15e1337a的AsymmetricCrypto/Sign、[Android官方OAEP说明](https://developer.android.com/privacy-and-security/cryptography)、JCA Signature及本地rsa 0.9.10源码。普通Android Provider的主摘要与MGF1相同，保留SHA256/SHA256；JDK探针显式OAEPParameterSpec，不拿其默认SHA256/SHA1覆盖现有策略。
+- 实现：契约先冻结，严格识别RSA transformation，不再忽略任意模式或按OAEP子串猜算法。java/裸入口均支持DER Uint8/Int8视图和Java byte数组，保留PEM/Base64及PKCS1密钥扩展；参数复制、失败不替换有效密钥。密文和签名先识别偶数Hex，否则统一Hutool Base64，不再反复解码/解密试错；缺省方向为公钥，显式null按参考版走私钥，非Boolean明确拒绝。
+- 核心：空明文实际执行一次padding，空密文和不足8字节FF的type1 padding拒绝；私钥运算使用已有带随机盲化的API。不变更RSA对象原有懒生成1024位密钥时机/长度；Sign缺所需密钥直接报错，不再静默随机生成；六种原有摘要/别名保留。不宣称消除了RSA依赖的时序漏洞，不调整安全豁免。
+- Packages：KeySpec构造及getEncoded/encode均复制，KeyFactory生成时校验PKCS8/SPKI，不再返回伪密钥；Signature支持签名/验签切换、增量update、完成后重置摘要并复用密钥。初始化失败清空旧会话，非法字节update/verify不损坏已有摘要；共享原生密码学核心。固定大小DynDigest代替反复拼接全文，私钥枚举字段使用Box，不引入无界Rust正文缓冲、unsafe或JSON通道。
+- 独立向量：JDK25一次性生成专用2048位测试密钥，9组密文覆盖公/私钥、空输入、600字节分块、PKCS1及OAEP SHA1/SHA256，6种签名摘要与Unicode正文固定对照。回归只消费已提交JSON，不依赖JVM、网络、正式DLL或外部测试宿主；不使用真实用户密钥。保留原得间JavaImporter/无new KeySpec路径。
+- 验证：新增真实QuickJS 11项与既有得间4项定向通过；完整JS867项通过、4既有忽略（26组，库700/网络56包含在内，不重复累计），默认JS库274项通过；JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8及git diff --check通过。Box调整及最后解码断言纠正后，库700项与RSA/得间15项再次通过；未新增skip或放宽400KB沙箱门禁。
+- 过程与纠正：初轮测试8项失败，其中PEM夹具未按64列换行、空数据助手误用返回null的Base64接口属于测试错误，修正夹具，不算生产缺陷。首轮编译的DER回退错误类型推断已修复；既有得间测试要求initSign/encode诊断词，保留可操作提示，未削弱断言。Clippy指出344字节私钥枚举过大，改Box后通过。默认编译发现本批模块插入遗漏runtime_bridge的quickjs标记，恢复后274项通过。最后新增断言误以为Hutool拒绝非ASCII，核对既有解码器后按其忽略规则纠正为中文空结果、波浪线报错，未修改Base64生产策略。
+- 自查与证据：逐项核对契约→java/裸入口→Packages构造/工厂→复制及状态→核心计算→格式/异常；RefCell借用不跨可重入JS属性读取。按用户要求无子代理，仅Codex自查，不宣称独立审查或远程CI。build/js-byte-conversion/rsa-{reproduce,fixed,fixed-typed,fixed-vectors,targeted,targeted-final,complete,default,default-final,clippy-quickjs,clippy-quickjs-final,clippy-default,post-review,post-review-final}.log；仅成功final项及complete作为通过证据。首次复现日志完整但日志尾部输出遇Windows编码错误，忽略目录runner已改UTF-8；研究材料build/rsa-oracle，非运行时依赖。
+- 交付限制：版本2.0.407+408与双日志同步；无依赖/FRB/生成物/数据库/Flutter业务改动。不运行全workspace/Flutter、native/应用构建、设备或远程CI；MuMu仍2.0.394+395。仅覆盖当前RSA与六类签名边界，不宣称所有JCA Provider算法/异常一致或移动平台实测。
+
+编写者：Codex + Rust/Bridge｜2026-10-19
+
+### JS-SYMMETRIC-BOUNDARY-20261019：对称加密入口与Cipher模式（P1）
+
+- 状态：已关闭（本批现有对称加密入口与Cipher单次操作范围）。用户授权继续；dep-audit / chore/dep-audit快进同步主目录da8c2ec71，开始工作区干净；单代理，成果随本条所在本地提交交付，不推送/安装/合并或触碰主目录。
+- 依据与范围：固定参考版15e1337a的JsEncodeUtils/SymmetricCryptoAndroid、JCA官方Cipher/SecretKeySpec及JDK固定向量。先冻结脚本契约，修复吞错、DES模式/padding分发、字节输入和Cipher加解密状态；保留16字节DESede与本地便利扩展，不扩展RSA/依赖/FFI。
+- 实现：新增私有symmetric_bridge集中双入口和异常；移除[ERROR]成功串及无效视图unwrap为空的路径，ByteArray在可能重入的参数转换前复制。对象支持String/Uint8/Int8/Java byte数组、Hex/Base64密文识别、加密字符集和UTF-8替换解码；setIv使用调用方this返回而不捕获对象，避免旧注释所述闭包自引用。
+- 核心：Core补DES的ECB/NoPadding与CBC/NoPadding真实分发，集中校验算法、模式、padding、密钥及显式IV；未知padding不再默认为PKCS7，RC4空密钥在进入底层前报错。块算法单段默认ECB/PKCS5Padding，保留NONE无填充和PKCS7别名、已确认16字节DESede兼容；对象按参考版截断超长DES/DESede密钥，原生Cipher保持严格长度。
+- Cipher：新增原生单次操作状态与ENCRYPT_MODE/DECRYPT_MODE；init先清空旧状态，完成参数校验后发布自有快照，坏类型/模式/密钥/IV失败后不能沿用旧初始化。doFinal依操作模式计算，成功后保留初始化参数供下一独立调用；getIV、SecretKeySpec.getEncoded及IvParameterSpec.getIV返回复制。CBC加密缺IV安全随机生成，解密缺IV报错；工厂忽略空IV/ECB的IV，显式setIv空IV在计算时拒绝。null工厂密钥随机生成，空密钥仍拒绝；不新增update、多段流或完整JCA面。
+- 独立向量：JDK25生成14组固定密文，涵盖AES128/192/256、DES/3DES、CBC/ECB、padding/NoPadding、Unicode、空输入及RC4。16字节DESede在JDK探针中显式扩展K1/K2/K1，以核对原项目兼容算法；不以JDK拒绝短密钥为由删除语料兼容。运行回归只读JSON测试数据，不依赖JVM、网络或外部测试宿主。
+- 回归：11项新增真实QuickJS通过，加既有小小阅读/Java String共18项定向通过；Core加密33项通过，完整JS856项通过、4既有忽略（25组，库700/网络56，不重复累计），默认JS库274通过；Core/JS/Engine两档all-targets严格Clippy、限定rustfmt、UTF-8和git diff --check通过。
+- 过程与纠正：初轮7项中6失败1通过；其中密文向量测试误用返回文本的hexDecode/hexEncodeToString，纠正为字节解码和测试内字节转Hex后才形成有效向量证据，不把误用算作生产缺陷。实现初次泛型错误消息转换未显式into导致编译失败，补齐后通过；Core测试误用未声明hex crate，改标准库解码，不新增依赖。严格Clippy发现固定chunks_exact，改as_chunks后通过，未压制告警。
+- 内存门禁：首次完整回归698通过/2失败，新增JS参数对象使原400KB沙箱在Response注册阶段耗尽，未执行到既有OOM配方。将密钥/IV构造和复制方法下沉原生回调，减少启动JS编译；保持原预算/配方/断言，22项沙箱定向通过（1既有忽略），随后完整JS通过。无沙箱上限放宽、额外跳过或借共享Cargo锁干预其他任务；不以此宣称RSS或生产性能改善数据。
+- 自查与证据：核对契约→java/裸入口→Packages常量/构造器→快照→Core计算→编码/异常；状态只持有Rust数据，RefCell借用不跨可重入JS转换，无新增unsafe。按用户要求无子代理，仅Codex自查，不宣称独立审查或远程CI。build/js-byte-conversion/symmetric-{reproduce,fixed,fixed-final,vectors-fixed,targeted,core,core-final,complete,oom-budget,complete-final,default,clippy-quickjs,clippy-quickjs-final,clippy-default}.log，只有final成功项作完整通过证据；研究材料build/symmetric-oracle。
+- 交付限制：版本2.0.406+407及双日志同步，无RSA/签名、依赖、FRB/生成物、数据库或Flutter业务变更；不运行全workspace/Flutter测试、native/应用构建、设备或远程CI。MuMu仍2.0.394+395，下次构建须重建匹配Rust库。原本地aesEncrypt/desEncrypt等编码和默认IV保留，不冒充上游同名面；不宣称全部加密算法/重载或Android/iOS实机验收。
+
+编写者：Codex｜2026-10-19
 
 ### INTEGRATE-JS-DEPAUDIT-20261019：JS核查成果合入主目录
 

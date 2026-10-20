@@ -1,0 +1,114 @@
+[
+  {
+    "transformation": "AES/CBC/PKCS5Padding",
+    "key": "30313233343536373839616263646566",
+    "iv": "66656463626139383736353433323130",
+    "data": "68656c6c6f",
+    "cipher": "7bedceb0655f38941069789f36462091",
+    "base64": "e+3OsGVfOJQQaXifNkYgkQ=="
+  },
+  {
+    "transformation": "AES/CBC/NoPadding",
+    "key": "30313233343536373839616263646566",
+    "iv": "66656463626139383736353433323130",
+    "data": "30313233343536373839616263646566",
+    "cipher": "6575cf6b37479d9215337ff9767fe786",
+    "base64": "ZXXPazdHnZIVM3/5dn/nhg=="
+  },
+  {
+    "transformation": "AES/ECB/NoPadding",
+    "key": "3031323334353637383961626364656630313233343536373839616263646566",
+    "iv": "",
+    "data": "30313233343536373839616263646566",
+    "cipher": "f83c9a60dc0cdb98219f79d6d5db1635",
+    "base64": "+DyaYNwM25ghn3nW1dsWNQ=="
+  },
+  {
+    "transformation": "AES/CBC/PKCS5Padding",
+    "key": "303132333435363738396162636465663031323334353637",
+    "iv": "66656463626139383736353433323130",
+    "data": "e4b8ade69687f09f9880",
+    "cipher": "022c458209c71b8ffcc22b58e835d152",
+    "base64": "AixFggnHG4/8witY6DXRUg=="
+  },
+  {
+    "transformation": "DES/CBC/NoPadding",
+    "key": "3132333435363738",
+    "iv": "3837363534333231",
+    "data": "3132333435363738",
+    "cipher": "85b3ad903f0b2178",
+    "base64": "hbOtkD8LIXg="
+  },
+  {
+    "transformation": "DES/ECB/NoPadding",
+    "key": "3132333435363738",
+    "iv": "",
+    "data": "3132333435363738",
+    "cipher": "96d0028878d58c89",
+    "base64": "ltACiHjVjIk="
+  },
+  {
+    "transformation": "DES/CBC/PKCS5Padding",
+    "key": "3132333435363738",
+    "iv": "3837363534333231",
+    "data": "68656c6c6f",
+    "cipher": "f46c50bc44536cc5",
+    "base64": "9GxQvERTbMU="
+  },
+  {
+    "transformation": "DES/ECB/PKCS5Padding",
+    "key": "3132333435363738",
+    "iv": "",
+    "data": "e4b8ade69687f09f9880",
+    "cipher": "0599e7142dbbfc0e7bd94df3a43564a7",
+    "base64": "BZnnFC27/A572U3zpDVkpw=="
+  },
+  {
+    "transformation": "DESede/CBC/PKCS5Padding",
+    "key": "303132333435363738396162636465663031323334353637",
+    "iv": "3837363534333231",
+    "data": "68656c6c6f",
+    "cipher": "ee6ae5625f9310c8",
+    "base64": "7mrlYl+TEMg="
+  },
+  {
+    "transformation": "DESede/ECB/NoPadding",
+    "key": "303132333435363738396162636465663031323334353637",
+    "iv": "",
+    "data": "3132333435363738",
+    "cipher": "388dcfaf2ebd926c",
+    "base64": "OI3Pry69kmw="
+  },
+  {
+    "transformation": "DESede/CBC/NoPadding",
+    "key": "30313233343536373839616263646566",
+    "iv": "3837363534333231",
+    "data": "3132333435363738",
+    "cipher": "58ab5a7085ac96f9",
+    "base64": "WKtacIWslvk="
+  },
+  {
+    "transformation": "RC4",
+    "key": "3132333435363738",
+    "iv": "",
+    "data": "68656c6c6f",
+    "cipher": "d39655b866",
+    "base64": "05ZVuGY="
+  },
+  {
+    "transformation": "AES/ECB/PKCS5Padding",
+    "key": "30313233343536373839616263646566",
+    "iv": "",
+    "data": "",
+    "cipher": "377222e061a924c591cd9c27ea163ed4",
+    "base64": "N3Ii4GGpJMWRzZwn6hY+1A=="
+  },
+  {
+    "transformation": "AES/ECB/NoPadding",
+    "key": "30313233343536373839616263646566",
+    "iv": "",
+    "data": "",
+    "cipher": "",
+    "base64": ""
+  }
+]
