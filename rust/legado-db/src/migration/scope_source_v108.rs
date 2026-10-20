@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{add_column_if_not_exists, table_exists, Migration};
+use crate::migration::{Migration, add_column_if_not_exists, table_exists};
 
 /// 从 v107 升级到 v108
 ///
@@ -108,8 +108,8 @@ mod tests {
         registry.migrate_to_latest(&conn).unwrap();
         assert_eq!(
             MigrationRegistry::current_version(&conn).unwrap(),
-            109,
-            "注册表路径应推进版本到最新（当前 109）"
+            schema::SCHEMA_VERSION,
+            "注册表路径应推进版本到最新"
         );
         assert_eq!(scope_column_count(&conn), 1, "注册表路径只补列一次");
     }

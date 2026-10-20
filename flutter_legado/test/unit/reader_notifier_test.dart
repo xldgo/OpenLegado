@@ -1,17 +1,28 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'dart:async';
+
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/providers/reading_provider.dart';
+import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
+import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
 import '../mocks/mocks.dart';
+
+class ReaderChapterContent extends Mock implements ChapterContentService {}
 
 void main() {
   late MockRustApi mockApi;
@@ -24,11 +35,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    // 创建容器并覆盖 bookApiProvider 注入 mock
+    // 创建容器并覆盖 bookshelfRepositoryProvider 注入 mock
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
-      ],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -61,16 +70,178 @@ void main() {
 
   /// 配置 openBook 所需的完整 mock 链
   void stubOpenBook({List<BookChapter>? chapters, String content = '章节内容'}) {
-    when(() => mockApi.getChapters(any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
         .thenAnswer((_) async => chapters ?? testChapters);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
-    when(() => mockApi.updateReadingProgress(
-          bookUrl: any(named: 'bookUrl'),
-          chapterIndex: any(named: 'chapterIndex'),
-          chapterPos: any(named: 'chapterPos'),
-        )).thenAnswer((_) async {});
+    when(
+      () => mockApi.readingRepository.updateReadingProgress(
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+        chapterPos: any(named: 'chapterPos'),
+      ),
+    ).thenAnswer((_) async {});
   }
+
+  test('本地阅读与朗读共用可还原相对路径的正文入口', () async {
+    stubOpenBook();
+    const url = 'books/本地书.epub';
+    when(() => mockApi.readingRepository.getChapterContent(url, any()))
+        .thenAnswer((_) async => '相对路径本地正文');
+    await readNotifier().openBook(
+      testBook.copyWith(bookUrl: url, origin: BookType.localTag),
+    );
+    expect(readState().chapterContent, '相对路径本地正文');
+    verify(() => mockApi.readingRepository.getChapterContent(url, 0)).called(1);
+    verifyNever(
+      () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+    );
+  });
+
+  test('正文服务可单独注入，目录与进度继续由阅读仓储提供', () async {
+    stubOpenBook();
+    final content = ReaderChapterContent();
+    when(() => content.read(testBook.bookUrl, any()))
+        .thenAnswer((_) async => '独立正文服务');
+    final isolated = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        chapterContentServiceProvider.overrideWithValue(content),
+      ]),
+    );
+    addTearDown(isolated.dispose);
+    final reader = isolated.read(readerNotifierProvider.notifier);
+    await reader.openBook(testBook);
+    expect(isolated.read(readerNotifierProvider).chapterContent, '独立正文服务');
+    await reader.goToChapter(1);
+    verify(() => content.read(testBook.bookUrl, 1)).called(1);
+    verifyNever(
+      () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+    );
+  });
+
+  test('目录、正文及进度只使用注入的阅读仓储', () async {
+    final reading = ReadingRepositoryMock();
+    when(() => reading.getChapters(testBook.bookUrl))
+        .thenAnswer((_) async => testChapters);
+    when(() => reading.getChapterContentFull(testBook.bookUrl, any()))
+        .thenAnswer((_) async => '独立阅读正文');
+    when(
+      () => reading.updateReadingProgress(
+        bookUrl: any(named: 'bookUrl'),
+        chapterIndex: any(named: 'chapterIndex'),
+        chapterPos: any(named: 'chapterPos'),
+      ),
+    ).thenAnswer((_) async {});
+    final isolated = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        readingRepositoryProvider.overrideWithValue(reading),
+      ]),
+    );
+    addTearDown(isolated.dispose);
+    final reader = isolated.read(readerNotifierProvider.notifier);
+    await reader.openBook(testBook);
+    expect(isolated.read(readerNotifierProvider).chapterContent, '独立阅读正文');
+    await reader.goToChapter(1);
+    await reader.saveProgress();
+    expect(isolated.read(readerNotifierProvider).currentChapterIndex, 1);
+    verify(() => reading.getChapterContentFull(testBook.bookUrl, 1)).called(1);
+    verify(
+      () => reading.updateReadingProgress(
+        bookUrl: testBook.bookUrl,
+        chapterIndex: 1,
+        chapterPos: 0,
+      ),
+    ).called(greaterThanOrEqualTo(1));
+    verifyZeroInteractions(mockApi.readingRepository);
+  });
+
+  test('Provider重建释放旧会话，迟到正文不能覆盖重新打开的书籍', () async {
+    stubOpenBook();
+    final content = ReaderChapterContent();
+    final entered = Completer<void>();
+    final pending = Completer<String>();
+    var calls = 0;
+    when(() => content.read(testBook.bookUrl, 0)).thenAnswer((_) {
+      if (calls++ == 0) {
+        entered.complete();
+        return pending.future;
+      }
+      return Future.value('重建后的正文');
+    });
+    final isolated = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
+        chapterContentServiceProvider.overrideWithValue(content),
+      ]),
+    );
+    addTearDown(isolated.dispose);
+    final opening = isolated
+        .read(readerNotifierProvider.notifier)
+        .openBook(testBook);
+    await entered.future;
+    isolated.invalidate(readerNotifierProvider);
+    await isolated.read(readerNotifierProvider.notifier).openBook(testBook);
+    pending.complete('过期正文');
+    await opening;
+    expect(isolated.read(readerNotifierProvider).chapterContent, '重建后的正文');
+    expect(isolated.read(readerNotifierProvider).isLoading, isFalse);
+    expect(calls, 2);
+  });
+
+  test('保存并重新开书恢复原文锚点，历史页码和目录跳转不冒充锚点', () async {
+    stubOpenBook(content: '章节正文' * 100);
+    await readNotifier().openBook(testBook.copyWith(durChapterPos: 3));
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
+    readNotifier().updatePosition(2, sourceOffset: 120);
+    await readNotifier().saveProgress();
+    final savedBook = readState().currentBook!;
+    readNotifier().updatePosition(0);
+    await readNotifier().openBook(savedBook);
+    expect(readNotifier().currentSourceOffset, 120);
+    // 页码由新布局派生，开书只恢复原文锚点。
+    expect(readState().currentChapterPos, 0);
+    await readNotifier().goToChapter(0);
+    expect(readNotifier().currentSourceOffset, isNull);
+    await readNotifier().openBook(readState().currentBook!);
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
+  });
+
+  test('应用无原文坐标的云端章节后，不恢复同章的旧锚点', () async {
+    stubOpenBook(content: '章节正文' * 100);
+    await readNotifier().openBook(testBook);
+    readNotifier().updatePosition(2, sourceOffset: 120);
+    await readNotifier().saveProgress();
+
+    await readNotifier().applyBookProgress(chapterIndex: 0);
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
+    await readNotifier().openBook(readState().currentBook!);
+    expect(readNotifier().currentSourceOffset, isNull);
+    expect(readState().currentChapterPos, 0);
+  });
+
+  test('字号行距改变保持当前章节和原文锚点，重新开书仍恢复同一位置', () async {
+    stubOpenBook(content: '章节正文' * 100);
+    await readNotifier().openBook(testBook);
+    readNotifier().updatePosition(2, sourceOffset: 120);
+    await readNotifier().updateFontSize(26);
+    await readNotifier().updateLineHeight(2.1);
+    await container
+        .read(readerSettingsRepositoryProvider)
+        .update(fontFamily: 'SimSun', titleFontFamily: 'KaiTi');
+    expect(readState().currentChapterIndex, 0);
+    expect(readState().currentChapterPos, 2);
+    expect(readNotifier().currentSourceOffset, 120);
+    await readNotifier().saveProgress();
+    await readNotifier().openBook(readState().currentBook!);
+    expect(readNotifier().currentSourceOffset, 120);
+    expect(readState().fontSize, 26);
+    expect(readState().lineHeight, 2.1);
+  });
 
   group('ReaderState 初始状态', () {
     test('初始无当前书籍', () async {
@@ -169,7 +340,10 @@ void main() {
     });
 
     test('name 无效且 legacyIndex 有效时回退 legacyIndex', () {
-      expect(PageTurnMode.fromStorage('invalid_name', 2), PageTurnMode.simulate);
+      expect(
+        PageTurnMode.fromStorage('invalid_name', 2),
+        PageTurnMode.simulate,
+      );
     });
 
     test('name 和 legacyIndex 都无效时默认 cover', () {
@@ -183,35 +357,35 @@ void main() {
     test('updateFontSize 正常设置', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateFontSize(22.0);
+      await readNotifier().updateFontSize(22.0);
       expect(readState().fontSize, equals(22.0));
     });
 
     test('updateFontSize 低于下限被 clamp 到 12', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateFontSize(8.0);
+      await readNotifier().updateFontSize(8.0);
       expect(readState().fontSize, equals(12.0));
     });
 
     test('updateFontSize 超过上限被 clamp 到 32', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateFontSize(50.0);
+      await readNotifier().updateFontSize(50.0);
       expect(readState().fontSize, equals(32.0));
     });
 
     test('updateLineHeight 正常设置', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateLineHeight(2.0);
+      await readNotifier().updateLineHeight(2.0);
       expect(readState().lineHeight, equals(2.0));
     });
 
     test('updateLineHeight 低于下限被 clamp 到 1.0', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateLineHeight(0.5);
+      await readNotifier().updateLineHeight(0.5);
       expect(readState().lineHeight, equals(1.0));
     });
 
@@ -220,14 +394,14 @@ void main() {
     test('updateLineHeight 超过上限被 clamp 到 3.0', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateLineHeight(4.0);
+      await readNotifier().updateLineHeight(4.0);
       expect(readState().lineHeight, equals(3.0));
     });
 
     test('updateBackgroundColor 设置为预设绿色', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updateBackgroundColor(ReaderBackground.green);
+      await readNotifier().updateBackgroundColor(ReaderBackground.green);
       expect(readState().backgroundColor, equals(ReaderBackground.green));
     });
 
@@ -235,16 +409,16 @@ void main() {
       container.read(readerNotifierProvider);
       await pumpInit();
       const custom = Color(0xFF123456);
-      readNotifier().updateBackgroundColor(custom);
+      await readNotifier().updateBackgroundColor(custom);
       expect(readState().backgroundColor, equals(custom));
     });
 
     test('updatePageTurnMode 切换翻页模式', () async {
       container.read(readerNotifierProvider);
       await pumpInit();
-      readNotifier().updatePageTurnMode(PageTurnMode.slide);
+      await readNotifier().updatePageTurnMode(PageTurnMode.slide);
       expect(readState().pageTurnMode, equals(PageTurnMode.slide));
-      readNotifier().updatePageTurnMode(PageTurnMode.scroll);
+      await readNotifier().updatePageTurnMode(PageTurnMode.scroll);
       expect(readState().pageTurnMode, equals(PageTurnMode.scroll));
     });
   });
@@ -320,9 +494,9 @@ void main() {
       expect(readState().chapterContent, equals('第一章正文内容'));
     });
 
-    test('失败时设置 BridgeError 错误', () async {
-      when(() => mockApi.getChapters(any()))
-          .thenThrow(const BridgeError(message: '书籍不存在'));
+    test('失败时设置 AppException 错误', () async {
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenThrow(const AppException('书籍不存在'));
       container.read(readerNotifierProvider);
       await pumpInit();
 
@@ -333,7 +507,8 @@ void main() {
     });
 
     test('失败时设置普通异常错误', () async {
-      when(() => mockApi.getChapters(any())).thenThrow(Exception('网络错误'));
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenThrow(Exception('网络错误'));
       container.read(readerNotifierProvider);
       await pumpInit();
 
@@ -495,11 +670,13 @@ void main() {
       container.read(readerNotifierProvider);
       await pumpInit();
       await readNotifier().saveProgress();
-      verifyNever(() => mockApi.updateReadingProgress(
-            bookUrl: any(named: 'bookUrl'),
-            chapterIndex: any(named: 'chapterIndex'),
-            chapterPos: any(named: 'chapterPos'),
-          ));
+      verifyNever(
+        () => mockApi.readingRepository.updateReadingProgress(
+          bookUrl: any(named: 'bookUrl'),
+          chapterIndex: any(named: 'chapterIndex'),
+          chapterPos: any(named: 'chapterPos'),
+        ),
+      );
     });
 
     test('有书籍时调用 API', () async {
@@ -511,11 +688,13 @@ void main() {
       await readNotifier().openBook(book);
       await readNotifier().saveProgress();
 
-      verify(() => mockApi.updateReadingProgress(
-            bookUrl: 'https://b.com/1',
-            chapterIndex: 0,
-            chapterPos: 0,
-          )).called(greaterThan(0));
+      verify(
+        () => mockApi.readingRepository.updateReadingProgress(
+          bookUrl: 'https://b.com/1',
+          chapterIndex: 0,
+          chapterPos: 0,
+        ),
+      ).called(greaterThan(0));
     });
   });
 
@@ -553,8 +732,10 @@ void main() {
     });
 
     test('标签列表与预设对应', () {
-      expect(ReaderBackground.labels.length,
-          equals(ReaderBackground.presets.length));
+      expect(
+        ReaderBackground.labels.length,
+        equals(ReaderBackground.presets.length),
+      );
     });
 
     test('预设包含白色与护眼色', () {
@@ -568,22 +749,27 @@ void main() {
     });
   });
 
-  // ===== [M1 深色态默认修复] 深色主题下背景默认跟随深色 =====
-  //
-  // 行为契约：
-  // - 深色主题 + 从未显式设置背景 → 默认纯黑 0xFF000000（对齐参考实测；
-  //   夜间预设 ReaderBackground.dark 0xFF1A1A1A 保留为显式选项）
-  // - 亮色主题 + 从未显式设置背景 → 默认白色（原行为不变）
-  // - 用户显式选择（预设索引 / 自定义色）→ 一律保留，主题切换也不变
-  // - 主题切换（setThemeMode，toggleDayNight 同路）→ 仅「从未显式设置」
-  //   路径重新解析默认；ref.listen 钩子挂在 ReaderNotifier 上，
-  //   监听值为切换后的新模式（setThemeMode 异步落盘，此刻不能重读 prefs）
+  // 默认背景跟随主题；夜间背景跟随纯黑开关；浅色预设和自定义色保持原选择。
   group('[M1] 深色态背景默认解析', () {
-    test('深色主题 + 从未设置背景 → 默认纯黑（对齐参考）', () async {
+    test('默认夜间跟随纯黑，主动保存的样式背景保持原颜色', () async {
       SharedPreferences.setMockInitialValues({'app_theme_mode': 'dark'});
       container.read(readerNotifierProvider);
       await pumpInit();
-      expect(readState().backgroundColor, equals(const Color(0xFF000000)));
+      expect(readState().backgroundColor, ReaderBackground.dark);
+      final ui = container.read(uiSettingsProvider.notifier);
+      await ui.setThemeAmoled(true);
+      await pumpInit();
+      expect(readState().backgroundColor, const Color(0xFF000000));
+      expect(readState().textColor, const Color(0xFFCCCCCC));
+      await readNotifier().updateBackgroundColor(ReaderBackground.dark);
+      await pumpInit();
+      expect(readState().backgroundColor, ReaderBackground.dark);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('reader_bg_color_index'), isNull);
+      expect(prefs.getString('reader_styles'), isNotNull);
+      await ui.setThemeAmoled(false);
+      await pumpInit();
+      expect(readState().backgroundColor, ReaderBackground.dark);
     });
 
     test('亮色主题 + 从未设置背景 → 默认白色（原默认不变）', () async {
@@ -596,6 +782,7 @@ void main() {
     test('深色主题 + 显式预设索引 1 → 保留 green', () async {
       SharedPreferences.setMockInitialValues({
         'app_theme_mode': 'dark',
+        'themeAmoled': true,
         'reader_bg_color_index': 1,
       });
       container.read(readerNotifierProvider);
@@ -607,6 +794,7 @@ void main() {
       const custom = Color(0xFF232323);
       SharedPreferences.setMockInitialValues({
         'app_theme_mode': 'dark',
+        'themeAmoled': true,
         'reader_bg_use_custom': true,
         'reader_custom_bg_color': 0xFF232323,
       });
@@ -619,7 +807,7 @@ void main() {
       SharedPreferences.setMockInitialValues({'app_theme_mode': 'dark'});
       container.read(readerNotifierProvider);
       await pumpInit();
-      expect(readState().backgroundColor, equals(const Color(0xFF000000)));
+      expect(readState().backgroundColor, equals(ReaderBackground.dark));
 
       // 触发 ref.listen 钩子：监听值 next.themeMode=light 直接传入
       // reapply（此刻 prefs 尚未落盘，不能重读）
@@ -630,10 +818,10 @@ void main() {
       expect(readState().backgroundColor, equals(ReaderBackground.white));
     });
 
-    test('主题切换 深色→亮色 + 显式 green → 仍 green（尊重显式选择）',
-        () async {
+    test('主题切换 深色→亮色 + 显式 green → 仍 green（尊重显式选择）', () async {
       SharedPreferences.setMockInitialValues({
         'app_theme_mode': 'dark',
+        'themeAmoled': true,
         'reader_bg_color_index': 1,
       });
       container.read(readerNotifierProvider);
@@ -647,11 +835,11 @@ void main() {
       expect(readState().backgroundColor, equals(ReaderBackground.green));
     });
 
-    test('主题切换 深色→亮色 + 自定义背景 → 仍 custom（尊重显式选择）',
-        () async {
+    test('主题切换 深色→亮色 + 自定义背景 → 仍 custom（尊重显式选择）', () async {
       const custom = Color(0xFF232323);
       SharedPreferences.setMockInitialValues({
         'app_theme_mode': 'dark',
+        'themeAmoled': true,
         'reader_bg_use_custom': true,
         'reader_custom_bg_color': 0xFF232323,
       });

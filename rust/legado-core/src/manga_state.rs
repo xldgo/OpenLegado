@@ -351,28 +351,28 @@ impl MangaReaderState {
 
     /// 标记页面为加载中
     pub fn mark_page_loading(&mut self, page_index: i32) {
-        if let Some(chapter) = self.cur_chapter.as_mut() {
-            if let Some(page) = chapter.pages.get_mut(page_index as usize) {
-                page.mark_loading();
-            }
+        if let Some(chapter) = self.cur_chapter.as_mut()
+            && let Some(page) = chapter.pages.get_mut(page_index as usize)
+        {
+            page.mark_loading();
         }
     }
 
     /// 标记页面加载完成
     pub fn mark_page_loaded(&mut self, page_index: i32, data: Vec<u8>) {
-        if let Some(chapter) = self.cur_chapter.as_mut() {
-            if let Some(page) = chapter.pages.get_mut(page_index as usize) {
-                page.mark_loaded(data);
-            }
+        if let Some(chapter) = self.cur_chapter.as_mut()
+            && let Some(page) = chapter.pages.get_mut(page_index as usize)
+        {
+            page.mark_loaded(data);
         }
     }
 
     /// 标记页面加载失败
     pub fn mark_page_failed(&mut self, page_index: i32, msg: String) {
-        if let Some(chapter) = self.cur_chapter.as_mut() {
-            if let Some(page) = chapter.pages.get_mut(page_index as usize) {
-                page.mark_failed(msg);
-            }
+        if let Some(chapter) = self.cur_chapter.as_mut()
+            && let Some(page) = chapter.pages.get_mut(page_index as usize)
+        {
+            page.mark_failed(msg);
         }
     }
 
@@ -886,11 +886,13 @@ mod tests {
     #[test]
     fn test_page_state_can_retry() {
         assert!(PageState::Pending.can_retry());
-        assert!(PageState::Failed {
-            msg: "err".to_string(),
-            count: 1
-        }
-        .can_retry());
+        assert!(
+            PageState::Failed {
+                msg: "err".to_string(),
+                count: 1
+            }
+            .can_retry()
+        );
         assert!(!PageState::Loading.can_retry());
         assert!(!PageState::Loaded.can_retry());
     }

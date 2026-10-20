@@ -372,16 +372,16 @@ pub fn curl_to_analyze_url(text: &str) -> LegadoResult<String> {
     let body = request.body.clone();
 
     // 空白 body 校验（对齐 Kotlin：仅允许 `-d ''` 且 Content-Type 为 FORM 的情形）
-    if let Some(b) = &body {
-        if b.trim().is_empty() {
-            let content_type = request
-                .headers
-                .iter()
-                .find(|(k, _)| k == "Content-Type")
-                .map(|(_, v)| v.as_str());
-            if !b.is_empty() || content_type != Some(FORM_CONTENT_TYPE) {
-                return Err(conv_err(CurlErrorReason::UnsupportedOption, "blank body"));
-            }
+    if let Some(b) = &body
+        && b.trim().is_empty()
+    {
+        let content_type = request
+            .headers
+            .iter()
+            .find(|(k, _)| k == "Content-Type")
+            .map(|(_, v)| v.as_str());
+        if !b.is_empty() || content_type != Some(FORM_CONTENT_TYPE) {
+            return Err(conv_err(CurlErrorReason::UnsupportedOption, "blank body"));
         }
     }
 
@@ -758,7 +758,7 @@ fn normalize_header_name(name: &str) -> LegadoResult<String> {
             return Err(conv_err(
                 CurlErrorReason::UnsupportedOption,
                 name.to_string(),
-            ))
+            ));
         }
         _ => name.to_string(),
     })
@@ -1518,12 +1518,14 @@ mod tests {
         let r = parse_curl("curl https://example.com --json '{\"a\":1}'").unwrap();
         assert_eq!(r.method, "POST");
         assert_eq!(r.body.as_deref(), Some("{\"a\":1}"));
-        assert!(r
-            .headers
-            .contains(&("Content-Type".to_string(), "application/json".to_string())));
-        assert!(r
-            .headers
-            .contains(&("Accept".to_string(), "application/json".to_string())));
+        assert!(
+            r.headers
+                .contains(&("Content-Type".to_string(), "application/json".to_string()))
+        );
+        assert!(
+            r.headers
+                .contains(&("Accept".to_string(), "application/json".to_string()))
+        );
     }
 
     #[test]
@@ -1833,8 +1835,7 @@ mod tests {
     #[test]
     fn roundtrip_curl_struct_curl() {
         // cURL → 结构 → cURL → 结构，两次结构必须一致
-        let src =
-            "curl -X POST 'https://api.example.com/s?a=1' -H 'Content-Type: application/json' \
+        let src = "curl -X POST 'https://api.example.com/s?a=1' -H 'Content-Type: application/json' \
                    -H 'X-T: v' --data-raw '{\"q\":\"书\"}'";
         let r1 = parse_curl(src).unwrap();
         let cmd = to_curl(&CurlRequestParams::from(&r1));

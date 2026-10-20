@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [PARITY A6 | ⑦b 已裁决 2026-09-21] 正文搜索输入盒配色回归测试
 //
 // 裁决依据：docs/parity_shots/ref_dark_20260921/RECAPTURE_20260921.md §3
@@ -13,16 +15,13 @@
 // 断言策略：用可辨识的哨兵色覆写 ColorScheme.surfaceContainerLow，
 // 断言 SearchBar 实际取色 == 哨兵色（即取色来自 sCL 槽），
 // 与具体调色板数值解耦；装配模式复用 screens_overflow_regress_test。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/search_content_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
 
@@ -34,7 +33,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+      overrides: mergeTestOverrides([...MockBookApi().overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -70,8 +69,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets('深色态：输入盒填充 = sCL 槽，hint/leading 图标 = onSurface',
-      (tester) async {
+  testWidgets('深色态：输入盒填充 = sCL 槽，hint/leading 图标 = onSurface', (tester) async {
     const sentinel = Color(0xFF010203);
     final theme = themeWithScl(Brightness.dark, sentinel);
     await pumpScreen(tester, theme);
@@ -82,15 +80,16 @@ void main() {
     // onSurface/其它槽位）
     expect(bar.backgroundColor!.resolve(const {}), sentinel);
     // 深色态 hint = onSurface（参考 hint 实测 #EDE6FF 角色）
-    expect(bar.hintStyle!.resolve(const {})!.color,
-        theme.colorScheme.onSurface);
+    expect(
+      bar.hintStyle!.resolve(const {})!.color,
+      theme.colorScheme.onSurface,
+    );
     // 深色态 leading 搜索图标 = onSurface
     final icon = tester.widget<Icon>(find.byIcon(Symbols.search_rounded));
     expect(icon.color, theme.colorScheme.onSurface);
   });
 
-  testWidgets('亮色态：输入盒填充 = sCL 槽（原行为不变），hint 维持框架默认',
-      (tester) async {
+  testWidgets('亮色态：输入盒填充 = sCL 槽（原行为不变），hint 维持框架默认', (tester) async {
     const sentinel = Color(0xFF030201);
     final theme = themeWithScl(Brightness.light, sentinel);
     await pumpScreen(tester, theme);

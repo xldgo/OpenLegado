@@ -1,9 +1,16 @@
-import 'package:flutter/material.dart';
+import '../fixtures/app_test_api.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'comic_test_helpers.dart';
@@ -44,18 +51,15 @@ Book _book({
 }
 
 List<BookChapter> _chapters(String baseUrl) => [
-      BookChapter(
-        index: 0,
-        url: '$baseUrl/ch/1',
-        title: '第一章',
-      ),
-    ];
+  BookChapter(index: 0, url: '$baseUrl/ch/1', title: '第一章'),
+];
 
 /// 素材占位图定位器（Image.asset 路径断言，不依赖图片实际解码完成）
 Finder _assetFinder() {
   // Image.asset 产物是 AssetImage（ImageProvider），按资产名匹配
   return find.byWidgetPredicate(
-    (w) => w is Image &&
+    (w) =>
+        w is Image &&
         w.image is AssetImage &&
         (w.image as AssetImage).assetName == _kErrorAsset,
   );
@@ -66,35 +70,61 @@ Finder _assetFinder() {
 /// `_buildImageErrorPlaceholder` 展示重试形态；解码异常文案本身不驻留，
 /// 落定态为固定文案「图片加载失败」+ 重试）。
 class _FailingDecodeMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _FailingDecodeMockApi(this.book, this.chapters, this.imageSrc);
 
   final Book book;
   final List<BookChapter> chapters;
   final String imageSrc;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
-        BookSource(
-          bookSourceUrl: book.origin,
-          bookSourceName: book.originName,
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: const ContentRule(content: '.comics@img@html'),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
+    BookSource(
+      bookSourceUrl: book.origin,
+      bookSourceName: book.originName,
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: const ContentRule(content: '.comics@img@html'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => chapters;
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      chapters;
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -102,8 +132,7 @@ class _FailingDecodeMockApi extends MockBookApi {
     return '<img src="$imageSrc">';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     throw StateError('图片解码失败（模拟）');
   }
 }
@@ -113,23 +142,42 @@ class _FailingDecodeMockApi extends MockBookApi {
 ///   `_buildImageErrorPlaceholder`；
 /// - [book.origin] 为空 → 走 CachedNetworkImage 直连（加载占位 = 骨架块）。
 class _NoSourceMockApi extends MockBookApi {
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _NoSourceMockApi(this.book, this.chapters, this.imageSrc);
 
   final Book book;
   final List<BookChapter> chapters;
   final String imageSrc;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => const [];
+  Future<List<BookSource>> _fixtureGetBookSources() async => const [];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => chapters;
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      chapters;
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -148,16 +196,16 @@ Widget _buildApp(ProviderContainer container) {
 }
 
 void main() {
-  testWidgets('B1 图一：FFI 解码失败 → 错误占位用素材图 + 55% 黑底 + 重试',
-      (tester) async {
+  testWidgets('B1 图一：FFI 解码失败 → 错误占位用素材图 + 55% 黑底 + 重试', (tester) async {
     final book = _book(origin: 'https://manga.example.com/p43unify/err');
     final api = _FailingDecodeMockApi(
       book,
       _chapters('https://manga.example.com/p43unify/err'),
       'https://cdn.example.com/p43unify/err/ch1/0.jpg',
     );
-    final container =
-        ProviderContainer(overrides: [bookApiProvider.overrideWithValue(api)]);
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_buildApp(container));
@@ -171,20 +219,25 @@ void main() {
     expect(_assetFinder(), findsOneWidget);
     final img = tester.widget<Image>(_assetFinder());
     expect(img.width, 64, reason: '素材图保留原图标 64px 位，不放大不拉伸');
-    expect(find.byIcon(Icons.broken_image), findsNothing,
-        reason: 'broken_image 图标引用应已替换为素材图');
+    expect(
+      find.byIcon(Icons.broken_image),
+      findsNothing,
+      reason: 'broken_image 图标引用应已替换为素材图',
+    );
 
     // 失败占位底色 = 55% 黑罩（参考版 MangaReaderScreen.kt
     // MangaImageLoadOverlay 取证），非硬编码 0xFF1A1A1A
     final holder = tester.widget<Container>(
       find.ancestor(of: _assetFinder(), matching: find.byType(Container)).first,
     );
-    expect(holder.color, Colors.black.withValues(alpha: 0.55),
-        reason: '失败占位底色应对齐参考版 55% 黑罩');
+    expect(
+      holder.color,
+      Colors.black.withValues(alpha: 0.55),
+      reason: '失败占位底色应对齐参考版 55% 黑罩',
+    );
   });
 
-  testWidgets('B1 图二：无书源（origin 非空）→ 直连禁用语义错误占位同形态',
-      (tester) async {
+  testWidgets('B1 图二：无书源（origin 非空）→ 直连禁用语义错误占位同形态', (tester) async {
     final book = _book(
       origin: 'https://manga.example.com',
       url: 'mock://comic/p43unify/nosrc',
@@ -194,8 +247,9 @@ void main() {
       _chapters('https://manga.example.com/p43unify/nosrc'),
       'https://cdn.example.com/p43unify/nosrc/ch1/0.jpg',
     );
-    final container =
-        ProviderContainer(overrides: [bookApiProvider.overrideWithValue(api)]);
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_buildApp(container));
@@ -213,8 +267,7 @@ void main() {
     expect(holder.color, Colors.black.withValues(alpha: 0.55));
   });
 
-  testWidgets('B1 图三：无书源无 origin → 直连链路骨架块图标位换素材',
-      (tester) async {
+  testWidgets('B1 图三：无书源无 origin → 直连链路骨架块图标位换素材', (tester) async {
     // 本机挂起 HTTP 服务器：下载恒定「进行中」→ 骨架块驻留（不依赖外网）
     // binding.runAsync 返回 Future<HttpServer?> → 需显式 ! 解包
     final server = (await tester.runAsync(startPendingImageServer))!;
@@ -225,8 +278,9 @@ void main() {
       _chapters('http://127.0.0.1:${server.port}/p43unify/nosrc2'),
       'http://127.0.0.1:${server.port}/p43unify/nosrc2/ch1/0.jpg',
     );
-    final container =
-        ProviderContainer(overrides: [bookApiProvider.overrideWithValue(api)]);
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([...api.overrides]),
+    );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(_buildApp(container));
@@ -239,8 +293,7 @@ void main() {
     }
 
     // 骨架块内图标位（原 Icons.image）已换素材图
-    expect(_assetFinder(), findsOneWidget,
-        reason: '骨架块图标位应替换为素材图（B1 三处之一）');
+    expect(_assetFinder(), findsOneWidget, reason: '骨架块图标位应替换为素材图（B1 三处之一）');
     // 骨架块保留确定性进度条（进度非空时显示 % 文案）
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });

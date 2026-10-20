@@ -161,7 +161,15 @@ pub fn emit_request(url: &str, ttfb: Duration, body: Duration, remote: Option<So
         .unwrap_or_else(|| "na".into());
     eprintln!(
         "[timing] url={} host={} dns_ms={} dns_v4={} dns_v6={} ttfb_ms={:.3} body_ms={:.3} total_ms={:.3} remote={}",
-        rt.url, rt.host, dns_txt, rt.dns_v4, rt.dns_v6, rt.ttfb_ms, rt.body_ms, rt.total_ms, remote_txt,
+        rt.url,
+        rt.host,
+        dns_txt,
+        rt.dns_v4,
+        rt.dns_v6,
+        rt.ttfb_ms,
+        rt.body_ms,
+        rt.total_ms,
+        remote_txt,
     );
 
     request_records()

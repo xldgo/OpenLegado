@@ -1,12 +1,14 @@
-import 'dart:convert';
+import '../domain/models/webdav_connection.dart';
+
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
 import '../models/models.dart';
 import '../services/export_service.dart';
-import '../services/book_api.dart';
+import '../domain/models/book_content_result.dart';
 import '../utils/error_message.dart';
 
 /// 导出对话框
@@ -15,7 +17,7 @@ import '../utils/error_message.dart';
 ///
 /// 提供完整的导出配置界面，包括：
 /// - 格式选择器（RadioGroup: TXT/EPUB/HTML）
-/// - 字符集选择器（DropdownButton: UTF-8/GBK/Big5）
+/// - 字符集选择器（DropdownMenu: UTF-8/GBK/Big5）
 /// - 导出路径选择（FilePicker）
 /// - TOC 复选框（includeToc）
 /// - 进度指示器（ProgressIndicator）
@@ -27,17 +29,13 @@ class ExportDialog extends StatefulWidget {
   /// 导出服务实例
   final ExportService exportService;
 
-  /// Rust API 实例（用于 WebDAV 上传）
-  final BookApi rustApi;
-
-  /// WebDAV 配置 JSON（可选）
-  final String? webDavConfig;
+  /// WebDAV 连接快照（可选）
+  final WebDavConnection? webDavConfig;
 
   const ExportDialog({
     super.key,
     required this.book,
     required this.exportService,
-    required this.rustApi,
     this.webDavConfig,
   });
 
@@ -107,62 +105,73 @@ class _ExportDialogState extends State<ExportDialog> {
             // 标题
             Text(
               '导出${widget.book.name}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
 
-            // 格式选择
-            _buildFormatSelector(),
-            const Divider(height: 32),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 格式选择
+                    _buildFormatSelector(),
+                    const Divider(height: 32),
 
-            // 字符集选择
-            _buildEncodingSelector(),
-            const Divider(height: 32),
+                    // 字符集选择
+                    _buildEncodingSelector(),
+                    const Divider(height: 32),
 
-            // 文件名模板
-            _buildFileNameTemplate(),
-            const Divider(height: 32),
+                    // 文件名模板
+                    _buildFileNameTemplate(),
+                    const Divider(height: 32),
 
-            // 章节范围
-            _buildChapterRange(),
-            const Divider(height: 32),
+                    // 章节范围
+                    _buildChapterRange(),
+                    const Divider(height: 32),
 
-            // 导出路径选择
-            _buildPathSelector(),
-            const Divider(height: 32),
+                    // 导出路径选择
+                    _buildPathSelector(),
+                    const Divider(height: 32),
 
-            // TOC 选项
-            _buildTocCheckbox(),
-            const Divider(height: 32),
+                    // TOC 选项
+                    _buildTocCheckbox(),
+                    const Divider(height: 32),
 
-            // WebDAV 选项
-            _buildWebDavCheckbox(),
-            const Divider(height: 32),
+                    // WebDAV 选项
+                    _buildWebDavCheckbox(),
+                    const Divider(height: 32),
 
-            // 预览信息
-            if (_status == ExportStatus.ready) ...[
-              _buildPreviewInfo(),
-              const Divider(height: 32),
-            ],
+                    // 预览信息
+                    if (_status == ExportStatus.ready) ...[
+                      _buildPreviewInfo(),
+                      const Divider(height: 32),
+                    ],
 
-            // 进度指示器
-            if (_status == ExportStatus.exporting) ...[
-              _buildProgressIndicator(),
-              const SizedBox(height: 16),
-            ],
+                    // 进度指示器
+                    if (_status == ExportStatus.exporting) ...[
+                      _buildProgressIndicator(),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // 操作按钮
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: _status == ExportStatus.exporting ? null : () => Navigator.pop(context),
+                  onPressed: _status == ExportStatus.exporting
+                      ? null
+                      : () => Navigator.pop(context),
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
+                FilledButton(
                   onPressed: _handleConfirm,
                   child: const Text('确认'),
                 ),
@@ -179,8 +188,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('导出格式',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('导出格式', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 12,
@@ -206,19 +214,18 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('字符编码',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('字符编码', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        DropdownButton<String>(
-          value: _selectedEncoding,
-          isExpanded: true,
-          items: widget.exportService.supportedEncodings.map((encoding) {
-            return DropdownMenuItem<String>(
-              value: encoding,
-              child: Text(encoding),
-            );
+        DropdownMenu<String>(
+          initialSelection: _selectedEncoding,
+          selectOnly: true,
+          expandedInsets: EdgeInsets.zero,
+          dropdownMenuEntries: widget.exportService.supportedEncodings.map((
+            encoding,
+          ) {
+            return DropdownMenuEntry<String>(value: encoding, label: encoding);
           }).toList(),
-          onChanged: (value) {
+          onSelected: (value) {
             setState(() {
               _selectedEncoding = value ?? 'UTF-8';
             });
@@ -233,22 +240,17 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('文件名模板',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('文件名模板', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         Text(
           '可用变量：{name} {author}',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _fileNameCtrl,
-          decoration: const InputDecoration(
-            hintText: '{name}',
-            isDense: true,
-          ),
+          decoration: const InputDecoration(hintText: '{name}', isDense: true),
         ),
       ],
     );
@@ -259,14 +261,12 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('章节范围',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('章节范围', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         Text(
           '索引从 0 起；留空表示全部章节',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Row(
@@ -306,8 +306,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('导出路径',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('导出路径', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         InkWell(
           onTap: _pickExportPath,
@@ -316,23 +315,27 @@ class _ExportDialogState extends State<ExportDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.outline
+                    .withValues(alpha: 0.5),
               ),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                Icon(Symbols.folder_open_rounded,
-                    size: 20, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Symbols.folder_open_rounded,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _exportPath ?? '点击选择导出目录',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _exportPath != null
-                              ? null
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: _exportPath != null
+                          ? null
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -348,9 +351,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// 选择导出目录
   Future<void> _pickExportPath() async {
-    final dir = await FilePicker.getDirectoryPath(
-      dialogTitle: '选择导出目录',
-    );
+    final dir = await FilePicker.getDirectoryPath(dialogTitle: '选择导出目录');
     if (!mounted) return;
     if (dir != null) {
       setState(() {
@@ -376,7 +377,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// WebDAV 复选框
   Widget _buildWebDavCheckbox() {
-    if (widget.webDavConfig == null || widget.webDavConfig!.isEmpty) {
+    if (widget.webDavConfig == null || widget.webDavConfig!.url.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -395,7 +396,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
   /// 预览信息
   Widget _buildPreviewInfo() {
-    return FutureBuilder<Map<String, dynamic>>(
+    return FutureBuilder<BookExportInfo>(
       future: _getPreviewInfo(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -413,9 +414,9 @@ class _ExportDialogState extends State<ExportDialog> {
         }
 
         final data = snapshot.data;
-        if (data != null && data['success'] == true) {
-          final fileName = data['file_name'] as String? ?? '';
-          final chapterCount = int.tryParse(data['error']?.split(': ').last ?? '0') ?? 0;
+        if (data != null) {
+          final fileName = data.fileName;
+          final chapterCount = data.chapterCount;
 
           return Container(
             padding: const EdgeInsets.all(12),
@@ -428,8 +429,11 @@ class _ExportDialogState extends State<ExportDialog> {
               children: [
                 Row(
                   children: [
-                    Icon(Symbols.folder_special_rounded,
-                        size: 20, color: Theme.of(context).primaryIconTheme.color),
+                    Icon(
+                      Symbols.folder_special_rounded,
+                      size: 20,
+                      color: Theme.of(context).primaryIconTheme.color,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       fileName,
@@ -459,30 +463,28 @@ class _ExportDialogState extends State<ExportDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('正在导出...',
-            style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('正在导出...', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: _progress.clamp(0.0, 1.0),
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest,
             valueColor: AlwaysStoppedAnimation<Color>(
               Theme.of(context).primaryColor,
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          _progressText,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(_progressText, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
 
   /// 获取预览信息
-  Future<Map<String, dynamic>> _getPreviewInfo() async {
+  Future<BookExportInfo> _getPreviewInfo() async {
     return await widget.exportService.getExportInfo(
       bookUrl: widget.book.bookUrl,
       format: _selectedFormat,
@@ -536,13 +538,10 @@ class _ExportDialogState extends State<ExportDialog> {
       // 非 WebDAV 模式下将导出文件写入用户选择的目录
       if (_exportPath != null && !_enableWebDav) {
         try {
-          final dataBase64 = result['data_base64'] as String?;
-          final fileName = result['file_name'] as String? ?? 'export.txt';
-          if (dataBase64 != null) {
-            final bytes = base64Decode(dataBase64);
-            writtenPath = '$_exportPath${Platform.pathSeparator}$fileName';
-            await File(writtenPath).writeAsBytes(bytes);
-          }
+          final bytes = result.bytes;
+          final fileName = result.fileName;
+          writtenPath = '$_exportPath${Platform.pathSeparator}$fileName';
+          await File(writtenPath).writeAsBytes(bytes);
         } catch (e) {
           debugPrint('[ExportDialog] 写入文件失败：$e');
           if (mounted) {
@@ -555,35 +554,33 @@ class _ExportDialogState extends State<ExportDialog> {
       // 检查是否需要上传到 WebDAV（二进制走 webdavUploadFile）
       if (_enableWebDav && widget.webDavConfig != null) {
         try {
-          final data = result['data_base64'] as String?;
-          final fileName = result['file_name'] as String? ?? 'export';
+          final data = result.bytes;
+          final fileName = result.fileName;
 
-          if (data != null) {
-            setState(() {
-              _progressText = '上传到 WebDAV...';
-            });
+          setState(() {
+            _progressText = '上传到 WebDAV...';
+          });
 
-            final tmp = File(
-              '${Directory.systemTemp.path}${Platform.pathSeparator}$fileName',
+          final tmp = File(
+            '${Directory.systemTemp.path}${Platform.pathSeparator}$fileName',
+          );
+          await tmp.writeAsBytes(data);
+          try {
+            await widget.exportService.webdavUploadFile(
+              widget.webDavConfig!,
+              '/books/$fileName',
+              tmp.path,
             );
-            await tmp.writeAsBytes(base64Decode(data));
-            try {
-              await widget.exportService.webdavUploadFile(
-                widget.webDavConfig!,
-                '/books/$fileName',
-                tmp.path,
-              );
-            } finally {
-              if (await tmp.exists()) {
-                await tmp.delete();
-              }
+          } finally {
+            if (await tmp.exists()) {
+              await tmp.delete();
             }
-
-            setState(() {
-              _progress = 1.0;
-              _progressText = '导出并上传成功！';
-            });
           }
+
+          setState(() {
+            _progress = 1.0;
+            _progressText = '导出并上传成功！';
+          });
         } catch (e) {
           debugPrint('[ExportDialog] WebDAV 上传失败：$e');
           setState(() {
@@ -628,9 +625,9 @@ class _ExportDialogState extends State<ExportDialog> {
 
 /// 导出状态枚举
 enum ExportStatus {
-  idle,       // 初始状态
-  exploring,  // 正在查看
-  ready,      // 已准备好
-  exporting,  // 正在导出
-  error,      // 错误状态
+  idle, // 初始状态
+  exploring, // 正在查看
+  ready, // 已准备好
+  exporting, // 正在导出
+  error, // 错误状态
 }

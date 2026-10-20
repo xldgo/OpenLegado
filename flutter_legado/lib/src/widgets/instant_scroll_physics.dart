@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 无动画滚动物理效果 - 页面切换无动画，瞬间完成
 class InstantScrollPhysics extends ScrollPhysics {
@@ -11,17 +11,22 @@ class InstantScrollPhysics extends ScrollPhysics {
 
   @override
   Simulation? createBallisticSimulation(
-      ScrollMetrics position, double velocity) {
+    ScrollMetrics position,
+    double velocity,
+  ) {
     // 如果有速度，直接跳到目标页面，无动画
     if ((velocity <= 0.0 && position.pixels <= position.minScrollExtent) ||
         (velocity >= 0.0 && position.pixels >= position.maxScrollExtent)) {
       return super.createBallisticSimulation(position, velocity);
     }
-    
+
     // 计算目标页面
-    final double targetPage = _getPage(position.pixels, position.viewportDimension);
+    final double targetPage = _getPage(
+      position.pixels,
+      position.viewportDimension,
+    );
     final double targetPixels = targetPage * position.viewportDimension;
-    
+
     // 返回一个瞬间完成的模拟
     return ScrollSpringSimulation(
       spring,

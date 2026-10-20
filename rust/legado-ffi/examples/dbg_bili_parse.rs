@@ -32,7 +32,6 @@ async fn run(db_path: &str, query: &str, out: &mut String) {
     }
 
     // 1. DB + bili 书源
-    legado_ffi::db_state::record_db_path(db_path);
     let db = match legado_ffi::legado_db::init_database(db_path) {
         Ok(d) => d,
         Err(e) => {
@@ -137,32 +136,32 @@ async fn run(db_path: &str, query: &str, out: &mut String) {
     }
 
     // 5. 首个元素字段求值（name/author/bookUrl）
-    if let Ok(els) = analyzer.get_elements(full) {
-        if let Some(first_el) = els.first() {
-            let mut item = legado_ffi::js_executor::construct_analyzer_with_js_lib(
-                String::new(),
-                analyzed.url().to_string(),
-                &source.book_source_url,
-                js_lib.as_deref(),
-            );
-            item.set_element_content(first_el.clone());
-            let rules: Vec<(&str, &str)> = vec![
-                ("name", "$.title||$.uname##</*em.*?>"),
-                ("author", "$.author||$.uname##</*em.*?>"),
-                (
-                    "bookUrl-base",
-                    "https://api.bilibili.com/x/web-interface/view?aid={{$.id}}",
+    if let Ok(els) = analyzer.get_elements(full)
+        && let Some(first_el) = els.first()
+    {
+        let mut item = legado_ffi::js_executor::construct_analyzer_with_js_lib(
+            String::new(),
+            analyzed.url().to_string(),
+            &source.book_source_url,
+            js_lib.as_deref(),
+        );
+        item.set_element_content(first_el.clone());
+        let rules: Vec<(&str, &str)> = vec![
+            ("name", "$.title||$.uname##</*em.*?>"),
+            ("author", "$.author||$.uname##</*em.*?>"),
+            (
+                "bookUrl-base",
+                "https://api.bilibili.com/x/web-interface/view?aid={{$.id}}",
+            ),
+        ];
+        for (fname, rule) in &rules {
+            match item.get_string(rule) {
+                Ok(s) => w!(
+                    "[field {}] => {}",
+                    fname,
+                    s.chars().take(150).collect::<String>()
                 ),
-            ];
-            for (fname, rule) in &rules {
-                match item.get_string(rule) {
-                    Ok(s) => w!(
-                        "[field {}] => {}",
-                        fname,
-                        s.chars().take(150).collect::<String>()
-                    ),
-                    Err(e) => w!("[field {}] ERR: {e}", fname),
-                }
+                Err(e) => w!("[field {}] ERR: {e}", fname),
             }
         }
     }

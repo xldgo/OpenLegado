@@ -1,21 +1,18 @@
 // [UI_SYNC_REFACTOR B2] 顶栏按钮体系回归守护：5 档样式规格（尺寸/底色/描边）、
 // merge 胶囊分隔线、UiSettingsNotifier 档位解析与默认值、LegadoAppBar 全局
-// 透传（含 topBarOpacity）。设置读取走 uiSettingsListenable 全局通道（组件
-// 不依赖 Riverpod scope），测试直接操作该通道并复位。
-import 'package:flutter/material.dart';
+// 透传（含 topBarBackgroundOpacity）。通用组件从 UiSettingsScope 读取只读设置。
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/top_bar_button.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 void main() {
   group('TopBarButtonStyle 解析', () {
     test('合法名直取、未知值回退 tonal', () {
-      expect(
-        TopBarButtonStyle.fromName('plain'),
-        TopBarButtonStyle.plain,
-      );
+      expect(TopBarButtonStyle.fromName('plain'), TopBarButtonStyle.plain);
       expect(
         TopBarButtonStyle.fromName('liquidGlass'),
         TopBarButtonStyle.liquidGlass,
@@ -38,10 +35,7 @@ void main() {
               style: style,
               merge: merge,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {},
-                ),
+                IconButton(icon: const Icon(Icons.search), onPressed: () {}),
               ],
             ),
           ),
@@ -50,41 +44,25 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets(
-        'tonal：36dp 圆槽 + surfaceContainerHigh 中性底（2.0.275 视觉精修）',
-        (tester) async {
+    testWidgets('tonal：36dp 透明圆槽与 48dp 点击区域', (tester) async {
       await pumpActions(tester, style: TopBarButtonStyle.tonal);
-      final context = tester.element(find.byType(TopBarActionStyler));
-      final cs = Theme.of(context).colorScheme;
-      // 按底色精确定位槽位 Container
-      // [2.0.275 视觉精修] 槽位底由 secondaryContainer（主题色相）改中性
-      // surfaceContainerHigh（对齐参考基准图 ref_20260914 07 顶栏圆钮）
+      // 视觉圆槽与按钮点击区域分别核对。
       final slot = tester
           .widgetList<Container>(find.byType(Container))
           .firstWhere(
             (c) =>
                 c.decoration is BoxDecoration &&
-                (c.decoration! as BoxDecoration).color ==
-                    cs.surfaceContainerHigh,
+                (c.decoration! as BoxDecoration).color == Colors.transparent,
           );
       expect(slot.constraints?.maxWidth, 36);
       final deco = slot.decoration! as BoxDecoration;
       expect(deco.shape, BoxShape.circle);
+      expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
-    testWidgets('plain：40dp 透明槽', (tester) async {
+    testWidgets('plain：48dp 点击区域', (tester) async {
       await pumpActions(tester, style: TopBarButtonStyle.plain);
-      // plain 槽无装饰 Container：断言 IconButton 的 40dp SizedBox 祖先
-      final slot = tester.widget<SizedBox>(
-        find
-            .ancestor(
-              of: find.byType(IconButton),
-              matching: find.byType(SizedBox),
-            )
-            .first,
-      );
-      expect(slot.width, 40);
-      expect(slot.height, 40);
+      expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
     testWidgets('outlined：1dp outlineVariant 描边', (tester) async {
@@ -119,10 +97,7 @@ void main() {
   });
 
   group('LegadoAppBar 全局透传', () {
-    testWidgets('默认 tonal：actions 被包装为 36dp 槽', (tester) async {
-      addTearDown(() {
-        uiSettingsListenable.value = const UiSettingsState();
-      });
+    testWidgets('默认 tonal：36dp 外观与 48dp 点击区域', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -139,26 +114,45 @@ void main() {
       await tester.pump();
       final container = tester.widget<Container>(find.byType(Container).first);
       expect(container.constraints?.maxWidth, 36);
+      expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
     });
 
-    testWidgets('topBarOpacity=50：背景混入半透明', (tester) async {
-      const original = UiSettingsState();
-      uiSettingsListenable.value = const UiSettingsState(topBarOpacity: 50);
-      addTearDown(() => uiSettingsListenable.value = original);
+    testWidgets('普通背景设为零不关闭已启用的模糊材质', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            appBar: LegadoAppBar(
-              title: const Text('T'),
-              showBack: false,
-              actions: const [],
+        const UiSettingsScope(
+          settings: UiSettings(enableBlur: true, topBarBackgroundOpacity: 0),
+          child: MaterialApp(
+            home: Scaffold(
+              appBar: LegadoAppBar(
+                title: Text('材质'),
+                showBack: false,
+                backgroundColor: Colors.black,
+              ),
             ),
           ),
         ),
       );
-      await tester.pump();
+      expect(find.byType(BackdropFilter), findsOneWidget);
+    });
+
+    testWidgets('topBarBackgroundOpacity=0.5：作用域变化即时更新背景', (tester) async {
+      const page = MaterialApp(
+        home: Scaffold(
+          appBar: LegadoAppBar(title: Text('T'), showBack: false, actions: []),
+        ),
+      );
+      await tester.pumpWidget(
+        const UiSettingsScope(settings: UiSettings(), child: page),
+      );
+      expect(tester.widget<AppBar>(find.byType(AppBar)).backgroundColor!.a, 1);
+      // 保留相同页面子树，仅变更作用域快照，验证组件自身订阅会触发更新。
+      await tester.pumpWidget(
+        const UiSettingsScope(
+          settings: UiSettings(topBarBackgroundOpacity: 0.5),
+          child: page,
+        ),
+      );
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      // surface α0.5（50%）
       expect(appBar.backgroundColor!.a, closeTo(0.5, 0.02));
     });
   });

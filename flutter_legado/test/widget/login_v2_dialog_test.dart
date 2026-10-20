@@ -5,31 +5,36 @@
 // （V2 书源登录红屏排查，2026-08-14）。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/widgets/login_v2_dialog.dart';
 
-import '../mocks/mocks.dart';
+import 'package:flutter_legado/src/domain/contracts/login_v2_session.dart';
+import 'package:flutter_legado/src/data/bridge/login_v2_json.dart';
+import 'package:flutter_legado/src/domain/models/login_v2.dart';
+
+class _Session extends Mock implements LoginV2Session {}
 
 void main() {
-  late MockRustApi mockApi;
-
-  setUpAll(registerFallbacks);
+  late _Session session;
 
   setUp(() {
-    mockApi = MockRustApi();
+    session = _Session();
+    when(() => session.name).thenReturn('测试源');
   });
 
-  Future<void> pumpDialog(
-    WidgetTester tester, {
-    required String uiJson,
-  }) async {
-    when(() => mockApi.loginUiV2(any(), any()))
-        .thenAnswer((_) async => uiJson);
-    when(() => mockApi.loginActionV2(any(), any()))
-        .thenAnswer((_) async => '{"state":{}}');
+  Future<void> pumpDialog(WidgetTester tester, {required String uiJson}) async {
+    when(() => session.loadUi(any()))
+        .thenAnswer((_) async => decodeLoginUi(uiJson));
+    when(
+      () => session.execute(
+        action: any(named: 'action'),
+        state: any(named: 'state'),
+        form: any(named: 'form'),
+      ),
+    ).thenAnswer((_) async => decodeLoginAction('{"state":{}}'));
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -38,11 +43,7 @@ void main() {
               child: ElevatedButton(
                 onPressed: () => showDialog<bool>(
                   context: context,
-                  builder: (_) => LoginV2Dialog(
-                    api: mockApi,
-                    sourceJson: '{}',
-                    sourceName: '测试源',
-                  ),
+                  builder: (_) => LoginV2Dialog(session: session),
                 ),
                 child: const Text('open'),
               ),
@@ -55,7 +56,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('全类型 rows 渲染无异常（text/password/label/select/button）', (tester) async {
+  testWidgets('全类型 rows 渲染无异常（text/password/label/select/button）', (
+    tester,
+  ) async {
     await pumpDialog(
       tester,
       uiJson: jsonEncode({
@@ -103,7 +106,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('缺 key 的 text 行渲染无异常（防御 putIfAbsent('')）', (tester) async {
+  testWidgets('缺 key 的 text 行渲染无异常（防御 putIfAbsent('
+      ')）', (tester) async {
     await pumpDialog(
       tester,
       uiJson: jsonEncode({
@@ -118,10 +122,15 @@ void main() {
   });
 
   testWidgets('loginUiV2 返回非法 JSON 时显示错误不崩溃', (tester) async {
-    when(() => mockApi.loginUiV2(any(), any()))
-        .thenAnswer((_) async => 'not-json{');
-    when(() => mockApi.loginActionV2(any(), any()))
-        .thenAnswer((_) async => '{}');
+    when(() => session.loadUi(any()))
+        .thenAnswer((_) async => decodeLoginUi('not-json{'));
+    when(
+      () => session.execute(
+        action: any(named: 'action'),
+        state: any(named: 'state'),
+        form: any(named: 'form'),
+      ),
+    ).thenAnswer((_) async => decodeLoginAction('{}'));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -131,11 +140,7 @@ void main() {
               child: ElevatedButton(
                 onPressed: () => showDialog<bool>(
                   context: context,
-                  builder: (_) => LoginV2Dialog(
-                    api: mockApi,
-                    sourceJson: '{}',
-                    sourceName: '测试源',
-                  ),
+                  builder: (_) => LoginV2Dialog(session: session),
                 ),
                 child: const Text('open'),
               ),
@@ -149,6 +154,89 @@ void main() {
 
     // 对话框仍在（错误显示在框内），无红屏
     expect(find.text('登录 - 测试源'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('state命令重载表单并保留输入，按钮倒计时结束后恢复', (tester) async {
+    final rows = [
+      {'type': 'text', 'key': 'account', 'name': '账号'},
+      {'type': 'button', 'action': 'send', 'name': '发送', 'countdown': 2},
+    ];
+    await pumpDialog(tester, uiJson: jsonEncode({'rows': rows}));
+    await tester.enterText(find.byType(TextField), '账号甲');
+    when(
+      () => session.execute(
+        action: 'send',
+        state: any(named: 'state'),
+        form: any(named: 'form'),
+      ),
+    ).thenAnswer((call) async {
+      expect(call.namedArguments[#form], {'account': '账号甲'});
+      return LoginActionResult(state: {'step': 2});
+    });
+    when(() => session.loadUi({'step': 2})).thenAnswer(
+      (_) async => decodeLoginUi(
+        jsonEncode({
+          'rows': [
+            ...rows,
+            {'type': 'label', 'name': '第二步'},
+          ],
+        }),
+      ),
+    );
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+    expect(find.text('第二步'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '账号甲',
+    );
+    expect(
+      tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+      isNull,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+      isNotNull,
+    );
+    expect(find.text('发送'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('error命令保留表单；login与error同时返回时按原优先级关闭', (tester) async {
+    await pumpDialog(
+      tester,
+      uiJson: '{"rows":[{"type":"text","key":"account","name":"账号"},{"type":"button","action":"login","name":"登录"}]}',
+    );
+    await tester.enterText(find.byType(TextField), '账号甲');
+    when(
+      () => session.execute(
+        action: 'login',
+        state: any(named: 'state'),
+        form: any(named: 'form'),
+      ),
+    ).thenAnswer((_) async => LoginActionResult(errors: {'account': '账号错误'}));
+    await tester.tap(find.text('登录'));
+    await tester.pumpAndSettle();
+    expect(find.text('账号错误'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '账号甲',
+    );
+    when(
+      () => session.execute(
+        action: 'login',
+        state: any(named: 'state'),
+        form: any(named: 'form'),
+      ),
+    ).thenAnswer(
+      (_) async => LoginActionResult(login: {}, errors: {'account': '不应显示'}),
+    );
+    await tester.tap(find.text('登录'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginV2Dialog), findsNothing);
+    expect(find.text('不应显示'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

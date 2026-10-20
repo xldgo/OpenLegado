@@ -1,12 +1,19 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_legado/src/app/routing/app_navigation.dart';
+import 'package:flutter_legado/src/app/routing/app_route_page.dart';
+
+import '../fixtures/routing_test_app.dart';
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/domain/models/source_switch_batch.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/change_source_screen.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/change_source_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -19,56 +26,60 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
 
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
-    when(
-      () => mockApi.updateSearchBookScore(any(), any()),
-    ).thenAnswer((_) async {});
-    when(() => mockApi.deleteSearchBook(any())).thenAnswer((_) async {});
-    when(() => mockApi.disableBookSource(any())).thenAnswer((_) async {});
-    when(
-      () => mockApi.switchSource(any(), any(), any()),
-    ).thenAnswer((_) async => '{"bookUrl":"https://b.com/book"}');
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.sourceSwitchService.updateSearchBookScore(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.sourceSwitchService.deleteSearchBook(any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.bookSourceRepository.disableBookSource(any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.sourceSwitchService.switchSource(any(), any(), any()))
+        .thenAnswer(
+          (_) async => const Book(
+            bookUrl: 'https://book.com/1',
+            origin: 'https://b.com',
+            originBookUrl: 'https://b.com/book',
+          ),
+        );
   });
 
-  Map<String, dynamic> rawMatch({
+  SourceMatch rawMatch({
     required String sourceUrl,
     required String sourceName,
     required String bookUrl,
     int bookScore = 0,
-  }) => {
+  }) => SourceMatch.fromJson({
     'source_url': sourceUrl,
     'source_name': sourceName,
     'book_url': bookUrl,
     'book_name': '斗破苍穹',
     'author': '天蚕土豆',
     'book_score': bookScore,
-  };
+  });
 
   /// T6 流式批次（契约 §2.4：matches 全量快照 + x/y 进度）
-  Map<String, dynamic> makeBatch({
-    required List<Map<String, dynamic>> matches,
+  SourceSwitchBatch makeBatch({
+    required List<SourceMatch> matches,
     int finished = 1,
     int total = 1,
-  }) => {
-    'source_index': 0,
-    'source_url': '',
-    'source_name': '',
-    'error': null,
-    'finished_count': finished,
-    'total_count': total,
-    'is_last': true,
-    'matches': matches,
-  };
+  }) => SourceSwitchBatch(
+    finishedCount: finished,
+    totalCount: total,
+    isLast: true,
+    matches: matches,
+  );
 
   /// stub searchSourceStream（named 参数全 any，匹配 notifier 的实际调用）
-  void stubSearchStream(Stream<Map<String, dynamic>> stream) {
+  void stubSearchStream(Stream<SourceSwitchBatch> stream) {
     when(
-      () => mockApi.searchSourceStream(
+      () => mockApi.sourceSwitchService.searchSourceStream(
         any(),
         any(),
         sourceUrls: any(named: 'sourceUrls'),
@@ -83,7 +94,7 @@ void main() {
   Widget wrap(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: RoutingTestApp(home: child),
     );
   }
 
@@ -116,7 +127,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: RoutingTestApp(
           initialRoute: '/home',
           onGenerateRoute: (settings) {
             if (settings.name == '/home') {
@@ -124,19 +135,19 @@ void main() {
                 builder: (_) => const Text('HOME_PAGE'),
               );
             }
-            return MaterialPageRoute<void>(
-              builder: (_) => ChangeSourceScreen(
-                bookName: '斗破苍穹',
-                author: '天蚕土豆',
-                currentSourceUrl: currentSourceUrl,
-              ),
+            return ChangeSourceSheetRoute(
+              settings: settings,
+              builder: AppRouter().routes[settings.name]!,
             );
           },
         ),
       ),
     );
     final navState = tester.state<NavigatorState>(find.byType(Navigator));
-    navState.pushNamed('/change_source');
+    GoRouter.of(navState.context).pushAppRoute(
+      AppRoutes.changeSource,
+      extra: Book(name: '斗破苍穹', author: '天蚕土豆', origin: currentSourceUrl),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -178,21 +189,42 @@ void main() {
   }
 
   group('ChangeSourceScreen', () {
-    // [A2 形态对齐] 路由承载弹层：换源路由须为非不透明路由（底部弹层）
-    test('generateRoute 换源路由为非不透明底部弹层路由', () {
-      final route = AppRoutes.generateRoute(
-        const RouteSettings(name: AppRoutes.changeSource),
+    testWidgets('换源筛选区域展开收起有中间高度且不改变顶栏', (tester) async {
+      stubSearchStream(
+        Stream.value(
+          makeBatch(
+            matches: [
+              rawMatch(sourceUrl: 's', sourceName: '样例源', bookUrl: 'b'),
+            ],
+          ),
+        ),
       );
-      // 非不透明（opaque: false）→ 前页保持可见，由屏障压暗
-      expect(route, isA<PageRoute>());
-      expect((route as PageRoute).opaque, isFalse);
-    });
-
-    test('generateRoute 其余路由仍为普通整页路由', () {
-      final route = AppRoutes.generateRoute(
-        const RouteSettings(name: AppRoutes.bookInfo),
-      ) as PageRoute;
-      expect(route.opaque, isTrue);
+      await tester.pumpWidget(
+        wrap(const ChangeSourceScreen(bookName: '斗破苍穹', author: '天蚕土豆')),
+      );
+      await tester.pumpAndSettle();
+      final bar = find.byType(AppBar);
+      final barHeight = tester.getSize(bar).height;
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.byTooltip('搜索筛选'));
+      await tester.pump();
+      expect(find.byType(TextField), findsNothing);
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.getSize(bar).height, barHeight);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '样例');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('搜索筛选'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.byTooltip('搜索筛选'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '样例',
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('顶栏显示书名 title 与作者 subtitle', (tester) async {
@@ -210,7 +242,10 @@ void main() {
       await tester.pumpAndSettle();
 
       verify(
-        () => mockApi.updateSearchBookScore('https://a.com/book', 1),
+        () => mockApi.sourceSwitchService.updateSearchBookScore(
+          'https://a.com/book',
+          1,
+        ),
       ).called(1);
     });
 
@@ -235,7 +270,9 @@ void main() {
       await tester.tap(find.text('禁用书源'));
       await tester.pumpAndSettle();
 
-      verify(() => mockApi.disableBookSource('https://b.com')).called(1);
+      verify(
+        () => mockApi.bookSourceRepository.disableBookSource('https://b.com'),
+      ).called(1);
       expect(find.text('B源'), findsNothing);
     });
 
@@ -327,7 +364,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // 未达阈值：仍停留在换源弹层，回弹回位
-      expect(find.text('HOME_PAGE'), findsNothing);
+      // 真实 PopupRoute 保留下方页面，用当前活动路由判断弹层是否仍然打开。
+      final screen = find.byType(ChangeSourceScreen);
+      expect(screen, findsOneWidget);
+      expect(ModalRoute.of(tester.element(screen))?.isCurrent, isTrue);
       expect(find.text('A源'), findsWidgets);
     });
 

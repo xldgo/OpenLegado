@@ -1,49 +1,56 @@
+export 'sync_state.dart';
+
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
+import '../../domain/models/webdav_connection.dart';
 import '../../models/book.dart';
 import '../../models/misc.dart';
-import '../../services/settings_service.dart';
-import '../providers.dart';
+import '../backup_settings_provider.dart';
+import '../sync_metadata_provider.dart';
+import '../backup_provider.dart';
+import '../webdav_connection_provider.dart';
 import 'sync_state.dart';
-
-export 'sync_state.dart';
 
 /// WebDAV 云同步 Riverpod Notifier
 ///
-/// 对接真实的 BookApi WebDAV 契约（webdavFullSync / importBookSources），
+/// 对接WebDavService 与 BookSourceRepository 契约，
 /// 对齐 Android 原版 BackupConfigFragment 的 WebDAV 设置组
 /// （服务器地址/账号/密码/子目录/设备名/同步书籍进度）。
 class SyncNotifier extends Notifier<SyncState> {
-  final SettingsService _settings = SettingsService();
-
   @override
   SyncState build() {
     // 原 SyncProvider 构造不自动加载，配置由页面 initState 触发 loadConfig()
-    return const SyncState();
+    final repository = ref.watch(backupSettingsRepositoryProvider);
+    final subscription = repository.watch().listen((settings) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          syncBookProgress: settings.syncBookProgress,
+          autoSync: settings.autoSync,
+          syncBookProgressPlus: settings.syncBookProgressPlus,
+        );
+      }
+    });
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    return SyncState(
+      syncBookProgress: repository.current.syncBookProgress,
+      autoSync: repository.current.autoSync,
+      syncBookProgressPlus: repository.current.syncBookProgressPlus,
+    );
   }
 
-  /// 远端子目录（保证以 '/' 结尾；Rust WebDavClient 拼接
-  /// full_url = url + remote_dir + path，直接拼接 path）
-  /// [Task #52 | 2026-08-10] — Qoder
-  String get normalizedRemoteDir {
-    final dir = state.remoteDir.isEmpty ? '/legado/' : state.remoteDir;
-    return dir.endsWith('/') ? dir : '$dir/';
-  }
+  WebDavConnection get connection => WebDavConnection(
+    url: state.webDavUrl,
+    username: state.webDavUsername,
+    password: state.webDavPassword,
+    remoteDir: state.remoteDir.isEmpty ? '/legado/' : state.remoteDir,
+    deviceName: state.deviceName,
+  );
 
-  /// 构建 Rust 侧 WebDavConfig 期望的 JSON（{url, username, password, remote_dir}）
-  ///
-  /// [Task #52 | 2026-08-10] 补齐 remote_dir（legado-net WebDavConfig 必需字段，
-  /// 缺失会导致 Rust 侧配置解析失败） — Qoder
-  String buildConfigJson() => jsonEncode({
-        'url': state.webDavUrl,
-        'username': state.webDavUsername,
-        'password': state.webDavPassword,
-        'remote_dir': normalizedRemoteDir,
-      });
+  String get normalizedRemoteDir => connection.directoryPrefix;
 
   // ===== 配置管理 =====
 
@@ -55,55 +62,63 @@ class SyncNotifier extends Notifier<SyncState> {
     String dir, {
     String deviceName = '',
   }) async {
-    final webDavUrl = url.trim();
-    final webDavUsername = username.trim();
-    final remoteDir = dir.trim().isEmpty ? '/legado/' : dir.trim();
-    final device = deviceName.trim();
+    final saved = await ref
+        .read(webDavConnectionRepositoryProvider)
+        .save(
+          WebDavConnection(
+            url: url,
+            username: username,
+            password: password,
+            remoteDir: dir,
+            deviceName: deviceName,
+          ),
+        );
+    if (!ref.mounted) return;
     state = state.copyWith(
-      webDavUrl: webDavUrl,
-      webDavUsername: webDavUsername,
-      webDavPassword: password,
-      remoteDir: remoteDir,
-      deviceName: device,
+      webDavUrl: saved.url,
+      webDavUsername: saved.username,
+      webDavPassword: saved.password,
+      remoteDir: saved.remoteDir,
+      deviceName: saved.deviceName,
     );
-    await _settings.setWebDavUrl(webDavUrl);
-    await _settings.setWebDavUsername(webDavUsername);
-    await _settings.setWebDavPassword(password);
-    await _settings.setWebDavRemoteDir(remoteDir);
-    await _settings.setWebDavDeviceName(device);
   }
 
   /// 加载已保存的 WebDAV 配置
   Future<void> loadConfig() async {
+    final backup = await ref.read(backupSettingsRepositoryProvider).load();
+    final connection = await ref
+        .read(webDavConnectionRepositoryProvider)
+        .load();
+    final lastSyncTime = await ref.read(syncMetadataRepositoryProvider).load();
     state = state.copyWith(
-      webDavUrl: await _settings.getWebDavUrl(),
-      webDavUsername: await _settings.getWebDavUsername(),
-      webDavPassword: await _settings.getWebDavPassword(),
-      remoteDir: await _settings.getWebDavRemoteDir(),
-      deviceName: await _settings.getWebDavDeviceName(),
-      syncBookProgress: await _settings.getSyncBookProgress(),
-      syncBookProgressPlus: await _settings.getSyncBookProgressPlus(),
-      autoSync: await _settings.getAutoSync(),
-      lastSyncTime: await _settings.getLastSyncTime(),
+      webDavUrl: connection.url,
+      webDavUsername: connection.username,
+      webDavPassword: connection.password,
+      remoteDir: connection.remoteDir,
+      deviceName: connection.deviceName,
+      syncBookProgress: backup.syncBookProgress,
+      syncBookProgressPlus: backup.syncBookProgressPlus,
+      autoSync: backup.autoSync,
+      lastSyncTime: lastSyncTime,
     );
-  }
-
-  /// 切换自动同步
-  Future<void> toggleAutoSync(bool enabled) async {
-    state = state.copyWith(autoSync: enabled);
-    await _settings.setAutoSync(enabled);
   }
 
   /// 设置「同步书籍进度」开关
   Future<void> setSyncBookProgress(bool enabled) async {
-    state = state.copyWith(syncBookProgress: enabled);
-    await _settings.setSyncBookProgress(enabled);
-  }
-
-  /// 设置「同步书籍进度增强」开关
-  Future<void> setSyncBookProgressPlus(bool enabled) async {
-    state = state.copyWith(syncBookProgressPlus: enabled);
-    await _settings.setSyncBookProgressPlus(enabled);
+    final repository = ref.read(backupSettingsRepositoryProvider);
+    final saving = repository.update(syncBookProgress: enabled);
+    state = state.copyWith(
+      syncBookProgress: repository.current.syncBookProgress,
+    );
+    try {
+      await saving;
+    } finally {
+      if (ref.mounted) {
+        state = state.copyWith(
+          syncBookProgress: repository.current.syncBookProgress,
+        );
+      }
+    }
   }
 
   // ===== 单书进度拉取 / 覆盖（对齐 AppWebDav.getBookProgress / uploadBookProgress）=====
@@ -128,23 +143,26 @@ class SyncNotifier extends Notifier<SyncState> {
       durChapterTime: book.durChapterTime,
       durChapterTitle: book.durChapterTitle,
     );
-    final api = ref.read(bookApiProvider);
-    await api.webdavUpload(
-      buildConfigJson(),
-      bookProgressRemotePath(book.name, book.author),
-      jsonEncode(progress.toJson()),
-    );
+
+    await ref
+        .read(webDavServiceProvider)
+        .webdavUpload(
+          connection,
+          bookProgressRemotePath(book.name, book.author),
+          jsonEncode(progress.toJson()),
+        );
   }
 
   /// 拉取远程进度；无文件 / 解析失败返回 null
   Future<BookProgress?> fetchBookProgress(Book book) async {
     if (!state.isConfigured) return null;
     try {
-      final api = ref.read(bookApiProvider);
-      final jsonStr = await api.webdavDownload(
-        buildConfigJson(),
-        bookProgressRemotePath(book.name, book.author),
-      );
+      final jsonStr = await ref
+          .read(webDavServiceProvider)
+          .webdavDownload(
+            connection,
+            bookProgressRemotePath(book.name, book.author),
+          );
       if (jsonStr.trim().isEmpty) return null;
       final map = jsonDecode(jsonStr);
       if (map is! Map<String, dynamic>) return null;
@@ -213,7 +231,7 @@ class SyncNotifier extends Notifier<SyncState> {
     return '${buf.toString()}.json';
   }
 
-  // ===== 同步操作（真实 BookApi 调用） =====
+  // ===== 同步操作（领域服务调用） =====
 
   /// 备份到 WebDAV（上传本地书架 + 书源）
   ///
@@ -225,20 +243,17 @@ class SyncNotifier extends Notifier<SyncState> {
     }
     _setStatus(SyncStatus.syncing);
     try {
-      final api = ref.read(bookApiProvider);
-      final (localBooks, localSources) = await _collectLocalData();
-      await api.webdavFullSync(buildConfigJson(), localBooks, localSources);
+      await ref.read(backupServiceProvider).backupToWebDav(connection);
       await _markSyncSuccess();
     } catch (e) {
       _setError('备份失败: $e');
     }
   }
 
-  /// 从 WebDAV 恢复（获取远端数据并回写书源）
+  /// 只下载并恢复远端书架、书源，不上传本地数据。— Codex + UI
   ///
-  /// 调用真实 webdavFullSync 取得远端合并数据，书源经 importBookSources 回写；
-  /// 书架批量回写受限于 BookApi 暂无批量导入契约，登记为跨轨需求。
-  /// 返回用于展示的结果描述。
+  /// 两份载荷先完成结构校验，再沿用各仓储的导入规则；不清空本地数据。
+  /// 返回实际完成情况，部分回写失败不记录为完整同步成功。
   Future<String> restoreFromWebDav() async {
     if (!state.isConfigured) {
       _setError('请先配置 WebDAV 服务器信息');
@@ -246,44 +261,37 @@ class SyncNotifier extends Notifier<SyncState> {
     }
     _setStatus(SyncStatus.syncing);
     try {
-      final api = ref.read(bookApiProvider);
-      final (localBooks, localSources) = await _collectLocalData();
-      final result =
-          await api.webdavFullSync(buildConfigJson(), localBooks, localSources);
-      var imported = 0;
-      final remote = jsonDecode(result) as Map<String, dynamic>;
-      final remoteSources = remote['sources']?.toString() ?? '';
-      if (remoteSources.isNotEmpty && remoteSources != '[]') {
-        imported = await api.importBookSources(remoteSources);
-      }
+      final restored = await ref
+          .read(backupServiceProvider)
+          .restoreFromWebDav(connection);
       await _markSyncSuccess();
-      return '恢复完成，回写 $imported 条书源';
-    } catch (e) {
-      _setError('恢复失败: $e');
-      return '恢复失败: $e';
+      return '恢复完成，回写 ${restored.books} 本书籍、${restored.sources} 条书源';
+    } catch (error) {
+      final message = '$error';
+      _setError(message);
+      return message;
     }
-  }
-
-  // ===== Internal helpers =====
-
-  /// 序列化本地书架 + 书源为 JSON（供 webdavFullSync 上传）
-  Future<(String, String)> _collectLocalData() async {
-    final api = ref.read(bookApiProvider);
-    final books = await api.getBooks();
-    final sources = await api.getBookSources();
-    final localBooks = jsonEncode(books.map((e) => e.toJson()).toList());
-    final localSources = jsonEncode(sources.map((e) => e.toJson()).toList());
-    return (localBooks, localSources);
   }
 
   Future<void> _markSyncSuccess() async {
     final now = DateTime.now();
-    state = state.copyWith(
-      lastSyncTime: now,
-      status: SyncStatus.success,
-      error: null,
-    );
-    await _settings.setLastSyncTime(now);
+    try {
+      await ref.read(syncMetadataRepositoryProvider).save(now);
+      if (ref.mounted) {
+        state = state.copyWith(
+          lastSyncTime: now,
+          status: SyncStatus.success,
+          error: null,
+        );
+      }
+    } catch (_) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          status: SyncStatus.success,
+          error: '云端同步已完成，但本地同步时间未保存',
+        );
+      }
+    }
   }
 
   void _setStatus(SyncStatus status) {

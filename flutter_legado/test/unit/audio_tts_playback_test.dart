@@ -1,3 +1,10 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+
 // TTS 合成产物真实播放接线测试（A1 批）
 //
 // 覆盖：
@@ -11,17 +18,26 @@
 // 计时推进用 testWidgets 的 FakeAsync（tester.pump(duration) 推时钟），
 // 播放器经 streamAudioPlayerProvider 注入 Fake，不触真实 video_player 平台通道。
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_legado/src/domain/contracts/read_aloud_voice_repository.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_aloud_voice_repository.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
 
 import '../mocks/mocks.dart';
+
+class _VoiceApi extends MockRustApi {
+  final _voices = MockReadAloudVoiceRepository();
+  @override
+  ReadAloudVoiceRepository get readAloudVoiceRepository => _voices;
+}
 
 void main() {
   late MockRustApi mockApi;
@@ -39,15 +55,20 @@ void main() {
   });
 
   setUp(() {
-    mockApi = MockRustApi();
+    mockApi = _VoiceApi();
+    when(() => mockApi.httpTtsRepository.getHttpTts()).thenAnswer(
+      (_) async => const [
+        HttpTts(id: 1, name: '默认引擎', url: 'https://tts.example.com/{{text}}'),
+      ],
+    );
     fakePlayer = FakeStreamAudioPlayer();
     speakSpeeds.clear();
     pathFor = (call) => '/tmp/tts/para_$call.mp3';
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -58,27 +79,31 @@ void main() {
 
   /// 单章 + 指定正文
   void stubChapter({String content = '第一段文本内容。\n\n第二段文本内容。'}) {
-    when(() => mockApi.getChapters(any())).thenAnswer(
-      (_) async => [const BookChapter(title: '第一章', index: 0)],
-    );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
   }
 
   /// audioSpeak 按调用序返回不同本地路径，并记录入参语速
   void stubAudioSpeak() {
     var calls = 0;
-    when(() => mockApi.audioSpeak(
-          text: any(named: 'text'),
-          engineUrl: any(named: 'engineUrl'),
-          speed: any(named: 'speed'),
-          pitch: any(named: 'pitch'),
-          volume: any(named: 'volume'),
-          voiceName: any(named: 'voiceName'),
-        )).thenAnswer((invocation) async {
+    when(
+      () => mockApi.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
+        text: any(named: 'text'),
+        engineUrl: any(named: 'engineUrl'),
+        speed: any(named: 'speed'),
+        pitch: any(named: 'pitch'),
+        volume: any(named: 'volume'),
+        voiceName: any(named: 'voiceName'),
+      ),
+    ).thenAnswer((invocation) async {
       speakSpeeds.add(invocation.namedArguments[#speed] as double);
-      return pathFor(++calls);
+      return HttpTtsAudio(audioPath: pathFor(++calls));
     });
   }
 
@@ -86,9 +111,71 @@ void main() {
     stubChapter();
     stubAudioSpeak();
     await readNotifier().loadChapters('url');
-    readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+    readNotifier().updateConfig(
+      engineUrl: 'https://tts.example.com/{{text}}',
+      engineId: 1,
+    );
     readNotifier().updateConfig(speed: speed);
     await readNotifier().play();
+  }
+
+  for (final choice in <({String? selected, String? expected})>[
+    (selected: null, expected: 'happy'),
+    (selected: 'calm', expected: 'calm'),
+    (selected: '', expected: null),
+  ]) {
+    testWidgets('正文使用同一音色预设解析情感：${choice.selected}', (tester) async {
+      stubChapter();
+      final voice = ReadAloudVoice(
+        id: readAloudVoiceId('http', '1', 'zh'),
+        engineType: 'http',
+        engineId: '1',
+        speakerId: 'zh',
+        displayName: '中文',
+        traitsJson: '{"tags":["女"],"emotionTag":"happy"}',
+        emotionCatalogJson: '[{"emotionName":"高兴","emotionTag":"happy"},{"emotionName":"平静","emotionTag":"calm"}]',
+      );
+      await mockApi.readAloudVoiceRepository.save(voice);
+      when(() => mockApi.configRepository.getConfig('ttsVoice:1')).thenAnswer(
+        (_) async =>
+            jsonEncode({'voiceId': voice.id, 'emotionTag': choice.selected}),
+      );
+      final received = <({String? tone, String? name, String? emotion})>[];
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+          toneId: any(named: 'toneId'),
+          speakerName: any(named: 'speakerName'),
+          emotionTag: any(named: 'emotionTag'),
+          cancellation: any(named: 'cancellation'),
+        ),
+      ).thenAnswer((call) async {
+        received.add((
+          tone: call.namedArguments[#toneId] as String?,
+          name: call.namedArguments[#speakerName] as String?,
+          emotion: call.namedArguments[#emotionTag] as String?,
+        ));
+        return const HttpTtsAudio(audioPath: '/voice.wav');
+      });
+      await readNotifier().loadChapters('url');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+        engineId: 1,
+      );
+      await readNotifier().play();
+      expect(received.first, (
+        tone: 'zh',
+        name: '中文',
+        emotion: choice.expected,
+      ));
+      expect(fakePlayer.playedLocalFiles.first.path, '/voice.wav');
+    });
   }
 
   group('TTS 段落真实播放（完成回调驱动）', () {
@@ -98,9 +185,9 @@ void main() {
       expect(readState().state, PlayerState.playing);
       expect(fakePlayer.playedLocalFiles, hasLength(1));
       expect(fakePlayer.playedLocalFiles.first.path, '/tmp/tts/para_1.mp3');
-      // 语速由合成侧应用（audioSpeak speed=2.0），播放侧不二次变速
+      // 语速在合成与播放侧均生效（对齐 Issue 3：全局倍速 request.speed）
       expect(speakSpeeds, [2.0]);
-      expect(fakePlayer.playedLocalFiles.first.speed, 1.0);
+      expect(fakePlayer.playedLocalFiles.first.speed, 2.0);
       expect(readState().errorMessage, isNull);
     });
 
@@ -111,8 +198,11 @@ void main() {
 
       // 显式推进 30s 假时钟：若仍是 5 字/秒估算 Timer 驱动，段落会前进
       await tester.pump(const Duration(seconds: 30));
-      expect(readNotifier().currentParagraphIndex, 0,
-          reason: '完成回调前不得推进（估算 Timer 仅失败降级）');
+      expect(
+        readNotifier().currentParagraphIndex,
+        0,
+        reason: '完成回调前不得推进（估算 Timer 仅失败降级）',
+      );
       expect(fakePlayer.playedLocalFiles, hasLength(1));
 
       // 播放完成 → 推进到第 2 段并合成播放
@@ -150,7 +240,9 @@ void main() {
       stubChapter();
       stubAudioSpeak();
       await readNotifier().loadChapters('url');
-      readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
       fakePlayer.playLocalError = StateError('MissingPluginException');
 
       await readNotifier().play();
@@ -169,16 +261,22 @@ void main() {
 
     testWidgets('合成失败 → 提示 + 估算时长推进', (tester) async {
       stubChapter();
-      when(() => mockApi.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenThrow(StateError('引擎不可达'));
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenThrow(StateError('引擎不可达'));
       await readNotifier().loadChapters('url');
-      readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
 
       await readNotifier().play();
 
@@ -193,16 +291,24 @@ void main() {
 
     testWidgets('合成返回空路径 → 视为失败降级并提示', (tester) async {
       stubChapter();
-      when(() => mockApi.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => null);
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer(
+        (_) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.emptyResult),
+      );
       await readNotifier().loadChapters('url');
-      readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
 
       await readNotifier().play();
 
@@ -216,17 +322,23 @@ void main() {
   group('停止/取消', () {
     testWidgets('stop 后在途合成失效、完成回调不再推进', (tester) async {
       stubChapter();
-      final completer = Completer<String?>();
-      when(() => mockApi.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) => completer.future);
+      final completer = Completer<HttpTtsSynthesisResult>();
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer((_) => completer.future);
       await readNotifier().loadChapters('url');
-      readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
 
       final playFuture = readNotifier().play();
       await tester.pump();
@@ -236,7 +348,7 @@ void main() {
       expect(readState().state, PlayerState.idle);
 
       // 在途合成迟到返回：不得落播放
-      completer.complete('/tmp/tts/late.mp3');
+      completer.complete(const HttpTtsAudio(audioPath: '/tmp/tts/late.mp3'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 5));
       expect(fakePlayer.playedLocalFiles, isEmpty);
@@ -250,35 +362,228 @@ void main() {
       await playFuture;
     });
 
-    testWidgets('pause 停止当前段播放并保持段落索引', (tester) async {
+    testWidgets('暂停后从同一音频位置续播，新会话完成推进且旧会话无效', (tester) async {
       await startTts();
-      expect(readState().state, PlayerState.playing);
+      final notifier = readNotifier();
+      final oldTag = fakePlayer.currentTag;
+      final stops = fakePlayer.stopCount;
+      fakePlayer.emitProgress(
+        const Duration(seconds: 4),
+        const Duration(seconds: 10),
+      );
+      final offset = notifier.readAloudPosition.value!.offset;
+      notifier.pause();
+      await tester.pump();
+      expect(readState().state, PlayerState.paused);
+      expect(fakePlayer.stopCount, stops);
+      expect(fakePlayer.pauseCount, 1);
+      await notifier.resumeOrPlay();
+      expect(fakePlayer.position, const Duration(seconds: 4));
+      expect(fakePlayer.resumeCount, 1);
+      expect(fakePlayer.playedLocalFiles, hasLength(1));
+      expect(speakSpeeds, hasLength(1));
+      expect(fakePlayer.currentTag, isNot(same(oldTag)));
+      fakePlayer.emitProgressForTag(
+        oldTag,
+        Duration.zero,
+        const Duration(seconds: 10),
+      );
+      fakePlayer.completePlaybackForTag(oldTag);
+      await tester.pump();
+      expect(notifier.readAloudPosition.value!.offset, offset);
+      expect(notifier.currentParagraphIndex, 0);
+      fakePlayer.emitProgress(
+        const Duration(seconds: 6),
+        const Duration(seconds: 10),
+      );
+      expect(notifier.readAloudPosition.value!.offset, greaterThan(offset));
+      fakePlayer.completePlayback();
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(notifier.currentParagraphIndex, 1);
+      expect(fakePlayer.playedLocalFiles, hasLength(2));
+    });
 
+    testWidgets('从段内起点朗读，暂停续播仍按原请求映射正文偏移', (tester) async {
+      await startTts();
+      final notifier = readNotifier();
+      notifier.pause();
+      await tester.pump();
+      await notifier.seekToChapterPosition(0, 2);
+      await notifier.resumeOrPlay();
+      final paragraphLength = notifier.currentParagraphs.first.length;
+      fakePlayer.emitProgress(
+        const Duration(seconds: 4),
+        const Duration(seconds: 10),
+      );
+      final offset = notifier.readAloudPosition.value!.offset;
+      notifier.pause();
+      await tester.pump();
+      await notifier.resumeOrPlay();
+      expect(fakePlayer.playedLocalFiles, hasLength(2));
+      expect(speakSpeeds, hasLength(2));
+      fakePlayer.emitProgress(
+        const Duration(seconds: 4),
+        const Duration(seconds: 10),
+      );
+      expect(notifier.readAloudPosition.value!.offset, offset);
+      fakePlayer.emitProgress(
+        const Duration(seconds: 6),
+        const Duration(seconds: 10),
+      );
+      expect(
+        notifier.readAloudPosition.value!.offset,
+        2 + ((paragraphLength - 2) * 0.6).floor(),
+      );
+    });
+
+    testWidgets('快速暂停恢复等待确认，等待时停止不再恢复', (tester) async {
+      await startTts();
+      final barrier = Completer<void>();
+      fakePlayer.pauseBarrier = barrier.future;
+      readNotifier().pause();
+      final resume = readNotifier().resumeOrPlay();
+      await tester.pump();
+      expect(fakePlayer.resumeCount, 0);
+      readNotifier().stop();
+      barrier.complete();
+      await resume;
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(fakePlayer.resumeCount, 0);
+      expect(fakePlayer.playedLocalFiles, hasLength(1));
+    });
+
+    testWidgets('暂停后手动换段重新起播，不复用上一段音频', (tester) async {
+      await startTts();
       readNotifier().pause();
       await tester.pump();
+      await readNotifier().nextParagraph();
+      await readNotifier().resumeOrPlay();
+      expect(readNotifier().currentParagraphIndex, 1);
+      expect(fakePlayer.resumeCount, 0);
+      expect(fakePlayer.playedLocalFiles.last.path, '/tmp/tts/para_2.mp3');
+    });
 
+    testWidgets('暂停后更换 HTTP 引擎使原音频失效', (tester) async {
+      await startTts();
+      readNotifier().pause();
+      await tester.pump();
+      readNotifier().updateConfig(
+        engineUrl: 'https://other.example.com/{{text}}',
+        engineId: 2,
+      );
+      await tester.pump();
+      await readNotifier().resumeOrPlay();
+      expect(fakePlayer.resumeCount, 0);
+      expect(fakePlayer.playedLocalFiles, hasLength(2));
+    });
+
+    testWidgets('暂停期间更改倍速保留音频，续播失败保持暂停并显示错误', (tester) async {
+      await startTts();
+      readNotifier().pause();
+      await tester.pump();
+      readNotifier().updateConfig(speed: 1.5);
+      fakePlayer.resumeError = StateError('设备恢复失败');
+      await readNotifier().resumeOrPlay();
+      await tester.pump();
       expect(readState().state, PlayerState.paused);
-      expect(fakePlayer.stopCount, greaterThan(0));
+      expect(readState().errorMessage, contains('设备恢复失败'));
+      expect(fakePlayer.playedLocalFiles, hasLength(1));
       expect(readNotifier().currentParagraphIndex, 0);
     });
   });
 
+  for (final hasAudio in [true, false]) {
+    testWidgets('独立覆盖合成接口：${hasAudio ? '缓存音频正常播放' : '探活成功仍提示并估算'}', (
+      tester,
+    ) async {
+      stubChapter();
+      final synthesis = MockHttpTtsSynthesizer();
+      when(
+        () => synthesis.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer(
+        (_) async => hasAudio
+            ? const HttpTtsAudio(
+                audioPath: '/cache/independent.wav',
+                fromCache: true,
+                contentType: 'audio/wav',
+              )
+            : const HttpTtsNoAudio(HttpTtsNoAudioReason.synthesisFailed),
+      );
+      final isolated = ProviderContainer(
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
+          streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+          httpTtsSynthesizerProvider.overrideWithValue(synthesis),
+        ]),
+      );
+      addTearDown(isolated.dispose);
+      final notifier = isolated.read(audioNotifierProvider.notifier);
+      await notifier.loadChapters('url');
+      notifier.updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      await notifier.play();
+      if (hasAudio) {
+        expect(
+          fakePlayer.playedLocalFiles.single.path,
+          '/cache/independent.wav',
+        );
+        expect(isolated.read(audioNotifierProvider).errorMessage, isNull);
+      } else {
+        expect(fakePlayer.playedLocalFiles, isEmpty);
+        expect(
+          isolated.read(audioNotifierProvider).errorMessage,
+          contains('估算时长'),
+        );
+        await tester.pump(const Duration(seconds: 2));
+        expect(notifier.currentParagraphIndex, 1);
+      }
+      verifyNever(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      );
+      notifier.stop();
+    });
+  }
+
   group('网络流（音频书）路径回归', () {
     testWidgets('playUrl 播放 + 完成回调驱动下一章', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: 'ch1', index: 0),
           const BookChapter(title: 'ch2', index: 1),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-      when(() => mockApi.getAudioChapterMedia(any(), any()))
-          .thenAnswer((invocation) async {
-        final index = invocation.positionalArguments[1] as int;
-        return {'mediaUrl': 'https://cdn.example.com/$index.mp3', 'isVolume': false};
-      });
-      when(() => mockApi.getAudioProgress(any(), any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
+      when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
+          .thenAnswer((invocation) async {
+            final index = invocation.positionalArguments[1] as int;
+            return AudioChapterMedia.fromJson({
+              'mediaUrl': 'https://cdn.example.com/$index.mp3',
+              'isVolume': false,
+            });
+          });
+      when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+          .thenAnswer((_) async => 0);
 
       await readNotifier().loadChapters('url');
       readNotifier().setAudioBookMode(true);

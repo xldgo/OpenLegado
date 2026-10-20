@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 use legado_core::regex_safe::compile_regex_safe;
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::txt::TxtParser;
 use crate::ChapterInfo;
+use crate::txt::TxtParser;
 
 /// 搜索结果
 #[derive(Debug, Clone, Serialize, Deserialize)]

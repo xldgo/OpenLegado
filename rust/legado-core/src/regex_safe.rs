@@ -64,7 +64,7 @@ const ANDROID_LOG_INFO: std::ffi::c_int = 4;
 
 #[cfg(target_os = "android")]
 #[link(name = "log")]
-extern "C" {
+unsafe extern "C" {
     fn __android_log_write(
         prio: std::ffi::c_int,
         tag: *const std::ffi::c_char,

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/source_card.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 void main() {
   Widget buildTestWidget({
@@ -30,10 +30,9 @@ void main() {
   }
 
   testWidgets('SourceCard renders name and url', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      name: '起点中文网',
-      url: 'https://www.qidian.com',
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(name: '起点中文网', url: 'https://www.qidian.com'),
+    );
 
     expect(find.text('起点中文网'), findsOneWidget);
     expect(find.text('https://www.qidian.com'), findsOneWidget);

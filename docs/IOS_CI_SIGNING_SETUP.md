@@ -9,6 +9,7 @@
 - `ios-build.yml` 负责设备构建与 IPA 交付，保留自动构建和手动入口。手动可开启 `diagnostics`，采集历史图标排障信息；默认关闭诊断。
 - `ios-ci.yml` 仅通过 Actions 页面手动运行，负责模拟器编译、FFI 符号检查及现有图标状态、离线搜索阅读测试，不配置签名 secrets，也不作为 PR 必需检查。
 - 两条链路分别构建设备与模拟器静态库，不互相覆盖或传递 `.a`。模拟器结果不能替代设备包或真机验证。
+- 两条工作流通过 `DEVELOPER_DIR` 选择镜像预装的 Xcode 26.6，Rust 与 Flutter 共用该工具链；更换 macOS 镜像时同步核对 Xcode 配置。
 - Rust 编译、复制和 PDE 符号校验统一调用 Python CLI；继续使用 `RustFFI/libliblegado_ffi.a` 与现有 CocoaPods 链接，不使用历史 XCFramework。图标兼容处理、plist 导出和 IPA 编排也使用 Python；签名命令、证书条件及交付名称保持。命令、元数据与未测边界见 [iOS 工具说明](PYTHON_IOS_TOOLING_20261011.md)。
 - PNG 注入与旧式图标声明转换暂时保留，以保持交付包内容一致；它们是历史兼容尝试，不代表已解决真机换图标 `-54`。证据见 [图标限制报告](IOS_ICON_SWITCH_LIMITATION_20260903.md)。
 

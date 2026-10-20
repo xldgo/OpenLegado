@@ -7,7 +7,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{column_exists, primary_key_columns, table_exists, Migration};
+use crate::migration::{Migration, column_exists, primary_key_columns, table_exists};
 use crate::schema::{CREATE_DICT_RULES, CREATE_KEYBOARD_ASSISTS, CREATE_RULE_SUBS};
 
 /// 从 v104 升级到 v105（D1 Room 表名/列名对齐）

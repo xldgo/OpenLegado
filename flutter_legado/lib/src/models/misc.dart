@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'rule/rule.dart';
@@ -29,6 +31,7 @@ abstract class SearchBook with _$SearchBook {
     @JsonKey(name: 'chapterWordCountText') String? chapterWordCountText,
     @Default(-1) @JsonKey(name: 'chapterWordCount') int chapterWordCount,
     @Default(-1) @JsonKey(name: 'respondTime') int respondTime,
+
     /// 跨源聚合 origins 集合（队列⑩a P1-1 项2，2026-09-22 加法式字段）
     ///
     /// Rust 侧 `CoreSearchBook.origins`（serde default + 空时省略序列化）：
@@ -109,15 +112,15 @@ class ExploreCategory {
   }
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        if (url != null) 'url': url,
-        if (type != 'url') 'type': type,
-        if (action != null) 'action': action,
-        if (chars != null) 'chars': chars,
-        if (defaultValue != null) 'default': defaultValue,
-        if (viewName != null) 'viewName': viewName,
-        if (style != null) 'style': style!.toJson(),
-      };
+    'title': title,
+    if (url != null) 'url': url,
+    if (type != 'url') 'type': type,
+    if (action != null) 'action': action,
+    if (chars != null) 'chars': chars,
+    if (defaultValue != null) 'default': defaultValue,
+    if (viewName != null) 'viewName': viewName,
+    if (style != null) 'style': style!.toJson(),
+  };
 
   static String? _parseOptionalString(Object? value) {
     if (value == null) return null;
@@ -144,6 +147,7 @@ abstract class ReplaceRule with _$ReplaceRule {
     String? scope,
     @Default(false) @JsonKey(name: 'scopeTitle') bool scopeTitle,
     @Default(true) @JsonKey(name: 'scopeContent') bool scopeContent,
+
     /// 书源作用域开关（对齐原版 `ReplaceRule.scopeSource`，默认 false）：
     /// 书源导入时按源名/源 URL 匹配 scope 后对整源 JSON 应用替换
     @Default(false) @JsonKey(name: 'scopeSource') bool scopeSource,
@@ -160,6 +164,36 @@ abstract class ReplaceRule with _$ReplaceRule {
 
 // ─── HttpTTS ──────────────────────────────────────────────
 
+/// 合成并发上限（对齐上游 `HttpTTS.MAX_SYNTHESIS_THREAD_COUNT`）
+const int kMaxHttpTtsSynthesisThreadCount = 8;
+
+String? _httpTtsLoginUiFromJson(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  if (value is List) return jsonEncode(value);
+  return value.toString();
+}
+
+bool? _httpTtsNullableBoolFromJson(Object? value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value.toInt() != 0;
+  if (value is String) {
+    final trimmed = value.trim().toLowerCase();
+    if (trimmed == 'true' || trimmed == '1') return true;
+    if (trimmed == 'false' || trimmed == '0') return false;
+  }
+  return null;
+}
+
+bool _httpTtsEnabledFromJson(Object? value) =>
+    _httpTtsNullableBoolFromJson(value) ?? true;
+
+int _httpTtsSynthesisThreadCountFromJson(Object? value) {
+  final raw = (value as num?)?.toInt() ?? 1;
+  return raw.clamp(1, kMaxHttpTtsSynthesisThreadCount);
+}
+
 /// 在线朗读引擎
 @freezed
 abstract class HttpTts with _$HttpTts {
@@ -171,12 +205,24 @@ abstract class HttpTts with _$HttpTts {
     @Default(0) @JsonKey(name: 'pauseDuration') int pauseDuration,
     @JsonKey(name: 'concurrentRate') String? concurrentRate,
     @JsonKey(name: 'loginUrl') String? loginUrl,
-    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+    String? loginUi,
     String? header,
     @JsonKey(name: 'jsLib') String? jsLib,
-    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    bool? enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'speed') int? speed,
+    @Default(1)
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    int synthesisThreadCount,
     @Default(0) @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @Default(true)
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    bool isEnabled,
   }) = _HttpTts;
 
   factory HttpTts.fromJson(Map<String, dynamic> json) =>
@@ -211,6 +257,7 @@ abstract class Bookmark with _$Bookmark {
 abstract class BookGroup with _$BookGroup {
   const factory BookGroup({
     @Default(1) @JsonKey(name: 'groupId') int groupId,
+    @Default(false) bool isPrivate,
     @Default('') @JsonKey(name: 'groupName') String groupName,
     String? cover,
     @Default(0) int order,
@@ -310,13 +357,10 @@ abstract class RssStar with _$RssStar {
 /// Cookie存储
 @freezed
 abstract class Cookie with _$Cookie {
-  const factory Cookie({
-    @Default('') String url,
-    @Default('') String cookie,
-  }) = _Cookie;
+  const factory Cookie({@Default('') String url, @Default('') String cookie}) =
+      _Cookie;
 
-  factory Cookie.fromJson(Map<String, dynamic> json) =>
-      _$CookieFromJson(json);
+  factory Cookie.fromJson(Map<String, dynamic> json) => _$CookieFromJson(json);
 }
 
 // ─── Cache ────────────────────────────────────────────────
@@ -339,6 +383,7 @@ abstract class Cache with _$Cache {
 @freezed
 abstract class DictRule with _$DictRule {
   const factory DictRule({
+    @Default(0) int id,
     @Default('') String name,
     @Default('') @JsonKey(name: 'urlRule') String urlRule,
     @Default('') @JsonKey(name: 'showRule') String showRule,
@@ -369,8 +414,7 @@ abstract class Server with _$Server {
     @Default(0) @JsonKey(name: 'sortNumber') int sortNumber,
   }) = _Server;
 
-  factory Server.fromJson(Map<String, dynamic> json) =>
-      _$ServerFromJson(json);
+  factory Server.fromJson(Map<String, dynamic> json) => _$ServerFromJson(json);
 }
 
 /// WebDav配置
@@ -490,6 +534,8 @@ abstract class ReadRecord with _$ReadRecord {
   const factory ReadRecord({
     @Default('') @JsonKey(name: 'deviceId') String deviceId,
     @Default('') @JsonKey(name: 'bookName') String bookName,
+    @Default('') String author,
+    int? startTime,
     @Default(0) @JsonKey(name: 'readTime') int readTime,
     @Default(0) @JsonKey(name: 'lastRead') int lastRead,
   }) = _ReadRecord;

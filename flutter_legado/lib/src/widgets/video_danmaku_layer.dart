@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 
@@ -190,8 +190,7 @@ class DanmakuLayoutEngine {
 
       final fontSize = fontSizeOf(item.textSizeRaw, dpr);
       final textWidth = _widthOf(i, fontSize);
-      final progress =
-          ((positionMs - item.timeMs) / duration).clamp(0.0, 1.0);
+      final progress = ((positionMs - item.timeMs) / duration).clamp(0.0, 1.0);
 
       final double x;
       final double y;
@@ -251,7 +250,8 @@ class DanmakuLayoutEngine {
         : viewportLanes;
     final start = item.timeMs.toDouble();
     final duration = durationMsOf(item, playbackSpeed);
-    final isScroll = item.type == DanmakuType.scrollR2L ||
+    final isScroll =
+        item.type == DanmakuType.scrollR2L ||
         item.type == DanmakuType.scrollL2R;
     final newWidth = isScroll
         ? _widthOf(index, fontSizeOf(item.textSizeRaw, _lastDpr))
@@ -266,8 +266,10 @@ class DanmakuLayoutEngine {
         final otherStart = other.timeMs.toDouble();
         if (isScroll) {
           // 同轨滚动：按两车较宽者取最小入场间隔（见方法注释推导）
-          final otherWidth =
-              _widthOf(entry.key, fontSizeOf(other.textSizeRaw, _lastDpr));
+          final otherWidth = _widthOf(
+            entry.key,
+            fontSizeOf(other.textSizeRaw, _lastDpr),
+          );
           final maxWidth = math.max(otherWidth, newWidth);
           final minGap = duration * maxWidth / (size.width + maxWidth);
           if ((start - otherStart).abs() < minGap) {
@@ -362,6 +364,7 @@ class VideoDanmakuLayerState extends State<VideoDanmakuLayer>
   /// 媒体时钟锚点：最近一次已知播放位置与对应 Ticker 时刻
   int _anchorPositionMs = 0;
   Duration _anchorElapsed = Duration.zero;
+
   /// 最近一次 Ticker 回调的 elapsed（SDK Ticker 无公开 elapsed getter）
   Duration _lastTickElapsed = Duration.zero;
   bool _wasPlaying = false;
@@ -409,8 +412,7 @@ class VideoDanmakuLayerState extends State<VideoDanmakuLayer>
     if (oldWidget.playbackSpeed != widget.playbackSpeed) {
       // 倍速变化：以当前插值位置为新锚点，避免时间轴跳变
       _anchorPositionMs = _clockMs.value;
-      _anchorElapsed =
-          _ticker.isActive ? _lastTickElapsed : Duration.zero;
+      _anchorElapsed = _ticker.isActive ? _lastTickElapsed : Duration.zero;
       // [P2] 行占用区间按旧 duration 计算已失效 → 作废重排
       _engine.resetLaneAssignments();
     }
@@ -446,8 +448,7 @@ class VideoDanmakuLayerState extends State<VideoDanmakuLayer>
     if (newMs != _anchorPositionMs) {
       // 位置采样/seek：重新锚定（插值误差在采样周期内自校正）
       _anchorPositionMs = newMs;
-      _anchorElapsed =
-          _ticker.isActive ? _lastTickElapsed : Duration.zero;
+      _anchorElapsed = _ticker.isActive ? _lastTickElapsed : Duration.zero;
       _clockMs.value = newMs;
     }
     if (value.isPlaying != _wasPlaying) {
@@ -568,12 +569,8 @@ class _DanmakuPainter extends CustomPainter {
     final fillColor = Color(item.color & 0xFFFFFFFF);
     // 对齐原版 BiliDanmukuParser.kt:106-107 的有符号比较：
     // color <= BLACK(-16777216) 仅纯黑成立 → 纯黑白描边，其余黑描边
-    final strokeColor =
-        item.color <= -16777216 ? Colors.white : Colors.black;
-    final baseStyle = TextStyle(
-      fontSize: placement.fontSize,
-      height: 1.0,
-    );
+    final strokeColor = item.color <= -16777216 ? Colors.white : Colors.black;
+    final baseStyle = TextStyle(fontSize: placement.fontSize, height: 1.0);
     final strokeStyle = baseStyle.copyWith(
       foreground: Paint()
         ..style = PaintingStyle.stroke

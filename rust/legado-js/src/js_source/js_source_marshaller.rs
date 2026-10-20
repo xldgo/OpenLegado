@@ -181,18 +181,17 @@ impl JsSourceMarshaller {
             return Err("getBookInfo 返回值不是对象".to_string());
         }
         // downloadUrls 绝对化 + javascript: 过滤
-        if let Some(obj) = parsed.as_object_mut() {
-            if let Some(urls_val) = obj.get_mut("downloadUrls") {
-                if let Some(arr) = urls_val.as_array_mut() {
-                    let new_urls: Vec<Value> = arr
-                        .iter()
-                        .filter_map(|u| u.as_str().map(|s| s.to_string()))
-                        .filter(|u| !u.trim().starts_with("javascript:"))
-                        .map(|u| Value::String(AnalyzeUrl::get_absolute_url(book_url, &u)))
-                        .collect();
-                    *urls_val = Value::Array(new_urls);
-                }
-            }
+        if let Some(obj) = parsed.as_object_mut()
+            && let Some(urls_val) = obj.get_mut("downloadUrls")
+            && let Some(arr) = urls_val.as_array_mut()
+        {
+            let new_urls: Vec<Value> = arr
+                .iter()
+                .filter_map(|u| u.as_str().map(|s| s.to_string()))
+                .filter(|u| !u.trim().starts_with("javascript:"))
+                .map(|u| Value::String(AnalyzeUrl::get_absolute_url(book_url, &u)))
+                .collect();
+            *urls_val = Value::Array(new_urls);
         }
         Ok(parsed)
     }
@@ -234,16 +233,15 @@ impl JsSourceMarshaller {
                     .get("isVolume")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                if !is_volume {
-                    if let Some(url_str) = ch
+                if !is_volume
+                    && let Some(url_str) = ch
                         .get("url")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string())
-                    {
-                        let absolute = AnalyzeUrl::get_absolute_url(toc_url, &url_str);
-                        if let Some(obj) = ch.as_object_mut() {
-                            obj.insert("url".to_string(), Value::String(absolute));
-                        }
+                {
+                    let absolute = AnalyzeUrl::get_absolute_url(toc_url, &url_str);
+                    if let Some(obj) = ch.as_object_mut() {
+                        obj.insert("url".to_string(), Value::String(absolute));
                     }
                 }
                 ch

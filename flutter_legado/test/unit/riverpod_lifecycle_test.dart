@@ -1,15 +1,16 @@
+import '../fixtures/app_test_api.dart';
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
-import 'package:flutter_legado/src/providers/bottom_bar_skin_notifier.dart';
-import 'package:flutter_legado/src/providers/explore/explore_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/search/search_notifier.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
+import 'package:flutter_legado/src/features/appearance/application/bottom_bar_skin_notifier.dart';
+import 'package:flutter_legado/src/features/explore/application/explore_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 
@@ -30,41 +31,46 @@ void main() {
 
   for (final initializer in initializers.entries) {
     for (final started in [false, true]) {
-      test('${initializer.key}：${started ? '加载中' : '刚初始化'}销毁不会写回失效状态', () async {
-        SharedPreferences.setMockInitialValues({});
-        final gate = Completer<void>();
-        final api = MockRustApi();
-        when(api.getBooks).thenAnswer((_) async {
-          await gate.future;
-          return [];
-        });
-        when(api.getBookGroups).thenAnswer((_) async {
-          await gate.future;
-          return [];
-        });
-        when(api.getBookSources).thenAnswer((_) async {
-          await gate.future;
-          return [];
-        });
-        when(api.getSearchHistory).thenAnswer((_) async {
-          await gate.future;
-          return [];
-        });
-        when(() => api.getConfig('searchScope')).thenAnswer((_) async {
-          await gate.future;
-          return null;
-        });
-        final container = ProviderContainer(
-          overrides: [bookApiProvider.overrideWithValue(api)],
-        );
-        initializer.value(container);
-        if (started) await Future<void>.delayed(Duration.zero);
-        container.dispose();
-        gate.complete();
-        // 未取消的底层请求可以完成，但不能再更新已销毁的状态。
-        await Future<void>.delayed(Duration.zero);
-        await Future<void>.delayed(Duration.zero);
-      });
+      test(
+        '${initializer.key}：${started ? '加载中' : '刚初始化'}销毁不会写回失效状态',
+        () async {
+          SharedPreferences.setMockInitialValues({});
+          final gate = Completer<void>();
+          final api = MockRustApi();
+          when(api.bookshelfRepository.getBooks).thenAnswer((_) async {
+            await gate.future;
+            return [];
+          });
+          when(api.bookGroupRepository.getBookGroups).thenAnswer((_) async {
+            await gate.future;
+            return [];
+          });
+          when(api.bookSourceRepository.getBookSources).thenAnswer((_) async {
+            await gate.future;
+            return [];
+          });
+          when(api.searchHistoryRepository.getSearchHistory)
+              .thenAnswer((_) async {
+                await gate.future;
+                return [];
+              });
+          when(() => api.configRepository.getConfig('searchScope'))
+              .thenAnswer((_) async {
+                await gate.future;
+                return null;
+              });
+          final container = ProviderContainer(
+            overrides: mergeTestOverrides([...api.overrides]),
+          );
+          initializer.value(container);
+          if (started) await Future<void>.delayed(Duration.zero);
+          container.dispose();
+          gate.complete();
+          // 未取消的底层请求可以完成，但不能再更新已销毁的状态。
+          await Future<void>.delayed(Duration.zero);
+          await Future<void>.delayed(Duration.zero);
+        },
+      );
     }
   }
 }

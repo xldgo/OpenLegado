@@ -13,7 +13,7 @@
 // paged 版 delay(distance*1000L) → scrollPage，条漫 scrollBy。
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/screens/reader_comic/manga_auto_read.dart';
+import 'package:flutter_legado/src/models/manga_auto_read.dart';
 
 void main() {
   group('[P4-3 E3] MangaAutoRead 纯逻辑', () {
@@ -45,18 +45,28 @@ void main() {
     test('条漫单周期时长 = ceil(16/速度×10000)ms（参考 L686）', () {
       // 参考版公式：ceil(16f/distance*10_000f)ms —— 速度 1 = 每 10000px 耗时
       // 160s（自动滚动为慢速免手模式，速度 15 才到 10.667s）
-      expect(MangaAutoRead.webtoonCycle(1),
-          const Duration(milliseconds: 160000));
-      expect(MangaAutoRead.webtoonCycle(2),
-          const Duration(milliseconds: 80000));
-      expect(MangaAutoRead.webtoonCycle(3),
-          const Duration(milliseconds: 53334));
+      expect(
+        MangaAutoRead.webtoonCycle(1),
+        const Duration(milliseconds: 160000),
+      );
+      expect(
+        MangaAutoRead.webtoonCycle(2),
+        const Duration(milliseconds: 80000),
+      );
+      expect(
+        MangaAutoRead.webtoonCycle(3),
+        const Duration(milliseconds: 53334),
+      );
       // 速度 0 收敛到 1（coerceAtLeast(1)）
-      expect(MangaAutoRead.webtoonCycle(0),
-          const Duration(milliseconds: 160000));
+      expect(
+        MangaAutoRead.webtoonCycle(0),
+        const Duration(milliseconds: 160000),
+      );
       // 速度 15（最快档）= ceil(16/15×10000) = 10667ms
-      expect(MangaAutoRead.webtoonCycle(15),
-          const Duration(milliseconds: 10667));
+      expect(
+        MangaAutoRead.webtoonCycle(15),
+        const Duration(milliseconds: 10667),
+      );
     });
 
     test('条漫单周期滚动像素 10000（参考 L688 value = 10_000f）', () {

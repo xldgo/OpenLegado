@@ -1,23 +1,25 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../../domain/models/reader_status_strip_settings.dart';
 
-import '../../providers/reader/reader_notifier.dart';
-import '../../screens/reader_config_panel.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../features/reader/application/reader_notifier.dart';
 import 'reader_page_chrome.dart';
 
 /// 隐藏控制栏时顶部的状态提示栏（电量/时间/进度/章节名）
 ///
 /// 对齐安卓原版阅读器顶部状态提示（ReadTipConfig 控制显隐）
 class ReaderStatusStrip extends ConsumerWidget {
-  final ReaderAdvancedConfig config;
+  final ReaderStatusStripSettings settings;
+  final bool hideStatusBar;
 
   /// 正文延伸至状态栏（readBodyToLh）
   final bool readBodyToLh;
 
   const ReaderStatusStrip({
     super.key,
-    required this.config,
+    required this.settings,
+    this.hideStatusBar = false,
     this.readBodyToLh = true,
   });
 
@@ -25,10 +27,10 @@ class ReaderStatusStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(readerNotifierProvider);
 
-    if (!config.showBattery &&
-        !config.showTime &&
-        !config.showProgress &&
-        !config.showChapterName) {
+    if (!settings.showBattery &&
+        !settings.showTime &&
+        !settings.showProgress &&
+        !settings.showChapterName) {
       return const SizedBox.shrink();
     }
 
@@ -46,7 +48,7 @@ class ReaderStatusStrip extends ConsumerWidget {
       child: SafeArea(
         bottom: false,
         minimum: EdgeInsets.only(
-          top: config.hideStatusBar
+          top: hideStatusBar
               ? 0
               : readerOverlayStatusBarInset(
                   context,
@@ -59,16 +61,16 @@ class ReaderStatusStrip extends ConsumerWidget {
             style: TextStyle(fontSize: 11, color: color),
             child: Row(
               children: [
-                if (config.showBattery) ...[
+                if (settings.showBattery) ...[
                   Icon(Icons.battery_std, size: 12, color: color),
                   const SizedBox(width: 4),
                 ],
-                if (config.showTime) ...[
+                if (settings.showTime) ...[
                   Text(time),
                   const SizedBox(width: 10),
                 ],
                 const Spacer(),
-                if (config.showChapterName)
+                if (settings.showChapterName)
                   Flexible(
                     child: Text(
                       state.currentChapter?.title ?? '',
@@ -76,7 +78,7 @@ class ReaderStatusStrip extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                if (config.showProgress) ...[
+                if (settings.showProgress) ...[
                   const SizedBox(width: 10),
                   Text(progress),
                 ],

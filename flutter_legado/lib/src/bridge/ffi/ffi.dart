@@ -3,8 +3,16 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import '../automation_dto.dart';
+import '../business_dto.dart';
+import '../content_dto.dart';
 import '../ffi.dart';
+import '../file_dto.dart';
 import '../frb_generated.dart';
+import '../media_dto.dart';
+import '../source_tools_dto.dart';
+import '../task_dto.dart';
+import '../transfer_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
@@ -78,35 +86,33 @@ Future<String> version() => RustLib.instance.api.crateFfiFfiVersion();
 Future<void> dbOpen({required String path}) =>
     RustLib.instance.api.crateFfiFfiDbOpen(path: path);
 
-/// 获取书架上所有书籍（JSON 数组）
-Future<String> bookshelfList() =>
+/// 获取书架上所有书籍的类型化快照。
+Future<List<BookDto>> bookshelfList() =>
     RustLib.instance.api.crateFfiFfiBookshelfList();
 
-/// 添加书籍到书架（传入 JSON 字符串），返回书籍信息（JSON）
-Future<String> bookshelfAdd({required String bookJson}) =>
-    RustLib.instance.api.crateFfiFfiBookshelfAdd(bookJson: bookJson);
+/// 添加书籍到书架，返回类型化书籍快照。
+Future<BookDto> bookshelfAdd({required BookDto book}) =>
+    RustLib.instance.api.crateFfiFfiBookshelfAdd(book: book);
 
-/// 更新书籍信息（传入 JSON 字符串）
-Future<void> bookshelfUpdate({required String bookJson}) =>
-    RustLib.instance.api.crateFfiFfiBookshelfUpdate(bookJson: bookJson);
+/// 更新类型化书籍快照。
+Future<void> bookshelfUpdate({required BookDto book}) =>
+    RustLib.instance.api.crateFfiFfiBookshelfUpdate(book: book);
 
 /// 按 bookUrl 删除书籍
 Future<void> bookshelfDelete({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiBookshelfDelete(bookUrl: bookUrl);
 
-/// 按 bookUrl 获取书籍详情（JSON，可能为 null）
-Future<String> bookshelfGet({required String bookUrl}) =>
+/// 按 bookUrl 获取书籍详情；不存在时返回 None。
+Future<BookDto?> bookshelfGet({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiBookshelfGet(bookUrl: bookUrl);
 
 /// 批量导入书籍（JSON 数组），返回成功导入的数量
 Future<int> bookshelfImport({required String jsonArray}) =>
     RustLib.instance.api.crateFfiFfiBookshelfImport(jsonArray: jsonArray);
 
-/// 批量持久化书架排序（JSON 数组：[{"bookUrl":"...", "order":1}, ...]）
-Future<void> bookshelfReorderOrders({required String ordersJson}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiBookshelfReorderOrders(ordersJson: ordersJson);
+/// 批量持久化书架排序（类型化列表：[{"bookUrl":"...", "order":1}, ...]）
+Future<void> bookshelfReorderOrders({required List<BookOrderDto> orders}) =>
+    RustLib.instance.api.crateFfiFfiBookshelfReorderOrders(orders: orders);
 
 /// 更新阅读进度
 Future<void> readerUpdateProgress({
@@ -120,19 +126,20 @@ Future<void> readerUpdateProgress({
 );
 
 /// 获取所有书源列表（JSON 数组）
-Future<String> sourceList() => RustLib.instance.api.crateFfiFfiSourceList();
+Future<List<BookSourceDto>> sourceList() =>
+    RustLib.instance.api.crateFfiFfiSourceList();
 
-/// 获取所有启用的书源（JSON 数组）
-Future<String> sourceListEnabled() =>
+/// 获取所有启用书源的类型化快照。
+Future<List<BookSourceDto>> sourceListEnabled() =>
     RustLib.instance.api.crateFfiFfiSourceListEnabled();
 
-/// 添加书源（传入 JSON 字符串），返回书源信息（JSON）
-Future<String> sourceAdd({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiSourceAdd(sourceJson: sourceJson);
+/// 添加类型化书源。，返回书源信息（JSON）
+Future<BookSourceDto> sourceAdd({required BookSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiSourceAdd(source: source);
 
-/// 更新书源（传入 JSON 字符串）
-Future<void> sourceUpdate({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiSourceUpdate(sourceJson: sourceJson);
+/// 更新类型化书源。
+Future<void> sourceUpdate({required BookSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiSourceUpdate(source: source);
 
 /// 按 URL 删除书源
 Future<void> sourceDelete({required String sourceUrl}) =>
@@ -197,13 +204,11 @@ Future<String> analyzeUrlToCurl({required String text}) =>
 /// `source_json` — BookSource JSON（字段名对齐 Android 原版 camelCase）
 /// `config_json` — 可选校验配置 JSON（keyword/step_timeout_ms/check_search/
 /// check_toc/check_content/detect_captcha/detect_redirect），空串用默认配置
-Future<String> sourceCheck({
-  required String sourceJson,
-  required String configJson,
-}) => RustLib.instance.api.crateFfiFfiSourceCheck(
-  sourceJson: sourceJson,
-  configJson: configJson,
-);
+Future<CheckResultDto> sourceCheck({
+  required BookSourceDto source,
+  required SourceCheckConfigDto config,
+}) =>
+    RustLib.instance.api.crateFfiFfiSourceCheck(source: source, config: config);
 
 /// 批量校验书源（串行逐个回推进度，Stream<String>）
 ///
@@ -211,15 +216,17 @@ Future<String> sourceCheck({
 /// `source_name` / `result`（CheckResult）。流在所有书源完成、
 /// 取消或 sink 关闭后自然结束。
 ///
-/// `source_urls_json` — 待校验书源 URL 的 JSON 数组；为空则校验全部书源
-/// `config_json` — 可选校验配置 JSON，空串用默认配置
-/// `sink` — flutter_rust_bridge 流式接收器，Dart 侧表现为 `Stream<String>`
-Stream<String> sourceCheckStream({
-  required String sourceUrlsJson,
-  required String configJson,
+/// `source_urls` — 待校验书源 URL 列表；为空则校验全部书源
+/// `config` — 类型化校验配置，缺省字段沿用默认值
+/// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
+Stream<CheckProgressDto> sourceCheckStream({
+  required List<String> sourceUrls,
+  required SourceCheckConfigDto config,
+  required StreamRequest request,
 }) => RustLib.instance.api.crateFfiFfiSourceCheckStream(
-  sourceUrlsJson: sourceUrlsJson,
-  configJson: configJson,
+  sourceUrls: sourceUrls,
+  config: config,
+  request: request,
 );
 
 /// 取消正在进行的批量书源校验
@@ -233,12 +240,14 @@ Future<void> sourceCheckCancel() =>
 /// 关键字分流：绝对 URL→详情；`::`→发现；`++`→目录；`--`→正文；否则搜索。
 ///
 /// `source_url` — 已入库书源 URL；`key` — 调试关键字
-Stream<String> debugBookSourceStream({
+Stream<DebugLogDto> debugBookSourceStream({
   required String sourceUrl,
   required String key,
+  required StreamRequest request,
 }) => RustLib.instance.api.crateFfiFfiDebugBookSourceStream(
   sourceUrl: sourceUrl,
   key: key,
+  request: request,
 );
 
 /// 取消正在进行的书源调试
@@ -254,9 +263,11 @@ Future<void> debugBookSourceCancel() =>
 /// UI 拿到事件后弹验证码对话框，用户输入经 [`verification_submit`]
 /// 回传；关闭对话框调 [`verification_cancel`]。流在 sink 关闭后结束。
 ///
-/// `sink` — flutter_rust_bridge 流式接收器，Dart 侧表现为 `Stream<String>`
-Stream<String> verificationRequestStream() =>
-    RustLib.instance.api.crateFfiFfiVerificationRequestStream();
+/// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
+Stream<VerificationRequestDto> verificationRequestStream({
+  required StreamRequest request,
+}) =>
+    RustLib.instance.api.crateFfiFfiVerificationRequestStream(request: request);
 
 /// 提交验证码结果，唤醒 JS 等待方（对齐 Kotlin `setResult`）
 ///
@@ -272,7 +283,7 @@ Future<bool> verificationCancel({required String key}) =>
     RustLib.instance.api.crateFfiFfiVerificationCancel(key: key);
 
 /// 当前进行中的验证码请求列表（JSON 数组，供拉取式消费/调试）
-Future<String> verificationPending() =>
+Future<List<VerificationRequestDto>> verificationPending() =>
     RustLib.instance.api.crateFfiFfiVerificationPending();
 
 /// 订阅 WebView DOM 执行请求事件流（长期存活，Stream\<String\>）
@@ -286,8 +297,33 @@ Future<String> verificationPending() =>
 /// default` 空串），旧端忽略未知字段不破坏反序列化。
 /// UI 执行后经 [`webview_submit`] / [`webview_submit_result_with_cookies`]
 /// 回传；超时/取消调 [`webview_cancel`]。
-Stream<String> webviewRequestStream() =>
-    RustLib.instance.api.crateFfiFfiWebviewRequestStream();
+Stream<WebViewRequestDto> webviewRequestStream({
+  required StreamRequest request,
+}) => RustLib.instance.api.crateFfiFfiWebviewRequestStream(request: request);
+
+/// 类型化平台结果；有效请求认领后合并Cookie并发布最终URL/正文或错误。
+Future<bool> webviewComplete({
+  required String key,
+  required WebViewResponseDto response,
+}) => RustLib.instance.api.crateFfiFfiWebviewComplete(
+  key: key,
+  response: response,
+);
+
+/// 加载阶段同步Cookie，失效key无副作用，不结束请求，错误明确传播。
+Future<bool> webviewSyncCookies({
+  required String key,
+  required Map<String, String> cookies,
+}) => RustLib.instance.api.crateFfiFfiWebviewSyncCookies(
+  key: key,
+  cookies: cookies,
+);
+
+/// 页内调用按有效请求确定来源和数据所有者，返回单个JSON值。
+Future<String> webviewPageCall({
+  required String key,
+  required WebViewPageCallDto call,
+}) => RustLib.instance.api.crateFfiFfiWebviewPageCall(key: key, call: call);
 
 /// 提交 WebView 执行结果，唤醒 Rust 等待方
 Future<bool> webviewSubmit({required String key, required String result}) =>
@@ -303,47 +339,47 @@ Future<bool> webviewSubmit({required String key, required String result}) =>
 Future<bool> webviewSubmitResultWithCookies({
   required String key,
   required String result,
-  required String cookiesJson,
+  required Map<String, String> cookies,
 }) => RustLib.instance.api.crateFfiFfiWebviewSubmitResultWithCookies(
   key: key,
   result: result,
-  cookiesJson: cookiesJson,
+  cookies: cookies,
 );
 
-/// 取消 WebView 请求（以空结果唤醒）
+/// 取消WebView请求并通知平台停止执行；等待方收到取消错误。
 Future<bool> webviewCancel({required String key}) =>
     RustLib.instance.api.crateFfiFfiWebviewCancel(key: key);
 
 /// 当前进行中的 WebView 请求列表（JSON 数组）
-Future<String> webviewPending() =>
+Future<List<WebViewRequestDto>> webviewPending() =>
     RustLib.instance.api.crateFfiFfiWebviewPending();
 
 /// 判定书源登录 UI 是否为 V2 动态状态协议
 ///
-/// `source_json` — BookSource JSON
-Future<bool> sourceIsLoginUiV2({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiSourceIsLoginUiV2(sourceJson: sourceJson);
+/// `source` — 完整书源实体快照
+Future<bool> sourceIsLoginUiV2({required BookSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiSourceIsLoginUiV2(source: source);
 
 /// 执行 loginUi v2 脚本，返回动态 UI 描述 JSON（`{"rows":[...]}`）
 ///
-/// `source_json` — BookSource JSON；`state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
+/// `source` — 完整书源快照；`state_json` — 当前状态 JSON（首次渲染传 `"{}"`）
 Future<String> sourceLoginUiV2({
-  required String sourceJson,
+  required BookSourceDto source,
   required String stateJson,
 }) => RustLib.instance.api.crateFfiFfiSourceLoginUiV2(
-  sourceJson: sourceJson,
+  source: source,
   stateJson: stateJson,
 );
 
 /// 执行 loginAction v2 动作，返回命令 JSON（state/error/login/close）
 ///
-/// `source_json` — BookSource JSON
+/// `source` — 完整书源实体快照
 /// `user_input_json` — `{"action":"...","stateJson":"...","formJson":{...}}`
 Future<String> sourceLoginActionV2({
-  required String sourceJson,
+  required BookSourceDto source,
   required String userInputJson,
 }) => RustLib.instance.api.crateFfiFfiSourceLoginActionV2(
-  sourceJson: sourceJson,
+  source: source,
   userInputJson: userInputJson,
 );
 
@@ -396,79 +432,81 @@ Future<String> sourceGetLoginInfo({required String sourceUrl}) =>
 Future<String> sourceGetLoginHeader({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiSourceGetLoginHeader(sourceUrl: sourceUrl);
 
-/// 搜索书籍（返回 JSON 数组）
+/// 搜索书籍，返回类型化 SearchBook 快照。
 ///
 /// `keyword` — 搜索关键词
-/// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
+/// `source_urls` — 指定搜索的书源 URL 列表；为空则搜索所有启用的书源
 ///
 /// 序列化契约：返回原版 `SearchBook` camelCase 结构（name/originName/bookUrl/…），
 /// 与 Dart 侧 `SearchBook.fromJson` 字段一一对应。
 /// 另附加阅读记录标识字段 `hasReadRecord` / `readRecordAuthor`（#424，
 /// 加法式扩展，Dart 侧 jsonDecode 兼容）。
-Future<String> searchBooks({
+Future<List<SearchBookDto>> searchBooks({
   required String keyword,
-  required String sourceUrlsJson,
+  required List<String> sourceUrls,
 }) => RustLib.instance.api.crateFfiFfiSearchBooks(
   keyword: keyword,
-  sourceUrlsJson: sourceUrlsJson,
+  sourceUrls: sourceUrls,
 );
 
 /// 精确搜索（对齐原版 `WebBook.preciseSearchAwait`）
 ///
-/// 返回首个 name+author 完全匹配的 SearchBook JSON；未命中抛 BridgeError。
-/// `source_urls_json` 语义同 `searchBooks`（空=全部启用源）。
-Future<String> preciseSearch({
+/// 返回首个 name+author 完全匹配的 SearchBookDto；未命中抛 BridgeError。
+/// 源列表语义同 searchBooks（空=全部启用源）。
+Future<SearchBookDto> preciseSearch({
   required String name,
   required String author,
-  required String sourceUrlsJson,
+  required List<String> sourceUrls,
 }) => RustLib.instance.api.crateFfiFfiPreciseSearch(
   name: name,
   author: author,
-  sourceUrlsJson: sourceUrlsJson,
+  sourceUrls: sourceUrls,
 );
 
-/// 多源并行搜索（返回 JSON 数组）
+/// 多源并行搜索，返回保留既有字段的候选快照。
 ///
 /// `query` — 搜索关键词
-/// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
-Future<String> searchMulti({
+/// `source_urls` — 指定搜索的书源 URL 列表；为空则搜索所有启用的书源
+Future<List<AnnotatedCandidateDto>> searchMulti({
   required String query,
-  required String sourceUrlsJson,
+  required List<String> sourceUrls,
 }) => RustLib.instance.api.crateFfiFfiSearchMulti(
   query: query,
-  sourceUrlsJson: sourceUrlsJson,
+  sourceUrls: sourceUrls,
 );
 
 /// 取消正在进行的搜索
 Future<void> searchCancel() => RustLib.instance.api.crateFfiFfiSearchCancel();
 
-/// 搜索书籍封面候选列表（返回 JSON 数组）
+/// 搜索书籍封面候选列表（返回字符串列表）
 ///
 /// 复用多书源搜索能力：以书名为关键词搜索所有启用的书源，
 /// 从搜索结果中提取封面 URL 作为候选（去重、过滤空值）。
 /// 每项字段：`url` / `width` / `height`（未知尺寸填 0）。
 ///
 /// `book_name` — 书籍名称（搜索关键词）
-Future<String> searchCover({required String bookName}) =>
+Future<List<CoverCandidateDto>> searchCover({required String bookName}) =>
     RustLib.instance.api.crateFfiFfiSearchCover(bookName: bookName);
 
 /// 多源渐进式（流式）搜索
 ///
 /// 与 [`search_multi`] 不同：每完成一个书源即通过 `StreamSink` 推送一个结果批次
-/// （JSON 字符串），UI 侧可逐源渲染，无需等待最慢书源。流在所有书源完成后自然结束。
+/// （类型化批次），UI 可逐源渲染；流在所有书源完成后自然结束。
 ///
 /// `query` — 搜索关键词
-/// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
+/// `source_urls` — 指定搜索的书源 URL 列表；为空则搜索所有启用的书源
 /// `page` — 页码（批次B G-B-01 透传；Dart 侧同关键词翻页递增、新关键词重置为 1）
-/// `sink` — flutter_rust_bridge 流式接收器，Dart 侧表现为 `Stream<String>`
-Stream<String> searchMultiStream({
+/// `sink` — flutter_rust_bridge 流式接收器，Dart 侧接收强类型事件流
+Stream<SearchSourceBatchDto> searchMultiStream({
   required String query,
-  required String sourceUrlsJson,
+  required List<String> sourceUrls,
   required int page,
+  required StreamRequest request,
 }) => RustLib.instance.api.crateFfiFfiSearchMultiStream(
   query: query,
-  sourceUrlsJson: sourceUrlsJson,
+  sourceUrls: sourceUrls,
   page: page,
+  request: request,
 );
 
 /// 暂停正在进行的流式搜索（软挂起，批次B G-B-04）
@@ -479,8 +517,8 @@ Future<void> searchPause() => RustLib.instance.api.crateFfiFfiSearchPause();
 /// 恢复已暂停的流式搜索（批次B G-B-04）
 Future<void> searchResume() => RustLib.instance.api.crateFfiFfiSearchResume();
 
-/// 获取书籍的章节列表（JSON）
-Future<String> readerGetChapters({required String bookUrl}) =>
+/// 获取类型化章节列表。
+Future<ChapterListDto> readerGetChapters({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiReaderGetChapters(bookUrl: bookUrl);
 
 /// 获取章节正文内容
@@ -509,8 +547,8 @@ Future<String> readerGetContentRaw({
 /// 一次调用获取章节正文（合并 reader_get_content + reader_fetch_content）
 ///
 /// 本地书籍直接解析返回；在线书籍自动从网络抓取并返回净化后的正文。
-/// 始终返回纯正文字符串，不返回 JSON 元数据。
-Future<String> readerGetContentFull({
+/// 结果明确区分正文与平台动作，不传递 JSON 元数据字符串。
+Future<TextResponseDto> readerGetContentFull({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiReaderGetContentFull(
@@ -518,11 +556,11 @@ Future<String> readerGetContentFull({
   chapterIndex: chapterIndex,
 );
 
-/// 从网络刷新书籍目录（返回 JSON 章节列表）
+/// 从网络刷新书籍目录，返回类型化章节列表。
 ///
 /// `book_url` — 书籍详情页 URL
 /// `source_url` — 书源 URL
-Future<String> readerRefreshToc({
+Future<ChapterListDto> readerRefreshToc({
   required String bookUrl,
   required String sourceUrl,
 }) => RustLib.instance.api.crateFfiFfiReaderRefreshToc(
@@ -535,7 +573,7 @@ Future<String> readerRefreshToc({
 /// `book_url` — 书籍 URL
 /// `chapter_url` — 章节 URL
 /// `source_url` — 书源 URL
-Future<String> readerFetchContent({
+Future<TextResponseDto> readerFetchContent({
   required String bookUrl,
   required String chapterUrl,
   required String sourceUrl,
@@ -593,109 +631,48 @@ Future<bool> readerCanRemoveSameTitle({
   rawContent: rawContent,
 );
 
-/// 检测书籍文件格式（JSON）
-Future<String> importDetectFormat({required String filePath}) =>
+/// 检测书籍文件格式。
+Future<DetectFormatDto> importDetectFormat({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportDetectFormat(filePath: filePath);
 
-/// 解析书籍元数据（返回 JSON 字符串）
-Future<String> importParseMetadata({required String filePath}) =>
+/// 解析书籍稳定元数据。
+Future<BookMetadataDto> importParseMetadata({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportParseMetadata(filePath: filePath);
 
-/// 导入本地书籍到书架（JSON）
-Future<String> importLocalBook({required String filePath}) =>
+/// 导入本地书籍到书架。
+Future<LocalImportDto> importLocalBook({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiImportLocalBook(filePath: filePath);
 
-/// 搜索本地 TXT 文件内容（纯文本模式）
-///
-/// 对齐 C ABI `ffi_txt_search`。返回 JSON 序列化的 `Vec<TxtSearchResult>`，
-/// 每项含 `chapter_index` / `chapter_title` / `char_offset` / `matched_text` /
-/// `context` / `context_match_start` / `context_match_end`。
-Future<String> txtSearch({
-  required String path,
-  required String query,
-  required bool caseSensitive,
-  required int maxResults,
-}) => RustLib.instance.api.crateFfiFfiTxtSearch(
-  path: path,
-  query: query,
-  caseSensitive: caseSensitive,
-  maxResults: maxResults,
-);
-
-/// 使用正则搜索本地 TXT 文件内容
-///
-/// 对齐 C ABI `ffi_txt_search_regex`。返回格式同 `txt_search`。
-Future<String> txtSearchRegex({
-  required String path,
-  required String pattern,
-  required bool caseSensitive,
-  required int maxResults,
-}) => RustLib.instance.api.crateFfiFfiTxtSearchRegex(
-  path: path,
-  pattern: pattern,
-  caseSensitive: caseSensitive,
-  maxResults: maxResults,
-);
-
-/// 在本地 TXT 文件指定章节内搜索
-///
-/// 对齐 C ABI `ffi_txt_search_in_chapter`。返回格式同 `txt_search`。
-Future<String> txtSearchInChapter({
-  required String path,
-  required String query,
-  required int chapterIndex,
-  required bool caseSensitive,
-  required int maxResults,
-}) => RustLib.instance.api.crateFfiFfiTxtSearchInChapter(
-  path: path,
-  query: query,
-  chapterIndex: chapterIndex,
-  caseSensitive: caseSensitive,
-  maxResults: maxResults,
-);
-
-/// 统计本地 TXT 文件内关键词匹配总数（不返回完整结果，供 UI 显示计数）
-///
-/// 对齐 C ABI `ffi_txt_search_count`。
-Future<int> txtSearchCount({
-  required String path,
-  required String query,
-  required bool caseSensitive,
-}) => RustLib.instance.api.crateFfiFfiTxtSearchCount(
-  path: path,
-  query: query,
-  caseSensitive: caseSensitive,
-);
-
-/// 获取所有 RSS 源列表（JSON 数组）
-Future<String> rssListSources() =>
+/// 获取所有 RSS 源列表（类型化列表）
+Future<List<RssSourceDto>> rssListSources() =>
     RustLib.instance.api.crateFfiFfiRssListSources();
 
-/// 添加 RSS 源（传入 JSON 字符串），返回源信息（JSON）
-Future<String> rssAddSource({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiRssAddSource(sourceJson: sourceJson);
+/// 添加 RSS 源（传入 类型化结构），返回源信息（类型化）
+Future<RssSourceDto> rssAddSource({required RssSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiRssAddSource(source: source);
 
-/// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（JSON）
+/// 原子更新 RSS 源（按 sourceUrl 主键单条 UPDATE，不删后重插），返回源信息（类型化）
 ///
 /// 缺口④ rssUpdateSource 原子更新（Task #108，加法式）：
-/// 对齐 C ABI `ffi_rss_update_source`。
-Future<String> rssUpdateSource({required String sourceJson}) =>
-    RustLib.instance.api.crateFfiFfiRssUpdateSource(sourceJson: sourceJson);
+///
+Future<RssSourceDto> rssUpdateSource({required RssSourceDto source}) =>
+    RustLib.instance.api.crateFfiFfiRssUpdateSource(source: source);
 
 /// 删除 RSS 源
 Future<void> rssDeleteSource({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiRssDeleteSource(sourceUrl: sourceUrl);
 
-/// 获取 RSS 源的文章列表（JSON 数组）
-Future<String> rssFetchArticles({required String sourceUrl}) =>
+/// 获取 RSS 源的文章列表（类型化列表）
+Future<List<RssArticleDto>> rssFetchArticles({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiRssFetchArticles(sourceUrl: sourceUrl);
 
 /// 清空指定 RSS 源的本地文章缓存（对齐 clearArticles）
 Future<void> rssClearArticles({required String sourceUrl}) =>
     RustLib.instance.api.crateFfiFfiRssClearArticles(sourceUrl: sourceUrl);
 
-/// 获取所有 RSS 收藏（JSON 数组）
-Future<String> rssStarList() => RustLib.instance.api.crateFfiFfiRssStarList();
+/// 获取所有 RSS 收藏（类型化列表）
+Future<List<RssStarSnapshotDto>> rssStarList() =>
+    RustLib.instance.api.crateFfiFfiRssStarList();
 
 /// 添加 RSS 收藏，返回收藏时间戳
 Future<PlatformInt64> rssStarAdd({
@@ -748,12 +725,12 @@ Future<void> rssClearReadRecords() =>
 Future<PlatformInt64> rssReadRecordCount() =>
     RustLib.instance.api.crateFfiFfiRssReadRecordCount();
 
-/// 获取 RSS 已读记录列表（JSON 数组，按 readTime 降序）
-Future<String> rssListReadRecords({int? limit}) =>
+/// 获取 RSS 已读记录列表（类型化列表，按 readTime 降序）
+Future<List<RssReadRecordDto>> rssListReadRecords({int? limit}) =>
     RustLib.instance.api.crateFfiFfiRssListReadRecords(limit: limit);
 
-/// 按 RSS 源 origin 获取已读记录（JSON 数组，对齐原版 getRecordsByOrigin）
-Future<String> rssListReadRecordsByOrigin({
+/// 按 RSS 源 origin 获取已读记录（类型化列表，对齐原版 getRecordsByOrigin）
+Future<List<RssReadRecordDto>> rssListReadRecordsByOrigin({
   required String origin,
   int? limit,
 }) => RustLib.instance.api.crateFfiFfiRssListReadRecordsByOrigin(
@@ -761,8 +738,8 @@ Future<String> rssListReadRecordsByOrigin({
   limit: limit,
 );
 
-/// 获取最近搜索历史（JSON 数组）
-Future<String> searchHistoryList({required int limit}) =>
+/// 获取最近搜索历史（类型化列表）
+Future<List<SearchHistoryDto>> searchHistoryList({required int limit}) =>
     RustLib.instance.api.crateFfiFfiSearchHistoryList(limit: limit);
 
 /// 添加搜索关键词，返回时间戳
@@ -782,8 +759,8 @@ Future<bool> searchHistoryDelete({required String keyword}) =>
 Future<bool> searchHistoryClear() =>
     RustLib.instance.api.crateFfiFfiSearchHistoryClear();
 
-/// 按前缀搜索历史关键词（JSON 数组）
-Future<String> searchHistoryByPrefix({
+/// 按前缀搜索历史关键词（类型化列表）
+Future<List<String>> searchHistoryByPrefix({
   required String prefix,
   required int limit,
 }) => RustLib.instance.api.crateFfiFfiSearchHistoryByPrefix(
@@ -791,15 +768,16 @@ Future<String> searchHistoryByPrefix({
   limit: limit,
 );
 
-/// 词典查询（本地内置词典，JSON 对象）
+/// 词典查询（本地内置词典，类型化结构）
 ///
 /// 返回结构化释义 DictEntry：`word`（归一化单词）/ `phonetic`（音标）/
 /// `definitions`（释义列表）。未收录词返回空 `definitions`（非异常）。
-Future<String> dictLookup({required String word}) =>
+Future<DictEntryDto> dictLookup({required String word}) =>
     RustLib.instance.api.crateFfiFfiDictLookup(word: word);
 
 /// 列出全部字典规则（空表先注入默认 5 源，DictRule 数组 JSON，按 sortNumber,id 升序）
-Future<String> dictRuleList() => RustLib.instance.api.crateFfiFfiDictRuleList();
+Future<List<DictionaryRuleDto>> dictRuleList() =>
+    RustLib.instance.api.crateFfiFfiDictRuleList();
 
 /// 新增字典规则（enabled=1, sortNumber=0），返回规则 ID
 Future<PlatformInt64> dictRuleAdd({
@@ -839,8 +817,8 @@ Future<bool> dictRuleSetEnabled({
 );
 
 /// 按给定 ID 顺序重编号 sortNumber（0..n），返回重排条数
-Future<int> dictRuleReorder({required String idsJson}) =>
-    RustLib.instance.api.crateFfiFfiDictRuleReorder(idsJson: idsJson);
+Future<int> dictRuleReorder({required Int64List ids}) =>
+    RustLib.instance.api.crateFfiFfiDictRuleReorder(ids: ids);
 
 /// 导入字典规则（GSON 数组/单对象，REPLACE by name），返回导入条数
 Future<int> dictRuleImport({required String jsonOrUrl, required String kind}) =>
@@ -849,48 +827,50 @@ Future<int> dictRuleImport({required String jsonOrUrl, required String kind}) =>
       kind: kind,
     );
 
-/// 搜索可替换的书源（返回 JSON 格式的匹配结果列表）
+/// 搜索可替换的书源，返回类型化匹配结果。
 ///
 /// `book_name` — 当前书籍名称
 /// `author` — 当前作者
-/// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；
+/// `source_urls` — 指定搜索的书源 URL 列表；
 /// 空串/空数组=搜全部启用源（留项#12/Task #131，加法式新增）
-Future<String> sourceSwitchSearch({
+Future<SourceSwitchResponseDto> sourceSwitchSearch({
   required String bookName,
   required String author,
-  required String sourceUrlsJson,
-  required String optionsJson,
+  required List<String> sourceUrls,
+  required SwitchSearchOptionsDto options,
 }) => RustLib.instance.api.crateFfiFfiSourceSwitchSearch(
   bookName: bookName,
   author: author,
-  sourceUrlsJson: sourceUrlsJson,
-  optionsJson: optionsJson,
+  sourceUrls: sourceUrls,
+  options: options,
 );
 
 /// 换源搜索流式（T6 / 契约 §2.4 `searchSourceStream`）
 ///
-/// 每完成一个书源推送一批次事件（JSON 字符串）：`matches` = 当前已过滤评分候选
+/// 每完成一个书源推送类型化事件：matches 为当前已过滤评分候选
 /// **全量快照**，进度由 finished_count/total_count 承载；DB 复用路径推单批即结束；
 /// enrich 开启时搜索阶段结束后再推一批 enriched+重排快照（不阻塞首批到达）。
 /// 旧 [`source_switch_search`] 保留兼容（共享执行链）。
-Stream<String> sourceSwitchSearchStream({
+Stream<ChangeSourceBatchDto> sourceSwitchSearchStream({
   required String bookName,
   required String author,
-  required String sourceUrlsJson,
-  required String optionsJson,
+  required List<String> sourceUrls,
+  required SwitchSearchOptionsDto options,
+  required StreamRequest request,
 }) => RustLib.instance.api.crateFfiFfiSourceSwitchSearchStream(
   bookName: bookName,
   author: author,
-  sourceUrlsJson: sourceUrlsJson,
-  optionsJson: optionsJson,
+  sourceUrls: sourceUrls,
+  options: options,
+  request: request,
 );
 
-/// 切换到新书源（返回更新后的书籍 JSON）
+/// 切换到新书源，返回类型化书籍快照。
 ///
 /// `book_url` — 当前书籍的 bookUrl
 /// `new_source_url` — 新书源的 URL
 /// `new_book_url` — 新书源中该书籍的详情页 URL
-Future<String> sourceSwitchApply({
+Future<BookDto> sourceSwitchApply({
   required String bookUrl,
   required String newSourceUrl,
   required String newBookUrl,
@@ -906,7 +886,7 @@ Future<String> sourceSwitchApply({
 /// （执行链同 [`source_switch_apply`]，可取消——事务提交前调用
 /// [`source_switch_apply_cancel`] 即阻断，DB 零变更）。
 /// 返回更新后的书籍 JSON（与 [`source_switch_apply`] 相同）。
-Future<String> sourceSwitchApplyPrefetch({
+Future<BookDto> sourceSwitchApplyPrefetch({
   required String bookUrl,
   required String newSourceUrl,
   required String newBookUrl,
@@ -937,30 +917,29 @@ Future<void> updateSearchBookScore({
 Future<void> deleteSearchBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiDeleteSearchBook(bookUrl: bookUrl);
 
-/// HTTP GET 请求，返回 JSON 格式的响应
-Future<String> httpGet({required String url}) =>
+/// HTTP GET 请求，返回类型化文本响应
+Future<HttpTextResponseDto> httpGet({required String url}) =>
     RustLib.instance.api.crateFfiFfiHttpGet(url: url);
 
-/// HTTP POST 请求，返回 JSON 格式的响应
-Future<String> httpPost({required String url, required String body}) =>
-    RustLib.instance.api.crateFfiFfiHttpPost(url: url, body: body);
-
-/// HTTP GET 二进制响应（返回 JSON：status/bodyBase64/url）
-Future<String> httpGetBytes({
+/// HTTP POST 请求，返回类型化文本响应
+Future<HttpTextResponseDto> httpPost({
   required String url,
-  required String headersJson,
-}) => RustLib.instance.api.crateFfiFfiHttpGetBytes(
-  url: url,
-  headersJson: headersJson,
-);
+  required String body,
+}) => RustLib.instance.api.crateFfiFfiHttpPost(url: url, body: body);
 
-/// 图片下载 + imageDecode 解码（返回 JSON：{ base64, len }）
+/// HTTP GET 二进制响应（SSE 字节直传）
+Future<HttpBytesResponseDto> httpGetBytes({
+  required String url,
+  Map<String, String>? headers,
+}) => RustLib.instance.api.crateFfiFfiHttpGetBytes(url: url, headers: headers);
+
+/// 图片下载 + imageDecode 解码（返回原始字节）
 ///
 /// 对齐原版 ImageUtils.decodeImageStream：漫画/图片站图片 bytes 经
 /// 书源 imageDecode JS（配合 jsLib）解密后才可显示；无 imageDecode
-/// 规则时返回原始图片 base64。`source_json` 为书源 JSON（单对象）。
+/// 规则时返回原始图片字节。`source_json` 为书源 JSON（单对象）。
 /// 防盗链 header 取书源 header + 兜底 Referer。— Reasonix
-Future<String> fetchImageWithDecode({
+Future<Uint8List> fetchImageWithDecode({
   required String url,
   required String sourceJson,
 }) => RustLib.instance.api.crateFfiFfiFetchImageWithDecode(
@@ -968,50 +947,50 @@ Future<String> fetchImageWithDecode({
   sourceJson: sourceJson,
 );
 
-/// 搜索书籍（书源规则驱动，返回 JSON 数组）
+/// 搜索书籍（书源规则驱动，返回类型化数组）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `query` — 搜索关键词
 /// `page` — 页码（从 1 开始）
-Future<String> webbookSearch({
-  required String sourceJson,
+Future<List<WebSearchResultDto>> webbookSearch({
+  required BookSourceDto source,
   required String query,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiWebbookSearch(
-  sourceJson: sourceJson,
+  source: source,
   query: query,
   page: page,
 );
 
-/// 获取书籍详情（返回 WebBookInfo JSON）
+/// 获取书籍详情（返回类型化抓取结果）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `book_url` — 书籍详情页 URL
-Future<String> webbookInfo({
-  required String sourceJson,
+Future<WebBookInfoDto> webbookInfo({
+  required BookSourceDto source,
   required String bookUrl,
 }) => RustLib.instance.api.crateFfiFfiWebbookInfo(
-  sourceJson: sourceJson,
+  source: source,
   bookUrl: bookUrl,
 );
 
-/// 获取章节列表（返回 JSON 数组）
+/// 获取章节列表（返回类型化数组）
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `book_url` — 书籍详情页 URL
-Future<String> webbookChapters({
-  required String sourceJson,
+Future<List<WebChapterDto>> webbookChapters({
+  required BookSourceDto source,
   required String bookUrl,
   required String tocUrl,
   required String bookName,
 }) => RustLib.instance.api.crateFfiFfiWebbookChapters(
-  sourceJson: sourceJson,
+  source: source,
   bookUrl: bookUrl,
   tocUrl: tocUrl,
   bookName: bookName,
@@ -1021,38 +1000,38 @@ Future<String> webbookChapters({
 ///
 /// 阻塞线程池执行（非阻塞 FFI，不阻塞 Dart 主 isolate）。
 ///
-/// `source_json` — BookSource JSON 字符串
-/// `chapter_json` — WebChapter JSON 字符串
-Future<String> webbookContent({
-  required String sourceJson,
-  required String chapterJson,
+/// `source` — 已解析的 BookSourceDto
+/// `chapter` — 类型化章节字段
+Future<TextResponseDto> webbookContent({
+  required BookSourceDto source,
+  required WebChapterDto chapter,
 }) => RustLib.instance.api.crateFfiFfiWebbookContent(
-  sourceJson: sourceJson,
-  chapterJson: chapterJson,
+  source: source,
+  chapter: chapter,
 );
 
-/// 解析 exploreUrl 为分类列表（返回 JSON 数组）
+/// 解析 exploreUrl 为类型化分类列表
 ///
 /// `explore_url` — 书源的 exploreUrl 字段
-Future<String> exploreParseUrl({
+Future<List<ExploreCategoryDto>> exploreParseUrl({
   required String exploreUrl,
-  required String sourceJson,
+  BookSourceDto? source,
 }) => RustLib.instance.api.crateFfiFfiExploreParseUrl(
   exploreUrl: exploreUrl,
-  sourceJson: sourceJson,
+  source: source,
 );
 
-/// 抓取发现分类的书籍列表（返回 WebSearchResult JSON 数组）
+/// 抓取发现分类的书籍列表（返回类型化数组）
 ///
-/// `source_json` — BookSource JSON 字符串
+/// `source` — 已解析的 BookSourceDto
 /// `url` — 分类 URL
 /// `page` — 页码（从 1 开始）
-Future<String> exploreFetchBooks({
-  required String sourceJson,
+Future<List<WebSearchResultDto>> exploreFetchBooks({
+  required BookSourceDto source,
   required String url,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiExploreFetchBooks(
-  sourceJson: sourceJson,
+  source: source,
   url: url,
   page: page,
 );
@@ -1079,33 +1058,34 @@ Future<void> exploreInfoMapEnsureDefault({
   defaultValue: defaultValue,
 );
 
-/// 读取发现 infoMap 快照（JSON 对象字符串；供 UI 回显 toggle/select/text
+/// 读取发现 infoMap 快照（类型化映射；供 UI 回显 toggle/select/text
 /// 已存值，对齐原版 InfoMap 持久化语义）— 发现页修复 B①
-Future<String> exploreInfoMapSnapshot({required String sourceUrl}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiExploreInfoMapSnapshot(sourceUrl: sourceUrl);
+Future<Map<String, String>> exploreInfoMapSnapshot({
+  required String sourceUrl,
+}) => RustLib.instance.api.crateFfiFfiExploreInfoMapSnapshot(
+  sourceUrl: sourceUrl,
+);
 
 /// 执行发现页控件 action JS（返回 ExploreEvalActionResult JSON）
-Future<String> exploreEvalAction({
-  required String sourceJson,
+Future<ExploreActionDto> exploreEvalAction({
+  required BookSourceDto source,
   required String actionJs,
 }) => RustLib.instance.api.crateFfiFfiExploreEvalAction(
-  sourceJson: sourceJson,
+  source: source,
   actionJs: actionJs,
 );
 
 /// 执行发现页 viewName 动态标题 JS
 Future<String> exploreEvalUiJs({
-  required String sourceJson,
+  required BookSourceDto source,
   required String jsStr,
 }) => RustLib.instance.api.crateFfiFfiExploreEvalUiJs(
-  sourceJson: sourceJson,
+  source: source,
   jsStr: jsStr,
 );
 
-/// 使用规则解析内容，返回 JSON 格式的结果
-Future<String> parseRule({
+/// 使用规则解析内容，直接返回结果列表与计数。
+Future<RuleParseResultDto> parseRule({
   required String content,
   required String rule,
   required String ruleType,
@@ -1119,16 +1099,16 @@ Future<String> parseRule({
 Future<String> jsEval({required String script}) =>
     RustLib.instance.api.crateFfiFfiJsEval(script: script);
 
-/// 获取书籍的所有书签（JSON 数组）
-Future<String> bookmarkGetAll({required String bookName}) =>
+/// 获取书籍的所有书签（强类型列表）
+Future<List<BookmarkDto>> bookmarkGetAll({required String bookName}) =>
     RustLib.instance.api.crateFfiFfiBookmarkGetAll(bookName: bookName);
 
-/// 按书名+作者获取某本书的所有书签（裸 JSON 数组，契约 §2.7
+/// 按书名+作者获取某本书的所有书签（强类型列表，契约 §2.7
 /// getBookmarksByBook，台账 §5.14-2，Task #63 加法式新增）
 ///
 /// 对齐原版 `bookmarkDao.getByBook(name, author)`，规避同名书混入；
-/// 既有 bookmark_get_all（仅按书名）签名保持不变。
-Future<String> getBookmarksByBook({
+/// 仅按书名的 bookmark_get_all 也返回相同的 DTO 列表。
+Future<List<BookmarkDto>> getBookmarksByBook({
   required String bookName,
   required String bookAuthor,
 }) => RustLib.instance.api.crateFfiFfiGetBookmarksByBook(
@@ -1155,19 +1135,24 @@ Future<PlatformInt64> bookmarkAdd({
   content: content,
 );
 
+/// 按 id 原子更新书签，保留原记录的 id 和创建时间。— Codex + Bridge
+Future<void> bookmarkUpdate({required BookmarkDto bookmark}) =>
+    RustLib.instance.api.crateFfiFfiBookmarkUpdate(bookmark: bookmark);
+
 /// 删除书签
 Future<void> bookmarkDelete({required PlatformInt64 bookmarkId}) =>
     RustLib.instance.api.crateFfiFfiBookmarkDelete(bookmarkId: bookmarkId);
 
-/// 搜索书签（JSON 数组）
-Future<String> bookmarkSearch({required String keyword}) =>
+/// 搜索书签（强类型列表）
+Future<List<BookmarkDto>> bookmarkSearch({required String keyword}) =>
     RustLib.instance.api.crateFfiFfiBookmarkSearch(keyword: keyword);
 
-/// 获取所有书签（JSON 数组）
-Future<String> bookmarkList() => RustLib.instance.api.crateFfiFfiBookmarkList();
+/// 获取所有书签（强类型列表）
+Future<List<BookmarkDto>> bookmarkList() =>
+    RustLib.instance.api.crateFfiFfiBookmarkList();
 
-/// 获取所有替换规则（JSON 数组）
-Future<String> replaceRuleList() =>
+/// 获取所有替换规则（类型化列表）
+Future<List<ReplaceRuleDto>> replaceRuleList() =>
     RustLib.instance.api.crateFfiFfiReplaceRuleList();
 
 /// 添加替换规则，返回规则 id
@@ -1243,8 +1228,8 @@ Future<void> replaceRuleUpdate({
 Future<void> replaceRuleDelete({required PlatformInt64 ruleId}) =>
     RustLib.instance.api.crateFfiFfiReplaceRuleDelete(ruleId: ruleId);
 
-/// 获取启用的替换规则（JSON 数组，用于阅读时应用）
-Future<String> replaceRuleEnabled() =>
+/// 获取启用的替换规则（类型化列表，用于阅读时应用）
+Future<List<ReplaceRuleDto>> replaceRuleEnabled() =>
     RustLib.instance.api.crateFfiFfiReplaceRuleEnabled();
 
 /// 启用/禁用替换规则
@@ -1287,8 +1272,8 @@ Future<String> replaceRulePreview({
   sample: sample,
 );
 
-/// 获取所有阅读记录（JSON 数组）
-Future<String> readRecordList() =>
+/// 获取所有阅读记录的类型化快照。
+Future<List<ReadRecordDto>> readRecordList() =>
     RustLib.instance.api.crateFfiFfiReadRecordList();
 
 /// 添加/更新阅读记录，返回阅读时长
@@ -1302,22 +1287,77 @@ Future<PlatformInt64> readRecordUpsert({
   readTime: readTime,
 );
 
+/// 记录阅读时间（支持作者与跨午夜时间段原子写入明细和日聚合）
+Future<PlatformInt64> readRecordRecordTime({
+  required String bookName,
+  required String author,
+  required PlatformInt64 readTimeMs,
+  PlatformInt64? startTimeMs,
+  PlatformInt64? endTimeMs,
+  required String bookUrl,
+  required int chapterIndex,
+}) => RustLib.instance.api.crateFfiFfiReadRecordRecordTime(
+  bookName: bookName,
+  author: author,
+  readTimeMs: readTimeMs,
+  startTimeMs: startTimeMs,
+  endTimeMs: endTimeMs,
+  bookUrl: bookUrl,
+  chapterIndex: chapterIndex,
+);
+
+/// 查询真实阅读会话（毫秒时间戳与章节序号）。
+Future<List<ReadRecordSessionDto>> readRecordSessionList() =>
+    RustLib.instance.api.crateFfiFfiReadRecordSessionList();
+
+/// 删除某日单书明细及对应会话区间。
+Future<bool> readRecordDetailDelete({
+  required String bookName,
+  required String author,
+  required String date,
+}) => RustLib.instance.api.crateFfiFfiReadRecordDetailDelete(
+  bookName: bookName,
+  author: author,
+  date: date,
+);
+
+/// 原子删除原始会话ID集合并同步累计/每日统计。
+Future<bool> readRecordSessionsDelete({required Int64List ids}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordSessionsDelete(ids: ids);
+
+/// 按年查询每日单书阅读明细列表（强类型 DTO）
+Future<List<ReadRecordDetailDto>> readRecordDetailList({required int year}) =>
+    RustLib.instance.api.crateFfiFfiReadRecordDetailList(year: year);
+
+/// 查询全量历史每日单书阅读明细列表（强类型 DTO）
+Future<List<ReadRecordDetailDto>> readRecordAllDetailList() =>
+    RustLib.instance.api.crateFfiFfiReadRecordAllDetailList();
+
 /// 按年查询每日阅读时长列表（热力图"每日时长"模式数据源）
 ///
-/// 返回 JSON：`[{"date":"2026-08-29","seconds":3600},...]`（按日期升序）。
-Future<String> readRecordDailyList({required int year}) =>
+/// 返回日期升序的类型化列表，时长仍为整秒。
+Future<List<ReadRecordDailyDto>> readRecordDailyList({required int year}) =>
     RustLib.instance.api.crateFfiFfiReadRecordDailyList(year: year);
 
 /// 删除阅读记录
 Future<bool> readRecordDelete({required String bookName}) =>
     RustLib.instance.api.crateFfiFfiReadRecordDelete(bookName: bookName);
 
+/// 按书名和作者级联删除阅读记录与明细
+Future<bool> readRecordDeleteWithAuthor({
+  required String bookName,
+  required String author,
+}) => RustLib.instance.api.crateFfiFfiReadRecordDeleteWithAuthor(
+  bookName: bookName,
+  author: author,
+);
+
 /// 清空所有阅读记录
 Future<bool> readRecordClear() =>
     RustLib.instance.api.crateFfiFfiReadRecordClear();
 
-/// 获取所有书籍分组（JSON 数组）
-Future<String> bookGroupList() =>
+/// 获取所有书籍分组的既有字段投影。
+Future<List<BookGroupDto>> bookGroupList() =>
     RustLib.instance.api.crateFfiFfiBookGroupList();
 
 /// 添加书籍分组，返回新分组 ID
@@ -1325,10 +1365,12 @@ Future<PlatformInt64> bookGroupAdd({
   required String groupName,
   required String cover,
   required int order,
+  bool? isPrivate,
 }) => RustLib.instance.api.crateFfiFfiBookGroupAdd(
   groupName: groupName,
   cover: cover,
   order: order,
+  isPrivate: isPrivate,
 );
 
 /// 更新书籍分组
@@ -1337,11 +1379,13 @@ Future<bool> bookGroupUpdate({
   required String groupName,
   required String cover,
   required int order,
+  bool? isPrivate,
 }) => RustLib.instance.api.crateFfiFfiBookGroupUpdate(
   id: id,
   groupName: groupName,
   cover: cover,
   order: order,
+  isPrivate: isPrivate,
 );
 
 /// 删除书籍分组
@@ -1388,22 +1432,23 @@ Future<String> cacheGetChapter({
 
 /// 列出某本书已缓存章节的 chapter_url 集合（Task #22，目录页云图标）
 ///
-/// 返回 JSON 字符串数组（`["url1","url2",...]`），供 Flutter 目录页解析为
+/// 返回 类型化字符串列表（`["url1","url2",...]`），供 Flutter 目录页解析为
 /// 已缓存 chapter_url 集合，据此为每章渲染「已缓存实心 / 未缓存空心云」图标。
-Future<String> cacheListCachedChapterUrls({required String bookUrl}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiCacheListCachedChapterUrls(bookUrl: bookUrl);
+Future<List<String>> cacheListCachedChapterUrls({required String bookUrl}) =>
+    RustLib.instance.api.crateFfiFfiCacheListCachedChapterUrls(
+      bookUrl: bookUrl,
+    );
 
 /// 列出某本书已缓存章节的 (chapter_url, wordCount) 集合
 /// （P2-28c，API_CONTRACT §2.43.6，目录页实时字数刷新数据链）
 ///
-/// 返回 JSON 对象数组（`[{"url":"...","wordCount":"..."},...]`，按
+/// 返回 类型化结构数组（`[{"url":"...","wordCount":"..."},...]`，按
 /// chapter_index 升序、空 url 过滤），wordCount 取 `chapters` 表当前值
 /// （P2-28b 回填链同源，未回填为空串）。供 Flutter 目录页 1 秒轮询
 /// （P2-28b）一次调用同时翻转「未缓存」⬇ 图标与同帧刷新字数胶囊。
-Future<String> cacheListCachedChapters({required String bookUrl}) =>
-    RustLib.instance.api.crateFfiFfiCacheListCachedChapters(bookUrl: bookUrl);
+Future<List<CachedChapterDto>> cacheListCachedChapters({
+  required String bookUrl,
+}) => RustLib.instance.api.crateFfiFfiCacheListCachedChapters(bookUrl: bookUrl);
 
 /// 获取缓存书籍数量
 Future<int> cacheGetBookCount() =>
@@ -1425,30 +1470,22 @@ Future<bool> cacheClearBefore({required PlatformInt64 beforeTimestampMs}) =>
 Future<PlatformInt64> cacheShrinkDatabase() =>
     RustLib.instance.api.crateFfiFfiCacheShrinkDatabase();
 
-/// 写入图片磁盘缓存（P4-2a，API_CONTRACT §2.46）
-///
-/// 对齐原版 `BookHelp.saveImage`/`writeImage`：`bytes_base64` 为图片字节的
-/// base64（Dart 侧编码）；落盘路径 = `{注入缓存根}/sanitize(bookUrl)/images/
-/// {md5_mid16(url)}.{suffix}`（md5 中段 16 字符对齐 `MD5Utils.md5Encode16`）。
-/// base64 解码失败 → `Err`（Ffi）；目录创建/写盘 IO 失败 → 降级 `Ok(false)`
-/// （静默 + 一次性日志，**不抛异常**——缓存失败不影响在线加载）。
+/// 写入图片原始字节；缓存 I/O 失败仍返回 false。
 Future<bool> saveImageCache({
   required String bookUrl,
   required String url,
-  required String bytesBase64,
+  required List<int> bytes,
 }) => RustLib.instance.api.crateFfiFfiSaveImageCache(
   bookUrl: bookUrl,
   url: url,
-  bytesBase64: bytesBase64,
+  bytes: bytes,
 );
 
-/// 读取图片磁盘缓存（P4-2a，API_CONTRACT §2.46）
-///
-/// 命中返回图片字节的 base64（Dart 侧解码）；未命中 / 读盘失败均降级
-/// `Ok(None)`（读失败一次性日志），调用方一律回落网络加载——对齐原版
-/// `BookHelp.getImage`/`isImageExist` 的「本地存在才用，否则走网络」语义。
-Future<String?> getImageCache({required String bookUrl, required String url}) =>
-    RustLib.instance.api.crateFfiFfiGetImageCache(bookUrl: bookUrl, url: url);
+/// 命中返回图片原始字节；未命中或读取失败仍为 None。
+Future<Uint8List?> getImageCache({
+  required String bookUrl,
+  required String url,
+}) => RustLib.instance.api.crateFfiFfiGetImageCache(bookUrl: bookUrl, url: url);
 
 /// 查询音频章节是否已缓存（B1，API_CONTRACT §2.47）
 ///
@@ -1514,7 +1551,7 @@ Future<int> audioCacheClearBook({required String bookUrl}) =>
 /// `run_webbook_blocking` 先例（§2.17 webbook*）。
 /// 失败 **Err 上抛不降级**（有意区别于 §2.47 读面：写入是显式用户动作，
 /// 错误须驱动 Dart 循环 failCount）。
-Future<String> audioCacheDownload({
+Future<AudioCacheDownloadDto> audioCacheDownload({
   required String bookUrl,
   required int chapterIndex,
   required String chapterUrl,
@@ -1590,7 +1627,7 @@ Future<bool> saveChapterContent({
 /// `start_chapter` / `end_chapter` 含端点；负值按 0、超出按末章截断。
 /// 对标 Kotlin CacheActivity：复用正文抓取链路 + 任务表/取消令牌。
 /// 同一本书已有进行中任务时复用返回既有 ID（契约 §2.43.3）。
-Future<String> cacheDownloadStart({
+Future<BigInt> cacheDownloadStart({
   required String bookUrl,
   required int startChapter,
   required int endChapter,
@@ -1600,41 +1637,36 @@ Future<String> cacheDownloadStart({
   endChapter: endChapter,
 );
 
-/// 查询批量下载任务进度（JSON：taskId/bookUrl/status/total/completed/failed；
-/// 未知任务 status=notFound）
-Future<String> cacheDownloadProgress({required PlatformInt64 taskId}) =>
+Future<CacheDownloadTaskDto> cacheDownloadProgress({required BigInt taskId}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadProgress(taskId: taskId);
 
-/// 取消批量下载任务（对照书源校验流取消机制）；未知任务返回 false
-Future<bool> cacheDownloadCancel({required PlatformInt64 taskId}) =>
+Future<bool> cacheDownloadCancel({required BigInt taskId}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadCancel(taskId: taskId);
 
-/// 列出所有批量下载任务（JSON 数组，按任务 ID 升序）
-Future<String> cacheDownloadList() =>
+Future<List<CacheDownloadTaskDto>> cacheDownloadList() =>
     RustLib.instance.api.crateFfiFfiCacheDownloadList();
 
-/// P2-29（API_CONTRACT §2.43.7）：该书当前在途下载章节 index 的 JSON 整型数组
-/// （升序、0-based；无活跃任务为空数组 `[]`）。只读：纯任务表读 +
-/// 落库恢复回读，零写入。
-Future<String> cacheDownloadRunningChapters({required String bookUrl}) =>
+Future<Int32List> cacheDownloadRunningChapters({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiCacheDownloadRunningChapters(
       bookUrl: bookUrl,
     );
 
-/// P2-29c 后续（API_CONTRACT §2.43.8）：该书批量下载**已失败**章节 index
-/// 的 JSON 整型数组（升序、0-based；无失败为空数组 `[]`）。只读：
-/// 纯任务表读 + `ensure_restored` 落库恢复回读，零写入。
-Future<String> cacheDownloadFailedChapters({required String bookUrl}) => RustLib
-    .instance
-    .api
-    .crateFfiFfiCacheDownloadFailedChapters(bookUrl: bookUrl);
+Future<Int32List> cacheDownloadFailedChapters({required String bookUrl}) =>
+    RustLib.instance.api.crateFfiFfiCacheDownloadFailedChapters(
+      bookUrl: bookUrl,
+    );
+
+/// 先订阅后读取，避免初始快照与新进度之间丢失通知；不取消后台下载。
+Stream<List<CacheDownloadTaskDto>> cacheDownloadStream({
+  required StreamRequest request,
+}) => RustLib.instance.api.crateFfiFfiCacheDownloadStream(request: request);
 
 /// 执行章节购买动作（对照 Kotlin ReadBookActivity.payAction）
 ///
 /// 返回 JSON：`{"kind": "url"/"success"/"none", "value": "<JS 返回原文>"}`；
 /// kind=url 时 UI 打开支付页，kind=success 时已清当前章正文缓存。
 /// 需 quickjs 构建（非 quickjs 返回错误）。
-Future<String> chapterPayAction({
+Future<ChapterPurchaseDto> chapterPayAction({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiChapterPayAction(
@@ -1650,23 +1682,25 @@ Future<String> configGet({required String key}) =>
 Future<bool> configSet({required String key, required String value}) =>
     RustLib.instance.api.crateFfiFfiConfigSet(key: key, value: value);
 
-/// 获取所有配置（JSON 对象）
-Future<String> configGetAll() => RustLib.instance.api.crateFfiFfiConfigGetAll();
+/// 获取所有配置（类型化结构）
+Future<Map<String, String>> configGetAll() =>
+    RustLib.instance.api.crateFfiFfiConfigGetAll();
 
 /// 获取所有 HTTP TTS 源（JSON 数组）
-Future<String> httpTtsList() => RustLib.instance.api.crateFfiFfiHttpTtsList();
+Future<List<HttpTtsConfigDto>> httpTtsList() =>
+    RustLib.instance.api.crateFfiFfiHttpTtsList();
 
-/// 添加 HTTP TTS 源，返回新 ID
-Future<PlatformInt64> httpTtsAdd({required String name, required String url}) =>
-    RustLib.instance.api.crateFfiFfiHttpTtsAdd(name: name, url: url);
+/// 添加或覆盖 HTTP TTS 源（完整 JSON），返回最终 ID
+Future<PlatformInt64> httpTtsAdd({required HttpTtsConfigDto tts}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsAdd(tts: tts);
 
-/// 更新 HTTP TTS 源
-Future<bool> httpTtsUpdate({
-  required PlatformInt64 id,
-  required String name,
-  required String url,
-}) =>
-    RustLib.instance.api.crateFfiFfiHttpTtsUpdate(id: id, name: name, url: url);
+/// 按 ID 原地更新 HTTP TTS 源（完整 JSON）
+Future<bool> httpTtsUpdate({required HttpTtsConfigDto tts}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsUpdate(tts: tts);
+
+/// 文档导入保留内嵌音色目录，与普通实体保存分开。
+Future<int> httpTtsImport({required String document}) =>
+    RustLib.instance.api.crateFfiFfiHttpTtsImport(document: document);
 
 /// 删除 HTTP TTS 源
 Future<bool> httpTtsDelete({required PlatformInt64 id}) =>
@@ -1679,19 +1713,134 @@ Future<bool> httpTtsSetEnabled({
 }) =>
     RustLib.instance.api.crateFfiFfiHttpTtsSetEnabled(id: id, enabled: enabled);
 
-/// TTS 真实合成：url 模板替换（speakText/speakSpeed）→ HTTP 拉取音频 → 本地缓存
+/// TTS 真实合成：读取数据库 HttpTts 配置，经 legado-fetcher 完整上下文与 AnalyzeUrl 执行网络合成与校验
 ///
 /// 返回合成结果 JSON（camelCase）：
 /// `{"audioPath": "...", "fromCache": false, "contentType": "audio/mpeg"}`
 /// 缓存命中时不发起网络请求。
-Future<String> ttsSpeak({
+Future<TtsSpeakDto> ttsSpeak({
+  required PlatformInt64 engineId,
+  required TtsRequest request,
   required String text,
-  required String engineUrl,
-  required double speed,
+  String? toneId,
+  String? speakerName,
+  String? emotionTag,
 }) => RustLib.instance.api.crateFfiFfiTtsSpeak(
+  engineId: engineId,
+  request: request,
   text: text,
-  engineUrl: engineUrl,
-  speed: speed,
+  toneId: toneId,
+  speakerName: speakerName,
+  emotionTag: emotionTag,
+);
+
+/// 云端元数据，不返回平台凭据。
+Future<List<CloudTtsMetadataDto>> cloudTtsList() =>
+    RustLib.instance.api.crateFfiFfiCloudTtsList();
+
+Future<void> cloudTtsSave({required CloudTtsMetadataDto engine}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsSave(engine: engine);
+
+Future<bool> cloudTtsDelete({required String id}) =>
+    RustLib.instance.api.crateFfiFfiCloudTtsDelete(id: id);
+
+Future<List<CloudVoiceDescriptorDto>> cloudTtsVoices({
+  required CloudTtsProviderDto provider,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsVoices(provider: provider);
+
+/// 远端目录只消费数据库中的引擎快照；凭据不持久化，关闭编辑器取消请求。
+Future<List<CloudVoiceDescriptorDto>> cloudTtsEngineVoices({
+  required String engineId,
+  required String apiKey,
+  required String credentialKey,
+  required TtsRequest request,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsEngineVoices(
+  engineId: engineId,
+  apiKey: apiKey,
+  credentialKey: credentialKey,
+  request: request,
+);
+
+/// 凭据只在内存参与合成；成功租约沿用同一个取消句柄。
+Future<TtsSpeakDto> cloudTtsSpeak({
+  required String engineId,
+  required String apiKey,
+  required CloudSpeechInputDto input,
+  required TtsRequest request,
+}) => RustLib.instance.api.crateFfiFfiCloudTtsSpeak(
+  engineId: engineId,
+  apiKey: apiKey,
+  input: input,
+  request: request,
+);
+
+/// 全量音色目录，包括用户排除项。
+Future<List<ReadAloudVoiceDto>> readAloudVoiceList() =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceList();
+
+/// 同步当前设备引擎音色，不覆盖用户标记。
+Future<void> readAloudVoiceSyncSystem({
+  required String engineId,
+  required List<SystemVoiceEntryDto> entries,
+}) => RustLib.instance.api.crateFfiFfiReadAloudVoiceSyncSystem(
+  engineId: engineId,
+  entries: entries,
+);
+
+/// 修改用户启用与排除状态。
+Future<bool> readAloudVoiceSetFlags({
+  required String id,
+  required bool enabled,
+  required bool excluded,
+}) => RustLib.instance.api.crateFfiFfiReadAloudVoiceSetFlags(
+  id: id,
+  enabled: enabled,
+  excluded: excluded,
+);
+
+/// 保存用户音色配置，稳定身份由数据库核对。
+Future<void> readAloudVoiceSave({required ReadAloudVoiceDto voice}) =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceSave(voice: voice);
+
+/// 仅删除用户保存的音色；源目录使用排除标记。
+Future<bool> readAloudVoiceDelete({required String id}) =>
+    RustLib.instance.api.crateFfiFfiReadAloudVoiceDelete(id: id);
+
+/// 登记朗读缓存的书章段索引。
+Future<void> ttsCacheRecord({
+  required String audioPath,
+  required TtsCacheContextDto context,
+}) => RustLib.instance.api.crateFfiFfiTtsCacheRecord(
+  audioPath: audioPath,
+  context: context,
+);
+
+/// 只读列出已发布音频缓存。
+Future<List<TtsCacheEntryDto>> ttsCacheList() =>
+    RustLib.instance.api.crateFfiFfiTtsCacheList();
+
+/// 清理缓存，保留活动请求、播放租约及明确指定的当前章。
+Future<TtsCacheClearResultDto> ttsCacheClear({
+  String? name,
+  BigInt? beforeTimestampMs,
+  String? keepBookUrl,
+  int? keepChapterIndex,
+}) => RustLib.instance.api.crateFfiFfiTtsCacheClear(
+  name: name,
+  beforeTimestampMs: beforeTimestampMs,
+  keepBookUrl: keepBookUrl,
+  keepChapterIndex: keepChapterIndex,
+);
+
+/// HTTP TTS 登录操作：ID 查库，复用登录存储与经典/V2 控件协议。
+Future<String> httpTtsLogin({
+  required PlatformInt64 engineId,
+  required String operation,
+  required String payload,
+}) => RustLib.instance.api.crateFfiFfiHttpTtsLogin(
+  engineId: engineId,
+  operation: operation,
+  payload: payload,
 );
 
 /// 设置 TTS 音频缓存目录（全局生效）
@@ -1721,7 +1870,7 @@ Future<bool> audioSaveProgress({
 /// 音频章节取址（契约 §2.26 getAudioChapterMedia）
 ///
 /// 对齐原版 `AudioPlay` → `WebBook.getContent`：返回可播 `mediaUrl` 等元数据 JSON。
-Future<String> audioGetChapterMedia({
+Future<AudioChapterMediaDto> audioGetChapterMedia({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiAudioGetChapterMedia(
@@ -1733,16 +1882,16 @@ Future<String> audioGetChapterMedia({
 Future<String> backupCreate({required String path}) =>
     RustLib.instance.api.crateFfiFfiBackupCreate(path: path);
 
-/// 从备份文件恢复，返回恢复统计（JSON）
-Future<String> backupRestore({required String path}) =>
+/// 从备份文件恢复，返回恢复统计（类型化）
+Future<RestoreStatsDto> backupRestore({required String path}) =>
     RustLib.instance.api.crateFfiFfiBackupRestore(path: path);
 
-/// 列出备份文件（JSON 数组）
-Future<String> backupList({required String dir}) =>
+/// 列出备份文件（类型化列表）
+Future<List<BackupFileDto>> backupList({required String dir}) =>
     RustLib.instance.api.crateFfiFfiBackupList(dir: dir);
 
-/// 导入旧版（阅读 2.x）备份目录，返回统计 JSON
-Future<String> importOldData({required String dir}) =>
+/// 导入旧版（阅读 2.x）备份目录，返回实际计数与逐文件消息。
+Future<OldDataImportResultDto> importOldData({required String dir}) =>
     RustLib.instance.api.crateFfiFfiImportOldData(dir: dir);
 
 /// 启动 legado-server，返回状态消息
@@ -1752,8 +1901,9 @@ Future<String> serverStart({required int port}) =>
 /// 停止服务器
 Future<String> serverStop() => RustLib.instance.api.crateFfiFfiServerStop();
 
-/// 获取服务器状态（JSON）
-Future<String> serverStatus() => RustLib.instance.api.crateFfiFfiServerStatus();
+/// 获取原子服务状态快照。
+Future<ServerStatusDto> serverStatus() =>
+    RustLib.instance.api.crateFfiFfiServerStatus();
 
 /// 设置独立 MCP 服务端口（契约 §2.22.5，Task #72/#73）
 ///
@@ -1775,22 +1925,23 @@ Future<void> setCustomHosts({required String hostsJson}) =>
 ///
 /// 返回候选封面 URL 裸 JSON Array（§1.4 铁律）；无启用规则或
 /// 全部失败返回 `[]`（非异常）。
-Future<String> searchCoverRules({required String name}) =>
+Future<List<String>> searchCoverRules({required String name}) =>
     RustLib.instance.api.crateFfiFfiSearchCoverRules(name: name);
 
 /// 读取封面规则配置（契约 §2.4 F4，对齐 BookCover.getCoverRule）
-Future<String> getCoverRule() => RustLib.instance.api.crateFfiFfiGetCoverRule();
+Future<CoverRuleDto> getCoverRule() =>
+    RustLib.instance.api.crateFfiFfiGetCoverRule();
 
 /// 保存封面规则配置（契约 §2.4 F4，对齐 BookCover.saveCoverRule）
-Future<bool> saveCoverRule({required String ruleJson}) =>
-    RustLib.instance.api.crateFfiFfiSaveCoverRule(ruleJson: ruleJson);
+Future<bool> saveCoverRule({required CoverRuleDto rule}) =>
+    RustLib.instance.api.crateFfiFfiSaveCoverRule(rule: rule);
 
 /// 删除封面规则配置（契约 §2.4 F4，对齐 BookCover.delCoverRule）
 Future<bool> deleteCoverRule() =>
     RustLib.instance.api.crateFfiFfiDeleteCoverRule();
 
-/// 列出 WebDAV 远程目录（JSON 数组）
-Future<String> webdavListDir({
+/// 列出 WebDAV 远程目录元数据。
+Future<List<WebDavFileDto>> webdavListDir({
   required String configJson,
   required String path,
 }) => RustLib.instance.api.crateFfiFfiWebdavListDir(
@@ -1852,8 +2003,8 @@ Future<void> webdavDelete({required String configJson, required String path}) =>
       path: path,
     );
 
-/// WebDAV 全量同步（返回 JSON: {"books": "...", "sources": "..."}）
-Future<String> webdavFullSync({
+/// WebDAV 全量同步，返回两份文档原文。
+Future<WebDavSyncResultDto> webdavFullSync({
   required String configJson,
   required String localBooks,
   required String localSources,
@@ -1879,11 +2030,11 @@ Future<String> downloadAddTask({
 );
 
 /// 获取下载统计信息（JSON）
-Future<String> downloadGetStats() =>
+Future<DownloadStatsDto> downloadGetStats() =>
     RustLib.instance.api.crateFfiFfiDownloadGetStats();
 
 /// 获取指定书籍的下载任务（JSON 数组）
-Future<String> downloadListByBook({required String bookUrl}) =>
+Future<List<DownloadTaskDto>> downloadListByBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiDownloadListByBook(bookUrl: bookUrl);
 
 /// 暂停所有下载
@@ -1911,25 +2062,25 @@ Future<void> downloadUpdateProgress({
 ///
 /// 返回 JSON `{"counts":{"1":5},"keys":{"1":"paraData"}}`。
 /// `request_json` 支持 chapterUrl；可选 book/chapter。
-Future<String> reviewGetSummary({
+Future<ReviewSummaryDto> reviewGetSummary({
   required String sourceJson,
-  required String requestJson,
+  required ReviewRequestDto request,
 }) => RustLib.instance.api.crateFfiFfiReviewGetSummary(
   sourceJson: sourceJson,
-  requestJson: requestJson,
+  request: request,
 );
 
 /// 段评详情分页（P2-9，对标 ReviewDetailDialog + parseDetailPage）
 ///
 /// 返回 JSON `{"items":[...],"nextPageUrl":String?,"hasReplyUrl":bool}`。
 /// `request_json` 支持 paraIndex/paraData/chapterUrl/detailUrl。
-Future<String> reviewGetDetail({
+Future<ReviewPageDto> reviewGetDetail({
   required String sourceJson,
-  required String requestJson,
+  required ReviewRequestDto request,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiReviewGetDetail(
   sourceJson: sourceJson,
-  requestJson: requestJson,
+  request: request,
   page: page,
 );
 
@@ -1937,23 +2088,23 @@ Future<String> reviewGetDetail({
 ///
 /// 返回 JSON 对象字符串 `{"items": [回复列表], "nextPageUrl": String?}`。
 /// `request_json` 支持字段：reviewId/paraIndex/paraData/chapterUrl/replyUrl。
-Future<String> reviewGetReplies({
+Future<ReviewPageDto> reviewGetReplies({
   required String sourceJson,
-  required String requestJson,
+  required ReviewRequestDto request,
   required int page,
 }) => RustLib.instance.api.crateFfiFfiReviewGetReplies(
   sourceJson: sourceJson,
-  requestJson: requestJson,
+  request: request,
   page: page,
 );
 
-/// 导出书籍（返回 ExportResult JSON）
+/// 导出书籍，原始文件字节直传。
 ///
 /// # 参数
 /// - `book_url`: 书籍 URL
 /// - `format`: 导出格式（txt/epub/html/pdf）
 /// - `include_toc`: 是否包含目录
-Future<String> bookExport({
+Future<BookExportDto> bookExport({
   required String bookUrl,
   required String format,
   required bool includeToc,
@@ -1963,8 +2114,8 @@ Future<String> bookExport({
   includeToc: includeToc,
 );
 
-/// 获取导出预览信息（返回 ExportResult JSON）
-Future<String> bookExportInfo({
+/// 获取导出预览信息和真实章节数。
+Future<BookExportDto> bookExportInfo({
   required String bookUrl,
   required String format,
 }) => RustLib.instance.api.crateFfiFfiBookExportInfo(
@@ -1976,7 +2127,7 @@ Future<String> bookExportInfo({
 ///
 /// `options_json` 透传：encoding（仅 TXT）/ startChapter / endChapter（-1=不限）/
 /// fileNameTemplate（{name}/{author} 占位符）；空串 = 全缺省（行为等同 book_export）。
-Future<String> bookExportWithOptions({
+Future<BookExportDto> bookExportWithOptions({
   required String bookUrl,
   required String format,
   required bool includeToc,
@@ -1988,8 +2139,8 @@ Future<String> bookExportWithOptions({
   optionsJson: optionsJson,
 );
 
-/// 导入 ZIP 压缩包中的书籍文件（返回 ArchiveImportResult JSON）
-Future<String> archiveImportZip({
+/// 导入 ZIP 压缩包中的书籍文件（返回类型化结果）
+Future<ArchiveImportDto> archiveImportZip({
   required String zipPath,
   required String outputDir,
 }) => RustLib.instance.api.crateFfiFfiArchiveImportZip(
@@ -1997,8 +2148,8 @@ Future<String> archiveImportZip({
   outputDir: outputDir,
 );
 
-/// 导入 RAR 压缩包中的书籍文件（支持加密，返回 ArchiveImportResult JSON）
-Future<String> archiveImportRar({
+/// 导入 RAR 压缩包中的书籍文件（支持加密，返回类型化结果）
+Future<ArchiveImportDto> archiveImportRar({
   required String rarPath,
   required String outputDir,
   String? password,
@@ -2008,12 +2159,12 @@ Future<String> archiveImportRar({
   password: password,
 );
 
-/// 列出 ZIP 压缩包中的书籍文件名（不解压，返回 JSON 数组）
-Future<String> archiveListZipFiles({required String zipPath}) =>
+/// 列出 ZIP 压缩包中的书籍文件名（不解压，返回字符串列表）
+Future<List<String>> archiveListZipFiles({required String zipPath}) =>
     RustLib.instance.api.crateFfiFfiArchiveListZipFiles(zipPath: zipPath);
 
-/// 列出 RAR 压缩包中的书籍文件名（不解压，返回 JSON 数组）
-Future<String> archiveListRarFiles({
+/// 列出 RAR 压缩包中的书籍文件名（不解压，返回字符串列表）
+Future<List<String>> archiveListRarFiles({
   required String rarPath,
   String? password,
 }) => RustLib.instance.api.crateFfiFfiArchiveListRarFiles(
@@ -2021,12 +2172,12 @@ Future<String> archiveListRarFiles({
   password: password,
 );
 
-/// 检测 TXT 文件编码（返回 EncodingResult JSON）
-Future<String> archiveDetectEncoding({required String filePath}) =>
+/// 检测 TXT 文件编码（返回编码检测结果）
+Future<EncodingDto> archiveDetectEncoding({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiArchiveDetectEncoding(filePath: filePath);
 
-/// 转换 TXT 文件编码（返回 ConvertResult JSON）
-Future<String> archiveConvertEncoding({
+/// 转换 TXT 文件编码（返回编码转换结果）
+Future<EncodingConversionDto> archiveConvertEncoding({
   required String filePath,
   required String fromEncoding,
   required String toEncoding,
@@ -2040,7 +2191,7 @@ Future<String> archiveConvertEncoding({
 Future<bool> archiveIsArchive({required String filePath}) =>
     RustLib.instance.api.crateFfiFfiArchiveIsArchive(filePath: filePath);
 
-/// 读取 CBZ 本地漫画单页图片字节（返回 JSON：{ base64, len }）
+/// 读取 CBZ 本地漫画单页图片原始字节
 ///
 /// [cbz 批 B | 2026-10-03] E9 参考版扩展（用户已授权），加法式新增，
 /// 与 `fetch_image_with_decode` 同返回形态。配合阅读链路：
@@ -2049,11 +2200,11 @@ Future<bool> archiveIsArchive({required String filePath}) =>
 ///
 /// - `path` — 本地书 `bookUrl`（绝对路径，或相对可迁移标识）
 /// - `entry` — ZIP 条目名（兼容带/不带 `cbz://` 前缀）
-Future<String> cbzReadPage({required String path, required String entry}) =>
+Future<Uint8List> cbzReadPage({required String path, required String entry}) =>
     RustLib.instance.api.crateFfiFfiCbzReadPage(path: path, entry: entry);
 
-/// 构建书籍更新定时任务（返回 AutoTaskRule JSON）
-Future<String> autoTaskBuildBookUpdate({
+/// 构建书籍更新任务，返回完整稳定实体。
+Future<AutoTaskRuleDto> autoTaskBuildBookUpdate({
   required String bookUrl,
   required String bookName,
   required String bookAuthor,
@@ -2065,32 +2216,32 @@ Future<String> autoTaskBuildBookUpdate({
   name: name,
 );
 
-/// 批量更新 cron 表达式（rules_json 为 AutoTaskRule 数组，ids_json 为 ID 数组，返回更新后的规则数组 JSON）
-Future<String> autoTaskUpdateCronBatch({
-  required String rulesJson,
-  required String idsJson,
+/// 批量调整 cron，保留未参与计算的登录和运行字段。
+Future<List<AutoTaskRuleDto>> autoTaskUpdateCronBatch({
+  required List<AutoTaskRuleDto> rules,
+  required List<String> ids,
   required String cron,
 }) => RustLib.instance.api.crateFfiFfiAutoTaskUpdateCronBatch(
-  rulesJson: rulesJson,
-  idsJson: idsJson,
+  rules: rules,
+  ids: ids,
   cron: cron,
 );
 
-/// 准备导入任务（合并本地运行时状态，返回合并后的任务数组 JSON）
-Future<String> autoTaskPrepareImported({
-  required String localTasksJson,
+/// 导入文本仍是文档；本地实体和合并结果直接传输。
+Future<List<AutoTaskRuleDto>> autoTaskPrepareImported({
+  required List<AutoTaskRuleDto> localTasks,
   required String importedJson,
 }) => RustLib.instance.api.crateFfiFfiAutoTaskPrepareImported(
-  localTasksJson: localTasksJson,
+  localTasks: localTasks,
   importedJson: importedJson,
 );
 
-/// 执行任务协议（protocol_json 为 TaskProtocol，返回 TaskResult JSON）
-Future<String> autoTaskExecute({required String protocolJson}) =>
+/// 执行真实任务协议，结果直接传输。
+Future<TaskResultDto> autoTaskExecute({required String protocolJson}) =>
     RustLib.instance.api.crateFfiFfiAutoTaskExecute(protocolJson: protocolJson);
 
-/// 带 ID 执行任务协议（返回 TaskResult JSON）
-Future<String> autoTaskExecuteWithId({
+/// 带业务 ID 执行任务。
+Future<TaskResultDto> autoTaskExecuteWithId({
   required String protocolJson,
   required String taskId,
 }) => RustLib.instance.api.crateFfiFfiAutoTaskExecuteWithId(
@@ -2098,11 +2249,11 @@ Future<String> autoTaskExecuteWithId({
   taskId: taskId,
 );
 
-/// 规范化脚本（去除 @js: 前缀或 <js></js> 包裹）
+/// 规范化脚本文档。
 Future<String> autoTaskNormalizeScript({required String script}) =>
     RustLib.instance.api.crateFfiFfiAutoTaskNormalizeScript(script: script);
 
-/// 判断书籍是否允许刷新目录
+/// 判断目录刷新许可。
 Future<bool> autoTaskCanRefreshToc({
   required bool canUpdate,
   required bool respectCanUpdate,
@@ -2111,20 +2262,20 @@ Future<bool> autoTaskCanRefreshToc({
   respectCanUpdate: respectCanUpdate,
 );
 
-/// 查找书籍更新任务（tasks_json 为 AutoTaskRule 数组，返回匹配任务 JSON 或 null）
-Future<String> autoTaskFindBookUpdate({
-  required String tasksJson,
+/// 查找书籍更新任务，未命中返回空选项。
+Future<AutoTaskRuleDto?> autoTaskFindBookUpdate({
+  required List<AutoTaskRuleDto> tasks,
   required String bookUrl,
   required String bookName,
   required String bookAuthor,
 }) => RustLib.instance.api.crateFfiFfiAutoTaskFindBookUpdate(
-  tasksJson: tasksJson,
+  tasks: tasks,
   bookUrl: bookUrl,
   bookName: bookName,
   bookAuthor: bookAuthor,
 );
 
-/// 解析 cron 表达式计算下次执行时间（Unix 毫秒，无法解析返回 -1）
+/// 计算下次执行时间；无效 cron 仍返回 -1。
 Future<PlatformInt64> autoTaskNextDueAt({
   required String cron,
   required PlatformInt64 fromMs,
@@ -2133,29 +2284,29 @@ Future<PlatformInt64> autoTaskNextDueAt({
   fromMs: fromMs,
 );
 
-/// 列出所有自动任务规则（按 customOrder 排序，返回 AutoTaskRule 数组 JSON）
-Future<String> autoTaskListRules() =>
+/// 按原排序列出完整规则。
+Future<List<AutoTaskRuleDto>> autoTaskListRules() =>
     RustLib.instance.api.crateFfiFfiAutoTaskListRules();
 
-/// 创建自动任务规则（rule_json 为 AutoTaskRule JSON，返回任务 ID）
-Future<String> autoTaskCreateRule({required String ruleJson}) =>
-    RustLib.instance.api.crateFfiFfiAutoTaskCreateRule(ruleJson: ruleJson);
+/// 创建规则，返回原业务 ID。
+Future<String> autoTaskCreateRule({required AutoTaskRuleDto rule}) =>
+    RustLib.instance.api.crateFfiFfiAutoTaskCreateRule(rule: rule);
 
-/// 更新自动任务规则（rule_json 为 AutoTaskRule JSON）
-Future<void> autoTaskUpdateRule({required String ruleJson}) =>
-    RustLib.instance.api.crateFfiFfiAutoTaskUpdateRule(ruleJson: ruleJson);
+/// 按业务 ID 原地更新规则。
+Future<void> autoTaskUpdateRule({required AutoTaskRuleDto rule}) =>
+    RustLib.instance.api.crateFfiFfiAutoTaskUpdateRule(rule: rule);
 
-/// 删除自动任务规则（按 ID 删除）
+/// 删除规则。
 Future<void> autoTaskDeleteRule({required String id}) =>
     RustLib.instance.api.crateFfiFfiAutoTaskDeleteRule(id: id);
 
-/// 根据 ID 查询自动任务规则（返回 AutoTaskRule JSON 或 null）
-Future<String> autoTaskFindRuleById({required String id}) =>
+/// 查找规则，未命中返回空选项。
+Future<AutoTaskRuleDto?> autoTaskFindRuleById({required String id}) =>
     RustLib.instance.api.crateFfiFfiAutoTaskFindRuleById(id: id);
 
-/// 新增/更新高亮记录（BookHighlight JSON，time=0 时自动分配），返回 time
-Future<PlatformInt64> highlightAdd({required String highlightJson}) =>
-    RustLib.instance.api.crateFfiFfiHighlightAdd(highlightJson: highlightJson);
+/// 新增/更新高亮记录；time=0 时自动分配，返回实际主键。
+Future<PlatformInt64> highlightAdd({required BookHighlightDto highlight}) =>
+    RustLib.instance.api.crateFfiFfiHighlightAdd(highlight: highlight);
 
 /// 按主键 time 删除高亮记录，返回是否实际删除
 Future<bool> highlightDelete({required PlatformInt64 time}) =>
@@ -2165,12 +2316,12 @@ Future<bool> highlightDelete({required PlatformInt64 time}) =>
 Future<PlatformInt64> highlightDeleteByBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiHighlightDeleteByBook(bookUrl: bookUrl);
 
-/// 按书籍获取高亮列表（BookHighlight 数组 JSON）
-Future<String> highlightListByBook({required String bookUrl}) =>
+/// 按书籍获取类型化高亮列表。
+Future<List<BookHighlightDto>> highlightListByBook({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiHighlightListByBook(bookUrl: bookUrl);
 
-/// 按书籍 + 章节索引获取高亮列表（BookHighlight 数组 JSON）
-Future<String> highlightListByChapter({
+/// 按书籍与章节索引获取类型化高亮列表。
+Future<List<BookHighlightDto>> highlightListByChapter({
   required String bookUrl,
   required int chapterIndex,
 }) => RustLib.instance.api.crateFfiFfiHighlightListByChapter(
@@ -2178,28 +2329,28 @@ Future<String> highlightListByChapter({
   chapterIndex: chapterIndex,
 );
 
-/// 全局关键词搜索高亮（BookHighlight 数组 JSON）
-Future<String> highlightSearch({required String keyword}) =>
+/// 全局关键词搜索高亮。
+Future<List<BookHighlightDto>> highlightSearch({required String keyword}) =>
     RustLib.instance.api.crateFfiFfiHighlightSearch(keyword: keyword);
 
-/// 获取所有高亮记录（BookHighlight 数组 JSON）
-Future<String> highlightListAll() =>
+/// 获取所有类型化高亮记录。
+Future<List<BookHighlightDto>> highlightListAll() =>
     RustLib.instance.api.crateFfiFfiHighlightListAll();
 
-/// 获取所有高亮规则（HighlightRule 数组 JSON，按 sortOrder 升序）
-Future<String> highlightRuleList() =>
+/// 获取所有高亮规则，按 sortOrder 升序。
+Future<List<HighlightRuleDto>> highlightRuleList() =>
     RustLib.instance.api.crateFfiFfiHighlightRuleList();
 
-/// 保存高亮规则（HighlightRule JSON，id=0 时自增新增），返回规则 ID
-Future<PlatformInt64> highlightRuleSave({required String ruleJson}) =>
-    RustLib.instance.api.crateFfiFfiHighlightRuleSave(ruleJson: ruleJson);
+/// 保存高亮规则；id=0 时新增，返回规则 ID。
+Future<PlatformInt64> highlightRuleSave({required HighlightRuleDto rule}) =>
+    RustLib.instance.api.crateFfiFfiHighlightRuleSave(rule: rule);
 
 /// 按 ID 删除高亮规则，返回是否实际删除
 Future<bool> highlightRuleDelete({required PlatformInt64 id}) =>
     RustLib.instance.api.crateFfiFfiHighlightRuleDelete(id: id);
 
-/// 按书籍查找启用的高亮规则（HighlightRule 数组 JSON）
-Future<String> highlightRuleFindEnabled({
+/// 按书籍查找启用的高亮规则。
+Future<List<HighlightRuleDto>> highlightRuleFindEnabled({
   required String bookName,
   required String origin,
 }) => RustLib.instance.api.crateFfiFfiHighlightRuleFindEnabled(
@@ -2214,22 +2365,11 @@ Future<String> audioWithPlayMode({String? readConfig, required int playMode}) =>
       playMode: playMode,
     );
 
-/// 解析听书书籍（返回 Book JSON 或 null）
-///
-/// 请求 URL 为空时返回缓存书籍；缓存匹配时直接返回；否则按 URL 查库。
-Future<String> audioResolvePlayBook({
-  String? requestedBookUrl,
-  String? cachedBookJson,
-}) => RustLib.instance.api.crateFfiFfiAudioResolvePlayBook(
-  requestedBookUrl: requestedBookUrl,
-  cachedBookJson: cachedBookJson,
-);
-
 /// 书源 callBackBtn（对齐 SourceCallBack.callBackBtn + 中途 UI 队列）
 ///
 /// 返回 JSON：`{invoked, jsTrue, raw, actions:[...]}`。
 /// `actions` 供 Flutter PlatformBridge 回放（refreshBookInfo / openBrowser 等）。
-Future<String> sourceCallBackBtn({
+Future<SourceCallbackDto> sourceCallBackBtn({
   required String event,
   required String bookUrl,
   int? chapterIndex,
@@ -2243,17 +2383,17 @@ Future<String> sourceCallBackBtn({
   bookType: bookType,
 );
 
-/// 提取 JS 单文件书源配置（返回 BookSource JSON）
+/// 提取JS单文件书源完整配置。
 ///
 /// `content` — 完整 JS 书源脚本文本；需 quickjs 构建，否则返回错误
-Future<String> jsSourceExtract({required String content}) =>
+Future<BookSourceDto> jsSourceExtract({required String content}) =>
     RustLib.instance.api.crateFfiFfiJsSourceExtract(content: content);
 
-/// JS 语法检查（#479，返回 SyntaxCheckResult JSON：valid/message/line）
+/// JS 语法检查，直接返回valid/message/line诊断。
 ///
 /// `content` — 待检查的 JS 脚本文本；quickjs 构建下只编译不执行，
 /// 非 quickjs 构建降级为括号平衡基础检查
-Future<String> jsSourceSyntaxCheck({required String content}) =>
+Future<SourceSyntaxDto> jsSourceSyntaxCheck({required String content}) =>
     RustLib.instance.api.crateFfiFfiJsSourceSyntaxCheck(content: content);
 
 /// 写回顶层配置对象的 lastUpdateTime（#208/#515，返回替换后脚本文本）
@@ -2274,10 +2414,10 @@ Future<String> jsSourceStampLastUpdateTime({
 Future<void> appLogPush({required String level, required String message}) =>
     RustLib.instance.api.crateFfiFfiAppLogPush(level: level, message: message);
 
-/// 获取指定级别的日志列表（JSON 数组，最新在前）
+/// 获取指定级别的日志列表（类型化列表，最新在前）
 ///
 /// 每项字段：`timestamp`（毫秒）/ `level` / `message`
-Future<String> appLogList({required String level}) =>
+Future<List<AppLogDto>> appLogList({required String level}) =>
     RustLib.instance.api.crateFfiFfiAppLogList(level: level);
 
 /// 清空指定级别的日志
@@ -2291,12 +2431,13 @@ Future<void> appLogClearAll() =>
 /// 导出全部日志为格式化文本（时间升序，64_000 字符截断，对齐 #543）
 Future<String> appLogExport() => RustLib.instance.api.crateFfiFfiAppLogExport();
 
-/// 获取规则订阅列表（RuleSub 数组 JSON，按 customOrder 排序）
-Future<String> ruleSubList() => RustLib.instance.api.crateFfiFfiRuleSubList();
+/// 获取规则订阅列表（RuleSub类型化列表，按 customOrder 排序）
+Future<List<RuleSubscriptionDto>> ruleSubList() =>
+    RustLib.instance.api.crateFfiFfiRuleSubList();
 
-/// 保存规则订阅（RuleSub JSON，id>0 且存在则更新，否则新增）
-Future<bool> ruleSubSave({required String subJson}) =>
-    RustLib.instance.api.crateFfiFfiRuleSubSave(subJson: subJson);
+/// 保存规则订阅（RuleSub实体，id>0 且存在则更新，否则新增）
+Future<bool> ruleSubSave({required RuleSubscriptionDto sub}) =>
+    RustLib.instance.api.crateFfiFfiRuleSubSave(sub: sub);
 
 /// 删除规则订阅，返回是否实际删除
 Future<bool> ruleSubDelete({required PlatformInt64 id}) =>
@@ -2309,18 +2450,18 @@ Future<bool> ruleSubSetEnabled({
 }) =>
     RustLib.instance.api.crateFfiFfiRuleSubSetEnabled(id: id, enabled: enabled);
 
-/// 批量更新规则订阅排序（拖拽排序，ids_json 为新顺序 ID 数组）
-Future<bool> ruleSubUpdateOrder({required String idsJson}) =>
-    RustLib.instance.api.crateFfiFfiRuleSubUpdateOrder(idsJson: idsJson);
+/// 批量更新规则订阅排序（拖拽排序，ids 为新顺序 ID 数组）
+Future<bool> ruleSubUpdateOrder({required Int64List ids}) =>
+    RustLib.instance.api.crateFfiFfiRuleSubUpdateOrder(ids: ids);
 
-/// 检查规则订阅更新（委托 should_update/fetch_subscription，返回检查结果 JSON）
+/// 检查规则订阅更新（委托 should_update/fetch_subscription，返回检查类型化结果）
 ///
 /// 返回字段：id/url/name/dueForUpdate/hasUpdate/remoteVersion/error
-Future<String> ruleSubCheckUpdate({required PlatformInt64 id}) =>
+Future<SubscriptionCheckDto> ruleSubCheckUpdate({required PlatformInt64 id}) =>
     RustLib.instance.api.crateFfiFfiRuleSubCheckUpdate(id: id);
 
-/// 应用规则订阅更新（委托 fetch/merge_subscription，返回应用结果 JSON）
+/// 应用规则订阅更新（委托 fetch/merge_subscription，返回应用类型化结果）
 ///
 /// 返回字段：id/url/success/itemsAdded/itemsUpdated/itemsRemoved/totalItems/error
-Future<String> ruleSubApplyUpdate({required PlatformInt64 id}) =>
+Future<SubscriptionApplyDto> ruleSubApplyUpdate({required PlatformInt64 id}) =>
     RustLib.instance.api.crateFfiFfiRuleSubApplyUpdate(id: id);

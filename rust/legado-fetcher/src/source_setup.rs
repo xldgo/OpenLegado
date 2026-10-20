@@ -8,16 +8,16 @@
 //!
 //! - `info_map`：explore infoMap 快照（ffi 查 `explore_info_map`，
 //!   server 查 DB `caches` 键 `infoMap_<sourceUrl>`）；
-//! - `login_header` / `login_info`：登录缓存（ffi 查 `source_login_cache`，
-//!   server 查同一 DB 的 `loginHeader_<sourceUrl>` / `userInfo_<sourceUrl>` 键）。
+//! - `login_header` / `login_info`：未注入登录服务的独立调用使用的预置值；
+//!   正式 FFI/Server VM 直接读同一实例服务，不能写回过期快照。
 //!
 //! 函数本身不依赖 quickjs（纯字符串生成）；脚本的消费方（QuickJsExecutor /
 //! 规则分析器）在未启用 quickjs 的构建下静默忽略，两档行为一致。
 
 use std::collections::HashMap;
 
-use legado_core::models::BookSource;
 use legado_core::LegadoResult;
+use legado_core::models::BookSource;
 
 use crate::js_adapter::extract_js_lib_host_decl;
 
@@ -286,9 +286,10 @@ globalThis.infoMap = new Proxy(__infoData, {{
 }});
 
 // 预置登录缓存（与 CacheManager 对齐）
-globalThis.__loginHeaderSeed = {login_header_seed};
+globalThis.__loginHeaderSeed = globalThis.__legadoHasSourceLoginStore
+  ? get(__loginHeaderKey()) : {login_header_seed};
 if (__loginHeaderSeed) {{
-  put(__loginHeaderKey(), String(__loginHeaderSeed));
+  if (!globalThis.__legadoHasSourceLoginStore) put(__loginHeaderKey(), String(__loginHeaderSeed));
   // 同步登录认证头到全局 Cookie（供 java.ajax 自动携带书山 X-Novel-Token 等）
   try {{
     globalThis.__lh = __loginHeaderSeed;
@@ -308,7 +309,8 @@ if (__loginHeaderSeed) {{
     }}
   }} catch (e) {{}}
 }}
-globalThis.__loginInfoSeed = {login_info_seed};
+globalThis.__loginInfoSeed = globalThis.__legadoHasSourceLoginStore
+  ? null : {login_info_seed};
 if (__loginInfoSeed) {{
   put(__userInfoKey(), String(__loginInfoSeed));
 }}
@@ -433,8 +435,21 @@ mod tests {
         };
         let script = book_source_js_setup_script(&source, &HashMap::new(), None, None)
             .expect("setup 脚本生成");
-        assert!(script.contains("globalThis.__loginHeaderSeed = null;"));
-        assert!(script.contains("globalThis.__loginInfoSeed = null;"));
+        #[cfg(feature = "quickjs")]
+        {
+            use legado_js::JsEngine;
+            let resources = legado_js::JsResources::default().for_flow("empty-login-setup");
+            let engine = resources
+                .create_engine(legado_js::SandboxConfig::default())
+                .unwrap();
+            engine.eval(&script).unwrap();
+            assert_eq!(
+                engine
+                    .eval("source.getLoginHeader() + ':' + source.getLoginInfo()")
+                    .unwrap(),
+                "null:null"
+            );
+        }
         assert!(script.contains("globalThis.__infoData = {};"));
         // 无 jsLib 的源：host 兜底注入书源 URL
         assert!(

@@ -1,3 +1,8 @@
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/models/search_batch.dart';
+import 'package:flutter_legado/src/data/bridge/search_batch_decode.dart';
+
 // [A1 形态对齐 | full-stack-engineer + UI] 搜索页顶栏三钮 + 结果过滤回归测试
 //
 // 覆盖：
@@ -10,15 +15,15 @@
 //    书源管理/日志），功能可达性不丢。
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/search_screen.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 import '../mocks/mocks.dart';
 
@@ -31,18 +36,24 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.getSearchHistory(limit: any(named: 'limit')))
-        .thenAnswer((_) async => []);
-    when(() => mockApi.addSearchKeyword(any(), any()))
+    when(
+      () => mockApi.searchHistoryRepository.getSearchHistory(
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer((_) async => []);
+    when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.clearSearchHistory()).thenAnswer((_) async {});
-    when(() => mockApi.cancelSearch()).thenAnswer((_) async {});
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-    when(() => mockApi.getEnabledBookSources())
+    when(() => mockApi.searchHistoryRepository.clearSearchHistory())
+        .thenAnswer((_) async {});
+    when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -54,42 +65,80 @@ void main() {
     );
   }
 
-  /// 构造流式搜索批次（字段契约同 BookApi.searchMultiStream）
-  Map<String, dynamic> makeBatch(List<Map<String, dynamic>> books,
-          {bool isLast = false}) =>
-      {
-        'source_index': 0,
-        'source_url': 'https://a.com',
-        'source_name': '笔趣阁',
-        'books': books,
-        'error': null,
-        'finished_count': 1,
-        'total_count': 1,
-        'is_last': isLast,
-      };
+  /// 构造流式搜索批次（字段契约同 TestApi.searchMultiStream）
+  SearchBatch makeBatch(
+    List<Map<String, dynamic>> books, {
+    bool isLast = false,
+  }) => decodeSearchBatch({
+    'source_index': 0,
+    'source_url': 'https://a.com',
+    'source_name': '笔趣阁',
+    'books': books,
+    'error': null,
+    'finished_count': 1,
+    'total_count': 1,
+    'is_last': isLast,
+  });
 
-  List<Map<String, dynamic>> makeBooks(List<String> names) =>
-      names
-          .map(
-              (n) => {
-                    'origin': 'https://a.com',
-                    'originName': '笔趣阁',
-                    'name': n,
-                    'author': '作者',
-                    'bookUrl': 'https://a.com/b/$n',
-                  })
-          .toList();
+  List<Map<String, dynamic>> makeBooks(List<String> names) => names
+      .map(
+        (n) => {
+          'origin': 'https://a.com',
+          'originName': '笔趣阁',
+          'name': n,
+          'author': '作者',
+          'bookUrl': 'https://a.com/b/$n',
+        },
+      )
+      .toList();
 
   group('搜索页顶栏三钮（A1 形态对齐）', () {
+    for (final active in [false, true]) {
+      testWidgets('合并背景不叠加圆形底色，保留筛选强调色：$active', (tester) async {
+        when(() => mockApi.configRepository.getConfig('searchResultFilter'))
+            .thenAnswer((_) async => active ? '遮光' : null);
+        await tester.pumpWidget(
+          wrap(
+            UiSettingsScope(
+              settings: const UiSettings(
+                topBarButtonStyle: TopBarButtonStyle.glass,
+                mergeTopBarActions: true,
+              ),
+              child: const SearchScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final label in ['搜索范围', active ? '搜索结果过滤（已开启）' : '搜索结果过滤']) {
+          final finder = find.byWidgetPredicate(
+            (widget) => widget is IconButton && widget.tooltip == label,
+          );
+          final button = tester.widget<IconButton>(finder);
+          expect(
+            button.style!.backgroundColor!.resolve({}),
+            Colors.transparent,
+          );
+          final cs = Theme.of(tester.element(finder)).colorScheme;
+          expect(
+            button.style!.foregroundColor!.resolve({}),
+            active && label.contains('已开启') ? cs.primary : cs.onSurfaceVariant,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('顶栏三钮（设置/范围/过滤）均在位，⋮ 已移除', (tester) async {
-      final events = StreamController<Map<String, dynamic>>();
+      final events = StreamController<SearchBatch>();
       // [A1 形态对齐] searchMultiStream 契约含 page 参数（批次B G-B-01 翻页），
       // mock 须显式匹配 page，否则 mocktail 返回 null → 搜索报错、结果不落地
-      when(() => mockApi.searchMultiStream(
-              any(),
-              sourceUrls: any(named: 'sourceUrls'),
-              page: any(named: 'page')))
-          .thenAnswer((_) => events.stream);
+      when(
+        () => mockApi.searchService.searchMultiStream(
+          any(),
+          sourceUrls: any(named: 'sourceUrls'),
+          page: any(named: 'page'),
+        ),
+      ).thenAnswer((_) => events.stream);
 
       await tester.pumpWidget(wrap(const SearchScreen()));
       await tester.pump();
@@ -105,12 +154,14 @@ void main() {
     });
 
     testWidgets('过滤关闭态：命中词结果全量展示，按钮为常规态', (tester) async {
-      final events = StreamController<Map<String, dynamic>>();
-      when(() => mockApi.searchMultiStream(
-              any(),
-              sourceUrls: any(named: 'sourceUrls'),
-              page: any(named: 'page')))
-          .thenAnswer((_) => events.stream);
+      final events = StreamController<SearchBatch>();
+      when(
+        () => mockApi.searchService.searchMultiStream(
+          any(),
+          sourceUrls: any(named: 'sourceUrls'),
+          page: any(named: 'page'),
+        ),
+      ).thenAnswer((_) => events.stream);
 
       await tester.pumpWidget(wrap(SearchScreen(initialQuery: 'abc')));
       await tester.pump();
@@ -130,14 +181,16 @@ void main() {
 
     testWidgets('过滤开启态：命中屏蔽词被隐藏，按钮为已开启态', (tester) async {
       // 搜索结果过滤屏蔽词（对齐原版 PreferKey.searchResultFilter）
-      when(() => mockApi.getConfig('searchResultFilter'))
+      when(() => mockApi.configRepository.getConfig('searchResultFilter'))
           .thenAnswer((_) async => '遮光');
-      final events = StreamController<Map<String, dynamic>>();
-      when(() => mockApi.searchMultiStream(
-              any(),
-              sourceUrls: any(named: 'sourceUrls'),
-              page: any(named: 'page')))
-          .thenAnswer((_) => events.stream);
+      final events = StreamController<SearchBatch>();
+      when(
+        () => mockApi.searchService.searchMultiStream(
+          any(),
+          sourceUrls: any(named: 'sourceUrls'),
+          page: any(named: 'page'),
+        ),
+      ).thenAnswer((_) => events.stream);
 
       await tester.pumpWidget(wrap(SearchScreen(initialQuery: 'abc')));
       // 等待 initState 的 getConfig 异步恢复过滤词
@@ -157,12 +210,14 @@ void main() {
     });
 
     testWidgets('⚙ 设置弹层承载原 ⋮ 设置类项（功能可达性不丢）', (tester) async {
-      final events = StreamController<Map<String, dynamic>>();
-      when(() => mockApi.searchMultiStream(
-              any(),
-              sourceUrls: any(named: 'sourceUrls'),
-              page: any(named: 'page')))
-          .thenAnswer((_) => events.stream);
+      final events = StreamController<SearchBatch>();
+      when(
+        () => mockApi.searchService.searchMultiStream(
+          any(),
+          sourceUrls: any(named: 'sourceUrls'),
+          page: any(named: 'page'),
+        ),
+      ).thenAnswer((_) => events.stream);
 
       await tester.pumpWidget(wrap(const SearchScreen()));
       await tester.pump();

@@ -8,29 +8,19 @@
 class PrefKeys {
   PrefKeys._();
 
+  /// 恢复忽略策略，保持原单个JSON存储键并始终排除备份。
+  static const restoreIgnore = 'restoreIgnore';
+
   // ===== 主题设置页（pref_config_theme.xml）=====
 
   /// 启动图标（仅 Android 生效，原版 launcherIcon）
   static const launcherIcon = 'launcherIcon';
-
-  /// 沉浸式状态栏（仅 Android 生效，默认 true）
-  static const transparentStatusBar = 'transparentStatusBar';
-
-  /// 沉浸式导航栏（仅 Android 生效，默认 true）
-  static const immNavigationBar = 'immNavigationBar';
 
   /// 导航栏阴影高度（原版 barElevation，0~32）
   static const barElevation = 'barElevation';
 
   /// 底部操作栏皮肤跟随背景（仅 Android 生效）
   static const bottomBarSkin = 'bottomBarSkin';
-
-  /// 使用壁纸取色（Android 12+/iOS 动态色均可用——R1 接通 dynamic_color；
-  /// 默认 false）
-  static const wallpaperColorFollow = 'wallpaperColorFollow';
-
-  /// 壁纸变化时自动更新取色（仅 Android 生效，默认 true）
-  static const wallpaperColorAutoUpdate = 'wallpaperColorAutoUpdate';
 
   /// 日间主色调（ARGB int）
   static const cPrimary = 'colorPrimary';
@@ -62,12 +52,6 @@ class PrefKeys {
   /// 夜间背景图片路径
   static const bgImageN = 'backgroundImageNight';
 
-  /// 日间导航栏透明（仅 Android 生效，默认 false）
-  static const transparentNavBar = 'transparentNavBar';
-
-  /// 夜间导航栏透明（仅 Android 生效，默认 false）
-  static const transparentNavBarNight = 'transparentNavBarNight';
-
   // ===== UI 布局同步重构开关族（UI_SYNC_REFACTOR_PLAN_20260905.md，
   // key 名对齐参考仓 PreferKey，经 SharedPreferences 透存，Rust 不解释）=====
 
@@ -80,17 +64,21 @@ class PrefKeys {
   /// 使用 MediumFlexible 大顶栏形态（参考仓 useFlexibleTopAppBar，默认 true）
   static const useFlexibleTopAppBar = 'useFlexibleTopAppBar';
 
-  /// 顶栏不透明度 0-100（参考仓 topBarOpacity，默认 100）
-  static const topBarOpacity = 'topBarOpacity';
+  /// 顶栏普通背景不透明度 0–1 double，默认 1
+  static const topBarBackgroundOpacity = 'topBarBackgroundOpacity';
 
   /// 底栏 label 显示档位：auto/labeled/unlabeled（参考仓默认 auto）
   static const labelVisibilityMode = 'labelVisibilityMode';
 
-  /// 底栏不透明度 0-100（参考仓 bottomBarOpacity，默认 100）
-  static const bottomBarOpacity = 'bottomBarOpacity';
+  /// 底栏普通背景不透明度 0–1 double，默认 1
+  static const bottomBarBackgroundOpacity = 'bottomBarBackgroundOpacity';
 
   /// 悬浮底栏（参考仓 useFloatingBottomBar，默认关）
   static const useFloatingBottomBar = 'useFloatingBottomBar';
+
+  /// 悬浮底栏液态玻璃，默认关闭。
+  static const useFloatingBottomBarLiquidGlass =
+      'useFloatingBottomBarLiquidGlass';
 
   /// 显示底栏（参考仓 showBottomView，默认开）
   static const showBottomView = 'showBottomView';
@@ -118,17 +106,17 @@ class PrefKeys {
   /// 启用毛玻璃（参考仓 enableBlur，默认关——低端机掉帧保护）
   static const enableBlur = 'enableBlur';
 
-  /// 顶栏模糊半径 dp（参考仓 topBarBlurRadius，默认 24）
-  static const topBarBlurRadius = 'topBarBlurRadius';
+  /// 顶栏模糊 sigma，逻辑像素 double，默认 24
+  static const topBarBlurSigma = 'topBarBlurSigma';
 
-  /// 顶栏模糊底色透明度 0-255（参考仓 topBarBlurAlpha，默认 73）
-  static const topBarBlurAlpha = 'topBarBlurAlpha';
+  /// 顶栏模糊底色不透明度 0–1 double，默认 0.73
+  static const topBarBlurTintOpacity = 'topBarBlurTintOpacity';
 
-  /// 悬浮底栏模糊半径 dp（参考仓 bottomBarBlurRadius，默认 8）
-  static const bottomBarBlurRadius = 'bottomBarBlurRadius';
+  /// 底栏模糊 sigma，逻辑像素 double，默认 8
+  static const bottomBarBlurSigma = 'bottomBarBlurSigma';
 
-  /// 悬浮底栏底色透明度 0-255（参考仓 bottomBarBlurAlpha，默认 40）
-  static const bottomBarBlurAlpha = 'bottomBarBlurAlpha';
+  /// 底栏模糊底色不透明度 0–1 double，默认 0.40
+  static const bottomBarBlurTintOpacity = 'bottomBarBlurTintOpacity';
 
   /// 设置行分隔线开关（参考仓 enableItemDivider，默认关）
   static const enableItemDivider = 'enableItemDivider';
@@ -144,38 +132,6 @@ class PrefKeys {
 
   /// AMOLED 纯黑（参考仓 pure_black/isAmoled，默认关）
   static const themeAmoled = 'themeAmoled';
-
-  /// 阅读菜单亮度竖条开关（参考仓 showBrightnessView="2" 变体，默认关）
-  static const readMenuBrightnessVertical = 'readMenuBrightnessVertical';
-
-  /// 阅读菜单亮度竖条位置：left/right（参考仓 brightnessVwPos）
-  static const readMenuBrightnessPos = 'readMenuBrightnessVwPos';
-
-  // ===== 欢迎页样式（pref_config_welcome.xml / WelcomeConfigFragment）=====
-
-  /// 欢迎页显示时长（毫秒，原版默认 500，范围 0~800）
-  static const welcomeShowTime = 'welcomeShowTime';
-
-  /// 自定义欢迎页（默认 false）
-  static const customWelcome = 'customWelcome';
-
-  /// 白天欢迎背景图路径（PreferKey.welcomeImage = welcomeImagePath）
-  static const welcomeImage = 'welcomeImagePath';
-
-  /// 夜间欢迎背景图路径
-  static const welcomeImageDark = 'welcomeImagePathDark';
-
-  /// 欢迎页显示文字（白天，默认 true）
-  static const welcomeShowText = 'welcomeShowText';
-
-  /// 欢迎页显示文字（夜间，默认 true）
-  static const welcomeShowTextDark = 'welcomeShowTextDark';
-
-  /// 欢迎页显示图标（白天，默认 true）
-  static const welcomeShowIcon = 'welcomeShowIcon';
-
-  /// 欢迎页显示图标（夜间，默认 true）
-  static const welcomeShowIconDark = 'welcomeShowIconDark';
 
   // ===== 封面设置（pref_config_cover.xml）=====
 
@@ -199,7 +155,7 @@ class PrefKeys {
   /// 仅更新已读书籍（默认 false，依赖 auto_refresh 可见）
   static const onlyUpdateRead = 'onlyUpdateRead';
 
-  /// 打开书架书籍时默认进入阅读界面（默认 false）
+  /// 冷启动默认进入上次阅读（默认 false；对齐上游 OtherSettings.defaultToRead）
   static const defaultToRead = 'defaultToRead';
 
   /// 显示发现（默认 true）
@@ -235,8 +191,11 @@ class PrefKeys {
   /// 图片文件保留数量（默认 100，0~999）
   static const imageRetainNum = 'imageRetainNum';
 
-  /// 预下载章节数量（默认 10，0~9999）
+  /// 当前章之后的预下载章数（默认10，0～100）。
   static const preDownloadNum = 'preDownloadNum';
+
+  /// 当前章之前的预下载章数（默认0，0～100）。
+  static const preDownloadNumPrev = 'preDownloadNumPrev';
 
   /// 新增书籍默认启用替换净化（默认 true）
   static const replaceEnableDefault = 'replaceEnableDefault';

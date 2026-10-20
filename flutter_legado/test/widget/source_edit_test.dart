@@ -1,22 +1,19 @@
+import '../fixtures/app_test_api.dart';
+
 // 书源编辑页 widget 测试
 //
 // 验证 Phase 5.1 书源编辑表单（对标 Android BookSourceEditActivity）：
-// - [B2-C2 2-8] 扁平单列结构（对齐参考版 ref 09）：设置段 + 7 个规则
-//   分组段（基本信息/搜索规则/发现规则/详情规则/目录规则/正文规则/
-//   段评规则）同列顺序展开，无 Tab 页签与字段导航条
+// - 基本/搜索/发现/详情/目录/正文六个页签，设置与段评归入基本和正文
 // - 各分组的字段与设置开关可见
 // - 必填校验（书源名称/URL）与保存创建
 // - 编辑模式回填发现/详情/评论规则
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/source/source_notifier.dart';
-import 'package:flutter_legado/src/screens/source_edit_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 import '../mocks/mocks.dart';
 
@@ -30,9 +27,10 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -64,35 +62,32 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  group('SourceEditScreen 扁平单列结构', () {
-    testWidgets('新建模式渲染 7 个规则分组段（扁平单列，调试为顶栏菜单）',
-        (tester) async {
-      // 加高可视区域，确保单滚动列内全部分组段标题完整构建
+  Future<void> selectTab(WidgetTester tester, String label) async {
+    final tab = find.widgetWithText(Tab, label);
+    await tester.ensureVisible(tab);
+    await tester.tap(tab);
+    await tester.pumpAndSettle();
+  }
+
+  group('SourceEditScreen 页签结构', () {
+    testWidgets('新建模式展示六个规则页签，调试保留在顶栏', (tester) async {
+      // 加高可视区域，便于后续字段回填检查。
       await tester.binding.setSurfaceSize(const Size(800, 8000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await pumpEdit(tester);
 
       expect(find.text('新建书源'), findsOneWidget);
-      // [B2-C2 2-8] 取消 Tab 页签：7 个规则分组段以标题 Text 同列顺序展开
-      for (final title in const [
-        '基本信息',
-        '搜索规则',
-        '发现规则',
-        '详情规则',
-        '目录规则',
-        '正文规则',
-        '段评规则',
-      ]) {
+      for (final title in const ['基本', '搜索', '发现', '详情', '目录', '正文']) {
         expect(
-          find.text(title),
+          find.widgetWithText(Tab, title),
           findsOneWidget,
-          reason: '应包含「$title」分组段',
+          reason: '应包含「$title」页签',
         );
       }
     });
 
     testWidgets('顶部设置段展示开关，各分组展示对应字段', (tester) async {
-      // 加高可视区域，确保单滚动列内各分组字段完整构建
+      // 加高可视区域，确保正文页的段评字段可见。
       await tester.binding.setSurfaceSize(const Size(800, 8000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await pumpEdit(tester);
@@ -105,32 +100,35 @@ void main() {
       expect(find.text('事件监听'), findsOneWidget);
       expect(find.text('定制按钮'), findsOneWidget);
 
-      // [B2-C2 2-8] 扁平单列：各分组字段同列共存，无需切 Tab，直接断言。
-      // 标签已上移为常显 Text，字段改以 ValueKey('sf_<field.key>') 稳定定位。
+      await selectTab(tester, '发现');
       expect(find.byKey(const ValueKey('sf_exploreUrl')), findsOneWidget);
+      await selectTab(tester, '详情');
       expect(find.byKey(const ValueKey('sf_i_tocUrl')), findsOneWidget);
       expect(find.byKey(const ValueKey('sf_i_canReName')), findsOneWidget);
-      expect(find.byKey(const ValueKey('sf_r_reviewSummaryUrl')),
-          findsOneWidget);
+      await selectTab(tester, '正文');
+      expect(
+        find.byKey(const ValueKey('sf_r_reviewSummaryUrl')),
+        findsOneWidget,
+      );
     });
   });
 
   group('SourceEditScreen 校验与保存', () {
-    testWidgets('必填字段为空时阻止保存并提示', (tester) async {
+    testWidgets('其他页签保存仍校验必填字段并返回基本', (tester) async {
       await pumpEdit(tester);
+      await selectTab(tester, '正文');
 
       await tester.tap(find.byTooltip('保存'));
       await tester.pumpAndSettle();
 
       expect(find.text('请输入源名称（sourceName）'), findsOneWidget);
       expect(find.text('请输入源 URL（sourceUrl）'), findsOneWidget);
-      verifyNever(() => mockApi.addBookSource(any()));
+      verifyNever(() => mockApi.bookSourceRepository.addBookSource(any()));
     });
 
     testWidgets('填写名称与 URL 后保存成功创建书源', (tester) async {
-      when(
-        () => mockApi.addBookSource(any()),
-      ).thenAnswer((inv) async => inv.positionalArguments[0] as BookSource);
+      when(() => mockApi.bookSourceRepository.addBookSource(any()))
+          .thenAnswer((inv) async => inv.positionalArguments[0] as BookSource);
       await pumpEdit(tester);
 
       // 标签已上移为常显 Text，字段改以 ValueKey('sf_<field.key>') 稳定定位。
@@ -147,7 +145,9 @@ void main() {
 
       expect(find.text('书源已创建'), findsOneWidget);
       final captured =
-          verify(() => mockApi.addBookSource(captureAny())).captured.single
+          verify(() => mockApi.bookSourceRepository.addBookSource(captureAny()))
+                  .captured
+                  .single
               as BookSource;
       expect(captured.bookSourceName, '测试书源');
       expect(captured.bookSourceUrl, 'https://test.com');
@@ -158,7 +158,7 @@ void main() {
 
   group('SourceEditScreen 编辑模式回填', () {
     testWidgets('回填发现/详情/评论规则字段与开关', (tester) async {
-      // 加高可视区域，确保单滚动列内全部分组字段（含末段段评）完整构建
+      // 加高可视区域，确保正文页的段评字段可见。
       await tester.binding.setSurfaceSize(const Size(800, 8000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       const source = BookSource(
@@ -167,9 +167,13 @@ void main() {
         exploreUrl: '分类::https://edit.com/sort',
         ruleExplore: ExploreRule(bookList: '.explore-list', name: '.e-name'),
         ruleBookInfo: BookInfoRule(init: '.init', tocUrl: '.toc'),
-        ruleReview: ReviewRule(enabled: true, reviewSummaryUrl: '.review-summary'),
+        ruleReview: ReviewRule(
+          enabled: true,
+          reviewSummaryUrl: '.review-summary',
+        ),
       );
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => [source]);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => [source]);
       // 预加载书源到 notifier 状态
       await container.read(sourceNotifierProvider.notifier).loadSources();
 
@@ -180,13 +184,16 @@ void main() {
       // 基本信息回填
       expect(find.text('可编辑源'), findsOneWidget);
 
-      // [B2-C2 2-8] 扁平单列：发现/详情/段评规则字段同列共存，直接断言回填
+      await selectTab(tester, '发现');
       expect(find.text('分类::https://edit.com/sort'), findsOneWidget);
       expect(find.text('.explore-list'), findsOneWidget);
+      await selectTab(tester, '详情');
       expect(find.text('.init'), findsOneWidget);
       expect(find.text('.toc'), findsOneWidget);
+      await selectTab(tester, '正文');
       expect(find.text('.review-summary'), findsOneWidget);
-      // 段评开关在顶部设置段（CheckboxListTile）并回填为开启；
+      await selectTab(tester, '基本');
+      // 段评开关在基本页设置段（CheckboxListTile）并回填为开启；
       // 段默认收起，先展开再断言
       await tester.tap(find.text('设置'));
       await tester.pumpAndSettle();

@@ -1,9 +1,9 @@
 //! 书签管理 API
 //!
-//! 提供书签的增删查搜索操作，通过 BookmarkRepository 访问数据库。
+//! 提供书签的增删改查搜索操作，通过 BookmarkRepository 访问数据库。
 
-use legado_core::models::Bookmark;
 use legado_core::LegadoResult;
+use legado_core::models::Bookmark;
 use legado_db::BookmarkRepository;
 
 use crate::db_state::with_database;
@@ -58,6 +58,14 @@ pub fn add_bookmark(
     with_database(|db| {
         let repo = BookmarkRepository::new(db.connection());
         repo.insert(&bm)
+    })
+}
+
+/// 原子更新已有书签，保留 id 和创建时间，不删除或新增记录。
+pub fn update_bookmark(bookmark: &Bookmark) -> LegadoResult<()> {
+    with_database(|db| {
+        let repo = BookmarkRepository::new(db.connection());
+        repo.update(bookmark)
     })
 }
 
@@ -130,6 +138,58 @@ mod tests {
     }
 
     #[test]
+    fn test_update_bookmark_through_frb_entry() {
+        let _db_guard = setup_test_db();
+        let name = "bm_原子更新_8";
+        let id = add_bookmark(name, "作者", 0, 10, "第一章", "正文", "原备注").unwrap();
+        let mut bookmark = get_bookmarks(name).unwrap().remove(0);
+        let created_at = bookmark.time;
+        bookmark.time = 0;
+        bookmark.content = "新备注".to_string();
+        bookmark.chapter_pos = 20;
+
+        crate::ffi::ffi::bookmark_update(bookmark.clone().into()).unwrap();
+        bookmark.content = "再次更新".to_string();
+        crate::ffi::ffi::bookmark_update(bookmark.clone().into()).unwrap();
+
+        let found = get_bookmarks(name).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, id);
+        assert_eq!(found[0].time, created_at);
+        assert_eq!(found[0].chapter_pos, 20);
+        assert_eq!(found[0].content, "再次更新");
+        delete_bookmark(id).unwrap();
+    }
+
+    #[test]
+    fn test_invalid_bookmark_update_preserves_original() {
+        let _db_guard = setup_test_db();
+        let name = "bm_更新拒绝_9";
+        let id = add_bookmark(name, "作者", 0, 10, "第一章", "正文", "原备注").unwrap();
+        let original = get_bookmarks(name).unwrap().remove(0);
+        assert!(
+            crate::ffi::ffi::bookmark_update(
+                Bookmark {
+                    id: 0,
+                    ..original.clone()
+                }
+                .into()
+            )
+            .is_err()
+        );
+        let mut missing = original.clone();
+        missing.id = -1;
+        assert!(crate::ffi::ffi::bookmark_update(missing.into()).is_err());
+
+        let found = get_bookmarks(name).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, id);
+        assert_eq!(found[0].time, original.time);
+        assert_eq!(found[0].content, original.content);
+        delete_bookmark(id).unwrap();
+    }
+
+    #[test]
     fn test_delete_bookmark() {
         let _db_guard = setup_test_db();
         let id = add_bookmark("bm_书A_3", "作者", 0, 0, "ch0", "text", "").unwrap();
@@ -199,8 +259,10 @@ mod tests {
         assert_eq!(a[0].book_author, "作者甲7");
 
         // 作者不匹配 → 空列表
-        assert!(get_bookmarks_by_book("bm_同名书_7", "不存在")
-            .unwrap()
-            .is_empty());
+        assert!(
+            get_bookmarks_by_book("bm_同名书_7", "不存在")
+                .unwrap()
+                .is_empty()
+        );
     }
 }

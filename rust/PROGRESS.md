@@ -1,5 +1,8 @@
 # Legado Rust+Flutter 重构进度
 
+> 历史进度快照：下列任务和模块统计保留原记录，不作为当前模块清单或完成状态。
+> 当前状态见 [Active 计划](../docs/REFACTORING_ACTIVE_PLAN.md)；旧 Core 并发模块已按该计划清理。
+
 > 最后更新：2026-08-07（Rust 剩余项全批闭合 Task #140：R1-R10+R12 全部实现（subContent/replaceRegex/server 正文/字典规则引擎/缓存写与批量下载/payAction/导出参数/字体 cmap/JS 段评/bridge.rs DEPRECATED）+ QUIC 代码整体移除（用户决策，纯重构边界）；契约 §2.43 新增 7 方法 + §2.41 QUIC 移除记录；验证 cargo test --workspace 全绿、quickjs 213 全过、flutter analyze 0 error）
 
 ---

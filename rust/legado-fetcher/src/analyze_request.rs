@@ -113,11 +113,6 @@ fn data_uri_headers() -> HashMap<String, String> {
     HashMap::new()
 }
 
-/// 响应是否已到「终态」（不再重发）：2xx 或 3xx
-fn is_settled_status(status: u16) -> bool {
-    (200..400).contains(&status)
-}
-
 /// 状态码提取（raw / text 两种响应形态共用重试循环）
 trait StatusCode {
     fn status_code(&self) -> u16;
@@ -141,9 +136,28 @@ pub async fn send_raw(
     analyze_url: &AnalyzeUrl,
     headers: Option<HashMap<String, String>>,
 ) -> LegadoResult<LegadoRawResponse> {
+    send_raw_internal(client, analyze_url, headers, None).await
+}
+
+pub async fn send_raw_with_timeout(
+    client: &LegadoClient,
+    analyze_url: &AnalyzeUrl,
+    headers: Option<HashMap<String, String>>,
+    timeout: std::time::Duration,
+) -> LegadoResult<LegadoRawResponse> {
+    send_raw_internal(client, analyze_url, headers, Some(timeout)).await
+}
+
+async fn send_raw_internal(
+    client: &LegadoClient,
+    analyze_url: &AnalyzeUrl,
+    headers: Option<HashMap<String, String>>,
+    timeout: Option<std::time::Duration>,
+) -> LegadoResult<LegadoRawResponse> {
     // data: URI 短路：本地解码、绝不进 reqwest（P2-15，实机 builder error）
     if let Some(result) = data_uri_body(analyze_url) {
         return Ok(LegadoRawResponse {
+            raw_summary: String::new(),
             status: 200,
             headers: data_uri_headers(),
             body: result?,
@@ -159,11 +173,13 @@ pub async fn send_raw(
         let headers = headers.clone();
         async move {
             if is_post {
-                effective.post_raw(&url, &body, headers).await
+                effective
+                    .post_raw_with_timeout(&url, &body, headers, timeout)
+                    .await
             } else {
                 // 现状口径：非 POST（含 HEAD/GET）一律按 GET 发送，与既有
                 // 调用点逐字一致（HEAD 支持不在本批范围）
-                effective.get_raw(&url, headers).await
+                effective.get_raw_with_timeout(&url, headers, timeout).await
             }
         }
     })
@@ -223,20 +239,14 @@ where
     F: Fn(LegadoClient) -> Fut,
     Fut: Future<Output = LegadoResult<T>>,
 {
-    let effective = if analyze_url.follow_redirects() == Some(false) {
-        client.no_redirect_variant()?
-    } else {
-        client.clone()
-    };
-
-    let mut retries_remaining = analyze_url.retry();
-    loop {
-        let response = send(effective.clone()).await?;
-        if is_settled_status(response.status_code()) || retries_remaining == 0 {
-            return Ok(response);
-        }
-        retries_remaining -= 1;
-    }
+    legado_net::request::send_with_response_options(
+        client,
+        analyze_url.follow_redirects(),
+        analyze_url.retry(),
+        |response: &T| response.status_code(),
+        send,
+    )
+    .await
 }
 
 #[cfg(test)]

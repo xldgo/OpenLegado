@@ -1,3 +1,9 @@
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
+
+
+
+import '../fixtures/app_test_api.dart';
+
 // 回归守卫：debug 模式 RenderFlex 右溢（台账 P2-13 ②，设备 crash_log 右溢 12px）。
 // 约定：360dp 画布（1080x1920 @ 3.0），MockBookApi + MockAudioService 覆写，
 // 逐屏 pump 后断言无布局溢出异常（takeException == null）。
@@ -9,9 +15,8 @@
 //   - reader_screen.dart 与排版相关文件（承重区，命中先报告再改）
 //   - reader_comic_screen / video_screen / 翻页自绘黑底体系（已登记例外）
 //   - webview_login_screen（WebViewController 自绘登录浮层，平台通道依赖）
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,69 +24,59 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/book.dart';
 import 'package:flutter_legado/src/models/rss_article.dart';
 import 'package:flutter_legado/src/models/rss_source.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 import 'package:flutter_legado/src/services/audio_service.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/screens/about_screen.dart';
-import 'package:flutter_legado/src/screens/app_log_screen.dart';
-import 'package:flutter_legado/src/screens/audio_screen.dart';
-import 'package:flutter_legado/src/screens/auto_task_screen.dart';
-import 'package:flutter_legado/src/screens/book_group_screen.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
-import 'package:flutter_legado/src/screens/bookmark_screen.dart';
-import 'package:flutter_legado/src/screens/bookshelf_manage_screen.dart';
-import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
-import 'package:flutter_legado/src/screens/bottom_bar_skin_assign_screen.dart';
-import 'package:flutter_legado/src/screens/bottom_bar_skin_screen.dart';
-import 'package:flutter_legado/src/screens/browser_screen.dart';
-import 'package:flutter_legado/src/screens/cache_download_screen.dart';
-import 'package:flutter_legado/src/screens/cache_settings_screen.dart';
-import 'package:flutter_legado/src/screens/change_cover_screen.dart';
-import 'package:flutter_legado/src/screens/change_source_screen.dart';
-import 'package:flutter_legado/src/screens/code_edit_screen.dart';
-import 'package:flutter_legado/src/screens/dict_rule_screen.dart';
-import 'package:flutter_legado/src/screens/dict_screen.dart';
-import 'package:flutter_legado/src/screens/edit_book_info_screen.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
-import 'package:flutter_legado/src/screens/explore_show_screen.dart';
-import 'package:flutter_legado/src/screens/file_manage_screen.dart';
-import 'package:flutter_legado/src/screens/font_screen.dart';
-import 'package:flutter_legado/src/screens/highlight_rules_screen.dart';
-import 'package:flutter_legado/src/screens/home_screen.dart';
-import 'package:flutter_legado/src/screens/home_tab_screen.dart';
-import 'package:flutter_legado/src/screens/import_screen.dart';
-import 'package:flutter_legado/src/screens/js_source_edit_screen.dart';
-import 'package:flutter_legado/src/screens/offline_cache_screen.dart';
-import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/screens/qrcode_screen.dart';
-import 'package:flutter_legado/src/screens/read_aloud_config_screen.dart';
-import 'package:flutter_legado/src/screens/read_record_screen.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
-import 'package:flutter_legado/src/screens/remote_book_screen.dart';
-import 'package:flutter_legado/src/screens/replace_rules_screen.dart';
-import 'package:flutter_legado/src/screens/rss_article_detail_screen.dart';
-import 'package:flutter_legado/src/screens/rss_articles_screen.dart';
-import 'package:flutter_legado/src/screens/rss_favorites_screen.dart';
-import 'package:flutter_legado/src/screens/rss_screen.dart';
-import 'package:flutter_legado/src/screens/rss_source_debug_screen.dart';
-import 'package:flutter_legado/src/screens/rss_source_edit_screen.dart';
-import 'package:flutter_legado/src/screens/rss_source_manage_screen.dart';
-import 'package:flutter_legado/src/screens/rule_sub_screen.dart';
-import 'package:flutter_legado/src/screens/search_content_screen.dart';
-import 'package:flutter_legado/src/screens/search_screen.dart';
-import 'package:flutter_legado/src/screens/settings_home_screen.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
-import 'package:flutter_legado/src/screens/source_debug_screen.dart';
-import 'package:flutter_legado/src/screens/source_edit_screen.dart';
-import 'package:flutter_legado/src/screens/source_login_screen.dart';
-import 'package:flutter_legado/src/screens/source_screen.dart';
-import 'package:flutter_legado/src/screens/theme_config_screen.dart';
-import 'package:flutter_legado/src/screens/toc_screen.dart';
-import 'package:flutter_legado/src/screens/txt_toc_rules_screen.dart';
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
-import 'package:flutter_legado/src/screens/welcome_config_screen.dart';
-import 'package:flutter_legado/src/screens/welcome_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/about_screen.dart';
+import 'package:flutter_legado/src/features/logs/presentation/app_log_screen.dart';
+import 'package:flutter_legado/src/features/audio/presentation/audio_screen.dart';
+import 'package:flutter_legado/src/features/automation/presentation/auto_task_screen.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
+import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
+import 'package:flutter_legado/src/features/appearance/presentation/bottom_bar_skin_assign_screen.dart';
+import 'package:flutter_legado/src/features/appearance/presentation/bottom_bar_skin_screen.dart';
+import 'package:flutter_legado/src/features/browser/presentation/browser_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/cache_download_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/cache_settings_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/change_cover_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/change_source_screen.dart';
+import 'package:flutter_legado/src/features/tools/presentation/code_edit_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/dict_rule_screen.dart';
+import 'package:flutter_legado/src/features/dictionary/presentation/dict_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/edit_book_info_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_show_screen.dart';
+import 'package:flutter_legado/src/features/files/presentation/file_manage_screen.dart';
+import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/highlight_rules_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_tab_screen.dart';
+import 'package:flutter_legado/src/features/imports/presentation/import_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
+import 'package:flutter_legado/src/features/cache/presentation/offline_cache_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/tools/presentation/qrcode_screen.dart';
+import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
+import 'package:flutter_legado/src/features/read_records/read_records.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_config_panel.dart';
+import 'package:flutter_legado/src/features/remote_books/presentation/remote_book_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/replace_rules_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_article_detail_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_articles_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_favorites_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_source_debug_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_source_edit_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_source_manage_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/rule_sub_screen.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/source_debug_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/source_login_screen.dart';
+import 'package:flutter_legado/src/features/appearance/appearance.dart';
+import 'package:flutter_legado/src/features/toc/presentation/toc_screen.dart';
+import 'package:flutter_legado/src/features/rules/presentation/txt_toc_rules_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -103,10 +98,10 @@ void main() {
     when(() => mockAudio.audioFocusStream)
         .thenAnswer((_) => const Stream<AudioFocusEvent>.empty());
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         audioServiceProvider.overrideWithValue(mockAudio),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -132,19 +127,12 @@ void main() {
   final screens = <(String, Widget)>[
     // ===== 主屏幕 =====
     ('HomeTabScreen', const HomeTabScreen()),
-    (
-      'BrowserScreen',
-      const BrowserScreen(initialUrl: 'https://example.com'),
-    ),
+    ('BrowserScreen', const BrowserScreen(initialUrl: 'https://example.com')),
     ('BookshelfScreen', const BookshelfScreen()),
     ('SearchScreen', const SearchScreen()),
     ('SourceScreen', const SourceScreen()),
     ('ReadRecordScreen', const ReadRecordScreen()),
-    (
-      'ChangeSourceScreen',
-      const ChangeSourceScreen(bookUrl: 'u'),
-    ),
-    ('WelcomeScreen', const WelcomeScreen()),
+    ('ChangeSourceScreen', const ChangeSourceScreen(bookUrl: 'u')),
     ('AudioScreen', const AudioScreen()),
     ('BookshelfManageScreen', const BookshelfManageScreen()),
     ('RssScreen', const RssScreen()),
@@ -153,7 +141,6 @@ void main() {
     ('HomeScreen', const HomeScreen()),
     // ===== 设置各页 / 其它 =====
     ('SettingsScreen', const SettingsScreen()),
-    ('SettingsHomeScreen', const SettingsHomeScreen()),
     ('AboutScreen', const AboutScreen()),
     ('AppLogScreen', const AppLogScreen()),
     ('AutoTaskScreen', const AutoTaskScreen()),
@@ -173,7 +160,12 @@ void main() {
     ),
     ('CodeEditScreen', const CodeEditScreen(title: 't', initialText: '')),
     ('DictRuleScreen', const DictRuleScreen()),
-    ('EditBookInfoScreen', EditBookInfoScreen(book: Book(bookUrl: 'u', name: 'x'))),
+    (
+      'EditBookInfoScreen',
+      EditBookInfoScreen(
+        book: Book(bookUrl: 'u', name: 'x'),
+      ),
+    ),
     ('ExploreShowScreen', const ExploreShowScreen()),
     ('FileManageScreen', const FileManageScreen()),
     ('FontScreen', const FontScreen()),
@@ -181,6 +173,7 @@ void main() {
     ('ImportScreen', const ImportScreen()),
     ('OfflineCacheScreen', const OfflineCacheScreen()),
     ('OtherSettingsScreen', const OtherSettingsScreen()),
+    ('DownloadCacheSettingsScreen', const DownloadCacheSettingsScreen()),
     ('QrcodeScreen', const QrcodeScreen()),
     ('ReadAloudConfigScreen', const ReadAloudConfigScreen()),
     ('RemoteBookScreen', const RemoteBookScreen()),
@@ -189,7 +182,6 @@ void main() {
     ('ThemeConfigScreen', const ThemeConfigScreen()),
     ('TxtTocRulesScreen', const TxtTocRulesScreen()),
     ('WebDavSettingsScreen', const WebDavSettingsScreen()),
-    ('WelcomeConfigScreen', const WelcomeConfigScreen()),
     // ===== 搜索 / 换源 / 书源编辑 / 订阅 / 统计 =====
     (
       'SearchContentScreen',
@@ -220,7 +212,12 @@ void main() {
       ),
     ),
     ('RssFavoritesScreen', const RssFavoritesScreen()),
-    ('TocScreen', TocScreen(book: Book(bookUrl: 'u', name: 'x'))),
+    (
+      'TocScreen',
+      TocScreen(
+        book: Book(bookUrl: 'u', name: 'x'),
+      ),
+    ),
     // ===== 阅读器菜单类浮层（红线：命中先报告再改）=====
     // 红线核查结论（2026-09-20）：面板在应用内恒经 ReaderConfigPanel.show →
     // showModalBottomSheet(isScrollControlled) + DraggableScrollableSheet
@@ -232,9 +229,7 @@ void main() {
       'ReaderConfigPanel',
       ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 588),
-        child: SingleChildScrollView(
-          child: ReaderConfigPanel(config: ReaderAdvancedConfig()),
-        ),
+        child: SingleChildScrollView(child: const ReaderConfigPanel()),
       ),
     ),
   ];

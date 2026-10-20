@@ -1,14 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../fixtures/app_test_api.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
-import 'package:flutter_legado/src/screens/rss_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -21,7 +21,7 @@ void main() {
 
   Widget wrap(Widget child, MockRustApi mockApi) {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: MaterialApp(home: child),
     );
   }
@@ -29,11 +29,14 @@ void main() {
   testWidgets('订阅页有数据渲染无异常', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getRssSources()).thenAnswer((_) async => const [
-          RssSource(sourceUrl: 'u1', sourceName: '源一'),
-          RssSource(sourceUrl: 'u2', sourceName: '源二', sourceGroup: '分组A'),
-        ]);
-    when(() => mockApi.importRssSources(any())).thenAnswer((_) async => 0);
+    when(() => mockApi.rssSourceRepository.getRssSources()).thenAnswer(
+      (_) async => const [
+        RssSource(sourceUrl: 'u1', sourceName: '源一'),
+        RssSource(sourceUrl: 'u2', sourceName: '源二', sourceGroup: '分组A'),
+      ],
+    );
+    when(() => mockApi.rssSourceRepository.importRssSources(any()))
+        .thenAnswer((_) async => 0);
     await tester.pumpWidget(wrap(const RssScreen(), mockApi));
     await tester.pumpAndSettle();
 
@@ -46,19 +49,23 @@ void main() {
   testWidgets('发现页有数据渲染无异常', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const [
-          BookSource(
-              bookSourceUrl: 'u1',
-              bookSourceName: '书源一',
-              enabledExplore: true,
-              exploreUrl: 'https://a.test/x'),
-          BookSource(
-              bookSourceUrl: 'u2',
-              bookSourceName: '书源二',
-              bookSourceGroup: '分组A',
-              enabledExplore: true,
-              exploreUrl: 'https://b.test/y'),
-        ]);
+    when(() => mockApi.bookSourceRepository.getBookSources()).thenAnswer(
+      (_) async => const [
+        BookSource(
+          bookSourceUrl: 'u1',
+          bookSourceName: '书源一',
+          enabledExplore: true,
+          exploreUrl: 'https://a.test/x',
+        ),
+        BookSource(
+          bookSourceUrl: 'u2',
+          bookSourceName: '书源二',
+          bookSourceGroup: '分组A',
+          enabledExplore: true,
+          exploreUrl: 'https://b.test/y',
+        ),
+      ],
+    );
     await tester.pumpWidget(wrap(const ExploreScreen(), mockApi));
     await tester.pumpAndSettle();
 

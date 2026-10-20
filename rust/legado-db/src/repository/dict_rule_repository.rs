@@ -5,7 +5,7 @@
 //! `id` 为 Rust 超集（便于既有 id 基 CRUD）。
 //! 原版默认数据位于 `app/src/main/assets/defaultData/dictRules.json`。
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};
@@ -94,8 +94,8 @@ impl<'a> DictRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_dict_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("dict_rule_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -177,8 +177,8 @@ impl<'a> DictRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_dict_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("dict_rule_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -195,8 +195,8 @@ impl<'a> DictRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_dict_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("dict_rule_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -350,9 +350,10 @@ mod tests {
         let repo = DictRuleRepository::new(db.connection());
         let id = repo.insert("Old", "http://old.com", "old_rule").unwrap();
 
-        assert!(repo
-            .update(id, "New", "http://new.com", "new_rule")
-            .unwrap());
+        assert!(
+            repo.update(id, "New", "http://new.com", "new_rule")
+                .unwrap()
+        );
         let updated = repo.find_by_id(id).unwrap().unwrap();
         assert_eq!(updated.name, "New");
         assert_eq!(updated.url_rule, "http://new.com");
@@ -425,9 +426,11 @@ mod tests {
         assert_eq!(haici_en.url_rule, "https://apii.dict.cn/mini.php?q={{key}}");
         assert_eq!(haici_en.show_rule, "tag.body@all");
         let youdao = &sorted[2];
-        assert!(youdao
-            .url_rule
-            .starts_with("https://m.youdao.com/translate"));
+        assert!(
+            youdao
+                .url_rule
+                .starts_with("https://m.youdao.com/translate")
+        );
         assert!(youdao.url_rule.contains("inputtext={{key}}"));
         let baidu = &sorted[4];
         assert!(baidu.url_rule.starts_with("data:;base64,"));

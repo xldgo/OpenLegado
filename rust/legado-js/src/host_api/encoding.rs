@@ -6,29 +6,24 @@
 //! - Base64 编解码
 //! - Hex 编解码
 //! - URI 编码
-//! - SHA-256
-//! - HMAC-MD5
+//! - MD5及SHA-1/224/256/384/512摘要与HMAC
 
 // ============================================================
 // 启用 quickjs feature 时的真实实现
 // ============================================================
 #[cfg(feature = "quickjs")]
 mod impl_encoding {
+    use super::super::message_digest::{self, DigestAlgo};
     use base64::Engine;
-    use hmac::{Hmac, Mac};
-    use md5::{Digest as Md5Digest, Md5};
-    use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
-    use sha1::Sha1;
-    use sha2::{Sha256, Sha384, Sha512};
 
     /// MD5 编码 — 返回 32 位十六进制小写字符串
     ///
     /// 对应 Kotlin: `MD5Utils.md5Encode(str)`
     pub fn md5_encode(input: &str) -> String {
-        let mut hasher = Md5::new();
-        hasher.update(input.as_bytes());
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(
+            DigestAlgo::Md5,
+            input.as_bytes(),
+        ))
     }
 
     /// MD5 编码 — 返回 16 位十六进制小写字符串（取中间 16 字符）
@@ -41,10 +36,7 @@ mod impl_encoding {
 
     /// MD5 编码字节数组
     pub fn md5_encode_bytes(input: &[u8]) -> String {
-        let mut hasher = Md5::new();
-        hasher.update(input);
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(DigestAlgo::Md5, input))
     }
 
     /// Base64 编码
@@ -63,34 +55,17 @@ mod impl_encoding {
     ///
     /// 对应 Kotlin: `base64Decode(str)`
     pub fn base64_decode(input: &str) -> Result<String, String> {
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(input)
-            .map_err(|e| format!("Base64 decode error: {}", e))?;
-        String::from_utf8(bytes).map_err(|e| format!("UTF-8 decode error: {}", e))
+        bytes_to_str(&super::super::base64_codec::decode_hutool(input)?, None)
     }
 
-    /// Base64 解码为字节数组
+    /// 无flags文本路径使用Hutool；字节接口始终显式走Android策略。
     pub fn base64_decode_bytes(input: &str) -> Result<Vec<u8>, String> {
-        base64::engine::general_purpose::STANDARD
-            .decode(input)
-            .map_err(|e| format!("Base64 decode error: {}", e))
+        super::super::base64_codec::decode_hutool(input)
     }
 
-    /// Base64 解码为字节数组（带 Android Base64 flags）
-    ///
-    /// 对应 Kotlin: `base64DecodeToByteArray(str, flags)`
-    /// 兼容 Android `Base64.URL_SAFE`(8)；NO_WRAP 等标志不影响解码行为
+    /// Android flags只影响所选字母表，不改变padding校验。
     pub fn base64_decode_bytes_with_flags(input: &str, flags: i32) -> Result<Vec<u8>, String> {
-        // Android Base64.URL_SAFE == 8（'-' 与 '_' 替代 '+' 与 '/'）
-        let url_safe = flags & 8 != 0;
-        let engine = if url_safe {
-            base64::engine::general_purpose::URL_SAFE
-        } else {
-            base64::engine::general_purpose::STANDARD
-        };
-        engine
-            .decode(input)
-            .map_err(|e| format!("Base64 decode error: {}", e))
+        super::super::base64_codec::decode_android(input, flags)
     }
 
     /// Hex 编码 — UTF-8 字符串转十六进制字符串
@@ -110,7 +85,7 @@ mod impl_encoding {
     /// 对应 Kotlin: `hexDecodeToString(hex)`
     pub fn hex_decode(input: &str) -> Result<String, String> {
         let bytes = hex::decode(input).map_err(|e| format!("Hex decode error: {}", e))?;
-        String::from_utf8(bytes).map_err(|e| format!("UTF-8 decode error: {}", e))
+        bytes_to_str(&bytes, None)
     }
 
     /// Hex 解码为字节数组
@@ -118,264 +93,183 @@ mod impl_encoding {
         hex::decode(input).map_err(|e| format!("Hex decode error: {}", e))
     }
 
-    /// URI 编码（percent-encode）
-    ///
-    /// 对应 Kotlin: `encodeURI(str)`
-    /// 注意: JS 的 `encodeURIComponent` 保留 `-_.!~*'()` 不编码，
-    /// 这里使用 NON_ALPHANUMERIC 集合作为保守实现。
+    /// 宿主java.encodeURI使用Java表单编码，异常按上游约定返回空串。
     pub fn encode_uri(input: &str) -> String {
-        utf8_percent_encode(input, NON_ALPHANUMERIC).to_string()
+        encode_uri_charset(input, "UTF-8")
     }
 
-    /// 按指定字符集 URI 编码（对齐 Kotlin encodeURI(str, enc)）
-    ///
-    /// 燃文等源 `java.encodeURI(String(key), "UTF8")` 双参调用依赖；
-    /// 非 UTF-8 字符集（GBK 等）先经 encoding_rs 转码再百分号编码。
-    /// — 2026-08-17
+    /// 字符集只在表单非安全连续段参与编码，不回退未知编码。
     pub fn encode_uri_charset(input: &str, charset: &str) -> String {
-        let lower = charset.to_ascii_lowercase().replace(['-', '_'], "");
-        if lower == "utf8" || lower == "utf" {
-            return encode_uri(input);
-        }
-        if lower == "gbk" || lower == "gb2312" || lower == "gb18030" {
-            let (bytes, _, _) = encoding_rs::GBK.encode(input);
-            return bytes
-                .iter()
-                .map(|b| format!("%{:02X}", b))
-                .collect::<String>();
-        }
-        // 未知字符集：回退 UTF-8
-        encode_uri(input)
-    }
-
-    /// encodeURIComponent 语义编码（对齐 JS 标准 / Kotlin encodeURIComponent）
-    ///
-    /// [UI-fix 2026-08-10 | Reasonix] 新增：percent-encode 除 `A-Za-z0-9-_.!~*'()`
-    /// 外的全部字符（含 `;/?:@&=+$,#` 等 encodeURI 不编码的保留字符）。
-    /// 背景：yckceo 书源（思兔阅读 sto66 等）searchUrl 用 `{{encodeURIComponent(key)}}`，
-    /// 此前 quickjs 宿主未注册该函数 → 表达式求值失败 → URL 中模板被替换为空串
-    /// → 搜索 URL 残缺 →「原版能搜到、重构版搜不到」。
-    pub fn encode_uri_component(input: &str) -> String {
-        // 保留集：JS encodeURIComponent 不编码 A-Za-z0-9 与 -_.!~*'()
-        const ENCODE_URI_COMPONENT_KEEP: &AsciiSet = &NON_ALPHANUMERIC
-            .remove(b'-')
-            .remove(b'_')
-            .remove(b'.')
-            .remove(b'!')
-            .remove(b'~')
-            .remove(b'*')
-            .remove(b'\'')
-            .remove(b'(')
-            .remove(b')');
-        utf8_percent_encode(input, ENCODE_URI_COMPONENT_KEEP).to_string()
+        super::super::url_codec::encode_form(input, charset).unwrap_or_default()
     }
 
     /// SHA-256 摘要 — 返回 64 位十六进制小写字符串
     pub fn sha256(input: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(input.as_bytes());
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(
+            DigestAlgo::Sha256,
+            input.as_bytes(),
+        ))
     }
 
     /// SHA-256 摘要（字节数组输入）
     pub fn sha256_bytes(input: &[u8]) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(input);
-        let result = hasher.finalize();
-        hex::encode(result)
+        hex::encode(message_digest::hash_bytes(DigestAlgo::Sha256, input))
     }
 
-    /// HMAC-MD5 — 返回十六进制小写字符串
+    /// HMAC-MD5，沿用与通用入口相同的空密钥和异常规则。
     pub fn hmac_md5(data: &str, key: &str) -> Result<String, String> {
-        type HmacMd5 = Hmac<Md5>;
-        let mut mac = HmacMd5::new_from_slice(key.as_bytes())
-            .map_err(|e| format!("HMAC key error: {}", e))?;
-        mac.update(data.as_bytes());
-        let result = mac.finalize();
-        Ok(hex::encode(result.into_bytes()))
+        hmac_hex(data, "MD5", key)
     }
-
-    /// HMAC-SHA256 — 返回十六进制小写字符串
+    /// HMAC-SHA256，沿用与通用入口相同的空密钥和异常规则。
     pub fn hmac_sha256(data: &str, key: &str) -> Result<String, String> {
-        type HmacSha256 = Hmac<Sha256>;
-        let mut mac = HmacSha256::new_from_slice(key.as_bytes())
-            .map_err(|e| format!("HMAC key error: {}", e))?;
-        mac.update(data.as_bytes());
-        let result = mac.finalize();
-        Ok(hex::encode(result.into_bytes()))
+        hmac_hex(data, "SHA256", key)
     }
-
-    // ============================================================
-    // 通用摘要 + 编解码扩展
-    // ============================================================
-
-    /// 通用消息摘要 — digestHex(data, algorithm)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-384, SHA-512
-    ///
-    /// 对应 Kotlin: `digestHex(data, algorithm)`
+    fn digest_algorithm(algorithm: &str) -> Result<DigestAlgo, String> {
+        message_digest::parse_compact(&algorithm.to_ascii_uppercase().replace('-', ""))
+            .ok_or_else(|| format!("Unsupported algorithm: {algorithm}"))
+    }
+    /// 字符串按UTF-8计算字节摘要，再编码为Hex。
     pub fn digest_hex(data: &str, algorithm: &str) -> Result<String, String> {
-        match algorithm.to_uppercase().replace('-', "").as_str() {
-            "MD5" => Ok(md5_encode(data)),
-            "SHA1" => {
-                use sha1::Digest;
-                let mut hasher = Sha1::new();
-                hasher.update(data.as_bytes());
-                Ok(hex::encode(hasher.finalize()))
-            }
-            "SHA256" => Ok(sha256(data)),
-            "SHA384" => {
-                let mut hasher = Sha384::new();
-                hasher.update(data.as_bytes());
-                Ok(hex::encode(hasher.finalize()))
-            }
-            "SHA512" => {
-                let mut hasher = Sha512::new();
-                hasher.update(data.as_bytes());
-                Ok(hex::encode(hasher.finalize()))
-            }
-            _ => Err(format!("Unsupported algorithm: {}", algorithm)),
-        }
+        Ok(hex::encode(message_digest::hash_bytes(
+            digest_algorithm(algorithm)?,
+            data.as_bytes(),
+        )))
     }
-
-    /// 通用消息摘要 Base64 — digestBase64Str(data, algorithm)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-384, SHA-512
-    ///
-    /// 对应 Kotlin: `digestBase64Str(data, algorithm)`
+    /// 与Hex共享同一字节计算，Base64保持标准padding且不换行。
     pub fn digest_base64_str(data: &str, algorithm: &str) -> Result<String, String> {
-        let bytes: Vec<u8> = match algorithm.to_uppercase().replace('-', "").as_str() {
-            "MD5" => {
-                let mut hasher = Md5::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA1" => {
-                use sha1::Digest;
-                let mut hasher = Sha1::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA256" => {
-                let mut hasher = Sha256::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA384" => {
-                let mut hasher = Sha384::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            "SHA512" => {
-                let mut hasher = Sha512::new();
-                hasher.update(data.as_bytes());
-                hasher.finalize().to_vec()
-            }
-            _ => return Err(format!("Unsupported algorithm: {}", algorithm)),
-        };
-        Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+        Ok(
+            base64::engine::general_purpose::STANDARD.encode(message_digest::hash_bytes(
+                digest_algorithm(algorithm)?,
+                data.as_bytes(),
+            )),
+        )
     }
-
-    /// HMAC 算法名归一：大写 + 去 '-' + 剥离开头的 "HMAC" 前缀。
-    ///
-    /// 兼容 JCA 风格命名（`HmacSHA1` / `HMAC-SHA1` → `SHA1`），#135 阅文
-    /// QDSign 链路 `java.HMacBase64(sign, "HMAC-SHA1", aid)` 依赖该口径：
-    /// 归一后与既有 "SHA1"/"MD5"/"SHA256"/"SHA512" 分发臂对齐。
-    fn normalize_hmac_algorithm(algorithm: &str) -> String {
-        let n = algorithm.to_uppercase().replace('-', "");
-        n.strip_prefix("HMAC").unwrap_or(&n).to_string()
+    fn mac_bytes(data: &str, algorithm: &str, key: &str) -> Result<Vec<u8>, String> {
+        // 保留已确认阅文HMAC-SHA1及裸SHA1等别名，不引入额外空白归一。
+        let name = algorithm.to_ascii_uppercase().replace('-', "");
+        let name = name.strip_prefix("HMAC").unwrap_or(&name);
+        let parsed = message_digest::parse_compact(name)
+            .filter(|_| name != "SHA")
+            .ok_or_else(|| format!("Unsupported HMAC algorithm: {algorithm}"))?;
+        message_digest::hmac_bytes(parsed, key.as_bytes(), data.as_bytes())
     }
-
-    /// 通用 HMAC — hmacHex(data, algorithm, key)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-512（含 JCA 风格 `HMAC-SHA1` 等写法）
-    ///
-    /// 对应 Kotlin: `HMacHex(data, algorithm, key)`
+    /// 通用HMAC Hex，计算与输出编码分开。
     pub fn hmac_hex(data: &str, algorithm: &str, key: &str) -> Result<String, String> {
-        match normalize_hmac_algorithm(algorithm).as_str() {
-            "MD5" => hmac_md5(data, key),
-            "SHA1" => {
-                type HmacSha1 = Hmac<Sha1>;
-                let mut mac = HmacSha1::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                Ok(hex::encode(mac.finalize().into_bytes()))
-            }
-            "SHA256" => hmac_sha256(data, key),
-            "SHA512" => {
-                type HmacSha512 = Hmac<Sha512>;
-                let mut mac = HmacSha512::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                Ok(hex::encode(mac.finalize().into_bytes()))
-            }
-            _ => Err(format!("Unsupported HMAC algorithm: {}", algorithm)),
-        }
+        Ok(hex::encode(mac_bytes(data, algorithm, key)?))
     }
-
-    /// HMAC Base64 — hmacBase64(data, algorithm, key)
-    /// 支持: MD5, SHA-1, SHA-256, SHA-512（含 JCA 风格 `HMAC-SHA1` 等写法）
-    ///
-    /// 对应 Kotlin: `HMacBase64(data, algorithm, key)`
+    /// 通用HMAC Base64，计算与输出编码分开。
     pub fn hmac_base64(data: &str, algorithm: &str, key: &str) -> Result<String, String> {
-        let bytes: Vec<u8> = match normalize_hmac_algorithm(algorithm).as_str() {
-            "MD5" => {
-                type HmacMd5T = Hmac<Md5>;
-                let mut mac = HmacMd5T::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            "SHA1" => {
-                type HmacSha1 = Hmac<Sha1>;
-                let mut mac = HmacSha1::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            "SHA256" => {
-                type HmacSha256T = Hmac<Sha256>;
-                let mut mac = HmacSha256T::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            "SHA512" => {
-                type HmacSha512 = Hmac<Sha512>;
-                let mut mac = HmacSha512::new_from_slice(key.as_bytes())
-                    .map_err(|e| format!("HMAC key error: {}", e))?;
-                mac.update(data.as_bytes());
-                mac.finalize().into_bytes().to_vec()
-            }
-            _ => return Err(format!("Unsupported HMAC algorithm: {}", algorithm)),
-        };
-        Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+        Ok(base64::engine::general_purpose::STANDARD.encode(mac_bytes(data, algorithm, key)?))
     }
 
-    /// strToBytes(str, charset) — 字符串转字节数组（JSON 数组格式）
-    ///
-    /// 对应 Kotlin: `strToBytes(str, charset)`
-    /// 返回 JSON 数组格式，如 "[72,101,108,108,111]"
-    pub fn str_to_bytes(s: &str, charset: Option<&str>) -> Result<String, String> {
+    /// 字符串转自有字节；UTF-16遵循Java字节序，不用Web编码器替代为UTF-8。
+    pub fn str_to_bytes(s: &str, charset: Option<&str>) -> Result<Vec<u8>, String> {
         let encoding_name = charset.unwrap_or("UTF-8");
+        let utf16 = encoding_name.to_ascii_uppercase();
+        if matches!(
+            utf16.as_str(),
+            "ISO-8859-1" | "ISO_8859-1" | "ISO8859-1" | "LATIN1"
+        ) {
+            return Ok(s
+                .chars()
+                .map(|c| u8::try_from(u32::from(c)).unwrap_or(b'?'))
+                .collect());
+        }
+        if matches!(utf16.as_str(), "US-ASCII" | "ASCII") {
+            return Ok(s
+                .chars()
+                .map(|c| if c.is_ascii() { c as u8 } else { b'?' })
+                .collect());
+        }
+        if matches!(utf16.as_str(), "UTF-16" | "UTF-16LE" | "UTF-16BE") {
+            let mut bytes = Vec::new();
+            if utf16 == "UTF-16" && !s.is_empty() {
+                bytes.extend_from_slice(&[0xfe, 0xff]);
+            }
+            for unit in s.encode_utf16() {
+                bytes.extend_from_slice(&if utf16 == "UTF-16LE" {
+                    unit.to_le_bytes()
+                } else {
+                    unit.to_be_bytes()
+                });
+            }
+            return Ok(bytes);
+        }
         let encoding = encoding_rs::Encoding::for_label(encoding_name.as_bytes())
             .ok_or_else(|| format!("Unsupported charset: {}", encoding_name))?;
-        let (bytes, _enc, _had_errors) = encoding.encode(s);
-        let arr: Vec<serde_json::Value> =
-            bytes.iter().map(|&b| serde_json::Value::from(b)).collect();
-        serde_json::to_string(&arr).map_err(|e| format!("JSON serialize error: {}", e))
+        if encoding == encoding_rs::UTF_8 {
+            return Ok(s.as_bytes().to_vec());
+        }
+        // Java对无法表示的字符使用问号；encoding_rs默认会写HTML数字实体，不能直接采用。
+        let mut encoder = encoding.new_encoder();
+        let mut output = Vec::new();
+        let mut offset = 0;
+        loop {
+            let size = encoder
+                .max_buffer_length_from_utf8_without_replacement(s.len() - offset)
+                .ok_or_else(|| "字符编码输出过大".to_string())?;
+            output.reserve(size);
+            let (result, read) = encoder.encode_from_utf8_to_vec_without_replacement(
+                &s[offset..],
+                &mut output,
+                true,
+            );
+            offset += read;
+            match result {
+                encoding_rs::EncoderResult::InputEmpty => return Ok(output),
+                encoding_rs::EncoderResult::OutputFull => output.reserve(32),
+                encoding_rs::EncoderResult::Unmappable(_) => {
+                    // 仍由同一编码器写入替换字符，保留有状态编码的转义状态。
+                    output.reserve(16);
+                    let (result, read) = encoder.encode_from_utf8_to_vec_without_replacement(
+                        "?",
+                        &mut output,
+                        false,
+                    );
+                    if result != encoding_rs::EncoderResult::InputEmpty || read != 1 {
+                        return Err("字符编码替换失败".into());
+                    }
+                }
+            }
+        }
     }
 
     /// bytesToStr(bytes, charset) — 字节数组转字符串
     ///
     /// 对应 Kotlin: `bytesToStr(bytes, charset)`
-    /// 输入为 JSON 数组格式，如 "[72,101,108,108,111]"
-    pub fn bytes_to_str(bytes_json: &str, charset: Option<&str>) -> Result<String, String> {
-        let arr: Vec<i64> =
-            serde_json::from_str(bytes_json).map_err(|e| format!("JSON parse error: {}", e))?;
-        let bytes: Vec<u8> = arr.iter().map(|&v| v as u8).collect();
+    /// 不自动探测；显式UTF-8/UTF-16LE/BE保留该编码中的BOM字符。
+    pub fn bytes_to_str(bytes: &[u8], charset: Option<&str>) -> Result<String, String> {
         let encoding_name = charset.unwrap_or("UTF-8");
+        let name = encoding_name.to_ascii_uppercase();
+        if matches!(
+            name.as_str(),
+            "ISO-8859-1" | "ISO_8859-1" | "ISO8859-1" | "LATIN1"
+        ) {
+            return Ok(bytes.iter().map(|&byte| char::from(byte)).collect());
+        }
+        if matches!(name.as_str(), "US-ASCII" | "ASCII") {
+            return Ok(bytes
+                .iter()
+                .map(|&byte| {
+                    if byte.is_ascii() {
+                        char::from(byte)
+                    } else {
+                        '\u{fffd}'
+                    }
+                })
+                .collect());
+        }
+        if encoding_name.eq_ignore_ascii_case("UTF-16") {
+            let (bytes, encoding) = match bytes {
+                [0xfe, 0xff, rest @ ..] => (rest, encoding_rs::UTF_16BE),
+                [0xff, 0xfe, rest @ ..] => (rest, encoding_rs::UTF_16LE),
+                _ => (bytes, encoding_rs::UTF_16BE),
+            };
+            return Ok(encoding.decode_without_bom_handling(bytes).0.into_owned());
+        }
         let encoding = encoding_rs::Encoding::for_label(encoding_name.as_bytes())
             .ok_or_else(|| format!("Unsupported charset: {}", encoding_name))?;
-        let (result, _enc, _had_errors) = encoding.decode(&bytes);
+        let (result, _had_errors) = encoding.decode_without_bom_handling(bytes);
         Ok(result.into_owned())
     }
 }
@@ -498,12 +392,12 @@ mod stub_encoding {
     }
 
     /// strToBytes（占位）
-    pub fn str_to_bytes(_s: &str, _charset: Option<&str>) -> Result<String, String> {
+    pub fn str_to_bytes(_s: &str, _charset: Option<&str>) -> Result<Vec<u8>, String> {
         Err(not_available())
     }
 
     /// bytesToStr（占位）
-    pub fn bytes_to_str(_bytes_json: &str, _charset: Option<&str>) -> Result<String, String> {
+    pub fn bytes_to_str(_bytes: &[u8], _charset: Option<&str>) -> Result<String, String> {
         Err(not_available())
     }
 }
@@ -522,25 +416,6 @@ mod tests {
     fn test_digest_hex_md5() {
         let result = digest_hex("hello", "MD5").unwrap();
         assert_eq!(result, "5d41402abc4b2a76b9719d911017c592");
-    }
-
-    #[test]
-    fn test_encode_uri_component_keeps_unreserved() {
-        // JS encodeURIComponent 保留 A-Za-z0-9-_.!~*'()
-        assert_eq!(
-            encode_uri_component("abcXYZ012-_.!~*'()"),
-            "abcXYZ012-_.!~*'()"
-        );
-    }
-
-    #[test]
-    fn test_encode_uri_component_percent_encodes() {
-        // 中文 UTF-8 百分号编码
-        assert_eq!(encode_uri_component("重生"), "%E9%87%8D%E7%94%9F");
-        // 空格与 +（encodeURI 不编码 +，encodeURIComponent 编码）
-        assert_eq!(encode_uri_component("a b+c"), "a%20b%2Bc");
-        // 保留字符 / ? & = 等全部编码（区别于 encodeURI）
-        assert_eq!(encode_uri_component("/?&="), "%2F%3F%26%3D");
     }
 
     #[test]
@@ -659,33 +534,64 @@ mod tests {
     #[test]
     fn test_str_to_bytes_utf8() {
         let result = str_to_bytes("Hello", None).unwrap();
-        assert_eq!(result, "[72,101,108,108,111]");
+        assert_eq!(result, [72, 101, 108, 108, 111]);
     }
 
     #[test]
     fn test_str_to_bytes_gbk() {
         let result = str_to_bytes("中", Some("GBK")).unwrap();
         // "中" in GBK is [0xD6, 0xD0] = [214, 208]
-        assert_eq!(result, "[214,208]");
+        assert_eq!(result, [214, 208]);
     }
 
     #[test]
     fn test_bytes_to_str_utf8() {
-        let result = bytes_to_str("[72,101,108,108,111]", None).unwrap();
+        let result = bytes_to_str(&[72, 101, 108, 108, 111], None).unwrap();
         assert_eq!(result, "Hello");
     }
 
     #[test]
     fn test_bytes_to_str_gbk() {
-        let result = bytes_to_str("[214,208]", Some("GBK")).unwrap();
+        let result = bytes_to_str(&[214, 208], Some("GBK")).unwrap();
         assert_eq!(result, "中");
     }
 
     #[test]
     fn test_str_to_bytes_roundtrip() {
         let original = "Hello, 世界!";
-        let bytes_json = str_to_bytes(original, Some("UTF-8")).unwrap();
-        let recovered = bytes_to_str(&bytes_json, Some("UTF-8")).unwrap();
+        let bytes = str_to_bytes(original, Some("UTF-8")).unwrap();
+        let recovered = bytes_to_str(&bytes, Some("UTF-8")).unwrap();
         assert_eq!(recovered, original);
+    }
+
+    #[test]
+    fn byte_conversion_bom_and_single_byte_charsets_keep_java_semantics() {
+        assert!(str_to_bytes("", Some("UTF-16")).unwrap().is_empty());
+        assert_eq!(
+            bytes_to_str(&[0xef, 0xbb, 0xbf, 65], None).unwrap(),
+            "\u{feff}A"
+        );
+        assert_eq!(
+            bytes_to_str(&[0xfe, 0xff, 0, 65], Some("UTF-16BE")).unwrap(),
+            "\u{feff}A"
+        );
+        assert_eq!(
+            bytes_to_str(&[0xff, 0xfe, 65, 0], Some("UTF-16")).unwrap(),
+            "A"
+        );
+        assert_eq!(bytes_to_str(&[0, 65], Some("UTF-16")).unwrap(), "A");
+        assert_eq!(
+            bytes_to_str(&[0x80, 0xff], Some("ISO-8859-1")).unwrap(),
+            "\u{80}ÿ"
+        );
+        assert_eq!(
+            str_to_bytes("\u{80}ÿ€", Some("ISO-8859-1")).unwrap(),
+            [0x80, 0xff, b'?']
+        );
+        assert_eq!(str_to_bytes("A中😀", Some("US-ASCII")).unwrap(), b"A??");
+        assert_eq!(
+            bytes_to_str(&[65, 128, 255], Some("US-ASCII")).unwrap(),
+            "A\u{fffd}\u{fffd}"
+        );
     }
 }

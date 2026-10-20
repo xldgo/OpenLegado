@@ -1,3 +1,7 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
 // 经典 loginUi 表单登录对话框 widget 测试
 //
 // 对齐 Kotlin SourceLoginDialog（书山聚合等经典 JSON 行协议书源）：
@@ -6,14 +10,13 @@
 // - 按钮动作经 exploreEvalAction 执行（脚本 = result 绑定表单 JSON +
 //   loginUrl JS + action）
 // - ✓ 保存登录信息（putLoginInfo）并执行 login.apply(this)
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/domain/models/explore_action_result.dart';
 import 'package:flutter_legado/src/widgets/classic_login_dialog.dart';
 
 import '../mocks/mocks.dart';
@@ -28,18 +31,22 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getLoginInfo(any())).thenAnswer((_) async => '');
-    when(() => mockApi.getLoginHeader(any())).thenAnswer((_) async => '');
-    when(() => mockApi.putLoginInfo(any(), any())).thenAnswer((_) async {});
-    when(() => mockApi.putLoginHeader(any(), any())).thenAnswer((_) async {});
+    when(() => mockApi.sourceLoginRepository.getLoginInfo(any()))
+        .thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.getLoginHeader(any()))
+        .thenAnswer((_) async => '');
+    when(() => mockApi.sourceLoginRepository.putLoginInfo(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.sourceLoginRepository.putLoginHeader(any(), any()))
+        .thenAnswer((_) async {});
     when(
-      () => mockApi.exploreEvalAction(
-        sourceJson: any(named: 'sourceJson'),
+      () => mockApi.exploreService.evaluateAction(
+        source: any(named: 'source'),
         actionJs: any(named: 'actionJs'),
       ),
-    ).thenAnswer((_) async => {'raw': '', 'actions': <dynamic>[], 'refreshExplore': false});
+    ).thenAnswer((_) async => ExploreActionResult());
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -80,7 +87,10 @@ void main() {
                   onPressed: () => showDialog<bool>(
                     context: context,
                     builder: (_) => ClassicLoginDialog(
-                      api: container.read(bookApiProvider),
+                      repository: container.read(sourceLoginRepositoryProvider),
+                      evaluateAction: container
+                          .read(exploreServiceProvider)
+                          .evaluateAction,
                       source: source,
                     ),
                   ),
@@ -117,12 +127,14 @@ void main() {
     await tester.tap(find.text('⭕账号登录'));
     await tester.pumpAndSettle();
 
-    final captured = verify(
-      () => mockApi.exploreEvalAction(
-        sourceJson: any(named: 'sourceJson'),
-        actionJs: captureAny(named: 'actionJs'),
-      ),
-    ).captured.single as String;
+    final captured =
+        verify(
+              () => mockApi.exploreService.evaluateAction(
+                source: any(named: 'source'),
+                actionJs: captureAny(named: 'actionJs'),
+              ),
+            ).captured.single
+            as String;
     // result 绑定表单 JSON（对象字面量）+ loginUrl JS + action
     expect(captured, contains('globalThis.result ='));
     expect(captured, contains('"邮箱":"a@b.com"'));
@@ -139,18 +151,25 @@ void main() {
     await tester.pumpAndSettle();
 
     // putLoginInfo 已保存表单 JSON
-    final info = verify(
-      () => mockApi.putLoginInfo(any(), captureAny()),
-    ).captured.last as String;
+    final info =
+        verify(
+              () => mockApi.sourceLoginRepository.putLoginInfo(
+                any(),
+                captureAny(),
+              ),
+            ).captured.last
+            as String;
     expect(info, contains('"邮箱":"a@b.com"'));
 
     // login.apply(this) 脚本已执行
-    final captured = verify(
-      () => mockApi.exploreEvalAction(
-        sourceJson: any(named: 'sourceJson'),
-        actionJs: captureAny(named: 'actionJs'),
-      ),
-    ).captured.single as String;
+    final captured =
+        verify(
+              () => mockApi.exploreService.evaluateAction(
+                source: any(named: 'source'),
+                actionJs: captureAny(named: 'actionJs'),
+              ),
+            ).captured.single
+            as String;
     expect(captured, contains("typeof login=='function'"));
     expect(captured, contains('login.apply(this)'));
   });

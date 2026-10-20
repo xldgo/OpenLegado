@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/domain/services/search_result_aggregator.dart';
+
 // 跨端夹具校验（队列⑩a P1-1 项2，2026-09-22）
 //
 // 与 Rust 侧集成测试 `rust/legado-ffi/tests/search_aggregate_fixture.rs` 读
@@ -13,7 +15,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/search/search_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _fixturePath =
@@ -24,13 +25,14 @@ void main() {
     final raw = File(_fixturePath).readAsStringSync();
     final fixture = jsonDecode(raw) as Map<String, dynamic>;
 
-    for (final caseMap in (fixture['cases'] as List).cast<Map<String, dynamic>>()) {
+    for (final caseMap
+        in (fixture['cases'] as List).cast<Map<String, dynamic>>()) {
       final caseId = caseMap['id'] as String;
       final key = caseMap['key'] as String;
       final keepOther = caseMap['keep_other'] as bool;
       final books = (caseMap['books'] as List).cast<Map<String, dynamic>>();
-      final expected =
-          (caseMap['expected'] as List).cast<Map<String, dynamic>>();
+      final expected = (caseMap['expected'] as List)
+          .cast<Map<String, dynamic>>();
 
       // 与 Rust 聚合入口同一输入形态：books[] 逐条 fromJson + fromSearchBook
       // （hasReadRecord 从批次 JSON 透传，对齐 Rust CoreSearchBook.hasReadRecord）
@@ -49,14 +51,26 @@ void main() {
         final a = out[i];
         final e = expected[i];
         expect(a.book.name, e['name'], reason: '[$caseId] 第 $i 条 name（清洗值）');
-        expect(a.book.author, e['author'],
-            reason: '[$caseId] 第 $i 条 author（清洗值）');
-        expect(a.book.origin, e['origin'],
-            reason: '[$caseId] 第 $i 条 origin（首条到达元数据）');
-        expect(a.sourceName, e['originName'],
-            reason: '[$caseId] 第 $i 条 originName');
-        expect(a.book.bookUrl, e['bookUrl'],
-            reason: '[$caseId] 第 $i 条 bookUrl（首条到达元数据）');
+        expect(
+          a.book.author,
+          e['author'],
+          reason: '[$caseId] 第 $i 条 author（清洗值）',
+        );
+        expect(
+          a.book.origin,
+          e['origin'],
+          reason: '[$caseId] 第 $i 条 origin（首条到达元数据）',
+        );
+        expect(
+          a.sourceName,
+          e['originName'],
+          reason: '[$caseId] 第 $i 条 originName',
+        );
+        expect(
+          a.book.bookUrl,
+          e['bookUrl'],
+          reason: '[$caseId] 第 $i 条 bookUrl（首条到达元数据）',
+        );
         expect(
           a.book.kind,
           e['kind'] is String ? e['kind'] as String : null,
@@ -89,11 +103,10 @@ void main() {
         'origins': ['https://sA.example', 'https://sB.example'],
       }),
     );
-    expect(
-      withField.effectiveOrigins,
-      {'https://sA.example', 'https://sB.example'},
-      reason: '预填 origins 字段非空时优先（不含 origin）',
-    );
+    expect(withField.effectiveOrigins, {
+      'https://sA.example',
+      'https://sB.example',
+    }, reason: '预填 origins 字段非空时优先（不含 origin）');
 
     // 无 origins 字段（旧批次 JSON 形态）→ 回退 {origin}
     final legacy = SearchResult.fromSearchBook(
@@ -102,7 +115,9 @@ void main() {
     expect(legacy.effectiveOrigins, {'https://s2.example'});
 
     // origin 与 origins 均空 → 空集合（originsCount 下限 1）
-    final bare = SearchResult.fromSearchBook(SearchBook.fromJson({'name': 'y'}));
+    final bare = SearchResult.fromSearchBook(
+      SearchBook.fromJson({'name': 'y'}),
+    );
     expect(bare.effectiveOrigins, const <String>{});
     expect(bare.originsCount, 1, reason: '空 origins 计数下限 1');
   });

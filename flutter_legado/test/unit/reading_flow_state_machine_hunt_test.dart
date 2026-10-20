@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // 视角 A：阅读主流程「状态机 / 生命周期」缺陷猎捕 —— 红态复现用例
 //
 // 本文件**故意断言「本应成立的不变量」**：当前实现不满足 → 用例红。
@@ -7,7 +8,7 @@
 // - F1 ReaderState.currentBook 的进度字段在阅读过程中从不更新（_saveProgress
 //      只写库不回写 state）。currentBook 是下列调用点的「权威快照」：
 //      reader_page_view.dart ErrorView.onRetry → notifier.openBook(book)；
-//      reader_top_bar.dart:364-369 _updateBookConfig → api.updateBook(updated)；
+//      reader_menu_actions.part.dart _updateBookConfig → api.bookshelfRepository.updateBook(updated)；
 //      reader_screen._doAutoChangeSource → notifier.openBook(updated)；
 //      reader_screen._openToc → TocScreen(arguments: book)。
 // - F2 章级加载无序列守卫：连续翻章（快速连点/自动翻页与手动叠加）时旧章的
@@ -16,15 +17,13 @@
 //     阅读页（reader_page_view build: error != null 分支）永久停在 ErrorView。
 // - F6 prevChapter 的 -1 章内位置哨兵被持久化写入 DB。
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 
 import '../mocks/mocks.dart';
 
@@ -56,7 +55,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'enableReadRecord': false});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -67,11 +66,10 @@ void main() {
 
   /// 基础桩：目录 + 进度写入（正文按用例单独 stub）
   void stubBase() {
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => testChapters);
     when(
-      () => mockApi.getChapters(any()),
-    ).thenAnswer((_) async => testChapters);
-    when(
-      () => mockApi.updateReadingProgress(
+      () => mockApi.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),
@@ -84,19 +82,18 @@ void main() {
     Duration Function(int index)? delay,
     bool Function(int index)? fail,
   }) {
-    when(() => mockApi.getChapterContentFull(any(), any())).thenAnswer((
-      invocation,
-    ) async {
-      final idx = invocation.positionalArguments[1] as int;
-      if (delay != null) {
-        final d = delay(idx);
-        if (d > Duration.zero) await Future.delayed(d);
-      }
-      if (fail != null && fail(idx)) {
-        throw StateError('抓取失败：第 $idx 章');
-      }
-      return 'CH$idx';
-    });
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
+        .thenAnswer((invocation) async {
+          final idx = invocation.positionalArguments[1] as int;
+          if (delay != null) {
+            final d = delay(idx);
+            if (d > Duration.zero) await Future.delayed(d);
+          }
+          if (fail != null && fail(idx)) {
+            throw StateError('抓取失败：第 $idx 章');
+          }
+          return 'CH$idx';
+        });
   }
 
   // ==========================================================================
@@ -122,7 +119,7 @@ void main() {
         2,
         reason:
             'currentBook.durChapterIndex 仍为 0（打开时值）——'
-            'reader_top_bar._updateBookConfig 会用该陈旧对象 updateBook，'
+            'reader_menu_actions._updateBookConfig 会用该陈旧对象 updateBook，'
             '而 Rust BookRepository::update 是 37 列全行 UPDATE（含 '
             'durChapterIndex=?21/durChapterPos=?24/durChapterTitle=?20）',
       );
@@ -166,18 +163,17 @@ void main() {
       await notifier.nextChapter();
 
       Book? written;
-      when(() => mockApi.updateBook(any())).thenAnswer((invocation) async {
-        written = invocation.positionalArguments.first as Book;
-      });
+      when(() => mockApi.bookshelfRepository.updateBook(any()))
+          .thenAnswer((invocation) async {
+            written = invocation.positionalArguments.first as Book;
+          });
 
-      // 复刻 reader_top_bar.dart:364-369 _updateBookConfig 的真实取数方式：
+      // 复刻 reader_menu_actions.part.dart _updateBookConfig 的真实取数方式：
       //   final book = ref.read(readerNotifierProvider).currentBook;
-      //   await api.updateBook(book.copyWith(readConfig: transform(...)));
+      //   await api.bookshelfRepository.updateBook(book.copyWith(readConfig: transform(...)));
       final snapshot = readState().currentBook!;
-      await mockApi.updateBook(
-        snapshot.copyWith(
-          readConfig: const ReadConfig(useReplaceRule: false),
-        ),
+      await mockApi.bookshelfRepository.updateBook(
+        snapshot.copyWith(readConfig: const ReadConfig(useReplaceRule: false)),
       );
 
       expect(
@@ -197,7 +193,9 @@ void main() {
     test('[F2] 连点下一章不得出现「章标第三章 / 正文第二章」错配', () async {
       stubBase();
       // 第 1 章慢、第 2 章快 → 后发先至，先到的旧章正文后写
-      stubContent(delay: (i) => i == 1 ? const Duration(milliseconds: 60) : Duration.zero);
+      stubContent(
+        delay: (i) => i == 1 ? const Duration(milliseconds: 60) : Duration.zero,
+      );
 
       final notifier = readNotifier();
       await notifier.openBook(testBook);
@@ -263,14 +261,13 @@ void main() {
       stubContent();
       final savedPositions = <int>[];
       when(
-        () => mockApi.updateReadingProgress(
+        () => mockApi.readingRepository.updateReadingProgress(
           bookUrl: any(named: 'bookUrl'),
           chapterIndex: any(named: 'chapterIndex'),
           chapterPos: any(named: 'chapterPos'),
         ),
       ).thenAnswer((invocation) async {
-        savedPositions
-            .add(invocation.namedArguments[#chapterPos] as int);
+        savedPositions.add(invocation.namedArguments[#chapterPos] as int);
       });
 
       final notifier = readNotifier();

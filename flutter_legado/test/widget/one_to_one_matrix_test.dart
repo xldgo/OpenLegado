@@ -1,23 +1,29 @@
+@Tags(['native'])
+library;
+
+import '../fixtures/app_test_api.dart';
+import '../helpers/native_reader_layout.dart';
+
 // 一比一复刻 S7 验收：渲染矩阵补页（详情/阅读，UI_ONE_TO_ONE_CLONE_PLAN_
 // 20260905.md S7）——md3_acceptance_matrix 原有 4 页之外补关键改动两屏，
 // 断言无异常渲染（异常会被 flutter test 捕获）。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
-import 'package:flutter_legado/src/screens/reader_screen.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
+import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
+
 import '../mocks/mocks.dart';
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   setUp(() {
@@ -26,10 +32,12 @@ void main() {
 
   Widget themeWrap(Widget child, {Brightness brightness = Brightness.light}) {
     return MaterialApp(
-      theme: AppTheme.palette(
-          brightness: brightness, palette: Md3Palettes.wh),
+      builder: nativeReaderLayoutBuilder,
+      theme: AppTheme.palette(brightness: brightness, palette: Md3Palettes.wh),
       darkTheme: AppTheme.palette(
-          brightness: Brightness.dark, palette: Md3Palettes.wh),
+        brightness: Brightness.dark,
+        palette: Md3Palettes.wh,
+      ),
       themeMode: brightness == Brightness.light
           ? ThemeMode.light
           : ThemeMode.dark,
@@ -51,26 +59,31 @@ void main() {
           author: '作者',
           coverUrl: '',
         );
-        when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
-        when(() => mockApi.getChapters(any()))
+        when(() => mockApi.bookshelfRepository.getBook(any()))
+            .thenAnswer((_) async => book);
+        when(() => mockApi.readingRepository.getChapters(any()))
             .thenAnswer((_) async => const [BookChapter(title: '第一章')]);
-        when(() => mockApi.getBooks()).thenAnswer((_) async => [book]);
-        when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
-        when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
-        when(() => mockApi.getConfig(any()))
+        when(() => mockApi.bookshelfRepository.getBooks())
+            .thenAnswer((_) async => [book]);
+        when(() => mockApi.bookGroupRepository.getBookGroups())
+            .thenAnswer((_) async => const []);
+        when(() => mockApi.bookSourceRepository.getBookSources())
+            .thenAnswer((_) async => const []);
+        when(() => mockApi.configRepository.getConfig(any()))
             .thenAnswer((_) async => '');
-        when(() => mockApi.getChapterContent(any(), any()))
+        when(() => mockApi.readingRepository.getChapterContent(any(), any()))
             .thenAnswer((_) async => '内容');
-        await tester.pumpWidget(
+        await pumpNativeReaderLayout(
+          tester,
           ProviderScope(
-            overrides: [bookApiProvider.overrideWithValue(mockApi)],
+            overrides: mergeTestOverrides([...mockApi.overrides]),
             child: themeWrap(
               BookInfoScreen(book: book),
               brightness: brightness,
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await settleNativeReaderLayout(tester);
 
         // ActionCard 行关键入口可见（S3 骨架在位）
         // [PARITY C1 D2] 四图标卡标签：已在书架/查看目录/书源/阅读记录
@@ -86,28 +99,31 @@ void main() {
       addTearDown(tester.view.reset);
       final mockApi = MockRustApi();
       const chapters = [BookChapter(title: '第一章')];
-      when(() => mockApi.getChapters(any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
           .thenAnswer((_) async => chapters);
-      when(() => mockApi.getChapterContent(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContent(any(), any()))
           .thenAnswer((_) async => '正文内容');
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
-      when(() => mockApi.getConfig(any()))
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => const []);
+      when(() => mockApi.configRepository.getConfig(any()))
           .thenAnswer((_) async => '');
 
-      await tester.pumpWidget(
+      await pumpNativeReaderLayout(
+        tester,
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
+          overrides: mergeTestOverrides([...mockApi.overrides]),
           child: themeWrap(const ReaderScreen()),
         ),
       );
       // openBook 注入（对标书架打开链路）
-      final container =
-          ProviderScope.containerOf(tester.element(find.byType(ReaderScreen)));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderScreen)),
+      );
       // 直读初始帧（openBook 异步链路完成后断言）
       await container
           .read(readerNotifierProvider.notifier)
           .openBook(const Book(bookUrl: 'u1', name: '矩阵书'));
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       expect(tester.takeException(), isNull);
     });

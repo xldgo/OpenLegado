@@ -1,171 +1,142 @@
-import 'dart:convert';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+import 'package:flutter_legado/src/data/repositories/mock_dict_rule_repository.dart';
+import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/features/dictionary/application/dict_notifier.dart';
+import 'package:flutter_legado/src/providers/dictionary_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/dict/dict_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
 
 import '../mocks/mocks.dart';
 
 void main() {
-  group('DictRule.buildUrl', () {
-    test('将 {{key}} 占位符替换为查询单词', () {
-      const rule = DictRule(
-        name: '有道',
-        urlRule: 'https://dict.youdao.com/w/{{key}}',
-      );
-      expect(
-        rule.buildUrl('chapter'),
-        equals('https://dict.youdao.com/w/chapter'),
-      );
-    });
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('DictRule.buildUrl保留现有占位符替换', () {
+    const rule = DictRule(
+      name: '有道',
+      urlRule: 'https://dict.youdao.com/w/{{key}}',
+    );
+    expect(rule.buildUrl('chapter'), 'https://dict.youdao.com/w/chapter');
   });
 
-  group('DictNotifier', () {
-    late MockRustApi mockApi;
+  group('DictNotifier独立注入', () {
+    late MockDictRuleRepository repository;
+    late DictionaryServiceMock service;
     late ProviderContainer container;
-    late Map<String, String?> configStore;
-
-    setUpAll(() {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      registerFallbacks();
-    });
+    DictState state() => container.read(dictNotifierProvider);
+    DictNotifier notifier() => container.read(dictNotifierProvider.notifier);
 
     setUp(() {
-      SharedPreferences.setMockInitialValues({});
-      mockApi = MockRustApi();
-      configStore = {};
-      // getConfig 回读 setConfig 写入值，模拟 Rust 配置库
-      when(() => mockApi.getConfig(any())).thenAnswer((inv) async {
-        final key = inv.positionalArguments[0] as String;
-        return configStore[key];
-      });
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((inv) async {
-        final key = inv.positionalArguments[0] as String;
-        final value = inv.positionalArguments[1] as String;
-        configStore[key] = value;
-      });
+      repository = MockDictRuleRepository();
+      service = DictionaryServiceMock();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: [
+          dictRuleRepositoryProvider.overrideWithValue(repository),
+          dictionaryServiceProvider.overrideWithValue(service),
+        ],
       );
       addTearDown(container.dispose);
     });
 
-    DictState readState() => container.read(dictNotifierProvider);
-    DictNotifier readNotifier() => container.read(dictNotifierProvider.notifier);
-
     test('初始状态为空', () {
-      final state = readState();
-      expect(state.rules, isEmpty);
-      expect(state.queriedWord, isNull);
-      expect(state.result, isNull);
-      expect(state.isLoading, isFalse);
+      expect(state().rules, isEmpty);
+      expect(state().queriedWord, isNull);
+      expect(state().result, isNull);
+      expect(state().isLoading, isFalse);
     });
 
-    test('loadRules 无持久化数据时写入默认规则', () async {
-      await readNotifier().loadRules();
-
-      final state = readState();
-      expect(state.isLoading, isFalse);
-      expect(state.error, isNull);
-      expect(state.rules, isNotEmpty);
-      expect(state.rules.first.name, equals('百度汉语'));
-      verify(() => mockApi.setConfig('dict_rules', any())).called(1);
+    test('读取同一仓储默认规则，保留主键及排序', () async {
+      await notifier().loadRules();
+      expect(state().rules, await repository.dictRuleList());
+      expect(state().rules.first.name, '海词中文');
+      expect(state().rules.first.id, greaterThan(0));
+      expect(state().error, isNull);
     });
 
-    test('loadRules 解析已持久化规则（不重复写回）', () async {
-      // 已完成默认导入版本，避免 assets 覆盖
-      SharedPreferences.setMockInitialValues({
-        kDictRuleVersionKey: kDictRuleVersion,
-      });
-      final stored = jsonEncode([
-        {'name': '自定义', 'urlRule': 'https://x.com/{{key}}'},
-      ]);
-      configStore['dict_rules'] = stored;
-
-      await readNotifier().loadRules();
-
-      expect(readState().rules.single.name, equals('自定义'));
-      verifyNever(() => mockApi.setConfig(any(), any()));
-    });
-
-    test('addRule 添加并持久化', () async {
-      await readNotifier().addRule(
-        const DictRule(
-          name: '必应',
-          urlRule: 'https://bing.com/dict?q={{key}}',
-        ),
+    test('管理仓储修改后重新加载，查询列表同步启停和名称', () async {
+      final id = await repository.dictRuleAdd(
+        name: '自定义',
+        urlRule: 'https://a',
+        showRule: '',
       );
-
-      expect(readState().rules.single.name, equals('必应'));
-      verify(() => mockApi.setConfig('dict_rules', any())).called(1);
+      await repository.dictRuleSetEnabled(id: id, enabled: false);
+      await notifier().loadRules();
+      final saved = state().rules.singleWhere((rule) => rule.id == id);
+      expect(saved.name, '自定义');
+      expect(saved.enabled, isFalse);
     });
 
-    test('deleteRule 删除指定下标规则', () async {
-      await readNotifier().loadRules(); // 默认多条
-      final before = readState().rules.length;
-      expect(before, greaterThan(1));
-      final secondName = readState().rules[1].name;
-
-      await readNotifier().deleteRule(0);
-
-      expect(readState().rules.length, equals(before - 1));
-      expect(readState().rules.first.name, equals(secondName));
+    test('新增与删除直接写入同一仓储，不维护另一份配置', () async {
+      expect(
+        await notifier().addRule(
+          const DictRule(name: '新规则', urlRule: 'https://new'),
+        ),
+        isTrue,
+      );
+      final index = state().rules.indexWhere((rule) => rule.name == '新规则');
+      final id = state().rules[index].id;
+      expect(id, greaterThan(0));
+      expect(await notifier().deleteRule(index), isTrue);
+      expect(
+        (await repository.dictRuleList()).any((rule) => rule.id == id),
+        isFalse,
+      );
     });
 
-    test('lookup 委托 Rust dictLookup 并解析（大小写归一化）', () async {
-      when(() => mockApi.dictLookup(any())).thenAnswer((_) async => {
-            'word': 'chapter',
-            'phonetic': '/ˈtʃæptə(r)/',
-            'definitions': ['n. 章，章节'],
-          });
-
-      await readNotifier().lookup('Chapter');
-
-      final state = readState();
-      expect(state.queriedWord, equals('chapter'));
-      expect(state.isLoading, isFalse);
-      expect(state.result, isNotNull);
-      expect(state.result!.word, equals('chapter'));
-      expect(state.result!.definitions, isNotEmpty);
-      verify(() => mockApi.dictLookup('chapter')).called(1);
+    test('导入默认按名称覆盖并保留自定义规则，主键不变', () async {
+      final defaults = await repository.dictRuleList();
+      final original = defaults.singleWhere((rule) => rule.name == '海词中文');
+      await repository.dictRuleUpdate(
+        id: original.id,
+        name: original.name,
+        urlRule: '自定义地址',
+        showRule: '',
+      );
+      await repository.dictRuleAdd(
+        name: '自定义保留',
+        urlRule: 'https://a',
+        showRule: '',
+      );
+      expect(await notifier().importDefaultRules(), 5);
+      expect(state().rules, hasLength(6));
+      final restored = state().rules.singleWhere((rule) => rule.name == '海词中文');
+      expect(restored.id, original.id);
+      expect(restored.urlRule, isNot('自定义地址'));
+      expect(state().rules.any((rule) => rule.name == '自定义保留'), isTrue);
     });
 
-    test('lookup 未收录词返回空 definitions（非异常）', () async {
-      when(() => mockApi.dictLookup(any())).thenAnswer((_) async => {
-            'word': 'zzz',
-            'phonetic': '',
-            'definitions': <String>[],
-          });
-
-      await readNotifier().lookup('zzz');
-
-      final state = readState();
-      expect(state.queriedWord, equals('zzz'));
-      expect(state.result, isNotNull);
-      expect(state.result!.definitions, isEmpty);
+    test('查询保留现有trim和大小写归一化，类型化结果原样返回', () async {
+      const entry = DictEntry(
+        word: 'chapter',
+        phonetic: '/tʃæptə/',
+        definitions: ['章节'],
+      );
+      when(() => service.dictLookup('chapter')).thenAnswer((_) async => entry);
+      await notifier().lookup(' Chapter ');
+      expect(state().queriedWord, 'chapter');
+      expect(state().result, same(entry));
+      expect(state().isLoading, isFalse);
+      verify(() => service.dictLookup('chapter')).called(1);
     });
 
-    test('lookup 异常时兜底并记录 error', () async {
-      when(() => mockApi.dictLookup(any())).thenThrow(Exception('ffi'));
-
-      await readNotifier().lookup('chapter');
-
-      final state = readState();
-      expect(state.isLoading, isFalse);
-      expect(state.result, isNull);
-      expect(state.error, isNotNull);
+    test('未收录返回空释义而不是错误', () async {
+      when(() => service.dictLookup('zzz'))
+          .thenAnswer((_) async => const DictEntry(word: 'zzz'));
+      await notifier().lookup('zzz');
+      expect(state().result!.definitions, isEmpty);
+      expect(state().error, isNull);
     });
 
-    test('lookup 空字符串被忽略（不触发契约）', () async {
-      await readNotifier().lookup('   ');
-      expect(readState().queriedWord, isNull);
-      verifyNever(() => mockApi.dictLookup(any()));
+    test('查询异常记录错误并结束加载，空词不调用服务', () async {
+      when(() => service.dictLookup('chapter')).thenThrow(StateError('查询失败'));
+      await notifier().lookup('chapter');
+      expect(state().result, isNull);
+      expect(state().error, contains('查询失败'));
+      expect(state().isLoading, isFalse);
+      clearInteractions(service);
+      await notifier().lookup('   ');
+      verifyZeroInteractions(service);
     });
   });
 }

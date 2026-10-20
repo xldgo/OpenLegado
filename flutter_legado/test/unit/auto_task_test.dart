@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/providers/auto_task/auto_task_notifier.dart';
+import 'package:flutter_legado/src/features/automation/application/auto_task_notifier.dart';
 
 /// 书籍更新任务真实 script 样例（对齐 Rust build_book_update_task）
 const _bookUpdateScript =
@@ -33,7 +33,10 @@ void main() {
       expect(task.lastResult, equals('成功'));
       // lastRunAt 毫秒时间戳应被格式化为字符串
       expect(task.lastRunAt, isNotNull);
-      expect(task.lastRunAt, matches(RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')));
+      expect(
+        task.lastRunAt,
+        matches(RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$')),
+      );
     });
 
     test('fromJson 兼容 Dart 风格字段', () {
@@ -54,11 +57,7 @@ void main() {
     });
 
     test('fromJson lastRunAt 为 0 时返回 null', () {
-      final task = AutoTask.fromJson({
-        'id': '3',
-        'name': 'x',
-        'lastRunAt': 0,
-      });
+      final task = AutoTask.fromJson({'id': '3', 'name': 'x', 'lastRunAt': 0});
       expect(task.lastRunAt, isNull);
     });
 
@@ -261,7 +260,8 @@ void main() {
 
         final tasks = imported.map(AutoTask.fromJson).toList();
         final exported = jsonEncode(tasks.map((t) => t.toJson()).toList());
-        final decoded = (jsonDecode(exported) as List).cast<Map<String, dynamic>>();
+        final decoded = (jsonDecode(exported) as List)
+            .cast<Map<String, dynamic>>();
 
         expect(decoded[0]['script'], equals(_bookUpdateScript));
         expect(decoded[1]['script'], equals('backup()'));

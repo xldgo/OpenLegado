@@ -1,14 +1,21 @@
 [package]
 name = "legado-db"
 version = "0.2.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
+# 保留系统随机盐策略，不启用新库内部的另一条随机数生成路径。
+argon2 = { version = "0.6", default-features = false, features = ["alloc", "password-hash"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
 legado-core = { path = "../legado-core" }
+log = "0.4"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.35"
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
-md5 = "0.8.1"
+chrono = "0.4"
+
+# 音色稳定标识与上游 SpeechIdentity 一致，复用锁定的 SHA-256 crate。
+sha2 = "0.11"

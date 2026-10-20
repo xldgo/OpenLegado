@@ -12,32 +12,27 @@
 //!
 //! 先红证据：本文件在实施批次前运行 —— 全部端点 404、静态页为自制页。
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use serde_json::{json, Value};
-use tokio::sync::Mutex;
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 use legado_core::cache_book::CachedChapter;
-use legado_core::download_manager::DownloadManager;
 use legado_core::models::{Book, BookChapter};
+use legado_db::repository::Repository;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
 use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::cache_book_repository::CacheBookRepository;
-use legado_db::repository::Repository;
 use legado_server::routes::create_router;
 use legado_server::state::AppState;
 
 fn make_test_state() -> Arc<AppState> {
     let db = legado_db::init_in_memory_database().unwrap();
-    Arc::new(AppState {
-        db: Mutex::new(db),
-        search_cancelled: Arc::new(AtomicBool::new(false)),
-        download_manager: Mutex::new(DownloadManager::new(3)),
-    })
+    Arc::new(AppState::new(Arc::new(
+        legado_engine::EngineContext::from_database(db),
+    )))
 }
 
 async fn get(app: axum::Router, uri: &str) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
@@ -106,7 +101,7 @@ fn enc(input: &str) -> String {
 
 /// 无章节的在线书（origin 指向不存在的书源）
 async fn seed_book_without_chapters(state: &Arc<AppState>) {
-    let db = state.db.lock().await;
+    let db = state.database().unwrap();
     BookRepository::new(db.connection())
         .insert(&Book {
             book_url: "https://src.example.com/book/1".to_string(),
@@ -357,7 +352,7 @@ async fn test_get_bookshelf_empty_error_msg() {
 async fn test_get_bookshelf_full_kotlin_field_shape() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "https://example.com/book/1".to_string(),
@@ -437,7 +432,7 @@ async fn test_get_bookshelf_full_kotlin_field_shape() {
 async fn test_get_bookshelf_omits_null_fields_like_gson_default() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "https://example.com/book/1".to_string(),
@@ -479,7 +474,7 @@ async fn test_get_bookshelf_omits_null_fields_like_gson_default() {
 async fn test_get_bookshelf_sorted_by_dur_chapter_time_desc() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = BookRepository::new(db.connection());
         repo.insert(&Book {
             book_url: "b-old".to_string(),
@@ -515,7 +510,7 @@ async fn test_get_chapter_list_requires_url() {
 async fn test_get_chapter_list_full_kotlin_field_shape() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "book1".to_string(),
@@ -599,7 +594,7 @@ async fn test_get_book_content_not_found() {
 async fn test_get_book_content_from_cache() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "book1".to_string(),
@@ -644,7 +639,7 @@ async fn test_get_book_content_from_cache() {
 async fn test_get_book_content_replace_rule_gated_by_use_replace_rule() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let books = BookRepository::new(db.connection());
         // 普通在线文字书（未设置 useReplaceRule → 回退默认 true）
         books
@@ -775,7 +770,7 @@ async fn test_get_book_content_replace_rule_gated_by_use_replace_rule() {
 async fn test_save_book_progress_beacon_text_plain() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "book1".to_string(),
@@ -806,7 +801,7 @@ async fn test_save_book_progress_beacon_text_plain() {
     assert_eq!(json["isSuccess"], true, "json={json}");
     assert_eq!(json["data"], "");
 
-    let db = state.db.lock().await;
+    let db = state.database().unwrap();
     let book = BookRepository::new(db.connection())
         .find_by_url("book1")
         .unwrap()
@@ -914,7 +909,7 @@ async fn test_cover_serves_registered_local_cover_file() {
 
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "https://example.com/book/1".to_string(),
@@ -944,7 +939,7 @@ async fn test_cover_serves_image_in_registered_local_book_dir() {
 
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: book_file.clone(),
@@ -976,7 +971,7 @@ async fn test_cover_rejects_local_paths_outside_whitelist() {
 
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: book_file.clone(),
@@ -1052,7 +1047,7 @@ async fn test_cover_rejects_non_image_extension_and_forged_magic() {
 
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "https://example.com/book/1".to_string(),
@@ -1093,7 +1088,7 @@ async fn test_image_local_path_whitelist_enforced() {
 
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         let repo = BookRepository::new(db.connection());
         repo.insert(&Book {
             book_url: "https://src.example.com/book/1".to_string(),
@@ -1186,7 +1181,7 @@ async fn test_image_requires_params() {
 async fn test_survey_content_online_book_source_missing_error_shape() {
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: "https://src.example.com/book/1".to_string(),
@@ -1251,7 +1246,7 @@ async fn test_survey_content_online_book_with_mock_source_succeeds() {
     let base = start_mock_content_source().await;
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         legado_db::BookSourceRepository::new(db.connection())
             .insert(&legado_core::models::BookSource {
                 book_source_url: base.clone(),
@@ -1311,7 +1306,7 @@ async fn test_survey_content_local_book_succeeds() {
 
     let state = make_test_state();
     {
-        let db = state.db.lock().await;
+        let db = state.database().unwrap();
         BookRepository::new(db.connection())
             .insert(&Book {
                 book_url: book_file.to_string_lossy().to_string(),

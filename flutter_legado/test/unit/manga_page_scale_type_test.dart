@@ -15,7 +15,7 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/screens/reader_comic/manga_page_scale_type.dart';
+import 'package:flutter_legado/src/models/manga_page_scale_type.dart';
 
 void main() {
   group('[P4-3 E2] 解析（Contract L121 默认 0 = 全屏适配）', () {
@@ -32,8 +32,7 @@ void main() {
       }
     });
 
-    test('越界 / 负数 → 默认 0（对齐 MangaScrollModes.parse 的 valid 集合语义）',
-        () {
+    test('越界 / 负数 → 默认 0（对齐 MangaScrollModes.parse 的 valid 集合语义）', () {
       expect(MangaPageScaleType.parse('-1'), 0);
       expect(MangaPageScaleType.parse('6'), 0);
       expect(MangaPageScaleType.parse('99'), 0);
@@ -75,9 +74,7 @@ void main() {
     expect(MangaPageScaleType.labelOf(5), '智能适配');
   });
 
-  test(
-      '[P4-3 E2] 宽页/双页常量登记（MangaPageConfig L19-30；仅登记不实现行为）',
-      () {
+  test('[P4-3 E2] 宽页/双页常量登记（MangaPageConfig L19-30；仅登记不实现行为）', () {
     expect(MangaWidePageMode.normal, 0);
     expect(MangaWidePageMode.fitWidth, 1);
     expect(MangaWidePageMode.rotateToFit, 2);

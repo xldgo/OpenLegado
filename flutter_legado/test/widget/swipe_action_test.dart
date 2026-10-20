@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/swipe_action.dart';
 
 void main() {
-  Widget buildTestWidget({
-    List<SwipeActionItem>? actions,
-  }) {
+  Widget buildTestWidget({List<SwipeActionItem>? actions}) {
     return MaterialApp(
       home: Scaffold(
         body: ListView(
@@ -13,7 +11,8 @@ void main() {
             SizedBox(
               height: 60,
               child: SwipeAction(
-                actions: actions ??
+                actions:
+                    actions ??
                     [
                       SwipeActionItem(
                         label: '删除',
@@ -42,22 +41,24 @@ void main() {
   });
 
   testWidgets('SwipeAction renders action buttons', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      actions: [
-        SwipeActionItem(
-          label: '删除',
-          icon: Icons.delete,
-          color: Colors.red,
-          onTap: () {},
-        ),
-        SwipeActionItem(
-          label: '编辑',
-          icon: Icons.edit,
-          color: Colors.blue,
-          onTap: () {},
-        ),
-      ],
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        actions: [
+          SwipeActionItem(
+            label: '删除',
+            icon: Icons.delete,
+            color: Colors.red,
+            onTap: () {},
+          ),
+          SwipeActionItem(
+            label: '编辑',
+            icon: Icons.edit,
+            color: Colors.blue,
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
 
     expect(find.text('删除'), findsOneWidget);
     expect(find.text('编辑'), findsOneWidget);

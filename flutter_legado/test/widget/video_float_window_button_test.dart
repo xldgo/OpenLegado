@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/video_float_window_button.dart';
 
@@ -7,15 +7,15 @@ import 'package:flutter_legado/src/widgets/video_float_window_button.dart';
 void main() {
   testWidgets('渲染「悬浮窗」tooltip 且点击回调', (tester) async {
     var taps = 0;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          actions: [
-            VideoFloatWindowButton(onPressed: () => taps++),
-          ],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            actions: [VideoFloatWindowButton(onPressed: () => taps++)],
+          ),
         ),
       ),
-    ));
+    );
     expect(find.byType(VideoFloatWindowButton), findsOneWidget);
     expect(find.byTooltip('悬浮窗'), findsOneWidget);
     await tester.tap(find.byType(VideoFloatWindowButton));
@@ -23,13 +23,15 @@ void main() {
   });
 
   testWidgets('onPressed 为空时禁用（解析出地址前）', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          actions: const [VideoFloatWindowButton(onPressed: null)],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            actions: const [VideoFloatWindowButton(onPressed: null)],
+          ),
         ),
       ),
-    ));
+    );
     final button = tester.widget<IconButton>(find.byType(IconButton));
     expect(button.onPressed, isNull);
   });

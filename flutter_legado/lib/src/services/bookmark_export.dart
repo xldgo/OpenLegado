@@ -10,7 +10,7 @@ import '../models/models.dart';
 /// 书签导出服务（对齐原版 TocViewModel.saveBookmark / saveBookmarkMd）
 ///
 /// [Task #40 | 2026-08-09] 台账 §5.11-5 后置项接线：零契约变更，
-/// 复用现有 BookApi.getBookmarks（契约 §2.7）数据，纯 Dart 序列化 +
+/// 消费 BookmarkRepository 提供的书签数据（契约 §2.7），纯 Dart 序列化 +
 /// file_picker 选目录写文件 — QoderCN
 ///
 /// - 导出书签：Bookmark 列表 jsonEncode 为 JSON 数组（字段 camelCase，
@@ -31,8 +31,10 @@ class BookmarkExport {
     // [fix Task#45 | 2026-08-09] 显式构造 8 字段 Map（Min2）：剔除原版
     // Bookmark 实体字段集之外的 id（模型侧本地主键，原版主键为 time），
     // 保证导出可被原版导入链路无损识别 — QoderCN
-    final content = jsonEncode(bookmarks
-        .map((b) => <String, dynamic>{
+    final content = jsonEncode(
+      bookmarks
+          .map(
+            (b) => <String, dynamic>{
               'time': b.time,
               'bookName': b.bookName,
               'bookAuthor': b.bookAuthor,
@@ -41,8 +43,10 @@ class BookmarkExport {
               'chapterName': b.chapterName,
               'bookText': b.bookText,
               'content': b.content,
-            })
-        .toList());
+            },
+          )
+          .toList(),
+    );
     return _save(
       book: book,
       extension: 'json',
@@ -138,8 +142,8 @@ class BookmarkExport {
       dialogTitle: '选择书签导出目录',
       initialDirectory:
           (initialDirectory != null && initialDirectory.isNotEmpty)
-              ? initialDirectory
-              : null,
+          ? initialDirectory
+          : null,
     );
     // 用户取消选择
     if (dir == null) return null;
@@ -151,10 +155,10 @@ class BookmarkExport {
 
   /// 扩展名 → MIME（SAF createFile 需要）
   static String _mimeOf(String extension) => switch (extension) {
-        'json' => 'application/json',
-        'md' => 'text/markdown',
-        _ => 'application/octet-stream',
-      };
+    'json' => 'application/json',
+    'md' => 'text/markdown',
+    _ => 'application/octet-stream',
+  };
 
   /// 文件名对齐原版约定：`bookmark-${book.name} ${book.author}.ext`，
   /// 替换文件系统非法字符避免写入失败

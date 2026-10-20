@@ -6,18 +6,18 @@ import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 // open：供图标变体桩类 Launcher1~6 继承（对齐原版 WelcomeActivity ×6 子类机制）
-open class MainActivity : FlutterActivity() {
+open class MainActivity : FlutterFragmentActivity() {
 
     private val webViewBridge = WebViewBridge()
-    private val brightnessBridge = BrightnessBridge()
     private val ttsBridge = TtsBridge()
     private val filePickerBridge = FilePickerBridge()
     private val mediaSessionBridge = MediaSessionBridge()
@@ -33,18 +33,15 @@ open class MainActivity : FlutterActivity() {
     private var pendingAutoTaskMinimize = false
 
     /** 最近一次 Dart 侧下发的系统栏配置（onPostResume 时复用，避免被主题色覆盖） */
-    private var systemBarTransparent = true
-    private var systemBarImmNav = true
-    private var systemBarStatusColor = Color.TRANSPARENT
-    private var systemBarNavColor = Color.TRANSPARENT
     private var systemBarLightIcons = false
+    private var systemBarLightNavigationIcons = false
+    private var systemBarReaderActive = false
 
     companion object {
         private const val CHANNEL_WEBVIEW = "legado/webview"
         private const val CHANNEL_TTS = "legado/tts"
         private const val CHANNEL_FILE_PICKER = "legado/file_picker"
         private const val CHANNEL_NOTIFICATION = "legado/notification"
-        private const val CHANNEL_BRIGHTNESS = "io.legado.app/brightness"
         private const val CHANNEL_MEDIA_SESSION = "legado/media_session"
         private const val CHANNEL_DEEP_LINK = "legado/deep_link"
         private const val CHANNEL_SYSTEM_BAR = "legado/system_bar"
@@ -57,10 +54,10 @@ open class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
 
         // 注册 WebView 通道
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_WEBVIEW)
-            .setMethodCallHandler { call, result ->
-                webViewBridge.handleMethodCall(call, result, this)
-            }
+        val webviewChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_WEBVIEW)
+        webviewChannel.setMethodCallHandler { call, result ->
+            webViewBridge.handleMethodCall(call, result, this, webviewChannel)
+        }
 
         // 注册 TTS 通道
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_TTS)
@@ -100,16 +97,14 @@ open class MainActivity : FlutterActivity() {
                 cookieBridge.handleMethodCall(call, result, this)
             }
 
+        val privacyBridge = PrivacyBridge(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "legado/privacy")
+            .setMethodCallHandler { call, result -> privacyBridge.handle(call, result) }
+
         // 注册通知通道
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NOTIFICATION)
             .setMethodCallHandler { call, result ->
                 NotificationService.handleMethodCall(call, result, this)
-            }
-
-        // 注册亮度控制通道
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_BRIGHTNESS)
-            .setMethodCallHandler { call, result ->
-                brightnessBridge.handleMethodCall(call, result, this)
             }
 
         // 注册媒体会话通道（后台播放 + 媒体按钮 + 音频焦点）
@@ -183,6 +178,7 @@ open class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initialDeepLink = intent?.dataString
+        mediaSessionBridge.handlePlaybackIntent(intent)
         pendingAutoTaskDue =
             intent?.getBooleanExtra(AutoTaskJobBridge.EXTRA_AUTO_TASK_DUE, false) == true
         pendingAutoTaskMinimize =
@@ -195,6 +191,7 @@ open class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        mediaSessionBridge.handlePlaybackIntent(intent)
         val link = intent.dataString
         if (!link.isNullOrEmpty()) {
             deepLinkChannel?.invokeMethod("onLink", link)
@@ -225,36 +222,41 @@ open class MainActivity : FlutterActivity() {
     override fun onPostResume() {
         super.onPostResume()
         // 从其他 Activity 返回时复用 Dart 侧最近一次配置
-        applySystemBarFromState()
+        if (!systemBarReaderActive) applySystemBarFromState()
     }
 
-
-    /** Dart MethodChannel 在部分 API 上传 32 位 ARGB 为 Long，避免 argument<Int> ClassCastException。 */
-    private fun intArgFromCall(call: MethodCall, key: String): Int? {
-        return when (val raw = call.argument<Any>(key)) {
-            is Int -> raw
-            is Long -> raw.toInt()
-            is Number -> raw.toInt()
-            else -> null
-        }
-    }
 
     private fun handleSystemBarCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "getDisplayCutoutBottomInset" -> {
+                // 只读取真实屏幕缺口；导航栏和键盘不属于这里的避让尺寸。
+                val bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.decorView.rootWindowInsets?.displayCutout?.safeInsetBottom ?: 0
+                } else {
+                    0
+                }
+                result.success(bottom)
+            }
+            "reader" -> {
+                // 阅读器接管显隐；不让全局 decorFits 设置约束正文布局。
+                systemBarReaderActive = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    window.setDecorFitsSystemWindows(false)
+                } else {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility =
+                        window.decorView.systemUiVisibility or
+                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                }
+                result.success(null)
+            }
             "apply" -> {
-                systemBarTransparent =
-                    call.argument<Boolean>("transparentStatusBar") ?: true
-                systemBarImmNav =
-                    call.argument<Boolean>("immNavigationBar") ?: true
-                // MethodChannel 可能将 32 位 ARGB 以 Long 传递，勿直接 argument<Int>
-                intArgFromCall(call, "statusBarColor")?.let {
-                    systemBarStatusColor = it
-                }
-                intArgFromCall(call, "navigationBarColor")?.let {
-                    systemBarNavColor = it
-                }
+                systemBarReaderActive = false
                 systemBarLightIcons =
                     call.argument<Boolean>("lightStatusBarIcons") ?: false
+                systemBarLightNavigationIcons =
+                    call.argument<Boolean>("lightNavigationBarIcons") ?: false
                 applySystemBarFromState()
                 result.success(null)
             }
@@ -262,59 +264,46 @@ open class MainActivity : FlutterActivity() {
         }
     }
 
-    /**
-     * 应用系统栏样式（对标原版 ActivityExtensions.setStatusBarColorAuto /
-     * setNavigationBarColorAuto + fullScreen）。
-     *
-     * 沉浸式开启时状态栏透明、内容延伸至状态栏区域；关闭时使用
-     * status_bar_bag 实色条。不再强制 styles.xml 主题色，避免顶栏与
-     * 状态栏出现灰白断层。
-     */
+    /** 普通页面固定边到边；恢复可见系统栏，两类图标明暗由Dart主题同步。 */
+    @Suppress("DEPRECATION")
     private fun applySystemBarFromState() {
-        @Suppress("DEPRECATION")
-        if (systemBarTransparent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(false)
-            } else {
-                window.decorView.systemUiVisibility =
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            }
-            window.statusBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(true)
-            } else {
-                window.decorView.systemUiVisibility =
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            }
-            window.statusBarColor = systemBarStatusColor
         }
-
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-        window.navigationBarColor = systemBarNavColor
-
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.let { controller ->
-                if (systemBarLightIcons) {
-                    controller.setSystemBarsAppearance(
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    )
-                } else {
-                    controller.setSystemBarsAppearance(
-                        0,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    )
-                }
+                val status = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                val navigation = WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                val appearance = (if (systemBarLightIcons) status else 0) or
+                    (if (systemBarLightNavigationIcons) navigation else 0)
+                controller.setSystemBarsAppearance(appearance, status or navigation)
+                controller.show(WindowInsets.Type.systemBars())
             }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            @Suppress("DEPRECATION")
+        } else {
             var flags = window.decorView.systemUiVisibility
             flags = if (systemBarLightIcons) {
                 flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             } else {
                 flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags = if (systemBarLightNavigationIcons) {
+                    flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                } else {
+                    flags and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+                }
             }
             window.decorView.systemUiVisibility = flags
         }

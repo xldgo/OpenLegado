@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// [cbz P1-1 回归 | 2026-10-03] 书架「添加本地」入口白名单测试
 ///
 /// 背景（QA 真机证据 .tmp/cbz_qa/step10_picker_control.xml）：
@@ -11,12 +15,11 @@
 /// 断言 allowedExtensions 与 import_screen._supportedFormats 同序同集合
 /// （含 cbz；且不含走压缩包解压链路的 zip/rar/7z）。
 /// 修复前（['epub','txt','mobi','pdf','umd']）本用例必红。
-library;
 
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -25,8 +28,7 @@ import 'package:share_plus/share_plus.dart' show XFile;
 
 import 'package:flutter_legado/src/l10n/app_strings.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
 
@@ -93,15 +95,17 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     api = MockRustApi();
-    when(() => api.getBooks()).thenAnswer((_) async => <Book>[]);
-    when(() => api.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
+    when(() => api.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => <Book>[]);
+    when(() => api.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => <BookGroup>[]);
   });
 
   /// pump 真实书架页并等待 Notifier 初始加载落定
   Future<void> pumpShelf(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
         child: const MaterialApp(home: BookshelfScreen()),
       ),
     );
@@ -118,7 +122,7 @@ void main() {
     ];
     final fake = _RecordingFilePicker(files: files);
     _useFakeFilePicker(fake);
-    when(() => api.importLocalBook(any())).thenAnswer(
+    when(() => api.localBookService.importLocalBook(any())).thenAnswer(
       (call) async =>
           Book(bookUrl: call.positionalArguments.single as String, name: '本地书'),
     );
@@ -130,7 +134,7 @@ void main() {
 
     expect(fake.pickCalls, 1);
     for (final file in files) {
-      verify(() => api.importLocalBook(file.path!)).called(1);
+      verify(() => api.localBookService.importLocalBook(file.path!)).called(1);
     }
     expect(find.textContaining('已导入 2 本书籍'), findsOneWidget);
   });

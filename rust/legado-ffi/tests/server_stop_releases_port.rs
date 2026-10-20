@@ -28,7 +28,6 @@ fn setup_file_db() -> PathBuf {
         let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
     }
     let path_str = path.to_str().expect("测试 DB 路径含非 UTF-8 字符");
-    legado_ffi::db_state::record_db_path(path_str);
     let db = legado_ffi::legado_db::init_database(path_str).expect("打开临时文件库");
     legado_ffi::db_state::init_database(db).expect("初始化全局连接池");
     path
@@ -60,10 +59,10 @@ fn http_get(addr: SocketAddr) -> Option<String> {
 fn wait_server_ready(addr: SocketAddr) {
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
-        if let Some(resp) = http_get(addr) {
-            if resp.starts_with("HTTP/1.1") || resp.starts_with("HTTP/1.0") {
-                return;
-            }
+        if let Some(resp) = http_get(addr)
+            && (resp.starts_with("HTTP/1.1") || resp.starts_with("HTTP/1.0"))
+        {
+            return;
         }
         std::thread::sleep(Duration::from_millis(50));
     }

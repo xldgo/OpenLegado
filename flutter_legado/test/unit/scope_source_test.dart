@@ -1,10 +1,13 @@
+import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
+
+import '../fixtures/app_test_api.dart';
+
 // [书源作用域 | 2026-09-13] scopeSource 全链路 Dart 侧测试
 //
 // 覆盖三层（对应任务要求「模型序列化 / 服务透传 / 导入挂钩单测」）：
 // 1. 模型序列化：ReplaceRule.fromJson/toJson 的 scopeSource 字段
 //    （JSON key 'scopeSource'，缺省 false，显式 true 往返）。
-// 2. 服务透传：MockBookApi.applyReplaceRulesToSource 原样返回输入并
-//    累计调用计数（applyReplaceRulesToSourceCalls），供导入挂钩测试断言；
+// 2. 服务透传：MockReplaceRuleService.applyReplaceRulesToSource 原样返回输入；导入挂钩通过注入服务验证调用；
 //    addReplaceRule/updateReplaceRule 保留 scopeSource 字段（整对象替换语义）。
 // 3. 导入挂钩：SourceImportService.importFromJson（服务统一入口，
 //    importFromUrl/importFromFile 委托于此，一并覆盖）与
@@ -14,26 +17,26 @@
 //    - 替换抛异常：保持原文且导入不中断（对齐原版语义）。
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/services/source_import_service.dart';
-import 'package:flutter_legado/src/providers/source/source_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/data/services/source_import_service.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 import '../mocks/mocks.dart';
 
 /// 构造一段含可被替换 token 的书源 JSON（单对象）
-String _sourceJson({String token = '旧站', String name = '起点', String url = 'https://www.qidian.com'}) =>
-    jsonEncode({
-      'bookSourceUrl': url,
-      'bookSourceName': name,
-      'ruleSearch': {'searchUrl': 'https://www.{$token}/search/{{key}}'},
-    });
+String _sourceJson({
+  String token = '旧站',
+  String name = '起点',
+  String url = 'https://www.qidian.com',
+}) => jsonEncode({
+  'bookSourceUrl': url,
+  'bookSourceName': name,
+  'ruleSearch': {'searchUrl': 'https://www.{$token}/search/{{key}}'},
+});
 
 void main() {
   // ============================================================
@@ -82,24 +85,31 @@ void main() {
   // ============================================================
   // 2. 服务透传（MockBookApi）
   // ============================================================
-  group('MockBookApi.applyReplaceRulesToSource 透传', () {
+  group('MockReplaceRuleService.applyReplaceRulesToSource 透传', () {
     late MockBookApi api;
 
     setUp(() {
       api = MockBookApi();
     });
 
-    test('原样返回输入 JSON 并累计调用计数', () async {
+    test('原样返回输入 JSON，重复调用保持一致', () async {
       final input = _sourceJson();
-      final result =
-          await api.applyReplaceRulesToSource(input, '起点', 'https://www.qidian.com');
+      final result = await api.replaceRuleService.applyReplaceRulesToSource(
+        input,
+        '起点',
+        'https://www.qidian.com',
+      );
       // Mock 不实现真实替换引擎：原样返回（对齐契约「任何错误原样返回」保守语义）
       expect(result, input);
-      expect(api.applyReplaceRulesToSourceCalls, 1);
 
-      // 再次调用计数累加
-      await api.applyReplaceRulesToSource(input, 'A', 'http://a');
-      expect(api.applyReplaceRulesToSourceCalls, 2);
+      expect(
+        await api.replaceRuleService.applyReplaceRulesToSource(
+          input,
+          'A',
+          'http://a',
+        ),
+        input,
+      );
     });
 
     test('addReplaceRule 保留 scopeSource 字段（整对象语义）', () async {
@@ -109,9 +119,9 @@ void main() {
         replacement: 'b',
         scopeSource: true,
       );
-      final added = await api.addReplaceRule(rule);
+      final added = await api.replaceRuleRepository.addReplaceRule(rule);
       expect(added.scopeSource, isTrue);
-      final list = await api.getReplaceRules();
+      final list = await api.replaceRuleRepository.getReplaceRules();
       expect(list.single.scopeSource, isTrue);
     });
 
@@ -122,11 +132,11 @@ void main() {
         replacement: 'b',
         scopeSource: true,
       );
-      final added = await api.addReplaceRule(rule);
+      final added = await api.replaceRuleRepository.addReplaceRule(rule);
       // 以「完整对象」更新（读自 API 后 copyWith），scopeSource 保持 true
       final updated = added.copyWith(scopeSource: true);
-      await api.updateReplaceRule(updated);
-      final list = await api.getReplaceRules();
+      await api.replaceRuleRepository.updateReplaceRule(updated);
+      final list = await api.replaceRuleRepository.getReplaceRules();
       expect(list.single.scopeSource, isTrue);
     });
   });
@@ -143,20 +153,31 @@ void main() {
 
     setUp(() {
       mockApi = MockRustApi();
-      service = SourceImportService(mockApi);
+      service = SourceImportService(
+        repository: mockApi.bookSourceRepository,
+        fetchText: mockApi.networkService.httpGet,
+        readFile: readSourceImportFile,
+        applyReplaceRules: mockApi.replaceRuleService.applyReplaceRulesToSource,
+      );
     });
 
     test('有命中：交 importBookSources 的 JSON 已被替换', () async {
       // 模拟规则命中：把 token 替换掉（Rust 侧真实行为，此处 mock 模拟）
       final applied = _sourceJson(token: '旧站').replaceAll('旧站', '新站');
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenAnswer((_) async => applied);
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((_) async => applied);
       // 捕获实际交给 importBookSources 的 payload
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
-        importedPayload = inv.positionalArguments.first as String;
-        return 1;
-      });
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((inv) async {
+            importedPayload = inv.positionalArguments.first as String;
+            return 1;
+          });
 
       await service.importFromJson(_sourceJson(token: '旧站', name: '起点'));
 
@@ -166,20 +187,31 @@ void main() {
       expect(importedPayload, contains('新站'));
       expect(importedPayload, isNot(contains('旧站')));
       // 且确实调用了 applyReplaceRulesToSource（挂钩生效）
-      verify(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .called(1);
+      verify(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).called(1);
     });
 
     test('无命中：applyReplaceRulesToSource 返回原文 → 导入原文', () async {
       final original = _sourceJson(token: '甲词');
       // 无命中：规则不匹配，返回原文
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenAnswer((_) async => original);
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((_) async => original);
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
-        importedPayload = inv.positionalArguments.first as String;
-        return 1;
-      });
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((inv) async {
+            importedPayload = inv.positionalArguments.first as String;
+            return 1;
+          });
 
       final result = await service.importFromJson(original, unit: '书源');
 
@@ -192,13 +224,19 @@ void main() {
     test('替换抛异常：保持原文且导入不中断', () async {
       final original = _sourceJson(token: '乙词');
       // 模拟 FFI 未就绪/环境不支持：applyReplaceRulesToSource 抛异常
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenThrow(Exception('FFI 未就绪'));
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenThrow(Exception('FFI 未就绪'));
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
-        importedPayload = inv.positionalArguments.first as String;
-        return 1;
-      });
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((inv) async {
+            importedPayload = inv.positionalArguments.first as String;
+            return 1;
+          });
 
       final result = await service.importFromJson(original, unit: '书源');
 
@@ -211,17 +249,28 @@ void main() {
     test('importFromUrl / importFromFile 委托 importFromJson 亦受挂钩', () async {
       // 仅验证挂钩存在：对 importFromJson 的委托路径，
       // applyReplaceRulesToSource 会被调用（经由 importFromJson 内同一挂钩点）
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenAnswer((inv) async => inv.positionalArguments.first as String);
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((inv) async => inv.positionalArguments.first as String);
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
       // importFromUrl/importFromFile 依赖网络/文件系统，此处以 importFromJson
       // 的委托关系佐证（见 service 源码 importFromUrl→importFromJson、
       // importFromFile→importFromJson），不重复真实 IO
       final json = _sourceJson(token: '旧站');
       final result = await service.importFromJson(json);
       expect(result.success, 1);
-      verify(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .called(1);
+      verify(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).called(1);
     });
   });
 
@@ -237,68 +286,89 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
     });
 
     SourceNotifier readNotifier() =>
         container.read(sourceNotifierProvider.notifier);
 
     test('有命中：交 importBookSources 的 JSON 已被替换', () async {
-      final applied =
-          _sourceJson(token: '旧站').replaceAll('旧站', '新站');
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenAnswer((_) async => applied);
+      final applied = _sourceJson(token: '旧站').replaceAll('旧站', '新站');
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((_) async => applied);
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
-        importedPayload = inv.positionalArguments.first as String;
-        return 1;
-      });
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((inv) async {
+            importedPayload = inv.positionalArguments.first as String;
+            return 1;
+          });
 
       await readNotifier().importSources(_sourceJson(token: '旧站', name: '起点'));
 
       expect(importedPayload, isNotNull);
       expect(importedPayload, contains('新站'));
       expect(importedPayload, isNot(contains('旧站')));
-      verify(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .called(1);
+      verify(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).called(1);
     });
 
     test('无命中：返回原文 → 导入原文', () async {
       final original = _sourceJson(token: '丙词');
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenAnswer((inv) async => inv.positionalArguments.first as String);
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenAnswer((inv) async => inv.positionalArguments.first as String);
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
-        importedPayload = inv.positionalArguments.first as String;
-        return 1;
-      });
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((inv) async {
+            importedPayload = inv.positionalArguments.first as String;
+            return 1;
+          });
 
       await readNotifier().importSources('[$original]');
 
-      final decoded =
-          jsonDecode(importedPayload!) as List<dynamic>;
+      final decoded = jsonDecode(importedPayload!) as List<dynamic>;
       expect((decoded.first as Map<String, dynamic>)['bookSourceName'], '起点');
     });
 
     test('替换抛异常：保持原文且导入不中断', () async {
       final original = _sourceJson(token: '丁词');
-      when(() => mockApi.applyReplaceRulesToSource(any(), any(), any()))
-          .thenThrow(Exception('FFI 未就绪'));
+      when(
+        () => mockApi.replaceRuleService.applyReplaceRulesToSource(
+          any(),
+          any(),
+          any(),
+        ),
+      ).thenThrow(Exception('FFI 未就绪'));
       String? importedPayload;
-      when(() => mockApi.importBookSources(any())).thenAnswer((inv) async {
-        importedPayload = inv.positionalArguments.first as String;
-        return 1;
-      });
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((inv) async {
+            importedPayload = inv.positionalArguments.first as String;
+            return 1;
+          });
 
       await readNotifier().importSources('[$original]');
 
       // 替换失败不中断导入
       expect(importedPayload, isNotNull);
-      final decoded =
-          jsonDecode(importedPayload!) as List<dynamic>;
+      final decoded = jsonDecode(importedPayload!) as List<dynamic>;
       expect((decoded.first as Map<String, dynamic>)['bookSourceName'], '起点');
     });
   });

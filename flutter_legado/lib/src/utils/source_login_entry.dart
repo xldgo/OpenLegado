@@ -1,11 +1,11 @@
-import 'dart:convert';
+import '../app/bootstrap/application_dependencies.dart';
+import '../app/bootstrap/login_v2_session_factory.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
-import '../screens/webview_login_screen.dart';
+import '../features/book_sources/presentation/webview_login_screen.dart';
 import '../widgets/classic_login_dialog.dart';
 import '../widgets/login_v2_dialog.dart';
 
@@ -29,13 +29,12 @@ Future<bool> showSourceLogin(
   WidgetRef ref,
   BookSource source,
 ) async {
-  final api = ref.read(bookApiProvider);
-  final sourceJson = jsonEncode(source.toJson());
+  final service = ref.read(sourceLoginV2ServiceProvider);
 
   // 1) V2 动态状态协议
   var isV2 = false;
   try {
-    isV2 = await api.isLoginUiV2(sourceJson);
+    isV2 = await service.isLoginUiV2(source);
   } catch (e) {
     debugPrint('loginUiV2 判定失败: $e');
   }
@@ -43,11 +42,8 @@ Future<bool> showSourceLogin(
   if (isV2) {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => LoginV2Dialog(
-        api: api,
-        sourceJson: sourceJson,
-        sourceName: source.bookSourceName,
-      ),
+      builder: (_) =>
+          LoginV2Dialog(session: createSourceLoginV2Session(service, source)),
     );
     return ok == true;
   }
@@ -58,7 +54,11 @@ Future<bool> showSourceLogin(
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => ClassicLoginDialog(api: api, source: source),
+      builder: (_) => ClassicLoginDialog(
+        repository: ref.read(sourceLoginRepositoryProvider),
+        evaluateAction: ref.read(exploreServiceProvider).evaluateAction,
+        source: source,
+      ),
     );
     return ok == true;
   }
@@ -70,7 +70,7 @@ Future<bool> showSourceLogin(
   final saved = await Navigator.of(context).push<bool>(
     MaterialPageRoute(
       builder: (_) => WebViewLoginScreen(
-        api: api,
+        repository: ref.read(sourceLoginRepositoryProvider),
         sourceUrl: source.bookSourceUrl,
         sourceName: source.bookSourceName,
         loginUrl: source.loginUrl ?? '',

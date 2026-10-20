@@ -1,3 +1,5 @@
+import 'package:flutter_legado/src/platform/source_import_file_reader.dart';
+
 // SourceImportService 单元测试
 //
 // 覆盖：importFromJson/validateSource/parseSourcesText/ImportResult
@@ -7,27 +9,35 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/services/source_import_service.dart';
+import 'package:flutter_legado/src/data/services/source_import_service.dart';
+import 'package:flutter_legado/src/domain/contracts/book_source_repository.dart';
+import 'package:flutter_legado/src/domain/models/import_result.dart';
+import 'package:flutter_legado/src/domain/services/source_import_parser.dart';
 
-import '../mocks/mocks.dart';
+class _RepositoryMock extends Mock implements BookSourceRepository {}
 
 void main() {
   late SourceImportService service;
-  late MockRustApi mockApi;
-
-  setUpAll(() {
-    registerFallbacks();
-  });
+  late _RepositoryMock repository;
+  const parser = SourceImportParser();
 
   setUp(() {
-    mockApi = MockRustApi();
-    service = SourceImportService(mockApi);
+    repository = _RepositoryMock();
+    service = SourceImportService(
+      repository: repository,
+      fetchText: (_, {required timeout}) async => throw StateError('本组测试不请求网络'),
+      readFile: readSourceImportFile,
+      applyReplaceRules: (json, _, _) async => json,
+    );
   });
 
   group('ImportResult 模型', () {
     test('hasErrors 有错误时返回 true', () {
       const result = ImportResult(
-        total: 1, success: 0, failed: 1, skipped: 0,
+        total: 1,
+        success: 0,
+        failed: 1,
+        skipped: 0,
         errors: ['失败'],
       );
       expect(result.hasErrors, isTrue);
@@ -35,7 +45,10 @@ void main() {
 
     test('hasErrors 无错误时返回 false', () {
       const result = ImportResult(
-        total: 2, success: 2, failed: 0, skipped: 0,
+        total: 2,
+        success: 2,
+        failed: 0,
+        skipped: 0,
         errors: [],
       );
       expect(result.hasErrors, isFalse);
@@ -43,7 +56,10 @@ void main() {
 
     test('summary 包含成功数', () {
       const result = ImportResult(
-        total: 5, success: 3, failed: 1, skipped: 1,
+        total: 5,
+        success: 3,
+        failed: 1,
+        skipped: 1,
         errors: ['err'],
       );
       final summary = result.summary;
@@ -55,7 +71,10 @@ void main() {
 
     test('summary 只有成功时不显示失败和跳过', () {
       const result = ImportResult(
-        total: 2, success: 2, failed: 0, skipped: 0,
+        total: 2,
+        success: 2,
+        failed: 0,
+        skipped: 0,
         errors: [],
       );
       final summary = result.summary;
@@ -65,9 +84,9 @@ void main() {
     });
   });
 
-  group('SourceImportService validateSource', () {
+  group('SourceImportParser validateSource', () {
     test('有效书源通过校验', () {
-      final errors = service.validateSource({
+      final errors = parser.validateSource({
         'bookSourceUrl': 'http://source.com',
         'bookSourceName': '测试源',
       });
@@ -75,14 +94,12 @@ void main() {
     });
 
     test('缺少 bookSourceUrl 报错', () {
-      final errors = service.validateSource({
-        'bookSourceName': '测试源',
-      });
+      final errors = parser.validateSource({'bookSourceName': '测试源'});
       expect(errors, contains('缺少 bookSourceUrl'));
     });
 
     test('bookSourceUrl 为空字符串报错', () {
-      final errors = service.validateSource({
+      final errors = parser.validateSource({
         'bookSourceUrl': '',
         'bookSourceName': '测试源',
       });
@@ -90,14 +107,14 @@ void main() {
     });
 
     test('缺少 bookSourceName 报错', () {
-      final errors = service.validateSource({
+      final errors = parser.validateSource({
         'bookSourceUrl': 'http://source.com',
       });
       expect(errors, contains('缺少 bookSourceName'));
     });
 
     test('bookSourceName 为空字符串报错', () {
-      final errors = service.validateSource({
+      final errors = parser.validateSource({
         'bookSourceUrl': 'http://source.com',
         'bookSourceName': '',
       });
@@ -105,14 +122,15 @@ void main() {
     });
 
     test('同时缺少两个必要字段报两个错', () {
-      final errors = service.validateSource({});
+      final errors = parser.validateSource({});
       expect(errors.length, equals(2));
     });
   });
 
   group('SourceImportService importFromJson', () {
     test('导入有效书源数组成功', () async {
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => repository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
 
       final jsonStr = '''
       [
@@ -130,9 +148,11 @@ void main() {
     });
 
     test('导入单个书源对象成功', () async {
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => repository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
 
-      final jsonStr = '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
+      final jsonStr =
+          '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
       final result = await service.importFromJson(jsonStr);
 
       expect(result.total, equals(1));
@@ -155,9 +175,11 @@ void main() {
     });
 
     test('数组中含非对象项标记为失败', () async {
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+      when(() => repository.importBookSources(any()))
+          .thenAnswer((_) async => 1);
 
-      final jsonStr = '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}, "invalid"]';
+      final jsonStr =
+          '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}, "invalid"]';
       final result = await service.importFromJson(jsonStr);
 
       expect(result.total, equals(2));
@@ -175,9 +197,11 @@ void main() {
     });
 
     test('API 调用失败标记为失败', () async {
-      when(() => mockApi.importBookSources(any())).thenThrow(Exception('API错误'));
+      when(() => repository.importBookSources(any()))
+          .thenThrow(Exception('API错误'));
 
-      final jsonStr = '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}]';
+      final jsonStr =
+          '[{"bookSourceUrl": "http://s.com", "bookSourceName": "源"}]';
       final result = await service.importFromJson(jsonStr);
 
       expect(result.total, equals(1));
@@ -196,20 +220,13 @@ void main() {
     });
   });
 
-  group('TimeoutException', () {
-    test('toString 返回消息', () {
-      const e = TimeoutException('超时了');
-      expect(e.toString(), equals('超时了'));
-    });
-  });
-
-  group('SourceImportService parseSourcesText（轻量预览解析）', () {
+  group('SourceImportParser parseSourcesText（轻量预览解析）', () {
     test('干净 JSON 数组正常解析（不回归）', () {
       final jsonStr = jsonEncode([
         {'bookSourceUrl': 'http://s1.com', 'bookSourceName': '源1'},
         {'bookSourceUrl': 'http://s2.com', 'bookSourceName': '源2'},
       ]);
-      final previews = service.parseSourcesText(jsonStr);
+      final previews = parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(2));
       expect(previews[0].bookSourceName, equals('源1'));
       expect(previews[0].bookSourceUrl, equals('http://s1.com'));
@@ -220,7 +237,7 @@ void main() {
     test('单个书源对象解析为一条预览', () {
       final jsonStr =
           '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
-      final previews = service.parseSourcesText(jsonStr);
+      final previews = parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(1));
     });
 
@@ -236,7 +253,7 @@ void main() {
           'ruleToc': {'isVolume': 'false', 'chapterList': '#list dd a'},
         },
       ]);
-      final previews = service.parseSourcesText(jsonStr);
+      final previews = parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(1));
       expect(previews[0].bookSourceName, equals('新御书屋(千夜)'));
       // 轻量提取 lastUpdateTime 转 int 供状态判定
@@ -248,7 +265,7 @@ void main() {
     test('夹具文件 yckceo_string_number_source.json 能解析出条目', () {
       final file = File('test/fixtures/yckceo_string_number_source.json');
       final content = file.readAsStringSync();
-      final previews = service.parseSourcesText(content);
+      final previews = parser.parseSourcesText(content);
       expect(previews.length, equals(1));
       expect(previews[0].bookSourceName, equals('新御书屋(千夜)'));
       expect(previews[0].lastUpdateTime, equals(1785432524399));
@@ -259,7 +276,7 @@ void main() {
         {'bookSourceUrl': 'http://ok.com', 'bookSourceName': '有效源'},
         {'bookSourceName': '缺 url 的源'},
       ]);
-      final previews = service.parseSourcesText(jsonStr);
+      final previews = parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(1));
       expect(previews[0].bookSourceUrl, equals('http://ok.com'));
     });
@@ -269,7 +286,7 @@ void main() {
         {'bookSourceName': '缺 url 的源'},
       ]);
       expect(
-        () => service.parseSourcesText(jsonStr),
+        () => parser.parseSourcesText(jsonStr),
         throwsA(
           isA<FormatException>().having(
             (e) => e.message,
@@ -282,7 +299,7 @@ void main() {
 
     test('非数组/对象 JSON 抛出格式错误', () {
       expect(
-        () => service.parseSourcesText('"just a string"'),
+        () => parser.parseSourcesText('"just a string"'),
         throwsA(isA<FormatException>()),
       );
     });

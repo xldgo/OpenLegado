@@ -6,14 +6,26 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'automation_dto.dart';
+import 'business_dto.dart';
+import 'content_dto.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'ffi.dart';
 import 'ffi/ffi.dart';
+import 'file_dto.dart';
 import 'frb_generated.dart';
+import 'layout_bridge.dart';
+import 'layout_dto.dart';
+import 'media_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
+
+import 'source_tools_dto.dart';
+import 'task_dto.dart';
+import 'transfer_dto.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustLibApiImplPlatform({
@@ -23,20 +35,250 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.portManager,
   });
 
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_LayoutSessionPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_StreamRequestPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_TtsRequestPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest;
+
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
-  RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw);
+  LayoutSession
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  StreamRequest
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    dynamic raw,
+  );
+
+  @protected
+  TtsRequest
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutSession
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  StreamRequest
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    dynamic raw,
+  );
+
+  @protected
+  TtsRequest
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    dynamic raw,
+  );
+
+  @protected
+  Map<String, String> dco_decode_Map_String_String_None(dynamic raw);
+
+  @protected
+  Map<String, LayoutCastProfileDto>
+  dco_decode_Map_String_layout_cast_profile_dto_None(dynamic raw);
+
+  @protected
+  Map<String, LayoutValueDto> dco_decode_Map_String_layout_value_dto_None(
+    dynamic raw,
+  );
+
+  @protected
+  Map<int, String> dco_decode_Map_i_32_String_None(dynamic raw);
+
+  @protected
+  Map<int, int> dco_decode_Map_i_32_i_32_None(dynamic raw);
+
+  @protected
+  LayoutSession
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    dynamic raw,
+  );
+
+  @protected
+  StreamRequest
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    dynamic raw,
+  );
+
+  @protected
+  TtsRequest
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<ChangeSourceBatchDto>
+  dco_decode_StreamSink_change_source_batch_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<CheckProgressDto> dco_decode_StreamSink_check_progress_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<DebugLogDto> dco_decode_StreamSink_debug_log_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<List<CacheDownloadTaskDto>>
+  dco_decode_StreamSink_list_cache_download_task_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<SearchSourceBatchDto>
+  dco_decode_StreamSink_search_source_batch_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<VerificationRequestDto>
+  dco_decode_StreamSink_verification_request_dto_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<WebViewRequestDto>
+  dco_decode_StreamSink_web_view_request_dto_Sse(dynamic raw);
 
   @protected
   String dco_decode_String(dynamic raw);
 
   @protected
+  AnnotatedCandidateDto dco_decode_annotated_candidate_dto(dynamic raw);
+
+  @protected
+  AppLogDto dco_decode_app_log_dto(dynamic raw);
+
+  @protected
+  ArchiveImportDto dco_decode_archive_import_dto(dynamic raw);
+
+  @protected
+  AudioCacheDownloadDto dco_decode_audio_cache_download_dto(dynamic raw);
+
+  @protected
+  AudioCacheDownloadStatusDto dco_decode_audio_cache_download_status_dto(
+    dynamic raw,
+  );
+
+  @protected
+  AudioChapterMediaDto dco_decode_audio_chapter_media_dto(dynamic raw);
+
+  @protected
+  AutoTaskRuleDto dco_decode_auto_task_rule_dto(dynamic raw);
+
+  @protected
+  BackupFileDto dco_decode_backup_file_dto(dynamic raw);
+
+  @protected
+  BookDto dco_decode_book_dto(dynamic raw);
+
+  @protected
+  BookExportDto dco_decode_book_export_dto(dynamic raw);
+
+  @protected
+  BookFormatDto dco_decode_book_format_dto(dynamic raw);
+
+  @protected
+  BookGroupDto dco_decode_book_group_dto(dynamic raw);
+
+  @protected
+  BookHighlightDto dco_decode_book_highlight_dto(dynamic raw);
+
+  @protected
+  BookInfoRuleDto dco_decode_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookMetadataDto dco_decode_book_metadata_dto(dynamic raw);
+
+  @protected
+  BookOrderDto dco_decode_book_order_dto(dynamic raw);
+
+  @protected
+  BookSourceDto dco_decode_book_source_dto(dynamic raw);
+
+  @protected
+  BookmarkDto dco_decode_bookmark_dto(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  AutoTaskRuleDto dco_decode_box_autoadd_auto_task_rule_dto(dynamic raw);
+
+  @protected
+  BookDto dco_decode_box_autoadd_book_dto(dynamic raw);
+
+  @protected
+  BookHighlightDto dco_decode_box_autoadd_book_highlight_dto(dynamic raw);
+
+  @protected
+  BookInfoRuleDto dco_decode_box_autoadd_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookSourceDto dco_decode_box_autoadd_book_source_dto(dynamic raw);
+
+  @protected
+  BookmarkDto dco_decode_box_autoadd_bookmark_dto(dynamic raw);
+
+  @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CaptchaInfoDto dco_decode_box_autoadd_captcha_info_dto(dynamic raw);
+
+  @protected
+  ChapterDto dco_decode_box_autoadd_chapter_dto(dynamic raw);
+
+  @protected
+  CloudSpeechInputDto dco_decode_box_autoadd_cloud_speech_input_dto(
+    dynamic raw,
+  );
+
+  @protected
+  CloudTtsMetadataDto dco_decode_box_autoadd_cloud_tts_metadata_dto(
+    dynamic raw,
+  );
+
+  @protected
+  CloudVoiceOptionsDto dco_decode_box_autoadd_cloud_voice_options_dto(
+    dynamic raw,
+  );
+
+  @protected
+  ContentRuleDto dco_decode_box_autoadd_content_rule_dto(dynamic raw);
+
+  @protected
+  CoverRuleDto dco_decode_box_autoadd_cover_rule_dto(dynamic raw);
+
+  @protected
+  ExploreRuleDto dco_decode_box_autoadd_explore_rule_dto(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  FlexChildStyleDto dco_decode_box_autoadd_flex_child_style_dto(dynamic raw);
+
+  @protected
+  HighlightRuleDto dco_decode_box_autoadd_highlight_rule_dto(dynamic raw);
+
+  @protected
+  HttpTtsConfigDto dco_decode_box_autoadd_http_tts_config_dto(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_i_32(dynamic raw);
@@ -45,10 +287,209 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
+  LayoutBackgroundImageDto dco_decode_box_autoadd_layout_background_image_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutConfigDto dco_decode_box_autoadd_layout_config_dto(dynamic raw);
+
+  @protected
+  LayoutInlineParagraphDto dco_decode_box_autoadd_layout_inline_paragraph_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutPageUnderlineDto dco_decode_box_autoadd_layout_page_underline_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutValueDto dco_decode_box_autoadd_layout_value_dto(dynamic raw);
+
+  @protected
+  PlatformActionDto dco_decode_box_autoadd_platform_action_dto(dynamic raw);
+
+  @protected
+  ReadAloudVoiceDto dco_decode_box_autoadd_read_aloud_voice_dto(dynamic raw);
+
+  @protected
+  ReadConfigDto dco_decode_box_autoadd_read_config_dto(dynamic raw);
+
+  @protected
+  RedirectInfoDto dco_decode_box_autoadd_redirect_info_dto(dynamic raw);
+
+  @protected
+  ReviewRequestDto dco_decode_box_autoadd_review_request_dto(dynamic raw);
+
+  @protected
+  ReviewRuleDto dco_decode_box_autoadd_review_rule_dto(dynamic raw);
+
+  @protected
+  RssSourceDto dco_decode_box_autoadd_rss_source_dto(dynamic raw);
+
+  @protected
+  RuleSubscriptionDto dco_decode_box_autoadd_rule_subscription_dto(dynamic raw);
+
+  @protected
+  SearchRuleDto dco_decode_box_autoadd_search_rule_dto(dynamic raw);
+
+  @protected
+  SourceCheckConfigDto dco_decode_box_autoadd_source_check_config_dto(
+    dynamic raw,
+  );
+
+  @protected
+  SwitchSearchOptionsDto dco_decode_box_autoadd_switch_search_options_dto(
+    dynamic raw,
+  );
+
+  @protected
+  TocRuleDto dco_decode_box_autoadd_toc_rule_dto(dynamic raw);
+
+  @protected
+  TtsCacheContextDto dco_decode_box_autoadd_tts_cache_context_dto(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  BigInt dco_decode_box_autoadd_usize(dynamic raw);
+
+  @protected
+  WebChapterDto dco_decode_box_autoadd_web_chapter_dto(dynamic raw);
+
+  @protected
+  WebViewPageCallDto dco_decode_box_autoadd_web_view_page_call_dto(dynamic raw);
+
+  @protected
+  WebViewResponseDto dco_decode_box_autoadd_web_view_response_dto(dynamic raw);
+
+  @protected
+  LayoutParagraphDto dco_decode_box_layout_paragraph_dto(dynamic raw);
+
+  @protected
+  LayoutTextStyleDto dco_decode_box_layout_text_style_dto(dynamic raw);
+
+  @protected
   BridgeError dco_decode_bridge_error(dynamic raw);
 
   @protected
+  CacheDownloadStatusDto dco_decode_cache_download_status_dto(dynamic raw);
+
+  @protected
+  CacheDownloadTaskDto dco_decode_cache_download_task_dto(dynamic raw);
+
+  @protected
+  CachedChapterDto dco_decode_cached_chapter_dto(dynamic raw);
+
+  @protected
+  CaptchaInfoDto dco_decode_captcha_info_dto(dynamic raw);
+
+  @protected
+  ChangeSourceBatchDto dco_decode_change_source_batch_dto(dynamic raw);
+
+  @protected
+  ChapterDto dco_decode_chapter_dto(dynamic raw);
+
+  @protected
+  ChapterListDto dco_decode_chapter_list_dto(dynamic raw);
+
+  @protected
+  ChapterPurchaseDto dco_decode_chapter_purchase_dto(dynamic raw);
+
+  @protected
+  ChapterPurchaseKindDto dco_decode_chapter_purchase_kind_dto(dynamic raw);
+
+  @protected
+  CheckProgressDto dco_decode_check_progress_dto(dynamic raw);
+
+  @protected
+  CheckResultDto dco_decode_check_result_dto(dynamic raw);
+
+  @protected
+  CloudSpeechInputDto dco_decode_cloud_speech_input_dto(dynamic raw);
+
+  @protected
+  CloudTtsMetadataDto dco_decode_cloud_tts_metadata_dto(dynamic raw);
+
+  @protected
+  CloudTtsProviderDto dco_decode_cloud_tts_provider_dto(dynamic raw);
+
+  @protected
+  CloudVoiceDescriptorDto dco_decode_cloud_voice_descriptor_dto(dynamic raw);
+
+  @protected
+  CloudVoiceOptionsDto dco_decode_cloud_voice_options_dto(dynamic raw);
+
+  @protected
+  ContentRuleDto dco_decode_content_rule_dto(dynamic raw);
+
+  @protected
+  CoverCandidateDto dco_decode_cover_candidate_dto(dynamic raw);
+
+  @protected
+  CoverRuleDto dco_decode_cover_rule_dto(dynamic raw);
+
+  @protected
+  DebugLogDto dco_decode_debug_log_dto(dynamic raw);
+
+  @protected
+  DetectFormatDto dco_decode_detect_format_dto(dynamic raw);
+
+  @protected
+  DictEntryDto dco_decode_dict_entry_dto(dynamic raw);
+
+  @protected
+  DictionaryRuleDto dco_decode_dictionary_rule_dto(dynamic raw);
+
+  @protected
+  DownloadStatsDto dco_decode_download_stats_dto(dynamic raw);
+
+  @protected
+  DownloadStatusDto dco_decode_download_status_dto(dynamic raw);
+
+  @protected
+  DownloadTaskDto dco_decode_download_task_dto(dynamic raw);
+
+  @protected
+  EncodingConversionDto dco_decode_encoding_conversion_dto(dynamic raw);
+
+  @protected
+  EncodingDto dco_decode_encoding_dto(dynamic raw);
+
+  @protected
+  ExploreActionDto dco_decode_explore_action_dto(dynamic raw);
+
+  @protected
+  ExploreCategoryDto dco_decode_explore_category_dto(dynamic raw);
+
+  @protected
+  ExploreRuleDto dco_decode_explore_rule_dto(dynamic raw);
+
+  @protected
+  double dco_decode_f_32(dynamic raw);
+
+  @protected
   double dco_decode_f_64(dynamic raw);
+
+  @protected
+  FlexChildStyleDto dco_decode_flex_child_style_dto(dynamic raw);
+
+  @protected
+  HighlightRuleDto dco_decode_highlight_rule_dto(dynamic raw);
+
+  @protected
+  HttpBytesResponseDto dco_decode_http_bytes_response_dto(dynamic raw);
+
+  @protected
+  HttpTextResponseDto dco_decode_http_text_response_dto(dynamic raw);
+
+  @protected
+  HttpTtsConfigDto dco_decode_http_tts_config_dto(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -57,16 +498,327 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  LayoutAlignmentDto dco_decode_layout_alignment_dto(dynamic raw);
+
+  @protected
+  LayoutBackgroundImageDto dco_decode_layout_background_image_dto(dynamic raw);
+
+  @protected
+  LayoutBlockDto dco_decode_layout_block_dto(dynamic raw);
+
+  @protected
+  LayoutBreakModeDto dco_decode_layout_break_mode_dto(dynamic raw);
+
+  @protected
+  LayoutCastOptionsDto dco_decode_layout_cast_options_dto(dynamic raw);
+
+  @protected
+  LayoutCastProfileDto dco_decode_layout_cast_profile_dto(dynamic raw);
+
+  @protected
+  LayoutConfigDto dco_decode_layout_config_dto(dynamic raw);
+
+  @protected
+  LayoutDecorationKindDto dco_decode_layout_decoration_kind_dto(dynamic raw);
+
+  @protected
+  LayoutElementDto dco_decode_layout_element_dto(dynamic raw);
+
+  @protected
+  LayoutImageScaleDto dco_decode_layout_image_scale_dto(dynamic raw);
+
+  @protected
+  LayoutInlineItemDto dco_decode_layout_inline_item_dto(dynamic raw);
+
+  @protected
+  LayoutInlineParagraphDto dco_decode_layout_inline_paragraph_dto(dynamic raw);
+
+  @protected
+  LayoutPageDto dco_decode_layout_page_dto(dynamic raw);
+
+  @protected
+  LayoutPageUnderlineDto dco_decode_layout_page_underline_dto(dynamic raw);
+
+  @protected
+  LayoutParagraphDecorationDto dco_decode_layout_paragraph_decoration_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutParagraphDto dco_decode_layout_paragraph_dto(dynamic raw);
+
+  @protected
+  LayoutReplyDto dco_decode_layout_reply_dto(dynamic raw);
+
+  @protected
+  LayoutTextStyleDto dco_decode_layout_text_style_dto(dynamic raw);
+
+  @protected
+  LayoutValueDto dco_decode_layout_value_dto(dynamic raw);
+
+  @protected
+  LayoutValueKind dco_decode_layout_value_kind(dynamic raw);
+
+  @protected
+  List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<AnnotatedCandidateDto> dco_decode_list_annotated_candidate_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<AppLogDto> dco_decode_list_app_log_dto(dynamic raw);
+
+  @protected
+  List<AutoTaskRuleDto> dco_decode_list_auto_task_rule_dto(dynamic raw);
+
+  @protected
+  List<BackupFileDto> dco_decode_list_backup_file_dto(dynamic raw);
+
+  @protected
+  List<BookDto> dco_decode_list_book_dto(dynamic raw);
+
+  @protected
+  List<BookGroupDto> dco_decode_list_book_group_dto(dynamic raw);
+
+  @protected
+  List<BookHighlightDto> dco_decode_list_book_highlight_dto(dynamic raw);
+
+  @protected
+  List<BookOrderDto> dco_decode_list_book_order_dto(dynamic raw);
+
+  @protected
+  List<BookSourceDto> dco_decode_list_book_source_dto(dynamic raw);
+
+  @protected
+  List<BookmarkDto> dco_decode_list_bookmark_dto(dynamic raw);
+
+  @protected
+  List<CacheDownloadTaskDto> dco_decode_list_cache_download_task_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<CachedChapterDto> dco_decode_list_cached_chapter_dto(dynamic raw);
+
+  @protected
+  List<ChapterDto> dco_decode_list_chapter_dto(dynamic raw);
+
+  @protected
+  List<CloudTtsMetadataDto> dco_decode_list_cloud_tts_metadata_dto(dynamic raw);
+
+  @protected
+  List<CloudVoiceDescriptorDto> dco_decode_list_cloud_voice_descriptor_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<CoverCandidateDto> dco_decode_list_cover_candidate_dto(dynamic raw);
+
+  @protected
+  List<DictionaryRuleDto> dco_decode_list_dictionary_rule_dto(dynamic raw);
+
+  @protected
+  List<DownloadTaskDto> dco_decode_list_download_task_dto(dynamic raw);
+
+  @protected
+  List<ExploreCategoryDto> dco_decode_list_explore_category_dto(dynamic raw);
+
+  @protected
+  List<HighlightRuleDto> dco_decode_list_highlight_rule_dto(dynamic raw);
+
+  @protected
+  List<HttpTtsConfigDto> dco_decode_list_http_tts_config_dto(dynamic raw);
+
+  @protected
+  List<LayoutBlockDto> dco_decode_list_layout_block_dto(dynamic raw);
+
+  @protected
+  List<LayoutElementDto> dco_decode_list_layout_element_dto(dynamic raw);
+
+  @protected
+  List<LayoutInlineItemDto> dco_decode_list_layout_inline_item_dto(dynamic raw);
+
+  @protected
+  List<LayoutPageDto> dco_decode_list_layout_page_dto(dynamic raw);
+
+  @protected
+  List<LayoutParagraphDecorationDto>
+  dco_decode_list_layout_paragraph_decoration_dto(dynamic raw);
+
+  @protected
+  List<LayoutTextStyleDto> dco_decode_list_layout_text_style_dto(dynamic raw);
+
+  @protected
+  List<LayoutValueDto> dco_decode_list_layout_value_dto(dynamic raw);
+
+  @protected
+  List<String?> dco_decode_list_opt_String(dynamic raw);
+
+  @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
+
+  @protected
   Int32List dco_decode_list_prim_i_32_strict(dynamic raw);
+
+  @protected
+  Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ReadAloudVoiceDto> dco_decode_list_read_aloud_voice_dto(dynamic raw);
+
+  @protected
+  List<ReadRecordDailyDto> dco_decode_list_read_record_daily_dto(dynamic raw);
+
+  @protected
+  List<ReadRecordDetailDto> dco_decode_list_read_record_detail_dto(dynamic raw);
+
+  @protected
+  List<ReadRecordDto> dco_decode_list_read_record_dto(dynamic raw);
+
+  @protected
+  List<ReadRecordSessionDto> dco_decode_list_read_record_session_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<(int, int)> dco_decode_list_record_i_32_i_32(dynamic raw);
+
+  @protected
+  List<(int, String)> dco_decode_list_record_i_32_string(dynamic raw);
+
+  @protected
+  List<(String, LayoutCastProfileDto)>
+  dco_decode_list_record_string_layout_cast_profile_dto(dynamic raw);
+
+  @protected
+  List<(String, LayoutValueDto)> dco_decode_list_record_string_layout_value_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<(String, String)> dco_decode_list_record_string_string(dynamic raw);
+
+  @protected
+  List<ReplaceRuleDto> dco_decode_list_replace_rule_dto(dynamic raw);
+
+  @protected
+  List<ReviewDetailItemDto> dco_decode_list_review_detail_item_dto(dynamic raw);
+
+  @protected
+  List<RssArticleDto> dco_decode_list_rss_article_dto(dynamic raw);
+
+  @protected
+  List<RssReadRecordDto> dco_decode_list_rss_read_record_dto(dynamic raw);
+
+  @protected
+  List<RssSourceDto> dco_decode_list_rss_source_dto(dynamic raw);
+
+  @protected
+  List<RssStarSnapshotDto> dco_decode_list_rss_star_snapshot_dto(dynamic raw);
+
+  @protected
+  List<RuleSubscriptionDto> dco_decode_list_rule_subscription_dto(dynamic raw);
+
+  @protected
+  List<SearchBookDto> dco_decode_list_search_book_dto(dynamic raw);
+
+  @protected
+  List<SearchHistoryDto> dco_decode_list_search_history_dto(dynamic raw);
+
+  @protected
+  List<SourceMatchDto> dco_decode_list_source_match_dto(dynamic raw);
+
+  @protected
+  List<SystemVoiceEntryDto> dco_decode_list_system_voice_entry_dto(dynamic raw);
+
+  @protected
+  List<TtsCacheContextDto> dco_decode_list_tts_cache_context_dto(dynamic raw);
+
+  @protected
+  List<TtsCacheEntryDto> dco_decode_list_tts_cache_entry_dto(dynamic raw);
+
+  @protected
+  List<VerificationRequestDto> dco_decode_list_verification_request_dto(
+    dynamic raw,
+  );
+
+  @protected
+  List<WebChapterDto> dco_decode_list_web_chapter_dto(dynamic raw);
+
+  @protected
+  List<WebDavFileDto> dco_decode_list_web_dav_file_dto(dynamic raw);
+
+  @protected
+  List<WebSearchResultDto> dco_decode_list_web_search_result_dto(dynamic raw);
+
+  @protected
+  List<WebViewRequestDto> dco_decode_list_web_view_request_dto(dynamic raw);
+
+  @protected
+  LocalImportDto dco_decode_local_import_dto(dynamic raw);
+
+  @protected
+  LogLevelDto dco_decode_log_level_dto(dynamic raw);
+
+  @protected
+  OldDataImportResultDto dco_decode_old_data_import_result_dto(dynamic raw);
+
+  @protected
+  Map<String, String>? dco_decode_opt_Map_String_String_None(dynamic raw);
+
+  @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  AutoTaskRuleDto? dco_decode_opt_box_autoadd_auto_task_rule_dto(dynamic raw);
+
+  @protected
+  BookDto? dco_decode_opt_box_autoadd_book_dto(dynamic raw);
+
+  @protected
+  BookInfoRuleDto? dco_decode_opt_box_autoadd_book_info_rule_dto(dynamic raw);
+
+  @protected
+  BookSourceDto? dco_decode_opt_box_autoadd_book_source_dto(dynamic raw);
+
+  @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CaptchaInfoDto? dco_decode_opt_box_autoadd_captcha_info_dto(dynamic raw);
+
+  @protected
+  ChapterDto? dco_decode_opt_box_autoadd_chapter_dto(dynamic raw);
+
+  @protected
+  CloudVoiceOptionsDto? dco_decode_opt_box_autoadd_cloud_voice_options_dto(
+    dynamic raw,
+  );
+
+  @protected
+  ContentRuleDto? dco_decode_opt_box_autoadd_content_rule_dto(dynamic raw);
+
+  @protected
+  ExploreRuleDto? dco_decode_opt_box_autoadd_explore_rule_dto(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
+
+  @protected
+  FlexChildStyleDto? dco_decode_opt_box_autoadd_flex_child_style_dto(
+    dynamic raw,
+  );
 
   @protected
   int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
@@ -75,7 +827,202 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
+  LayoutBackgroundImageDto?
+  dco_decode_opt_box_autoadd_layout_background_image_dto(dynamic raw);
+
+  @protected
+  LayoutPageUnderlineDto? dco_decode_opt_box_autoadd_layout_page_underline_dto(
+    dynamic raw,
+  );
+
+  @protected
+  LayoutValueDto? dco_decode_opt_box_autoadd_layout_value_dto(dynamic raw);
+
+  @protected
+  ReadConfigDto? dco_decode_opt_box_autoadd_read_config_dto(dynamic raw);
+
+  @protected
+  RedirectInfoDto? dco_decode_opt_box_autoadd_redirect_info_dto(dynamic raw);
+
+  @protected
+  ReviewRuleDto? dco_decode_opt_box_autoadd_review_rule_dto(dynamic raw);
+
+  @protected
+  SearchRuleDto? dco_decode_opt_box_autoadd_search_rule_dto(dynamic raw);
+
+  @protected
+  TocRuleDto? dco_decode_opt_box_autoadd_toc_rule_dto(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_usize(dynamic raw);
+
+  @protected
+  List<String?>? dco_decode_opt_list_opt_String(dynamic raw);
+
+  @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  PlatformActionDto dco_decode_platform_action_dto(dynamic raw);
+
+  @protected
+  PlatformActionKind dco_decode_platform_action_kind(dynamic raw);
+
+  @protected
+  ReadAloudVoiceDto dco_decode_read_aloud_voice_dto(dynamic raw);
+
+  @protected
+  ReadConfigDto dco_decode_read_config_dto(dynamic raw);
+
+  @protected
+  ReadRecordDailyDto dco_decode_read_record_daily_dto(dynamic raw);
+
+  @protected
+  ReadRecordDetailDto dco_decode_read_record_detail_dto(dynamic raw);
+
+  @protected
+  ReadRecordDto dco_decode_read_record_dto(dynamic raw);
+
+  @protected
+  ReadRecordSessionDto dco_decode_read_record_session_dto(dynamic raw);
+
+  @protected
+  (int, int) dco_decode_record_i_32_i_32(dynamic raw);
+
+  @protected
+  (int, String) dco_decode_record_i_32_string(dynamic raw);
+
+  @protected
+  (String, LayoutCastProfileDto)
+  dco_decode_record_string_layout_cast_profile_dto(dynamic raw);
+
+  @protected
+  (String, LayoutValueDto) dco_decode_record_string_layout_value_dto(
+    dynamic raw,
+  );
+
+  @protected
+  (String, String) dco_decode_record_string_string(dynamic raw);
+
+  @protected
+  RedirectInfoDto dco_decode_redirect_info_dto(dynamic raw);
+
+  @protected
+  ReplaceRuleDto dco_decode_replace_rule_dto(dynamic raw);
+
+  @protected
+  RestoreStatsDto dco_decode_restore_stats_dto(dynamic raw);
+
+  @protected
+  ReviewDetailItemDto dco_decode_review_detail_item_dto(dynamic raw);
+
+  @protected
+  ReviewPageDto dco_decode_review_page_dto(dynamic raw);
+
+  @protected
+  ReviewRequestDto dco_decode_review_request_dto(dynamic raw);
+
+  @protected
+  ReviewRuleDto dco_decode_review_rule_dto(dynamic raw);
+
+  @protected
+  ReviewSummaryDto dco_decode_review_summary_dto(dynamic raw);
+
+  @protected
+  RssArticleDto dco_decode_rss_article_dto(dynamic raw);
+
+  @protected
+  RssReadRecordDto dco_decode_rss_read_record_dto(dynamic raw);
+
+  @protected
+  RssSourceDto dco_decode_rss_source_dto(dynamic raw);
+
+  @protected
+  RssStarSnapshotDto dco_decode_rss_star_snapshot_dto(dynamic raw);
+
+  @protected
+  RuleParseResultDto dco_decode_rule_parse_result_dto(dynamic raw);
+
+  @protected
+  RuleSubscriptionDto dco_decode_rule_subscription_dto(dynamic raw);
+
+  @protected
+  SearchBookDto dco_decode_search_book_dto(dynamic raw);
+
+  @protected
+  SearchHistoryDto dco_decode_search_history_dto(dynamic raw);
+
+  @protected
+  SearchRuleDto dco_decode_search_rule_dto(dynamic raw);
+
+  @protected
+  SearchSourceBatchDto dco_decode_search_source_batch_dto(dynamic raw);
+
+  @protected
+  ServerStatusDto dco_decode_server_status_dto(dynamic raw);
+
+  @protected
+  SourceCallbackDto dco_decode_source_callback_dto(dynamic raw);
+
+  @protected
+  SourceCheckConfigDto dco_decode_source_check_config_dto(dynamic raw);
+
+  @protected
+  SourceMatchDto dco_decode_source_match_dto(dynamic raw);
+
+  @protected
+  SourceSwitchResponseDto dco_decode_source_switch_response_dto(dynamic raw);
+
+  @protected
+  SourceSyntaxDto dco_decode_source_syntax_dto(dynamic raw);
+
+  @protected
+  SubscriptionApplyDto dco_decode_subscription_apply_dto(dynamic raw);
+
+  @protected
+  SubscriptionCheckDto dco_decode_subscription_check_dto(dynamic raw);
+
+  @protected
+  SwitchSearchOptionsDto dco_decode_switch_search_options_dto(dynamic raw);
+
+  @protected
+  SystemVoiceEntryDto dco_decode_system_voice_entry_dto(dynamic raw);
+
+  @protected
+  TaskResultDto dco_decode_task_result_dto(dynamic raw);
+
+  @protected
+  TextResponseDto dco_decode_text_response_dto(dynamic raw);
+
+  @protected
+  TocRuleDto dco_decode_toc_rule_dto(dynamic raw);
+
+  @protected
+  TtsCacheClearResultDto dco_decode_tts_cache_clear_result_dto(dynamic raw);
+
+  @protected
+  TtsCacheContextDto dco_decode_tts_cache_context_dto(dynamic raw);
+
+  @protected
+  TtsCacheEntryDto dco_decode_tts_cache_entry_dto(dynamic raw);
+
+  @protected
+  TtsSpeakDto dco_decode_tts_speak_dto(dynamic raw);
+
+  @protected
   int dco_decode_u_16(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -84,21 +1031,312 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  VerificationRequestDto dco_decode_verification_request_dto(dynamic raw);
+
+  @protected
+  WebBookInfoDto dco_decode_web_book_info_dto(dynamic raw);
+
+  @protected
+  WebChapterDto dco_decode_web_chapter_dto(dynamic raw);
+
+  @protected
+  WebDavFileDto dco_decode_web_dav_file_dto(dynamic raw);
+
+  @protected
+  WebDavSyncResultDto dco_decode_web_dav_sync_result_dto(dynamic raw);
+
+  @protected
+  WebSearchResultDto dco_decode_web_search_result_dto(dynamic raw);
+
+  @protected
+  WebViewPageCallDto dco_decode_web_view_page_call_dto(dynamic raw);
+
+  @protected
+  WebViewPageTargetDto dco_decode_web_view_page_target_dto(dynamic raw);
+
+  @protected
+  WebViewRequestDto dco_decode_web_view_request_dto(dynamic raw);
+
+  @protected
+  WebViewResponseDto dco_decode_web_view_response_dto(dynamic raw);
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
-  RustStreamSink<String> sse_decode_StreamSink_String_Sse(
+  LayoutSession
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
     SseDeserializer deserializer,
   );
+
+  @protected
+  StreamRequest
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsRequest
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutSession
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StreamRequest
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsRequest
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, String> sse_decode_Map_String_String_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, LayoutCastProfileDto>
+  sse_decode_Map_String_layout_cast_profile_dto_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, LayoutValueDto> sse_decode_Map_String_layout_value_dto_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<int, String> sse_decode_Map_i_32_String_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<int, int> sse_decode_Map_i_32_i_32_None(SseDeserializer deserializer);
+
+  @protected
+  LayoutSession
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StreamRequest
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsRequest
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<ChangeSourceBatchDto>
+  sse_decode_StreamSink_change_source_batch_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<CheckProgressDto> sse_decode_StreamSink_check_progress_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<DebugLogDto> sse_decode_StreamSink_debug_log_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<CacheDownloadTaskDto>>
+  sse_decode_StreamSink_list_cache_download_task_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<SearchSourceBatchDto>
+  sse_decode_StreamSink_search_source_batch_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<VerificationRequestDto>
+  sse_decode_StreamSink_verification_request_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<WebViewRequestDto>
+  sse_decode_StreamSink_web_view_request_dto_Sse(SseDeserializer deserializer);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AnnotatedCandidateDto sse_decode_annotated_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AppLogDto sse_decode_app_log_dto(SseDeserializer deserializer);
+
+  @protected
+  ArchiveImportDto sse_decode_archive_import_dto(SseDeserializer deserializer);
+
+  @protected
+  AudioCacheDownloadDto sse_decode_audio_cache_download_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AudioCacheDownloadStatusDto sse_decode_audio_cache_download_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AudioChapterMediaDto sse_decode_audio_chapter_media_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AutoTaskRuleDto sse_decode_auto_task_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  BackupFileDto sse_decode_backup_file_dto(SseDeserializer deserializer);
+
+  @protected
+  BookDto sse_decode_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookExportDto sse_decode_book_export_dto(SseDeserializer deserializer);
+
+  @protected
+  BookFormatDto sse_decode_book_format_dto(SseDeserializer deserializer);
+
+  @protected
+  BookGroupDto sse_decode_book_group_dto(SseDeserializer deserializer);
+
+  @protected
+  BookHighlightDto sse_decode_book_highlight_dto(SseDeserializer deserializer);
+
+  @protected
+  BookInfoRuleDto sse_decode_book_info_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  BookMetadataDto sse_decode_book_metadata_dto(SseDeserializer deserializer);
+
+  @protected
+  BookOrderDto sse_decode_book_order_dto(SseDeserializer deserializer);
+
+  @protected
+  BookSourceDto sse_decode_book_source_dto(SseDeserializer deserializer);
+
+  @protected
+  BookmarkDto sse_decode_bookmark_dto(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  AutoTaskRuleDto sse_decode_box_autoadd_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookDto sse_decode_box_autoadd_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookHighlightDto sse_decode_box_autoadd_book_highlight_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookInfoRuleDto sse_decode_box_autoadd_book_info_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookSourceDto sse_decode_box_autoadd_book_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookmarkDto sse_decode_box_autoadd_bookmark_dto(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CaptchaInfoDto sse_decode_box_autoadd_captcha_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterDto sse_decode_box_autoadd_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  CloudSpeechInputDto sse_decode_box_autoadd_cloud_speech_input_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsMetadataDto sse_decode_box_autoadd_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceOptionsDto sse_decode_box_autoadd_cloud_voice_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ContentRuleDto sse_decode_box_autoadd_content_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CoverRuleDto sse_decode_box_autoadd_cover_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExploreRuleDto sse_decode_box_autoadd_explore_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  FlexChildStyleDto sse_decode_box_autoadd_flex_child_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HighlightRuleDto sse_decode_box_autoadd_highlight_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HttpTtsConfigDto sse_decode_box_autoadd_http_tts_config_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
@@ -107,10 +1345,279 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  LayoutBackgroundImageDto sse_decode_box_autoadd_layout_background_image_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutConfigDto sse_decode_box_autoadd_layout_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutInlineParagraphDto sse_decode_box_autoadd_layout_inline_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutPageUnderlineDto sse_decode_box_autoadd_layout_page_underline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutValueDto sse_decode_box_autoadd_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PlatformActionDto sse_decode_box_autoadd_platform_action_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadAloudVoiceDto sse_decode_box_autoadd_read_aloud_voice_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadConfigDto sse_decode_box_autoadd_read_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedirectInfoDto sse_decode_box_autoadd_redirect_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewRequestDto sse_decode_box_autoadd_review_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewRuleDto sse_decode_box_autoadd_review_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RssSourceDto sse_decode_box_autoadd_rss_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RuleSubscriptionDto sse_decode_box_autoadd_rule_subscription_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchRuleDto sse_decode_box_autoadd_search_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceCheckConfigDto sse_decode_box_autoadd_source_check_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SwitchSearchOptionsDto sse_decode_box_autoadd_switch_search_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TocRuleDto sse_decode_box_autoadd_toc_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  TtsCacheContextDto sse_decode_box_autoadd_tts_cache_context_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
+  WebChapterDto sse_decode_box_autoadd_web_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewPageCallDto sse_decode_box_autoadd_web_view_page_call_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewResponseDto sse_decode_box_autoadd_web_view_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutParagraphDto sse_decode_box_layout_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutTextStyleDto sse_decode_box_layout_text_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BridgeError sse_decode_bridge_error(SseDeserializer deserializer);
 
   @protected
+  CacheDownloadStatusDto sse_decode_cache_download_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CacheDownloadTaskDto sse_decode_cache_download_task_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CachedChapterDto sse_decode_cached_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  CaptchaInfoDto sse_decode_captcha_info_dto(SseDeserializer deserializer);
+
+  @protected
+  ChangeSourceBatchDto sse_decode_change_source_batch_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterDto sse_decode_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  ChapterListDto sse_decode_chapter_list_dto(SseDeserializer deserializer);
+
+  @protected
+  ChapterPurchaseDto sse_decode_chapter_purchase_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterPurchaseKindDto sse_decode_chapter_purchase_kind_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CheckProgressDto sse_decode_check_progress_dto(SseDeserializer deserializer);
+
+  @protected
+  CheckResultDto sse_decode_check_result_dto(SseDeserializer deserializer);
+
+  @protected
+  CloudSpeechInputDto sse_decode_cloud_speech_input_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsMetadataDto sse_decode_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudTtsProviderDto sse_decode_cloud_tts_provider_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceDescriptorDto sse_decode_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceOptionsDto sse_decode_cloud_voice_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ContentRuleDto sse_decode_content_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  CoverCandidateDto sse_decode_cover_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CoverRuleDto sse_decode_cover_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  DebugLogDto sse_decode_debug_log_dto(SseDeserializer deserializer);
+
+  @protected
+  DetectFormatDto sse_decode_detect_format_dto(SseDeserializer deserializer);
+
+  @protected
+  DictEntryDto sse_decode_dict_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  DictionaryRuleDto sse_decode_dictionary_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  DownloadStatsDto sse_decode_download_stats_dto(SseDeserializer deserializer);
+
+  @protected
+  DownloadStatusDto sse_decode_download_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  DownloadTaskDto sse_decode_download_task_dto(SseDeserializer deserializer);
+
+  @protected
+  EncodingConversionDto sse_decode_encoding_conversion_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  EncodingDto sse_decode_encoding_dto(SseDeserializer deserializer);
+
+  @protected
+  ExploreActionDto sse_decode_explore_action_dto(SseDeserializer deserializer);
+
+  @protected
+  ExploreCategoryDto sse_decode_explore_category_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExploreRuleDto sse_decode_explore_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_32(SseDeserializer deserializer);
+
+  @protected
   double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  FlexChildStyleDto sse_decode_flex_child_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HighlightRuleDto sse_decode_highlight_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  HttpBytesResponseDto sse_decode_http_bytes_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HttpTextResponseDto sse_decode_http_text_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HttpTtsConfigDto sse_decode_http_tts_config_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -119,16 +1626,459 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
+  LayoutAlignmentDto sse_decode_layout_alignment_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutBackgroundImageDto sse_decode_layout_background_image_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutBlockDto sse_decode_layout_block_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutBreakModeDto sse_decode_layout_break_mode_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutCastOptionsDto sse_decode_layout_cast_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutCastProfileDto sse_decode_layout_cast_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutConfigDto sse_decode_layout_config_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutDecorationKindDto sse_decode_layout_decoration_kind_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutElementDto sse_decode_layout_element_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutImageScaleDto sse_decode_layout_image_scale_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutInlineItemDto sse_decode_layout_inline_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutInlineParagraphDto sse_decode_layout_inline_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutPageDto sse_decode_layout_page_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutPageUnderlineDto sse_decode_layout_page_underline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutParagraphDecorationDto sse_decode_layout_paragraph_decoration_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutParagraphDto sse_decode_layout_paragraph_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutReplyDto sse_decode_layout_reply_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutTextStyleDto sse_decode_layout_text_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutValueDto sse_decode_layout_value_dto(SseDeserializer deserializer);
+
+  @protected
+  LayoutValueKind sse_decode_layout_value_kind(SseDeserializer deserializer);
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<AnnotatedCandidateDto> sse_decode_list_annotated_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<AppLogDto> sse_decode_list_app_log_dto(SseDeserializer deserializer);
+
+  @protected
+  List<AutoTaskRuleDto> sse_decode_list_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BackupFileDto> sse_decode_list_backup_file_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookDto> sse_decode_list_book_dto(SseDeserializer deserializer);
+
+  @protected
+  List<BookGroupDto> sse_decode_list_book_group_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookHighlightDto> sse_decode_list_book_highlight_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookOrderDto> sse_decode_list_book_order_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookSourceDto> sse_decode_list_book_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BookmarkDto> sse_decode_list_bookmark_dto(SseDeserializer deserializer);
+
+  @protected
+  List<CacheDownloadTaskDto> sse_decode_list_cache_download_task_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<CachedChapterDto> sse_decode_list_cached_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ChapterDto> sse_decode_list_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  List<CloudTtsMetadataDto> sse_decode_list_cloud_tts_metadata_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<CloudVoiceDescriptorDto> sse_decode_list_cloud_voice_descriptor_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<CoverCandidateDto> sse_decode_list_cover_candidate_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<DictionaryRuleDto> sse_decode_list_dictionary_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<DownloadTaskDto> sse_decode_list_download_task_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ExploreCategoryDto> sse_decode_list_explore_category_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HighlightRuleDto> sse_decode_list_highlight_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HttpTtsConfigDto> sse_decode_list_http_tts_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutBlockDto> sse_decode_list_layout_block_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutElementDto> sse_decode_list_layout_element_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutInlineItemDto> sse_decode_list_layout_inline_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutPageDto> sse_decode_list_layout_page_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutParagraphDecorationDto>
+  sse_decode_list_layout_paragraph_decoration_dto(SseDeserializer deserializer);
+
+  @protected
+  List<LayoutTextStyleDto> sse_decode_list_layout_text_style_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<LayoutValueDto> sse_decode_list_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<String?> sse_decode_list_opt_String(SseDeserializer deserializer);
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
+
+  @protected
   Int32List sse_decode_list_prim_i_32_strict(SseDeserializer deserializer);
+
+  @protected
+  Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ReadAloudVoiceDto> sse_decode_list_read_aloud_voice_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadRecordDailyDto> sse_decode_list_read_record_daily_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadRecordDetailDto> sse_decode_list_read_record_detail_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadRecordDto> sse_decode_list_read_record_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReadRecordSessionDto> sse_decode_list_read_record_session_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(int, int)> sse_decode_list_record_i_32_i_32(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(int, String)> sse_decode_list_record_i_32_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, LayoutCastProfileDto)>
+  sse_decode_list_record_string_layout_cast_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, LayoutValueDto)> sse_decode_list_record_string_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, String)> sse_decode_list_record_string_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReplaceRuleDto> sse_decode_list_replace_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReviewDetailItemDto> sse_decode_list_review_detail_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssArticleDto> sse_decode_list_rss_article_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssReadRecordDto> sse_decode_list_rss_read_record_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssSourceDto> sse_decode_list_rss_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RssStarSnapshotDto> sse_decode_list_rss_star_snapshot_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RuleSubscriptionDto> sse_decode_list_rule_subscription_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchBookDto> sse_decode_list_search_book_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SearchHistoryDto> sse_decode_list_search_history_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SourceMatchDto> sse_decode_list_source_match_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SystemVoiceEntryDto> sse_decode_list_system_voice_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<TtsCacheContextDto> sse_decode_list_tts_cache_context_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<TtsCacheEntryDto> sse_decode_list_tts_cache_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<VerificationRequestDto> sse_decode_list_verification_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebChapterDto> sse_decode_list_web_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebDavFileDto> sse_decode_list_web_dav_file_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebSearchResultDto> sse_decode_list_web_search_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebViewRequestDto> sse_decode_list_web_view_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LocalImportDto sse_decode_local_import_dto(SseDeserializer deserializer);
+
+  @protected
+  LogLevelDto sse_decode_log_level_dto(SseDeserializer deserializer);
+
+  @protected
+  OldDataImportResultDto sse_decode_old_data_import_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, String>? sse_decode_opt_Map_String_String_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  AutoTaskRuleDto? sse_decode_opt_box_autoadd_auto_task_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookDto? sse_decode_opt_box_autoadd_book_dto(SseDeserializer deserializer);
+
+  @protected
+  BookInfoRuleDto? sse_decode_opt_box_autoadd_book_info_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookSourceDto? sse_decode_opt_box_autoadd_book_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CaptchaInfoDto? sse_decode_opt_box_autoadd_captcha_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ChapterDto? sse_decode_opt_box_autoadd_chapter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CloudVoiceOptionsDto? sse_decode_opt_box_autoadd_cloud_voice_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ContentRuleDto? sse_decode_opt_box_autoadd_content_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExploreRuleDto? sse_decode_opt_box_autoadd_explore_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
+  FlexChildStyleDto? sse_decode_opt_box_autoadd_flex_child_style_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
@@ -137,7 +2087,260 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  LayoutBackgroundImageDto?
+  sse_decode_opt_box_autoadd_layout_background_image_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutPageUnderlineDto? sse_decode_opt_box_autoadd_layout_page_underline_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LayoutValueDto? sse_decode_opt_box_autoadd_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadConfigDto? sse_decode_opt_box_autoadd_read_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedirectInfoDto? sse_decode_opt_box_autoadd_redirect_info_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewRuleDto? sse_decode_opt_box_autoadd_review_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchRuleDto? sse_decode_opt_box_autoadd_search_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TocRuleDto? sse_decode_opt_box_autoadd_toc_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
+  List<String?>? sse_decode_opt_list_opt_String(SseDeserializer deserializer);
+
+  @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  PlatformActionDto sse_decode_platform_action_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PlatformActionKind sse_decode_platform_action_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadAloudVoiceDto sse_decode_read_aloud_voice_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadConfigDto sse_decode_read_config_dto(SseDeserializer deserializer);
+
+  @protected
+  ReadRecordDailyDto sse_decode_read_record_daily_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadRecordDetailDto sse_decode_read_record_detail_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReadRecordDto sse_decode_read_record_dto(SseDeserializer deserializer);
+
+  @protected
+  ReadRecordSessionDto sse_decode_read_record_session_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (int, int) sse_decode_record_i_32_i_32(SseDeserializer deserializer);
+
+  @protected
+  (int, String) sse_decode_record_i_32_string(SseDeserializer deserializer);
+
+  @protected
+  (String, LayoutCastProfileDto)
+  sse_decode_record_string_layout_cast_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (String, LayoutValueDto) sse_decode_record_string_layout_value_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (String, String) sse_decode_record_string_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RedirectInfoDto sse_decode_redirect_info_dto(SseDeserializer deserializer);
+
+  @protected
+  ReplaceRuleDto sse_decode_replace_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  RestoreStatsDto sse_decode_restore_stats_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewDetailItemDto sse_decode_review_detail_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReviewPageDto sse_decode_review_page_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewRequestDto sse_decode_review_request_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewRuleDto sse_decode_review_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  ReviewSummaryDto sse_decode_review_summary_dto(SseDeserializer deserializer);
+
+  @protected
+  RssArticleDto sse_decode_rss_article_dto(SseDeserializer deserializer);
+
+  @protected
+  RssReadRecordDto sse_decode_rss_read_record_dto(SseDeserializer deserializer);
+
+  @protected
+  RssSourceDto sse_decode_rss_source_dto(SseDeserializer deserializer);
+
+  @protected
+  RssStarSnapshotDto sse_decode_rss_star_snapshot_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RuleParseResultDto sse_decode_rule_parse_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RuleSubscriptionDto sse_decode_rule_subscription_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchBookDto sse_decode_search_book_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchHistoryDto sse_decode_search_history_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchRuleDto sse_decode_search_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  SearchSourceBatchDto sse_decode_search_source_batch_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ServerStatusDto sse_decode_server_status_dto(SseDeserializer deserializer);
+
+  @protected
+  SourceCallbackDto sse_decode_source_callback_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceCheckConfigDto sse_decode_source_check_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceMatchDto sse_decode_source_match_dto(SseDeserializer deserializer);
+
+  @protected
+  SourceSwitchResponseDto sse_decode_source_switch_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceSyntaxDto sse_decode_source_syntax_dto(SseDeserializer deserializer);
+
+  @protected
+  SubscriptionApplyDto sse_decode_subscription_apply_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SubscriptionCheckDto sse_decode_subscription_check_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SwitchSearchOptionsDto sse_decode_switch_search_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SystemVoiceEntryDto sse_decode_system_voice_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TaskResultDto sse_decode_task_result_dto(SseDeserializer deserializer);
+
+  @protected
+  TextResponseDto sse_decode_text_response_dto(SseDeserializer deserializer);
+
+  @protected
+  TocRuleDto sse_decode_toc_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  TtsCacheClearResultDto sse_decode_tts_cache_clear_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsCacheContextDto sse_decode_tts_cache_context_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TtsCacheEntryDto sse_decode_tts_cache_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  TtsSpeakDto sse_decode_tts_speak_dto(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_u_16(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -146,14 +2349,190 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  VerificationRequestDto sse_decode_verification_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebBookInfoDto sse_decode_web_book_info_dto(SseDeserializer deserializer);
+
+  @protected
+  WebChapterDto sse_decode_web_chapter_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavFileDto sse_decode_web_dav_file_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavSyncResultDto sse_decode_web_dav_sync_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebSearchResultDto sse_decode_web_search_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewPageCallDto sse_decode_web_view_page_call_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewPageTargetDto sse_decode_web_view_page_target_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewRequestDto sse_decode_web_view_request_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebViewResponseDto sse_decode_web_view_response_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
     SseSerializer serializer,
   );
 
   @protected
-  void sse_encode_StreamSink_String_Sse(
-    RustStreamSink<String> self,
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    StreamRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    TtsRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    StreamRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    TtsRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_String_None(
+    Map<String, String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_layout_cast_profile_dto_None(
+    Map<String, LayoutCastProfileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_layout_value_dto_None(
+    Map<String, LayoutValueDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_i_32_String_None(
+    Map<int, String> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_i_32_i_32_None(
+    Map<int, int> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    LayoutSession self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    StreamRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    TtsRequest self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_change_source_batch_dto_Sse(
+    RustStreamSink<ChangeSourceBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_check_progress_dto_Sse(
+    RustStreamSink<CheckProgressDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_debug_log_dto_Sse(
+    RustStreamSink<DebugLogDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_cache_download_task_dto_Sse(
+    RustStreamSink<List<CacheDownloadTaskDto>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_search_source_batch_dto_Sse(
+    RustStreamSink<SearchSourceBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_verification_request_dto_Sse(
+    RustStreamSink<VerificationRequestDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_web_view_request_dto_Sse(
+    RustStreamSink<WebViewRequestDto> self,
     SseSerializer serializer,
   );
 
@@ -161,10 +2540,196 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_annotated_candidate_dto(
+    AnnotatedCandidateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_app_log_dto(AppLogDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_archive_import_dto(
+    ArchiveImportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audio_cache_download_dto(
+    AudioCacheDownloadDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audio_cache_download_status_dto(
+    AudioCacheDownloadStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audio_chapter_media_dto(
+    AudioChapterMediaDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_auto_task_rule_dto(
+    AutoTaskRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_backup_file_dto(BackupFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_dto(BookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_export_dto(BookExportDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_format_dto(BookFormatDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_group_dto(BookGroupDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_highlight_dto(
+    BookHighlightDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_book_info_rule_dto(
+    BookInfoRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_book_metadata_dto(
+    BookMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_book_order_dto(BookOrderDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_book_source_dto(BookSourceDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_bookmark_dto(BookmarkDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_auto_task_rule_dto(
+    AutoTaskRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_book_dto(BookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_book_highlight_dto(
+    BookHighlightDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_book_info_rule_dto(
+    BookInfoRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_book_source_dto(
+    BookSourceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_bookmark_dto(
+    BookmarkDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_captcha_info_dto(
+    CaptchaInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_chapter_dto(
+    ChapterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cloud_speech_input_dto(
+    CloudSpeechInputDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cloud_tts_metadata_dto(
+    CloudTtsMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cloud_voice_options_dto(
+    CloudVoiceOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_content_rule_dto(
+    ContentRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_cover_rule_dto(
+    CoverRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_explore_rule_dto(
+    ExploreRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_flex_child_style_dto(
+    FlexChildStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_highlight_rule_dto(
+    HighlightRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_http_tts_config_dto(
+    HttpTtsConfigDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
@@ -176,10 +2741,361 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_layout_background_image_dto(
+    LayoutBackgroundImageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_config_dto(
+    LayoutConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_inline_paragraph_dto(
+    LayoutInlineParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_page_underline_dto(
+    LayoutPageUnderlineDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_layout_value_dto(
+    LayoutValueDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_platform_action_dto(
+    PlatformActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_read_aloud_voice_dto(
+    ReadAloudVoiceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_read_config_dto(
+    ReadConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_redirect_info_dto(
+    RedirectInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_review_request_dto(
+    ReviewRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_review_rule_dto(
+    ReviewRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_rss_source_dto(
+    RssSourceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_rule_subscription_dto(
+    RuleSubscriptionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_search_rule_dto(
+    SearchRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_source_check_config_dto(
+    SourceCheckConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_switch_search_options_dto(
+    SwitchSearchOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_toc_rule_dto(
+    TocRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_tts_cache_context_dto(
+    TtsCacheContextDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_web_chapter_dto(
+    WebChapterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_web_view_page_call_dto(
+    WebViewPageCallDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_web_view_response_dto(
+    WebViewResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_layout_paragraph_dto(
+    LayoutParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_layout_text_style_dto(
+    LayoutTextStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_bridge_error(BridgeError self, SseSerializer serializer);
 
   @protected
+  void sse_encode_cache_download_status_dto(
+    CacheDownloadStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cache_download_task_dto(
+    CacheDownloadTaskDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cached_chapter_dto(
+    CachedChapterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_captcha_info_dto(
+    CaptchaInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_change_source_batch_dto(
+    ChangeSourceBatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_chapter_dto(ChapterDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_chapter_list_dto(
+    ChapterListDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_chapter_purchase_dto(
+    ChapterPurchaseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_chapter_purchase_kind_dto(
+    ChapterPurchaseKindDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_progress_dto(
+    CheckProgressDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_check_result_dto(
+    CheckResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_speech_input_dto(
+    CloudSpeechInputDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_tts_metadata_dto(
+    CloudTtsMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_tts_provider_dto(
+    CloudTtsProviderDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_voice_descriptor_dto(
+    CloudVoiceDescriptorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cloud_voice_options_dto(
+    CloudVoiceOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_content_rule_dto(
+    ContentRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cover_candidate_dto(
+    CoverCandidateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cover_rule_dto(CoverRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_debug_log_dto(DebugLogDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_detect_format_dto(
+    DetectFormatDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_dict_entry_dto(DictEntryDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_dictionary_rule_dto(
+    DictionaryRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_download_stats_dto(
+    DownloadStatsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_download_status_dto(
+    DownloadStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_download_task_dto(
+    DownloadTaskDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_encoding_conversion_dto(
+    EncodingConversionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_encoding_dto(EncodingDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_explore_action_dto(
+    ExploreActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_explore_category_dto(
+    ExploreCategoryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_explore_rule_dto(
+    ExploreRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_f_32(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_flex_child_style_dto(
+    FlexChildStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_highlight_rule_dto(
+    HighlightRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_bytes_response_dto(
+    HttpBytesResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_text_response_dto(
+    HttpTextResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_tts_config_dto(
+    HttpTtsConfigDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -188,10 +3104,313 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
+  void sse_encode_layout_alignment_dto(
+    LayoutAlignmentDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_background_image_dto(
+    LayoutBackgroundImageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_block_dto(
+    LayoutBlockDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_break_mode_dto(
+    LayoutBreakModeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_cast_options_dto(
+    LayoutCastOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_cast_profile_dto(
+    LayoutCastProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_config_dto(
+    LayoutConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_decoration_kind_dto(
+    LayoutDecorationKindDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_element_dto(
+    LayoutElementDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_image_scale_dto(
+    LayoutImageScaleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_inline_item_dto(
+    LayoutInlineItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_inline_paragraph_dto(
+    LayoutInlineParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_page_dto(LayoutPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_layout_page_underline_dto(
+    LayoutPageUnderlineDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_paragraph_decoration_dto(
+    LayoutParagraphDecorationDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_paragraph_dto(
+    LayoutParagraphDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_reply_dto(
+    LayoutReplyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_text_style_dto(
+    LayoutTextStyleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_value_dto(
+    LayoutValueDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_layout_value_kind(
+    LayoutValueKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_annotated_candidate_dto(
+    List<AnnotatedCandidateDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_app_log_dto(
+    List<AppLogDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_auto_task_rule_dto(
+    List<AutoTaskRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_backup_file_dto(
+    List<BackupFileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_dto(List<BookDto> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_book_group_dto(
+    List<BookGroupDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_highlight_dto(
+    List<BookHighlightDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_order_dto(
+    List<BookOrderDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_book_source_dto(
+    List<BookSourceDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_bookmark_dto(
+    List<BookmarkDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cache_download_task_dto(
+    List<CacheDownloadTaskDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cached_chapter_dto(
+    List<CachedChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_chapter_dto(
+    List<ChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cloud_tts_metadata_dto(
+    List<CloudTtsMetadataDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cloud_voice_descriptor_dto(
+    List<CloudVoiceDescriptorDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_cover_candidate_dto(
+    List<CoverCandidateDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_dictionary_rule_dto(
+    List<DictionaryRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_download_task_dto(
+    List<DownloadTaskDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_explore_category_dto(
+    List<ExploreCategoryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_highlight_rule_dto(
+    List<HighlightRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_http_tts_config_dto(
+    List<HttpTtsConfigDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_block_dto(
+    List<LayoutBlockDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_element_dto(
+    List<LayoutElementDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_inline_item_dto(
+    List<LayoutInlineItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_page_dto(
+    List<LayoutPageDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_paragraph_decoration_dto(
+    List<LayoutParagraphDecorationDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_text_style_dto(
+    List<LayoutTextStyleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_layout_value_dto(
+    List<LayoutValueDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_opt_String(List<String?> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_i_32_strict(
     Int32List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_prim_i_64_strict(
+    Int64List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
@@ -200,10 +3419,265 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_read_aloud_voice_dto(
+    List<ReadAloudVoiceDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_daily_dto(
+    List<ReadRecordDailyDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_detail_dto(
+    List<ReadRecordDetailDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_dto(
+    List<ReadRecordDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_read_record_session_dto(
+    List<ReadRecordSessionDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_i_32_i_32(
+    List<(int, int)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_i_32_string(
+    List<(int, String)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_layout_cast_profile_dto(
+    List<(String, LayoutCastProfileDto)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_layout_value_dto(
+    List<(String, LayoutValueDto)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_string(
+    List<(String, String)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_replace_rule_dto(
+    List<ReplaceRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_review_detail_item_dto(
+    List<ReviewDetailItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_article_dto(
+    List<RssArticleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_read_record_dto(
+    List<RssReadRecordDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_source_dto(
+    List<RssSourceDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rss_star_snapshot_dto(
+    List<RssStarSnapshotDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_rule_subscription_dto(
+    List<RuleSubscriptionDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_book_dto(
+    List<SearchBookDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_search_history_dto(
+    List<SearchHistoryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_source_match_dto(
+    List<SourceMatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_system_voice_entry_dto(
+    List<SystemVoiceEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tts_cache_context_dto(
+    List<TtsCacheContextDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tts_cache_entry_dto(
+    List<TtsCacheEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_verification_request_dto(
+    List<VerificationRequestDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_chapter_dto(
+    List<WebChapterDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_dav_file_dto(
+    List<WebDavFileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_search_result_dto(
+    List<WebSearchResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_view_request_dto(
+    List<WebViewRequestDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_local_import_dto(
+    LocalImportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_log_level_dto(LogLevelDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_old_data_import_result_dto(
+    OldDataImportResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_Map_String_String_None(
+    Map<String, String>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_auto_task_rule_dto(
+    AutoTaskRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_book_dto(
+    BookDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_book_info_rule_dto(
+    BookInfoRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_book_source_dto(
+    BookSourceDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_captcha_info_dto(
+    CaptchaInfoDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_chapter_dto(
+    ChapterDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_cloud_voice_options_dto(
+    CloudVoiceOptionsDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_content_rule_dto(
+    ContentRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_explore_rule_dto(
+    ExploreRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_flex_child_style_dto(
+    FlexChildStyleDto? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
@@ -215,19 +3689,454 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_layout_background_image_dto(
+    LayoutBackgroundImageDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_layout_page_underline_dto(
+    LayoutPageUnderlineDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_layout_value_dto(
+    LayoutValueDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_read_config_dto(
+    ReadConfigDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_redirect_info_dto(
+    RedirectInfoDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_review_rule_dto(
+    ReviewRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_search_rule_dto(
+    SearchRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_toc_rule_dto(
+    TocRuleDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_usize(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_opt_String(
+    List<String?>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_platform_action_dto(
+    PlatformActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_platform_action_kind(
+    PlatformActionKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_aloud_voice_dto(
+    ReadAloudVoiceDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_config_dto(ReadConfigDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_read_record_daily_dto(
+    ReadRecordDailyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_record_detail_dto(
+    ReadRecordDetailDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_read_record_dto(ReadRecordDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_read_record_session_dto(
+    ReadRecordSessionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_i_32_i_32((int, int) self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_record_i_32_string(
+    (int, String) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_layout_cast_profile_dto(
+    (String, LayoutCastProfileDto) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_layout_value_dto(
+    (String, LayoutValueDto) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_string(
+    (String, String) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_redirect_info_dto(
+    RedirectInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_replace_rule_dto(
+    ReplaceRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_restore_stats_dto(
+    RestoreStatsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_review_detail_item_dto(
+    ReviewDetailItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_review_page_dto(ReviewPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_review_request_dto(
+    ReviewRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_review_rule_dto(ReviewRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_review_summary_dto(
+    ReviewSummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rss_article_dto(RssArticleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rss_read_record_dto(
+    RssReadRecordDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rss_source_dto(RssSourceDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rss_star_snapshot_dto(
+    RssStarSnapshotDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rule_parse_result_dto(
+    RuleParseResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rule_subscription_dto(
+    RuleSubscriptionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_book_dto(SearchBookDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_history_dto(
+    SearchHistoryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_search_rule_dto(SearchRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_source_batch_dto(
+    SearchSourceBatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_server_status_dto(
+    ServerStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_callback_dto(
+    SourceCallbackDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_check_config_dto(
+    SourceCheckConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_match_dto(
+    SourceMatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_switch_response_dto(
+    SourceSwitchResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_syntax_dto(
+    SourceSyntaxDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_subscription_apply_dto(
+    SubscriptionApplyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_subscription_check_dto(
+    SubscriptionCheckDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_switch_search_options_dto(
+    SwitchSearchOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_system_voice_entry_dto(
+    SystemVoiceEntryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_task_result_dto(TaskResultDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_text_response_dto(
+    TextResponseDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_toc_rule_dto(TocRuleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tts_cache_clear_result_dto(
+    TtsCacheClearResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tts_cache_context_dto(
+    TtsCacheContextDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tts_cache_entry_dto(
+    TtsCacheEntryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tts_speak_dto(TtsSpeakDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_verification_request_dto(
+    VerificationRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_book_info_dto(
+    WebBookInfoDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_chapter_dto(WebChapterDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_web_dav_file_dto(
+    WebDavFileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_sync_result_dto(
+    WebDavSyncResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_search_result_dto(
+    WebSearchResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_page_call_dto(
+    WebViewPageCallDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_page_target_dto(
+    WebViewPageTargetDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_request_dto(
+    WebViewRequestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_view_response_dto(
+    WebViewResponseDto self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class
 
 class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+        ptr,
+      );
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+        ptr,
+      );
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+        ptr,
+      );
 }
 
 @JS('wasm_bindgen')
@@ -235,4 +4144,34 @@ external RustLibWasmModule get wasmModule;
 
 @JS()
 @anonymous
-extension type RustLibWasmModule._(JSObject _) implements JSObject {}
+extension type RustLibWasmModule._(JSObject _) implements JSObject {
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLayoutSession(
+    int ptr,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerStreamRequest(
+    int ptr,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerTtsRequest(
+    int ptr,
+  );
+}

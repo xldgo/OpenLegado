@@ -1,17 +1,17 @@
+import '../fixtures/app_test_api.dart';
+
 // 搜索页顶栏溢出回归测试（差异清单 A1 缺陷：A1 三钮加入后，
 // M3 SearchBar 默认 minWidth 360 在 360dp 屏 + 多顶栏钮下撑爆 AppBar，
 // 胶囊输入条被压到无法输入）。修复 = SearchBar constraints.minWidth 0。
 //
 // 装配复用 search_screen_scroll_test 的 mock 模式。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/search_screen.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
 
 import '../mocks/mocks.dart';
 
@@ -24,18 +24,24 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.getSearchHistory(limit: any(named: 'limit')))
-        .thenAnswer((_) async => []);
-    when(() => mockApi.addSearchKeyword(any(), any()))
+    when(
+      () => mockApi.searchHistoryRepository.getSearchHistory(
+        limit: any(named: 'limit'),
+      ),
+    ).thenAnswer((_) async => []);
+    when(() => mockApi.searchHistoryRepository.addSearchKeyword(any(), any()))
         .thenAnswer((_) async {});
-    when(() => mockApi.clearSearchHistory()).thenAnswer((_) async {});
-    when(() => mockApi.cancelSearch()).thenAnswer((_) async {});
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-    when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
-    when(() => mockApi.getEnabledBookSources())
+    when(() => mockApi.searchHistoryRepository.clearSearchHistory())
+        .thenAnswer((_) async {});
+    when(() => mockApi.searchService.cancelSearch()).thenAnswer((_) async {});
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockApi.bookSourceRepository.getEnabledBookSources())
         .thenAnswer((_) async => []);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });

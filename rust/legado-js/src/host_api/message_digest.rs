@@ -1,6 +1,6 @@
 //! `java.security.MessageDigest` 纯 Rust 摘要核心（Java 能力体系）
 //!
-//! 语料 3 命中（`java.security.MessageDigest`）决定本模块面：
+//! 既有语料中的 `java.security.MessageDigest` 调用包括：
 //! - 🏷七猫小说·API：`Packages...getInstance('MD5').digest(bytes)` 一次性；
 //! - 🏷微信读书二合一本地源：`Packages...getInstance("SHA-256").digest(bytes)`
 //!   一次性（输入为带符号字节的 plain Array，shim 侧 `toU8` 归一）；
@@ -8,32 +8,31 @@
 //!
 //! 算法解析 + 摘要计算为纯 Rust（复用 workspace 既有 `md-5`/`sha1`/`sha2` 依赖，
 //! 无新增依赖）。输出为**字节数组**（Java `MessageDigest.digest(byte[])` 语义，
-//! 非 hex/base64 字符串）——hex/base64 转换由书源 JS 侧负责（与既有
-//! `java.base64EncodeBytes` 等字节级桥一致）。
+//! 非 hex/base64 字符串）；字符串入口在同一计算结果上选择输出编码。
 //! 未知算法由调用方（`quickjs_impl` 的 shim）登记能力台账并抛可读文案，
-//! 本核心仅提供 `is_supported_algorithm` 判定与 `digest_bytes` 计算。
+//! 本核心提供能力判定、摘要与HMAC字节计算，不持有脚本对象。
 //!
-//! 支持算法：MD5 / SHA-1 / SHA-256 / SHA-512（算法名大小写不敏感，
-//! `SHA-256`/`SHA256`/`sha256` 等价；语料未命中 SHA-384，按能力清单不扩面）。
+//! 支持MD5及SHA-1/224/256/384/512；同时供字符串摘要和HMAC复用字节计算。
 
 use md5::Md5;
 use sha1::Sha1;
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{Digest, Sha224, Sha256, Sha384, Sha512};
 
-/// 支持的摘要算法（语料实际命中子集）
+/// 字符串摘要与Packages能力目录共用算法集合。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DigestAlgo {
     Md5,
     Sha1,
+    Sha224,
     Sha256,
+    Sha384,
     Sha512,
 }
 
 /// 规范化算法名：去非字母数字 + 转大写。
 ///
-/// Java `MessageDigest.getInstance` 算法名大小写不敏感，且 `SHA-256`/`SHA256`
-/// 等价（JDK 内部按 `SHA1`/`SHA256` 等注册名匹配）；此处剥离 `-`/空白等
-/// 分隔符后归一，`SHA-256`/`sha256`/`SHA 256` 均命中 `SHA256`。
+/// 保留Packages已有的宽松名称兼容，剥离分隔符后归一。
+/// 其中 `SHA 256` 等空白写法属于项目扩展，不宣称JDK Provider支持。
 fn normalize(name: &str) -> String {
     name.chars()
         .filter(|c| c.is_ascii_alphanumeric())
@@ -43,10 +42,17 @@ fn normalize(name: &str) -> String {
 
 /// 解析算法名 → 支持的算法；未知返回 `None`。
 pub fn parse_algorithm(name: &str) -> Option<DigestAlgo> {
-    match normalize(name).as_str() {
+    parse_compact(&normalize(name))
+}
+
+/// 调用方先按各自已确认的别名策略归一，计算层只消费规范算法标识。
+pub(super) fn parse_compact(name: &str) -> Option<DigestAlgo> {
+    match name {
         "MD5" => Some(DigestAlgo::Md5),
         "SHA" | "SHA1" => Some(DigestAlgo::Sha1),
+        "SHA224" => Some(DigestAlgo::Sha224),
         "SHA256" => Some(DigestAlgo::Sha256),
+        "SHA384" => Some(DigestAlgo::Sha384),
         "SHA512" => Some(DigestAlgo::Sha512),
         _ => None,
     }
@@ -61,28 +67,48 @@ pub fn is_supported_algorithm(name: &str) -> bool {
 /// 计算摘要：字节数组输入 → 字节数组输出（Java `MessageDigest.digest(byte[])`
 /// 语义，返回值即摘要字节而非十六进制串）。未知算法返回 `Err`。
 pub fn digest_bytes(algorithm: &str, data: &[u8]) -> Result<Vec<u8>, String> {
-    match parse_algorithm(algorithm) {
-        Some(DigestAlgo::Md5) => {
-            let mut h = Md5::new();
-            h.update(data);
-            Ok(h.finalize().to_vec())
-        }
-        Some(DigestAlgo::Sha1) => {
-            let mut h = Sha1::new();
-            h.update(data);
-            Ok(h.finalize().to_vec())
-        }
-        Some(DigestAlgo::Sha256) => {
-            let mut h = Sha256::new();
-            h.update(data);
-            Ok(h.finalize().to_vec())
-        }
-        Some(DigestAlgo::Sha512) => {
-            let mut h = Sha512::new();
-            h.update(data);
-            Ok(h.finalize().to_vec())
-        }
-        None => Err(format!("unsupported MessageDigest algorithm: {algorithm}")),
+    let algorithm = parse_algorithm(algorithm)
+        .ok_or_else(|| format!("unsupported MessageDigest algorithm: {algorithm}"))?;
+    Ok(hash_bytes(algorithm, data))
+}
+
+/// 唯一一次性摘要计算入口；输出表示由调用方选择。
+pub(super) fn hash_bytes(algorithm: DigestAlgo, data: &[u8]) -> Vec<u8> {
+    match algorithm {
+        DigestAlgo::Md5 => Md5::digest(data).to_vec(),
+        DigestAlgo::Sha1 => Sha1::digest(data).to_vec(),
+        DigestAlgo::Sha224 => Sha224::digest(data).to_vec(),
+        DigestAlgo::Sha256 => Sha256::digest(data).to_vec(),
+        DigestAlgo::Sha384 => Sha384::digest(data).to_vec(),
+        DigestAlgo::Sha512 => Sha512::digest(data).to_vec(),
+    }
+}
+
+/// HMAC继续复用原有RustCrypto Hmac实现；Hex/Base64不再各维护一套计算分支。
+pub(super) fn hmac_bytes(
+    algorithm: DigestAlgo,
+    key: &[u8],
+    data: &[u8],
+) -> Result<Vec<u8>, String> {
+    use hmac::{Hmac, Mac};
+    if key.is_empty() {
+        return Err("HMAC密钥不能为空".into());
+    }
+    macro_rules! compute {
+        ($hash:ty) => {{
+            let mut mac = Hmac::<$hash>::new_from_slice(key)
+                .map_err(|error| format!("HMAC密钥错误: {error}"))?;
+            mac.update(data);
+            Ok(mac.finalize().into_bytes().to_vec())
+        }};
+    }
+    match algorithm {
+        DigestAlgo::Md5 => compute!(Md5),
+        DigestAlgo::Sha1 => compute!(Sha1),
+        DigestAlgo::Sha224 => compute!(Sha224),
+        DigestAlgo::Sha256 => compute!(Sha256),
+        DigestAlgo::Sha384 => compute!(Sha384),
+        DigestAlgo::Sha512 => compute!(Sha512),
     }
 }
 
@@ -99,6 +125,10 @@ mod tests {
             "SHA-1",
             "sha1",
             "SHA",
+            "SHA-224",
+            "sha224",
+            "SHA-384",
+            "sha384",
             "SHA-256",
             "sha256",
             "SHA256",
@@ -124,16 +154,8 @@ mod tests {
 
     #[test]
     fn test_parse_algorithm_rejects_unknown() {
-        // 语料未命中的算法一律拒绝（能力清单不扩面）
-        for unknown in [
-            "SHA-384",
-            "SHA384",
-            "SHA-512/224",
-            "SHA3-256",
-            "BOGUS",
-            "",
-            "MD5WITHRSA",
-        ] {
+        // 已声明集合以外的算法明确拒绝，不静默回退。
+        for unknown in ["SHA-512/224", "SHA3-256", "BOGUS", "", "MD5WITHRSA"] {
             assert!(
                 parse_algorithm(unknown).is_none(),
                 "未知算法应解析为 None: {unknown}"
@@ -209,8 +231,14 @@ mod tests {
     /// 摘要长度与算法匹配（Java `MessageDigest.getDigestLength` 语义）
     #[test]
     fn test_digest_length_matches_algorithm() {
-        let cases: Vec<(&str, usize)> =
-            vec![("MD5", 16), ("SHA-1", 20), ("SHA-256", 32), ("SHA-512", 64)];
+        let cases: Vec<(&str, usize)> = vec![
+            ("MD5", 16),
+            ("SHA-1", 20),
+            ("SHA-224", 28),
+            ("SHA-256", 32),
+            ("SHA-384", 48),
+            ("SHA-512", 64),
+        ];
         for (algo, len) in cases {
             let out = digest_bytes(algo, b"abc").expect("摘要计算失败");
             assert_eq!(
@@ -225,7 +253,7 @@ mod tests {
     /// 未知算法：`digest_bytes` 返回 `Err`（不静默、不产出空摘要）
     #[test]
     fn test_digest_bytes_unknown_algorithm_errors() {
-        for unknown in ["SHA-384", "BOGUS", ""] {
+        for unknown in ["SHA3-384", "BOGUS", ""] {
             let err = digest_bytes(unknown, b"abc").expect_err("未知算法应返回 Err");
             assert!(err.contains(unknown), "错误信息应点名未知算法；观测: {err}");
         }

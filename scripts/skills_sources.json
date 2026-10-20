@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "checked_at": "2026-10-11",
+  "sources": [
+    {
+      "repository": "heyman333/atelier-ui",
+      "commit": "92b76bf8e29dc4f7bb6b5ba48ac3dbdf4f9a1872",
+      "skills": {
+        "apple-ui-designer": "skills/apple-ui-designer"
+      }
+    },
+    {
+      "repository": "flutter/agent-plugins",
+      "commit": "0ef3972f93e2baa4156ba1cbb1e515cd53079c68",
+      "skills": {
+        "dart-add-unit-test": "skills/dart-add-unit-test",
+        "dart-collect-coverage": "skills/dart-collect-coverage",
+        "dart-fix-runtime-errors": "skills/dart-fix-runtime-errors",
+        "dart-resolve-package-conflicts": "skills/dart-resolve-package-conflicts",
+        "dart-run-static-analysis": "skills/dart-run-static-analysis",
+        "dart-use-pattern-matching": "skills/dart-use-pattern-matching",
+        "dart-use-primary-constructors": "skills/dart-use-primary-constructors",
+        "flutter-add-integration-test": "skills/flutter-add-integration-test",
+        "flutter-add-widget-test": "skills/flutter-add-widget-test",
+        "flutter-apply-architecture-best-practices": "skills/flutter-apply-architecture-best-practices",
+        "flutter-build-responsive-layout": "skills/flutter-build-responsive-layout",
+        "flutter-fix-layout-issues": "skills/flutter-fix-layout-issues",
+        "flutter-implement-json-serialization": "skills/flutter-implement-json-serialization",
+        "flutter-setup-localization": "skills/flutter-setup-localization"
+      }
+    },
+    {
+      "repository": "Arenukvern/mcp_flutter",
+      "commit": "62f3ee1e03df92ec61dfa28b3f41c9982c51000b",
+      "skills": {
+        "flutter-mcp": "plugin/skills/flutter-mcp",
+        "flutter-mcp-boundary-audit": "plugin/skills/flutter-mcp-boundary-audit",
+        "flutter-mcp-cli-runtime-validation": "plugin/skills/flutter-mcp-cli-runtime-validation",
+        "flutter-mcp-toolkit-control": "plugin/skills/flutter-mcp-toolkit-control",
+        "flutter-mcp-toolkit-custom-tools": "plugin/skills/flutter-mcp-toolkit-custom-tools",
+        "flutter-mcp-toolkit-debug": "plugin/skills/flutter-mcp-toolkit-debug",
+        "flutter-mcp-toolkit-guide": "plugin/skills/flutter-mcp-toolkit-guide",
+        "flutter-mcp-toolkit-inspect": "plugin/skills/flutter-mcp-toolkit-inspect",
+        "flutter-mcp-toolkit-setup": "plugin/skills/flutter-mcp-toolkit-setup"
+      }
+    },
+    {
+      "repository": "arenukvern/skill_steward",
+      "commit": "016f1524387af23a6be6e9ad6e2c7767581a5630",
+      "skills": {
+        "mixture-of-experts": "skills/mixture-of-experts",
+        "multi-agent-handoff": "skills/multi-agent-handoff",
+        "release-changelog-harness": "skills/release-changelog-harness",
+        "repository-governance-lifecycle": "skills/repository-governance-lifecycle"
+      }
+    }
+  ]
+}

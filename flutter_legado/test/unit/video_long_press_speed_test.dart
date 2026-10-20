@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/features/video/application/video_play_settings.dart';
 // [V-B4] 长按倍速（对齐原版 VideoPlayer.kt / VideoPlay.kt）
 //
 // 原版依据（app/src/main/java/io/legado/app/help/gsyVideo/VideoPlayer.kt）：
@@ -8,7 +9,7 @@
 //   showOverlayTip() 隐藏 + resolveDanmakuStart(当前位置)
 // - :135-141 setVideoSpeed：弹幕滚动速度因子 danmakuSpeed-(speed-1)/6 联动
 // VideoPlay.kt:84-88 longPressSpeed 默认 30（即 3.0 倍）
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/video_danmaku_item.dart';
@@ -106,14 +107,17 @@ void main() {
     testWidgets('播放中长按 → 提速一次；松手 → 恢复一次', (tester) async {
       var speedUp = 0;
       var restore = 0;
-      await tester.pumpWidget(_host(
-        enabled: true,
-        onSpeedUp: () => speedUp++,
-        onRestore: () => restore++,
-      ));
+      await tester.pumpWidget(
+        _host(
+          enabled: true,
+          onSpeedUp: () => speedUp++,
+          onRestore: () => restore++,
+        ),
+      );
 
-      final gesture =
-          await tester.startGesture(tester.getCenter(find.byKey(_areaKey)));
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_areaKey)),
+      );
       await tester.pump(const Duration(milliseconds: 700));
       expect(speedUp, 1, reason: '长按应触发临时提速');
       expect(restore, 0, reason: '按住期间不恢复');
@@ -127,14 +131,17 @@ void main() {
     testWidgets('非播放中（enabled=false）长按不触发提速', (tester) async {
       var speedUp = 0;
       var restore = 0;
-      await tester.pumpWidget(_host(
-        enabled: false,
-        onSpeedUp: () => speedUp++,
-        onRestore: () => restore++,
-      ));
+      await tester.pumpWidget(
+        _host(
+          enabled: false,
+          onSpeedUp: () => speedUp++,
+          onRestore: () => restore++,
+        ),
+      );
 
-      final gesture =
-          await tester.startGesture(tester.getCenter(find.byKey(_areaKey)));
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_areaKey)),
+      );
       await tester.pump(const Duration(milliseconds: 700));
       await gesture.up();
       await tester.pump();
@@ -145,11 +152,13 @@ void main() {
     testWidgets('未长按的点击/轻触不触发恢复', (tester) async {
       var speedUp = 0;
       var restore = 0;
-      await tester.pumpWidget(_host(
-        enabled: true,
-        onSpeedUp: () => speedUp++,
-        onRestore: () => restore++,
-      ));
+      await tester.pumpWidget(
+        _host(
+          enabled: true,
+          onSpeedUp: () => speedUp++,
+          onRestore: () => restore++,
+        ),
+      );
 
       await tester.tap(find.byKey(_areaKey));
       await tester.pump();

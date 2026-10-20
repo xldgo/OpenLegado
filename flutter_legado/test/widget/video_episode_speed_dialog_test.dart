@@ -13,13 +13,15 @@
 // await 会链式等待对话框关闭，导致不关闭对话框的断言用例永久挂起。
 // 因此各用例在本地捕获对话框 Future（late 变量 + 回调注入），助手只
 // 负责构建与打开，不做结果链式传递。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/video_settings_dialog.dart';
 
-List<VideoEpisodeItem> _defaultEpisodes() =>
-    List.generate(5, (i) => VideoEpisodeItem(title: '第${i + 1}集', chapterIndex: i));
+List<VideoEpisodeItem> _defaultEpisodes() => List.generate(
+  5,
+  (i) => VideoEpisodeItem(title: '第${i + 1}集', chapterIndex: i),
+);
 
 /// 选集入口宿主：点击「打开选集」打开对话框；[onDialogFuture] 在
 /// 对话框打开时回传其结果 Future（由用例自行 await，助手不链式返回）。
@@ -87,8 +89,7 @@ void main() {
       }
     });
 
-    testWidgets('点击某集 → 对话框关闭并返回该集绝对章节索引',
-        (tester) async {
+    testWidgets('点击某集 → 对话框关闭并返回该集绝对章节索引', (tester) async {
       late Future<int?> result;
       await tester.pumpWidget(
         buildEpisodeHost(onDialogFuture: (f) => result = f),
@@ -115,9 +116,7 @@ void main() {
     });
 
     testWidgets('当前集高亮（唯一高亮项 = 当前集）', (tester) async {
-      await tester.pumpWidget(
-        buildEpisodeHost(currentChapterIndex: 2),
-      );
+      await tester.pumpWidget(buildEpisodeHost(currentChapterIndex: 2));
       await tester.tap(find.text('打开选集'));
       await tester.pumpAndSettle();
       final highlighted = find.byWidgetPredicate(
@@ -232,8 +231,7 @@ void main() {
       expect(speedEntryLabel(3.0), '3.0X');
     });
 
-    test('speedTipLabel：对齐原版 VideoPlayer.kt:411「X倍播放中」（2 秒）',
-        () {
+    test('speedTipLabel：对齐原版 VideoPlayer.kt:411「X倍播放中」（2 秒）', () {
       // 注意：倍速对话框 tip 为「X倍播放中」；长按倍速 tip 才是
       // 「X倍速播放中」（VideoPlayer.kt:112），两者文案不同，勿混
       expect(speedTipLabel(1.5), '1.5倍播放中');
@@ -241,10 +239,16 @@ void main() {
     });
 
     test('kVideoSpeedChoices：对齐原版 [0.5..3.0].reversed()', () {
-      expect(
-        kVideoSpeedChoices,
-        const [3.0, 2.5, 2.0, 1.5, 1.25, 1.0, 0.75, 0.5],
-      );
+      expect(kVideoSpeedChoices, const [
+        3.0,
+        2.5,
+        2.0,
+        1.5,
+        1.25,
+        1.0,
+        0.75,
+        0.5,
+      ]);
     });
   });
 }

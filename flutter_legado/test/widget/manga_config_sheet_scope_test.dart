@@ -7,11 +7,11 @@
 // - 选「本书」= 物化书级覆盖；选「跟随全局」= 清除覆盖（回调传 null，
 //   不以写入默认值冒充清除）并回显全局值；
 // - 面板不新增「长按设为全局默认」按钮（原版/参考版均无该入口）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/manga_config.dart';
-import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
 
 Widget _buildSheet({
   int scrollMode = 4,
@@ -84,24 +84,34 @@ void main() {
       final globalPadCalls = <int>[];
       final bookModeCalls = <int?>[];
       final bookPadCalls = <int?>[];
-      await tester.pumpWidget(_buildSheet(
-        hasCurrentBook: false,
-        scrollMode: 4,
-        onScrollModeChanged: globalModeCalls.add,
-        onBookScrollModeChanged: bookModeCalls.add,
-        onSidePaddingChanged: globalPadCalls.add,
-        onBookSidePaddingChanged: bookPadCalls.add,
-      ));
+      await tester.pumpWidget(
+        _buildSheet(
+          hasCurrentBook: false,
+          scrollMode: 4,
+          onScrollModeChanged: globalModeCalls.add,
+          onBookScrollModeChanged: bookModeCalls.add,
+          onSidePaddingChanged: globalPadCalls.add,
+          onBookSidePaddingChanged: bookPadCalls.add,
+        ),
+      );
 
       // 无书即使上游接线书级回调，也不渲染作用域控件（只显示全局）
-      expect(find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
-          findsNothing);
-      expect(find.byKey(const ValueKey('mangaScrollMode-scopeBook')),
-          findsNothing);
-      expect(find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')),
-          findsNothing);
-      expect(find.byKey(const ValueKey('mangaSidePadding-scopeBook')),
-          findsNothing);
+      expect(
+        find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('mangaScrollMode-scopeBook')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('mangaSidePadding-scopeBook')),
+        findsNothing,
+      );
       expect(find.text('跟随全局'), findsNothing);
       expect(find.text('本书'), findsNothing);
 
@@ -127,29 +137,36 @@ void main() {
   });
 
   group('[漫画设置作用域] 有当前书 + 书级未覆盖（跟随全局）', () {
-    testWidgets('默认选中「跟随全局」；点「本书」以当前有效值物化覆盖',
-        (tester) async {
+    testWidgets('默认选中「跟随全局」；点「本书」以当前有效值物化覆盖', (tester) async {
       final bookModeCalls = <int?>[];
-      await tester.pumpWidget(_buildSheet(
-        hasCurrentBook: true,
-        scrollMode: 2,
-        globalScrollMode: 2,
-        bookScrollMode: null,
-        onBookScrollModeChanged: bookModeCalls.add,
-      ));
+      await tester.pumpWidget(
+        _buildSheet(
+          hasCurrentBook: true,
+          scrollMode: 2,
+          globalScrollMode: 2,
+          bookScrollMode: null,
+          onBookScrollModeChanged: bookModeCalls.add,
+        ),
+      );
 
       final scheme = _scheme(tester);
-      expect(find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
-          findsOneWidget);
-      expect(find.byKey(const ValueKey('mangaScrollMode-scopeBook')),
-          findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('mangaScrollMode-scopeBook')),
+        findsOneWidget,
+      );
       expect(
         _pillColor(tester, 'mangaScrollMode-scopeGlobal'),
         scheme.primaryContainer,
         reason: '无书级覆盖时应选中「跟随全局」',
       );
-      expect(_pillColor(tester, 'mangaScrollMode-scopeBook'),
-          isNot(scheme.primaryContainer));
+      expect(
+        _pillColor(tester, 'mangaScrollMode-scopeBook'),
+        isNot(scheme.primaryContainer),
+      );
 
       await tester.tap(find.byKey(const ValueKey('mangaScrollMode-scopeBook')));
       await tester.pump();
@@ -164,18 +181,21 @@ void main() {
 
     testWidgets('侧边留白「本书」物化覆盖（当前 0 值）', (tester) async {
       final bookPadCalls = <int?>[];
-      await tester.pumpWidget(_buildSheet(
-        hasCurrentBook: true,
-        scrollMode: 4,
-        sidePadding: 0,
-        globalSidePadding: 0,
-        bookSidePadding: null,
-        onSidePaddingChanged: (_) {},
-        onBookSidePaddingChanged: bookPadCalls.add,
-      ));
+      await tester.pumpWidget(
+        _buildSheet(
+          hasCurrentBook: true,
+          scrollMode: 4,
+          sidePadding: 0,
+          globalSidePadding: 0,
+          bookSidePadding: null,
+          onSidePaddingChanged: (_) {},
+          onBookSidePaddingChanged: bookPadCalls.add,
+        ),
+      );
 
       await tester.tap(
-          find.byKey(const ValueKey('mangaSidePadding-scopeBook')));
+        find.byKey(const ValueKey('mangaSidePadding-scopeBook')),
+      );
       await tester.pump();
       expect(bookPadCalls, [0]);
 
@@ -193,31 +213,37 @@ void main() {
   });
 
   group('[漫画设置作用域] 有当前书 + 书级已覆盖', () {
-    testWidgets('初始选中「本书」；点「跟随全局」清除覆盖并回显全局值',
-        (tester) async {
+    testWidgets('初始选中「本书」；点「跟随全局」清除覆盖并回显全局值', (tester) async {
       final globalModeCalls = <int>[];
       final bookModeCalls = <int?>[];
-      await tester.pumpWidget(_buildSheet(
-        hasCurrentBook: true,
-        // 有效值 = 书级 3（上游按优先级传入）
-        scrollMode: 3,
-        bookScrollMode: 3,
-        globalScrollMode: 1,
-        onScrollModeChanged: globalModeCalls.add,
-        onBookScrollModeChanged: bookModeCalls.add,
-      ));
+      await tester.pumpWidget(
+        _buildSheet(
+          hasCurrentBook: true,
+          // 有效值 = 书级 3（上游按优先级传入）
+          scrollMode: 3,
+          bookScrollMode: 3,
+          globalScrollMode: 1,
+          onScrollModeChanged: globalModeCalls.add,
+          onBookScrollModeChanged: bookModeCalls.add,
+        ),
+      );
 
       final scheme = _scheme(tester);
-      expect(_pillColor(tester, 'mangaScrollMode-scopeBook'),
-          scheme.primaryContainer);
+      expect(
+        _pillColor(tester, 'mangaScrollMode-scopeBook'),
+        scheme.primaryContainer,
+      );
 
       // 清除覆盖：回调传 null（不是写入默认值）
       await tester.tap(
-          find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')));
+        find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
+      );
       await tester.pump();
       expect(bookModeCalls, [null]);
-      expect(_pillColor(tester, 'mangaScrollMode-scopeGlobal'),
-          scheme.primaryContainer);
+      expect(
+        _pillColor(tester, 'mangaScrollMode-scopeGlobal'),
+        scheme.primaryContainer,
+      );
 
       // 回显全局值后，面板内改模式只走全局回调
       await tester.tap(find.text('单页式（从上到下）'));
@@ -229,25 +255,27 @@ void main() {
       expect(globalModeCalls.length, 1);
     });
 
-    testWidgets('侧边留白：点「跟随全局」清除覆盖并回显全局百分比',
-        (tester) async {
+    testWidgets('侧边留白：点「跟随全局」清除覆盖并回显全局百分比', (tester) async {
       final bookPadCalls = <int?>[];
       final globalPadCalls = <int>[];
-      await tester.pumpWidget(_buildSheet(
-        hasCurrentBook: true,
-        scrollMode: 4,
-        // 有效值 = 书级 20
-        sidePadding: 20,
-        bookSidePadding: 20,
-        globalSidePadding: 5,
-        onSidePaddingChanged: globalPadCalls.add,
-        onBookSidePaddingChanged: bookPadCalls.add,
-      ));
+      await tester.pumpWidget(
+        _buildSheet(
+          hasCurrentBook: true,
+          scrollMode: 4,
+          // 有效值 = 书级 20
+          sidePadding: 20,
+          bookSidePadding: 20,
+          globalSidePadding: 5,
+          onSidePaddingChanged: globalPadCalls.add,
+          onBookSidePaddingChanged: bookPadCalls.add,
+        ),
+      );
 
       expect(find.text('20%'), findsOneWidget, reason: '初始显示书级覆盖值');
 
       await tester.tap(
-          find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')));
+        find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')),
+      );
       await tester.pump();
       expect(bookPadCalls, [null]);
       expect(find.text('5%'), findsOneWidget, reason: '清除后回显全局值');
@@ -255,13 +283,15 @@ void main() {
     });
 
     testWidgets('上游未接书级写回调时不渲染作用域控件', (tester) async {
-      await tester.pumpWidget(_buildSheet(
-        hasCurrentBook: true,
-        scrollMode: 4,
-        // hasCurrentBook=true 但 onBookScrollModeChanged / onBookSidePaddingChanged 缺省 null
-        sidePadding: 10,
-        onSidePaddingChanged: (_) {},
-      ));
+      await tester.pumpWidget(
+        _buildSheet(
+          hasCurrentBook: true,
+          scrollMode: 4,
+          // hasCurrentBook=true 但 onBookScrollModeChanged / onBookSidePaddingChanged 缺省 null
+          sidePadding: 10,
+          onSidePaddingChanged: (_) {},
+        ),
+      );
 
       expect(find.text('跟随全局'), findsNothing);
       expect(find.text('本书'), findsNothing);

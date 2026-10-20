@@ -1,10 +1,10 @@
 //! 离线缓存 API 处理器
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::cache_book::CachedChapter;
@@ -28,51 +28,57 @@ pub async fn cache_chapters(
     State(state): State<Arc<AppState>>,
     Json(req): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let db = state.db.lock().await;
-    let repo = CacheBookRepository::new(db.connection());
+    state
+        .with_database(move |db| {
+            let repo = CacheBookRepository::new(db.connection());
 
-    // 支持单个对象或数组
-    let chapters: Vec<CacheChapterRequest> = if let Some(arr) = req.as_array() {
-        arr.iter()
-            .filter_map(|v| serde_json::from_value(v.clone()).ok())
-            .collect()
-    } else {
-        match serde_json::from_value::<CacheChapterRequest>(req) {
-            Ok(single) => vec![single],
-            Err(_) => vec![],
-        }
-    };
+            // 支持单个对象或数组
+            let chapters: Vec<CacheChapterRequest> = if let Some(arr) = req.as_array() {
+                arr.iter()
+                    .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                    .collect()
+            } else {
+                match serde_json::from_value::<CacheChapterRequest>(req) {
+                    Ok(single) => vec![single],
+                    Err(_) => vec![],
+                }
+            };
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as i64;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64;
 
-    let mut cached_count = 0;
-    for ch_req in &chapters {
-        let chapter = CachedChapter {
-            id: 0,
-            book_url: ch_req.book_url.clone(),
-            chapter_index: ch_req.chapter_index,
-            chapter_title: ch_req.chapter_title.clone(),
-            chapter_url: ch_req.chapter_url.clone(),
-            content: ch_req.content.clone(),
-            cached_at: now,
-            size_bytes: ch_req.content.len() as i64,
-        };
-        repo.insert(&chapter)?;
-        cached_count += 1;
-    }
+            let mut cached_count = 0;
+            for ch_req in &chapters {
+                let chapter = CachedChapter {
+                    id: 0,
+                    book_url: ch_req.book_url.clone(),
+                    chapter_index: ch_req.chapter_index,
+                    chapter_title: ch_req.chapter_title.clone(),
+                    chapter_url: ch_req.chapter_url.clone(),
+                    content: ch_req.content.clone(),
+                    cached_at: now,
+                    size_bytes: ch_req.content.len() as i64,
+                };
+                repo.insert(&chapter)?;
+                cached_count += 1;
+            }
 
-    Ok((StatusCode::CREATED, Json(json!({ "cached": cached_count }))))
+            Ok((StatusCode::CREATED, Json(json!({ "cached": cached_count }))))
+        })
+        .await?
 }
 
 /// GET /api/cache/stats — 缓存统计
 pub async fn cache_stats(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = CacheBookRepository::new(db.connection());
-    let stats = repo.get_stats()?;
-    Ok(Json(json!(stats)))
+    state
+        .with_database(move |db| {
+            let repo = CacheBookRepository::new(db.connection());
+            let stats = repo.get_stats()?;
+            Ok(Json(json!(stats)))
+        })
+        .await?
 }
 
 /// DELETE /api/cache/book/:book_url — 清理某书缓存
@@ -80,10 +86,13 @@ pub async fn delete_book_cache(
     State(state): State<Arc<AppState>>,
     Path(book_url): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = CacheBookRepository::new(db.connection());
-    let deleted = repo.delete_by_book(&book_url)?;
-    Ok(Json(json!({ "deleted": deleted, "book_url": book_url })))
+    state
+        .with_database(move |db| {
+            let repo = CacheBookRepository::new(db.connection());
+            let deleted = repo.delete_by_book(&book_url)?;
+            Ok(Json(json!({ "deleted": deleted, "book_url": book_url })))
+        })
+        .await?
 }
 
 #[cfg(test)]
@@ -94,16 +103,12 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::routes::create_router;
-    use legado_core::download_manager::DownloadManager;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: Mutex::new(DownloadManager::new(3)),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]
@@ -174,7 +179,7 @@ mod tests {
 
         // 先插入缓存
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = CacheBookRepository::new(db.connection());
             let ch = CachedChapter {
                 id: 0,

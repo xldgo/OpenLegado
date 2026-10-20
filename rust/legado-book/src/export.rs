@@ -4,7 +4,7 @@
 //!
 //! PDF 导出对齐上游 ExportBookService.kt 的排版风格：
 //! A4 页面、章节标题加粗加大、正文段落首行缩进、自动分页。
-//! 中文渲染依赖系统 CJK 字体（自动查找，支持 TTC 集合提取），
+//! 中文渲染依赖系统 CJK 字体（自动查找，支持 TTC 字体面选择），
 //! 字体缺失时返回明确错误而非 panic。
 //!
 //! 图片书（漫画类书源）PDF 导出（对齐上游 #483 图片路径）：
@@ -13,12 +13,15 @@
 //! 网络图片通过调用方注入的 [`ImageFetcher`] 下载（复用 legado-net 客户端）。
 
 use std::io::{Cursor, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use image::GenericImageView;
-use zip::write::SimpleFileOptions;
+
+#[path = "export_pdf.rs"]
+mod pdf;
 use zip::ZipWriter;
+use zip::write::SimpleFileOptions;
 
 /// 导出格式
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -296,230 +299,13 @@ impl BookExporter {
 
     /// 导出为 PDF（带图片获取器）
     ///
-    /// 任一章节含图片列表时走图片管线（对齐上游 #483）：每页一张图片，
-    /// 按原始宽高比适配 A4 内容区、水平居中、不放大；其余走文本排版管线。
+    /// 正文和图片按章节顺序写入；图片按原始宽高比适配A4内容区并水平居中，不放大。
     pub fn export_pdf_with(
         data: &ExportData,
         config: &ExportConfig,
         fetcher: Option<&ImageFetcher>,
     ) -> Result<Vec<u8>, String> {
-        if data.chapters.iter().any(|ch| !ch.images.is_empty()) {
-            return Self::export_pdf_images(data, config, fetcher);
-        }
-        let regular = load_pdf_font(&pdf_regular_candidates())?;
-        // 粗体优先使用独立的粗体字重文件，找不到时退化为常规字重
-        let bold = load_pdf_font(&pdf_bold_candidates()).unwrap_or_else(|_| regular.clone());
-
-        let font_family = genpdf::fonts::FontFamily {
-            regular: regular.clone(),
-            bold: bold.clone(),
-            italic: regular,
-            bold_italic: bold,
-        };
-        let mut doc = genpdf::Document::new(font_family);
-        doc.set_title(data.title.clone());
-
-        // 页边距约 18mm（对应上游 48pt）
-        let mut decorator = genpdf::SimplePageDecorator::new();
-        decorator.set_margins(18);
-        doc.set_page_decorator(decorator);
-
-        // ---- 标题区 ----
-        push_pdf_paragraph(
-            &mut doc,
-            &data.title,
-            genpdf::style::Style::new().bold().with_font_size(22),
-            Some(genpdf::Alignment::Center),
-        );
-        push_pdf_paragraph(
-            &mut doc,
-            &format!("作者：{}", data.author),
-            genpdf::style::Style::new().with_font_size(11),
-            Some(genpdf::Alignment::Center),
-        );
-        doc.push(genpdf::elements::Break::new(0.5));
-        if let Some(intro) = &data.intro {
-            push_pdf_paragraph(
-                &mut doc,
-                &format!("简介：{}", intro),
-                genpdf::style::Style::new().with_font_size(10),
-                None,
-            );
-        }
-
-        // ---- 目录 ----
-        if config.include_toc && !data.chapters.is_empty() {
-            doc.push(genpdf::elements::PageBreak::new());
-            push_pdf_paragraph(
-                &mut doc,
-                "目录",
-                genpdf::style::Style::new().bold().with_font_size(18),
-                None,
-            );
-            doc.push(genpdf::elements::Break::new(0.5));
-            for ch in &data.chapters {
-                push_pdf_paragraph(
-                    &mut doc,
-                    &ch.title,
-                    genpdf::style::Style::new().with_font_size(11),
-                    None,
-                );
-            }
-        }
-
-        // ---- 章节内容（每章分页）----
-        for ch in &data.chapters {
-            doc.push(genpdf::elements::PageBreak::new());
-            push_pdf_paragraph(
-                &mut doc,
-                &ch.title,
-                genpdf::style::Style::new().bold().with_font_size(16),
-                None,
-            );
-            doc.push(genpdf::elements::Break::new(0.5));
-            for para in ch.content.split('\n') {
-                let trimmed = para.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                // 首行缩进两个全角空格（对应上游 2em text-indent 风格）
-                push_pdf_paragraph(
-                    &mut doc,
-                    &format!("\u{3000}\u{3000}{trimmed}"),
-                    genpdf::style::Style::new().with_font_size(12),
-                    None,
-                );
-                // 段落间距（约半行高，对应上游 paragraphSpacing）
-                doc.push(genpdf::elements::Break::new(0.3));
-            }
-        }
-
-        // 渲染到内存缓冲区
-        let mut buf: Vec<u8> = Vec::new();
-        doc.render(&mut buf)
-            .map_err(|e| format!("PDF 渲染失败: {e}"))?;
-        Ok(buf)
-    }
-
-    /// 导出图片书为 PDF（对齐上游 #483 图片路径）
-    ///
-    /// 排版规则（对齐 Kotlin ExportBookService.exportPdf 的 drawImage 逻辑）：
-    /// - 首页：书名 + 作者 + 简介（与文本导出一致）
-    /// - 可选目录页
-    /// - 每章另起一页：章节标题 + 逐张图片
-    /// - 每张图片保持原始宽高比适配 A4 内容区（不放大）、水平居中；
-    ///   图片高于剩余空间时由 genpdf 自动分页
-    /// - 卷节点（无图片的章节）仅输出标题，与上游 isVolume 行为一致
-    fn export_pdf_images(
-        data: &ExportData,
-        config: &ExportConfig,
-        fetcher: Option<&ImageFetcher>,
-    ) -> Result<Vec<u8>, String> {
-        let regular = load_pdf_font(&pdf_regular_candidates())?;
-        let bold = load_pdf_font(&pdf_bold_candidates()).unwrap_or_else(|_| regular.clone());
-
-        let font_family = genpdf::fonts::FontFamily {
-            regular: regular.clone(),
-            bold: bold.clone(),
-            italic: regular,
-            bold_italic: bold,
-        };
-        let mut doc = genpdf::Document::new(font_family);
-        doc.set_title(data.title.clone());
-
-        // 页边距约 18mm（对应上游 48pt）
-        let mut decorator = genpdf::SimplePageDecorator::new();
-        decorator.set_margins(18);
-        doc.set_page_decorator(decorator);
-
-        // ---- 标题区 ----
-        push_pdf_paragraph(
-            &mut doc,
-            &data.title,
-            genpdf::style::Style::new().bold().with_font_size(22),
-            Some(genpdf::Alignment::Center),
-        );
-        push_pdf_paragraph(
-            &mut doc,
-            &format!("作者：{}", data.author),
-            genpdf::style::Style::new().with_font_size(11),
-            Some(genpdf::Alignment::Center),
-        );
-        doc.push(genpdf::elements::Break::new(0.5));
-        if let Some(intro) = &data.intro {
-            push_pdf_paragraph(
-                &mut doc,
-                &format!("简介：{}", intro),
-                genpdf::style::Style::new().with_font_size(10),
-                None,
-            );
-        }
-
-        // ---- 目录 ----
-        if config.include_toc && !data.chapters.is_empty() {
-            doc.push(genpdf::elements::PageBreak::new());
-            push_pdf_paragraph(
-                &mut doc,
-                "目录",
-                genpdf::style::Style::new().bold().with_font_size(18),
-                None,
-            );
-            doc.push(genpdf::elements::Break::new(0.5));
-            for ch in &data.chapters {
-                push_pdf_paragraph(
-                    &mut doc,
-                    &ch.title,
-                    genpdf::style::Style::new().with_font_size(11),
-                    None,
-                );
-            }
-        }
-
-        // ---- 章节图片（每章分页，每图居中适配）----
-        for ch in &data.chapters {
-            doc.push(genpdf::elements::PageBreak::new());
-            push_pdf_paragraph(
-                &mut doc,
-                &ch.title,
-                genpdf::style::Style::new().bold().with_font_size(16),
-                None,
-            );
-            doc.push(genpdf::elements::Break::new(0.5));
-            for (i, src) in ch.images.iter().enumerate() {
-                let bytes = fetch_image_bytes(src, fetcher).map_err(|e| {
-                    format!(
-                        "图片导出失败：章节「{}」第 {} 张图片获取失败: {}\n图片源: {}",
-                        ch.title,
-                        i + 1,
-                        e,
-                        src
-                    )
-                })?;
-                let dyn_img = decode_pdf_image(&bytes).map_err(|e| {
-                    format!(
-                        "图片导出失败：章节「{}」第 {} 张图片解码失败: {}\n图片源: {}",
-                        ch.title,
-                        i + 1,
-                        e,
-                        src
-                    )
-                })?;
-                let (w, h) = dyn_img.dimensions();
-                let element = genpdf::elements::Image::from_dynamic_image(dyn_img)
-                    .map_err(|e| format!("图片嵌入 PDF 失败: {e}"))?
-                    .with_scale(image_fit_scale(w, h))
-                    .with_alignment(genpdf::Alignment::Center);
-                doc.push(element);
-                // 图片间距（对应上游 paragraphSpacing）
-                doc.push(genpdf::elements::Break::new(0.3));
-            }
-        }
-
-        // 渲染到内存缓冲区
-        let mut buf: Vec<u8> = Vec::new();
-        doc.render(&mut buf)
-            .map_err(|e| format!("PDF 渲染失败: {e}"))?;
-        Ok(buf)
+        pdf::export(data, config, fetcher)
     }
 }
 
@@ -618,7 +404,7 @@ pub fn fetch_image_bytes(src: &str, fetcher: Option<&ImageFetcher>) -> Result<Ve
 
 /// 解码图片字节为可嵌入 PDF 的 DynamicImage（支持 JPEG/PNG）
 ///
-/// genpdf/printpdf 不支持 alpha 通道：带透明通道的图片先平铺到白色背景。
+/// 为保持既有导出白底呈现：带透明通道的图片先平铺到白色背景。
 fn decode_pdf_image(bytes: &[u8]) -> Result<image::DynamicImage, String> {
     let img = image::load_from_memory(bytes).map_err(|e| format!("图片解码失败: {e}"))?;
     if !img.color().has_alpha() {
@@ -638,11 +424,11 @@ fn decode_pdf_image(bytes: &[u8]) -> Result<image::DynamicImage, String> {
 
 /// 计算图片适配 A4 内容区的等比缩放系数
 ///
-/// genpdf 默认按 300 DPI 将像素尺寸换算为物理尺寸；这里反算出使图片
+/// 图片按 300 DPI 将像素尺寸换算为物理尺寸；这里反算出使图片
 /// 完整落入内容区（174mm × 261mm）的最大缩放，且不放大（上限 1.0，
 /// 对齐 Kotlin drawImage 的 `minOf(1f, ...)` 行为）。
-fn image_fit_scale(width_px: u32, height_px: u32) -> genpdf::Scale {
-    const DPI: f64 = 300.0; // genpdf/printpdf 默认 DPI
+fn image_fit_scale(width_px: u32, height_px: u32) -> f64 {
+    const DPI: f64 = 300.0; // 图片物理尺寸换算使用固定DPI
     const MM_PER_INCH: f64 = 25.4;
     let w_mm = width_px as f64 * MM_PER_INCH / DPI;
     let h_mm = height_px as f64 * MM_PER_INCH / DPI;
@@ -653,9 +439,7 @@ fn image_fit_scale(width_px: u32, height_px: u32) -> genpdf::Scale {
     if h_mm > 0.0 {
         scale = scale.min(PDF_CONTENT_HEIGHT_MM / h_mm);
     }
-    // 下限保护：避免零/负尺寸导致 PDF 渲染异常
-    let scale = scale.max(0.01);
-    genpdf::Scale::new(scale, scale)
+    scale
 }
 
 // ---------------------------------------------------------------------------
@@ -825,82 +609,103 @@ fn epub_chapter_xhtml(chapter: &ExportChapter) -> String {
 /// PDF 字体候选项：文件路径 + 是否为 TTC 集合（取第几个字体面）
 type PdfFontCandidate = (PathBuf, Option<u32>);
 
+#[cfg(not(test))]
 fn font_path(dir: &str, name: &str) -> PathBuf {
-    Path::new(dir).join(name)
+    std::path::Path::new(dir).join(name)
 }
 
 /// 常规字重候选列表（按优先级，覆盖 Windows/Linux/macOS/Android）
 fn pdf_regular_candidates() -> Vec<PdfFontCandidate> {
-    let mut list: Vec<PdfFontCandidate> = Vec::new();
-    // 环境变量指定的自定义字体优先级最高
-    if let Ok(custom) = std::env::var("LEGADO_PDF_FONT") {
-        list.push((PathBuf::from(custom), None));
+    #[cfg(test)]
+    {
+        vec![(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pdf/pdf-test.ttf"),
+            None,
+        )]
     }
-    // Windows
-    let win = "C:\\Windows\\Fonts";
-    list.push((font_path(win, "msyh.ttc"), Some(0))); // 微软雅黑
-    list.push((font_path(win, "simsun.ttc"), Some(0))); // 宋体
-    list.push((font_path(win, "simhei.ttf"), None)); // 黑体
-    list.push((font_path(win, "simkai.ttf"), None)); // 楷体
-    list.push((font_path(win, "simfang.ttf"), None)); // 仿宋
-    list.push((font_path(win, "msyh.ttf"), None)); // 旧版微软雅黑
-                                                   // Linux（文泉驿/思源/Droid 等常见 CJK 字体）
-    list.push((
-        PathBuf::from("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
-        Some(0),
-    ));
-    list.push((
-        PathBuf::from("/usr/share/fonts/wqy-microhei/wqy-microhei.ttc"),
-        Some(0),
-    ));
-    list.push((
-        PathBuf::from("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
-        Some(0),
-    ));
-    list.push((
-        PathBuf::from("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"),
-        None,
-    ));
-    list.push((
-        PathBuf::from("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
-        Some(0),
-    ));
-    // macOS
-    list.push((PathBuf::from("/System/Library/Fonts/PingFang.ttc"), Some(0)));
-    list.push((
-        PathBuf::from("/System/Library/Fonts/STHeiti Light.ttc"),
-        Some(0),
-    ));
-    list.push((
-        PathBuf::from("/System/Library/Fonts/Supplemental/Songti.ttc"),
-        Some(0),
-    ));
-    // Android
-    list.push((PathBuf::from("/system/fonts/DroidSansFallback.ttf"), None));
-    list.push((
-        PathBuf::from("/system/fonts/NotoSansCJK-Regular.ttc"),
-        Some(0),
-    ));
-    list
+    #[cfg(not(test))]
+    {
+        let mut list: Vec<PdfFontCandidate> = Vec::new();
+        // 环境变量指定的自定义字体优先级最高
+        if let Ok(custom) = std::env::var("LEGADO_PDF_FONT") {
+            list.push((PathBuf::from(custom), None));
+        }
+        // Windows
+        let win = "C:\\Windows\\Fonts";
+        list.push((font_path(win, "msyh.ttc"), Some(0))); // 微软雅黑
+        list.push((font_path(win, "simsun.ttc"), Some(0))); // 宋体
+        list.push((font_path(win, "simhei.ttf"), None)); // 黑体
+        list.push((font_path(win, "simkai.ttf"), None)); // 楷体
+        list.push((font_path(win, "simfang.ttf"), None)); // 仿宋
+        list.push((font_path(win, "msyh.ttf"), None)); // 旧版微软雅黑
+        // Linux（文泉驿/思源/Droid 等常见 CJK 字体）
+        list.push((
+            PathBuf::from("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
+            Some(0),
+        ));
+        list.push((
+            PathBuf::from("/usr/share/fonts/wqy-microhei/wqy-microhei.ttc"),
+            Some(0),
+        ));
+        list.push((
+            PathBuf::from("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+            Some(0),
+        ));
+        list.push((
+            PathBuf::from("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"),
+            None,
+        ));
+        list.push((
+            PathBuf::from("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+            Some(0),
+        ));
+        // macOS
+        list.push((PathBuf::from("/System/Library/Fonts/PingFang.ttc"), Some(0)));
+        list.push((
+            PathBuf::from("/System/Library/Fonts/STHeiti Light.ttc"),
+            Some(0),
+        ));
+        list.push((
+            PathBuf::from("/System/Library/Fonts/Supplemental/Songti.ttc"),
+            Some(0),
+        ));
+        // Android
+        list.push((PathBuf::from("/system/fonts/DroidSansFallback.ttf"), None));
+        list.push((
+            PathBuf::from("/system/fonts/NotoSansCJK-Regular.ttc"),
+            Some(0),
+        ));
+        list
+    }
 }
 
 /// 粗体字重候选列表（找不到时由调用方退化为常规字重）
 fn pdf_bold_candidates() -> Vec<PdfFontCandidate> {
-    let mut list: Vec<PdfFontCandidate> = Vec::new();
-    let win = "C:\\Windows\\Fonts";
-    list.push((font_path(win, "msyhbd.ttc"), Some(0))); // 微软雅黑粗体
-    list.push((font_path(win, "msyhbd.ttf"), None));
-    list.push((
-        PathBuf::from("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
-        Some(0),
-    ));
-    list
+    #[cfg(test)]
+    {
+        vec![(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pdf/pdf-test.ttf"),
+            None,
+        )]
+    }
+    #[cfg(not(test))]
+    {
+        let mut list: Vec<PdfFontCandidate> = Vec::new();
+        let win = "C:\\Windows\\Fonts";
+        list.push((font_path(win, "msyhbd.ttc"), Some(0))); // 微软雅黑粗体
+        list.push((font_path(win, "msyhbd.ttf"), None));
+        list.push((
+            PathBuf::from("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
+            Some(0),
+        ));
+        list
+    }
 }
 
 /// 按候选列表查找并加载第一个可用的中文字体
 ///
 /// 字体缺失时返回明确错误信息（不 panic）。
-fn load_pdf_font(candidates: &[PdfFontCandidate]) -> Result<genpdf::fonts::FontData, String> {
+fn load_pdf_font(candidates: &[PdfFontCandidate]) -> Result<printpdf::ParsedFont, String> {
     for (path, ttc_face) in candidates {
         let Some(data) = std::fs::read(path).ok() else {
             continue;
@@ -908,17 +713,11 @@ fn load_pdf_font(candidates: &[PdfFontCandidate]) -> Result<genpdf::fonts::FontD
         if data.len() < 4 {
             continue;
         }
-        // TTC 字体集合需先提取单个字体面（rusttype 不支持直接解析 ttcf）
-        let bytes = if &data[0..4] == b"ttcf" {
-            match extract_ttc_face(&data, ttc_face.unwrap_or(0)) {
-                Ok(b) => b,
-                Err(_) => continue,
-            }
-        } else {
-            data
-        };
-        // 加载失败（如 CFF 轮廓字体不被 rusttype 支持）则继续尝试下一候选
-        if let Ok(font) = genpdf::fonts::FontData::new(bytes, None) {
+        // printpdf直接选择TTC字体面，不再重建整套sfnt表。
+        if let Some(font) =
+            printpdf::ParsedFont::from_bytes(&data, ttc_face.unwrap_or(0) as usize, &mut Vec::new())
+            && font.units_per_em > 0
+        {
             return Ok(font);
         }
     }
@@ -927,95 +726,6 @@ fn load_pdf_font(candidates: &[PdfFontCandidate]) -> Result<genpdf::fonts::FontD
          文泉驿微米黑、思源黑体），或通过 LEGADO_PDF_FONT 环境变量指定字体文件路径"
             .to_string(),
     )
-}
-
-/// 向文档追加一个段落元素
-fn push_pdf_paragraph(
-    doc: &mut genpdf::Document,
-    text: &str,
-    style: genpdf::style::Style,
-    alignment: Option<genpdf::Alignment>,
-) {
-    let mut para =
-        genpdf::elements::Paragraph::new(genpdf::style::StyledString::new(text.to_string(), style));
-    if let Some(al) = alignment {
-        para.set_alignment(al);
-    }
-    doc.push(para);
-}
-
-/// 从大端字节序读取 u32
-fn read_u32_be(data: &[u8], offset: usize) -> Result<u32, String> {
-    if offset + 4 > data.len() {
-        return Err("TTC 数据截断".to_string());
-    }
-    Ok(u32::from_be_bytes([
-        data[offset],
-        data[offset + 1],
-        data[offset + 2],
-        data[offset + 3],
-    ]))
-}
-
-/// 从大端字节序读取 u16
-fn read_u16_be(data: &[u8], offset: usize) -> Result<u16, String> {
-    if offset + 2 > data.len() {
-        return Err("TTC 数据截断".to_string());
-    }
-    Ok(u16::from_be_bytes([data[offset], data[offset + 1]]))
-}
-
-/// 从 TTC（TrueType Collection）字体集合中提取指定索引的单个字体面
-///
-/// rusttype 无法直接解析 ttcf 集合格式（如 msyh.ttc/simsun.ttc），
-/// 这里将目标字体面的表目录与表数据重组为独立的 TTF 字节流。
-fn extract_ttc_face(data: &[u8], face_index: u32) -> Result<Vec<u8>, String> {
-    if data.len() < 12 || &data[0..4] != b"ttcf" {
-        return Err("不是有效的 TTC 字体集合".to_string());
-    }
-    let num_fonts = read_u32_be(data, 8)?;
-    if face_index >= num_fonts {
-        return Err(format!("TTC 字体面索引越界: {face_index} >= {num_fonts}"));
-    }
-    // 目标字体面的 sfnt 表目录偏移
-    let table_dir = read_u32_be(data, 12 + 4 * face_index as usize)? as usize;
-    if table_dir + 12 > data.len() {
-        return Err("TTC 表目录偏移越界".to_string());
-    }
-    let num_tables = read_u16_be(data, table_dir + 4)? as usize;
-    let records_start = table_dir + 12;
-    if records_start + num_tables * 16 > data.len() {
-        return Err("TTC 表记录区越界".to_string());
-    }
-
-    // 输出文件：sfnt 头（12 字节）+ 表记录区（各 16 字节）+ 表数据区
-    let header_len = 12 + num_tables * 16;
-    let mut out = vec![0u8; header_len];
-    // 复用原 sfnt 头（sfntVersion/numTables/searchRange/entrySelector/rangeShift）
-    out[..12].copy_from_slice(&data[table_dir..table_dir + 12]);
-
-    let mut cursor = header_len;
-    for i in 0..num_tables {
-        let r = records_start + i * 16;
-        let tag = &data[r..r + 4];
-        let checksum = &data[r + 4..r + 8];
-        let src_offset = read_u32_be(data, r + 8)? as usize;
-        let length = read_u32_be(data, r + 12)? as usize;
-        if src_offset + length > data.len() {
-            return Err("TTC 表数据越界".to_string());
-        }
-        // 表数据按 4 字节对齐
-        cursor = (cursor + 3) & !3;
-        let rec = 12 + i * 16;
-        out[rec..rec + 4].copy_from_slice(tag);
-        out[rec + 4..rec + 8].copy_from_slice(checksum);
-        out[rec + 8..rec + 12].copy_from_slice(&(cursor as u32).to_be_bytes());
-        out[rec + 12..rec + 16].copy_from_slice(&(length as u32).to_be_bytes());
-        out.resize(cursor + length, 0);
-        out[cursor..cursor + length].copy_from_slice(&data[src_offset..src_offset + length]);
-        cursor += length;
-    }
-    Ok(out)
 }
 
 // ---------------------------------------------------------------------------
@@ -1404,22 +1114,21 @@ mod tests {
     // ------------------------------------------------------------------
 
     /// 小文本 PDF 生成：验证文件头 %PDF 与基本内容大小
-    /// （环境无 CJK 字体时跳过，避免 CI 误报）
+    /// 使用受控测试字体，无字体时不得静默跳过。
     #[test]
     fn test_export_pdf_basic() {
-        let data = sample_data();
-        let config = default_config(ExportFormat::Pdf);
-        match BookExporter::export_pdf(&data, &config) {
-            Ok(bytes) => {
-                assert!(bytes.len() > 4, "PDF 输出不应为空");
-                assert_eq!(&bytes[0..4], b"%PDF", "PDF 文件头应为 %PDF");
-                // 尾部应含 %%EOF 标记
-                let tail = &bytes[bytes.len().saturating_sub(128)..];
-                assert!(tail.windows(5).any(|w| w == b"%%EOF"), "PDF 尾部应含 %%EOF");
-            }
-            Err(e) => {
-                eprintln!("跳过 PDF 生成测试（环境无中文字体）: {e}");
-                assert!(e.contains("字体"), "字体缺失错误应含明确提示");
+        let bytes =
+            BookExporter::export_pdf(&sample_data(), &default_config(ExportFormat::Pdf)).unwrap();
+        assert!(bytes.starts_with(b"%PDF"));
+        let doc = lopdf::Document::load_mem(&bytes).unwrap();
+        let pages: Vec<_> = doc.get_pages().keys().copied().collect();
+        let text = doc.extract_text(&pages).unwrap();
+        let normalized: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(normalized.contains("测试书籍"));
+        assert!(normalized.contains("目录"));
+        for chapter in sample_data().chapters {
+            for paragraph in chapter.content.lines() {
+                assert!(normalized.contains(paragraph));
             }
         }
     }
@@ -1427,14 +1136,75 @@ mod tests {
     /// 统一导出接口应覆盖 Pdf 变体
     #[test]
     fn test_export_unified_interface_pdf() {
-        let data = sample_data();
-        let config = default_config(ExportFormat::Pdf);
-        match BookExporter::export(&data, &config) {
-            Ok(bytes) => assert_eq!(&bytes[0..4], b"%PDF"),
-            Err(e) => {
-                eprintln!("跳过 PDF 统一接口测试（环境无中文字体）: {e}");
-            }
-        }
+        let bytes =
+            BookExporter::export(&sample_data(), &default_config(ExportFormat::Pdf)).unwrap();
+        assert!(bytes.starts_with(b"%PDF"));
+    }
+
+    #[test]
+    fn pdf_chapter_pages_toc_and_long_text_are_complete() {
+        let mut data = sample_data();
+        data.chapters.truncate(2);
+        data.chapters[0].content = format!("{}[END]", "正文内容。".repeat(1000));
+        data.chapters[1].content = "结束".into();
+        let mut config = default_config(ExportFormat::Pdf);
+        config.include_toc = false;
+        let bytes = BookExporter::export_pdf(&data, &config).unwrap();
+        let doc = lopdf::Document::load_mem(&bytes).unwrap();
+        let pages: Vec<_> = doc.get_pages().keys().copied().collect();
+        assert!(pages.len() > 3);
+        let text = doc.extract_text(&pages).unwrap();
+        let normalized: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+        assert_eq!(normalized.matches("正文内容。").count(), 1000);
+        assert_eq!(normalized.matches("[END]").count(), 1);
+        assert!(!normalized.contains("目录"));
+        let final_page = doc.extract_text(&[*pages.last().unwrap()]).unwrap();
+        let final_page: String = final_page.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(final_page.contains("第二章发展"));
+        assert!(final_page.contains("结束"));
+        assert!(!final_page.contains("[END]"));
+    }
+
+    #[test]
+    fn pdf_mixed_content_keeps_text_and_actual_image_dimensions() {
+        let mut data = sample_data();
+        data.chapters.truncate(1);
+        data.chapters[0].images = vec!["https://example.com/image.png".into()];
+        let fetcher: &ImageFetcher = &|_| Ok(make_png_bytes(80, 40, true));
+        let bytes =
+            BookExporter::export_pdf_with(&data, &default_config(ExportFormat::Pdf), Some(fetcher))
+                .unwrap();
+        let doc = lopdf::Document::load_mem(&bytes).unwrap();
+        let pages: Vec<_> = doc.get_pages().keys().copied().collect();
+        let text = doc.extract_text(&pages).unwrap();
+        let text: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(text.contains("这是第一章的内容。"));
+        let dimensions: Vec<_> = doc
+            .objects
+            .values()
+            .filter_map(|object| {
+                let stream = object.as_stream().ok()?;
+                if stream.dict.get(b"Subtype").ok()?.as_name().ok()? != b"Image" {
+                    return None;
+                }
+                Some((
+                    stream.dict.get(b"Width").ok()?.as_i64().ok()?,
+                    stream.dict.get(b"Height").ok()?.as_i64().ok()?,
+                ))
+            })
+            .collect();
+        assert_eq!(dimensions, vec![(80, 40)]);
+    }
+
+    #[test]
+    fn pdf_missing_glyph_is_an_error_instead_of_silent_text_loss() {
+        let mut data = sample_data();
+        data.title = "\u{10ffff}".into();
+        assert!(
+            BookExporter::export_pdf(&data, &default_config(ExportFormat::Pdf))
+                .unwrap_err()
+                .contains("字体不包含字符")
+        );
     }
 
     /// 字体降级：空候选列表必须返回明确错误而非 panic
@@ -1457,43 +1227,14 @@ mod tests {
         assert!(load_pdf_font(&candidates).is_err());
     }
 
-    /// TTC 提取：非法数据应返回错误而非 panic
     #[test]
-    fn test_extract_ttc_face_invalid() {
-        assert!(extract_ttc_face(b"", 0).is_err());
-        assert!(extract_ttc_face(b"not-a-font-data", 0).is_err());
-        // ttcf 魔数正确但数据截断
-        let mut truncated = vec![0u8; 12];
-        truncated[0..4].copy_from_slice(b"ttcf");
-        assert!(extract_ttc_face(&truncated, 0).is_err());
-    }
-
-    /// TTC 提取：真实系统字体存在时验证提取结果可被字体引擎解析
-    #[test]
-    fn test_extract_ttc_face_from_system_font() {
-        // 找一个真实存在的 TTC 文件（跨平台候选）
-        let ttc_candidates = [
-            font_path("C:\\Windows\\Fonts", "msyh.ttc"),
-            font_path("C:\\Windows\\Fonts", "simsun.ttc"),
-            PathBuf::from("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
-            PathBuf::from("/System/Library/Fonts/PingFang.ttc"),
-        ];
-        let Some(ttc_path) = ttc_candidates.iter().find(|p| p.exists()) else {
-            eprintln!("跳过 TTC 提取测试（环境无 TTC 字体）");
-            return;
-        };
-        let data = std::fs::read(ttc_path).unwrap();
-        let face = extract_ttc_face(&data, 0).expect("提取第 0 个字体面应成功");
-        // 提取结果应为独立 sfnt（TrueType 或 OpenType 魔数）
-        assert!(face.len() > 12);
-        let magic = &face[0..4];
-        assert!(
-            magic == b"\x00\x01\x00\x00" || magic == b"OTTO" || magic == b"true",
-            "提取结果魔数异常: {magic:?}"
-        );
-        // 越界索引应报错
-        let num_fonts = u32::from_be_bytes([data[8], data[9], data[10], data[11]]);
-        assert!(extract_ttc_face(&data, num_fonts).is_err());
+    fn test_pdf_font_invalid_and_ttc_face_selection() {
+        assert!(printpdf::ParsedFont::from_bytes(b"not-a-font", 0, &mut Vec::new()).is_none());
+        let path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pdf/pdf-test.ttc");
+        let font = load_pdf_font(&[(path.clone(), Some(0))]).unwrap();
+        assert!(font.lookup_glyph_index('中' as u32).is_some());
+        assert!(load_pdf_font(&[(path, Some(1))]).is_err());
     }
 
     #[test]
@@ -1518,19 +1259,20 @@ mod tests {
 
     /// 用 image crate 生成最小 PNG 字节（测试样本，避免外部文件依赖）
     fn make_png_bytes(width: u32, height: u32, alpha: bool) -> Vec<u8> {
+        use image::ImageEncoder;
         let mut buf = Vec::new();
         if alpha {
             // 半透明红色（验证 alpha 平铺白底逻辑）
             let img = image::RgbaImage::from_pixel(width, height, image::Rgba([255, 0, 0, 128]));
             let encoder = image::codecs::png::PngEncoder::new(&mut buf);
             encoder
-                .encode(img.as_raw(), width, height, image::ColorType::Rgba8)
+                .write_image(img.as_raw(), width, height, image::ExtendedColorType::Rgba8)
                 .unwrap();
         } else {
             let img = image::RgbImage::from_pixel(width, height, image::Rgb([30, 60, 200]));
             let encoder = image::codecs::png::PngEncoder::new(&mut buf);
             encoder
-                .encode(img.as_raw(), width, height, image::ColorType::Rgb8)
+                .write_image(img.as_raw(), width, height, image::ExtendedColorType::Rgb8)
                 .unwrap();
         }
         buf
@@ -1542,7 +1284,7 @@ mod tests {
         let mut buf = Vec::new();
         let mut encoder = image::codecs::jpeg::JpegEncoder::new(&mut buf);
         encoder
-            .encode(img.as_raw(), 8, 8, image::ColorType::Rgb8)
+            .encode(img.as_raw(), 8, 8, image::ExtendedColorType::Rgb8)
             .unwrap();
         buf
     }
@@ -1635,26 +1377,49 @@ mod tests {
         let rgba_png = make_png_bytes(8, 8, true);
         let img = decode_pdf_image(&rgba_png).unwrap();
         assert!(!img.color().has_alpha(), "alpha 应被平铺到白底");
+        assert_eq!(img.to_rgb8().get_pixel(0, 0).0, [255, 127, 127]);
 
         // 非法字节返回错误而非 panic
         assert!(decode_pdf_image(b"not-an-image").is_err());
     }
 
+    #[test]
+    fn test_pdf_image_preserves_grayscale_and_16_bit_pixels() {
+        for modern in [
+            image::DynamicImage::ImageLuma8(image::GrayImage::from_pixel(2, 3, image::Luma([42]))),
+            image::DynamicImage::ImageLuma16(image::ImageBuffer::from_pixel(
+                2,
+                3,
+                image::Luma([12345u16]),
+            )),
+            image::DynamicImage::ImageRgb16(image::ImageBuffer::from_pixel(
+                2,
+                3,
+                image::Rgb([12345u16, 23456, 34567]),
+            )),
+        ] {
+            let expected = modern.as_bytes().to_vec();
+            let mut png = Cursor::new(Vec::new());
+            modern.write_to(&mut png, image::ImageFormat::Png).unwrap();
+            let legacy = decode_pdf_image(png.get_ref()).unwrap();
+            assert_eq!(legacy.dimensions(), (2, 3));
+            assert_eq!(legacy.as_bytes(), expected);
+            assert_eq!(
+                legacy.color().bits_per_pixel(),
+                modern.color().bits_per_pixel()
+            );
+        }
+    }
+
     /// 适配缩放：保持宽高比、不放大、适配 A4 内容区
     #[test]
     fn test_image_fit_scale() {
-        // 小图不放大
-        let s = image_fit_scale(100, 100);
-        assert!(s.x <= 1.0 && s.y <= 1.0);
-        assert!((s.x - s.y).abs() < f64::EPSILON, "等比缩放 x/y 应一致");
-
-        // 超长竖图（条漫）应被高度约束
-        let tall = image_fit_scale(800, 20000);
-        assert!(tall.y < 1.0, "超高图应被缩小适配");
-        let wide = image_fit_scale(20000, 800);
-        assert!(wide.x < 1.0, "超宽图应被缩小适配");
-        assert_eq!(tall.x, tall.y);
-        assert_eq!(wide.x, wide.y);
+        assert_eq!(image_fit_scale(100, 100), 1.0);
+        assert!(image_fit_scale(800, 20000) < 1.0);
+        assert!(image_fit_scale(20000, 800) < 1.0);
+        let scale = image_fit_scale(1, u32::MAX);
+        assert!(scale < 0.01);
+        assert!((u32::MAX as f64 * 25.4 / 300.0 * scale - PDF_CONTENT_HEIGHT_MM).abs() < 0.001);
     }
 
     /// 图片书 PDF 生成：本地图片路径（验证 %PDF 头 + 页数）
@@ -1687,8 +1452,7 @@ mod tests {
                 );
             }
             Err(e) => {
-                eprintln!("跳过图片 PDF 测试（环境无中文字体）: {e}");
-                assert!(e.contains("字体"), "字体缺失错误应含明确提示");
+                panic!("图片 PDF 导出失败: {e}");
             }
         }
         let _ = std::fs::remove_file(&path);
@@ -1737,8 +1501,7 @@ mod tests {
                 assert!(pdf_page_count(&bytes) >= 3);
             }
             Err(e) => {
-                eprintln!("跳过网络图片 PDF 测试（环境无中文字体）: {e}");
-                assert!(e.contains("字体"));
+                panic!("网络图片 PDF 导出失败: {e}");
             }
         }
     }
@@ -1766,7 +1529,7 @@ mod tests {
             Err(e) => {
                 // 可能是字体缺失（CI 环境）或 fetcher 缺失，两者都应是明确错误
                 assert!(
-                    e.contains("字体") || e.contains("ImageFetcher") || e.contains("图片导出失败"),
+                    e.contains("ImageFetcher") && e.contains("图片导出失败"),
                     "错误信息应明确: {e}"
                 );
             }
@@ -1796,7 +1559,7 @@ mod tests {
             Ok(_) => panic!("损坏图片不应导出成功"),
             Err(e) => {
                 assert!(
-                    e.contains("图片导出失败") || e.contains("字体"),
+                    e.contains("图片导出失败") && e.contains("第1话"),
                     "错误应定位到图片或字体: {e}"
                 );
             }

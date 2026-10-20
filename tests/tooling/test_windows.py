@@ -144,7 +144,7 @@ class WindowsTests(unittest.TestCase):
         source = win.verify_windows_ffi(self.root, "release")
         self.assertEqual(source.read_bytes(), (executable.parent / source.name).read_bytes())
         command, env = self.calls[-1]
-        self.assertIn("--release", command)
+        self.assertEqual(command, ["flutter", "build", "windows", "--release"])
         self.assertEqual(env["LEGADO_RUST_FFI_DIR"], str(source.parent.parent))
 
     def test_run_builds_via_flutter_run_once_without_preceding_flutter_build(self):

@@ -18,7 +18,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use crate::models::{row_ui_type, BookSource, RowUi};
+use crate::models::{BookSource, RowUi, row_ui_type};
 use crate::{LegadoError, LegadoResult};
 
 /// V2 协议标记：`loginUi` 等于该 JSON 时判定为 V2（对齐 Kotlin `LoginUiV2.MARKER`）
@@ -151,7 +151,7 @@ pub fn parse_action_result(json: Option<&str>) -> ActionResult {
             return ActionResult {
                 malformed: true,
                 ..Default::default()
-            }
+            };
         }
     };
     let obj = match &obj {
@@ -160,7 +160,7 @@ pub fn parse_action_result(json: Option<&str>) -> ActionResult {
             return ActionResult {
                 malformed: true,
                 ..Default::default()
-            }
+            };
         }
     };
 
@@ -168,13 +168,13 @@ pub fn parse_action_result(json: Option<&str>) -> ActionResult {
 
     // state / error / login 必须是对象，close 必须是布尔，否则 malformed
     for key in ["state", "error", "login"] {
-        if let Some(v) = take(key) {
-            if !v.is_object() {
-                return ActionResult {
-                    malformed: true,
-                    ..Default::default()
-                };
-            }
+        if let Some(v) = take(key)
+            && !v.is_object()
+        {
+            return ActionResult {
+                malformed: true,
+                ..Default::default()
+            };
         }
     }
     let close_value = match take("close") {
@@ -184,7 +184,7 @@ pub fn parse_action_result(json: Option<&str>) -> ActionResult {
                 return ActionResult {
                     malformed: true,
                     ..Default::default()
-                }
+                };
             }
         },
         None => false,
@@ -501,10 +501,12 @@ mod tests {
         // name 为空 → 非法
         assert!(parse_render(Some(r#"{"rows":[{"key":"a","name":"","type":"text"}]}"#)).is_none());
         // countdown 为负 → 非法
-        assert!(parse_render(Some(
-            r#"{"rows":[{"name":"x","type":"button","action":"a","countdown":-1}]}"#
-        ))
-        .is_none());
+        assert!(
+            parse_render(Some(
+                r#"{"rows":[{"name":"x","type":"button","action":"a","countdown":-1}]}"#
+            ))
+            .is_none()
+        );
         // text 缺 key → 非法
         assert!(parse_render(Some(r#"{"rows":[{"name":"a","type":"text"}]}"#)).is_none());
         // select 缺 options → 非法
@@ -631,9 +633,11 @@ mod tests {
         assert!(result.unwrap().contains("account"));
         // 脚本必须包含登录 JS 与 loginUi 调用表达式
         assert!(calls[0].0.starts_with("function loginUi(s){}"));
-        assert!(calls[0]
-            .0
-            .contains("loginUi(JSON.parse(String(__loginState)))"));
+        assert!(
+            calls[0]
+                .0
+                .contains("loginUi(JSON.parse(String(__loginState)))")
+        );
         // 绑定必须携带 __loginState
         assert_eq!(
             calls[0].1,

@@ -1,933 +1,148 @@
-//! 阅读 API
-//!
-//! 提供章节列表获取与章节内容读取能力，支持在线书源与本地书籍两种模式。
-//! 在线书籍支持通过网络刷新书籍目录（refresh_toc）和抓取正文（fetch_chapter_content）。
-
-use serde::{Deserialize, Serialize};
-
-use legado_core::cache_book::CachedChapter;
-use legado_core::content_processor::{ContentProcessor, ProcessorConfig, ReplaceRuleEntry};
-use legado_core::models::{BookChapter, ReplaceRule};
-use legado_core::web_book::{BookSourceFetcher, WebBookEngine, WebChapter};
-use legado_core::{LegadoError, LegadoResult};
-use legado_db::repository::Repository;
+//! 阅读宿主适配：捕获数据能力、解析本地路径并委托Engine服务。
+#[cfg(test)]
+use crate::db_state::with_database;
+use legado_core::LegadoResult;
+#[cfg(test)]
+use legado_core::{
+    LegadoError, cache_book::CachedChapter, models::ReplaceRule, web_book::WebChapter,
+};
+#[cfg(test)]
+use legado_core::{
+    models::BookChapter,
+    web_book::{BookSourceFetcher, WebBookEngine},
+};
+#[cfg(test)]
 use legado_db::{
     BookChapterRepository, BookRepository, BookSourceRepository, CacheBookRepository,
-    CacheRepository, ReplaceRuleRepository,
+    ReplaceRuleRepository, repository::Repository,
 };
+pub use legado_engine::reading_service::{
+    ChapterListResponse, can_remove_same_title, chapter_to_local_info, is_local_book,
+    word_count_format,
+};
+use legado_engine::reading_service::{ReadingResources, ReadingService};
+#[cfg(test)]
+use legado_engine::reading_service::{
+    chinese_convert_direction, convert_title_by_type, process_content_with_rules_inner,
+};
+use std::sync::Arc;
+/// 只在宿主入口装配一次，不让异步闭包回查根实例。
+pub(crate) fn host_service() -> ReadingService {
+    let engine = crate::engine_holder::current().ok();
+    let storage = engine.as_ref().map(|e| e.storage().clone());
+    let paths = storage.clone();
+    ReadingService::new(ReadingResources {
+        storage,
+        deps: engine.as_ref().map(|e| super::web_book::deps_for_engine(e)),
+        tasks: crate::engine_holder::task_group(),
+        runtime: crate::runtime::get_runtime().handle().clone(),
+        web_book: crate::engine_holder::web_book_state(),
+        js: crate::engine_holder::js_resources(),
+        search: super::search::service_for_engine(engine.as_deref()),
+        resolve_path: Arc::new(move |book| {
+            if book.contains("://") || std::path::Path::new(book).is_absolute() {
+                return book.into();
+            }
+            paths
+                .as_ref()
+                .and_then(|s| s.path())
+                .and_then(std::path::Path::parent)
+                .map(|base| base.join(book).to_string_lossy().into_owned())
+                .unwrap_or_else(|| book.into())
+        }),
+    })
+}
 
-use crate::db_state::{resolve_local_book_path, with_database};
-use crate::runtime;
-
-// ─── 简繁转换配置（对齐 Kotlin AppConfig.chineseConverterType） ──────────────
-
-/// 配置键：繁简转换类型（与 Kotlin `PreferKey.chineseConverterType` 同名，
-/// 备份恢复时可跨端互通）
-const CHINESE_CONVERT_CONFIG_KEY: &str = "chineseConverterType";
-
-/// 读取持久化的繁简转换类型（0=不转换 / 1=繁转简 t2s / 2=简转繁 s2t）
-///
-/// 配置不存在、非数字或超出 0..=2 范围时回退为 0（不转换）。
 pub fn get_chinese_convert_type() -> i32 {
-    crate::api::config_api::get_config(CHINESE_CONVERT_CONFIG_KEY)
-        .ok()
-        .and_then(|v| v.parse::<i32>().ok())
-        .filter(|t| (0..=2).contains(t))
-        .unwrap_or(0)
+    host_service().get_chinese_convert_type()
 }
 
-/// 设置并持久化繁简转换类型（0=不转换 / 1=繁转简 t2s / 2=简转繁 s2t）
-///
-/// 非法取值一律归一为 0（不转换），与 Kotlin 面板仅提供三个选项的语义对齐。
 pub fn set_chinese_convert_type(convert_type: i32) {
-    let normalized = if (0..=2).contains(&convert_type) {
-        convert_type
-    } else {
-        0
-    };
-    let _ = crate::api::config_api::set_config(CHINESE_CONVERT_CONFIG_KEY, &normalized.to_string());
+    host_service().set_chinese_convert_type(convert_type)
 }
 
-/// 繁简转换类型 → content_processor 管线方向（None / "t2s" / "s2t"）
-fn chinese_convert_direction(convert_type: i32) -> Option<String> {
-    match convert_type {
-        1 => Some("t2s".to_string()),
-        2 => Some("s2t".to_string()),
-        _ => None,
-    }
-}
-
-/// 当前配置的管线转换方向（读取持久化配置）
-fn current_chinese_convert_direction() -> Option<String> {
-    chinese_convert_direction(get_chinese_convert_type())
-}
-
-// ─── 章级「删除重复标题」开关（API_CONTRACT §2.9.10，Task #51） ───────────────
-
-/// 章级开关存储键前缀（caches 表 KV，零迁移复用既有表结构）
-///
-/// 键格式：`sameTitleRemoved:{book_url}:{chapter_index}`，值 "1" 表示
-/// 该章 opt-out（保留原始标题）；无键/其他值 → 全局默认（去除重复标题）。
-/// 语义对齐原版：原版以 "nr" 后缀章节文件标记不删标题的章（removeSameTitleCache），
-/// 此处等价地以 caches 键表达，缓存清理时开关随之复位为默认，与原版语义一致。
-const SAME_TITLE_REMOVED_KEY_PREFIX: &str = "sameTitleRemoved:";
-
-/// 构造章级开关的 caches 存储键
-fn same_title_removed_key(book_url: &str, chapter_index: i32) -> String {
-    format!("{SAME_TITLE_REMOVED_KEY_PREFIX}{book_url}:{chapter_index}")
-}
-
-/// 该章是否启用「去除重复标题」（全局默认 true；章级 opt-out 时 false）
-///
-/// DB 不可用/读取异常时回退全局默认 true，不阻断正文读取。
-fn is_same_title_removed(book_url: &str, chapter_index: i32) -> bool {
-    // DB 读取异常不再静默吞错：warn 后回退全局默认 true（返回值行为不变）
-    let value = match with_database(|db| {
-        let repo = CacheRepository::new(db.connection());
-        repo.get(&same_title_removed_key(book_url, chapter_index))
-    }) {
-        Ok(value) => value,
-        Err(e) => {
-            log::warn!("读取章级删除重复标题开关失败，回退全局默认 true: {e}");
-            None
-        }
-    };
-    !matches!(value.as_deref(), Some("1"))
-}
-
-/// 权威查询章级「删除重复标题」开关（caches KV，对齐 §5.14 遗留）
-///
-/// 返回值语义同 [`is_same_title_removed`]：true=去除重复标题（默认），
-/// false=该章 opt-out。供 Flutter 菜单勾选态回读，避免仅依赖 SP 镜像分叉。
 pub fn get_same_title_removed(book_url: &str, chapter_index: i32) -> bool {
-    is_same_title_removed(book_url, chapter_index)
+    host_service().get_same_title_removed(book_url, chapter_index)
 }
 
-/// 试算正文开头是否含可移除的重复标题（对齐原版 toast「未找到可移除的重复标题」）
-pub fn can_remove_same_title(chapter_title: &str, raw_content: &str) -> bool {
-    if chapter_title.is_empty() || raw_content.is_empty() {
-        return false;
-    }
-    raw_content.trim_start().starts_with(chapter_title)
-}
-
-/// 章级「删除重复标题」开关（契约 §2.9.10，加法式新增）
-///
-/// 状态持久化于 caches 表，重启后保持。`enable=true` 恢复全局默认
-/// （去除重复标题，删除 opt-out 记录）；`enable=false` 为该章 opt-out
-/// （保留原始标题）。
-///
-/// 错误码：书籍不存在 → Internal；章节不存在 → Db。
 pub fn toggle_same_title_removed(
     book_url: &str,
     chapter_index: i32,
     enable: bool,
 ) -> LegadoResult<()> {
-    // 1. 书籍存在性校验（不存在 → Internal 错误）
-    let book_exists = with_database(|db| {
-        Ok(BookRepository::new(db.connection())
-            .find_by_url(book_url)?
-            .is_some())
-    })?;
-    if !book_exists {
-        return Err(LegadoError::Internal(format!("书籍不存在: {book_url}")));
-    }
-
-    // 2. 章节存在性校验（不存在 → Db 错误）
-    let chapter_exists = with_database(|db| {
-        Ok(BookChapterRepository::new(db.connection())
-            .find_by_book_url_and_index(book_url, chapter_index)?
-            .is_some())
-    })?;
-    if !chapter_exists {
-        return Err(LegadoError::Database(format!(
-            "章节 {chapter_index} 不存在: {book_url}"
-        )));
-    }
-
-    // 3. 持久化：opt-out 写 "1"；恢复默认则删除记录（保持存储精简）
-    with_database(|db| {
-        let repo = CacheRepository::new(db.connection());
-        let key = same_title_removed_key(book_url, chapter_index);
-        if enable {
-            repo.delete(&key)?;
-        } else {
-            repo.put(&key, "1", 0)?; // ttl=0 永不过期
-        }
-        Ok(())
-    })
+    host_service().toggle_same_title_removed(book_url, chapter_index, enable)
 }
 
-/// 按当前繁简配置转换单个标题文本
-///
-/// 对齐 Kotlin `BookChapter.getDisplayTitle`（BookChapter.kt L132-135）：
-/// 1 → t2s（繁转简），2 → s2t（简转繁），其他不转换。
-fn convert_title_by_type(title: &str, convert_type: i32) -> String {
-    match convert_type {
-        1 => legado_core::chinese_convert::traditional_to_simplified(title),
-        2 => legado_core::chinese_convert::simplified_to_traditional(title),
-        _ => title.to_string(),
-    }
-}
-
-/// 对章节列表的标题应用当前繁简转换（仅转换返回副本，不回写数据库）
-///
-/// 阅读器/目录展示路径不经过 content_processor 正文管线，
-/// 标题的繁简转换需在此显示层补齐，与 Android getDisplayTitle 行为对等。
-fn apply_title_convert(chapters: &mut [BookChapter]) {
-    let convert_type = get_chinese_convert_type();
-    if convert_type == 0 {
-        return;
-    }
-    for ch in chapters.iter_mut() {
-        ch.title = convert_title_by_type(&ch.title, convert_type);
-    }
-}
-
-/// 章节列表响应（包含章节概要信息）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChapterListResponse {
-    /// 章节总数
-    pub total: i32,
-    /// 章节列表
-    pub chapters: Vec<BookChapter>,
-}
-
-/// 获取指定书籍的章节列表
-///
-/// 优先从数据库读取；若数据库无记录且为本地书籍，则从文件解析章节并入库（懒加载）。
-///
-/// [iOS 视角F C1] 本地书 `book_url` 可能是相对可迁移标识（`books/x.epub`），
-/// 落盘解析前经 [`resolve_local_book_path`] 还原为当前容器真实路径；DB 查询与
-/// 章节行 `book_url`/`base_url` 仍用原始标识（保持主键一致）。绝对路径原样透传。
 pub fn get_chapters(book_url: &str) -> LegadoResult<ChapterListResponse> {
-    // 1. 尝试从数据库读取已有章节
-    let chapters = with_database(|db| {
-        let repo = BookChapterRepository::new(db.connection());
-        repo.find_by_book_url(book_url)
-    })?;
-
-    if !chapters.is_empty() {
-        let mut chapters = chapters;
-        apply_title_convert(&mut chapters);
-        let total = chapters.len() as i32;
-        return Ok(ChapterListResponse { total, chapters });
-    }
-
-    // 2. 数据库无章节：如果是本地书籍，从文件解析并入库
-    if is_local_book(book_url) {
-        // [C1] 还原为真实文件路径（相对标识 → 当前 Documents；绝对原样）
-        let real_path = resolve_local_book_path(book_url);
-        let chapter_infos = legado_book::LocalBook::get_chapters(&real_path)?;
-        let mut book_chapters: Vec<BookChapter> = chapter_infos
-            .iter()
-            .map(|ci| BookChapter {
-                url: ci.url.clone(),
-                title: ci.title.clone(),
-                is_volume: ci.is_volume,
-                base_url: book_url.to_string(),
-                book_url: book_url.to_string(),
-                index: ci.index,
-                is_vip: false,
-                is_pay: false,
-                resource_url: None,
-                tag: None,
-                word_count: None,
-                start: ci.start,
-                end: ci.end,
-                start_fragment_id: None,
-                end_fragment_id: None,
-                variable: None,
-                img_url: None,
-            })
-            .collect();
-
-        // 存入数据库供后续访问
-        if !book_chapters.is_empty() {
-            // [B-13b] 懒加载入库同时同步 books 行目录派生字段（totalChapterNum /
-            // latestChapterTitle / latestChapterTime）：修复前仅写章节行，books
-            // 行派生字段停留 0/NULL → 书架章节数与最新章节显示为空。
-            // latestChapterTime 仅章数增长时写入（对齐 refresh_toc 的增长条件
-            // 分支）；books 行不存在时 no-op（书架入口 add_book 已建行）。
-            let new_total = book_chapters.len() as i32;
-            let new_latest_title: Option<String> = book_chapters.last().map(|c| c.title.clone());
-            with_database(|db| {
-                let conn = db.connection();
-                let repo = BookChapterRepository::new(conn);
-                repo.insert_batch(&book_chapters)?;
-                let book_repo = BookRepository::new(conn);
-                if let Some(existing) = book_repo.find_by_url(book_url)? {
-                    book_repo.update_toc_derived_fields(
-                        book_url,
-                        new_total,
-                        new_latest_title.as_deref(),
-                        (existing.total_chapter_num < new_total).then_some(now_millis()),
-                    )?;
-                }
-                Ok(())
-            })?;
-        }
-
-        // 显示层标题繁简转换（不回写数据库）
-        apply_title_convert(&mut book_chapters);
-
-        let total = book_chapters.len() as i32;
-        return Ok(ChapterListResponse {
-            total,
-            chapters: book_chapters,
-        });
-    }
-
-    // 3. 在线书籍无章节记录，返回空
-    Ok(ChapterListResponse {
-        total: 0,
-        chapters: vec![],
-    })
+    host_service().get_chapters(book_url)
 }
 
-/// 获取章节正文内容
-///
-/// 对于本地书籍（bookUrl 为文件路径或相对可迁移标识），使用 legado-book 解析器读取。
-/// 对于在线书籍，需配合书源规则通过网络获取（此处返回数据库缓存或空）。
-///
-/// [iOS 视角F C1] 本地书 `book_url` 为相对可迁移标识时，经 [`resolve_local_book_path`]
-/// 还原为当前容器真实路径后再落盘解析；章节 DB 查询仍用原始标识。
 pub fn get_chapter_content(book_url: &str, chapter_index: i32) -> LegadoResult<String> {
-    get_chapter_content_inner(book_url, chapter_index, true)
+    host_service().get_chapter_content(book_url, chapter_index)
 }
 
-/// 获取章节正文内容（不应用替换规则）
-///
-/// 取正文流程与 [`get_chapter_content`] 完全相同，但内容净化时关闭替换规则
-/// （仅做去重复标题等），与 Android 书内搜索默认行为（replaceEnabled=false）对齐。
-/// 供内容搜索使用，避免被替换/删除的词搜不到。
 pub fn get_chapter_content_raw(book_url: &str, chapter_index: i32) -> LegadoResult<String> {
-    get_chapter_content_inner(book_url, chapter_index, false)
+    host_service().get_chapter_content_raw(book_url, chapter_index)
 }
 
-/// get_chapter_content 的内部实现：`apply_replace_rules` 控制是否应用替换规则
-fn get_chapter_content_inner(
-    book_url: &str,
-    chapter_index: i32,
-    apply_replace_rules: bool,
-) -> LegadoResult<String> {
-    // 查询章节信息
-    let chapter = with_database(|db| {
-        let repo = BookChapterRepository::new(db.connection());
-        repo.find_by_book_url_and_index(book_url, chapter_index)
-    })?
-    .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在")))?;
-
-    // 判断是否为本地书籍
-    if is_local_book(book_url) {
-        // 使用 legado-book 解析本地文件
-        // [C1] 还原为真实文件路径（相对标识 → 当前 Documents；绝对原样）
-        let real_path = resolve_local_book_path(book_url);
-        let content = legado_book::LocalBook::get_chapter_content(
-            &real_path,
-            &chapter_to_local_info(&chapter),
-        )?;
-        // 读取时净化：DB/文件保留原始正文，返回前应用内容净化
-        Ok(apply_content_processing_inner(
-            book_url,
-            &content,
-            &chapter.title,
-            apply_replace_rules,
-            Some(chapter_index),
-        ))
-    } else {
-        // 在线书籍：返回章节 URL 信息，由上层配合书源规则获取正文
-        // 简化实现：返回章节 URL 供 Dart 侧进一步处理（标题做显示层繁简转换）
-        Ok(serde_json::to_string(&serde_json::json!({
-            "chapter_url": chapter.url,
-            "base_url": chapter.base_url,
-            "title": convert_title_by_type(&chapter.title, get_chinese_convert_type()),
-            "need_fetch": true,
-        }))?)
-    }
-}
-
-/// 判断是否为本地书籍
-///
-/// [cbz 批 B | 2026-10-03] 白名单新增 `.cbz`（本地漫画包，E9 参考版扩展：
-/// 命中后 `get_chapters` 懒解析经 `LocalBook` → `CbzFile`，正文返回
-/// `cbz://<条目名>` 行列表，图片字节经 `cbz_api::cbz_read_page` 读取）。
-/// `.zip` **不加入**：保持压缩容器语义（`archiveImportZip` 路径不变）。
-pub fn is_local_book(book_url: &str) -> bool {
-    let lower = book_url.to_lowercase();
-    lower.ends_with(".epub")
-        || lower.ends_with(".txt")
-        || lower.ends_with(".text")
-        || lower.ends_with(".mobi")
-        || lower.ends_with(".azw")
-        || lower.ends_with(".azw3")
-        || lower.ends_with(".pdf")
-        || lower.ends_with(".cbz")
-}
-
-/// 将 BookChapter 转换为 legado-book 的 ChapterInfo
-pub fn chapter_to_local_info(ch: &BookChapter) -> legado_book::ChapterInfo {
-    legado_book::ChapterInfo {
-        url: ch.url.clone(),
-        title: ch.title.clone(),
-        index: ch.index,
-        is_volume: ch.is_volume,
-        start: ch.start,
-        end: ch.end,
-    }
-}
-
-// ─── 在线目录/正文抓取 ────────────────────────────────────────────────────────
-
-/// 当前 Unix 时间戳（毫秒）——目录派生字段同步写 latestChapterTime 用
-/// （与本模块缓存写入处的 SystemTime 表达式同一实现风格）
-fn now_millis() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0)
-}
-
-/// 从网络刷新书籍目录
-///
-/// 流程：
-/// 1. 根据 `source_url` 从数据库查找书源配置
-/// 2. 使用 WebBookEngine 从网络获取章节列表
-///    （[P2-2] 首抓为空且书籍页取址点不同时，按取址点重试一次并持久化新 tocUrl）
-/// 3. 将 WebChapter 转换为 BookChapter 并存入数据库
-/// 4. 返回 JSON 格式的章节列表
-pub fn refresh_toc(book_url: &str, source_url: &str) -> LegadoResult<ChapterListResponse> {
-    // P1-2 入口收口：本入口执行 preUpdate JS + ruleBookInfo/ruleToc（变量桥
-    // 读写）→ 先切 flow scope（键 = book_url，与 webbook_info/chapters 同键），
-    // 防上一流程的残留 scope 串读/误清
-    crate::api::web_book::begin_book_flow(book_url);
-    // 生产入口：构建真实 engine 后委托核心逻辑（fetcher 泛型化便于单测注入脚本化 fetcher）
-    let engine = super::web_book::build_engine()?;
-    refresh_toc_with_fetcher(book_url, source_url, &engine)
-}
-
-/// refresh_toc 核心逻辑（fetcher 泛型化，便于单测注入脚本化 fetcher；
-/// 生产入口 [`refresh_toc`] 构建真实 engine 后委托本函数）
-fn refresh_toc_with_fetcher<F: BookSourceFetcher>(
-    book_url: &str,
-    source_url: &str,
-    engine: &WebBookEngine<F>,
-) -> LegadoResult<ChapterListResponse> {
-    // [性能专项 2026-09-24] 刷新代数 +1：本刷新成为最新代数，使在途旧刷新的
-    // 目录分页链在下一页边界判活失败而中止（换源场景取消 10 分钟在途链；
-    // 对齐上游 ensureActive() 判活语义，无状态 FFI 用进程级原子计数器，
-    // 不改 FFI 签名）。
-    crate::api::web_book::bump_toc_fetch_epoch();
-    // 1. 从数据库获取书源配置 + 书籍记录（书籍用于确定真实的目录抓取 URL）
-    let (source, existing_book) = with_database(|db| {
-        let source = BookSourceRepository::new(db.connection()).find_by_url(source_url)?;
-        let book = legado_db::BookRepository::new(db.connection()).find_by_url(book_url)?;
-        Ok((source, book))
-    })?;
-    let source =
-        source.ok_or_else(|| LegadoError::Database(format!("书源不存在: {source_url}")))?;
-
-    // Task #21 修复：抓取目录用书籍的 tocUrl，而非 bookUrl。换源后 bookUrl 作为
-    // 稳定主键保持旧源 URL（在新源上并非有效地址），tocUrl 才指向当前书源的
-    // 详情/目录页；用 bookUrl 抓取会把旧源 URL 传给新源解析器导致目录获取失败
-    // （用户反馈「目录也获取不到」的根因之一）。tocUrl 为空时回退 bookUrl，
-    // 对齐原版 WebBook.getChapterList 以 book.tocUrl 为目录页地址的行为。
-    // [P2-8] 回退链细化为 tocUrl → originBookUrl（当前书源详情页，换源事务
-    // 写入；tocUrl 可能已被坏值污染或为空）→ bookUrl（未换源书籍/存量库，
-    // 行为不变）。
-    // 目录更新前钩子（对齐 WebBook.getChapterListAwait(runPerJs=true) → runPreUpdateJs）
-    // 须在计算 fetch_url 之前执行，以便 reGetBook/refreshTocUrl/手写改 book 生效
-    let mut working_book = existing_book.clone();
-    if let Some(ref mut book) = working_book {
-        if let Err(e) = crate::api::pre_update::run_pre_update_js(&source, book) {
-            eprintln!("[refresh_toc] preUpdateJs: {e}");
-        } else {
-            // 持久化 preUpdateJs / 钩子对 bookUrl·tocUrl·variable 等的改写。
-            // [B-4] 这是全行快照写回，但 `update` 的 UPDATE SET 结构性排除
-            // 进度列（B-3），钩子执行/持久化期间并发写入的进度不会被回退
-            // （此处零代码改动，靠结构排除保护进度）。
-            let _ =
-                with_database(|db| legado_db::BookRepository::new(db.connection()).update(book));
-        }
-    }
-
-    let fetch_url = working_book
-        .as_ref()
-        .map(|b| {
-            let toc = b.toc_url.trim();
-            if !toc.is_empty() {
-                toc.to_string()
-            } else {
-                // [P2-8] 书籍页取址（originBookUrl 优先、空回退 bookUrl，见
-                // Book::book_page_fetch_url）；两者皆空时回退入参 book_url
-                let origin = b.book_page_fetch_url();
-                if origin.trim().is_empty() {
-                    book_url.to_string()
-                } else {
-                    origin.to_string()
-                }
-            }
-        })
-        .unwrap_or_else(|| book_url.to_string());
-
-    // [P2-12 2026-09-18] 变量链：目录/详情请求模板经 DB `books.variable`
-    // （working_book.variable——preUpdateJs 钩子运行后已持久化的用户值）
-    // 展开。优先级：DB 持久化值（用户显式设置）> 书源 `@put` 默认导出，
-    // 与换源链 P1-1 理由一致（本刷新路径无 @put 再合并，仅更新目录）。
-    // 修复前两处 get_chapters 变量表恒空 → 换源后重进详情/刷新目录时
-    // `{{svid}}`/`{{tok}}` 展开为空 → 请求错误地址（服务端 400）。
-    let toc_variables = super::web_book::chapter_url_variables(
-        working_book.as_ref().and_then(|b| b.variable.as_deref()),
-    );
-
-    // 2. 使用 WebBookEngine 从网络获取章节列表（变量表见上方 P2-12 注释）
-    // [bookUrl 脏值修正 2026-10-05] 身份/取址点分离：本入口的 `book_url` 入参
-    // 是书籍稳定主键（DB `find_by_url` 查询键），`fetch_url` 只是取址点
-    //（tocUrl / 书籍页取址点 / 回退 bookUrl）。旧调用把取址点当 book_url 传给
-    // fetcher → 目录阶段 meta 缓存把 tocUrl 记成“书籍取址点”并经 (书源, 章节)
-    // 反查泄漏到正文阶段 `book` 绑定与媒体副内容 sink（弹幕/歌词落库键，
-    // V-B1 审查已登记的静默丢弹幕面）。对齐原版 WebBook.getChapterListAwait
-    //（book.bookUrl 主键 + book.tocUrl 取址点二元语义，WebBook.kt:310-326）。
-    let book_key = book_url;
-    let mut web_chapters: Vec<WebChapter> = runtime::block_on(async {
-        engine
-            .get_chapters_with_book_key_and_vars(
-                &source,
-                &fetch_url,
-                book_key,
-                None,
-                None,
-                &toc_variables,
-            )
-            .await
-    })?;
-
-    // [P2-2 | 存量坏 tocUrl 自愈 2026-09-18] 首次抓取（通常按 tocUrl）未解析到
-    // 章节（存量坏值：如换源后 tocUrl 仍指向旧源页面、页面改版后不再含目录），
-    // 且书籍页取址点（book_page_fetch_url：originBookUrl 优先、空回退 bookUrl）
-    // 与已尝试的抓取地址不同 → 按书籍页地址重试一次；成功则把新 tocUrl 持久化
-    //（对齐既有 update 语义：tocUrl 为当前书源目录页地址），后续刷新直达有效
-    // 地址。`!= fetch_url` 同时覆盖「tocUrl 为空、首抓地址已是书籍页取址点」
-    // 的情形，避免对同一地址重复抓取。
-    if web_chapters.is_empty() {
-        let retry_url = working_book
-            .as_ref()
-            .map(|b| b.book_page_fetch_url().to_string())
-            .filter(|u| !u.trim().is_empty() && *u != fetch_url);
-        if let Some(retry_url) = retry_url {
-            // [P2-12] 重试同样携 DB 变量表（retry_url 为书籍页取址点，
-            // 可能含 {{key}} 模板）
-            // [bookUrl 脏值修正] 重试仍以 `book_url` 为主键、retry_url 为取址点
-            match runtime::block_on(async {
-                engine
-                    .get_chapters_with_book_key_and_vars(
-                        &source,
-                        &retry_url,
-                        book_key,
-                        None,
-                        None,
-                        &toc_variables,
-                    )
-                    .await
-            }) {
-                Ok(chapters) if !chapters.is_empty() => {
-                    // 持久化新 tocUrl；写库失败仅记录，不影响本次刷新结果。
-                    // P2-1：改用单列 update_toc_url（全行 update 会把两次网络
-                    // 抓取前读取的 37 列快照写回：期间并发写入的进度列
-                    // （durChapterIndex 等）被旧值覆盖，且「本来正确但一次
-                    // 瞬时解析为空」的 tocUrl 会被永久改写）。
-                    if let Some(b) = working_book.as_mut() {
-                        b.toc_url = retry_url.clone();
-                        let book_url_key = b.book_url.clone();
-                        let _ = with_database(|db| {
-                            legado_db::BookRepository::new(db.connection())
-                                .update_toc_url(&book_url_key, &retry_url)
-                        });
-                    }
-                    web_chapters = chapters;
-                }
-                _ => {}
-            }
-        }
-    }
-
-    // Task #21 修复：空结果保护。新抓取未解析到任何章节时（get_chapters 返回
-    // Ok(vec![]) 而非错误，如书源失效/页面改版），绝不清空已有目录——否则会把
-    // 书留成「无章节」状态，比刷新前更糟（换源/刷新「越刷越糟」回归）。
-    // 有旧章节则原样返回旧目录；无旧章节才返回可读错误。
-    if web_chapters.is_empty() {
-        let existing = with_database(|db| {
-            BookChapterRepository::new(db.connection()).find_by_book_url(book_url)
-        })?;
-        if !existing.is_empty() {
-            let mut existing = existing;
-            apply_title_convert(&mut existing);
-            let total = existing.len() as i32;
-            return Ok(ChapterListResponse {
-                total,
-                chapters: existing,
-            });
-        }
-        return Err(LegadoError::Parser(
-            "刷新目录失败：未从书源解析到任何章节（书源可能失效，请尝试换源）".into(),
-        ));
-    }
-
-    // 3. 转换为 BookChapter 并存入数据库
-    let book_chapters: Vec<BookChapter> = web_chapters
-        .iter()
-        .map(|wc| BookChapter {
-            url: wc.url.clone(),
-            title: wc.title.clone(),
-            is_volume: false,
-            base_url: book_url.to_string(),
-            book_url: book_url.to_string(),
-            index: wc.index,
-            is_vip: wc.is_vip,
-            is_pay: false,
-            resource_url: None,
-            tag: None,
-            // N5: 字数透传（WebChapter.word_count 来自 updateTime 规则/JS 源）
-            word_count: wc.word_count.clone(),
-            start: None,
-            end: None,
-            start_fragment_id: None,
-            end_fragment_id: None,
-            variable: wc.variable.clone(),
-            img_url: None,
-        })
-        .collect();
-
-    // [目录派生字段同步] 对齐上游 updateBookTocInfo：刷新成功后 books 行
-    // totalChapterNum = 新目录章数 / latestChapterTitle = 末章标题（截断保留
-    // 前缀时 = 前缀章数，与上游一致；空结果不会走到这里——上方守卫已提前
-    // 返回）。latestChapterTime 仅章数增长时写入（上游条件分支）。真实 origin
-    // 书籍走单列 UPDATE 写器（只触碰派生字段，不写进度列——B-3 安全，P2-1
-    // 风格）；占位/本地 origin 路径在同一内存对象上同步（全行写结构性排除
-    // 进度列，B-3 安全）。
-    let new_total = book_chapters.len() as i32;
-    let new_latest_title: Option<String> = book_chapters.last().map(|c| c.title.clone());
-
-    // 4. 确保书籍记录存在（满足 chapters 表外键约束），然后先删除旧章节，再批量插入新章节
-    // [Task #66 加固] 占位落库须带书源信息（origin/originName）：否则 origin 取默认
-    // loc_book，阅读器随后按 origin 找书源取正文会报「书源不存在: loc_book」
-    // （搜索→目录页→点章节进入阅读的路径，此时 Flutter 尚未执行带 origin 的
-    // addBook）。既有记录 origin 仍为默认值时同样补齐（加法式，不覆盖已有真实书源）。
-    with_database(|db| {
-        let conn = db.connection();
-        // [B-7] 「删旧章节 + 写新章节 + 清失效缓存」包进同一事务：裸 autocommit
-        // 删除会向并发读者暴露「0 章」中间态（对齐换源事务模式）。
-        // delete_by_book_url 事务外为 no-op（见 BookChapterRepository）；
-        // pool 共享 &Connection 无法用 &mut Connection::transaction()，
-        // 沿用项目既有的 unchecked_transaction() 模式（见 source_switch.rs）。
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| LegadoError::Database(format!("开启目录更新事务失败: {e}")))?;
-        let book_repo = legado_db::BookRepository::new(conn);
-        match book_repo.find_by_url(book_url)? {
-            None => {
-                // Task#125：占位落库须打 NOT_SHELF，对齐原版 readBook 临时书 /
-                // 书架 list_books 过滤；否则「仅浏览/拉目录」会污染书架。
-                let mut book = legado_core::models::Book {
-                    book_url: book_url.to_string(),
-                    origin: source_url.to_string(),
-                    origin_name: source.book_source_name.clone(),
-                    book_type: legado_core::models::book::book_type::NOT_SHELF,
-                    ..legado_core::models::Book::default()
-                };
-                // [目录派生字段同步] 新书无旧章数（0 < new_total 恒成立——
-                // 目录非空守卫在前）→ 派生字段随插入一并写入
-                book.total_chapter_num = new_total;
-                book.latest_chapter_title = new_latest_title.clone();
-                book.latest_chapter_time = now_millis();
-                book_repo.insert(&book)?;
-            }
-            Some(mut existing)
-                if existing.origin.is_empty()
-                    || existing.origin == legado_core::models::book::book_type::LOCAL_TAG =>
-            {
-                existing.origin = source_url.to_string();
-                if existing.origin_name.is_empty() {
-                    existing.origin_name = source.book_source_name.clone();
-                }
-                // [目录派生字段同步] 同一内存对象上同步（全行 update 结构性
-                // 排除进度列，B-3 安全）
-                let old_total = existing.total_chapter_num;
-                existing.total_chapter_num = new_total;
-                existing.latest_chapter_title = new_latest_title.clone();
-                if old_total < new_total {
-                    existing.latest_chapter_time = now_millis();
-                }
-                book_repo.update(&existing)?;
-            }
-            Some(existing) => {
-                // [目录派生字段同步] 真实 origin 书籍：单条 UPDATE 只触碰派生
-                // 字段（不写进度列、不回退抓取前快照的其他列，B-3/P2-1 安全）；
-                // latestChapterTime 仅章数增长时写（上游条件分支）
-                book_repo.update_toc_derived_fields(
-                    book_url,
-                    new_total,
-                    new_latest_title.as_deref(),
-                    (existing.total_chapter_num < new_total).then_some(now_millis()),
-                )?;
-            }
-        }
-        let repo = BookChapterRepository::new(conn);
-        repo.delete_by_book_url(book_url)?;
-        repo.insert_batch_no_tx(&book_chapters)?;
-        // [B-5] 目录变更后清理失效缓存（同事务）：章节 URL 已不在新目录中的
-        // 缓存行删除，URL 未变的章节保留缓存（不强制重抓）
-        legado_db::CacheBookRepository::new(conn).clear_stale_chapter_urls(book_url)?;
-        tx.commit()
-            .map_err(|e| LegadoError::Database(format!("提交目录更新事务失败: {e}")))?;
-        Ok(())
-    })?;
-
-    // [B-6] 目录重写后按当前书源登记 (书源, 章节) → 下一章 URL：正文分页
-    // 「命中下一章即截断」需按最新目录判定。本入口（refresh_toc）不经
-    // web_book 的章节列表缓存链（record_chapter_list_cache），须在此显式登记；
-    // registry 复合键 (书源, 章节) 天然隔离旧源登记，重复登记幂等。
-    super::web_book::record_next_chapter_map(source_url, &web_chapters);
-
-    // 显示层标题繁简转换（入库的是原始标题，仅转换返回副本）
-    let mut book_chapters = book_chapters;
-    apply_title_convert(&mut book_chapters);
-
-    let total = book_chapters.len() as i32;
-    Ok(ChapterListResponse {
-        total,
-        chapters: book_chapters,
-    })
-}
-
-/// 获取章节正文内容（在线抓取，带 DB 缓存）
-///
-/// 流程：
-/// 1. 先检查 DB 缓存（cached_chapters 表）
-/// 2. 如果缓存命中，直接返回缓存的正文
-/// 3. 如果缓存未命中：
-///    a. 使用 WebBookEngine::get_content 从网络抓取正文
-///    b. 将结果存入 DB 缓存
-///    c. 返回真实正文文本
 pub fn fetch_chapter_content(
     book_url: &str,
     chapter_url: &str,
     source_url: &str,
 ) -> LegadoResult<String> {
-    // 取得真实章节序号与标题（供去重复标题与缓存使用）
-    // [B-12] 第 4 项 known_chapter：未知章节 URL 时不得回退 (0, "") 并写
-    // index=0 缓存行（污染缓存且目录云图标错位）
-    let (chapter_index, chapter_title, chapter_variable, known_chapter) =
-        get_chapter_index_title_variable(book_url, chapter_url)?;
-    fetch_chapter_content_inner(
+    host_service().fetch_chapter_content(book_url, chapter_url, source_url)
+}
+
+pub fn get_chapter_content_full(book_url: &str, chapter_index: i32) -> LegadoResult<String> {
+    host_service().get_chapter_content_full(book_url, chapter_index)
+}
+
+pub fn apply_content_processing(book_url: &str, raw_content: &str, chapter_title: &str) -> String {
+    host_service().apply_content_processing(book_url, raw_content, chapter_title)
+}
+
+pub fn apply_content_processing_chapter(
+    book_url: &str,
+    raw_content: &str,
+    chapter_title: &str,
+    chapter_index: i32,
+) -> String {
+    host_service().apply_content_processing_chapter(
         book_url,
-        chapter_url,
-        source_url,
+        raw_content,
+        chapter_title,
         chapter_index,
-        &chapter_title,
-        chapter_variable.as_deref(),
-        known_chapter,
     )
 }
 
-/// 章节正文抓取核心逻辑（不含 get_chapter_index_and_title 查询）
-///
-/// 由 [`fetch_chapter_content`] 和 [`get_chapter_content_full`] 共用：
-/// - `fetch_chapter_content` 先查询章节序号/标题再调用本函数
-/// - `get_chapter_content_full` 已持有章节信息，直接调用本函数避免冗余查询
-fn fetch_chapter_content_inner(
+pub fn apply_content_processing_raw(
     book_url: &str,
-    chapter_url: &str,
-    source_url: &str,
-    chapter_index: i32,
+    raw_content: &str,
     chapter_title: &str,
-    chapter_variable: Option<&str>,
-    known_chapter: bool,
-) -> LegadoResult<String> {
-    // 1. 检查 DB 缓存
-    // Task #16 P0：按 (book_url, chapter_url) 复合键查找，避免不同书籍共用
-    // 相同 chapter_url 时命中他书缓存（正文张冠李戴）。
-    let cached = with_database(|db| {
-        let repo = CacheBookRepository::new(db.connection());
-        repo.get_by_book_and_chapter_url(book_url, chapter_url)
-    })?;
+    chapter_index: Option<i32>,
+) -> String {
+    host_service().apply_content_processing_raw(book_url, raw_content, chapter_title, chapter_index)
+}
 
-    // [B-1] 空正文缓存行按 miss 处理（对齐上游 BookHelp.kt:271「内容为空
-    // 直接返回」/ :557-559「空内容不入缓存」）：历史遗留的空行若按命中
-    // 返回，该章节将永久空白、永不重抓
-    let cached = cached.filter(|c| !c.content.trim().is_empty());
-
-    if let Some(cached_chapter) = cached {
-        // [P2-28b] 存量惰性自愈：缓存命中但该章 wordCount 为空（旧版本
-        // 写入的缓存，早于回填链引入）时，按缓存正文长度补算回填**一次**
-        // （回填成功后 wordCount 非空，后续命中不再写）。失败仅告警，
-        // 不影响正文返回（对齐原版 writeText 的 best-effort 语义）
-        let wc_missing = with_database(|db| {
-            BookChapterRepository::new(db.connection()).word_count_missing(book_url, chapter_url)
-        })
-        .unwrap_or(false);
-        if wc_missing {
-            if let Err(e) =
-                backfill_chapter_word_count(book_url, chapter_url, &cached_chapter.content)
-            {
-                log::warn!("章节字数自愈回填失败（已忽略，不影响阅读）: {e}");
-            }
-        }
-        // 缓存存储原始正文，返回前应用净化（避免规则变更后缓存陈旧）
-        let processed = apply_content_processing_chapter(
-            book_url,
-            &cached_chapter.content,
-            &cached_chapter.chapter_title,
-            chapter_index,
-        );
-        return Ok(processed);
-    }
-
-    // 2. 缓存未命中，从网络获取
-    let source = with_database(|db| {
-        let repo = BookSourceRepository::new(db.connection());
-        repo.find_by_url(source_url)
-    })?
-    .ok_or_else(|| LegadoError::Database(format!("书源不存在: {source_url}")))?;
-
-    // [T4 | RuleDataInterface] 内容链变量注入：book.variable ⊕ chapter.variable
-    //（章节同名键优先，对齐原版 getVariable chapter → book 级联）。合并结果随
-    // WebChapter 进入 get_content 的 AnalyzeUrl 变量表与解析上下文种子——
-    // 此前内容链仅携带章节变量（R3），token/host 类书级变量在正文链全丢。
-    let book_variable: Option<String> = with_database(|db| {
-        Ok(BookRepository::new(db.connection())
-            .find_by_url(book_url)?
-            .and_then(|b| b.variable))
-    })?;
-    let merged_variable =
-        super::web_book::merge_variables_json(book_variable.as_deref(), chapter_variable);
-
-    let web_chapter = WebChapter {
-        index: chapter_index,
-        title: chapter_title.to_string(),
-        url: chapter_url.to_string(),
-        is_vip: false,
-        is_volume: false,
-        variable: merged_variable,
-        word_count: None,
-    };
-
+pub fn refresh_toc(book_url: &str, source_url: &str) -> LegadoResult<ChapterListResponse> {
+    // P1-2 入口收口：本入口执行 preUpdate JS + ruleBookInfo/ruleToc（变量桥
+    // 读写）→ 先切 flow scope（键 = book_url，与 webbook_info/chapters 同键），
+    // 防上一流程的残留 scope 串读/误清
+    // 生产入口：构建真实 engine 后委托核心逻辑（fetcher 泛型化便于单测注入脚本化 fetcher）
     let engine = super::web_book::build_engine()?;
-    let content = runtime::block_on(async { engine.get_content(&source, &web_chapter).await })?;
-
-    // 3. 抓取成功后写入 DB 缓存（对齐原版 BookContent.analyzeContent
-    //    L207-209 `needSave → BookHelp.saveContent` 的「获取成功即写」时机）。
-    //    写失败仅告警不传播——缓存写入失败不得导致阅读获取失败。
-    // [B-12] 未知章节 URL（不在当前目录）不写缓存：上游按目录定位章节，
-    // 回退 (0, "") 写出的 index=0 缓存行会污染目录云图标与后续读取
-    if known_chapter {
-        save_chapter_cache(
-            book_url,
-            chapter_index,
-            chapter_title,
-            chapter_url,
-            &content,
-        );
-    }
-
-    // 缓存写入原始正文，返回净化后的正文（透传真实章节标题，使去重复标题生效）
-    Ok(apply_content_processing_chapter(
-        book_url,
-        &content,
-        chapter_title,
-        chapter_index,
-    ))
+    host_service().refresh_toc_with_fetcher(book_url, source_url, &engine)
 }
 
-/// 字数格式化（对齐原版 `StringUtils.wordCountFormat`：
-/// words≤0 → ""；0<words≤10000 → "{words}字"；
-/// words>10000 → `DecimalFormat("#.#").format(words * 1.0f / 10000f.toDouble()) + "万字"`）
-///
-/// 原版 `words * 1.0f` 为 f32 乘法（<2^24 整数精确），`/ 10000f.toDouble()`
-/// 为 f64 除法；`DecimalFormat("#.#")` 默认 HALF_EVEN，按 double 的**精确
-/// 二进制值**（dyadic rational）舍入——故此处不近似 round，而是取出
-/// f64 尾数/指数后做精确的有理数 HALF_EVEN 舍入（`#` 号语义：去尾零，
-/// 无小数位时不补 ".0"）。
-pub fn word_count_format(words: usize) -> String {
-    if words == 0 {
-        return String::new();
-    }
-    if words <= 10000 {
-        return format!("{words}字");
-    }
-    let v = f64::from(words as f32) / 10000.0;
-    let bits = v.to_bits();
-    let exp_field = ((bits >> 52) & 0x7FF) as i32;
-    let mantissa = ((bits & 0x000F_FFFF_FFFF_FFFF) | (1u64 << 52)) as u128;
-    // v = mantissa × 2^(exp_field-1075)；求 t = round_HALF_EVEN(v×10)
-    //（v×10 的精确值即 mantissa×10 × 2^e，e≥0 为纯移位无舍入）
-    let e = exp_field - 1075;
-    let n = mantissa * 10;
-    let t = if e >= 0 {
-        n << e.min(72) as u32 // e>72 对现实字数不可达
-    } else {
-        let d_exp = (-e) as u32;
-        let q = n >> d_exp;
-        let r = n & ((1u128 << d_exp) - 1);
-        let half = 1u128 << d_exp;
-        let twice_r = 2 * r;
-        if twice_r > half {
-            q + 1
-        } else if twice_r < half {
-            q
-        } else {
-            // tie（恰为 .5）→ HALF_EVEN 取偶数侧
-            if q.is_multiple_of(2) {
-                q
-            } else {
-                q + 1
-            }
-        }
-    };
-    let (int_part, frac_part) = (t / 10, t % 10);
-    if frac_part == 0 {
-        format!("{int_part}万字")
-    } else {
-        format!("{int_part}.{frac_part}万字")
-    }
-}
-
-/// [P2-28b] 正文缓存写入/命中自愈后回填 chapters.wordCount
-/// （对齐原版 `BookHelp.writeText` → `BookChapterDao.upWordCount`）
-///
-/// 注意：原版门控 `AppConfig.tocCountWords` 为 Kotlin 端设置；我方对应开关
-/// （`toc_load_word_count`）在 Flutter SharedPreferences，未同步至 Rust，
-/// 故 Rust 侧**无条件**回填，显示由目录页「加载字数」开关控制。
-///
-/// 返回受影响行数（0 = 该章不在目录中，无需回填，非错误）。
-fn backfill_chapter_word_count(
+#[cfg(test)]
+fn refresh_toc_with_fetcher<F: BookSourceFetcher>(
     book_url: &str,
-    chapter_url: &str,
-    content: &str,
-) -> LegadoResult<u64> {
-    // 原版字数 = Kotlin `String.length`（UTF-16 码元数）
-    let word_count = word_count_format(content.encode_utf16().count());
-    if word_count.is_empty() {
-        return Ok(0);
-    }
-    with_database(|db| {
-        BookChapterRepository::new(db.connection()).up_word_count(
-            book_url,
-            chapter_url,
-            &word_count,
-        )
-    })
+    source_url: &str,
+    engine: &WebBookEngine<F>,
+) -> LegadoResult<ChapterListResponse> {
+    host_service().refresh_toc_with_fetcher(book_url, source_url, engine)
 }
 
-/// 阅读获取（非缓存命中）成功后把正文写入 cached_chapters
-///
-/// 对齐 Android 原版「阅读即缓存」语义：正文成功解析后按
-/// (book_url, chapter_url) 复合键立即写入（含 chapter_index 等字段），
-/// 目录页云图标据此变为已缓存态。写失败仅告警不传播——原版
-/// saveContent 为异步 fire-and-forget，缓存写失败不得使阅读主流程失败。
-///
-/// [P2-28b] 写入成功后按原版 `writeText` 语义回填 `chapters.wordCount`
-/// （best-effort，失败仅告警）。返回缓存写入是否成功。
+#[cfg(test)]
 fn save_chapter_cache(
     book_url: &str,
     chapter_index: i32,
@@ -935,208 +150,18 @@ fn save_chapter_cache(
     chapter_url: &str,
     content: &str,
 ) -> bool {
-    // [B-1] 空内容不入缓存（对齐上游 BookHelp.kt:557-559）：杜绝空行入库后
-    // 被读侧按命中返回、章节永久空白的缺陷链
-    if content.trim().is_empty() {
-        return false;
-    }
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0);
-    let cached_chapter = CachedChapter {
-        id: 0,
-        book_url: book_url.to_string(),
-        chapter_index,
-        chapter_title: chapter_title.to_string(),
-        chapter_url: chapter_url.to_string(),
-        content: content.to_string(),
-        cached_at: now_ms,
-        size_bytes: content.len() as i64,
-    };
-    let result = with_database(|db| {
-        let repo = CacheBookRepository::new(db.connection());
-        repo.insert(&cached_chapter)?;
-        Ok(())
-    });
-    if let Err(e) = result {
-        log::warn!("阅读缓存写入失败（已忽略，不影响阅读）: {e}");
-        return false;
-    }
-    // 回填失败仅告警（对齐原版 writeText：回填属 best-effort，不得影响阅读）
-    if let Err(e) = backfill_chapter_word_count(book_url, chapter_url, content) {
-        log::warn!("章节字数回填失败（已忽略，不影响阅读）: {e}");
-    }
-    true
-}
-
-/// 一次调用获取章节正文（合并 get_chapter_content + fetch_chapter_content）
-///
-/// 与 [`get_chapter_content`] 的区别：在线书籍不再返回 JSON 元数据，
-/// 而是自动完成网络抓取并直接返回净化后的正文文本。
-///
-/// 流程：
-/// 1. 查询章节信息（DB）
-/// 2. 本地书籍 → legado-book 解析 + 净化
-/// 3. 在线书籍 → 以 `book.origin` 为书源 URL，内部调用 [`fetch_chapter_content`]
-///    （含 DB 缓存检查 → 网络抓取 → 缓存写入 → 净化）
-/// 4. 始终返回纯正文字符串，不返回 JSON 元数据
-pub fn get_chapter_content_full(book_url: &str, chapter_index: i32) -> LegadoResult<String> {
-    // 1. 查询章节信息
-    let chapter = with_database(|db| {
-        let repo = BookChapterRepository::new(db.connection());
-        repo.find_by_book_url_and_index(book_url, chapter_index)
-    })?
-    .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在")))?;
-
-    // 2. 本地书籍：解析文件 + 净化
-    if is_local_book(book_url) {
-        let content = legado_book::LocalBook::get_chapter_content(
+    crate::engine_holder::current().is_ok_and(|engine| {
+        super::chapter_content::save_chapter_cache(
+            engine.storage(),
             book_url,
-            &chapter_to_local_info(&chapter),
-        )?;
-        return Ok(apply_content_processing_chapter(
-            book_url,
-            &content,
-            &chapter.title,
-            chapter.index,
-        ));
-    }
-
-    // 3. 在线书籍：查找书籍获取书源 URL（book.origin）
-    let book = with_database(|db| {
-        let repo = BookRepository::new(db.connection());
-        repo.find_by_url(book_url)
-    })?
-    .ok_or_else(|| LegadoError::Database(format!("书籍 {book_url} 不存在")))?;
-
-    if book.origin.is_empty() {
-        return Err(LegadoError::Database(format!(
-            "书籍 {book_url} 未配置书源（origin 为空）"
-        )));
-    }
-    let source_url = book.origin;
-
-    // 直接调用 inner，复用已持有的章节信息，避免冗余的 get_chapter_index_and_title 查询
-    // （章节经 find_by_book_url_and_index 定位，必然已知 → known_chapter=true）
-    fetch_chapter_content_inner(
-        book_url,
-        &chapter.url,
-        &source_url,
-        chapter.index,
-        &chapter.title,
-        chapter.variable.as_deref(),
-        true,
-    )
+            chapter_index,
+            chapter_title,
+            chapter_url,
+            content,
+        )
+    })
 }
 
-/// 对原始正文应用「替换规则 + 内容净化」，返回净化后的正文（读取时净化）
-///
-/// 与 Android 原版 ContentProcessor 对等：DB 缓存继续存储原始正文，
-/// 在正文返回给上层前应用净化，从而避免「规则变更后缓存陈旧」的问题。
-///
-/// 处理范围（与 Android 默认行为一致）：
-/// - 去除重复标题（正文开头与章节标题相同的文本）
-/// - 应用启用的替换规则（按 scope 过滤后）
-///
-/// 不在此处做段落重排/简繁转换/缩进/空行修剪，以免改变原始正文排版。
-pub fn apply_content_processing(book_url: &str, raw_content: &str, chapter_title: &str) -> String {
-    apply_content_processing_inner(book_url, raw_content, chapter_title, true, None)
-}
-
-/// 对原始正文应用净化（带章级「删除重复标题」开关，Task #51）
-///
-/// 阅读器正文读取/导出链路调用：按章读取开关（全局默认去除，
-/// 章级 opt-out 时保留原始标题），其余行为与 [`apply_content_processing`] 一致。
-pub fn apply_content_processing_chapter(
-    book_url: &str,
-    raw_content: &str,
-    chapter_title: &str,
-    chapter_index: i32,
-) -> String {
-    apply_content_processing_inner(
-        book_url,
-        raw_content,
-        chapter_title,
-        true,
-        Some(chapter_index),
-    )
-}
-
-/// 对原始正文应用内容净化但【不应用替换规则】（内容搜索语义）
-///
-/// 与 Android 书内搜索默认行为对齐：仅做去重复标题等，不应用替换规则，
-/// 避免被替换/删除的词搜不到。
-///
-/// `chapter_index` 由调用方显式传入（Task #55 F8）：Some(idx) 时按章
-/// 读取「删除重复标题」开关，None 时用全局默认（去除）。当前生产
-/// 内容搜索链路走 [`get_chapter_content_raw`]（内部不经本函数），
-/// 本函数仅测试调用，签名变更不影响 frb 公开接口。
-pub fn apply_content_processing_raw(
-    book_url: &str,
-    raw_content: &str,
-    chapter_title: &str,
-    chapter_index: Option<i32>,
-) -> String {
-    apply_content_processing_inner(book_url, raw_content, chapter_title, false, chapter_index)
-}
-
-/// apply_content_processing 的内部实现：`apply_replace_rules` 控制是否应用替换规则；
-/// `chapter_index` 非 None 时按章读取「删除重复标题」开关（缺省全局默认去除）
-fn apply_content_processing_inner(
-    book_url: &str,
-    raw_content: &str,
-    chapter_title: &str,
-    apply_replace_rules: bool,
-    chapter_index: Option<i32>,
-) -> String {
-    // 1. 加载启用的替换规则 + 查询书籍名称（用于 scope 过滤）
-    let loaded = with_database(|db| {
-        let rule_repo = ReplaceRuleRepository::new(db.connection());
-        let rules = rule_repo.get_enabled_rules()?;
-        let book_repo = BookRepository::new(db.connection());
-        let book_name = book_repo
-            .find_by_url(book_url)?
-            .map(|b| b.name)
-            .unwrap_or_default();
-        Ok((rules, book_name))
-    });
-
-    let (rules, book_name) = match loaded {
-        Ok(v) => v,
-        // 数据库不可用或查询失败时，退化为不净化（与无规则时行为一致）
-        Err(_) => return raw_content.to_string(),
-    };
-
-    // 繁简转换仅作用于阅读器/导出正文路径（apply_replace_rules=true）；
-    // 内容搜索 raw 路径保持原文，避免搜不到被转换的词
-    // （对齐 Kotlin BookHelp.getContent 的 replaceEnabled=false 路径）。
-    let chinese_convert = if apply_replace_rules {
-        current_chinese_convert_direction()
-    } else {
-        None
-    };
-
-    // 章级「删除重复标题」开关（Task #51）：无章节上下文时维持全局默认 true；
-    // 带 chapter_index 的路径（阅读器/导出，以及 apply_content_processing_raw
-    // 显式传入时）均尊重章级 opt-out，对齐原版 removeSameTitleCache
-    // 不受 useReplace 影响的行为
-    let remove_duplicate_title = chapter_index
-        .map(|idx| is_same_title_removed(book_url, idx))
-        .unwrap_or(true);
-
-    process_content_with_rules_inner(
-        raw_content,
-        chapter_title,
-        &rules,
-        &book_name,
-        apply_replace_rules,
-        chinese_convert,
-        remove_duplicate_title,
-    )
-}
-
-/// 净化核心逻辑（应用替换规则）：保留 4 参签名供既有测试调用
 #[cfg(test)]
 fn process_content_with_rules(
     raw_content: &str,
@@ -1155,82 +180,11 @@ fn process_content_with_rules(
     )
 }
 
-/// 净化核心逻辑（纯函数，便于单元测试）：
-/// - `apply_replace_rules` 控制是否应用替换规则
-/// - `chinese_convert` 控制简繁转换方向（None / "t2s" / "s2t"，由调用方从持久化配置读取）
-/// - `remove_duplicate_title` 控制是否去除重复标题（章级开关由调用方预先读取）
-fn process_content_with_rules_inner(
-    raw_content: &str,
-    chapter_title: &str,
-    rules: &[ReplaceRule],
-    book_name: &str,
-    apply_replace_rules: bool,
-    chinese_convert: Option<String>,
-    remove_duplicate_title: bool,
-) -> String {
-    // 2. 按 scope 过滤（与 Android 语义一致，并修复空 book_name 守卫与精确匹配）：
-    //    - None → 全局生效
-    //    - Some(scope)：scope 为空或 "global" → 全局；
-    //      否则仅当 book_name 非空，且 scope 按 [,;，；] 拆分后存在 trim()==book_name 的精确项才生效。
-    let entries: Vec<ReplaceRuleEntry> = rules
-        .iter()
-        .filter(|rule| match &rule.scope {
-            None => true,
-            Some(scope) => {
-                if scope.is_empty() || scope == "global" {
-                    true
-                } else if book_name.is_empty() {
-                    // book_name 为空时，带具体 scope 的规则不生效（避免 contains("") 恒真）
-                    false
-                } else {
-                    scope
-                        .split([',', ';', '，', '；'])
-                        .any(|item| item.trim() == book_name)
-                }
-            }
-        })
-        .map(ReplaceRuleEntry::from_replace_rule)
-        .collect();
-
-    // 3. 构造处理器：启用「去重复标题 + 替换规则 + 简繁转换」，与 Android 净化行为对等
-    //    apply_replace_rules 由调用方控制（阅读器/导出=true，内容搜索=false）
-    //    chinese_convert 来自持久化配置 chineseConverterType（0/1/2 → None/t2s/s2t）
-    //    remove_duplicate_title 来自章级开关（Task #51，全局默认 true）
-    let config = ProcessorConfig {
-        remove_duplicate_title,
-        re_segment: false,
-        chinese_convert,
-        apply_replace_rules,
-        indent_spaces: 0,
-        trim_empty_lines: false,
-    };
-    let processor = ContentProcessor::new(config);
-    processor.process(raw_content, chapter_title, &entries)
-}
-
-/// 根据 chapter_url 查找章节序号、标题与变量（找不到时返回 (0, 空标题, None, false)）
-///
-/// 第 4 项 `known`（[B-12]）：该 URL 是否命中当前目录。未知 URL 回退
-/// (0, "", None) 仅用于读取/展示，调用方不得据此写入 index=0 的缓存行。
-fn get_chapter_index_title_variable(
-    book_url: &str,
-    chapter_url: &str,
-) -> LegadoResult<(i32, String, Option<String>, bool)> {
-    let chapters = with_database(|db| {
-        let repo = BookChapterRepository::new(db.connection());
-        repo.find_by_book_url(book_url)
-    })?;
-    Ok(match chapters.iter().find(|ch| ch.url == chapter_url) {
-        Some(ch) => (ch.index, ch.title.clone(), ch.variable.clone(), true),
-        None => (0, String::new(), None, false),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use legado_core::models::rule::ContentRule;
     use legado_core::models::BookSource;
+    use legado_core::models::rule::ContentRule;
 
     /// 初始化测试数据库并持锁（返回串行锁守卫，测试必须绑定到变量）
     fn setup_db_and_source(source_url: &str) -> std::sync::MutexGuard<'static, ()> {
@@ -1346,49 +300,37 @@ mod tests {
 
     // ─── [iOS 视角F C1] 本地书「相对可迁移标识」读写回环 ─────────────────────
 
-    /// [iOS 视角F C1] 相对标识回环：写入以「当前容器 Documents 基目录」解析。
-    ///
-    /// 构造临时基目录 `base`（模拟 Documents），其下 `books/sample.txt` 为本地书；
-    /// 通过 `record_db_path(base/legado.db)` 让 resolver 以 `base` 为基。导入时传入
-    /// 相对标识 `books/sample.txt`，断言 `book_url` 原样存标识（非绝对路径），且
-    /// `get_chapters`/`get_chapter_content` 能经 resolver 还原真实路径读到内容。
-    /// 收尾删除该书与章节行，避免污染共享内存库（不削弱既有测试）。
+    /// 相对标识使用实际数据库所在目录还原路径，不另改全局路径。
     #[test]
     fn local_book_relative_identifier_roundtrip() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
-        static CTR: AtomicUsize = AtomicUsize::new(0);
-        let n = CTR.fetch_add(1, Ordering::SeqCst);
-        let base =
-            std::env::temp_dir().join(format!("legado_c1_base_{}_{}", std::process::id(), n));
-        let books = base.join("books");
-        std::fs::create_dir_all(&books).unwrap();
-        let file = books.join("sample.txt");
+        let _db_guard = crate::db_state::ensure_test_db();
+        let db_path = crate::db_state::current_db_path().unwrap();
+        let base = std::path::Path::new(&db_path).parent().unwrap();
+        let relative = format!("books/relative_roundtrip_{}/sample.txt", std::process::id());
+        let file = base.join(&relative);
+        let books = file.parent().unwrap();
+        std::fs::create_dir_all(books).unwrap();
         std::fs::write(&file, "第一章\n正文一\n\n第二章\n正文二\n").unwrap();
 
-        let _db_guard = crate::db_state::ensure_test_db();
-        // resolver 以 DB 路径的父目录为 Documents 基：记录 base/legado.db
-        crate::db_state::record_db_path(base.join("legado.db").to_str().unwrap());
-
-        // 写侧：导入存「相对可迁移标识」，而非绝对路径
-        let res = crate::api::book_import::import_local_book("books/sample.txt").unwrap();
+        let res = crate::api::book_import::import_local_book(&relative).unwrap();
         assert!(res.success, "导入失败: {:?}", res.error);
-        let url = res.book.as_ref().unwrap().book_url.clone();
-        assert_eq!(url, "books/sample.txt", "book_url 应存相对可迁移标识");
-
-        // 读侧：章节列表 + 正文均经 resolver 还原真实路径
-        let chapters = get_chapters("books/sample.txt").unwrap();
+        assert_eq!(res.book.as_ref().unwrap().book_url, relative);
+        let chapters = get_chapters(&relative).unwrap();
         assert!(chapters.total >= 1, "相对标识应能解析出章节");
-        let content = get_chapter_content("books/sample.txt", 0).unwrap();
+        let content = get_chapter_content(&relative, 0).unwrap();
         assert!(!content.trim().is_empty(), "应能读到正文");
+        assert_eq!(
+            crate::db_state::current_db_path().as_deref(),
+            Some(db_path.as_str())
+        );
 
-        // 收尾清理：删除该书的章节行与书行，恢复共享内存库状态
         with_database(|db| {
-            BookChapterRepository::new(db.connection()).delete_by_book_url("books/sample.txt")?;
-            BookRepository::new(db.connection()).delete_by_url("books/sample.txt")?;
+            BookChapterRepository::new(db.connection()).delete_by_book_url(&relative)?;
+            BookRepository::new(db.connection()).delete_by_url(&relative)?;
             Ok(())
         })
         .unwrap();
-        let _ = std::fs::remove_dir_all(&base);
+        let _ = std::fs::remove_dir_all(books);
     }
 
     // ─── refresh_toc 测试 ───────────────────────────────────────────────────
@@ -1417,7 +359,6 @@ mod tests {
         let _db_guard = setup_db_and_source("https://other.example.com");
         let err = refresh_toc("https://x.com/book", "https://nonexistent.example.com").unwrap_err();
         assert!(err.to_string().contains("书源不存在"));
-        legado_js::host_api::variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     /// refresh_toc 占位落库须打 NOT_SHELF，书架 list 不可见（Task#125）
@@ -1508,21 +449,19 @@ mod tests {
 
             // [P2-1 复审] 模拟刷新窗口内的「并发进度写入」：只在首次抓取（坏 tocUrl）播种，
             // 避开重试抓取，确保落在「快照读取之后、tocUrl 回写之前」的丢更新窗口内。
-            if is_first_fetch {
-                if let Some(burl) = &self.seed_progress_book_url {
-                    let _ = with_database(|db| {
-                        use rusqlite::params;
-                        db.connection()
-                            .execute(
-                                "UPDATE books SET durChapterIndex = 7 WHERE bookUrl = ?1",
-                                params![burl],
-                            )
-                            .map_err(|e| {
-                                LegadoError::Database(format!("播种 durChapterIndex 失败: {e}"))
-                            })?;
-                        Ok(())
-                    });
-                }
+            if is_first_fetch && let Some(burl) = &self.seed_progress_book_url {
+                let _ = with_database(|db| {
+                    use rusqlite::params;
+                    db.connection()
+                        .execute(
+                            "UPDATE books SET durChapterIndex = 7 WHERE bookUrl = ?1",
+                            params![burl],
+                        )
+                        .map_err(|e| {
+                            LegadoError::Database(format!("播种 durChapterIndex 失败: {e}"))
+                        })?;
+                    Ok(())
+                });
             }
 
             Ok(self

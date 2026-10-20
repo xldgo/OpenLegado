@@ -2,8 +2,8 @@
 //! 完整 CRUD 流程 + 迁移测试
 
 use legado_core::models::{Book, BookChapter};
-use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::Repository;
+use legado_db::repository::book_repository::BookRepository;
 use legado_db::{BookChapterRepository, Database, MigrationRegistry, SCHEMA_VERSION};
 
 // ---------------------------------------------------------------------------
@@ -62,10 +62,12 @@ fn test_update_book_preserves_chapters() {
         "update() 不得级联删除章节目录"
     );
     // 第 2 章仍可按 index 命中（对应“章节不存在”缺陷）
-    assert!(chapter_repo
-        .find_by_book_url_and_index(book_url, 1)
-        .unwrap()
-        .is_some());
+    assert!(
+        chapter_repo
+            .find_by_book_url_and_index(book_url, 1)
+            .unwrap()
+            .is_some()
+    );
     // 进度已写回
     let after = repo.find_by_url(book_url).unwrap().unwrap();
     assert_eq!(after.dur_chapter_index, 1);
@@ -151,10 +153,11 @@ fn test_full_book_lifecycle() {
     // 10. 删除第一本书
     repo.delete("https://example.com/book1").unwrap();
     assert_eq!(repo.count().unwrap(), 1);
-    assert!(repo
-        .find_by_url("https://example.com/book1")
-        .unwrap()
-        .is_none());
+    assert!(
+        repo.find_by_url("https://example.com/book1")
+            .unwrap()
+            .is_none()
+    );
 
     // 11. 删除第二本书
     repo.delete_by_url("https://example.com/book2").unwrap();
@@ -270,15 +273,14 @@ fn create_v90_database() -> Database {
 fn column_exists(conn: &rusqlite::Connection, table: &str, column: &str) -> bool {
     let sql = format!("PRAGMA table_info({table})");
     let mut stmt = conn.prepare(&sql).unwrap();
-    let result = stmt
-        .query_map([], |row| {
-            let name: String = row.get(1)?;
-            Ok(name == column)
-        })
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .any(|b| b);
-    result
+
+    stmt.query_map([], |row| {
+        let name: String = row.get(1)?;
+        Ok(name == column)
+    })
+    .unwrap()
+    .filter_map(|r| r.ok())
+    .any(|b| b)
 }
 
 /// 辅助函数：检查表是否存在

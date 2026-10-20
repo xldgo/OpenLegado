@@ -22,11 +22,13 @@ pub mod cookie_store;
 pub mod cover;
 pub mod custom_hosts;
 pub mod direct_link_upload;
+mod http_error;
 pub mod middleware;
 pub mod proxy;
 pub mod rate_limit;
 pub mod remote_book;
 pub mod request;
+pub mod request_dns;
 pub mod response;
 pub mod retry;
 pub mod rss;
@@ -45,25 +47,29 @@ pub mod webdav;
 mod socks5_e2e;
 
 // 常用类型重导出
-pub use client::{cookie_jar_marker_present, LegadoClient, LegadoClientConfig, COOKIE_JAR_HEADER};
+pub use client::{COOKIE_JAR_HEADER, LegadoClient, LegadoClientConfig, cookie_jar_marker_present};
 pub use cookie_store::{CookiePersistence, CookieStore};
 pub use cover::CoverCache;
 pub use custom_hosts::{
-    apply_custom_hosts, clear_custom_hosts, lookup_ips, resolver, CustomHostsResolver,
+    CustomHostsResolver, apply_custom_hosts, clear_custom_hosts, lookup_ips, resolver,
 };
 pub use middleware::{Middleware, MiddlewareChain};
-pub use proxy::{parse_proxy_config, ProxyConfig, ProxyCredentials, ProxyPool, ProxyType};
+pub use proxy::{ProxyConfig, ProxyCredentials, ProxyPool, ProxyType, parse_proxy_config};
 pub use rate_limit::{DomainRateLimiter, RateLimiter};
 pub use request::{LegadoRequest, Method};
 pub use response::{LegadoRawResponse, LegadoResponse, LegadoStreamResponse};
 pub use retry::{RetryConfig, RetryExecutor};
-pub use rss::{fetch_feed, parse_feed, RssArticle, RssFeed};
+pub use rss::{RssArticle, RssFeed, fetch_feed, parse_feed};
 pub use rule_update_client::{
-    fetch_subscription, merge_subscription, should_update, MergeResult, RuleSubscription,
-    UpdateResult,
+    MergeResult, RuleSubscription, UpdateResult, fetch_subscription, merge_subscription,
+    should_update,
 };
 pub use source_checker::{CaptchaInfo, CheckResult, CheckerConfig, RedirectInfo, SourceChecker};
 pub use ssl_config::SslConfig;
-pub use url_template::{parse_url_template, ParsedUrl, UrlOption};
+pub use url_template::{ParsedUrl, UrlOption, parse_url_template};
 pub use user_agent::{UserAgentMiddleware, UserAgentRotator};
 pub use verification::{VerificationFlightRegistry, VerificationResult};
+
+// 请求级 Cookie 写入门控与共享 reqwest 适配。
+pub mod cookie_writes;
+mod response_cookies;

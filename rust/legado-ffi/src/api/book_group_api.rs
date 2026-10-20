@@ -2,26 +2,12 @@
 //!
 //! 提供书籍分组的增删改查操作，通过 BookGroupRepository 访问数据库。
 
-use serde::Serialize;
-
 use legado_core::LegadoResult;
 use legado_db::{BookGroup, BookGroupRepository};
 
 use crate::db_state::with_database;
 
-/// 书籍分组 DTO
-///
-/// 序列化契约：camelCase 字段名（groupId/groupName/…），
-/// 与 Dart 侧 `BookGroup.fromJson` 的 `@JsonKey` 一一对应。
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BookGroupDto {
-    pub group_id: i64,
-    pub group_name: String,
-    pub cover: Option<String>,
-    pub order: i32,
-    pub show: bool,
-}
+pub use crate::transfer_dto::BookGroupDto;
 
 /// 获取所有书籍分组（按 order 升序）
 pub fn get_book_groups() -> LegadoResult<Vec<BookGroupDto>> {
@@ -36,13 +22,19 @@ pub fn get_book_groups() -> LegadoResult<Vec<BookGroupDto>> {
                 cover: g.cover,
                 order: g.order,
                 show: g.show,
+                is_private: g.is_private,
             })
             .collect())
     })
 }
 
 /// 添加书籍分组，返回新分组 ID
-pub fn add_book_group(group_name: &str, cover: &str, order: i32) -> LegadoResult<i64> {
+pub fn add_book_group(
+    group_name: &str,
+    cover: &str,
+    order: i32,
+    is_private: Option<bool>,
+) -> LegadoResult<i64> {
     with_database(|db| {
         let repo = BookGroupRepository::new(db.connection());
         // 使用当前时间戳作为 group_id
@@ -63,6 +55,7 @@ pub fn add_book_group(group_name: &str, cover: &str, order: i32) -> LegadoResult
             show: true,
             book_sort: -1,
             only_update_read: false,
+            is_private: is_private.unwrap_or(false),
         };
         repo.insert(&group)?;
         Ok(id)
@@ -70,7 +63,13 @@ pub fn add_book_group(group_name: &str, cover: &str, order: i32) -> LegadoResult
 }
 
 /// 更新书籍分组
-pub fn update_book_group(id: i64, group_name: &str, cover: &str, order: i32) -> LegadoResult<bool> {
+pub fn update_book_group(
+    id: i64,
+    group_name: &str,
+    cover: &str,
+    order: i32,
+    is_private: Option<bool>,
+) -> LegadoResult<bool> {
     with_database(|db| {
         let repo = BookGroupRepository::new(db.connection());
         let existing = repo.find_by_id(id)?;
@@ -83,6 +82,9 @@ pub fn update_book_group(id: i64, group_name: &str, cover: &str, order: i32) -> 
                     Some(cover.to_string())
                 };
                 g.order = order;
+                if let Some(value) = is_private {
+                    g.is_private = value;
+                }
                 repo.update(&g)
             }
             None => Ok(false),
@@ -119,6 +121,7 @@ mod tests {
             cover: None,
             order: 1,
             show: true,
+            is_private: false,
         };
         let json = serde_json::to_string(&dto).unwrap();
         assert!(json.contains("\"groupId\":42"));
@@ -131,7 +134,7 @@ mod tests {
         let _db_guard = crate::db_state::ensure_test_db();
 
         // 添加分组
-        let id = add_book_group("科幻", "", 0).unwrap();
+        let id = add_book_group("科幻", "", 0, None).unwrap();
         assert!(id > 0);
 
         // 获取列表
@@ -139,7 +142,7 @@ mod tests {
         assert!(groups.iter().any(|g| g.group_name == "科幻"));
 
         // 更新分组
-        assert!(update_book_group(id, "玄幻", "cover.jpg", 1).unwrap());
+        assert!(update_book_group(id, "玄幻", "cover.jpg", 1, None).unwrap());
         let groups = get_book_groups().unwrap();
         let g = groups.iter().find(|g| g.group_id == id).unwrap();
         assert_eq!(g.group_name, "玄幻");
@@ -159,7 +162,7 @@ mod tests {
     fn test_set_show_readback() {
         let _db_guard = crate::db_state::ensure_test_db();
 
-        let id = add_book_group("显示状态测试", "", 0).unwrap();
+        let id = add_book_group("显示状态测试", "", 0, None).unwrap();
         assert!(id > 0);
 
         // 新建分组默认显示

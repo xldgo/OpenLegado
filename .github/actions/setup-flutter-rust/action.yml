@@ -1,0 +1,61 @@
+name: Setup Flutter and Rust
+description: Setup Flutter SDK and Rust toolchain with dependency and build caching.
+
+inputs:
+  flutter-version:
+    description: Flutter version to install (leave empty or 'none' to skip Flutter setup)
+    required: false
+    default: '3.47.7'
+  flutter-channel:
+    description: Flutter channel to install
+    required: false
+    default: 'stable'
+  flutter-cache:
+    description: Enable Flutter pub cache
+    required: false
+    default: 'true'
+  rust-toolchain:
+    description: Rust toolchain version (leave empty or 'none' to skip Rust setup)
+    required: false
+    default: 'stable'
+  rust-targets:
+    description: Comma-separated list of Rust target triples to install
+    required: false
+    default: ''
+  rust-components:
+    description: Comma-separated list of Rust components to install
+    required: false
+    default: ''
+  rust-cache:
+    description: Enable Rust build caching via Swatinem/rust-cache
+    required: false
+    default: 'true'
+  rust-workspaces:
+    description: Workspace directories for rust-cache
+    required: false
+    default: 'rust'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Flutter SDK
+      if: inputs.flutter-version != '' && inputs.flutter-version != 'none'
+      uses: subosito/flutter-action@v2
+      with:
+        channel: ${{ inputs.flutter-channel }}
+        flutter-version: ${{ inputs.flutter-version }}
+        cache: ${{ inputs.flutter-cache == 'true' }}
+
+    - name: Setup Rust toolchain
+      if: inputs.rust-toolchain != '' && inputs.rust-toolchain != 'none'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.rust-toolchain }}
+        targets: ${{ inputs.rust-targets }}
+        components: ${{ inputs.rust-components }}
+
+    - name: Cache Rust workspace
+      if: inputs.rust-toolchain != '' && inputs.rust-toolchain != 'none' && inputs.rust-cache == 'true'
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ inputs.rust-workspaces }}

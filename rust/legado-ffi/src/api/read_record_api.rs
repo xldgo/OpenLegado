@@ -2,23 +2,12 @@
 //!
 //! 提供阅读记录的增删查操作，通过 ReadRecordRepository 访问数据库。
 
-use serde::Serialize;
-
 use legado_core::LegadoResult;
 use legado_db::ReadRecordRepository;
 
 use crate::db_state::with_database;
 
-/// 阅读记录 DTO（camelCase 对齐 Flutter `ReadRecord.fromJson`）
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReadRecordDto {
-    pub book_name: String,
-    pub read_time: i64,
-    pub last_read: i64,
-    #[serde(default)]
-    pub device_id: String,
-}
+pub use crate::transfer_dto::{ReadRecordDetailDto, ReadRecordDto};
 
 /// 获取所有阅读记录（按 readTime 降序）
 pub fn get_read_records() -> LegadoResult<Vec<ReadRecordDto>> {
@@ -29,6 +18,7 @@ pub fn get_read_records() -> LegadoResult<Vec<ReadRecordDto>> {
             .into_iter()
             .map(|r| ReadRecordDto {
                 book_name: r.book_name,
+                author: r.author,
                 read_time: r.read_time,
                 last_read: r.last_read,
                 device_id: r.device_id,
@@ -48,42 +38,95 @@ pub fn get_read_time(book_name: &str) -> LegadoResult<i64> {
     })
 }
 
-/// 添加/更新阅读记录，返回阅读时长；写入 lastRead=当前毫秒（对齐原版 upReadTime）
-///
-/// [热力图每日时长契约] 同步累加当日阅读时长到 readRecordDaily（热力图"每日时长"数据源）：
-/// 按下限整秒差值入账，仅 > 0 时累加（本地时区日期，YYYY-MM-DD）。
-///
-/// readTime 单位为毫秒，而 readRecordDaily 契约为秒（readRecordDailyList 返回
-/// `[{date, seconds}]`）。取「各自下限整秒再作差」而非「差值再除 1000」：两者对单次
-/// 累加等价，但前者不会因频繁的小增量同步被反复截断丢秒，累计值不随调用次数漂移。
-pub fn upsert_read_record(book_name: &str, read_time: i64) -> LegadoResult<i64> {
+/// 按年查询每日单书阅读明细列表（毫秒）
+pub fn get_read_record_details(year: i32) -> LegadoResult<Vec<ReadRecordDetailDto>> {
     with_database(|db| {
         let repo = ReadRecordRepository::new(db.connection());
-        let existing = repo.get_record(book_name)?;
-        let old_read_time = existing.as_ref().map(|r| r.read_time).unwrap_or(0);
-        let seconds_delta = read_time / 1000 - old_read_time / 1000;
-        let last_read = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0);
-        let (device_id, author) = match existing {
-            Some(r) => (r.device_id, r.author),
-            None => (String::new(), String::new()),
-        };
-        repo.upsert_full(&device_id, book_name, &author, read_time, last_read)?;
-        if seconds_delta > 0 {
-            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-            repo.add_daily_seconds(&today, seconds_delta)?;
-        }
-        Ok(read_time)
+        let details = repo.list_details_year(year)?;
+        Ok(details.into_iter().map(ReadRecordDetailDto::from).collect())
     })
+}
+
+/// 查询全量历史每日单书阅读明细列表（毫秒）
+pub fn get_all_read_record_details() -> LegadoResult<Vec<ReadRecordDetailDto>> {
+    with_database(|db| {
+        let repo = ReadRecordRepository::new(db.connection());
+        let details = repo.list_all_details()?;
+        Ok(details.into_iter().map(ReadRecordDetailDto::from).collect())
+    })
+}
+
+/// 既有累计写入入口；新阅读器另外透传作者及有效阅读时段。
+///
+/// 同一事务写入累计记录、每日单书毫秒与日总秒数。日总数由当日所有明细毫秒
+/// 统一取整，不随保存频率丢失小于一秒的增量；重复或更小的累计快照不入账。
+pub fn upsert_read_record(book_name: &str, read_time: i64) -> LegadoResult<i64> {
+    record_reading_time(book_name, "", read_time, None, None)
+}
+
+/// 记录阅读时间（支持作者与跨午夜时间段原子写入明细和日聚合）
+pub fn record_reading_time(
+    book_name: &str,
+    author: &str,
+    read_time_ms: i64,
+    start_time_ms: Option<i64>,
+    end_time_ms: Option<i64>,
+) -> LegadoResult<i64> {
+    with_database(|db| {
+        let repo = ReadRecordRepository::new(db.connection());
+        repo.record_reading_time(book_name, author, read_time_ms, start_time_ms, end_time_ms)
+    })
+}
+
+/// 写入真实阅读会话及累计增量，副本URL与章节序号仅作为会话上下文。
+pub fn record_reading_time_with_session(
+    book_name: &str,
+    author: &str,
+    read_time_ms: i64,
+    start_time_ms: Option<i64>,
+    end_time_ms: Option<i64>,
+    book_url: &str,
+    chapter_index: i32,
+) -> LegadoResult<i64> {
+    with_database(|db| {
+        ReadRecordRepository::new(db.connection()).record_reading_time_with_session(
+            legado_db::repository::read_record_repository::ReadingSessionInput {
+                book_name,
+                author,
+                read_time_ms,
+                start_time_ms,
+                end_time_ms,
+                book_url,
+                chapter_index,
+            },
+        )
+    })
+}
+
+pub fn get_read_record_sessions() -> LegadoResult<Vec<legado_db::ReadRecordSession>> {
+    with_database(|db| ReadRecordRepository::new(db.connection()).list_read_sessions())
+}
+
+pub fn delete_read_record_detail(name: &str, author: &str, date: &str) -> LegadoResult<bool> {
+    with_database(|db| {
+        ReadRecordRepository::new(db.connection()).delete_read_detail(name, author, date)
+    })
+}
+
+pub fn delete_read_record_sessions(ids: &[i64]) -> LegadoResult<bool> {
+    with_database(|db| ReadRecordRepository::new(db.connection()).delete_read_sessions(ids))
 }
 
 /// 删除指定书籍的阅读记录
 pub fn delete_read_record(book_name: &str) -> LegadoResult<bool> {
+    with_database(|db| ReadRecordRepository::new(db.connection()).delete_by_book_name(book_name))
+}
+
+/// 按书名和作者级联删除阅读记录与明细
+pub fn delete_read_record_by_book_and_author(book_name: &str, author: &str) -> LegadoResult<bool> {
     with_database(|db| {
         let repo = ReadRecordRepository::new(db.connection());
-        repo.delete_by_book_name(book_name)
+        repo.delete_by_book_and_author(book_name, author)
     })
 }
 
@@ -166,5 +209,41 @@ mod tests {
         .find(|(d, _)| d == today)
         .map(|(_, s)| *s)
         .unwrap_or(0)
+    }
+
+    /// 验证 get_read_record_details 与 get_all_read_record_details
+    #[test]
+    fn test_read_record_details_ffi_api() {
+        let _db_guard = crate::db_state::ensure_test_db();
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let year: i32 = today[..4].parse().unwrap();
+
+        // 记录一本测试书
+        record_reading_time("FFI测试书", "作者测试", 6000, None, None).unwrap();
+
+        let details_year = get_read_record_details(year).unwrap();
+        assert!(
+            details_year
+                .iter()
+                .any(|d| d.book_name == "FFI测试书" && d.author == "作者测试")
+        );
+
+        let all_details = get_all_read_record_details().unwrap();
+        assert!(
+            all_details
+                .iter()
+                .any(|d| d.book_name == "FFI测试书" && d.author == "作者测试")
+        );
+
+        // 带作者级联删除
+        let deleted = delete_read_record_by_book_and_author("FFI测试书", "作者测试").unwrap();
+        assert!(deleted);
+
+        let all_details_after = get_all_read_record_details().unwrap();
+        assert!(
+            !all_details_after
+                .iter()
+                .any(|d| d.book_name == "FFI测试书" && d.author == "作者测试")
+        );
     }
 }

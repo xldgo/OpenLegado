@@ -1,11 +1,12 @@
 [package]
 name = "legado-server"
 version = "0.2.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 legado-core = { path = "../legado-core" }
 legado-db = { path = "../legado-db" }
+legado-engine = { path = "../legado-engine" }
 legado-net = { path = "../legado-net" }
 legado-book = { path = "../legado-book" }
 # MCP eval_js 工具依赖的书源 JS 引擎（quickjs 为可选透传 feature）
@@ -14,13 +15,13 @@ legado-js = { path = "../legado-js" }
 legado-fetcher = { path = "../legado-fetcher" }
 
 axum = { version = "0.8", features = ["ws", "json"] }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros", "net", "rt-multi-thread", "sync", "time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2", "charset"] }
 base64 = { workspace = true }
 urlencoding = "2.1"
-tower-http = { version = "0.6", features = ["cors", "fs"] }
+tower-http = { version = "0.7", features = ["cors", "fs"] }
 # 静态资产开发机磁盘兜底（web_assets::serve_static 内以 ServiceExt::oneshot
 # 调用 ServeDir）；tower 亦是 axum 的传递依赖与既有 dev-dependency，无新增外部 crate
 tower = { version = "0.5", features = ["util"] }
@@ -31,8 +32,9 @@ tracing-subscriber = "0.3"
 default = []
 # 透传 legado-js 的 quickjs feature：启用后 MCP eval_js 工具可真实执行 JS 脚本；
 # 同步透传 legado-fetcher/quickjs（书源 JS 分派/loginCheckJs 真执行）
-quickjs = ["legado-js/quickjs", "legado-fetcher/quickjs"]
+quickjs = ["legado-js/quickjs", "legado-fetcher/quickjs", "legado-engine/quickjs"]
 
 [dev-dependencies]
-tokio-tungstenite = "0.26"
+tokio = { workspace = true, features = ["io-util"] }
+tokio-tungstenite = "0.30"
 futures-util = "0.3"

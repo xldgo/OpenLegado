@@ -18,10 +18,10 @@
 
 #![cfg(feature = "quickjs")]
 
+use legado_js::QuickJsEngine;
 use legado_js::engine::{JsEngine, JsValue};
 use legado_js::host_api::current_source;
 use legado_js::sandbox::SandboxConfig;
-use legado_js::QuickJsEngine;
 
 /// 与生产 `QuickJsExecutor` fresh 路径同源的引擎配置
 fn production_engine() -> QuickJsEngine {

@@ -187,16 +187,16 @@ impl CoverCache {
             let path = entry.path();
             if path.is_dir() {
                 for sub_entry in std::fs::read_dir(&path).into_iter().flatten().flatten() {
-                    if let Ok(meta) = sub_entry.metadata() {
-                        if meta.is_file() {
-                            total += meta.len();
-                        }
+                    if let Ok(meta) = sub_entry.metadata()
+                        && meta.is_file()
+                    {
+                        total += meta.len();
                     }
                 }
-            } else if path.is_file() {
-                if let Ok(meta) = std::fs::metadata(&path) {
-                    total += meta.len();
-                }
+            } else if path.is_file()
+                && let Ok(meta) = std::fs::metadata(&path)
+            {
+                total += meta.len();
             }
         }
         total
@@ -266,9 +266,11 @@ mod tests {
     #[test]
     fn test_get_cached_miss() {
         let (cache, _dir) = make_temp_cache("cache_miss");
-        assert!(cache
-            .get_cached("https://example.com/missing.jpg")
-            .is_none());
+        assert!(
+            cache
+                .get_cached("https://example.com/missing.jpg")
+                .is_none()
+        );
         assert!(!cache.is_cached("https://example.com/missing.jpg"));
     }
 

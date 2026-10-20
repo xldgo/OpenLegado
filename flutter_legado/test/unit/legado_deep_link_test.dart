@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/providers/association/association_state.dart';
+import 'package:flutter_legado/src/features/imports/application/association_state.dart';
 import 'package:flutter_legado/src/utils/legado_deep_link.dart';
 
 void main() {

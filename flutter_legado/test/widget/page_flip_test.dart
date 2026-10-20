@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/page_flip_widget.dart';
 
@@ -176,11 +176,7 @@ void main() {
     );
 
     // 向左滑动到下一页
-    await tester.fling(
-      find.byType(PageView),
-      const Offset(-300, 0),
-      1000,
-    );
+    await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
 
     expect(find.text('第 2 页'), findsOneWidget);

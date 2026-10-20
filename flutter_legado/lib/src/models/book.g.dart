@@ -51,6 +51,7 @@ Map<String, dynamic> _$ReadConfigToJson(_ReadConfig instance) =>
 
 _Book _$BookFromJson(Map<String, dynamic> json) => _Book(
   bookUrl: json['bookUrl'] as String? ?? '',
+  isPrivate: json['isPrivate'] as bool? ?? false,
   tocUrl: json['tocUrl'] as String? ?? '',
   origin: json['origin'] as String? ?? 'loc_book',
   originName: json['originName'] as String? ?? '',
@@ -90,6 +91,7 @@ _Book _$BookFromJson(Map<String, dynamic> json) => _Book(
 
 Map<String, dynamic> _$BookToJson(_Book instance) => <String, dynamic>{
   'bookUrl': instance.bookUrl,
+  'isPrivate': instance.isPrivate,
   'tocUrl': instance.tocUrl,
   'origin': instance.origin,
   'originName': instance.originName,

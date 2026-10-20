@@ -330,7 +330,9 @@ fn main() {
                 .collect();
         }
     }
-    println!("\n[对照结论] 详情页元素数={detail_elem_total}；q7.db 里落库的 chapter.title=「第688章 大结局，最后一个条件（全书完）」= 目录最后一条，index=687 = 最后一条下标");
+    println!(
+        "\n[对照结论] 详情页元素数={detail_elem_total}；q7.db 里落库的 chapter.title=「第688章 大结局，最后一个条件（全书完）」= 目录最后一条，index=687 = 最后一条下标"
+    );
 
     // ── 3.5 元素级探针：chapterUrl 规则 `@href` 为何取不到值 ───────────────
     println!("\n############ 3.5 chapterUrl=@href 元素级探针（详情页） ############");
@@ -559,7 +561,9 @@ fn main() {
             );
         }
         println!("↑ 含冒号的 = 属性选择器全部退化为「仅标签名」全选（19 行 meta content），");
-        println!("  与 q7.db books.latestChapterTitle 的 19 行拼接逐行一致 → 属同一处 [ ] 误判为索引区间的解析缺陷。");
+        println!(
+            "  与 q7.db books.latestChapterTitle 的 19 行拼接逐行一致 → 属同一处 [ ] 误判为索引区间的解析缺陷。"
+        );
     }
 
     // ── 7. 摘要 ─────────────────────────────────────────────────────────
@@ -569,7 +573,11 @@ fn main() {
     );
     println!("- 源无 ruleBookInfo.tocUrl → toc_url = bookUrl = 详情页（详情即目录，同页）");
     println!("- chapterUrl 规则 `@href` 在「元素本身就是 <a>」时取空 → 每章 url 回退 toc_url");
-    println!("- parse_chapters_from_toc_body 的 dedupe_last_by_url（去重键=url）把 688 章坍缩成 1 章（保留最后一条）");
+    println!(
+        "- parse_chapters_from_toc_body 的 dedupe_last_by_url（去重键=url）把 688 章坍缩成 1 章（保留最后一条）"
+    );
     println!("- 以上三点叠加 = q7.db（1 行 / index=687 / title=第688章 / url=详情页）");
-    println!("- latestChapterTitle 的 19 行 meta 拼接 = 第 6 节 `[property=\"…:…\"]` 属性选择器误判为索引区间");
+    println!(
+        "- latestChapterTitle 的 19 行 meta 拼接 = 第 6 节 `[property=\"…:…\"]` 属性选择器误判为索引区间"
+    );
 }

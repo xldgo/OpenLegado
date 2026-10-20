@@ -1,16 +1,18 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// ReplaceRuleNotifier 单元测试
 ///
 /// 覆盖：load/addRule/updateRule/deleteRule/setEnabled/moveUp/moveDown
-library;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/replace_rule/replace_rule_notifier.dart';
+import 'package:flutter_legado/src/features/rules/application/replace_rules/replace_rule_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import '../mocks/mocks.dart';
 
@@ -25,7 +27,7 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -52,9 +54,15 @@ void main() {
     test('成功加载规则列表', () async {
       final rules = [
         const ReplaceRule(id: 1, name: '规则1', pattern: '广告', replacement: ''),
-        const ReplaceRule(id: 2, name: '规则2', pattern: '\\n+', replacement: '\n'),
+        const ReplaceRule(
+          id: 2,
+          name: '规则2',
+          pattern: '\\n+',
+          replacement: '\n',
+        ),
       ];
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => rules);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules())
+          .thenAnswer((_) async => rules);
 
       await readNotifier().load();
 
@@ -63,9 +71,9 @@ void main() {
       expect(readState().error, isNull);
     });
 
-    test('加载失败设置 BridgeError', () async {
-      when(() => mockApi.getReplaceRules())
-          .thenThrow(const BridgeError(message: '规则加载失败'));
+    test('加载失败设置 AppException', () async {
+      when(() => mockApi.replaceRuleRepository.getReplaceRules())
+          .thenThrow(const AppException('规则加载失败'));
 
       await readNotifier().load();
 
@@ -74,7 +82,8 @@ void main() {
     });
 
     test('加载失败设置普通异常', () async {
-      when(() => mockApi.getReplaceRules()).thenThrow(Exception('异常'));
+      when(() => mockApi.replaceRuleRepository.getReplaceRules())
+          .thenThrow(Exception('异常'));
 
       await readNotifier().load();
 
@@ -82,12 +91,10 @@ void main() {
     });
 
     test('load 触发通知（loading 状态真实翻转 → 至少 2 次）', () async {
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => []);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules())
+          .thenAnswer((_) async => []);
       var notifyCount = 0;
-      container.listen(
-        replaceRuleNotifierProvider,
-        (_, _) => notifyCount++,
-      );
+      container.listen(replaceRuleNotifierProvider, (_, _) => notifyCount++);
 
       await readNotifier().load();
 
@@ -99,7 +106,8 @@ void main() {
   group('ReplaceRuleNotifier addRule', () {
     test('添加规则成功追加到列表', () async {
       const newRule = ReplaceRule(id: 1, name: '新规则', pattern: 'test');
-      when(() => mockApi.addReplaceRule(any())).thenAnswer((_) async => newRule);
+      when(() => mockApi.replaceRuleRepository.addReplaceRule(any()))
+          .thenAnswer((_) async => newRule);
 
       final result = await readNotifier().addRule(newRule);
 
@@ -112,12 +120,13 @@ void main() {
   group('ReplaceRuleNotifier updateRule', () {
     test('更新规则成功替换列表中对应项', () async {
       // 先加载
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [
-            const ReplaceRule(id: 1, name: '旧名', pattern: 'a'),
-          ]);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules()).thenAnswer(
+        (_) async => [const ReplaceRule(id: 1, name: '旧名', pattern: 'a')],
+      );
       await readNotifier().load();
 
-      when(() => mockApi.updateReplaceRule(any())).thenAnswer((_) async {});
+      when(() => mockApi.replaceRuleRepository.updateReplaceRule(any()))
+          .thenAnswer((_) async {});
       const updated = ReplaceRule(id: 1, name: '新名', pattern: 'b');
 
       await readNotifier().updateRule(updated);
@@ -127,12 +136,13 @@ void main() {
     });
 
     test('更新不存在的规则不改变列表', () async {
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [
-            const ReplaceRule(id: 1, name: '规则', pattern: 'a'),
-          ]);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules()).thenAnswer(
+        (_) async => [const ReplaceRule(id: 1, name: '规则', pattern: 'a')],
+      );
       await readNotifier().load();
 
-      when(() => mockApi.updateReplaceRule(any())).thenAnswer((_) async {});
+      when(() => mockApi.replaceRuleRepository.updateReplaceRule(any()))
+          .thenAnswer((_) async {});
       const notExist = ReplaceRule(id: 99, name: '不存在', pattern: 'x');
 
       await readNotifier().updateRule(notExist);
@@ -144,13 +154,16 @@ void main() {
 
   group('ReplaceRuleNotifier deleteRule', () {
     test('删除规则成功移除', () async {
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [
-            const ReplaceRule(id: 1, name: '规则1'),
-            const ReplaceRule(id: 2, name: '规则2'),
-          ]);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules()).thenAnswer(
+        (_) async => [
+          const ReplaceRule(id: 1, name: '规则1'),
+          const ReplaceRule(id: 2, name: '规则2'),
+        ],
+      );
       await readNotifier().load();
 
-      when(() => mockApi.deleteReplaceRule(any())).thenAnswer((_) async {});
+      when(() => mockApi.replaceRuleRepository.deleteReplaceRule(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().deleteRule(1);
 
@@ -161,13 +174,14 @@ void main() {
 
   group('ReplaceRuleNotifier setEnabled', () {
     test('启用/禁用规则', () async {
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [
-            const ReplaceRule(id: 1, name: '规则', isEnabled: true),
-          ]);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules()).thenAnswer(
+        (_) async => [const ReplaceRule(id: 1, name: '规则', isEnabled: true)],
+      );
       await readNotifier().load();
 
-      when(() => mockApi.setReplaceRuleEnabled(any(), any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockApi.replaceRuleRepository.setReplaceRuleEnabled(any(), any()),
+      ).thenAnswer((_) async {});
 
       await readNotifier().setEnabled(1, false);
 
@@ -175,13 +189,14 @@ void main() {
     });
 
     test('设置不存在的规则不改变列表', () async {
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [
-            const ReplaceRule(id: 1, name: '规则', isEnabled: true),
-          ]);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules()).thenAnswer(
+        (_) async => [const ReplaceRule(id: 1, name: '规则', isEnabled: true)],
+      );
       await readNotifier().load();
 
-      when(() => mockApi.setReplaceRuleEnabled(any(), any()))
-          .thenAnswer((_) async {});
+      when(
+        () => mockApi.replaceRuleRepository.setReplaceRuleEnabled(any(), any()),
+      ).thenAnswer((_) async {});
 
       await readNotifier().setEnabled(99, false);
 
@@ -191,11 +206,13 @@ void main() {
 
   group('ReplaceRuleNotifier moveUp/moveDown', () {
     setUp(() async {
-      when(() => mockApi.getReplaceRules()).thenAnswer((_) async => [
-            const ReplaceRule(id: 1, name: 'A', order: 0),
-            const ReplaceRule(id: 2, name: 'B', order: 1),
-            const ReplaceRule(id: 3, name: 'C', order: 2),
-          ]);
+      when(() => mockApi.replaceRuleRepository.getReplaceRules()).thenAnswer(
+        (_) async => [
+          const ReplaceRule(id: 1, name: 'A', order: 0),
+          const ReplaceRule(id: 2, name: 'B', order: 1),
+          const ReplaceRule(id: 3, name: 'C', order: 2),
+        ],
+      );
       await readNotifier().load();
     });
 
@@ -237,10 +254,7 @@ void main() {
 
     test('moveUp 触发通知（先制造真实变化）', () {
       var notified = false;
-      container.listen(
-        replaceRuleNotifierProvider,
-        (_, _) => notified = true,
-      );
+      container.listen(replaceRuleNotifierProvider, (_, _) => notified = true);
       readNotifier().moveUp(1);
       expect(notified, isTrue);
     });

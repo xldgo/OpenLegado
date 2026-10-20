@@ -3,6 +3,7 @@
 //! 对应 Kotlin `RuleUpdate.kt`，负责从远程 URL 拉取订阅内容，
 //! 对比版本并合并变更（书源 / 替换规则 / RSS 源）。
 
+use crate::http_error::reqwest_error_chain;
 use serde::{Deserialize, Serialize};
 
 /// 订阅源
@@ -53,6 +54,13 @@ pub struct MergeResult {
 /// 执行 HTTP GET 获取 JSON 文本。支持 `#requestWithoutUA` 后缀
 /// （去除 User-Agent 头，与 Kotlin 端行为一致）。
 pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String> {
+    fetch_subscription_with_hosts(sub, crate::custom_hosts::default_hosts()).await
+}
+
+pub async fn fetch_subscription_with_hosts(
+    sub: &RuleSubscription,
+    hosts: std::sync::Arc<crate::custom_hosts::CustomHosts>,
+) -> Result<String, String> {
     let (url, without_ua) = if sub.url.ends_with("#requestWithoutUA") {
         (
             sub.url.trim_end_matches("#requestWithoutUA").to_string(),
@@ -65,9 +73,9 @@ pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String
     let client = crate::tls::client_builder()
         .timeout(std::time::Duration::from_secs(30))
         .tls_danger_accept_invalid_certs(true)
-        .dns_resolver(crate::custom_hosts::resolver())
+        .dns_resolver(hosts.resolver())
         .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", reqwest_error_chain(&e)))?;
 
     let mut request = client.get(&url);
     if without_ua {
@@ -77,7 +85,7 @@ pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String
     let response = request
         .send()
         .await
-        .map_err(|e| format!("请求订阅失败 [{}]: {e}", sub.url))?;
+        .map_err(|e| format!("请求订阅失败 [{}]: {}", sub.url, reqwest_error_chain(&e)))?;
 
     if !response.status().is_success() {
         return Err(format!(
@@ -90,7 +98,7 @@ pub async fn fetch_subscription(sub: &RuleSubscription) -> Result<String, String
     let text = response
         .text()
         .await
-        .map_err(|e| format!("读取订阅响应失败: {e}"))?;
+        .map_err(|e| format!("读取订阅响应失败: {}", reqwest_error_chain(&e)))?;
 
     Ok(text)
 }

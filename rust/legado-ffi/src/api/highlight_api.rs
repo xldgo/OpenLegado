@@ -1,12 +1,12 @@
 //! 高亮体系 FFI API
 //!
 //! 暴露正文高亮（highlights 表）与高亮规则（highlightRules 表）的 CRUD 能力，
-//! 通过 JSON 序列化传参，遵循项目「复杂类型 FFI 用 JSON」决策。
+//! 正式 FFI 直接传输实体，不维护无生产消费者的 JSON 保存入口。
 //!
 //! 对应 Android 原版 `BookHighlightDao` / `HighlightRuleDao`。
 
+use legado_core::LegadoResult;
 use legado_core::models::{BookHighlight, HighlightRule};
-use legado_core::{LegadoError, LegadoResult};
 use legado_db::{HighlightRepository, HighlightRuleRepository};
 
 use crate::db_state::with_database;
@@ -15,25 +15,16 @@ use crate::db_state::with_database;
 
 /// 新增/更新高亮记录（INSERT OR REPLACE，主键为 time）
 ///
-/// `highlight_json` 为 BookHighlight JSON。
 /// time 为 0 时自动分配当前 Unix 毫秒时间戳。返回保存后的 time。
-pub fn highlight_add(highlight_json: &str) -> LegadoResult<i64> {
-    let mut highlight: BookHighlight = serde_json::from_str(highlight_json)
-        .map_err(|e| LegadoError::Parser(format!("解析高亮 JSON 失败: {e}")))?;
-    let auto_time = highlight.time == 0;
-    if auto_time {
-        highlight.time = current_time_millis();
-    }
+pub fn highlight_add(highlight: BookHighlight) -> LegadoResult<i64> {
+    let fallback_time = if highlight.time == 0 {
+        current_time_millis()
+    } else {
+        highlight.time
+    };
     with_database(|db| {
         let repo = HighlightRepository::new(db.connection());
-        // 自动分配 time 时若与已有记录撞主键（同一毫秒多次新增），向后顺延
-        if auto_time {
-            while repo.find_by_time(highlight.time)?.is_some() {
-                highlight.time += 1;
-            }
-        }
-        repo.insert(&highlight)?;
-        Ok(highlight.time)
+        repo.insert_with_fallback_time(highlight, fallback_time)
     })
 }
 
@@ -100,10 +91,8 @@ pub fn highlight_rule_list() -> LegadoResult<Vec<HighlightRule>> {
 
 /// 保存高亮规则（新增或按 ID 覆盖），返回规则 ID
 ///
-/// `rule_json` 为 HighlightRule JSON；id 为 0 时使用自增主键新增。
-pub fn highlight_rule_save(rule_json: &str) -> LegadoResult<i64> {
-    let rule: HighlightRule = serde_json::from_str(rule_json)
-        .map_err(|e| LegadoError::Parser(format!("解析高亮规则 JSON 失败: {e}")))?;
+/// id 为 0 时使用自增主键新增。
+pub fn highlight_rule_save(rule: HighlightRule) -> LegadoResult<i64> {
     with_database(|db| {
         let repo = HighlightRuleRepository::new(db.connection());
         repo.insert(&rule)
@@ -160,7 +149,7 @@ mod tests {
             "style": "{}",
             "note": "测试笔记"
         }"#;
-        let time = highlight_add(json).unwrap();
+        let time = highlight_add(serde_json::from_str(json).unwrap()).unwrap();
         assert!(time > 0);
 
         // 按书籍查询
@@ -191,7 +180,7 @@ mod tests {
                 r#"{{"time": 0, "bookUrl": "bk://del_test", "chapterIndex": {i},
                      "bookName": "删除测试", "bookText": "t{i}"}}"#
             );
-            highlight_add(&json).unwrap();
+            highlight_add(serde_json::from_str(&json).unwrap()).unwrap();
         }
         assert_eq!(highlight_list_by_book("bk://del_test").unwrap().len(), 2);
         let deleted = highlight_delete_by_book("bk://del_test").unwrap();
@@ -213,7 +202,7 @@ mod tests {
             "timeoutMillisecond": 3000,
             "applyToTitle": false
         }"#;
-        let id = highlight_rule_save(json).unwrap();
+        let id = highlight_rule_save(serde_json::from_str(json).unwrap()).unwrap();
         assert!(id > 0);
 
         // 列表包含新规则
@@ -230,7 +219,7 @@ mod tests {
                  "isRegex": true, "isEnabled": true, "style": "{{}}",
                  "sortOrder": 100, "timeoutMillisecond": 3000}}"#
         );
-        let saved_id = highlight_rule_save(&update_json).unwrap();
+        let saved_id = highlight_rule_save(serde_json::from_str(&update_json).unwrap()).unwrap();
         assert_eq!(saved_id, id);
         let rules = highlight_rule_list().unwrap();
         let updated = rules.iter().find(|r| r.id == id).unwrap();
@@ -243,9 +232,30 @@ mod tests {
     }
 
     #[test]
-    fn test_highlight_add_invalid_json() {
+    fn test_default_entities_keep_unknown_title_and_rule_defaults() {
         let _db_guard = crate::db_state::ensure_test_db();
-        assert!(highlight_add("{invalid json").is_err());
-        assert!(highlight_rule_save("{invalid json").is_err());
+        let time = highlight_add(BookHighlight::default()).unwrap();
+        let item = highlight_list_all()
+            .unwrap()
+            .into_iter()
+            .find(|h| h.time == time)
+            .unwrap();
+        assert_eq!(item.layoutTitleLength, -1);
+        assert_eq!(item.note, "");
+        assert!(highlight_delete(time).unwrap());
+        let id = highlight_rule_save(HighlightRule::default()).unwrap();
+        let rule = highlight_rule_list()
+            .unwrap()
+            .into_iter()
+            .find(|r| r.id == id)
+            .unwrap();
+        assert_eq!(
+            rule,
+            HighlightRule {
+                id,
+                ..Default::default()
+            }
+        );
+        assert!(highlight_rule_delete(id).unwrap());
     }
 }

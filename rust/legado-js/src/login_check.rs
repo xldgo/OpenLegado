@@ -5,7 +5,7 @@
 //! `pub use legado_js::login_check::*;` 薄壳 re-export（调用方
 //! dict_api/explore_api/search/web_book 零改动），server 侧三叉点逻辑
 //! （首检 → errResponse 二次 → LoginRequired）保留在 server，仅调用本模块
-//! 的 [`execute_login_check_response`]。
+//! 的 [`execute_login_check_response`]；调用方显式传入所属 JsResources。
 //!
 //! 语义（对齐原版 `evalJS(checkJs, it) as StrResponse`，WebBook.kt:74-99）：
 //! - 注入方法形 `result` 绑定（body()/url()/code() 方法）；书源返回纯数据
@@ -72,6 +72,7 @@ impl std::fmt::Display for LoginCheckEvalError {
 ///   开头）→ [`LoginCheckEvalError::CastFailed`]（对齐原版 cast 失败）。
 #[cfg(feature = "quickjs")]
 pub fn execute_login_check_response(
+    resources: &std::sync::Arc<crate::JsResources>,
     js_code: &str,
     response_body: &str,
     response_url: &str,
@@ -80,7 +81,8 @@ pub fn execute_login_check_response(
 ) -> Result<LoginCheckResponse, LoginCheckEvalError> {
     use legado_parser::JsExecutor;
 
-    let executor = crate::executor::QuickJsExecutor::new(source_tag);
+    let executor =
+        crate::executor::QuickJsExecutor::new(source_tag).with_resources(resources.clone());
 
     // 注入方法形 result 绑定（对齐 Kotlin StrResponse 语义：
     // result.body()/url()/code() 方法调用）
@@ -163,6 +165,7 @@ fn parse_login_check_completion(
 /// （v7a 无 JS 降级决策不变——无引擎时原样返回响应三元组，短路在解析逻辑之前）
 #[cfg(not(feature = "quickjs"))]
 pub fn execute_login_check_response(
+    _resources: &std::sync::Arc<crate::JsResources>,
     _js_code: &str,
     response_body: &str,
     response_url: &str,
@@ -190,7 +193,14 @@ mod tests {
         // 注意：QuickJS 顶层脚本禁 `return`（与原版 Rhino 容忍度差异，
         // 登记为端口已知差异），裸 `{...}` 在语句位置解析为块语句，
         // 故对象完成值一律用表达式形式（裸标识符/括号对象/三元）。
-        let r = execute_login_check_response("result", "orig-body", "http://x/s", 200, "lit_test");
+        let r = execute_login_check_response(
+            &Default::default(),
+            "result",
+            "orig-body",
+            "http://x/s",
+            200,
+            "lit_test",
+        );
         assert_eq!(
             r,
             Ok(LoginCheckResponse {
@@ -212,8 +222,14 @@ mod tests {
         // 旧行为会误入 500 err 路径 → 二次 CastFailed → 整源失败）。
         // 现实形态（末条语句为表达式：result.body().contains(...)、裸 result、
         // ({...})）完成值不变，不受本差异影响。
-        let r2 =
-            execute_login_check_response("var x = 1;", "orig-body", "http://x/s", 200, "lit_test");
+        let r2 = execute_login_check_response(
+            &Default::default(),
+            "var x = 1;",
+            "orig-body",
+            "http://x/s",
+            200,
+            "lit_test",
+        );
         assert_eq!(
             r2,
             Ok(LoginCheckResponse {
@@ -231,6 +247,7 @@ mod tests {
         // 纯数据对象（QuickJS 端口扩展）→ 修改后响应被采用；缺字段回退原值。
         // 括号对象表达式避免块语句解析（顶层禁 return，见上一测试注释）。
         let r = execute_login_check_response(
+            &Default::default(),
             "({ code: 403, body: 'new-body', url: 'http://alt/s2' })",
             "orig-body",
             "http://x/s",
@@ -248,6 +265,7 @@ mod tests {
         );
         // 只改 body，code/url 缺失 → 回退原值
         let r2 = execute_login_check_response(
+            &Default::default(),
             "({ body: 'patched' })",
             "orig-body",
             "http://x/s",
@@ -271,7 +289,14 @@ mod tests {
         // 裸布尔/字符串/数字/null 完成值均非 StrResponse → CastFailed
         //（对齐原版 ClassCastException 错误路径）
         for js in ["false", "true", "'ok'", "42", "null", "undefined"] {
-            let r = execute_login_check_response(js, "body", "http://x", 200, "lit_test");
+            let r = execute_login_check_response(
+                &Default::default(),
+                js,
+                "body",
+                "http://x",
+                200,
+                "lit_test",
+            );
             assert!(
                 matches!(r, Err(LoginCheckEvalError::CastFailed(_))),
                 "js={js} 应 CastFailed，实际: {r:?}"
@@ -283,12 +308,20 @@ mod tests {
     #[test]
     fn login_check_response_js_error_classify() {
         // 语法/运行时错误归类为 JsFailed
-        let r = execute_login_check_response("function {", "body", "http://x", 200, "lit_test");
+        let r = execute_login_check_response(
+            &Default::default(),
+            "function {",
+            "body",
+            "http://x",
+            200,
+            "lit_test",
+        );
         assert!(
             matches!(r, Err(LoginCheckEvalError::JsFailed(_))),
             "实际: {r:?}"
         );
         let r2 = execute_login_check_response(
+            &Default::default(),
             "throw new Error('boom');",
             "body",
             "http://x",
@@ -306,8 +339,15 @@ mod tests {
     #[cfg(not(feature = "quickjs"))]
     #[test]
     fn without_quickjs_passthrough_original_triple() {
-        let r = execute_login_check_response("false", "orig-body", "http://x/s", 201, "t")
-            .expect("无 JS 引擎应直通");
+        let r = execute_login_check_response(
+            &Default::default(),
+            "false",
+            "orig-body",
+            "http://x/s",
+            201,
+            "t",
+        )
+        .expect("无 JS 引擎应直通");
         assert_eq!(r.body, "orig-body");
         assert_eq!(r.url, "http://x/s");
         assert_eq!(r.code, 201);

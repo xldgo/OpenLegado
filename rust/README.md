@@ -26,6 +26,10 @@ Legado（阅读）是一款开源小说阅读器，本目录包含其 **Rust 核
 
 ---
 
+FFI 与 HTTP 服务通过 `legado-engine::EngineContext` 共享数据库池、网络、限流及 JS 数据能力。
+监听器与 Tokio runtime 仍由宿主管理，业务任务以子作用域登记；取消与实际退出分别处理。
+能力边界及关闭规则见 [引擎上下文方案](../docs/RUST_ENGINE_CONTEXT_PLAN_20261016.md)。
+
 ## Crate 说明
 
 | Crate | 职责 | 关键依赖 |
@@ -36,6 +40,9 @@ Legado（阅读）是一款开源小说阅读器，本目录包含其 **Rust 核
 | **legado-js** | JavaScript 沙箱：执行书源中的 JS 脚本，支持 MD5/SHA/Base64 等加密函数（可选 feature）| rquickjs (optional) |
 | **legado-book** | 书籍文件处理：EPUB 解析、TXT 编码检测、ZIP 解压 | zip, quick-xml, encoding_rs |
 | **legado-db** | 本地 SQLite 数据库：书架、阅读进度、书源存储、书签、替换规则 | rusqlite (bundled) |
+| **legado-layout** | 与平台测量解耦的排版纯计算 | unicode-segmentation |
+| **legado-fetcher** | 书源搜索、详情、目录、正文与合成的共享编排 | legado-js, legado-net, legado-parser |
+| **legado-engine** | 数据库、网络、限流、JS 数据资源与任务的实例装配 | legado-db, legado-fetcher, tokio |
 | **legado-ffi** | FFI 出口：聚合所有 crate，通过 `flutter_rust_bridge` 生成跨语言接口 | flutter_rust_bridge, tokio |
 | **legado-server** | HTTP 服务：axum Web 服务器，提供 REST API、静态文件服务、Web SPA 前端 | axum, tokio, tower-http |
 
@@ -190,14 +197,15 @@ rust/
 ├── legado-js/              # JavaScript 沙箱
 ├── legado-book/            # 书籍文件处理
 ├── legado-db/              # SQLite 数据库（含 Bookmark/ReplaceRule Repository）
+├── legado-layout/          # 纯计算排版
+├── legado-fetcher/         # 两宿主共享抓取与规则编排
+├── legado-engine/          # 实例资源、任务作用域及生命周期
 ├── legado-ffi/             # FFI 出口（cdylib + staticlib，含 WebBook API）
 ├── legado-server/          # HTTP 服务（axum Web 服务器，含 WebBook/SourceCheck 端点）
 │   └── web-dist/           # Web SPA 前端静态资源
-├── legacy-ffi/             # ⚠️ 已废弃，不参与编译（见下方说明）
 └──
 ```
 
-> **注意**：`legacy-ffi/` 为早期废弃模块，不在 workspace 成员中，不参与编译。保留仅供历史参考。
 
 ---
 
@@ -235,7 +243,7 @@ rust/
 ### 已完成（原“远期优化”列表，已全部实现）
 - ✅ 端到端流程跑通（书源导入→搜索→阅读→书签→替换规则全链路可用）
 - ✅ 阅读器深度实现（仿真翻页动画 + 段评弹窗 + 漫画模式）
-- ✅ Android 自动发布（[android-release.yml](../.github/workflows/android-release.yml)，推送 `v*` tag 触发；手动运行仅生成 APK 工件）
+- ✅ 自动发布（[release.yml](../.github/workflows/release.yml)，推送 `v*` tag 触发；手动运行生成发布工件）
 - ✅ 视频播放（video_player + 播放控制 + 全屏 + 手势，Task #145）
 - ✅ 漫画阅读（纵向滚动 + 双指缩放 + 图片预加载 + 进度保存，Task #146）
 - ✅ QUIC 接入主网络链路（可选 QUIC + fallback HTTP/2，Task #43）

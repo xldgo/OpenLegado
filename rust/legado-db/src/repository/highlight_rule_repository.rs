@@ -4,7 +4,7 @@
 //! all / findById / findEnabledByBook / minOrder / maxOrder /
 //! insert / update / delete / deleteAll / replaceAll。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::HighlightRule;
 use legado_core::{LegadoError, LegadoResult};
@@ -157,8 +157,10 @@ impl<'a> HighlightRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("highlight_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -200,8 +202,10 @@ impl<'a> HighlightRuleRepository<'a> {
         let rows = stmt
             .query_map(params![name, origin], row_to_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("highlight_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 

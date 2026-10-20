@@ -28,7 +28,7 @@
 //! - 作用域过滤：`scopeTitle`（仅标题）/ `scopeContent`（仅正文）/
 //!   `excludeScope`（排除书名/书源）。
 
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};

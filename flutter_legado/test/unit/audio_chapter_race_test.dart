@@ -1,3 +1,7 @@
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
+
 // P1 竞态修复测试（真机验收缺陷：章末切章时旧 position 写入新章进度键）
 //
 // 证据：.tmp/audio_qa/cascade_evidence.txt —— 第 N 章自然播完后，第 N+1 章
@@ -16,14 +20,12 @@
 // e) 单曲循环清零逻辑回归（A3/A4 批行为不被破坏）
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
 
@@ -40,10 +42,10 @@ void main() {
     mockApi = MockRustApi();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -53,28 +55,26 @@ void main() {
       container.read(audioNotifierProvider.notifier);
 
   void stubTwoChapters() {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: 'ch1', index: 0),
         const BookChapter(title: 'ch2', index: 1),
       ],
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-    when(() => mockApi.getAudioChapterMedia(any(), any())).thenAnswer((
-      invocation,
-    ) async {
-      final index = invocation.positionalArguments[1] as int;
-      return {
-        'mediaUrl': 'https://cdn.example.com/$index.mp3',
-        'isVolume': false,
-      };
-    });
-    when(
-      () => mockApi.getAudioProgress(any(), any()),
-    ).thenAnswer((_) async => null);
-    when(
-      () => mockApi.saveAudioProgress(any(), any(), any()),
-    ).thenAnswer((_) async {});
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
+        .thenAnswer((invocation) async {
+          final index = invocation.positionalArguments[1] as int;
+          return AudioChapterMedia.fromJson({
+            'mediaUrl': 'https://cdn.example.com/$index.mp3',
+            'isVolume': false,
+          });
+        });
+    when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => 0);
+    when(() => mockApi.audioBookService.saveAudioProgress(any(), any(), any()))
+        .thenAnswer((_) async {});
   }
 
   Future<void> startStream() async {
@@ -87,10 +87,9 @@ void main() {
     stubTwoChapters();
     // 第 2 章取址挂起：精确复现真机「currentIndex 已切新章、旧播放器仍存活」
     // 的取址窗口
-    final ch2Media = Completer<Map<String, dynamic>>();
-    when(
-      () => mockApi.getAudioChapterMedia(any(), 1),
-    ).thenAnswer((_) => ch2Media.future);
+    final ch2Media = Completer<AudioChapterMedia>();
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), 1))
+        .thenAnswer((_) => ch2Media.future);
 
     await startStream();
     final oldTag = fakePlayer.currentTag;
@@ -101,7 +100,8 @@ void main() {
       const Duration(seconds: 30),
     );
     await tester.pump();
-    verify(() => mockApi.saveAudioProgress('url', 0, 2000)).called(1);
+    verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 2000))
+        .called(1);
 
     // 第 1 章自然播完 → 自动切章；第 2 章取址尚未返回
     fakePlayer.completePlayback();
@@ -118,15 +118,19 @@ void main() {
     );
     await tester.pump();
 
-    verifyNever(() => mockApi.saveAudioProgress('url', 1, any()));
+    verifyNever(
+      () => mockApi.audioBookService.saveAudioProgress('url', 1, any()),
+    );
     // UI 位置未被旧章污染（取址窗口内仍为上一回调值 2000，而非 29913）
     expect(readState().positionMs, 2000);
 
     // 放行第 2 章取址：新章正常启动并可写入新章键
-    ch2Media.complete({
-      'mediaUrl': 'https://cdn.example.com/1.mp3',
-      'isVolume': false,
-    });
+    ch2Media.complete(
+      AudioChapterMedia.fromJson({
+        'mediaUrl': 'https://cdn.example.com/1.mp3',
+        'isVolume': false,
+      }),
+    );
     await tester.pump();
     await tester.pump();
     expect(fakePlayer.playedUrls.last, 'https://cdn.example.com/1.mp3');
@@ -136,7 +140,8 @@ void main() {
       const Duration(seconds: 30),
     );
     await tester.pump();
-    verify(() => mockApi.saveAudioProgress('url', 1, 3000)).called(1);
+    verify(() => mockApi.audioBookService.saveAudioProgress('url', 1, 3000))
+        .called(1);
 
     readNotifier().stop();
   });
@@ -160,14 +165,17 @@ void main() {
       const Duration(seconds: 30),
     );
     await tester.pump();
-    verifyNever(() => mockApi.saveAudioProgress('url', 1, 29913));
+    verifyNever(
+      () => mockApi.audioBookService.saveAudioProgress('url', 1, 29913),
+    );
 
     fakePlayer.emitProgress(
       const Duration(seconds: 3),
       const Duration(seconds: 30),
     );
     await tester.pump();
-    verify(() => mockApi.saveAudioProgress('url', 1, 3000)).called(1);
+    verify(() => mockApi.audioBookService.saveAudioProgress('url', 1, 3000))
+        .called(1);
 
     readNotifier().stop();
   });
@@ -176,9 +184,8 @@ void main() {
     stubTwoChapters();
     fakePlayer.loadedDuration = const Duration(seconds: 30);
     // 污染值：与 QA 证据一致（第 1 章完成位置 29913 落到其它章键）
-    when(
-      () => mockApi.getAudioProgress('url', 0),
-    ).thenAnswer((_) async => {'position': 29913, 'chapterIndex': 0});
+    when(() => mockApi.audioBookService.getAudioProgress('url', 0))
+        .thenAnswer((_) async => 29913);
 
     await startStream();
 
@@ -191,9 +198,8 @@ void main() {
   testWidgets('c2) 恢复遇到章中正常进度：保持既有 seek 行为', (tester) async {
     stubTwoChapters();
     fakePlayer.loadedDuration = const Duration(seconds: 30);
-    when(
-      () => mockApi.getAudioProgress('url', 0),
-    ).thenAnswer((_) async => {'position': 10000, 'chapterIndex': 0});
+    when(() => mockApi.audioBookService.getAudioProgress('url', 0))
+        .thenAnswer((_) async => 10000);
 
     await startStream();
 
@@ -206,9 +212,8 @@ void main() {
   testWidgets('c3) 时长未知时不判定接近章尾，保持既有恢复行为', (tester) async {
     stubTwoChapters();
     // loadedDuration 保持 0：模拟播放器未解析出时长
-    when(
-      () => mockApi.getAudioProgress('url', 0),
-    ).thenAnswer((_) async => {'position': 29913, 'chapterIndex': 0});
+    when(() => mockApi.audioBookService.getAudioProgress('url', 0))
+        .thenAnswer((_) async => 29913);
 
     await startStream();
 
@@ -255,11 +260,48 @@ void main() {
     await tester.pump();
 
     // 清零 + 重播同一章
-    verify(() => mockApi.saveAudioProgress('url', 0, 0)).called(1);
+    verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 0))
+        .called(1);
     expect(readState().currentIndex, 0);
     expect(readState().state, PlayerState.playing);
     expect(fakePlayer.playedUrls.length, 2);
 
+    readNotifier().stop();
+  });
+  testWidgets('当前章异步播放错误暂停并显示原因，旧章错误不能干扰新章', (tester) async {
+    stubTwoChapters();
+    await startStream();
+    final oldTag = fakePlayer.currentTag;
+    final error = StateError('音频解码失败');
+    fakePlayer.onError!(error, oldTag);
+    await tester.pump();
+    expect(readState().state, PlayerState.error);
+    expect(readState().errorMessage, contains('音频解码失败'));
+    expect(readState().currentIndex, 0);
+    expect(fakePlayer.pauseCount, 1);
+    await readNotifier().next();
+    await tester.pump();
+    expect(readState().currentIndex, 1);
+    fakePlayer.onError!(error, oldTag);
+    expect(readState().state, PlayerState.playing);
+    readNotifier().stop();
+  });
+
+  testWidgets('旧播放入口迟到失败不能覆盖已经播放的新章状态', (tester) async {
+    stubTwoChapters();
+    final old = Completer<AudioChapterMedia>();
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), 0))
+        .thenAnswer((_) => old.future);
+    final first = startStream();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+    await readNotifier().next();
+    expect(readState().currentIndex, 1);
+    old.completeError(StateError('已被新章替换'));
+    await first;
+    expect(readState().state, PlayerState.playing);
+    expect(readState().errorMessage, isNull);
     readNotifier().stop();
   });
 }

@@ -1,3 +1,8 @@
+@Tags(['native'])
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// [A4 滚动模式标题字体 | full-stack-engineer + UI] 滚动模式标题块
 /// 接 C3 标题字体（effectiveTitleFontFamily 单源）
 ///
@@ -11,17 +16,17 @@
 /// ② titleFont 空 = 跟随正文字体（_fontFamily 经 SharedPreferences
 /// reader_font_family 注入）。
 /// 滚动模式不分页 → 仅渲染侧取值（无测量侧同步需求）。
-library;
 
-import 'package:flutter/material.dart';
+import '../helpers/native_reader_layout.dart';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/book_chapter.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 
@@ -38,26 +43,26 @@ class _FixedReaderNotifier extends ReaderNotifier {
 }
 
 void main() {
+  setUpNativeReaderLayout();
   const chapterTitle = '第一章 滚动标题';
   const bodyFont = 'SimSun';
-  const titleFont = 'KaiTi';
+  const titleFontFamily = 'KaiTi';
 
   /// 滚动模式状态：单章 + 短正文（排版引擎分页出 1 页，标题块常显）
   ReaderState scrollState() => ReaderState(
-        chapters: const [BookChapter(title: chapterTitle, index: 0)],
-        chapterContent: '滚动模式正文第一段。\n第二段文字。',
-        pageTurnMode: PageTurnMode.scroll,
-      );
+    chapters: const [BookChapter(title: chapterTitle, index: 0)],
+    chapterContent: '滚动模式正文第一段。\n第二段文字。',
+    pageTurnMode: PageTurnMode.scroll,
+  );
 
   Widget wrap(ReaderState state, ReaderPageChromeConfig chrome) {
     return ProviderScope(
-      overrides: [
-        readerNotifierProvider.overrideWith(
-          () => _FixedReaderNotifier(state),
-        ),
-        bookApiProvider.overrideWithValue(MockBookApi()),
-      ],
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
+        readerNotifierProvider.overrideWith(() => _FixedReaderNotifier(state)),
+      ]),
       child: MaterialApp(
+        builder: nativeReaderLayoutBuilder,
         home: ReaderPageView(
           paragraphSpacing: 8,
           pageChrome: chrome,
@@ -69,19 +74,17 @@ void main() {
   }
 
   group('A4 滚动模式标题字体（_buildScrollContent 标题块）', () {
-    testWidgets('titleFont 非空 → 滚动标题 fontFamily 与单源取值一致',
-        (tester) async {
+    testWidgets('titleFontFamily 非空 → 滚动标题 fontFamily 与单源取值一致', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      const chrome = ReaderPageChromeConfig(titleFont: titleFont);
+      const chrome = ReaderPageChromeConfig(titleFontFamily: titleFontFamily);
       // 单源函数（reader_page_chrome.dart effectiveTitleFontFamily）取值
       final expected = effectiveTitleFontFamily(chrome, bodyFont);
-      expect(expected, titleFont);
+      expect(expected, titleFontFamily);
 
-      await tester.pumpWidget(wrap(scrollState(), chrome));
-      await tester.pumpAndSettle();
+      await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
+      await settleNativeReaderLayout(tester);
 
-      final titleStyle =
-          tester.widget<Text>(find.text(chapterTitle)).style!;
+      final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
       expect(
         titleStyle.fontFamily,
         expected,
@@ -89,13 +92,10 @@ void main() {
       );
     });
 
-    testWidgets('titleFont 空 → 滚动标题跟随正文字体（_fontFamily）',
-        (tester) async {
+    testWidgets('titleFontFamily 空 → 滚动标题跟随正文字体（_fontFamily）', (tester) async {
       // 正文字体经 SharedPreferences reader_font_family 注入
       // （ReaderPageView._refreshFontFamily 异步读取后 setState 重建）
-      SharedPreferences.setMockInitialValues({
-        'reader_font_family': bodyFont,
-      });
+      SharedPreferences.setMockInitialValues({'reader_font_family': bodyFont});
       const chrome = ReaderPageChromeConfig();
       final expected = effectiveTitleFontFamily(chrome, bodyFont);
       // 纯函数同参断言（仿 reader_title_font_test.dart：空 titleFont 跟随正文，
@@ -103,9 +103,9 @@ void main() {
       expect(expected, bodyFont);
       expect(effectiveTitleFontFamily(chrome, null), isNull);
 
-      await tester.pumpWidget(wrap(scrollState(), chrome));
+      await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
       // 等待 _refreshFontFamily 异步完成（setState 重建）
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
       // 既有行为（非 A4 引入）：滚动模式 build 会走 _paginateIfNeeded，
       // 其 reader_page_view.dart:616 `Future(() => updateChapterPageCount(...))`
       // 在 SDK 内为 Timer.run（零时长 FakeTimer），创建于该帧 elapse 之后；
@@ -113,13 +113,41 @@ void main() {
       // 追加一次 pump 触发 elapse 使其触发，消除 "Timer still pending" 断言。
       await tester.pump(const Duration(seconds: 1));
 
-      final titleStyle =
-          tester.widget<Text>(find.text(chapterTitle)).style!;
+      final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
       expect(
         titleStyle.fontFamily,
         expected,
-        reason: '空 titleFont 时滚动标题应跟随正文字体',
+        reason: '空 titleFontFamily 时滚动标题应跟随正文字体',
       );
+    });
+
+    testWidgets('原内容区直接订阅字体选择，更新正文后标题同步跟随', (tester) async {
+      SharedPreferences.setMockInitialValues({'reader_font_family': bodyFont});
+      await pumpNativeReaderLayout(
+        tester,
+        wrap(scrollState(), const ReaderPageChromeConfig()),
+      );
+      await settleNativeReaderLayout(tester);
+      await tester.pump(const Duration(seconds: 1));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderPageView)),
+      );
+      final view = tester.state(find.byType(ReaderPageView));
+      expect(
+        tester.widget<Text>(find.text(chapterTitle)).style!.fontFamily,
+        bodyFont,
+      );
+      await container
+          .read(readerSettingsRepositoryProvider)
+          .update(fontFamily: 'Georgia');
+      await settleNativeReaderLayout(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.state(find.byType(ReaderPageView)), same(view));
+      expect(
+        tester.widget<Text>(find.text(chapterTitle)).style!.fontFamily,
+        'Georgia',
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 }

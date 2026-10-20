@@ -1,19 +1,16 @@
 //! 下载管理器 FFI API
 //!
 //! 暴露 legado-core::download_manager 的 DownloadManager 到 Flutter 端。
-//! 使用全局 OnceLock + Mutex 管理 DownloadManager 实例。
+//! 只处理既有队列模型；实际章节缓存下载由独立实例服务执行。
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
-use legado_core::download_manager::{DownloadManager, PreloadStrategy, PRELOAD_TRIGGER_THRESHOLD};
+use legado_core::download_manager::{DownloadManager, PRELOAD_TRIGGER_THRESHOLD, PreloadStrategy};
 use legado_core::models::{DownloadStatus, DownloadTask};
 use legado_core::{LegadoError, LegadoResult};
 
-/// 全局 DownloadManager 实例
-static DOWNLOAD_MANAGER: OnceLock<Mutex<DownloadManager>> = OnceLock::new();
-
-fn get_manager() -> &'static Mutex<DownloadManager> {
-    DOWNLOAD_MANAGER.get_or_init(|| Mutex::new(DownloadManager::new(3)))
+fn get_manager() -> Arc<Mutex<DownloadManager>> {
+    crate::engine_holder::download_manager()
 }
 
 fn with_manager<F, R>(f: F) -> LegadoResult<R>
@@ -75,6 +72,20 @@ pub fn download_add_task(
         let id = mgr.add_task(task);
         Ok(id)
     })
+}
+
+/// 类型化查询与原JSON消费者共享同一个队列。
+pub fn download_tasks(book: &str) -> LegadoResult<Vec<crate::task_dto::DownloadTaskDto>> {
+    with_manager(|mgr| {
+        Ok(mgr
+            .tasks_by_book(book)
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    })
+}
+pub fn download_stats() -> LegadoResult<crate::task_dto::DownloadStatsDto> {
+    with_manager(|mgr| Ok(mgr.stats().into()))
 }
 
 /// 获取下载统计信息（摘要）

@@ -16,6 +16,7 @@ Python 3.11+，使用 PATH 中已安装的 Rust、Dart、FRB 和 SDK。以下为
 
 ```powershell
 python scripts/dev.py generate dart
+python scripts/dev.py generate dart --check
 python scripts/dev.py generate bridge
 python scripts/dev.py generate bridge --check
 python scripts/dev.py build ffi android --profile debug --abis arm64-v8a,x86_64
@@ -31,19 +32,23 @@ python scripts/dev.py test tooling
 ## 生成行为
 
 - Dart：`dart pub get --enforce-lockfile` 后执行 `dart run build_runner build`。不升级
-  依赖，不默认删除冲突输出。
+  依赖，不默认删除冲突输出。`--check`复制当前lib与生成配置到临时目录，实际生成并比对
+  新增/删除/修改，核对依赖声明及锁文件；不覆盖原工作区。
 - FRB：从双方 runtime 读取精确版本，检查已安装生成器版本和 cargo-expand；执行现有
   `flutter_rust_bridge.yaml`，生成后核对两端 hash/版本。缺少工具时报告安装命令，不由
   Python 安装；不关闭应用，不重编 DLL，也没有增加 `--skip-fvm-install`。
 - Windows 直接调用 Flutter SDK 自带的 `dart.exe`，保持同一 SDK 的 FLUTTER_ROOT；
   工程编排不拼接 bat/cmd。FRB 内部保留其默认的 SDK/FVM 检测行为。
-- `--check` 复制当前工作区的 Rust、Flutter lib、依赖锁定文件和相关配置到临时目录，
+- 普通 FRB 生成和 `--check` 都复制当前工作区的 Rust、Flutter lib、依赖锁定文件和相关配置到临时目录，
   包含未提交与未跟踪输入；不创建 Git worktree，不复制本地 `.fvmrc`，不改原工作区。
-  Cargo 输出也放在该临时副本内。新增、删除或改变桥接文件、Rust 生成文件或模块入口
-  都会失败；文本比对归一化 CRLF/LF，Rust 缓存指纹仍按实际字节计算。
+  Cargo 输出也放在该临时副本内。`--check` 检出新增、删除或改变桥接文件、Rust 生成文件
+  或模块入口时失败；文本比对归一化 CRLF/LF，Rust 缓存指纹仍按实际字节计算。
 - 只允许现有相对输出边界，不让隔离生成指向原目录或外部目录。依赖声明/锁文件变化
-  被报告为失败，不能以生成成功掩盖依赖漂移。直接生成的失败可能留下部分生成文件，
-  应检查 diff；隔离检查无此原工作区影响。
+  被报告为失败，不能以生成成功掩盖依赖漂移。普通生成成功后只同步带 FRB 生成标识的
+  Dart 文件及 `frb_generated.rs`，支持新增、删除和修改；手写桥接入口和 Rust 模块入口
+  意外改变时拒绝发布。生成器删除无关 Freezed/JSON 生成物只影响临时副本。
+- 生成期间原输入发生变化则拒绝发布；相同输出保持原文件与修改时间。同步时使用
+  单文件原子替换，失败回滚本次输出，不提供跨进程、多文件事务隔离保证。
 
 ## Android 构建与发布
 

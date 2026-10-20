@@ -1,15 +1,25 @@
+import '../../app/routing/app_navigation.dart';
+import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../features/read_aloud/cloud_tts_providers.dart';
+
+import 'package:flutter_legado/src/features/read_aloud/tts_providers.dart';
+
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/misc.dart';
-import '../../providers/audio/audio_notifier.dart';
-import '../../providers/providers.dart';
-import '../../routes.dart';
+import '../../models/tts_engine_option.dart';
+
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
+
+import '../../features/audio/application/audio_notifier.dart';
+import '../../features/read_aloud/http_tts_repository_provider.dart';
+import '../../app/routing/route_names.dart';
+import '../../l10n/app_localization.dart';
 import '../app_progress_indicator.dart';
+import 'read_aloud_timer_sheet.dart';
 
 /// 阅读器朗读控制条
 ///
@@ -19,7 +29,7 @@ import '../app_progress_indicator.dart';
 /// 原版控制项对照：
 /// - tv_pre / tv_next（上一章/下一章）→ 已实现
 /// - iv_play_pause（播放/暂停）/ iv_stop（停止）→ 已实现
-/// - seekTtsSpeechRate（语速）→ 已实现（Slider 0.5x~3.0x）
+/// - 语速跟随、手动语速与段间停顿统一在朗读设置管理。
 /// - iv_play_prev / iv_play_next（上一段/下一段）→
 ///   [UI-fix v2.0.3 | 2026-08-08] 已接入 AudioNotifier 段落化队列（留项4） — Qoder
 /// - [UI-fix v2.0.2 | 2026-08-06] ivTimer/SleepTimerDialog 定时停止 +
@@ -47,99 +57,25 @@ class ReadAloudBar extends ConsumerStatefulWidget {
 }
 
 class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
-  /// 定时停止预设（分钟），复用听书页 SleepTimer 模式
-  static const _kPresetMinutes = [10, 20, 30, 60];
-
-  /// 语速跟随系统开关持久化键（对齐原版 PreferKey / AppConfig.ttsFlowSys）
-  static const _keyFollowSystem = 'ttsFollowSys';
-
-  /// [UI-fix v2.0.3 | 2026-08-08] 留项5：语速跟随系统时使用的默认语速常量
-  /// （对标原版 AppConfig.speechRatePlay = if (ttsFlowSys) defaultSpeechRate(=5)）：
-  /// 原版并非实时读系统语速，而是回落到默认语速常量；Flutter 侧默认倍速 1.0x
-  /// 即原版 defaultSpeechRate=5（0-10 刻度中位）的等价映射 — Qoder
-  static const double _kFollowSystemDefaultSpeed = 1.0;
-
-  // ===== 定时停止状态 =====
-  //
-  // [A4 下沉 | 2026-10-04] 计时归 AudioNotifier（startSleepTimer /
-  // startChapterStop / cancelSleepTimer，audio_notifier.dart:1040-1075），
-  // 朗读条只做入口与显示。原本地 Timer 与 _chapterStopTarget 已删除：二者
-  // 与 Notifier 计时互不感知，导致双倒计时并行、幽灵暂停、收起阅读器即
-  // 静默失效。到点动作对齐原版 doDs 的 ReadAloud.stop
-  // （BaseReadAloudService.kt:594）。
-  final TextEditingController _customMinutesCtrl = TextEditingController();
-
-  // ===== 语速跟随系统（原版默认 true） =====
-  bool _followSystemSpeed = true;
-
   // [LAYOUT_PLAN P4] 朗读条显隐 fade（180ms）：挂载后下一帧置 true。
   bool _entered = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadFollowSystem());
     // [LAYOUT_PLAN P4] 触发朗读条 fade 进场（替代底栏时的显隐逻辑不变）。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _entered = true);
     });
   }
 
-  @override
-  void dispose() {
-    _customMinutesCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadFollowSystem() async {
-    try {
-      final api = ref.read(bookApiProvider);
-      // 优先 config（对齐业务数据不经 SharedPreferences）；兼容旧 SP 键迁移
-      var raw = await api.getConfig(_keyFollowSystem);
-      if (raw == null || raw.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        final legacy = prefs.getBool('read_aloud_follow_system_speed');
-        if (legacy != null) {
-          raw = legacy ? 'true' : 'false';
-          await api.setConfig(_keyFollowSystem, raw);
-          await prefs.remove('read_aloud_follow_system_speed');
-        }
-      }
-      if (!mounted) return;
-      // 缺省对齐原版 AppConfig.ttsFlowSys = true
-      final follow = raw == null || raw.isEmpty
-          ? true
-          : raw == 'true' || raw == '1';
-      setState(() => _followSystemSpeed = follow);
-      if (follow) {
-        ref
-            .read(audioNotifierProvider.notifier)
-            .updateConfig(speed: _kFollowSystemDefaultSpeed);
-      }
-    } catch (_) {
-      // 读取失败保持原版默认开启
-      if (mounted) {
-        setState(() => _followSystemSpeed = true);
-        ref
-            .read(audioNotifierProvider.notifier)
-            .updateConfig(speed: _kFollowSystemDefaultSpeed);
-      }
-    }
-  }
-
-  Future<void> _persistFollowSystem(bool follow) async {
-    try {
-      await ref.read(bookApiProvider).setConfig(
-            _keyFollowSystem,
-            follow ? 'true' : 'false',
-          );
-    } catch (_) {}
-  }
-
   /// 定时按钮 tooltip：剩余量/按章剩余均取 Notifier 单一数据源
   String _timerTooltip(AudioNotifier notifier) {
     switch (notifier.sleepTimerMode) {
       case SleepTimerMode.duration:
+        if (notifier.isWaitingForTimerChapterEnd) {
+          return notifier.sleepTimerRemainingLabel;
+        }
         return '定时停止：剩余 '
             '${_formatCountdown(notifier.sleepRemainingSeconds)}';
       case SleepTimerMode.chapters:
@@ -155,110 +91,43 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  /// 定时停止选择面板（预设时长 + 自定义 + 按章停 + 取消）
-  ///
-  /// [A4 下沉 | 2026-10-04] 设定/取消直接调 AudioNotifier 既有计时入口
-  /// （startSleepTimer / startChapterStop / cancelSleepTimer），朗读条不再持有
-  /// 任何计时状态；面板状态与剩余量取自 Notifier，与听书页/通知栏同一份。
   void _showTimerPicker() {
-    final notifier = ref.read(audioNotifierProvider.notifier);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: false,
-      builder: (sheetContext) {
-        return SafeArea(
-          // [2026-10-04] 面板内容超过弹窗默认最大高度（9/16 屏高）时
-          // RenderFlex 溢出：与听书页定时面板同型包 SingleChildScrollView，
-          // 小屏/窄高窗口下可滚动（原实现缺此包裹，为既有溢出问题）
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    '定时停止',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                ..._kPresetMinutes.map(
-                  (minutes) => ListTile(
-                    leading: const Icon(Icons.timer_outlined),
-                    title: Text('$minutes 分钟'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      notifier.startSleepTimer(minutes);
-                    },
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: Row(
-                    children: [
-                      const Text('自定义'),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 60,
-                        child: TextField(
-                          controller: _customMinutesCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            hintText: '分钟',
-                            isDense: true,
-                            border: UnderlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text('分钟'),
-                    ],
-                  ),
-                  onTap: () {
-                    final value = int.tryParse(_customMinutesCtrl.text) ?? 0;
-                    if (value > 0 && value <= kMaxSleepTimerMinutes) {
-                      Navigator.pop(sheetContext);
-                      notifier.startSleepTimer(value);
-                    }
-                  },
-                ),
-                // 按章停：当前章自然读完即停（对标原版按章定时；Notifier 在章末
-                // 完成边界计数，到点 stop —— BaseReadAloudService.kt:886-892）
-                ListTile(
-                  leading: const Icon(Icons.menu_book_outlined),
-                  title: const Text('读完本章后停止'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    notifier.startChapterStop(1);
-                  },
-                ),
-                if (notifier.isSleepTimerActive)
-                  ListTile(
-                    leading: const Icon(Icons.timer_off_outlined),
-                    title: const Text('取消定时'),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      notifier.cancelSleepTimer();
-                    },
-                  ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        );
-      },
+    unawaited(
+      showReadAloudTimerSheet(
+        context,
+        ref.read(audioNotifierProvider.notifier),
+      ),
     );
   }
 
   /// 引擎选择对话框（getHttpTts 列表，对标原版引擎下拉）
   Future<void> _showEngineDialog() async {
-    List<HttpTts> engines;
+    List<HttpTts> httpEngines = [];
     try {
-      engines = await ref.read(bookApiProvider).getHttpTts();
+      httpEngines = await ref.read(httpTtsRepositoryProvider).getHttpTts();
     } catch (e) {
-      if (mounted) _snack('朗读引擎列表加载失败: $e');
-      return;
+      if (mounted) _snack('HTTP 朗读引擎列表加载失败: $e');
     }
     if (!mounted) return;
+    List<CloudTtsEngine> cloudEngines = [];
+    try {
+      cloudEngines = await ref.read(cloudTtsRepositoryProvider).list();
+    } catch (error) {
+      if (mounted) _snack('云端朗读引擎列表加载失败: $error');
+    }
+    if (!mounted) return;
+    final engines = <TtsEngineOption>[
+      for (final engine in cloudEngines.where((e) => e.enabled))
+        TtsEngineOption(name: engine.name, url: engine.selection),
+      if (ref.read(systemTtsServiceProvider).isSupported)
+        const TtsEngineOption(name: '系统 TTS', url: systemTtsEngineUrl),
+      for (final engine in httpEngines)
+        TtsEngineOption(
+          name: engine.name,
+          url: normalizeTtsEngineUrl(engine.url),
+          id: engine.id,
+        ),
+    ];
     if (engines.isEmpty) {
       _snack('暂无朗读引擎，请到「朗读设置」添加 HTTP TTS 引擎');
       return;
@@ -268,12 +137,26 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     // （SpeakEngineDialog.kt:57）；此前只看全局内存值，书级生效时会高亮错误项。
     final notifier = ref.read(audioNotifierProvider.notifier);
     final currentUrl = normalizeTtsEngineUrl(notifier.resolveTtsEngineUrl());
-    String? currentName;
-    HttpTts? currentEngine;
-    if (currentUrl.isNotEmpty) {
+    final currentEngineId = await notifier.resolveTtsEngineId();
+    TtsEngineOption? currentEngine;
+    if (currentUrl == systemTtsEngineUrl) {
+      for (final engine in engines) {
+        if (engine.url == systemTtsEngineUrl) {
+          currentEngine = engine;
+          break;
+        }
+      }
+    } else if (currentEngineId != null) {
+      for (final engine in engines) {
+        if (engine.id == currentEngineId) {
+          currentEngine = engine;
+          break;
+        }
+      }
+    }
+    if (currentEngine == null && currentUrl.isNotEmpty) {
       for (final engine in engines) {
         if (normalizeTtsEngineUrl(engine.url) == currentUrl) {
-          currentName = engine.name;
           currentEngine = engine;
           break;
         }
@@ -281,21 +164,35 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     }
     // 双持久化按钮作用的引擎（dialog 回调闭包捕获需 final）
     final selectedEngine = currentEngine;
+    if (!mounted) return;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
         title: const Text('选择朗读引擎'),
         children: [
           RadioGroup<String>(
-            groupValue: currentName,
+            groupValue: currentEngine != null
+                ? (currentEngine.id != null
+                      ? 'id:${currentEngine.id}'
+                      : currentEngine.url)
+                : null,
             onChanged: (v) {
               // [UX 修复 | 2026-10-03] 未选中项：RadioGroup 回传新值；已选中项：
               // RadioListTile 开启 toggleable 后回传 null（点已选项不产生新值）。
               // 两种点击都要关闭对话框——对齐原版 SpeakEngineDialog 点击任意项
               // 均 upTts（已选项为幂等重确认），此前已选项点击走不到关闭逻辑。
-              final name = v ?? currentName;
-              if (name == null) return;
-              final engine = engines.firstWhere((e) => e.name == name);
+              final key =
+                  v ??
+                  (currentEngine != null
+                      ? (currentEngine.id != null
+                            ? 'id:${currentEngine.id}'
+                            : currentEngine.url)
+                      : null);
+              if (key == null) return;
+              final engine = engines.firstWhere(
+                (e) => (e.id != null ? 'id:${e.id}' : e.url) == key,
+                orElse: () => engines.first,
+              );
               Navigator.pop(dialogContext);
               // [P0 | 2026-10-03] 只存裸 URL：合成管线（Rust tts_speak）把
               // engineUrl 当 URL 模板与缓存键，存「名称,URL」必然合成失败。
@@ -303,7 +200,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
               // （先清书级覆盖再写全局，SpeakEngineDialog.kt:171-177）：书级
               // 优先下若只写全局内存值，该书仍会继续用书级引擎，切换不生效。
               unawaited(
-                notifier.setGlobalTtsEngine(engine.url),
+                notifier.setGlobalTtsEngine(engine.url, engineId: engine.id),
               );
               _snack('已切换引擎：${engine.name}');
             },
@@ -313,7 +210,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                 for (final engine in engines)
                   RadioListTile<String>(
                     title: Text(engine.name),
-                    value: engine.name,
+                    value: engine.id != null ? 'id:${engine.id}' : engine.url,
                     // 已选中项默认吞掉点击（Flutter _handleListTileTap 对
                     // checked 且非 toggleable 直接 return，本版 RadioListTile
                     // 未暴露 onTap 参数）；toggleable 让已选项点击回传 null，
@@ -337,10 +234,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                   onPressed: selectedEngine == null
                       ? null
                       : () => _applyEngine(
-                            dialogContext,
-                            selectedEngine,
-                            bookLevel: true,
-                          ),
+                          dialogContext,
+                          selectedEngine,
+                          bookLevel: true,
+                        ),
                   child: const Text('书'),
                 ),
                 const Spacer(),
@@ -352,10 +249,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                   onPressed: selectedEngine == null
                       ? null
                       : () => _applyEngine(
-                            dialogContext,
-                            selectedEngine,
-                            bookLevel: false,
-                          ),
+                          dialogContext,
+                          selectedEngine,
+                          bookLevel: false,
+                        ),
                   child: const Text('全局'),
                 ),
               ],
@@ -373,16 +270,16 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
   /// false = 「全局」按钮：先清书级覆盖再写全局（原版 :171-177）。
   Future<void> _applyEngine(
     BuildContext dialogContext,
-    HttpTts engine, {
+    TtsEngineOption engine, {
     required bool bookLevel,
   }) async {
     final navigator = Navigator.of(dialogContext);
     final notifier = ref.read(audioNotifierProvider.notifier);
     var ok = true;
     if (bookLevel) {
-      ok = await notifier.setBookTtsEngine(engine.url);
+      ok = await notifier.setBookTtsEngine(engine.url, engineId: engine.id);
     } else {
-      await notifier.setGlobalTtsEngine(engine.url);
+      await notifier.setGlobalTtsEngine(engine.url, engineId: engine.id);
     }
     if (!mounted) return;
     navigator.pop();
@@ -418,8 +315,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           duration: const Duration(milliseconds: 180),
           opacity: _entered ? 1.0 : 0.0,
           child: Material(
-            color: theme.colorScheme.surface,
-            // 与 ReaderBottomBar 一致：无阴影 + hairline 顶边
+            color: theme.colorScheme.surfaceContainerHigh,
+            // 与 ReaderMenuPanel 一致：无阴影 + hairline 顶边
             elevation: 0,
             shape: Border(
               top: BorderSide(
@@ -438,7 +335,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                   if (audio.errorMessage != null)
                     _buildErrorBanner(audio, theme),
                   _buildTransport(context, audio, notifier, theme),
-                  _buildSpeedRow(context, audio, notifier),
+                  _buildControlActions(context, notifier),
                   _buildBottomActions(context, audio),
                 ],
               ),
@@ -464,49 +361,62 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
             audio.isPlaying
                 ? Icons.graphic_eq
                 : audio.isLoading
-                    ? Icons.hourglass_top
-                    : audio.state == PlayerState.error
-                        ? Icons.error_outline
-                        : Icons.pause_circle_outline,
+                ? Icons.hourglass_top
+                : audio.state == PlayerState.error
+                ? Icons.error_outline
+                : Icons.pause_circle_outline,
             size: 18,
             color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 6),
-          Text(
-            _statusText(audio),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              audio.currentChapter?.title ?? '未选择章节',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  audio.currentChapter?.title ?? '未选择章节',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium,
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${_statusText(audio)} · ${audio.currentIndex + 1}/${audio.totalChapters}'
+                        '${notifier.paragraphCount > 0 ? ' · 段${notifier.currentParagraphIndex + 1}/${notifier.paragraphCount}' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    if (notifier.sleepTimerMode == SleepTimerMode.duration)
+                      Flexible(
+                        child: Text(
+                          notifier.isWaitingForTimerChapterEnd
+                              ? notifier.sleepTimerRemainingLabel
+                              : _formatCountdown(
+                                  notifier.sleepRemainingSeconds,
+                                ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-          Text(
-            '${audio.currentIndex + 1}/${audio.totalChapters}',
-            style: theme.textTheme.labelSmall,
-          ),
-          // [UI-fix v2.0.3 | 2026-08-08] 留项4：段落进度指示（对标原版
-          // 朗读进度文本的段落维度） — Qoder
-          if (notifier.paragraphCount > 0)
-            Text(
-              '·段${notifier.currentParagraphIndex + 1}/${notifier.paragraphCount}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
-            ),
           // [A4 下沉 | 2026-10-04] 定时入口状态与剩余量全部取 Notifier
           // （单一数据源，与听书页/通知栏展示同一份剩余量）
           IconButton(
             icon: Icon(
-              notifier.isSleepTimerActive
-                  ? Icons.timer
-                  : Icons.timer_outlined,
+              notifier.isSleepTimerActive ? Icons.timer : Icons.timer_outlined,
               color: notifier.isSleepTimerActive
                   ? theme.colorScheme.primary
                   : null,
@@ -514,13 +424,12 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
             tooltip: _timerTooltip(notifier),
             onPressed: _showTimerPicker,
           ),
-          if (notifier.sleepTimerMode == SleepTimerMode.duration)
-            Text(
-              _formatCountdown(notifier.sleepRemainingSeconds),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.open_in_full),
+            tooltip: context.l10n.readAloudPlayer,
+            onPressed: () =>
+                GoRouter.of(context).pushAppRoute(AppRoutes.readAloudPlayer),
+          ),
           IconButton(
             icon: const Icon(Icons.expand_more),
             tooltip: '收起朗读面板',
@@ -579,8 +488,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           IconButton(
             icon: const Icon(Icons.chevron_left),
             tooltip: '上一段',
-            onPressed: audio.state != PlayerState.idle &&
-                    notifier.paragraphCount > 0
+            onPressed:
+                audio.state != PlayerState.idle && notifier.paragraphCount > 0
                 ? notifier.prevParagraph
                 : null,
           ),
@@ -594,7 +503,7 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
                 if (audio.isPlaying) {
                   notifier.pause();
                 } else {
-                  notifier.play();
+                  notifier.resumeOrPlay();
                 }
               },
               child: audio.isLoading
@@ -615,8 +524,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           IconButton(
             icon: const Icon(Icons.chevron_right),
             tooltip: '下一段',
-            onPressed: audio.state != PlayerState.idle &&
-                    notifier.paragraphCount > 0
+            onPressed:
+                audio.state != PlayerState.idle && notifier.paragraphCount > 0
                 ? notifier.nextParagraph
                 : null,
           ),
@@ -629,12 +538,8 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
     );
   }
 
-  /// 第三行：停止 + 语速（对标 iv_stop + seekTtsSpeechRate + cbTtsFollowSystem）
-  Widget _buildSpeedRow(
-    BuildContext context,
-    AudioState audio,
-    AudioNotifier notifier,
-  ) {
+  /// 停止与快速引擎选择；语速统一放入朗读设置。
+  Widget _buildControlActions(BuildContext context, AudioNotifier notifier) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -647,47 +552,21 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
               widget.onDismiss();
             },
           ),
-          const SizedBox(width: 4),
-          const Text('语速'),
-          Expanded(
-            // [UI-fix v2.0.2 | 2026-08-06] 语速跟随系统开关（对标原版
-            // cbTtsFollowSystem）：开启时禁用手动滑条。
-            // [UI-fix v2.0.3 | 2026-08-08] 留项5 语义对齐原版 speechRatePlay：
-            // 跟随系统 = 使用默认语速常量（非实时读系统语速） — Qoder
-            child: Slider(
-              value: audio.config.speed,
-              min: 0.5,
-              max: 3.0,
-              divisions: 25,
-              label: '${audio.config.speed.toStringAsFixed(1)}x',
-              onChanged: _followSystemSpeed
-                  ? null
-                  : (v) => notifier.updateConfig(speed: v),
-            ),
-          ),
-          SizedBox(
-            width: 40,
-            child: Text(
-              _followSystemSpeed
-                  ? '默认'
-                  : '${audio.config.speed.toStringAsFixed(1)}x',
-            ),
-          ),
-          // 引擎选择（对标原版引擎下拉）
+          const Spacer(),
           IconButton(
             icon: const Icon(Icons.record_voice_over_outlined),
             tooltip: '选择朗读引擎',
-            onPressed: () => _showEngineDialog(),
+            onPressed: _showEngineDialog,
           ),
         ],
       ),
     );
   }
 
-  /// 第四行：目录/引擎与语速跟随/朗读设置/转后台
+  /// 快捷操作：目录、朗读设置、转后台。
   ///
-  /// [UI-fix v2.0.3 | 2026-08-08] 窄屏（720px 级）四按钮横排溢出 59px
-  /// 黄条：每项套 Expanded 均分宽度 + 紧凑内边距，任意屏宽不溢出 — Qoder
+  /// 快捷按钮适配窄屏。
+  /// 每项均分宽度，并使用紧凑内边距。
   Widget _buildBottomActions(BuildContext context, AudioState audio) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -704,39 +583,11 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
           Expanded(
             child: TextButton.icon(
               icon: const Icon(Icons.tune, size: 18),
-              label: const Text('朗读设置'),
+              label: Text(context.l10n.readAloudSettingsTitle),
               style: _compactButtonStyle,
               onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.readAloudConfig),
-            ),
-          ),
-          // [UI-fix v2.0.2 | 2026-08-06] 语速跟随系统开关（显式入口）。
-          // [UI-fix v2.0.3 | 2026-08-08] 留项5 闭合：勾选→应用默认语速常量
-          // （对标原版 ttsFlowSys 时 speechRatePlay=defaultSpeechRate，
-          // 无需系统语速读取通道）。
-          // [UI-fix v2.0.41 | 2026-08-13] 默认 true + 持久化迁 config 键 ttsFollowSys — Auto
-          Expanded(
-            child: TextButton.icon(
-              icon: Icon(
-                _followSystemSpeed
-                    ? Icons.speed
-                    : Icons.speed_outlined,
-                size: 18,
-              ),
-              label: Text(_followSystemSpeed ? '语速:跟随系统' : '语速:手动'),
-              style: _compactButtonStyle,
-              onPressed: () async {
-                final next = !_followSystemSpeed;
-                await _persistFollowSystem(next);
-                if (!mounted) return;
-                setState(() => _followSystemSpeed = next);
-                if (next) {
-                  // 开启跟随：即刻回落到默认语速常量（原版语义）
-                  ref
-                      .read(audioNotifierProvider.notifier)
-                      .updateConfig(speed: _kFollowSystemDefaultSpeed);
-                }
-              },
+                  GoRouter.of(context)
+                      .pushAppRoute(AppRoutes.readAloudSettings),
             ),
           ),
           Expanded(
@@ -754,10 +605,10 @@ class _ReadAloudBarState extends ConsumerState<ReadAloudBar> {
 
   /// 紧凑按钮样式：缩小内边距，窄屏下四按钮可均分不溢出
   ButtonStyle get _compactButtonStyle => TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    minimumSize: Size.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
 
   String _statusText(AudioState audio) {
     switch (audio.state) {

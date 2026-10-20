@@ -1,4 +1,4 @@
-import '../providers/association/association_state.dart';
+import '../features/imports/application/association_state.dart';
 
 /// `legado://` / `yuedu://` 深链解析结果（对齐原版 OnLineImportActivity）
 ///

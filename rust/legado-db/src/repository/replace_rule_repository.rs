@@ -1,6 +1,6 @@
 //! ReplaceRule Repository - replace_rules 表 CRUD + 规则应用
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::ReplaceRule;
 use legado_core::{LegadoError, LegadoResult};
@@ -96,8 +96,10 @@ impl<'a> ReplaceRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_replace_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("replace_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -117,8 +119,10 @@ impl<'a> ReplaceRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_replace_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("replace_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -138,8 +142,10 @@ impl<'a> ReplaceRuleRepository<'a> {
         let rows = stmt
             .query_map(params![scope], row_to_replace_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("replace_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -164,10 +170,12 @@ impl<'a> ReplaceRuleRepository<'a> {
         for rule in &rules {
             // 检查 scope 匹配：scope 为空或 "global" 时全局生效
             // scope 包含书籍名称时对特定书籍生效
-            if let Some(scope) = &rule.scope {
-                if !scope.is_empty() && scope != "global" && !scope.contains(book_name) {
-                    continue;
-                }
+            if let Some(scope) = &rule.scope
+                && !scope.is_empty()
+                && scope != "global"
+                && !scope.contains(book_name)
+            {
+                continue;
             }
 
             if rule.pattern.is_empty() {

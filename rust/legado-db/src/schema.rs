@@ -31,10 +31,18 @@ use legado_core::{LegadoError, LegadoResult};
 /// - v109：books 补 `originBookUrl` 列（P2-8 换源根因修复：当前书源下该书的
 ///   详情页地址，换源事务写入；换源后 bookUrl 稳定主键保持旧源地址，
 ///   「抓取书籍页」路径优先用本列，为空回退 bookUrl，Migration108To109）
-pub const SCHEMA_VERSION: u32 = 109;
+/// - v110：httpTTS 补 `speed` 与 `synthesisThreadCount` 列（批次 T1：对齐上游
+///   HttpTTS 实体的源级语速与合成并发上限，保留 pauseDuration/isEnabled，Migration109To110）
+///
+/// v111：新增独立音色目录，不回填旧源目录。
+pub const SCHEMA_VERSION: u32 = 112;
 
 /// 初始化全部 Schema（创建所有表）
 pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
+    conn.execute_batch(crate::repository::privacy_credentials::CREATE_PRIVACY_CREDENTIALS)
+        .map_err(|e| LegadoError::Database(format!("创建隐私凭据表失败: {e}")))?;
+    conn.execute_batch(crate::repository::read_record_sessions::CREATE_READ_SESSIONS)
+        .map_err(|e| LegadoError::Database(format!("创建阅读会话表失败: {e}")))?;
     conn.execute_batch(CREATE_BOOKS)
         .map_err(|e| LegadoError::Database(format!("创建 books 表失败: {e}")))?;
     conn.execute_batch(CREATE_BOOK_GROUPS)
@@ -65,6 +73,8 @@ pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
         .map_err(|e| LegadoError::Database(format!("创建 txtTocRules 表失败: {e}")))?;
     conn.execute_batch(CREATE_READ_RECORD)
         .map_err(|e| LegadoError::Database(format!("创建 readRecord 表失败: {e}")))?;
+    conn.execute_batch(CREATE_READ_RECORD_DETAIL)
+        .map_err(|e| LegadoError::Database(format!("创建每日单书明细失败: {e}")))?;
     conn.execute_batch(CREATE_AUTO_TASK_RULES)
         .map_err(|e| LegadoError::Database(format!("创建 auto_task_rules 表失败: {e}")))?;
     conn.execute_batch(CREATE_CACHED_CHAPTERS)
@@ -75,6 +85,10 @@ pub fn init_schema(conn: &Connection) -> LegadoResult<()> {
         .map_err(|e| LegadoError::Database(format!("创建 ruleSubs 表失败: {e}")))?;
     conn.execute_batch(CREATE_CACHES)
         .map_err(|e| LegadoError::Database(format!("创建 caches 表失败: {e}")))?;
+    conn.execute_batch(CREATE_CLOUD_TTS_ENGINES)
+        .map_err(|e| LegadoError::Database(e.to_string()))?;
+    conn.execute_batch(CREATE_READ_ALOUD_VOICES)
+        .map_err(|e| LegadoError::Database(e.to_string()))?;
     conn.execute_batch(CREATE_HTTP_TTS)
         .map_err(|e| LegadoError::Database(format!("创建 httpTTS 表失败: {e}")))?;
     conn.execute_batch(CREATE_DICT_RULES)
@@ -141,6 +155,7 @@ CREATE TABLE IF NOT EXISTS books (
     downloadUrls TEXT DEFAULT '',
     coverOrigin TEXT DEFAULT '',
     originBookUrl TEXT NOT NULL DEFAULT '',
+    isPrivate INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(bookUrl)
 );
 ";
@@ -155,6 +170,7 @@ CREATE TABLE IF NOT EXISTS book_groups (
     show INTEGER NOT NULL DEFAULT 1,
     bookSort INTEGER NOT NULL DEFAULT -1,
     onlyUpdateRead INTEGER NOT NULL DEFAULT 0,
+    isPrivate INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(groupId)
 );
 ";
@@ -525,7 +541,7 @@ CREATE TABLE IF NOT EXISTS caches (
 CREATE INDEX IF NOT EXISTS idx_caches_deadline ON caches(deadline);
 ";
 
-/// httpTTS 表（对齐 Room v95 列集；`isEnabled` 为 Rust 轨超集，支撑启用开关 API）
+/// httpTTS 表（对齐 Room v95 + 上游 speed/synthesisThreadCount；`pauseDuration`/`isEnabled` 为 Rust 轨保留列）
 pub const CREATE_HTTP_TTS: &str = "
 CREATE TABLE IF NOT EXISTS httpTTS (
     id INTEGER NOT NULL,
@@ -540,6 +556,8 @@ CREATE TABLE IF NOT EXISTS httpTTS (
     jsLib TEXT,
     enabledCookieJar INTEGER DEFAULT 0,
     loginCheckJs TEXT,
+    speed INTEGER,
+    synthesisThreadCount INTEGER NOT NULL DEFAULT 1,
     lastUpdateTime INTEGER NOT NULL DEFAULT 0,
     isEnabled INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY(id)
@@ -648,4 +666,37 @@ CREATE INDEX IF NOT EXISTS index_book_sources_bookSourceUrl ON book_sources (boo
 CREATE INDEX IF NOT EXISTS index_chapters_bookUrl ON chapters (bookUrl);
 CREATE UNIQUE INDEX IF NOT EXISTS index_chapters_bookUrl_index ON chapters (bookUrl, \"index\");
 CREATE INDEX IF NOT EXISTS index_replace_rules_id ON replace_rules (id);
+";
+
+/// 每日单书明细为加法式建表；已有数据库通过 Repository 的幂等建表接入。
+pub const CREATE_READ_RECORD_DETAIL: &str = "
+CREATE TABLE IF NOT EXISTS readRecordDetail (
+    deviceId TEXT NOT NULL DEFAULT '',
+    bookName TEXT NOT NULL,
+    bookAuthor TEXT NOT NULL DEFAULT '',
+    date TEXT NOT NULL,
+    readTime INTEGER NOT NULL DEFAULT 0,
+    lastRead INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(deviceId, bookName, bookAuthor, date)
+);
+CREATE INDEX IF NOT EXISTS idx_read_record_detail_date ON readRecordDetail(date);
+";
+
+/// 独立朗读音色目录，用户标记不属于 HTTP 源配置。
+pub const CREATE_READ_ALOUD_VOICES:&str="
+CREATE TABLE IF NOT EXISTS read_aloud_voices (
+ id TEXT PRIMARY KEY NOT NULL,engineType TEXT NOT NULL,engineId TEXT NOT NULL,speakerId TEXT NOT NULL,displayName TEXT NOT NULL,
+ traitsJson TEXT NOT NULL,emotionCatalogJson TEXT NOT NULL,managedBy TEXT NOT NULL,
+ enabled INTEGER NOT NULL,available INTEGER NOT NULL,excluded INTEGER NOT NULL,revision INTEGER NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
+ UNIQUE(engineType,engineId,speakerId)
+);
+CREATE INDEX IF NOT EXISTS index_read_aloud_voices_engine ON read_aloud_voices(engineType,engineId);
+";
+
+pub const CREATE_CLOUD_TTS_ENGINES:&str="
+CREATE TABLE IF NOT EXISTS cloud_tts_engines (
+ id TEXT PRIMARY KEY NOT NULL,name TEXT NOT NULL,provider TEXT NOT NULL,baseUrl TEXT NOT NULL,model TEXT NOT NULL,
+ optionsJson TEXT NOT NULL,region TEXT NOT NULL,appId TEXT NOT NULL,enabled INTEGER NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,credentialKey TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS index_cloud_tts_provider_enabled ON cloud_tts_engines(provider,enabled);
 ";

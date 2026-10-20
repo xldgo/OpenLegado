@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// 自动翻页运行时浮条（差异清单 C10，形态对齐参考版「即开即调」）
@@ -76,7 +76,8 @@ class AutoTurnPanel extends StatelessWidget {
             // 速度步进：− / 当前间隔 / ＋（对齐参考版 [−10s+] 形态，步进 5 秒）
             roundIcon(Symbols.remove_rounded, '减慢翻页', () {
               onIntervalChanged(
-                  (intervalSeconds - stepSeconds).clamp(minSeconds, maxSeconds));
+                (intervalSeconds - stepSeconds).clamp(minSeconds, maxSeconds),
+              );
             }),
             SizedBox(
               width: 44,
@@ -88,11 +89,16 @@ class AutoTurnPanel extends StatelessWidget {
             ),
             roundIcon(Symbols.add_rounded, '加快翻页', () {
               onIntervalChanged(
-                  (intervalSeconds + stepSeconds).clamp(minSeconds, maxSeconds));
+                (intervalSeconds + stepSeconds).clamp(minSeconds, maxSeconds),
+              );
             }),
             const SizedBox(width: 2),
             Container(width: 1, height: 20, color: cs.outlineVariant),
-            roundIcon(Symbols.format_list_bulleted_rounded, '目录', onOpenCatalog),
+            roundIcon(
+              Symbols.format_list_bulleted_rounded,
+              '目录',
+              onOpenCatalog,
+            ),
             roundIcon(Symbols.stop_circle_rounded, '停止自动翻页', onStop),
             roundIcon(Symbols.style_rounded, '阅读设置', onOpenSettings),
           ],

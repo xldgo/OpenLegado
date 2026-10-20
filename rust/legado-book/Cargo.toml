@@ -1,7 +1,7 @@
 [package]
 name = "legado-book"
 version = "0.2.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 legado-core = { path = "../legado-core" }
@@ -11,12 +11,10 @@ zip = "9.0.1"
 quick-xml = "0.42"
 encoding_rs = "0.8"
 regex = "1"
-lopdf = "0.42"
-# PDF 导出：纯 Rust 实现（printpdf + rusttype），支持 Android 交叉编译
-# images feature：启用 genpdf 的图片嵌入能力（图片书/漫画 PDF 导出）
-genpdf = { version = "0.2", features = ["images"] }
-# 图片解码（JPEG/PNG）：与 genpdf 的 image 0.23 依赖统一版本，仅启用所需格式
-image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
+lopdf = "0.45"
+# 仅启用PDF文本/图片写入，不引入默认HTML/CSS与Azul排版链。
+printpdf = { version = "0.12.8", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
 # unrar 在 Android 上无法交叉编译（unrar_sys 含 Windows 专属代码），
 # iOS 与 Android 同策略排除（对齐 Android 行为基线，免 C++ 运行时链接）

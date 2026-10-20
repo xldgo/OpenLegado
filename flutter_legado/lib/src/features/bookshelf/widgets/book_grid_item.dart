@@ -1,0 +1,190 @@
+import '../../../widgets/app_content_transition.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../widgets/book_cover.dart';
+
+/// 书架网格项（对标原版 item_bookshelf_grid.xml）
+///
+/// 结构：
+/// - 封面铺满单元格，右上角未读角标（BadgeView bv_unread），
+///   封面底部 2dp 阅读进度条（pb_read_progress）
+/// - 封面下方书名：12sp、居中、最多 2 行（tv_name）
+///
+/// 区域分离长按（Flutter 扩展，对齐原版长按打开书籍信息）：
+/// - 封面区域长按 → [onCoverLongPress]（打开书籍信息）
+/// - 标题区域长按 → [onInfoLongPress]（打开操作菜单）
+/// - 点击 → [onTap]（打开阅读/书籍信息）
+class BookGridItem extends StatelessWidget {
+  final String title;
+  final String? coverUrl;
+
+  /// 书源 origin（封面 coverDecodeJs）
+  final String? sourceOrigin;
+
+  /// Hero 过渡标签（书架↔详情封面过渡，约定 `book-cover:<book url>`，
+  /// HapeLee BookCoverSharedElement 同义键，M1）
+  final String? heroTag;
+
+  /// 未读章节数（>0 时显示右上角角标）
+  final int unreadNum;
+
+  /// 阅读进度（null 表示无阅读记录，不显示进度条）
+  final double? progress;
+
+  /// 点击回调
+  final VoidCallback? onTap;
+
+  /// 封面区域长按回调（打开书籍信息页）
+  final VoidCallback? onCoverLongPress;
+
+  /// 标题区域长按回调（打开操作菜单）
+  final VoidCallback? onInfoLongPress;
+  final bool selectionMode;
+  final bool selected;
+
+  const BookGridItem({
+    super.key,
+    required this.title,
+    this.coverUrl,
+    this.sourceOrigin,
+    this.heroTag,
+    this.unreadNum = 0,
+    this.progress,
+    this.onTap,
+    this.onCoverLongPress,
+    this.onInfoLongPress,
+    this.selectionMode = false,
+    this.selected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: selectionMode && selected
+            ? colorScheme.secondaryContainer.withValues(alpha: 0.3)
+            : null,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          // 封面区域：右上角标 + 底部进度条；长按打开书籍信息
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              onLongPress: onCoverLongPress,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  // [骨架对齐 2.0.260 | 台账 1-3] 封面卡片圆角 12（对齐参考 03b）
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      // [审计修复 §3.3] 阴影改用 colorScheme.shadow Token — Qoder
+                      color: colorScheme.shadow.withValues(alpha: 0.10),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  // [骨架对齐 2.0.260 | 台账 1-3] 与外层卡片圆角 12 保持一致（对齐参考 03b）
+                  borderRadius: BorderRadius.circular(12),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          BookCover(
+                            coverUrl: coverUrl,
+                            width: constraints.maxWidth.isFinite
+                                ? constraints.maxWidth
+                                : 80,
+                            height: constraints.maxHeight.isFinite
+                                ? constraints.maxHeight
+                                : 110,
+                            borderRadius: 0,
+                            sourceOrigin: sourceOrigin,
+                            heroTag: heroTag,
+                          ),
+                          // 未读角标（对标 bv_unread，右上角）
+                          if (unreadNum > 0)
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: Badge.count(
+                                count: unreadNum,
+                                maxCount: 99,
+                              ),
+                            ),
+                          // 封面底部阅读进度条（对标 pb_read_progress，2dp）
+                          if (progress != null)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: LinearProgressIndicator(
+                                value: progress!.clamp(0.0, 1.0),
+                                minHeight: 2,
+                                backgroundColor: colorScheme.primary.withValues(
+                                  alpha: 0.25,
+                                ),
+                                valueColor: AlwaysStoppedAnimation(
+                                  colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          // 勾选标记独立于封面，切换模式不替换图片。— Codex + UI
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: AppSelectionReveal(
+                              visible: selectionMode && selected,
+                              child: Icon(
+                                Symbols.check_circle_rounded,
+                                size: 22,
+                                fill: 1,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 书名区域：12sp 居中最多 2 行（对标 tv_name）；长按打开操作菜单
+          GestureDetector(
+            onTap: onTap,
+            onLongPress: onInfoLongPress,
+            child: SizedBox(
+              height: 40,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

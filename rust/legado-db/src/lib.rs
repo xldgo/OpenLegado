@@ -27,6 +27,7 @@
 
 pub mod connection;
 pub mod default_data;
+pub mod error;
 pub mod import;
 pub mod migration;
 pub mod repository;
@@ -46,14 +47,14 @@ pub use repository::cache_book_repository::CacheBookRepository;
 pub use repository::cache_repository::CacheRepository;
 pub use repository::cookie_repository::CookieRepository;
 pub use repository::cover_rule_repository::{CoverRule, CoverRuleRepository};
-pub use repository::dict_rule_repository::{default_dict_rules, DictRule, DictRuleRepository};
+pub use repository::dict_rule_repository::{DictRule, DictRuleRepository, default_dict_rules};
 pub use repository::download_task_repository::DownloadTaskRepository;
 pub use repository::highlight_repository::HighlightRepository;
 pub use repository::highlight_rule_repository::HighlightRuleRepository;
 pub use repository::http_tts_repository::{HttpTts, HttpTtsRepository};
 pub use repository::keyboard_assist_repository::{KeyboardAssist, KeyboardAssistRepository};
 pub use repository::read_record_repository::{
-    merge_read_record_authors, ReadRecord, ReadRecordRepository,
+    ReadRecord, ReadRecordDetail, ReadRecordRepository, merge_read_record_authors,
 };
 pub use repository::replace_rule_repository::ReplaceRuleRepository;
 pub use repository::review_repository::ReviewRepository;
@@ -80,3 +81,5 @@ pub fn init_database(path: &str) -> LegadoResult<Database> {
 pub fn init_in_memory_database() -> LegadoResult<Database> {
     Database::open_in_memory()
 }
+
+pub use repository::read_record_sessions::ReadRecordSession;

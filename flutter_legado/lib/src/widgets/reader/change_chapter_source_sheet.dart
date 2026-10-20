@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../../providers/reading_provider.dart';
+import '../../providers/chapter_cache_provider.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/book_chapter.dart';
 import '../../models/source_match.dart';
-import '../../providers/providers.dart';
-import '../../providers/reader/reader_notifier.dart';
-import '../../services/book_api.dart';
+import '../../providers/change_source/source_switch_dependencies.dart';
+import '../../features/reader/application/reader_notifier.dart';
 import '../../utils/error_message.dart';
 import '../app_progress_indicator.dart';
+import '../app_search_field.dart';
 
 /// 单章换源（对标原版 `ChangeChapterSourceDialog`）
 ///
@@ -70,6 +72,7 @@ class _ChangeChapterSourceSheetState
   String? _error;
   List<SourceMatch> _matches = const [];
   String _filter = '';
+  final _filterController = TextEditingController();
 
   SourceMatch? _selected;
   List<BookChapter> _toc = const [];
@@ -77,12 +80,16 @@ class _ChangeChapterSourceSheetState
   String? _tocError;
   bool _applying = false;
 
-  BookApi get _api => ref.read(bookApiProvider);
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+  }
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
   }
 
   Future<void> _search() async {
@@ -93,9 +100,10 @@ class _ChangeChapterSourceSheetState
       _toc = const [];
     });
     try {
-      final raw = await _api.searchSource(widget.bookName, widget.author);
-      final matches = raw
-          .map((e) => SourceMatch.fromJson(Map<String, dynamic>.from(e)))
+      final results = await ref
+          .read(sourceSwitchServiceProvider)
+          .searchSource(widget.bookName, widget.author);
+      final matches = results
           .where((m) => m.bookUrl.isNotEmpty && m.sourceUrl.isNotEmpty)
           .toList();
       if (!mounted) return;
@@ -133,7 +141,9 @@ class _ChangeChapterSourceSheetState
       _toc = const [];
     });
     try {
-      final toc = await _api.refreshToc(match.bookUrl, match.sourceUrl);
+      final toc = await ref
+          .read(readingRepositoryProvider)
+          .refreshToc(match.bookUrl, match.sourceUrl);
       if (!mounted) return;
       setState(() {
         _toc = toc;
@@ -159,7 +169,9 @@ class _ChangeChapterSourceSheetState
     if (title.isNotEmpty) {
       final exact = toc.indexWhere((c) => c.title.trim() == title);
       if (exact >= 0) return exact;
-      final soft = toc.indexWhere((c) => c.title.contains(title) || title.contains(c.title));
+      final soft = toc.indexWhere(
+        (c) => c.title.contains(title) || title.contains(c.title),
+      );
       if (soft >= 0) return soft;
     }
     final idx = widget.chapterIndex;
@@ -172,43 +184,42 @@ class _ChangeChapterSourceSheetState
     if (match == null || _applying) return;
     setState(() => _applying = true);
     try {
-      await _api.fetchChapterContent(
-        match.bookUrl,
-        chapter.url,
-        match.sourceUrl,
-      );
+      await ref
+          .read(readingRepositoryProvider)
+          .fetchChapterContent(match.bookUrl, chapter.url, match.sourceUrl);
       // 取候选章原始缓存（fetch 写入 raw），再落到当前书当前章
-      var raw = await _api.getCachedChapter(match.bookUrl, chapter.index);
+      var raw = await ref
+          .read(chapterCacheRepositoryProvider)
+          .getCachedChapter(match.bookUrl, chapter.index);
       if (raw.trim().isEmpty) {
         // 兜底：用已净化正文（仍优于无法换章）
-        raw = await _api.fetchChapterContent(
-          match.bookUrl,
-          chapter.url,
-          match.sourceUrl,
-        );
+        raw = await ref
+            .read(readingRepositoryProvider)
+            .fetchChapterContent(match.bookUrl, chapter.url, match.sourceUrl);
       }
       if (raw.trim().isEmpty) {
         throw StateError('未获取到章节正文');
       }
-      await _api.saveChapterContent(
-        bookUrl: widget.bookUrl,
-        chapterIndex: widget.chapterIndex,
-        title: widget.chapterTitle,
-        content: raw,
-      );
+      await ref
+          .read(readingRepositoryProvider)
+          .saveChapterContent(
+            bookUrl: widget.bookUrl,
+            chapterIndex: widget.chapterIndex,
+            title: widget.chapterTitle,
+            content: raw,
+          );
       if (!mounted) return;
       await ref.read(readerNotifierProvider.notifier).reloadChapterContent();
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已替换本章正文（${match.sourceName}）')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已替换本章正文（${match.sourceName}）')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _applying = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('单章换源失败：$e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('单章换源失败：$e')));
     }
   }
 
@@ -245,9 +256,8 @@ class _ChangeChapterSourceSheetState
                     children: [
                       Text(
                         _selected == null ? '单章换源' : '选择章节',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -256,9 +266,8 @@ class _ChangeChapterSourceSheetState
                             : _selected!.sourceName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -282,29 +291,10 @@ class _ChangeChapterSourceSheetState
           if (_selected == null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
+              child: AppSearchField(
+                controller: _filterController,
+                hintText: '筛选书源 / 书名',
                 onChanged: (v) => setState(() => _filter = v),
-                decoration: InputDecoration(
-                  hintText: '筛选书源 / 书名',
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true,
-                  fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  // [B3] 换源筛选胶囊：无描边无底线、聚焦零变化
-                  // （显式声明防主题底部指示线渗入）
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
               ),
             ),
           Expanded(child: _buildBody(scheme)),
@@ -340,10 +330,7 @@ class _ChangeChapterSourceSheetState
     final list = _filtered;
     if (list.isEmpty) {
       return Center(
-        child: Text(
-          '没有可用书源',
-          style: TextStyle(color: scheme.onSurfaceVariant),
-        ),
+        child: Text('没有可用书源', style: TextStyle(color: scheme.onSurfaceVariant)),
       );
     }
     return ListView.separated(
@@ -412,9 +399,8 @@ class _ChangeChapterSourceSheetState
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Text(
               ch.title,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(context).textTheme.labelLarge
+                  ?.copyWith(color: scheme.onSurfaceVariant),
             ),
           );
         }

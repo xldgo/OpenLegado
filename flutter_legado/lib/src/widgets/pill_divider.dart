@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// M3 胶囊分隔线（对齐 HapeLee PillDivider）
 ///
@@ -12,11 +12,7 @@ class PillDivider extends StatelessWidget {
   /// 是否启用（HapeLee enableItemDivider，默认 false 关）。
   final bool enabled;
 
-  const PillDivider({
-    super.key,
-    this.widthFraction = 0.2,
-    this.enabled = true,
-  });
+  const PillDivider({super.key, this.widthFraction = 0.2, this.enabled = true});
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +39,7 @@ class PillDivider extends StatelessWidget {
 /// 设置行分隔线（对齐 HapeLee SettingItemDivider）
 ///
 /// 默认关闭（enableItemDivider=false），打开时为 80% 长 pill 线。
-/// 存量 IosGroup 内 0.5dp 全宽线保持不动，逐屏迁移时替换。
+/// 存量 SettingsGroup 内 0.5dp 全宽线保持不动，逐屏迁移时替换。
 class SettingItemDivider extends StatelessWidget {
   /// 是否启用（默认 false，与 HapeLee 一致）。
   final bool enabled;
@@ -54,29 +50,4 @@ class SettingItemDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return PillDivider(widthFraction: 0.8, enabled: enabled);
   }
-}
-
-/// 弹窗菜单项间分隔（PopupMenuEntry 形态）。
-///
-/// 对标参考版 `PillDivider()` 在 RoundDropdownMenuItem 之间的用法
-/// （PillDivider.kt 被 13 文件引用，均为弹窗菜单项分隔），亦为我方
-/// `PopupMenuDivider` 的形态替代：高度沿用 PopupMenuDivider 的 16dp，
-/// 内容为 20% 宽胶囊线（PillDivider 默认参数）。
-/// 泛型与宿主 `PopupMenuButton<T>` 的 T 一致（由上下文推断）。
-class PillMenuDivider<T> extends PopupMenuEntry<T> {
-  const PillMenuDivider({super.key});
-
-  @override
-  double get height => 16;
-
-  @override
-  bool represents(T? value) => false;
-
-  @override
-  State<PillMenuDivider<T>> createState() => _PillMenuDividerState<T>();
-}
-
-class _PillMenuDividerState<T> extends State<PillMenuDivider<T>> {
-  @override
-  Widget build(BuildContext context) => const PillDivider();
 }

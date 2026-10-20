@@ -1,22 +1,16 @@
 //! 替换规则管理 API
 //!
-//! 提供替换规则的增删改查操作，通过 ReplaceRuleRepository 访问数据库。
+//! 转换边界参数并调用Engine服务，保留未开库的导入回退。
 
-use legado_core::content_processor::{
-    apply_source_replace_rules, preview_single_rule, ReplaceJsExecutor, ReplaceRuleEntry,
-};
 use legado_core::models::ReplaceRule;
 use legado_core::{LegadoError, LegadoResult};
-use legado_db::ReplaceRuleRepository;
+use legado_engine::replace_rule_service::{ReplaceRuleFields, ReplaceRuleService};
 
 use crate::db_state::with_database;
 
 /// 获取所有替换规则
 pub fn get_replace_rules() -> LegadoResult<Vec<ReplaceRule>> {
-    with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        repo.find_all()
-    })
+    with_database(|db| ReplaceRuleService::new(db).list_rules())
 }
 
 /// 添加替换规则，返回新规则的 id
@@ -44,32 +38,22 @@ pub fn add_replace_rule(
     timeout_millisecond: Option<i64>,
     scope_source: Option<bool>,
 ) -> LegadoResult<i64> {
-    let rule = ReplaceRule {
-        id: 0,
-        name: name.to_string(),
-        group: group.map(|s| s.to_string()),
-        pattern: pattern.to_string(),
-        replacement: replacement.to_string(),
-        scope: if scope.is_empty() {
-            None
-        } else {
-            Some(scope.to_string())
-        },
-        scope_title: scope_title.unwrap_or(false),
-        scope_content: scope_content.unwrap_or(true),
-        scope_source: scope_source.unwrap_or(false),
-        exclude_scope: exclude_scope
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string()),
-        is_enabled: true,
-        is_regex,
-        timeout_millisecond: timeout_millisecond.unwrap_or(3000),
-        order: 0,
-    };
-
     with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        repo.insert(&rule)
+        ReplaceRuleService::new(db).add_rule(
+            scope,
+            ReplaceRuleFields {
+                name,
+                pattern,
+                replacement,
+                is_regex,
+                group,
+                scope_title,
+                scope_content,
+                exclude_scope,
+                timeout_millisecond,
+                scope_source,
+            },
+        )
     })
 }
 
@@ -96,68 +80,38 @@ pub fn update_replace_rule(
     scope_source: Option<bool>,
 ) -> LegadoResult<()> {
     with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        // 先获取现有规则以保留其他字段
-        let all = repo.find_all()?;
-        let existing = all
-            .iter()
-            .find(|r| r.id == rule_id)
-            .ok_or_else(|| legado_core::LegadoError::Database("替换规则不存在".into()))?;
-
-        // 可选参合并：None=保留既有值；Some("")=清除（group/exclude_scope）
-        let merged_group = match group {
-            Some(s) if !s.is_empty() => Some(s.to_string()),
-            Some(_) => None,
-            None => existing.group.clone(),
-        };
-        let merged_exclude = match exclude_scope {
-            Some(s) if !s.is_empty() => Some(s.to_string()),
-            Some(_) => None,
-            None => existing.exclude_scope.clone(),
-        };
-
-        let updated = ReplaceRule {
-            id: rule_id,
-            name: name.to_string(),
-            group: merged_group,
-            pattern: pattern.to_string(),
-            replacement: replacement.to_string(),
-            scope: existing.scope.clone(),
-            scope_title: scope_title.unwrap_or(existing.scope_title),
-            scope_content: scope_content.unwrap_or(existing.scope_content),
-            scope_source: scope_source.unwrap_or(existing.scope_source),
-            exclude_scope: merged_exclude,
+        ReplaceRuleService::new(db).update_rule(
+            rule_id,
             is_enabled,
-            is_regex,
-            timeout_millisecond: timeout_millisecond.unwrap_or(existing.timeout_millisecond),
-            order: existing.order,
-        };
-        repo.update(&updated)
+            ReplaceRuleFields {
+                name,
+                pattern,
+                replacement,
+                is_regex,
+                group,
+                scope_title,
+                scope_content,
+                exclude_scope,
+                timeout_millisecond,
+                scope_source,
+            },
+        )
     })
 }
 
 /// 删除替换规则
 pub fn delete_replace_rule(rule_id: i64) -> LegadoResult<()> {
-    with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        repo.delete(rule_id)
-    })
+    with_database(|db| ReplaceRuleService::new(db).delete_rule(rule_id))
 }
 
 /// 获取所有启用的替换规则（用于阅读时应用）
 pub fn get_enabled_rules() -> LegadoResult<Vec<ReplaceRule>> {
-    with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        repo.get_enabled_rules()
-    })
+    with_database(|db| ReplaceRuleService::new(db).enabled_rules())
 }
 
 /// 启用/禁用替换规则
 pub fn set_rule_enabled(rule_id: i64, enabled: bool) -> LegadoResult<()> {
-    with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        repo.set_enabled(rule_id, enabled)
-    })
+    with_database(|db| ReplaceRuleService::new(db).set_enabled(rule_id, enabled))
 }
 
 /// 书源导入时应用「书源作用域」替换规则（对齐原版 `BookSourceImport`）
@@ -175,21 +129,7 @@ pub fn apply_replace_rules_to_source(
     source_url: &str,
 ) -> String {
     let result = with_database(|db| {
-        let repo = ReplaceRuleRepository::new(db.connection());
-        let rules = repo.get_enabled_rules()?;
-        let entries: Vec<ReplaceRuleEntry> = rules
-            .iter()
-            .map(ReplaceRuleEntry::from_replace_rule)
-            .collect();
-        // 与正文管线 FFI 路径一致：无生产 JS 执行器，@js: 规则被安全跳过
-        let js_executor: Option<std::sync::Arc<dyn ReplaceJsExecutor>> = None;
-        Ok(apply_source_replace_rules(
-            source_json,
-            &entries,
-            source_name,
-            source_url,
-            js_executor,
-        ))
+        ReplaceRuleService::new(db).apply_to_source(source_json, source_name, source_url)
     });
     // 数据库未就绪/查询失败等任何错误 → 保留原文，不中断导入
     match result {
@@ -197,39 +137,6 @@ pub fn apply_replace_rules_to_source(
         Err(e) => {
             eprintln!("[replace-rule] apply_replace_rules_to_source failed, keep original: {e}");
             source_json.to_string()
-        }
-    }
-}
-
-/// 替换规则预览的 `@js:` JS 执行器（契约 §2.8 `previewReplaceRule`）
-///
-/// [替换规则预览 | 2026-09-13] 把 legado-js 的 QuickJS 引擎适配为
-/// `content_processor::ReplaceJsExecutor` 契约（legado-core 不依赖
-/// legado-js，由 FFI 层完成对接，与 `js_executor::QuickJsExecutor` 同模式）：
-/// - 每次 eval 走 [`crate::js_executor::fresh_engine`] 新建独立引擎
-///   （对齐 F3-6 非主路径策略，规避引擎池全局残留串扰）；
-/// - 当前正则匹配文本以 `result` 绑定注入（对齐 Kotlin
-///   `bindings["result"] = matcher.group()` 语义）；
-/// - 非 quickjs 构建（feature 关闭 / 无引擎）返回 `Err`，由预览路径
-///   拼 `⚠️ ` 前缀展示，不上抛 FFI 异常。
-struct ReplacePreviewJsExecutor;
-
-impl ReplaceJsExecutor for ReplacePreviewJsExecutor {
-    fn eval(&self, js_code: &str, result: &str) -> Result<String, String> {
-        #[cfg(feature = "quickjs")]
-        {
-            let engine = crate::js_executor::fresh_engine("replace-rule-preview")
-                .map_err(|e| format!("JS 引擎创建失败: {e}"))?;
-            let engine = engine.lock().map_err(|_| "JS 引擎锁中毒".to_string())?;
-            let bindings: [(&str, legado_js::JsValue); 1] =
-                [("result", legado_js::JsValue::from(result))];
-            legado_js::JsEngine::eval_with_bindings(&*engine, js_code, &bindings)
-                .map_err(|e| e.to_string())
-        }
-        #[cfg(not(feature = "quickjs"))]
-        {
-            let _ = (js_code, result);
-            Err("QuickJS 未启用，@js: 替换预览不可用（请确认构建启用 quickjs feature）".to_string())
         }
     }
 }
@@ -247,15 +154,11 @@ impl ReplaceJsExecutor for ReplacePreviewJsExecutor {
 pub fn preview_replace_rule(rule_json: &str, sample: &str) -> LegadoResult<String> {
     let rule: ReplaceRule = serde_json::from_str(rule_json)
         .map_err(|e| LegadoError::Ffi(format!("替换规则 JSON 解析失败: {e}")))?;
-    let entry = ReplaceRuleEntry::from_replace_rule(&rule);
-    // @js: 预览注入真实 QuickJS 执行器（与书源管线 FFI 路径的 None 降级不同——
-    // 预览的价值就在 `@js:` 真实执行）
-    let js_executor: Option<std::sync::Arc<dyn ReplaceJsExecutor>> =
-        Some(std::sync::Arc::new(ReplacePreviewJsExecutor));
-    match preview_single_rule(sample, &entry, &js_executor) {
-        Ok(text) => Ok(text),
-        Err(e) => Ok(format!("⚠️ {e}")),
-    }
+    Ok(legado_engine::replace_rule_service::preview_replace_rule(
+        &rule,
+        sample,
+        crate::engine_holder::js_resources(),
+    ))
 }
 
 #[cfg(test)]
@@ -365,16 +268,20 @@ mod tests {
             "rr_r1_4", "a", "b", false, "", None, None, None, None, None, None,
         )
         .unwrap();
-        assert!(get_replace_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_4"));
+        assert!(
+            get_replace_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_4")
+        );
 
         delete_replace_rule(id).unwrap();
-        assert!(!get_replace_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_4"));
+        assert!(
+            !get_replace_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_4")
+        );
     }
 
     #[test]
@@ -406,24 +313,30 @@ mod tests {
         .unwrap();
 
         // 默认启用
-        assert!(get_enabled_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_6"));
+        assert!(
+            get_enabled_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_6")
+        );
 
         // 禁用
         set_rule_enabled(id, false).unwrap();
-        assert!(!get_enabled_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_6"));
+        assert!(
+            !get_enabled_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_6")
+        );
 
         // 重新启用
         set_rule_enabled(id, true).unwrap();
-        assert!(get_enabled_rules()
-            .unwrap()
-            .iter()
-            .any(|r| r.name == "rr_r1_6"));
+        assert!(
+            get_enabled_rules()
+                .unwrap()
+                .iter()
+                .any(|r| r.name == "rr_r1_6")
+        );
     }
 
     #[test]

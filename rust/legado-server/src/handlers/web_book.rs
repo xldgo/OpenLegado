@@ -1,51 +1,15 @@
-//! WebBook 处理器 — 书源规则驱动的完整搜索链路 API
+//! WebBook 的 REST 适配，复用 legado-fetcher 的搜索、详情、目录和正文入口。
 //!
-//! 提供以下端点：
-//! - POST /api/webbook/search   — 搜索书籍
-//! - POST /api/webbook/info     — 获取书籍详情
-//! - POST /api/webbook/chapters — 获取章节列表
-//! - POST /api/webbook/content  — 获取章节内容
-//!
-//! [P5-1 链 b] 抓取本体改用共享 crate `legado-fetcher`（与 App/ffi 主链路
-//! 同一 `RealBookSourceFetcher` 实现）：本文件此前的本地阉割分叉版（无
-//! rate limit 门控/webView 通道/charset 三级解码/重定向 final_url/data: URI
-//! 等）已整体删除。
-//!
-//! [P5-1 链 b2] 四个 handler 改调共享 fetcher 的**自由入口**
-//! （`legado_fetcher::web_book::webbook_search/info/chapters/content`），
-//! 与 App/ffi 主链路完整对齐。引擎入口（[`build_engine`]）不可达的路径
-//! 由此在 REST 上打通：
-//! - mainJs JS 书源分派（JS 源经 REST 可用；quickjs 档真执行）；
-//! - `begin_book_flow` 流程生命周期（flow scope 写入进程级单槽）与详情/
-//!   目录阶段的 book 元信息、章节→book 缓存记录。
-//!
-//! [P5 尾项] 宿主注入面 [`server_deps`] 全量接入 AppState DB（cookie 持久化
-//! 与三宿主闭包，与 ffi `ffi_deps` 同语义、同缓存键口径，数据面为 server
-//! 自身 DB 单例）：
-//! - `login_header`：`caches` 表键 `loginHeader_<书源URL>`，请求经
-//!   `parse_source_headers` 合并登录头；
-//! - `book_variable`：`books.variable`（`find_by_url` → `originBookUrl`
-//!   反查两路，同 ffi `db_book_variable`），详情/目录 `{{key}}` 变量链
-//!   从「无值可读」变为可读用户持久化变量；
-//! - `source_context`：setup 脚本（共享 [`legado_fetcher::source_setup`]
-//!   生成），宿主数据取同一 DB 的 `infoMap_<书源URL>` / 登录缓存键，
-//!   书源 JS 上下文（source/cookie/loginUrl/header 规则）对 REST 请求生效。
-//!
-//! [`build_engine`] 保留：reader/audio/toc_update 兄弟 handler 亦经引擎入口
-//! 复用同一注入面（已接入 state）。
-//!
-//! [cookie 批] 抓取链客户端接 DB cookie 存储（[`ServerCookiePersistence`]）：
-//! 修复前 `server_deps` 每请求 `LegadoClient::new`（空 jar、无持久化）——
-//! 响应 Set-Cookie 用完即弃、不落库，App 已登录书源（cookie 在 DB）到 Web
-//! 书架抓取时丢登录态。修复后客户端经 `LegadoClient::with_cookie_persistence`
-//! 构建：读侧构建时全量预载 `cookies` 表并按域附加，写侧响应 Set-Cookie
-//! 合并写落库。对齐原版 WebService 与主进程同 CookieStore 的语义基线
-//!（`WebService.kt:42,204`；审计 `docs/S28_DUAL_DB_AUDIT_20261004.md` §3.5）。
+//! AppState 持有宿主注入的 EngineContext：短借同一数据库池，书源访问与
+//! 保存共用同一限流窗口；登录头、书籍变量和 JS setup 在实际调用时读取。
+//! 复用引擎 HTTP 客户端和 CookieStore；首次构造及 Cookie 预载在阻塞线程执行。
+//! Cookie 合并与清除统一委托引擎，JS 多实例钩子的隔离仍留待下一批。
+//! reader/audio/toc_update 使用同一个异步 build_engine 装配入口。
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 
 use crate::error::ApiError;
@@ -53,10 +17,10 @@ use crate::state::AppState;
 use legado_core::models::BookSource;
 use legado_core::web_book::{WebBookEngine, WebBookInfo, WebChapter, WebSearchResult};
 use legado_core::{LegadoError, LegadoResult};
-use legado_db::{BookRepository, CacheRepository, CookieRepository};
+use legado_db::BookRepository;
+#[cfg(test)]
+use legado_db::CacheRepository;
 use legado_fetcher::deps::FetcherDeps;
-use legado_fetcher::rate_limit::RateLimiterRegistry;
-use legado_net::{LegadoClient, LegadoClientConfig};
 
 /// 共享 fetcher 类型（P5-1 链 b）：`toc_update` 等兄弟模块经本路径引用
 /// （与 ffi 侧 `pub use legado_fetcher::web_book::RealBookSourceFetcher` 同款收口）
@@ -128,195 +92,43 @@ pub struct WebBookContentResponse {
 
 // ─── 宿主注入面（P5-1 链 b：共享 fetcher 接入） ───────────────────────────────────
 
-/// 进程级限速注册表（对齐 ffi `api::source_rate_limit::registry`）：
-/// 跨请求保持各书源 `concurrentRate` 窗口状态。旧 server 本地分叉版
-/// 零限速，切换后 REST 端点获得与 App 主链路一致的源级限速门控。
-///
-/// [P2 互认] ffi 侧另有一份同名 static（`api::source_rate_limit::REGISTRY`）。
-/// ffi 与 server 可同进程并存（同一进程同时启用 ffi 抓取路径与 REST 端点），
-/// 但两者各持独立 static registry，本批不做共享单例收敛；源编辑保存在各自
-/// 保存路径刷新各自 registry（server `handlers/source_update.rs` 批量导入与
-/// REST `/api/sources` create/update；ffi `api/source.rs` add/update/import）。
-/// REST/FFI 同时抓取同一源时窗口仍会分叉（弱于真单例）——收敛为单例（注册表
-/// 句柄经共享 crate 静态化或宿主注入同一份 Arc）留待后续裁决。
-static RATE_LIMITER: OnceLock<Arc<RateLimiterRegistry>> = OnceLock::new();
-
-pub(crate) fn rate_limiter() -> Arc<RateLimiterRegistry> {
-    Arc::clone(RATE_LIMITER.get_or_init(|| Arc::new(RateLimiterRegistry::new())))
-}
-
-/// 书源保存成功后的限速配置刷新入口（接线：`source_update` 批量导入与
-/// REST `/api/sources` create/update）
-///
-/// 走 [`RateLimiterRegistry::refresh`] 的保存侧分发：空 / `"0"`（忽略首尾
-/// 空白）→ 移除既有 limiter（对齐原版「空即不限流」）；合法 rate → 原位
-/// 刷新既有 limiter；非法 rate 与未注册 key → 不改动/不预创建。写库成功后
-/// 方可调用；写库失败不得调用（避免未落库的配置提前生效）。
-pub(crate) fn refresh_source_rate_limit(source_url: &str, concurrent_rate: &str) {
-    rate_limiter().refresh(source_url, concurrent_rate);
-}
-
-/// 同步读取 AppState DB（宿主注入闭包的执行面）
-///
-/// `FetcherDeps` 闭包是同步签名，不能 `.await` tokio Mutex。分级策略：
-/// 1. 快路径 `try_lock`：REST handler 自身「查完即放」后才调 fetcher，绝大多数
-///    调用零等待命中；
-/// 2. 锁被并发 handler 持有时，多线程 runtime（生产 `#[tokio::main]` 默认档）
-///    转入 `block_in_place` 阻塞等待——不阻塞其它 worker，语义=正确读到库值；
-/// 3. current_thread runtime（`#[tokio::test]` 默认档）被持有时不等待
-///    （持锁任务无法推进，等待即死锁），返回 `None` 优雅降级=无值可读。
-///
-/// 调用纪律（code-reviewer P2-1 禁令，违反会死锁/panic，勿移除）：
-/// - **持有 `state.db` guard 的任务内不得进入 fetcher/webbook 链**——同任务
-///   重入会经 `blocking_lock` 等待自己持有的锁，多线程档永久挂死；
-/// - **不得在 `Runtime::block_on` 根 future 直调 webbook 链**——该线程无
-///   worker ctx，`block_in_place` 直通不清 entered 标志，随后 `blocking_lock`
-///   无法进入 blocking region → panic（tokio 1.53.1 `worker.rs`/`block_on.rs`）。
-///   当前全部接线点均为 axum handler/MT worker/spawn_blocking，不可达此两态。
-fn with_state_db<T>(
+/// 同步宿主回调短借当前引擎连接；实际数据库失败继续按既有可选能力处理。
+fn read_database<T>(
     state: &AppState,
-    f: impl FnOnce(&legado_db::Database) -> Option<T>,
+    operation: impl FnOnce(&legado_db::Database) -> Option<T>,
 ) -> Option<T> {
-    if let Ok(guard) = state.db.try_lock() {
-        return f(&guard);
-    }
-    let multi_thread = tokio::runtime::Handle::try_current()
-        .map(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
-        .unwrap_or(false);
-    if multi_thread {
-        return tokio::task::block_in_place(|| f(&state.db.blocking_lock()));
-    }
-    None
-}
-
-// ─── Cookie 持久化（本批修复：Web 抓取链接通 DB cookie 存储）───────────────────
-
-/// 合并两段 cookie 串（键集并集、同名 `incoming` 胜、按键名排序）
-///
-/// 与 ffi `http_state.rs::merge_cookie_strings`（legado-ffi）逐语义同款：
-/// 同一 [`legado_net::CookieStore::cookie_string_to_map`] 解析口径；排序保证
-/// 行内容稳定（HashMap 迭代序不保证，裸拼接会让同一内容产生不同行串）。
-///
-/// 为何不直接调用 ffi 同款函数：`legado-ffi → legado-server` 依赖方向
-/// （server 是 ffi 的依赖）使 server 无法引用 ffi 模块；共享原语为
-/// `legado_net::CookieStore` 的解析/合并 API（两侧同源）。
-fn merge_cookie_strings(existing: &str, incoming: &str) -> String {
-    let mut map = legado_net::CookieStore::cookie_string_to_map(existing);
-    map.extend(legado_net::CookieStore::cookie_string_to_map(incoming));
-    let mut parts: Vec<String> = map.iter().map(|(k, v)| format!("{k}={v}")).collect();
-    parts.sort();
-    parts.join("; ")
-}
-
-/// 基于 AppState DB `cookies` 表的 server Cookie 持久化后端
-///
-/// 对齐原版「同进程共享同一 CookieStore」（`WebService.kt:42,204` 控制器
-/// 直查 Room 单例）：读侧——客户端构建时 `CookiePersistence::load_all`
-/// 全量预载，请求按 URL 属域经 `apply_headers_and_cookies` 附加；写侧——
-/// 响应 Set-Cookie 经 `CookiePersistence::save` 落库。
-///
-/// 与 ffi 路径 `http_state::DbCookiePersistence`（legado-ffi）语义对齐
-/// （本批无法直接复用其类型，见 [`merge_cookie_strings`] 依赖方向说明）：
-/// - `load_all` / 合并 `save` 均经 `legado_db::CookieRepository` 读写
-///   `cookies` 表，行键为 ETLD+1 域键（与 ffi jar 写回 / JS 宿主下沉同表同键）；
-/// - App 内嵌模式下 AppState DB 即 ffi `db_state` 全局池的同一 SQLite
-///   单库（§二.8 单池修复），故读写与 App 登录态天然同存储；
-/// - `save` 为**合并 upsert**（读现有行 → 按键并集、同名新值胜 → 落库）：
-///   同一域行与 JS 宿主下沉（`legado-js` 全局 `CookieSink`，db_open 注册）
-///   共享，裸 upsert 会以 server 侧视图抹掉 JS 侧已写入的键。
-///
-/// 失败策略：DB 未初始化 / 锁竞争降级 / 读写失败仅记日志，绝不向网络
-/// 请求传播（与 net 层 `CookiePersistence` trait 文档的宽容失败一致）。
-struct ServerCookiePersistence {
-    state: Arc<AppState>,
-}
-
-impl legado_net::CookiePersistence for ServerCookiePersistence {
-    fn load_all(&self) -> Vec<(String, String)> {
-        with_state_db(&self.state, |db| {
-            CookieRepository::new(db.connection()).find_all().ok()
-        })
-        .unwrap_or_default()
-    }
-
-    fn save(&self, tag: &str, cookie: &str) {
-        if cookie.is_empty() {
-            return;
-        }
-        let tag_owned = tag.to_string();
-        let incoming = cookie.to_string();
-        let outcome = with_state_db(&self.state, |db| -> Option<()> {
-            let repo = CookieRepository::new(db.connection());
-            let merged = match repo.get_by_tag(&tag_owned).ok().flatten() {
-                Some(existing) if existing != incoming => {
-                    merge_cookie_strings(&existing, &incoming)
-                }
-                _ => incoming.clone(),
-            };
-            if merged.is_empty() {
-                return Some(()); // 防御分支：空串不产生行（与 ffi 同款跳过）
-            }
-            repo.upsert(&tag_owned, &merged).ok()?;
-            Some(())
-        });
-        if outcome.is_none() {
-            // DB 不可用 / 锁竞争降级 / 写失败：仅记日志（持久化失败不得阻断请求）
-            tracing::warn!("server cookie 持久化 '{tag}' 写入跳过或失败（降级为内存态）");
+    match state.engine.storage().with_database(|db| Ok(operation(db))) {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!("抓取回调读取数据库失败: {error}");
+            None
         }
     }
 }
 
-/// 组装 server 宿主注入面
-///
-/// - `client`：`LegadoClientConfig::default()` + **DB-backed cookie 持久化**
-///   （[`ServerCookiePersistence`]，本批修复）：构建时从 AppState DB
-///   `cookies` 表全量预载（读侧按域附加），响应 Set-Cookie 合并写落库
-///   （写侧）。每请求一次构造 = 每请求取库内最新 cookie（App 登录态对
-///   Web 抓取立即可见）；本次调用内多请求共享同一客户端 jar（同源内
-///   Set-Cookie 续命，对齐原版单 CookieStore 语义）；
-/// - `rate_limiter`：进程级注册表（见 [`rate_limiter`]）；
-/// - `login_header`：按书源 URL 查 `caches` 表 `loginHeader_<url>`（与 ffi
-///   `source_login_cache::get_login_header` 同键口径）；
-/// - `book_variable`：按书籍取址点查 `books.variable`（`find_by_url` 未命中
-///   再按 `originBookUrl` 反查，与 ffi `db_book_variable` 逐行同语义）；
-/// - `source_context`：按书源生成 JS setup 脚本（共享
-///   [`legado_fetcher::source_setup`]），宿主数据取同一 DB 的
-///   `infoMap_<url>` / `loginHeader_<url>` / `userInfo_<url>` 缓存键
-///   （与 ffi `explore_info_map` / `source_login_cache` 同键）。
-///
-/// 四闭包（cookie 持久化 + 三宿主注入）经 [`with_state_db`] 同步读 AppState
-/// DB（`Arc<AppState>` 捕获，调用时点取库值而非装配时快照）。
-///
-/// **未做进程级客户端复用（如实登记）**：复用会冻结构建时的 cookie 预载
-/// 快照（App 后续登录对 Web 不可见），且进程级槽位无法安全绑定可重启/
-/// 多实例的 AppState（测试多库、服务重启场景）；本批只修 cookie 语义，
-/// 连接池开销维持现状（每请求一池），留待后续裁决。
+/// 网络和限流由当前引擎共享；宿主查询仍在调用时短借本实例数据库。
 fn server_deps(state: &Arc<AppState>) -> LegadoResult<FetcherDeps> {
-    let client = LegadoClient::with_cookie_persistence(
-        LegadoClientConfig::default(),
-        Arc::new(ServerCookiePersistence {
-            state: Arc::clone(state),
-        }),
-    )
-    .map_err(|e| LegadoError::Internal(format!("LegadoClient init: {e}")))?;
+    let task = state.task()?;
+    let client = state.engine.network().client()?;
 
-    let login_header_state = Arc::clone(state);
+    let login_header_cache = state.engine.source_login_cache().clone();
     let book_variable_state = Arc::clone(state);
-    let source_context_state = Arc::clone(state);
+    let source_context_info = state.engine.source_info_map().clone();
+    let source_context_login = state.engine.source_login_cache().clone();
 
     Ok(FetcherDeps::new(client)
-        .with_rate_limiter(rate_limiter())
+        .with_request_concurrency(legado_engine::request_settings::thread_count(Some(
+            state.engine.storage(),
+        ))?)
+        .with_execution_lease(Arc::new(task))
+        .with_web_book_state(state.engine.web_book_state().clone())
+        .with_js_resources(state.engine.js_resources().clone())
+        .with_rate_limiter(state.engine.rate_limiter())
         .with_login_header(Arc::new(move |source_url: &str| {
-            let key = format!("loginHeader_{source_url}");
-            with_state_db(&login_header_state, |db| {
-                CacheRepository::new(db.connection())
-                    .get(&key)
-                    .ok()
-                    .flatten()
-            })
+            login_header_cache.get_login_header(source_url)
         }))
         .with_book_variable(Arc::new(move |book_url: &str| {
-            with_state_db(&book_variable_state, |db| {
+            read_database(&book_variable_state, |db| {
                 let repo = BookRepository::new(db.connection());
                 let found = match repo.find_by_url(book_url).ok()? {
                     Some(book) => Some(book),
@@ -327,28 +139,30 @@ fn server_deps(state: &Arc<AppState>) -> LegadoResult<FetcherDeps> {
         }))
         .with_source_context(Arc::new(move |source: &BookSource| {
             let tag = source.book_source_url.clone();
-            with_state_db(&source_context_state, |db| {
-                let repo = CacheRepository::new(db.connection());
-                let info_map = repo
-                    .get(&format!("infoMap_{tag}"))
-                    .ok()
-                    .flatten()
-                    .and_then(|json| {
-                        serde_json::from_str::<std::collections::HashMap<String, String>>(&json)
-                            .ok()
-                    })
-                    .unwrap_or_default();
-                let login_header = repo.get(&format!("loginHeader_{tag}")).ok().flatten();
-                let login_info = repo.get(&format!("userInfo_{tag}")).ok().flatten();
-                legado_fetcher::source_setup::book_source_js_setup_script(
-                    source,
-                    &info_map,
-                    login_header.as_deref(),
-                    login_info.as_deref(),
-                )
-                .ok()
-            })
+            // 两项能力各自短借连接，同一服务也能读到尚未成功落库的修改。
+            let info_map = source_context_info.snapshot(&tag);
+            let login_header = source_context_login.get_login_header(&tag);
+            let login_info = source_context_login.get_login_info(&tag);
+            legado_fetcher::source_setup::book_source_js_setup_script(
+                source,
+                &info_map,
+                login_header.as_deref(),
+                login_info.as_deref(),
+            )
+            .ok()
         })))
+}
+
+/// 客户端构造会预载 Cookie，移至阻塞线程，且不额外占一条数据库连接。
+async fn request_deps(state: &Arc<AppState>) -> LegadoResult<FetcherDeps> {
+    let state = state.clone();
+    let task = state.task()?;
+    tokio::task::spawn_blocking(move || {
+        let _task = task;
+        server_deps(&state)
+    })
+    .await
+    .map_err(|error| LegadoError::Database(format!("抓取依赖装配任务异常: {error}")))?
 }
 
 /// 构建 WebBookEngine（共享 fetcher + server 注入面）
@@ -361,10 +175,12 @@ fn server_deps(state: &Arc<AppState>) -> LegadoResult<FetcherDeps> {
 /// 出错上报（而非旧版 `expect` panic）：与 ffi 侧
 /// `web_book::build_engine() -> LegadoResult<_>` 同形态，构造失败由
 /// 调用方映射为 5xx。
-pub(crate) fn build_engine(
+pub(crate) async fn build_engine(
     state: &Arc<AppState>,
 ) -> LegadoResult<WebBookEngine<RealBookSourceFetcher>> {
-    Ok(legado_fetcher::web_book::build_engine(server_deps(state)?))
+    Ok(legado_fetcher::web_book::build_engine(
+        request_deps(state).await?,
+    ))
 }
 
 // ─── 处理器函数（P5-1 链 b2：自由入口直连） ────────────────────────────────────
@@ -383,7 +199,7 @@ pub async fn search_books(
     let page = req.page.unwrap_or(1);
     // 自由入口返回 `Vec<WebSearchResult>` JSON 数组字符串（与 ffi 同形态）
     let raw = legado_fetcher::web_book::webbook_search(
-        server_deps(&state)?,
+        request_deps(&state).await?,
         &source_json,
         &req.query,
         page,
@@ -412,9 +228,12 @@ pub async fn get_book_info(
 ) -> Result<Json<WebBookInfo>, ApiError> {
     let source_json = serde_json::to_string(&req.source).map_err(LegadoError::Serialization)?;
     // 自由入口返回 `WebBookInfo` JSON 字符串（与 ffi 同形态）
-    let raw =
-        legado_fetcher::web_book::webbook_info(server_deps(&state)?, &source_json, &req.book_url)
-            .await?;
+    let raw = legado_fetcher::web_book::webbook_info(
+        request_deps(&state).await?,
+        &source_json,
+        &req.book_url,
+    )
+    .await?;
     let info: WebBookInfo = serde_json::from_str(&raw).map_err(LegadoError::Serialization)?;
     Ok(Json(info))
 }
@@ -432,7 +251,7 @@ pub async fn get_chapters(
     let source_json = serde_json::to_string(&req.source).map_err(LegadoError::Serialization)?;
     // 自由入口返回 `Vec<WebChapter>` JSON 数组字符串（与 ffi 同形态）
     let raw = legado_fetcher::web_book::webbook_chapters(
-        server_deps(&state)?,
+        request_deps(&state).await?,
         &source_json,
         &req.book_url,
         "",
@@ -460,7 +279,7 @@ pub async fn get_content(
     let source_json = serde_json::to_string(&req.source).map_err(LegadoError::Serialization)?;
     let chapter_json = serde_json::to_string(&req.chapter).map_err(LegadoError::Serialization)?;
     let content = legado_fetcher::web_book::webbook_content(
-        server_deps(&state)?,
+        request_deps(&state).await?,
         &source_json,
         &chapter_json,
     )
@@ -477,12 +296,28 @@ pub async fn get_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn server_deps_refresh_concurrency_for_next_request() {
+        let state = make_test_state();
+        let first = server_deps(&state).unwrap();
+        assert_eq!(first.request_concurrency.get(), 16);
+        state
+            .engine
+            .storage()
+            .with_database(|db| {
+                CacheRepository::new(db.connection()).put("config:threadCount", "2", 0)
+            })
+            .unwrap();
+        assert_eq!(server_deps(&state).unwrap().request_concurrency.get(), 2);
+        assert_eq!(first.request_concurrency.get(), 16);
+    }
+
     use axum::body::Body;
     use axum::http::{Method, Request, StatusCode};
+    use legado_db::CookieRepository;
     use legado_net::CookiePersistence;
-    use serde_json::{json, Value};
-    use std::sync::atomic::AtomicBool;
-    use tokio::sync::Mutex;
+    use serde_json::{Value, json};
     use tower::ServiceExt;
 
     use crate::routes::create_router;
@@ -490,13 +325,9 @@ mod tests {
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     fn make_source_json() -> String {
@@ -525,16 +356,24 @@ mod tests {
     }
 
     /// [P5-1 链 b + P5 尾项] 注入面装配钉死：client 可构造（不 panic）、
-    /// 限速注册表进程级共享（跨 build/每请求调用同一 Arc——限速窗口状态跨
-    /// 请求保持的关键）、三宿主闭包全量接入（AppState DB 读）。
+    /// 同引擎跨请求共享限流和抓取缓存，三宿主闭包接入同一数据库。
     #[test]
-    fn test_server_deps_shares_process_rate_limiter_and_injects_host_closures() {
+    fn test_server_deps_shares_engine_resources_and_injects_host_closures() {
         let state = make_test_state();
         let a = server_deps(&state).expect("server deps 可构造（默认客户端）");
         let b = server_deps(&state).expect("server deps 可构造（默认客户端）");
         assert!(
             Arc::ptr_eq(&a.rate_limiter, &b.rate_limiter),
-            "限速注册表必须进程级共享（否则每个请求重置窗口 = 无限速）"
+            "同引擎请求必须共享限速窗口"
+        );
+        assert!(
+            Arc::ptr_eq(&a.web_book, &b.web_book),
+            "同引擎请求不能另建缓存"
+        );
+        let other = server_deps(&make_test_state()).unwrap();
+        assert!(
+            !Arc::ptr_eq(&a.web_book, &other.web_book),
+            "独立引擎不能共享缓存"
         );
         assert!(a.login_header.is_some(), "登录头闭包应已注入（DB 读）");
         assert!(a.book_variable.is_some(), "书籍变量闭包应已注入（DB 读）");
@@ -554,7 +393,7 @@ mod tests {
             "未种数据的书源应无登录头（优雅降级）"
         );
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             CacheRepository::new(db.connection())
                 .put(
                     "loginHeader_https://login.example.com",
@@ -581,7 +420,7 @@ mod tests {
         let state = make_test_state();
         let deps = server_deps(&state).expect("server deps");
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = BookRepository::new(db.connection());
             repo.insert(&legado_core::models::Book {
                 book_url: "https://book-variable.example.com/1".to_string(),
@@ -647,7 +486,7 @@ mod tests {
             ..BookSource::default()
         };
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = CacheRepository::new(db.connection());
             repo.put("infoMap_https://setup.example.com", r#"{"榜类":"推荐"}"#, 0)
                 .expect("种 infoMap");
@@ -1067,7 +906,7 @@ mod tests {
         let base = start_mock_login_gated_server().await;
         let state = make_test_state();
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             CacheRepository::new(db.connection())
                 .put(
                     &format!("loginHeader_{base}"),
@@ -1303,7 +1142,7 @@ mod tests {
         let (base, seen) = start_mock_cookie_source(Some("session=dbval"), None).await;
         let state = make_test_state();
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             legado_db::CookieRepository::new(db.connection())
                 .upsert(MOCK_COOKIE_DOMAIN, "session=dbval")
                 .expect("种 DB cookie（App 登录态）");
@@ -1353,7 +1192,7 @@ mod tests {
         let (base, seen) = start_mock_cookie_source(None, Some("srv=1; Path=/")).await;
         let state = make_test_state();
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             legado_db::CookieRepository::new(db.connection())
                 .upsert(MOCK_COOKIE_DOMAIN, "app=1")
                 .expect("预置 App 侧既有 cookie 行（合并写不得抹除）");
@@ -1381,7 +1220,7 @@ mod tests {
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK, "第一次搜索应 200");
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let row = legado_db::CookieRepository::new(db.connection())
                 .get_by_tag(MOCK_COOKIE_DOMAIN)
                 .expect("读 DB cookie 行")
@@ -1422,11 +1261,9 @@ mod tests {
     #[test]
     fn test_server_cookie_persistence_merged_upsert() {
         let state = make_test_state();
-        let persistence = ServerCookiePersistence {
-            state: Arc::clone(&state),
-        };
+        let persistence = state.engine.network().cookie_persistence();
         {
-            let db = state.db.try_lock().expect("测试无并发持锁");
+            let db = state.database().expect("测试无并发持锁");
             CookieRepository::new(db.connection())
                 .upsert(MOCK_COOKIE_DOMAIN, "a=1; keep=1")
                 .expect("预置既有行");
@@ -1434,7 +1271,7 @@ mod tests {
         persistence.save(MOCK_COOKIE_DOMAIN, "a=9; b=2");
 
         let row = {
-            let db = state.db.try_lock().expect("测试无并发持锁");
+            let db = state.database().expect("测试无并发持锁");
             CookieRepository::new(db.connection())
                 .get_by_tag(MOCK_COOKIE_DOMAIN)
                 .expect("读行")

@@ -32,7 +32,7 @@
 //!    - （quickjs 档）**复合 URL `url,{json headers}` 内嵌 header 合并**：
 //!      服务端录制 `X-Embed` / 内嵌 `Referer` 覆盖默认 Referer 的证据
 //!    - （quickjs 档）**解码后仍非图片 → Err**（密文不得当成功回传的不变式）
-//!    - （默认档）**无 imageDecode 规则 → 原样 base64 透传**（base64/len 精确比对）
+//!    - （默认档）**无 imageDecode 规则 → 原始字节透传**（字节精确比对）
 //!    - （默认档）**HTTP 失败 → `LegadoError::Network`**（`图片下载失败: HTTP 404`）
 //!
 //! 档位说明：1/4a-4c 依赖 QuickJS 执行（content `<js>` 规则 / jsLib / imageDecode
@@ -45,10 +45,9 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex, MutexGuard, Once};
 
-use base64::Engine as _;
 use legado_ffi::legado_core::models::Book;
-use legado_ffi::legado_db::repository::Repository;
 use legado_ffi::legado_db::BookRepository;
+use legado_ffi::legado_db::repository::Repository;
 
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 static ENV_INIT: Once = Once::new();
@@ -60,8 +59,13 @@ fn lock_test() -> MutexGuard<'static, ()> {
 fn setup_env() {
     let db = legado_ffi::legado_db::init_in_memory_database().expect("内存数据库初始化");
     legado_ffi::db_state::init_database(db).expect("全局连接池初始化");
-    std::env::set_var("NO_PROXY", "127.0.0.1,localhost");
-    legado_ffi::http_state::reset_shared_client();
+    legado_ffi::http_state::reset_shared_client_with_config(
+        legado_ffi::legado_net::LegadoClientConfig {
+            no_proxy: true,
+            ..Default::default()
+        },
+    )
+    .expect("回环夹具客户端初始化");
 }
 
 // ─── 回环 mock 服务器（P2-17 同纪律）────────────────────────────────────────
@@ -528,11 +532,8 @@ fn test_fetch_image_with_decode_xor_decode_hit_and_composite_headers() {
     let url = format!("http://127.0.0.1:{port}/img/xor.png");
     let out = legado_ffi::api::image_api::fetch_image_with_decode(&url, &source_json)
         .expect("XOR 解码后应为有效图片（明文 PNG）");
-    let v: serde_json::Value = serde_json::from_str(&out).expect("结果 JSON 解析");
-    assert_eq!(v["len"].as_u64(), Some(plain.len() as u64));
-    let decoded = base64::engine::general_purpose::STANDARD
-        .decode(v["base64"].as_str().expect("base64 字段"))
-        .expect("base64 解码");
+    assert_eq!(out.len(), plain.len());
+    let decoded = out;
     assert_eq!(decoded, plain, "XOR 解码结果应逐字节等于明文 PNG");
 
     // ② 复合 URL：内嵌 header 合并（服务端录制证据）
@@ -541,13 +542,7 @@ fn test_fetch_image_with_decode_xor_decode_hit_and_composite_headers() {
     );
     let out2 = legado_ffi::api::image_api::fetch_image_with_decode(&composite, &source_json)
         .expect("复合 URL 解码不应失败");
-    let decoded2 = base64::engine::general_purpose::STANDARD
-        .decode(
-            serde_json::from_str::<serde_json::Value>(&out2).unwrap()["base64"]
-                .as_str()
-                .expect("base64 字段"),
-        )
-        .expect("base64 解码");
+    let decoded2 = out2;
     assert_eq!(decoded2, plain, "复合 URL 拆分后仍走同一解码路径");
 
     // 服务端录制的最后一次 /img/xor.png 请求头（复合 URL 调用）：
@@ -601,8 +596,8 @@ fn test_fetch_image_with_decode_non_image_result_is_error() {
     );
 }
 
-/// 无 imageDecode 规则 → 原样 base64 透传（默认档，无 JS 执行）：
-/// 回环服务 PNG 明文，`fetchImageWithDecode` 返回的 base64/len 与原文逐字节一致。
+/// 无 imageDecode 规则 → 原始字节透传（默认档，无 JS 执行）：
+/// 回环服务 PNG 明文，`fetchImageWithDecode` 返回字节与原文逐字节一致。
 #[test]
 fn test_fetch_image_without_decode_rule_passes_through() {
     let _lock = lock_test();
@@ -623,14 +618,11 @@ fn test_fetch_image_without_decode_rule_passes_through() {
     let url = format!("http://127.0.0.1:{port}/img/plain.png");
     let out = legado_ffi::api::image_api::fetch_image_with_decode(&url, &source_json)
         .expect("无解码规则的透传不应失败");
-    let v: serde_json::Value = serde_json::from_str(&out).expect("结果 JSON 解析");
-    assert_eq!(v["len"].as_u64(), Some(plain_len as u64));
-    let decoded = base64::engine::general_purpose::STANDARD
-        .decode(v["base64"].as_str().expect("base64 字段"))
-        .expect("base64 解码");
+    assert_eq!(out.len(), plain_len);
+    let decoded = out;
     assert_eq!(
         decoded, plain,
-        "无 imageDecode 时应原样透传（base64 精确一致）"
+        "无 imageDecode 时应原样透传（字节精确一致）"
     );
 }
 

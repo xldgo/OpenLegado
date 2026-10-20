@@ -7,35 +7,27 @@
 //! - POST /api/bookshelf/update-toc/stop — 停止更新（对标 Kotlin cancelAll）
 //!
 //! 单本更新链路：读取书籍/书源 → （可选）刷新书籍详情 → 请求目录 → 落库（删旧插新 + 书籍统计字段）。
-//! 批量更新链路：模块级全局 TocUpdater + `legado_core::toc_updater::run_batch` 调度器，
+//! 批量更新链路：宿主实例 TocUpdater + `legado_core::toc_updater::run_batch` 调度器，
 //! 限流并发、逐本回报进度、单本失败不中断整批。
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
-use tokio::sync::Mutex;
+use serde_json::{Value, json};
 
 use legado_core::models::{Book, BookChapter};
-use legado_core::toc_updater::{run_batch, TocUpdateRequest, TocUpdater};
+use legado_core::toc_updater::{TocUpdateRequest, TocUpdater, run_batch};
 use legado_core::web_book::WebBookEngine;
 use legado_db::repository::Repository;
 use legado_db::{BookChapterRepository, BookRepository, BookSourceRepository};
 
-use super::web_book::{build_engine, RealBookSourceFetcher};
+use super::web_book::{RealBookSourceFetcher, build_engine};
 use crate::error::ApiError;
 use crate::state::AppState;
-
-/// 全局目录更新调度器实例（批量任务共享）
-static TOC_UPDATER: LazyLock<Mutex<Arc<TocUpdater>>> =
-    LazyLock::new(|| Mutex::new(Arc::new(TocUpdater::new(4))));
-
-/// 批量更新停止标志（对标 Kotlin TocUpdateRequests.cancelAll 的取消语义）
-static STOP_FLAG: AtomicBool = AtomicBool::new(false);
 
 // ─── 请求/响应类型 ─────────────────────────────────────────────────────────────
 
@@ -43,13 +35,9 @@ static STOP_FLAG: AtomicBool = AtomicBool::new(false);
 #[derive(Debug, Deserialize)]
 pub struct BatchTocUpdateBody {
     pub books: Vec<BookTocEntry>,
-    /// 最大并发数，默认 4（对标 Kotlin AppConfig.threadCount 限流）
-    #[serde(default = "default_concurrent")]
-    pub max_concurrent: usize,
-}
-
-fn default_concurrent() -> usize {
-    4
+    /// 显式值优先；省略时读取所属引擎threadCount。
+    #[serde(default)]
+    pub max_concurrent: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,24 +112,32 @@ async fn update_one_toc(
 ) -> Result<TocUpdateOutcome, String> {
     // 1. 读取书籍与书源（短持锁，避免跨网络请求持锁）
     let (mut book, source, previous_total, need_info) = {
-        let db = state.db.lock().await;
-        let book_repo = BookRepository::new(db.connection());
-        let book = book_repo
-            .find_by_url(book_url)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "书籍不存在".to_string())?;
-        let source_url = if source_url_override.trim().is_empty() {
-            book.origin.clone()
-        } else {
-            source_url_override.to_string()
-        };
-        let source = BookSourceRepository::new(db.connection())
-            .find_by_url(&source_url)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("书源不存在: {source_url}"))?;
-        let need_info = refresh_book_info || book.toc_url.trim().is_empty();
-        let previous_total = book.total_chapter_num;
-        (book, source, previous_total, need_info)
+        let book_url = book_url.to_owned();
+        let source_url_override = source_url_override.to_owned();
+        state
+            .with_database(move |db| {
+                let book_url = book_url.as_str();
+
+                let book_repo = BookRepository::new(db.connection());
+                let book = book_repo
+                    .find_by_url(book_url)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "书籍不存在".to_string())?;
+                let source_url = if source_url_override.trim().is_empty() {
+                    book.origin.clone()
+                } else {
+                    source_url_override.to_string()
+                };
+                let source = BookSourceRepository::new(db.connection())
+                    .find_by_url(&source_url)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("书源不存在: {source_url}"))?;
+                let need_info = refresh_book_info || book.toc_url.trim().is_empty();
+                let previous_total = book.total_chapter_num;
+                Ok::<_, String>((book, source, previous_total, need_info))
+            })
+            .await
+            .map_err(|e| e.to_string())??
     };
 
     // 2. 按需刷新书籍详情（仅补空字段，避免覆盖用户本地数据）
@@ -216,62 +212,72 @@ async fn update_one_toc(
     let new_chapters = (book_chapters.len() as i32 - previous_total).max(0);
     let last_title = web_chapters.last().map(|c| c.title.clone());
 
+    let total_chapters = book_chapters.len() as i32;
+
     // 4. 落库（对标 Kotlin 事务：重新读取当前书籍并校验书源未变）
     {
-        let db = state.db.lock().await;
-        let book_repo = BookRepository::new(db.connection());
-        let current = book_repo
-            .find_by_url(book_url)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "书籍已不存在".to_string())?;
-        if current.origin != source.book_source_url {
-            return Err("书籍书源已变更，放弃本次更新".to_string());
-        }
+        let book_url = book_url.to_owned();
+        state
+            .with_database(move |db| {
+                let book_url = book_url.as_str();
 
-        // 合并书籍统计字段（对标 Kotlin book.sync(currentBook, toc)）
-        book.total_chapter_num = book_chapters.len() as i32;
-        book.last_check_time = now;
-        book.last_check_count = new_chapters;
-        if new_chapters > 0 {
-            book.latest_chapter_time = now;
-        }
-        if let Some(title) = last_title {
-            book.latest_chapter_title = Some(title);
-        }
-        if let Some((last_chapter, word_count, _toc)) = info_update {
-            if book.word_count.is_none() {
-                book.word_count = word_count;
-            }
-            // 详情页给出的最新章节仅在目录解析缺尾时兜底
-            if book.latest_chapter_title.is_none() {
-                book.latest_chapter_title = last_chapter;
-            }
-        }
+                let tx = db.immediate_transaction().map_err(|e| e.to_string())?;
+                let book_repo = BookRepository::new(db.connection());
+                let current = book_repo
+                    .find_by_url(book_url)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "书籍已不存在".to_string())?;
+                if current.origin != source.book_source_url {
+                    return Err("书籍书源已变更，放弃本次更新".to_string());
+                }
 
-        // [B-7] 对齐 refresh_toc/换源事务模式：删旧章节 + 写新章节 + 清失效
-        // 缓存包进同一事务（delete_by_book_url 事务外为 no-op；裸 autocommit
-        // 删除会向并发读者暴露「0 章」中间态）。pool 共享 &Connection 用
-        // 项目既有的 unchecked_transaction() 模式（见 source_switch.rs）。
-        let conn = db.connection();
-        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
-        let chapter_repo = BookChapterRepository::new(conn);
-        chapter_repo
-            .delete_by_book_url(book_url)
-            .map_err(|e| e.to_string())?;
-        chapter_repo
-            .insert_batch_no_tx(&book_chapters)
-            .map_err(|e| e.to_string())?;
-        book_repo.update(&book).map_err(|e| e.to_string())?;
-        // [B-5] 目录变更后清理失效缓存（同事务）：章节 URL 已不在新目录的
-        // 缓存行删除，URL 未变的章节保留缓存（不强制重抓）
-        legado_db::CacheBookRepository::new(conn)
-            .clear_stale_chapter_urls(book_url)
-            .map_err(|e| e.to_string())?;
-        tx.commit().map_err(|e| e.to_string())?;
+                // 合并书籍统计字段（对标 Kotlin book.sync(currentBook, toc)）
+                book.total_chapter_num = book_chapters.len() as i32;
+                book.last_check_time = now;
+                book.last_check_count = new_chapters;
+                if new_chapters > 0 {
+                    book.latest_chapter_time = now;
+                }
+                if let Some(title) = last_title {
+                    book.latest_chapter_title = Some(title);
+                }
+                if let Some((last_chapter, word_count, _toc)) = info_update {
+                    if book.word_count.is_none() {
+                        book.word_count = word_count;
+                    }
+                    // 详情页给出的最新章节仅在目录解析缺尾时兜底
+                    if book.latest_chapter_title.is_none() {
+                        book.latest_chapter_title = last_chapter;
+                    }
+                }
+
+                // [B-7] 对齐 refresh_toc/换源事务模式：删旧章节 + 写新章节 + 清失效
+                // 缓存包进同一事务（delete_by_book_url 事务外为 no-op；裸 autocommit
+                // 删除会向并发读者暴露「0 章」中间态）。pool 共享 &Connection 用
+                // 前面的写事务覆盖来源校验与目录替换，失败统一回滚。
+                let conn = db.connection();
+                let chapter_repo = BookChapterRepository::new(conn);
+                chapter_repo
+                    .delete_by_book_url(book_url)
+                    .map_err(|e| e.to_string())?;
+                chapter_repo
+                    .insert_batch_no_tx(&book_chapters)
+                    .map_err(|e| e.to_string())?;
+                book_repo.update(&book).map_err(|e| e.to_string())?;
+                // [B-5] 目录变更后清理失效缓存（同事务）：章节 URL 已不在新目录的
+                // 缓存行删除，URL 未变的章节保留缓存（不强制重抓）
+                legado_db::CacheBookRepository::new(conn)
+                    .clear_stale_chapter_urls(book_url)
+                    .map_err(|e| e.to_string())?;
+                tx.commit().map_err(|e| e.to_string())?;
+                Ok::<_, String>(())
+            })
+            .await
+            .map_err(|e| e.to_string())??;
     }
 
     Ok(TocUpdateOutcome {
-        total_chapters: book_chapters.len() as i32,
+        total_chapters,
         new_chapters,
     })
 }
@@ -290,7 +296,7 @@ pub async fn update_single_toc(
     State(state): State<Arc<AppState>>,
     Json(body): Json<SingleTocUpdateBody>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let engine = build_engine(&state).map_err(ApiError::from)?;
+    let engine = build_engine(&state).await.map_err(ApiError::from)?;
     match update_one_toc(
         state,
         &engine,
@@ -328,23 +334,15 @@ pub async fn start_toc_update(
     State(state): State<Arc<AppState>>,
     Json(body): Json<BatchTocUpdateBody>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let updater = {
-        let guard = TOC_UPDATER.lock().await;
-        if guard.get_progress().is_running {
-            return Ok((
-                StatusCode::CONFLICT,
-                Json(json!({ "error": "batch update already running" })),
-            ));
-        }
-        // 重置停止标志并重建调度器（应用新的并发数）
-        STOP_FLAG.store(false, Ordering::SeqCst);
-        let new_updater = Arc::new(TocUpdater::new(body.max_concurrent.max(1)));
-        drop(guard);
-        let mut guard = TOC_UPDATER.lock().await;
-        *guard = Arc::clone(&new_updater);
-        new_updater
+    let max_concurrent = match body.max_concurrent {
+        Some(value) => value.max(1),
+        None => state
+            .with_database(legado_engine::request_settings::from_database)
+            .await
+            .map_err(ApiError::from)?
+            .map_err(ApiError::from)?
+            .get(),
     };
-
     let requests: Vec<TocUpdateRequest> = body
         .books
         .into_iter()
@@ -359,7 +357,23 @@ pub async fn start_toc_update(
     let total = requests.len();
 
     // 后台执行批量调度（worker 闭包：每本书独立走单本更新链路）
-    let engine = Arc::new(build_engine(&state).map_err(ApiError::from)?);
+    let engine = Arc::new(build_engine(&state).await.map_err(ApiError::from)?);
+    let task = state.task()?;
+    let stopped = state.services.clone();
+    let updater = {
+        let mut slot = state.services.toc_updater.lock().await;
+        if slot.get_progress().is_running {
+            return Ok((
+                StatusCode::CONFLICT,
+                Json(json!({ "error": "batch update already running" })),
+            ));
+        }
+        state.services.toc_stopped.store(false, Ordering::SeqCst);
+        let updater = Arc::new(TocUpdater::new(max_concurrent));
+        updater.start_batch(requests.clone());
+        *slot = updater.clone();
+        updater
+    };
     let worker = move |req: TocUpdateRequest| {
         let state = Arc::clone(&state);
         let engine = Arc::clone(&engine);
@@ -375,23 +389,29 @@ pub async fn start_toc_update(
             .map(|o| o.new_chapters)
         }
     };
-    tokio::spawn(run_batch(updater, requests, worker, || {
-        STOP_FLAG.load(Ordering::SeqCst)
-    }));
+    tokio::spawn(async move {
+        let _guard = task.guard();
+        run_batch(updater, requests, worker, move || {
+            task.is_cancelled() || stopped.toc_stopped.load(Ordering::SeqCst)
+        })
+        .await;
+    });
 
     Ok((
         StatusCode::OK,
         Json(json!({
             "started": true,
             "total": total,
-            "max_concurrent": body.max_concurrent,
+            "max_concurrent": max_concurrent,
         })),
     ))
 }
 
 /// GET /api/bookshelf/update-toc/progress — 获取更新进度
-pub async fn get_toc_update_progress() -> Result<Json<Value>, ApiError> {
-    let updater = TOC_UPDATER.lock().await;
+pub async fn get_toc_update_progress(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, ApiError> {
+    let updater = state.services.toc_updater.lock().await;
     let progress = updater.get_progress();
     Ok(Json(json!(progress)))
 }
@@ -399,14 +419,14 @@ pub async fn get_toc_update_progress() -> Result<Json<Value>, ApiError> {
 /// POST /api/bookshelf/update-toc/stop — 停止更新
 ///
 /// 设置停止标志：已在飞的书本会自然完成，尚未开始的书目标记为失败。
-pub async fn stop_toc_update() -> Result<Json<Value>, ApiError> {
+pub async fn stop_toc_update(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
     let was_running = {
-        let updater = TOC_UPDATER.lock().await;
+        let updater = state.services.toc_updater.lock().await;
         updater.get_progress().is_running
     };
-    STOP_FLAG.store(true, Ordering::SeqCst);
+    state.services.toc_stopped.store(true, Ordering::SeqCst);
     if was_running {
-        let updater = TOC_UPDATER.lock().await;
+        let updater = state.services.toc_updater.lock().await;
         updater.finish_batch();
     }
     Ok(Json(json!({
@@ -417,26 +437,19 @@ pub async fn stop_toc_update() -> Result<Json<Value>, ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Method, Request};
     use axum::routing::{get, post};
-    use axum::Router;
-    use legado_core::download_manager::DownloadManager;
     use legado_core::models::Book;
     use legado_db::repository::Repository;
     use tower::ServiceExt;
 
-    /// 序列化测试，避免全局静态竞争
-    static TEST_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> =
-        std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
-
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: Mutex::new(DownloadManager::new(3)),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     fn test_router(state: Arc<AppState>) -> Router {
@@ -449,12 +462,6 @@ mod tests {
             )
             .route("/api/bookshelf/update-toc/stop", post(stop_toc_update))
             .with_state(state)
-    }
-
-    async fn reset_global() {
-        STOP_FLAG.store(false, Ordering::SeqCst);
-        let updater = TOC_UPDATER.lock().await;
-        updater.reset();
     }
 
     async fn body_json(body: Body) -> Value {
@@ -509,11 +516,55 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_start_toc_update() {
-        let _guard = TEST_LOCK.lock().await;
-        reset_global().await;
+    async fn batch_concurrency_uses_config_unless_explicitly_overridden() {
+        for (stored, explicit, expected) in [
+            (None, None, 16),
+            (Some("257"), None, 16),
+            (Some("3"), None, 3),
+            (Some("3"), Some(7), 7),
+            (Some("3"), Some(0), 1),
+        ] {
+            let state = make_test_state();
+            if let Some(stored) = stored {
+                state
+                    .engine
+                    .storage()
+                    .with_database(|db| {
+                        legado_db::CacheRepository::new(db.connection()).put(
+                            "config:threadCount",
+                            stored,
+                            0,
+                        )
+                    })
+                    .unwrap();
+            }
+            let mut body = json!({"books": []});
+            if let Some(explicit) = explicit {
+                body["max_concurrent"] = json!(explicit);
+            }
+            let response = test_router(state.clone())
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/api/bookshelf/update-toc")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(body.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let body = body_json(response.into_body()).await;
+            assert_eq!(body["max_concurrent"], expected);
+            wait_batch_done(&state, 0).await;
+        }
+    }
 
-        let app = test_router(make_test_state());
+    #[tokio::test]
+    async fn test_start_toc_update() {
+        let state = make_test_state();
+
+        let app = test_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "books": [
@@ -542,16 +593,16 @@ mod tests {
         assert_eq!(json["total"], 2);
 
         // 等待后台任务结束（书籍不在库中，会立即失败），避免污染后续测试
-        wait_batch_done(2).await;
+        wait_batch_done(&state, 2).await;
     }
 
     /// 两阶段等待批量任务结束：
     /// 先等到批次真正启动（total 达到预期，避免读到启动前的旧空闲态提前退出），
     /// 再等到运行结束。
-    async fn wait_batch_done(expected_total: usize) {
+    async fn wait_batch_done(state: &AppState, expected_total: usize) {
         // 阶段 1：等待批次启动
         for _ in 0..250 {
-            let p = TOC_UPDATER.lock().await.get_progress();
+            let p = state.services.toc_updater.lock().await.get_progress();
             if p.total == expected_total {
                 break;
             }
@@ -560,7 +611,7 @@ mod tests {
         }
         // 阶段 2：等待运行结束
         for _ in 0..250 {
-            let p = TOC_UPDATER.lock().await.get_progress();
+            let p = state.services.toc_updater.lock().await.get_progress();
             if !p.is_running && p.updating == 0 {
                 return;
             }
@@ -572,10 +623,9 @@ mod tests {
     /// 批量执行集成：书籍不在库中时逐本失败回报，不阻塞端点
     #[tokio::test]
     async fn test_batch_reports_failures_for_missing_books() {
-        let _guard = TEST_LOCK.lock().await;
-        reset_global().await;
+        let state = make_test_state();
 
-        let app = test_router(make_test_state());
+        let app = test_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "books": [
@@ -600,7 +650,7 @@ mod tests {
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
 
-        wait_batch_done(2).await;
+        wait_batch_done(&state, 2).await;
 
         let resp = app
             .oneshot(
@@ -616,18 +666,19 @@ mod tests {
         assert_eq!(json["total"], 2);
         assert_eq!(json["failed"], 2);
         // 错误信息逐本回报
-        assert!(json["results"][0]["error"]
-            .as_str()
-            .unwrap()
-            .contains("书籍不存在"));
+        assert!(
+            json["results"][0]["error"]
+                .as_str()
+                .unwrap()
+                .contains("书籍不存在")
+        );
     }
 
     #[tokio::test]
     async fn test_get_progress() {
-        let _guard = TEST_LOCK.lock().await;
-        reset_global().await;
+        let state = make_test_state();
 
-        let app = test_router(make_test_state());
+        let app = test_router(state.clone());
 
         let resp = app
             .oneshot(
@@ -647,9 +698,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_stop_update() {
-        let _guard = TEST_LOCK.lock().await;
-        reset_global().await;
-        let app = test_router(make_test_state());
+        let state = make_test_state();
+        let app = test_router(state.clone());
 
         // 直接预置一个运行中的批次（确定性验证停止端点语义，不依赖后台调度时序）
         {
@@ -661,7 +711,7 @@ mod tests {
                 priority: 0,
                 refresh_book_info: false,
             }]);
-            let mut guard = TOC_UPDATER.lock().await;
+            let mut guard = state.services.toc_updater.lock().await;
             *guard = running;
         }
 
@@ -681,16 +731,23 @@ mod tests {
         let json = body_json(resp.into_body()).await;
         assert_eq!(json["stopped"], true);
         // 停止标志已置位，进度不再处于运行态
-        assert!(!TOC_UPDATER.lock().await.get_progress().is_running);
+        assert!(
+            !state
+                .services
+                .toc_updater
+                .lock()
+                .await
+                .get_progress()
+                .is_running
+        );
     }
 
     /// 单本更新端点：书籍不在库中时返回 400 与错误描述
     #[tokio::test]
     async fn test_single_update_missing_book() {
-        let _guard = TEST_LOCK.lock().await;
-        reset_global().await;
+        let state = make_test_state();
 
-        let app = test_router(make_test_state());
+        let app = test_router(state.clone());
 
         let body = serde_json::to_string(&json!({
             "book_url": "https://example.com/no-such-book"
@@ -718,13 +775,10 @@ mod tests {
     /// 单本更新端点：书籍在库但书源缺失时返回书源错误
     #[tokio::test]
     async fn test_single_update_missing_source() {
-        let _guard = TEST_LOCK.lock().await;
-        reset_global().await;
-
         let state = make_test_state();
         // 插入一本网络书（origin 指向不存在的书源）
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = BookRepository::new(db.connection());
             let book = Book {
                 book_url: "https://example.com/book-x".to_string(),

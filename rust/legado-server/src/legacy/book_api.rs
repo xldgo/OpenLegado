@@ -1,6 +1,6 @@
 //! 原版 `BookController` 端点实现（书架/目录/正文/进度/封面图片/阅读配置）
 //!
-//! 数据层复用 `db_state` 全局单池（[`AppState.db`]，S28 红线：不新建连接池）
+//! 数据层复用 `AppState.engine` 的连接池，短借连接，不新建第二份宿主连接池，
 //! 与既有 `legado-db` repositories；抓取链复用 `handlers::web_book::build_engine`
 //! （与 `/api/*`、FFI 主链路同一 `RealBookSourceFetcher` 注入面）。
 //!
@@ -28,18 +28,17 @@ use legado_core::content_processor::{
 use legado_core::models::book_type;
 use legado_core::models::{Book, BookChapter};
 use legado_core::web_book::{WebBookEngine, WebChapter};
+use legado_db::BookSourceRepository;
+use legado_db::repository::Repository;
 use legado_db::repository::book_chapter_repository::BookChapterRepository;
 use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::cache_book_repository::CacheBookRepository;
 use legado_db::repository::cache_repository::CacheRepository;
 use legado_db::repository::replace_rule_repository::ReplaceRuleRepository;
-use legado_db::repository::Repository;
-use legado_db::BookSourceRepository;
-use legado_net::{LegadoClient, LegadoClientConfig};
 
 use super::book_json::{LegacyBook, LegacyBookChapter};
-use super::{bytes_response, origin_of, to_response, ReturnData};
-use crate::handlers::web_book::{build_engine, RealBookSourceFetcher};
+use super::{ReturnData, bytes_response, origin_of, to_response};
+use crate::handlers::web_book::{RealBookSourceFetcher, build_engine};
 use crate::state::AppState;
 
 /// 原版 `CacheManager` 的 Web 阅读配置键（BookController.kt:335-351）
@@ -122,17 +121,23 @@ fn now_millis() -> i64 {
 pub async fn get_bookshelf(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     let origin = origin_of(&headers);
     let data = {
-        let db = state.db.lock().await;
-        let repo = BookRepository::new(db.connection());
-        match repo.find_all() {
-            Err(e) => Err(e.to_string()),
-            Ok(books) if books.is_empty() => Err("还没有添加小说".to_string()),
-            Ok(mut books) => {
-                books.sort_by_key(|b| std::cmp::Reverse(b.dur_chapter_time));
-                let projection: Vec<LegacyBook> = books.iter().map(LegacyBook::from).collect();
-                serde_json::to_value(projection).map_err(|e| e.to_string())
-            }
-        }
+        state
+            .with_database(move |db| {
+                let repo = BookRepository::new(db.connection());
+                match repo.find_all() {
+                    Err(e) => Err(e.to_string()),
+                    Ok(books) if books.is_empty() => Err("还没有添加小说".to_string()),
+                    Ok(mut books) => {
+                        books.sort_by_key(|b| std::cmp::Reverse(b.dur_chapter_time));
+                        let projection: Vec<LegacyBook> =
+                            books.iter().map(LegacyBook::from).collect();
+                        serde_json::to_value(projection).map_err(|e| e.to_string())
+                    }
+                }
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|result| result)
     };
     let rd = match data {
         Ok(value) => ReturnData::success(value),
@@ -169,8 +174,13 @@ pub async fn get_chapter_list(
     }
 
     let direct = {
-        let db = state.db.lock().await;
-        BookChapterRepository::new(db.connection()).find_by_book_url(&book_url)
+        let book_url = book_url.clone();
+        state
+            .with_database(move |db| {
+                BookChapterRepository::new(db.connection()).find_by_book_url(&book_url)
+            })
+            .await
+            .and_then(|result| result)
     };
     let chapters = match direct {
         Ok(list) if !list.is_empty() => Ok(list),
@@ -201,11 +211,18 @@ pub async fn get_chapter_list(
 ///   `book.update()`）
 async fn refresh_toc(state: &Arc<AppState>, book_url: &str) -> Result<Vec<BookChapter>, String> {
     let book = {
-        let db = state.db.lock().await;
-        BookRepository::new(db.connection())
-            .find_by_url(book_url)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "未在数据库找到对应书籍，请先添加".to_string())?
+        let book_url = book_url.to_owned();
+        state
+            .with_database(move |db| {
+                let book_url = book_url.as_str();
+
+                BookRepository::new(db.connection())
+                    .find_by_url(book_url)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "未在数据库找到对应书籍，请先添加".to_string())
+            })
+            .await
+            .map_err(|e| e.to_string())??
     };
 
     if is_local_book(&book) || is_local_path(book_url) {
@@ -213,22 +230,27 @@ async fn refresh_toc(state: &Arc<AppState>, book_url: &str) -> Result<Vec<BookCh
     }
 
     let source = {
-        let db = state.db.lock().await;
-        BookSourceRepository::new(db.connection())
-            .find_by_url(&book.origin)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "未找到对应书源,请换源".to_string())?
+        let book = book.clone();
+        state
+            .with_database(move |db| {
+                BookSourceRepository::new(db.connection())
+                    .find_by_url(&book.origin)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "未找到对应书源,请换源".to_string())
+            })
+            .await
+            .map_err(|e| e.to_string())??
     };
-    let engine = build_engine(state).map_err(|e| e.to_string())?;
+    let engine = build_engine(state).await.map_err(|e| e.to_string())?;
 
     let mut book = book;
     // 原版：tocUrl 为空时先 getBookInfoAwait 补全详情（BookController.kt:163-167）
     if book.toc_url.trim().is_empty() {
         let detail_url = book.book_page_fetch_url().to_string();
-        if let Ok(info) = engine.get_book_info(&source, &detail_url).await {
-            if !info.toc_url.trim().is_empty() {
-                book.toc_url = info.toc_url;
-            }
+        if let Ok(info) = engine.get_book_info(&source, &detail_url).await
+            && !info.toc_url.trim().is_empty()
+        {
+            book.toc_url = info.toc_url;
         }
     }
     let fetch_url = toc_fetch_url(&book, book_url);
@@ -329,27 +351,35 @@ async fn persist_chapters(
     chapters: &[BookChapter],
     new_toc_url: Option<String>,
 ) -> legado_core::LegadoResult<()> {
-    let db = state.db.lock().await;
-    let conn = db.connection();
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(|e| legado_core::LegadoError::Database(format!("开启事务失败: {e}")))?;
-    let chapter_repo = BookChapterRepository::new(conn);
-    chapter_repo.delete_by_book_url(book_url)?;
-    chapter_repo.insert_batch_no_tx(chapters)?;
-    let latest_title = chapters.last().map(|c| c.title.clone());
-    BookRepository::new(conn).update_toc_derived_fields(
-        book_url,
-        chapters.len() as i32,
-        latest_title.as_deref(),
-        Some(now_millis()),
-    )?;
-    if let Some(toc_url) = new_toc_url {
-        BookRepository::new(conn).update_toc_url(book_url, &toc_url)?;
-    }
-    tx.commit()
-        .map_err(|e| legado_core::LegadoError::Database(format!("提交事务失败: {e}")))?;
-    Ok(())
+    let book_url = book_url.to_owned();
+    let chapters = chapters.to_vec();
+    state
+        .with_database(move |db| {
+            let book_url = book_url.as_str();
+            let chapters = chapters.as_slice();
+
+            let conn = db.connection();
+            let tx = conn
+                .unchecked_transaction()
+                .map_err(|e| legado_core::LegadoError::Database(format!("开启事务失败: {e}")))?;
+            let chapter_repo = BookChapterRepository::new(conn);
+            chapter_repo.delete_by_book_url(book_url)?;
+            chapter_repo.insert_batch_no_tx(chapters)?;
+            let latest_title = chapters.last().map(|c| c.title.clone());
+            BookRepository::new(conn).update_toc_derived_fields(
+                book_url,
+                chapters.len() as i32,
+                latest_title.as_deref(),
+                Some(now_millis()),
+            )?;
+            if let Some(toc_url) = new_toc_url {
+                BookRepository::new(conn).update_toc_url(book_url, &toc_url)?;
+            }
+            tx.commit()
+                .map_err(|e| legado_core::LegadoError::Database(format!("提交事务失败: {e}")))?;
+            Ok(())
+        })
+        .await?
 }
 
 // ---------------------------------------------------------------------------
@@ -395,14 +425,21 @@ async fn get_book_content_inner(
     index: i32,
 ) -> Result<String, String> {
     let (book, chapter) = {
-        let db = state.db.lock().await;
-        let book = BookRepository::new(db.connection())
-            .find_by_url(book_url)
-            .map_err(|e| e.to_string())?;
-        let chapter = BookChapterRepository::new(db.connection())
-            .find_by_book_url_and_index(book_url, index)
-            .map_err(|e| e.to_string())?;
-        (book, chapter)
+        let book_url = book_url.to_owned();
+        state
+            .with_database(move |db| {
+                let book_url = book_url.as_str();
+
+                let book = BookRepository::new(db.connection())
+                    .find_by_url(book_url)
+                    .map_err(|e| e.to_string())?;
+                let chapter = BookChapterRepository::new(db.connection())
+                    .find_by_book_url_and_index(book_url, index)
+                    .map_err(|e| e.to_string())?;
+                Ok::<_, String>((book, chapter))
+            })
+            .await
+            .map_err(|e| e.to_string())??
     };
     let (Some(book), Some(chapter)) = (book, chapter) else {
         return Err("未找到".to_string());
@@ -410,10 +447,18 @@ async fn get_book_content_inner(
 
     // 1) DB 缓存优先（原版 BookHelp.getContent 读本地缓存文件）
     let cached = {
-        let db = state.db.lock().await;
-        CacheBookRepository::new(db.connection())
-            .get_by_book_and_chapter_url(book_url, &chapter.url)
-            .map_err(|e| e.to_string())?
+        let book_url = book_url.to_owned();
+        let chapter = chapter.clone();
+        state
+            .with_database(move |db| {
+                let book_url = book_url.as_str();
+
+                CacheBookRepository::new(db.connection())
+                    .get_by_book_and_chapter_url(book_url, &chapter.url)
+                    .map_err(|e| e.to_string())
+            })
+            .await
+            .map_err(|e| e.to_string())??
     };
     if let Some(cached) = cached.filter(|c| !c.content.trim().is_empty()) {
         return Ok(purify_content(state, &book, &chapter.title, &cached.content).await);
@@ -438,14 +483,19 @@ async fn get_book_content_inner(
 
     // 3) 网络抓取（对齐 WebBook.getContentAwait）
     let source = {
-        let db = state.db.lock().await;
-        BookSourceRepository::new(db.connection())
-            .find_by_url(&book.origin)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "未找到书源".to_string())?
+        let book = book.clone();
+        state
+            .with_database(move |db| {
+                BookSourceRepository::new(db.connection())
+                    .find_by_url(&book.origin)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "未找到书源".to_string())
+            })
+            .await
+            .map_err(|e| e.to_string())??
     };
     let engine: WebBookEngine<RealBookSourceFetcher> =
-        build_engine(state).map_err(|e| e.to_string())?;
+        build_engine(state).await.map_err(|e| e.to_string())?;
     let web_chapter = WebChapter::new(chapter.index, chapter.title.clone(), chapter.url.clone());
     let content = engine
         .get_content(&source, &web_chapter)
@@ -454,8 +504,6 @@ async fn get_book_content_inner(
 
     // 获取成功即写缓存（存原始正文；与 ffi fetch_chapter_content 同款时机）
     {
-        let db = state.db.lock().await;
-        let repo = CacheBookRepository::new(db.connection());
         let record = CachedChapter {
             id: 0,
             book_url: book_url.to_string(),
@@ -466,8 +514,15 @@ async fn get_book_content_inner(
             cached_at: now_millis(),
             size_bytes: content.len() as i64,
         };
-        if let Err(e) = repo.insert(&record) {
-            tracing::warn!("写章节缓存失败（忽略，不影响正文返回）: {e}");
+        if let Err(error) = state
+            .with_database(move |db| {
+                if let Err(e) = CacheBookRepository::new(db.connection()).insert(&record) {
+                    tracing::warn!("写章节缓存失败（忽略，不影响正文返回）: {e}");
+                }
+            })
+            .await
+        {
+            tracing::warn!("正文缓存任务失败（已忽略）: {error}");
         }
     }
 
@@ -493,8 +548,12 @@ async fn purify_content(
 ) -> String {
     let replace_enabled = use_replace_rule(book);
     let rules = {
-        let db = state.db.lock().await;
-        ReplaceRuleRepository::new(db.connection()).get_enabled_rules()
+        state
+            .with_database(move |db| {
+                ReplaceRuleRepository::new(db.connection()).get_enabled_rules()
+            })
+            .await
+            .and_then(|result| result)
     };
     let rules = match rules {
         Ok(rules) => rules,
@@ -555,24 +614,27 @@ pub async fn save_book_progress(
 
     let result: Result<Value, String> = match parsed {
         None => Err("格式不对".to_string()),
-        Some(progress) => {
-            let db = state.db.lock().await;
-            let repo = BookRepository::new(db.connection());
-            match repo.find_by_name_author(&progress.name, &progress.author) {
-                Err(e) => Err(e.to_string()),
-                Ok(None) => Err("格式不对".to_string()),
-                Ok(Some(book)) => repo
-                    .update_progress(
-                        &book.book_url,
-                        progress.dur_chapter_index,
-                        progress.dur_chapter_pos,
-                        progress.dur_chapter_title.as_deref(),
-                        progress.dur_chapter_time,
-                    )
-                    .map(|_| Value::String(String::new()))
-                    .map_err(|e| e.to_string()),
-            }
-        }
+        Some(progress) => state
+            .with_database(move |db| {
+                let repo = BookRepository::new(db.connection());
+                match repo.find_by_name_author(&progress.name, &progress.author) {
+                    Err(e) => Err(e.to_string()),
+                    Ok(None) => Err("格式不对".to_string()),
+                    Ok(Some(book)) => repo
+                        .update_progress(
+                            &book.book_url,
+                            progress.dur_chapter_index,
+                            progress.dur_chapter_pos,
+                            progress.dur_chapter_title.as_deref(),
+                            progress.dur_chapter_time,
+                        )
+                        .map(|_| Value::String(String::new()))
+                        .map_err(|e| e.to_string()),
+                }
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|result| result),
     };
 
     let rd = match result {
@@ -590,8 +652,10 @@ pub async fn save_book_progress(
 pub async fn get_read_config(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     let origin = origin_of(&headers);
     let value = {
-        let db = state.db.lock().await;
-        CacheRepository::new(db.connection()).get(WEB_READ_CONFIG_KEY)
+        state
+            .with_database(move |db| CacheRepository::new(db.connection()).get(WEB_READ_CONFIG_KEY))
+            .await
+            .and_then(|result| result)
     };
     let rd = match value {
         Ok(Some(config)) => ReturnData::success(Value::String(config)),
@@ -613,15 +677,19 @@ pub async fn save_read_config(
     let origin = origin_of(&headers);
     let payload = String::from_utf8_lossy(&body).to_string();
     let result = {
-        let db = state.db.lock().await;
-        let repo = CacheRepository::new(db.connection());
-        if payload.trim().is_empty() {
-            repo.delete(WEB_READ_CONFIG_KEY)
-                .map(|_| Value::String(String::new()))
-        } else {
-            repo.put(WEB_READ_CONFIG_KEY, &payload, 0)
-                .map(|_| Value::String(String::new()))
-        }
+        state
+            .with_database(move |db| {
+                let repo = CacheRepository::new(db.connection());
+                if payload.trim().is_empty() {
+                    repo.delete(WEB_READ_CONFIG_KEY)
+                        .map(|_| Value::String(String::new()))
+                } else {
+                    repo.put(WEB_READ_CONFIG_KEY, &payload, 0)
+                        .map(|_| Value::String(String::new()))
+                }
+            })
+            .await
+            .and_then(|result| result)
     };
     let rd = match result {
         Ok(data) => ReturnData::success(data),
@@ -637,7 +705,7 @@ pub async fn save_read_config(
 /// GET `/cover?path=` — 封面（BookController.kt:88-113）
 ///
 /// 原版经 Glide 预置 84x112 centerCrop 后以 PNG 回传，失败回退默认封面。
-/// 本实现为字节级代理：网络 URL 经 [`LegadoClient`] 直取、本地文件经
+/// 本实现为字节级代理：网络 URL 经引擎的共享客户端直取、本地文件经
 /// [`read_local_image`] 白名单读取（P1-2），原样回传字节 + 嗅探 Content-Type。
 ///
 /// 登记差异：
@@ -707,12 +775,17 @@ pub async fn get_image(
         );
     }
     let book_exists = {
-        let db = state.db.lock().await;
-        BookRepository::new(db.connection())
-            .find_by_url(&book_url)
-            .ok()
-            .flatten()
-            .is_some()
+        let book_url = book_url.clone();
+        state
+            .with_database(move |db| {
+                BookRepository::new(db.connection())
+                    .find_by_url(&book_url)
+                    .ok()
+                    .flatten()
+                    .is_some()
+            })
+            .await
+            .unwrap_or(false)
     };
     if !book_exists {
         return to_response(
@@ -747,7 +820,7 @@ fn resolve_image_url(book_url: &str, path: &str) -> Option<String> {
 /// 目录内、或书籍登记的本地封面文件才能被读出，且扩展名 + 魔数双重校验。
 async fn fetch_image_bytes(state: &Arc<AppState>, path: &str) -> Result<(Vec<u8>, String), String> {
     if path.starts_with("http://") || path.starts_with("https://") {
-        let client = LegadoClient::new(LegadoClientConfig::default()).map_err(|e| e.to_string())?;
+        let client = state.network_client().await.map_err(|e| e.to_string())?;
         let resp = client
             .get_raw(path, None)
             .await
@@ -825,24 +898,27 @@ fn canonical_local_path(raw: &str) -> Option<PathBuf> {
 /// 书架页并发取封面时可接受；若后续成为热点可加短 TTL 缓存。
 async fn local_read_allowlist(state: &Arc<AppState>) -> Vec<PathBuf> {
     let books = {
-        let db = state.db.lock().await;
-        match BookRepository::new(db.connection()).find_all() {
-            Ok(books) => books,
-            Err(_) => return Vec::new(),
-        }
+        state
+            .with_database(move |db| {
+                BookRepository::new(db.connection())
+                    .find_all()
+                    .unwrap_or_default()
+            })
+            .await
+            .unwrap_or_default()
     };
     let mut roots: Vec<PathBuf> = Vec::new();
     for book in &books {
-        if is_local_book(book) {
-            if let Some(real) = canonical_local_path(&book.book_url) {
-                let dir = if real.is_dir() {
-                    Some(real)
-                } else {
-                    real.parent().map(Path::to_path_buf)
-                };
-                if let Some(dir) = dir {
-                    roots.push(dir);
-                }
+        if is_local_book(book)
+            && let Some(real) = canonical_local_path(&book.book_url)
+        {
+            let dir = if real.is_dir() {
+                Some(real)
+            } else {
+                real.parent().map(Path::to_path_buf)
+            };
+            if let Some(dir) = dir {
+                roots.push(dir);
             }
         }
         for cover in [book.cover_url.as_deref(), book.custom_cover_url.as_deref()]

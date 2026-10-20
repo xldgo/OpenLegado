@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/group_manage_dialog.dart';
 
@@ -72,11 +72,7 @@ void main() {
   testWidgets('重命名：批量更新含该分组条目且保留其他分组', (tester) async {
     final updated = <_Item>[];
     await openDialog(
-      const [
-        _Item('s1', '甲,乙'),
-        _Item('s2', '乙'),
-        _Item('s3', '丙'),
-      ],
+      const [_Item('s1', '甲,乙'), _Item('s2', '乙'), _Item('s3', '丙')],
       updated,
       '书源',
     )(tester);
@@ -99,10 +95,7 @@ void main() {
   testWidgets('删除分组：确认后批量清空该分组字段', (tester) async {
     final updated = <_Item>[];
     await openDialog(
-      const [
-        _Item('s1', '乙'),
-        _Item('s2', '乙,丙'),
-      ],
+      const [_Item('s1', '乙'), _Item('s2', '乙,丙')],
       updated,
       '订阅源',
     )(tester);
@@ -124,11 +117,7 @@ void main() {
   testWidgets('添加分组：收拢未分组项；全部分组时给名词化提示', (tester) async {
     final updated = <_Item>[];
     await openDialog(
-      const [
-        _Item('s1', '甲'),
-        _Item('s2', null),
-        _Item('s3', null),
-      ],
+      const [_Item('s1', '甲'), _Item('s2', null), _Item('s3', null)],
       updated,
       '规则',
     )(tester);

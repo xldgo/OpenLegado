@@ -26,6 +26,9 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PrivacyBridge") {
+      PrivacyBridge.shared.attach(messenger: registrar.messenger())
+    }
     // [iOS 轨 P2-C] 注册锁屏控制通道（legado/media_session，协议对齐
     // Android MediaSessionBridge.kt）。registry 协议仅暴露 registrar，
     // messenger 经 registrar 取（FlutterPlugin.h FlutterBaseRegistrar）。

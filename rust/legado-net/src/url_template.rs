@@ -117,10 +117,10 @@ pub fn parse_url_template(
         .unwrap_or_else(|| "GET".to_string());
 
     let mut headers = HashMap::new();
-    if let Some(ref opt) = option {
-        if let Some(ref h) = opt.headers {
-            headers.extend(h.iter().map(|(k, v)| (k.clone(), v.clone())));
-        }
+    if let Some(ref opt) = option
+        && let Some(ref h) = opt.headers
+    {
+        headers.extend(h.iter().map(|(k, v)| (k.clone(), v.clone())));
     }
 
     let body = option.as_ref().and_then(|o| o.body.clone());
@@ -142,10 +142,10 @@ fn replace_key_params(url: &str, key: Option<&str>, params: &HashMap<String, Str
         .replace_all(url, |caps: &regex::Captures| {
             let name = &caps[1];
             // 特殊键
-            if name == "key" || name == "searchKey" {
-                if let Some(k) = key {
-                    return urlencoded(k);
-                }
+            if (name == "key" || name == "searchKey")
+                && let Some(k) = key
+            {
+                return urlencoded(k);
             }
             // 自定义参数
             if let Some(v) = params.get(name) {

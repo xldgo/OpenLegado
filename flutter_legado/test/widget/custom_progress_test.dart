@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/custom_progress.dart';
 
@@ -33,15 +33,17 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('CustomProgress shows label when showLabel is true',
-      (tester) async {
+  testWidgets('CustomProgress shows label when showLabel is true', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(value: 0.75, showLabel: true));
 
     expect(find.text('75%'), findsOneWidget);
   });
 
-  testWidgets('CustomProgress hides label when showLabel is false',
-      (tester) async {
+  testWidgets('CustomProgress hides label when showLabel is false', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(value: 0.75, showLabel: false));
 
     expect(find.text('75%'), findsNothing);

@@ -1,6 +1,6 @@
 //! TxtTocRule Repository - txtTocRules 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::{LegadoError, LegadoResult};
 
@@ -62,8 +62,10 @@ impl<'a> TxtTocRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("txt_toc_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -110,8 +112,10 @@ impl<'a> TxtTocRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("txt_toc_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 

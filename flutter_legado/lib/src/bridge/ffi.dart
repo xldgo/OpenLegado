@@ -4,11 +4,49 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import 'frb_generated.dart';
+import 'layout_bridge.dart';
+import 'layout_dto.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`
+// These functions are ignored because they are not marked as `pub`: `run_webbook_blocking`, `to_json`, `wait_cancelled`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`, `fmt`, `from`, `from`
+
+/// 创建独立排版句柄；配置按结构传递。
+Future<LayoutSession> readerLayoutBegin({required LayoutConfigDto config}) =>
+    RustLib.instance.api.crateFfiReaderLayoutBegin(config: config);
+
+TtsRequest ttsRequestNew() => RustLib.instance.api.crateFfiTtsRequestNew();
+
+StreamRequest streamRequestNew() =>
+    RustLib.instance.api.crateFfiStreamRequestNew();
+
+/// 是否已设置隐私密码，不导出凭据。
+Future<bool> privacyHasPassword() =>
+    RustLib.instance.api.crateFfiPrivacyHasPassword();
+
+/// 只验证，不产生会话授权。
+Future<bool> privacyVerifyPassword({required String password}) =>
+    RustLib.instance.api.crateFfiPrivacyVerifyPassword(password: password);
+
+/// 修改或清除密码必须验证旧凭据。
+Future<bool> privacySetPassword({
+  required String currentPassword,
+  required String password,
+}) => RustLib.instance.api.crateFfiPrivacySetPassword(
+  currentPassword: currentPassword,
+  password: password,
+);
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<StreamRequest>>
+abstract class StreamRequest implements RustOpaqueInterface {
+  void cancel();
+}
+
+// Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<TtsRequest>>
+abstract class TtsRequest implements RustOpaqueInterface {
+  void cancel();
+}
 
 /// frb 桥接错误类型
 ///

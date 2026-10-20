@@ -1,6 +1,6 @@
 //! DownloadTask Repository - download_tasks 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::{DownloadStatus, DownloadTask};
 use legado_core::{LegadoError, LegadoResult};
@@ -55,8 +55,10 @@ impl<'a> DownloadTaskRepository<'a> {
         let tasks = stmt
             .query_map(params![book_url], row_to_download_task)
             .map_err(|e| LegadoError::Database(format!("查询失败：{e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("download_task_repository行解析失败: {e}"))
+            })?;
         Ok(tasks)
     }
 }
@@ -76,8 +78,10 @@ impl<'a> Repository<DownloadTask> for DownloadTaskRepository<'a> {
         let tasks = stmt
             .query_map([], row_to_download_task)
             .map_err(|e| LegadoError::Database(format!("查询失败：{e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("download_task_repository行解析失败: {e}"))
+            })?;
         Ok(tasks)
     }
 
@@ -157,11 +161,7 @@ fn row_to_download_task(row: &rusqlite::Row<'_>) -> rusqlite::Result<DownloadTas
         completed_at: row.get(9)?,
         error: {
             let s: String = row.get(10)?;
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
+            if s.is_empty() { None } else { Some(s) }
         },
         fail_count: row.get(11)?,
         last_retry_at: row.get(12)?,

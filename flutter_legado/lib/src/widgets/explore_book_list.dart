@@ -1,18 +1,22 @@
+library;
+
+import '../app/routing/app_navigation.dart';
+
 /// 发现分类书籍列表组件（ExploreBookList）
 ///
 /// iOS inset 列表：系统灰阶、hairline 分隔、中性交互色。
-library;
 
-import 'package:flutter/material.dart';
+import '../l10n/app_localization.dart';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/bookshelf/bookshelf_notifier.dart';
-import '../providers/explore/explore_show_notifier.dart';
-import '../routes.dart';
+import '../features/bookshelf/bookshelf.dart';
+import '../features/explore/application/explore_show_notifier.dart';
+import '../app/routing/route_names.dart';
 import '../utils/source_login_entry.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/empty_state.dart';
@@ -46,16 +50,23 @@ class _LoginRequiredView extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.lock_outline_rounded, size: 44, color: colorScheme.tertiary),
+            Icon(
+              Symbols.lock_outline_rounded,
+              size: 44,
+              color: colorScheme.tertiary,
+            ),
             const SizedBox(height: 12),
             Text(
-              '书源需要登录',
-              style: textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              context.l10n.sourceLoginRequired,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
-              message.isNotEmpty ? message : '登录后即可浏览该分类内容',
+              message.isNotEmpty
+                  ? message
+                  : context.l10n.sourceLoginRequiredHint,
               textAlign: TextAlign.center,
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
@@ -69,20 +80,23 @@ class _LoginRequiredView extends ConsumerWidget {
               children: [
                 OutlinedButton(
                   onPressed: onRetry,
-                  child: const Text('重试'),
+                  child: Text(context.l10n.retry),
                 ),
                 const SizedBox(width: 12),
                 FilledButton(
                   onPressed: source == null
                       ? null
                       : () async {
-                          final ok =
-                              await showSourceLogin(context, ref, source!);
+                          final ok = await showSourceLogin(
+                            context,
+                            ref,
+                            source!,
+                          );
                           if (ok && context.mounted) {
                             onRetry();
                           }
                         },
-                  child: const Text('去登录'),
+                  child: Text(context.l10n.goToLogin),
                 ),
               ],
             ),
@@ -153,8 +167,10 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
         .loadPreviousPage();
     if (!mounted) return;
     _loadingPrevious = false;
-    final newCount =
-        ref.read(exploreShowNotifierProvider(widget.args)).books.length;
+    final newCount = ref
+        .read(exploreShowNotifierProvider(widget.args))
+        .books
+        .length;
     final added = newCount - prevCount;
     if (added > 0 && _scrollController.hasClients) {
       _scrollController.jumpTo(_scrollController.offset + added * 76.0);
@@ -195,10 +211,10 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
     }
 
     if (state.books.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Symbols.explore_rounded,
-        title: '暂无书籍',
-        subtitle: '该分类下没有找到书籍',
+        title: context.l10n.emptyBooks,
+        subtitle: context.l10n.emptyCategoryBooksHint,
       );
     }
 
@@ -207,24 +223,26 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
     final visibleBooks = keyword.isEmpty
         ? state.books
         : state.books
-            .where(
-              (b) =>
-                  b.name.toLowerCase().contains(keyword) ||
-                  b.author.toLowerCase().contains(keyword),
-            )
-            .toList();
+              .where(
+                (b) =>
+                    b.name.toLowerCase().contains(keyword) ||
+                    b.author.toLowerCase().contains(keyword),
+              )
+              .toList();
     if (visibleBooks.isEmpty) {
       return EmptyState(
         icon: Symbols.filter_alt_rounded,
-        title: '筛选后无匹配书籍',
-        subtitle: '已加载的书籍中没有匹配「${widget.filterKeyword}」',
+        title: context.l10n.noFilteredBooks,
+        subtitle: context.l10n.noLoadedBooksMatch(widget.filterKeyword),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TopNetworkLoadingBar(isLoading: state.isLoading && state.books.isNotEmpty),
+        TopNetworkLoadingBar(
+          isLoading: state.isLoading && state.books.isNotEmpty,
+        ),
         Expanded(
           child: CustomRefreshIndicator(
             onRefresh: () =>
@@ -252,8 +270,10 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
                 }
 
                 final book = visibleBooks[index - 1];
-                final dedupeKey =
-                    exploreBookDedupeKey(book, listIndex: index - 1);
+                final dedupeKey = exploreBookDedupeKey(
+                  book,
+                  listIndex: index - 1,
+                );
                 return RepaintBoundary(
                   child: _BookItem(
                     key: ValueKey(dedupeKey),
@@ -296,10 +316,9 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Center(
         child: Text(
-          '上滑加载上一页',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          context.l10n.loadPreviousPageHint,
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -321,13 +340,10 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
         padding: const EdgeInsets.all(16),
         child: Center(
           child: TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onSurface,
-            ),
-            onPressed: () => ref
-                .read(exploreShowNotifierProvider(args).notifier)
-                .loadMore(),
-            child: const Text('加载失败，点击重试'),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.onSurface),
+            onPressed: () =>
+                ref.read(exploreShowNotifierProvider(args).notifier).loadMore(),
+            child: Text(context.l10n.tapToRetryLoad),
           ),
         ),
       );
@@ -350,7 +366,7 @@ class _ExploreBookListState extends ConsumerState<ExploreBookList> {
       latestChapterTitle: book.latestChapterTitle,
       wordCount: book.wordCount,
     );
-    Navigator.pushNamed(context, AppRoutes.bookInfo, arguments: bookObj);
+    GoRouter.of(context).pushAppRoute(AppRoutes.bookInfo, extra: bookObj);
   }
 }
 
@@ -457,8 +473,9 @@ class _BookItem extends ConsumerWidget {
                       Text(
                         book.latestChapterTitle!,
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.85),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.85,
+                          ),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -469,8 +486,9 @@ class _BookItem extends ConsumerWidget {
                       Text(
                         book.intro!,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.65),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.65,
+                          ),
                         ),
                         maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
@@ -483,19 +501,21 @@ class _BookItem extends ConsumerWidget {
                         spacing: 4,
                         runSpacing: 2,
                         children: [
-                          for (final k in book.kind!
-                              .split(',')
-                              .map((e) => e.trim())
-                              .where((e) => e.isNotEmpty)
-                              .take(4))
+                          for (final k
+                              in book.kind!
+                                  .split(',')
+                                  .map((e) => e.trim())
+                                  .where((e) => e.isNotEmpty)
+                                  .take(4))
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: colorScheme.onSurface
-                                    .withValues(alpha: 0.07),
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.07,
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(

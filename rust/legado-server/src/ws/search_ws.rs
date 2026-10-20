@@ -4,8 +4,8 @@
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::IntoResponse,
 };
@@ -80,9 +80,18 @@ impl SearchProgress {
 /// 升级后向客户端推送搜索进度 JSON 消息。
 pub async fn ws_search(
     ws: WebSocketUpgrade,
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(handle_search_ws)
+    ws.on_upgrade(move |socket| async move {
+        let Ok(task) = state.task() else {
+            return;
+        };
+        tokio::select! {
+            biased;
+            _ = task.cancelled() => {},
+            _ = handle_search_ws(socket) => {},
+        }
+    })
 }
 
 async fn handle_search_ws(mut socket: WebSocket) {

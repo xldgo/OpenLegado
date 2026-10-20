@@ -1,0 +1,15 @@
+[package]
+name = "legado-layout"
+version = "0.1.0"
+edition.workspace = true
+license = "GPL-3.0-only"
+description = "与固定 MD3 上游对照的无平台阅读布局核心"
+
+[dependencies]
+base64 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+flate2 = "1"

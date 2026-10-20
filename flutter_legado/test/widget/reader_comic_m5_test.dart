@@ -1,3 +1,13 @@
+import '../fixtures/app_test_api.dart';
+import '../fixtures/config_repository.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 M5] 音量键翻页行为 + 九宫格点击区编辑器
 //
 // 依据：
@@ -19,16 +29,14 @@
 // 7. MangaClickActions 纯函数（cycleNext/labelOf/parse/serialize）
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic/manga_click_actions.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/models/manga_click_actions.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码；同 auto_read/page_scale 先例）
@@ -38,8 +46,39 @@ const _kPngBase64 =
 
 /// M5 测试 Mock：3 章 × 3 图；记录配置写入
 class _M5MockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _M5MockApi({required this.configWrites, Map<String, String>? configs})
-      : _configs = configs ?? {};
+    : _configs = configs ?? {};
 
   static const int imageCount = 3;
   static const int chapterCount = 3;
@@ -47,40 +86,35 @@ class _M5MockApi extends MockBookApi {
   final List<List<String>> configWrites;
   final Map<String, String> _configs;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
-        BookSource(
-          bookSourceUrl: 'https://manga.example.com',
-          bookSourceName: '测试漫画源',
-          bookSourceGroup: '漫画',
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: ContentRule(
-            content: '.x',
-            imageDecode: 'decode(result);',
-          ),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
+    BookSource(
+      bookSourceUrl: 'https://manga.example.com',
+      bookSourceName: '测试漫画源',
+      bookSourceGroup: '漫画',
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: 'https://manga.example.com',
-        originName: '测试漫画源',
-        canUpdate: true,
-        totalChapterNum: chapterCount,
-        durChapterPos: 0,
-      );
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: 'https://manga.example.com',
+    originName: '测试漫画源',
+    canUpdate: true,
+    totalChapterNum: chapterCount,
+    durChapterPos: 0,
+  );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => List.generate(
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      List.generate(
         chapterCount,
         (i) => BookChapter(
           index: i,
@@ -89,8 +123,7 @@ class _M5MockApi extends MockBookApi {
         ),
       );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -101,35 +134,38 @@ class _M5MockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     configWrites.add([key, value]);
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
   }) async {}
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async => null;
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async =>
+      null;
 }
 
 /// 建屏（单页模式：页脚「页数N/3」为最可靠落点断言；
 /// 配置经 [_M5MockApi] 构造注入）
 Future<void> _pumpReader(WidgetTester tester, _M5MockApi api) async {
   final container = ProviderContainer(
-    overrides: [bookApiProvider.overrideWithValue(api)],
+    overrides: mergeTestOverrides([...api.overrides]),
   );
   addTearDown(container.dispose);
   await tester.pumpWidget(
@@ -146,8 +182,9 @@ Future<void> _pumpReader(WidgetTester tester, _M5MockApi api) async {
 Future<void> _emitVolumeKey(WidgetTester tester, String direction) async {
   await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
     'legado/reader_keys',
-    const StandardMethodCodec()
-        .encodeMethodCall(MethodCall('volumeKey', direction)),
+    const StandardMethodCodec().encodeMethodCall(
+      MethodCall('volumeKey', direction),
+    ),
     (_) {},
   );
   await tester.pumpAndSettle();
@@ -175,8 +212,9 @@ void main() {
   });
 
   group('[P4-3 M5-1] 音量键翻页', () {
-    testWidgets('进屏开启捕获（volumeKeyPage 默认 true → setVolumeKeyCapture true）',
-        (tester) async {
+    testWidgets('进屏开启捕获（volumeKeyPage 默认 true → setVolumeKeyCapture true）', (
+      tester,
+    ) async {
       // 注意：setMockMethodCallHandler 会拦截该通道入站投递（实证），
       // 故「出站记录断言」与「入站事件翻页断言」分测试执行；
       // 本用例只验证捕获开启（出站）。
@@ -188,9 +226,10 @@ void main() {
         },
       );
       addTearDown(() {
-        tester.binding.defaultBinaryMessenger
-            .setMockMethodCallHandler(
-                const MethodChannel('legado/reader_keys'), null);
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('legado/reader_keys'),
+          null,
+        );
       });
 
       final api = _M5MockApi(
@@ -200,8 +239,9 @@ void main() {
       await _pumpReader(tester, api);
 
       expect(
-        readerKeyCalls.any((c) =>
-            c.method == 'setVolumeKeyCapture' && c.arguments == true),
+        readerKeyCalls.any(
+          (c) => c.method == 'setVolumeKeyCapture' && c.arguments == true,
+        ),
         isTrue,
         reason: '进屏（volumeKeyPage 默认 true）应开启音量键捕获',
       );
@@ -227,10 +267,7 @@ void main() {
     testWidgets('reverseVolumeKeyPage=true：up=下一页（方向反转）', (tester) async {
       final api = _M5MockApi(
         configWrites: <List<String>>[],
-        configs: {
-          'mangaScrollMode': '1',
-          'reverseVolumeKeyPage': 'true',
-        },
+        configs: {'mangaScrollMode': '1', 'reverseVolumeKeyPage': 'true'},
       );
       await _pumpReader(tester, api);
       expect(find.textContaining('页数1/3'), findsOneWidget);
@@ -249,24 +286,23 @@ void main() {
         },
       );
       addTearDown(() {
-        tester.binding.defaultBinaryMessenger
-            .setMockMethodCallHandler(
-                const MethodChannel('legado/reader_keys'), null);
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('legado/reader_keys'),
+          null,
+        );
       });
 
       final api = _M5MockApi(
         configWrites: <List<String>>[],
-        configs: {
-          'mangaScrollMode': '1',
-          'volumeKeyPage': 'false',
-        },
+        configs: {'mangaScrollMode': '1', 'volumeKeyPage': 'false'},
       );
       await _pumpReader(tester, api);
       await tester.pumpAndSettle();
 
       expect(
-        readerKeyCalls.any((c) =>
-            c.method == 'setVolumeKeyCapture' && c.arguments == true),
+        readerKeyCalls.any(
+          (c) => c.method == 'setVolumeKeyCapture' && c.arguments == true,
+        ),
         isFalse,
         reason: '开关关闭时不应开启捕获（系统音量键保持默认行为）',
       );
@@ -295,9 +331,11 @@ void main() {
       // 「点击区域」区块 + 9 格（默认 [-1,-1,1,2,0,1,2,1,1] 逐格标签）
       expect(find.text('点击区域'), findsOneWidget);
       for (var i = 0; i < 9; i++) {
-        expect(find.byKey(ValueKey('mangaClickActionCell-$i')),
-            findsOneWidget,
-            reason: '第 $i 格应渲染');
+        expect(
+          find.byKey(ValueKey('mangaClickActionCell-$i')),
+          findsOneWidget,
+          reason: '第 $i 格应渲染',
+        );
       }
       expect(
         find.descendant(
@@ -339,8 +377,7 @@ void main() {
       );
     });
 
-    testWidgets('配置 clickActions 改左上格为 1（下一页）→ 屏内点击左上翻页',
-        (tester) async {
+    testWidgets('配置 clickActions 改左上格为 1（下一页）→ 屏内点击左上翻页', (tester) async {
       final api = _M5MockApi(
         configWrites: <List<String>>[],
         configs: {
@@ -355,14 +392,16 @@ void main() {
       // 点击左上区（800x600 测试表面 → 左上格中心约 (133, 100)）
       await tester.tapAt(const Offset(133, 100));
       await tester.pumpAndSettle();
-      expect(find.textContaining('页数2/3'), findsOneWidget,
-          reason: '左上格配置为 1（下一页）后点击应翻页');
+      expect(
+        find.textContaining('页数2/3'),
+        findsOneWidget,
+        reason: '左上格配置为 1（下一页）后点击应翻页',
+      );
     });
   });
 
   group('[P4-3 M5] MangaClickActions 纯函数', () {
-    test('cycleNext 循环 -1→0→1→2→3→4→-1（对齐参考版 nextMangaClickAction）',
-        () {
+    test('cycleNext 循环 -1→0→1→2→3→4→-1（对齐参考版 nextMangaClickAction）', () {
       expect(MangaClickActions.cycleNext(-1), 0);
       expect(MangaClickActions.cycleNext(0), 1);
       expect(MangaClickActions.cycleNext(4), -1);
@@ -381,16 +420,26 @@ void main() {
       const list = [1, 2, 3, 4, 0, -1, 2, 1, 1];
       expect(MangaClickActions.parse(MangaClickActions.serialize(list)), list);
       expect(MangaClickActions.parse(null), MangaClickActions.defaultActions);
-      expect(MangaClickActions.parse('bad-json'),
-          MangaClickActions.defaultActions);
-      expect(MangaClickActions.parse('[0,0]'),
-          MangaClickActions.defaultActions,
-          reason: '长度不符回默认');
       expect(
-        MangaClickActions.parse('[9,0,0,0,0,0,0,0,0]'),
-        [MangaClickActions.none, 0, 0, 0, 0, 0, 0, 0, 0],
-        reason: '越界动作归一化为 -1（无操作）',
+        MangaClickActions.parse('bad-json'),
+        MangaClickActions.defaultActions,
       );
+      expect(
+        MangaClickActions.parse('[0,0]'),
+        MangaClickActions.defaultActions,
+        reason: '长度不符回默认',
+      );
+      expect(MangaClickActions.parse('[9,0,0,0,0,0,0,0,0]'), [
+        MangaClickActions.none,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+      ], reason: '越界动作归一化为 -1（无操作）');
     });
   });
 }

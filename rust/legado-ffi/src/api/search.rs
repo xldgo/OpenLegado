@@ -1,181 +1,165 @@
-//! 搜索 API
-//!
-//! 提供跨书源并行搜索能力，通过 legado-net 发起 HTTP 请求，
-//! 使用 legado-parser 的 AnalyzeUrl + AnalyzeRule 解析搜索结果。
-
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
-
-use serde::{Deserialize, Serialize};
-
-use futures::StreamExt;
-
-use legado_core::models::{BookSource, SearchBook as CoreSearchBook};
-use legado_core::search_aggregate;
-use legado_core::source_matcher::SearchCandidate;
-use legado_core::{LegadoError, LegadoResult};
-use legado_db::repository::read_record_repository::decode_read_record_authors;
-use legado_db::ReadRecordRepository;
-use legado_net::client::DEFAULT_USER_AGENT;
+//! 搜索宿主适配：捕获资源、转换文档协议并委托Engine搜索服务。
+use crate::runtime;
+#[cfg(test)]
+use legado_core::book_help::format_book_word_count as word_count_format;
+use legado_core::{
+    LegadoError, LegadoResult,
+    models::{BookSource, SearchBook as CoreSearchBook},
+    search_aggregate,
+    source_matcher::SearchCandidate,
+};
+#[cfg(all(test, feature = "quickjs"))]
+use legado_engine::search_service::SEARCH_SOURCE_TIMEOUT;
+pub(crate) use legado_engine::search_service::{
+    AnnotatedCandidate, result_to_candidate, result_to_search_book,
+};
+pub use legado_engine::search_service::{CoverCandidate, SearchResult, SearchSourceBatch};
+#[cfg(test)]
+use legado_engine::search_service::{
+    ReadRecordIndex, SearchContext, SearchRun, annotate_results, build_annotated_candidate,
+    classify_source_outcome, dedup_search_results_keep_first, ensure_default_user_agent,
+    extract_cover_candidates, parse_search_response_with_context, persist_search_books,
+    precise_search_owned, resolve_url, search_single_source_owned,
+    search_single_source_with_context, split_book_list_prefix,
+};
+use legado_engine::search_service::{SearchResources, SearchService};
+#[cfg(test)]
+use legado_engine::source_batches::{SourceBatchOutcome, drive_source_batches};
+#[cfg(test)]
+use legado_engine::source_catalog::load_search_sources_selected_from;
+#[cfg(test)]
+use legado_engine::{SearchSession, StorageContext};
+#[cfg(test)]
+use legado_fetcher::book_type::book_type_of_source;
+use legado_fetcher::deps::FetcherDeps;
+#[cfg(test)]
+use legado_fetcher::{book_type, web_book::book_list_elements_or_default};
 use legado_net::LegadoClient;
-// P2-19 尾项后 lib 侧不再直接使用 AnalyzeUrl（响应解码已收敛到 fetcher 四级
-// 入口）；仅 `#[cfg(test)] build_search_url` 的返回类型仍需，测试期导入
 #[cfg(test)]
 use legado_parser::AnalyzeUrl;
+use std::sync::Arc;
+#[cfg(test)]
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 
-use crate::api::source as source_api;
-use crate::runtime;
+#[cfg(test)]
+use legado_db::ReadRecordRepository;
 
-/// 搜索会话级取消/暂停令牌（P0-3：由全局静态改为会话级，隔离重叠搜索）
-///
-/// 每次搜索创建独立会话；旧搜索的在飞任务持有自己的令牌引用，新搜索启动
-/// 不再重置旧会话的取消状态 —— 消除「旧搜索残留」（此前全局 `SEARCH_CANCELLED`
-/// 被新搜索重置，导致已取消搜索的在飞任务复活并污染后续搜索）。
-#[derive(Debug)]
-pub(crate) struct SearchSession {
-    /// 会话标识（S0-D 2026-09-19：计时输出携带会话标识，跨会话可关联）
-    pub session_id: u64,
-    /// 取消标志：停止 / 页面销毁 / sink 关闭 / 新搜索取代均置位以终止本会话
-    pub cancel: Arc<AtomicBool>,
-    /// 暂停标志（软挂起：仅拦未派发书源，已派发任务继续完成）
-    /// 对齐原版 `SearchModel` workingState 门控语义（批次B G-B-04）。
-    pub paused: Arc<AtomicBool>,
+fn host_service() -> SearchService {
+    service_for_engine(crate::engine_holder::current().ok().as_deref())
 }
 
-impl SearchSession {
-    fn new() -> Self {
-        Self {
-            session_id: SEARCH_SESSION_COUNTER.fetch_add(1, Ordering::SeqCst),
-            cancel: Arc::new(AtomicBool::new(false)),
-            paused: Arc::new(AtomicBool::new(false)),
-        }
-    }
+pub(crate) fn service_for_engine(engine: Option<&legado_engine::EngineContext>) -> SearchService {
+    let storage = engine.map(|e| e.storage().clone());
+    let network = engine
+        .map(|e| e.network().clone())
+        .unwrap_or_else(crate::engine_holder::network);
+    let js = engine
+        .map(|e| e.js_resources().clone())
+        .unwrap_or_else(crate::engine_holder::js_resources);
+    let web = engine
+        .map(|e| e.web_book_state().clone())
+        .unwrap_or_else(crate::engine_holder::web_book_state);
+    let rate = engine
+        .map(|e| e.rate_limiter())
+        .unwrap_or_else(crate::engine_holder::rate_limiter);
+    let login = engine
+        .map(|e| e.source_login_cache().clone())
+        .unwrap_or_else(crate::engine_holder::source_login_cache);
+    let info = engine
+        .map(|e| e.source_info_map().clone())
+        .unwrap_or_else(crate::engine_holder::source_info_map);
+    let database = storage.clone();
+    SearchService::new(SearchResources {
+        storage,
+        network,
+        searches: crate::engine_holder::searches(),
+        tasks: engine
+            .map(|e| e.tasks().clone())
+            .unwrap_or_else(crate::engine_holder::task_group),
+        runtime: runtime::get_runtime().handle().clone(),
+        prepare: Arc::new(move |client| {
+            super::web_book::search_deps(
+                FetcherDeps::new(client)
+                    .with_js_resources(js.clone())
+                    .with_web_book_state(web.clone())
+                    .with_rate_limiter(rate.clone()),
+                database.clone(),
+                login.clone(),
+                info.clone(),
+            )
+        }),
+    })
 }
 
-/// 会话标识递增计数（S0-D 2026-09-19：`SearchSession::new` 分配，从 1 起进程内单调递增；
-/// 仅用于计时/日志关联，无业务语义）
-static SEARCH_SESSION_COUNTER: AtomicU64 = AtomicU64::new(1);
-
-/// 当前活跃搜索会话（供无参 FFI `cancel_search`/`pause_search`/`resume_search` 定位）
-///
-/// 新搜索启动时取代并取消上一会话；`std::sync::Mutex` 仅短暂持有、不跨 await。
-static CURRENT_SEARCH_SESSION: std::sync::Mutex<Option<Arc<SearchSession>>> =
-    std::sync::Mutex::new(None);
-
-/// 注册当前会话：先取消上一会话（若存在且不同），再置为本会话（新搜索取代旧搜索）
-fn register_current_session(session: &Arc<SearchSession>) {
-    let mut guard = CURRENT_SEARCH_SESSION
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    if let Some(prev) = guard.as_ref() {
-        if !Arc::ptr_eq(prev, session) {
-            prev.cancel.store(true, Ordering::SeqCst); // 新搜索取代 → 终止旧会话，防残留
-        }
-    }
-    *guard = Some(Arc::clone(session));
+#[cfg(test)]
+fn host_context(client: LegadoClient) -> SearchContext {
+    host_service().context(client)
 }
 
-/// 取当前会话（无参 FFI 定位目标）
-fn current_session() -> Option<Arc<SearchSession>> {
-    CURRENT_SEARCH_SESSION
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone()
+#[cfg(test)]
+fn context_for_engine(
+    engine: &legado_engine::EngineContext,
+    client: LegadoClient,
+) -> SearchContext {
+    service_for_engine(Some(engine)).context(client)
 }
 
-/// 判断给定会话是否仍为当前会话（Arc::ptr_eq；供取消/持久化前复检，防旧会话残留写入）
+#[cfg(test)]
 fn is_current_session(session: &Arc<SearchSession>) -> bool {
-    matches!(CURRENT_SEARCH_SESSION
-        .lock()
-        .unwrap_or_else(|e| e.into_inner()).as_ref(), Some(cur) if Arc::ptr_eq(cur, session))
+    session.is_current()
 }
 
-/// 若当前会话仍是给定会话则清除（防 A 的清理误清已启动的 B；三入口所有退出路径调用）
+#[cfg(test)]
 fn clear_current_session_if_same(session: &Arc<SearchSession>) {
-    let mut guard = CURRENT_SEARCH_SESSION
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    if let Some(cur) = guard.as_ref() {
-        if Arc::ptr_eq(cur, session) {
-            *guard = None;
-        }
-    }
+    session.finish();
 }
 
-/// 多源搜索并发上限
-///
-/// 对齐原版 `SearchModel` **有效并发**语义：`mapParallelSafe(AppConfig.threadCount)`，
-/// threadCount 默认 32（用户可配置）。原版的固定线程池 `min(threadCount, MAX_THREAD=9)`
-/// 只限制执行协程的线程数——OkHttp 异步 I/O 等待响应时不占线程，故真实并发搜索数
-/// = threadCount（32），而非线程池大小。2026-08-25 实测对比（快速组 219/236 源）：
-/// 原版 ~100s 收敛 vs 本引擎 335–352s，根因即并发数差异。
-pub(crate) const SEARCH_CONCURRENCY: usize = 32;
-
-/// 单源搜索超时（对齐原版 `SearchModel` `withTimeout(30000)`）
-pub(crate) const SEARCH_SOURCE_TIMEOUT: Duration = Duration::from_secs(30);
-
-// 注：曾试验「CPU 阶段限流 9 并发」信号量（对齐原版 MAX_THREAD=9）——B8 实测对超时
-// 零改善（ok=49/128 超时），根因实为规则编译正则逐次重建 + 列表字段重复解析
-// （2026-08-27 探针定位，已修），限流遂撤销：单源 CPU 工作降至毫秒级后无争用必要。
-
-/// 搜索结果项
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchResult {
-    /// 书源 URL
-    pub source_url: String,
-    /// 书源名称
-    pub source_name: String,
-    /// 书籍名称
-    pub book_name: String,
-    /// 作者
-    pub author: String,
-    /// 详情页 URL
-    pub book_url: String,
-    /// 最新章节
-    pub latest_chapter: Option<String>,
-    /// 简介
-    pub intro: Option<String>,
-    /// 封面 URL
-    pub cover_url: Option<String>,
-    /// 分类标签（对齐原版 ruleSearch.kind 解析，逗号分隔多标签）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kind: Option<String>,
-    /// 字数展示文本（对齐原版 ruleSearch.wordCount + `wordCountFormat`）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub word_count: Option<String>,
-    /// BookType 位标志（对齐原版 `bookSource.getBookType()`，源级多媒体类型）
-    #[serde(default)]
-    pub book_type: i32,
-    /// 书源手动排序编号（对齐原版 BookList.kt:215 originOrder = customOrder；[P0-2 S4] 此前 DTO 转换恒写 0）
-    #[serde(default, rename = "originOrder")]
-    pub origin_order: i32,
-    /// 是否有阅读记录（对齐上游 `SearchViewModel.hasReadRecord`，
-    /// 加法式字段：无记录时恒为 false）
-    #[serde(default, rename = "hasReadRecord")]
-    pub has_read_record: bool,
-    /// 阅读记录中的作者信息（仅在有阅读记录时附加，
-    /// 多作者以顿号连接；无记录时缺省）
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "readRecordAuthor"
-    )]
-    pub read_record_author: Option<String>,
-    /// 规则变量 JSON（换源 T5，2026-09-03）：搜索元素级解析期间 `@put`/
-    /// `putVariable` 级联导出，随候选进入换源（对齐原版 SearchBook.toBook
-    /// 复制 variable 语义，SearchBook.kt:134）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variable: Option<String>,
+#[cfg(test)]
+pub(crate) fn load_search_sources(source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
+    let storage = crate::engine_holder::current()
+        .ok()
+        .map(|engine| engine.storage().clone());
+    load_search_sources_from(storage.as_ref(), source_urls_json)
 }
 
-// ─── WebSourceSearcher ────────────────────────────────────────────────────────
+#[cfg(test)]
+pub(crate) fn load_search_sources_from(
+    storage: Option<&StorageContext>,
+    json: &str,
+) -> LegadoResult<Vec<BookSource>> {
+    load_search_sources_selected_from(storage, &parse_source_urls(json)?)
+}
 
-/// 真实的网络书源搜索器
-///
-/// 使用 AnalyzeUrl 构建请求、LegadoClient 发送请求、AnalyzeRule 解析结果。
-/// 实现 `SourceSearcher` trait 以接入 `MultiSourceSearcher` 并行框架。
+#[cfg(test)]
+fn build_search_url(template: &str, keyword: &str, source: &BookSource) -> AnalyzeUrl {
+    crate::js_executor::build_search_url(template, keyword, 1, &source.book_source_url)
+}
+
+#[cfg(test)]
+fn parse_search_response(
+    body: &str,
+    base_url: &str,
+    source: &BookSource,
+) -> LegadoResult<Vec<SearchResult>> {
+    parse_search_response_ex(body, base_url, source, false, "")
+}
+
+#[cfg(test)]
+fn parse_search_response_ex(
+    body: &str,
+    base_url: &str,
+    source: &BookSource,
+    precision: bool,
+    key: &str,
+) -> LegadoResult<Vec<SearchResult>> {
+    let context = host_context(crate::http_state::shared_client()?);
+    parse_search_response_with_context(&context, body, base_url, source, precision, key)
+}
+
 pub struct WebSourceSearcher {
     client: LegadoClient,
 }
@@ -193,388 +177,81 @@ impl legado_core::SourceSearcher for WebSourceSearcher {
         query: &str,
         max_results: usize,
     ) -> Vec<SearchCandidate> {
-        let precision = crate::api::config_api::get_config("precisionSearch")
-            .map(|v| v == "true")
-            .unwrap_or(false);
-        match search_single_source(&self.client, source, query, 1, precision).await {
+        let service = host_service();
+        let precision = service.precision();
+        match service
+            .search_single_source(&self.client, source, query, 1, precision)
+            .await
+        {
             Ok(results) => results
                 .into_iter()
                 .take(max_results)
-                .map(|r| SearchCandidate {
-                    source_url: r.source_url,
-                    source_name: r.source_name,
-                    book_url: r.book_url,
-                    book_name: r.book_name,
-                    author: r.author,
-                    latest_chapter: r.latest_chapter,
-                    word_count: r.word_count,
-                    chapter_word_count_text: None,
-                    chapter_word_count: -1,
-                    respond_time: -1,
-                    origin_order: source.custom_order,
-                    book_score: 0,
-                    variable: r.variable,
-                })
+                .map(|r| result_to_candidate(r, source.custom_order))
                 .collect(),
             Err(_) => Vec::new(),
         }
     }
 }
 
-// ─── 公共 API ─────────────────────────────────────────────────────────────────
-
-/// 搜索书籍（同步包装，内部使用 tokio runtime 执行异步 HTTP 请求）
-///
-/// `keyword` — 搜索关键词
-/// `source_urls_json` — 可选 JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
 pub fn search_books(keyword: &str, source_urls_json: &str) -> LegadoResult<Vec<SearchResult>> {
-    // P1-2 入口收口：多源并行搜索（SEARCH_CONCURRENCY 路并发）执行 JS 搜索
-    // 规则（变量桥读写）→ 先切 flow scope。运行级键 "search"（非逐源键）：
-    // 并行各源共享同一 scope 槽，逐源 begin 会在并发中途互清前缀（比旧
-    // 全局表时代更糟）；运行级键下并发各源 begin 同键 no-op，跨源混写
-    // 与旧全局表行为一致（遗留语义），而搜索↔书籍流程互相隔离
-    crate::api::web_book::begin_book_flow("search");
-    // 获取待搜索的书源
-    let sources = load_search_sources(source_urls_json)?;
-    if sources.is_empty() {
-        return Ok(Vec::new());
-    }
-    let precision = crate::api::config_api::get_config("precisionSearch")
-        .map(|v| v == "true")
-        .unwrap_or(false);
-
-    // 限流并发 + 单源超时 + 异常隔离（对齐原版 SearchModel 线程池语义），
-    // 逐源完成后累积结果；失败源跳过不阻断整体。
-    let keyword_owned = keyword.to_string();
-    // P0-3：为本次搜索创建独立会话（取代并取消上一会话），不再重置全局标志
-    let session = Arc::new(SearchSession::new());
-    register_current_session(&session);
-    let mut results = runtime::block_on(async {
-        let client = crate::http_state::shared_client()?;
-        let mut all_results: Vec<SearchResult> = Vec::new();
-        // 7.4：on_source 复检用（会话身份）
-        let session_cb = Arc::clone(&session);
-        drive_source_batches(
-            sources,
-            SEARCH_CONCURRENCY,
-            SEARCH_SOURCE_TIMEOUT,
-            &session.cancel,
-            &session.paused,
-            move |source: BookSource| {
-                let client = client.clone();
-                let keyword = keyword_owned.clone();
-                async move { search_single_source(&client, &source, &keyword, 1, precision).await }
-            },
-            |outcome| {
-                // 7.4：累积前复检会话未取消且仍为当前（防旧会话批次进入累积）
-                if session_cb.cancel.load(Ordering::SeqCst) || !is_current_session(&session_cb) {
-                    return Ok(());
-                }
-                if let Ok(mut items) = outcome.result {
-                    all_results.append(&mut items);
-                }
-                Ok(())
-            },
-        )
-        .await;
-        Ok::<_, LegadoError>(all_results)
-    })?;
-
-    // 7.5：drive 返回后先清理当前会话（若仍为本会话）
-    clear_current_session_if_same(&session);
-    // 7.4：持久化前复检——若已取消则丢弃累积结果，不落库（防旧搜索残留污染 searchBooks）
-    if session.cancel.load(Ordering::SeqCst) {
-        return Ok(Vec::new());
-    }
-
-    // 搜索完成后批量附加阅读记录标识（一次性构建内存索引，O(1) 查找，
-    // 对齐上游 ReadRecordIndex 思路；search_cover 复用本函数但不关心该字段）
-    let index = ReadRecordIndex::load();
-    annotate_results(&mut results, &index);
-
-    // 一次性搜索同样落库（对齐 SearchModel.insert），供换源复用
-    let core_books: Vec<_> = results.iter().cloned().map(result_to_search_book).collect();
-    persist_search_books(&core_books);
-
-    Ok(results)
+    search_books_selected(keyword, &parse_source_urls(source_urls_json)?)
 }
 
-/// 精确搜索（对齐原版 `WebBook.preciseSearchAwait` / `preciseSearch`）
-///
-/// 在指定（或全部启用）书源中以书名为关键词搜索，返回**首个**
-/// `name` 完全相等且（`author` 为空或 `author` 完全相等）的命中，
-/// 序列化为 SearchBook camelCase JSON。未命中返回错误。
-///
-/// P1-2：本入口**故意不加** `begin_book_flow`——它被 pre_update 钩子
-/// `re_get_book_native` 在书籍流程中途（flow scope 已 = book_url）调用；
-/// 此处切 scope 会中途清掉书籍流程前缀，并切断 reGetBook 精搜写入的
-/// 会话变量对后续 `refresh_toc_url_native` 详情抓取的流程内可见性。
-/// 详情抓取子流程由 `pre_update::refresh_toc_url_native` 的
-/// `begin_book_flow(book_page_fetch_url)` 收口；独立 FFI 精确搜索
-/// （非 pre_update 路径）继承调用方残留 scope，行为不劣于旧全局表时代
-/// （残留可见性一致），登记为已知残余。
+pub fn search_books_selected(
+    keyword: &str,
+    source_urls: &[String],
+) -> LegadoResult<Vec<SearchResult>> {
+    host_service().search_books_selected(keyword, source_urls)
+}
+
 pub fn precise_search(name: &str, author: &str, source_urls_json: &str) -> LegadoResult<String> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(LegadoError::Parser("精确搜索书名不能为空".into()));
-    }
-    let author = author.trim();
-    let sources = load_search_sources(source_urls_json)?;
-    if sources.is_empty() {
-        return Err(LegadoError::Network("没有可用书源".into()));
-    }
-
-    let name_owned = name.to_string();
-    let author_owned = author.to_string();
-
-    // 按书源顺序检索，命中即停（对齐 preciseSearch 串行 + shouldBreak）
-    let hit = runtime::block_on(async {
-        let client = crate::http_state::shared_client()?;
-        for source in sources {
-            let items = match search_single_source(&client, &source, &name_owned, 1, false).await {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!(
-                        "[precise_search] 书源 {} 失败（跳过）: {e}",
-                        source.book_source_name
-                    );
-                    continue;
-                }
-            };
-            for item in items {
-                if item.book_name != name_owned {
-                    continue;
-                }
-                if author_owned.is_empty() || item.author == author_owned {
-                    return Ok::<_, LegadoError>(Some(item));
-                }
-            }
-        }
-        Ok(None)
-    })?;
-
-    match hit {
-        Some(r) => {
-            let sb = result_to_search_book(r);
-            Ok(serde_json::to_string(&sb)?)
-        }
-        None => Err(LegadoError::Network(format!(
-            "未搜索到 {name}({author}) 书籍"
-        ))),
-    }
+    serde_json::to_string(&precise_search_selected(
+        name,
+        author,
+        &parse_source_urls(source_urls_json)?,
+    )?)
+    .map_err(LegadoError::Serialization)
 }
 
-/// 多源并行搜索（同步包装）
-///
-/// `query` — 搜索关键词
-/// `source_urls_json` — JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
-///
-/// 返回 JSON 字符串格式的搜索结果数组。
+pub fn precise_search_selected(
+    name: &str,
+    author: &str,
+    source_urls: &[String],
+) -> LegadoResult<CoreSearchBook> {
+    host_service().precise_search_selected(name, author, source_urls)
+}
+
 pub fn multi_source_search(query: &str, source_urls_json: &str) -> LegadoResult<String> {
-    // P1-2 入口收口：多源并行搜索（变量桥读写）→ 先切 flow scope（运行级
-    // 键 "search"，理由同 search_books：并发各源共享 scope 槽，禁逐源 begin）
-    crate::api::web_book::begin_book_flow("search");
-    // P0-3：为本次搜索创建独立会话（取代并取消上一会话），不再重置全局标志
-    let session = Arc::new(SearchSession::new());
-    register_current_session(&session);
-
-    let sources = load_search_sources(source_urls_json)?;
-    if sources.is_empty() {
-        clear_current_session_if_same(&session); // 7.5：空源早退亦清理会话
-        return Ok("[]".to_string());
-    }
-    let precision = crate::api::config_api::get_config("precisionSearch")
-        .map(|v| v == "true")
-        .unwrap_or(false);
-
-    // 委托统一单源执行器（drive_source_batches + search_single_source），与
-    // search_books / run_multi_stream 共享同一并发/超时/解析语义：有界并发
-    // SEARCH_CONCURRENCY、每源 SEARCH_SOURCE_TIMEOUT(30s)、无截断。原
-    // MultiSourceSearcher/WebSourceSearcher 独立驱动器的 10s 全局超时、20 条
-    // 截断与跨源去重/相关性排序已移除——聚合排序下沉至 Flutter，对齐原版
-    // SearchModel「Rust 出原始单源结果、UI 按 mergeItems 聚合」。
-    let query_owned = query.to_string();
-    let results: Vec<SearchResult> = runtime::block_on(async {
-        let client = crate::http_state::shared_client()?;
-        let mut all_results: Vec<SearchResult> = Vec::new();
-        // 7.4：on_source 复检用（会话身份）
-        let session_cb = Arc::clone(&session);
-        drive_source_batches(
-            sources,
-            SEARCH_CONCURRENCY,
-            SEARCH_SOURCE_TIMEOUT,
-            &session.cancel,
-            &session.paused,
-            move |source: BookSource| {
-                let client = client.clone();
-                let query = query_owned.clone();
-                async move { search_single_source(&client, &source, &query, 1, precision).await }
-            },
-            |outcome| {
-                // 7.4：累积前复检会话未取消且仍为当前（防旧会话批次进入累积）
-                if session_cb.cancel.load(Ordering::SeqCst) || !is_current_session(&session_cb) {
-                    return Ok(());
-                }
-                if let Ok(mut items) = outcome.result {
-                    all_results.append(&mut items);
-                }
-                Ok(())
-            },
-        )
-        .await;
-        Ok::<_, LegadoError>(all_results)
-    })?;
-
-    // 7.5：drive 返回后先清理当前会话（若仍为本会话）
-    clear_current_session_if_same(&session);
-    // 7.4：已取消则丢弃累积结果（一次性入口语义，防旧搜索残留）
-    if session.cancel.load(Ordering::SeqCst) {
-        return Ok("[]".to_string());
-    }
-
-    // [审计 D3 | SearchModel.insert] 一次性入口同样落库 searchBooks，供换源
-    // getDbSearchBooks 复用（search_books 已有同款；当前 UI 只用流式主路径，
-    // 此处对齐原版"两入口均落库"语义，防后续调用方换源 DB 缓存偏少）
-    let core_books: Vec<_> = results.iter().cloned().map(result_to_search_book).collect();
-    persist_search_books(&core_books);
-
-    // 批量附加阅读记录标识后序列化（不修改 core 的 SearchResult 结构，通过加法式
-    // DTO 扩展输出 JSON）。统一执行器不做跨源去重/相关性排序（聚合下沉至 Flutter），
-    // 故 relevance_score 恒为 0。
-    let index = ReadRecordIndex::load();
-    let annotated: Vec<AnnotatedCandidate> = results
-        .into_iter()
-        .map(|c| build_annotated_candidate(c, &index))
-        .collect();
-
-    serde_json::to_string(&annotated).map_err(LegadoError::Serialization)
+    serde_json::to_string(&multi_source_search_selected(
+        query,
+        &parse_source_urls(source_urls_json)?,
+    )?)
+    .map_err(LegadoError::Serialization)
 }
 
-/// 取消正在进行的搜索（P0-3：作用于当前会话，不再全局污染后续搜索）
+pub(crate) fn multi_source_search_selected(
+    query: &str,
+    source_urls: &[String],
+) -> LegadoResult<Vec<AnnotatedCandidate>> {
+    host_service().multi_source_search_selected(query, source_urls)
+}
+
 pub fn cancel_search() {
-    if let Some(s) = current_session() {
-        s.cancel.store(true, Ordering::SeqCst);
-    }
+    host_service().cancel_search()
 }
 
-/// 暂停正在进行的流式搜索（软挂起，批次B G-B-04；作用于当前会话）
-///
-/// 仅拦截尚未派发单源任务的书源；已派发任务继续完成。
-/// 状态/进度全部保留，可经 [`resume_search`] 恢复。
 pub fn pause_search() {
-    if let Some(s) = current_session() {
-        s.paused.store(true, Ordering::SeqCst);
-    }
+    host_service().pause_search()
 }
 
-/// 恢复已暂停的流式搜索（批次B G-B-04；作用于当前会话）
 pub fn resume_search() {
-    if let Some(s) = current_session() {
-        s.paused.store(false, Ordering::SeqCst);
-    }
+    host_service().resume_search()
 }
 
-// ─── 封面搜索 ──────────────────────────────────────────────────────────────────
-
-/// 封面候选项
-///
-/// 用于 `change_cover_screen` 网络封面搜索（API_CONTRACT.md §3 需求 3）。
-/// 字段对齐 Dart 侧 `CoverCandidate` freezed 模型（snake_case）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CoverCandidate {
-    /// 封面图片地址（必需）
-    pub url: String,
-    /// 图片宽度（像素，未知填 0）
-    pub width: i32,
-    /// 图片高度（像素，未知填 0）
-    pub height: i32,
-}
-
-/// 搜索书籍封面候选列表
-///
-/// 复用现有书源搜索能力（方案 A）：以书名为关键词搜索所有启用的书源，
-/// 从搜索结果中提取 `cover_url` 字段作为封面候选，过滤空值并去重。
-///
-/// `book_name` — 书籍名称（搜索关键词）
-///
-/// 返回去重后的封面候选列表；无候选时返回空列表（非异常）。
-/// `width` / `height` 暂设为 0（搜索结果无法提供图片尺寸，UI 侧可接受）。
 pub fn search_cover(book_name: &str) -> LegadoResult<Vec<CoverCandidate>> {
-    // 复用多书源搜索（搜索所有启用的书源）
-    let results = search_books(book_name, "")?;
-    Ok(extract_cover_candidates(results))
+    host_service().search_cover(book_name)
 }
 
-/// 从搜索结果中提取封面候选（过滤空值 + 去重，保持首次出现顺序）
-fn extract_cover_candidates(results: Vec<SearchResult>) -> Vec<CoverCandidate> {
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut candidates: Vec<CoverCandidate> = Vec::new();
-    for item in results {
-        if let Some(url) = item.cover_url {
-            if !url.is_empty() && seen.insert(url.clone()) {
-                candidates.push(CoverCandidate {
-                    url,
-                    width: 0,
-                    height: 0,
-                });
-            }
-        }
-    }
-    candidates
-}
-
-// ─── 渐进式（流式）搜索 ────────────────────────────────────────────────────────
-
-/// 单个书源的搜索结果批次
-///
-/// 用于渐进式搜索：每完成一个书源即推送一个批次，UI 侧可逐源渲染，
-/// 无需等待最慢的书源。批次以 JSON 字符串形式跨 FFI 传递。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchSourceBatch {
-    /// 书源在请求列表中的索引（从 0 开始）
-    pub source_index: usize,
-    /// 书源 URL
-    pub source_url: String,
-    /// 书源名称
-    pub source_name: String,
-    /// 该书源命中的书籍列表（原版 `SearchBook` camelCase 序列化契约，
-    /// 与 Dart 侧 `SearchBook.fromJson` 字段一一对应）
-    pub books: Vec<CoreSearchBook>,
-    /// 该书源搜索失败时的错误信息（成功为 None）
-    pub error: Option<String>,
-    /// 当前已完成（已推送批次）的书源数量
-    pub finished_count: usize,
-    /// 本次搜索的书源总数
-    pub total_count: usize,
-    /// 是否为最后一个批次（finished_count == total_count 时为 true）
-    pub is_last: bool,
-    /// 是否还有下一页可加载（累积值：任一已推送批次非空即 true，
-    /// 对齐原版 SearchModel `hasMore = hasMore || items.isNotEmpty()`；批次B G-B-02）
-    #[serde(default)]
-    pub has_more: bool,
-    /// 逐源错误八分类（任务书 B P2 项1，2026-09-19 加法式，零破坏）：
-    /// `ok` / `empty` / `http_error` / `timeout` / `login_required` / `js_error` /
-    /// `parser_error` / `cancelled`。
-    /// 由批次组装单点（`run_multi_stream` 批次闭包经 `classify_source_outcome`）
-    /// 对 `LegadoError` 变体映射；现有 `error` 字段及其语义保持不变（冻结约束），
-    /// 不读该字段的旧调用方零破坏。`#[serde(default)]` 兼容历史批次反序列化
-    /// （历史批次无此字段时回退空串；Rust 侧发出的批次恒为八类之一）。
-    #[serde(default)]
-    pub error_class: String,
-}
-
-/// 多源渐进式（流式）搜索驱动器
-///
-/// 与 [`multi_source_search`] 不同：本函数不等待全部书源完成，而是
-/// **每完成一个书源即调用一次 `on_batch`**（传入该源批次的 JSON 字符串），
-/// 实现渐进式返回。
-///
-/// `query` — 搜索关键词
-/// `source_urls_json` — JSON 数组，指定搜索的书源 URL 列表；为空则搜索所有启用的书源
-/// `on_batch` — 每个书源完成时的回调；返回 `Err` 时提前终止（如 sink 已关闭）。
-///
-/// 配合 `cancel_search()` 可提前中止。供 flutter_rust_bridge 的 `StreamSink`
-/// 绑定使用（在 ffi.rs 中将 `on_batch` 接到 `sink.add`）。
 pub async fn run_multi_stream<F>(
     query: String,
     source_urls_json: String,
@@ -583,561 +260,45 @@ pub async fn run_multi_stream<F>(
 ) where
     F: FnMut(String) -> Result<(), String>,
 {
-    // P1-2 入口收口：流式多源并行搜索（变量桥读写）→ 先切 flow scope
-    // （运行级键 "search"，理由同 search_books）
-    crate::api::web_book::begin_book_flow("search");
-    // P0-3：为本次搜索创建独立会话（取代并取消上一会话），不再重置全局标志
-    let session = Arc::new(SearchSession::new());
-    register_current_session(&session);
-
-    // 书源加载失败时以空流结束（Dart 侧表现为无结果）
-    let sources = load_search_sources(&source_urls_json).unwrap_or_default();
-    if sources.is_empty() {
-        clear_current_session_if_same(&session); // 7.5：空源早退亦清理会话
-        return;
-    }
-
-    let client = match crate::http_state::shared_client() {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("流式搜索：共享 HTTP 客户端初始化失败: {e}");
-            clear_current_session_if_same(&session); // 7.5：HTTP 失败早退亦清理会话
-            return;
-        }
-    };
-
-    // 一次性构建阅读记录索引，逐批附加标识（对齐 ReadRecordIndex 思路）
-    let read_record_index = ReadRecordIndex::load();
-
-    // hasMore 累积（批次B G-B-02）：任一已推送批次非空 → true
-    // 对齐原版 SearchModel `hasMore = hasMore || items.isNotEmpty()` 语义
-    let mut has_more_acc = false;
-    // 7.4：on_source 复检用（会话身份），避免旧会话批次进入持久化/流
-    let session_cb = Arc::clone(&session);
-    let precision = crate::api::config_api::get_config("precisionSearch")
-        .map(|v| v == "true")
-        .unwrap_or(false);
-
-    drive_source_batches(
-        sources,
-        SEARCH_CONCURRENCY,
-        SEARCH_SOURCE_TIMEOUT,
-        &session.cancel,
-        &session.paused,
-        move |source: BookSource| {
-            let client = client.clone();
-            let query = query.clone();
-            // 页码透传（批次B G-B-01）：同关键词翻页递增、新关键词重置为 1
-            async move { search_single_source(&client, &source, &query, page, precision).await }
-        },
-        |outcome| {
-            // 7.4：序列化/持久化/sink.add 前复检会话未取消且仍为当前（防旧会话残留写入）
-            if session_cb.cancel.load(Ordering::SeqCst) || !is_current_session(&session_cb) {
-                return Ok(()); // 本会话已被取消或取代 → 丢弃该批次，不持久化、不推流
-            }
-            // 逐源错误八分类（任务书 B P2 项1，2026-09-19）：批次组装单点映射，
-            // 结果写入批次 JSON `error_class`（加法式字段，见 API_CONTRACT.md §2.4 登记）
-            let error_class = classify_source_outcome(&outcome.result);
-            let (mut books, error) = match outcome.result {
-                Ok(list) => (list, None),
-                Err(e) => (Vec::new(), Some(e.to_string())),
-            };
-
-            // 批次推送前附加阅读记录标识
-            annotate_results(&mut books, &read_record_index);
-
-            // 对齐原版 SearchModel：逐源 insert searchBooks，供换源 getDbSearchBooks 复用
-            let core_books: Vec<_> = books.iter().cloned().map(result_to_search_book).collect();
-            persist_search_books(&core_books);
-
-            // hasMore 累积（原版语义：非空批次的 OR；失败/空批次不贡献）
-            if !books.is_empty() {
-                has_more_acc = true;
-            }
-
-            let batch = SearchSourceBatch {
-                source_index: outcome.index,
-                source_url: outcome.source_url,
-                source_name: outcome.source_name,
-                books: core_books,
-                error,
-                finished_count: outcome.finished_count,
-                total_count: outcome.total_count,
-                is_last: outcome.is_last,
-                has_more: has_more_acc,
-                error_class: error_class.to_string(),
-            };
-
-            // [S0-D | 任务 B 2026-09-19] serialize 计时点（env 门控 LEGADO_SEARCH_PHASE_TIMING）：
-            // 批次序列化段，输出携带会话标识 + 书源 URL（计划要求可关联）
-            let t_serialize = std::time::Instant::now();
-            let json = serde_json::to_string(&batch).map_err(|e| e.to_string())?;
-            if std::env::var_os("LEGADO_SEARCH_PHASE_TIMING").is_some() {
-                eprintln!(
-                    "[phase] serialize={}ms session={} src={}",
-                    t_serialize.elapsed().as_millis(),
-                    session_cb.session_id,
-                    batch.source_url
-                );
-            }
-            // sink 关闭（Err）时提前终止
-            on_batch(json)
-        },
-    )
+    run_multi_stream_typed(query, source_urls_json, page, |batch| {
+        on_batch(serde_json::to_string(&batch).map_err(|e| e.to_string())?)
+    })
     .await;
-    // 7.5：drive 返回后清理当前会话（若仍为本会话；A 被 B 取代时不误清 B）
-    clear_current_session_if_same(&session);
 }
 
-/// 单源搜索完成结果（驱动器回调载荷）
-///
-/// `T` — 单源搜索输出元素类型：search.rs 用 `SearchResult`；换源流式驱动器
-/// （source_switch.rs T6）复用同一派发/超时/取消门控机制，以 `SearchCandidate` 为元素。
-pub(crate) struct SourceBatchOutcome<T> {
-    /// 书源在请求列表中的索引
-    pub index: usize,
-    pub source_url: String,
-    pub source_name: String,
-    /// 该源搜索结果（失败/超时/panic 均为 Err，不阻断其他源）
-    pub result: LegadoResult<Vec<T>>,
-    pub finished_count: usize,
-    pub total_count: usize,
-    pub is_last: bool,
-}
-
-/// 驱动一批书源搜索：受控在飞任务、单源超时、取消/暂停会话级门控。
-///
-/// - **隔离**：单源失败/panic 不影响其他源（各自 catch_unwind）。
-/// - **并发（P0-3 复审 7.2）**：`sources` 作为待派发队列，任意时刻最多 `concurrency` 个在飞任务；
-///   每有一个完成才派发下一个。不再「每源一个 tokio::spawn + semaphore 排队」——那会让大书源包
-///   预创建与源数等量的排队任务，且取消时丢弃 FuturesUnordered 只是分离（detach）而非中止它们。
-/// - **取消 / sink 关闭 / 会话替换**：显式 abort_all 并 drain 已启动 handle，确保在飞任务被终止、
-///   其结果绝不进入流 / 状态 / 落库。
-/// - **暂停**：门控发生在派发下一个源之前（调度层），未请求源不占用任何并发许可；已派发任务继续
-///   完成（软挂起，对齐原版 SearchModel workingState 调度前门控）。
-/// - **超时**：单源搜索超过 `per_source_timeout` 判为超时错误。
-// 取消等待——取消标志置位后立即返回（轮询 50ms），
-// 用于 select! 中断阻塞的 set.next()，使取消/会话替换能及时唤醒收集循环并 abort 在飞任务。
-async fn wait_cancelled(cancel: &Arc<AtomicBool>) {
-    loop {
-        if cancel.load(Ordering::SeqCst) {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-}
-
-pub(crate) async fn drive_source_batches<F, Fut, T, G>(
-    sources: Vec<BookSource>,
-    concurrency: usize,
-    per_source_timeout: Duration,
-    cancel: &Arc<AtomicBool>,
-    paused: &Arc<AtomicBool>,
-    search_one: F,
-    mut on_source: G,
-) where
-    F: Fn(BookSource) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = LegadoResult<Vec<T>>> + Send + 'static,
-    T: Send + 'static,
-    G: FnMut(SourceBatchOutcome<T>) -> Result<(), String>,
+pub async fn run_multi_stream_typed<F>(query: String, json: String, page: i32, callback: F)
+where
+    F: FnMut(SearchSourceBatch) -> Result<(), String>,
 {
-    use futures::FutureExt;
-    use std::panic::AssertUnwindSafe;
-
-    let total = sources.len();
-    if total == 0 {
+    let Ok(urls) = parse_source_urls(&json) else {
         return;
-    }
+    };
+    run_multi_stream_selected(query, urls, page, callback).await;
+}
 
-    // 待派发队列（index, source）；在飞任务数 ≤ concurrency
-    let mut queue: std::collections::VecDeque<(usize, BookSource)> =
-        sources.into_iter().enumerate().collect();
-    let mut set = futures::stream::FuturesUnordered::new();
-    // 保留每个在飞任务的 AbortHandle，取消 / sink 关闭时显式 abort_all + drain
-    let mut aborts: Vec<tokio::task::AbortHandle> = Vec::new();
+pub async fn run_multi_stream_selected<F>(
+    query: String,
+    source_urls: Vec<String>,
+    page: i32,
+    on_batch: F,
+) where
+    F: FnMut(SearchSourceBatch) -> Result<(), String>,
+{
+    host_service()
+        .run_multi_stream_selected(query, source_urls, page, on_batch)
+        .await
+}
 
-    let search_one = Arc::new(search_one);
-    let concurrency = concurrency.max(1);
-
-    let mut finished: usize = 0;
-    'collect: loop {
-        // 派发至多 concurrency 个在飞任务；暂停门控在派发前（不占许可）
-        while set.len() < concurrency && !queue.is_empty() {
-            if cancel.load(Ordering::SeqCst) {
-                break 'collect;
-            }
-            if paused.load(Ordering::SeqCst) {
-                // 调度层等待恢复或取消（未持有并发许可，对齐原版 workingState 门控位置）
-                loop {
-                    if cancel.load(Ordering::SeqCst) || !paused.load(Ordering::SeqCst) {
-                        break;
-                    }
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-                }
-                if cancel.load(Ordering::SeqCst) {
-                    break 'collect;
-                }
-            }
-
-            let (index, source) = queue.pop_front().unwrap();
-            let search_one = Arc::clone(&search_one);
-            let cancel = Arc::clone(cancel);
-            let handle = tokio::spawn(async move {
-                let source_url = source.book_source_url.clone();
-                let source_name = source.book_source_name.clone();
-
-                // 派发前防御性取消检查（会话级；派发层已门控，此处兜底）
-                if cancel.load(Ordering::SeqCst) {
-                    return (
-                        index,
-                        source_url,
-                        source_name,
-                        Err(LegadoError::Network("搜索已取消".into())),
-                    );
-                }
-
-                let outcome = tokio::time::timeout(
-                    per_source_timeout,
-                    AssertUnwindSafe(search_one(source)).catch_unwind(),
-                )
-                .await;
-
-                let result = match outcome {
-                    Ok(Ok(r)) => r,
-                    Ok(Err(p)) => Err(LegadoError::Network(format!(
-                        "单源搜索崩溃: {:?}（已隔离，不影响其他源）",
-                        p
-                    ))),
-                    Err(_elapsed) => Err(LegadoError::Network(format!(
-                        "搜索超时（{}s）",
-                        per_source_timeout.as_secs()
-                    ))),
-                };
-
-                (index, source_url, source_name, result)
-            });
-            aborts.push(handle.abort_handle());
-            set.push(handle);
-        }
-
-        if set.is_empty() {
-            break 'collect;
-        }
-
-        // 按完成顺序取下一个结果；与取消竞争 —— 取消置位后立即唤醒并 abort 在飞任务，
-        // 不再等待最快下一个自然完成（否则在飞请求最长可能持续至单源超时）。
-        let joined = tokio::select! {
-            j = set.next() => match j {
-                Some(j) => j,
-                None => break 'collect,
-            },
-            _ = wait_cancelled(cancel) => break 'collect,
-        };
-        // P0-3 复审 7.2：取消 / sink 关闭后不再把在飞结果交付 on_source（防旧会话残留）
-        if cancel.load(Ordering::SeqCst) {
-            break 'collect;
-        }
-        finished += 1;
-        let (index, source_url, source_name, result) = match joined {
-            Ok(v) => v,
-            Err(e) => (
-                0,
-                String::new(),
-                String::new(),
-                Err(LegadoError::Network(format!("搜索任务异常: {e}"))),
-            ),
-        };
-
-        let outcome = SourceBatchOutcome {
-            index,
-            source_url,
-            source_name,
-            result,
-            finished_count: finished,
-            total_count: total,
-            is_last: finished >= total,
-        };
-
-        if on_source(outcome).is_err() {
-            // sink 关闭 → 置位会话取消，停止收集（下方统一 abort_all + drain）
-            cancel.store(true, Ordering::SeqCst);
-            break 'collect;
-        }
-    }
-
-    // 取消 / sink 关闭 / 正常结束：显式 abort_all + drain 已启动 handle（P0-3 复审 7.2）
-    for ah in &aborts {
-        ah.abort();
-    }
-    while set.next().await.is_some() {
-        // drain：丢弃剩余在飞任务的结果，绝不进入流 / 状态 / 落库
+pub(crate) fn parse_source_urls(json: &str) -> LegadoResult<Vec<String>> {
+    if json.is_empty() {
+        Ok(Vec::new())
+    } else {
+        serde_json::from_str(json)
+            .map_err(|error| LegadoError::Ffi(format!("书源 URL 列表解析失败: {error}")))
     }
 }
 
-/// 搜索结果 → 原版 `SearchBook` camelCase 序列化结构
-///
-/// 契约对齐 Dart 侧 `SearchBook.fromJson`（name/originName/bookUrl/…），
-/// 供 searchBooks 一次性返回与渐进批次共用同一序列化契约。
-pub(crate) fn result_to_search_book(r: SearchResult) -> CoreSearchBook {
-    CoreSearchBook {
-        book_url: r.book_url,
-        origin: r.source_url,
-        origin_name: r.source_name,
-        book_type: r.book_type,
-        name: r.book_name,
-        author: r.author,
-        kind: r.kind,
-        cover_url: r.cover_url,
-        intro: r.intro,
-        word_count: r.word_count,
-        latest_chapter_title: r.latest_chapter,
-        toc_url: String::new(),
-        time: chrono_now_ms(),
-        // [T5] 搜索期级联变量随 SearchBook 落库（换源读库路径复用）
-        variable: r.variable,
-        // [P0-2 S4] 透传真实书源排序（原恒写 0，违反数据契约约束 #4）
-        origin_order: r.origin_order,
-        chapter_word_count_text: None,
-        chapter_word_count: -1,
-        respond_time: -1,
-        book_score: 0,
-        // 阅读记录标识（由 api::search 批量附加后透传）
-        has_read_record: r.has_read_record,
-        read_record_author: r.read_record_author,
-        // 跨源聚合 origins（队列⑩a P1-1 项2 加法式字段）：解析/批次路径不填充，
-        // 仅聚合入口 aggregate_search_books_json 产出时非空
-        origins: Vec::new(),
-    }
-}
-
-/// 将搜索命中写入 searchBooks（对齐原版 `appDb.searchBookDao.insert`）
-///
-/// 失败静默（单条 FK/锁冲突不阻断搜索主流程）；DB 未初始化时跳过。
-fn persist_search_books(books: &[CoreSearchBook]) {
-    if books.is_empty() || !crate::db_state::is_initialized() {
-        return;
-    }
-    let _ = crate::db_state::with_database(|db| {
-        let repo = legado_db::SearchBookRepository::new(db.connection());
-        let _ = repo.insert_all(books);
-        Ok(())
-    });
-}
-
-fn chrono_now_ms() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0)
-}
-
-// ─── 阅读记录标识（对齐上游 ReadRecordIndex，#424）─────────────────────
-
-/// 阅读记录内存索引（对齐上游 Kotlin `ReadRecordIndex`）
-///
-/// 一次性从 readRecord 表加载全量记录构建 `书名 -> 作者集合` 映射，
-/// 搜索结果逐本 O(1) 查找，避免每本书一次 DB 查询。
-///
-/// 匹配语义对齐上游 `ReadRecordIndex.contains`：
-/// 阅读记录以书名为准，作者仅作辅助 —— 任意一方作者为空时
-/// 退化为按书名判断；两侧作者都非空时需存在交集才算读过。
-struct ReadRecordIndex {
-    /// 书名 -> 阅读记录中的作者列表（旧记录/无作者时为空列表）
-    authors: HashMap<String, Vec<String>>,
-}
-
-impl ReadRecordIndex {
-    /// 从当前数据库加载全量阅读记录构建索引
-    ///
-    /// 数据库未初始化或查询失败时降级为空索引（不影响搜索主流程）。
-    fn load() -> Self {
-        let records = crate::db_state::with_database(|db| {
-            ReadRecordRepository::new(db.connection()).find_all()
-        })
-        .unwrap_or_default();
-        Self::of(records)
-    }
-
-    /// 由记录列表构建索引（对齐上游 `ReadRecordIndex.of`）
-    ///
-    /// 注意：上游 `ReadRecordAuthors.decode` 对空白 author 返回 {""}，
-    /// 索引中保留空串占位以表达「旧记录无作者 → 按书名命中任意作者」；
-    /// Rust 侧解码返回空列表时需补上空串占位保持等价。
-    fn of(records: Vec<legado_db::repository::read_record_repository::ReadRecord>) -> Self {
-        let mut authors: HashMap<String, Vec<String>> = HashMap::new();
-        for record in records {
-            let mut decoded = decode_read_record_authors(&record.author);
-            if decoded.is_empty() {
-                decoded.push(String::new());
-            }
-            authors.entry(record.book_name).or_default().extend(decoded);
-        }
-        Self { authors }
-    }
-
-    /// 查询书籍是否有阅读记录（对齐上游 `ReadRecordIndex.contains`）
-    fn contains(&self, name: &str, author: &str) -> bool {
-        let Some(record_authors) = self.authors.get(name) else {
-            return false;
-        };
-        let author = author.trim();
-        if author.is_empty() {
-            return true;
-        }
-        record_authors
-            .iter()
-            .any(|a| a.trim().is_empty() || a == author)
-    }
-
-    /// 查询并返回（是否有记录, 记录中的作者展示串）
-    ///
-    /// 作者展示串仅在有记录时返回：多作者以顿号连接，
-    /// 记录无作者信息时为 None。
-    fn lookup(&self, name: &str, author: &str) -> (bool, Option<String>) {
-        if !self.contains(name, author) {
-            return (false, None);
-        }
-        let display = self
-            .authors
-            .get(name)
-            .map(|list| {
-                list.iter()
-                    .filter(|a| !a.trim().is_empty())
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join("、")
-            })
-            .filter(|s| !s.is_empty());
-        (true, display)
-    }
-}
-
-/// 批量为搜索结果附加阅读记录标识（原地修改）
-fn annotate_results(results: &mut [SearchResult], index: &ReadRecordIndex) {
-    for item in results.iter_mut() {
-        let (has_record, record_author) = index.lookup(&item.book_name, &item.author);
-        item.has_read_record = has_record;
-        item.read_record_author = record_author;
-    }
-}
-
-/// 附加阅读记录标识后的多源搜索输出 DTO
-///
-/// 字段为 `legado_core::search_engine::SearchResult` 的加法式超集：
-/// 不修改 core 结构，仅在输出 JSON 中额外携带
-/// `hasReadRecord` / `readRecordAuthor` / `originOrder`（Dart 侧 jsonDecode 兼容；
-/// originOrder [STAGE4-P36] 补齐，与 `search_books` / `run_multi_stream` 输出对齐）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct AnnotatedCandidate {
-    /// 书籍名称
-    pub book_name: String,
-    /// 作者
-    pub author: String,
-    /// 封面 URL
-    pub cover_url: Option<String>,
-    /// 简介
-    pub intro: Option<String>,
-    /// 最新章节
-    pub latest_chapter: Option<String>,
-    /// 书源 URL
-    pub source_url: String,
-    /// 书源名称
-    pub source_name: String,
-    /// 书籍详情页 URL
-    pub book_url: String,
-    /// 相关性评分
-    pub relevance_score: f64,
-    /// 书源手动排序编号（对齐原版 BookList.kt:215 originOrder = customOrder；
-    /// [STAGE4-P36] 补齐 multi_source_search 输出契约，与 search_books 同语义）
-    #[serde(default, rename = "originOrder")]
-    pub origin_order: i32,
-    /// 是否有阅读记录
-    #[serde(default, rename = "hasReadRecord")]
-    pub has_read_record: bool,
-    /// 阅读记录中的作者信息（无记录时缺省）
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "readRecordAuthor"
-    )]
-    pub read_record_author: Option<String>,
-    /// 规则变量 JSON（换源 T5 透传，additive）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variable: Option<String>,
-}
-
-/// 构造单个标注候选（自 [`multi_source_search`] 内联 map 提取，供契约测试；
-/// [STAGE4-P36] 补 originOrder 赋值链：SearchResult → AnnotatedCandidate → JSON）
-fn build_annotated_candidate(c: SearchResult, index: &ReadRecordIndex) -> AnnotatedCandidate {
-    let (has_record, record_author) = index.lookup(&c.book_name, &c.author);
-    AnnotatedCandidate {
-        book_name: c.book_name,
-        author: c.author,
-        cover_url: c.cover_url,
-        intro: c.intro,
-        latest_chapter: c.latest_chapter,
-        source_url: c.source_url,
-        source_name: c.source_name,
-        book_url: c.book_url,
-        relevance_score: 0.0,
-        origin_order: c.origin_order,
-        has_read_record: has_record,
-        read_record_author: record_author,
-        variable: c.variable,
-    }
-}
-
-// ─── 内部实现 ─────────────────────────────────────────────────────────────────
-
-/// 加载待搜索的书源列表
-///
-/// `source_urls_json` 为空字符串或空数组（`[]`）均表示「搜索所有启用的书源」；
-/// Dart 侧无筛选条件时传 `'[]'`，与原版「未选分组/书源即搜全部」语义对齐。
-/// 留项#12（Task #131）：提升为 pub(crate) 供 source_switch 换源搜索复用同一过滤语义。
-pub(crate) fn load_search_sources(source_urls_json: &str) -> LegadoResult<Vec<BookSource>> {
-    if source_urls_json.is_empty() {
-        // 使用所有启用的书源
-        return source_api::list_enabled_sources();
-    }
-    let urls: Vec<String> = serde_json::from_str(source_urls_json)
-        .map_err(|e| LegadoError::Ffi(format!("书源 URL 列表解析失败: {e}")))?;
-    if urls.is_empty() {
-        // 空数组同样表示搜全部（兼容 Dart 侧默认值 '[]'）
-        return source_api::list_enabled_sources();
-    }
-    // 从数据库逐个加载（简化实现）
-    let all = source_api::list_enabled_sources()?;
-    let filtered: Vec<BookSource> = all
-        .into_iter()
-        .filter(|s| urls.contains(&s.book_source_url))
-        .collect();
-    Ok(filtered)
-}
-
-/// 对单个书源执行搜索（异步）
-///
-/// 完整链路：AnalyzeUrl 构建请求 → LegadoClient 发送 → AnalyzeRule 解析结果
-/// JS 书源走 JsSourceBookOrchestrator 路径（R1: spawn_blocking 避免嵌套 runtime 死锁）
-///
-/// Task #16 P1：改为 `pub(crate)` 供换源场景（source_switch.rs）复用，
-/// 使换源候选拿到真实的详情页 book_url（而非搜索结果页 URL）。
-/// 换源单源搜索超时（对齐原版 ChangeBookSourceViewModel `withTimeout(60000)`）
-pub(crate) const SWITCH_SOURCE_TIMEOUT: Duration = Duration::from_secs(60);
-
-/// 队列④ P2-D：bookList 提取（get_elements）错误放行面收窄
-///
-/// 仅 `LegadoError::JsEngine`（JS 求值失败——真·能力受限/脚本错误）加
-/// 「搜索结果列表解析失败」前缀后上抛（整源失败，经批次错误通道向用户
-/// 显示原因，error_class 仍为 `js_error`，契约不变）；其余错误类
-/// （Parser/JSON/XPath/put/模板等）维持既有 `unwrap_or_default()` 吞错语义
-/// → 空列表 → S0-E 空列表详情回退路径保持可达。
-/// 此前 `map_err` 全类放行使非 JS 错误也把整源打成失败、超出注释声明。
-///
-/// P5 子批 2a：实现随 web_book 抓取本体下沉 `legado_fetcher::web_book`
-/// （fetch 解析路径共用）；此处 re-export 保持调用点零改动。
-pub(crate) use legado_fetcher::web_book::book_list_elements_or_default;
-
+#[cfg(test)]
 pub(crate) async fn search_single_source(
     client: &LegadoClient,
     source: &BookSource,
@@ -1145,597 +306,11 @@ pub(crate) async fn search_single_source(
     page: i32,
     precision: bool,
 ) -> LegadoResult<Vec<SearchResult>> {
-    // G4：书源 concurrentRate 固定窗口节流（对齐 Kotlin ConcurrentRateLimiter）
-    crate::api::source_rate_limit::acquire_source_rate_limit(source).await;
-
-    // 阶段计时诊断（LEGADO_SEARCH_PHASE_TIMING=1）：定位单源 30s 超时挂起阶段
-    let phase_on = std::env::var("LEGADO_SEARCH_PHASE_TIMING").is_ok();
-    let t_phase = std::time::Instant::now();
-    // JS 书源分派
-    if source.is_js_source() {
-        let mut results = search_js_source(source, keyword, page).await?;
-        // [审计 D4 | WebBook.kt:47 + JsSourceBook.kt:29-37] 原版把 precision
-        // filter 传入 JsSourceBook.searchAwait，JS 源结果同样受三字段"或"
-        // 语义约束，不得绕过
-        results.retain(|r| {
-            precision_filter_match(
-                precision,
-                keyword,
-                &r.book_name,
-                &r.author,
-                r.kind.as_deref(),
-            )
-        });
-        return Ok(results);
-    }
-
-    // 队列④ P1-A 复审：删除 jsLib 预校验——「存在任意 JS 语法」≠「搜索依赖
-    // jsLib」，口径过宽会误伤纯 CSS 规则 + `{{key}}` 字面插值的书源
-    //（favcomic 夹具实证：改前可正常搜，改后预校验必失败 → 每关键词 0 结果）。
-    // 能力缺失/JS 失败在真被使用时经既有路径给可读文案：searchUrl 失败 →
-    // `legado-js-error://` 错误 URL 解码（P2-C）；bookList JS 失败 →
-    // get_elements 上抛（P2-D）；jsLib 加载失败 → run_fresh 登记台账 +
-    // 真 JS 求值时上抛。error_class 映射不变。
-
-    // 1. 获取搜索 URL 模板
-    let search_url_template = source
-        .search_url
-        .as_ref()
-        .ok_or_else(|| LegadoError::Parser("书源未配置 searchUrl".into()))?;
-
-    if search_url_template.is_empty() {
-        return Err(LegadoError::Parser("书源 searchUrl 为空".into()));
-    }
-
-    // 2. 使用 AnalyzeUrl 构建请求（同步且可能执行 {{JS}} 表达式；
-    //    移入阻塞线程：恶意/超长同步计算不会占住 tokio worker，
-    //    保证单源超时能在 await 点生效，避免整体挂起）
-    let template = search_url_template.clone();
-    let key = keyword.to_string();
-    let build_base = source.book_source_url.clone();
-    let source_lib = source.js_lib.clone();
-    // 书源上下文 setup：搜索模板 `{{source.getKey()}}` 等依赖 source/cookie
-    // 绑定（爱下电子等源）——对齐原版 AnalyzeUrl.kt evalJS source 绑定
-    let search_setup = crate::api::source_js_bindings::book_source_js_setup_script(source).ok();
-    let analyze_url = tokio::task::spawn_blocking(move || {
-        crate::js_executor::build_search_url_with_setup(
-            &template,
-            &key,
-            // 页码透传（批次B G-B-01）：原硬编码 page=1，现由调用方传入
-            page,
-            &build_base,
-            source_lib.as_deref(),
-            search_setup,
-        )
-    })
-    .await
-    .map_err(|e| LegadoError::Internal(format!("搜索 URL 构建任务异常: {e}")))?;
-    if phase_on {
-        eprintln!(
-            "[phase] url_build={}ms src={}",
-            t_phase.elapsed().as_millis(),
-            source.book_source_url
-        );
-    }
-    // 队列④ P2-C：必须用 rule_url() 判断/解码——analyze_url.url() 是经
-    // get_absolute_url 拼到书源域名下的绝对 URL，`legado-js-error://` 这类
-    // 非 http(s)/data/`/` 开头的自定义 scheme 会被当相对路径拼接而丢失
-    // 前缀（见 analyze_url 单测 test_js_error_url_prefix_survives_in_rule_url），
-    // 用 url() 判断的 guard 恒不命中（死码）
-    if analyze_url.rule_url().starts_with("legado-js-error://") {
-        // 解码错误 URL 还原真实 JS 错误文本，标注为 JsEngine
-        // （error_class 仍为 js_error——classify_source_outcome 既有映射，
-        // 契约不变；此前误标 Internal → parser_error）
-        let detail = crate::js_executor::decode_js_error_url(analyze_url.rule_url())
-            .map(|m| m.chars().take(160).collect::<String>());
-        return Err(LegadoError::JsEngine(match detail {
-            Some(d) if !d.is_empty() => format!("searchUrl JS 求值失败: {d}"),
-            _ => "searchUrl JS 求值失败（无法解码错误详情）".into(),
-        }));
-    }
-
-    // 3. 合并请求头：书源全局 header + AnalyzeUrl 提取的 header
-    let mut headers = parse_header_option(source.header.as_deref()).unwrap_or_default();
-    headers.extend(analyze_url.headers().clone());
-    // [UI-fix 2026-08-10 | Reasonix] 对齐原版 BaseSource.kt:202-204 +
-    // AppConfig.userAgent：书源未配置 UA 时补充 Chrome UA（默认 Legado/1.0
-    // 会被反爬站点识别为非浏览器而拒绝/返回空列表）
-    ensure_default_user_agent(&mut headers);
-    // 写侧 CookieJar 门控（批 1）：开启源补内部标记头（只补不覆盖；
-    // None/Some(false) 不补），发送前由 legado-net 剥离、绝不出网；
-    // 读侧 DB cookie 注入由 legado-net 无条件完成，与此无关。
-    legado_fetcher::web_book::apply_cookie_jar_marker(&mut headers, source);
-    let headers_opt = if headers.is_empty() {
-        None
-    } else {
-        Some(headers)
-    };
-
-    // 4. 发送 HTTP 请求
-    // P2-19 尾项：统一走原始字节 + 四级解码入口（显式 charset → Content-Type →
-    // HTML meta → chardetng 统计探测 → lossy UTF-8）。改前非 explicit 分支经
-    // reqwest `.text()`（只认 Content-Type），meta-only / 无标识 GBK 页书名乱码；
-    // 显式 charset 语义不变（入口内部最高优先），final_url/resp_code 仍取
-    // raw.url/raw.status（与改前两分支逐字一致）。
-    // [S0-E | AnalyzeUrl.kt:499-534] 对齐原版：不校验 HTTP 状态码，
-    // 非 2xx 响应体仍进入解析（通常得空列表），仅日志留痕。
-    // P2-19 批3：urlOption followRedirects / retry 经 fetcher 汇聚点发送
-    //（send_raw 与 send_text 共用 send_with_options，两分支行为一致）。
-    let raw = legado_fetcher::analyze_request::send_raw(client, &analyze_url, headers_opt).await?;
-    // [P2-19 尾项审查 P1-1] 3xx 留痕：改前 raw（显式 charset）分支条件为
-    // `!(200..300)`（3xx 亦留痕），文本分支 `!is_success()`（3xx 不留痕）；
-    // 两分支统一 send_raw 后恢复 raw 分支的 3xx 可见性。审查单条件
-    // `!(200..400)`（文案「非 2xx/3xx」）与其验收句「followRedirects=false 的
-    // 302 应能看到日志」互斥（302 ∈ 200..400 会被静默），故拆两条：4xx/5xx 按
-    // 建议口径留痕，未跟随/不可跟随的 3xx 单独留痕——合取等价于原 raw 分支
-    // `!(200..300)` 的完整语义，登记为行为变化。
-    if !(200..400).contains(&raw.status) {
-        eprintln!(
-            "[search] 非 2xx/3xx HTTP {} url={}",
-            raw.status,
-            analyze_url.url()
-        );
-    }
-    if (300..400).contains(&raw.status) {
-        eprintln!(
-            "[search] 未跟随 3xx HTTP {} url={}",
-            raw.status,
-            analyze_url.url()
-        );
-    }
-    let body = legado_fetcher::web_book::decode_web_response(
-        &raw.body,
-        &raw.headers,
-        analyze_url.charset(),
-    );
-    let (final_url, resp_code) = (raw.url, raw.status);
-    if phase_on {
-        eprintln!(
-            "[phase] http={}ms src={}",
-            t_phase.elapsed().as_millis(),
-            source.book_source_url
-        );
-    }
-
-    // [S0-E | WebBook.kt:74-99] loginCheckJs：对齐原版 StrResponse 语义——检测
-    // 结果是可被解析采用的响应对象（JS 可修改响应：自动登录返回新 body/url 等）；
-    // 非对象返回值/执行失败 → errResponse(500) 二次 eval：仍 code 500 或 cast
-    // 失败 → LoginRequired（整源失败；原版错误吞吐：单源失败静默不中断其他源）。
-    // [WebBook.kt:100-111] 解析采用 login-check 返回的响应（baseUrl=res.url、
-    // body=res.body）：bookUrlPattern 直连判定与相对 URL 绝对化均基于修改后 URL。
-    let login_outcome = crate::api::web_book::RealBookSourceFetcher::execute_login_check(
-        source, &body, &final_url, resp_code,
-    )?;
-    // [S0-D | 任务 B 2026-09-19；任务 A 2026-09-19 适配] login_check 段计时点
-    //（env 门控 LEGADO_SEARCH_PHASE_TIMING）：已移至 login_check 调用之后，
-    // 恢复段末累计语义（即 login_check 段结束时刻的累计耗时），输出携带会话
-    // 标识 + 书源 URL（计划要求可关联）。
-    if phase_on {
-        let session_id = current_session().map(|s| s.session_id).unwrap_or(0);
-        eprintln!(
-            "[phase] login_check={}ms session={} src={}",
-            t_phase.elapsed().as_millis(),
-            session_id,
-            source.book_source_url
-        );
-    }
-    // 5. 使用 AnalyzeRule 解析搜索结果（同步解析同样移入阻塞线程，
-    //    灾难性正则/超大页面不会阻塞 runtime，单源超时可中断）
-    let source_clone = source.clone();
-    let keyword_owned = keyword.to_string();
-    let parse_body = login_outcome.body;
-    let parse_url = login_outcome.url;
-    let parsed = tokio::task::spawn_blocking(move || {
-        parse_search_response_ex(
-            &parse_body,
-            &parse_url,
-            &source_clone,
-            precision,
-            &keyword_owned,
-        )
-    })
-    .await
-    .map_err(|e| LegadoError::Internal(format!("搜索解析任务异常: {e}")))?;
-    if phase_on {
-        eprintln!(
-            "[phase] total={}ms src={}",
-            t_phase.elapsed().as_millis(),
-            source.book_source_url
-        );
-    }
-    parsed
+    host_service()
+        .search_single_source(client, source, keyword, page, precision)
+        .await
 }
 
-/// 构建搜索 URL
-///
-/// 处理 `{key}`、`{{key}}`、`searchKey` 等关键词占位符与 `{{JS表达式}}`
-/// 模板（如 `{{encodeURIComponent(key)}}`、`{{page > 1 ? '/' + page : ''}}`），
-/// 然后通过 AnalyzeUrl 解析 URL 选项（method/headers/body 等）。
-/// 统一委托 [`crate::js_executor::build_search_url`]，与调试/搜索路径共用同一模板渲染语义。
-#[cfg(test)]
-fn build_search_url(template: &str, keyword: &str, source: &BookSource) -> AnalyzeUrl {
-    crate::js_executor::build_search_url(template, keyword, 1, &source.book_source_url)
-}
-
-#[allow(dead_code)]
-/// 解析搜索响应（HTML 或 JSON）
-///
-/// 使用书源的 `rule_search` 规则解析响应体为结构化搜索结果。
-/// [P3-6 阶段三] 测试/默认入口:precision 关闭(全通过)
-fn parse_search_response(
-    body: &str,
-    base_url: &str,
-    source: &BookSource,
-) -> LegadoResult<Vec<SearchResult>> {
-    parse_search_response_ex(body, base_url, source, false, "")
-}
-
-/// [P3-6 阶段三 | SearchModel.kt:106-113 + BookList.kt:236-238] 带 precision filter 的解析:
-/// precision 开启时,解析期逐条按 name/author/kind contains(key) 过滤(对齐原版
-/// SearchModel 传入 WebBook 的 filter 闭包与 getSearchItem/getInfoItem 的调用点)。
-fn parse_search_response_ex(
-    body: &str,
-    base_url: &str,
-    source: &BookSource,
-    precision: bool,
-    key: &str,
-) -> LegadoResult<Vec<SearchResult>> {
-    // [S0-E | BookList.kt:62-81] bookUrlPattern 详情页直连（原版在列表解析前判定，
-    // baseUrl = 重定向后最终 URL 整串全匹配）：命中则按详情页规则解析单条结果。
-    let has_pattern = source
-        .book_url_pattern
-        .as_deref()
-        .is_some_and(|p| !p.trim().is_empty());
-    if has_pattern
-        && crate::api::web_book::matches_book_url_pattern(
-            source.book_url_pattern.as_deref().unwrap_or(""),
-            base_url,
-        )
-    {
-        let info = crate::api::web_book::parse_book_info_from_body(
-            source,
-            body.to_string(),
-            base_url,
-            base_url,
-            true,
-            "",
-            "",
-        )?;
-        return Ok(if info.name.is_empty() {
-            vec![]
-        } else {
-            let item = web_info_to_search_result(info, source);
-            // [P3-6 阶段三 | BookList.kt:184-190] getInfoItem 同样受 filter 约束
-            if !precision_filter_match(
-                precision,
-                key,
-                &item.book_name,
-                &item.author,
-                item.kind.as_deref(),
-            ) {
-                return Ok(vec![]);
-            }
-            vec![item]
-        });
-    }
-
-    // [S0-E | BookList.kt:84-96] ruleSearch 缺失 → 空规则（bookList 空 → getElements
-    // 得空集合 → 走下方空列表回退），不再提前返回、也不再把整个响应体当单条元素。
-    let default_rule_search = legado_core::models::rule::SearchRule::default();
-    let rule_search = source.rule_search.as_ref().unwrap_or(&default_rule_search);
-
-    // 创建顶层 AnalyzeRule（quickjs 启用时注入 JS 执行器，使 @js: 搜索规则生效；
-    // 2026-08-10 起同时注入书源 jsLib，模板引用的 Reload/getHosts 等库函数可用）
-    // [P0-2 S1 | BookList.kt AnalyzeRule(ruleData, bookSource)] 追加书源上下文 setup
-    // （source/cookie 绑定 + BookSource 方法），使搜索规则中 `{{source.getKey()}}`、
-    // jsLib 函数 `let { source, cookie } = this` 等依赖生效——对齐发现页已用的
-    // construct_analyzer_with_source_context（此前搜索主路径仅注入 jsLib，无 setup）。
-    let setup_script = crate::api::source_js_bindings::book_source_js_setup_script(source).ok();
-    let analyzer = crate::js_executor::construct_analyzer_with_source_context(
-        body.to_string(),
-        base_url.to_string(),
-        &source.book_source_url,
-        source.js_lib.as_deref(),
-        setup_script.clone(),
-    );
-
-    // 获取书籍列表元素
-    // [P0-2 S2 | BookList.kt:90-96] 剥离 bookList 规则的 `+`/`-` 前缀：
-    // `-` 表示最终结果逆序（reverse），`+` 本版本仅去前缀、无额外行为。
-    let (book_list_rule, reverse) =
-        split_book_list_prefix(rule_search.book_list.as_deref().unwrap_or(""));
-    // [S0-D | 任务 B 2026-09-19] list 提取（getElements）段起点（env 门控计时）
-    let t_list_extract = std::time::Instant::now();
-    let elements = if book_list_rule.is_empty() {
-        // [S0-E] 对齐原版 getElements("")：空规则得空集合（随后走空列表回退）
-        Vec::new()
-    } else {
-        // 队列④ P2-D：bookList 规则 JS 求值失败不再静默吞掉（此前
-        // unwrap_or_default → 空列表 →「暂无书籍」无从查因）——仅
-        // JsEngine 类上抛（经批次错误通道显示原因，error_class 仍为
-        // js_error，契约不变）；非 JS 错误维持吞错语义（空列表 → S0-E 回退）
-        book_list_elements_or_default(analyzer.get_elements(&book_list_rule))?
-    };
-    // [S0-D | 任务 B 2026-09-19] list 提取计时点（env 门控 LEGADO_SEARCH_PHASE_TIMING）：
-    // 输出携带会话标识 + 书源 URL（计划要求可关联）
-    if std::env::var_os("LEGADO_SEARCH_PHASE_TIMING").is_some() {
-        let session_id = current_session().map(|s| s.session_id).unwrap_or(0);
-        eprintln!(
-            "[phase] list_extract={}ms session={} src={} n={}",
-            t_list_extract.elapsed().as_millis(),
-            session_id,
-            source.book_source_url,
-            elements.len()
-        );
-    }
-
-    if elements.is_empty() {
-        // [S0-E | BookList.kt:100-108] 空列表详情回退：原版双条件 —— 列表为空
-        // 且未配置 bookUrlPattern 才回退；pattern 已配置但不命中 → 直接返回空。
-        if has_pattern {
-            return Ok(Vec::new());
-        }
-        let info = crate::api::web_book::parse_book_info_from_body(
-            source,
-            body.to_string(),
-            base_url,
-            base_url,
-            true,
-            "",
-            "",
-        )?;
-        return Ok(if info.name.is_empty() {
-            vec![]
-        } else {
-            let item = web_info_to_search_result(info, source);
-            // [P3-6 阶段三 | BookList.kt:184-190] getInfoItem 同样受 filter 约束
-            if !precision_filter_match(
-                precision,
-                key,
-                &item.book_name,
-                &item.author,
-                item.kind.as_deref(),
-            ) {
-                return Ok(vec![]);
-            }
-            vec![item]
-        });
-    }
-
-    // 对每个元素解析各字段
-    // [S0-D | 任务 B 2026-09-19] field 解析段起点（env 门控计时）
-    let t_field_parse = std::time::Instant::now();
-    let mut results = Vec::new();
-    for element_html in &elements {
-        // 列表元素按结构化对象写入（JSON 元素 → result 注入为对象，
-        // `result.source` 等属性访问；HTML 元素自动回退字符串）
-        // — DeepSeek Harness + Bridge
-        // [P0-2 S1] 与顶层一致：注入书源上下文 setup（source/cookie），使元素级 JS 规则可用
-        let mut item_analyzer = crate::js_executor::construct_analyzer_with_source_context(
-            String::new(),
-            base_url.to_string(),
-            &source.book_source_url,
-            source.js_lib.as_deref(),
-            setup_script.clone(),
-        );
-        item_analyzer.set_element_content(element_html.clone());
-
-        // 批量字段提取：纯 CSS 规则共享一次 HTML 解析（搜索速度修复 2026-08-18，
-        // 此前每字段各自全量 parse → yeudusk 35s 超时）；语义与逐字段 get_string
-        // 完全一致。索引序：0 name / 1 author / 2 kind / 3 word_count /
-        // 4 book_url / 5 cover / 6 intro / 7 last_chapter。
-        let field_rules: Vec<&str> = vec![
-            rule_search.name.as_deref().unwrap_or(""),
-            rule_search.author.as_deref().unwrap_or(""),
-            rule_search.kind.as_deref().unwrap_or(""),
-            rule_search.word_count.as_deref().unwrap_or(""),
-            rule_search.book_url.as_deref().unwrap_or(""),
-            rule_search.cover_url.as_deref().unwrap_or(""),
-            rule_search.intro.as_deref().unwrap_or(""),
-            rule_search.last_chapter.as_deref().unwrap_or(""),
-        ];
-        let fields = item_analyzer.get_strings_batch(field_rules);
-        let fields_str: Vec<String> = fields.into_iter().map(|r| r.unwrap_or_default()).collect();
-        let field_str = |i: usize| -> String { fields_str.get(i).cloned().unwrap_or_default() };
-
-        // 提取书名（必填，无书名则跳过）；清洗对齐原版 BookHelp.formatBookName
-        let book_name = legado_core::book_help::format_book_name(&field_str(0));
-        if book_name.is_empty() {
-            continue;
-        }
-
-        // 提取作者（清洗对齐原版 BookHelp.formatBookAuthor）
-        let author = legado_core::book_help::format_book_author(&field_str(1));
-
-        // 提取分类（部分失败不致整条丢弃，对齐原版逐字段 try/catch 语义）。
-        // 多标签按原版 BookList.kt:230 `getStringList(ruleKind)?.joinToString(",")` 用逗号分隔：
-        // 批量路径 css_vec_to_string 已把多匹配以 \n 连接，此处将 \n 换为 ,（等价于 joinToString(",")，
-        // 复用共享 CSS 解析、零额外 parse，不回退 2026-08-18 搜索提速）。
-        let kind = if field_str(2).is_empty() {
-            None
-        } else {
-            Some(field_str(2).replace('\n', ","))
-        };
-
-        // [P3-6 阶段三 | BookList.kt:236-238] precision filter:原版在 getSearchItem
-        // 中以 (name, author, kind) 调用 filter,不命中即丢弃该条(precision 关闭时全通过)。
-        if !precision_filter_match(precision, key, &book_name, &author, kind.as_deref()) {
-            continue;
-        }
-
-        // 提取字数并格式化（对齐原版 wordCountFormat）
-        let word_count = word_count_format(&field_str(3));
-
-        // 书籍详情页 URL
-        let raw_book_url = field_str(4);
-        // [UI-fix 2026-08-10 | Reasonix] 对齐原版 BookList.kt:282-284 +
-        // AnalyzeRule.kt:369-375：bookUrl 规则解析为空时回退书源主页
-        // （bookSourceUrl），避免 book_url 为空导致结果条目无法打开
-        // [S0-E | BookList.kt:281-284] bookUrl 规则为空时回退 baseUrl（最终搜索页
-        // URL，重定向后），而非书源主页 —— 对齐原版 getSearchItem 回退语义。
-        let book_url = if raw_book_url.is_empty() {
-            base_url.to_string()
-        } else {
-            resolve_url(&raw_book_url, base_url)
-        };
-
-        // 提取封面 URL
-        let raw_cover = field_str(5);
-        let cover_url = if raw_cover.is_empty() {
-            None
-        } else {
-            Some(resolve_url(&raw_cover, base_url))
-        };
-
-        // 提取简介（对齐原版 BookList.kt:260 `HtmlFormatter.formatIntro`：块级标签→换行、
-        // 删注释与其他标签（含 img）、折叠空白；与正文 format_keep_img 保留 img 区分）
-        let intro = if field_str(6).is_empty() {
-            None
-        } else {
-            Some(legado_core::html_formatter::format_intro(&field_str(6)))
-        };
-
-        // 提取最新章节
-        let latest_chapter = if field_str(7).is_empty() {
-            None
-        } else {
-            Some(field_str(7))
-        };
-
-        // [T5 | SearchBook.kt:134] 元素级 @put/putVariable 级联导出（字段规则
-        // 求值完成后统一收集，随候选进入换源；对齐原版 SearchModel 落库语义）
-        let variable = item_analyzer.export_variables_json();
-
-        results.push(SearchResult {
-            source_url: source.book_source_url.clone(),
-            source_name: source.book_source_name.clone(),
-            book_name,
-            author,
-            book_url,
-            latest_chapter,
-            intro,
-            cover_url,
-            kind,
-            word_count,
-            book_type: book_type_of_source(source.book_source_type),
-            // [P0-2 S4 | BookList.kt:215] originOrder = source.customOrder（真实书源排序，非默认 0）
-            origin_order: source.custom_order,
-            // 阅读记录标识由搜索完成后统一批量附加（见 annotate_results）
-            has_read_record: false,
-            read_record_author: None,
-            variable,
-        });
-    }
-
-    // [P0-2 S2 | BookList.kt:142-147] 去重（LinkedHashSet 语义，保留首次出现）后按
-    // `-` 前缀逆序。键 = 书源 + 书名 + bookUrl：同源同详情页视为重复，不同书名不误伤。
-    let mut results = dedup_search_results_keep_first(results);
-    if reverse {
-        results.reverse();
-    }
-
-    // [S0-D | 任务 B 2026-09-19] field 解析计时点（env 门控 LEGADO_SEARCH_PHASE_TIMING）：
-    // 覆盖元素级字段提取 + 去重逆序，输出携带会话标识 + 书源 URL（计划要求可关联）；
-    // bookUrlPattern 直连 / 空列表回退等早退路径不经过该段，故不产出此计时点
-    if std::env::var_os("LEGADO_SEARCH_PHASE_TIMING").is_some() {
-        let session_id = current_session().map(|s| s.session_id).unwrap_or(0);
-        eprintln!(
-            "[phase] field_parse={}ms session={} src={} n={}",
-            t_field_parse.elapsed().as_millis(),
-            session_id,
-            source.book_source_url,
-            results.len()
-        );
-    }
-
-    Ok(results)
-}
-
-/// [P3-6 阶段三 | SearchModel.kt:106-113] 原版 precision filter 谓词:
-/// `!precision || name.contains(key) || author.contains(key) || kind?.contains(key) == true`
-fn precision_filter_match(
-    precision: bool,
-    key: &str,
-    name: &str,
-    author: &str,
-    kind: Option<&str>,
-) -> bool {
-    !precision
-        || name.contains(key)
-        || author.contains(key)
-        || kind.map(|k| k.contains(key)).unwrap_or(false)
-}
-
-/// [S0-E] 详情页解析结果 → 搜索项（bookUrlPattern 直连 / 空列表回退共用，
-/// 对齐原版 `Book.getInfoItem` 产出 SearchBook 的字段映射）
-fn web_info_to_search_result(
-    info: legado_core::web_book::WebBookInfo,
-    source: &BookSource,
-) -> SearchResult {
-    SearchResult {
-        source_url: source.book_source_url.clone(),
-        source_name: source.book_source_name.clone(),
-        book_name: info.name,
-        author: info.author,
-        book_url: info.book_url,
-        latest_chapter: info.last_chapter,
-        intro: info.intro,
-        cover_url: info.cover_url,
-        kind: info.kind,
-        word_count: info.word_count,
-        // 原版 getInfoItem 带入 bookSource.getBookType()（BookList.kt:173）
-        book_type: book_type_of_source(source.book_source_type),
-        origin_order: source.custom_order,
-        has_read_record: false,
-        read_record_author: None,
-        variable: info.variable,
-    }
-}
-
-/// [P0-2 S2 | BookList.kt:90-96] 拆分 bookList 规则的 `+`/`-` 前缀。
-/// `-`：最终结果逆序（reverse=true），规则体去前缀；`+`：本版本仅去前缀、无额外行为。
-/// 返回 (清洗后的规则, reverse 标志)。原版在 getElements 前剥离、dedup 后按 reverse 反转。
-fn split_book_list_prefix(rule: &str) -> (String, bool) {
-    if let Some(rest) = rule.strip_prefix('-') {
-        return (rest.to_string(), true);
-    }
-    if let Some(rest) = rule.strip_prefix('+') {
-        return (rest.to_string(), false);
-    }
-    (rule.to_string(), false)
-}
-
-/// [S0-E | BookList.kt:142-144 + SearchBook.kt:65] 按书籍标识去重（原版 LinkedHashSet<SearchBook> 语义，保留首次出现）
-/// 语义，保留首次出现）。键 = 书源 + 书名 + bookUrl：同源同详情页视为重复；不同书名不误伤。
-fn dedup_search_results_keep_first(items: Vec<SearchResult>) -> Vec<SearchResult> {
-    let mut seen = std::collections::HashSet::new();
-    let mut out = Vec::with_capacity(items.len());
-    for it in items {
-        // [S0-E | SearchBook.kt:65 + BookList.kt:142-144] 去重键 = bookUrl 单键
-        //（原版 LinkedHashSet<SearchBook>，equals 仅比较 bookUrl；单源内 origin 恒定）
-        let key = it.book_url.clone();
-        if seen.insert(key) {
-            out.push(it);
-        }
-    }
-    out
-}
-
-/// 跨源聚合单一真源入口（队列⑩a P1-1 项2，2026-09-22，加法式）
-///
-/// 输入 `books_json` 为书籍元素 JSON 数组（`CoreSearchBook` camelCase，即
-/// `SearchSourceBatch.books[]` 形态；单源内 bookUrl 去重由解析期
-/// `dedup_search_results_keep_first` 完成，本入口只处理跨源 name+author 合并），
-/// `key` 为搜索关键词，`keep_other` 对齐 Dart `applyPrecisionSearch(keepOther:)`
-///（精准搜索 false / 默认搜索 true，控制 other 桶去留）。输出为聚合后 JSON 数组
-///（同形：`name`/`author` 为清洗值、`origins` 跨源累加（首次出现序，加法式
-/// 字段，空时序列化省略）、`hasReadRecord` 各到达项 OR、其余字段保留首条到达
-/// 元数据；桶序 equal→tags→contains→(keep_other) other，桶内 originsCount 降序
-/// + 首次到达序平局）。
-///
-/// 纯函数：无状态、不触网、不读 DB —— 供跨端夹具校验（Rust 聚合结果 ≡ Dart
-/// 现行 `applyPrecisionSearch` 期望，`tests/fixtures/search_aggregate/`）；
-/// Dart 运行时聚合切换（FRB 暴露）留待后续批次，届时直接包装本函数。
 pub fn aggregate_search_books_json(
     books_json: &str,
     key: &str,
@@ -1746,60 +321,6 @@ pub fn aggregate_search_books_json(
     let aggregated = search_aggregate::aggregate_search_books(&books, key, keep_other);
     let json = serde_json::to_string(&aggregated).map_err(LegadoError::Serialization)?;
     Ok(json)
-}
-
-/// 逐源错误八分类（任务书 B P2 项1，2026-09-19 加法式，零破坏）
-///
-/// 批次组装单点对 `LegadoResult<Vec<SearchResult>>` 的分类映射，结果写入
-/// 批次 JSON `error_class`（八类：`ok` / `empty` / `http_error` / `timeout` /
-/// `login_required` / `js_error` / `parser_error` / `cancelled`）。
-/// 现有 `error` 字段及其语义保持不变（冻结约束）；本函数不产生、不修改错误，
-/// 仅对已产生的错误做展示层归类。
-///
-/// 映射规则（不可归类的落到最近类别，理由随任务报告说明）：
-/// - `Ok(非空)` → `ok`；`Ok(空)` / `ContentEmpty` / `TocEmpty` → `empty`
-/// - `LoginRequired` → `login_required`；`Timeout` → `timeout`；`JsEngine` → `js_error`
-/// - `Network(msg)` 按 `drive_source_batches` 包装消息关键词归类：
-///   含"超时"/timeout（L791 单源超时包装）→ `timeout`；
-///   含"取消"/cancel（L775 取消包装）或"任务异常"（L827 join 错误，最近类）→ `cancelled`；
-///   含"崩溃"（L787 panic 隔离，处理层崩溃最近类）→ `parser_error`；
-///   其余（含"没有可用书源"、HTTP 层错误）→ `http_error`
-/// - `Parser` / `BookParse` / `Serialization` → `parser_error`
-/// - `Database` / `Ffi` / `Internal` → `parser_error`（无专用类，最近类兜底）
-/// - `Io` → `http_error`（IO 层最近类）
-pub(crate) fn classify_source_outcome(result: &LegadoResult<Vec<SearchResult>>) -> &'static str {
-    match result {
-        Ok(list) if !list.is_empty() => "ok",
-        Ok(_) => "empty",
-        Err(e) => match e {
-            LegadoError::LoginRequired(_) => "login_required",
-            LegadoError::Timeout(_) => "timeout",
-            LegadoError::JsEngine(_) => "js_error",
-            LegadoError::Network(msg) => {
-                let lower = msg.to_lowercase();
-                if msg.contains("超时") || lower.contains("timeout") || lower.contains("timed out")
-                {
-                    "timeout"
-                } else if msg.contains("取消") || lower.contains("cancel") {
-                    "cancelled"
-                } else if msg.contains("崩溃") {
-                    "parser_error"
-                } else if msg.contains("任务异常") {
-                    "cancelled"
-                } else {
-                    "http_error"
-                }
-            }
-            LegadoError::ContentEmpty(_) | LegadoError::TocEmpty(_) => "empty",
-            LegadoError::Io(_) => "http_error",
-            LegadoError::Parser(_)
-            | LegadoError::BookParse(_)
-            | LegadoError::Serialization(_)
-            | LegadoError::Database(_)
-            | LegadoError::Ffi(_)
-            | LegadoError::Internal(_) => "parser_error",
-        },
-    }
 }
 
 #[cfg(test)]
@@ -1878,8 +399,6 @@ mod p0_2_s2_tests {
     }
 }
 
-/// [S0-E] 主搜索路径原版语义收敛测试：bookUrlPattern 直连 / 空列表详情回退 /
-/// bookUrl 空回退 / bookUrl 单键去重 / loginCheckJs（quickjs）
 #[cfg(test)]
 mod s0e_tests {
     use super::*;
@@ -2028,9 +547,14 @@ mod s0e_tests {
     fn test_s0e_login_check_pass() {
         // ① 方法形 result 直通：JSON.stringify 丢弃函数属性 → "{}" → 原始三元组
         let source = mk_source("https://ex.com", None, Some("result"), None);
-        let resp =
-            RealBookSourceFetcher::execute_login_check(&source, "ok", "https://ex.com/s", 200)
-                .expect("方法形 result 应直通原始响应");
+        let resp = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
+            &source,
+            "ok",
+            "https://ex.com/s",
+            200,
+        )
+        .expect("方法形 result 应直通原始响应");
         assert_eq!(resp.code, 200);
         assert_eq!(resp.body, "ok", "直通应保留原始 body");
         assert_eq!(resp.url, "https://ex.com/s");
@@ -2039,12 +563,19 @@ mod s0e_tests {
         let source2 = mk_source(
             "https://ex.com",
             None,
-            Some("result.code() == 200 ? { code: 200, body: 'new-body', url: 'https://ex.com/s2' } : false"),
+            Some(
+                "result.code() == 200 ? { code: 200, body: 'new-body', url: 'https://ex.com/s2' } : false",
+            ),
             None,
         );
-        let resp2 =
-            RealBookSourceFetcher::execute_login_check(&source2, "ok", "https://ex.com/s", 200)
-                .expect("可 cast 响应对象应通过");
+        let resp2 = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
+            &source2,
+            "ok",
+            "https://ex.com/s",
+            200,
+        )
+        .expect("可 cast 响应对象应通过");
         assert_eq!(resp2.body, "new-body", "应采用 JS 修改后的 body");
         assert_eq!(resp2.url, "https://ex.com/s2", "应采用 JS 修改后的 url");
     }
@@ -2054,8 +585,14 @@ mod s0e_tests {
     #[test]
     fn test_s0e_login_check_required() {
         let source = mk_source("https://ex.com", None, Some("false"), None);
-        let err = RealBookSourceFetcher::execute_login_check(&source, "b", "https://ex.com/s", 200)
-            .expect_err("false 应判定未登录");
+        let err = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
+            &source,
+            "b",
+            "https://ex.com/s",
+            200,
+        )
+        .expect_err("false 应判定未登录");
         assert!(matches!(err, LegadoError::LoginRequired(_)));
     }
 
@@ -2072,10 +609,13 @@ mod s0e_tests {
         let source = mk_source(
             "https://ex.com",
             None,
-            Some("result.code() == 500 ? { code: 200, body: 'recovered', url: 'https://ex.com/s' } : false"),
+            Some(
+                "result.code() == 500 ? { code: 200, body: 'recovered', url: 'https://ex.com/s' } : false",
+            ),
             None,
         );
         let resp = RealBookSourceFetcher::execute_login_check(
+            &crate::engine_holder::js_resources(),
             &source,
             "login-wall",
             "https://ex.com/s",
@@ -2087,195 +627,11 @@ mod s0e_tests {
     }
 }
 
-/// BookType 位标志与书源类型换算（对齐原版 `io.legado.app.constant.BookType`）
-///
-/// P5 子批 2a：常量与换算函数已随迁 `legado_fetcher::book_type`（共享 crate
-/// 单一实现）；此处 re-export 保持 `book_type::TEXT` / `book_type_of_source`
-/// 路径与签名不变（explore_api 等调用方零改动）。`book_type` 模块仅测试引用
-/// （生产转换一律经 `book_type_of_source`），故按测试编译门控。
-#[cfg(test)]
-pub(crate) use legado_fetcher::book_type;
-pub(crate) use legado_fetcher::book_type::book_type_of_source;
-
-/// 字数格式化（对齐原版 `StringUtils.wordCountFormat(String)`：
-/// 纯数字 >10000 → 「x.x万字」；>0 → 「n字」；非数字原样；空/<=0 → None）
-///
-/// `pub(crate)`：explore 链路复用（发现页修复 A7）。— DeepSeek Harness + Bridge
-pub(crate) fn word_count_format(raw: &str) -> Option<String> {
-    let t = raw.trim();
-    if t.is_empty() {
-        return None;
-    }
-    // [R-NaN 数据源清洗 | 2026-09-17] "NaN"（书源字数规则缺失数值时 JS 侧
-    // 字符串化产物，或页面文案）非合法字数文本：原版非数字原样透传会把
-    // "NaN" 渲染进标签，此处视为无数据。
-    if t.eq_ignore_ascii_case("NaN") {
-        return None;
-    }
-    match t.parse::<i64>() {
-        Ok(n) if n > 10000 => {
-            let v = n as f64 / 10000.0;
-            let scaled = (v * 10.0).round();
-            let s = if scaled % 10.0 == 0.0 {
-                format!("{}", scaled as i64 / 10)
-            } else {
-                format!("{:.1}", scaled / 10.0)
-            };
-            Some(format!("{s}万字"))
-        }
-        Ok(n) if n > 0 => Some(format!("{n}字")),
-        Ok(_) => None,
-        Err(_) => Some(t.to_string()),
-    }
-}
-
-/// 解析 URL（将相对路径转为绝对路径）
-fn resolve_url(url: &str, base_url: &str) -> String {
-    if url.is_empty() {
-        return String::new();
-    }
-    // 已是绝对 URL
-    if url.starts_with("http://") || url.starts_with("https://") {
-        return url.to_string();
-    }
-    // 协议相对
-    if url.starts_with("//") {
-        if let Some(pos) = base_url.find("://") {
-            return format!("{}:{}", &base_url[..pos], url);
-        }
-        return format!("https:{}", url);
-    }
-    // 绝对路径
-    if url.starts_with('/') {
-        if let Some(pos) = base_url.find("://") {
-            if let Some(slash_pos) = base_url[pos + 3..].find('/') {
-                let domain = &base_url[..pos + 3 + slash_pos];
-                return format!("{}{}", domain, url);
-            }
-        }
-        return format!("{}{}", base_url.trim_end_matches('/'), url);
-    }
-    // 相对路径
-    if let Some(pos) = base_url.rfind('/') {
-        format!("{}/{}", &base_url[..pos], url)
-    } else {
-        format!("{}/{}", base_url, url)
-    }
-}
-
-/// 解析 JSON 格式的请求头字符串
-fn parse_header_option(header_str: Option<&str>) -> Option<HashMap<String, String>> {
-    header_str.and_then(|s| serde_json::from_str(s).ok())
-}
-
-/// 请求头缺少 User-Agent 时补充 Chrome UA
-///
-/// [UI-fix 2026-08-10 | Reasonix] 对齐原版 BaseSource.kt:202-204 + AppConfig.userAgent：
-/// 默认 UA（旧缺省 "Legado/1.0"）会被反爬站点识别为非浏览器而拒绝/返回空列表。
-/// 书源 header 已配置 UA（任意大小写键名）时不覆盖。
-///
-/// UA 字面量统一引用 [`legado_net::client::DEFAULT_USER_AGENT`]（全仓唯一
-/// 缺省 UA 常量，与 JS 桥共享客户端池的 `LegadoClientConfig::default` 同串
-/// ——同 UA 指纹使 WAF 与 UA 绑定的 cookie 跨层复用；跨 crate 钉死测试
-/// `test_default_user_agent_matches_net_client_default` 防漂移）。
-fn ensure_default_user_agent(headers: &mut HashMap<String, String>) {
-    if !headers.keys().any(|k| k.eq_ignore_ascii_case("user-agent")) {
-        headers.insert("User-Agent".to_string(), DEFAULT_USER_AGENT.to_string());
-    }
-}
-
-/// JS 书源搜索（通过 JsSourceBookOrchestrator 执行）
-///
-/// 使用 spawn_blocking 将 JS 执行移出 tokio worker 线程，
-/// 避免 JS 宿主函数内部 block_on 导致嵌套 runtime 死锁（R1）。
-async fn search_js_source(
-    source: &BookSource,
-    keyword: &str,
-    page: i32,
-) -> LegadoResult<Vec<SearchResult>> {
-    let source_clone = source.clone();
-    let key = keyword.to_string();
-
-    let values = tokio::task::spawn_blocking(move || {
-        let orchestrator = crate::api::web_book::build_js_orchestrator(&source_clone)?;
-        let mut orch =
-            orchestrator.ok_or_else(|| LegadoError::Internal("JS 书源缺少 mainJs".into()))?;
-        // 页码透传（批次B G-B-01）：原硬编码 page=1，现由调用方传入
-        orch.search(&source_clone, &key, page)
-    })
-    .await
-    .map_err(|e| LegadoError::Internal(format!("JS 搜索任务异常: {e}")))??;
-
-    // 将 serde_json::Value 转换为 SearchResult
-    let results = values
-        .into_iter()
-        .filter_map(|v| {
-            let book_name = v.get("name")?.as_str()?.to_string();
-            let book_url = v.get("bookUrl")?.as_str()?.to_string();
-            if book_name.is_empty() || book_url.is_empty() {
-                return None;
-            }
-            Some(SearchResult {
-                source_url: source.book_source_url.clone(),
-                source_name: source.book_source_name.clone(),
-                book_name,
-                author: v
-                    .get("author")
-                    .and_then(|a| a.as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-                book_url,
-                latest_chapter: v
-                    .get("latestChapter")
-                    .or_else(|| v.get("lastChapter"))
-                    .and_then(|l| l.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string()),
-                intro: v
-                    .get("intro")
-                    .and_then(|i| i.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string()),
-                cover_url: v
-                    .get("coverUrl")
-                    .and_then(|c| c.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string()),
-                kind: v
-                    .get("kind")
-                    .and_then(|k| k.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string()),
-                word_count: v
-                    .get("wordCount")
-                    .and_then(|w| w.as_str())
-                    .and_then(word_count_format),
-                book_type: book_type_of_source(source.book_source_type),
-                // [P0-2 S4 | BookList.kt:215] originOrder = source.customOrder（真实书源排序，非默认 0）
-                origin_order: source.custom_order,
-                // [T5] JS 源返回 JSON 可携带 variable（JS 源搜索期变量）
-                variable: v
-                    .get("variable")
-                    .and_then(|x| x.as_str())
-                    .filter(|x| !x.is_empty())
-                    .map(|x| x.to_string()),
-                // 阅读记录标识由搜索完成后统一批量附加（见 annotate_results）
-                has_read_record: false,
-                read_record_author: None,
-            })
-        })
-        .collect();
-
-    Ok(results)
-}
-
-// ─── 测试 ─────────────────────────────────────────────────────────────────────
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use legado_core::models::rule::SearchRule;
     use legado_core::SourceSearcher;
+    use legado_core::models::rule::SearchRule;
     use legado_net::LegadoClientConfig;
     use legado_parser::RequestMethod;
 
@@ -2313,8 +669,8 @@ mod tests {
     fn test_search_single_source_consumes_retry_option() {
         use std::io::{Read, Write};
         use std::net::TcpListener;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         // 回环脚本服务器：前 2 次 500，第 3 次起 200 + 可解析 HTML
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind 回环服务器");
@@ -3029,10 +1385,12 @@ mod tests {
         let mut headers = HashMap::new();
         headers.insert("Referer".to_string(), "https://www.example.com".to_string());
         ensure_default_user_agent(&mut headers);
-        assert!(headers
-            .get("User-Agent")
-            .unwrap()
-            .starts_with("Mozilla/5.0"));
+        assert!(
+            headers
+                .get("User-Agent")
+                .unwrap()
+                .starts_with("Mozilla/5.0")
+        );
     }
 
     #[test]
@@ -3255,14 +1613,16 @@ mod tests {
         let ok_books: usize = got.iter().filter_map(|(_, n, _, _, _)| *n).sum();
         assert_eq!(ok_books, 2, "两个成功源各 1 本书应全部保留");
         // 失败/超时/panic 均有错误信息且不阻断其他源
-        assert!(got
-            .iter()
-            .any(|(u, _, e, _, _)| u.contains("fail") && e.is_some()));
+        assert!(
+            got.iter()
+                .any(|(u, _, e, _, _)| u.contains("fail") && e.is_some())
+        );
         assert!(got.iter().any(|(u, _, e, _, _)| u.contains("slow")
             && e.as_deref().is_some_and(|m| m.contains("超时"))));
-        assert!(got
-            .iter()
-            .any(|(u, _, e, _, _)| u.contains("panic") && e.is_some()));
+        assert!(
+            got.iter()
+                .any(|(u, _, e, _, _)| u.contains("panic") && e.is_some())
+        );
         // 进度 total 正确且存在收尾批次（finished == total）
         assert!(got.iter().all(|(_, _, _, _, t)| *t == 5));
         assert!(got.iter().any(|(_, _, _, f, t)| f == t));
@@ -3391,7 +1751,7 @@ mod tests {
 
     // ─── P0-3 真实重叠压力测试（复审 7.3）：A 运行中被取代 → A 中止（排队源不发请求、
     //     在飞结果不交付 on_source），B 干净执行。取消标志直接置位模拟「register(B) 取消 A」，
-    //     避免触碰全局 CURRENT_SEARCH_SESSION（与并发测试隔离）──
+    //     使用实例控制器，与并发测试隔离。──
     #[tokio::test]
     async fn test_search_overlap_a_replaced_by_b() {
         use std::sync::atomic::AtomicUsize;
@@ -3399,7 +1759,10 @@ mod tests {
         // A：concurrency=2 → 前 2 源在飞（sleep 阻塞），后 3 源排队
         let a_started = Arc::new(AtomicUsize::new(0)); // A 已发起请求的源数
         let a_delivered = Arc::new(AtomicUsize::new(0)); // A on_source 交付次数（取消后应为 0）
-        let session_a = Arc::new(SearchSession::new());
+        let searches = Arc::new(legado_engine::SearchTasks::new(
+            legado_engine::TaskGroup::default(),
+        ));
+        let session_a = searches.start().unwrap();
 
         let search_one_a = {
             let c = Arc::clone(&a_started);
@@ -3428,7 +1791,7 @@ mod tests {
                 sources_a,
                 2,
                 Duration::from_secs(30),
-                &sa.cancel,
+                sa.as_ref(),
                 &sa.paused,
                 search_one_a,
                 |_o: SourceBatchOutcome<SearchResult>| {
@@ -3455,7 +1818,7 @@ mod tests {
         // B：独立会话、未取消，与 A 并发运行；同时置位 A 的取消标志（模拟 register(B) 取消 A，
         // 覆盖显式停止 / 页面销毁入口——二者均置 cancel 标志）
         let b_started = Arc::new(AtomicUsize::new(0));
-        let session_b = Arc::new(SearchSession::new());
+        let session_b = searches.start().unwrap();
         let search_one_b = {
             let c = Arc::clone(&b_started);
             move |_s: BookSource| {
@@ -3473,13 +1836,13 @@ mod tests {
             })
             .collect();
 
-        session_a.cancel.store(true, Ordering::SeqCst); // 模拟 B 取代 A → 取消 A
+        session_a.cancel(); // 模拟 B 取代 A → 取消 A
         let drive_b = tokio::spawn(async move {
             drive_source_batches(
                 sources_b,
                 32,
                 Duration::from_secs(30),
-                &session_b.cancel,
+                session_b.as_ref(),
                 &session_b.paused,
                 search_one_b,
                 // T 由 on_source 闭包标注固定（泛型驱动器推断需要）
@@ -3533,7 +1896,10 @@ mod tests {
                 }
             }
         };
-        let session = Arc::new(SearchSession::new());
+        let searches = Arc::new(legado_engine::SearchTasks::new(
+            legado_engine::TaskGroup::default(),
+        ));
+        let session = searches.start().unwrap();
         let delivered = Arc::new(AtomicUsize::new(0));
         let delivered_c = Arc::clone(&delivered);
         let sc = Arc::clone(&session);
@@ -3548,7 +1914,7 @@ mod tests {
                 sources,
                 2,
                 Duration::from_secs(30),
-                &sc.cancel,
+                sc.as_ref(),
                 &sc.paused,
                 search_one,
                 |_o: SourceBatchOutcome<SearchResult>| {
@@ -3568,7 +1934,7 @@ mod tests {
         }
         assert_eq!(started.load(Ordering::SeqCst), 2, "应有 2 个在飞源");
 
-        session.cancel.store(true, Ordering::SeqCst);
+        session.cancel();
         // 取消必须即时（≤600ms）唤醒收集循环；在飞任务永不自然完成，
         // 若旧实现（等 set.next()）则永远超时。
         tokio::time::timeout(Duration::from_millis(600), drive)
@@ -3643,24 +2009,20 @@ mod tests {
     }
 
     // ─── P0-3 会话注册与清理安全（复审 7.5）：register(B) 取消 A；A 的清理不误清 B ──
-    //     触碰全局 CURRENT_SEARCH_SESSION → 用 TEST_SESSION_LOCK 串行化，避免与其他此类测试并发
-    static TEST_SESSION_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    //     自有实例无需全局测试锁。
 
     #[tokio::test]
     async fn test_session_registration_and_cleanup_safety() {
-        let _lock = TEST_SESSION_LOCK.lock().unwrap();
+        let searches = Arc::new(legado_engine::SearchTasks::new(
+            legado_engine::TaskGroup::default(),
+        ));
 
         // A → B：注册 B 应取消 A，且当前会话变为 B
-        let a = Arc::new(SearchSession::new());
-        register_current_session(&a);
+        let a = searches.start().unwrap();
         assert!(is_current_session(&a), "注册后 A 应为当前会话");
 
-        let b = Arc::new(SearchSession::new());
-        register_current_session(&b);
-        assert!(
-            a.cancel.load(Ordering::SeqCst),
-            "注册 B 应取消 A（新搜索取代）"
-        );
+        let b = searches.start().unwrap();
+        assert!(a.is_cancelled(), "注册 B 应取消 A（新搜索取代）");
         assert!(is_current_session(&b), "当前会话应为 B");
         assert!(
             !is_current_session(&a),
@@ -4435,7 +2797,12 @@ mod tests {
         })
         .expect("写入测试阅读记录失败");
 
-        let index = ReadRecordIndex::load();
+        let index = ReadRecordIndex::load_from(
+            crate::engine_holder::current()
+                .ok()
+                .as_ref()
+                .map(|e| e.storage()),
+        );
         let mut results = vec![
             make_result("标识测试书A", "作者甲"),
             make_result("标识测试书B", "书源给的作者"),
@@ -5360,7 +3727,6 @@ mod tests {
     }
 }
 
-/// [P3-6 阶段三] precision filter(解析期逐条过滤)测试
 #[cfg(test)]
 mod p3f_tests {
     use super::*;
@@ -5476,10 +3842,6 @@ mod p3f_tests {
     }
 }
 
-// ─── [审计 D4 | WebBook.kt:47] JS 书源 precision filter 回归测试 ─────────────
-//
-// mainJs 静态返回两本书（仅书名含关键词的条目命中），无需网络：
-// precision=true 时 JS 源结果同样受三字段"或"语义约束，不得绕过。
 #[cfg(all(test, feature = "quickjs"))]
 mod d4_js_precision_tests {
     use super::*;
@@ -5515,11 +3877,6 @@ mod d4_js_precision_tests {
     }
 }
 
-// ─── [任务书 B P2 项1 | 2026-09-19] 逐源错误八分类单测 ─────────────────────
-//
-// 覆盖 `classify_source_outcome` 的八类映射，重点是真实构造路径：
-// `drive_source_batches` 的三类 `Network` 包装消息（取消 L775 / panic 隔离
-// L787 / 超时 L791）+ join 错误（L827）+ 各 `LegadoError` 变体。
 #[cfg(test)]
 mod error_class_tests {
     use super::*;
@@ -5646,5 +4003,523 @@ mod error_class_tests {
         assert_eq!(classify_source_outcome(&r1), "empty");
         let r2 = LegadoResult::Err(LegadoError::TocEmpty("无目录".into()));
         assert_eq!(classify_source_outcome(&r2), "empty");
+    }
+}
+
+#[cfg(test)]
+mod engine_task_tests {
+    use super::*;
+    use legado_engine::{EngineContext, SearchTasks, TaskGroup};
+
+    #[tokio::test]
+    async fn aborting_the_collector_keeps_blocking_work_registered_until_real_exit() {
+        let tasks = TaskGroup::default();
+        let searches = Arc::new(SearchTasks::new(tasks.clone()));
+        let session = searches.start().unwrap();
+        let (started, ready) = tokio::sync::oneshot::channel();
+        let started = Arc::new(std::sync::Mutex::new(Some(started)));
+        let (release, wait) = std::sync::mpsc::channel();
+        let wait = Arc::new(std::sync::Mutex::new(wait));
+        let running = session.clone();
+        let work = session.task().clone();
+        let driver = tokio::spawn(async move {
+            let _run = SearchRun(running.clone());
+            drive_source_batches(
+                vec![BookSource::default()],
+                1,
+                Duration::from_secs(30),
+                running.as_ref(),
+                &running.paused,
+                move |_| {
+                    let task = work.clone();
+                    let started = started.clone();
+                    let wait = wait.clone();
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            let _task = task;
+                            started.lock().unwrap().take().unwrap().send(()).unwrap();
+                            wait.lock()
+                                .unwrap()
+                                .recv_timeout(Duration::from_secs(5))
+                                .unwrap();
+                            Ok(Vec::<SearchResult>::new())
+                        })
+                        .await
+                        .unwrap()
+                    }
+                },
+                |_| panic!("丢弃收集器后不能发布"),
+            )
+            .await;
+        });
+        ready.await.unwrap();
+        driver.abort();
+        assert!(driver.await.unwrap_err().is_cancelled());
+        assert!(session.is_cancelled());
+        drop(session);
+        assert!(!tasks.shutdown(Duration::from_millis(10)).await);
+        assert_eq!(tasks.active_count(), 1);
+        release.send(()).unwrap();
+        assert!(tasks.shutdown(Duration::from_secs(1)).await);
+    }
+
+    #[tokio::test]
+    async fn paused_session_resumes_with_the_same_task_and_result_sequence() {
+        let tasks = TaskGroup::default();
+        let searches = Arc::new(SearchTasks::new(tasks.clone()));
+        let session = searches.start().unwrap();
+        session.set_paused(true);
+        let (ready, received) = tokio::sync::oneshot::channel();
+        let running = session.clone();
+        let driver = tokio::spawn(async move {
+            ready.send(()).unwrap();
+            let mut delivered = Vec::new();
+            drive_source_batches(
+                vec![BookSource::default(), BookSource::default()],
+                1,
+                Duration::from_secs(30),
+                running.as_ref(),
+                &running.paused,
+                |_| async { Ok(Vec::<SearchResult>::new()) },
+                |outcome| {
+                    delivered.push(outcome.index);
+                    Ok(())
+                },
+            )
+            .await;
+            delivered
+        });
+        received.await.unwrap();
+        assert_eq!(tasks.active_count(), 1);
+        session.set_paused(false);
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), driver)
+                .await
+                .unwrap()
+                .unwrap(),
+            vec![0, 1]
+        );
+        assert!(!session.is_cancelled());
+        session.finish();
+        drop(session);
+        assert!(tasks.shutdown(Duration::from_secs(1)).await);
+    }
+
+    #[tokio::test]
+    async fn captured_search_uses_its_cookie_rules_and_original_database() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let deadline = std::time::Instant::now() + Duration::from_secs(10);
+                let mut stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(std::time::Instant::now() < deadline, "未收到预期搜索请求");
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("搜索夹具连接失败: {error}"),
+                    }
+                };
+                stream.set_nonblocking(false).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut byte = [0];
+                while !request.ends_with(b"\r\n\r\n") {
+                    assert_eq!(stream.read(&mut byte).unwrap(), 1);
+                    request.push(byte[0]);
+                    assert!(request.len() < 16384);
+                }
+                let request = String::from_utf8(request).unwrap();
+                let identity = if request.contains("identity=first") {
+                    "first"
+                } else if request.contains("identity=second") {
+                    "second"
+                } else {
+                    panic!("请求未携带所属实例 Cookie: {request}")
+                };
+                let body = format!(
+                    r#"<div class="book"><a class="name" href="/book/{identity}">{identity}</a><span class="author">author</span></div>"#
+                );
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            }
+        });
+        let first = EngineContext::in_memory().unwrap();
+        let second = EngineContext::in_memory().unwrap();
+        let source: BookSource = serde_json::from_value(serde_json::json!({
+            "bookSourceUrl": base,
+            "bookSourceName": "实例搜索",
+            "searchUrl": format!("{base}/search"),
+            "ruleSearch": {"bookList":".book", "name":".name", "author":".author", "bookUrl":".name@href"}
+        })).unwrap();
+        for (engine, identity) in [(&first, "first"), (&second, "second")] {
+            engine
+                .storage()
+                .with_database(|db| {
+                    legado_db::BookSourceRepository::new(db.connection())
+                        .insert_batch(std::slice::from_ref(&source))
+                })
+                .unwrap();
+            engine
+                .network()
+                .set_cookie("127.0.0.1", &format!("identity={identity}"))
+                .unwrap();
+            engine.source_login_cache().put_login_info(&base, identity);
+            let searches = Arc::new(SearchTasks::new(engine.tasks().clone()));
+            let session = searches.start().unwrap();
+            let context = context_for_engine(engine, engine.network().client().unwrap())
+                .with_session(session.clone());
+            let rules = source.clone();
+            #[cfg(feature = "quickjs")]
+            let rules = {
+                let mut rules = rules;
+                rules.rule_search.as_mut().unwrap().author =
+                    Some("@js:source.getLoginInfo()".into());
+                rules
+            };
+            let results = search_single_source_with_context(&context, &rules, "key", 1, false)
+                .await
+                .unwrap();
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].book_name, identity);
+            #[cfg(feature = "quickjs")]
+            assert_eq!(results[0].author, identity);
+            let books = results
+                .into_iter()
+                .map(result_to_search_book)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                session.with_current(|| persist_search_books(context.storage(), &books)),
+                Some(())
+            );
+            let next = searches.start().unwrap();
+            assert!(
+                session
+                    .with_current(|| panic!("取消后的源不能再写入或推流"))
+                    .is_none()
+            );
+            assert!(next.is_current());
+        }
+        server.join().unwrap();
+        for (engine, own, other) in [(&first, "first", "second"), (&second, "second", "first")] {
+            engine
+                .storage()
+                .with_database(|db| {
+                    let repo = legado_db::SearchBookRepository::new(db.connection());
+                    assert!(
+                        repo.find_by_book_url(&format!("{base}/book/{own}"))?
+                            .is_some()
+                    );
+                    assert!(
+                        repo.find_by_book_url(&format!("{base}/book/{other}"))?
+                            .is_none()
+                    );
+                    Ok(())
+                })
+                .unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn root_shutdown_wakes_paused_dispatch_without_starting_a_source() {
+        let tasks = TaskGroup::default();
+        let searches = Arc::new(SearchTasks::new(tasks.clone()));
+        let session = searches.start().unwrap();
+        session.set_paused(true);
+        let entered = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls = entered.clone();
+        let running = session.clone();
+        let driver = tokio::spawn(async move {
+            drive_source_batches(
+                vec![BookSource::default()],
+                1,
+                Duration::from_secs(30),
+                running.as_ref(),
+                &running.paused,
+                move |_| {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    async { Ok(Vec::<SearchResult>::new()) }
+                },
+                |_| panic!("暂停后取消不能交付结果"),
+            )
+            .await;
+        });
+        tokio::task::yield_now().await;
+        tasks.cancel();
+        tokio::time::timeout(Duration::from_secs(1), driver)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(entered.load(Ordering::SeqCst), 0);
+        drop(session);
+        assert!(tasks.shutdown(Duration::from_secs(1)).await);
+    }
+
+    #[tokio::test]
+    async fn sink_close_cancels_the_registered_session_without_publish_reentrance() {
+        let tasks = TaskGroup::default();
+        let searches = Arc::new(SearchTasks::new(tasks.clone()));
+        let session = searches.start().unwrap();
+        let callback = session.clone();
+        drive_source_batches(
+            vec![BookSource::default()],
+            1,
+            Duration::from_secs(30),
+            session.as_ref(),
+            &session.paused,
+            |_| async { Ok(Vec::<SearchResult>::new()) },
+            move |_| {
+                callback
+                    .with_current(|| Err("sink 已关闭".to_string()))
+                    .unwrap_or(Ok(()))
+            },
+        )
+        .await;
+        assert!(session.is_cancelled());
+        drop(session);
+        assert!(tasks.shutdown(Duration::from_secs(1)).await);
+    }
+}
+
+#[cfg(test)]
+mod standalone_task_tests {
+    use super::super::source_task_fixture::Fixture;
+    use super::*;
+    use legado_db::repository::Repository;
+    use legado_engine::{EngineContext, SearchTasks};
+
+    fn source(base: &str, path: &str, order: i32) -> BookSource {
+        serde_json::from_value(serde_json::json!({
+            "bookSourceUrl":format!("{base}/source/{order}"),"bookSourceName":format!("源{order}"),
+            "customOrder":order,"searchUrl":format!("{base}/{path}"),
+            "ruleSearch":{"bookList":".book","name":".name@text","author":".author@text","bookUrl":"a@href"}
+        })).unwrap()
+    }
+    fn context(engine: &EngineContext) -> SearchContext {
+        context_for_engine(engine, engine.network().client().unwrap())
+            .with_task(engine.tasks().begin().unwrap())
+    }
+    fn body(author: &str) -> String {
+        format!(
+            "<div class='book'><span class='name'>目标书</span><span class='author'>{author}</span><a href='/book/hit'>书</a></div>"
+        )
+    }
+
+    #[tokio::test]
+    async fn precise_search_keeps_source_order_author_matching_early_exit_and_no_persistence() {
+        let mut fixture = Fixture::new(2, false, |request| {
+            body(if request.starts_with("GET /wrong ") {
+                "其他作者"
+            } else {
+                "目标作者"
+            })
+        });
+        let engine = EngineContext::in_memory().unwrap();
+        let searches = Arc::new(SearchTasks::new(engine.tasks().clone()));
+        let ui_session = searches.start().unwrap();
+        let mut failure = source(&fixture.url, "unused", 0);
+        failure.search_url = None;
+        let result = precise_search_owned(
+            context(&engine),
+            "目标书",
+            "目标作者",
+            vec![
+                failure,
+                source(&fixture.url, "wrong", 1),
+                source(&fixture.url, "match", 2),
+                source(&fixture.url, "never", 3),
+            ],
+        )
+        .await
+        .unwrap();
+        let book = serde_json::to_value(result).unwrap();
+        assert_eq!(book["name"], "目标书");
+        assert_eq!(book["author"], "目标作者");
+        assert_eq!(book["bookUrl"], format!("{}/book/hit", fixture.url));
+        assert!(fixture.request().await.starts_with("GET /wrong "));
+        assert!(fixture.request().await.starts_with("GET /match "));
+        assert!(ui_session.is_current() && !ui_session.is_cancelled());
+        engine
+            .storage()
+            .with_database(|db| {
+                assert!(
+                    legado_db::SearchBookRepository::new(db.connection())
+                        .find_by_book_url(&format!("{}/book/hit", fixture.url))?
+                        .is_none()
+                );
+                Ok(())
+            })
+            .unwrap();
+        drop(ui_session);
+        assert_eq!(engine.tasks().active_count(), 0);
+        fixture.worker.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelling_precise_search_stops_before_the_next_source_and_does_not_become_not_found()
+    {
+        let mut fixture = Fixture::new(1, true, |_| body("目标作者"));
+        let engine = EngineContext::in_memory().unwrap();
+        let context = context(&engine);
+        let task = context.task().cloned().unwrap();
+        let mut run = Box::pin(precise_search_owned(
+            context,
+            "目标书",
+            "目标作者",
+            vec![
+                source(&fixture.url, "blocked", 1),
+                source(&fixture.url, "never", 2),
+            ],
+        ));
+        tokio::select! { _ = fixture.request() => {}, _ = &mut run => panic!("应处于网络等待") }
+        task.cancel();
+        let error = tokio::time::timeout(Duration::from_secs(2), run)
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(matches!(error,LegadoError::Network(ref message) if message == "搜索已取消"));
+        fixture.release.send(()).unwrap();
+        fixture.worker.join().unwrap();
+        drop(task);
+        assert_eq!(engine.tasks().active_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn dropping_a_standalone_http_search_cancels_its_task_without_cancelling_ui_search() {
+        let mut fixture = Fixture::new(1, true, |_| body("目标作者"));
+        let engine = Arc::new(EngineContext::in_memory().unwrap());
+        let weak = Arc::downgrade(&engine);
+        let tasks = engine.tasks().clone();
+        let searches = Arc::new(SearchTasks::new(tasks.clone()));
+        let ui_session = searches.start().unwrap();
+        let context = context(&engine);
+        let task = context.task().cloned().unwrap();
+        let source = source(&fixture.url, "blocked", 1);
+        let mut run = Box::pin(search_single_source_owned(
+            context,
+            &source,
+            "目标书",
+            1,
+            false,
+        ));
+        tokio::select! { _ = fixture.request() => {}, _ = &mut run => panic!("应处于网络等待") }
+        drop(run);
+        assert!(task.is_cancelled());
+        assert!(!ui_session.is_cancelled());
+        drop(task);
+        drop(ui_session);
+        drop(engine);
+        assert!(weak.upgrade().is_none());
+        assert!(tasks.shutdown(Duration::from_secs(2)).await);
+        fixture.release.send(()).unwrap();
+        fixture.worker.join().unwrap();
+    }
+
+    #[test]
+    fn loading_search_sources_uses_captured_storage_and_preserves_enabled_order_and_filters() {
+        for name in ["甲库", "乙库"] {
+            let engine = EngineContext::in_memory().unwrap();
+            engine
+                .storage()
+                .with_database(|db| {
+                    let repo = legado_db::BookSourceRepository::new(db.connection());
+                    for order in [2, 0, 1] {
+                        let mut source = source("https://same-source.test", "search", order);
+                        source.book_source_name = format!("{name}{order}");
+                        source.enabled = order != 0;
+                        repo.insert(&source)?;
+                    }
+                    Ok(())
+                })
+                .unwrap();
+            let all = load_search_sources_from(Some(engine.storage()), "[]").unwrap();
+            assert_eq!(
+                all.iter().map(|s| s.custom_order).collect::<Vec<_>>(),
+                vec![1, 2]
+            );
+            assert!(all.iter().all(|s| s.book_source_name.starts_with(name)));
+            let selected = load_search_sources_from(
+                Some(engine.storage()),
+                r#"["https://same-source.test/source/2","https://same-source.test/source/0"]"#,
+            )
+            .unwrap();
+            assert_eq!(selected.len(), 1);
+            assert_eq!(selected[0].custom_order, 2);
+        }
+        assert!(matches!(
+            load_search_sources_from(None, "bad"),
+            Err(LegadoError::Ffi(_))
+        ));
+        assert!(matches!(
+            load_search_sources_from(None, "[]"),
+            Err(LegadoError::Database(_))
+        ));
+    }
+
+    #[cfg(feature = "quickjs")]
+    #[tokio::test]
+    async fn all_four_real_blocking_search_stages_cancel_http_after_entry_is_dropped() {
+        for phase in 0..4 {
+            let mut gate = Fixture::new(1, true, |_| "放行".into());
+            let mut response = if phase >= 2 {
+                Some(Fixture::new(1, false, |_| body("目标作者")))
+            } else {
+                None
+            };
+            let engine = Arc::new(EngineContext::in_memory().unwrap());
+            let tasks = engine.tasks().clone();
+            let weak = Arc::downgrade(&engine);
+            let context = context(&engine);
+            let task = context.task().cloned().unwrap();
+            let base = response
+                .as_ref()
+                .map_or(gate.url.as_str(), |f| f.url.as_str());
+            let mut source = source(base, "search", phase);
+            let call = format!("java.ajax('{}/gate')", gate.url);
+            match phase {
+                0 => source.search_url = Some(format!("{base}/search?q={{{{{call}}}}}")),
+                1 => {
+                    source.main_js = Some(format!(
+                        "function search(key,page) {{ {call}; return [{{name:'目标书',author:'目标作者',bookUrl:'{base}/book'}}]; }}"
+                    ))
+                }
+                2 => source.login_check_js = Some(format!("{call}; result;")),
+                _ => {
+                    source.rule_search.as_mut().unwrap().book_list =
+                        Some(format!("@js:{call}; result;"))
+                }
+            }
+            let mut run = Box::pin(search_single_source_owned(
+                context,
+                &source,
+                "目标书",
+                1,
+                false,
+            ));
+            tokio::select! { _ = gate.request() => {}, result=&mut run => panic!("阶段 {phase} 没有进入阻塞等待: {result:?}") }
+            drop(run);
+            assert!(task.is_cancelled());
+            drop(task);
+            drop(engine);
+            assert!(weak.upgrade().is_none(), "阶段 {phase} 强持根实例");
+            // HTTP等待已可主动取消，无需服务器先返回；登记仍由阻塞工作实际退出释放。
+            assert!(
+                tasks.shutdown(Duration::from_secs(5)).await,
+                "阶段 {phase} 取消HTTP等待后未释放登记"
+            );
+            gate.release.send(()).unwrap();
+            gate.worker.join().unwrap();
+            if let Some(ref mut response) = response {
+                response.request().await;
+            }
+            if let Some(response) = response {
+                response.worker.join().unwrap();
+            }
+        }
     }
 }

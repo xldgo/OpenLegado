@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../providers/rss_repository_provider.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../l10n/app_localization.dart';
 
 import '../models/models.dart';
-import '../providers/providers.dart';
 import 'group_manage_dialog.dart';
 
 /// 订阅源分组管理弹窗（对标原版 GroupManageDialog）
@@ -22,11 +24,11 @@ class RssGroupManageDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GroupManageDialog<RssSource>(
-      itemNoun: '订阅源',
+      itemNoun: context.l10n.rssSourceNoun,
       items: sources,
       groupOf: (s) => s.sourceGroup,
       copyWithGroup: (s, g) => s.copyWith(sourceGroup: g),
-      update: (s) => ref.read(bookApiProvider).updateRssSource(s),
+      update: (s) => ref.read(rssSourceRepositoryProvider).updateRssSource(s),
     );
   }
 }

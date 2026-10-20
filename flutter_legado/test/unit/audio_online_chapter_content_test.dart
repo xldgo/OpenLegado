@@ -1,6 +1,10 @@
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
+
 // P0 缺陷回归：在线书 TTS 朗读合成文本为章节 URL JSON 元数据（2026-10-03）
 //
-// 根因：在线书走 BookApi.getChapterContent（Rust get_chapter_content 在线分支）
+// 根因：在线书走 TestApi.getChapterContent（Rust get_chapter_content 在线分支）
 // 只返回 {chapter_url, base_url, title, need_fetch:true} 占位 JSON，AudioNotifier
 // 把它当正文段落送进 audioSpeak——合成的是 JSON 而非正文。修复：朗读消费端
 // 对在线书改走 getChapterContentFull（DB 缓存 → 联网抓取 → 净化，始终纯正文，
@@ -17,17 +21,19 @@
 // 5) 选段朗读：startParagraphText 在纯正文上能命中对应段落起播。
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
 
 import '../mocks/mocks.dart';
+
+class AudioChapterContent extends Mock implements ChapterContentService {}
 
 void main() {
   late MockRustApi mockApi;
@@ -47,10 +53,10 @@ void main() {
     fakePlayer = FakeStreamAudioPlayer();
     speakTexts.clear();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -60,26 +66,31 @@ void main() {
       container.read(audioNotifierProvider.notifier);
 
   void stubChapters() {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => [
         const BookChapter(title: '第一章', index: 0),
         const BookChapter(title: '第二章', index: 1),
       ],
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
   }
 
   void stubAudioSpeak() {
-    when(() => mockApi.audioSpeak(
-          text: any(named: 'text'),
-          engineUrl: any(named: 'engineUrl'),
-          speed: any(named: 'speed'),
-          pitch: any(named: 'pitch'),
-          volume: any(named: 'volume'),
-          voiceName: any(named: 'voiceName'),
-        )).thenAnswer((invocation) async {
+    when(
+      () => mockApi.httpTtsSynthesizer.synthesize(
+        cancellation: any(named: 'cancellation'),
+        engineId: any(named: 'engineId'),
+        text: any(named: 'text'),
+        engineUrl: any(named: 'engineUrl'),
+        speed: any(named: 'speed'),
+        pitch: any(named: 'pitch'),
+        volume: any(named: 'volume'),
+        voiceName: any(named: 'voiceName'),
+      ),
+    ).thenAnswer((invocation) async {
       speakTexts.add(invocation.namedArguments[#text] as String);
-      return '/tmp/tts/para_${speakTexts.length}.mp3';
+      return HttpTtsAudio(audioPath: '/tmp/tts/para_${speakTexts.length}.mp3');
     });
   }
 
@@ -87,10 +98,40 @@ void main() {
   const engineUrl = 'https://tts.example.com/?text={{text}}';
 
   group('在线书朗读取纯正文（P0）', () {
+    testWidgets('朗读可独立注入正文服务，合成与章节缓存使用同一结果', (tester) async {
+      stubChapters();
+      stubAudioSpeak();
+      final content = AudioChapterContent();
+      when(() => content.read(onlineBookUrl, 0))
+          .thenAnswer((_) async => '注入的朗读正文。');
+      final isolated = ProviderContainer(
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
+          streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+          chapterContentServiceProvider.overrideWithValue(content),
+        ]),
+      );
+      addTearDown(isolated.dispose);
+      final notifier = isolated.read(audioNotifierProvider.notifier);
+      await notifier.loadChapters(onlineBookUrl);
+      notifier.updateConfig(engineUrl: engineUrl);
+      await notifier.play();
+      expect(speakTexts, ['注入的朗读正文。']);
+      expect(isolated.read(audioNotifierProvider).chapters[0].text, '注入的朗读正文。');
+      verify(() => content.read(onlineBookUrl, 0)).called(1);
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+      );
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContent(any(), any()),
+      );
+      notifier.stop();
+    });
+
     testWidgets('在线书：送合成的是纯正文，不读 URL JSON、不触发旧链路', (tester) async {
       stubChapters();
       stubAudioSpeak();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段正文内容。\n\n第二段正文内容。');
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -105,8 +146,12 @@ void main() {
       }
       // 章节缓存写回的是纯正文
       expect(readState().chapters[0].text, '第一段正文内容。\n\n第二段正文内容。');
-      verify(() => mockApi.getChapterContentFull(onlineBookUrl, 0)).called(1);
-      verifyNever(() => mockApi.getChapterContent(any(), any()));
+      verify(
+        () => mockApi.readingRepository.getChapterContentFull(onlineBookUrl, 0),
+      ).called(1);
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContent(any(), any()),
+      );
 
       readNotifier().stop();
     });
@@ -114,7 +159,7 @@ void main() {
     testWidgets('本地书：维持 getChapterContent 链路（行为不变）', (tester) async {
       stubChapters();
       stubAudioSpeak();
-      when(() => mockApi.getChapterContent(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContent(any(), any()))
           .thenAnswer((_) async => '本地正文甲。\n\n本地正文乙。');
 
       await readNotifier().loadChapters('books/demo.epub');
@@ -122,15 +167,19 @@ void main() {
       await readNotifier().play();
 
       expect(speakTexts, ['本地正文甲。']);
-      verify(() => mockApi.getChapterContent('books/demo.epub', 0)).called(1);
-      verifyNever(() => mockApi.getChapterContentFull(any(), any()));
+      verify(
+        () => mockApi.readingRepository.getChapterContent('books/demo.epub', 0),
+      ).called(1);
+      verifyNever(
+        () => mockApi.readingRepository.getChapterContentFull(any(), any()),
+      );
 
       readNotifier().stop();
     });
 
     testWidgets('在线抓取失败：error 态 + 用户可见提示（不静默）', (tester) async {
       stubChapters();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenThrow(Exception('网络连接超时'));
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -149,7 +198,7 @@ void main() {
       stubChapters();
       stubAudioSpeak();
       final gate = Completer<String>();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) => gate.future);
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -162,7 +211,9 @@ void main() {
       await first;
       await second;
 
-      verify(() => mockApi.getChapterContentFull(onlineBookUrl, 0)).called(1);
+      verify(
+        () => mockApi.readingRepository.getChapterContentFull(onlineBookUrl, 0),
+      ).called(1);
       expect(speakTexts, ['并发去重正文。']);
 
       readNotifier().stop();
@@ -172,9 +223,9 @@ void main() {
       stubChapters();
       stubAudioSpeak();
       final ch0Gate = Completer<String>();
-      when(() => mockApi.getChapterContentFull(any(), 0))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), 0))
           .thenAnswer((_) => ch0Gate.future);
-      when(() => mockApi.getChapterContentFull(any(), 1))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), 1))
           .thenAnswer((_) async => '新章正文。');
 
       await readNotifier().loadChapters(onlineBookUrl);
@@ -213,17 +264,17 @@ void main() {
       when(() => audioService.abandonAudioFocus()).thenAnswer((_) async {});
       when(() => audioService.dispose()).thenAnswer((_) async {});
       final localContainer = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
           audioServiceProvider.overrideWithValue(audioService),
-        ],
+        ]),
       );
       addTearDown(localContainer.dispose);
 
       stubChapters();
       stubAudioSpeak();
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段正文内容。\n\n第二段正文内容。');
 
       final notifier = localContainer.read(audioNotifierProvider.notifier);

@@ -1,83 +1,75 @@
-//! 中途 UI 副作用队列（SourceCallBack / SourceLoginJsExtensions 桥）
-//!
-//! Kotlin `callBackBtn` 在 JS 求值过程中可通过 `java.showBrowser` /
-//! `java.refreshBookInfo` 等触发 Activity 侧副作用；无头 QuickJS 无法同步弹 UI，
-//! 因此在求值期间收集结构化 action，由 FFI 结果一并回传 Flutter 执行。
-//!
-//! 用法：
-//! 1. [`begin_collect`] 清空并开启收集
-//! 2. 执行 callBackJs（宿主 API 经 [`push_action`] / [`push_payload_json`] 入队）
-//! 3. [`end_collect`] 关闭收集并取出全部 action
-
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
-
+//! UI 动作按当前同步 JS 求值作用域收集，不使用跨线程共享队列。
 use serde_json::Value;
 
-static COLLECTING: AtomicBool = AtomicBool::new(false);
-static REFRESH_EXPLORE: AtomicBool = AtomicBool::new(false);
-static QUEUE: Mutex<Vec<Value>> = Mutex::new(Vec::new());
+#[derive(Default)]
+struct Actions {
+    values: Vec<Value>,
+    refresh_explore: bool,
+}
+thread_local! {
+    static CURRENT: std::cell::RefCell<Option<Actions>> = const { std::cell::RefCell::new(None) };
+}
 
-/// 开启收集并清空旧队列（对齐一次 `callBackBtn` 会话）
-pub fn begin_collect() {
-    COLLECTING.store(true, Ordering::SeqCst);
-    REFRESH_EXPLORE.store(false, Ordering::SeqCst);
-    if let Ok(mut q) = QUEUE.lock() {
-        q.clear();
+pub struct CollectedActions<R> {
+    pub result: R,
+    pub actions: Vec<Value>,
+    pub refresh_explore: bool,
+}
+
+/// 保存并恢复外层作用域；正常返回与 panic 都不会污染下一次调用。
+pub fn collect_actions<R>(operation: impl FnOnce() -> R) -> CollectedActions<R> {
+    struct Guard(Option<Actions>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            CURRENT.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
+    }
+    let previous = CURRENT.with(|slot| slot.replace(Some(Actions::default())));
+    let _guard = Guard(previous);
+    let result = operation();
+    let captured = CURRENT.with(|slot| slot.borrow_mut().take().unwrap_or_default());
+    CollectedActions {
+        result,
+        actions: captured.values,
+        refresh_explore: captured.refresh_explore,
     }
 }
 
-/// 是否正在收集（供宿主 API 决定是否入队）
+/// 不需要发现页刷新标志的宿主沿用原返回形态。
+pub fn collect_local<R>(operation: impl FnOnce() -> R) -> (R, Vec<Value>) {
+    let collected = collect_actions(operation);
+    (collected.result, collected.actions)
+}
 pub fn is_collecting() -> bool {
-    COLLECTING.load(Ordering::SeqCst)
+    CURRENT.with(|slot| slot.borrow().is_some())
 }
-
-/// 入队一个结构化 action（仅在收集开启时生效）
 pub fn push_action(action: Value) {
+    if crate::cancellation::is_cancelled() {
+        return;
+    }
+    CURRENT.with(|slot| {
+        if let Some(actions) = slot.borrow_mut().as_mut() {
+            actions.values.push(action);
+        }
+    });
+}
+pub fn push_payload_json(payload: &str) {
     if !is_collecting() {
         return;
     }
-    if let Ok(mut q) = QUEUE.lock() {
-        q.push(action);
+    if let Ok(action) = serde_json::from_str(payload) {
+        push_action(action);
     }
 }
-
-/// 将平台桥接 JSON 字符串解析后入队（失败则忽略）
-pub fn push_payload_json(payload_json: &str) {
-    if !is_collecting() {
-        return;
-    }
-    if let Ok(v) = serde_json::from_str::<Value>(payload_json) {
-        push_action(v);
-    }
-}
-
-/// 结束收集并取出全部 action
-pub fn end_collect() -> Vec<Value> {
-    COLLECTING.store(false, Ordering::SeqCst);
-    QUEUE
-        .lock()
-        .map(|mut q| q.drain(..).collect())
-        .unwrap_or_default()
-}
-
-/// 发现页 `java.refreshExplore` / `reLoginView` 是否被请求
-pub fn take_refresh_explore_requested() -> bool {
-    REFRESH_EXPLORE.swap(false, Ordering::SeqCst)
-}
-
 fn request_refresh_explore() {
-    if is_collecting() {
-        REFRESH_EXPLORE.store(true, Ordering::SeqCst);
+    if crate::cancellation::is_cancelled() {
+        return;
     }
-}
-
-/// 丢弃队列并关闭收集（求值失败时调用）
-pub fn discard_collect() {
-    COLLECTING.store(false, Ordering::SeqCst);
-    if let Ok(mut q) = QUEUE.lock() {
-        q.clear();
-    }
+    CURRENT.with(|slot| {
+        if let Some(actions) = slot.borrow_mut().as_mut() {
+            actions.refresh_explore = true;
+        }
+    });
 }
 
 /// SourceLoginJsExtensions 中途 UI 动作构造
@@ -114,21 +106,51 @@ pub mod source_login_ext {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn collect_drain_and_ignore_when_off() {
-        // 单测串行：全局队列不可与 discard 并发交错
-        discard_collect();
-        push_action(serde_json::json!({"action":"copyText","text":"a"}));
-        assert!(end_collect().is_empty());
-
-        begin_collect();
-        push_action(serde_json::json!({"action":"refreshBookInfo"}));
-        push_payload_json(r#"{"action":"openBrowser","url":"http://x"}"#);
-        let actions = end_collect();
-        assert_eq!(actions.len(), 2);
-        assert_eq!(actions[0]["action"], "refreshBookInfo");
-        assert_eq!(actions[1]["action"], "openBrowser");
-        assert!(end_collect().is_empty());
+    fn scopes_ignore_outside_actions_and_keep_nested_and_threaded_results_independent() {
+        push_action(serde_json::json!({"action":"ignored"}));
+        assert!(!is_collecting());
+        let outer = collect_actions(|| {
+            push_action(serde_json::json!({"action":"outer"}));
+            let inner = collect_actions(|| {
+                source_login_ext::refresh_explore();
+                push_payload_json(r#"{"action":"inner"}"#);
+            });
+            assert!(inner.refresh_explore);
+            assert_eq!(inner.actions[0]["action"], "inner");
+            let other = std::thread::spawn(|| {
+                collect_actions(|| {
+                    source_login_ext::refresh_explore();
+                    push_action(serde_json::json!({"action":"other"}));
+                })
+            })
+            .join()
+            .unwrap();
+            assert!(other.refresh_explore);
+            assert_eq!(other.actions[0]["action"], "other");
+        });
+        assert_eq!(outer.actions.len(), 1);
+        assert_eq!(outer.actions[0]["action"], "outer");
+        assert!(!outer.refresh_explore);
+        assert!(!is_collecting());
+    }
+    #[test]
+    fn panicking_inner_scope_restores_outer_actions_and_refresh_flag() {
+        let outer = collect_actions(|| {
+            push_action(serde_json::json!({"action":"before"}));
+            source_login_ext::refresh_explore();
+            assert!(
+                std::panic::catch_unwind(|| collect_actions(|| {
+                    push_action(serde_json::json!({"action":"discard"}));
+                    panic!("测试作用域退出");
+                }))
+                .is_err()
+            );
+            push_action(serde_json::json!({"action":"after"}));
+        });
+        assert!(outer.refresh_explore);
+        assert_eq!(outer.actions.len(), 2);
+        assert_eq!(outer.actions[1]["action"], "after");
+        assert!(!is_collecting());
     }
 }

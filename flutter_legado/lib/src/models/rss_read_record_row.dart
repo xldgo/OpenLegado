@@ -5,7 +5,7 @@ part 'rss_read_record_row.g.dart';
 
 /// RSS 已读记录行（镜像 Rust `RssReadRecordRow`，snake_case 序列化）
 ///
-/// 由 `BookApi.rssListReadRecords` 返回的 Map 解析而来（按阅读时间降序，
+/// 由 `RssReadRecordRepository` 的数据层实现解析而来（按阅读时间降序，
 /// 契约见 API_CONTRACT.md §2.35）。Rust 侧当前返回列为
 /// `origin` / `title` / `link` / `read_time`（legado-db
 /// `RssReadRecordRow`，serde 默认 snake_case）；待 §4.2 P0-2 v96→97

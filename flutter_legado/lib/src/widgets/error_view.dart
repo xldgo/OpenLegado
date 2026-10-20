@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
+
+import '../l10n/app_localization.dart';
 
 /// 错误状态组件 — 显示错误信息 + 重试按钮（可选：次要操作，如「换源」）
 class ErrorView extends StatelessWidget {
@@ -37,29 +39,36 @@ class ErrorView extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Symbols.error_rounded, size: 64, color: colorScheme.error),
+                    Icon(
+                      Symbols.error_rounded,
+                      size: 64,
+                      color: colorScheme.error,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                      style: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                     if (onRetry != null) ...[
                       const SizedBox(height: 24),
                       FilledButton.icon(
                         onPressed: onRetry,
                         icon: const Icon(Symbols.refresh_rounded),
-                        label: const Text('重试'),
+                        label: Text(context.l10n.retry),
                       ),
                     ],
                     if (onSecondaryAction != null) ...[
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         onPressed: onSecondaryAction,
-                        icon: Icon(secondaryActionIcon ?? Symbols.swap_horiz_rounded),
-                        label: Text(secondaryActionLabel ?? '换源'),
+                        icon: Icon(
+                          secondaryActionIcon ?? Symbols.swap_horiz_rounded,
+                        ),
+                        label: Text(
+                          secondaryActionLabel ?? context.l10n.changeSource,
+                        ),
                       ),
                     ],
                   ],

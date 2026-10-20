@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../services/crash_log_service.dart';
@@ -10,6 +10,9 @@ import '../services/crash_log_service.dart';
 /// 应用启动时检测到上次运行存在崩溃记录时弹出，
 /// 展示崩溃时间与错误摘要，支持展开完整堆栈信息。
 class CrashLogDialog extends StatefulWidget {
+  /// 启动协调器据此识别自动提示，不将其误判为用户离开主页。— Codex + UI
+  static const routeName = 'startup-crash-log';
+
   /// 完整崩溃日志文本
   final String crashLog;
 
@@ -20,6 +23,7 @@ class CrashLogDialog extends StatefulWidget {
     return showDialog(
       context: context,
       barrierDismissible: false,
+      routeSettings: const RouteSettings(name: routeName),
       builder: (_) => CrashLogDialog(crashLog: crashLog),
     );
   }
@@ -71,11 +75,7 @@ class _CrashLogDialogState extends State<CrashLogDialog> {
     final stackTrace = _stackTrace;
 
     return AlertDialog(
-      icon: Icon(
-        Symbols.error_rounded,
-        color: colorScheme.error,
-        size: 32,
-      ),
+      icon: Icon(Symbols.error_rounded, color: colorScheme.error, size: 32),
       title: const Text('上次运行发生崩溃'),
       content: SizedBox(
         width: double.maxFinite,

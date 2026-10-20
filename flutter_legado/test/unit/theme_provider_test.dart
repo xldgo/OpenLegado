@@ -6,14 +6,12 @@
 //
 // 注意：ThemeNotifier.build() 会通过微任务自动加载持久化设置，
 // 测试中先经 pumpInit() 等待自动加载完成，再执行动作与断言，避免加载覆盖动作结果。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/services/settings_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,10 +61,7 @@ void main() {
 
   group('ThemeNotifier 加载持久化设置', () {
     test('build 自动读取已保存的主题模式与字体缩放', () async {
-      createContainer({
-        'app_theme_mode': 'dark',
-        'app_font_scale': 12,
-      });
+      createContainer({'app_theme_mode': 'dark', 'app_font_scale': 12});
       await pumpInit();
 
       final state = readState();
@@ -90,7 +85,10 @@ void main() {
       await pumpInit();
       await readNotifier().setThemeMode(ThemeMode.light);
       expect(readState().themeMode, ThemeMode.light);
-      expect(await SettingsService().getThemeMode(), ThemeMode.light);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+        'light',
+      );
     });
 
     test('setThemeMode 触发状态变更通知', () async {
@@ -116,7 +114,10 @@ void main() {
       await pumpInit();
       await readNotifier().toggleDayNight(isNight: false);
       expect(readState().themeMode, ThemeMode.dark);
-      expect(await SettingsService().getThemeMode(), ThemeMode.dark);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+        'dark',
+      );
     });
 
     test('toggleDayNight 从夜间切回日间并持久化', () async {
@@ -124,17 +125,24 @@ void main() {
       await pumpInit();
       await readNotifier().toggleDayNight(isNight: true);
       expect(readState().themeMode, ThemeMode.light);
-      expect(await SettingsService().getThemeMode(), ThemeMode.light);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_theme_mode'),
+        'light',
+      );
     });
   });
 
-  group('ThemeNotifier 字体缩放', () {    test('setFontScale 更新状态并持久化', () async {
+  group('ThemeNotifier 字体缩放', () {
+    test('setFontScale 更新状态并持久化', () async {
       createContainer();
       await pumpInit();
       await readNotifier().setFontScale(14);
       expect(readState().fontScaleRaw, equals(14));
       expect(readState().fontScale, equals(1.4));
-      expect(await SettingsService().getFontScale(), equals(14));
+      expect(
+        (await SharedPreferences.getInstance()).getInt('app_font_scale'),
+        equals(14),
+      );
     });
 
     test('setFontScale 触发状态变更通知', () async {
@@ -203,7 +211,10 @@ void main() {
       await pumpInit();
       await readNotifier().setPaletteId('sora');
       expect(readState().paletteId, equals('sora'));
-      expect(await SettingsService().getPaletteId(), equals('sora'));
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_palette_id'),
+        equals('sora'),
+      );
     });
 
     test('setPaletteId 相同值不触发通知', () async {

@@ -1,18 +1,27 @@
+import '../app/routing/app_navigation.dart';
+import '../app/routing/route_arguments.dart';
+
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
+
+import '../platform/webview_page_bridge.dart';
+import '../platform/webview_url_matcher.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../routes.dart';
+import '../app/routing/route_names.dart';
 import '../utils/legado_deep_link.dart';
 import '../utils/video_play_utils.dart';
 import 'deep_link_service.dart';
 import 'platform_channel.dart';
+import '../platform/webview_execution_scope.dart';
 import 'video_float_window.dart';
 
 /// webView 类载荷执行结果：结果串 + WebView 侧域 cookie 回流（项 B/B1）
@@ -21,7 +30,14 @@ import 'video_float_window.dart';
 /// cookie 串；空串表示无回流（Rust 侧按旧 `submitWebviewResult`
 /// 语义唤醒等待方，不做 cookie 持久化）。
 class WebViewEvalOutcome {
-  const WebViewEvalOutcome(this.result, this.cookiesJson);
+  const WebViewEvalOutcome(
+    this.result,
+    this.cookiesJson, {
+    this.finalUrl = '',
+    this.error,
+  });
+  final String finalUrl;
+  final String? error;
 
   /// 真实执行结果串（或 `[ERROR] ...` / 空串）
   final String result;
@@ -96,7 +112,9 @@ class PlatformBridgeService {
   };
 
   /// 中途 UI 刷新总线：详情/目录/正文页订阅后重载
-  static final ValueNotifier<String?> refreshSignal = ValueNotifier<String?>(null);
+  static final ValueNotifier<String?> refreshSignal = ValueNotifier<String?>(
+    null,
+  );
 
   /// 页面加载 / 嗅探总超时（对齐 Kotlin BackstageWebView withTimeout 60s）
   static const Duration _webViewTimeout = Duration(seconds: 60);
@@ -150,16 +168,24 @@ class PlatformBridgeService {
 
   /// FFI 结果管线拦截点：载荷则执行并回传真实结果，否则原样返回
   ///
-  /// 供 [RustApi] 解析类方法包装返回值使用；内部异常全捕获，
+  /// 供 Rust 数据适配器解析类方法包装返回值使用；内部异常全捕获，
   /// 任何失败均不抛出、退化为返回原文（保证既有链路不因桥接中断）。
   Future<String> interceptResult(String raw) async {
     final payload = parsePayload(raw);
     if (payload == null) return raw;
+    return interceptPayload(payload, fallback: raw);
+  }
+
+  /// 类型化桥接直接分发动作；异常保留既有载荷回退语义。— Codex + Bridge
+  Future<String> interceptPayload(
+    Map<String, dynamic> payload, {
+    String? fallback,
+  }) async {
     try {
       return await dispatchPayload(payload);
     } catch (e, stack) {
       debugPrint('[PlatformBridge] 执行载荷失败：$e\n$stack');
-      return raw;
+      return fallback ?? jsonEncode(payload);
     }
   }
 
@@ -225,7 +251,7 @@ class PlatformBridgeService {
         }
         return '';
       case 'clearTtsCache':
-        // TTS 缓存目录由 RustApi 初始化；此处仅提示（对齐 toast 成功）
+        // TTS 缓存目录由 RustBootstrap 初始化；此处仅提示（对齐 toast 成功）
         _showSnackBar('已清除朗读缓存');
         return '';
       case 'toast':
@@ -283,8 +309,7 @@ class PlatformBridgeService {
   Future<String> _runWebViewAction(
     String action,
     Map<String, dynamic> payload,
-  ) async =>
-      (await _runWebViewOutcome(action, payload)).result;
+  ) async => (await _runWebViewOutcome(action, payload)).result;
 
   /// 执行 webView 类 action，返回结果串 + WebView 侧域 cookie 回流（项 B/B1）
   ///
@@ -293,7 +318,155 @@ class PlatformBridgeService {
   /// - Flutter 回退路径：`document.cookie` 尽力读取（非 HttpOnly 子集），
   ///   仅 webView 主路径回传，嗅探类 action 回传空串（B1 偏差，Android
   ///   真机走原生路径为主）。
+  final _webViewScopes = <String, WebViewExecutionScope>{};
+  final _pageRequests = <String, (WebViewExecutionScope, WebViewPageBridge)>{};
+  final _cookieRequests =
+      <String, (WebViewExecutionScope, WebViewCookieBridge)>{};
+  static final _cookieZone = Object();
+  static final _pageZone = Object();
+  bool _pageChannelInstalled = false;
+  String? get _pageToken => Zone.current[_pageZone] as String?;
+
+  Future<dynamic> _onPageCall(MethodCall call) async {
+    final args = call.arguments;
+    if (call.method == 'syncCookies') {
+      if (args is! Map || args['key'] is! String) {
+        throw const FormatException('Cookie同步缺少请求key');
+      }
+      final owner = _cookieRequests[args['key']];
+      if (owner == null || owner.$1.isCancelled) {
+        throw StateError('WebView请求已结束或取消');
+      }
+      await owner.$1.wait(owner.$2.sync(args['cookies']));
+      return true;
+    }
+    if (call.method != 'pageCall') throw MissingPluginException();
+    if (args is! Map || args['key'] is! String || args['payload'] is! String) {
+      return jsonEncode({'error': '页内调用信封不正确'});
+    }
+    final owner = _pageRequests[args['key']];
+    if (owner == null || owner.$1.isCancelled) {
+      return jsonEncode({'error': 'WebView请求已结束或取消'});
+    }
+    try {
+      return await owner.$1.wait(owner.$2.invoke(args['payload'] as String));
+    } catch (error) {
+      return jsonEncode({'error': error.toString()});
+    }
+  }
+
+  Future<void> _preparePage(WebViewController controller) async {
+    final cookies = Zone.current[_cookieZone] as WebViewCookieBridge?;
+    if (cookies != null) {
+      final url = _normalizeJsResult(
+        await _evalWebView(controller, 'document.URL'),
+      );
+      final snapshot = <String, String>{};
+      if (Uri.tryParse(url)?.hasAuthority == true) {
+        snapshot[url] = _normalizeJsResult(
+          await _evalWebView(controller, 'document.cookie'),
+        );
+      }
+      await _waitWebView(cookies.sync(snapshot));
+    }
+    final token = _pageToken;
+    if (token != null) {
+      await _scriptWebView(controller, webViewPageScript(token));
+    }
+  }
+
+  static final _scopeZone = Object();
+  static final _headersZone = Object();
+  int _localWebViewKey = 0;
+  WebViewExecutionScope? get _webViewScope =>
+      Zone.current[_scopeZone] as WebViewExecutionScope?;
+  void _checkWebView() => _webViewScope?.check();
+  Future<T> _waitWebView<T>(Future<T> future) =>
+      _webViewScope?.wait(future) ?? future;
+  Future<void> _webViewDelay(Duration duration) {
+    _checkWebView();
+    return _waitWebView(Future<void>.delayed(duration));
+  }
+
+  Future<Object> _evalWebView(WebViewController controller, String script) {
+    _checkWebView();
+    return _waitWebView(controller.runJavaScriptReturningResult(script));
+  }
+
+  Future<void> _scriptWebView(WebViewController controller, String script) {
+    _checkWebView();
+    return _waitWebView(controller.runJavaScript(script));
+  }
+
+  Future<void> cancelWebView(String key) async {
+    await _webViewScopes[key]?.close();
+  }
+
   Future<WebViewEvalOutcome> _runWebViewOutcome(
+    String action,
+    Map<String, dynamic> payload,
+  ) async {
+    final key = (payload['key'] as String?) ?? 'local-${_localWebViewKey++}';
+    final scope = WebViewExecutionScope();
+    final cookieCandidate = payload['cookieBridge'];
+    final cookieBridge = cookieCandidate is WebViewCookieBridge
+        ? cookieCandidate
+        : null;
+    final candidate = payload['pageBridge'];
+    final bridge =
+        candidate is WebViewPageBridge &&
+            (payload['html'] ?? '').toString().isNotEmpty &&
+            (payload['isRule'] == true ||
+                (payload['sourceKey'] ?? '').toString().isNotEmpty)
+        ? candidate
+        : null;
+    final pageToken = bridge == null
+        ? null
+        : 'legado-page-${Random.secure().nextInt(1 << 32)}-${_localWebViewKey++}';
+    if (_webViewScopes.containsKey(key)) throw StateError('重复WebView请求');
+    _webViewScopes[key] = scope;
+    if (bridge != null) _pageRequests[key] = (scope, bridge);
+    if (cookieBridge != null) _cookieRequests[key] = (scope, cookieBridge);
+    if (Platform.isAndroid && !_pageChannelInstalled) {
+      PlatformChannel.webview.setMethodCallHandler(_onPageCall);
+      _pageChannelInstalled = true;
+    }
+    if (Platform.isAndroid) {
+      scope.onClose(() async {
+        await PlatformChannel.webview.invokeMethod<void>('cancelBackstage', {
+          'key': key,
+        });
+      });
+    }
+    try {
+      return await runZoned(
+        () => scope.wait(
+          _performWebViewOutcome(action, {
+            ...payload,
+            'key': key,
+            'syncCookiesEnabled': cookieBridge != null,
+            'pageToken': pageToken,
+            'pageScript': pageToken == null ? '' : webViewPageScript(pageToken),
+          }),
+        ),
+        zoneValues: {
+          _scopeZone: scope,
+          _pageZone: pageToken,
+          _cookieZone: cookieBridge,
+          _headersZone: Map<String, String>.from(
+            payload['headers'] as Map? ?? {},
+          ),
+        },
+      );
+    } finally {
+      _webViewScopes.remove(key);
+      _pageRequests.remove(key);
+      _cookieRequests.remove(key);
+      await scope.close();
+    }
+  }
+
+  Future<WebViewEvalOutcome> _performWebViewOutcome(
     String action,
     Map<String, dynamic> payload,
   ) async {
@@ -315,8 +488,8 @@ class PlatformBridgeService {
     if (Platform.isAndroid) {
       try {
         return await _nativeBackstageEval(action, payload);
-      } catch (e) {
-        debugPrint('[PlatformBridge] 原生 backstageEval 失败，回退 Flutter WebView：$e');
+      } on MissingPluginException {
+        _checkWebView();
       }
     }
 
@@ -335,33 +508,24 @@ class PlatformBridgeService {
             cookie: (payload['cookie'] ?? '').toString(),
           );
         case 'webViewGetSource':
-          return WebViewEvalOutcome(
-            await _webViewSniffSource(
-              url: url,
-              html: html,
-              js: js,
-              sourceRegex: (payload['sourceRegex'] ?? '').toString(),
-              delayMs: _delayOf(payload),
-              cacheFirst: payload['cacheFirst'] == true,
-              // B4：嗅探首请求同样携带 Rust 预取的属域 cookie（对齐
-              // Kotlin 原生路径 load 前逐对预写，动作无关）
-              cookie: (payload['cookie'] ?? '').toString(),
-            ),
-            '',
+          return await _webViewSniffSource(
+            url: url,
+            html: html,
+            js: js,
+            sourceRegex: (payload['sourceRegex'] ?? '').toString(),
+            delayMs: _delayOf(payload),
+            cacheFirst: payload['cacheFirst'] == true,
+            cookie: (payload['cookie'] ?? '').toString(),
           );
         case 'webViewGetOverrideUrl':
-          return WebViewEvalOutcome(
-            await _webViewSniffOverrideUrl(
-              url: url,
-              html: html,
-              js: js,
-              overrideUrlRegex: (payload['overrideUrlRegex'] ?? '').toString(),
-              delayMs: _delayOf(payload),
-              cacheFirst: payload['cacheFirst'] == true,
-              // B4：同 webViewGetSource——加载前预写属域 cookie
-              cookie: (payload['cookie'] ?? '').toString(),
-            ),
-            '',
+          return await _webViewSniffOverrideUrl(
+            url: url,
+            html: html,
+            js: js,
+            overrideUrlRegex: (payload['overrideUrlRegex'] ?? '').toString(),
+            delayMs: _delayOf(payload),
+            cacheFirst: payload['cacheFirst'] == true,
+            cookie: (payload['cookie'] ?? '').toString(),
           );
       }
     } catch (e) {
@@ -379,9 +543,16 @@ class PlatformBridgeService {
     String action,
     Map<String, dynamic> payload,
   ) async {
-    final raw = await PlatformChannel.webview.invokeMethod<dynamic>(
-      'backstageEval',
-      <String, dynamic>{
+    final raw = await _waitWebView(
+      PlatformChannel.webview.invokeMethod<dynamic>('backstageEval', <
+        String,
+        dynamic
+      >{
+        'key': payload['key'],
+        'syncCookiesEnabled': payload['syncCookiesEnabled'] == true,
+        'pageToken': payload['pageToken'] ?? '',
+        'pageScript': payload['pageScript'] ?? '',
+        'headers': payload['headers'] ?? <String, String>{},
         'action': action,
         'url': (payload['url'] ?? '').toString(),
         'html': (payload['html'] ?? '').toString(),
@@ -396,10 +567,19 @@ class PlatformBridgeService {
         // B4（设计文档 §3 项 B）：Rust 按请求 URL 域预取的属域 cookie
         // 透传 Kotlin，load 前 CookieManager.setCookie 逐对预写
         'cookie': (payload['cookie'] ?? '').toString(),
-      },
+      }),
     );
     final (result, cookiesJson) = _parseBackstageEnvelope(raw);
-    return WebViewEvalOutcome(result, cookiesJson);
+    String finalUrl = (payload['url'] ?? '').toString();
+    if (raw is String) {
+      try {
+        final value = jsonDecode(raw);
+        if (value is Map && value['finalUrl'] is String) {
+          finalUrl = value['finalUrl'] as String;
+        }
+      } catch (_) {}
+    }
+    return WebViewEvalOutcome(result, cookiesJson, finalUrl: finalUrl);
   }
 
   /// 解析 backstageEval 通道返回值（项 B/B1 加法式信封）
@@ -419,8 +599,9 @@ class PlatformBridgeService {
       final decoded = jsonDecode(trimmed);
       if (decoded is Map<String, dynamic> && decoded['result'] is String) {
         final cookies = decoded['cookies'];
-        final cookiesJson =
-            cookies is Map && cookies.isNotEmpty ? jsonEncode(cookies) : '';
+        final cookiesJson = cookies is Map && cookies.isNotEmpty
+            ? jsonEncode(cookies)
+            : '';
         return (decoded['result'] as String, cookiesJson);
       }
     } catch (_) {
@@ -437,14 +618,57 @@ class PlatformBridgeService {
   }
 
   /// 构建基础控制器（启用 JS，对齐 Kotlin javaScriptEnabled = true）
-  WebViewController _newController() => WebViewController()
-    ..setJavaScriptMode(JavaScriptMode.unrestricted);
+  Future<WebViewController> _newController() async {
+    _checkWebView();
+    final controller = WebViewController();
+    // 清理按逆序执行，各步骤独立，避免一个平台错误跳过后续清理。
+    _webViewScope?.onClose(
+      () => controller.loadHtmlString('<html></html>', baseUrl: 'about:blank'),
+    );
+    _webViewScope?.onClose(() => controller.runJavaScript('window.stop();'));
+    _webViewScope?.onClose(
+      () => controller.setNavigationDelegate(NavigationDelegate()),
+    );
+    await _waitWebView(
+      controller.setJavaScriptMode(JavaScriptMode.unrestricted),
+    );
+    _checkWebView();
+    final token = _pageToken;
+    final scope = _webViewScope;
+    if (token != null && scope != null) {
+      final owner = _pageRequests.values.firstWhere(
+        (owner) => identical(owner.$1, scope),
+      );
+      // 先登记解绑，避免安装回调期间取消后遗留对请求的引用。
+      scope.onClose(
+        () => controller.setOnJavaScriptTextInputDialog(
+          (_) async => jsonEncode({'error': '页内宿主已释放'}),
+        ),
+      );
+      await scope.wait(
+        controller.setOnJavaScriptTextInputDialog((request) async {
+          if (request.message != token || scope.isCancelled) {
+            return jsonEncode({'error': '页内调用已取消或标识无效'});
+          }
+          try {
+            return await scope.wait(owner.$2.invoke(request.defaultText ?? ''));
+          } catch (error) {
+            return jsonEncode({'error': error.toString()});
+          }
+        }),
+      );
+    }
+    _checkWebView();
+    return controller;
+  }
 
   /// 加载 html（优先）或 url；两者语义对齐 Kotlin loadDataWithBaseURL / loadUrl
-  void _load(WebViewController controller, {
+  void _load(
+    WebViewController controller, {
     required String url,
     required String html,
   }) {
+    _checkWebView();
     if (html.isNotEmpty) {
       final base = Uri.tryParse(url);
       controller.loadHtmlString(
@@ -453,7 +677,13 @@ class PlatformBridgeService {
       );
     } else {
       final uri = Uri.tryParse(url);
-      if (uri != null) controller.loadRequest(uri);
+      if (uri != null) {
+        controller.loadRequest(
+          uri,
+          headers:
+              Zone.current[_headersZone] as Map<String, String>? ?? const {},
+        );
+      }
     }
   }
 
@@ -479,11 +709,9 @@ class PlatformBridgeService {
     String cookie = '',
   }) async {
     if (cacheFirst) {
-      debugPrint(
-        '[PlatformBridge] cacheFirst=true（非 Android 回退路径无 cacheMode）',
-      );
+      debugPrint('[PlatformBridge] cacheFirst=true（非 Android 回退路径无 cacheMode）');
     }
-    final controller = _newController();
+    final controller = await _newController();
     // B4：load 前预写属域 cookie（同 _webViewSniffSource /
     // _webViewSniffOverrideUrl；cookie 与 url 同生同灭，html-only 无
     // url 时 Rust 侧恒空，天然跳过）
@@ -491,17 +719,23 @@ class PlatformBridgeService {
     // [iOS 视角F A1] 主框架加载失败（ATS 拦截/DNS/连接/主文档 4xx-5xx）：
     // 上屏提示 + 返回显式 [ERROR]，不再在坏页面上跑 JS 把空/错误页当成功结果
     // 静默回传（用户此前只看到「正文空」）。
-    final loadFailure =
-        await _loadAndWaitFinished(controller, url: url, html: html);
+    final loadFailure = await _loadAndWaitFinished(
+      controller,
+      url: url,
+      html: html,
+    );
     if (loadFailure != null) {
-      debugPrint('[PlatformBridge] webView 加载失败：$loadFailure'
-          '（url=$url html=${html.isNotEmpty ? '<html>' : '<空>'}）');
+      debugPrint(
+        '[PlatformBridge] webView 加载失败：$loadFailure'
+        '（url=$url html=${html.isNotEmpty ? '<html>' : '<空>'}）',
+      );
       _showSnackBar('页面加载失败：$loadFailure');
       return WebViewEvalOutcome('[ERROR] WebView 加载失败：$loadFailure', '');
     }
+    await _preparePage(controller);
     if (isRule && resultJson.isNotEmpty) {
       // resultJson 已是 Rust serde_json 字面量（对齐 GSON.toJson → window.result）
-      await controller.runJavaScript('window.result = $resultJson;');
+      await _scriptWebView(controller, 'window.result = $resultJson;');
     }
     // B2：eval 重试总预算锚点（对齐 Kotlin opStartMs 的「操作开始」
     // 口径：加载 + 等待 + 重试总耗时 ≤ _webViewTimeout=60s，加载阶段
@@ -509,9 +743,8 @@ class PlatformBridgeService {
     final opStartMs = DateTime.now().millisecondsSinceEpoch;
     // 对齐 Kotlin：无 js 时默认等待 900ms 渲染；有 js 时等待 100ms + delayTime
     final waitMs = js.isEmpty ? (delayMs > 0 ? delayMs : 900) : 100 + delayMs;
-    await Future<void>.delayed(Duration(milliseconds: waitMs));
-    final script =
-        js.isNotEmpty ? js : 'document.documentElement.outerHTML';
+    await _webViewDelay(Duration(milliseconds: waitMs));
+    final script = js.isNotEmpty ? js : 'document.documentElement.outerHTML';
     // B2：重试阶梯（对齐 Kotlin RETRY_LADDER_MS / MAX_EVAL_RETRIES /
     // CHALLENGE_SIGNATURES）：结果空（页面未就绪）或命中挑战签名
     // （WAF 挑战页标志）时按阶梯延时重试，至多 _webViewMaxEvalRetries
@@ -519,9 +752,7 @@ class PlatformBridgeService {
     // cookie，时点与 Kotlin buildEnvelope 一致且严格更新
     String result;
     for (var attempt = 0; ; attempt++) {
-      result = _normalizeJsResult(
-        await controller.runJavaScriptReturningResult(script),
-      );
+      result = _normalizeJsResult(await _evalWebView(controller, script));
       if (!_needsWebViewRetry(result) || attempt >= _webViewMaxEvalRetries) {
         break;
       }
@@ -529,19 +760,21 @@ class PlatformBridgeService {
           _webViewTimeout.inMilliseconds -
           (DateTime.now().millisecondsSinceEpoch - opStartMs);
       if (remainingMs <= 0) break;
-      final nextDelayMs = _webViewRetryLadderMs[
-              attempt % _webViewRetryLadderMs.length]
-          .clamp(0, remainingMs);
-      await Future<void>.delayed(Duration(milliseconds: nextDelayMs));
+      final nextDelayMs =
+          _webViewRetryLadderMs[attempt % _webViewRetryLadderMs.length].clamp(
+            0,
+            remainingMs,
+          );
+      await _webViewDelay(Duration(milliseconds: nextDelayMs));
     }
     // B1：回退路径 cookie 尽力读取（无原生 CookieManager；document.cookie
     // 不含 HttpOnly，以当前页 URL 为键，Rust 侧归一域键后落库）
     String cookiesJson = '';
-    final pageUrl = await controller.currentUrl();
+    final pageUrl = await _waitWebView(controller.currentUrl());
     if (pageUrl != null && pageUrl.isNotEmpty) {
       try {
         final cookieStr = _normalizeJsResult(
-          await controller.runJavaScriptReturningResult('document.cookie'),
+          await _evalWebView(controller, 'document.cookie'),
         );
         if (cookieStr.isNotEmpty) {
           cookiesJson = jsonEncode(<String, String>{pageUrl: cookieStr});
@@ -550,7 +783,7 @@ class PlatformBridgeService {
         debugPrint('[PlatformBridge] document.cookie 读取失败（不影响结果）：$e');
       }
     }
-    return WebViewEvalOutcome(result, cookiesJson);
+    return WebViewEvalOutcome(result, cookiesJson, finalUrl: pageUrl ?? url);
   }
 
   /// B2 重试判定（对齐 Kotlin needsRetryResult）：结果空（页面未就绪/
@@ -591,17 +824,16 @@ class PlatformBridgeService {
       final name = pair.substring(0, eq).trim();
       final value = pair.substring(eq + 1);
       if (name.isEmpty) continue;
+      _checkWebView();
       await manager.setCookie(
         WebViewCookie(name: name, value: value, domain: domain),
       );
     }
   }
 
-  /// webViewGetSource：嗅探匹配 sourceRegex 的资源 URL（尽力对齐 Kotlin
-  /// SnifferWebClient.onLoadResource：Flutter 无资源加载回调，改为页面
-  /// 完成后经 JS 收集 performance 资源条目与 DOM 引用 URL 后按正则匹配；
-  /// 若提供 js 先执行以触发动态资源加载）
-  Future<String> _webViewSniffSource({
+  /// 公开Flutter入口没有onLoadResource；只观察performance已记录的资源，
+  /// 不把未加载的DOM链接当结果，也不宣称与原生事件等价。— Codex + Bridge
+  Future<WebViewEvalOutcome> _webViewSniffSource({
     required String url,
     required String html,
     required String js,
@@ -610,57 +842,73 @@ class PlatformBridgeService {
     bool cacheFirst = false,
     String cookie = '',
   }) async {
-    if (sourceRegex.isEmpty) return '';
+    if (sourceRegex.isEmpty) return const WebViewEvalOutcome('', '');
+    final deadline = DateTime.now().add(_webViewTimeout);
+    final matcher = WebViewUrlMatcher(sourceRegex);
     if (cacheFirst) {
-      debugPrint('[PlatformBridge] webViewGetSource cacheFirst（非 Android 回退）');
+      debugPrint(
+        '[PlatformBridge] webViewGetSource cacheFirst（非Android回退未配置原生缓存策略）',
+      );
     }
-    final regex = RegExp(sourceRegex);
-    final controller = _newController();
-    // B4：load 前预写属域 cookie（对齐 Kotlin 原生路径，动作无关）
+    final controller = await _newController();
     await _injectDomainCookies(url: url, cookie: cookie);
-    final loadFailure =
-        await _loadAndWaitFinished(controller, url: url, html: html);
+    final loadFailure = await _loadAndWaitFinished(
+      controller,
+      url: url,
+      html: html,
+    );
     if (loadFailure != null) {
-      // [iOS 视角F A1] 嗅探是尽力而为语义（保留返回 ''=未找到），但主框架
-      // 没加载起来时直接短路并留可诊断日志，避免静默「正文空且查无原因」。
-      debugPrint('[PlatformBridge] webViewGetSource 加载失败，嗅探短路：'
-          '$loadFailure（url=$url）');
-      return '';
+      return WebViewEvalOutcome(
+        '[ERROR] webViewGetSource加载失败：$loadFailure',
+        '',
+        finalUrl: url,
+      );
     }
+    await _preparePage(controller);
     if (js.isNotEmpty) {
-      // 触发型 JS（如点击播放按钮），fire-and-forget 后等待资源出现
-      await controller.runJavaScript(js);
+      await _webViewDelay(Duration(milliseconds: 1000 + delayMs));
+      await _scriptWebView(controller, js);
     }
-    await Future<void>.delayed(
-      Duration(milliseconds: delayMs > 0 ? delayMs : 900),
-    );
-    // 页面 URL 本身命中优先返回
-    final currentUrl = await controller.currentUrl();
-    if (currentUrl != null && regex.hasMatch(currentUrl)) return currentUrl;
-    final collected = await controller.runJavaScriptReturningResult('''
-(function(){
-  var urls = [];
-  try {
-    performance.getEntriesByType('resource').forEach(function(r){ urls.push(r.name); });
-  } catch (e) {}
-  try {
-    document.querySelectorAll('a[href],link[href],img[src],script[src],source[src],iframe[src],video[src],audio[src],embed[src],object[data]')
-      .forEach(function(el){
-        var u = el.src || el.href || el.data;
-        if (u) urls.push(u);
-      });
-  } catch (e) {}
-  return JSON.stringify(urls);
-})()
-''');
-    final urls = _decodeUrlList(collected);
-    for (final candidate in urls) {
-      if (regex.hasMatch(candidate)) return candidate;
+    while (DateTime.now().isBefore(deadline)) {
+      _checkWebView();
+      final collected = await _evalWebView(
+        controller,
+        "JSON.stringify(performance.getEntriesByType('resource').map(function(r){return r.name;}))",
+      );
+      for (final candidate in _decodeUrlList(collected)) {
+        if (matcher.matches(candidate)) {
+          return _sniffOutcome(controller, candidate, url);
+        }
+      }
+      await _webViewDelay(const Duration(milliseconds: 100));
     }
-    debugPrint(
-      '[PlatformBridge] webViewGetSource：sourceRegex($sourceRegex) 未匹配到资源',
+    return WebViewEvalOutcome(
+      '[ERROR] webViewGetSource等待资源超时',
+      '',
+      finalUrl: url,
     );
-    return '';
+  }
+
+  /// 捕获的资源/导航URL是结果，页面地址与可见Cookie单独返回。
+  Future<WebViewEvalOutcome> _sniffOutcome(
+    WebViewController controller,
+    String result,
+    String fallbackUrl,
+  ) async {
+    // HTML载入时Android公开插件没有historyUrl，getUrl可能是about:blank；
+    // document.URL才是实际文档地址，不能据历史条目丢掉页面归属。
+    final documentUrl = _normalizeJsResult(
+      await _evalWebView(controller, 'document.URL'),
+    );
+    final pageUrl = documentUrl.isEmpty ? fallbackUrl : documentUrl;
+    final cookie = _normalizeJsResult(
+      await _evalWebView(controller, 'document.cookie'),
+    );
+    return WebViewEvalOutcome(
+      result,
+      jsonEncode({pageUrl: cookie}),
+      finalUrl: pageUrl,
+    );
   }
 
   /// webViewGetOverrideUrl：拦截匹配 overrideUrlRegex 的跳转 URL
@@ -671,7 +919,7 @@ class PlatformBridgeService {
   /// 覆盖了 onNavigationRequest 捕获委托并二次加载，导致 JS 分支
   /// 嗅探必超时；现拦截捕获与加载完成等待共用同一委托，
   /// 不重设、不二次 _load。 — QoderCN
-  Future<String> _webViewSniffOverrideUrl({
+  Future<WebViewEvalOutcome> _webViewSniffOverrideUrl({
     required String url,
     required String html,
     required String js,
@@ -680,78 +928,92 @@ class PlatformBridgeService {
     bool cacheFirst = false,
     String cookie = '',
   }) async {
-    if (overrideUrlRegex.isEmpty) return '';
+    if (overrideUrlRegex.isEmpty) return const WebViewEvalOutcome('', '');
     if (cacheFirst) {
       debugPrint(
         '[PlatformBridge] webViewGetOverrideUrl cacheFirst（非 Android 回退）',
       );
     }
-    final regex = RegExp(overrideUrlRegex);
+    final matcher = WebViewUrlMatcher(overrideUrlRegex);
     final capture = Completer<String>();
 
-    // 初始 URL 即命中：直接返回（对齐 Kotlin loadUrl 前的嗅探路径）
-    if (url.isNotEmpty && regex.hasMatch(url)) return url;
-
-    final controller = _newController();
+    final controller = await _newController();
     final finished = Completer<void>();
     // [iOS 视角F A1] 记录主框架加载失败原因（ATS 拦截/DNS/连接等），
     // 超时时并入错误串，让「等待跳转超时」可归因而非静默。
     String? loadFailure;
     String? startedUrl;
+    var initialNavigation = true;
     void completeFinished() {
       if (!finished.isCompleted) finished.complete();
     }
 
     // 单一委托：跳转拦截（capture）与加载终态等待共用，避免相互覆盖
-    controller.setNavigationDelegate(NavigationDelegate(
-      onNavigationRequest: (request) {
-        if (!capture.isCompleted && regex.hasMatch(request.url)) {
-          capture.complete(request.url);
-          return NavigationDecision.prevent;
-        }
-        return NavigationDecision.navigate;
-      },
-      onPageStarted: (u) => startedUrl = u,
-      onPageFinished: (_) => completeFinished(),
-      onWebResourceError: (e) {
-        if (e.isForMainFrame ?? false) {
-          loadFailure =
-              '资源错误：${e.description}${e.url != null ? '（${e.url}）' : ''}';
-        }
-        completeFinished();
-      },
-      onHttpError: (e) {
-        final status = e.response?.statusCode;
-        if (status != null && status >= 400 && loadFailure == null) {
-          // 主框架判定同 [_loadAndWaitFinished]：iOS request 为 null
-          //（主框架专属流）直接计；Android 对子资源也触发，按当前页面
-          // URL 匹配，避免图片 404 等误记为加载失败。
-          final requestUri = e.request?.uri;
-          if (requestUri == null ||
-              (startedUrl != null && requestUri.toString() == startedUrl)) {
-            final target = e.response?.uri ?? requestUri;
-            loadFailure =
-                'HTTP $status${target != null ? '（$target）' : ''}';
+    controller.setNavigationDelegate(
+      NavigationDelegate(
+        onNavigationRequest: (request) {
+          // WKWebView也报告宿主主动loadRequest；它不是待捕获的后续跳转。
+          if (initialNavigation && request.url == url) {
+            initialNavigation = false;
+            return NavigationDecision.navigate;
           }
-        }
-        completeFinished();
-      },
-    ));
-    // B4：load 前预写属域 cookie（初始 URL 即命中的早退路径无 WebView，
-    // 无需预写；此处为实际加载路径）
+          initialNavigation = false;
+          if (!capture.isCompleted && matcher.matches(request.url)) {
+            capture.complete(request.url);
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+        onPageStarted: (u) {
+          initialNavigation = false;
+          startedUrl = u;
+        },
+        onPageFinished: (_) => completeFinished(),
+        onWebResourceError: (e) {
+          if (e.isForMainFrame ?? false) {
+            loadFailure =
+                '资源错误：${e.description}${e.url != null ? '（${e.url}）' : ''}';
+          }
+          completeFinished();
+        },
+        onHttpError: (e) {
+          final status = e.response?.statusCode;
+          if (status != null && status >= 400 && loadFailure == null) {
+            // 主框架判定同 [_loadAndWaitFinished]：iOS request 为 null
+            //（主框架专属流）直接计；Android 对子资源也触发，按当前页面
+            // URL 匹配，避免图片 404 等误记为加载失败。
+            final requestUri = e.request?.uri;
+            if (requestUri == null ||
+                (startedUrl != null && requestUri.toString() == startedUrl)) {
+              final target = e.response?.uri ?? requestUri;
+              loadFailure = 'HTTP $status${target != null ? '（$target）' : ''}';
+            }
+          }
+          completeFinished();
+        },
+      ),
+    );
+    // 初始URL也必须实际加载；只在导航回调里捕获后续命中。
     await _injectDomainCookies(url: url, cookie: cookie);
     _load(controller, url: url, html: html);
     if (js.isNotEmpty) {
       // 触发型 JS：首次加载到达终态后执行以诱发目标跳转（无二次加载）
-      unawaited(finished.future
-          .timeout(_webViewTimeout, onTimeout: () {})
-          .then((_) =>
-              Future<void>.delayed(Duration(milliseconds: 100 + delayMs)))
-          .then((_) => controller.runJavaScript(js))
-          .catchError((Object _) {}));
+      unawaited(
+        finished.future
+            .timeout(_webViewTimeout, onTimeout: () {})
+            .then((_) => _preparePage(controller))
+            .then((_) => _webViewDelay(Duration(milliseconds: 1000 + delayMs)))
+            .then((_) => _scriptWebView(controller, js))
+            .catchError((Object error, StackTrace stack) {
+              if (!capture.isCompleted) capture.completeError(error, stack);
+            }),
+      );
     }
     try {
-      return await capture.future.timeout(_webViewTimeout);
+      final result = await _waitWebView(
+        capture.future.timeout(_webViewTimeout),
+      );
+      return await _sniffOutcome(controller, result, url);
     } on TimeoutException {
       final reason = loadFailure;
       debugPrint(
@@ -759,8 +1021,11 @@ class PlatformBridgeService {
         '（overrideUrlRegex=$overrideUrlRegex'
         '${reason != null ? '；加载失败：$reason' : ''}）',
       );
-      return '[ERROR] webViewGetOverrideUrl 等待跳转超时'
-          '${reason != null ? '（加载失败：$reason）' : ''}';
+      return WebViewEvalOutcome(
+        '[ERROR] webViewGetOverrideUrl 等待跳转超时${reason != null ? '（加载失败：$reason）' : ''}',
+        '',
+        finalUrl: url,
+      );
     }
   }
 
@@ -778,6 +1043,7 @@ class PlatformBridgeService {
     required String url,
     required String html,
   }) {
+    _checkWebView();
     final finished = Completer<String?>();
     String? failure;
     String? startedUrl;
@@ -787,43 +1053,51 @@ class PlatformBridgeService {
       if (!finished.isCompleted) finished.complete(failure);
     }
 
-    controller.setNavigationDelegate(NavigationDelegate(
-      onPageStarted: (u) => startedUrl = u,
-      onPageFinished: (_) => completeOnce(null),
-      onWebResourceError: (e) {
-        // 仅主框架失败才记为「页面没加载起来」；子资源错误不阻断。
-        if (e.isForMainFrame ?? false) {
-          completeOnce('资源错误：${e.description}'
-              '${e.url != null ? '（${e.url}）' : ''}');
-        } else {
-          completeOnce(null);
-        }
-      },
-      onHttpError: (e) {
-        final status = e.response?.statusCode;
-        if (status == null || status < 400) {
-          // 2xx 子资源或无状态码：不视为主框架失败
-          return;
-        }
-        // [iOS 视角F A1] 主框架判定：公开类型 WebResourceRequest 只有
-        // uri（无 isForMainFrame）。iOS WKWebView 的 onHttpError 源自主框架
-        // 导航回调（decidePolicyForNavigationResponse，request 为 null，
-        // 子资源不触发）→ 直接计为主框架失败；Android onReceivedHttpError
-        // 对子资源（图片 404 等）也会触发 → 按当前加载页面 URL
-        //（onPageStarted，含跳转后）匹配，避免子资源 4xx 误判为页面失败。
-        final requestUri = e.request?.uri;
-        if (requestUri == null ||
-            (startedUrl != null && requestUri.toString() == startedUrl)) {
-          final target = e.response?.uri ?? requestUri;
-          completeOnce('HTTP $status'
-              '${target != null ? '（$target）' : ''}');
-        }
-      },
-    ));
+    controller.setNavigationDelegate(
+      NavigationDelegate(
+        onPageStarted: (u) => startedUrl = u,
+        onPageFinished: (_) => completeOnce(null),
+        onWebResourceError: (e) {
+          // 仅主框架失败才记为「页面没加载起来」；子资源错误不阻断。
+          if (e.isForMainFrame ?? false) {
+            completeOnce(
+              '资源错误：${e.description}'
+              '${e.url != null ? '（${e.url}）' : ''}',
+            );
+          } else {
+            completeOnce(null);
+          }
+        },
+        onHttpError: (e) {
+          final status = e.response?.statusCode;
+          if (status == null || status < 400) {
+            // 2xx 子资源或无状态码：不视为主框架失败
+            return;
+          }
+          // [iOS 视角F A1] 主框架判定：公开类型 WebResourceRequest 只有
+          // uri（无 isForMainFrame）。iOS WKWebView 的 onHttpError 源自主框架
+          // 导航回调（decidePolicyForNavigationResponse，request 为 null，
+          // 子资源不触发）→ 直接计为主框架失败；Android onReceivedHttpError
+          // 对子资源（图片 404 等）也会触发 → 按当前加载页面 URL
+          //（onPageStarted，含跳转后）匹配，避免子资源 4xx 误判为页面失败。
+          final requestUri = e.request?.uri;
+          if (requestUri == null ||
+              (startedUrl != null && requestUri.toString() == startedUrl)) {
+            final target = e.response?.uri ?? requestUri;
+            completeOnce(
+              'HTTP $status'
+              '${target != null ? '（$target）' : ''}',
+            );
+          }
+        },
+      ),
+    );
     _load(controller, url: url, html: html);
-    return finished.future.timeout(
-      _webViewTimeout,
-      onTimeout: () => failure ?? '加载超时（${_webViewTimeout.inSeconds}s）',
+    return _waitWebView(
+      finished.future.timeout(
+        _webViewTimeout,
+        onTimeout: () => failure ?? '加载超时（${_webViewTimeout.inSeconds}s）',
+      ),
     );
   }
 
@@ -834,10 +1108,14 @@ class PlatformBridgeService {
     try {
       final decoded = jsonDecode(text);
       if (decoded is List) {
-        return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty)
+        return decoded
+            .map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
             .toList();
       }
-    } catch (_) {/* 非法 JSON 忽略 */}
+    } catch (_) {
+      /* 非法 JSON 忽略 */
+    }
     return const [];
   }
 
@@ -869,10 +1147,10 @@ class PlatformBridgeService {
       debugPrint('[PlatformBridge] openBrowser：Navigator 未装配，忽略 url=$url');
       return;
     }
-    navigator.pushNamed(AppRoutes.browser, arguments: <String, String>{
-      'url': url,
-      'html': html,
-    });
+    GoRouter.of(navigator.context).pushAppRoute(
+      AppRoutes.browser,
+      extra: BrowserRouteArgs(url: url, html: html),
+    );
   }
 
   /// startBrowser → 外部浏览器；携带 html 时外部浏览器无法承载，改走应用内。
@@ -900,15 +1178,17 @@ class PlatformBridgeService {
       _showSnackBar('无效的链接：$url');
       return;
     }
-    launchUrl(uri, mode: LaunchMode.externalApplication).then((ok) {
-      if (!ok) {
-        // 外部浏览器拉起失败：降级应用内浏览器
-        _showBrowser(url: url, html: '');
-      }
-    }).catchError((Object e) {
-      debugPrint('[PlatformBridge] startBrowser 外部打开失败：$e');
-      _showBrowser(url: url, html: '');
-    });
+    launchUrl(uri, mode: LaunchMode.externalApplication)
+        .then((ok) {
+          if (!ok) {
+            // 外部浏览器拉起失败：降级应用内浏览器
+            _showBrowser(url: url, html: '');
+          }
+        })
+        .catchError((Object e) {
+          debugPrint('[PlatformBridge] startBrowser 外部打开失败：$e');
+          _showBrowser(url: url, html: '');
+        });
     if (title.isNotEmpty) {
       debugPrint('[PlatformBridge] startBrowser：$title');
     }
@@ -933,14 +1213,18 @@ class PlatformBridgeService {
       _showSnackBar('无效的链接：$url');
       return;
     }
-    launchUrl(uri).then((ok) {
-      if (!ok) _showSnackBar('无法打开：$url');
-    }).catchError((Object e) {
-      debugPrint('[PlatformBridge] openUrl 失败：$e');
-      _showSnackBar('无法打开：$url');
-    });
+    launchUrl(uri)
+        .then((ok) {
+          if (!ok) _showSnackBar('无法打开：$url');
+        })
+        .catchError((Object e) {
+          debugPrint('[PlatformBridge] openUrl 失败：$e');
+          _showSnackBar('无法打开：$url');
+        });
     if (mimeType.isNotEmpty) {
-      debugPrint('[PlatformBridge] openUrl mimeType=$mimeType（平台 Intent 降级为通用打开）');
+      debugPrint(
+        '[PlatformBridge] openUrl mimeType=$mimeType（平台 Intent 降级为通用打开）',
+      );
     }
   }
 
@@ -967,14 +1251,15 @@ class PlatformBridgeService {
       final target = resolveVideoPlayTarget(content: url, chapterUrl: url);
       if (!target.isMpd && target.url.isNotEmpty) {
         final displayTitle = title.isNotEmpty ? title : '视频播放';
-        final ok =
-            await VideoFloatWindowBridge.instance.show(VideoFloatWindowState(
-          url: target.url,
-          title: displayTitle,
-          headers: target.headers,
-          directUrl: url,
-          playing: true,
-        ));
+        final ok = await VideoFloatWindowBridge.instance.show(
+          VideoFloatWindowState(
+            url: target.url,
+            title: displayTitle,
+            headers: target.headers,
+            directUrl: url,
+            playing: true,
+          ),
+        );
         if (ok) return;
         // [W2/W4] 失败按原因分流：权限缺失 → 引导授权；FGS 后台启动受限 →
         // 引导回应用内重试；其他 → 中性失败提示（不再一律误报权限问题）
@@ -991,19 +1276,24 @@ class PlatformBridgeService {
         return;
       }
     }
-    navigator.pushNamed(AppRoutes.video, arguments: <String, String>{
-      'videoUrl': url,
-      'title': title.isNotEmpty ? title : '视频播放',
-    });
+    GoRouter.of(navigator.context).pushAppRoute(
+      AppRoutes.video,
+      extra: VideoScreenArgs(
+        videoUrl: url,
+        title: title.isNotEmpty ? title : '视频播放',
+      ),
+    );
   }
 
   /// 全局 SnackBar（经 navigatorKey 上下文）
-  void _showSnackBar(String message, {Duration duration = const Duration(seconds: 4)}) {
+  void _showSnackBar(
+    String message, {
+    Duration duration = const Duration(seconds: 4),
+  }) {
     final context = navigatorKey.currentContext;
     if (context == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: duration),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message), duration: duration));
   }
 
   // ========== [D2] MediaStore 下载存储通道 ==========
@@ -1035,7 +1325,10 @@ class PlatformBridgeService {
   /// 详见 StorageBridge.parseBytesArgument。
   Future<String?> saveImageToDownloads(String fileName, Uint8List bytes) async {
     if (!useMediaStoreDownloads) return null;
-    return PlatformChannel.saveImageToDownloads(fileName: fileName, bytes: bytes);
+    return PlatformChannel.saveImageToDownloads(
+      fileName: fileName,
+      bytes: bytes,
+    );
   }
 
   // ========== [M5] 音量键翻页（阅读器按键通道） ==========

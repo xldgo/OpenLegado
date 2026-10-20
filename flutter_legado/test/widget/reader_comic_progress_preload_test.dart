@@ -1,12 +1,19 @@
+import '../fixtures/app_test_api.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 import 'package:flutter_legado/src/widgets/error_view.dart';
 
 /// 1x1 透明 PNG（作为 FFI 解码结果 base64，供 Image.memory 渲染）
@@ -67,10 +74,38 @@ BookSource _comicSource() {
 
 /// 测试 Mock：注入三章漫画书，记录进度保存 / 相邻章预载 / 解码调用
 class _ProgressMockApi extends MockBookApi {
-  _ProgressMockApi({
-    required this.book,
-    this.failPreloadFor = const <int>{},
-  });
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    getChapterContentFull: _readingGetChapterContentFull,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
+  _ProgressMockApi({required this.book, this.failPreloadFor = const <int>{}});
 
   final Book book;
 
@@ -85,17 +120,14 @@ class _ProgressMockApi extends MockBookApi {
 
   final List<String> decodeCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [_comicSource()];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [_comicSource()];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => book;
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => _kChapters;
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      _kChapters;
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -108,14 +140,15 @@ class _ProgressMockApi extends MockBookApi {
     return '<p>$imgs</p>';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
-  @override
-  Future<String> getChapterContentFull(String bookUrl, int chapterIndex) async {
+  Future<String> _readingGetChapterContentFull(
+    String bookUrl,
+    int chapterIndex,
+  ) async {
     fullCalls.add(chapterIndex);
     if (failPreloadFor.contains(chapterIndex)) {
       throw StateError('预载失败模拟：章节 $chapterIndex');
@@ -123,8 +156,7 @@ class _ProgressMockApi extends MockBookApi {
     return '预载内容 章节 $chapterIndex';
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
@@ -154,18 +186,17 @@ double _scrollPixels(WidgetTester tester) {
 /// 页级进度保存 / 恢复跳转）。这里切到真实事件循环让解码完成后再回
 /// fake 上下文理帧，使 ListView 内容可滚动、页级进度可被驱动。
 Future<void> _settleWithImageDecode(WidgetTester tester) async {
-  await tester.runAsync(() => Future<void>.delayed(
-    const Duration(milliseconds: 300),
-  ));
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 300)),
+  );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('C1 页级进度：翻页后节流持久化 chapterPos（非恒 0）',
-      (tester) async {
+  testWidgets('C1 页级进度：翻页后节流持久化 chapterPos（非恒 0）', (tester) async {
     final api = _ProgressMockApi(book: _progressBook());
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -179,11 +210,9 @@ void main() {
     // 第一章 2 图：向下拖动一屏 → 可见页 = 1 → 页级进度立即持久化
     await tester.drag(find.byType(Scrollable), const Offset(0, -600));
     await tester.pump();
-    expect(
-      api.progressCalls,
-      [(0, 1)],
-      reason: '翻页后 updateReadingProgress 须携带页级 chapterPos（修复前恒 0）',
-    );
+    expect(api.progressCalls, [
+      (0, 1),
+    ], reason: '翻页后 updateReadingProgress 须携带页级 chapterPos（修复前恒 0）');
     // 页脚反映可见页（buildLabel 输出无空格：'页数2/2' = 第 2 页）
     expect(find.textContaining('页数2/2'), findsOneWidget);
 
@@ -191,11 +220,7 @@ void main() {
     // （对齐文本阅读器「每次页级位置变化保存一次」的事件驱动频率）
     await tester.drag(find.byType(Scrollable), const Offset(0, 600));
     await tester.pump();
-    expect(
-      api.progressCalls,
-      [(0, 1), (0, 0)],
-      reason: '每次可见页变化均持久化页级进度',
-    );
+    expect(api.progressCalls, [(0, 1), (0, 0)], reason: '每次可见页变化均持久化页级进度');
   });
 
   testWidgets('C1 恢复：重开定位到记录的页级进度（非章首）', (tester) async {
@@ -203,7 +228,7 @@ void main() {
       book: _progressBook(chapterIndex: 1, chapterPos: 1),
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -216,20 +241,13 @@ void main() {
     // 应进入第二章（durChapterIndex=1）且滚动到记录的页（durChapterPos=1），
     // 而非章首（修复前 chapterPos 恒 0，重开只能回到章首）
     expect(find.textContaining('章节2/3'), findsOneWidget);
-    expect(
-      _scrollPixels(tester),
-      greaterThan(0),
-      reason: '恢复须滚动到记录页（偏移 > 0）',
-    );
+    expect(_scrollPixels(tester), greaterThan(0), reason: '恢复须滚动到记录页（偏移 > 0）');
   });
 
-  testWidgets('C3 预载：当前章加载完成后后台预载相邻章（下一章优先）',
-      (tester) async {
-    final api = _ProgressMockApi(
-      book: _progressBook(chapterIndex: 1),
-    );
+  testWidgets('C3 预载：当前章加载完成后后台预载相邻章（下一章优先）', (tester) async {
+    final api = _ProgressMockApi(book: _progressBook(chapterIndex: 1));
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -238,21 +256,16 @@ void main() {
 
     // 当前第二章：下一章（3）优先、上一章（1）次之，复用
     // getChapterContentFull（零契约变更）
-    expect(
-      api.fullCalls,
-      [2, 0],
-      reason: '相邻章预载须下一章优先、上一章次之',
-    );
+    expect(api.fullCalls, [2, 0], reason: '相邻章预载须下一章优先、上一章次之');
   });
 
-  testWidgets('C3 预载：失败静默不干扰阅读（下一章失败不阻塞上一章）',
-      (tester) async {
+  testWidgets('C3 预载：失败静默不干扰阅读（下一章失败不阻塞上一章）', (tester) async {
     final api = _ProgressMockApi(
       book: _progressBook(chapterIndex: 1),
       failPreloadFor: {2},
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -269,7 +282,7 @@ void main() {
   testWidgets('回归：章节切换走既有链路并保存新章进度', (tester) async {
     final api = _ProgressMockApi(book: _progressBook());
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -289,10 +302,9 @@ void main() {
 
     // 进入第二章（既有章节切换能力回归），且进度保存携带新章索引
     expect(find.textContaining('章节2/3'), findsOneWidget);
-    expect(
-      api.progressCalls.last,
-      (1, 0),
-      reason: '切章后保存 (chapterIndex=1, chapterPos=0)',
-    );
+    expect(api.progressCalls.last, (
+      1,
+      0,
+    ), reason: '切章后保存 (chapterIndex=1, chapterPos=0)');
   });
 }

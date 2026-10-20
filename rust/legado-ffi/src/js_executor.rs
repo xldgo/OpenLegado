@@ -6,11 +6,9 @@
 //! 设计要点：
 //! - 保持 crate 依赖单向：legado-ffi 同时依赖 legado-js 与 legado-parser，
 //!   由本层完成两者对接，避免 legado-parser ↔ legado-js 循环依赖。
-//! - 复用 legado-js 的 [`EnginePool`]：按 `source_tag`（书源 URL）缓存
+//! - 复用根实例的 JsResources：按 `source_tag`（书源 URL）缓存
 //!   `Arc<Mutex<QuickJsEngine>>`，避免每源重复创建 Runtime + Context。
-//! - 全部以 `#[cfg(feature = "quickjs")]` 门控：feature 关闭时
-//!   [`construct_analyzer`] 退化为 `AnalyzeRule::new`（不注入执行器，静默降级），
-//!   默认构建仍走 stub 且编译通过。
+//! - JS 执行以 `quickjs` 门控；默认构建不注入执行器，仍显式注入变量读取能力。
 
 use legado_parser::AnalyzeRule;
 use legado_parser::AnalyzeUrl;
@@ -20,31 +18,85 @@ use std::collections::HashMap;
 //
 // 分析器构造（jsLib/setup 注入）、目录分页共享上下文、搜索 URL 构建与
 // `legado-js-error://` 错误 URL 编解码已随迁 `legado_fetcher::js_adapter`
-// （共享 crate 全栈单一实现）；本模块保留同名 re-export，调用方路径与签名
-// 零改动（ffi 内 search/explore_api/source_login_v1_api/image_api 等与本模块
-// 测试、tests/ 集成测试均不受影响）。
+// （共享 crate 全栈单一实现）；本模块仅装配根实例资源并委托共享实现。
 pub use legado_fetcher::js_adapter::{
-    build_search_url_with_setup, build_toc_page_context, construct_analyzer_with_js_lib,
-    construct_analyzer_with_source_context, construct_toc_page_analyzer, decode_js_error_url,
-    TocPageContext,
+    TocPageContext, construct_toc_page_analyzer, decode_js_error_url,
 };
+
+/// FFI 入口装配当前宿主的执行资源；解析和模板算法只保留共享 crate 一份实现。
+pub fn construct_analyzer_with_js_lib(
+    content: String,
+    base_url: String,
+    source_tag: &str,
+    js_lib: Option<&str>,
+) -> AnalyzeRule {
+    legado_fetcher::js_adapter::construct_analyzer_with_js_lib(
+        &crate::engine_holder::js_resources().for_source("source", source_tag, ""),
+        content,
+        base_url,
+        source_tag,
+        js_lib,
+    )
+}
+
+pub fn construct_analyzer_with_source_context(
+    content: String,
+    base_url: String,
+    source_tag: &str,
+    js_lib: Option<&str>,
+    setup: Option<String>,
+) -> AnalyzeRule {
+    legado_fetcher::js_adapter::construct_analyzer_with_source_context(
+        &crate::engine_holder::js_resources().for_source("source", source_tag, ""),
+        content,
+        base_url,
+        source_tag,
+        js_lib,
+        setup,
+    )
+}
+
+pub fn build_toc_page_context(
+    source_tag: &str,
+    js_lib: Option<&str>,
+    setup: Option<String>,
+) -> TocPageContext {
+    legado_fetcher::js_adapter::build_toc_page_context(
+        &crate::engine_holder::js_resources().for_source("source", source_tag, ""),
+        source_tag,
+        js_lib,
+        setup,
+    )
+}
+
+pub fn build_search_url_with_setup(
+    template: &str,
+    keyword: &str,
+    page: i32,
+    source_tag: &str,
+    js_lib: Option<&str>,
+    setup: Option<String>,
+) -> AnalyzeUrl {
+    legado_fetcher::js_adapter::build_search_url_with_setup(
+        &crate::engine_holder::js_resources().for_source("source", source_tag, ""),
+        template,
+        keyword,
+        page,
+        source_tag,
+        js_lib,
+        setup,
+    )
+}
 
 /// 构造规则解析器，并按构建特性决定是否注入 JS 执行器。
 ///
-/// - 启用 `quickjs`：从全局引擎池按 `source_tag` 取执行器并注入，
+/// - 启用 `quickjs`：从根实例资源按 `source_tag` 取执行器并注入，
 ///   使书源 `@js:` 规则真正被执行。
-/// - 未启用：等价于 `AnalyzeRule::new`，`@js:` 规则降级返回空结果。
+/// - 未启用：保留变量读取能力，`@js:` 规则降级返回空结果。
 ///
 /// `source_tag` 一般传书源 URL（`book_source_url`），用于引擎池缓存分桶。
-#[cfg(feature = "quickjs")]
 pub fn construct_analyzer(content: String, base_url: String, source_tag: &str) -> AnalyzeRule {
     construct_analyzer_with_js_lib(content, base_url, source_tag, None)
-}
-
-/// 非 quickjs 构建下的降级实现：不注入执行器，保持原样。
-#[cfg(not(feature = "quickjs"))]
-pub fn construct_analyzer(content: String, base_url: String, _source_tag: &str) -> AnalyzeRule {
-    AnalyzeRule::new(content, base_url)
 }
 
 // ─── loginCheckJs 内核（P5 下沉 legado-js，本模块薄壳 re-export）───────────────
@@ -95,131 +147,34 @@ pub fn build_explore_url(
     source: &legado_core::models::BookSource,
     info_map: &HashMap<String, String>,
 ) -> legado_core::LegadoResult<AnalyzeUrl> {
-    let source_tag = source.book_source_url.clone();
-    let js_lib = source.js_lib.as_deref();
-    let page_u32 = page.max(1) as u32;
-    let mut variables = HashMap::new();
-    variables.insert("page".to_string(), page.to_string());
-    variables.insert("baseUrl".to_string(), source_tag.clone());
-    for (k, v) in info_map {
-        variables.insert(k.clone(), v.clone());
-        variables.insert(format!("infoMap.{k}"), v.clone());
-    }
-    let info_json = serde_json::to_string(info_map).unwrap_or_else(|_| "{}".to_string());
-    variables.insert("__infoMapJson".to_string(), info_json);
-
-    // 书源上下文 setup 脚本（source/cookie 绑定 + BookSource 方法）
-    let setup_script = crate::api::source_js_bindings::book_source_js_setup_script(source).ok();
-
-    if template.contains("{{") || template.contains("<js>") || template.contains("@js:") {
-        // JS 求值失败**上抛真实错误**（对齐原版：懒人听书等需登录会话的
-        // 书源未配置时 lrtsResolveSession 抛「请先登录…」应原样提示用户；
-        // 此前静默回退字面量 URL 会把 @js: 脚本文本拼进请求 → HTTP 404
-        // 误导（2026-08-14 用户反馈懒人听书发现页 http404））
-        return explore_url_with_js(
+    build_explore_url_with_resources(
+        &crate::engine_holder::js_resources().for_source(
+            "explore",
+            &source.book_source_url,
             template,
-            &variables,
-            page,
-            &source_tag,
-            js_lib,
-            setup_script,
-        );
-    }
-    Ok(AnalyzeUrl::new(
+        ),
         template,
-        None,
-        Some(page_u32),
-        &source_tag,
-        None,
-    ))
-}
-
-/// quickjs 启用：发现 URL 模板 JS 求值（注入 infoMap 对象 + page/baseUrl
-/// 全局变量 + 书源 setup）
-#[cfg(feature = "quickjs")]
-fn explore_url_with_js(
-    template: &str,
-    variables: &HashMap<String, String>,
-    page: i32,
-    source_tag: &str,
-    js_lib: Option<&str>,
-    setup_script: Option<String>,
-) -> legado_core::LegadoResult<AnalyzeUrl> {
-    let info_json = variables
-        .get("__infoMapJson")
-        .cloned()
-        .unwrap_or_else(|| "{}".to_string());
-    let executor = ExploreInfoMapJsExecutor::new(
-        source_tag,
-        js_lib.map(|s| s.to_string()),
-        info_json,
-        setup_script,
         page,
-        source_tag,
-    );
-    AnalyzeUrl::parse_with_js(template, variables, page, &executor)
+        source,
+        info_map,
+    )
 }
 
-#[cfg(not(feature = "quickjs"))]
-fn explore_url_with_js(
+pub(crate) fn build_explore_url_with_resources(
+    resources: &std::sync::Arc<legado_js::JsResources>,
     template: &str,
-    variables: &HashMap<String, String>,
     page: i32,
-    _source_tag: &str,
-    _js_lib: Option<&str>,
-    _setup_script: Option<String>,
+    source: &legado_core::models::BookSource,
+    info_map: &HashMap<String, String>,
 ) -> legado_core::LegadoResult<AnalyzeUrl> {
-    AnalyzeUrl::parse(template, variables, page)
-}
-
-/// 发现 URL JS 执行器：每次求值前注入 `var infoMap = {...}`、`var page = N`、
-/// `var baseUrl = '...'` 与书源上下文 setup（source/cookie 方法，
-/// URL 模板 jsLib 函数依赖）。page/baseUrl 对齐原版 evalJS 注入的
-/// 全局变量——懒人听书等分类 URL 脚本 `Number(page||1)` 直接引用 page，
-/// 缺失会报 `page is not defined`（2026-08-14 懒人听书发现页报错）。
-#[cfg(feature = "quickjs")]
-struct ExploreInfoMapJsExecutor {
-    inner: QuickJsExecutor,
-    info_map_json: String,
-    page: i32,
-    base_url: String,
-}
-
-#[cfg(feature = "quickjs")]
-impl ExploreInfoMapJsExecutor {
-    fn new(
-        source_tag: &str,
-        js_lib: Option<String>,
-        info_map_json: String,
-        setup_script: Option<String>,
-        page: i32,
-        base_url: &str,
-    ) -> Self {
-        Self {
-            inner: QuickJsExecutor::new(source_tag)
-                .with_js_lib(js_lib)
-                .with_setup_script(setup_script),
-            info_map_json,
-            page,
-            base_url: base_url.to_string(),
-        }
-    }
-}
-
-#[cfg(feature = "quickjs")]
-impl legado_parser::JsExecutor for ExploreInfoMapJsExecutor {
-    fn execute_js(&self, js_code: &str) -> Result<String, String> {
-        // [能力对账批次 2 | #702/#850] var → globalThis 属性注入（不注册全局
-        // var 条目，与书源块顶层 let 声明不再冲突；读路径等价）
-        let wrapped = format!(
-            "globalThis.infoMap = {};\nglobalThis.page = {};\nglobalThis.baseUrl = {};\n{}",
-            self.info_map_json,
-            self.page,
-            serde_json::to_string(&self.base_url).unwrap_or_else(|_| "\"\"".to_string()),
-            js_code
-        );
-        self.inner.execute_js(&wrapped)
-    }
+    legado_fetcher::explore_url::build_explore_url_with_setup(
+        resources,
+        template,
+        page,
+        source,
+        info_map,
+        crate::api::source_js_bindings::book_source_js_setup_script(source).ok(),
+    )
 }
 
 // ─── QuickJS 执行器（P5 下沉 legado-js，本模块薄壳 re-export）──────────────────
@@ -233,14 +188,16 @@ pub use legado_js::executor::QuickJsExecutor;
 /// 每次新建，对齐 QuickJsExecutor 主路径策略，规避引擎池全局残留串扰）
 #[cfg(feature = "quickjs")]
 pub fn fresh_engine(
-    _source_tag: &str,
+    source_tag: &str,
 ) -> legado_core::LegadoResult<std::sync::Arc<std::sync::Mutex<legado_js::QuickJsEngine>>> {
-    let engine = legado_js::QuickJsEngine::new(
-        legado_js::sandbox::SandboxConfig::default()
-            .with_allow_script_run(true)
-            // 同上：大 jsLib/大 JSON 结果需 64MB（七猫目录 2026-08-15）
-            .with_memory_limit(64 * 1024 * 1024),
-    )?;
+    let engine = crate::engine_holder::js_resources()
+        .for_source("source", source_tag, "")
+        .create_engine(
+            legado_js::sandbox::SandboxConfig::default()
+                .with_allow_script_run(true)
+                // 同上：大 jsLib/大 JSON 结果需 64MB（七猫目录 2026-08-15）
+                .with_memory_limit(64 * 1024 * 1024),
+        )?;
     Ok(std::sync::Arc::new(std::sync::Mutex::new(engine)))
 }
 
@@ -274,14 +231,18 @@ pub fn validate_js_lib(
     // jsLib/setup 时，顶层副作用（罕见 ajax）须携带本源 JS 宿主 cookie；
     // 不绑定则落入「未归属上下文」（回归面：连本源 cookie 也不带）。
     // 缓存键已含 source_tag：命中时 get_or_create 为 no-op，包裹恒正确。
+    let resources = crate::engine_holder::js_resources();
     let result = legado_js::host_api::current_source::with_current_source_tag(source_tag, || {
-        legado_js::engine_cache::get_or_create(&key, Some(js_lib), setup_script, None)
+        resources.engine_cache().get_or_create_with_resources(
+            &key,
+            Some(js_lib),
+            setup_script,
+            None,
+            &resources,
+        )
     });
-    let (_, _, js_lib_ok) =
-        result.map_err(|e| legado_core::LegadoError::JsEngine(e.to_string()))?;
-    if js_lib_ok == Some(false) {
-        let last_err =
-            legado_js::host_api::capability_ledger::last_jslib_error(&key).unwrap_or_default();
+    let cached = result.map_err(|e| legado_core::LegadoError::JsEngine(e.to_string()))?;
+    if let Some(last_err) = cached.js_lib_error {
         return Err(legado_core::LegadoError::JsEngine(format!(
             "书源 jsLib 加载失败({})：书源脚本能力不可用",
             last_err.chars().take(120).collect::<String>()
@@ -300,24 +261,12 @@ pub fn validate_js_lib(
     Ok(())
 }
 
-/// [体检 §二.5 | P3-6] AutoTask Custom JS 真实执行入口
-///
-/// 对齐原版 `AutoTaskRunner`（`AutoTask.buildSource(task)` → `source.evalJS(script)`）:
-/// 经 QuickJS 引擎（带引擎缓存与 Response/Jsoup 基础桥）真实求值并返回
-/// 完成值/错误,取代"验证脚本非空即视为成功"的静默假成功。
-/// 绑定面:基础桥(无书源 java/cookie 绑定——原版 AutoTask.buildSource
-/// 亦为合成源,重度绑定场景待书源上下文注入后扩展)。
-#[cfg(feature = "quickjs")]
-use legado_parser::JsExecutor;
-#[cfg(feature = "quickjs")]
+/// 自动任务JS宿主入口；显式捕获资源，执行实现由Engine唯一维护。
 pub fn execute_auto_task_js(js_code: &str) -> Result<String, String> {
-    QuickJsExecutor::new("auto_task").execute_js(js_code)
-}
-
-/// 非 quickjs 构建:引擎不可用,如实报错(不再静默假成功)
-#[cfg(not(feature = "quickjs"))]
-pub fn execute_auto_task_js(_js_code: &str) -> Result<String, String> {
-    Err("Custom JS 执行需要 quickjs feature(当前构建未启用 JS 引擎)".to_string())
+    legado_engine::auto_task_service::execute_auto_task_js(
+        &crate::engine_holder::js_resources(),
+        js_code,
+    )
 }
 
 // ─── 测试 ─────────────────────────────────────────────────────────────────────
@@ -631,8 +580,6 @@ mod tests {
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_build_search_url_jslib_failure_surfaces_reason() {
-        let _guard = legado_js::engine_cache::TEST_LOCK.lock().unwrap();
-        legado_js::engine_cache::clear_for_tests();
         let bad_lib = "var __probe = __probe_missing_jslib__();";
         let analyzed = build_search_url_with_setup(
             "@js:'https://example.com/search?q=' + encodeURIComponent(key)",
@@ -695,9 +642,7 @@ mod tests {
     fn test_validate_js_lib_favcomic_jslib_failure_surfaces_and_records() {
         use legado_js::host_api::capability_ledger;
 
-        let _engine_guard = legado_js::engine_cache::TEST_LOCK.lock().unwrap();
         let _ledger_guard = capability_ledger::LEDGER_TEST_LOCK.lock().unwrap();
-        legado_js::engine_cache::clear_for_tests();
         capability_ledger::reset_jslib_load_failures();
         capability_ledger::reset_unknown_java_symbols();
 
@@ -812,7 +757,9 @@ mod tests {
         use std::io::{Read, Write};
         use std::sync::{Arc, Mutex};
 
-        use legado_js::host_api::cookie_store;
+        let http = crate::engine_holder::js_resources()
+            .http_resources()
+            .clone();
 
         // 回环域名键（127.0.0.1）为进程级共享键，与 image_api P2-19 用例串行
         let _lock = crate::test_support::GLOBAL_STORE_TEST_LOCK
@@ -861,8 +808,8 @@ mod tests {
         const TAG: &str = "https://p219-jslib.example.com/";
         // 上游同步：cookie 键 = 请求 URL 归一域名键（回环 IP 自键 127.0.0.1）
         let echo_url = format!("http://{addr}/echo");
-        cookie_store::clear_cookies(&echo_url);
-        cookie_store::set_cookie(&echo_url, "p219_lib_token", "lib-val-5f1c");
+        http.cookies().clear(&echo_url);
+        http.set_cookie(&echo_url, "p219_lib_token=lib-val-5f1c");
 
         // jsLib 顶层 `java.ajax`（入参为 JSON 字符串——java.ajax 桥接签名
         // 为 (options: String)，形态与 network.rs p219 用例一致）
@@ -877,7 +824,7 @@ mod tests {
                 .contains("p219_lib_token=lib-val-5f1c"),
             "构造期 jsLib 顶层 ajax 必须携带请求 URL 属域（127.0.0.1）cookie，实际 Cookie 头: {got:?}"
         );
-        cookie_store::clear_cookies(&echo_url);
+        http.cookies().clear(&echo_url);
     }
 }
 

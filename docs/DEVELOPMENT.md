@@ -81,7 +81,7 @@ python scripts/dev.py test tooling
 ```
 
 Android FFI 的严格只读校验、元数据格式和现有流程迁移边界见
-[Python 工具说明](PYTHON_FFI_TOOLING_20261010.md)。Android 旧脚本已删除，旧元数据不会自动转换。
+[Python 工具说明](过期文档/PYTHON_FFI_TOOLING_20261010.md)。Android 旧脚本已删除，旧元数据不会自动转换。
 Python 代码生成和 Android FFI 编译命令见 [构建入口说明](PYTHON_FFI_BUILD_20261011.md)；
 生成绑定与重编原生库分别执行。Android Gradle 与两处 Android CI 已接入 Python，
 解释器配置、Mock 限制及未迁移入口见 [Gradle 接线](PYTHON_GRADLE_FFI_20261011.md)。
@@ -308,7 +308,7 @@ git commit -m "perf: 优化引擎池化内存占用"
 2. 更新 `CHANGELOG.md`
 3. 递增版本号（Cargo.toml + pubspec.yaml）
 4. `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-5. 先推送已审核的发布提交（`git push origin HEAD`），再只推送本次 tag（`git push origin vX.Y.Z`）；Android 发布入口为 [android-release.yml](../.github/workflows/android-release.yml)。
+5. 先推送已审核的发布提交（`git push origin HEAD`），再只推送本次 tag（`git push origin vX.Y.Z`）；发布入口为 [release.yml](../.github/workflows/release.yml)。
 
 ---
 

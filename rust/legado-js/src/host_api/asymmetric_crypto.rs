@@ -2,7 +2,7 @@
 //!
 //! 对应 Kotlin `JsEncodeUtils.kt` 的 `createAsymmetricCrypto(transformation)` 与
 //! `createSign(algorithm)`，即 `io.legado.app.help.crypto.AsymmetricCrypto`
-//! 与 `Sign`（底层为 hutool）。
+//! 与 `Sign`；算法复用RustCrypto，不依赖JVM。
 //!
 //! JS 用法（对齐 Android 原版）：
 //! ```js
@@ -17,21 +17,19 @@
 //! sign.verify("data", sigHex);                 // -> true
 //! ```
 //!
-//! 密钥格式：支持 PEM（PKCS#1 / PKCS#8 / X.509 SPKI）与 Base64 DER，
-//! 与 hutool `KeyUtil.generatePublicKey/generatePrivateKey` 的接受范围对齐。
+//! 密钥支持原始DER及既有PEM/Base64扩展；不将上游String转DER规则误当Base64。
 
-use crate::host_api::coerce::RhinoStr;
+use crate::quickjs_bytes::{ByteArray, TextArg};
+use rquickjs::FromJs;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
-use rsa::pkcs1v15::{Signature as RsaSignature, SigningKey, VerifyingKey};
+use base64::engine::general_purpose::STANDARD as B64;
+use rsa::Pkcs1v15Sign;
 use rsa::traits::PublicKeyParts;
 use rsa::{Oaep, Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
-use sha2::Digest;
-use signature::hazmat::{PrehashSigner, PrehashVerifier};
-use signature::SignatureEncoding;
 
 // ---------------------------------------------------------------------------
 // 填充模式解析（对齐 Java transformation）
@@ -48,44 +46,28 @@ pub enum RsaPadding {
     OaepSha256,
 }
 
-/// 解析 RSA transformation，如 "RSA"、"RSA/ECB/PKCS1Padding"、
-/// "RSA/ECB/OAEPWithSHA-256AndMGF1Padding"。
-///
-/// 中间段（ECB/None）对 RSA 无意义，直接忽略（Java 同样如此）。
+/// 仅接受已经实现的RSA名称与模式，不按子串猜测未知OAEP算法。
 pub fn parse_rsa_transformation(transformation: &str) -> Result<RsaPadding, String> {
-    let parts: Vec<&str> = transformation.split('/').map(|s| s.trim()).collect();
-    let algo = parts.first().copied().unwrap_or("");
-    if !algo.eq_ignore_ascii_case("RSA") {
-        return Err(format!(
-            "Unsupported asymmetric algorithm: {} (only RSA supported)",
-            algo
-        ));
+    let parts: Vec<_> = transformation.split('/').map(str::trim).collect();
+    if !parts[0].eq_ignore_ascii_case("RSA") {
+        return Err(format!("Unsupported asymmetric algorithm: {}", parts[0]));
     }
-    let padding_part = parts
-        .get(2)
-        .map(|s| s.to_ascii_uppercase())
-        .unwrap_or_default();
-    if padding_part.is_empty() || padding_part == "PKCS1PADDING" {
+    if parts.len() == 1 {
         return Ok(RsaPadding::Pkcs1v15);
     }
-    if padding_part.starts_with("OAEP") {
-        if padding_part.contains("SHA-256") || padding_part.contains("SHA256") {
-            return Ok(RsaPadding::OaepSha256);
-        }
-        if padding_part.contains("SHA-384")
-            || padding_part.contains("SHA384")
-            || padding_part.contains("SHA-512")
-            || padding_part.contains("SHA512")
-        {
-            return Err(format!(
-                "Unsupported OAEP hash in transformation: {}",
-                padding_part
-            ));
-        }
-        // OAEPWithSHA-1AndMGF1Padding 及裸 OAEP 默认 SHA-1
-        return Ok(RsaPadding::OaepSha1);
+    if parts.len() != 3 || !matches!(parts[1].to_ascii_uppercase().as_str(), "ECB" | "NONE") {
+        return Err(format!("Invalid RSA transformation: {transformation}"));
     }
-    Err(format!("Unsupported RSA padding: {}", padding_part))
+    match parts[2].to_ascii_uppercase().as_str() {
+        "PKCS1PADDING" => Ok(RsaPadding::Pkcs1v15),
+        "OAEPPADDING" | "OAEPWITHSHA-1ANDMGF1PADDING" | "OAEPWITHSHA1ANDMGF1PADDING" => {
+            Ok(RsaPadding::OaepSha1)
+        }
+        "OAEPWITHSHA-256ANDMGF1PADDING" | "OAEPWITHSHA256ANDMGF1PADDING" => {
+            Ok(RsaPadding::OaepSha256)
+        }
+        _ => Err(format!("Unsupported RSA padding: {}", parts[2])),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +161,10 @@ pub fn rsa_encrypt_segmented(
     let max_block = max_encrypt_block(k, padding)?;
     let mut rng = rand_core::OsRng;
     let mut out = Vec::with_capacity((data.len() / max_block + 1) * k);
-    for chunk in data.chunks(max_block) {
+    for chunk in data
+        .chunks(max_block)
+        .chain(data.is_empty().then_some(&[][..]))
+    {
         let enc = match padding {
             RsaPadding::Pkcs1v15 => pub_key.encrypt(&mut rng, Pkcs1v15Encrypt, chunk),
             RsaPadding::OaepSha1 => pub_key.encrypt(&mut rng, Oaep::new::<sha1::Sha1>(), chunk),
@@ -198,7 +183,7 @@ pub fn rsa_decrypt_segmented(
     data: &[u8],
 ) -> Result<Vec<u8>, String> {
     let k = priv_key.size();
-    if k == 0 || !data.len().is_multiple_of(k) {
+    if k == 0 || data.is_empty() || !data.len().is_multiple_of(k) {
         return Err(format!(
             "Ciphertext length {} is not a multiple of RSA key size {}",
             data.len(),
@@ -208,9 +193,15 @@ pub fn rsa_decrypt_segmented(
     let mut out = Vec::new();
     for block in data.chunks(k) {
         let dec = match padding {
-            RsaPadding::Pkcs1v15 => priv_key.decrypt(Pkcs1v15Encrypt, block),
-            RsaPadding::OaepSha1 => priv_key.decrypt(Oaep::new::<sha1::Sha1>(), block),
-            RsaPadding::OaepSha256 => priv_key.decrypt(Oaep::new::<sha2::Sha256>(), block),
+            RsaPadding::Pkcs1v15 => {
+                priv_key.decrypt_blinded(&mut rand_core::OsRng, Pkcs1v15Encrypt, block)
+            }
+            RsaPadding::OaepSha1 => {
+                priv_key.decrypt_blinded(&mut rand_core::OsRng, Oaep::new::<sha1::Sha1>(), block)
+            }
+            RsaPadding::OaepSha256 => {
+                priv_key.decrypt_blinded(&mut rand_core::OsRng, Oaep::new::<sha2::Sha256>(), block)
+            }
         }
         .map_err(|e| format!("RSA decrypt failed: {}", e))?;
         out.extend_from_slice(&dec);
@@ -232,12 +223,16 @@ pub fn rsa_private_encrypt_segmented(
     let k = priv_key.size();
     let max_block = k
         .checked_sub(11)
+        .filter(|block| *block > 0)
         .ok_or_else(|| "RSA key too small".to_string())?;
     let mut out = Vec::with_capacity((data.len() / max_block + 1) * k);
-    for chunk in data.chunks(max_block) {
+    for chunk in data
+        .chunks(max_block)
+        .chain(data.is_empty().then_some(&[][..]))
+    {
         let em = build_pkcs1_type1_block(k, chunk)?;
         let m = rsa::BigUint::from_bytes_be(&em);
-        let c = rsa::hazmat::rsa_decrypt(None::<&mut rand_core::OsRng>, priv_key, &m)
+        let c = rsa::hazmat::rsa_decrypt(Some(&mut rand_core::OsRng), priv_key, &m)
             .map_err(|e| format!("RSA private encrypt failed: {}", e))?;
         let mut bytes = c.to_bytes_be();
         // 模运算可能丢失前导零，需补齐到模长
@@ -261,7 +256,7 @@ pub fn rsa_public_decrypt_segmented(
         return Err("Public key decryption only supports PKCS1Padding".to_string());
     }
     let k = pub_key.size();
-    if k == 0 || !data.len().is_multiple_of(k) {
+    if k == 0 || data.is_empty() || !data.len().is_multiple_of(k) {
         return Err(format!(
             "Ciphertext length {} is not a multiple of RSA key size {}",
             data.len(),
@@ -304,6 +299,9 @@ fn strip_pkcs1_type1_block(em: &[u8]) -> Result<Vec<u8>, String> {
     }
     for (i, b) in em[2..].iter().enumerate() {
         if *b == 0x00 {
+            if i < 8 {
+                return Err("Bad PKCS#1 type 1 padding".into());
+            }
             return Ok(em[i + 3..].to_vec());
         }
         if *b != 0xFF {
@@ -358,122 +356,132 @@ pub fn parse_sign_algorithm(algorithm: &str) -> Result<SignAlgo, String> {
     }
 }
 
-/// PKCS#1 v1.5 签名（SHAxxxwithRSA）
-pub fn rsa_sign(algo: SignAlgo, key: &RsaPrivateKey, data: &[u8]) -> Result<Vec<u8>, String> {
-    macro_rules! do_sign {
-        ($d:ty) => {{
-            let digest = <$d as Digest>::digest(data);
-            let sk = SigningKey::<$d>::new(key.clone());
-            let sig: RsaSignature = sk
-                .sign_prehash(digest.as_slice())
-                .map_err(|e| format!("RSA sign failed: {}", e))?;
-            sig.to_bytes().to_vec()
-        }};
-    }
-    Ok(match algo {
-        SignAlgo::Md5 => do_sign!(md5::Md5),
-        SignAlgo::Sha1 => do_sign!(sha1::Sha1),
-        SignAlgo::Sha224 => do_sign!(sha2::Sha224),
-        SignAlgo::Sha256 => do_sign!(sha2::Sha256),
-        SignAlgo::Sha384 => do_sign!(sha2::Sha384),
-        SignAlgo::Sha512 => do_sign!(sha2::Sha512),
-    })
-}
-
-/// PKCS#1 v1.5 验签
-pub fn rsa_verify(algo: SignAlgo, key: &RsaPublicKey, data: &[u8], sig: &[u8]) -> bool {
-    macro_rules! do_verify {
-        ($d:ty) => {{
-            let digest = <$d as Digest>::digest(data);
-            let Ok(signature) = RsaSignature::try_from(sig) else {
-                return false;
-            };
-            VerifyingKey::<$d>::new(key.clone())
-                .verify_prehash(digest.as_slice(), &signature)
-                .is_ok()
-        }};
-    }
+/// 每个签名会话只保留固定大小摘要状态，不在Rust中累计无界正文。
+pub(super) fn sign_digest(algo: SignAlgo) -> Box<dyn sha2::digest::DynDigest> {
     match algo {
-        SignAlgo::Md5 => do_verify!(md5::Md5),
-        SignAlgo::Sha1 => do_verify!(sha1::Sha1),
-        SignAlgo::Sha224 => do_verify!(sha2::Sha224),
-        SignAlgo::Sha256 => do_verify!(sha2::Sha256),
-        SignAlgo::Sha384 => do_verify!(sha2::Sha384),
-        SignAlgo::Sha512 => do_verify!(sha2::Sha512),
+        SignAlgo::Md5 => Box::new(md5::Md5::default()),
+        SignAlgo::Sha1 => Box::new(sha1::Sha1::default()),
+        SignAlgo::Sha224 => Box::new(sha2::Sha224::default()),
+        SignAlgo::Sha256 => Box::new(sha2::Sha256::default()),
+        SignAlgo::Sha384 => Box::new(sha2::Sha384::default()),
+        SignAlgo::Sha512 => Box::new(sha2::Sha512::default()),
     }
 }
+fn sign_padding(algo: SignAlgo) -> Pkcs1v15Sign {
+    match algo {
+        SignAlgo::Md5 => Pkcs1v15Sign::new::<md5::Md5>(),
+        SignAlgo::Sha1 => Pkcs1v15Sign::new::<sha1::Sha1>(),
+        SignAlgo::Sha224 => Pkcs1v15Sign::new::<sha2::Sha224>(),
+        SignAlgo::Sha256 => Pkcs1v15Sign::new::<sha2::Sha256>(),
+        SignAlgo::Sha384 => Pkcs1v15Sign::new::<sha2::Sha384>(),
+        SignAlgo::Sha512 => Pkcs1v15Sign::new::<sha2::Sha512>(),
+    }
+}
+/// 带盲化的私钥计算不改变PKCS1 v1.5签名的确定性结果。
+pub(super) fn rsa_sign_digest(
+    algo: SignAlgo,
+    key: &RsaPrivateKey,
+    digest: &[u8],
+) -> Result<Vec<u8>, String> {
+    key.sign_with_rng(&mut rand_core::OsRng, sign_padding(algo), digest)
+        .map_err(|e| format!("RSA sign failed: {e}"))
+}
+pub(super) fn rsa_verify_digest(
+    algo: SignAlgo,
+    key: &RsaPublicKey,
+    digest: &[u8],
+    sig: &[u8],
+) -> bool {
+    key.verify(sign_padding(algo), digest, sig).is_ok()
+}
+pub fn rsa_sign(algo: SignAlgo, key: &RsaPrivateKey, data: &[u8]) -> Result<Vec<u8>, String> {
+    let mut digest = sign_digest(algo);
+    digest.update(data);
+    rsa_sign_digest(algo, key, &digest.finalize())
+}
+pub fn rsa_verify(algo: SignAlgo, key: &RsaPublicKey, data: &[u8], sig: &[u8]) -> bool {
+    let mut digest = sign_digest(algo);
+    digest.update(data);
+    rsa_verify_digest(algo, key, &digest.finalize(), sig)
+}
 
-/// 密文字符串解码：优先 Base64，回退 Hex（对齐 hutool SecureUtil.decode）
+/// 密文/签名字符串按参考版先识别偶数Hex，不反复猜解码和解密格式。
 fn decode_cipher_text(s: &str) -> Result<Vec<u8>, String> {
-    let trimmed = s.trim();
-    if let Ok(bytes) = b64_decode_lenient(trimmed) {
-        return Ok(bytes);
+    if s.len().is_multiple_of(2) && s.bytes().all(|b| b.is_ascii_hexdigit()) {
+        hex::decode(s).map_err(|e| e.to_string())
+    } else {
+        super::base64_codec::decode_hutool(s)
     }
-    hex::decode(trimmed).map_err(|e| format!("Ciphertext is neither valid Base64 nor Hex: {}", e))
 }
-
-// ---------------------------------------------------------------------------
-// JS 对象状态与构造
-// ---------------------------------------------------------------------------
-
-/// 将错误信息包装为 JS 异常
 fn js_err(msg: impl Into<String>) -> rquickjs::Error {
-    rquickjs::Error::FromJs {
-        from: "String",
-        to: "RsaResult",
-        message: Some(msg.into()),
+    rquickjs::Error::new_from_js_message("value", "RSA", msg.into())
+}
+/// 密钥字符串保留PEM/Base64扩展；字节路径直接解析DER，避免二次编解码。
+pub(super) enum KeyArg {
+    Text(String),
+    Der(Vec<u8>),
+}
+impl<'js> FromJs<'js> for KeyArg {
+    fn from_js(ctx: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
+        if value.is_array()
+            || rquickjs::TypedArray::<u8>::from_value(value.clone()).is_ok()
+            || rquickjs::TypedArray::<i8>::from_value(value.clone()).is_ok()
+        {
+            return Ok(Self::Der(ByteArray::from_js(ctx, value)?.0));
+        }
+        Ok(Self::Text(TextArg::from_js(ctx, value)?.0))
     }
 }
-
-/// 将 JS 值转为字节：String -> UTF-8 字节；Uint8Array -> 原始字节
-fn value_to_bytes<'js>(v: &rquickjs::Value<'js>) -> rquickjs::Result<Vec<u8>> {
+impl KeyArg {
+    pub(super) fn public(self) -> Result<RsaPublicKey, String> {
+        use rsa::{pkcs1::DecodeRsaPublicKey, pkcs8::DecodePublicKey};
+        match self {
+            Self::Text(t) => parse_public_key(&t),
+            Self::Der(b) => RsaPublicKey::from_public_key_der(&b)
+                .or_else(|_| RsaPublicKey::from_pkcs1_der(&b))
+                .map_err(|e| format!("Invalid RSA public DER: {e}")),
+        }
+    }
+    pub(super) fn private(self) -> Result<RsaPrivateKey, String> {
+        use rsa::{pkcs1::DecodeRsaPrivateKey, pkcs8::DecodePrivateKey};
+        match self {
+            Self::Text(t) => parse_private_key(&t),
+            Self::Der(b) => RsaPrivateKey::from_pkcs8_der(&b)
+                .or_else(|_| RsaPrivateKey::from_pkcs1_der(&b))
+                .map_err(|e| format!("Invalid RSA private DER: {e}")),
+        }
+    }
+}
+/// 缺参走上游默认公钥；显式null走可空Boolean的私钥分支。
+struct Direction(bool);
+impl<'js> rquickjs::function::FromParam<'js> for Direction {
+    fn param_requirement() -> rquickjs::function::ParamRequirement {
+        rquickjs::function::ParamRequirement::optional()
+    }
+    fn from_param<'a>(
+        p: &mut rquickjs::function::ParamsAccessor<'a, 'js>,
+    ) -> rquickjs::Result<Self> {
+        if p.is_empty() {
+            return Ok(Self(true));
+        }
+        let v = p.arg();
+        if v.is_null() {
+            return Ok(Self(false));
+        }
+        Ok(Self(bool::from_js(p.ctx(), v)?))
+    }
+}
+fn value_to_bytes(v: &rquickjs::Value<'_>) -> rquickjs::Result<Vec<u8>> {
     if let Some(s) = v.as_string() {
         return Ok(s.to_string()?.into_bytes());
     }
-    if let Ok(arr) = rquickjs::TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
-    }
-    Err(js_err(
-        "Cannot convert JS value to bytes (expected String or Uint8Array)",
-    ))
+    Ok(ByteArray::from_js(v.ctx(), v.clone())?.0)
 }
-
-/// 将 JS 值转为密文字节：String -> Base64/Hex 解码；Uint8Array -> 原始字节
-fn value_to_cipher_bytes<'js>(v: &rquickjs::Value<'js>) -> rquickjs::Result<Vec<u8>> {
+fn value_to_cipher_bytes(v: &rquickjs::Value<'_>) -> rquickjs::Result<Vec<u8>> {
     if let Some(s) = v.as_string() {
         return decode_cipher_text(&s.to_string()?).map_err(js_err);
     }
-    if let Ok(arr) = rquickjs::TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
-    }
-    Err(js_err(
-        "Cannot convert JS value to ciphertext bytes (expected String or Uint8Array)",
-    ))
-}
-
-/// 字符串密文解密：依次按 Base64、Hex 解码尝试解密，返回首个成功结果
-/// （避免 hex 密文被误判为 Base64，对齐书源 encryptHex/decryptStr 混用场景）
-fn decrypt_from_text(
-    st: &RefCell<AsymState>,
-    use_public: bool,
-    s: &str,
-) -> Result<Vec<u8>, String> {
-    let mut last_err = "Ciphertext is neither valid Base64 nor Hex".to_string();
-    let candidates = [
-        b64_decode_lenient(s),
-        hex::decode(s.trim()).map_err(|e| e.to_string()),
-    ];
-    for bytes in candidates.into_iter().flatten() {
-        match st.borrow_mut().decrypt(use_public, &bytes) {
-            Ok(pt) => return Ok(pt),
-            Err(e) => last_err = e,
-        }
-    }
-    Err(last_err)
+    Ok(ByteArray::from_js(v.ctx(), v.clone())?.0)
 }
 
 /// createAsymmetricCrypto 对象状态（对齐 Kotlin AsymmetricCrypto）
@@ -558,9 +566,9 @@ pub fn build_asymmetric_crypto_object<'js>(
         let f = rquickjs::Function::new(
             ctx.clone(),
             move |this: rquickjs::function::This<rquickjs::Object<'js>>,
-                  key: RhinoStr|
+                  key: KeyArg|
                   -> rquickjs::Result<rquickjs::Object<'js>> {
-                let pk = parse_public_key(&key).map_err(js_err)?;
+                let pk = key.public().map_err(js_err)?;
                 st.borrow_mut().public = Some(pk);
                 Ok(this.0)
             },
@@ -574,9 +582,9 @@ pub fn build_asymmetric_crypto_object<'js>(
         let f = rquickjs::Function::new(
             ctx.clone(),
             move |this: rquickjs::function::This<rquickjs::Object<'js>>,
-                  key: RhinoStr|
+                  key: KeyArg|
                   -> rquickjs::Result<rquickjs::Object<'js>> {
-                let k = parse_private_key(&key).map_err(js_err)?;
+                let k = key.private().map_err(js_err)?;
                 st.borrow_mut().private = Some(k);
                 Ok(this.0)
             },
@@ -591,12 +599,12 @@ pub fn build_asymmetric_crypto_object<'js>(
             ctx.clone(),
             move |ctx: rquickjs::Ctx<'js>,
                   data: rquickjs::Value<'js>,
-                  use_public: rquickjs::function::Opt<bool>|
+                  use_public: Direction|
                   -> rquickjs::Result<rquickjs::TypedArray<'js, u8>> {
                 let bytes = value_to_bytes(&data)?;
                 let ct = st
                     .borrow_mut()
-                    .encrypt(use_public.0.unwrap_or(true), &bytes)
+                    .encrypt(use_public.0, &bytes)
                     .map_err(js_err)?;
                 rquickjs::TypedArray::new(ctx.clone(), ct)
             },
@@ -609,13 +617,11 @@ pub fn build_asymmetric_crypto_object<'js>(
         let st = state.clone();
         let f = rquickjs::Function::new(
             ctx.clone(),
-            move |data: rquickjs::Value<'js>,
-                  use_public: rquickjs::function::Opt<bool>|
-                  -> rquickjs::Result<String> {
+            move |data: rquickjs::Value<'js>, use_public: Direction| -> rquickjs::Result<String> {
                 let bytes = value_to_bytes(&data)?;
                 let ct = st
                     .borrow_mut()
-                    .encrypt(use_public.0.unwrap_or(true), &bytes)
+                    .encrypt(use_public.0, &bytes)
                     .map_err(js_err)?;
                 Ok(hex::encode(ct))
             },
@@ -628,13 +634,11 @@ pub fn build_asymmetric_crypto_object<'js>(
         let st = state.clone();
         let f = rquickjs::Function::new(
             ctx.clone(),
-            move |data: rquickjs::Value<'js>,
-                  use_public: rquickjs::function::Opt<bool>|
-                  -> rquickjs::Result<String> {
+            move |data: rquickjs::Value<'js>, use_public: Direction| -> rquickjs::Result<String> {
                 let bytes = value_to_bytes(&data)?;
                 let ct = st
                     .borrow_mut()
-                    .encrypt(use_public.0.unwrap_or(true), &bytes)
+                    .encrypt(use_public.0, &bytes)
                     .map_err(js_err)?;
                 Ok(B64.encode(ct))
             },
@@ -642,22 +646,18 @@ pub fn build_asymmetric_crypto_object<'js>(
         obj.set("encryptBase64", f)?;
     }
 
-    // decrypt(data, usePublicKey?) -> Uint8Array（String 输入按 Base64/Hex 双解码尝试）
+    // decrypt(data, usePublicKey?) -> Uint8Array；格式在计算前确定一次。
     {
         let st = state.clone();
         let f = rquickjs::Function::new(
             ctx.clone(),
             move |ctx: rquickjs::Ctx<'js>,
                   data: rquickjs::Value<'js>,
-                  use_public: rquickjs::function::Opt<bool>|
+                  use_public: Direction|
                   -> rquickjs::Result<rquickjs::TypedArray<'js, u8>> {
-                let use_pub = use_public.0.unwrap_or(true);
-                let pt = if let Some(s) = data.as_string() {
-                    decrypt_from_text(&st, use_pub, &s.to_string()?).map_err(js_err)?
-                } else {
-                    let bytes = value_to_cipher_bytes(&data)?;
-                    st.borrow_mut().decrypt(use_pub, &bytes).map_err(js_err)?
-                };
+                let use_pub = use_public.0;
+                let bytes = value_to_cipher_bytes(&data)?;
+                let pt = st.borrow_mut().decrypt(use_pub, &bytes).map_err(js_err)?;
                 rquickjs::TypedArray::new(ctx.clone(), pt)
             },
         )?;
@@ -669,16 +669,10 @@ pub fn build_asymmetric_crypto_object<'js>(
         let st = state.clone();
         let f = rquickjs::Function::new(
             ctx.clone(),
-            move |data: rquickjs::Value<'js>,
-                  use_public: rquickjs::function::Opt<bool>|
-                  -> rquickjs::Result<String> {
-                let use_pub = use_public.0.unwrap_or(true);
-                let pt = if let Some(s) = data.as_string() {
-                    decrypt_from_text(&st, use_pub, &s.to_string()?).map_err(js_err)?
-                } else {
-                    let bytes = value_to_cipher_bytes(&data)?;
-                    st.borrow_mut().decrypt(use_pub, &bytes).map_err(js_err)?
-                };
+            move |data: rquickjs::Value<'js>, use_public: Direction| -> rquickjs::Result<String> {
+                let use_pub = use_public.0;
+                let bytes = value_to_cipher_bytes(&data)?;
+                let pt = st.borrow_mut().decrypt(use_pub, &bytes).map_err(js_err)?;
                 Ok(String::from_utf8_lossy(&pt).into_owned())
             },
         )?;
@@ -704,19 +698,7 @@ impl SignState {
         }
     }
 
-    /// 对齐 hutool：未提供密钥时生成随机 1024 位密钥对
-    fn ensure_random_keys(&mut self) -> Result<(), String> {
-        if self.public.is_none() && self.private.is_none() {
-            let priv_key = RsaPrivateKey::new(&mut rand_core::OsRng, 1024)
-                .map_err(|e| format!("Failed to generate random RSA key pair: {}", e))?;
-            self.public = Some(RsaPublicKey::from(&priv_key));
-            self.private = Some(priv_key);
-        }
-        Ok(())
-    }
-
     fn sign(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
-        self.ensure_random_keys()?;
         let key = self
             .private
             .clone()
@@ -725,7 +707,6 @@ impl SignState {
     }
 
     fn verify(&mut self, data: &[u8], sig: &[u8]) -> Result<bool, String> {
-        self.ensure_random_keys()?;
         let key = self
             .public
             .clone()
@@ -752,9 +733,9 @@ pub fn build_sign_object<'js>(
         let f = rquickjs::Function::new(
             ctx.clone(),
             move |this: rquickjs::function::This<rquickjs::Object<'js>>,
-                  key: RhinoStr|
+                  key: KeyArg|
                   -> rquickjs::Result<rquickjs::Object<'js>> {
-                let k = parse_private_key(&key).map_err(js_err)?;
+                let k = key.private().map_err(js_err)?;
                 st.borrow_mut().private = Some(k);
                 Ok(this.0)
             },
@@ -768,9 +749,9 @@ pub fn build_sign_object<'js>(
         let f = rquickjs::Function::new(
             ctx.clone(),
             move |this: rquickjs::function::This<rquickjs::Object<'js>>,
-                  key: RhinoStr|
+                  key: KeyArg|
                   -> rquickjs::Result<rquickjs::Object<'js>> {
-                let pk = parse_public_key(&key).map_err(js_err)?;
+                let pk = key.public().map_err(js_err)?;
                 st.borrow_mut().public = Some(pk);
                 Ok(this.0)
             },
@@ -822,8 +803,7 @@ pub fn build_sign_object<'js>(
         obj.set("signBase64", f)?;
     }
 
-    // verify(data, sign) -> boolean（sign 接受 Base64/Hex 字符串或 Uint8Array；
-    // 字符串输入依次按 Base64、Hex 解码尝试验签，避免 hex 签名被误判为 Base64）
+    // verify(data, sign) -> boolean；保留Hex/Base64字符串扩展，合法不匹配返回false。
     {
         let st = state.clone();
         let f = rquickjs::Function::new(
@@ -832,23 +812,8 @@ pub fn build_sign_object<'js>(
                   sig: rquickjs::Value<'js>|
                   -> rquickjs::Result<bool> {
                 let bytes = value_to_bytes(&data)?;
-                let mut st = st.borrow_mut();
-                if let Some(s) = sig.as_string() {
-                    let s = s.to_string()?;
-                    if let Ok(b64) = b64_decode_lenient(&s) {
-                        if st.verify(&bytes, &b64).map_err(js_err)? {
-                            return Ok(true);
-                        }
-                    }
-                    if let Ok(hx) = hex::decode(s.trim()) {
-                        if st.verify(&bytes, &hx).map_err(js_err)? {
-                            return Ok(true);
-                        }
-                    }
-                    return Ok(false);
-                }
                 let sig_bytes = value_to_cipher_bytes(&sig)?;
-                st.verify(&bytes, &sig_bytes).map_err(js_err)
+                st.borrow_mut().verify(&bytes, &sig_bytes).map_err(js_err)
             },
         )?;
         obj.set("verify", f)?;
@@ -1058,8 +1023,11 @@ mod tests {
 
     #[test]
     fn test_decode_cipher_text_base64_and_hex() {
-        // 对齐 hutool SecureUtil.decode：优先 Base64，非法时回退 Hex
+        // 先识别偶数Hex，其余复用既有Base64策略。
         assert_eq!(decode_cipher_text("aGVsbG8=").unwrap(), b"hello");
-        assert!(decode_cipher_text("###").is_err());
+        assert_eq!(decode_cipher_text("68656c6c6f").unwrap(), b"hello");
+        assert!(decode_cipher_text("~").is_err());
+        assert!(decode_cipher_text("中").unwrap().is_empty());
+        assert!(decode_cipher_text("###").unwrap().is_empty());
     }
 }

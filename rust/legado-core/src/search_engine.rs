@@ -4,8 +4,8 @@
 //! 网络请求部分预留接口，后续由 legado-net 实现填充。
 
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 

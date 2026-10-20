@@ -8,18 +8,14 @@
 //
 // [V-B2 | 2026-10-05] 新增。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/widgets/video_danmaku_layer.dart';
 
-VideoDanmakuItem _item(
-  int type, {
-  int timeMs = 0,
-  String text = 'AAAA',
-}) {
+VideoDanmakuItem _item(int type, {int timeMs = 0, String text = 'AAAA'}) {
   return VideoDanmakuItem(
     timeMs: timeMs,
     type: type,
@@ -67,11 +63,10 @@ void main() {
   testWidgets('滚动弹幕随播放移动（R2L x 递减）', (tester) async {
     final player = ValueNotifier(_value(positionMs: 0, playing: true));
     addTearDown(player.dispose);
-    await tester.pumpWidget(
-      _host(player, [_item(DanmakuType.scrollR2L)]),
+    await tester.pumpWidget(_host(player, [_item(DanmakuType.scrollR2L)]));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
     );
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
 
     final start = state.debugPlacements(viewSize).single;
     expect(start.x, closeTo(viewSize.width, 1), reason: '入场贴右缘');
@@ -86,8 +81,9 @@ void main() {
     final player = ValueNotifier(_value(positionMs: 0, playing: true));
     addTearDown(player.dispose);
     await tester.pumpWidget(_host(player, [_item(DanmakuType.scrollR2L)]));
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
+    );
 
     await tester.pump(const Duration(milliseconds: 300));
     final beforePause = state.debugClockMs;
@@ -112,8 +108,9 @@ void main() {
         _item(DanmakuType.scrollR2L, timeMs: 120000, text: '新'),
       ]),
     );
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
+    );
     expect(
       state.debugPlacements(viewSize).map((p) => p.item.text),
       contains('旧'),
@@ -133,8 +130,9 @@ void main() {
     final player = ValueNotifier(_value(positionMs: 0, playing: false));
     addTearDown(player.dispose);
     await tester.pumpWidget(_host(player, const []));
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
+    );
 
     expect(state.debugPlacements(viewSize), isEmpty);
     expect(
@@ -156,8 +154,9 @@ void main() {
       _item(DanmakuType.scrollR2L, timeMs: 60000, text: 'new'),
     ];
     await tester.pumpWidget(_host(playerA, items));
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
+    );
     await tester.pump(const Duration(milliseconds: 300));
     expect(state.debugClockMs, greaterThan(0), reason: '旧控制器播放中推进');
 
@@ -194,8 +193,9 @@ void main() {
       _item(DanmakuType.scrollR2L, timeMs: 1000, text: 'AAAA'), // 宽 80
     ];
     await tester.pumpWidget(_host(player, items, speed: 1.0));
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
+    );
     expect(state.debugPlacements(viewSize).length, 2);
     expect(
       state
@@ -222,8 +222,9 @@ void main() {
     addTearDown(player.dispose);
     final items = [_item(DanmakuType.scrollR2L)];
     await tester.pumpWidget(_host(player, items, show: false));
-    final state =
-        tester.state<VideoDanmakuLayerState>(find.byType(VideoDanmakuLayer));
+    final state = tester.state<VideoDanmakuLayerState>(
+      find.byType(VideoDanmakuLayer),
+    );
 
     // 与 painter 共用同一可见性函数：显示时有项、隐藏时无项
     final engine = DanmakuLayoutEngine(items: items)

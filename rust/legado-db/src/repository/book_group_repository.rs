@@ -1,6 +1,6 @@
 //! BookGroup Repository - book_groups 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};
@@ -16,6 +16,8 @@ pub struct BookGroup {
     pub show: bool,
     pub book_sort: i32,
     pub only_update_read: bool,
+    #[serde(default)]
+    pub is_private: bool,
 }
 
 /// 书籍分组数据访问层
@@ -33,8 +35,8 @@ impl<'a> BookGroupRepository<'a> {
         self.conn
             .execute(
                 "INSERT INTO book_groups (groupId, groupName, cover, \"order\",
-                 enableRefresh, show, bookSort, onlyUpdateRead)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 enableRefresh, show, bookSort, onlyUpdateRead, isPrivate)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     group.group_id,
                     group.group_name,
@@ -44,6 +46,7 @@ impl<'a> BookGroupRepository<'a> {
                     group.show as i32,
                     group.book_sort,
                     group.only_update_read as i32,
+                    group.is_private as i32,
                 ],
             )
             .map_err(|e| LegadoError::Database(format!("插入分组失败: {e}")))?;
@@ -56,7 +59,7 @@ impl<'a> BookGroupRepository<'a> {
             .conn
             .prepare(
                 "SELECT groupId, groupName, cover, \"order\", enableRefresh,
-                        show, bookSort, onlyUpdateRead
+                        show, bookSort, onlyUpdateRead, isPrivate
                  FROM book_groups ORDER BY \"order\" ASC",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -64,8 +67,8 @@ impl<'a> BookGroupRepository<'a> {
         let rows = stmt
             .query_map([], row_to_book_group)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_group_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -75,7 +78,7 @@ impl<'a> BookGroupRepository<'a> {
             .conn
             .prepare(
                 "SELECT groupId, groupName, cover, \"order\", enableRefresh,
-                        show, bookSort, onlyUpdateRead
+                        show, bookSort, onlyUpdateRead, isPrivate
                  FROM book_groups WHERE groupId = ?1",
             )
             .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
@@ -93,8 +96,8 @@ impl<'a> BookGroupRepository<'a> {
             .conn
             .execute(
                 "UPDATE book_groups SET groupName=?1, cover=?2, \"order\"=?3,
-                 enableRefresh=?4, show=?5, bookSort=?6, onlyUpdateRead=?7
-                 WHERE groupId=?8",
+                 enableRefresh=?4, show=?5, bookSort=?6, onlyUpdateRead=?7, isPrivate=?8
+                 WHERE groupId=?9",
                 params![
                     group.group_name,
                     group.cover,
@@ -103,6 +106,7 @@ impl<'a> BookGroupRepository<'a> {
                     group.show as i32,
                     group.book_sort,
                     group.only_update_read as i32,
+                    group.is_private as i32,
                     group.group_id,
                 ],
             )
@@ -154,6 +158,7 @@ fn row_to_book_group(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookGroup> {
         show: show != 0,
         book_sort: row.get(6)?,
         only_update_read: only_update_read != 0,
+        is_private: row.get(8)?,
     })
 }
 
@@ -173,6 +178,7 @@ mod tests {
             show: true,
             book_sort: -1,
             only_update_read: false,
+            is_private: false,
         }
     }
 

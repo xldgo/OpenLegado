@@ -87,3 +87,32 @@ impl LegadoRequest {
         }
     }
 }
+
+/// 按请求选项选择重定向客户端，并仅对非2xx/3xx响应立即重试。
+/// 传输错误直接上抛；不替代客户端的传输重试策略。
+pub async fn send_with_response_options<T, F, Fut, S>(
+    client: &crate::LegadoClient,
+    follow_redirects: Option<bool>,
+    retry: u32,
+    status: S,
+    send: F,
+) -> legado_core::LegadoResult<T>
+where
+    F: Fn(crate::LegadoClient) -> Fut,
+    Fut: std::future::Future<Output = legado_core::LegadoResult<T>>,
+    S: Fn(&T) -> u16,
+{
+    let effective = if follow_redirects == Some(false) {
+        client.no_redirect_variant()?
+    } else {
+        client.clone()
+    };
+    let mut remaining = retry;
+    loop {
+        let response = send(effective.clone()).await?;
+        if (200..400).contains(&status(&response)) || remaining == 0 {
+            return Ok(response);
+        }
+        remaining -= 1;
+    }
+}

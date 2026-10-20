@@ -1,3 +1,7 @@
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/models/audio_media.dart';
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // A4 批：定时停止（分钟倒计时 + 按章停止）计时下沉 AudioNotifier 测试
 //
 // 覆盖：
@@ -13,16 +17,14 @@
 //
 // 计时推进用 testWidgets 的 FakeAsync（tester.pump(duration) 推时钟），
 // 播放器经 streamAudioPlayerProvider 注入 Fake，不触真实 video_player 平台通道。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/audio_screen.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/features/audio/presentation/audio_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -39,10 +41,10 @@ void main() {
     mockApi = MockRustApi();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -53,24 +55,25 @@ void main() {
 
   /// 流媒体 stub + 起播（[chapterCount] 章）
   Future<void> startStream({int chapterCount = 3}) async {
-    when(() => mockApi.getChapters(any())).thenAnswer(
+    when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
       (_) async => List.generate(
         chapterCount,
         (i) => BookChapter(title: 'ch${i + 1}', index: i),
       ),
     );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-    when(() => mockApi.getAudioChapterMedia(any(), any()))
-        .thenAnswer((invocation) async {
-      final index = invocation.positionalArguments[1] as int;
-      return {
-        'mediaUrl': 'https://cdn.example.com/$index.mp3',
-        'isVolume': false,
-      };
-    });
-    when(() => mockApi.getAudioProgress(any(), any()))
+    when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => null);
-    when(() => mockApi.saveAudioProgress(any(), any(), any()))
+    when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
+        .thenAnswer((invocation) async {
+          final index = invocation.positionalArguments[1] as int;
+          return AudioChapterMedia.fromJson({
+            'mediaUrl': 'https://cdn.example.com/$index.mp3',
+            'isVolume': false,
+          });
+        });
+    when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+        .thenAnswer((_) async => 0);
+    when(() => mockApi.audioBookService.saveAudioProgress(any(), any(), any()))
         .thenAnswer((_) async {});
 
     await readNotifier().loadChapters('url');
@@ -79,6 +82,138 @@ void main() {
   }
 
   group('a) 按章停止（章末边界，对齐原版 ChapterStopTimer）', () {
+    testWidgets('TTS 到点不在段末停止，播完最后一段才在章末停止', (tester) async {
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
+        (_) async => const [
+          BookChapter(title: '第一章', index: 0),
+          BookChapter(title: '第二章', index: 1),
+        ],
+      );
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
+          .thenAnswer((_) async => '第一段。\n第二段。');
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer(
+        (_) async => const HttpTtsAudio(audioPath: '/tmp/tts/timer.mp3'),
+      );
+      await readNotifier().loadChapters('url');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
+      await readNotifier().play();
+      readNotifier().startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(minutes: 1));
+      expect(readNotifier().isWaitingForTimerChapterEnd, isTrue);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().state, PlayerState.playing);
+      expect(readNotifier().currentParagraphIndex, 1);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(readState().currentIndex, 0);
+    });
+    testWidgets('时间到点后等待章末，保持时间模式且不进入下一章', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(seconds: 60));
+      expect(readState().state, PlayerState.playing);
+      expect(notifier.sleepTimerMode, SleepTimerMode.duration);
+      expect(notifier.isWaitingForTimerChapterEnd, isTrue);
+      expect(notifier.sleepRemainingSeconds, 0);
+      expect(notifier.sleepTimerRemainingLabel, contains('读完本章'));
+      await tester.pump(const Duration(minutes: 2));
+      expect(readState().state, PlayerState.playing);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(readState().currentIndex, 0);
+      expect(notifier.isSleepTimerActive, isFalse);
+      expect(notifier.isWaitingForTimerChapterEnd, isFalse);
+    });
+
+    testWidgets('到点前自然切章继续倒计时，到点后当前章完成才停', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(seconds: 30));
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      expect(notifier.isWaitingForTimerChapterEnd, isFalse);
+      await tester.pump(const Duration(seconds: 30));
+      expect(notifier.isWaitingForTimerChapterEnd, isTrue);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      expect(readState().state, PlayerState.idle);
+    });
+
+    testWidgets('切换到点策略不重置秒数，章末等待中关闭策略立即停止', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1);
+      await tester.pump(const Duration(seconds: 20));
+      notifier.setFinishCurrentChapterAfterTimer(true);
+      expect(notifier.sleepRemainingSeconds, 40);
+      notifier.pause();
+      await tester.pump(const Duration(minutes: 2));
+      expect(notifier.sleepRemainingSeconds, 40);
+      await notifier.resumeOrPlay();
+      await tester.pump(const Duration(seconds: 40));
+      expect(notifier.isWaitingForTimerChapterEnd, isTrue);
+      notifier.setFinishCurrentChapterAfterTimer(false);
+      await tester.pump();
+      expect(readState().state, PlayerState.idle);
+      expect(notifier.isSleepTimerActive, isFalse);
+    });
+
+    testWidgets('章末等待可取消/重设，取消不停止播放也不会遗留幽灵章末停止', (tester) async {
+      await startStream();
+      final notifier = readNotifier();
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(minutes: 1));
+      notifier.cancelSleepTimer();
+      expect(readState().state, PlayerState.playing);
+      expect(notifier.isSleepTimerActive, isFalse);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      notifier.startSleepTimer(1, finishCurrentChapter: true);
+      await tester.pump(const Duration(minutes: 1));
+      notifier.startChapterStop(2);
+      expect(notifier.isWaitingForTimerChapterEnd, isFalse);
+      expect(notifier.finishCurrentChapterAfterTimer, isFalse);
+      expect(notifier.sleepTimerMode, SleepTimerMode.chapters);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 2);
+      expect(notifier.chaptersToStopRemaining, 1);
+      notifier.startSleepTimer(1);
+      expect(notifier.chaptersToStopRemaining, 0);
+      await tester.pump(const Duration(minutes: 1));
+      expect(readState().state, PlayerState.idle);
+    });
+
     testWidgets('流媒体：按章停止 1 = 本章播完即停，不进入下一章且写进度', (tester) async {
       await startStream(); // 3 章
       readNotifier().startChapterStop(1);
@@ -91,7 +226,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 3000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 3000))
+          .called(1);
       fakePlayer.emitProgress(
         const Duration(seconds: 4),
         const Duration(minutes: 3),
@@ -107,8 +243,11 @@ void main() {
       expect(readState().currentIndex, 0);
       expect(readNotifier().isSleepTimerActive, isFalse);
       // 停止时 force 写当前章进度（A3 复用）
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
-      verifyNever(() => mockApi.saveAudioProgress('url', 1, any()));
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress('url', 1, any()),
+      );
     });
 
     testWidgets('流媒体：按章停止 2 = 第一章完成计数并切章，第二章完成才停', (tester) async {
@@ -144,26 +283,33 @@ void main() {
     });
 
     testWidgets('TTS：末段播完到章末停止（不切章、不写流媒体进度键）', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0),
           const BookChapter(title: '第二章', index: 1),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '第一段文本内容。');
-      when(() => mockApi.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => '/tmp/tts/para.mp3');
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer((_) async => HttpTtsAudio(audioPath: '/tmp/tts/para.mp3'));
 
       await readNotifier().loadChapters('url');
-      readNotifier().updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
       await readNotifier().play();
       expect(readState().isStreamMode, isFalse);
       readNotifier().startChapterStop(1);
@@ -175,32 +321,37 @@ void main() {
       expect(readState().state, PlayerState.idle);
       expect(readState().currentIndex, 0);
       expect(readNotifier().isSleepTimerActive, isFalse);
-      verifyNever(() => mockApi.saveAudioProgress(any(), any(), any()));
+      verifyNever(
+        () => mockApi.audioBookService.saveAudioProgress(any(), any(), any()),
+      );
     });
   });
 
   group('b) 计时下沉：退出听书页后倒计时继续', () {
     testWidgets('页面 widget 销毁后分钟倒计时仍走完并停止播放', (tester) async {
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(title: '第一章', index: 0),
           const BookChapter(title: '第二章', index: 1),
         ],
       );
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.getAudioChapterMedia(any(), any()))
-          .thenAnswer((invocation) async {
-        final index = invocation.positionalArguments[1] as int;
-        return {
-          'mediaUrl': 'https://cdn.example.com/$index.mp3',
-          'isVolume': false,
-        };
-      });
-      when(() => mockApi.getAudioProgress(any(), any()))
+      when(() => mockApi.bookshelfRepository.getBook(any()))
           .thenAnswer((_) async => null);
-      when(() => mockApi.saveAudioProgress(any(), any(), any()))
-          .thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.audioBookService.getAudioChapterMedia(any(), any()))
+          .thenAnswer((invocation) async {
+            final index = invocation.positionalArguments[1] as int;
+            return AudioChapterMedia.fromJson({
+              'mediaUrl': 'https://cdn.example.com/$index.mp3',
+              'isVolume': false,
+            });
+          });
+      when(() => mockApi.audioBookService.getAudioProgress(any(), any()))
+          .thenAnswer((_) async => 0);
+      when(
+        () => mockApi.audioBookService.saveAudioProgress(any(), any(), any()),
+      ).thenAnswer((_) async {});
 
       // 预载章节，保证页面 initState 不重复 load（渲染路径确定性）
       await readNotifier().loadChapters('url');
@@ -251,7 +402,8 @@ void main() {
         const Duration(minutes: 3),
       );
       await tester.pump();
-      verify(() => mockApi.saveAudioProgress('url', 0, 3000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 3000))
+          .called(1);
 
       // 4s 增量被节流（未写库），确保到点停止时确有新位置可写
       fakePlayer.emitProgress(
@@ -269,7 +421,8 @@ void main() {
 
       expect(readState().state, PlayerState.idle);
       expect(readNotifier().isSleepTimerActive, isFalse);
-      verify(() => mockApi.saveAudioProgress('url', 0, 4000)).called(1);
+      verify(() => mockApi.audioBookService.saveAudioProgress('url', 0, 4000))
+          .called(1);
     });
   });
 

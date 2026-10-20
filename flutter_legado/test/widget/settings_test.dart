@@ -1,3 +1,8 @@
+import '../fixtures/routing_test_app.dart';
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/models/local_server_status.dart';
+
 // 设置枢纽菜单 / 其他设置页 widget 测试
 //
 // 对齐 2026-08-13「我的」设置树（pref_main / pref_config_other）：
@@ -6,21 +11,20 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/theme/theme_notifier.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/other_settings_screen.dart';
-import 'package:flutter_legado/src/screens/settings_home_screen.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
-import 'package:flutter_legado/src/screens/webdav_settings_screen.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
+import 'package:flutter_legado/src/features/settings/presentation/other_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
+import 'package:flutter_legado/src/features/cache/presentation/download_cache_settings_screen.dart';
+import 'package:flutter_legado/src/features/settings/presentation/webdav_settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
 
 import '../mocks/mocks.dart';
@@ -37,7 +41,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
     // 保活单例为进程单例：逐用例复位，防跨用例状态泄漏
@@ -47,45 +51,64 @@ void main() {
   Widget wrap(Widget child, {Map<String, WidgetBuilder>? routes}) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
-        home: child,
-        routes: routes ?? const {},
-      ),
+      child: RoutingTestApp(home: child, routes: routes ?? const {}),
     );
   }
 
-  /// [MD3 LargeTitle] 页面改为 NestedScrollView（外层折叠头 + 内层 ListView），
-  /// 滚动定位需指定内层 ListView 视图
-  Future<void> dragTo(WidgetTester tester, String text) {
-    return tester.dragUntilVisible(
-      find.text(text),
-      find.byType(ListView),
-      const Offset(0, -100),
-    );
+  /// 分组整体构建后，定位行并等待滚动布局完成。
+  Future<void> dragTo(WidgetTester tester, String text) async {
+    await tester.ensureVisible(find.text(text));
+    await tester.pumpAndSettle();
   }
 
   group('SettingsScreen 枢纽菜单', () {
+    testWidgets('下载与缓存入口进入真实独立页，返回仍为设置枢纽', (tester) async {
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      final navigation = AppRouter(
+        routes: {
+          ...AppRouter().routes,
+          AppRoutes.home: (_) => const SettingsScreen(),
+        },
+      ).createRouter();
+      addTearDown(navigation.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: navigation),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await dragTo(tester, '下载与缓存');
+      await tester.tap(find.text('下载与缓存'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadCacheSettingsScreen), findsOneWidget);
+      expect(find.text('下载设置'), findsOneWidget);
+      navigation.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(find.byType(DownloadCacheSettingsScreen), findsNothing);
+    });
     testWidgets('渲染顶部管理入口与设置/其他分组', (tester) async {
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
 
       // 顶部管理入口（对标 pref_main；字典规则非「词典规则」）
       expect(find.text('书源管理'), findsOneWidget);
-      expect(find.text('定时任务'), findsOneWidget);
+      expect(find.text('定时任务'), findsNWidgets(2));
       expect(find.text('TXT 目录规则'), findsOneWidget);
       expect(find.text('替换净化'), findsOneWidget);
       expect(find.text('字典规则'), findsOneWidget);
-      expect(find.text('主题模式'), findsOneWidget);
+      expect(find.text('主题模式'), findsNothing);
 
-      expect(find.text('我的'), findsWidgets,
-          reason: 'SliverAppBar.large 展开大标题与折叠工具栏标题同时存在');
-      // [UI_SYNC_REFACTOR S6 | 2026-09-08] 设置主页集中化：我的页原
-      // 备份与恢复/主题设置/其他设置三 tile 收敛为单一「设置」入口
-      //（组头「设置」+ 入口 tile 同文案，skipOffstage 计 2）— Qoder
-      await dragTo(tester, '设置');
-      expect(
-          find.text('设置', skipOffstage: false), findsNWidgets(2));
-      expect(find.text('备份与恢复'), findsNothing);
+      expect(find.text('我的'), findsOneWidget);
+      // 外观组包含外观和阅读界面，高级与备份分别归入其他和同步与服务。
+      await dragTo(tester, '备份与恢复');
+      expect(find.text('设置', skipOffstage: false), findsNothing);
+      expect(find.text('外观'), findsNWidgets(2));
+      expect(find.text('高级'), findsOneWidget);
+      expect(find.text('阅读界面'), findsOneWidget);
+      expect(find.text('备份与恢复'), findsOneWidget);
       expect(find.text('主题设置'), findsNothing);
 
       // 已删除创意项
@@ -122,7 +145,10 @@ void main() {
         expect(find.text('用浏览器写源或看书'), findsOneWidget);
         expect(find.text('暂不可用，将在后续版本修复'), findsNothing);
         final card = find
-            .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+            .ancestor(
+              of: find.text('Web 服务'),
+              matching: find.byType(SettingSwitchRow),
+            )
             .first;
         expect(
           tester
@@ -150,7 +176,10 @@ void main() {
         expect(find.text('用浏览器写源或看书'), findsOneWidget);
         expect(find.text('暂不可用，将在后续版本修复'), findsNothing);
         final card = find
-            .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+            .ancestor(
+              of: find.text('Web 服务'),
+              matching: find.byType(SettingSwitchRow),
+            )
             .first;
         expect(
           tester
@@ -171,15 +200,18 @@ void main() {
     testWidgets('Web 服务开关：启动使用配置端口 webPort=8080', (tester) async {
       SharedPreferences.setMockInitialValues({'webPort': 8080});
       final startedPorts = <int>[];
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
-        () => mockApi.startServer(port: any(named: 'port')),
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((inv) async {
         startedPorts.add(inv.namedArguments[#port] as int);
       });
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 8080');
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 8080),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -187,7 +219,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -203,15 +238,18 @@ void main() {
 
     testWidgets('Web 服务开关：未配置端口回落默认 1122', (tester) async {
       final startedPorts = <int>[];
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
-        () => mockApi.startServer(port: any(named: 'port')),
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((inv) async {
         startedPorts.add(inv.namedArguments[#port] as int);
       });
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -219,7 +257,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -234,15 +275,18 @@ void main() {
     testWidgets('Web 服务开关：越界 webPort 回落默认 1122（防手改 prefs）', (tester) async {
       SharedPreferences.setMockInitialValues({'webPort': 500});
       final startedPorts = <int>[];
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
-        () => mockApi.startServer(port: any(named: 'port')),
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((inv) async {
         startedPorts.add(inv.namedArguments[#port] as int);
       });
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -250,7 +294,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -265,9 +312,7 @@ void main() {
     // [2026-10-07 | iOS Web 服务后台保活批] 接线回归：服务 start/stop 成功
     // 必须伴随保活 setEnabled(true/false)——静音音轨生命周期严格绑定 Web 服务
     //（对齐原版 WakeLock 的「防睡眠」目的，见 WEB_SERVICE_KEEPALIVE_SURVEY_20261007.md）。
-    testWidgets('Web 服务开关：start 成功接保活 true，stop 成功接保活 false', (
-      tester,
-    ) async {
+    testWidgets('Web 服务开关：start 成功接保活 true，stop 成功接保活 false', (tester) async {
       WebKeepAliveService.platformIsIOS = () => true;
       addTearDown(
         () => WebKeepAliveService.platformIsIOS = () => Platform.isIOS,
@@ -288,14 +333,18 @@ void main() {
         ),
       );
 
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
-        () => mockApi.startServer(port: any(named: 'port')),
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((_) async {});
-      when(() => mockApi.stopServer()).thenAnswer((_) async {});
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(() => mockApi.localServerService.stopServer())
+          .thenAnswer((_) async {});
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -303,7 +352,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -344,13 +396,16 @@ void main() {
         ),
       );
 
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
-      when(() => mockApi.setConfig(any(), any())).thenAnswer((_) async {});
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((_) async {});
       when(
-        () => mockApi.startServer(port: any(named: 'port')),
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer((_) async {});
-      when(() => mockApi.getServerStatus())
-          .thenAnswer((_) async => 'running on port 1122');
+      when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+        (_) async => const LocalServerStatus(running: true, port: 1122),
+      );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
       await tester.pumpAndSettle();
@@ -358,7 +413,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
+          .ancestor(
+            of: find.text('Web 服务'),
+            matching: find.byType(SettingSwitchRow),
+          )
           .first;
       final switchFinder = find.descendant(
         of: card,
@@ -375,55 +433,21 @@ void main() {
       );
     });
 
-    testWidgets('点击主题模式弹出选择对话框并可切换（全局生效）', (tester) async {
-      await tester.pumpWidget(wrap(const SettingsScreen()));
-      await tester.pumpAndSettle();
-
-      expect(find.text('跟随系统'), findsOneWidget);
-      expect(
-        container.read(themeNotifierProvider).themeMode,
-        ThemeMode.system,
+    testWidgets('从我的页直接进入备份与恢复全页 WebDAV/备份设置', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          const SettingsScreen(),
+          routes: {
+            AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
+          },
+        ),
       );
+      await tester.pumpAndSettle();
 
-      // 点标题「主题模式」（subtitle「选择主题模式」同屏，勿用模糊 finder）；
-      // LargeTitle 展开占高，先滚动到可见区，再回拖使其离开 pinned 头部遮挡区
-      await dragTo(tester, '主题模式');
+      // 我的页直接进入备份与恢复，不经过设置主页。
+      await dragTo(tester, '备份与恢复');
       await tester.drag(find.byType(ListView), const Offset(0, 140));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('主题模式'));
-      await tester.pumpAndSettle();
-
-      // 底栏标题与列表 subtitle 可能同文案，用 ListTile 精确匹配选项
-      expect(find.widgetWithText(ListTile, '浅色'), findsOneWidget);
-      expect(find.widgetWithText(ListTile, '深色'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(ListTile, '深色'));
-      await tester.pumpAndSettle();
-
-      expect(container.read(themeNotifierProvider).themeMode, ThemeMode.dark);
-      expect(find.text('深色'), findsOneWidget);
-    });
-
-    testWidgets('经设置主页进入备份与恢复全页 WebDAV/备份设置', (tester) async {
-      await tester.pumpWidget(wrap(
-        const SettingsScreen(),
-        routes: {
-          AppRoutes.settingsHome: (_) => const SettingsHomeScreen(),
-          AppRoutes.webdavSettings: (_) => const WebDavSettingsScreen(),
-        },
-      ));
-      await tester.pumpAndSettle();
-
-      // 我的页「设置」→ 设置主页「备份与恢复」（集中化两级导航）
-      await dragTo(tester, '设置');
-      await tester.drag(find.byType(ListView), const Offset(0, 140));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('设置').last);
-      await tester.pumpAndSettle();
-
-      await tester.dragUntilVisible(
-          find.text('备份与恢复'), find.byType(CustomScrollView).first,
-          const Offset(0, -80));
       await tester.tap(find.text('备份与恢复'));
       await tester.pumpAndSettle();
 
@@ -439,8 +463,9 @@ void main() {
   });
 
   group('OtherSettingsScreen 其他设置', () {
-    testWidgets('渲染语言/主界面/清理缓存（无创意阅读网络分组）', (tester) async {
-      when(() => mockApi.getConfig(any())).thenAnswer((_) async => null);
+    testWidgets('保留语言和主界面，下载与缓存设置迁到独立页', (tester) async {
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
 
       await tester.pumpWidget(wrap(const OtherSettingsScreen()));
       await tester.pumpAndSettle();
@@ -453,9 +478,9 @@ void main() {
       expect(find.text('网络设置'), findsNothing);
       expect(find.text('缓存管理'), findsNothing);
 
-      await tester.scrollUntilVisible(find.text('清理缓存'), 100);
-      await tester.pumpAndSettle();
-      expect(find.text('清理缓存'), findsOneWidget);
+      expect(find.text('清理缓存'), findsNothing);
+      expect(find.text('压缩数据库'), findsNothing);
+      expect(find.text('更新和搜索线程数'), findsNothing);
     });
   });
 }

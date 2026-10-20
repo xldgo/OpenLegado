@@ -11,12 +11,14 @@ part 'book.g.dart';
 class BookType {
   static const int video = 4;
   static const int text = 8;
+
   /// 更新失败（对齐 Kotlin `BookType.updateError`；书架「更新失败」分组与错误态标记）
   static const int updateError = 16;
   static const int audio = 32;
   static const int image = 64;
   static const int webFile = 128;
   static const int local = 0x1000;
+
   /// 未入书架的临时书（对齐 Kotlin `BookType.notShelf`；搜索/发现打开在线书阅读时临时落库）
   static const int notShelf = 0x400;
   static const String localTag = 'loc_book';
@@ -43,10 +45,12 @@ abstract class ReadConfig with _$ReadConfig {
     @Default(0) @JsonKey(name: 'closeCredits') int closeCredits,
     @Default(0) @JsonKey(name: 'playMode') int playMode,
     @Default(1.0) @JsonKey(name: 'playSpeed') double playSpeed,
+
     /// [漫画设置作用域 2026-10-01] 书级翻页模式覆盖（null = 未覆盖，跟随
     /// 全局 [MangaConfigKeys.scrollMode]）。对齐参考版 `Book.ReadConfig.mangaScrollMode`
     /// 与 MangaReaderViewModel 有效值优先级 `book?.scrollMode ?: settings.scrollMode`。
     @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
+
     /// [漫画设置作用域 2026-10-01] 书级条漫侧边留白覆盖（null = 未覆盖，
     /// 跟随全局 [MangaConfigKeys.sidePadding]）。
     ///
@@ -65,6 +69,7 @@ abstract class ReadConfig with _$ReadConfig {
 abstract class Book with _$Book {
   const factory Book({
     @Default('') @JsonKey(name: 'bookUrl') String bookUrl,
+    @Default(false) bool isPrivate,
     @Default('') @JsonKey(name: 'tocUrl') String tocUrl,
     @Default('loc_book') String origin,
     @Default('') @JsonKey(name: 'originName') String originName,
@@ -97,6 +102,7 @@ abstract class Book with _$Book {
     String? variable,
     @JsonKey(name: 'readConfig') ReadConfig? readConfig,
     @Default(0) @JsonKey(name: 'syncTime') int syncTime,
+
     /// [P2-8] 当前书源下该书的详情页地址（换源事务写入；bookUrl 保持
     /// 稳定主键不变，换源后可能仍是旧源地址）。为空时「抓取书籍页」
     /// 路径回退 bookUrl（未换源书籍与存量库行为不变，向后兼容）。

@@ -1,13 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/widgets/book_cover.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 /// 选择模式（批量）书卡列表渲染回归测试
 ///
@@ -28,7 +27,7 @@ void main() {
   Future<ProviderContainer> pumpShelf(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+        overrides: mergeTestOverrides([...MockBookApi().overrides]),
         child: MaterialApp(home: BookshelfScreen()),
       ),
     );
@@ -47,12 +46,15 @@ void main() {
     await tester.pump();
 
     // 正常模式：书名在列表行可见
-    expect(find.text('示例书籍 01'), findsOneWidget,
-        reason: '正常模式书卡行应渲染书名');
+    expect(find.text('示例书籍 01'), findsOneWidget, reason: '正常模式书卡行应渲染书名');
+
+    final cover = tester.element(find.byType(BookCover).first);
 
     // 进入选择模式
     container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
     await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '进入选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
 
     // [P0 根因] 选择模式下书卡列表仍必须完整渲染（书名出现于书卡行，
     // 而非仅「最近阅读」行）——这是此前被拒修复的缺陷点。
@@ -74,13 +76,15 @@ void main() {
     // 点按书卡 → 勾选态切换，胶囊数字 0 → 1
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
-    expect(find.text('已选 1 本'), findsOneWidget,
-        reason: '点按后胶囊计数应变为 1');
+    expect(find.text('已选 1 本'), findsOneWidget, reason: '点按后胶囊计数应变为 1');
 
     // 再点一次 → 取消勾选，数字回到 0
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
-    expect(find.text('已选 0 本'), findsOneWidget,
-        reason: '再点按后计数应回到 0');
+    expect(find.text('已选 0 本'), findsOneWidget, reason: '再点按后计数应回到 0');
+    container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
+    await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '退出选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
   });
 }

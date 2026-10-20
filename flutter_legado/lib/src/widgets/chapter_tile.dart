@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// 章节列表项 — 支持已读/当前状态高亮
@@ -40,7 +40,11 @@ class ChapterTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: isCurrent
-          ? Icon(Symbols.play_arrow_rounded, color: colorScheme.primary, size: 20)
+          ? Icon(
+              Symbols.play_arrow_rounded,
+              color: colorScheme.primary,
+              size: 20,
+            )
           : null,
       selected: isCurrent,
       selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.3),

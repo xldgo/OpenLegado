@@ -1,13 +1,24 @@
+import '../providers/media_provider.dart';
+import '../features/book_sources/book_source_repository_provider.dart';
+
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+import 'package:flutter/rendering.dart'
+    show
+        RenderAbstractViewport,
+        RenderBox,
+        RenderClipRRect,
+        RenderImage,
+        RenderOffstage,
+        RenderOpacity,
+        RenderObject;
 
-import '../providers/providers.dart';
 import '../services/cover_decode_loader.dart';
+import '../services/cover_cache.dart';
 import '../utils/comic_image_utils.dart';
 
 /// 书籍封面组件 — 支持网络图片 + 默认封面 + coverDecodeJs 解密
@@ -16,7 +27,7 @@ import '../utils/comic_image_utils.dart';
 /// 对标原版 res/drawable/image_cover_default.jpg）。
 ///
 /// 对齐原版 `CoverImageView` + Glide 列表行为：
-/// - 无 `coverDecodeJs`：`CachedNetworkImage` 直连（缩略 memCacheWidth）
+/// - 无 `coverDecodeJs`：`CachedNetworkImageProvider` 直连（限制解码宽度）
 /// - 有 `coverDecodeJs`：经 [CoverDecodeLoader] 限流/缓存/取消后走 FFI
 ///
 /// [UI-FIX v2.0.32 | 2026-08-11] 搜索列表封面解密卡顿 — Reasonix + UI
@@ -67,8 +78,7 @@ class BookCover extends ConsumerWidget {
     );
     final tag = heroTag;
     if (tag != null && tag.isNotEmpty) {
-      // [LAYOUT_PLAN P4] 内置 Hero 保持无 flightShuttle（防与外层 Hero 嵌套）。
-      cover = Hero(tag: tag, child: cover);
+      cover = BookCoverHero(tag: tag, child: cover);
     }
     return cover;
   }
@@ -84,11 +94,213 @@ class BookCover extends ConsumerWidget {
   }
 }
 
-/// [LAYOUT_PLAN P4] 封面 Hero 过渡：圆角 4→12 插值 morph（由详情页外层 Hero 调用，
-/// BookCover 内置 Hero 不用，避免嵌套）。
-/// [UI-fix v2.0.166] 飞行内容取出发侧已加载封面（push=书架已渲染图 / pop=详情
-/// 已渲染图）：目标侧新实例在异步解析期会闪默认占位封面（对齐参考仓
-/// sharedBounds「同图飞行」语义）；飞行层不在路由子树内，出发侧内置 Hero 不生效。
+/// 只描述来源，不持有图片租约；路由按需克隆已显示图像并负责释放。— Codex + UI
+class BookCoverOrigin {
+  const BookCoverOrigin({
+    required this.bookUrl,
+    required this.bounds,
+    required this.image,
+    required this.borderRadius,
+  });
+
+  final String bookUrl;
+  final Rect? Function() bounds;
+  final ui.Image? Function() image;
+  final BorderRadius borderRadius;
+
+  /// 从点击的卡片内取封面，不要求 Hero，也不跨行或跨页面猜测来源。
+  static BookCoverOrigin? fromContext(BuildContext context, String bookUrl) {
+    if (!context.mounted || bookUrl.isEmpty) return null;
+    Element? source;
+    void visit(Element element) {
+      if (source != null) return;
+      if (element.widget case Offstage(offstage: true)) return;
+      if (element.widget is BookCover || element.widget is BookCoverHero) {
+        if (_visibleCoverBounds(element, allowCoveredRoute: false) != null) {
+          source = element;
+        }
+        return;
+      }
+      element.visitChildElements(visit);
+    }
+
+    visit(context as Element);
+    final found = source;
+    if (found == null) return null;
+    return BookCoverOrigin(
+      bookUrl: bookUrl,
+      bounds: () => _visibleCoverBounds(found),
+      image: _coverImageReader(found),
+      borderRadius: _coverFrame(found).radius,
+    );
+  }
+}
+
+/// 仅复用真实封面帧，缺图或尚未加载时交给默认页面转场。
+ui.Image? Function() _coverImageReader(BuildContext context) {
+  var ready = true;
+  _CoverImageState? loader;
+  void check(Widget widget) {
+    if (widget is BookCover && widget.coverUrl?.isNotEmpty != true) {
+      ready = false;
+    }
+  }
+
+  check(context.widget);
+  context.visitAncestorElements((element) {
+    check(element.widget);
+    return element.widget is! BookCover;
+  });
+  void visit(Element element) {
+    check(element.widget);
+    if (element case StatefulElement(state: final _CoverImageState state)) {
+      loader = state;
+    }
+    element.visitChildElements(visit);
+  }
+
+  visit(context as Element);
+  // 元素查找只在点击时完成；路由创建处于build阶段，仅允许读取已捕获状态和绘制树。
+  return () {
+    final currentLoader = loader;
+    if (!context.mounted ||
+        !ready ||
+        currentLoader != null &&
+            (!currentLoader.mounted || !currentLoader._hasFrame)) {
+      return null;
+    }
+    return _coverFrame(context).image;
+  };
+}
+
+Rect? _visibleCoverBounds(
+  BuildContext context, {
+  bool allowCoveredRoute = true,
+}) {
+  if (!context.mounted) return null;
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+  RenderObject? ancestor = box;
+  while (ancestor != null) {
+    // 返回时来源路由被阅读器遮住属正常；滚出视口或业务隐藏仍不可作为目标。
+    if (ancestor is RenderOffstage &&
+            ancestor.offstage &&
+            (!allowCoveredRoute || ModalRoute.of(context)?.isCurrent == true) ||
+        ancestor is RenderOpacity && ancestor.opacity == 0) {
+      return null;
+    }
+    ancestor = ancestor.parent;
+  }
+  final rect = box.localToGlobal(Offset.zero) & box.size;
+  if (!rect.isFinite || rect.isEmpty) return null;
+  final overlay = Navigator.maybeOf(context)?.overlay?.context
+      .findRenderObject();
+  if (overlay is RenderBox && overlay.hasSize) {
+    final screen = overlay.localToGlobal(Offset.zero) & overlay.size;
+    if (!screen.overlaps(rect)) return null;
+  }
+  final viewport = context
+      .findAncestorRenderObjectOfType<RenderAbstractViewport>();
+  final viewportBox = viewport is RenderBox ? viewport as RenderBox : null;
+  if (viewportBox != null && viewportBox.hasSize) {
+    final visible = viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
+    if (!visible.overlaps(rect)) return null;
+  }
+  return rect;
+}
+
+/// 封面两端保留同一图片子树，飞行期间不重新开始加载或解密。
+class BookCoverHero extends StatefulWidget {
+  const BookCoverHero({super.key, required this.tag, required this.child});
+
+  final Object tag;
+  final Widget child;
+
+  /// 在当前路由内查找已显示封面，避免跨路由重名或全局注册表滞留来源。
+  static BookCoverOrigin? originFor(BuildContext context, String bookUrl) {
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return null;
+    final root = route.subtreeContext;
+    if (root == null) return null;
+    _BookCoverHeroState? source;
+    void visit(Element element) {
+      if (source != null) return;
+      if (element is StatefulElement) {
+        final state = element.state;
+        if (state is _BookCoverHeroState &&
+            state.widget.tag == 'book-cover:$bookUrl' &&
+            state._bounds() != null) {
+          source = state;
+          return;
+        }
+      }
+      element.visitChildElements(visit);
+    }
+
+    (root as Element).visitChildElements(visit);
+    final found = source;
+    if (found == null) return null;
+    final readImage = _coverImageReader(found._contentKey.currentContext!);
+    return BookCoverOrigin(
+      bookUrl: bookUrl,
+      bounds: found._bounds,
+      image: readImage,
+      borderRadius: _coverFrame(found._contentKey.currentContext!).radius,
+    );
+  }
+
+  @override
+  State<BookCoverHero> createState() => _BookCoverHeroState();
+}
+
+class _BookCoverHeroState extends State<BookCoverHero> {
+  final _contentKey = GlobalKey();
+
+  Rect? _bounds() {
+    final context = _contentKey.currentContext;
+    return mounted && context != null ? _visibleCoverBounds(context) : null;
+  }
+
+  @override
+  Widget build(BuildContext context) => Hero(
+    tag: widget.tag,
+    flightShuttleBuilder: coverFlightShuttleBuilder,
+    // SDK 的占位与正常内容处在不同包装层，局部 key 保留图片加载状态。
+    child: KeyedSubtree(key: _contentKey, child: widget.child),
+    placeholderBuilder: (_, size, child) => SizedBox.fromSize(
+      size: size,
+      child: Offstage(child: TickerMode(enabled: false, child: child)),
+    ),
+  );
+}
+
+/// 读取当前绘制的封面帧，不把有加载状态的 Widget 再挂到飞行层。
+({ui.Image? image, BorderRadius radius}) _coverFrame(BuildContext context) {
+  ui.Image? image;
+  BorderRadius? radius;
+  final direction = Directionality.of(context);
+  void visit(RenderObject object) {
+    if (object is RenderClipRRect && radius == null) {
+      radius = object.borderRadius.resolve(object.textDirection ?? direction);
+    }
+    if (object is RenderImage && object.image != null) {
+      image = object.image;
+    }
+    object.visitChildren(visit);
+  }
+
+  final root = context.findRenderObject();
+  if (root != null) visit(root);
+  // 网格封面的内层可能没有圆角，实际裁剪来自外层卡片。
+  if (radius == null || radius == BorderRadius.zero) {
+    final outer = context.findAncestorRenderObjectOfType<RenderClipRRect>();
+    radius =
+        outer?.borderRadius.resolve(outer.textDirection ?? direction) ?? radius;
+  }
+  return (image: image, radius: radius ?? BorderRadius.zero);
+}
+
+/// 复用出发侧已解码的图片帧，进出动画都不显示新的加载占位。
 Widget coverFlightShuttleBuilder(
   BuildContext flightContext,
   Animation<double> animation,
@@ -96,21 +308,81 @@ Widget coverFlightShuttleBuilder(
   BuildContext fromHeroContext,
   BuildContext toHeroContext,
 ) {
-  final fromHero = fromHeroContext.widget as Hero;
-  return AnimatedBuilder(
+  final from = _coverFrame(fromHeroContext);
+  final to = _coverFrame(toHeroContext);
+  return _BookCoverFlight(
+    image: from.image,
+    fromRadius: from.radius,
+    toRadius: to.radius,
     animation: animation,
-    builder: (context, child) {
-      final t = flightDirection == HeroFlightDirection.push
-          ? animation.value
-          : 1.0 - animation.value;
-      // [LAYOUT_PLAN P4] 圆角 4→12 过渡
-      final radius = 4.0 + (12.0 - 4.0) * t;
+    direction: flightDirection,
+  );
+}
+
+class _BookCoverFlight extends StatefulWidget {
+  const _BookCoverFlight({
+    required this.image,
+    required this.fromRadius,
+    required this.toRadius,
+    required this.animation,
+    required this.direction,
+  });
+
+  final ui.Image? image;
+  final BorderRadius fromRadius;
+  final BorderRadius toRadius;
+  final Animation<double> animation;
+  final HeroFlightDirection direction;
+
+  @override
+  State<_BookCoverFlight> createState() => _BookCoverFlightState();
+}
+
+class _BookCoverFlightState extends State<_BookCoverFlight> {
+  ui.Image? _image;
+
+  @override
+  void initState() {
+    super.initState();
+    // clone 只保留同一像素资源的独立引用，不复制像素或重新解码。
+    _image = widget.image?.clone();
+  }
+
+  @override
+  void didUpdateWidget(_BookCoverFlight oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.image, widget.image)) {
+      final previous = _image;
+      _image = widget.image?.clone();
+      previous?.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _image?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.animation,
+    builder: (_, child) {
+      final progress = widget.direction == HeroFlightDirection.push
+          ? widget.animation.value
+          : 1.0 - widget.animation.value;
       return ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.lerp(
+          widget.fromRadius,
+          widget.toRadius,
+          progress,
+        )!,
         child: child,
       );
     },
-    child: fromHero.child,
+    child: _image == null
+        ? Image.asset('assets/images/default_book_cover.jpg', fit: BoxFit.cover)
+        : RawImage(image: _image, fit: BoxFit.cover),
   );
 }
 
@@ -133,12 +405,12 @@ class _CoverImage extends ConsumerStatefulWidget {
   ConsumerState<_CoverImage> createState() => _CoverImageState();
 }
 
+/// 图片来源先同步选路，再交给同一个 Image 消费 Flutter 的图片缓存。— Codex + UI
 class _CoverImageState extends ConsumerState<_CoverImage> {
-  Uint8List? _decodedBytes;
-  bool _loadingDecode = false;
-  bool _useDirect = false;
-  bool _decodeFailed = false;
+  ImageProvider? _provider;
+  bool _hasFrame = false;
   int _loadGen = 0;
+  int _sourceRevision = 0;
   CoverDecodeTicket? _ticket;
 
   @override
@@ -151,7 +423,6 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
   void dispose() {
     _loadGen++;
     _ticket?.cancel();
-    _ticket = null;
     super.dispose();
   }
 
@@ -160,141 +431,114 @@ class _CoverImageState extends ConsumerState<_CoverImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.coverUrl != widget.coverUrl ||
         oldWidget.sourceOrigin != widget.sourceOrigin ||
-        oldWidget.sourceJson != widget.sourceJson) {
+        oldWidget.sourceJson != widget.sourceJson ||
+        _sourceRevision != CoverDecodeLoader.sourceRevision) {
       _ticket?.cancel();
       _ticket = null;
-      _decodedBytes = null;
-      _decodeFailed = false;
-      _useDirect = false;
       unawaited(_startLoad());
     }
   }
 
-  Future<void> _startLoad() async {
-    final gen = ++_loadGen;
+  ImageProvider? _cachedOrDirectProvider(String patched) {
     final origin = widget.sourceOrigin?.trim() ?? '';
     final url = widget.coverUrl;
+    final cached = CoverDecodeLoader.getCached(
+      origin,
+      url,
+      patchedSourceJson: patched,
+    );
+    if (cached != null) return MemoryImage(cached);
+    if (CoverDecodeLoader.needsFfiDecode(
+      coverUrl: url,
+      patchedSourceJson: patched,
+    )) {
+      return null;
+    }
+    return CachedNetworkImageProvider(
+      stripCompositeImageUrl(url),
+      cacheManager: CoverCache.instance.manager,
+      cacheKey: CoverDecodeLoader.cacheKey(
+        origin,
+        url,
+        patchedSourceJson: patched,
+      ),
+    );
+  }
 
-    // 1) 内存缓存命中：立即显示，不占并发槽
-    final cached = CoverDecodeLoader.getCached(origin, url);
-    if (cached != null) {
-      if (!mounted || gen != _loadGen) return;
-      setState(() {
-        _decodedBytes = cached;
-        _loadingDecode = false;
-        _useDirect = false;
-        _decodeFailed = false;
-      });
-      return;
+  Future<void> _startLoad() async {
+    final gen = ++_loadGen;
+    _sourceRevision = CoverDecodeLoader.sourceRevision;
+    _provider = null;
+    _hasFrame = false;
+    var patched = CoverDecodeLoader.peekPatchedSourceJson(
+      sourceJson: widget.sourceJson,
+      sourceOrigin: widget.sourceOrigin,
+    );
+    if (patched != null) {
+      _provider = _cachedOrDirectProvider(patched);
+      if (_provider != null) return;
     }
 
-    if (!mounted || gen != _loadGen) return;
-    setState(() {
-      _loadingDecode = true;
-      _decodeFailed = false;
-    });
-
     try {
-      final api = ref.read(bookApiProvider);
-      final patched = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
-        sourceJson: widget.sourceJson,
-        sourceOrigin: widget.sourceOrigin,
-      );
+      patched ??=
+          await CoverDecodeLoader.resolvePatchedSourceJson(
+            sources: ref.read(bookSourceRepositoryProvider),
+            sourceJson: widget.sourceJson,
+            sourceOrigin: widget.sourceOrigin,
+          ) ??
+          '';
       if (!mounted || gen != _loadGen) return;
-
-      if (patched == null) {
-        // 书源解析失败：尝试直连兜底
-        setState(() {
-          _loadingDecode = false;
-          _useDirect = true;
-        });
-        return;
+      var provider = _cachedOrDirectProvider(patched);
+      if (provider == null) {
+        final bytes = await CoverDecodeLoader.load(
+          images: ref.read(bookImageRepositoryProvider),
+          coverUrl: widget.coverUrl,
+          patchedSourceJson: patched,
+          originOrEmpty: widget.sourceOrigin?.trim() ?? '',
+          isCancelled: () => gen != _loadGen || !mounted,
+          onTicket: (ticket) {
+            if (!mounted || gen != _loadGen) {
+              ticket?.cancel();
+            } else {
+              _ticket = ticket;
+            }
+          },
+        );
+        if (!mounted || gen != _loadGen) return;
+        if (bytes != null) provider = MemoryImage(bytes);
       }
-
-      final needFfi = CoverDecodeLoader.needsFfiDecode(
-        coverUrl: url,
-        patchedSourceJson: patched,
-      );
-      if (!needFfi) {
-        setState(() {
-          _loadingDecode = false;
-          _useDirect = true;
-        });
-        return;
-      }
-
-      final bytes = await CoverDecodeLoader.load(
-        api: api,
-        coverUrl: url,
-        patchedSourceJson: patched,
-        originOrEmpty: origin,
-        isCancelled: () => gen != _loadGen || !mounted,
-        onTicket: (t) {
-          if (gen != _loadGen) {
-            t?.cancel();
-            return;
-          }
-          _ticket = t;
-        },
-      );
-      if (!mounted || gen != _loadGen) return;
-      if (bytes != null) {
-        setState(() {
-          _decodedBytes = bytes;
-          _loadingDecode = false;
-          _decodeFailed = false;
-        });
-      } else {
-        setState(() {
-          _loadingDecode = false;
-          _decodeFailed = true;
-        });
-      }
+      setState(() => _provider = provider);
     } catch (e) {
       debugPrint('封面加载失败: $e');
       if (!mounted || gen != _loadGen) return;
-      setState(() {
-        _loadingDecode = false;
-        _decodeFailed = true;
-      });
+      setState(() => _provider = null);
     }
-  }
-
-  int _thumbWidth(BuildContext context) {
-    final pixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
-    return (widget.width * pixelRatio).round().clamp(1, 512);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_decodedBytes != null) {
-      final thumb = _thumbWidth(context);
-      return Image.memory(
-        _decodedBytes!,
-        fit: BoxFit.cover,
-        width: widget.width,
-        cacheWidth: thumb,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) => widget.placeholder,
-      );
-    }
-    if (_loadingDecode) {
-      return widget.placeholder;
-    }
-    if (_decodeFailed) {
-      return widget.placeholder;
-    }
-    if (!_useDirect) {
-      return widget.placeholder;
-    }
-    final url = stripCompositeImageUrl(widget.coverUrl);
-    return CachedNetworkImage(
-      imageUrl: url,
+    final provider = _provider;
+    if (provider == null) return widget.placeholder;
+    final pixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
+    final thumb = (widget.width * pixelRatio).round().clamp(1, 512);
+    return Image(
+      // 只在真实来源变化时重置帧，宽度或选择态变化沿用现有图片。
+      key: ValueKey((
+        widget.coverUrl,
+        widget.sourceOrigin,
+        widget.sourceJson,
+        _sourceRevision,
+      )),
+      image: ResizeImage.resizeIfNeeded(thumb, null, provider),
       fit: BoxFit.cover,
-      memCacheWidth: _thumbWidth(context),
-      placeholder: (_, _) => widget.placeholder,
-      errorWidget: (_, _, _) => widget.placeholder,
+      width: widget.width,
+      gaplessPlayback: true,
+      frameBuilder: (_, child, frame, synchronous) {
+        // 同一来源只改变缩略尺寸时，gaplessPlayback 仍持有上一帧。
+        _hasFrame = _hasFrame || synchronous || frame != null;
+        return _hasFrame ? child : widget.placeholder;
+      },
+      errorBuilder: (_, _, _) => widget.placeholder,
     );
   }
 }

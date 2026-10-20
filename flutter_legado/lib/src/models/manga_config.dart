@@ -31,13 +31,7 @@ class MangaColorFilterConfig {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'r': r,
-        'g': g,
-        'b': b,
-        'a': a,
-        'l': l,
-      };
+  Map<String, dynamic> toJson() => {'r': r, 'g': g, 'b': b, 'a': a, 'l': l};
 
   /// 空滤镜写空串（对齐原版 toJson 全 0 返回 ""）
   String toStorage() {
@@ -64,10 +58,26 @@ class MangaColorFilterConfig {
     final bb = ((255 - b.clamp(0, 255)) / 255.0);
     final aa = ((255 - a.clamp(0, 255)) / 255.0);
     return <double>[
-      rr, 0, 0, 0, 0,
-      0, gg, 0, 0, 0,
-      0, 0, bb, 0, 0,
-      0, 0, 0, aa, 0,
+      rr,
+      0,
+      0,
+      0,
+      0,
+      0,
+      gg,
+      0,
+      0,
+      0,
+      0,
+      0,
+      bb,
+      0,
+      0,
+      0,
+      0,
+      0,
+      aa,
+      0,
     ];
   }
 }
@@ -80,6 +90,7 @@ class MangaFooterConfig {
   bool hidePageNumber;
   bool hideProgressRatioLabel;
   bool hideProgressRatio;
+
   /// 0=靠左，1=居中（对齐 ReaderInfoBarView.ALIGN_*）
   int footerOrientation;
   bool hideFooter;
@@ -115,16 +126,16 @@ class MangaFooterConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'hideChapterLabel': hideChapterLabel,
-        'hideChapter': hideChapter,
-        'hidePageNumberLabel': hidePageNumberLabel,
-        'hidePageNumber': hidePageNumber,
-        'hideProgressRatioLabel': hideProgressRatioLabel,
-        'hideProgressRatio': hideProgressRatio,
-        'footerOrientation': footerOrientation,
-        'hideFooter': hideFooter,
-        'hideChapterName': hideChapterName,
-      };
+    'hideChapterLabel': hideChapterLabel,
+    'hideChapter': hideChapter,
+    'hidePageNumberLabel': hidePageNumberLabel,
+    'hidePageNumber': hidePageNumber,
+    'hideProgressRatioLabel': hideProgressRatioLabel,
+    'hideProgressRatio': hideProgressRatio,
+    'footerOrientation': footerOrientation,
+    'hideFooter': hideFooter,
+    'hideChapterName': hideChapterName,
+  };
 
   String toStorage() => jsonEncode(toJson());
 
@@ -190,7 +201,8 @@ class MangaFooterConfig {
       final v = ((chapterIndex + 1.0) / chapterSize) * 100;
       return '${v.toStringAsFixed(1)}%';
     }
-    var v = (chapterIndex * 1.0 / chapterSize +
+    var v =
+        (chapterIndex * 1.0 / chapterSize +
             1.0 / chapterSize * (pageIndex + 1) / imageCount) *
         100;
     var text = '${v.toStringAsFixed(1)}%';
@@ -204,10 +216,26 @@ class MangaFooterConfig {
 
 /// 灰度矩阵（对齐 GrayscaleTransformation）
 const List<double> kMangaGrayscaleMatrix = <double>[
-  0.299, 0.587, 0.114, 0, 0,
-  0.299, 0.587, 0.114, 0, 0,
-  0.299, 0.587, 0.114, 0, 0,
-  0, 0, 0, 1, 0,
+  0.299,
+  0.587,
+  0.114,
+  0,
+  0,
+  0.299,
+  0.587,
+  0.114,
+  0,
+  0,
+  0.299,
+  0.587,
+  0.114,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
 ];
 
 /// PreferKey 对齐常量

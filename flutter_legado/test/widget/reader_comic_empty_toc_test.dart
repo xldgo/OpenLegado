@@ -1,12 +1,19 @@
+import '../fixtures/app_test_api.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
 /// 1x1 透明 PNG
 const _kPngBase64 =
@@ -15,6 +22,36 @@ const _kPngBase64 =
 
 /// 模拟设备实测：DB 无章节（getChapters=[]），须 refreshToc 自愈后才能出图
 class _EmptyTocThenRefreshApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    refreshToc: _readingRefreshToc,
+    fetchChapterContent: _readingFetchChapterContent,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _EmptyTocThenRefreshApi({
     required this.source,
     required this.refreshCalls,
@@ -25,27 +62,27 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
   final List<String> refreshCalls;
   final List<String> decodeCalls;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [source];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: bookUrl,
-        name: '51测试',
-        author: '',
-        origin: source.bookSourceUrl,
-        originName: source.bookSourceName,
-        canUpdate: true,
-        totalChapterNum: 0,
-        bookType: BookType.image | BookType.notShelf,
-      );
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
+    bookUrl: bookUrl,
+    tocUrl: bookUrl,
+    name: '51测试',
+    author: '',
+    origin: source.bookSourceUrl,
+    originName: source.bookSourceName,
+    canUpdate: true,
+    totalChapterNum: 0,
+    bookType: BookType.image | BookType.notShelf,
+  );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => const [];
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
+      const [];
 
-  @override
-  Future<List<BookChapter>> refreshToc(String bookUrl, String sourceUrl) async {
+  Future<List<BookChapter>> _readingRefreshToc(
+    String bookUrl,
+    String sourceUrl,
+  ) async {
     refreshCalls.add('$bookUrl|$sourceUrl');
     return [
       BookChapter(
@@ -56,8 +93,7 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
     ];
   }
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -65,8 +101,7 @@ class _EmptyTocThenRefreshApi extends MockBookApi {
     return '<img src="https://pic.example.com/a.jpeg">';
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     // 确保 sourceJson 含 imageDecode（对齐真实书源序列化）
     expect(sourceJson, contains('imageDecode'));
@@ -98,7 +133,7 @@ void main() {
       decodeCalls: decodeCalls,
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -112,8 +147,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(refreshCalls, isNotEmpty,
-        reason: '章节为空时必须 refreshToc（对齐 reader_notifier）');
+    expect(
+      refreshCalls,
+      isNotEmpty,
+      reason: '章节为空时必须 refreshToc（对齐 reader_notifier）',
+    );
     expect(refreshCalls.first, contains('https://51acgs.com'));
     expect(find.text('暂无章节'), findsNothing);
     expect(decodeCalls, isNotEmpty);

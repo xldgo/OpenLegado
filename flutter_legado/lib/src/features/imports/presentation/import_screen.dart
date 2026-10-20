@@ -1,0 +1,703 @@
+import '../../../app/routing/app_navigation.dart';
+import '../../../data/services/file_directory_service.dart';
+import '../../../providers/book_content_provider.dart';
+
+import 'dart:io';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/legado_app_bar.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+import 'package:path_provider/path_provider.dart';
+
+import '../../../l10n/app_strings.dart';
+import '../../bookshelf/bookshelf.dart';
+import '../../../app/routing/route_names.dart';
+import '../../../widgets/empty_state.dart';
+import '../../../widgets/loading_indicator.dart';
+import '../../../utils/error_message.dart';
+import 'archive_import_dialog.dart';
+
+/// 支持的导入格式（azw3/azw 为 KF8 MOBI，Rust LocalBook 已支持；
+/// [cbz 批 C | 2026-10-03] cbz 图片漫画包：Rust 侧整本导入
+/// bookType=LOCAL|image(0x1040)，不按压缩包解压，故列此处而非 [_archiveFormats]）
+///
+/// [cbz P1-1 | 2026-10-03] 本表与书架「添加本地」file_picker 白名单
+/// （bookshelf_screen.dart::_addLocalBook 的 allowedExtensions）
+/// **同序同集合**，两处需同步维护。
+const _supportedFormats = [
+  'epub',
+  'txt',
+  'mobi',
+  'azw3',
+  'azw',
+  'pdf',
+  'umd',
+  'cbz',
+];
+
+/// 支持的压缩包格式（cbz 漫画包不在此列：走整本导入而非解压路径）
+const _archiveFormats = ['zip', 'rar', '7z'];
+
+/// 所有可浏览格式（书籍 + 压缩包）
+const _allBrowsableFormats = [..._supportedFormats, ..._archiveFormats];
+
+/// 单个文件的导入结果
+class _ImportOutcome {
+  final String name;
+  final bool success;
+  final bool skipped;
+  final String? error;
+
+  const _ImportOutcome({
+    required this.name,
+    required this.success,
+    this.skipped = false,
+    this.error,
+  });
+}
+
+/// 本地书籍导入页面 — 文件浏览器模式
+///
+/// 提供目录导航、格式过滤、批量选择、导入进度与结果统计。
+class ImportScreen extends ConsumerStatefulWidget {
+  const ImportScreen({super.key});
+
+  @override
+  ConsumerState<ImportScreen> createState() => _ImportScreenState();
+}
+
+class _ImportScreenState extends ConsumerState<ImportScreen> {
+  /// 可选的存储根目录（Android 可能有多个）
+  List<Directory> _roots = [];
+
+  Directory? _currentDir;
+  List<Directory> _dirs = [];
+  List<FileEntrySnapshot> _files = [];
+  int _directoryGeneration = 0;
+  bool _loading = true;
+  String? _error;
+
+  /// 启用的格式过滤集合
+  final Set<String> _activeFormats = {..._allBrowsableFormats};
+
+  /// 已选中的文件路径
+  final Set<String> _selected = {};
+
+  /// 导入状态
+  bool _importing = false;
+  int _importDone = 0;
+  int _importTotal = 0;
+  final List<_ImportOutcome> _outcomes = [];
+  bool _showResult = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initRoots();
+  }
+
+  Future<void> _initRoots() async {
+    try {
+      final roots = <Directory>[];
+      final docs = await getApplicationDocumentsDirectory();
+      roots.add(docs);
+      // Android 外置存储（可能为 null）
+      final external = await getExternalStorageDirectory();
+      if (external != null && external.path != docs.path) {
+        roots.add(external);
+      }
+      if (!mounted) return;
+      setState(() => _roots = roots);
+      if (roots.length == 1) {
+        await _enterDir(roots.first);
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = errorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _enterDir(Directory dir) async {
+    final generation = ++_directoryGeneration;
+    setState(() {
+      _currentDir = dir;
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final dirs = <Directory>[];
+      final files = <FileEntrySnapshot>[];
+      final entries = await ref.read(fileDirectoryServiceProvider).load(dir);
+      for (final entity in entries) {
+        if (entity.isDirectory) {
+          final name = Directory(entity.path).uri.pathSegments
+              .where((s) => s.isNotEmpty)
+              .lastOrNull;
+          // 跳过隐藏目录
+          if (name != null && !name.startsWith('.')) {
+            dirs.add(Directory(entity.path));
+          }
+        } else if (entity.type == FileSystemEntityType.file) {
+          final ext = _extOf(entity.path);
+          if (_allBrowsableFormats.contains(ext)) {
+            files.add(entity);
+          }
+        }
+      }
+      dirs.sort((a, b) => _displayName(a.path).compareTo(_displayName(b.path)));
+      files.sort(
+        (a, b) => _displayName(a.path).compareTo(_displayName(b.path)),
+      );
+      if (!mounted || generation != _directoryGeneration) return;
+      setState(() {
+        _dirs = dirs;
+        _files = files;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted || generation != _directoryGeneration) return;
+      setState(() {
+        _error = errorMessage(e);
+        _loading = false;
+      });
+    }
+  }
+
+  String _extOf(String path) {
+    final i = path.lastIndexOf('.');
+    if (i < 0 || i == path.length - 1) return '';
+    return path.substring(i + 1).toLowerCase();
+  }
+
+  String _displayName(String path) {
+    final segments = path.split(Platform.pathSeparator);
+    return segments.where((s) => s.isNotEmpty).lastOrNull ?? path;
+  }
+
+  /// 当前过滤条件下可见的文件
+  List<FileEntrySnapshot> get _visibleFiles =>
+      _activeFormats.length == _allBrowsableFormats.length
+      ? _files
+      : _files.where((f) => _activeFormats.contains(_extOf(f.path))).toList();
+
+  bool get _allVisibleSelected {
+    final visible = _visibleFiles;
+    return visible.isNotEmpty &&
+        visible.every((f) => _selected.contains(f.path));
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_allVisibleSelected) {
+        for (final f in _visibleFiles) {
+          _selected.remove(f.path);
+        }
+      } else {
+        for (final f in _visibleFiles) {
+          _selected.add(f.path);
+        }
+      }
+    });
+  }
+
+  void _goUp() {
+    final current = _currentDir;
+    if (current == null) return;
+    final parent = current.parent;
+    // 已到达某个根目录，返回根选择
+    if (_roots.any((r) => r.path == current.path)) {
+      if (_roots.length > 1) {
+        _directoryGeneration++;
+        setState(() {
+          _currentDir = null;
+          _loading = false;
+        });
+      }
+      return;
+    }
+    _enterDir(parent);
+  }
+
+  /// 判断文件是否已在书架（视为跳过）
+  bool _isAlreadyImported(String path, BookshelfState state) {
+    return state.books.any((b) => b.bookUrl == path || b.originName == path);
+  }
+
+  Future<void> _startImport() async {
+    if (_selected.isEmpty || _importing) return;
+    final notifier = ref.read(bookshelfNotifierProvider.notifier);
+    final paths = _selected.toList()..sort();
+
+    setState(() {
+      _importing = true;
+      _importDone = 0;
+      _importTotal = paths.length;
+      _outcomes.clear();
+      _showResult = false;
+    });
+
+    for (final path in paths) {
+      final name = _displayName(path);
+      // 逐次读取最新书架状态（导入会增量更新 state.books）
+      if (_isAlreadyImported(path, ref.read(bookshelfNotifierProvider))) {
+        _outcomes.add(
+          _ImportOutcome(name: name, success: false, skipped: true),
+        );
+      } else {
+        try {
+          await notifier.importLocalBook(path);
+          _outcomes.add(_ImportOutcome(name: name, success: true));
+        } catch (e) {
+          _outcomes.add(
+            _ImportOutcome(name: name, success: false, error: errorMessage(e)),
+          );
+        }
+      }
+      if (mounted) {
+        setState(() => _importDone++);
+      }
+    }
+
+    // 刷新书架确保与后端一致
+    await notifier.refresh();
+
+    if (mounted) {
+      setState(() {
+        _importing = false;
+        _showResult = true;
+        _selected.clear();
+      });
+    }
+  }
+
+  int get _successCount => _outcomes.where((o) => o.success).length;
+  int get _failCount => _outcomes.where((o) => !o.success && !o.skipped).length;
+  int get _skipCount => _outcomes.where((o) => o.skipped).length;
+
+  @override
+  Widget build(BuildContext context) {
+    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+    return AppScaffold(
+      topBar: _buildAppBar(),
+      body: Column(
+        children: [
+          _buildFormatFilter(),
+          if (_currentDir != null) _buildBreadcrumb(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+      bottomBar: _buildBottomBar(),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return LegadoAppBar(
+      title: Text(AppStrings.addLocalBook),
+      leading: _currentDir == null
+          ? null
+          : IconButton(
+              icon: const Icon(Symbols.arrow_upward_rounded),
+              onPressed: _goUp,
+            ),
+      actions: [
+        // 远程书籍导入入口（对标原版 RemoteBookActivity）
+        IconButton(
+          icon: const Icon(Symbols.link_rounded),
+          tooltip: '远程导入',
+          onPressed: () =>
+              GoRouter.of(context).pushAppRoute(AppRoutes.remoteBooks),
+        ),
+        if (_currentDir != null)
+          IconButton(
+            icon: Icon(
+              _allVisibleSelected
+                  ? Symbols.check_box_rounded
+                  : Symbols.check_box_outline_blank_rounded,
+            ),
+            tooltip: '全选',
+            onPressed: _visibleFiles.isEmpty ? null : _toggleSelectAll,
+          ),
+      ],
+    );
+  }
+
+  /// 格式过滤条
+  Widget _buildFormatFilter() {
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        // [LAYOUT_PLAN P3] 页面水平边距统一 16dp（全局标尺）
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          for (final fmt in _allBrowsableFormats)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text('.${fmt.toUpperCase()}'),
+                selected: _activeFormats.contains(fmt),
+                onSelected: (on) {
+                  setState(() {
+                    if (on) {
+                      _activeFormats.add(fmt);
+                    } else {
+                      _activeFormats.remove(fmt);
+                    }
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 当前路径面包屑
+  Widget _buildBreadcrumb() {
+    return Container(
+      width: double.infinity,
+      // [LAYOUT_PLAN P3] 页面水平边距统一 16dp（全局标尺）
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest
+          .withValues(alpha: 0.5),
+      child: Row(
+        children: [
+          Icon(
+            Symbols.folder_open_rounded,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              _currentDir!.path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const LoadingIndicator(message: '扫描文件...');
+    }
+    if (_error != null) {
+      return EmptyState(
+        icon: Symbols.error_rounded,
+        title: AppStrings.error,
+        subtitle: _error,
+        action: FilledButton(
+          onPressed: () =>
+              _currentDir == null ? _initRoots() : _enterDir(_currentDir!),
+          child: Text(AppStrings.retry),
+        ),
+      );
+    }
+    // 根目录选择
+    if (_currentDir == null) {
+      return _buildRootPicker();
+    }
+    if (_dirs.isEmpty && _visibleFiles.isEmpty) {
+      return EmptyState(
+        icon: Symbols.folder_off_rounded,
+        title: '当前目录没有可导入的书籍',
+        subtitle: '切换格式过滤或返回上级目录',
+      );
+    }
+    return ListView(
+      // [LAYOUT_PLAN P3] 页面水平边距统一 16dp；纵向留白 8dp（全局标尺，对齐导入确认页）
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      children: [
+        for (final dir in _dirs) _buildDirTile(dir),
+        for (final file in _visibleFiles) _buildFileTile(file),
+      ],
+    );
+  }
+
+  Widget _buildRootPicker() {
+    return ListView(
+      // [LAYOUT_PLAN P3] 页面水平边距统一 16dp（全局标尺）
+      padding: const EdgeInsets.all(16),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text('选择存储目录', style: Theme.of(context).textTheme.titleSmall),
+        ),
+        for (final root in _roots)
+          Card(
+            // [LAYOUT_PLAN P3] 分组卡圆角 16dp（全局标尺）
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ListTile(
+              // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 12,
+              ),
+              leading: const Icon(Symbols.storage_rounded),
+              title: Text(_displayName(root.path)),
+              subtitle: Text(
+                root.path,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => _enterDir(root),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDirTile(Directory dir) {
+    return ListTile(
+      // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 保证页面水平边距 16dp）
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      leading: Icon(
+        Symbols.folder_rounded,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      title: Text(_displayName(dir.path)),
+      onTap: () => _enterDir(dir),
+    );
+  }
+
+  Widget _buildFileTile(FileEntrySnapshot file) {
+    final path = file.path;
+    final size = file.size;
+    final ext = _extOf(path);
+    final isArchive = _archiveFormats.contains(ext);
+    // 压缩包文件：点击直接打开压缩包导入对话框，不用 Checkbox 选择
+    if (isArchive) {
+      return ListTile(
+        // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        leading: Icon(
+          Symbols.folder_zip_rounded,
+          color: Theme.of(context).colorScheme.secondary,
+        ),
+        title: Text(
+          _displayName(path),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        subtitle: Text(
+          '${ext.toUpperCase()} · ${_formatSize(size)}',
+          // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        onTap: () => _openArchiveImport(path),
+      );
+    }
+    // 普通书籍文件：原有 Checkbox 多选逻辑
+    final selected = _selected.contains(path);
+    return ListTile(
+      // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8（外层 ListView 纵向留白 8dp）
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      leading: Checkbox(value: selected, onChanged: (_) => _toggleFile(path)),
+      title: Text(
+        _displayName(path),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        // [LAYOUT_PLAN P3] 列表行标题走 titleSmall
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          color: selected ? Theme.of(context).colorScheme.primary : null,
+        ),
+      ),
+      subtitle: Text(
+        '${ext.toUpperCase()} · ${_formatSize(size)}',
+        // [LAYOUT_PLAN P3] 元信息走 labelSmall + onSurfaceVariant
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+      trailing: Icon(_iconForFormat(ext), size: 20),
+      onTap: () => _toggleFile(path),
+    );
+  }
+
+  /// 打开压缩包导入对话框
+  ///
+  /// 先通过 FFI 确认文件是压缩包格式，然后弹出 ArchiveImportDialog。
+  Future<void> _openArchiveImport(String path) async {
+    // 经 BookArchiveService（Riverpod 注入层）确认是否为压缩包
+    try {
+      final isArchive = await ref
+          .read(bookArchiveServiceProvider)
+          .archiveIsArchive(filePath: path);
+      if (!isArchive) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('该文件不是有效的压缩包格式')));
+        }
+        return;
+      }
+    } catch (_) {
+      // FFI 调用失败时仍然尝试打开（可能是扩展名匹配但 FFI 未初始化）
+    }
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => ArchiveImportDialog(archivePath: path),
+    );
+  }
+
+  void _toggleFile(String path) {
+    setState(() {
+      if (_selected.contains(path)) {
+        _selected.remove(path);
+      } else {
+        _selected.add(path);
+      }
+    });
+  }
+
+  IconData _iconForFormat(String ext) {
+    switch (ext) {
+      case 'epub':
+        return Symbols.menu_book_rounded;
+      case 'txt':
+        return Symbols.description_rounded;
+      case 'pdf':
+        return Symbols.picture_as_pdf_rounded;
+      case 'mobi':
+      case 'azw3':
+        return Symbols.auto_stories_rounded;
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return Symbols.folder_zip_rounded;
+      default:
+        return Symbols.insert_drive_file_rounded;
+    }
+  }
+
+  String _formatSize(int? bytes) {
+    if (bytes == null) return '大小未知';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Widget _buildBottomBar() {
+    if (_showResult) return _buildResultBar();
+    if (_importing) return _buildProgressBar();
+    return _buildActionBar();
+  }
+
+  Widget _buildActionBar() {
+    final count = _selected.length;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        // [LAYOUT_PLAN P3] 底部操作区水平边距 16dp（全局标尺）
+        padding: const EdgeInsets.all(16),
+        child: FilledButton.icon(
+          onPressed: count == 0 ? null : _startImport,
+          icon: const Icon(Symbols.download_rounded),
+          label: Text(count == 0 ? '未选择书籍' : '放入书架 ($count)'),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    final progress = _importTotal == 0 ? 0.0 : _importDone / _importTotal;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('正在导入 $_importDone / $_importTotal ...'),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: progress),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _resultStat('成功', '$_successCount', colorScheme.primary),
+                _resultStat('失败', '$_failCount', colorScheme.error),
+                _resultStat('跳过', '$_skipCount', colorScheme.onSurfaceVariant),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_failCount > 0)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 96),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final o in _outcomes.where(
+                      (o) => !o.success && !o.skipped,
+                    ))
+                      Text(
+                        '× ${o.name}',
+                        style: TextStyle(
+                          color: colorScheme.error,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () => setState(() => _showResult = false),
+              child: const Text('完成'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _resultStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(color: color, fontWeight: FontWeight.bold),
+        ),
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ],
+    );
+  }
+}

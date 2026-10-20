@@ -21,7 +21,7 @@ class CoverPaletteService {
     } else {
       // 本地文件路径（import_local_book 落库约定）
       final file = File(url);
-      if (file.existsSync()) provider = FileImage(file);
+      if (await file.exists()) provider = FileImage(file);
     }
     if (provider == null) return null;
     try {

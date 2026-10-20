@@ -3,6 +3,7 @@
 from collections import Counter
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -13,19 +14,49 @@ from .common import ToolError, output_directory, run_command, sha256_file
 from .ffi_metadata import verify_android
 from .policy import load_policy, select_target
 from .android_toolchain import discover_ndk
-from .toolchains import flutter_command, property_value
+from .toolchains import find_tool, flutter_command, property_value
 
 
 PACKAGE = "io.legado.flutter_legado"
 ACTIVITY = "io.legado.flutter.MainActivity"
 
 
+def verify_apk_signature(root: Path, apk: Path, expected: str):
+    """使用SDK自带apksigner检查最终APK签名与发行证书，不改写包。"""
+    wanted = expected.strip().replace(":", "").lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", wanted):
+        raise ToolError("发行证书SHA-256指纹必须为64位十六进制，可包含冒号分隔。")
+    env = os.environ.copy()
+    sdk = env.get("ANDROID_SDK_ROOT") or env.get("ANDROID_HOME")
+    local = root / "flutter_legado/android/local.properties"
+    if not sdk and local.is_file():
+        sdk = property_value(local, "sdk.dir")
+    if not sdk:
+        raise ToolError("找不到Android SDK，请设置ANDROID_SDK_ROOT或android/local.properties。")
+    tools = Path(sdk) / "build-tools"
+    jars = [(tuple(map(int, directory.name.split("."))), directory / "lib/apksigner.jar")
+            for directory in tools.iterdir() if re.fullmatch(r"\d+\.\d+\.\d+", directory.name)
+            and (directory / "lib/apksigner.jar").is_file()] if tools.is_dir() else []
+    if not jars:
+        raise ToolError("Android SDK缺少Build Tools/apksigner.jar。")
+    # 直接执行JAR，避免Windows批处理与Shell参数转义差异。
+    output = run_command([find_tool("java", env), "-jar", max(jars)[1], "verify", "--print-certs", apk],
+                         root, env, capture=True)
+    certificates = re.findall(r"^Signer #\d+ certificate SHA-256 digest:\s*([0-9a-fA-F:]+)\s*$",
+                              output, re.MULTILINE)
+    if len(certificates) != 1 or certificates[0].replace(":", "").lower() != wanted:
+        raise ToolError(f"{apk.name}：APK签名证书与预期发行证书不匹配。")
+
+
 def verify_android_apk(root: Path, apk: Path, profile: str, abis: tuple[str, ...],
-                       ndk_path: Path | None = None, cargo_target_dir: Path | None = None):
+                       ndk_path: Path | None = None, cargo_target_dir: Path | None = None,
+                       signing_cert_sha256: str | None = None):
     """只读检查 APK；strip 仅作用于临时副本，接受 Gradle 合法去符号。"""
     verify_android(root, profile, abis, cargo_target_dir)
     if not apk.is_file() or apk.stat().st_size == 0:
         raise ToolError(f"APK 不存在或为空：{apk}")
+    if signing_cert_sha256 is not None:
+        verify_apk_signature(root, apk, signing_cert_sha256)
     env = os.environ.copy()
     policy = load_policy(root)
     ndk = discover_ndk(root, policy, env, ndk_path)
@@ -62,7 +93,8 @@ def verify_android_apk(root: Path, apk: Path, profile: str, abis: tuple[str, ...
 
 
 def collect_android_apks(root: Path, profile: str, abis: tuple[str, ...], output_dir: Path,
-                         ndk_path: Path | None = None, cargo_target_dir: Path | None = None) -> list[Path]:
+                         ndk_path: Path | None = None, cargo_target_dir: Path | None = None,
+                         signing_cert_sha256: str | None = None) -> list[Path]:
     """收集已构建的分 ABI APK；全部校验及临时复制成功后才发布，不构建或安装。"""
     if not abis or len(abis) != len(set(abis)):
         raise ToolError("收集 APK 必须指定非空且不重复的 ABI 列表。")
@@ -91,7 +123,7 @@ def collect_android_apks(root: Path, profile: str, abis: tuple[str, ...], output
         if not apk.is_file() or apk.stat().st_size == 0:
             raise ToolError(f"APK 不存在或为空：{apk}")
         before = sha256_file(apk)
-        verify_android_apk(root, apk, profile, (abi,), ndk_path, cargo_dir)
+        verify_android_apk(root, apk, profile, (abi,), ndk_path, cargo_dir, signing_cert_sha256)
         if sha256_file(apk) != before:
             raise ToolError(f"{apk.name}：APK 在校验期间改变，拒绝收集。")
         digests.append(before)

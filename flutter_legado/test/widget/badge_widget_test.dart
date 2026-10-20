@@ -1,13 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/badge_widget.dart';
 
 void main() {
-  Widget buildTestWidget({
-    int count = 0,
-    Color? color,
-    bool showZero = false,
-  }) {
+  Widget buildTestWidget({int count = 0, Color? color, bool showZero = false}) {
     return MaterialApp(
       home: Scaffold(
         body: Center(
@@ -35,15 +31,17 @@ void main() {
     expect(find.text('5'), findsOneWidget);
   });
 
-  testWidgets('BadgeWidget hides badge when count is 0 and showZero false',
-      (tester) async {
+  testWidgets('BadgeWidget hides badge when count is 0 and showZero false', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(count: 0, showZero: false));
 
     expect(find.text('0'), findsNothing);
   });
 
-  testWidgets('BadgeWidget shows badge when count is 0 and showZero true',
-      (tester) async {
+  testWidgets('BadgeWidget shows badge when count is 0 and showZero true', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(count: 0, showZero: true));
 
     expect(find.text('0'), findsOneWidget);

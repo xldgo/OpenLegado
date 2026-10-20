@@ -1,229 +1,384 @@
-//! 对称加密 JS 对象桥（对齐 Android `JsEncodeUtils.createSymmetricCrypto`）
-//!
-//! 原版返回 hutool `SymmetricCrypto` 实例，书源以链式调用：
-//! ```js
-//! const cipher = java.createSymmetricCrypto("AES/CBC/NoPadding", key, iv);
-//! return cipher.decrypt(result); // Uint8Array → Uint8Array（漫画 imageDecode）
-//! java.aesBase64DecodeToString(b64, key, "AES/CBC/PKCS5Padding", iv);
-//! ```
-//!
-//! 重构版此前 `createSymmetricCrypto` 只返回 `"AES/CBC"` 字符串，
-//! `.decrypt` 恒失败 → 密文原样进 Image.memory → Invalid image data。
-//! — Reasonix + Rust
-
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use base64::engine::general_purpose::STANDARD as B64;
-use base64::Engine as _;
-use rquickjs::function::Opt;
-use rquickjs::{Ctx, Function, Object, Result as JsResult, TypedArray, Value};
-
+//! 对称加密对象与原生Cipher共用字节计算；脚本对象不参与Rust状态的引用计数。
+//! — Codex + Bridge
+use super::{coerce::RhinoInt, encoding};
+use crate::quickjs_bytes::{ByteArray, TextArg};
+use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use legado_core::crypto::{self, parse_transformation};
+use rquickjs::{
+    Ctx, FromJs, Function, Object, Result as JsResult, TypedArray, Value,
+    function::{Opt, This},
+};
+use std::{cell::RefCell, rc::Rc};
 
 fn js_err(msg: impl Into<String>) -> rquickjs::Error {
-    rquickjs::Error::FromJs {
-        from: "String",
-        to: "SymmetricCrypto",
-        message: Some(msg.into()),
+    rquickjs::Error::new_from_js_message("value", "SymmetricCrypto", msg.into())
+}
+fn random_bytes(length: usize) -> Result<Vec<u8>, String> {
+    use rand_core::RngCore;
+    let mut bytes = vec![0; length];
+    rand_core::OsRng
+        .try_fill_bytes(&mut bytes)
+        .map_err(|e| format!("安全随机数失败: {e}"))?;
+    Ok(bytes)
+}
+fn key_size(transformation: &str) -> Result<usize, String> {
+    let (algo, _, _) = parse_transformation(transformation)?;
+    match algo.as_str() {
+        "AES" | "RC4" => Ok(16),
+        "DES" => Ok(8),
+        "DESEDE" => Ok(24),
+        _ => Err(format!("Unsupported algorithm: {algo}")),
     }
 }
 
-/// 宽松 Base64 解码（去空白、补齐 padding）
-fn b64_decode_lenient(s: &str) -> Result<Vec<u8>, String> {
-    let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-    if cleaned.is_empty() {
-        return Err("Empty Base64 data".to_string());
+/// 仅对象式上游适配执行密钥截断，原生Cipher仍校验原始长度。
+fn normalize_key(transformation: &str, mut key: Vec<u8>) -> Result<Vec<u8>, String> {
+    match parse_transformation(transformation)?.0.as_str() {
+        "DES" if key.len() > 8 => key.truncate(8),
+        "DESEDE" if key.len() > 24 => key.truncate(24),
+        _ => {}
     }
-    let pad = (4 - cleaned.len() % 4) % 4;
-    let padded = format!("{}{}", cleaned, "=".repeat(pad));
-    B64.decode(&padded)
-        .map_err(|e| format!("Invalid Base64 data: {e}"))
+    Ok(key)
 }
-
-/// JS 值 → 密钥/IV 字节：String 按 UTF-8；Uint8Array 取原始字节
-fn value_to_key_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
-    if let Some(s) = v.as_string() {
-        return Ok(s.to_string()?.into_bytes());
+fn value_to_bytes<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> JsResult<Vec<u8>> {
+    if value.is_string() {
+        return Ok(String::from_js(ctx, value)?.into_bytes());
     }
-    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
+    Ok(ByteArray::from_js(ctx, value)?.0)
+}
+fn cipher_bytes<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> JsResult<Vec<u8>> {
+    if value.is_string() {
+        let text = String::from_js(ctx, value)?;
+        if text.len().is_multiple_of(2) && text.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return hex::decode(text).map_err(|e| js_err(e.to_string()));
         }
+        return super::base64_codec::decode_hutool(&text).map_err(js_err);
     }
-    Err(js_err(
-        "key/iv must be String or Uint8Array (对齐 Android ByteArray/String 重载)",
-    ))
+    Ok(ByteArray::from_js(ctx, value)?.0)
+}
+fn plain_bytes<'js>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+    charset: Opt<Value<'js>>,
+) -> JsResult<Vec<u8>> {
+    if value.is_string() {
+        let text = String::from_js(ctx, value)?;
+        let charset = match charset.0 {
+            None => None,
+            Some(v) if v.is_null() => None,
+            Some(v) => Some(TextArg::from_js(ctx, v)?.0),
+        };
+        return encoding::str_to_bytes(&text, charset.as_deref()).map_err(js_err);
+    }
+    Ok(ByteArray::from_js(ctx, value)?.0)
 }
 
-/// JS 密文 → 字节：Uint8Array 原样；String 按 Base64 解码（对齐 hutool decrypt(String)）
-fn value_to_cipher_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
-    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
+/// 参数对象直接使用原生回调，避免启动时额外编译成组JS方法。
+pub(super) fn parameter_spec<'js>(
+    ctx: Ctx<'js>,
+    bytes: Vec<u8>,
+    algorithm: Option<String>,
+) -> JsResult<Object<'js>> {
+    use rquickjs::object::Accessor;
+    if let Some(name) = &algorithm
+        && (name.is_empty() || bytes.is_empty())
+    {
+        return Err(js_err("密钥或算法不能为空"));
     }
-    if let Some(s) = v.as_string() {
-        return b64_decode_lenient(&s.to_string()?).map_err(js_err);
+    let key = algorithm.is_some();
+    let bytes = Rc::new(bytes);
+    let obj = Object::new(ctx.clone())?;
+    let copy = bytes.clone();
+    obj.prop(
+        if key { "key" } else { "iv" },
+        Accessor::from(move |ctx: Ctx<'js>| TypedArray::new(ctx, copy.as_ref().clone())),
+    )?;
+    obj.set(
+        if key { "getEncoded" } else { "getIV" },
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>| {
+            TypedArray::new(ctx, bytes.as_ref().clone())
+        })?,
+    )?;
+    if let Some(name) = algorithm {
+        obj.prop("algo", name.clone())?;
+        obj.set("getAlgorithm", Function::new(ctx, move || name.clone())?)?;
     }
-    Err(js_err("decrypt input must be String(Base64) or Uint8Array"))
+    Ok(obj)
 }
 
-/// JS 明文 → 字节：String UTF-8；Uint8Array 原样
-fn value_to_plain_bytes<'js>(v: &Value<'js>) -> JsResult<Vec<u8>> {
-    if let Some(s) = v.as_string() {
-        return Ok(s.to_string()?.into_bytes());
-    }
-    if let Ok(arr) = TypedArray::<u8>::from_value(v.clone()) {
-        if let Some(bytes) = arr.as_bytes() {
-            return Ok(bytes.to_vec());
-        }
-    }
-    Err(js_err("encrypt input must be String or Uint8Array"))
-}
-
-/// 对称加密状态（对齐 hutool SymmetricCrypto 持有 key/iv/transformation）
 struct SymState {
     transformation: String,
     key: Vec<u8>,
     iv: Option<Vec<u8>>,
 }
-
 impl SymState {
     fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, String> {
         crypto::symmetric_decrypt(&self.transformation, &self.key, self.iv.as_deref(), data)
             .map_err(|e| e.to_string())
     }
-
     fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, String> {
-        crypto::symmetric_encrypt(&self.transformation, &self.key, self.iv.as_deref(), data)
-            .map_err(|e| e.to_string())
+        let (_, mode, _) = parse_transformation(&self.transformation)?;
+        let generated = if mode == "CBC" && self.iv.is_none() {
+            Some(random_bytes(if key_size(&self.transformation)? == 16 {
+                16
+            } else {
+                8
+            })?)
+        } else {
+            None
+        };
+        crypto::symmetric_encrypt(
+            &self.transformation,
+            &self.key,
+            self.iv.as_deref().or(generated.as_deref()),
+            data,
+        )
+        .map_err(|e| e.to_string())
     }
 }
 
-/// 构建 createSymmetricCrypto 返回对象
-///
-/// 方法对齐 hutool：`decrypt` / `decryptStr` / `encrypt` / `encryptBase64` / `encryptHex` / `setIv`
+/// 工厂的String/ByteArray重载统一到自有字节；null密钥按参考版安全随机生成。
+pub(super) fn create<'js>(
+    ctx: Ctx<'js>,
+    transformation: &str,
+    key: Value<'js>,
+    iv: Opt<Value<'js>>,
+) -> JsResult<Object<'js>> {
+    let size = key_size(transformation).map_err(js_err)?;
+    let key = if key.is_null() {
+        random_bytes(size).map_err(js_err)?
+    } else {
+        value_to_bytes(&ctx, key)?
+    };
+    let key = normalize_key(transformation, key).map_err(js_err)?;
+    let (_, mode, _) = parse_transformation(transformation).map_err(js_err)?;
+    let iv = match iv.0 {
+        None => None,
+        Some(v) if v.is_null() || v.is_undefined() => None,
+        Some(v) => Some(value_to_bytes(&ctx, v)?),
+    };
+    let iv = iv.filter(|v| !v.is_empty() && mode != "ECB");
+    crypto::validate_symmetric_parameters(transformation, &key, iv.as_deref())
+        .map_err(|e| js_err(e.to_string()))?;
+    build_symmetric_crypto_object(ctx, transformation, &key, iv.as_deref())
+}
+
 pub fn build_symmetric_crypto_object<'js>(
     ctx: Ctx<'js>,
     transformation: &str,
     key: &[u8],
     iv: Option<&[u8]>,
 ) -> JsResult<Object<'js>> {
-    // 预先校验 transformation，失败尽早报错（避免书源侧 cipher.decrypt 才炸）
-    let (algo, mode, _padding) = parse_transformation(transformation).map_err(js_err)?;
-    match algo.as_str() {
-        "AES" if mode == "CBC" || mode == "ECB" || mode == "NONE" => {}
-        "DES" | "RC4" => {}
-        // 3DES（#135 阅文 QDSign 解密：DESede/CBC/PKCS5Padding 16 字节密钥）
-        "DESEDE" if mode == "CBC" || mode == "ECB" => {}
-        _ => {
-            return Err(js_err(format!(
-                "Unsupported algorithm: {algo} (supported: AES/DES/DESEDE/RC4)"
-            )));
-        }
-    }
-
+    crypto::validate_symmetric_parameters(transformation, key, iv)
+        .map_err(|e| js_err(e.to_string()))?;
     let state = Rc::new(RefCell::new(SymState {
-        transformation: transformation.to_string(),
+        transformation: transformation.into(),
         key: key.to_vec(),
-        iv: iv.map(|v| v.to_vec()),
+        iv: iv.map(<[u8]>::to_vec),
     }));
-
     let obj = Object::new(ctx.clone())?;
-
-    // decrypt(data) -> Uint8Array（对齐 hutool decrypt → byte[]）
-    {
-        let st = Rc::clone(&state);
-        let f = Function::new(
+    let st = state.clone();
+    obj.set(
+        "decrypt",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, data: Value<'js>| {
+            let bytes = cipher_bytes(&ctx, data)?;
+            TypedArray::new(ctx, st.borrow().decrypt(&bytes).map_err(js_err)?)
+        })?,
+    )?;
+    let st = state.clone();
+    obj.set(
+        "decryptStr",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, data: Value<'js>| {
+            let bytes = cipher_bytes(&ctx, data)?;
+            encoding::bytes_to_str(&st.borrow().decrypt(&bytes).map_err(js_err)?, None)
+                .map_err(js_err)
+        })?,
+    )?;
+    let st = state.clone();
+    obj.set(
+        "encrypt",
+        Function::new(
             ctx.clone(),
-            move |ctx: Ctx<'js>, data: Value<'js>| -> JsResult<TypedArray<'js, u8>> {
-                let bytes = value_to_cipher_bytes(&data)?;
-                let pt = st.borrow().decrypt(&bytes).map_err(js_err)?;
-                TypedArray::new(ctx, pt)
+            move |ctx: Ctx<'js>, data: Value<'js>, charset: Opt<Value<'js>>| {
+                let bytes = plain_bytes(&ctx, data, charset)?;
+                TypedArray::new(ctx, st.borrow().encrypt(&bytes).map_err(js_err)?)
             },
-        )?;
-        obj.set("decrypt", f)?;
-    }
-
-    // decryptStr(data) -> String
-    {
-        let st = Rc::clone(&state);
-        let f = Function::new(ctx.clone(), move |data: Value<'js>| -> JsResult<String> {
-            let bytes = value_to_cipher_bytes(&data)?;
-            let pt = st.borrow().decrypt(&bytes).map_err(js_err)?;
-            String::from_utf8(pt).map_err(|e| js_err(format!("UTF-8 decode: {e}")))
-        })?;
-        obj.set("decryptStr", f)?;
-    }
-
-    // encrypt(data) -> Uint8Array
-    {
-        let st = Rc::clone(&state);
-        let f = Function::new(
+        )?,
+    )?;
+    let st = state.clone();
+    obj.set(
+        "encryptBase64",
+        Function::new(
             ctx.clone(),
-            move |ctx: Ctx<'js>, data: Value<'js>| -> JsResult<TypedArray<'js, u8>> {
-                let bytes = value_to_plain_bytes(&data)?;
-                let ct = st.borrow().encrypt(&bytes).map_err(js_err)?;
-                TypedArray::new(ctx, ct)
+            move |ctx: Ctx<'js>, data: Value<'js>, charset: Opt<Value<'js>>| -> JsResult<String> {
+                let bytes = plain_bytes(&ctx, data, charset)?;
+                Ok(B64.encode(st.borrow().encrypt(&bytes).map_err(js_err)?))
             },
-        )?;
-        obj.set("encrypt", f)?;
-    }
-
-    // encryptBase64(data) -> String
-    {
-        let st = Rc::clone(&state);
-        let f = Function::new(ctx.clone(), move |data: Value<'js>| -> JsResult<String> {
-            let bytes = value_to_plain_bytes(&data)?;
-            let ct = st.borrow().encrypt(&bytes).map_err(js_err)?;
-            Ok(B64.encode(ct))
-        })?;
-        obj.set("encryptBase64", f)?;
-    }
-
-    // encryptHex(data) -> String
-    {
-        let st = Rc::clone(&state);
-        let f = Function::new(ctx.clone(), move |data: Value<'js>| -> JsResult<String> {
-            let bytes = value_to_plain_bytes(&data)?;
-            let ct = st.borrow().encrypt(&bytes).map_err(js_err)?;
-            Ok(hex::encode(ct))
-        })?;
-        obj.set("encryptHex", f)?;
-    }
-
-    // 注意：不实现 setIv 链式返回 this——在 rquickjs 中闭包捕获 Object 自引用
-    // 会导致 Runtime drop 时 gc_obj_list 非空断言崩溃。IV 请在
-    // createSymmetricCrypto(transformation, key, iv) 第三参传入（对齐 51 漫画等用法）。
-
+        )?,
+    )?;
+    let st = state.clone();
+    obj.set(
+        "encryptHex",
+        Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>, data: Value<'js>| -> JsResult<String> {
+                let bytes = plain_bytes(&ctx, data, Opt(None))?;
+                Ok(hex::encode(st.borrow().encrypt(&bytes).map_err(js_err)?))
+            },
+        )?,
+    )?;
+    // 从调用参数获取this而不捕获obj，避免Rust闭包与JS对象构成不可回收引用环。
+    obj.set(
+        "setIv",
+        Function::new(ctx, move |this: This<Object<'js>>, iv: ByteArray| {
+            state.borrow_mut().iv = Some(iv.0);
+            this.0
+        })?,
+    )?;
     Ok(obj)
 }
 
-/// 从可选 JS 参数解析 key/iv（String | Uint8Array）
-pub fn parse_key_iv_args<'js>(
-    key: Value<'js>,
-    iv: Opt<Value<'js>>,
-) -> JsResult<(Vec<u8>, Option<Vec<u8>>)> {
-    let key_bytes = value_to_key_bytes(&key)?;
-    let iv_bytes = match iv.0 {
-        Some(v) if !v.is_null() && !v.is_undefined() => Some(value_to_key_bytes(&v)?),
-        _ => None,
-    };
-    Ok((key_bytes, iv_bytes))
+/// 原生Cipher持有独立初始化快照；与工厂共用计算，不继承工厂的密钥截断规则。
+pub(super) fn build_cipher<'js>(ctx: Ctx<'js>, transformation: String) -> JsResult<Object<'js>> {
+    let size = key_size(&transformation).map_err(js_err)?;
+    crypto::validate_symmetric_parameters(&transformation, &vec![0; size], None)
+        .map_err(|e| js_err(e.to_string()))?;
+    let state: Rc<RefCell<Option<(bool, SymState)>>> = Rc::new(RefCell::new(None));
+    let obj = Object::new(ctx.clone())?;
+    let st = state.clone();
+    let t = transformation.clone();
+    obj.set(
+        "init",
+        Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>,
+                  mode: Value<'js>,
+                  key: Value<'js>,
+                  iv: Opt<Value<'js>>|
+                  -> JsResult<()> {
+                *st.borrow_mut() = None;
+                let mode = RhinoInt::from_js(&ctx, mode)?;
+                let key = Object::from_js(&ctx, key)?;
+                if !matches!(mode.0, 1 | 2) {
+                    return Err(js_err("不支持的Cipher操作模式"));
+                }
+                let expected = parse_transformation(&t).map_err(js_err)?.0;
+                let algo = key.get::<_, TextArg>("algo")?.0;
+                if !algo.eq_ignore_ascii_case(&expected) {
+                    return Err(js_err("密钥算法与Cipher不匹配"));
+                }
+                let key = key.get::<_, ByteArray>("key")?.0;
+                let mut iv = match iv.0 {
+                    None => None,
+                    Some(v) if v.is_null() => None,
+                    Some(v) => Some(Object::from_js(&ctx, v)?.get::<_, ByteArray>("iv")?.0),
+                };
+                let (_, m, _) = parse_transformation(&t).map_err(js_err)?;
+                if m == "ECB" && iv.is_some() {
+                    return Err(js_err("ECB不接受IV"));
+                }
+                if m == "CBC" && iv.is_none() {
+                    if mode.0 == 2 {
+                        return Err(js_err("CBC解密需要IV"));
+                    }
+                    iv =
+                        Some(random_bytes(if expected == "AES" { 16 } else { 8 }).map_err(js_err)?);
+                }
+                crypto::validate_symmetric_parameters(&t, &key, iv.as_deref())
+                    .map_err(|e| js_err(e.to_string()))?;
+                *st.borrow_mut() = Some((
+                    mode.0 == 1,
+                    SymState {
+                        transformation: t.clone(),
+                        key,
+                        iv,
+                    },
+                ));
+                Ok(())
+            },
+        )?,
+    )?;
+    let st = state.clone();
+    obj.set(
+        "doFinal",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, data: Opt<ByteArray>| {
+            let data = data.0.map(|v| v.0).unwrap_or_default();
+            let borrow = st.borrow();
+            let (encrypt, s) = borrow.as_ref().ok_or_else(|| js_err("Cipher尚未初始化"))?;
+            let out = if *encrypt {
+                s.encrypt(&data)
+            } else {
+                s.decrypt(&data)
+            }
+            .map_err(js_err)?;
+            TypedArray::new(ctx, out)
+        })?,
+    )?;
+    obj.set(
+        "getIV",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>| -> JsResult<Value<'js>> {
+            use rquickjs::IntoJs;
+            let st = state.borrow();
+            match st.as_ref().and_then(|(_, s)| s.iv.as_ref()) {
+                Some(iv) => TypedArray::new(ctx.clone(), iv.clone())?.into_js(&ctx),
+                None => Ok(Value::new_null(ctx)),
+            }
+        })?,
+    )?;
+    obj.set(
+        "getAlgorithm",
+        Function::new(ctx, move || transformation.clone())?,
+    )?;
+    Ok(obj)
 }
 
-/// aesBase64DecodeToString(str, key, transformation, iv) — 对齐 JsEncodeUtils 同名方法
+/// 两个既有AES字符串别名都按参考版走自动Hex/Base64识别。
 pub fn aes_base64_decode_to_string(
-    ciphertext_b64: &str,
+    data: &str,
     key: &str,
     transformation: &str,
     iv: &str,
 ) -> Result<String, String> {
-    let data = b64_decode_lenient(ciphertext_b64)?;
-    let pt = crypto::symmetric_decrypt(transformation, key.as_bytes(), Some(iv.as_bytes()), &data)
-        .map_err(|e| e.to_string())?;
-    String::from_utf8(pt).map_err(|e| format!("UTF-8 decode: {e}"))
+    let bytes = if data.len().is_multiple_of(2) && data.bytes().all(|b| b.is_ascii_hexdigit()) {
+        hex::decode(data).map_err(|e| e.to_string())?
+    } else {
+        super::base64_codec::decode_hutool(data)?
+    };
+    let (_, mode, _) = parse_transformation(transformation)?;
+    let iv = if iv.is_empty() || mode == "ECB" {
+        None
+    } else {
+        Some(iv.as_bytes())
+    };
+    let key = normalize_key(transformation, key.as_bytes().to_vec())?;
+    encoding::bytes_to_str(
+        &crypto::symmetric_decrypt(transformation, &key, iv, &bytes).map_err(|e| e.to_string())?,
+        None,
+    )
+}
+
+/// 旧3DES脚本入口仍委托同一对象策略，不另维护密钥或IV规则。
+pub(super) fn triple_des_base64(
+    data: &str,
+    key: &str,
+    mode: &str,
+    padding: &str,
+    iv: &str,
+) -> Result<String, String> {
+    let transformation = format!("DESede/{mode}/{padding}");
+    let key = normalize_key(&transformation, key.as_bytes().to_vec())?;
+    let (_, mode, _) = parse_transformation(&transformation)?;
+    let iv = if iv.is_empty() || mode == "ECB" {
+        None
+    } else {
+        Some(iv.as_bytes().to_vec())
+    };
+    let state = SymState {
+        transformation,
+        key,
+        iv,
+    };
+    Ok(B64.encode(state.encrypt(data.as_bytes())?))
 }
 
 #[cfg(test)]

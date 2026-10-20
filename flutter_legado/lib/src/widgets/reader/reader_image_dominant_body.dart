@@ -1,14 +1,15 @@
+import '../../features/book_sources/book_source_repository_provider.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
-import '../../providers/providers.dart';
-import '../../screens/reader_comic_screen.dart' show ComicImageDecodeCache;
+import '../../providers/media_provider.dart';
+import '../../data/services/comic_image_decode_cache.dart';
 import '../../utils/comic_image_utils.dart';
 import '../app_progress_indicator.dart';
 
@@ -30,6 +31,7 @@ class ReaderImageDominantBody extends ConsumerStatefulWidget {
   final Future<void> Function()? onPrevChapter;
   final bool hasNextChapter;
   final bool hasPrevChapter;
+
   /// 图片样式：FULL / TEXT / SINGLE（大小写不敏感）；空=默认
   final String? imageStyle;
 
@@ -78,7 +80,9 @@ class _ReaderImageDominantBodyState
     final origin = widget.book.origin;
     if (origin.isEmpty) return;
     try {
-      final sources = await ref.read(bookApiProvider).getBookSources();
+      final sources = await ref
+          .read(bookSourceRepositoryProvider)
+          .getBookSources();
       for (final s in sources) {
         if (s.bookSourceUrl == origin) {
           if (mounted) setState(() => _bookSource = s);
@@ -187,11 +191,7 @@ class _ReaderImageDominantBodyState
       );
     }
     if (style == 'SINGLE') {
-      return SizedBox(
-        height: viewH,
-        width: double.infinity,
-        child: image,
-      );
+      return SizedBox(height: viewH, width: double.infinity, child: image);
     }
     return image;
   }
@@ -265,7 +265,7 @@ class _FfiComicImageState extends ConsumerState<_FfiComicImage> {
     if (hit != null) return hit;
     try {
       await ComicImageDecodeCache.preload(
-        api: ref.read(bookApiProvider),
+        images: ref.read(bookImageRepositoryProvider),
         url: widget.url,
         sourceJson: widget.sourceJson,
         bookSourceUrl: widget.bookSourceUrl,
@@ -294,8 +294,7 @@ class _FfiComicImageState extends ConsumerState<_FfiComicImage> {
           return SizedBox(
             height: 160,
             child: Center(
-              child:
-                  Text('图片加载失败', style: TextStyle(color: Colors.grey[600])),
+              child: Text('图片加载失败', style: TextStyle(color: Colors.grey[600])),
             ),
           );
         }

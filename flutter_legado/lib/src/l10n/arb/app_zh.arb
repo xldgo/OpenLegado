@@ -1,0 +1,4549 @@
+{
+  "themeFontSettings": "字体设置",
+  "themeFontImport": "导入字体",
+  "themeFontPreview": "天地玄黄，宇宙洪荒。\nThe quick brown fox 0123456789",
+  "themeDynamicColor": "动态取色",
+  "httpCache": "HTTP 缓存",
+  "coverCache": "封面缓存",
+  "mangaCache": "漫画缓存",
+  "cacheBookThreadCount": "书籍缓存下载线程数",
+  "preDownloadPrevious": "向前预下载",
+  "preDownloadNext": "向后预下载",
+  "featurePending": "待实现",
+  "downloadAndCache": "下载与缓存",
+  "downloadAndCacheSummary": "下载并发、预下载、图片缓存与清理",
+  "downloadSettings": "下载设置",
+  "imageCache": "图片缓存",
+  "@@locale": "zh",
+  "themeLiquidBottomBar": "悬浮底栏液态玻璃",
+  "themeLiquidBottomBarSummary": "折射背景与滑动选中效果",
+  "appTitle": "阅读",
+  "@appTitle": {
+    "description": "应用文案：阅读"
+  },
+  "bookshelf": "书架",
+  "@bookshelf": {
+    "description": "应用文案：书架"
+  },
+  "search": "搜索",
+  "@search": {
+    "description": "应用文案：搜索"
+  },
+  "sources": "书源",
+  "@sources": {
+    "description": "应用文案：书源"
+  },
+  "settings": "设置",
+  "@settings": {
+    "description": "应用文案：设置"
+  },
+  "my": "我的",
+  "@my": {
+    "description": "应用文案：我的"
+  },
+  "rss": "订阅",
+  "@rss": {
+    "description": "应用文案：订阅"
+  },
+  "discover": "发现",
+  "@discover": {
+    "description": "应用文案：发现"
+  },
+  "confirm": "确定",
+  "@confirm": {
+    "description": "应用文案：确定"
+  },
+  "cancel": "取消",
+  "@cancel": {
+    "description": "应用文案：取消"
+  },
+  "save": "保存",
+  "@save": {
+    "description": "应用文案：保存"
+  },
+  "delete": "删除",
+  "@delete": {
+    "description": "应用文案：删除"
+  },
+  "edit": "编辑",
+  "@edit": {
+    "description": "应用文案：编辑"
+  },
+  "loading": "加载中...",
+  "@loading": {
+    "description": "应用文案：加载中..."
+  },
+  "error": "错误",
+  "@error": {
+    "description": "应用文案：错误"
+  },
+  "noData": "暂无数据",
+  "@noData": {
+    "description": "应用文案：暂无数据"
+  },
+  "retry": "重试",
+  "@retry": {
+    "description": "应用文案：重试"
+  },
+  "loadFailed": "加载失败",
+  "@loadFailed": {
+    "description": "应用文案：加载失败"
+  },
+  "doubleClickExit": "再按一次退出程序",
+  "@doubleClickExit": {
+    "description": "应用文案：再按一次退出程序"
+  },
+  "bottomLine": "我是有底线的",
+  "@bottomLine": {
+    "description": "应用文案：我是有底线的"
+  },
+  "startReading": "开始阅读",
+  "@startReading": {
+    "description": "应用文案：开始阅读"
+  },
+  "addToBookshelf": "加入书架",
+  "@addToBookshelf": {
+    "description": "应用文案：加入书架"
+  },
+  "removeFromBookshelf": "移除",
+  "@removeFromBookshelf": {
+    "description": "应用文案：移除"
+  },
+  "updateToc": "更新目录",
+  "@updateToc": {
+    "description": "应用文案：更新目录"
+  },
+  "searchHint": "搜索书名或作者",
+  "@searchHint": {
+    "description": "应用文案：搜索书名或作者"
+  },
+  "groupByNone": "不分组",
+  "@groupByNone": {
+    "description": "应用文案：不分组"
+  },
+  "groupBySource": "按来源",
+  "@groupBySource": {
+    "description": "应用文案：按来源"
+  },
+  "groupByTag": "按分组",
+  "@groupByTag": {
+    "description": "应用文案：按分组"
+  },
+  "updateAll": "更新目录",
+  "@updateAll": {
+    "description": "应用文案：更新目录"
+  },
+  "manageBookshelf": "书架管理",
+  "@manageBookshelf": {
+    "description": "应用文案：书架管理"
+  },
+  "sourceManagement": "书源管理",
+  "@sourceManagement": {
+    "description": "应用文案：书源管理"
+  },
+  "groupByNoneLabel": "不分组",
+  "@groupByNoneLabel": {
+    "description": "应用文案：不分组"
+  },
+  "groupBySourceLabel": "按来源分组",
+  "@groupBySourceLabel": {
+    "description": "应用文案：按来源分组"
+  },
+  "groupByGroupLabel": "按分组分组",
+  "@groupByGroupLabel": {
+    "description": "应用文案：按分组分组"
+  },
+  "listView": "列表视图",
+  "@listView": {
+    "description": "应用文案：列表视图"
+  },
+  "gridView": "网格视图",
+  "@gridView": {
+    "description": "应用文案：网格视图"
+  },
+  "addBook": "添加书籍",
+  "@addBook": {
+    "description": "应用文案：添加书籍"
+  },
+  "addLocalBook": "添加本地",
+  "@addLocalBook": {
+    "description": "应用文案：添加本地"
+  },
+  "emptyBookshelf": "书架还空着，先去搜索书籍或从发现里添加吧！",
+  "@emptyBookshelf": {
+    "description": "应用文案：书架还空着，先去搜索书籍或从发现里添加吧！"
+  },
+  "emptyBookshelfHint": "",
+  "@emptyBookshelfHint": {
+    "description": "应用文案："
+  },
+  "loadingBookshelf": "加载书架...",
+  "@loadingBookshelf": {
+    "description": "应用文案：加载书架..."
+  },
+  "recentReading": "最近阅读",
+  "@recentReading": {
+    "description": "应用文案：最近阅读"
+  },
+  "allBooks": "全部",
+  "@allBooks": {
+    "description": "应用文案：全部"
+  },
+  "reading": "在读",
+  "@reading": {
+    "description": "应用文案：在读"
+  },
+  "unread": "未读",
+  "@unread": {
+    "description": "应用文案：未读"
+  },
+  "unknownChapter": "未知章节",
+  "@unknownChapter": {
+    "description": "应用文案：未知章节"
+  },
+  "pinToTop": "置顶",
+  "@pinToTop": {
+    "description": "应用文案：置顶"
+  },
+  "editInfo": "编辑信息",
+  "@editInfo": {
+    "description": "应用文案：编辑信息"
+  },
+  "group": "分组",
+  "@group": {
+    "description": "应用文案：分组"
+  },
+  "deleteBook": "删除书籍",
+  "@deleteBook": {
+    "description": "应用文案：删除书籍"
+  },
+  "confirmDeleteBook": "确定要从书架中删除",
+  "@confirmDeleteBook": {
+    "description": "应用文案：确定要从书架中删除"
+  },
+  "checkingUpdate": "正在检查更新...",
+  "@checkingUpdate": {
+    "description": "应用文案：正在检查更新..."
+  },
+  "selectLocalBook": "选择本地书籍文件",
+  "@selectLocalBook": {
+    "description": "应用文案：选择本地书籍文件"
+  },
+  "importSources": "导入书源",
+  "@importSources": {
+    "description": "应用文案：导入书源"
+  },
+  "exportSources": "导出书源",
+  "@exportSources": {
+    "description": "应用文案：导出书源"
+  },
+  "addSource": "添加书源",
+  "@addSource": {
+    "description": "应用文案：添加书源"
+  },
+  "sourceName": "书源名称",
+  "@sourceName": {
+    "description": "应用文案：书源名称"
+  },
+  "sourceUrl": "书源地址",
+  "@sourceUrl": {
+    "description": "应用文案：书源地址"
+  },
+  "sourceType": "书源类型",
+  "@sourceType": {
+    "description": "应用文案：书源类型"
+  },
+  "themeMode": "主题模式",
+  "@themeMode": {
+    "description": "应用文案：主题模式"
+  },
+  "themeSystem": "跟随系统",
+  "@themeSystem": {
+    "description": "应用文案：跟随系统"
+  },
+  "themeLight": "浅色",
+  "@themeLight": {
+    "description": "应用文案：浅色"
+  },
+  "themeDark": "深色",
+  "@themeDark": {
+    "description": "应用文案：深色"
+  },
+  "language": "语言",
+  "@language": {
+    "description": "应用文案：语言"
+  },
+  "langSystem": "跟随系统",
+  "@langSystem": {
+    "description": "应用文案：跟随系统"
+  },
+  "langChinese": "中文",
+  "@langChinese": {
+    "description": "应用文案：中文"
+  },
+  "langEnglish": "English",
+  "@langEnglish": {
+    "description": "应用文案：English"
+  },
+  "backup": "备份",
+  "@backup": {
+    "description": "应用文案：备份"
+  },
+  "restore": "恢复",
+  "@restore": {
+    "description": "应用文案：恢复"
+  },
+  "cloudSync": "云同步",
+  "@cloudSync": {
+    "description": "应用文案：云同步"
+  },
+  "clearCache": "清除缓存",
+  "@clearCache": {
+    "description": "应用文案：清除缓存"
+  },
+  "appearanceSettings": "外观设置",
+  "@appearanceSettings": {
+    "description": "应用文案：外观设置"
+  },
+  "readingSettings": "阅读设置",
+  "@readingSettings": {
+    "description": "应用文案：阅读设置"
+  },
+  "networkSettings": "网络设置",
+  "@networkSettings": {
+    "description": "应用文案：网络设置"
+  },
+  "dataManagement": "数据管理",
+  "@dataManagement": {
+    "description": "应用文案：数据管理"
+  },
+  "otherSettings": "其他",
+  "@otherSettings": {
+    "description": "应用文案：其他"
+  },
+  "aboutSettings": "关于",
+  "@aboutSettings": {
+    "description": "应用文案：关于"
+  },
+  "defaultFontSize": "默认字体大小",
+  "@defaultFontSize": {
+    "description": "应用文案：默认字体大小"
+  },
+  "defaultLineHeight": "默认行距",
+  "@defaultLineHeight": {
+    "description": "应用文案：默认行距"
+  },
+  "defaultBgColor": "默认背景色",
+  "@defaultBgColor": {
+    "description": "应用文案：默认背景色"
+  },
+  "whiteColor": "白色",
+  "@whiteColor": {
+    "description": "应用文案：白色"
+  },
+  "proxySettings": "代理设置",
+  "@proxySettings": {
+    "description": "应用文案：代理设置"
+  },
+  "noProxy": "不使用代理",
+  "@noProxy": {
+    "description": "应用文案：不使用代理"
+  },
+  "requestTimeout": "请求超时",
+  "@requestTimeout": {
+    "description": "应用文案：请求超时"
+  },
+  "seconds30": "30 秒",
+  "@seconds30": {
+    "description": "应用文案：30 秒"
+  },
+  "secondsUnit": "秒",
+  "@secondsUnit": {
+    "description": "应用文案：秒"
+  },
+  "backupData": "备份数据",
+  "@backupData": {
+    "description": "应用文案：备份数据"
+  },
+  "backupDataDesc": "备份书架和书源到本地",
+  "@backupDataDesc": {
+    "description": "应用文案：备份书架和书源到本地"
+  },
+  "restoreData": "恢复数据",
+  "@restoreData": {
+    "description": "应用文案：恢复数据"
+  },
+  "restoreDataDesc": "从备份文件恢复",
+  "@restoreDataDesc": {
+    "description": "应用文案：从备份文件恢复"
+  },
+  "clearCacheDesc": "清除临时文件和缓存数据",
+  "@clearCacheDesc": {
+    "description": "应用文案：清除临时文件和缓存数据"
+  },
+  "selectTheme": "选择主题模式",
+  "@selectTheme": {
+    "description": "应用文案：选择主题模式"
+  },
+  "backupSuccess": "备份成功",
+  "@backupSuccess": {
+    "description": "应用文案：备份成功"
+  },
+  "backupFailed": "备份失败",
+  "@backupFailed": {
+    "description": "应用文案：备份失败"
+  },
+  "restoreSuccess": "恢复成功",
+  "@restoreSuccess": {
+    "description": "应用文案：恢复成功"
+  },
+  "restoreFailed": "恢复失败",
+  "@restoreFailed": {
+    "description": "应用文案：恢复失败"
+  },
+  "pasteBackupJson": "粘贴备份 JSON 数据",
+  "@pasteBackupJson": {
+    "description": "应用文案：粘贴备份 JSON 数据"
+  },
+  "confirmClearCache": "确定要清除所有缓存数据吗？",
+  "@confirmClearCache": {
+    "description": "应用文案：确定要清除所有缓存数据吗？"
+  },
+  "cacheCleared": "缓存已清除",
+  "@cacheCleared": {
+    "description": "应用文案：缓存已清除"
+  },
+  "version": "版本",
+  "@version": {
+    "description": "应用文案：版本"
+  },
+  "license": "开源协议",
+  "@license": {
+    "description": "应用文案：开源协议"
+  },
+  "projectUrl": "项目地址",
+  "@projectUrl": {
+    "description": "应用文案：项目地址"
+  },
+  "syncNow": "立即同步",
+  "@syncNow": {
+    "description": "应用文案：立即同步"
+  },
+  "autoSync": "自动同步",
+  "@autoSync": {
+    "description": "应用文案：自动同步"
+  },
+  "autoSyncDesc": "定期同步书架数据",
+  "@autoSyncDesc": {
+    "description": "应用文案：定期同步书架数据"
+  },
+  "syncSuccess": "同步成功",
+  "@syncSuccess": {
+    "description": "应用文案：同步成功"
+  },
+  "saveConfig": "保存配置",
+  "@saveConfig": {
+    "description": "应用文案：保存配置"
+  },
+  "configSaved": "配置已保存",
+  "@configSaved": {
+    "description": "应用文案：配置已保存"
+  },
+  "uploadBookshelf": "上传书架",
+  "@uploadBookshelf": {
+    "description": "应用文案：上传书架"
+  },
+  "uploadBookshelfDesc": "将本地书架上传到 WebDAV",
+  "@uploadBookshelfDesc": {
+    "description": "应用文案：将本地书架上传到 WebDAV"
+  },
+  "downloadBookshelf": "下载书架",
+  "@downloadBookshelf": {
+    "description": "应用文案：下载书架"
+  },
+  "downloadBookshelfDesc": "从 WebDAV 下载书架覆盖本地",
+  "@downloadBookshelfDesc": {
+    "description": "应用文案：从 WebDAV 下载书架覆盖本地"
+  },
+  "mergeSync": "合并同步",
+  "@mergeSync": {
+    "description": "应用文案：合并同步"
+  },
+  "mergeSyncDesc": "双向合并本地与远程书架",
+  "@mergeSyncDesc": {
+    "description": "应用文案：双向合并本地与远程书架"
+  },
+  "webdavServerUrl": "WebDAV 服务器 URL",
+  "@webdavServerUrl": {
+    "description": "应用文案：WebDAV 服务器 URL"
+  },
+  "username": "用户名",
+  "@username": {
+    "description": "应用文案：用户名"
+  },
+  "password": "密码",
+  "@password": {
+    "description": "应用文案：密码"
+  },
+  "remoteDir": "远程目录",
+  "@remoteDir": {
+    "description": "应用文案：远程目录"
+  },
+  "lastSync": "上次同步",
+  "@lastSync": {
+    "description": "应用文案：上次同步"
+  },
+  "searchBookHint": "搜索书名、作者...",
+  "@searchBookHint": {
+    "description": "应用文案：搜索书名、作者..."
+  },
+  "searching": "搜索中...",
+  "@searching": {
+    "description": "应用文案：搜索中..."
+  },
+  "noResults": "未找到相关书籍",
+  "@noResults": {
+    "description": "应用文案：未找到相关书籍"
+  },
+  "noResultsHint": "换个关键词试试，或检查书源是否启用",
+  "@noResultsHint": {
+    "description": "应用文案：换个关键词试试，或检查书源是否启用"
+  },
+  "searchBooks": "搜索书籍",
+  "@searchBooks": {
+    "description": "应用文案：搜索书籍"
+  },
+  "searchBooksHint": "输入书名或作者名开始搜索",
+  "@searchBooksHint": {
+    "description": "应用文案：输入书名或作者名开始搜索"
+  },
+  "searchHistory": "搜索历史",
+  "@searchHistory": {
+    "description": "应用文案：搜索历史"
+  },
+  "clearHistory": "清空",
+  "@clearHistory": {
+    "description": "应用文案：清空"
+  },
+  "author": "作者",
+  "@author": {
+    "description": "应用文案：作者"
+  },
+  "source": "来源",
+  "@source": {
+    "description": "应用文案：来源"
+  },
+  "chapters": "章",
+  "@chapters": {
+    "description": "应用文案：章"
+  },
+  "addedToBookshelf": "已加入书架",
+  "@addedToBookshelf": {
+    "description": "应用文案：已加入书架"
+  },
+  "fontSize": "字体大小",
+  "@fontSize": {
+    "description": "应用文案：字体大小"
+  },
+  "lineHeight": "行距",
+  "@lineHeight": {
+    "description": "应用文案：行距"
+  },
+  "flipMode": "翻页模式",
+  "@flipMode": {
+    "description": "应用文案：翻页模式"
+  },
+  "scrollMode": "上下滚动",
+  "@scrollMode": {
+    "description": "应用文案：上下滚动"
+  },
+  "slideMode": "左右滑动",
+  "@slideMode": {
+    "description": "应用文案：左右滑动"
+  },
+  "simulateMode": "仿真翻页",
+  "@simulateMode": {
+    "description": "应用文案：仿真翻页"
+  },
+  "noneMode": "无动画",
+  "@noneMode": {
+    "description": "应用文案：无动画"
+  },
+  "coverMode": "覆盖",
+  "@coverMode": {
+    "description": "应用文案：覆盖"
+  },
+  "loadingChapter": "加载章节...",
+  "@loadingChapter": {
+    "description": "应用文案：加载章节..."
+  },
+  "noContent": "暂无内容",
+  "@noContent": {
+    "description": "应用文案：暂无内容"
+  },
+  "catalog": "目录",
+  "@catalog": {
+    "description": "应用文案：目录"
+  },
+  "nightMode": "夜间",
+  "@nightMode": {
+    "description": "应用文案：夜间"
+  },
+  "readAloud": "朗读",
+  "@readAloud": {
+    "description": "应用文案：朗读"
+  },
+  "interfaceSetting": "界面",
+  "@interfaceSetting": {
+    "description": "应用文案：界面"
+  },
+  "readingSettingsTitle": "阅读设置",
+  "@readingSettingsTitle": {
+    "description": "应用文案：阅读设置"
+  },
+  "fontSizeLabel": "字体大小",
+  "@fontSizeLabel": {
+    "description": "应用文案：字体大小"
+  },
+  "fontSmall": "小",
+  "@fontSmall": {
+    "description": "应用文案：小"
+  },
+  "fontLarge": "大",
+  "@fontLarge": {
+    "description": "应用文案：大"
+  },
+  "lineHeightLabel": "行距",
+  "@lineHeightLabel": {
+    "description": "应用文案：行距"
+  },
+  "bgColor": "背景色",
+  "@bgColor": {
+    "description": "应用文案：背景色"
+  },
+  "flipModeLabel": "翻页模式",
+  "@flipModeLabel": {
+    "description": "应用文案：翻页模式"
+  },
+  "previousChapter": "上一章",
+  "@previousChapter": {
+    "description": "应用文案：上一章"
+  },
+  "nextChapter": "下一章",
+  "@nextChapter": {
+    "description": "应用文案：下一章"
+  },
+  "noChapters": "暂无章节",
+  "@noChapters": {
+    "description": "应用文案：暂无章节"
+  },
+  "audioPlayer": "听书",
+  "@audioPlayer": {
+    "description": "应用文案：听书"
+  },
+  "play": "播放",
+  "@play": {
+    "description": "应用文案：播放"
+  },
+  "pause": "暂停",
+  "@pause": {
+    "description": "应用文案：暂停"
+  },
+  "prevChapterAudio": "上一章",
+  "@prevChapterAudio": {
+    "description": "应用文案：上一章"
+  },
+  "nextChapterAudio": "下一章",
+  "@nextChapterAudio": {
+    "description": "应用文案：下一章"
+  },
+  "home": "首页",
+  "@home": {
+    "description": "主界面文案：首页"
+  },
+  "help": "帮助",
+  "@help": {
+    "description": "主界面文案：帮助"
+  },
+  "contentAndRules": "内容与规则",
+  "@contentAndRules": {
+    "description": "主界面文案：内容与规则"
+  },
+  "rssSourceManagement": "订阅源管理",
+  "@rssSourceManagement": {
+    "description": "主界面文案：订阅源管理"
+  },
+  "sourceManagementSummary": "新建、导入、编辑或管理书源",
+  "@sourceManagementSummary": {
+    "description": "主界面文案：新建、导入、编辑或管理书源"
+  },
+  "rssSourceManagementSummary": "新建、导入、编辑或管理订阅源",
+  "@rssSourceManagementSummary": {
+    "description": "主界面文案：新建、导入、编辑或管理订阅源"
+  },
+  "txtTocRules": "TXT 目录规则",
+  "@txtTocRules": {
+    "description": "主界面文案：TXT 目录规则"
+  },
+  "txtTocRulesSummary": "配置 TXT 目录规则",
+  "@txtTocRulesSummary": {
+    "description": "主界面文案：配置 TXT 目录规则"
+  },
+  "replaceRules": "替换净化",
+  "@replaceRules": {
+    "description": "主界面文案：替换净化"
+  },
+  "replaceRulesSummary": "配置替换净化规则",
+  "@replaceRulesSummary": {
+    "description": "主界面文案：配置替换净化规则"
+  },
+  "dictionaryLookup": "字典查询",
+  "@dictionaryLookup": {
+    "description": "主界面文案：字典查询"
+  },
+  "dictionaryLookupSummary": "按字典规则查询内容",
+  "@dictionaryLookupSummary": {
+    "description": "主界面文案：按字典规则查询内容"
+  },
+  "dictionaryRules": "字典规则",
+  "@dictionaryRules": {
+    "description": "主界面文案：字典规则"
+  },
+  "dictionaryRulesSummary": "管理字典规则（增删改、启停、排序、导入）",
+  "@dictionaryRulesSummary": {
+    "description": "主界面文案：管理字典规则（增删改、启停、排序、导入）"
+  },
+  "highlightRules": "高亮标注",
+  "@highlightRules": {
+    "description": "主界面文案：高亮标注"
+  },
+  "highlightRulesSummary": "自动高亮标注规则",
+  "@highlightRulesSummary": {
+    "description": "主界面文案：自动高亮标注规则"
+  },
+  "appearance": "外观",
+  "@appearance": {
+    "description": "主界面文案：外观"
+  },
+  "appearanceSummary": "主题配色与显示模式",
+  "@appearanceSummary": {
+    "description": "主界面文案：主题配色与显示模式"
+  },
+  "readingInterface": "阅读界面",
+  "@readingInterface": {
+    "description": "主界面文案：阅读界面"
+  },
+  "readingInterfaceSummary": "字体、配色、翻页与屏幕显示",
+  "@readingInterfaceSummary": {
+    "description": "主界面文案：字体、配色、翻页与屏幕显示"
+  },
+  "syncAndServices": "同步与服务",
+  "@syncAndServices": {
+    "description": "主界面文案：同步与服务"
+  },
+  "webService": "Web 服务",
+  "@webService": {
+    "description": "主界面文案：Web 服务"
+  },
+  "mcpService": "MCP 服务",
+  "@mcpService": {
+    "description": "主界面文案：MCP 服务"
+  },
+  "backupAndRestore": "备份与恢复",
+  "@backupAndRestore": {
+    "description": "主界面文案：备份与恢复"
+  },
+  "backupAndRestoreSummary": "WebDav 设置/导入旧版本数据",
+  "@backupAndRestoreSummary": {
+    "description": "主界面文案：WebDav 设置/导入旧版本数据"
+  },
+  "cacheManagement": "缓存管理",
+  "@cacheManagement": {
+    "description": "主界面文案：缓存管理"
+  },
+  "cacheManagementSummary": "书籍下载任务与缓存进度",
+  "@cacheManagementSummary": {
+    "description": "主界面文案：书籍下载任务与缓存进度"
+  },
+  "scheduledTasks": "定时任务",
+  "@scheduledTasks": {
+    "description": "主界面文案：定时任务"
+  },
+  "scheduledTasksSummary": "管理按计划执行的 JavaScript 任务",
+  "@scheduledTasksSummary": {
+    "description": "主界面文案：管理按计划执行的 JavaScript 任务"
+  },
+  "runScheduledTasks": "运行定时任务",
+  "@runScheduledTasks": {
+    "description": "主界面文案：运行定时任务"
+  },
+  "runScheduledTasksSummary": "重启后保留计划；Android 可能延后实际执行时间",
+  "@runScheduledTasksSummary": {
+    "description": "主界面文案：重启后保留计划；Android 可能延后实际执行时间"
+  },
+  "advanced": "高级",
+  "@advanced": {
+    "description": "主界面文案：高级"
+  },
+  "advancedSummary": "功能相关的一些设置",
+  "@advancedSummary": {
+    "description": "主界面文案：功能相关的一些设置"
+  },
+  "bookmarks": "书签",
+  "@bookmarks": {
+    "description": "主界面文案：书签"
+  },
+  "allBookmarks": "所有书签",
+  "@allBookmarks": {
+    "description": "主界面文案：所有书签"
+  },
+  "readingRecords": "阅读记录",
+  "@readingRecords": {
+    "description": "主界面文案：阅读记录"
+  },
+  "readingRecordsSummary": "阅读时间记录",
+  "@readingRecordsSummary": {
+    "description": "主界面文案：阅读时间记录"
+  },
+  "fileManagement": "文件管理",
+  "@fileManagement": {
+    "description": "主界面文案：文件管理"
+  },
+  "fileManagementSummary": "管理私有文件夹的文件",
+  "@fileManagementSummary": {
+    "description": "主界面文案：管理私有文件夹的文件"
+  },
+  "exitApp": "退出",
+  "@exitApp": {
+    "description": "主界面文案：退出"
+  },
+  "confirmExitApp": "确定退出阅读吗？",
+  "@confirmExitApp": {
+    "description": "主界面文案：确定退出阅读吗？"
+  },
+  "webServiceSummary": "用浏览器写源或看书",
+  "@webServiceSummary": {
+    "description": "主界面文案：用浏览器写源或看书"
+  },
+  "mcpServiceSummary": "带令牌保护的书源开发工具",
+  "@mcpServiceSummary": {
+    "description": "主界面文案：带令牌保护的书源开发工具"
+  },
+  "mcpTokenRequired": "需先配置「Web 书源访问令牌」（我的 → 高级 → 其他设置）",
+  "@mcpTokenRequired": {
+    "description": "主界面文案：需先配置「Web 书源访问令牌」（我的 → 高级 → 其他设置）"
+  },
+  "booksRead": "累计阅读",
+  "@booksRead": {
+    "description": "主界面文案：累计阅读"
+  },
+  "readingDuration": "阅读时长",
+  "@readingDuration": {
+    "description": "主界面文案：阅读时长"
+  },
+  "setReadingGoal": "设定阅读目标",
+  "readingGoalMinutesLabel": "目标（分钟）",
+  "todayReadingGoal": "今日阅读目标",
+  "@todayReadingGoal": {
+    "description": "主界面文案：今日阅读目标"
+  },
+  "minutesUnit": "分钟",
+  "@minutesUnit": {
+    "description": "主界面文案：分钟"
+  },
+  "readingHeatmap": "阅读热力图",
+  "@readingHeatmap": {
+    "description": "主界面文案：阅读热力图"
+  },
+  "dailyReadingDuration": "每日阅读时长",
+  "@dailyReadingDuration": {
+    "description": "主界面文案：每日阅读时长"
+  },
+  "editReadingGoal": "编辑目标",
+  "@editReadingGoal": {
+    "description": "主界面文案：编辑目标"
+  },
+  "heatmapLess": "少",
+  "@heatmapLess": {
+    "description": "主界面文案：少"
+  },
+  "heatmapMore": "多",
+  "@heatmapMore": {
+    "description": "主界面文案：多"
+  },
+  "heatmapBooksLegend": "多（格 = 当日阅读书籍数）",
+  "@heatmapBooksLegend": {
+    "description": "主界面文案：多（格 = 当日阅读书籍数）"
+  },
+  "selectAll": "全选",
+  "@selectAll": {
+    "description": "主界面文案：全选"
+  },
+  "invertSelection": "反选",
+  "@invertSelection": {
+    "description": "主界面文案：反选"
+  },
+  "more": "更多",
+  "@more": {
+    "description": "主界面文案：更多"
+  },
+  "remoteBooks": "远程书籍",
+  "@remoteBooks": {
+    "description": "主界面文案：远程书籍"
+  },
+  "layoutSettings": "布局设置",
+  "@layoutSettings": {
+    "description": "主界面文案：布局设置"
+  },
+  "groupManagement": "分组管理",
+  "@groupManagement": {
+    "description": "主界面文案：分组管理"
+  },
+  "addBookUrl": "添加网址",
+  "@addBookUrl": {
+    "description": "主界面文案：添加网址"
+  },
+  "selectionMode": "选择模式",
+  "@selectionMode": {
+    "description": "主界面文案：选择模式"
+  },
+  "offlineCache": "离线缓存",
+  "@offlineCache": {
+    "description": "主界面文案：离线缓存"
+  },
+  "exportBookList": "导出书单",
+  "@exportBookList": {
+    "description": "主界面文案：导出书单"
+  },
+  "importBookList": "导入书单",
+  "@importBookList": {
+    "description": "主界面文案：导入书单"
+  },
+  "logs": "日志",
+  "@logs": {
+    "description": "主界面文案：日志"
+  },
+  "layoutStyle": "布局方式",
+  "@layoutStyle": {
+    "description": "主界面文案：布局方式"
+  },
+  "listLayout": "列表",
+  "@listLayout": {
+    "description": "主界面文案：列表"
+  },
+  "groupStyle": "分组方式",
+  "@groupStyle": {
+    "description": "主界面文案：分组方式"
+  },
+  "groupByGroup": "按分组显示",
+  "@groupByGroup": {
+    "description": "主界面文案：按分组显示"
+  },
+  "emptyExportBookList": "书架为空，无可导出的书单",
+  "@emptyExportBookList": {
+    "description": "主界面文案：书架为空，无可导出的书单"
+  },
+  "noBooksToUpdate": "没有需要更新的书籍",
+  "@noBooksToUpdate": {
+    "description": "主界面文案：没有需要更新的书籍"
+  },
+  "preparing": "准备中...",
+  "@preparing": {
+    "description": "主界面文案：准备中..."
+  },
+  "bookUrlHint": "输入书籍详情页 URL（多行可加多本）",
+  "@bookUrlHint": {
+    "description": "主界面文案：输入书籍详情页 URL（多行可加多本）"
+  },
+  "bookNameOptionalHint": "书名（可选，无法获取详情时兑底）",
+  "@bookNameOptionalHint": {
+    "description": "主界面文案：书名（可选，无法获取详情时兑底）"
+  },
+  "bookListInputHint": "输入书单 URL 或 JSON 数组",
+  "@bookListInputHint": {
+    "description": "主界面文案：输入书单 URL 或 JSON 数组"
+  },
+  "chooseBookListFile": "选择文件（txt/json）",
+  "@chooseBookListFile": {
+    "description": "主界面文案：选择文件（txt/json）"
+  },
+  "importAction": "导入",
+  "@importAction": {
+    "description": "主界面文案：导入"
+  },
+  "invalidBookList": "书单格式不对（应为 URL 或 JSON 数组）",
+  "@invalidBookList": {
+    "description": "主界面文案：书单格式不对（应为 URL 或 JSON 数组）"
+  },
+  "exitSelection": "退出选择",
+  "@exitSelection": {
+    "description": "主界面文案：退出选择"
+  },
+  "batchDownload": "批量下载",
+  "@batchDownload": {
+    "description": "主界面文案：批量下载"
+  },
+  "moveBookGroup": "移动分组",
+  "@moveBookGroup": {
+    "description": "主界面文案：移动分组"
+  },
+  "iosBookPickerHint": "iOS 选择器显示全部文件，仅电子书格式（epub/txt/mobi/azw3/azw/pdf/umd/cbz）可导入",
+  "@iosBookPickerHint": {
+    "description": "主界面文案：iOS 选择器显示全部文件，仅电子书格式（epub/txt/mobi/azw3/azw/pdf/umd/cbz）可导入"
+  },
+  "bookCount": "{count} 本",
+  "@bookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "minuteCount": "{count} 分钟",
+  "@minuteCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hourCount": "{hours} 小时",
+  "@hourCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "secondCount": "{count} 秒",
+  "@secondCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hourMinuteCount": "{hours} 小时 {minutes} 分",
+  "@hourMinuteCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyDurationLoadFailed": "每日时长加载失败：{error}",
+  "@dailyDurationLoadFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "webServiceToggleFailed": "Web 服务切换失败: {error}",
+  "@webServiceToggleFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpServiceToggleFailed": "MCP 服务切换失败: {error}",
+  "@mcpServiceToggleFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpServicePort": "端口 {port}（带令牌保护的书源开发工具）",
+  "@mcpServicePort": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "port": {
+        "type": "int"
+      }
+    }
+  },
+  "webKeepAliveUnavailable": "{status} · 后台保活不可用，请保持 App 打开",
+  "@webKeepAliveUnavailable": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteSelectedBooks": "确定删除选中的 {count} 本书籍吗？",
+  "@confirmDeleteSelectedBooks": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deletedBookCount": "已删除 {count} 本书籍",
+  "@deletedBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "gridColumnCount": "网格（{count} 列）",
+  "@gridColumnCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectedBookCount": "已选 {count} 本",
+  "@selectedBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupBookCount": " · 共 {count} 本",
+  "@groupBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importedBookCount": "已导入 {count} 本书籍",
+  "@importedBookCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailureMore": " 等 {count} 本",
+  "@importFailureMore": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importBookFailed": "导入失败：{detail}{more}",
+  "@importBookFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      },
+      "more": {
+        "type": "String"
+      }
+    }
+  },
+  "localBookSaveFailed": "{file}：本地书持久化失败（{error}）",
+  "@localBookSaveFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "file": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "updatingBook": "正在更新 {index}/{total}：{book}",
+  "@updatingBook": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "book": {
+        "type": "String"
+      }
+    }
+  },
+  "bookTocUpdateFinished": "目录更新完成：成功 {count}/{total} 本",
+  "@bookTocUpdateFinished": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "addBookUrlFinished": "添加网址完成：成功 {success}，跳过 {skipped}，失败 {failed}",
+  "@addBookUrlFinished": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "bookListImportFinished": "书单导入完成：成功 {success}，跳过 {skipped}，失败 {failed}",
+  "@bookListImportFinished": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "bookListReadFailed": "读取书单文件失败: {error}",
+  "@bookListReadFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "bookListFetchFailed": "拉取书单失败: {error}",
+  "@bookListFetchFailed": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "batchDownloadCount": "批量下载 {count} 本（对标原版批量下载）",
+  "@batchDownloadCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "moveBookGroupCount": "移动分组 {count} 本（对标原版 GroupSelectSheet）",
+  "@moveBookGroupCount": {
+    "description": "主界面动态文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "localBooks": "本地",
+  "@localBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "audioBooks": "音频",
+  "@audioBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "videoBooks": "视频",
+  "@videoBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "ungroupedOnlineBooks": "网络未分组",
+  "@ungroupedOnlineBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "ungroupedLocalBooks": "本地未分组",
+  "@ungroupedLocalBooks": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "defaultBookGroup": "默认",
+  "@defaultBookGroup": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "collapseSidebar": "收起侧栏",
+  "@collapseSidebar": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "expandSidebar": "展开侧栏",
+  "@expandSidebar": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "bookshelfGroups": "书架分组",
+  "@bookshelfGroups": {
+    "description": "书架内置分类及侧栏操作文案"
+  },
+  "bookGroupNumber": "分组 {number}",
+  "@bookGroupNumber": {
+    "description": "按分组位掩码显示的默认分组标签，不用于重命名用户分组",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "refresh": "刷新",
+  "@refresh": {
+    "description": "发现与订阅浏览界面：刷新"
+  },
+  "login": "登录",
+  "@login": {
+    "description": "发现与订阅浏览界面：登录"
+  },
+  "close": "关闭",
+  "@close": {
+    "description": "发现与订阅浏览界面：关闭"
+  },
+  "clear": "清空",
+  "@clear": {
+    "description": "发现与订阅浏览界面：清空"
+  },
+  "clearAction": "清除",
+  "@clearAction": {
+    "description": "发现与订阅浏览界面：清除"
+  },
+  "notice": "提示",
+  "@notice": {
+    "description": "发现与订阅浏览界面：提示"
+  },
+  "favorites": "收藏",
+  "@favorites": {
+    "description": "发现与订阅浏览界面：收藏"
+  },
+  "favoriteAction": "收藏",
+  "@favoriteAction": {
+    "description": "发现与订阅浏览界面：收藏"
+  },
+  "unfavoriteAction": "取消收藏",
+  "@unfavoriteAction": {
+    "description": "发现与订阅浏览界面：取消收藏"
+  },
+  "favorited": "已收藏",
+  "@favorited": {
+    "description": "发现与订阅浏览界面：已收藏"
+  },
+  "unfavorited": "已取消收藏",
+  "@unfavorited": {
+    "description": "发现与订阅浏览界面：已取消收藏"
+  },
+  "rssFavorites": "RSS 收藏",
+  "@rssFavorites": {
+    "description": "发现与订阅浏览界面：RSS 收藏"
+  },
+  "ruleSubscriptions": "规则订阅",
+  "@ruleSubscriptions": {
+    "description": "发现与订阅浏览界面：规则订阅"
+  },
+  "filterDiscoverySources": "筛选发现源",
+  "@filterDiscoverySources": {
+    "description": "发现与订阅浏览界面：筛选发现源"
+  },
+  "emptyDiscoverySources": "当前没有发现源！",
+  "@emptyDiscoverySources": {
+    "description": "发现与订阅浏览界面：当前没有发现源！"
+  },
+  "selectDiscoveryCategory": "选择发现分类",
+  "@selectDiscoveryCategory": {
+    "description": "发现与订阅浏览界面：选择发现分类"
+  },
+  "selectDiscoveryCategoryHint": "展开左侧书源并点击分类，在此浏览书籍",
+  "@selectDiscoveryCategoryHint": {
+    "description": "发现与订阅浏览界面：展开左侧书源并点击分类，在此浏览书籍"
+  },
+  "sourceRemoved": "已卸载",
+  "@sourceRemoved": {
+    "description": "发现与订阅浏览界面：已卸载"
+  },
+  "sourcePinned": "已置顶",
+  "@sourcePinned": {
+    "description": "发现与订阅浏览界面：已置顶"
+  },
+  "loginSuccess": "登录成功",
+  "@loginSuccess": {
+    "description": "发现与订阅浏览界面：登录成功"
+  },
+  "noCategories": "无分类",
+  "@noCategories": {
+    "description": "发现与订阅浏览界面：无分类"
+  },
+  "noLoadedBooks": "没有已加载的书籍",
+  "@noLoadedBooks": {
+    "description": "发现与订阅浏览界面：没有已加载的书籍"
+  },
+  "invalidArguments": "参数错误",
+  "@invalidArguments": {
+    "description": "发现与订阅浏览界面：参数错误"
+  },
+  "missingDiscoveryCategory": "缺少发现分类参数",
+  "@missingDiscoveryCategory": {
+    "description": "发现与订阅浏览界面：缺少发现分类参数"
+  },
+  "filter": "筛选",
+  "@filter": {
+    "description": "发现与订阅浏览界面：筛选"
+  },
+  "switchComfortableLayout": "切换为舒适",
+  "@switchComfortableLayout": {
+    "description": "发现与订阅浏览界面：切换为舒适"
+  },
+  "switchCompactLayout": "切换为紧凑",
+  "@switchCompactLayout": {
+    "description": "发现与订阅浏览界面：切换为紧凑"
+  },
+  "loadedBooksFilterHint": "按关键字过滤已加载的书籍（匹配书名或作者，忽略英文字母大小写）",
+  "@loadedBooksFilterHint": {
+    "description": "发现与订阅浏览界面：按关键字过滤已加载的书籍（匹配书名或作者，忽略英文字母大小写）"
+  },
+  "filterKeywordHint": "关键字（留空=不过滤）",
+  "@filterKeywordHint": {
+    "description": "发现与订阅浏览界面：关键字（留空=不过滤）"
+  },
+  "sourceLoginRequired": "书源需要登录",
+  "@sourceLoginRequired": {
+    "description": "发现与订阅浏览界面：书源需要登录"
+  },
+  "sourceLoginRequiredHint": "登录后即可浏览该分类内容",
+  "@sourceLoginRequiredHint": {
+    "description": "发现与订阅浏览界面：登录后即可浏览该分类内容"
+  },
+  "goToLogin": "去登录",
+  "@goToLogin": {
+    "description": "发现与订阅浏览界面：去登录"
+  },
+  "emptyBooks": "暂无书籍",
+  "@emptyBooks": {
+    "description": "发现与订阅浏览界面：暂无书籍"
+  },
+  "emptyCategoryBooksHint": "该分类下没有找到书籍",
+  "@emptyCategoryBooksHint": {
+    "description": "发现与订阅浏览界面：该分类下没有找到书籍"
+  },
+  "noFilteredBooks": "筛选后无匹配书籍",
+  "@noFilteredBooks": {
+    "description": "发现与订阅浏览界面：筛选后无匹配书籍"
+  },
+  "loadPreviousPageHint": "上滑加载上一页",
+  "@loadPreviousPageHint": {
+    "description": "发现与订阅浏览界面：上滑加载上一页"
+  },
+  "tapToRetryLoad": "加载失败，点击重试",
+  "@tapToRetryLoad": {
+    "description": "发现与订阅浏览界面：加载失败，点击重试"
+  },
+  "discoveryCategoriesLoadFailed": "发现分类加载失败",
+  "@discoveryCategoriesLoadFailed": {
+    "description": "发现与订阅浏览界面：发现分类加载失败"
+  },
+  "selectPage": "选择页码",
+  "@selectPage": {
+    "description": "发现与订阅浏览界面：选择页码"
+  },
+  "collapseSearch": "收起搜索",
+  "@collapseSearch": {
+    "description": "发现与订阅浏览界面：收起搜索"
+  },
+  "expandSearch": "展开搜索",
+  "@expandSearch": {
+    "description": "发现与订阅浏览界面：展开搜索"
+  },
+  "changeSource": "换源",
+  "@changeSource": {
+    "description": "发现与订阅浏览界面：换源"
+  },
+  "deleteRssSource": "删除 RSS 源",
+  "@deleteRssSource": {
+    "description": "发现与订阅浏览界面：删除 RSS 源"
+  },
+  "loadingRssSources": "加载 RSS 源...",
+  "@loadingRssSources": {
+    "description": "发现与订阅浏览界面：加载 RSS 源..."
+  },
+  "emptyRssSources": "当前没有订阅源！",
+  "@emptyRssSources": {
+    "description": "发现与订阅浏览界面：当前没有订阅源！"
+  },
+  "emptyGroupRssSources": "当前分组暂无订阅源",
+  "@emptyGroupRssSources": {
+    "description": "发现与订阅浏览界面：当前分组暂无订阅源"
+  },
+  "noReadingRecords": "暂无阅读记录",
+  "@noReadingRecords": {
+    "description": "发现与订阅浏览界面：暂无阅读记录"
+  },
+  "untitled": "（无标题）",
+  "@untitled": {
+    "description": "发现与订阅浏览界面：（无标题）"
+  },
+  "refreshSort": "刷新排序",
+  "@refreshSort": {
+    "description": "发现与订阅浏览界面：刷新排序"
+  },
+  "setSourceVariable": "设置源变量",
+  "@setSourceVariable": {
+    "description": "发现与订阅浏览界面：设置源变量"
+  },
+  "editSource": "编辑源",
+  "@editSource": {
+    "description": "发现与订阅浏览界面：编辑源"
+  },
+  "switchLayout": "切换布局",
+  "@switchLayout": {
+    "description": "发现与订阅浏览界面：切换布局"
+  },
+  "loadingArticles": "加载文章...",
+  "@loadingArticles": {
+    "description": "发现与订阅浏览界面：加载文章..."
+  },
+  "emptyArticles": "暂无文章",
+  "@emptyArticles": {
+    "description": "发现与订阅浏览界面：暂无文章"
+  },
+  "refreshArticlesHint": "下拉刷新获取最新内容",
+  "@refreshArticlesHint": {
+    "description": "发现与订阅浏览界面：下拉刷新获取最新内容"
+  },
+  "readArticle": "已读",
+  "@readArticle": {
+    "description": "发现与订阅浏览界面：已读"
+  },
+  "sourceVariableHint": "源变量可在 JS 中通过 source.getVariable() 获取",
+  "@sourceVariableHint": {
+    "description": "发现与订阅浏览界面：源变量可在 JS 中通过 source.getVariable() 获取"
+  },
+  "sourceVariableSaved": "源变量已保存",
+  "@sourceVariableSaved": {
+    "description": "发现与订阅浏览界面：源变量已保存"
+  },
+  "confirmClearArticles": "将清空本源本地缓存的文章列表，确定继续吗？",
+  "@confirmClearArticles": {
+    "description": "发现与订阅浏览界面：将清空本源本地缓存的文章列表，确定继续吗？"
+  },
+  "articleCacheCleared": "本源文章缓存已清空",
+  "@articleCacheCleared": {
+    "description": "发现与订阅浏览界面：本源文章缓存已清空"
+  },
+  "unknownSource": "未知来源",
+  "@unknownSource": {
+    "description": "发现与订阅浏览界面：未知来源"
+  },
+  "loadingFavorites": "加载收藏...",
+  "@loadingFavorites": {
+    "description": "发现与订阅浏览界面：加载收藏..."
+  },
+  "emptyFavoriteArticles": "暂无收藏文章",
+  "@emptyFavoriteArticles": {
+    "description": "发现与订阅浏览界面：暂无收藏文章"
+  },
+  "favoriteArticlesHint": "浏览 RSS 文章时点亮星标即可收藏",
+  "@favoriteArticlesHint": {
+    "description": "发现与订阅浏览界面：浏览 RSS 文章时点亮星标即可收藏"
+  },
+  "articleDetails": "文章详情",
+  "@articleDetails": {
+    "description": "发现与订阅浏览界面：文章详情"
+  },
+  "switchToPlainText": "切换为纯文本",
+  "@switchToPlainText": {
+    "description": "发现与订阅浏览界面：切换为纯文本"
+  },
+  "switchToWebView": "切换为 WebView",
+  "@switchToWebView": {
+    "description": "发现与订阅浏览界面：切换为 WebView"
+  },
+  "openInBrowser": "在浏览器中打开",
+  "@openInBrowser": {
+    "description": "发现与订阅浏览界面：在浏览器中打开"
+  },
+  "share": "分享",
+  "@share": {
+    "description": "发现与订阅浏览界面：分享"
+  },
+  "viewOriginalInBrowser": "在浏览器中查看原文",
+  "@viewOriginalInBrowser": {
+    "description": "发现与订阅浏览界面：在浏览器中查看原文"
+  },
+  "webViewLoadFailed": "WebView 加载失败",
+  "@webViewLoadFailed": {
+    "description": "发现与订阅浏览界面：WebView 加载失败"
+  },
+  "webViewUnavailableHint": "当前平台不支持 WebView，已降级为纯文本显示",
+  "@webViewUnavailableHint": {
+    "description": "发现与订阅浏览界面：当前平台不支持 WebView，已降级为纯文本显示"
+  },
+  "viewOriginalLink": "查看原文链接",
+  "@viewOriginalLink": {
+    "description": "发现与订阅浏览界面：查看原文链接"
+  },
+  "sourcePinFailed": "置顶失败: {error}",
+  "@sourcePinFailed": {
+    "description": "发现与订阅浏览提示：置顶失败: {error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "addedToShelfCount": "已加入书架 {count} 本",
+  "@addedToShelfCount": {
+    "description": "发现与订阅浏览提示：已加入书架 {count} 本",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addToShelfFailed": "加入书架失败: {error}",
+  "@addToShelfFailed": {
+    "description": "发现与订阅浏览提示：加入书架失败: {error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "activeKeywordFilter": "筛选（已开启：{keyword}）",
+  "@activeKeywordFilter": {
+    "description": "发现与订阅浏览提示：筛选（已开启：{keyword}）",
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "noLoadedBooksMatch": "已加载的书籍中没有匹配「{keyword}」",
+  "@noLoadedBooksMatch": {
+    "description": "发现与订阅浏览提示：已加载的书籍中没有匹配「{keyword}」",
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "pageNumber": "第 {page} 页",
+  "@pageNumber": {
+    "description": "发现与订阅浏览提示：第 {page} 页",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "confirmDeleteNamedSource": "确定要删除「{name}」吗？",
+  "@confirmDeleteNamedSource": {
+    "description": "发现与订阅浏览提示：确定要删除「{name}」吗？",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "cannotOpenLink": "无法打开链接：{url}",
+  "@cannotOpenLink": {
+    "description": "发现与订阅浏览提示：无法打开链接：{url}",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteReadingRecordCount": "确定要删除？\n{count} 条阅读记录",
+  "@confirmDeleteReadingRecordCount": {
+    "description": "发现与订阅浏览提示：确定要删除？\n{count} 条阅读记录",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sourceVariableSaveFailed": "保存源变量失败：{error}",
+  "@sourceVariableSaveFailed": {
+    "description": "发现与订阅浏览提示：保存源变量失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "layoutSaveFailed": "布局保存失败：{error}",
+  "@layoutSaveFailed": {
+    "description": "发现与订阅浏览提示：布局保存失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "clearFailed": "清空失败：{error}",
+  "@clearFailed": {
+    "description": "发现与订阅浏览提示：清空失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "operationFailed": "操作失败：{error}",
+  "@operationFailed": {
+    "description": "发现与订阅浏览提示：操作失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "favoriteOperationFailed": "收藏操作失败：{error}",
+  "@favoriteOperationFailed": {
+    "description": "发现与订阅浏览提示：收藏操作失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRssSources": "搜索订阅源",
+  "@searchRssSources": {
+    "description": "订阅源管理与共用分组界面：搜索订阅源"
+  },
+  "enabled": "已启用",
+  "@enabled": {
+    "description": "订阅源管理与共用分组界面：已启用"
+  },
+  "disabled": "已禁用",
+  "@disabled": {
+    "description": "订阅源管理与共用分组界面：已禁用"
+  },
+  "loginRequired": "需登录",
+  "@loginRequired": {
+    "description": "订阅源管理与共用分组界面：需登录"
+  },
+  "ungrouped": "未分组",
+  "@ungrouped": {
+    "description": "订阅源管理与共用分组界面：未分组"
+  },
+  "addRssSource": "新增订阅源",
+  "@addRssSource": {
+    "description": "订阅源管理与共用分组界面：新增订阅源"
+  },
+  "importLocal": "本地导入",
+  "@importLocal": {
+    "description": "订阅源管理与共用分组界面：本地导入"
+  },
+  "importOnline": "网络导入",
+  "@importOnline": {
+    "description": "订阅源管理与共用分组界面：网络导入"
+  },
+  "importQrCode": "二维码导入",
+  "@importQrCode": {
+    "description": "订阅源管理与共用分组界面：二维码导入"
+  },
+  "importDefaultRules": "导入默认规则",
+  "@importDefaultRules": {
+    "description": "订阅源管理与共用分组界面：导入默认规则"
+  },
+  "enableSelected": "启用选中",
+  "@enableSelected": {
+    "description": "订阅源管理与共用分组界面：启用选中"
+  },
+  "disableSelected": "禁用选中",
+  "@disableSelected": {
+    "description": "订阅源管理与共用分组界面：禁用选中"
+  },
+  "addToGroup": "添加到分组",
+  "@addToGroup": {
+    "description": "订阅源管理与共用分组界面：添加到分组"
+  },
+  "removeGroup": "移除分组",
+  "@removeGroup": {
+    "description": "订阅源管理与共用分组界面：移除分组"
+  },
+  "pinSelected": "选中置顶",
+  "@pinSelected": {
+    "description": "订阅源管理与共用分组界面：选中置顶"
+  },
+  "bottomSelected": "选中置底",
+  "@bottomSelected": {
+    "description": "订阅源管理与共用分组界面：选中置底"
+  },
+  "exportSelected": "导出选中",
+  "@exportSelected": {
+    "description": "订阅源管理与共用分组界面：导出选中"
+  },
+  "shareSources": "分享源",
+  "@shareSources": {
+    "description": "订阅源管理与共用分组界面：分享源"
+  },
+  "selectRange": "选择区间",
+  "@selectRange": {
+    "description": "订阅源管理与共用分组界面：选择区间"
+  },
+  "noMatchingRssSources": "没有匹配的订阅源",
+  "@noMatchingRssSources": {
+    "description": "订阅源管理与共用分组界面：没有匹配的订阅源"
+  },
+  "addRssSourceHint": "点击右上角菜单「新增订阅源」或导入订阅源",
+  "@addRssSourceHint": {
+    "description": "订阅源管理与共用分组界面：点击右上角菜单「新增订阅源」或导入订阅源"
+  },
+  "moveToBottom": "置底",
+  "@moveToBottom": {
+    "description": "订阅源管理与共用分组界面：置底"
+  },
+  "deleteRssSources": "删除订阅源",
+  "@deleteRssSources": {
+    "description": "订阅源管理与共用分组界面：删除订阅源"
+  },
+  "selectRssSourcesFirst": "请先选择订阅源",
+  "@selectRssSourcesFirst": {
+    "description": "订阅源管理与共用分组界面：请先选择订阅源"
+  },
+  "selectedRssSourcesEnabled": "已启用所选订阅源",
+  "@selectedRssSourcesEnabled": {
+    "description": "订阅源管理与共用分组界面：已启用所选订阅源"
+  },
+  "selectedRssSourcesDisabled": "已禁用所选订阅源",
+  "@selectedRssSourcesDisabled": {
+    "description": "订阅源管理与共用分组界面：已禁用所选订阅源"
+  },
+  "selectedRssSourcesDeleted": "已删除所选订阅源",
+  "@selectedRssSourcesDeleted": {
+    "description": "订阅源管理与共用分组界面：已删除所选订阅源"
+  },
+  "selectedRssSourcesPinned": "已置顶所选订阅源",
+  "@selectedRssSourcesPinned": {
+    "description": "订阅源管理与共用分组界面：已置顶所选订阅源"
+  },
+  "selectedRssSourcesBottom": "已置底所选订阅源",
+  "@selectedRssSourcesBottom": {
+    "description": "订阅源管理与共用分组界面：已置底所选订阅源"
+  },
+  "groupNameHint": "输入分组名称",
+  "@groupNameHint": {
+    "description": "订阅源管理与共用分组界面：输入分组名称"
+  },
+  "noRemovableSourceGroups": "所选订阅源没有可移除的分组",
+  "@noRemovableSourceGroups": {
+    "description": "订阅源管理与共用分组界面：所选订阅源没有可移除的分组"
+  },
+  "selectTwoRssSourcesFirst": "请先选择两个以上的订阅源",
+  "@selectTwoRssSourcesFirst": {
+    "description": "订阅源管理与共用分组界面：请先选择两个以上的订阅源"
+  },
+  "invalidRssSources": "格式错误，未解析到订阅源",
+  "@invalidRssSources": {
+    "description": "订阅源管理与共用分组界面：格式错误，未解析到订阅源"
+  },
+  "importFinished": "导入完成",
+  "@importFinished": {
+    "description": "订阅源管理与共用分组界面：导入完成"
+  },
+  "filePathUnavailable": "无法获取文件路径",
+  "@filePathUnavailable": {
+    "description": "订阅源管理与共用分组界面：无法获取文件路径"
+  },
+  "invalidRssQrCode": "扫码内容不是可识别的订阅源数据",
+  "@invalidRssQrCode": {
+    "description": "订阅源管理与共用分组界面：扫码内容不是可识别的订阅源数据"
+  },
+  "defaultRssSourcesSynced": "默认订阅源已同步",
+  "@defaultRssSourcesSynced": {
+    "description": "订阅源管理与共用分组界面：默认订阅源已同步"
+  },
+  "importRssSourcesFromUrl": "从 URL 导入订阅源",
+  "@importRssSourcesFromUrl": {
+    "description": "订阅源管理与共用分组界面：从 URL 导入订阅源"
+  },
+  "rssSourceUrlHint": "输入订阅源 URL 地址",
+  "@rssSourceUrlHint": {
+    "description": "订阅源管理与共用分组界面：输入订阅源 URL 地址"
+  },
+  "history": "历史记录",
+  "@history": {
+    "description": "订阅源管理与共用分组界面：历史记录"
+  },
+  "importRssSources": "导入订阅源",
+  "@importRssSources": {
+    "description": "订阅源管理与共用分组界面：导入订阅源"
+  },
+  "customSourceGroup": "自定义源分组",
+  "@customSourceGroup": {
+    "description": "订阅源管理与共用分组界面：自定义源分组"
+  },
+  "keepSourceName": "保留原名",
+  "@keepSourceName": {
+    "description": "订阅源管理与共用分组界面：保留原名"
+  },
+  "keepSourceGroup": "保留分组",
+  "@keepSourceGroup": {
+    "description": "订阅源管理与共用分组界面：保留分组"
+  },
+  "keepSourceEnabled": "保留启用状态",
+  "@keepSourceEnabled": {
+    "description": "订阅源管理与共用分组界面：保留启用状态"
+  },
+  "showSourceComment": "显示源注释",
+  "@showSourceComment": {
+    "description": "订阅源管理与共用分组界面：显示源注释"
+  },
+  "copiedToClipboard": "已复制到剪贴板",
+  "@copiedToClipboard": {
+    "description": "订阅源管理与共用分组界面：已复制到剪贴板"
+  },
+  "copy": "复制",
+  "@copy": {
+    "description": "订阅源管理与共用分组界面：复制"
+  },
+  "importStatusNew": "新增",
+  "@importStatusNew": {
+    "description": "订阅源管理与共用分组界面：新增"
+  },
+  "importStatusUpdated": "更新",
+  "@importStatusUpdated": {
+    "description": "订阅源管理与共用分组界面：更新"
+  },
+  "importStatusExisting": "已有",
+  "@importStatusExisting": {
+    "description": "订阅源管理与共用分组界面：已有"
+  },
+  "open": "打开",
+  "@open": {
+    "description": "订阅源管理与共用分组界面：打开"
+  },
+  "addGroup": "添加分组",
+  "@addGroup": {
+    "description": "订阅源管理与共用分组界面：添加分组"
+  },
+  "groupName": "分组名称",
+  "@groupName": {
+    "description": "订阅源管理与共用分组界面：分组名称"
+  },
+  "renameGroup": "重命名分组",
+  "@renameGroup": {
+    "description": "订阅源管理与共用分组界面：重命名分组"
+  },
+  "newGroupNameHint": "输入新分组名称",
+  "@newGroupNameHint": {
+    "description": "订阅源管理与共用分组界面：输入新分组名称"
+  },
+  "deleteGroup": "删除分组",
+  "@deleteGroup": {
+    "description": "订阅源管理与共用分组界面：删除分组"
+  },
+  "emptyGroups": "暂无分组",
+  "@emptyGroups": {
+    "description": "订阅源管理与共用分组界面：暂无分组"
+  },
+  "rename": "重命名",
+  "@rename": {
+    "description": "订阅源管理与共用分组界面：重命名"
+  },
+  "customSourceGroupName": "输入自定义源分组名称",
+  "@customSourceGroupName": {
+    "description": "订阅源管理与共用分组界面：输入自定义源分组名称"
+  },
+  "addGroupModeHint": "关闭替换分组 / 开启添加分组",
+  "@addGroupModeHint": {
+    "description": "订阅源管理与共用分组界面：关闭替换分组 / 开启添加分组"
+  },
+  "rssSourceNoun": "订阅源",
+  "@rssSourceNoun": {
+    "description": "订阅源管理与共用分组界面：订阅源"
+  },
+  "bookSourceNoun": "书源",
+  "@bookSourceNoun": {
+    "description": "订阅源管理与共用分组界面：书源"
+  },
+  "ruleNoun": "规则",
+  "@ruleNoun": {
+    "description": "订阅源管理与共用分组界面：规则"
+  },
+  "sourceEnabledToggleFailed": "切换启用状态失败：{error}",
+  "@sourceEnabledToggleFailed": {
+    "description": "订阅源管理与分组操作提示：切换启用状态失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFailed": "删除失败：{error}",
+  "@deleteFailed": {
+    "description": "订阅源管理与分组操作提示：删除失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sortSaveFailed": "保存排序失败：{error}",
+  "@sortSaveFailed": {
+    "description": "订阅源管理与分组操作提示：保存排序失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteRssSourceCount": "确定要删除选中的 {count} 个订阅源吗？",
+  "@confirmDeleteRssSourceCount": {
+    "description": "订阅源管理与分组操作提示：确定要删除选中的 {count} 个订阅源吗？",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addedSourceGroup": "已为所选订阅源添加分组「{name}」",
+  "@addedSourceGroup": {
+    "description": "订阅源管理与分组操作提示：已为所选订阅源添加分组「{name}」",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addGroupFailed": "添加分组失败：{error}",
+  "@addGroupFailed": {
+    "description": "订阅源管理与分组操作提示：添加分组失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "removedSourceGroup": "已从所选订阅源移除分组「{name}」",
+  "@removedSourceGroup": {
+    "description": "订阅源管理与分组操作提示：已从所选订阅源移除分组「{name}」",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeGroupFailed": "移除分组失败：{error}",
+  "@removeGroupFailed": {
+    "description": "订阅源管理与分组操作提示：移除分组失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "exportedRssSourcesToClipboard": "已导出 {count} 个订阅源到剪贴板",
+  "@exportedRssSourcesToClipboard": {
+    "description": "订阅源管理与分组操作提示：已导出 {count} 个订阅源到剪贴板",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportFailed": "导出失败：{error}",
+  "@exportFailed": {
+    "description": "订阅源管理与分组操作提示：导出失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "shareRssSourceCount": "订阅源分享（{count} 个）",
+  "@shareRssSourceCount": {
+    "description": "订阅源管理与分组操作提示：订阅源分享（{count} 个）",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shareFailed": "分享失败：{error}",
+  "@shareFailed": {
+    "description": "订阅源管理与分组操作提示：分享失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importFromFileFailed": "从文件导入失败：{error}",
+  "@importFromFileFailed": {
+    "description": "订阅源管理与分组操作提示：从文件导入失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fetchRssSourcesFailed": "获取订阅源失败：{error}",
+  "@fetchRssSourcesFailed": {
+    "description": "订阅源管理与分组操作提示：获取订阅源失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importedDefaultRssSourceCount": "已导入 {count} 条默认订阅源",
+  "@importedDefaultRssSourceCount": {
+    "description": "订阅源管理与分组操作提示：已导入 {count} 条默认订阅源",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importDefaultRulesFailed": "导入默认规则失败：{error}",
+  "@importDefaultRulesFailed": {
+    "description": "订阅源管理与分组操作提示：导入默认规则失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "rssSourceImportFailed": "导入失败：{error}",
+  "@rssSourceImportFailed": {
+    "description": "订阅源管理与分组操作提示：导入失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "selectAllCount": "全选（{selected}/{total}）",
+  "@selectAllCount": {
+    "description": "订阅源管理与分组操作提示：全选（{selected}/{total}）",
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "deselectAllCount": "取消全选（{selected}/{total}）",
+  "@deselectAllCount": {
+    "description": "订阅源管理与分组操作提示：取消全选（{selected}/{total}）",
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "groupAlreadyExists": "分组「{name}」已存在",
+  "@groupAlreadyExists": {
+    "description": "订阅源管理与分组操作提示：分组「{name}」已存在",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noUngroupedItems": "没有未分组的{noun}可归入该分组",
+  "@noUngroupedItems": {
+    "description": "订阅源管理与分组操作提示：没有未分组的{noun}可归入该分组",
+    "placeholders": {
+      "noun": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDeleteItemGroup": "确定要删除分组「{name}」吗？分组内{noun}将移出该分组。",
+  "@confirmDeleteItemGroup": {
+    "description": "订阅源管理与分组操作提示：确定要删除分组「{name}」吗？分组内{noun}将移出该分组。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "noun": {
+        "type": "String"
+      }
+    }
+  },
+  "searchScope": "搜索范围",
+  "stopSearch": "停止搜索",
+  "loadNextPage": "加载下一页",
+  "preciseSearch": "精准搜索",
+  "markReadBooks": "标识读过的书籍",
+  "appLog": "日志",
+  "searchResultFilter": "搜索结果过滤",
+  "searchResultFilterActive": "搜索结果过滤（已开启）",
+  "copySourceFailures": "复制全部失败详情",
+  "searchBookOrAuthor": "搜索书名、作者",
+  "noMatchingSearchHistory": "无匹配的历史关键词",
+  "clearSearchHistory": "清空搜索历史",
+  "confirmClearSearchHistory": "确定要清空所有搜索历史吗？",
+  "emptySearchResults": "搜索结果为空",
+  "disablePreciseSearch": "关闭精准搜索",
+  "switchAllSearchGroups": "切换全部分组",
+  "specifiedBookSources": "指定书源",
+  "currentBookSource": "当前书源",
+  "allBookSources": "全部书源",
+  "searchBookSources": "搜索书源",
+  "noMatchingBookSources": "无匹配书源",
+  "noGroupedBookSources": "无分组书源",
+  "searchBlockedWords": "搜索结果屏蔽词",
+  "searchBlockedWordsHelp": "每行一个普通文本，匹配书名、作者或分类标签，忽略英文字母大小写",
+  "searchBlockedWordsHint": "屏蔽词（每行一个）",
+  "searchContent": "搜索内容",
+  "searchOptions": "搜索选项",
+  "searchUseReplacement": "替换",
+  "searchUseRegex": "正则",
+  "searchCurrentChapter": "仅当前章",
+  "searchCachedChapters": "仅本书（已缓存）",
+  "searchNetworkChapters": "本书 + 网络",
+  "searchPlaceholder": "搜索...",
+  "searchResultsTruncated": "（已截断）",
+  "searchContentHint": "输入关键词开始搜索正文",
+  "searchThisBookOnly": "仅本书",
+  "displayListSeparator": "、",
+  "searchProgressSummary": "结果 {count} · 进度 {searched}/{total}",
+  "@searchProgressSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "searched": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "searchLoginRequiredCount": "{count} 个书源需要登录，请先在书源菜单中登录后重试",
+  "@searchLoginRequiredCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookSourceSearchFailed": "书源搜索失败：{error}",
+  "@bookSourceSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "bookSourceSearchFailureCount": "{count} 个书源搜索失败，点击展开",
+  "@bookSourceSearchFailureCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "copiedSourceFailureCount": "已复制 {count} 条书源失败详情",
+  "@copiedSourceFailureCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchGroupCount": "{count} 分组",
+  "@searchGroupCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchSourceCount": "{count} 书源",
+  "@searchSourceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "latestChapterLabel": "最新：{chapter}",
+  "@latestChapterLabel": {
+    "placeholders": {
+      "chapter": {
+        "type": "String"
+      }
+    }
+  },
+  "bookSourcesLoadFailed": "书源加载失败: {error}",
+  "@bookSourcesLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "deletedSearchKeyword": "已删除「{keyword}」",
+  "@deletedSearchKeyword": {
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "emptySearchDisablePrecision": "{scope}分组搜索结果为空，是否关闭精准搜索？",
+  "@emptySearchDisablePrecision": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "emptySearchSwitchAllGroups": "{scope}分组搜索结果为空，是否切换到全部分组？",
+  "@emptySearchSwitchAllGroups": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "scanningSearchChapters": "扫描章节 {scanned} / {total} ...",
+  "@scanningSearchChapters": {
+    "placeholders": {
+      "scanned": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "noContentMatches": "未找到「{keyword}」相关内容",
+  "@noContentMatches": {
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "contentMatchCount": "共 {count} 处匹配",
+  "@contentMatchCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorSourceUrl": "源 URL",
+  "editorSourceName": "源名称",
+  "editorSourceGroup": "源分组",
+  "editorSourceComment": "源注释",
+  "editorLoginUrl": "登录 URL",
+  "editorLoginUi": "登录界面",
+  "editorLoginCheckJs": "登录检查 JS",
+  "editorCoverDecode": "封面解密",
+  "editorBookUrlPattern": "书籍 URL 正则",
+  "editorHeader": "请求头",
+  "editorVariableComment": "变量说明",
+  "editorConcurrentRate": "并发率",
+  "editorSearchUrl": "搜索地址",
+  "editorCheckKeyword": "校验关键字",
+  "editorBookList": "书籍列表规则",
+  "editorBookName": "书名规则",
+  "editorAuthor": "作者规则",
+  "editorKind": "分类规则",
+  "editorWordCount": "字数规则",
+  "editorLastChapter": "最新章节规则",
+  "editorIntro": "简介规则",
+  "editorCoverUrl": "封面规则",
+  "editorBookUrl": "详情页 URL 规则",
+  "editorExploreUrl": "发现地址规则",
+  "editorInfoInit": "预处理规则",
+  "editorTocUrl": "目录 URL 规则",
+  "editorCanRename": "允许修改书名作者",
+  "editorDownloadUrls": "下载URL规则",
+  "editorPreUpdateJs": "更新之前 JS",
+  "editorChapterList": "目录列表规则",
+  "editorChapterName": "章节名称规则",
+  "editorChapterUrl": "章节 URL 规则",
+  "editorFormatJs": "格式化规则",
+  "editorIsVolume": "Volume 标识",
+  "editorChapterInfo": "章节信息",
+  "editorIsVip": "VIP 标识",
+  "editorIsPay": "购买标识",
+  "editorNextTocUrl": "目录下一页规则",
+  "editorContent": "正文规则",
+  "editorNextContentUrl": "正文下一页 URL 规则",
+  "editorSubContent": "副文规则",
+  "editorReplaceRegex": "替换规则",
+  "editorTitle": "标题",
+  "editorSourceRegex": "资源正则",
+  "editorImageStyle": "图片样式",
+  "editorImageDecode": "图片解密",
+  "editorWebJs": "WebView JS",
+  "editorPayAction": "购买操作",
+  "editorCallbackJs": "回调操作",
+  "editorReviewSummaryUrl": "段评统计 URL",
+  "editorSummaryList": "段评统计列表",
+  "editorParagraphIndex": "段落索引",
+  "editorSummaryCount": "段评数量",
+  "editorParagraphData": "段落数据",
+  "editorReviewDetailUrl": "段评详情 URL",
+  "editorReviewNextPage": "段评下一页 URL",
+  "editorDetailList": "段评详情列表",
+  "editorCommentId": "段评 ID",
+  "editorAvatar": "头像",
+  "editorNickname": "昵称",
+  "editorBadge": "徽章",
+  "editorCommentContent": "评论内容协议",
+  "editorReviewQuoteUrl": "段评回复URL",
+  "editorReplyList": "子评论列表",
+  "editorReplyId": "子评论 ID",
+  "editorReplyAvatar": "子评论头像",
+  "editorReplyName": "子评论昵称",
+  "editorReplyBadge": "子评论徽章",
+  "editorReplyContent": "子评论内容协议",
+  "editorIcon": "图标",
+  "editorIconUrl": "图标 URL",
+  "editorSortUrl": "分类 URL",
+  "editorLoginDetectionJs": "登录检测 JS",
+  "editorCoverDecodeJs": "封面解码 JS",
+  "editorRssVariableComment": "源变量注释",
+  "editorJsLibrary": "JS 库",
+  "editorStartHtml": "初始 HTML",
+  "editorStartStyle": "初始样式",
+  "editorStartJs": "初始 JS",
+  "editorPreloadJs": "预加载 JS",
+  "editorArticleList": "文章列表规则",
+  "editorNextPage": "下一页规则",
+  "editorTitleRule": "标题规则",
+  "editorDateRule": "日期规则",
+  "editorDescriptionRule": "描述规则",
+  "editorImageRule": "图片规则",
+  "editorLinkRule": "链接规则",
+  "editorContentRule": "内容规则",
+  "editorStyle": "样式",
+  "editorInjectJs": "注入 JS",
+  "editorContentWhitelist": "内容白名单",
+  "editorContentBlacklist": "内容黑名单",
+  "editorOverrideUrl": "URL 拦截",
+  "editorType": "类型",
+  "editorText": "文本",
+  "editorAudio": "音频",
+  "editorImage": "图片",
+  "editorFile": "文件",
+  "editorVideo": "视频",
+  "editorWeb": "网页",
+  "editorList": "列表",
+  "editorSingleColumn": "单列",
+  "editorTwoColumns": "双列",
+  "editorWaterfall": "瀑布",
+  "editorThreeColumns": "三列",
+  "editorBasic": "基本",
+  "editorDetails": "详情",
+  "editorChapters": "目录",
+  "editorBookContent": "正文",
+  "editorPreprocess": "预处理",
+  "editorListRules": "列表规则",
+  "editorReviewRules": "段评规则",
+  "editorEnable": "启用",
+  "editorReviews": "段评",
+  "editorEventListener": "事件监听",
+  "editorCustomButton": "定制按钮",
+  "editorOptions": "选项",
+  "editorSingleUrl": "单 URL",
+  "editorPreload": "预加载",
+  "editorEnableJs": "启用 JS",
+  "editorLoadBaseUrl": "以 base URL 加载",
+  "editorShowWebLog": "显示网页日志",
+  "editorCacheFirst": "缓存优先",
+  "editorFieldLabel": "{label}（{field}）",
+  "@editorFieldLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "enterEditorField": "请输入{label}",
+  "@enterEditorField": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "editorSettingsSummary": "设置, {summary}, {action}",
+  "@editorSettingsSummary": {
+    "placeholders": {
+      "summary": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "editorCollapse": "收起",
+  "editorExpand": "展开",
+  "editorJsonHint": "JSON 格式",
+  "editorSearchUrlHint": "例如：https://example.com/search?q=searchKey",
+  "editorExploreUrlHint": "例如：分类名::https://example.com/sort\n或 url 形式",
+  "editorGroupHint": "多个分组用逗号分隔",
+  "editorSortHint": "分类名::规则",
+  "editorRateHint": "如：16/s",
+  "editorJsLibraryHint": "源使用的 JavaScript 库",
+  "editorArticlesHint": "ruleArticles，如 item 或 //item",
+  "editorCssHint": "文章页面 CSS",
+  "newBookSource": "新建书源",
+  "editBookSource": "编辑书源",
+  "newRssSource": "新建订阅源",
+  "editRssSource": "编辑订阅源",
+  "editSourceContent": "编辑内容",
+  "debugSource": "调试源",
+  "moreOptions": "更多选项",
+  "testSource": "测试",
+  "bookSourceCreated": "书源已创建",
+  "bookSourceSaved": "书源已保存",
+  "rssSourceUpdated": "订阅源已更新",
+  "rssSourceAdded": "订阅源已添加",
+  "sourceSaveFailed": "保存失败：{error}",
+  "@sourceSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "clearCookies": "清除Cookie",
+  "cookiesCleared": "Cookie 已清除",
+  "clearCookiesFailed": "清除 Cookie 失败：{error}",
+  "@clearCookiesFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "autoComplete": "自动补全",
+  "autoCompleteEnabled": "自动补全已开启",
+  "autoCompleteDisabled": "自动补全已关闭",
+  "copySource": "拷贝源",
+  "pasteSource": "粘贴源",
+  "importSourceQr": "二维码导入",
+  "shareSourceQr": "二维码分享",
+  "shareSourceText": "字符串分享",
+  "shareBookSource": "分享书源",
+  "enterBookSourceUrlFirst": "请先填写书源 URL",
+  "enterSourceUrlFirst": "请先填写源 URL",
+  "sourceVariableCleared": "源变量已清除",
+  "sourceVariableInputHint": "输入源变量（空则清除）",
+  "qrTooLong": "内容过长，无法生成二维码，请使用字符串分享",
+  "qrGenerateFailed": "二维码生成失败",
+  "shareImage": "分享图片",
+  "clipboardEmpty": "剪贴板为空",
+  "pastedBookSource": "已粘贴书源：{name}",
+  "@pastedBookSource": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "clipboardInvalidBookSource": "剪贴板内容不是有效的书源 JSON",
+  "bookSourceShareSubject": "书源分享",
+  "importedBookSource": "已导入书源：{name}",
+  "@importedBookSource": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "qrInvalidBookSource": "扫码内容不是有效的书源 JSON",
+  "sourceProtocolImportHint": "legado 协议链接请使用「关联导入」页处理",
+  "sourceUrlImportHint": "URL 内容请使用书源管理页的网络导入处理",
+  "sourceSearchOpenFailed": "打开搜索失败：{error}",
+  "@sourceSearchOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceDebugFailed": "调试失败：{error}",
+  "@sourceDebugFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "focusSourceFieldFirst": "请先将光标放在要编辑的输入框",
+  "bookSourceNotFound": "未找到书源，可能已被删除",
+  "enterSourceName": "请输入源名称",
+  "enterSourceUrl": "请输入源 URL",
+  "unsavedChanges": "未保存的修改",
+  "discardSourceChanges": "修改尚未保存，确定要放弃修改并退出吗？",
+  "discard": "放弃",
+  "testSourceUrlRequired": "请先输入源 URL",
+  "sourceTestNoArticles": "连接成功，但未获取到文章（可能需要配置规则）",
+  "untitledArticle": "(无标题)",
+  "sourceTestArticles": "成功获取 {count} 篇文章：\n{titles}",
+  "@sourceTestArticles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "titles": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceTestFailed": "测试失败：{error}",
+  "@sourceTestFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "copiedRssSource": "已复制订阅源到剪贴板",
+  "rssSourceShareSubject": "订阅源分享：{name}",
+  "@rssSourceShareSubject": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pastedRssSource": "已从剪贴板粘贴订阅源",
+  "pasteRssSourceFailed": "粘贴失败，剪贴板不是有效的订阅源 JSON：{error}",
+  "@pasteRssSourceFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "bookSourceDebugTitle": "书源调试",
+  "@bookSourceDebugTitle": {
+    "description": "书源调试与登录界面：书源调试"
+  },
+  "rssSourceDebugTitle": "RSS 源调试",
+  "@rssSourceDebugTitle": {
+    "description": "书源调试与登录界面：RSS 源调试"
+  },
+  "clearDebugLogs": "清空日志",
+  "@clearDebugLogs": {
+    "description": "书源调试与登录界面：清空日志"
+  },
+  "debugBookSourceUrlLabel": "书源 URL",
+  "@debugBookSourceUrlLabel": {
+    "description": "书源调试与登录界面：书源 URL"
+  },
+  "debugBookSourceUrlHint": "输入要调试的书源地址",
+  "@debugBookSourceUrlHint": {
+    "description": "书源调试与登录界面：输入要调试的书源地址"
+  },
+  "debugKeywordLabel": "搜索关键词",
+  "@debugKeywordLabel": {
+    "description": "书源调试与登录界面：搜索关键词"
+  },
+  "debugKeywordHint": "关键词 / URL / ++目录 / --正文",
+  "@debugKeywordHint": {
+    "description": "书源调试与登录界面：关键词 / URL / ++目录 / --正文"
+  },
+  "debugAction": "调试",
+  "@debugAction": {
+    "description": "书源调试与登录界面：调试"
+  },
+  "stopAction": "停止",
+  "@stopAction": {
+    "description": "书源调试与登录界面：停止"
+  },
+  "debugRunning": "运行中",
+  "@debugRunning": {
+    "description": "书源调试与登录界面：运行中"
+  },
+  "deselectAll": "全不选",
+  "@deselectAll": {
+    "description": "书源调试与登录界面：全不选"
+  },
+  "debugLogSuccess": "成功",
+  "@debugLogSuccess": {
+    "description": "书源调试与登录界面：成功"
+  },
+  "debugLogCount": "{visible} / {total} 条",
+  "@debugLogCount": {
+    "description": "书源调试与登录界面：{visible} / {total} 条",
+    "placeholders": {
+      "visible": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "debugBookSourceEmptyHint": "输入书源 URL 和关键词后点击“调试”开始",
+  "@debugBookSourceEmptyHint": {
+    "description": "书源调试与登录界面：输入书源 URL 和关键词后点击“调试”开始"
+  },
+  "debugNoMatchingLogs": "没有匹配的日志条目",
+  "@debugNoMatchingLogs": {
+    "description": "书源调试与登录界面：没有匹配的日志条目"
+  },
+  "debugRssEmptyHint": "点击“调试”开始执行",
+  "@debugRssEmptyHint": {
+    "description": "书源调试与登录界面：点击“调试”开始执行"
+  },
+  "debugBookSourceUrlRequired": "错误：请输入书源 URL",
+  "@debugBookSourceUrlRequired": {
+    "description": "书源调试与登录界面：错误：请输入书源 URL"
+  },
+  "debugKeywordRequired": "错误：请输入搜索关键词",
+  "@debugKeywordRequired": {
+    "description": "书源调试与登录界面：错误：请输入搜索关键词"
+  },
+  "debugStarting": "⇒开始调试",
+  "@debugStarting": {
+    "description": "书源调试与登录界面：⇒开始调试"
+  },
+  "debugException": "异常: {error}",
+  "@debugException": {
+    "description": "书源调试与登录界面：异常: {error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "debugRssUrlRequired": "错误：请先输入 RSS 源地址",
+  "@debugRssUrlRequired": {
+    "description": "书源调试与登录界面：错误：请先输入 RSS 源地址"
+  },
+  "debugRssStarting": "=== 开始调试 RSS 源 ===",
+  "@debugRssStarting": {
+    "description": "书源调试与登录界面：=== 开始调试 RSS 源 ==="
+  },
+  "debugSourceAddress": "源地址: {url}",
+  "@debugSourceAddress": {
+    "description": "书源调试与登录界面：源地址: {url}",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "debugRssQuery": "[1/2] 正在查询已注册的 RSS 源...",
+  "@debugRssQuery": {
+    "description": "书源调试与登录界面：[1/2] 正在查询已注册的 RSS 源..."
+  },
+  "debugRssUnregistered": "未在书架注册该 RSS 源，将直接按 URL 抓取",
+  "@debugRssUnregistered": {
+    "description": "书源调试与登录界面：未在书架注册该 RSS 源，将直接按 URL 抓取"
+  },
+  "debugSourceName": "源名称: {name}",
+  "@debugSourceName": {
+    "description": "书源调试与登录界面：源名称: {name}",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "debugRssFetch": "[2/2] 正在抓取文章列表...",
+  "@debugRssFetch": {
+    "description": "书源调试与登录界面：[2/2] 正在抓取文章列表..."
+  },
+  "debugRssNoArticles": "未获取到文章（可能需要配置规则或源不可达）",
+  "@debugRssNoArticles": {
+    "description": "书源调试与登录界面：未获取到文章（可能需要配置规则或源不可达）"
+  },
+  "debugRssArticlesFound": "抓取完成，共 {count} 篇文章",
+  "@debugRssArticlesFound": {
+    "description": "书源调试与登录界面：抓取完成，共 {count} 篇文章",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "debugArticleLink": "      链接: {url}",
+  "@debugArticleLink": {
+    "description": "书源调试与登录界面：      链接: {url}",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "debugRssArticlesOmitted": "  ...（其余 {count} 篇省略）",
+  "@debugRssArticlesOmitted": {
+    "description": "书源调试与登录界面：  ...（其余 {count} 篇省略）",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "debugFinished": "=== 调试完成 ===",
+  "@debugFinished": {
+    "description": "书源调试与登录界面：=== 调试完成 ==="
+  },
+  "loginToSource": "登录 {source}",
+  "@loginToSource": {
+    "description": "书源调试与登录界面：登录 {source}",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "manualLoginInput": "手动输入",
+  "@manualLoginInput": {
+    "description": "书源调试与登录界面：手动输入"
+  },
+  "loginLink": "登录链接",
+  "@loginLink": {
+    "description": "书源调试与登录界面：登录链接"
+  },
+  "sourceLoginLinkMissing": "该书源未配置登录链接",
+  "@sourceLoginLinkMissing": {
+    "description": "书源调试与登录界面：该书源未配置登录链接"
+  },
+  "sourceLoginLinkInvalid": "登录链接无效",
+  "@sourceLoginLinkInvalid": {
+    "description": "书源调试与登录界面：登录链接无效"
+  },
+  "sourceLoginLinkOpenFailed": "无法打开登录链接",
+  "@sourceLoginLinkOpenFailed": {
+    "description": "书源调试与登录界面：无法打开登录链接"
+  },
+  "cookieNameRequired": "Cookie 名称不能为空",
+  "@cookieNameRequired": {
+    "description": "书源调试与登录界面：Cookie 名称不能为空"
+  },
+  "headerNameRequired": "Header 名称不能为空",
+  "@headerNameRequired": {
+    "description": "书源调试与登录界面：Header 名称不能为空"
+  },
+  "loginInfoSaved": "登录信息已保存",
+  "@loginInfoSaved": {
+    "description": "书源调试与登录界面：登录信息已保存"
+  },
+  "loginSaveFailed": "保存失败，请重试",
+  "@loginSaveFailed": {
+    "description": "书源调试与登录界面：保存失败，请重试"
+  },
+  "saveLoginInfo": "保存登录信息",
+  "@saveLoginInfo": {
+    "description": "书源调试与登录界面：保存登录信息"
+  },
+  "optionalLoginToken": "Token（可选）",
+  "@optionalLoginToken": {
+    "description": "书源调试与登录界面：Token（可选）"
+  },
+  "loginTokenHint": "Bearer Token / API Key",
+  "@loginTokenHint": {
+    "description": "书源调试与登录界面：Bearer Token / API Key"
+  },
+  "loginCookies": "Cookies",
+  "@loginCookies": {
+    "description": "书源调试与登录界面：Cookies"
+  },
+  "loginCookieNameHint": "名称",
+  "@loginCookieNameHint": {
+    "description": "书源调试与登录界面：名称"
+  },
+  "loginCookieValueHint": "值",
+  "@loginCookieValueHint": {
+    "description": "书源调试与登录界面：值"
+  },
+  "optionalLoginHeaders": "Headers（可选）",
+  "@optionalLoginHeaders": {
+    "description": "书源调试与登录界面：Headers（可选）"
+  },
+  "loginHeaderNameHint": "请求头名称",
+  "@loginHeaderNameHint": {
+    "description": "书源调试与登录界面：请求头名称"
+  },
+  "loginHeaderValueHint": "请求头值",
+  "@loginHeaderValueHint": {
+    "description": "书源调试与登录界面：请求头值"
+  },
+  "browserLoginInstructions": "在浏览器完成登录后，复制 Cookie 并切换到“手动输入”标签页粘贴。",
+  "@browserLoginInstructions": {
+    "description": "书源调试与登录界面：在浏览器完成登录后，复制 Cookie 并切换到“手动输入”标签页粘贴。"
+  },
+  "loginActionFailed": "动作执行失败：{error}",
+  "@loginActionFailed": {
+    "description": "书源调试与登录界面：动作执行失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceLoginFailed": "登录出错：{error}",
+  "@sourceLoginFailed": {
+    "description": "书源调试与登录界面：登录出错：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginHeader": "登录头",
+  "@loginHeader": {
+    "description": "书源调试与登录界面：登录头"
+  },
+  "loginNoValue": "（无）",
+  "@loginNoValue": {
+    "description": "书源调试与登录界面：（无）"
+  },
+  "loginHeaderDeleted": "登录头已删除",
+  "@loginHeaderDeleted": {
+    "description": "书源调试与登录界面：登录头已删除"
+  },
+  "loginInfoCleared": "登录信息已清除",
+  "@loginInfoCleared": {
+    "description": "书源调试与登录界面：登录信息已清除"
+  },
+  "viewLoginHeader": "查看登录头",
+  "@viewLoginHeader": {
+    "description": "书源调试与登录界面：查看登录头"
+  },
+  "deleteLoginHeader": "删除登录头",
+  "@deleteLoginHeader": {
+    "description": "书源调试与登录界面：删除登录头"
+  },
+  "clearLoginInfo": "清除登录信息",
+  "@clearLoginInfo": {
+    "description": "书源调试与登录界面：清除登录信息"
+  },
+  "loginFormParseFailed": "登录表单解析失败：{error}",
+  "@loginFormParseFailed": {
+    "description": "书源调试与登录界面：登录表单解析失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceLoginFormMissing": "该书源未配置登录表单",
+  "@sourceLoginFormMissing": {
+    "description": "书源调试与登录界面：该书源未配置登录表单"
+  },
+  "loginButtonCountdown": "{label}（{seconds}秒）",
+  "@loginButtonCountdown": {
+    "description": "书源调试与登录界面：{label}（{seconds}秒）",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "loginCheckCompleted": "登录检测完成",
+  "@loginCheckCompleted": {
+    "description": "书源调试与登录界面：登录检测完成"
+  },
+  "openingExternalApp": "即将跳转到其他应用打开：{url}",
+  "@openingExternalApp": {
+    "description": "书源调试与登录界面：即将跳转到其他应用打开：{url}",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPageLoadFailed": "页面加载失败：{error}",
+  "@loginPageLoadFailed": {
+    "description": "书源调试与登录界面：页面加载失败：{error}",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingLoginCookies": "正在检测 Cookie…",
+  "@checkingLoginCookies": {
+    "description": "书源调试与登录界面：正在检测 Cookie…"
+  },
+  "checkLoginAction": "检测",
+  "@checkLoginAction": {
+    "description": "书源调试与登录界面：检测"
+  },
+  "editLoginCookies": "手动编辑 Cookie",
+  "@editLoginCookies": {
+    "description": "书源调试与登录界面：手动编辑 Cookie"
+  },
+  "loginRequiredTitle": "需要登录",
+  "@loginRequiredTitle": {
+    "description": "书源调试与登录界面：需要登录"
+  },
+  "sourceLoginRetryHint": "书源需要登录，请先在书源菜单中登录后重试",
+  "@sourceLoginRetryHint": {
+    "description": "书源调试与登录界面：书源需要登录，请先在书源菜单中登录后重试"
+  },
+  "loginFailed": "登录失败",
+  "@loginFailed": {
+    "description": "动态登录表单的无详细错误兜底提示"
+  },
+  "loginFormTitle": "登录 - {source}",
+  "@loginFormTitle": {
+    "description": "手动输入页与动态表单标题，保留现有中文分隔符",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmLoginAction": "确认",
+  "@confirmLoginAction": {
+    "description": "经典登录表单顶栏确认操作"
+  },
+  "readerSlide": "滑动",
+  "@readerSlide": {
+    "description": "阅读设置文案；对应 HapeLee page_anim_slide"
+  },
+  "readerSimulation": "仿真",
+  "@readerSimulation": {
+    "description": "阅读设置文案；对应 HapeLee page_anim_simulation"
+  },
+  "readerScroll": "滚动",
+  "@readerScroll": {
+    "description": "阅读设置文案；对应 HapeLee page_anim_scroll"
+  },
+  "readerPageAnimation": "翻页动画",
+  "@readerPageAnimation": {
+    "description": "阅读设置文案；对应 HapeLee page_anim"
+  },
+  "readerFontSize": "字号",
+  "@readerFontSize": {
+    "description": "阅读设置文案；对应 HapeLee font_size"
+  },
+  "readerBackground": "背景",
+  "@readerBackground": {
+    "description": "阅读设置文案；对应 HapeLee background"
+  },
+  "readerTextColor": "文字颜色",
+  "@readerTextColor": {
+    "description": "阅读设置文案；对应 HapeLee bookmark_mark_text_color"
+  },
+  "readerBackgroundColor": "背景颜色",
+  "@readerBackgroundColor": {
+    "description": "阅读设置文案；对应 HapeLee bg_color"
+  },
+  "readerDone": "完成",
+  "@readerDone": {
+    "description": "阅读设置文案；对应 HapeLee complete"
+  },
+  "readerAuto": "自动",
+  "@readerAuto": {
+    "description": "阅读设置文案；对应 HapeLee arrays/NavBarColors/0"
+  },
+  "readerDefaultFont": "默认字体",
+  "@readerDefaultFont": {
+    "description": "阅读设置文案；对应 HapeLee default_font"
+  },
+  "readerFont": "字体",
+  "@readerFont": {
+    "description": "阅读设置文案；对应 HapeLee text_font"
+  },
+  "readerFontWeight": "字重",
+  "@readerFontWeight": {
+    "description": "阅读设置文案；对应 HapeLee font_weight"
+  },
+  "readerItalic": "斜体",
+  "@readerItalic": {
+    "description": "阅读设置文案；对应 HapeLee read_config_italic"
+  },
+  "readerWeightLight": "细体",
+  "@readerWeightLight": {
+    "description": "阅读设置文案；对应 HapeLee arrays/text_font_weight/2"
+  },
+  "readerWeightRegular": "常规",
+  "@readerWeightRegular": {
+    "description": "阅读设置文案；对应 HapeLee arrays/text_font_weight/0"
+  },
+  "readerWeightBold": "粗体",
+  "@readerWeightBold": {
+    "description": "阅读设置文案；对应 HapeLee arrays/text_font_weight/1"
+  },
+  "readerIndentNone": "无缩进",
+  "@readerIndentNone": {
+    "description": "阅读设置文案；对应 HapeLee indent_0"
+  },
+  "readerIndentOne": "一字符",
+  "@readerIndentOne": {
+    "description": "阅读设置文案；对应 HapeLee indent_1"
+  },
+  "readerIndentTwo": "二字符",
+  "@readerIndentTwo": {
+    "description": "阅读设置文案；对应 HapeLee indent_2"
+  },
+  "readerIndentThree": "三字符",
+  "@readerIndentThree": {
+    "description": "阅读设置文案；对应 HapeLee indent_3"
+  },
+  "readerParagraphSpacing": "段间距",
+  "@readerParagraphSpacing": {
+    "description": "阅读设置文案；对应 HapeLee paragraph_size"
+  },
+  "readerHeader": "页眉",
+  "@readerHeader": {
+    "description": "阅读设置文案；对应 HapeLee header"
+  },
+  "readerFooter": "页脚",
+  "@readerFooter": {
+    "description": "阅读设置文案；对应 HapeLee footer"
+  },
+  "readerBody": "正文",
+  "@readerBody": {
+    "description": "阅读设置文案；对应 HapeLee main_body"
+  },
+  "readerPaddingTop": "上边距",
+  "@readerPaddingTop": {
+    "description": "阅读设置文案；对应 HapeLee padding_top"
+  },
+  "readerPaddingBottom": "下边距",
+  "@readerPaddingBottom": {
+    "description": "阅读设置文案；对应 HapeLee padding_bottom"
+  },
+  "readerPaddingLeft": "左边距",
+  "@readerPaddingLeft": {
+    "description": "阅读设置文案；对应 HapeLee padding_left"
+  },
+  "readerPaddingRight": "右边距",
+  "@readerPaddingRight": {
+    "description": "阅读设置文案；对应 HapeLee padding_right"
+  },
+  "readerTipNone": "无",
+  "@readerTipNone": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/0"
+  },
+  "readerTipBookName": "书名",
+  "@readerTipBookName": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/1"
+  },
+  "readerTipChapterName": "章节名",
+  "@readerTipChapterName": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/2"
+  },
+  "readerTipTime": "时间",
+  "@readerTipTime": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/5"
+  },
+  "readerTipBatteryIcon": "电量图标",
+  "@readerTipBatteryIcon": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/9"
+  },
+  "readerTipBatteryPercent": "电量百分比",
+  "@readerTipBatteryPercent": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/10"
+  },
+  "readerTipPages": "页码",
+  "@readerTipPages": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/11"
+  },
+  "readerTipProgress": "阅读进度",
+  "@readerTipProgress": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/12"
+  },
+  "readerTipPagesProgress": "页码+进度",
+  "@readerTipPagesProgress": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/14"
+  },
+  "readerTipTimeBattery": "时间+电量",
+  "@readerTipTimeBattery": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/15"
+  },
+  "readerTipTimeBatteryPercent": "时间+电量%",
+  "@readerTipTimeBatteryPercent": {
+    "description": "阅读设置文案；对应 HapeLee arrays/read_tip/17"
+  },
+  "readerHideWithStatusBar": "状态栏显示时隐藏",
+  "@readerHideWithStatusBar": {
+    "description": "阅读设置文案；对应 HapeLee hide_when_status_bar_show"
+  },
+  "readerShow": "显示",
+  "@readerShow": {
+    "description": "阅读设置文案；对应 HapeLee show"
+  },
+  "readerHide": "隐藏",
+  "@readerHide": {
+    "description": "阅读设置文案；对应 HapeLee hide"
+  },
+  "readerChapterTitle": "章节标题",
+  "@readerChapterTitle": {
+    "description": "阅读设置文案；对应 HapeLee content_edit_title"
+  },
+  "readerAlignLeft": "居左",
+  "@readerAlignLeft": {
+    "description": "阅读设置文案；对应 HapeLee title_left"
+  },
+  "readerAlignCenter": "居中",
+  "@readerAlignCenter": {
+    "description": "阅读设置文案；对应 HapeLee title_center"
+  },
+  "readerShowDivider": "显示分隔线",
+  "@readerShowDivider": {
+    "description": "阅读设置文案；对应 HapeLee showLine"
+  },
+  "readerAutoPageTurn": "自动翻页",
+  "@readerAutoPageTurn": {
+    "description": "阅读设置文案；对应 HapeLee auto_next_page"
+  },
+  "readerNoAction": "无操作",
+  "@readerNoAction": {
+    "description": "阅读设置文案；对应 HapeLee non_action"
+  },
+  "readerPreviousPage": "上一页",
+  "@readerPreviousPage": {
+    "description": "阅读设置文案；对应 HapeLee manga_reader_previous_page"
+  },
+  "readerNextPage": "下一页",
+  "@readerNextPage": {
+    "description": "阅读设置文案；对应 HapeLee manga_reader_next_page"
+  },
+  "readerMenu": "菜单",
+  "@readerMenu": {
+    "description": "阅读设置文案；对应 HapeLee menu"
+  },
+  "readerTapAreas": "点击区域",
+  "@readerTapAreas": {
+    "description": "阅读设置文案；对应 HapeLee manga_reader_click_area_short"
+  },
+  "readerSelectText": "长按选择文本",
+  "@readerSelectText": {
+    "description": "阅读设置文案；对应 HapeLee selectText"
+  },
+  "readerMouseWheelPage": "鼠标滚轮翻页",
+  "@readerMouseWheelPage": {
+    "description": "阅读设置文案；对应 HapeLee mouse_wheel_page"
+  },
+  "readerVolumeKeyPage": "音量键翻页",
+  "@readerVolumeKeyPage": {
+    "description": "阅读设置文案；对应 HapeLee volume_key_page"
+  },
+  "readerVolumeKeyPageReading": "朗读时音量键翻页",
+  "@readerVolumeKeyPageReading": {
+    "description": "阅读设置文案；对应 HapeLee volume_key_page_on_play"
+  },
+  "readerPageTouchSlop": "滑动翻页阈值",
+  "@readerPageTouchSlop": {
+    "description": "阅读设置文案；对应 HapeLee page_touch_slop_title"
+  },
+  "readerPageTouchSlopDialog": "滑动翻页阈值（0 = 系统默认值）",
+  "@readerPageTouchSlopDialog": {
+    "description": "阅读设置文案；对应 HapeLee page_touch_slop_dialog_title"
+  },
+  "readerScreenOrientation": "屏幕方向",
+  "@readerScreenOrientation": {
+    "description": "阅读设置文案；对应 HapeLee screen_direction"
+  },
+  "readerPortrait": "竖屏",
+  "@readerPortrait": {
+    "description": "阅读设置文案；对应 HapeLee screen_portrait"
+  },
+  "readerLandscape": "横屏",
+  "@readerLandscape": {
+    "description": "阅读设置文案；对应 HapeLee screen_landscape"
+  },
+  "readerSensor": "自动(传感器)",
+  "@readerSensor": {
+    "description": "阅读设置文案；对应 HapeLee screen_sensor"
+  },
+  "readerPortraitReversed": "反向竖屏",
+  "@readerPortraitReversed": {
+    "description": "阅读设置文案；对应 HapeLee screen_portrait_reversed"
+  },
+  "readerLandscapeReversed": "反向横屏",
+  "@readerLandscapeReversed": {
+    "description": "阅读设置文案；对应 HapeLee screen_landscape_reversed"
+  },
+  "readerKeepAwake": "保持亮屏",
+  "@readerKeepAwake": {
+    "description": "阅读设置文案；对应 HapeLee keep_light"
+  },
+  "readerDefault": "默认",
+  "@readerDefault": {
+    "description": "阅读设置文案；对应 HapeLee arrays/screen_time_out/0"
+  },
+  "readerAwakeMinute": "1 分钟",
+  "@readerAwakeMinute": {
+    "description": "阅读设置文案；对应 HapeLee arrays/screen_time_out/1"
+  },
+  "readerAwakeFiveMinutes": "5 分钟",
+  "@readerAwakeFiveMinutes": {
+    "description": "阅读设置文案；对应 HapeLee arrays/screen_time_out/2"
+  },
+  "readerAwakeTenMinutes": "10 分钟",
+  "@readerAwakeTenMinutes": {
+    "description": "阅读设置文案；对应 HapeLee arrays/screen_time_out/3"
+  },
+  "readerAwakeAlways": "常亮",
+  "@readerAwakeAlways": {
+    "description": "阅读设置文案；对应 HapeLee arrays/screen_time_out/4"
+  },
+  "readerHideStatusBar": "隐藏状态栏",
+  "@readerHideStatusBar": {
+    "description": "阅读设置文案；对应 HapeLee pt_hide_status_bar"
+  },
+  "readerHideNavigationBar": "隐藏导航栏",
+  "@readerHideNavigationBar": {
+    "description": "阅读设置文案；对应 HapeLee pt_hide_navigation_bar"
+  },
+  "readerExtendCutout": "扩展到刘海",
+  "@readerExtendCutout": {
+    "description": "阅读设置文案；对应 HapeLee read_body_to_lh"
+  },
+  "readerFillCutout": "填充刘海区域",
+  "@readerFillCutout": {
+    "description": "阅读设置文案；对应 HapeLee padding_display_cutouts"
+  },
+  "readerDualPageMode": "平板/横屏双页",
+  "@readerDualPageMode": {
+    "description": "阅读设置文案；对应 HapeLee double_page_horizontal"
+  },
+  "readerSinglePage": "全局单页",
+  "@readerSinglePage": {
+    "description": "阅读设置文案；对应 HapeLee arrays/double_page_title/0"
+  },
+  "readerDoublePage": "全局双页",
+  "@readerDoublePage": {
+    "description": "阅读设置文案；对应 HapeLee arrays/double_page_title/1"
+  },
+  "readerLandscapeDoublePage": "横屏双页",
+  "@readerLandscapeDoublePage": {
+    "description": "阅读设置文案；对应 HapeLee arrays/double_page_title/2"
+  },
+  "readerChineseConversion": "简繁转换",
+  "@readerChineseConversion": {
+    "description": "阅读设置文案；对应 HapeLee jf_convert"
+  },
+  "readerNoConversion": "不转换",
+  "@readerNoConversion": {
+    "description": "阅读设置文案；对应 HapeLee arrays/chinese_mode/0"
+  },
+  "readerToSimplified": "繁→简",
+  "@readerToSimplified": {
+    "description": "阅读设置文案；对应 HapeLee arrays/chinese_mode/1"
+  },
+  "readerToTraditional": "简→繁",
+  "@readerToTraditional": {
+    "description": "阅读设置文案；对应 HapeLee arrays/chinese_mode/2"
+  },
+  "readerAutoChangeSource": "自动换源",
+  "@readerAutoChangeSource": {
+    "description": "阅读设置文案；对应 HapeLee auto_change_source"
+  },
+  "readerProgressBarBehavior": "进度条行为",
+  "@readerProgressBarBehavior": {
+    "description": "阅读设置文案；对应 HapeLee progress_bar_behavior"
+  },
+  "readerAdjustChapterPage": "调章内页",
+  "@readerAdjustChapterPage": {
+    "description": "阅读设置文案；对应 HapeLee adjust_chapter_page"
+  },
+  "readerAdjustChapterIndex": "调章节",
+  "@readerAdjustChapterIndex": {
+    "description": "阅读设置文案；对应 HapeLee adjust_chapter_index"
+  },
+  "readerToolbarFollowPage": "工具栏跟随页面",
+  "@readerToolbarFollowPage": {
+    "description": "阅读设置文案；对应 HapeLee read_bar_style_follow_page"
+  },
+  "readerBrightnessOff": "关闭",
+  "@readerBrightnessOff": {
+    "description": "阅读设置文案；对应 HapeLee brightness_bar_off"
+  },
+  "readerBrightnessHorizontal": "横向",
+  "@readerBrightnessHorizontal": {
+    "description": "阅读设置文案；对应 HapeLee brightness_bar_horizontal"
+  },
+  "advancedMainScreen": "主界面",
+  "@advancedMainScreen": {
+    "description": "高级设置文案；对应 HapeLee main_activity"
+  },
+  "advancedAutoRefresh": "自动刷新",
+  "@advancedAutoRefresh": {
+    "description": "高级设置文案；对应 HapeLee pt_auto_refresh"
+  },
+  "advancedAutoRefreshDescription": "打开软件时自动更新书籍",
+  "@advancedAutoRefreshDescription": {
+    "description": "高级设置文案；对应 HapeLee ps_auto_refresh"
+  },
+  "advancedRecentReading": "自动跳转最近阅读",
+  "@advancedRecentReading": {
+    "description": "高级设置文案；对应 HapeLee pt_default_read"
+  },
+  "advancedRecentReadingDescription": "默认打开书架",
+  "@advancedRecentReadingDescription": {
+    "description": "高级设置文案；对应 HapeLee ps_default_read"
+  },
+  "advancedShowDiscovery": "显示发现",
+  "@advancedShowDiscovery": {
+    "description": "高级设置文案；对应 HapeLee show_discovery"
+  },
+  "advancedShowRss": "显示订阅",
+  "@advancedShowRss": {
+    "description": "高级设置文案；对应 HapeLee show_rss"
+  },
+  "advancedDefaultHomePage": "默认主页",
+  "@advancedDefaultHomePage": {
+    "description": "高级设置文案；对应 HapeLee default_home_page"
+  },
+  "advancedDefaultHomePageDialog": "默认首页",
+  "@advancedDefaultHomePageDialog": {
+    "description": "高级设置文案；对应 HapeLee default_home_page"
+  },
+  "advancedLocalPassword": "设置本地密码",
+  "@advancedLocalPassword": {
+    "description": "高级设置文案；对应 HapeLee set_local_password"
+  },
+  "advancedLocalPasswordDescription": "本地密码用来对备份的敏感信息加密和解密,如需在不同设备之间同步,本地密码需一致.",
+  "@advancedLocalPasswordDescription": {
+    "description": "高级设置文案；对应 HapeLee set_local_password_summary"
+  },
+  "advancedUserAgent": "用户代理",
+  "@advancedUserAgent": {
+    "description": "高级设置文案；对应 HapeLee user_agent"
+  },
+  "advancedBookSaveLocation": "书籍保存位置",
+  "@advancedBookSaveLocation": {
+    "description": "高级设置文案；对应 HapeLee book_tree_uri_t"
+  },
+  "advancedBookSaveLocationDescription": "从其它应用打开的书籍保存位置",
+  "@advancedBookSaveLocationDescription": {
+    "description": "高级设置文案；对应 HapeLee book_tree_uri_s"
+  },
+  "advancedSourceEditorMaxLines": "源编辑框最大行数",
+  "@advancedSourceEditorMaxLines": {
+    "description": "高级设置文案；对应 HapeLee source_edit_text_max_line"
+  },
+  "advancedCheckSourceSettings": "校验设置",
+  "@advancedCheckSourceSettings": {
+    "description": "高级设置文案；对应 HapeLee check_source_config"
+  },
+  "advancedAntiAlias": "抗锯齿",
+  "@advancedAntiAlias": {
+    "description": "高级设置文案；对应 HapeLee anti_alias"
+  },
+  "advancedAntiAliasDescription": "绘制图片时抗锯齿",
+  "@advancedAntiAliasDescription": {
+    "description": "高级设置文案；对应 HapeLee pref_anti_alias_summary"
+  },
+  "advancedBitmapCache": "图片绘制缓存",
+  "@advancedBitmapCache": {
+    "description": "高级设置文案；对应 HapeLee bitmap_cache_size"
+  },
+  "advancedMangaRetention": "漫画保留数量",
+  "@advancedMangaRetention": {
+    "description": "高级设置文案；对应 HapeLee image_retain_number"
+  },
+  "advancedPreDownload": "预下载",
+  "@advancedPreDownload": {
+    "description": "高级设置文案；对应 HapeLee pre_download"
+  },
+  "advancedReplaceByDefault": "默认启用替换净化",
+  "@advancedReplaceByDefault": {
+    "description": "高级设置文案；对应 HapeLee replace_enable_default_t"
+  },
+  "advancedReplaceByDefaultDescription": "新加入书架的书是否启用替换净化",
+  "@advancedReplaceByDefaultDescription": {
+    "description": "高级设置文案；对应 HapeLee replace_enable_default_s"
+  },
+  "advancedHeadsetAlways": "全程响应耳机按键",
+  "@advancedHeadsetAlways": {
+    "description": "高级设置文案；对应 HapeLee media_button_on_exit_title"
+  },
+  "advancedHeadsetAlwaysDescription": "即使退出软件也响应耳机按键",
+  "@advancedHeadsetAlwaysDescription": {
+    "description": "高级设置文案；对应 HapeLee media_button_on_exit_summary"
+  },
+  "advancedHeadsetReadAloud": "耳机按键启动朗读",
+  "@advancedHeadsetReadAloud": {
+    "description": "高级设置文案；对应 HapeLee read_aloud_by_media_button_title"
+  },
+  "advancedHeadsetReadAloudDescription": "通过耳机按键来启动朗读",
+  "@advancedHeadsetReadAloudDescription": {
+    "description": "高级设置文案；对应 HapeLee read_aloud_by_media_button_summary"
+  },
+  "advancedIgnoreAudioFocus": "忽略音频焦点",
+  "@advancedIgnoreAudioFocus": {
+    "description": "高级设置文案；对应 HapeLee ignore_audio_focus_title"
+  },
+  "advancedIgnoreAudioFocusDescription": "允许与其他应用同时播放音频",
+  "@advancedIgnoreAudioFocusDescription": {
+    "description": "高级设置文案；对应 HapeLee ignore_audio_focus_summary"
+  },
+  "advancedClearExpiredSearch": "自动清除过期搜索数据",
+  "@advancedClearExpiredSearch": {
+    "description": "高级设置文案；对应 HapeLee auto_clear_expired"
+  },
+  "advancedClearExpiredSearchDescription": "超过一天的搜索数据",
+  "@advancedClearExpiredSearchDescription": {
+    "description": "高级设置文案；对应 HapeLee auto_clear_expired_summary"
+  },
+  "advancedAddToShelfPrompt": "返回时提示放入书架",
+  "@advancedAddToShelfPrompt": {
+    "description": "高级设置文案；对应 HapeLee show_add_to_shelf_alert_title"
+  },
+  "advancedAddToShelfPromptDescription": "阅读未放入书架的书籍在返回时提示放入书架",
+  "@advancedAddToShelfPromptDescription": {
+    "description": "高级设置文案；对应 HapeLee show_add_to_shelf_alert_summary"
+  },
+  "advancedMangaViewer": "漫画浏览",
+  "@advancedMangaViewer": {
+    "description": "高级设置文案；对应 HapeLee show_manga_ui"
+  },
+  "advancedWebPort": "Web 端口",
+  "@advancedWebPort": {
+    "description": "高级设置文案；对应 HapeLee web_port_title"
+  },
+  "advancedClearCache": "清理缓存",
+  "@advancedClearCache": {
+    "description": "高级设置文案；对应 HapeLee clear_cache"
+  },
+  "advancedClearCacheDescription": "清除已下载书籍和字体缓存",
+  "@advancedClearCacheDescription": {
+    "description": "高级设置文案；对应 HapeLee clear_cache_summary"
+  },
+  "advancedClearWebView": "清除 WebView 数据",
+  "@advancedClearWebView": {
+    "description": "高级设置文案；对应 HapeLee clear_webview_data"
+  },
+  "advancedClearWebViewDescription": "清除内置浏览器所有数据",
+  "@advancedClearWebViewDescription": {
+    "description": "高级设置文案；对应 HapeLee clear_webview_data_summary"
+  },
+  "advancedShrinkDatabase": "压缩数据库",
+  "@advancedShrinkDatabase": {
+    "description": "高级设置文案；对应 HapeLee shrink_database"
+  },
+  "advancedShrinkDatabaseDescription": "减小数据库文件的大小",
+  "@advancedShrinkDatabaseDescription": {
+    "description": "高级设置文案；对应 HapeLee shrink_database_summary"
+  },
+  "advancedSearchTextActions": "文字操作显示搜索",
+  "@advancedSearchTextActions": {
+    "description": "高级设置文案；对应 HapeLee add_to_text_context_menu_t"
+  },
+  "advancedRecordLog": "记录日志",
+  "@advancedRecordLog": {
+    "description": "高级设置文案；对应 HapeLee record_log"
+  },
+  "advancedRecordDebugLog": "记录调试日志",
+  "@advancedRecordDebugLog": {
+    "description": "高级设置文案；对应 HapeLee record_debug_log"
+  },
+  "advancedHeapDump": "记录堆转储",
+  "@advancedHeapDump": {
+    "description": "高级设置文案；对应 HapeLee record_heap_dump_t"
+  },
+  "advancedHeapDumpDescription": "当应用发生OOM崩溃时保存堆转储",
+  "@advancedHeapDumpDescription": {
+    "description": "高级设置文案；对应 HapeLee record_heap_dump_s"
+  },
+  "themeTopBarButtonStyle": "顶栏按钮样式",
+  "@themeTopBarButtonStyle": {
+    "description": "按页面功能核对 HapeLee top_bar_button_style；只用于显示文案。"
+  },
+  "themeTopBarOpacity": "顶栏背景不透明度",
+  "@themeTopBarOpacity": {
+    "description": "按页面功能核对 HapeLee top_bar_opacity；只用于显示文案。"
+  },
+  "themeBottomBarOpacity": "底栏背景不透明度",
+  "@themeBottomBarOpacity": {
+    "description": "按页面功能核对 HapeLee bottom_bar_opacity；只用于显示文案。"
+  },
+  "themeBaseCardCornerRadius": "卡片圆角",
+  "@themeBaseCardCornerRadius": {
+    "description": "按页面功能核对 HapeLee base_card_corner_radius；只用于显示文案。"
+  },
+  "themePureBlack": "纯黑深色模式",
+  "@themePureBlack": {
+    "description": "按页面功能核对 HapeLee pure_black；只用于显示文案。"
+  },
+  "themeChangeIcon": "切换图标",
+  "@themeChangeIcon": {
+    "description": "按页面功能核对 HapeLee change_icon；只用于显示文案。"
+  },
+  "themeChangeIconSummary": "切换软件显示在桌面的图标",
+  "@themeChangeIconSummary": {
+    "description": "按页面功能核对 HapeLee change_icon_summary；只用于显示文案。"
+  },
+  "themeManagement": "主题管理",
+  "@themeManagement": {
+    "description": "按页面功能核对 HapeLee theme_pack；只用于显示文案。"
+  },
+  "themeManagementDescription": "使用、保存、导入或分享主题",
+  "@themeManagementDescription": {
+    "description": "按页面功能核对 HapeLee theme_list_summary；只用于显示文案。"
+  },
+  "themeImportTheme": "导入主题",
+  "@themeImportTheme": {
+    "description": "按页面功能核对 HapeLee import_theme；只用于显示文案。"
+  },
+  "themeBarElevation": "导航栏阴影",
+  "@themeBarElevation": {
+    "description": "按页面功能核对 HapeLee bar_elevation；只用于显示文案。"
+  },
+  "themeCoverConfig": "封面设置",
+  "@themeCoverConfig": {
+    "description": "按页面功能核对 HapeLee cover_config；只用于显示文案。"
+  },
+  "themeCoverConfigSummary": "通用封面规则及默认封面样式",
+  "@themeCoverConfigSummary": {
+    "description": "按页面功能核对 HapeLee cover_config_summary；只用于显示文案。"
+  },
+  "themeMergeTopBarActions": "合并顶栏按钮",
+  "@themeMergeTopBarActions": {
+    "description": "按页面功能核对 HapeLee merge_top_bar_actions；只用于显示文案。"
+  },
+  "themeFloatingBottomBar": "悬浮底栏",
+  "@themeFloatingBottomBar": {
+    "description": "按页面功能核对 HapeLee floating_bottom_bar；只用于显示文案。"
+  },
+  "themeBookInfoPage": "书籍详情页",
+  "@themeBookInfoPage": {
+    "description": "按页面功能核对 HapeLee book_info_page；只用于显示文案。"
+  },
+  "themeBookInfoFollowCoverColor": "界面颜色跟随封面取色",
+  "@themeBookInfoFollowCoverColor": {
+    "description": "按页面功能核对 HapeLee book_info_follow_cover_color；只用于显示文案。"
+  },
+  "themeBookInfoFollowCoverColorSummary": "仅在显示背景封面时生效",
+  "@themeBookInfoFollowCoverColorSummary": {
+    "description": "按页面功能核对 HapeLee book_info_follow_cover_color_summary；只用于显示文案。"
+  },
+  "themeBookInfoNetworkCoverBackground": "网络封面背景设置",
+  "@themeBookInfoNetworkCoverBackground": {
+    "description": "按页面功能核对 HapeLee book_info_network_cover_background；只用于显示文案。"
+  },
+  "themeBookInfoDefaultCoverBackground": "默认封面背景设置",
+  "@themeBookInfoDefaultCoverBackground": {
+    "description": "按页面功能核对 HapeLee book_info_default_cover_background；只用于显示文案。"
+  },
+  "themeContainerSettings": "容器设置",
+  "@themeContainerSettings": {
+    "description": "按页面功能核对 HapeLee theme_manage_section_container；只用于显示文案。"
+  },
+  "themeBlurEffects": "模糊效果",
+  "@themeBlurEffects": {
+    "description": "按页面功能核对 HapeLee blur_effects；只用于显示文案。"
+  },
+  "themePrimary": "主色调",
+  "@themePrimary": {
+    "description": "按页面功能核对 HapeLee primary；只用于显示文案。"
+  },
+  "themeAccent": "强调色",
+  "@themeAccent": {
+    "description": "按页面功能核对 HapeLee accent；只用于显示文案。"
+  },
+  "themeNavbarColor": "底部操作栏颜色",
+  "@themeNavbarColor": {
+    "description": "按页面功能核对 HapeLee navbar_color；只用于显示文案。"
+  },
+  "themeBackgroundImage": "背景图片",
+  "@themeBackgroundImage": {
+    "description": "按页面功能核对 HapeLee background_image；只用于显示文案。"
+  },
+  "themeRestoreDefault": "恢复默认",
+  "@themeRestoreDefault": {
+    "description": "按页面功能核对 HapeLee restore_default；只用于显示文案。"
+  },
+  "themeCoverRule": "封面规则",
+  "@themeCoverRule": {
+    "description": "按页面功能核对 HapeLee cover_rule；只用于显示文案。"
+  },
+  "themeThemeName": "主题名称",
+  "@themeThemeName": {
+    "description": "按页面功能核对 HapeLee theme_name；只用于显示文案。"
+  },
+  "themeSelectImage": "选择图片",
+  "@themeSelectImage": {
+    "description": "按页面功能核对 HapeLee select_image；只用于显示文案。"
+  },
+  "sourceSort": "排序",
+  "@sourceSort": {
+    "description": "按页面功能核对 HapeLee sort；只用于显示文案。"
+  },
+  "sourceGroupSourcesByDomain": "按域名分组显示",
+  "@sourceGroupSourcesByDomain": {
+    "description": "按页面功能核对 HapeLee group_sources_by_domain；只用于显示文案。"
+  },
+  "sourceEnableSelection": "启用所选",
+  "@sourceEnableSelection": {
+    "description": "按页面功能核对 HapeLee enable_selection；只用于显示文案。"
+  },
+  "sourceDisableSelection": "禁用所选",
+  "@sourceDisableSelection": {
+    "description": "按页面功能核对 HapeLee disable_selection；只用于显示文案。"
+  },
+  "sourceEnableExplore": "启用发现",
+  "@sourceEnableExplore": {
+    "description": "按页面功能核对 HapeLee enable_explore；只用于显示文案。"
+  },
+  "sourceDisableExplore": "禁用发现",
+  "@sourceDisableExplore": {
+    "description": "按页面功能核对 HapeLee disable_explore；只用于显示文案。"
+  },
+  "sourceSelectionToTop": "置顶所选",
+  "@sourceSelectionToTop": {
+    "description": "按页面功能核对 HapeLee selection_to_top；只用于显示文案。"
+  },
+  "sourceSelectionToBottom": "置底所选",
+  "@sourceSelectionToBottom": {
+    "description": "按页面功能核对 HapeLee selection_to_bottom；只用于显示文案。"
+  },
+  "sourceExportSelection": "导出所选",
+  "@sourceExportSelection": {
+    "description": "按页面功能核对 HapeLee export_selection；只用于显示文案。"
+  },
+  "sourceShareSelectedSource": "分享选中源",
+  "@sourceShareSelectedSource": {
+    "description": "按页面功能核对 HapeLee share_selected_source；只用于显示文案。"
+  },
+  "sourceCheckSelectSource": "校验所选",
+  "@sourceCheckSelectSource": {
+    "description": "按页面功能核对 HapeLee check_select_source；只用于显示文案。"
+  },
+  "sourceCheckSelectedInterval": "选中所选区间",
+  "@sourceCheckSelectedInterval": {
+    "description": "按页面功能核对 HapeLee check_selected_interval；只用于显示文案。"
+  },
+  "sourceMoreMenu": "更多菜单",
+  "@sourceMoreMenu": {
+    "description": "按页面功能核对 HapeLee more_menu；只用于显示文案。"
+  },
+  "sourceTagExploreEnabled": "标志:发现已启用",
+  "@sourceTagExploreEnabled": {
+    "description": "按页面功能核对 HapeLee tag_explore_enabled；只用于显示文案。"
+  },
+  "sourceDescendingOrder": "降序",
+  "@sourceDescendingOrder": {
+    "description": "按页面功能核对 HapeLee descending_order；只用于显示文案。"
+  },
+  "sourceSortManual": "手动排序",
+  "@sourceSortManual": {
+    "description": "按页面功能核对 HapeLee sort_manual；只用于显示文案。"
+  },
+  "sourceSortByUpdate": "按更新时间",
+  "@sourceSortByUpdate": {
+    "description": "按页面功能核对 HapeLee bookshelf_px_1；只用于显示文案。"
+  },
+  "ruleName": "规则名称",
+  "@ruleName": {
+    "description": "按页面功能核对 HapeLee rule_name；只用于显示文案。"
+  },
+  "ruleMatchPattern": "匹配规则",
+  "@ruleMatchPattern": {
+    "description": "按页面功能核对 HapeLee match_pattern；只用于显示文案。"
+  },
+  "ruleReplaceTo": "替换为",
+  "@ruleReplaceTo": {
+    "description": "按页面功能核对 HapeLee replace_to；只用于显示文案。"
+  },
+  "ruleSpecificScope": "特定范围",
+  "@ruleSpecificScope": {
+    "description": "按页面功能核对 HapeLee specific_scope；只用于显示文案。"
+  },
+  "ruleExcludeScope": "排除范围",
+  "@ruleExcludeScope": {
+    "description": "按页面功能核对 HapeLee exclude_scope；只用于显示文案。"
+  },
+  "ruleEditReplaceRule": "编辑替换规则",
+  "@ruleEditReplaceRule": {
+    "description": "按页面功能核对 HapeLee edit_replace_rule；只用于显示文案。"
+  },
+  "rulePasteRule": "粘贴规则",
+  "@rulePasteRule": {
+    "description": "按页面功能核对 HapeLee paste_rule；只用于显示文案。"
+  },
+  "ruleUseRegex": "使用正则表达式",
+  "@ruleUseRegex": {
+    "description": "按页面功能核对 HapeLee use_regex；只用于显示文案。"
+  },
+  "ruleMoreActions": "更多操作",
+  "@ruleMoreActions": {
+    "description": "按页面功能核对 HapeLee more_actions；只用于显示文案。"
+  },
+  "ruleEditRule": "编辑规则",
+  "@ruleEditRule": {
+    "description": "按页面功能核对 HapeLee edit_rule；只用于显示文案。"
+  },
+  "ruleRegexPattern": "正则表达式",
+  "@ruleRegexPattern": {
+    "description": "按页面功能核对 HapeLee rule_pattern；只用于显示文案。"
+  },
+  "ruleAdd": "添加",
+  "@ruleAdd": {
+    "description": "按页面功能核对 HapeLee add；只用于显示文案。"
+  },
+  "ruleNewRule": "新增规则",
+  "@ruleNewRule": {
+    "description": "按页面功能核对 HapeLee new_rule；只用于显示文案。"
+  },
+  "ruleDeleteSelected": "删除选中",
+  "@ruleDeleteSelected": {
+    "description": "按页面功能核对 HapeLee delete_selected；只用于显示文案。"
+  },
+  "backupTesting": "测试中…",
+  "@backupTesting": {
+    "description": "按页面功能核对 HapeLee test_sync_loading_text；只用于显示文案。"
+  },
+  "backupMenuImportOldVersion": "导入旧版数据",
+  "@backupMenuImportOldVersion": {
+    "description": "按页面功能核对 HapeLee menu_import_old_version；只用于显示文案。"
+  },
+  "backupWebdavDeviceName": "设备名称",
+  "@backupWebdavDeviceName": {
+    "description": "按页面功能核对 HapeLee webdav_device_name；只用于显示文案。"
+  },
+  "backupPath": "备份路径",
+  "@backupPath": {
+    "description": "按页面功能核对 HapeLee backup_path；只用于显示文案。"
+  },
+  "backupSelectBackupPath": "请选择备份路径",
+  "@backupSelectBackupPath": {
+    "description": "按页面功能核对 HapeLee select_backup_path；只用于显示文案。"
+  },
+  "backupSummary": "本地和 WebDav 一起备份",
+  "@backupSummary": {
+    "description": "按页面功能核对 HapeLee backup_summary；只用于显示文案。"
+  },
+  "backupRestoreIgnore": "恢复忽略列表",
+  "@backupRestoreIgnore": {
+    "description": "按页面功能核对 HapeLee restore_ignore；只用于显示文案。"
+  },
+  "backupKeepLatest": "仅保留最新备份",
+  "@backupKeepLatest": {
+    "description": "按页面功能核对 HapeLee only_latest_backup_t；只用于显示文案。"
+  },
+  "backupKeepLatestDescription": "本地备份仅保留最新备份文件",
+  "@backupKeepLatestDescription": {
+    "description": "按页面功能核对 HapeLee only_latest_backup_s；只用于显示文案。"
+  },
+  "backupCheckNew": "自动检查新备份",
+  "@backupCheckNew": {
+    "description": "按页面功能核对 HapeLee auto_check_new_backup_t；只用于显示文案。"
+  },
+  "backupCheckNewDescription": "打开软件时检查是否有新备份，有新备份时提示是否更新",
+  "@backupCheckNewDescription": {
+    "description": "按页面功能核对 HapeLee auto_check_new_backup_s；只用于显示文案。"
+  },
+  "readerUseReplaceRule": "使用替换规则",
+  "@readerUseReplaceRule": {
+    "description": "按页面功能核对 HapeLee use_replace_rule；只用于显示文案。"
+  },
+  "readerLoadWordCount": "加载字数",
+  "@readerLoadWordCount": {
+    "description": "按页面功能核对 HapeLee load_word_count；只用于显示文案。"
+  },
+  "readerExport": "导出",
+  "@readerExport": {
+    "description": "按页面功能核对 HapeLee export；只用于显示文案。"
+  },
+  "readerLocateCurrentReading": "定位至当前阅读",
+  "@readerLocateCurrentReading": {
+    "description": "按页面功能核对 HapeLee locate_current_reading；只用于显示文案。"
+  },
+  "readerMoveToTop": "移至顶部",
+  "@readerMoveToTop": {
+    "description": "按页面功能核对 HapeLee move_to_top；只用于显示文案。"
+  },
+  "readerMoveToBottom": "移至底部",
+  "@readerMoveToBottom": {
+    "description": "按页面功能核对 HapeLee move_to_bottom；只用于显示文案。"
+  },
+  "readerDownloadAll": "一键缓存",
+  "@readerDownloadAll": {
+    "description": "按页面功能核对 HapeLee download_all；只用于显示文案。"
+  },
+  "readerNoBookmark": "暂无书签",
+  "@readerNoBookmark": {
+    "description": "按页面功能核对 HapeLee no_bookmark；只用于显示文案。"
+  },
+  "readerSyncProgress": "同步阅读进度",
+  "@readerSyncProgress": {
+    "description": "按页面功能核对 HapeLee sync_book_progress_t；只用于显示文案。"
+  },
+  "readerChapterChangeSource": "单章换源",
+  "@readerChapterChangeSource": {
+    "description": "按页面功能核对 HapeLee chapter_change_source；只用于显示文案。"
+  },
+  "readerSetCharset": "设置编码",
+  "@readerSetCharset": {
+    "description": "按页面功能核对 HapeLee set_charset；只用于显示文案。"
+  },
+  "readerDisableSource": "禁用源",
+  "@readerDisableSource": {
+    "description": "按页面功能核对 HapeLee disable_source；只用于显示文案。"
+  },
+  "readerOpenFun": "打开方式",
+  "@readerOpenFun": {
+    "description": "按页面功能核对 HapeLee open_fun；只用于显示文案。"
+  },
+  "readerBookmarkAdd": "添加书签",
+  "@readerBookmarkAdd": {
+    "description": "按页面功能核对 HapeLee bookmark_add；只用于显示文案。"
+  },
+  "readerHighlightRuleConfig": "高亮规则",
+  "@readerHighlightRuleConfig": {
+    "description": "按页面功能核对 HapeLee highlight_rule_config；只用于显示文案。"
+  },
+  "readerReplaceRuleTitleSetting": "替换规则",
+  "@readerReplaceRuleTitleSetting": {
+    "description": "按页面功能核对 HapeLee replace_rule_title_setting；只用于显示文案。"
+  },
+  "readerCoverBookProgress": "覆盖云端进度",
+  "@readerCoverBookProgress": {
+    "description": "按页面功能核对 HapeLee cover_book_progress；只用于显示文案。"
+  },
+  "readerReverseContent": "反转内容",
+  "@readerReverseContent": {
+    "description": "按页面功能核对 HapeLee reverse_content；只用于显示文案。"
+  },
+  "readerReSegment": "重新分段",
+  "@readerReSegment": {
+    "description": "按页面功能核对 HapeLee re_segment；只用于显示文案。"
+  },
+  "mangaSetting": "漫画阅读设置",
+  "@mangaSetting": {
+    "description": "按页面功能核对 HapeLee manga_setting；只用于显示文案。"
+  },
+  "mangaReadType": "阅读模式",
+  "@mangaReadType": {
+    "description": "按页面功能核对 HapeLee read_type；只用于显示文案。"
+  },
+  "mangaEnableMangaGray": "灰度",
+  "@mangaEnableMangaGray": {
+    "description": "按页面功能核对 HapeLee enable_manga_gray；只用于显示文案。"
+  },
+  "mangaBrightness": "亮度",
+  "@mangaBrightness": {
+    "description": "按页面功能核对 HapeLee brightness；只用于显示文案。"
+  },
+  "mangaDisableMangaClickScroll": "禁用点击翻页",
+  "@mangaDisableMangaClickScroll": {
+    "description": "按页面功能核对 HapeLee disable_manga_click_scroll；只用于显示文案。"
+  },
+  "mangaDisableMangaScale": "禁用漫画缩放",
+  "@mangaDisableMangaScale": {
+    "description": "按页面功能核对 HapeLee disable_manga_scale；只用于显示文案。"
+  },
+  "mangaDisableMangaScrollAnimation": "禁用翻页动画",
+  "@mangaDisableMangaScrollAnimation": {
+    "description": "按页面功能核对 HapeLee disable_manga_scroll_animation；只用于显示文案。"
+  },
+  "mangaHideMangaTitle": "隐藏漫画列表标题",
+  "@mangaHideMangaTitle": {
+    "description": "按页面功能核对 HapeLee hide_manga_title；只用于显示文案。"
+  },
+  "mangaReverseVolumeKeyPage": "反转音量键翻页方向",
+  "@mangaReverseVolumeKeyPage": {
+    "description": "按页面功能核对 HapeLee reverse_volume_key_page；只用于显示文案。"
+  },
+  "mangaLongClick": "长按保存图片",
+  "@mangaLongClick": {
+    "description": "按页面功能核对 HapeLee manga_long_click；只用于显示文案。"
+  },
+  "mangaCrossFade": "禁用加载淡入动画",
+  "@mangaCrossFade": {
+    "description": "按页面功能核对 HapeLee manga_cross_fade；只用于显示文案。"
+  },
+  "mangaColorFilter": "滤镜",
+  "@mangaColorFilter": {
+    "description": "按页面功能核对 HapeLee manga_color_filter；只用于显示文案。"
+  },
+  "mangaReaderLeftAlign": "左对齐",
+  "@mangaReaderLeftAlign": {
+    "description": "按页面功能核对 HapeLee manga_reader_left_align；只用于显示文案。"
+  },
+  "mangaReaderHideFooter": "隐藏页脚",
+  "@mangaReaderHideFooter": {
+    "description": "按页面功能核对 HapeLee manga_reader_hide_footer；只用于显示文案。"
+  },
+  "mangaCheckPageLabel": "页数",
+  "@mangaCheckPageLabel": {
+    "description": "按页面功能核对 HapeLee manga_check_page_label；只用于显示文案。"
+  },
+  "mangaCheckChapterLabel": "章节",
+  "@mangaCheckChapterLabel": {
+    "description": "按页面功能核对 HapeLee manga_check_chapter_label；只用于显示文案。"
+  },
+  "mangaCheckProgressLabel": "总进度",
+  "@mangaCheckProgressLabel": {
+    "description": "按页面功能核对 HapeLee manga_check_progress_label；只用于显示文案。"
+  },
+  "sourceExitSelection": "退出选择模式",
+  "@sourceExitSelection": {
+    "description": "按页面功能核对 HapeLee cancel_select；只用于显示文案。"
+  },
+  "ruleExitBatchMode": "退出批量模式",
+  "@ruleExitBatchMode": {
+    "description": "按页面功能核对 HapeLee cancel_select；只用于显示文案。"
+  },
+  "ruleExitSelection": "退出多选",
+  "@ruleExitSelection": {
+    "description": "按页面功能核对 HapeLee cancel_select；只用于显示文案。"
+  },
+  "sourceDiscoveryEnabled": "发现已启用",
+  "@sourceDiscoveryEnabled": {
+    "description": "按页面功能核对 HapeLee enabled_explore；只用于显示文案。"
+  },
+  "sourceDiscoveryDisabled": "发现已禁用",
+  "@sourceDiscoveryDisabled": {
+    "description": "按页面功能核对 HapeLee disabled_explore；只用于显示文案。"
+  },
+  "sourceSortName": "按名称",
+  "@sourceSortName": {
+    "description": "按页面功能核对 HapeLee sort_by_name；只用于显示文案。"
+  },
+  "sourceSortResponseTime": "按响应时间",
+  "@sourceSortResponseTime": {
+    "description": "按页面功能核对 HapeLee sort_by_respondTime；只用于显示文案。"
+  },
+  "ruleCopyRule": "复制规则",
+  "@ruleCopyRule": {
+    "description": "按页面功能核对 HapeLee copy_rule；只用于显示文案。"
+  },
+  "ruleImportDefault": "导入默认",
+  "@ruleImportDefault": {
+    "description": "按页面功能核对 HapeLee import_default_rule；只用于显示文案。"
+  },
+  "dictionaryRuleManagement": "字典规则管理",
+  "@dictionaryRuleManagement": {
+    "description": "按页面功能核对 HapeLee dict_rule；只用于显示文案。"
+  },
+  "ruleImportOnline": "在线导入",
+  "@ruleImportOnline": {
+    "description": "按页面功能核对 HapeLee import_on_line；只用于显示文案。"
+  },
+  "webdavSettings": "WebDAV 设置",
+  "@webdavSettings": {
+    "description": "按页面功能核对 HapeLee web_dav_set；只用于显示文案。"
+  },
+  "webdavServerAddress": "WebDAV 服务器地址",
+  "@webdavServerAddress": {
+    "description": "按页面功能核对 HapeLee web_dav_url；只用于显示文案。"
+  },
+  "webdavServerAddressHint": "输入你的服务器地址",
+  "@webdavServerAddressHint": {
+    "description": "按页面功能核对 HapeLee web_dav_url_s；只用于显示文案。"
+  },
+  "webdavAccount": "WebDAV 账号",
+  "@webdavAccount": {
+    "description": "按页面功能核对 HapeLee web_dav_account；只用于显示文案。"
+  },
+  "webdavAccountHint": "输入你的 WebDAV 账号",
+  "@webdavAccountHint": {
+    "description": "按页面功能核对 HapeLee web_dav_account_d；只用于显示文案。"
+  },
+  "webdavPassword": "WebDAV 密码",
+  "@webdavPassword": {
+    "description": "按页面功能核对 HapeLee web_dav_pw；只用于显示文案。"
+  },
+  "webdavPasswordHint": "输入你的密码",
+  "@webdavPasswordHint": {
+    "description": "按页面功能核对 HapeLee web_dav_pw_s；只用于显示文案。"
+  },
+  "webdavTestConfig": "测试配置",
+  "@webdavTestConfig": {
+    "description": "按页面功能核对 HapeLee test_sync_t；只用于显示文案。"
+  },
+  "webdavSyncProgress": "同步书籍进度",
+  "@webdavSyncProgress": {
+    "description": "按页面功能核对 HapeLee sync_book_progress_t；只用于显示文案。"
+  },
+  "readerSplitLongChapters": "拆分长章节",
+  "@readerSplitLongChapters": {
+    "description": "按页面功能核对 HapeLee split_long_chapter；只用于显示文案。"
+  },
+  "readerReverseChapterOrder": "倒序目录",
+  "@readerReverseChapterOrder": {
+    "description": "按页面功能核对 HapeLee swap_sort；只用于显示文案。"
+  },
+  "readerDeleteBookmark": "删除书签",
+  "@readerDeleteBookmark": {
+    "description": "按页面功能核对 HapeLee confirm_delete_bookmark；只用于显示文案。"
+  },
+  "readerChangeBookSource": "换书源",
+  "@readerChangeBookSource": {
+    "description": "按页面功能核对 HapeLee book_change_source；只用于显示文案。"
+  },
+  "readerPurchaseChapter": "章节购买",
+  "@readerPurchaseChapter": {
+    "description": "按页面功能核对 HapeLee manga_reader_buy_chapter；只用于显示文案。"
+  },
+  "readerRemoveDuplicateTitle": "删除重复标题",
+  "@readerRemoveDuplicateTitle": {
+    "description": "按页面功能核对 HapeLee same_title_removed；只用于显示文案。"
+  },
+  "ruleFilterDisabled": "禁用",
+  "@ruleFilterDisabled": {
+    "description": "按页面功能核对 HapeLee disabled；只用于显示文案。"
+  },
+  "ruleNoGroup": "无分组",
+  "@ruleNoGroup": {
+    "description": "按页面功能核对 HapeLee no_group；只用于显示文案。"
+  },
+  "ruleNoGroupOption": "（无分组）",
+  "@ruleNoGroupOption": {
+    "description": "按页面功能核对 HapeLee no_group；只用于显示文案。"
+  },
+  "ruleFullscreenEditor": "全屏编辑",
+  "@ruleFullscreenEditor": {
+    "description": "按页面功能核对 HapeLee full_screen；只用于显示文案。"
+  },
+  "ruleAddReplacement": "添加替换规则",
+  "@ruleAddReplacement": {
+    "description": "按页面功能核对 HapeLee add_replace_rule；只用于显示文案。"
+  },
+  "ruleAddRule": "添加规则",
+  "@ruleAddRule": {
+    "description": "按页面功能核对 HapeLee highlight_tag_add_rule；只用于显示文案。"
+  },
+  "ruleDeselectAll": "取消全选",
+  "@ruleDeselectAll": {
+    "description": "按页面功能核对 HapeLee deselect_all；只用于显示文案。"
+  },
+  "bookmarkSearchHint": "搜索书签",
+  "@bookmarkSearchHint": {
+    "description": "参考 HapeLee action_search、bookmark，按本页面实际显示语境组成完整文案。"
+  },
+  "bookmarkNoMatches": "未找到匹配的书签",
+  "@bookmarkNoMatches": {
+    "description": "参考 HapeLee search_empty、no_bookmark，按本页面实际显示语境组成完整文案。"
+  },
+  "bookmarkDeleted": "书签已删除",
+  "@bookmarkDeleted": {
+    "description": "参考 HapeLee bookmark_removed，按本页面实际显示语境组成完整文案。"
+  },
+  "confirmDeleteChapterBookmark": "确定删除「{chapter}」的书签吗？",
+  "@confirmDeleteChapterBookmark": {
+    "description": "参考 HapeLee delete_bookmark_message，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "chapter": {
+        "type": "String"
+      }
+    }
+  },
+  "bookmarkChapterNumber": "第 {number} 章",
+  "@bookmarkChapterNumber": {
+    "description": "参考 HapeLee chapter_index_format，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarkNoteText": "备注: {note}",
+  "@bookmarkNoteText": {
+    "description": "参考 HapeLee bookmark_mark_note，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRecordSearchHint": "搜索阅读记录",
+  "@readingRecordSearchHint": {
+    "description": "参考 HapeLee action_search、read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordOptions": "排序与设置",
+  "@readingRecordOptions": {
+    "description": "参考 HapeLee read_record_options，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordSortName": "按书名排序",
+  "@readingRecordSortName": {
+    "description": "参考 HapeLee bookshelf_px_2，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordSortDuration": "按阅读时长",
+  "@readingRecordSortDuration": {
+    "description": "参考 HapeLee reading_time_sort，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordSortLastRead": "按最后阅读",
+  "@readingRecordSortLastRead": {
+    "description": "参考 HapeLee last_read_time_sort，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordEnabled": "启用阅读记录",
+  "@readingRecordEnabled": {
+    "description": "参考 HapeLee enable_read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordLoading": "加载阅读记录...",
+  "@readingRecordLoading": {
+    "description": "参考 HapeLee loading、read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordNoMatches": "未找到匹配的记录",
+  "@readingRecordNoMatches": {
+    "description": "参考 HapeLee search_empty、no_read_record，按本页面实际显示语境组成完整文案。"
+  },
+  "confirmDeleteNamedReadingRecord": "确定删除「{name}」吗？",
+  "@confirmDeleteNamedReadingRecord": {
+    "description": "参考 HapeLee delete_read_record_message，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmClearReadingRecords": "确定删除全部阅读记录吗？",
+  "@confirmClearReadingRecords": {
+    "description": "参考 HapeLee clear_read_records_message，按本页面实际显示语境组成完整文案。"
+  },
+  "readingRecordDurationText": "阅读时长：{duration}",
+  "@readingRecordDurationText": {
+    "description": "参考 HapeLee reading_time_with_value，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRecordLastReadText": "最后阅读：{date}",
+  "@readingRecordLastReadText": {
+    "description": "参考 HapeLee last_read_time_tag，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRecordBooksRead": "已读 {count} 本",
+  "@readingRecordBooksRead": {
+    "description": "参考 HapeLee read_books_prefix、read_books_suffix，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readingRecordTotalDuration": "累计 {duration}",
+  "@readingRecordTotalDuration": {
+    "description": "参考 HapeLee total_reading_time_format，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "reload": "重新加载",
+  "@reload": {
+    "description": "参考 HapeLee reload，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupEdit": "编辑分组",
+  "@bookGroupEdit": {
+    "description": "参考 HapeLee group_edit，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupNew": "新建分组",
+  "@bookGroupNew": {
+    "description": "参考 HapeLee group_add，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupSortMode": "排序方式",
+  "@bookGroupSortMode": {
+    "description": "参考 HapeLee sort，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupLoading": "加载分组...",
+  "@bookGroupLoading": {
+    "description": "参考 HapeLee loading、group_manage，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupsEmpty": "还没有分组",
+  "@bookGroupsEmpty": {
+    "description": "参考 HapeLee empty、group_manage，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupBookCount": "{count} 本书",
+  "@bookGroupBookCount": {
+    "description": "参考 HapeLee book_count，按本页面实际显示语境组成完整文案。",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookGroupShownOnShelf": "在书架显示",
+  "@bookGroupShownOnShelf": {
+    "description": "参考 HapeLee show、bookshelf，按本页面实际显示语境组成完整文案。"
+  },
+  "bookGroupHiddenOnShelf": "在书架隐藏",
+  "@bookGroupHiddenOnShelf": {
+    "description": "参考 HapeLee hide、bookshelf，按本页面实际显示语境组成完整文案。"
+  },
+  "bookmarkEditNote": "编辑备注",
+  "bookmarkOriginalText": "原文",
+  "bookmarkNoteLabel": "备注（可选）",
+  "bookmarkKeepEditing": "继续编辑",
+  "bookmarkDiscardNote": "备注尚未保存，放弃修改并关闭？",
+  "bookmarkNoteSaveFailed": "保存失败，输入已保留，请重试。",
+  "bookmarkNoteSaving": "正在保存…",
+  "bookmarkNoteSaved": "备注已保存",
+  "bookmarkAdded": "已添加书签",
+  "@bookmarkEditNote": {"description": "书签备注编辑面板"},
+  "@bookmarkOriginalText": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteLabel": {"description": "书签备注编辑面板"},
+  "@bookmarkKeepEditing": {"description": "书签备注编辑面板"},
+  "@bookmarkDiscardNote": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteSaveFailed": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteSaving": {"description": "书签备注编辑面板"},
+  "@bookmarkNoteSaved": {"description": "书签备注编辑面板"},
+  "@bookmarkAdded": {"description": "书签备注编辑面板"},
+  "readAloudSettingsTitle": "朗读设置",
+  "readAloudPlaybackGroup": "播放与控制",
+  "readAloudFollowSystem": "语速跟随系统",
+  "readAloudFollowSystemSummary": "使用默认语速；关闭后可调整手动语速",
+  "readAloudSpeed": "语速",
+  "readAloudParagraphInterval": "段间停顿",
+  "readAloudSecondsUnit": "秒",
+  "readAloudVoiceGroup": "引擎与声音",
+  "readAloudEngines": "朗读引擎与音色",
+  "readAloudEnginesSummary": "管理系统、HTTP 与云端朗读",
+  "readAloudCloudEngines": "云 TTS",
+  "readAloudHttpEngines": "HTTP 协议 TTS",
+  "readAloudSystemEngines": "系统 TTS",
+  "readAloudSystemVoice": "系统语音",
+  "readAloudSystemVoiceSummary": "选择设备引擎与已安装的音色",
+  "readAloudSystemAdjustmentGroup": "系统朗读调节",
+  "readAloudPitch": "音调",
+  "readAloudVolume": "音量",
+  "readAloudSaveFailed": "保存朗读设置失败：{error}",
+  "@readAloudSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudPlayer": "朗读播放器",
+  "readAloudChapterText": "正文",
+  "readAloudClassicPanel": "返回经典面板",
+  "readAloudPreviousParagraph": "上一段",
+  "readAloudNextParagraph": "下一段",
+  "readAloudTextUnavailable": "开始朗读后显示本章正文",
+  "readAloudParagraphProgress": "第 {current}/{total} 段",
+  "@readAloudParagraphProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudTimer": "定时停止",
+  "readAloudMinutes": "{minutes} 分钟",
+  "@readAloudMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudCustomMinutes": "自定义分钟",
+  "readAloudTimerRange": "请输入 1–{max} 分钟",
+  "@readAloudTimerRange": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudStopAfterChapter": "读完本章后停止",
+  "readAloudCancelTimer": "取消定时",
+  "readAloudControlFailed": "朗读操作失败：{error}",
+  "@readAloudControlFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readAloudStop": "停止朗读",
+  "readAloudCapsuleGroup": "播放胶囊",
+  "readAloudCapsuleAutoCollapse": "自动收起胶囊",
+  "readAloudCapsuleAutoCollapseSummary": "3 秒无操作后收起为封面",
+  "readAloudDetachReminder": "朗读脱离提醒",
+  "readAloudDetachReminderSummary": "手动翻阅时继续朗读，点击提示可回到朗读位置；关闭后从当前阅读位置继续朗读",
+  "readAloudReturnToPosition": "去朗读页",
+  "readAloudFromThisPage": "从本页读",
+  "readerMenuTheme": "菜单配色",
+  "readerMenuFollowApp": "跟随应用",
+  "readerMenuFollowBackground": "跟随阅读背景",
+  "readerMenuCustom": "自定义",
+  "readerMenuPalette": "菜单配色风格",
+  "readerMenuTonalSpot": "柔和",
+  "readerMenuNeutral": "中性",
+  "readerMenuVibrant": "鲜艳",
+  "readerMenuExpressive": "表现力",
+  "readerMenuFidelity": "保真",
+  "readerMenuContent": "内容",
+  "readerMenuRainbow": "彩虹",
+  "readerMenuFruitSalad": "水果沙拉",
+  "readerMenuMonochrome": "单色",
+  "readerMenuColorMode": "自定义方式",
+  "readerMenuSeedOnly": "由主色生成",
+  "readerMenuManual": "分别指定颜色",
+  "readerMenuEditingMode": "编辑配色",
+  "readerMenuDay": "浅色模式",
+  "readerMenuNight": "深色模式",
+  "readerMenuAccent": "菜单主色",
+  "readerMenuBackground": "菜单背景",
+  "readerMenuContainer": "弹层背景",
+  "readerMenuTitleColor": "顶栏文字颜色",
+  "readerMenuColorDefault": "默认",
+  "readerMenuColorHex": "十六进制颜色",
+  "readerMenuColorInvalid": "请输入 6 位或 8 位十六进制颜色",
+  "eyeProtection": "护眼模式",
+  "eyeProtectionEnabled": "启用护眼模式",
+  "eyeProtectionEnabledSummary": "为应用画面应用暖色滤镜，不改变原始配色",
+  "eyeProtectionAutoNight": "跟随深色模式",
+  "eyeProtectionIntensity": "滤镜强度",
+  "eyeProtectionSchedule": "定时启用",
+  "eyeProtectionScheduleSummary": "仅在指定时段生效，支持跨午夜",
+  "eyeProtectionStartTime": "开始时间",
+  "eyeProtectionEndTime": "结束时间",
+  "readRecordViewAggregate": "汇总视图",
+  "readRecordViewTimeline": "时间线视图",
+  "readRecordViewLatest": "最后阅读视图",
+  "switchReadRecordView": "切换阅读记录视图",
+  "readRecordOverview": "阅读总览",
+  "readRecordChapter": "第{index}章",
+  "@readRecordChapter": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "readRecordTotalAchievement": "累计阅读成就",
+  "readRecordSummaryBooks": "已读 {count} 本",
+  "readRecordSummaryTime": "累计阅读 {duration}",
+  "@readRecordSummaryBooks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@readRecordSummaryTime": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordToday": "今天",
+  "readRecordYesterday": "昨天",
+  "readRecordDaysAgo": "{days}天前",
+  "@readRecordDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "readRecordSelectionCount": "已选 {count} 项",
+  "@readRecordSelectionCount": {
+    "description": "阅读记录多选顶栏标题",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "readRecordSelectionHint": "点按项目选择，返回退出",
+  "readRecordDayDuration": "已读 {duration}",
+  "@readRecordDayDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordBookDuration": "阅读时长：{duration}",
+  "@readRecordBookDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "readRecordUnknownAuthor": "未知作者",
+  "cloudTtsTitle": "云端朗读引擎",
+  "cloudTtsSummary": "配置云端语音、音色与试听",
+  "cloudTtsAdd": "添加云端引擎",
+  "cloudTtsEdit": "编辑云端引擎",
+  "cloudTtsName": "名称",
+  "cloudTtsBaseUrl": "服务地址（留空使用官方地址）",
+  "cloudTtsModel": "模型",
+  "cloudTtsApiKey": "API Key（编辑时留空保留）",
+  "cloudTtsVoice": "音色 ID",
+  "cloudTtsSpeed": "合成语速",
+  "cloudTtsFormat": "音频格式",
+  "cloudTtsStyle": "风格",
+  "cloudTtsInstructions": "朗读指令",
+  "cloudTtsPreview": "试听",
+  "cloudTtsPreviewText": "试听文本",
+  "cloudTtsStop": "停止试听",
+  "cloudTtsEmpty": "暂无云端朗读引擎",
+  "cloudTtsEnabled": "启用",
+  "cloudTtsDelete": "删除",
+  "cloudTtsDeleteConfirm": "确定删除此云端引擎及设备凭据？",
+  "cloudTtsSave": "保存",
+  "cloudTtsCancel": "取消",
+  "cloudTtsBook": "本书",
+  "cloudTtsGlobal": "全局",
+  "cloudTtsSample": "你好，这是云端朗读试听。",
+  "cloudTtsProvider": "服务商",
+  "cloudTtsVoiceLoadFailed": "音色目录加载失败",
+  "readAloudSplitMode": "内容划分方式",
+  "readAloudSplitParagraph": "整段",
+  "readAloudSplitSymbols": "按符号",
+  "readAloudSplitPage": "整页",
+  "readAloudSplitSymbolsTitle": "划分标点",
+  "readAloudSplitPageHint": "整页朗读需要阅读器完成本章分页",
+  "readAloudSplitSymbolsHint": "连续标点保留在同一单元末尾",
+  "readAloudDefaultVoice": "引擎默认音色",
+  "readAloudPlayerInfoUnavailable": "音色与引擎信息暂不可用",
+  "readAloudNoEngine": "尚未选择朗读引擎",
+  "readAloudSourceProgress": "原文位置 {current}/{total}",
+  "@readAloudSourceProgress": {"description": "章内原文 UTF-16 位置，与朗读和阅读器使用同一坐标。", "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "readAloudTimerTimeMode": "时间模式",
+  "readAloudTimerChapterMode": "章节模式",
+  "readAloudTimerFinishChapter": "到时后读完本章",
+  "readAloudTimerFinishChapterHint": "倒计时结束后继续播放，到本章结束再停止。",
+  "readAloudChapters": "{chapters} 章",
+  "@readAloudChapters": {"placeholders": {"chapters": {"type": "int"}}},
+  "readAloudCurrentChapter": "当前章",
+  "readAloudMediaButtons": "通知和耳机前后按钮",
+  "readAloudMediaByChapter": "切换章节",
+  "readAloudMediaByParagraph": "切换朗读段落"
+}

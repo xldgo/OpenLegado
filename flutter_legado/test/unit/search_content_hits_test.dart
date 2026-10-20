@@ -1,5 +1,5 @@
+import 'package:flutter_legado/src/domain/services/content_search_matcher.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/screens/search_content_screen.dart';
 
 /// 正文搜索命中区间纯函数测试（差异清单 C4 对齐项：替换/正则开关）
 ///
@@ -31,8 +31,7 @@ void main() {
 
   group('findContentHits 正则模式', () {
     test('按正则匹配并返回完整区间', () {
-      final hits = findContentHits('第1章 第23章 第456章', r'第\d+章',
-          useRegex: true);
+      final hits = findContentHits('第1章 第23章 第456章', r'第\d+章', useRegex: true);
       expect(hits.length, 3);
       expect(hits.map((h) => h.end - h.start).toList(), [3, 4, 5]);
     });

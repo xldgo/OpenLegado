@@ -12,20 +12,18 @@
 // ============================================================
 #[cfg(feature = "quickjs")]
 mod impl_string_utils {
-    use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
-
     /// URL 编码
     ///
     /// 对应 Kotlin: `URLEncoder.encode(str, "UTF-8")`
     pub fn urlencode(input: &str) -> String {
-        utf8_percent_encode(input, NON_ALPHANUMERIC).to_string()
+        super::super::encoding::encode_uri(input)
     }
 
     /// URL 解码
     ///
     /// 对应 Kotlin: `URLDecoder.decode(str, "UTF-8")`
-    pub fn urldecode(input: &str) -> String {
-        percent_decode_str(input).decode_utf8_lossy().into_owned()
+    pub fn urldecode(input: &str) -> Result<String, String> {
+        super::super::url_codec::decode_form(input)
     }
 
     /// UTF-8 转 GBK 编码
@@ -117,8 +115,8 @@ mod stub_string_utils {
     pub fn urlencode(_input: &str) -> String {
         not_available()
     }
-    pub fn urldecode(_input: &str) -> String {
-        not_available()
+    pub fn urldecode(_input: &str) -> Result<String, String> {
+        Err(not_available())
     }
     pub fn utf8_to_gbk(_input: &str) -> Result<Vec<u8>, String> {
         Err(not_available())
@@ -158,19 +156,19 @@ mod tests {
 
     #[test]
     fn test_urlencode_basic() {
-        assert_eq!(urlencode("hello world"), "hello%20world");
+        assert_eq!(urlencode("hello world"), "hello+world");
     }
 
     #[test]
     fn test_urldecode_basic() {
-        assert_eq!(urldecode("hello%20world"), "hello world");
+        assert_eq!(urldecode("hello%20world").unwrap(), "hello world");
     }
 
     #[test]
     fn test_urlencode_roundtrip() {
         let original = "https://example.com/path?q=测试&lang=zh";
         let encoded = urlencode(original);
-        let decoded = urldecode(&encoded);
+        let decoded = urldecode(&encoded).unwrap();
         assert_eq!(decoded, original);
     }
 

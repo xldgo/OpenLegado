@@ -408,10 +408,10 @@ impl AutoTaskExporter {
         }
 
         // 尝试解析为单个对象
-        if let Ok(obj) = serde_json::from_str::<serde_json::Value>(trimmed) {
-            if obj.is_object() {
-                return Ok(vec![obj]);
-            }
+        if let Ok(obj) = serde_json::from_str::<serde_json::Value>(trimmed)
+            && obj.is_object()
+        {
+            return Ok(vec![obj]);
         }
 
         Err("Invalid JSON format for task import".to_string())
@@ -561,7 +561,7 @@ pub fn normalize_script(script: &str) -> String {
 /// 生成书籍更新任务 ID（MD5 前16位）
 /// 对应 Kotlin AutoTask.bookUpdateTaskId
 pub fn book_update_task_id(book_url: &str) -> String {
-    let digest = format!("{:x}", md5::compute(book_url.as_bytes()));
+    let digest = crate::crypto::md5_hex(book_url.as_bytes());
     let short = &digest[..16.min(digest.len())];
     format!("book_update:{short}")
 }
@@ -924,11 +924,7 @@ fn action_string(map: &serde_json::Value, key: &str) -> Option<String> {
         }
         other => {
             let text = other.to_string().trim().to_string();
-            if text.is_empty() {
-                None
-            } else {
-                Some(text)
-            }
+            if text.is_empty() { None } else { Some(text) }
         }
     }
 }

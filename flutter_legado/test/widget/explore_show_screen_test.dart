@@ -1,16 +1,16 @@
+import '../fixtures/app_test_api.dart';
+
 // ExploreShowScreen 页码控件 widget 测试
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/explore_show_screen.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_show_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -34,29 +34,28 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.exploreFetchBooks(any(), any(), any())).thenAnswer(
-      (_) async => [
-        const SearchBook(
-          bookUrl: 'http://book.com/1',
-          name: '书1',
-          author: '作者1',
-        ),
-        const SearchBook(
-          bookUrl: 'http://book.com/2',
-          name: '书2',
-          author: '作者2',
-        ),
-      ],
-    );
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
+        .thenAnswer(
+          (_) async => [
+            const SearchBook(
+              bookUrl: 'http://book.com/1',
+              name: '书1',
+              author: '作者1',
+            ),
+            const SearchBook(
+              bookUrl: 'http://book.com/2',
+              name: '书2',
+              author: '作者2',
+            ),
+          ],
+        );
   });
 
   testWidgets('顶栏展示第 1 页并可打开页码选择器', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: const MaterialApp(
-          home: ExploreShowScreen(args: args),
-        ),
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
     await tester.pumpAndSettle();
@@ -72,14 +71,13 @@ void main() {
   });
 
   testWidgets('顶栏「加入书架」按钮批量导入已加载书籍（R5）', (tester) async {
-    when(() => mockApi.importBooks(any())).thenAnswer((_) async => 2);
+    when(() => mockApi.bookshelfRepository.importBooks(any()))
+        .thenAnswer((_) async => 2);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: const MaterialApp(
-          home: ExploreShowScreen(args: args),
-        ),
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
     await tester.pumpAndSettle();
@@ -91,7 +89,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // 调用 importBooks 且传入 2 本书
-    final captured = verify(() => mockApi.importBooks(captureAny())).captured;
+    final captured = verify(
+      () => mockApi.bookshelfRepository.importBooks(captureAny()),
+    ).captured;
     expect(captured, hasLength(1));
     final jsonArray = captured.single as String;
     final decoded = jsonDecode(jsonArray) as List;
@@ -100,15 +100,13 @@ void main() {
   });
 
   testWidgets('无已加载书籍时点「加入书架」提示', (tester) async {
-    when(() => mockApi.exploreFetchBooks(any(), any(), any()))
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
         .thenAnswer((_) async => <SearchBook>[]);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: const MaterialApp(
-          home: ExploreShowScreen(args: args),
-        ),
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: const MaterialApp(home: ExploreShowScreen(args: args)),
       ),
     );
     await tester.pumpAndSettle();
@@ -117,6 +115,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('没有已加载的书籍'), findsOneWidget);
-    verifyNever(() => mockApi.importBooks(any()));
+    verifyNever(() => mockApi.bookshelfRepository.importBooks(any()));
   });
 }

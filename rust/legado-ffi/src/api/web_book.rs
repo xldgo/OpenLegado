@@ -2,31 +2,26 @@
 //!
 //! 为 Flutter/Dart 提供书源驱动的搜索、目录、内容获取能力：本层保留**同名
 //! 同步入口**（`runtime::block_on` 驱动；ffi.rs 调用点零改动），抓取本体
-//! （`RealBookSourceFetcher`、进程级缓存、入口编排）位于 `legado-fetcher`。
+//! （`RealBookSourceFetcher`、引擎缓存、入口编排）位于 `legado-fetcher`。
 //!
 //! 本层职责：
 //! - 宿主注入面组装（共享 HTTP 客户端 / 登录头缓存 / DB 书籍变量 / 书源 setup）；
-//! - 兄弟模块引用收口（re-export 纯函数与进程级状态，路径与原实现同名）；
+//! - 兄弟模块引用收口（重导出纯函数、委托当前引擎缓存，路径与原实现同名）；
 //! - 依赖宿主态的回归测试（DB / 网络探针 / test_support；其余纯逻辑测试
 //!   已随迁 `legado-fetcher`）。
 
 use std::sync::Arc;
 
-use legado_core::models::BookSource;
-use legado_core::web_book::{WebBookEngine, WebBookInfo};
 use legado_core::LegadoResult;
+use legado_core::models::BookSource;
+use legado_core::web_book::WebBookEngine;
+#[cfg(test)]
+use legado_core::web_book::WebBookInfo;
 use legado_fetcher::deps::FetcherDeps;
 
 use crate::runtime;
 
 pub use legado_fetcher::web_book::RealBookSourceFetcher;
-
-// ─── 兄弟模块引用收口（re-export：原 `api::web_book` 路径与签名不变）──────────
-pub(crate) use legado_fetcher::web_book::{
-    begin_book_flow, book_var_overlay_map, build_js_orchestrator, bump_toc_fetch_epoch,
-    chapter_url_variables, convert_js_search_results, matches_book_url_pattern,
-    merge_variables_json, record_next_chapter_map,
-};
 
 // ─── 宿主注入面组装 ───────────────────────────────────────────────────────────
 
@@ -36,6 +31,7 @@ pub(crate) use legado_fetcher::web_book::{
 /// Dart 取址点以 originBookUrl 优先传入，稳定主键 bookUrl 仍为旧源 URL，
 /// 单路 `find_by_url` 会漏查）。DB 未初始化/无此书行/值为空 → None
 /// （优雅降级：未接库时抓取链路依旧可用）。
+#[cfg(test)]
 pub(crate) fn db_book_variable(book_url: &str) -> Option<String> {
     crate::db_state::with_database(|db| {
         let repo = legado_db::BookRepository::new(db.connection());
@@ -50,39 +46,107 @@ pub(crate) fn db_book_variable(book_url: &str) -> Option<String> {
     .filter(|v| !v.trim().is_empty())
 }
 
-/// 组装 ffi 宿主注入面（共享客户端 + 进程级限流注册表 + 登录头/DB 变量/setup
-/// + 媒体副内容落库 sink）
+/// 同步边界只发现一次所属数据能力；抓取回调不再重入宿主全局槽。
 pub(crate) fn ffi_deps() -> LegadoResult<FetcherDeps> {
-    Ok(FetcherDeps {
-        client: crate::http_state::shared_client()?,
-        rate_limiter: crate::api::source_rate_limit::registry(),
-        login_header: Some(Arc::new(|url: &str| {
-            crate::api::source_login_cache::get_login_header(url)
-        })),
-        book_variable: Some(Arc::new(db_book_variable)),
-        source_context: Some(Arc::new(|source: &BookSource| {
-            crate::api::source_js_bindings::book_source_js_setup_script(source).ok()
-        })),
-        // [V-B1 §2.49] 媒体副内容捕获 sink：抓取链捕获 subContent 后按
-        // Kotlin RuleDataInterface 分流落库（章节 variable / 大数据文件）。
-        // bookUrl 未命中 meta 缓存（如 refreshToc 目录链）时按
-        // (sourceUrl, chapterUrl) DB 兜底反查；失败在 put_media_sub_content*
-        // 内降级为日志，不阻断正文返回。
-        media_sub_content: Some(Arc::new(
-            |book_url: Option<&str>,
-             source_url: &str,
-             chapter_url: &str,
-             key: &str,
-             value: &str| {
-                crate::api::video_api::put_media_sub_content_from_capture(
-                    book_url,
-                    source_url,
-                    chapter_url,
-                    key,
-                    value,
-                );
-            },
-        )),
+    let task = crate::engine_holder::task_group()
+        .begin()
+        .map_err(|e| legado_core::LegadoError::Ffi(e.to_string()))?;
+    let mut deps = match crate::engine_holder::current() {
+        Ok(engine) => (deps_for_engine(&engine))()?,
+        Err(_) => {
+            // 开库前保留网络/来源上下文能力，数据库查询仍不可用。
+            let login = crate::engine_holder::source_login_cache();
+            let headers = login.clone();
+            let info = crate::engine_holder::source_info_map();
+            FetcherDeps::new(crate::http_state::shared_client()?)
+                .with_web_book_state(crate::engine_holder::web_book_state())
+                .with_js_resources(crate::engine_holder::js_resources())
+                .with_rate_limiter(crate::engine_holder::rate_limiter())
+                .with_login_header(Arc::new(move |source| headers.get_login_header(source)))
+                .with_source_context(Arc::new(move |source| {
+                    super::source_js_bindings::book_source_js_setup_script_with_login_cache(
+                        source, &login, &info,
+                    )
+                    .ok()
+                }))
+        }
+    };
+    if let Some(sink) = deps.media_sub_content.take() {
+        let permit = task.clone();
+        deps.media_sub_content = Some(Arc::new(move |book, source, chapter, key, value| {
+            permit.with_active(|| sink(book, source, chapter, key, value));
+        }));
+    }
+    Ok(deps
+        .with_cancellation(Arc::new(task.clone()))
+        .with_execution_lease(Arc::new(task)))
+}
+
+/// 长任务固定实例的数据能力；回调不强持根引擎，也不在执行时查询宿主槽位。
+pub(crate) type CapturedFetcherFactory = Arc<dyn Fn() -> LegadoResult<FetcherDeps> + Send + Sync>;
+pub(crate) fn deps_for_engine(engine: &legado_engine::EngineContext) -> CapturedFetcherFactory {
+    let directory = super::video_api::rule_data_dir_override();
+    let network = engine.network().clone();
+    let web_book = engine.web_book_state().clone();
+    let js = engine.js_resources().clone();
+    let rate = engine.rate_limiter();
+    let captured_storage = engine.storage().clone();
+    let captured_login = engine.source_login_cache().clone();
+    let captured_info = engine.source_info_map().clone();
+    Arc::new(move || {
+        let storage = captured_storage.clone();
+        let variables = storage.clone();
+        let media = storage;
+        let directory = directory.clone();
+        let login = captured_login.clone();
+        let headers = login.clone();
+        let info = captured_info.clone();
+        Ok(FetcherDeps {
+            request_concurrency: legado_engine::request_settings::thread_count(Some(
+                &captured_storage,
+            ))?,
+            execution_lease: None,
+            client: network.client()?,
+            web_book: web_book.clone(),
+            js: js.clone(),
+            rate_limiter: rate.clone(),
+            login_header: Some(Arc::new(move |source| headers.get_login_header(source))),
+            book_variable: Some(Arc::new(move |book| {
+                variables
+                    .with_database(|db| {
+                        let repo = legado_db::BookRepository::new(db.connection());
+                        Ok(match repo.find_by_url(book)? {
+                            Some(book) => book.variable,
+                            None => repo
+                                .find_by_origin_book_url(book)?
+                                .and_then(|book| book.variable),
+                        })
+                    })
+                    .ok()
+                    .flatten()
+                    .filter(|value| !value.trim().is_empty())
+            })),
+            source_context: Some(Arc::new(move |source| {
+                crate::api::source_js_bindings::book_source_js_setup_script_with_login_cache(
+                    source, &login, &info,
+                )
+                .ok()
+            })),
+            media_sub_content: Some(Arc::new(move |book, source, chapter, key, value| {
+                match directory
+                    .clone()
+                    .map(Ok)
+                    .unwrap_or_else(|| media.data_directory(super::video_api::RULE_DATA_DIR_NAME))
+                {
+                    Ok(directory) => {
+                        super::video_api::put_media_sub_content_from_capture_with_storage(
+                            &media, &directory, book, source, chapter, key, value,
+                        )
+                    }
+                    Err(error) => log::warn!("媒体副内容目录不可用，已跳过: {error}"),
+                }
+            })),
+        })
     })
 }
 
@@ -102,6 +166,7 @@ pub fn build_engine() -> LegadoResult<WebBookEngine<RealBookSourceFetcher>> {
 }
 
 /// 详情解析（宿主注入面；供 search.rs 列表解析的 bookUrlPattern 详情直连路径）
+#[cfg(test)]
 pub(crate) fn parse_book_info_from_body(
     source: &BookSource,
     body: String,
@@ -172,6 +237,53 @@ pub fn webbook_content(source_json: &str, chapter_json: &str) -> LegadoResult<St
     ))
 }
 
+pub fn webbook_search_entity(
+    source: BookSource,
+    query: &str,
+    page: i32,
+) -> LegadoResult<Vec<legado_core::web_book::WebSearchResult>> {
+    runtime::block_on(legado_fetcher::web_book::webbook_search_entity(
+        ffi_deps()?,
+        source,
+        query,
+        page,
+    ))
+}
+pub fn webbook_info_entity(
+    source: BookSource,
+    book_url: &str,
+) -> LegadoResult<legado_core::web_book::WebBookInfo> {
+    runtime::block_on(legado_fetcher::web_book::webbook_info_entity(
+        ffi_deps()?,
+        source,
+        book_url,
+    ))
+}
+pub fn webbook_chapters_entity(
+    source: BookSource,
+    book_url: &str,
+    toc_url: &str,
+    book_name: &str,
+) -> LegadoResult<Vec<legado_core::web_book::WebChapter>> {
+    runtime::block_on(legado_fetcher::web_book::webbook_chapters_entity(
+        ffi_deps()?,
+        source,
+        book_url,
+        toc_url,
+        book_name,
+    ))
+}
+pub fn webbook_content_entity(
+    source: BookSource,
+    chapter: legado_core::web_book::WebChapter,
+) -> LegadoResult<String> {
+    runtime::block_on(legado_fetcher::web_book::webbook_content_entity(
+        ffi_deps()?,
+        source,
+        chapter,
+    ))
+}
+
 // ─── 宿主态测试助手（仅测试编译：包装层测试经宿主注入面驱动）──────────────────
 
 /// 以宿主注入面走「变量链」详情获取（单测可注入脚本化 fetcher）
@@ -211,9 +323,9 @@ pub(crate) async fn webbook_chapters_with_fetcher<F: legado_core::web_book::Book
 /// 仅 quickjs 门控的宿主态回归测试引用（默认档无调用者）。
 #[cfg(test)]
 #[allow(dead_code)]
-pub(crate) fn record_book_meta_from_info(book_url: &str, info: &WebBookInfo) {
+pub(crate) fn record_book_meta_from_info(source_url: &str, book_url: &str, info: &WebBookInfo) {
     if let Ok(deps) = ffi_deps() {
-        legado_fetcher::web_book::record_book_meta_from_info(&deps, book_url, info);
+        legado_fetcher::web_book::record_book_meta_from_info(&deps, source_url, book_url, info);
     }
 }
 
@@ -227,14 +339,74 @@ pub(crate) fn parse_source_headers(
         .and_then(|f| f.parse_source_headers(source))
 }
 
+/// 搜索和换源共享原有登录头、书源JS上下文与书籍变量装配。
+pub(crate) fn search_deps(
+    mut deps: FetcherDeps,
+    storage: Option<legado_engine::StorageContext>,
+    login: Arc<legado_engine::SourceLoginCache>,
+    info: Arc<legado_engine::SourceInfoMap>,
+) -> FetcherDeps {
+    let headers = login.clone();
+    deps.login_header = Some(Arc::new(move |source| headers.get_login_header(source)));
+    deps.source_context = Some(Arc::new(move |source| {
+        crate::api::source_js_bindings::book_source_js_setup_script_with_login_cache(
+            source, &login, &info,
+        )
+        .ok()
+    }));
+    let database = storage.clone();
+    deps.book_variable = Some(Arc::new(move |book| {
+        database
+            .as_ref()?
+            .with_database(|db| {
+                let repo = legado_db::BookRepository::new(db.connection());
+                Ok(match repo.find_by_url(book)? {
+                    Some(book) => book.variable,
+                    None => repo
+                        .find_by_origin_book_url(book)?
+                        .and_then(|book| book.variable),
+                })
+            })
+            .ok()
+            .flatten()
+            .filter(|value| !value.trim().is_empty())
+    }));
+    deps
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn captured_factory_refreshes_concurrency_without_changing_existing_deps() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let factory = deps_for_engine(&engine);
+        let first = factory().unwrap();
+        assert_eq!(first.request_concurrency.get(), 16);
+        engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CacheRepository::new(db.connection()).put("config:threadCount", "3", 0)
+            })
+            .unwrap();
+        assert_eq!(factory().unwrap().request_concurrency.get(), 3);
+        assert_eq!(first.request_concurrency.get(), 16);
+        engine
+            .storage()
+            .with_database(|db| {
+                db.connection()
+                    .execute_batch("DROP TABLE caches")
+                    .map_err(|error| LegadoError::Database(error.to_string()))
+            })
+            .unwrap();
+        assert!(factory().is_err(), "数据库错误不能回落默认并发");
+    }
+
     use crate::test_support::GLOBAL_STORE_TEST_LOCK;
+    use legado_core::LegadoError;
     use legado_core::models::book_source::book_source_type;
     use legado_core::web_book::{BookSourceFetcher, WebBookInfo, WebChapter, WebSearchResult};
-    use legado_core::LegadoError;
-    use legado_js::host_api::variable_store;
     use legado_parser::AnalyzeUrl;
 
     /// 生产入口（ffi 包装层）同名解析助手：展开 Result 供断言直接使用
@@ -272,7 +444,7 @@ mod tests {
     #[cfg(feature = "quickjs")]
     fn test_shushan_real_toc_repro() {
         // webbook_chapters / webbook_content 会触发 P2-9 ③ 全局变量桥
-        // （begin_book_flow / ensure_global_variable_bridge），串行防串表
+        // （begin_book_flow），串行防串表
         let _global_store_lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
@@ -321,7 +493,11 @@ mod tests {
         };
         let source_json = serde_json::to_string(&source).unwrap();
         // 注入设备 ID（对齐 Flutter 启动时 RustApi._injectDeviceId）
-        legado_js::host_api::device_id::set_device_id("62d8d4fb53e19733");
+        crate::engine_holder::js_resources()
+            .host_resources()
+            .config
+            .device
+            .set_device_id("62d8d4fb53e19733");
         // V1 登录回归：书山 login() 在书源上下文执行 → putLoginHeader(api_key)
         // → sync 落库 → 正文请求携带 X-Api-Key 返回明文
         crate::api::source_login_cache::put_login_info(
@@ -1654,6 +1830,7 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
         // 生产记录函数（P1-1 起内部按 bookUrl 读 DB；info.variable 模拟
         // @put 导出，应被 DB 值覆盖）
         record_book_meta_from_info(
+            &source.book_source_url,
             url_db,
             &WebBookInfo {
                 name: "DB优先测试书".into(),
@@ -1681,6 +1858,7 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
         // ── 回退分支 1：DB 无此书行 → 回退 @put 导出值
         let url_no = "https://jhsu-dbv.example.com/b/no-db";
         record_book_meta_from_info(
+            &source.book_source_url,
             url_no,
             &WebBookInfo {
                 name: "回退测试书".into(),
@@ -1712,6 +1890,7 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
         })
         .expect("插入 books 行（variable 为 NULL）");
         record_book_meta_from_info(
+            &source.book_source_url,
             url_empty,
             &WebBookInfo {
                 name: "空变量测试书".into(),
@@ -1875,17 +2054,15 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        variable_store::clear_flow_scope().expect("复位 flow scope");
+
         // 空关键词应返回解析错误（engine 层校验）
         let err = webbook_search(&make_source_json(), "", 1).unwrap_err();
         assert!(err.to_string().contains("搜索关键词不能为空"));
-        variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     #[test]
     fn test_webbook_content_empty_chapter_url_returns_error() {
-        // webbook_content 入口无条件 ensure_global_variable_bridge（注册全局
-        // 读取器）→ 持 crate 级 test_support 锁串行防串表
+        // 当前 flow 与 JS 变量表尚为全局，仍持 crate 级锁防串表。
         let _lock = crate::test_support::lock_global_store();
         let chapter_json = serde_json::to_string(&WebChapter::new(0, "第一章", "")).unwrap();
         let err = webbook_content(&make_source_json(), &chapter_json).unwrap_err();
@@ -2249,19 +2426,21 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_p219_ffi_http_path_carries_domain_key_cookie() {
+        use legado_js::host_api::cookie_store::CookieAccess;
+        let cookies = crate::engine_holder::network();
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        use legado_js::host_api::cookie_store;
+
         const TAG: &str = "https://www.p219ffd.example.com/search";
         // ETLD+1：host www.p219ffd.example.com 的可注册域为 example.com
         // （末两段），而非 www.p219ffd.example.com
         const DOMAIN_KEY: &str = "example.com";
-        cookie_store::clear_cookies(TAG);
-        cookie_store::clear_cookies(DOMAIN_KEY);
+        cookies.clear(TAG);
+        cookies.clear(DOMAIN_KEY);
         // 域名键写入形态（非 URL 串自键 = 历史原始串键；读侧归一键 + 原始串键
         // 双命中，兼容无迁移负担）
-        cookie_store::set_cookie(DOMAIN_KEY, "p219_ffi_dk", "dk-val-ffi");
+        cookies.set(DOMAIN_KEY, "p219_ffi_dk=dk-val-ffi");
         let source = BookSource {
             book_source_url: TAG.to_string(),
             ..Default::default()
@@ -2274,13 +2453,13 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
             "JS Cookie 注入已下沉 fetch_page（按请求 URL 属域兜底），parse_source_headers 不得再注入: {cookie:?}"
         );
         // b) fetch_page 兜底取数层（cookies_for_url）：该域请求必须命中域名键 cookie
-        let carried = cookie_store::cookies_for_url(TAG);
+        let carried = cookies.get(TAG);
         assert!(
             carried.contains("p219_ffi_dk=dk-val-ffi"),
             "FFI HTTP 路径（fetch_page 兜底）必须携带 ETLD+1 域名键 cookie（分裂点修复 + 原始串键兼容），实际: {carried}"
         );
-        cookie_store::clear_cookies(TAG);
-        cookie_store::clear_cookies(DOMAIN_KEY);
+        cookies.clear(TAG);
+        cookies.clear(DOMAIN_KEY);
     }
 
     /// 异域不泄漏（②，原「跨源不泄漏」用例按上游语义改写，2026-09-23 用户裁决
@@ -2293,17 +2472,19 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
     /// ETLD+1，见下方 quickjs 门控用例。
     #[test]
     fn test_p219_ffi_cross_domain_no_leak() {
+        use legado_js::host_api::cookie_store::CookieAccess;
+        let cookies = crate::engine_holder::network();
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        use legado_js::host_api::cookie_store;
+
         const TAG_A: &str = "https://p219ffa-a.leak-src-a.example.com/";
         const TAG_B: &str = "https://p219ffb-b.leak-src-b.other-site.net/";
-        cookie_store::clear_cookies(TAG_A);
-        cookie_store::clear_cookies(TAG_B);
-        cookie_store::set_cookie(TAG_A, "p219_ffi_a", "A-VAL-ffi");
+        cookies.clear(TAG_A);
+        cookies.clear(TAG_B);
+        cookies.set(TAG_A, "p219_ffi_a=A-VAL-ffi");
         // B 域请求（fetch_page 兜底取数层）不得携带 A 域 cookie
-        let carried = cookie_store::cookies_for_url(TAG_B);
+        let carried = cookies.get(TAG_B);
         assert!(
             !carried.contains("p219_ffi_a"),
             "不相关域名的 cookie 绝不携带（P2-19 不变式），B 域请求实际: {carried}"
@@ -2322,8 +2503,8 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
             !cookie.contains("p219_ffi_a"),
             "B 域书源请求头不得携带 A 域 cookie: {cookie}"
         );
-        cookie_store::clear_cookies(TAG_A);
-        cookie_store::clear_cookies(TAG_B);
+        cookies.clear(TAG_A);
+        cookies.clear(TAG_B);
     }
 
     /// 同域跨书源共享（②'，上游语义新增正例，quickjs 档依赖 ETLD+1）：
@@ -2333,25 +2514,27 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_p219_ffi_same_domain_cross_source_shared() {
+        use legado_js::host_api::cookie_store::CookieAccess;
+        let cookies = crate::engine_holder::network();
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        use legado_js::host_api::cookie_store;
+
         // 两书源子域同属 example.com（ETLD+1 末两段）
         const TAG_A: &str = "https://a.p219share.example.com/";
         const TAG_B: &str = "https://b.p219share.example.com/";
-        cookie_store::clear_cookies(TAG_A);
-        cookie_store::clear_cookies(TAG_B);
-        cookie_store::clear_cookies("p219share.example.com");
-        cookie_store::set_cookie(TAG_A, "p219_ffi_share", "SH-VAL-ffi");
-        let carried = cookie_store::cookies_for_url(TAG_B);
+        cookies.clear(TAG_A);
+        cookies.clear(TAG_B);
+        cookies.clear("p219share.example.com");
+        cookies.set(TAG_A, "p219_ffi_share=SH-VAL-ffi");
+        let carried = cookies.get(TAG_B);
         assert!(
             carried.contains("p219_ffi_share=SH-VAL-ffi"),
             "同域跨书源必须共享 cookie（上游语义：cookie 属于域名），B 域请求实际: {carried}"
         );
-        cookie_store::clear_cookies(TAG_A);
-        cookie_store::clear_cookies(TAG_B);
-        cookie_store::clear_cookies("p219share.example.com");
+        cookies.clear(TAG_A);
+        cookies.clear(TAG_B);
+        cookies.clear("p219share.example.com");
     }
 
     /// 多段 TLD / IP 字面量键一致（③，上游同步改写）：FFI HTTP 路径（fetch_page
@@ -2359,37 +2542,39 @@ url += String(uri).replace('?', 'index.php?page=0&');"#
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_p219_ffi_multi_tld_and_ip_key_consistency() {
+        use legado_js::host_api::cookie_store::CookieAccess;
+        let cookies = crate::engine_holder::network();
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        use legado_js::host_api::cookie_store;
+
         // .com.cn 多段 TLD：域名键取末三段（ETLD+1 = book.com.cn）
         const TAG_CN: &str = "https://a.b.book.com.cn/search";
         const DK_CN: &str = "book.com.cn";
-        cookie_store::clear_cookies(TAG_CN);
-        cookie_store::clear_cookies(DK_CN);
+        cookies.clear(TAG_CN);
+        cookies.clear(DK_CN);
         // 域名键写入形态（原始串自键）；读侧按请求 URL 归一域名键命中
-        cookie_store::set_cookie(DK_CN, "p219_cn", "cn-val");
-        let cookie_cn = cookie_store::cookies_for_url(TAG_CN);
+        cookies.set(DK_CN, "p219_cn=cn-val");
+        let cookie_cn = cookies.get(TAG_CN);
         assert!(
             cookie_cn.contains("p219_cn=cn-val"),
             ".com.cn 域名键 cookie 必须携带: {cookie_cn}"
         );
-        cookie_store::clear_cookies(TAG_CN);
-        cookie_store::clear_cookies(DK_CN);
+        cookies.clear(TAG_CN);
+        cookies.clear(DK_CN);
         // IP 字面量（含 :port）：域名键为 IP 自身
         const TAG_IP: &str = "http://192.168.77.9:8080/api";
         const DK_IP: &str = "192.168.77.9";
-        cookie_store::clear_cookies(TAG_IP);
-        cookie_store::clear_cookies(DK_IP);
-        cookie_store::set_cookie(DK_IP, "p219_ip", "ip-val");
-        let cookie_ip = cookie_store::cookies_for_url(TAG_IP);
+        cookies.clear(TAG_IP);
+        cookies.clear(DK_IP);
+        cookies.set(DK_IP, "p219_ip=ip-val");
+        let cookie_ip = cookies.get(TAG_IP);
         assert!(
             cookie_ip.contains("p219_ip=ip-val"),
             "IP 字面量键 cookie 必须携带: {cookie_ip}"
         );
-        cookie_store::clear_cookies(TAG_IP);
-        cookie_store::clear_cookies(DK_IP);
+        cookies.clear(TAG_IP);
+        cookies.clear(DK_IP);
     }
 
     /// P2-9 源级验证（补后，离线）：真实 🎬艾格动漫 书源

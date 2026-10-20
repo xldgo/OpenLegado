@@ -461,13 +461,13 @@ impl<'a> RuleAnalyzer<'a> {
             if self.chomp_code_balanced('{', '}') {
                 let content_start = pos_pre + start_step;
                 let content_end = self.pos.saturating_sub(end_step);
-                if content_start <= content_end {
-                    if let Some(frv) = resolver(&self.queue[content_start..content_end]) {
-                        result.push_str(&self.queue[self.start_x..pos_pre]);
-                        result.push_str(&frv);
-                        self.start_x = self.pos;
-                        continue;
-                    }
+                if content_start <= content_end
+                    && let Some(frv) = resolver(&self.queue[content_start..content_end])
+                {
+                    result.push_str(&self.queue[self.start_x..pos_pre]);
+                    result.push_str(&frv);
+                    self.start_x = self.pos;
+                    continue;
                 }
             }
             // 失败分支：按字符边界安全前进 + 越界保护（P1-2 修复）。
@@ -512,13 +512,13 @@ impl<'a> RuleAnalyzer<'a> {
         while self.consume_to(start_str) {
             self.pos += start_str.len();
             let pos_pre = self.pos;
-            if self.consume_to(end_str) {
-                if let Some(frv) = resolver(&self.queue[pos_pre..self.pos]) {
-                    result.push_str(&self.queue[self.start_x..pos_pre - start_str.len()]);
-                    result.push_str(&frv);
-                    self.pos += end_str.len();
-                    self.start_x = self.pos;
-                }
+            if self.consume_to(end_str)
+                && let Some(frv) = resolver(&self.queue[pos_pre..self.pos])
+            {
+                result.push_str(&self.queue[self.start_x..pos_pre - start_str.len()]);
+                result.push_str(&frv);
+                self.pos += end_str.len();
+                self.start_x = self.pos;
             }
         }
 

@@ -28,7 +28,7 @@ pub struct WebSearchResult {
     pub latest_chapter: Option<String>,
     /// 来源书源 URL
     pub source_url: String,
-    /// 分类（kind 原始字符串，对标 Kotlin SearchBook.kind）
+    /// 分类（逗号分隔的标签，对标 Kotlin SearchBook.kind）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     /// 字数（对标 Kotlin SearchBook.wordCount）
@@ -89,7 +89,7 @@ pub struct WebBookInfo {
     /// 字数（对标 Kotlin Book.wordCount）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub word_count: Option<String>,
-    /// 分类（kind 原始字符串，对标 Kotlin Book.kind）
+    /// 分类（逗号分隔的标签，对标 Kotlin Book.kind）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     /// 规则变量 JSON（换源 T3，2026-09-03）：bookInfo 规则求值期间的
@@ -142,7 +142,7 @@ pub trait BookSourceFetcher: Send + Sync {
     /// - `source`: 书源配置
     /// - `book_url`: 书籍详情页 URL
     async fn get_book_info(&self, source: &BookSource, book_url: &str)
-        -> LegadoResult<WebBookInfo>;
+    -> LegadoResult<WebBookInfo>;
 
     /// 带既有书籍上下文的详情获取（换源 T2，2026-09-03）
     ///

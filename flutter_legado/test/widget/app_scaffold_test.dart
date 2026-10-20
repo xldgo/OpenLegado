@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // AppScaffold 页壳测试（GLOBALCOMP B4）
 //
 // 覆盖四层证据：
@@ -9,21 +11,37 @@
 // 4) 迁移屏等价：HomeScreen 经壳渲染后，壳内 Scaffold 参数与迁移前逐项一致
 //    （appBar==null / bottomNavigationBar!=null / backgroundColor==null /
 //    无 FAB），且结构（PageView + 五页签底栏）与迁移前一致。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/home_screen.dart';
+import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scaffold.dart';
 
 import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
+
+  testWidgets('正文延伸只改变底栏后的可绘制范围，默认保留原占位', (tester) async {
+    for (final extend in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppScaffold(
+            extendBody: extend,
+            bottomBar: const SizedBox(height: 80),
+            body: const SizedBox.expand(key: ValueKey('extended-body')),
+          ),
+        ),
+      );
+      final body = tester.getRect(find.byKey(const ValueKey('extended-body')));
+      final scaffold = tester.getRect(find.byType(Scaffold));
+      expect(body.bottom, scaffold.bottom - (extend ? 0 : 80));
+    }
+  });
 
   testWidgets('壳基本结构：topBar/body/bottomBar/FAB 各就各位', (tester) async {
     await tester.pumpWidget(
@@ -35,7 +53,10 @@ void main() {
             selectedIndex: 0,
             destinations: const [
               NavigationDestination(icon: Icon(Icons.home_rounded), label: '甲'),
-              NavigationDestination(icon: Icon(Icons.person_rounded), label: '乙'),
+              NavigationDestination(
+                icon: Icon(Icons.person_rounded),
+                label: '乙',
+              ),
             ],
           ),
           floatingActionButton: FloatingActionButton(
@@ -88,7 +109,10 @@ void main() {
     const override = Color(0xFFABCDEF);
     await tester.pumpWidget(
       MaterialApp(
-        home: AppScaffold(backgroundColor: override, body: const SizedBox.expand()),
+        home: AppScaffold(
+          backgroundColor: override,
+          body: const SizedBox.expand(),
+        ),
       ),
     );
     expect(
@@ -131,12 +155,12 @@ void main() {
     }
 
     Map<String, Rect> capture() => {
-          'scaffold': tester.getRect(find.byType(Scaffold)),
-          'bar': tester.getRect(find.byType(AppBar)),
-          'body': tester.getRect(find.byKey(const ValueKey('body'))),
-          'bottom': tester.getRect(find.byKey(const ValueKey('bottom'))),
-          'fab': tester.getRect(find.byKey(const ValueKey('fab'))),
-        };
+      'scaffold': tester.getRect(find.byType(Scaffold)),
+      'bar': tester.getRect(find.byType(AppBar)),
+      'body': tester.getRect(find.byKey(const ValueKey('body'))),
+      'bottom': tester.getRect(find.byKey(const ValueKey('bottom'))),
+      'fab': tester.getRect(find.byKey(const ValueKey('fab'))),
+    };
 
     await tester.pumpWidget(MaterialApp(home: compose(false)));
     final raw = capture();
@@ -154,18 +178,26 @@ void main() {
   });
 
   testWidgets('迁移屏 HomeScreen：经壳渲染且结构与迁移前逐参数一致', (tester) async {
+    // 本用例核对手机底栏；宽窗口会按现有设置切换侧栏。
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final mockApi = MockRustApi();
-    when(() => mockApi.getBooks()).thenAnswer((_) async => []);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
-    when(() => mockApi.getRssSources()).thenAnswer((_) async => []);
-    when(() => mockApi.getReadRecords()).thenAnswer((_) async => []);
-    when(() => mockApi.readRecordDailyList(any())).thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.rssSourceRepository.getRssSources())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.readRecordRepository)
+        .thenReturn(MockReadRecordRepository());
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: const MaterialApp(home: HomeScreen()),
       ),
     );
@@ -178,9 +210,7 @@ void main() {
 
     // 迁移点 2：壳内 Scaffold 参数与迁移前逐项一致（5 页签容器）
     final scaffold = tester.widget<Scaffold>(
-      find
-          .descendant(of: homeShell, matching: find.byType(Scaffold))
-          .first,
+      find.descendant(of: homeShell, matching: find.byType(Scaffold)).first,
     );
     expect(scaffold.appBar, isNull); // 迁移前无 appBar
     expect(scaffold.bottomNavigationBar, isNotNull); // 底栏三形态装配

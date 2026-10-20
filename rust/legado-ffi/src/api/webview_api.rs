@@ -5,49 +5,54 @@
 //! - 回传：[`submit_webview_result`] / [`submit_webview_result_with_cookies`]（项 B/B1）
 //! - 取消：[`cancel_webview_request`]
 
-use std::time::Duration;
+use std::sync::Arc;
 
-use legado_core::webview_channel::{self, WebViewRequest};
+use legado_core::webview_channel::{WebViewManager, WebViewRequest};
 
-const STREAM_POLL_INTERVAL: Duration = Duration::from_secs(1);
-
-pub fn serialize_event(request: &WebViewRequest) -> String {
-    serde_json::to_string(request).unwrap_or_default()
+/// 只捕获数据能力；回调不会查询调用时的其他Engine或保留根实例。
+struct WebViewHost {
+    manager: Arc<WebViewManager>,
+    network: Arc<legado_engine::NetworkContext>,
+}
+fn host() -> WebViewHost {
+    WebViewHost {
+        manager: manager(),
+        network: crate::engine_holder::network(),
+    }
+}
+fn manager() -> Arc<WebViewManager> {
+    crate::engine_holder::js_resources()
+        .host_resources()
+        .webview
+        .clone()
 }
 
 /// WebView 请求事件流（长期存活）
 pub async fn run_webview_request_stream<F>(mut on_event: F)
 where
-    F: FnMut(String) -> Result<(), String>,
+    F: FnMut(WebViewRequest) -> Result<(), String>,
 {
-    use std::sync::mpsc::RecvTimeoutError;
-
-    let mut rx = webview_channel::webview_manager().subscribe();
+    let manager = manager();
+    let Ok(task) = crate::engine_holder::task_group().begin() else {
+        return;
+    };
+    let _guard = task.guard();
+    let mut subscription = manager.subscribe();
     loop {
-        let recv = tokio::task::spawn_blocking(move || {
-            let item = rx.recv_timeout(STREAM_POLL_INTERVAL);
-            (rx, item)
-        })
-        .await;
-        let (next_rx, item) = match recv {
-            Ok(v) => v,
-            Err(_) => break,
+        let request = tokio::select! {
+            biased;
+            _=task.cancelled()=>break,
+            request=subscription.recv_async()=>match request {Some(request)=>request,None=>break},
         };
-        rx = next_rx;
-        match item {
-            Ok(request) => {
-                if on_event(serialize_event(&request)).is_err() {
-                    break;
-                }
-            }
-            Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => break,
+        match task.with_active(|| on_event(request)) {
+            Some(Ok(())) => {}
+            _ => break,
         }
     }
 }
 
 pub fn submit_webview_result(key: &str, result: &str) -> bool {
-    webview_channel::submit_webview_result(key, result)
+    manager().submit(key, result)
 }
 
 /// 提交 WebView 执行结果 + WebView 侧域 cookie 回流（项 B/B1，加法式条目）
@@ -57,81 +62,479 @@ pub fn submit_webview_result(key: &str, result: &str) -> bool {
 /// 此前仅驻留 Android `CookieManager`，从不回流 Rust/DB cookie 存储，后续
 /// JS 桥请求缺会话态（冷启动被重新挑战，如 x81zws 403 场景）。
 ///
-/// **执行顺序（数据依赖）**：
-/// 1. 解析 `cookies_json`（JSON 对象：域键或 http(s) URL →
-///    `k1=v1; k2=v2` cookie 串），域键一律 ETLD+1 归一
-///    （`cookie_store::normalized_cookie_key` 口径；P2-19：不相关域名的
-///    cookie 绝不落行）；
-/// 2. 逐域键 [`crate::http_state::persist_cookie_row_merged`] merged
-///    upsert（与既有两个写方同键集并集、同名键新值胜语义；DB 失败仅记
-///    日志，不阻塞唤醒）；
-/// 3. 有非空条目落库时（quickjs 档）：
-///    [`legado_js::host_api::network::reset_shared_client_pools`] 同步 JS
-///    桥共享客户端池内存 CookieStore——复用项 A 的 reset/槽位语义（池由
-///    下次 JS 请求惰性重建，构建含持久化后端 DB `load_all` 在槽位写锁
-///    **之外**完成，临界区内无 DB/sink 调用；槽位锁临界区仅置 None）；
-///    空 / 全空条目跳过 reset（避免无谓拆除热池）；
-/// 4. 最后 [`webview_channel::submit_webview_result`] 唤醒等待方
-///    （先持久化后唤醒——等待方恢复执行后 DB 行已就位，后续 JS 请求
-///    即携带合并后 cookie）。
-///
-/// 旧 [`submit_webview_result`] 冻结不动（旧端忽略未知字段 / 不做 cookie
-/// 回流，本方法纯加法式）。返回是否命中进行中的请求（同旧方法语义）。
+/// 先认领本实例仍有效的请求，再通过所属NetworkContext合并Cookie，最后唤醒。
+/// 未知、取消、超时或重复的key没有Cookie副作用；认领后的写入不承诺强制回滚。
+/// Cookie解析失败仍沿用空映射与既有结果回传，数据库失败记录日志。
 pub fn submit_webview_result_with_cookies(key: &str, result: &str, cookies_json: &str) -> bool {
-    let mut persisted_any = false;
-    let trimmed = cookies_json.trim();
-    if !trimmed.is_empty() && trimmed != "{}" {
-        match serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(trimmed) {
-            Ok(entries) => {
-                for (raw_key, value) in entries {
-                    let cookie_str = match value.as_str() {
-                        Some(s) if !s.trim().is_empty() => s.to_string(),
-                        _ => continue,
-                    };
-                    // P2-19：域键一律 ETLD+1 归一（quickjs 档 http(s) URL →
-                    // 域名键；默认档 → trim 原串，与 JS 侧写侧口径恒等）
-                    let domain_key =
-                        legado_js::host_api::cookie_store::normalized_cookie_key(&raw_key);
-                    if domain_key.is_empty() {
-                        continue;
-                    }
-                    crate::http_state::persist_cookie_row_merged(&domain_key, &cookie_str);
-                    persisted_any = true;
-                }
-            }
-            Err(e) => {
-                log::warn!("WebView cookie 回流：cookies_json 解析失败（跳过持久化）: {e}");
-            }
-        }
+    let cookies = if cookies_json.trim().is_empty() {
+        Default::default()
+    } else {
+        serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(cookies_json)
+            .map(|values| {
+                values
+                    .into_iter()
+                    .filter_map(|(key, value)| value.as_str().map(|v| (key, v.to_owned())))
+                    .collect()
+            })
+            .unwrap_or_else(|error| {
+                log::warn!("WebView cookie 回流解析失败：{error}");
+                Default::default()
+            })
+    };
+    submit_webview_result_with_cookie_map(key, result, cookies)
+}
+
+pub fn submit_webview_result_with_cookie_map(
+    key: &str,
+    result: &str,
+    cookies: std::collections::HashMap<String, String>,
+) -> bool {
+    host().submit(key, result, cookies)
+}
+impl WebViewHost {
+    fn submit(
+        &self,
+        key: &str,
+        result: &str,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> bool {
+        self.complete(
+            key,
+            legado_core::webview_channel::WebViewResponse {
+                result: result.into(),
+                ..Default::default()
+            },
+            cookies,
+        )
     }
-    // 同步 JS 桥共享客户端池内存 CookieStore（仅 quickjs 档有 JS 池；
-    // 默认档条件恒读、块体 cfg 排除——避免 `persisted_any` 写而不读告警）
-    if persisted_any {
-        // 锁序不变式（项 A / http_state.rs:300-304 照抄）：池重建由下次 JS
-        // 请求惰性触发，构建（含持久化后端 DB `load_all`）在持有客户端槽位
-        // 写锁**之前**完成——槽位锁临界区内不做 DB/sink 调用；reset 本身
-        // 仅在槽位写锁下把四个池槽位置 None。
-        #[cfg(feature = "quickjs")]
+    fn sync_cookies(
+        &self,
+        key: &str,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> legado_core::LegadoResult<bool> {
+        self.manager.sync_cookies(key, |request, lease, snapshots| {
+            self.merge_cookies(request, snapshots, cookies, || lease.check())
+        })
+    }
+    fn merge_cookies(
+        &self,
+        request: &WebViewRequest,
+        snapshots: &mut std::collections::HashMap<String, String>,
+        incoming: std::collections::HashMap<String, String>,
+        check: impl Fn() -> legado_core::LegadoResult<()>,
+    ) -> legado_core::LegadoResult<()> {
+        use legado_net::CookieStore;
+        let initial_domain = legado_net::cookie_store::normalize_cookie_key(&request.url);
+        if !initial_domain.is_empty() {
+            snapshots
+                .entry(initial_domain)
+                .or_insert_with(|| request.cookie.clone());
+        }
+        // 同批地址可能归一到相同域；先合并，避免HashMap遍历顺序影响观察基线。
+        let mut domains =
+            std::collections::BTreeMap::<String, std::collections::BTreeMap<String, String>>::new();
+        let mut entries = incoming.into_iter().collect::<Vec<_>>();
+        entries.sort();
+        for (url, cookie) in entries {
+            let domain = legado_net::cookie_store::normalize_cookie_key(&url);
+            if domain.is_empty() {
+                continue;
+            }
+            domains
+                .entry(domain)
+                .or_default()
+                .extend(CookieStore::cookie_string_to_map(&cookie));
+        }
+        for (domain, observed) in domains {
+            let mut previous = CookieStore::cookie_string_to_map(
+                snapshots.get(&domain).map(String::as_str).unwrap_or(""),
+            );
+            let changed = observed
+                .iter()
+                .filter(|(name, value)| previous.get(*name) != Some(*value))
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>()
+                .join("; ");
+            if !changed.is_empty() {
+                check()?;
+                self.network.set_cookie(&domain, &changed)?;
+            }
+            // 不可见/缺失项不能作为删除，更不能令下次快照把旧值视为新增。
+            previous.extend(observed);
+            let mut pairs = previous
+                .into_iter()
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>();
+            pairs.sort();
+            snapshots.insert(domain, pairs.join("; "));
+        }
+        Ok(())
+    }
+    fn complete(
+        &self,
+        key: &str,
+        response: legado_core::webview_channel::WebViewResponse,
+        cookies: std::collections::HashMap<String, String>,
+    ) -> bool {
+        if response
+            .error
+            .as_ref()
+            .is_some_and(|error| error.trim().is_empty())
         {
-            legado_js::host_api::network::reset_shared_client_pools();
+            return false;
         }
+        self.manager
+            .submit_response_with_cookies(key, response, |request, snapshots| {
+                if let Err(error) = self.merge_cookies(request, snapshots, cookies, || Ok(())) {
+                    log::warn!("合并持久化WebView Cookie失败: {error}");
+                }
+            })
     }
-    webview_channel::submit_webview_result(key, result)
+}
+
+pub fn complete_webview_request(key: &str, response: crate::task_dto::WebViewResponseDto) -> bool {
+    host().complete(
+        key,
+        legado_core::webview_channel::WebViewResponse {
+            result: response.result,
+            final_url: response.final_url,
+            error: response.error,
+        },
+        response.cookies,
+    )
 }
 
 pub fn cancel_webview_request(key: &str) -> bool {
-    webview_channel::cancel_webview_request(key)
+    manager().cancel(key)
 }
 
-pub fn pending_requests_json() -> String {
-    let pending = webview_channel::webview_manager().pending();
-    serde_json::to_string(&pending).unwrap_or_else(|_| "[]".to_string())
+pub fn sync_webview_cookies(
+    key: &str,
+    cookies: std::collections::HashMap<String, String>,
+) -> legado_core::LegadoResult<bool> {
+    host().sync_cookies(key, cookies)
+}
+
+pub fn page_call(
+    key: &str,
+    call: crate::task_dto::WebViewPageCallDto,
+) -> legado_core::LegadoResult<String> {
+    use crate::task_dto::WebViewPageTargetDto;
+    use legado_engine::webview_page_service::{PageCall, PageTarget, WebViewPageService};
+    let js = crate::engine_holder::js_resources();
+    let manager = js.host_resources().webview.clone();
+    let service = WebViewPageService {
+        js,
+        storage: crate::engine_holder::current()
+            .ok()
+            .map(|engine| engine.storage().clone()),
+    };
+    let target = match call.target {
+        WebViewPageTargetDto::Source => PageTarget::Source,
+        WebViewPageTargetDto::Cache => PageTarget::Cache,
+        WebViewPageTargetDto::Java => PageTarget::Java,
+    };
+    let value = manager.with_page_call(key, |request, lease| {
+        service.call(
+            request,
+            lease,
+            PageCall {
+                target,
+                method: call.method,
+                args: call.args,
+            },
+        )
+    })?;
+    Ok(serde_json::to_string(&value)?)
+}
+
+pub fn pending_requests() -> Vec<WebViewRequest> {
+    manager().pending()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::thread;
+
+    #[tokio::test]
+    async fn loading_cookie_is_used_by_http_and_final_snapshot_keeps_new_response_cookie() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let server = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", server.local_addr().unwrap());
+        let endpoint = url.clone();
+        let serving = tokio::spawn(async move {
+            let (mut socket, _) = server.accept().await.unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                header.push(socket.read_u8().await.unwrap());
+                assert!(header.len() < 65536);
+            }
+            let header = String::from_utf8(header).unwrap().to_ascii_lowercase();
+            assert!(header.contains("cookie: session=page"));
+            socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nSet-Cookie: session=rust; Path=/\r\nConnection: close\r\n\r\nok").await.unwrap();
+        });
+        let handle = host.manager.request(WebViewRequest {
+            url: url.clone(),
+            ..Default::default()
+        });
+        let snapshot = std::collections::HashMap::from([(url.clone(), "session=page".into())]);
+        assert!(host.sync_cookies(handle.key(), snapshot.clone()).unwrap());
+        assert!(host.manager.pending().iter().any(|r| r.key == handle.key()));
+        engine
+            .network()
+            .client()
+            .unwrap()
+            .get_raw(
+                &endpoint,
+                Some(std::collections::HashMap::from([(
+                    "CookieJar".into(),
+                    "1".into(),
+                )])),
+            )
+            .await
+            .unwrap();
+        serving.await.unwrap();
+        assert!(host.submit(handle.key(), "done", snapshot));
+        let domain = legado_net::cookie_store::normalize_cookie_key(&url);
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(&url),
+            "session=rust"
+        );
+        let stored = engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+            })
+            .unwrap();
+        assert_eq!(stored.as_deref(), Some("session=rust"));
+    }
+
+    #[test]
+    fn cookie_sync_tracks_redirect_domain_and_rejects_other_owner_or_ended_key() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let other = legado_engine::EngineContext::in_memory().unwrap();
+        let other_host = WebViewHost {
+            manager: other.js_resources().host_resources().webview.clone(),
+            network: other.network().clone(),
+        };
+        let url = "https://redirect.cookie.test/path";
+        let cookies = || std::collections::HashMap::from([(url.into(), "s=page".into())]);
+        let handle = host.manager.request(WebViewRequest {
+            url: "https://start.other.test/".into(),
+            cookie: "start=old".into(),
+            ..Default::default()
+        });
+        assert!(!other_host.sync_cookies(handle.key(), cookies()).unwrap());
+        assert!(host.sync_cookies(handle.key(), cookies()).unwrap());
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key("https://start.other.test/"),
+            ""
+        );
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url),
+            "s=page"
+        );
+        assert!(host.manager.cancel(handle.key()));
+        assert!(!host.sync_cookies(handle.key(), cookies()).unwrap());
+        assert!(!host.sync_cookies("unknown", cookies()).unwrap());
+        let handle = host.manager.request(WebViewRequest::default());
+        let expired_key = handle.key().to_owned();
+        assert!(handle.wait(std::time::Duration::ZERO).is_err());
+        assert!(!host.sync_cookies(&expired_key, cookies()).unwrap());
+        assert!(other_host.network.cookie_store().read().unwrap().is_empty());
+    }
+
+    #[test]
+    fn unchanged_snapshot_cannot_resurrect_cleared_cookies_and_sync_errors_propagate() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let url = "https://cookie-order.test/";
+        let domain = legado_net::cookie_store::normalize_cookie_key(url);
+        host.network
+            .set_cookie(&domain, "session=old; hidden=kept")
+            .unwrap();
+        let handle = host.manager.request(WebViewRequest {
+            url: url.into(),
+            cookie: "session=old".into(),
+            ..Default::default()
+        });
+        assert!(
+            host.sync_cookies(
+                handle.key(),
+                std::collections::HashMap::from([(url.into(), "session=old".into())])
+            )
+            .unwrap()
+        );
+        assert!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url)
+                .contains("hidden=kept")
+        );
+        host.network.clear_cookie_domain(&domain).unwrap();
+        assert!(host.submit(
+            handle.key(),
+            "done",
+            std::collections::HashMap::from([(url.into(), "session=old".into())])
+        ));
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url),
+            ""
+        );
+        engine.storage().with_database(|db| { db.connection().execute_batch("CREATE TRIGGER reject_cookie BEFORE INSERT ON cookies BEGIN SELECT RAISE(ABORT,'cookie write denied'); END;").unwrap(); Ok(()) }).unwrap();
+        let handle = host.manager.request(WebViewRequest {
+            url: url.into(),
+            ..Default::default()
+        });
+        let error = host
+            .sync_cookies(
+                handle.key(),
+                std::collections::HashMap::from([(url.into(), "session=failed".into())]),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("cookie write denied"));
+        assert!(host.manager.pending().iter().any(|r| r.key == handle.key()));
+    }
+
+    #[test]
+    fn unchanged_platform_snapshot_does_not_overwrite_newer_rust_cookie() {
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let url = "https://cookie-order.test/";
+        let domain = legado_net::cookie_store::normalize_cookie_key(url);
+        host.network.set_cookie(&domain, "session=old").unwrap();
+        let handle = host.manager.request(WebViewRequest {
+            url: url.into(),
+            cookie: "session=old".into(),
+            ..Default::default()
+        });
+        // 页面还保留初始值，Rust HTTP已接收到更新；完成不应写回旧值。
+        host.network.set_cookie(&domain, "session=new").unwrap();
+        assert!(host.submit(
+            handle.key(),
+            "done",
+            std::collections::HashMap::from([(url.into(), "session=old".into())])
+        ));
+        assert_eq!(
+            host.network
+                .cookie_store()
+                .read()
+                .unwrap()
+                .cookies_for_key(url),
+            "session=new"
+        );
+    }
+
+    #[test]
+    fn typed_completion_keeps_final_url_empty_success_and_claims_before_cookies() {
+        use legado_core::webview_channel::WebViewResponse;
+        let engine = legado_engine::EngineContext::in_memory().unwrap();
+        let host = WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let request = || WebViewRequest {
+            url: "https://typed.webview.test/start".into(),
+            ..Default::default()
+        };
+        let cookies = || {
+            std::collections::HashMap::from([(
+                "https://typed.webview.test/final".into(),
+                "session=new".into(),
+            )])
+        };
+        let handle = host.manager.request(request());
+        assert!(!host.complete(
+            handle.key(),
+            WebViewResponse {
+                error: Some(" ".into()),
+                ..Default::default()
+            },
+            cookies()
+        ));
+        let domain = legado_net::cookie_store::normalize_cookie_key("https://typed.webview.test/");
+        assert!(
+            engine
+                .storage()
+                .with_database(|db| {
+                    legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+                })
+                .unwrap()
+                .is_none()
+        );
+        assert!(host.complete(
+            handle.key(),
+            WebViewResponse {
+                result: String::new(),
+                final_url: "https://typed.webview.test/final".into(),
+                error: None,
+            },
+            cookies()
+        ));
+        let response = handle
+            .wait_response(std::time::Duration::from_secs(1))
+            .unwrap();
+        assert_eq!(response.result, "");
+        assert_eq!(response.final_url, "https://typed.webview.test/final");
+        let domain = legado_net::cookie_store::normalize_cookie_key(&response.final_url);
+        let row = engine
+            .storage()
+            .with_database(|db| {
+                legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+            })
+            .unwrap();
+        assert_eq!(row.as_deref(), Some("session=new"));
+        let handle = host.manager.request(request());
+        assert!(host.complete(
+            handle.key(),
+            WebViewResponse {
+                error: Some("页面失败".into()),
+                ..Default::default()
+            },
+            Default::default()
+        ));
+        assert!(
+            handle
+                .wait_response(std::time::Duration::from_secs(1))
+                .unwrap_err()
+                .to_string()
+                .contains("页面失败")
+        );
+    }
 
     /// cookie 串按键集合比较辅助（HashMap 迭代序不保证，按键集合相等断言；
     /// 与 http_state 测试同名辅助同语义）
@@ -162,15 +565,17 @@ mod tests {
         let _gs = crate::test_support::lock_global_store();
         let _p = crate::test_support::lock_pool_tests();
         let _db_guard = crate::db_state::ensure_test_db();
-        use legado_js::host_api::cookie_store;
 
         const URL: &str = "https://a.wv-b1-merge.test/";
-        let dk = cookie_store::normalized_cookie_key(URL);
+        let dk = legado_net::cookie_store::normalize_cookie_key(URL);
         // 幂等清理残留行（DB 守卫已持有，失败即环境异常）
-        crate::http_state::delete_cookie_rows(&[dk.as_str()])
+        crate::engine_holder::network()
+            .clear_cookie_keys(&[dk.as_str()])
             .expect("清理残留行必须成功（DB 已初始化）");
         // 预置行（模拟 jar / JS 侧已落库键 a=1）
-        crate::http_state::persist_cookie_row_merged(&dk, "a=1");
+        crate::engine_holder::network()
+            .set_cookie(&dk, "a=1")
+            .unwrap();
 
         // 等待方线程挂起（模拟 JS 执行线程），主线程回流 + 唤醒
         let req = WebViewRequest {
@@ -187,9 +592,10 @@ mod tests {
             result: String::new(),
             source_key: String::new(),
             cookie: String::new(),
+            headers: Default::default(),
             created_at_ms: 0,
         };
-        let mgr = webview_channel::webview_manager();
+        let mgr = manager();
         let handle = mgr.request(req);
         let key = handle.key().to_string();
         let waiter = thread::spawn(move || handle.wait(std::time::Duration::from_secs(5)));
@@ -214,7 +620,8 @@ mod tests {
             "merged upsert 必须为键集并集 + 同名新值胜: {row}"
         );
         // 收尾清理
-        crate::http_state::delete_cookie_rows(&[dk.as_str()])
+        crate::engine_holder::network()
+            .clear_cookie_keys(&[dk.as_str()])
             .expect("收尾清理必须成功（DB 已初始化）");
     }
 
@@ -225,24 +632,27 @@ mod tests {
         let _gs = crate::test_support::lock_global_store();
         let _p = crate::test_support::lock_pool_tests();
         let _db_guard = crate::db_state::ensure_test_db();
-        use legado_js::host_api::cookie_store;
 
         // 两域 ETLD+1 必须不同（keep → wv-b1.test；other → wv-b2.test），
         // 且 other 为子域形态（验证归一后不落子域原始行）
         const KEEP_URL: &str = "https://keep.wv-b1.test/";
         const OTHER_URL: &str = "https://sub.unrelated.wv-b2.test/";
-        let keep_dk = cookie_store::normalized_cookie_key(KEEP_URL);
-        let other_dk = cookie_store::normalized_cookie_key(OTHER_URL);
+        let keep_dk = legado_net::cookie_store::normalize_cookie_key(KEEP_URL);
+        let other_dk = legado_net::cookie_store::normalize_cookie_key(OTHER_URL);
         assert_ne!(keep_dk, other_dk, "两个域键必须不同");
         let tags: Vec<&str> = vec![keep_dk.as_str(), other_dk.as_str()];
-        crate::http_state::delete_cookie_rows(&tags).expect("清理残留行必须成功（DB 已初始化）");
+        crate::engine_holder::network()
+            .clear_cookie_keys(&tags)
+            .expect("清理残留行必须成功（DB 已初始化）");
 
         // 无关域已有行
-        crate::http_state::persist_cookie_row_merged(&keep_dk, "keep=1");
+        crate::engine_holder::network()
+            .set_cookie(&keep_dk, "keep=1")
+            .unwrap();
 
         // 回流另一域（子域 URL 形态）cookie
         let hit = submit_webview_result_with_cookies(
-            "wv-b1-nokey", // 无进行中的请求 → 返回 false，持久化仍生效
+            "wv-b1-nokey", // 无进行中的请求 → 返回false且不写Cookie
             "ignored",
             &format!("{{\"{}\": \"waf=42\"}}", OTHER_URL),
         );
@@ -260,8 +670,8 @@ mod tests {
             assert_eq!(other_dk, "wv-b2.test", "quickjs 档必须归一到 ETLD+1");
             assert_eq!(
                 cookie_parts(&db_cookie_row(&other_dk).unwrap_or_default()),
-                cookie_parts("waf=42"),
-                "归一域行必须存在"
+                Vec::<String>::new(),
+                "未知请求不得创建Cookie行"
             );
             // 反例核心：不得新建子域原始行
             assert!(
@@ -271,7 +681,9 @@ mod tests {
         }
         // 收尾清理
         let tags: Vec<&str> = vec![keep_dk.as_str(), other_dk.as_str()];
-        crate::http_state::delete_cookie_rows(&tags).expect("收尾清理必须成功（DB 已初始化）");
+        crate::engine_holder::network()
+            .clear_cookie_keys(&tags)
+            .expect("收尾清理必须成功（DB 已初始化）");
     }
 
     /// 空 / 非法 cookiesJson：不 panic、不落库、唤醒语义与旧方法一致
@@ -295,9 +707,10 @@ mod tests {
             result: String::new(),
             source_key: String::new(),
             cookie: String::new(),
+            headers: Default::default(),
             created_at_ms: 0,
         };
-        let mgr = webview_channel::webview_manager();
+        let mgr = manager();
         let handle = mgr.request(req);
         let key = handle.key().to_string();
         let waiter = thread::spawn(move || handle.wait(std::time::Duration::from_secs(5)));
@@ -323,5 +736,66 @@ mod tests {
             db_cookie_row("emptyvals.wv-b1.test").is_none(),
             "全空值条目不得落行"
         );
+    }
+
+    #[test]
+    fn results_and_cookie_effects_belong_to_only_the_live_request_owner() {
+        use legado_engine::EngineContext;
+        let one = Arc::new(EngineContext::in_memory().unwrap());
+        let two = EngineContext::in_memory().unwrap();
+        let weak = Arc::downgrade(&one);
+        let make_host = |engine: &EngineContext| WebViewHost {
+            manager: engine.js_resources().host_resources().webview.clone(),
+            network: engine.network().clone(),
+        };
+        let a = make_host(&one);
+        let b = make_host(&two);
+        let request = || {
+            serde_json::from_value(serde_json::json!({
+                "key":"", "action":"webView", "html":"", "url":"https://same.webview.test/",
+                "js":"", "is_rule":false, "result":"", "created_at_ms":0
+            }))
+            .unwrap()
+        };
+        let cookies = |value: &str| {
+            std::collections::HashMap::from([("https://same.webview.test/".into(), value.into())])
+        };
+        let domain = legado_net::cookie_store::normalize_cookie_key("https://same.webview.test/");
+        let row = |engine: &EngineContext| {
+            engine
+                .storage()
+                .with_database(|db| {
+                    legado_db::CookieRepository::new(db.connection()).get_by_tag(&domain)
+                })
+                .unwrap()
+        };
+        let handle = a.manager.request(request());
+        let key = handle.key().to_string();
+        assert!(!b.submit(&key, "wrong", cookies("session=wrong")));
+        assert!(row(&one).is_none());
+        assert!(row(&two).is_none());
+        assert!(a.submit(&key, "done", cookies("session=one")));
+        assert_eq!(
+            handle.wait(std::time::Duration::from_secs(1)).unwrap(),
+            "done"
+        );
+        assert_eq!(row(&one).as_deref(), Some("session=one"));
+        assert!(row(&two).is_none());
+        assert!(!a.submit(&key, "duplicate", cookies("session=duplicate")));
+        let handle = a.manager.request(request());
+        let key = handle.key().to_string();
+        assert!(a.manager.cancel(&key));
+        assert!(!a.submit(&key, "late", cookies("session=late")));
+        assert!(handle.wait(std::time::Duration::from_secs(1)).is_err());
+        let handle = a.manager.request(request());
+        let key = handle.key().to_string();
+        assert!(handle.wait(std::time::Duration::ZERO).is_err());
+        assert!(!a.submit(&key, "expired", cookies("session=expired")));
+        assert!(!a.submit("unknown", "", cookies("session=unknown")));
+        assert_eq!(row(&one).as_deref(), Some("session=one"));
+        assert!(row(&two).is_none());
+        drop(one);
+        assert!(weak.upgrade().is_none(), "捕获的数据能力不得强持根Engine");
+        assert!(!a.submit("unknown-after-drop", "", cookies("session=after")));
     }
 }

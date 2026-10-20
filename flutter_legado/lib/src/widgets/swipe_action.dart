@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 滑动操作按钮项
 class SwipeActionItem {
@@ -20,11 +20,7 @@ class SwipeAction extends StatefulWidget {
   final Widget child;
   final List<SwipeActionItem> actions;
 
-  const SwipeAction({
-    super.key,
-    required this.child,
-    required this.actions,
-  });
+  const SwipeAction({super.key, required this.child, required this.actions});
 
   @override
   State<SwipeAction> createState() => _SwipeActionState();

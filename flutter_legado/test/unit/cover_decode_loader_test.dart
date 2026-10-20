@@ -1,31 +1,190 @@
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/book_source_fixture.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/book_source.dart';
 import 'package:flutter_legado/src/services/cover_decode_loader.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+
+import '../fixtures/mock_book_api.dart';
 
 /// 最小 JPEG（1×1）供缓存/魔数校验
 Uint8List _tinyJpeg() => Uint8List.fromList([
-      0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
-      0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
-      0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
-      0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12,
-      0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A, 0x1C, 0x1C, 0x20,
-      0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29,
-      0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
-      0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01,
-      0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x14, 0x00, 0x01,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x08, 0xFF, 0xC4, 0x00, 0x14, 0x10, 0x01, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00,
-      0x7F, 0xFF, 0xD9,
-    ]);
+  0xFF,
+  0xD8,
+  0xFF,
+  0xE0,
+  0x00,
+  0x10,
+  0x4A,
+  0x46,
+  0x49,
+  0x46,
+  0x00,
+  0x01,
+  0x01,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0xFF,
+  0xDB,
+  0x00,
+  0x43,
+  0x00,
+  0x08,
+  0x06,
+  0x06,
+  0x07,
+  0x06,
+  0x05,
+  0x08,
+  0x07,
+  0x07,
+  0x07,
+  0x09,
+  0x09,
+  0x08,
+  0x0A,
+  0x0C,
+  0x14,
+  0x0D,
+  0x0C,
+  0x0B,
+  0x0B,
+  0x0C,
+  0x19,
+  0x12,
+  0x13,
+  0x0F,
+  0x14,
+  0x1D,
+  0x1A,
+  0x1F,
+  0x1E,
+  0x1D,
+  0x1A,
+  0x1C,
+  0x1C,
+  0x20,
+  0x24,
+  0x2E,
+  0x27,
+  0x20,
+  0x22,
+  0x2C,
+  0x23,
+  0x1C,
+  0x1C,
+  0x28,
+  0x37,
+  0x29,
+  0x2C,
+  0x30,
+  0x31,
+  0x34,
+  0x34,
+  0x34,
+  0x1F,
+  0x27,
+  0x39,
+  0x3D,
+  0x38,
+  0x32,
+  0x3C,
+  0x2E,
+  0x33,
+  0x34,
+  0x32,
+  0xFF,
+  0xC0,
+  0x00,
+  0x0B,
+  0x08,
+  0x00,
+  0x01,
+  0x00,
+  0x01,
+  0x01,
+  0x01,
+  0x11,
+  0x00,
+  0xFF,
+  0xC4,
+  0x00,
+  0x14,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x08,
+  0xFF,
+  0xC4,
+  0x00,
+  0x14,
+  0x10,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0xFF,
+  0xDA,
+  0x00,
+  0x08,
+  0x01,
+  0x01,
+  0x00,
+  0x00,
+  0x3F,
+  0x00,
+  0x7F,
+  0xFF,
+  0xD9,
+]);
 
 /// 可控延迟的 fetchImageWithDecode Mock
 class _SlowDecodeApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
   _SlowDecodeApi({this.delay = const Duration(milliseconds: 80)});
 
   final Duration delay;
@@ -33,8 +192,7 @@ class _SlowDecodeApi extends MockBookApi {
   int peakConcurrent = 0;
   int _inflight = 0;
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     fetchCount++;
     _inflight++;
     if (_inflight > peakConcurrent) peakConcurrent = _inflight;
@@ -68,10 +226,7 @@ void main() {
       expect(patched, isNotNull);
       expect(patched, isNotEmpty);
       final map = jsonDecode(patched!) as Map<String, dynamic>;
-      expect(
-        (map['ruleContent'] as Map)['imageDecode'],
-        'java.aes()',
-      );
+      expect((map['ruleContent'] as Map)['imageDecode'], 'java.aes()');
     });
   });
 
@@ -99,7 +254,7 @@ void main() {
     test('LRU 命中不重复打 FFI', () async {
       final api = _SlowDecodeApi(delay: Duration.zero);
       final bytes = await CoverDecodeLoader.load(
-        api: api,
+        images: api.bookImageRepository,
         coverUrl: 'https://cdn/1.jpg',
         patchedSourceJson: '{"x":1}',
         originOrEmpty: 'https://src',
@@ -109,7 +264,7 @@ void main() {
       expect(api.fetchCount, 1);
 
       final hit = await CoverDecodeLoader.load(
-        api: api,
+        images: api.bookImageRepository,
         coverUrl: 'https://cdn/1.jpg',
         patchedSourceJson: '{"x":1}',
         originOrEmpty: 'https://src',
@@ -120,17 +275,63 @@ void main() {
       expect(CoverDecodeLoader.debugCacheSize, 1);
     });
 
+    test('同一地址不同解密规则不共享缓存或在途请求', () async {
+      final api = _SlowDecodeApi(delay: const Duration(milliseconds: 10));
+      Future<Uint8List?> load(String rule) => CoverDecodeLoader.load(
+        images: api.bookImageRepository,
+        coverUrl: 'https://cdn/shared.jpg',
+        originOrEmpty: 'source',
+        patchedSourceJson: rule,
+        isCancelled: () => false,
+      );
+      final results = await Future.wait([load('rule-a'), load('rule-b')]);
+      expect(results, everyElement(isNotNull));
+      expect(api.fetchCount, 2);
+      await load('rule-a');
+      expect(api.fetchCount, 2);
+    });
+
+    test('书源失效后旧请求不回填缓存，已知来源支持同步选路', () async {
+      expect(CoverDecodeLoader.peekPatchedSourceJson(), '');
+      expect(
+        CoverDecodeLoader.peekPatchedSourceJson(sourceOrigin: 'source'),
+        isNull,
+      );
+      CoverDecodeLoader.seedPatchedSource('source', 'rule-a');
+      expect(
+        CoverDecodeLoader.peekPatchedSourceJson(sourceOrigin: 'source'),
+        'rule-a',
+      );
+      final api = _SlowDecodeApi(delay: const Duration(milliseconds: 10));
+      final request = CoverDecodeLoader.load(
+        images: api.bookImageRepository,
+        coverUrl: 'https://cdn/shared.jpg',
+        originOrEmpty: 'source',
+        patchedSourceJson: 'rule-a',
+        isCancelled: () => false,
+      );
+      CoverDecodeLoader.invalidateSourceRegistry();
+      await request;
+      expect(CoverDecodeLoader.debugCacheSize, 0);
+      expect(
+        CoverDecodeLoader.peekPatchedSourceJson(sourceOrigin: 'source'),
+        isNull,
+      );
+    });
+
     test('并发上限不超过 maxConcurrent', () async {
       final api = _SlowDecodeApi(delay: const Duration(milliseconds: 60));
       final futures = <Future<Uint8List?>>[];
       for (var i = 0; i < 10; i++) {
-        futures.add(CoverDecodeLoader.load(
-          api: api,
-          coverUrl: 'https://cdn/$i.jpg',
-          patchedSourceJson: '{"x":1}',
-          originOrEmpty: 'https://src',
-          isCancelled: () => false,
-        ));
+        futures.add(
+          CoverDecodeLoader.load(
+            images: api.bookImageRepository,
+            coverUrl: 'https://cdn/$i.jpg',
+            patchedSourceJson: '{"x":1}',
+            originOrEmpty: 'https://src',
+            isCancelled: () => false,
+          ),
+        );
       }
       // 启动后短暂观察：排队应 >0，活跃 ≤ maxConcurrent
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -141,7 +342,10 @@ void main() {
       expect(CoverDecodeLoader.debugQueueLength, greaterThan(0));
 
       await Future.wait(futures);
-      expect(api.peakConcurrent, lessThanOrEqualTo(CoverDecodeLoader.maxConcurrent));
+      expect(
+        api.peakConcurrent,
+        lessThanOrEqualTo(CoverDecodeLoader.maxConcurrent),
+      );
       expect(api.fetchCount, 10);
     });
 
@@ -150,19 +354,21 @@ void main() {
       // 占满并发槽
       final blockers = <Future<Uint8List?>>[];
       for (var i = 0; i < CoverDecodeLoader.maxConcurrent; i++) {
-        blockers.add(CoverDecodeLoader.load(
-          api: api,
-          coverUrl: 'https://cdn/block$i.jpg',
-          patchedSourceJson: '{"x":1}',
-          originOrEmpty: 'https://src',
-          isCancelled: () => false,
-        ));
+        blockers.add(
+          CoverDecodeLoader.load(
+            images: api.bookImageRepository,
+            coverUrl: 'https://cdn/block$i.jpg',
+            patchedSourceJson: '{"x":1}',
+            originOrEmpty: 'https://src',
+            isCancelled: () => false,
+          ),
+        );
       }
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
       CoverDecodeTicket? ticket;
       final cancelled = CoverDecodeLoader.load(
-        api: api,
+        images: api.bookImageRepository,
         coverUrl: 'https://cdn/cancel-me.jpg',
         patchedSourceJson: '{"x":1}',
         originOrEmpty: 'https://src',
@@ -184,14 +390,14 @@ void main() {
     test('origin 书源解析缓存：第二次不调 getBookSources', () async {
       final api = _CountingSourcesApi();
       final a = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
+        sources: api.bookSourceRepository,
         sourceOrigin: 'https://missing-origin',
       );
       expect(a, '');
       expect(api.getSourcesCount, 1);
 
       final b = await CoverDecodeLoader.resolvePatchedSourceJson(
-        api: api,
+        sources: api.bookSourceRepository,
         sourceOrigin: 'https://missing-origin',
       );
       expect(b, '');
@@ -201,11 +407,17 @@ void main() {
 }
 
 class _CountingSourcesApi extends MockBookApi {
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
   int getSourcesCount = 0;
 
-  @override
-  Future<List<BookSource>> getBookSources() async {
+  Future<List<BookSource>> _fixtureGetBookSources() async {
     getSourcesCount++;
-    return super.getBookSources();
+    return super.bookSourceRepository.getBookSources();
   }
 }

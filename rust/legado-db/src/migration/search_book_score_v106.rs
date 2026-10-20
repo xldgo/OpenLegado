@@ -4,7 +4,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{add_column_if_not_exists, table_exists, Migration};
+use crate::migration::{Migration, add_column_if_not_exists, table_exists};
 
 /// 从 v105 升级到 v106
 ///
@@ -57,7 +57,10 @@ mod tests {
         schema::init_schema(&conn).unwrap();
         let registry = MigrationRegistry::new();
         registry.migrate_to_latest(&conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(&conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(&conn).unwrap(),
+            schema::SCHEMA_VERSION
+        );
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('searchBooks') WHERE name = 'bookScore'",

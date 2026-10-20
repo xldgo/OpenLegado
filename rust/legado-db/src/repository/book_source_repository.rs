@@ -1,6 +1,6 @@
 //! BookSource Repository - book_sources 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::BookSource;
 use legado_core::{LegadoError, LegadoResult};
@@ -65,8 +65,8 @@ impl<'a> BookSourceRepository<'a> {
         let sources = stmt
             .query_map([], row_to_book_source)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_source_repository行解析失败: {e}")))?;
         Ok(sources)
     }
 
@@ -90,8 +90,8 @@ impl<'a> BookSourceRepository<'a> {
         let sources = stmt
             .query_map(params![group], row_to_book_source)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_source_repository行解析失败: {e}")))?;
         Ok(sources)
     }
 
@@ -212,8 +212,8 @@ impl<'a> Repository<BookSource> for BookSourceRepository<'a> {
         let sources = stmt
             .query_map([], row_to_book_source)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_source_repository行解析失败: {e}")))?;
         Ok(sources)
     }
 
@@ -615,14 +615,16 @@ mod tests {
         ];
         repo.insert_batch(&items).unwrap();
         assert_eq!(repo.count().unwrap(), 2);
-        assert!(repo
-            .find_by_url("https://batch-ok-1.example")
-            .unwrap()
-            .is_some());
-        assert!(repo
-            .find_by_url("https://batch-ok-2.example")
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.find_by_url("https://batch-ok-1.example")
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            repo.find_by_url("https://batch-ok-2.example")
+                .unwrap()
+                .is_some()
+        );
     }
 
     /// 行级失败整批回滚：第 1 条合法、第 2 条被临时触发器 ABORT（确定性

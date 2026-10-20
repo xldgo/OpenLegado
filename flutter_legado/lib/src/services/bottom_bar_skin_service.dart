@@ -53,7 +53,9 @@ class BottomBarSkinService {
   Future<Directory> _rootDir() async {
     if (_root != null) return _root!;
     final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}${Platform.pathSeparator}bottomBarSkins');
+    final dir = Directory(
+      '${base.path}${Platform.pathSeparator}bottomBarSkins',
+    );
     if (!await dir.exists()) await dir.create(recursive: true);
     _root = dir;
     return dir;
@@ -106,7 +108,7 @@ class BottomBarSkinService {
     final dir = Directory(
       '${(await _rootDir()).path}${Platform.pathSeparator}$name',
     );
-    return dir.existsSync();
+    return dir.exists();
   }
 
   Future<bool> delete(String name) async {
@@ -146,9 +148,13 @@ class BottomBarSkinService {
         final imageName = BottomBarSkinFormat.sanitizeImageName(entry.name);
         if (imageName == null) continue;
         final data = entry.content;
-        if (data.length > _maxEntryBytes) throw StateError('zip entry too large');
+        if (data.length > _maxEntryBytes) {
+          throw StateError('zip entry too large');
+        }
         totalBytes += data.length;
-        if (totalBytes > _maxTotalBytes) throw StateError('zip content too large');
+        if (totalBytes > _maxTotalBytes) {
+          throw StateError('zip content too large');
+        }
         final unique = BottomBarSkinFormat.uniqueImageName(imageName, used);
         await File('${session.path}${Platform.pathSeparator}$unique')
             .writeAsBytes(data, flush: true);
@@ -181,12 +187,11 @@ class BottomBarSkinService {
         }
         totalBytes += len;
         if (totalBytes > _maxTotalBytes) throw StateError('skin too large');
-        await entity.copy(
-          '${session.path}${Platform.pathSeparator}$name',
-        );
+        await entity.copy('${session.path}${Platform.pathSeparator}$name');
       }
-      final imgs =
-          await stagingImages(session.path.split(Platform.pathSeparator).last);
+      final imgs = await stagingImages(
+        session.path.split(Platform.pathSeparator).last,
+      );
       if (imgs.isEmpty) throw StateError('no images');
       return session.path.split(Platform.pathSeparator).last;
     } catch (e) {
@@ -262,11 +267,11 @@ class BottomBarSkinService {
     final finalName = editName == null
         ? BottomBarSkinFormat.uniqueName(sanitized, currentNames)
         : (sanitized == editName
-            ? editName
-            : BottomBarSkinFormat.uniqueName(
-                sanitized,
-                currentNames.where((n) => n != editName),
-              ));
+              ? editName
+              : BottomBarSkinFormat.uniqueName(
+                  sanitized,
+                  currentNames.where((n) => n != editName),
+                ));
 
     final root = await _rootDir();
     final target = Directory('${root.path}${Platform.pathSeparator}$finalName');
@@ -377,8 +382,7 @@ class BottomBarSkinService {
       return const BottomBarSkinIcons();
     }
     if (!await hasSkin(skinName)) return const BottomBarSkinIcons();
-    final dir =
-        '${(await _rootDir()).path}${Platform.pathSeparator}$skinName';
+    final dir = '${(await _rootDir()).path}${Platform.pathSeparator}$skinName';
     String? selected;
     String? normal;
     for (final ext in BottomBarSkinFormat.imageExts) {
@@ -469,12 +473,11 @@ class BottomBarSkinService {
 
   Future<File> _requireSessionFile(Directory session, File file) async {
     if (!await file.exists()) throw StateError('image missing');
-    final sessionPath =
-        (await session.resolveSymbolicLinks()).toLowerCase();
+    final sessionPath = (await session.resolveSymbolicLinks()).toLowerCase();
     final filePath = (await file.resolveSymbolicLinks()).toLowerCase();
     final sep = Platform.pathSeparator;
-    final ok = filePath == sessionPath ||
-        filePath.startsWith('$sessionPath$sep');
+    final ok =
+        filePath == sessionPath || filePath.startsWith('$sessionPath$sep');
     if (!ok) throw StateError('image outside staging session');
     return file;
   }

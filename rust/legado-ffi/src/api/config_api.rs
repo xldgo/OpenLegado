@@ -2,8 +2,6 @@
 //!
 //! 基于 caches 表实现应用配置的读写操作。
 
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use legado_core::LegadoResult;
 use legado_db::CacheRepository;
 
@@ -11,9 +9,6 @@ use crate::db_state::with_database;
 
 /// 配置键前缀
 const CONFIG_PREFIX: &str = "config:";
-
-/// 读配置行失败的一次性告警标记（高频路径，避免逐行刷屏）
-static CONFIG_ROW_FAIL_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// 获取指定配置项的值（不存在返回空字符串）
 pub fn get_config(key: &str) -> LegadoResult<String> {
@@ -37,39 +32,14 @@ pub fn set_config(key: &str, value: &str) -> LegadoResult<bool> {
 /// 获取所有配置项（JSON 对象）
 pub fn get_all_config() -> LegadoResult<std::collections::HashMap<String, String>> {
     with_database(|db| {
-        let conn = db.connection();
-        let mut stmt = conn
-            .prepare("SELECT key, value FROM caches WHERE key LIKE ?1")
-            .map_err(|e| legado_core::LegadoError::Database(format!("准备查询失败: {e}")))?;
-        let pattern = format!("{}%", CONFIG_PREFIX);
-        let rows = stmt
-            .query_map(rusqlite::params![pattern], |row| {
-                let key: String = row.get(0)?;
-                let value: String = row.get(1)?;
-                Ok((key, value))
+        let entries = CacheRepository::new(db.connection()).configuration_entries()?;
+        Ok(entries
+            .into_iter()
+            .map(|(key, value)| {
+                let short_key = key.strip_prefix(CONFIG_PREFIX).unwrap_or(&key);
+                (short_key.to_string(), value)
             })
-            .map_err(|e| legado_core::LegadoError::Database(format!("查询失败: {e}")))?;
-
-        let mut map = std::collections::HashMap::new();
-        for row in rows {
-            match row {
-                Ok(row) => {
-                    // 去掉前缀
-                    let short_key = row.0.strip_prefix(CONFIG_PREFIX).unwrap_or(&row.0);
-                    map.insert(short_key.to_string(), row.1);
-                }
-                Err(e) => {
-                    // 坏行照旧跳过，仅首条告警一次（对齐 image_cache 一次性告警先例）
-                    if CONFIG_ROW_FAIL_WARNED
-                        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                        .is_ok()
-                    {
-                        log::warn!("读取配置行失败（仅告警一次，后续静默跳过）: {e}");
-                    }
-                }
-            }
-        }
-        Ok(map)
+            .collect())
     })
 }
 

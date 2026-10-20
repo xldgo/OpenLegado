@@ -7,36 +7,14 @@
 //! 对齐原版 `McpService.kt` 独立前台服务（默认 1236，合法区间
 //! 1024..65530，≤0 停止），与 Web 服务并存、独立启停。
 
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::OnceLock;
 
 use tokio::runtime::Runtime;
-use tokio::task::JoinHandle;
 
 use legado_core::{LegadoError, LegadoResult};
 
 /// 服务器运行时（独立于 FFI 主 runtime）
 static SERVER_RUNTIME: OnceLock<Runtime> = OnceLock::new();
-
-/// 服务器运行状态
-static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
-
-/// 服务器端口
-static SERVER_PORT: AtomicU16 = AtomicU16::new(0);
-
-/// 服务器任务句柄（用于中止）
-static SERVER_HANDLE: OnceLock<std::sync::Mutex<Option<JoinHandle<()>>>> = OnceLock::new();
-
-// ─── 独立 MCP 服务状态（Task #73） ────────────────────────
-
-/// 独立 MCP 服务运行状态
-static MCP_RUNNING: AtomicBool = AtomicBool::new(false);
-
-/// 独立 MCP 服务端口
-static MCP_PORT: AtomicU16 = AtomicU16::new(0);
-
-/// 独立 MCP 服务任务句柄（用于中止）
-static MCP_HANDLE: OnceLock<std::sync::Mutex<Option<JoinHandle<()>>>> = OnceLock::new();
 
 /// 独立 MCP 服务默认端口（对齐原版 `AppConfig.mcpPort` 默认值）
 pub const DEFAULT_MCP_PORT: u16 = 1236;
@@ -49,16 +27,6 @@ const MCP_PORT_MAX: i32 = 65530;
 
 /// 配置持久化键（caches 表 `config:` 前缀，与既有 setConfig 同语义）
 const MCP_PORT_CONFIG_KEY: &str = "mcpPort";
-
-/// 获取服务器任务句柄槽位
-fn get_handle_slot() -> &'static std::sync::Mutex<Option<JoinHandle<()>>> {
-    SERVER_HANDLE.get_or_init(|| std::sync::Mutex::new(None))
-}
-
-/// 获取独立 MCP 服务任务句柄槽位
-fn get_mcp_handle_slot() -> &'static std::sync::Mutex<Option<JoinHandle<()>>> {
-    MCP_HANDLE.get_or_init(|| std::sync::Mutex::new(None))
-}
 
 /// 获取或创建服务器专用 runtime
 ///
@@ -86,40 +54,6 @@ fn get_server_runtime() -> LegadoResult<&'static Runtime> {
         .ok_or_else(|| LegadoError::Internal("server runtime 初始化失败".into()))
 }
 
-/// Mutex 中毒时恢复内部值（仅需串行语义）
-fn lock_handle_slot(
-    slot: &std::sync::Mutex<Option<JoinHandle<()>>>,
-) -> std::sync::MutexGuard<'_, Option<JoinHandle<()>>> {
-    slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-/// 中止服务器任务并等待其真正结束（W-1）
-///
-/// `abort` 是异步的：任务在其下一个 await 点才被取消，`abort()` 返回时
-/// 任务栈帧（含 moved 进闭包的 `TcpListener`）可能尚未析构、OS 监听端口
-/// 尚未释放。若 `server_stop` 只 abort 不等待，紧随其后的同端口
-/// `server_start` 会在 spawn 前的同步 bind 处报 `AddrInUse`（审查报告
-/// `docs/WEB_SERVICE_REACHABILITY_CODE_REVIEW_20261006.md` §W-1 探针实测：
-/// 10 轮 stop→立即同端口 start 第 2 轮即 `os error 10048`；加 200ms 等待后
-/// 10/10 过；本仓库新增集成测试在旧实现下第 1 轮即红）。此处对齐同文件
-/// `mcp_stop_internal`（Task #76 M1）的既有解法：abort 后
-/// `rt.block_on(handle)`——JoinHandle 在任务完全结束（栈帧析构）后才
-/// resolve，返回即端口已释放。
-///
-/// 死锁分析（调用上下文核实）：本函数仅由 FFI 导出（`ffi_server_stop` /
-/// FRB `server_stop`，运行在 Dart/FFI 调用线程）与测试线程进入，从不在
-/// SERVER_RUNTIME 的任务内执行；即便未来从该 runtime 内部误调，tokio 的
-/// `block_on` 会 panic（禁止 runtime 内嵌套阻塞，被 bridge 的
-/// `catch_unwind` 捕获）而非静默死锁——依赖方向 legado-ffi → legado-server
-/// 亦保证服务端代码不存在回调进本模块的路径。故无需 `block_in_place`。
-fn abort_and_wait(handle: JoinHandle<()>) {
-    handle.abort();
-    if let Ok(rt) = get_server_runtime() {
-        // 等待任务实际结束（JoinError::Cancelled 属预期，忽略）
-        let _ = rt.block_on(handle);
-    }
-}
-
 /// 启动 legado-server
 ///
 /// 在独立 tokio runtime 中启动 HTTP 服务器。
@@ -141,11 +75,11 @@ fn abort_and_wait(handle: JoinHandle<()>) {
 ///   旧实现 spawn 后才 bind，失败仅任务内 eprintln，函数仍假成功返回 Ok。
 ///   成功后把已绑定 listener 交给 `serve_web`（对齐 mcp_start_internal）。
 pub fn server_start(port: u16) -> LegadoResult<String> {
-    if SERVER_RUNNING.load(Ordering::SeqCst) {
-        return Ok(format!(
-            "Server already running on port {}",
-            SERVER_PORT.load(Ordering::SeqCst)
-        ));
+    let services = crate::engine_holder::services();
+    let _control = services.web.control();
+    let (running, current_port) = services.web.status();
+    if running {
+        return Ok(format!("Server already running on port {current_port}"));
     }
 
     // DB 必须已初始化（与 mcp_start_internal 同型守卫）
@@ -155,12 +89,12 @@ pub fn server_start(port: u16) -> LegadoResult<String> {
         ));
     }
 
-    // 复用主应用全局池取连接（P2 单池，与独立 MCP 服务路径统一）；
-    // 失败即 Err、不置 running
-    let db = crate::db_state::database_from_pool()
+    // 传递主应用当前引擎；启动不借数据库连接，失败不置 running。
+    let engine = crate::engine_holder::current()
         .map_err(|e| LegadoError::Internal(format!("Web 服务数据库连接失败: {e}")))?;
 
     let runtime = get_server_runtime()?;
+    services.web.stop(runtime);
 
     // 缺陷 A/B 修复：spawn 前同步绑定 0.0.0.0（全接口，LAN 可达；对齐
     // 原版 HttpServer.kt 的 NanoHTTPD(port) 与本文件 MCP 路径 F5），
@@ -169,32 +103,17 @@ pub fn server_start(port: u16) -> LegadoResult<String> {
         .block_on(tokio::net::TcpListener::bind(("0.0.0.0", port)))
         .map_err(|e| LegadoError::Internal(format!("Web 服务端口 {port} 绑定失败: {e}")))?;
 
-    let handle = runtime.spawn(async move {
-        if let Err(e) = legado_server::server::serve_web(listener, db).await {
-            eprintln!("Server error: {e}");
-        }
-
-        SERVER_RUNNING.store(false, Ordering::SeqCst);
-    });
-
-    // 保存句柄（W-2）：写槽前先清槽内陈值（异常路径残留，如任务自结束
-    // 后无人 take、或上轮启动中途失败），take 出锁外 abort+等待，避免
-    // 悬留旧句柄、也避免后续停止路径 block_on 一个语义含混的陈句柄
-    let slot = get_handle_slot();
-    let stale = {
-        let mut guard = lock_handle_slot(slot);
-        guard.take()
-    };
-    if let Some(stale) = stale {
-        abort_and_wait(stale);
-    }
-    {
-        let mut guard = lock_handle_slot(slot);
-        *guard = Some(handle);
-    }
-
-    SERVER_RUNNING.store(true, Ordering::SeqCst);
-    SERVER_PORT.store(port, Ordering::SeqCst);
+    let tasks = engine.tasks().clone();
+    let state = services.state.clone();
+    services
+        .web
+        .start(runtime, &tasks, port, move |scope| async move {
+            if let Err(e) =
+                legado_server::server::serve_web_scoped(listener, engine, scope, state).await
+            {
+                eprintln!("Server error: {e}");
+            }
+        })?;
 
     Ok(format!("Server started on port {port}"))
 }
@@ -206,46 +125,27 @@ pub fn server_start(port: u16) -> LegadoResult<String> {
 /// 同端口 `server_start` 会因 `AddrInUse` 同步失败（UI「关闭后马上重开」
 /// 场景用户可见；审查报告 §W-1 探针实测确证）。返回 "Server stopped"。
 pub fn server_stop() -> String {
-    if !SERVER_RUNNING.load(Ordering::SeqCst) {
-        return "Server not running".to_string();
+    let services = crate::engine_holder::services();
+    let _control = services.web.control();
+    match get_server_runtime() {
+        Ok(runtime) if services.web.stop(runtime) => "Server stopped".into(),
+        _ => "Server not running".into(),
     }
-
-    // 先 take 出句柄、释放锁，再 abort+等待（持锁等待会阻塞其它持锁方）
-    let handle = {
-        let slot = get_handle_slot();
-        let mut guard = lock_handle_slot(slot);
-        guard.take()
-    };
-    if let Some(handle) = handle {
-        abort_and_wait(handle);
-    }
-
-    SERVER_RUNNING.store(false, Ordering::SeqCst);
-    SERVER_PORT.store(0, Ordering::SeqCst);
-
-    "Server stopped".to_string()
 }
 
-/// 获取服务器状态
-///
-/// 返回 JSON: { "running": bool, "port": u16 }
+/// 获取服务器状态，保留原 JSON 字段。
 pub fn server_status() -> String {
-    let running = SERVER_RUNNING.load(Ordering::SeqCst);
-    let port = SERVER_PORT.load(Ordering::SeqCst);
+    let status = read_server_status();
+    serde_json::json!({ "running": status.running, "port": status.port }).to_string()
+}
 
-    serde_json::json!({
-        "running": running,
-        "port": port,
-    })
-    .to_string()
+/// 状态快照与旧原生 JSON 适配器共用一次原子读取。
+pub fn read_server_status() -> crate::file_dto::ServerStatusDto {
+    let (running, port) = crate::engine_holder::services().web.status();
+    crate::file_dto::ServerStatusDto { running, port }
 }
 
 // ─── 独立 MCP 服务（契约 §2.22.5 setMcpPort，Task #73） ───────
-
-/// 独立 MCP 服务状态机互斥锁（Task #76 Med1）：
-/// set_mcp_port 的 stop→初始化→bind→spawn→存句柄→置位全程持锁执行，
-/// 防止并发调用造成状态不一致。
-static MCP_STATE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// 设置独立 MCP 服务端口（启停状态机）
 ///
@@ -266,8 +166,11 @@ pub fn set_mcp_port(port: i32) -> LegadoResult<()> {
     // port <= 0：停止独立 MCP 服务
     if port <= 0 {
         {
-            let _guard = mcp_state_lock();
-            mcp_stop_internal();
+            let services = crate::engine_holder::services();
+            let _guard = services.mcp.control();
+            if let Ok(runtime) = get_server_runtime() {
+                services.mcp.stop(runtime);
+            }
         }
         persist_mcp_port(port);
         return Ok(());
@@ -275,13 +178,6 @@ pub fn set_mcp_port(port: i32) -> LegadoResult<()> {
     mcp_start_internal(port)?;
     persist_mcp_port(port);
     Ok(())
-}
-
-/// 获取 MCP 状态机锁（中毒时直接恢复：仅需串行语义）
-fn mcp_state_lock() -> std::sync::MutexGuard<'static, ()> {
-    MCP_STATE_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// 启动独立 MCP 服务（内部实现，不持久化；Task #76 Min2：
@@ -296,7 +192,8 @@ fn mcp_start_internal(port: i32) -> LegadoResult<()> {
     }
 
     // 状态机全程互斥（Task #76 Med1）
-    let _guard = mcp_state_lock();
+    let services = crate::engine_holder::services();
+    let _guard = services.mcp.control();
 
     // DB 必须已初始化：独立服务与主应用复用同一全局连接池（Task #76 C2；
     // P2 单池化后与 Web 服务路径统一，不再二次建池/重跑迁移）
@@ -323,11 +220,12 @@ fn mcp_start_internal(port: i32) -> LegadoResult<()> {
     }
 
     // 端口变更自动重启：先停旧服务（abort 后等待旧监听器释放）
-    mcp_stop_internal();
+    if let Ok(runtime) = get_server_runtime() {
+        services.mcp.stop(runtime);
+    }
 
-    // 从全局池取连接（P2 单池）；失败风险同步化：失败即 Err、不置 running
-    // （Task #76 Med1）
-    let db = crate::db_state::database_from_pool()
+    // 直接共享主应用引擎；数据库连接由具体操作短借，不随服务长期保留。
+    let engine = crate::engine_holder::current()
         .map_err(|e| LegadoError::Internal(format!("独立 MCP 服务数据库连接失败: {e}")))?;
 
     let runtime = get_server_runtime()?;
@@ -337,55 +235,24 @@ fn mcp_start_internal(port: i32) -> LegadoResult<()> {
         .block_on(tokio::net::TcpListener::bind(("0.0.0.0", port as u16)))
         .map_err(|e| LegadoError::Internal(format!("独立 MCP 服务端口 {} 绑定失败: {e}", port)))?;
 
-    // 复用既有 server 启动模式：同 runtime 内 spawn，句柄可中止
-    let handle = runtime.spawn(async move {
-        if let Err(e) = legado_server::server::serve_mcp(listener, db, token).await {
-            eprintln!("MCP server error: {e}");
-        }
-        MCP_RUNNING.store(false, Ordering::SeqCst);
-    });
-
-    // 保存句柄
-    let slot = get_mcp_handle_slot();
-    let mut guard = lock_handle_slot(slot);
-    *guard = Some(handle);
-    drop(guard);
-
-    MCP_RUNNING.store(true, Ordering::SeqCst);
-    MCP_PORT.store(port as u16, Ordering::SeqCst);
+    let tasks = engine.tasks().clone();
+    let state = services.state.clone();
+    services
+        .mcp
+        .start(runtime, &tasks, port as u16, move |scope| async move {
+            if let Err(e) =
+                legado_server::server::serve_mcp_scoped(listener, engine, token, scope, state).await
+            {
+                eprintln!("MCP server error: {e}");
+            }
+        })?;
     Ok(())
 }
 
-/// 停止独立 MCP 服务（内部实现，幂等）
-///
-/// abort 后等待任务实际结束（Task #76 M1：防止旧监听器未释放时
-/// 同端口重新 bind 报 AddrInUse；abort 过的 JoinHandle 会快速 resolve）。
-fn mcp_stop_internal() {
-    let handle = {
-        let slot = get_mcp_handle_slot();
-        let mut guard = lock_handle_slot(slot);
-        guard.take()
-    };
-    if let Some(handle) = handle {
-        handle.abort();
-        // 等待任务实际结束，确保旧监听器端口释放
-        if let Ok(rt) = get_server_runtime() {
-            let _ = rt.block_on(handle);
-        }
-    }
-    MCP_RUNNING.store(false, Ordering::SeqCst);
-    MCP_PORT.store(0, Ordering::SeqCst);
-}
-
-/// 独立 MCP 服务状态（诊断/测试用）
-///
-/// 返回 JSON: { "running": bool, "port": u16 }
+/// 独立 MCP 服务状态，保留原 JSON 字段。
 pub fn mcp_status() -> String {
-    serde_json::json!({
-        "running": MCP_RUNNING.load(Ordering::SeqCst),
-        "port": MCP_PORT.load(Ordering::SeqCst),
-    })
-    .to_string()
+    let (running, port) = crate::engine_holder::services().mcp.status();
+    serde_json::json!({ "running": running, "port": port }).to_string()
 }
 
 /// 持久化 MCP 端口配置（宽容失败：DB 未初始化/写入失败仅记日志）
@@ -470,29 +337,6 @@ mod tests {
             .expect("写入测试 token");
     }
 
-    /// 记录一个临时 DB 文件路径（Task #76 C2；P2 单池化后连接来自
-    /// `db_state` 全局池，此路径仅保留「db_open 已记录路径」的真实时序，
-    /// 不再用于二次建池——文件本身不会被创建）
-    fn setup_temp_db_path() -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("legado_mcp_test_{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&dir);
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let path = dir.join(format!("mcp_test_{nanos}.db"));
-        crate::db_state::record_db_path(path.to_str().expect("DB 路径含非 UTF-8 字符"));
-        path
-    }
-
-    /// 清理临时 DB 文件（尽力而为，含 WAL/SHM/journal 附属文件）
-    fn cleanup_temp_db(path: &std::path::Path) {
-        let base = path.to_string_lossy().to_string();
-        for suffix in ["", "-wal", "-shm", "-journal"] {
-            let _ = std::fs::remove_file(format!("{base}{suffix}"));
-        }
-    }
-
     /// 越界校验：合法区间 1024..65530（对齐原版）
     #[test]
     fn test_mcp_port_out_of_range() {
@@ -521,7 +365,6 @@ mod tests {
     fn test_mcp_requires_js_source_api_token() {
         let _g = MCP_TEST_LOCK.lock().unwrap();
         let _db_guard = crate::db_state::ensure_test_db();
-        let db_path = setup_temp_db_path();
         let _ = crate::api::config_api::set_config("jsSourceApiToken", "");
         let port = pick_free_port() as i32;
         let err = set_mcp_port(port).unwrap_err();
@@ -534,7 +377,6 @@ mod tests {
             err.to_string().contains("Web 书源访问令牌"),
             "应提示 App 内配置入口「Web 书源访问令牌」: {err}"
         );
-        cleanup_temp_db(&db_path);
     }
 
     /// 启停状态机 + 端口变更自动重启 + 持久化（随机端口避免 CI 冲突）
@@ -542,7 +384,6 @@ mod tests {
     fn test_mcp_start_restart_stop_state_machine() {
         let _g = MCP_TEST_LOCK.lock().unwrap();
         let _db_guard = crate::db_state::ensure_test_db();
-        let db_path = setup_temp_db_path();
         ensure_mcp_token();
 
         let port1 = pick_free_port() as i32;
@@ -566,8 +407,6 @@ mod tests {
         set_mcp_port(0).unwrap();
         let status: serde_json::Value = serde_json::from_str(&mcp_status()).unwrap();
         assert_eq!(status["running"], false);
-
-        cleanup_temp_db(&db_path);
     }
 
     /// 同端口重启循环（Task #76 M1）：set→stop→set 同端口成功，
@@ -576,7 +415,6 @@ mod tests {
     fn test_mcp_same_port_restart_cycle() {
         let _g = MCP_TEST_LOCK.lock().unwrap();
         let _db_guard = crate::db_state::ensure_test_db();
-        let db_path = setup_temp_db_path();
         ensure_mcp_token();
 
         let port = pick_free_port() as i32;
@@ -587,8 +425,6 @@ mod tests {
         assert_eq!(status["running"], true);
         assert_eq!(status["port"].as_u64().unwrap(), port as u64);
         set_mcp_port(0).unwrap();
-
-        cleanup_temp_db(&db_path);
     }
 
     /// 端口被占用：绑定失败报 Internal（可读消息）
@@ -596,7 +432,6 @@ mod tests {
     fn test_mcp_port_bind_conflict() {
         let _g = MCP_TEST_LOCK.lock().unwrap();
         let _db_guard = crate::db_state::ensure_test_db();
-        let db_path = setup_temp_db_path();
         ensure_mcp_token();
         // 占用 0.0.0.0 端口（与 set_mcp_port F5 绑定同地址族）
         let blocker = std::net::TcpListener::bind("0.0.0.0:0").unwrap();
@@ -608,6 +443,5 @@ mod tests {
         assert!(msg.contains("绑定失败"));
 
         drop(blocker);
-        cleanup_temp_db(&db_path);
     }
 }

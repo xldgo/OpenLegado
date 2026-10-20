@@ -1,10 +1,10 @@
 //! 段评/本章热评 API 处理器
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::review::ChapterReview;
@@ -28,10 +28,13 @@ pub async fn get_reviews(
     State(state): State<Arc<AppState>>,
     Path((book_url, chapter)): Path<(String, i32)>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = ReviewRepository::new(db.connection());
-    let reviews = repo.get_by_chapter(&book_url, chapter)?;
-    Ok(Json(json!({ "reviews": reviews, "total": reviews.len() })))
+    state
+        .with_database(move |db| {
+            let repo = ReviewRepository::new(db.connection());
+            let reviews = repo.get_by_chapter(&book_url, chapter)?;
+            Ok(Json(json!({ "reviews": reviews, "total": reviews.len() })))
+        })
+        .await?
 }
 
 /// POST /api/reviews — 添加评论
@@ -39,30 +42,33 @@ pub async fn create_review(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateReviewRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as i64;
+    state
+        .with_database(move |db| {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64;
 
-    let review = ChapterReview {
-        id: 0,
-        book_url: req.book_url,
-        chapter_index: req.chapter_index,
-        paragraph_index: req.paragraph_index.unwrap_or(-1),
-        content: req.content,
-        author: req.author.unwrap_or_default(),
-        created_at: now,
-        like_count: 0,
-    };
+            let review = ChapterReview {
+                id: 0,
+                book_url: req.book_url,
+                chapter_index: req.chapter_index,
+                paragraph_index: req.paragraph_index.unwrap_or(-1),
+                content: req.content,
+                author: req.author.unwrap_or_default(),
+                created_at: now,
+                like_count: 0,
+            };
 
-    let db = state.db.lock().await;
-    let repo = ReviewRepository::new(db.connection());
-    let id = repo.insert(&review)?;
+            let repo = ReviewRepository::new(db.connection());
+            let id = repo.insert(&review)?;
 
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({ "id": id, "review": review })),
-    ))
+            Ok((
+                StatusCode::CREATED,
+                Json(json!({ "id": id, "review": review })),
+            ))
+        })
+        .await?
 }
 
 #[cfg(test)]
@@ -73,17 +79,12 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::routes::create_router;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]

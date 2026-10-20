@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/app_update_service.dart';
@@ -30,8 +30,8 @@ class _UpdateDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasBackup = info.backupDownloadUrl != null &&
-        info.backupDownloadUrl!.isNotEmpty;
+    final hasBackup =
+        info.backupDownloadUrl != null && info.backupDownloadUrl!.isNotEmpty;
 
     return AlertDialog(
       title: Text(info.tagName),
@@ -50,9 +50,8 @@ class _UpdateDialog extends StatelessWidget {
             await service.setIgnored(info.tagName);
             if (context.mounted) {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已忽略此版本')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('已忽略此版本')));
             }
           },
           child: const Text('忽略此版本'),

@@ -61,7 +61,8 @@ def main(argv=None):
     fingerprint.add_argument("component", choices=("rust",))
     generate = commands.add_parser("generate", help="生成 Dart 或 FRB 绑定，不重编应用")
     generators = generate.add_subparsers(dest="component", required=True)
-    generators.add_parser("dart", help="按锁文件执行 Dart build_runner")
+    dart_generate = generators.add_parser("dart", help="按锁文件执行 Dart build_runner")
+    dart_generate.add_argument("--check", action="store_true", help="隔离复核Dart生成物，不修改原工作区")
     bridge = generators.add_parser("bridge", help="执行固定版本的 FRB 生成器")
     bridge.add_argument("--check", action="store_true", help="隔离复核当前输入的生成物，不改写原工作区")
     build = commands.add_parser("build", help="编译各平台 FFI 或构建 Android/Windows 应用")
@@ -102,6 +103,7 @@ def main(argv=None):
     android_options(verify_apk)
     verify_apk.add_argument("--apk", type=Path, required=True, help="待检查 APK 的路径")
     verify_apk.add_argument("--ndk", type=Path, help="APK strip 正规化使用的 NDK")
+    verify_apk.add_argument("--signing-cert-sha256", help="同时校验APK签名及预期发行证书指纹")
     verify_icons = verifiers.add_parser("icons", help="只读检查 iOS 源资产、编译日志或最终图标声明")
     verify_icons.add_argument("platform", choices=("ios",))
     icon_inputs = verify_icons.add_mutually_exclusive_group(required=True)
@@ -131,6 +133,7 @@ def main(argv=None):
     android_options(collect)
     collect.add_argument("--output-dir", type=Path, required=True, help="仓库内专用收集目录，收集分 ABI APK")
     collect.add_argument("--ndk", type=Path, help="APK strip 正规化使用的 NDK")
+    collect.add_argument("--signing-cert-sha256", help="收集前校验各APK的发行签名证书")
     test = commands.add_parser("test", help="运行工程工具测试")
     test.add_argument("component", choices=("tooling",))
     args = parser.parse_args(argv)
@@ -141,7 +144,7 @@ def main(argv=None):
         elif args.command == "generate":
             if args.component == "dart":
                 from tooling.bridge import generate_dart
-                generate_dart(ROOT)
+                generate_dart(ROOT, check=args.check)
             else:
                 from tooling.bridge import generate_bridge
                 generate_bridge(ROOT, args.check)
@@ -176,7 +179,8 @@ def main(argv=None):
             build_windows_app(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean, run=True)
         elif args.command == "collect":
             from tooling.android_app import collect_android_apks
-            apks = collect_android_apks(ROOT, args.profile, args.abis, args.output_dir, args.ndk, args.cargo_target_dir)
+            apks = collect_android_apks(ROOT, args.profile, args.abis, args.output_dir, args.ndk, args.cargo_target_dir,
+                                       args.signing_cert_sha256)
             for apk in apks:
                 print(f"已校验并收集 APK：{apk}")
         elif args.command == "prepare":
@@ -210,7 +214,8 @@ def main(argv=None):
                 print(f"IPA 完整性、plist 与 Runner 校验通过：{args.ipa}")
             elif args.component == "apk":
                 from tooling.android_app import verify_android_apk
-                verify_android_apk(ROOT, args.apk, args.profile, args.abis, args.ndk, args.cargo_target_dir)
+                verify_android_apk(ROOT, args.apk, args.profile, args.abis, args.ndk, args.cargo_target_dir,
+                                   args.signing_cert_sha256)
                 print(f"APK 包内原生库校验通过：{args.apk}")
             elif args.component == "app":
                 from tooling.ios import verify_ios_app

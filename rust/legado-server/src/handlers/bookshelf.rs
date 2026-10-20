@@ -1,15 +1,15 @@
 //! 书架管理处理器
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::models::Book;
-use legado_db::repository::book_repository::BookRepository;
 use legado_db::repository::Repository;
+use legado_db::repository::book_repository::BookRepository;
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -28,10 +28,13 @@ pub struct CreateBookRequest {
 
 /// GET /api/books — 获取书架全部书籍
 pub async fn list_books(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = BookRepository::new(db.connection());
-    let books = repo.find_all()?;
-    Ok(Json(json!({ "books": books, "total": books.len() })))
+    state
+        .with_database(move |db| {
+            let repo = BookRepository::new(db.connection());
+            let books = repo.find_all()?;
+            Ok(Json(json!({ "books": books, "total": books.len() })))
+        })
+        .await?
 }
 
 /// GET /api/books/:id — 获取单本书籍详情（id 为 bookUrl）
@@ -39,12 +42,15 @@ pub async fn get_book(
     State(state): State<Arc<AppState>>,
     Path(book_url): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = BookRepository::new(db.connection());
-    match repo.find_by_url(&book_url)? {
-        Some(book) => Ok(Json(json!(book))),
-        None => Ok(Json(json!({ "error": "book not found" }))),
-    }
+    state
+        .with_database(move |db| {
+            let repo = BookRepository::new(db.connection());
+            match repo.find_by_url(&book_url)? {
+                Some(book) => Ok(Json(json!(book))),
+                None => Ok(Json(json!({ "error": "book not found" }))),
+            }
+        })
+        .await?
 }
 
 /// POST /api/books — 添加书籍到书架
@@ -52,22 +58,25 @@ pub async fn create_book(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateBookRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let book = Book {
-        book_url: req.book_url,
-        name: req.name,
-        author: req.author.unwrap_or_default(),
-        origin: req.origin.unwrap_or_default(),
-        origin_name: req.origin_name.unwrap_or_default(),
-        cover_url: req.cover_url,
-        intro: req.intro,
-        ..Book::default()
-    };
+    state
+        .with_database(move |db| {
+            let book = Book {
+                book_url: req.book_url,
+                name: req.name,
+                author: req.author.unwrap_or_default(),
+                origin: req.origin.unwrap_or_default(),
+                origin_name: req.origin_name.unwrap_or_default(),
+                cover_url: req.cover_url,
+                intro: req.intro,
+                ..Book::default()
+            };
 
-    let db = state.db.lock().await;
-    let repo = BookRepository::new(db.connection());
-    repo.insert(&book)?;
+            let repo = BookRepository::new(db.connection());
+            repo.insert(&book)?;
 
-    Ok((StatusCode::CREATED, Json(json!(book))))
+            Ok((StatusCode::CREATED, Json(json!(book))))
+        })
+        .await?
 }
 
 /// PUT /api/books/:id — 更新书籍信息
@@ -76,24 +85,27 @@ pub async fn update_book(
     Path(book_url): Path<String>,
     Json(req): Json<CreateBookRequest>,
 ) -> Result<Json<Value>, ApiError> {
-    let book = Book {
-        book_url: req.book_url.clone(),
-        name: req.name,
-        author: req.author.unwrap_or_default(),
-        origin: req.origin.unwrap_or_default(),
-        origin_name: req.origin_name.unwrap_or_default(),
-        cover_url: req.cover_url,
-        intro: req.intro,
-        ..Book::default()
-    };
+    state
+        .with_database(move |db| {
+            let book = Book {
+                book_url: req.book_url.clone(),
+                name: req.name,
+                author: req.author.unwrap_or_default(),
+                origin: req.origin.unwrap_or_default(),
+                origin_name: req.origin_name.unwrap_or_default(),
+                cover_url: req.cover_url,
+                intro: req.intro,
+                ..Book::default()
+            };
 
-    let db = state.db.lock().await;
-    let repo = BookRepository::new(db.connection());
-    // 先检查是否存在
-    let _existing = repo.find_by_url(&book_url)?;
-    repo.update(&book)?;
+            let repo = BookRepository::new(db.connection());
+            // 先检查是否存在
+            let _existing = repo.find_by_url(&book_url)?;
+            repo.update(&book)?;
 
-    Ok(Json(json!(book)))
+            Ok(Json(json!(book)))
+        })
+        .await?
 }
 
 /// DELETE /api/books/:id — 从书架删除书籍
@@ -101,10 +113,13 @@ pub async fn delete_book(
     State(state): State<Arc<AppState>>,
     Path(book_url): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = BookRepository::new(db.connection());
-    repo.delete(&book_url)?;
-    Ok(Json(json!({ "deleted": true, "book_url": book_url })))
+    state
+        .with_database(move |db| {
+            let repo = BookRepository::new(db.connection());
+            repo.delete(&book_url)?;
+            Ok(Json(json!({ "deleted": true, "book_url": book_url })))
+        })
+        .await?
 }
 
 #[cfg(test)]
@@ -116,17 +131,12 @@ mod tests {
 
     use crate::routes::create_router;
     use crate::state::AppState;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]
@@ -195,7 +205,7 @@ mod tests {
 
         // 先插入一本书
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             let repo = BookRepository::new(db.connection());
             let book = Book {
                 book_url: "url1".to_string(),

@@ -20,7 +20,7 @@
 //   1. 搜索结果：本来源恰好 2 条，且书名为「E2E测试书1 / E2E测试书2」；
 //      结果 bookUrl 必须是绝对 URL（验证 resolve_url 行为）；
 //   2. 进入第 1 章后：阅读器状态正文含 E2E-MARKER-CH1 且不含 E2E-MARKER-CH2；
-//      另经 RustApi.getChapterContentFull 直接取正文复核同一标记；
+//      另经 NativeTestApi.getChapterContentFull 直接取正文复核同一标记；
 //   3. 右缘点击翻章后：currentChapterIndex==1，正文含 E2E-MARKER-CH2 且
 //      不含 E2E-MARKER-CH1；FFI 直取第 2 章正文复核。
 //
@@ -40,17 +40,18 @@
 import 'dart:convert' show base64Decode, jsonEncode;
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:flutter_legado/app.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/providers/search/search_notifier.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/services/rust_api.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/search/search.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+
+import '../test/fixtures/native_test_api.dart';
+
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 
 /// 固定书名字面量（与假站点 HTML 一一对应，硬断言基准）
@@ -94,7 +95,8 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
 // ─────────────────────────── 假站点（in-process HttpServer）───────────────────────────
 
 /// 搜索页：恰好 2 条 .book-item（对任意关键词恒定返回，计数确定）
-String _searchPageHtml() => '''
+String _searchPageHtml() =>
+    '''
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>E2E 搜索</title></head>
@@ -146,7 +148,8 @@ String _bookPageHtml(int n) {
 }
 
 /// 章节正文页：正文 div 内含唯一标记（断言基准）
-String _chapterPageHtml(int n) => '''
+String _chapterPageHtml(int n) =>
+    '''
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>第${_cnNum(n)}章</title></head>
@@ -159,44 +162,46 @@ String _chapterPageHtml(int n) => '''
 </html>
 ''';
 
-String _cnNum(int n) => n == 1 ? '一' : n == 2 ? '二' : '三';
+String _cnNum(int n) => n == 1
+    ? '一'
+    : n == 2
+    ? '二'
+    : '三';
 
 /// 本地书源 JSON（纯 CSS 规则，无 JS）：
 ///   - searchUrl 用 {{key}} 占位（Rust build_search_url 支持 {key}/{{key}}）；
 ///   - bookUrl 为相对路径 → 由 Rust resolve_url 绝对化；
 ///   - 章节目录挂在书页（ruleBookInfo 不定义 tocUrl → 目录 URL 回退书页）。
 String _sourceJson(String base) => jsonEncode([
-      {
-        'bookSourceUrl': base,
-        'bookSourceName': 'E2E本地离线测试源',
-        'bookSourceType': 0,
-        'enabled': true,
-        'searchUrl': '$base/search?q={{key}}',
-        'ruleSearch': {
-          'bookList': '@css:.book-item',
-          'name': '@css:.name',
-          'author': '@css:.author',
-          'kind': '@css:.kind',
-          'intro': '@css:.intro',
-          'bookUrl': '@css:a@href',
-          'coverUrl': '@css:img@src',
-        },
-        'ruleBookInfo': {
-          'name': '@css:h1',
-          'author': '@css:.author',
-          'intro': '@css:.intro',
-          'coverUrl': '@css:img@src',
-        },
-        'ruleToc': {
-          'chapterList': '@css:.toc li',
-          'chapterName': '@css:a',
-          'chapterUrl': '@css:a@href',
-        },
-        'ruleContent': {
-          'content': '@css:.content',
-        },
-      },
-    ]);
+  {
+    'bookSourceUrl': base,
+    'bookSourceName': 'E2E本地离线测试源',
+    'bookSourceType': 0,
+    'enabled': true,
+    'searchUrl': '$base/search?q={{key}}',
+    'ruleSearch': {
+      'bookList': '@css:.book-item',
+      'name': '@css:.name',
+      'author': '@css:.author',
+      'kind': '@css:.kind',
+      'intro': '@css:.intro',
+      'bookUrl': '@css:a@href',
+      'coverUrl': '@css:img@src',
+    },
+    'ruleBookInfo': {
+      'name': '@css:h1',
+      'author': '@css:.author',
+      'intro': '@css:.intro',
+      'coverUrl': '@css:img@src',
+    },
+    'ruleToc': {
+      'chapterList': '@css:.toc li',
+      'chapterName': '@css:a',
+      'chapterUrl': '@css:a@href',
+    },
+    'ruleContent': {'content': '@css:.content'},
+  },
+]);
 
 Future<void> _handleRequest(HttpRequest request, String base) async {
   final response = request.response;
@@ -235,8 +240,7 @@ Future<void> _handleRequest(HttpRequest request, String base) async {
 
 Future<void> _writeHtml(HttpResponse response, int code, String html) async {
   response.statusCode = code;
-  response.headers.contentType =
-      ContentType('text', 'html', charset: 'utf-8');
+  response.headers.contentType = ContentType('text', 'html', charset: 'utf-8');
   // write 后立即 close（HttpSink 内部按调用顺序串行化），
   // 不 await（本 SDK 中 write 返回 void）
   response.write(html);
@@ -248,8 +252,7 @@ Future<void> _writeHtml(HttpResponse response, int code, String html) async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('E2E：离线本地书源 搜索→进书→翻章（真实 Rust FFI 链路）',
-      (tester) async {
+  testWidgets('E2E：离线本地书源 搜索→进书→翻章（真实 Rust FFI 链路）', (tester) async {
     // ── 1. 启动进程内本地 HTTP 服务（loopback 随机端口）──
     HttpServer? server;
     late final String base;
@@ -268,11 +271,13 @@ void main() {
     debugPrint('[E2E] 本地假书源服务已启动: $base');
 
     // ── 2. 初始化 Rust 引擎 + 导入本地书源 ──
-    final api = RustApi();
-    await tester.runAsync(() => api.initialize());
+    final api = createTestApplication(useMock: false) as NativeTestApi;
+    await tester.runAsync(() => api.runtime.initialize());
     int imported = 0;
     await tester.runAsync(() async {
-      imported = await api.importBookSources(_sourceJson(base));
+      imported = await api.bookSourceRepository.importBookSources(
+        _sourceJson(base),
+      );
     });
     expect(
       imported,
@@ -297,11 +302,7 @@ void main() {
       const Duration(seconds: 1),
       () => tester.any(find.byTooltip('搜索')),
     );
-    expect(
-      searchEntryShown,
-      isTrue,
-      reason: '书架顶栏应出现「搜索」入口',
-    );
+    expect(searchEntryShown, isTrue, reason: '书架顶栏应出现「搜索」入口');
     await tester.tap(find.byTooltip('搜索').first);
     await _settle(tester);
 
@@ -320,8 +321,7 @@ void main() {
         final s = container.read(searchNotifierProvider);
         if (s.isLoading) return false;
         final mine = s.results
-            .where((r) =>
-                r.book.origin == base || r.origins.contains(base))
+            .where((r) => r.book.origin == base || r.origins.contains(base))
             .toList();
         return mine.length >= 2;
       },
@@ -333,7 +333,8 @@ void main() {
     expect(
       searchDone,
       isTrue,
-      reason: '搜索应完成且本来源至少 2 条结果；'
+      reason:
+          '搜索应完成且本来源至少 2 条结果；'
           'isLoading=${searchState.isLoading} '
           'error=${searchState.error} '
           '总数=${searchState.results.length} '
@@ -343,7 +344,8 @@ void main() {
     expect(
       mine.length,
       2,
-      reason: '本来源搜索结果应恰好 2 条（假站点无分页）；'
+      reason:
+          '本来源搜索结果应恰好 2 条（假站点无分页）；'
           '实际 ${mine.length} 条: ${mine.map((r) => r.book.name).toList()}',
     );
     final names = mine.map((r) => r.book.name).toSet();
@@ -353,12 +355,12 @@ void main() {
       reason: '搜索结果书名应为「$_bookName1 / $_bookName2」；实际 $names',
     );
     // 硬断言①b：bookUrl 绝对化（Rust resolve_url 行为验证）
-    final target =
-        mine.firstWhere((r) => r.book.name == _bookName1).book;
+    final target = mine.firstWhere((r) => r.book.name == _bookName1).book;
     expect(
       target.bookUrl,
       '$base/book/1',
-      reason: '搜索结果 bookUrl 应为绝对 URL（相对 /book/1 经 resolve_url '
+      reason:
+          '搜索结果 bookUrl 应为绝对 URL（相对 /book/1 经 resolve_url '
           '绝对化）；实际 ${target.bookUrl}',
     );
     // UI 渲染佐证：两条结果书名均已在界面出现
@@ -386,7 +388,8 @@ void main() {
     expect(
       fabShown,
       isTrue,
-      reason: '书籍详情页加载完成后应显示「阅读」按钮'
+      reason:
+          '书籍详情页加载完成后应显示「阅读」按钮'
           '（webbookInfo/webbookChapters 失败会阻止加载完成）',
     );
     debugPrint('[E2E] 已进入书籍详情页（$_bookName1）');
@@ -408,7 +411,8 @@ void main() {
     expect(
       readerReady,
       isTrue,
-      reason: '阅读器应加载第 1 章正文（含 $_markerCh1 标记）；'
+      reason:
+          '阅读器应加载第 1 章正文（含 $_markerCh1 标记）；'
           'chapter=${readerState.currentChapter?.title} '
           'index=${readerState.currentChapterIndex} '
           'chapters=${readerState.chapters.length} '
@@ -435,11 +439,16 @@ void main() {
     // 硬断言②b：FFI 直取正文复核（独立于 UI 状态的数据链验证）
     String ch1Full = '';
     await tester.runAsync(
-        () async => ch1Full = await api.getChapterContentFull(target.bookUrl, 0));
+      () async => ch1Full = await api.readingRepository.getChapterContentFull(
+        target.bookUrl,
+        0,
+      ),
+    );
     expect(
       ch1Full,
       contains(_markerCh1),
-      reason: 'FFI getChapterContentFull(第 1 章) 应含标记 $_markerCh1；'
+      reason:
+          'FFI getChapterContentFull(第 1 章) 应含标记 $_markerCh1；'
           '实际长度 ${ch1Full.length}',
     );
     expect(
@@ -482,8 +491,9 @@ void main() {
     var turnedByUi = false;
     for (var i = 0; i < 12 && !turnedByUi; i++) {
       await tester.tapAt(rightEdge);
-      await tester
-          .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 800)));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 800)),
+      );
       await _settle(tester, 15);
       final s = container.read(readerNotifierProvider);
       turnedByUi =
@@ -494,28 +504,25 @@ void main() {
       // 仅当本平台 UI 手势未生效时启用，留痕便于 CI 定位
       debugPrint('[E2E] UI 右缘翻章未生效，回退 notifier.nextChapter()（同一状态机路径）');
       await tester.runAsync(
-          () => container.read(readerNotifierProvider.notifier).nextChapter());
+        () => container.read(readerNotifierProvider.notifier).nextChapter(),
+      );
       await _settle(tester);
     } else {
       debugPrint('[E2E] 已经右缘点击翻章（UI 手势路径）');
     }
 
     // ── 8. 断言翻章结果：第 2 章标题 + 正文标记 ──
-    final turned = await _waitUntil(
-      tester,
-      30,
-      const Duration(seconds: 2),
-      () {
-        final s = container.read(readerNotifierProvider);
-        return s.currentChapterIndex == 1 &&
-            s.chapterContent.contains(_markerCh2);
-      },
-    );
+    final turned = await _waitUntil(tester, 30, const Duration(seconds: 2), () {
+      final s = container.read(readerNotifierProvider);
+      return s.currentChapterIndex == 1 &&
+          s.chapterContent.contains(_markerCh2);
+    });
     final afterTurn = container.read(readerNotifierProvider);
     expect(
       turned,
       isTrue,
-      reason: '翻章后应定位到第 2 章且正文含 $_markerCh2；'
+      reason:
+          '翻章后应定位到第 2 章且正文含 $_markerCh2；'
           'index=${afterTurn.currentChapterIndex} '
           'chapter=${afterTurn.currentChapter?.title} '
           'error=${afterTurn.error} '
@@ -535,11 +542,16 @@ void main() {
     // 硬断言③b：FFI 直取第 2 章正文复核
     String ch2Full = '';
     await tester.runAsync(
-        () async => ch2Full = await api.getChapterContentFull(target.bookUrl, 1));
+      () async => ch2Full = await api.readingRepository.getChapterContentFull(
+        target.bookUrl,
+        1,
+      ),
+    );
     expect(
       ch2Full,
       contains(_markerCh2),
-      reason: 'FFI getChapterContentFull(第 2 章) 应含标记 $_markerCh2；'
+      reason:
+          'FFI getChapterContentFull(第 2 章) 应含标记 $_markerCh2；'
           '实际长度 ${ch2Full.length}',
     );
     expect(

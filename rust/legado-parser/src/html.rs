@@ -283,10 +283,10 @@ fn apply_dot_index<'a>(elements: Vec<ElementRef<'a>>, index: &DotIndex) -> Vec<E
     let len = elements.len() as i32;
     let mut resolved: Vec<usize> = Vec::new();
     for &it in &index.indices {
-        if let Some(i) = resolve_single(it, len) {
-            if !resolved.contains(&i) {
-                resolved.push(i);
-            }
+        if let Some(i) = resolve_single(it, len)
+            && !resolved.contains(&i)
+        {
+            resolved.push(i);
         }
     }
     for r in &index.ranges {
@@ -456,12 +456,12 @@ fn split_jsoup_pseudos(selector: &str) -> (String, Vec<JsoupPseudo>) {
     let mut pseudos: Vec<JsoupPseudo> = Vec::new();
     let mut i = 0usize;
     while i < bytes.len() {
-        if bytes[i] == b':' {
-            if let Some((pseudo, consumed)) = consume_jsoup_pseudo(&selector[i..]) {
-                pseudos.push(pseudo);
-                i += consumed;
-                continue;
-            }
+        if bytes[i] == b':'
+            && let Some((pseudo, consumed)) = consume_jsoup_pseudo(&selector[i..])
+        {
+            pseudos.push(pseudo);
+            i += consumed;
+            continue;
         }
         let ch = selector[i..].chars().next().unwrap();
         out.push(ch);
@@ -676,18 +676,18 @@ impl HtmlParser {
             if let Some(elem) = root.select(&Selector::parse("body").unwrap()).next() {
                 let mut attr_values: Vec<String> = Vec::new();
                 for child in elem.children().filter_map(ElementRef::wrap) {
-                    if let Some(v) = child.value().attr(css_selector) {
-                        if !v.is_empty() && !attr_values.iter().any(|x| x == v) {
-                            attr_values.push(v.to_string());
-                        }
+                    if let Some(v) = child.value().attr(css_selector)
+                        && !v.is_empty()
+                        && !attr_values.iter().any(|x| x == v)
+                    {
+                        attr_values.push(v.to_string());
                     }
                 }
-                if attr_values.is_empty() {
-                    if let Some(v) = elem.value().attr(css_selector) {
-                        if !v.is_empty() {
-                            attr_values.push(v.to_string());
-                        }
-                    }
+                if attr_values.is_empty()
+                    && let Some(v) = elem.value().attr(css_selector)
+                    && !v.is_empty()
+                {
+                    attr_values.push(v.to_string());
                 }
                 if !attr_values.is_empty() {
                     return Ok(attr_values);
@@ -781,18 +781,18 @@ impl HtmlParser {
             if extract_mode == "attr" && !attr_name.is_empty() {
                 let mut attr_values: Vec<String> = Vec::new();
                 for child in elem.children().filter_map(ElementRef::wrap) {
-                    if let Some(v) = child.value().attr(&attr_name) {
-                        if !v.is_empty() && !attr_values.iter().any(|x| x == v) {
-                            attr_values.push(v.to_string());
-                        }
+                    if let Some(v) = child.value().attr(&attr_name)
+                        && !v.is_empty()
+                        && !attr_values.iter().any(|x| x == v)
+                    {
+                        attr_values.push(v.to_string());
                     }
                 }
-                if attr_values.is_empty() {
-                    if let Some(v) = elem.value().attr(&attr_name) {
-                        if !v.is_empty() {
-                            attr_values.push(v.to_string());
-                        }
-                    }
+                if attr_values.is_empty()
+                    && let Some(v) = elem.value().attr(&attr_name)
+                    && !v.is_empty()
+                {
+                    attr_values.push(v.to_string());
                 }
                 return attr_values;
             }
@@ -817,10 +817,11 @@ impl HtmlParser {
         // 对标 Kotlin：仅属性提取路径去重，text/html 逐元素保留
         let dedup = extract_mode == "attr";
         for elem in matched {
-            if let Some(text) = self.extract_from_element(elem, extract_mode, &attr_name) {
-                if !text.is_empty() && (!dedup || !items.contains(&text)) {
-                    items.push(text);
-                }
+            if let Some(text) = self.extract_from_element(elem, extract_mode, &attr_name)
+                && !text.is_empty()
+                && (!dedup || !items.contains(&text))
+            {
+                items.push(text);
             }
         }
         items
@@ -922,19 +923,20 @@ impl HtmlParser {
             if let Some(mode) = Self::bare_extract_mode(last_rule) {
                 // text/textNodes/ownText/html/all 关键字：按模式提取
                 for elem in &current_elements {
-                    if let Some(text) = self.extract_from_element(*elem, mode, "") {
-                        if !text.is_empty() {
-                            items.push(text);
-                        }
+                    if let Some(text) = self.extract_from_element(*elem, mode, "")
+                        && !text.is_empty()
+                    {
+                        items.push(text);
                     }
                 }
             } else {
                 // 属性名：对当前元素逐个 attr(last)（保留属性路径去重）
                 for elem in &current_elements {
-                    if let Some(text) = self.extract_from_element(*elem, "attr", last_rule) {
-                        if !text.is_empty() && !items.contains(&text) {
-                            items.push(text);
-                        }
+                    if let Some(text) = self.extract_from_element(*elem, "attr", last_rule)
+                        && !text.is_empty()
+                        && !items.contains(&text)
+                    {
+                        items.push(text);
                     }
                 }
             }
@@ -951,10 +953,10 @@ impl HtmlParser {
         if selector_str.is_empty() {
             // 最后一级没有选择器，直接从当前元素提取
             for elem in &current_elements {
-                if let Some(text) = self.extract_from_element(*elem, extract_mode, &attr_name) {
-                    if !text.is_empty() {
-                        items.push(text);
-                    }
+                if let Some(text) = self.extract_from_element(*elem, extract_mode, &attr_name)
+                    && !text.is_empty()
+                {
+                    items.push(text);
                 }
             }
         } else {
@@ -963,10 +965,10 @@ impl HtmlParser {
                 // 选择器无效：可能是默认提取关键字（如 "text"、"html"）
                 if let Some(mode) = Self::bare_extract_mode(selector_str) {
                     for elem in &current_elements {
-                        if let Some(text) = self.extract_from_element(*elem, mode, "") {
-                            if !text.is_empty() {
-                                items.push(text);
-                            }
+                        if let Some(text) = self.extract_from_element(*elem, mode, "")
+                            && !text.is_empty()
+                        {
+                            items.push(text);
                         }
                     }
                     return items;
@@ -974,10 +976,11 @@ impl HtmlParser {
                 // 也可能是属性名（如 "href"、"src"）
                 // 将最后一段视为属性名，从当前元素提取该属性（属性路径去重）
                 for elem in &current_elements {
-                    if let Some(text) = self.extract_from_element(*elem, "attr", selector_str) {
-                        if !text.is_empty() && !items.contains(&text) {
-                            items.push(text);
-                        }
+                    if let Some(text) = self.extract_from_element(*elem, "attr", selector_str)
+                        && !text.is_empty()
+                        && !items.contains(&text)
+                    {
+                        items.push(text);
                     }
                 }
             } else {
@@ -991,10 +994,10 @@ impl HtmlParser {
                     for child in kids {
                         if let Some(text) =
                             self.extract_from_element(child, extract_mode, &attr_name)
+                            && !text.is_empty()
+                            && !items.contains(&text)
                         {
-                            if !text.is_empty() && !items.contains(&text) {
-                                items.push(text);
-                            }
+                            items.push(text);
                         }
                     }
                 }
@@ -1042,11 +1045,7 @@ impl HtmlParser {
                 elem.value().attr(mode).map(|v| v.to_string())?
             }
         };
-        if text.is_empty() {
-            None
-        } else {
-            Some(text)
-        }
+        if text.is_empty() { None } else { Some(text) }
     }
 
     /// 获取匹配元素的属性值
@@ -1875,10 +1874,11 @@ mod tests {
             vec!["tip"]
         );
         // 无此属性（子元素与 body 均无）→ 空
-        assert!(p
-            .get_text(r#"<a href="/c/1.html">第1章</a>"#, "@nonexist")
-            .unwrap()
-            .is_empty());
+        assert!(
+            p.get_text(r#"<a href="/c/1.html">第1章</a>"#, "@nonexist")
+                .unwrap()
+                .is_empty()
+        );
         // 回退：子元素均无该属性时取 body 自身
         assert_eq!(
             p.get_text(r#"<body id="frag"><a>t</a></body>"#, "@id")
@@ -1980,10 +1980,11 @@ mod tests {
             vec!["frag"]
         );
         // 不跨层语义保留：`<dd><a>` 上 @href 仍为空
-        assert!(p
-            .get_text(r#"<dd><a href="/c/1.html">第1章</a></dd>"#, "@href")
-            .unwrap()
-            .is_empty());
+        assert!(
+            p.get_text(r#"<dd><a href="/c/1.html">第1章</a></dd>"#, "@href")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     /// `@text`/`@html` 走 body 全文/HTML 路径（行为不变；单元素片段下「偶然正确」）

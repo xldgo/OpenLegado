@@ -76,9 +76,11 @@ class PageTurnController extends ChangeNotifier {
   int get cornerY => _cornerY;
   AnimationController? _settleController;
   VoidCallback? _settleListener;
+  VoidCallback? _settleCompletion;
+  Completer<void>? _settleCompleter;
 
   void onPointerDown(Offset p, {double? viewWidth, double? viewHeight}) {
-    _abortSettle(applyCompletion: false);
+    finishSettle();
     _isMoved = false;
     isDragging = false;
     isSettling = false;
@@ -191,7 +193,7 @@ class PageTurnController extends ChangeNotifier {
     PageTurnSettleStyle settleStyle = PageTurnSettleStyle.simulation,
     int animationSpeed = kDefaultPageAnimSpeed,
   }) {
-    _abortSettle(applyCompletion: false);
+    finishSettle();
     if (dir == PageTurnDirection.next) {
       if (!hasNext) {
         return Future.value();
@@ -353,18 +355,15 @@ class PageTurnController extends ChangeNotifier {
     controller.addListener(listener);
 
     final completer = Completer<void>();
+    _settleCompleter = completer;
+    _settleCompletion = () {
+      if (!cancelled) onCompleted(completedDirection);
+    };
     controller.addStatusListener((status) {
       if (status != AnimationStatus.completed) {
         return;
       }
-      controller.removeListener(listener);
-      _settleController = null;
-      _settleListener = null;
-      if (!cancelled) {
-        onCompleted(completedDirection);
-      }
-      _resetAfterGesture();
-      completer.complete();
+      finishSettle();
     });
 
     controller.forward();
@@ -377,15 +376,28 @@ class PageTurnController extends ChangeNotifier {
       return;
     }
     final listener = _settleListener;
+    final completion = _settleCompletion;
+    final completer = _settleCompleter;
+    _settleController = null;
+    _settleListener = null;
+    _settleCompletion = null;
+    _settleCompleter = null;
     if (listener != null) {
       controller.removeListener(listener);
     }
     controller.stop();
     controller.dispose();
-    _settleController = null;
-    _settleListener = null;
-    isSettling = false;
+    _resetAfterGesture();
+    try {
+      if (applyCompletion) completion?.call();
+    } finally {
+      // 正常完成、手势接管和取消都必须结束等待，旧动画不能悬挂。
+      completer?.complete();
+    }
   }
+
+  /// 新操作接管前提交上一轮有效翻页，回弹取消仍停留原页。
+  void finishSettle() => _abortSettle(applyCompletion: true);
 
   void resetGesture() {
     _abortSettle(applyCompletion: false);

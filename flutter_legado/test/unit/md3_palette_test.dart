@@ -5,7 +5,7 @@
 // 的 colors.xml / colors_night.xml 生成，本测试固化锚点防止数据漂移。
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/theme/md3_colors.dart';
@@ -150,10 +150,7 @@ void main() {
         );
       }
       // elink 暗面锚点固化：纯黑
-      expect(
-        md3DarkScheme(Md3Palettes.elink).surface,
-        const Color(0xFF000000),
-      );
+      expect(md3DarkScheme(Md3Palettes.elink).surface, const Color(0xFF000000));
     });
   });
 

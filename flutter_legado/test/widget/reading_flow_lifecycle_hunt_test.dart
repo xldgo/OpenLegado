@@ -1,3 +1,8 @@
+@Tags(['native'])
+library;
+
+import '../fixtures/app_test_api.dart';
+import '../helpers/native_reader_layout.dart';
 // 视角 C：阅读主流程「失败与边界 —— 进程生命周期」缺陷猎捕 —— 红态复现用例
 //
 // 本文件**故意断言「本应成立的不变量」**：当前实现不满足 → 用例红。
@@ -14,18 +19,16 @@
 // - 真机实测（MuMu，2026-09-24）：翻到 4/16 页 → DB durChapterPos 仍 0；
 //   按 HOME 进后台 → 仍 0；force-stop 重启重进 → 回到 1/16（进度丢失）。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show SystemChannels, StringCodec;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
-import 'package:flutter_legado/src/screens/reader_screen.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -44,6 +47,7 @@ const _chapters = [
 ];
 
 void main() {
+  setUpNativeReaderLayout();
   setUpAll(registerFallbacks);
 
   setUp(() {
@@ -52,17 +56,22 @@ void main() {
 
   /// 记录每次 updateReadingProgress 的 (chapterIndex, chapterPos) 写库调用
   void stubApi(MockRustApi api, List<List<int>> writes) {
-    when(() => api.getChapters(any())).thenAnswer((_) async => _chapters);
-    when(() => api.getChapterContentFull(any(), any()))
+    when(() => api.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => _chapters);
+    when(() => api.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((i) async => 'CH${i.positionalArguments[1]}');
-    when(() => api.getChapterContent(any(), any())).thenAnswer((_) async => '');
-    when(() => api.getBookSources()).thenAnswer((_) async => const []);
-    when(() => api.getConfig(any())).thenAnswer((_) async => '');
+    when(() => api.readingRepository.getChapterContent(any(), any()))
+        .thenAnswer((_) async => '');
+    when(() => api.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     // [P2-30] 退出判定现查 DB 在架状态：桩「已入架」记录（notShelf 位未置）
     // 使退出走直接退出路径（不弹「放入书架」框），C3b 的落库断言语义不变
-    when(() => api.getBook(any())).thenAnswer((_) async => _book);
+    when(() => api.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => _book);
     when(
-      () => api.updateReadingProgress(
+      () => api.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),
@@ -80,10 +89,12 @@ void main() {
     WidgetTester tester,
     MockRustApi api,
   ) async {
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
         child: MaterialApp(
+          builder: nativeReaderLayoutBuilder,
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(
@@ -102,13 +113,14 @@ void main() {
       ),
     );
     await tester.tap(find.text('进入阅读'));
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
 
-    final container =
-        ProviderScope.containerOf(tester.element(find.byType(ReaderScreen)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
     final notifier = container.read(readerNotifierProvider.notifier);
     await notifier.openBook(_book);
-    await tester.pumpAndSettle();
+    await settleNativeReaderLayout(tester);
     return (container, notifier);
   }
 
@@ -156,8 +168,7 @@ void main() {
       expect(writes.last[1], 5, reason: '落库位置应为当前章内位置 5');
     });
 
-    testWidgets('[C3b] 对照组：系统返回退出阅读时确实落库（机制存在，仅后台事件未接线）',
-        (tester) async {
+    testWidgets('[C3b] 对照组：系统返回退出阅读时确实落库（机制存在，仅后台事件未接线）', (tester) async {
       final writes = <List<int>>[];
       final api = MockRustApi();
       stubApi(api, writes);
@@ -172,7 +183,7 @@ void main() {
       // 判定走「直接退出」路：saveProgress 落库 7 后 pop（断言语义不变）
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
       navigator.maybePop();
-      await tester.pumpAndSettle();
+      await settleNativeReaderLayout(tester);
 
       expect(
         writes.map((w) => w[1]).toList(),

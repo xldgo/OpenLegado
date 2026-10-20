@@ -1,57 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../features/video/application/video_play_settings.dart';
 
 import 'app_progress_indicator.dart';
-
-/// 视频播放设置（对标原版 `ui/video/config/SettingsDialog` + `VideoPlay` prefs）
-class VideoPlaySettings {
-  static const _ns = 'videoPlay';
-  static const autoPlayKey = '$_ns.autoPlay';
-  static const startFullKey = '$_ns.startFull';
-  static const longPressSpeedKey = '$_ns.longPressSpeed';
-  static const fullBottomProgressKey = '$_ns.fullBottomProgressBar';
-  static const defaultFloatWindowKey = '$_ns.defaultFloatWindow';
-
-  bool autoPlay;
-  bool startFull;
-  /// 原版存 5–60 整数，实际倍速 = value / 10
-  int longPressSpeed;
-  bool fullBottomProgressBar;
-
-  /// [V-B3] 默认悬浮窗播放（对齐原版 VideoPlay.defaultFloatWindow /
-  /// SettingsDialog.kt:26,30 的 cbDefaultFloatWindow；默认 false 同原版）
-  bool defaultFloatWindow;
-
-  VideoPlaySettings({
-    this.autoPlay = true,
-    this.startFull = false,
-    this.longPressSpeed = 30,
-    this.fullBottomProgressBar = true,
-    this.defaultFloatWindow = false,
-  });
-
-  double get pressSpeedFactor => longPressSpeed / 10.0;
-
-  static Future<VideoPlaySettings> load() async {
-    final p = await SharedPreferences.getInstance();
-    return VideoPlaySettings(
-      autoPlay: p.getBool(autoPlayKey) ?? true,
-      startFull: p.getBool(startFullKey) ?? false,
-      longPressSpeed: p.getInt(longPressSpeedKey) ?? 30,
-      fullBottomProgressBar: p.getBool(fullBottomProgressKey) ?? true,
-      defaultFloatWindow: p.getBool(defaultFloatWindowKey) ?? false,
-    );
-  }
-
-  Future<void> save() async {
-    final p = await SharedPreferences.getInstance();
-    await p.setBool(autoPlayKey, autoPlay);
-    await p.setBool(startFullKey, startFull);
-    await p.setInt(longPressSpeedKey, longPressSpeed);
-    await p.setBool(fullBottomProgressKey, fullBottomProgressBar);
-    await p.setBool(defaultFloatWindowKey, defaultFloatWindow);
-  }
-}
 
 /// 视频设置 Dialog（对标原版 SettingsDialog）
 Future<VideoPlaySettings?> showVideoSettingsDialog(BuildContext context) {
@@ -95,7 +46,6 @@ class _VideoSettingsDialogState extends State<_VideoSettingsDialog> {
     final scheme = Theme.of(context).colorScheme;
     final s = _settings;
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('播放设置'),
       content: _loading || s == null
           // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
@@ -271,8 +221,7 @@ const List<double> kVideoSpeedChoices = [
 
 /// 倍速入口文案（对齐原版 VideoPlayer.kt:409-414：
 /// 1.0 → 「倍速」，其余 → 「X.XX X」）
-String speedEntryLabel(double speed) =>
-    speed == 1.0 ? '倍速' : '${speed}X';
+String speedEntryLabel(double speed) => speed == 1.0 ? '倍速' : '${speed}X';
 
 /// 倍速 tip 文案（对齐原版 VideoPlayer.kt:411「X倍播放中」，展示 2 秒；
 /// 长按倍速 tip「X倍速播放中」见 VideoPlayer.kt:112，勿混）
@@ -471,10 +420,7 @@ class _VideoDialogItem extends StatelessWidget {
             color: highlighted
                 ? kVideoDialogHighlightColor
                 : kVideoDialogItemColor,
-            border: Border.all(
-              color: kVideoDialogItemBorderColor,
-              width: 1,
-            ),
+            border: Border.all(color: kVideoDialogItemBorderColor, width: 1),
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),

@@ -1,10 +1,10 @@
 //! 下载管理 API 处理器
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 
 use legado_core::download_manager::{DownloadStatus, DownloadTask};
@@ -28,7 +28,10 @@ pub async fn add_download(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AddDownloadRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let mut mgr = state.download_manager.lock().await;
+    let mut mgr = state
+        .download_manager
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -65,21 +68,30 @@ pub async fn add_download(
 
 /// POST /api/download/pause — 暂停所有下载
 pub async fn pause_downloads(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let mut mgr = state.download_manager.lock().await;
+    let mut mgr = state
+        .download_manager
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     mgr.pause_all();
     Ok(Json(json!({ "paused": true })))
 }
 
 /// POST /api/download/resume — 恢复所有下载
 pub async fn resume_downloads(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let mut mgr = state.download_manager.lock().await;
+    let mut mgr = state
+        .download_manager
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     mgr.resume_all();
     Ok(Json(json!({ "paused": false })))
 }
 
 /// GET /api/download/status — 查询下载状态
 pub async fn download_status(State(state): State<Arc<AppState>>) -> Result<Json<Value>, ApiError> {
-    let mgr = state.download_manager.lock().await;
+    let mgr = state
+        .download_manager
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let stats = mgr.stats();
     Ok(Json(json!({
         "total": stats.total,
@@ -96,7 +108,10 @@ pub async fn remove_download(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let mut mgr = state.download_manager.lock().await;
+    let mut mgr = state
+        .download_manager
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let existed = mgr.get_task(&id).is_some();
     mgr.remove_task(&id);
     Ok(Json(json!({ "removed": existed, "task_id": id })))
@@ -110,16 +125,12 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::routes::create_router;
-    use legado_core::download_manager::DownloadManager;
-    use tokio::sync::Mutex;
 
     fn make_test_state() -> Arc<AppState> {
         let db = legado_db::init_in_memory_database().unwrap();
-        Arc::new(AppState {
-            db: Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: Mutex::new(DownloadManager::new(3)),
-        })
+        Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )))
     }
 
     #[tokio::test]
@@ -246,7 +257,10 @@ mod tests {
 
         // Add a task first
         {
-            let mut mgr = state.download_manager.lock().await;
+            let mut mgr = state
+                .download_manager
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
             let task = DownloadTask {
                 id: "test_task_1".to_string(),
                 book_url: "book1".to_string(),

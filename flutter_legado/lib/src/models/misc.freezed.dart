@@ -1636,17 +1636,26 @@ mixin _$HttpTts {
   String? get concurrentRate;
   @JsonKey(name: 'loginUrl')
   String? get loginUrl;
-  @JsonKey(name: 'loginUi')
+  @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
   String? get loginUi;
   String? get header;
   @JsonKey(name: 'jsLib')
   String? get jsLib;
-  @JsonKey(name: 'enabledCookieJar')
+  @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
   bool? get enabledCookieJar;
   @JsonKey(name: 'loginCheckJs')
   String? get loginCheckJs;
+  @JsonKey(name: 'speed')
+  int? get speed;
+  @JsonKey(
+    name: 'synthesisThreadCount',
+    fromJson: _httpTtsSynthesisThreadCountFromJson,
+  )
+  int get synthesisThreadCount;
   @JsonKey(name: 'lastUpdateTime')
   int get lastUpdateTime;
+  @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+  bool get isEnabled;
 
   /// Create a copy of HttpTts
   /// with the given fields replaced by the non-null parameter values.
@@ -1685,8 +1694,17 @@ mixin _$HttpTts {
                 other.enabledCookieJar == _this.enabledCookieJar) &&
             (identical(other.loginCheckJs, _this.loginCheckJs) ||
                 other.loginCheckJs == _this.loginCheckJs) &&
+            (identical(other.speed, _this.speed) ||
+                other.speed == _this.speed) &&
+            (identical(
+                  other.synthesisThreadCount,
+                  _this.synthesisThreadCount,
+                ) ||
+                other.synthesisThreadCount == _this.synthesisThreadCount) &&
             (identical(other.lastUpdateTime, _this.lastUpdateTime) ||
-                other.lastUpdateTime == _this.lastUpdateTime));
+                other.lastUpdateTime == _this.lastUpdateTime) &&
+            (identical(other.isEnabled, _this.isEnabled) ||
+                other.isEnabled == _this.isEnabled));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1707,14 +1725,17 @@ mixin _$HttpTts {
       _this.jsLib,
       _this.enabledCookieJar,
       _this.loginCheckJs,
+      _this.speed,
+      _this.synthesisThreadCount,
       _this.lastUpdateTime,
+      _this.isEnabled,
     );
   }
 
   @override
   String toString() {
     final _this = this as HttpTts;
-    return 'HttpTts(id: ${_this.id}, name: ${_this.name}, url: ${_this.url}, contentType: ${_this.contentType}, pauseDuration: ${_this.pauseDuration}, concurrentRate: ${_this.concurrentRate}, loginUrl: ${_this.loginUrl}, loginUi: ${_this.loginUi}, header: ${_this.header}, jsLib: ${_this.jsLib}, enabledCookieJar: ${_this.enabledCookieJar}, loginCheckJs: ${_this.loginCheckJs}, lastUpdateTime: ${_this.lastUpdateTime})';
+    return 'HttpTts(id: ${_this.id}, name: ${_this.name}, url: ${_this.url}, contentType: ${_this.contentType}, pauseDuration: ${_this.pauseDuration}, concurrentRate: ${_this.concurrentRate}, loginUrl: ${_this.loginUrl}, loginUi: ${_this.loginUi}, header: ${_this.header}, jsLib: ${_this.jsLib}, enabledCookieJar: ${_this.enabledCookieJar}, loginCheckJs: ${_this.loginCheckJs}, speed: ${_this.speed}, synthesisThreadCount: ${_this.synthesisThreadCount}, lastUpdateTime: ${_this.lastUpdateTime}, isEnabled: ${_this.isEnabled})';
   }
 }
 
@@ -1731,12 +1752,22 @@ abstract mixin class $HttpTtsCopyWith<$Res> {
     @JsonKey(name: 'pauseDuration') int pauseDuration,
     @JsonKey(name: 'concurrentRate') String? concurrentRate,
     @JsonKey(name: 'loginUrl') String? loginUrl,
-    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+    String? loginUi,
     String? header,
     @JsonKey(name: 'jsLib') String? jsLib,
-    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    bool? enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'speed') int? speed,
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    int synthesisThreadCount,
     @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    bool isEnabled,
   });
 }
 
@@ -1764,7 +1795,10 @@ class _$HttpTtsCopyWithImpl<$Res> implements $HttpTtsCopyWith<$Res> {
     Object? jsLib = freezed,
     Object? enabledCookieJar = freezed,
     Object? loginCheckJs = freezed,
+    Object? speed = freezed,
+    Object? synthesisThreadCount = null,
     Object? lastUpdateTime = null,
+    Object? isEnabled = null,
   }) {
     return _then(
       HttpTts(
@@ -1816,10 +1850,22 @@ class _$HttpTtsCopyWithImpl<$Res> implements $HttpTtsCopyWith<$Res> {
             ? _self.loginCheckJs
             : loginCheckJs // ignore: cast_nullable_to_non_nullable
                   as String?,
+        speed: freezed == speed
+            ? _self.speed
+            : speed // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        synthesisThreadCount: null == synthesisThreadCount
+            ? _self.synthesisThreadCount
+            : synthesisThreadCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         lastUpdateTime: null == lastUpdateTime
             ? _self.lastUpdateTime
             : lastUpdateTime // ignore: cast_nullable_to_non_nullable
                   as int,
+        isEnabled: null == isEnabled
+            ? _self.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -1926,12 +1972,22 @@ extension HttpTtsPatterns on HttpTts {
       @JsonKey(name: 'pauseDuration') int pauseDuration,
       @JsonKey(name: 'concurrentRate') String? concurrentRate,
       @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+      String? loginUi,
       String? header,
       @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+      bool? enabledCookieJar,
       @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'speed') int? speed,
+      @JsonKey(
+        name: 'synthesisThreadCount',
+        fromJson: _httpTtsSynthesisThreadCountFromJson,
+      )
+      int synthesisThreadCount,
       @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+      bool isEnabled,
     )?
     $default, {
     required TResult orElse(),
@@ -1952,7 +2008,10 @@ extension HttpTtsPatterns on HttpTts {
           _that.jsLib,
           _that.enabledCookieJar,
           _that.loginCheckJs,
+          _that.speed,
+          _that.synthesisThreadCount,
           _that.lastUpdateTime,
+          _that.isEnabled,
         );
       case _:
         return orElse();
@@ -1982,12 +2041,22 @@ extension HttpTtsPatterns on HttpTts {
       @JsonKey(name: 'pauseDuration') int pauseDuration,
       @JsonKey(name: 'concurrentRate') String? concurrentRate,
       @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+      String? loginUi,
       String? header,
       @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+      bool? enabledCookieJar,
       @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'speed') int? speed,
+      @JsonKey(
+        name: 'synthesisThreadCount',
+        fromJson: _httpTtsSynthesisThreadCountFromJson,
+      )
+      int synthesisThreadCount,
       @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+      bool isEnabled,
     )
     $default,
   ) {
@@ -2007,7 +2076,10 @@ extension HttpTtsPatterns on HttpTts {
           _that.jsLib,
           _that.enabledCookieJar,
           _that.loginCheckJs,
+          _that.speed,
+          _that.synthesisThreadCount,
           _that.lastUpdateTime,
+          _that.isEnabled,
         );
       case _:
         throw StateError('Unexpected subclass');
@@ -2036,12 +2108,22 @@ extension HttpTtsPatterns on HttpTts {
       @JsonKey(name: 'pauseDuration') int pauseDuration,
       @JsonKey(name: 'concurrentRate') String? concurrentRate,
       @JsonKey(name: 'loginUrl') String? loginUrl,
-      @JsonKey(name: 'loginUi') String? loginUi,
+      @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+      String? loginUi,
       String? header,
       @JsonKey(name: 'jsLib') String? jsLib,
-      @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+      @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+      bool? enabledCookieJar,
       @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+      @JsonKey(name: 'speed') int? speed,
+      @JsonKey(
+        name: 'synthesisThreadCount',
+        fromJson: _httpTtsSynthesisThreadCountFromJson,
+      )
+      int synthesisThreadCount,
       @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+      @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+      bool isEnabled,
     )?
     $default,
   ) {
@@ -2061,7 +2143,10 @@ extension HttpTtsPatterns on HttpTts {
           _that.jsLib,
           _that.enabledCookieJar,
           _that.loginCheckJs,
+          _that.speed,
+          _that.synthesisThreadCount,
           _that.lastUpdateTime,
+          _that.isEnabled,
         );
       case _:
         return null;
@@ -2080,12 +2165,21 @@ class _HttpTts implements HttpTts {
     @JsonKey(name: 'pauseDuration') this.pauseDuration = 0,
     @JsonKey(name: 'concurrentRate') this.concurrentRate,
     @JsonKey(name: 'loginUrl') this.loginUrl,
-    @JsonKey(name: 'loginUi') this.loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson) this.loginUi,
     this.header,
     @JsonKey(name: 'jsLib') this.jsLib,
-    @JsonKey(name: 'enabledCookieJar') this.enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    this.enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') this.loginCheckJs,
+    @JsonKey(name: 'speed') this.speed,
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    this.synthesisThreadCount = 1,
     @JsonKey(name: 'lastUpdateTime') this.lastUpdateTime = 0,
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    this.isEnabled = true,
   });
   factory _HttpTts.fromJson(Map<String, dynamic> json) =>
       _$HttpTtsFromJson(json);
@@ -2112,7 +2206,7 @@ class _HttpTts implements HttpTts {
   @JsonKey(name: 'loginUrl')
   final String? loginUrl;
   @override
-  @JsonKey(name: 'loginUi')
+  @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
   final String? loginUi;
   @override
   final String? header;
@@ -2120,14 +2214,26 @@ class _HttpTts implements HttpTts {
   @JsonKey(name: 'jsLib')
   final String? jsLib;
   @override
-  @JsonKey(name: 'enabledCookieJar')
+  @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
   final bool? enabledCookieJar;
   @override
   @JsonKey(name: 'loginCheckJs')
   final String? loginCheckJs;
   @override
+  @JsonKey(name: 'speed')
+  final int? speed;
+  @override
+  @JsonKey(
+    name: 'synthesisThreadCount',
+    fromJson: _httpTtsSynthesisThreadCountFromJson,
+  )
+  final int synthesisThreadCount;
+  @override
   @JsonKey(name: 'lastUpdateTime')
   final int lastUpdateTime;
+  @override
+  @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+  final bool isEnabled;
 
   /// Create a copy of HttpTts
   /// with the given fields replaced by the non-null parameter values.
@@ -2165,8 +2271,13 @@ class _HttpTts implements HttpTts {
                 other.enabledCookieJar == enabledCookieJar) &&
             (identical(other.loginCheckJs, loginCheckJs) ||
                 other.loginCheckJs == loginCheckJs) &&
+            (identical(other.speed, speed) || other.speed == speed) &&
+            (identical(other.synthesisThreadCount, synthesisThreadCount) ||
+                other.synthesisThreadCount == synthesisThreadCount) &&
             (identical(other.lastUpdateTime, lastUpdateTime) ||
-                other.lastUpdateTime == lastUpdateTime));
+                other.lastUpdateTime == lastUpdateTime) &&
+            (identical(other.isEnabled, isEnabled) ||
+                other.isEnabled == isEnabled));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2186,13 +2297,16 @@ class _HttpTts implements HttpTts {
       jsLib,
       enabledCookieJar,
       loginCheckJs,
+      speed,
+      synthesisThreadCount,
       lastUpdateTime,
+      isEnabled,
     );
   }
 
   @override
   String toString() {
-    return 'HttpTts(id: $id, name: $name, url: $url, contentType: $contentType, pauseDuration: $pauseDuration, concurrentRate: $concurrentRate, loginUrl: $loginUrl, loginUi: $loginUi, header: $header, jsLib: $jsLib, enabledCookieJar: $enabledCookieJar, loginCheckJs: $loginCheckJs, lastUpdateTime: $lastUpdateTime)';
+    return 'HttpTts(id: $id, name: $name, url: $url, contentType: $contentType, pauseDuration: $pauseDuration, concurrentRate: $concurrentRate, loginUrl: $loginUrl, loginUi: $loginUi, header: $header, jsLib: $jsLib, enabledCookieJar: $enabledCookieJar, loginCheckJs: $loginCheckJs, speed: $speed, synthesisThreadCount: $synthesisThreadCount, lastUpdateTime: $lastUpdateTime, isEnabled: $isEnabled)';
   }
 }
 
@@ -2210,12 +2324,22 @@ abstract mixin class _$HttpTtsCopyWith<$Res> implements $HttpTtsCopyWith<$Res> {
     @JsonKey(name: 'pauseDuration') int pauseDuration,
     @JsonKey(name: 'concurrentRate') String? concurrentRate,
     @JsonKey(name: 'loginUrl') String? loginUrl,
-    @JsonKey(name: 'loginUi') String? loginUi,
+    @JsonKey(name: 'loginUi', fromJson: _httpTtsLoginUiFromJson)
+    String? loginUi,
     String? header,
     @JsonKey(name: 'jsLib') String? jsLib,
-    @JsonKey(name: 'enabledCookieJar') bool? enabledCookieJar,
+    @JsonKey(name: 'enabledCookieJar', fromJson: _httpTtsNullableBoolFromJson)
+    bool? enabledCookieJar,
     @JsonKey(name: 'loginCheckJs') String? loginCheckJs,
+    @JsonKey(name: 'speed') int? speed,
+    @JsonKey(
+      name: 'synthesisThreadCount',
+      fromJson: _httpTtsSynthesisThreadCountFromJson,
+    )
+    int synthesisThreadCount,
     @JsonKey(name: 'lastUpdateTime') int lastUpdateTime,
+    @JsonKey(name: 'isEnabled', fromJson: _httpTtsEnabledFromJson)
+    bool isEnabled,
   });
 }
 
@@ -2243,7 +2367,10 @@ class __$HttpTtsCopyWithImpl<$Res> implements _$HttpTtsCopyWith<$Res> {
     Object? jsLib = freezed,
     Object? enabledCookieJar = freezed,
     Object? loginCheckJs = freezed,
+    Object? speed = freezed,
+    Object? synthesisThreadCount = null,
     Object? lastUpdateTime = null,
+    Object? isEnabled = null,
   }) {
     return _then(
       _HttpTts(
@@ -2295,10 +2422,22 @@ class __$HttpTtsCopyWithImpl<$Res> implements _$HttpTtsCopyWith<$Res> {
             ? _self.loginCheckJs
             : loginCheckJs // ignore: cast_nullable_to_non_nullable
                   as String?,
+        speed: freezed == speed
+            ? _self.speed
+            : speed // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        synthesisThreadCount: null == synthesisThreadCount
+            ? _self.synthesisThreadCount
+            : synthesisThreadCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         lastUpdateTime: null == lastUpdateTime
             ? _self.lastUpdateTime
             : lastUpdateTime // ignore: cast_nullable_to_non_nullable
                   as int,
+        isEnabled: null == isEnabled
+            ? _self.isEnabled
+            : isEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -2876,6 +3015,7 @@ class __$BookmarkCopyWithImpl<$Res> implements _$BookmarkCopyWith<$Res> {
 mixin _$BookGroup {
   @JsonKey(name: 'groupId')
   int get groupId;
+  bool get isPrivate;
   @JsonKey(name: 'groupName')
   String get groupName;
   String? get cover;
@@ -2906,6 +3046,8 @@ mixin _$BookGroup {
             other is BookGroup &&
             (identical(other.groupId, _this.groupId) ||
                 other.groupId == _this.groupId) &&
+            (identical(other.isPrivate, _this.isPrivate) ||
+                other.isPrivate == _this.isPrivate) &&
             (identical(other.groupName, _this.groupName) ||
                 other.groupName == _this.groupName) &&
             (identical(other.cover, _this.cover) ||
@@ -2928,6 +3070,7 @@ mixin _$BookGroup {
     return Object.hash(
       runtimeType,
       _this.groupId,
+      _this.isPrivate,
       _this.groupName,
       _this.cover,
       _this.order,
@@ -2941,7 +3084,7 @@ mixin _$BookGroup {
   @override
   String toString() {
     final _this = this as BookGroup;
-    return 'BookGroup(groupId: ${_this.groupId}, groupName: ${_this.groupName}, cover: ${_this.cover}, order: ${_this.order}, enableRefresh: ${_this.enableRefresh}, show: ${_this.show}, bookSort: ${_this.bookSort}, onlyUpdateRead: ${_this.onlyUpdateRead})';
+    return 'BookGroup(groupId: ${_this.groupId}, isPrivate: ${_this.isPrivate}, groupName: ${_this.groupName}, cover: ${_this.cover}, order: ${_this.order}, enableRefresh: ${_this.enableRefresh}, show: ${_this.show}, bookSort: ${_this.bookSort}, onlyUpdateRead: ${_this.onlyUpdateRead})';
   }
 }
 
@@ -2952,6 +3095,7 @@ abstract mixin class $BookGroupCopyWith<$Res> {
   @useResult
   $Res call({
     @JsonKey(name: 'groupId') int groupId,
+    bool isPrivate,
     @JsonKey(name: 'groupName') String groupName,
     String? cover,
     int order,
@@ -2975,6 +3119,7 @@ class _$BookGroupCopyWithImpl<$Res> implements $BookGroupCopyWith<$Res> {
   @override
   $Res call({
     Object? groupId = null,
+    Object? isPrivate = null,
     Object? groupName = null,
     Object? cover = freezed,
     Object? order = null,
@@ -2989,6 +3134,10 @@ class _$BookGroupCopyWithImpl<$Res> implements $BookGroupCopyWith<$Res> {
             ? _self.groupId
             : groupId // ignore: cast_nullable_to_non_nullable
                   as int,
+        isPrivate: null == isPrivate
+            ? _self.isPrivate
+            : isPrivate // ignore: cast_nullable_to_non_nullable
+                  as bool,
         groupName: null == groupName
             ? _self.groupName
             : groupName // ignore: cast_nullable_to_non_nullable
@@ -3117,6 +3266,7 @@ extension BookGroupPatterns on BookGroup {
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
       @JsonKey(name: 'groupId') int groupId,
+      bool isPrivate,
       @JsonKey(name: 'groupName') String groupName,
       String? cover,
       int order,
@@ -3133,6 +3283,7 @@ extension BookGroupPatterns on BookGroup {
       case _BookGroup() when $default != null:
         return $default(
           _that.groupId,
+          _that.isPrivate,
           _that.groupName,
           _that.cover,
           _that.order,
@@ -3163,6 +3314,7 @@ extension BookGroupPatterns on BookGroup {
   TResult when<TResult extends Object?>(
     TResult Function(
       @JsonKey(name: 'groupId') int groupId,
+      bool isPrivate,
       @JsonKey(name: 'groupName') String groupName,
       String? cover,
       int order,
@@ -3178,6 +3330,7 @@ extension BookGroupPatterns on BookGroup {
       case _BookGroup():
         return $default(
           _that.groupId,
+          _that.isPrivate,
           _that.groupName,
           _that.cover,
           _that.order,
@@ -3207,6 +3360,7 @@ extension BookGroupPatterns on BookGroup {
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
       @JsonKey(name: 'groupId') int groupId,
+      bool isPrivate,
       @JsonKey(name: 'groupName') String groupName,
       String? cover,
       int order,
@@ -3222,6 +3376,7 @@ extension BookGroupPatterns on BookGroup {
       case _BookGroup() when $default != null:
         return $default(
           _that.groupId,
+          _that.isPrivate,
           _that.groupName,
           _that.cover,
           _that.order,
@@ -3241,6 +3396,7 @@ extension BookGroupPatterns on BookGroup {
 class _BookGroup implements BookGroup {
   const _BookGroup({
     @JsonKey(name: 'groupId') this.groupId = 1,
+    this.isPrivate = false,
     @JsonKey(name: 'groupName') this.groupName = '',
     this.cover,
     this.order = 0,
@@ -3255,6 +3411,9 @@ class _BookGroup implements BookGroup {
   @override
   @JsonKey(name: 'groupId')
   final int groupId;
+  @override
+  @JsonKey()
+  final bool isPrivate;
   @override
   @JsonKey(name: 'groupName')
   final String groupName;
@@ -3295,6 +3454,8 @@ class _BookGroup implements BookGroup {
         (other.runtimeType == runtimeType &&
             other is _BookGroup &&
             (identical(other.groupId, groupId) || other.groupId == groupId) &&
+            (identical(other.isPrivate, isPrivate) ||
+                other.isPrivate == isPrivate) &&
             (identical(other.groupName, groupName) ||
                 other.groupName == groupName) &&
             (identical(other.cover, cover) || other.cover == cover) &&
@@ -3314,6 +3475,7 @@ class _BookGroup implements BookGroup {
     return Object.hash(
       runtimeType,
       groupId,
+      isPrivate,
       groupName,
       cover,
       order,
@@ -3326,7 +3488,7 @@ class _BookGroup implements BookGroup {
 
   @override
   String toString() {
-    return 'BookGroup(groupId: $groupId, groupName: $groupName, cover: $cover, order: $order, enableRefresh: $enableRefresh, show: $show, bookSort: $bookSort, onlyUpdateRead: $onlyUpdateRead)';
+    return 'BookGroup(groupId: $groupId, isPrivate: $isPrivate, groupName: $groupName, cover: $cover, order: $order, enableRefresh: $enableRefresh, show: $show, bookSort: $bookSort, onlyUpdateRead: $onlyUpdateRead)';
   }
 }
 
@@ -3341,6 +3503,7 @@ abstract mixin class _$BookGroupCopyWith<$Res>
   @useResult
   $Res call({
     @JsonKey(name: 'groupId') int groupId,
+    bool isPrivate,
     @JsonKey(name: 'groupName') String groupName,
     String? cover,
     int order,
@@ -3364,6 +3527,7 @@ class __$BookGroupCopyWithImpl<$Res> implements _$BookGroupCopyWith<$Res> {
   @pragma('vm:prefer-inline')
   $Res call({
     Object? groupId = null,
+    Object? isPrivate = null,
     Object? groupName = null,
     Object? cover = freezed,
     Object? order = null,
@@ -3378,6 +3542,10 @@ class __$BookGroupCopyWithImpl<$Res> implements _$BookGroupCopyWith<$Res> {
             ? _self.groupId
             : groupId // ignore: cast_nullable_to_non_nullable
                   as int,
+        isPrivate: null == isPrivate
+            ? _self.isPrivate
+            : isPrivate // ignore: cast_nullable_to_non_nullable
+                  as bool,
         groupName: null == groupName
             ? _self.groupName
             : groupName // ignore: cast_nullable_to_non_nullable
@@ -6269,6 +6437,7 @@ class __$CacheCopyWithImpl<$Res> implements _$CacheCopyWith<$Res> {
 
 /// @nodoc
 mixin _$DictRule {
+  int get id;
   String get name;
   @JsonKey(name: 'urlRule')
   String get urlRule;
@@ -6294,6 +6463,7 @@ mixin _$DictRule {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is DictRule &&
+            (identical(other.id, _this.id) || other.id == _this.id) &&
             (identical(other.name, _this.name) || other.name == _this.name) &&
             (identical(other.urlRule, _this.urlRule) ||
                 other.urlRule == _this.urlRule) &&
@@ -6311,6 +6481,7 @@ mixin _$DictRule {
     final _this = this as DictRule;
     return Object.hash(
       runtimeType,
+      _this.id,
       _this.name,
       _this.urlRule,
       _this.showRule,
@@ -6322,7 +6493,7 @@ mixin _$DictRule {
   @override
   String toString() {
     final _this = this as DictRule;
-    return 'DictRule(name: ${_this.name}, urlRule: ${_this.urlRule}, showRule: ${_this.showRule}, enabled: ${_this.enabled}, sortNumber: ${_this.sortNumber})';
+    return 'DictRule(id: ${_this.id}, name: ${_this.name}, urlRule: ${_this.urlRule}, showRule: ${_this.showRule}, enabled: ${_this.enabled}, sortNumber: ${_this.sortNumber})';
   }
 }
 
@@ -6332,6 +6503,7 @@ abstract mixin class $DictRuleCopyWith<$Res> {
       _$DictRuleCopyWithImpl;
   @useResult
   $Res call({
+    int id,
     String name,
     @JsonKey(name: 'urlRule') String urlRule,
     @JsonKey(name: 'showRule') String showRule,
@@ -6352,6 +6524,7 @@ class _$DictRuleCopyWithImpl<$Res> implements $DictRuleCopyWith<$Res> {
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? id = null,
     Object? name = null,
     Object? urlRule = null,
     Object? showRule = null,
@@ -6360,6 +6533,10 @@ class _$DictRuleCopyWithImpl<$Res> implements $DictRuleCopyWith<$Res> {
   }) {
     return _then(
       DictRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
         name: null == name
             ? _self.name
             : name // ignore: cast_nullable_to_non_nullable
@@ -6479,6 +6656,7 @@ extension DictRulePatterns on DictRule {
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
+      int id,
       String name,
       @JsonKey(name: 'urlRule') String urlRule,
       @JsonKey(name: 'showRule') String showRule,
@@ -6492,6 +6670,7 @@ extension DictRulePatterns on DictRule {
     switch (_that) {
       case _DictRule() when $default != null:
         return $default(
+          _that.id,
           _that.name,
           _that.urlRule,
           _that.showRule,
@@ -6519,6 +6698,7 @@ extension DictRulePatterns on DictRule {
   @optionalTypeArgs
   TResult when<TResult extends Object?>(
     TResult Function(
+      int id,
       String name,
       @JsonKey(name: 'urlRule') String urlRule,
       @JsonKey(name: 'showRule') String showRule,
@@ -6531,6 +6711,7 @@ extension DictRulePatterns on DictRule {
     switch (_that) {
       case _DictRule():
         return $default(
+          _that.id,
           _that.name,
           _that.urlRule,
           _that.showRule,
@@ -6557,6 +6738,7 @@ extension DictRulePatterns on DictRule {
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
+      int id,
       String name,
       @JsonKey(name: 'urlRule') String urlRule,
       @JsonKey(name: 'showRule') String showRule,
@@ -6569,6 +6751,7 @@ extension DictRulePatterns on DictRule {
     switch (_that) {
       case _DictRule() when $default != null:
         return $default(
+          _that.id,
           _that.name,
           _that.urlRule,
           _that.showRule,
@@ -6585,6 +6768,7 @@ extension DictRulePatterns on DictRule {
 @JsonSerializable()
 class _DictRule implements DictRule {
   const _DictRule({
+    this.id = 0,
     this.name = '',
     @JsonKey(name: 'urlRule') this.urlRule = '',
     @JsonKey(name: 'showRule') this.showRule = '',
@@ -6594,6 +6778,9 @@ class _DictRule implements DictRule {
   factory _DictRule.fromJson(Map<String, dynamic> json) =>
       _$DictRuleFromJson(json);
 
+  @override
+  @JsonKey()
+  final int id;
   @override
   @JsonKey()
   final String name;
@@ -6628,6 +6815,7 @@ class _DictRule implements DictRule {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _DictRule &&
+            (identical(other.id, id) || other.id == id) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.urlRule, urlRule) || other.urlRule == urlRule) &&
             (identical(other.showRule, showRule) ||
@@ -6642,6 +6830,7 @@ class _DictRule implements DictRule {
   int get hashCode {
     return Object.hash(
       runtimeType,
+      id,
       name,
       urlRule,
       showRule,
@@ -6652,7 +6841,7 @@ class _DictRule implements DictRule {
 
   @override
   String toString() {
-    return 'DictRule(name: $name, urlRule: $urlRule, showRule: $showRule, enabled: $enabled, sortNumber: $sortNumber)';
+    return 'DictRule(id: $id, name: $name, urlRule: $urlRule, showRule: $showRule, enabled: $enabled, sortNumber: $sortNumber)';
   }
 }
 
@@ -6664,6 +6853,7 @@ abstract mixin class _$DictRuleCopyWith<$Res>
   @override
   @useResult
   $Res call({
+    int id,
     String name,
     @JsonKey(name: 'urlRule') String urlRule,
     @JsonKey(name: 'showRule') String showRule,
@@ -6684,6 +6874,7 @@ class __$DictRuleCopyWithImpl<$Res> implements _$DictRuleCopyWith<$Res> {
   @override
   @pragma('vm:prefer-inline')
   $Res call({
+    Object? id = null,
     Object? name = null,
     Object? urlRule = null,
     Object? showRule = null,
@@ -6692,6 +6883,10 @@ class __$DictRuleCopyWithImpl<$Res> implements _$DictRuleCopyWith<$Res> {
   }) {
     return _then(
       _DictRule(
+        id: null == id
+            ? _self.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as int,
         name: null == name
             ? _self.name
             : name // ignore: cast_nullable_to_non_nullable
@@ -9935,6 +10130,8 @@ mixin _$ReadRecord {
   String get deviceId;
   @JsonKey(name: 'bookName')
   String get bookName;
+  String get author;
+  int? get startTime;
   @JsonKey(name: 'readTime')
   int get readTime;
   @JsonKey(name: 'lastRead')
@@ -9960,6 +10157,10 @@ mixin _$ReadRecord {
                 other.deviceId == _this.deviceId) &&
             (identical(other.bookName, _this.bookName) ||
                 other.bookName == _this.bookName) &&
+            (identical(other.author, _this.author) ||
+                other.author == _this.author) &&
+            (identical(other.startTime, _this.startTime) ||
+                other.startTime == _this.startTime) &&
             (identical(other.readTime, _this.readTime) ||
                 other.readTime == _this.readTime) &&
             (identical(other.lastRead, _this.lastRead) ||
@@ -9974,6 +10175,8 @@ mixin _$ReadRecord {
       runtimeType,
       _this.deviceId,
       _this.bookName,
+      _this.author,
+      _this.startTime,
       _this.readTime,
       _this.lastRead,
     );
@@ -9982,7 +10185,7 @@ mixin _$ReadRecord {
   @override
   String toString() {
     final _this = this as ReadRecord;
-    return 'ReadRecord(deviceId: ${_this.deviceId}, bookName: ${_this.bookName}, readTime: ${_this.readTime}, lastRead: ${_this.lastRead})';
+    return 'ReadRecord(deviceId: ${_this.deviceId}, bookName: ${_this.bookName}, author: ${_this.author}, startTime: ${_this.startTime}, readTime: ${_this.readTime}, lastRead: ${_this.lastRead})';
   }
 }
 
@@ -9996,6 +10199,8 @@ abstract mixin class $ReadRecordCopyWith<$Res> {
   $Res call({
     @JsonKey(name: 'deviceId') String deviceId,
     @JsonKey(name: 'bookName') String bookName,
+    String author,
+    int? startTime,
     @JsonKey(name: 'readTime') int readTime,
     @JsonKey(name: 'lastRead') int lastRead,
   });
@@ -10015,6 +10220,8 @@ class _$ReadRecordCopyWithImpl<$Res> implements $ReadRecordCopyWith<$Res> {
   $Res call({
     Object? deviceId = null,
     Object? bookName = null,
+    Object? author = null,
+    Object? startTime = freezed,
     Object? readTime = null,
     Object? lastRead = null,
   }) {
@@ -10028,6 +10235,14 @@ class _$ReadRecordCopyWithImpl<$Res> implements $ReadRecordCopyWith<$Res> {
             ? _self.bookName
             : bookName // ignore: cast_nullable_to_non_nullable
                   as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        startTime: freezed == startTime
+            ? _self.startTime
+            : startTime // ignore: cast_nullable_to_non_nullable
+                  as int?,
         readTime: null == readTime
             ? _self.readTime
             : readTime // ignore: cast_nullable_to_non_nullable
@@ -10137,6 +10352,8 @@ extension ReadRecordPatterns on ReadRecord {
     TResult Function(
       @JsonKey(name: 'deviceId') String deviceId,
       @JsonKey(name: 'bookName') String bookName,
+      String author,
+      int? startTime,
       @JsonKey(name: 'readTime') int readTime,
       @JsonKey(name: 'lastRead') int lastRead,
     )?
@@ -10149,6 +10366,8 @@ extension ReadRecordPatterns on ReadRecord {
         return $default(
           _that.deviceId,
           _that.bookName,
+          _that.author,
+          _that.startTime,
           _that.readTime,
           _that.lastRead,
         );
@@ -10175,6 +10394,8 @@ extension ReadRecordPatterns on ReadRecord {
     TResult Function(
       @JsonKey(name: 'deviceId') String deviceId,
       @JsonKey(name: 'bookName') String bookName,
+      String author,
+      int? startTime,
       @JsonKey(name: 'readTime') int readTime,
       @JsonKey(name: 'lastRead') int lastRead,
     )
@@ -10186,6 +10407,8 @@ extension ReadRecordPatterns on ReadRecord {
         return $default(
           _that.deviceId,
           _that.bookName,
+          _that.author,
+          _that.startTime,
           _that.readTime,
           _that.lastRead,
         );
@@ -10211,6 +10434,8 @@ extension ReadRecordPatterns on ReadRecord {
     TResult? Function(
       @JsonKey(name: 'deviceId') String deviceId,
       @JsonKey(name: 'bookName') String bookName,
+      String author,
+      int? startTime,
       @JsonKey(name: 'readTime') int readTime,
       @JsonKey(name: 'lastRead') int lastRead,
     )?
@@ -10222,6 +10447,8 @@ extension ReadRecordPatterns on ReadRecord {
         return $default(
           _that.deviceId,
           _that.bookName,
+          _that.author,
+          _that.startTime,
           _that.readTime,
           _that.lastRead,
         );
@@ -10237,6 +10464,8 @@ class _ReadRecord implements ReadRecord {
   const _ReadRecord({
     @JsonKey(name: 'deviceId') this.deviceId = '',
     @JsonKey(name: 'bookName') this.bookName = '',
+    this.author = '',
+    this.startTime,
     @JsonKey(name: 'readTime') this.readTime = 0,
     @JsonKey(name: 'lastRead') this.lastRead = 0,
   });
@@ -10249,6 +10478,11 @@ class _ReadRecord implements ReadRecord {
   @override
   @JsonKey(name: 'bookName')
   final String bookName;
+  @override
+  @JsonKey()
+  final String author;
+  @override
+  final int? startTime;
   @override
   @JsonKey(name: 'readTime')
   final int readTime;
@@ -10278,6 +10512,9 @@ class _ReadRecord implements ReadRecord {
                 other.deviceId == deviceId) &&
             (identical(other.bookName, bookName) ||
                 other.bookName == bookName) &&
+            (identical(other.author, author) || other.author == author) &&
+            (identical(other.startTime, startTime) ||
+                other.startTime == startTime) &&
             (identical(other.readTime, readTime) ||
                 other.readTime == readTime) &&
             (identical(other.lastRead, lastRead) ||
@@ -10287,12 +10524,20 @@ class _ReadRecord implements ReadRecord {
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode {
-    return Object.hash(runtimeType, deviceId, bookName, readTime, lastRead);
+    return Object.hash(
+      runtimeType,
+      deviceId,
+      bookName,
+      author,
+      startTime,
+      readTime,
+      lastRead,
+    );
   }
 
   @override
   String toString() {
-    return 'ReadRecord(deviceId: $deviceId, bookName: $bookName, readTime: $readTime, lastRead: $lastRead)';
+    return 'ReadRecord(deviceId: $deviceId, bookName: $bookName, author: $author, startTime: $startTime, readTime: $readTime, lastRead: $lastRead)';
   }
 }
 
@@ -10308,6 +10553,8 @@ abstract mixin class _$ReadRecordCopyWith<$Res>
   $Res call({
     @JsonKey(name: 'deviceId') String deviceId,
     @JsonKey(name: 'bookName') String bookName,
+    String author,
+    int? startTime,
     @JsonKey(name: 'readTime') int readTime,
     @JsonKey(name: 'lastRead') int lastRead,
   });
@@ -10327,6 +10574,8 @@ class __$ReadRecordCopyWithImpl<$Res> implements _$ReadRecordCopyWith<$Res> {
   $Res call({
     Object? deviceId = null,
     Object? bookName = null,
+    Object? author = null,
+    Object? startTime = freezed,
     Object? readTime = null,
     Object? lastRead = null,
   }) {
@@ -10340,6 +10589,14 @@ class __$ReadRecordCopyWithImpl<$Res> implements _$ReadRecordCopyWith<$Res> {
             ? _self.bookName
             : bookName // ignore: cast_nullable_to_non_nullable
                   as String,
+        author: null == author
+            ? _self.author
+            : author // ignore: cast_nullable_to_non_nullable
+                  as String,
+        startTime: freezed == startTime
+            ? _self.startTime
+            : startTime // ignore: cast_nullable_to_non_nullable
+                  as int?,
         readTime: null == readTime
             ? _self.readTime
             : readTime // ignore: cast_nullable_to_non_nullable

@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'contained_loading_indicator.dart';
-import 'md3_animated_text_line.dart';
+import 'app_animated_text_line.dart';
 
 /// 空状态组件
 ///
@@ -12,7 +12,7 @@ import 'md3_animated_text_line.dart';
 /// - [simple] = false（默认）：图标 + 提示文字 + 可选操作按钮
 /// - [kaomoji] = true：颜文字彩蛋（用户授权新增，AGENTS 红线 2026-08-29
 ///   口径）——对齐参考仓库 EmptyMessage：32sp 随机颜文字，点击换一个，
-///   提示文字随变化翻滚（Md3AnimatedTextLine）
+///   提示文字随变化翻滚（AppAnimatedTextLine）
 class EmptyState extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -56,8 +56,7 @@ class _EmptyStateState extends State<EmptyState> {
     '(｡•́︿•̀｡)',
   ];
 
-  late String _face =
-      _faces[Random().nextInt(_faces.length)];
+  late String _face = _faces[Random().nextInt(_faces.length)];
 
   @override
   Widget build(BuildContext context) {
@@ -77,8 +76,8 @@ class _EmptyStateState extends State<EmptyState> {
             widget.title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
           ),
         ),
       );
@@ -107,8 +106,8 @@ class _EmptyStateState extends State<EmptyState> {
                   }),
                   child: Padding(
                     padding: const EdgeInsets.all(8),
-                    child: Md3AnimatedTextLine(
-                      text: _face,
+                    child: AppAnimatedTextLine(
+                      _face,
                       style: TextStyle(
                         fontSize: 32,
                         color: colorScheme.onSurfaceVariant,
@@ -117,28 +116,26 @@ class _EmptyStateState extends State<EmptyState> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Md3AnimatedTextLine(
-                  text: widget.title,
+                AppAnimatedTextLine(
+                  widget.title,
                   maxLines: 2,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (widget.subtitle != null) ...[
                   Text(
                     widget.subtitle!,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.7,
-                          ),
-                        ),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
                   ),
                 ],
-                if (widget.action != null) ...[
-                  widget.action!,
-                ],
+                if (widget.action != null) ...[widget.action!],
               ],
             ),
           ),
@@ -161,9 +158,8 @@ class _EmptyStateState extends State<EmptyState> {
             Text(
               widget.title,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
             if (widget.subtitle != null) ...[
               const SizedBox(height: 8),
@@ -171,8 +167,8 @@ class _EmptyStateState extends State<EmptyState> {
                 widget.subtitle!,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
               ),
             ],
             if (widget.action != null) ...[

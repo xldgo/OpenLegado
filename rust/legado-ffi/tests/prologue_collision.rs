@@ -30,11 +30,11 @@ use std::sync::Arc;
 
 use legado_ffi::api::source_js_bindings::book_source_js_setup_script;
 use legado_ffi::legado_core::models::BookSource;
+use legado_ffi::legado_js::QuickJsEngine;
 use legado_ffi::legado_js::engine::JsEngine;
 use legado_ffi::legado_js::sandbox::SandboxConfig;
-use legado_ffi::legado_js::QuickJsEngine;
-use legado_ffi::legado_parser::analyze_rule::JsExecutor;
 use legado_ffi::legado_parser::AnalyzeUrl;
+use legado_ffi::legado_parser::analyze_rule::JsExecutor;
 
 /// 模拟池化缓存引擎：单共享引擎 + 预 eval 的 setup 脚本，无 LEXICAL 兜底。
 struct PooledExecutor {

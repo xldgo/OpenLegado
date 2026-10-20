@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [P2-9 | 2026-09-24] ReaderNotifier 强制刷新 / 换源后重载（状态级）
 //
 // 覆盖 refreshChapterContent（Fix A 强制路径）与
@@ -15,16 +16,14 @@
 // 注意：本文件引用新 API（refreshChapterContent / reloadAfterSourceChange），
 // 改造前编译失败（红 = API 缺失），改造后全绿。
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/providers/reader/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 
 import '../mocks/mocks.dart';
 
@@ -71,7 +70,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -80,14 +79,12 @@ void main() {
   /// 需要断言「getChapterContentFull 未被再次调用」的用例，
   /// 在用例内重新 stub（后 stub 覆盖前 stub）并自带计数闭包。
   Future<void> openBookBaseline({String content = '旧正文（缓存）'}) async {
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => testChapters);
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
+        .thenAnswer((_) async => content);
     when(
-      () => mockApi.getChapters(any()),
-    ).thenAnswer((_) async => testChapters);
-    when(
-      () => mockApi.getChapterContentFull(any(), any()),
-    ).thenAnswer((_) async => content);
-    when(
-      () => mockApi.updateReadingProgress(
+      () => mockApi.readingRepository.updateReadingProgress(
         bookUrl: any(named: 'bookUrl'),
         chapterIndex: any(named: 'chapterIndex'),
         chapterPos: any(named: 'chapterPos'),
@@ -100,20 +97,19 @@ void main() {
   }
 
   group('refreshChapterContent（Fix A 强制路径）', () {
-    test(
-      '强制刷新：先失效当前章 + 联网抓取并更新正文，不再走 getChapterContentFull',
-      () async {
+    test('强制刷新：先失效当前章 + 联网抓取并更新正文，不再走 getChapterContentFull', () async {
       await openBookBaseline();
       var fullCalls = 0;
-      when(() => mockApi.getChapterContentFull(any(), any())).thenAnswer((_) {
-        fullCalls++;
-        return Future.value('旧正文（缓存）');
-      });
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
+          .thenAnswer((_) {
+            fullCalls++;
+            return Future.value('旧正文（缓存）');
+          });
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
       when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
       ).thenAnswer((_) async => '新正文（网络）');
 
       final err = await container
@@ -127,48 +123,51 @@ void main() {
       expect(fullCalls, 0, reason: '强制刷新不得再走缓存优先读取路径');
       // [STAGE3-C2B] 章级失效：当前章 index=1（c2）
       verify(
-        () => mockApi.clearChapterCache('https://book.com/1', 1),
+        () => mockApi.chapterCacheRepository.clearChapterCache(
+          'https://book.com/1',
+          1,
+        ),
       ).called(1);
       verify(
-        () => mockApi.fetchChapterContent(
+        () => mockApi.readingRepository.fetchChapterContent(
           'https://book.com/1',
           'https://book.com/1/c2',
           'https://source-a.com',
         ),
       ).called(1);
       // [STAGE3-C2B] 刷新路径不得再整书清缓存
-      verifyNever(() => mockApi.clearBookCache(any()));
+      verifyNever(() => mockApi.chapterCacheRepository.clearBookCache(any()));
     });
 
-    test(
-      '已缓存章刷新必发网络请求：clearChapterCache 先于 fetchChapterContent',
-      () async {
-        await openBookBaseline();
-        when(
-          () => mockApi.clearChapterCache(any(), any()),
-        ).thenAnswer((_) async => 1);
-        when(
-          () => mockApi.fetchChapterContent(any(), any(), any()),
-        ).thenAnswer((_) async => '新正文（网络）');
+    test('已缓存章刷新必发网络请求：clearChapterCache 先于 fetchChapterContent', () async {
+      await openBookBaseline();
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
+      when(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenAnswer((_) async => '新正文（网络）');
 
-        final err = await container
-            .read(readerNotifierProvider.notifier)
-            .refreshChapterContent();
+      final err = await container
+          .read(readerNotifierProvider.notifier)
+          .refreshChapterContent();
 
-        expect(err, isNull);
-        // 编排顺序（对齐上游 delContent → loadContent）：先失效当前章缓存
-        // 行，缓存优先读取/抓取才不会再命中旧缓存 → 必发网络请求
-        // （verifyInOrder 顺序不符即抛错）
-        verifyInOrder([
-          () => mockApi.clearChapterCache('https://book.com/1', 1),
-          () => mockApi.fetchChapterContent(
-            'https://book.com/1',
-            'https://book.com/1/c2',
-            'https://source-a.com',
-          ),
-        ]);
-      },
-    );
+      expect(err, isNull);
+      // 编排顺序（对齐上游 delContent → loadContent）：先失效当前章缓存
+      // 行，缓存优先读取/抓取才不会再命中旧缓存 → 必发网络请求
+      // （verifyInOrder 顺序不符即抛错）
+      verifyInOrder([
+        () => mockApi.chapterCacheRepository.clearChapterCache(
+          'https://book.com/1',
+          1,
+        ),
+        () => mockApi.readingRepository.fetchChapterContent(
+          'https://book.com/1',
+          'https://book.com/1/c2',
+          'https://source-a.com',
+        ),
+      ]);
+    });
 
     test('本地书（loc_book）守卫：返回原因、不调 API、正文不动', () async {
       const localBook = Book(
@@ -177,7 +176,7 @@ void main() {
         origin: BookType.localTag,
         durChapterIndex: 0,
       );
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(
             url: 'loc://books/本地书.epub/1',
@@ -187,7 +186,10 @@ void main() {
         ],
       );
       when(
-        () => mockApi.getChapterContentFull(any(), any()),
+        () => mockApi.readingRepository.getChapterContent(
+          localBook.bookUrl,
+          any(),
+        ),
       ).thenAnswer((_) async => '本地正文');
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(localBook);
@@ -198,9 +200,14 @@ void main() {
       final st = container.read(readerNotifierProvider);
       expect(st.chapterContent, '本地正文');
       expect(st.error, isNull);
-      verifyNever(() => mockApi.clearChapterCache(any(), any()));
-      verifyNever(() => mockApi.clearBookCache(any()));
-      verifyNever(() => mockApi.fetchChapterContent(any(), any(), any()));
+      verifyNever(
+        () => mockApi.chapterCacheRepository.clearChapterCache(any(), any()),
+      );
+      verifyNever(() => mockApi.chapterCacheRepository.clearBookCache(any()));
+      verifyNever(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      );
     });
 
     test('WebDAV 书（dav:）守卫：返回原因、不调 API', () async {
@@ -210,7 +217,7 @@ void main() {
         origin: 'dav://server/books',
         durChapterIndex: 0,
       );
-      when(() => mockApi.getChapters(any())).thenAnswer(
+      when(() => mockApi.readingRepository.getChapters(any())).thenAnswer(
         (_) async => [
           const BookChapter(
             url: 'dav://server/books/x/1',
@@ -220,7 +227,8 @@ void main() {
         ],
       );
       when(
-        () => mockApi.getChapterContentFull(any(), any()),
+        () =>
+            mockApi.readingRepository.getChapterContent(davBook.bookUrl, any()),
       ).thenAnswer((_) async => '云端正文');
       final notifier = container.read(readerNotifierProvider.notifier);
       await notifier.openBook(davBook);
@@ -228,19 +236,24 @@ void main() {
       final err = await notifier.refreshChapterContent();
 
       expect(err, '本地书不支持刷新正文');
-      verifyNever(() => mockApi.clearChapterCache(any(), any()));
-      verifyNever(() => mockApi.clearBookCache(any()));
-      verifyNever(() => mockApi.fetchChapterContent(any(), any(), any()));
+      verifyNever(
+        () => mockApi.chapterCacheRepository.clearChapterCache(any(), any()),
+      );
+      verifyNever(() => mockApi.chapterCacheRepository.clearBookCache(any()));
+      verifyNever(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      );
     });
 
     test('抓取抛错 → 返回错误原因，旧正文保留，state.error 记录', () async {
       await openBookBaseline();
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
       when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenThrow(const BridgeError(message: '404: 源不可达'));
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenThrow(const AppException('404: 源不可达'));
 
       final err = await container
           .read(readerNotifierProvider.notifier)
@@ -254,11 +267,11 @@ void main() {
 
     test('抓取返回空串 → 视为失败（保留旧正文，不清空）', () async {
       await openBookBaseline();
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
       when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 1);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
       ).thenAnswer((_) async => '   ');
 
       final err = await container
@@ -269,36 +282,36 @@ void main() {
       expect(container.read(readerNotifierProvider).chapterContent, '旧正文（缓存）');
     });
 
-    test(
-      '失败仅丢当前章缓存：clearChapterCache 恰一次且无整书清理',
-      () async {
-        await openBookBaseline();
-        when(
-          () => mockApi.clearChapterCache(any(), any()),
-        ).thenAnswer((_) async => 1);
-        when(
-          () => mockApi.fetchChapterContent(any(), any(), any()),
-        ).thenThrow(const BridgeError(message: '500: 注入失败'));
+    test('失败仅丢当前章缓存：clearChapterCache 恰一次且无整书清理', () async {
+      await openBookBaseline();
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 1);
+      when(
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenThrow(const AppException('500: 注入失败'));
 
-        final err = await container
-            .read(readerNotifierProvider.notifier)
-            .refreshChapterContent();
+      final err = await container
+          .read(readerNotifierProvider.notifier)
+          .refreshChapterContent();
 
-        expect(err, '500: 注入失败');
-        expect(
-          container.read(readerNotifierProvider).chapterContent,
-          '旧正文（缓存）',
-          reason: '失败 UI 保留旧正文并显示原因',
-        );
-        // [STAGE3-C2B] 失败语义（对齐上游）：仅当前章缓存行失效（index=1），
-        // 同书他章缓存保留——刷新路径绝不调用整书 clearBookCache
-        // （失败不得整书清缓存：STAGE3-C2B 根因之一）
-        verify(
-          () => mockApi.clearChapterCache('https://book.com/1', 1),
-        ).called(1);
-        verifyNever(() => mockApi.clearBookCache(any()));
-      },
-    );
+      expect(err, '500: 注入失败');
+      expect(
+        container.read(readerNotifierProvider).chapterContent,
+        '旧正文（缓存）',
+        reason: '失败 UI 保留旧正文并显示原因',
+      );
+      // [STAGE3-C2B] 失败语义（对齐上游）：仅当前章缓存行失效（index=1），
+      // 同书他章缓存保留——刷新路径绝不调用整书 clearBookCache
+      // （失败不得整书清缓存：STAGE3-C2B 根因之一）
+      verify(
+        () => mockApi.chapterCacheRepository.clearChapterCache(
+          'https://book.com/1',
+          1,
+        ),
+      ).called(1);
+      verifyNever(() => mockApi.chapterCacheRepository.clearBookCache(any()));
+    });
 
     test('无书籍/无目录 → 返回原因，不抛异常', () async {
       final err = await container
@@ -311,13 +324,19 @@ void main() {
   group('reloadAfterSourceChange（Fix B 换源后重载）', () {
     test('成功：getBook + getChapters + 强制刷新，currentBook/章节/位置更新', () async {
       await openBookBaseline();
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => newBookRecord);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => newToc);
+      // 验证本次阅读的真实位置；不再依赖打开旧记录时恢复历史页码。
+      container
+          .read(readerNotifierProvider.notifier)
+          .updatePosition(3, sourceOffset: 1);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => newToc);
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
       when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
       ).thenAnswer((_) async => '新源新正文');
 
       final err = await container
@@ -333,9 +352,10 @@ void main() {
       expect(st.currentChapterIndex, 1, reason: '「第二章」按标题命中');
       expect(st.currentChapterPos, 3, reason: '同题章节保留章内位置');
       expect(st.chapterContent, '新源新正文');
-      verify(() => mockApi.getBook('https://book.com/1')).called(1);
+      verify(() => mockApi.bookshelfRepository.getBook('https://book.com/1'))
+          .called(1);
       verify(
-        () => mockApi.fetchChapterContent(
+        () => mockApi.readingRepository.fetchChapterContent(
           'https://book.com/1',
           'https://book.com/2/c2',
           'https://source-b.com',
@@ -349,15 +369,15 @@ void main() {
         BookChapter(url: 'https://book.com/2/甲', title: '甲', index: 0),
         BookChapter(url: 'https://book.com/2/乙', title: '乙', index: 1),
       ];
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => renamedToc);
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
       when(
-        () => mockApi.getChapters(any()),
-      ).thenAnswer((_) async => renamedToc);
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
       ).thenAnswer((_) async => '新源新正文');
 
       final err = await container
@@ -375,13 +395,15 @@ void main() {
       const shortToc = [
         BookChapter(url: 'https://book.com/2/独', title: '独', index: 0),
       ];
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => newBookRecord);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => shortToc);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => shortToc);
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
       when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
       ).thenAnswer((_) async => '新源新正文');
 
       final err = await container
@@ -396,18 +418,17 @@ void main() {
 
     test('新源本地无目录（getChapters 空）→ 经 refreshToc 联网取目录', () async {
       await openBookBaseline();
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => <BookChapter>[]);
+      when(() => mockApi.readingRepository.refreshToc(any(), any()))
+          .thenAnswer((_) async => newToc);
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
       when(
-        () => mockApi.getChapters(any()),
-      ).thenAnswer((_) async => <BookChapter>[]);
-      when(
-        () => mockApi.refreshToc(any(), any()),
-      ).thenAnswer((_) async => newToc);
-      when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
       ).thenAnswer((_) async => '新源新正文');
 
       final err = await container
@@ -416,14 +437,18 @@ void main() {
 
       expect(err, isNull);
       verify(
-        () => mockApi.refreshToc('https://book.com/1', 'https://source-b.com'),
+        () => mockApi.readingRepository.refreshToc(
+          'https://book.com/1',
+          'https://source-b.com',
+        ),
       ).called(1);
       expect(container.read(readerNotifierProvider).chapters, newToc);
     });
 
     test('getBook 返回 null → 返回错误原因，旧正文/旧目录保留', () async {
       await openBookBaseline();
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
 
       final err = await container
           .read(readerNotifierProvider.notifier)
@@ -440,14 +465,16 @@ void main() {
 
     test('强制刷新失败 → 目录已更新、旧正文保留、返回错误原因', () async {
       await openBookBaseline();
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => newBookRecord);
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => newToc);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => newBookRecord);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => newToc);
+      when(() => mockApi.chapterCacheRepository.clearChapterCache(any(), any()))
+          .thenAnswer((_) async => 0);
       when(
-        () => mockApi.clearChapterCache(any(), any()),
-      ).thenAnswer((_) async => 0);
-      when(
-        () => mockApi.fetchChapterContent(any(), any(), any()),
-      ).thenThrow(const BridgeError(message: '502: 抓取失败'));
+        () =>
+            mockApi.readingRepository.fetchChapterContent(any(), any(), any()),
+      ).thenThrow(const AppException('502: 抓取失败'));
 
       final err = await container
           .read(readerNotifierProvider.notifier)

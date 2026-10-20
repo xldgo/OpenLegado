@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 
 fn main() {
     // 必须先于任何 legado-net 请求设置环境变量（timing_enabled 内部 OnceLock 缓存）
-    std::env::set_var("LEGADO_NET_TIMING", "1");
+    // 安全：main 入口尚未创建运行时或工作线程，先设置进程环境变量。
+    unsafe { std::env::set_var("LEGADO_NET_TIMING", "1") };
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
@@ -27,7 +28,6 @@ fn main() {
     };
 
     // 初始化数据库（与 App 启动一致）
-    legado_ffi::db_state::record_db_path(&db_path);
     let db = match legado_ffi::legado_db::init_database(&db_path) {
         Ok(d) => d,
         Err(e) => {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'contained_loading_indicator.dart';
 
@@ -72,10 +72,7 @@ class AppCircularProgressIndicator extends StatelessWidget {
       label: semanticsLabel,
       child: ExcludeSemantics(
         child: progress == null
-            ? CircularProgressIndicator(
-                strokeWidth: strokeWidth,
-                color: color,
-              )
+            ? CircularProgressIndicator(strokeWidth: strokeWidth, color: color)
             : CircularProgressIndicator(
                 value: progress,
                 strokeWidth: strokeWidth,

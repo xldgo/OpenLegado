@@ -41,11 +41,11 @@ use std::time::{Duration, Instant};
 
 use legado_ffi::api::source_js_bindings::book_source_js_setup_script;
 use legado_ffi::legado_core::models::BookSource;
+use legado_ffi::legado_js::QuickJsEngine;
 use legado_ffi::legado_js::engine::JsEngine;
 use legado_ffi::legado_js::host_api::capability_ledger;
 use legado_ffi::legado_js::host_api::current_source;
 use legado_ffi::legado_js::sandbox::SandboxConfig;
-use legado_ffi::legado_js::QuickJsEngine;
 
 /// 能力面：quickjs_impl.rs 已注册的宿主函数（`java.*` 双挂载 + 裸全局）。
 /// 数量为 [`CAPABILITY_NAMES`] 长度（2026-09-25 批次 1 补齐后 167；清单随宿主注册增减，
@@ -100,13 +100,13 @@ const CAPABILITY_NAMES: &[&str] = &[
     "fileExists",
     "formatTime",
     "get",
+    "get7zByteArrayContent",
     "get7zStringContent",
     "getCurrentUrl",
     "getCookie",
     "getElement",
     "getElements",
     "getFile",
-    "getRarStringContent",
     "getReadBookConfig",
     "getReadBookConfigMap",
     "getSource",
@@ -121,6 +121,7 @@ const CAPABILITY_NAMES: &[&str] = &[
     "getVariable",
     "getVerificationCode",
     "getWebViewUA",
+    "getZipByteArrayContent",
     "getZipStringContent",
     "head",
     "hexDecode",
@@ -216,7 +217,6 @@ const CAPABILITY_NAMES: &[&str] = &[
     "trimStart",
     "un7zFile",
     "unArchiveFile",
-    "unrarFile",
     "unzipFile",
     "upLoginData",
     "urldecode",
@@ -227,8 +227,7 @@ const CAPABILITY_NAMES: &[&str] = &[
     "writeFile",
 ];
 
-/// 文件类 API：仅在 `allow_file_access=true` 时注册；**生产配置为 false**，
-/// 即这 9 个名字在生产的 QuickJS 引擎里不存在——源引用即缺口。
+/// 文件类API：需要allow_file_access=true；关闭时部分不注册，解压接口调用前拒绝。
 const FILE_GATED_NAMES: &[&str] = &[
     "cacheFile",
     "deleteFile",
@@ -238,6 +237,9 @@ const FILE_GATED_NAMES: &[&str] = &[
     "getTxtInFolder",
     "readFile",
     "readTxtFile",
+    "un7zFile",
+    "unArchiveFile",
+    "unzipFile",
     "writeFile",
 ];
 
@@ -628,15 +630,15 @@ fn collect_fragments(src: &BookSource) -> Vec<(&'static str, String)> {
             )
     }
     let mut out: Vec<(&'static str, String)> = Vec::new();
-    if let Some(js_lib) = &src.js_lib {
-        if !js_lib.is_empty() {
-            out.push(("jsLib", js_lib.clone()));
-        }
+    if let Some(js_lib) = &src.js_lib
+        && !js_lib.is_empty()
+    {
+        out.push(("jsLib", js_lib.clone()));
     }
-    if let Some(search_url) = &src.search_url {
-        if !search_url.is_empty() {
-            out.push(("searchUrl", search_url.clone()));
-        }
+    if let Some(search_url) = &src.search_url
+        && !search_url.is_empty()
+    {
+        out.push(("searchUrl", search_url.clone()));
     }
     if let Some(rule) = &src.rule_search {
         let texts: &[&Option<String>] = &[
@@ -702,15 +704,15 @@ fn collect_fragments(src: &BookSource) -> Vec<(&'static str, String)> {
         ];
         push_rule_texts(&mut out, "ruleContent", texts);
     }
-    if let Some(explore_url) = &src.explore_url {
-        if !explore_url.is_empty() {
-            out.push(("exploreUrl", explore_url.clone()));
-        }
+    if let Some(explore_url) = &src.explore_url
+        && !explore_url.is_empty()
+    {
+        out.push(("exploreUrl", explore_url.clone()));
     }
-    if let Some(login_url) = &src.login_url {
-        if !login_url.is_empty() {
-            out.push(("loginUrl", login_url.clone()));
-        }
+    if let Some(login_url) = &src.login_url
+        && !login_url.is_empty()
+    {
+        out.push(("loginUrl", login_url.clone()));
     }
     out.iter_mut()
         .for_each(|(_, text)| *text = strip_full_line_comments(text));
@@ -768,7 +770,7 @@ fn classify_chain(chain: &str) -> Option<(String, &'static str)> {
                 if !name.contains('.') {
                     if CAPABILITY_NAMES.contains(&name) {
                         let status = if FILE_GATED_NAMES.contains(&name) {
-                            "提供*（文件门控，生产未注册）"
+                            "提供*（需要文件访问授权）"
                         } else {
                             "提供"
                         };
@@ -900,18 +902,18 @@ fn test_static_capability_reconciliation() {
         // 点链：去重后按源聚合
         let mut seen_in_src: BTreeSet<String> = BTreeSet::new();
         for chain in &chains {
-            if let Some((sym, status)) = classify_chain(chain) {
-                if seen_in_src.insert(sym.clone()) {
-                    let entry = symbols.entry(sym).or_insert((0, Vec::new(), None));
-                    entry.0 += 1;
-                    if entry.1.len() < 3 {
-                        entry.1.push(format!(
-                            "#{} {} / {}",
-                            idx, src.book_source_name, src.book_source_url
-                        ));
-                    }
-                    entry.2 = Some(status);
+            if let Some((sym, status)) = classify_chain(chain)
+                && seen_in_src.insert(sym.clone())
+            {
+                let entry = symbols.entry(sym).or_insert((0, Vec::new(), None));
+                entry.0 += 1;
+                if entry.1.len() < 3 {
+                    entry.1.push(format!(
+                        "#{} {} / {}",
+                        idx, src.book_source_name, src.book_source_url
+                    ));
                 }
+                entry.2 = Some(status);
             }
         }
     }
@@ -942,7 +944,7 @@ fn test_static_capability_reconciliation() {
     let dir = sweep_dir();
     let mut md = String::new();
     md.push_str(&format!(
-        "# 静态能力对账报告\n\n- 语料：`{}`（{} 源）\n- 含 JS 片段源数：{}\n- 耗时：{:.2}s\n- 能力面快照：quickjs_impl.rs {} 个宿主函数（双挂载 java.*/裸全局）\n- 文件门控（生产未注册）：{}\n\n",
+        "# 静态能力对账报告\n\n- 语料：`{}`（{} 源）\n- 含 JS 片段源数：{}\n- 耗时：{:.2}s\n- 能力面快照：quickjs_impl.rs {} 个宿主函数（双挂载 java.*/裸全局）\n- 文件门控（需要访问授权）：{}\n\n",
         corpus_path().display(),
         total,
         src_has_js,
@@ -976,7 +978,7 @@ fn test_static_capability_reconciliation() {
     );
     let mut provided_bare: Vec<(&str, &(usize, Vec<String>))> =
         bare_used.iter().map(|(k, v)| (*k, v)).collect();
-    provided_bare.sort_by_key(|e| std::cmp::Reverse(e.1 .0));
+    provided_bare.sort_by_key(|e| std::cmp::Reverse(e.1.0));
     for (name, (count, examples)) in provided_bare.iter().take(40) {
         let marked = if FILE_GATED_NAMES.contains(name) {
             format!("{name}*")
@@ -992,7 +994,7 @@ fn test_static_capability_reconciliation() {
     md.push_str("\n## 观察名单命中（未注册符号）\n\n| 符号 | 源数 | 示例源 |\n|---|---|---|\n");
     let mut watch: Vec<(&str, &(usize, Vec<String>))> =
         bare_watch.iter().map(|(k, v)| (*k, v)).collect();
-    watch.sort_by_key(|e| std::cmp::Reverse(e.1 .0));
+    watch.sort_by_key(|e| std::cmp::Reverse(e.1.0));
     for (name, (count, examples)) in &watch {
         md.push_str(&format!(
             "| `{name}(` | {count} | {} |\n",
@@ -1224,38 +1226,39 @@ fn run_source_dry(idx: usize, src: &BookSource) -> SourceDryRun {
             // jsLib（cap 3：URL 映射形态经加载器解析——干跑离线，fetcher 注入
             // 空内容 stub：URL 条目按空文件处理不记台账，非 URL 映射形态
             // `resolve` 返回 None，保留原直接 eval 行为）
-            if let Some(js_lib) = &src.js_lib {
-                if !js_lib.is_empty() {
-                    let offline_fetch = |_: &str| Ok(String::new());
-                    let script = legado_js::host_api::jslib_loader::resolve_js_lib_url_map(
-                        js_lib,
-                        &tag,
-                        &offline_fetch,
-                    );
-                    let candidate = script.as_deref().unwrap_or(js_lib);
-                    match engine.eval(candidate) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            // [能力对账批次 2 | #26/#324/#583] 镜像生产缓存引擎的
-                            // Rhino 宽容语法归一化回退（legado-js
-                            // engine_cache.rs）：仅语法错误路径下归一化
-                            // （双点折叠 + let/const 影子形参改名，含自引用
-                            // 初始化值窗口排除）后重试，成功则清除
-                            // jslib_failed——生产已能加载的源在干跑不得误判
-                            // 为 b 类（干跑无 LEXICAL 新引擎回退，归一化是
-                            // 唯一救济路径）
-                            let mut recovered = false;
-                            if engine.check_syntax(candidate).is_err() {
-                                let (normalized, changed) =
-                                    legado_js::jslib_normalize::normalize(candidate);
-                                if changed {
-                                    recovered = engine.eval(&normalized).is_ok();
-                                }
+            if let Some(js_lib) = &src.js_lib
+                && !js_lib.is_empty()
+            {
+                let offline_fetch = |_: &str| Ok(String::new());
+                let script = legado_js::host_api::jslib_loader::resolve_js_lib_url_map(
+                    engine.http_resources(),
+                    js_lib,
+                    &tag,
+                    &offline_fetch,
+                );
+                let candidate = script.as_deref().unwrap_or(js_lib);
+                match engine.eval(candidate) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        // [能力对账批次 2 | #26/#324/#583] 镜像生产缓存引擎的
+                        // Rhino 宽容语法归一化回退（legado-js
+                        // engine_cache.rs）：仅语法错误路径下归一化
+                        // （双点折叠 + let/const 影子形参改名，含自引用
+                        // 初始化值窗口排除）后重试，成功则清除
+                        // jslib_failed——生产已能加载的源在干跑不得误判
+                        // 为 b 类（干跑无 LEXICAL 新引擎回退，归一化是
+                        // 唯一救济路径）
+                        let mut recovered = false;
+                        if engine.check_syntax(candidate).is_err() {
+                            let (normalized, changed) =
+                                legado_js::jslib_normalize::normalize(candidate);
+                            if changed {
+                                recovered = engine.eval(&normalized).is_ok();
                             }
-                            if !recovered {
-                                out.jslib_failed = true;
-                                first_err = Some(format!("jsLib：{e}"));
-                            }
+                        }
+                        if !recovered {
+                            out.jslib_failed = true;
+                            first_err = Some(format!("jsLib：{e}"));
                         }
                     }
                 }
@@ -1498,10 +1501,10 @@ fn test_offline_dry_run_sweep() {
 
     // —— 缺失能力排行 ——
     let mut ranking: Vec<(&String, &(usize, Vec<String>))> = symbol_sources.iter().collect();
-    ranking.sort_by(|a, b| b.1 .0.cmp(&a.1 .0).then_with(|| a.0.cmp(b.0)));
+    ranking.sort_by(|a, b| b.1.0.cmp(&a.1.0).then_with(|| a.0.cmp(b.0)));
 
     let mut err_ranking: Vec<(&String, &(usize, Vec<String>))> = error_signatures.iter().collect();
-    err_ranking.sort_by_key(|e| std::cmp::Reverse(e.1 .0));
+    err_ranking.sort_by_key(|e| std::cmp::Reverse(e.1.0));
 
     // —— 报告落盘 ——
     let dir = sweep_dir();

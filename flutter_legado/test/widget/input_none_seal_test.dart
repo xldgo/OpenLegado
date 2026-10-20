@@ -1,9 +1,9 @@
 // [GLOBALCOMP B3 尾项] 刻意无边框输入场的三态防渗入回归。
 //
-// 背景：B3 把输入框主题改为 filled 底线式（UnderlineInputBorder 三态，
+// 背景：全局输入框使用圆角填充与描边（OutlineInputBorder，
 // 见 input_theme_b3_test.dart）。只写 `border: InputBorder.none` 的字段，
 // 其 enabled/focused 态会回退到主题 enabledBorder/focusedBorder——即
-// 「未聚焦多一条细底线、聚焦底线加粗」。对刻意无边框的沉浸/胶囊/行内
+// 「普通态出现描边、聚焦描边加粗」。对刻意无边框的沉浸/胶囊/行内
 // 字段（代码编辑、顶栏/弹层搜索、目录跳转等），必须显式声明
 // border / enabledBorder / focusedBorder 三态均无边框。
 //
@@ -11,8 +11,8 @@
 // 1. 三个代表场（编辑区、沉浸搜索框、搜索胶囊）经真实渲染与解析链后，
 //    enabled/focused/disabled/error 全态有效 border 均为 InputBorder.none；
 // 2. 真实 SearchBarWidget（沉浸搜索胶囊）已显式三态无边框；
-// 3. 对照组证明渗入面真实存在：仅写 border 的旧写法会回退主题底线式。
-import 'package:flutter/material.dart';
+// 3. 对照组证明渗入面真实存在：仅写 border 的旧写法会回退主题描边样式。
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/theme/app_theme.dart';
@@ -68,10 +68,7 @@ void main() {
                     ),
                     child: const SizedBox(
                       height: 80,
-                      child: TextField(
-                        maxLines: null,
-                        decoration: _sealedNone,
-                      ),
+                      child: TextField(maxLines: null, decoration: _sealedNone),
                     ),
                   ),
                   // 场 2：顶栏/弹层沉浸搜索框（单行 dense）
@@ -79,8 +76,10 @@ void main() {
                     decoration: InputDecoration(
                       hintText: '搜索',
                       isDense: true,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -109,23 +108,21 @@ void main() {
           ),
         );
 
-        final decorators =
-            tester.widgetList<InputDecorator>(find.byType(InputDecorator));
+        final decorators = tester.widgetList<InputDecorator>(
+          find.byType(InputDecorator),
+        );
         expect(decorators.length, 3, reason: '三个代表场应各有一个输入装饰器');
         for (final decorator in decorators) {
-          final resolved =
-              decorator.decoration.applyDefaults(theme.inputDecorationTheme);
+          final resolved = decorator.decoration.applyDefaults(
+            theme.inputDecorationTheme,
+          );
           for (final (state, border) in [
             ('enabled', _effectiveBorder(resolved)),
             ('focused', _effectiveBorder(resolved, focused: true)),
             ('disabled', _effectiveBorder(resolved, disabled: true)),
             ('error', _effectiveBorder(resolved, error: true)),
           ]) {
-            expect(
-              border,
-              InputBorder.none,
-              reason: '$state 态不得回退主题底线式/描边',
-            );
+            expect(border, InputBorder.none, reason: '$state 态不得回退主题描边样式/描边');
           }
         }
       });
@@ -137,20 +134,22 @@ void main() {
             home: Scaffold(body: SearchBarWidget(onChanged: (_) {})),
           ),
         );
-        final decorator =
-            tester.widget<InputDecorator>(find.byType(InputDecorator));
-        final resolved =
-            decorator.decoration.applyDefaults(theme.inputDecorationTheme);
+        final decorator = tester.widget<InputDecorator>(
+          find.byType(InputDecorator),
+        );
+        final resolved = decorator.decoration.applyDefaults(
+          theme.inputDecorationTheme,
+        );
         expect(resolved.border, InputBorder.none);
         expect(resolved.enabledBorder, InputBorder.none);
         expect(resolved.focusedBorder, InputBorder.none);
       });
 
-      test('渗入面对照：仅写 border 的旧写法会回退主题底线式', () {
+      test('渗入面对照：仅写 border 的旧写法会回退主题描边样式', () {
         const onlyBorder = InputDecoration(border: InputBorder.none);
         final resolved = onlyBorder.applyDefaults(theme.inputDecorationTheme);
-        expect(resolved.enabledBorder, isA<UnderlineInputBorder>());
-        expect(resolved.focusedBorder, isA<UnderlineInputBorder>());
+        expect(resolved.enabledBorder, isA<OutlineInputBorder>());
+        expect(resolved.focusedBorder, isA<OutlineInputBorder>());
       });
     });
   }

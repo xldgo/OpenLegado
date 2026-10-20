@@ -1,0 +1,74 @@
+import '../../domain/contracts/book_source_edit_service.dart';
+import '../../domain/models/source_syntax_result.dart';
+import '../../models/book_source.dart';
+
+/// 保留既有简化cURL与无QuickJS占位，不声称完整规则执行。— Codex + Bridge
+class MockBookSourceEditService implements BookSourceEditService {
+  const MockBookSourceEditService();
+  @override
+  Future<bool> looksLikeCurl(String text) async {
+    await Future.delayed(const Duration(milliseconds: 10));
+    final t = text.trimLeft().toLowerCase();
+    return t == 'curl' ||
+        t.startsWith('curl ') ||
+        t.startsWith('curl.exe') ||
+        t.startsWith('curl\t');
+  }
+
+  @override
+  Future<String> curlToAnalyzeUrl(String text) async {
+    await Future.delayed(const Duration(milliseconds: 10));
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) throw Exception('[CURL_EMPTY_INPUT]');
+    // Mock：仅支持最简 `curl <url>` / `curl -L <url>`
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.isEmpty || !parts.first.toLowerCase().startsWith('curl')) {
+      throw Exception('[CURL_INVALID]');
+    }
+    String? url;
+    var follow = false;
+    for (final p in parts.skip(1)) {
+      if (p == '-L' || p == '--location') {
+        follow = true;
+        continue;
+      }
+      if (p.startsWith('-')) continue;
+      url = p.replaceAll("'", '').replaceAll('"', '');
+      break;
+    }
+    if (url == null || url.isEmpty) throw Exception('[CURL_MISSING_URL]');
+    if (follow) return url;
+    return '$url,{"followRedirects":false}';
+  }
+
+  @override
+  Future<String> analyzeUrlToCurl(String text) async {
+    await Future.delayed(const Duration(milliseconds: 10));
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) throw Exception('[CURL_EMPTY_INPUT]');
+    final comma = RegExp(r'\s*,\s*\{').firstMatch(trimmed);
+    final url = (comma == null ? trimmed : trimmed.substring(0, comma.start))
+        .trim();
+    if (url.isEmpty) throw Exception('[CURL_MISSING_URL]');
+    var follow = true;
+    if (comma != null) {
+      final opt = trimmed.substring(comma.start);
+      if (opt.contains('"followRedirects":false')) follow = false;
+    }
+    final quoted = url.contains('?') || url.contains(' ') ? "'$url'" : url;
+    return follow ? 'curl -g -L $quoted' : 'curl -g $quoted';
+  }
+
+  @override
+  Future<BookSource> extractJsSource(String content) async => BookSource(
+    bookSourceUrl: 'mock://js-source',
+    bookSourceName: 'Mock JS 书源',
+    mainJs: content,
+  );
+  @override
+  Future<SourceSyntaxResult> checkJsSourceSyntax(String content) async =>
+      SourceSyntaxResult(
+        valid: content.trim().isNotEmpty,
+        message: content.trim().isNotEmpty ? 'Mock 语法检查通过' : 'JS源内容为空',
+      );
+}

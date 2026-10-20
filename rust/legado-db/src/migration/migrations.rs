@@ -30,7 +30,7 @@ use rusqlite::Connection;
 
 use legado_core::{LegadoError, LegadoResult};
 
-use crate::migration::{add_column_if_not_exists, table_exists, Migration};
+use crate::migration::{Migration, add_column_if_not_exists, table_exists};
 use crate::schema::{CREATE_AUTO_TASK_RULES, CREATE_HIGHLIGHT_RULES};
 
 /// BookType.notShelf（对齐 Kotlin `BookType.notShelf = 0b100_0000_0000`）
@@ -56,8 +56,19 @@ const BOOK_TYPE_NOT_SHELF: i64 = 0b100_0000_0000;
 /// - replace_rules 表补齐: scopeSource（v108 书源作用域开关，防「版本已到 108 但缺列」
 ///   历史坑：user_version 门禁失效/手工建库等场景下兜底补列）
 pub fn repair_legacy_columns(conn: &Connection) -> LegadoResult<()> {
+    conn.execute_batch(crate::repository::privacy_credentials::CREATE_PRIVACY_CREDENTIALS)
+        .map_err(|e| LegadoError::Database(format!("创建隐私凭据表失败: {e}")))?;
+    if table_exists(conn, "book_groups")? {
+        add_column_if_not_exists(
+            conn,
+            "book_groups",
+            "isPrivate",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+    }
     // books 表补列（仅当表存在时）
     if table_exists(conn, "books")? {
+        add_column_if_not_exists(conn, "books", "isPrivate", "INTEGER NOT NULL DEFAULT 0")?;
         add_column_if_not_exists(conn, "books", "infoHtml", "TEXT DEFAULT ''")?;
         add_column_if_not_exists(conn, "books", "tocHtml", "TEXT DEFAULT ''")?;
         add_column_if_not_exists(conn, "books", "downloadUrls", "TEXT DEFAULT ''")?;
@@ -102,6 +113,17 @@ pub fn repair_legacy_columns(conn: &Connection) -> LegadoResult<()> {
             "replace_rules",
             "scopeSource",
             "INTEGER NOT NULL DEFAULT 0",
+        )?;
+    }
+
+    // httpTTS 表补列（仅当表存在时）
+    if table_exists(conn, "httpTTS")? {
+        add_column_if_not_exists(conn, "httpTTS", "speed", "INTEGER")?;
+        add_column_if_not_exists(
+            conn,
+            "httpTTS",
+            "synthesisThreadCount",
+            "INTEGER NOT NULL DEFAULT 1",
         )?;
     }
 
@@ -819,15 +841,14 @@ mod tests {
     fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
         let sql = format!("PRAGMA table_info({table})");
         let mut stmt = conn.prepare(&sql).unwrap();
-        let result = stmt
-            .query_map([], |row| {
-                let name: String = row.get(1)?;
-                Ok(name == column)
-            })
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .any(|b| b);
-        result
+
+        stmt.query_map([], |row| {
+            let name: String = row.get(1)?;
+            Ok(name == column)
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .any(|b| b)
     }
 
     #[test]
@@ -899,11 +920,17 @@ mod tests {
 
         // 第一次迁移
         registry.migrate_to_latest(conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
 
         // 第二次迁移（已是最新版本，应为 no-op 不报错）
         registry.migrate_to_latest(conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
 
         // 幂等修复函数重复执行也不报错
         repair_legacy_columns(conn).unwrap();
@@ -1052,7 +1079,10 @@ mod tests {
     fn test_fresh_db_reaches_v101_with_deviation_columns() {
         let db = Database::open_in_memory().unwrap();
         let conn = db.connection();
-        assert_eq!(MigrationRegistry::current_version(conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
         assert!(table_exists(conn, "highlights").unwrap());
         assert!(table_exists(conn, "highlightRules").unwrap());
         assert!(column_exists(conn, "highlights", "bookUrl"));
@@ -1238,7 +1268,10 @@ mod tests {
 
         let registry = MigrationRegistry::new();
         registry.migrate_to_latest(conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
         assert!(column_exists(conn, "rssArticles", "group"));
         assert!(column_exists(conn, "readRecord", "lastRead"));
     }
@@ -1505,7 +1538,10 @@ mod tests {
 
         let registry = MigrationRegistry::new();
         registry.migrate_to_latest(conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(conn).unwrap(), 109);
+        assert_eq!(
+            MigrationRegistry::current_version(conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
         assert!(column_exists(conn, "book_sources", "variable"));
     }
 }

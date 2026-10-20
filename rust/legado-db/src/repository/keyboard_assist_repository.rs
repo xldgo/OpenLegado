@@ -2,7 +2,7 @@
 //!
 //! D1：对齐 Room `KeyboardAssist`（主键 type+key；列 type/key/value/serialNo）。
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};
@@ -71,8 +71,10 @@ impl<'a> KeyboardAssistRepository<'a> {
         let rows = stmt
             .query_map([], row_to_keyboard_assist)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("keyboard_assist_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -137,8 +139,10 @@ impl<'a> KeyboardAssistRepository<'a> {
         let rows = stmt
             .query_map(params![key], row_to_keyboard_assist)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("keyboard_assist_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 }

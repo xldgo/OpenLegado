@@ -7,9 +7,8 @@
 //! 收到 JS `int` 时抛 `Error converting from js 'int' into type 'string'`，
 //! 致 `qmSearch('测试', 1)` 整条 searchUrl 失败。
 //!
-//! 修复：`encodeURIComponent` 入参改用 `rquickjs::Coerced<std::string::String>`
-//! （QuickJS `JS_ToString`，JS 规范强转）。本测试锁定该行为：
-//! int / bool / null / undefined 均按 JS 语义强转后编码，字符串行为不变。
+//! 当前直接复用QuickJS内建函数，不再以Rust百分号函数覆盖全局。
+//! 本测试继续验证七猫等语料的ToString转换及保留字符行为。
 
 #![cfg(feature = "quickjs")]
 

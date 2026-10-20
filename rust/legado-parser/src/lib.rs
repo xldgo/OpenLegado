@@ -30,32 +30,27 @@ pub mod curl_converter;
 pub mod html;
 pub mod jsonpath;
 pub mod regex_engine;
+pub mod response_decode;
 pub mod review_rule_parser;
 pub mod rule_analyzer;
 pub mod rule_complete;
 pub mod xpath;
 
-/// 测试支撑：全局变量兜底读取器（`GLOBAL_VAR_FALLBACK`）的进程级状态锁
-/// （仅测试编译；供本 crate 所有测试模块共享同一把锁串行防串读取器）。
-#[cfg(test)]
-pub(crate) mod test_support;
-
-pub use analyze_rule::{
-    set_global_variable_reader, split_top_level_hash, AnalyzeRule, JsExecutor, RuleType,
-};
+pub use analyze_rule::{AnalyzeRule, JsExecutor, RuleType, VariableReader, split_top_level_hash};
 pub use analyze_url::{AnalyzeUrl, DataUriContent, RequestMethod, TemplateContext, UrlOption};
 pub use curl_converter::{
-    analyze_url_to_curl, curl_to_analyze_url, is_curl_error, looks_like_curl, parse_curl, to_curl,
-    CurlErrorReason, CurlParseResult, CurlRequestParams,
+    CurlErrorReason, CurlParseResult, CurlRequestParams, analyze_url_to_curl, curl_to_analyze_url,
+    is_curl_error, looks_like_curl, parse_curl, to_curl,
 };
 pub use html::HtmlParser;
 pub use jsonpath::JsonPathParser;
 pub use regex_engine::{
-    compile_regex_on_stack, compile_regex_safe, RegexEngine, MAX_REGEX_PATTERN_LEN,
+    MAX_REGEX_PATTERN_LEN, RegexEngine, compile_regex_on_stack, compile_regex_safe,
 };
 pub use review_rule_parser::{
-    parse_detail_page, parse_detail_page_with, parse_reply_page, parse_reply_page_with,
-    parse_summary, parse_summary_with, ReviewDetailItem, ReviewDetailPage, ReviewSummaryResult,
+    ReviewDetailItem, ReviewDetailPage, ReviewSummaryResult, parse_detail_page,
+    parse_detail_page_with, parse_reply_page, parse_reply_page_with, parse_summary,
+    parse_summary_with,
 };
 pub use rule_analyzer::RuleAnalyzer;
 pub use xpath::XPathParser;

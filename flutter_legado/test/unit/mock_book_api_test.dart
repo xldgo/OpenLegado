@@ -1,8 +1,9 @@
-import 'dart:convert';
+import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import '../fixtures/mock_book_api.dart';
+
 import 'package:flutter_legado/src/models/models.dart';
 
 /// MockBookApi 全方法可调用性验证
@@ -21,18 +22,18 @@ void main() {
 
   group('初始化/版本', () {
     test('initialize 不抛异常', () async {
-      await api.initialize();
+      await api.runtime.initialize();
     });
 
     test('getVersion 返回 mock 版本号', () async {
-      final v = await api.getVersion();
+      final v = await api.runtime.getVersion();
       expect(v, contains('mock'));
     });
   });
 
   group('书架操作', () {
     test('getBooks 返回 10 本样例书', () async {
-      final books = await api.getBooks();
+      final books = await api.bookshelfRepository.getBooks();
       expect(books.length, 10);
       expect(books[0].name, '示例书籍 01');
       expect(books[1].name, '示例书籍 02');
@@ -41,48 +42,50 @@ void main() {
 
     test('addBook 添加后可获取', () async {
       final book = Book(bookUrl: 'mock://new', name: '新书', author: '测试');
-      await api.addBook(book);
-      final books = await api.getBooks();
+      await api.bookshelfRepository.addBook(book);
+      final books = await api.bookshelfRepository.getBooks();
       expect(books.length, 11);
     });
 
     test('getBook 按 URL 获取', () async {
-      final book = await api.getBook('mock://book/1');
+      final book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book, isNotNull);
       expect(book!.name, '示例书籍 01');
     });
 
     test('getBook 不存在返回 null', () async {
-      final book = await api.getBook('mock://nonexist');
+      final book = await api.bookshelfRepository.getBook('mock://nonexist');
       expect(book, isNull);
     });
 
     test('deleteBook 删除后数量减少', () async {
-      await api.deleteBook('mock://book/1');
-      final books = await api.getBooks();
+      await api.bookshelfRepository.deleteBook('mock://book/1');
+      final books = await api.bookshelfRepository.getBooks();
       expect(books.length, 9);
     });
 
     test('topBook/unTopBook 修改 order', () async {
-      await api.topBook('mock://book/1');
-      var book = await api.getBook('mock://book/1');
+      await api.bookshelfRepository.topBook('mock://book/1');
+      var book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.order, -1);
 
-      await api.unTopBook('mock://book/1');
-      book = await api.getBook('mock://book/1');
+      await api.bookshelfRepository.unTopBook('mock://book/1');
+      book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.order, 0);
     });
 
     test('setBookGroup 修改分组', () async {
-      await api.setBookGroup('mock://book/1', 5);
-      final book = await api.getBook('mock://book/1');
+      await api.bookshelfRepository.setBookGroup('mock://book/1', 5);
+      final book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.group, 5);
     });
 
     // [cbz 批 C | 2026-10-03] mock importLocalBook 与 Rust 行为对齐：
     // .cbz → LOCAL|image(0x1040)；其余本地格式仅 LOCAL 无媒体位。
     test('importLocalBook cbz 返回 LOCAL|image(0x1040)，与 Rust 对齐', () async {
-      final book = await api.importLocalBook('/books/本地漫画.cbz');
+      final book = await api.localBookService.importLocalBook(
+        '/books/本地漫画.cbz',
+      );
       expect(book.bookType, 0x1040, reason: 'cbz 应为 LOCAL|image 位域组合');
       expect(book.bookType & BookType.local, BookType.local);
       expect(book.bookType & BookType.image, BookType.image);
@@ -91,17 +94,19 @@ void main() {
     });
 
     test('importLocalBook cbz 扩展名大小写不敏感', () async {
-      final book = await api.importLocalBook(r'D:\Books\Comic.CBZ');
+      final book = await api.localBookService.importLocalBook(
+        r'D:\Books\Comic.CBZ',
+      );
       expect(book.bookType, BookType.local | BookType.image);
       expect(book.bookType & BookType.image, BookType.image);
     });
 
     test('importLocalBook 非 cbz（txt/epub）保持 LOCAL 无媒体位', () async {
-      final txt = await api.importLocalBook('/books/小说.txt');
+      final txt = await api.localBookService.importLocalBook('/books/小说.txt');
       expect(txt.bookType, BookType.local);
       expect(txt.bookType & BookType.image, 0);
 
-      final epub = await api.importLocalBook('/books/小说.epub');
+      final epub = await api.localBookService.importLocalBook('/books/小说.epub');
       expect(epub.bookType, BookType.local);
       expect(epub.bookType & BookType.image, 0);
     });
@@ -109,48 +114,58 @@ void main() {
 
   group('书源操作', () {
     test('getBookSources 返回 3 个预置书源', () async {
-      final sources = await api.getBookSources();
+      final sources = await api.bookSourceRepository.getBookSources();
       expect(sources.length, 3);
     });
 
     test('getEnabledBookSources 只返回启用的', () async {
-      final sources = await api.getEnabledBookSources();
+      final sources = await api.bookSourceRepository.getEnabledBookSources();
       expect(sources.length, 2);
     });
 
     test('enableBookSource/disableBookSource 切换状态', () async {
-      await api.disableBookSource('https://www.kaixin7days.com');
-      var enabled = await api.getEnabledBookSources();
+      await api.bookSourceRepository.disableBookSource(
+        'https://www.kaixin7days.com',
+      );
+      var enabled = await api.bookSourceRepository.getEnabledBookSources();
       expect(enabled.length, 1);
 
-      await api.enableBookSource('https://www.kaixin7days.com');
-      enabled = await api.getEnabledBookSources();
+      await api.bookSourceRepository.enableBookSource(
+        'https://www.kaixin7days.com',
+      );
+      enabled = await api.bookSourceRepository.getEnabledBookSources();
       expect(enabled.length, 2);
     });
 
     test('importBookSources 返回导入数量', () async {
-      final count = await api.importBookSources('[{},{}]');
+      final count = await api.bookSourceRepository.importBookSources('[{},{}]');
       expect(count, 2);
     });
 
     test('exportBookSources 返回 JSON', () async {
-      final json = await api.exportBookSources();
+      final json = await api.bookSourceRepository.exportBookSources();
       expect(json, contains('笔趣阁'));
     });
 
     // [Task #63 冻结 / #64-65 实现，#68 评审 S1/C1 语义对齐]
     // 契约 §2.3 setSourceVariable（台账 §5.11-3）
     test('setSourceVariable 写入/清除书源变量', () async {
-      await api.setSourceVariable('https://www.kaixin7days.com', 'key=value');
-      var sources = await api.getBookSources();
+      await api.bookSourceRepository.setSourceVariable(
+        'https://www.kaixin7days.com',
+        'key=value',
+      );
+      var sources = await api.bookSourceRepository.getBookSources();
       final src = sources.firstWhere(
         (s) => s.bookSourceUrl == 'https://www.kaixin7days.com',
       );
       expect(src.variable, 'key=value');
 
       // 空串=清除（对齐 Rust 单列 UPDATE 语义；C1 后 variable 为非空串）
-      await api.setSourceVariable('https://www.kaixin7days.com', '');
-      sources = await api.getBookSources();
+      await api.bookSourceRepository.setSourceVariable(
+        'https://www.kaixin7days.com',
+        '',
+      );
+      sources = await api.bookSourceRepository.getBookSources();
       final cleared = sources.firstWhere(
         (s) => s.bookSourceUrl == 'https://www.kaixin7days.com',
       );
@@ -160,25 +175,38 @@ void main() {
     // 评审 S1：书源不存在时抛错，对齐 Rust Internal 语义
     test('setSourceVariable 书源不存在时抛错', () async {
       await expectLater(
-        api.setSourceVariable('https://not-exist.example.com', 'x'),
+        api.bookSourceRepository.setSourceVariable(
+          'https://not-exist.example.com',
+          'x',
+        ),
         throwsException,
       );
     });
 
     // 契约 §2.3 clearCookie（2026-08-12 P1-2）
     test('clearCookie 空 url 抛错，合法 url 成功', () async {
-      await expectLater(api.clearCookie('  '), throwsException);
-      await api.clearCookie('https://www.example.com/path');
+      await expectLater(api.networkService.clearCookie('  '), throwsException);
+      await api.networkService.clearCookie('https://www.example.com/path');
     });
   });
 
   group('cURL AnalyzeUrl', () {
     test('looksLikeCurl / roundtrip 最简路径', () async {
-      expect(await api.looksLikeCurl('curl -L https://example.com'), isTrue);
-      expect(await api.looksLikeCurl('https://example.com'), isFalse);
-      final a = await api.curlToAnalyzeUrl('curl -L https://example.com/book');
+      expect(
+        await api.bookSourceEditService.looksLikeCurl(
+          'curl -L https://example.com',
+        ),
+        isTrue,
+      );
+      expect(
+        await api.bookSourceEditService.looksLikeCurl('https://example.com'),
+        isFalse,
+      );
+      final a = await api.bookSourceEditService.curlToAnalyzeUrl(
+        'curl -L https://example.com/book',
+      );
       expect(a, 'https://example.com/book');
-      final c = await api.analyzeUrlToCurl(a);
+      final c = await api.bookSourceEditService.analyzeUrlToCurl(a);
       expect(c, contains('curl'));
       expect(c, contains('https://example.com/book'));
     });
@@ -186,57 +214,65 @@ void main() {
 
   group('搜索操作', () {
     test('searchBooks 返回 5 条结果', () async {
-      final results = await api.searchBooks('斗破');
+      final results = await api.searchService.searchBooks('斗破');
       expect(results.length, 5);
       expect(results[0].book.name, contains('斗破'));
     });
 
     test('searchMulti 返回多源结果', () async {
-      final results = await api.searchMulti('测试');
+      final results = await api.searchService.searchMulti('测试');
       expect(results.length, 3);
     });
 
     test('cancelSearch 不抛异常', () async {
-      await api.cancelSearch();
+      await api.searchService.cancelSearch();
     });
 
     test('searchSource 返回换源结果', () async {
-      final results = await api.searchSource('斗破苍穹', '天蚕土豆');
+      final results = await api.sourceSwitchService.searchSource(
+        '斗破苍穹',
+        '天蚕土豆',
+      );
       expect(results.length, 3);
     });
 
-    test('switchSource 返回新书 URL', () async {
-      final url = await api.switchSource('old', 'source', 'new_url');
-      expect(url, 'new_url');
-    });
-
-    test(
-      'switchSourcePrefetch 直通 switchSource 并计数'
-      '（2026-09-24 换源预拉缓存：命中/未命中语义由 Rust 侧承担，'
-      'mock 仅记录调用供单测断言 call count）',
-      () async {
-        final before = api.prefetchApplyCallCount;
-        final url = await api.switchSourcePrefetch('old', 'source', 'new_url');
-        expect(url, 'new_url');
-        expect(api.prefetchApplyCallCount, before + 1);
-      },
-    );
-
-    test('cancelSwitchSourceApply 计数且无副作用', () async {
-      final before = api.cancelApplyCallCount;
-      await api.cancelSwitchSourceApply();
-      expect(api.cancelApplyCallCount, before + 1);
+    test('普通及预拉Mock换源共享书架并保留主键与进度', () async {
+      const original = Book(
+        bookUrl: 'stable',
+        name: '书',
+        durChapterIndex: 5,
+        durChapterPos: 80,
+      );
+      await api.bookshelfRepository.addBook(original);
+      final first = await api.sourceSwitchService.switchSource(
+        'stable',
+        'source-a',
+        'page-a',
+      );
+      final second = await api.sourceSwitchService.switchSourcePrefetch(
+        'stable',
+        'source-b',
+        'page-b',
+      );
+      expect(first.bookUrl, 'stable');
+      expect(second.originBookUrl, 'page-b');
+      expect(second.durChapterIndex, 5);
+      expect(second.durChapterPos, 80);
+      expect(await api.bookshelfRepository.getBook('stable'), second);
+      await api.sourceSwitchService.cancelSwitchSourceApply();
     });
   });
 
   group('RSS 源操作', () {
     test('getRssSources 返回 4 个预置源', () async {
-      final sources = await api.getRssSources();
+      final sources = await api.rssSourceRepository.getRssSources();
       expect(sources.length, 4);
     });
 
     test('getRssArticles 每源返回 5 篇文章', () async {
-      final articles = await api.getRssArticles('https://www.yuque.com/legado');
+      final articles = await api.rssArticleRepository.getRssArticles(
+        'https://www.yuque.com/legado',
+      );
       expect(articles.length, 5);
       expect(articles[0].title, isNotEmpty);
     });
@@ -244,58 +280,64 @@ void main() {
 
   group('阅读器操作', () {
     test('getChapters 返回 10 章', () async {
-      final chapters = await api.getChapters('mock://book/1');
+      final chapters = await api.readingRepository.getChapters('mock://book/1');
       expect(chapters.length, 10);
     });
 
     test('getChapterContent 返回正文', () async {
-      final content = await api.getChapterContent('mock://book/1', 0);
+      final content = await api.readingRepository.getChapterContent(
+        'mock://book/1',
+        0,
+      );
       expect(content, contains('示例书籍 01'));
       expect(content.length, greaterThan(100));
     });
 
     test('updateReadingProgress 更新进度', () async {
-      await api.updateReadingProgress(
+      await api.readingRepository.updateReadingProgress(
         bookUrl: 'mock://book/1',
         chapterIndex: 3,
         chapterPos: 100,
       );
-      final book = await api.getBook('mock://book/1');
+      final book = await api.bookshelfRepository.getBook('mock://book/1');
       expect(book!.durChapterIndex, 3);
       expect(book.durChapterPos, 100);
     });
 
     test('refreshToc 返回章节列表', () async {
-      final chapters = await api.refreshToc('mock://book/1', 'mock://source/1');
+      final chapters = await api.readingRepository.refreshToc(
+        'mock://book/1',
+        'mock://source/1',
+      );
       expect(chapters.length, 10);
     });
   });
 
   group('配置操作', () {
     test('setConfig/getConfig 读写一致', () async {
-      await api.setConfig('key1', 'value1');
-      final v = await api.getConfig('key1');
+      await api.configRepository.setConfig('key1', 'value1');
+      final v = await api.configRepository.getConfig('key1');
       expect(v, 'value1');
     });
 
     test('deleteConfig 删除后返回 null', () async {
-      await api.setConfig('key2', 'value2');
-      await api.deleteConfig('key2');
-      final v = await api.getConfig('key2');
+      await api.configRepository.setConfig('key2', 'value2');
+      await api.configRepository.deleteConfig('key2');
+      final v = await api.configRepository.getConfig('key2');
       expect(v, isNull);
     });
 
     test('getAllConfigs 返回所有配置', () async {
-      await api.setConfig('a', '1');
-      await api.setConfig('b', '2');
-      final all = await api.getAllConfigs();
+      await api.configRepository.setConfig('a', '1');
+      await api.configRepository.setConfig('b', '2');
+      final all = await api.configRepository.getAllConfigs();
       expect(all['a'], '1');
       expect(all['b'], '2');
     });
   });
 
   group('书签操作', () {
-    test('addBookmark/getBookmarks 读写一致', () async {
+    test('窄接口 addBookmark/getBookmarksByBook 读写一致', () async {
       final bm = Bookmark(
         bookName: '斗破苍穹',
         bookAuthor: '天蚕土豆',
@@ -305,15 +347,18 @@ void main() {
         bookText: '测试文本',
         content: '测试备注',
       );
-      await api.addBookmark(bm);
-      final list = await api.getBookmarks('斗破苍穹');
+      await api.bookmarkRepository.addBookmark(bm);
+      final list = await api.bookmarkRepository.getBookmarksByBook(
+        '斗破苍穹',
+        '天蚕土豆',
+      );
       expect(list.length, 1);
       expect(list[0].content, '测试备注');
     });
 
     // [Task #65] 契约 §2.7 getBookmarksByBook（台账 §5.14-2）
     test('getBookmarksByBook 按书名+作者双键过滤', () async {
-      await api.addBookmark(
+      await api.bookmarkRepository.addBookmark(
         Bookmark(
           bookName: '斗破苍穹',
           bookAuthor: '天蚕土豆',
@@ -325,7 +370,7 @@ void main() {
         ),
       );
       // 同名不同作者不得混入（对齐原版 bookmarkDao.getByBook）
-      await api.addBookmark(
+      await api.bookmarkRepository.addBookmark(
         Bookmark(
           bookName: '斗破苍穹',
           bookAuthor: '同名作者',
@@ -336,10 +381,16 @@ void main() {
           content: '',
         ),
       );
-      final hit = await api.getBookmarksByBook('斗破苍穹', '天蚕土豆');
+      final hit = await api.bookmarkRepository.getBookmarksByBook(
+        '斗破苍穹',
+        '天蚕土豆',
+      );
       expect(hit.length, 1);
       expect(hit[0].content, '命中');
-      final miss = await api.getBookmarksByBook('斗破苍穹', '不存在的作者');
+      final miss = await api.bookmarkRepository.getBookmarksByBook(
+        '斗破苍穹',
+        '不存在的作者',
+      );
       expect(miss, isEmpty);
     });
 
@@ -353,9 +404,9 @@ void main() {
         bookText: '',
         content: '',
       );
-      final added = await api.addBookmark(bm);
-      await api.deleteBookmark(added.id);
-      final list = await api.getAllBookmarks();
+      final added = await api.bookmarkRepository.addBookmark(bm);
+      await api.bookmarkRepository.deleteBookmark(added.id);
+      final list = await api.bookmarkRepository.getAllBookmarks();
       expect(list, isEmpty);
     });
   });
@@ -363,8 +414,8 @@ void main() {
   group('替换规则操作', () {
     test('addReplaceRule/getReplaceRules 读写一致', () async {
       final rule = ReplaceRule(name: '测试规则', pattern: 'a', replacement: 'b');
-      await api.addReplaceRule(rule);
-      final rules = await api.getReplaceRules();
+      await api.replaceRuleRepository.addReplaceRule(rule);
+      final rules = await api.replaceRuleRepository.getReplaceRules();
       expect(rules.length, 1);
       expect(rules[0].name, '测试规则');
     });
@@ -372,59 +423,61 @@ void main() {
 
   group('书籍分组', () {
     test('getBookGroups 返回预置分组', () async {
-      final groups = await api.getBookGroups();
+      final groups = await api.bookGroupRepository.getBookGroups();
       expect(groups.length, 2);
       expect(groups[0].groupName, '科幻');
       expect(groups[1].groupName, '收藏');
     });
 
     test('addBookGroup 添加后可获取', () async {
-      await api.addBookGroup(BookGroup(groupName: '玄幻', order: 1));
-      final groups = await api.getBookGroups();
+      await api.bookGroupRepository.addBookGroup(
+        BookGroup(groupName: '玄幻', order: 1),
+      );
+      final groups = await api.bookGroupRepository.getBookGroups();
       expect(groups.length, 3);
     });
   });
 
   group('搜索历史', () {
     test('addSearchKeyword/getSearchHistory 读写一致', () async {
-      await api.addSearchKeyword('斗破', '斗破苍穹');
-      final history = await api.getSearchHistory();
+      await api.searchHistoryRepository.addSearchKeyword('斗破', '斗破苍穹');
+      final history = await api.searchHistoryRepository.getSearchHistory();
       expect(history.length, 1);
       expect(history[0].word, '斗破');
     });
 
     test('clearSearchHistory 清空', () async {
-      await api.addSearchKeyword('test', '');
-      await api.clearSearchHistory();
-      final history = await api.getSearchHistory();
+      await api.searchHistoryRepository.addSearchKeyword('test', '');
+      await api.searchHistoryRepository.clearSearchHistory();
+      final history = await api.searchHistoryRepository.getSearchHistory();
       expect(history, isEmpty);
     });
   });
 
   group('缓存管理', () {
     test('getCacheSize 返回正数', () async {
-      final size = await api.getCacheSize();
+      final size = await api.cacheRepository.getCacheSize();
       expect(size, greaterThan(0));
     });
 
     test('clearCache 不抛异常', () async {
-      await api.clearCache();
+      await api.cacheRepository.clearCache();
     });
   });
 
   group('HTTP TTS', () {
     test('addHttpTts/getHttpTts 读写一致', () async {
-      await api.addHttpTts(
+      await api.httpTtsRepository.addHttpTts(
         HttpTts(name: '测试引擎', url: 'http://tts.example.com'),
       );
-      final list = await api.getHttpTts();
+      final list = await api.httpTtsRepository.getHttpTts();
       // 预置 2 个真实 TTS 引擎 + 新增 1 个
       expect(list.length, 3);
       expect(list.last.name, '测试引擎');
     });
 
     test('预置 TTS 引擎来自 Android 真实样本', () async {
-      final list = await api.getHttpTts();
+      final list = await api.httpTtsRepository.getHttpTts();
       expect(list.length, 2);
       expect(list[0].name, '1.百度');
       expect(list[0].contentType, 'audio/wav');
@@ -433,55 +486,46 @@ void main() {
     });
   });
 
-  group('下载管理器', () {
-    test('downloadAddTask 返回任务 ID', () async {
-      final id = await api.downloadAddTask(
-        bookUrl: 'mock://book/1',
-        chapterUrl: 'mock://ch/1',
-        chapterTitle: '第1章',
-        chapterIndex: 0,
-      );
-      expect(id, isNotEmpty);
-    });
-
-    test('downloadGetStats 返回 JSON', () async {
-      final stats = await api.downloadGetStats();
-      expect(stats, contains('total'));
-    });
-  });
-
   group('WebDAV 云同步', () {
-    test('webdavListDir 返回 JSON', () async {
-      final result = await api.webdavListDir('{}', '/');
-      expect(result, isNotEmpty);
+    test('webdavListDir 返回目录列表', () async {
+      final result = await api.webDavService.webdavListDir(
+        const WebDavConnection(),
+        '/',
+      );
+      expect(result, isEmpty);
     });
 
-    test('webdavFullSync 返回成功', () async {
-      final result = await api.webdavFullSync('{}', '/books', '/sources');
-      expect(result, contains('synced'));
+    test('webdavFullSync占位返回文档，不声称远端同步', () async {
+      final result = await api.webDavService.webdavFullSync(
+        const WebDavConnection(),
+        '/books',
+        '/sources',
+      );
+      expect(result.books, '/books');
+      expect(result.sources, '/sources');
     });
   });
 
   group('自动任务', () {
     test('autoTaskBuildBookUpdateTask 返回任务', () async {
-      final task = await api.autoTaskBuildBookUpdateTask(
+      final task = await api.autoTaskService.buildBookUpdateTask(
         bookUrl: 'mock://book/1',
         bookName: '斗破苍穹',
         bookAuthor: '天蚕土豆',
         name: '更新任务',
       );
-      expect(task['name'], '更新任务');
-      expect(task['cron'], isNotEmpty);
+      expect(task.name, '更新任务');
+      expect(task.cron, isNotEmpty);
     });
 
     test('autoTaskNormalizeScript 去除前缀', () async {
-      final result = await api.autoTaskNormalizeScript(script: '@js:alert(1)');
+      final result = await api.autoTaskService.normalizeScript('@js:alert(1)');
       expect(result, 'alert(1)');
     });
 
     test('autoTaskNextDueAt 返回未来时间', () async {
       final now = DateTime.now().millisecondsSinceEpoch;
-      final next = await api.autoTaskNextDueAt(
+      final next = await api.autoTaskService.nextDueAt(
         cron: '0 0 8 * * *',
         fromMs: now,
       );
@@ -491,25 +535,38 @@ void main() {
 
   group('压缩包导入', () {
     test('archiveIsArchive 正确判断', () async {
-      expect(await api.archiveIsArchive(filePath: 'test.zip'), true);
-      expect(await api.archiveIsArchive(filePath: 'test.rar'), true);
-      expect(await api.archiveIsArchive(filePath: 'test.txt'), false);
+      expect(
+        await api.bookArchiveService.archiveIsArchive(filePath: 'test.zip'),
+        true,
+      );
+      expect(
+        await api.bookArchiveService.archiveIsArchive(filePath: 'test.rar'),
+        true,
+      );
+      expect(
+        await api.bookArchiveService.archiveIsArchive(filePath: 'test.txt'),
+        false,
+      );
     });
 
     test('archiveListZipFiles 返回文件列表', () async {
-      final files = await api.archiveListZipFiles(zipPath: 'test.zip');
+      final files = await api.bookArchiveService.archiveListZipFiles(
+        zipPath: 'test.zip',
+      );
       expect(files, isNotEmpty);
     });
 
     test('archiveDetectEncoding 返回编码信息', () async {
-      final result = await api.archiveDetectEncoding(filePath: 'test.txt');
-      expect(result['encoding'], 'UTF-8');
+      final result = await api.bookArchiveService.archiveDetectEncoding(
+        filePath: 'test.txt',
+      );
+      expect(result.encoding, 'UTF-8');
     });
   });
 
   group('发现页操作', () {
     test('exploreParseUrl 解析分类', () async {
-      final categories = await api.exploreParseUrl(
+      final categories = await api.exploreService.parseCategories(
         '玄幻::http://a.com\n都市::http://b.com',
       );
       expect(categories.length, 2);
@@ -517,99 +574,96 @@ void main() {
     });
 
     test('exploreFetchBooks 返回书籍列表', () async {
-      final books = await api.exploreFetchBooks('{}', 'http://a.com', 1);
+      final books = await api.exploreService.fetchBooks(
+        const BookSource(),
+        'http://a.com',
+        1,
+      );
       expect(books.length, 10);
     });
   });
 
   group('书籍导出', () {
     test('bookExport 返回成功', () async {
-      final result = await api.bookExport(
+      final result = await api.bookExportService.bookExportWithOptions(
         bookUrl: 'mock://book/1',
         format: 'txt',
         includeToc: true,
       );
-      expect(result['success'], true);
-      expect(result['file_name'], contains('示例书籍 01'));
+      expect(result.bytes, isNotEmpty);
+      expect(result.fileName, contains('示例书籍 01'));
     });
 
     test('bookExportInfo 返回预览信息', () async {
-      final result = await api.bookExportInfo(
+      final result = await api.bookExportService.bookExportInfo(
         bookUrl: 'mock://book/1',
         format: 'txt',
       );
-      expect(result['success'], true);
-      expect(result['chapter_count'], '10');
+      expect(result.chapterCount, 10);
     });
   });
 
   group('音频播放模式', () {
     test('audioWithPlayMode 写入配置', () async {
-      final result = await api.audioWithPlayMode(playMode: 2);
-      expect(result, contains('"playMode":2'));
-    });
-
-    test('audioResolvePlayBook 解析书籍', () async {
-      final result = await api.audioResolvePlayBook(
-        requestedBookUrl: 'mock://book/1',
-      );
-      expect(result, isNotNull);
-      expect(result!['name'], '示例书籍 01');
+      final result = await api.audioBookService.audioWithPlayMode(playMode: 2);
+      expect(result.playMode, 2);
     });
   });
 
   group('服务器管理', () {
     test('startServer/getServerStatus 状态一致', () async {
-      await api.startServer(port: 8080);
-      final status = await api.getServerStatus();
-      expect(status, contains('running'));
-      expect(status, contains('8080'));
+      await api.localServerService.startServer(port: 8080);
+      final status = await api.localServerService.getServerStatus();
+      expect(status.running, isTrue);
+      expect(status.port, 8080);
     });
 
     test('stopServer 停止后状态为 stopped', () async {
-      await api.startServer();
-      await api.stopServer();
-      final status = await api.getServerStatus();
-      expect(status, 'stopped');
+      await api.localServerService.startServer();
+      await api.localServerService.stopServer();
+      final status = await api.localServerService.getServerStatus();
+      expect(status.running, isFalse);
     });
   });
 
   group('应用日志', () {
     // [审计修复 §1.2] appLog* 五方法可调用性验证 — QoderCN
     test('appLogPush/appLogList 读写一致且最新在前', () async {
-      await api.appLogPush(level: 'message', message: '第一条');
-      await api.appLogPush(level: 'message', message: '第二条');
-      final json = await api.appLogList(level: 'message');
-      expect(json, contains('第二条'));
-      expect(json.indexOf('第二条'), lessThan(json.indexOf('第一条')));
+      await api.appLogRepository.appLogPush(level: 'message', message: '第一条');
+      await api.appLogRepository.appLogPush(level: 'message', message: '第二条');
+      final entries = await api.appLogRepository.appLogList(level: 'message');
+      expect(entries.map((entry) => entry.message), ['第二条', '第一条']);
     });
 
     test('空消息短路不入列', () async {
-      await api.appLogPush(level: 'message', message: '');
-      final json = await api.appLogList(level: 'message');
-      expect(json, '[]');
+      await api.appLogRepository.appLogPush(level: 'message', message: '');
+      final json = await api.appLogRepository.appLogList(level: 'message');
+      expect(json, isEmpty);
     });
 
     test('appLogClear 只清指定级别', () async {
-      await api.appLogPush(level: 'message', message: 'a');
-      await api.appLogPush(level: 'http', message: 'b');
-      await api.appLogClear(level: 'message');
-      expect(await api.appLogList(level: 'message'), '[]');
-      expect(await api.appLogList(level: 'http'), contains('b'));
+      await api.appLogRepository.appLogPush(level: 'message', message: 'a');
+      await api.appLogRepository.appLogPush(level: 'http', message: 'b');
+      await api.appLogRepository.appLogClear(level: 'message');
+      expect(await api.appLogRepository.appLogList(level: 'message'), isEmpty);
+      expect(
+        (await api.appLogRepository.appLogList(level: 'http')).single.message,
+        'b',
+      );
     });
 
     test('appLogClearAll 清空全部', () async {
-      await api.appLogPush(level: 'message', message: 'a');
-      await api.appLogPush(level: 'crash', message: 'b');
-      await api.appLogClearAll();
-      expect(await api.appLogList(level: 'message'), '[]');
-      expect(await api.appLogList(level: 'crash'), '[]');
+      await api.appLogRepository.appLogPush(level: 'message', message: 'a');
+      await api.appLogRepository.appLogPush(level: 'crash', message: 'b');
+      await api.appLogRepository.appLogClearAll();
+      expect(await api.appLogRepository.appLogList(level: 'message'), isEmpty);
+      expect(await api.appLogRepository.appLogList(level: 'crash'), isEmpty);
     });
 
     test('appLogExport 时间升序导出', () async {
-      await api.appLogPush(level: 'message', message: '第一条');
-      await api.appLogPush(level: 'http', message: '第二条');
-      final text = await api.appLogExport();
+      await api.appLogRepository.appLogPush(level: 'message', message: '第一条');
+      await api.appLogRepository.appLogPush(level: 'http', message: '第二条');
+      final text = await api.appLogRepository.appLogExport();
       expect(text, contains('[message] 第一条'));
       expect(text.indexOf('第一条'), lessThan(text.indexOf('第二条')));
     });
@@ -617,46 +671,42 @@ void main() {
 
   group('段评（ruleReview）', () {
     test('reviewGetSummary 返回 counts/keys', () async {
-      final result = await api.reviewGetSummary('{}', '{}');
-      final map = jsonDecode(result) as Map<String, dynamic>;
-      expect(map['counts'], isA<Map>());
-      expect(map['keys'], isA<Map>());
-      expect((map['counts'] as Map)['1'], 3);
+      final result = await api.reviewService.reviewGetSummary('{}', {});
+      expect(result.counts[1], 3);
+      expect(result.keys[1], 'mock-para-1');
     });
-
-    test('reviewGetDetail 返回 items/hasReplyUrl', () async {
-      final result = await api.reviewGetDetail('{}', '{}', 1);
-      final map = jsonDecode(result) as Map<String, dynamic>;
-      expect(map['items'], isA<List>());
-      expect(map['hasReplyUrl'], isTrue);
-      expect((map['items'] as List).length, greaterThan(0));
+    test('reviewGetDetail 返回分页和回复能力', () async {
+      final result = await api.reviewService.reviewGetDetail('{}', {}, 1);
+      expect(result.items, isNotEmpty);
+      expect(result.hasReplyUrl, isTrue);
     });
-
-    test('reviewGetReplies 返回 items', () async {
-      final result = await api.reviewGetReplies('{}', '{}', 1);
-      final map = jsonDecode(result) as Map<String, dynamic>;
-      expect(map['items'], isA<List>());
+    test('reviewGetReplies 返回回复', () async {
+      final result = await api.reviewService.reviewGetReplies('{}', {}, 1);
+      expect(result.items, isNotEmpty);
     });
   });
 
   group('字典规则操作（契约 §2.45）', () {
     test('list 空表 seed 原版默认 5 源（sortNumber 升序）', () async {
-      final list = await api.dictRuleList();
+      final list = await api.dictRuleRepository.dictRuleList();
       expect(list.length, 5);
-      expect(
-        list.map((r) => r['name']).toList(),
-        ['海词中文', '海词英文', '有道', '哔哩', '百度汉语'],
-      );
+      expect(list.map((r) => r.name).toList(), [
+        '海词中文',
+        '海词英文',
+        '有道',
+        '哔哩',
+        '百度汉语',
+      ]);
     });
 
     test('add → update → setEnabled → reorder → delete 全链路往返', () async {
       // add（enabled=true, sortNumber=0）
-      final idA = await api.dictRuleAdd(
+      final idA = await api.dictRuleRepository.dictRuleAdd(
         name: '测试源A',
         urlRule: 'http://a.com/{{key}}',
         showRule: 'json.data',
       );
-      final idB = await api.dictRuleAdd(
+      final idB = await api.dictRuleRepository.dictRuleAdd(
         name: '测试源B',
         urlRule: 'http://b.com/{{key}}',
         showRule: '',
@@ -664,18 +714,22 @@ void main() {
       expect(idA, greaterThan(5));
       expect(idB, idA + 1);
 
-      var list = await api.dictRuleList();
+      var list = await api.dictRuleRepository.dictRuleList();
       expect(list.length, 7);
 
       // name 重复 → 错误（对标原版 name 主键）
       expect(
-        () => api.dictRuleAdd(name: '海词中文', urlRule: '', showRule: ''),
+        () => api.dictRuleRepository.dictRuleAdd(
+          name: '海词中文',
+          urlRule: '',
+          showRule: '',
+        ),
         throwsA(isA<Exception>()),
       );
 
       // update（改 name/urlRule/showRule；不存在返回 false）
       expect(
-        await api.dictRuleUpdate(
+        await api.dictRuleRepository.dictRuleUpdate(
           id: idA,
           name: '测试源A2',
           urlRule: 'http://a2.com',
@@ -684,7 +738,7 @@ void main() {
         isTrue,
       );
       expect(
-        await api.dictRuleUpdate(
+        await api.dictRuleRepository.dictRuleUpdate(
           id: 99999,
           name: 'X',
           urlRule: '',
@@ -692,104 +746,133 @@ void main() {
         ),
         isFalse,
       );
-      list = await api.dictRuleList();
-      final updated = list.firstWhere((r) => r['id'] == idA);
-      expect(updated['name'], '测试源A2');
-      expect(updated['urlRule'], 'http://a2.com');
+      list = await api.dictRuleRepository.dictRuleList();
+      final updated = list.firstWhere((r) => r.id == idA);
+      expect(updated.name, '测试源A2');
+      expect(updated.urlRule, 'http://a2.com');
 
       // setEnabled（禁用；不存在返回 false）
-      expect(await api.dictRuleSetEnabled(id: idA, enabled: false), isTrue);
-      expect(await api.dictRuleSetEnabled(id: 99999, enabled: true), isFalse);
-      list = await api.dictRuleList();
-      expect(list.firstWhere((r) => r['id'] == idA)['enabled'], isFalse);
+      expect(
+        await api.dictRuleRepository.dictRuleSetEnabled(
+          id: idA,
+          enabled: false,
+        ),
+        isTrue,
+      );
+      expect(
+        await api.dictRuleRepository.dictRuleSetEnabled(
+          id: 99999,
+          enabled: true,
+        ),
+        isFalse,
+      );
+      list = await api.dictRuleRepository.dictRuleList();
+      expect(list.firstWhere((r) => r.id == idA).enabled, isFalse);
 
       // reorder（全量重编号：[idB, idA, 默认 5 源 id] → 新顺序与 sortNumber 生效）
-      final allIds = (await api.dictRuleList()).map((r) => r['id'] as int).toList();
+      final allIds = (await api.dictRuleRepository.dictRuleList())
+          .map((r) => r.id)
+          .toList();
       final defaultIds = allIds.where((i) => i <= 5).toList(); // 默认 5 源
       final newOrder = [idB, idA, ...defaultIds];
-      expect(await api.dictRuleReorder(jsonEncode(newOrder)), 7);
-      list = await api.dictRuleList();
-      expect(list.map((r) => r['id']).toList(), newOrder);
-      expect(list.first['sortNumber'], 0);
-      expect(list.last['sortNumber'], 6);
-
-      // reorder 非法 JSON → 明确错误
-      expect(() => api.dictRuleReorder('not a json array'),
-          throwsA(isA<Exception>()));
-      expect(() => api.dictRuleReorder('{"a":1}'), throwsA(isA<Exception>()));
+      expect(await api.dictRuleRepository.dictRuleReorder(newOrder), 7);
+      list = await api.dictRuleRepository.dictRuleList();
+      expect(list.map((r) => r.id).toList(), newOrder);
+      expect(list.first.sortNumber, 0);
+      expect(list.last.sortNumber, 6);
 
       // delete（不存在返回 false）
-      expect(await api.dictRuleDelete(idA), isTrue);
-      expect(await api.dictRuleDelete(99999), isFalse);
-      list = await api.dictRuleList();
+      expect(await api.dictRuleRepository.dictRuleDelete(idA), isTrue);
+      expect(await api.dictRuleRepository.dictRuleDelete(99999), isFalse);
+      list = await api.dictRuleRepository.dictRuleList();
       expect(list.length, 6);
-      expect(list.where((r) => r['id'] == idA), isEmpty);
+      expect(list.where((r) => r.id == idA), isEmpty);
     });
 
-    test('import REPLACE by name：异名插入 / 同名覆盖保留 id / 单对象',
-        () async {
+    test('import REPLACE by name：异名插入 / 同名覆盖保留 id / 单对象', () async {
       final json1 =
           '[{"name":"导入A","urlRule":"http://a","showRule":"sa"},'
           '{"name":"导入B","urlRule":"http://b","showRule":"sb"}]';
-      expect(await api.dictRuleImport(jsonOrUrl: json1, kind: 'text'), 2);
-      final list = await api.dictRuleList();
-      final idA = list.firstWhere((r) => r['name'] == '导入A')['id'] as int;
+      expect(
+        await api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: json1,
+          kind: 'text',
+        ),
+        2,
+      );
+      final list = await api.dictRuleRepository.dictRuleList();
+      final idA = list.firstWhere((r) => r.name == '导入A').id;
 
       // 二次导入：A/B 同名覆盖（A 的 urlRule 变化、id 保留），C 新名插入
       final json2 =
           '[{"name":"导入A","urlRule":"http://a2","showRule":"sa2"},'
           '{"name":"导入B","urlRule":"http://b2","showRule":"sb2"},'
           '{"name":"导入C","urlRule":"http://c","showRule":"sc"}]';
-      expect(await api.dictRuleImport(jsonOrUrl: json2, kind: 'text'), 3);
-      var after = await api.dictRuleList();
-      final a = after.firstWhere((r) => r['name'] == '导入A');
-      expect(a['id'], idA, reason: 'REPLACE by name 应保留原 id');
-      expect(a['urlRule'], 'http://a2');
+      expect(
+        await api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: json2,
+          kind: 'text',
+        ),
+        3,
+      );
+      var after = await api.dictRuleRepository.dictRuleList();
+      final a = after.firstWhere((r) => r.name == '导入A');
+      expect(a.id, idA, reason: 'REPLACE by name 应保留原 id');
+      expect(a.urlRule, 'http://a2');
       expect(after.length, 8); // 默认 5 + A + B + C
 
       // 单对象导入（GSON 缺省 enabled=true / sortNumber=0）
       expect(
-        await api.dictRuleImport(
+        await api.dictRuleRepository.dictRuleImport(
           jsonOrUrl: '{"name":"导入D","urlRule":"http://d","showRule":"sd"}',
           kind: 'text',
         ),
         1,
       );
-      after = await api.dictRuleList();
-      final d = after.firstWhere((r) => r['name'] == '导入D');
-      expect(d['enabled'], isTrue);
-      expect(d['sortNumber'], 0);
+      after = await api.dictRuleRepository.dictRuleList();
+      final d = after.firstWhere((r) => r.name == '导入D');
+      expect(d.enabled, isTrue);
+      expect(d.sortNumber, 0);
       expect(after.length, 9);
 
       // 非法 JSON / 空内容 / URL 导入 → 明确错误（mock 无网络）
       expect(
-        () => api.dictRuleImport(jsonOrUrl: 'not json', kind: 'text'),
+        () => api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: 'not json',
+          kind: 'text',
+        ),
         throwsA(isA<Exception>()),
       );
       expect(
-        () => api.dictRuleImport(jsonOrUrl: '', kind: 'text'),
+        () =>
+            api.dictRuleRepository.dictRuleImport(jsonOrUrl: '', kind: 'text'),
         throwsA(isA<Exception>()),
       );
       expect(
-        () => api.dictRuleImport(jsonOrUrl: 'https://x.com/rules.json', kind: 'url'),
+        () => api.dictRuleRepository.dictRuleImport(
+          jsonOrUrl: 'https://x.com/rules.json',
+          kind: 'url',
+        ),
         throwsA(isA<Exception>()),
       );
     });
   });
 
-  group('替换规则预览（契约 §2.8 previewReplaceRule，[替换规则预览 | 2026-09-13]）',
-      () {
-    test('previewReplaceRule 确定性返回 [mock预览] + 输入并累计调用计数',
-        () async {
+  group('替换规则预览（契约 §2.8 previewReplaceRule，[替换规则预览 | 2026-09-13]）', () {
+    test('previewReplaceRule 确定性返回 [mock预览] + 输入', () async {
       const ruleJson =
           '{"name":"去广告","pattern":"广告","replacement":"【广告】","isRegex":false}';
-      final out = await api.previewReplaceRule(ruleJson, 'AAAA广告');
+      final out = await api.replaceRuleService.previewReplaceRule(
+        ruleJson,
+        'AAAA广告',
+      );
       expect(out, '[mock预览] AAAA广告');
-      expect(api.previewReplaceRuleCalls, 1);
 
       // 空输入同样确定性返回（前缀 + 空串）
-      expect(await api.previewReplaceRule(ruleJson, ''), '[mock预览] ');
-      expect(api.previewReplaceRuleCalls, 2);
+      expect(
+        await api.replaceRuleService.previewReplaceRule(ruleJson, ''),
+        '[mock预览] ',
+      );
     });
   });
 }

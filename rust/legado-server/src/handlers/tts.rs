@@ -2,9 +2,9 @@
 //!
 //! 参考 Kotlin 实现 `HttpTTS.kt`，通过 HTTP 请求外部 TTS 引擎将文本转换为语音。
 
-use axum::extract::State;
 use axum::Json;
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use axum::extract::State;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -47,85 +47,28 @@ pub struct TtsResponse {
 /// 2. 通过 reqwest 发送 GET 请求获取音频二进制数据
 /// 3. 将音频字节进行 Base64 编码返回
 pub async fn speak(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<TtsRequest>,
 ) -> Result<Json<TtsResponse>, ApiError> {
-    // 构建 TTS URL：替换 {speakText} 占位符
-    let encoded_text = urlencoding::encode(&req.text);
-    let mut url = req.engine_url.replace("{speakText}", &encoded_text);
-
-    // 可选参数：附加到 URL query string
-    if let Some(voice) = &req.voice_name {
-        url = append_query(&url, "voice", voice);
+    let mut parameters = Vec::new();
+    if let Some(voice) = req.voice_name {
+        parameters.push(("voice", voice));
     }
     if let Some(speed) = req.speed {
-        url = append_query(&url, "speed", &speed.to_string());
+        parameters.push(("speed", speed.to_string()));
     }
     if let Some(pitch) = req.pitch {
-        url = append_query(&url, "pitch", &pitch.to_string());
+        parameters.push(("pitch", pitch.to_string()));
     }
     if let Some(volume) = req.volume {
-        url = append_query(&url, "volume", &volume.to_string());
+        parameters.push(("volume", volume.to_string()));
     }
-
-    // 使用 reqwest 发送请求获取音频字节
-    let client = legado_net::tls::client();
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| ApiError(LegadoError::Network(format!("TTS request failed: {}", e))))?;
-
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("audio/mpeg")
-        .to_string();
-
-    // 检查是否是重定向到音频 URL（某些 TTS 引擎返回 Location 头）
-    if content_type.starts_with("text/") || content_type.starts_with("application/json") {
-        // 可能返回的是 JSON 或文本，检查是否有音频 URL
-        let text = response.text().await.map_err(|e| {
-            ApiError(LegadoError::Network(format!(
-                "TTS read response failed: {}",
-                e
-            )))
-        })?;
-
-        // 尝试解析为 JSON 提取 audio_url
-        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str()) {
-                return Ok(Json(TtsResponse {
-                    audio_url: Some(audio_url.to_string()),
-                    audio_data: None,
-                    content_type: "audio/mpeg".to_string(),
-                }));
-            }
-        }
-
-        // 非音频响应，直接返回文本作为 URL
-        return Ok(Json(TtsResponse {
-            audio_url: Some(text),
-            audio_data: None,
-            content_type,
-        }));
-    }
-
-    let bytes = response.bytes().await.map_err(|e| {
-        ApiError(LegadoError::Network(format!(
-            "TTS read bytes failed: {}",
-            e
-        )))
-    })?;
-
-    // Base64 编码音频数据
-    let audio_data = STANDARD.encode(&bytes);
-
+    let audio =
+        super::tts_http::synthesize(&state, &req.engine_url, &req.text, &parameters).await?;
     Ok(Json(TtsResponse {
-        audio_url: None,
-        audio_data: Some(audio_data),
-        content_type,
+        audio_url: audio.audio_url,
+        audio_data: audio.audio_data,
+        content_type: audio.content_type,
     }))
 }
 
@@ -150,20 +93,23 @@ pub struct TtsEngine {
 pub async fn list_engines(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<TtsEngine>>, ApiError> {
-    let db = state.db.lock().await;
-    let repo = HttpTtsRepository::new(db.connection());
-    let list = repo.find_enabled()?;
-    let engines = list
-        .into_iter()
-        .map(|t| TtsEngine {
-            id: t.id,
-            name: t.name,
-            url_template: t.url,
-            content_type: t.content_type,
-            is_enabled: t.is_enabled,
+    state
+        .with_database(move |db| {
+            let repo = HttpTtsRepository::new(db.connection());
+            let list = repo.find_enabled()?;
+            let engines = list
+                .into_iter()
+                .map(|t| TtsEngine {
+                    id: t.id,
+                    name: t.name,
+                    url_template: t.url,
+                    content_type: t.content_type.unwrap_or_default(),
+                    is_enabled: t.is_enabled,
+                })
+                .collect();
+            Ok(Json(engines))
         })
-        .collect();
-    Ok(Json(engines))
+        .await?
 }
 
 /// POST /api/tts/synthesize — 使用指定引擎 ID 合成语音
@@ -184,21 +130,24 @@ pub async fn synthesize_by_id(
 ) -> Result<Json<TtsResponse>, ApiError> {
     // 从数据库查找引擎配置
     let engine_url = {
-        let db = state.db.lock().await;
-        let repo = HttpTtsRepository::new(db.connection());
-        let engine = repo.find_by_id(req.engine_id)?.ok_or_else(|| {
-            ApiError(LegadoError::Internal(format!(
-                "TTS 引擎不存在: id={}",
-                req.engine_id
-            )))
-        })?;
-        if !engine.is_enabled {
-            return Err(ApiError(LegadoError::Internal(format!(
-                "TTS 引擎已禁用: id={}",
-                req.engine_id
-            ))));
-        }
-        engine.url
+        state
+            .with_database(move |db| {
+                let repo = HttpTtsRepository::new(db.connection());
+                let engine = repo.find_by_id(req.engine_id)?.ok_or_else(|| {
+                    ApiError(LegadoError::Internal(format!(
+                        "TTS 引擎不存在: id={}",
+                        req.engine_id
+                    )))
+                })?;
+                if !engine.is_enabled {
+                    return Err(ApiError(LegadoError::Internal(format!(
+                        "TTS 引擎已禁用: id={}",
+                        req.engine_id
+                    ))));
+                }
+                Ok::<_, ApiError>(engine.url)
+            })
+            .await??
     };
 
     // 构建 TTS URL：替换 {speakText} 占位符
@@ -234,31 +183,22 @@ pub async fn synthesize_by_id(
     }))
 }
 
-/// 辅助：向 URL 追加 query 参数
-fn append_query(url: &str, key: &str, value: &str) -> String {
-    let encoded_value = urlencoding::encode(value);
-    if url.contains('?') {
-        format!("{}&{}={}", url, key, encoded_value)
-    } else {
-        format!("{}?{}={}", url, key, encoded_value)
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::tts_http::append_query;
     use super::*;
 
     #[test]
     fn test_append_query_no_existing_params() {
         let url = "https://example.com/tts";
-        let result = append_query(url, "voice", "en-US");
+        let result = append_query(url, "voice", "en-US").unwrap();
         assert_eq!(result, "https://example.com/tts?voice=en-US");
     }
 
     #[test]
     fn test_append_query_with_existing_params() {
         let url = "https://example.com/tts?text=hello";
-        let result = append_query(url, "speed", "1.5");
+        let result = append_query(url, "speed", "1.5").unwrap();
         assert_eq!(result, "https://example.com/tts?text=hello&speed=1.5");
     }
 

@@ -1,3 +1,6 @@
+import '../fixtures/routing_test_app.dart';
+import '../fixtures/app_test_api.dart';
+
 // [08 元信息区对齐 | 台账 0922 修订] 书籍详情页元信息区元素集回归守卫：
 // 对标参考 io.legato.kazusa 08 屏（docs/parity_shots/ref_20260914/08_book_info.png
 // + ref_dark_20260920/08_book_info.xml + 参考源 BookInfoScreen.kt/HighlightTagRow.kt）：
@@ -8,7 +11,8 @@
 // - chips 行无章数 chip（章数由「共 N 章」行承载）
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/widgets/app_menu.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -20,10 +24,11 @@ import 'package:share_plus_platform_interface/share_plus_platform_interface.dart
 import 'package:share_plus_platform_interface/method_channel/method_channel_share.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/domain/models/source_action_result.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -54,7 +59,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -62,30 +67,35 @@ void main() {
   Widget wrap(Widget child) {
     return UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(home: child),
+      child: RoutingTestApp(home: child),
     );
   }
 
   /// 预载书架分组（分组 chip 读取 bookshelfNotifierProvider.groups）
   Future<void> loadGroups(List<BookGroup> groups) async {
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => groups);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => groups);
     await container.read(bookshelfNotifierProvider.notifier).refresh();
   }
 
   void stubBook(Book book, [List<BookChapter> chapters = const []]) {
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => book);
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => chapters);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
     when(
-      () => mockApi.sourceCallBackBtn(
+      () => mockApi.sourceActionService.sourceCallBackBtn(
         event: any(named: 'event'),
         bookUrl: any(named: 'bookUrl'),
         result: any(named: 'result'),
         bookType: any(named: 'bookType'),
       ),
     ).thenAnswer(
-      (_) async => {'invoked': false, 'jsTrue': false, 'actions': <dynamic>[]},
+      (_) async => SourceCallbackResult(invoked: false, jsTrue: false),
     );
   }
 
@@ -124,6 +134,101 @@ void main() {
         '${book.bookUrl}#${jsonEncode(book.toJson())}',
       );
     });
+
+    for (final handled in [false, true]) {
+      testWidgets(handled ? '回调接管后不重复默认分享、复制和清缓存' : '回调未接管时继续默认分享、复制和清缓存', (
+        tester,
+      ) async {
+        const book = Book(
+          bookUrl: 'https://source.test/book',
+          name: '书',
+          tocUrl: 'https://source.test/toc',
+        );
+        stubBook(book);
+        await loadGroups(const []);
+        final events = <String>[];
+        final shares = <MethodCall>[];
+        final copies = <String>[];
+        when(
+          () => mockApi.sourceActionService.sourceCallBackBtn(
+            event: any(named: 'event'),
+            bookUrl: book.bookUrl,
+            result: any(named: 'result'),
+            bookType: 0,
+          ),
+        ).thenAnswer((call) async {
+          events.add(call.namedArguments[#event] as String);
+          return SourceCallbackResult(invoked: handled, jsTrue: handled);
+        });
+        when(() => mockApi.chapterCacheRepository.clearBookCache(book.bookUrl))
+            .thenAnswer((_) async => 5);
+        const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          shareChannel,
+          (call) async {
+            shares.add(call);
+            return 'dev.fluttercommunity.plus/share/unavailable';
+          },
+        );
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copies.add((call.arguments as Map)['text'] as String);
+            }
+            return null;
+          },
+        );
+        addTearDown(() {
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            shareChannel,
+            null,
+          );
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          );
+        });
+        await tester.pumpWidget(wrap(const BookInfoScreen(book: book)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('分享'));
+        await tester.pumpAndSettle();
+        final menu = tester.widget<AppMenuButton<String>>(
+          find.byType(AppMenuButton<String>).first,
+        );
+        for (final action in ['copyBookUrl', 'copyTocUrl', 'clearCache']) {
+          menu.onSelected!(action);
+          await tester.pumpAndSettle();
+          if (action != 'clearCache') {
+            // 等前一个复制提示消失，避免遮住后续清缓存结果。
+            await tester.pump(const Duration(seconds: 5));
+            await tester.pumpAndSettle();
+          }
+        }
+        expect(events, [
+          'clickShareBook',
+          'clickCopyBookUrl',
+          'clickCopyTocUrl',
+          'clickClearCache',
+        ]);
+        expect(shares, hasLength(handled ? 0 : 1));
+        expect(copies, handled ? isEmpty : equals([book.bookUrl, book.tocUrl]));
+        if (handled) {
+          verifyNever(
+            () => mockApi.chapterCacheRepository.clearBookCache(book.bookUrl),
+          );
+          expect(find.textContaining('已清除'), findsNothing);
+        } else {
+          verify(
+            () => mockApi.chapterCacheRepository.clearBookCache(book.bookUrl),
+          ).called(1);
+          expect(find.text('已清除 5 条章节缓存'), findsOneWidget);
+        }
+        await tester.pump(const Duration(seconds: 12));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('无独立「目录：」/「分组：」行、无「🏷️ 标签行」，'
         'kind 信息以 chips 行呈现，章数由「共 N 章」行承载', (tester) async {
@@ -242,7 +347,7 @@ void main() {
     testWidgets('kind chip 点击进搜索页（原 🏷️ 行逐 tag 搜索入口迁移）', (tester) async {
       final pushed = <String>[];
       final observer = _PushedRouteObserver(pushed);
-      final routes = Map<String, WidgetBuilder>.from(AppRoutes.routes)
+      final routes = Map<String, WidgetBuilder>.from(AppRouter().routes)
         ..remove('/');
       routes[AppRoutes.search] = (_) =>
           const Scaffold(key: Key('search-stub'), body: Text('搜索页'));
@@ -258,7 +363,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: RoutingTestApp(
             home: BookInfoScreen(book: book),
             routes: routes,
             navigatorObservers: [observer],
@@ -285,7 +390,7 @@ void main() {
       await tester.longPress(find.text('武侠'));
       await tester.pumpAndSettle();
       verify(
-        () => mockApi.sourceCallBackBtn(
+        () => mockApi.sourceActionService.sourceCallBackBtn(
           event: 'longClickBookLabel',
           bookUrl: book.bookUrl,
           result: '武侠',

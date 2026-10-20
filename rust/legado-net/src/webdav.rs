@@ -3,6 +3,7 @@
 //! 支持 WebDAV 协议的基本操作：PROPFIND, PUT, GET, DELETE, MKCOL
 //! 支持增量同步、冲突检测、冲突合并、断点续传
 
+use crate::http_error::reqwest_error_chain;
 use legado_core::{LegadoError, LegadoResult};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -35,8 +36,15 @@ pub struct WebDavClient {
 
 impl WebDavClient {
     pub fn new(config: WebDavConfig) -> Self {
+        Self::with_custom_hosts(config, crate::custom_hosts::default_hosts())
+    }
+
+    pub fn with_custom_hosts(
+        config: WebDavConfig,
+        hosts: std::sync::Arc<crate::custom_hosts::CustomHosts>,
+    ) -> Self {
         let client = crate::tls::client_builder()
-            .dns_resolver(crate::custom_hosts::resolver())
+            .dns_resolver(hosts.resolver())
             .build()
             .unwrap_or_else(|_| crate::tls::client());
         Self { config, client }
@@ -76,12 +84,12 @@ impl WebDavClient {
             .body(body)
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
 
         let xml = response
             .text()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
 
         Self::parse_propfind_response(&xml)
     }
@@ -105,7 +113,7 @@ impl WebDavClient {
             .body(body)
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         let status = response.status();
         if !status.is_success() {
             return Err(LegadoError::Network(format!(
@@ -140,7 +148,7 @@ impl WebDavClient {
             .body(data)
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         let status = response.status();
         if !status.is_success() {
             return Err(LegadoError::Network(format!(
@@ -159,11 +167,11 @@ impl WebDavClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         let bytes = response
             .bytes()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         Ok(bytes.to_vec())
     }
 
@@ -175,7 +183,7 @@ impl WebDavClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         Ok(())
     }
 
@@ -187,7 +195,7 @@ impl WebDavClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         Ok(())
     }
 
@@ -246,7 +254,7 @@ impl WebDavClient {
             .body(data.to_vec())
             .send()
             .await
-            .map_err(|e| LegadoError::Network(e.to_string()))?;
+            .map_err(|e| LegadoError::Network(reqwest_error_chain(&e)))?;
         if response.status() == reqwest::StatusCode::PRECONDITION_FAILED {
             return Ok(false);
         }
@@ -267,10 +275,10 @@ impl WebDavClient {
         let files = self.list_dir(path).await?;
         let mut result = HashMap::new();
         for file in files {
-            if !file.is_dir {
-                if let (Some(etag), Some(modified)) = (&file.etag, &file.last_modified) {
-                    result.insert(file.name, (etag.clone(), modified.clone()));
-                }
+            if !file.is_dir
+                && let (Some(etag), Some(modified)) = (&file.etag, &file.last_modified)
+            {
+                result.insert(file.name, (etag.clone(), modified.clone()));
             }
         }
         Ok(result)
@@ -278,8 +286,8 @@ impl WebDavClient {
 
     /// 解析 PROPFIND XML 响应
     fn parse_propfind_response(xml: &str) -> LegadoResult<Vec<WebDavFileInfo>> {
-        use quick_xml::events::Event;
         use quick_xml::Reader;
+        use quick_xml::events::Event;
 
         let mut reader = Reader::from_str(xml);
         let mut buf = Vec::new();

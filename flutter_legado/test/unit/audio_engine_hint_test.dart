@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // A4 无可用朗读引擎一次性提示测试（音频轨道 A4 批）
 //
 // 覆盖：
@@ -6,15 +8,13 @@
 // 3) 用户配置引擎（engineUrl 非空）→ 提示自动清除
 // 4) 无正文/未进入朗读链 → 不误报
 // 5) startReadAloud（种子导入后仍无兼容引擎）路径同样提示
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
 
@@ -33,10 +33,10 @@ void main() {
     mockApi = MockRustApi();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(mockApi),
+      overrides: mergeTestOverrides([
+        ...mockApi.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
-      ],
+      ]),
     );
     addTearDown(container.dispose);
   });
@@ -46,11 +46,11 @@ void main() {
       container.read(audioNotifierProvider.notifier);
 
   void stubChapter({String content = '第一段文本内容。\n\n第二段文本内容。'}) {
-    when(() => mockApi.getChapters(any())).thenAnswer(
-      (_) async => [const BookChapter(title: '第一章', index: 0)],
-    );
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-    when(() => mockApi.getChapterContentFull(any(), any()))
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => [const BookChapter(title: '第一章', index: 0)]);
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
         .thenAnswer((_) async => content);
   }
 
@@ -71,16 +71,15 @@ void main() {
       expect(readState().errorMessage, kNoUsableEngineHint);
       expect(hintTransitions, 1);
 
-      // 第一段完成 → 第二段（仍无引擎）：提示不得重复出现
-      fakePlayer.completePlayback();
-      await tester.pump();
+      // 无引擎使用估算计时；播放器没有启动，完成事件不能推进段落。
+      expect(fakePlayer.playedLocalFiles, isEmpty);
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
       expect(readNotifier().currentParagraphIndex, 1);
       expect(hintTransitions, 1);
 
       // 末段完成 → stop，提示仍为同一条
-      fakePlayer.completePlayback();
-      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
       expect(readState().errorMessage, kNoUsableEngineHint);
       expect(hintTransitions, 1);
@@ -99,8 +98,9 @@ void main() {
       await readNotifier().play();
       expect(readState().errorMessage, kNoUsableEngineHint);
 
-      readNotifier()
-          .updateConfig(engineUrl: 'https://tts.example.com/{{text}}');
+      readNotifier().updateConfig(
+        engineUrl: 'https://tts.example.com/{{text}}',
+      );
       expect(readState().errorMessage, isNull);
       // 取消估算推进定时器（用例结束无 pending timer）
       readNotifier().stop();
@@ -120,24 +120,29 @@ void main() {
       when(() => audioService.abandonAudioFocus()).thenAnswer((_) async {});
       when(() => audioService.dispose()).thenAnswer((_) async {});
       final localContainer = ProviderContainer(
-        overrides: [
-          bookApiProvider.overrideWithValue(mockApi),
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
           streamAudioPlayerProvider.overrideWithValue(fakePlayer),
           audioServiceProvider.overrideWithValue(audioService),
-        ],
+        ]),
       );
       addTearDown(localContainer.dispose);
 
-      when(() => mockApi.getHttpTts()).thenAnswer((_) async => []);
+      when(() => mockApi.httpTtsRepository.getHttpTts())
+          .thenAnswer((_) async => []);
       stubChapter();
 
       final notifier = localContainer.read(audioNotifierProvider.notifier);
       await notifier.startReadAloud(bookUrl: 'url', bookName: '测试书');
 
-      expect(localContainer.read(audioNotifierProvider).state,
-          PlayerState.playing);
-      expect(localContainer.read(audioNotifierProvider).errorMessage,
-          kNoUsableEngineHint);
+      expect(
+        localContainer.read(audioNotifierProvider).state,
+        PlayerState.playing,
+      );
+      expect(
+        localContainer.read(audioNotifierProvider).errorMessage,
+        kNoUsableEngineHint,
+      );
       notifier.stop();
     });
   });

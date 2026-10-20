@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// [cbz 批 C | 2026-10-03] 导入页 cbz 识别与「整本导入不走解压」回归测试
 ///
 /// 覆盖：
@@ -7,14 +11,12 @@
 /// 3. 对照：.zip 仍走 ArchiveImportDialog 解压路径（钉住格式判定不漂移）。
 ///
 /// path_provider 经 PathProviderPlatform 平台桩注入临时文档目录；
-/// BookApi 经 MockRustApi 注入（importLocalBook 捕获实参）。
-library;
+/// TestApi 经 MockRustApi 注入（importLocalBook 捕获实参）。
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,9 +27,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/archive_import_dialog.dart';
-import 'package:flutter_legado/src/screens/import_screen.dart';
+import 'package:flutter_legado/src/features/imports/presentation/archive_import_dialog.dart';
+import 'package:flutter_legado/src/features/imports/presentation/import_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -66,25 +67,32 @@ void main() {
 
     api = MockRustApi();
     importedPaths = <String>[];
-    when(() => api.getBooks()).thenAnswer((_) async => <Book>[]);
-    when(() => api.getBookGroups()).thenAnswer((_) async => <BookGroup>[]);
-    when(() => api.importLocalBook(any())).thenAnswer((invocation) async {
-      final path = invocation.positionalArguments.first as String;
-      importedPaths.add(path);
-      // 与 Rust importLocalBook 对齐：cbz → LOCAL|image（本测试仅路径为 cbz）
-      return Book(
-        bookUrl: path,
-        name: '本地漫画',
-        author: '本地导入',
-        origin: BookType.localTag,
-        bookType: BookType.local | BookType.image,
-      );
-    });
+    when(() => api.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => <Book>[]);
+    when(() => api.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => <BookGroup>[]);
+    when(() => api.localBookService.importLocalBook(any()))
+        .thenAnswer((invocation) async {
+          final path = invocation.positionalArguments.first as String;
+          importedPaths.add(path);
+          // 与 Rust importLocalBook 对齐：cbz → LOCAL|image（本测试仅路径为 cbz）
+          return Book(
+            bookUrl: path,
+            name: '本地漫画',
+            author: '本地导入',
+            origin: BookType.localTag,
+            bookType: BookType.local | BookType.image,
+          );
+        });
     when(
-      () => api.archiveIsArchive(filePath: any(named: 'filePath')),
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
     ).thenAnswer((_) async => true);
     when(
-      () => api.archiveListZipFiles(zipPath: any(named: 'zipPath')),
+      () => api.bookArchiveService.archiveListZipFiles(
+        zipPath: any(named: 'zipPath'),
+      ),
     ).thenAnswer((_) async => <String>[]);
   });
 
@@ -95,7 +103,7 @@ void main() {
   });
 
   Widget harness() => ProviderScope(
-    overrides: [bookApiProvider.overrideWithValue(api)],
+    overrides: mergeTestOverrides([...api.overrides]),
     child: const MaterialApp(home: ImportScreen()),
   );
 
@@ -139,7 +147,11 @@ void main() {
 
     // 选中 cbz 不弹压缩包对话框
     expect(find.byType(ArchiveImportDialog), findsNothing);
-    verifyNever(() => api.archiveIsArchive(filePath: any(named: 'filePath')));
+    verifyNever(
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
+    );
 
     // 放入书架 → 走 importLocalBook 整本导入
     await tester.tap(find.textContaining('放入书架'));
@@ -148,7 +160,11 @@ void main() {
     expect(importedPaths, hasLength(1));
     expect(importedPaths.single, endsWith('本地漫画.cbz'));
     // 全程未触碰解压判定/对话框
-    verifyNever(() => api.archiveIsArchive(filePath: any(named: 'filePath')));
+    verifyNever(
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
+    );
     expect(find.byType(ArchiveImportDialog), findsNothing);
   });
 
@@ -159,7 +175,9 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(
-      () => api.archiveIsArchive(filePath: any(named: 'filePath')),
+      () => api.bookArchiveService.archiveIsArchive(
+        filePath: any(named: 'filePath'),
+      ),
     ).called(1);
     expect(find.byType(ArchiveImportDialog), findsOneWidget);
     // 压缩包内文件导入走对话框，不直接整本导入压缩包本身

@@ -149,10 +149,10 @@ void main() {
 
     test('data-src / data-original / data-srcset 分支', () {
       for (final attr in ['data-src', 'data-original', 'data-srcset']) {
-        final html =
-            '<img $attr="https://cdn.example.com/c.png" alt="1">';
-        expect(parseComicImageUrls(html), ['https://cdn.example.com/c.png'],
-            reason: attr);
+        final html = '<img $attr="https://cdn.example.com/c.png" alt="1">';
+        expect(parseComicImageUrls(html), [
+          'https://cdn.example.com/c.png',
+        ], reason: attr);
       }
     });
 
@@ -163,13 +163,14 @@ void main() {
 
     test('其它 data-* / 单引号 src 兜底分支', () {
       expect(
-        parseComicImageUrls("<img data-lazy-src='https://cdn.example.com/e.bmp'>"),
+        parseComicImageUrls(
+          "<img data-lazy-src='https://cdn.example.com/e.bmp'>",
+        ),
         ['https://cdn.example.com/e.bmp'],
       );
-      expect(
-        parseComicImageUrls("<img src='https://cdn.example.com/f.png'>"),
-        ['https://cdn.example.com/f.png'],
-      );
+      expect(parseComicImageUrls("<img src='https://cdn.example.com/f.png'>"), [
+        'https://cdn.example.com/f.png',
+      ]);
     });
 
     test('多图混合各分支各取其一', () {
@@ -281,7 +282,18 @@ http://a/2.jpg
       expect(looksLikeImageBytes([0x47, 0x49, 0x46, 0x38]), isTrue);
       expect(
         looksLikeImageBytes([
-          0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+          0x52,
+          0x49,
+          0x46,
+          0x46,
+          0,
+          0,
+          0,
+          0,
+          0x57,
+          0x45,
+          0x42,
+          0x50,
         ]),
         isTrue,
       );
@@ -303,14 +315,35 @@ http://a/2.jpg
       // RIFF 头但 8-11 不是 WEBP → 否
       expect(
         looksLikeImageBytes([
-          0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x00,
+          0x52,
+          0x49,
+          0x46,
+          0x46,
+          0,
+          0,
+          0,
+          0,
+          0x57,
+          0x45,
+          0x42,
+          0x00,
         ]),
         isFalse,
       );
       // 仅 11 字节（长度不足 12）→ 否
       expect(
         looksLikeImageBytes([
-          0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42,
+          0x52,
+          0x49,
+          0x46,
+          0x46,
+          0,
+          0,
+          0,
+          0,
+          0x57,
+          0x45,
+          0x42,
         ]),
         isFalse,
       );

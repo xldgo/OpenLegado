@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // [P4-2b V4] 书架视频分组（对齐原版 IdVideo 聚合语义）
 //
 // 原版依据：
@@ -12,15 +13,13 @@
 // show 查询的动态显隐）。组内书籍过滤由 BookshelfStateGrouping.currentGroupBooks
 // 既有 `BookGroupId.video` 分支完成（bookshelf_state.dart:81-82）。
 
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
 
@@ -47,10 +46,12 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     // 默认：无自定义分组、无视频书
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => []);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [textBook]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [textBook]);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -72,15 +73,16 @@ void main() {
 
   group('书架视频分组（P4-2b V4）', () {
     test('视频书归入视频聚合分组：有视频书时 groups 出现「视频」组', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, textBook]);
 
       await pumpInit();
 
       final groups = readState().groups;
       expect(videoGroupCount(), equals(1));
-      final videoGroup =
-          groups.firstWhere((g) => g.groupId == BookGroupId.video);
+      final videoGroup = groups.firstWhere(
+        (g) => g.groupId == BookGroupId.video,
+      );
       expect(videoGroup.groupName, equals('视频'));
       expect(videoGroup.show, isTrue);
       // 组列表含「全部」+「视频」→ 顶栏出现 Tab（对齐原版 show 查询结果）
@@ -97,20 +99,23 @@ void main() {
       await pumpInit();
 
       expect(videoGroupCount(), equals(0));
-      expect(readState().groups.map((g) => g.groupName).toList(), equals(['全部']));
+      expect(
+        readState().groups.map((g) => g.groupName).toList(),
+        equals(['全部']),
+      );
       // 仅「全部」一组 → 不显示 TabBar（既有 hasGroupTabs 语义）
       expect(readState().hasGroupTabs, isFalse);
     });
 
     test('视频组内过滤：非视频书不入视频组（对齐原版 isVideo 位判定）', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, textBook]);
 
       await pumpInit();
 
-      final videoIndex = readState()
-          .groups
-          .indexWhere((g) => g.groupId == BookGroupId.video);
+      final videoIndex = readState().groups.indexWhere(
+        (g) => g.groupId == BookGroupId.video,
+      );
       expect(videoIndex, greaterThanOrEqualTo(0));
       await readNotifier().selectGroup(videoIndex);
 
@@ -120,9 +125,9 @@ void main() {
     });
 
     test('幂等：数据源已含视频组行时不重复补组', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook]);
-      when(() => mockApi.getBookGroups()).thenAnswer(
+      when(() => mockApi.bookGroupRepository.getBookGroups()).thenAnswer(
         (_) async => [
           const BookGroup(
             groupId: BookGroupId.video,
@@ -143,7 +148,8 @@ void main() {
       await pumpInit();
       expect(videoGroupCount(), equals(0));
 
-      when(() => mockApi.addBook(any())).thenAnswer((_) async => videoBook);
+      when(() => mockApi.bookshelfRepository.addBook(any()))
+          .thenAnswer((_) async => videoBook);
       final ok = await readNotifier().addBook(videoBook);
       expect(ok, isTrue);
 
@@ -154,36 +160,40 @@ void main() {
       );
     });
 
-    test('removeBook 删尽视频书后视频组消失（对齐原版 show 查询动态隐藏）',
-        () async {
-      when(() => mockApi.getBooks())
+    test('removeBook 删尽视频书后视频组消失（对齐原版 show 查询动态隐藏）', () async {
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, textBook]);
       await pumpInit();
       expect(videoGroupCount(), equals(1));
 
-      when(() => mockApi.deleteBook('video://1')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('video://1'))
+          .thenAnswer((_) async {});
       final ok = await readNotifier().removeBook('video://1');
       expect(ok, isTrue);
 
       // 剩余 books 中无视频书 → 视频组被移除
       expect(videoGroupCount(), equals(0));
-      expect(readState().groups.map((g) => g.groupName).toList(), equals(['全部']));
+      expect(
+        readState().groups.map((g) => g.groupName).toList(),
+        equals(['全部']),
+      );
     });
 
     test('仍有视频书时视频组保留', () async {
-      when(() => mockApi.getBooks())
+      when(() => mockApi.bookshelfRepository.getBooks())
           .thenAnswer((_) async => [videoBook, videoBook2, textBook]);
       await pumpInit();
       expect(videoGroupCount(), equals(1));
 
-      when(() => mockApi.deleteBook('video://1')).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook('video://1'))
+          .thenAnswer((_) async {});
       await readNotifier().removeBook('video://1');
 
       // videoBook2 仍在 → 视频组保留
       expect(videoGroupCount(), equals(1));
-      final videoIndex = readState()
-          .groups
-          .indexWhere((g) => g.groupId == BookGroupId.video);
+      final videoIndex = readState().groups.indexWhere(
+        (g) => g.groupId == BookGroupId.video,
+      );
       await readNotifier().selectGroup(videoIndex);
       expect(
         readState().currentGroupBooks.map((b) => b.name).toList(),

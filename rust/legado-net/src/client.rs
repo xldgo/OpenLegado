@@ -21,6 +21,7 @@ use reqwest::redirect::Policy;
 use legado_core::{LegadoError, LegadoResult};
 
 use crate::cookie_store::{CookiePersistence, CookieStore};
+use crate::http_error::reqwest_error_chain;
 use crate::middleware::MiddlewareChain;
 use crate::proxy::{ProxyConfig, ProxyMiddleware, ProxyPool};
 use crate::rate_limit::DomainRateLimiter;
@@ -44,15 +45,13 @@ use crate::user_agent::{UserAgentMiddleware, UserAgentRotator};
 /// "Legado/1.0"，主链路已补注入而 JS 桥四池漏网，指纹不一致致 WAF
 /// cookie 跨层失效）。漂移防护：
 /// `legado-ffi search.rs::test_default_user_agent_matches_net_client_default`。
-pub const DEFAULT_USER_AGENT: &str =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /// 写侧 CookieJar 门控标记头（对齐上游 `CookieManager.cookieJarHeader = "CookieJar"`）
 ///
 /// **语义（对齐上游 `AnalyzeUrl.setCookie` + `HttpHelper` 网络拦截器）**：
 /// - 请求头中存在该键（存在即启用，值不参与判定）→ 响应 `Set-Cookie` 写回
-///   内存 CookieStore 并按域持久化（[`LegadoClient::collect_response`] /
-///   [`LegadoClient::collect_raw_response`]）；
+///   内存 CookieStore 并按域持久化（共享 reqwest provider，覆盖重定向链）；
 /// - 不存在该键 → 写侧整体跳过（响应 cookie 不进内存 jar、不落 DB）；
 /// - 该头是**内部标记**，发送前在 [`apply_headers_and_cookies`] 中剥离，
 ///   绝不发往真实服务器（对齐上游拦截器 `requestBuilder.removeHeader`）；
@@ -73,6 +72,17 @@ pub fn cookie_jar_marker_present(headers: Option<&HashMap<String, String>>) -> b
         .unwrap_or(false)
 }
 
+/// 客户端期限策略；缺省保留既有总期限配置。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ClientTimeoutPolicy {
+    #[default]
+    Default,
+    /// 不设总期限，仍限制连接和读取空闲时间。
+    NoTotalTimeout,
+    /// 不设连接、读取或总期限，供显式要求无限等待的兼容接口使用。
+    Unlimited,
+}
+
 /// HTTP 客户端配置
 ///
 /// 默认值参考 `HttpHelper.kt` 中 `okHttpClient` 的构建参数。
@@ -82,6 +92,8 @@ pub struct LegadoClientConfig {
     pub connect_timeout: Duration,
     /// 读取超时，默认 60s（对应 OkHttp `.readTimeout(60, TimeUnit.SECONDS)`）
     pub read_timeout: Duration,
+    /// 默认沿用既有总期限；其他策略由调用方显式选择。
+    pub timeout_policy: ClientTimeoutPolicy,
     /// User-Agent 字符串（缺省见 [`DEFAULT_USER_AGENT`]，轮换优先级低于 `user_agents`）
     pub user_agent: String,
     /// 代理配置（单一代理，兼容旧接口）
@@ -104,6 +116,10 @@ pub struct LegadoClientConfig {
     /// 自定义 hosts 覆盖语义（§2.20.3）要求命中域名直连目标 IP，使用方
     /// （如 hosts e2e 测试）应置 true 防止系统代理架空 hosts 解析。
     pub no_proxy: bool,
+    /// 宿主的实时 DNS 覆盖能力，未提供时为低层工具默认值。
+    pub custom_hosts: Option<Arc<crate::custom_hosts::CustomHosts>>,
+    /// 本请求派生客户端的DNS覆盖；空列表使用宿主解析器，不修改全局hosts。
+    pub dns_addresses: Vec<std::net::IpAddr>,
 }
 
 impl Default for LegadoClientConfig {
@@ -111,6 +127,7 @@ impl Default for LegadoClientConfig {
         Self {
             connect_timeout: Duration::from_secs(15),
             read_timeout: Duration::from_secs(60),
+            timeout_policy: ClientTimeoutPolicy::Default,
             // 缺省 UA 对齐上游浏览器形态（见 [`DEFAULT_USER_AGENT`] 文档）：
             // 此前 "Legado/1.0" 仅被 FFI 主链路补注入覆盖，JS 桥四池漏网，
             // 两客户端 UA 指纹不一致致 WAF cookie 跨层失效
@@ -124,6 +141,8 @@ impl Default for LegadoClientConfig {
             proxies: None,
             ssl: None,
             no_proxy: false,
+            custom_hosts: None,
+            dns_addresses: Vec::new(),
         }
     }
 }
@@ -160,6 +179,13 @@ pub struct LegadoClient {
 
 impl LegadoClient {
     /// 根据配置创建新的 HTTP 客户端
+    pub fn custom_hosts(&self) -> Arc<crate::custom_hosts::CustomHosts> {
+        self.config
+            .custom_hosts
+            .clone()
+            .unwrap_or_else(crate::custom_hosts::default_hosts)
+    }
+
     pub fn new(config: LegadoClientConfig) -> LegadoResult<Self> {
         Self::build(config, None)
     }
@@ -209,17 +235,33 @@ impl LegadoClient {
     ///
     /// 锁口径：后端 `load_all`（DB I/O）在 store 写锁**之外**执行；
     /// 合并预载在短 J 写锁临界区内完成（无 I/O），与
-    /// `save_cookies_from_response` 的 J 锁纪律一致。
+    /// 响应 Cookie 写回的 J 锁纪律一致。
     fn build_with_store(
         config: LegadoClientConfig,
         cookie_persistence: Option<Arc<dyn CookiePersistence>>,
         existing: Option<Arc<RwLock<CookieStore>>>,
     ) -> LegadoResult<Self> {
-        let mut builder = crate::tls::client_builder()
-            .connect_timeout(config.connect_timeout)
-            .timeout(config.read_timeout)
-            .user_agent(&config.user_agent)
-            .cookie_store(true);
+        // 后端协调加载与内存回填；共享后端可与 Cookie 清除使用同一保护域。
+        let cookie_store = existing.unwrap_or_else(|| Arc::new(RwLock::new(CookieStore::new())));
+        if let Some(ref persistence) = cookie_persistence {
+            persistence.preload(&cookie_store);
+        }
+
+        let builder = crate::tls::client_builder();
+        let mut builder = match config.timeout_policy {
+            ClientTimeoutPolicy::Default => builder
+                .connect_timeout(config.connect_timeout)
+                .timeout(config.read_timeout),
+            ClientTimeoutPolicy::NoTotalTimeout => builder
+                .connect_timeout(config.connect_timeout)
+                .read_timeout(config.read_timeout),
+            ClientTimeoutPolicy::Unlimited => builder,
+        }
+        .user_agent(&config.user_agent)
+        .cookie_provider(Arc::new(crate::response_cookies::SharedCookieJar {
+            store: cookie_store.clone(),
+            persistence: cookie_persistence.clone(),
+        }));
 
         // SSL 配置：优先使用 ssl 字段，否则回退到 accept_invalid_certs
         if let Some(ref ssl) = config.ssl {
@@ -252,7 +294,18 @@ impl LegadoClient {
         // 自定义 hosts DNS 覆盖（契约 §2.20.3，Task #73）：
         // resolver 每次解析实时读取全局映射，setCustomHosts 变更对已构建
         // 的客户端即时生效（命中映射直连 IP，未命中回落系统 DNS）
-        builder = builder.dns_resolver(crate::custom_hosts::resolver());
+        builder = if config.dns_addresses.is_empty() {
+            builder.dns_resolver(
+                config
+                    .custom_hosts
+                    .as_ref()
+                    .map_or_else(crate::custom_hosts::resolver, |hosts| hosts.resolver()),
+            )
+        } else {
+            builder.dns_resolver(Arc::new(crate::request_dns::RequestDnsResolver(
+                config.dns_addresses.clone(),
+            )))
+        };
 
         let client = builder
             .build()
@@ -294,46 +347,6 @@ impl LegadoClient {
                 None
             } else {
                 Some(Arc::new(chain))
-            }
-        };
-
-        // Cookie store：复用共享实例或新建（可选从持久化后端预载）
-        let cookie_store = match existing {
-            // 复用共享 store（跨客户端/池，脑裂修复）：内容不丢；携带
-            // 持久化后端时合并预载（内存按域优先，后端补缺）
-            Some(store) => {
-                if let Some(ref persistence) = cookie_persistence {
-                    let entries = persistence.load_all(); // DB I/O 在 J 锁外
-                    let count = entries.len();
-                    let mut guard = store.write().unwrap_or_else(|p| p.into_inner());
-                    for (domain, loaded) in &entries {
-                        let existing_str = guard.domain_cookie_string(domain);
-                        if existing_str.is_empty() {
-                            guard.set_cookies_from_string(domain, loaded);
-                        } else if let Some(merged) =
-                            CookieStore::merge_cookies_str(loaded, &existing_str)
-                        {
-                            // 合并结果整体重写该域（同名键内存值胜，
-                            // merge_cookies_str 后者覆盖前者）
-                            guard.set_cookies_from_string(domain, &merged);
-                        }
-                    }
-                    log::info!(
-                        "共享 Cookie store 合并预载持久化后端 {} 条域名 Cookie 记录",
-                        count
-                    );
-                }
-                store
-            }
-            None => {
-                let mut store = CookieStore::new();
-                if let Some(ref persistence) = cookie_persistence {
-                    let entries = persistence.load_all();
-                    let count = entries.len();
-                    store.load_persisted(entries);
-                    log::info!("从持久化后端加载 {} 条域名 Cookie 记录", count);
-                }
-                Arc::new(RwLock::new(store))
             }
         };
 
@@ -418,11 +431,11 @@ impl LegadoClient {
                 let mut req = client.get(&url);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
-        self.execute_with_retry_and_limit(url_for_retry.as_str(), save_cookies, factory)
+        self.execute_with_retry_and_limit(url_for_retry.as_str(), factory)
             .await
     }
 
@@ -446,6 +459,15 @@ impl LegadoClient {
         url: &str,
         headers: Option<HashMap<String, String>>,
     ) -> LegadoResult<crate::response::LegadoRawResponse> {
+        self.get_raw_with_timeout(url, headers, None).await
+    }
+
+    pub async fn get_raw_with_timeout(
+        &self,
+        url: &str,
+        headers: Option<HashMap<String, String>>,
+        timeout: Option<Duration>,
+    ) -> LegadoResult<crate::response::LegadoRawResponse> {
         let client = self.client.clone();
         let cookie_store = self.cookie_store.clone();
         // 写侧门控：请求头携带 CookieJar 标记才写回响应 cookie
@@ -463,7 +485,10 @@ impl LegadoClient {
                 let mut req = client.get(&url);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                if let Some(timeout) = timeout {
+                    req = req.timeout(timeout);
+                }
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
@@ -484,8 +509,7 @@ impl LegadoClient {
             factory().await.map_err(map_reqwest_error)?
         };
 
-        self.collect_raw_response(response, &url_for_retry, save_cookies)
-            .await
+        self.collect_raw_response(response).await
     }
 
     /// 发送 POST 请求并返回无损原始字节（供 charset=gbk 等响应解码）
@@ -494,6 +518,16 @@ impl LegadoClient {
         url: &str,
         body: &str,
         headers: Option<HashMap<String, String>>,
+    ) -> LegadoResult<crate::response::LegadoRawResponse> {
+        self.post_raw_with_timeout(url, body, headers, None).await
+    }
+
+    pub async fn post_raw_with_timeout(
+        &self,
+        url: &str,
+        body: &str,
+        headers: Option<HashMap<String, String>>,
+        timeout: Option<Duration>,
     ) -> LegadoResult<crate::response::LegadoRawResponse> {
         let client = self.client.clone();
         let cookie_store = self.cookie_store.clone();
@@ -514,7 +548,10 @@ impl LegadoClient {
                 let mut req = client.post(&url).body(body);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                if let Some(timeout) = timeout {
+                    req = req.timeout(timeout);
+                }
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
@@ -534,8 +571,7 @@ impl LegadoClient {
             factory().await.map_err(map_reqwest_error)?
         };
 
-        self.collect_raw_response(response, &url_for_retry, save_cookies)
-            .await
+        self.collect_raw_response(response).await
     }
 
     /// 发送 POST 请求
@@ -564,11 +600,11 @@ impl LegadoClient {
                 let mut req = client.post(&url).body(body);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
-        self.execute_with_retry_and_limit(url_for_retry.as_str(), save_cookies, factory)
+        self.execute_with_retry_and_limit(url_for_retry.as_str(), factory)
             .await
     }
 
@@ -595,11 +631,11 @@ impl LegadoClient {
                 let mut req = client.head(&url);
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
-        self.execute_with_retry_and_limit(url_for_retry.as_str(), save_cookies, factory)
+        self.execute_with_retry_and_limit(url_for_retry.as_str(), factory)
             .await
     }
 
@@ -635,11 +671,11 @@ impl LegadoClient {
                 }
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
-        self.execute_with_retry_and_limit(&request.url, save_cookies, factory)
+        self.execute_with_retry_and_limit(&request.url, factory)
             .await
     }
 
@@ -668,8 +704,6 @@ impl LegadoClient {
         // 写侧门控：请求头携带 CookieJar 标记才写回响应 cookie（读侧不受影响）
         let save_cookies = cookie_jar_marker_present(Some(&request.headers));
         let headers = Arc::new(Some(request.headers.clone()));
-        // cookie 写回需要原始请求 URL（closure 消费 url 之后仍可用）
-        let original_url = url.clone();
 
         let factory = move || {
             let client = client.clone();
@@ -688,7 +722,7 @@ impl LegadoClient {
                 }
                 req = apply_default_headers_static(req);
                 req = apply_headers_and_cookies(req, &cookie_store, &url, (*headers).clone());
-                req.send().await
+                crate::response_cookies::send(req, save_cookies).await
             }
         };
 
@@ -710,11 +744,7 @@ impl LegadoClient {
         };
 
         let stream = crate::response::LegadoStreamResponse::new(raw_response, permit);
-        // 写侧 CookieJar 门控：Set-Cookie 随响应头到达，立即写回（与 get_raw
-        // 在响应体读完后写回的可见结果一致；流式路径不能等 body 结束）
-        if save_cookies {
-            self.save_cookies_from_response(&original_url, stream.url(), stream.headers());
-        }
+        // 响应头中的 Cookie 已由共享 provider 在 send 作用域内处理。
         Ok(stream)
     }
 
@@ -777,7 +807,6 @@ impl LegadoClient {
     async fn execute_with_retry_and_limit<F, Fut>(
         &self,
         url: &str,
-        save_cookies: bool,
         factory: F,
     ) -> LegadoResult<LegadoResponse>
     where
@@ -807,9 +836,7 @@ impl LegadoClient {
         let ttfb = t0.elapsed();
         let remote = raw_response.remote_addr();
 
-        let response = self
-            .collect_response(raw_response, url, save_cookies)
-            .await?;
+        let response = self.collect_response(raw_response).await?;
 
         let body_dur = t0.elapsed() - ttfb;
         crate::timing::emit_request(url, ttfb, body_dur, remote);
@@ -817,17 +844,8 @@ impl LegadoClient {
         Ok(response)
     }
 
-    /// 收集响应数据并保存 Cookie
-    ///
-    /// `save_cookies`：写侧门控（请求头带 [`COOKIE_JAR_HEADER`] 标记时为 true）。
-    /// false 时响应 `Set-Cookie` 整体跳过（不进内存 jar、不落 DB）；读侧注入
-    /// 由 [`apply_headers_and_cookies`] 无条件完成，与此无关。
-    async fn collect_response(
-        &self,
-        response: reqwest::Response,
-        original_url: &str,
-        save_cookies: bool,
-    ) -> LegadoResult<LegadoResponse> {
+    /// 收集响应数据；Cookie 已在请求作用域内由共享 provider 按开关处理。
+    async fn collect_response(&self, response: reqwest::Response) -> LegadoResult<LegadoResponse> {
         let final_url = response.url().to_string();
         let status = response.status().as_u16();
 
@@ -839,16 +857,13 @@ impl LegadoClient {
             }
         }
 
-        // 保存 Set-Cookie 到 CookieStore（仅带写侧标记的请求）
-        if save_cookies {
-            self.save_cookies_from_response(original_url, &final_url, &headers);
-        }
-
         // 读取响应体
-        let body = response
-            .text()
-            .await
-            .map_err(|e| LegadoError::Network(format!("Failed to read response body: {}", e)))?;
+        let body = response.text().await.map_err(|e| {
+            LegadoError::Network(format!(
+                "Failed to read response body: {}",
+                reqwest_error_chain(&e)
+            ))
+        })?;
 
         Ok(LegadoResponse {
             status,
@@ -858,15 +873,12 @@ impl LegadoClient {
         })
     }
 
-    /// 收集二进制响应数据并保存 Cookie（Task #113：无损字节读取，对照 [`collect_response`](Self::collect_response)）
-    ///
-    /// `save_cookies` 语义同 [`Self::collect_response`]（写侧门控）。
+    /// 无损收集二进制响应，Cookie 处理与文本、流式请求共用 provider。
     async fn collect_raw_response(
         &self,
         response: reqwest::Response,
-        original_url: &str,
-        save_cookies: bool,
     ) -> LegadoResult<crate::response::LegadoRawResponse> {
+        let raw_summary = crate::response::response_summary(&response);
         let final_url = response.url().to_string();
         let status = response.status().as_u16();
 
@@ -878,19 +890,20 @@ impl LegadoClient {
             }
         }
 
-        // 保存 Set-Cookie 到 CookieStore（仅带写侧标记的请求）
-        if save_cookies {
-            self.save_cookies_from_response(original_url, &final_url, &headers);
-        }
-
         // 读取原始字节（不经 UTF-8 解码）
         let body = response
             .bytes()
             .await
-            .map_err(|e| LegadoError::Network(format!("Failed to read response bytes: {}", e)))?
+            .map_err(|e| {
+                LegadoError::Network(format!(
+                    "Failed to read response bytes: {}",
+                    reqwest_error_chain(&e)
+                ))
+            })?
             .to_vec();
 
         Ok(crate::response::LegadoRawResponse {
+            raw_summary,
             status,
             headers,
             body,
@@ -898,112 +911,29 @@ impl LegadoClient {
         })
     }
 
-    /// 从响应头中提取 Set-Cookie 并保存到 CookieStore
-    ///
-    /// **按域写通道（重要 1）**：先取该域串行锁（`domain_write_lock`，最外层
-    /// D 锁），使「jar 更新 + 捕获全量串 + 持久化落库」对该域原子——并发的
-    /// 同域写入者（HTTP jar 路径 / JS 宿主路径）不得在「捕获」与「落库」之间
-    /// 插入，否则落库行会回退为过期视图（内存=NEW，重启回填=OLD）。
-    /// 结构性不变式不回归：**jar 写锁临界区内仍不做 DB/sink 调用**——jar 锁
-    /// 只覆盖更新/捕获，sink 调用在 jar 锁释放后、域通道锁内执行（锁序图见
-    /// [`crate::cookie_store::DOMAIN_WRITE_LOCKS`] 文档）。
-    ///
-    /// **空视图不删行（重要 3）**：`cookies` 表的行与 JS 侧 `setCookie` 写入
-    /// 共享（union 合并、同键 incoming 胜）。「空 jar 视图」仅说明**本次**
-    /// Set-Cookie 未贡献可解析的 name=value，不能证明该行 jar 独占——整行
-    /// 删除会抹掉 JS 侧键（进程内内存仍命中，重启后 JS 键丢失）。
+    /// 响应头夹具与真实 reqwest 回调共用更新原语。
+    #[cfg(test)]
     fn save_cookies_from_response(
         &self,
         original_url: &str,
         final_url: &str,
         headers: &HashMap<String, String>,
     ) {
-        // 优先使用 final_url 提取 domain
-        let url_for_cookie = if final_url.is_empty() {
+        let url = if final_url.is_empty() {
             original_url
         } else {
             final_url
         };
-
-        // 从 headers 中收集 set-cookie
-        let set_cookie_values: Vec<&String> = headers
-            .iter()
-            .filter(|(k, _)| k.to_lowercase() == "set-cookie")
-            .map(|(_, v)| v)
-            .collect();
-
-        if set_cookie_values.is_empty() {
-            return;
-        }
-
-        // 域键先解析（纯函数，无需持锁）
-        let domain = extract_domain_for_cookie(url_for_cookie);
-
-        // 按域写通道：最外层串行锁（D）——本域「捕获 + 写回」与并发的同域
-        // 写入严格串行（drop 时放行；中毒恢复语义见 DOMAIN_WRITE_LOCKS 文档）
-        let _domain_guard = crate::cookie_store::domain_write_lock(&domain);
-
-        // 更新内存 CookieStore 并**在 jar 写锁内**捕获受影响域的全量 Cookie 串；
-        // 持久化写回（DB 调用）放到**jar 锁释放后**（域通道锁仍持有）执行——
-        // jar 锁临界区内不做 DB/sink 调用（避免与 cookie 合并写串行锁形成
-        // 潜在锁环，池取连接等待也不得拖住 jar 读方）
-        let cookie_string = {
-            let Ok(mut store) = self.cookie_store.write() else {
-                // 写锁 poisoned：与改造前一致，整体跳过本次写回
-                return;
-            };
-            for cookie_str in set_cookie_values {
-                // 简单解析：取 `name=value` 部分
-                if let Some(name_value) = cookie_str.split(';').next() {
-                    let name_value = name_value.trim();
-                    if let Some((name, value)) = name_value.split_once('=') {
-                        store.set_cookie(crate::cookie_store::Cookie {
-                            name: name.trim().to_string(),
-                            value: value.trim().to_string(),
-                            domain: domain.clone(),
-                            path: "/".to_string(),
-                            expires: None,
-                            secure: false,
-                            http_only: false,
-                        });
-                    }
-                }
-            }
-            store.domain_cookie_string(&domain)
-        };
-
-        // 持久化写回（jar 写锁已释放、域通道锁内）：将变更域名的全部 Cookie
-        // 序列化后 upsert 到后端（同步写入，单行 upsert 开销可接受；后端
-        // 失败仅记日志不阻断请求）。
-        // 视图为空时**不删行**（重要 3，见函数文档）：该行与 JS 侧共享，
-        // 删除会抹掉 JS 键。
-        if let Some(ref persistence) = self.cookie_persistence {
-            if !cookie_string.is_empty() {
-                persistence.save(&domain, &cookie_string);
-            }
-        }
+        crate::response_cookies::save_response_cookies(
+            &self.cookie_store,
+            self.cookie_persistence.as_ref(),
+            url,
+            headers
+                .iter()
+                .filter(|(key, _)| key.eq_ignore_ascii_case("set-cookie"))
+                .map(|(_, value)| value.as_str()),
+        );
     }
-}
-
-/// 将 reqwest::Error 映射为 LegadoError
-///
-/// **错误链必须透传**（V-B 网络排查教训）：reqwest `Display` 只含最外层
-/// （"error sending request for url"），DNS 解析失败 / TCP 拒绝 / TLS 握手
-/// 失败等真因全在 `source()` 链里。600 域名全挂时只看最外层无法区分
-/// 「宿主无网」「DNS 污染」「TLS 证书」三类故障，故逐级拼出完整链。
-fn reqwest_error_chain(e: &reqwest::Error) -> String {
-    let mut msg = e.to_string();
-    let mut src: Option<&dyn std::error::Error> = std::error::Error::source(e);
-    let mut depth = 0;
-    while let Some(s) = src {
-        depth += 1;
-        msg.push_str(&format!(" <- {}", s));
-        if depth >= 5 {
-            break;
-        }
-        src = s.source();
-    }
-    msg
 }
 
 /// 将 reqwest::Error 映射为 LegadoError
@@ -1103,6 +1033,7 @@ fn apply_headers_and_cookies(
 /// 从 URL 提取 cookie domain（ETLD+1，对齐上游 `NetworkUtils.getSubDomain`）
 ///
 /// 解析失败时回退为 URL 本身（保持「仍能按原 URL 记录 Cookie」的旧行为）。
+#[cfg(test)]
 fn extract_domain_for_cookie(url: &str) -> String {
     crate::cookie_store::cookie_domain_key(url).unwrap_or_else(|| url.to_string())
 }
@@ -1111,6 +1042,114 @@ fn extract_domain_for_cookie(url: &str) -> String {
 mod tests {
     use super::*;
     use std::sync::Mutex;
+
+    /// 持续分块响应超过总预算仍成功，但读取停顿仍受空闲预算限制。
+    #[tokio::test]
+    async fn timeout_policies_distinguish_total_idle_and_unlimited() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let mut workers = Vec::new();
+            for _ in 0..7 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                workers.push(tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut byte = [0];
+                    while !request.ends_with(b"\r\n\r\n") {
+                        if socket.read_exact(&mut byte).await.is_err() {
+                            return;
+                        }
+                        request.push(byte[0]);
+                        assert!(request.len() < 65536);
+                    }
+                    let request = String::from_utf8(request).unwrap();
+                    let drip = request.starts_with("GET /drip ");
+                    if request.starts_with("GET /slow ") {
+                        tokio::time::sleep(Duration::from_millis(400)).await;
+                    }
+                    if socket
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\n",
+                        )
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                    for byte in b"abcdefgh" {
+                        if drip {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                        if socket.write_all(&[*byte]).await.is_err() {
+                            return;
+                        }
+                    }
+                }));
+            }
+            for worker in workers {
+                worker.await.unwrap();
+            }
+        });
+        let client = |timeout_policy| {
+            LegadoClient::new(LegadoClientConfig {
+                no_proxy: true,
+                connect_timeout: Duration::from_millis(200),
+                read_timeout: Duration::from_millis(200),
+                timeout_policy,
+                ..Default::default()
+            })
+            .unwrap()
+        };
+        let url = |path| format!("http://{address}/{path}");
+        let standard = client(ClientTimeoutPolicy::Default);
+        assert!(
+            standard
+                .get(&url("drip"), None)
+                .await
+                .unwrap_err()
+                .to_string()
+                .to_lowercase()
+                .contains("timed out")
+        );
+        let no_total = client(ClientTimeoutPolicy::NoTotalTimeout);
+        assert_eq!(
+            no_total.get(&url("drip"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        assert!(
+            no_total
+                .get(&url("slow"), None)
+                .await
+                .unwrap_err()
+                .to_string()
+                .to_lowercase()
+                .contains("timed out")
+        );
+        assert_eq!(
+            no_total.get(&url("fast"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        let unlimited = client(ClientTimeoutPolicy::Unlimited);
+        assert_eq!(
+            unlimited.get(&url("slow"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        let variant = unlimited.no_redirect_variant().unwrap();
+        assert_eq!(
+            variant.config.timeout_policy,
+            ClientTimeoutPolicy::Unlimited
+        );
+        assert_eq!(
+            variant.get(&url("slow"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        assert_eq!(
+            standard.get(&url("fast"), None).await.unwrap().body,
+            "abcdefgh"
+        );
+        server.await.unwrap();
+    }
 
     /// 连接池复用验证：同一 host 的两次顺序请求应命中同一条 TCP 连接（keep-alive）
     ///
@@ -1340,8 +1379,8 @@ mod tests {
     /// 返回监听地址（如 `127.0.0.1:53211`）。验证 reqwest 启用 gzip feature 后
     /// 自动设置 Accept-Encoding 并透明解压响应体（对齐上游 OkHttp 行为）。
     async fn spawn_gzip_server(plain_body: &'static str) -> std::net::SocketAddr {
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
         use std::io::Write;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
@@ -1479,7 +1518,7 @@ mod tests {
     /// 写回串缺少全量标记（= 过期捕获，未含另一线程的键）时 `save` 延迟
     /// `slow_ms`——修复前确定性地制造「过期落库最后落库」的交错：另一线程的
     /// 全量串（快速落库）已在延迟窗口内完成，最后落库必为过期视图；
-    /// 修复后（`domain_write_lock` 按域串行锁）两线程严格串行：先取锁者捕获
+    /// 修复后（`with_domain_write` 按域串行锁）两线程严格串行：先取锁者捕获
     /// 必为单键（慢落库、先落库），后取锁者捕获必为全量串（快落库、最后
     /// 落库），最终落库行 = 内存终态。
     struct GatedPersistence {
@@ -1525,7 +1564,7 @@ mod tests {
     /// 视图」（写回串缺另一线程的键）→ 被慢落库闸门拖延，最后落库必为该
     /// 过期视图 → 落库行回退（内存含双键，落库行只有单键，重启回填=旧值），
     /// 断言必红；
-    /// **修复后（必绿）**：`domain_write_lock` 使两线程严格串行，后取锁者
+    /// **修复后（必绿）**：`with_domain_write` 使两线程严格串行，后取锁者
     /// 捕获必为全量串并最后落库 → 落库行 = 内存终态。
     #[test]
     fn test_concurrent_same_domain_persist_equals_memory() {

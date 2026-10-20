@@ -103,10 +103,10 @@ fn should_start_new_paragraph(line: &str, current: &str) -> bool {
         return true;
     }
     // 以感叹号/问号/右引号结尾的对话
-    if let Some(last_char) = current.chars().last() {
-        if MARK_SENTENCES_END.contains(last_char) || MARK_QUOTATION_RIGHT.contains(last_char) {
-            return true;
-        }
+    if let Some(last_char) = current.chars().last()
+        && (MARK_SENTENCES_END.contains(last_char) || MARK_QUOTATION_RIGHT.contains(last_char))
+    {
+        return true;
     }
     // 当前段落已足够长（按字符数计算）
     if current.chars().count() > 200 {
@@ -128,11 +128,12 @@ fn starts_with_quote(line: &str) -> bool {
 fn merge_short_paragraphs(paragraphs: Vec<String>) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     for p in paragraphs {
-        if p.chars().count() < 10 && !starts_with_quote(&p) {
-            if let Some(last) = result.last_mut() {
-                last.push_str(&p);
-                continue;
-            }
+        if p.chars().count() < 10
+            && !starts_with_quote(&p)
+            && let Some(last) = result.last_mut()
+        {
+            last.push_str(&p);
+            continue;
         }
         result.push(p);
     }

@@ -1,0 +1,558 @@
+import '../../../app/routing/app_navigation.dart';
+import '../../../widgets/app_menu.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../../widgets/app_scaffold.dart';
+import '../../../widgets/legado_app_bar.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../bookshelf/bookshelf.dart';
+import '../application/remote_book_notifier.dart';
+import '../../../app/routing/route_names.dart';
+import '../../../widgets/help/help_assets.dart';
+import '../../../widgets/help/show_help.dart';
+
+/// 远程书库（对齐原版 RemoteBookActivity）
+///
+/// 服务器列表 + WebDAV 目录浏览 + 多选导入本地书架。
+class RemoteBookScreen extends ConsumerStatefulWidget {
+  const RemoteBookScreen({super.key});
+
+  @override
+  ConsumerState<RemoteBookScreen> createState() => _RemoteBookScreenState();
+}
+
+class _RemoteBookScreenState extends ConsumerState<RemoteBookScreen> {
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runServerChange(
+        () => ref.read(remoteBookNotifierProvider.notifier).init(),
+        '服务器配置读取失败，请重试',
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  /// 所有服务器编辑入口统一处理失败，继续显示已保存的仓储投影。
+  Future<bool> _runServerChange(
+    Future<void> Function() change,
+    String failureMessage,
+  ) async {
+    try {
+      await change();
+      return true;
+    } catch (_) {
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('操作失败'),
+            content: Text(failureMessage),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _onWillPop() async {
+    final notifier = ref.read(remoteBookNotifierProvider.notifier);
+    if (notifier.goBackDir()) return;
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _importSelected() async {
+    final notifier = ref.read(remoteBookNotifierProvider.notifier);
+    await notifier.addSelectedToBookshelf();
+    if (!mounted) return;
+    final state = ref.read(remoteBookNotifierProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    if (state.error != null && (state.importedCount ?? 0) == 0) {
+      messenger.showSnackBar(SnackBar(content: Text(state.error!)));
+      return;
+    }
+    final count = state.importedCount ?? 0;
+    messenger.showSnackBar(SnackBar(content: Text('成功导入 $count 本')));
+    if (count > 0) {
+      ref.read(bookshelfNotifierProvider.notifier).refresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(remoteBookNotifierProvider);
+    final notifier = ref.read(remoteBookNotifierProvider.notifier);
+    final theme = Theme.of(context);
+    final selectedCount = state.selectedPaths.length;
+
+    return PopScope(
+      canPop: state.dirStack.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onWillPop();
+      },
+      child: AppScaffold(
+        // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+        topBar: LegadoAppBar(
+          title: const Text('远程书籍'),
+          actions: [
+            IconButton(
+              icon: const Icon(Symbols.help_rounded),
+              tooltip: '帮助',
+              onPressed: () => showHelp(context, HelpAssets.webDavBookHelp),
+            ),
+            IconButton(
+              tooltip: '刷新',
+              icon: const Icon(Symbols.refresh_rounded),
+              onPressed: state.isLoading ? null : () => notifier.refresh(),
+            ),
+            AppMenuButton<String>(
+              icon: const Icon(Symbols.more_vert_rounded),
+              onSelected: (v) async {
+                switch (v) {
+                  case 'server':
+                    await _showServersDialog();
+                  case 'sort_name':
+                    notifier.setSort(RemoteBookSort.name);
+                  case 'sort_time':
+                    notifier.setSort(RemoteBookSort.time);
+                  case 'webdav_settings':
+                    await GoRouter.of(context)
+                        .pushAppRoute(AppRoutes.webdavSettings);
+                    await _runServerChange(notifier.init, '服务器配置读取失败，请重试');
+                }
+              },
+              itemBuilder: (_) => [
+                const AppMenuItem(value: 'server', child: Text('服务器配置')),
+                const AppMenuDivider(),
+                AppMenuItem(
+                  value: 'sort_name',
+                  checked: state.sortKey == RemoteBookSort.name,
+                  child: const Text('按名称'),
+                ),
+                AppMenuItem(
+                  value: 'sort_time',
+                  checked: state.sortKey == RemoteBookSort.time,
+                  child: const Text('按时间'),
+                ),
+                const AppMenuDivider(),
+                const AppMenuItem(
+                  value: 'webdav_settings',
+                  child: Text('默认 WebDAV 设置'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Material(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.45,
+              ),
+              child: Padding(
+                // [LAYOUT_PLAN P3] 页面水平边距16dp
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: '返回上级',
+                      onPressed: state.dirStack.isEmpty
+                          ? null
+                          : () => notifier.goBackDir(),
+                      icon: const Icon(Symbols.arrow_back_rounded),
+                    ),
+                    Expanded(
+                      child: Text(
+                        state.displayPath,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: const InputDecoration(
+                  hintText: '筛选 • 远程书籍',
+                  prefixIcon: Icon(Symbols.search_rounded),
+                  isDense: true,
+                ),
+                onChanged: notifier.setFilter,
+              ),
+            ),
+            if (state.error != null && state.items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  state.error!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: state.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : state.visibleItems.isEmpty
+                  ? Center(
+                      child: Text(
+                        '没有文件',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: state.visibleItems.length,
+                      separatorBuilder: (_, _) => Divider(
+                        height: 1,
+                        // [LAYOUT_PLAN P3] 分隔线走 tonal 舍 outlineVariant
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      itemBuilder: (context, index) {
+                        final item = state.visibleItems[index];
+                        final selected = state.selectedPaths.contains(
+                          item.relativePath,
+                        );
+                        return ListTile(
+                          // [LAYOUT_PLAN P3] 组内行 vertical12/horizontal8
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
+                          leading: Icon(
+                            item.isDir
+                                ? Symbols.folder_rounded
+                                : Symbols.menu_book_rounded,
+                            color: item.isOnBookShelf
+                                ? theme.colorScheme.primary
+                                : null,
+                          ),
+                          // [LAYOUT_PLAN P3] 列表行字级走 M3 Type Scale
+                          title: Text(
+                            item.filename,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          subtitle: item.isDir
+                              ? Text(
+                                  '文件夹',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                )
+                              : Text(
+                                  _formatSize(item.size),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                          trailing: item.isDir
+                              ? null
+                              : item.isOnBookShelf
+                              ? Icon(
+                                  Symbols.check_circle_rounded,
+                                  color: theme.colorScheme.primary,
+                                )
+                              : Checkbox(
+                                  value: selected,
+                                  onChanged: (_) => notifier.toggleSelect(item),
+                                ),
+                          onTap: () {
+                            if (item.isDir) {
+                              notifier.openDir(item);
+                            } else if (!item.isOnBookShelf) {
+                              notifier.toggleSelect(item);
+                            }
+                          },
+                          onLongPress: item.isDir || item.isOnBookShelf
+                              ? null
+                              : () => notifier.toggleSelect(item),
+                        );
+                      },
+                    ),
+            ),
+            SafeArea(
+              // [LAYOUT_PLAN P3] SelectionBottomBar：页面水平边距16dp
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => notifier.selectAllVisible(true),
+                      child: const Text('全选'),
+                    ),
+                    TextButton(
+                      onPressed: notifier.revertSelection,
+                      child: const Text('反选'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: state.isImporting || selectedCount == 0
+                          ? null
+                          : _importSelected,
+                      child: Text(
+                        state.isImporting
+                            ? '导入中…'
+                            : '加入书架${selectedCount > 0 ? ' ($selectedCount)' : ''}',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes <= 0) return '';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _showServersDialog() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final state = ref.watch(remoteBookNotifierProvider);
+            final notifier = ref.read(remoteBookNotifierProvider.notifier);
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: Text(
+                        '服务器配置',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      trailing: IconButton(
+                        tooltip: '添加',
+                        icon: const Icon(Symbols.add_rounded),
+                        onPressed: () async {
+                          final created = await _editServerDialog();
+                          if (created != null) {
+                            await _runServerChange(
+                              () => notifier.saveServer(created),
+                              '服务器配置保存失败，请重试',
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    RadioGroup<int>(
+                      groupValue: state.serverId,
+                      onChanged: (v) async {
+                        if (v == null) return;
+                        final saved = await _runServerChange(
+                          () => notifier.selectServer(v),
+                          '服务器切换失败，请重试',
+                        );
+                        if (saved && ctx.mounted) Navigator.pop(ctx);
+                      },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RadioListTile<int>(
+                            value: defaultRemoteServerId,
+                            title: const Text('默认'),
+                            subtitle: const Text('使用备份设置中的 WebDAV（books/）'),
+                          ),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.sizeOf(context).height * 0.45,
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: state.servers.length,
+                              itemBuilder: (_, i) {
+                                final s = state.servers[i];
+                                return RadioListTile<int>(
+                                  value: s.id,
+                                  title: Text(s.name.isEmpty ? s.url : s.name),
+                                  subtitle: Text(s.url, maxLines: 1),
+                                  secondary: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Symbols.edit_rounded),
+                                        onPressed: () async {
+                                          final edited =
+                                              await _editServerDialog(
+                                                existing: s,
+                                              );
+                                          if (edited != null) {
+                                            await _runServerChange(
+                                              () => notifier.saveServer(edited),
+                                              '服务器配置保存失败，请重试',
+                                            );
+                                          }
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Symbols.delete_rounded,
+                                        ),
+                                        onPressed: () async {
+                                          final ok = await showDialog<bool>(
+                                            context: context,
+                                            builder: (d) => AlertDialog(
+                                              title: const Text('删除'),
+                                              content: const Text('确认删除该服务器？'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(d, false),
+                                                  child: const Text('取消'),
+                                                ),
+                                                FilledButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(d, true),
+                                                  child: const Text('删除'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (ok == true) {
+                                            await _runServerChange(
+                                              () => notifier.deleteServer(s.id),
+                                              '服务器删除失败，请重试',
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<RemoteServerConfig?> _editServerDialog({
+    RemoteServerConfig? existing,
+  }) async {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final urlCtrl = TextEditingController(text: existing?.url ?? '');
+    final userCtrl = TextEditingController(text: existing?.username ?? '');
+    final passCtrl = TextEditingController(text: existing?.password ?? '');
+    final dialog = DialogRoute<RemoteServerConfig>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(existing == null ? '添加服务器' : '编辑服务器'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: '名称'),
+              ),
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'url',
+                  hintText: 'https://dav.example.com/books/',
+                ),
+                keyboardType: TextInputType.url,
+              ),
+              TextField(
+                controller: userCtrl,
+                decoration: const InputDecoration(labelText: 'username'),
+              ),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'password'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final url = urlCtrl.text.trim();
+              if (url.isEmpty) return;
+              Navigator.pop(
+                ctx,
+                RemoteServerConfig(
+                  id: existing?.id ?? DateTime.now().millisecondsSinceEpoch,
+                  name: nameCtrl.text.trim().isEmpty
+                      ? url
+                      : nameCtrl.text.trim(),
+                  url: url,
+                  username: userCtrl.text.trim(),
+                  password: passCtrl.text,
+                ),
+              );
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    final result = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(dialog);
+    // 退出动画仍会使用表单，等路由真正移除后再释放控制器。
+    await dialog.completed;
+    nameCtrl.dispose();
+    urlCtrl.dispose();
+    userCtrl.dispose();
+    passCtrl.dispose();
+    return result;
+  }
+}

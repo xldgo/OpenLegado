@@ -1,6 +1,10 @@
-/// FRB StreamSink 生成链路真实 DLL 运行时验证（P1-1）
+@Tags(['native'])
+@Timeout(Duration(minutes: 3))
+library;
+
+/// FRB StreamSink 生成链路真实原生库运行时验证（P1-1）
 ///
-/// 绕过 Mock 层直接加载 rust/target/debug/legado_ffi.dll，验证
+/// 绕过 Mock 层直接加载当前宿主rust/target/debug原生库，验证
 /// 当前固定版本 flutter_rust_bridge 生成的 5 个 StreamSink 流 API 在真实
 /// wire 链路上的订阅、事件接收、正常结束与取消路径：
 ///
@@ -16,9 +20,8 @@
 /// （dco_decode/sse_decode_StreamSink_String_Sse）在全部链路中无调用点；
 /// 若该分支可达，下列测试将全部抛出 UnimplementedError。
 ///
-/// 前置条件：先在 rust/ 下构建 DLL（cargo build -p legado-ffi --features quickjs）。
-@Timeout(Duration(minutes: 3))
-library;
+/// 前置条件：先在 rust/ 下构建当前宿主原生库（cargo build -p legado-ffi --features quickjs）。
+import '../helpers/native_ffi.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -26,26 +29,10 @@ import 'dart:io';
 
 import 'package:flutter_legado/src/bridge/ffi/ffi.dart' as bridge;
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart'
-    show ExternalLibrary;
+import 'package:flutter_legado/src/data/bridge/managed_rust_stream.dart';
+import 'package:flutter_legado/src/data/bridge/stream_dto_mapping.dart';
+import 'package:flutter_legado/src/data/bridge/transport_request_mapping.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-/// 从 rust/target/debug 解析真实 DLL 路径（对齐 rust_api.dart 的搜索策略）
-String _resolveDll() {
-  const libName = 'legado_ffi.dll';
-  final sep = Platform.pathSeparator;
-  final candidates = <String>[
-    // flutter test 的 Directory.current 即 flutter_legado/
-    '${Directory.current.parent.path}${sep}rust${sep}target${sep}debug$sep$libName',
-    '${Directory.current.path}$sep..${sep}rust${sep}target${sep}debug$sep$libName',
-  ];
-  for (final path in candidates) {
-    if (File(path).existsSync()) {
-      return path;
-    }
-  }
-  throw StateError('未找到 legado_ffi.dll，请先在 rust/ 下构建');
-}
 
 class _CollectResult {
   const _CollectResult(this.events, this.completed, this.error);
@@ -94,17 +81,51 @@ Future<_CollectResult> _collect(
   return result;
 }
 
-void main() {
-  // 该测试依赖 Windows 构建的 DLL 产物（rust/target/debug），
-  // CI（ubuntu/macOS）无产物：注册阶段整体跳过（仅留占位用例可见）
-  if (!Platform.isWindows) {
-        test("跳过 FFI 运行时流测试：需要 Windows DLL 产物（仅本机验证）", () {});
-    return;
-  }
+Stream<String> _sourceCheckStream({
+  required String sourceUrlsJson,
+  required String configJson,
+}) => managedRustStream(
+  (request) => bridge.sourceCheckStream(
+    sourceUrls: (jsonDecode(sourceUrlsJson) as List).cast<String>(),
+    config: sourceCheckConfig(configJson),
+    request: request,
+  ),
+).map((value) => jsonEncode(checkProgressFromDto(value)));
 
+Stream<String> _searchMultiStream({
+  required String query,
+  required String sourceUrlsJson,
+  required int page,
+}) =>
+    managedRustStream(
+      (request) => bridge.searchMultiStream(
+        query: query,
+        sourceUrls: (jsonDecode(sourceUrlsJson) as List).cast<String>(),
+        page: page,
+        request: request,
+      ),
+    ).map(
+      (value) => jsonEncode({
+        'source_url': value.sourceUrl,
+        'is_last': value.isLast,
+        'finished_count': value.finishedCount.toInt(),
+        'books': value.books.map((b) => searchBookFromDto(b).toJson()).toList(),
+      }),
+    );
+
+Stream<String> _debugStream({required String sourceUrl, required String key}) =>
+    managedRustStream(
+      (request) => bridge.debugBookSourceStream(
+        sourceUrl: sourceUrl,
+        key: key,
+        request: request,
+      ),
+    ).map((v) => jsonEncode({'state': v.state, 'msg': v.msg}));
+
+void main() {
   setUpAll(() async {
-    // 显式加载真实 DLL（非 frb 默认加载逻辑，非 Mock）
-    final lib = ExternalLibrary.open(_resolveDll());
+    // 显式加载真实原生库（非 frb 默认加载逻辑，非 Mock）
+    final lib = nativeTestLibrary();
     await RustLib.init(externalLibrary: lib);
     await bridge.init();
     // 隔离数据库：书源表为空且仅含本测试注入的数据，保证断言确定性
@@ -118,18 +139,20 @@ void main() {
     await bridge.dbOpen(path: dbFile.path);
   });
 
-  group('FRB StreamSink 真实 DLL 运行时验证（P1-1）', () {
-    test('前置：DLL 加载成功且 version() 经真实 wire 返回', () async {
+  group('FRB StreamSink 真实原生库运行时验证（P1-1）', () {
+    test('前置：原生库加载成功且 version() 经真实 wire 返回', () async {
       final version = await bridge.version();
       expect(version, isNotEmpty);
     });
 
     test('sourceCheckStream：订阅→进度事件→正常结束', () async {
       // 不存在的 URL 以 None 占位并推送失败进度（无网络依赖，确定性）
-      final r = await _collect(bridge.sourceCheckStream(
-        sourceUrlsJson: jsonEncode(['test://stream-check-nonexistent']),
-        configJson: '',
-      ));
+      final r = await _collect(
+        _sourceCheckStream(
+          sourceUrlsJson: jsonEncode(['test://stream-check-nonexistent']),
+          configJson: '',
+        ),
+      );
       expect(r.error, isNull, reason: '流不应产生 onError');
       expect(r.completed, isTrue, reason: '流应自然结束');
       expect(r.events, hasLength(1));
@@ -141,12 +164,13 @@ void main() {
     });
 
     test('sourceCheckCancel：取消路径（wire 调用+干净结束+新一轮重置）', () async {
-      final urls =
-          jsonEncode(List.generate(200, (i) => 'test://cancel-check-$i'));
+      final urls = jsonEncode(
+        List.generate(200, (i) => 'test://cancel-check-$i'),
+      );
       // 第一轮：订阅后立即取消。取消检查点位于源间（Rust 侧单测覆盖 break
       // 语义）；此处验证取消调用经真实 wire 成功返回且流生命周期不受破坏。
       final cancelled = await _collect(
-        bridge.sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
+        _sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
         afterSubscribe: () => bridge.sourceCheckCancel(),
       );
       expect(cancelled.completed, isTrue);
@@ -155,7 +179,7 @@ void main() {
       // 第二轮：不取消 → 全部事件完整到达。证明取消标志在新一轮开始时被
       // 重置（source_check_api.rs L155），取消不残留污染后续会话。
       final rerun = await _collect(
-        bridge.sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
+        _sourceCheckStream(sourceUrlsJson: urls, configJson: ''),
       );
       expect(rerun.completed, isTrue);
       expect(rerun.error, isNull);
@@ -165,10 +189,9 @@ void main() {
     });
 
     test('debugBookSourceStream：订阅→失败事件(state=-1)→正常结束', () async {
-      final r = await _collect(bridge.debugBookSourceStream(
-        sourceUrl: 'test://stream-debug-nonexistent',
-        key: '搜索词',
-      ));
+      final r = await _collect(
+        _debugStream(sourceUrl: 'test://stream-debug-nonexistent', key: '搜索词'),
+      );
       expect(r.error, isNull);
       expect(r.completed, isTrue);
       expect(r.events, isNotEmpty);
@@ -181,15 +204,13 @@ void main() {
       const url = 'test://stream-debug-cancel';
       // 第一轮：发起后立即取消（SESSION_ID 自增使旧会话失效），流干净结束
       final cancelled = await _collect(
-        bridge.debugBookSourceStream(sourceUrl: url, key: 'k'),
+        _debugStream(sourceUrl: url, key: 'k'),
         afterSubscribe: () => bridge.debugBookSourceCancel(),
       );
       expect(cancelled.completed, isTrue);
       expect(cancelled.error, isNull);
       // 第二轮：取消后再跑仍正常产出事件，会话机制未被破坏
-      final rerun = await _collect(
-        bridge.debugBookSourceStream(sourceUrl: url, key: 'k'),
-      );
+      final rerun = await _collect(_debugStream(sourceUrl: url, key: 'k'));
       expect(rerun.completed, isTrue);
       expect(rerun.error, isNull);
       expect(rerun.events, isNotEmpty);
@@ -200,14 +221,17 @@ void main() {
     test('verificationRequestStream：长期存活+pending/submit/cancel 配套', () async {
       var ended = false;
       Object? streamError;
-      final sub = bridge.verificationRequestStream().listen(
-        (_) {},
-        onDone: () => ended = true,
-        onError: (Object e) {
-          ended = true;
-          streamError = e;
-        },
-      );
+      final sub =
+          managedRustStream(
+            (request) => bridge.verificationRequestStream(request: request),
+          ).listen(
+            (_) {},
+            onDone: () => ended = true,
+            onError: (Object e) {
+              ended = true;
+              streamError = e;
+            },
+          );
       // 等待超过 Rust 侧轮询周期（STREAM_POLL_INTERVAL=1s）×2，
       // 证明接收循环存活且未误结束（无请求时不推事件属预期行为）
       await Future<void>.delayed(const Duration(milliseconds: 2300));
@@ -215,40 +239,42 @@ void main() {
       expect(ended, isFalse, reason: '长期存活流不应在订阅后立即结束');
       // 配套 API 经真实 wire 工作
       final pending = await bridge.verificationPending();
-      expect(jsonDecode(pending), isEmpty);
+      expect(pending, isEmpty);
       expect(
         await bridge.verificationSubmit(key: 'no-such-key', code: '1234'),
         false,
       );
       expect(await bridge.verificationCancel(key: 'no-such-key'), false);
-      // 长期存活流空闲时底层 async* 生成器停在端口等待点，取消 Future
-      // 永不完成（FRB RustStreamSink 语义，非本项目缺陷），故不等待取消
-      unawaited(sub.cancel());
+      // 独立取消凭据唤醒Rust，即使空闲也能完成退订。
+      await sub.cancel().timeout(const Duration(seconds: 3));
     });
 
     test('webviewRequestStream：长期存活+pending/submit/cancel 配套', () async {
       var ended = false;
       Object? streamError;
-      final sub = bridge.webviewRequestStream().listen(
-        (_) {},
-        onDone: () => ended = true,
-        onError: (Object e) {
-          ended = true;
-          streamError = e;
-        },
-      );
+      final sub =
+          managedRustStream(
+            (request) => bridge.webviewRequestStream(request: request),
+          ).listen(
+            (_) {},
+            onDone: () => ended = true,
+            onError: (Object e) {
+              ended = true;
+              streamError = e;
+            },
+          );
       await Future<void>.delayed(const Duration(milliseconds: 2300));
       expect(streamError, isNull);
       expect(ended, isFalse);
       final pending = await bridge.webviewPending();
-      expect(jsonDecode(pending), isEmpty);
+      expect(pending, isEmpty);
       expect(
         await bridge.webviewSubmit(key: 'no-such-key', result: '{}'),
         false,
       );
       expect(await bridge.webviewCancel(key: 'no-such-key'), false);
-      // 同上：长期存活流取消 Future 不完成，不等待（见 verification 用例说明）
-      unawaited(sub.cancel());
+      // 退订不提交/取消验证码或WebView业务请求。
+      await sub.cancel().timeout(const Duration(seconds: 3));
     });
 
     test('searchMultiStream：订阅→逐源批次事件→正常结束', () async {
@@ -266,11 +292,13 @@ void main() {
         ]),
       );
       expect(imported, greaterThanOrEqualTo(1));
-      final r = await _collect(bridge.searchMultiStream(
-        query: '测试关键词',
-        sourceUrlsJson: jsonEncode([fakeUrl]),
-        page: 1,
-      ));
+      final r = await _collect(
+        _searchMultiStream(
+          query: '测试关键词',
+          sourceUrlsJson: jsonEncode([fakeUrl]),
+          page: 1,
+        ),
+      );
       expect(r.error, isNull);
       expect(r.completed, isTrue);
       expect(r.events, hasLength(1), reason: '单个书源应恰好回推一个批次');

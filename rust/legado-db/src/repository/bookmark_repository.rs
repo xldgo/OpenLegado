@@ -1,6 +1,6 @@
 //! Bookmark Repository - bookmarks 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::Bookmark;
 use legado_core::{LegadoError, LegadoResult};
@@ -37,13 +37,14 @@ impl<'a> BookmarkRepository<'a> {
         Ok(self.conn.last_insert_rowid())
     }
 
-    /// 更新书签
+    /// 更新已有书签，保留记录 id 和数据库原有创建时间。
     pub fn update(&self, bm: &Bookmark) -> LegadoResult<()> {
-        self.conn
+        let updated = self
+            .conn
             .execute(
                 "UPDATE bookmarks SET bookName=?1, bookAuthor=?2, chapterIndex=?3,
-                 chapterPos=?4, chapterName=?5, bookText=?6, content=?7, time=?8
-                 WHERE id=?9",
+                 chapterPos=?4, chapterName=?5, bookText=?6, content=?7
+                 WHERE id=?8",
                 params![
                     bm.book_name,
                     bm.book_author,
@@ -52,11 +53,13 @@ impl<'a> BookmarkRepository<'a> {
                     bm.chapter_name,
                     bm.book_text,
                     bm.content,
-                    bm.time,
                     bm.id,
                 ],
             )
             .map_err(|e| LegadoError::Database(format!("更新书签失败: {e}")))?;
+        if updated == 0 {
+            return Err(LegadoError::Database(format!("书签不存在: {}", bm.id)));
+        }
         Ok(())
     }
 
@@ -83,8 +86,8 @@ impl<'a> BookmarkRepository<'a> {
         let rows = stmt
             .query_map(params![book_name], row_to_bookmark)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("bookmark_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -108,8 +111,8 @@ impl<'a> BookmarkRepository<'a> {
         let rows = stmt
             .query_map(params![book_name, book_author], row_to_bookmark)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("bookmark_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -132,8 +135,8 @@ impl<'a> BookmarkRepository<'a> {
         let rows = stmt
             .query_map(params![book_name, chapter_index], row_to_bookmark)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("bookmark_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -154,8 +157,8 @@ impl<'a> BookmarkRepository<'a> {
         let rows = stmt
             .query_map(params![pattern], row_to_bookmark)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("bookmark_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -173,8 +176,8 @@ impl<'a> BookmarkRepository<'a> {
         let rows = stmt
             .query_map([], row_to_bookmark)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("bookmark_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -242,10 +245,11 @@ mod tests {
         assert_eq!(a[0].book_text, "作者甲的书签");
 
         // 作者不匹配 → 空结果
-        assert!(repo
-            .get_by_book_and_author("同名书", "不存在作者")
-            .unwrap()
-            .is_empty());
+        assert!(
+            repo.get_by_book_and_author("同名书", "不存在作者")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -318,9 +322,60 @@ mod tests {
         let id = repo.insert(&bm).unwrap();
         bm.id = id;
         bm.book_text = "updated".to_string();
+        bm.content = "新备注".to_string();
+        bm.chapter_pos = 123;
+        bm.time = 0;
         repo.update(&bm).unwrap();
 
         let found = repo.get_by_book("book1").unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, id);
+        assert_eq!(found[0].time, 1000);
         assert_eq!(found[0].book_text, "updated");
+        assert_eq!(found[0].content, "新备注");
+        assert_eq!(found[0].chapter_pos, 123);
+    }
+
+    #[test]
+    fn test_update_missing_bookmark_does_not_insert() {
+        let db = crate::init_in_memory_database().unwrap();
+        let repo = BookmarkRepository::new(db.connection());
+        let mut bm = make_bookmark("missing", 0, "text");
+        bm.id = 123;
+
+        let error = repo.update(&bm).unwrap_err();
+        assert!(error.to_string().contains("书签不存在"));
+        assert!(repo.find_all().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_rejected_update_preserves_original_record() {
+        let db = crate::init_in_memory_database().unwrap();
+        let repo = BookmarkRepository::new(db.connection());
+        let mut bm = make_bookmark("original", 1, "原正文");
+        bm.content = "原备注".to_string();
+        bm.id = repo.insert(&bm).unwrap();
+        db.connection()
+            .execute_batch(
+                "CREATE TRIGGER reject_bookmark_update BEFORE UPDATE ON bookmarks
+             BEGIN SELECT RAISE(ABORT, '测试拒绝更新'); END;",
+            )
+            .unwrap();
+
+        let mut changed = bm.clone();
+        changed.book_name = "changed".to_string();
+        changed.chapter_pos = 123;
+        changed.book_text = "新正文".to_string();
+        changed.content = "新备注".to_string();
+        assert!(repo.update(&changed).is_err());
+
+        let found = repo.find_all().unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, bm.id);
+        assert_eq!(found[0].time, bm.time);
+        assert_eq!(found[0].book_name, bm.book_name);
+        assert_eq!(found[0].chapter_pos, bm.chapter_pos);
+        assert_eq!(found[0].book_text, bm.book_text);
+        assert_eq!(found[0].content, bm.content);
     }
 }

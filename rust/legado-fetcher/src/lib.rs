@@ -16,11 +16,26 @@
 
 pub mod analyze_request;
 pub mod book_type;
+pub mod cloud_tts;
 pub mod deps;
+pub mod explore;
+pub mod explore_js;
+pub mod explore_url;
 pub mod js_adapter;
 pub mod rate_limit;
 pub mod source_setup;
+pub mod tts_control;
+pub mod tts_fetcher;
+mod tts_response;
+pub mod tts_source;
+mod tts_transport;
 pub mod web_book;
+pub mod web_book_state;
+
+pub use tts_fetcher::{
+    HttpTtsConfig, TtsFetchResult, TtsSpeakContext, fetch_tts_audio, fetch_tts_audio_with_executor,
+    parse_tts_analyze_url_with_executor, tts_cache_key_from_context,
+};
 
 /// 测试支撑：全局变量 store / flow scope 的进程级状态锁 + 多线程 runtime 驱动
 /// （仅测试编译；本 crate 测试二进制内的串行防串表，语义同 legado-ffi

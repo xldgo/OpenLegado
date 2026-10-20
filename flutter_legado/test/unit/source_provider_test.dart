@@ -1,3 +1,7 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// SourceNotifier 单元测试
 ///
 /// 覆盖：
@@ -6,16 +10,14 @@
 /// - 批量操作：enterBatchMode/exitBatchMode/selectAll/batchEnable/batchDisable/batchDelete
 /// - 分组筛选：setGroup
 /// - 导入：importSources/importFromJson/importFromUrl/importFromFile
-library;
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:flutter_legado/src/providers/source/source_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/bridge/ffi.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import '../mocks/mocks.dart';
 
@@ -30,7 +32,7 @@ void main() {
   setUp(() {
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -40,8 +42,12 @@ void main() {
       container.read(sourceNotifierProvider.notifier);
 
   // 辅助：构造 BookSource
-  BookSource makeSource(String url, String name,
-      {String? group, bool enabled = true}) {
+  BookSource makeSource(
+    String url,
+    String name, {
+    String? group,
+    bool enabled = true,
+  }) {
     return BookSource(
       bookSourceUrl: url,
       bookSourceName: name,
@@ -88,7 +94,8 @@ void main() {
         makeSource('http://s1.com', '源1', group: '小说'),
         makeSource('http://s2.com', '源2', group: '漫画'),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
 
       await readNotifier().loadSources();
 
@@ -97,9 +104,9 @@ void main() {
       expect(readState().error, isNull);
     });
 
-    test('加载失败设置 BridgeError', () async {
-      when(() => mockApi.getBookSources())
-          .thenThrow(const BridgeError(message: '书源加载失败'));
+    test('加载失败设置 AppException', () async {
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenThrow(const AppException('书源加载失败'));
 
       await readNotifier().loadSources();
 
@@ -108,7 +115,8 @@ void main() {
     });
 
     test('加载失败设置普通异常', () async {
-      when(() => mockApi.getBookSources()).thenThrow(Exception('网络'));
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenThrow(Exception('网络'));
 
       await readNotifier().loadSources();
 
@@ -116,9 +124,8 @@ void main() {
     });
 
     test('loadSources 触发状态变化通知', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => [
-            makeSource('http://s1.com', '源1'),
-          ]);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => [makeSource('http://s1.com', '源1')]);
       final changes = <SourceState>[];
       container.listen(sourceNotifierProvider, (prev, next) {
         changes.add(next);
@@ -138,7 +145,8 @@ void main() {
         makeSource('http://comic.com', '漫画源', group: '漫画'),
         makeSource('http://other.com', '其他源'),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
@@ -155,7 +163,10 @@ void main() {
     test('按 URL 关键字筛选', () {
       readNotifier().setFilter('comic');
       expect(readState().filteredSources.length, equals(1));
-      expect(readState().filteredSources[0].bookSourceUrl, equals('http://comic.com'));
+      expect(
+        readState().filteredSources[0].bookSourceUrl,
+        equals('http://comic.com'),
+      );
     });
 
     test('按分组名筛选', () {
@@ -197,7 +208,8 @@ void main() {
         makeSource('http://c.com', 'C', group: '小说'),
         makeSource('http://d.com', 'D'),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
@@ -221,7 +233,8 @@ void main() {
         makeSource('http://b.com', 'B', enabled: false),
         makeSource('http://c.com', 'C', enabled: true),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
@@ -238,12 +251,14 @@ void main() {
   group('SourceNotifier toggleSource', () {
     setUp(() async {
       final sources = [makeSource('http://a.com', 'A', enabled: true)];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
     test('切换启用状态', () async {
-      when(() => mockApi.updateBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().toggleSource('http://a.com');
 
@@ -256,8 +271,8 @@ void main() {
     });
 
     test('切换失败设置错误', () async {
-      when(() => mockApi.updateBookSource(any()))
-          .thenThrow(const BridgeError(message: '更新失败'));
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenThrow(const AppException('更新失败'));
 
       await readNotifier().toggleSource('http://a.com');
 
@@ -271,12 +286,14 @@ void main() {
         makeSource('http://a.com', 'A'),
         makeSource('http://b.com', 'B'),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
     test('删除成功移除源', () async {
-      when(() => mockApi.deleteBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().deleteSource('http://a.com');
 
@@ -285,8 +302,8 @@ void main() {
     });
 
     test('删除失败设置错误', () async {
-      when(() => mockApi.deleteBookSource(any()))
-          .thenThrow(const BridgeError(message: '删除失败'));
+      when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
+          .thenThrow(const AppException('删除失败'));
 
       await readNotifier().deleteSource('http://a.com');
 
@@ -297,11 +314,13 @@ void main() {
 
   group('SourceNotifier saveSource', () {
     test('新建书源', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       await readNotifier().loadSources();
 
       final newSource = makeSource('http://new.com', '新源');
-      when(() => mockApi.addBookSource(any())).thenAnswer((_) async => newSource);
+      when(() => mockApi.bookSourceRepository.addBookSource(any()))
+          .thenAnswer((_) async => newSource);
 
       await readNotifier().saveSource(newSource);
 
@@ -311,11 +330,13 @@ void main() {
 
     test('更新已有书源', () async {
       final sources = [makeSource('http://a.com', '旧名')];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
 
       final updated = makeSource('http://a.com', '新名');
-      when(() => mockApi.updateBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().saveSource(updated);
 
@@ -323,16 +344,17 @@ void main() {
     });
 
     test('保存失败 rethrow', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       await readNotifier().loadSources();
 
       final source = makeSource('http://x.com', 'X');
-      when(() => mockApi.addBookSource(any()))
-          .thenThrow(const BridgeError(message: '保存失败'));
+      when(() => mockApi.bookSourceRepository.addBookSource(any()))
+          .thenThrow(const AppException('保存失败'));
 
       expect(
         () => readNotifier().saveSource(source),
-        throwsA(isA<BridgeError>()),
+        throwsA(isA<AppException>()),
       );
     });
   });
@@ -340,7 +362,8 @@ void main() {
   group('SourceNotifier getSource', () {
     setUp(() async {
       final sources = [makeSource('http://a.com', 'A')];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
@@ -362,7 +385,8 @@ void main() {
         makeSource('http://b.com', 'B', enabled: false),
         makeSource('http://c.com', 'C', enabled: true),
       ];
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => sources);
       await readNotifier().loadSources();
     });
 
@@ -385,9 +409,11 @@ void main() {
       readNotifier().toggleSelection('http://a.com');
       expect(readState().isSelected('http://a.com'), isTrue);
       expect(readState().selectedCount, equals(1));
+      expect(readState().batchMode, isTrue);
 
       readNotifier().toggleSelection('http://a.com');
       expect(readState().isSelected('http://a.com'), isFalse);
+      expect(readState().batchMode, isFalse);
     });
 
     test('selectAll 全选当前过滤结果', () {
@@ -402,10 +428,20 @@ void main() {
       readNotifier().selectAll();
       readNotifier().deselectAll();
       expect(readState().selectedCount, equals(0));
+      expect(readState().batchMode, isFalse);
+    });
+
+    test('全选后反选为空时退出批量模式', () {
+      readNotifier().selectAll();
+      expect(readState().batchMode, isTrue);
+      readNotifier().revertSelection();
+      expect(readState().selectedUrls, isEmpty);
+      expect(readState().batchMode, isFalse);
     });
 
     test('batchEnable 批量启用', () async {
-      when(() => mockApi.updateBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenAnswer((_) async {});
       readNotifier().enterBatchMode();
       readNotifier().toggleSelection('http://b.com');
 
@@ -416,7 +452,8 @@ void main() {
     });
 
     test('batchDisable 批量禁用', () async {
-      when(() => mockApi.updateBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenAnswer((_) async {});
       readNotifier().enterBatchMode();
       readNotifier().toggleSelection('http://a.com');
       readNotifier().toggleSelection('http://c.com');
@@ -428,7 +465,8 @@ void main() {
     });
 
     test('batchDelete 批量删除', () async {
-      when(() => mockApi.deleteBookSource(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookSourceRepository.deleteBookSource(any()))
+          .thenAnswer((_) async {});
       readNotifier().enterBatchMode();
       readNotifier().toggleSelection('http://a.com');
       readNotifier().toggleSelection('http://b.com');
@@ -440,8 +478,8 @@ void main() {
     });
 
     test('batchEnable 失败设置错误', () async {
-      when(() => mockApi.updateBookSource(any()))
-          .thenThrow(const BridgeError(message: '批量失败'));
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenThrow(const AppException('批量失败'));
       readNotifier().enterBatchMode();
       readNotifier().toggleSelection('http://b.com');
 
@@ -453,30 +491,36 @@ void main() {
 
   group('SourceNotifier importSources', () {
     test('导入成功重新加载列表', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       await readNotifier().loadSources();
 
-      when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 2);
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenAnswer((_) async => 2);
       final newSources = [makeSource('http://new.com', '新')];
       // 第二次 getBookSources 返回新列表
       var callCount = 0;
-      when(() => mockApi.getBookSources()).thenAnswer((_) async {
-        callCount++;
-        return callCount > 1 ? newSources : [];
-      });
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async {
+            callCount++;
+            return callCount > 1 ? newSources : [];
+          });
 
-      await readNotifier().importSources('[{"bookSourceUrl":"http://new.com"}]');
+      await readNotifier().importSources(
+        '[{"bookSourceUrl":"http://new.com"}]',
+      );
 
       expect(readState().loading, isFalse);
       expect(readState().error, isNull);
     });
 
     test('导入失败设置错误', () async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => []);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => []);
       await readNotifier().loadSources();
 
-      when(() => mockApi.importBookSources(any()))
-          .thenThrow(const BridgeError(message: '导入失败'));
+      when(() => mockApi.bookSourceRepository.importBookSources(any()))
+          .thenThrow(const AppException('导入失败'));
 
       await readNotifier().importSources('invalid');
 
@@ -515,7 +559,8 @@ void main() {
     }
 
     Future<void> load(List<BookSource> list) async {
-      when(() => mockApi.getBookSources()).thenAnswer((_) async => list);
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => list);
       await readNotifier().loadSources();
     }
 
@@ -535,6 +580,94 @@ void main() {
         readState().filteredSources.map((s) => s.bookSourceUrl).toList(),
         equals(['http://a.com', 'http://b.com', 'http://c.com']),
       );
+    });
+
+    test('拖到末尾保存手动顺序，重新加载后保持', () async {
+      var stored = [
+        makeSortSource('http://a.com', 'A'),
+        makeSortSource('http://b.com', 'B'),
+        makeSortSource('http://c.com', 'C'),
+      ];
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => stored);
+      when(
+        () => mockApi.bookSourceRepository.updateBookSource(any()),
+      ).thenAnswer((invocation) async {
+        final updated = invocation.positionalArguments.single as BookSource;
+        stored = [
+          for (final source in stored)
+            source.bookSourceUrl == updated.bookSourceUrl ? updated : source,
+        ];
+      });
+      await readNotifier().loadSources();
+
+      expect(await readNotifier().reorderSources(0, 2), isTrue);
+      await readNotifier().loadSources();
+      expect(readState().filteredSources.map((s) => s.bookSourceName), [
+        'B',
+        'C',
+        'A',
+      ]);
+      expect(readState().filteredSources.map((s) => s.customOrder), [0, 1, 2]);
+    });
+
+    test('降序筛选拖动保持隐藏书源位置与勾选状态', () async {
+      await load([
+        makeSortSource('http://a.com', '可见A', group: '小说', customOrder: 0),
+        makeSortSource('http://b.com', '隐藏B', customOrder: 1),
+        makeSortSource('http://c.com', '可见C', group: '小说', customOrder: 2),
+        makeSortSource('http://d.com', '可见D', group: '小说', customOrder: 3),
+      ]);
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenAnswer((_) async {});
+      readNotifier().setGroup('小说');
+      readNotifier().setFilter('可见');
+      readNotifier().toggleSortDirection();
+      readNotifier().enterBatchMode();
+      readNotifier().toggleSelection('http://d.com');
+
+      expect(await readNotifier().reorderSources(0, 2), isTrue);
+      expect(readState().filteredSources.map((s) => s.bookSourceName), [
+        '可见C',
+        '可见A',
+        '可见D',
+      ]);
+      expect(
+        readState().sources
+            .firstWhere((s) => s.bookSourceUrl == 'http://b.com')
+            .customOrder,
+        1,
+      );
+      expect(readState().batchMode, isTrue);
+      expect(readState().selectedUrls, {'http://d.com'});
+    });
+
+    test('拖动保存中途失败重新读取数据库顺序', () async {
+      var stored = [
+        makeSortSource('http://a.com', 'A', customOrder: 0),
+        makeSortSource('http://b.com', 'B', customOrder: 1),
+        makeSortSource('http://c.com', 'C', customOrder: 2),
+      ];
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => stored);
+      when(
+        () => mockApi.bookSourceRepository.updateBookSource(any()),
+      ).thenAnswer((invocation) async {
+        final updated = invocation.positionalArguments.single as BookSource;
+        if (updated.bookSourceUrl == 'http://c.com') {
+          throw const AppException('写入失败');
+        }
+        stored = [
+          for (final source in stored)
+            source.bookSourceUrl == updated.bookSourceUrl ? updated : source,
+        ];
+      });
+      await readNotifier().loadSources();
+
+      expect(await readNotifier().reorderSources(0, 2), isFalse);
+      expect(readState().sources, stored);
+      expect(readState().loading, isFalse);
+      expect(readState().error, '写入失败');
     });
 
     test('权重排序默认高权重优先', () async {

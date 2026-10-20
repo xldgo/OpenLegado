@@ -10,6 +10,7 @@
 //! - [`cbz`] — CBZ 漫画格式解析（ZIP + 图片页，整包 = 一本漫画）
 //! - [`export`] — 书籍导出（TXT/EPUB/HTML）
 //! - [`txt_search`] — 本地 TXT 分词搜索
+//! - [`danmaku`] — 视频副内容的弹幕 XML 解析
 //!
 //! # Examples
 //!
@@ -27,11 +28,13 @@
 
 pub mod archive;
 pub mod cbz;
+pub mod danmaku;
 pub mod encoding;
 pub mod epub;
 pub mod export;
 pub mod mobi;
 pub mod pdf;
+mod resource_budget;
 pub mod txt;
 pub mod txt_search;
 pub mod umd;

@@ -4,8 +4,8 @@
 //! 参考 Kotlin 实现 `RssSource.kt` / `RssArticle.kt`。
 
 use legado_core::{LegadoError, LegadoResult};
-use quick_xml::events::Event;
 use quick_xml::Reader;
+use quick_xml::events::Event;
 
 /// RSS 文章
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

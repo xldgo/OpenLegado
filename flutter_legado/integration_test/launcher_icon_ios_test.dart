@@ -64,7 +64,8 @@ void main() {
     expect(
       statusError,
       isNull,
-      reason: 'status 通道应可达；实际异常: $statusError'
+      reason:
+          'status 通道应可达；实际异常: $statusError'
           '（MissingPluginException = AppDelegate 接线断裂）',
     );
     final statusMap = (statusResult as Map?) ?? <Object?, Object?>{};
@@ -92,7 +93,8 @@ void main() {
     expect(
       canSet,
       true,
-      reason: '已安装 bundle 磁盘 Info.plist CFBundleAlternateIcons 应声明 launcher1~6；'
+      reason:
+          '已安装 bundle 磁盘 Info.plist CFBundleAlternateIcons 应声明 launcher1~6；'
           'diskAltKeys=[] → 安装副本 plist 缺声明（构建/安装链路问题）；'
           'diskAltKeys 有值但 canSet=false → 键名不匹配',
     );
@@ -114,7 +116,8 @@ void main() {
         'launcher5=launcher5',
         'launcher6=launcher6',
       ],
-      reason: 'CFBundleAlternateIcons 各条目 CFBundleIconName 应与键名一致'
+      reason:
+          'CFBundleAlternateIcons 各条目 CFBundleIconName 应与键名一致'
           '（appiconset 名）；实际=$altIconNames → 声明缺失或值不匹配，'
           '真机 setAlternateIconName 将报 OSStatus -54',
     );
@@ -126,7 +129,8 @@ void main() {
     expect(
       (carNames is List) ? carNames.length : 0,
       6,
-      reason: '已安装 Assets.car 应含 launcher1~6 全部 appiconset；'
+      reason:
+          '已安装 Assets.car 应含 launcher1~6 全部 appiconset；'
           '实际=$carNames → 变体资产未入包（actool/构建设置回归）',
     );
 

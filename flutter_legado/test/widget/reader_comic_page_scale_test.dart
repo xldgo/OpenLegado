@@ -1,3 +1,13 @@
+import '../fixtures/app_test_api.dart';
+import '../fixtures/config_repository.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 E2] 分页适配类型（设置项 + 持久化，整页行为）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -15,14 +25,12 @@
 // 3. 已配置值（mangaPageScaleType=3）：下拉回显「适配高度」。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
 /// 1x1 透明 PNG（合法 68 字节编码）
 const _kPngBase64 =
@@ -31,10 +39,39 @@ const _kPngBase64 =
 
 /// 页面适配测试 Mock：可注入配置（翻页模式/适配类型），记录配置写入
 class _ScaleMockApi extends MockBookApi {
-  _ScaleMockApi({
-    required this.configWrites,
-    Map<String, String>? configs,
-  }) : _configs = configs ?? {};
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
+  _ScaleMockApi({required this.configWrites, Map<String, String>? configs})
+    : _configs = configs ?? {};
 
   /// 每章图片数（与 E1/E3 mock 一致取 3，保证单页式有页可翻）
   static const int imageCount = 3;
@@ -42,49 +79,42 @@ class _ScaleMockApi extends MockBookApi {
   final List<List<String>> configWrites;
   final Map<String, String> _configs;
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [
-        BookSource(
-          bookSourceUrl: 'https://manga.example.com',
-          bookSourceName: '测试漫画源',
-          bookSourceGroup: '漫画',
-          bookSourceType: 2,
-          enabled: true,
-          ruleContent: ContentRule(
-            content: '.x',
-            imageDecode: 'decode(result);',
-          ),
-          customOrder: 0,
-          lastUpdateTime: 0,
-          respondTime: 0,
-          weight: 0,
-        ),
-      ];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [
+    BookSource(
+      bookSourceUrl: 'https://manga.example.com',
+      bookSourceName: '测试漫画源',
+      bookSourceGroup: '漫画',
+      bookSourceType: 2,
+      enabled: true,
+      ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
+      customOrder: 0,
+      lastUpdateTime: 0,
+      respondTime: 0,
+      weight: 0,
+    ),
+  ];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: 'https://manga.example.com',
-        originName: '测试漫画源',
-        canUpdate: true,
-        totalChapterNum: 1,
-        durChapterPos: 0,
-      );
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: 'https://manga.example.com',
+    originName: '测试漫画源',
+    canUpdate: true,
+    totalChapterNum: 1,
+    durChapterPos: 0,
+  );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async => [
-        BookChapter(
-          index: 0,
-          url: 'https://manga.example.com/comic/1/ch1.html',
-          title: '第1章',
-        ),
-      ];
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async => [
+    BookChapter(
+      index: 0,
+      url: 'https://manga.example.com/comic/1/ch1.html',
+      title: '第1章',
+    ),
+  ];
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -95,28 +125,31 @@ class _ScaleMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     configWrites.add([key, value]);
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
   }) async {}
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async => null;
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async =>
+      null;
 }
 
 /// 打开漫画设置面板（控制栏 → 底栏「翻页设置」键 [P4-3 M1]）
@@ -129,21 +162,22 @@ Future<void> _openSheet(WidgetTester tester) async {
 
 void main() {
   group('[P4-3 E2] 分页适配类型设置项', () {
-    testWidgets('单页模式：下拉切换「拉伸」→ 持久化 mangaPageScaleType=1',
-        (tester) async {
+    testWidgets('单页模式：下拉切换「拉伸」→ 持久化 mangaPageScaleType=1', (tester) async {
       final configWrites = <List<String>>[];
       final api = _ScaleMockApi(
         configWrites: configWrites,
         configs: {'mangaScrollMode': '1'},
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://s1')),
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://s1'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -173,14 +207,15 @@ void main() {
     testWidgets('条漫模式（默认）：不渲染「页面适配」项', (tester) async {
       final api = _ScaleMockApi(configWrites: <List<String>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child:
-              const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://s2')),
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://s2'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -194,20 +229,21 @@ void main() {
       expect(find.text('侧边留白'), findsOneWidget);
     });
 
-    testWidgets('已配置 mangaPageScaleType=3：下拉回显「适配高度」',
-        (tester) async {
+    testWidgets('已配置 mangaPageScaleType=3：下拉回显「适配高度」', (tester) async {
       final api = _ScaleMockApi(
         configWrites: <List<String>>[],
         configs: {'mangaScrollMode': '1', 'mangaPageScaleType': '3'},
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://s3')),
+          child: const MaterialApp(
+            home: ReaderComicScreen(bookUrl: 'mock://s3'),
+          ),
         ),
       );
       await tester.pumpAndSettle();

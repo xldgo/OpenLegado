@@ -1,0 +1,8 @@
+// 只改变本次基准构建的包名，避免覆盖阅读器及其数据库。
+gradle.beforeProject { project ->
+    project.plugins.withId("com.android.application") {
+        project.extensions.getByName("androidComponents").finalizeDsl { android ->
+            android.defaultConfig.applicationId = "io.legado.layout_benchmark"
+        }
+    }
+}

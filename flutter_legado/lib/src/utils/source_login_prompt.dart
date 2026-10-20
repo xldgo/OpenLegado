@@ -1,26 +1,28 @@
-import 'package:flutter/material.dart';
+import '../l10n/app_localization.dart';
 
-import '../bridge/ffi.dart' show BridgeError;
+import 'package:material_ui/material_ui.dart';
+
+import '../domain/errors/app_exception.dart';
 import '../models/book_source.dart';
-import '../screens/source_login_screen.dart';
+import '../features/book_sources/presentation/source_login_screen.dart';
 
 /// 是否为 loginCheckJs 判定的「书源需要登录」错误（错误码 1012 / 文案对齐）。
 bool isSourceLoginRequiredError(Object? error) {
   if (error == null) return false;
-  final msg = error is BridgeError ? error.message : error.toString();
+  final msg = error is AppException ? error.message : error.toString();
   return msg.contains('书源需要登录') ||
       msg.contains('LoginRequired') ||
       msg.contains('login_required') ||
       msg.contains('1012');
 }
 
-String sourceLoginRequiredMessage(Object? error) {
-  if (error is BridgeError && error.message.isNotEmpty) {
+String sourceLoginRequiredMessage(Object? error, {String? fallback}) {
+  if (error is AppException && error.message.isNotEmpty) {
     return error.message;
   }
   final s = error?.toString() ?? '';
   if (s.contains('书源需要登录')) return s;
-  return '书源需要登录，请先在书源菜单中登录后重试';
+  return fallback ?? '书源需要登录，请先在书源菜单中登录后重试';
 }
 
 /// 弹出登录提示并可选跳转 [SourceLoginScreen]（对齐原版 LoginSourceException 引导）。
@@ -35,16 +37,21 @@ Future<void> promptSourceLoginIfNeeded(
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('需要登录'),
-      content: Text(sourceLoginRequiredMessage(error)),
+      title: Text(ctx.l10n.loginRequiredTitle),
+      content: Text(
+        sourceLoginRequiredMessage(
+          error,
+          fallback: ctx.l10n.sourceLoginRetryHint,
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
+          child: Text(ctx.l10n.cancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('去登录'),
+          child: Text(ctx.l10n.goToLogin),
         ),
       ],
     ),

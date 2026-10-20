@@ -75,8 +75,7 @@ void main() {
 
     test('复合 URL 拆出 header', () {
       final t = resolveVideoPlayTarget(
-        content:
-            'https://cdn.example/v.mp4,{"headers":{"Referer":"https://gate.com"}}',
+        content: 'https://cdn.example/v.mp4,{"headers":{"Referer":"https://gate.com"}}',
         chapterUrl: 'https://site.com/c.html',
       );
       expect(t.url, 'https://cdn.example/v.mp4');
@@ -115,10 +114,7 @@ void main() {
 
     test('正文为空且 chapterUrl 可播时回退', () {
       const chapter = 'https://cdn.example/ep1.mp4';
-      final t = resolveVideoPlayTarget(
-        content: '   ',
-        chapterUrl: chapter,
-      );
+      final t = resolveVideoPlayTarget(content: '   ', chapterUrl: chapter);
       expect(t.url, chapter);
     });
 

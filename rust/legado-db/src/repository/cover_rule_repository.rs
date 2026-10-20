@@ -10,7 +10,7 @@
 //! `CREATE TABLE IF NOT EXISTS`（不新增列/索引、不走版本迁移，
 //! 与 DB 迁移冻结约束兼容）。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 use legado_core::{LegadoError, LegadoResult};
@@ -62,8 +62,8 @@ impl<'a> CoverRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_rule)
             .map_err(|e| LegadoError::Database(format!("查询封面规则失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("cover_rule_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -80,8 +80,8 @@ impl<'a> CoverRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_rule)
             .map_err(|e| LegadoError::Database(format!("查询启用封面规则失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("cover_rule_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

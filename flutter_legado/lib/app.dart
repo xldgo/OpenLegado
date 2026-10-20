@@ -1,45 +1,66 @@
-import 'dart:async';
-import 'dart:io' show File;
+import 'src/data/services/file_metadata.dart';
+import 'src/app/routing/startup_default_to_read.dart';
+import 'src/app/routing/startup_reading_navigation.dart';
+import 'src/app/routing/app_navigation.dart';
+import 'src/providers/auto_task/auto_task_dependencies.dart';
+import 'src/providers/config_settings_provider.dart';
 
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'dart:async';
+import 'dart:io' show File, FileSystemEntityType;
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import 'src/models/models.dart';
-import 'src/providers/providers.dart';
-import 'src/providers/ui_settings/ui_settings_notifier.dart';
+import 'src/l10n/app_strings.dart';
+import 'src/l10n/app_localization.dart';
+import 'src/providers/app_locale_notifier.dart';
+import 'src/providers/theme/app_theme_preferences_provider.dart';
 import 'src/providers/theme/theme_colors_notifier.dart';
 import 'src/providers/theme/theme_notifier.dart';
-import 'src/routes.dart';
-import 'src/screens/video_screen.dart';
+import 'src/app/routing/route_names.dart';
+import 'src/app/routing/route_arguments.dart';
+import 'src/app/routing/app_router.dart';
 import 'src/services/auto_task_scheduler.dart';
+import 'src/services/crash_log_service.dart';
 import 'src/services/deep_link_service.dart';
+import 'src/features/audio/application/audio_notifier.dart';
+import 'src/features/read_aloud/media_playback_navigation.dart';
 import 'src/services/platform_bridge_service.dart';
 import 'src/services/video_float_window.dart';
-import 'src/theme/app_theme.dart';
-import 'src/theme/theme_engine_parameterized.dart';
+import 'src/theme/app_theme_resolver.dart';
+import 'src/theme/app_glass_theme.dart';
+
 import 'package:dynamic_color/dynamic_color.dart';
-import 'src/theme/md3_colors.dart';
+
+import 'src/theme/platform_dynamic_colors.dart';
+
 import 'src/utils/app_route_observer.dart';
 import 'src/utils/app_scroll_behavior.dart';
 import 'src/widgets/system_bar_binder.dart';
+import 'src/widgets/ui_settings_scope.dart';
+import 'src/widgets/eye_protection_filter.dart';
 import 'src/widgets/crash_log_dialog.dart';
 import 'src/widgets/verification_code_listener.dart';
 import 'src/widgets/webview_bridge_listener.dart';
+import 'src/widgets/reader/read_aloud_capsule_host.dart';
 
 /// Legado App 入口 Widget
 class LegadoApp extends ConsumerStatefulWidget {
-  /// 初始路由（冷启动为闪屏 /welcome，对齐 WelcomeActivity）
+  /// 初始路由（冷启动直接进主页，闪屏由系统启动画面负责，对齐上游）
   final String initialRoute;
 
   /// 上次崩溃日志内容（null 表示无崩溃记录）
   final String? lastCrashLog;
 
+  /// 启动阶段已成功预热；独立预览默认使用普通材质。
+  final bool glassAvailable;
+
   const LegadoApp({
     super.key,
     this.initialRoute = AppRoutes.home,
     this.lastCrashLog,
+    this.glassAvailable = false,
   });
 
   /// 弹出「上次运行发生崩溃」提示弹窗（[P2-13 2026-09-18]）。
@@ -69,96 +90,65 @@ class LegadoApp extends ConsumerStatefulWidget {
     return true;
   }
 
-  /// 调度「上次崩溃」弹窗：等冷启动闪屏退出后再弹出（P2-13b）。
+  /// 调度「上次崩溃」弹窗（P2-13）。
   ///
-  /// 冷启动固定经闪屏路由（main.dart `initialRoute = AppRoutes.welcome`），
-  /// [WelcomeScreen] 延时后经 `pushReplacementNamed(home)` 退出闪屏——
-  /// pushReplacement 替换的是**当时栈顶路由**：若弹窗已在首帧 postFrame
-  /// 弹出（栈顶），闪屏退出时弹窗路由会被一并替换掉，用户看不到提示
-  /// （且「确定」不会被点按，crash_log 永不清除，每次启动重复提示）。
+  /// 弹窗必须等 Navigator 装配完成后才能弹出（见 [showCrashLogDialog]）：
+  /// 冷启动首帧 [MaterialApp] 尚未构建、`navigatorKey.currentContext` 为空，
+  /// 故逐帧重试，装配成功即返回并停止；[maxFrames] 帧内仍未就绪则放弃本次
+  /// 提示——崩溃日志仍在磁盘文件中，下次启动继续提示，不丢数据、不抛异常。
   ///
-  /// 因此经 [TopRouteWatcher]（须已注册进
-  /// `MaterialApp(navigatorObservers:)`，见 [_LegadoAppState.build]）监听
-  /// 栈顶路由变化：确认栈顶不再是 [AppRoutes.welcome] 即弹窗。
-  /// 当前 SDK 的 `NavigatorState` 不再公开 `routes` 列表，
-  /// `NavigatorObserver.didChangeTop` 是受支持的栈顶路由观察 API。
-  /// 若 [maxFrames] 帧内未观察到「已非闪屏」（60Hz 下 90 帧≈1.5s，
-  /// 覆盖闪屏最大 800ms 延时 + 设置读取耗时；或 watcher 未注册）则
-  /// 兜底弹出——崩溃日志仍在磁盘文件中，下次启动继续提示，
-  /// 不丢数据、不抛异常。
+  /// 历史：P2-13b 曾在这里等待闪屏 /welcome 退出后再弹，避免弹窗路由被
+  /// `pushReplacement(home)` 连同替换。闪屏路由已按上游移除（冷启动直接进
+  /// 主页），该等待条件随之取消。
   ///
   /// [isAlive] 供宿主 State 传入 `() => mounted`：State 已卸载即停止
   /// 重试，避免对已销毁界面弹窗。
   static void scheduleCrashLogDialog(
     String crashLog,
     bool Function() isAlive, {
-    TopRouteWatcher? watcher,
     int maxFrames = 90,
   }) {
-    final probe = watcher ?? TopRouteWatcher();
     var shown = false;
 
     void attempt(int frame) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isAlive() || shown) return;
-        if (probe.didObserveTopChange &&
-            probe.topRouteName != AppRoutes.welcome) {
-          // 栈顶已确认非闪屏（含无名字路由）→ 弹出
+        if (showCrashLogDialog(crashLog)) {
           shown = true;
-          showCrashLogDialog(crashLog);
           return;
         }
-        if (frame < maxFrames) {
-          attempt(frame + 1);
-        } else {
-          // 超时兜底：事件未观察到（如 watcher 未注册）或闪屏未退出
-          shown = true;
-          showCrashLogDialog(crashLog);
-        }
+        if (frame < maxFrames) attempt(frame + 1);
       });
+      // 主动预约下一帧：否则重试只会在其他原因触发重绘时才推进，
+      // 启动阶段可能长时间停留在「未尝试」状态。
+      WidgetsBinding.instance.scheduleFrame();
     }
 
     attempt(0);
   }
 
-  /// [V-B3-ROUTE 2026-10-05] 悬浮窗回全屏导航调度：等闪屏 /welcome 退出
-  /// 栈顶后再压栈。
+  /// [V-B3-ROUTE 2026-10-05] 悬浮窗/深链回全屏导航调度：等 Navigator 就绪。
   ///
-  /// 缺陷（round2 真机 2/2 复现，`.tmp/video_qa/round2/c2_*.png`）：冷启动
-  /// 经 [AppRoutes.welcome] 闪屏；MainActivity.onCreate 把悬浮窗播放状态经
-  /// Intent 交给 Dart（[VideoFloatWindowBridge.attach] →
-  /// `_consumeInitialReturn`），回全屏导航在首帧附近触发。此时直接
-  /// `pushNamed(video)` 会把 /video 压在 /welcome 之上，而 [WelcomeScreen]
-  /// 延后执行的 `pushReplacementNamed(home)` 替换的是**当时栈顶**——刚压入
-  /// 的 /video 被一并替换：可见播放页闪现后被书架顶掉、播放中断。
+  /// 冷启动首帧前 `navigatorKey.currentState` 为空，此时直接 push 会丢失导航；
+  /// 故按 [interval] 轮询（默认 50ms × [maxAttempts] = 3s 上限），就绪即执行，
+  /// 超时回调 [onTimeout]（宁可不导航，停留当前页）。
   ///
-  /// 门控条件取「路由栈顶已非 /welcome」（[TopRouteWatcher] 的
-  /// `didChangeTop` 由框架在路由栈变化时同步更新，天然无竞态）：
-  /// - 热路径（App 已存活，onNewIntent 回全屏）：栈顶非 welcome →
-  ///   [push] 同步执行，零额外延迟；
-  /// - 冷启动（Navigator 未就绪或闪屏未退出）：按 [interval] 轮询，
-  ///   至多 [maxAttempts] 次（默认 50ms × 60 = 3s）后放弃并回调
-  ///   [onTimeout]——宁可不导航（停留当前页），也不重演「压栈后被欢迎页
-  ///   替换」的错误导航。
-  ///
-  /// 不用「[WelcomeScreen] `_goNext` 的 `await pushReplacementNamed` 之后
-  /// 置标志」：`Navigator.pushReplacement` 返回的是**新路由的 popped
-  /// future**（Flutter 3.44 `navigator.dart` `return newRoute.popped;`），
-  /// home 不弹栈该 await 永不完成，手写标志将永不置位（本批探针测试已实证）。
-  /// 路由栈本身才是权威信号，故经 [TopRouteWatcher] 观察。
+  /// 历史：闪屏 /welcome 存续期间压栈会被 `pushReplacement(home)` 整体替换
+  /// （round2 真机 2/2，`.tmp/video_qa/round2/c2_*.png`），故曾以
+  /// `TopRouteWatcher` 门控「栈顶已非 /welcome」。闪屏路由已按上游移除，
+  /// 门控退化为「Navigator 是否就绪」。
   static void scheduleFloatReturnNavigation({
-    required TopRouteWatcher watcher,
     required NavigatorState? Function() navigator,
     required void Function(NavigatorState navigator) push,
     int maxAttempts = 60,
     Duration interval = const Duration(milliseconds: 50),
     VoidCallback? onTimeout,
+    bool Function()? isAlive,
   }) {
     void attempt(int attemptNo) {
+      if (isAlive != null && !isAlive()) return;
       final nav = navigator();
-      final welcomeGone = watcher.didObserveTopChange &&
-          watcher.topRouteName != AppRoutes.welcome;
-      if (nav != null && welcomeGone) {
+      if (nav != null) {
         push(nav);
         return;
       }
@@ -176,38 +166,66 @@ class LegadoApp extends ConsumerStatefulWidget {
   ConsumerState<LegadoApp> createState() => _LegadoAppState();
 }
 
-/// 栈顶路由观察器（P2-13b 崩溃弹窗调度的一次性事件源）
-///
-/// 经 `MaterialApp(navigatorObservers:)` 注册；栈顶路由变化时
-/// [didChangeTop]（当前 SDK 的 `NavigatorObserver` 受支持 API——
-/// `NavigatorState` 不再公开 `routes` 列表）更新 [topRouteName]。
-/// [didObserveTopChange] 用于区分「已观察到栈顶（无名路由为 null）」
-/// 与「尚未观察到任何栈顶变化事件」。
-class TopRouteWatcher extends NavigatorObserver {
-  /// 自注册以来是否已观察到栈顶路由变化事件
-  bool didObserveTopChange = false;
+class _LegadoAppState extends ConsumerState<LegadoApp>
+    with WidgetsBindingObserver {
+  late final GoRouter _router;
+  late final StartupReadingNavigation _startupReading;
+  late final ProviderContainer _applicationContainer;
+  final _initialDeepLinkReady = Completer<void>();
+  final _dynamicColorsKey = GlobalKey<DynamicColorBuilderState>();
 
-  /// 最近观察到的栈顶路由名（路由无名时为 `null`）
-  String? topRouteName;
-
-  @override
-  void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
-    didObserveTopChange = true;
-    topRouteName = topRoute.settings.name;
-  }
-}
-
-class _LegadoAppState extends ConsumerState<LegadoApp> {
-  /// 栈顶路由观察器（注册进 `MaterialApp(navigatorObservers:)`，见
-  /// [build]），两个只读消费者：
-  /// - [P2-13b] 崩溃弹窗调度（[scheduleCrashLogDialog]）；
-  /// - [V-B3-ROUTE] 悬浮窗回全屏门控（[scheduleFloatReturnNavigation]）——
-  ///   确认闪屏 /welcome 已被替换出栈顶后才压入 /video。
-  final TopRouteWatcher _topRouteWatcher = TopRouteWatcher();
+  final _readAloudCapsuleObserver = ReadAloudCapsuleObserver();
+  late final MediaPlaybackNavigation _mediaPlaybackNavigation;
 
   @override
   void initState() {
     super.initState();
+    _applicationContainer = ProviderScope.containerOf(context, listen: false);
+    _startupReading = ref.read(startupReadingNavigationProvider);
+    _mediaPlaybackNavigation = MediaPlaybackNavigation(
+      onOpenRequested: _startupReading.preferExternalAction,
+      resolve: (request) {
+        if (!mounted) return null;
+        final notifier = ref.read(audioNotifierProvider.notifier);
+        if (!notifier.ownsMediaTarget(request, matchChapter: false)) {
+          return null;
+        }
+        final audio = ref.read(audioNotifierProvider);
+        return MediaPlaybackDestination(
+          audio.isStreamMode ? AppRoutes.audio : AppRoutes.readAloudPlayer,
+          book:
+              notifier.currentBook ??
+              Book(
+                bookUrl: audio.bookUrl,
+                name: audio.bookName,
+                bookType: audio.isStreamMode ? BookType.audio : BookType.text,
+              ),
+        );
+      },
+    );
+    _router = AppRouter().createRouter(
+      initialLocation: widget.initialRoute,
+      navigatorKey: PlatformBridgeService.navigatorKey,
+      observers: [
+        appRouteObserver,
+        systemBarRouteObserver,
+        _startupReading,
+        _readAloudCapsuleObserver,
+        _mediaPlaybackNavigation,
+      ],
+    );
+    // 冷启动「默认进入阅读」：解析一次（详见 startupDefaultToReadProvider），
+    // 交给 _startupReading 在主页入栈后打开。对齐上游
+    // MainActivity.shouldApplyDefaultToRead——无闪屏、无计时器。
+    unawaited(
+      ref.read(startupDefaultToReadProvider.future).then((book) {
+        if (book != null && mounted) _startupReading.request(book);
+      }),
+    );
+    final initialMedia = _mediaPlaybackNavigation.attach(
+      ref.read(audioServiceProvider),
+    );
+    WidgetsBinding.instance.addObserver(this);
     // 系统栏样式由 [SystemBarBinder] 按偏好与主题统一驱动
     // 首帧渲染后检查上次崩溃日志并弹窗提示
     // [P2-13 2026-09-18] 弹窗上下文改用全局 Navigator（见
@@ -215,33 +233,51 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
     // **祖先**，showDialog 向上找 Navigator 时其上方并无 Navigator
     // （Navigator 是它的后代）→ 抛异常 → FlutterError.onError 重写
     // crash_log.txt 并置崩溃标记 → 下次启动再弹再抛，形成启动崩溃循环。
-    // [P2-13b 2026-09-19] 实机验证发现冷启动闪屏 /welcome 退出时
-    // pushReplacementNamed 会连同栈顶的弹窗路由一起替换掉（弹窗一闪
-    // 即逝），故经 [scheduleCrashLogDialog] + [TopRouteWatcher]（didChangeTop
-    // 事件驱动 + 90 帧超时兜底）确认闪屏退出后再弹；watcher 已在下方
-    // MaterialApp.navigatorObservers 注册。
+    // [P2-13b 2026-09-19] 闪屏存续期间弹窗路由会被 `pushReplacement(home)`
+    // 一并替换（弹窗一闪即逝），当时以 TopRouteWatcher 等闪屏退出；闪屏
+    // 路由已按上游移除，现只等 Navigator 装配（逐帧重试 + 90 帧上限）。
     if (widget.lastCrashLog != null && widget.lastCrashLog!.isNotEmpty) {
-      LegadoApp.scheduleCrashLogDialog(
-        widget.lastCrashLog!,
-        () => mounted,
-        watcher: _topRouteWatcher,
-      );
+      LegadoApp.scheduleCrashLogDialog(widget.lastCrashLog!, () => mounted);
     }
     // [UI-fix v2.0.3 | 2026-08-08] 定时任务应用内调度器启动装配
     //（Task #146，对齐原版 App.kt 启动时 AutoTaskScheduler.refresh；
-    // 引擎已在 main.dart 先行初始化，此处可直接注入 BookApi） — QoderCN
-    AutoTaskScheduler.instance.attach(ref.read(bookApiProvider));
+    // 引擎已在 main.dart 先行初始化，此处可直接读取领域Provider） — QoderCN
+
+    final taskSettings = ref.read(serviceSettingsRepositoryProvider);
+    AutoTaskScheduler.instance.attach(
+      repository: ref.read(autoTaskRepositoryProvider),
+      service: ref.read(autoTaskServiceProvider),
+      readEnabled: () async => (await taskSettings.load()).autoTaskEnabled,
+    );
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 复用欢迎页导航门控，避免初始导入弹窗被欢迎页的路由替换关闭。
+      // 等 Navigator 装配后再 attach（冷启动首帧前 navigatorKey 为空）。
       LegadoApp.scheduleFloatReturnNavigation(
-        watcher: _topRouteWatcher,
-        navigator: () => mounted
-            ? PlatformBridgeService.navigatorKey.currentState
-            : null,
-        push: (_) => DeepLinkService.instance
-            .attach(PlatformBridgeService.navigatorKey),
-        onTimeout: () => debugPrint('[DeepLink] 等待欢迎页退出超时'),
+        isAlive: () => mounted,
+        navigator: () =>
+            mounted ? PlatformBridgeService.navigatorKey.currentState : null,
+        push: (_) {
+          unawaited(
+            DeepLinkService.instance
+                .attach(
+                  PlatformBridgeService.navigatorKey,
+                  onImport: _startupReading.preferExternalAction,
+                )
+                .then(
+                  (_) => _completeInitialDeepLink(),
+                  onError: (Object error, StackTrace stack) {
+                    if (!_initialDeepLinkReady.isCompleted) {
+                      _initialDeepLinkReady.completeError(error, stack);
+                    }
+                  },
+                ),
+          );
+        },
+        onTimeout: () {
+          _startupReading.preferExternalAction();
+          _completeInitialDeepLink();
+          debugPrint('[DeepLink] 等待 Navigator 就绪超时');
+        },
       );
     });
     // [V-B3] 视频悬浮窗：注册原生事件处理与回全屏导航后 attach
@@ -249,15 +285,59 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
     VideoFloatWindowCoordinator.instance
       ..openFullscreen = _openVideoFromFloatWindow
       ..onNotice = _showFloatWindowNotice;
-    VideoFloatWindowBridge.instance.attach();
+    final initialVideo = VideoFloatWindowBridge.instance.attach();
+    _startupReading.waitForInitialActions(
+      Future.wait<void>([
+        _initialDeepLinkReady.future,
+        initialMedia,
+        initialVideo,
+      ]),
+    );
+  }
+
+  void _completeInitialDeepLink() {
+    if (!_initialDeepLinkReady.isCompleted) _initialDeepLinkReady.complete();
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (ref.read(appLocaleProvider) == 'system') setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 壁纸或系统强调色可能在后台改变，回到前台时重新读取并共享预览。
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_dynamicColorsKey.currentState?.initPlatformState());
+    }
+  }
+
+  @override
+  void dispose() {
+    _completeInitialDeepLink();
+    AutoTaskScheduler.instance.detach();
+    unawaited(DeepLinkService.instance.detach());
+    VideoFloatWindowBridge.instance.detach();
+    VideoFloatWindowCoordinator.instance
+      ..openFullscreen = null
+      ..onNotice = null;
+    unawaited(CrashLogService.instance.flush());
+    _startupReading.dispose();
+    _applicationContainer.invalidate(startupReadingNavigationProvider);
+    _router.dispose();
+    _mediaPlaybackNavigation.dispose();
+    _readAloudCapsuleObserver.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   /// [V-B3] 悬浮窗「全屏」/通知点击回传：导航到视频页从交回位置续播
   ///
-  /// [V-B3-ROUTE] 冷启动时须等闪屏 /welcome 退出栈顶后再压栈，否则会与
-  /// `pushReplacementNamed(home)` 竞争、刚压入的 /video 被整体替换
-  /// （round2 真机 2/2；详见 [scheduleFloatReturnNavigation]）。
+  /// [V-B3-ROUTE] 冷启动首帧前 Navigator 未装配，压栈会丢失；改为轮询等
+  /// Navigator 就绪后再压入 /video（详见 [scheduleFloatReturnNavigation]）。
   void _openVideoFromFloatWindow(VideoFloatWindowState state, Book? book) {
+    if (!mounted) return;
+    _startupReading.preferExternalAction();
     final args = VideoScreenArgs(
       videoUrl: state.directUrl ?? book?.bookUrl ?? '',
       title: state.chapterTitle?.isNotEmpty == true
@@ -272,16 +352,16 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
       initialSpeed: state.speed,
       initialPlaying: state.playing,
     );
-    // 统一就绪循环覆盖两段等待：冷启动首帧前 Navigator 未装配（原
-    // addPostFrameCallback 推迟逻辑）+ 闪屏 /welcome 未退出栈顶（本批修复）。
+    // 就绪循环：冷启动首帧前 Navigator 未装配（原 addPostFrameCallback
+    // 推迟逻辑的等价物）。
     LegadoApp.scheduleFloatReturnNavigation(
-      watcher: _topRouteWatcher,
+      isAlive: () => mounted,
       navigator: () => PlatformBridgeService.navigatorKey.currentState,
       push: (navigator) =>
-          navigator.pushNamed(AppRoutes.video, arguments: args),
-      onTimeout: () => debugPrint(
-        '[VideoFloat] 闪屏未在等待窗口内退出，放弃本次回全屏导航（停留当前页）',
-      ),
+          GoRouter.of(navigator.context)
+              .pushAppRoute(AppRoutes.video, extra: args),
+      onTimeout: () =>
+          debugPrint('[VideoFloat] Navigator 未在等待窗口内就绪，放弃本次回全屏导航（停留当前页）'),
     );
   }
 
@@ -296,124 +376,97 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeNotifierProvider);
-    // [UI-FIX v2.0.5 | 2026-08-08] 自定义主题颜色接入 MaterialApp（对齐原版
-    // ThemeConfigFragment 日间/夜间颜色配置，设置页修改后全局即时生效） — Qoder
+    final localePreference = ref.watch(appLocaleProvider);
+    final locale = resolveAppLocale(
+      localePreference,
+      WidgetsBinding.instance.platformDispatcher.locales,
+    );
+    AppStrings.setLocale(locale.languageCode);
     final themeColors = ref.watch(themeColorsProvider);
-    Color? c(int? argb) => argb != null ? Color(argb) : null;
+    final preferences = ref.watch(appThemePreferencesProvider);
 
-    // [MD3 Batch 0 | 2026-08-28] 按 paletteId 装配内置 MD3 调色板
-    //（阶段D 2.0.270 起默认 def「默认」；自定义 themeConfigList 4 色仍可叠加，
-    // 自定义已应用色优先于内置 palette role——UI_MD3_PLAN.md 第九节并存模型）
-    final palette = Md3Palettes.byId(themeState.paletteId);
-    // [UI_SYNC_REFACTOR S4] 主题引擎参数化：themeStyle 非 none 时按
-    // paletteStyle/contrastLevel 从调色板锚点 seed 生成明暗两套角色
-    //（material_color_utilities Scheme* 类，对齐参考 ThemeEngine）；
-    // AMOLED 仅暗色纯黑。并存模型保持：动态壁纸 > 自定义四色 > 参数化
-    // seed > 内置色板（自定义四色仍叠加于参数化结果之上）
-    final uiTheme = ref.watch(uiSettingsProvider);
-    var effectivePalette = palette;
-    if (uiTheme.themeStyle != 'none') {
-      final seed = c(themeColors.primary) != null
-          ? c(themeColors.primary)!.toARGB32()
-          : palette.seed;
-      final contrast = double.tryParse(uiTheme.themeContrastLevel) ?? 0.0;
-      final generated = buildParameterizedRoles(
-        style: uiTheme.themeStyle,
-        seed: seed,
-        contrastLevel: contrast,
-        amoledDark: uiTheme.themeAmoled,
-      );
-      effectivePalette = Md3Palette(
-        id: '${palette.id}__param',
-        label: palette.label,
-        seed: seed,
-        light: generated.light,
-        dark: generated.dark,
-      );
-    }
-
-    // P1-8：有背景图时 Scaffold 透明，露出全局壁纸层（对齐原版
-    // BaseActivity.upBackgroundImage → decorView.background）
-    // [UI_SYNC_REFACTOR R1] 跟随壁纸取色（Material You）：开关开启且系统
-    // 提供动态色板时，primary/accent 取动态色 role，其余 role 沿用内置
-    // palette；关闭或无动态色板时维持原并存模型（自定义四色 > palette）
+    // 平台动态色与本地背景图由应用入口提供，主题解析只消费绘制输入。
     return DynamicColorBuilder(
+      key: _dynamicColorsKey,
       builder: (lightDynamic, darkDynamic) {
-        final uiSettings = ref.watch(uiSettingsProvider);
-    final followWallpaper = uiSettings.wallpaperColorFollow;
-    final lightTheme = _withOptionalTransparentScaffold(
-      AppTheme.palette(
-        brightness: Brightness.light,
-        palette: effectivePalette,
-        primary: followWallpaper ? lightDynamic?.primary : c(themeColors.primary),
-        accent: followWallpaper ? lightDynamic?.tertiary : c(themeColors.accent),
-        background: followWallpaper ? null : c(themeColors.background),
-        bottomBackground:
-            followWallpaper ? null : c(themeColors.bottomBackground),
-      ),
-      themeColors.bgImage,
-    );
-    final darkTheme = _withOptionalTransparentScaffold(
-      AppTheme.palette(
-        brightness: Brightness.dark,
-        palette: effectivePalette,
-        primary:
-            followWallpaper ? darkDynamic?.primary : c(themeColors.primaryNight),
-        accent:
-            followWallpaper ? darkDynamic?.tertiary : c(themeColors.accentNight),
-        background: followWallpaper ? null : c(themeColors.backgroundNight),
-        bottomBackground:
-            followWallpaper ? null : c(themeColors.bottomBackgroundNight),
-      ),
-      themeColors.bgImageNight,
-    );
+        final themes = resolveAppThemes(
+          preferences: preferences,
+          lightDynamic: lightDynamic,
+          darkDynamic: darkDynamic,
+        );
+        final lightTheme = _withOptionalTransparentScaffold(
+          themes.light,
+          themeColors.bgImage,
+        );
+        final darkTheme = _withOptionalTransparentScaffold(
+          themes.dark,
+          themeColors.bgImageNight,
+        );
 
-    return MaterialApp(
-      title: 'Legado',
-      // [UI-FIX v2.0.2 | 2026-08-06] 平台桥接服务经此 Key 分发页面跳转 / SnackBar
-      //（Task #114，服务层无 BuildContext） — QoderCN
-      navigatorKey: PlatformBridgeService.navigatorKey,
-      // [UI-FIX v2.0.7 | 2026-08-09] 全局路由观察器（Task #26）：目录页等
-      // 「返回重现需刷新」的页面经 RouteAware 订阅，从阅读器返回时
-      // 即时刷新缓存云图标/当前章节（对齐原版 SAVE_CONTENT 事件刷新）
-      // [P2-13b 2026-09-19] _topRouteWatcher：崩溃弹窗调度器（见
-      // [LegadoApp.scheduleCrashLogDialog]）监听 didChangeTop，确认冷启动
-      // 闪屏 /welcome 退出（pushReplacementNamed 换栈顶）后才弹窗
-      navigatorObservers: [appRouteObserver, _topRouteWatcher],
-      debugShowCheckedModeBanner: false,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      // 主题模式由 ThemeNotifier 驱动（亮/暗/跟随系统，全局实时切换）
-      themeMode: themeState.themeMode,
-      // 全局统一滚动物理（BouncingScrollPhysics，对齐安卓原版回弹手感）
-      scrollBehavior: AppScrollBehavior(),
-      // 全局字体缩放：对齐原版 AppContextWrapper.getFontScale
-      // （fontScale 为 null 表示跟随系统，不覆盖平台缩放）
-      builder: (context, child) {
-        final scale = themeState.fontScale;
-        // 全局验证码请求监听（对标原版 SourceVerificationHelp 全局监听，
-        // 书源 JS 挂起等待验证码时跨页面弹窗）
-        Widget wrapped = VerificationCodeListener(child: child!);
-        // BackstageWebView DOM 通道（@webjs / 正文 webJs / java.webView*）
-        wrapped = WebViewBridgeListener(child: wrapped);
-        // 沉浸式状态栏 / 导航栏：对齐原版 transparentStatusBar / immNavigationBar
-        wrapped = SystemBarBinder(child: wrapped);
-        // P1-8：按当前亮度叠全局背景图（分组卡片仍自带不透明底，可读性保留）
-        wrapped = _ThemeBackgroundLayer(
-          path: themeColors.bgImageFor(Theme.of(context).brightness),
-          child: wrapped,
-        );
-        if (scale == null) return wrapped;
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
-          child: wrapped,
-        );
-      },
-      initialRoute: widget.initialRoute,
-      // [UI-fix v2.0.167] routes map → onGenerateRoute：命名路由统经
-      // AppRoutes.generateRoute 构建，Android 上按分档覆盖转场时长
-      onGenerateRoute: AppRoutes.generateRoute,
+        return MaterialApp.router(
+          onGenerateTitle: (context) => context.l10n.appTitle,
+          // [UI-FIX v2.0.2 | 2026-08-06] 平台桥接服务经此 Key 分发页面跳转 / SnackBar
+          //（Task #114，服务层无 BuildContext） — QoderCN
+          routerConfig: _router,
+          debugShowCheckedModeBanner: false,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: appSupportedLocales,
+          locale: locale,
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          // 主题模式由 ThemeNotifier 驱动（亮/暗/跟随系统，全局实时切换）
+          themeMode: themeState.themeMode,
+          // 全局统一滚动物理（BouncingScrollPhysics，对齐安卓原版回弹手感）
+          scrollBehavior: AppScrollBehavior(),
+          // 全局字体缩放：对齐原版 AppContextWrapper.getFontScale
+          // （fontScale 为 null 表示跟随系统，不覆盖平台缩放）
+          builder: (context, child) {
+            final scale = themeState.fontScale;
+            // 全局验证码请求监听（对标原版 SourceVerificationHelp 全局监听，
+            // 书源 JS 挂起等待验证码时跨页面弹窗）
+            Widget wrapped = VerificationCodeListener(
+              navigatorKey: PlatformBridgeService.navigatorKey,
+              child: child!,
+            );
+            // BackstageWebView DOM 通道（@webjs / 正文 webJs / java.webView*）
+            wrapped = WebViewBridgeListener(child: wrapped);
+            // 普通页面系统栏跟随主题；阅读器显隐由页面归属控制器接管。
+            wrapped = SystemBarBinder(child: wrapped);
+            // P1-8：按当前亮度叠全局背景图（分组卡片仍自带不透明底，可读性保留）
+            wrapped = _ThemeBackgroundLayer(
+              path: themeColors.bgImageFor(
+                isNight: Theme.of(context).brightness == Brightness.dark,
+              ),
+              child: wrapped,
+            );
+            // Markdown 等第三方组件仍从上下文读取旧设计库主题与本地化。
+            // ignore: deprecated_member_use
+            wrapped = MaterialUiCompatibilityBridge(child: wrapped);
+            wrapped = ReadAloudCapsuleHost(
+              observer: _readAloudCapsuleObserver,
+              child: wrapped,
+            );
+            wrapped = EyeProtectionFilter(child: wrapped);
+            wrapped = UiSettingsHost(child: wrapped);
+            wrapped = AppGlassHost(
+              available: widget.glassAvailable,
+              child: wrapped,
+            );
+            wrapped = PlatformDynamicColors(
+              light: lightDynamic,
+              dark: darkDynamic,
+              child: wrapped,
+            );
+            if (scale == null) return wrapped;
+            return MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: wrapped,
+            );
+          },
         );
       },
     );
@@ -421,21 +474,27 @@ class _LegadoAppState extends ConsumerState<LegadoApp> {
 
   /// 本地背景图可用时让 Scaffold 透明，露出下层壁纸
   ThemeData _withOptionalTransparentScaffold(ThemeData base, String path) {
-    if (!_bgFileUsable(path)) return base;
+    if (ref.watch(fileMetadataProvider(path)).value?.type !=
+        FileSystemEntityType.file) {
+      return base;
+    }
     return base.copyWith(scaffoldBackgroundColor: Colors.transparent);
   }
 }
 
 /// 全局主题背景图层（对齐原版 ThemeConfig.getBgImage）
-class _ThemeBackgroundLayer extends StatelessWidget {
+class _ThemeBackgroundLayer extends ConsumerWidget {
   final String path;
   final Widget child;
 
   const _ThemeBackgroundLayer({required this.path, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    if (!_bgFileUsable(path)) return child;
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(fileMetadataProvider(path)).value?.type !=
+        FileSystemEntityType.file) {
+      return child;
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         image: DecorationImage(
@@ -446,14 +505,5 @@ class _ThemeBackgroundLayer extends StatelessWidget {
       ),
       child: child,
     );
-  }
-}
-
-bool _bgFileUsable(String path) {
-  if (kIsWeb || path.isEmpty) return false;
-  try {
-    return File(path).existsSync();
-  } catch (_) {
-    return false;
   }
 }

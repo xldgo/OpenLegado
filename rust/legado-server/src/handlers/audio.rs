@@ -3,18 +3,18 @@
 //! 提供章节列表获取、TTS 增强版语音合成、播放控制等 API。
 //! `/api/audio/chapter-media` 对齐 FFI `audio_get_chapter_media`（缓存 / 卷章 / getContent）。
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::error::ApiError;
 use crate::state::AppState;
+use legado_core::LegadoError;
 use legado_core::audio::{PlayMode, PlayerState};
 use legado_core::cache_book::CachedChapter;
 use legado_core::models::book::book_type;
 use legado_core::web_book::WebChapter;
-use legado_core::LegadoError;
 use legado_db::{BookChapterRepository, BookRepository, BookSourceRepository, CacheBookRepository};
 
 /// 获取章节列表请求
@@ -128,91 +128,38 @@ pub async fn get_chapters(
 
 /// POST /api/audio/speak — 文本转语音（增强版，支持更多参数）
 pub async fn speak(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AudioSpeakRequest>,
 ) -> Result<Json<AudioSpeakResponse>, ApiError> {
-    // 构建 TTS URL
-    let encoded_text = urlencoding::encode(&req.text);
-    let mut url = req.engine_url.replace("{speakText}", &encoded_text);
-
-    if let Some(voice) = &req.voice_name {
-        url = append_query(&url, "voice", voice);
+    let char_count = req.text.chars().count();
+    let speed = f64::from(req.speed.unwrap_or(1.0));
+    if !speed.is_finite() || speed <= 0.0 {
+        return Err(ApiError(LegadoError::Parser("语速必须是有限正数".into())));
+    }
+    let duration = (char_count as f64 * 200.0 / speed).round();
+    if !duration.is_finite() || duration >= i64::MAX as f64 {
+        return Err(ApiError(LegadoError::Parser("预估朗读时长超出范围".into())));
+    }
+    let estimated_duration_ms = Some(duration as i64);
+    let mut parameters = Vec::new();
+    if let Some(voice) = req.voice_name {
+        parameters.push(("voice", voice));
     }
     if let Some(speed) = req.speed {
-        url = append_query(&url, "speed", &speed.to_string());
+        parameters.push(("speed", speed.to_string()));
     }
     if let Some(pitch) = req.pitch {
-        url = append_query(&url, "pitch", &pitch.to_string());
+        parameters.push(("pitch", pitch.to_string()));
     }
     if let Some(volume) = req.volume {
-        url = append_query(&url, "volume", &volume.to_string());
+        parameters.push(("volume", volume.to_string()));
     }
-
-    let client = legado_net::tls::client();
-    let response = client.get(&url).send().await.map_err(|e| {
-        ApiError(LegadoError::Network(format!(
-            "Audio TTS request failed: {}",
-            e
-        )))
-    })?;
-
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("audio/mpeg")
-        .to_string();
-
-    // 预估时长（粗略估计：每字 200ms，根据语速调整）
-    let speed_factor = req.speed.unwrap_or(1.0);
-    let char_count = req.text.chars().count();
-    let estimated_duration_ms = Some((char_count as i64 * 200) / speed_factor.max(0.1) as i64);
-
-    // 检查是否为音频二进制响应
-    if content_type.starts_with("audio/") {
-        let bytes = response.bytes().await.map_err(|e| {
-            ApiError(LegadoError::Network(format!(
-                "Audio read bytes failed: {}",
-                e
-            )))
-        })?;
-
-        use base64::{engine::general_purpose::STANDARD, Engine as _};
-        let audio_data = STANDARD.encode(&bytes);
-
-        return Ok(Json(AudioSpeakResponse {
-            audio_url: None,
-            audio_data: Some(audio_data),
-            content_type,
-            text_length: char_count,
-            estimated_duration_ms,
-        }));
-    }
-
-    // 非音频响应，可能是 JSON 含 audio_url
-    let text = response.text().await.map_err(|e| {
-        ApiError(LegadoError::Network(format!(
-            "Audio read text failed: {}",
-            e
-        )))
-    })?;
-
-    if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text) {
-        if let Some(audio_url) = json_val.get("audio_url").and_then(|v| v.as_str()) {
-            return Ok(Json(AudioSpeakResponse {
-                audio_url: Some(audio_url.to_string()),
-                audio_data: None,
-                content_type: "audio/mpeg".to_string(),
-                text_length: char_count,
-                estimated_duration_ms,
-            }));
-        }
-    }
-
+    let audio =
+        super::tts_http::synthesize(&state, &req.engine_url, &req.text, &parameters).await?;
     Ok(Json(AudioSpeakResponse {
-        audio_url: Some(text),
-        audio_data: None,
-        content_type,
+        audio_url: audio.audio_url,
+        audio_data: audio.audio_data,
+        content_type: audio.content_type,
         text_length: char_count,
         estimated_duration_ms,
     }))
@@ -262,80 +209,94 @@ pub async fn get_chapter_media(
 
     // 1) DB：章节 / 书籍 / 缓存 / 书源（查完即释放锁，避免持锁抓网）
     let prepared = {
-        let db = state.db.lock().await;
-        let ch_repo = BookChapterRepository::new(db.connection());
-        let chapter = ch_repo
-            .find_by_book_url_and_index(&book_url, chapter_index)?
-            .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在")))?;
+        let book_url = book_url.clone();
+        state
+            .with_database(move |db| {
+                let ch_repo = BookChapterRepository::new(db.connection());
+                let chapter = ch_repo
+                    .find_by_book_url_and_index(&book_url, chapter_index)?
+                    .ok_or_else(|| LegadoError::Database(format!("章节 {chapter_index} 不存在")))?;
 
-        let resource_url = chapter.resource_url.clone();
+                let resource_url = chapter.resource_url.clone();
 
-        if chapter.is_volume {
-            return Ok(Json(ChapterMediaResponse {
-                media_url: None,
-                duration_ms: None,
-                title: chapter.title,
-                chapter_index: chapter.index,
-                chapter_url: chapter.url,
-                resource_url,
-                is_volume: true,
-                from_cache: false,
-                source_url: String::new(),
-            }));
-        }
+                if chapter.is_volume {
+                    return Ok(std::ops::ControlFlow::Break(Json(ChapterMediaResponse {
+                        media_url: None,
+                        duration_ms: None,
+                        title: chapter.title,
+                        chapter_index: chapter.index,
+                        chapter_url: chapter.url,
+                        resource_url,
+                        is_volume: true,
+                        from_cache: false,
+                        source_url: String::new(),
+                    })));
+                }
 
-        let book_repo = BookRepository::new(db.connection());
-        let book = book_repo
-            .find_by_url(&book_url)?
-            .ok_or_else(|| LegadoError::Database(format!("书籍 {book_url} 不存在")))?;
-        let source_url = book.origin.clone();
+                let book_repo = BookRepository::new(db.connection());
+                let book = book_repo
+                    .find_by_url(&book_url)?
+                    .ok_or_else(|| LegadoError::Database(format!("书籍 {book_url} 不存在")))?;
+                let source_url = book.origin.clone();
 
-        let cache_repo = CacheBookRepository::new(db.connection());
-        if let Some(cached) = cache_repo.get_by_book_and_chapter_url(&book_url, &chapter.url)? {
-            let media = cached.content.trim().to_string();
-            if !media.is_empty() {
-                return Ok(Json(ChapterMediaResponse {
-                    media_url: Some(media),
-                    duration_ms: None,
-                    title: chapter.title,
-                    chapter_index: chapter.index,
-                    chapter_url: chapter.url,
-                    resource_url,
-                    is_volume: false,
-                    from_cache: true,
+                let cache_repo = CacheBookRepository::new(db.connection());
+                if let Some(cached) =
+                    cache_repo.get_by_book_and_chapter_url(&book_url, &chapter.url)?
+                {
+                    let media = cached.content.trim().to_string();
+                    if !media.is_empty() {
+                        return Ok(std::ops::ControlFlow::Break(Json(ChapterMediaResponse {
+                            media_url: Some(media),
+                            duration_ms: None,
+                            title: chapter.title,
+                            chapter_index: chapter.index,
+                            chapter_url: chapter.url,
+                            resource_url,
+                            is_volume: false,
+                            from_cache: true,
+                            source_url,
+                        })));
+                    }
+                }
+
+                if source_url.is_empty() || source_url == book_type::LOCAL_TAG {
+                    let media = resource_url
+                        .as_ref()
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or_else(|| chapter.url.trim().to_string());
+                    return Ok(std::ops::ControlFlow::Break(Json(ChapterMediaResponse {
+                        media_url: if media.is_empty() { None } else { Some(media) },
+                        duration_ms: None,
+                        title: chapter.title,
+                        chapter_index: chapter.index,
+                        chapter_url: chapter.url,
+                        resource_url,
+                        is_volume: false,
+                        from_cache: false,
+                        source_url,
+                    })));
+                }
+
+                let src_repo = BookSourceRepository::new(db.connection());
+                let source = src_repo
+                    .find_by_url(&source_url)?
+                    .ok_or_else(|| LegadoError::Database(format!("书源不存在: {source_url}")))?;
+
+                Ok::<_, ApiError>(std::ops::ControlFlow::Continue((
+                    chapter,
+                    source,
                     source_url,
-                }));
-            }
-        }
-
-        if source_url.is_empty() || source_url == book_type::LOCAL_TAG {
-            let media = resource_url
-                .as_ref()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| chapter.url.trim().to_string());
-            return Ok(Json(ChapterMediaResponse {
-                media_url: if media.is_empty() { None } else { Some(media) },
-                duration_ms: None,
-                title: chapter.title,
-                chapter_index: chapter.index,
-                chapter_url: chapter.url,
-                resource_url,
-                is_volume: false,
-                from_cache: false,
-                source_url,
-            }));
-        }
-
-        let src_repo = BookSourceRepository::new(db.connection());
-        let source = src_repo
-            .find_by_url(&source_url)?
-            .ok_or_else(|| LegadoError::Database(format!("书源不存在: {source_url}")))?;
-
-        (chapter, source, source_url, resource_url)
+                    resource_url,
+                )))
+            })
+            .await??
     };
 
-    let (chapter, source, source_url, resource_url) = prepared;
+    let (chapter, source, source_url, resource_url) = match prepared {
+        std::ops::ControlFlow::Break(response) => return Ok(response),
+        std::ops::ControlFlow::Continue(value) => value,
+    };
     let web_chapter = WebChapter {
         index: chapter.index,
         title: chapter.title.clone(),
@@ -346,7 +307,9 @@ pub async fn get_chapter_media(
         word_count: None,
     };
 
-    let engine = crate::handlers::web_book::build_engine(&state).map_err(ApiError::from)?;
+    let engine = crate::handlers::web_book::build_engine(&state)
+        .await
+        .map_err(ApiError::from)?;
     let content = engine
         .get_content(&source, &web_chapter)
         .await
@@ -360,7 +323,6 @@ pub async fn get_chapter_media(
 
     // 写缓存（对齐 FFI needSave；失败仅告警）
     {
-        let db = state.db.lock().await;
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -375,8 +337,15 @@ pub async fn get_chapter_media(
             cached_at: now_ms,
             size_bytes: media_url.len() as i64,
         };
-        if let Err(e) = CacheBookRepository::new(db.connection()).insert(&cached) {
-            tracing::warn!("音频章内容缓存写入失败（已忽略）: {e}");
+        if let Err(error) = state
+            .with_database(move |db| {
+                if let Err(e) = CacheBookRepository::new(db.connection()).insert(&cached) {
+                    tracing::warn!("音频章内容缓存写入失败（已忽略）: {e}");
+                }
+            })
+            .await
+        {
+            tracing::warn!("音频缓存任务失败（已忽略）: {error}");
         }
     }
 
@@ -393,18 +362,9 @@ pub async fn get_chapter_media(
     }))
 }
 
-/// 辅助：向 URL 追加 query 参数
-fn append_query(url: &str, key: &str, value: &str) -> String {
-    let encoded_value = urlencoding::encode(value);
-    if url.contains('?') {
-        format!("{}&{}={}", url, key, encoded_value)
-    } else {
-        format!("{}?{}={}", url, key, encoded_value)
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::tts_http::append_query;
     use super::*;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
@@ -412,13 +372,9 @@ mod tests {
 
     fn make_test_router() -> axum::Router {
         let db = legado_db::init_in_memory_database().unwrap();
-        let state = Arc::new(AppState {
-            db: tokio::sync::Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        });
+        let state = Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )));
         crate::routes::create_router(state)
     }
 
@@ -511,9 +467,9 @@ mod tests {
     #[test]
     fn test_append_query_audio() {
         let url = "https://tts.example.com/speak";
-        let result = append_query(url, "voice", "zh-CN");
+        let result = append_query(url, "voice", "zh-CN").unwrap();
         assert_eq!(result, "https://tts.example.com/speak?voice=zh-CN");
-        let result2 = append_query(&result, "speed", "2.0");
+        let result2 = append_query(&result, "speed", "2.0").unwrap();
         assert_eq!(
             result2,
             "https://tts.example.com/speak?voice=zh-CN&speed=2.0"
@@ -548,17 +504,13 @@ mod tests {
         use legado_db::repository::Repository;
 
         let db = legado_db::init_in_memory_database().unwrap();
-        let state = Arc::new(AppState {
-            db: tokio::sync::Mutex::new(db),
-            search_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            download_manager: tokio::sync::Mutex::new(
-                legado_core::download_manager::DownloadManager::new(3),
-            ),
-        });
+        let state = Arc::new(AppState::new(Arc::new(
+            legado_engine::EngineContext::from_database(db),
+        )));
 
         let book_url = "https://audio.test/vol";
         {
-            let db = state.db.lock().await;
+            let db = state.database().unwrap();
             BookRepository::new(db.connection())
                 .insert(&Book {
                     book_url: book_url.to_string(),

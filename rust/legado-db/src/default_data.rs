@@ -77,6 +77,8 @@ impl DefaultDataManager {
                 header TEXT,
                 jsLib TEXT,
                 enabledCookieJar INTEGER DEFAULT 0,
+                speed INTEGER,
+                synthesisThreadCount INTEGER NOT NULL DEFAULT 1,
                 lastUpdateTime INTEGER NOT NULL DEFAULT 0,
                 isEnabled INTEGER NOT NULL DEFAULT 1,
                 PRIMARY KEY(id)
@@ -105,6 +107,8 @@ impl DefaultDataManager {
             );",
         )
         .map_err(|e| format!("创建默认数据表失败: {e}"))?;
+        conn.execute_batch(crate::schema::CREATE_READ_ALOUD_VOICES)
+            .map_err(|e| format!("创建音色目录表失败: {e}"))?;
         Ok(())
     }
 
@@ -198,18 +202,18 @@ impl DefaultDataManager {
             return Ok(false);
         }
 
-        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        let url = item.get("url").and_then(|v| v.as_str()).unwrap_or("");
-        let content_type = item.get("contentType").and_then(|v| v.as_str());
-        let header = item.get("header").and_then(|v| v.as_str());
-        let login_url = item.get("loginUrl").and_then(|v| v.as_str());
-
-        conn.execute(
-            "INSERT INTO httpTTS (id, name, url, contentType, header, loginUrl) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params![id, name, url, content_type, header, login_url],
-        )
-        .map_err(|e| format!("插入 httpTTS 失败: {e}"))?;
-
+        let mut parsed: crate::HttpTts =
+            serde_json::from_value(item.clone()).map_err(|e| format!("解析 httpTTS 失败: {e}"))?;
+        parsed.id = id;
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        crate::HttpTtsRepository::new(&tx)
+            .insert_entity(&parsed)
+            .map_err(|e| format!("插入 httpTTS 失败: {e}"))?;
+        let draft = legado_core::tts_catalog::parse(item);
+        crate::repository::read_aloud_voice_repository::ReadAloudVoiceRepository::new(&tx)
+            .sync_http(id, &draft, parsed.last_update_time)
+            .map_err(|e| format!("同步 httpTTS 音色目录失败: {e}"))?;
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(true)
     }
 
@@ -425,8 +429,18 @@ impl DefaultDataManager {
         conn: &rusqlite::Connection,
         data_type: DefaultDataType,
     ) -> Result<usize, String> {
+        if data_type == DefaultDataType::HttpTts {
+            let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+            tx.execute("DELETE FROM read_aloud_voices WHERE engineType='http' AND engineId IN (SELECT CAST(id AS TEXT) FROM httpTTS WHERE id < 0)", [])
+                .map_err(|e| format!("删除默认音色目录失败: {e}"))?;
+            let count = tx
+                .execute("DELETE FROM httpTTS WHERE id < 0", [])
+                .map_err(|e| format!("删除默认数据失败: {e}"))?;
+            tx.commit().map_err(|e| e.to_string())?;
+            return Ok(count);
+        }
         let sql = match data_type {
-            DefaultDataType::HttpTts => "DELETE FROM httpTTS WHERE id < 0",
+            DefaultDataType::HttpTts => unreachable!(),
             DefaultDataType::TxtTocRule => "DELETE FROM txtTocRules WHERE id < 0",
             DefaultDataType::RssSources => "DELETE FROM rssSources WHERE sourceGroup = 'legado'",
             DefaultDataType::DictRules => "DELETE FROM dictRules WHERE 0",
@@ -677,5 +691,30 @@ mod tests {
         let flags = UpgradeFlags::default();
         let results = DefaultDataManager::up_version(&conn, &flags, "/nonexistent").unwrap();
         assert!(results.is_empty());
+    }
+    #[test]
+    fn default_http_seed_catalog_is_atomic_and_scoped() {
+        use crate::repository::read_aloud_voice_repository::ReadAloudVoiceRepository;
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        let json = serde_json::json!([{"id":-9,"name":"预设","url":"https://tts","speakersJson":r#"[{"name":"中文","toneID":"zh-a"}]"#}]).to_string();
+        DefaultDataManager::import_from_json(&conn, DefaultDataType::HttpTts, &json).unwrap();
+        let catalog = ReadAloudVoiceRepository::new(&conn);
+        let voice = catalog.list().unwrap().remove(0);
+        catalog.set_flags(&voice.id, false, true).unwrap();
+        DefaultDataManager::import_from_json(&conn, DefaultDataType::HttpTts, &json).unwrap();
+        assert!(catalog.list().unwrap()[0].excluded);
+        assert!(!catalog.list().unwrap()[0].enabled);
+        DefaultDataManager::delete_default(&conn, DefaultDataType::HttpTts).unwrap();
+        assert!(catalog.list().unwrap().is_empty());
+        conn.execute_batch("CREATE TEMP TRIGGER reject_catalog BEFORE INSERT ON read_aloud_voices BEGIN SELECT RAISE(ABORT,'catalog fixture'); END;").unwrap();
+        let result =
+            DefaultDataManager::import_from_json(&conn, DefaultDataType::HttpTts, &json).unwrap();
+        assert_eq!(result.imported, 0);
+        assert!(
+            crate::HttpTtsRepository::new(&conn)
+                .find_all()
+                .unwrap()
+                .is_empty()
+        );
     }
 }

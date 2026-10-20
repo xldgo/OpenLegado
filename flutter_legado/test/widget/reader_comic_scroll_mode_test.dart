@@ -1,3 +1,13 @@
+import '../fixtures/app_test_api.dart';
+import '../fixtures/config_repository.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 E1] 漫画屏五翻页模式（对齐参考版 MangaScrollMode）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -21,13 +31,11 @@
 // 7. 页级进度恢复：durChapterPos 在单页模式下定位到记录页。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 
 /// 1x1 透明 PNG（解码结果 base64，同 reader_comic_decode_test）
 const _kPngBase64 =
@@ -42,10 +50,7 @@ BookSource _buildComicSource() {
     bookSourceGroup: '漫画',
     bookSourceType: 2,
     enabled: true,
-    ruleContent: ContentRule(
-      content: '.x',
-      imageDecode: 'decode(result);',
-    ),
+    ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
     customOrder: 0,
     lastUpdateTime: 0,
     respondTime: 0,
@@ -58,6 +63,36 @@ BookSource _buildComicSource() {
 /// [W2-fix] 新增 [chapterCount] / [durChapterIndex] 注入（R2L 边界与切章
 /// 落点用例需要多章 + 指定起始章）
 class _ScrollModeMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ScrollModeMockApi({
     required this.source,
     required this.progressCalls,
@@ -69,6 +104,7 @@ class _ScrollModeMockApi extends MockBookApi {
   }) : _configs = configs ?? {};
 
   final BookSource source;
+
   /// 进度写入记录 [[chapterIndex, chapterPos], ...]
   final List<List<int>> progressCalls;
   final Map<String, String> _configs;
@@ -78,25 +114,22 @@ class _ScrollModeMockApi extends MockBookApi {
   final int chapterCount;
   final List<String> decodeCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [source];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: source.bookSourceUrl,
-        originName: source.bookSourceName,
-        canUpdate: true,
-        totalChapterNum: chapterCount,
-        durChapterIndex: durChapterIndex,
-        durChapterPos: durChapterPos,
-      );
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: source.bookSourceUrl,
+    originName: source.bookSourceName,
+    canUpdate: true,
+    totalChapterNum: chapterCount,
+    durChapterIndex: durChapterIndex,
+    durChapterPos: durChapterPos,
+  );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async =>
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
       List<BookChapter>.generate(
         chapterCount,
         (i) => BookChapter(
@@ -106,8 +139,7 @@ class _ScrollModeMockApi extends MockBookApi {
         ),
       );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -118,22 +150,25 @@ class _ScrollModeMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     _configs[key] = value;
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
@@ -146,7 +181,9 @@ void main() {
   Widget buildApp(ProviderContainer container) {
     return UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
+      child: const MaterialApp(
+        home: ReaderComicScreen(bookUrl: 'mock://comic/1'),
+      ),
     );
   }
 
@@ -180,12 +217,11 @@ void main() {
   }
 
   group('[P4-3 E1] 五翻页模式', () {
-    testWidgets('默认未配置 = 条漫(4)：ListView 连续滚动路径，无 PageView',
-        (tester) async {
+    testWidgets('默认未配置 = 条漫(4)：ListView 连续滚动路径，无 PageView', (tester) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -204,7 +240,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -218,24 +254,21 @@ void main() {
             find.byWidgetPredicate(
               (w) =>
                   w is Padding &&
-                  w.padding ==
-                      const EdgeInsets.symmetric(vertical: 4),
+                  w.padding == const EdgeInsets.symmetric(vertical: 4),
             ),
           )
           .toList();
-      expect(gapPaddings, isNotEmpty,
-          reason: '条漫（间隔）应在页项之间加 8px（4+4）间距');
+      expect(gapPaddings, isNotEmpty, reason: '条漫（间隔）应在页项之间加 8px（4+4）间距');
     });
 
-    testWidgets('模式 1 从左到右：横向 PageView，左滑 → 下一页',
-        (tester) async {
+    testWidgets('模式 1 从左到右：横向 PageView，左滑 → 下一页', (tester) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '1'},
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -248,11 +281,7 @@ void main() {
       expect(find.textContaining('页数1/3'), findsOneWidget);
 
       // 左滑 → 页 1
-      await tester.fling(
-        find.byType(PageView),
-        const Offset(-200, 0),
-        600,
-      );
+      await tester.fling(find.byType(PageView), const Offset(-200, 0), 600);
       await tester.pumpAndSettle();
       expect(find.textContaining('页数2/3'), findsOneWidget);
 
@@ -267,7 +296,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -277,25 +306,20 @@ void main() {
       expect(find.textContaining('页数1/3'), findsOneWidget);
 
       // 右滑（内容向右移，露出左侧页面）→ 页 1
-      await tester.fling(
-        find.byType(PageView),
-        const Offset(200, 0),
-        600,
-      );
+      await tester.fling(find.byType(PageView), const Offset(200, 0), 600);
       await tester.pumpAndSettle();
       expect(find.textContaining('页数2/3'), findsOneWidget);
       expect(progressCalls, contains(equals([0, 1])));
     });
 
-    testWidgets('模式 3 从上到下：纵向 PageView，上滑 → 下一页',
-        (tester) async {
+    testWidgets('模式 3 从上到下：纵向 PageView，上滑 → 下一页', (tester) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '3'},
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -305,18 +329,13 @@ void main() {
       expect(find.textContaining('页数1/3'), findsOneWidget);
 
       // 上滑 → 页 1
-      await tester.fling(
-        find.byType(PageView),
-        const Offset(0, -300),
-        600,
-      );
+      await tester.fling(find.byType(PageView), const Offset(0, -300), 600);
       await tester.pumpAndSettle();
       expect(find.textContaining('页数2/3'), findsOneWidget);
       expect(progressCalls, contains(equals([0, 1])));
     });
 
-    testWidgets('页级进度恢复：单页模式下定位到 durChapterPos 记录页',
-        (tester) async {
+    testWidgets('页级进度恢复：单页模式下定位到 durChapterPos 记录页', (tester) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '1'},
@@ -324,7 +343,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -333,13 +352,12 @@ void main() {
       expect(find.textContaining('页数3/3'), findsOneWidget);
     });
 
-    testWidgets('条漫模式进度恢复：durChapterPos 按可见页估算定位（不回退旧行为）',
-        (tester) async {
+    testWidgets('条漫模式进度恢复：durChapterPos 按可见页估算定位（不回退旧行为）', (tester) async {
       final progressCalls = <List<int>>[];
       // 条漫默认模式 4 + 记录页 2
       final api = buildApi(durChapterPos: 2, progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -367,8 +385,7 @@ void main() {
     // 测试视口 800x600，默认九区 clickActions：
     // 右上(667,100) 区2 → action 1 下一页；左中(133,300) 区3 → action 2 上一页。
 
-    testWidgets('R2L 首页（逻辑页 0）点上一页 = 切上一章（P0-1）',
-        (tester) async {
+    testWidgets('R2L 首页（逻辑页 0）点上一页 = 切上一章（P0-1）', (tester) async {
       final progressCalls = <List<int>>[];
       // 模式 2（R2L）+ 两章，从第 2 章章首进入（durChapterIndex = 1）
       final api = buildApi(
@@ -378,25 +395,31 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
 
       expect(find.textContaining('章节2/2'), findsOneWidget);
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: 'R2L 起始 = 逻辑页 0（阅读首页）');
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason: 'R2L 起始 = 逻辑页 0（阅读首页）',
+      );
 
       // 左中区（区3，action 2）= 上一页；逻辑页 0 已是章首 → 切上一章
       await tester.tapAt(const Offset(133, 300));
       await tester.pumpAndSettle();
-      expect(find.textContaining('章节1/2'), findsOneWidget,
-          reason: 'R2L 首页点上一页应切上一章'
-              '（旧实现 display 换算误判为可翻，animateToPage 越界不切章）');
+      expect(
+        find.textContaining('章节1/2'),
+        findsOneWidget,
+        reason:
+            'R2L 首页点上一页应切上一章'
+            '（旧实现 display 换算误判为可翻，animateToPage 越界不切章）',
+      );
     });
 
-    testWidgets('R2L 逻辑第 2 页点上一页 = 去第 1 页（P0-1）',
-        (tester) async {
+    testWidgets('R2L 逻辑第 2 页点上一页 = 去第 1 页（P0-1）', (tester) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '2'},
@@ -405,7 +428,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -418,15 +441,21 @@ void main() {
       // 逻辑页 1 点上一页 = 回逻辑页 0（非切章）
       await tester.tapAt(const Offset(133, 300));
       await tester.pumpAndSettle();
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: 'R2L 逻辑第 2 页点上一页应回第 1 页');
-      expect(find.textContaining('章节2/2'), findsOneWidget,
-          reason: '不应误切上一章'
-              '（旧实现把 display n-1 当 R2L 上一页边界 → 直接切章）');
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason: 'R2L 逻辑第 2 页点上一页应回第 1 页',
+      );
+      expect(
+        find.textContaining('章节2/2'),
+        findsOneWidget,
+        reason:
+            '不应误切上一章'
+            '（旧实现把 display n-1 当 R2L 上一页边界 → 直接切章）',
+      );
     });
 
-    testWidgets('R2L 末页（逻辑页 n-1）点下一页 = 切下一章（P0-1）',
-        (tester) async {
+    testWidgets('R2L 末页（逻辑页 n-1）点下一页 = 切下一章（P0-1）', (tester) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '2'},
@@ -434,7 +463,7 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -449,15 +478,17 @@ void main() {
       // 末页点下一页 → 切下一章（新章章首）
       await tester.tapAt(const Offset(667, 100));
       await tester.pumpAndSettle();
-      expect(find.textContaining('章节2/2'), findsOneWidget,
-          reason: 'R2L 末页点下一页应切下一章'
-              '（旧实现控制器方向取反后落到导航页，永不切章）');
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: '新章恒从章首开始');
+      expect(
+        find.textContaining('章节2/2'),
+        findsOneWidget,
+        reason:
+            'R2L 末页点下一页应切下一章'
+            '（旧实现控制器方向取反后落到导航页，永不切章）',
+      );
+      expect(find.textContaining('页数1/3'), findsOneWidget, reason: '新章恒从章首开始');
     });
 
-    testWidgets('带页级进度恢复进入：切章落点 = 0 页（P0-2）',
-        (tester) async {
+    testWidgets('带页级进度恢复进入：切章落点 = 0 页（P0-2）', (tester) async {
       final progressCalls = <List<int>>[];
       // L2R 单页 + 记录页 2（durChapterPos > 0 的常态恢复进入）
       final api = buildApi(
@@ -467,30 +498,39 @@ void main() {
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
 
-      expect(find.textContaining('页数3/3'), findsOneWidget,
-          reason: '恢复进入应定位到记录页（页索引 2）');
+      expect(
+        find.textContaining('页数3/3'),
+        findsOneWidget,
+        reason: '恢复进入应定位到记录页（页索引 2）',
+      );
 
       // 末页点下一页 → 切下一章
       await tester.tapAt(const Offset(667, 100));
       await tester.pumpAndSettle();
       expect(find.textContaining('章节2/2'), findsOneWidget);
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: '切章应落新章第 0 页（对齐参考版 openChapter(index, 0)）'
-              '（旧实现控制器代数未失效，切章后落回旧章恢复页）');
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason:
+            '切章应落新章第 0 页（对齐参考版 openChapter(index, 0)）'
+            '（旧实现控制器代数未失效，切章后落回旧章恢复页）',
+      );
       // 页脚文本由 _visiblePageIndex 驱动、切章后可能被掩盖，须再验
       // PageView 控制器**实际停靠页**（旧实现旧控制器代数未失效，
       // 新章重挂后按旧偏移 1600px 停靠 → 实际仍停在第 3 页）
       final pagedPos = tester
           .state<ScrollableState>(
-            find.descendant(
-              of: find.byType(PageView),
-              matching: find.byType(Scrollable),
-            ).first,
+            find
+                .descendant(
+                  of: find.byType(PageView),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
           )
           .position;
       expect(
@@ -498,8 +538,7 @@ void main() {
         closeTo(0, 0.5),
         reason: '新章须恒从第 0 页停靠（参考版 openChapter(index, 0)）',
       );
-      expect(progressCalls, contains(equals([1, 0])),
-          reason: '新章章首进度应落库');
+      expect(progressCalls, contains(equals([1, 0])), reason: '新章章首进度应落库');
     });
   });
 
@@ -513,16 +552,16 @@ void main() {
   // 测试视口 800×600：p = 20 → 每侧 padding = 800 × 0.2 = 160px。
   // ---------------------------------------------------------------------------
   group('[P4-3 M3 修4c] 条漫侧边留白', () {
-    testWidgets(
-        '条漫(4) + mangaSidePadding=20：图片列表两侧各 160px 水平 padding',
-        (tester) async {
+    testWidgets('条漫(4) + mangaSidePadding=20：图片列表两侧各 160px 水平 padding', (
+      tester,
+    ) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '4', 'mangaSidePadding': '20'},
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);
@@ -539,8 +578,11 @@ void main() {
             ),
           )
           .toList();
-      expect(sidePaddings, isNotEmpty,
-          reason: '条漫 + sidePadding 20% 应在列表外包 160px 水平 padding');
+      expect(
+        sidePaddings,
+        isNotEmpty,
+        reason: '条漫 + sidePadding 20% 应在列表外包 160px 水平 padding',
+      );
       // 该 padding 直接包裹条漫 ListView（经 NotificationListener/
       // InteractiveViewer 链）
       expect(
@@ -553,16 +595,16 @@ void main() {
       );
     });
 
-    testWidgets(
-        '单页式(1) + mangaSidePadding=20：单页式路径不生效（无水平 padding）',
-        (tester) async {
+    testWidgets('单页式(1) + mangaSidePadding=20：单页式路径不生效（无水平 padding）', (
+      tester,
+    ) async {
       final progressCalls = <List<int>>[];
       final api = buildApi(
         configs: const {'mangaScrollMode': '1', 'mangaSidePadding': '20'},
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await pumpScreen(tester, api, container);

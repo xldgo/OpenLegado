@@ -25,10 +25,12 @@ class Responsive {
   static bool isCompact(double width) => width < compactMax;
 
   /// 是否为 medium 窗口（平板竖屏）
-  static bool isMedium(double width) => width >= compactMax && width < mediumMax;
+  static bool isMedium(double width) =>
+      width >= compactMax && width < mediumMax;
 
   /// 是否为 expanded 窗口（平板横屏/小桌面）
-  static bool isExpanded(double width) => width >= mediumMax && width < expandedMax;
+  static bool isExpanded(double width) =>
+      width >= mediumMax && width < expandedMax;
 
   /// 是否为 large 窗口（桌面）
   static bool isLarge(double width) => width >= expandedMax;

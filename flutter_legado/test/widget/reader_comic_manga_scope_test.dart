@@ -1,24 +1,32 @@
+import '../fixtures/app_test_api.dart';
+import '../fixtures/config_repository.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 // [漫画设置作用域 2026-10-01] 漫画屏「本书覆盖 + 全局回退」端到端接线
 //
 // 语义（用户裁决 + 参考版取证，legado-with-MD3）：
 // - 有效值优先级：书级 readConfig.mangaScrollMode / webtoonSidePaddingDp
 //   非 null 优先，否则全局 MangaConfigKeys.scrollMode / sidePadding
 //   （MangaReaderViewModel.kt L1332-1334 `book?.scrollMode ?: settings.scrollMode`）；
-// - 书级写入经现有 BookApi.updateBook + Book.copyWith(readConfig: ...)，
+// - 书级写入经现有 TestApi.updateBook + Book.copyWith(readConfig: ...)，
 //   保留其他 readConfig 成员与进度/章节字段；
 // - 切「跟随全局」= 清除对应 readConfig 键并立即回退全局值；
 // - mangaLongClickSaveImage / mangaAutoReadSpeed / mangaClickActions
 //   保持全局，只 setConfig，不产生书级 updateBook。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
 
 /// 1x1 透明 PNG（RGBA，合法编码，同 reader_comic_scroll_mode_test）
 const _kPngBase64 =
@@ -33,10 +41,7 @@ BookSource _buildComicSource() {
     bookSourceGroup: '漫画',
     bookSourceType: 2,
     enabled: true,
-    ruleContent: ContentRule(
-      content: '.x',
-      imageDecode: 'decode(result);',
-    ),
+    ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
     customOrder: 0,
     lastUpdateTime: 0,
     respondTime: 0,
@@ -68,12 +73,42 @@ Book _buildBook({
 /// [漫画设置作用域] Mock：可注入书籍（含 readConfig）/全局配置，
 /// 记录 setConfig 与 updateBook 调用（区分全局键写入与书级回写）
 class _ScopeMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+    updateBook: _fixtureUpdateBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ScopeMockApi({
     required this.source,
     Map<String, String>? configs,
-    Book? book,
-  })  : _configs = Map<String, String>.from(configs ?? const {}),
-        _book = book;
+    this._book,
+  }) : _configs = Map<String, String>.from(configs ?? const {});
 
   final BookSource source;
   final Map<String, String> _configs;
@@ -87,20 +122,16 @@ class _ScopeMockApi extends MockBookApi {
 
   final List<List<int>> progressCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [source];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => _book;
+  Future<Book?> _fixtureGetBook(String bookUrl) async => _book;
 
-  @override
-  Future<void> updateBook(Book book) async {
+  Future<void> _fixtureUpdateBook(Book book) async {
     bookUpdates.add(book);
     _book = book;
   }
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async =>
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
       List<BookChapter>.generate(
         1,
         (i) => BookChapter(
@@ -110,8 +141,7 @@ class _ScopeMockApi extends MockBookApi {
         ),
       );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -122,22 +152,25 @@ class _ScopeMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     _configs[key] = value;
     configWrites.add([key, value]);
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
@@ -149,7 +182,9 @@ class _ScopeMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
+    child: const MaterialApp(
+      home: ReaderComicScreen(bookUrl: 'mock://comic/1'),
+    ),
   );
 }
 
@@ -175,11 +210,10 @@ Axis _pageViewAxis(WidgetTester tester) =>
 
 /// 条漫列表中每侧 sidePadding% 的水平 padding（测试视口 800×600）
 Finder _sidePaddingWrapper(int percent) => find.byWidgetPredicate(
-      (w) =>
-          w is Padding &&
-          w.padding ==
-              EdgeInsets.symmetric(horizontal: 800.0 * percent / 100.0),
-    );
+  (w) =>
+      w is Padding &&
+      w.padding == EdgeInsets.symmetric(horizontal: 800.0 * percent / 100.0),
+);
 
 void main() {
   group('[漫画设置作用域] 读取优先级', () {
@@ -190,14 +224,17 @@ void main() {
         book: _buildBook(),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       expect(find.byType(PageView), findsOneWidget);
-      expect(_pageViewAxis(tester), Axis.horizontal,
-          reason: '全局 1（从左到右）→ 横向 PageView');
+      expect(
+        _pageViewAxis(tester),
+        Axis.horizontal,
+        reason: '全局 1（从左到右）→ 横向 PageView',
+      );
       expect(api.bookUpdates, isEmpty);
     });
 
@@ -206,23 +243,21 @@ void main() {
         source: _buildComicSource(),
         // 全局 = 1（横向），书级 = 3（从上到下纵向）
         configs: const {'mangaScrollMode': '1'},
-        book: _buildBook(
-          readConfig: const ReadConfig(mangaScrollMode: 3),
-        ),
+        book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 3)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       expect(find.byType(PageView), findsOneWidget);
-      expect(_pageViewAxis(tester), Axis.vertical,
-          reason: '书级 3（从上到下）应覆盖全局 1');
+      expect(_pageViewAxis(tester), Axis.vertical, reason: '书级 3（从上到下）应覆盖全局 1');
     });
 
-    testWidgets('书级 webtoonSidePaddingDp 覆盖全局 mangaSidePadding',
-        (tester) async {
+    testWidgets('书级 webtoonSidePaddingDp 覆盖全局 mangaSidePadding', (
+      tester,
+    ) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '4', 'mangaSidePadding': '0'},
@@ -231,14 +266,17 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       // 书级 20%（每侧 160px），全局 0% 不生效
-      expect(_sidePaddingWrapper(20), findsOneWidget,
-          reason: '书级留白 20% 应覆盖全局 0');
+      expect(
+        _sidePaddingWrapper(20),
+        findsOneWidget,
+        reason: '书级留白 20% 应覆盖全局 0',
+      );
       expect(
         find.ancestor(
           of: find.byType(ListView),
@@ -255,19 +293,21 @@ void main() {
         book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 99)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      expect(_pageViewAxis(tester), Axis.horizontal,
-          reason: '非法书级模式按未覆盖处理，回退全局 1');
+      expect(
+        _pageViewAxis(tester),
+        Axis.horizontal,
+        reason: '非法书级模式按未覆盖处理，回退全局 1',
+      );
     });
   });
 
   group('[漫画设置作用域] 面板清除覆盖 → 立即回退全局', () {
-    testWidgets('书级模式 3 → 点「跟随全局」：清除 readConfig 键并回退全局 1',
-        (tester) async {
+    testWidgets('书级模式 3 → 点「跟随全局」：清除 readConfig 键并回退全局 1', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '1'},
@@ -283,15 +323,16 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
       expect(_pageViewAxis(tester), Axis.vertical);
 
       await _openSheet(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')));
+      await tester.tap(
+        find.byKey(const ValueKey('mangaScrollMode-scopeGlobal')),
+      );
       await tester.pumpAndSettle();
 
       // 书级键被删除（清除覆盖，不写默认值冒充清除）
@@ -317,8 +358,7 @@ void main() {
       );
     });
 
-    testWidgets('书级留白 20 → 点「跟随全局」：清除键并回退全局 5',
-        (tester) async {
+    testWidgets('书级留白 20 → 点「跟随全局」：清除键并回退全局 5', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '4', 'mangaSidePadding': '5'},
@@ -327,15 +367,16 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
       expect(_sidePaddingWrapper(20), findsOneWidget);
 
       await _openSheet(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')));
+      await tester.tap(
+        find.byKey(const ValueKey('mangaSidePadding-scopeGlobal')),
+      );
       await tester.pumpAndSettle();
 
       expect(api.bookUpdates, hasLength(1));
@@ -347,8 +388,7 @@ void main() {
   });
 
   group('[漫画设置作用域] 书级写入语义', () {
-    testWidgets('点「本书」物化覆盖：保留其他 readConfig/进度字段，仅加目标键',
-        (tester) async {
+    testWidgets('点「本书」物化覆盖：保留其他 readConfig/进度字段，仅加目标键', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '2'},
@@ -364,7 +404,7 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -372,8 +412,7 @@ void main() {
       expect(_pageViewAxis(tester), Axis.horizontal);
 
       await _openSheet(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('mangaScrollMode-scopeBook')));
+      await tester.tap(find.byKey(const ValueKey('mangaScrollMode-scopeBook')));
       await tester.pumpAndSettle();
 
       expect(api.bookUpdates, hasLength(1));
@@ -395,15 +434,14 @@ void main() {
       );
     });
 
-    testWidgets('「本书」作用下改模式只回写书级 readConfig（不 setConfig）',
-        (tester) async {
+    testWidgets('「本书」作用下改模式只回写书级 readConfig（不 setConfig）', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '4'},
         book: _buildBook(readConfig: const ReadConfig(mangaScrollMode: 4)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -424,17 +462,15 @@ void main() {
     });
   });
 
-  group('[漫画设置作用域] 三项全局键仍只 setConfig（不产生书级回写）',
-      () {
-    testWidgets('长按存图 / 自动速度 / 九区点击动作 → 仅全局 setConfig',
-        (tester) async {
+  group('[漫画设置作用域] 三项全局键仍只 setConfig（不产生书级回写）', () {
+    testWidgets('长按存图 / 自动速度 / 九区点击动作 → 仅全局 setConfig', (tester) async {
       final api = _ScopeMockApi(
         source: _buildComicSource(),
         configs: const {'mangaScrollMode': '1'},
         book: _buildBook(readConfig: const ReadConfig(reverseToc: true)),
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -452,10 +488,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(autoSwitch);
       await tester.pumpAndSettle();
-      final autoTile =
-          find.ancestor(of: find.text('自动速度'), matching: find.byType(Column)).first;
-      final speedSlider =
-          find.descendant(of: autoTile, matching: find.byType(Slider));
+      final autoTile = find
+          .ancestor(of: find.text('自动速度'), matching: find.byType(Column))
+          .first;
+      final speedSlider = find.descendant(
+        of: autoTile,
+        matching: find.byType(Slider),
+      );
       await tester.ensureVisible(speedSlider);
       await tester.pumpAndSettle();
       await tester.drag(speedSlider, const Offset(600, 0));
@@ -497,8 +536,7 @@ void main() {
         const Offset(0, -250),
       );
       await tester.pumpAndSettle();
-      await tester
-          .tap(find.byKey(const ValueKey('mangaClickActionCell-0')));
+      await tester.tap(find.byKey(const ValueKey('mangaClickActionCell-0')));
       await tester.pumpAndSettle();
       expect(
         api.configWrites.any((w) => w.first == 'mangaClickActions'),
@@ -506,8 +544,7 @@ void main() {
       );
 
       // 三项均未产生书级 updateBook
-      expect(api.bookUpdates, isEmpty,
-          reason: '长按存图/自动速度/九区点击动作保持全局，不得书级回写');
+      expect(api.bookUpdates, isEmpty, reason: '长按存图/自动速度/九区点击动作保持全局，不得书级回写');
     });
   });
 }

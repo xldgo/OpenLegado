@@ -1,4 +1,4 @@
-//! 书名/作者清洗（对齐原版 `BookHelp.formatBookName` / `formatBookAuthor`）
+//! 书籍元数据格式化：书名、作者、分类与字数。
 //!
 //! 搜索列表解析后必须清洗，否则「作者：天蚕土豆」与「天蚕土豆」无法按
 //! name+author 聚合，同源徽标会明显偏少。
@@ -35,9 +35,68 @@ pub fn format_book_author(author: &str) -> String {
     re.replace_all(author, "").trim().to_string()
 }
 
+/// 分类列表统一为逗号分隔；保留标签内空格，不改变日期或状态文案。
+pub fn normalize_book_kind(raw: &str) -> Option<String> {
+    let labels: Vec<_> = raw
+        .split([',', '，', '\r', '\n'])
+        .map(str::trim)
+        .filter(|label| !label.is_empty())
+        .collect();
+    if labels.is_empty() {
+        None
+    } else {
+        Some(labels.join(","))
+    }
+}
+
+/// 沿用搜索的字数格式：纯数字转为字或万字，已有单位文本保持原样。
+pub fn format_book_word_count(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    if t.is_empty() || t.eq_ignore_ascii_case("NaN") {
+        return None;
+    }
+    match t.parse::<i64>() {
+        Ok(n) if n > 10000 => {
+            let v = n as f64 / 10000.0;
+            let scaled = (v * 10.0).round();
+            let s = if scaled % 10.0 == 0.0 {
+                format!("{}", scaled as i64 / 10)
+            } else {
+                format!("{:.1}", scaled / 10.0)
+            };
+            Some(format!("{s}万字"))
+        }
+        Ok(n) if n > 0 => Some(format!("{n}字")),
+        Ok(_) => None,
+        Err(_) => Some(t.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_metadata_format_preserves_labels_and_units() {
+        assert_eq!(
+            normalize_book_kind(" 武侠\r\n连载中，2024-05-30,,Science Fiction ").as_deref(),
+            Some("武侠,连载中,2024-05-30,Science Fiction")
+        );
+        assert_eq!(normalize_book_kind(" ,，\r\n "), None);
+        assert_eq!(
+            format_book_word_count("3128968").as_deref(),
+            Some("312.9万字")
+        );
+        assert_eq!(format_book_word_count("20000").as_deref(), Some("2万字"));
+        assert_eq!(format_book_word_count("10000").as_deref(), Some("10000字"));
+        assert_eq!(format_book_word_count("5000").as_deref(), Some("5000字"));
+        for text in ["312万字", "200k", "连载中"] {
+            assert_eq!(format_book_word_count(text).as_deref(), Some(text));
+        }
+        for text in ["", "0", "-1", "NaN"] {
+            assert_eq!(format_book_word_count(text), None);
+        }
+    }
 
     #[test]
     fn test_format_book_name_strips_author_suffix() {

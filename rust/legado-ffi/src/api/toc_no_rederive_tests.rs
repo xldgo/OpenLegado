@@ -405,11 +405,12 @@ const FOREIGN: &str = "https://www.f.e2e-iso.com.cn/";
 /// 异域两种归一形态），开/关各清一次防测试间串键。
 #[cfg(feature = "quickjs")]
 fn clear_e2e_cookie_keys(write_url: &str) {
-    use legado_js::host_api::cookie_store;
-    cookie_store::clear_cookies(write_url);
-    cookie_store::clear_cookies("127.0.0.1");
-    cookie_store::clear_cookies(FOREIGN);
-    cookie_store::clear_cookies("e2e-iso.com.cn");
+    use legado_js::host_api::cookie_store::CookieAccess;
+    let cookies = crate::engine_holder::network();
+    cookies.clear(write_url);
+    cookies.clear("127.0.0.1");
+    cookies.clear(FOREIGN);
+    cookies.clear("e2e-iso.com.cn");
 }
 
 /// E2E ① fetch_page 路径：search 请求头携带请求域 JS cookie，且不含异域 cookie。
@@ -420,16 +421,17 @@ fn clear_e2e_cookie_keys(write_url: &str) {
 #[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn e2e_fetch_page_path_carries_request_domain_js_cookie() {
+    use legado_js::host_api::cookie_store::CookieAccess;
+    let cookies = crate::engine_holder::network();
     let _lock = crate::test_support::lock_global_store();
-    use legado_js::host_api::cookie_store;
 
     let server = spawn_recording_server();
     let base = format!("http://127.0.0.1:{}", server.port);
     let write_url = format!("{base}/all-chapter");
     clear_e2e_cookie_keys(&write_url);
     // JS 写请求域 cookie（quickjs 档归一为 IP 自键 127.0.0.1）+ 异域 cookie
-    cookie_store::set_cookie(&write_url, "p219_e2e", "e2e-val-7c41");
-    cookie_store::set_cookie(FOREIGN, "p219_foreign", "foreign-val-0a1b");
+    cookies.set(&write_url, "p219_e2e=e2e-val-7c41");
+    cookies.set(FOREIGN, "p219_foreign=foreign-val-0a1b");
 
     let source = BookSource {
         book_source_url: base.clone(),
@@ -481,15 +483,16 @@ async fn e2e_fetch_page_path_carries_request_domain_js_cookie() {
 #[allow(clippy::await_holding_lock)]
 #[tokio::test]
 async fn e2e_fetch_simple_cached_path_carries_request_domain_js_cookie() {
+    use legado_js::host_api::cookie_store::CookieAccess;
+    let cookies = crate::engine_holder::network();
     let _lock = crate::test_support::lock_global_store();
-    use legado_js::host_api::cookie_store;
 
     let server = spawn_recording_server();
     let base = format!("http://127.0.0.1:{}", server.port);
     let write_url = format!("{base}/all-chapter");
     clear_e2e_cookie_keys(&write_url);
-    cookie_store::set_cookie(&write_url, "p219_e2e2", "e2e2-val-3d58");
-    cookie_store::set_cookie(FOREIGN, "p219_foreign", "foreign-val-0a1b");
+    cookies.set(&write_url, "p219_e2e2=e2e2-val-3d58");
+    cookies.set(FOREIGN, "p219_foreign=foreign-val-0a1b");
 
     let source = BookSource {
         book_source_url: base.clone(),

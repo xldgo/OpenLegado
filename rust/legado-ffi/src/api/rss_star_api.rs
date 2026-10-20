@@ -5,9 +5,9 @@
 use serde::Serialize;
 
 use legado_core::LegadoResult;
-use legado_db::{RssStarRecord, RssStarRepository};
+use legado_db::RssStarRecord;
 
-use crate::db_state::with_database;
+use super::rss::host_service;
 
 /// RSS 收藏 DTO（可序列化）
 #[derive(Debug, Clone, Serialize)]
@@ -41,59 +41,24 @@ impl From<RssStarRecord> for RssStarDto {
     }
 }
 
-/// 获取所有 RSS 收藏（按 starTime 降序）
 pub fn get_rss_stars() -> LegadoResult<Vec<RssStarDto>> {
-    with_database(|db| {
-        let repo = RssStarRepository::new(db.connection());
-        let records = repo.find_all()?;
-        Ok(records.into_iter().map(RssStarDto::from).collect())
-    })
+    Ok(host_service()
+        .get_rss_stars()?
+        .into_iter()
+        .map(RssStarDto::from)
+        .collect())
 }
 
-/// 添加 RSS 收藏，返回收藏时间戳（作为标识）
 pub fn add_rss_star(source_url: &str, title: &str, link: &str) -> LegadoResult<i64> {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as i64;
-
-    // v101 新增字段（group/star_type/dur_pos）取默认值，函数签名保持不变
-    let record = RssStarRecord {
-        origin: source_url.to_string(),
-        sort: "default".to_string(),
-        title: title.to_string(),
-        star_time: now,
-        link: Some(link.to_string()),
-        pub_date: None,
-        description: None,
-        content: None,
-        image: None,
-        variable: None,
-        ..Default::default()
-    };
-
-    with_database(|db| {
-        let repo = RssStarRepository::new(db.connection());
-        repo.add_star(&record)?;
-        Ok(now)
-    })
+    host_service().add_rss_star(source_url, title, link)
 }
 
-/// 取消 RSS 收藏（按 link 删除）
 pub fn delete_rss_star(link: &str) -> LegadoResult<bool> {
-    with_database(|db| {
-        let repo = RssStarRepository::new(db.connection());
-        repo.remove_star(link)?;
-        Ok(true)
-    })
+    host_service().delete_rss_star(link)
 }
 
-/// 判断是否已收藏（按 link 匹配）
 pub fn is_rss_starred(link: &str) -> LegadoResult<bool> {
-    with_database(|db| {
-        let repo = RssStarRepository::new(db.connection());
-        repo.is_starred(link)
-    })
+    host_service().is_rss_starred(link)
 }
 
 #[cfg(test)]

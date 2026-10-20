@@ -1,20 +1,27 @@
 [package]
 name = "legado-core"
 version = "0.2.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
+# 阅读状态消费排版结果的原文页范围类型，不在 core 内执行排版。
+legado-layout = { path = "../legado-layout" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt"] }
-tokio-util = { version = "0.7", features = ["rt"] }
 aes = { workspace = true }
 cbc = { workspace = true }
 ecb = { workspace = true }
 des = { workspace = true }
 base64 = { workspace = true }
-md5 = "0.8.1"
+md-5 = { workspace = true }
+# 云端 Provider 地址解析和缓存摘要，沿用已锁定依赖版本。
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.11"
+hmac = "0.13"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 regex = "1"
 # 安全正则编译缓存的 LRU 淘汰（任务 #60 ④，与 legado-js 同版本）
 lru = "0.18.5"
@@ -28,3 +35,4 @@ default = []
 quickjs = []
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

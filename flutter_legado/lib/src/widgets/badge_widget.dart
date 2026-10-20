@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 徽标组件 — 右上角数字徽标
 class BadgeWidget extends StatelessWidget {
@@ -29,24 +29,10 @@ class BadgeWidget extends StatelessWidget {
           Positioned(
             right: -6,
             top: -6,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-              decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: colorScheme.surface, width: 1.5),
-              ),
-              child: Text(
-                count > 99 ? '99+' : '$count',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: colorScheme.onError,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
-              ),
+            child: Badge.count(
+              count: count,
+              maxCount: 99,
+              backgroundColor: badgeColor,
             ),
           ),
       ],

@@ -93,8 +93,12 @@ impl CallResult {
 /// - 直接持有 `Box<dyn JsEngine>`（stub / with_engine）
 /// - 通过 `EnginePool` 按 source_tag 共享引擎（池化模式）
 pub struct JsSourceEngine {
+    #[cfg(feature = "quickjs")]
+    cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
     /// 源配置
     config: JsSourceConfig,
+    #[cfg(feature = "quickjs")]
+    variables: Option<crate::variables::VariableScope>,
     /// JS 引擎实例（非池化模式）
     engine: Option<Box<dyn JsEngine>>,
     /// 引擎池（池化模式，启用 quickjs 时可用）
@@ -119,6 +123,8 @@ impl JsSourceEngine {
     pub fn new_stub(config: JsSourceConfig) -> Self {
         let source_tag = Some(config.source_url.clone());
         Self {
+            #[cfg(feature = "quickjs")]
+            variables: None,
             engine: Some(Box::new(StubJsEngine::new())),
             #[cfg(feature = "quickjs")]
             engine_pool: None,
@@ -128,6 +134,8 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         }
     }
@@ -135,6 +143,15 @@ impl JsSourceEngine {
     /// 使用 QuickJS 真实引擎创建（启用 quickjs feature 时）
     #[cfg(feature = "quickjs")]
     pub fn new_quickjs(config: JsSourceConfig) -> Result<Self, legado_core::LegadoError> {
+        Self::new_quickjs_with_resources(config, &crate::JsResources::default())
+    }
+
+    /// 使用显式资源，供同一引擎的多个宿主与连续调用共享 VM 缓存。
+    #[cfg(feature = "quickjs")]
+    pub fn new_quickjs_with_resources(
+        config: JsSourceConfig,
+        resources: &crate::JsResources,
+    ) -> Result<Self, legado_core::LegadoError> {
         let source_tag = Some(config.source_url.clone());
         let cache_key = format!("mainjs:{}:{}", config.source_url, config.main_js);
         // P2-19 后续 #10：构造期绑定本源 tag（与 `call_function` 同款 save/restore
@@ -142,49 +159,32 @@ impl JsSourceEngine {
         // 副作用（如 mainJs 顶层 `java.ajax`）须携带本源 JS 宿主 cookie；不绑定
         // 则落入「未归属上下文」，连本源自己的 cookie 也不携带（回归面）。
         // 缓存键含 source_url：命中时 get_or_create 为 no-op，包裹恒正确。
-        // 元组顺序为 (engine, main_js_ok, js_lib_ok)（engine_cache.rs:132/160/182）
-        let (pooled_engine, main_js_ok, js_lib_ok) =
+        let cached =
             crate::host_api::current_source::with_current_source_tag(&config.source_url, || {
-                crate::engine_cache::get_or_create(
+                resources.engine_cache().get_or_create_with_resources(
                     &cache_key,
                     config.js_lib.as_deref(),
                     None,
                     Some(&config.main_js),
+                    resources,
                 )
             })?;
-        // W2（审查建议项 2，2026-10-06）：构造期 jsLib 求值失败 → 带原因上抛，
-        // 与 e73cf37d8f 主链（executor.rs `js_lib_ok == Some(false)` 分支）同口径。
-        // 上游 JS 源链同样硬失败：`JsSourceEngine.buildScope` 每次调用经
-        // `source.getShareScope()`（BaseSourceExtensions.kt:13-15）→
-        // `SharedJsScope.getScope` → `evaluateJsLib`（SharedJsScope.kt:231-258，
-        // 无 catch 直接抛）；本构造是 Rust 侧 jsLib 唯一求值点，静默则缺库函数
-        // 只会推迟到 mainJs/调用表达式引用点爆 `xxx is not defined`（点位后移、
-        // 文案失真——正是 P0-B 修复要消除的形态）。原因取台账最后错误摘要
-        //（engine_cache::init_engine 已按本缓存键 record_jslib_load_failure）；
-        // jsLib 内容变化会触发缓存条目重建，失败不粘滞（engine_cache.rs:148-161）。
-        //
-        // 附带纠正：此前解构把第 2/3 位当成了 (js_lib_ok, main_js_status)，
-        // 实际顺序是 (main_js_ok, js_lib_ok)——导致 main_js_loaded 由 jsLib
-        // 状态驱动（mainJs 构造期失败时反而跳过首次带 bindings 重评，与下方
-        // 注释声明的语义相反）。现按真实语义消费（jsLib 失败已在上方上抛，
-        // 此处 main_js_loaded 只由 mainJs 状态决定）。
-        if js_lib_ok == Some(false) {
-            let reason = crate::host_api::capability_ledger::last_jslib_error(&cache_key)
-                .filter(|s| !s.trim().is_empty())
-                .unwrap_or_else(|| "原因未记录（见 capability_ledger）".to_string());
+        // 初始化错误绑定当前缓存结果；台账只用于诊断，不作为异常数据源。
+        if let Some(reason) = cached.js_lib_error {
             return Err(LegadoError::JsEngine(format!("jsLib 求值失败: {reason}")));
         }
-        // 构建时 mainJs eval 失败（如顶层引用注入变量）→ 不标记 loaded，
-        // 首次 invoke 走既有带 bindings 重评路径（与旧实现错误语义一致）。
-        let main_js_loaded = !matches!(main_js_ok, Some(false));
+        // mainJs 构造期失败时，首次调用仍带 bindings 重评。
+        let main_js_loaded = !matches!(cached.main_js_ok, Some(false));
         Ok(Self {
+            variables: resources.variable_scope().cloned(),
             engine: None,
             engine_pool: None,
-            pooled_engine: Some(pooled_engine),
+            pooled_engine: Some(cached.engine),
             config,
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            cancellation: resources.cancellation().cloned(),
             main_js_loaded,
         })
     }
@@ -198,6 +198,8 @@ impl JsSourceEngine {
         let engine = QuickJsEngine::new(sandbox_config)?;
         let source_tag = Some(config.source_url.clone());
         Ok(Self {
+            #[cfg(feature = "quickjs")]
+            variables: None,
             engine: Some(Box::new(engine)),
             engine_pool: None,
             pooled_engine: None,
@@ -205,6 +207,8 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         })
     }
@@ -221,6 +225,8 @@ impl JsSourceEngine {
         let source_tag = config.source_url.clone();
         let pooled_engine = pool.get_or_create(&source_tag)?;
         Ok(Self {
+            #[cfg(feature = "quickjs")]
+            variables: None,
             engine: None,
             engine_pool: Some(pool),
             pooled_engine: Some(pooled_engine),
@@ -228,6 +234,8 @@ impl JsSourceEngine {
             config,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         })
     }
@@ -236,6 +244,8 @@ impl JsSourceEngine {
     pub fn with_engine(config: JsSourceConfig, engine: Box<dyn JsEngine>) -> Self {
         let source_tag = Some(config.source_url.clone());
         Self {
+            #[cfg(feature = "quickjs")]
+            variables: None,
             engine: Some(engine),
             #[cfg(feature = "quickjs")]
             engine_pool: None,
@@ -245,6 +255,8 @@ impl JsSourceEngine {
             source_tag,
             scope_manager: None,
             script_cache: HashMap::new(),
+            #[cfg(feature = "quickjs")]
+            cancellation: None,
             main_js_loaded: false,
         }
     }
@@ -278,6 +290,9 @@ impl JsSourceEngine {
         name: &str,
         args: &[(&str, JsValue)],
     ) -> LegadoResult<Option<String>> {
+        #[cfg(feature = "quickjs")]
+        let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+        crate::cancellation::check()?;
         // 绑定当前书源上下文（供 getVerificationCode 等宿主钩子识别书源，
         // 对齐 Kotlin JsExtensions.getSource()），结束后恢复原值
         let tag = self.config.source_url.clone();
@@ -310,11 +325,16 @@ impl JsSourceEngine {
             let pooled_opt = self.pooled_engine.clone();
             if let Some(pooled) = pooled_opt {
                 // 池化模式：通过 Arc<Mutex<QuickJsEngine>> 执行
-                let engine_guard = pooled.lock().unwrap();
+                let engine_guard = crate::cancellation::lock(&pooled)?;
 
                 // 首次调用时 eval 主脚本，后续跳过（mainJs 求值缓存）
                 if !self.main_js_loaded {
-                    let _ = engine_guard.eval_with_bindings(&self.config.main_js, &bindings)?;
+                    let _ = match &self.variables {
+                        Some(scope) => {
+                            engine_guard.eval_with_variables(&self.config.main_js, &bindings, scope)
+                        }
+                        None => engine_guard.eval_with_bindings(&self.config.main_js, &bindings),
+                    }?;
                     self.main_js_loaded = true;
                 }
 
@@ -326,7 +346,12 @@ impl JsSourceEngine {
                     self.script_cache.insert(call_expr.clone(), c.clone());
                     c
                 };
-                let result = engine_guard.execute_compiled_with_bindings(&compiled, &bindings)?;
+                let result = match &self.variables {
+                    Some(scope) => {
+                        engine_guard.execute_compiled_with_variables(&compiled, &bindings, scope)
+                    }
+                    None => engine_guard.execute_compiled_with_bindings(&compiled, &bindings),
+                }?;
 
                 return Ok(Self::normalize_result(&result));
             }
@@ -424,10 +449,33 @@ mod tests {
     use super::*;
     use crate::engine::{CompiledScript, JsEngine, JsValue};
     use legado_core::LegadoResult;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    /// 测试用引擎：记录 eval 调用次数
+    #[cfg(feature = "quickjs")]
+    #[test]
+    fn cached_main_js_uses_current_flow_for_saved_native_functions() {
+        let resources = crate::JsResources::default();
+        let one = resources.for_flow("one");
+        let two = resources.for_flow("two");
+        one.variable_scope()
+            .unwrap()
+            .put_flow_variable("key", "a")
+            .unwrap();
+        two.variable_scope()
+            .unwrap()
+            .put_flow_variable("key", "b")
+            .unwrap();
+        let config = JsSourceConfig::new("source".into(),
+            "var savedRead=java.__lgStoreGet; var savedWrite=java.__lgStorePut; function step(){var value=savedRead('key');savedWrite('key',value+'!');return value;}".into());
+        let mut a = JsSourceEngine::new_quickjs_with_resources(config.clone(), &one).unwrap();
+        let mut b = JsSourceEngine::new_quickjs_with_resources(config, &two).unwrap();
+        assert_eq!(a.call_function("step", &[]).unwrap().as_deref(), Some("a"));
+        assert_eq!(b.call_function("step", &[]).unwrap().as_deref(), Some("b"));
+        assert_eq!(a.call_function("step", &[]).unwrap().as_deref(), Some("a!"));
+    }
+
+    /// 测试用引擎：记录 eval 调用次数。
     struct CountingEngine {
         eval_count: Arc<AtomicUsize>,
     }
@@ -555,17 +603,15 @@ mod tests {
     /// 机制：`new_quickjs` → `engine_cache::get_or_create("mainjs:{url}:{mainJs}")`
     /// → `init_engine` 在构造期 eval mainJs（顶层 `java.ajax` 即发起真实请求）。
     /// 请求目标为回环 cookie 记录服务器（P2-17 同款 std TcpListener 模式）；
-    /// 回环域名键（127.0.0.1，IP 自键）与 network.rs 回环用例共享，须持
-    /// `cookie_store::COOKIE_STORE_TEST_LOCK` 串行；缓存键含随机端口，用例间不串扰。
+    /// 使用独立资源和回环端口，不与其他用例共享 Cookie 罐或缓存。
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_p219_new_quickjs_construction_carries_request_domain_cookie() {
-        use crate::host_api::cookie_store;
         use std::io::{Read, Write};
         use std::sync::Mutex;
 
-        // 回环域名键（127.0.0.1）为进程级共享键，与 network.rs 回环用例串行
-        let _lock = cookie_store::lock_cookie_store_test();
+        // 构造期 mainJs 与本次注入的 Cookie 能力保持一致。
+        let resources = crate::JsResources::default();
 
         // 回环 cookie 记录服务器：记录收到的 Cookie 请求头（忽略请求 body）
         let seen: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
@@ -609,8 +655,10 @@ mod tests {
         const TAG: &str = "https://p219-mainjs.example.com/";
         // 上游同步：cookie 键 = 请求 URL 归一域名键（回环 IP 自键 127.0.0.1）
         let echo_url = format!("http://{addr}/echo");
-        cookie_store::clear_cookies(&echo_url);
-        cookie_store::set_cookie(&echo_url, "p219_mainjs_token", "mainjs-val-4a7b");
+        resources.http_resources().cookies().clear(&echo_url);
+        resources
+            .http_resources()
+            .set_cookie(&echo_url, "p219_mainjs_token=mainjs-val-4a7b");
 
         // mainJs 顶层 `java.ajax`（入参为 JSON 字符串——java.ajax 桥接签名
         // 为 (options: String)，形态与 network.rs p219 用例一致）
@@ -619,7 +667,8 @@ mod tests {
 function search(q) {{ return q; }}"#
         );
         let config = JsSourceConfig::new(TAG.to_string(), main_js);
-        let _engine = JsSourceEngine::new_quickjs(config).expect("new_quickjs 构造");
+        let _engine = JsSourceEngine::new_quickjs_with_resources(config, &resources)
+            .expect("new_quickjs 构造");
 
         let got = seen.lock().unwrap().clone();
         assert!(
@@ -628,22 +677,14 @@ function search(q) {{ return q; }}"#
                 .contains("p219_mainjs_token=mainjs-val-4a7b"),
             "构造期 mainJs 顶层 ajax 必须携带请求 URL 属域（127.0.0.1）cookie，实际 Cookie 头: {got:?}"
         );
-        cookie_store::clear_cookies(&echo_url);
-        drop(_lock);
+        resources.http_resources().cookies().clear(&echo_url);
     }
 
-    /// W2 附带纠正（2026-10-06）：`engine_cache::get_or_create` 元组为
-    /// `(engine, main_js_ok, js_lib_ok)`，旧解构错位导致 `main_js_loaded`
-    /// 实际由 jsLib 状态驱动——构造期 mainJs 失败（如顶层引用仅调用期注入
-    /// 的绑定）时反而跳过首次带 bindings 重评。现按真实语义消费：
-    /// mainJs 构造期失败 → 不标记 loaded → 首次 call_function 重评后可用。
+    /// mainJs 构造期失败不标记 loaded，首次 call_function 仍带 bindings 重评。
+    /// 状态通过 CachedEngine 具名字段返回，不与 jsLib 失败原因混用。
     #[cfg(feature = "quickjs")]
     #[test]
     fn construction_main_js_failure_retries_with_bindings_on_first_call() {
-        let _guard = crate::engine_cache::TEST_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        crate::engine_cache::clear_for_tests();
         // 顶层引用 baseUrl：构造期无 bindings 必失败；调用期 bindings 注入
         // baseUrl=source_url，重评可恢复（旧行为会跳过重评 → search 未定义）
         let config = JsSourceConfig::new(

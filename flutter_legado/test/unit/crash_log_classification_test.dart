@@ -25,19 +25,29 @@ void main() {
   late File crashFile;
   late FlutterExceptionHandler? previousOnError;
 
-  // 与生产 main.dart L27-29 完全一致的处理器（复刻点）
+  late FlutterExceptionHandler previousPresentError;
+  late bool Function(Object, StackTrace)? previousPlatformError;
+  final presented = <FlutterErrorDetails>[];
+
   void installProductionHandler() {
     previousOnError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      CrashLogService.instance.logError(details.exception, details.stack);
-    };
+    previousPresentError = FlutterError.presentError;
+    previousPlatformError = PlatformDispatcher.instance.onError;
+    FlutterError.presentError = presented.add;
+    CrashLogService.instance.setupCrashHandler();
   }
 
   void restoreProductionHandler() {
     FlutterError.onError = previousOnError;
+    FlutterError.presentError = previousPresentError;
+    PlatformDispatcher.instance.onError = previousPlatformError;
   }
 
   setUp(() async {
+    presented.clear();
+    previousOnError = FlutterError.onError;
+    previousPresentError = FlutterError.presentError;
+    previousPlatformError = PlatformDispatcher.instance.onError;
     SharedPreferences.setMockInitialValues({});
     tempDir = await Directory.systemTemp.createTemp('crash_class_test');
     crashFile = File('${tempDir.path}/crash_log.txt');
@@ -65,24 +75,30 @@ void main() {
       FlutterErrorDetails(
         exception: FlutterError(
           'A RenderFlex overflowed by 12 pixels on the right.\n'
-              'The relevant error-causing widget was:\n'
-              '  Row Row',
+          'The relevant error-causing widget was:\n'
+          '  Row Row',
         ),
         stack: StackTrace.current,
       ),
     );
+    expect(presented, hasLength(1));
     restoreProductionHandler();
     await flushPrefs();
 
     // 1) 软性布局告警不写 crash_log.txt
-    expect(crashFile.existsSync(), isFalse,
-        reason: '软性布局告警不应写入 crash_log.txt');
+    expect(crashFile.existsSync(), isFalse, reason: '软性布局告警不应写入 crash_log.txt');
     // 2) 不置崩溃标记 → 下次启动 getLastCrashLog 为 null，不弹窗
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('crash_last_crash'), isNot(true),
-        reason: '软性布局告警不应置崩溃标记（否则会误弹崩溃弹窗）');
-    expect(await CrashLogService.instance.getLastCrashLog(), isNull,
-        reason: '软性告警后下次启动不应取到崩溃日志');
+    expect(
+      prefs.getBool('crash_last_crash'),
+      isNot(true),
+      reason: '软性布局告警不应置崩溃标记（否则会误弹崩溃弹窗）',
+    );
+    expect(
+      await CrashLogService.instance.getLastCrashLog(),
+      isNull,
+      reason: '软性告警后下次启动不应取到崩溃日志',
+    );
     // 3) 已单独标记写入普通日志（可观测，不静默丢失）
     expect(
       CrashLogService.instance.logs.any((e) {
@@ -104,6 +120,7 @@ void main() {
         stack: StackTrace.current,
       ),
     );
+    expect(presented, hasLength(1));
     restoreProductionHandler();
     await flushPrefs();
 
@@ -117,8 +134,7 @@ void main() {
     expect(content, contains('===== 日志结束 ====='));
     // 2) 崩溃标记已置位（下次启动 getLastCrashLog 非空 → 正常弹窗语义）
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('crash_last_crash'), isTrue,
-        reason: '真崩溃必须置崩溃标记');
+    expect(prefs.getBool('crash_last_crash'), isTrue, reason: '真崩溃必须置崩溃标记');
     expect(CrashLogService.instance.lastCrash, isTrue);
     expect(
       (await CrashLogService.instance.getLastCrashLog()),

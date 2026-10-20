@@ -1,13 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/widgets/book_cover.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/bookshelf/bookshelf_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/bookshelf_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 /// 选择模式（批量）网格视图书卡渲染回归测试
 ///
@@ -28,7 +27,7 @@ void main() {
   Future<ProviderContainer> pumpShelf(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(MockBookApi())],
+        overrides: mergeTestOverrides([...MockBookApi().overrides]),
         child: MaterialApp(home: BookshelfScreen()),
       ),
     );
@@ -53,16 +52,17 @@ void main() {
     await tester.pump();
 
     // 切到网格视图
-    container
-        .read(bookshelfNotifierProvider.notifier)
-        .toggleViewMode();
+    container.read(bookshelfNotifierProvider.notifier).toggleViewMode();
     await tester.pumpAndSettle();
-    expect(find.text('示例书籍 01'), findsOneWidget,
-        reason: '网格视图书名可见');
+    expect(find.text('示例书籍 01'), findsOneWidget, reason: '网格视图书名可见');
+
+    final cover = tester.element(find.byType(BookCover).first);
 
     // 进入选择模式
     container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
     await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '进入选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
 
     // [P0 根因] 网格分支选择模式同样须渲染书卡 + 勾选
     expect(
@@ -76,5 +76,9 @@ void main() {
     await tester.tap(find.text('示例书籍 01'));
     await tester.pumpAndSettle();
     expect(find.text('已选 1 本'), findsOneWidget);
+    container.read(bookshelfNotifierProvider.notifier).toggleBatchMode();
+    await tester.pumpAndSettle();
+    expect(cover.mounted, isTrue, reason: '退出选择态保留原封面元素');
+    expect(tester.element(find.byType(BookCover).first), same(cover));
   });
 }

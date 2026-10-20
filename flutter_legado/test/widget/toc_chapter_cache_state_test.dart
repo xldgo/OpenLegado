@@ -1,17 +1,29 @@
+import '../fixtures/app_test_api.dart';
+
+import 'dart:async';
+
 // 注：本工具链（Flutter 3.44.8 / Dart 3.12.2，2026-09 升级后）新编译的
 // Windows 前端对无扩展名包导入（package:x/x）解析失败（报「系统找不到
 // 指定的文件」），显式 .dart 扩展名为当前可编译形态；存量测试文件沿用
 // 无扩展名形态系旧工具链产物，未动。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/toc_screen.dart';
+import 'package:flutter_legado/src/features/toc/presentation/toc_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_legado/src/data/services/app_settings_service.dart';
+import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
+import 'package:flutter_legado/src/providers/app_settings_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
+
+import '../fixtures/home_settings_storage.dart';
 import '../mocks/mocks.dart';
+
+class _MockBookmarks extends Mock implements BookmarkRepository {}
 
 /// 目录页章节行缓存状态指示测试（用户验收 P2-28b 三态 → P2-29 五态 →
 /// P2-29b 互斥分支与着色修正，对齐参考版 ReaderBookSheet.kt
@@ -30,11 +42,11 @@ import '../mocks/mocks.dart';
 ///   非红）→ 我方 Icons.location_on（行高适配 16px，参考版 16dp）
 /// - ③ DOWNLOADING → AppContainedLoadingIndicator 16dp 转圈 → 我方
 ///   SizedBox 16 + CircularProgressIndicator（strokeWidth 2，primary 着色），
-///   数据经 BookApi.listDownloadingChapters（契约 §2.43.7，1s 轮询同周期刷新）
+///   数据经 CacheDownloadService.listDownloadingChapters（契约 §2.43.7，1s 轮询同周期刷新）
 /// - ④ SUCCESS（已缓存且无胶囊，如字数开关关）→ Icons.Default.CheckCircle
 ///   （secondary 着色）→ 我方 Icons.check_circle（16px）
 /// - ⑤ ERROR → 红色重试图标（Icons.refresh，error 着色）可点击 → 单章重下
-///   cacheDownloadStart(bookUrl, idx, idx)；数据经 BookApi.listFailedChapters
+///   cacheDownloadStart(bookUrl, idx, idx)；数据经 CacheDownloadService.listFailedChapters
 ///   （契约 §2.43.8，P2-29c 后续批接通，与下载中同周期 1s 轮询；注入缝
 ///   failedChapterIndicesForTest 已移除），本文件经 stub 真实数据源驱动
 /// - ⑥ NONE（未缓存网络章）→ Icons.Outlined.DownloadForOffline
@@ -56,6 +68,7 @@ import '../mocks/mocks.dart';
 /// 检查同时充当「dispose 后不再轮询」的证明）。
 void main() {
   late MockRustApi mockApi;
+  late _MockBookmarks mockBookmarks;
   late ProviderContainer container;
 
   setUpAll(registerFallbacks);
@@ -63,16 +76,18 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    mockBookmarks = _MockBookmarks();
+    when(() => mockApi.bookmarkRepository).thenReturn(mockBookmarks);
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
 
   Widget wrap(Widget child) => UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(home: child),
-      );
+    container: container,
+    child: MaterialApp(home: child),
+  );
 
   /// 查找包含指定章节标题的章节行（ListTile）。
   /// 状态图标/字数胶囊位于行 trailing 区（与标题 Text 平级，对齐原版
@@ -130,44 +145,39 @@ void main() {
   const String bookUrl = 'https://src.com/book/1';
 
   Book makeBook({String origin = 'https://src.com', int dur = 3}) => Book(
-        bookUrl: bookUrl,
-        name: '测试书',
-        author: '作者A',
-        totalChapterNum: 4,
-        origin: origin,
-        durChapterIndex: dur,
-        durChapterTitle: '第四章',
-      );
+    bookUrl: bookUrl,
+    name: '测试书',
+    author: '作者A',
+    totalChapterNum: 4,
+    origin: origin,
+    durChapterIndex: dur,
+    durChapterTitle: '第四章',
+  );
 
   List<BookChapter> makeChapters() => [
-        const BookChapter(
-          url: 'u0',
-          title: '第一章',
-          index: 0,
-          bookUrl: bookUrl,
-          wordCount: '1200',
-        ),
-        const BookChapter(
-          url: 'v0',
-          title: '第一卷',
-          index: 1,
-          bookUrl: bookUrl,
-          isVolume: true,
-        ),
-        const BookChapter(
-          url: 'u2',
-          title: '第三章',
-          index: 2,
-          bookUrl: bookUrl,
-        ),
-        const BookChapter(
-          url: 'u3',
-          title: '第四章',
-          index: 3,
-          bookUrl: bookUrl,
-          wordCount: '3400',
-        ),
-      ];
+    const BookChapter(
+      url: 'u0',
+      title: '第一章',
+      index: 0,
+      bookUrl: bookUrl,
+      wordCount: '1200',
+    ),
+    const BookChapter(
+      url: 'v0',
+      title: '第一卷',
+      index: 1,
+      bookUrl: bookUrl,
+      isVolume: true,
+    ),
+    const BookChapter(url: 'u2', title: '第三章', index: 2, bookUrl: bookUrl),
+    const BookChapter(
+      url: 'u3',
+      title: '第四章',
+      index: 3,
+      bookUrl: bookUrl,
+      wordCount: '3400',
+    ),
+  ];
 
   /// 公共 stub：书架态/章节/缓存集合/下载中集合/标注/书签
   void stubCommon(
@@ -176,25 +186,23 @@ void main() {
     List<int> downloading = const [],
     List<int> failed = const [],
   }) {
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
-    when(() => mockApi.getChapters(bookUrl)).thenAnswer(
-      (_) async => chapters,
-    );
-    when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer(
-      (_) async => cachedUrls,
-    );
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => makeBook());
+    when(() => mockApi.readingRepository.getChapters(bookUrl))
+        .thenAnswer((_) async => chapters);
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
+        .thenAnswer((_) async => cachedUrls);
     // [P2-29] 下载中集合（契约 §2.43.7）：初始加载与 1s 轮询均经此 stub
-    when(() => mockApi.listDownloadingChapters(bookUrl)).thenAnswer(
-      (_) async => downloading,
-    );
+    when(() => mockApi.cacheDownloadService.listDownloadingChapters(bookUrl))
+        .thenAnswer((_) async => downloading);
     // [P2-29c 后续] 失败章集合（契约 §2.43.8）：初始加载与 1s 轮询均经此
     // stub（真实数据源，ERROR 态不再依赖 UI 注入缝）
-    when(() => mockApi.listFailedChapters(bookUrl)).thenAnswer(
-      (_) async => failed,
-    );
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockApi.cacheDownloadService.listFailedChapters(bookUrl))
+        .thenAnswer((_) async => failed);
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
   }
 
@@ -207,8 +215,71 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('未缓存网络章显示离线下载图标⬇，已缓存章与卷标题行无状态图标',
-      (tester) async {
+  for (final failed in [false, true]) {
+    testWidgets('目录菜单修改字数${failed ? '失败回退并允许重试' : '成功保存，外部恢复刷新'}', (
+      tester,
+    ) async {
+      final storage = HomeSettingsStorage();
+      final service = AppSettingsService(
+        storages: {SettingsStorageKind.preferences: storage},
+      );
+      addTearDown(() => unawaited(service.dispose()));
+      final settingsContainer = ProviderContainer(
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
+          appSettingsServiceProvider.overrideWithValue(service),
+        ]),
+      );
+      addTearDown(settingsContainer.dispose);
+      stubCommon(makeChapters(), const ['u0', 'u3']);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: settingsContainer,
+          child: MaterialApp(home: TocScreen(book: makeBook())),
+        ),
+      );
+      await settleInitial(tester);
+      expect(find.text('1200'), findsOneWidget);
+      storage.writeFailure = failed;
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加载字数'));
+      await tester.pumpAndSettle();
+      final repository = settingsContainer.read(
+        readerSettingsRepositoryProvider,
+      );
+      expect(repository.current.tocLoadWordCount, failed);
+      expect(find.text('1200'), failed ? findsOneWidget : findsNothing);
+      if (failed) {
+        expect(find.text('目录字数设置保存失败，请重试'), findsOneWidget);
+        expect(
+          storage.values.containsKey('reader_toc_load_word_count'),
+          isFalse,
+        );
+        storage.writeFailure = false;
+        await tester.tap(find.byTooltip('更多'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('加载字数'));
+        await tester.pumpAndSettle();
+        expect(repository.current.tocLoadWordCount, isFalse);
+        expect(find.text('1200'), findsNothing);
+      }
+      expect(storage.values['reader_toc_load_word_count'], isFalse);
+      storage.values['reader_toc_load_word_count'] = true;
+      await repository.reload();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('1200'), findsOneWidget);
+      expect(
+        storage.writes.map((entry) => entry.$1),
+        everyElement('reader_toc_load_word_count'),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('未缓存网络章显示离线下载图标⬇，已缓存章与卷标题行无状态图标', (tester) async {
     // 缓存集合命中 u0（第一章）与 u3（当前章），u2 未缓存；卷 v0 不在集合
     stubCommon(makeChapters(), const ['u0', 'u3']);
     await tester.pumpWidget(wrap(TocScreen(book: makeBook())));
@@ -257,22 +328,20 @@ void main() {
     );
     expect(
       find.descendant(
-          of: volumeRow,
-          matching: find.byIcon(Icons.download_for_offline_outlined)),
+        of: volumeRow,
+        matching: find.byIcon(Icons.download_for_offline_outlined),
+      ),
       findsNothing,
     );
     expect(
-      find.descendant(
-          of: volumeRow,
-          matching: find.byIcon(Icons.location_on)),
+      find.descendant(of: volumeRow, matching: find.byIcon(Icons.location_on)),
       findsNothing,
     );
     // 卸载：dispose 取消轮询定时器（在线书）
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('当前章无字数胶囊（未缓存不显字数）显示定位图标替代⬇（对齐参考版 isDur 分支）',
-      (tester) async {
+  testWidgets('当前章无字数胶囊（未缓存不显字数）显示定位图标替代⬇（对齐参考版 isDur 分支）', (tester) async {
     // 缓存集合仅 u0：u2 未缓存、u3（当前章）也未缓存 → 当前章不满足
     // showCount（需本地 || 已缓存）→ 无字数胶囊 → 走 isDur 分支显示定位图标
     stubCommon(makeChapters(), const ['u0']);
@@ -307,8 +376,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('字数胶囊：开关默认开且 wordCount 非空原样展示，空则隐藏',
-      (tester) async {
+  testWidgets('字数胶囊：开关默认开且 wordCount 非空原样展示，空则隐藏', (tester) async {
     // [P2-29b] 胶囊条件对齐参考版 showCount（:1039-1041）：开关开 &&
     // wordCount 非空 && (本地 || 已缓存)——两章均需已缓存才显示胶囊
     stubCommon(makeChapters(), const ['u0', 'u3']);
@@ -337,12 +405,13 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('「加载字数」开关关闭：隐藏字数胶囊，已缓存章显示对勾图标（参考版 SUCCESS 态）',
-      (tester) async {
+  testWidgets('「加载字数」开关关闭：隐藏字数胶囊，已缓存章显示对勾图标（参考版 SUCCESS 态）', (tester) async {
     // 开关持久化为 false（默认 true）：wordCount 非空也不显示胶囊；
     // [P2-29b] 已缓存且无胶囊的章走参考版 SUCCESS 分支 → 对勾图标
     // （CheckCircle，secondary 色，:1069-1071）
-    SharedPreferences.setMockInitialValues({'toc_load_word_count': false});
+    SharedPreferences.setMockInitialValues({
+      'reader_toc_load_word_count': false,
+    });
     stubCommon(makeChapters(), const ['u0', 'u3']);
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
     await settleInitial(tester);
@@ -386,33 +455,30 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('本地书不显示⬇图标且不请求缓存列表（对齐原版 isLocalBook 恒 cached）',
-      (tester) async {
+  testWidgets('本地书不显示⬇图标且不请求缓存列表（对齐原版 isLocalBook 恒 cached）', (tester) async {
     // [P2-29b] 第一章带 wordCount：本地书恒视为已缓存（LOCAL 计入 showCount
     // 的 LOCAL || SUCCESS 条件），有字数即显示胶囊
     final localChapters = [
       const BookChapter(
-          url: 'u0',
-          title: '第一章',
-          index: 0,
-          bookUrl: bookUrl,
-          wordCount: '1200'),
-      const BookChapter(
-          url: 'u1', title: '第二章', index: 1, bookUrl: bookUrl),
-      const BookChapter(
-          url: 'u2', title: '第三章', index: 2, bookUrl: bookUrl),
+        url: 'u0',
+        title: '第一章',
+        index: 0,
+        bookUrl: bookUrl,
+        wordCount: '1200',
+      ),
+      const BookChapter(url: 'u1', title: '第二章', index: 1, bookUrl: bookUrl),
+      const BookChapter(url: 'u2', title: '第三章', index: 2, bookUrl: bookUrl),
     ];
-    when(() => mockApi.getBook(any()))
+    when(() => mockApi.bookshelfRepository.getBook(any()))
         .thenAnswer((_) async => makeBook(origin: BookType.localTag, dur: 1));
-    when(() => mockApi.getChapters(bookUrl)).thenAnswer(
-      (_) async => localChapters,
-    );
-    when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer(
-      (_) async => const ['u0'],
-    );
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockApi.readingRepository.getChapters(bookUrl))
+        .thenAnswer((_) async => localChapters);
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
+        .thenAnswer((_) async => const ['u0']);
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
     await tester.pumpWidget(
@@ -423,7 +489,9 @@ void main() {
     // 本地书无离线下载图标（原版：isLocalBook → cached=true → 图标隐藏）
     expect(find.byIcon(Icons.download_for_offline_outlined), findsNothing);
     // 本地书不请求缓存列表（数据无意义，避免无谓 FFI 调用；亦免轮询定时器）
-    verifyNever(() => mockApi.listCachedChapterUrls(any()));
+    verifyNever(
+      () => mockApi.chapterCacheRepository.listCachedChapterUrls(any()),
+    );
     // [P2-29] 本地书当前章（第二章，无字数）显示定位图标（LOCAL 恒缓存
     // 语义下 isDur 分支，被 ①胶囊短路后的第二分支）
     expect(
@@ -445,8 +513,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[P2-28c] 轮询：新缓存章⬇消失且字数胶囊同帧出现，dispose 后停止轮询',
-      (tester) async {
+  testWidgets('[P2-28c] 轮询：新缓存章⬇消失且字数胶囊同帧出现，dispose 后停止轮询', (tester) async {
     // 章节数据中 u3（第四章）**无 wordCount**（chapters 表未回填）：
     // 字数胶囊只能来自轮询字数映射（P2-28c 数据链），而非章节数据——
     // 修前实现（仅 diff URL 集合）⬇ 会翻转但胶囊缺席（红）
@@ -465,51 +532,44 @@ void main() {
         bookUrl: bookUrl,
         isVolume: true,
       ),
-      const BookChapter(
-        url: 'u2',
-        title: '第三章',
-        index: 2,
-        bookUrl: bookUrl,
-      ),
-      const BookChapter(
-        url: 'u3',
-        title: '第四章',
-        index: 3,
-        bookUrl: bookUrl,
-      ),
+      const BookChapter(url: 'u2', title: '第三章', index: 2, bookUrl: bookUrl),
+      const BookChapter(url: 'u3', title: '第四章', index: 3, bookUrl: bookUrl),
     ];
 
     // 首次查询仅 u0 已缓存（u3 未缓存 → 行内 ⬇ 图标）；
     // 轮询起 u3 新缓存（模拟批量离线缓存逐章落库）
     var urlsPollCount = 0;
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
-    when(() => mockApi.getChapters(bookUrl))
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => makeBook());
+    when(() => mockApi.readingRepository.getChapters(bookUrl))
         .thenAnswer((_) async => chapters);
-    when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer((_) async {
-      urlsPollCount++;
-      return urlsPollCount == 1
-          ? const <String>['u0']
-          : const <String>['u0', 'u3'];
-    });
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
+        .thenAnswer((_) async {
+          urlsPollCount++;
+          return urlsPollCount == 1
+              ? const <String>['u0']
+              : const <String>['u0', 'u3'];
+        });
     // 字数刷新数据链（契约 §2.43.6）：已缓存章 url → wordCount 映射
     var wcPollCount = 0;
-    when(() => mockApi.listCachedChapters(bookUrl)).thenAnswer((_) async {
-      wcPollCount++;
-      return const <String, String>{'u0': '1200', 'u3': '3400'};
-    });
+    when(() => mockApi.chapterCacheRepository.listCachedChapters(bookUrl))
+        .thenAnswer((_) async {
+          wcPollCount++;
+          return const <String, String>{'u0': '1200', 'u3': '3400'};
+        });
     // [P2-29] 下载中集合数据链（契约 §2.43.7）：轮询同周期拉取，恒空
     // （本用例不驱动 DOWNLOADING 态，仅需 stub 以免 mocktail 抛 TypeError
     // 被轮询 catch 吞掉后掩盖真实断言）
     var dlPollCount = 0;
-    when(() => mockApi.listDownloadingChapters(bookUrl)).thenAnswer(
-      (_) async {
-        dlPollCount++;
-        return const <int>[];
-      },
-    );
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockApi.cacheDownloadService.listDownloadingChapters(bookUrl))
+        .thenAnswer((_) async {
+          dlPollCount++;
+          return const <int>[];
+        });
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
     // 当前章设为第一章（u0 已缓存）：第四章/第三章均未缓存 → 两行 ⬇
@@ -588,10 +648,8 @@ void main() {
 
   // ===== [P2-29] 目录章节行五态（对齐参考版 DownloadState 状态机） =====
 
-  testWidgets(
-      '[P2-29] 下载中章渲染 16px 加载指示（替代 ⬇，对齐参考版 LOADING 态；'
-      '当前章定位图标 / 已缓存章无图标）',
-      (tester) async {
+  testWidgets('[P2-29] 下载中章渲染 16px 加载指示（替代 ⬇，对齐参考版 LOADING 态；'
+      '当前章定位图标 / 已缓存章无图标）', (tester) async {
     // 缓存 u0（第一章）；在途下载集合 [2]（第三章）；
     // 第三章未缓存但下载中 → 应显示 16px 转圈而非 ⬇
     stubCommon(makeChapters(), const ['u0'], downloading: const [2]);
@@ -616,10 +674,12 @@ void main() {
     );
     // 转圈直径 16px（对齐参考版 AppContainedLoadingIndicator 16dp 形态）
     expect(
-      tester.getSize(find.descendant(
-        of: chapterRow('第三章'),
-        matching: find.byType(CircularProgressIndicator),
-      )),
+      tester.getSize(
+        find.descendant(
+          of: chapterRow('第三章'),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      ),
       const Size.square(16),
     );
     // 当前章「第四章」：定位图标（DUR 态，P2-29 新形态）
@@ -654,13 +714,12 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[P2-29] 失败章红色重试图标，点击触发单章重下（start==end 单章语义）',
-      (tester) async {
+  testWidgets('[P2-29] 失败章红色重试图标，点击触发单章重下（start==end 单章语义）', (tester) async {
     // 缓存 u0；失败集合经 listFailedChapters（契约 §2.43.8）真实数据源返回：
     // 第三章（index 2）失败（[P2-29c 后续] 注入缝已移除）。本用例验证 UI 分支：
     // 红色重试图标 + 点击 → cacheDownloadStart(idx, idx)
     stubCommon(makeChapters(), const ['u0'], failed: const [2]);
-    when(() => mockApi.cacheDownloadStart(bookUrl, 2, 2))
+    when(() => mockApi.cacheDownloadService.cacheDownloadStart(bookUrl, 2, 2))
         .thenAnswer((_) async => 7);
 
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
@@ -690,35 +749,33 @@ void main() {
     await tester.tap(retryIcon);
     await tester.pump();
     await tester.pump();
-    verify(() => mockApi.cacheDownloadStart(bookUrl, 2, 2)).called(1);
-    expect(
-      find.textContaining('已加入重新下载队列'),
-      findsOneWidget,
-    );
+    verify(() => mockApi.cacheDownloadService.cacheDownloadStart(bookUrl, 2, 2))
+        .called(1);
+    expect(find.textContaining('已加入重新下载队列'), findsOneWidget);
     // 卸载：dispose 取消轮询定时器（在线书）
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[P2-29c 后续] 失败集合经 1s 轮询真实出现/清除（契约 §2.43.8）',
-      (tester) async {
+  testWidgets('[P2-29c 后续] 失败集合经 1s 轮询真实出现/清除（契约 §2.43.8）', (tester) async {
     // 数据链闭环：初始无失败 → 轮询拉取到 [2] → 红色重试图标出现；
     // 重试后（任务取章清除失败标记）下一轮轮询集合空 → 图标消失
     var hasFailure = false;
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
-    when(() => mockApi.getChapters(bookUrl))
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => makeBook());
+    when(() => mockApi.readingRepository.getChapters(bookUrl))
         .thenAnswer((_) async => makeChapters());
-    when(() => mockApi.listCachedChapterUrls(bookUrl))
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
         .thenAnswer((_) async => const ['u0']);
-    when(() => mockApi.listCachedChapters(bookUrl))
+    when(() => mockApi.chapterCacheRepository.listCachedChapters(bookUrl))
         .thenAnswer((_) async => const <String, String>{'u0': '1200'});
-    when(() => mockApi.listDownloadingChapters(bookUrl))
+    when(() => mockApi.cacheDownloadService.listDownloadingChapters(bookUrl))
         .thenAnswer((_) async => const <int>[]);
-    when(() => mockApi.listFailedChapters(bookUrl)).thenAnswer(
-      (_) async => hasFailure ? const [2] : const <int>[],
-    );
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockApi.cacheDownloadService.listFailedChapters(bookUrl))
+        .thenAnswer((_) async => hasFailure ? const [2] : const <int>[]);
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
 
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
@@ -770,9 +827,7 @@ void main() {
 
   // ===== [P2-29b] 互斥分支与着色修正断言 =====
 
-  testWidgets(
-      '[P2-29b] 当前章+有字数（已缓存）：只显示胶囊无状态图标（互斥）+ isDur 分色',
-      (tester) async {
+  testWidgets('[P2-29b] 当前章+有字数（已缓存）：只显示胶囊无状态图标（互斥）+ isDur 分色', (tester) async {
     // u0/u3 均缓存且带 wordCount，当前章为「第四章」(u3)：胶囊短路全部
     // 状态图标——定位/对勾/转圈/⬇/重试均须缺席（修前胶囊与定位图标
     // 并存，本断言修前红）
@@ -806,10 +861,9 @@ void main() {
     final currentDeco = currentCapsule.decoration;
     expect(currentDeco, isA<BoxDecoration>());
     expect((currentDeco as BoxDecoration).color, cs.primaryContainer);
-    final currentText = tester.widget<Text>(find.descendant(
-      of: chapterRow('第四章'),
-      matching: find.text('3400'),
-    ));
+    final currentText = tester.widget<Text>(
+      find.descendant(of: chapterRow('第四章'), matching: find.text('3400')),
+    );
     expect(currentText.style?.color, cs.onPrimaryContainer);
     expect(currentText.style?.fontSize, 8);
 
@@ -819,18 +873,16 @@ void main() {
     final normalDeco = normalCapsule.decoration;
     expect(normalDeco, isA<BoxDecoration>());
     expect((normalDeco as BoxDecoration).color, cs.surfaceContainer);
-    final normalText = tester.widget<Text>(find.descendant(
-      of: chapterRow('第一章'),
-      matching: find.text('1200'),
-    ));
+    final normalText = tester.widget<Text>(
+      find.descendant(of: chapterRow('第一章'), matching: find.text('1200')),
+    );
     expect(normalText.style?.color, cs.onSurfaceVariant);
 
     // 卸载：dispose 取消轮询定时器（在线书）
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[P2-29b] 当前章无字数：定位图标 secondary 色（非红）',
-      (tester) async {
+  testWidgets('[P2-29b] 当前章无字数：定位图标 secondary 色（非红）', (tester) async {
     // 「第三章」(u2) 为当前章且无 wordCount、未缓存 → 无胶囊 → isDur 分支
     // 定位图标；[P2-29b] 将 P2-29 的红色定位改为 secondary（参考版
     // ReaderSheetStatusIcon :1100-1111 tint=colorScheme.secondary）
@@ -858,10 +910,8 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets(
-      '[P2-29b] 当前章行级高亮：secondaryContainer 底 + onSecondaryContainer '
-      '标题（参考版 ReaderSheetChapterItem :965-974）',
-      (tester) async {
+  testWidgets('[P2-29b] 当前章行级高亮：secondaryContainer 底 + onSecondaryContainer '
+      '标题（参考版 ReaderSheetChapterItem :965-974）', (tester) async {
     stubCommon(makeChapters(), const ['u0', 'u3']);
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
     await settleInitial(tester);
@@ -873,18 +923,16 @@ void main() {
     expect(tileColorOf(tester, '第四章'), cs.secondaryContainer);
     // 当前章标题色：onSecondaryContainer（M3 ListTile 以 effectiveColor
     // 覆写标题样式色，经 textColor 参数注入）
-    expect(
-      titleStyleOf(tester, '第四章').style.color,
-      cs.onSecondaryContainer,
-    );
+    expect(titleStyleOf(tester, '第四章').style.color, cs.onSecondaryContainer);
     // 普通行标题色：onSurface 不变（tileColor 为 null 回退主题默认）
     expect(titleStyleOf(tester, '第一章').style.color, cs.onSurface);
     // 卸载：dispose 取消轮询定时器（在线书）
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('[P2-29b] 未缓存章带 wordCount 不显示胶囊（showCount 需 本地||已缓存）',
-      (tester) async {
+  testWidgets('[P2-29b] 未缓存章带 wordCount 不显示胶囊（showCount 需 本地||已缓存）', (
+    tester,
+  ) async {
     // u2 带 wordCount「2500」但未缓存 → 不满足 showCount 的
     // (本地 || 已缓存) 条件 → 无胶囊，落 ⑥ NONE 分支显 ⬇；
     // 已缓存 u0（当前章）胶囊正常
@@ -930,17 +978,15 @@ void main() {
 
   // ===== [P2-29c] 目录缓存交互补齐（增量需求登记落地） =====
 
-  testWidgets(
-      '[P2-29c] 未缓存章 ⬇ 可点：单章下载 cacheDownloadStart(idx, idx) + '
-      '反馈，且不冒泡触发行跳转（参考版 canDownload = NONE || ERROR）',
-      (tester) async {
+  testWidgets('[P2-29c] 未缓存章 ⬇ 可点：单章下载 cacheDownloadStart(idx, idx) + '
+      '反馈，且不冒泡触发行跳转（参考版 canDownload = NONE || ERROR）', (tester) async {
     // 参考版依据：TocScreen.kt ChapterItem :879-881 canDownload 含 NONE；
     // :958-965 状态图标 Box 挂 onDownloadClick；:808 onDownloadClick →
     // TocIntent.DownloadChapter → TocViewModel.kt downloadChapter :863-869
     // 按章索引单章下载。我方复用既有 cacheDownloadStart（契约 §2.43.3
     // 闭区间 start==end 单章），与 ERROR 重试同路径（零契约）。
     stubCommon(makeChapters(), const ['u0']);
-    when(() => mockApi.cacheDownloadStart(bookUrl, 2, 2))
+    when(() => mockApi.cacheDownloadService.cacheDownloadStart(bookUrl, 2, 2))
         .thenAnswer((_) async => 7);
 
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
@@ -964,55 +1010,54 @@ void main() {
     await tester.tap(downloadIcon);
     await tester.pump();
     await tester.pump();
-    verify(() => mockApi.cacheDownloadStart(bookUrl, 2, 2)).called(1);
+    verify(() => mockApi.cacheDownloadService.cacheDownloadStart(bookUrl, 2, 2))
+        .called(1);
     expect(find.byType(TocScreen), findsOneWidget, reason: '点击不得触发行跳转');
     expect(find.textContaining('已加入缓存队列'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets(
-      '[P2-29c] 点击 ⬇ 后 1s 轮询进入下载中动画，完成后徽标翻转为对勾',
-      (tester) async {
+  testWidgets('[P2-29c] 点击 ⬇ 后 1s 轮询进入下载中动画，完成后徽标翻转为对勾', (tester) async {
     // 全链闭环：点击 → cacheDownloadStart → 轮询拾取在途章 [2] → 16px
     // 加载指示（参考版 LOADING 态）→ 完成后章节落入缓存集合 → 对勾
     // （参考版 SUCCESS 态 :1069-1071）
     var tapped = false;
     var done = false;
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => makeBook());
-    when(() => mockApi.getChapters(bookUrl))
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => makeBook());
+    when(() => mockApi.readingRepository.getChapters(bookUrl))
         .thenAnswer((_) async => makeChapters());
-    when(() => mockApi.listCachedChapterUrls(bookUrl)).thenAnswer(
-      (_) async => done ? const ['u0', 'u2'] : const ['u0'],
-    );
-    when(() => mockApi.listDownloadingChapters(bookUrl)).thenAnswer(
-      (_) async => tapped && !done ? const [2] : const <int>[],
-    );
+    when(() => mockApi.chapterCacheRepository.listCachedChapterUrls(bookUrl))
+        .thenAnswer((_) async => done ? const ['u0', 'u2'] : const ['u0']);
+    when(() => mockApi.cacheDownloadService.listDownloadingChapters(bookUrl))
+        .thenAnswer((_) async => tapped && !done ? const [2] : const <int>[]);
     // [P2-29c 后续] 失败章集合（契约 §2.43.8）恒空 stub：轮询链新增查询，
     // 缺省会被轮询外层 catch 吞掉而截断后续刷新
-    when(() => mockApi.listFailedChapters(bookUrl))
+    when(() => mockApi.cacheDownloadService.listFailedChapters(bookUrl))
         .thenAnswer((_) async => const <int>[]);
-    when(() => mockApi.listCachedChapters(bookUrl)).thenAnswer(
-      // 轮询 URL 集合取本接口 keys（契约 §2.43.6；wordCount 未回填为空串，
-      // Rust 侧空值仍收录 key）——done 后 u2 落缓存 → ⬇ 翻转对勾
-      (_) async => done
-          ? const <String, String>{'u0': '1200', 'u2': ''}
-          : const <String, String>{'u0': '1200'},
-    );
-    when(() => mockApi.highlightListByBook(bookUrl: bookUrl))
-        .thenAnswer((_) async => '[]');
-    when(() => mockApi.getBookmarksByBook('测试书', '作者A'))
+    when(() => mockApi.chapterCacheRepository.listCachedChapters(bookUrl))
+        .thenAnswer(
+          // 轮询 URL 集合取本接口 keys（契约 §2.43.6；wordCount 未回填为空串，
+          // Rust 侧空值仍收录 key）——done 后 u2 落缓存 → ⬇ 翻转对勾
+          (_) async => done
+              ? const <String, String>{'u0': '1200', 'u2': ''}
+              : const <String, String>{'u0': '1200'},
+        );
+    when(
+      () => mockApi.highlightRepository.highlightListByBook(bookUrl: bookUrl),
+    ).thenAnswer((_) async => []);
+    when(() => mockBookmarks.getBookmarksByBook('测试书', '作者A'))
         .thenAnswer((_) async => const <Bookmark>[]);
-    when(() => mockApi.cacheDownloadStart(bookUrl, 2, 2))
+    when(() => mockApi.cacheDownloadService.cacheDownloadStart(bookUrl, 2, 2))
         .thenAnswer((_) async => 7);
 
     await tester.pumpWidget(wrap(TocScreen(book: makeBook(dur: 3))));
     await settleInitial(tester);
 
     tapped = true;
-    await tester.tap(find.descendant(
-      of: chapterRow('第三章'),
-      matching: find.byType(IconButton),
-    ));
+    await tester.tap(
+      find.descendant(of: chapterRow('第三章'), matching: find.byType(IconButton)),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -1057,10 +1102,8 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets(
-      '[P2-29c] ERROR 优先于已缓存：失败章不显示对勾/字数胶囊（对齐参考版 '
-      'running > error > cached；字数仅 LOCAL/SUCCESS）',
-      (tester) async {
+  testWidgets('[P2-29c] ERROR 优先于已缓存：失败章不显示对勾/字数胶囊（对齐参考版 '
+      'running > error > cached；字数仅 LOCAL/SUCCESS）', (tester) async {
     // 参考版依据：TocViewModel.kt rawDataFlow :510-514 状态判定顺序
     // running → error → cached → none；StatusIcon :1146-1157 字数胶囊
     // 仅 LOCAL/SUCCESS 态命中。本用例经 listFailedChapters（契约 §2.43.8）
@@ -1069,19 +1112,20 @@ void main() {
     // 分支先行 → 红色重试图标。
     final chapters = [
       const BookChapter(
-          url: 'u0',
-          title: '第一章',
-          index: 0,
-          bookUrl: bookUrl,
-          wordCount: '1200'),
+        url: 'u0',
+        title: '第一章',
+        index: 0,
+        bookUrl: bookUrl,
+        wordCount: '1200',
+      ),
       const BookChapter(
-          url: 'u2',
-          title: '第三章',
-          index: 2,
-          bookUrl: bookUrl,
-          wordCount: '2500'),
-      const BookChapter(
-          url: 'u3', title: '第四章', index: 3, bookUrl: bookUrl),
+        url: 'u2',
+        title: '第三章',
+        index: 2,
+        bookUrl: bookUrl,
+        wordCount: '2500',
+      ),
+      const BookChapter(url: 'u3', title: '第四章', index: 3, bookUrl: bookUrl),
     ];
     stubCommon(chapters, const ['u0', 'u2'], failed: const [2]);
 

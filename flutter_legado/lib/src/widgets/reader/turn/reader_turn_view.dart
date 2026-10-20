@@ -1,10 +1,11 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../../../providers/reader/reader_state.dart';
+import '../../../features/reader/application/reader_state.dart';
 import 'page_direction.dart';
 import 'page_snapshot.dart';
 import 'page_snapshot_cache.dart';
@@ -30,6 +31,9 @@ class ReaderTurnView extends StatefulWidget {
     this.backPageColor = const Color(0xFFECECEC),
     this.chapterPrevPage,
     this.chapterNextPage,
+    this.selectionActive,
+    this.layoutGeneration = 0,
+    this.paintRevision = 0,
   });
 
   final PageTurnMode mode;
@@ -54,6 +58,15 @@ class ReaderTurnView extends StatefulWidget {
   final Widget? chapterPrevPage;
   final Widget? chapterNextPage;
 
+  /// 文字选区拥有指针时，原始指针监听不得启动翻页。
+  final ValueListenable<bool>? selectionActive;
+
+  /// 即使页数不变，正文重排也要使旧翻页位图失效。
+  final int layoutGeneration;
+
+  /// 评论数量等仅改变绘制的内容也需要更新翻页快照。
+  final int paintRevision;
+
   @override
   State<ReaderTurnView> createState() => ReaderTurnViewState();
 }
@@ -61,6 +74,22 @@ class ReaderTurnView extends StatefulWidget {
 class ReaderTurnViewState extends State<ReaderTurnView>
     with TickerProviderStateMixin {
   final PageTurnController _controller = PageTurnController();
+  bool _selectionOwnsPointer = false;
+  int? _activePointer;
+  int _turnGeneration = 0;
+
+  // 页码提交后父组件尚未重建时，后续输入也必须从已提交页继续。
+  int? _pendingPageIndex;
+  int get _pageIndex => _pendingPageIndex ?? widget.pageIndex;
+
+  void _onSelectionChanged() {
+    if (widget.selectionActive?.value != true) return;
+    _selectionOwnsPointer = true;
+    _turnGeneration++;
+    _controller.resetGesture();
+    if (_overlayVisible && mounted) setState(() => _overlayVisible = false);
+  }
+
   final PageSnapshotCache _cache = PageSnapshotCache();
   final GlobalKey _prevBoundaryKey = GlobalKey();
   final GlobalKey _curBoundaryKey = GlobalKey();
@@ -80,12 +109,12 @@ class ReaderTurnViewState extends State<ReaderTurnView>
   int _warmGeneration = 0;
 
   /// Gesture may cross chapter; bitmap exists only for in-chapter neighbors.
-  bool get _gestureHasPrev => widget.pageIndex > 0 || widget.hasChapterPrev;
+  bool get _gestureHasPrev => _pageIndex > 0 || widget.hasChapterPrev;
   bool get _gestureHasNext =>
-      widget.pageIndex < widget.pageCount - 1 || widget.hasChapterNext;
+      _pageIndex < widget.pageCount - 1 || widget.hasChapterNext;
 
-  bool get _captureHasPrev => widget.pageIndex > 0;
-  bool get _captureHasNext => widget.pageIndex < widget.pageCount - 1;
+  bool get _captureHasPrev => _pageIndex > 0;
+  bool get _captureHasNext => _pageIndex < widget.pageCount - 1;
 
   /// 有效邻页快照：章内邻页优先，章边界回退到预载的相邻章页
   ui.Image? get _effPrev {
@@ -120,15 +149,35 @@ class ReaderTurnViewState extends State<ReaderTurnView>
   void initState() {
     super.initState();
     _controller.addListener(_onControllerTick);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _scheduleWarmSnapshots(),
-    );
+    widget.selectionActive?.addListener(_onSelectionChanged);
+    _scheduleWarmSnapshots();
   }
 
   @override
   void didUpdateWidget(covariant ReaderTurnView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final chapterLanded = oldWidget.pageIndex != widget.pageIndex ||
+    if (oldWidget.selectionActive != widget.selectionActive) {
+      oldWidget.selectionActive?.removeListener(_onSelectionChanged);
+      widget.selectionActive?.addListener(_onSelectionChanged);
+    }
+    final pageChanged = oldWidget.pageIndex != widget.pageIndex;
+    final acceptedPendingPage = _pendingPageIndex == widget.pageIndex;
+    if (oldWidget.layoutGeneration != widget.layoutGeneration ||
+        oldWidget.mode != widget.mode ||
+        oldWidget.pageCount > widget.pageCount ||
+        (pageChanged && !acceptedPendingPage)) {
+      _turnGeneration++;
+      _activePointer = null;
+      _pendingPageIndex = null;
+      _controller.resetGesture();
+      _cache.invalidate();
+      _warmGeneration++;
+      _overlayVisible = false;
+    }
+    if (pageChanged || acceptedPendingPage) _pendingPageIndex = null;
+    final chapterLanded =
+        oldWidget.layoutGeneration != widget.layoutGeneration ||
+        oldWidget.pageIndex != widget.pageIndex ||
         oldWidget.pageCount != widget.pageCount ||
         oldWidget.chapterPrevPage != widget.chapterPrevPage ||
         oldWidget.chapterNextPage != widget.chapterNextPage;
@@ -156,6 +205,8 @@ class ReaderTurnViewState extends State<ReaderTurnView>
     if (oldWidget.pageIndex != widget.pageIndex ||
         oldWidget.pageCount != widget.pageCount ||
         oldWidget.mode != widget.mode ||
+        oldWidget.paintRevision != widget.paintRevision ||
+        oldWidget.layoutGeneration != widget.layoutGeneration ||
         oldWidget.backPageColor != widget.backPageColor ||
         oldWidget.chapterNextPage != widget.chapterNextPage ||
         oldWidget.chapterPrevPage != widget.chapterPrevPage) {
@@ -166,6 +217,7 @@ class ReaderTurnViewState extends State<ReaderTurnView>
   @override
   void dispose() {
     _controller.removeListener(_onControllerTick);
+    widget.selectionActive?.removeListener(_onSelectionChanged);
     _controller.dispose();
     _cache.invalidate();
     _chapPrevImg?.dispose();
@@ -186,8 +238,7 @@ class ReaderTurnViewState extends State<ReaderTurnView>
     final gen = ++_warmGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || gen != _warmGeneration) return;
-      await SchedulerBinding.instance.endOfFrame;
-      if (!mounted || gen != _warmGeneration) return;
+      // 此时本帧已绘制完成，可以抓取；再等待 endOfFrame 会多等一帧甚至停滞。
       final dpr = MediaQuery.devicePixelRatioOf(context);
       final ok = await _cache.refresh(
         prevKey: _prevBoundaryKey,
@@ -197,15 +248,41 @@ class ReaderTurnViewState extends State<ReaderTurnView>
         hasPrev: _captureHasPrev,
         hasNext: _captureHasNext,
       );
-      await _captureChapterBoundaries(dpr);
+      if (!mounted || gen != _warmGeneration) return;
+      if (ok) {
+        // 先更新画布，不能等相邻章抓取结束才替换已释放的旧图片引用。
+        setState(() => _enableDragOverlayIfReady());
+      }
+      await _captureChapterBoundaries(dpr, gen);
       if (mounted && ok && gen == _warmGeneration) {
-        setState(() {});
+        setState(() => _enableDragOverlayIfReady());
       }
     });
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  void _enableDragOverlayIfReady() {
+    if (_overlayVisible ||
+        _activePointer == null ||
+        !_controller.isDragging ||
+        _chapterTurning ||
+        _selectionOwnsPointer ||
+        widget.selectionActive?.value == true ||
+        widget.mode == PageTurnMode.none ||
+        widget.mode == PageTurnMode.scroll) {
+      return;
+    }
+    final direction = _controller.direction;
+    if (_cache.hasCur &&
+        ((direction == PageTurnDirection.prev && _effPrev != null) ||
+            (direction == PageTurnDirection.next && _effNext != null))) {
+      _overlayVisible = true;
+    }
   }
 
   Future<bool> _ensureCacheReady() async {
     if (_cache.hasCur) return true;
+    final gen = _warmGeneration;
     await SchedulerBinding.instance.endOfFrame;
     if (!mounted) return false;
     final dpr = MediaQuery.devicePixelRatioOf(context);
@@ -217,22 +294,31 @@ class ReaderTurnViewState extends State<ReaderTurnView>
       hasPrev: _captureHasPrev,
       hasNext: _captureHasNext,
     );
-    await _captureChapterBoundaries(dpr);
-    return ok;
+    if (!mounted || gen != _warmGeneration) return false;
+    await _captureChapterBoundaries(dpr, gen);
+    return ok && gen == _warmGeneration;
   }
 
   /// 抓取相邻章预载页快照（章边界动画与承接用）
-  Future<void> _captureChapterBoundaries(double dpr) async {
+  Future<void> _captureChapterBoundaries(double dpr, int generation) async {
     if (widget.chapterPrevPage != null) {
       final img = await captureBoundary(_chapPrevBoundaryKey, pixelRatio: dpr);
-      if (img != null && mounted) {
+      if (img != null && (!mounted || generation != _warmGeneration)) {
+        img.dispose();
+        return;
+      }
+      if (img != null) {
         _chapPrevImg?.dispose();
         _chapPrevImg = img;
       }
     }
     if (widget.chapterNextPage != null) {
       final img = await captureBoundary(_chapNextBoundaryKey, pixelRatio: dpr);
-      if (img != null && mounted) {
+      if (img != null && (!mounted || generation != _warmGeneration)) {
+        img.dispose();
+        return;
+      }
+      if (img != null) {
         _chapNextImg?.dispose();
         _chapNextImg = img;
       }
@@ -241,7 +327,12 @@ class ReaderTurnViewState extends State<ReaderTurnView>
 
   /// Programmatic turn used by tap zones / volume keys / auto-read.
   Future<void> turnByAnim(PageTurnDirection dir) async {
+    if (widget.selectionActive?.value == true) return;
     if (dir == PageTurnDirection.none) return;
+    if (_chapterTurning) return;
+    final generation = ++_turnGeneration;
+    _controller.finishSettle();
+    if (_chapterTurning) return;
     final size = context.size;
     if (size == null || size.isEmpty) return;
 
@@ -265,7 +356,7 @@ class ReaderTurnViewState extends State<ReaderTurnView>
     }
 
     final ready = await _ensureCacheReady();
-    if (!mounted) return;
+    if (!mounted || generation != _turnGeneration) return;
     if (!ready || !_cache.hasCur) {
       _applyCompleted(dir);
       return;
@@ -283,38 +374,57 @@ class ReaderTurnViewState extends State<ReaderTurnView>
       onCompleted: _applyCompleted,
       settleStyle: _settleStyle,
     );
-    if (mounted && !_chapterTurning) {
+    if (mounted && generation == _turnGeneration && !_chapterTurning) {
       setState(() => _overlayVisible = false);
       _scheduleWarmSnapshots();
     }
   }
 
   void _applyCompleted(PageTurnDirection dir) {
+    if (_chapterTurning) return;
     if (dir == PageTurnDirection.prev) {
-      if (widget.pageIndex > 0) {
-        widget.onPageChanged(widget.pageIndex - 1);
+      if (_pageIndex > 0) {
+        _commitPage(_pageIndex - 1);
       } else if (widget.hasChapterPrev) {
         // 章边界：进入承接态（遮罩保留至父级章节落地，防闪现）
         setState(() {
           _chapterTurning = true;
           _chapterTurnDir = dir;
+          _overlayVisible = false;
         });
         widget.onTurnChapterPrev();
       }
     } else if (dir == PageTurnDirection.next) {
-      if (widget.pageIndex < widget.pageCount - 1) {
-        widget.onPageChanged(widget.pageIndex + 1);
+      if (_pageIndex < widget.pageCount - 1) {
+        _commitPage(_pageIndex + 1);
       } else if (widget.hasChapterNext) {
         setState(() {
           _chapterTurning = true;
           _chapterTurnDir = dir;
+          _overlayVisible = false;
         });
         widget.onTurnChapterNext();
       }
     }
   }
 
+  void _commitPage(int index) {
+    setState(() {
+      _pendingPageIndex = index;
+      _overlayVisible = false;
+    });
+    // 旧快照属于提交前的页，下一次拖动不得继续绘制它。
+    _cache.invalidate();
+    _scheduleWarmSnapshots();
+    widget.onPageChanged(index);
+  }
+
   void _onPointerDown(PointerDownEvent e) {
+    if (_activePointer != null || _chapterTurning) return;
+    _selectionOwnsPointer = widget.selectionActive?.value ?? false;
+    if (_selectionOwnsPointer) return;
+    _activePointer = e.pointer;
+    _turnGeneration++;
     final size = context.size;
     _controller.onPointerDown(
       e.localPosition,
@@ -324,12 +434,13 @@ class ReaderTurnViewState extends State<ReaderTurnView>
   }
 
   void _onPointerMove(PointerMoveEvent e) {
+    if (e.pointer != _activePointer || _chapterTurning) return;
+    if (_selectionOwnsPointer || widget.selectionActive?.value == true) return;
     final size = context.size;
     if (size == null) return;
     final slop =
         MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? kTouchSlop;
 
-    final wasNone = _controller.direction == PageTurnDirection.none;
     final locked = _controller.onPointerMove(
       e.localPosition,
       hasPrev: _gestureHasPrev,
@@ -339,36 +450,8 @@ class ReaderTurnViewState extends State<ReaderTurnView>
       viewHeight: size.height,
     );
 
-    // Jingshiro: bitmaps already ready at setDirection — never capture here.
-    if (locked &&
-        wasNone &&
-        _controller.direction != PageTurnDirection.none &&
-        widget.mode != PageTurnMode.none) {
-      final dir = _controller.direction;
-      final canAnimate =
-          _cache.hasCur &&
-          (dir != PageTurnDirection.prev ||
-              _captureHasPrev ||
-              widget.hasChapterPrev) &&
-          (dir != PageTurnDirection.next ||
-              _captureHasNext ||
-              widget.hasChapterNext);
-
-      // Neighbor page bitmap required for in-chapter anim; chapter edge → instant.
-      final bmpOk = _cache.hasCur &&
-          (dir != PageTurnDirection.prev || _effPrev != null) &&
-          (dir != PageTurnDirection.next || _effNext != null);
-
-      if (canAnimate && bmpOk) {
-        setState(() => _overlayVisible = true);
-      } else if (dir == PageTurnDirection.prev && !_captureHasPrev) {
-        // Chapter prev: no overlay, complete on up.
-      } else if (dir == PageTurnDirection.next && !_captureHasNext) {
-        // Chapter next: no overlay, complete on up.
-      } else if (!_cache.hasCur) {
-        // Missing cache — treat as none on up.
-      }
-    }
+    // 方向锁定后仍检查快照，慢划途中就绪的图片也能恢复跟手动画。
+    if (locked) setState(() => _enableDragOverlayIfReady());
 
     // Jingshiro SimulationPageDelegate.onTouch MOVE mid-band Y pin.
     if (widget.mode == PageTurnMode.simulate &&
@@ -387,15 +470,30 @@ class ReaderTurnViewState extends State<ReaderTurnView>
   }
 
   Future<void> _onPointerUp(PointerUpEvent e) async {
+    if (e.pointer != _activePointer) return;
+    _activePointer = null;
+    if (_chapterTurning ||
+        _selectionOwnsPointer ||
+        widget.selectionActive?.value == true) {
+      _controller.resetGesture();
+      return;
+    }
     await _finishGesture();
   }
 
   Future<void> _onPointerCancel(PointerCancelEvent e) async {
+    if (e.pointer != _activePointer) return;
+    _activePointer = null;
+    if (_chapterTurning || _selectionOwnsPointer) {
+      _controller.resetGesture();
+      return;
+    }
     _controller.isCancel = true;
     await _finishGesture();
   }
 
   Future<void> _finishGesture() async {
+    final generation = _turnGeneration;
     final size = context.size;
     if (size == null) return;
 
@@ -433,7 +531,8 @@ class ReaderTurnViewState extends State<ReaderTurnView>
       onCompleted: _applyCompleted,
       settleStyle: _settleStyle,
     );
-    if (mounted && !_chapterTurning) {
+    // 中断动画的等待也会结束，旧收尾不能隐藏新一轮的翻页画布。
+    if (mounted && generation == _turnGeneration && !_chapterTurning) {
       setState(() => _overlayVisible = false);
       _scheduleWarmSnapshots();
     }
@@ -524,7 +623,7 @@ class ReaderTurnViewState extends State<ReaderTurnView>
 
   @override
   Widget build(BuildContext context) {
-    final pageIndex = widget.pageIndex;
+    final pageIndex = _pageIndex;
     final prevIndex = pageIndex > 0 ? pageIndex - 1 : null;
     final nextIndex = pageIndex < widget.pageCount - 1 ? pageIndex + 1 : null;
 
@@ -550,19 +649,25 @@ class ReaderTurnViewState extends State<ReaderTurnView>
               Opacity(
                 opacity: 0.01,
                 child: IgnorePointer(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _boundaryPage(_prevBoundaryKey, prevIndex),
-                      _boundaryPage(_curBoundaryKey, pageIndex),
-                      _boundaryPage(_nextBoundaryKey, nextIndex),
-                      if (widget.chapterPrevPage != null)
-                        _boundaryWidget(
-                            _chapPrevBoundaryKey, widget.chapterPrevPage!),
-                      if (widget.chapterNextPage != null)
-                        _boundaryWidget(
-                            _chapNextBoundaryKey, widget.chapterNextPage!),
-                    ],
+                  child: SelectionContainer.disabled(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _boundaryPage(_prevBoundaryKey, prevIndex),
+                        _boundaryPage(_curBoundaryKey, pageIndex),
+                        _boundaryPage(_nextBoundaryKey, nextIndex),
+                        if (widget.chapterPrevPage != null)
+                          _boundaryWidget(
+                            _chapPrevBoundaryKey,
+                            widget.chapterPrevPage!,
+                          ),
+                        if (widget.chapterNextPage != null)
+                          _boundaryWidget(
+                            _chapNextBoundaryKey,
+                            widget.chapterNextPage!,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

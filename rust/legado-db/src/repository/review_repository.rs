@@ -1,6 +1,6 @@
 //! ChapterReview Repository - chapter_reviews 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::review::ChapterReview;
 use legado_core::{LegadoError, LegadoResult};
@@ -55,8 +55,8 @@ impl<'a> ReviewRepository<'a> {
         let rows = stmt
             .query_map(params![book_url, chapter_index], row_to_review)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("review_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -75,8 +75,8 @@ impl<'a> ReviewRepository<'a> {
         let rows = stmt
             .query_map(params![book_url], row_to_review)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("review_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

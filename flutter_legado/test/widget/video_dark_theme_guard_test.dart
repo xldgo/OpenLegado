@@ -14,7 +14,7 @@
 //      #80121212 半透明深色（kVideoDialogPanelColor），亮/暗主题下
 //      均保持（视频画面永远黑底，主题化反而会破坏语义）；
 //      守护亮色主题下面板不退化为浅色（防误修）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,9 +25,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   List<VideoEpisodeItem> episodes() => const [
-        VideoEpisodeItem(title: '第1集', chapterIndex: 0),
-        VideoEpisodeItem(title: '第2集', chapterIndex: 1),
-      ];
+    VideoEpisodeItem(title: '第1集', chapterIndex: 0),
+    VideoEpisodeItem(title: '第2集', chapterIndex: 1),
+  ];
 
   /// 视频设置 Dialog 宿主（按 [mode] 注入 dark/light 主题）
   Future<void> pumpSettingsHost(
@@ -116,8 +116,11 @@ void main() {
       // Dialog 底板背景 = dialogTheme.backgroundColor =
       // colorScheme.surfaceContainer（app_theme.dart:392-393）
       final dialogMaterial = dialogMaterialOf(tester);
-      expect(dialogMaterial.color, dark.surfaceContainer,
-          reason: 'Dialog 底板应取自暗色 surfaceContainer（非硬编码浅色）');
+      expect(
+        dialogMaterial.color,
+        dark.surfaceContainer,
+        reason: 'Dialog 底板应取自暗色 surfaceContainer（非硬编码浅色）',
+      );
 
       // 长按倍速副标题「3.0x」→ onSurfaceVariant
       expect(
@@ -129,8 +132,7 @@ void main() {
       expect(dialogMaterial.color, isNot(Colors.white));
     });
 
-    testWidgets('亮色主题：背景/副标题取自 light scheme（亮色不回归）',
-        (tester) async {
+    testWidgets('亮色主题：背景/副标题取自 light scheme（亮色不回归）', (tester) async {
       await pumpSettingsHost(
         tester,
         ThemeMode.light,
@@ -141,8 +143,11 @@ void main() {
 
       final light = AppTheme.light.colorScheme;
       final dialogMaterial = dialogMaterialOf(tester);
-      expect(dialogMaterial.color, light.surfaceContainer,
-          reason: '亮色 Dialog 底板应取自亮色 surfaceContainer');
+      expect(
+        dialogMaterial.color,
+        light.surfaceContainer,
+        reason: '亮色 Dialog 底板应取自亮色 surfaceContainer',
+      );
       expect(
         tester.widget<Text>(find.text('3.0x')).style!.color,
         light.onSurfaceVariant,
@@ -150,8 +155,7 @@ void main() {
     });
   });
 
-  group('E10 V3 选集/倍速浮层守护（视频黑底体系，主题无关为有意设计）',
-      () {
+  group('E10 V3 选集/倍速浮层守护（视频黑底体系，主题无关为有意设计）', () {
     void assertPanelThemeIndependent(WidgetTester tester) {
       // 面板底色 = 固定 #80121212 半透明深色（kVideoDialogPanelColor），
       // 两主题一致——视频画面永远黑底，面板跟随主题化反而是缺陷
@@ -159,8 +163,7 @@ void main() {
         find.byWidgetPredicate(
           (w) =>
               w is Container &&
-              (w.decoration as BoxDecoration?)?.color ==
-                  kVideoDialogPanelColor,
+              (w.decoration as BoxDecoration?)?.color == kVideoDialogPanelColor,
         ),
       );
       expect(panels, isNotEmpty, reason: '选集浮层面板应渲染');
@@ -170,8 +173,7 @@ void main() {
       }
     }
 
-    testWidgets('暗色主题：浮层面板保持 #80121212（无异常渲染）',
-        (tester) async {
+    testWidgets('暗色主题：浮层面板保持 #80121212（无异常渲染）', (tester) async {
       await pumpEpisodePanel(
         tester,
         ThemeMode.dark,
@@ -182,8 +184,7 @@ void main() {
       assertPanelThemeIndependent(tester);
     });
 
-    testWidgets('亮色主题：浮层面板仍为 #80121212（防误修回归）',
-        (tester) async {
+    testWidgets('亮色主题：浮层面板仍为 #80121212（防误修回归）', (tester) async {
       await pumpEpisodePanel(
         tester,
         ThemeMode.light,

@@ -1,3 +1,4 @@
+import '../fixtures/app_test_api.dart';
 // 视角 A：阅读主流程「状态机 / 生命周期」缺陷猎捕 —— 红态复现用例（widget 层）
 //
 // F3 「加入书架」静默失败 → 详情页无条件成功提示：
@@ -12,16 +13,14 @@
 //
 // 本用例**故意断言「失败不得报成功」**：当前实现报成功 → 红 = 缺陷复现。
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
 
@@ -51,20 +50,25 @@ void main() {
     addTearDown(tester.view.reset);
 
     final mockApi = MockRustApi();
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => const []);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => null);
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
     // 写库失败（DB 异常 / 磁盘满 / 桥接错误）
-    when(() => mockApi.addBook(any())).thenThrow(
-      StateError('DB 写入失败（复现用）'),
-    );
+    when(() => mockApi.bookshelfRepository.addBook(any()))
+        .thenThrow(StateError('DB 写入失败（复现用）'));
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
         child: MaterialApp(
           theme: AppTheme.palette(
             brightness: Brightness.light,

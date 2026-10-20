@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../../app/routing/app_navigation.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
-import '../../providers/reader/reader_notifier.dart';
-import '../../routes.dart';
+import '../../features/reader/application/reader_notifier.dart';
+import '../../app/routing/route_names.dart';
 
 // [SB-HUNT | 2026-09-25] 换源流程统一入口（阅读器两个换源入口共用）：
 // 菜单面板 _changeSourceFlow / 顶栏 _changeBookSource 原为两份同形拷贝，
@@ -38,12 +39,8 @@ import '../../routes.dart';
 //   时 clearSnackBars 会连带清掉仍在展示的页侧「已切换到」条——用户
 //   停留在原阅读器且状态已重载，属可接受的静默（无残留为硬要求）。
 //
-// [P2-9 fix | 2026-09-24] 生产 /change_source 路由是
-// _ChangeSourceSheetRoute（PageRouteBuilder<dynamic>，见
-// AppRoutes.generateRoute）：类型化 pushNamed<String> 会在运行期把
-// 生成的路由强转 Route<String?> 抛 TypeError（真机崩溃）。对齐
-// 详情页 Task#24 既有修法（book_info_screen_builders
-// ._showChangeSourceDialog）：无类型 pushNamed + result is String 判定。
+// 换源由GoRouter的Page适配承载原PopupRoute，关闭返回新书籍地址或null。
+// 类型化结果由Router的Future传递，不再经过旧pushNamed的Route泛型强转。
 Future<void> runChangeSourceFlow(
   WidgetRef ref,
   BuildContext context,
@@ -53,11 +50,8 @@ Future<void> runChangeSourceFlow(
   // [SB-HUNT] 共享重入守卫：在途 → 静默忽略（轻提示 = 已在展示的进行中条）
   if (!notifier.tryBeginChangeSourceFlow()) return;
   final messenger = ScaffoldMessenger.of(context);
-  final result = await Navigator.pushNamed(
-    context,
-    AppRoutes.changeSource,
-    arguments: book,
-  );
+  final result = await GoRouter.of(context)
+      .pushAppRoute(AppRoutes.changeSource, extra: book);
   // 导航阶段锁释放：同步交接给重载阶段锁（reloadAfterSourceChange 入口
   // 置位 + finally 复位），中间无 await、无用户输入窗口
   notifier.endChangeSourceFlow();

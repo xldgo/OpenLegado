@@ -7,12 +7,12 @@ import '../mocks/mocks.dart';
 
 void main() {
   late CacheService service;
-  late MockRustApi mockApi;
+  late CacheRepositoryMock repository;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    mockApi = MockRustApi();
-    service = CacheService(mockApi);
+    repository = CacheRepositoryMock();
+    service = CacheService(repository);
   });
 
   group('CacheService.formatSize 静态方法', () {
@@ -51,27 +51,28 @@ void main() {
 
   group('CacheService getCacheStats（mock API）', () {
     test('正确返回缓存统计', () async {
-      when(() => mockApi.getCacheSize()).thenAnswer((_) async => 5242880);
-      when(() => mockApi.getCacheBookCount()).thenAnswer((_) async => 10);
-      when(() => mockApi.getCacheChapterCount()).thenAnswer((_) async => 200);
+      when(() => repository.getCacheSize()).thenAnswer((_) async => 5242880);
+      when(() => repository.getCacheBookCount()).thenAnswer((_) async => 10);
+      when(() => repository.getCacheChapterCount())
+          .thenAnswer((_) async => 200);
 
       final stats = await service.getCacheStats();
 
-      expect(stats['totalSize'], equals(5242880));
-      expect(stats['bookCount'], equals(10));
-      expect(stats['chapterCount'], equals(200));
+      expect(stats.totalSize, equals(5242880));
+      expect(stats.bookCount, equals(10));
+      expect(stats.chapterCount, equals(200));
     });
 
     test('缓存为空时统计为 0', () async {
-      when(() => mockApi.getCacheSize()).thenAnswer((_) async => 0);
-      when(() => mockApi.getCacheBookCount()).thenAnswer((_) async => 0);
-      when(() => mockApi.getCacheChapterCount()).thenAnswer((_) async => 0);
+      when(() => repository.getCacheSize()).thenAnswer((_) async => 0);
+      when(() => repository.getCacheBookCount()).thenAnswer((_) async => 0);
+      when(() => repository.getCacheChapterCount()).thenAnswer((_) async => 0);
 
       final stats = await service.getCacheStats();
 
-      expect(stats['totalSize'], equals(0));
-      expect(stats['bookCount'], equals(0));
-      expect(stats['chapterCount'], equals(0));
+      expect(stats.totalSize, equals(0));
+      expect(stats.bookCount, equals(0));
+      expect(stats.chapterCount, equals(0));
     });
   });
 
@@ -79,40 +80,41 @@ void main() {
     test('清除全部缓存返回清除大小', () async {
       // 使用计数器模拟两次调用返回不同值
       var callCount = 0;
-      when(() => mockApi.getCacheSize()).thenAnswer((_) async {
+      when(() => repository.getCacheSize()).thenAnswer((_) async {
         callCount++;
         return callCount == 1 ? 1000 : 0;
       });
-      when(() => mockApi.clearCache()).thenAnswer((_) async {});
+      when(() => repository.clearCache()).thenAnswer((_) async {});
 
       final cleared = await service.clearCache();
 
       expect(cleared, equals(1000));
-      verify(() => mockApi.clearCache()).called(1);
+      verify(() => repository.clearCache()).called(1);
     });
 
     test('按时间清除缓存', () async {
       final before = DateTime(2025, 1, 1);
       var callCount = 0;
-      when(() => mockApi.getCacheSize()).thenAnswer((_) async {
+      when(() => repository.getCacheSize()).thenAnswer((_) async {
         callCount++;
         return callCount == 1 ? 500 : 200;
       });
-      when(() => mockApi.clearCacheBefore(any())).thenAnswer((_) async {});
+      when(() => repository.clearCacheBefore(any())).thenAnswer((_) async {});
 
       final cleared = await service.clearCache(before: before);
 
       expect(cleared, equals(300));
-      verify(() => mockApi.clearCacheBefore(before.millisecondsSinceEpoch)).called(1);
+      verify(() => repository.clearCacheBefore(before.millisecondsSinceEpoch))
+          .called(1);
     });
 
     test('清除后大小大于清除前时返回 0', () async {
       var callCount = 0;
-      when(() => mockApi.getCacheSize()).thenAnswer((_) async {
+      when(() => repository.getCacheSize()).thenAnswer((_) async {
         callCount++;
         return callCount == 1 ? 100 : 200; // 异常：清除后反而变大
       });
-      when(() => mockApi.clearCache()).thenAnswer((_) async {});
+      when(() => repository.clearCache()).thenAnswer((_) async {});
 
       final cleared = await service.clearCache();
 
@@ -120,8 +122,8 @@ void main() {
     });
 
     test('清除前后大小相同时返回 0', () async {
-      when(() => mockApi.getCacheSize()).thenAnswer((_) async => 0);
-      when(() => mockApi.clearCache()).thenAnswer((_) async {});
+      when(() => repository.getCacheSize()).thenAnswer((_) async => 0);
+      when(() => repository.clearCache()).thenAnswer((_) async {});
 
       final cleared = await service.clearCache();
 
@@ -148,6 +150,53 @@ void main() {
     test('设置较大天数', () async {
       await service.setAutoExpireDays(365);
       expect(await service.getAutoExpireDays(), equals(365));
+    });
+  });
+
+  group('CacheService失败传播', () {
+    setUp(() {
+      when(() => repository.getCacheSize()).thenAnswer((_) async => 200);
+      when(() => repository.getCacheBookCount()).thenAnswer((_) async => 2);
+      when(() => repository.getCacheChapterCount()).thenAnswer((_) async => 20);
+    });
+
+    for (final field in ['大小', '书籍', '章节']) {
+      test('$field查询失败不构造部分统计', () async {
+        final error = StateError('$field读取失败');
+        switch (field) {
+          case '大小':
+            when(() => repository.getCacheSize()).thenThrow(error);
+          case '书籍':
+            when(() => repository.getCacheBookCount()).thenThrow(error);
+          case '章节':
+            when(() => repository.getCacheChapterCount()).thenThrow(error);
+        }
+        await expectLater(service.getCacheStats(), throwsA(same(error)));
+      });
+    }
+
+    test('清理失败不读取后置大小或返回已清理字节', () async {
+      final error = StateError('清理失败');
+      when(() => repository.clearCache()).thenThrow(error);
+      await expectLater(service.clearCache(), throwsA(same(error)));
+      verify(() => repository.getCacheSize()).called(1);
+    });
+
+    test('按时间清理失败不退回全部清理', () async {
+      when(() => repository.clearCacheBefore(any()))
+          .thenAnswer((_) async => throw StateError('按时间清理失败'));
+      await expectLater(
+        service.clearCache(before: DateTime.utc(2026, 10, 1)),
+        throwsStateError,
+      );
+      verifyNever(() => repository.clearCache());
+      verify(() => repository.getCacheSize()).called(1);
+    });
+
+    test('清理前查询失败不执行删除', () async {
+      when(() => repository.getCacheSize()).thenThrow(StateError('统计失败'));
+      await expectLater(service.clearCache(), throwsStateError);
+      verifyNever(() => repository.clearCache());
     });
   });
 }

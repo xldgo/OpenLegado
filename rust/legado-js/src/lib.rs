@@ -29,13 +29,18 @@ pub mod engine_pool;
 #[cfg(feature = "quickjs")]
 pub mod executor;
 pub mod host_api;
+pub mod host_resources;
 pub mod js_source;
 pub mod jslib_normalize;
 /// loginCheckJs 响应解析内核（P5 下沉：ffi/server 共享单一实现）
 pub mod login_check;
+#[cfg(feature = "quickjs")]
+mod quickjs_bytes;
+pub mod resources;
 pub mod sandbox;
 pub mod scope;
 pub mod source_engine;
+pub mod source_login;
 
 // 核心类型重导出
 #[cfg(feature = "quickjs")]
@@ -44,6 +49,7 @@ pub use engine::{CompiledScript, JsEngine, JsValue, StubJsEngine};
 #[cfg(feature = "quickjs")]
 pub use engine_pool::EnginePool;
 pub use host_api::HostEnv;
+pub use resources::JsResources;
 pub use sandbox::{SandboxConfig, SandboxState, SandboxStats};
 pub use scope::{ScopeData, SharedScopeManager};
 pub use source_engine::{CallResult, JsSourceConfig, JsSourceEngine};
@@ -69,3 +75,15 @@ pub fn new_quickjs_engine(
         main_js.to_string(),
     ))
 }
+
+pub mod cancellation;
+/// 显式变量存储与流程句柄。
+pub mod variables;
+
+#[cfg(feature = "quickjs")]
+pub mod http_request_policy;
+#[cfg(feature = "quickjs")]
+pub mod http_resources;
+
+/// 当前执行资源的WebView窄适配。
+pub mod webview;

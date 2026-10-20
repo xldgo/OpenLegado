@@ -1,3 +1,6 @@
+import '../fixtures/routing_test_app.dart';
+import '../fixtures/app_test_api.dart';
+
 // 发现页 A4/C8 形态对齐 widget 测试
 //
 // [A4 形态对齐 | full-stack-engineer + UI]
@@ -7,17 +10,16 @@
 // - C8（发现源二级展开区）：子项改 3 列 chips 分区网格
 //   （空 URL 头项 → 通栏分节标题；非通栏 URL 项 → 固定 3 列；
 //    通栏 URL 项（如排行榜，basis>=1）→ 保留全宽行；点击链路不变）
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/explore_screen.dart';
+import 'package:flutter_legado/src/app/routing/app_router.dart';
+import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 
 import '../mocks/mocks.dart';
 
@@ -53,54 +55,47 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources())
+    when(() => mockApi.bookSourceRepository.getBookSources())
         .thenAnswer((_) async => [c8Source]);
-    when(() => mockApi.exploreParseUrl(any(), sourceJson: any(named: 'sourceJson')))
-        .thenAnswer((_) async => [
-          const ExploreCategory(
-            title: '排行榜',
-            style: wideStyle,
-          ),
-          const ExploreCategory(
-            title: '巅峰榜',
-            url: 'https://c8.test/rank/dianfeng',
-            style: cellStyle,
-          ),
-          const ExploreCategory(
-            title: '出版榜',
-            url: 'https://c8.test/rank/chuban',
-            style: cellStyle,
-          ),
-          const ExploreCategory(
-            title: '完结榜',
-            url: 'https://c8.test/rank/wanjie',
-          ),
-          const ExploreCategory(
-            title: '热门标签',
-            style: wideStyle,
-          ),
-          const ExploreCategory(
-            title: '玄幻',
-            url: 'https://c8.test/tag/xuanhuan',
-          ),
-          const ExploreCategory(
-            title: '都市',
-            url: 'https://c8.test/tag/dushi',
-          ),
-        ]);
-    when(() => mockApi.exploreFetchBooks(any(), any(), any())).thenAnswer(
-      (_) async => const [
-        SearchBook(bookUrl: 'http://book.com/1', name: '书1', author: '作者1'),
+    when(
+      () => mockApi.exploreService.parseCategories(
+        any(),
+        source: any(named: 'source'),
+      ),
+    ).thenAnswer(
+      (_) async => [
+        const ExploreCategory(title: '排行榜', style: wideStyle),
+        const ExploreCategory(
+          title: '巅峰榜',
+          url: 'https://c8.test/rank/dianfeng',
+          style: cellStyle,
+        ),
+        const ExploreCategory(
+          title: '出版榜',
+          url: 'https://c8.test/rank/chuban',
+          style: cellStyle,
+        ),
+        const ExploreCategory(title: '完结榜', url: 'https://c8.test/rank/wanjie'),
+        const ExploreCategory(title: '热门标签', style: wideStyle),
+        const ExploreCategory(title: '玄幻', url: 'https://c8.test/tag/xuanhuan'),
+        const ExploreCategory(title: '都市', url: 'https://c8.test/tag/dushi'),
       ],
     );
+    when(() => mockApi.exploreService.fetchBooks(any(), any(), any()))
+        .thenAnswer(
+          (_) async => const [
+            SearchBook(bookUrl: 'http://book.com/1', name: '书1', author: '作者1'),
+          ],
+        );
   });
 
   Widget buildApp() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
-      child: MaterialApp(
-        onGenerateRoute: AppRoutes.generateRoute,
+      overrides: mergeTestOverrides([...mockApi.overrides]),
+      child: RoutingTestApp(
+        routes: AppRouter().routes,
         home: const ExploreScreen(),
       ),
     );
@@ -115,14 +110,12 @@ void main() {
   }
 
   double chipWidth(WidgetTester tester, String title) => tester
-      .getSize(find.ancestor(
-            of: find.text(title),
-            matching: find.byType(InkWell),
-          ))
+      .getSize(
+        find.ancestor(of: find.text(title), matching: find.byType(InkWell)),
+      )
       .width;
 
-  testWidgets('C8：展开区分节 3 列 chips 网格（分节标题通栏 + 非通栏 URL 3 列）',
-      (tester) async {
+  testWidgets('C8：展开区分节 3 列 chips 网格（分节标题通栏 + 非通栏 URL 3 列）', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -136,19 +129,25 @@ void main() {
     // 非通栏 URL 项（含无 style 默认 -1 的「完结榜」）→ 固定 3 列
     const expectedChipWidth = (400 - 32 - 12) / 3;
     for (final title in ['巅峰榜', '出版榜', '完结榜', '玄幻', '都市']) {
-      expect(chipWidth(tester, title), closeTo(expectedChipWidth, 2),
-          reason: '「$title」应为 3 列 chip（宽 ≈ ${expectedChipWidth.toStringAsFixed(1)}）');
+      expect(
+        chipWidth(tester, title),
+        closeTo(expectedChipWidth, 2),
+        reason:
+            '「$title」应为 3 列 chip（宽 ≈ ${expectedChipWidth.toStringAsFixed(1)}）',
+      );
     }
 
     // 分节标题通栏左对齐：标题左缘与 3 列 chips 首列左缘对齐（内容区左边）
     final firstChipLeft = tester
-        .getTopLeft(find.ancestor(
-          of: find.text('巅峰榜'),
-          matching: find.byType(InkWell),
-        ))
+        .getTopLeft(
+          find.ancestor(of: find.text('巅峰榜'), matching: find.byType(InkWell)),
+        )
         .dx;
-    expect(tester.getTopLeft(find.text('排行榜')).dx, closeTo(firstChipLeft, 1),
-        reason: '分节标题应通栏左对齐，与 chips 网格左缘对齐');
+    expect(
+      tester.getTopLeft(find.text('排行榜')).dx,
+      closeTo(firstChipLeft, 1),
+      reason: '分节标题应通栏左对齐，与 chips 网格左缘对齐',
+    );
 
     // 3 列同行：巅峰榜/出版榜/完结榜 顶边对齐
     final dyA = tester.getTopLeft(find.text('巅峰榜')).dy;
@@ -158,8 +157,7 @@ void main() {
     expect(dyA, closeTo(dyC, 1));
   });
 
-  testWidgets('A4：顶栏 ⋮ 更多菜单收编分组筛选（文件夹图标已收编）',
-      (tester) async {
+  testWidgets('A4：顶栏 ⋮ 更多菜单收编分组筛选（文件夹图标已收编）', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -185,9 +183,7 @@ void main() {
 
   // [B2-C1 2-1 | full-stack-engineer + UI] 回归断言同步：行形态由卡片底
   // 改参考版单列列表行（前置图标槽 + 源名 + 右箭头，无卡片底）
-  testWidgets(
-      'B2-C1 2-1：书源行 = 前置图标槽 + 源名 + 右箭头（无卡片底）',
-      (tester) async {
+  testWidgets('B2-C1 2-1：书源行 = 前置图标槽 + 源名 + 右箭头（无卡片底）', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -197,29 +193,29 @@ void main() {
     // 行结构 = 前置图标槽 + 12dp 间距 + 源名 + 行尾右箭头（无卡片底：
     // 源名祖先链不再有任何 Container，卡片底已移除）
     expect(
-      find.ancestor(
-        of: find.text('发现源C8'),
-        matching: find.byType(Container),
-      ),
+      find.ancestor(of: find.text('发现源C8'), matching: find.byType(Container)),
       findsNothing,
       reason: '行形态无卡片底，源名上方不应再有卡片 Container',
     );
 
     final row = tester.widget<Row>(
-      find.ancestor(
-        of: find.text('发现源C8'),
-        matching: find.byType(Row),
-      ).first,
+      find.ancestor(of: find.text('发现源C8'), matching: find.byType(Row)).first,
     );
     final slotWidget = row.children.first;
     expect(slotWidget, isA<Container>(), reason: '行首子项应为前置图标槽');
     final slot = slotWidget as Container;
-    expect(slot.constraints, const BoxConstraints.tightFor(width: 24, height: 24),
-        reason: '前置图标槽应为 24x24');
+    expect(
+      slot.constraints,
+      const BoxConstraints.tightFor(width: 24, height: 24),
+      reason: '前置图标槽应为 24x24',
+    );
     final deco = slot.decoration! as BoxDecoration;
     expect(deco.borderRadius, const BorderRadius.all(Radius.circular(6)));
-    expect(deco.color!.a, closeTo(0.06, 0.01),
-        reason: '图标槽底应为 onSurface 6% 填充，实际 alpha=${deco.color!.a}');
+    expect(
+      deco.color!.a,
+      closeTo(0.06, 0.01),
+      reason: '图标槽底应为 onSurface 6% 填充，实际 alpha=${deco.color!.a}',
+    );
     // 槽内 16dp book 占位图标（BookSource 无图标字段，favicon 数据不可取）
     expect(slot.child, isA<Icon>());
     expect((slot.child! as Icon).icon, Symbols.book_rounded);
@@ -231,8 +227,7 @@ void main() {
     expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
   });
 
-  testWidgets('C8：chips 点击链路不变（点进发现书单页，参数正确）',
-      (tester) async {
+  testWidgets('C8：chips 点击链路不变（点进发现书单页，参数正确）', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -253,7 +248,11 @@ void main() {
 
     // 抓取 URL 即 chip 的分类 URL（点击链路参数不变；captureAny 捕获实参）
     final captured = verify(
-      () => mockApi.exploreFetchBooks(captureAny(), captureAny(), captureAny()),
+      () => mockApi.exploreService.fetchBooks(
+        captureAny(),
+        captureAny(),
+        captureAny(),
+      ),
     ).captured;
     expect(captured, hasLength(3));
     expect(captured[1], 'https://c8.test/rank/dianfeng');

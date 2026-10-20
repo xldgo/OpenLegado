@@ -1,4 +1,9 @@
-import 'package:flutter/material.dart';
+@Tags(['native'])
+library;
+
+import '../helpers/native_reader_layout.dart';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
@@ -14,6 +19,7 @@ import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 const _defaultChrome = ReaderPageChromeConfig();
 
 void main() {
+  setUpNativeReaderLayout();
   const fontSize = 22.0;
   const lineHeight = 1.8;
   const paragraphSpacing = 12.0;
@@ -22,7 +28,6 @@ void main() {
   const marginLeft = 20.0;
   const marginRight = 20.0;
   const chapterTitle = '第一章 满页正文分页高度回归';
-
 
   double measureHeaderBlock(BuildContext context) =>
       ReaderPageLayoutMetrics.headerBlockHeight(context, _defaultChrome);
@@ -36,10 +41,12 @@ void main() {
     final painter = TextPainter(
       text: TextSpan(
         text: chapterTitle,
-        style: baseStyle.merge(TextStyle(
-          fontSize: fontSize + _defaultChrome.titleSize, // titleSize 默认 0
-          fontWeight: FontWeight.bold,
-        )),
+        style: baseStyle.merge(
+          TextStyle(
+            fontSize: fontSize + _defaultChrome.titleSize, // titleSize 默认 0
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       textDirection: TextDirection.ltr,
       textScaler: MediaQuery.textScalerOf(context),
@@ -51,32 +58,37 @@ void main() {
 
   /// 生成足以铺满多页的正文
   String buildLongContent() => List.generate(
-        60,
-        (i) => '这是第${i + 1}段正文内容，用于验证满页分页时不会超出渲染容器高度，'
-            '模拟真实小说正文的段落密度与长度，避免测量与渲染两侧高度不一致。',
-      ).join('\n');
+    60,
+    (i) =>
+        '这是第${i + 1}段正文内容，用于验证满页分页时不会超出渲染容器高度，'
+        '模拟真实小说正文的段落密度与长度，避免测量与渲染两侧高度不一致。',
+  ).join('\n');
 
   /// 按生产链路分页并渲染指定页，返回分页结果
   Future<List<PageInfo>> pumpPage(WidgetTester tester, int pageIndex) async {
     late List<PageInfo> pages;
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
         home: Scaffold(
-          body: Builder(
-            builder: (context) {
+          body: LayoutTestBuilder(
+            builder: (context) async {
               final size = MediaQuery.of(context).size;
               final availableWidth = size.width - marginLeft - marginRight;
               final headerBlock = measureHeaderBlock(context);
               final footerBlock = measureFooterBlock(context);
-              final availableHeight = size.height -
+              final availableHeight =
+                  size.height -
                   headerBlock -
                   footerBlock -
                   marginTop -
                   marginBottom;
-              final firstPageHeight = availableHeight -
+              final firstPageHeight =
+                  availableHeight -
                   measureTitleBlockHeight(context, availableWidth);
 
               final engine = ParagraphLayoutEngine(
+                transport: nativeReaderLayout,
                 config: const ParagraphConfig(
                   fontSize: fontSize,
                   lineHeight: lineHeight,
@@ -87,12 +99,12 @@ void main() {
                 ),
                 context: context,
               );
-              pages = engine.paginateChapter(
+              pages = (await engine.paginateChapter(
                 buildLongContent(),
                 availableWidth,
                 availableHeight,
                 firstPageHeight: firstPageHeight,
-              );
+              ));
               final safeIndex = pageIndex.clamp(0, pages.length - 1);
               return ReaderTypographicPage(
                 pageInfo: pages[safeIndex],
@@ -119,8 +131,7 @@ void main() {
     return pages;
   }
 
-  testWidgets('首页（含章节标题块）满页正文渲染无 RenderFlex 溢出',
-      (tester) async {
+  testWidgets('首页（含章节标题块）满页正文渲染无 RenderFlex 溢出', (tester) async {
     final pages = await pumpPage(tester, 0);
     // 分页应产生多页（正文足够长），且首页渲染不抛溢出异常
     expect(pages.length, greaterThan(1));
@@ -136,22 +147,26 @@ void main() {
     late List<PageInfo> pages;
     late double availableHeight;
     late double firstPageHeight;
-    await tester.pumpWidget(
+    await pumpNativeReaderLayout(
+      tester,
       MaterialApp(
-        home: Builder(
-          builder: (context) {
+        home: LayoutTestBuilder(
+          builder: (context) async {
             final size = MediaQuery.of(context).size;
             final availableWidth = size.width - marginLeft - marginRight;
             final headerBlock = measureHeaderBlock(context);
             final footerBlock = measureFooterBlock(context);
-            availableHeight = size.height -
+            availableHeight =
+                size.height -
                 headerBlock -
                 footerBlock -
                 marginTop -
                 marginBottom;
-            firstPageHeight = availableHeight -
+            firstPageHeight =
+                availableHeight -
                 measureTitleBlockHeight(context, availableWidth);
             final engine = ParagraphLayoutEngine(
+              transport: nativeReaderLayout,
               config: const ParagraphConfig(
                 fontSize: fontSize,
                 lineHeight: lineHeight,
@@ -162,12 +177,12 @@ void main() {
               ),
               context: context,
             );
-            pages = engine.paginateChapter(
+            pages = (await engine.paginateChapter(
               buildLongContent(),
               availableWidth,
               availableHeight,
               firstPageHeight: firstPageHeight,
-            );
+            ));
             return const SizedBox.shrink();
           },
         ),
@@ -179,7 +194,8 @@ void main() {
       expect(
         pages[i].totalHeight,
         lessThanOrEqualTo(capacity),
-        reason: '第 ${i + 1} 页排版高度 ${pages[i].totalHeight} '
+        reason:
+            '第 ${i + 1} 页排版高度 ${pages[i].totalHeight} '
             '超过页容量 $capacity（首页应扣除标题块高度）',
       );
     }

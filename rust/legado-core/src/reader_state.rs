@@ -9,14 +9,14 @@
 //!
 //! 与现有模块的关系：
 //! - [`crate::read_state::ReadBookState`] — 三章滑动窗口 + LRU 缓存 + 预下载（本模块复用）
-//! - [`crate::layout::LayoutEngine`] — 排版分页（本模块使用其分页结果定位页码）
+//! - 平台测量与独立 legado-layout 生成原文页范围，本模块只消费 UTF-16 位置。
 
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use crate::layout::{LayoutConfig, LayoutEngine, LayoutPage};
 use crate::read_state::ReadBookState;
+use legado_layout::model::SourceRange;
 
 /// 单次阅读会话快照（仅内存，不持久化；对齐原版无热力图/会话表）
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +177,7 @@ pub struct ReaderStateMachine {
     total_chapters: i32,
     /// 当前章节索引
     current_chapter: i32,
-    /// 当前章节内字符位置
+    /// 当前章节内原文 UTF-16 偏移
     current_position: usize,
     /// 当前页码
     current_page: usize,
@@ -200,9 +200,8 @@ pub struct ReaderStateMachine {
     /// 章节预加载状态机
     preload_state: ReadBookState,
 
-    // ─── 排版引擎 ───
-    /// 排版配置
-    layout_config: LayoutConfig,
+    /// 当前章节已排版的原文页范围，避免按页码估算字符位置。
+    page_ranges: Vec<SourceRange>,
 
     // ─── 进度历史 ───
     /// 跳转前的进度记录（对应 Kotlin lastBookProgress）
@@ -228,20 +227,9 @@ impl ReaderStateMachine {
             session_chars_read: 0,
             session_chapters_visited: 0,
             preload_state: ReadBookState::new(),
-            layout_config: LayoutConfig::default(),
+            page_ranges: Vec::new(),
             last_progress: None,
         }
-    }
-
-    /// 使用自定义排版配置创建
-    pub fn with_layout_config(
-        book_url: impl Into<String>,
-        total_chapters: i32,
-        layout_config: LayoutConfig,
-    ) -> Self {
-        let mut state = Self::new(book_url, total_chapters);
-        state.layout_config = layout_config;
-        state
     }
 
     // ─── 阅读会话管理 ─────────────────────────────────────
@@ -303,6 +291,7 @@ impl ReaderStateMachine {
 
     /// 恢复阅读进度（打开书籍时恢复上次位置）
     pub fn restore_progress(&mut self, progress: ReadingProgress) {
+        self.page_ranges.clear();
         self.current_chapter = progress.chapter_index;
         self.current_position = progress.chapter_pos;
         self.current_page = progress.page_index;
@@ -335,7 +324,7 @@ impl ReaderStateMachine {
     ///
     /// 返回 true 表示成功翻页，false 表示已到本章最后一页
     pub fn next_page(&mut self) -> bool {
-        if self.current_page + 1 < self.total_pages {
+        if self.current_page + 1 < self.page_ranges.len() {
             self.current_page += 1;
             // 更新字符位置（使用排版引擎的页面对应偏移）
             self.current_position = self.page_start_offset(self.current_page);
@@ -349,7 +338,7 @@ impl ReaderStateMachine {
     ///
     /// 返回 true 表示成功翻页，false 表示已到本章第一页
     pub fn prev_page(&mut self) -> bool {
-        if self.current_page > 0 {
+        if self.current_page > 0 && self.current_page < self.page_ranges.len() {
             self.current_page -= 1;
             self.current_position = self.page_start_offset(self.current_page);
             true
@@ -360,7 +349,7 @@ impl ReaderStateMachine {
 
     /// 跳转到指定页（对应 Kotlin skipToPage）
     pub fn skip_to_page(&mut self, page_index: usize) -> bool {
-        if page_index < self.total_pages {
+        if page_index < self.page_ranges.len() {
             self.current_page = page_index;
             self.current_position = self.page_start_offset(page_index);
             true
@@ -374,18 +363,11 @@ impl ReaderStateMachine {
     /// - `pages`: 排版引擎计算出的分页结果
     ///
     /// 调用后会根据当前 `current_position` 自动定位到正确页码。
-    pub fn update_layout(&mut self, pages: &[LayoutPage]) {
+    pub fn update_layout(&mut self, pages: &[SourceRange]) {
+        self.page_ranges = pages.to_vec();
         self.total_pages = pages.len();
         // 根据当前字符位置定位页码
         self.current_page = self.find_page_for_offset(pages, self.current_position);
-    }
-
-    /// 使用排版引擎对章节内容进行分页并更新排版信息
-    pub fn paginate_and_update(&mut self, content: &str) -> Vec<LayoutPage> {
-        let engine = LayoutEngine::new(self.layout_config.clone());
-        let pages = engine.paginate(content);
-        self.update_layout(&pages);
-        pages
     }
 
     // ─── 章节跳转 ─────────────────────────────────────────
@@ -402,6 +384,7 @@ impl ReaderStateMachine {
         self.current_position = 0;
         self.current_page = 0;
         self.total_pages = 0;
+        self.page_ranges.clear();
         self.session_chapters_visited += 1;
         // 滑动预加载窗口
         self.preload_state.next();
@@ -422,6 +405,7 @@ impl ReaderStateMachine {
         self.current_chapter -= 1;
         self.current_page = 0;
         self.total_pages = 0;
+        self.page_ranges.clear();
         self.session_chapters_visited += 1;
         // 定位到上一章末尾或开头
         if to_last {
@@ -452,6 +436,7 @@ impl ReaderStateMachine {
         self.current_position = position;
         self.current_page = 0;
         self.total_pages = 0;
+        self.page_ranges.clear();
         self.session_chapters_visited += 1;
         // 跳转预加载窗口
         self.preload_state.jump_to(index);
@@ -514,19 +499,11 @@ impl ReaderStateMachine {
         self.reading_mode.is_scroll()
     }
 
-    // ─── 排版配置 ─────────────────────────────────────────
-
-    /// 更新排版配置（字体大小/屏幕尺寸变化时调用）
-    pub fn update_layout_config(&mut self, config: LayoutConfig) {
-        self.layout_config = config;
-        // 配置变更后需要重新排版（由外部触发）
+    /// 测量环境变化后清除派生页范围，原文锚点保持。
+    pub fn invalidate_layout(&mut self) {
+        self.page_ranges.clear();
         self.total_pages = 0;
         self.current_page = 0;
-    }
-
-    /// 获取当前排版配置
-    pub fn layout_config(&self) -> &LayoutConfig {
-        &self.layout_config
     }
 
     // ─── Getters ──────────────────────────────────────────
@@ -598,23 +575,18 @@ impl ReaderStateMachine {
 
     // ─── 内部辅助 ─────────────────────────────────────────
 
-    /// 根据页码获取该页起始字符偏移（简化版：等分估算）
-    ///
-    /// 实际使用时应由外部传入 LayoutPage 数组精确定位。
+    /// 根据最终布局取得该页起始 UTF-16 偏移。
     fn page_start_offset(&self, page_index: usize) -> usize {
-        if self.total_pages == 0 {
-            return 0;
-        }
-        // 简化估算：按页码等分（精确值需排版引擎提供）
-        // 外部可通过 update_layout 传入精确分页后使用 find_page_for_offset
-        page_index * self.current_position.max(1) / self.current_page.max(1)
+        self.page_ranges
+            .get(page_index)
+            .map_or(0, |p| p.start_offset)
     }
 
     /// 在分页结果中查找字符偏移所在的页码
-    fn find_page_for_offset(&self, pages: &[LayoutPage], offset: usize) -> usize {
+    fn find_page_for_offset(&self, pages: &[SourceRange], offset: usize) -> usize {
         pages
             .iter()
-            .position(|p| offset >= p.start_offset && offset < p.end_offset)
+            .position(|p| offset < p.end_offset || offset <= p.start_offset)
             .unwrap_or(pages.len().saturating_sub(1))
     }
 }
@@ -1069,44 +1041,20 @@ mod tests {
     // ─── 排版集成 ─────────────────────────────────────────
 
     #[test]
-    fn test_paginate_and_update() {
-        let config = LayoutConfig {
-            chars_per_line: Some(10),
-            lines_per_page: Some(3),
-            ..LayoutConfig::default()
-        };
-        let mut reader =
-            ReaderStateMachine::with_layout_config("https://example.com/book/1", 10, config);
-        let content = "这是一段很长的文本内容用来测试分页功能是否正确工作";
-        let pages = reader.paginate_and_update(content);
-        assert!(!pages.is_empty());
-        assert_eq!(reader.total_pages(), pages.len());
-    }
-
-    #[test]
     fn test_update_layout_positions_correctly() {
         let mut reader = make_reader(10);
         let pages = vec![
-            LayoutPage {
-                index: 0,
-                content: "page0".to_string(),
+            SourceRange {
                 start_offset: 0,
                 end_offset: 100,
-                line_count: 5,
             },
-            LayoutPage {
-                index: 1,
-                content: "page1".to_string(),
+            SourceRange {
                 start_offset: 100,
                 end_offset: 200,
-                line_count: 5,
             },
-            LayoutPage {
-                index: 2,
-                content: "page2".to_string(),
+            SourceRange {
                 start_offset: 200,
                 end_offset: 300,
-                line_count: 5,
             },
         ];
         // 设置位置为 150（应在第 2 页）
@@ -1117,16 +1065,44 @@ mod tests {
     }
 
     #[test]
-    fn test_update_layout_config_resets() {
+    fn test_navigation_uses_exact_utf16_ranges_instead_of_estimates() {
+        let mut reader = make_reader(10);
+        reader.update_layout(&[
+            SourceRange {
+                start_offset: 2,
+                end_offset: 6,
+            },
+            SourceRange {
+                start_offset: 8,
+                end_offset: 21,
+            },
+            SourceRange {
+                start_offset: 21,
+                end_offset: 23,
+            },
+        ]);
+        assert_eq!(reader.current_page(), 0);
+        assert!(reader.next_page());
+        assert_eq!(reader.current_position(), 8);
+        assert!(reader.next_page());
+        assert_eq!(reader.current_position(), 21);
+        assert!(reader.prev_page());
+        assert_eq!(reader.current_position(), 8);
+        reader.jump_to_chapter(1, 0);
+        assert!(!reader.skip_to_page(1));
+    }
+
+    #[test]
+    fn test_invalidating_layout_preserves_source_position() {
         let mut reader = make_reader(10);
         let pages = make_pages(5);
         reader.update_layout(&pages);
         assert_eq!(reader.total_pages(), 5);
 
-        reader.update_layout_config(LayoutConfig {
-            font_size: 24.0,
-            ..LayoutConfig::default()
-        });
+        reader.skip_to_page(2);
+        let position = reader.current_position();
+        reader.invalidate_layout();
+        assert_eq!(reader.current_position(), position);
         // 配置变更后排版信息重置
         assert_eq!(reader.total_pages(), 0);
         assert_eq!(reader.current_page(), 0);
@@ -1221,14 +1197,11 @@ mod tests {
     // ─── 辅助函数 ─────────────────────────────────────────
 
     /// 生成指定数量的虚拟分页
-    fn make_pages(count: usize) -> Vec<LayoutPage> {
+    fn make_pages(count: usize) -> Vec<SourceRange> {
         (0..count)
-            .map(|i| LayoutPage {
-                index: i,
-                content: format!("page content {}", i),
+            .map(|i| SourceRange {
                 start_offset: i * 100,
                 end_offset: (i + 1) * 100,
-                line_count: 5,
             })
             .collect()
     }

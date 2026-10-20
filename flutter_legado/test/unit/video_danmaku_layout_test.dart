@@ -9,7 +9,7 @@
 //
 // [V-B2 | 2026-10-05] 新增。
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
@@ -54,7 +54,10 @@ void main() {
 
     test('滚动时长：3800ms × (1.2 - (speed-1)/6)，固定弹幕恒 3800ms', () {
       final scroll = _item(DanmakuType.scrollR2L);
-      expect(DanmakuLayoutEngine.durationMsOf(scroll, 1.0), closeTo(4560, 0.001));
+      expect(
+        DanmakuLayoutEngine.durationMsOf(scroll, 1.0),
+        closeTo(4560, 0.001),
+      );
       expect(
         DanmakuLayoutEngine.durationMsOf(scroll, 1.5),
         closeTo(3800 * (1.2 - 0.5 / 6), 0.001),
@@ -122,9 +125,12 @@ void main() {
         playbackSpeed: 1,
       );
       expect(placements.length, 2);
-      final top = placements.firstWhere((p) => p.item.type == DanmakuType.fixTop);
-      final bottom =
-          placements.firstWhere((p) => p.item.type == DanmakuType.fixBottom);
+      final top = placements.firstWhere(
+        (p) => p.item.type == DanmakuType.fixTop,
+      );
+      final bottom = placements.firstWhere(
+        (p) => p.item.type == DanmakuType.fixBottom,
+      );
       expect(top.x, closeTo((size.width - 40) / 2, 0.01));
       expect(bottom.x, closeTo((size.width - 40) / 2, 0.01));
       expect(top.y, 0);
@@ -145,12 +151,14 @@ void main() {
         reason: '未到时刻不绘制',
       );
       expect(
-        engine.placementsAt(
-          positionMs: 1000,
-          size: size,
-          dpr: 3,
-          playbackSpeed: 1,
-        ).length,
+        engine
+            .placementsAt(
+              positionMs: 1000,
+              size: size,
+              dpr: 3,
+              playbackSpeed: 1,
+            )
+            .length,
         1,
       );
       expect(
@@ -236,7 +244,8 @@ void main() {
       expect(
         rear.lane,
         isNot(front.lane),
-        reason: '长后车若与前车同轨必然追尾（新判据：入场间隔 ≥ dur×max(W)/'
+        reason:
+            '长后车若与前车同轨必然追尾（新判据：入场间隔 ≥ dur×max(W)/'
             '(W+max(W)) = 4560×160/560 ≈ 1302.9ms > 500ms）',
       );
 

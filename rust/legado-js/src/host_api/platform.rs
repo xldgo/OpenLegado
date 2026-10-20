@@ -5,18 +5,20 @@
 //!
 //! # 实现策略
 //!
-//! 需要平台能力的 API 分两类：
+//! 需要平台能力的 API 按宿主能力处理：
 //!
-//! 1. **一次性平台动作**（webView / openUrl 等）：返回结构化 JSON 桥接载荷，
-//!    由 Flutter / 平台侧拦截并真正执行（与 `openVideoPlayer` 相同模式）：
+//! 1. **WebView 执行**：有本宿主订阅时等待结果，取消和超时作为错误传播；
+//!    无订阅时保留结构化载荷与动作队列，交给既有平台入口：
 //!    - `webView` → `{"action":"webView","html":...,"url":...,"js":...}`
 //!    - `webViewGetSource` → `{"action":"webViewGetSource",...,"sourceRegex":...}`
 //!    - `webViewGetOverrideUrl` → `{"action":"webViewGetOverrideUrl",...,"overrideUrlRegex":...}`
+//!
+//! 2. **一次性平台动作**：返回载荷，由平台侧执行：
 //!    - `startBrowser` → `{"action":"startBrowser","url":...,"title":...}`
 //!    - `showBrowser` → `{"action":"openBrowser","url":...,"html":...}`
 //!    - `openUrl` → `{"action":"openUrl","url":...,"mimeType":...}`
 //!
-//! 2. **需要挂起等待用户交互的 API**（验证码）：接入全局验证码交互通道
+//! 3. **需要挂起等待用户交互的 API**（验证码）：接入全局验证码交互通道
 //!    （`legado_core::verification_channel`，Task #90）：JS 侧阻塞挂起 →
 //!    FFI 事件流推送请求 → UI 弹验证码对话框 → 用户输入回传唤醒。
 //!    对齐 Kotlin `SourceVerificationHelp.getVerificationResult` 语义。
@@ -28,18 +30,23 @@
 //! [`super::config_api`] 与 [`super::misc_api`]（quickjs_impl 实际注册路径）。
 //! 批次3治理（Task #118）：曾存在的同名降级桩因无任何调用点已删除。
 
-use legado_core::verification_channel;
-use legado_core::webview_channel::{self, WebViewRequest, DEFAULT_WEBVIEW_TIMEOUT};
+use legado_core::webview_channel::{DEFAULT_WEBVIEW_TIMEOUT, WebViewManager, WebViewRequest};
+use legado_core::{LegadoResult, verification_channel};
+use std::sync::Arc;
+#[derive(Clone, Copy)]
+pub struct WebViewContext<'a> {
+    pub manager: &'a Arc<WebViewManager>,
+    pub cookie: &'a str,
+}
 
 use super::current_source;
 
-/// 有 Flutter 订阅时走阻塞 DOM 通道；否则返回桥接载荷（interceptResult 兼容）
-fn run_or_payload(mut req: WebViewRequest) -> String {
-    if webview_channel::has_subscribers() {
-        match webview_channel::request_and_wait(req, DEFAULT_WEBVIEW_TIMEOUT) {
-            Ok(s) => s,
-            Err(e) => format!("[ERROR] {e}"),
-        }
+/// 当前实例订阅时等待结果并传播错误；无订阅时沿用平台动作载荷。
+fn run_or_payload(manager: &Arc<WebViewManager>, req: WebViewRequest) -> LegadoResult<String> {
+    if let Some(result) =
+        crate::webview::execute(manager, None, req.clone(), DEFAULT_WEBVIEW_TIMEOUT)
+    {
+        result
     } else {
         // 无订阅：保留历史载荷模式，供 FFI 结果管线 interceptResult
         let payload = serde_json::json!({
@@ -57,125 +64,155 @@ fn run_or_payload(mut req: WebViewRequest) -> String {
         })
         .to_string();
         super::ui_action_queue::push_payload_json(&payload);
-        // 避免 unused mut 警告路径：req 已消费字段
-        let _ = &mut req;
-        payload
+        Ok(payload)
     }
 }
 
 /// webView(html, url, js, cacheFirst?) → DOM 结果或桥接载荷
 ///
 /// 对应 Kotlin: `webView(html, url, js)` / `webView(html, url, js, cacheFirst)`
-pub fn web_view(html: &str, url: &str, js: &str) -> String {
-    web_view_ex(html, url, js, false, 0)
+pub fn web_view(
+    context: WebViewContext<'_>,
+    html: &str,
+    url: &str,
+    js: &str,
+) -> LegadoResult<String> {
+    web_view_ex(context, html, url, js, false, 0)
 }
 
 /// webView 完整参数（含 cacheFirst / delayTime）
-pub fn web_view_ex(html: &str, url: &str, js: &str, cache_first: bool, delay_time: i64) -> String {
-    run_or_payload(WebViewRequest {
-        key: String::new(),
-        action: "webView".into(),
-        html: html.to_string(),
-        url: url.to_string(),
-        js: js.to_string(),
-        source_regex: String::new(),
-        override_url_regex: String::new(),
-        cache_first,
-        delay_time,
-        is_rule: false,
-        result: String::new(),
-        // B1（设计文档 §2.2 G4）：填当前线程书源上下文（对齐上游
-        // `tag=getSource()?.getKey()`）；Kotlin 侧 sourceKey 非空即按
-        // is_rule 同等口径注入 java/source/cache 接口
-        source_key: current_source::current_source_tag().unwrap_or_default(),
-        // B4（设计文档 §3 项 B）：按请求 URL 域取 JS cookie store 属域
-        // cookie（`cookies_for_url` 口径：ETLD+1 域键 + 原始串条目合并，
-        // raw 胜，"k1=v1; k2=v2"；无则空串）。Kotlin 侧 load 前逐对
-        // `CookieManager.setCookie(url, …)` 预写，Flutter 回退路径用
-        // webview_flutter `setCookie` 等价预写——让 WebView 首请求即携带
-        // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
-        // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
-        cookie: super::cookie_store::cookies_for_url(url),
-        created_at_ms: 0,
-    })
+pub fn web_view_ex(
+    context: WebViewContext<'_>,
+    html: &str,
+    url: &str,
+    js: &str,
+    cache_first: bool,
+    delay_time: i64,
+) -> LegadoResult<String> {
+    run_or_payload(
+        context.manager,
+        WebViewRequest {
+            key: String::new(),
+            action: "webView".into(),
+            html: html.to_string(),
+            url: url.to_string(),
+            js: js.to_string(),
+            source_regex: String::new(),
+            override_url_regex: String::new(),
+            cache_first,
+            delay_time,
+            is_rule: false,
+            result: String::new(),
+            // B1（设计文档 §2.2 G4）：填当前线程书源上下文（对齐上游
+            // `tag=getSource()?.getKey()`）；Kotlin 侧 sourceKey 非空即按
+            // is_rule 同等口径注入 java/source/cache 接口
+            source_key: current_source::current_source_tag().unwrap_or_default(),
+            // B4：由所属 VM 显式传入请求 URL 属域的共享 Cookie
+            // cookie（`cookies_for_url` 口径：ETLD+1 域键 + 原始串条目合并，
+            // raw 胜，"k1=v1; k2=v2"；无则空串）。Kotlin 侧 load 前逐对
+            // `CookieManager.setCookie(url, …)` 预写，Flutter 回退路径用
+            // webview_flutter `setCookie` 等价预写——让 WebView 首请求即携带
+            // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
+            // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
+            cookie: context.cookie.to_string(),
+            headers: Default::default(),
+            created_at_ms: 0,
+        },
+    )
 }
 
 /// webViewGetSource(html, url, js, sourceRegex, cacheFirst?, delayTime?)
-pub fn web_view_get_source(html: &str, url: &str, js: &str, source_regex: &str) -> String {
-    web_view_get_source_ex(html, url, js, source_regex, false, 0)
+pub fn web_view_get_source(
+    context: WebViewContext<'_>,
+    html: &str,
+    url: &str,
+    js: &str,
+    source_regex: &str,
+) -> LegadoResult<String> {
+    web_view_get_source_ex(context, html, url, js, source_regex, false, 0)
 }
 
 pub fn web_view_get_source_ex(
+    context: WebViewContext<'_>,
     html: &str,
     url: &str,
     js: &str,
     source_regex: &str,
     cache_first: bool,
     delay_time: i64,
-) -> String {
-    run_or_payload(WebViewRequest {
-        key: String::new(),
-        action: "webViewGetSource".into(),
-        html: html.to_string(),
-        url: url.to_string(),
-        js: js.to_string(),
-        source_regex: source_regex.to_string(),
-        override_url_regex: String::new(),
-        cache_first,
-        delay_time,
-        is_rule: false,
-        result: String::new(),
-        // B1（设计文档 §2.2 G4）：填当前线程书源上下文（对齐上游
-        // `tag=getSource()?.getKey()`）；Kotlin 侧 sourceKey 非空即按
-        // is_rule 同等口径注入 java/source/cache 接口
-        source_key: current_source::current_source_tag().unwrap_or_default(),
-        // B4（设计文档 §3 项 B）：按请求 URL 域取 JS cookie store 属域
-        // cookie（`cookies_for_url` 口径：ETLD+1 域键 + 原始串条目合并，
-        // raw 胜，"k1=v1; k2=v2"；无则空串）。Kotlin 侧 load 前逐对
-        // `CookieManager.setCookie(url, …)` 预写，Flutter 回退路径用
-        // webview_flutter `setCookie` 等价预写——让 WebView 首请求即携带
-        // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
-        // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
-        cookie: super::cookie_store::cookies_for_url(url),
-        created_at_ms: 0,
-    })
+) -> LegadoResult<String> {
+    run_or_payload(
+        context.manager,
+        WebViewRequest {
+            key: String::new(),
+            action: "webViewGetSource".into(),
+            html: html.to_string(),
+            url: url.to_string(),
+            js: js.to_string(),
+            source_regex: source_regex.to_string(),
+            override_url_regex: String::new(),
+            cache_first,
+            delay_time,
+            is_rule: false,
+            result: String::new(),
+            // B1（设计文档 §2.2 G4）：填当前线程书源上下文（对齐上游
+            // `tag=getSource()?.getKey()`）；Kotlin 侧 sourceKey 非空即按
+            // is_rule 同等口径注入 java/source/cache 接口
+            source_key: current_source::current_source_tag().unwrap_or_default(),
+            // B4：由所属 VM 显式传入请求 URL 属域的共享 Cookie
+            // cookie（`cookies_for_url` 口径：ETLD+1 域键 + 原始串条目合并，
+            // raw 胜，"k1=v1; k2=v2"；无则空串）。Kotlin 侧 load 前逐对
+            // `CookieManager.setCookie(url, …)` 预写，Flutter 回退路径用
+            // webview_flutter `setCookie` 等价预写——让 WebView 首请求即携带
+            // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
+            // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
+            cookie: context.cookie.to_string(),
+            headers: Default::default(),
+            created_at_ms: 0,
+        },
+    )
 }
 
 /// webViewGetOverrideUrl(...)
 pub fn web_view_get_override_url(
+    context: WebViewContext<'_>,
     html: &str,
     url: &str,
     js: &str,
     override_url_regex: &str,
     cache_first: bool,
     delay_time: i64,
-) -> String {
-    run_or_payload(WebViewRequest {
-        key: String::new(),
-        action: "webViewGetOverrideUrl".into(),
-        html: html.to_string(),
-        url: url.to_string(),
-        js: js.to_string(),
-        source_regex: String::new(),
-        override_url_regex: override_url_regex.to_string(),
-        cache_first,
-        delay_time,
-        is_rule: false,
-        result: String::new(),
-        // B1（设计文档 §2.2 G4）：填当前线程书源上下文（对齐上游
-        // `tag=getSource()?.getKey()`）；Kotlin 侧 sourceKey 非空即按
-        // is_rule 同等口径注入 java/source/cache 接口
-        source_key: current_source::current_source_tag().unwrap_or_default(),
-        // B4（设计文档 §3 项 B）：按请求 URL 域取 JS cookie store 属域
-        // cookie（`cookies_for_url` 口径：ETLD+1 域键 + 原始串条目合并，
-        // raw 胜，"k1=v1; k2=v2"；无则空串）。Kotlin 侧 load 前逐对
-        // `CookieManager.setCookie(url, …)` 预写，Flutter 回退路径用
-        // webview_flutter `setCookie` 等价预写——让 WebView 首请求即携带
-        // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
-        // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
-        cookie: super::cookie_store::cookies_for_url(url),
-        created_at_ms: 0,
-    })
+) -> LegadoResult<String> {
+    run_or_payload(
+        context.manager,
+        WebViewRequest {
+            key: String::new(),
+            action: "webViewGetOverrideUrl".into(),
+            html: html.to_string(),
+            url: url.to_string(),
+            js: js.to_string(),
+            source_regex: String::new(),
+            override_url_regex: override_url_regex.to_string(),
+            cache_first,
+            delay_time,
+            is_rule: false,
+            result: String::new(),
+            // B1（设计文档 §2.2 G4）：填当前线程书源上下文（对齐上游
+            // `tag=getSource()?.getKey()`）；Kotlin 侧 sourceKey 非空即按
+            // is_rule 同等口径注入 java/source/cache 接口
+            source_key: current_source::current_source_tag().unwrap_or_default(),
+            // B4：由所属 VM 显式传入请求 URL 属域的共享 Cookie
+            // cookie（`cookies_for_url` 口径：ETLD+1 域键 + 原始串条目合并，
+            // raw 胜，"k1=v1; k2=v2"；无则空串）。Kotlin 侧 load 前逐对
+            // `CookieManager.setCookie(url, …)` 预写，Flutter 回退路径用
+            // webview_flutter `setCookie` 等价预写——让 WebView 首请求即携带
+            // JS 侧会话态（对齐上游 `CookieManager.loadRequest` 按请求 URL
+            // 属域取 cookie 语义；两档均可用，无 quickjs 门控）
+            cookie: context.cookie.to_string(),
+            headers: Default::default(),
+            created_at_ms: 0,
+        },
+    )
 }
 
 /// showBrowser(url, html?, preloadJs?, config?) → 结构化桥接载荷
@@ -311,7 +348,16 @@ mod tests {
 
     #[test]
     fn test_web_view_bridge_payload() {
-        let payload = web_view("", "http://test.com", "document.title");
+        let payload = web_view(
+            WebViewContext {
+                manager: &Arc::new(WebViewManager::default()),
+                cookie: "",
+            },
+            "",
+            "http://test.com",
+            "document.title",
+        )
+        .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(parsed["action"], "webView");
         assert_eq!(parsed["url"], "http://test.com");
@@ -320,7 +366,17 @@ mod tests {
 
     #[test]
     fn test_web_view_get_source_bridge_payload() {
-        let payload = web_view_get_source("", "http://test.com", "", "content");
+        let payload = web_view_get_source(
+            WebViewContext {
+                manager: &Arc::new(WebViewManager::default()),
+                cookie: "",
+            },
+            "",
+            "http://test.com",
+            "",
+            "content",
+        )
+        .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(parsed["action"], "webViewGetSource");
         assert_eq!(parsed["sourceRegex"], "content");
@@ -328,8 +384,19 @@ mod tests {
 
     #[test]
     fn test_web_view_get_override_url_bridge_payload() {
-        let payload =
-            web_view_get_override_url("", "http://test.com", "", "legado://.*", true, 500);
+        let payload = web_view_get_override_url(
+            WebViewContext {
+                manager: &Arc::new(WebViewManager::default()),
+                cookie: "",
+            },
+            "",
+            "http://test.com",
+            "",
+            "legado://.*",
+            true,
+            500,
+        )
+        .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert_eq!(parsed["action"], "webViewGetOverrideUrl");
         assert_eq!(parsed["url"], "http://test.com");

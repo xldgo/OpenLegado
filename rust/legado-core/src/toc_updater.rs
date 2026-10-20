@@ -315,10 +315,12 @@ mod tests {
         assert_eq!(progress.total, 5);
         assert!(progress.is_running);
         assert_eq!(progress.results.len(), 5);
-        assert!(progress
-            .results
-            .iter()
-            .all(|r| r.status == UpdateState::Pending));
+        assert!(
+            progress
+                .results
+                .iter()
+                .all(|r| r.status == UpdateState::Pending)
+        );
     }
 
     #[test]
@@ -561,10 +563,12 @@ mod tests {
         assert_eq!(progress.failed, 0);
         assert_eq!(progress.updating, 0);
         assert!(!progress.is_running);
-        assert!(progress
-            .results
-            .iter()
-            .all(|r| r.status == UpdateState::Completed && r.new_chapters == 3));
+        assert!(
+            progress
+                .results
+                .iter()
+                .all(|r| r.status == UpdateState::Completed && r.new_chapters == 3)
+        );
     }
 
     /// 失败处理：单本失败不中断整批，错误信息逐本回报
@@ -651,10 +655,12 @@ mod tests {
         assert_eq!(progress.total, 3);
         assert_eq!(progress.completed, 0);
         assert_eq!(progress.failed, 3);
-        assert!(progress
-            .results
-            .iter()
-            .all(|r| r.error.as_deref() == Some("批量更新已停止")));
+        assert!(
+            progress
+                .results
+                .iter()
+                .all(|r| r.error.as_deref() == Some("批量更新已停止"))
+        );
         assert!(!progress.is_running);
     }
 

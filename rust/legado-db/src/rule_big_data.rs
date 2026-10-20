@@ -322,7 +322,7 @@ impl RuleBigDataManager {
     }
 
     fn md5(input: &str) -> String {
-        format!("{:x}", md5::compute(input.as_bytes()))
+        legado_core::crypto::md5_hex(input.as_bytes())
     }
 }
 
@@ -337,6 +337,18 @@ pub struct BigDataStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn md5_storage_name_known_vectors() {
+        for (input, expected) in [
+            ("", "d41d8cd98f00b204e9800998ecf8427e"),
+            ("abc", "900150983cd24fb0d6963f7d28e17f72"),
+            ("测试中文", "40b230b1b2e413e50e0c154daacea377"),
+        ] {
+            assert_eq!(RuleBigDataManager::md5(input), expected);
+        }
+    }
+
     use std::fs;
 
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -394,12 +406,13 @@ mod tests {
         assert!(path.exists(), "写入后 chapter_variable_path 应指向实际文件");
         assert_eq!(
             path.file_name().unwrap().to_string_lossy(),
-            format!("{:x}.txt", md5::compute("content"))
+            format!("{}.txt", legado_core::crypto::md5_hex("content"))
         );
         // 未写入的键 → 路径确定但文件不存在
-        assert!(!mgr
-            .chapter_variable_path("http://b.com", "http://c1", "danmaku")
-            .exists());
+        assert!(
+            !mgr.chapter_variable_path("http://b.com", "http://c1", "danmaku")
+                .exists()
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 

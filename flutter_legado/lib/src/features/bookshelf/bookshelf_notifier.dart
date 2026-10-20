@@ -1,0 +1,413 @@
+import '../../utils/error_message.dart';
+import '../../providers/book_content_provider.dart';
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../models/models.dart';
+import '../../domain/models/bookshelf_settings.dart';
+import '../../domain/contracts/bookshelf_settings_repository.dart';
+import 'application/bookshelf_settings_provider.dart';
+import '../privacy/privacy_controller.dart';
+import 'bookshelf_repositories.dart';
+import 'bookshelf_state.dart';
+
+export 'bookshelf_state.dart';
+
+/// 书架 Riverpod Notifier
+///
+/// 职责严格限定（对齐 UI_RESTRUCTURE_PLAN.md §3.2 铁律）：
+/// - 调用领域 Repository → 接收纯数据 → 更新 immutable State
+/// - 管理 UI 状态（loading/error/data 三态）
+/// - 管理展示层变换（网格/列表切换、分组模式）
+/// - 禁止包含业务计算（排序/过滤/规则解析由 Rust 完成）
+class BookshelfNotifier extends Notifier<BookshelfState> {
+  int _preferencesGeneration = 0;
+  BookshelfSettings _previousPreferences = const BookshelfSettings();
+
+  @override
+  BookshelfState build() {
+    final repository = ref.watch(bookshelfSettingsRepositoryProvider);
+    final generation = ++_preferencesGeneration;
+    _previousPreferences = repository.current;
+    final subscription = repository.watch().listen(
+      (_) => _publishPreferences(repository, generation),
+    );
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    Future.microtask(() {
+      if (!ref.mounted || generation != _preferencesGeneration) return;
+      unawaited(
+        repository
+            .load()
+            .then((_) => _publishPreferences(repository, generation))
+            .catchError((Object error) {
+              debugPrint('书架偏好读取失败，可重新加载：$error');
+            }),
+      );
+      _loadBooks();
+      _loadGroups();
+    });
+    return BookshelfState(
+      isGridView: repository.current.isGridView,
+      gridColumns: repository.current.gridColumns,
+      groupMode: repository.current.groupMode,
+    );
+  }
+
+  void _publishPreferences(
+    BookshelfSettingsRepository repository,
+    int generation,
+  ) {
+    if (!ref.mounted || generation != _preferencesGeneration) return;
+    final settings = repository.current;
+    // 只在选中偏好变化时更新索引，布局修改不重置实际分组。
+    final selected =
+        settings.selectedGroupIndex !=
+                _previousPreferences.selectedGroupIndex &&
+            state.groups.isNotEmpty
+        ? settings.selectedGroupIndex.clamp(0, state.groups.length - 1)
+        : state.selectedGroupIndex;
+    _previousPreferences = settings;
+    state = state.copyWith(
+      isGridView: settings.isGridView,
+      gridColumns: settings.gridColumns,
+      groupMode: settings.groupMode,
+      selectedGroupIndex: selected,
+    );
+  }
+
+  Future<void> _savePreferences(
+    Future<void> Function(BookshelfSettingsRepository) save,
+  ) async {
+    final repository = ref.read(bookshelfSettingsRepositoryProvider);
+    final generation = _preferencesGeneration;
+    try {
+      final saving = save(repository);
+      _publishPreferences(repository, generation);
+      await saving;
+    } finally {
+      _publishPreferences(repository, generation);
+    }
+  }
+
+  /// 调用 Rust API 获取书籍列表
+  ///
+  /// Notifier 不做任何数据处理，Rust 负责排序/过滤
+  Future<void> _loadBooks() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final api = ref.read(bookshelfRepositoryProvider);
+      final books = await api.getBooks();
+      if (!ref.mounted) return;
+      state = state.copyWith(books: books, isLoading: false);
+      if (ref.exists(privacyControllerProvider)) {
+        ref.read(privacyControllerProvider.notifier).syncBooks(books);
+      }
+      // [P4-2b V4] 书籍就绪后重推视频聚合分组（对齐原版 IdVideo 动态显隐）
+      _applyVideoGroup();
+    } catch (e) {
+      if (!ref.mounted) return;
+      state = state.copyWith(error: errorMessage(e), isLoading: false);
+    }
+  }
+
+  /// 刷新书架
+  Future<void> refresh() async {
+    await Future.wait([_loadBooks(), _loadGroups()]);
+  }
+
+  /// [队列⑫ P3 | 2026-09-22] 从阅读器/详情页返回书架后的单本定向刷新
+  ///
+  /// 书架页常驻（_KeepAlivePage），开书返回时无刷新钩子——内存态 Book 进度
+  /// 滞留（刚读完的书仍显示旧进度/无进度行）。本方法仅重新拉取**受影响
+  /// 的那本书**的最新进度写回内存（getBook 单本读取），不做全量
+  /// 列表/分组重拉、不触发 isLoading 骨架、不改渲染逻辑。
+  ///
+  /// 若该书已不在数据源（如阅读期间从详情页移除出书架），回退全量
+  /// [refresh] 保持列表一致。
+  Future<void> refreshBook(String bookUrl) async {
+    try {
+      final api = ref.read(bookshelfRepositoryProvider);
+      final book = await api.getBook(bookUrl);
+      if (book == null) {
+        await refresh();
+        return;
+      }
+      state = state.copyWith(
+        books: [
+          for (final b in state.books)
+            if (b.bookUrl == bookUrl) book else b,
+        ],
+      );
+    } catch (e) {
+      state = state.copyWith(error: errorMessage(e));
+    }
+  }
+
+  /// 加载书籍分组（对标原版 BookshelfFragment1.initBookGroupData）
+  Future<void> _loadGroups() async {
+    try {
+      final api = ref.read(bookGroupRepositoryProvider);
+      final groups = await api.getBookGroups();
+      if (!ref.mounted) return;
+      if (ref.exists(privacyControllerProvider)) {
+        ref.read(privacyControllerProvider.notifier).syncGroups(groups);
+      }
+      final visible = groups.where((g) => g.show).toList()
+        ..sort((a, b) => a.order.compareTo(b.order));
+      // 对标原版 upGroup：始终保证「全部」组存在并置顶；
+      // 无自定义分组时仅单一「全部」组（此时 UI 不显示 TabBar）
+      // 合成组 order=-10 对齐原版种子（AppDatabase.kt:206-208），确保早于
+      // 视频组（order=-5，AppDatabase.kt:241-244）与自定义组（order≥0）
+      final allGroup = const BookGroup(
+        groupId: BookGroupId.all,
+        groupName: '全部',
+        order: -10,
+      );
+      final hasAll = visible.any((g) => g.groupId == BookGroupId.all);
+      final list = hasAll ? visible : [allGroup, ...visible];
+      final preferences = await ref
+          .read(bookshelfSettingsRepositoryProvider)
+          .load();
+      final lastIndex = preferences.selectedGroupIndex;
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        groups: list,
+        selectedGroupIndex: lastIndex.clamp(0, list.length - 1),
+      );
+      // [P4-2b V4] 分组就绪后重推视频聚合分组（books 可能已先于 groups 加载）
+      _applyVideoGroup();
+    } catch (e) {
+      // 分组加载失败不阻断书架展示
+      if (!ref.mounted) return;
+      state = state.copyWith(error: errorMessage(e));
+    }
+  }
+
+  /// [P4-2b V4] 重推视频聚合分组（对齐原版 IdVideo 动态显隐语义）
+  ///
+  /// 原版依据：
+  /// - `BookGroup.kt:39` `IdVideo = -6`；`AppDatabase.kt:241-244` 种子「视频」组
+  ///   （order=-5, show=1）
+  /// - `BookGroupDao.kt:36` show 查询：视频组仅当存在视频书时出现在分组列表
+  ///   （`groupId = -6 and exists (select 1 from books where type & video > 0)`）
+  ///
+  /// 我方 `book_groups` 表无视频组行（Rust 侧无种子，DB 中 -6 行仅可能来自
+  /// 未来种子迁移），故在数据层合成：有视频书（`bookType & BookType.video`）
+  /// 且 groups 尚无 -6 组 → 补「视频」组；无视频书但存在 -6 组 → 移除（空组
+  /// 不展示，对齐原版）。幂等：状态与条件一致时不写 state。
+  ///
+  /// 组内书籍过滤由 `currentGroupBooks` 既有 [BookGroupId.video] 分支承担
+  /// （bookshelf_state.dart，`type & video != 0`，对齐原版 isVideo 判定）。
+  void _applyVideoGroup() {
+    final groups = state.groups;
+    final hasVideoBook = state.books.any(
+      (b) => (b.bookType & BookType.video) != 0,
+    );
+    final hasVideoGroup = groups.any((g) => g.groupId == BookGroupId.video);
+    if (hasVideoBook == hasVideoGroup) return;
+
+    // 组列表变化后按 groupId 保持当前选中 Tab 不动（防插入/移除导致索引
+    // 错位跳组）；当前组已不在新列表时回退「全部」组
+    final previousGroupId = state.selectedGroup?.groupId ?? BookGroupId.all;
+    final List<BookGroup> next;
+    if (hasVideoBook) {
+      // 合成组对齐原版种子：order=-5、show=1（AppDatabase.kt:241-244）
+      next = [
+        ...groups,
+        const BookGroup(groupId: BookGroupId.video, groupName: '视频', order: -5),
+      ]..sort((a, b) => a.order.compareTo(b.order));
+    } else {
+      // 当前体系 DB 无 -6 行，列表中 -6 组必为合成组（见方法注释）
+      next = groups.where((g) => g.groupId != BookGroupId.video).toList();
+    }
+    var index = next.indexWhere((g) => g.groupId == previousGroupId);
+    if (index < 0) {
+      index = next.indexWhere((g) => g.groupId == BookGroupId.all);
+      if (index < 0) index = 0;
+    }
+    state = state.copyWith(groups: next, selectedGroupIndex: index);
+  }
+
+  /// 切换分组 Tab（对标原版 onTabSelected → AppConfig.saveTabPosition）
+  Future<void> selectGroup(int index) async {
+    if (index < 0 || index >= state.groups.length) return;
+    await _savePreferences(
+      (repository) => repository.update(selectedGroupIndex: index),
+    );
+  }
+
+  /// 添加书籍到书架
+  ///
+  /// [F1-hunt F3 | 2026-09-24] 返回值携带结果：true = 写库成功且 UI 列表
+  /// 已同步；false = 写库失败（error 已写入 state.error）。修复前异常被
+  /// 吞掉后正常返回，调用方无法区分成功/失败，详情页无条件提示「已加入
+  /// 书架」（假成功；书架非空时 state.error 又不渲染 → 完全静默）
+  Future<bool> addBook(Book book) async {
+    try {
+      final api = ref.read(bookshelfRepositoryProvider);
+      await api.addBook(book);
+      state = state.copyWith(books: [...state.books, book]);
+      // [P4-2b V4] 新加入的视频书触发视频聚合分组出现
+      _applyVideoGroup();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: errorMessage(e));
+      return false;
+    }
+  }
+
+  /// 导入本地书籍到书架（EPUB/TXT/MOBI/PDF/UMD）
+  ///
+  /// 成功后将返回的书籍加入列表；
+  /// 失败时异常向上抛出，由 UI 层负责提示。
+  Future<Book> importLocalBook(String filePath) async {
+    final book = await ref
+        .read(localBookServiceProvider)
+        .importLocalBook(filePath);
+    state = state.copyWith(
+      books: [...state.books.where((b) => b.bookUrl != book.bookUrl), book],
+    );
+    return book;
+  }
+
+  /// 删除书籍：调用 Rust API 后同步本地 UI 状态
+  ///
+  /// 注意：where 过滤是「UI 状态同步」而非「业务逻辑」
+  /// [F1-hunt F3 | 2026-09-24] 同 addBook：返回写库结果，失败时 UI 列表
+  /// 不变、error 置位，调用方据此提示失败（不再无条件「已移出书架」）
+  Future<bool> removeBook(String bookUrl) async {
+    try {
+      final api = ref.read(bookshelfRepositoryProvider);
+      await api.deleteBook(bookUrl);
+      state = state.copyWith(
+        books: state.books.where((b) => b.bookUrl != bookUrl).toList(),
+      );
+      // [P4-2b V4] 删尽视频书后视频聚合分组消失（对齐原版 show 查询动态隐藏）
+      _applyVideoGroup();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: errorMessage(e));
+      return false;
+    }
+  }
+
+  // ===== 展示层状态切换（不涉及数据内容变更） =====
+
+  /// 切换网格/列表视图（对标原版书架布局切换，持久化到 AppConfig.bookshelfLayout）
+  Future<void> toggleViewMode() => _savePreferences(
+    (repository) =>
+        repository.update(isGridView: !repository.current.isGridView),
+  );
+
+  /// 对话框确认后一次应用并保存展示偏好。
+  Future<void> setLayout({
+    required bool isGridView,
+    required int gridColumns,
+    required GroupMode groupMode,
+  }) => _savePreferences(
+    (repository) => repository.update(
+      isGridView: isGridView,
+      gridColumns: gridColumns,
+      groupMode: groupMode,
+    ),
+  );
+
+  /// 设置分组模式
+  // [UI_SYNC_REFACTOR T3] 批量选择（对齐参考 SelectionBottomBar 态）
+  void toggleBatchMode() {
+    state = state.copyWith(isBatchMode: !state.isBatchMode, selectedUrls: {});
+  }
+
+  void toggleSelect(String bookUrl) {
+    final urls = {...state.selectedUrls};
+    urls.contains(bookUrl) ? urls.remove(bookUrl) : urls.add(bookUrl);
+    state = state.copyWith(selectedUrls: urls);
+  }
+
+  void selectAll() {
+    state = state.copyWith(
+      selectedUrls: {for (final b in state.currentGroupBooks) b.bookUrl},
+    );
+  }
+
+  void invertSelection() {
+    final all = {for (final b in state.currentGroupBooks) b.bookUrl};
+    state = state.copyWith(selectedUrls: all.difference(state.selectedUrls));
+  }
+
+  void clearSelection() {
+    state = state.copyWith(selectedUrls: {});
+  }
+
+  /// 批量删除已勾选书籍（选择模式顶栏「删除」动作）
+  ///
+  /// [UI-fix 2.0.258] 逐本调用 `BookshelfRepository.deleteBook`（对齐
+  /// BookshelfManageNotifier.removeSelected 方案）；成功后先同步 UI 列表
+  /// 再重拉数据源保证与 Rust 一致；删除后清空选中并退出选择模式
+  /// （对标原版批量操作完成即退出选择态）。
+  Future<void> deleteSelectedBooks() async {
+    final urls = state.selectedUrls.toList();
+    if (urls.isEmpty) return;
+    try {
+      final api = ref.read(bookshelfRepositoryProvider);
+      for (final url in urls) {
+        await api.deleteBook(url);
+      }
+      state = state.copyWith(
+        books: state.books.where((b) => !urls.contains(b.bookUrl)).toList(),
+        isBatchMode: false,
+        selectedUrls: {},
+      );
+      await _loadBooks();
+    } catch (e) {
+      state = state.copyWith(error: errorMessage(e));
+    }
+  }
+
+  void setGroupMode(GroupMode mode) {
+    state = state.copyWith(groupMode: mode);
+  }
+
+  /// 清除错误状态
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+
+  /// 拖拽排序：将书籍从 oldIndex 移动到 newIndex 并持久化 order
+  Future<void> reorderBook(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= state.books.length) return;
+    if (newIndex < 0 || newIndex > state.books.length) return;
+    if (newIndex > oldIndex) newIndex--;
+
+    final books = List<Book>.from(state.books);
+    final book = books.removeAt(oldIndex);
+    books.insert(newIndex, book);
+    final reordered = [
+      for (var i = 0; i < books.length; i++) books[i].copyWith(order: i),
+    ];
+    state = state.copyWith(books: reordered);
+    try {
+      await ref.read(bookshelfRepositoryProvider).reorderBooks([
+        for (final b in reordered) {'bookUrl': b.bookUrl, 'order': b.order},
+      ]);
+    } catch (e) {
+      state = state.copyWith(error: errorMessage(e));
+      await _loadBooks();
+    }
+  }
+
+  // ===== 内部工具 =====
+}
+
+/// 书架 Notifier 全局 Provider
+///
+/// 使用方式：
+/// ```dart
+/// final state = ref.watch(bookshelfNotifierProvider);
+/// ref.read(bookshelfNotifierProvider.notifier).refresh();
+/// ```
+final bookshelfNotifierProvider =
+    NotifierProvider<BookshelfNotifier, BookshelfState>(BookshelfNotifier.new);

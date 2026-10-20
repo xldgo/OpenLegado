@@ -3,7 +3,6 @@
 //! 本 crate 聚合所有 legado-* crate，生成 cdylib/staticlib 供 Flutter/Dart 调用。
 //!
 //! - `ffi` 模块：flutter_rust_bridge 桥接定义（由 codegen 自动生成 Dart bindings）
-//! - `bridge` 模块：旧式 C ABI 导出函数（向后兼容）
 
 // flutter_rust_bridge 宏生成的 cfg 和 unsafe fn 产生不可避免的 clippy 警告
 #![allow(unexpected_cfgs)]
@@ -13,13 +12,25 @@
 mod frb_generated;
 
 pub mod api;
-pub mod bridge;
+pub mod automation_dto;
+pub mod business_dto;
+pub mod content_dto;
 pub mod db_state;
+mod engine_holder;
 pub mod error;
 pub mod ffi;
+pub mod file_dto;
 pub mod http_state;
 pub mod js_executor;
+mod layout_bridge;
+pub mod layout_dto;
+pub mod media_dto;
 pub mod runtime;
+mod service_host;
+mod source_action_host;
+pub mod source_tools_dto;
+pub mod task_dto;
+pub mod transfer_dto;
 
 /// 测试支撑：全局变量 store / 桥读取器 / flow scope 的进程级状态锁
 /// （仅测试编译；供本 crate 所有测试模块共享同一把锁串行防串表）。

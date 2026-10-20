@@ -1,77 +1,69 @@
-/// Tt 行内字体面板（阅读界面弹层「全局」页 Tt 小卡展开）测试
-///
-/// [C3 形态对齐 | full-stack-engineer + UI] 登记项 C3：Tt 入口由「跳转
-/// 整页字体管理」改为弹层内行内面板（对齐参考版形态）。本文件覆盖：
-/// ① Sheet 内 Tt 点按展开/收起行内面板与面板控件清单；
-/// ② 面板直测：字重/首行缩进持久化、简繁转换走 BookApi（Mock）并回调
-///    正文重载、选择字体跳转字体管理路由（AppRoutes.fonts，链路不丢失）。
 library;
 
-import 'dart:async';
+import '../fixtures/routing_test_app.dart';
 
-import 'package:flutter/material.dart';
+import '../fixtures/app_test_api.dart';
+
+/// 既有字体设置用例，适配完整设置页导航和简繁转换的新归属。
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/reader_config_panel.dart';
-import 'package:flutter_legado/src/screens/font_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_config_panel.dart';
+import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
+import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
+
+import '../fixtures/reader_settings_repository.dart';
 
 void main() {
-  group('阅读界面弹层 · Tt 行内字体面板', () {
-    testWidgets('Tt 点按展开行内面板，再点收起', (tester) async {
+  group('阅读界面 · 字体设置', () {
+    testWidgets('字体与排版入口打开字体控件，返回完整设置', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(
-            // 镜像真实壳层：DraggableScrollableSheet + SingleChildScrollView
-            home: Scaffold(
-              body: SingleChildScrollView(child: ReaderSettingsSheet()),
-            ),
-          ),
+          child: RoutingTestApp(home: ReaderSettingsSheet(fullPage: true)),
         ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      // 折叠态：仅 Tt 小卡，无面板控件
-      expect(find.text('Tt'), findsOneWidget);
-      expect(find.text('选择字体'), findsNothing);
+      expect(find.text('字体与排版'), findsOneWidget);
+      expect(find.text('字体'), findsNothing);
 
-      // 点按 Tt → 行内面板展开（对齐参考版行内形态的控件清单）
-      await tester.tap(find.text('Tt'));
+      await tester.tap(find.text('字体与排版'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('正文字体'), findsWidgets);
       expect(find.text('字体'), findsOneWidget);
-      expect(find.text('选择字体'), findsOneWidget);
-      expect(find.text('正文字距'), findsOneWidget);
+      expect(find.text('字间距'), findsOneWidget);
       expect(find.text('首行缩进'), findsOneWidget);
-      expect(find.text('标题字体'), findsOneWidget);
-      // [C3 双基准对齐] 斜体开关按「原版 + 参考版」双基准补齐（参考版面板含此项）
+      expect(find.text('标题字体'), findsNothing);
       expect(find.text('斜体'), findsOneWidget);
       expect(find.text('字重'), findsOneWidget);
-      expect(find.text('简繁转换'), findsOneWidget);
+      expect(find.text('简繁转换'), findsNothing);
 
-      // 再点 Tt → 面板收起
-      await tester.tap(find.text('Tt'));
-      await tester.pump();
-      expect(find.text('选择字体'), findsNothing);
+      final context = tester.element(find.byType(ReaderFontPanel));
+      Navigator.of(context).pop();
+      await tester.pumpAndSettle();
+      expect(find.text('字体'), findsNothing);
     });
 
-    testWidgets('面板直测：字重/首行缩进持久化 + 简繁转换 + 选择字体跳转',
-        (tester) async {
+    testWidgets('面板直测：字重/首行缩进持久化 + 简繁转换 + 字体跳转', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final mockApi = MockBookApi();
-      var reloadCount = 0;
+      final repository = createTestReaderSettingsRepository();
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [bookApiProvider.overrideWithValue(mockApi)],
-          child: MaterialApp(
-            // 「选择字体」跳转 AppRoutes.fonts：以桩路由承接，验证链路不丢失
+          overrides: mergeTestOverrides([
+            ...mockApi.overrides,
+            readerSettingsRepositoryProvider.overrideWithValue(repository),
+          ]),
+          child: RoutingTestApp(
+            // 「字体」跳转 AppRoutes.fonts：以桩路由承接，验证链路不丢失
             onGenerateRoute: (settings) {
               if (settings.name == AppRoutes.fonts) {
                 return MaterialPageRoute<void>(
@@ -79,12 +71,8 @@ void main() {
                 );
               }
               return MaterialPageRoute<void>(
-                builder: (_) => ReaderFontPanel(
-                  config: ReaderAdvancedConfig(),
-                  // 模拟主 Sheet _commitAdv：变更经 save() 持久化
-                  onChanged: (cfg) => unawaited(cfg.save()),
-                  onReload: () => reloadCount++,
-                ),
+                builder: (_) =>
+                    SingleChildScrollView(child: const ReaderFontPanel()),
               );
             },
           ),
@@ -94,48 +82,64 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       // 面板控件清单
-      expect(find.text('选择字体'), findsOneWidget);
-      expect(find.text('正文字距'), findsOneWidget);
-      expect(find.text('简繁转换'), findsOneWidget);
+      expect(find.text('字体'), findsOneWidget);
+      expect(find.text('字间距'), findsOneWidget);
+      expect(find.text('简繁转换'), findsNothing);
 
-      // ① 字重切「粗」→ 持久化 textBold=1（既有字段链路）
-      await tester.tap(find.text('粗').last);
+      // ① 字重切「粗体」→ 共享排版仓储保存reader_text_bold=1
+      await tester.tap(find.text('粗体').last);
       await tester.pump();
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('textBold'), 1);
+      await tester.pumpAndSettle();
+      expect(prefs.getInt('reader_text_bold'), 1);
 
       // ② 首行缩进 → 选「三字符」→ 持久化 paragraph_indent_chars=3
-      // （save() 同时写日夜桶键 reader_layout_day_* 与旧键 reader_adv_*）
+      // 保存统一的正文排版键。
+      await tester.ensureVisible(find.text('首行缩进').last);
       await tester.tap(find.text('首行缩进').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('三字符').hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.text('三字符'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(prefs.getInt('reader_layout_day_paragraph_indent_chars'), 3);
-      expect(prefs.getInt('reader_adv_paragraph_indent_chars'), 3);
-
-      // ③ 简繁转换「简→繁」→ 经 BookApi 持久化并回调正文重载
-      final before = await mockApi.getChineseConvertType();
-      expect(before, 0);
-      await tester.tap(find.text('简→繁').last);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(await mockApi.getChineseConvertType(), 2);
-      expect(reloadCount, 1);
+      await tester.pumpAndSettle();
+      expect(prefs.getInt('reader_paragraph_indent'), 3);
 
       // ④ 斜体开关（双基准补齐）→ 持久化 reader_adv_italic
-      // 前序 save() 已写过该键（默认 false），此处验证开关可置真
-      expect(prefs.getBool('reader_adv_italic'), isFalse);
+      // 默认未保存时为false，此处验证开关可置真
+      expect(repository.current.textLayout.italic, isFalse);
+      await tester.ensureVisible(find.text('斜体').last);
       await tester.tap(find.text('斜体').last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      expect(prefs.getBool('reader_adv_italic'), isTrue);
+      await tester.pumpAndSettle();
+      expect(prefs.getBool('reader_italic'), isTrue);
 
-      // ⑤ 「选择字体」跳转字体管理路由（AppRoutes.fonts → FontScreen）
-      await tester.tap(find.text('选择字体').last);
+      // ⑤ 「字体」跳转字体管理路由（AppRoutes.fonts → FontScreen）
+      await tester.ensureVisible(find.text('字体').last);
+      await tester.tap(find.text('字体').last);
       await tester.pumpAndSettle();
       expect(find.text('字体管理'), findsWidgets);
+
+      // 简繁转换移到内容分组，通过正文处理服务持久化。
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: mergeTestOverrides([
+            ...mockApi.overrides,
+            readerSettingsRepositoryProvider.overrideWithValue(repository),
+          ]),
+          child: RoutingTestApp(
+            key: UniqueKey(),
+            home: Scaffold(
+              body: ReaderConfigPanel(section: ReaderConfigSection.content),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(await mockApi.readingContentService.getChineseConvertType(), 0);
+      await tester.tap(find.text('简→繁').last);
+      await tester.pumpAndSettle();
+      expect(await mockApi.readingContentService.getChineseConvertType(), 2);
     });
   });
 }

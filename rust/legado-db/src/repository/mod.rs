@@ -16,7 +16,10 @@ pub mod highlight_repository;
 pub mod highlight_rule_repository;
 pub mod http_tts_repository;
 pub mod keyboard_assist_repository;
+pub mod privacy_credentials;
+pub mod read_aloud_voice_repository;
 pub mod read_record_repository;
+pub mod read_record_sessions;
 pub mod replace_rule_repository;
 pub mod review_repository;
 pub mod rss_article_repository;
@@ -37,3 +40,5 @@ pub trait Repository<T> {
     fn update(&self, item: &T) -> LegadoResult<()>;
     fn delete(&self, id: &str) -> LegadoResult<()>;
 }
+
+pub mod cloud_tts_repository;

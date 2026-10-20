@@ -1,17 +1,22 @@
-import 'package:flutter/material.dart';
+import '../theme/app_surface_material.dart';
+import '../theme/app_glass_theme.dart';
+
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'app_menu.dart';
 
 import '../providers/ui_settings/ui_settings_notifier.dart';
 
 /// [UI_SYNC_REFACTOR B2] 顶栏按钮体系（对齐参考仓 TopBarButton/GlassDefaults）
 ///
 /// - 5 档样式：plain 40dp/图标24；tonal/outlined/glass/liquidGlass 36dp/图标20；
-///   outlined 加 1dp outlineVariant 描边；glass/liquidGlass 为实色玻璃回退
-///   （surfaceContainerHighest α0.5，enableBlur 接通后差异化）；
-/// - [2.0.275 视觉精修] tonal 槽位底改中性容器：surfaceContainerHigh +
-///   onSurfaceVariant 前景（对齐参考基准图 ref_20260914 07 顶栏圆钮——无主题
-///   色相的中性灰容器）；原 secondaryContainer 随主题色相（玫瑰粉/紫等）偏离
-///   参考。激活/选中态由调用方自行用主题色（primary 等）区分，不在本档位内。
-/// - [TopBarActionStyler] 可包装任意既有 action（IconButton/PopupMenuButton），
+///   outlined 加 1dp outlineVariant 描边；glass 使用半透明实色，liquidGlass
+///   在资源就绪时绘制光学背景，未就绪保留相同底色；
+/// - tonal 在浅色与深色模式均使用透明常态底色、onSurfaceVariant 前景，
+///   圆形点击反馈由 IconButton 绘制。激活/选中态由调用方用主题色区分。
+/// - 外层点击区域为 48dp，内层保持各档位的视觉尺寸。
+/// - [TopBarActionStyler] 可包装任意既有 action（IconButton/AppMenuButton），
 ///   使全站顶栏按钮零逐页改动获得新样式；
 /// - merge 模式：actions 并入 Stadium 胶囊容器 + 1dp 分隔线
 ///   （onSurfaceVariant α0.15，对齐参考仓 mergeTopBarActions）。
@@ -29,7 +34,10 @@ class TopBarActionStyler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(mainAxisSize: MainAxisSize.min, children: styleActions(context, actions, style: style, merge: merge));
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: styleActions(context, actions, style: style, merge: merge),
+    );
   }
 
   /// 将任意 action 列表按样式档位包装（LegadoAppBar 统一入口）
@@ -41,9 +49,10 @@ class TopBarActionStyler extends StatelessWidget {
   }) {
     final list = actions;
     if (list == null || list.isEmpty) return const [];
-    if (!merge) {
+    if (!merge || style == TopBarButtonStyle.plain) {
       return [for (final a in list) _ActionSlot(style: style, child: a)];
     }
+    final liquid = _usesLiquidGlass(context, style);
     // merge 模式：并入胶囊容器，槽位间 1dp 分隔线
     final cs = Theme.of(context).colorScheme;
     final slots = <Widget>[];
@@ -61,16 +70,38 @@ class TopBarActionStyler extends StatelessWidget {
       slots.add(_ActionSlot(style: style, merge: true, child: list[i]));
     }
     return [
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: _mergeDecoration(context, style),
-        child: Row(mainAxisSize: MainAxisSize.min, children: slots),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              // 合并背景沿用36dp视觉高度，48dp热区位于同级，单按钮自然退化为圆形。
+              left: 6,
+              right: 6,
+              top: 6,
+              bottom: 6,
+              child: IgnorePointer(
+                child: liquid
+                    ? const _ButtonGlassSurface(
+                        shape: LiquidRoundedRectangle(borderRadius: 18),
+                      )
+                    : Container(decoration: _mergeDecoration(context, style)),
+              ),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Row(mainAxisSize: MainAxisSize.min, children: slots),
+            ),
+          ],
+        ),
       ),
     ];
   }
 
-  static BoxDecoration _mergeDecoration(BuildContext context, TopBarButtonStyle style) {
+  static BoxDecoration _mergeDecoration(
+    BuildContext context,
+    TopBarButtonStyle style,
+  ) {
     final cs = Theme.of(context).colorScheme;
     switch (style) {
       case TopBarButtonStyle.plain:
@@ -86,17 +117,40 @@ class TopBarActionStyler extends StatelessWidget {
         return BoxDecoration(
           shape: BoxShape.rectangle,
           borderRadius: BorderRadius.circular(20),
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: AppSurfaceMaterial.buttonColor(cs.surfaceContainerHighest),
         );
       case TopBarButtonStyle.tonal:
-        // [2.0.275 视觉精修] 中性容器槽位（原 secondaryContainer 带主题色相）
+        // 合并模式保留胶囊布局，常态底色与独立按钮统一为透明。
         return BoxDecoration(
           shape: BoxShape.rectangle,
           borderRadius: BorderRadius.circular(20),
-          color: cs.surfaceContainerHigh,
+          color: Colors.transparent,
         );
     }
   }
+}
+
+bool _usesLiquidGlass(BuildContext context, TopBarButtonStyle style) =>
+    style == TopBarButtonStyle.liquidGlass &&
+    AppGlassScope.availableOf(context);
+
+/// 只绘制材质；原按钮在同级接收输入，避免截断48dp热区或重复菜单语义。— Codex + UI
+class _ButtonGlassSurface extends StatelessWidget {
+  const _ButtonGlassSurface({required this.shape});
+
+  final LiquidShape shape;
+
+  @override
+  Widget build(BuildContext context) => GlassContainer(
+    shape: shape,
+    useOwnLayer: true,
+    settings: AppGlassStyle.resolve(
+      AppSurfaceMaterial.button(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+    ),
+    child: const SizedBox.expand(),
+  );
 }
 
 class _ActionSlot extends StatelessWidget {
@@ -106,24 +160,42 @@ class _ActionSlot extends StatelessWidget {
   final bool merge;
   final Widget child;
 
-  const _ActionSlot({required this.style, this.merge = false, required this.child});
+  const _ActionSlot({
+    required this.style,
+    this.merge = false,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // 文字按钮保留自身尺寸，不压进图标槽位。
+    if (child is! IconButton && child is! AppMenuButton) return child;
+    if (child is AppMenuButton && (child as AppMenuButton).child != null) {
+      return child;
+    }
     if (style == TopBarButtonStyle.plain) {
-      // plain：40dp 容器、图标 24（IconButton 默认），仅约束尺寸
+      // 保持 40dp 的视觉尺寸，点击区域由按钮扩展至 48dp。
       return SizedBox(
-        width: 40,
-        height: 40,
-        child: Center(child: child),
+        width: 48,
+        height: 48,
+        child: IconButtonTheme(
+          data: IconButtonThemeData(
+            style: IconButton.styleFrom(
+              fixedSize: const Size(40, 40),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+            ),
+          ),
+          child: child,
+        ),
       );
     }
     final cs = Theme.of(context).colorScheme;
+    final liquid = !merge && _usesLiquidGlass(context, style);
     final (bg, fg, border) = switch (style) {
-      // [2.0.275 视觉精修] tonal 中性槽位：surfaceContainerHigh 底 +
-      // onSurfaceVariant 前景（激活态由调用方以主题色覆盖，见 _circleAction）
+      // 普通图标按钮常态透明，激活态由调用方以主题色覆盖。
       TopBarButtonStyle.tonal => (
-        merge ? null : cs.surfaceContainerHigh,
+        merge ? null : Colors.transparent,
         cs.onSurfaceVariant,
         null,
       ),
@@ -132,9 +204,10 @@ class _ActionSlot extends StatelessWidget {
         cs.onSurfaceVariant,
         merge ? null : Border.all(color: cs.outlineVariant),
       ),
-      TopBarButtonStyle.glass ||
-      TopBarButtonStyle.liquidGlass => (
-        merge ? null : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+      TopBarButtonStyle.glass || TopBarButtonStyle.liquidGlass => (
+        merge
+            ? null
+            : AppSurfaceMaterial.buttonColor(cs.surfaceContainerHighest),
         cs.onSurface,
         null,
       ),
@@ -145,28 +218,39 @@ class _ActionSlot extends StatelessWidget {
       border: border,
       shape: merge ? BoxShape.rectangle : BoxShape.circle,
     );
-    return Container(
-      width: 36,
-      height: 36,
-      margin: merge ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 4),
-      decoration: deco,
-      alignment: Alignment.center,
-      child: IconButtonTheme(
-        data: IconButtonThemeData(
-          style: IconButton.styleFrom(
-            iconSize: 20,
-            foregroundColor: fg,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            fixedSize: const Size(36, 36),
-            minimumSize: const Size(36, 36),
-            maximumSize: const Size(36, 36),
-            padding: EdgeInsets.zero,
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: liquid
+                ? const SizedBox.square(
+                    dimension: 36,
+                    child: _ButtonGlassSurface(shape: LiquidOval()),
+                  )
+                : Container(width: 36, height: 36, decoration: deco),
           ),
-        ),
-        child: IconTheme(
-          data: IconThemeData(size: 20, color: fg),
-          child: child,
-        ),
+          IconButtonTheme(
+            data: IconButtonThemeData(
+              style: IconButton.styleFrom(
+                iconSize: 20,
+                foregroundColor: fg,
+                tapTargetSize: MaterialTapTargetSize.padded,
+                visualDensity: VisualDensity.standard,
+                fixedSize: const Size(36, 36),
+                minimumSize: const Size(36, 36),
+                maximumSize: const Size(36, 36),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            child: IconTheme(
+              data: IconThemeData(size: 20, color: fg),
+              child: child,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -192,11 +276,12 @@ class TopBarButton extends StatelessWidget {
     final size = style == TopBarButtonStyle.plain ? 40.0 : 36.0;
     final iconSize = style == TopBarButtonStyle.plain ? 24.0 : 20.0;
     final cs = Theme.of(context).colorScheme;
-    // [2.0.275 视觉精修] tonal 中性槽位（surfaceContainerHigh + onSurfaceVariant）
+    final liquid = _usesLiquidGlass(context, style);
+    // 普通图标按钮常态透明，点击反馈由 IconButton 保留。
     final bg = switch (style) {
-      TopBarButtonStyle.tonal => cs.surfaceContainerHigh,
-      TopBarButtonStyle.glass ||
-      TopBarButtonStyle.liquidGlass => cs.surfaceContainerHighest.withValues(alpha: 0.5),
+      TopBarButtonStyle.tonal => Colors.transparent,
+      TopBarButtonStyle.glass || TopBarButtonStyle.liquidGlass =>
+        AppSurfaceMaterial.buttonColor(cs.surfaceContainerHighest),
       _ => Colors.transparent,
     };
     final fg = switch (style) {
@@ -204,23 +289,43 @@ class TopBarButton extends StatelessWidget {
       TopBarButtonStyle.outlined => cs.onSurfaceVariant,
       _ => cs.onSurface,
     };
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: bg,
-        shape: BoxShape.circle,
-        border: style == TopBarButtonStyle.outlined
-            ? Border.all(color: cs.outlineVariant)
-            : null,
-      ),
-      child: IconButton(
-        tooltip: tooltip,
-        icon: Icon(icon, size: iconSize),
-        color: fg,
-        padding: EdgeInsets.zero,
-        constraints: BoxConstraints.tightFor(width: size, height: size),
-        onPressed: onPressed,
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: liquid
+                ? const SizedBox.square(
+                    dimension: 36,
+                    child: _ButtonGlassSurface(shape: LiquidOval()),
+                  )
+                : Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: bg,
+                      shape: BoxShape.circle,
+                      border: style == TopBarButtonStyle.outlined
+                          ? Border.all(color: cs.outlineVariant)
+                          : null,
+                    ),
+                  ),
+          ),
+          IconButton(
+            tooltip: tooltip,
+            icon: Icon(icon, size: iconSize),
+            color: fg,
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              fixedSize: Size(size, size),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              visualDensity: VisualDensity.standard,
+            ),
+            onPressed: onPressed,
+          ),
+        ],
       ),
     );
   }

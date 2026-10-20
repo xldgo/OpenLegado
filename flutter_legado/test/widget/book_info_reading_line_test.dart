@@ -1,3 +1,5 @@
+import '../fixtures/app_test_api.dart';
+
 // [P2-21] 08 详情页三行块（在读/最新/共N章+状态）回归测试：
 // - 在读行 off-by-one：durChapterIndex 为 0 基，dci=1 + 3 章目录必须取
 //   chapters[1].title（原实现按 1 基取 chapters[durIdx-1]，偏一章）
@@ -8,19 +10,23 @@
 //   E5 状态词 → 目录末章回落保留，回落同样不加后缀）
 // - 第三行三态（参考 Kotlin when 同源）：
 //   未读（dci==0 且 pos==0）/ 已读 N 章（N=dci+1）/ 已读完（dci+1==total）
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/book_info_screen.dart';
+import 'package:flutter_legado/src/domain/contracts/webdav_connection_repository.dart';
+import 'package:flutter_legado/src/providers/webdav_connection_provider.dart';
+import 'package:flutter_legado/src/features/book_detail/presentation/book_info_screen.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/theme/md3_colors.dart';
+
 import '../mocks/mocks.dart';
+
+class _MockConnectionRepository extends Mock
+    implements WebDavConnectionRepository {}
 
 void main() {
   setUpAll(registerFallbacks);
@@ -50,33 +56,68 @@ void main() {
     BookChapter(title: '第三章'),
   ];
 
-  Future<void> pumpBookInfo(
+  Future<MockRustApi> pumpBookInfo(
     WidgetTester tester,
     Book book, {
     List<BookChapter> chapters = const [],
+    WebDavConnectionRepository? connectionRepository,
   }) async {
     tester.view.physicalSize = const Size(1080, 2260);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     final mockApi = MockRustApi();
-    when(() => mockApi.getBook(any())).thenAnswer((_) async => book);
-    when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-    when(() => mockApi.getBooks()).thenAnswer((_) async => [book]);
-    when(() => mockApi.getBookGroups()).thenAnswer((_) async => const []);
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => const []);
-    when(() => mockApi.getConfig(any())).thenAnswer((_) async => '');
-    when(
-      () => mockApi.getChapterContent(any(), any()),
-    ).thenAnswer((_) async => '内容');
+    when(() => mockApi.bookshelfRepository.getBook(any()))
+        .thenAnswer((_) async => book);
+    when(() => mockApi.readingRepository.getChapters(any()))
+        .thenAnswer((_) async => chapters);
+    when(() => mockApi.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => [book]);
+    when(() => mockApi.bookGroupRepository.getBookGroups())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => const []);
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((_) async => '');
+    when(() => mockApi.readingRepository.getChapterContent(any(), any()))
+        .thenAnswer((_) async => '内容');
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([
+          ...mockApi.overrides,
+          if (connectionRepository != null)
+            webDavConnectionRepositoryProvider.overrideWithValue(
+              connectionRepository,
+            ),
+        ]),
         child: themeWrap(BookInfoScreen(book: book)),
       ),
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    return mockApi;
   }
+
+  testWidgets('详情上传前连接读取失败提示并停止，不使用旧配置上传', (tester) async {
+    final repository = _MockConnectionRepository();
+    when(() => repository.load()).thenThrow(StateError('模拟连接读取失败'));
+    final api = await pumpBookInfo(
+      tester,
+      const Book(
+        bookUrl: 'loc_book/test.txt',
+        name: '本地测试',
+        origin: BookType.localTag,
+      ),
+      connectionRepository: repository,
+    );
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('上传至远程'));
+    await tester.tap(find.text('上传至远程'));
+    await tester.pumpAndSettle();
+    expect(find.text('WebDAV 配置读取失败，请重试'), findsOneWidget);
+    verifyNever(() => api.webDavService.webdavUploadFile(any(), any(), any()));
+    expect(tester.takeException(), isNull);
+  });
 
   Book makeBook({
     int durChapterIndex = 0,

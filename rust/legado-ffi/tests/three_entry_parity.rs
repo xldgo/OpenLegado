@@ -11,7 +11,7 @@
 //! - 书源经 `add_source` 写入内存 DB（`init_in_memory_database` + `db_state::init_database`
 //!   全局池 first-wins）；
 //! - 三入口均走进程共享 HTTP 客户端（默认配置），按 P2-17 经验先
-//!   `NO_PROXY=127.0.0.1,localhost` + `reset_shared_client()`，防宿主代理劫持回环流量；
+//!   显式 `no_proxy` 客户端配置，防宿主代理劫持回环流量；
 //! - `search_books` / `multi_source_search` 内部使用 `runtime::block_on`，本文件为
 //!   普通 `#[test]`（非 `#[tokio::test]`），`run_multi_stream` 同样以
 //!   `legado_ffi::runtime::block_on` 驱动并收集全部批次。
@@ -40,7 +40,7 @@ use serde::Deserialize;
 
 const FIXTURE_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/search_s0");
 
-/// 全部测试串行：共享全局内存 DB、共享 HTTP 客户端单例与 `NO_PROXY` 环境变量，
+/// 全部测试串行：共享全局内存 DB、共享 HTTP 客户端单例与共享客户端配置，
 /// 并行会互相污染（与 http_state / db_state 内部测试的串行锁同一动机）
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -142,15 +142,20 @@ fn handle_conn(stream: &mut TcpStream, routes: &[Route], root: &str) {
 // ─── 环境装配 ─────────────────────────────────────────────────────────────────
 
 /// 测试环境装配（幂等，全局池 first-wins）：
-/// 内存 DB + 全局连接池 + `NO_PROXY` + 共享客户端重置
+/// 内存 DB + 全局连接池 + 显式直连客户端
 fn setup_env() {
     let db = legado_ffi::legado_db::init_in_memory_database().expect("内存数据库初始化");
     // 仅首次调用生效（OnceLock first-wins），后续测试复用同一池
     legado_ffi::db_state::init_database(db).expect("全局连接池初始化");
     // P2-17 经验：夹具流量全走 127.0.0.1 回环，共享客户端（默认配置）会随宿主
-    // env/系统代理路由；reqwest 构建时读取 NO_PROXY，重置单例令新客户端生效
-    std::env::set_var("NO_PROXY", "127.0.0.1,localhost");
-    legado_ffi::http_state::reset_shared_client();
+    // 系统代理路由；通过明确配置构建直连客户端
+    legado_ffi::http_state::reset_shared_client_with_config(
+        legado_ffi::legado_net::LegadoClientConfig {
+            no_proxy: true,
+            ..Default::default()
+        },
+    )
+    .expect("回环夹具客户端初始化");
 }
 
 /// 载入场景夹具并装配书源：启动服务器、回填 `{PORT}` 写入内存 DB
@@ -170,11 +175,11 @@ fn setup_scenario(scenario: &str) -> (String, String, usize, String) {
     let source_json = std::fs::read_to_string(format!("{root_dir}/source.json"))
         .unwrap()
         .replace("{PORT}", &port.to_string());
-    let source_url = serde_json::from_str::<serde_json::Value>(&source_json).unwrap()
-        ["bookSourceUrl"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let source_url =
+        serde_json::from_str::<serde_json::Value>(&source_json).unwrap()["bookSourceUrl"]
+            .as_str()
+            .unwrap()
+            .to_string();
     legado_ffi::api::source::add_source(&source_json).expect("夹具书源写入");
 
     (request.keyword, source_url, expected.count, expected.kind)

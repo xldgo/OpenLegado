@@ -1,23 +1,20 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../screens/code_edit_screen.dart';
+import '../../features/tools/presentation/code_edit_screen.dart';
+import '../legado_app_bar.dart';
 import 'help_markdown_builders.dart';
 import 'help_markdown_styles.dart';
 import 'help_sections.dart';
 
-/// 帮助文档弹窗（对标 Android TextDialog Mode.MD + showToc）
+/// Markdown 阅读内容，外层尺寸与关闭手势由共用 Sheet 入口管理。
 ///
-/// 约 90% 屏高、圆角模态；顶栏目录/源码/关闭；Markdown 样式对齐 HelpMarkwonTheme。
+/// 顶栏固定目录/源码/关闭操作，正文独立滚动。
 class HelpScreen extends StatefulWidget {
-  const HelpScreen({
-    super.key,
-    required this.assetPath,
-    this.title = '帮助',
-  });
+  const HelpScreen({super.key, required this.assetPath, this.title = '帮助'});
 
   /// 资产路径，如 `assets/web/help/md/appHelp.md`
   final String assetPath;
@@ -74,9 +71,8 @@ class _HelpScreenState extends State<HelpScreen> {
     if (uri == null) return;
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开链接：$href')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('无法打开链接：$href')));
       }
     }
   }
@@ -106,52 +102,48 @@ class _HelpScreenState extends State<HelpScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final size = MediaQuery.sizeOf(context);
+    final background =
+        theme.bottomSheetTheme.backgroundColor ?? cs.surfaceContainerLow;
 
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: size.width * 0.05,
-        vertical: size.height * 0.05,
-      ),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: SizedBox(
-        width: size.width * 0.9,
-        height: size.height * 0.9,
-        child: Scaffold(
-          key: _scaffoldKey,
-          backgroundColor: theme.scaffoldBackgroundColor,
-          endDrawer: _sections.isEmpty ? null : _buildTocDrawer(theme, cs),
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            centerTitle: false,
-            title: Text(
-              widget.title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+    return SafeArea(
+      top: false,
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: background,
+        endDrawer: _sections.isEmpty ? null : _buildTocDrawer(theme, cs),
+        appBar: LegadoAppBar(
+          showBack: false,
+          primary: false,
+          backgroundColor: background,
+          foregroundColor: cs.onSurface,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          title: Text(
+            widget.title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-            actions: [
-              if (_sections.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Symbols.list_alt_rounded),
-                  tooltip: '目录',
-                  onPressed: () =>
-                      _scaffoldKey.currentState?.openEndDrawer(),
-                ),
-              IconButton(
-                icon: const Icon(Symbols.code_rounded),
-                tooltip: '源码',
-                onPressed: _markdown == null ? null : _openSourceView,
-              ),
-              TextButton(
-                onPressed: _close,
-                child: const Text('关闭'),
-              ),
-            ],
           ),
-          body: _buildBody(theme),
+          actions: [
+            if (_sections.isNotEmpty)
+              IconButton(
+                icon: const Icon(Symbols.list_alt_rounded),
+                tooltip: '目录',
+                onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+              ),
+            IconButton(
+              icon: const Icon(Symbols.code_rounded),
+              tooltip: '源码',
+              onPressed: _markdown == null ? null : _openSourceView,
+            ),
+            IconButton(
+              icon: const Icon(Symbols.close_rounded),
+              tooltip: '关闭',
+              onPressed: _close,
+            ),
+          ],
         ),
+        body: _buildBody(theme),
       ),
     );
   }
@@ -205,13 +197,15 @@ class _HelpScreenState extends State<HelpScreen> {
                   final selected = _selectedSection == index;
                   return ListTile(
                     selected: selected,
-                    selectedTileColor:
-                        cs.primaryContainer.withValues(alpha: 0.35),
+                    selectedTileColor: cs.primaryContainer.withValues(
+                      alpha: 0.35,
+                    ),
                     title: Text(
                       labels[index],
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
                     onTap: () => _selectSection(index),

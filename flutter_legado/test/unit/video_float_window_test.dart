@@ -1,10 +1,18 @@
+import 'package:flutter_legado/src/data/repositories/config_video_progress_repository.dart';
+
+import '../fixtures/config_repository.dart';
+
 import 'dart:async';
 import 'dart:io';
+
+import '../mocks/reading_fixture.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/services/book_api.dart';
+
+import '../fixtures/app_test_api.dart';
+
 import 'package:flutter_legado/src/services/video_float_window.dart';
 
 /// [V-B3] 视频悬浮窗 Dart 侧单测：
@@ -65,8 +73,30 @@ class _FakeBridge extends VideoFloatWindowBridge {
   }
 }
 
-/// 假 BookApi：只承接协调器用到的读章节/落库/进度配置方法
-class _FakeBookApi implements BookApi {
+/// 假 TestApi：只承接协调器用到的读章节/落库/进度配置方法
+class _FakeBookApi implements TestApi {
+  @override
+  late final configRepository = TestConfigRepository(
+    read: (_) async => null,
+    write: (key, value) async {
+      configWrites.add({#key: key, #value: value});
+    },
+  );
+  @override
+  late final readingRepository = TestReadingRepository(
+    fetchChapterContent: (bookUrl, chapterUrl, sourceUrl) =>
+        fetchGate?.future ?? Future.value(chapterContents[chapterUrl] ?? ''),
+    getChapterContent: (bookUrl, index) async =>
+        chapterContents['#$index'] ?? '',
+    updateReadingProgress:
+        ({required bookUrl, required chapterIndex, required chapterPos}) async {
+          progressCalls.add({
+            #bookUrl: bookUrl,
+            #chapterIndex: chapterIndex,
+            #chapterPos: chapterPos,
+          });
+        },
+  );
   final Map<String, String> chapterContents = {};
   final List<Map<Symbol, dynamic>> progressCalls = [];
   final List<Map<Symbol, dynamic>> configWrites = [];
@@ -77,22 +107,8 @@ class _FakeBookApi implements BookApi {
   @override
   dynamic noSuchMethod(Invocation invocation) {
     final name = invocation.memberName.toString();
-    if (name == 'Symbol("fetchChapterContent")') {
-      final gate = fetchGate;
-      if (gate != null) return gate.future;
-      final url = invocation.positionalArguments[1].toString();
-      return Future<String>.value(chapterContents[url] ?? '');
-    }
-    if (name == 'Symbol("getChapterContent")') {
-      final index = invocation.positionalArguments[1] as int;
-      return Future<String>.value(chapterContents['#$index'] ?? '');
-    }
-    if (name == 'Symbol("updateReadingProgress")') {
-      progressCalls.add(Map<Symbol, dynamic>.from(invocation.namedArguments));
-      return Future<void>.value();
-    }
     if (name == 'Symbol("setConfig")') {
-      // setConfig(key, value) 为位置参数（BookApi:633）
+      // setConfig(key, value) 为位置参数（TestApi:633）
       configWrites.add({
         #key: invocation.positionalArguments.isNotEmpty
             ? invocation.positionalArguments[0]
@@ -119,17 +135,16 @@ VideoFloatWindowState _state({
   String? directUrl,
   int chapterIndex = 0,
   int positionMs = 0,
-}) =>
-    VideoFloatWindowState(
-      url: url,
-      title: '第1集',
-      bookName: '测试书',
-      bookUrl: bookUrl,
-      directUrl: directUrl,
-      chapterIndex: chapterIndex,
-      positionMs: positionMs,
-      headers: const {'Referer': 'https://example.com'},
-    );
+}) => VideoFloatWindowState(
+  url: url,
+  title: '第1集',
+  bookName: '测试书',
+  bookUrl: bookUrl,
+  directUrl: directUrl,
+  chapterIndex: chapterIndex,
+  positionMs: positionMs,
+  headers: const {'Referer': 'https://example.com'},
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -184,21 +199,36 @@ void main() {
 
     test('isSameContent 按书籍/直链模式判定同源', () {
       final bookState = _state(bookUrl: 'book://1', chapterIndex: 3);
-      expect(bookState.isSameContent(bookUrl: 'book://1', videoUrl: null), isTrue);
-      expect(bookState.isSameContent(bookUrl: 'book://2', videoUrl: null), isFalse);
-
-      final direct = _state(directUrl: 'https://cdn.example/direct');
       expect(
-        direct.isSameContent(bookUrl: null, videoUrl: 'https://cdn.example/direct'),
+        bookState.isSameContent(bookUrl: 'book://1', videoUrl: null),
         isTrue,
       );
       expect(
-        direct.isSameContent(bookUrl: null, videoUrl: 'https://cdn.example/other'),
+        bookState.isSameContent(bookUrl: 'book://2', videoUrl: null),
+        isFalse,
+      );
+
+      final direct = _state(directUrl: 'https://cdn.example/direct');
+      expect(
+        direct.isSameContent(
+          bookUrl: null,
+          videoUrl: 'https://cdn.example/direct',
+        ),
+        isTrue,
+      );
+      expect(
+        direct.isSameContent(
+          bookUrl: null,
+          videoUrl: 'https://cdn.example/other',
+        ),
         isFalse,
       );
       // 书籍态对直链查询 / 直链态对书籍查询 → 不同源
       expect(bookState.isSameContent(bookUrl: null, videoUrl: 'x'), isFalse);
-      expect(direct.isSameContent(bookUrl: 'book://1', videoUrl: null), isFalse);
+      expect(
+        direct.isSameContent(bookUrl: 'book://1', videoUrl: null),
+        isFalse,
+      );
     });
   });
 
@@ -223,7 +253,7 @@ void main() {
         state: _state(bookUrl: 'book://1'),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       expect(ok, isTrue);
       expect(coord.isCapturing, isTrue);
@@ -233,7 +263,10 @@ void main() {
     test('enterWindow 失败（无权限）不捕获', () async {
       final bridge = _FakeBridge()..showResult = false;
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
-      final ok = await coord.enterWindow(state: _state(), api: _FakeBookApi());
+      final ok = await coord.enterWindow(
+        state: _state(),
+        reading: _FakeBookApi().readingRepository,
+      );
       expect(ok, isFalse);
       expect(coord.isCapturing, isFalse);
     });
@@ -252,15 +285,18 @@ void main() {
         state: _state(bookUrl: 'book://1', chapterIndex: 0, positionMs: 1000),
         book: book,
         chapters: chapters,
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
-      await coord.handleNativeEvent(MethodCall('onCompleted', {
-        'url': 'https://cdn.example/1.m3u8',
-        'bookUrl': 'book://1',
-        'chapterIndex': 0,
-        'positionMs': 60000,
-      }));
+      await coord.handleNativeEvent(
+        MethodCall('onCompleted', {
+          'url': 'https://cdn.example/1.m3u8',
+          'bookUrl': 'book://1',
+          'chapterIndex': 0,
+          'positionMs': 60000,
+        }),
+      );
 
       expect(bridge.shown, hasLength(2));
       final next = bridge.shown.last;
@@ -287,15 +323,18 @@ void main() {
         state: _state(bookUrl: 'book://1'),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
-      await coord.handleNativeEvent(MethodCall('onCompleted', {
-        'url': 'https://cdn.example/1.m3u8',
-        'bookUrl': 'book://1',
-        'chapterIndex': 0,
-        'positionMs': 60000,
-      }));
+      await coord.handleNativeEvent(
+        MethodCall('onCompleted', {
+          'url': 'https://cdn.example/1.m3u8',
+          'bookUrl': 'book://1',
+          'chapterIndex': 0,
+          'positionMs': 60000,
+        }),
+      );
 
       expect(notices, contains('已播放完'));
       expect(bridge.calls, contains('dismiss'));
@@ -319,7 +358,8 @@ void main() {
         state: _state(bookUrl: 'book://1', chapterIndex: 0),
         book: book,
         chapters: chapters,
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
       await coord.handleNativeEvent(const MethodCall('onSkipNext', null));
@@ -334,14 +374,17 @@ void main() {
       final api = _FakeBookApi();
       await coord.enterWindow(
         state: _state(directUrl: 'https://cdn.example/direct'),
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
-      await coord.handleNativeEvent(MethodCall('onClosed', {
-        'url': 'https://cdn.example/1.m3u8',
-        'directUrl': 'https://cdn.example/direct',
-        'positionMs': 7000,
-      }));
+      await coord.handleNativeEvent(
+        MethodCall('onClosed', {
+          'url': 'https://cdn.example/1.m3u8',
+          'directUrl': 'https://cdn.example/direct',
+          'positionMs': 7000,
+        }),
+      );
 
       expect(api.configWrites, isNotEmpty);
       expect(api.configWrites.single[#key].toString(), contains('direct'));
@@ -358,7 +401,8 @@ void main() {
         state: _state(bookUrl: 'book://1'),
         book: book,
         chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       VideoFloatWindowState? captured;
       Book? capturedBook;
@@ -383,41 +427,47 @@ void main() {
       expect(coord.isCapturing, isFalse);
     });
 
-    test('handleNativeEvent onReturnToFullscreen 分发到 handleReturnState（热路径）', () async {
-      final bridge = _FakeBridge();
-      final coord = VideoFloatWindowCoordinator(bridge: bridge);
-      final api = _FakeBookApi();
-      final book = Book(name: '书', bookUrl: 'book://1', origin: 'o');
-      await coord.enterWindow(
-        state: _state(bookUrl: 'book://1'),
-        book: book,
-        chapters: [BookChapter(url: 'c1', title: '第1集')],
-        api: api,
-      );
-      VideoFloatWindowState? captured;
-      Book? capturedBook;
-      coord.openFullscreen = (state, b) {
-        captured = state;
-        capturedBook = b;
-      };
+    test(
+      'handleNativeEvent onReturnToFullscreen 分发到 handleReturnState（热路径）',
+      () async {
+        final bridge = _FakeBridge();
+        final coord = VideoFloatWindowCoordinator(bridge: bridge);
+        final api = _FakeBookApi();
+        final book = Book(name: '书', bookUrl: 'book://1', origin: 'o');
+        await coord.enterWindow(
+          state: _state(bookUrl: 'book://1'),
+          book: book,
+          chapters: [BookChapter(url: 'c1', title: '第1集')],
+          reading: api.readingRepository,
+          progress: ConfigVideoProgressRepository(api.configRepository),
+        );
+        VideoFloatWindowState? captured;
+        Book? capturedBook;
+        coord.openFullscreen = (state, b) {
+          captured = state;
+          capturedBook = b;
+        };
 
-      // round1 B3 阻塞项回归：Kotlin deliverReturn 发 onReturnToFullscreen，
-      // 修复前 handleNativeEvent 无此 case 静默丢弃（停留书架不回播放页）。
-      await coord.handleNativeEvent(MethodCall('onReturnToFullscreen', {
-        'url': 'https://cdn.example/1.m3u8',
-        'bookUrl': 'book://1',
-        'chapterIndex': 0,
-        'positionMs': 5000,
-        'playing': true,
-      }));
+        // round1 B3 阻塞项回归：Kotlin deliverReturn 发 onReturnToFullscreen，
+        // 修复前 handleNativeEvent 无此 case 静默丢弃（停留书架不回播放页）。
+        await coord.handleNativeEvent(
+          MethodCall('onReturnToFullscreen', {
+            'url': 'https://cdn.example/1.m3u8',
+            'bookUrl': 'book://1',
+            'chapterIndex': 0,
+            'positionMs': 5000,
+            'playing': true,
+          }),
+        );
 
-      expect(captured, isNotNull, reason: '热路径必须分发到 handleReturnState');
-      expect(captured!.positionMs, 5000);
-      expect(captured!.playing, isTrue);
-      expect(capturedBook?.bookUrl, 'book://1');
-      expect(api.progressCalls, isNotEmpty);
-      expect(coord.isCapturing, isFalse);
-    });
+        expect(captured, isNotNull, reason: '热路径必须分发到 handleReturnState');
+        expect(captured!.positionMs, 5000);
+        expect(captured!.playing, isTrue);
+        expect(capturedBook?.bookUrl, 'book://1');
+        expect(api.progressCalls, isNotEmpty);
+        expect(coord.isCapturing, isFalse);
+      },
+    );
 
     test('probeAndTakeOver 同源接管 / 异源关闭并落库', () async {
       final bridge = _FakeBridge();
@@ -425,7 +475,11 @@ void main() {
       final api = _FakeBookApi();
 
       bridge.probeState = _state(bookUrl: 'book://1', positionMs: 9000);
-      final taken = await coord.probeAndTakeOver(bookUrl: 'book://1', api: api);
+      final taken = await coord.probeAndTakeOver(
+        bookUrl: 'book://1',
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
+      );
       expect(taken, isNotNull);
       expect(taken!.positionMs, 9000);
       expect(bridge.calls, contains('takeOver'));
@@ -436,7 +490,8 @@ void main() {
       );
       final notTaken = await coord.probeAndTakeOver(
         videoUrl: 'https://cdn.example/new',
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       expect(notTaken, isNull);
       expect(bridge.calls, contains('dismiss'));
@@ -452,7 +507,10 @@ void main() {
         ..showErrorCode = 'background_start_rejected';
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
       expect(
-        await coord.enterWindow(state: _state(), api: _FakeBookApi()),
+        await coord.enterWindow(
+          state: _state(),
+          reading: _FakeBookApi().readingRepository,
+        ),
         isFalse,
       );
       expect(coord.lastEnterError, 'background_start_rejected');
@@ -464,10 +522,16 @@ void main() {
         ..showResult = false
         ..showErrorCode = 'no_overlay_permission';
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
-      await coord.enterWindow(state: _state(), api: _FakeBookApi());
+      await coord.enterWindow(
+        state: _state(),
+        reading: _FakeBookApi().readingRepository,
+      );
       expect(coord.lastEnterError, 'no_overlay_permission');
       bridge.showResult = true;
-      await coord.enterWindow(state: _state(), api: _FakeBookApi());
+      await coord.enterWindow(
+        state: _state(),
+        reading: _FakeBookApi().readingRepository,
+      );
       expect(coord.lastEnterError, isNull);
     });
 
@@ -482,22 +546,27 @@ void main() {
           BookChapter(url: 'c1', title: '第1集'),
           BookChapter(url: 'c2', title: '第2集'),
         ],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
 
-      final advance = coord.handleNativeEvent(MethodCall('onCompleted', {
-        'url': 'https://cdn.example/1.m3u8',
-        'bookUrl': 'book://1',
-        'chapterIndex': 0,
-        'positionMs': 60000,
-      }));
+      final advance = coord.handleNativeEvent(
+        MethodCall('onCompleted', {
+          'url': 'https://cdn.example/1.m3u8',
+          'bookUrl': 'book://1',
+          'chapterIndex': 0,
+          'positionMs': 60000,
+        }),
+      );
       // 模拟原生 10s 完播退出：onClosed 清会话（慢源回调仍在途中）
-      await coord.handleNativeEvent(MethodCall('onClosed', {
-        'url': 'https://cdn.example/1.m3u8',
-        'bookUrl': 'book://1',
-        'chapterIndex': 0,
-        'positionMs': 60000,
-      }));
+      await coord.handleNativeEvent(
+        MethodCall('onClosed', {
+          'url': 'https://cdn.example/1.m3u8',
+          'bookUrl': 'book://1',
+          'chapterIndex': 0,
+          'positionMs': 60000,
+        }),
+      );
       api.fetchGate!.complete('https://cdn.example/2.m3u8');
       await advance;
 
@@ -517,17 +586,19 @@ void main() {
         state: _state(bookUrl: 'book://1', chapterIndex: 0),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: chapters,
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
-      final advance =
-          coord.handleNativeEvent(const MethodCall('onSkipNext', null));
+      final advance = coord.handleNativeEvent(
+        const MethodCall('onSkipNext', null),
+      );
       // 页面接管后再次移交 → 新会话
       coord.resetForTest();
       await coord.enterWindow(
         state: _state(url: 'https://cdn.example/new.m3u8', bookUrl: 'book://1'),
         book: Book(name: '书', bookUrl: 'book://1', origin: 'o'),
         chapters: chapters,
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       api.fetchGate!.complete('https://cdn.example/2.m3u8');
       await advance;
@@ -545,14 +616,15 @@ void main() {
           bookUrl: 'book://1',
           chapterIndex: 0,
           positionMs: 9000,
-          mpdTempPath: '${Directory.systemTemp.path}'
+          mpdTempPath:
+              '${Directory.systemTemp.path}'
               '${Platform.pathSeparator}legado_gone_'
               '${DateTime.now().microsecondsSinceEpoch}.mpd',
         );
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
       final taken = await coord.probeAndTakeOver(
         bookUrl: 'book://1',
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       expect(taken, isNull);
       expect(bridge.calls, contains('takeOver'));
@@ -566,7 +638,7 @@ void main() {
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
       final taken = await coord.probeAndTakeOver(
         bookUrl: 'book://1',
-        api: _FakeBookApi(),
+        reading: _FakeBookApi().readingRepository,
       );
       expect(taken, isNotNull);
       expect(taken!.positionMs, 9000);
@@ -580,15 +652,16 @@ void main() {
       });
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('plugins.flutter.io/path_provider'),
-        (call) async => tempDir.path,
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (call) async => tempDir.path,
+          );
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('plugins.flutter.io/path_provider'),
+              null,
+            ),
       );
-      addTearDown(() => TestDefaultBinaryMessengerBinding
-          .instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-        const MethodChannel('plugins.flutter.io/path_provider'),
-        null,
-      ));
 
       final bridge = _FakeBridge();
       final coord = VideoFloatWindowCoordinator(bridge: bridge);
@@ -602,17 +675,20 @@ void main() {
           BookChapter(url: 'c1', title: '第1集'),
           BookChapter(url: 'c2', title: '第2集'),
         ],
-        api: api,
+        reading: api.readingRepository,
+        progress: ConfigVideoProgressRepository(api.configRepository),
       );
       // 连播的 replace 提交失败（模拟无权限 / 服务启动被拒）
       bridge.showResult = false;
 
-      await coord.handleNativeEvent(MethodCall('onCompleted', {
-        'url': 'https://cdn.example/1.m3u8',
-        'bookUrl': 'book://1',
-        'chapterIndex': 0,
-        'positionMs': 60000,
-      }));
+      await coord.handleNativeEvent(
+        MethodCall('onCompleted', {
+          'url': 'https://cdn.example/1.m3u8',
+          'bookUrl': 'book://1',
+          'chapterIndex': 0,
+          'positionMs': 60000,
+        }),
+      );
 
       expect(bridge.calls.where((c) => c == 'show').length, 2);
       final leakedPath = bridge.shown.last.mpdTempPath;

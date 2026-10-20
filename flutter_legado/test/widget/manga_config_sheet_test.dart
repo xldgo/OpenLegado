@@ -11,12 +11,12 @@
 // 4. 阅读模式 5 按钮组（单页式 ×3 + 条漫 ×2，选中 primaryContainer 高亮）
 //    + 模式条件行互斥（单页式「页面适配」下拉 / 条漫「侧边留白」滑杆
 //    0..45%）+ 页脚快捷行（左对齐/居中/隐藏页脚 三按钮 + 页脚预览条）。
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/manga_config.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
-import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +64,10 @@ void main() {
   /// 收集 sheet 内所有带显式 BoxDecoration.color 的容器颜色集合
   Set<Color> containerColors(WidgetTester tester) {
     final containers = tester.widgetList<Container>(
-      find.descendant(of: find.byType(MangaConfigSheet), matching: find.byType(Container)),
+      find.descendant(
+        of: find.byType(MangaConfigSheet),
+        matching: find.byType(Container),
+      ),
     );
     return containers
         .map((c) => (c.decoration as BoxDecoration?)?.color)
@@ -82,36 +85,57 @@ void main() {
     expect(tester.widget<Text>(find.text('亮度')).style!.color, scheme.onSurface);
 
     // 分组标题 / 开关副标题 / 滑杆数值 → onSurfaceVariant
-    expect(tester.widget<Text>(find.text('显示效果')).style!.color, scheme.onSurfaceVariant);
+    expect(
+      tester.widget<Text>(find.text('显示效果')).style!.color,
+      scheme.onSurfaceVariant,
+    );
     expect(
       tester.widget<Text>(find.text('灰度近似；阈值已持久化')).style!.color,
       scheme.onSurfaceVariant,
     );
-    expect(tester.widget<Text>(find.text('40')).style!.color, scheme.onSurfaceVariant);
+    expect(
+      tester.widget<Text>(find.text('40')).style!.color,
+      scheme.onSurfaceVariant,
+    );
 
     // 容器底色：根背景 = surfaceContainerHighest / 卡片 = surface
     final colors = containerColors(tester);
-    expect(colors, contains(scheme.surfaceContainerHighest),
-        reason: 'sheet 根背景应取自 surfaceContainerHighest');
-    expect(colors, contains(scheme.surface),
-        reason: '卡片底色应取自 surface');
+    expect(
+      colors,
+      contains(scheme.surfaceContainerHighest),
+      reason: 'sheet 根背景应取自 surfaceContainerHighest',
+    );
+    expect(colors, contains(scheme.surface), reason: '卡片底色应取自 surface');
 
     // 旧 iOS 硬编码浅色调色板不应再出现
-    expect(colors, isNot(contains(const Color(0xFFF2F2F7))),
-        reason: '旧硬编码背景 #F2F2F7 不应残留');
-    expect(colors, isNot(contains(Colors.white)),
-        reason: '旧硬编码白卡不应残留');
-    expect(colors, isNot(contains(const Color(0xFFC7C7CC))),
-        reason: '旧硬编码把手 #C7C7CC 不应残留');
+    expect(
+      colors,
+      isNot(contains(const Color(0xFFF2F2F7))),
+      reason: '旧硬编码背景 #F2F2F7 不应残留',
+    );
+    expect(colors, isNot(contains(Colors.white)), reason: '旧硬编码白卡不应残留');
+    expect(
+      colors,
+      isNot(contains(const Color(0xFFC7C7CC))),
+      reason: '旧硬编码把手 #C7C7CC 不应残留',
+    );
 
     // 把手（36×5）→ outlineVariant
     final containers = tester.widgetList<Container>(
-      find.descendant(of: find.byType(MangaConfigSheet), matching: find.byType(Container)),
+      find.descendant(
+        of: find.byType(MangaConfigSheet),
+        matching: find.byType(Container),
+      ),
     );
     final handleConstraints = BoxConstraints.tight(const Size(36, 5));
-    final handle = containers.singleWhere((c) => c.constraints == handleConstraints);
-    expect((handle.decoration as BoxDecoration).color, scheme.outlineVariant,
-        reason: '拖动把手应取自 outlineVariant');
+    final handle = containers.singleWhere(
+      (c) => c.constraints == handleConstraints,
+    );
+    expect(
+      (handle.decoration as BoxDecoration).color,
+      scheme.outlineVariant,
+      reason: '拖动把手应取自 outlineVariant',
+    );
 
     // 分隔线 → outlineVariant
     for (final d in tester.widgetList<Divider>(find.byType(Divider))) {
@@ -126,8 +150,7 @@ void main() {
     assertColorsFromScheme(tester, AppTheme.dark.colorScheme);
   });
 
-  testWidgets('亮色主题：无异常渲染且颜色取自 light scheme（亮色回归锚定）',
-      (tester) async {
+  testWidgets('亮色主题：无异常渲染且颜色取自 light scheme（亮色回归锚定）', (tester) async {
     await tester.pumpWidget(buildSheet(ThemeMode.light));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -138,22 +161,22 @@ void main() {
   // [P4-3 M3 修4] 面板重组（对齐用户截图 / 参考版 MangaSettingsPanel）
   // ---------------------------------------------------------------------------
   group('[P4-3 M3 修4] 面板重组', () {
-    testWidgets(
-        '阅读模式 5 按钮组 + 模式条件行互斥（条漫侧边留白 / 单页式页面适配）',
-        (tester) async {
+    testWidgets('阅读模式 5 按钮组 + 模式条件行互斥（条漫侧边留白 / 单页式页面适配）', (tester) async {
       var capturedMode = -1;
       var capturedSide = -1;
       var sideCalls = 0;
-      await tester.pumpWidget(buildSheet(
-        ThemeMode.dark,
-        sidePadding: 15,
-        onSidePaddingChanged: (v) {
-          capturedSide = v;
-          sideCalls++;
-        },
-        onPageScaleTypeChanged: (_) {},
-        onScrollModeChanged: (m) => capturedMode = m,
-      ));
+      await tester.pumpWidget(
+        buildSheet(
+          ThemeMode.dark,
+          sidePadding: 15,
+          onSidePaddingChanged: (v) {
+            capturedSide = v;
+            sideCalls++;
+          },
+          onPageScaleTypeChanged: (_) {},
+          onScrollModeChanged: (m) => capturedMode = m,
+        ),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -199,16 +222,17 @@ void main() {
       expect(capturedSide, inInclusiveRange(0, 45));
     });
 
-    testWidgets('页脚快捷行：左对齐/居中/隐藏页脚 三按钮 + 预览条',
-        (tester) async {
+    testWidgets('页脚快捷行：左对齐/居中/隐藏页脚 三按钮 + 预览条', (tester) async {
       // sheet 内 setState 原地修改同一 _footer 实例后再回调，故在回调时
       // 快照 (orientation, hideFooter) 字段值
       final records = <(int, bool)>[];
-      await tester.pumpWidget(buildSheet(
-        ThemeMode.dark,
-        onFooterChanged: (f) =>
-            records.add((f.footerOrientation, f.hideFooter)),
-      ));
+      await tester.pumpWidget(
+        buildSheet(
+          ThemeMode.dark,
+          onFooterChanged: (f) =>
+              records.add((f.footerOrientation, f.hideFooter)),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -224,8 +248,15 @@ void main() {
       expect(find.text('隐藏页脚'), findsOneWidget);
       // [P4-3 M4 批1] 内容胶囊组：7 段胶囊 + 预览条全段样例文案
       //（第三话 / 页数 4/30 / 章节 1/45 / 总进度 0.3%）
-      for (final cap
-          in const ['第三话', '页数', '4/30', '章节', '1/45', '总进度', '0.3%']) {
+      for (final cap in const [
+        '第三话',
+        '页数',
+        '4/30',
+        '章节',
+        '1/45',
+        '总进度',
+        '0.3%',
+      ]) {
         expect(find.text(cap), findsOneWidget, reason: '内容胶囊 $cap 缺');
       }
       expect(
@@ -239,12 +270,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(records, [(MangaFooterConfig.alignCenter, false)]);
       // 预览条文字随对齐切换仍为同一样例（textAlign 随 orientation 变）
-      final previewText =
-          tester.widgetList<Text>(find.byType(Text)).firstWhere(
-                (t) =>
-                    t.data?.isNotEmpty == true &&
-                    (t.textAlign ?? TextAlign.left) == TextAlign.center,
-              );
+      final previewText = tester
+          .widgetList<Text>(find.byType(Text))
+          .firstWhere(
+            (t) =>
+                t.data?.isNotEmpty == true &&
+                (t.textAlign ?? TextAlign.left) == TextAlign.center,
+          );
       expect(previewText.data, contains('第三话'));
 
       // 点「隐藏页脚」→ hideFooter 置位，预览条改为「页脚已隐藏」占位；
@@ -260,8 +292,7 @@ void main() {
       await tester.tap(find.text('隐藏页脚'));
       await tester.pumpAndSettle();
       expect(records.last, (MangaFooterConfig.alignCenter, false));
-      expect(find.text('第三话'), findsOneWidget,
-          reason: '恢复后内容胶囊「第三话」应渲染');
+      expect(find.text('第三话'), findsOneWidget, reason: '恢复后内容胶囊「第三话」应渲染');
       expect(
         find.text('第三话 页数4/30 章节1/45 总进度0.3%'),
         findsOneWidget,
@@ -282,17 +313,17 @@ void main() {
   // 隐藏段降透明度 + 删除线，胶囊本体仍渲染）
   // ---------------------------------------------------------------------------
   group('[P4-3 M4 批1] 页脚内容胶囊组', () {
-    testWidgets(
-        '7 段胶囊存在；点击 toggle 对应 hide 字段经回调传出，预览条即时更新',
-        (tester) async {
+    testWidgets('7 段胶囊存在；点击 toggle 对应 hide 字段经回调传出，预览条即时更新', (tester) async {
       // sheet 内 setState 原地修改同一 _footer 实例后再回调 → 回调时
       // 用 fromStorage(toStorage()) 快照，逐条记录字段状态
       final records = <MangaFooterConfig>[];
-      await tester.pumpWidget(buildSheet(
-        ThemeMode.dark,
-        onFooterChanged: (f) =>
-            records.add(MangaFooterConfig.fromStorage(f.toStorage())),
-      ));
+      await tester.pumpWidget(
+        buildSheet(
+          ThemeMode.dark,
+          onFooterChanged: (f) =>
+              records.add(MangaFooterConfig.fromStorage(f.toStorage())),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -302,8 +333,15 @@ void main() {
       await tester.pumpAndSettle();
 
       // 默认全段显示：7 个内容胶囊 + 预览条全段样例文案
-      for (final cap
-          in const ['第三话', '页数', '4/30', '章节', '1/45', '总进度', '0.3%']) {
+      for (final cap in const [
+        '第三话',
+        '页数',
+        '4/30',
+        '章节',
+        '1/45',
+        '总进度',
+        '0.3%',
+      ]) {
         expect(find.text(cap), findsOneWidget, reason: '内容胶囊 $cap 缺');
       }
       expect(find.text('第三话 页数4/30 章节1/45 总进度0.3%'), findsOneWidget);
@@ -327,8 +365,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(records.length, 2);
       expect(records.last.hideProgressRatioLabel, isTrue);
-      expect(records.last.hideProgressRatio, isFalse,
-          reason: '仅隐藏「总进度」标签，进度值段不应受影响');
+      expect(
+        records.last.hideProgressRatio,
+        isFalse,
+        reason: '仅隐藏「总进度」标签，进度值段不应受影响',
+      );
       expect(
         find.text('页数4/30 章节1/45 0.3%'),
         findsOneWidget,
@@ -340,11 +381,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(records.length, 3);
       expect(records.last.hideProgressRatio, isTrue);
-      expect(
-        find.text('页数4/30 章节1/45'),
-        findsOneWidget,
-        reason: '预览条应失去进度值段',
-      );
+      expect(find.text('页数4/30 章节1/45'), findsOneWidget, reason: '预览条应失去进度值段');
 
       // 点「页数」→ hidePageNumberLabel 置位（隐藏段标签，值保留）
       await tester.tap(find.text('页数'));
@@ -363,8 +400,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(records.length, 5);
       expect(records.last.hidePageNumberLabel, isFalse);
-      expect(records.last.hideChapterName, isTrue,
-          reason: '早先置位的章名隐藏不应被后续 toggle 冲掉');
+      expect(
+        records.last.hideChapterName,
+        isTrue,
+        reason: '早先置位的章名隐藏不应被后续 toggle 冲掉',
+      );
       expect(find.text('页数4/30 章节1/45'), findsOneWidget);
     });
   });

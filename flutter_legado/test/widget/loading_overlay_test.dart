@@ -1,13 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/loading_overlay.dart';
 import 'package:flutter_legado/src/widgets/md3_loading_indicator.dart';
 
 void main() {
-  Widget buildTestWidget({
-    bool isLoading = false,
-    String? message,
-  }) {
+  Widget buildTestWidget({bool isLoading = false, String? message}) {
     return MaterialApp(
       home: Scaffold(
         body: LoadingOverlay(
@@ -33,24 +30,23 @@ void main() {
     expect(find.byType(Md3LoadingIndicator), findsOneWidget);
   });
 
-  testWidgets('LoadingOverlay hides indicator when not loading',
-      (tester) async {
+  testWidgets('LoadingOverlay hides indicator when not loading', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(isLoading: false));
 
     expect(find.byType(Md3LoadingIndicator), findsNothing);
   });
 
   testWidgets('LoadingOverlay shows message when provided', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      isLoading: true,
-      message: '加载中...',
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(isLoading: true, message: '加载中...'),
+    );
 
     expect(find.text('加载中...'), findsOneWidget);
   });
 
-  testWidgets('LoadingOverlay hides message when not provided',
-      (tester) async {
+  testWidgets('LoadingOverlay hides message when not provided', (tester) async {
     await tester.pumpWidget(buildTestWidget(isLoading: true));
 
     expect(find.text('加载中...'), findsNothing);

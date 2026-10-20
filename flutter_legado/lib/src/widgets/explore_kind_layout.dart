@@ -5,16 +5,16 @@
 /// java.refreshExplore 触发分类重载。
 library;
 
-import 'dart:async';
-import 'dart:convert';
+import '../l10n/app_localization.dart';
 
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../models/models.dart';
-import '../providers/providers.dart';
+import '../providers/explore/explore_dependencies.dart';
 import 'explore_kind_action.dart';
 import 'md3_picker_sheet.dart';
 
@@ -26,13 +26,11 @@ Future<String?> _loadStoredInfoMapValue(
   String key,
 ) async {
   try {
-    final json =
-        await ref.read(bookApiProvider).exploreInfoMapSnapshot(sourceUrl);
-    final map = jsonDecode(json);
-    if (map is Map<String, dynamic>) {
-      final v = map[key]?.toString();
-      return (v != null && v.isNotEmpty) ? v : null;
-    }
+    final map = await ref
+        .read(exploreStateRepositoryProvider)
+        .snapshot(sourceUrl);
+    final value = map[key];
+    return value != null && value.isNotEmpty ? value : null;
   } catch (_) {}
   return null;
 }
@@ -42,14 +40,14 @@ class ExploreKindLayout extends StatelessWidget {
   const ExploreKindLayout({
     super.key,
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.categories,
     this.onCategoryTap,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final List<ExploreCategory> categories;
   final void Function(String title, String url)? onCategoryTap;
   final Future<void> Function()? onRefreshCategories;
@@ -74,7 +72,7 @@ class ExploreKindLayout extends StatelessWidget {
           children.add(
             _ExploreKindItem(
               sourceUrl: sourceUrl,
-              sourceJson: sourceJson,
+              source: source,
               category: category,
               width: _chipWidth(maxWidth, style),
               onCategoryTap: onCategoryTap,
@@ -108,17 +106,16 @@ class ExploreKindLayout extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       builder: (ctx) => AlertDialog(
-        title: const Text('发现分类加载失败'),
+        title: Text(context.l10n.discoveryCategoriesLoadFailed),
         content: SelectableText(
           message,
-          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(ctx).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('确定'),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -129,7 +126,7 @@ class ExploreKindLayout extends StatelessWidget {
 class _ExploreKindItem extends ConsumerWidget {
   const _ExploreKindItem({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onCategoryTap,
@@ -137,7 +134,7 @@ class _ExploreKindItem extends ConsumerWidget {
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final void Function(String title, String url)? onCategoryTap;
@@ -148,28 +145,28 @@ class _ExploreKindItem extends ConsumerWidget {
     return switch (category.type) {
       'toggle' => _ToggleChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
       ),
       'select' => _SelectChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
       ),
       'button' => _ButtonChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
       ),
       'text' => _TextChip(
         sourceUrl: sourceUrl,
-        sourceJson: sourceJson,
+        source: source,
         category: category,
         width: width,
         onRefreshCategories: onRefreshCategories,
@@ -179,7 +176,8 @@ class _ExploreKindItem extends ConsumerWidget {
         width: width,
         onTap: category.hasUrl
             ? () {
-                if (category.title == 'ERROR' || category.title.startsWith('ERROR:')) {
+                if (category.title == 'ERROR' ||
+                    category.title.startsWith('ERROR:')) {
                   ExploreKindLayout._showExploreErrorDialog(
                     context,
                     category.url ?? category.title,
@@ -265,13 +263,13 @@ class _StaticChipState extends State<_StaticChip> {
 
 class _DynamicLabel extends ConsumerStatefulWidget {
   const _DynamicLabel({
-    required this.sourceJson,
+    required this.source,
     required this.category,
     required this.fallback,
     required this.builder,
   });
 
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final String fallback;
   final Widget Function(String label) builder;
@@ -292,22 +290,24 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
   }
 
   String _resolveInitialLabel() {
-    final literal = ExploreKindActionRunner.literalViewName(widget.category.viewName);
+    final literal = ExploreKindActionRunner.literalViewName(
+      widget.category.viewName,
+    );
     if (literal != null) return literal;
     return widget.fallback;
   }
 
   Future<void> _loadDynamicLabel() async {
     final viewName = widget.category.viewName;
-    if (viewName == null || ExploreKindActionRunner.literalViewName(viewName) != null) {
+    if (viewName == null ||
+        ExploreKindActionRunner.literalViewName(viewName) != null) {
       return;
     }
     setState(() => _loading = true);
     try {
-      final text = await ref.read(bookApiProvider).exploreEvalUiJs(
-            sourceJson: widget.sourceJson,
-            jsStr: viewName,
-          );
+      final text = await ref
+          .read(exploreServiceProvider)
+          .evaluateUiJs(source: widget.source, jsStr: viewName);
       if (!mounted) return;
       setState(() {
         _label = text.isEmpty ? 'null' : text;
@@ -334,14 +334,14 @@ class _DynamicLabelState extends ConsumerState<_DynamicLabel> {
 class _ButtonChip extends ConsumerStatefulWidget {
   const _ButtonChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -360,7 +360,7 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
     try {
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -372,10 +372,11 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
   @override
   Widget build(BuildContext context) {
     final hasAction =
-        widget.category.action != null && widget.category.action!.trim().isNotEmpty;
+        widget.category.action != null &&
+        widget.category.action!.trim().isNotEmpty;
 
     return _DynamicLabel(
-      sourceJson: widget.sourceJson,
+      source: widget.source,
       category: widget.category,
       fallback: widget.category.title,
       builder: (label) => _StaticChip(
@@ -391,14 +392,14 @@ class _ButtonChipState extends ConsumerState<_ButtonChip> {
 class _ToggleChip extends ConsumerStatefulWidget {
   const _ToggleChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -415,8 +416,8 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
   @override
   void initState() {
     super.initState();
-    _chars = widget.category.chars?.where((c) => c.isNotEmpty).toList() ??
-        ['', ''];
+    _chars =
+        widget.category.chars?.where((c) => c.isNotEmpty).toList() ?? ['', ''];
     final defaultValue = widget.category.defaultValue ?? _chars.first;
     _index = _chars.indexOf(defaultValue);
     if (_index < 0) _index = 0;
@@ -439,18 +440,16 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
 
   Future<void> _afterValueChanged() async {
     final value = _chars[_index];
-    await ref.read(bookApiProvider).exploreInfoMapPut(
-          widget.sourceUrl,
-          widget.category.title,
-          value,
-        );
+    await ref
+        .read(exploreStateRepositoryProvider)
+        .put(widget.sourceUrl, widget.category.title, value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
     try {
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -472,7 +471,7 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
     final value = _chars[_index];
 
     return _DynamicLabel(
-      sourceJson: widget.sourceJson,
+      source: widget.source,
       category: widget.category,
       fallback: widget.category.title,
       builder: (title) {
@@ -481,8 +480,7 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
           color: Colors.transparent,
           child: InkWell(
             onTap: _busy ? null : _cycle,
-            borderRadius:
-                BorderRadius.circular(ExploreKindLayout._kChipRadius),
+            borderRadius: BorderRadius.circular(ExploreKindLayout._kChipRadius),
             splashColor: colorScheme.onSurface.withValues(alpha: 0.06),
             child: Container(
               width: widget.width,
@@ -490,8 +488,9 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: colorScheme.onSurface.withValues(alpha: 0.10),
-                borderRadius:
-                    BorderRadius.circular(ExploreKindLayout._kChipRadius),
+                borderRadius: BorderRadius.circular(
+                  ExploreKindLayout._kChipRadius,
+                ),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -515,14 +514,14 @@ class _ToggleChipState extends ConsumerState<_ToggleChip> {
 class _SelectChip extends ConsumerStatefulWidget {
   const _SelectChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -539,8 +538,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
   @override
   void initState() {
     super.initState();
-    _chars = widget.category.chars?.where((c) => c.isNotEmpty).toList() ??
-        ['', ''];
+    _chars =
+        widget.category.chars?.where((c) => c.isNotEmpty).toList() ?? ['', ''];
     final defaultValue = widget.category.defaultValue ?? _chars.first;
     _index = _chars.indexOf(defaultValue);
     if (_index < 0) _index = 0;
@@ -565,18 +564,16 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     if (next == _index || _busy) return;
     setState(() => _index = next);
     final value = _chars[next];
-    await ref.read(bookApiProvider).exploreInfoMapPut(
-          widget.sourceUrl,
-          widget.category.title,
-          value,
-        );
+    await ref
+        .read(exploreStateRepositoryProvider)
+        .put(widget.sourceUrl, widget.category.title, value);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     setState(() => _busy = true);
     try {
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -587,9 +584,8 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
 
   Future<void> _showPicker() async {
     if (_busy) return;
-    final titleLabel = ExploreKindActionRunner.literalViewName(
-          widget.category.viewName,
-        ) ??
+    final titleLabel =
+        ExploreKindActionRunner.literalViewName(widget.category.viewName) ??
         widget.category.title;
 
     final picked = await showMd3WheelPickerSheet(
@@ -610,7 +606,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
     final value = _chars[_index];
 
     return _DynamicLabel(
-      sourceJson: widget.sourceJson,
+      source: widget.source,
       category: widget.category,
       fallback: widget.category.title,
       builder: (title) {
@@ -618,8 +614,7 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
           color: Colors.transparent,
           child: InkWell(
             onTap: _busy ? null : _showPicker,
-            borderRadius:
-                BorderRadius.circular(ExploreKindLayout._kChipRadius),
+            borderRadius: BorderRadius.circular(ExploreKindLayout._kChipRadius),
             splashColor: colorScheme.onSurface.withValues(alpha: 0.06),
             child: Container(
               width: widget.width,
@@ -627,8 +622,9 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: colorScheme.onSurface.withValues(alpha: 0.10),
-                borderRadius:
-                    BorderRadius.circular(ExploreKindLayout._kChipRadius),
+                borderRadius: BorderRadius.circular(
+                  ExploreKindLayout._kChipRadius,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -662,14 +658,14 @@ class _SelectChipState extends ConsumerState<_SelectChip> {
 class _TextChip extends ConsumerStatefulWidget {
   const _TextChip({
     required this.sourceUrl,
-    required this.sourceJson,
+    required this.source,
     required this.category,
     this.width,
     this.onRefreshCategories,
   });
 
   final String sourceUrl;
-  final String sourceJson;
+  final BookSource source;
   final ExploreCategory category;
   final double? width;
   final Future<void> Function()? onRefreshCategories;
@@ -710,11 +706,9 @@ class _TextChipState extends ConsumerState<_TextChip> {
 
   void _onTextChanged() {
     final text = _controller.text;
-    ref.read(bookApiProvider).exploreInfoMapPut(
-          widget.sourceUrl,
-          widget.category.title,
-          text,
-        );
+    ref
+        .read(exploreStateRepositoryProvider)
+        .put(widget.sourceUrl, widget.category.title, text);
     final action = widget.category.action?.trim();
     if (action == null || action.isEmpty) return;
     _debounce?.cancel();
@@ -723,7 +717,7 @@ class _TextChipState extends ConsumerState<_TextChip> {
       _lastSubmitted = text;
       await ExploreKindActionRunner.runAction(
         ref: ref,
-        sourceJson: widget.sourceJson,
+        source: widget.source,
         action: action,
         onRefreshCategories: widget.onRefreshCategories,
       );
@@ -734,7 +728,8 @@ class _TextChipState extends ConsumerState<_TextChip> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final hint = ExploreKindActionRunner.literalViewName(widget.category.viewName) ??
+    final hint =
+        ExploreKindActionRunner.literalViewName(widget.category.viewName) ??
         widget.category.title;
 
     return Container(
@@ -762,7 +757,10 @@ class _TextChipState extends ConsumerState<_TextChip> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: 6,
+          ),
         ),
       ),
     );
@@ -771,8 +769,7 @@ class _TextChipState extends ConsumerState<_TextChip> {
 
 /// [ExploreCategory] 布局辅助
 extension ExploreCategoryLayout on ExploreCategory {
-  FlexChildStyle get effectiveStyle =>
-      style ?? const FlexChildStyle();
+  FlexChildStyle get effectiveStyle => style ?? const FlexChildStyle();
 
   bool get hasUrl => url != null && url!.trim().isNotEmpty;
 }

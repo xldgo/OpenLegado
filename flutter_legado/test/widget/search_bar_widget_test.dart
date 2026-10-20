@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_legado/src/widgets/search_bar_widget.dart';
@@ -31,8 +31,9 @@ void main() {
     expect(find.byIcon(Symbols.search_rounded), findsOneWidget);
   });
 
-  testWidgets('SearchBarWidget shows clear button when text entered',
-      (tester) async {
+  testWidgets('SearchBarWidget shows clear button when text entered', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget());
 
     // 初始状态没有清除按钮

@@ -1,6 +1,7 @@
 # Flutter↔Rust 端到端集成冒烟测试
 # 构建真实 Rust DLL → Flutter 侧经 FFI 调用往返验证
 name: Integration Smoke
+
 on:
   push:
     branches: [dev, master]
@@ -29,73 +30,66 @@ jobs:
       android_ffi: ${{ steps.changes.outputs.android_ffi }}
       windows_ffi: ${{ steps.changes.outputs.windows_ffi }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
-      - id: changes
+
+      - name: Determine change scope
+        id: changes
         uses: ./.github/actions/ci-changes
 
   android-ffi:
     needs: changes
     if: needs.changes.outputs.android_ffi == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Rust toolchain
+        uses: ./.github/actions/setup-flutter-rust
         with:
-          toolchain: stable
-          targets: aarch64-linux-android,x86_64-linux-android
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - name: 设置 Android SDK
+          flutter-version: 'none'
+          rust-targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
-      - name: 安装 Android NDK
+
+      - name: Install Android NDK
         run: |
           sdkmanager "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/28.2.13676358" >> "$GITHUB_ENV"
-      - name: 构建并校验 Android debug FFI（Python 统一入口）
+
+      - name: Build and verify Android debug FFI
         run: python3 scripts/dev.py build ffi android --profile debug --abis arm64-v8a,x86_64
 
   ffi-smoke:
     needs: changes
     if: needs.changes.outputs.windows_ffi == 'true'
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      # ── Rust 工具链 ──
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
+      - name: Setup Flutter and Rust
+        uses: ./.github/actions/setup-flutter-rust
 
-      # ── Flutter 工具链 ──
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.7'
-          cache: true
-
-      # ── 构建 Rust FFI 动态库（带 quickjs feature）──
-      - name: 构建并校验 legado-ffi DLL (quickjs)
+      - name: Build and verify legado-ffi DLL (quickjs)
         run: python scripts/dev.py build ffi windows --profile debug
 
-      # ── Flutter 依赖 ──
-      - name: Flutter pub get
+      - name: Run flutter pub get
         working-directory: flutter_legado
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       # ── 运行 FFI 冒烟（仅 ffi_smoke；不含需外网书源的 e2e_search_read）──
       # DLL 搜索路径：cwd/../rust/target/debug/legado_ffi.dll（由 RustApi._resolveFfiLibrary 自动发现）
-      - name: 运行 FFI 集成冒烟测试
+      - name: Run FFI integration smoke test
         working-directory: flutter_legado
         run: flutter test integration_test/ffi_smoke_test.dart -d windows
 
@@ -105,8 +99,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
-      - name: 汇总原生冒烟门禁
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Aggregate integration smoke check results
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
         run: python3 .github/scripts/ci_changes.py check android-ffi=android_ffi ffi-smoke=windows_ffi

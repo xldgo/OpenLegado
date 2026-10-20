@@ -2,8 +2,8 @@
 //!
 //! 原 `legado-ffi/src/api/source_rate_limit.rs` 的全局 `OnceLock` 限速表
 //! 下沉为可注入的 [`RateLimiterRegistry`]：每源限流器按 `book_source_url`
-//! 缓存，跨请求保持窗口状态。宿主（ffi）以进程级 OnceLock 持有单一注册表
-//! 实例，语义与下沉前一致。
+//! 缓存，跨请求保持窗口状态。宿主注入所属引擎的注册表句柄，
+//! 同一引擎共享窗口，独立引擎使用独立实例。
 //!
 //! 配置单写者（对齐上游 `ConcurrentRateLimiter` 的职责切分）：
 //! - [`RateLimiterRegistry::refresh`]（宿主书源保存路径统一入口，对应上游
@@ -64,14 +64,23 @@ impl RateLimiterRegistry {
     /// [`Self::update`]（宿主保存路径）负责，acquire 不得回写——否则旧
     /// `BookSource` 快照的迟到请求会覆盖已保存的新 concurrentRate。
     pub async fn acquire(&self, source: &BookSource) {
-        let rate = source.concurrent_rate.as_deref().unwrap_or("").trim();
+        self.acquire_key(
+            &source.book_source_url,
+            source.concurrent_rate.as_deref().unwrap_or(""),
+        )
+        .await;
+    }
+
+    /// BaseSource 共用按来源键的限流，不需要把 HTTP TTS 转换为 BookSource。
+    pub async fn acquire_key(&self, key: &str, rate: &str) {
+        let rate = rate.trim();
         if rate.is_empty() || rate == "0" {
             return;
         }
         let Some((access_limit, interval_ms)) = IntervalRateLimiter::parse_rate(rate) else {
             return;
         };
-        let limiter = self.limiter_for(&source.book_source_url, access_limit, interval_ms);
+        let limiter = self.limiter_for(key, access_limit, interval_ms);
         // map 锁已在 limiter_for 内释放，此处只可能持有 limiter 自身 state 锁
         limiter.acquire().await;
     }

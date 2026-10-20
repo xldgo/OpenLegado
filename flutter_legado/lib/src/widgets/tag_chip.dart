@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// 标签组件 — 可点击/可删除的标签
@@ -38,22 +38,12 @@ class TagChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: fgColor,
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 13, color: fgColor)),
               if (onDeleted != null) ...[
                 const SizedBox(width: 4),
                 GestureDetector(
                   onTap: onDeleted,
-                  child: Icon(
-                    Symbols.close_rounded,
-                    size: 16,
-                    color: fgColor,
-                  ),
+                  child: Icon(Symbols.close_rounded, size: 16, color: fgColor),
                 ),
               ],
             ],

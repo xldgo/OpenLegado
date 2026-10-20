@@ -131,9 +131,8 @@ pub fn format_keep_img(html: &str, base_url: &str) -> String {
 
     // 7. 合并多余空行，trim
     let text = MULTI_NEWLINE_RE.replace_all(&text, "\n");
-    let text = text.trim().to_string();
 
-    text
+    text.trim().to_string()
 }
 
 /// 完整的 HTML4 实体反转义

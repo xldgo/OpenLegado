@@ -1,18 +1,19 @@
+import '../fixtures/app_test_api.dart';
+
 // 书源管理导入/导出 + 扫码页 widget 测试
 //
 // 验证书源导入/导出（对标 Android BookSourceActivity）：
 // - SourceScreen 溢出菜单与原版 book_source.xml 一致（7 项）
 // - QrcodeScreen 在桌面/测试环境降级为手动输入模式（无相机），可输入并返回内容
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/qrcode_screen.dart';
-import 'package:flutter_legado/src/screens/source_screen.dart';
+import 'package:flutter_legado/src/features/tools/presentation/qrcode_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 
 import '../mocks/mocks.dart';
 
@@ -52,12 +53,13 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => sources);
   });
 
   Widget wrapSourceScreen() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
       child: const MaterialApp(home: SourceScreen()),
     );
   }
@@ -73,7 +75,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(AppBar),
-          matching: find.byIcon(Icons.more_vert),
+          matching: find.byTooltip('更多选项'),
         ),
       );
       await tester.pumpAndSettle();
@@ -82,7 +84,7 @@ void main() {
 
       expect(picker.pickCalls, 1);
       expect(find.textContaining('从文件导入失败'), findsNothing);
-      verifyNever(() => mockApi.importBookSources(any()));
+      verifyNever(() => mockApi.bookSourceRepository.importBookSources(any()));
     });
 
     testWidgets('菜单与原版对齐：含新建 JS 书源入口', (tester) async {
@@ -93,7 +95,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(AppBar),
-          matching: find.byIcon(Icons.more_vert),
+          matching: find.byTooltip('更多选项'),
         ),
       );
       await tester.pumpAndSettle();

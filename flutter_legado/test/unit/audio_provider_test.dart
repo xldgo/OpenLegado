@@ -1,25 +1,29 @@
+import '../fixtures/app_test_api.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:flutter_legado/src/domain/contracts/http_tts_synthesizer.dart';
 // AudioNotifier 单元测试
 //
 // 由原 AudioProvider（ChangeNotifier）测试迁移而来，测试点逐一对齐：
 // 初始状态 / TtsConfig / AudioChapter / loadChapters / 播放控制 /
 // 播放模式 / updateConfig / PlayerState / AudioPlayMode 枚举。
 //
-// 迁移范式：ProviderContainer + bookApiProvider.overrideWithValue(mockApi)。
+// 迁移范式：ProviderContainer + ...mockApi.overrides。
 // AudioService 依赖走 audioServiceProvider，默认单例在测试环境未初始化，
 // 其所有平台通道调用均为静默 no-op（与原测试使用真实单例的行为一致），
 // 故此处无需 override audioServiceProvider。
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 
 import '../mocks/mocks.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late MockRustApi mockApi;
   late ProviderContainer container;
 
@@ -28,9 +32,10 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
   });
@@ -183,7 +188,8 @@ void main() {
   group('AudioNotifier loadChapters（mock API）', () {
     setUp(() {
       // loadChapters 会 getBook 推断音频书 type 位；未 stub 时 mocktail 抛错吞进 error 态
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
     });
 
     test('loadChapters 成功加载章节列表', () async {
@@ -192,7 +198,8 @@ void main() {
         const BookChapter(title: '第二章', index: 1),
         const BookChapter(title: '第三章', index: 2),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('https://book.com/1');
 
@@ -210,7 +217,8 @@ void main() {
         const BookChapter(title: '序章', index: 0),
         const BookChapter(title: '终章', index: 1),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('https://book.com/2');
 
@@ -221,7 +229,7 @@ void main() {
     });
 
     test('loadChapters 失败时设置错误状态', () async {
-      when(() => mockApi.getChapters(any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
           .thenThrow(Exception('加载失败'));
 
       await readNotifier().loadChapters('https://book.com/bad');
@@ -231,7 +239,8 @@ void main() {
     });
 
     test('loadChapters 触发通知', () async {
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => []);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => []);
       var notifyCount = 0;
       container.listen(audioNotifierProvider, (_, _) => notifyCount++);
 
@@ -246,7 +255,8 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
         const BookChapter(title: 'ch3', index: 2),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
 
@@ -255,10 +265,9 @@ void main() {
     });
 
     test('loadChapters 后 currentChapter 正确', () async {
-      final chapters = [
-        const BookChapter(title: '第一章', index: 0),
-      ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      final chapters = [const BookChapter(title: '第一章', index: 0)];
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
       expect(readState().currentChapter?.title, equals('第一章'));
@@ -271,7 +280,8 @@ void main() {
         const BookChapter(title: 'ch3', index: 2),
         const BookChapter(title: 'ch4', index: 3),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
 
       await readNotifier().loadChapters('url');
       // (0+1)/4 = 0.25
@@ -286,18 +296,26 @@ void main() {
         const BookChapter(title: 'ch2', index: 1),
         const BookChapter(title: 'ch3', index: 2),
       ];
-      when(() => mockApi.getChapters(any())).thenAnswer((_) async => chapters);
-      when(() => mockApi.getBook(any())).thenAnswer((_) async => null);
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapters(any()))
+          .thenAnswer((_) async => chapters);
+      when(() => mockApi.bookshelfRepository.getBook(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenAnswer((_) async => '章节正文内容');
-      when(() => mockApi.audioSpeak(
-            text: any(named: 'text'),
-            engineUrl: any(named: 'engineUrl'),
-            speed: any(named: 'speed'),
-            pitch: any(named: 'pitch'),
-            volume: any(named: 'volume'),
-            voiceName: any(named: 'voiceName'),
-          )).thenAnswer((_) async => null);
+      when(
+        () => mockApi.httpTtsSynthesizer.synthesize(
+          cancellation: any(named: 'cancellation'),
+          engineId: any(named: 'engineId'),
+          text: any(named: 'text'),
+          engineUrl: any(named: 'engineUrl'),
+          speed: any(named: 'speed'),
+          pitch: any(named: 'pitch'),
+          volume: any(named: 'volume'),
+          voiceName: any(named: 'voiceName'),
+        ),
+      ).thenAnswer(
+        (_) async => const HttpTtsNoAudio(HttpTtsNoAudioReason.emptyResult),
+      );
     });
 
     test('play 无章节时不执行', () async {
@@ -329,11 +347,12 @@ void main() {
       await readNotifier().play();
 
       // 验证 getChapterContent 被调用
-      verify(() => mockApi.getChapterContentFull('url', 0)).called(1);
+      verify(() => mockApi.readingRepository.getChapterContentFull('url', 0))
+          .called(1);
     });
 
     test('play 失败时进入 error 状态', () async {
-      when(() => mockApi.getChapterContentFull(any(), any()))
+      when(() => mockApi.readingRepository.getChapterContentFull(any(), any()))
           .thenThrow(Exception('内容加载失败'));
 
       await readNotifier().loadChapters('url');
@@ -543,23 +562,29 @@ void main() {
 
   group('PlayerState 枚举', () {
     test('包含所有预期状态', () {
-      expect(PlayerState.values, containsAll([
-        PlayerState.idle,
-        PlayerState.playing,
-        PlayerState.paused,
-        PlayerState.loading,
-        PlayerState.error,
-      ]));
+      expect(
+        PlayerState.values,
+        containsAll([
+          PlayerState.idle,
+          PlayerState.playing,
+          PlayerState.paused,
+          PlayerState.loading,
+          PlayerState.error,
+        ]),
+      );
     });
   });
 
   group('AudioPlayMode 枚举', () {
     test('包含所有预期模式', () {
-      expect(AudioPlayMode.values, containsAll([
-        AudioPlayMode.sequential,
-        AudioPlayMode.singleLoop,
-        AudioPlayMode.shuffle,
-      ]));
+      expect(
+        AudioPlayMode.values,
+        containsAll([
+          AudioPlayMode.sequential,
+          AudioPlayMode.singleLoop,
+          AudioPlayMode.shuffle,
+        ]),
+      );
     });
   });
 }

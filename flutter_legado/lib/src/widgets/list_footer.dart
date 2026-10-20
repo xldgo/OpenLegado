@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
-import '../l10n/app_strings.dart';
+import '../l10n/app_localization.dart';
 import 'contained_loading_indicator.dart';
 
 /// 列表底部「我是有底线的」提示（对标 Android LoadMoreView.noMore）
@@ -17,7 +17,7 @@ class ListBottomLineFooter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Center(
         child: Text(
-          message ?? AppStrings.bottomLine,
+          message ?? context.l10n.bottomLine,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
           ),
@@ -76,10 +76,8 @@ class ListMoreFooter extends StatelessWidget {
                 const ContainedLoadingIndicator(),
                 const SizedBox(height: 12),
                 Text(
-                  loadingText ?? AppStrings.loading,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.outline,
-                  ),
+                  loadingText ?? context.l10n.loading,
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.outline),
                 ),
               ],
             ),
@@ -100,14 +98,17 @@ class ListMoreFooter extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    AppStrings.loadFailed,
+                    context.l10n.loadFailed,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: cs.onErrorContainer,
                     ),
                   ),
                 ),
                 if (onRetry != null)
-                  TextButton(onPressed: onRetry, child: const Text('重试')),
+                  TextButton(
+                    onPressed: onRetry,
+                    child: Text(context.l10n.retry),
+                  ),
               ],
             ),
           ),

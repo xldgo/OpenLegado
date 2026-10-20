@@ -3,7 +3,7 @@
 //! 对齐原版 `SearchBookDao`：搜索时逐条 insert，换源优先 `changeSourceByGroup`
 //! 读库复用，避免二次全量搜索。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::SearchBook;
 use legado_core::{LegadoError, LegadoResult};
@@ -80,8 +80,8 @@ impl<'a> SearchBookRepository<'a> {
         let books = stmt
             .query_map(params![pattern], row_to_search_book)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("search_book_repository行解析失败: {e}")))?;
         Ok(books)
     }
 
@@ -119,11 +119,14 @@ impl<'a> SearchBookRepository<'a> {
         let books = stmt
             .query_map(params![name, author], |row| {
                 let book = row_to_search_book(row)?;
-                let group_field: String = row.get(19).unwrap_or_default();
+                let group_field: Option<String> = row.get(19)?;
+                let group_field = group_field.unwrap_or_default();
                 Ok((book, group_field))
             })
             .map_err(|e| LegadoError::Database(format!("换源查询失败: {e}")))?
-            .filter_map(|r| r.ok())
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("换源行解析失败: {e}")))?
+            .into_iter()
             .filter(|(_, g)| group.is_empty() || group_contains(g, group))
             .map(|(book, _)| book)
             .collect();

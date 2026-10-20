@@ -1,3 +1,6 @@
+import '../fixtures/routing_test_app.dart';
+import '../fixtures/app_test_api.dart';
+
 // 复现回归：网络导入书源 _dependents.isEmpty 断言
 //
 // 根因：URL 导入对话框在关闭回调中提前 dispose TextEditingController，
@@ -6,18 +9,17 @@
 // 修复：controller 由对话框内容组件自持，随子树卸载统一释放。
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:go_router/go_router.dart';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/routes.dart';
-import 'package:flutter_legado/src/screens/source_import_confirm_screen.dart';
-import 'package:flutter_legado/src/screens/source_screen.dart';
-import 'package:flutter_legado/src/services/source_import_service.dart';
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
+import 'package:flutter_legado/src/domain/models/source_preview.dart';
 
 import '../mocks/mocks.dart';
 
@@ -25,10 +27,7 @@ void main() {
   late MockRustApi mockApi;
 
   final sources = [
-    const BookSource(
-      bookSourceUrl: 'https://a.com',
-      bookSourceName: '书源A',
-    ),
+    const BookSource(bookSourceUrl: 'https://a.com', bookSourceName: '书源A'),
   ];
 
   setUpAll(() {
@@ -37,26 +36,31 @@ void main() {
 
   setUp(() {
     mockApi = MockRustApi();
-    when(() => mockApi.getBookSources()).thenAnswer((_) async => sources);
+    when(() => mockApi.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => sources);
   });
 
   Widget wrapSourceScreen() {
     return ProviderScope(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
-      child: const MaterialApp(home: SourceScreen()),
+      overrides: mergeTestOverrides([...mockApi.overrides]),
+      child: const RoutingTestApp(home: SourceScreen()),
     );
   }
 
   final dialogField = find.descendant(
-      of: find.byType(AlertDialog), matching: find.byType(TextField));
+    of: find.byType(AlertDialog),
+    matching: find.byType(TextField),
+  );
 
   testWidgets('URL 导入：请求失败弹 SnackBar 不崩溃', (tester) async {
     await tester.pumpWidget(wrapSourceScreen());
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(
-      of: find.byType(AppBar),
-      matching: find.byIcon(Icons.more_vert),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('更多选项'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('网络导入'));
     await tester.pumpAndSettle();
@@ -78,8 +82,8 @@ void main() {
     ]);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: MaterialApp(
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: RoutingTestApp(
           home: const SourceScreen(),
           onGenerateRoute: (settings) {
             if (settings.name == AppRoutes.qrcode) {
@@ -101,10 +105,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.descendant(
-      of: find.byType(AppBar),
-      matching: find.byIcon(Icons.more_vert),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('更多选项'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('二维码导入'));
     await tester.pumpAndSettle();
@@ -118,11 +124,11 @@ void main() {
     expect(find.text('新增'), findsOneWidget);
   });
 
-  testWidgets('确认导入：字符串数字书源直传原始 JSON 给 importBookSources',
-      (tester) async {
+  testWidgets('确认导入：字符串数字书源直传原始 JSON 给 importBookSources', (tester) async {
     // 第三方书源字符串数字字段（yckceo_7631 形态）：预览解析不再全灭，
     // 确认导入时选中项的原始 JSON（含字符串数字）直传 Rust 宽松兜底
-    when(() => mockApi.importBookSources(any())).thenAnswer((_) async => 1);
+    when(() => mockApi.bookSourceRepository.importBookSources(any()))
+        .thenAnswer((_) async => 1);
     final raw = <String, dynamic>{
       'bookSourceUrl': 'https://www.qianyezw.com',
       'bookSourceName': '新御书屋(千夜)',
@@ -133,15 +139,26 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
-        child: MaterialApp(
-          home: SourceImportConfirmScreen(
-            sources: [SourcePreview.fromRaw(raw)],
-            localSources: const [],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: RoutingTestApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => context.push('/fixture-confirm'),
+              child: const Text('打开确认页'),
+            ),
           ),
+          routes: {
+            '/fixture-confirm': (_) => SourceImportConfirmScreen(
+              sources: [SourcePreview.fromRaw(raw)],
+              localSources: const [],
+            ),
+          },
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('打开确认页'));
     await tester.pumpAndSettle();
 
     // 预览条目正常展示（未被严格解析拦截）
@@ -153,7 +170,7 @@ void main() {
 
     // 验证 importBookSources 收到的是原始 JSON（字符串数字原样保留）
     final captured = verify(
-      () => mockApi.importBookSources(captureAny()),
+      () => mockApi.bookSourceRepository.importBookSources(captureAny()),
     ).captured;
     expect(captured, isNotEmpty);
     final passed = captured.single as String;

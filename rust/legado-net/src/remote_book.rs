@@ -2,6 +2,7 @@
 //! 移植自 Kotlin model/remote/ (3个文件, 159行)
 //! 扩展现有 webdav.rs，提供书籍级别的远程管理
 
+use crate::http_error::reqwest_error_chain;
 use serde::{Deserialize, Serialize};
 
 /// 支持的书籍文件扩展名
@@ -131,13 +132,13 @@ impl RemoteBookManager {
             .body(propfind_body.to_string())
             .send()
             .await
-            .map_err(|e| format!("PROPFIND 请求失败: {e}"))?;
+            .map_err(|e| format!("PROPFIND 请求失败: {}", reqwest_error_chain(&e)))?;
 
         if !resp.status().is_success() && resp.status().as_u16() != 207 {
             return Err(format!("WebDAV 返回错误: {}", resp.status()));
         }
 
-        let body = resp.text().await.map_err(|e| e.to_string())?;
+        let body = resp.text().await.map_err(|e| reqwest_error_chain(&e))?;
         Ok(Self::parse_propfind_response(&body, path))
     }
 
@@ -155,7 +156,7 @@ impl RemoteBookManager {
             .basic_auth(&self.username, Some(&self.password))
             .send()
             .await
-            .map_err(|e| format!("下载失败: {e}"))?;
+            .map_err(|e| format!("下载失败: {}", reqwest_error_chain(&e)))?;
 
         if !resp.status().is_success() {
             return Err(format!("下载返回错误: {}", resp.status()));
@@ -164,7 +165,7 @@ impl RemoteBookManager {
         resp.bytes()
             .await
             .map(|b| b.to_vec())
-            .map_err(|e| e.to_string())
+            .map_err(|e| reqwest_error_chain(&e))
     }
 
     /// 上传书籍到远程（对应 Kotlin upload）
@@ -181,7 +182,7 @@ impl RemoteBookManager {
             .body(local_content.to_vec())
             .send()
             .await
-            .map_err(|e| format!("上传失败: {e}"))?;
+            .map_err(|e| format!("上传失败: {}", reqwest_error_chain(&e)))?;
 
         if !resp.status().is_success() {
             return Err(format!("上传返回错误: {}", resp.status()));
@@ -198,7 +199,7 @@ impl RemoteBookManager {
             .basic_auth(&self.username, Some(&self.password))
             .send()
             .await
-            .map_err(|e| format!("删除失败: {e}"))?;
+            .map_err(|e| format!("删除失败: {}", reqwest_error_chain(&e)))?;
 
         if !resp.status().is_success() {
             return Err(format!("删除返回错误: {}", resp.status()));

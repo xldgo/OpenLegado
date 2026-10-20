@@ -8,7 +8,7 @@
 //! - [`search_engine`] — 多源并行搜索引擎框架
 //! - [`web_book`] — 网络书籍访问层（搜索→详情→目录→正文）
 //! - [`content_processor`] — 内容净化与替换规则处理
-//! - [`layout`] — 文本排版引擎（分页/分行）
+//! - [`reader_state`] — 阅读状态与原文位置；页范围类型来自独立的 `legado-layout`
 //! - [`types`] — 通用类型定义（PageInfo, FfiString）
 //!
 //! # Examples
@@ -29,6 +29,14 @@ pub mod auto_task;
 pub mod book_help;
 pub mod cache_book;
 pub mod chinese_convert;
+pub mod cloud_tts;
+pub mod cloud_tts_alibaba;
+pub mod cloud_tts_azure;
+pub mod cloud_tts_gemini;
+pub mod cloud_tts_mimo;
+pub mod cloud_tts_openai;
+pub mod cloud_tts_polly;
+pub mod cloud_tts_volcengine;
 pub mod content_help;
 pub mod content_processor;
 pub mod cron;
@@ -39,7 +47,6 @@ pub mod error;
 pub mod explore;
 pub mod html_formatter;
 pub mod import_old;
-pub mod layout;
 pub mod login_ui_v2;
 pub mod manga_state;
 pub mod models;
@@ -49,6 +56,7 @@ pub mod read_state;
 pub mod reader_state;
 /// 统一安全正则编译入口（1KB 长度上限 + nest_limit 嵌套防御 + 失败负缓存）
 pub mod regex_safe;
+pub mod request_settings;
 pub mod review;
 /// 跨源聚合单一真源（队列⑩a P1-1 项2：同名同作者跨源合并 + origins 累加，
 /// 对齐 Dart `applyPrecisionSearch` / 增量桶语义，跨端夹具校验基准）
@@ -56,10 +64,12 @@ pub mod search_aggregate;
 pub mod search_engine;
 /// 书架模糊搜索服务（Server REST 与 MCP 工具共享，P2-2）
 pub mod shelf_search;
-pub mod source_lock;
 pub mod source_login;
 pub mod source_matcher;
 pub mod toc_updater;
+pub mod tts_cache;
+pub mod tts_catalog;
+pub mod tts_emotion;
 /// HTTP TTS 语音合成管线（url 模板替换 + 音频缓存，网络层注入）
 pub mod tts_speak;
 pub mod types;
@@ -70,9 +80,12 @@ pub mod webview_channel;
 
 pub use error::{LegadoError, LegadoResult};
 pub use regex_safe::{
-    compile_fancy_regex_safe, compile_regex_on_stack, compile_regex_safe, MAX_REGEX_PATTERN_LEN,
+    MAX_REGEX_PATTERN_LEN, compile_fancy_regex_safe, compile_regex_on_stack, compile_regex_safe,
 };
 pub use search_engine::{
     MultiSourceSearcher, NoopSourceSearcher, SearchConfig, SearchResult, SourceSearcher,
 };
 pub use source_matcher::{SourceMatch, SourceMatcher};
+
+/// 按键写入与全量操作的同步协调能力。
+pub mod write_coordinator;

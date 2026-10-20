@@ -72,10 +72,10 @@ fn http_request(addr: &str, method: &str, path: &str, json_body: Option<&str>) -
                 .lines()
                 .find_map(|l| l.strip_prefix("content-length:"))
                 .and_then(|v| v.trim().parse::<usize>().ok());
-            if let Some(len) = content_length {
-                if resp.len() >= body_start + len {
-                    break;
-                }
+            if let Some(len) = content_length
+                && resp.len() >= body_start + len
+            {
+                break;
             }
         }
     }
@@ -103,7 +103,6 @@ fn setup_file_db() -> PathBuf {
         let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
     }
     let path_str = path.to_str().expect("测试 DB 路径含非 UTF-8 字符");
-    legado_ffi::db_state::record_db_path(path_str);
     let db = legado_ffi::legado_db::init_database(path_str).expect("打开临时文件库");
     legado_ffi::db_state::init_database(db).expect("初始化全局连接池");
     path

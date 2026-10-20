@@ -1,0 +1,560 @@
+import 'application/content_search_controller.dart';
+import '../../domain/services/content_search_matcher.dart';
+import '../../providers/reading_provider.dart';
+import 'search_access_providers.dart';
+import '../../providers/chapter_cache_provider.dart';
+import '../../widgets/app_menu.dart';
+
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../../widgets/app_scaffold.dart';
+import '../../widgets/legado_app_bar.dart';
+import '../../widgets/md3_fast_scroller.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../l10n/app_localization.dart';
+import '../../models/models.dart';
+import '../reader/application/reader_notifier.dart';
+import '../../widgets/app_progress_indicator.dart';
+import '../../widgets/empty_state.dart';
+
+/// 正文搜索选项（对齐原版 `SearchContentViewModel.companion`：进程内静态，
+/// 关闭页面重进后保留上次选择；原版亦不做持久化）
+class _SearchContentOptions {
+  _SearchContentOptions._();
+
+  /// 搜索前是否应用替换净化规则（原版 replaceEnabled，默认 false）
+  static bool useReplace = false;
+
+  /// 关键词是否按正则解释（原版 regexReplace，默认 false）
+  static bool useRegex = false;
+
+  /// 搜索范围（[C4 双基准对齐] 取重构版 `SearchContentPrefsPort` 三档语义）：
+  /// - [scopeCurrent]：仅当前章；
+  /// - [scopeCached]：本书已缓存章节（+当前章，参考版「仅本书」范围语义）；
+  /// - [scopeNetwork]：本书全部章节（未缓存的联网抓取，我方原有行为=默认）。
+  static String scope = scopeNetwork;
+
+  static const scopeCurrent = 'current';
+  static const scopeCached = 'current_and_cached';
+  static const scopeNetwork = 'current_and_network';
+}
+
+/// 正文搜索页面
+///
+/// 在指定书籍的全部章节正文中搜索关键词，支持高亮、搜索历史，
+/// 点击结果可跳转阅读器对应章节。
+class SearchContentScreen extends ConsumerStatefulWidget {
+  /// 书籍对象（路由参数规范化：优先使用 Book 对象）
+  final Book? book;
+
+  /// 书籍 URL（向后兼容）
+  final String bookUrl;
+
+  /// 书名（向后兼容）
+  final String bookName;
+
+  // [UI-fix v2.0.2 | 2026-08-06] 初始查询词（阅读器长按选中文本传入，
+  // 对标原版 searchContentQuery 预填 + 自动搜索） — Qoder
+  final String? initialQuery;
+
+  const SearchContentScreen({
+    super.key,
+    this.book,
+    this.bookUrl = '',
+    this.bookName = '',
+    this.initialQuery,
+  });
+
+  /// 获取有效的 bookUrl
+  String get effectiveBookUrl => book?.bookUrl ?? bookUrl;
+
+  /// 获取有效的书名
+  String get effectiveBookName => book?.name ?? bookName;
+
+  @override
+  ConsumerState<SearchContentScreen> createState() =>
+      _SearchContentScreenState();
+}
+
+class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
+  // [UI_SYNC_REFACTOR R3] 快速滚动条控制器
+  final ScrollController _fsController = ScrollController();
+  final TextEditingController _controller = TextEditingController();
+
+  late final ContentSearchController _searchController;
+  List<ContentMatch> get _results => _searchController.state.results;
+  List<String> get _history => _searchController.state.history;
+  bool get _searching => _searchController.state.searching;
+  String get _query => _searchController.state.query;
+  int get _scannedChapters => _searchController.state.scanned;
+  int get _totalChapters => _searchController.state.total;
+  void _onSearchChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = ContentSearchController(
+      bookUrl: widget.effectiveBookUrl,
+      bookName: widget.effectiveBookName,
+      reading: ref.read(readingRepositoryProvider),
+      cache: ref.read(chapterCacheRepositoryProvider),
+      history: ref.read(searchHistoryRepositoryProvider),
+      log: (operation, error, stack) => debugPrint('$operation：$error\n$stack'),
+    );
+    _searchController.addListener(_onSearchChanged);
+    unawaited(_searchController.loadHistory());
+    // 初始查询词：预填输入框并在首帧后自动触发搜索
+    final q = widget.initialQuery;
+    if (q != null && q.trim().isNotEmpty) {
+      _controller.text = q;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_search(q));
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _fsController.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String query) {
+    FocusScope.of(context).unfocus();
+    return _searchController.search(
+      query,
+      currentChapterIndex: ref.read(readerNotifierProvider).currentChapterIndex,
+      useRegex: _SearchContentOptions.useRegex,
+      useReplace: _SearchContentOptions.useReplace,
+      scope: switch (_SearchContentOptions.scope) {
+        _SearchContentOptions.scopeCurrent => ContentSearchScope.current,
+        _SearchContentOptions.scopeCached => ContentSearchScope.cached,
+        _ => ContentSearchScope.network,
+      },
+    );
+  }
+
+  void _cancelSearch() => _searchController.cancel();
+
+  void _jumpToResult(ContentMatch match) {
+    final container = ProviderScope.containerOf(context);
+    container
+        .read(readerNotifierProvider.notifier)
+        .goToChapter(match.chapterIndex);
+    Navigator.of(context).pop();
+  }
+
+  /// 构造带高亮的富文本
+  ///
+  /// [C4 对齐 | Qoder UI] 正则模式下按同一 RegExp 高亮（对齐原版结果项
+  /// isRegex 判定）；非法正则或未命中时退化为纯文本。
+  InlineSpan _highlight(String text, String query) {
+    if (query.isEmpty) return TextSpan(text: text);
+    final highlightStyle = TextStyle(
+      color: Theme.of(context).colorScheme.primary,
+      fontWeight: FontWeight.bold,
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer
+          .withValues(alpha: 0.6),
+    );
+    final spans = <TextSpan>[];
+
+    // 命中区间（与搜索同口径，共用 findContentHits；单段内不设上限以免高亮缺失）
+    final ranges = findContentHits(
+      text,
+      query,
+      useRegex: _SearchContentOptions.useRegex,
+      maxHits: text.length,
+    );
+
+    var cursor = 0;
+    for (final r in ranges) {
+      if (r.start < cursor) continue; // 防御：重叠区间跳过
+      if (r.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, r.start)));
+      }
+      spans.add(
+        TextSpan(text: text.substring(r.start, r.end), style: highlightStyle),
+      );
+      cursor = r.end;
+    }
+    if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
+    return TextSpan(children: spans);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // [PARITY A6 | ⑦b 已裁决 2026-09-21] 输入盒填充统一 surfaceContainerLow
+    // （裁决依据 docs/parity_shots/ref_dark_20260921/RECAPTURE_20260921.md
+    // §3「项三 A6 搜索输入盒」，替代旧「[需设备重采对照]」在途分支）：
+    // - 参考版 composeEngine=material 已确认（设备 prefs 持久值 + 外观页
+    //   「主题风格」行 = Material Design、非 Miuix）→ SearchBar 填充槽 =
+    //   MaterialTheme.colorScheme.surfaceContainerLow（M3 SearchBar 默认槽位，
+    //   源码对照 SearchBar.kt:55 默认参数 / :103-108 解析 / :132-138
+    //   Surface 落色）；
+    // - 透明板深色 sCL = 0x00FFFFFF（全透明、背景透现）有像素证据：白底
+    //   盒内 40/40 点 = 255、灰底 54/55 点 = 128（06/07 重采）；标准板
+    //   12 板 dark sCL 全部为深色（Lemon #1E1B13 等，
+    //   docs/A_GROUP_FINDINGS_20260920.md 12 板表）；
+    // - 旧批采到的浅盒 #E8E2D4（= Lemon dark onSurface）曾归因「参考实例
+    //   运行 Miuix 引擎的 surfaceContainer 槽」，本批 material 引擎确认 +
+    //   sCL 槽像素证据使该归因失效，浅盒不再作为对齐基准；
+    // - 故 backgroundColor 统一取 sCL（删掉此前在途的 isDark ? onSurface
+    //   分支——该分支在透明板深色渲染不透明白盒 #EDE6FF，与参考「透明板
+    //   盒全透明透现」矛盾；标准板深色亦与 12 板 sCL 深色值矛盾）；
+    //   深色态盒内 hint / leading 图标改用 onSurface（参考 hint 实测
+    //   #EDE6FF = 透明板 dark onSurface 角色；该板 surface = 0x00FFFFFF
+    //   全透明不可见，故 hint/图标不可用 surface）；亮色态维持框架默认
+    //   （hint 走 onSurfaceVariant 派生、图标 onSurfaceVariant），与参考
+    //   亮色行为一致。
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
+    return AppScaffold(
+      topBar: LegadoAppBar(
+        // [PARITY C1-C1] 标题对齐参考「搜索内容」
+        title: Text(
+          context.l10n.searchContent,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        actions: [
+          if (_searching)
+            IconButton(
+              icon: const Icon(Symbols.close_rounded),
+              onPressed: _cancelSearch,
+            ),
+          // [C4 对齐 | Qoder UI] 搜索选项菜单（对齐原版 content_search 菜单：
+          // 替换 / 正则 两项可勾选，原版为 overflow 菜单 app:showAsAction="never"）
+          AppMenuButton<String>(
+            tooltip: context.l10n.searchOptions,
+            onSelected: (v) {
+              setState(() {
+                switch (v) {
+                  case 'replace':
+                    _SearchContentOptions.useReplace =
+                        !_SearchContentOptions.useReplace;
+                  case 'regex':
+                    _SearchContentOptions.useRegex =
+                        !_SearchContentOptions.useRegex;
+                  case 'scope_current':
+                    _SearchContentOptions.scope =
+                        _SearchContentOptions.scopeCurrent;
+                  case 'scope_cached':
+                    _SearchContentOptions.scope =
+                        _SearchContentOptions.scopeCached;
+                  case 'scope_network':
+                    _SearchContentOptions.scope =
+                        _SearchContentOptions.scopeNetwork;
+                }
+              });
+              // 已有结果时立即按新选项重搜（旧搜索由Controller取消）
+              if (_query.isNotEmpty) unawaited(_search(_query));
+            },
+            itemBuilder: (_) => [
+              AppMenuItem(
+                value: 'replace',
+                checked: _SearchContentOptions.useReplace,
+                child: Text(context.l10n.searchUseReplacement),
+              ),
+              AppMenuItem(
+                value: 'regex',
+                checked: _SearchContentOptions.useRegex,
+                child: Text(context.l10n.searchUseRegex),
+              ),
+              const AppMenuDivider(),
+              // [C4 双基准对齐] 搜索范围三档：语义取重构版 SearchContentPrefsPort
+              //（仅当前章 / 本书已缓存 / 本书含网络），参考版「仅本书」对应已缓存档
+              AppMenuItem(
+                value: 'scope_current',
+                checked:
+                    _SearchContentOptions.scope ==
+                    _SearchContentOptions.scopeCurrent,
+                child: Text(context.l10n.searchCurrentChapter),
+              ),
+              AppMenuItem(
+                value: 'scope_cached',
+                checked:
+                    _SearchContentOptions.scope ==
+                    _SearchContentOptions.scopeCached,
+                child: Text(context.l10n.searchCachedChapters),
+              ),
+              AppMenuItem(
+                value: 'scope_network',
+                checked:
+                    _SearchContentOptions.scope ==
+                    _SearchContentOptions.scopeNetwork,
+                child: Text(context.l10n.searchNetworkChapters),
+              ),
+            ],
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            // [LAYOUT_PLAN P1] 搜索框走 SearchBar 标准（32dp + surfaceContainerLow）
+            child: SearchBar(
+              controller: _controller,
+              // [PARITY C1-C3] hint 对齐参考「搜索...」
+              hintText: context.l10n.searchPlaceholder,
+              // [PARITY A6 | ⑦b 已裁决] 深色态 hint 用 onSurface（参考 hint
+              // 实测 #EDE6FF = 透明板 dark onSurface 角色；旧 surface 色在该
+              // 板 = 0x00FFFFFF 全透明不可见）；亮色态保持框架默认
+              // （onSurfaceVariant 派生，此处传 null）
+              hintStyle: WidgetStatePropertyAll(
+                isDark ? TextStyle(color: scheme.onSurface) : null,
+              ),
+              // 原 TextField autofocus 语义保留：进页自动聚焦
+              autoFocus: true,
+              constraints: const BoxConstraints(minHeight: 40),
+              elevation: const WidgetStatePropertyAll(0),
+              // [PARITY A6 | ⑦b 已裁决] 盒填充统一 = surfaceContainerLow
+              // （material 引擎 SearchBar 默认槽位：标准板深色为深色盒、
+              // 透明板 = 全透明背景透现，见 build 头部裁决注释）
+              backgroundColor: WidgetStatePropertyAll(
+                scheme.surfaceContainerLow,
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+              ),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12),
+              ),
+              leading: Icon(
+                Symbols.search_rounded,
+                size: 20,
+                // [PARITY A6 | ⑦b 已裁决] 深色态图标用 onSurface（同 hint
+                // 裁决；透明板 dark = #EDE6FF 与参考一致）；亮色态维持
+                // onSurfaceVariant（框架默认，不动）
+                color: isDark ? scheme.onSurface : scheme.onSurfaceVariant,
+              ),
+              trailing: [
+                if (_controller.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Symbols.close_rounded, size: 18),
+                    onPressed: () {
+                      _controller.clear();
+                      _searchController.clear();
+                    },
+                  ),
+                if (_searching)
+                  IconButton(
+                    icon: const Icon(Symbols.close_rounded, size: 18),
+                    onPressed: _cancelSearch,
+                  ),
+              ],
+              onChanged: (_) => setState(() {}),
+              onSubmitted: _search,
+            ),
+          ),
+        ),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    // 未搜索时展示搜索历史
+    if (_query.isEmpty && !_searching) {
+      return _buildHistory();
+    }
+    if (_searching && _results.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // [STAGE-UI-P43UNIFY2 B3] 裸环换接统一封装（默认参数视觉等价）
+            const AppCircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              _totalChapters == 0
+                  ? context.l10n.searching
+                  : context.l10n.scanningSearchChapters(
+                      _scannedChapters,
+                      _totalChapters,
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_results.isEmpty) {
+      return EmptyState(
+        icon: Symbols.search_off_rounded,
+        title: context.l10n.noResults,
+        subtitle: context.l10n.noContentMatches(_query),
+      );
+    }
+    return Column(
+      children: [
+        if (_searching)
+          // [STAGE-UI-P43UNIFY2 B3] 顶栏 indeterminate 条换接统一封装
+          //（progress null = indeterminate；确定性 x/y 语义经 progress 承载，
+          // 视觉等价：无 minHeight 实参 → 默认 4dp）
+          AppLinearProgressIndicator(
+            progress: _totalChapters == 0
+                ? null
+                : _scannedChapters / _totalChapters,
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Text(
+                context.l10n.contentMatchCount(_results.length),
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              if (_results.length >= ContentSearchController.maxResults)
+                Text(
+                  context.l10n.searchResultsTruncated,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          // [UI_SYNC_REFACTOR R3] 结果列表快速滚动条
+          child: Md3FastScroller(
+            controller: _fsController,
+            child: ListView.builder(
+              controller: _fsController,
+              itemCount: _results.length,
+              itemBuilder: (context, i) => _buildResultTile(_results[i]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultTile(ContentMatch match) {
+    final theme = Theme.of(context);
+    return ListTile(
+      // [LAYOUT_PLAN P1] 结果行字级走 M3 Type Scale
+      title: Text(
+        match.chapterTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text.rich(
+        _highlight(match.snippet, _query),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      onTap: () => _jumpToResult(match),
+    );
+  }
+
+  Widget _buildHistory() {
+    if (_history.isEmpty) {
+      return EmptyState(
+        icon: Symbols.history_rounded,
+        title: context.l10n.searchHistory,
+        subtitle: context.l10n.searchContentHint,
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Text(
+              context.l10n.searchHistory,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            TextButton(
+              onPressed: _clearHistory,
+              child: Text(context.l10n.clearHistory),
+            ),
+            // 「仅本书」深色胶囊（复用范围三档 scope_cached 逻辑；
+            // 参考 13：72×39dp 深色实底白字，右侧 18dp 边距，
+            // 选中=深色实底，未选=同尺寸描边态，点击切换范围并重搜）
+            _buildScopeChip(),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final word in _history)
+              ActionChip(
+                avatar: const Icon(Symbols.history_rounded, size: 16),
+                label: Text(word),
+                onPressed: () {
+                  _controller.text = word;
+                  _search(word);
+                },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// [PARITY C1-C2] 「仅本书」范围胶囊（参考 13 量化：72×39dp 深色实底，
+  /// 右侧 18dp 边距）：复用范围三档 [C4 双基准对齐] 的 scope_cached 档，
+  /// 与 ⋮ 菜单「仅本书（已缓存）」项共享同一静态选择，点击切换并重搜
+  Widget _buildScopeChip() {
+    final selected =
+        _SearchContentOptions.scope == _SearchContentOptions.scopeCached;
+    // 参考 13 深色实底（(82,96,112)）+ 白字；未选=同尺寸描边态
+    final fill = Color(0xFF526070);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(19),
+        onTap: () {
+          setState(() {
+            _SearchContentOptions.scope = selected
+                ? _SearchContentOptions.scopeNetwork
+                : _SearchContentOptions.scopeCached;
+          });
+          // 已有结果时立即按新范围重搜（与 ⋮ 菜单选项同语义）
+          if (_query.isNotEmpty) unawaited(_search(_query));
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 72),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 39),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? fill : Colors.transparent,
+              borderRadius: BorderRadius.circular(19),
+              border: selected ? null : Border.all(color: fill, width: 1),
+            ),
+            child: Text(
+              context.l10n.searchThisBookOnly,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: selected ? Colors.white : fill,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _clearHistory() => _searchController.clearHistory();
+}

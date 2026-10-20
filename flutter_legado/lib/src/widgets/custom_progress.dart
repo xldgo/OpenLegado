@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 自定义进度条 — 带标签的进度条
 class CustomProgress extends StatelessWidget {
@@ -40,9 +40,8 @@ class CustomProgress extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             '${(clampedValue * 100).toInt()}%',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ],
       ],

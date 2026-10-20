@@ -96,12 +96,19 @@ _HttpTts _$HttpTtsFromJson(Map<String, dynamic> json) => _HttpTts(
   pauseDuration: (json['pauseDuration'] as num?)?.toInt() ?? 0,
   concurrentRate: json['concurrentRate'] as String?,
   loginUrl: json['loginUrl'] as String?,
-  loginUi: json['loginUi'] as String?,
+  loginUi: _httpTtsLoginUiFromJson(json['loginUi']),
   header: json['header'] as String?,
   jsLib: json['jsLib'] as String?,
-  enabledCookieJar: json['enabledCookieJar'] as bool?,
+  enabledCookieJar: _httpTtsNullableBoolFromJson(json['enabledCookieJar']),
   loginCheckJs: json['loginCheckJs'] as String?,
+  speed: (json['speed'] as num?)?.toInt(),
+  synthesisThreadCount: json['synthesisThreadCount'] == null
+      ? 1
+      : _httpTtsSynthesisThreadCountFromJson(json['synthesisThreadCount']),
   lastUpdateTime: (json['lastUpdateTime'] as num?)?.toInt() ?? 0,
+  isEnabled: json['isEnabled'] == null
+      ? true
+      : _httpTtsEnabledFromJson(json['isEnabled']),
 );
 
 Map<String, dynamic> _$HttpTtsToJson(_HttpTts instance) => <String, dynamic>{
@@ -117,7 +124,10 @@ Map<String, dynamic> _$HttpTtsToJson(_HttpTts instance) => <String, dynamic>{
   'jsLib': instance.jsLib,
   'enabledCookieJar': instance.enabledCookieJar,
   'loginCheckJs': instance.loginCheckJs,
+  'speed': instance.speed,
+  'synthesisThreadCount': instance.synthesisThreadCount,
   'lastUpdateTime': instance.lastUpdateTime,
+  'isEnabled': instance.isEnabled,
 };
 
 _Bookmark _$BookmarkFromJson(Map<String, dynamic> json) => _Bookmark(
@@ -146,6 +156,7 @@ Map<String, dynamic> _$BookmarkToJson(_Bookmark instance) => <String, dynamic>{
 
 _BookGroup _$BookGroupFromJson(Map<String, dynamic> json) => _BookGroup(
   groupId: (json['groupId'] as num?)?.toInt() ?? 1,
+  isPrivate: json['isPrivate'] as bool? ?? false,
   groupName: json['groupName'] as String? ?? '',
   cover: json['cover'] as String?,
   order: (json['order'] as num?)?.toInt() ?? 0,
@@ -158,6 +169,7 @@ _BookGroup _$BookGroupFromJson(Map<String, dynamic> json) => _BookGroup(
 Map<String, dynamic> _$BookGroupToJson(_BookGroup instance) =>
     <String, dynamic>{
       'groupId': instance.groupId,
+      'isPrivate': instance.isPrivate,
       'groupName': instance.groupName,
       'cover': instance.cover,
       'order': instance.order,
@@ -301,6 +313,7 @@ Map<String, dynamic> _$CacheToJson(_Cache instance) => <String, dynamic>{
 };
 
 _DictRule _$DictRuleFromJson(Map<String, dynamic> json) => _DictRule(
+  id: (json['id'] as num?)?.toInt() ?? 0,
   name: json['name'] as String? ?? '',
   urlRule: json['urlRule'] as String? ?? '',
   showRule: json['showRule'] as String? ?? '',
@@ -309,6 +322,7 @@ _DictRule _$DictRuleFromJson(Map<String, dynamic> json) => _DictRule(
 );
 
 Map<String, dynamic> _$DictRuleToJson(_DictRule instance) => <String, dynamic>{
+  'id': instance.id,
   'name': instance.name,
   'urlRule': instance.urlRule,
   'showRule': instance.showRule,
@@ -450,6 +464,8 @@ Map<String, dynamic> _$KeyboardAssistToJson(_KeyboardAssist instance) =>
 _ReadRecord _$ReadRecordFromJson(Map<String, dynamic> json) => _ReadRecord(
   deviceId: json['deviceId'] as String? ?? '',
   bookName: json['bookName'] as String? ?? '',
+  author: json['author'] as String? ?? '',
+  startTime: (json['startTime'] as num?)?.toInt(),
   readTime: (json['readTime'] as num?)?.toInt() ?? 0,
   lastRead: (json['lastRead'] as num?)?.toInt() ?? 0,
 );
@@ -458,6 +474,8 @@ Map<String, dynamic> _$ReadRecordToJson(_ReadRecord instance) =>
     <String, dynamic>{
       'deviceId': instance.deviceId,
       'bookName': instance.bookName,
+      'author': instance.author,
+      'startTime': instance.startTime,
       'readTime': instance.readTime,
       'lastRead': instance.lastRead,
     };

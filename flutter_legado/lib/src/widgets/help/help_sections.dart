@@ -9,7 +9,9 @@ class HelpSection {
 /// 从 Markdown 按 ## 或 ### 标题切分目录（与原版 parseHelpSections 一致）
 List<HelpSection> parseHelpSections(String markdown) {
   final lines = markdown.split('\n');
-  return _splitHelpSections(lines, 2) ?? _splitHelpSections(lines, 3) ?? const [];
+  return _splitHelpSections(lines, 2) ??
+      _splitHelpSections(lines, 3) ??
+      const [];
 }
 
 List<HelpSection>? _splitHelpSections(List<String> lines, int level) {

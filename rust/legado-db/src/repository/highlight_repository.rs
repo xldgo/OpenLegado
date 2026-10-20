@@ -5,7 +5,7 @@
 //! bindChapterUrl / updateBookMetadata / update / delete，
 //! 并扩展 getByChapter / searchByKeyword / deleteByBook 供 FFI 层使用。
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::BookHighlight;
 use legado_core::{LegadoError, LegadoResult};
@@ -23,6 +23,23 @@ pub struct HighlightRepository<'a> {
 impl<'a> HighlightRepository<'a> {
     pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
+    }
+
+    /// time 为零时用调用方时间顺延避碰；显式主键仍按原规则覆盖。
+    /// 沿用逐次查询再插入，不改变事务或并发分配策略。
+    pub fn insert_with_fallback_time(
+        &self,
+        mut highlight: BookHighlight,
+        fallback_time: i64,
+    ) -> LegadoResult<i64> {
+        if highlight.time == 0 {
+            highlight.time = fallback_time;
+            while self.find_by_time(highlight.time)?.is_some() {
+                highlight.time += 1;
+            }
+        }
+        self.insert(&highlight)?;
+        Ok(highlight.time)
     }
 
     /// 插入高亮记录（INSERT OR REPLACE，对齐 DAO `@Insert(onConflict = REPLACE)`）
@@ -113,8 +130,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map([], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -130,8 +147,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![book_url], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -151,8 +168,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![book_url, chapter_index], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -172,8 +189,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![book_url, pattern], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -192,8 +209,8 @@ impl<'a> HighlightRepository<'a> {
         let rows = stmt
             .query_map(params![pattern], row_to_highlight)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("highlight_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -354,6 +371,29 @@ mod tests {
         assert_eq!(repo.count().unwrap(), 1);
         let found = repo.find_by_time(1).unwrap().unwrap();
         assert_eq!(found.bookText, "新文本");
+    }
+
+    #[test]
+    fn test_fallback_time_skips_collisions_but_explicit_time_replaces() {
+        let db = crate::init_in_memory_database().unwrap();
+        let repo = HighlightRepository::new(db.connection());
+        repo.insert(&make_highlight(100, "bk://1", 0, "原记录"))
+            .unwrap();
+        repo.insert(&make_highlight(101, "bk://1", 0, "相邻记录"))
+            .unwrap();
+        assert_eq!(
+            repo.insert_with_fallback_time(make_highlight(0, "bk://1", 0, "新增"), 100)
+                .unwrap(),
+            102
+        );
+        assert_eq!(repo.find_by_time(100).unwrap().unwrap().bookText, "原记录");
+        assert_eq!(
+            repo.insert_with_fallback_time(make_highlight(100, "bk://1", 0, "编辑"), 900)
+                .unwrap(),
+            100
+        );
+        assert_eq!(repo.find_by_time(100).unwrap().unwrap().bookText, "编辑");
+        assert_eq!(repo.count().unwrap(), 3);
     }
 
     #[test]

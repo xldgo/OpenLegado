@@ -5,251 +5,61 @@
 //! 登录头、DB 书籍变量、书源 JS setup 全部经 [`crate::deps::FetcherDeps`] 注入；
 //! 入口函数为 async（宿主负责 runtime 驱动）。
 
+use crate::web_book_state::{
+    BOOK_META_CACHE_MAX, BookMeta, CHAPTER_BOOK_CACHE_MAX, PageBodyCache, WebBookState,
+};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use std::sync::OnceLock;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
 
-use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
-use encoding_rs::Encoding;
 use legado_core::models::BookSource;
 use legado_core::models::{Book, BookChapter};
 use legado_core::web_book::{
     BookSourceFetcher, WebBookEngine, WebBookInfo, WebChapter, WebSearchResult,
 };
 use legado_core::{LegadoError, LegadoResult};
-use legado_js::host_api::variable_store;
-use legado_js::js_source::js_source_book::JsSourceBookOrchestrator;
 use legado_js::JsSourceConfig;
+use legado_js::js_source::js_source_book::JsSourceBookOrchestrator;
 use legado_net::LegadoClient;
-use legado_parser::{compile_regex_safe, set_global_variable_reader, AnalyzeUrl};
+use legado_parser::{AnalyzeUrl, compile_regex_safe};
 
 use crate::book_type::book_type_of_source;
 use crate::deps::FetcherDeps;
+
 use crate::js_adapter::{
     build_search_url_with_setup, build_toc_page_context, construct_analyzer_with_js_lib,
     construct_analyzer_with_source_context, construct_toc_page_analyzer, decode_js_error_url,
     sanitize_js_lib_for_quickjs,
 };
 
-/// 四级响应解码：显式 charset → Content-Type 头 → HTML meta → 统计探测
-///
-/// 前三级对齐原版 OkHttpUtils.ResponseBody.text：`explicit`（UrlOption.charset）
-/// 最高优先，随后 `contentType()?.charset()`，再 `EncodingDetect.getHtmlEncode`
-/// 的 meta 扫描；第四级对齐其 meta 无果后的 ICU4J `CharsetDetector` 统计探测
-/// （探测失败回 UTF-8，见 [`decode_detected_or_lossy`]）。
-///
-/// `pub`（HTTP P2-19 尾项）：抓取链（[`RealBookSourceFetcher`]）与搜索链
-/// （`legado_ffi::api::search`）共用本入口——探测实现仅此一处，避免双份代码。
-/// 显式 charset 优先级不回退：头/meta/探测均不可能覆盖 `explicit`。
-pub fn decode_web_response(
-    bytes: &[u8],
-    headers: &HashMap<String, String>,
-    explicit: Option<&str>,
-) -> String {
-    let charset = explicit
-        .filter(|s| !s.trim().is_empty())
-        .map(str::to_string)
-        .or_else(|| charset_from_content_type(headers))
-        .or_else(|| charset_from_html_meta(bytes));
-    match charset {
-        // 前三级：按声明编码解码（未知标签在 decode_response_bytes 内回退 UTF-8）
-        Some(charset) => AnalyzeUrl::decode_response_bytes(bytes, Some(&charset)),
-        // 第四级：统计探测；探测为 UTF-8 / 无损解码失败 → 既有 lossy UTF-8 兜底
-        None => decode_detected_or_lossy(bytes),
-    }
+#[cfg(test)]
+use legado_parser::response_decode::charset_from_html_meta;
+pub use legado_parser::response_decode::decode_web_response;
+
+fn page_body_cache(state: &WebBookState) -> &Mutex<PageBodyCache> {
+    &state.page_body
 }
 
-/// 第四级自动探测解码（chardetng：encoding_rs 同作者的纯 Rust 探测器）
-///
-/// - TLD hint 传 `None`（对齐上游无域名线索口径）；
-/// - `Utf8Detection::Allow`：上游 ICU4J 对合法 UTF-8 会检出 UTF-8；若按浏览器
-///   规则 `Deny` 会把无标识的中文 UTF-8 页误判为 windows-1252（乱码回归）；
-/// - ISO-2022-JP 按 chardetng 对可执行脚本的 Web 内容指引设 `Deny`；
-/// - 含 BOM：BOM 直接决定编码并去 BOM 后解码（对齐上游
-///   `Utf8BomUtils.removeUTF8BOM`，顺带支持标准 UTF-16 BOM 嗅探）；
-/// - 无 BOM：探测结果非 UTF-8 时走 encoding_rs 无损 API
-///   （`decode_without_bom_handling_and_without_replacement`，不注入替换字符）；
-///   chardetng 不暴露置信度接口，故不设置信阈值（对齐上游无阈值）——无损解码
-///   失败（探测结果与字节不符）即视为探测失败，回 lossy UTF-8；猜测为 UTF-8
-///   同样交回 lossy UTF-8，保证既有 UTF-8 页行为逐字不变。
-/// - 已知边界（P2-19 尾项审查 P2-2）：猜中 GBK/GB18030 族时无损 API 对混合
-///   非法字节几乎总成功（GBK 码位覆盖极广），个别乱码正文会以有损结果进入
-///   规则解析——与上游「无置信阈值」口径一致的选择；JSON 等纯 ASCII 响应
-///   不受影响（UTF-8 猜测直接走 lossy UTF-8，ASCII 解码逐字一致）。
-fn decode_detected_or_lossy(bytes: &[u8]) -> String {
-    if let Some((encoding, bom_len)) = Encoding::for_bom(bytes) {
-        // BOM 权威：decode_without_bom_handling 为有损替换解码（对齐上游
-        // `String(bytes, Charset.forName(BOM 编码))`）
-        return encoding
-            .decode_without_bom_handling(&bytes[bom_len..])
-            .0
-            .into_owned();
-    }
-
-    let mut detector = EncodingDetector::new(Iso2022JpDetection::Deny);
-    let _ = detector.feed(bytes, true);
-    let guessed = detector.guess(None, Utf8Detection::Allow);
-    if guessed == encoding_rs::UTF_8 {
-        return String::from_utf8_lossy(bytes).into_owned();
-    }
-    match guessed.decode_without_bom_handling_and_without_replacement(bytes) {
-        Some(decoded) => decoded.into_owned(),
-        None => String::from_utf8_lossy(bytes).into_owned(),
-    }
+fn cache_get_page_body(state: &WebBookState, url: &str) -> Option<String> {
+    page_body_cache(state)
+        .lock()
+        .ok()
+        .and_then(|mut c| c.get(url))
 }
 
-fn charset_from_content_type(headers: &HashMap<String, String>) -> Option<String> {
-    let value = headers
-        .iter()
-        .find(|(name, _)| name.eq_ignore_ascii_case("content-type"))
-        .map(|(_, value)| value.as_str())?;
-    extract_charset_assignment(value)
-}
-
-fn extract_charset_assignment(value: &str) -> Option<String> {
-    let lower = value.to_ascii_lowercase();
-    let start = lower.find("charset")? + 7;
-    let tail = &value[start..];
-    let equal = tail.find('=')?;
-    let value = tail[equal + 1..].trim();
-    let value = value.trim_start_matches(['"', '\'']);
-    let charset = value.split([';', ' ', '"', '\'']).next().unwrap_or("");
-    (!charset.is_empty()).then(|| charset.to_string())
-}
-
-fn charset_from_html_meta(bytes: &[u8]) -> Option<String> {
-    let head = String::from_utf8_lossy(&bytes[..bytes.len().min(16 * 1024)]);
-    let meta_re = regex::Regex::new(r##"(?is)<meta\b[^>]*>"##).ok()?;
-    let attr_re = regex::Regex::new(
-        r##"(?is)([a-z_:][a-z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))"##,
-    )
-    .ok()?;
-    for tag in meta_re.find_iter(&head).map(|m| m.as_str()) {
-        let mut attrs: HashMap<String, String> = HashMap::new();
-        for caps in attr_re.captures_iter(tag) {
-            let name = caps
-                .get(1)
-                .map(|m| m.as_str().to_ascii_lowercase())
-                .unwrap_or_default();
-            let value = caps
-                .get(2)
-                .or_else(|| caps.get(3))
-                .or_else(|| caps.get(4))
-                .map(|m| m.as_str().to_string())
-                .unwrap_or_default();
-            attrs.insert(name, value);
-        }
-        if let Some(charset) = attrs.get("charset").filter(|v| !v.trim().is_empty()) {
-            return Some(charset.trim().to_string());
-        }
-        let is_content_type = attrs
-            .get("http-equiv")
-            .is_some_and(|v| v.eq_ignore_ascii_case("content-type"));
-        if is_content_type {
-            if let Some(cs) = attrs
-                .get("content")
-                .and_then(|v| extract_charset_assignment(v))
-            {
-                return Some(cs);
-            }
-        }
-    }
-    None
-}
-
-/// 详情/目录短时 HTML 缓存（对齐原版 Book.infoHtml / Book.tocHtml 进程内复用）
-///
-/// Flutter 信息页串行 `webbookInfo` → `webbookChapters` 时，原版在 analyzeBookInfo
-/// 后把 body 写入 tocHtml，目录阶段不再二次 HTTP。无状态 FFI 无法携带 Book，
-/// 故用 URL 键短 TTL 缓存承接同一次进入详情的重复拉页。
-const PAGE_BODY_CACHE_TTL: Duration = Duration::from_secs(45);
-const PAGE_BODY_CACHE_MAX: usize = 32;
-
-struct PageBodyCache {
-    entries: HashMap<String, (Instant, String)>,
-}
-
-impl PageBodyCache {
-    fn new() -> Self {
-        Self {
-            entries: HashMap::new(),
-        }
-    }
-
-    fn get(&mut self, url: &str) -> Option<String> {
-        let now = Instant::now();
-        self.entries
-            .retain(|_, (t, _)| now.duration_since(*t) < PAGE_BODY_CACHE_TTL);
-        self.entries.get(url).map(|(_, b)| b.clone())
-    }
-
-    fn put(&mut self, url: &str, body: String) {
-        let now = Instant::now();
-        self.entries
-            .retain(|_, (t, _)| now.duration_since(*t) < PAGE_BODY_CACHE_TTL);
-        if self.entries.len() >= PAGE_BODY_CACHE_MAX {
-            // 简单淘汰：丢掉最旧一条
-            if let Some(oldest) = self
-                .entries
-                .iter()
-                .min_by_key(|(_, (t, _))| *t)
-                .map(|(k, _)| k.clone())
-            {
-                self.entries.remove(&oldest);
-            }
-        }
-        self.entries.insert(url.to_string(), (now, body));
-    }
-}
-
-fn page_body_cache() -> &'static Mutex<PageBodyCache> {
-    static CACHE: OnceLock<Mutex<PageBodyCache>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(PageBodyCache::new()))
-}
-
-fn cache_get_page_body(url: &str) -> Option<String> {
-    page_body_cache().lock().ok().and_then(|mut c| c.get(url))
-}
-
-fn cache_put_page_body(url: &str, body: &str) {
-    if let Ok(mut c) = page_body_cache().lock() {
+fn cache_put_page_body(state: &WebBookState, url: &str, body: &str) {
+    if let Ok(mut c) = page_body_cache(state).lock() {
         c.put(url, body.to_string());
     }
 }
 
-// ─── P2-9 ② book 绑定扩面：BookMeta 进程级缓存 ────────────────────────────────
+// ─── P2-9 ② book 绑定扩面：BookMeta 引擎实例缓存 ────────────────────────────────
 //
-/// book 绑定扩面元信息（P2-9 ②）
-///
-/// 对齐上游 `Book`/`BaseBook` 字段面（Book.kt:122/146-148/206-212、
-/// BaseBook.kt:19-31）：无状态 FFI 无法跨调用携带 Book 对象，用 URL 键
-/// 进程级缓存承接详情/目录阶段 → 正文阶段的元信息流转：
-/// - `webbook_info` 记录详情信息（name/author/tocUrl/lastChapter/variable）
-/// - `webbook_chapters` 记录目录（章节 URL → book URL 映射 + lastChapter）
-/// - `webbook_content` 按章节 URL 反查 meta，构造带字段的 `book` 绑定
-#[derive(Clone, Debug, Default)]
-struct BookMeta {
-    name: String,
-    author: String,
-    book_url: String,
-    toc_url: String,
-    last_chapter: String,
-    /// 规则变量 JSON（Map<String,Any> 序列化字符串，如 `{"custom":"x"}`；
-    /// 对齐 WebBookInfo.variable / Book.variable，RuleDataInterface.kt:7-34）
-    variable: Option<String>,
-}
 
-/// book 元信息缓存容量（bookUrl 键；仅**新键**插入溢出时整体清空——降级
-/// LRU 为全量淘汰，与 PageBodyCache 的简单淘汰策略一致）
-const BOOK_META_CACHE_MAX: usize = 512;
-/// (书源 URL, 章节 URL) 复合键 → book URL 映射缓存容量（仅**新键**插入
-/// 溢出时整体清空）
-const CHAPTER_BOOK_CACHE_MAX: usize = 8192;
-
-fn book_meta_cache() -> &'static Mutex<HashMap<String, BookMeta>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, BookMeta>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+fn book_meta_cache(state: &WebBookState) -> &Mutex<HashMap<(String, String), BookMeta>> {
+    &state.book_meta
 }
 
 /// (书源 URL, 章节 URL) 复合键 → book URL
@@ -258,23 +68,21 @@ fn book_meta_cache() -> &'static Mutex<HashMap<String, BookMeta>> {
 /// 常见）时，正文阶段按**当前书源**的 sourceUrl 反查，不会绑定到别的书
 /// 的 meta（对齐 reader.rs Task #16 `get_by_book_and_chapter_url` 复合键
 /// 先例）；命中失败（换书源后旧源无记录等）回退既有空 name 字面量绑定。
-fn chapter_book_cache() -> &'static Mutex<HashMap<(String, String), String>> {
-    static CACHE: OnceLock<Mutex<HashMap<(String, String), String>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+fn chapter_book_cache(state: &WebBookState) -> &Mutex<HashMap<(String, String), String>> {
+    &state.chapter_book
 }
 
 /// (书源 URL, 章节 URL) 复合键 → **下一章** URL（目录阶段登记，[B-6] 用）
 ///
 /// nextContentUrl 分页链的「命中下一章 URL 即截断」判定需要 nextChapterUrl
 /// （上游 BookContent.kt:76-80 `mNextChapterUrl = nextChapterUrl ?:
-/// getChapter(bookUrl, index+1)?.url`）。无状态 FFI 用进程级缓存承接
+/// getChapter(bookUrl, index+1)?.url`）。无状态 FFI 用引擎缓存承接
 /// 目录 → 正文的流转（与 [`chapter_book_cache`] 同款模式）：目录抓取/
 /// 重写/换源提交后按 (书源, 章节) 登记「下一章 URL」，正文分页阶段按
 /// 复合键反查精确截断；未命中回退 URL 形态保守启发式
 /// （见 [`pagination_truncation_heuristic`]）。
-fn next_chapter_cache() -> &'static Mutex<HashMap<(String, String), String>> {
-    static CACHE: OnceLock<Mutex<HashMap<(String, String), String>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+fn next_chapter_cache(state: &WebBookState) -> &Mutex<HashMap<(String, String), String>> {
+    &state.next_chapter
 }
 
 /// 记录 (书源, 章节) → 下一章 URL 映射（正文分页截断判定用，[B-6]）
@@ -288,7 +96,7 @@ fn next_chapter_cache() -> &'static Mutex<HashMap<(String, String), String>> {
 /// 容量策略与 [`chapter_book_insert_batch`] 一致：仅**新键**插入溢出容量
 /// 上限（CHAPTER_BOOK_CACHE_MAX）时整体清空（best-effort 缓存，未命中
 /// 回退 URL 形态启发式判定，不值得 LRU 排序开销）。
-pub fn record_next_chapter_map(source_url: &str, chapters: &[WebChapter]) {
+pub fn record_next_chapter_map(state: &WebBookState, source_url: &str, chapters: &[WebChapter]) {
     if source_url.trim().is_empty() || chapters.is_empty() {
         return;
     }
@@ -314,7 +122,7 @@ pub fn record_next_chapter_map(source_url: &str, chapters: &[WebChapter]) {
         }
     }
 
-    let mut map = match next_chapter_cache().lock() {
+    let mut map = match next_chapter_cache(state).lock() {
         Ok(m) => m,
         Err(_) => return,
     };
@@ -328,8 +136,12 @@ pub fn record_next_chapter_map(source_url: &str, chapters: &[WebChapter]) {
 }
 
 /// 按 (书源 URL, 章节 URL) 反查下一章 URL（正文分页截断判定的精确通道）
-fn lookup_next_chapter_url(source_url: &str, chapter_url: &str) -> Option<String> {
-    next_chapter_cache()
+fn lookup_next_chapter_url(
+    state: &WebBookState,
+    source_url: &str,
+    chapter_url: &str,
+) -> Option<String> {
+    next_chapter_cache(state)
         .lock()
         .ok()?
         .get(&(source_url.to_string(), chapter_url.to_string()))
@@ -342,7 +154,11 @@ fn lookup_next_chapter_url(source_url: &str, chapter_url: &str) -> Option<String
 /// [P2-11 §199] 容量判定：仅**新键**插入且已达容量上限时整体清空；更新
 /// 既有键（merge 覆盖字段）不触发清空——修复旧版 `>=` 判定在满表时
 /// 任何写入（含既有键更新）都清空的缺陷
-fn book_meta_merge_insert(map: &mut HashMap<String, BookMeta>, key: String, patch: BookMeta) {
+fn book_meta_merge_insert(
+    map: &mut HashMap<(String, String), BookMeta>,
+    key: (String, String),
+    patch: BookMeta,
+) {
     let is_new = !map.contains_key(&key);
     if is_new && map.len() >= BOOK_META_CACHE_MAX {
         map.clear();
@@ -368,13 +184,18 @@ fn book_meta_merge_insert(map: &mut HashMap<String, BookMeta>, key: String, patc
     }
 }
 
-/// webbook_info：详情解析完成后记录 book 元信息（键 = 入参 bookUrl 原样）
+/// webbook_info：详情解析完成后按来源＋入参 bookUrl 记录元信息
 ///
 /// P1-1：variable 优先取 DB `books.variable`（用户书籍变量，Dart 书籍
 /// 信息页可编辑、持久化）；DB 无值/为空时回退 `@put`/putVariable 导出值
 /// （info.variable，书源规则分析期默认值）。优先级理由：用户显式设置
 /// 覆盖书源默认导出。
-pub fn record_book_meta_from_info(deps: &FetcherDeps, book_url: &str, info: &WebBookInfo) {
+pub fn record_book_meta_from_info(
+    deps: &FetcherDeps,
+    source_url: &str,
+    book_url: &str,
+    info: &WebBookInfo,
+) {
     if book_url.trim().is_empty() {
         return;
     }
@@ -391,8 +212,12 @@ pub fn record_book_meta_from_info(deps: &FetcherDeps, book_url: &str, info: &Web
         last_chapter: info.last_chapter.clone().unwrap_or_default(),
         variable,
     };
-    if let Ok(mut map) = book_meta_cache().lock() {
-        book_meta_merge_insert(&mut map, book_url.to_string(), meta);
+    if let Ok(mut map) = book_meta_cache(&deps.web_book).lock() {
+        book_meta_merge_insert(
+            &mut map,
+            (source_url.to_string(), book_url.to_string()),
+            meta,
+        );
     }
 }
 
@@ -433,15 +258,19 @@ pub fn record_chapter_list_cache(
         // merge 语义保留详情阶段已记录的 @put 导出值（不冲掉）
         variable: db_book_variable(deps, book_url),
     };
-    if let Ok(mut map) = book_meta_cache().lock() {
-        book_meta_merge_insert(&mut map, book_url.to_string(), meta);
+    if let Ok(mut map) = book_meta_cache(&deps.web_book).lock() {
+        book_meta_merge_insert(
+            &mut map,
+            (source_url.to_string(), book_url.to_string()),
+            meta,
+        );
     }
-    if let Ok(mut map) = chapter_book_cache().lock() {
+    if let Ok(mut map) = chapter_book_cache(&deps.web_book).lock() {
         chapter_book_insert_batch(&mut map, source_url, book_url, chapters);
     }
     // [B-6] 同步登记 (书源, 章节) → 下一章 URL（正文分页「命中下一章即
     // 截断」的精确通道；未命中时正文阶段回退 URL 形态启发式）
-    record_next_chapter_map(source_url, chapters);
+    record_next_chapter_map(&deps.web_book, source_url, chapters);
 }
 
 /// [P2-11 §199] (书源, 章节) → book URL 批量写入：仅当**新键**数量使
@@ -473,102 +302,44 @@ fn chapter_book_insert_batch(
     }
 }
 
-/// 按 bookUrl 原样查 book 元信息（目录解析前合并详情阶段的 variable 等字段）
-fn lookup_book_meta_by_book_url(book_url: &str) -> Option<BookMeta> {
-    book_meta_cache().lock().ok()?.get(book_url).cloned()
+/// 按来源和 bookUrl 查元信息，不因其他来源也使用同一 URL 而串读。
+fn lookup_book_meta_by_book_url(
+    state: &WebBookState,
+    source_url: &str,
+    book_url: &str,
+) -> Option<BookMeta> {
+    book_meta_cache(state)
+        .lock()
+        .ok()?
+        .get(&(source_url.to_string(), book_url.to_string()))
+        .cloned()
 }
 
 /// webbook_content：按 (书源 URL, 章节 URL) 复合键反查 book 元信息
 ///
-/// (书源 URL, 章节 URL) → book URL（目录阶段映射）→ BookMeta（详情/目录
-/// 阶段记录）。未命中（未走详情/目录 FFI 调用、缓存已淘汰、或换书源后
+/// (书源 URL, 章节 URL) → book URL（目录阶段映射）→ 同书源的 BookMeta
+/// （详情/目录阶段记录）。未命中（未走详情/目录 FFI 调用、缓存已淘汰、或换书源后
 /// 当前书源下无记录）返回 None：正文阶段回退既有空 name 字面量绑定语义，
 /// 不破坏既有书源。
 ///
 /// [P2-11 §193] `source_url` 入参（当前书源 sourceUrl）——同章节 URL 的
 /// 不同书源书籍不串键；未采用 FFI 面可选 bookUrl 入参方案（(a)），零
 /// 契约面（`webbook_content` 签名不变、无 frb 再生成）。
-fn lookup_book_meta_for_chapter(source_url: &str, chapter_url: &str) -> Option<BookMeta> {
-    let book_url = chapter_book_cache()
+fn lookup_book_meta_for_chapter(
+    state: &WebBookState,
+    source_url: &str,
+    chapter_url: &str,
+) -> Option<BookMeta> {
+    let book_url = chapter_book_cache(state)
         .lock()
         .ok()?
         .get(&(source_url.to_string(), chapter_url.to_string()))
         .cloned()?;
-    book_meta_cache().lock().ok()?.get(&book_url).cloned()
+    lookup_book_meta_by_book_url(state, source_url, &book_url)
 }
 
 // ─── P2-9 ③：全局变量 store 桥接与书籍流程生命周期 ─────────────────────────────
 //
-/// 进程级幂等注册：把 parser 侧 `AnalyzeRule::get` 的全局兜底读取器
-/// （`legado_parser::set_global_variable_reader`）指向本进程的
-/// `legado_js::host_api::variable_store` 全局变量表。
-///
-/// P2-9 ③：JS 宿主 `java.put`/`java.get`/`getVariable`/`setVariable`
-/// 读写的是**进程级全局**变量表（QuickJS 宿主 API，见
-/// `quickjs_impl.rs` `register_variable_apis`），而规则 `@get:{k}`
-/// 读的是 analyzer **本地**变量（优先级 localBindings → bookName/title
-/// 特例 → variables）。两者此前无桥：「JS 写、规则读」的书源（小米阅读 /
-/// 就去看网 / 手机小说）`@get` 恒空——手机小说 `ruleBookInfo.init` 里
-/// `java.put("url", …)` 后 `tocUrl: @get:{url}` 取空 → 回退 book_url →
-/// 目录页错。
-///
-/// 设计：legado-parser 不能依赖 legado-js（循环依赖），故桥读取器由本层
-/// 注入；`AnalyzeRule::get` 仅在**本地查找全部未命中（或本地值为空）后**
-/// 才读全局 store——不改动既有优先级，全局 store 是最低优先级兜底。
-fn ensure_global_variable_bridge() {
-    // 幂等重注册（非常量 OnceLock）：生产路径每次书籍流程入口调用，
-    // 保证测试/其他注册方复位读取器后（`set_global_variable_reader(None)`）
-    // 下一个流程入口自动恢复桥——前后对照测试（P2-9 ③）依赖该语义。
-    //
-    // P1-1/P1-2：读者改 `get_flow_variable`（flow scope 会话层 → 裸键持久层，
-    // 见 variable_store 模块文档）：`@get` 兜底先读本流程命名空间
-    // （`lgflow::{scope}{key}`），未命中回退裸键（持久层，跨书存活）——
-    // 既防跨书会话串读（P1-2），又不把持久键当会话清掉（P1-1）。
-    set_global_variable_reader(Some(Arc::new(|key: &str| -> Option<String> {
-        variable_store::get_flow_variable(key)
-    })));
-}
-
-/// 书籍流程入口：设置 flow scope（P2-9 ③ 生命周期，P1-1/P1-2 修复版）
-///
-/// 底层为 `variable_store::set_flow_scope`（进程级单槽）：
-/// - scope 与当前相同 → 无操作（**同一本**书 info → toc → content 链
-///   会话变量原样携带——就去看网正文 `java.get("动")` 等快路径依赖此；
-///   `webbook_content` 无 bookUrl 入参、不触发本入口，scope 不变）；
-/// - scope 变化（换书/换源/换阶段）→ **只清旧 scope 前缀**（上一流程
-///   的会话键 `lgflow::{old}*`），再写入新 scope。
-///
-/// 流程键设计（沿用 P2-9 ③，对齐上游「变量不跨 analyzer 实例」语义）：
-/// - `webbook_search` → `search:{bookSourceUrl}`：同书源翻页搜索复用，
-///   换书源即清旧前缀；
-/// - `webbook_info` / `webbook_chapters` / 刷新目录·换源等 → `book_url`
-///   原样（换源用新源详情页 URL）：详情/目录/正文同一本书共享键。
-///
-/// **P1-1**：持久键（书源搜索期 `source.put` 的 `v_{sourceUrl}_{k}`、
-/// `source.setVariable` 的 `sourceVariable_{sourceUrl}`、登录缓存
-/// `loginHeader_*`/`userInfo_*`、`cache.*` 裸键——上游对应持久
-/// CacheManager，无「换书清空」语义）是裸键、永不命中 scope 前缀 →
-/// 换书不再误清（旧实现整表 `clear_variables()` 会连持久键一起清，
-/// 导致「搜索期源写 token → 开详情换键 → 整表清 → 详情/目录
-/// `source.getVariable()` 读空」）。
-///
-/// **P1-2**：会话键按流程命名空间隔离后，跨书源 `@get` 串读（语料：
-/// `url` 5 写 2 跨读、`bid` 4 写 2 跨读）结构性消除；单槽 scope 的
-/// 残余并发风险（两本**不同**书流程真并行时，后启动者清前者的前缀）
-/// 见交付报告「残余风险」节。
-///
-/// 降级残留风险（沿用 P2-9 ③）：未走详情/目录 FFI 直接进正文（深链）时，
-/// 正文阶段读到的仍是上一本书的全局变量；命中三源（手机小说正文规则
-/// 不用 `@get`、就去看网正文 JS 对 `java.get` 空值有 `''` 兜底分支）
-/// 均为优雅降级，不产错页。
-///
-/// `pub`：宿主（ffi `api::web_book` re-export）与入口收口的兄弟模块
-/// （`reader`/`pre_update`/`source_switch`/`search`）在跑 ruleBookInfo
-/// 的入口复用同一生命周期。
-pub fn begin_book_flow(key: &str) {
-    ensure_global_variable_bridge();
-    let _ = variable_store::set_flow_scope(key);
-}
 
 /// P1-1：按 bookUrl 读用户书籍变量（DB `books.variable`）
 ///
@@ -592,26 +363,9 @@ fn db_book_variable(deps: &FetcherDeps, book_url: &str) -> Option<String> {
     deps.book_variable_for(book_url)
 }
 
-/// P2-9 ②：构造 `book` 绑定 JS 表达式（经 AnalyzeRule 前置注入
-/// `globalThis.book = <expr>`）
-///
-/// - `Some(meta)`：IIFE 对象，字段面对齐上游 Book.kt:122/146-148/206-212
-///   （name/author/bookUrl/tocUrl/lastChapter/variable）+ 方法面
-///   （getVariable/putVariable/getCustomVariable/putCustomVariable 对齐
-///   RuleDataInterface.kt:7-34；`setType` 为本扩展、上游无同名方法；
-///   `setReverseToc` 为脚本内标志——P2-11 ① 起落 [`variable_store`]
-///   进程级裸键，见下）。
-/// - **P2-11 ① `type` 初值真实化**：`book_type` 入参为书源 BookType 位标志
-///   （调用点经 `book_type_of_source` 换算：TEXT=8 /
-///   AUDIO=32 / IMAGE=64 / VIDEO=4 / FILE=136），与语料 `book.type=8/32/64`
-///   切小说/音频/漫画模式的位标志语义一致（对齐上游 `io.legado.app.constant.
-///   BookType`）；改造前硬编码 `0`，TEXT 源 `book.type` 恒 0 与 DB
-///   `book.book_type`(8) 不一致。JS 侧 `book.type=N` / `book.setType(N)`
-///   的覆盖值经 `__lgBookSetType` 桥落 [`variable_store`]，同书后续绑定
-///   构造在 [`book_write_overlays`] 读回并优先于入参初值。
-/// - `None`：逐字保留既有字面量语义（content 站点 `{"totalChapterNum":N,
-///   "name":""}` / toc 站点 `{"name":…}`），不破坏未走详情/目录阶段的源。
+/// 构造当前书籍绑定；元信息缺失时保留既有最小字面量，不伪造书籍锚点。
 fn book_binding_expr(
+    resources: &legado_js::JsResources,
     meta: Option<&BookMeta>,
     fallback_name: &str,
     total_chapter_num: i32,
@@ -619,7 +373,7 @@ fn book_binding_expr(
     book_type: i32,
 ) -> String {
     match meta {
-        Some(m) => iife_book_expr(m, book_type, total_chapter_num),
+        Some(m) => iife_book_expr(resources, m, book_type, total_chapter_num),
         None if content_site => {
             format!("{{\"totalChapterNum\": {total_chapter_num}, \"name\": \"\"}}")
         }
@@ -627,67 +381,16 @@ fn book_binding_expr(
     }
 }
 
-/// P2-11 ①：读当前进程内 JS 写路径状态（[`variable_store`] 裸键持久层，
-/// 由 quickjs 引擎 `java.__lgBook*` 宿主桥写入，见
-/// `legado_js::host_api::quickjs_impl::register_book_binding_bridges`）：
-///
-/// 返回 (variable overlay, type 覆盖值, reverseToc 覆盖值)：
-/// - variable overlay：`bookVar::{bookUrl}::` 前缀下全部键（JS
-///   `book.putVariable` / `putCustomVariable` 写入），值为 IIFE 内存
-///   `m[k]` 原样字符串（string 直存、非 string 存其 JSON.stringify 结果，
-///   与内存 `b.variable` 语义一致）；
-/// - type 覆盖值：`bookType::{bookUrl}`（JS `book.type=N` /
-///   `book.setType(N)` 写入；i32 解析失败降级为无覆盖）；
-/// - reverseToc 覆盖值：`bookReverseToc::{bookUrl}`（JS
-///   `book.setReverseToc(f)` 写入；"true"/"1" → true，其余 → false）。
-///
-/// **生命周期**：进程级（`GLOBAL_VARIABLES`，进程重启即失——降级项，未做
-/// 详情期 DB 持久化；详情期写入经 [`WebBookInfo`] 合并走既有换源 DB 路径
-/// 可跨进程，见 `parse_book_info_from_body`）。
-///
-/// **可见性**（P2-15 修正，此前「同一书籍流程内后续规则/请求能看到前面
-/// 阶段的写入」表述不准确——本函数只作用于**绑定构造期**，同阶段同
-/// 字面量的规则之间不经本函数）：
-/// 1. **跨阶段（本函数职责）**：同 `bookUrl` 的详情 → 目录 → 正文 /
-///    二次详情 / 换源各阶段，每次**新构造** `book` 绑定都经本函数读回
-///    并合并，后续阶段的绑定初值含前面阶段的写入；
-/// 2. **同阶段跨规则**（P2-15，不经本函数）：同阶段规则 B 的绑定字面量
-///    是构造时点快照，规则 A 在构造后的写入不经本函数可见——由 IIFE
-///    `getVariable` 经 `__lgBookVarGet` 桥回读 store 兜底（见
-///    [`BOOK_BINDING_IIFE`] 注释），以及 `java.get`/`@get` 经
-///    `get_flow_variable` 链尾 bookVar 兜底（flow scope = 本书 bookUrl
-///    时）；
-///
-/// 跨书以 `bookUrl` 隔离，不串读。**降级说明**：读取
-/// 失败（store 异常等）三路全降级为「无 overlay」，绑定按入参初值 +
-/// meta.variable 构造，不阻断规则求值。
-fn book_write_overlays(book_url: &str) -> (HashMap<String, String>, Option<i32>, Option<bool>) {
-    let Ok(keys) = variable_store::list_variable_keys() else {
-        return (HashMap::new(), None, None);
-    };
-    let prefix = variable_store::book_var_key_prefix(book_url);
-    let mut vars = HashMap::new();
-    for key in &keys {
-        let Some(remainder) = key.strip_prefix(&prefix) else {
-            continue;
-        };
-        if remainder.is_empty() {
-            continue;
-        }
-        if let Ok(Some(value)) = variable_store::get_variable(key) {
-            vars.insert(remainder.to_string(), value);
-        }
-    }
-    let type_override = variable_store::get_variable(&variable_store::book_type_key(book_url))
-        .ok()
-        .flatten()
-        .and_then(|s| s.trim().parse::<i32>().ok());
-    let reverse_override =
-        variable_store::get_variable(&variable_store::book_reverse_toc_key(book_url))
-            .ok()
-            .flatten()
-            .map(|s| matches!(s.trim(), "true" | "1"));
-    (vars, type_override, reverse_override)
+/// 读取本次显式书籍能力的变量及流程标志，失败时保留原有无覆盖降级。
+fn book_write_overlays(
+    resources: &legado_js::JsResources,
+    book_url: &str,
+) -> (HashMap<String, String>, Option<i32>, Option<bool>) {
+    let overlays = resources
+        .variable_scope()
+        .and_then(|scope| scope.book_overlays(book_url).ok())
+        .unwrap_or_default();
+    (overlays.variables, overlays.book_type, overlays.reverse_toc)
 }
 
 /// P2-11 ①：把 JS 写路径的 variable overlay 合并进基础 variable JSON
@@ -718,21 +421,18 @@ fn merge_book_variable_json(
     serde_json::to_string(&object).ok()
 }
 
-/// [P2-15 剩项②] 换源合并点「陈旧 overlay 让位」用的 overlay 键域读取：
-/// 返回 `book_url` 的 JS 写路径 variable overlay 全量键（[`book_write_overlays`]
-/// 第 1 路）。overlay_key 解析与 [`parse_book_info_from_body`] 的读回点
-/// 同构（meta 命中且非空取 meta.book_url，否则入参）——保证读到的键域与
-/// 并入 `WebBookInfo.variable` 的 overlay 是同一份。
-///
-/// 供 `source_switch::yield_stale_overlay_to_db` 判定「哪些键属本进程 JS
-/// 写路径残留 overlay」：仅该键域内的键参与让位，候选 ⊕ 详情 `@put` 导出
-/// 的新鲜合并产物不受影响（T5 语义不变）。
-pub fn book_var_overlay_map(book_url: &str) -> HashMap<String, String> {
-    let overlay_key = lookup_book_meta_by_book_url(book_url)
+/// 换源合并读取同一来源/书籍的JS覆盖键域，稳定主键和取址点沿用现有映射。
+pub fn book_var_overlay_map(
+    resources: &legado_js::JsResources,
+    state: &WebBookState,
+    source_url: &str,
+    book_url: &str,
+) -> HashMap<String, String> {
+    let overlay_key = lookup_book_meta_by_book_url(state, source_url, book_url)
         .map(|m| m.book_url)
         .filter(|u| !u.trim().is_empty())
         .unwrap_or_else(|| book_url.to_string());
-    book_write_overlays(&overlay_key).0
+    book_write_overlays(&resources.for_book(source_url, &overlay_key), &overlay_key).0
 }
 
 /// `book` 绑定 IIFE 模板（占位符替换；占位符串在正常书名/变量值中
@@ -758,11 +458,16 @@ pub fn book_var_overlay_map(book_url: &str) -> HashMap<String, String> {
 /// 纯本地字面量行为（不抛错）。
 const BOOK_BINDING_IIFE: &str = r#"(function(){var _type=__TYPE__,_rev=__REVERSE_TOC__,_var=__VARIABLE__;function hb(n){try{if(typeof java!=='undefined'&&java&&typeof java[n]==='function'){return java[n];}}catch(e){}return null;}var b={name:__NAME__,author:__AUTHOR__,bookUrl:__BOOK_URL__,tocUrl:__TOC_URL__,lastChapter:__LAST__,variable:_var,totalChapterNum:__TOTAL__};b.getVariable=function(k){var m=null;try{if(b.variable){m=JSON.parse(b.variable)||{};}}catch(e){m=null;}if(!m){m={};}var v=m[k];if(v===undefined||v===null||v===''){if(b.bookUrl){var f=hb('__lgBookVarGet');if(f){var g=String(f(b.bookUrl,String(k)));if(g){return g;}}}return '';}return String(v);};b.putVariable=function(k,v){var m=null;try{if(b.variable){m=JSON.parse(b.variable)||{};}}catch(e){m=null;}if(m===null){m={};}var del=(v===null||v===undefined);if(del){delete m[k];}else{m[k]=(typeof v==='string')?v:JSON.stringify(v);}b.variable=JSON.stringify(m);if(b.bookUrl){var f=hb(del?'__lgBookVarDel':'__lgBookVarSet');if(f){if(del){f(b.bookUrl,k);}else{f(b.bookUrl,k,m[k]);}}}return true;};b.putCustomVariable=function(v){return b.putVariable('custom',v);};b.getCustomVariable=function(){return b.getVariable('custom');};Object.defineProperty(b,'type',{get:function(){return _type;},set:function(t){_type=t;if(b.bookUrl){var f=hb('__lgBookSetType');if(f){f(b.bookUrl,String(t));}}},configurable:true,enumerable:true});Object.defineProperty(b,'reverseToc',{get:function(){return _rev;},set:function(f){_rev=!!f;if(b.bookUrl){var h=hb('__lgBookSetReverseToc');if(h){h(b.bookUrl,String(_rev));}}},configurable:true,enumerable:true});b.setType=function(t){b.type=t;return true;};b.setReverseToc=function(f){b.reverseToc=f;return true;};return b;})()"#;
 
-fn iife_book_expr(meta: &BookMeta, book_type: i32, total_chapter_num: i32) -> String {
+fn iife_book_expr(
+    resources: &legado_js::JsResources,
+    meta: &BookMeta,
+    book_type: i32,
+    total_chapter_num: i32,
+) -> String {
     let json_str = |s: &str| serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_string());
     // P2-11 ①：读同书写路径 overlay（JS putVariable/type/reverseToc 写入，
     // 进程级 variable_store 裸键，跨流程可见）合并进绑定初值
-    let (overlay, type_override, reverse_override) = book_write_overlays(&meta.book_url);
+    let (overlay, type_override, reverse_override) = book_write_overlays(resources, &meta.book_url);
     let variable = merge_book_variable_json(meta.variable.as_deref(), &overlay);
     let variable_json = match &variable {
         Some(v) if !v.trim().is_empty() => {
@@ -784,19 +489,17 @@ fn iife_book_expr(meta: &BookMeta, book_type: i32, total_chapter_num: i32) -> St
         .replace("__REVERSE_TOC__", &reverse_init.to_string())
 }
 
-/// P2-9 ②：详情（ruleBookInfo）阶段 `book` 绑定表达式：meta 命中 → IIFE
-/// 扩面（getVariable/putVariable 等依赖，如 聚合书库 `ruleBookInfo.init`
-/// 的 `book.getVariable("custom")` 读用户设置的换源变量）；未命中 → 回退
-/// 既有 `{"name": fallback_name}` 字面量（原 HEAD 详情阶段无 `book` 绑定，
-/// JS `book.*` 引用抛 ReferenceError，init 规则被 `if let Ok` 静默跳过；
-/// 字面量令引用本身合法、方法调用同样降级，执行路径与原先一致）。
-///
-/// P2-11 ①：`book_type` 入参（书源 BookType 位标志，见
-/// [`book_binding_expr`]）作 `book.type` 初值，JS 覆盖值经
-/// [`book_write_overlays`] 优先。
-fn detail_book_binding(book_url: &str, fallback_name: &str, book_type: i32) -> String {
-    let meta = lookup_book_meta_by_book_url(book_url);
-    book_binding_expr(meta.as_ref(), fallback_name, 0, false, book_type)
+/// 详情绑定从同来源元信息取值，并消费与规则执行相同的书籍能力。
+fn detail_book_binding(
+    resources: &legado_js::JsResources,
+    state: &WebBookState,
+    source_url: &str,
+    book_url: &str,
+    fallback_name: &str,
+    book_type: i32,
+) -> String {
+    let meta = lookup_book_meta_by_book_url(state, source_url, book_url);
+    book_binding_expr(resources, meta.as_ref(), fallback_name, 0, false, book_type)
 }
 
 /// P2-9 ①：把「顶层原始响应内容」以 JSON 字面量注入 JS 全局 `src`，使单参
@@ -913,6 +616,27 @@ pub fn apply_cookie_jar_marker_by_flag(
     headers.insert(legado_net::COOKIE_JAR_HEADER.to_string(), "1".to_string());
 }
 
+/// 仅依据已解析详情的目录关系反查；同目录对应多本书时不任意选择。
+fn book_for_observed_toc(state: &WebBookState, source: &str, toc: &str) -> Option<String> {
+    let metas = state.book_meta.lock().ok()?;
+    let mut books = metas
+        .iter()
+        .filter(|((origin, _), meta)| origin == source && meta.toc_url == toc)
+        .map(|(_, meta)| meta.book_url.clone());
+    let first = books.next()?;
+    books.next().is_none().then_some(first)
+}
+
+/// 缺少映射的深链使用章节自己的流程，不复用上次书籍或把章节URL当bookUrl。
+fn deps_for_chapter(deps: &FetcherDeps, source: &BookSource, chapter: &WebChapter) -> FetcherDeps {
+    match lookup_book_meta_for_chapter(&deps.web_book, &source.book_source_url, &chapter.url) {
+        Some(meta) if !meta.book_url.trim().is_empty() => {
+            deps.for_book(&source.book_source_url, &meta.book_url)
+        }
+        _ => deps.for_source("content", &source.book_source_url, &chapter.url),
+    }
+}
+
 /// 基于 legado-net HTTP 客户端 + legado-parser 规则解析引擎，
 /// 实现完整的搜索→详情→目录→正文链路（对标 Kotlin WebBook 对象）。
 pub struct RealBookSourceFetcher {
@@ -945,7 +669,7 @@ impl RealBookSourceFetcher {
     ///
     /// JS `java.setCookie` 写入的 cookie **不再在本函数注入**（2026-09-23 上游同步，
     /// 用户裁决）：取用改按**请求 URL 属域**（`fetch_page` 层
-    /// `cookie_store::cookies_for_url`，cookie 属于域名而非书源，同域 cookie 跨书源
+    /// 本次依赖的共享 jar，cookie 属于域名而非书源，同域 cookie 跨书源
     /// 共享），与 JS `java.ajax` 路径共用同一底层函数与单一真源
     /// `legado_net::cookie_store::cookie_domain_key`。
     ///
@@ -959,10 +683,10 @@ impl RealBookSourceFetcher {
             .and_then(|h| serde_json::from_str(h).ok())
             .unwrap_or_default();
 
-        if let Some(login_header_json) = self.deps.login_header_for(&source.book_source_url) {
-            if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json) {
-                headers.extend(map);
-            }
+        if let Some(login_header_json) = self.deps.login_header_for(&source.book_source_url)
+            && let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&login_header_json)
+        {
+            headers.extend(map);
         }
 
         // 写侧 CookieJar 门控标记（批 1）：开启源补内部标记头；发送前由
@@ -1010,7 +734,7 @@ impl RealBookSourceFetcher {
         // 绝不携带，P2-19 不变式保留），并**按键合并**进已有 Cookie 头
         //（已有同名键胜、非冲突键追加；键查找大小写不敏感）——对齐上游
         // `AnalyzeUrl.setCookie` → `CookieManager.mergeCookies` 语义。
-        legado_js::host_api::cookie_store::merge_js_cookies(&mut headers, url);
+        self.deps.merge_cookies(&mut headers, url);
 
         let headers_opt = if headers.is_empty() {
             None
@@ -1120,17 +844,20 @@ impl RealBookSourceFetcher {
         if let Some(result) = fetch_data_uri_content(url) {
             return result;
         }
-        if use_page_cache {
-            if let Some(cached) = cache_get_page_body(url) {
-                eprintln!("[web_book] page body cache hit: {url}");
-                return Ok(cached);
-            }
+        if use_page_cache
+            && let Some(cached) = cache_get_page_body(
+                &self.deps.web_book,
+                &self.deps.page_cache_key(url, source_headers),
+            )
+        {
+            eprintln!("[web_book] page body cache hit: {url}");
+            return Ok(cached);
         }
         // 与 fetch_page 一致：按键合并请求 URL 属域的 JS cookie（改前缺口：
         // 本路径漏注入 → 正文 nextUrl 分页 / subContent / 目录 nextTocUrl
         // 分页等经 fetch_simple_cached 的请求丢失 JS cookie）
         let mut headers = source_headers.cloned().unwrap_or_default();
-        legado_js::host_api::cookie_store::merge_js_cookies(&mut headers, url);
+        self.deps.merge_cookies(&mut headers, url);
         let headers_opt = if headers.is_empty() {
             None
         } else {
@@ -1148,7 +875,11 @@ impl RealBookSourceFetcher {
         check_redirect_log(url, &response.url);
         let body = decode_web_response(&response.body, &response.headers, None);
         if use_page_cache {
-            cache_put_page_body(url, &body);
+            cache_put_page_body(
+                &self.deps.web_book,
+                &self.deps.page_cache_key(url, source_headers),
+                &body,
+            );
         }
         Ok(body)
     }
@@ -1170,12 +901,15 @@ impl RealBookSourceFetcher {
         if let Some(result) = fetch_data_uri_content(url) {
             return result.map(Some);
         }
-        if let Some(cached) = cache_get_page_body(url) {
+        if let Some(cached) = cache_get_page_body(
+            &self.deps.web_book,
+            &self.deps.page_cache_key(url, source_headers),
+        ) {
             eprintln!("[web_book] toc page cache hit: {url}");
             return Ok(Some(cached));
         }
         let mut headers = source_headers.cloned().unwrap_or_default();
-        legado_js::host_api::cookie_store::merge_js_cookies(&mut headers, url);
+        self.deps.merge_cookies(&mut headers, url);
         let headers_opt = if headers.is_empty() {
             None
         } else {
@@ -1191,7 +925,11 @@ impl RealBookSourceFetcher {
         }
         check_redirect_log(url, &response.url);
         let body = decode_web_response(&response.body, &response.headers, None);
-        cache_put_page_body(url, &body);
+        cache_put_page_body(
+            &self.deps.web_book,
+            &self.deps.page_cache_key(url, source_headers),
+            &body,
+        );
         Ok(Some(body))
     }
 
@@ -1222,6 +960,7 @@ impl RealBookSourceFetcher {
     /// `LoginRequired` 由搜索链路按源静默吞吐（原版错误吞吐：单源
     /// 失败不中断其他源）。
     pub fn execute_login_check(
+        js_resources: &Arc<legado_js::JsResources>,
         source: &BookSource,
         response_body: &str,
         response_url: &str,
@@ -1235,12 +974,13 @@ impl RealBookSourceFetcher {
                     code: response_code,
                     body: response_body.to_string(),
                     url: response_url.to_string(),
-                })
+                });
             }
         };
 
         // 首检（成功响应）：完成值按 StrResponse 对象解析
         let first = legado_js::login_check::execute_login_check_response(
+            js_resources,
             login_check_js,
             response_body,
             response_url,
@@ -1256,6 +996,7 @@ impl RealBookSourceFetcher {
         // body = 首次失败原因，对齐 getErrStrResponse 的 body=stackTraceStr）
         let err_body = format!("HTTP/1.1 500 Internal Server Error\n\n{}", first_err);
         match legado_js::login_check::execute_login_check_response(
+            js_resources,
             login_check_js,
             &err_body,
             response_url,
@@ -1313,6 +1054,17 @@ impl RealBookSourceFetcher {
         existing_name: &str,
         existing_author: &str,
     ) -> WebBookInfo {
+        let scoped = Self::with_deps(
+            self.deps
+                .for_book_request(&source.book_source_url, book_url),
+        );
+        let this = &scoped;
+        let book_anchor = this
+            .deps
+            .js
+            .variable_scope()
+            .and_then(|scope| scope.book_anchor())
+            .unwrap_or(book_url);
         let info_rule = source.rule_book_info.as_ref();
         // 书山等聚合源 init 规则依赖 jsLib（getServerHost）与书源上下文 setup
         // （java.ajax 需携带 header 规则注入的 X-Novel-Token）；jsLib 须 sanitize
@@ -1320,11 +1072,12 @@ impl RealBookSourceFetcher {
         // source/book_url → /catalog 请求「无效书源」。— 书山目录修复
         let js_lib_sanitized = source.js_lib.as_deref().map(sanitize_js_lib_for_quickjs);
         let mut analyzer = construct_analyzer_with_source_context(
+            &this.deps.js,
             body,
             book_url.to_string(),
             &source.book_source_url,
             js_lib_sanitized.as_deref(),
-            self.deps.setup_script_for(source),
+            this.deps.setup_script_for(source),
         );
         // P2-9 ②：book 绑定扩面（详情阶段）：meta 命中 → IIFE（getVariable/
         // putVariable 等依赖，见 detail_book_binding 注释）；未命中 → 既有
@@ -1334,7 +1087,10 @@ impl RealBookSourceFetcher {
         analyzer = analyzer.with_js_binding(
             "book",
             &detail_book_binding(
-                book_url,
+                &this.deps.js,
+                &this.deps.web_book,
+                &source.book_source_url,
+                book_anchor,
                 existing_name,
                 book_type_of_source(source.book_source_type),
             ),
@@ -1347,14 +1103,13 @@ impl RealBookSourceFetcher {
         // content 会导致 tocUrl 产出 {"tab":"novel"} 空 catalog。— 书山目录修复
         if let Some(init_rule) = info_rule.and_then(|r| r.init.as_deref()) {
             let init_rule = init_rule.trim();
-            if !init_rule.is_empty() {
-                if let Ok(init_result) = analyzer.get_string(init_rule) {
-                    if !init_result.is_empty() {
-                        // 对象语义注入：tocUrl 等后续规则访问 result.source 等
-                        // 字段需要 JSON 对象（对齐原版 getElements(init) Map）
-                        analyzer.set_element_content(init_result);
-                    }
-                }
+            if !init_rule.is_empty()
+                && let Ok(init_result) = analyzer.get_string(init_rule)
+                && !init_result.is_empty()
+            {
+                // 对象语义注入：tocUrl 等后续规则访问 result.source 等
+                // 字段需要 JSON 对象（对齐原版 getElements(init) Map）
+                analyzer.set_element_content(init_result);
             }
         }
 
@@ -1392,26 +1147,23 @@ impl RealBookSourceFetcher {
             existing_author.to_string()
         };
 
-        // 分类：kind 原始字符串 + 拆分后的 categories
+        // 分类与字数沿用搜索、发现的统一格式，避免详情刷新覆盖为原始值。
         let kind_raw = info_rule
             .and_then(|r| r.kind.as_deref())
             .map(|rule| analyzer.get_string(rule).unwrap_or_default())
             .unwrap_or_default();
-        let (kind, categories) = if kind_raw.is_empty() {
-            (None, Vec::new())
-        } else {
-            let cats = kind_raw
-                .split([',', '，', ' '])
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-            (Some(kind_raw), cats)
-        };
+        let kind = legado_core::book_help::normalize_book_kind(&kind_raw);
+        let categories = kind
+            .as_deref()
+            .map(|value| value.split(',').map(str::to_string).collect())
+            .unwrap_or_default();
 
         // B2 字数
         let word_count = info_rule
             .and_then(|r| r.word_count.as_deref())
-            .and_then(|rule| optional_field(&analyzer, rule));
+            .and_then(|rule| optional_field(&analyzer, rule))
+            .as_deref()
+            .and_then(legado_core::book_help::format_book_word_count);
 
         let intro = info_rule
             .and_then(|r| r.intro.as_deref())
@@ -1450,11 +1202,12 @@ impl RealBookSourceFetcher {
         // 未命中回退入参 book_url（零成本降级，同 P2-11 ① 既有语义）。
         // 读回点必须晚于全部规则求值（`book.type=N` setter 在求值期经
         // `__lgBookSetType` 桥写入 variable_store），此处构造点满足时序。
-        let overlay_key = lookup_book_meta_by_book_url(book_url)
-            .map(|m| m.book_url)
-            .filter(|u| !u.trim().is_empty())
-            .unwrap_or_else(|| book_url.to_string());
-        let (overlay, type_override, _) = book_write_overlays(&overlay_key);
+        let overlay_key =
+            lookup_book_meta_by_book_url(&this.deps.web_book, &source.book_source_url, book_anchor)
+                .map(|m| m.book_url)
+                .filter(|u| !u.trim().is_empty())
+                .unwrap_or_else(|| book_anchor.to_string());
+        let (overlay, type_override, _) = book_write_overlays(&this.deps.js, &overlay_key);
 
         WebBookInfo {
             name,
@@ -1524,13 +1277,19 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         query: &str,
         page: i32,
     ) -> LegadoResult<Vec<WebSearchResult>> {
-        self.deps.rate_limiter.acquire(source).await;
+        let scoped = Self::with_deps(self.deps.for_source(
+            "search",
+            &source.book_source_url,
+            query,
+        ));
+        let this = &scoped;
+        this.deps.rate_limiter.acquire(source).await;
         let search_url = source.search_url.as_deref().unwrap_or("");
         if search_url.is_empty() {
             return Err(LegadoError::Internal("书源未配置 searchUrl".into()));
         }
 
-        let source_headers = self.parse_source_headers(source);
+        let source_headers = this.parse_source_headers(source);
 
         // 队列④ P1-A 复审：删除 jsLib 预校验（与 search.rs 主路径同一处置：
         // 口径过宽会误伤纯 CSS 规则书源；能力缺失/JS 失败在真被使用时经
@@ -1543,12 +1302,13 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         //    依赖 source 绑定，缺 setup → 模板原样残留 → HTTP 404 误导
         //    （2026-08-17 批量扫描 120 源发现）
         let analyze_url = build_search_url_with_setup(
+            &this.deps.js,
             search_url,
             query,
             page,
             &source.book_source_url,
             source.js_lib.as_deref(),
-            self.deps.setup_script_for(source),
+            this.deps.setup_script_for(source),
         );
         // 队列④ P2-C：必须用 rule_url() 判断/解码（url() 经 get_absolute_url
         // 拼接后丢失 `legado-js-error://` 前缀，见 analyze_url 单测），
@@ -1568,7 +1328,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         //    （对齐 Kotlin WebBook.search → BookList.analyzeBookList(baseUrl = res.url)）。
         //    书书小说等会把搜索 302 到书籍页；若仍用请求 URL，bookList 空列表回退
         //    会把 search.php 当成 bookUrl，详情规则也解不出书名 → 搜索 0 条。
-        let fetched = self
+        let fetched = this
             .fetch_page(&analyze_url, source_headers.as_ref())
             .await?;
         let body = fetched.body;
@@ -1576,7 +1336,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let base_url = fetched.final_url;
 
         // 2.5 loginCheckJs 登录检测（规则路径增强）
-        Self::execute_login_check(source, &body, &base_url, 200)?;
+        Self::execute_login_check(&this.deps.js, source, &body, &base_url, 200)?;
 
         let search_rule = source.rule_search.as_ref();
 
@@ -1590,7 +1350,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             && matches_book_url_pattern(source.book_url_pattern.as_deref().unwrap_or(""), &base_url)
         {
             let info =
-                self.parse_book_info_from_body(source, body, &base_url, &base_url, true, "", "");
+                this.parse_book_info_from_body(source, body, &base_url, &base_url, true, "", "");
             return Ok(if info.name.is_empty() {
                 vec![]
             } else {
@@ -1611,11 +1371,12 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         // 重解析原始 body，见 bind_orig_src 注释）
         let body_src_json = serde_json::to_string(&body).unwrap_or_default();
         let analyzer = construct_analyzer_with_source_context(
+            &this.deps.js,
             body.clone(),
             base_url.clone(),
             &source.book_source_url,
             search_lib.as_deref(),
-            self.deps.setup_script_for(source),
+            this.deps.setup_script_for(source),
         )
         .with_js_binding("src", &body_src_json);
 
@@ -1634,7 +1395,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         // 4.5 列表为空且未配置 bookUrlPattern 时，回退按详情页解析（对标 Kotlin BookList “列表为空,按详情页解析”）
         if elements.is_empty() && !has_pattern {
             let info =
-                self.parse_book_info_from_body(source, body, &base_url, &base_url, true, "", "");
+                this.parse_book_info_from_body(source, body, &base_url, &base_url, true, "", "");
             return Ok(if info.name.is_empty() {
                 vec![]
             } else {
@@ -1663,11 +1424,12 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let mut results = Vec::new();
         for elem in elements.iter().take(50) {
             let mut elem_analyzer = construct_analyzer_with_source_context(
+                &this.deps.js,
                 elem.clone(),
                 base_url.clone(),
                 &source.book_source_url,
                 search_lib.as_deref(),
-                self.deps.setup_script_for(source),
+                this.deps.setup_script_for(source),
             );
             // 元素模式：JSON 列表元素按对象注入 result（`.data[*]` 等
             // 规则产出的元素为 JSON 对象，`name: novelName` 裸键访问依赖
@@ -1701,8 +1463,12 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             let intro = optional_field(&elem_analyzer, intro_rule);
             let latest_chapter = optional_field(&elem_analyzer, last_chapter_rule);
             // B1.2 kind / wordCount 输出字段
-            let kind = optional_field(&elem_analyzer, kind_rule);
-            let word_count = optional_field(&elem_analyzer, word_count_rule);
+            let kind = optional_field(&elem_analyzer, kind_rule)
+                .as_deref()
+                .and_then(legado_core::book_help::normalize_book_kind);
+            let word_count = optional_field(&elem_analyzer, word_count_rule)
+                .as_deref()
+                .and_then(legado_core::book_help::format_book_word_count);
 
             results.push(WebSearchResult {
                 name,
@@ -1771,8 +1537,13 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         existing_author: &str,
         variables: &std::collections::HashMap<String, String>,
     ) -> LegadoResult<WebBookInfo> {
-        self.deps.rate_limiter.acquire(source).await;
-        let source_headers = self.parse_source_headers(source);
+        let scoped = Self::with_deps(
+            self.deps
+                .for_book_request(&source.book_source_url, book_url),
+        );
+        let this = &scoped;
+        this.deps.rate_limiter.acquire(source).await;
+        let source_headers = this.parse_source_headers(source);
 
         // 1. 请求书籍详情页
         //    对标原版 Book.infoHtml / tocHtml：无状态 FFI 无法携带 Book，故用 URL 短 TTL 缓存。
@@ -1783,7 +1554,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let t_fetch = std::time::Instant::now();
         let analyze_book = legado_parser::AnalyzeUrl::parse(book_url, variables, 1)
             .map_err(|e| LegadoError::Internal(format!("bookUrl 解析失败: {e}")))?;
-        let body = self
+        let body = this
             .fetch_url(&analyze_book, source_headers.as_ref())
             .await?;
         eprintln!(
@@ -1793,12 +1564,12 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         );
 
         // 1.5 loginCheckJs 登录检测
-        Self::execute_login_check(source, &body, book_url, 200)?;
+        Self::execute_login_check(&this.deps.js, source, &body, book_url, 200)?;
 
         // 2. 使用 bookInfo 规则解析（canReName/existing 由调用方决定：
         //    无状态入口传 true/空 → 解析值直接生效；换源传 false/既有值 → 门控）
         let t_parse = std::time::Instant::now();
-        let info = self.parse_book_info_from_body(
+        let info = this.parse_book_info_from_body(
             source,
             body,
             book_url,
@@ -1812,6 +1583,15 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             t_parse.elapsed(),
             info.name
         );
+        let anchor = this
+            .deps
+            .js
+            .variable_scope()
+            .and_then(|scope| scope.book_anchor())
+            .unwrap_or(book_url);
+        let mut cached = info.clone();
+        cached.book_url = anchor.to_string();
+        record_book_meta_from_info(&this.deps, &source.book_source_url, anchor, &cached);
         Ok(info)
     }
 
@@ -1868,8 +1648,10 @@ impl BookSourceFetcher for RealBookSourceFetcher {
     }
 
     async fn get_content(&self, source: &BookSource, chapter: &WebChapter) -> LegadoResult<String> {
-        self.deps.rate_limiter.acquire(source).await;
-        let source_headers = self.parse_source_headers(source);
+        let scoped = Self::with_deps(deps_for_chapter(&self.deps, source, chapter));
+        let this = &scoped;
+        this.deps.rate_limiter.acquire(source).await;
+        let source_headers = this.parse_source_headers(source);
 
         // 1. 请求章节页面（章节 URL 可能是「url,{json}」带请求选项的格式，
         //    如七猫 qmGetUrl 生成 https://.../chapter/content?id=...,
@@ -1881,23 +1663,24 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let url_vars = chapter_url_variables(chapter.variable.as_deref());
         let analyze_chapter = legado_parser::AnalyzeUrl::parse(&chapter.url, &url_vars, 1)
             .map_err(|e| LegadoError::Internal(format!("章节 URL 解析失败: {e}")))?;
-        let mut body = self
+        let mut body = this
             .fetch_url(&analyze_chapter, source_headers.as_ref())
             .await?;
 
         // 1.5 loginCheckJs 登录检测
-        Self::execute_login_check(source, &body, &chapter.url, 200)?;
+        Self::execute_login_check(&this.deps.js, source, &body, &chapter.url, 200)?;
 
         // 1.6 正文 webJs / sourceRegex（对齐 WebBook.getContent →
         // AnalyzeUrl.getStrResponseAwait(jsStr=webJs, sourceRegex=…)）
         let content_rule = source.rule_content.as_ref();
         body = apply_content_web_hooks(
+            &this.deps,
             body,
             content_rule,
             &chapter.url,
             &source.book_source_url,
             source.js_lib.as_deref(),
-        );
+        )?;
 
         // 2. 使用正文规则解析首页
         let content_rule_str = content_rule
@@ -1932,21 +1715,26 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let total_chapters = infer_total_chapter_num(&body, chapter);
 
         // 书山等聚合源正文依赖书源上下文 setup（header 规则注入 + loginHeader）
-        let content_setup = self.deps.setup_script_for(source);
+        let content_setup = this.deps.setup_script_for(source);
         // P2-9 ②：反查详情/目录阶段记录的 book 元信息 → `book` 绑定扩面
         // （name/author/bookUrl/tocUrl/lastChapter/variable + 方法）；
         // 未命中时回退既有空 name 字面量（行为不变）
         // [P2-11 §193] 按 (书源 URL, 章节 URL) 复合键反查，同章节 URL 的
         // 不同书源书籍不串键
-        let mut book_meta = lookup_book_meta_for_chapter(&source.book_source_url, &chapter.url);
+        let mut book_meta = lookup_book_meta_for_chapter(
+            &this.deps.web_book,
+            &source.book_source_url,
+            &chapter.url,
+        );
         // P1-1：缓存 meta 有值但 variable 缺失/为空（记录点未补到、或缓存
         // 早于用户后来设置的变量）→ 按 bookUrl 从 DB 补
-        if let Some(m) = book_meta.as_mut() {
-            if m.variable.as_deref().is_none_or(|v| v.trim().is_empty()) {
-                m.variable = db_book_variable(&self.deps, &m.book_url);
-            }
+        if let Some(m) = book_meta.as_mut()
+            && m.variable.as_deref().is_none_or(|v| v.trim().is_empty())
+        {
+            m.variable = db_book_variable(&this.deps, &m.book_url);
         }
         let (first_content, next_urls) = parse_content_page_with_bindings(
+            &this.deps.js,
             body,
             content_rule_str,
             next_url_rule,
@@ -1968,6 +1756,8 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         let chapter_index = chapter.index;
         let chapter_variable = chapter.variable.clone();
         let mut content = fetch_paginated_content(
+            &this.deps.js,
+            &this.deps.web_book,
             first_content,
             next_urls,
             &chapter.url,
@@ -1984,7 +1774,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             book_meta.as_ref(),
             |url: String| {
                 let headers = source_headers_clone.clone();
-                async move { self.fetch_simple(&url, headers.as_ref()).await }
+                async move { this.fetch_simple(&url, headers.as_ref()).await }
             },
         )
         .await;
@@ -1993,6 +1783,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         if let Some(page_body) = first_page_body {
             let sub_headers = source_headers.clone();
             if let Some(sub) = fetch_sub_content(
+                &this.deps.js,
                 page_body,
                 sub_content_rule,
                 &chapter.url,
@@ -2000,7 +1791,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
                 source.js_lib.as_deref(),
                 |url: String| {
                     let headers = sub_headers.clone();
-                    async move { self.fetch_simple(&url, headers.as_ref()).await }
+                    async move { this.fetch_simple(&url, headers.as_ref()).await }
                 },
             )
             .await
@@ -2019,7 +1810,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
                     } else {
                         "lyric"
                     };
-                    self.deps.capture_media_sub_content(
+                    this.deps.capture_media_sub_content(
                         book_meta.as_ref().map(|m| m.book_url.as_str()),
                         &source.book_source_url,
                         &chapter.url,
@@ -2035,6 +1826,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         // 5. R2 contentRule.replaceRegex 全文替换（Task #134）
         if !replace_regex_rule.is_empty() {
             content = apply_content_replace_regex(
+                &this.deps.js,
                 content,
                 replace_regex_rule,
                 &chapter.url,
@@ -2109,14 +1901,23 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         book_name_hint: Option<&str>,
         variables: &std::collections::HashMap<String, String>,
     ) -> LegadoResult<Vec<WebChapter>> {
+        let scoped = Self::with_deps(self.deps.for_book(
+            &source.book_source_url,
+            if book_key.trim().is_empty() {
+                book_url
+            } else {
+                book_key.trim()
+            },
+        ));
+        let this = &scoped;
         // 归一：主键空白 → 退化为取址点（参数即书籍取址点的历史调用形态）
         let book_key = if book_key.trim().is_empty() {
             book_url
         } else {
             book_key.trim()
         };
-        self.deps.rate_limiter.acquire(source).await;
-        let source_headers = self.parse_source_headers(source);
+        this.deps.rate_limiter.acquire(source).await;
+        let source_headers = this.parse_source_headers(source);
         // 书山聚合等聚合源详情/目录 `<js>` 脚本依赖 jsLib 函数（getServerHost 等）
         // 与书源上下文 setup；jsLib 需 sanitize（去 Rhino 特有 Packages 行）后注入，
         // 否则 init 规则失败 → tocUrl 规则 result 缺 source/book_url → /catalog
@@ -2140,7 +1941,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         // [B-11] 末位：目录页重定向后最终 URL（首抓页分析器 redirect 基准）
         let (toc_url, toc_body, book_author, toc_final_url) =
             if let Some(raw_toc) = known_toc_url.filter(|u| !u.is_empty() && *u != book_url) {
-                self.fetch_known_toc_body(
+                this.fetch_known_toc_body(
                     source,
                     book_url,
                     book_key,
@@ -2153,7 +1954,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
                 )
                 .await?
             } else {
-                self.fetch_detail_and_derive_toc_body(
+                this.fetch_detail_and_derive_toc_body(
                     source,
                     book_url,
                     book_key,
@@ -2170,7 +1971,9 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         // variable/last_chapter 等字段本次未产出时保留；本次非空字段优先）
         // [bookUrl 脏值修正] 查/写均以书籍主键 `book_key` 为准（历史语义：
         // 取址点即主键时二者相同，行为不变）
-        let mut book_meta = lookup_book_meta_by_book_url(book_key).unwrap_or_default();
+        let mut book_meta =
+            lookup_book_meta_by_book_url(&this.deps.web_book, &source.book_source_url, book_key)
+                .unwrap_or_default();
         if !book_name.trim().is_empty() {
             book_meta.name = book_name.trim().to_string();
         }
@@ -2191,10 +1994,10 @@ impl BookSourceFetcher for RealBookSourceFetcher {
             .as_deref()
             .is_none_or(|v| v.trim().is_empty())
         {
-            book_meta.variable = db_book_variable(&self.deps, book_key);
+            book_meta.variable = db_book_variable(&this.deps, book_key);
         }
 
-        let chapters = self
+        let chapters = this
             .parse_chapters_from_toc_body(
                 source,
                 source_headers.as_ref(),
@@ -2211,7 +2014,7 @@ impl BookSourceFetcher for RealBookSourceFetcher {
         // [P2-11 §193] 复合键 (书源 URL, 章节 URL)，同章节 URL 不同书源不串键
         // [bookUrl 脏值修正] 登记键 = 书籍主键（不得用取址点）
         record_chapter_list_cache(
-            &self.deps,
+            &this.deps,
             book_key,
             &source.book_source_url,
             &toc_url,
@@ -2264,8 +2067,27 @@ impl RealBookSourceFetcher {
         variables: &std::collections::HashMap<String, String>,
         book_name_hint: Option<&str>,
     ) -> LegadoResult<Vec<WebChapter>> {
-        self.deps.rate_limiter.acquire(source).await;
-        let source_headers = self.parse_source_headers(source);
+        let scoped = Self::with_deps(
+            if self
+                .deps
+                .js
+                .variable_scope()
+                .and_then(|scope| scope.book_source())
+                == Some(source.book_source_url.as_str())
+            {
+                self.deps.clone()
+            } else if let Some(book_url) =
+                book_for_observed_toc(&self.deps.web_book, &source.book_source_url, toc_url)
+            {
+                self.deps.for_book(&source.book_source_url, &book_url)
+            } else {
+                self.deps
+                    .for_source("toc", &source.book_source_url, toc_url)
+            },
+        );
+        let this = &scoped;
+        this.deps.rate_limiter.acquire(source).await;
+        let source_headers = this.parse_source_headers(source);
         // 书山聚合等聚合源目录规则 `<js>` 脚本依赖 jsLib 函数（getServerHost
         // 等），jsLib 需 sanitize（去 Rhino 特有 Packages 行）后注入。
         let js_lib_sanitized = source.js_lib.as_deref().map(sanitize_js_lib_for_quickjs);
@@ -2280,7 +2102,7 @@ impl RealBookSourceFetcher {
         let analyze_toc = legado_parser::AnalyzeUrl::parse(toc_url, variables, 1)
             .map_err(|e| LegadoError::Internal(format!("tocUrl 解析失败: {e}")))?;
         // [B-11] 取响应体 + 重定向后最终 URL（原 fetch_url 丢弃 final_url）
-        let page = self
+        let page = this
             .fetch_page(&analyze_toc, source_headers.as_ref())
             .await?;
         let toc_final_url = page.final_url;
@@ -2291,7 +2113,7 @@ impl RealBookSourceFetcher {
         // `?` 解包后本路径不采用响应值——explore/toc 链本期范围红线，
         // 错误上抛 = 整源失败，对齐原版调用形态）。
         // 无 loginCheckJs 配置时内部直通原始响应，不影响既有源。
-        Self::execute_login_check(source, &toc_body, toc_url, 200)?;
+        Self::execute_login_check(&this.deps.js, source, &toc_body, toc_url, 200)?;
         eprintln!(
             "[web_book] get_chapters_from_known_toc fetched {} in {:?}",
             analyze_toc.url(),
@@ -2301,7 +2123,7 @@ impl RealBookSourceFetcher {
         // P2-9 ②：本路径无 bookUrl 入参（调用方未传入 book 上下文）→
         // book_meta 传 None：`book` 绑定回退既有 `{"name":…}` 字面量，
         // 且不记录章节→book 映射（正文阶段该路径的 book 绑定走降级面）。
-        self.parse_chapters_from_toc_body(
+        this.parse_chapters_from_toc_body(
             source,
             source_headers.as_ref(),
             toc_url,
@@ -2359,13 +2181,14 @@ impl RealBookSourceFetcher {
             let page = self.fetch_page(&analyze_book, source_headers).await?;
             let toc_final_url = page.final_url;
             let info_body = page.body;
-            Self::execute_login_check(source, &info_body, book_url, 200)?;
+            Self::execute_login_check(&self.deps.js, source, &info_body, book_url, 200)?;
             // P2-9 ②：书名空或配了 author 规则时建解析器（名字仅在空时补，
             // author 取 ruleBookInfo.author，逐行 trim 取首非空行，同 name 模式）
             let author_rule = info_rule.and_then(|r| r.author.as_deref());
             let mut book_author = String::new();
             if book_name.is_empty() || author_rule.is_some() {
                 let info_analyzer = construct_analyzer_with_source_context(
+                    &self.deps.js,
                     info_body.clone(),
                     book_url.to_string(),
                     &source.book_source_url,
@@ -2377,6 +2200,9 @@ impl RealBookSourceFetcher {
                 .with_js_binding(
                     "book",
                     &detail_book_binding(
+                        &self.deps.js,
+                        &self.deps.web_book,
+                        &source.book_source_url,
                         book_key,
                         book_name.as_str(),
                         book_type_of_source(source.book_source_type),
@@ -2463,9 +2289,10 @@ impl RealBookSourceFetcher {
         eprintln!("[web_book] get_chapters info_body in {:?}", t0.elapsed());
 
         // 1.5 loginCheckJs 登录检测
-        Self::execute_login_check(source, &info_body, book_url, 200)?;
+        Self::execute_login_check(&self.deps.js, source, &info_body, book_url, 200)?;
 
         let mut info_analyzer = construct_analyzer_with_source_context(
+            &self.deps.js,
             info_body.clone(),
             book_url.to_string(),
             &source.book_source_url,
@@ -2479,6 +2306,9 @@ impl RealBookSourceFetcher {
         info_analyzer = info_analyzer.with_js_binding(
             "book",
             &detail_book_binding(
+                &self.deps.js,
+                &self.deps.web_book,
+                &source.book_source_url,
                 book_key,
                 book_name.as_str(),
                 book_type_of_source(source.book_source_type),
@@ -2490,12 +2320,11 @@ impl RealBookSourceFetcher {
         // /details 响应，tocUrl 规则依赖其中的 source/book_url/title）
         if let Some(init_rule) = info_rule.and_then(|r| r.init.as_deref()) {
             let init_rule = init_rule.trim();
-            if !init_rule.is_empty() {
-                if let Ok(init_result) = info_analyzer.get_string(init_rule) {
-                    if !init_result.is_empty() {
-                        info_analyzer.set_element_content(init_result);
-                    }
-                }
+            if !init_rule.is_empty()
+                && let Ok(init_result) = info_analyzer.get_string(init_rule)
+                && !init_result.is_empty()
+            {
+                info_analyzer.set_element_content(init_result);
             }
         }
 
@@ -2606,8 +2435,12 @@ impl RealBookSourceFetcher {
         // setup 串并新建执行器（底层引擎按 executor:<source_tag> 缓存，
         // 逐页新建仅徒耗克隆/分配）。逐页输入仅剩本页 content/base_url
         // （+ 逐页 src 绑定序列化），抓取/截断/上限/取消语义不变。
-        let toc_page_ctx =
-            build_toc_page_context(&source.book_source_url, js_lib_sanitized, toc_setup_script);
+        let toc_page_ctx = build_toc_page_context(
+            &self.deps.js,
+            &source.book_source_url,
+            js_lib_sanitized,
+            toc_setup_script,
+        );
 
         let mut analyzer =
             construct_toc_page_analyzer(&toc_page_ctx, toc_body, toc_url.to_string());
@@ -2621,6 +2454,7 @@ impl RealBookSourceFetcher {
         // P2-9 ②：meta 命中 → IIFE 扩面绑定；未命中 → 既有 `{"name":…}` 字面量
         // P2-11 ①：type 初值 = 书源 BookType 位标志（TEXT=8 等）
         let book_binding = book_binding_expr(
+            &self.deps.js,
             book_meta,
             book_name,
             0,
@@ -2804,11 +2638,11 @@ impl RealBookSourceFetcher {
                 // [性能专项 2026-09-24] 刷新代数在循环入口捕获（新刷新 bump 代数
                 // → 本链在下一页边界中止，对齐上游 ensureActive()）；目录总页数
                 // 上限含首抓页（上游仅靠 visited 去重，新 URL 失控链会无限抓取）。
-                let epoch = current_toc_fetch_epoch();
+                let epoch = current_toc_fetch_epoch(&self.deps.web_book);
                 let mut toc_pages_seen: usize = 1;
                 while !next_url.is_empty() && visited.insert(next_url.clone()) {
                     // 取消判活：被新刷新代数抢占 → 中止在途分页链（不静默、不写库）
-                    if epoch != current_toc_fetch_epoch() {
+                    if epoch != current_toc_fetch_epoch(&self.deps.web_book) {
                         return Err(LegadoError::Internal(
                             "toc refresh superseded by a newer refresh generation".into(),
                         ));
@@ -2928,7 +2762,7 @@ impl RealBookSourceFetcher {
                 let update_time_r = update_time_rule.to_string();
                 let client = self.deps.client.clone();
                 // [性能专项 2026-09-24] 刷新代数（并行拉页的取消判活基线）
-                let epoch = current_toc_fetch_epoch();
+                let epoch = current_toc_fetch_epoch(&self.deps.web_book);
 
                 let futs: Vec<_> = next_urls
                     .into_iter()
@@ -2947,7 +2781,7 @@ impl RealBookSourceFetcher {
                         let book_binding = book_binding.clone();
                         async move {
                             // 取消判活：被新刷新代数抢占 → 中止本页（不发请求）
-                            if epoch != current_toc_fetch_epoch() {
+                            if epoch != current_toc_fetch_epoch(&self.deps.web_book) {
                                 return Err(LegadoError::Internal(
                                     "toc refresh superseded by a newer refresh generation".into(),
                                 ));
@@ -2957,16 +2791,16 @@ impl RealBookSourceFetcher {
                             // base = 请求 URL，redirect = 最终 URL）。缓存命中
                             // 无响应对象，按请求 URL 为基准
                             let (body, page_final_url) = {
-                                if let Some(cached) = cache_get_page_body(&page_url) {
+                                if let Some(cached) = cache_get_page_body(
+                                    &self.deps.web_book,
+                                    &self.deps.page_cache_key(&page_url, headers),
+                                ) {
                                     (cached, page_url.clone())
                                 } else {
                                     // 与 fetch_page / fetch_simple_cached 一致：按键合并
                                     // 请求属域 JS cookie（改前缺口：并发分页请求丢 JS cookie）
                                     let mut req_headers = headers.cloned().unwrap_or_default();
-                                    legado_js::host_api::cookie_store::merge_js_cookies(
-                                        &mut req_headers,
-                                        &page_url,
-                                    );
+                                    self.deps.merge_cookies(&mut req_headers, &page_url);
                                     let req_headers = if req_headers.is_empty() {
                                         None
                                     } else {
@@ -2979,7 +2813,11 @@ impl RealBookSourceFetcher {
                                             response.status, page_url
                                         )));
                                     }
-                                    cache_put_page_body(&page_url, &response.body);
+                                    cache_put_page_body(
+                                        &self.deps.web_book,
+                                        &self.deps.page_cache_key(&page_url, headers),
+                                        &response.body,
+                                    );
                                     let final_url = if response.url.is_empty() {
                                         page_url.clone()
                                     } else {
@@ -2991,6 +2829,7 @@ impl RealBookSourceFetcher {
                             // P2-9 ①：src = 本页响应体（先序列化再 move 进构造器）
                             let page_src_json = serde_json::to_string(&body).unwrap_or_default();
                             let mut page_analyzer = construct_analyzer_with_js_lib(
+                                &self.deps.js,
                                 body,
                                 page_url.clone(),
                                 &source_url,
@@ -3009,6 +2848,7 @@ impl RealBookSourceFetcher {
                                 page_analyzer.get_elements(&list_rule).unwrap_or_default()
                             };
                             let mut elem = construct_analyzer_with_js_lib(
+                                &self.deps.js,
                                 String::new(),
                                 page_url.clone(),
                                 &source_url,
@@ -3077,13 +2917,14 @@ impl RealBookSourceFetcher {
                         }
                     })
                     .collect();
-                // [性能专项 2026-09-24] 有界并行：对齐上游 mapAsync(threadCount=32)，
-                // 按 TOC_PAGE_CONCURRENCY 滑窗推进（保序）；改前 join_all 无上限 →
+                // 按宿主固定的threadCount滑窗推进并保持页序；改前join_all无上限 →
                 // N 页 = N-1 个并发连接打爆站点/本地回环。任一页失败即整刷失败
                 // （对齐上游 res.body!! NPE 语义，不可静默丢章）——改前 eprintln
                 // 跳过 = 静默丢章。
-                let mut stream =
-                    futures::StreamExt::buffered(futures::stream::iter(futs), TOC_PAGE_CONCURRENCY);
+                let mut stream = futures::StreamExt::buffered(
+                    futures::stream::iter(futs),
+                    self.deps.request_concurrency.get(),
+                );
                 while let Some(page) = futures::StreamExt::next(&mut stream).await {
                     match page {
                         Ok(chs) => chapters.extend(chs),
@@ -3133,6 +2974,7 @@ impl RealBookSourceFetcher {
                     serde_json::to_string(&ch.title).unwrap_or_else(|_| "\"\"".to_string());
                 let index_json = serde_json::to_string(&(i as i32 + 1)).unwrap();
                 let mut fa = construct_analyzer_with_js_lib(
+                    &self.deps.js,
                     String::new(),
                     toc_url.to_string(),
                     &source.book_source_url,
@@ -3160,14 +3002,14 @@ impl RealBookSourceFetcher {
 /// 优先从正文 JSON 的 `data.comic_chapter` 对象/数组长度推断；
 /// 否则退回 `chapter.index + 1`。
 fn infer_total_chapter_num(body: &str, chapter: &WebChapter) -> i32 {
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body) {
-        if let Some(cc) = v.pointer("/data/comic_chapter") {
-            if let Some(obj) = cc.as_object() {
-                return obj.len() as i32;
-            }
-            if let Some(arr) = cc.as_array() {
-                return arr.len() as i32;
-            }
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body)
+        && let Some(cc) = v.pointer("/data/comic_chapter")
+    {
+        if let Some(obj) = cc.as_object() {
+            return obj.len() as i32;
+        }
+        if let Some(arr) = cc.as_array() {
+            return arr.len() as i32;
         }
     }
     chapter.index.saturating_add(1)
@@ -3197,12 +3039,13 @@ fn check_redirect_log(request_url: &str, final_url: &str) {
 ///   Flutter 已订阅时优先 DOM 嗅探（`webViewGetSource`）
 /// - `webJs`：优先 DOM 通道（BackstageWebView）；失败回退无头 `@js:`
 fn apply_content_web_hooks(
+    deps: &FetcherDeps,
     body: String,
     content_rule: Option<&legado_core::models::rule::ContentRule>,
     page_url: &str,
     source_url: &str,
     js_lib: Option<&str>,
-) -> String {
+) -> LegadoResult<String> {
     let source_regex = content_rule
         .and_then(|r| r.source_regex.as_deref())
         .map(str::trim)
@@ -3213,12 +3056,12 @@ fn apply_content_web_hooks(
         .filter(|s| !s.is_empty());
 
     if source_regex.is_none() && web_js.is_none() {
-        return body;
+        return Ok(body);
     }
 
     // sourceRegex：DOM 嗅探优先，否则无头 URL 扫描
     if let Some(re_str) = source_regex {
-        if legado_core::webview_channel::has_subscribers() {
+        {
             let req = legado_core::webview_channel::WebViewRequest {
                 key: String::new(),
                 action: "webViewGetSource".into(),
@@ -3236,29 +3079,30 @@ fn apply_content_web_hooks(
                 // 为空 → 不注入接口，与上游非规则调用语义一致）
                 source_key: String::new(),
                 // B4（设计文档 §3 项 B）：按请求 URL（正文页 URL）域从
-                // JS cookie store 取属域 cookie（`cookies_for_url` 口径：
+                // 当前引擎 jar 取属域 cookie（`cookies_for_url` 口径：
                 // ETLD+1 域键 + 原始串条目合并，raw 胜；无则空串）预填，
                 // WebView 嗅探首请求即携带会话态
-                cookie: legado_js::host_api::cookie_store::cookies_for_url(page_url),
+                cookie: deps.cookies_for_url(page_url),
+                headers: Default::default(),
                 created_at_ms: 0,
             };
-            if let Ok(hit) = legado_core::webview_channel::request_and_wait(
+            if let Some(result) = legado_js::webview::execute(
+                &deps.js.host_resources().webview,
+                deps.js.cancellation().cloned(),
                 req,
                 legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
             ) {
-                if !hit.trim().is_empty() && !hit.starts_with("[ERROR]") {
-                    return hit;
-                }
+                return result;
             }
         }
         if let Some(hit) = sniff_source_regex_url(&body, re_str) {
-            return hit;
+            return Ok(hit);
         }
     }
 
     // webJs：DOM 优先（对齐 AnalyzeUrl + BackstageWebView），再无头 QuickJS
     if let Some(js) = web_js {
-        if legado_core::webview_channel::has_subscribers() {
+        {
             let req = legado_core::webview_channel::WebViewRequest {
                 key: String::new(),
                 action: "webView".into(),
@@ -3275,33 +3119,39 @@ fn apply_content_web_hooks(
                 // source_key 恒空
                 source_key: String::new(),
                 // B4（设计文档 §3 项 B）：按请求 URL（正文页 URL）域从
-                // JS cookie store 取属域 cookie（`cookies_for_url` 口径）
+                // 当前引擎 jar 取属域 cookie（`cookies_for_url` 口径）
                 // 预填——webJs DOM 通道首请求即携带会话态
-                cookie: legado_js::host_api::cookie_store::cookies_for_url(page_url),
+                cookie: deps.cookies_for_url(page_url),
+                headers: Default::default(),
                 created_at_ms: 0,
             };
-            if let Ok(out) = legado_core::webview_channel::request_and_wait(
+            if let Some(result) = legado_js::webview::execute(
+                &deps.js.host_resources().webview,
+                deps.js.cancellation().cloned(),
                 req,
                 legado_core::webview_channel::DEFAULT_WEBVIEW_TIMEOUT,
             ) {
-                if !out.trim().is_empty() && !out.starts_with("[ERROR]") {
-                    return out;
-                }
+                return result;
             }
         }
         // P2-9 ①：src = 正文响应体（见 bind_orig_src 注释）
         let body_src_json = serde_json::to_string(&body).unwrap_or_default();
-        let analyzer =
-            construct_analyzer_with_js_lib(body.clone(), page_url.to_string(), source_url, js_lib)
-                .with_js_binding("src", &body_src_json);
+        let analyzer = construct_analyzer_with_js_lib(
+            &deps.js,
+            body.clone(),
+            page_url.to_string(),
+            source_url,
+            js_lib,
+        )
+        .with_js_binding("src", &body_src_json);
         match analyzer.get_string(&format!("@js:{js}")) {
-            Ok(out) if !out.trim().is_empty() => return out,
+            Ok(out) if !out.trim().is_empty() => return Ok(out),
             Ok(_) => {}
             Err(e) => eprintln!("[web_book] contentRule.webJs 执行失败（回退原文）: {e}"),
         }
     }
 
-    body
+    Ok(body)
 }
 
 /// 从 HTML/文本中嗅探匹配 sourceRegex 的 URL
@@ -3345,11 +3195,11 @@ fn sniff_source_regex_url(body: &str, source_regex: &str) -> Option<String> {
 pub fn merge_variables_json(base: Option<&str>, overlay: Option<&str>) -> Option<String> {
     let mut map = serde_json::Map::new();
     for src in [base, overlay] {
-        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty()) {
-            if let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s) {
-                for (k, v) in m {
-                    map.insert(k, v);
-                }
+        if let Some(s) = src.map(str::trim).filter(|v| !v.is_empty())
+            && let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s)
+        {
+            for (k, v) in m {
+                map.insert(k, v);
             }
         }
     }
@@ -3365,15 +3215,15 @@ pub fn merge_variables_json(base: Option<&str>, overlay: Option<&str>) -> Option
 /// `{{key}}` 取自该表，空表会使翻页 token 类变量无法展开。
 pub fn chapter_url_variables(variable: Option<&str>) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
-    if let Some(s) = variable.map(str::trim).filter(|v| !v.is_empty()) {
-        if let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s) {
-            for (k, v) in m {
-                let val = match v {
-                    serde_json::Value::String(t) => t,
-                    other => other.to_string(),
-                };
-                map.insert(k, val);
-            }
+    if let Some(s) = variable.map(str::trim).filter(|v| !v.is_empty())
+        && let Ok(serde_json::Value::Object(m)) = serde_json::from_str::<serde_json::Value>(s)
+    {
+        for (k, v) in m {
+            let val = match v {
+                serde_json::Value::String(t) => t,
+                other => other.to_string(),
+            };
+            map.insert(k, val);
         }
     }
     map
@@ -3399,23 +3249,19 @@ const MAX_CONTENT_PAGES: usize = 99;
 // - MAX_TOC_PAGES：串行目录链总页数上限（含首抓页）。上游仅靠 visited 去重
 //   判停，每页 next 都是新 URL 的「失控链」会无限抓取；512 页 × 每页 100 章
 //   = 5.1 万章，远超真实目录，截断保护。
-// - TOC_PAGE_CONCURRENCY：并行拉页（nextTocUrl 展开 >1 页）并发上限，对齐
-//   上游 `AppConfig.threadCount` 默认 32（原 `join_all` 无界）。
-// - TOC_FETCH_EPOCH：进程级刷新代数。每次 refresh_toc 入口 +1；目录分页链
+// - toc_epoch：引擎内刷新代数。每次 refresh_toc 入口 +1；目录分页链
 //   在每页边界比对捕获的代数，被新刷新抢占即中止（对齐上游 ensureActive()
 //   判活语义，无状态 FFI 用原子计数器实现，不改 FFI 签名）。
 const MAX_TOC_PAGES: usize = 512;
-const TOC_PAGE_CONCURRENCY: usize = 32;
-static TOC_FETCH_EPOCH: AtomicU64 = AtomicU64::new(0);
 
 /// 新刷新代数 +1（refresh_toc 入口调用，使在途旧刷新的分页链在下一页边界中止）
-pub fn bump_toc_fetch_epoch() {
-    TOC_FETCH_EPOCH.fetch_add(1, Ordering::SeqCst);
+pub fn bump_toc_fetch_epoch(state: &WebBookState) {
+    state.toc_epoch.fetch_add(1, Ordering::SeqCst);
 }
 
 /// 当前刷新代数（分页链在页边界比对，不等即已被新刷新抢占）
-fn current_toc_fetch_epoch() -> u64 {
-    TOC_FETCH_EPOCH.load(Ordering::SeqCst)
+fn current_toc_fetch_epoch(state: &WebBookState) -> u64 {
+    state.toc_epoch.load(Ordering::SeqCst)
 }
 
 /// 解析单页正文，返回（净化后正文，下一页 URL 列表）
@@ -3430,6 +3276,7 @@ fn current_toc_fetch_epoch() -> u64 {
 /// [`parse_content_page_with_js_lib`] 注入书源 jsLib）
 #[cfg(test)]
 fn parse_content_page(
+    js_resources: &Arc<legado_js::JsResources>,
     body: String,
     content_rule_str: &str,
     next_url_rule: &str,
@@ -3438,6 +3285,7 @@ fn parse_content_page(
     is_media: bool,
 ) -> (String, Vec<String>) {
     parse_content_page_with_js_lib(
+        js_resources,
         body,
         content_rule_str,
         next_url_rule,
@@ -3455,6 +3303,7 @@ fn parse_content_page(
 #[cfg(test)]
 #[allow(clippy::too_many_arguments)] // #[cfg(test)] helper：参数集与相邻生产函数 parse_content_page_with_bindings 对齐（该函数已同款 allow），不拆结构体
 fn parse_content_page_with_js_lib(
+    js_resources: &Arc<legado_js::JsResources>,
     body: String,
     content_rule_str: &str,
     next_url_rule: &str,
@@ -3465,6 +3314,7 @@ fn parse_content_page_with_js_lib(
     chapter_title: Option<&str>,
 ) -> (String, Vec<String>) {
     parse_content_page_with_bindings(
+        js_resources,
         body,
         content_rule_str,
         next_url_rule,
@@ -3488,6 +3338,7 @@ fn parse_content_page_with_js_lib(
 /// 此前仅注入 title → ReferenceError/NaN → 正文空。— Reasonix
 #[allow(clippy::too_many_arguments)] // 分页解析参数集与 Kotlin analyzeContent 对齐，暂不拆结构体
 fn parse_content_page_with_bindings(
+    js_resources: &Arc<legado_js::JsResources>,
     body: String,
     content_rule_str: &str,
     next_url_rule: &str,
@@ -3512,6 +3363,7 @@ fn parse_content_page_with_bindings(
     let body_src_json = serde_json::to_string(&body).unwrap_or_default();
     let mut analyzer = if let Some(src) = source {
         construct_analyzer_with_source_context(
+            js_resources,
             body,
             page_url.to_string(),
             &src.book_source_url,
@@ -3520,7 +3372,13 @@ fn parse_content_page_with_bindings(
         )
     } else {
         // 无书源上下文（测试/分页降级）：退回旧行为（仅 jsLib）
-        construct_analyzer_with_js_lib(body, page_url.to_string(), "", js_lib_sanitized.as_deref())
+        construct_analyzer_with_js_lib(
+            js_resources,
+            body,
+            page_url.to_string(),
+            "",
+            js_lib_sanitized.as_deref(),
+        )
     };
     // 注入原版 evalJS bindings：chapter/title/book（result/src/baseUrl 由
     // AnalyzeRule.execute_js_rule 自动注入）——漫画/视频书源正文 JS 依赖这些变量
@@ -3544,7 +3402,7 @@ fn parse_content_page_with_bindings(
         .unwrap_or(crate::book_type::TEXT);
     analyzer = analyzer.with_js_binding(
         "book",
-        &book_binding_expr(book_meta, "", total, true, book_type),
+        &book_binding_expr(js_resources, book_meta, "", total, true, book_type),
     );
     // P2-9 ①：src = 正文响应体（见 bind_orig_src 注释）
     analyzer = analyzer.with_js_binding("src", &body_src_json);
@@ -3660,12 +3518,13 @@ fn pagination_truncation_heuristic(
 /// 精确通道优先：目录阶段登记的下一章 URL（[`lookup_next_chapter_url`]）
 /// 命中时做**精确相等**判定（登记缺失/已淘汰才回退启发式）。
 fn should_stop_at_next_chapter(
+    state: &WebBookState,
     source_url: &str,
     chapter_url: &str,
     candidate: &str,
     last_fetched_page: Option<&str>,
 ) -> bool {
-    if let Some(next_chapter) = lookup_next_chapter_url(source_url, chapter_url) {
+    if let Some(next_chapter) = lookup_next_chapter_url(state, source_url, chapter_url) {
         return candidate == next_chapter;
     }
     pagination_truncation_heuristic(chapter_url, candidate, last_fetched_page)
@@ -3686,6 +3545,8 @@ fn should_stop_at_next_chapter(
 /// `fetch_page` 可注入，便于单测以脚本化响应验证多页拼接（不走真实网络）。
 #[allow(clippy::too_many_arguments)] // 分页抓取参数集与正文解析链对齐，暂不拆结构体
 async fn fetch_paginated_content<F, Fut>(
+    js_resources: &Arc<legado_js::JsResources>,
+    state: &WebBookState,
     first_content: String,
     next_urls: Vec<String>,
     chapter_url: &str,
@@ -3724,6 +3585,7 @@ where
                 match fetch_page(raw_url.clone()).await {
                     Ok(next_body) => {
                         let (page_content, _) = parse_content_page_with_bindings(
+                            js_resources,
                             next_body,
                             content_rule_str,
                             "", // getNextPageUrl = false
@@ -3760,6 +3622,7 @@ where
                 // red_pagination_follows_into_next_chapter，沿链最多 99 页）。
                 // 精确通道（目录登记 registry）优先，未命中回退保守启发式。
                 if should_stop_at_next_chapter(
+                    state,
                     source_url,
                     chapter_url,
                     &next_url,
@@ -3775,6 +3638,7 @@ where
                     }
                 };
                 let (page_content, following) = parse_content_page_with_bindings(
+                    js_resources,
                     next_body,
                     content_rule_str,
                     next_url_rule,
@@ -3823,6 +3687,7 @@ where
 /// 决定（见 [merge_sub_content_into_body]）。另原版 isOnLineTxt 跳过 http
 /// 二次请求，此处统一执行二次请求判定。
 async fn fetch_sub_content<F, Fut>(
+    js_resources: &Arc<legado_js::JsResources>,
     page_body: String,
     sub_rule: &str,
     page_url: &str,
@@ -3836,9 +3701,14 @@ where
 {
     // P2-9 ①：src = 二次请求响应体（先序列化再 move 进构造器）
     let page_src_json = serde_json::to_string(&page_body).unwrap_or_default();
-    let analyzer =
-        construct_analyzer_with_js_lib(page_body, page_url.to_string(), source_url, js_lib)
-            .with_js_binding("src", &page_src_json);
+    let analyzer = construct_analyzer_with_js_lib(
+        js_resources,
+        page_body,
+        page_url.to_string(),
+        source_url,
+        js_lib,
+    )
+    .with_js_binding("src", &page_src_json);
     let raw = match eval_rule_string(&analyzer, sub_rule) {
         Ok(v) => v,
         Err(e) => {
@@ -3887,6 +3757,7 @@ fn merge_sub_content_into_body(content: &mut String, sub: &str, is_media: bool) 
 /// 对齐差异说明：原版 isOnLineTxt 书籍替换后每行前缀全角空格缩进
 /// （`"　　$it"`），Rust 侧 FFI 无状态签名无书籍类型上下文，未实现该缩进。
 fn apply_content_replace_regex(
+    js_resources: &Arc<legado_js::JsResources>,
     content: String,
     replace_regex: &str,
     base_url: &str,
@@ -3900,9 +3771,14 @@ fn apply_content_replace_regex(
         .join("\n");
     // P2-9 ①：src = 拼接后正文（先序列化再 move 进构造器）
     let trimmed_src_json = serde_json::to_string(&trimmed).unwrap_or_default();
-    let analyzer =
-        construct_analyzer_with_js_lib(trimmed, base_url.to_string(), source_url, js_lib)
-            .with_js_binding("src", &trimmed_src_json);
+    let analyzer = construct_analyzer_with_js_lib(
+        js_resources,
+        trimmed,
+        base_url.to_string(),
+        source_url,
+        js_lib,
+    )
+    .with_js_binding("src", &trimmed_src_json);
     eval_rule_string(&analyzer, replace_regex)
 }
 
@@ -3997,11 +3873,7 @@ fn optional_field(analyzer: &legado_parser::AnalyzeRule, rule: &str) -> Option<S
         return None;
     }
     let v = eval_rule_string(analyzer, rule).unwrap_or_default();
-    if v.is_empty() {
-        None
-    } else {
-        Some(v)
-    }
+    if v.is_empty() { None } else { Some(v) }
 }
 
 /// 判断 URL 是否命中 bookUrlPattern 正则（对标 Kotlin `baseUrl.matches(it.toRegex())`）
@@ -4106,13 +3978,11 @@ pub fn convert_js_search_results(
             let kind = v
                 .get("kind")
                 .and_then(|k| k.as_str())
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
+                .and_then(legado_core::book_help::normalize_book_kind);
             let word_count = v
                 .get("wordCount")
                 .and_then(|w| w.as_str())
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
+                .and_then(legado_core::book_help::format_book_word_count);
             Some(WebSearchResult {
                 name,
                 author,
@@ -4214,6 +4084,7 @@ pub fn book_list_elements_or_default(
 /// quickjs 启用时使用真实 QuickJS 引擎，否则使用占位引擎。
 /// mainJs 为空时返回 None（非 JS 源）。
 pub fn build_js_orchestrator(
+    js_resources: &Arc<legado_js::JsResources>,
     source: &BookSource,
 ) -> LegadoResult<Option<JsSourceBookOrchestrator>> {
     let main_js = match source.main_js.as_deref() {
@@ -4227,9 +4098,12 @@ pub fn build_js_orchestrator(
     }
 
     #[cfg(feature = "quickjs")]
-    let engine = legado_js::JsSourceEngine::new_quickjs(config)?;
+    let engine = legado_js::JsSourceEngine::new_quickjs_with_resources(config, js_resources)?;
     #[cfg(not(feature = "quickjs"))]
-    let engine = legado_js::JsSourceEngine::new_stub(config);
+    let engine = {
+        let _ = js_resources;
+        legado_js::JsSourceEngine::new_stub(config)
+    };
 
     Ok(Some(JsSourceBookOrchestrator::new(engine)))
 }
@@ -4250,27 +4124,42 @@ pub async fn webbook_search(
     query: &str,
     page: i32,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    serde_json::to_string(
+        &webbook_search_entity(deps, serde_json::from_str(source_json)?, query, page).await?,
+    )
+    .map_err(LegadoError::Serialization)
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_search_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    query: &str,
+    page: i32,
+) -> LegadoResult<Vec<WebSearchResult>> {
     // P2-9 ③：搜索流程入口（键 = 书源 URL；换源清全局变量表，防跨书污染）
-    begin_book_flow(&format!("search:{}", source.book_source_url));
+    let deps = deps.for_source("search", &source.book_source_url, query);
 
     // JS 书源分派：spawn_blocking 承载 QuickJS 阻塞执行（宿主 block_on +
     // 本处 spawn_blocking 的双层语义与下沉前一致）
-    if let Some(mut orchestrator) = build_js_orchestrator(&source)? {
+    if let Some(mut orchestrator) = build_js_orchestrator(&deps.js, &source)? {
         let source_clone = source.clone();
         let key = query.to_string();
-        let values =
-            tokio::task::spawn_blocking(move || orchestrator.search(&source_clone, &key, page))
-                .await
-                .map_err(|e| LegadoError::Internal(format!("JS 搜索任务异常: {e}")))??;
+        let lease = deps.execution_lease.clone();
+        let values = tokio::task::spawn_blocking(move || {
+            let _lease = lease;
+            orchestrator.search(&source_clone, &key, page)
+        })
+        .await
+        .map_err(|e| LegadoError::Internal(format!("JS 搜索任务异常: {e}")))??;
         let results = convert_js_search_results(values, &source.book_source_url);
-        return serde_json::to_string(&results).map_err(LegadoError::Serialization);
+        return Ok(results);
     }
 
     // 规则书源路径（现有逻辑不变）
     let engine = build_engine(deps);
     let results: Vec<WebSearchResult> = engine.search(&source, query, page).await?;
-    serde_json::to_string(&results).map_err(LegadoError::Serialization)
+    Ok(results)
 }
 
 /// webbook_info 核心（P2-12 变量链，2026-09-18；生产入口 [`webbook_info`]
@@ -4309,15 +4198,28 @@ pub async fn webbook_info(
     source_json: &str,
     book_url: &str,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    serde_json::to_string(
+        &webbook_info_entity(deps, serde_json::from_str(source_json)?, book_url).await?,
+    )
+    .map_err(LegadoError::Serialization)
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_info_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    book_url: &str,
+) -> LegadoResult<WebBookInfo> {
     // P2-9 ③：详情流程入口（键 = bookUrl 原样；换书清全局变量表）
-    begin_book_flow(book_url);
+    let deps = deps.for_book(&source.book_source_url, book_url);
 
     // JS 书源分派
-    if let Some(mut orchestrator) = build_js_orchestrator(&source)? {
+    if let Some(mut orchestrator) = build_js_orchestrator(&deps.js, &source)? {
         let source_clone = source.clone();
         let url = book_url.to_string();
+        let lease = deps.execution_lease.clone();
         let js_info = tokio::task::spawn_blocking(move || {
+            let _lease = lease;
             let book = Book {
                 book_url: url.clone(),
                 origin: source_clone.book_source_url.clone(),
@@ -4328,15 +4230,13 @@ pub async fn webbook_info(
         .await
         .map_err(|e| LegadoError::Internal(format!("JS 详情任务异常: {e}")))??;
         // 将 MarshalledBookInfo 转换为 WebBookInfo
-        let categories = js_info
+        let kind = js_info
             .kind
             .as_deref()
-            .map(|k| {
-                k.split([',', '，', ' '])
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            })
+            .and_then(legado_core::book_help::normalize_book_kind);
+        let categories = kind
+            .as_deref()
+            .map(|value| value.split(',').map(str::to_string).collect())
             .unwrap_or_default();
         let info = WebBookInfo {
             name: js_info.name,
@@ -4347,8 +4247,11 @@ pub async fn webbook_info(
             last_chapter: js_info.latest_chapter_title,
             book_url: book_url.to_string(),
             toc_url: js_info.toc_url.unwrap_or_else(|| book_url.to_string()),
-            word_count: js_info.word_count,
-            kind: js_info.kind,
+            word_count: js_info
+                .word_count
+                .as_deref()
+                .and_then(legado_core::book_help::format_book_word_count),
+            kind,
             // JS 源 marshalled 详情暂不携带 variable（marshaller 未透出），
             // 换源变量以搜索候选与规则源详情导出为准
             variable: None,
@@ -4361,8 +4264,8 @@ pub async fn webbook_info(
             book_type: book_type_of_source(source.book_source_type),
         };
         // P2-9 ②：记录 book 元信息（目录/正文阶段 `book` 绑定扩面反查用）
-        record_book_meta_from_info(&deps, book_url, &info);
-        return serde_json::to_string(&info).map_err(LegadoError::Serialization);
+        record_book_meta_from_info(&deps, &source.book_source_url, book_url, &info);
+        return Ok(info);
     }
 
     // 规则书源路径（P2-12 变量链见 webbook_info_with_fetcher；
@@ -4371,8 +4274,8 @@ pub async fn webbook_info(
     let info: WebBookInfo =
         webbook_info_with_fetcher(fetcher.deps(), &source, book_url, &fetcher).await?;
     // P2-9 ②：记录 book 元信息（目录/正文阶段 `book` 绑定扩面反查用）
-    record_book_meta_from_info(fetcher.deps(), book_url, &info);
-    serde_json::to_string(&info).map_err(LegadoError::Serialization)
+    record_book_meta_from_info(fetcher.deps(), &source.book_source_url, book_url, &info);
+    Ok(info)
 }
 
 /// 获取章节列表
@@ -4388,10 +4291,30 @@ pub async fn webbook_chapters(
     toc_url: &str,
     book_name: &str,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
+    serde_json::to_string(
+        &webbook_chapters_entity(
+            deps,
+            serde_json::from_str(source_json)?,
+            book_url,
+            toc_url,
+            book_name,
+        )
+        .await?,
+    )
+    .map_err(LegadoError::Serialization)
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_chapters_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    book_url: &str,
+    toc_url: &str,
+    book_name: &str,
+) -> LegadoResult<Vec<WebChapter>> {
     // P2-9 ③：目录流程入口（键 = bookUrl，与详情同键 → 同书变量保留，
     // 换书清空）
-    begin_book_flow(book_url);
+    let deps = deps.for_book(&source.book_source_url, book_url);
     let known_toc = toc_url.trim();
     let known_toc_opt = if known_toc.is_empty() {
         None
@@ -4406,7 +4329,7 @@ pub async fn webbook_chapters(
     };
 
     // JS 书源分派
-    if let Some(mut orchestrator) = build_js_orchestrator(&source)? {
+    if let Some(mut orchestrator) = build_js_orchestrator(&deps.js, &source)? {
         let source_clone = source.clone();
         let url = book_url.to_string();
         let toc = known_toc_opt
@@ -4417,7 +4340,9 @@ pub async fn webbook_chapters(
         let url_for_cache = url.clone();
         let toc_for_cache = toc.clone();
         let name_for_cache = book_name_owned.clone();
+        let lease = deps.execution_lease.clone();
         let values = tokio::task::spawn_blocking(move || {
+            let _lease = lease;
             let book = Book {
                 book_url: url.clone(),
                 toc_url: toc,
@@ -4442,7 +4367,7 @@ pub async fn webbook_chapters(
             "",
             &chapters,
         );
-        return serde_json::to_string(&chapters).map_err(LegadoError::Serialization);
+        return Ok(chapters);
     }
 
     // 规则书源路径（P2-12 变量链见 webbook_chapters_with_fetcher）
@@ -4456,7 +4381,7 @@ pub async fn webbook_chapters(
         &fetcher,
     )
     .await?;
-    serde_json::to_string(&chapters).map_err(LegadoError::Serialization)
+    Ok(chapters)
 }
 
 /// webbook_chapters 核心（P2-12 变量链，2026-09-18；生产入口
@@ -4501,14 +4426,26 @@ pub async fn webbook_content(
     source_json: &str,
     chapter_json: &str,
 ) -> LegadoResult<String> {
-    let source: BookSource = serde_json::from_str(source_json)?;
-    let chapter: WebChapter = serde_json::from_str(chapter_json)?;
+    webbook_content_entity(
+        deps,
+        serde_json::from_str(source_json)?,
+        serde_json::from_str(chapter_json)?,
+    )
+    .await
+}
+
+/// 实体入口与 JSON 宿主共用同一抓取执行链。
+pub async fn webbook_content_entity(
+    deps: FetcherDeps,
+    source: BookSource,
+    chapter: WebChapter,
+) -> LegadoResult<String> {
+    let deps = deps_for_chapter(&deps, &source, &chapter);
     // P2-9 ③：正文无 bookUrl 入参，不触发生命周期清理（同书变量原样带到
     // 正文阶段）；仅确保兜底读取器已注册（深链直进正文时兜底亦生效）
-    ensure_global_variable_bridge();
 
     // JS 书源分派
-    if let Some(mut orchestrator) = build_js_orchestrator(&source)? {
+    if let Some(mut orchestrator) = build_js_orchestrator(&deps.js, &source)? {
         let source_clone = source.clone();
         let web_ch = chapter.clone();
         // P2-9 ②：反查详情/目录阶段记录的 book 元信息 → 填充 Book 模型字段
@@ -4516,14 +4453,17 @@ pub async fn webbook_content(
         // 未命中时字段全空 = 既有行为，不破坏既有 JS 源）
         // [P2-11 §193] 按 (书源 URL, 章节 URL) 复合键反查，同章节 URL 的
         // 不同书源书籍不串键
-        let mut book_meta = lookup_book_meta_for_chapter(&source.book_source_url, &chapter.url);
+        let mut book_meta =
+            lookup_book_meta_for_chapter(&deps.web_book, &source.book_source_url, &chapter.url);
         // P1-1：缓存 meta 有值但 variable 缺失/为空 → 按 bookUrl 从 DB 补
-        if let Some(m) = book_meta.as_mut() {
-            if m.variable.as_deref().is_none_or(|v| v.trim().is_empty()) {
-                m.variable = db_book_variable(&deps, &m.book_url);
-            }
+        if let Some(m) = book_meta.as_mut()
+            && m.variable.as_deref().is_none_or(|v| v.trim().is_empty())
+        {
+            m.variable = db_book_variable(&deps, &m.book_url);
         }
+        let lease = deps.execution_lease.clone();
         let out = tokio::task::spawn_blocking(move || {
+            let _lease = lease;
             let book_chapter = BookChapter {
                 url: web_ch.url,
                 title: web_ch.title,
@@ -4586,9 +4526,29 @@ pub async fn webbook_content(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{block_on, GLOBAL_STORE_TEST_LOCK};
+    use crate::test_support::{GLOBAL_STORE_TEST_LOCK, block_on};
     use legado_core::models::rule::ContentRule;
     use legado_parser::AnalyzeRule;
+
+    #[cfg(feature = "quickjs")]
+    fn scoped_book_rule(
+        resources: &Arc<legado_js::JsResources>,
+        book_url: &str,
+        base: Option<&str>,
+        code: &str,
+        book_type: i32,
+    ) -> String {
+        let meta = BookMeta {
+            book_url: book_url.into(),
+            variable: base.map(str::to_string),
+            ..Default::default()
+        };
+        let binding = book_binding_expr(resources, Some(&meta), "", 5, true, book_type);
+        construct_analyzer_with_js_lib(resources, "正文".into(), book_url.into(), "", None)
+            .with_js_binding("book", &binding)
+            .get_string(&format!("@js:{code}"))
+            .unwrap()
+    }
 
     /// 测试注入面：独立默认 HTTP 客户端（纯离线构造，不触网络探针）+ 宿主
     /// 闭包全 None（book_variable/source_context/login_header 关闭 = 旧 server
@@ -4617,8 +4577,8 @@ mod tests {
     fn test_fetch_page_hex_post_dispatches_post() {
         use std::io::{Read, Write};
         use std::net::TcpListener;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind 回环服务器");
         let port = listener.local_addr().unwrap().port();
@@ -4710,18 +4670,26 @@ mod tests {
     /// 的最低优先级兜底分支：本地（localBindings / bookName·title 特例 /
     /// variables）全部未命中才读全局 store。
     #[test]
-    fn test_global_variable_bridge_end_to_end() {
+    fn test_explicit_variable_reader_end_to_end() {
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        variable_store::clear_variables().expect("清全局变量表");
+        test_deps()
+            .js
+            .variables()
+            .clear_variables()
+            .expect("清全局变量表");
         // 测试卫生：复位 flow scope（读者 = get_flow_variable，残留 scope
         // 会让本测试的裸键读走 scoped-then-bare 路径）
-        variable_store::clear_flow_scope().expect("复位 flow scope");
-        variable_store::set_variable("p29_e2e_k", "p29_e2e_v").expect("写全局变量");
-        ensure_global_variable_bridge();
 
-        let analyzer = AnalyzeRule::new(String::new(), String::new());
+        test_deps()
+            .js
+            .variables()
+            .set_variable("p29_e2e_k", "p29_e2e_v")
+            .expect("写全局变量");
+
+        let analyzer = AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(test_deps().js.variable_reader());
         assert_eq!(
             analyzer.get("p29_e2e_k"),
             "p29_e2e_v",
@@ -4738,9 +4706,14 @@ mod tests {
 
         // 生命周期：流程作用域切换清会话前缀（P1-2 语义：只清旧 scope
         // 前缀、持久裸键存活）；此处清整表 + 复位 scope 后兜底读应落空
-        variable_store::clear_variables().expect("清全局变量表");
-        variable_store::clear_flow_scope().expect("复位 flow scope");
-        let analyzer2 = AnalyzeRule::new(String::new(), String::new());
+        test_deps()
+            .js
+            .variables()
+            .clear_variables()
+            .expect("清全局变量表");
+
+        let analyzer2 = AnalyzeRule::new(String::new(), String::new())
+            .with_variable_reader(test_deps().js.variable_reader());
         assert_eq!(
             analyzer2.get("p29_e2e_k"),
             "",
@@ -4754,50 +4727,30 @@ mod tests {
     /// *` 会话键），A 的会话键不得泄漏进 B；持久裸键（`v_*`/
     /// `sourceVariable_*` 等）全程不受影响（P1-1）。
     #[test]
-    fn test_begin_book_flow_lifecycle() {
-        let _lock = GLOBAL_STORE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        variable_store::clear_variables().expect("清全局变量表");
-        variable_store::clear_flow_scope().expect("复位 flow scope");
-
-        // 书 A 流程（键 = bookUrl）：同书 info → toc → content 同键进入不清
-        begin_book_flow("http://a.example.com/book/1");
-        variable_store::put_flow_variable("a_k", "a_v").expect("写书 A 会话变量");
-        begin_book_flow("http://a.example.com/book/1");
+    fn test_explicit_book_flow_lifecycle() {
+        let root = legado_js::JsResources::default();
+        let a = root.for_book("source", "a");
+        a.variable_scope()
+            .unwrap()
+            .put_flow_variable("key", "a-value")
+            .unwrap();
+        let b = root.for_book("source", "b");
+        assert_eq!(b.variable_scope().unwrap().get_flow_variable("key"), None);
         assert_eq!(
-            variable_store::get_flow_variable("a_k"),
-            Some("a_v".to_string()),
-            "同书流程重复进入必须保留会话变量（就去看网正文快路径依赖）"
+            a.variable_scope()
+                .unwrap()
+                .get_flow_variable("key")
+                .as_deref(),
+            Some("a-value")
         );
-
-        // 换书 B → scope 变化 → 只清 A 前缀，A 的会话键不得泄漏进 B
-        begin_book_flow("http://b.example.com/book/2");
         assert_eq!(
-            variable_store::get_flow_variable("a_k"),
-            None,
-            "换书必须清旧 scope 会话前缀（防跨书污染）"
+            root.for_book("source", "a")
+                .variable_scope()
+                .unwrap()
+                .get_flow_variable("key")
+                .as_deref(),
+            Some("a-value")
         );
-
-        // 搜索流程（键 = search:{书源}）：同键翻页复用不清；换键即清
-        begin_book_flow("search:http://www.sjshuku.com");
-        variable_store::put_flow_variable("s_k", "s_v").expect("写搜索会话变量");
-        begin_book_flow("search:http://www.sjshuku.com");
-        assert_eq!(
-            variable_store::get_flow_variable("s_k"),
-            Some("s_v".to_string()),
-            "同搜索流程翻页必须保留会话变量"
-        );
-        begin_book_flow("search:http://other.example.com");
-        assert_eq!(
-            variable_store::get_flow_variable("s_k"),
-            None,
-            "换书源后旧搜索会话键应不可见（前缀已清）"
-        );
-
-        // 清理：还原进程级状态，避免影响其他测试
-        variable_store::clear_variables().expect("清全局变量表");
-        variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     /// P1-1 验收（工单断言）：持久裸键（搜索期 `source.put` 的
@@ -4806,59 +4759,38 @@ mod tests {
     /// 后必须仍存；同一换书把上一流程的桥接会话键清掉（新语义）。
     #[test]
     fn test_p11_persistent_bare_keys_survive_book_switch() {
-        let _lock = GLOBAL_STORE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        variable_store::clear_variables().expect("清全局变量表");
-        variable_store::clear_flow_scope().expect("复位 flow scope");
-
-        // 搜索期源写入的持久键（裸键，上游持久 CacheManager 语义）
-        variable_store::set_variable("v_x_k", "tok").expect("写持久键 v_x_k");
-        variable_store::set_variable("sourceVariable_x", "s").expect("写持久键 sourceVariable_x");
-
-        // 书 A 详情期桥接会话键
-        begin_book_flow("http://a.example.com/book/1");
-        variable_store::put_flow_variable("url", "aUrl").expect("写会话键 url");
-
-        // 换书（工单：one book-switch begin_book_flow）
-        begin_book_flow("http://b.example.com/book/2");
-
-        // 工单断言：两持久键仍存
+        let root = legado_js::JsResources::default();
+        root.variables().set_variable("v_x_k", "token").unwrap();
+        root.variables()
+            .set_variable("sourceVariable_x", "persistent")
+            .unwrap();
+        let a = root.for_book("source", "a");
+        a.variable_scope()
+            .unwrap()
+            .put_flow_variable("url", "a-url")
+            .unwrap();
+        let b = root.for_book("source", "b");
+        assert_eq!(b.variable_scope().unwrap().get_flow_variable("url"), None);
         assert_eq!(
-            variable_store::get_variable("v_x_k").expect("读 v_x_k"),
-            Some("tok".to_string()),
-            "P1-1：source.put 持久键换书后必须存活"
+            root.variables().get_variable("v_x_k").unwrap().as_deref(),
+            Some("token")
         );
         assert_eq!(
-            variable_store::get_variable("sourceVariable_x").expect("读 sourceVariable_x"),
-            Some("s".to_string()),
-            "P1-1：source.setVariable 持久键换书后必须存活"
+            root.variables()
+                .get_variable("sourceVariable_x")
+                .unwrap()
+                .as_deref(),
+            Some("persistent")
         );
-        // 新语义：书 A 的桥接会话键被换书清掉（scoped 前缀清，裸键无 url）
-        assert_eq!(
-            variable_store::get_flow_variable("url"),
-            None,
-            "P1-2：旧流程会话键换书后必须不可见"
-        );
-        // 兜底读者（FFI 注入的 get_flow_variable）视角同断言
-        let reader = |key: &str| variable_store::get_flow_variable(key);
-        assert_eq!(reader("v_x_k").as_deref(), Some("tok"));
-        assert_eq!(reader("url").as_deref(), None);
-
-        variable_store::clear_variables().expect("清全局变量表");
-        variable_store::clear_flow_scope().expect("复位 flow scope");
+        let other = legado_js::JsResources::default();
+        assert_eq!(other.variables().get_variable("v_x_k").unwrap(), None);
     }
 
-    /// [P2-9 ③] 真实源离线前后对照（手机小说；夹具 `source_shoujixiaoshuo_sjshuku.json` 为真实书源表该条目逐字提取，P2-4 由未跟踪的 `.tmp/source_1270.json` 入库）。
-    ///
-    /// 真实规则 + 真实 QuickJS 执行 `init` JS（`java.put("url", 详情+href)` 后 `java.ajax`），`tocUrl: @get:{url}` 读该变量：
-    /// - 修复前（桥未注册）：`@get` 本地未命中 → tocUrl 空 → 回退 book_url（目录页错——本次要修的真实偏差）。
-    /// - 修复后（桥已注册）：`@get` 兜底读全局 store → tocUrl = JS `java.put` 写入的真实目录页 URL。
-    ///
-    /// 书籍详情页为固定夹具（不发网络请求）；`init` 内 `java.ajax` 离线失败只影响 init 结果（被 `if let Ok` 吞掉），`java.put` 在 ajax 之前已执行，桥读取不受影响。
+    /// 真实手机小说源离线回归：QuickJS init 的 java.put 经实例读取器供 tocUrl 的 @get 使用。
+    /// 详情 HTML 固定；init 内 ajax 失败不影响已写入的目录 URL。
     #[test]
     #[cfg(feature = "quickjs")]
-    fn test_shoujixiaoshuo_tocurl_bridge_before_after() {
+    fn test_shoujixiaoshuo_tocurl_explicit_reader() {
         let _lock = GLOBAL_STORE_TEST_LOCK
             .lock()
             .unwrap_or_else(|p| p.into_inner());
@@ -4868,10 +4800,13 @@ mod tests {
             "../tests/fixtures/source_shoujixiaoshuo_sjshuku.json"
         ))
         .expect("手机小说书源 JSON（夹具逐字提取，见 tests/fixtures）");
-        variable_store::clear_variables().expect("清全局变量表");
+        test_deps()
+            .js
+            .variables()
+            .clear_variables()
+            .expect("清全局变量表");
         // 测试卫生：复位 flow scope（本测试不经 begin_book_flow，桥读者为
         // get_flow_variable；残留 scope 会让裸键读走 scoped-then-bare 路径）
-        variable_store::clear_flow_scope().expect("复位 flow scope");
 
         // 该源必须确属「JS 写变量 + 规则读变量」型，否则对照无意义
         let init_js = source
@@ -4954,27 +4889,14 @@ mod tests {
         }
         let fetcher = P29OfflineFetcher;
 
-        // ── 修复前：桥未注册（复现修复前行为）──
-        set_global_variable_reader(None);
-        variable_store::clear_variables().expect("清全局变量表");
-        let before = block_on(webbook_info_with_fetcher(
-            &test_deps(),
-            &source,
-            BOOK_URL,
-            &fetcher,
-        ))
-        .expect("详情解析应成功（修复前阶段）");
-        assert_eq!(
-            before.toc_url,
-            BOOK_URL,
-            "修复前：@get 本地未命中（桥未注册）→ tocUrl 空 → 回退 book_url（复现原偏差：目录页错）"
-        );
-
         // ── 修复后：注册桥 → @get 兜底读全局 store ──
         // 本测试不经 begin_book_flow：scope 为 None，桥写/读裸键（直用
         // 引擎路径，与 P2-9 ③ 引入前一致）
-        ensure_global_variable_bridge();
-        variable_store::clear_variables().expect("清全局变量表");
+        test_deps()
+            .js
+            .variables()
+            .clear_variables()
+            .expect("清全局变量表");
         let after = block_on(webbook_info_with_fetcher(
             &test_deps(),
             &source,
@@ -4987,8 +4909,11 @@ mod tests {
             "修复后：@get 应兜底读全局 store（java.put 写入值）→ 正确目录页"
         );
 
-        variable_store::clear_variables().expect("清全局变量表");
-        variable_store::clear_flow_scope().expect("复位 flow scope");
+        test_deps()
+            .js
+            .variables()
+            .clear_variables()
+            .expect("清全局变量表");
     }
 
     #[test]
@@ -5183,6 +5108,7 @@ mod tests {
             ..BookSource::default()
         };
         let au = crate::js_adapter::build_search_url_with_setup(
+            &test_deps().js,
             source.search_url.as_deref().unwrap(),
             "一念",
             1,
@@ -5242,12 +5168,12 @@ mod tests {
         // content 站点：`{"totalChapterNum": N, "name": ""}`（None 分支不用
         // book_type 入参，传 0 占位）
         assert_eq!(
-            book_binding_expr(None, "ignored", 42, true, 0),
+            book_binding_expr(&test_deps().js, None, "ignored", 42, true, 0),
             r#"{"totalChapterNum": 42, "name": ""}"#
         );
         // toc 站点：`{"name": book_name}`
         assert_eq!(
-            book_binding_expr(None, "测试书名", 0, false, 0),
+            book_binding_expr(&test_deps().js, None, "测试书名", 0, false, 0),
             r#"{"name":"测试书名"}"#
         );
     }
@@ -5272,7 +5198,8 @@ mod tests {
             variable: Some(r#"{"a":"1"}"#.into()),
             book_type: 0,
         };
-        record_book_meta_from_info(&test_deps(), book_url, &info);
+        let source_url = "https://meta-cache-test.example.com/source/9";
+        record_book_meta_from_info(&test_deps(), source_url, book_url, &info);
         let chapters = vec![
             WebChapter {
                 url: "https://meta-cache-test.example.com/c/1".into(),
@@ -5293,7 +5220,6 @@ mod tests {
                 word_count: None,
             },
         ];
-        let source_url = "https://meta-cache-test.example.com/source/9";
         record_chapter_list_cache(
             &test_deps(),
             book_url,
@@ -5304,9 +5230,12 @@ mod tests {
             &chapters,
         );
         // [P2-11 §193] 复合键 (书源 URL, 章节 URL) 反查
-        let meta =
-            lookup_book_meta_for_chapter(source_url, "https://meta-cache-test.example.com/c/2")
-                .expect("章节 URL 应能反查到 meta");
+        let meta = lookup_book_meta_for_chapter(
+            &test_deps().web_book,
+            source_url,
+            "https://meta-cache-test.example.com/c/2",
+        )
+        .expect("章节 URL 应能反查到 meta");
         assert_eq!(meta.name, "甲书");
         assert_eq!(meta.author, "甲作者");
         // 目录阶段以最后一个非卷章标题覆盖详情阶段的 lastChapter
@@ -5314,11 +5243,14 @@ mod tests {
         // 详情阶段写入的 variable 不被目录阶段（variable=None）清空
         assert_eq!(meta.variable, Some(r#"{"a":"1"}"#.into()));
         // 未注册章节 URL → None（回退既有空 name 字面量绑定）
-        assert!(lookup_book_meta_for_chapter(
-            source_url,
-            "https://meta-cache-test.example.com/unknown"
-        )
-        .is_none());
+        assert!(
+            lookup_book_meta_for_chapter(
+                &test_deps().web_book,
+                source_url,
+                "https://meta-cache-test.example.com/unknown"
+            )
+            .is_none()
+        );
     }
 
     /// P2-11 §193：同章节 URL 的两本书（不同书源）不串键——复合键回归测试。
@@ -5366,16 +5298,18 @@ mod tests {
         );
 
         // 各自书源反查同章节 URL → 各得自己的 meta，互不串键
-        let meta_a =
-            lookup_book_meta_for_chapter(src_a, shared_chapter).expect("书源 A 应命中自己的 meta");
+        let meta_a = lookup_book_meta_for_chapter(&test_deps().web_book, src_a, shared_chapter)
+            .expect("书源 A 应命中自己的 meta");
         assert_eq!(meta_a.name, "A书");
         assert_eq!(meta_a.book_url, book_a);
-        let meta_b =
-            lookup_book_meta_for_chapter(src_b, shared_chapter).expect("书源 B 应命中自己的 meta");
+        let meta_b = lookup_book_meta_for_chapter(&test_deps().web_book, src_b, shared_chapter)
+            .expect("书源 B 应命中自己的 meta");
         assert_eq!(meta_b.name, "B书");
         assert_eq!(meta_b.book_url, book_b);
         // 第三书源（未记录）反查同章节 URL → None（回退空 name 绑定）
-        assert!(lookup_book_meta_for_chapter(src_c, shared_chapter).is_none());
+        assert!(
+            lookup_book_meta_for_chapter(&test_deps().web_book, src_c, shared_chapter).is_none()
+        );
     }
 
     /// [目录抓取链 bookUrl 脏值修正 2026-10-05] 刷新目录链端到端：取址点
@@ -5446,7 +5380,9 @@ mod tests {
         assert_eq!(chapters.len(), 2, "应解析到 2 个章节");
 
         // 1) meta 缓存在书籍主键下可命中，且 bookUrl 为主键（非取址点）
-        let meta = lookup_book_meta_by_book_url(book_key).expect("主键应命中 meta");
+        let meta =
+            lookup_book_meta_by_book_url(&test_deps().web_book, &source.book_source_url, book_key)
+                .expect("主键应命中 meta");
         assert_eq!(
             meta.book_url, book_key,
             "meta.book_url 必须是书籍主键，不得被取址点覆盖"
@@ -5455,14 +5391,23 @@ mod tests {
 
         // 2) 取址点键下不得残留“书籍取址点”脏值
         assert!(
-            lookup_book_meta_by_book_url(&fetch_url).is_none(),
+            lookup_book_meta_by_book_url(
+                &test_deps().web_book,
+                &source.book_source_url,
+                &fetch_url
+            )
+            .is_none(),
             "取址点不得作为书籍主键入缓存（修复前此处即脏值 entry）"
         );
 
         // 3) 正文阶段 (书源, 章节) 反查必须得到主键身份
         let chapter_url = format!("http://127.0.0.1:{port}/c/1");
-        let by_chapter = lookup_book_meta_for_chapter(&source.book_source_url, &chapter_url)
-            .expect("章节 URL 应能反查到 meta");
+        let by_chapter = lookup_book_meta_for_chapter(
+            &test_deps().web_book,
+            &source.book_source_url,
+            &chapter_url,
+        )
+        .expect("章节 URL 应能反查到 meta");
         assert_eq!(
             by_chapter.book_url, book_key,
             "章节反查身份必须是书籍主键（弹幕/歌词 sink 落库键）"
@@ -5473,12 +5418,13 @@ mod tests {
     ///（旧版 `>=` 判定在满表时任何写入都整体清空）。
     #[test]
     fn test_book_meta_merge_insert_update_existing_key_no_clear() {
-        let mut map: HashMap<String, BookMeta> = HashMap::new();
+        let mut map: HashMap<(String, String), BookMeta> = HashMap::new();
+        let key = |url: &str| ("test-source".to_string(), url.to_string());
         // 填满至容量上限（512）
         for i in 0..BOOK_META_CACHE_MAX {
             book_meta_merge_insert(
                 &mut map,
-                format!("https://trim-test.example.com/meta/{i}"),
+                key(&format!("https://trim-test.example.com/meta/{i}")),
                 BookMeta {
                     name: format!("书{i}"),
                     ..BookMeta::default()
@@ -5490,14 +5436,14 @@ mod tests {
         let existing_key = "https://trim-test.example.com/meta/0";
         book_meta_merge_insert(
             &mut map,
-            existing_key.to_string(),
+            key(existing_key),
             BookMeta {
                 name: "改名后".into(),
                 ..BookMeta::default()
             },
         );
         assert_eq!(map.len(), BOOK_META_CACHE_MAX, "更新既有键不得清空");
-        assert_eq!(map.get(existing_key).unwrap().name, "改名后");
+        assert_eq!(map.get(&key(existing_key)).unwrap().name, "改名后");
     }
 
     /// P2-11 §199：BookMeta 容量判定——仅**新键**插入溢出才整体清空
@@ -5505,18 +5451,19 @@ mod tests {
     /// 简单淘汰一致——best-effort 缓存未命中有安全回退，不值 LRU 开销）。
     #[test]
     fn test_book_meta_merge_insert_clear_only_on_new_key_overflow() {
-        let mut map: HashMap<String, BookMeta> = HashMap::new();
+        let mut map: HashMap<(String, String), BookMeta> = HashMap::new();
+        let key = |url: &str| ("test-source".to_string(), url.to_string());
         for i in 0..BOOK_META_CACHE_MAX {
             book_meta_merge_insert(
                 &mut map,
-                format!("https://trim-test.example.com/meta/{i}"),
+                key(&format!("https://trim-test.example.com/meta/{i}")),
                 BookMeta::default(),
             );
         }
         // 新键插入且已达上限 → 整体清空后仅含新键
         book_meta_merge_insert(
             &mut map,
-            "https://trim-test.example.com/meta/new".to_string(),
+            key("https://trim-test.example.com/meta/new"),
             BookMeta {
                 name: "新".into(),
                 ..BookMeta::default()
@@ -5524,7 +5471,7 @@ mod tests {
         );
         assert_eq!(map.len(), 1, "新键溢出应整体清空后仅留新键");
         assert_eq!(
-            map.get("https://trim-test.example.com/meta/new")
+            map.get(&key("https://trim-test.example.com/meta/new"))
                 .unwrap()
                 .name,
             "新"
@@ -5593,8 +5540,9 @@ mod tests {
             last_chapter: "第一百章".into(),
             variable: Some(r#"{"custom":"custom-val","n":3}"#.into()),
         };
-        let expr = book_binding_expr(Some(&meta), "", 42, true, 8);
+        let expr = book_binding_expr(&test_deps().js, Some(&meta), "", 42, true, 8);
         let analyzer = crate::js_adapter::construct_analyzer_with_js_lib(
+            &test_deps().js,
             "<html><body>正文</body></html>".to_string(),
             "https://book.example.com/c/1".to_string(),
             "",
@@ -5613,10 +5561,13 @@ mod tests {
         // P2-11 ①：新 IIFE 的 putVariable 经 java.__lgBookVarSet 桥写
         // variable_store 裸键（进程级）——测试收尾清残留，防污染并行/后续
         // 测试对该 bookUrl 的绑定构造
-        let _ = variable_store::remove_variable(&variable_store::book_var_key(
-            "https://book.example.com/b/1",
-            "k2",
-        ));
+        let _ = test_deps()
+            .js
+            .variables()
+            .remove_variable(&legado_js::variables::book_var_key(
+                "https://book.example.com/b/1",
+                "k2",
+            ));
     }
 
     /// P2-11 ① 核心回归：JS 里 `book.putVariable` / `book.type=N` /
@@ -5630,86 +5581,37 @@ mod tests {
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_p211_book_write_paths_visible_in_same_flow() {
-        // book 绑定写路径（book./java. 绑定写全局变量表）→ 持 crate 级
-        // test_support 锁串行防串表
-        let _lock = crate::test_support::lock_global_store();
-        // 专属 bookUrl：并行测试互不串读（overlay 按 bookUrl 前缀过滤）
-        let book_url = "https://p211-write-flow-test.example.com/b/flow";
-        let meta = BookMeta {
-            name: "写流测试书".into(),
-            author: "写流作者".into(),
-            book_url: book_url.into(),
-            toc_url: format!("{book_url}/toc"),
-            last_chapter: String::new(),
-            variable: Some(r#"{"base":"b1"}"#.into()),
-        };
-
-        // ── 阶段 1：详情规则执行（模拟 ruleBookInfo 期 JS 写入）
-        let binding1 = book_binding_expr(Some(&meta), "", 5, true, 8);
-        crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>详情</body></html>".to_string(),
-            book_url.to_string(),
-            "",
-            None,
-        )
-        .with_js_binding("book", &binding1)
-        .get_string(
-            "@js:book.putVariable('k','v');book.putVariable('num',42);book.putVariable('delkey','x');book.putVariable('delkey',null);book.type=64;book.setReverseToc(true);'ok'",
-        )
-        .expect("阶段 1 写入规则应可执行");
-
-        // 直读存储层确认落点（裸键持久层，进程级）
+        let resources = legado_js::JsResources::default().for_book("source", "book");
+        scoped_book_rule(
+            &resources,
+            "book",
+            Some(r#"{"base":"b1"}"#),
+            "book.putVariable('k','v');book.putVariable('num',42);book.putVariable('delkey','x');book.putVariable('delkey',null);book.type=64;book.setReverseToc(true);'ok'",
+            8,
+        );
+        let scope = resources.variable_scope().unwrap();
         assert_eq!(
-            variable_store::get_variable(&variable_store::book_var_key(book_url, "k")).ok(),
-            Some(Some("v".to_string())),
-            "putVariable('k','v') 应落 bookVar 裸键"
+            scope.get_book_variable("book", "k").unwrap().as_deref(),
+            Some("v")
         );
         assert_eq!(
-            variable_store::get_variable(&variable_store::book_var_key(book_url, "num")).ok(),
-            Some(Some("42".to_string())),
-            "非 string 值应存其 JSON.stringify 结果（与 IIFE 内存 m[k] 一致）"
+            scope.get_book_variable("book", "num").unwrap().as_deref(),
+            Some("42")
         );
+        assert_eq!(scope.get_book_variable("book", "delkey").unwrap(), None);
+        let overlay = scope.book_overlays("book").unwrap();
+        assert_eq!(overlay.book_type, Some(64));
+        assert_eq!(overlay.reverse_toc, Some(true));
         assert_eq!(
-            variable_store::get_variable(&variable_store::book_var_key(book_url, "delkey")).ok(),
-            Some(None),
-            "putVariable(k,null) 应删 overlay 键"
+            scoped_book_rule(
+                &resources,
+                "book",
+                Some(r#"{"base":"b1"}"#),
+                "book.getVariable('k')+'|'+book.getVariable('num')+'|'+book.getVariable('delkey')+'|'+String(book.type)+'|'+String(book.reverseToc)+'|'+book.getVariable('base')",
+                8
+            ),
+            "v|42||64|true|b1"
         );
-        assert_eq!(
-            variable_store::get_variable(&variable_store::book_type_key(book_url)).ok(),
-            Some(Some("64".to_string())),
-            "book.type=64 应落 bookType 裸键"
-        );
-        assert_eq!(
-            variable_store::get_variable(&variable_store::book_reverse_toc_key(book_url)).ok(),
-            Some(Some("true".to_string()))
-        );
-
-        // ── 阶段 2：同书后续规则重新构造绑定（模拟目录/正文阶段）
-        let binding2 = book_binding_expr(Some(&meta), "", 5, true, 8);
-        let out = crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>目录</body></html>".to_string(),
-            format!("{book_url}/toc"),
-            "",
-            None,
-        )
-        .with_js_binding("book", &binding2)
-        .get_string(
-            "@js:book.getVariable('k')+'|'+book.getVariable('num')+'|'+book.getVariable('delkey')+'|'+String(book.type)+'|'+String(book.reverseToc)+'|'+book.getVariable('base')",
-        )
-        .expect("阶段 2 探测规则应可执行");
-        // k=v（overlay 合并）、num=42（string 形态）、delkey 已删 → 空、
-        // type=64（覆盖入参初值 8）、reverseToc=true、base=b1（meta 保留）
-        assert_eq!(out, "v|42||64|true|b1");
-
-        // 收尾清理（进程级全局 store）
-        for key in [
-            variable_store::book_var_key(book_url, "k"),
-            variable_store::book_var_key(book_url, "num"),
-            variable_store::book_type_key(book_url),
-            variable_store::book_reverse_toc_key(book_url),
-        ] {
-            let _ = variable_store::remove_variable(&key);
-        }
     }
 
     /// P2-11 ①：`book.type` 初值 = 书源类型（位标志，经
@@ -5718,57 +5620,21 @@ mod tests {
     #[cfg(feature = "quickjs")]
     #[test]
     fn test_p211_book_type_initial_value_from_source() {
-        // probe 驱动 parse_book_info JS（book.getVariable 读全局表）→ 持
-        // crate 级 test_support 锁串行防串表
-        let _lock = crate::test_support::lock_global_store();
-        fn probe(book_url: &str, book_type_arg: i32) -> String {
-            let meta = BookMeta {
-                name: "类型初值测试书".into(),
-                author: String::new(),
-                book_url: book_url.into(),
-                toc_url: String::new(),
-                last_chapter: String::new(),
-                variable: None,
-            };
-            let binding = book_binding_expr(Some(&meta), "", 1, true, book_type_arg);
-            crate::js_adapter::construct_analyzer_with_js_lib(
-                "<html><body>x</body></html>".to_string(),
-                book_url.to_string(),
-                "",
-                None,
-            )
-            .with_js_binding("book", &binding)
-            .get_string("@js:String(book.type)")
-            .expect("type 探测应可执行")
+        let root = legado_js::JsResources::default();
+        for value in [8, 32, 64] {
+            let url = format!("https://type.test/{value}");
+            let resources = root.for_book("source", &url);
+            assert_eq!(
+                scoped_book_rule(&resources, &url, None, "String(book.type)", value),
+                value.to_string()
+            );
         }
-
-        // 无 overlay 时初值 = 入参（调用点传 book_type_of_source 结果）
+        let resources = root.for_book("source", "override");
+        scoped_book_rule(&resources, "override", None, "book.type=16;'written'", 8);
         assert_eq!(
-            probe("https://p211-type-init.example.com/b/text", 8),
-            "8",
-            "TEXT 源初值应为 8（改造前硬编码 0）"
+            scoped_book_rule(&resources, "override", None, "String(book.type)", 8),
+            "16"
         );
-        assert_eq!(
-            probe("https://p211-type-init.example.com/b/audio", 32),
-            "32",
-            "AUDIO 源初值应为 32"
-        );
-        assert_eq!(
-            probe("https://p211-type-init.example.com/b/image", 64),
-            "64",
-            "IMAGE 源初值应为 64"
-        );
-
-        // overlay 覆盖值（JS 前期 `book.type=16` 写入）优先于入参初值
-        let override_url = "https://p211-type-init.example.com/b/override";
-        variable_store::set_variable(&variable_store::book_type_key(override_url), "16")
-            .expect("预置 type 覆盖值");
-        assert_eq!(
-            probe(override_url, 8),
-            "16",
-            "同书 overlay 覆盖值应优先于入参初值"
-        );
-        let _ = variable_store::remove_variable(&variable_store::book_type_key(override_url));
     }
 
     /// P2-15 ②：JS `book.type=N` 写路径值回流 `WebBookInfo.book_type`
@@ -5797,9 +5663,10 @@ mod tests {
         // 持 crate 级 test_support 锁串行防串表
         let _lock = crate::test_support::lock_global_store();
         let body = "<html><body>raw detail body</body></html>".to_string();
-        let seed_meta = |url: &str, name: &str| {
+        let seed_meta = |source_url: &str, url: &str, name: &str| {
             record_book_meta_from_info(
                 &test_deps(),
+                source_url,
                 url,
                 &WebBookInfo {
                     name: name.into(),
@@ -5830,7 +5697,7 @@ mod tests {
             }
         }))
         .expect("IMAGE 源 json");
-        seed_meta(url_a, "type 回流测试书");
+        seed_meta(&image_source.book_source_url, url_a, "type 回流测试书");
         let info_a = test_fetcher().parse_book_info_from_body(
             &image_source,
             body.clone(),
@@ -5862,7 +5729,7 @@ mod tests {
             }
         }))
         .expect("TEXT 源 json");
-        seed_meta(url_b, "type 覆盖测试书");
+        seed_meta(&text_source.book_source_url, url_b, "type 覆盖测试书");
         let info_b = test_fetcher().parse_book_info_from_body(
             &text_source,
             body.clone(),
@@ -5894,7 +5761,7 @@ mod tests {
             }
         }))
         .expect("TEXT 源 json");
-        seed_meta(url_c, "type 回落测试书");
+        seed_meta(&text_source_c.book_source_url, url_c, "type 回落测试书");
         let info_c = test_fetcher().parse_book_info_from_body(
             &text_source_c,
             body,
@@ -5913,7 +5780,10 @@ mod tests {
         // 卫生：清理本用例 type overlay（variable_store 为进程级全局，
         // 防跨用例串扰，同 test_p211_book_type_initial_value_from_source）
         for url in [url_a, url_b, url_c] {
-            let _ = variable_store::remove_variable(&variable_store::book_type_key(url));
+            let _ = test_deps()
+                .js
+                .variables()
+                .remove_variable(&legado_js::variables::book_type_key(url));
         }
     }
 
@@ -5964,87 +5834,22 @@ mod tests {
     #[test]
     #[cfg(feature = "quickjs")]
     fn test_p215_bookvar_closed_loop_via_java_get() {
-        let _lock = GLOBAL_STORE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        let book_url = "https://p215-loop.example.com/b/loop";
-        let meta = BookMeta {
-            name: "就去看网形态测试书".into(),
-            author: String::new(),
-            book_url: book_url.into(),
-            toc_url: String::new(),
-            last_chapter: String::new(),
-            variable: None,
-        };
-        // 生产入口：flow scope = 本书 bookUrl + 注册全局兜底读者
-        begin_book_flow(book_url);
-
-        // 绑定在写入**之前**构造（字面量不含「序」——模拟上一章正文规则
-        // 先构造绑定、后写入的时间序）
-        let binding = book_binding_expr(Some(&meta), "", 5, true, 8);
-
-        // 规则 A（本章正文 JS）：book.putVariable 写 bookVar 层
-        crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>正文</body></html>".to_string(),
-            book_url.to_string(),
-            "",
+        let resources = legado_js::JsResources::default().for_book("source", "book");
+        scoped_book_rule(
+            &resources,
+            "book",
             None,
-        )
-        .with_js_binding("book", &binding)
-        .get_string("@js:book.putVariable('序','3');book.putVariable('元','meta-v');'w'")
-        .expect("规则 A 写入应可执行");
-        assert_eq!(
-            variable_store::get_variable(&variable_store::book_var_key(book_url, "序")).ok(),
-            Some(Some("3".to_string())),
-            "写入应落 bookVar 层"
+            "book.putVariable('序','3');'written'",
+            8,
         );
-        // oracle：会话层与裸键均无「序」——修复前读链（会话→裸）在此
-        // 必然返回空；修复后只有链尾 bookVar 兜底能产出值
+        assert_eq!(resources.variables().get_variable("序").unwrap(), None);
         assert_eq!(
-            variable_store::get_variable("序").ok().flatten(),
-            None,
-            "裸键「序」不存在（排除裸层来源）"
+            scoped_book_rule(&resources, "book", None, "java.get('序')", 8),
+            "3"
         );
-        assert_eq!(
-            variable_store::get_variable(&format!("lgflow:{book_url}\u{1}序"))
-                .ok()
-                .flatten(),
-            None,
-            "会话键「序」不存在（排除会话层来源）"
-        );
-
-        // 规则 B（同流程新 analyzer、同绑定表达式）：java.get 读回
-        let read_back = crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>正文</body></html>".to_string(),
-            book_url.to_string(),
-            "",
-            None,
-        )
-        .with_js_binding("book", &binding)
-        .get_string("@js:java.get('序')+'|'+java.get('元')")
-        .expect("规则 B 读取应可执行");
-        assert_eq!(
-            read_back, "3|meta-v",
-            "修复后：java.get 经 bookVar 兜底读回 book.putVariable 写入（闭环）"
-        );
-        // 规则级 `@get` 读取器路径（AnalyzeRule::get 全局兜底，同一函数）
-        let rule_read = crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>正文</body></html>".to_string(),
-            book_url.to_string(),
-            "",
-            None,
-        )
-        .get("序");
-        assert_eq!(rule_read, "3", "规则 @get 读取器应同样读回 bookVar 值");
-
-        // 收尾：清 bookVar 键 + 复位 scope（不动持久键）
-        for key in [
-            variable_store::book_var_key(book_url, "序"),
-            variable_store::book_var_key(book_url, "元"),
-        ] {
-            let _ = variable_store::remove_variable(&key);
-        }
-        variable_store::clear_flow_scope().expect("复位 flow scope");
+        let parser =
+            construct_analyzer_with_js_lib(&resources, "正文".into(), "book".into(), "", None);
+        assert_eq!(parser.get_string("@get:{序}").unwrap(), "3");
     }
 
     /// P2-15 跨书隔离：两本书（两个 bookUrl）写同名 key，书 A 的
@@ -6054,107 +5859,40 @@ mod tests {
     #[test]
     #[cfg(feature = "quickjs")]
     fn test_p215_bookvar_cross_book_isolation() {
-        let _lock = GLOBAL_STORE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        let book_a = "https://p215-xbook.example.com/b/iso-a";
-        let book_b = "https://p215-xbook.example.com/b/iso-b";
-        let meta = |url: &str| BookMeta {
-            name: "隔离测试书".into(),
-            author: String::new(),
-            book_url: url.into(),
-            toc_url: String::new(),
-            last_chapter: String::new(),
-            variable: None,
-        };
-        let binding_a = book_binding_expr(Some(&meta(book_a)), "", 5, true, 8);
-        let binding_b = book_binding_expr(Some(&meta(book_b)), "", 5, true, 8);
-
-        // 书 A 流程：写 A 的 seq
-        begin_book_flow(book_a);
-        crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>A</body></html>".to_string(),
-            book_a.to_string(),
-            "",
+        let root = legado_js::JsResources::default();
+        let a = root.for_book("source", "book-a");
+        let b = root.for_book("source", "book-b");
+        scoped_book_rule(
+            &a,
+            "book-a",
             None,
-        )
-        .with_js_binding("book", &binding_a)
-        .get_string("@js:book.putVariable('seq','a-seq');'w'")
-        .expect("书 A 写入应可执行");
+            "book.putVariable('seq','a-seq');'written'",
+            8,
+        );
         assert_eq!(
-            crate::js_adapter::construct_analyzer_with_js_lib(
-                "<html><body>A</body></html>".to_string(),
-                book_a.to_string(),
-                "",
-                None,
-            )
-            .with_js_binding("book", &binding_a)
-            .get_string("@js:java.get('seq')")
-            .expect("书 A 读回应可执行"),
+            scoped_book_rule(&b, "book-b", None, "java.get('seq')", 8),
+            ""
+        );
+        scoped_book_rule(
+            &b,
+            "book-b",
+            None,
+            "book.putVariable('seq','b-seq');'written'",
+            8,
+        );
+        assert_eq!(
+            scoped_book_rule(&a, "book-a", None, "java.get('seq')", 8),
             "a-seq"
         );
-
-        // 换书 B：A 的 bookVar 不可见；B 写自己的 seq 后只读 B 的值
-        begin_book_flow(book_b);
         assert_eq!(
-            crate::js_adapter::construct_analyzer_with_js_lib(
-                "<html><body>B</body></html>".to_string(),
-                book_b.to_string(),
-                "",
-                None,
-            )
-            .with_js_binding("book", &binding_b)
-            .get_string("@js:java.get('seq')")
-            .expect("书 B 读回应可执行"),
-            "",
-            "书 B 流程内不得读回书 A 的 bookVar（跨书隔离）"
+            scoped_book_rule(&b, "book-b", None, "java.get('seq')", 8),
+            "b-seq"
         );
-        crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>B</body></html>".to_string(),
-            book_b.to_string(),
-            "",
-            None,
-        )
-        .with_js_binding("book", &binding_b)
-        .get_string("@js:book.putVariable('seq','b-seq');'w'")
-        .expect("书 B 写入应可执行");
+        let other_source = root.for_book("another-source", "book-a");
         assert_eq!(
-            crate::js_adapter::construct_analyzer_with_js_lib(
-                "<html><body>B</body></html>".to_string(),
-                book_b.to_string(),
-                "",
-                None,
-            )
-            .with_js_binding("book", &binding_b)
-            .get_string("@js:java.get('seq')")
-            .expect("书 B 读回应可执行"),
-            "b-seq",
-            "书 B 流程内只读 B 自己的 bookVar"
+            scoped_book_rule(&other_source, "book-a", None, "java.get('seq')", 8),
+            ""
         );
-
-        // 切回 A：仍读 A 的值（持久层不互清）
-        begin_book_flow(book_a);
-        assert_eq!(
-            crate::js_adapter::construct_analyzer_with_js_lib(
-                "<html><body>A</body></html>".to_string(),
-                book_a.to_string(),
-                "",
-                None,
-            )
-            .with_js_binding("book", &binding_a)
-            .get_string("@js:java.get('seq')")
-            .expect("书 A 读回应可执行"),
-            "a-seq",
-            "切回书 A 后仍读 A 的 bookVar（不互清、不串读）"
-        );
-
-        for key in [
-            variable_store::book_var_key(book_a, "seq"),
-            variable_store::book_var_key(book_b, "seq"),
-        ] {
-            let _ = variable_store::remove_variable(&key);
-        }
-        variable_store::clear_flow_scope().expect("复位 flow scope");
     }
 
     /// P2-15 优先级不回归：analyzer 本地变量（`AnalyzeRule::put`/
@@ -6164,54 +5902,18 @@ mod tests {
     #[test]
     #[cfg(feature = "quickjs")]
     fn test_p215_bookvar_priority_no_regression() {
-        let _lock = GLOBAL_STORE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
-        let book_url = "https://p215-prio.example.com/b/prio";
-        begin_book_flow(book_url);
-        // bookVar 层预置（等价该书前期 book.putVariable 写入）
-        variable_store::set_variable(&variable_store::book_var_key(book_url, "k"), "book-v")
-            .expect("预置 bookVar 键");
-
-        // 本地变量压过 bookVar 兜底（既有优先级不变）
-        let analyzer = crate::js_adapter::construct_analyzer_with_js_lib(
-            "<html><body>x</body></html>".to_string(),
-            book_url.to_string(),
-            "",
-            None,
-        );
-        analyzer.put("k", "local-v");
-        assert_eq!(
-            analyzer.get("k"),
-            "local-v",
-            "本地非空变量必须压过 bookVar 兜底"
-        );
-        // JS 侧同语义：__lgVars 本地快照命中（k=local-v 非空）
-        assert_eq!(
-            analyzer
-                .get_string("@js:java.get('k')")
-                .expect("JS 读取应可执行"),
-            "local-v",
-            "JS java.get 本地快照应压过 store"
-        );
-
-        // 本地清空后：兜底链落 bookVar（@get 与 java.get 同值）
-        analyzer.clear_variables();
-        assert_eq!(
-            analyzer.get("k"),
-            "book-v",
-            "本地清空后 @get 兜底应读回 bookVar 值"
-        );
-        assert_eq!(
-            analyzer
-                .get_string("@js:java.get('k')")
-                .expect("JS 读取应可执行"),
-            "book-v",
-            "本地清空后 java.get 应经 store 兜底读回 bookVar 值"
-        );
-
-        let _ = variable_store::remove_variable(&variable_store::book_var_key(book_url, "k"));
-        variable_store::clear_flow_scope().expect("复位 flow scope");
+        let resources = legado_js::JsResources::default().for_book("source", "book");
+        let scope = resources.variable_scope().unwrap();
+        scope.set_book_variable("book", "k", "book-v").unwrap();
+        assert_eq!(scope.get_flow_variable("k").as_deref(), Some("book-v"));
+        resources.variables().set_variable("k", "bare-v").unwrap();
+        assert_eq!(scope.get_flow_variable("k").as_deref(), Some("bare-v"));
+        scope.put_flow_variable("k", "flow-v").unwrap();
+        assert_eq!(scope.get_flow_variable("k").as_deref(), Some("flow-v"));
+        let parser =
+            construct_analyzer_with_js_lib(&resources, "正文".into(), "book".into(), "", None);
+        parser.seed_variables(HashMap::from([("k".to_string(), "local-v".to_string())]));
+        assert_eq!(parser.get_string("@get:{k}").unwrap(), "local-v");
     }
 
     /// P2-15 同阶段跨规则：同阶段规则 B 的 `book` 绑定字面量是**构造
@@ -6239,12 +5941,12 @@ mod tests {
             last_chapter: String::new(),
             variable: None,
         };
-        begin_book_flow(book_url);
         // 绑定在**任何写入之前**构造（字面量 variable 为 null 快照）
-        let binding = book_binding_expr(Some(&meta), "", 5, true, 8);
+        let binding = book_binding_expr(&test_deps().js, Some(&meta), "", 5, true, 8);
 
         // 规则 A：写入（IIFE 本地 m 与 store 双写；store 键为持久层）
         crate::js_adapter::construct_analyzer_with_js_lib(
+            &test_deps().js,
             "<html><body>x</body></html>".to_string(),
             book_url.to_string(),
             "",
@@ -6257,6 +5959,7 @@ mod tests {
         // 规则 B：同阶段新实例（同绑定表达式，字面量仍为构造时点快照，
         // 不含 k）→ getVariable 经 store 兜底读回规则 A 的写入
         let b_out = crate::js_adapter::construct_analyzer_with_js_lib(
+            &test_deps().js,
             "<html><body>x</body></html>".to_string(),
             book_url.to_string(),
             "",
@@ -6272,6 +5975,7 @@ mod tests {
 
         // 边界锁定：原始字面量不被反向改写（构造时点 variable 为 null）
         let literal = crate::js_adapter::construct_analyzer_with_js_lib(
+            &test_deps().js,
             "<html><body>x</body></html>".to_string(),
             book_url.to_string(),
             "",
@@ -6285,8 +5989,10 @@ mod tests {
             "字面量 book.variable 不得被 store 写入反向改写（实际 {literal}）"
         );
 
-        let _ = variable_store::remove_variable(&variable_store::book_var_key(book_url, "k"));
-        variable_store::clear_flow_scope().expect("复位 flow scope");
+        let _ = test_deps()
+            .js
+            .variables()
+            .remove_variable(&legado_js::variables::book_var_key(book_url, "k"));
     }
 
     /// P2-9 ② 详情阶段（ruleBookInfo.init）`book.getVariable` 补前/补后对比
@@ -6322,6 +6028,7 @@ mod tests {
         let book_url_after = "https://jhsu-binding-test.example.com/b/after";
         record_book_meta_from_info(
             &test_deps(),
+            &source.book_source_url,
             book_url_after,
             &WebBookInfo {
                 name: "聚合书库测试书".into(),
@@ -6412,6 +6119,7 @@ mod tests {
         let url_after = "https://book4.cc/AU文学/1/101";
         record_book_meta_from_info(
             &test_deps(),
+            &source.book_source_url,
             url_after,
             &WebBookInfo {
                 name: "聚合书库测试书".into(),
@@ -6497,10 +6205,11 @@ mod tests {
         // 边界安全前进修复后，内组未解析 → 原规则透传 JS → 模板串由
         // quickjs 求值（`$` 为 Array.from 回参）→ info = "5200字"
         let toc_url = "https://book4.cc/AU文学/1/101/toc/";
-        let toc_body =
-            "{\"chapter_list\":[{\"name\":\"第一章\",\"file_name\":\"/f/1.html\",\"len\":5200},{\"name\":\"第二章\",\"file_name\":\"/f/2.html\",\"len\":4300}]}";
+        let toc_body = "{\"chapter_list\":[{\"name\":\"第一章\",\"file_name\":\"/f/1.html\",\"len\":5200},{\"name\":\"第二章\",\"file_name\":\"/f/2.html\",\"len\":4300}]}";
         let fetcher = test_fetcher();
-        let meta = lookup_book_meta_by_book_url(url_after).expect("补后：meta 应已播种");
+        let meta =
+            lookup_book_meta_by_book_url(&test_deps().web_book, &source.book_source_url, url_after)
+                .expect("补后：meta 应已播种");
         let ch = block_on(fetcher.parse_chapters_from_toc_body(
             &source,
             None,
@@ -6807,6 +6516,32 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_book_info_normalizes_multiline_kind_and_numeric_word_count() {
+        let source = make_info_source(None);
+        let html = INFO_HTML
+            .replace(
+                "<div class='kind'>科幻,悬疑</div>",
+                "<div class='kind'>武侠</div><div class='kind'>连载中</div><div class='kind'>2024-05-30</div>",
+            )
+            .replace("200万字", "3128968");
+        let info = test_fetcher().parse_book_info_from_body(
+            &source,
+            html,
+            "https://example.com/book/1",
+            "https://example.com/book/1",
+            true,
+            "",
+            "",
+        );
+        assert_eq!(info.kind.as_deref(), Some("武侠,连载中,2024-05-30"));
+        assert_eq!(info.categories, vec!["武侠", "连载中", "2024-05-30"]);
+        assert_eq!(info.word_count.as_deref(), Some("312.9万字"));
+        let search = info_to_search_result(info, &source.book_source_url);
+        assert_eq!(search.kind.as_deref(), Some("武侠,连载中,2024-05-30"));
+        assert_eq!(search.word_count.as_deref(), Some("312.9万字"));
+    }
+
+    #[test]
     fn test_parse_book_info_og_property_suffix() {
         use legado_core::models::rule::BookInfoRule;
         let source = BookSource {
@@ -6864,6 +6599,7 @@ mod tests {
     #[test]
     fn test_parse_content_page_single_next_url() {
         let (content, next_urls) = parse_content_page(
+            &test_deps().js,
             PAGE1_HTML.to_string(),
             ".content@html",
             ".next@href",
@@ -6882,6 +6618,7 @@ mod tests {
     #[test]
     fn test_parse_content_page_empty_next_rule() {
         let (_, next_urls) = parse_content_page(
+            &test_deps().js,
             PAGE1_HTML.to_string(),
             ".content@html",
             "",
@@ -6897,6 +6634,7 @@ mod tests {
         // 音视频源：正文原样返回，不走 HTML 净化
         let raw = "https://media.example.com/audio/1.mp3";
         let (content, _) = parse_content_page(
+            &test_deps().js,
             raw.to_string(),
             "",
             "",
@@ -6913,6 +6651,7 @@ mod tests {
         let mpd =
             r#"<?xml version="1.0"?><MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period/></MPD>"#;
         let (content, _) = parse_content_page(
+            &test_deps().js,
             mpd.to_string(),
             "",
             "",
@@ -6934,6 +6673,7 @@ mod tests {
     #[test]
     fn test_parse_content_page_media_empty() {
         let (content, _) = parse_content_page(
+            &test_deps().js,
             "   ".to_string(),
             "",
             "",
@@ -6952,6 +6692,7 @@ mod tests {
         // P2-1：夹具自 legado-ffi/tests/ 迁入本 crate tests/fixtures/（原名保留）
         let html = include_str!("../tests/fixtures/fixtures_95590_ch9.html");
         let (content, _next) = parse_content_page(
+            &test_deps().js,
             html.to_string(),
             ".entry-content@html",
             "a[rel='next']@href",
@@ -7004,6 +6745,7 @@ mod tests {
     fn test_next_content_url_pagination_concatenates_pages() {
         // 首页解析出下一页 → 串行拓三页（第三页 next 指回首页，去重终止）
         let (first_content, next_urls) = parse_content_page(
+            &test_deps().js,
             PAGE1_HTML.to_string(),
             ".content@html",
             ".next@href",
@@ -7012,6 +6754,8 @@ mod tests {
             false,
         );
         let result = block_on(fetch_paginated_content(
+            &test_deps().js,
+            &test_deps().web_book,
             first_content,
             next_urls,
             "https://example.com/chap/1.html",
@@ -7041,6 +6785,7 @@ mod tests {
     #[test]
     fn test_pagination_empty_next_rule_stops_at_first_page() {
         let (first_content, next_urls) = parse_content_page(
+            &test_deps().js,
             PAGE1_HTML.to_string(),
             ".content@html",
             "", // 无 nextContentUrl 规则 → 单页行为不变
@@ -7049,6 +6794,8 @@ mod tests {
             false,
         );
         let result = block_on(fetch_paginated_content(
+            &test_deps().js,
+            &test_deps().web_book,
             first_content,
             next_urls,
             "https://example.com/chap/1.html",
@@ -7086,8 +6833,7 @@ mod tests {
 <a class='next' href='/chap/8_2.html'>下一页</a></body></html>";
         const CUR_LAST_HTML: &str = "<html><body><div class='content'><p>本章第二页</p></div>\
 <a class='next' href='/chap/9.html'>下一章</a></body></html>";
-        const NEXT_CHAPTER_HTML: &str =
-            "<html><body><div class='content'><p>下一章正文不应出现在本章</p></div>\
+        const NEXT_CHAPTER_HTML: &str = "<html><body><div class='content'><p>下一章正文不应出现在本章</p></div>\
 <a class='next' href='/chap/10.html'>下一章</a></body></html>";
 
         let mut pages = std::collections::HashMap::new();
@@ -7101,6 +6847,7 @@ mod tests {
         );
 
         let (first_content, next_urls) = parse_content_page(
+            &test_deps().js,
             CUR_HTML.to_string(),
             ".content@html",
             ".next@href",
@@ -7109,6 +6856,8 @@ mod tests {
             false,
         );
         let result = block_on(fetch_paginated_content(
+            &test_deps().js,
+            &test_deps().web_book,
             first_content,
             next_urls,
             "https://example.com/chap/8.html",
@@ -7150,6 +6899,7 @@ mod tests {
         // 若递归则需抓 2_c.html，此处故意不提供（验证不递归）
 
         let (first_content, next_urls) = parse_content_page(
+            &test_deps().js,
             PAGE_MULTI_HTML.to_string(),
             ".content@html",
             ".next@href&&.alt@href",
@@ -7160,6 +6910,8 @@ mod tests {
         assert_eq!(next_urls.len(), 2);
 
         let result = block_on(fetch_paginated_content(
+            &test_deps().js,
+            &test_deps().web_book,
             first_content,
             next_urls,
             "https://example.com/chap/2.html",
@@ -7196,7 +6948,7 @@ mod tests {
                 ),
             );
         }
-        let (first_content, next_urls) = parse_content_page(
+        let (first_content, next_urls) = parse_content_page(&test_deps().js,
             "<html><body><div class='content'><p>P0</p></div><a class='next' href='/p/1.html'>next</a></body></html>"
                 .to_string(),
             ".content@html",
@@ -7206,6 +6958,8 @@ mod tests {
             false,
         );
         let result = block_on(fetch_paginated_content(
+            &test_deps().js,
+            &test_deps().web_book,
             first_content,
             next_urls,
             "https://example.com/p/0.html",
@@ -7238,6 +6992,7 @@ mod tests {
         let body = "<html><body><div class='content'>正文</div>\
                     <div class='sub'>作者有话说</div></body></html>";
         let result = block_on(fetch_sub_content(
+            &test_deps().js,
             body.to_string(),
             ".sub@html",
             "https://example.com/chap/1.html",
@@ -7258,6 +7013,7 @@ mod tests {
         let body = "<html><body><div class='content'>正文</div>\
                     <a class='sublink' href='https://example.com/sub.html'>副</a></body></html>";
         let result = block_on(fetch_sub_content(
+            &test_deps().js,
             body.to_string(),
             ".sublink@href",
             "https://example.com/chap/1.html",
@@ -7276,6 +7032,7 @@ mod tests {
         // 二次请求失败 → 返回 None（对标 Kotlin runCatching：不影响主正文）
         let body = "<html><body><a class='sublink' href='https://example.com/sub.html'>副</a></body></html>";
         let result = block_on(fetch_sub_content(
+            &test_deps().js,
             body.to_string(),
             ".sublink@href",
             "https://example.com/chap/1.html",
@@ -7291,6 +7048,7 @@ mod tests {
         // 规则提取结果为空 → 返回 None（无副内容可追加）
         let body = "<html><body><div class='content'>正文</div></body></html>";
         let result = block_on(fetch_sub_content(
+            &test_deps().js,
             body.to_string(),
             ".nonexist@html",
             "https://example.com/chap/1.html",
@@ -7574,6 +7332,7 @@ mod tests {
     fn test_apply_content_replace_regex_trims_lines_then_replaces() {
         // 对标 BookContent.kt：先逐行 trim 再执行替换规则
         let result = apply_content_replace_regex(
+            &test_deps().js,
             "  第一行  \n  第二行广告  ".to_string(),
             "##广告##",
             "https://example.com/c.html",
@@ -7588,6 +7347,7 @@ mod tests {
     fn test_apply_content_replace_regex_with_base_rule() {
         // 基础规则非空：先按规则提取再替换（纯替换规则场景基础规则为空见上例）
         let result = apply_content_replace_regex(
+            &test_deps().js,
             "广告前<div class='c'>正文广告</div>广告后".to_string(),
             ".c@text##广告##",
             "https://example.com/c.html",
@@ -7610,6 +7370,7 @@ mod tests {
         let js_lib = "function Reload(u) { return 'String(\"https://img.example.com/p1.jpg\")'; }";
         let rule = "<js>eval(String(Reload('https://cdn.example.com/loader.js')))</js>";
         let (content, _) = parse_content_page_with_js_lib(
+            &test_deps().js,
             "<html><body>忽略</body></html>".to_string(),
             rule,
             "",
@@ -7631,6 +7392,7 @@ mod tests {
         // 注意：source_tag 须与注入测试不同（引擎按 tag 复用，jsLib 副作用残留）
         let rule = "<js>eval(String(Reload('https://img.example.com/p1.jpg')))</js>";
         let (content, _) = parse_content_page_with_js_lib(
+            &test_deps().js,
             "<html><body>忽略</body></html>".to_string(),
             rule,
             "",
@@ -7664,6 +7426,7 @@ mod tests {
             .and_then(|r| r.content.as_deref())
             .unwrap();
         let analyzer = crate::js_adapter::construct_analyzer_with_js_lib(
+            &test_deps().js,
             html,
             "https://www.qmao.net/vodplay/27017-1-1.html".into(),
             "https://www.qmao.net",
@@ -7698,12 +7461,14 @@ mod tests {
             ..ContentRule::default()
         };
         let out = apply_content_web_hooks(
+            &test_deps(),
             html.into(),
             Some(&rule),
             "https://example.com/c",
             "https://example.com",
             None,
-        );
+        )
+        .unwrap();
         assert_eq!(out, "https://cdn.example.com/v.mp4");
     }
 
@@ -8024,3 +7789,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "web_book_state_tests.rs"]
+mod state_tests;

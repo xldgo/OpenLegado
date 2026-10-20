@@ -81,6 +81,9 @@ rust/timing_book_out*
 rust/.tmp_*
 rust/_*.txt
 .claude/settings.local.json
+# skills 只维护 .agents/skills；其他工具入口由 setup_skills.py 创建本地链接。
+/.claude/skills
+/.qoder/skills
 .ui_*.xml
 *.bak_p03
 rust/legado-ffi/timing_*_out.txt

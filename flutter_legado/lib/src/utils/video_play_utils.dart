@@ -81,8 +81,10 @@ bool looksLikeVideoUrl(String url) {
       lower.startsWith('//'))) {
     return false;
   }
-  if (RegExp(r'\.(m3u8|mp4|flv|mkv|webm|mov)(\?|#|$)', caseSensitive: false)
-      .hasMatch(lower)) {
+  if (RegExp(
+    r'\.(m3u8|mp4|flv|mkv|webm|mov)(\?|#|$)',
+    caseSensitive: false,
+  ).hasMatch(lower)) {
     return true;
   }
   // MacCMS / 常见播放 CDN（无扩展名直链）
@@ -223,8 +225,7 @@ int? nextPlayableChapterIndex(List<bool> isVolumeFlags, int current) {
 bool shouldAdvanceOnCompletion({
   required bool wasCompleted,
   required bool isCompleted,
-}) =>
-    isCompleted && !wasCompleted;
+}) => isCompleted && !wasCompleted;
 
 /// 长按倍速期间的生效倍速：长按中 = 长按档位，否则 = 会话倍速。
 ///
@@ -234,8 +235,7 @@ double effectiveVideoSpeed({
   required double sessionSpeed,
   required bool longPressActive,
   required double longPressSpeed,
-}) =>
-    longPressActive ? longPressSpeed : sessionSpeed;
+}) => longPressActive ? longPressSpeed : sessionSpeed;
 
 /// 在目录中选可播放章节索引（跳过卷标题，对齐 VideoPlay.upEpisodes）
 int findPlayableChapterIndex(List<bool> isVolumeFlags, int preferred) {
@@ -282,7 +282,8 @@ VideoPlayTarget resolveVideoPlayTarget({
   Map<String, String> sourceHeaders = const {},
 }) {
   final prepared = prepareVideoContent(content);
-  Map<String, String> headersFor(Map<String, String> optionHeaders) => mergeVideoHeaders(
+  Map<String, String> headersFor(Map<String, String> optionHeaders) =>
+      mergeVideoHeaders(
         sourceHeaders: sourceHeaders,
         optionHeaders: optionHeaders,
         referer: chapterUrl,
@@ -319,8 +320,5 @@ VideoPlayTarget resolveVideoPlayTarget({
     abs = resolveAbsoluteUrl(chapterUrl, chap.url);
     return VideoPlayTarget(url: abs, headers: headersFor(chap.headers));
   }
-  return VideoPlayTarget(
-    url: abs,
-    headers: headersFor(split.headers),
-  );
+  return VideoPlayTarget(url: abs, headers: headersFor(split.headers));
 }

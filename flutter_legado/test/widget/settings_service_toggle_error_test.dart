@@ -1,26 +1,27 @@
+library;
+
+import '../fixtures/app_test_api.dart';
+
 /// 「我的」页服务开关失败态错误文案 widget 测试
 ///
 /// [2026-10-06 iOS 实测修复] 用户实测：点击 MCP 服务开关 → SnackBar
-/// 「MCP 服务切换失败: Instance of BridgeError」——`$e` 裸插值吞掉了 Rust 侧
+/// 「MCP 服务切换失败: Instance of AppException」——`$e` 裸插值吞掉了 Rust 侧
 /// 可读原因。本测锁定：
-/// - MCP 开关失败 → SnackBar 显示 BridgeError.message 原文（不再是 Instance of）
-/// - BridgeError 无 message → 兜底文案（不留空）
+/// - MCP 开关失败 → SnackBar 显示 AppException.message 原文（不再是 Instance of）
+/// - AppException 无 message → 兜底文案（不留空）
 /// - Web 开关失败 → 同规则（该展示点同批修复，先例 S28「数据库未初始化」）
 /// - MCP 卡片在未配置访问令牌时副题给出前置条件提示（Rust 启动守卫要求）
-library;
 
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/bridge/ffi.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/settings_screen.dart';
+import 'package:flutter_legado/src/domain/errors/app_exception.dart';
+import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
 import 'package:flutter_legado/src/services/web_keep_alive_service.dart';
-import 'package:flutter_legado/src/widgets/ios_widgets.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
 import '../mocks/mocks.dart';
 
@@ -34,7 +35,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
     container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(mockApi)],
+      overrides: mergeTestOverrides([...mockApi.overrides]),
     );
     addTearDown(container.dispose);
     WebKeepAliveService.instance.debugReset();
@@ -49,14 +50,15 @@ void main() {
 
   /// 按配置键返回（未列出的键返回 null，等价未配置）
   void stubConfigs({String? mcpPort, String? token}) {
-    when(() => mockApi.getConfig(any())).thenAnswer((inv) async {
-      final key = inv.positionalArguments.first as String;
-      return switch (key) {
-        'mcpPort' => mcpPort,
-        'jsSourceApiToken' => token,
-        _ => null,
-      };
-    });
+    when(() => mockApi.configRepository.getConfig(any()))
+        .thenAnswer((inv) async {
+          final key = inv.positionalArguments.first as String;
+          return switch (key) {
+            'mcpPort' => mcpPort,
+            'jsSourceApiToken' => token,
+            _ => null,
+          };
+        });
   }
 
   Future<void> dragTo(WidgetTester tester, String text) {
@@ -82,12 +84,14 @@ void main() {
   }
 
   group('MCP 服务开关失败态', () {
-    testWidgets('SnackBar 显示 BridgeError.message 原文（非 Instance of）', (tester) async {
+    testWidgets('SnackBar 显示 AppException.message 原文（非 Instance of）', (
+      tester,
+    ) async {
       stubConfigs();
-      when(() => mockApi.setMcpPort(any())).thenAnswer(
-        (_) async => throw const BridgeError(
-          message: '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
-              '「Web 书源访问令牌」（config:jsSourceApiToken）',
+      when(() => mockApi.localServerService.setMcpPort(any())).thenAnswer(
+        (_) async => throw const AppException(
+          '独立 MCP 服务启动失败：请先在「设置 → 高级 → 其他设置」配置'
+          '「Web 书源访问令牌」（config:jsSourceApiToken）',
         ),
       );
 
@@ -102,7 +106,7 @@ void main() {
       expect(
         find.textContaining('MCP 服务切换失败: 独立 MCP 服务启动失败'),
         findsOneWidget,
-        reason: '应显示 Rust 侧可读原因（iOS 实测原为 Instance of BridgeError）',
+        reason: '应显示 Rust 侧可读原因（iOS 实测原为 Instance of AppException）',
       );
       // 卡片副题也含「Web 书源访问令牌」（前置条件提示），断言限定 SnackBar 内
       expect(
@@ -117,11 +121,10 @@ void main() {
       await settleSnackBar(tester);
     });
 
-    testWidgets('BridgeError 无 message → 兜底文案（不留空）', (tester) async {
+    testWidgets('AppException 无 message → 兜底文案（不留空）', (tester) async {
       stubConfigs();
-      when(
-        () => mockApi.setMcpPort(any()),
-      ).thenAnswer((_) async => throw const BridgeError(message: ''));
+      when(() => mockApi.localServerService.setMcpPort(any()))
+          .thenAnswer((_) async => throw const AppException(''));
 
       await tester.pumpWidget(wrap());
       await tester.pumpAndSettle();
@@ -139,9 +142,9 @@ void main() {
 
     testWidgets('端口占用失败同样可读（Internal 文案不丢）', (tester) async {
       stubConfigs(mcpPort: '1236');
-      when(() => mockApi.setMcpPort(any())).thenAnswer(
-        (_) async => throw const BridgeError(
-          message: '独立 MCP 服务端口 1236 绑定失败: Address already in use',
+      when(() => mockApi.localServerService.setMcpPort(any())).thenAnswer(
+        (_) async => throw const AppException(
+          '独立 MCP 服务端口 1236 绑定失败: Address already in use',
         ),
       );
 
@@ -153,10 +156,7 @@ void main() {
       toggleRow(tester, 'MCP 服务', true);
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('独立 MCP 服务端口 1236 绑定失败'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('独立 MCP 服务端口 1236 绑定失败'), findsOneWidget);
 
       await settleSnackBar(tester);
     });
@@ -171,10 +171,7 @@ void main() {
       await dragTo(tester, 'MCP 服务');
       await tester.pumpAndSettle();
 
-      expect(
-        find.textContaining('需先配置「Web 书源访问令牌」'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('需先配置「Web 书源访问令牌」'), findsOneWidget);
     });
 
     testWidgets('已配置访问令牌 → 保持原副题（不误报）', (tester) async {
@@ -202,14 +199,13 @@ void main() {
   });
 
   group('Web 服务开关失败态', () {
-    testWidgets('SnackBar 显示 BridgeError.message 原文（同批修复）', (tester) async {
+    testWidgets('SnackBar 显示 AppException.message 原文（同批修复）', (tester) async {
       stubConfigs();
       when(
-        () => mockApi.startServer(port: any(named: 'port')),
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
       ).thenAnswer(
-        (_) async => throw const BridgeError(
-          message: 'Web 服务启动失败：数据库未初始化，请先调用 db_open',
-        ),
+        (_) async =>
+            throw const AppException('Web 服务启动失败：数据库未初始化，请先调用 db_open'),
       );
 
       await tester.pumpWidget(wrap());
@@ -217,14 +213,7 @@ void main() {
       await dragTo(tester, 'Web 服务');
       await tester.pumpAndSettle();
 
-      final card = find
-          .ancestor(of: find.text('Web 服务'), matching: find.byType(Row))
-          .first;
-      final switchFinder = find.descendant(
-        of: card,
-        matching: find.byType(Switch),
-      );
-      tester.widget<Switch>(switchFinder).onChanged!(true);
+      toggleRow(tester, 'Web 服务', true);
       await tester.pumpAndSettle();
 
       expect(

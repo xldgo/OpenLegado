@@ -1,7 +1,7 @@
 //! reqwest 升级后的真实 TLS 握手回归，全部使用本地服务。
 
 use legado_net::{ssl_config::SslConfig, tls::client_builder};
-use rustls::{pki_types::PrivateKeyDer, ServerConfig};
+use rustls::{ServerConfig, pki_types::PrivateKeyDer};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -11,8 +11,13 @@ use tokio::{
 use tokio_rustls::TlsAcceptor;
 
 async fn https_fixture() -> (SocketAddr, String, JoinHandle<bool>) {
+    https_fixture_for("localhost").await
+}
+
+async fn https_fixture_for(name: &str) -> (SocketAddr, String, JoinHandle<bool>) {
+    let name = name.to_string();
     let rcgen::CertifiedKey { cert, signing_key } =
-        rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+        rcgen::generate_simple_self_signed(vec![name.clone()]).unwrap();
     let pem = cert.pem();
     let key = PrivateKeyDer::Pkcs8(signing_key.serialize_der().into());
     let config =
@@ -32,6 +37,11 @@ async fn https_fixture() -> (SocketAddr, String, JoinHandle<bool>) {
         let Ok(mut stream) = TlsAcceptor::from(Arc::new(config)).accept(stream).await else {
             return false;
         };
+        assert_eq!(
+            stream.get_ref().1.server_name(),
+            Some(name.as_str()),
+            "连接IP覆盖不得改变TLS SNI"
+        );
         let mut request = Vec::new();
         let mut buffer = [0; 1024];
         // TLS 读取可能分段，收齐请求头后再响应，并拒绝提前关闭的连接。
@@ -43,6 +53,11 @@ async fn https_fixture() -> (SocketAddr, String, JoinHandle<bool>) {
                 break;
             }
         }
+        let head = String::from_utf8(request).unwrap().to_lowercase();
+        assert!(
+            head.contains(&format!("host: {name}:{}", address.port())),
+            "HTTP Host必须保留原URL域名"
+        );
         stream
             .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
             .await
@@ -112,4 +127,21 @@ async fn custom_ca_still_rejects_wrong_hostname() {
         .unwrap_err();
     assert!(error.is_connect(), "{error:?}");
     assert!(!server.await.unwrap());
+}
+
+#[tokio::test]
+async fn request_dns_preserves_sni_host_and_certificate_verification() {
+    let (address, pem, server) = https_fixture_for("reader.invalid").await;
+    let client = legado_net::LegadoClient::new(legado_net::LegadoClientConfig {
+        no_proxy: true,
+        dns_addresses: vec![address.ip()],
+        ssl: Some(SslConfig::with_ca(pem)),
+        ..Default::default()
+    })
+    .unwrap();
+    let url = format!("https://reader.invalid:{}/", address.port());
+    let response = client.get_raw(&url, None).await.unwrap();
+    assert_eq!(response.body, b"ok");
+    assert_eq!(response.url, url);
+    assert!(server.await.unwrap());
 }

@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
-import 'package:flutter_legado/src/widgets/ios_widgets.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
+import 'package:flutter_legado/src/widgets/settings_widgets.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 
 /// M3 设置开关行（`SettingSwitchRow`，对齐参考版 `SwitchSettingItem`）测试
 ///
@@ -11,7 +12,11 @@ import 'package:flutter_legado/src/widgets/ios_widgets.dart';
 /// 语义合并（MergeSemantics，同 SwitchListTile）、dense/contentPadding 透传、
 /// enableItemDivider 打开时的行底 80dp 分隔线。
 void main() {
-  Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+  Widget wrap(Widget child, {UiSettings settings = const UiSettings()}) =>
+      UiSettingsScope(
+        settings: settings,
+        child: MaterialApp(home: Scaffold(body: child)),
+      );
 
   testWidgets('渲染标题/副标题，开关取 value', (tester) async {
     await tester.pumpWidget(
@@ -33,11 +38,7 @@ void main() {
   testWidgets('未传副标题时不渲染副标题', (tester) async {
     await tester.pumpWidget(
       wrap(
-        const SettingSwitchRow(
-          title: '显示订阅',
-          value: false,
-          onChanged: _noop,
-        ),
+        const SettingSwitchRow(title: '显示订阅', value: false, onChanged: _noop),
       ),
     );
 
@@ -48,13 +49,7 @@ void main() {
   testWidgets('整行点击即切换（标题处点击传 !value）', (tester) async {
     final calls = <bool>[];
     await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          title: '自动刷新',
-          value: false,
-          onChanged: calls.add,
-        ),
-      ),
+      wrap(SettingSwitchRow(title: '自动刷新', value: false, onChanged: calls.add)),
     );
 
     await tester.tap(find.text('自动刷新'));
@@ -66,13 +61,7 @@ void main() {
   testWidgets('直点开关触发 onChanged（传状态机新值）', (tester) async {
     final calls = <bool>[];
     await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          title: '自动刷新',
-          value: true,
-          onChanged: calls.add,
-        ),
-      ),
+      wrap(SettingSwitchRow(title: '自动刷新', value: true, onChanged: calls.add)),
     );
 
     await tester.tap(find.byType(Switch));
@@ -81,12 +70,9 @@ void main() {
     expect(calls, [false]);
   });
 
-  testWidgets('onChanged 为 null 时行禁用：不可点、ListTile 停用、开关灰置',
-      (tester) async {
+  testWidgets('onChanged 为 null 时行禁用：不可点、ListTile 停用、开关灰置', (tester) async {
     await tester.pumpWidget(
-      wrap(
-        const SettingSwitchRow(title: '同步书籍进度增强', value: false),
-      ),
+      wrap(const SettingSwitchRow(title: '同步书籍进度增强', value: false)),
     );
 
     expect(tester.widget<ListTile>(find.byType(ListTile)).enabled, isFalse);
@@ -127,13 +113,7 @@ void main() {
 
   testWidgets('开关行不显示 Chevron', (tester) async {
     await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          title: '自动刷新',
-          value: false,
-          onChanged: _noop,
-        ),
-      ),
+      wrap(SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop)),
     );
 
     expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
@@ -141,18 +121,12 @@ void main() {
 
   testWidgets('语义合并为单一开关节点（MergeSemantics 包住整行）', (tester) async {
     await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          title: '自动刷新',
-          value: true,
-          onChanged: _noop,
-        ),
-      ),
+      wrap(SettingSwitchRow(title: '自动刷新', value: true, onChanged: _noop)),
     );
 
     expect(
       find.ancestor(
-        of: find.byType(IosListTile),
+        of: find.byType(SettingTile),
         matching: find.byType(MergeSemantics),
       ),
       findsOneWidget,
@@ -176,8 +150,10 @@ void main() {
           value: true,
           onChanged: _noop,
           dense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 8,
+          ),
         ),
       ),
     );
@@ -191,10 +167,7 @@ void main() {
   });
 
   testWidgets('enableItemDivider 打开时行底出现 80dp 胶囊线', (tester) async {
-    final before = uiSettingsListenable.value;
-    addTearDown(() => uiSettingsListenable.value = before);
-
-    // IosListTile 分隔线形态：80×1dp 圆角线（enableItemDivider 打开时）
+    // SettingTile 分隔线形态：80×1dp 圆角线（enableItemDivider 打开时）
     final pill = find.byWidgetPredicate(
       (w) =>
           w is Container &&
@@ -203,24 +176,14 @@ void main() {
     );
 
     await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          title: '自动刷新',
-          value: false,
-          onChanged: _noop,
-        ),
-      ),
+      wrap(SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop)),
     );
     expect(pill, findsNothing);
 
-    uiSettingsListenable.value = before.copyWith(enableItemDivider: true);
     await tester.pumpWidget(
       wrap(
-        SettingSwitchRow(
-          title: '自动刷新',
-          value: false,
-          onChanged: _noop,
-        ),
+        SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop),
+        settings: const UiSettings(enableItemDivider: true),
       ),
     );
     expect(pill, findsOneWidget);

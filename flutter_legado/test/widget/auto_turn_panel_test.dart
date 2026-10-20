@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/reader/auto_turn_panel.dart';
 
@@ -14,17 +14,19 @@ void main() {
     VoidCallback? onCatalog,
     VoidCallback? onSettings,
   }) {
-    return tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: AutoTurnPanel(
-          intervalSeconds: interval,
-          onIntervalChanged: onIntervalChanged,
-          onStop: onStop ?? () {},
-          onOpenCatalog: onCatalog ?? () {},
-          onOpenSettings: onSettings ?? () {},
+    return tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AutoTurnPanel(
+            intervalSeconds: interval,
+            onIntervalChanged: onIntervalChanged,
+            onStop: onStop ?? () {},
+            onOpenCatalog: onCatalog ?? () {},
+            onOpenSettings: onSettings ?? () {},
+          ),
         ),
       ),
-    ));
+    );
   }
 
   testWidgets('展示当前间隔与三个快捷入口', (tester) async {
@@ -71,11 +73,7 @@ void main() {
 
   testWidgets('间隔下限 3 秒兜底', (tester) async {
     double? updated;
-    await pumpPanel(
-      tester,
-      interval: 5,
-      onIntervalChanged: (v) => updated = v,
-    );
+    await pumpPanel(tester, interval: 5, onIntervalChanged: (v) => updated = v);
     await tester.tap(find.byTooltip('减慢翻页'));
     expect(updated, 3);
   });

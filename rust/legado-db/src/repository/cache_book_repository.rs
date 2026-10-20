@@ -1,6 +1,6 @@
 //! CacheBook Repository - cached_chapters 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::cache_book::{CacheStats, CachedChapter};
 use legado_core::{LegadoError, LegadoResult};
@@ -134,8 +134,8 @@ impl<'a> CacheBookRepository<'a> {
         let rows = stmt
             .query_map(params![book_url], row_to_cached_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("cache_book_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -158,8 +158,9 @@ impl<'a> CacheBookRepository<'a> {
         let result = stmt
             .query_map(params![chapter_url], row_to_cached_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .next();
+            .next()
+            .transpose()
+            .map_err(|e| LegadoError::Database(format!("缓存行解析失败: {e}")))?;
         Ok(result)
     }
 
@@ -184,8 +185,9 @@ impl<'a> CacheBookRepository<'a> {
         let result = stmt
             .query_map(params![book_url, chapter_url], row_to_cached_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .next();
+            .next()
+            .transpose()
+            .map_err(|e| LegadoError::Database(format!("缓存行解析失败: {e}")))?;
         Ok(result)
     }
 
@@ -256,8 +258,21 @@ impl<'a> CacheBookRepository<'a> {
                 "DELETE FROM cached_chapters WHERE cached_at < ?1",
                 params![before_timestamp],
             )
-            .map_err(|e| LegadoError::Database(format!("删除过期缓存失败: {e}")))?;
+            .map_err(|e| LegadoError::Database(format!("清空过期缓存失败：{e}")))?;
         Ok(count)
+    }
+
+    /// 查询严格早于指定时刻的缓存所属书籍；坏行必须上抛，不能漏清章级开关。
+    pub fn books_cached_before(&self, before_timestamp: i64) -> LegadoResult<Vec<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT book_url FROM cached_chapters WHERE cached_at < ?1")
+            .map_err(|e| LegadoError::Database(format!("查询待清理书籍失败：{e}")))?;
+        let rows = stmt
+            .query_map(params![before_timestamp], |row| row.get::<_, String>(0))
+            .map_err(|e| LegadoError::Database(format!("查询待清理书籍失败：{e}")))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| LegadoError::Database(format!("查询待清理书籍失败：{e}")))
     }
 }
 
@@ -380,6 +395,33 @@ mod tests {
     }
 
     #[test]
+    fn time_query_and_deletion_share_strict_boundary_and_reject_bad_book_url() {
+        let db = crate::init_in_memory_database().unwrap();
+        let conn = db.connection();
+        let repo = CacheBookRepository::new(conn);
+        for (book, index, time) in [
+            ("old", 0, 9),
+            ("old", 1, 8),
+            ("equal", 0, 10),
+            ("new", 0, 11),
+        ] {
+            repo.insert(&make_cached(book, &format!("{book}/{index}"), index, time))
+                .unwrap();
+        }
+        assert_eq!(repo.books_cached_before(10).unwrap(), ["old"]);
+        assert_eq!(repo.delete_expired(10).unwrap(), 2);
+        assert!(repo.books_cached_before(10).unwrap().is_empty());
+        assert_eq!(repo.get_stats().unwrap().total_chapters, 2);
+        conn.execute(
+            "UPDATE cached_chapters SET book_url=x'80' WHERE cached_at=10",
+            [],
+        )
+        .unwrap();
+        assert!(repo.books_cached_before(11).is_err());
+        assert_eq!(repo.get_stats().unwrap().total_chapters, 2);
+    }
+
+    #[test]
     fn test_get_stats() {
         let db = crate::init_in_memory_database().unwrap();
         let repo = CacheBookRepository::new(db.connection());
@@ -495,18 +537,21 @@ mod tests {
         assert_eq!(deleted, 1);
 
         // book1 第 1 章保留，book2 同索引第 0 章不受影响
-        assert!(repo
-            .get_by_book_and_chapter_url("book1", "http://ex.com/ch1")
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .get_by_book_and_chapter_url("book1", "http://ex.com/ch2")
-            .unwrap()
-            .is_some());
-        assert!(repo
-            .get_by_book_and_chapter_url("book2", "http://ex.com/ch1")
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.get_by_book_and_chapter_url("book1", "http://ex.com/ch1")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.get_by_book_and_chapter_url("book1", "http://ex.com/ch2")
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            repo.get_by_book_and_chapter_url("book2", "http://ex.com/ch1")
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(repo.get_stats().unwrap().total_chapters, 2);
 
         // 行不存在为 no-op：重复删除 / 未缓存索引均返回 0 且不报错
@@ -538,14 +583,16 @@ mod tests {
         assert_eq!(deleted, 1);
 
         // bookA 已删，bookB 保留
-        assert!(repo
-            .get_by_book_and_chapter_url("bookA", shared_url)
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .get_by_book_and_chapter_url("bookB", shared_url)
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.get_by_book_and_chapter_url("bookA", shared_url)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.get_by_book_and_chapter_url("bookB", shared_url)
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(repo.get_stats().unwrap().total_chapters, 1);
     }
 }

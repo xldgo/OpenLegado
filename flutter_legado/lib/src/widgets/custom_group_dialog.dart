@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../l10n/app_localization.dart';
 
 /// 自定义源分组对话框（对标原版 dialog_custom_group.xml：
 /// 添加分组开关 + 分组名称输入）
@@ -22,8 +24,9 @@ class CustomGroupDialog extends StatefulWidget {
 }
 
 class _CustomGroupDialogState extends State<CustomGroupDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialName);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialName,
+  );
   late bool _addGroup = widget.initialAddGroup;
 
   @override
@@ -35,36 +38,32 @@ class _CustomGroupDialogState extends State<CustomGroupDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('输入自定义源分组名称'),
+      title: Text(context.l10n.customSourceGroupName),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('添加分组'),
-            subtitle: const Text('关闭替换分组 / 开启添加分组'),
+            title: Text(context.l10n.addGroup),
+            subtitle: Text(context.l10n.addGroupModeHint),
             value: _addGroup,
             onChanged: (v) => setState(() => _addGroup = v),
           ),
           TextField(
             controller: _controller,
-            decoration: const InputDecoration(
-              labelText: '分组名称',
-            ),
+            decoration: InputDecoration(labelText: context.l10n.groupName),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(
-            context,
-            (_controller.text.trim(), _addGroup),
-          ),
-          child: const Text('确定'),
+          onPressed: () =>
+              Navigator.pop(context, (_controller.text.trim(), _addGroup)),
+          child: Text(context.l10n.confirm),
         ),
       ],
     );

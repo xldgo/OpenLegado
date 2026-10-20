@@ -1,67 +1,10 @@
-import 'dart:convert';
-
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
-import '../../services/book_api.dart';
+import '../../domain/contracts/review_service.dart';
+import '../../domain/models/review.dart';
 import '../../utils/error_message.dart';
-
-/// 段评详情条目（对齐原版 ReviewRuleParser.DetailItem）
-class ReviewDetailItem {
-  final String? id;
-  final String? avatar;
-  final String? name;
-  final List<String> badges;
-  final String? content;
-  final String? imageUrl;
-  final String? audioUrl;
-  final String? time;
-  final int? likeCount;
-  final int? replyCount;
-  final List<ReviewDetailItem> replies;
-
-  const ReviewDetailItem({
-    this.id,
-    this.avatar,
-    this.name,
-    this.badges = const [],
-    this.content,
-    this.imageUrl,
-    this.audioUrl,
-    this.time,
-    this.likeCount,
-    this.replyCount,
-    this.replies = const [],
-  });
-
-  factory ReviewDetailItem.fromJson(Map<String, dynamic> json) {
-    final rawReplies = json['replies'];
-    return ReviewDetailItem(
-      id: json['id']?.toString(),
-      avatar: json['avatar'] as String?,
-      name: json['name'] as String?,
-      badges: (json['badges'] as List?)
-              ?.map((e) => e.toString())
-              .where((e) => e.isNotEmpty)
-              .toList() ??
-          const [],
-      content: json['content'] as String?,
-      imageUrl: json['imageUrl'] as String?,
-      audioUrl: json['audioUrl'] as String?,
-      time: json['time'] as String?,
-      likeCount: (json['likeCount'] as num?)?.toInt(),
-      replyCount: (json['replyCount'] as num?)?.toInt(),
-      replies: rawReplies is List
-          ? rawReplies
-              .whereType<Map>()
-              .map((e) =>
-                  ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)))
-              .toList()
-          : const [],
-    );
-  }
-}
 
 /// 段评详情底部 Sheet（对齐原版 [ReviewDetailDialog]）
 ///
@@ -69,7 +12,7 @@ class ReviewDetailItem {
 /// - 回复按需加载：`reviewGetReplies`（hasReplyUrl 时）
 /// — UI · Auto ｜ 2026-08-13
 class ReviewDetailSheet extends StatefulWidget {
-  final BookApi api;
+  final ReviewService service;
   final String sourceJson;
   final String bookUrl;
   final String chapterUrl;
@@ -82,7 +25,7 @@ class ReviewDetailSheet extends StatefulWidget {
 
   const ReviewDetailSheet({
     super.key,
-    required this.api,
+    required this.service,
     required this.sourceJson,
     required this.bookUrl,
     required this.chapterUrl,
@@ -97,7 +40,7 @@ class ReviewDetailSheet extends StatefulWidget {
   /// 弹出底部 Sheet
   static Future<void> show(
     BuildContext context, {
-    required BookApi api,
+    required ReviewService service,
     required String sourceJson,
     required String bookUrl,
     required String chapterUrl,
@@ -114,7 +57,7 @@ class ReviewDetailSheet extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => ReviewDetailSheet(
-        api: api,
+        service: service,
         sourceJson: sourceJson,
         bookUrl: bookUrl,
         chapterUrl: chapterUrl,
@@ -170,23 +113,15 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
       if (!append) _error = null;
     });
     try {
-      final request = _baseRequest(
-        detailUrl: page > 1 ? _nextPageUrl : null,
-      );
-      final raw = await widget.api.reviewGetDetail(
+      final request = _baseRequest(detailUrl: page > 1 ? _nextPageUrl : null);
+      final raw = await widget.service.reviewGetDetail(
         widget.sourceJson,
-        jsonEncode(request),
+        request,
         page,
       );
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      final list = (map['items'] as List?)
-              ?.whereType<Map>()
-              .map((e) =>
-                  ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)))
-              .toList() ??
-          const <ReviewDetailItem>[];
-      final next = map['nextPageUrl'] as String?;
-      final hasReply = map['hasReplyUrl'] == true;
+      final list = raw.items;
+      final next = raw.nextPageUrl;
+      final hasReply = raw.hasReplyUrl;
 
       if (!mounted) return;
       setState(() {
@@ -195,7 +130,8 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
         _page = page;
         _nextPageUrl = next;
         _hasReplyUrl = hasReply;
-        _hasMore = list.isNotEmpty &&
+        _hasMore =
+            list.isNotEmpty &&
             (next != null && next.isNotEmpty || page < 2 && list.isNotEmpty);
         if (list.isEmpty) _hasMore = false;
         _loading = false;
@@ -226,18 +162,12 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
         if (widget.bookJson != null) 'book': widget.bookJson,
         if (widget.chapterJson != null) 'chapter': widget.chapterJson,
       };
-      final raw = await widget.api.reviewGetReplies(
+      final raw = await widget.service.reviewGetReplies(
         widget.sourceJson,
-        jsonEncode(request),
+        request,
         page,
       );
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      final list = (map['items'] as List?)
-              ?.whereType<Map>()
-              .map((e) =>
-                  ReviewDetailItem.fromJson(Map<String, dynamic>.from(e)))
-              .toList() ??
-          const <ReviewDetailItem>[];
+      final list = raw.items;
       if (!mounted) return;
       setState(() {
         final existing = _loadedReplies[key] ?? [];
@@ -356,14 +286,11 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
     final replies = _hasReplyUrl
         ? (_loadedReplies[key] ?? const <ReviewDetailItem>[])
         : item.replies;
-    final expanded = _expandedParents.contains(key) ||
-        (!_hasReplyUrl && replies.isNotEmpty);
+    final expanded =
+        _expandedParents.contains(key) || (!_hasReplyUrl && replies.isNotEmpty);
 
     return Padding(
-      padding: EdgeInsets.only(
-        left: isReply ? 36 : 0,
-        bottom: 14,
-      ),
+      padding: EdgeInsets.only(left: isReply ? 36 : 0, bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -380,9 +307,7 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
                       children: [
                         Flexible(
                           child: Text(
-                            item.name?.isNotEmpty == true
-                                ? item.name!
-                                : '匿名',
+                            item.name?.isNotEmpty == true ? item.name! : '匿名',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -393,7 +318,9 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
                         ),
                         if (item.badges.isNotEmpty) ...[
                           const SizedBox(width: 6),
-                          ...item.badges.take(2).map(
+                          ...item.badges
+                              .take(2)
+                              .map(
                                 (b) => Container(
                                   margin: const EdgeInsets.only(right: 4),
                                   padding: const EdgeInsets.symmetric(
@@ -474,12 +401,13 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
                               _replyLoading.contains(key)
                                   ? '加载中…'
                                   : expanded
-                                      ? '收起回复'
-                                      : '查看回复${(item.replyCount ?? replies.length) > 0 ? ' (${item.replyCount ?? replies.length})' : ''}',
+                                  ? '收起回复'
+                                  : '查看回复${(item.replyCount ?? replies.length) > 0 ? ' (${item.replyCount ?? replies.length})' : ''}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: CupertinoColors.activeBlue
-                                    .resolveFrom(context),
+                                color: CupertinoColors.activeBlue.resolveFrom(
+                                  context,
+                                ),
                               ),
                             ),
                           ),
@@ -491,8 +419,7 @@ class _ReviewDetailSheetState extends State<ReviewDetailSheet> {
               ),
             ],
           ),
-          if (expanded)
-            ...replies.map((r) => _buildItem(r, isReply: true)),
+          if (expanded) ...replies.map((r) => _buildItem(r, isReply: true)),
         ],
       ),
     );

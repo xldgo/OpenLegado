@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_legado/src/providers/association/association_notifier.dart';
-import 'package:flutter_legado/src/screens/association_import_dialog.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_legado/src/widgets/app_menu.dart';
+import 'package:flutter_legado/src/features/imports/application/association_notifier.dart';
+import 'package:flutter_legado/src/features/imports/presentation/association_import_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,25 +9,24 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeReadyNotifier extends AssociationNotifier {
   @override
   AssociationState build() => const AssociationState(
-        type: ImportType.bookSource,
-        items: [
-          AssociationItem(
-            raw: {'bookSourceName': '测试源A', 'bookSourceUrl': 'https://a'},
-            name: '测试源A',
-            status: ImportItemStatus.isNew,
-          ),
-          AssociationItem(
-            raw: {'bookSourceName': '测试源B', 'bookSourceUrl': 'https://b'},
-            name: '测试源B',
-            status: ImportItemStatus.exists,
-          ),
-        ],
-      );
+    type: ImportType.bookSource,
+    items: [
+      AssociationItem(
+        raw: {'bookSourceName': '测试源A', 'bookSourceUrl': 'https://a'},
+        name: '测试源A',
+        status: ImportItemStatus.isNew,
+      ),
+      AssociationItem(
+        raw: {'bookSourceName': '测试源B', 'bookSourceUrl': 'https://b'},
+        name: '测试源B',
+        status: ImportItemStatus.exists,
+      ),
+    ],
+  );
 }
 
 void main() {
-  testWidgets('关联导入对话框：就绪态弹出渲染（勾选/状态标签/底部操作区）',
-      (tester) async {
+  testWidgets('关联导入对话框：就绪态弹出渲染（勾选/状态标签/底部操作区）', (tester) async {
     // 视口缩到手机典型尺寸，验证 85% 屏高约束下的弹窗布局
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3.0;
@@ -64,7 +64,7 @@ void main() {
     expect(find.text('确认（1）'), findsOneWidget);
     // bookSource 头部动作：自定义分组 + 更多选项菜单
     expect(find.text('自定义分组'), findsOneWidget);
-    expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+    expect(find.byType(AppMenuButton<String>), findsOneWidget);
 
     // 回归守护：点选后重建不得回弹（freezed items getter 每次访问新建包装，
     // 旧实现按列表 identity 判定会重置勾选）

@@ -1,3 +1,13 @@
+import '../fixtures/app_test_api.dart';
+import '../fixtures/config_repository.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 // [P4-3 E5] 漫画屏九区点击 + 长按菜单（分享/复制/存图）
 //
 // 取证（参考版，legado-with-MD3）：
@@ -51,20 +61,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic/manga_click_actions.dart';
-import 'package:flutter_legado/src/screens/reader_comic/manga_page_image_resolver.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/widgets/manga/manga_config_sheet.dart';
+import 'package:flutter_legado/src/models/manga_click_actions.dart';
+import 'package:flutter_legado/src/features/reader_comic/application/manga_page_image_resolver.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/overlays/manga_config_sheet.dart';
 
 // [P4-3 M4 批2] 面板接线用例需断言面板类型（MangaConfigSheet）
-import 'package:flutter_legado/src/services/mock_book_api.dart';
 
 // [D2 修复] 存图 MediaStore 通道与平台分派（通道 mock + 分派覆写）
 import 'package:flutter_legado/src/services/platform_bridge_service.dart';
@@ -92,10 +100,7 @@ BookSource _buildComicSource() {
     bookSourceGroup: '漫画',
     bookSourceType: 2,
     enabled: true,
-    ruleContent: ContentRule(
-      content: '.x',
-      imageDecode: 'decode(result);',
-    ),
+    ruleContent: ContentRule(content: '.x', imageDecode: 'decode(result);'),
     customOrder: 0,
     lastUpdateTime: 0,
     respondTime: 0,
@@ -109,6 +114,37 @@ BookSource _buildComicSource() {
 /// [P4-3 M4 批2] 新增 [isVolume] 注入（0 图卷章分隔页用例）+
 /// [setConfigCalls] 记录（面板持久化接线断言）
 class _ClickActionsMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+    read: _fixtureGetImageCache,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    updateReadingProgress: _readingUpdateReadingProgress,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ClickActionsMockApi({
     required this.source,
     required this.progressCalls,
@@ -121,14 +157,17 @@ class _ClickActionsMockApi extends MockBookApi {
   }) : _configs = configs ?? {};
 
   final BookSource source;
+
   /// 进度写入记录 [[chapterIndex, chapterPos], ...]
   final List<List<int>> progressCalls;
   final Map<String, String> _configs;
   final int durChapterPos;
   final int imageCount;
   final int chapterCount;
+
   /// 磁盘缓存注入（null = 未命中）
   final List<int>? diskBytes;
+
   /// [P4-3 M4 批2] 章节 isVolume 标记（0 图卷章分隔页用例）
   final bool isVolume;
   final List<String> decodeCalls = [];
@@ -137,24 +176,21 @@ class _ClickActionsMockApi extends MockBookApi {
   /// [P4-3 M4 批2] setConfig 调用记录（面板持久化接线断言）
   final List<({String key, String value})> setConfigCalls = [];
 
-  @override
-  Future<List<BookSource>> getBookSources() async => [source];
+  Future<List<BookSource>> _fixtureGetBookSources() async => [source];
 
-  @override
-  Future<Book?> getBook(String bookUrl) async => Book(
-        bookUrl: bookUrl,
-        tocUrl: 'https://manga.example.com/comic/1/',
-        name: '测试漫画',
-        author: '作者',
-        origin: source.bookSourceUrl,
-        originName: source.bookSourceName,
-        canUpdate: true,
-        totalChapterNum: chapterCount,
-        durChapterPos: durChapterPos,
-      );
+  Future<Book?> _fixtureGetBook(String bookUrl) async => Book(
+    bookUrl: bookUrl,
+    tocUrl: 'https://manga.example.com/comic/1/',
+    name: '测试漫画',
+    author: '作者',
+    origin: source.bookSourceUrl,
+    originName: source.bookSourceName,
+    canUpdate: true,
+    totalChapterNum: chapterCount,
+    durChapterPos: durChapterPos,
+  );
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async =>
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async =>
       List<BookChapter>.generate(
         chapterCount,
         (i) => BookChapter(
@@ -165,8 +201,7 @@ class _ClickActionsMockApi extends MockBookApi {
         ),
       );
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -177,24 +212,27 @@ class _ClickActionsMockApi extends MockBookApi {
     ).join();
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     decodeCalls.add(url);
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
   @override
-  Future<String?> getConfig(String key) async => _configs[key];
+  TestConfigRepository get configRepository => _fixtureConfig;
+  late final _fixtureConfig = TestConfigRepository(
+    read: _fixturegetConfig,
+    write: _fixturesetConfig,
+  );
 
-  @override
-  Future<void> setConfig(String key, String value) async {
+  Future<String?> _fixturegetConfig(String key) async => _configs[key];
+
+  Future<void> _fixturesetConfig(String key, String value) async {
     _configs[key] = value;
     // [P4-3 M4 批2] 记录持久化调用（面板行为开关/背景色接线断言）
     setConfigCalls.add((key: key, value: value));
   }
 
-  @override
-  Future<void> updateReadingProgress({
+  Future<void> _readingUpdateReadingProgress({
     required String bookUrl,
     required int chapterIndex,
     required int chapterPos,
@@ -202,8 +240,7 @@ class _ClickActionsMockApi extends MockBookApi {
     progressCalls.add([chapterIndex, chapterPos]);
   }
 
-  @override
-  Future<List<int>?> getImageCache(String bookUrl, String url) async {
+  Future<List<int>?> _fixtureGetImageCache(String bookUrl, String url) async {
     imageCacheCalls++;
     return diskBytes;
   }
@@ -212,7 +249,9 @@ class _ClickActionsMockApi extends MockBookApi {
 Widget _buildApp(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(home: ReaderComicScreen(bookUrl: 'mock://comic/1')),
+    child: const MaterialApp(
+      home: ReaderComicScreen(bookUrl: 'mock://comic/1'),
+    ),
   );
 }
 
@@ -263,6 +302,25 @@ Future<void> _settleImageDecode(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// 异步文件写入使用真实IO事件循环，随后仍断言提示与文件内容。
+Future<void> _waitForSavedImage(
+  WidgetTester tester,
+  Directory directory,
+) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    // IO在真实循环完成；每轮pump推进fake-async区域中的await后续。
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    if (find.textContaining('已保存到文档目录').evaluate().isNotEmpty) {
+      expect(directory.listSync().whereType<File>(), isNotEmpty);
+      return;
+    }
+  }
+  throw StateError('图片保存未完成');
+}
+
 /// 等待滚动范围稳定并返回稳定值（[W2-fix]）
 ///
 /// 图片项「占位（屏高 0.6）→ FFI 解码后真实高度」的切换发生在真实事件
@@ -290,8 +348,9 @@ Future<double> _settleExtentStable(WidgetTester tester) async {
 /// 强制构建尾部 sliver，extent 由「已构建项平均高估算」收敛到真值
 ///（3×800+导航区−600），图片解码稳定后再跳一次锁定新底部。
 Future<void> _jumpToWebtoonBottom(WidgetTester tester) async {
-  final pos =
-      tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+  final pos = tester
+      .state<ScrollableState>(find.byType(Scrollable).first)
+      .position;
   for (var i = 0; i < 5; i++) {
     pos.jumpTo(pos.maxScrollExtent);
     await tester.pump();
@@ -368,7 +427,9 @@ class _FakeFilePicker extends FilePickerPlatform {
     capturedFileName = fileName;
     final location = result;
     if (location == null) return null;
-    final uri = location.contains('://') ? Uri.parse(location) : Uri.file(location);
+    final uri = location.contains('://')
+        ? Uri.parse(location)
+        : Uri.file(location);
     // 新版插件负责写入；页面只消费 URI，不能重复写入 content URI。
     if (uri.scheme == 'file') File.fromUri(uri).writeAsBytesSync(bytes);
     return uri;
@@ -421,8 +482,7 @@ void main() {
       expect(MangaClickActions.regionIndex(920, 1820, 900, 1800), 8);
     });
 
-    test('零尺寸视口不抛异常（宽度/高度按 1 兜底，参考版 coerceAtLeast(1)）',
-        () {
+    test('零尺寸视口不抛异常（宽度/高度按 1 兜底，参考版 coerceAtLeast(1)）', () {
       // 1/(1/3)=3 → 收敛到 2；区域 = 2*3+2 = 8
       expect(MangaClickActions.regionIndex(1, 1, 0, 0), 8);
     });
@@ -438,7 +498,10 @@ void main() {
     });
 
     test('列表不足 9 项时越界区回退 0（对齐 getOrNull ?: 0）', () {
-      expect(MangaClickActions.actionAt(const [-1, -1], 450, 900, 900, 1800), 0);
+      expect(
+        MangaClickActions.actionAt(const [-1, -1], 450, 900, 900, 1800),
+        0,
+      );
     });
 
     test('动作循环 -1→0→1→2→3→4→-1（对齐 nextMangaClickAction）', () {
@@ -451,7 +514,17 @@ void main() {
     });
 
     test('默认 clickActions（对齐 Contract L167）', () {
-      expect(MangaClickActions.defaultActions, const [-1, -1, 1, 2, 0, 1, 2, 1, 1]);
+      expect(MangaClickActions.defaultActions, const [
+        -1,
+        -1,
+        1,
+        2,
+        0,
+        1,
+        2,
+        1,
+        1,
+      ]);
     });
   });
 
@@ -466,13 +539,23 @@ void main() {
     }
 
     final pngBytes = Uint8List.fromList([
-      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01, 0x02
+      0x89,
+      0x50,
+      0x4E,
+      0x47,
+      0x0D,
+      0x0A,
+      0x1A,
+      0x0A,
+      0x01,
+      0x02,
     ]);
 
     test('内存缓存命中：直接返回，不触碰磁盘/FFI API', () async {
       final a = api();
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
         memoryCached: pngBytes,
@@ -487,7 +570,8 @@ void main() {
       final disk = <int>[0xFF, 0xD8, 0xFF, 0xE0, 0x01];
       final a = api(diskBytes: disk);
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
       );
@@ -497,11 +581,11 @@ void main() {
       expect(a.imageCacheCalls, 1);
     });
 
-    test('双未命中 + 提供 sourceJson → FFI 解码回退（base64 → PNG）',
-        () async {
+    test('双未命中 + 提供 sourceJson → FFI 解码回退（base64 → PNG）', () async {
       final a = api();
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
         sourceJson: '"{}"',
@@ -514,7 +598,8 @@ void main() {
     test('缓存全空且无 sourceJson → null（不旁路直连）', () async {
       final a = api();
       final result = await resolveMangaPageImageBytes(
-        api: a,
+        images: a.bookImageRepository,
+        localBooks: a.localBookService,
         bookUrl: 'mock://comic/1',
         url: 'https://cdn.example.com/img/0.jpg',
       );
@@ -529,15 +614,14 @@ void main() {
     //   左上(133,100) 区0 → -1 无；右上(667,100) 区2 → 1 下一页；
     //   左中(133,300) 区3 → 2 上一页；中心(400,300) 区4 → 0 菜单。
 
-    testWidgets('单页 L2R：右上点击 → 下一页；左中点击 → 上一页',
-        (tester) async {
+    testWidgets('单页 L2R：右上点击 → 下一页；左中点击 → 上一页', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _buildApi(
         configs: const {'mangaScrollMode': '1'},
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -556,12 +640,11 @@ void main() {
       expect(find.textContaining('页数1/3'), findsOneWidget);
     });
 
-    testWidgets('条漫：右上点击 → 下滚一屏（恰好一个视口高，无副作用）',
-        (tester) async {
+    testWidgets('条漫：右上点击 → 下滚一屏（恰好一个视口高，无副作用）', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -570,8 +653,9 @@ void main() {
       expect(find.textContaining('页数1/3'), findsOneWidget);
 
       // 顶部初始位置
-      final pos =
-          tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+      final pos = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
       expect(pos.pixels, closeTo(0, 0.01));
 
       // 右上区（区2）action 1 → 条漫下滚一屏（参考版 MangaReaderScreen
@@ -579,10 +663,14 @@ void main() {
       // 因懒加载估算 maxScrollExtent 不变，属预期，不在此断言）
       await tester.tapAt(const Offset(667, 100));
       await tester.pumpAndSettle();
-      final pos2 =
-          tester.state<ScrollableState>(find.byType(Scrollable).first).position;
-      expect(pos2.pixels, closeTo(600, 1),
-          reason: '一屏 = 视口高 600（animateTo 300ms 终止于目标）');
+      final pos2 = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      expect(
+        pos2.pixels,
+        closeTo(600, 1),
+        reason: '一屏 = 视口高 600（animateTo 300ms 终止于目标）',
+      );
       // 无切章副作用：单章未跳章，未触发章末切章
       expect(find.textContaining('章节1/1'), findsOneWidget);
       // 页级估算未变（顶部一屏后仍为第 0 页）→ 不产生进度写入
@@ -593,12 +681,11 @@ void main() {
     // animateScrollBy 部分消费（目标被章边界钳制），只有真正已在章边界
     //（consumed < 1）才切章；旧实现距章尾不足一视口时直接跳章、
     // 跳过剩余内容。
-    testWidgets('条漫：距章尾不足一视口点「下一页」先滚完剩余再切章（P1-2）',
-        (tester) async {
+    testWidgets('条漫：距章尾不足一视口点「下一页」先滚完剩余再切章（P1-2）', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls, chapterCount: 2);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -608,13 +695,13 @@ void main() {
       // 平均高度」估算 maxScrollExtent（底部导航实际 ~148px 会被估算成
       // 800px，extent 虚高 652px），未滚到底前读到的稳定值不可信；
       // 滚到底后全部项已构建，extent 收敛到实际值（3×800+148−600=1948）
-      final pos =
-          tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+      final pos = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
       pos.jumpTo(100000); // 越界 → jumpTo 收敛到当前 maxScrollExtent
       await tester.pump();
       final extent = await _settleExtentStable(tester);
-      expect(extent, greaterThan(600),
-          reason: '三页内容高应超过一个视口（600px）');
+      expect(extent, greaterThan(600), reason: '三页内容高应超过一个视口（600px）');
 
       // 移到距章尾不足一视口（600px）处：剩余 300px
       pos.jumpTo(extent - 300);
@@ -624,28 +711,39 @@ void main() {
       //（目标被章边界钳制、部分消费），不切章
       await tester.tapAt(const Offset(667, 100));
       await tester.pumpAndSettle();
-      final pos2 =
-          tester.state<ScrollableState>(find.byType(Scrollable).first).position;
-      expect(pos2.pixels, closeTo(pos2.maxScrollExtent, 1),
-          reason: '应滚完剩余距离停在章尾（对齐 animateScrollBy 部分消费；'
-              'extent 用 settle 后重读值，防解码期漂移）');
-      expect(find.textContaining('章节1/2'), findsOneWidget,
-          reason: '未真正到章边界（consumed ≥ 1）不应切章'
-              '（旧实现 target > maxScrollExtent 即跳章、跳过章尾内容）');
+      final pos2 = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      expect(
+        pos2.pixels,
+        closeTo(pos2.maxScrollExtent, 1),
+        reason:
+            '应滚完剩余距离停在章尾（对齐 animateScrollBy 部分消费；'
+            'extent 用 settle 后重读值，防解码期漂移）',
+      );
+      expect(
+        find.textContaining('章节1/2'),
+        findsOneWidget,
+        reason:
+            '未真正到章边界（consumed ≥ 1）不应切章'
+            '（旧实现 target > maxScrollExtent 即跳章、跳过章尾内容）',
+      );
 
       // 再点：已停在章边界（无可滚距离）→ 切下一章
       await tester.tapAt(const Offset(667, 100));
       await tester.pumpAndSettle();
-      expect(find.textContaining('章节2/2'), findsOneWidget,
-          reason: '章边界处点「下一页」= 切下一章（consumed < 1 语义）');
+      expect(
+        find.textContaining('章节2/2'),
+        findsOneWidget,
+        reason: '章边界处点「下一页」= 切下一章（consumed < 1 语义）',
+      );
     });
 
-    testWidgets('左上点击（区0 = 无动作）：无控制栏、无滚动、无进度',
-        (tester) async {
+    testWidgets('左上点击（区0 = 无动作）：无控制栏、无滚动、无进度', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -664,7 +762,7 @@ void main() {
       final progressCalls = <List<int>>[];
       final api = _buildApi(progressCalls: progressCalls);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -672,13 +770,15 @@ void main() {
       expect(find.text('测试漫画'), findsNothing);
       await tester.tapAt(const Offset(400, 300));
       await tester.pumpAndSettle();
-      expect(find.text('测试漫画'), findsOneWidget,
-          reason: '中心点击 = 菜单动作，顶栏（书名）应出现');
+      expect(
+        find.text('测试漫画'),
+        findsOneWidget,
+        reason: '中心点击 = 菜单动作，顶栏（书名）应出现',
+      );
 
       await tester.tapAt(const Offset(400, 300));
       await tester.pumpAndSettle();
-      expect(find.text('测试漫画'), findsNothing,
-          reason: '再次中心点击应收起控制栏');
+      expect(find.text('测试漫画'), findsNothing, reason: '再次中心点击应收起控制栏');
     });
 
     testWidgets('长按图片项 → 底栏菜单（保存/分享/复制链接）', (tester) async {
@@ -690,7 +790,7 @@ void main() {
         configs: const {'mangaLongClickSaveImage': 'false'},
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -735,15 +835,14 @@ void main() {
   // - hideMangaTitle：我方无独立章节标题页 → 映射 0 图卷章分隔页标题 +
   //   章节导航区标题隐藏（不硬造）。
   group('[P4-3 M4 批2] 行为开关组 + 背景色', () {
-    testWidgets('disableClickScroll=true：翻页动作 1/2 失效，菜单 0 保留',
-        (tester) async {
+    testWidgets('disableClickScroll=true：翻页动作 1/2 失效，菜单 0 保留', (tester) async {
       final progressCalls = <List<int>>[];
       final api = _buildApi(
         configs: const {'mangaScrollMode': '1', 'disableClickScroll': 'true'},
         progressCalls: progressCalls,
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -753,26 +852,31 @@ void main() {
       // 右上区（区2 = 动作1 下一页）→ 被禁用
       await tester.tapAt(const Offset(667, 100));
       await tester.pumpAndSettle();
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: '禁用点击翻页 → 翻页动作 1/2 失效（对齐参考版 L714/L1953）');
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason: '禁用点击翻页 → 翻页动作 1/2 失效（对齐参考版 L714/L1953）',
+      );
       expect(progressCalls, isEmpty, reason: '未翻页 → 无进度写入');
 
       // 中心区（区4 = 动作0 菜单）保留 → 控制栏出现
       await tester.tapAt(const Offset(400, 300));
       await tester.pumpAndSettle();
-      expect(find.text('测试漫画'), findsOneWidget,
-          reason: '菜单动作 0 保留');
+      expect(find.text('测试漫画'), findsOneWidget, reason: '菜单动作 0 保留');
     });
 
     testWidgets('disableMangaScale 默认 true：缩放层不渲染', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
-      expect(find.byType(InteractiveViewer), findsNothing,
-          reason: '原版默认 disableMangaScale=true → 无 InteractiveViewer');
+      expect(
+        find.byType(InteractiveViewer),
+        findsNothing,
+        reason: '原版默认 disableMangaScale=true → 无 InteractiveViewer',
+      );
     });
 
     testWidgets('disableMangaScale=false：缩放层渲染', (tester) async {
@@ -781,21 +885,20 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
       expect(find.byType(InteractiveViewer), findsOneWidget);
     });
 
-    testWidgets('disableMangaPageAnim=true：单页翻页即时跳转（jump）',
-        (tester) async {
+    testWidgets('disableMangaPageAnim=true：单页翻页即时跳转（jump）', (tester) async {
       final api = _buildApi(
         configs: const {'mangaScrollMode': '1', 'disableMangaPageAnim': 'true'},
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -804,18 +907,20 @@ void main() {
       // 右上区（动作1）→ jumpToPage 即时切换：单帧（100ms）后页已切换
       await tester.tapAt(const Offset(667, 100));
       await tester.pump(); // 100ms
-      expect(find.textContaining('页数2/3'), findsOneWidget,
-          reason: 'jump 即时切换（对照组 300ms 动画中点 150ms 前不切换）');
+      expect(
+        find.textContaining('页数2/3'),
+        findsOneWidget,
+        reason: 'jump 即时切换（对照组 300ms 动画中点 150ms 前不切换）',
+      );
     });
 
-    testWidgets('disableMangaPageAnim 默认 false：单页翻页走 300ms 动画',
-        (tester) async {
+    testWidgets('disableMangaPageAnim 默认 false：单页翻页走 300ms 动画', (tester) async {
       final api = _buildApi(
         configs: const {'mangaScrollMode': '1'},
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -825,43 +930,43 @@ void main() {
       // 单帧（100ms）尚未过切换中点，页脚仍在第 1 页
       await tester.tapAt(const Offset(667, 100));
       await tester.pump(); // 100ms
-      expect(find.textContaining('页数1/3'), findsOneWidget,
-          reason: '动画进行中（100ms < 300ms 中点），页面未切换');
+      expect(
+        find.textContaining('页数1/3'),
+        findsOneWidget,
+        reason: '动画进行中（100ms < 300ms 中点），页面未切换',
+      );
 
       // 动画完成后切换
       await tester.pumpAndSettle();
       expect(find.textContaining('页数2/3'), findsOneWidget);
     });
 
-    testWidgets('hideMangaTitle=true：条漫导航区标题隐藏（不硬造章节标题页）',
-        (tester) async {
+    testWidgets('hideMangaTitle=true：条漫导航区标题隐藏（不硬造章节标题页）', (tester) async {
       final api = _buildApi(
         configs: const {'hideMangaTitle': 'true'},
         chapterCount: 2,
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       await _jumpToWebtoonBottom(tester);
 
-      expect(find.text('第1章'), findsNothing,
-          reason: 'hideMangaTitle → 导航区标题隐藏');
-      expect(find.text('下一章'), findsOneWidget,
-          reason: '导航区已构建、按钮保留（防误判为整区缺失）');
+      expect(
+        find.text('第1章'),
+        findsNothing,
+        reason: 'hideMangaTitle → 导航区标题隐藏',
+      );
+      expect(find.text('下一章'), findsOneWidget, reason: '导航区已构建、按钮保留（防误判为整区缺失）');
     });
 
-    testWidgets('hideMangaTitle 默认 false：条漫导航区标题显示',
-        (tester) async {
-      final api = _buildApi(
-        chapterCount: 2,
-        progressCalls: <List<int>>[],
-      );
+    testWidgets('hideMangaTitle 默认 false：条漫导航区标题显示', (tester) async {
+      final api = _buildApi(chapterCount: 2, progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -872,8 +977,7 @@ void main() {
       expect(find.text('下一章'), findsOneWidget);
     });
 
-    testWidgets('hideMangaTitle=true：0 图卷章分隔页标题隐藏（按钮保留）',
-        (tester) async {
+    testWidgets('hideMangaTitle=true：0 图卷章分隔页标题隐藏（按钮保留）', (tester) async {
       final api = _buildApi(
         configs: const {'hideMangaTitle': 'true'},
         imageCount: 0,
@@ -882,15 +986,17 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      expect(find.text('第1章'), findsNothing,
-          reason: 'hideMangaTitle → 0 图卷章分隔页标题隐藏');
-      expect(find.text('下一章'), findsOneWidget,
-          reason: '分隔页导航按钮保留');
+      expect(
+        find.text('第1章'),
+        findsNothing,
+        reason: 'hideMangaTitle → 0 图卷章分隔页标题隐藏',
+      );
+      expect(find.text('下一章'), findsOneWidget, reason: '分隔页导航按钮保留');
     });
 
     testWidgets('0 图卷章默认：分隔页标题显示（对照）', (tester) async {
@@ -901,7 +1007,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -910,11 +1016,10 @@ void main() {
       expect(find.text('下一章'), findsOneWidget);
     });
 
-    testWidgets('mangaLongClickSaveImage 默认 true：长按直接存图（不弹菜单）',
-        (tester) async {
+    testWidgets('mangaLongClickSaveImage 默认 true：长按直接存图（不弹菜单）', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -924,8 +1029,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('保存图片'), findsNothing,
-          reason: '长按存图开启 → 不弹页操作菜单');
+      expect(find.text('保存图片'), findsNothing, reason: '长按存图开启 → 不弹页操作菜单');
       // widget 测试无 FilePicker 平台通道 → 存图 catch 兜底提示
       // （证明走了存图分支而非菜单分支）
       expect(
@@ -935,36 +1039,36 @@ void main() {
       );
     });
 
-    testWidgets('mangaLongClickSaveImage=false：长按弹页操作菜单',
-        (tester) async {
+    testWidgets('mangaLongClickSaveImage=false：长按弹页操作菜单', (tester) async {
       final api = _buildApi(
         configs: const {'mangaLongClickSaveImage': 'false'},
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       await tester.longPressAt(const Offset(400, 100));
       await tester.pumpAndSettle();
-      expect(find.text('保存图片'), findsOneWidget,
-          reason: '长按存图关闭 → 长按弹现有页操作菜单');
+      expect(find.text('保存图片'), findsOneWidget, reason: '长按存图关闭 → 长按弹现有页操作菜单');
       expect(find.text('分享图片'), findsOneWidget);
     });
 
-    testWidgets('disableMangaCrossFade 默认 false：图片加载淡入包裹渲染',
-        (tester) async {
+    testWidgets('disableMangaCrossFade 默认 false：预载缓存不重复淡入', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
-      expect(find.byKey(const ValueKey('mangaImageFade')), findsWidgets,
-          reason: '默认淡入开启（参考版 disableMangaCrossFade=false）');
+      expect(
+        find.byKey(const ValueKey('mangaImageFade')),
+        findsNothing,
+        reason: '默认开启仍直接展示预载缓存，首次图片淡入由独立首帧用例验证',
+      );
     });
 
     testWidgets('disableMangaCrossFade=true：淡入包裹不渲染', (tester) async {
@@ -973,7 +1077,7 @@ void main() {
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -981,11 +1085,10 @@ void main() {
       expect(find.byKey(const ValueKey('mangaImageFade')), findsNothing);
     });
 
-    testWidgets('mangaBgColor 默认黑：Scaffold 背景 0xFF000000',
-        (tester) async {
+    testWidgets('mangaBgColor 默认黑：Scaffold 背景 0xFF000000', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -997,15 +1100,14 @@ void main() {
       );
     });
 
-    testWidgets('mangaBgColor 持久化白（十进制 ARGB）：Scaffold 背景生效',
-        (tester) async {
+    testWidgets('mangaBgColor 持久化白（十进制 ARGB）：Scaffold 背景生效', (tester) async {
       // 0xFFFFFFFF = 4294967295（十进制 ARGB 持久化格式）
       final api = _buildApi(
         configs: const {'mangaBgColor': '4294967295'},
         progressCalls: <List<int>>[],
       );
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1016,11 +1118,10 @@ void main() {
       );
     });
 
-    testWidgets('面板接线：行为开关 + 色板点选 → setConfig 持久化',
-        (tester) async {
+    testWidgets('面板接线：行为开关 + 色板点选 → setConfig 持久化', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1030,8 +1131,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('翻页设置'));
       await tester.pumpAndSettle();
-      expect(find.byType(MangaConfigSheet), findsOneWidget,
-          reason: '设置面板已打开');
+      expect(find.byType(MangaConfigSheet), findsOneWidget, reason: '设置面板已打开');
 
       // 面板 ListView 为惰性 sliver（视口 ± cacheExtent 外不构建）→
       // 先滚「其他」卡入视野（面板 ListView = 树中最后一个）
@@ -1041,8 +1141,7 @@ void main() {
         panelList,
         const Offset(0, -300),
       );
-      expect(find.text('其他'), findsOneWidget,
-          reason: '「其他」区块渲染（滚入视野后构建）');
+      expect(find.text('其他'), findsOneWidget, reason: '「其他」区块渲染（滚入视野后构建）');
       // [漫画设置作用域 2026-10-01] 阅读模式卡新增作用域行使后续区块整体
       // 下移，dragUntilVisible 尾部 ensureVisible 为 jump（无动画）→
       // 落定后再取坐标点击（否则读到滚动前坐标导致 tap 落空）
@@ -1058,8 +1157,9 @@ void main() {
       // ensureVisible 默认最小滚动（swatch 可能仅一角入视口，tap 命中
       // 测试不命中 → 点选无效）→ 面板 Scrollable（树中最后一个；
       // 面板内容无图片，extent 不漂移，单次 jump 到底即整行入视口）
-      final panelPos =
-          tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+      final panelPos = tester
+          .state<ScrollableState>(find.byType(Scrollable).last)
+          .position;
       panelPos.jumpTo(panelPos.maxScrollExtent);
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('mangaBgSwatch-4294967295')));
@@ -1081,7 +1181,6 @@ void main() {
         reason: '背景色（十进制 ARGB）持久化',
       );
     });
-
   });
 
   // [P4-3 M4 批3] 滤镜入口（锚点跳到面板内色彩滤镜区）
@@ -1095,11 +1194,10 @@ void main() {
   // 参考版 ClickActionsSettingsContent L772-801）登记不做，
   // 面板不放假按钮。
   group('[P4-3 M4 批3] 滤镜入口锚点跳转', () {
-    testWidgets('点「滤镜」入口 → 色彩滤镜区顶边对齐面板视口顶边',
-        (tester) async {
+    testWidgets('点「滤镜」入口 → 色彩滤镜区顶边对齐面板视口顶边', (tester) async {
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1109,12 +1207,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('翻页设置'));
       await tester.pumpAndSettle();
-      expect(find.byType(MangaConfigSheet), findsOneWidget,
-          reason: '设置面板已打开');
+      expect(find.byType(MangaConfigSheet), findsOneWidget, reason: '设置面板已打开');
 
       // 初始：面板滚动位置 0，阅读模式区在视口内、色彩滤镜区在视口外
-      final panelPos =
-          tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+      final panelPos = tester
+          .state<ScrollableState>(find.byType(Scrollable).last)
+          .position;
       expect(panelPos.pixels, 0, reason: '面板初始滚动位置在顶部');
       expect(find.text('阅读模式'), findsOneWidget);
 
@@ -1128,12 +1226,13 @@ void main() {
       // 顶边，标题 Text 顶边低 16px
       final listRect = tester.getRect(find.byType(ListView).last);
       final targetRect = tester.getRect(find.text('色彩滤镜'));
-      expect(targetRect.top - listRect.top, closeTo(16, 1.0),
-          reason: '色彩滤镜区顶边应对齐面板视口顶边（ensureVisible 0.0）');
-      expect(find.text('色彩滤镜'), findsOneWidget,
-          reason: '色彩滤镜区已滚入视口');
-      expect(panelPos.pixels, greaterThan(0),
-          reason: '锚点跳转改变了面板滚动偏移');
+      expect(
+        targetRect.top - listRect.top,
+        closeTo(16, 1.0),
+        reason: '色彩滤镜区顶边应对齐面板视口顶边（ensureVisible 0.0）',
+      );
+      expect(find.text('色彩滤镜'), findsOneWidget, reason: '色彩滤镜区已滚入视口');
+      expect(panelPos.pixels, greaterThan(0), reason: '锚点跳转改变了面板滚动偏移');
     });
   });
 
@@ -1151,7 +1250,7 @@ void main() {
       _useFakeFilePicker(fake);
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1166,9 +1265,9 @@ void main() {
     testWidgets('成功路径：saveFile 收到 bytes，选中路径落盘', (tester) async {
       // 真实 IO 事件在 fake-async 测试体里须经 runAsync 转动
       //（先例 _settleImageDecode 注释：真实事件循环只有 runAsync 可等）
-      final tempDir = (
-        await tester.runAsync(() => Directory.systemTemp.createTemp('d1_save_'))
-      )!;
+      final tempDir = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('d1_save_'),
+      ))!;
       addTearDown(() => tempDir.delete(recursive: true));
       final chosenPath = '${tempDir.path}/manga-chosen.png';
       final fake = _FakeFilePicker(chosenPath);
@@ -1176,7 +1275,7 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1186,17 +1285,22 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.textContaining('已保存:'), findsOneWidget,
-          reason: 'saveFile 返回选中路径 → 成功分支（非失败提示）');
-      expect(fake.capturedBytes, isNotNull,
-          reason: 'D1 回归：saveFile 必须收到 bytes（旧代码漏传恒失败）');
+      expect(
+        find.textContaining('已保存:'),
+        findsOneWidget,
+        reason: 'saveFile 返回选中路径 → 成功分支（非失败提示）',
+      );
+      expect(
+        fake.capturedBytes,
+        isNotNull,
+        reason: 'D1 回归：saveFile 必须收到 bytes（旧代码漏传恒失败）',
+      );
       expect(
         fake.capturedBytes!.take(4).toList(),
         equals(const [0x89, 0x50, 0x4E, 0x47]),
         reason: '传入 bytes 为 PNG 字节（页面图片解析结果）',
       );
-      expect(fake.capturedFileName, endsWith('.png'),
-          reason: '文件扩展名按魔数推断');
+      expect(fake.capturedFileName, endsWith('.png'), reason: '文件扩展名按魔数推断');
       expect(File(chosenPath).existsSync(), isTrue, reason: '选中路径落盘');
       expect(
         File(chosenPath).readAsBytesSync(),
@@ -1205,12 +1309,11 @@ void main() {
       );
     });
 
-    testWidgets('取消路径：saveFile 返回 null → 文档目录兜底落盘',
-        (tester) async {
+    testWidgets('取消路径：saveFile 返回 null → 文档目录兜底落盘', (tester) async {
       // 真实 IO 事件在 fake-async 测试体里须经 runAsync 转动
-      final tempDir = (
-        await tester.runAsync(() => Directory.systemTemp.createTemp('d1_cancel_'))
-      )!;
+      final tempDir = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('d1_cancel_'),
+      ))!;
       addTearDown(() => tempDir.delete(recursive: true));
 
       // 文档目录覆写为 temp 目录（hermetic，不碰真实 Documents）
@@ -1223,19 +1326,26 @@ void main() {
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       await tester.longPressAt(const Offset(400, 100));
       await tester.pumpAndSettle();
+      await _waitForSavedImage(tester, tempDir);
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.textContaining('已保存到文档目录'), findsOneWidget,
-          reason: '取消（saveFile 返回 null）→ 文档目录兜底分支');
-      expect(fake.capturedBytes, isNotNull,
-          reason: '取消分支同样收到 bytes（bytes 仅平台实际存文件时消费）');
+      expect(
+        find.textContaining('已保存到文档目录'),
+        findsOneWidget,
+        reason: '取消（saveFile 返回 null）→ 文档目录兜底分支',
+      );
+      expect(
+        fake.capturedBytes,
+        isNotNull,
+        reason: '取消分支同样收到 bytes（bytes 仅平台实际存文件时消费）',
+      );
       final files = tempDir
           .listSync()
           .where((e) => e is File && e.path.endsWith('.png'))
@@ -1273,22 +1383,24 @@ void main() {
       );
     }
 
-    testWidgets('Android 分支：通道成功 → Download/legado 提示，不走 file_picker',
-        (tester) async {
+    testWidgets('Android 分支：通道成功 → Download/legado 提示，不走 file_picker', (
+      tester,
+    ) async {
       final channelCalls = <MethodCall>[];
       mockStorageChannel(tester, (call) async {
         channelCalls.add(call);
         return 'Download/legado/manga-d2.png';
       });
       PlatformBridgeService.instance.saveViaDownloadsOverride = true;
-      addTearDown(() =>
-          PlatformBridgeService.instance.saveViaDownloadsOverride = null);
+      addTearDown(
+        () => PlatformBridgeService.instance.saveViaDownloadsOverride = null,
+      );
       final fake = _FakeFilePicker('must-not-use-file-picker');
       _useFakeFilePicker(fake);
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1298,14 +1410,22 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.textContaining('已保存: Download/legado/'), findsOneWidget,
-          reason: 'Android 分支通道成功 → toast 相对路径');
-      expect(channelCalls, hasLength(1),
-          reason: 'Android 分支必须调用 MediaStore 通道');
-      final args =
-          channelCalls.single.arguments as Map<Object?, Object?>;
-      expect(args['fileName'], endsWith('.png'),
-          reason: '通道参数 fileName 保留扩展名（按魔数推断）');
+      expect(
+        find.textContaining('已保存: Download/legado/'),
+        findsOneWidget,
+        reason: 'Android 分支通道成功 → toast 相对路径',
+      );
+      expect(
+        channelCalls,
+        hasLength(1),
+        reason: 'Android 分支必须调用 MediaStore 通道',
+      );
+      final args = channelCalls.single.arguments as Map<Object?, Object?>;
+      expect(
+        args['fileName'],
+        endsWith('.png'),
+        reason: '通道参数 fileName 保留扩展名（按魔数推断）',
+      );
       expect(
         (args['bytes'] as List<int>).take(4).toList(),
         equals(const [0x89, 0x50, 0x4E, 0x47]),
@@ -1321,14 +1441,18 @@ void main() {
         isA<Uint8List>(),
         reason: '[P1-2] 送入通道的 bytes 必须是 Uint8List（→ Java byte[]）',
       );
-      expect(fake.capturedBytes, isNull,
-          reason: 'Android 分支不走 file_picker（D2 绕开 SAF）');
+      expect(
+        fake.capturedBytes,
+        isNull,
+        reason: 'Android 分支不走 file_picker（D2 绕开 SAF）',
+      );
     });
 
     testWidgets('Android 分支：通道失败 → 文档目录兜底', (tester) async {
       // 真实 IO 事件在 fake-async 测试体里须经 runAsync 转动
-      final tempDir =
-          (await tester.runAsync(() => Directory.systemTemp.createTemp('d2_fail_')))!;
+      final tempDir = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('d2_fail_'),
+      ))!;
       addTearDown(() => tempDir.delete(recursive: true));
       final originalProvider = PathProviderPlatform.instance;
       PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
@@ -1342,26 +1466,30 @@ void main() {
         );
       });
       PlatformBridgeService.instance.saveViaDownloadsOverride = true;
-      addTearDown(() =>
-          PlatformBridgeService.instance.saveViaDownloadsOverride = null);
+      addTearDown(
+        () => PlatformBridgeService.instance.saveViaDownloadsOverride = null,
+      );
       final fake = _FakeFilePicker('must-not-use-file-picker');
       _useFakeFilePicker(fake);
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
 
       await tester.longPressAt(const Offset(400, 100));
       await tester.pumpAndSettle();
+      await _waitForSavedImage(tester, tempDir);
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.textContaining('已保存到文档目录'), findsOneWidget,
-          reason: '通道失败 → 文档目录兜底（现有逻辑）');
-      expect(fake.capturedBytes, isNull,
-          reason: 'Android 分支不走 file_picker');
+      expect(
+        find.textContaining('已保存到文档目录'),
+        findsOneWidget,
+        reason: '通道失败 → 文档目录兜底（现有逻辑）',
+      );
+      expect(fake.capturedBytes, isNull, reason: 'Android 分支不走 file_picker');
       final files = tempDir
           .listSync()
           .where((e) => e is File && e.path.endsWith('.png'))
@@ -1374,12 +1502,11 @@ void main() {
       );
     });
 
-    testWidgets('非 Android 分支：不调通道，走 file_picker saveFile',
-        (tester) async {
+    testWidgets('非 Android 分支：不调通道，走 file_picker saveFile', (tester) async {
       // 真实 IO 事件在 fake-async 测试体里须经 runAsync 转动
-      final tempDir = (
-        await tester.runAsync(() => Directory.systemTemp.createTemp('d2_other_'))
-      )!;
+      final tempDir = (await tester.runAsync(
+        () => Directory.systemTemp.createTemp('d2_other_'),
+      ))!;
       addTearDown(() => tempDir.delete(recursive: true));
       final chosenPath = '${tempDir.path}/manga-other.png';
 
@@ -1389,14 +1516,15 @@ void main() {
         return 'Download/legado/should-not-happen.png';
       });
       PlatformBridgeService.instance.saveViaDownloadsOverride = false;
-      addTearDown(() =>
-          PlatformBridgeService.instance.saveViaDownloadsOverride = null);
+      addTearDown(
+        () => PlatformBridgeService.instance.saveViaDownloadsOverride = null,
+      );
       final fake = _FakeFilePicker(chosenPath);
       _useFakeFilePicker(fake);
 
       final api = _buildApi(progressCalls: <List<int>>[]);
       final container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(api)],
+        overrides: mergeTestOverrides([...api.overrides]),
       );
       addTearDown(container.dispose);
       await _pumpScreen(tester, api, container);
@@ -1405,10 +1533,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.textContaining('已保存:'), findsOneWidget,
-          reason: '非 Android 走 file_picker saveFile 成功分支');
-      expect(fake.capturedBytes, isNotNull,
-          reason: 'file_picker saveFile 必须收到 bytes（D1 回归）');
+      expect(
+        find.textContaining('已保存:'),
+        findsOneWidget,
+        reason: '非 Android 走 file_picker saveFile 成功分支',
+      );
+      expect(
+        fake.capturedBytes,
+        isNotNull,
+        reason: 'file_picker saveFile 必须收到 bytes（D1 回归）',
+      );
       expect(File(chosenPath).existsSync(), isTrue, reason: '选中路径落盘');
       expect(channelCalls, 0, reason: '非 Android 不得调用 MediaStore 通道');
     });

@@ -24,7 +24,7 @@ Python 构建工具。本批保留正式编译、测试、签名、图标、产�
 | Workflow | 自动入口 | 手动入口与检查 |
 |---|---|---|
 | Tooling CI | `dev/master` push、指向两分支的 PR | 支持手动；集中执行编排规则、Python 工具回归及 actionlint，不安装 Flutter/NDK/Xcode |
-| Flutter CI | `dev/master` push、指向两分支的 PR | 保留手动完整检查；原 `analyze` 作业内按范围执行 SDK 安装、分析和测试 |
+| Flutter CI | `dev/master` push、指向两分支的 PR | 手动auto/fast/native/all；analyze汇总普通组、原生组与生成检查 |
 | Rust CI | 同上 | 新增手动完整检查；原 `check` 汇总，所需 quality/tests/audit 必须成功 |
 | Integration Smoke | 同上 | `all/android/windows`；`check` 汇总所选原生任务的结果；仅验证工具时使用 Tooling CI |
 | iOS Build | `dev/master` push | 保留设备包手动入口；Linux 先判定，相关改动才申请 macOS Runner |
@@ -36,13 +36,53 @@ Tooling/Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳
 本批不修改保护或 Ruleset。选择失败、必要任务失败/取消/意外跳过，汇总均失败；
 只有明确判定不需要的 job 才允许 skipped。
 
+## Android 发行签名
+
+本地使用已忽略的 `flutter_legado/android/key.properties`，填写 `storeFile=release.jks`、
+`storePassword`、`keyAlias`、`keyPassword`；密钥位于 `android/app/release.jks`。
+`storeFile` 相对 `android/app/` 解析；Properties 中的反斜杠需要转义。
+Gradle Release 检查必填项与文件是否存在，实际密码由 Android 签名工具检查；Debug 不要求发行配置。
+
+GitHub Actions 需设置四项 Repository Secrets：`ANDROID_KEYSTORE_BASE64`（整份 JKS 的 Base64）、
+`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。后三项填写实际值，
+不包含 Properties 转义。另设置公开 Variable `ANDROID_SIGNING_CERT_SHA256` 为发行证书指纹，
+当前指定证书为 `9395c57290fb1f62b40fd59e166f8d6c791ac282318842a3a868df4a37f701b5`。
+
+工作流调用 `.github/scripts/android_signing.py` 将密钥恢复至 `RUNNER_TEMP/legado-release.jks`，
+通过 `ANDROID_KEYSTORE_PATH` 传入 Gradle，结束时用同一脚本的 `--clean` 删除这一临时文件。
+密码与别名在 Flutter 构建步骤通过环境注入，不写入日志或产物。
+现有 `collect apk android` 使用 `--signing-cert-sha256` 检查三个 APK 的签名有效性和证书指纹，
+原有 Rust 库校验继续执行，全部通过才收集上传。不新增签名 CLI 或独立预检工具。
+
+Tag 发布、手动只构建、Artifact ID 与权限范围保持不变。本地检查不代表远程发行包已构建；
+当前验证状态见 Active 计划。签名接入依据：[Flutter 签名配置](https://docs.flutter.dev/deployment/android#configure-signing-in-gradle)、
+[Android apksigner](https://developer.android.com/tools/apksigner)。
+
 ## 改动分类
 
 权威实现为 [.github/scripts/ci_changes.py](../.github/scripts/ci_changes.py)，
 回归矩阵为 [test_ci_changes.py](../.github/scripts/test_ci_changes.py)。
 
-- 纯文档与测试改动不启动无关原生编译；Flutter 测试走 Flutter CI，Rust crate
-  集成测试走 Rust CI。Rust src 内联测试无法按文件与生产代码分离，仍运行原生检查。
+Flutter CI分为changes、flutter-checks、native-tests与analyze汇总。保留原analyze检查名，
+选择失败、被选中任务失败/取消/意外跳过都不能通过；未选中任务允许跳过。
+
+- flutter-checks运行架构门禁、按相关输入选择的生成检查、静态分析及
+  `flutter test --no-pub --exclude-tags native`。普通测试不编译原生库，且显式指定不存在的
+  LEGADO_TEST_FFI_LIBRARY，避免错误初始化被本机旧库掩盖；只有FRB生成复核需要Rust工具链。
+- native-tests在Linux单次执行`cargo build --locked -p legado-ffi --features quickjs`，
+  显式传入本次debug `.so`，运行`flutter test --no-pub --tags native`。
+  标签覆盖通用FFI契约与仍依赖真实分页的阅读器集成用例，不按所在目录假定测试类型。
+- 原生组选中范围包括Rust生产输入、FRB与数据/领域/平台/共享状态、阅读器/搜索/朗读、
+  依赖锁文件和相关编排。独立书架/设置页面及非阅读器普通组件实现变化不单独选择原生组。
+  本轮测试文件和共享夹具变化先保守选择两组，不声称已做到逐用例最小依赖选择。
+- Rust crate独立集成测试变化只走Rust CI；两处正式排版测试载荷目录因被Dart读取，仍选原生组。
+  纯文档变化不启动原生编译；iOS模拟器手动约定、设备包触发和Windows宿主冒烟保持。
+- `dart_test.yaml`登记native标签；新增原生用例须显式标记。普通组缺库即失败，用来暴露遗漏分组，
+  不通过skip或退回Mock消除失败。全量本地`flutter test`仍会运行两组，需先构建宿主库。
+
+本地验证结果与平台限制登记于Active计划；Windows通过不代表Linux/macOS已实际运行，
+编排静态检查通过也不代表远程Actions已通过。不以分组前后单次本地耗时推断远程成本下降。
+
 - 普通 Dart 页面走 Flutter 检查；在 dev/master 上影响应用内容时构建 iOS 设备包。
 - Android/Windows/iOS 平台目录分别选择所属平台；Android FFI 作业只证明原生库
   编译和复制校验，不替代 APK/Gradle 宿主构建。
@@ -59,7 +99,7 @@ Tooling/Flutter/Rust/Integration 的自动 workflow 不再通过顶层 paths 跳
   Tooling CI 的 `check` 与所需平台检查一起设为必需检查。
 - Rust 树仅排除已核对的宿主驱动脚本 `build-ios.sh`、`gen_rar5_fixture.py`，它们分别选择
   iOS 和 Rust 验证。新 Rust 脚本默认仍视为共享编译输入。`third_party/**` 保守选择全部消费者。
-  详细指纹口径见 [工具说明](PYTHON_FFI_TOOLING_20261010.md)。
+  详细指纹口径见 [工具说明](过期文档/PYTHON_FFI_TOOLING_20261010.md)。
 
 重命名按删除旧路径、新增新路径处理，两侧模块都检查。手动范围覆盖自动差异选择。
 
@@ -97,3 +137,68 @@ Git 推送使用本次进程的 SSH HTTP CONNECT 代理 `127.0.0.1:7897`，没�
 编写者：Codex｜2026-10-10
 
 修订者：Codex｜2026-10-11（工具回归集中与平台范围共享）
+
+## 生成一致性与静态门禁（2026-10-19）
+
+显式Flutter依赖恢复统一使用`pub get --enforce-lockfile`；Flutter CI不再放行info级lint。
+架构规则由`flutter_legado/tool/check_architecture.dart`解析Dart指令语法树，覆盖条件导入、
+转导出及路径规范化：features/widgets/providers禁止直接引用生成桥接，domain不得依赖UI或具体实现。
+此检查是静态门禁，业务、取消和生命周期仍以运行行为测试验收。
+
+生成检查独立按输入选择：Dart模型目录、状态及Freezed/JSON生成物、build.yaml；FRB桥接目录、
+FFI源码/清单、Rust工作区清单/锁文件、FRB配置。两者共享pubspec及生成工具输入。
+新增生成输入若不属于上述路径，须同时扩展判定器及范围测试；普通页面改动不重新生成。
+手动完整Flutter CI复核两种生成链；Integration单选Android/Windows不运行生成检查。
+FRB codegen版本读取运行时契约，cargo-expand固定为本轮实测1.0.127；不改变Rust stable策略。
+
+生成复核使用临时目录，检出新增/删除/修改并拒绝依赖声明漂移；原工作区保持不变。
+iOS模拟器仍仅手动，现有工作流触发器、签名、发布条件和权限保持。
+
+编写者：Codex + UI/Tool｜2026-10-19
+
+## Flutter手动范围与慢项报告（2026-10-19）
+
+Flutter CI的`test_scope`默认`auto`，仅影响本Workflow；Integration Smoke的
+`platform=all/android/windows`、其它Workflow的手动完整检查保持原样。
+
+| 范围 | 执行内容 |
+|---|---|
+| auto | 比较本次提交与第一父提交，按输入选择普通/原生/生成检查 |
+| fast | 分析、架构门禁与完整普通组；不编译Rust，不检查生成链 |
+| native | 单次构建当前Linux原生库，运行完整native组 |
+| all | 普通组、原生组及Dart/FRB生成检查全部运行 |
+
+`auto`可通过`base_sha`指定40位基线提交SHA，覆盖多个提交。空值只检查最近一次提交，
+不代表整个分支已验证；PR或集成push仍使用事件完整差异，不使用这一默认值。
+基线缺失时按SHA补取；非法SHA、无法比较或基线等于HEAD均报错，不默认跳过。
+根提交没有父提交，手动应选择`all`。运行日志打印比较范围，便于复核。
+以下为提交后的调用方式，不表示当前已推送或运行：
+
+```powershell
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=auto
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=fast
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=native
+gh workflow run flutter-ci.yml --ref feature/ui-reader-selection -f test_scope=all
+```
+
+测试输入分组依据现有`native`标签，不维护另一份用例白名单。`test/ffi/`、
+共享`fixtures/helpers/mocks`及其它测试支持输入保守触发原生组。独立`*_test.dart`
+同时读取当前与比较基线版本，任一含native分组即触发原生组；删除标记或删除原生
+文件也不能漏检。无可读取元数据时保守运行。普通测试仍通过不存在的FFI库路径运行，
+误引入真实原生依赖会失败，不允许静默跳过。生产源码的既有保守规则不缩小。
+
+两组使用`--reporter failures-only`保留失败详情，并通过`--file-reporter json:...`
+写入完整事件。`.github/scripts/flutter_test_report.py`从事件统计装载、执行及慢用例，
+输出Job Summary和工件`flutter-test-timings-fast/native`，保留7天。原始事件、
+完整`timings.json`和前20项`summary.md`位于同一工件中。尚未进入测试步骤时不生成
+空报告；进入后失败也尝试保留报告。测试命令不加continue-on-error，报告不会覆盖其失败结果。
+
+装载耗时包含编译、进程启动和调度等待，执行时间包含钩子；它们不是CPU耗时。
+并发文件耗时不可相加解释为整轮时长，也不能作为设备FPS或冷启动指标。
+中断事件标记报告未完成；报告仅用于发现下一批优化对象，不设新的耗时门禁。
+
+编排与报告的标准库回归统一由Tooling CI执行：
+`python -m unittest discover -s .github/scripts -p 'test_*.py' -v`。
+报告解析输入协议事件，不通过检索生产代码文本断言配置正确。
+
+编写者：Codex + Tool｜2026-10-19

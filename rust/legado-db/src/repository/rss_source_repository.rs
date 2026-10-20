@@ -1,6 +1,6 @@
 //! RssSource Repository - rssSources 表 CRUD
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use legado_core::models::RssSource;
 
@@ -37,12 +37,11 @@ impl<'a> RssSourceRepository<'a> {
             )
             .map_err(|e| format!("准备查询失败: {e}"))?;
 
-        let sources = stmt
+        let rows = stmt
             .query_map([], row_to_rss_source)
-            .map_err(|e| format!("查询失败: {e}"))?
-            .filter_map(|r| r.ok())
-            .collect();
-        Ok(sources)
+            .map_err(|e| format!("查询失败: {e}"))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| format!("RSS 源行解析失败: {e}"))
     }
 
     /// 根据 URL 查询 RSS 源
@@ -99,8 +98,8 @@ impl<'a> RssSourceRepository<'a> {
         let sources = stmt
             .query_map([], row_to_rss_source)
             .map_err(|e| format!("查询失败: {e}"))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| format!("RSS源行解析失败: {e}"))?;
         Ok(sources)
     }
 
@@ -355,6 +354,39 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         crate::schema::init_schema(&conn).unwrap();
         conn
+    }
+
+    #[test]
+    fn lists_reject_invalid_rows_and_recover_after_removal() {
+        let conn = setup_conn();
+        let repo = RssSourceRepository::new(&conn);
+        let source = RssSource {
+            source_url: "https://rss-policy.test/good".into(),
+            source_name: "完整源😀".into(),
+            custom_order: 2,
+            js_lib: Some("var preserved = 1;".into()),
+            enabled_cookie_jar: None,
+            cache_first: true,
+            single_url: true,
+            ..Default::default()
+        };
+        repo.insert(&source).unwrap();
+        repo.insert(&RssSource {
+            source_url: "https://rss-policy.test/bad".into(),
+            ..source.clone()
+        })
+        .unwrap();
+        conn.execute(
+            "UPDATE rssSources SET articleStyle = 'invalid' WHERE sourceUrl = ?1",
+            ["https://rss-policy.test/bad"],
+        )
+        .unwrap();
+        assert!(repo.find_all().unwrap_err().contains("RSS 源行解析失败"));
+        repo.delete("https://rss-policy.test/bad").unwrap();
+        assert_eq!(
+            serde_json::to_value(repo.find_all().unwrap()).unwrap(),
+            serde_json::to_value(vec![source]).unwrap()
+        );
     }
 
     fn make_source(url: &str, name: &str) -> RssSource {

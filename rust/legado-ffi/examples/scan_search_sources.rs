@@ -20,7 +20,9 @@ fn read_query_arg(arg: &str) -> String {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 4 {
-        eprintln!("用法: scan_search_sources <db_path> <query|@query_file> <report_json> [urls_json_file]");
+        eprintln!(
+            "用法: scan_search_sources <db_path> <query|@query_file> <report_json> [urls_json_file]"
+        );
         std::process::exit(2);
     }
     let db_path = args[1].clone();
@@ -39,8 +41,7 @@ fn main() {
         String::new()
     };
 
-    // 初始化数据库（与 App 启动同路径：record_db_path + init_database）
-    legado_ffi::db_state::record_db_path(&db_path);
+    // 初始化数据库（与 App 启动同路径：init_database（从实际连接提取文件身份））
     let db = match legado_ffi::legado_db::init_database(&db_path) {
         Ok(d) => d,
         Err(e) => {

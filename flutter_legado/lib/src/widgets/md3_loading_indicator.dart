@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// MD3 Expressive 风格波浪加载指示器（参考 Compose Material3 Expressive
 /// 的 LoadingIndicator 视觉签名：环形半径按正弦波调制 + 呼吸幅度 +
 /// 相位流动；UI_MD3_PLAN.md 参考风格目标）
 ///
-/// - 常规：波浪流动 + 幅度呼吸，主色（colorScheme.primary）；
+/// - 常规：五个完整波峰流动 + 轻幅呼吸，主色（colorScheme.primary）；
 /// - 系统减少动画（MediaQuery.disableAnimations）时退化为静态 240° 弧；
 /// - 语义标签经 [Semantics] 暴露给无障碍树。
 class Md3LoadingIndicator extends StatefulWidget {
@@ -44,7 +44,18 @@ class _Md3LoadingIndicatorState extends State<Md3LoadingIndicator>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3600),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 减少动画时停止时钟，避免静态图形仍持续请求动画帧。
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
   }
 
   @override
@@ -97,8 +108,8 @@ class _WavyRingPainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
 
-  /// 波峰数（Expressive 波浪环观感近似）
-  static const double _waves = 4.5;
+  /// 整数波峰使闭合点的位置和切线连续，不产生额外的直线连接段。
+  static const int _waves = 5;
   static const double _tau = math.pi * 2;
 
   _WavyRingPainter({
@@ -111,13 +122,14 @@ class _WavyRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     // 波峰外扩余量，避免裁切
-    final maxAmp = strokeWidth * 1.6;
+    final maxAmp = strokeWidth * 1.15;
     final baseR = size.width / 2 - strokeWidth / 2 - maxAmp;
 
     // 相位流动（波沿环面传播 2 周/循环）
     final phase = progress * _tau * 2;
     // 幅度呼吸：0.55~1.0 慢正弦，体现 Expressive 的弹性律动
-    final amp = maxAmp * (0.55 + 0.45 * (0.5 + 0.5 * math.sin(progress * _tau)));
+    final amp =
+        maxAmp * (0.55 + 0.45 * (0.5 + 0.5 * math.sin(progress * _tau)));
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -175,5 +187,6 @@ class _StaticArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_StaticArcPainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(_StaticArcPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
 }

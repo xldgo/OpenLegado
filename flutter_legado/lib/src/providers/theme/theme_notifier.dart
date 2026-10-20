@@ -1,103 +1,143 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'dart:async';
 
-import '../../services/settings_service.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
+
+import '../../domain/contracts/appearance_settings_repository.dart';
+import '../../domain/models/appearance_settings.dart';
+import '../../features/appearance/appearance_settings_provider.dart';
 import 'theme_state.dart';
 
 export 'theme_state.dart';
 
-/// 全局主题 Riverpod Notifier
-///
-/// 集中管理应用主题模式（亮/暗/跟随系统）与全局字体缩放，对齐 Android 原版
-/// ThemeConfigFragment：
-/// - 主题模式：经 [SettingsService.getThemeMode]/[SettingsService.setThemeMode] 持久化，
-///   通过更新 immutable State 驱动 MaterialApp.themeMode 实现全局实时切换。
-/// - 字体缩放：对齐原版 PreferKey.fontScale 语义——原始值 0 表示跟随系统，
-///   8~16 对应 0.8x~1.6x（见 AppContextWrapper.getFontScale）。
-class ThemeNotifier extends Notifier<ThemeState> {
-  final SettingsService _settings = SettingsService();
+/// 保存成功但原生同步失败，调用方只能重试同步，不能撤销已保存的设置。
+final class AppearanceSyncException implements Exception {
+  AppearanceSyncException(this.cause);
+  final Object cause;
 
-  /// 用户设置动作计数（代数）：load 为异步，凡在 load 装配/执行期间发生的
-  /// 用户设置动作，都使加载结果作废（否则启动早期切换主题/调色板会被
-  /// 旧持久化值覆盖）
-  int _mutationGeneration = 0;
+  @override
+  String toString() => '设置已保存，主题同步失败：$cause';
+}
+
+/// 外观状态投影，持久化、并发和失败回退由共享设置服务拥有。— Codex + UI
+class ThemeNotifier extends Notifier<ThemeState> {
+  int _generation = 0;
 
   @override
   ThemeState build() {
-    // 启动时加载持久化设置（对齐原 main.dart 的 ThemeProvider()..load()）。
-    // 代数在 build 同步快照并传入 load：load 微任务被调度后、开始执行前
-    // 发生的用户操作同样要使其结果作废。
-    final generation = _mutationGeneration;
-    Future.microtask(() => load(expectedGeneration: generation));
-    return const ThemeState();
-  }
-
-  /// 加载已持久化的主题设置（启动时调用一次）
-  ///
-  /// [expectedGeneration]：装配本次加载时的代数快照；加载完成时代数已
-  /// 变化说明期间发生了用户设置动作，本次加载结果作废（内存状态为准）。
-  Future<void> load({int? expectedGeneration}) async {
-    if (!ref.mounted) return;
-    final generation = expectedGeneration ?? _mutationGeneration;
-    final themeMode = await _settings.getThemeMode();
-    final fontScaleRaw = await _settings.getFontScale();
-    final paletteId = await _settings.getPaletteId();
-    if (!ref.mounted || generation != _mutationGeneration) {
-      return;
-    }
-    state = state.copyWith(
-      themeMode: themeMode,
-      fontScaleRaw: fontScaleRaw,
-      paletteId: paletteId,
+    final repository = ref.watch(appearanceSettingsRepositoryProvider);
+    final generation = ++_generation;
+    final subscription = repository.watch().listen(
+      (_) => _publish(repository, generation),
     );
+    ref.onDispose(() => unawaited(subscription.cancel()));
+    unawaited(
+      Future.microtask(() async {
+        try {
+          if (_isCurrent(generation)) await load();
+        } catch (error) {
+          debugPrint('外观设置读取失败，保留当前快照，可重新加载：$error');
+        }
+      }),
+    );
+    return _stateFor(repository.current);
   }
 
-  /// 设置主题模式（全局实时生效 + 持久化）
-  Future<void> setThemeMode(ThemeMode mode) async {
-    if (state.themeMode == mode) return;
-    _mutationGeneration++;
-    state = state.copyWith(themeMode: mode);
-    await _settings.setThemeMode(mode);
+  ThemeState _stateFor(AppearanceSettings settings) => ThemeState(
+    themeMode: switch (settings.themeMode) {
+      AppThemeMode.system => ThemeMode.system,
+      AppThemeMode.light => ThemeMode.light,
+      AppThemeMode.dark => ThemeMode.dark,
+    },
+    fontScaleRaw: settings.fontScaleRaw,
+    paletteId: settings.paletteId,
+  );
+
+  bool _isCurrent(int generation) => ref.mounted && generation == _generation;
+
+  void _publish(AppearanceSettingsRepository repository, int generation) {
+    if (!_isCurrent(generation)) return;
+    final next = _stateFor(repository.current);
+    if (state != next) state = next;
   }
 
-  /// 切换日间/夜间（对齐原版 ReadMenu.fabNightTheme）
-  ///
-  /// 原版：`AppConfig.isNightTheme = !AppConfig.isNightTheme` 后
-  /// `ThemeConfig.applyDayNight(context)`，并将 themeMode 显式写为
-  /// "1"(日)/"2"(夜)。此处同样写入明确的 [ThemeMode.light]/[ThemeMode.dark]，
-  /// 驱动 MaterialApp.themeMode，使书架/我的/底栏等外层即时联动。
-  ///
-  /// [isNight]：当前是否为夜间（通常取 `Theme.of(context).brightness == dark`）。
-  Future<void> toggleDayNight({required bool isNight}) async {
-    await setThemeMode(isNight ? ThemeMode.light : ThemeMode.dark);
+  Future<void> load() async {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      await repository.load();
+    } finally {
+      _publish(repository, generation);
+    }
   }
 
-  /// 设置字体缩放原始值（0 = 跟随系统；8~16 → 0.8x~1.6x）
-  Future<void> setFontScale(int raw) async {
-    if (state.fontScaleRaw == raw) return;
-    _mutationGeneration++;
-    state = state.copyWith(fontScaleRaw: raw);
-    await _settings.setFontScale(raw);
+  /// 恢复备份后重新读取原存储，并刷新现有原生主题快照。
+  Future<void> reload() async {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    final generation = _generation;
+    try {
+      await repository.reload();
+    } finally {
+      _publish(repository, generation);
+    }
+    if (_isCurrent(generation)) await synchronizeRuntime();
   }
 
-  /// 设置内置 MD3 调色板（UI_MD3_PLAN.md Batch 0：全局实时生效 + 持久化；
-  /// 未知 id 由 Md3Palettes.byId 回退默认 def，不写入非法值）
-  Future<void> setPaletteId(String id) async {
-    if (state.paletteId == id) return;
-    _mutationGeneration++;
-    state = state.copyWith(paletteId: id);
-    await _settings.setPaletteId(id);
+  Future<void> synchronizeRuntime() async {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    final sync = ref.read(themeConfigSyncProvider);
+    final generation = _generation;
+    await repository.settled();
+    if (!_isCurrent(generation)) return;
+    try {
+      await sync.synchronizeThemeConfig();
+    } catch (error) {
+      if (_isCurrent(generation)) throw AppearanceSyncException(error);
+    }
   }
+
+  Future<void> _update(
+    AppearanceSettings Function(AppearanceSettings) transform, {
+    bool syncTheme = false,
+  }) async {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    final generation = _generation;
+    final saving = repository.update(transform);
+    _publish(repository, generation);
+    try {
+      await saving;
+    } finally {
+      _publish(repository, generation);
+    }
+    if (syncTheme && _isCurrent(generation)) await synchronizeRuntime();
+  }
+
+  /// 导入时先保存全部普通外观偏好，再执行一次原生同步。
+  Future<void> applyAppearance({ThemeMode? themeMode, String? paletteId}) =>
+      _update(
+        (current) => current.copyWith(
+          themeMode: switch (themeMode) {
+            ThemeMode.system => AppThemeMode.system,
+            ThemeMode.light => AppThemeMode.light,
+            ThemeMode.dark => AppThemeMode.dark,
+            null => current.themeMode,
+          },
+          paletteId: paletteId,
+        ),
+        syncTheme: true,
+      );
+
+  Future<void> setThemeMode(ThemeMode mode) => applyAppearance(themeMode: mode);
+
+  Future<void> toggleDayNight({required bool isNight}) =>
+      setThemeMode(isNight ? ThemeMode.light : ThemeMode.dark);
+
+  Future<void> setFontScale(int raw) =>
+      _update((current) => current.copyWith(fontScaleRaw: raw));
+
+  Future<void> setPaletteId(String id) => applyAppearance(paletteId: id);
 }
 
-/// 全局主题 Notifier Provider
-///
-/// 使用方式：
-/// ```dart
-/// final state = ref.watch(themeNotifierProvider);
-/// ref.read(themeNotifierProvider.notifier).setThemeMode(ThemeMode.dark);
-/// ```
 final themeNotifierProvider = NotifierProvider<ThemeNotifier, ThemeState>(
   ThemeNotifier.new,
 );

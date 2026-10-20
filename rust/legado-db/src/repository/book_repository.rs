@@ -1,6 +1,6 @@
 //! Book Repository - books 表 CRUD
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use legado_core::models::Book;
 use legado_core::{LegadoError, LegadoResult};
@@ -10,6 +10,57 @@ use super::Repository;
 /// 书籍数据访问层
 pub struct BookRepository<'a> {
     conn: &'a Connection,
+}
+
+/// URL迁移可能处于外层事务内；保存点只回滚本次迁移，并恢复原外键延迟设置。
+struct BookUrlRemap<'a> {
+    conn: &'a Connection,
+    deferred: bool,
+    released: bool,
+}
+
+impl<'a> BookUrlRemap<'a> {
+    fn begin(conn: &'a Connection) -> LegadoResult<Self> {
+        let deferred = conn
+            .pragma_query_value(None, "defer_foreign_keys", |row| row.get(0))
+            .map_err(|e| crate::error::database_error("读取外键延迟设置失败", e))?;
+        conn.execute_batch("SAVEPOINT legado_book_url_remap")
+            .map_err(|e| crate::error::database_error("开启书籍迁移保存点失败", e))?;
+        let guard = Self {
+            conn,
+            deferred,
+            released: false,
+        };
+        conn.pragma_update(None, "defer_foreign_keys", true)
+            .map_err(|e| crate::error::database_error("延迟外键校验失败", e))?;
+        Ok(guard)
+    }
+
+    fn commit(mut self) -> LegadoResult<()> {
+        self.conn
+            .execute_batch("RELEASE SAVEPOINT legado_book_url_remap")
+            .map_err(|e| crate::error::database_error("提交书籍迁移失败", e))?;
+        self.released = true;
+        Ok(())
+    }
+}
+
+impl Drop for BookUrlRemap<'_> {
+    fn drop(&mut self) {
+        if !self.released && !self.conn.is_autocommit()
+            && let Err(error) = self.conn.execute_batch(
+                "ROLLBACK TO SAVEPOINT legado_book_url_remap; RELEASE SAVEPOINT legado_book_url_remap;",
+            )
+        {
+            log::error!("回滚书籍URL迁移失败: {error}");
+        }
+        if let Err(error) = self
+            .conn
+            .pragma_update(None, "defer_foreign_keys", self.deferred)
+        {
+            log::error!("恢复外键延迟设置失败: {error}");
+        }
+    }
 }
 
 impl<'a> BookRepository<'a> {
@@ -28,18 +79,18 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE bookUrl = ?1",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let mut rows = stmt
             .query_map(params![book_url], row_to_book)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询失败", e))?;
 
         match rows.next() {
             Some(Ok(book)) => Ok(Some(book)),
-            Some(Err(e)) => Err(LegadoError::Database(format!("行解析失败: {e}"))),
+            Some(Err(e)) => Err(crate::error::database_error("行解析失败", e)),
             None => Ok(None),
         }
     }
@@ -62,18 +113,18 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE originBookUrl = ?1",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let mut rows = stmt
             .query_map(params![origin_book_url], row_to_book)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询失败", e))?;
 
         match rows.next() {
             Some(Ok(book)) => Ok(Some(book)),
-            Some(Err(e)) => Err(LegadoError::Database(format!("行解析失败: {e}"))),
+            Some(Err(e)) => Err(crate::error::database_error("行解析失败", e)),
             None => Ok(None),
         }
     }
@@ -89,18 +140,18 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE name = ?1 AND author = ?2",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let mut rows = stmt
             .query_map(params![name, author], row_to_book)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询失败", e))?;
 
         match rows.next() {
             Some(Ok(book)) => Ok(Some(book)),
-            Some(Err(e)) => Err(LegadoError::Database(format!("行解析失败: {e}"))),
+            Some(Err(e)) => Err(crate::error::database_error("行解析失败", e)),
             None => Ok(None),
         }
     }
@@ -119,16 +170,16 @@ impl<'a> BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books WHERE (type & 1024) = 0 ORDER BY \"order\" ASC",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let books = stmt
             .query_map([], row_to_book)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .map_err(|e| crate::error::database_error("查询失败", e))?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| crate::error::database_error("book_repository行解析失败", e))?;
         Ok(books)
     }
 
@@ -136,7 +187,7 @@ impl<'a> BookRepository<'a> {
     pub fn delete_by_url(&self, book_url: &str) -> LegadoResult<()> {
         self.conn
             .execute("DELETE FROM books WHERE bookUrl = ?1", params![book_url])
-            .map_err(|e| LegadoError::Database(format!("删除失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("删除失败", e))?;
         Ok(())
     }
 
@@ -145,7 +196,7 @@ impl<'a> BookRepository<'a> {
         let count: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))
-            .map_err(|e| LegadoError::Database(format!("计数查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("计数查询失败", e))?;
         Ok(count)
     }
 
@@ -166,7 +217,7 @@ impl<'a> BookRepository<'a> {
                 params![book_url],
                 |row| row.get(0),
             )
-            .map_err(|e| LegadoError::Database(format!("查询 readConfig 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询 readConfig 失败", e))?;
 
         // 2. 解析现有 JSON 或创建新对象
         let mut config: serde_json::Value = current_str
@@ -184,14 +235,14 @@ impl<'a> BookRepository<'a> {
 
         // 4. 写回
         let updated_json = serde_json::to_string(&config)
-            .map_err(|e| LegadoError::Database(format!("序列化 readConfig 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("序列化 readConfig 失败", e))?;
 
         self.conn
             .execute(
                 "UPDATE books SET readConfig = ?1 WHERE bookUrl = ?2",
                 params![updated_json, book_url],
             )
-            .map_err(|e| LegadoError::Database(format!("更新 readConfig 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("更新 readConfig 失败", e))?;
 
         Ok(())
     }
@@ -235,13 +286,13 @@ impl<'a> BookRepository<'a> {
 
         // 4. 写回
         let updated_json = serde_json::to_string(&config)
-            .map_err(|e| LegadoError::Database(format!("序列化 readConfig 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("序列化 readConfig 失败", e))?;
         self.conn
             .execute(
                 "UPDATE books SET readConfig = ?1 WHERE bookUrl = ?2",
                 params![updated_json, book_url],
             )
-            .map_err(|e| LegadoError::Database(format!("更新 playSpeed 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("更新 playSpeed 失败", e))?;
         Ok(())
     }
 
@@ -259,7 +310,7 @@ impl<'a> BookRepository<'a> {
                 "UPDATE books SET tocUrl = ?1 WHERE bookUrl = ?2",
                 params![toc_url, book_url],
             )
-            .map_err(|e| LegadoError::Database(format!("更新 tocUrl 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("更新 tocUrl 失败", e))?;
         Ok(())
     }
 
@@ -295,7 +346,7 @@ impl<'a> BookRepository<'a> {
                 params![total_chapter_num, latest_chapter_title, book_url],
             ),
         };
-        res.map_err(|e| LegadoError::Database(format!("更新目录派生字段失败: {e}")))?;
+        res.map_err(|e| crate::error::database_error("更新目录派生字段失败", e))?;
         Ok(())
     }
 
@@ -326,7 +377,7 @@ impl<'a> BookRepository<'a> {
                     book_url
                 ],
             )
-            .map_err(|e| LegadoError::Database(format!("更新阅读进度失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("更新阅读进度失败", e))?;
         Ok(())
     }
 
@@ -348,7 +399,7 @@ impl<'a> BookRepository<'a> {
                 "UPDATE books SET readConfig = ?1 WHERE bookUrl = ?2",
                 params![saved, book.book_url],
             )
-            .map_err(|e| LegadoError::Database(format!("写回 readConfig 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("写回 readConfig 失败", e))?;
         Ok(())
     }
 
@@ -365,7 +416,7 @@ impl<'a> BookRepository<'a> {
                 |row| row.get(0),
             )
             .optional()
-            .map_err(|e| LegadoError::Database(format!("查询 readConfig 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询 readConfig 失败", e))?;
         Ok(json.flatten())
     }
 
@@ -388,10 +439,10 @@ impl<'a> BookRepository<'a> {
               lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
               durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
               wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-              infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl)
+              infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,
                      ?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,
-                     ?34,?35,?36,?37,?38)",
+                     ?34,?35,?36,?37,?38,?39)",
                 params![
                     item.book_url,
                     item.toc_url,
@@ -432,9 +483,10 @@ impl<'a> BookRepository<'a> {
                     item.cover_origin,
                     // [P2-8] 当前书源详情页地址（空=未换源，回退 book_url）
                     item.origin_book_url,
+                    item.is_private,
                 ],
             )
-            .map_err(|e| LegadoError::Database(format!("插入失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("插入失败", e))?;
         Ok(())
     }
 
@@ -445,39 +497,37 @@ impl<'a> BookRepository<'a> {
             // 防御：同 URL 不应进入冲突路径，直接 REPLACE 字段
             return self.insert_replace(item);
         }
-        // 临时关闭 FK，避免迁移瞬间外键失败；删除旧行时也不会 CASCADE 清 chapters
+        // 先迁移子表，再替换父行；延迟校验期间也不关闭FK，原书目录不会级联删除。
+        let transaction = BookUrlRemap::begin(self.conn)?;
         self.conn
-            .execute_batch("PRAGMA foreign_keys = OFF;")
-            .map_err(|e| LegadoError::Database(format!("关闭外键失败: {e}")))?;
-        let result = (|| -> LegadoResult<()> {
-            self.conn
-                .execute(
-                    "UPDATE chapters SET bookUrl = ?1 WHERE bookUrl = ?2",
-                    params![new_url, old_url],
-                )
-                .map_err(|e| LegadoError::Database(format!("迁移 chapters 失败: {e}")))?;
-            let _ = self.conn.execute(
+            .execute(
+                "UPDATE chapters SET bookUrl = ?1 WHERE bookUrl = ?2",
+                params![new_url, old_url],
+            )
+            .map_err(|e| crate::error::database_error("迁移 chapters 失败", e))?;
+        self.conn
+            .execute(
                 "UPDATE highlights SET bookUrl = ?1 WHERE bookUrl = ?2",
                 params![new_url, old_url],
-            );
-            let _ = self.conn.execute(
+            )
+            .map_err(|e| crate::error::database_error("迁移 highlights 失败", e))?;
+        self.conn
+            .execute(
                 "UPDATE cached_chapters SET book_url = ?1 WHERE book_url = ?2",
                 params![new_url, old_url],
-            );
-            let _ = self.conn.execute(
+            )
+            .map_err(|e| crate::error::database_error("迁移 cached_chapters 失败", e))?;
+        self.conn
+            .execute(
                 "UPDATE download_tasks SET book_url = ?1 WHERE book_url = ?2",
                 params![new_url, old_url],
-            );
-            self.conn
-                .execute("DELETE FROM books WHERE bookUrl = ?1", params![old_url])
-                .map_err(|e| LegadoError::Database(format!("删除冲突书籍失败: {e}")))?;
-            self.insert_replace(item)?;
-            Ok(())
-        })();
+            )
+            .map_err(|e| crate::error::database_error("迁移 download_tasks 失败", e))?;
         self.conn
-            .execute_batch("PRAGMA foreign_keys = ON;")
-            .map_err(|e| LegadoError::Database(format!("恢复外键失败: {e}")))?;
-        result
+            .execute("DELETE FROM books WHERE bookUrl = ?1", params![old_url])
+            .map_err(|e| crate::error::database_error("删除冲突书籍失败", e))?;
+        self.insert_replace(item)?;
+        transaction.commit()
     }
 
     /// 批量更新书籍排序（对齐原版拖拽排序后 updateBook 持久化 order 字段）
@@ -488,18 +538,18 @@ impl<'a> BookRepository<'a> {
         let tx = self
             .conn
             .unchecked_transaction()
-            .map_err(|e| LegadoError::Database(format!("开启排序事务失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("开启排序事务失败", e))?;
         {
             let mut stmt = tx
                 .prepare(r#"UPDATE books SET "order" = ?1 WHERE bookUrl = ?2"#)
-                .map_err(|e| LegadoError::Database(format!("准备排序语句失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("准备排序语句失败", e))?;
             for (book_url, order) in orders {
                 stmt.execute(params![order, book_url])
-                    .map_err(|e| LegadoError::Database(format!("更新排序失败: {e}")))?;
+                    .map_err(|e| crate::error::database_error("更新排序失败", e))?;
             }
         }
         tx.commit()
-            .map_err(|e| LegadoError::Database(format!("提交排序事务失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("提交排序事务失败", e))?;
         Ok(())
     }
 }
@@ -515,16 +565,16 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                         lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
                         durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
                         wordCount, canUpdate, \"order\", originOrder, variable, readConfig, syncTime,
-                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl
+                        infoHtml, tocHtml, downloadUrls, coverOrigin, originBookUrl, isPrivate
                  FROM books ORDER BY \"order\" ASC",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let books = stmt
             .query_map([], row_to_book)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .map_err(|e| crate::error::database_error("查询失败", e))?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| crate::error::database_error("book_repository行解析失败", e))?;
         Ok(books)
     }
 
@@ -547,7 +597,7 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                 |_| Ok(true),
             )
             .optional()
-            .map_err(|e| LegadoError::Database(format!("查询书籍失败: {e}")))?
+            .map_err(|e| crate::error::database_error("查询书籍失败", e))?
             .unwrap_or(false);
 
         if exists {
@@ -557,11 +607,11 @@ impl<'a> Repository<Book> for BookRepository<'a> {
         }
         // D5：二级索引 (name,author) 冲突预检——避免 INSERT OR REPLACE
         // 删掉另一 bookUrl 行并 CASCADE 清空其 chapters。
-        if let Some(conflict) = self.find_by_name_author(&item.name, &item.author)? {
-            if conflict.book_url != item.book_url {
-                self.remap_book_url_preserving_chapters(&conflict.book_url, item)?;
-                return Ok(());
-            }
+        if let Some(conflict) = self.find_by_name_author(&item.name, &item.author)?
+            && conflict.book_url != item.book_url
+        {
+            self.remap_book_url_preserving_chapters(&conflict.book_url, item)?;
+            return Ok(());
         }
         self.insert_replace(item)
     }
@@ -594,8 +644,8 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                     wordCount=?22, canUpdate=?23, \"order\"=?24,
                     originOrder=?25, variable=?26, readConfig=?27, syncTime=?28,
                     infoHtml=?29, tocHtml=?30, downloadUrls=?31, coverOrigin=?32,
-                    originBookUrl=?33
-                 WHERE bookUrl=?34",
+                    originBookUrl=?33, isPrivate=?34
+                 WHERE bookUrl=?35",
                 params![
                     item.toc_url,
                     item.origin,
@@ -631,10 +681,11 @@ impl<'a> Repository<Book> for BookRepository<'a> {
                     item.cover_origin,
                     // [P2-8] 当前书源详情页地址（换源事务写入）
                     item.origin_book_url,
+                    item.is_private,
                     item.book_url,
                 ],
             )
-            .map_err(|e| LegadoError::Database(format!("更新失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("更新失败", e))?;
 
         // 行不存在时退化为插入，保留 upsert 语义（不会误触发级联删除，因为无旧行）。
         // 直接走 insert_replace 而非 self.insert()，与 insert 的 exists 分支互不
@@ -695,6 +746,7 @@ fn row_to_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {
         cover_origin: row.get(36)?,
         // [P2-8] 当前书源下该书的详情页地址（换源事务写入；空=回退 book_url）
         origin_book_url: row.get(37)?,
+        is_private: row.get(38)?,
     })
 }
 
@@ -1114,14 +1166,16 @@ mod tests {
         repo.insert(&replacement).unwrap();
 
         assert_eq!(repo.count().unwrap(), 1);
-        assert!(repo
-            .find_by_url("https://old.example/book")
-            .unwrap()
-            .is_none());
-        assert!(repo
-            .find_by_url("https://new.example/book")
-            .unwrap()
-            .is_some());
+        assert!(
+            repo.find_by_url("https://old.example/book")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            repo.find_by_url("https://new.example/book")
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(
             ch_repo
                 .find_by_book_url("https://new.example/book")
@@ -1130,6 +1184,98 @@ mod tests {
             2,
             "name+author 冲突预检必须保留 chapters"
         );
+    }
+
+    #[test]
+    fn test_conflict_failure_preserves_original_book_and_reuses_connection() {
+        let db = crate::init_in_memory_database().unwrap();
+        let conn = db.connection();
+        let repo = BookRepository::new(conn);
+        repo.insert(&make_book("old", "同名书", "作者")).unwrap();
+        let chapters = crate::BookChapterRepository::new(conn);
+        chapters
+            .insert_batch(&[legado_core::models::BookChapter {
+                url: "chapter".into(),
+                book_url: "old".into(),
+                title: "原章节".into(),
+                ..Default::default()
+            }])
+            .unwrap();
+        conn.execute_batch("CREATE TRIGGER reject_replacement BEFORE INSERT ON books WHEN NEW.bookUrl = 'new' BEGIN SELECT RAISE(ABORT, 'replacement-denied'); END;").unwrap();
+        let error = repo
+            .insert(&make_book("new", "同名书", "作者"))
+            .unwrap_err();
+        assert!(
+            error.to_error_code() == 1004 && error.to_string().contains("replacement-denied"),
+            "底层SQL原因应保留: {error}"
+        );
+        assert!(
+            repo.find_by_url("old").unwrap().is_some(),
+            "替换失败不能删除原书"
+        );
+        assert!(repo.find_by_url("new").unwrap().is_none());
+        assert_eq!(chapters.find_by_book_url("old").unwrap().len(), 1);
+        assert!(chapters.find_by_book_url("new").unwrap().is_empty());
+        assert!(conn.is_autocommit());
+        assert!(
+            conn.pragma_query_value(None, "foreign_keys", |row| row.get::<_, bool>(0))
+                .unwrap()
+        );
+        conn.execute_batch("DROP TRIGGER reject_replacement")
+            .unwrap();
+        repo.insert(&make_book("new", "同名书", "作者")).unwrap();
+        assert_eq!(chapters.find_by_book_url("new").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_conflict_related_update_error_is_not_reported_as_success() {
+        let db = crate::init_in_memory_database().unwrap();
+        let conn = db.connection();
+        let repo = BookRepository::new(conn);
+        repo.insert(&make_book("old", "同名书", "作者")).unwrap();
+        conn.execute_batch("INSERT INTO highlights(time, bookUrl, bookName, bookAuthor, chapterIndex, chapterPos, chapterPosEnd, chapterName, bookText, style, note) VALUES(1,'old','同名书','作者',0,0,1,'','字','','');
+            CREATE TRIGGER reject_highlight_move BEFORE UPDATE ON highlights BEGIN SELECT RAISE(ABORT, 'highlight-move-denied'); END;").unwrap();
+        let error = repo
+            .insert(&make_book("new", "同名书", "作者"))
+            .expect_err("关联数据迁移失败不能返回成功");
+        assert!(error.to_string().contains("highlight-move-denied"));
+        assert!(repo.find_by_url("old").unwrap().is_some());
+        assert_eq!(
+            conn.query_row("SELECT bookUrl FROM highlights WHERE time=1", [], |row| row
+                .get::<_, String>(0))
+                .unwrap(),
+            "old"
+        );
+    }
+
+    #[test]
+    fn test_conflict_savepoint_keeps_outer_transaction_and_foreign_key_settings() {
+        for deferred in [false, true] {
+            let db = crate::init_in_memory_database().unwrap();
+            let conn = db.connection();
+            let repo = BookRepository::new(conn);
+            repo.insert(&make_book("old", "同名书", "作者")).unwrap();
+            let tx = conn.unchecked_transaction().unwrap();
+            conn.pragma_update(None, "defer_foreign_keys", deferred)
+                .unwrap();
+            conn.execute_batch("CREATE TRIGGER reject_replacement BEFORE INSERT ON books WHEN NEW.bookUrl = 'new' BEGIN SELECT RAISE(ABORT, 'replacement-denied'); END;").unwrap();
+            assert!(repo.insert(&make_book("new", "同名书", "作者")).is_err());
+            assert!(repo.find_by_url("old").unwrap().is_some());
+            assert!(!conn.is_autocommit());
+            assert_eq!(
+                conn.pragma_query_value(None, "defer_foreign_keys", |row| row.get::<_, bool>(0))
+                    .unwrap(),
+                deferred
+            );
+            conn.execute_batch("DROP TRIGGER reject_replacement")
+                .unwrap();
+            repo.insert(&make_book("new", "同名书", "作者")).unwrap();
+            assert!(repo.find_by_url("new").unwrap().is_some());
+            assert!(!conn.is_autocommit(), "不能提前提交外层事务");
+            tx.rollback().unwrap();
+            assert!(repo.find_by_url("old").unwrap().is_some());
+            assert!(repo.find_by_url("new").unwrap().is_none());
+        }
     }
 
     /// P2-1：自愈回写用单列 update_toc_url —— 只改 tocUrl，其它列

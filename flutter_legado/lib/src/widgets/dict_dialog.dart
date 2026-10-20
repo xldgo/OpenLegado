@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
-import '../providers/dict/dict_notifier.dart';
+import '../features/dictionary/application/dict_notifier.dart';
 import 'md3_loading_indicator.dart';
 
 /// 词典查询 Dialog（对标原版 `ui/dict/DictDialog`）
@@ -45,7 +45,11 @@ class _DictDialogState extends ConsumerState<DictDialog>
       await notifier.loadRules();
       await notifier.lookup(widget.word);
       if (!mounted) return;
-      final rules = ref.read(dictNotifierProvider).rules;
+      final rules = ref
+          .read(dictNotifierProvider)
+          .rules
+          .where((rule) => rule.enabled)
+          .toList();
       // 本地结果 + 各在线规则各一页（对齐原版 TabLayout）
       _tabController?.dispose();
       setState(() {
@@ -65,9 +69,8 @@ class _DictDialogState extends ConsumerState<DictDialog>
     if (uri == null) return;
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开在线词典')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法打开在线词典')));
       }
     }
   }
@@ -78,7 +81,8 @@ class _DictDialogState extends ConsumerState<DictDialog>
     final scheme = theme.colorScheme;
     final state = ref.watch(dictNotifierProvider);
     final height = MediaQuery.sizeOf(context).height * 0.55;
-    final tabs = <String>['本地', ...state.rules.map((r) => r.name)];
+    final rules = state.rules.where((rule) => rule.enabled).toList();
+    final tabs = <String>['本地', ...rules.map((r) => r.name)];
 
     return SizedBox(
       height: height,
@@ -128,15 +132,14 @@ class _DictDialogState extends ConsumerState<DictDialog>
             child: state.isLoading && state.result == null
                 ? const Center(child: Md3LoadingIndicator())
                 : _tabController == null
-                    ? const Center(child: Md3LoadingIndicator())
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildLocalBody(theme, state),
-                          for (final rule in state.rules)
-                            _buildOnlineBody(theme, rule),
-                        ],
-                      ),
+                ? const Center(child: Md3LoadingIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildLocalBody(theme, state),
+                      for (final rule in rules) _buildOnlineBody(theme, rule),
+                    ],
+                  ),
           ),
         ],
       ),

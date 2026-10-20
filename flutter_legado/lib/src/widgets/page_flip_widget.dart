@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 仿真翻页 Widget（移植自 Kotlin SimulationPageDelegate.kt）
 ///
@@ -188,8 +188,7 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
       if (status == AnimationStatus.completed) {
         _isAnimating = false;
         if (!_isCancel) {
-          widget.onPageTurned
-              ?.call(_direction == _FlipDir.next ? 1 : -1);
+          widget.onPageTurned?.call(_direction == _FlipDir.next ? 1 : -1);
         }
         setState(() {
           _direction = _FlipDir.none;
@@ -206,7 +205,8 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
   void _calcCornerXY(double x, double y) {
     _cornerX = x <= _viewWidth / 2 ? 0 : _viewWidth;
     _cornerY = y <= _viewHeight / 2 ? 0 : _viewHeight;
-    _isRtOrLb = (_cornerX == 0 && _cornerY == _viewHeight) ||
+    _isRtOrLb =
+        (_cornerX == 0 && _cornerY == _viewHeight) ||
         (_cornerY == 0 && _cornerX == _viewWidth);
   }
 
@@ -222,7 +222,8 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
     final middleY = (_touchY + _cornerY) / 2;
 
     // 贝塞尔控制点 1
-    bp.ctrl1X = middleX -
+    bp.ctrl1X =
+        middleX -
         (_cornerY - middleY) * (_cornerY - middleY) / (middleX - _cornerX);
     bp.ctrl1Y = _cornerY;
 
@@ -230,10 +231,10 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
     bp.ctrl2X = _cornerX;
     final f4 = _cornerY - middleY;
     if (f4 == 0) {
-      bp.ctrl2Y = middleY -
-          (_cornerX - middleX) * (_cornerX - middleX) / 0.1;
+      bp.ctrl2Y = middleY - (_cornerX - middleX) * (_cornerX - middleX) / 0.1;
     } else {
-      bp.ctrl2Y = middleY -
+      bp.ctrl2Y =
+          middleY -
           (_cornerX - middleX) * (_cornerX - middleX) / (_cornerY - middleY);
     }
 
@@ -250,9 +251,8 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
         final f2 = _viewWidth * f1 / bp.start1X;
         bp.touchX = (_cornerX - f2).abs();
 
-        final f3 = (_cornerX - bp.touchX).abs() *
-            (_cornerY - _touchY).abs() /
-            f1;
+        final f3 =
+            (_cornerX - bp.touchX).abs() * (_cornerY - _touchY).abs() / f1;
         bp.touchY = (_cornerY - f3).abs();
 
         // 重新计算
@@ -263,11 +263,9 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
         bp.ctrl2X = _cornerX;
         final f5 = _cornerY - my;
         if (f5 == 0) {
-          bp.ctrl2Y =
-              my - (_cornerX - mx) * (_cornerX - mx) / 0.1;
+          bp.ctrl2Y = my - (_cornerX - mx) * (_cornerX - mx) / 0.1;
         } else {
-          bp.ctrl2Y =
-              my - (_cornerX - mx) * (_cornerX - mx) / (_cornerY - my);
+          bp.ctrl2Y = my - (_cornerX - mx) * (_cornerX - mx) / (_cornerY - my);
         }
         bp.start1X = bp.ctrl1X - (_cornerX - bp.ctrl1X) / 2;
       }
@@ -279,8 +277,7 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
 
     // 触点到角点的距离
     bp.touchToCornerDis = math.sqrt(
-      math.pow(bp.touchX - _cornerX, 2) +
-          math.pow(bp.touchY - _cornerY, 2),
+      math.pow(bp.touchX - _cornerX, 2) + math.pow(bp.touchY - _cornerY, 2),
     );
 
     // 贝塞尔结束点（直线交点）
@@ -316,12 +313,8 @@ class _SimulationPageFlipWidgetState extends State<SimulationPageFlipWidget>
     bp.vertex2X = (bp.start2X + 2 * bp.ctrl2X + bp.end2X) / 4;
     bp.vertex2Y = (2 * bp.ctrl2Y + bp.start2Y + bp.end2Y) / 4;
 
-    bp.degrees = math.atan2(
-          bp.ctrl1X - _cornerX,
-          bp.ctrl2Y - _cornerY,
-        ) *
-        180 /
-        math.pi;
+    bp.degrees =
+        math.atan2(bp.ctrl1X - _cornerX, bp.ctrl2Y - _cornerY) * 180 / math.pi;
 
     bp.middleX = (_touchX + _cornerX) / 2;
     bp.middleY = (_touchY + _cornerY) / 2;
@@ -483,16 +476,14 @@ class _SimulationPagePainter extends CustomPainter {
     final path = points.buildCurrentPagePath();
 
     canvas.save();
-    final fullPath3 = ui.Path()..addRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight));
+    final fullPath3 = ui.Path()
+      ..addRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight));
     final diffPath3 = Path.combine(PathOperation.difference, fullPath3, path);
     canvas.clipPath(diffPath3);
 
     // 绘制当前页背景
     final pagePaint = Paint()..color = bgColor;
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, viewWidth, viewHeight),
-      pagePaint,
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight), pagePaint);
     canvas.restore();
   }
 
@@ -515,28 +506,19 @@ class _SimulationPagePainter extends CustomPainter {
     canvas.clipPath(path1);
 
     // 绘制下一页背景
-    final nextPaint = Paint()
-      ..color = bgColor.withValues(alpha: 0.9);
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, viewWidth, viewHeight),
-      nextPaint,
-    );
+    final nextPaint = Paint()..color = bgColor.withValues(alpha: 0.9);
+    canvas.drawRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight), nextPaint);
 
     // 绘制背面阴影（同 Kotlin mBackShadowDrawable）
     canvas.save();
     canvas.translate(points.start1X, points.start1Y);
     canvas.rotate(points.degrees * math.pi / 180);
     canvas.translate(-points.start1X, -points.start1Y);
-    final maxLen = math.sqrt(
-      math.pow(viewWidth, 2) + math.pow(viewHeight, 2),
-    );
+    final maxLen = math.sqrt(math.pow(viewWidth, 2) + math.pow(viewHeight, 2));
     final shadowGradient = ui.Gradient.linear(
       Offset(leftX, points.start1Y),
       Offset(rightX, points.start1Y),
-      [
-        const Color(0x11111111),
-        const Color(0x33333333),
-      ],
+      [const Color(0x11111111), const Color(0x33333333)],
     );
     final shadowPaint = Paint()..shader = shadowGradient;
     canvas.drawRect(
@@ -555,22 +537,20 @@ class _SimulationPagePainter extends CustomPainter {
     // 计算阴影顶点
     final degree = points.isRtOrLb
         ? math.pi / 4 -
-            math.atan2(
-              points.ctrl1Y - points.touchY,
-              points.touchX - points.ctrl1X,
-            )
+              math.atan2(
+                points.ctrl1Y - points.touchY,
+                points.touchX - points.ctrl1X,
+              )
         : math.pi / 4 -
-            math.atan2(
-              points.touchY - points.ctrl1Y,
-              points.touchX - points.ctrl1X,
-            );
+              math.atan2(
+                points.touchY - points.ctrl1Y,
+                points.touchX - points.ctrl1X,
+              );
 
     final d1 = 25.0 * 1.414 * math.cos(degree);
     final d2 = 25.0 * 1.414 * math.sin(degree);
     final sx = points.touchX + d1;
-    final sy = points.isRtOrLb
-        ? points.touchY + d2
-        : points.touchY - d2;
+    final sy = points.isRtOrLb ? points.touchY + d2 : points.touchY - d2;
 
     // 绘制水平方向阴影
     final shadowPath1 = ui.Path();
@@ -582,22 +562,25 @@ class _SimulationPagePainter extends CustomPainter {
 
     canvas.save();
     // Flutter 不支持 clipOp.difference，用 Path.combine 替代
-    final fullPath = ui.Path()..addRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight));
+    final fullPath = ui.Path()
+      ..addRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight));
     final diffPath = Path.combine(PathOperation.difference, fullPath, path0);
-    final clipPath = Path.combine(PathOperation.intersect, diffPath, shadowPath1);
+    final clipPath = Path.combine(
+      PathOperation.intersect,
+      diffPath,
+      shadowPath1,
+    );
     canvas.clipPath(clipPath);
 
     final rotDeg = math.atan2(
-          points.touchX - points.ctrl1X,
-          points.ctrl1Y - points.touchY,
-        );
+      points.touchX - points.ctrl1X,
+      points.ctrl1Y - points.touchY,
+    );
     canvas.translate(points.ctrl1X, points.ctrl1Y);
     canvas.rotate(rotDeg);
     canvas.translate(-points.ctrl1X, -points.ctrl1Y);
 
-    final maxLen = math.sqrt(
-      math.pow(viewWidth, 2) + math.pow(viewHeight, 2),
-    );
+    final maxLen = math.sqrt(math.pow(viewWidth, 2) + math.pow(viewHeight, 2));
 
     final frontShadowL = points.isRtOrLb
         ? ui.Gradient.linear(
@@ -611,14 +594,16 @@ class _SimulationPagePainter extends CustomPainter {
             [const Color(0x00000000), const Color(0x80111111)],
           );
 
-    final leftBound =
-        points.isRtOrLb ? points.ctrl1X : points.ctrl1X - 25;
-    final rightBound =
-        points.isRtOrLb ? points.ctrl1X + 25 : points.ctrl1X + 1;
+    final leftBound = points.isRtOrLb ? points.ctrl1X : points.ctrl1X - 25;
+    final rightBound = points.isRtOrLb ? points.ctrl1X + 25 : points.ctrl1X + 1;
 
     canvas.drawRect(
       Rect.fromLTRB(
-          leftBound, points.ctrl1Y - maxLen, rightBound, points.ctrl1Y),
+        leftBound,
+        points.ctrl1Y - maxLen,
+        rightBound,
+        points.ctrl1Y,
+      ),
       Paint()..shader = frontShadowL,
     );
     canvas.restore();
@@ -632,15 +617,20 @@ class _SimulationPagePainter extends CustomPainter {
     shadowPath2.close();
 
     canvas.save();
-    final fullPath2 = ui.Path()..addRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight));
+    final fullPath2 = ui.Path()
+      ..addRect(Rect.fromLTWH(0, 0, viewWidth, viewHeight));
     final diffPath2 = Path.combine(PathOperation.difference, fullPath2, path0);
-    final clipPath2 = Path.combine(PathOperation.intersect, diffPath2, shadowPath2);
+    final clipPath2 = Path.combine(
+      PathOperation.intersect,
+      diffPath2,
+      shadowPath2,
+    );
     canvas.clipPath(clipPath2);
 
     final rotDeg2 = math.atan2(
-          points.ctrl2Y - points.touchY,
-          points.ctrl2X - points.touchX,
-        );
+      points.ctrl2Y - points.touchY,
+      points.ctrl2X - points.touchX,
+    );
     canvas.translate(points.ctrl2X, points.ctrl2Y);
     canvas.rotate(rotDeg2);
     canvas.translate(-points.ctrl2X, -points.ctrl2Y);
@@ -657,14 +647,11 @@ class _SimulationPagePainter extends CustomPainter {
             [const Color(0x00000000), const Color(0x80111111)],
           );
 
-    final vTop =
-        points.isRtOrLb ? points.ctrl2Y : points.ctrl2Y - 25;
-    final vBottom =
-        points.isRtOrLb ? points.ctrl2Y + 25 : points.ctrl2Y + 1;
+    final vTop = points.isRtOrLb ? points.ctrl2Y : points.ctrl2Y - 25;
+    final vBottom = points.isRtOrLb ? points.ctrl2Y + 25 : points.ctrl2Y + 1;
 
     canvas.drawRect(
-      Rect.fromLTRB(
-          points.ctrl2X - maxLen, vTop, points.ctrl2X, vBottom),
+      Rect.fromLTRB(points.ctrl2X - maxLen, vTop, points.ctrl2X, vBottom),
       Paint()..shader = frontShadowV,
     );
     canvas.restore();
@@ -697,28 +684,28 @@ class _SimulationPagePainter extends CustomPainter {
         ? points.start1X + f3 + 1
         : points.start1X + 1;
 
-    final maxLen = math.sqrt(
-      math.pow(viewWidth, 2) + math.pow(viewHeight, 2),
-    );
+    final maxLen = math.sqrt(math.pow(viewWidth, 2) + math.pow(viewHeight, 2));
 
     final folderShadow = points.isRtOrLb
-        ? ui.Gradient.linear(
-            Offset(foldLeft, 0),
-            Offset(foldRight, 0),
-            [const Color(0x33333333), const Color(0xB0333333)],
-          )
-        : ui.Gradient.linear(
-            Offset(foldLeft, 0),
-            Offset(foldRight, 0),
-            [const Color(0xB0333333), const Color(0x33333333)],
-          );
+        ? ui.Gradient.linear(Offset(foldLeft, 0), Offset(foldRight, 0), [
+            const Color(0x33333333),
+            const Color(0xB0333333),
+          ])
+        : ui.Gradient.linear(Offset(foldLeft, 0), Offset(foldRight, 0), [
+            const Color(0xB0333333),
+            const Color(0x33333333),
+          ]);
 
     canvas.translate(points.start1X, points.start1Y);
     canvas.rotate(points.degrees * math.pi / 180);
     canvas.translate(-points.start1X, -points.start1Y);
     canvas.drawRect(
-      Rect.fromLTRB(foldLeft, points.start1Y, foldRight,
-          points.start1Y + maxLen),
+      Rect.fromLTRB(
+        foldLeft,
+        points.start1Y,
+        foldRight,
+        points.start1Y + maxLen,
+      ),
       Paint()..shader = folderShadow,
     );
 

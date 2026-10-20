@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/widgets/app_progress_indicator.dart';
 import 'package:flutter_legado/src/widgets/contained_loading_indicator.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,16 +30,19 @@ void main() {
   }
 
   group('AppCircularProgressIndicator', () {
-    testWidgets('默认参数：4dp 线宽 + 色走主题槽（color 透传 null）',
-        (tester) async {
+    testWidgets('默认参数：4dp 线宽 + 色走主题槽（color 透传 null）', (tester) async {
       await pumpCircular(tester);
       final indicator = tester.widget<CircularProgressIndicator>(
         find.byType(CircularProgressIndicator),
       );
       expect(indicator.strokeWidth, 4.0);
-      expect(indicator.color, isNull,
-          reason: '默认色 = 组件默认主题槽 colorScheme.primary'
-              '（color 透传 null，保留「null 即主题槽」取证口径）');
+      expect(
+        indicator.color,
+        isNull,
+        reason:
+            '默认色 = 组件默认主题槽 colorScheme.primary'
+            '（color 透传 null，保留「null 即主题槽」取证口径）',
+      );
       expect(indicator.value, isNull, reason: '不传 progress = indeterminate');
     });
 
@@ -51,8 +54,7 @@ void main() {
       expect(indicator.color, const Color(0xFF123456));
     });
 
-    testWidgets('strokeWidth: 2 细环实参透传（B4 线宽口径保留项）',
-        (tester) async {
+    testWidgets('strokeWidth: 2 细环实参透传（B4 线宽口径保留项）', (tester) async {
       await pumpCircular(tester, strokeWidth: 2);
       final indicator = tester.widget<CircularProgressIndicator>(
         find.byType(CircularProgressIndicator),
@@ -65,8 +67,11 @@ void main() {
       final indicator = tester.widget<CircularProgressIndicator>(
         find.byType(CircularProgressIndicator),
       );
-      expect(indicator.value, 0.42,
-          reason: '确定性模式 value 透传（SDK 环 value 即 0~1 比例）');
+      expect(
+        indicator.value,
+        0.42,
+        reason: '确定性模式 value 透传（SDK 环 value 即 0~1 比例）',
+      );
     });
 
     testWidgets('语义标签默认「加载中」', (tester) async {
@@ -107,8 +112,11 @@ void main() {
         find.byType(LinearProgressIndicator),
       );
       expect(indicator.value, isNull, reason: '不传 progress = indeterminate');
-      expect(indicator.color, isNull,
-          reason: '默认色 = 组件默认主题槽 colorScheme.primary');
+      expect(
+        indicator.color,
+        isNull,
+        reason: '默认色 = 组件默认主题槽 colorScheme.primary',
+      );
     });
 
     testWidgets('progress 确定性模式：value 透传 0~1 区间', (tester) async {
@@ -116,8 +124,11 @@ void main() {
       final indicator = tester.widget<LinearProgressIndicator>(
         find.byType(LinearProgressIndicator),
       );
-      expect(indicator.value, 0.6,
-          reason: '确定性模式 value 透传（SDK 线 value 即 0~1 比例）');
+      expect(
+        indicator.value,
+        0.6,
+        reason: '确定性模式 value 透传（SDK 线 value 即 0~1 比例）',
+      );
     });
 
     testWidgets('minHeight 实参透传（换接点保留视觉）', (tester) async {
@@ -138,8 +149,7 @@ void main() {
   });
 
   group('AppContainedLoadingIndicator', () {
-    testWidgets('委托既有 ContainedLoadingIndicator（签名对齐出口）',
-        (tester) async {
+    testWidgets('委托既有 ContainedLoadingIndicator（签名对齐出口）', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

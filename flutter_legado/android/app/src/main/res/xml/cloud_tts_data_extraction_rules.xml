@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设备凭据与密钥包装文件不参与跨设备备份。 -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="legado_cloud_tts.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureKeyStorage:legado_cloud_tts.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="legado_cloud_tts.xml" />
+        <exclude domain="sharedpref" path="FlutterSecureKeyStorage:legado_cloud_tts.xml" />
+    </device-transfer>
+</data-extraction-rules>

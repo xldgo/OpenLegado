@@ -1,11 +1,11 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/bookshelf_manage/bookshelf_manage_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
 
 import '../mocks/mocks.dart';
 
@@ -19,7 +19,7 @@ void main() {
     setUp(() {
       mockApi = MockRustApi();
       container = ProviderContainer(
-        overrides: [bookApiProvider.overrideWithValue(mockApi)],
+        overrides: mergeTestOverrides([...mockApi.overrides]),
       );
       addTearDown(container.dispose);
     });
@@ -30,11 +30,73 @@ void main() {
         container.read(bookshelfManageNotifierProvider.notifier);
 
     void stubBooks(List<Book> books) {
-      when(() => mockApi.getBooks()).thenAnswer((_) async => books);
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenAnswer((_) async => books);
     }
 
     const bookA = Book(bookUrl: 'url-a', name: '书A');
     const bookB = Book(bookUrl: 'url-b', name: '书B');
+
+    test('批量换源跳过本地及同源书，单本失败不阻断其余书籍', () async {
+      const first = Book(
+        bookUrl: 'first',
+        name: '甲',
+        author: '作者',
+        origin: 'old',
+      );
+      const failed = Book(bookUrl: 'failed', name: '乙', origin: 'old');
+      const same = Book(bookUrl: 'same', name: '同源', origin: 'target');
+      const local = Book(
+        bookUrl: 'local',
+        name: '本地',
+        origin: BookType.localTag,
+      );
+      stubBooks([first, failed, same, local]);
+      when(
+        () => mockApi.searchService.preciseSearch(
+          '甲',
+          '作者',
+          sourceUrls: ['target'],
+        ),
+      ).thenAnswer((_) async => const SearchBook(bookUrl: 'target-page'));
+      when(
+        () => mockApi.searchService.preciseSearch(
+          '乙',
+          '',
+          sourceUrls: ['target'],
+        ),
+      ).thenThrow(StateError('无候选'));
+      when(
+        () => mockApi.sourceSwitchService.switchSource(
+          'first',
+          'target',
+          'target-page',
+        ),
+      ).thenAnswer(
+        (_) async =>
+            first.copyWith(origin: 'target', originBookUrl: 'target-page'),
+      );
+      await readNotifier().load();
+      readNotifier().selectAll();
+      final progress = <String>[];
+      final result = await readNotifier().switchSelectedSource(
+        'target',
+        onProgress: (_, _, name) => progress.add(name),
+      );
+      expect(result, (1, 2));
+      expect(progress, ['甲', '乙']);
+      verify(
+        () => mockApi.sourceSwitchService.switchSource(
+          'first',
+          'target',
+          'target-page',
+        ),
+      ).called(1);
+      verifyNever(
+        () => mockApi.sourceSwitchService.switchSource('failed', any(), any()),
+      );
+      expect(readState().isBusy, isFalse);
+    });
 
     test('初始状态为空', () {
       final state = readState();
@@ -55,7 +117,8 @@ void main() {
     });
 
     test('load 异常时兜底并记录 error', () async {
-      when(() => mockApi.getBooks()).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookshelfRepository.getBooks())
+          .thenThrow(Exception('ffi'));
 
       await readNotifier().load();
 
@@ -91,13 +154,14 @@ void main() {
       await readNotifier().load();
       readNotifier().selectAll();
 
-      when(() => mockApi.deleteBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.deleteBook(any()))
+          .thenAnswer((_) async {});
       stubBooks([]); // 删除后列表为空
 
       await readNotifier().removeSelected();
 
-      verify(() => mockApi.deleteBook('url-a')).called(1);
-      verify(() => mockApi.deleteBook('url-b')).called(1);
+      verify(() => mockApi.bookshelfRepository.deleteBook('url-a')).called(1);
+      verify(() => mockApi.bookshelfRepository.deleteBook('url-b')).called(1);
       final state = readState();
       expect(state.isBusy, isFalse);
       expect(state.books, isEmpty);
@@ -109,13 +173,16 @@ void main() {
       await readNotifier().load();
       readNotifier().toggleSelect('url-a');
 
-      when(() => mockApi.setBookGroup(any(), any()))
+      when(() => mockApi.bookshelfRepository.setBookGroup(any(), any()))
           .thenAnswer((_) async {});
 
       await readNotifier().moveSelectedToGroup(4);
 
-      verify(() => mockApi.setBookGroup('url-a', 4)).called(1);
-      verifyNever(() => mockApi.setBookGroup('url-b', any()));
+      verify(() => mockApi.bookshelfRepository.setBookGroup('url-a', 4))
+          .called(1);
+      verifyNever(
+        () => mockApi.bookshelfRepository.setBookGroup('url-b', any()),
+      );
       expect(readState().isBusy, isFalse);
     });
 
@@ -124,12 +191,13 @@ void main() {
       await readNotifier().load();
       readNotifier().selectAll();
 
-      when(() => mockApi.topBook(any())).thenAnswer((_) async {});
+      when(() => mockApi.bookshelfRepository.topBook(any()))
+          .thenAnswer((_) async {});
 
       await readNotifier().pinSelected();
 
-      verify(() => mockApi.topBook('url-a')).called(1);
-      verify(() => mockApi.topBook('url-b')).called(1);
+      verify(() => mockApi.bookshelfRepository.topBook('url-a')).called(1);
+      verify(() => mockApi.bookshelfRepository.topBook('url-b')).called(1);
       expect(readState().isBusy, isFalse);
     });
 
@@ -138,9 +206,9 @@ void main() {
       await readNotifier().moveSelectedToGroup(1);
       await readNotifier().pinSelected();
 
-      verifyNever(() => mockApi.deleteBook(any()));
-      verifyNever(() => mockApi.setBookGroup(any(), any()));
-      verifyNever(() => mockApi.topBook(any()));
+      verifyNever(() => mockApi.bookshelfRepository.deleteBook(any()));
+      verifyNever(() => mockApi.bookshelfRepository.setBookGroup(any(), any()));
+      verifyNever(() => mockApi.bookshelfRepository.topBook(any()));
     });
 
     test('批量删除异常时兜底并记录 error', () async {
@@ -148,7 +216,8 @@ void main() {
       await readNotifier().load();
       readNotifier().selectAll();
 
-      when(() => mockApi.deleteBook(any())).thenThrow(Exception('ffi'));
+      when(() => mockApi.bookshelfRepository.deleteBook(any()))
+          .thenThrow(Exception('ffi'));
 
       await readNotifier().removeSelected();
 

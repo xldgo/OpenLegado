@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// M3 设置卡（对齐 HapeLee SettingCard M3 分支）
 ///
@@ -107,17 +107,17 @@ class OptionCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                size: 32,
-                color: selected ? cs.onSecondaryContainer : cs.primary),
+            Icon(
+              icon,
+              size: 32,
+              color: selected ? cs.onSecondaryContainer : cs.primary,
+            ),
             const SizedBox(height: 8),
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: selected
-                        ? cs.onSecondaryContainer
-                        : cs.onSurface,
-                  ),
+                color: selected ? cs.onSecondaryContainer : cs.onSurface,
+              ),
             ),
           ],
         ),
@@ -155,7 +155,9 @@ class CardTabRow<T> extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(
-                  left: i == 0 ? 0 : 4, right: i == tabs.length - 1 ? 0 : 4),
+                left: i == 0 ? 0 : 4,
+                right: i == tabs.length - 1 ? 0 : 4,
+              ),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(

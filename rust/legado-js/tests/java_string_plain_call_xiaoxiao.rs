@@ -36,10 +36,10 @@
 #![cfg(feature = "quickjs")]
 
 use hex::encode as hex_encode;
+use legado_js::QuickJsEngine;
 use legado_js::engine::JsEngine;
 use legado_js::host_api::current_source;
 use legado_js::sandbox::SandboxConfig;
-use legado_js::QuickJsEngine;
 use sha2::Digest;
 use sha2::Sha256;
 

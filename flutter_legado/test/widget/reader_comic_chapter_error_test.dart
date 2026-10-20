@@ -1,12 +1,19 @@
+import '../fixtures/app_test_api.dart';
+import '../mocks/book_image_fixture.dart';
+
+import 'package:flutter_legado/src/domain/contracts/book_image_repository.dart';
+
+import '../mocks/reading_fixture.dart';
+import '../mocks/book_source_fixture.dart';
+import '../mocks/bookshelf_fixture.dart';
+
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
-import 'package:flutter_legado/src/screens/reader_comic_screen.dart';
-import 'package:flutter_legado/src/services/mock_book_api.dart';
+import 'package:flutter_legado/src/features/reader_comic/presentation/reader_comic_screen.dart';
 import 'package:flutter_legado/src/widgets/error_view.dart';
 
 /// 1x1 透明 PNG（作为 FFI 解码结果 base64，供 Image.memory 渲染）
@@ -72,13 +79,42 @@ Book _e4Book({int chapterIndex = 0}) {
 /// - 记录 getBook / getChapters / fetchChapterContent 调用计数，用于甄别
 ///   「章级重试」（只重拉章节正文）与「书级重试」（重拉书籍信息 + 目录）。
 class _ChapterErrorMockApi extends MockBookApi {
+  late final _fixtureImages = TestBookImageRepository(
+    delegate: super.bookImageRepository,
+    fetch: _fixtureFetchImage,
+  );
+  @override
+  BookImageRepository get bookImageRepository => _fixtureImages;
+
+  late final _fixtureReading = TestReadingRepository(
+    delegate: super.readingRepository,
+    getChapters: _readingGetChapters,
+    fetchChapterContent: _readingFetchChapterContent,
+    getChapterContentFull: _readingGetChapterContentFull,
+  );
+  @override
+  TestReadingRepository get readingRepository => _fixtureReading;
+
+  late final _fixtureSources = TestBookSourceRepository(
+    delegate: super.bookSourceRepository,
+    getBookSources: _fixtureGetBookSources,
+  );
+  @override
+  TestBookSourceRepository get bookSourceRepository => _fixtureSources;
+
+  late final _fixtureShelf = TestBookshelfRepository(
+    delegate: super.bookshelfRepository,
+    getBook: _fixtureGetBook,
+  );
+  @override
+  TestBookshelfRepository get bookshelfRepository => _fixtureShelf;
+
   _ChapterErrorMockApi({
     required this.book,
     required this.chapters,
     Map<String, List<String>>? contentByCall,
-    Set<String> failFirstCallFor = const {},
-  })  : _contentByCall = contentByCall ?? const {},
-        _failFirstCallFor = failFirstCallFor;
+    this._failFirstCallFor = const {},
+  }) : _contentByCall = contentByCall ?? const {};
 
   final Book book;
   final List<BookChapter> chapters;
@@ -93,8 +129,7 @@ class _ChapterErrorMockApi extends MockBookApi {
   final Map<String, int> contentCalls = {};
   final Map<String, int> _counts = {};
 
-  @override
-  Future<List<BookSource>> getBookSources() async {
+  Future<List<BookSource>> _fixtureGetBookSources() async {
     // 提供与书籍 origin 匹配的书源：图片渲染走 FFI 解码链路
     //（_DecodedComicImage → fetchImageWithDecode，桩返回 1x1 PNG）
     return [
@@ -115,20 +150,17 @@ class _ChapterErrorMockApi extends MockBookApi {
     ];
   }
 
-  @override
-  Future<Book?> getBook(String bookUrl) async {
+  Future<Book?> _fixtureGetBook(String bookUrl) async {
     getBookCalls++;
     return book;
   }
 
-  @override
-  Future<List<BookChapter>> getChapters(String bookUrl) async {
+  Future<List<BookChapter>> _readingGetChapters(String bookUrl) async {
     getChaptersCalls++;
     return chapters;
   }
 
-  @override
-  Future<String> fetchChapterContent(
+  Future<String> _readingFetchChapterContent(
     String bookUrl,
     String chapterUrl,
     String sourceUrl,
@@ -146,13 +178,14 @@ class _ChapterErrorMockApi extends MockBookApi {
     return count <= queue.length ? queue[count - 1] : queue.last;
   }
 
-  @override
-  Future<String> fetchImageWithDecode(String url, String sourceJson) async {
+  Future<String> _fixtureFetchImage(String url, String sourceJson) async {
     return jsonEncode({'base64': _kPngBase64, 'len': 68});
   }
 
-  @override
-  Future<String> getChapterContentFull(String bookUrl, int chapterIndex) async {
+  Future<String> _readingGetChapterContentFull(
+    String bookUrl,
+    int chapterIndex,
+  ) async {
     return '预载内容 章节 $chapterIndex';
   }
 }
@@ -170,15 +203,14 @@ Widget _buildApp(ProviderContainer container) {
 /// widget 测试的 fake async 里 `pumpAndSettle` 无法让图片获得真实高度
 /// （同 reader_comic_progress_preload_test 先例）
 Future<void> _settleWithImageDecode(WidgetTester tester) async {
-  await tester.runAsync(() => Future<void>.delayed(
-    const Duration(milliseconds: 300),
-  ));
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 300)),
+  );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('E4 非卷章 0 图：进入错误态（正文没有图片）+ 章级重试恢复',
-      (tester) async {
+  testWidgets('E4 非卷章 0 图：进入错误态（正文没有图片）+ 章级重试恢复', (tester) async {
     const ch2 = 'https://manga.example.com/comic/e4/ch/2';
     final api = _ChapterErrorMockApi(
       book: _e4Book(chapterIndex: 1),
@@ -191,7 +223,7 @@ void main() {
       },
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -203,8 +235,7 @@ void main() {
     // MangaChapterPageLoader L36-38 同条件 throw → Failed 全屏错误 + 重试）
     expect(find.byType(ErrorView), findsOneWidget);
     expect(find.text('正文没有图片'), findsOneWidget);
-    expect(find.text('暂无图片'), findsNothing,
-        reason: '非卷章 0 图应进错误态，而非「暂无图片」导航页');
+    expect(find.text('暂无图片'), findsNothing, reason: '非卷章 0 图应进错误态，而非「暂无图片」导航页');
 
     // 点「重试」：章级重试（只重拉章节正文，不重拉书籍信息/目录），恢复出图
     await tester.tap(find.text('重试'));
@@ -218,8 +249,7 @@ void main() {
     expect(find.byType(Image, skipOffstage: false), findsWidgets);
   });
 
-  testWidgets('E4 卷章（isVolume）0 图：显示章节标题分隔页（非错误、非暂无图片）',
-      (tester) async {
+  testWidgets('E4 卷章（isVolume）0 图：显示章节标题分隔页（非错误、非暂无图片）', (tester) async {
     const vol = 'https://manga.example.com/comic/e4/vol/2';
     final api = _ChapterErrorMockApi(
       book: _e4Book(chapterIndex: 1),
@@ -229,7 +259,7 @@ void main() {
       },
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 
@@ -240,15 +270,17 @@ void main() {
     // ReaderLoading 分隔页、标题=章名；参考版 L452-460 ChapterEdge
     // "volume:..." message=chapterTitle）：显示章节标题，非错误态
     expect(find.byType(ErrorView), findsNothing);
-    expect(find.text('暂无图片'), findsNothing,
-        reason: '卷章 0 图应显示标题分隔页，而非误导性的「暂无图片」');
+    expect(
+      find.text('暂无图片'),
+      findsNothing,
+      reason: '卷章 0 图应显示标题分隔页，而非误导性的「暂无图片」',
+    );
     expect(find.text('第一卷'), findsOneWidget, reason: '分隔页显示章节标题');
     // 分隔页保留章节导航（用户需跳过分隔章继续阅读）
     expect(find.text('下一章'), findsOneWidget);
   });
 
-  testWidgets('E4 章节正文获取失败：错误态 + 章级重试（非书级重载）',
-      (tester) async {
+  testWidgets('E4 章节正文获取失败：错误态 + 章级重试（非书级重载）', (tester) async {
     const ch2 = 'https://manga.example.com/comic/e4/ch/2';
     final api = _ChapterErrorMockApi(
       book: _e4Book(chapterIndex: 1),
@@ -259,7 +291,7 @@ void main() {
       failFirstCallFor: {ch2},
     );
     final container = ProviderContainer(
-      overrides: [bookApiProvider.overrideWithValue(api)],
+      overrides: mergeTestOverrides([...api.overrides]),
     );
     addTearDown(container.dispose);
 

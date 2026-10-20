@@ -1,6 +1,6 @@
-//! 业务逻辑 API 模块
+//! 宿主 API 适配模块
 //!
-//! 各子模块实现具体的业务操作，由 bridge.rs 的 FFI 函数调用。
+//! 各子模块装配资源、转换参数并调用Engine服务/仓储/纯算法，由ffi.rs导出到Flutter。
 
 pub mod archive_import_api;
 pub mod audio_api;
@@ -17,6 +17,7 @@ pub mod cache_api;
 pub mod cache_download_api;
 /// [cbz 批 B | 2026-10-03] CBZ 本地漫画页读取（E9 参考版扩展，用户已授权）
 pub mod cbz_api;
+pub(crate) mod chapter_content;
 pub mod config_api;
 pub mod cover_api;
 pub mod dict_api;
@@ -25,6 +26,7 @@ pub mod explore_api;
 pub mod explore_info_map;
 pub mod highlight_api;
 pub mod http_tts_api;
+pub mod http_tts_runtime;
 pub mod image_api;
 pub mod image_cache_api;
 pub mod js_source_config_api;
@@ -32,6 +34,8 @@ pub mod log_api;
 pub mod net_api;
 pub mod pay_action_api;
 pub mod pre_update;
+pub mod privacy_api;
+pub mod read_aloud_voice_api;
 pub mod read_record_api;
 pub mod reader;
 pub mod replace_rule_api;
@@ -53,8 +57,8 @@ pub mod source_login_v1_api;
 pub mod source_login_v2_api;
 pub mod source_rate_limit;
 pub mod source_switch;
+pub mod tts_cache_api;
 pub mod tts_speak_api;
-pub mod txt_search_api;
 pub mod verification_api;
 /// [V-B1 | 2026-10-05] 视频弹幕数据链（契约 §2.49：查询面 + 抓取链落库 sink）
 pub mod video_api;
@@ -69,3 +73,8 @@ mod s0_fixture_tests;
 /// [回归 2026-09-17] get_chapters_with_vars「已解析目录页」语义（方案 A）
 #[cfg(test)]
 mod toc_no_rederive_tests;
+
+pub mod cloud_tts_api;
+
+#[cfg(test)]
+mod source_task_fixture;

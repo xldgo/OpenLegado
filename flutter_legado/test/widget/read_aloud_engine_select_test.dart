@@ -1,3 +1,9 @@
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart';
+
+import '../fixtures/app_test_api.dart';
+
+import 'package:flutter_legado/src/domain/contracts/cloud_tts_repository.dart';
+import 'package:flutter_legado/src/features/read_aloud/cloud_tts_providers.dart';
 // P0 缺陷回归：朗读条引擎选择器（2026-10-03）
 //
 // 背景：选择器曾把 '名称,URL' 复合串存入 TtsConfig.engineUrl，Rust tts_speak
@@ -6,21 +12,22 @@
 //
 // 本用例走真实交互路径（点开引擎对话框 → 选中引擎），断言：
 // 1) 选中后 config.engineUrl == engine.url（不含逗号）；
-// 2) 重开对话框：当前引擎按裸 URL 匹配高亮；
+// 2) 重开对话框：当前 URL 映射到稳定引擎 ID 并高亮；
 // 3) 存量「名称,URL」形态也能正确高亮（显示侧归一）。
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide Provider;
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/audio/audio_notifier.dart';
-import 'package:flutter_legado/src/providers/providers.dart';
+import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
+import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
 
 import '../mocks/mocks.dart';
+
+class _CloudRepository extends Mock implements CloudTtsRepository {}
 
 void main() {
   setUpAll(registerFallbacks);
@@ -39,16 +46,20 @@ void main() {
     audioService = MockAudioService();
     fakePlayer = FakeStreamAudioPlayer();
     container = ProviderContainer(
-      overrides: [
-        bookApiProvider.overrideWithValue(api),
+      overrides: mergeTestOverrides([
+        ...api.overrides,
         streamAudioPlayerProvider.overrideWithValue(fakePlayer),
         audioServiceProvider.overrideWithValue(audioService),
-      ],
+        cloudTtsRepositoryProvider.overrideWithValue(api.cloudTtsRepository),
+      ]),
     );
     addTearDown(container.dispose);
 
-    when(() => api.getConfig(any())).thenAnswer((_) async => null);
-    when(() => api.getHttpTts()).thenAnswer(
+    when(() => api.configRepository.getConfig(any()))
+        .thenAnswer((_) async => null);
+    when(() => api.configRepository.setConfig(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => api.httpTtsRepository.getHttpTts()).thenAnswer(
       (_) async => [const HttpTts(id: 1, name: engineName, url: engineUrl)],
     );
     when(() => audioService.dispose()).thenAnswer((_) async {});
@@ -103,11 +114,44 @@ void main() {
     await settleSnackBar(tester);
   });
 
-  testWidgets('重开对话框：当前引擎按裸 URL 匹配高亮', (tester) async {
+  testWidgets('控制条挂载和重开不重置当前语速或写配置', (tester) async {
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(speed: 1.8, persistBookSpeed: false);
     await pumpBar(tester);
-    container.read(audioNotifierProvider.notifier).updateConfig(
-          engineUrl: engineUrl,
-        );
+    expect(container.read(audioNotifierProvider).config.speed, 1.8);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBar(tester);
+    expect(container.read(audioNotifierProvider).config.speed, 1.8);
+    verifyNever(() => api.configRepository.setConfig(any(), any()));
+  });
+
+  testWidgets('没有 HTTP 引擎时可选择系统 TTS，并保存固定标识', (tester) async {
+    when(() => api.httpTtsRepository.getHttpTts()).thenAnswer((_) async => []);
+    await pumpBar(tester);
+    await openEngineDialog(tester);
+    expect(find.text('系统 TTS'), findsOneWidget);
+    await tester.tap(find.text('系统 TTS'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(audioNotifierProvider).config.engineUrl,
+      systemTtsEngineUrl,
+    );
+    verify(
+      () => api.configRepository.setConfig(
+        kTtsEngineConfigKey,
+        systemTtsEngineUrl,
+      ),
+    ).called(1);
+    verifyNever(() => api.httpTtsRepository.addHttpTts(any()));
+    await settleSnackBar(tester);
+  });
+
+  testWidgets('重开对话框：当前 URL 映射到稳定引擎 ID 并高亮', (tester) async {
+    await pumpBar(tester);
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(engineUrl: engineUrl);
     await tester.pump();
 
     await openEngineDialog(tester);
@@ -115,7 +159,7 @@ void main() {
     final group = tester.widget<RadioGroup<String>>(
       find.byType(RadioGroup<String>),
     );
-    expect(group.groupValue, engineName);
+    expect(group.groupValue, 'id:1');
 
     // 关闭对话框：点选当前项（幂等，仍写入裸 URL）
     await tester.tap(find.text(engineName));
@@ -125,9 +169,9 @@ void main() {
 
   testWidgets('点击已选中的引擎项：对话框关闭（已项不再吞点击）', (tester) async {
     await pumpBar(tester);
-    container.read(audioNotifierProvider.notifier).updateConfig(
-          engineUrl: engineUrl,
-        );
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(engineUrl: engineUrl);
     await tester.pump();
 
     await openEngineDialog(tester);
@@ -144,9 +188,9 @@ void main() {
 
   testWidgets('存量「名称,URL」形态：显示侧归一并正确高亮', (tester) async {
     await pumpBar(tester);
-    container.read(audioNotifierProvider.notifier).updateConfig(
-          engineUrl: '$engineName,$engineUrl',
-        );
+    container
+        .read(audioNotifierProvider.notifier)
+        .updateConfig(engineUrl: '$engineName,$engineUrl');
     await tester.pump();
 
     await openEngineDialog(tester);
@@ -154,10 +198,57 @@ void main() {
     final group = tester.widget<RadioGroup<String>>(
       find.byType(RadioGroup<String>),
     );
-    expect(group.groupValue, engineName);
+    expect(group.groupValue, 'id:1');
 
     // 关闭对话框：RadioGroup 对已选中项不再回调 onChanged，点遮罩收起
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
+  });
+  testWidgets('云端选择复用全局引擎设置，重开仍显示选中', (tester) async {
+    await api.cloudTtsRepository.save(
+      const CloudTtsEngine(
+        id: 'fixture',
+        name: '云端测试',
+        credentialKey: 'cloud-tts:fixture:key',
+      ),
+    );
+    await pumpBar(tester);
+    await openEngineDialog(tester);
+    await tester.tap(find.text('云端测试'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(audioNotifierProvider).config.engineUrl,
+      'cloud://fixture',
+    );
+    await settleSnackBar(tester);
+    await openEngineDialog(tester);
+    expect(
+      tester
+          .widget<RadioGroup<String>>(find.byType(RadioGroup<String>))
+          .groupValue,
+      'cloud://fixture',
+    );
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+  });
+  testWidgets('云端列表失败不阻断 HTTP 引擎选择', (tester) async {
+    final repository = _CloudRepository();
+    when(repository.list).thenThrow(StateError('fixture 云端读取失败'));
+    container.updateOverrides(
+      mergeTestOverrides([
+        ...api.overrides,
+        streamAudioPlayerProvider.overrideWithValue(fakePlayer),
+        audioServiceProvider.overrideWithValue(audioService),
+        cloudTtsRepositoryProvider.overrideWithValue(repository),
+      ]),
+    );
+    await pumpBar(tester);
+    await openEngineDialog(tester);
+    expect(find.text(engineName), findsOneWidget);
+    await tester.tap(find.text(engineName));
+    await tester.pumpAndSettle();
+    expect(container.read(audioNotifierProvider).config.engineUrl, engineUrl);
+    await settleSnackBar(tester);
+    expect(tester.takeException(), isNull);
   });
 }

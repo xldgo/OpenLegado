@@ -1,8 +1,14 @@
+import 'dart:async';
+
+import 'bounded_log_writer.dart';
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../domain/contracts/backup_settings_repository.dart';
 
 /// 日志条目（对应 Android 原版 [`AppLog`](https://github.com/PAPro-Nightmare/LegadoTeam/blob/main/app/src/main/java/io/legado/app/help/AppLog.kt)）中的 Triple
 class LogEntry {
@@ -47,6 +53,14 @@ class CrashLogService {
 
   /// HTTP 日志文件
   File? _httpLogFile;
+  BoundedLogWriter? _messageWriter, _httpWriter;
+  final _backups = <Future<void>>{};
+
+  Future<void> flush() async {
+    await _messageWriter?.flush();
+    await _httpWriter?.flush();
+    await Future.wait(_backups.toList());
+  }
 
   /// SharedPreferences 键：上次是否崩溃
   static const _keyLastCrash = 'crash_last_crash';
@@ -57,8 +71,8 @@ class CrashLogService {
   /// SharedPreferences 键：是否记录 HTTP 日志（对应 Android 原版 AppConfig.recordHttpLog）
   static const _keyRecordHttpLog = 'crash_record_http_log';
 
-  /// SharedPreferences 键：备份/导出路径（对应 Android 原版 AppConfig.backupPath）
-  static const _keyBackupPath = 'app_backup_path';
+  /// 目录由备份仓储提供，日志服务只执行文件操作。— Codex + UI
+  BackupSettingsRepository? _backupSettings;
 
   /// SharedPreferences 键：是否记录堆转储（对应 Android 原版 AppConfig.recordHeapDump）
   static const _keyRecordHeapDump = 'crash_record_heap_dump';
@@ -91,11 +105,19 @@ class CrashLogService {
   ///
   /// 使用 [getApplicationDocumentsDirectory] 下的 `crash_log.txt` 作为崩溃日志，
   /// `app_log.txt` 作为普通消息日志。
-  Future<void> init() async {
+  Future<void> init({required BackupSettingsRepository backupSettings}) async {
+    await _messageWriter?.close();
+    await _httpWriter?.close();
+    _backupSettings = backupSettings;
     final dir = await getApplicationDocumentsDirectory();
     _crashLogFile = File('${dir.path}/crash_log.txt');
     _messageLogFile = File('${dir.path}/app_log.txt');
     _httpLogFile = File('${dir.path}/http_log.txt');
+    _messageWriter = BoundedLogWriter(
+      _messageLogFile!,
+      maxFileBytes: _maxLogSize,
+    );
+    _httpWriter = BoundedLogWriter(_httpLogFile!, maxFileBytes: _maxLogSize);
 
     // 从持久化存储恢复上次崩溃标记
     final prefs = await SharedPreferences.getInstance();
@@ -203,7 +225,9 @@ class CrashLogService {
   /// 软性告警只写普通日志、不写崩溃记录、不置崩溃标记（见 [logError]）。
   @visibleForTesting
   static bool isSoftWarning(Object error) {
-    final String message = error is FlutterError ? error.message : error.toString();
+    final String message = error is FlutterError
+        ? error.message
+        : error.toString();
     return _softWarningMarkers.any(message.contains);
   }
 
@@ -249,48 +273,48 @@ class CrashLogService {
     }
 
     // 同时写入带时间戳的崩溃日志到备份目录（对应 Android 原版 saveCrashInfo2File）
-    _saveCrashLogToBackup(buffer.toString());
+    final backup = _saveCrashLogToBackup(buffer.toString());
+    _backups.add(backup);
+    unawaited(backup.whenComplete(() => _backups.remove(backup)));
   }
 
   /// 将崩溃日志保存到备份目录的 crash 子目录
   ///
   /// 文件名格式：`crash-yyyy-MM-dd-HH-mm-ss-时间戳.log`
-  void _saveCrashLogToBackup(String crashLog) {
+  Future<void> _saveCrashLogToBackup(String crashLog) async {
     try {
-      final prefs = SharedPreferences.getInstance();
-      prefs.then((sp) {
-        final backupPath = sp.getString(_keyBackupPath);
-        if (backupPath == null || backupPath.isEmpty) return;
+      final backupPath = await _readBackupPath();
+      if (backupPath == null) return;
 
-        final crashDir = Directory('$backupPath/crash');
-        if (!crashDir.existsSync()) {
-          crashDir.createSync(recursive: true);
-        }
+      final crashDir = Directory('$backupPath/crash');
+      if (!await crashDir.exists()) {
+        await crashDir.create(recursive: true);
+      }
 
-        final now = DateTime.now();
-        final timestamp = now.millisecondsSinceEpoch;
-        final timeStr = _formatTimeForFileName(now);
-        final fileName = 'crash-$timeStr-$timestamp.log';
-        File('${crashDir.path}/$fileName').writeAsStringSync(crashLog);
+      final now = DateTime.now();
+      final timestamp = now.millisecondsSinceEpoch;
+      final timeStr = _formatTimeForFileName(now);
+      final fileName = 'crash-$timeStr-$timestamp.log';
+      await File('${crashDir.path}/$fileName').writeAsString(crashLog);
 
-        // 清理超过 7 天的旧崩溃日志
-        _cleanOldCrashLogs(crashDir);
-      });
+      // 清理超过 7 天的旧崩溃日志
+      await _cleanOldCrashLogs(crashDir);
     } catch (_) {
       // 备份写入失败时静默忽略
     }
   }
 
   /// 清理超过保留天数的旧崩溃日志文件
-  void _cleanOldCrashLogs(Directory crashDir) {
+  Future<void> _cleanOldCrashLogs(Directory crashDir) async {
     try {
       final expireTime = DateTime.now()
           .subtract(const Duration(days: _crashLogRetainDays))
           .millisecondsSinceEpoch;
-      for (final entity in crashDir.listSync()) {
+      await for (final entity in crashDir.list()) {
         if (entity is File && entity.path.endsWith('.log')) {
-          if (entity.lastModifiedSync().millisecondsSinceEpoch < expireTime) {
-            entity.deleteSync();
+          if ((await entity.lastModified()).millisecondsSinceEpoch <
+              expireTime) {
+            await entity.delete();
           }
         }
       }
@@ -335,15 +359,15 @@ class CrashLogService {
 
   /// 获取备份目录中所有崩溃日志文件列表（按文件名降序，最新的在前）
   Future<List<CrashLogItem>> listCrashLogs() async {
-    final backupPath = await getBackupPath();
+    final backupPath = await _readBackupPath();
     if (backupPath == null) return [];
 
     final crashDir = Directory('$backupPath/crash');
-    if (!crashDir.existsSync()) return [];
+    if (!await crashDir.exists()) return [];
 
     final items = <CrashLogItem>[];
     try {
-      for (final entity in crashDir.listSync()) {
+      await for (final entity in crashDir.list()) {
         if (entity is File && entity.path.endsWith('.log')) {
           final name = entity.uri.pathSegments.last;
           items.add(CrashLogItem(name, entity.path));
@@ -362,7 +386,7 @@ class CrashLogService {
   /// [fileName] 崩溃日志文件名
   /// 返回日志文本，文件不存在则返回 null
   Future<String?> readCrashLog(String fileName) async {
-    final backupPath = await getBackupPath();
+    final backupPath = await _readBackupPath();
     if (backupPath == null) return null;
 
     final file = File('$backupPath/crash/$fileName');
@@ -385,15 +409,15 @@ class CrashLogService {
     await clearCrashLog();
 
     // 删除备份目录中的崩溃日志
-    final backupPath = await getBackupPath();
+    final backupPath = await _readBackupPath();
     if (backupPath == null) return;
 
     final crashDir = Directory('$backupPath/crash');
     try {
-      if (crashDir.existsSync()) {
-        for (final entity in crashDir.listSync()) {
+      if (await crashDir.exists()) {
+        await for (final entity in crashDir.list()) {
           if (entity is File && entity.path.endsWith('.log')) {
-            entity.deleteSync();
+            await entity.delete();
           }
         }
       }
@@ -402,23 +426,9 @@ class CrashLogService {
     }
   }
 
-  // ===== 备份路径配置（对应 Android 原版 AppConfig.backupPath） =====
-
-  /// 获取备份/导出路径
-  Future<String?> getBackupPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_keyBackupPath);
-    return (path == null || path.isEmpty) ? null : path;
-  }
-
-  /// 设置备份/导出路径
-  Future<void> setBackupPath(String? value) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (value == null || value.isEmpty) {
-      await prefs.remove(_keyBackupPath);
-    } else {
-      await prefs.setString(_keyBackupPath, value);
-    }
+  Future<String?> _readBackupPath() async {
+    final path = (await _backupSettings?.load())?.backupPath;
+    return path == null || path.isEmpty ? null : path;
   }
 
   // ===== 日志开关（对应 Android 原版 AppConfig.recordLog / recordHttpLog） =====
@@ -468,7 +478,8 @@ class CrashLogService {
   void logMemoryInfo() {
     final currentRss = ProcessInfo.currentRss;
     final maxRss = ProcessInfo.maxRss;
-    final info = '内存信息: currentRss=${_formatBytes(currentRss)}, '
+    final info =
+        '内存信息: currentRss=${_formatBytes(currentRss)}, '
         'maxRss=${_formatBytes(maxRss)}';
     put(info);
     logMessage('[OOM] $info');
@@ -496,7 +507,10 @@ class CrashLogService {
     if (_memoryLogs.length >= _maxMemoryLogs) {
       _memoryLogs.removeLast();
     }
-    _memoryLogs.insert(0, LogEntry(DateTime.now().millisecondsSinceEpoch, message, error));
+    _memoryLogs.insert(
+      0,
+      LogEntry(DateTime.now().millisecondsSinceEpoch, message, error),
+    );
 
     // 输出到调试控制台
     if (error != null) {
@@ -528,6 +542,7 @@ class CrashLogService {
   /// 便于经系统分享诊断。对应 Android 原版日志分享（`menu_log`）。
   /// 无任何日志内容时返回 null。
   Future<String?> exportLogsToFile() async {
+    await flush();
     final buffer = StringBuffer()
       ..writeln('===== Legado 应用日志 =====')
       ..writeln('导出时间: ${_formatTime(DateTime.now())}')
@@ -540,8 +555,9 @@ class CrashLogService {
       hasContent = true;
       buffer.writeln('----- 内存日志（最新 ${_memoryLogs.length} 条）-----');
       for (final entry in _memoryLogs) {
-        final time =
-            _formatTime(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
+        final time = _formatTime(
+          DateTime.fromMillisecondsSinceEpoch(entry.timestamp),
+        );
         buffer.writeln('[$time] ${entry.message}');
         if (entry.error != null) {
           buffer.writeln('  异常: ${entry.error}');
@@ -552,8 +568,8 @@ class CrashLogService {
 
     // 崩溃日志文件
     final crashFile = _crashLogFile;
-    if (crashFile != null && crashFile.existsSync()) {
-      final content = crashFile.readAsStringSync();
+    if (crashFile != null && await crashFile.exists()) {
+      final content = await crashFile.readAsString();
       if (content.isNotEmpty) {
         hasContent = true;
         buffer
@@ -564,8 +580,8 @@ class CrashLogService {
 
     // 消息日志文件
     final msgFile = _messageLogFile;
-    if (msgFile != null && msgFile.existsSync()) {
-      final content = msgFile.readAsStringSync();
+    if (msgFile != null && await msgFile.exists()) {
+      final content = await msgFile.readAsString();
       if (content.isNotEmpty) {
         hasContent = true;
         buffer
@@ -577,7 +593,8 @@ class CrashLogService {
     if (!hasContent) return null;
 
     final dir = await getTemporaryDirectory();
-    final fileName = 'legado_logs_${_formatTimeForFileName(DateTime.now())}.txt';
+    final fileName =
+        'legado_logs_${_formatTimeForFileName(DateTime.now())}.txt';
     final file = File('${dir.path}/$fileName');
     await file.writeAsString(buffer.toString());
     return file.path;
@@ -599,16 +616,7 @@ class CrashLogService {
     final line =
         '[${_formatTime(DateTime.now())}] $method $url -> $statusCode (${durationMs}ms)\n';
 
-    try {
-      // 检查日志文件大小，超过上限时清空重写
-      if (file.existsSync() && file.lengthSync() > _maxLogSize) {
-        file.writeAsStringSync(line);
-      } else {
-        file.writeAsStringSync(line, mode: FileMode.append);
-      }
-    } catch (_) {
-      // 写入失败时静默忽略
-    }
+    _httpWriter?.add(line);
   }
 
   // ===== 普通消息日志 =====
@@ -622,19 +630,8 @@ class CrashLogService {
 
     final line = '[${_formatTime(DateTime.now())}] $message\n';
 
-    try {
-      // 检查日志文件大小，超过上限时清空重写
-      if (file.existsSync() && file.lengthSync() > _maxLogSize) {
-        file.writeAsStringSync(line);
-      } else {
-        file.writeAsStringSync(line, mode: FileMode.append);
-      }
-    } catch (_) {
-      // 写入失败时静默忽略
-    }
+    _messageWriter?.add(line);
   }
-
-  // ===== 内部工具 =====
 
   /// 格式化时间戳（日志显示用）
   String _formatTime(DateTime time) {

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 /// Platform Channel 基础架构
 ///
@@ -23,8 +22,9 @@ class PlatformChannel {
   static const MethodChannel filePicker = MethodChannel('legado/file_picker');
 
   /// 通知通道：前台服务、下载进度、阅读通知
-  static const MethodChannel notification =
-      MethodChannel('legado/notification');
+  static const MethodChannel notification = MethodChannel(
+    'legado/notification',
+  );
 
   /// Cookie 通道：WebView 登录页读取系统 CookieManager
   static const MethodChannel cookie = MethodChannel('legado/cookie');
@@ -37,8 +37,7 @@ class PlatformChannel {
   static const MethodChannel readerKeys = MethodChannel('legado/reader_keys');
 
   /// 事件通道：用于接收原生层的流式事件
-  static const EventChannel eventChannel =
-      EventChannel('io.legado.app/events');
+  static const EventChannel eventChannel = EventChannel('io.legado.app/events');
 
   // ─── WebView 方法 ─────────────────────────────────────────────
 
@@ -59,9 +58,7 @@ class PlatformChannel {
 
   /// 在当前 WebView 上执行 JavaScript
   static Future<String?> evaluateJs(String js) async {
-    return await webview.invokeMethod<String>('evaluateJs', {
-      'javaScript': js,
-    });
+    return await webview.invokeMethod<String>('evaluateJs', {'javaScript': js});
   }
 
   /// 关闭并销毁 WebView
@@ -83,104 +80,14 @@ class PlatformChannel {
     }
   }
 
-  // ─── TTS 方法 ─────────────────────────────────────────────────
-
-  // [iOS 轨 P2] iOS 走 flutter_tts（AVSpeechSynthesizer）；Android 保持
-  // Kotlin TtsBridge 通道不回归；桌面平台维持原行为（调用方容错）。
-  static final FlutterTts _iosTts = () {
-    final tts = FlutterTts();
-    // speak 不等待朗读完成（对齐 Android 通道的异步语义）
-    tts.awaitSpeakCompletion(false);
-    tts.setCompletionHandler(() => _iosSpeaking = false);
-    tts.setCancelHandler(() => _iosSpeaking = false);
-    tts.setErrorHandler((_) => _iosSpeaking = false);
-    return tts;
-  }();
-  static bool _iosSpeaking = false;
-  static bool _iosTtsLangSet = false;
-
-  /// 初始化 TTS 引擎
-  static Future<bool> initTts() async {
-    if (Platform.isIOS) {
-      try {
-        await _iosTts.setLanguage('zh-CN');
-        _iosTtsLangSet = true;
-        return true;
-      } catch (_) {
-        return false;
-      }
-    }
-    final result = await tts.invokeMethod<bool>('init');
-    return result ?? false;
-  }
-
-  /// 朗读文本
-  static Future<void> speak(String text) async {
-    if (Platform.isIOS) {
-      if (!_iosTtsLangSet) await initTts();
-      _iosSpeaking = true;
-      await _iosTts.speak(text);
-      return;
-    }
-    await tts.invokeMethod('speak', {'text': text});
-  }
-
-  /// 停止朗读
-  static Future<void> stopSpeak() async {
-    if (Platform.isIOS) {
-      _iosSpeaking = false;
-      await _iosTts.stop();
-      return;
-    }
-    await tts.invokeMethod('stop');
-  }
-
-  /// 设置朗读语言（BCP 47 语言标签，如 "zh-CN"）
-  static Future<void> setLanguage(String language) async {
-    if (Platform.isIOS) {
-      await _iosTts.setLanguage(language);
-      _iosTtsLangSet = true;
-      return;
-    }
-    await tts.invokeMethod('setLanguage', {'language': language});
-  }
-
-  /// 设置朗读语速（默认 1.0）
-  ///
-  /// 刻度差异：Android setSpeechRate 1.0 为常速（约 0.5-2.0），
-  /// iOS AVSpeechUtterance.rate 0-1 且 0.5 为常速——iOS 侧按 speed/2 折算。
-  static Future<void> setSpeed(double speed) async {
-    if (Platform.isIOS) {
-      final rate = (speed / 2.0).clamp(0.0, 1.0);
-      await _iosTts.setSpeechRate(rate);
-      return;
-    }
-    await tts.invokeMethod('setSpeed', {'speed': speed});
-  }
-
-  /// 设置朗读音调（默认 1.0；两平台 1.0 均为常速，直接透传）
-  static Future<void> setPitch(double pitch) async {
-    if (Platform.isIOS) {
-      await _iosTts.setPitch(pitch.clamp(0.5, 2.0));
-      return;
-    }
-    await tts.invokeMethod('setPitch', {'pitch': pitch});
-  }
-
-  /// 查询是否正在朗读
-  static Future<bool> isSpeaking() async {
-    if (Platform.isIOS) return _iosSpeaking;
-    final result = await tts.invokeMethod<bool>('isSpeaking');
-    return result ?? false;
-  }
-
   // ─── 文件选择器方法 ───────────────────────────────────────────
 
   /// 选择文件，返回文件 URI 字符串
   /// [mimeTypes] 可选 MIME 类型过滤列表
   static Future<String?> pickFile({List<String>? mimeTypes}) async {
     return await filePicker.invokeMethod<String>('pickFile', {
-      'mimeTypes': mimeTypes ??
+      'mimeTypes':
+          mimeTypes ??
           ['application/epub+zip', 'text/plain', 'application/pdf'],
     });
   }
@@ -265,7 +172,8 @@ class PlatformChannel {
     );
     await _iosNotifications
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: false, sound: false);
     _iosNotifInitialized = true;
   }

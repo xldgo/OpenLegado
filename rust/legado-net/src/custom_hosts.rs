@@ -9,11 +9,9 @@
 //!
 //! ## 即时生效机制
 //!
-//! 全局映射以 `OnceLock<RwLock<HashMap>>` 承载；[`CustomHostsResolver`]
-//! 实现 reqwest 的 [`Resolve`] trait，**每次解析时实时读取全局映射**
-//! （而非构建时快照），因此 `setCustomHosts` 后所有已构建的客户端
-//! （经 [`crate::client::LegadoClient`] 构建时统一挂载本 resolver）
-//! 的后续请求立即使用新映射。
+//! [`CustomHosts`] 持有可注入的映射，[`CustomHostsResolver`] 每次解析读取所属实例。
+//! 正式引擎显式注入能力；未注入的低层独立工具使用默认实例。
+//! 同一实例更新后，后续解析使用新映射，不影响其他引擎。
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
@@ -24,86 +22,103 @@ use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 
 use legado_core::{LegadoError, LegadoResult};
 
-/// 全局 hosts 映射：域名（小写归一化）→ IP 列表
-static HOSTS: OnceLock<RwLock<HashMap<String, Vec<IpAddr>>>> = OnceLock::new();
-
-/// 取全局映射槽位（惰性初始化）
-fn hosts_map() -> &'static RwLock<HashMap<String, Vec<IpAddr>>> {
-    HOSTS.get_or_init(|| RwLock::new(HashMap::new()))
+/// 可注入的 DNS 配置；resolver 只持映射能力，不持引擎。
+#[derive(Debug, Default)]
+pub struct CustomHosts {
+    values: RwLock<HashMap<String, Vec<IpAddr>>>,
 }
 
-/// 解析并应用 hosts 映射 JSON（即时生效）
-///
-/// - 空串/`{}`：清除全部映射（恢复系统 DNS）；
-/// - 非合法 JSON 或非对象：返回 `LegadoError::Internal`（契约错误码）；
-/// - 值解析（对齐原版 `parseIpsFromString` / `parseIpsFromList`）：
-///   字符串按逗号分隔逐段取合法 IP；数组逐元素同法解析；
-///   全部非法 IP 的域名不纳入映射（等同未命中回落系统 DNS）。
-pub fn apply_custom_hosts(hosts_json: &str) -> LegadoResult<()> {
-    let trimmed = hosts_json.trim();
-    if trimmed.is_empty() {
-        clear_custom_hosts();
-        return Ok(());
+/// 低层独立工具的默认映射；正式引擎总是显式提供自己的实例。
+pub fn default_hosts() -> Arc<CustomHosts> {
+    static HOSTS: OnceLock<Arc<CustomHosts>> = OnceLock::new();
+    HOSTS
+        .get_or_init(|| Arc::new(CustomHosts::default()))
+        .clone()
+}
+
+impl CustomHosts {
+    pub fn resolver(self: &Arc<Self>) -> Arc<CustomHostsResolver> {
+        Arc::new(CustomHostsResolver {
+            hosts: self.clone(),
+        })
     }
-
-    let value: serde_json::Value = serde_json::from_str(trimmed).map_err(|e| {
-        LegadoError::Internal(format!("hosts 映射 JSON 解析失败（需为 JSON 对象）: {e}"))
-    })?;
-    let obj = value.as_object().ok_or_else(|| {
-        LegadoError::Internal(format!(
-            "hosts 映射必须为 JSON 对象（域名 → IP/IP 数组），实际为: {}",
-            json_type_name(&value)
-        ))
-    })?;
-
-    let mut map = HashMap::new();
-    for (domain, v) in obj {
-        let ips = match v {
-            serde_json::Value::String(s) => parse_ips_from_string(s),
-            serde_json::Value::Array(arr) => arr
-                .iter()
-                .filter_map(|item| item.as_str())
-                .flat_map(parse_ips_from_string)
-                .collect(),
-            // 其他类型（数字/对象等）无法解析为 IP，跳过该域名
-            _ => Vec::new(),
-        };
-        if !ips.is_empty() {
-            map.insert(domain.trim().to_lowercase(), ips);
+    /// 解析并应用 hosts 映射 JSON（即时生效）
+    ///
+    /// - 空串/`{}`：清除全部映射（恢复系统 DNS）；
+    /// - 非合法 JSON 或非对象：返回 `LegadoError::Internal`（契约错误码）；
+    /// - 值解析（对齐原版 `parseIpsFromString` / `parseIpsFromList`）：
+    ///   字符串按逗号分隔逐段取合法 IP；数组逐元素同法解析；
+    ///   全部非法 IP 的域名不纳入映射（等同未命中回落系统 DNS）。
+    pub fn apply_custom_hosts(&self, hosts_json: &str) -> LegadoResult<()> {
+        let trimmed = hosts_json.trim();
+        if trimmed.is_empty() {
+            self.clear_custom_hosts();
+            return Ok(());
         }
+
+        let value: serde_json::Value = serde_json::from_str(trimmed).map_err(|e| {
+            LegadoError::Internal(format!("hosts 映射 JSON 解析失败（需为 JSON 对象）: {e}"))
+        })?;
+        let obj = value.as_object().ok_or_else(|| {
+            LegadoError::Internal(format!(
+                "hosts 映射必须为 JSON 对象（域名 → IP/IP 数组），实际为: {}",
+                json_type_name(&value)
+            ))
+        })?;
+
+        let mut map = HashMap::new();
+        for (domain, v) in obj {
+            let ips = match v {
+                serde_json::Value::String(s) => parse_ips_from_string(s),
+                serde_json::Value::Array(arr) => arr
+                    .iter()
+                    .filter_map(|item| item.as_str())
+                    .flat_map(parse_ips_from_string)
+                    .collect(),
+                // 其他类型（数字/对象等）无法解析为 IP，跳过该域名
+                _ => Vec::new(),
+            };
+            if !ips.is_empty() {
+                map.insert(domain.trim().to_lowercase(), ips);
+            }
+        }
+
+        let mut guard = self
+            .values
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *guard = map;
+        Ok(())
     }
 
-    let mut guard = hosts_map()
-        .write()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    *guard = map;
-    Ok(())
-}
+    /// 清除全部 hosts 映射（恢复系统 DNS）
+    pub fn clear_custom_hosts(&self) {
+        let mut guard = self
+            .values
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        guard.clear();
+    }
 
-/// 清除全部 hosts 映射（恢复系统 DNS）
-pub fn clear_custom_hosts() {
-    let mut guard = hosts_map()
-        .write()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    guard.clear();
-}
+    /// 查询域名的映射 IP 列表（未命中返回 None）
+    ///
+    /// 域名大小写不敏感（查询与存储均小写归一化）。
+    pub fn lookup_ips(&self, domain: &str) -> Option<Vec<IpAddr>> {
+        let guard = self
+            .values
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        guard.get(&domain.trim().to_lowercase()).cloned()
+    }
 
-/// 查询域名的映射 IP 列表（未命中返回 None）
-///
-/// 域名大小写不敏感（查询与存储均小写归一化）。
-pub fn lookup_ips(domain: &str) -> Option<Vec<IpAddr>> {
-    let guard = hosts_map()
-        .read()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    guard.get(&domain.trim().to_lowercase()).cloned()
-}
-
-/// 当前映射条目数（诊断/测试用）
-pub fn mapping_count() -> usize {
-    let guard = hosts_map()
-        .read()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    guard.len()
+    /// 当前映射条目数（诊断/测试用）
+    pub fn mapping_count(&self) -> usize {
+        let guard = self
+            .values
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        guard.len()
+    }
 }
 
 /// 从字符串解析 IP 列表（对齐原版 `parseIpsFromString`：逗号分隔，
@@ -130,16 +145,20 @@ fn json_type_name(v: &serde_json::Value) -> &'static str {
 
 /// 自定义 hosts DNS 解析器
 ///
-/// 命中全局映射：直接返回映射 IP（端口填 0，hyper 连接时以请求 URL
+/// 命中所属映射：直接返回映射 IP（端口填 0，hyper 连接时以请求 URL
 /// 实际端口替换）；未命中：回落系统 DNS（`tokio::net::lookup_host`，
 /// reqwest 0.12 未公开 `GaiResolver`，此处以等价系统解析实现）。
 ///
-/// 每次 `resolve` 实时读取全局映射，保证 `setCustomHosts` 即时生效。
-pub struct CustomHostsResolver;
+/// 每次 `resolve` 实时读取所属映射，保证 `setCustomHosts` 即时生效。
+pub struct CustomHostsResolver {
+    hosts: Arc<CustomHosts>,
+}
 
 impl CustomHostsResolver {
     pub fn new() -> Self {
-        Self
+        Self {
+            hosts: default_hosts(),
+        }
     }
 }
 
@@ -153,7 +172,7 @@ impl Resolve for CustomHostsResolver {
     fn resolve(&self, name: Name) -> Resolving {
         let host = name.as_str().to_string();
         // 命中映射：直接返回 IP 列表
-        if let Some(ips) = lookup_ips(name.as_str()) {
+        if let Some(ips) = self.hosts.lookup_ips(name.as_str()) {
             // 命中 hosts 映射的解析为纯内存查表，耗时计 0
             crate::timing::record_dns(
                 &host,
@@ -180,6 +199,20 @@ impl Resolve for CustomHostsResolver {
 /// 构造 resolver 实例（客户端构建处挂载）
 pub fn resolver() -> Arc<CustomHostsResolver> {
     Arc::new(CustomHostsResolver::new())
+}
+
+/// 独立工具默认入口统一委托同一实现，正式宿主不调用这些默认入口。
+pub fn apply_custom_hosts(json: &str) -> LegadoResult<()> {
+    default_hosts().apply_custom_hosts(json)
+}
+pub fn clear_custom_hosts() {
+    default_hosts().clear_custom_hosts();
+}
+pub fn lookup_ips(domain: &str) -> Option<Vec<IpAddr>> {
+    default_hosts().lookup_ips(domain)
+}
+pub fn mapping_count() -> usize {
+    default_hosts().mapping_count()
 }
 
 // ─── 测试 ────────────────────────────────────────────────────────

@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+import '../../domain/models/reader_page_layout_settings.dart';
 
-import '../../screens/reader_config_panel.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'text_layout_environment.dart';
+
+import 'dart:math' as math;
 
 /// 阅读页避让系统状态栏的顶部 inset（对标原版 TitleBar fitStatusBar /
 /// WindowInsetsCompat.Type.systemBars）。
@@ -10,6 +14,18 @@ import '../../screens/reader_config_panel.dart';
 /// 否则顶栏标题/页眉会与电量、时间重叠。
 double readerSystemStatusBarInset(BuildContext context) =>
     MediaQuery.viewPaddingOf(context).top;
+
+/// 隐藏导航栏时只保留真实缺口；系统安全边距已包含缺口时不重复叠加。
+double readerContentBottomInset({
+  required double systemBottomInset,
+  required double cutoutBottomInset,
+  required bool hideNavigationBar,
+  required bool paddingDisplayCutouts,
+}) {
+  final navigation = hideNavigationBar ? 0.0 : systemBottomInset;
+  final cutout = paddingDisplayCutouts ? cutoutBottomInset : 0.0;
+  return math.max(navigation, cutout);
+}
 
 /// 正文区稳定顶 inset：readBodyToLh 且未隐藏状态栏时预留（不随工具栏显隐
 /// 变化，避免切换 ReadMenu 时正文上跳；外层 SafeArea 已避让时不再重复）。
@@ -42,7 +58,7 @@ String? effectiveTitleFontFamily(
   ReaderPageChromeConfig chrome,
   String? bodyFontFamily,
 ) =>
-    chrome.titleFont.isNotEmpty ? chrome.titleFont : bodyFontFamily;
+    chrome.titleFontFamily.isNotEmpty ? chrome.titleFontFamily : bodyFontFamily;
 
 /// 阅读页页眉/页脚与标题样式（对标原版 ReadBookConfig + ReadTipConfig）
 class ReaderPageChromeConfig {
@@ -74,7 +90,7 @@ class ReaderPageChromeConfig {
   final int titleBottomSpacing;
 
   /// 标题字体（空=跟随正文字体，对齐原版 ReadBookConfig.titleFont）
-  final String titleFont;
+  final String titleFontFamily;
 
   const ReaderPageChromeConfig({
     this.headerMode = 0,
@@ -101,35 +117,39 @@ class ReaderPageChromeConfig {
     this.titleSize = 0,
     this.titleTopSpacing = 0,
     this.titleBottomSpacing = 0,
-    this.titleFont = '',
+    this.titleFontFamily = '',
   });
 
-  factory ReaderPageChromeConfig.fromAdvanced(ReaderAdvancedConfig c) {
+  factory ReaderPageChromeConfig.fromSettings(
+    ReaderPageLayoutSettings c, {
+    bool hideStatusBar = false,
+    String titleFontFamily = '',
+  }) {
     return ReaderPageChromeConfig(
-      headerMode: c.headerMode,
-      footerMode: c.footerMode,
-      hideStatusBar: c.hideStatusBar,
-      headerPaddingTop: c.headerPaddingTop,
-      headerPaddingBottom: c.headerPaddingBottom,
-      headerPaddingLeft: c.headerPaddingLeft,
-      headerPaddingRight: c.headerPaddingRight,
-      footerPaddingTop: c.footerPaddingTop,
-      footerPaddingBottom: c.footerPaddingBottom,
-      footerPaddingLeft: c.footerPaddingLeft,
-      footerPaddingRight: c.footerPaddingRight,
-      showHeaderLine: c.showHeaderLine,
-      showFooterLine: c.showFooterLine,
-      tipHeaderLeft: c.tipHeaderLeft,
-      tipHeaderMiddle: c.tipHeaderMiddle,
-      tipHeaderRight: c.tipHeaderRight,
-      tipFooterLeft: c.tipFooterLeft,
-      tipFooterMiddle: c.tipFooterMiddle,
-      tipFooterRight: c.tipFooterRight,
-      titleMode: c.titleMode,
-      titleSize: c.titleSize,
-      titleTopSpacing: c.titleTopSpacing,
-      titleBottomSpacing: c.titleBottomSpacing,
-      titleFont: c.titleFont,
+      headerMode: c.header.mode,
+      footerMode: c.footer.mode,
+      hideStatusBar: hideStatusBar,
+      headerPaddingTop: c.header.padding.top,
+      headerPaddingBottom: c.header.padding.bottom,
+      headerPaddingLeft: c.header.padding.left,
+      headerPaddingRight: c.header.padding.right,
+      footerPaddingTop: c.footer.padding.top,
+      footerPaddingBottom: c.footer.padding.bottom,
+      footerPaddingLeft: c.footer.padding.left,
+      footerPaddingRight: c.footer.padding.right,
+      showHeaderLine: c.header.showLine,
+      showFooterLine: c.footer.showLine,
+      tipHeaderLeft: c.header.leftTip,
+      tipHeaderMiddle: c.header.middleTip,
+      tipHeaderRight: c.header.rightTip,
+      tipFooterLeft: c.footer.leftTip,
+      tipFooterMiddle: c.footer.middleTip,
+      tipFooterRight: c.footer.rightTip,
+      titleMode: c.title.mode,
+      titleSize: c.title.size,
+      titleTopSpacing: c.title.topSpacing,
+      titleBottomSpacing: c.title.bottomSpacing,
+      titleFontFamily: titleFontFamily,
     );
   }
 
@@ -141,7 +161,7 @@ class ReaderPageChromeConfig {
       '${tipHeaderLeft}_${tipHeaderMiddle}_${tipHeaderRight}_'
       '${tipFooterLeft}_${tipFooterMiddle}_${tipFooterRight}_'
       '${titleMode}_${titleSize}_${titleTopSpacing}_$titleBottomSpacing'
-      '_$titleFont';
+      '_$titleFontFamily';
 
   bool get showPageHeader {
     switch (headerMode.clamp(0, 2)) {
@@ -271,12 +291,18 @@ class ReaderPageTipBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showDivider && dividerOnTop) divider,
-          Row(
-            children: [
-              Expanded(child: _slot(leftTip, color, Alignment.centerLeft)),
-              Expanded(child: _slot(middleTip, color, Alignment.center)),
-              Expanded(child: _slot(rightTip, color, Alignment.centerRight)),
-            ],
+          SizedBox(
+            height: ReaderPageLayoutMetrics.measureTipBarHeight(
+              context: context,
+              padding: EdgeInsets.zero,
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _slot(leftTip, color, Alignment.centerLeft)),
+                Expanded(child: _slot(middleTip, color, Alignment.center)),
+                Expanded(child: _slot(rightTip, color, Alignment.centerRight)),
+              ],
+            ),
           ),
           if (showDivider && !dividerOnTop) divider,
         ],
@@ -327,12 +353,24 @@ class ReaderPageLayoutMetrics {
     required EdgeInsets padding,
     required BuildContext context,
   }) {
+    final environment = TextLayoutEnvironment.of(context);
     final painter = TextPainter(
-      text: TextSpan(text: '0', style: _tipStyle),
-      textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(context),
+      text: TextSpan(
+        text: '汉0',
+        style: environment.baseStyle
+            .merge(_tipStyle)
+            .copyWith(
+              fontWeight: MediaQuery.boldTextOf(context)
+                  ? FontWeight.bold
+                  : environment.baseStyle.fontWeight,
+            ),
+      ),
+      textDirection: environment.direction,
+      textScaler: environment.textScaler,
+      locale: environment.locale,
+      textHeightBehavior: environment.heightBehavior,
     )..layout();
-    final line = painter.height;
+    final line = math.max(14.0, painter.height);
     painter.dispose();
     return padding.top + padding.bottom + line;
   }
@@ -344,7 +382,9 @@ class ReaderPageLayoutMetrics {
         text: '0/0',
         style: baseStyle.merge(_legacyIndicatorStyle),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: Directionality.of(context),
+      locale: Localizations.maybeLocaleOf(context),
+      textHeightBehavior: TextLayoutEnvironment.of(context).heightBehavior,
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
     final h = 8 + painter.height;
