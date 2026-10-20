@@ -1,5 +1,19 @@
 # API 契约文档
 
+## 系统媒体服务迁移（TTS-AUDIO-SERVICE-20261020，实施前冻结）
+
+Rust/FRB 方法不变。Dart AudioService 的现有协调接口保持，底层改为 audio_service 的
+BaseAudioHandler；插件只发布状态并转发 play/pause/stop/skip/seek，不创建第二播放器或业务队列。
+定位与通知导航继续携带 MediaPlaybackTarget 的书籍、会话和章节身份，未知时长不声明 seek；
+元数据以书名为 title、章节为 artist，定时为 displayDescription，封面使用受身份检查的本地缩略图 URI。
+正文继续使用现有估算章节时间轴，音频书使用真实时长；系统队列不暴露合成分片。
+删除 legado/media_session 及两个原生媒体会话、旧音频前台服务，不保留回退。
+独有的可选唤醒锁改为 Android 引擎级 legado/audio_wake_lock 的 update{enabled,playing}，
+只消费两个布尔值，持有条件为两者均为 true，FlutterEngine 销毁时释放；不依附 Activity 生命周期。
+AudioSession 的焦点/中断职责不变，插件平台未实现时仍可本地播放，不宣称提供 Windows SMTC。
+
+编写者：Codex + UI｜2026-10-20
+
 ## 音频平台职责收敛（TTS-AUDIO-SESSION-20261020）
 
 本批不改 Rust/FRB；legado/media_session 移除 requestAudioFocus、abandonAudioFocus 与

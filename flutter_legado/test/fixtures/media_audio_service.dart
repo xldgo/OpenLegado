@@ -36,6 +36,10 @@ class TestMediaAudioService extends Fake implements AudioService {
   @override
   Stream<MediaSeekRequest> get seekStream => seeks.stream;
   @override
+  Stream<MediaPlaybackTarget> get openPlaybackStream => const Stream.empty();
+  @override
+  Future<MediaPlaybackTarget?> takePendingOpen() async => null;
+  @override
   Future<void> init() async {
     initCount++;
     await initBarrier;

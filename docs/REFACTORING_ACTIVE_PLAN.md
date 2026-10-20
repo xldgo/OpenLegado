@@ -12,6 +12,21 @@
 
 编写者：Codex + Tool｜2026-10-20
 
+### TTS-AUDIO-SERVICE-20261020：迁移系统媒体服务（P1，代码完成，待平台验收）
+
+- 授权/基线：用户同意下一批 audio_service；沿用 feature/ui-tts-engine，干净工作树快进到 dev / 161427c68，单代理。
+- 范围：薄 AudioHandler 承接媒体命令、章节时间轴/元数据/封面/定时与通知导航；替换旧 Android/iOS 媒体桥接及音频前台服务，保留独立可选唤醒锁。audio_session、正文/音频书控制器、just_audio 队列及 Rust 合成缓存保持职责，不迁移视频或 Windows SMTC。
+- 验收：真实 Handler 状态与命令行为、无旧会话定位/封面污染、初始化幂等/失败保留原始原因且不重复注册、通知导航、原播放与中断回归、定向分析及 Android 编译。
+- 实现：引入 audio_service 0.18.19，新增 Handler 快照/命令适配与封面临时文件管理；Android 使用 AudioServiceFragmentActivity、官方服务/按钮接收器，独立引擎插件保留可选额外唤醒锁。删除旧 MediaSessionBridge、PlaybackForegroundService、NowPlayingBridge 及其专用协议测试，由 Handler/导航行为回归接替；视频保留。未修改 Rust/FRB 或 just_audio 队列。
+- 生命周期：插件注册为进程级单次操作，释放媒体后复用 Handler；失败保留异常，重试需重启进程，不回退旧实现。通知点击保留唯一订阅，避免回放旧点击；延迟暂停/停止、封面完成均核对有效代次。停止发布 idle，换章使用 loading，避免正常切章停止系统服务。
+- 结果：18份定向回归共206项通过，9份手写 Dart 文件分析无问题，架构检查与差异检查通过。证据 flutter_legado/build/tts-media-service-final.log；覆盖正文/音频书、试听、焦点/中断、定时、媒体导航与初始化失败。最初扩展回归发现测试替身缺少导航接口，补齐空流/空待处理请求后全部复验通过，未放宽生产校验。
+- Android：compileDebugKotlin 与 processDebugMainManifest 通过；读取合并 Manifest 确认插件服务/接收器各一份、旧音频服务已移除、视频服务保留。证据 build/tts-media-service-kotlin.log。此为编译检查，显式排除 Flutter 编译与缺库的 Rust FFI 门禁任务，未生成或安装 APK，生产门禁未改。
+- 边界：iOS 无 Xcode 编译或真机证据；Android/iOS 通知、后台连续播放、锁屏、耳机/来电仍需设备验收。Android 定时文字映射通知辅助字段，audio_service 的 iOS 实现不映射该字段，不保证系统面板展示定时；应用内定时不变。Windows SMTC 未实现，macOS 仅保留插件生成注册，不宣称验收。
+- 交付：版本2.0.417+418，新增4项锁定依赖、没有升级既有依赖；契约、对齐说明与双更新日志同步。单代理自查，每批仅本地提交，提交号以Git记录为准；未推送、合并、安装或触发远程 CI。
+- 集成：用户随后授权将37d2f6957合并到主目录dev / b9f3ea381，保留CI-REGRESSION批次全部修改；仅Active顶部记录冲突，保留双方条目。生产代码无冲突，沿用已取得的定向回归与编译证据，本次不重复构建、不推送或触发CI；平台验收仍待完成。
+
+编写者：Codex + UI｜2026-10-20
+
 ### APKSIGNER-FORMAT-20261020：兼容签名证书输出格式（P1，待CI复验）
 
 - 来源：用户提供Build Tools 37的V2/V3.0 Signer前缀与旧Signer #N差异，当前脚本只接受旧前缀，未匹配错误被归为证书不符。

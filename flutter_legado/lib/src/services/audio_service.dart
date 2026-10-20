@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:audio_service/audio_service.dart' as media;
 
 import 'media_session_models.dart';
 import '../platform/audio/app_audio_session.dart';
+import '../platform/audio/read_aloud_audio_handler.dart';
+import '../platform/audio/media_artwork_files.dart';
 
 /// 音频焦点事件类型
 enum AudioFocusEvent {
@@ -39,149 +43,146 @@ enum MediaButtonEvent {
   stop,
 }
 
-/// 音频服务 — 后台媒体按钮 + 焦点管理
-///
-/// 媒体控制通过 Platform Channel 连接 Android MediaSession / iOS Now Playing，
-/// 音频焦点与中断统一委托 AppAudioSession，不由媒体桥接重复持有。
-///
-/// 功能：
-/// - 初始化/释放 MediaSession
-/// - 请求/放弃音频焦点
-/// - 更新播放状态和元数据
-/// - 监听媒体按钮事件（播放/暂停/上一首/下一首/停止）
-/// - 监听音频焦点变化（获得/丢失/暂时丢失）
+/// 系统媒体服务适配门面；播放事实归控制器，焦点归 AppAudioSession。— Codex + UI
 class AudioService {
-  AudioService._() : _session = AppAudioSession.instance;
+  AudioService._()
+    : _session = AppAudioSession.instance,
+      _initializeMedia = _nativeInit,
+      _nativeMedia = true,
+      _notificationClicks = media.AudioService.notificationClicked;
 
   @visibleForTesting
-  AudioService.forTesting(this._session);
+  AudioService.forTesting(
+    this._session, {
+    this._initializeMedia,
+    this._notificationClicks = const Stream.empty(),
+    MediaArtworkFiles? artworkFiles,
+  }) : _nativeMedia = false,
+       _artworkFiles = artworkFiles ?? MediaArtworkFiles();
 
-  static final AudioService _instance = AudioService._();
+  static final _instance = AudioService._();
+  static AudioService get instance => _instance;
   final AppAudioSession _session;
+  final bool _nativeMedia;
+  final Future<ReadAloudAudioHandler> Function(ReadAloudAudioHandler)?
+  _initializeMedia;
+  final Stream<bool> _notificationClicks;
+  MediaArtworkFiles _artworkFiles = MediaArtworkFiles();
+  Future<ReadAloudAudioHandler>? _handlerFuture;
+  ReadAloudAudioHandler? _handler;
+  StreamSubscription<bool>? _clickSubscription;
+  StreamSubscription<Object>? _mediaErrors;
   StreamSubscription<AppAudioEvent>? _focusSubscription;
   AppAudioLease? _focusLease;
-  int _focusGeneration = 0;
-
-  /// 单例实例
-  static AudioService get instance => _instance;
-
-  /// 媒体会话通道
-  static const MethodChannel _channel = MethodChannel('legado/media_session');
-
-  /// 音频焦点事件流控制器
-  final StreamController<AudioFocusEvent> _audioFocusController =
-      StreamController<AudioFocusEvent>.broadcast();
-
-  /// 媒体按钮事件流控制器
-  final StreamController<MediaButtonEvent> _mediaButtonController =
-      StreamController<MediaButtonEvent>.broadcast();
+  int _focusGeneration = 0, _lifecycle = 0, _artworkGeneration = 0;
+  int _stateGeneration = 0;
+  bool _initialized = false, _wakeEnabled = false, _playing = false;
+  MediaPlaybackTarget? _pendingOpen;
+  static const _wakeChannel = MethodChannel('legado/audio_wake_lock');
+  final _audioFocusController = StreamController<AudioFocusEvent>.broadcast();
+  final _mediaButtonController = StreamController<MediaButtonEvent>.broadcast();
   final _seekController = StreamController<MediaSeekRequest>.broadcast();
   final _openController = StreamController<MediaPlaybackTarget>.broadcast();
 
-  /// 是否已初始化
-  bool _initialized = false;
+  static Future<ReadAloudAudioHandler> _nativeInit(
+    ReadAloudAudioHandler handler,
+  ) async {
+    return media.AudioService.init(
+      builder: () => handler,
+      config: const media.AudioServiceConfig(
+        androidNotificationChannelId: 'legado_playback_foreground',
+        androidNotificationChannelName: '听书播放',
+        androidNotificationIcon: 'drawable/ic_stat_read_aloud',
+        androidStopForegroundOnPause: false,
+        androidResumeOnClick: false,
+        androidNotificationClickStartsActivity: true,
+        artDownscaleWidth: 512,
+        artDownscaleHeight: 512,
+      ),
+    );
+  }
 
-  /// 是否已注册通道回调
-  bool _handlerRegistered = false;
-
-  // ===== 公开属性 =====
-
-  /// 音频焦点事件流
+  bool get isInitialized => _initialized;
   Stream<AudioFocusEvent> get audioFocusStream {
     _focusSubscription ??= _session.events.listen((event) {
       _audioFocusController.add(switch (event) {
         AppAudioEvent.pause => AudioFocusEvent.lossTransient,
         AppAudioEvent.resume => AudioFocusEvent.gain,
-        AppAudioEvent.stop => AudioFocusEvent.loss,
-        AppAudioEvent.loss => AudioFocusEvent.loss,
+        AppAudioEvent.stop || AppAudioEvent.loss => AudioFocusEvent.loss,
       });
     });
     return _audioFocusController.stream;
   }
 
-  /// 媒体按钮事件流
   Stream<MediaButtonEvent> get mediaButtonStream =>
       _mediaButtonController.stream;
-
   Stream<MediaSeekRequest> get seekStream => _seekController.stream;
-  Stream<MediaPlaybackTarget> get openPlaybackStream {
-    _registerHandler();
-    return _openController.stream;
-  }
-
-  /// 只取待处理导航，不创建媒体会话；应用等待欢迎页退出后消费。
+  Stream<MediaPlaybackTarget> get openPlaybackStream => _openController.stream;
   Future<MediaPlaybackTarget?> takePendingOpen() async {
-    _registerHandler();
-    try {
-      return MediaPlaybackTarget.parse(
-        await _channel.invokeMethod<Object?>('takePendingOpen'),
-      );
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
-      return null;
-    }
+    final pending = _pendingOpen;
+    _pendingOpen = null;
+    return pending;
   }
 
-  Future<void> updateProgress(MediaPlaybackProgress progress) async {
-    if (!_initialized) return;
-    try {
-      await _channel.invokeMethod<void>('updateProgress', progress.toMap());
-    } on PlatformException {
-      // 系统媒体展示不改变真实播放器状态。
-    } on MissingPluginException {
-      // 未提供系统媒体实现的平台保持本地播放。
-    }
-  }
+  ReadAloudAudioHandler _createHandler() => ReadAloudAudioHandler(
+    onPlay: () => _mediaButtonController.add(MediaButtonEvent.play),
+    onPause: () => _mediaButtonController.add(MediaButtonEvent.pause),
+    onStop: () => _mediaButtonController.add(MediaButtonEvent.stop),
+    onNext: () => _mediaButtonController.add(MediaButtonEvent.skipToNext),
+    onPrevious: () =>
+        _mediaButtonController.add(MediaButtonEvent.skipToPrevious),
+    onSeek: _seekController.add,
+    onOpen: (target) {
+      if (_openController.hasListener) {
+        _openController.add(target);
+      } else {
+        _pendingOpen = target;
+      }
+    },
+  );
 
-  /// 是否已初始化
-  bool get isInitialized => _initialized;
-
-  // ===== 生命周期方法 =====
-
-  /// 初始化媒体会话
-  ///
-  /// 在听书页面 initState 时调用，创建 Android MediaSession 实例
-  /// 并注册媒体按钮回调。
   Future<void> init() async {
     if (_initialized) return;
-
-    // 注册原生 → Flutter 的回调处理
-    _registerHandler();
-
-    try {
-      await _channel.invokeMethod<bool>('init');
-      _initialized = true;
-    } on PlatformException {
-      // 平台未实现或初始化失败，静默处理。
-      _initialized = false;
-    } on MissingPluginException {
-      // 插件未注册（如测试环境），静默处理
-      _initialized = false;
+    final factory = _initializeMedia;
+    if (factory == null ||
+        (_nativeMedia && (kIsWeb || !(Platform.isAndroid || Platform.isIOS)))) {
+      return;
     }
+    final lifecycle = _lifecycle;
+    // audio_service 是进程级注册；释放后复用 Handler，不重复初始化插件。
+    final handler = await (_handlerFuture ??= factory(_createHandler()));
+    if (lifecycle != _lifecycle) return;
+    _handler = handler;
+    _initialized = true;
+    if (_nativeMedia) {
+      _mediaErrors ??= media.AudioService.asyncError.listen((error) {
+        debugPrint('系统媒体展示失败：$error');
+      });
+    }
+    _clickSubscription ??= _notificationClicks.listen((clicked) {
+      if (clicked && _initialized) _handler?.openCurrent();
+    });
   }
 
-  /// 释放资源
-  ///
-  /// 在播放会话销毁时调用，释放 MediaSession 和音频焦点。
   Future<void> dispose() async {
-    await abandonAudioFocus();
-    await _focusSubscription?.cancel();
-    _focusSubscription = null;
-    if (!_initialized) return;
-
-    try {
-      await _channel.invokeMethod<void>('release');
-    } on PlatformException {
-      // 静默处理
-    } on MissingPluginException {
-      // 静默处理
-    }
-
+    _lifecycle++;
+    _artworkGeneration++;
+    _stateGeneration++;
     _initialized = false;
+    _handler?.clear();
+    _handler = null;
+    _pendingOpen = null;
+    _playing = false;
+    final errors = _mediaErrors, focus = _focusSubscription;
+    // notificationClicked 是进程级回放流；保持唯一订阅，避免重新订阅重放旧点击。
+    _mediaErrors = null;
+    _focusSubscription = null;
+    final releaseFocus = abandonAudioFocus();
+    await _syncWakeLock();
+    await releaseFocus;
+    await errors?.cancel();
+    await focus?.cancel();
   }
-
-  // ===== 音频焦点方法 =====
 
   /// 请求音频焦点
   ///
@@ -211,35 +212,10 @@ class AudioService {
     await lease?.release();
   }
 
-  // ===== 播放状态方法 =====
-
-  /// 更新播放状态
-  ///
-  /// 复刻原版 upMediaSessionPlaybackState()。
-  /// [state] 可选值: "playing", "paused", "stopped", "buffering"
-  /// [position] 当前播放位置（毫秒）
-  Future<void> updatePlaybackState({
-    required String state,
-    int position = 0,
-  }) async {
-    if (!_initialized) return;
-
-    try {
-      await _channel.invokeMethod<void>('updatePlaybackState', {
-        'state': state,
-        'position': position,
-      });
-    } on PlatformException {
-      // 静默处理
-    } on MissingPluginException {
-      // 静默处理
-    }
+  Future<void> updateProgress(MediaPlaybackProgress progress) async {
+    if (_initialized) _handler?.publishProgress(progress);
   }
 
-  /// 更新媒体元数据
-  ///
-  /// [title] 书名，[artist] 章节，[timerText] 独立定时说明。
-  /// 身份变化清除旧封面，切章和定时刷新保留当前封面。— Codex + Bridge
   Future<void> updateMetadata({
     required String title,
     String artist = '',
@@ -249,116 +225,88 @@ class AudioService {
     String timerText = '',
   }) async {
     if (!_initialized) return;
-
-    try {
-      await _channel.invokeMethod<void>('updateMetadata', {
-        'title': title,
-        'artist': artist,
-        'album': album,
-        'mediaId': mediaId,
-        'sessionToken': sessionToken,
-        'timerText': timerText,
-      });
-    } on PlatformException {
-      // 静默处理
-    } on MissingPluginException {
-      // 静默处理
-    }
+    _stateGeneration++;
+    _handler?.publishMetadata(
+      title: title,
+      artist: artist,
+      album: album,
+      mediaId: mediaId,
+      sessionToken: sessionToken,
+      timerText: timerText,
+    );
   }
 
-  /// null 明确清除图片；原生仅接收仍属于当前媒体会话的缩略图。
   Future<void> updateArtwork({
     required String mediaId,
     required int sessionToken,
     required Uint8List? artworkBytes,
   }) async {
-    if (!_initialized) return;
-    try {
-      await _channel.invokeMethod<void>('updateArtwork', {
-        'mediaId': mediaId,
-        'sessionToken': sessionToken,
-        'artworkBytes': artworkBytes,
-      });
-    } on PlatformException {
-      // 图片失败不影响音频播放。
-    } on MissingPluginException {
-      // 桌面及测试环境可无系统媒体实现。
+    final handler = _handler;
+    if (!_initialized ||
+        handler == null ||
+        !handler.owns(mediaId, sessionToken)) {
+      return;
     }
+    final generation = ++_artworkGeneration;
+    final uri = artworkBytes == null
+        ? null
+        : await _artworkFiles.write(artworkBytes);
+    if (_initialized &&
+        identical(handler, _handler) &&
+        generation == _artworkGeneration) {
+      handler.publishArtwork(mediaId, sessionToken, uri);
+    }
+    await _artworkFiles.prune(keep: _handler?.mediaItem.value?.artUri);
   }
 
-  /// 设置当前播放状态（用于焦点恢复判断）
   Future<void> setPlaying(bool playing) async {
-    if (!_initialized) return;
-
-    try {
-      await _channel.invokeMethod<void>('setPlaying', {'playing': playing});
-    } on PlatformException {
-      // 静默处理
-    } on MissingPluginException {
-      // 静默处理
-    }
+    _playing = playing;
+    await _syncWakeLock();
   }
 
-  /// 听书 PARTIAL_WAKE_LOCK（对齐 PreferKey.audioPlayWakeLock / AudioPlayService）
   Future<void> setWakeLock(bool enabled) async {
-    if (!_initialized) {
-      await init();
-    }
+    _wakeEnabled = enabled;
+    await _syncWakeLock();
+  }
+
+  Future<void> _syncWakeLock() async {
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod<void>('setWakeLock', {'enabled': enabled});
-    } on PlatformException {
-      // 静默处理
+      await _wakeChannel.invokeMethod<void>('update', {
+        'enabled': _wakeEnabled,
+        'playing': _playing,
+      });
     } on MissingPluginException {
-      // 静默处理
+      // 不支持的平台不宣称持有额外的 Android 唤醒锁。
+    } on PlatformException catch (error) {
+      debugPrint('更新听书唤醒锁失败：$error');
     }
   }
 
-  // ===== 便捷方法 =====
+  Future<void> updatePlaybackState({
+    required String state,
+    int position = 0,
+  }) async {
+    if (_initialized) _handler?.publishState(state);
+  }
 
-  /// 通知系统当前正在播放
   Future<void> notifyPlaying({int position = 0}) async {
-    await setPlaying(true);
-    await updatePlaybackState(state: 'playing', position: position);
+    await _notify('playing', true);
   }
 
-  /// 通知系统当前已暂停
   Future<void> notifyPaused({int position = 0}) async {
-    await setPlaying(false);
-    await updatePlaybackState(state: 'paused', position: position);
+    await _notify('paused', false);
   }
 
-  /// 通知系统当前已停止
   Future<void> notifyStopped() async {
-    await setPlaying(false);
-    await updatePlaybackState(state: 'stopped');
+    _artworkGeneration++;
+    _pendingOpen = null;
+    await _notify('stopped', false);
   }
 
-  // ===== 内部方法 =====
-
-  /// 注册原生 → Flutter 的方法调用处理器
-  void _registerHandler() {
-    if (_handlerRegistered) return;
-    _handlerRegistered = true;
-
-    _channel.setMethodCallHandler((call) async {
-      switch (call.method) {
-        case 'onSeekTo':
-          final request = MediaSeekRequest.parse(call.arguments);
-          if (request != null) _seekController.add(request);
-        case 'onOpenPlayback':
-          final target = MediaPlaybackTarget.parse(call.arguments);
-          if (target != null) _openController.add(target);
-        case 'onPlay':
-          _mediaButtonController.add(MediaButtonEvent.play);
-        case 'onPause':
-          _mediaButtonController.add(MediaButtonEvent.pause);
-        case 'onSkipToNext':
-          _mediaButtonController.add(MediaButtonEvent.skipToNext);
-        case 'onSkipToPrevious':
-          _mediaButtonController.add(MediaButtonEvent.skipToPrevious);
-        case 'onStop':
-          _mediaButtonController.add(MediaButtonEvent.stop);
-      }
-    });
+  Future<void> _notify(String state, bool playing) async {
+    final generation = ++_stateGeneration;
+    await setPlaying(playing);
+    if (generation == _stateGeneration) await updatePlaybackState(state: state);
   }
 }
