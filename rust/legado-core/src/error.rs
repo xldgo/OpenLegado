@@ -2,6 +2,16 @@
 
 use thiserror::Error;
 
+/// 数据库可恢复失败分类，不使核心层依赖具体驱动。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DatabaseErrorKind {
+    Busy,
+    Locked,
+    Constraint,
+    Conversion,
+    Other,
+}
+
 /// Legado 全局错误枚举
 #[derive(Debug, Error)]
 pub enum LegadoError {
@@ -16,6 +26,14 @@ pub enum LegadoError {
 
     #[error("Database error: {0}")]
     Database(String),
+
+    #[error("Database error: {context}: {source}")]
+    DatabaseFailure {
+        kind: DatabaseErrorKind,
+        context: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 
     #[error("Book parsing error: {0}")]
     BookParse(String),
@@ -50,13 +68,24 @@ pub enum LegadoError {
 pub type LegadoResult<T> = Result<T, LegadoError>;
 
 impl LegadoError {
+    /// 重试只能依据驱动分类，不能依据错误文案。
+    pub fn is_database_contention(&self) -> bool {
+        matches!(
+            self,
+            Self::DatabaseFailure {
+                kind: DatabaseErrorKind::Busy | DatabaseErrorKind::Locked,
+                ..
+            }
+        )
+    }
+
     /// 将错误转换为 FFI 错误码
     pub fn to_error_code(&self) -> i32 {
         match self {
             LegadoError::Parser(_) => 1001,
             LegadoError::Network(_) => 1002,
             LegadoError::JsEngine(_) => 1003,
-            LegadoError::Database(_) => 1004,
+            LegadoError::Database(_) | LegadoError::DatabaseFailure { .. } => 1004,
             LegadoError::BookParse(_) => 1005,
             LegadoError::Io(_) => 1006,
             LegadoError::Serialization(_) => 1007,

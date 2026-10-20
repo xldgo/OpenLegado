@@ -36,11 +36,11 @@ impl BookshelfService {
                 db.connection(),
                 rusqlite::TransactionBehavior::Immediate,
             )
-            .map_err(|e| LegadoError::Database(format!("开启书籍保存事务失败: {e}")))?;
+            .map_err(|e| legado_db::error::database_error("开启书籍保存事务失败", e))?;
             merge_source_fields(&repo, &mut book)?; // [B-2 / P2-8 P1-1] 书源字段防回退
             repo.update(&book)?;
             tx.commit()
-                .map_err(|e| LegadoError::Database(format!("提交书籍保存事务失败: {e}")))?;
+                .map_err(|e| legado_db::error::database_error("提交书籍保存事务失败", e))?;
             Ok(book)
         })
     }
@@ -52,11 +52,11 @@ impl BookshelfService {
                 db.connection(),
                 rusqlite::TransactionBehavior::Immediate,
             )
-            .map_err(|e| LegadoError::Database(format!("开启书籍保存事务失败: {e}")))?;
+            .map_err(|e| legado_db::error::database_error("开启书籍保存事务失败", e))?;
             merge_source_fields(&repo, &mut book)?; // [B-2] 陈旧快照不得撤销换源结果
             repo.update(&book)?;
             tx.commit()
-                .map_err(|e| LegadoError::Database(format!("提交书籍保存事务失败: {e}")))
+                .map_err(|e| legado_db::error::database_error("提交书籍保存事务失败", e))
         })
     }
 
@@ -94,8 +94,7 @@ impl BookshelfService {
             match self.write_reading_progress_once(book_url, chapter_index, chapter_pos) {
                 Ok(()) => return Ok(()),
                 Err(e) => {
-                    let msg = e.to_string().to_lowercase();
-                    let lock_error = msg.contains("locked") || msg.contains("busy");
+                    let lock_error = e.is_database_contention();
                     if !lock_error || attempt >= MAX_ATTEMPTS {
                         return Err(e);
                     }

@@ -1,5 +1,12 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-PRACTICES-B2-20261020：fix(rust): 保留数据库错误原因并按类型重试
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：原数据库驱动错误被字符串化导致文案误判重试，现保留分类及source并只重试Busy或Locked；DB及Engine库回归通过，真实锁与约束探针和进度单次失败通过，Server及FFI编译通过。；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
 ### RUST-PRACTICES-B1-20261020：fix(rust): 传播查询行错误并原子保存书籍来源
 
 - 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。

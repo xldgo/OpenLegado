@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.409] - 2026-10-20
+
+### Fixed
+- 原数据库驱动错误被字符串化导致文案误判重试，现保留分类及source并只重试Busy或Locked；DB及Engine库回归通过，真实锁与约束探针和进度单次失败通过，Server及FFI编译通过。
+- 贡献者：Codex + Rust；构建号410。
+
 ## [2.0.408] - 2026-10-20
 
 ### Fixed

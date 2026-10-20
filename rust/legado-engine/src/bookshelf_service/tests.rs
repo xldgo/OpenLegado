@@ -206,3 +206,30 @@ fn failed_book_write_rolls_back_and_connection_remains_usable() {
         .unwrap();
     assert_eq!(service.get_book("book").unwrap().unwrap().name, "新书");
 }
+
+#[test]
+fn database_error_messages_do_not_trigger_repeated_progress_writes() {
+    let engine = EngineContext::in_memory().unwrap();
+    let service = BookshelfService::new(Some(engine.storage().clone()));
+    service
+        .add_book_entity(Book {
+            book_url: "book".into(),
+            name: "书".into(),
+            ..Book::default()
+        })
+        .unwrap();
+    engine.storage().with_database(|db|{db.connection().execute_batch("CREATE TABLE attempt_counter(n);INSERT INTO attempt_counter VALUES(0);CREATE TRIGGER deny_progress BEFORE UPDATE OF durChapterIndex ON books BEGIN UPDATE attempt_counter SET n=n+1;SELECT RAISE(FAIL,'busy locked words only');END;").unwrap();Ok(())}).unwrap();
+    let error = service.update_reading_progress("book", 0, 5).unwrap_err();
+    assert!(!error.is_database_contention());
+    engine
+        .storage()
+        .with_database(|db| {
+            let count: i32 = db
+                .connection()
+                .query_row("SELECT n FROM attempt_counter", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(count, 1);
+            Ok(())
+        })
+        .unwrap();
+}
