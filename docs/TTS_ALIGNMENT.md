@@ -2,6 +2,31 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## AWS Polly 协议与认证边界（2026-10-20）
+
+参考 [c4182eb9 的 AwsPollyCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/AwsPollyCloudTtsProvider.kt)，
+沿用纯文本合成、区域、模型、分页目录和手动保存音色，不复制 Android 网络/播放实现。
+
+- 两项密钥以严格 JSON 成组保存在既有安全存储，凭据引用仍是一项；只在调用时解码。
+  单项编辑合并原值后轮换引用，数据库失败清理新组，普通元数据不含明文；不引入 STS。
+- Core 构造固定资源路径与 JSON，SigV4 的 UTC 时间显式传入纯函数；认证头与稳定请求头分离。
+  Fetcher 等待合成锁后重新准备签名；缓存区分实际正文、语言、模型、格式、采样率与凭据，
+  时间及签名不导致重复合成。签名验证采用 RFC4231 HMAC 向量及独立 Python/Dart 实现。
+- 音色目录按 NextToken 逐页获取、按 ID 去重；重复令牌报错、失败不返回部分成功，
+  每页可取消及超时。supportedModels 仅为候选信息，不写入音色 traitsJson。
+- 与参考版的已裁决差异：参考版 PCM 默认以 24 kHz 包 WAV；
+  [AWS 官方](https://docs.aws.amazon.com/polly/latest/APIReference/API_SynthesizeSpeech.html)
+  规定 PCM 默认 16 kHz、仅支持 8/16 kHz。用户已选择按官方规则，显式发送实际采样率，
+  WAV 头与该值一致。MP3/Ogg 及普通文件播放路径保持。
+- 引擎 Sheet 只配置端点、区域、模型与凭据；音色 Sheet 查询目录、选择语言/格式/采样率，
+  不展示协议未消费的风格、合成速度、音调、音量或指令；全局播放器倍速继续独立。
+
+本地 HTTP/FRB 可验证协议、数据库、缓存及取消，合成夹具不证明真实云账号可用、
+音频解码、蓝牙或设备后台表现。无数据库迁移；直接引用工作区已锁定的 HMAC/SHA256/Chrono，
+不更新依赖版本。生成物与新原生库配对使用。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
 ## Azure Speech 与 Rust 边界（2026-10-20）
 
 固定参考 [c4182eb9 的 AzureSpeechCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/AzureSpeechCloudTtsProvider.kt)
@@ -153,7 +178,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼/Azure Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure 动态目录 | AWS Polly、火山豆包、Gemini；真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 火山豆包、Gemini；真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 

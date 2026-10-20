@@ -12822,16 +12822,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CloudVoiceDescriptorDto dco_decode_cloud_voice_descriptor_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
     return CloudVoiceDescriptorDto(
       id: dco_decode_String(arr[0]),
       displayName: dco_decode_String(arr[1]),
       locale: dco_decode_String(arr[2]),
       gender: dco_decode_String(arr[3]),
       roles: dco_decode_list_String(arr[4]),
-      styles: dco_decode_list_String(arr[5]),
-      sampleRate: dco_decode_opt_box_autoadd_u_32(arr[6]),
+      supportedModels: dco_decode_list_String(arr[5]),
+      styles: dco_decode_list_String(arr[6]),
+      sampleRate: dco_decode_opt_box_autoadd_u_32(arr[7]),
     );
   }
 
@@ -16673,6 +16674,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_locale = sse_decode_String(deserializer);
     var var_gender = sse_decode_String(deserializer);
     var var_roles = sse_decode_list_String(deserializer);
+    var var_supportedModels = sse_decode_list_String(deserializer);
     var var_styles = sse_decode_list_String(deserializer);
     var var_sampleRate = sse_decode_opt_box_autoadd_u_32(deserializer);
     return CloudVoiceDescriptorDto(
@@ -16681,6 +16683,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       locale: var_locale,
       gender: var_gender,
       roles: var_roles,
+      supportedModels: var_supportedModels,
       styles: var_styles,
       sampleRate: var_sampleRate,
     );
@@ -21562,6 +21565,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.locale, serializer);
     sse_encode_String(self.gender, serializer);
     sse_encode_list_String(self.roles, serializer);
+    sse_encode_list_String(self.supportedModels, serializer);
     sse_encode_list_String(self.styles, serializer);
     sse_encode_opt_box_autoadd_u_32(self.sampleRate, serializer);
   }

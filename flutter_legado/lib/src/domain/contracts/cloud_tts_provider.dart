@@ -11,7 +11,10 @@ final class CloudTtsProviderProfile {
     this.supportsProsody = false,
     this.requiresRegion = false,
     this.usesModel = true,
+    this.usesSecretKey = false,
+    this.remoteCatalog = false,
     this.supportsInstructions = true,
+    this.supportsStyle = true,
     this.localeHint = '留空自动识别，例如 Chinese、English',
     this.textLimit = 4000,
   });
@@ -23,13 +26,31 @@ final class CloudTtsProviderProfile {
       supportsProsody,
       requiresRegion,
       usesModel,
-      supportsInstructions;
+      usesSecretKey,
+      remoteCatalog,
+      supportsInstructions,
+      supportsStyle;
   final int textLimit;
 }
 
 const cloudTtsProviderProfiles = {
+  'aws_polly': CloudTtsProviderProfile(
+    name: 'AWS Polly',
+    model: 'neural',
+    voice: 'Zhiyu',
+    formats: ['mp3', 'ogg_vorbis', 'wav', 'pcm'],
+    requiresRegion: true,
+    usesSecretKey: true,
+    remoteCatalog: true,
+    supportsLocale: true,
+    supportsInstructions: false,
+    supportsStyle: false,
+    localeHint: '留空使用音色默认语言，例如 cmn-CN、en-US',
+    textLimit: 3000,
+  ),
   'azure_speech': CloudTtsProviderProfile(
     name: 'Azure Speech',
+    remoteCatalog: true,
     model: '',
     voice: 'zh-CN-XiaoxiaoNeural',
     formats: ['mp3', 'wav', 'ogg', 'opus'],

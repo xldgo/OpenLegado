@@ -10,6 +10,8 @@ pub enum CloudTtsProviderDto {
     AlibabaCloud,
     #[serde(rename = "azure_speech")]
     AzureSpeech,
+    #[serde(rename = "aws_polly")]
+    AwsPolly,
 }
 impl From<legado_core::cloud_tts::CloudTtsProviderType> for CloudTtsProviderDto {
     fn from(v: legado_core::cloud_tts::CloudTtsProviderType) -> Self {
@@ -18,6 +20,7 @@ impl From<legado_core::cloud_tts::CloudTtsProviderType> for CloudTtsProviderDto 
             legado_core::cloud_tts::CloudTtsProviderType::Mimo => Self::Mimo,
             legado_core::cloud_tts::CloudTtsProviderType::AlibabaCloud => Self::AlibabaCloud,
             legado_core::cloud_tts::CloudTtsProviderType::AzureSpeech => Self::AzureSpeech,
+            legado_core::cloud_tts::CloudTtsProviderType::AwsPolly => Self::AwsPolly,
         }
     }
 }
@@ -28,6 +31,7 @@ impl From<CloudTtsProviderDto> for legado_core::cloud_tts::CloudTtsProviderType 
             CloudTtsProviderDto::Mimo => Self::Mimo,
             CloudTtsProviderDto::AlibabaCloud => Self::AlibabaCloud,
             CloudTtsProviderDto::AzureSpeech => Self::AzureSpeech,
+            CloudTtsProviderDto::AwsPolly => Self::AwsPolly,
         }
     }
 }
@@ -200,6 +204,7 @@ pub struct CloudVoiceDescriptorDto {
     pub locale: String,
     pub gender: String,
     pub roles: Vec<String>,
+    pub supported_models: Vec<String>,
     pub styles: Vec<String>,
     pub sample_rate: Option<u32>,
 }
@@ -211,6 +216,7 @@ impl From<legado_core::cloud_tts::CloudTtsVoiceDescriptor> for CloudVoiceDescrip
             locale: v.locale,
             gender: v.gender,
             roles: v.roles,
+            supported_models: v.supported_models,
             styles: v.styles,
             sample_rate: v.sample_rate,
         }

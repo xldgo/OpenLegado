@@ -9,7 +9,11 @@ import '../../widgets/app_settings_sheet.dart';
 import '../../widgets/app_settings_form.dart';
 import '../../widgets/bottom_sheet_widget.dart';
 
-typedef CloudTtsEditResult = ({CloudTtsEngine engine, String? key});
+typedef CloudTtsEditResult = ({
+  CloudTtsEngine engine,
+  String? key,
+  String? secretKey,
+});
 
 /// 引擎仅管理连接和凭据，音色参数在独立音色 Sheet 配置。— Codex + UI
 Future<CloudTtsEditResult?> showCloudTtsEngineEditor(
@@ -48,6 +52,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
         'model': engine?.model ?? profile.model,
         'region': engine?.region ?? '',
         'apiKey': '',
+        'secretKey': '',
       }.entries)
         entry.key: TextEditingController(text: entry.value),
     };
@@ -63,6 +68,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       if (_inputs['name']!.text == old.name) _inputs['name']!.text = next.name;
       _inputs['model']!.text = next.model;
       _inputs['apiKey']!.clear();
+      _inputs['secretKey']!.clear();
       _inputs['baseUrl']!.clear();
       _inputs['region']!.clear();
     });
@@ -84,7 +90,8 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
       'name': l.cloudTtsName,
       'baseUrl': l.cloudTtsBaseUrl,
       'model': l.cloudTtsModel,
-      'apiKey': l.cloudTtsApiKey,
+      'apiKey': profile.usesSecretKey ? 'Access Key ID' : l.cloudTtsApiKey,
+      'secretKey': 'Secret Access Key',
       'region': '区域',
     };
     return AppSettingsSheet(
@@ -108,6 +115,9 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
             appId: old?.appId ?? '',
             optionsJson: old?.optionsJson ?? '{}',
           ),
+          secretKey: _inputs['secretKey']!.text.trim().isEmpty
+              ? null
+              : _inputs['secretKey']!.text,
           key: _inputs['apiKey']!.text.trim().isEmpty
               ? null
               : _inputs['apiKey']!.text,
@@ -129,6 +139,7 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
             ),
             for (final e in _inputs.entries.where(
               (e) =>
+                  (e.key != 'secretKey' || profile.usesSecretKey) &&
                   (e.key != 'region' || profile.requiresRegion) &&
                   (e.key != 'model' || profile.usesModel),
             ))
@@ -136,15 +147,20 @@ class _CloudTtsEngineSheetState extends State<CloudTtsEngineSheet> {
                 key: ValueKey('cloud-${e.key}'),
                 controller: e.value,
                 decoration: InputDecoration(labelText: labels[e.key]),
-                obscureText: e.key == 'apiKey',
-                enableSuggestions: e.key != 'apiKey',
-                autocorrect: e.key != 'apiKey',
-                enableIMEPersonalizedLearning: e.key != 'apiKey',
+                obscureText: {'apiKey', 'secretKey'}.contains(e.key),
+                enableSuggestions: !{'apiKey', 'secretKey'}.contains(e.key),
+                autocorrect: !{'apiKey', 'secretKey'}.contains(e.key),
+                enableIMEPersonalizedLearning: !{
+                  'apiKey',
+                  'secretKey',
+                }.contains(e.key),
                 validator: (v) =>
                     ({'name', 'model'}.contains(e.key) ||
                             e.key == 'region' &&
-                                _inputs['baseUrl']!.text.trim().isEmpty ||
-                            e.key == 'apiKey' && widget.engine == null) &&
+                                (profile.usesSecretKey ||
+                                    _inputs['baseUrl']!.text.trim().isEmpty) ||
+                            {'apiKey', 'secretKey'}.contains(e.key) &&
+                                widget.engine == null) &&
                         (v ?? '').trim().isEmpty
                     ? labels[e.key]
                     : null,

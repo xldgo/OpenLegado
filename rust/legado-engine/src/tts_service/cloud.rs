@@ -32,7 +32,7 @@ pub(super) async fn voices(
             "云端引擎已停用或凭据已变更，请重试".into(),
         ));
     }
-    let engine = metadata.engine(api_key);
+    let engine = metadata.engine_with_credentials(api_key)?;
     let transport = resources
         .media
         .cloud_transport(resources.network.custom_hosts().clone())?;
@@ -100,7 +100,7 @@ pub(super) async fn speak(
         metadata.options_json = serde_json::to_string(&options)?;
     }
     let request = metadata.request(input.text)?;
-    let engine = metadata.engine(api_key);
+    let engine = metadata.engine_with_credentials(api_key)?;
     let transport = media.cloud_transport(hosts)?;
     let result = async {
         tokio::select! {

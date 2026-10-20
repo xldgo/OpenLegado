@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-POLLY-20261020：AWS Polly 与分页音色目录（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户确认接入 Polly，PCM/WAV 按官方默认 16 kHz；feature/ui-tts-engine / 6fa9d76d0，单代理。
+- 范围：成组安全凭据、纯 SigV4 签名、分页音色目录、合成与缓存；沿用既有播放、Sheet、数据库与窄接口，不引入 STS。
+- 验收：固定签名向量、采样率/分页/取消/缓存行为、配置失败回滚、目标静态分析、生成复核及本地真实 FFI；不自动设备安装或远程 CI。
+- 本地实现：新增 Core Polly Provider，固定时间 SigV4/HMAC-SHA256 与实际 JSON/采样率；Fetcher 支持认证头、分页去重/重复令牌拒绝、全分页取消及发送前刷新签名；稳定缓存输入不包含认证时间。Engine 从安全载荷组装运行态凭据，配置元数据不落密钥；既有静态目录与 Azure 请求保持。
+- Flutter：引擎 Sheet 增加区域/模型与两项密钥，单项编辑成组轮换并保持失败回滚；音色 Sheet 按需发现分页目录，显示可用模型、语言/格式/采样率，不展示未消费的风格/速度/指令；候选不自动保存，关闭仍取消。无数据库迁移、播放队列改动或依赖版本更新；版本 2.0.407+408。
+- 验证：Core 21、DB 7、Fetcher 15、Engine 4 共 47 项定向 Rust 回归；普通 Flutter 50 项不同用例与真实 FFI 4 项通过。首次 Widget 回归发现共用样本给 Polly 设置 24 kHz WAV，改成合法 16 kHz 后对应测试通过，保留原参数保真断言，不重复累加复跑。14 份手写 Dart 静态分析/格式、Core 严格 Clippy、Flutter 架构及差异检查通过。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo test --locked --offline -p legado-engine --lib tts_service::cloud::tests；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；Flutter 按 settings、Polly/Azure 编辑器、云配置/音色参数、凭据、DTO、播放与预合成文件定向执行，native 组显式加载本 worktree 新编译 legado_ffi.dll。
+- 边界：真实账号授权、音频解码听感和后台播放待用户设备复验；不以本地夹具替代该证据。单代理自查，未执行独立审查、应用构建安装、推送、合并或远程 CI；本批提交见 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
+
 ### TTS-AZURE-20261019：Azure Speech 与动态音色目录（P1，待复验：真实账号/设备）
 
 - 授权/基线：用户确认参考上游、内部遵循 Rust 职责与类型边界；feature/ui-tts-engine / 0c695387c，单代理。

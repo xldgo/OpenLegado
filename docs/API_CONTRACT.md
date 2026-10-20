@@ -1,5 +1,24 @@
 # API 契约文档
 
+## AWS Polly 接入（TTS-POLLY-20261020，实施前冻结）
+
+沿用 §2.42 的云引擎/音色/合成接口，新增 provider=`aws_polly`，默认 model=`neural`。
+region 必填，支持自定义 HTTP(S) 服务地址；数据库仍只保存 credentialKey，不增加密钥列。
+此 Provider 的安全存储值及调用时 apiKey 参数为严格 JSON 对象
+`{"apiKey":"Access Key ID","secretKey":"Secret Access Key"}`，两者成组轮换；
+Rust 在 Engine 边界按 Provider 解码，错误不回显载荷，其他 Provider 仍传原单密钥字符串。
+表单空编辑保留原值，单独更新其中一项须与安全存储中的另一项组成完整凭据。
+CloudTtsVoiceDescriptor 新增 supportedModels 字符串数组；只作为候选目录信息，
+不写入音色 traitsJson。远端音色目录按 Engine 查询并消费 NextToken，去重 ID，
+重复令牌报错，取消覆盖全部分页；配置仓库不隐式执行网络发现。
+合成沿用纯文本 POST /v1/speech，语言可选，支持 mp3/ogg_vorbis/pcm/wav；
+PCM/WAV 按用户裁决采用 AWS 官方 16 kHz 默认，显式仅允许 8/16 kHz。
+SigV4 使用明确 UTC 时间的纯函数；请求认证头与稳定合成头分开，日期及签名不参与
+缓存键，区域、模型、输出格式、实际采样率和成组凭据参与缓存身份。
+不调整播放队列、不引入 STS、不做数据库迁移；真实账号音频及设备验收另行记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ## Flutter 封面开书过渡（2026-10-19，实施前冻结）
 
 文字阅读器命名路由可接收BookCoverOrigin，只包含来源书籍标识、当前可见封面位置、
@@ -2429,6 +2448,8 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `ttsSetCacheDir({required String path})` | path: 缓存目录绝对路径 | `Future<bool>` | 设置 TTS 音频缓存目录（全局生效） |
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
+
+Polly 增量契约见本文顶部 TTS-POLLY-20261020；新增 aws_polly、成组调用凭据及 supportedModels，既有方法签名不变。
 
 **TTS-AZURE-20261019（实施前冻结）**：新增 azure_speech，沿用云端元数据表、凭据引用、
 音色表与播放会话。region 或自定义 baseUrl 决定端点；SSML 合成使用 Subscription-Key，

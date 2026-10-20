@@ -53,10 +53,27 @@ impl CloudTtsMetadata {
             provider: self.provider,
             base_url: self.base_url.clone(),
             api_key,
+            secret_key: String::new(),
             model: self.model.clone(),
             region: self.region.clone(),
             enabled: self.enabled,
         }
+    }
+    pub fn engine_with_credentials(&self, payload: String) -> LegadoResult<CloudTtsEngine> {
+        if self.provider != CloudTtsProviderType::AwsPolly {
+            return Ok(self.engine(payload));
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Credentials {
+            api_key: String,
+            secret_key: String,
+        }
+        let credentials: Credentials = serde_json::from_str(&payload)
+            .map_err(|_| LegadoError::Ffi("AWS 成组凭据无效，请重新填写".into()))?;
+        let mut engine = self.engine(credentials.api_key);
+        engine.secret_key = credentials.secret_key;
+        Ok(engine)
     }
     pub fn request(&self, text: String) -> LegadoResult<CloudTtsSynthesisRequest> {
         let options: CloudVoiceOptions = serde_json::from_str(&self.options_json)?;
@@ -69,6 +86,7 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::Mimo => "mimo_default",
                     CloudTtsProviderType::AlibabaCloud => "Cherry",
                     CloudTtsProviderType::AzureSpeech => "zh-CN-XiaoxiaoNeural",
+                    CloudTtsProviderType::AwsPolly => "Zhiyu",
                 }
                 .into()
             }),
@@ -82,7 +100,7 @@ impl CloudTtsMetadata {
             format: options.format.unwrap_or_else(|| {
                 match self.provider {
                     CloudTtsProviderType::OpenAiSpeech => "mp3",
-                    CloudTtsProviderType::AzureSpeech => "mp3",
+                    CloudTtsProviderType::AzureSpeech | CloudTtsProviderType::AwsPolly => "mp3",
                     CloudTtsProviderType::Mimo | CloudTtsProviderType::AlibabaCloud => "wav",
                 }
                 .into()
@@ -112,6 +130,7 @@ impl CloudTtsMetadata {
         }
         let mut engine = self.engine("validation-only".into());
         engine.enabled = true;
+        engine.secret_key = "validation-only".into();
         cloud_tts_provider(self.provider).prepare(&engine, &self.request("配置校验".into())?)?;
         Ok(())
     }
@@ -211,6 +230,36 @@ impl<'a> CloudTtsRepository<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn polly_metadata_validates_and_credentials_decode_only_at_call_boundary() {
+        let mut meta = metadata();
+        meta.provider = CloudTtsProviderType::AwsPolly;
+        meta.region = "us-east-1".into();
+        meta.model = "neural".into();
+        meta.options_json = "{}".into();
+        meta.validate().unwrap();
+        assert_eq!(meta.request("测试".into()).unwrap().voice_id, "Zhiyu");
+        let runtime = meta
+            .engine_with_credentials(
+                r#"{"apiKey":"access-private","secretKey":"secret-private"}"#.into(),
+            )
+            .unwrap();
+        assert_eq!(runtime.api_key, "access-private");
+        assert_eq!(runtime.secret_key, "secret-private");
+        assert!(!serde_json::to_string(&meta).unwrap().contains("private"));
+        for input in [
+            "secret-private",
+            r#"{"apiKey":"secret-private"}"#,
+            r#"{"apiKey":"a","secretKey":"s","extra":1}"#,
+        ] {
+            let error = meta
+                .engine_with_credentials(input.into())
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(!error.contains("secret-private"));
+        }
+    }
     fn metadata() -> CloudTtsMetadata {
         CloudTtsMetadata {
             id: "cloud-test".into(),

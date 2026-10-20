@@ -12475,6 +12475,7 @@ impl SseDecode for crate::media_dto::CloudTtsProviderDto {
             1 => crate::media_dto::CloudTtsProviderDto::Mimo,
             2 => crate::media_dto::CloudTtsProviderDto::AlibabaCloud,
             3 => crate::media_dto::CloudTtsProviderDto::AzureSpeech,
+            4 => crate::media_dto::CloudTtsProviderDto::AwsPolly,
             _ => unreachable!("Invalid variant for CloudTtsProviderDto: {}", inner),
         };
     }
@@ -12488,6 +12489,7 @@ impl SseDecode for crate::media_dto::CloudVoiceDescriptorDto {
         let mut var_locale = <String>::sse_decode(deserializer);
         let mut var_gender = <String>::sse_decode(deserializer);
         let mut var_roles = <Vec<String>>::sse_decode(deserializer);
+        let mut var_supportedModels = <Vec<String>>::sse_decode(deserializer);
         let mut var_styles = <Vec<String>>::sse_decode(deserializer);
         let mut var_sampleRate = <Option<u32>>::sse_decode(deserializer);
         return crate::media_dto::CloudVoiceDescriptorDto {
@@ -12496,6 +12498,7 @@ impl SseDecode for crate::media_dto::CloudVoiceDescriptorDto {
             locale: var_locale,
             gender: var_gender,
             roles: var_roles,
+            supported_models: var_supportedModels,
             styles: var_styles,
             sample_rate: var_sampleRate,
         };
@@ -17717,6 +17720,7 @@ impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudTtsProviderDto {
             Self::Mimo => 1.into_dart(),
             Self::AlibabaCloud => 2.into_dart(),
             Self::AzureSpeech => 3.into_dart(),
+            Self::AwsPolly => 4.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -17741,6 +17745,7 @@ impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudVoiceDescriptorDto
             self.locale.into_into_dart().into_dart(),
             self.gender.into_into_dart().into_dart(),
             self.roles.into_into_dart().into_dart(),
+            self.supported_models.into_into_dart().into_dart(),
             self.styles.into_into_dart().into_dart(),
             self.sample_rate.into_into_dart().into_dart(),
         ]
@@ -21213,6 +21218,7 @@ impl SseEncode for crate::media_dto::CloudTtsProviderDto {
                 crate::media_dto::CloudTtsProviderDto::Mimo => 1,
                 crate::media_dto::CloudTtsProviderDto::AlibabaCloud => 2,
                 crate::media_dto::CloudTtsProviderDto::AzureSpeech => 3,
+                crate::media_dto::CloudTtsProviderDto::AwsPolly => 4,
                 _ => {
                     unimplemented!("");
                 }
@@ -21230,6 +21236,7 @@ impl SseEncode for crate::media_dto::CloudVoiceDescriptorDto {
         <String>::sse_encode(self.locale, serializer);
         <String>::sse_encode(self.gender, serializer);
         <Vec<String>>::sse_encode(self.roles, serializer);
+        <Vec<String>>::sse_encode(self.supported_models, serializer);
         <Vec<String>>::sse_encode(self.styles, serializer);
         <Option<u32>>::sse_encode(self.sample_rate, serializer);
     }

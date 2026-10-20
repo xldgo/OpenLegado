@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../domain/contracts/read_aloud_voice_repository.dart';
 import '../audio/application/audio_notifier.dart';
 import '../../domain/contracts/cloud_tts_repository.dart';
+import '../../domain/contracts/cloud_tts_provider.dart';
 import 'http_tts_repository_provider.dart';
 import 'read_aloud_voice_sheet.dart';
 import 'read_aloud_voice_preview.dart';
@@ -185,16 +186,17 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
         .firstOrNull
         ?.engine;
     final editorSource =
-        source.kind == 'cloud_tts' && engine?.provider == 'azure_speech'
+        source.kind == 'cloud_tts' &&
+            engine != null &&
+            cloudTtsProfile(engine.provider).remoteCatalog
         ? VoiceEditorSource(
             kind: source.kind,
             id: source.id,
             name: source.name,
             provider: source.provider,
             voices: source.voices,
-            loadCatalog: (cancel) => ref
-                .read(cloudTtsVoiceCatalogProvider)
-                .discover(engine!, cancel),
+            loadCatalog: (cancel) =>
+                ref.read(cloudTtsVoiceCatalogProvider).discover(engine, cancel),
           )
         : source;
     final result = await AppBottomSheet.showContent<ReadAloudVoice>(
@@ -354,7 +356,7 @@ class ReadAloudVoicePanelState extends ConsumerState<ReadAloudVoicePanel> {
       for (final engine in engines.where((e) => e.enabled)) {
         entries.add((
           engine: engine,
-          voices: engine.provider == 'azure_speech'
+          voices: cloudTtsProfile(engine.provider).remoteCatalog
               ? <String>[]
               : await repository.voices(engine.provider),
         ));

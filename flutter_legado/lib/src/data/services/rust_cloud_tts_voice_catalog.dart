@@ -54,6 +54,7 @@ final class RustCloudTtsVoiceCatalog implements CloudTtsVoiceCatalog {
             gender: v.gender,
             styles: List.unmodifiable(v.styles),
             roles: List.unmodifiable(v.roles),
+            supportedModels: List.unmodifiable(v.supportedModels),
             sampleRate: v.sampleRate,
           ),
         ),

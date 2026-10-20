@@ -61,6 +61,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _volume;
   late List<ReadAloudVoice> _voices;
   List<CloudTtsVoiceDescriptor> _catalog = [];
+  late final TextEditingController _sampleRate;
   HttpTtsCancellation? _catalogRequest;
   bool _loadingCatalog = false;
   String? _catalogError;
@@ -93,6 +94,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
     _speed = TextEditingController(text: '${_traits['speed'] ?? 1.0}');
     _locale = TextEditingController(text: _traits['locale'] as String? ?? '');
     _role = TextEditingController(text: _traits['role'] as String? ?? '');
+    _sampleRate = TextEditingController(text: '${_traits['sampleRate'] ?? ''}');
     _pitch = TextEditingController(text: '${_traits['pitch'] ?? 1.0}');
     _volume = TextEditingController(text: '${_traits['volume'] ?? 1.0}');
     _style = TextEditingController(text: _traits['style'] as String? ?? '');
@@ -202,7 +204,10 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
             },
             if (cloudTtsProfile(source.provider!).supportsSourceSpeed)
               'speed': double.parse(_speed.text),
-            'style': _style.text,
+            if (cloudTtsProfile(source.provider!).supportsStyle)
+              'style': _style.text,
+            if (source.provider == 'aws_polly')
+              'sampleRate': int.tryParse(_sampleRate.text.trim()),
             if (cloudTtsProfile(source.provider!).supportsInstructions)
               'instructions': _instructions.text,
             'format': _format,
@@ -258,6 +263,7 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
       _role,
       _pitch,
       _volume,
+      _sampleRate,
     ]) {
       c.dispose();
     }
@@ -380,12 +386,14 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                         : null;
                   },
                 ),
-              TextFormField(
-                key: const ValueKey('voice-style'),
-                controller: _style,
-                decoration: const InputDecoration(labelText: '风格'),
-              ),
-              if ((_catalogVoice?.styles ?? profile.styles).isNotEmpty)
+              if (profile.supportsStyle)
+                TextFormField(
+                  key: const ValueKey('voice-style'),
+                  controller: _style,
+                  decoration: const InputDecoration(labelText: '风格'),
+                ),
+              if (profile.supportsStyle &&
+                  (_catalogVoice?.styles ?? profile.styles).isNotEmpty)
                 Wrap(
                   spacing: 4,
                   runSpacing: 8,
@@ -439,13 +447,37 @@ class _VoiceSheetState extends State<ReadAloudVoiceSheet> {
                 ),
               DropdownButtonFormField<String>(
                 initialValue: _format,
+                key: const ValueKey('voice-format'),
                 decoration: const InputDecoration(labelText: '音频格式'),
                 items: [
                   for (final f in profile.formats)
                     DropdownMenuItem(value: f, child: Text(f)),
                 ],
                 onChanged: (v) {
-                  if (v != null) _format = v;
+                  if (v != null) setState(() => _format = v);
+                },
+              ),
+            ],
+            if (source.provider == 'aws_polly') ...[
+              if (_catalogVoice?.supportedModels.isNotEmpty ?? false)
+                Text('可用模型：${_catalogVoice!.supportedModels.join('、')}'),
+              TextFormField(
+                key: const ValueKey('voice-sample-rate'),
+                controller: _sampleRate,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: '采样率（Hz，留空使用默认值）'),
+                validator: (text) {
+                  if ((text ?? '').trim().isEmpty) return null;
+                  final rate = int.tryParse(text!.trim());
+                  final pcm = {'pcm', 'wav'}.contains(_format);
+                  return (pcm
+                              ? [8000, 16000]
+                              : [8000, 16000, 22050, 24000, 44100, 48000])
+                          .contains(rate)
+                      ? null
+                      : pcm
+                      ? 'PCM/WAV 仅支持 8000、16000'
+                      : '不支持的采样率';
                 },
               ),
             ],

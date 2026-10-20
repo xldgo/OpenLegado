@@ -10,10 +10,11 @@ final class CloudTtsVoiceDescriptor {
     this.gender = '',
     this.styles = const [],
     this.roles = const [],
+    this.supportedModels = const [],
     this.sampleRate,
   });
   final String id, name, locale, gender;
-  final List<String> styles, roles;
+  final List<String> styles, roles, supportedModels;
   final int? sampleRate;
 }
 

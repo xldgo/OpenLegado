@@ -11,9 +11,12 @@ pub fn delete(id: &str) -> LegadoResult<bool> {
     crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).delete(id))
 }
 pub fn voices(provider: CloudTtsProviderType) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
-    if provider == CloudTtsProviderType::AzureSpeech {
+    if matches!(
+        provider,
+        CloudTtsProviderType::AzureSpeech | CloudTtsProviderType::AwsPolly
+    ) {
         return Err(legado_core::LegadoError::Ffi(
-            "Azure 音色目录需要已保存引擎与凭据".into(),
+            "远端音色目录需要已保存引擎与凭据".into(),
         ));
     }
     Ok(cloud_tts_provider(provider).voices())

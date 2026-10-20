@@ -78,6 +78,7 @@ impl CloudTtsProvider for AlibabaCloudTtsProvider {
             ));
         }
         Ok(PreparedCloudSpeech {
+            authentication_headers: Vec::new(),
             endpoint: url.to_string(),
             credential_header: "Authorization",
             authorization: format!("Bearer {}", engine.api_key),

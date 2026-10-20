@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.407+408（2026-10-20）
+
+- 新增 AWS Polly 云朗读引擎，支持区域、模型及成组安全凭据配置。
+- 支持分页加载 Polly 音色、语言选择与 MP3/Ogg/PCM/WAV 合成；PCM 默认 16 kHz。
+- 贡献者：Codex。
+
+
 All notable changes to this project will be documented in this file.
 
 ## [2.0.406] - 2026-10-20

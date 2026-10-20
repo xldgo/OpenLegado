@@ -100,6 +100,7 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
             ));
         }
         Ok(PreparedCloudSpeech {
+            authentication_headers: Vec::new(),
             endpoint: url.to_string(),
             credential_header: "api-key",
             authorization: engine.api_key.clone(),

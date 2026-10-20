@@ -890,3 +890,125 @@ async fn alibaba_download_cancel_and_text_error_do_not_publish_audio() {
         );
     }
 }
+
+#[test]
+fn polly_cache_identity_ignores_authentication_time_but_not_stable_inputs() {
+    use legado_core::cloud_tts_polly::AwsPollyCloudTtsProvider;
+    let mut engine = engine();
+    engine.provider = CloudTtsProviderType::AwsPolly;
+    engine.region = "us-east-1".into();
+    engine.model = "neural".into();
+    engine.secret_key = "secret".into();
+    let request = CloudTtsSynthesisRequest {
+        voice_id: "Zhiyu".into(),
+        format: "mp3".into(),
+        ..request()
+    };
+    let mut prepared = AwsPollyCloudTtsProvider.prepare(&engine, &request).unwrap();
+    let first = cache_key(&engine, &prepared).unwrap();
+    prepared.authorization = "new signature".into();
+    prepared.authentication_headers = vec![("X-Amz-Date", "20990101T000000Z".into())];
+    assert_eq!(first, cache_key(&engine, &prepared).unwrap());
+    engine.secret_key = "rotated".into();
+    assert_ne!(first, cache_key(&engine, &prepared).unwrap());
+    engine.secret_key = "secret".into();
+    engine.region = "us-west-2".into();
+    assert_ne!(first, cache_key(&engine, &prepared).unwrap());
+}
+struct CatalogTransport {
+    calls: AtomicUsize,
+    repeat: bool,
+    block_second: bool,
+    entered: Notify,
+}
+impl CloudTtsTransport for CatalogTransport {
+    fn send<'a>(
+        &'a self,
+        _: &'a PreparedCloudSpeech,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async { panic!("目录请求不得合成") })
+    }
+    fn catalog<'a>(
+        &'a self,
+        request: &'a PreparedCloudCatalog,
+    ) -> BoxFuture<'a, LegadoResult<CloudTtsResponse>> {
+        Box::pin(async move {
+            let call = self.calls.fetch_add(1, Ordering::SeqCst);
+            assert!(request.authorization.starts_with("AWS4-HMAC-SHA256 "));
+            if call > 0 {
+                assert!(request.endpoint.ends_with("NextToken=%2B%2F%3D%20token"));
+                self.entered.notify_one();
+                if self.block_second {
+                    std::future::pending::<()>().await;
+                }
+            }
+            let body = if call == 0 || self.repeat {
+                serde_json::json!({"Voices":[{"Id":"Zhiyu"}],"NextToken":"+/= token"})
+            } else {
+                serde_json::json!({"Voices":[{"Id":"Zhiyu"},{"Id":"Joanna","SupportedEngines":["neural"]}]})
+            };
+            Ok(CloudTtsResponse {
+                status: 200,
+                content_type: "application/json".into(),
+                bytes: body.to_string().into_bytes(),
+            })
+        })
+    }
+}
+#[tokio::test]
+async fn polly_catalog_pages_deduplicate_reject_cycles_and_cancel_in_flight() {
+    use legado_core::cloud_tts_polly::AwsPollyCloudTtsProvider;
+    let mut engine = engine();
+    engine.provider = CloudTtsProviderType::AwsPolly;
+    engine.region = "us-east-1".into();
+    engine.model = "neural".into();
+    engine.secret_key = "secret".into();
+    for repeat in [false, true] {
+        let transport = CatalogTransport {
+            calls: AtomicUsize::new(0),
+            repeat,
+            block_second: false,
+            entered: Notify::new(),
+        };
+        let result = discover_cloud_voices(
+            &AwsPollyCloudTtsProvider,
+            &transport,
+            &engine,
+            &TtsCancellation::default(),
+        )
+        .await;
+        assert_eq!(transport.calls.load(Ordering::SeqCst), 2);
+        if repeat {
+            assert!(result.err().unwrap().to_string().contains("重复分页"));
+        } else {
+            assert_eq!(
+                result
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.id.as_str())
+                    .collect::<Vec<_>>(),
+                ["Zhiyu", "Joanna"]
+            );
+        }
+    }
+    let transport = CatalogTransport {
+        calls: AtomicUsize::new(0),
+        repeat: false,
+        block_second: true,
+        entered: Notify::new(),
+    };
+    let cancellation = TtsCancellation::default();
+    let discover = discover_cloud_voices(
+        &AwsPollyCloudTtsProvider,
+        &transport,
+        &engine,
+        &cancellation,
+    );
+    let cancel = async {
+        transport.entered.notified().await;
+        cancellation.cancel();
+    };
+    let (result, ()) = tokio::join!(discover, cancel);
+    assert!(result.err().unwrap().to_string().contains("TTS_CANCELLED"));
+    assert_eq!(transport.calls.load(Ordering::SeqCst), 2);
+}

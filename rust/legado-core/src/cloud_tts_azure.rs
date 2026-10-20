@@ -65,6 +65,7 @@ impl CloudTtsProvider for AzureSpeechCloudTtsProvider {
     }
     fn prepare_catalog(&self, engine: &CloudTtsEngine) -> LegadoResult<CloudVoiceCatalog> {
         Ok(CloudVoiceCatalog::Remote(PreparedCloudCatalog {
+            authentication_headers: Vec::new(),
             endpoint: format!("{}/cognitiveservices/voices/list", endpoint(engine)?),
             credential_header: "Ocp-Apim-Subscription-Key",
             authorization: engine.api_key.clone(),
@@ -106,6 +107,7 @@ impl CloudTtsProvider for AzureSpeechCloudTtsProvider {
                 gender: v.gender.unwrap_or_default(),
                 styles: v.style_list.unwrap_or_default(),
                 roles: v.role_play_list.unwrap_or_default(),
+                supported_models: Vec::new(),
                 sample_rate: v.sample_rate_hertz.and_then(|s| s.parse().ok()),
             });
         }
@@ -177,6 +179,7 @@ impl CloudTtsProvider for AzureSpeechCloudTtsProvider {
             xml(&request.voice_id)?
         );
         Ok(PreparedCloudSpeech {
+            authentication_headers: Vec::new(),
             endpoint: format!("{endpoint}/cognitiveservices/v1"),
             credential_header: "Ocp-Apim-Subscription-Key",
             authorization: engine.api_key.clone(),

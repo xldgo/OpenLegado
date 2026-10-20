@@ -14,6 +14,8 @@ pub enum CloudTtsProviderType {
     AlibabaCloud,
     #[serde(rename = "azure_speech")]
     AzureSpeech,
+    #[serde(rename = "aws_polly")]
+    AwsPolly,
 }
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
@@ -25,6 +27,8 @@ pub struct CloudTtsEngine {
     pub base_url: String,
     #[serde(skip_serializing)]
     pub api_key: String,
+    #[serde(skip_serializing)]
+    pub secret_key: String,
     pub model: String,
     pub region: String,
     pub enabled: bool,
@@ -37,6 +41,7 @@ impl Default for CloudTtsEngine {
             provider: CloudTtsProviderType::OpenAiSpeech,
             base_url: String::new(),
             api_key: String::new(),
+            secret_key: String::new(),
             model: "gpt-4o-mini-tts".into(),
             region: String::new(),
             enabled: true,
@@ -93,6 +98,7 @@ pub struct CloudTtsVoiceDescriptor {
     pub gender: String,
     pub styles: Vec<String>,
     pub roles: Vec<String>,
+    pub supported_models: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sample_rate: Option<u32>,
 }
@@ -127,11 +133,19 @@ pub struct PreparedCloudSpeech {
     pub authorization: String,
     pub response_kind: CloudSpeechResponseKind,
     pub additional_headers: Vec<(&'static str, String)>,
+    /// 瞬时认证数据不参与缓存身份。
+    pub authentication_headers: Vec<(&'static str, String)>,
     pub body: CloudSpeechBody,
     pub response_format: String,
 }
-/// 远端目录的请求描述不实现 Debug，避免凭据进入诊断输出。
+/// 单页候选与继续令牌；分页由抓取层推进。
+pub struct CloudCatalogPage {
+    pub voices: Vec<CloudTtsVoiceDescriptor>,
+    pub next_token: Option<String>,
+}
+/// 远端目录请求不实现 Debug，避免凭据进入诊断输出。
 pub struct PreparedCloudCatalog {
+    pub authentication_headers: Vec<(&'static str, String)>,
     pub endpoint: String,
     pub credential_header: &'static str,
     pub authorization: String,
@@ -155,6 +169,22 @@ pub trait CloudTtsProvider: Send + Sync {
     fn prepare_catalog(&self, _engine: &CloudTtsEngine) -> LegadoResult<CloudVoiceCatalog> {
         Ok(CloudVoiceCatalog::Static(self.voices()))
     }
+    fn prepare_catalog_page(
+        &self,
+        engine: &CloudTtsEngine,
+        token: Option<&str>,
+    ) -> LegadoResult<CloudVoiceCatalog> {
+        if token.is_some() {
+            return Err(invalid("此 Provider 不支持目录分页"));
+        }
+        self.prepare_catalog(engine)
+    }
+    fn decode_catalog_page(&self, bytes: &[u8]) -> LegadoResult<CloudCatalogPage> {
+        Ok(CloudCatalogPage {
+            voices: self.decode_catalog(bytes)?,
+            next_token: None,
+        })
+    }
     fn decode_catalog(&self, _bytes: &[u8]) -> LegadoResult<Vec<CloudTtsVoiceDescriptor>> {
         Err(invalid("此 Provider 不支持远端音色目录"))
     }
@@ -176,6 +206,7 @@ pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsPr
         CloudTtsProviderType::Mimo => &crate::cloud_tts_mimo::MimoCloudTtsProvider,
         CloudTtsProviderType::AlibabaCloud => &crate::cloud_tts_alibaba::AlibabaCloudTtsProvider,
         CloudTtsProviderType::AzureSpeech => &crate::cloud_tts_azure::AzureSpeechCloudTtsProvider,
+        CloudTtsProviderType::AwsPolly => &crate::cloud_tts_polly::AwsPollyCloudTtsProvider,
     }
 }
 pub(crate) fn invalid(message: &str) -> LegadoError {

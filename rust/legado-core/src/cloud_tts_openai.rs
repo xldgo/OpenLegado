@@ -100,6 +100,7 @@ impl CloudTtsProvider for OpenAiCloudTtsProvider {
             ));
         }
         Ok(PreparedCloudSpeech {
+            authentication_headers: Vec::new(),
             endpoint: url.to_string(),
             credential_header: "Authorization",
             additional_headers: Vec::new(),

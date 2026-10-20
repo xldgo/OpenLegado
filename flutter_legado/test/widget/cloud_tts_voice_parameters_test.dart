@@ -70,12 +70,12 @@ void main() {
 
   for (final provider in cloudTtsProviderProfiles.keys) {
     testWidgets('$provider 重命名保存保留未展示参数和身份', (tester) async {
-      const traits = {
+      final traits = {
         'locale': 'English',
         'role': '旁白',
         'pitch': 1.2,
         'volume': 0.8,
-        'sampleRate': 24000,
+        'sampleRate': provider == 'aws_polly' ? 16000 : 24000,
         'speed': 1.5,
         'style': '平静',
         'instructions': '保留指令',
