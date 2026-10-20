@@ -34,6 +34,7 @@ pub mod epub;
 pub mod export;
 pub mod mobi;
 pub mod pdf;
+mod resource_budget;
 pub mod txt;
 pub mod txt_search;
 pub mod umd;

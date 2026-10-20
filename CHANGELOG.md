@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.411] - 2026-10-20
+
+### Fixed
+- 原ZIP及CBZ按声明大小分配或无界读入，现按实际输出限制并使用暂存文件保护目标；Book库175项通过，RAR仅头部及读完复核，第三方目录解析和原生RAR中途限额仍不保证。
+- 贡献者：Codex + Rust；构建号412。
+
 ## [2.0.410] - 2026-10-20
 
 ### Fixed

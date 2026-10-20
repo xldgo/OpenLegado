@@ -14,7 +14,6 @@
 
 use std::cmp::Ordering;
 use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 
 use zip::ZipArchive;
@@ -43,6 +42,9 @@ impl CbzFile {
     /// 打开 CBZ 文件并列举图片条目（自然排序，忽略目录项与非图片条目）
     pub fn open(path: &str) -> LegadoResult<Self> {
         let mut archive = open_archive(path)?;
+        if archive.len() > crate::resource_budget::MAX_ENTRIES {
+            return Err(crate::resource_budget::exceeded());
+        }
         let mut images = Vec::new();
         for i in 0..archive.len() {
             let entry = archive
@@ -114,6 +116,9 @@ impl CbzFile {
     ///
     /// 兼容传入 `cbz://<条目名>` 伪 URL（自动剥离前缀）。
     pub fn read_entry(&self, entry_name: &str) -> LegadoResult<Vec<u8>> {
+        self.read_entry_limited(entry_name, crate::resource_budget::MAX_PAGE_BYTES)
+    }
+    fn read_entry_limited(&self, entry_name: &str, limit: u64) -> LegadoResult<Vec<u8>> {
         let name = entry_name
             .strip_prefix(CBZ_URL_SCHEME)
             .unwrap_or(entry_name);
@@ -121,11 +126,10 @@ impl CbzFile {
         let mut entry = archive
             .by_name(name)
             .map_err(|e| LegadoError::BookParse(format!("CBZ 条目不存在 [{name}]: {e}")))?;
-        let mut buf = Vec::with_capacity(entry.size() as usize);
-        entry
-            .read_to_end(&mut buf)
-            .map_err(|e| LegadoError::BookParse(format!("读取CBZ条目失败 [{name}]: {e}")))?;
-        Ok(buf)
+        if entry.size() > limit {
+            return Err(crate::resource_budget::exceeded());
+        }
+        crate::resource_budget::read_bounded(&mut entry, limit)
     }
 
     /// 图片条目名列表（自然排序）
@@ -436,5 +440,26 @@ mod tests {
         assert!(CbzFile::open("/nonexistent/path.cbz").is_err());
 
         let _ = fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+    use std::io::Write;
+    #[test]
+    fn page_read_rejects_oversized_entry_and_remains_usable() {
+        let path =
+            std::env::temp_dir().join(format!("legado-cbz-budget-{}.cbz", std::process::id()));
+        let file = File::create(&path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        zip.start_file("1.jpg", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(b"12345678").unwrap();
+        zip.finish().unwrap();
+        let book = CbzFile::open(path.to_str().unwrap()).unwrap();
+        assert!(book.read_entry_limited("1.jpg", 4).is_err());
+        assert_eq!(book.read_entry_limited("1.jpg", 8).unwrap(), b"12345678");
+        std::fs::remove_file(path).unwrap();
     }
 }
