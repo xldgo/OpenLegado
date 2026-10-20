@@ -2,6 +2,7 @@ import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/data/repositories/mock_read_record_repository.dart';
+import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
 import 'package:flutter_legado/src/features/read_records/read_records.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/home/presentation/home_tab_screen.dart';
@@ -13,6 +14,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mocks/mocks.dart';
+
+class _PublicPrivacy extends PrivacyController {
+  @override
+  PrivacyState build() => const PrivacyState(loading: false);
+}
 
 void main() {
   setUpAll(registerFallbacks);
@@ -61,6 +67,52 @@ void main() {
       ),
     );
   }
+
+  testWidgets('阅读时长榜左右边缘均属于对应书籍的整行点击区域', (tester) async {
+    final tapped = <ReadBookRanking>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [privacyControllerProvider.overrideWith(_PublicPrivacy.new)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 360,
+                child: ReadingRankingCard(
+                  topBooks: sampleOverviewState.topBooks,
+                  onBookTap: (_, book) => tapped.add(book),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final material = find
+        .descendant(of: find.byType(Card), matching: find.byType(Material))
+        .first;
+    final cardBounds = tester.getRect(material);
+    final rows = find.descendant(
+      of: find.byType(ReadingRankingCard),
+      matching: find.byType(InkWell),
+    );
+    for (var i = 0; i < sampleOverviewState.topBooks.length; i++) {
+      final centerY = tester.getCenter(rows.at(i)).dy;
+      await tester.tapAt(Offset(cardBounds.left + 1, centerY));
+      await tester.pumpAndSettle();
+      await tester.tapAt(Offset(cardBounds.right - 1, centerY));
+      await tester.pumpAndSettle();
+    }
+    expect(tapped, [
+      sampleOverviewState.topBooks[0],
+      sampleOverviewState.topBooks[0],
+      sampleOverviewState.topBooks[1],
+      sampleOverviewState.topBooks[1],
+    ]);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('首页累计阅读进入总览，阅读时长进入记录', (tester) async {
     SharedPreferences.setMockInitialValues({});
