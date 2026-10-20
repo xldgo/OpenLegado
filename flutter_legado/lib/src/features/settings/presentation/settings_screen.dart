@@ -3,9 +3,7 @@ import '../application/app_services_controller.dart';
 import 'dart:async';
 
 import '../../../app/routing/app_navigation.dart';
-import '../../../providers/config_settings_provider.dart';
-import '../../../providers/domain_config_provider.dart';
-import '../../../providers/local_server_provider.dart';
+import '../../../providers/app_services_provider.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -17,10 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../l10n/app_localization.dart';
 import '../../../app/routing/route_names.dart';
-import '../../../providers/general_settings_provider.dart';
 import '../../../utils/error_message.dart';
-import '../../../services/auto_task_scheduler.dart';
-import '../../../providers/web_keep_alive_provider.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/app_bottom_bar_inset.dart';
 import '../../../widgets/settings_widgets.dart';
@@ -55,9 +50,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int get _mcpPort => _services.state.mcpPort;
   bool get _mcpTokenConfigured => _services.state.tokenConfigured;
   String get _webServiceStatus {
+    final error =
+        _services.state.webError ?? _services.state.webStatusReadError;
+    if (error != null) {
+      return context.l10n.webServiceStatusFailed(errorMessage(error));
+    }
     final status = _services.state.webStatus;
-    if (status == null) return '';
-    return status.running ? 'running on port ${status.port}' : 'stopped';
+    if (status == null) return context.l10n.webServiceChecking;
+    return status.running
+        ? context.l10n.webServiceRunning(status.port)
+        : context.l10n.webServiceSummary;
   }
 
   void _onServicesChanged() {
@@ -67,18 +69,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    final keepAlive = ref.read(webKeepAliveServiceProvider);
-    _services = AppServicesController(
-      server: ref.read(localServerServiceProvider),
-      settings: ref.read(serviceSettingsRepositoryProvider),
-      general: ref.read(generalSettingsRepositoryProvider),
-      access: ref.read(serverAccessRepositoryProvider),
-      startKeepAlive: keepAlive.start,
-      stopKeepAlive: keepAlive.stop,
-      refreshAuto: AutoTaskScheduler.instance.refresh,
-      cancelAuto: AutoTaskScheduler.instance.cancelAll,
-      log: (message, error) => debugPrint('$message：$error'),
-    );
+    _services = ref.read(appServicesControllerProvider);
     _services.addListener(_onServicesChanged);
     unawaited(_services.load());
     if (widget.openSettingsRequest > 0) _revealOther();
@@ -108,7 +99,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _services.removeListener(_onServicesChanged);
-    _services.dispose();
     super.dispose();
   }
 
@@ -162,9 +152,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   /// 服务运行状态与后台保活提示；呈现统一使用设置开关行。
   String get _webServiceSubtitle {
-    final baseSubtitle = _webService && _webServiceStatus.isNotEmpty
-        ? _webServiceStatus
-        : context.l10n.webServiceSummary;
+    final baseSubtitle = _webServiceStatus;
     return _webService && _webKeepAliveUnavailable
         ? context.l10n.webKeepAliveUnavailable(baseSubtitle)
         : baseSubtitle;

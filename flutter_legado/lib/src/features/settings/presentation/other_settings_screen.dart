@@ -58,6 +58,9 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
   // ===== 其他分组 =====
   String _localPassword = '';
   bool _webServiceWakeLock = false;
+  bool _webAutoStart = false;
+  bool _webAutoStartLoaded = false;
+  bool _savingWebAutoStart = false;
   String get _defaultBookTreeUri =>
       ref.read(generalSettingsRepositoryProvider).current.defaultBookTreeUri;
   int _sourceEditMaxLine = 99;
@@ -175,6 +178,8 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       await repository.reload();
       final settings = repository.current;
       _customHostsJson = settings.customHosts;
+      _webAutoStart = settings.webAutoStart;
+      _webAutoStartLoaded = true;
       _mcpPort = settings.mcpPort;
       _jsSourceApiToken =
           await ref.read(serverAccessRepositoryProvider).getToken() ?? '';
@@ -182,6 +187,23 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       debugPrint('OtherSettingsScreen 回读 customHosts/mcpPort 异常: $e');
     }
     if (mounted) setState(() {});
+  }
+
+  Future<void> _setWebAutoStart(bool enabled) async {
+    if (_savingWebAutoStart) return;
+    setState(() => _savingWebAutoStart = true);
+    try {
+      await ref
+          .read(serviceSettingsRepositoryProvider)
+          .update((settings) => settings.copyWith(webAutoStart: enabled));
+      if (mounted) setState(() => _webAutoStart = enabled);
+    } catch (error) {
+      if (mounted) {
+        _toast(context.l10n.webServiceSettingsSaveFailed(errorMessage(error)));
+      }
+    } finally {
+      if (mounted) setState(() => _savingWebAutoStart = false);
+    }
   }
 
   void _toast(String message) {
@@ -291,6 +313,14 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
                       ? '域名到IP的映射'
                       : _customHostsSummary,
                   onTap: _showCustomHostsDialog,
+                ),
+                SettingSwitchRow(
+                  title: context.l10n.webServiceAutoStart,
+                  subtitle: context.l10n.webServiceAutoStartDescription,
+                  value: _webAutoStart,
+                  onChanged: !_webAutoStartLoaded || _savingWebAutoStart
+                      ? null
+                      : _setWebAutoStart,
                 ),
                 SettingSwitchRow(
                   title: 'Web 服务唤醒锁',

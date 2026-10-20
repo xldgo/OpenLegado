@@ -19,6 +19,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
+import 'package:flutter_legado/src/domain/models/local_server_status.dart';
 import 'package:flutter_legado/src/features/settings/presentation/settings_screen.dart';
 import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 
@@ -33,6 +34,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+      (_) async => const LocalServerStatus(running: false, port: 1122),
+    );
     container = ProviderContainer(
       overrides: mergeTestOverrides([...mockApi.overrides]),
     );

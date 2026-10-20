@@ -18,6 +18,8 @@ class AppServicesState {
     this.mcpPort = 0,
     this.tokenConfigured = true,
     this.webStatus,
+    this.webError,
+    this.webStatusReadError,
   });
   final bool web,
       mcp,
@@ -28,6 +30,8 @@ class AppServicesState {
       tokenConfigured;
   final int mcpPort;
   final LocalServerStatus? webStatus;
+  final Object? webError;
+  final Object? webStatusReadError;
   AppServicesState copyWith({
     bool? web,
     bool? mcp,
@@ -38,6 +42,10 @@ class AppServicesState {
     bool? tokenConfigured,
     int? mcpPort,
     LocalServerStatus? webStatus,
+    Object? webError,
+    bool clearWebError = false,
+    Object? webStatusReadError,
+    bool clearWebStatusReadError = false,
   }) => AppServicesState(
     web: web ?? this.web,
     mcp: mcp ?? this.mcp,
@@ -48,10 +56,14 @@ class AppServicesState {
     tokenConfigured: tokenConfigured ?? this.tokenConfigured,
     mcpPort: mcpPort ?? this.mcpPort,
     webStatus: webStatus ?? this.webStatus,
+    webError: clearWebError ? null : webError ?? this.webError,
+    webStatusReadError: clearWebStatusReadError
+        ? null
+        : webStatusReadError ?? this.webStatusReadError,
   );
 }
 
-/// 控制运行态、偏好及保活的顺序；页面仅展示状态和错误。— Codex + UI
+/// 应用作用域拥有服务运行态；自动启动偏好与启停操作独立。— Codex + UI
 class AppServicesController extends ChangeNotifier {
   AppServicesController({
     required this.server,
@@ -75,6 +87,8 @@ class AppServicesController extends ChangeNotifier {
   AppServicesState get state => _state;
   bool _closed = false, _portWarningLogged = false;
   int _generation = 0;
+  int _webGeneration = 0, _webIntent = 0;
+  Future<void>? _webStartup;
   void _publish(AppServicesState state) {
     if (_closed) return;
     _state = state;
@@ -90,24 +104,86 @@ class AppServicesController extends ChangeNotifier {
       if (_closed || generation != _generation) return;
       _publish(
         _state.copyWith(
-          web: config.webEnabled,
           autoTask: config.autoTaskEnabled,
           mcpPort: config.mcpPort,
           mcp: config.mcpPort > 0,
           tokenConfigured: (token ?? '').trim().isNotEmpty,
         ),
       );
-      if (config.webEnabled) {
-        final status = await server.getServerStatus();
-        if (!_closed && generation == _generation) {
-          _publish(_state.copyWith(webStatus: status));
-        }
-      }
       if (!_closed && generation == _generation && config.autoTaskEnabled) {
         await refreshAuto();
       }
     } catch (e) {
       if (!_closed) log('读取服务状态失败', e);
+    }
+    await refreshWebStatus();
+  }
+
+  /// 仅冷启动执行一次；页面重建和前台恢复不重复应用自动启动偏好。
+  Future<void> initializeWebService() => _webStartup ??= _startWebOnLaunch();
+
+  Future<void> _startWebOnLaunch() async {
+    final intent = _webIntent;
+    try {
+      final config = await settings.load();
+      if (_closed || intent != _webIntent) return;
+      if (!config.webAutoStart) {
+        await refreshWebStatus();
+        return;
+      }
+      final status = await server.getServerStatus();
+      if (_closed || intent != _webIntent) return;
+      if (status.running) {
+        final keepAlive = await startKeepAlive();
+        if (_closed || intent != _webIntent) return;
+        _publish(
+          _state.copyWith(
+            web: true,
+            webStatus: status,
+            clearWebError: true,
+            clearWebStatusReadError: true,
+            keepAliveUnavailable: keepAlive == WebKeepAliveStatus.failed,
+          ),
+        );
+      } else {
+        await setWeb(true);
+      }
+    } catch (error) {
+      // 用户已手动操作时，迟到的启动查询不得覆盖新的状态。
+      if (!_closed && intent == _webIntent) {
+        _publish(_state.copyWith(webError: error));
+      }
+      log('自动启动Web服务失败', error);
+    }
+  }
+
+  /// 只核对运行态，失败保留最后确认值并明确报告错误，不重启服务。
+  Future<void> refreshWebStatus() async {
+    if (_closed || _state.webBusy) return;
+    final generation = ++_webGeneration;
+    try {
+      final status = await server.getServerStatus();
+      if (_closed || generation != _webGeneration || _state.webBusy) return;
+      final wasRunning = _state.web;
+      _publish(
+        _state.copyWith(
+          web: status.running,
+          webStatus: status,
+          clearWebStatusReadError: true,
+          keepAliveUnavailable: status.running ? null : false,
+        ),
+      );
+      if (wasRunning &&
+          !status.running &&
+          generation == _webGeneration &&
+          !_state.webBusy) {
+        await stopKeepAlive();
+      }
+    } catch (error) {
+      if (!_closed && generation == _webGeneration) {
+        _publish(_state.copyWith(webStatusReadError: error));
+        log('读取Web服务状态失败', error);
+      }
     }
   }
 
@@ -124,13 +200,24 @@ class AppServicesController extends ChangeNotifier {
   Future<void> setWeb(bool enabled) async {
     if (_closed || _state.webBusy) return;
     _generation++;
-    _publish(_state.copyWith(webBusy: true));
+    _webIntent++;
+    _webGeneration++;
+    _publish(
+      _state.copyWith(
+        webBusy: true,
+        clearWebError: true,
+        clearWebStatusReadError: true,
+      ),
+    );
     try {
       if (enabled) {
         await server.startServer(port: await _webPort());
         final status = await server.getServerStatus();
+        if (!status.running) throw StateError('Web服务未成功启动');
+        // 应用作用域已释放时，已接受的服务操作可收尾，但不再申请保活资源。
+        if (_closed) return;
+        _publish(_state.copyWith(web: true, webStatus: status));
         final keepAlive = await startKeepAlive();
-        await settings.update((s) => s.copyWith(webEnabled: true));
         _publish(
           _state.copyWith(
             web: true,
@@ -140,10 +227,26 @@ class AppServicesController extends ChangeNotifier {
         );
       } else {
         await server.stopServer();
+        final status = await server.getServerStatus();
+        if (status.running) throw StateError('Web服务未成功停止');
+        _publish(_state.copyWith(web: false, webStatus: status));
         await stopKeepAlive();
-        await settings.update((s) => s.copyWith(webEnabled: false));
         _publish(_state.copyWith(web: false, keepAliveUnavailable: false));
       }
+    } catch (error) {
+      try {
+        final status = await server.getServerStatus();
+        _publish(
+          _state.copyWith(
+            web: status.running,
+            webStatus: status,
+            webError: error,
+          ),
+        );
+      } catch (_) {
+        _publish(_state.copyWith(webError: error));
+      }
+      rethrow;
     } finally {
       _publish(_state.copyWith(webBusy: false));
     }
@@ -184,6 +287,8 @@ class AppServicesController extends ChangeNotifier {
     if (_closed) return;
     _closed = true;
     _generation++;
+    _webGeneration++;
+    _webIntent++;
     super.dispose();
   }
 }

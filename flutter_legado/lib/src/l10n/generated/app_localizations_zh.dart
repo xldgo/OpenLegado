@@ -604,6 +604,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncAndServices => '同步与服务';
 
   @override
+  String get webServiceAutoStart => '启动应用时开启 Web 服务';
+
+  @override
+  String get webServiceAutoStartDescription => '下次启动应用时生效，不改变当前运行状态';
+
+  @override
+  String webServiceSettingsSaveFailed(String error) {
+    return 'Web 服务设置保存失败：$error';
+  }
+
+  @override
+  String get webServiceChecking => '正在读取服务状态';
+
+  @override
+  String webServiceRunning(int port) {
+    return '运行中，端口 $port';
+  }
+
+  @override
+  String webServiceStatusFailed(String error) {
+    return 'Web 服务异常：$error';
+  }
+
+  @override
   String get webService => 'Web 服务';
 
   @override

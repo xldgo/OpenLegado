@@ -19,6 +19,40 @@ import '../fixtures/config_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Web自动启动默认关闭，仅保存启动意图并能跨装配读取', () async {
+    SharedPreferences.setMockInitialValues({});
+    final config = MockConfigRepository();
+    final service = createAppSettingsService(configRepository: () => config);
+    addTearDown(service.dispose);
+    final repository = AppServiceSettingsRepository(service);
+    expect((await repository.load()).webAutoStart, isFalse);
+    await repository.update((s) => s.copyWith(webAutoStart: true));
+    expect(await config.getConfig('webServiceAutoStart'), 'true');
+    final rebuilt = createAppSettingsService(configRepository: () => config);
+    addTearDown(rebuilt.dispose);
+    expect(
+      (await AppServiceSettingsRepository(rebuilt).load()).webAutoStart,
+      isTrue,
+    );
+  });
+
+  test('Web自动启动保存失败回退，不伪装保存成功', () async {
+    SharedPreferences.setMockInitialValues({});
+    final config = TestConfigRepository(
+      read: (_) async => null,
+      write: (_, _) async => throw StateError('无法保存'),
+    );
+    final service = createAppSettingsService(configRepository: () => config);
+    addTearDown(service.dispose);
+    final repository = AppServiceSettingsRepository(service);
+    await repository.load();
+    await expectLater(
+      repository.update((s) => s.copyWith(webAutoStart: true)),
+      throwsStateError,
+    );
+    expect(repository.current.webAutoStart, isFalse);
+  });
+
   test('离线下载并发独立存Rust配置并在重新装配后读取，范围与Rust一致', () async {
     SharedPreferences.setMockInitialValues({
       'preDownloadNum': 12,

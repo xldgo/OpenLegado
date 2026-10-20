@@ -989,6 +989,12 @@ RustBootstrap/AppRuntime执行，设置与主题刷新复用同一配置同步�
 ConfigRepository承接getConfig/setConfig/deleteConfig/getAllConfigs；正式实现继续使用configGet/
 configSet/configGetAll，空字符串读为null，删除仍写空字符串，枚举保留当前字段字符串化语义。
 JSON只在数据层解释，异常向上传递；configSet返回false视为写入失败，不能发布保存成功。
+
+Web服务设置（2026-10-21）：ServiceSettings.webAutoStart通过既有配置接口保存为
+webServiceAutoStart字符串true/false，默认false；只表示下次冷启动是否自动启动服务。
+运行开关仅取LocalServerService.getServerStatus的真实状态，不持久化；旧webService键
+不读不写、不迁移。自动启动由应用作用域执行一次，失败保留配置并展示错误，前台恢复只刷新状态。
+本次不改变Rust/FRB签名、服务协议或数据库结构。— Codex + UI
 Mock复用原配置Map，其他Mock服务继续共享同一存储。
 ConfigSettingsStorage改为依赖该仓储；普通设置只经AppSettingsService投影的类型化领域仓储
 访问，不由页面直接拼键。朗读引擎与音色选择、TXT目录规则、源变量、视频进度分别归属领域，

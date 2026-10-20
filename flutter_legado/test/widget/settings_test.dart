@@ -43,6 +43,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockApi = MockRustApi();
+    when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
+      (_) async => const LocalServerStatus(running: false, port: 1122),
+    );
     keepAlive = _WebKeepAlive();
     when(() => keepAlive.start())
         .thenAnswer((_) async => WebKeepAliveStatus.notApplicable);
@@ -320,6 +323,7 @@ void main() {
 
     // 页面只验证保活能力接线；音轨、共享会话与平台失败由服务单元测试覆盖。
     testWidgets('Web 服务开关：start 成功接保活 true，stop 成功接保活 false', (tester) async {
+      var running = false;
       when(() => keepAlive.start())
           .thenAnswer((_) async => WebKeepAliveStatus.active);
 
@@ -329,11 +333,11 @@ void main() {
           .thenAnswer((_) async {});
       when(
         () => mockApi.localServerService.startServer(port: any(named: 'port')),
-      ).thenAnswer((_) async {});
+      ).thenAnswer((_) async => running = true);
       when(() => mockApi.localServerService.stopServer())
-          .thenAnswer((_) async {});
+          .thenAnswer((_) async => running = false);
       when(() => mockApi.localServerService.getServerStatus()).thenAnswer(
-        (_) async => const LocalServerStatus(running: true, port: 1122),
+        (_) async => LocalServerStatus(running: running, port: 1122),
       );
 
       await tester.pumpWidget(wrap(const SettingsScreen()));
@@ -438,6 +442,53 @@ void main() {
   });
 
   group('OtherSettingsScreen 其他设置', () {
+    testWidgets('自动启动只保存偏好，重新打开仍显示保存值，不立即启动服务', (tester) async {
+      final configs = <String, String>{};
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((inv) async => configs[inv.positionalArguments[0]]);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenAnswer((inv) async {
+            configs[inv.positionalArguments[0] as String] =
+                inv.positionalArguments[1] as String;
+          });
+      await tester.pumpWidget(wrap(const OtherSettingsScreen()));
+      await tester.pumpAndSettle();
+      await dragTo(tester, '启动应用时开启 Web 服务');
+      final row = find.widgetWithText(SettingSwitchRow, '启动应用时开启 Web 服务');
+      expect(tester.widget<SettingSwitchRow>(row).value, isFalse);
+      tester.widget<SettingSwitchRow>(row).onChanged!(true);
+      await tester.pumpAndSettle();
+      expect(configs['webServiceAutoStart'], 'true');
+      expect(tester.widget<SettingSwitchRow>(row).value, isTrue);
+      verifyNever(
+        () => mockApi.localServerService.startServer(port: any(named: 'port')),
+      );
+      await tester.pumpWidget(
+        wrap(const OtherSettingsScreen(key: ValueKey('reopen'))),
+      );
+      await tester.pumpAndSettle();
+      await dragTo(tester, '启动应用时开启 Web 服务');
+      expect(tester.widget<SettingSwitchRow>(row).value, isTrue);
+    });
+
+    testWidgets('自动启动保存失败保留原开关并显示原因', (tester) async {
+      when(() => mockApi.configRepository.getConfig(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockApi.configRepository.setConfig(any(), any()))
+          .thenThrow(StateError('存储失败'));
+      await tester.pumpWidget(wrap(const OtherSettingsScreen()));
+      await tester.pumpAndSettle();
+      await dragTo(tester, '启动应用时开启 Web 服务');
+      final row = find.widgetWithText(SettingSwitchRow, '启动应用时开启 Web 服务');
+      tester.widget<SettingSwitchRow>(row).onChanged!(true);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SettingSwitchRow>(row).value, isFalse);
+      expect(find.textContaining('Web 服务设置保存失败：'), findsOneWidget);
+      expect(find.textContaining('存储失败'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('保留语言和主界面，下载与缓存设置迁到独立页', (tester) async {
       when(() => mockApi.configRepository.getConfig(any()))
           .thenAnswer((_) async => null);

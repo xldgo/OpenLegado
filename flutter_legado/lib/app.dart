@@ -4,6 +4,8 @@ import 'src/app/routing/startup_reading_navigation.dart';
 import 'src/app/routing/app_navigation.dart';
 import 'src/providers/auto_task/auto_task_dependencies.dart';
 import 'src/providers/config_settings_provider.dart';
+import 'src/providers/app_services_provider.dart';
+import 'src/features/settings/application/app_services_controller.dart';
 
 import 'dart:async';
 import 'dart:io' show File, FileSystemEntityType;
@@ -171,6 +173,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
   late final GoRouter _router;
   late final StartupReadingNavigation _startupReading;
   late final ProviderContainer _applicationContainer;
+  late final AppServicesController _appServices;
   final _initialDeepLinkReady = Completer<void>();
   final _dynamicColorsKey = GlobalKey<DynamicColorBuilderState>();
 
@@ -249,6 +252,9 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
       service: ref.read(autoTaskServiceProvider),
       readEnabled: () async => (await taskSettings.load()).autoTaskEnabled,
     );
+    // FFI已就绪，自动启动不阻塞首帧，也不依赖用户先打开设置页。
+    _appServices = ref.read(appServicesControllerProvider);
+    unawaited(_appServices.initializeWebService());
     // P1-11：监听系统 legado:// / yuedu:// 深链 → Association
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 等 Navigator 装配后再 attach（冷启动首帧前 navigatorKey 为空）。
@@ -309,6 +315,7 @@ class _LegadoAppState extends ConsumerState<LegadoApp>
     // 壁纸或系统强调色可能在后台改变，回到前台时重新读取并共享预览。
     if (state == AppLifecycleState.resumed) {
       unawaited(_dynamicColorsKey.currentState?.initPlatformState());
+      unawaited(_appServices.refreshWebStatus());
     }
   }
 

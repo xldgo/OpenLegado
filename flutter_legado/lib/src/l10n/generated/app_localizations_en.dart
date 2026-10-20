@@ -616,6 +616,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncAndServices => 'Sync and Services';
 
   @override
+  String get webServiceAutoStart => 'Start Web service when the app launches';
+
+  @override
+  String get webServiceAutoStartDescription =>
+      'Applies on the next app launch; does not change the current service';
+
+  @override
+  String webServiceSettingsSaveFailed(String error) {
+    return 'Failed to save Web service settings: $error';
+  }
+
+  @override
+  String get webServiceChecking => 'Checking service status';
+
+  @override
+  String webServiceRunning(int port) {
+    return 'Running on port $port';
+  }
+
+  @override
+  String webServiceStatusFailed(String error) {
+    return 'Web service error: $error';
+  }
+
+  @override
   String get webService => 'Web Service';
 
   @override

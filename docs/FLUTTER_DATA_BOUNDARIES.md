@@ -25,6 +25,16 @@ BackupSettingsRepository；图标和删除提醒分别扩展已有外观、书�
 会话有效；正文、预览和既有配置注入共享会话实例及颜色解析。纯色范围及上游差异见方案第 12 节，
 不把颜色模板升级为另一套分页配置。
 
+## Web服务生命周期
+
+Web服务运行态由应用作用域的AppServicesController拥有，页面只订阅；启动入口执行一次
+initializeWebService，前台恢复仅refreshWebStatus。ServiceSettings仅持久化自动启动意图
+webAutoStart，经共享设置服务写入Rust配置webServiceAutoStart，默认false；运行开关不写设置。
+运行查询、手动启停与自动启动共用LocalServerService和WebKeepAliveService，不新增FFI或平台桥。
+旧webService偏好不读写、不迁移；查询失败不伪装停止，过期查询不覆盖新操作，页面刷新保留启动失败原因。
+
+编写者：Codex + UI｜2026-10-21
+
 ## 错误边界
 
 领域错误由`domain/errors/app_exception.dart`定义，不依赖FRB。数据适配器通过

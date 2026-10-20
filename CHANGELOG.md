@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.417] - 2026-10-20
 
 ### Fixed
+- 修复重启后Web服务开关与实际状态不一致，新增独立的启动时自动开启设置。贡献者：Codex + UI。
 - 调整玻璃胶囊导航栏的底部位置，iOS 使用20逻辑像素留白，Android额外避让系统导航区。贡献者：Codex + UI。
 - 调整开书动画纸面高度的缓动节奏，避免重复缓动造成末段提前趋于静止。贡献者：Codex + UI。
 

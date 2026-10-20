@@ -1286,6 +1286,42 @@ abstract class AppLocalizations {
   /// **'同步与服务'**
   String get syncAndServices;
 
+  /// No description provided for @webServiceAutoStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动应用时开启 Web 服务'**
+  String get webServiceAutoStart;
+
+  /// No description provided for @webServiceAutoStartDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'下次启动应用时生效，不改变当前运行状态'**
+  String get webServiceAutoStartDescription;
+
+  /// No description provided for @webServiceSettingsSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 服务设置保存失败：{error}'**
+  String webServiceSettingsSaveFailed(String error);
+
+  /// No description provided for @webServiceChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取服务状态'**
+  String get webServiceChecking;
+
+  /// No description provided for @webServiceRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行中，端口 {port}'**
+  String webServiceRunning(int port);
+
+  /// No description provided for @webServiceStatusFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'Web 服务异常：{error}'**
+  String webServiceStatusFailed(String error);
+
   /// 主界面文案：Web 服务
   ///
   /// In zh, this message translates to:

@@ -741,6 +741,21 @@
   "@syncAndServices": {
     "description": "主界面文案：同步与服务"
   },
+  "webServiceAutoStart": "启动应用时开启 Web 服务",
+  "webServiceAutoStartDescription": "下次启动应用时生效，不改变当前运行状态",
+  "webServiceSettingsSaveFailed": "Web 服务设置保存失败：{error}",
+  "@webServiceSettingsSaveFailed": {
+    "placeholders": {"error": {"type": "String"}}
+  },
+  "webServiceChecking": "正在读取服务状态",
+  "webServiceRunning": "运行中，端口 {port}",
+  "@webServiceRunning": {
+    "placeholders": {"port": {"type": "int"}}
+  },
+  "webServiceStatusFailed": "Web 服务异常：{error}",
+  "@webServiceStatusFailed": {
+    "placeholders": {"error": {"type": "String"}}
+  },
   "webService": "Web 服务",
   "@webService": {
     "description": "主界面文案：Web 服务"
