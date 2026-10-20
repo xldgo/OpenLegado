@@ -66,8 +66,8 @@ impl<'a> CookieRepository<'a> {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("cookie_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

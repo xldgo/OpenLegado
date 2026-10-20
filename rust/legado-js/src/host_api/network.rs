@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[cfg(test)]
-use crate::host_api::runtime_bridge::block_on;
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    crate::host_api::runtime_bridge::block_on(future).expect("测试宿主支持同步网络桥")
+}
 use legado_net::client::ClientTimeoutPolicy;
 use legado_net::{COOKIE_JAR_HEADER, LegadoClient, LegadoRequest, Method};
 

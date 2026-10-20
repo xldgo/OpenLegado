@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### INTEGRATE-RUST-PRACTICES-20261020：合入Rust实践修复
+
+- 授权：用户要求合入主目录；合并前主目录feature/ui-reader-selection / 55d7f43af与worktree chore/dep-audit / 808cce378均干净。保留主目录外观字体与封面入口两个独立UI提交，不推送、不构建安装。
+- 范围：合入B0～B7及收尾共9个本地提交；Rust代码无交叉修改，自动合并。Active仅并列新增记录发生冲突，完整保留双方记录；两份更新日志保留双方条目，并修正本轮CHANGELOG日期栏误放说明的问题。
+- 验证：对双方独有文件逐项核对暂存树对象与原提交一致，核对三份共享文档、无冲突标记及git diff --check。Rust沿用原批次行为回归和默认/QuickJS严格Clippy、fmt证据；合并没有修改生产代码，不重复全量构建测试，不宣称远程或设备验收。
+- 交付：版本采用2.0.413+414，不额外递增，合并提交号以本条Git记录为准。RAR中途预算等已知限制继续保留，详见原实施记录。
+
+编写者：Codex｜2026-10-20
+
 ### APPEARANCE-FONT-20261020：外观界面字体设置（P2，本地完成，待设备复验）
 
 - 授权：用户要求在外观增加字体设置；feature/ui-reader-selection / db1dcd0c5，单代理，不提升版本、推送或安装。参照HapeLee ThemeConfigScreen的FontSelectSheet及独立appFontPath语义，沿用Flutter字体加载方案，不新增依赖或原生/FFI接口。
@@ -23,7 +32,75 @@
 - 证据：flutter_legado/build/reader-cover-entries-{tests,final-tests,analysis,architecture}.log。元素及加载状态在点击时捕获，路由build只读取绘制树，避免build阶段遍历元素；默认动画与翻书切换使用稳定Key保留正文会话。
 - 交付：单代理自查，无独立审查；仅本地提交，提交号以本条Git记录为准，版本仍为2.0.407+408。未编译安装、推送、运行CI或取得设备视觉/性能结论。Rust/FFI、数据库、书籍类型与媒体功能不变。
 
-### RUST-PRACTICES-AUDIT-20261020：主目录Rust实践审查（核查已结束，缺陷待修）
+### RUST-PRACTICES-CLOSE-20261020：Rust实践修复收口（本地完成）
+
+- 授权与范围：用户授权实施审查R1～R8及格式门禁；沿用build/worktrees/dep-audit / chore/dep-audit，从主目录提交fb0a1606c快进后实施。B0～B7均已本地提交；以下边界属于本轮交付范围，不代表全仓错误类型或所有归档引擎完成重写。
+- 结果：正常数据库列表传播行错误；书籍来源合并与保存使用短事务；进度重试依据Busy/Locked分类并保留source。Web低速除零和小数时长修复，REST直连TTS复用实例网络及任务取消，限制响应32MiB/60秒。ZIP/CBZ有界读取及条目暂存，JS不支持的运行环境明确报错，MOBI递归字典不再解引用裸指针。
+- 收尾复核：保持TTS查询参数原有百分号编码；Interrupted读取重试但仍受预算约束；音频Router测试完整读取请求头并带超时和大小保护。修正文档注释的Clippy问题；应用更新日志只保留用户可见变化。
+- 证据：DB库371项与Engine库138项、数据库类型/列表及单次写入回归通过；最终Book176项、Server216项、真实音频Router2项通过；完整QuickJS回归870项通过、4项既有忽略，Engine真实JS网络7项及最终同步桥5项通过。重复运行不相加为额外用例。默认与QuickJS的workspace/all-targets/locked严格Clippy（-D warnings）、cargo fmt --all -- --check、git diff --check及UTF-8范围检查均通过。
+- 追溯：批次提交与完整命令、成功日志及未测边界见[Rust实践审查实施证据](RUST_PRACTICES_AUDIT_20261020.md#后续实施证据用户授权2026-10-20)，原始日志为本worktree的build/rust-practices/。初次Clippy分别发现测试短读和文档列表格式，均已修复并复验；不隐瞒失败尝试。
+- 限制：RAR仅头部预检与读完复核，不能中途限制原生解压；ZIP条目数在库解析目录后检查，第三方元数据解析及其他解压路径不在预算承诺内。typed DB错误优先覆盖自动决策路径；JS单线程环境报错，不声称同步执行网络。未跑全套workspace/Flutter测试、Miri、跨平台、设备或性能验收，无独立审查与子代理。
+- 交付：版本2.0.413+414，公开FRB签名/DTO、生成物、依赖锁和数据库schema不变；没有历史数据迁移。仅本地提交，不推送、不合并主目录、不构建安装应用。收尾提交号以本条Git记录为准。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B7-20261020：refactor(rust): 用安全借用管理MOBI递归字典缓存
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：以RefCell管理MOBI递归字典缓存，递归前释放借用、完成后更新缓存，移除原始指针解引用；Book库175项通过，覆盖嵌套缓存复用与循环字典受控报错；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B6-20261020：fix(rust): 显式拒绝不支持的JS同步运行环境
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：旧同步桥将任意Tokio环境当作多线程导致panic，现返回可捕获的环境错误并保留受支持宿主路径；JS870项通过、4项既有忽略，Engine真实网络7项通过；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B5-20261020：fix(rust): 统一REST朗读网络资源与响应边界
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：旧REST朗读自行创建客户端并把错误正文当作音频地址，现复用引擎客户端并限制状态响应与任务期限；Server库215项及音频Router通过，四项最终定向覆盖代理HostsCookie配置及取消超时，响应32MiB和60秒上限；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B4-20261020：fix(rust): 限制归档输出并暂存ZIP导入条目
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：原ZIP及CBZ按声明大小分配或无界读入，现按实际输出限制并使用暂存文件保护目标；Book库175项通过，RAR仅头部及读完复核，第三方目录解析和原生RAR中途限额仍不保证；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B3-20261020：fix(rust): 修复Web音频低语速除零与时长截断
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：旧时长公式先将语速转为整数，低速导致除零，小数倍速失真，现先校验语速再浮点计算和舍入；真实Router两项回归通过，覆盖四种正常语速及请求前拒绝非法语速；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B2-20261020：fix(rust): 保留数据库错误原因并按类型重试
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：原数据库驱动错误被字符串化导致文案误判重试，现保留分类及source并只重试Busy或Locked；DB及Engine库回归通过，真实锁与约束探针和进度单次失败通过，Server及FFI编译通过；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B1-20261020：fix(rust): 传播查询行错误并原子保存书籍来源
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：旧查询吞掉坏行且保存把读取失败当成新书，现正常查询严格报错并以短写事务保护来源合并；数据库及Engine回归通过，最终库371及138项与列表坏行用例通过；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-B0-20261020：style(rust): 恢复全仓格式门禁
+
+- 状态：本批已关闭；用户授权整体七批实施，chore/dep-audit基线fb0a1606c；单代理，本地提交，不推送/合并/安装。
+- 结果与证据：仅修正六个既有文件的格式与导入顺序；cargo fmt全仓检查通过，未改业务行为和版本；证据build/rust-practices/，仅以本批成功日志为准。未执行设备/远程CI；后续批次不因本条关闭而视为完成。
+
+编写者：Codex + Rust｜2026-10-20
+
+### RUST-PRACTICES-AUDIT-20261020：主目录Rust实践审查（历史发现，实施结果见本轮关闭记录）
 
 - 授权与基线：用户要求合并worktree后检查Rust最佳实践；主目录合并0f13ea76d，单代理；只审查，不自动修复生产代码、不推送、构建应用或安装。后续独立UI提交6f69ca797的Rust树与基线一致，不归入本轮成果。
 - 范围与结果：11个crate配置及Engine/DB/JS/网络/本地书/FFI/Server关键路径静态核查，非全仓逐行审计。现有实例上下文、RAII凭据、有界调度、DTO/Stream/Opaque边界方向合理；详细证据和出处见[Rust实践审查](RUST_PRACTICES_AUDIT_20261020.md)。

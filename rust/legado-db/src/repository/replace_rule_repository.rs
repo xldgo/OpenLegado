@@ -96,8 +96,10 @@ impl<'a> ReplaceRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_replace_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("replace_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -117,8 +119,10 @@ impl<'a> ReplaceRuleRepository<'a> {
         let rows = stmt
             .query_map([], row_to_replace_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("replace_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 
@@ -138,8 +142,10 @@ impl<'a> ReplaceRuleRepository<'a> {
         let rows = stmt
             .query_map(params![scope], row_to_replace_rule)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| {
+                LegadoError::Database(format!("replace_rule_repository行解析失败: {e}"))
+            })?;
         Ok(rows)
     }
 

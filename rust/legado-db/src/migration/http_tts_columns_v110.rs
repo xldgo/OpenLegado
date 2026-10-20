@@ -127,7 +127,10 @@ mod tests {
         conn.pragma_update(None, "user_version", 109).unwrap();
         let registry = MigrationRegistry::new();
         registry.migrate_to_latest(&conn).unwrap();
-        assert_eq!(MigrationRegistry::current_version(&conn).unwrap(), crate::schema::SCHEMA_VERSION);
+        assert_eq!(
+            MigrationRegistry::current_version(&conn).unwrap(),
+            crate::schema::SCHEMA_VERSION
+        );
         assert_eq!(column_count(&conn, "speed"), 1);
         assert_eq!(column_count(&conn, "synthesisThreadCount"), 1);
     }

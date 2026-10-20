@@ -6,7 +6,8 @@
 
 审查范围：11个workspace crate的配置、依赖方向，以及Engine/DB/JS/网络/本地书/FFI/Server的关键实现路径。
 方法为静态调用链核查、严格Clippy和小型真实行为探针；不是所有Rust文件的逐行审计，
-也不是安全审计、Miri验证、设备性能测试或跨平台验收。未修改生产Rust代码。
+也不是安全审计、Miri验证、设备性能测试或跨平台验收。初次审查未修改生产Rust代码；
+后续经用户授权的实现证据见文末，当前任务状态以Active计划为准。
 任务与后续修复状态只在 REFACTORING_ACTIVE_PLAN.md 维护，本报告保存证据与建议。
 
 ## 结论
@@ -150,5 +151,74 @@
 
 建议修复顺序：R1/R2数据库错误传播 → R3音频panic → R5资源预算 → R4/R6宿主边界 → R7/R8局部整理。
 不为这轮检查修改公开FFI、数据库schema或模块拓扑；实施各项时再冻结所需契约并补针对性行为回归。
+
+编写者：Codex + Rust｜2026-10-20
+
+
+## 后续实施证据（用户授权，2026-10-20）
+
+实施工作树为`build/worktrees/dep-audit`、分支`chore/dep-audit`，
+从主目录已提交基线`fb0a1606c`快进后开始。未修改主目录或重写既有提交；
+本轮没有子代理、独立审查、远程CI、应用构建安装、跨平台或性能测量。
+
+| 批次 | 处理的审查项 | 实现与行为证据 | 本地提交 |
+|---|---|---|---|
+| B0 | 格式门禁 | 六个既有文件仅格式整理 | `42480af2f` |
+| B1 | R1、R2 | 正常列表严格收集行错误；书籍读取、来源合并及写入同一Immediate事务 | `7876c1340` |
+| B2 | R7 | Core仅定义驱动无关分类；DB保留source；进度只重试Busy/Locked，传输错误码不变 | `4653d2462` |
+| B3 | R3 | 正式音频Router先校验语速，再用浮点计算和舍入时长 | `0305f9f79` |
+| B4 | R5 | ZIP/CBZ按实际输出计量；ZIP条目独占暂存成功后提交，失败保留原目标 | `778f46125` |
+| B5 | R4 | 两个REST直连TTS入口复用所属引擎网络和TaskGroup，校验响应、期限和大小 | `822f4a326` |
+| B6 | R6 | 同步桥显式返回环境错误；current_thread不执行Future，真实JS可捕获错误且VM继续可用 | `c2ad9ce67` |
+| B7 | R8 | 现有不可变读取API下使用RefCell短借用；递归前释放，完成后缓存，无新增锁 | `e79bbc643` |
+
+最终复核还保留直连接口原有的百分号参数编码，对Interrupted读取重试，
+并修正测试socket短读与JS文档列表格式。对应提交可由文档及代码的Git记录追踪。
+公开FRB签名、生成物、依赖锁、数据库schema未改变，没有历史数据迁移。
+
+### 实际运行的验证
+
+证据目录`build/rust-practices/`位于工作树内并已被忽略；不作为生产代码或应用日志提交。
+全部Cargo命令从`rust/`执行，使用`--locked`；下列成功用例不与重复运行相加计算总数。
+
+- `cargo test --locked -p legado-db -p legado-engine`：库与相关集成测试通过，详见`b1-test.log`。
+  `b1-final.log`再次覆盖DB库371项、Engine库138项与列表坏行1项。
+- `b2-test.log`：真实SQLite锁、约束、转换及source链测试2项、列表错误1项通过。
+  `b2-regression.log`：DB库371项及Engine库138项通过。
+  `b2-retry.log`：约束错误虽含busy/locked文字仍只写一次，事务/连接可继续使用。
+  `b2-boundaries.log`：Server与FFI的cargo check通过。
+- `b3-test.log`及最终`final-audio-router.log`：正式音频Router2项通过；
+  speed=0.5/1/1.5/缺省结果分别为1600/800/533/800ms，无效输入在网络请求前拒绝。
+- `b4-test.log`与`b7-test.log`：Book库分别175项通过，包含预算、暂存清理与嵌套/循环字典。
+- `b5-test.log`：Server库215项及音频Router2项通过；随后增加配置覆盖，
+  `b5-final.log`4项定向验证代理、Hosts、UA、Cookie、实例客户端复用、取消及超时。
+- `cargo test --locked -p legado-js --features quickjs`：`b6-test.log`合计870项通过、4项既有忽略，
+  保留沙箱安全回归。`b6-engine.log`为Engine真实JS网络7项通过。
+  最终`final-js-env.log`同步桥5项通过，包含真实VM错误捕获和继续执行。
+- `cargo test --locked -p legado-book -p legado-server --lib`：最终`final-behavior.log`
+  Book176项、Server216项通过，包括参数编码和Interrupted读取回归。
+
+### 最终门禁
+
+- `cargo clippy --locked --workspace --all-targets -- -D warnings`退出0，
+  `final-clippy-default.log`。首轮新增音频测试未处理socket短读，已改为完整请求头读取并复验。
+- `cargo clippy --locked --workspace --all-targets --features quickjs -- -D warnings`退出0，
+  `final-clippy-quickjs.log`。首轮JS文档列表格式告警已修正，没有增加allow压制。
+- `cargo fmt --all -- --check`退出0，`final-fmt.log`；差异空白及UTF-8检查通过。
+  Windows共享Cargo缓存的耗时包含编译，不能解释为应用性能指标。
+
+### 仍需区分的边界
+
+- 默认CBZ页128MiB、导入条目512MiB、单次实际导入总量8GiB、条目100000。
+  ZIP实际输出受限，RAR仅头部预检与读取后复核；unrar当前接口不提供输出限额回调，
+  不宣称RAR原生解压中途有严格内存上限。ZIP条目数检查在库解析中央目录之后，
+  也不保证第三方元数据解析本身的所有内存受限。本批预算不覆盖所有EPUB及JS解压路径。
+- 已完成条目不因后续条目失败而回滚；失败的当前ZIP条目不截断旧目标。未承诺整包原子导入。
+- 数据库分类优先覆盖连接、书籍、章节及进度重试等需要自动判断的路径；
+  未把全仓Database(String)或所有网络错误机械替换为新枚举。
+- JS当前接受普通线程或多线程运行时；处于current_thread环境时明确报错，
+  不声称在其唯一驱动线程中同步执行网络。没有每请求建线程或移动QuickJS对象。
+- MOBI删除的是可安全替代的原始指针访问，不代表修复了已证实的UB；
+  保留递归深度限制，没有测得性能或内存收益。
 
 编写者：Codex + Rust｜2026-10-20

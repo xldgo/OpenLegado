@@ -19,13 +19,6 @@ impl<'a> RssSourceRepository<'a> {
 
     /// 查询所有 RSS 源
     pub fn find_all(&self) -> Result<Vec<RssSource>, String> {
-        self.query_all(false)
-    }
-    /// 页面列表沿用逐行跳过损坏数据，备份仍使用严格find_all。
-    pub fn find_all_skip_invalid(&self) -> Result<Vec<RssSource>, String> {
-        self.query_all(true)
-    }
-    fn query_all(&self, skip_invalid: bool) -> Result<Vec<RssSource>, String> {
         let mut stmt = self
             .conn
             .prepare(
@@ -47,12 +40,8 @@ impl<'a> RssSourceRepository<'a> {
         let rows = stmt
             .query_map([], row_to_rss_source)
             .map_err(|e| format!("查询失败: {e}"))?;
-        if skip_invalid {
-            Ok(rows.filter_map(Result::ok).collect())
-        } else {
-            rows.collect::<rusqlite::Result<Vec<_>>>()
-                .map_err(|e| format!("RSS 源行解析失败: {e}"))
-        }
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| format!("RSS 源行解析失败: {e}"))
     }
 
     /// 根据 URL 查询 RSS 源
@@ -109,8 +98,8 @@ impl<'a> RssSourceRepository<'a> {
         let sources = stmt
             .query_map([], row_to_rss_source)
             .map_err(|e| format!("查询失败: {e}"))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| format!("RSS源行解析失败: {e}"))?;
         Ok(sources)
     }
 
@@ -368,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    fn list_and_backup_share_mapping_but_keep_different_invalid_row_policies() {
+    fn lists_reject_invalid_rows_and_recover_after_removal() {
         let conn = setup_conn();
         let repo = RssSourceRepository::new(&conn);
         let source = RssSource {
@@ -393,16 +382,10 @@ mod tests {
         )
         .unwrap();
         assert!(repo.find_all().unwrap_err().contains("RSS 源行解析失败"));
-        let listed = repo.find_all_skip_invalid().unwrap();
-        assert_eq!(listed.len(), 1);
-        assert_eq!(
-            serde_json::to_value(&listed[0]).unwrap(),
-            serde_json::to_value(&source).unwrap()
-        );
         repo.delete("https://rss-policy.test/bad").unwrap();
         assert_eq!(
             serde_json::to_value(repo.find_all().unwrap()).unwrap(),
-            serde_json::to_value(listed).unwrap()
+            serde_json::to_value(vec![source]).unwrap()
         );
     }
 

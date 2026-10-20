@@ -22,7 +22,7 @@
 //! - LZMA 压缩 (compression=17481)
 //! - 加密内容 (encryption != 0)
 
-use std::cell::UnsafeCell;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -595,8 +595,8 @@ struct HuffcdicDecompressor {
     table1: Vec<u32>,
     mincode_table: Vec<u64>,
     maxcode_table: Vec<u64>,
-    /// UnsafeCell 用于递归解码时缓存展开结果（对照 Kotlin 原地更新 entry.data）
-    dictionary: UnsafeCell<Vec<CdicEntry>>,
+    /// 递归前释放只读借用，展开后以独占借用更新字典缓存。
+    dictionary: RefCell<Vec<CdicEntry>>,
 }
 
 impl HuffcdicDecompressor {
@@ -684,7 +684,7 @@ impl HuffcdicDecompressor {
             table1,
             mincode_table,
             maxcode_table,
-            dictionary: UnsafeCell::new(dictionary),
+            dictionary: RefCell::new(dictionary),
         })
     }
 
@@ -749,14 +749,14 @@ impl HuffcdicDecompressor {
 
             // 与 Kotlin 一致：按 Int 语义截取字典索引
             let index = ((maxcode - code) >> (32 - codelen)) as u32 as usize;
-            // 第一阶段：短借字典读取条目状态（递归前必须结束借用，
-            // 避免跨递归持有 &mut 造成别名 UB）
+            // 第一阶段：短借字典读取条目状态，递归前释放借用，
+            // 使嵌套解码可以独占借用字典并更新缓存。
             enum Action {
                 Direct(Vec<u8>),
                 Nested(Vec<u8>),
             }
             let action = {
-                let dict = unsafe { &*self.dictionary.get() };
+                let dict = self.dictionary.borrow();
                 if index >= dict.len() {
                     return Err(LegadoError::BookParse("HUFF 字典索引越界".into()));
                 }
@@ -773,7 +773,7 @@ impl HuffcdicDecompressor {
                     // （对照 Kotlin：entry.data = decompress(entry.data); entry.decompressed = true）
                     let mut buf = Vec::new();
                     self.decompress_into(&nested, &mut buf, depth + 1)?;
-                    let dict = unsafe { &mut *self.dictionary.get() };
+                    let mut dict = self.dictionary.borrow_mut();
                     dict[index].data = buf.clone();
                     dict[index].decompressed = true;
                     out.extend_from_slice(&buf);
@@ -2211,6 +2211,10 @@ mod tests {
         let text = book.full_text_bytes().unwrap();
         assert_eq!(text.len(), 32 * 64);
         assert!(text.iter().all(|&b| b == b'a'));
+        assert_eq!(book.full_text_bytes().unwrap(), text);
+        let dictionary = book.huff.as_ref().unwrap().dictionary.borrow();
+        assert!(dictionary[1].decompressed);
+        assert_eq!(dictionary[1].data, vec![b'a'; 64]);
         std::fs::remove_file(&path).ok();
     }
 

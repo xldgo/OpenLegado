@@ -27,6 +27,7 @@
 
 pub mod connection;
 pub mod default_data;
+pub mod error;
 pub mod import;
 pub mod migration;
 pub mod repository;

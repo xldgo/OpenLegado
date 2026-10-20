@@ -132,8 +132,8 @@ impl<'a> RssArticleRepository<'a> {
         let rows = stmt
             .query_map(params![source_url, limit], row_to_article)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("rss_article_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

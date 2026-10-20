@@ -2,8 +2,8 @@
 
 use rusqlite::{Connection, params};
 
+use legado_core::LegadoResult;
 use legado_core::models::BookChapter;
-use legado_core::{LegadoError, LegadoResult};
 
 use super::Repository;
 
@@ -27,13 +27,13 @@ impl<'a> BookChapterRepository<'a> {
                         endFragmentId, variable, imgUrl
                  FROM chapters WHERE bookUrl = ?1 ORDER BY \"index\" ASC",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let chapters = stmt
             .query_map(params![book_url], row_to_chapter)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .map_err(|e| crate::error::database_error("查询失败", e))?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| crate::error::database_error("book_chapter_repository行解析失败", e))?;
         Ok(chapters)
     }
 
@@ -51,15 +51,15 @@ impl<'a> BookChapterRepository<'a> {
                         endFragmentId, variable, imgUrl
                  FROM chapters WHERE bookUrl = ?1 AND \"index\" = ?2",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let mut rows = stmt
             .query_map(params![book_url, index], row_to_chapter)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询失败", e))?;
 
         match rows.next() {
             Some(Ok(ch)) => Ok(Some(ch)),
-            Some(Err(e)) => Err(LegadoError::Database(format!("行解析失败: {e}"))),
+            Some(Err(e)) => Err(crate::error::database_error("行解析失败", e)),
             None => Ok(None),
         }
     }
@@ -82,15 +82,15 @@ impl<'a> BookChapterRepository<'a> {
                         endFragmentId, variable, imgUrl
                  FROM chapters WHERE bookUrl = ?1 AND url = ?2",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let mut rows = stmt
             .query_map(params![book_url, chapter_url], row_to_chapter)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询失败", e))?;
 
         match rows.next() {
             Some(Ok(ch)) => Ok(Some(ch)),
-            Some(Err(e)) => Err(LegadoError::Database(format!("行解析失败: {e}"))),
+            Some(Err(e)) => Err(crate::error::database_error("行解析失败", e)),
             None => Ok(None),
         }
     }
@@ -114,17 +114,17 @@ impl<'a> BookChapterRepository<'a> {
                  WHERE c.url = ?1 AND b.origin = ?2
                  LIMIT 2",
             )
-            .map_err(|e| LegadoError::Database(format!("准备反查失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备反查失败", e))?;
         let mut rows = stmt
             .query_map(params![chapter_url, source_url], |row| {
                 row.get::<_, String>(0)
             })
-            .map_err(|e| LegadoError::Database(format!("反查失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("反查失败", e))?;
         let mut found: Vec<String> = Vec::new();
         for row in rows.by_ref() {
             match row {
                 Ok(url) => found.push(url),
-                Err(e) => return Err(LegadoError::Database(format!("行解析失败: {e}"))),
+                Err(e) => return Err(crate::error::database_error("行解析失败", e)),
             }
         }
         Ok(if found.len() == 1 { found.pop() } else { None })
@@ -148,7 +148,7 @@ impl<'a> BookChapterRepository<'a> {
                 "UPDATE chapters SET variable = ?3 WHERE bookUrl = ?1 AND url = ?2",
                 params![book_url, chapter_url, variable],
             )
-            .map_err(|e| LegadoError::Database(format!("章节变量更新失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("章节变量更新失败", e))?;
         Ok(affected > 0)
     }
 
@@ -161,7 +161,7 @@ impl<'a> BookChapterRepository<'a> {
                 params![book_url],
                 |row| row.get(0),
             )
-            .map_err(|e| LegadoError::Database(format!("计数查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("计数查询失败", e))?;
         Ok(count)
     }
 
@@ -186,7 +186,7 @@ impl<'a> BookChapterRepository<'a> {
                 "UPDATE chapters SET wordCount = ?3 WHERE bookUrl = ?1 AND url = ?2",
                 params![book_url, chapter_url, word_count],
             )
-            .map_err(|e| LegadoError::Database(format!("字数回填失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("字数回填失败", e))?;
         Ok(affected as u64)
     }
 
@@ -199,16 +199,16 @@ impl<'a> BookChapterRepository<'a> {
         let mut stmt = self
             .conn
             .prepare("SELECT wordCount FROM chapters WHERE bookUrl = ?1 AND url = ?2")
-            .map_err(|e| LegadoError::Database(format!("准备字数查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备字数查询失败", e))?;
         let mut rows = stmt
             .query_map(params![book_url, chapter_url], |row| {
                 row.get::<_, Option<String>>(0)
             })
-            .map_err(|e| LegadoError::Database(format!("字数查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("字数查询失败", e))?;
         Ok(match rows.next() {
             Some(Ok(Some(wc))) => wc.trim().is_empty(),
             Some(Ok(None)) => true,
-            Some(Err(e)) => return Err(LegadoError::Database(format!("行解析失败: {e}"))),
+            Some(Err(e)) => return Err(crate::error::database_error("行解析失败", e)),
             None => false,
         })
     }
@@ -237,7 +237,7 @@ impl<'a> BookChapterRepository<'a> {
         }
         self.conn
             .execute("DELETE FROM chapters WHERE bookUrl = ?1", params![book_url])
-            .map_err(|e| LegadoError::Database(format!("删除失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("删除失败", e))?;
         Ok(())
     }
 
@@ -251,13 +251,13 @@ impl<'a> BookChapterRepository<'a> {
         let tx = self
             .conn
             .unchecked_transaction()
-            .map_err(|e| LegadoError::Database(format!("开启事务失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("开启事务失败", e))?;
 
         // 复用无事务版本执行实际插入，保持单一 SQL 实现
         self.insert_batch_no_tx(chapters)?;
 
         tx.commit()
-            .map_err(|e| LegadoError::Database(format!("提交事务失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("提交事务失败", e))?;
         Ok(())
     }
 
@@ -276,7 +276,7 @@ impl<'a> BookChapterRepository<'a> {
                   endFragmentId, variable, imgUrl)
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
             )
-            .map_err(|e| LegadoError::Database(format!("准备插入失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备插入失败", e))?;
 
         for ch in chapters {
             stmt.execute(params![
@@ -298,7 +298,7 @@ impl<'a> BookChapterRepository<'a> {
                 ch.variable,
                 ch.img_url,
             ])
-            .map_err(|e| LegadoError::Database(format!("批量插入失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("批量插入失败", e))?;
         }
         Ok(())
     }
@@ -314,13 +314,13 @@ impl<'a> Repository<BookChapter> for BookChapterRepository<'a> {
                         endFragmentId, variable, imgUrl
                  FROM chapters ORDER BY bookUrl, \"index\" ASC",
             )
-            .map_err(|e| LegadoError::Database(format!("准备查询失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("准备查询失败", e))?;
 
         let chapters = stmt
             .query_map([], row_to_chapter)
-            .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .map_err(|e| crate::error::database_error("查询失败", e))?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| crate::error::database_error("book_chapter_repository行解析失败", e))?;
         Ok(chapters)
     }
 
@@ -352,7 +352,7 @@ impl<'a> Repository<BookChapter> for BookChapterRepository<'a> {
                     item.img_url,
                 ],
             )
-            .map_err(|e| LegadoError::Database(format!("插入失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("插入失败", e))?;
         Ok(())
     }
 
@@ -364,7 +364,7 @@ impl<'a> Repository<BookChapter> for BookChapterRepository<'a> {
         // id 为 "url|bookUrl" 拼接，简化处理仅按 url 删除
         self.conn
             .execute("DELETE FROM chapters WHERE url = ?1", params![id])
-            .map_err(|e| LegadoError::Database(format!("删除失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("删除失败", e))?;
         Ok(())
     }
 }
@@ -758,11 +758,11 @@ mod tests {
         let result: LegadoResult<()> = (|| {
             let tx = conn
                 .unchecked_transaction()
-                .map_err(|e| LegadoError::Database(format!("开启事务失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("开启事务失败", e))?;
             repo.delete_by_book_url("book1")?;
             repo.insert_batch_no_tx(&[make_chapter("book_ghost", 0, "坏章节")])?;
             tx.commit()
-                .map_err(|e| LegadoError::Database(format!("提交失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("提交失败", e))?;
             Ok(())
         })();
         assert!(result.is_err(), "写入引用不存在父书的章节应因外键约束失败");

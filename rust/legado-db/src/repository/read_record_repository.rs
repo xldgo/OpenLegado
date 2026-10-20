@@ -262,8 +262,8 @@ impl<'a> ReadRecordRepository<'a> {
         let names = stmt
             .query_map([], |row| row.get::<_, String>(0))
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("read_record_repository行解析失败: {e}")))?;
         Ok(names)
     }
 
@@ -288,8 +288,8 @@ impl<'a> ReadRecordRepository<'a> {
                 })
             })
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("read_record_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -420,8 +420,8 @@ impl<'a> ReadRecordRepository<'a> {
                 Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
             })
             .map_err(|e| LegadoError::Database(format!("查询每日时长失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("read_record_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

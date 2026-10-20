@@ -67,8 +67,8 @@ impl<'a> BookGroupRepository<'a> {
         let rows = stmt
             .query_map([], row_to_book_group)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_group_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 

@@ -16,7 +16,9 @@ impl IntoResponse for ApiError {
             LegadoError::Parser(_) => (StatusCode::BAD_REQUEST, "parser"),
             LegadoError::Network(_) => (StatusCode::BAD_GATEWAY, "network"),
             LegadoError::JsEngine(_) => (StatusCode::INTERNAL_SERVER_ERROR, "js_engine"),
-            LegadoError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "database"),
+            LegadoError::Database(_) | LegadoError::DatabaseFailure { .. } => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "database")
+            }
             LegadoError::BookParse(_) => (StatusCode::BAD_REQUEST, "book_parse"),
             LegadoError::Io(_) => (StatusCode::INTERNAL_SERVER_ERROR, "io"),
             LegadoError::Serialization(_) => (StatusCode::INTERNAL_SERVER_ERROR, "serialization"),

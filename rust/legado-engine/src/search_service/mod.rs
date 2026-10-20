@@ -175,6 +175,7 @@ pub fn classify_source_outcome(result: &LegadoResult<Vec<SearchResult>>) -> &'st
             | LegadoError::BookParse(_)
             | LegadoError::Serialization(_)
             | LegadoError::Database(_)
+            | LegadoError::DatabaseFailure { .. }
             | LegadoError::Ffi(_)
             | LegadoError::Internal(_) => "parser_error",
         },

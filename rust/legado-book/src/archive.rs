@@ -10,7 +10,7 @@
 //! 4. 返回提取后的文件路径列表
 
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use legado_core::{LegadoError, LegadoResult};
@@ -39,6 +39,75 @@ fn file_base_name(name: &str) -> &str {
 /// # 返回
 /// 提取的书籍文件路径列表
 pub fn import_zip_file(zip_path: &str, output_dir: &str) -> LegadoResult<Vec<String>> {
+    import_zip_limited(zip_path, output_dir, ImportLimits::default())
+}
+#[derive(Clone, Copy)]
+struct ImportLimits {
+    entry_bytes: u64,
+    total_bytes: u64,
+    entries: usize,
+}
+impl Default for ImportLimits {
+    fn default() -> Self {
+        Self {
+            entry_bytes: 512 * 1024 * 1024,
+            total_bytes: 8 * 1024 * 1024 * 1024,
+            entries: crate::resource_budget::MAX_ENTRIES,
+        }
+    }
+}
+/// 条目先写独占暂存文件；失败不截断已有目标。
+struct StagedFile {
+    path: PathBuf,
+    file: Option<File>,
+}
+impl StagedFile {
+    fn create(directory: &Path) -> LegadoResult<Self> {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        for _ in 0..128 {
+            let path = directory.join(format!(
+                ".legado-import-{}-{}.part",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(file) => {
+                    return Ok(Self {
+                        path,
+                        file: Some(file),
+                    });
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Err(LegadoError::BookParse("不能创建导入暂存文件".into()))
+    }
+    fn commit(mut self, destination: &Path) -> LegadoResult<()> {
+        if let Some(mut file) = self.file.take() {
+            file.flush()?;
+            drop(file);
+        }
+        fs::rename(&self.path, destination)?;
+        Ok(())
+    }
+}
+impl Drop for StagedFile {
+    fn drop(&mut self) {
+        drop(self.file.take());
+        let _ = fs::remove_file(&self.path);
+    }
+}
+fn import_zip_limited(
+    zip_path: &str,
+    output_dir: &str,
+    limits: ImportLimits,
+) -> LegadoResult<Vec<String>> {
     let file = File::open(zip_path)
         .map_err(|e| LegadoError::BookParse(format!("无法打开ZIP文件: {e}")))?;
 
@@ -48,6 +117,10 @@ pub fn import_zip_file(zip_path: &str, output_dir: &str) -> LegadoResult<Vec<Str
     // 确保输出目录存在
     fs::create_dir_all(output_dir)?;
 
+    if archive.len() > limits.entries {
+        return Err(crate::resource_budget::exceeded());
+    }
+    let mut total = 0u64;
     let mut extracted_files = Vec::new();
 
     for i in 0..archive.len() {
@@ -79,14 +152,22 @@ pub fn import_zip_file(zip_path: &str, output_dir: &str) -> LegadoResult<Vec<Str
         // 构造输出路径（使用基础文件名避免路径穿越）
         let out_path = safe_output_path(output_dir, base_name)?;
 
-        // 提取文件内容
-        let mut buf = Vec::new();
-        entry
-            .read_to_end(&mut buf)
-            .map_err(|e| LegadoError::BookParse(format!("解压文件失败 [{base_name}]: {e}")))?;
-
-        let mut out_file = File::create(&out_path)?;
-        out_file.write_all(&buf)?;
+        let limit = limits
+            .entry_bytes
+            .min(limits.total_bytes.saturating_sub(total));
+        if entry.size() > limit {
+            return Err(crate::resource_budget::exceeded());
+        }
+        let mut staged = StagedFile::create(Path::new(output_dir))?;
+        let copied = crate::resource_budget::copy_bounded(
+            &mut entry,
+            staged.file.as_mut().expect("暂存文件在提交前存在"),
+            limit,
+        )?;
+        total = total
+            .checked_add(copied)
+            .ok_or_else(crate::resource_budget::exceeded)?;
+        staged.commit(&out_path)?;
 
         extracted_files.push(out_path.to_string_lossy().to_string());
     }
@@ -124,6 +205,9 @@ pub fn import_rar_file(
 
     let mut extracted_files = Vec::new();
 
+    let limits = ImportLimits::default();
+    let mut total = 0u64;
+    let mut entries = 0usize;
     // 逐条目处理 RAR 文件
     loop {
         let header_result = open_arc
@@ -132,6 +216,10 @@ pub fn import_rar_file(
 
         match header_result {
             Some(arc_with_file) => {
+                entries += 1;
+                if entries > limits.entries {
+                    return Err(crate::resource_budget::exceeded());
+                }
                 let entry = arc_with_file.entry();
 
                 // 跳过目录
@@ -153,11 +241,22 @@ pub fn import_rar_file(
                     continue;
                 }
 
+                let limit = limits
+                    .entry_bytes
+                    .min(limits.total_bytes.saturating_sub(total));
+                if entry.unpacked_size > limit {
+                    return Err(crate::resource_budget::exceeded());
+                }
+                // 原生库未公开输出限额回调；头部预检不等同于中途限制。
                 // 读取文件内容到内存
                 let (data, next_arc) = arc_with_file.read().map_err(|e| {
                     LegadoError::BookParse(format!("解压RAR文件失败 [{base_name}]: {e}"))
                 })?;
 
+                if data.len() as u64 > limit {
+                    return Err(crate::resource_budget::exceeded());
+                }
+                total += data.len() as u64;
                 // 构造安全的输出路径并写入
                 let out_path = safe_output_path(output_dir, &base_name)?;
                 let mut out_file = File::create(&out_path)?;
@@ -460,5 +559,98 @@ mod tests {
         assert!(result.is_empty());
 
         let _ = fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+    #[test]
+    fn entry_count_size_and_total_are_bounded_without_damaging_existing_file() {
+        let root =
+            std::env::temp_dir().join(format!("legado-import-budget-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let zip_path = root.join("test.zip");
+        let mut zip = zip::ZipWriter::new(File::create(&zip_path).unwrap());
+        for name in ["a.txt", "b.txt"] {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(b"12345678").unwrap();
+        }
+        zip.finish().unwrap();
+        let output = root.join("out");
+        fs::create_dir_all(&output).unwrap();
+        fs::write(output.join("a.txt"), b"old").unwrap();
+        let call = |limits| {
+            import_zip_limited(zip_path.to_str().unwrap(), output.to_str().unwrap(), limits)
+        };
+        assert!(
+            call(ImportLimits {
+                entry_bytes: 4,
+                total_bytes: 16,
+                entries: 2
+            })
+            .is_err()
+        );
+        assert_eq!(fs::read(output.join("a.txt")).unwrap(), b"old");
+        assert!(
+            call(ImportLimits {
+                entry_bytes: 8,
+                total_bytes: 16,
+                entries: 1
+            })
+            .is_err()
+        );
+        assert!(
+            call(ImportLimits {
+                entry_bytes: 8,
+                total_bytes: 12,
+                entries: 2
+            })
+            .is_err()
+        );
+        assert!(!output.join("b.txt").exists());
+        assert!(fs::read_dir(&output).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".part")
+        }));
+        assert_eq!(
+            call(ImportLimits {
+                entry_bytes: 8,
+                total_bytes: 16,
+                entries: 2
+            })
+            .unwrap()
+            .len(),
+            2
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn failed_staged_write_preserves_target_and_removes_partial_file() {
+        let dir = std::env::temp_dir().join(format!("legado-stage-budget-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("old.txt");
+        fs::write(&target, b"old").unwrap();
+        {
+            let mut staged = StagedFile::create(&dir).unwrap();
+            let path = staged.path.clone();
+            assert!(
+                crate::resource_budget::copy_bounded(
+                    &mut &b"too long"[..],
+                    staged.file.as_mut().unwrap(),
+                    2
+                )
+                .is_err()
+            );
+            drop(staged);
+            assert!(!path.exists());
+        }
+        assert_eq!(fs::read(target).unwrap(), b"old");
+        fs::remove_dir_all(dir).unwrap();
     }
 }

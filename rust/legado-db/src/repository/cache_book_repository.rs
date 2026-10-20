@@ -134,8 +134,8 @@ impl<'a> CacheBookRepository<'a> {
         let rows = stmt
             .query_map(params![book_url], row_to_cached_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("cache_book_repository行解析失败: {e}")))?;
         Ok(rows)
     }
 
@@ -158,8 +158,9 @@ impl<'a> CacheBookRepository<'a> {
         let result = stmt
             .query_map(params![chapter_url], row_to_cached_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .next();
+            .next()
+            .transpose()
+            .map_err(|e| LegadoError::Database(format!("缓存行解析失败: {e}")))?;
         Ok(result)
     }
 
@@ -184,8 +185,9 @@ impl<'a> CacheBookRepository<'a> {
         let result = stmt
             .query_map(params![book_url, chapter_url], row_to_cached_chapter)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .next();
+            .next()
+            .transpose()
+            .map_err(|e| LegadoError::Database(format!("缓存行解析失败: {e}")))?;
         Ok(result)
     }
 

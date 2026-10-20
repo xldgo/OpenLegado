@@ -62,7 +62,7 @@ impl Database {
     pub fn open(path: &str) -> LegadoResult<Self> {
         // 阶段1：在临时连接上执行一次性迁移（文件数据库，数据持久化到磁盘）
         let temp_conn = Connection::open(path)
-            .map_err(|e| LegadoError::Database(format!("打开数据库失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("打开数据库失败", e))?;
         Self::init_pragmas(&temp_conn)?;
         Self::auto_migrate(&temp_conn)?;
         drop(temp_conn);
@@ -72,7 +72,7 @@ impl Database {
         let pool = Self::build_pool(manager, DEFAULT_POOL_SIZE)?;
         let conn = pool
             .get()
-            .map_err(|e| LegadoError::Database(format!("获取池连接失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("获取池连接失败", e))?;
         Ok(Self { pool, conn })
     }
 
@@ -84,7 +84,7 @@ impl Database {
         let pool = Self::build_pool(manager, 1)?;
         let conn = pool
             .get()
-            .map_err(|e| LegadoError::Database(format!("获取池连接失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("获取池连接失败", e))?;
 
         // 在持有的连接上执行迁移（pool size=1，始终复用同一连接，数据保留）
         Self::auto_migrate(&conn)?;
@@ -95,7 +95,7 @@ impl Database {
     /// 打开数据库但不执行迁移（用于测试迁移流程）
     pub fn open_raw(path: &str) -> LegadoResult<Self> {
         let temp_conn = Connection::open(path)
-            .map_err(|e| LegadoError::Database(format!("打开数据库失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("打开数据库失败", e))?;
         Self::init_pragmas(&temp_conn)?;
         drop(temp_conn);
 
@@ -103,7 +103,7 @@ impl Database {
         let pool = Self::build_pool(manager, DEFAULT_POOL_SIZE)?;
         let conn = pool
             .get()
-            .map_err(|e| LegadoError::Database(format!("获取池连接失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("获取池连接失败", e))?;
         Ok(Self { pool, conn })
     }
 
@@ -113,7 +113,7 @@ impl Database {
         let pool = Self::build_pool(manager, 1)?;
         let conn = pool
             .get()
-            .map_err(|e| LegadoError::Database(format!("获取池连接失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("获取池连接失败", e))?;
         Ok(Self { pool, conn })
     }
 
@@ -123,7 +123,7 @@ impl Database {
     pub fn from_pool(pool: &Pool<SqliteConnectionManager>) -> LegadoResult<Self> {
         let conn = pool
             .get()
-            .map_err(|e| LegadoError::Database(format!("获取池连接失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("获取池连接失败", e))?;
         Ok(Self {
             pool: pool.clone(),
             conn,
@@ -154,7 +154,7 @@ impl Database {
         }
         let pool = builder
             .build(manager)
-            .map_err(|e| LegadoError::Database(format!("创建连接池失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("创建连接池失败", e))?;
         Ok(pool)
     }
 
@@ -169,7 +169,7 @@ impl Database {
             // 全新数据库，创建最新 schema
             schema::init_schema(conn)?;
             conn.pragma_update(None, "user_version", schema::SCHEMA_VERSION)
-                .map_err(|e| LegadoError::Database(format!("设置版本失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("设置版本失败", e))?;
         } else if version < schema::SCHEMA_VERSION {
             // 执行增量迁移
             let registry = MigrationRegistry::new();
@@ -214,13 +214,13 @@ impl Database {
     /// 池连接的 PRAGMA 由 `PragmaCustomizer` 自动设置，此方法仅用于迁移前的临时连接。
     fn init_pragmas(conn: &Connection) -> LegadoResult<()> {
         conn.pragma_update(None, "journal_mode", "WAL")
-            .map_err(|e| LegadoError::Database(format!("设置 journal_mode 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("设置 journal_mode 失败", e))?;
         conn.pragma_update(None, "foreign_keys", "ON")
-            .map_err(|e| LegadoError::Database(format!("设置 foreign_keys 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("设置 foreign_keys 失败", e))?;
         conn.pragma_update(None, "synchronous", "NORMAL")
-            .map_err(|e| LegadoError::Database(format!("设置 synchronous 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("设置 synchronous 失败", e))?;
         conn.pragma_update(None, "busy_timeout", 5000)
-            .map_err(|e| LegadoError::Database(format!("设置 busy_timeout 失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("设置 busy_timeout 失败", e))?;
         Ok(())
     }
 
@@ -229,7 +229,7 @@ impl Database {
         let version: u32 = self
             .conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
-            .map_err(|e| LegadoError::Database(format!("查询版本失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("查询版本失败", e))?;
         Ok(version)
     }
 
@@ -237,7 +237,7 @@ impl Database {
     pub fn set_version(&self, version: u32) -> LegadoResult<()> {
         self.conn
             .pragma_update(None, "user_version", version)
-            .map_err(|e| LegadoError::Database(format!("设置版本失败: {e}")))?;
+            .map_err(|e| crate::error::database_error("设置版本失败", e))?;
         Ok(())
     }
 }
@@ -416,11 +416,11 @@ mod tests {
 
         let err = in_transaction(conn, "回滚测试", |conn| -> LegadoResult<()> {
             conn.execute("INSERT INTO tx_probe (id) VALUES (1)", [])
-                .map_err(|e| LegadoError::Database(format!("插入失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("插入失败", e))?;
             Err(LegadoError::Database("模拟第 2 条失败".into()))
         })
         .unwrap_err();
-        assert!(matches!(err, LegadoError::Database(_)));
+        assert_eq!(err.to_error_code(), 1004);
 
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM tx_probe", [], |row| row.get(0))
@@ -442,7 +442,7 @@ mod tests {
                     "INSERT INTO tx_probe (id) VALUES (?1)",
                     rusqlite::params![id],
                 )
-                .map_err(|e| LegadoError::Database(format!("插入失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("插入失败", e))?;
             }
             Ok(())
         })
@@ -466,7 +466,7 @@ mod tests {
         let tx = conn.unchecked_transaction().unwrap();
         in_transaction(conn, "内层", |conn| {
             conn.execute("INSERT INTO tx_probe (id) VALUES (7)", [])
-                .map_err(|e| LegadoError::Database(format!("插入失败: {e}")))?;
+                .map_err(|e| crate::error::database_error("插入失败", e))?;
             Ok(())
         })
         .expect("外层事务内调用不得嵌套 BEGIN");

@@ -65,8 +65,8 @@ impl<'a> BookSourceRepository<'a> {
         let sources = stmt
             .query_map([], row_to_book_source)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_source_repository行解析失败: {e}")))?;
         Ok(sources)
     }
 
@@ -90,8 +90,8 @@ impl<'a> BookSourceRepository<'a> {
         let sources = stmt
             .query_map(params![group], row_to_book_source)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_source_repository行解析失败: {e}")))?;
         Ok(sources)
     }
 
@@ -212,8 +212,8 @@ impl<'a> Repository<BookSource> for BookSourceRepository<'a> {
         let sources = stmt
             .query_map([], row_to_book_source)
             .map_err(|e| LegadoError::Database(format!("查询失败: {e}")))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| LegadoError::Database(format!("book_source_repository行解析失败: {e}")))?;
         Ok(sources)
     }
 
