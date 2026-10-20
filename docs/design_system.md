@@ -93,8 +93,9 @@ AppGlassStyle集中转换最终底色和模糊输入，颜色alpha不二次相�
 悬浮导航通过AppFloatingBottomBar适配GlassTabBar.bottom，保留AppNavSpec、
 SkinNavIcon与应用切页回调。useFloatingBottomBarLiquidGlass默认false，独立于
 enableBlur；资源未预热成功时使用普通材质。液态模式使用既有底栏blur/tint参数，
-普通模式使用原有背景规则。底栏保留64dp基准高度、左右16dp；玻璃模式底部取安全区与
-12dp最小留白的较大值，不再相加，普通模式保持12dp加安全区。外侧留白由项目统一计算。
+普通模式使用原有背景规则。底栏保留64dp基准高度、左右16dp；玻璃模式对齐库示例，
+底部固定20dp留白，仅Android额外避让系统导航安全区，iOS不再叠加底部安全区。
+普通模式及玻璃未就绪的回退保持12dp加安全区。外侧留白由项目统一计算，库内verticalPadding为0。
 库负责玻璃/选中指示器/按压与拖动反馈，不再叠加旧
 AnimatedScale；普通模式仅保留选中背景过渡，尊重减少动态效果。
 库按下选择及拖动释放回调均转发应用，重复点击仍可触发书架双击回顶；普通模式

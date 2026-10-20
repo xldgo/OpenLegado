@@ -8,6 +8,8 @@ import '../../theme/app_glass_theme.dart';
 import '../../theme/app_motion.dart';
 
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 
 import '../app_surface_backdrop.dart';
 
@@ -255,12 +257,13 @@ class AppFloatingBottomBar extends StatelessWidget {
         ),
       );
     }
-    // 玻璃胶囊以安全区和最小留白取较大值，避免额外抬高；普通胶囊保持原间距。
+    // 对齐库示例：玻璃胶囊留白20，只有Android额外避让系统导航区。
+    // 普通胶囊及玻璃未就绪时的回退继续沿用原间距。— Codex + UI
     return SafeArea(
       top: false,
-      minimum: EdgeInsets.only(bottom: useGlass ? 12 : 0),
+      bottom: !useGlass || defaultTargetPlatform == TargetPlatform.android,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, useGlass ? 0 : 12),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, useGlass ? 20 : 12),
         child: capsule,
       ),
     );

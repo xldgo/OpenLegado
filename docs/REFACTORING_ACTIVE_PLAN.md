@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### GLASS-BOTTOM-PLACEMENT-20261020：对齐组件库玻璃底栏定位（P2，待设备复验）
+
+- 授权：用户提供iPhone截图并确认按liquid_glass_widgets 1.13.0示例定位；沿用dev，单代理，不提升版本。
+- 根因：原实现把整颗玻璃胶囊放在底部安全区上方，截图约34逻辑像素；示例GlassScaffold仅Android避让底部安全区，iOS使用底栏自身20逻辑像素留白。
+- 实现：AppFloatingBottomBar玻璃模式统一底部留白20，仅Android额外避让系统安全区；普通胶囊和玻璃未就绪回退保持原间距。图标/文字、64基准高度、左右16及正文实际占用测量保持原逻辑。
+- 验证：现有几何用例按iOS/Android及0/24/34安全区检查实际底边位置，胶囊交互及主页导航3份回归共63项通过；目标静态分析无问题，diff检查通过。证据flutter_legado/build/glass-bottom-inset-{tests,analysis}.log。
+- 边界：未编译安装、未触发CI，iOS实际位置及Home手势仍需用户设备复验；源码及设计说明、双更新日志同步。本地提交带[skip ci]，不推送。
+- 来源：组件库414000e264aa5f2ff42ccd75e3c86c209441fd6f的example/lib/main.dart、lib/widgets/surfaces/glass_scaffold.dart，与当前1.13.0安装源码交叉核对；用户截图IMG_3574.JPG/IMG_3575.JPG。
+
+编写者：Codex + UI｜2026-10-20
+
 ### FLUTTER-DEPS-GROUP-20261020：Flutter依赖分类（P2，已关闭）
 
 - 授权：用户要求按用途分类Flutter依赖；仅整理pubspec.yaml顺序和中文注释，不修改依赖集合、版本、Git来源、应用版本或其他配置。

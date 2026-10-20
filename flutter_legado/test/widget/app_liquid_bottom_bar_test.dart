@@ -1,5 +1,7 @@
 import 'dart:ui' show SemanticsAction;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -95,16 +97,26 @@ void main() {
   }
 
   for (final inset in [0.0, 24.0, 34.0]) {
-    testWidgets('玻璃胶囊底部安全区不叠加悬浮留白：$inset', (tester) async {
-      await show(tester, bottomInset: inset);
-      final bar = tester.getRect(find.byType(GlassTabBar));
-      expect(844 - bar.bottom, inset < 12 ? 12 : inset);
-      final icon = find.byIcon(Icons.home_rounded).first;
-      final label = find.text('首页').first;
-      expect(tester.getSize(icon), const Size(28, 28));
-      expect(tester.getRect(label).top, tester.getRect(icon).bottom);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      '玻璃胶囊仅Android避让安全区，统一底部留白20：$inset',
+      (tester) async {
+        await show(tester, bottomInset: inset);
+        final bar = tester.getRect(find.byType(GlassTabBar));
+        expect(
+          844 - bar.bottom,
+          defaultTargetPlatform == TargetPlatform.android ? inset + 20 : 20,
+        );
+        final icon = find.byIcon(Icons.home_rounded).first;
+        final label = find.text('首页').first;
+        expect(tester.getSize(icon), const Size(28, 28));
+        expect(tester.getRect(label).top, tester.getRect(icon).bottom);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
   }
 
   for (final flags in [(true, true), (false, true), (true, false)]) {
