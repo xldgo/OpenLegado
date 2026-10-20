@@ -84,14 +84,11 @@ class ReadingRankingCard extends StatelessWidget {
                         ? () => onBookTap!(context, book)
                         : null,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 20,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
                       child: Row(
                         children: [
                           SizedBox(
-                            width: 28,
+                            width: 24,
                             child: Text(
                               '$rank',
                               textAlign: TextAlign.center,

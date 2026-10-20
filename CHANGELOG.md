@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Android构建启用AGP内置Kotlin，固定flutter_tts迁移补丁；保持原有编译器和JVM目标。贡献者：Codex + Tool。
 
 ### Fixed
-- 阅读时长榜改为整行点击反馈，移除行独立圆角，保留内容留白与卡片外圆角。贡献者：Codex + UI。
+- 阅读时长榜改为整行点击反馈，移除行独立圆角，收紧行号左侧间距并保留卡片外圆角。贡献者：Codex + UI。
 - 修复开书加载及中途返回时的动画跳位，优化封面与纸面的轮廓衔接。贡献者：Codex + UI。
 - 开书转场改为纸面、正文和封面整体缩放，封面翻开时保持来源比例。贡献者：Codex + UI。
 - 优化开书动画，封面翻开与放大同步进行，返回时同步合上缩回。贡献者：Codex + UI。
