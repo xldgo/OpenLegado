@@ -80,10 +80,12 @@ final class AudioBookController {
   }
 
   /// 宿主负责同步发布暂停态及媒体通知，保存仍使用暂停时的同一书章。
-  void pause() {
-    if (_disposed) return;
-    unawaited(_player.pause());
+  Future<void> pause() {
+    if (_disposed) return Future.value();
+    _host.advanceToken();
+    final paused = _player.pause();
     unawaited(persistPosition(force: true));
+    return paused;
   }
 
   Future<bool> resume() async {
@@ -94,10 +96,20 @@ final class AudioBookController {
       return false;
     }
     final token = _playToken;
-    await _player.resume();
-    if (_stale(token)) return true;
-    _state = _state.copyWith(state: PlayerState.playing);
-    await _host.activateMedia();
+    try {
+      _state = _state.copyWith(state: PlayerState.playing);
+      await _host.activateMedia();
+      if (_stale(token)) return true;
+      await _player.resume();
+    } catch (error) {
+      if (!_stale(token)) {
+        _host.pause();
+        _state = _state.copyWith(
+          state: PlayerState.error,
+          errorMessage: '音频恢复失败：$error',
+        );
+      }
+    }
     return true;
   }
 
@@ -142,14 +154,14 @@ final class AudioBookController {
         );
         // [P1] 绑定本章归属：播放器在进度/完成回调中原样回传，切章后旧播放器
         // 迟到的回调据此被丢弃，不会写进新章进度键
+        await _host.activateMedia();
+        if (_stale(token)) return;
         await _player.playUrl(
           mediaUrl,
           speed: _state.config.speed,
           tag: (bookUrl: _state.bookUrl, chapterIndex: index),
         );
         if (token != _playToken || _disposed) return;
-        await _host.activateMedia();
-        if (_stale(token)) return;
         _introSkipEvaluated = false;
         _skipWindow = null;
         // 恢复进度；从头播放时再套用片头跳过
@@ -181,6 +193,7 @@ final class AudioBookController {
       }
     } catch (e) {
       if (token != _playToken || _disposed) return;
+      _host.pause();
       _state = _state.copyWith(
         errorMessage: e.toString(),
         state: PlayerState.error,

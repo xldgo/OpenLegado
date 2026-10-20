@@ -20,6 +20,8 @@ pub enum CloudTtsProviderType {
     Volcengine,
     #[serde(rename = "gemini_tts")]
     GeminiTts,
+    #[serde(rename = "volcengine_v3")]
+    VolcengineV3,
 }
 /// 凭据只用于调用；可导出 JSON 和调试内容始终排除明文。
 #[derive(Clone, Serialize, Deserialize)]
@@ -226,6 +228,9 @@ pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsPr
             &crate::cloud_tts_volcengine::VolcengineCloudTtsProvider
         }
         CloudTtsProviderType::GeminiTts => &crate::cloud_tts_gemini::GeminiCloudTtsProvider,
+        CloudTtsProviderType::VolcengineV3 => {
+            &crate::cloud_tts_volcengine_v3::VolcengineV3CloudTtsProvider
+        }
     }
 }
 pub(crate) fn invalid(message: &str) -> LegadoError {

@@ -1,4 +1,3 @@
-import AVFAudio
 import Flutter
 import UIKit
 import UserNotifications
@@ -11,16 +10,7 @@ import UserNotifications
   ) -> Bool {
     // 按通知插件接线要求，将前台通知呈现交由 FlutterAppDelegate 分发。
     UNUserNotificationCenter.current().delegate = self
-    // [iOS 轨 P2-B] 后台听书：音频会话设为 playback（配合 Info.plist
-    // UIBackgroundModes=audio，静音开关不影响朗读、退后台继续播放；
-    // 不加 mixWithOthers——对齐 Android 音频焦点独占语义）。
-    // 锁屏控制（Now Playing/远程命令）由 NowPlayingBridge 接管（P2-C）。
-    do {
-      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-      try AVAudioSession.sharedInstance().setActive(true)
-    } catch {
-      NSLog("[AppDelegate] AVAudioSession 配置失败: \(error)")
-    }
+    // 播放与 Web 保活按需通过 AppAudioSession 激活，不在启动时抢占其他音频。
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

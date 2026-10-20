@@ -2388,6 +2388,10 @@ pub mod ffi {
             .map(Into::into)
             .collect())
     }
+    /// 单项元数据；缺项为空，查询错误仍返回错误，不含平台凭据。
+    pub fn cloud_tts_get(id: String) -> Result<Option<CloudTtsMetadataDto>, BridgeError> {
+        Ok(crate::api::cloud_tts_api::get(&id)?.map(Into::into))
+    }
     pub fn cloud_tts_save(engine: CloudTtsMetadataDto) -> Result<(), BridgeError> {
         Ok(crate::api::cloud_tts_api::save(engine.into())?)
     }

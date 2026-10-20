@@ -24,7 +24,7 @@ class ReadAloudAudioPlayer extends StreamAudioPlayer
   static audio.AudioPlayer _defaultPlayer() => audio.AudioPlayer(
     handleInterruptions: false,
     handleAudioSessionActivation: false,
-    androidApplyAudioAttributes: false,
+    androidApplyAudioAttributes: true,
     useProxyForRequestHeaders: false,
     maxSkipsOnError: 0,
   );

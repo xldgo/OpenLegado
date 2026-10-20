@@ -45,6 +45,27 @@ class _MockVoiceCatalog implements CloudTtsVoiceCatalog {
     HttpTtsCancellation cancellation,
   ) async {
     if (cancellation.isCancelled) throw StateError('音色发现已取消');
+    if (engine.provider == 'volcengine_v3') {
+      // 官方 2.0 候选，不代表当前账号已经取得相应授权。— Codex + UI
+      return const [
+        CloudTtsVoiceDescriptor(
+          id: 'zh_female_vv_uranus_bigtts',
+          name: 'Vivi 2.0',
+        ),
+        CloudTtsVoiceDescriptor(
+          id: 'zh_female_xiaohe_uranus_bigtts',
+          name: '小何 2.0',
+        ),
+        CloudTtsVoiceDescriptor(
+          id: 'zh_male_m191_uranus_bigtts',
+          name: '云舟 2.0',
+        ),
+        CloudTtsVoiceDescriptor(
+          id: 'zh_male_taocheng_uranus_bigtts',
+          name: '小天 2.0',
+        ),
+      ];
+    }
     if (engine.provider != 'volcengine') return const [];
     // 固定参考版的真实静态目录；不伪造远端账号音色。— Codex + UI
     return const [

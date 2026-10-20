@@ -10,8 +10,10 @@ import 'package:flutter_legado/src/data/repositories/mock_tts_cache_repository.d
 import 'package:flutter_legado/src/features/read_aloud/read_aloud_voice_preview.dart';
 import 'package:flutter_legado/src/domain/models/http_tts_voice_selection.dart';
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
+import 'package:flutter_legado/src/platform/audio/app_audio_session.dart';
 
 import '../mocks/mocks.dart' hide MockHttpTtsSynthesizer;
+import '../fixtures/app_audio_session_backend.dart';
 
 class _Cloud implements CloudTtsSynthesizer {
   Completer<HttpTtsSynthesisResult>? pending;
@@ -100,6 +102,7 @@ void main() {
   late _System system;
   late FakeStreamAudioPlayer player;
   late ReadAloudVoicePreview preview;
+  late TestAudioSessionBackend audioBackend;
   final changes = <String?>[];
   final errors = <Object>[];
   ReadAloudVoice voice(String speaker) => ReadAloudVoice(
@@ -111,6 +114,7 @@ void main() {
     traitsJson: '{"style":"平静","format":"wav"}',
   );
   setUp(() async {
+    audioBackend = TestAudioSessionBackend();
     cloud = _Cloud();
     http = _Http();
     system = _System();
@@ -126,6 +130,7 @@ void main() {
       ),
     );
     preview = ReadAloudVoicePreview(
+      audioSession: AppAudioSession(audioBackend),
       player: player,
       system: system,
       cloud: () => cloud,
@@ -138,6 +143,38 @@ void main() {
   });
   tearDown(() async {
     await preview.dispose();
+    await audioBackend.source.close();
+  });
+
+  test('焦点拒绝不合成或朗读，也不保留试听标记', () async {
+    audioBackend.granted = false;
+    await expectLater(preview.speak(voice('a'), '测试'), throwsStateError);
+    expect(player.playedLocalFiles, isEmpty);
+    expect(changes.last, isNull);
+    expect(audioBackend.activations, [true]);
+  });
+
+  test('申请期间停止，不播放迟到结果且释放会话', () async {
+    audioBackend.activationBarrier = Completer<void>();
+    final starting = preview.speak(voice('a'), '测试');
+    await pumpEventQueue();
+    await preview.stop();
+    audioBackend.activationBarrier!.complete();
+    await starting;
+    expect(player.playedLocalFiles, isEmpty);
+    expect(audioBackend.activations, [true, false]);
+  });
+
+  test('试听遇到耳机断开或中断即停止，恢复事件不会自动再播放', () async {
+    await preview.speak(voice('a'), '测试', draft: true);
+    audioBackend.source.add(AppAudioEvent.stop);
+    await pumpEventQueue();
+    expect(changes.last, isNull);
+    expect(player.isPlaying, isFalse);
+    final played = player.playedLocalFiles.length;
+    audioBackend.source.add(AppAudioEvent.resume);
+    await pumpEventQueue();
+    expect(player.playedLocalFiles, hasLength(played));
   });
   test('HTTP 试听与正文同样解析预设、显式情感、默认覆盖和失效回落', () async {
     final v = ReadAloudVoice(

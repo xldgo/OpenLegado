@@ -95,6 +95,47 @@
 - 验证：编排、真实临时Git差异、手动CLI和测试报告共39项回归通过，actionlint及git diff --check通过。证据build/remove-integration-tests.log、build/remove-integration-actionlint.log；没有运行Flutter/Rust全量测试或应用构建，本批不改业务代码。
 
 编写者：Codex + Tool｜2026-10-20
+### TTS-AUDIO-SESSION-20261020：统一音频会话与中断（P1，代码完成，待平台验收）
+
+- 授权/基线：用户同意先完成第一批 audio_session 接入；feature/ui-tts-engine / c5e302706，工作树干净，单代理。
+- 范围：直接声明既有 audio_session 0.2.4，统一正文/音频书/试听的会话激活、拒绝与中断，Web 保活以独立使用凭据共享；移除同职责原生焦点/激活操作，保留媒体通知/锁屏/服务路径。无 Rust/FFI 变更，不迁移 audio_service，不改预合成和播放队列。
+- 验收：激活失败不得开始/恢复播放，耳机断开暂停且不自动恢复，中断恢复核验会话/用户意图，多使用方释放互不影响，保活不得中断期间抢占。行为单测与定向分析；平台真实中断/后台/蓝牙留待设备验收，仅本地提交不推送。
+- 实现：新增平台 AppAudioSession 和可独立释放的使用凭据；应用按需 speech 配置与激活，正文/音频书/试听先获准再起播或恢复。媒体协调层过滤旧代次/书籍的恢复，永久失焦或耳机断开取消恢复意图；暂停/停止等待原生控制完成，迟到屏障不释放新会话。系统 TTS 不再自行配置/激活，Web 保活让位于真实音频与外部中断，原生仅启停音轨；既有通知、锁屏、定位和前台服务保留。
+- 平台语义：audio_session 的 iOS unknown 开始映射为临时中断，结束时按恢复许可裁决；Android unknown 表示永久失焦。语音场景遇 duck 暂停；just_audio 保持手动中断/激活，启用 Android 音频属性消费。Windows 继续本地播放，不虚构焦点或 SMTC；未迁移视频或 audio_service，无 Rust/FRB/schema 变化。
+- 验证：12 份定向 Flutter 测试最终 170 项通过，重复执行不累计；含会话拒绝、并发持有、停止后迟到申请、中断期间保活、异步保活启停、试听取消、暂停停止屏障、现有 HTTP/云预取/系统 TTS 与原生队列状态机。22 份手写 Dart 定向分析与格式、架构检查通过；证据 flutter_legado/build/tts-audio-session-final.log。测试默认显式提供媒体平台及封面替身，HTTP 播放测试在用例体内销毁容器，不绕过生产门禁。
+- Android：本机缺 Gradle wrapper，改用已缓存 Gradle 9.4.1；常规 compileDebugKotlin 被当前 worktree 缺 arm64 Rust 库的正式校验阻止。随后仅运行 Kotlin 编译，命令 :app:compileDebugKotlin -x :app:verifyDebugRustFfiLibs -x :app:compileFlutterBuildDebug --offline --console=plain，通过；此结果仅证明 Kotlin 可编译，不代表 APK/FFI 验收，不修改正式门禁。保留既有 AGP/插件弃用告警。
+- 过程：初始平台映射测试的非 const 构造与遗漏导入经分析发现后修正；扩大回归暴露原测试依赖未初始化媒体会话、容器/封面计时器清理不完整，补齐显式替身和用例内释放后收口，没有放宽生产校验。版本 2.0.416+417；audio_session 锁定仍为 0.2.4，仅从间接改为直接依赖。
+- 交付边界：单代理实现与自查，无独立审查。Windows 无 Xcode，未执行 iOS 编译、真机中文发声、来电/Siri、蓝牙断连及后台连续播放；未打包/安装/触发 CI，不以单测代替设备验收。本地提交，不推送或合并，提交号见本条 Git 记录。
+- 集成：用户随后要求合入主目录 dev；从主目录24b35f054合并TTS分支2c02db53e的三个提交，保留双方计划及更新日志与主目录原有桌面生成文件修改。无代码冲突，沿用各批验证，不重新构建或推送；iOS及设备验收仍待完成。
+
+编写者：Codex + UI｜2026-10-20
+
+### TTS-LOOKUP-20261020：云朗读单项查询与重复读取测量（P2，本地完成）
+
+- 授权/基线：用户同意优先贯通按 ID 查询、测量重复读取；feature/ui-tts-engine / 0ee96b364，开始工作树干净，单代理。
+- 范围：Rust 参数化单项查询、可空 FFI 入口、Dart 仓库与明确单项消费者、真实 FFI 计数和安全边界回归；不改预下载/队列/流式播放，不缓存凭据或去掉 Rust 校验。
+- 修改前证据：本机真实 FFI + HTTP 三次相同文本（两次缓存命中），Flutter list=3、凭据接口 read=3、HTTP=1；进程内凭据替身计数不代表平台安全存储耗时。Rust get 内部全量 list 已按调用链确认。
+- 验收：缺项/坏行/无关坏记录、全字段返回，单项消费者不再列举，缓存命中仍验证停用/凭据变化，相关播放/配置回归；本地提交，不推送或设备/远程 CI。
+- 实现：Rust find/get 共用全字段映射并执行参数化 WHERE id=?1；cloudTtsGet 返回可空 DTO，Dart 仓库和合成、音色发现、播放参数及单项配置消费者贯通。管理页的真实列表操作保留 list，既有缺项与读取错误语义不混淆；版本 2.0.415+416，没有 schema 或依赖变更。
+- 对照结果：相同本机真实 FFI/HTTP 路径，三次合成（两次缓存命中）从 list=3 改为 list=0/get=3，凭据 read=3、HTTP=1 均不变。只缩小查询与解码范围，没有减少元数据 FFI 调用次数或平台凭据读取，不声称已测得 IPC、功耗或首段等待改善。
+- 验证：Rust DB 11 项与 Engine 4 项、普通 Flutter 77 项、真实 FFI 8 项通过，重复执行不累计。新增查询测试覆盖无关坏行隔离、目标坏行/数据库错误、缺项和参数化 ID；真实缓存测试验证 Flutter 查询后停用/替换凭据引用仍由 Rust 拒绝，同步复验 V3/V1、Gemini、Polly、Azure、百炼及原云入口。
+- 检查：14 份手写 Dart 定向分析、架构检查、DB 严格 Clippy、FRB 生成及隔离 --check 通过；生成文件由固定生成器更新。执行 cargo test --locked --offline -p legado-db cloud_tts、cargo test --locked --offline -p legado-engine --lib tts_service::cloud::tests、cargo build --locked --offline -p legado-ffi --features quickjs；Flutter 显式装载本 worktree 新 DLL，使用本机 HTTP，不请求供应商账号。
+- 边界：单代理实现与自查，无独立审查；仅本地提交，不推送/合并/应用构建安装/远程 CI。真实账号、安全存储 IPC、设备后台/蓝牙听感及性能未测，保留现有安全检查、预下载配置和播放行为。提交号见本条 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
+### TTS-VOLCENGINE-V3-20261020：豆包 2.0 独立引擎（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户要求继续 V3；询问后确认官方仍保留 V1 文档，尚未授权删除，按原计划保留两套独立入口；feature/ui-tts-engine / b6f2433bb，工作树干净，单代理。
+- 范围：Core V3 SSE 协议、API Key/资源 ID、四个 2.0 候选、音色参数、DB/FFI 分派及 Sheet；不删除 V1、不自动回退，不改播放队列或 schema，不引入克隆/字幕/SSML。
+- 验收：协议/完成与错误帧、UUID 不影响缓存、音色与参数一致、定向表单/真实 FRB 本机 HTTP、取消与旧 Provider 回归；每批本地提交，不推送/安装/全量 CI。真实账号、音频解码及后台听感待设备验收。
+- 实现：Core 新增独立 V3 SSE Provider，API Key/资源 ID 鉴权与发送时 UUID 头；稳定缓存包含实际资源与请求参数，不受请求编号影响。正文原样、风格/指令放 context_texts，语速/音量转百分比、音高转半音；音频按片解码并要求明确完成，坏/部分响应不落盘。V1 源文件与原调用保留，没有迁移或失败降级。
+- Flutter/数据：引擎 Sheet 新增 V3，复用现有 model 字段存 seed-tts-2.0；四个官方候选通过类型化静态目录显示中文名与真实 ID，仅手动保存。支持 0.5～2 倍率及 MP3/Ogg/PCM/本地 WAV；没有 App ID、角色或语言等未消费控件。DB 与 FFI 枚举/默认值贯通；版本 2.0.414+415，无 schema/依赖升级或播放队列改动。
+- 验证：Core 33、DB 10、Fetcher 17 共 60 项 Rust 定向回归通过；普通 Flutter 54 项、真实 FFI 7 项通过，复跑不重复累计。V3 本机 SSE 核对 API Key/资源/唯一请求编号、原文与参数、目录/保存音色、四种格式、草稿共用缓存、截断/错误/MIME 失败重试与取消；同步复验 V1、Gemini、Polly、Azure、百炼与原云入口。6 份手写 Dart 分析/格式、Core 严格 Clippy、架构与差异检查、隔离生成复核通过。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；cargo build --locked --offline -p legado-ffi --features quickjs。Flutter 定向 media_dto_mapping/cloud_tts_settings、V3/V1/Gemini 编辑器、参数/配置/管理页；native 显式加载本 worktree 新 DLL，执行 volcengine_v3/volcengine/gemini/polly/azure/alibaba/cloud 七份 runtime。python scripts/dev.py generate bridge 及 --check。
+- 过程/边界：首次生成 Widget 测试的辅助脚本因模板断言失败而未生成文件，修正模板后正常生成；静态分析的一条测试花括号提示修正后复核无问题，未禁用规则。单代理实现与自查，无独立审查。只本地提交，不推送/合并/应用构建安装/远程 CI；真实账号、解码及后台/蓝牙听感待用户复验。本机合成数据不替代上述证据，提交见本条 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
 
 ### REMOVE-COMMITIZEN-20261020：清理无构建用途的根Node配置（本地完成）
 

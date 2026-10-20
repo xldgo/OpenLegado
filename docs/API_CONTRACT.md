@@ -1,5 +1,58 @@
 # API 契约文档
 
+## 音频平台职责收敛（TTS-AUDIO-SESSION-20261020）
+
+本批不改 Rust/FRB；legado/media_session 移除 requestAudioFocus、abandonAudioFocus 与
+onAudioFocusChange 原生通道分派，由 Dart AppAudioSession/audio_session 统一激活、释放和事件映射。
+原有通知、元数据、封面、进度、定位、媒体按钮与 Web 保活 setEnabled 协议保持；
+Web 保活调用方先持有独立音频会话使用凭据，原生只启停近静音音轨，不再修改共享会话。
+不保留双重焦点监听或旧通道回退，不改变应用数据契约；行为边界与平台差异见 TTS_ALIGNMENT。
+
+编写者：Codex + UI｜2026-10-20
+
+## 云 TTS 按 ID 查询（TTS-LOOKUP-20261020，实施前冻结）
+
+新增 cloudTtsGet(id: String) -> CloudTtsMetadataDto?，Flutter CloudTtsRepository.get(id)
+返回 CloudTtsEngine?；缺项为 null，查询/解码错误抛出，不把错误解释为缺项。
+复用既有 DTO，不返回平台凭据，不修改 schema 或保存/删除语义。
+Rust 仓库新增 find(id) 可选查询，既有 get(id) 保持缺项报错；两者最终均执行
+参数化 WHERE id=?1，不调用全量 list；list 保持完整列举与任一坏行失败语义。
+单项查询不解析其他记录，目标记录坏行仍失败；不新增历史迁移或数据修复。
+Flutter 合成、音色发现、播放参数解析及已知 ID 的配置操作改用单项查询，
+列表管理继续使用 list。每次请求仍读当前启用态及设备凭据；Rust 再核对凭据引用、
+音色归属与可用性，不新增会话/全局凭据缓存，不改预下载、原生队列或流式播放。
+真实 FFI 定向计数区分 list/get、安全存储接口读取、HTTP 次数；
+不以调用计数或内存凭据替身推断设备 IPC 耗时、功耗或首段延迟改善。
+
+编写者：Codex + Bridge｜2026-10-20
+
+## 火山 V3／豆包 2.0（TTS-VOLCENGINE-V3-20261020，实施前冻结）
+
+本批新增 provider=`volcengine_v3`，保留独立 V1 `volcengine`，不自动迁移或回退。
+参考版当前仍为 V1，本增量依用户继续接入 V3 的授权，协议以官方文档为准。
+V3 使用安全存储中的单 API Key，发 X-Api-Key；model 表示资源 ID，
+本批固定支持 seed-tts-2.0，不支持声音克隆/旧控制台 App ID+Token 鉴权。
+默认完整端点 https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse，
+X-Api-Resource-Id 为稳定头；X-Api-Request-Id 发送前生成新 UUID，不参与缓存身份。
+正文原样放 req_params.text；speaker 为音色 ID，提供 Vivi/小何/云舟/小天 2.0 四个官方候选，
+不自动保存。style/instructions 合并到 additions JSON 字符串中的 context_texts，
+post_process.pitch 也在 additions 内。无角色/语言/SSML/字幕/任意 JSON 设置。
+统一领域参数 speed/volume 为倍率 0.5..=2，转换为整数 (倍率-1)*100；
+pitch 为音高倍率 0.5..=2，转换为整数 12*log2(倍率)，四舍五入到官方半音范围。
+前台/预合成均保留本地保守的 1024 UTF-8 字节分片上限，不把它宣称为 V3 官方上限。
+格式 mp3/ogg_opus/pcm/wav；MP3/PCM 使用 24 kHz，Ogg 使用 48 kHz；
+本地 WAV 请求上游 PCM，完整收齐后包装 24 kHz 单声道 16-bit LE WAV。
+响应必须 text/event-stream，逐事件 JSON 核验；音频 Base64 逐片解码后按序拼接。
+code=0 为数据，code=20000000 或正常 SessionFinished(152) 为完成；
+SessionCanceled(151)/SessionFailed(153)/错误事件、非零错误码、坏 JSON/Base64、
+缺完成/空音频/坏容器均失败，不缓存部分结果，不回显服务端私人载荷。
+目录、配置保存、试听与正文使用同一 Provider 分派和默认值，沿用取消/缓存/租约。
+仅 FFI Provider 枚举扩展，无数据库迁移、依赖升级或播放队列改动。
+
+依据：[官方 V3 HTTP/SSE](https://docs.volcengine.com/docs/DoubaoVoice/HTTPChunkedSSEUnidirectionalStreaming-V3?lang=zh)、
+[官方 2.0 参数](https://docs.volcengine.com/docs/DoubaoVoice/unidirectional-streaming-text-to-speech-http?lang=zh)。
+编写者：Codex + Bridge｜2026-10-20
+
 ## Rust实践修复边界（2026-10-20，实施前冻结）
 
 普通数据库列表查询任一行解码失败即返回错误，不再成功返回缺行集合；空表仍成功返回空集合。
@@ -2587,7 +2640,9 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 
 ### 朗读扩展：缓存、音色目录与云端（§2.42 补充）
 
-Gemini 3.8 与火山 V1 增量见本文顶部 TTS-GEMINI-20261020、TTS-VOLCENGINE-20261020；方法签名和元数据表不变。
+按 ID 元数据入口 cloudTtsGet 的可空 DTO 与错误语义见顶部 TTS-LOOKUP-20261020。
+
+Gemini 3.8 与火山 V1/V3 增量见本文顶部 TTS-GEMINI-20261020、TTS-VOLCENGINE-20261020、TTS-VOLCENGINE-V3-20261020；方法签名和元数据表不变。
 
 Polly 增量契约见本文顶部 TTS-POLLY-20261020；新增 aws_polly、成组调用凭据及 supportedModels，既有方法签名不变。
 

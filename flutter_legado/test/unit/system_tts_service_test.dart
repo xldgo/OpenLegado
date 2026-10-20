@@ -313,18 +313,12 @@ void main() {
     expect(prefs.getKeys(), {'system_tts_voice', 'system_tts_engine'});
   });
 
-  test('iOS 使用共享 playback 会话，段间不释放', () async {
+  test('iOS 不自行配置或激活共享会话，段间不释放', () async {
     service = SystemTtsService(tts: plugin, platform: TargetPlatform.iOS);
     await service.initialize();
-    verify(() => plugin.setSharedInstance(true)).called(1);
+    verifyNever(() => plugin.setSharedInstance(any()));
     verify(() => plugin.autoStopSharedSession(false)).called(1);
-    verify(
-      () => plugin.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playback,
-        [],
-        IosTextToSpeechAudioMode.spokenAudio,
-      ),
-    ).called(1);
+    verifyNever(() => plugin.setIosAudioCategory(any(), any(), any()));
     verifyNever(() => plugin.setEngine(any()));
   });
 
@@ -345,7 +339,7 @@ void main() {
     verifyNever(() => plugin.awaitSpeakCompletion(true));
   });
 
-  test('iOS 暂停恢复时重新激活共享音频会话', () async {
+  test('iOS 暂停恢复不绕过统一适配器激活共享音频会话', () async {
     service = SystemTtsService(tts: plugin, platform: TargetPlatform.iOS);
     when(() => plugin.pause()).thenAnswer((_) async => 1);
     final first = service.speak('中文段落。');
@@ -356,7 +350,7 @@ void main() {
         .thenAnswer((_) async => 1);
     final resumed = service.resume();
     await flush();
-    verify(() => plugin.setSharedInstance(true)).called(3);
+    verifyNever(() => plugin.setSharedInstance(any()));
     completionHandler();
     expect(await resumed, SystemTtsOutcome.completed);
   });

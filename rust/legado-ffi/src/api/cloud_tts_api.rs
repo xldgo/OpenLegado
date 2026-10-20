@@ -4,6 +4,9 @@ use legado_db::repository::cloud_tts_repository::{CloudTtsMetadata, CloudTtsRepo
 pub fn list() -> LegadoResult<Vec<CloudTtsMetadata>> {
     crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).list())
 }
+pub fn get(id: &str) -> LegadoResult<Option<CloudTtsMetadata>> {
+    crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).find(id))
+}
 pub fn save(metadata: CloudTtsMetadata) -> LegadoResult<()> {
     crate::db_state::with_database(|db| CloudTtsRepository::new(db.connection()).save(&metadata))
 }

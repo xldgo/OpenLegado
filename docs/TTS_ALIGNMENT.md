@@ -2,6 +2,73 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 统一音频会话（2026-10-20）
+
+audio_session 0.2.4 从既有间接依赖改为直接依赖，不升级插件；
+参考 [官方配置](https://pub.dev/packages/audio_session/versions/0.2.4) 与本地锁定源码。
+
+- AppAudioSession 只拥有系统会话和独立使用凭据，串行配置/激活/释放；
+  正文、音频书、试听必须先获准再播放。最后一个使用方释放才降激活，旧凭据重复释放无副作用。
+- 使用 speech 配置：iOS playback/spokenAudio，Android media/speech、需要 duck 时暂停。
+  just_audio 不自行激活/处理中断，开启 Android 属性消费；不修改原生播放队列。
+- Android 永久失焦映射为不可自动恢复；iOS 开始中断的 unknown 仅代表开始，
+  结束时是否 shouldResume 决定恢复许可。媒体协调层再核对当前播放代次、书籍和用户意图；
+  暂停/停止等待实际播放控制屏障后释放，旧屏障不能释放新会话。耳机断开暂停，重连不自动播。
+- 试听遇到中断直接结束，不自动恢复。系统 TTS 仅禁用插件自动释放共享会话，
+  不再自行 setSharedInstance/setIosAudioCategory；启动应用也不再立即激活会话。
+- Web 保活持有非真实音频使用凭据；真实播放（含试听）或外部中断时停止近静音音轨，
+  不重新激活共享会话。原生 WebKeepAlive 只管理音轨，Dart 协调最新启停意图和释放。
+- MediaSessionBridge/NowPlayingBridge 删除原生焦点申请与中断监听，保留通知、封面、
+  锁屏/耳机按钮、进度/定位与既有前台服务。没有引入 audio_service；Windows 保留原播放器，
+  不宣称已有系统音频焦点或 SMTC；视频路径保持独立，未纳入本批平台验收。
+
+行为替身只能证明上述状态与调用顺序；iOS 编译、真实来电/Siri、耳机与后台播放仍需设备验收。
+具体执行结果只见 Active 中 TTS-AUDIO-SESSION-20261020。
+
+编写者：Codex + UI｜2026-10-20
+
+## 云端配置按 ID 查询与测量口径（2026-10-20）
+
+这是现有调用边界内的读取优化，不改变参考版的预下载或播放行为。
+
+- Rust find(id) 采用参数化 WHERE id=?1，缺项返回 None，读取/解码错误继续失败；
+  get(id) 保持必需配置缺项报错。列表与单项复用行映射，单项不解码无关行，
+  列表仍对坏行报错，不静默丢行。没有数据修复、历史迁移或凭据缓存。
+- 新增 cloudTtsGet(id) 返回可空的既有元数据 DTO；Dart get(id) 对缺项返回 null。
+  合成、音色发现、播放参数和已知引擎 ID 的配置操作使用单项入口，真正展示列表时保留 list。
+- Rust 每次合成继续读取当前引擎并核对凭据引用、音色归属/可选性，缓存命中也不跳过。
+  安全存储值按请求读取，不全局驻留，不用会话快照替代配置变更检查。
+- 定向测量通过真实 Rust 库和本机 HTTP 运行三次相同文本合成，区分首次请求与两次缓存命中；
+  仓库/凭据窄接口包装器记录真实调用次数，不检索生产源码充当测试。
+  这只能证明调用类型、读取次数和 HTTP 次数；内存凭据替身不证明设备安全存储耗时，
+  也不能据此声称减少 FFI 总调用数、降低功耗或缩短首段等待。前后结果与测试状态见 Active。
+
+编写者：Codex + UI/Bridge｜2026-10-20。
+
+## 火山 V3／豆包 2.0 的独立协议（2026-10-20）
+
+参考版当前 VolcengineCloudTtsProvider 仍走 V1；用户授权继续 V3 接入。
+V1 官方标为不推荐，文档仍保留，不把它解释为已下线，亦不因开发阶段就删除仍有用途的接口。
+本增量按 [官方 V3 HTTP/SSE](https://docs.volcengine.com/docs/DoubaoVoice/HTTPChunkedSSEUnidirectionalStreaming-V3?lang=zh)
+和 [2.0 请求参数](https://docs.volcengine.com/docs/DoubaoVoice/unidirectional-streaming-text-to-speech-http?lang=zh)实现。
+
+- provider=volcengine_v3 单独选择；V1 配置、BV 音色和调用保留，没有猜测协议、自动迁移或失败回退。
+  本批使用新控制台 X-Api-Key 与 seed-tts-2.0 资源，资源写入现有 model 字段；不新增 App ID 或凭据格式。
+- 请求编号使用发送时 UUID 头，稳定资源头、实际参数和正文参与缓存，随机编号不影响去重。
+  请求正文不增删，风格/指令放入 additions 内的 context_texts，不当小说正文朗读。
+- speed/volume 的 UI 倍率映射为官方百分比整数，pitch 映射为半音整数；界面和 Core 同为 0.5～2，
+  数值按协议四舍五入。默认 MP3/PCM 24 kHz、Ogg 48 kHz；本地 WAV 用上游 PCM 包装，避免流式 WAV 头问题。
+- SSE 完整读取后按事件解析，逐片解码 Base64，再拼音频字节；要求明确完成，拒绝取消/失败/截断及坏数据，
+  不能把连接正常关闭视为音频完成。仍是文件合成后播放，不声称边合成边播或改变首包时延。
+- 候选取自[官方 2.0 音色表](https://docs.volcengine.com/docs/DoubaoVoice/Tonelist-1?lang=zh)：
+  Vivi、小何、云舟、小天；只在用户保存时添加音色，可手填账号已授权的 2.0 ID。
+  不声明候选等于账号授权，不支持克隆、SSML、字幕、实时 PCM 播放或任意附加 JSON。
+- 1024 UTF-8 字节是本地保守分片限制，复用已有 Unicode 安全分片与原文偏移，不称为 V3 官方上限。
+  Core 做纯协议，Fetcher/Engine 沿用网络、取消、缓存与租约；新增 FFI 枚举，无 schema 或依赖更新。
+
+真实云账号、设备解码、后台/蓝牙听感另验；本机 HTTP 与合成数据只证明协议和桥接行为。
+编写者：Codex + UI/Bridge｜2026-10-20。
+
 ## Gemini 3.8 协议差异与音频边界（2026-10-20）
 
 参考 [c4182eb9 的 GeminiCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/GeminiCloudTtsProvider.kt)
@@ -231,7 +298,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1/Gemini3.8 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 火山V3；真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1与V3/Gemini3.8 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 
@@ -436,7 +503,8 @@ HTTP 失败时原有提示与估算推进保留，不自动切换系统引擎。
   Windows 配套 [just_audio_windows 0.2.3](https://pub.dev/packages/just_audio_windows/versions/0.2.3)。
   `ReadAloudAudioPlayer` 最初只接管正文 TTS 本地队列；后续按2026-10-15纯音频统一批次
   接管音频书URL与独立试听，视频仍保留原实现。
-  关闭插件自行管理焦点、中断和音频会话，由既有 MediaSessionBridge 处理；不新增第二个后台服务。
+  关闭插件自行管理焦点、中断和音频会话；2026-10-20 起由 AppAudioSession 处理，
+  MediaSessionBridge 仅保留系统媒体控制，不新增第二个后台服务。
 - `AudioNotifier` 生成当前章的 cue：逻辑段落、UTF-16 原文起点和不可变合成请求。
   零停顿排当前章剩余正文，有停顿只排同段长度分片；不提前排下一章，章末定时和循环仍归协调层。
 - `FileReadAloudPlaylist` 只管理本地文件入队与租约，最多当前项加两个后续项。

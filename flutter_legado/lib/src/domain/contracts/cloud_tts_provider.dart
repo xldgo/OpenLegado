@@ -49,6 +49,20 @@ final class CloudTtsProviderProfile {
 }
 
 const cloudTtsProviderProfiles = {
+  'volcengine_v3': CloudTtsProviderProfile(
+    name: '火山引擎（V3／豆包 2.0）',
+    model: 'seed-tts-2.0',
+    voice: 'zh_female_vv_uranus_bigtts',
+    formats: ['mp3', 'ogg_opus', 'wav', 'pcm'],
+    staticVoiceDescriptors: true,
+    supportsSourceSpeed: true,
+    supportsProsody: true,
+    supportsRole: false,
+    maxUtf8Bytes: 1024,
+    modelLabel: '资源 ID',
+    sourceSpeedRange: (min: 0.5, max: 2.0),
+    prosodyRange: (min: 0.5, max: 2.0),
+  ),
   'gemini_tts': CloudTtsProviderProfile(
     name: 'Gemini TTS',
     model: 'gemini-3.8-flash-tts',

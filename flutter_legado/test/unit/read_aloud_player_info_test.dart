@@ -46,6 +46,10 @@ class _Voices extends Fake implements ReadAloudVoiceRepository {
 
 class _Cloud extends Fake implements CloudTtsRepository {
   @override
+  Future<CloudTtsEngine?> get(String id) async => id == 'mimo'
+      ? const CloudTtsEngine(id: 'mimo', name: '我的 MiMo', provider: 'mimo')
+      : null;
+  @override
   Future<List<CloudTtsEngine>> list() async => const [
     CloudTtsEngine(id: 'mimo', name: '我的 MiMo', provider: 'mimo'),
   ];

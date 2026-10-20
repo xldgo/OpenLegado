@@ -22,9 +22,7 @@ final class RustCloudTtsSynthesizer implements CloudTtsSynthesizer {
     HttpTtsCancellation? cancellation,
   }) async {
     if (cancellation?.isCancelled == true) return const HttpTtsCancelled();
-    final engine = (await repository.list())
-        .where((e) => e.id == engineId)
-        .firstOrNull;
+    final engine = await repository.get(engineId);
     if (engine == null || !engine.enabled) throw StateError('云端引擎不存在或已停用');
     final apiKey = await credentials.read(engine.credentialKey);
     if (cancellation?.isCancelled == true) return const HttpTtsCancelled();

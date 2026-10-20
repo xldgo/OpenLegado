@@ -69,6 +69,7 @@ void main() {
     expect(fixture.state.errorMessage, contains('播放器失败'));
     fixture.player.playUrlError = null;
     await fixture.controller.play();
+    final pausesBefore = fixture.player.pauseCount;
     fixture.controller.handleError(StateError('旧章'), (
       bookUrl: 'other',
       chapterIndex: 0,
@@ -78,7 +79,7 @@ void main() {
       StateError('网络断开'),
       fixture.player.currentTag,
     );
-    expect(fixture.player.pauseCount, 1);
+    expect(fixture.player.pauseCount, pausesBefore + 1);
     expect(fixture.state.state, PlayerState.error);
     expect(fixture.state.errorMessage, contains('网络断开'));
   });

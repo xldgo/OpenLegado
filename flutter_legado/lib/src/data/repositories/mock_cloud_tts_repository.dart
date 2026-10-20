@@ -6,6 +6,8 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   final void Function(String)? onDelete;
   final _engines = <String, CloudTtsEngine>{};
   @override
+  Future<CloudTtsEngine?> get(String id) async => _engines[id];
+  @override
   Future<List<CloudTtsEngine>> list() async =>
       List.unmodifiable(_engines.values);
   @override
@@ -61,6 +63,14 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   @override
   Future<List<String>> voices(String provider) async {
     if (cloudTtsProfile(provider).remoteCatalog) return const [];
+    if (provider == 'volcengine_v3') {
+      return const [
+        'zh_female_vv_uranus_bigtts',
+        'zh_female_xiaohe_uranus_bigtts',
+        'zh_male_m191_uranus_bigtts',
+        'zh_male_taocheng_uranus_bigtts',
+      ];
+    }
     if (provider == 'gemini_tts') {
       return const [
         'Kore',

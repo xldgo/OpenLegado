@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'system_tts.dart';
 
-/// 系统朗读的唯一插件实例；媒体焦点与通知仍由 AudioService 管理。— Codex + UI
+/// 系统朗读的唯一插件实例；共享会话由 AppAudioSession 持有。— Codex + UI
 class SystemTtsService implements SystemTts {
   SystemTtsService({
     this._tts,
@@ -84,13 +84,7 @@ class SystemTtsService implements SystemTts {
       await _plugin.setQueueMode(0);
       _maxLength = await _plugin.getMaxSpeechInputLength ?? 4000;
     } else {
-      await _plugin.setSharedInstance(true);
       await _plugin.autoStopSharedSession(false);
-      await _plugin.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playback,
-        [],
-        IosTextToSpeechAudioMode.spokenAudio,
-      );
     }
     // 4.2.5 的 iOS stop 不结束等待完成的 Future，使用事件与终止屏障。
     await _plugin.awaitSpeakCompletion(false);
@@ -293,10 +287,6 @@ class SystemTtsService implements SystemTts {
           await _selectVoice(run.voiceOverride);
         }
         if (!_current(run)) return;
-        if (_platform == TargetPlatform.iOS) {
-          // 中断可能使共享会话失活，开始与恢复时重新激活。
-          _accept(await _plugin.setSharedInstance(true), '无法激活系统朗读音频会话');
-        }
         _accept(
           await _plugin.setSpeechRate(
             speechRate(run.speed, _normalRate, _maxRate),
