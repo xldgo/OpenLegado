@@ -13,6 +13,8 @@ import '../../../../theme/app_motion.dart';
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
@@ -319,8 +321,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
                     Positioned.fill(child: _dismissalRegion(notifier)),
                     SafeArea(
                       top: false,
+                      // 与主导航玻璃胶囊一致，仅Android额外避让系统导航区。— Codex + UI
+                      bottom: defaultTargetPlatform == TargetPlatform.android,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,

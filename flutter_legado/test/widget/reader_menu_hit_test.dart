@@ -404,7 +404,7 @@ void main() {
       );
       expect(bottom.left, 12);
       expect(bottom.right, 308);
-      expect(bottom.bottom, 640 - 34 - 12);
+      expect(bottom.bottom, 640 - 34 - 20);
       final back = tester.getSize(find.byTooltip('退出阅读'));
       expect(back, const Size(48, 48));
       await tester.tap(find.byTooltip('目录'));

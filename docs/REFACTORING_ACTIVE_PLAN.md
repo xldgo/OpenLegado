@@ -1,5 +1,14 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-BOTTOM-PLACEMENT-20261021：阅读底栏对齐主导航位置（P2，待设备复验）
+
+- 授权：用户要求阅读器底栏参照主导航玻璃底栏，iOS底部20逻辑像素；沿用dev / 4cb52b5ce，单代理，不提升版本。
+- 实现：ReaderMenuPanel底部进度与操作面板统一20留白，仅Android额外避让系统导航区；左右12、面板间距10、按钮及菜单动画保持。正文分页、经典朗读条及独立弹层不修改。
+- 验证：在原有无FFI的菜单动作回归中增加iOS/Android平台变体，34安全区下检查实际底边分别为20/54，并保留按钮和进度交互断言；阅读浮层、Glass控件及下载弹窗3份回归共23项通过，目标静态分析及diff检查通过。证据flutter_legado/build/reader-bottom-placement-{tests,analysis}.log。
+- 边界：原native菜单用例仅同步位置预期，不重跑整套选区/分页实测；未编译安装、未推送或触发CI，iOS视觉及Home手势待设备复验。本地提交带[skip ci]。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-DOWNLOAD-STYLE-20261021：阅读器下载表单间距（P2，待设备复验）
 
 - 授权：用户选择保留对话框，只修间距和输入框样式；沿用dev / 421bade67，单代理，不提升版本。

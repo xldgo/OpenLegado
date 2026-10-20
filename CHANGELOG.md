@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.417] - 2026-10-20
 
 ### Fixed
+- 阅读器底部菜单对齐主导航玻璃底栏，iOS固定20逻辑像素留白。贡献者：Codex + UI。
 - 修复阅读器离线缓存弹窗输入框紧贴，分离章节标签与总章数说明。贡献者：Codex + UI。
 - 修复重启后Web服务开关与实际状态不一致，新增独立的启动时自动开启设置。贡献者：Codex + UI。
 - 调整玻璃胶囊导航栏的底部位置，iOS 使用20逻辑像素留白，Android额外避让系统导航区。贡献者：Codex + UI。

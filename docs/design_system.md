@@ -164,7 +164,8 @@ unlabeled保持纯图标；标准底栏仍按原三档处理，不改偏好数�
 用户批准阅读器采用新的 Glass 界面，不保留旧布局或材质开关。第一批使用独立返回
 按钮、右侧共用表面动作组及书名/章节信息面板；书名置于信息面板内，避免在正文上
 直接绘制低对比度文字，也避免窄屏下被动作组挤压。进度和五键操作分为两个悬浮面板，
-左右12dp、间隔10dp、底部12dp加安全区、四角28dp。正文与排版布局不变。
+左右12dp、间隔10dp、四角28dp。底部定位与主导航玻璃胶囊一致：固定20dp留白，
+仅Android额外避让系统导航安全区，iOS不叠加底部安全区。正文与排版布局不变。
 
 ReaderMenuControlTheme集中向SDK Cupertino和GlassTheme传递局部阅读主题的亮度与
 强调色；应用仍使用material_ui主题。ReaderMenuControlButton/ProgressSlider只接受

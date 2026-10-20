@@ -1,6 +1,8 @@
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,26 +133,44 @@ Future<(ProviderContainer, _Audio, _Actions)> _pump(
 }
 
 void main() {
-  testWidgets('菜单动作和页内进度事件交给页面，不建立第二份阅读状态', (tester) async {
-    final (container, _, actions) = await _pump(tester);
-    for (final label in ['目录', '全文搜索', '自动翻页', '朗读']) {
-      await tester.tap(find.text(label));
-    }
-    expect(actions.catalogs, 1);
-    expect(actions.searches, 1);
-    expect(actions.autoTurns, 1);
-    expect(actions.alouds, 1);
-    container
-        .read(readerNotifierProvider.notifier)
-        .updateChapterPageCount(0, 4);
-    await tester.pump();
-    final slider = find.byType(GlassSlider);
-    await tester.drag(slider, const Offset(200, 0));
-    await tester.pump();
-    expect(actions.pages, isNotEmpty);
-    expect(actions.pages.last, inInclusiveRange(1, 3));
-    expect(container.read(readerNotifierProvider).currentChapterPos, 0);
-  });
+  testWidgets(
+    '菜单动作和页内进度事件交给页面，不建立第二份阅读状态',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      final (container, _, actions) = await _pump(tester);
+      final bottomBar = find.byKey(const ValueKey('reader-actions-surface'));
+      final screenHeight = MediaQuery.sizeOf(tester.element(bottomBar)).height;
+      expect(
+        screenHeight - tester.getRect(bottomBar).bottom,
+        defaultTargetPlatform == TargetPlatform.android ? 54 : 20,
+      );
+      for (final label in ['目录', '全文搜索', '自动翻页', '朗读']) {
+        await tester.tap(find.text(label));
+      }
+      expect(actions.catalogs, 1);
+      expect(actions.searches, 1);
+      expect(actions.autoTurns, 1);
+      expect(actions.alouds, 1);
+      container
+          .read(readerNotifierProvider.notifier)
+          .updateChapterPageCount(0, 4);
+      await tester.pump();
+      final slider = find.byType(GlassSlider);
+      await tester.drag(slider, const Offset(200, 0));
+      await tester.pump();
+      expect(actions.pages, isNotEmpty);
+      expect(actions.pages.last, inInclusiveRange(1, 3));
+      expect(container.read(readerNotifierProvider).currentChapterPos, 0);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
 
   testWidgets('设置动作仍能通过当前Navigator打开实际快捷面板', (tester) async {
     const channel = MethodChannel('github.com/aaassseee/screen_brightness');
