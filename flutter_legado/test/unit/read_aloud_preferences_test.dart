@@ -39,9 +39,10 @@ void main() {
     addTearDown(container.dispose);
   });
 
-  test('预下载、并发与保留时间按上游默认，持久化后重建恢复', () async {
+  test('预下载默认3章，偏好持久化后重建恢复', () async {
+    expect(state().audioPreDownloadNum, 3);
     await notifier().load();
-    expect(state().audioPreDownloadNum, 10);
+    expect(state().audioPreDownloadNum, 3);
     expect(state().ttsPreSynthesisConcurrency, 3);
     expect(state().audioCacheCleanTime, 10);
     await notifier().setAudioPreDownloadNum(0);

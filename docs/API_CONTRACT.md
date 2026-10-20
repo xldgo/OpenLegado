@@ -2692,7 +2692,7 @@ Flutter 通过独立 CloudTtsVoiceCatalog 窄服务查询，不让配置仓库�
 | `ttsCacheList()` | `Future<String>` | JSON 数组：name/sizeBytes/modifiedAtMs/protected/contexts。只列已发布的非空音频，不将 .part/索引文件当成音频；没有索引的缓存可列为 contexts=[]，不回填历史数据。 |
 | `ttsCacheClear({String? name, BigInt? beforeTimestampMs, String? keepBookUrl, int? keepChapterIndex})` | `Future<String>` | 不传 name 清理全部或过期项；传 name 删除单文件。返回 removedFiles/removedBytes/skippedFiles；保护请求中与租约持有的文件，不删活动临时文件。拒绝目录穿越和不合法文件名，不读取或删除音频符号链接，索引符号链接报错；删除失败抛 BridgeError，不伪装成功。 |
 
-TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Repository 对时间戳使用 int，Rust u64 经 FRB 生成为 BigInt，由正式适配器转换；keepBookUrl/keepChapterIndex 成对用于保留当前章。缓存保留 `audioCacheCleanTime` 单位分钟，默认 10，0 为即听即焚：停止并释放活动租约后清理；保留模式保护当前章，清理其他过期项。预下载 `audioPreDownloadNum` 默认 10 章；预合成 `ttsPreSynthesisConcurrency` 默认 3，与源 synthesisThreadCount 取小（1..8）。全局播放倍速不改变合成身份。调度只改变请求顺序，不改 Rust 规则求值、缓存键或音频格式；同输入优先复用排队/在途任务，取消不转失败估算。预合成失败不改变当前播放器状态。
+TtsCacheRepository 是独立窄接口，UI 不直接枚举/删除目录。Repository 对时间戳使用 int，Rust u64 经 FRB 生成为 BigInt，由正式适配器转换；keepBookUrl/keepChapterIndex 成对用于保留当前章。缓存保留 `audioCacheCleanTime` 单位分钟，默认 10，0 为即听即焚：停止并释放活动租约后清理；保留模式保护当前章，清理其他过期项。预下载 `audioPreDownloadNum` 默认 3 章；预合成 `ttsPreSynthesisConcurrency` 默认 3，与源 synthesisThreadCount 取小（1..8）。全局播放倍速不改变合成身份。调度只改变请求顺序，不改 Rust 规则求值、缓存键或音频格式；同输入优先复用排队/在途任务，取消不转失败估算。预合成失败不改变当前播放器状态。
 
 **T4a 音色目录（2026-10-13，实施前冻结）**：新增独立 `read_aloud_voices` 表（schema v111，仅建表，不回填历史目录），HTTP 16 字段及表列保持不变。导入 HTTP 源的原始 JSON 中 speakersJson/emotionsJson 在 Rust 解析并同步；按上游仅接受字符串内嵌 JSON，支持平铺/分组与字段别名，平铺优先、同 ID 首项保留。没有有效 speaker 时不清空目录；正常编辑不丢既有音色；删除引擎清理其目录。源与目录保存处于同一事务，不能只保存其中一半。
 

@@ -1,5 +1,13 @@
 # Legado 后续重构执行计划（Active）
 
+### AUDIO-PREDOWNLOAD-DEFAULT-20261021：音频预下载默认3章（P2，代码验证通过）
+
+- 授权：用户要求音频预下载章节数默认值改为3；沿用dev / 6c71a9daa，不提升版本。
+- 实现：ReadAloudSettings默认值和仓储缺省解析同步从10改为3；已保存值按原规则读取，正文预下载及预合成并发不变，同步契约说明。
+- 验证：复用朗读偏好持久化回归，覆盖加载前/后默认3及已保存值重建恢复，11项通过；目标静态分析无问题、diff检查通过。证据flutter_legado/build/audio-predownload-default-{tests,analysis}.log。仅本地提交带[skip ci]，未编译安装或推送。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-KEYBOARD-VIEWPORT-20261021：输入弹层保持正文视口（P1，待设备复验）
 
 - 授权：用户确认修复书签sheet键盘触发正文重排，并询问GlassScaffold适用性；沿用dev / 628bab0d9，单代理，不提升版本。

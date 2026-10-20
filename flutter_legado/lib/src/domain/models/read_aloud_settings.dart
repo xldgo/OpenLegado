@@ -10,7 +10,7 @@ final class ReadAloudSettings {
     this.mediaButtonPerNext = true,
     this.manualSpeed = 1,
     this.paragraphIntervalMs = 0,
-    this.audioPreDownloadNum = 10,
+    this.audioPreDownloadNum = 3,
     this.ttsPreSynthesisConcurrency = 3,
     this.audioCacheCleanTime = 10,
     this.hasStoredManualSpeed = false,

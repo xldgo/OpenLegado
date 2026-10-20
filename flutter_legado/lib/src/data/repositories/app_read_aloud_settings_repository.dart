@@ -107,7 +107,7 @@ final class AppReadAloudSettingsRepository
             5000,
           ),
       audioPreDownloadNum:
-          (int.tryParse(snapshot[_preDownload] as String? ?? '') ?? 10).clamp(
+          (int.tryParse(snapshot[_preDownload] as String? ?? '') ?? 3).clamp(
             0,
             100,
           ),
