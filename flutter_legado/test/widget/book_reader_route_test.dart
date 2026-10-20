@@ -407,6 +407,40 @@ void main() {
     expect(image.width, 40, reason: '路由只释放自己的图片引用');
   });
 
+  testWidgets('翻盖与放大覆盖完整进场，返回时同步合上缩回', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    await h.open(tester);
+    final hingeFinder = find.byKey(const ValueKey('book-reader-cover-hinge'));
+
+    await tester.pump(const Duration(milliseconds: 48));
+    expect(_reveal(tester).width, inExclusiveRange(80, 400));
+    var hinge = tester.widget<Transform>(hingeFinder);
+    expect(hinge.transform.entry(2, 0), greaterThan(0), reason: '开始放大时封面已在翻开');
+
+    await tester.pump(const Duration(milliseconds: 288));
+    expect(_reveal(tester).width, lessThan(400), reason: '翻开后段仍在放大，不能提前展开为全屏');
+    hinge = tester.widget<Transform>(hingeFinder);
+    expect(hinge.transform.entry(0, 0), lessThan(0));
+    expect(h.probe.sizes, everyElement(const Size(400, 800)));
+    await tester.pumpAndSettle();
+
+    h.key.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(
+      _reveal(tester).width,
+      inExclusiveRange(80, 400),
+      reason: '合盖开始时同时缩回',
+    );
+    hinge = tester.widget<Transform>(hingeFinder);
+    expect(hinge.transform.entry(0, 0), lessThan(0));
+    await tester.pumpAndSettle();
+    expect(h.probe.initialized, 1);
+    expect(h.probe.disposed, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('返回重新测量来源封面的位置', (tester) async {
     final h = _Harness(image);
     await h.pump(tester);

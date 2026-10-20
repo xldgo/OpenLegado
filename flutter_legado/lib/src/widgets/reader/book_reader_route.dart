@@ -144,22 +144,14 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                 source != null &&
                 book?.bookUrl == origin?.bookUrl;
             final progress = reduced || protected ? 1.0 : animation.value;
-            final expanded = const Interval(
-              0,
-              0.65,
-              curve: Curves.easeInOutCubic,
-            ).transform(progress);
-            final opening = const Interval(
-              0.18,
-              1,
-              curve: Curves.easeInOutCubic,
-            ).transform(progress);
-            final bounds = morph ? Rect.lerp(source, full, expanded)! : full;
+            // 翻盖与放大共用完整进度，避免先展开再翻开；返回也同步合上缩回。
+            final motion = Curves.easeInOutCubic.transform(progress);
+            final bounds = morph ? Rect.lerp(source, full, motion)! : full;
             final radius = morph
                 ? BorderRadius.lerp(
                     origin!.borderRadius,
                     BorderRadius.zero,
-                    expanded,
+                    motion,
                   )!
                 : BorderRadius.zero;
             final contentOpacity = morph
@@ -191,7 +183,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                         if (morph && !complete)
                           BoxShadow(
                             color: Colors.black.withValues(
-                              alpha: 0.18 * (1 - expanded),
+                              alpha: 0.18 * (1 - motion),
                             ),
                             blurRadius: 20,
                           ),
@@ -208,7 +200,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                     child: Opacity(opacity: contentOpacity, child: child),
                   ),
                 ),
-                if (morph && opening > 0 && opening < 1)
+                if (morph && motion > 0 && motion < 1)
                   Positioned.fromRect(
                     rect: bounds,
                     child: IgnorePointer(
@@ -220,7 +212,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                             gradient: LinearGradient(
                               colors: [
                                 Colors.black.withValues(
-                                  alpha: 0.16 * math.sin(math.pi * opening),
+                                  alpha: 0.16 * math.sin(math.pi * motion),
                                 ),
                                 Colors.transparent,
                               ],
@@ -243,14 +235,14 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                             alignment: Alignment.centerLeft,
                             transform: Matrix4.identity()
                               ..setEntry(3, 2, -0.6 / size.longestSide)
-                              ..rotateY(-math.pi * opening),
+                              ..rotateY(-math.pi * motion),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 borderRadius: radius,
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(
-                                      alpha: 0.20 * math.sin(math.pi * opening),
+                                      alpha: 0.20 * math.sin(math.pi * motion),
                                     ),
                                     blurRadius: 16,
                                     offset: const Offset(4, 0),
@@ -259,7 +251,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                               ),
                               child: ClipRRect(
                                 borderRadius: radius,
-                                child: opening <= 0.5
+                                child: motion <= 0.5
                                     ? RawImage(image: _image, fit: BoxFit.cover)
                                     // 翻过侧面后展示纸张背面，不反向绘制封面文字。
                                     : ColoredBox(
