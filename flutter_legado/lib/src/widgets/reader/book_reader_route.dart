@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,7 @@ import '../../features/privacy/privacy_controller.dart';
 import '../../features/reader/application/reader_notifier.dart';
 import '../book_cover.dart';
 
-/// 封面展开的导航层：正文固定全屏布局，图片只持有已解码资源的独立引用。
+/// 封面沿左侧书脊翻开的导航层，正文固定全屏布局，不参与三维变换。
 /// 沿用 PageRoute 的返回、退出门禁与不透明路由生命周期。— Codex + UI
 class BookReaderRoute<T> extends MaterialPageRoute<T> {
   BookReaderRoute({required super.builder, required RouteSettings settings})
@@ -31,12 +32,12 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   @override
   Duration get transitionDuration => _reduced
       ? Duration.zero
-      : Duration(milliseconds: _start == null ? 160 : 360);
+      : Duration(milliseconds: _start == null || _image == null ? 160 : 480);
 
   @override
   Duration get reverseTransitionDuration => _reduced
       ? Duration.zero
-      : Duration(milliseconds: _start == null ? 160 : 280);
+      : Duration(milliseconds: _start == null || _image == null ? 160 : 400);
 
   // 来源页面不再叠加默认导航的横移、缩放或封面 Hero 飞行。
   @override
@@ -113,10 +114,20 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
             final morph =
                 !reduced &&
                 !protected &&
+                _image != null &&
                 source != null &&
                 book?.bookUrl == origin?.bookUrl;
             final progress = reduced || protected ? 1.0 : animation.value;
-            final expanded = Curves.easeInOutCubic.transform(progress);
+            final expanded = const Interval(
+              0,
+              0.65,
+              curve: Curves.easeInOutCubic,
+            ).transform(progress);
+            final opening = const Interval(
+              0.18,
+              1,
+              curve: Curves.easeInOutCubic,
+            ).transform(progress);
             final bounds = morph ? Rect.lerp(source, full, expanded)! : full;
             final radius = morph
                 ? BorderRadius.lerp(
@@ -127,15 +138,18 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                 : BorderRadius.zero;
             final contentOpacity = morph
                 ? const Interval(
-                    0.20,
-                    0.85,
+                    0,
+                    0.24,
                     curve: Curves.easeOut,
                   ).transform(progress)
                 : progress;
             final coverOpacity = morph
-                ? 1 - const Interval(0.12, 0.60).transform(progress)
+                ? 1 - const Interval(0.88, 1).transform(progress)
                 : 0.0;
             final complete = animation.status == AnimationStatus.completed;
+            final paper = protected
+                ? Theme.of(context).scaffoldBackgroundColor
+                : visual.background;
             // 裁剪、透明度与输入层始终保留，完成时不卸载重建 ReaderScreen。
             return Stack(
               key: const ValueKey('book-reader-transition'),
@@ -145,9 +159,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                   rect: bounds,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: protected
-                          ? Theme.of(context).scaffoldBackgroundColor
-                          : visual.background,
+                      color: paper,
                       borderRadius: radius,
                       boxShadow: [
                         if (morph && !complete)
@@ -170,6 +182,29 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                     child: Opacity(opacity: contentOpacity, child: child),
                   ),
                 ),
+                if (morph && opening > 0 && opening < 1)
+                  Positioned.fromRect(
+                    rect: bounds,
+                    child: IgnorePointer(
+                      child: ClipRRect(
+                        borderRadius: radius,
+                        child: DecoratedBox(
+                          key: const ValueKey('book-reader-page-shadow'),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withValues(
+                                  alpha: 0.16 * math.sin(math.pi * opening),
+                                ),
+                                Colors.transparent,
+                              ],
+                              stops: const [0, 0.65],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (coverOpacity > 0 && _image != null)
                   Positioned.fromRect(
                     rect: bounds,
@@ -177,9 +212,38 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                       child: ExcludeSemantics(
                         child: Opacity(
                           opacity: coverOpacity,
-                          child: ClipRRect(
-                            borderRadius: radius,
-                            child: RawImage(image: _image, fit: BoxFit.cover),
+                          child: Transform(
+                            key: const ValueKey('book-reader-cover-hinge'),
+                            alignment: Alignment.centerLeft,
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, -0.6 / size.longestSide)
+                              ..rotateY(-math.pi * opening),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: radius,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                      alpha: 0.20 * math.sin(math.pi * opening),
+                                    ),
+                                    blurRadius: 16,
+                                    offset: const Offset(4, 0),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: radius,
+                                child: opening <= 0.5
+                                    ? RawImage(image: _image, fit: BoxFit.cover)
+                                    // 翻过侧面后展示纸张背面，不反向绘制封面文字。
+                                    : ColoredBox(
+                                        key: const ValueKey(
+                                          'book-reader-cover-back',
+                                        ),
+                                        color: paper,
+                                      ),
+                              ),
+                            ),
                           ),
                         ),
                       ),

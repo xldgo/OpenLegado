@@ -109,7 +109,7 @@ class _Harness {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: RawImage(
-                        image: image,
+                        image: decodedCover ? image : null,
                         width: 80,
                         height: 112,
                         fit: BoxFit.cover,
@@ -157,9 +157,10 @@ class _Harness {
 
   late final GoRouter navigation = router.createRouter(navigatorKey: key);
 
-  _Harness(this.image, {this.anchored = true});
+  _Harness(this.image, {this.anchored = true, this.decodedCover = true});
   final ui.Image image;
   final bool anchored;
+  final bool decodedCover;
 
   Future<void> pump(WidgetTester tester, {bool reduced = false}) async {
     tester.view.physicalSize = const Size(400, 800);
@@ -264,7 +265,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('封面逐步展开，正文始终全屏布局且完成时不重新初始化', (tester) async {
+  testWidgets('封面以左侧书脊翻开，正文始终全屏布局且完成时不重新初始化', (tester) async {
     final h = _Harness(image);
     await h.pump(tester);
     final route = await h.open(tester);
@@ -275,6 +276,13 @@ void main() {
     expect(midway.width, greaterThan(80));
     expect(midway.width, lessThan(400));
     expect(find.byType(RawImage), findsNWidgets(2));
+    final hinge = tester.widget<Transform>(
+      find.byKey(const ValueKey('book-reader-cover-hinge')),
+    );
+    expect(hinge.alignment, Alignment.centerLeft);
+    expect(hinge.transform.entry(0, 0), inExclusiveRange(0, 1));
+    expect(hinge.transform.entry(2, 0), greaterThan(0));
+    expect(hinge.transform.entry(3, 2), lessThan(0));
     expect(h.probe.sizes, everyElement(const Size(400, 800)));
     await tester.pumpAndSettle();
     expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
@@ -302,12 +310,53 @@ void main() {
     await tester.pump();
     h.key.currentState!.pop();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 270));
+    await tester.pump(const Duration(milliseconds: 390));
     final nearEnd = _reveal(tester);
     expect(nearEnd.left, closeTo(160, 2));
     expect(nearEnd.top, closeTo(220, 2));
     expect(nearEnd.width, closeTo(80, 2));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('封面翻过侧面只画纸张背面，返回时反向合上', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    await h.open(tester);
+    await tester.pump(const Duration(milliseconds: 360));
+    final hingeFinder = find.byKey(const ValueKey('book-reader-cover-hinge'));
+    final hinge = tester.widget<Transform>(hingeFinder);
+    expect(hinge.transform.entry(0, 0), lessThan(0));
+    expect(
+      find.descendant(of: hingeFinder, matching: find.byType(RawImage)),
+      findsNothing,
+      reason: '超过90度后不显示镜像封面文字',
+    );
+    expect(
+      find.byKey(const ValueKey('book-reader-cover-back')),
+      findsOneWidget,
+    );
+    final box = tester.renderObject<RenderBox>(hingeFinder);
+    final right = MatrixUtils.transformPoint(
+      hinge.transform,
+      Offset(box.size.width, 0),
+    );
+    expect(right.dx, lessThan(0), reason: '封面右边缘已翻到书脊左侧');
+    expect(right.dx.isFinite, isTrue);
+    expect(h.probe.initialized, 1);
+    await tester.pumpAndSettle();
+    expect(hingeFinder, findsNothing, reason: '动画完成后不保留封面绘制层');
+    h.key.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    final closing = tester.widget<Transform>(hingeFinder);
+    expect(closing.transform.entry(0, 0), greaterThan(0));
+    expect(
+      find.descendant(of: hingeFinder, matching: find.byType(RawImage)),
+      findsOneWidget,
+    );
+    await tester.pumpAndSettle();
+    expect(h.probe.disposed, 1);
+    expect(tester.takeException(), isNull);
   });
 
   for (final removed in [false, true]) {
@@ -360,6 +409,20 @@ void main() {
     expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
     expect(h.probe.sizes, everyElement(const Size(400, 800)));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('来源图片尚未解码时短淡入，不翻开空白封面', (tester) async {
+    final h = _Harness(image, decodedCover: false);
+    await h.pump(tester);
+    final route = await h.open(tester);
+    expect(route.transitionDuration, const Duration(milliseconds: 160));
+    expect(route.reverseTransitionDuration, const Duration(milliseconds: 160));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(_reveal(tester), const Rect.fromLTWH(0, 0, 400, 800));
+    expect(find.byKey(const ValueKey('book-reader-cover-hinge')), findsNothing);
+    expect(h.probe.sizes, everyElement(const Size(400, 800)));
+    await tester.pumpAndSettle();
+    expect(h.probe.initialized, 1);
   });
 
   testWidgets('减少动态效果直接显示正文，不播放封面快照', (tester) async {

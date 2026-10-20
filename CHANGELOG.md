@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.407] - 2026-10-19
 
 ### Fixed
+- 打开阅读器时封面沿书脊翻开，返回时合上，保留减少动态效果及隐私保护。
 - 修复书源RSA密文格式识别、DER字节密钥及空明文加解密问题，拒绝无效算法和损坏填充。
 - 签名必须显式配置所需密钥，保留已有PEM/Base64密钥兼容。
 - 完善Java签名接口的验签、增量更新和会话复用，失败不再静默生成随机密钥。
