@@ -178,6 +178,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                       : _start!.height / _start!.width
                 : size.height / size.width;
             // 正面封盖与纸面同高，翻过侧面后再扩展为屏幕比例；返回时反向收拢。
+            // 高度直接使用原始时间进度，避免对整体缩放的缓动结果再次缓动。
             final pageAspect = returning != null
                 ? coverAspect +
                       (returning.bounds.height / returning.bounds.width -
@@ -193,7 +194,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                       0.5,
                       1,
                       curve: Curves.easeInOutCubic,
-                    ).transform(motion),
+                    ).transform(progress),
                   )!;
             final placement = morph
                 ? returning != null

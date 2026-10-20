@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-HEIGHT-CURVE-20261020：纸面高度单次缓动试验（P2，待iOS验收）
+
+- 授权：用户最初要求试改不提交；MuMu安装后进一步授权提交、推送并仅手动触发iOS Build，提交须带[skip ci]避免其他CI。沿用dev / 5557aa069，不提升版本。
+- 范围：只将进场纸面比例的Interval输入由已缓动motion改为原始progress；480/400ms、整体缩放/位移/翻盖、返回重定向、完成帧绘制切换、分页与正文保持。
+- 验证：现有封面路由及开书编排回归共30项通过，目标Dart静态分析无问题，差异检查通过。先按锁文件恢复新合入的audio_service依赖，未升级依赖；证据flutter_legado/build/reader-height-curve-{deps,tests,analysis}.log。
+- 安装：一键入口因旧x86_64库contentHash不匹配自动重编并校验，APK打包/包内库校验通过，覆盖安装MuMu 127.0.0.1:16384并启动（PID 8625）。证据build/reader-height-curve-mumu.log及build/mumu/build-install.log；保留应用数据。
+- 交付：动画源码、设计规范与双更新日志同步，提交号以Git记录为准；推送使用[skip ci]，之后仅手动触发iOS Build。视觉顿感由用户对比，未作profile性能结论。
+
+编写者：Codex + UI｜2026-10-20
+
 ### CI-REGRESSION-20261020：修复Rust与Flutter失败（P1，待CI复验）
 
 - 基线：dev / 161427c68，用户报告Rust CI 39436476108与Flutter CI 39436475696失败；质量/审计与代码生成已通过，不重跑无关构建。

@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.417] - 2026-10-20
 
+### Fixed
+- 调整开书动画纸面高度的缓动节奏，避免重复缓动造成末段提前趋于静止。贡献者：Codex + UI。
+
 ### Changed
 - 朗读和音频书改由统一媒体服务发布通知、锁屏进度与封面，保留通知返回播放页面。
 - Android 后台播放使用独立服务与共享引擎，保留现有切段/切章和定时控制。
