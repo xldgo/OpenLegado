@@ -56,10 +56,14 @@ pub struct Database {
 }
 
 impl Database {
-    /// 打开或创建指定路径的数据库文件，自动执行增量迁移
+    /// 打开或创建指定路径的数据库，自动执行增量迁移；:memory:使用单连接内存库。
     ///
-    /// 流程：临时连接执行迁移 → 创建连接池 → 获取一个池连接
+    /// 文件库流程：临时连接执行迁移 → 创建连接池 → 获取一个池连接。
     pub fn open(path: &str) -> LegadoResult<Self> {
+        // 内存库不能先在临时连接建表再丢弃，否则连接池拿到的是另一份空数据库。
+        if path == ":memory:" {
+            return Self::open_in_memory();
+        }
         // 阶段1：在临时连接上执行一次性迁移（文件数据库，数据持久化到磁盘）
         let temp_conn = Connection::open(path)
             .map_err(|e| crate::error::database_error("打开数据库失败", e))?;
@@ -94,6 +98,9 @@ impl Database {
 
     /// 打开数据库但不执行迁移（用于测试迁移流程）
     pub fn open_raw(path: &str) -> LegadoResult<Self> {
+        if path == ":memory:" {
+            return Self::open_in_memory_raw();
+        }
         let temp_conn = Connection::open(path)
             .map_err(|e| crate::error::database_error("打开数据库失败", e))?;
         Self::init_pragmas(&temp_conn)?;
@@ -283,6 +290,64 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         // Should be able to get connection
         let _conn = db.connection();
+    }
+
+    #[test]
+    fn memory_path_keeps_schema_and_cache_after_pool_reborrow() {
+        let db = Database::open(":memory:").unwrap();
+        assert_eq!(db.pool().max_size(), 1);
+        assert_eq!(db.get_version().unwrap(), schema::SCHEMA_VERSION);
+        crate::CacheRepository::new(db.connection())
+            .put("memory-entry", "已保存", 0)
+            .unwrap();
+        let pool = db.pool().clone();
+        drop(db);
+
+        let borrowed = Database::from_pool(&pool).unwrap();
+        assert_eq!(
+            crate::CacheRepository::new(borrowed.connection())
+                .get("memory-entry")
+                .unwrap()
+                .as_deref(),
+            Some("已保存")
+        );
+        assert_eq!(borrowed.get_version().unwrap(), schema::SCHEMA_VERSION);
+        let independent = Database::open(":memory:").unwrap();
+        assert!(
+            crate::CacheRepository::new(independent.connection())
+                .get("memory-entry")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn raw_memory_path_keeps_changes_without_automatic_migration() {
+        let db = Database::open_raw(":memory:").unwrap();
+        assert_eq!(db.pool().max_size(), 1);
+        assert_eq!(db.get_version().unwrap(), 0);
+        let tables: i64 = db
+            .connection()
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 0);
+        db.connection()
+            .execute_batch("CREATE TABLE probe (value TEXT); INSERT INTO probe VALUES ('保留');")
+            .unwrap();
+        let pool = db.pool().clone();
+        drop(db);
+
+        let borrowed = Database::from_pool(&pool).unwrap();
+        let value: String = borrowed
+            .connection()
+            .query_row("SELECT value FROM probe", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(value, "保留");
+        assert_eq!(borrowed.get_version().unwrap(), 0);
     }
 
     #[test]

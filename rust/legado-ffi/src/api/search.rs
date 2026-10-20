@@ -4462,7 +4462,8 @@ mod standalone_task_tests {
     }
 
     #[cfg(feature = "quickjs")]
-    #[tokio::test]
+    // mainJs在spawn_blocking中调用同步网络桥，需与真实宿主一样使用多线程运行时。
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn all_four_real_blocking_search_stages_cancel_http_after_entry_is_dropped() {
         for phase in 0..4 {
             let mut gate = Fixture::new(1, true, |_| "放行".into());
@@ -4485,7 +4486,7 @@ mod standalone_task_tests {
                 0 => source.search_url = Some(format!("{base}/search?q={{{{{call}}}}}")),
                 1 => {
                     source.main_js = Some(format!(
-                        "function search(key,page) {{ {call}; return [{{name:'目标书',author:'目标作者',bookUrl:'{base}/book'}}]; }}"
+                        "function search(key,page) {{ const reply = {call}; if (reply !== '放行') throw new Error(reply); return [{{name:'目标书',author:'目标作者',bookUrl:'{base}/book'}}]; }}"
                     ))
                 }
                 2 => source.login_check_js = Some(format!("{call}; result;")),
@@ -4501,7 +4502,14 @@ mod standalone_task_tests {
                 1,
                 false,
             ));
-            tokio::select! { _ = gate.request() => {}, result=&mut run => panic!("阶段 {phase} 没有进入阻塞等待: {result:?}") }
+            let request = tokio::select! {
+                request = gate.request() => request,
+                result = &mut run => panic!("阶段 {phase} 没有进入阻塞等待: {result:?}"),
+            };
+            assert!(
+                request.starts_with("GET /gate "),
+                "阶段 {phase} 未进入JS阻塞请求: {request}"
+            );
             drop(run);
             assert!(task.is_cancelled());
             drop(task);
