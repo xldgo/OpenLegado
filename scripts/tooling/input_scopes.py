@@ -22,7 +22,7 @@ NATIVE_PLATFORM = {
     "ios": ("scripts/tooling/ios.py",),
 }
 PACKAGING_PLATFORM = {
-    "android": ("scripts/tooling/android_app.py",),
+    "android": ("scripts/tooling/android_app.py", "scripts/tooling/mumu.py"),
     "windows": ("scripts/tooling/windows_app.py",),
     "ios": ("scripts/tooling/ios_bundle.py",),
 }

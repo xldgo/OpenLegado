@@ -98,6 +98,23 @@ class CliTests(unittest.TestCase):
             with self.subTest(args=args):
                 self.assertEqual(self.run_cli(*args).returncode, 2)
 
+    def test_mumu_shortcut_defaults_and_rejects_conflicting_options(self):
+        write(self.root / "scripts/tooling/mumu.py",
+              "def build_mumu_app(root, args):\n"
+              "    print(args.profile, args.skip_rust, args.device)\n"
+              "    return 0\n")
+        result = self.run_cli("build", "android", "--emulator", "mumu", "--install")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "debug False None\n")
+        result = self.run_cli("build", "android", "--emulator", "mumu", "--install",
+                              "--skip-rust", "--device", "local:99")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "debug True local:99\n")
+        for extra in ([], ["--install", "--abis", "arm64-v8a"], ["--install", "--emulator", "other"]):
+            with self.subTest(extra=extra):
+                self.assertEqual(self.run_cli("build", "android", "--emulator", "mumu", *extra).returncode, 2)
+        self.assertEqual(self.run_cli("build", "android", "--install").returncode, 2)
+
     def test_no_tests_is_not_reported_as_success(self):
         result = self.run_cli("test", "tooling")
         self.assertEqual(result.returncode, 1)

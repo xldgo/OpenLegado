@@ -61,6 +61,17 @@ Python 指纹与 Android FFI 只读校验的命令和迁移边界见
 [工程工具说明](docs/过期文档/PYTHON_FFI_TOOLING_20261010.md)。
 Android Rust/APK 构建统一使用 `python scripts/dev.py build android --profile debug --abis arm64-v8a,x86_64`，
 其参数与清理范围见 [Android 构建入口](docs/过期文档/PYTHON_ANDROID_CLEANUP_20261011.md)。
+MuMu一键构建、覆盖安装并启动（默认Debug，固定x86_64独立APK）：
+
+```powershell
+python scripts/dev.py build android --emulator mumu --install
+```
+
+自动探测在线MuMu，多个实例时追加 `--device <设备编号>`；不写死端口，也不自动启动模拟器。
+Rust库通过现有指纹、ABI、模式与摘要校验就自动复用，否则重新编译；失败不使用旧库兜底。
+沿用默认MainActivity启动，检查进程和近期未处理异常；不清除应用数据。
+每次日志覆盖保存至 `build/mumu/build-install.log`。使用其他当前目录时指定 `dev.py` 的绝对路径。
+
 Android Release 的分 ABI APK 校验与收集复用同一工具，命令见 [Release 工具说明](docs/过期文档/PYTHON_ANDROID_RELEASE_20261011.md)。
 Windows 使用 `python scripts/dev.py build windows --profile debug` 构建，
 `python scripts/dev.py run windows --profile debug` 启动开发会话；参数见 [Windows 工具说明](docs/PYTHON_WINDOWS_TOOLING_20261011.md)。

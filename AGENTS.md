@@ -24,6 +24,7 @@ Legado：Rust + Flutter 跨平台阅读器，参考上游(HapeLee/legado-with-MD
 - **iOS**：`ios-ci.yml` 仅手动运行模拟器验证，不作为 PR 必需检查；`ios-build.yml` 保留设备 IPA 自动构建与手动入口。签名及诊断方法见 `docs/IOS_CI_SIGNING_SETUP.md`。
 - **CI 总览**：`.github/workflows/`（tooling-ci / rust-ci / flutter-ci / ios-ci / ios-build / release；仓库自动化保持独立）
 - **Python 工程工具**：Python 3.11+；根目录 `python scripts/dev.py test tooling`。生成与 Android FFI 编译见 [构建入口](docs/PYTHON_FFI_BUILD_20261011.md)，Gradle 只读门禁与解释器配置见 [Gradle 接线](docs/PYTHON_GRADLE_FFI_20261011.md)。Android APK 参数见 [Android 入口](docs/过期文档/PYTHON_ANDROID_CLEANUP_20261011.md)；Windows 使用 `python scripts/dev.py build windows --profile debug` 和 `python scripts/dev.py run windows --profile debug`，参数见 [Windows 入口](docs/PYTHON_WINDOWS_TOOLING_20261011.md)。iOS 正式 RustFFI 构建与 PDE 校验见 [iOS 入口](docs/PYTHON_IOS_TOOLING_20261011.md)，需要 macOS/Xcode。旧 Android/Windows/生成脚本与 Makefile 已删除；历史 iOS XCFramework 和设备 QA 保留各自独有能力。
+- **MuMu快捷安装**：在仓库根目录执行 `python scripts/dev.py build android --emulator mumu --install`；自动探测在线MuMu，固定x86_64独立Debug APK，Rust库校验通过自动复用，否则重建；默认MainActivity启动并检查进程和异常。多个实例追加 `--device <设备编号>`，不写死端口；日志按次覆盖 `build/mumu/build-install.log`。不替代下述官方模拟器的UI/播放专项冒烟。
 - **CI 编排**：工具与编排回归集中在 Tooling CI；Flutter/Rust 对 dev/master push 与 PR 按改动选择任务；iOS Build 对 dev/master 的应用改动自动构建。Android/Windows 平台构建通过 Release 的手动或Tag入口验证，不再单独运行Integration Smoke。手动范围与轻量验证见 [CI 编排说明](docs/CI_ORCHESTRATION_20261010.md)。
 
 ## 规范与文档路由（改动前必读）

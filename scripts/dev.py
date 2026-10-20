@@ -32,9 +32,9 @@ def report_error(error):
         print(f"::error::{message}", file=sys.stderr)
 
 
-def android_options(parser, build=False):
-    parser.add_argument("--profile", choices=("debug", "release"), required=True)
-    parser.add_argument("--abis", type=parse_abis, required=True, help="逗号分隔的 Android ABI")
+def android_options(parser, build=False, required=True):
+    parser.add_argument("--profile", choices=("debug", "release"), required=required)
+    parser.add_argument("--abis", type=parse_abis, required=required, help="逗号分隔的 Android ABI")
     parser.add_argument("--cargo-target-dir", type=Path, help="显式指定或核对 Cargo 输出目录")
     if build:
         parser.add_argument("--ndk", type=Path, help="显式指定策略要求版本的 NDK")
@@ -75,12 +75,13 @@ def main(argv=None):
     android = builders.add_parser("android", help="构建 FFI、严格校验并打包 APK")
     windows = builders.add_parser("windows", help="构建 Windows DLL 与 Flutter 应用")
     for builder in (android_ffi, android):
-        android_options(builder, build=True)
+        android_options(builder, build=True, required=builder is not android)
     for builder in (windows_ffi, windows):
         windows_options(builder, build=True)
     android.add_argument("--skip-rust", action="store_true", help="只跳过 Rust 编译，仍严格校验已有库")
     android.add_argument("--clean", action="store_true", help="先执行 flutter clean")
     android.add_argument("--split-per-abi", action="store_true", help="按 ABI 输出独立 APK")
+    android.add_argument("--emulator", choices=("mumu",), help="MuMu快捷安装：默认Debug、固定x86_64独立APK")
     android.add_argument("--install", action="store_true", help="打包校验后安装并启动应用")
     android.add_argument("--device", help="明确指定 adb 设备编号")
     android.add_argument("--adb", type=Path, help="显式指定 adb 可执行文件")
@@ -137,6 +138,15 @@ def main(argv=None):
     test = commands.add_parser("test", help="运行工程工具测试")
     test.add_argument("component", choices=("tooling",))
     args = parser.parse_args(argv)
+    if args.command == "build" and args.component == "android":
+        if args.emulator:
+            if not args.install:
+                parser.error("--emulator mumu 需同时指定 --install。")
+            if args.abis is not None and args.abis != ("x86_64",):
+                parser.error("MuMu快捷入口固定使用 --abis x86_64。")
+            args.profile = args.profile or "debug"
+        elif args.profile is None or args.abis is None:
+            parser.error("普通Android构建必须指定 --profile 和 --abis。")
     try:
         if args.command == "fingerprint":
             from tooling.fingerprint import rust_fingerprint
@@ -168,6 +178,9 @@ def main(argv=None):
                 output = build_windows_app(ROOT, args.profile, args.cargo_target_dir, not args.no_quickjs, args.clean)
                 print(f"Windows 应用构建与 DLL 复制校验通过：{output}")
             else:
+                if args.emulator:
+                    from tooling.mumu import build_mumu_app
+                    return build_mumu_app(ROOT, args)
                 from tooling.android_app import build_android_app
                 apks = build_android_app(ROOT, args.profile, args.abis, args.ndk, args.cargo_target_dir,
                                          args.skip_rust, args.clean, args.split_per_abi,

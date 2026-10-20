@@ -51,7 +51,7 @@ class InputScopeTests(unittest.TestCase):
 
     def test_packaging_codegen_cli_and_test_changes_do_not_invalidate_native_libraries(self):
         before = self.inputs()
-        for path in ("scripts/tooling/android_app.py", "scripts/tooling/windows_app.py",
+        for path in ("scripts/tooling/android_app.py", "scripts/tooling/mumu.py", "scripts/tooling/windows_app.py",
                      "scripts/tooling/ios_bundle.py", "scripts/tooling/bridge.py", "scripts/dev.py",
                      "tests/tooling/new_test.py"):
             self.change(path)

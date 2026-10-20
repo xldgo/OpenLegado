@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### MUMU-INSTALL-20261020：MuMu一键构建安装（P2，已关闭）
+
+- 授权：用户确认将重复安装命令收敛至Python入口；固定x86_64、默认MainActivity，不增加动态图标入口或ABI选择，不提升版本、不推送。
+- 范围：build android新增--emulator mumu快捷参数，探测在线Nemu实例，多实例需--device；委托原构建/校验/安装链，Rust库先只读校验、通过自动复用、不通过自动重建；按次覆盖日志并检查启动进程与近期异常。保留工作区已有桌面生成文件修改。
+- 验证：工具组188项中185项通过、3项因宿主能力跳过；CI编排40项通过，新增MuMu输入隔离回归通过。日志build/mumu-tooling-regression.log、build/mumu-ci-scope-tests.log、build/mumu-input-scope-tests.log。
+- 实跑：MuMu 127.0.0.1:16384，旧库校验不通过时自动重建并安装成功（PID 5825）；同一命令再次运行，自动复用库并安装成功（PID 6143）。证据build/mumu-command-validation.log、build/mumu-reuse-validation.log，最后运行日志build/mumu/build-install.log。仅检查启动进程和近期未处理异常，不代表功能或视觉验收。
+- 交付：README/AGENTS与更新日志同步；mumu.py归入Android打包输入，不使后续安装工具调整失效原生缓存。单代理自查，仅本地提交，版本不变，未推送或触发CI。
+
+编写者：Codex + Tool｜2026-10-20
+
 ### READING-RANKING-INK-20261020：阅读时长榜整行点击区域（P2，待设备复验）
 
 - 授权：用户确认移除榜单外侧内间距与行水波纹圆角；沿用dev / 107a96e21，单代理、不提升版本、不推送或编译安装。
