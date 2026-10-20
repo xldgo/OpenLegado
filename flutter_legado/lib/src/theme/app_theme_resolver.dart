@@ -30,6 +30,7 @@ class AppThemePreferences {
     this.contrastLevel = 0,
     this.amoledDark = false,
     this.cardRadius = AppTheme.defaultCardRadius,
+    this.fontFamily,
     this.lightColors = const ThemeColorOverrides(),
     this.darkColors = const ThemeColorOverrides(),
   });
@@ -39,6 +40,7 @@ class AppThemePreferences {
   final double contrastLevel;
   final bool amoledDark;
   final double cardRadius;
+  final String? fontFamily;
   final ThemeColorOverrides lightColors;
   final ThemeColorOverrides darkColors;
 }
@@ -87,6 +89,7 @@ class AppThemePreferences {
       colorScheme: useDynamic ? dynamicColors : null,
       amoledDark: preferences.amoledDark,
       cardRadius: preferences.cardRadius,
+      fontFamily: preferences.fontFamily,
       primary: overrides.primary,
       accent: overrides.accent,
       background: overrides.background,

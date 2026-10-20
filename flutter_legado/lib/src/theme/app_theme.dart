@@ -99,6 +99,7 @@ class AppTheme {
     required Brightness brightness,
     required Md3Palette palette,
     ColorScheme? colorScheme,
+    String? fontFamily,
     bool amoledDark = false,
     Color? primary,
     Color? accent,
@@ -143,6 +144,7 @@ class AppTheme {
       return _buildTheme(
         brightness: brightness,
         cardRadius: cardRadius,
+        fontFamily: fontFamily,
         colorScheme: scheme,
         scaffoldBackground: scheme.surface,
         appBarBackground: scheme.surface,
@@ -173,6 +175,7 @@ class AppTheme {
     return _buildTheme(
       brightness: brightness,
       cardRadius: cardRadius,
+      fontFamily: fontFamily,
       colorScheme: scheme,
       scaffoldBackground: background ?? scheme.surface,
       appBarBackground: appBarBg,
@@ -193,6 +196,7 @@ class AppTheme {
       brightness: scheme.brightness,
       cardRadius: defaultCardRadius,
       colorScheme: scheme,
+      fontFamily: base.textTheme.bodyMedium?.fontFamily,
       scaffoldBackground: scheme.surface,
       appBarBackground: scheme.surfaceContainerHigh,
       appBarForeground: scheme.onSurface,
@@ -231,6 +235,7 @@ class AppTheme {
   /// 构建 ThemeData 通用方法（MD3 Expressive 视觉层）
   static ThemeData _buildTheme({
     required Brightness brightness,
+    String? fontFamily,
     required double cardRadius,
     required ColorScheme colorScheme,
     required Color scaffoldBackground,
@@ -241,6 +246,9 @@ class AppTheme {
     required Color tabBarBg,
   }) {
     final bool isLight = brightness == Brightness.light;
+    final textTheme = AppTypography.lightTextTheme.apply(
+      fontFamily: fontFamily,
+    );
     final menuStyle = MenuStyle(
       backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLow),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -257,7 +265,8 @@ class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      textTheme: AppTypography.lightTextTheme,
+      fontFamily: fontFamily,
+      textTheme: textTheme,
       scaffoldBackgroundColor: scaffoldBackground,
       dividerColor: separator,
       splashFactory: InkSparkle.splashFactory,
@@ -269,10 +278,8 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 3,
         centerTitle: false,
-        titleTextStyle: AppTypography.lightTextTheme.titleLarge?.copyWith(
-          color: appBarForeground,
-        ),
-        toolbarTextStyle: AppTypography.lightTextTheme.bodyLarge?.copyWith(
+        titleTextStyle: textTheme.titleLarge?.copyWith(color: appBarForeground),
+        toolbarTextStyle: textTheme.bodyLarge?.copyWith(
           color: appBarForeground,
         ),
         // 浅色导航栏 → 深色状态栏图标；暗色导航栏 → 浅色状态栏图标
@@ -303,6 +310,7 @@ class AppTheme {
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final bool selected = states.contains(WidgetState.selected);
           return TextStyle(
+            fontFamily: fontFamily,
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             color: selected
@@ -342,10 +350,10 @@ class AppTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
         // 错误与禁用态由组件根据 border 的形状解析，兼容显式无边框输入。
-        hintStyle: AppTypography.lightTextTheme.bodyMedium?.copyWith(
+        hintStyle: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
-        labelStyle: AppTypography.lightTextTheme.bodyMedium?.copyWith(
+        labelStyle: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
         contentPadding: const EdgeInsets.symmetric(
@@ -406,8 +414,8 @@ class AppTheme {
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         indicatorColor: colorScheme.primary,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: AppTypography.lightTextTheme.titleSmall,
-        unselectedLabelStyle: AppTypography.lightTextTheme.titleSmall,
+        labelStyle: textTheme.titleSmall,
+        unselectedLabelStyle: textTheme.titleSmall,
         // 对齐依赖 isScrollable，由各 TabBar 或组件默认值决定。
       ),
 
@@ -416,7 +424,8 @@ class AppTheme {
         textColor: colorScheme.onError,
         largeSize: 18,
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
           fontSize: 11,
           fontWeight: FontWeight.w600,
           height: 1.2,
@@ -428,7 +437,10 @@ class AppTheme {
       // Snackbar 主题 —— M3 inverseSurface 反色
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colorScheme.inverseSurface,
-        contentTextStyle: TextStyle(color: colorScheme.onInverseSurface),
+        contentTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          color: colorScheme.onInverseSurface,
+        ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(_controlRadius),
@@ -443,7 +455,11 @@ class AppTheme {
           color: colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(4),
         ),
-        textStyle: TextStyle(color: colorScheme.onSurface, fontSize: 12),
+        textStyle: TextStyle(
+          fontFamily: fontFamily,
+          color: colorScheme.onSurface,
+          fontSize: 12,
+        ),
       ),
 
       // 保留复选框形状，配色与交互状态由组件按当前 ColorScheme 解析。
@@ -469,9 +485,7 @@ class AppTheme {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
         ),
         hintStyle: WidgetStateProperty.all(
-          AppTypography.lightTextTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+          textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       ),
 
@@ -482,9 +496,7 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 16),
           ),
-          textStyle: WidgetStatePropertyAll(
-            AppTypography.lightTextTheme.bodyMedium,
-          ),
+          textStyle: WidgetStatePropertyAll(textTheme.bodyMedium),
           shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
         ),
       ),

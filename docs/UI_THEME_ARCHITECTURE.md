@@ -81,7 +81,7 @@ flowchart TD
 
 `src/theme/app_theme_resolver.dart` 定义绘制输入和 `resolveAppThemes`：
 
-- `AppThemePreferences` 包含色板、风格、对比度、纯黑、卡片圆角及日夜四色。
+- `AppThemePreferences` 包含色板、风格、对比度、纯黑、卡片圆角、界面字体及日夜四色。
   `ThemeColorOverrides` 只表达主色、强调色、背景和底栏颜色，不包含持久化操作。
 - `app.dart` 从现有 Provider 映射这些输入，并将 DynamicColorBuilder 的日夜结果传入。
   主题模式、字体缩放、背景图可用性、应用宿主装配继续由入口负责。
@@ -304,3 +304,15 @@ ThemeData。本方案不修改该协议、FFI 签名或数据库，不因视觉�
 未开展自动设备交互或性能测量；平台文件操作与通用组件视觉表现均由用户人工复验。
 
 编写者：Codex｜2026-10-13
+
+## 界面字体与正文边界（2026-10-20）
+
+外观字体单独保存在AppearanceSettings.fontFamily，不占用阅读正文/标题偏好。
+FontCatalog窄接口复用原有字体目录、ReaderFontFiles及FontLoader缓存；
+AppFontService负责加载与保存顺序，AppFontPicker负责平台文件选择及读取。
+appFontFamilyProvider在主题装配前注册已选字体，缺失时回退默认；主题解析继续只
+消费family绘制输入，不进行文件IO。明暗与封面局部主题共用AppTheme组件装配。
+ReaderBodyTypography为正文测量和绘制提供独立默认样式，防止DefaultTextStyle
+隐式继承界面字体；阅读菜单与普通界面继续使用应用主题。状态与证据只登记Active。
+
+编写者：Codex + UI｜2026-10-20

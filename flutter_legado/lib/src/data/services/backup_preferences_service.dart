@@ -139,6 +139,7 @@ class BackupPreferencesService {
 
   /// 主题颜色相关键（对齐 BackupConfig.themePrefKeys）
   static const themePrefKeys = <String>{
+    'app_font_family',
     'eyeProtectionEnabled',
     'colorTemperature',
     'eyeProtectionAutoNight',

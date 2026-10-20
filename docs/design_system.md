@@ -242,6 +242,15 @@ AppBottomSheet（含show/content）和AppSettingsSheet正文默认EdgeInsets.zer
 
 ## 应用主题解析入口（2026-10-13）
 
+外观通用组在字体大小之后提供“字体设置”，使用共用Sheet选择默认字体或已导入的
+TTF/OTF字体，并提供当前字体预览。界面选择由AppearanceSettings.fontFamily及
+app_font_family管理，保存前完成注册；默认选择与阅读正文、标题选择相互独立。
+共享字体目录与加载能力，不重复维护字体文件或缓存；冷启动重新注册已选择的字体。
+字体不可用时使用默认界面字体并在设置中提示，用户可以重新导入或恢复默认。
+应用明暗及局部主题共用字体装配；正文由ReaderBodyTypography隔离界面字体继承，
+保持原阅读字体、标题字体、字号与行距的独立设置。系统图标不使用自定义文字字体。
+
+
 `app_theme_resolver.dart` 使用只读 `AppThemePreferences` 和日夜 `ThemeColorOverrides`
 计算两套主题；复用现有内置色板、参数化引擎与 `AppTheme` 组件装配。
 `appThemePreferencesProvider` 按相关字段映射已有设置；`app.dart` 传入平台动态颜色

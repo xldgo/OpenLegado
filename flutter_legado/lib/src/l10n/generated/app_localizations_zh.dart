@@ -10,6 +10,15 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get themeFontSettings => '字体设置';
+
+  @override
+  String get themeFontImport => '导入字体';
+
+  @override
+  String get themeFontPreview => '天地玄黄，宇宙洪荒。\nThe quick brown fox 0123456789';
+
+  @override
   String get themeDynamicColor => '动态取色';
 
   @override

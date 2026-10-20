@@ -10,6 +10,15 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get themeFontSettings => 'Interface font';
+
+  @override
+  String get themeFontImport => 'Import font';
+
+  @override
+  String get themeFontPreview => '天地玄黄，宇宙洪荒。\nThe quick brown fox 0123456789';
+
+  @override
   String get themeDynamicColor => 'Dynamic color';
 
   @override

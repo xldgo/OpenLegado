@@ -27,7 +27,11 @@ final class AppAppearanceSettingsRepository
     storage: SettingsStorageKind.preferences,
     key: 'launcherIcon',
   );
-  static const _addresses = {_mode, _scale, _palette, _icon};
+  static const _font = (
+    storage: SettingsStorageKind.preferences,
+    key: 'app_font_family',
+  );
+  static const _addresses = {_mode, _scale, _palette, _icon, _font};
 
   AppearanceSettings _decode(AppSettingsSnapshot snapshot) =>
       AppearanceSettings(
@@ -49,6 +53,10 @@ final class AppAppearanceSettingsRepository
           String value => value,
           _ => 'iconMain',
         },
+        fontFamily: switch (snapshot[_font]) {
+          String value => value,
+          _ => '',
+        },
       );
 
   Map<SettingsAddress, Object?> _encode(AppearanceSettings settings) => {
@@ -56,6 +64,7 @@ final class AppAppearanceSettingsRepository
     _scale: settings.fontScaleRaw,
     _palette: settings.paletteId,
     _icon: settings.launcherIcon,
+    _font: settings.fontFamily,
   };
 
   @override

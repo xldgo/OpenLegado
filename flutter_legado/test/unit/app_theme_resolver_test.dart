@@ -24,6 +24,41 @@ void main() {
   BorderRadiusGeometry? cardRadius(ThemeData theme) =>
       (theme.cardTheme.shape as RoundedRectangleBorder).borderRadius;
 
+  test('界面字体贯通明暗组件及局部换色，切回默认不残留', () {
+    final themes = resolveAppThemes(
+      preferences: const AppThemePreferences(fontFamily: 'Custom_Interface'),
+    );
+    for (final theme in [
+      themes.light,
+      themes.dark,
+      AppTheme.withColorScheme(
+        themes.light,
+        ColorScheme.fromSeed(seedColor: Colors.blue),
+      ),
+    ]) {
+      expect(theme.textTheme.bodyMedium?.fontFamily, 'Custom_Interface');
+      expect(theme.appBarTheme.titleTextStyle?.fontFamily, 'Custom_Interface');
+      expect(
+        theme.inputDecorationTheme.hintStyle?.fontFamily,
+        'Custom_Interface',
+      );
+      expect(theme.tabBarTheme.labelStyle?.fontFamily, 'Custom_Interface');
+      expect(
+        theme.menuButtonTheme.style?.textStyle?.resolve({})?.fontFamily,
+        'Custom_Interface',
+      );
+      expect(
+        theme.navigationBarTheme.labelTextStyle?.resolve({})?.fontFamily,
+        'Custom_Interface',
+      );
+    }
+    final defaults = resolveAppThemes(preferences: const AppThemePreferences());
+    expect(
+      defaults.light.textTheme.bodyMedium?.fontFamily,
+      isNot('Custom_Interface'),
+    );
+  });
+
   void expectCustomColors(ThemeData theme, ThemeColorOverrides colors) {
     expect(theme.appBarTheme.backgroundColor, colors.primary);
     expect(theme.colorScheme.primary, colors.accent);

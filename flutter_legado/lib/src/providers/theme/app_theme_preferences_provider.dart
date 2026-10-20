@@ -1,3 +1,5 @@
+import '../../features/appearance/app_font_provider.dart';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 
@@ -47,7 +49,9 @@ final appThemePreferencesProvider = riverpod.Provider<AppThemePreferences>((
     ),
   );
   Color? color(int? value) => value == null ? null : Color(value);
+  final font = ref.watch(appFontFamilyProvider);
   return AppThemePreferences(
+    fontFamily: font.hasError ? null : font.value,
     paletteId: paletteId,
     style: style,
     contrastLevel: double.tryParse(contrast) ?? 0,

@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### APPEARANCE-FONT-20261020：外观界面字体设置（P2，本地完成，待设备复验）
+
+- 授权：用户要求在外观增加字体设置；feature/ui-reader-selection / db1dcd0c5，单代理，不提升版本、推送或安装。参照HapeLee ThemeConfigScreen的FontSelectSheet及独立appFontPath语义，沿用Flutter字体加载方案，不新增依赖或原生/FFI接口。
+- 界面：通用组字体大小之后增加字体设置，使用共用Sheet列出默认和已导入字体，支持TTF/OTF导入、预览及恢复默认；不列出本机无法确认安装的伪系统字体。导入、保存失败明确提示，操作期间防止重复提交。
+- 数据：AppearanceSettings增加fontFamily，以app_font_family保存，纳入主题备份分类；不修改reader_font_family或reader_title_font_family，不处理旧键。字体目录、文件及FontLoader注册复用现有能力，三项共享Provider迁至font_catalog_provider，阅读服务委托共用目录逻辑，保持原阅读设置入口。
+- 运行时：先加载后保存，冷启动重新注册选择的字体；缺失或加载失败时主题回退默认，设置中保留诊断与重新选择入口。主题装配统一应用于明暗主题、标题栏、导航标签、Tab、输入框及菜单等显式文字样式，局部封面换色继承已选字体。
+- 阅读边界：ReaderContentViewport正文的测量与绘制使用独立ReaderBodyTypography基线，避免界面字体从DefaultTextStyle透传到默认正文字体；用户明确选择的正文和标题字体保留。阅读菜单仍可使用应用界面字体，不调整分页策略或索引。
+- 验收：真实共享偏好和临时字体文件的导入/取消/失败/冷启动测试；Widget用可控字体目录测试选择、预览、失败恢复及默认回退，真实文本渲染树核对正文隔离；目标静态分析、架构依赖和受影响回归。平台文件选择器及真实TTF/OTF显示需设备验收。编写者Codex + UI，2026-10-20。
+- 结果：9份定向测试66项通过，目标静态分析、格式、架构依赖与diff检查通过。服务测试复用真实临时文件与共享偏好，平台注册器按依赖注入控制失败；Widget使用FontCatalog窄接口替身，未以测试字体字节宣称真实字形已验证。
+- 测试处理：首轮Widget宿主的初始化与异步释放跨测试时钟造成等待，已按既有fixture模式在测试体初始化并非阻塞释放；实际文件链路留在服务测试，UI使用受控目录，最终完整组无失败。证据flutter_legado/build/app-font-{final-tests,widget-tests,analysis,architecture}.log。
+- 交付：仅本地提交，提交号以本条Git记录为准；版本保持2.0.407+408，不推送、编译安装或运行全量CI。单代理自查，无独立审查；真实字体文件选择、字形显示和设备观感待用户验收。未修改Rust/FRB、数据库或阅读设置存储键。
+
 ### READER-COVER-ENTRIES-20261020：扩展开书封面来源与默认转场回退（P2，本地完成，待设备复验）
 
 - 授权：用户要求所有有封面的文字阅读入口共用翻书效果；无封面或图片未加载改用项目默认导航动画。沿用feature/ui-reader-selection，基线fb0a1606c，单代理，不提升版本、推送或安装，保留其他任务成果。

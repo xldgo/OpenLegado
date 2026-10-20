@@ -98,6 +98,24 @@ abstract class AppLocalizations {
     Locale('en'),
   ];
 
+  /// No description provided for @themeFontSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'字体设置'**
+  String get themeFontSettings;
+
+  /// No description provided for @themeFontImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入字体'**
+  String get themeFontImport;
+
+  /// No description provided for @themeFontPreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'天地玄黄，宇宙洪荒。\nThe quick brown fox 0123456789'**
+  String get themeFontPreview;
+
   /// No description provided for @themeDynamicColor.
   ///
   /// In zh, this message translates to:

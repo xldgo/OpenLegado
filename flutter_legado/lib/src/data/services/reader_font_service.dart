@@ -1,3 +1,5 @@
+import 'font_catalog_service.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../../domain/contracts/reader_font_repository.dart';
@@ -18,23 +20,8 @@ final class ReaderFontService {
   final ReaderSettingsRepository settings;
   final ReaderFontFiles files;
 
-  Future<({List<ReaderFont> fonts, List<String> missing})>
-  loadAvailable() async {
-    final fonts = <ReaderFont>[];
-    final missing = <String>[];
-    for (final font in await repository.load()) {
-      try {
-        fonts.add(await files.load(font));
-      } catch (error) {
-        missing.add(font.family);
-        debugPrint('自定义字体加载失败：${font.family}，$error');
-      }
-    }
-    return (
-      fonts: List<ReaderFont>.unmodifiable(fonts),
-      missing: List<String>.unmodifiable(missing),
-    );
-  }
+  Future<({List<ReaderFont> fonts, List<String> missing})> loadAvailable() =>
+      FontCatalogService(repository: repository, files: files).loadAvailable();
 
   Future<int> loadSelected(ReaderSettings selected) async {
     final families = <String>{
@@ -60,8 +47,10 @@ final class ReaderFontService {
     Uint8List bytes, {
     required bool title,
   }) async {
-    final font = await files.install(name, bytes);
-    await repository.add(font);
+    final font = await FontCatalogService(
+      repository: repository,
+      files: files,
+    ).importFont(name, bytes);
     await settings.update(
       fontFamily: title ? null : font.family,
       titleFontFamily: title ? font.family : null,

@@ -10,23 +10,27 @@ final class AppearanceSettings {
     this.fontScaleRaw = 0,
     this.paletteId = 'def',
     this.launcherIcon = 'iconMain',
+    this.fontFamily = '',
   });
 
   final AppThemeMode themeMode;
   final int fontScaleRaw;
   final String paletteId;
   final String launcherIcon;
+  final String fontFamily;
 
   AppearanceSettings copyWith({
     AppThemeMode? themeMode,
     int? fontScaleRaw,
     String? paletteId,
     String? launcherIcon,
+    String? fontFamily,
   }) => AppearanceSettings(
     themeMode: themeMode ?? this.themeMode,
     fontScaleRaw: fontScaleRaw ?? this.fontScaleRaw,
     paletteId: paletteId ?? this.paletteId,
     launcherIcon: launcherIcon ?? this.launcherIcon,
+    fontFamily: fontFamily ?? this.fontFamily,
   );
 
   @override
@@ -35,9 +39,10 @@ final class AppearanceSettings {
       themeMode == other.themeMode &&
       fontScaleRaw == other.fontScaleRaw &&
       paletteId == other.paletteId &&
-      launcherIcon == other.launcherIcon;
+      launcherIcon == other.launcherIcon &&
+      fontFamily == other.fontFamily;
 
   @override
   int get hashCode =>
-      Object.hash(themeMode, fontScaleRaw, paletteId, launcherIcon);
+      Object.hash(themeMode, fontScaleRaw, paletteId, launcherIcon, fontFamily);
 }

@@ -34,6 +34,8 @@ import 'widgets/theme_preset_dialogs.dart';
 import 'widgets/cover_rule_config_dialog.dart';
 import 'widgets/theme_mode_selector.dart';
 import 'widgets/builtin_palette_selector.dart';
+import 'widgets/app_font_sheet.dart';
+import '../../widgets/bottom_sheet_widget.dart';
 
 /// 主题设置页面（对齐原版 ThemeConfigFragment）
 ///
@@ -401,7 +403,9 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeNotifierProvider);
-    ref.watch(appearanceSettingsProvider);
+    final appearance =
+        ref.watch(appearanceSettingsProvider).value ??
+        ref.read(appearanceSettingsRepositoryProvider).current;
     final themeNotifier = ref.read(themeNotifierProvider.notifier);
     final colors = ref.watch(themeColorsProvider);
     final ui = ref.watch(uiSettingsProvider);
@@ -485,7 +489,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
 
                   // === 分组 3 通用（卡片内标题与其他设置页统一；
                   // 参考顺序 纯黑→切换图标→字体大小→主题管理→背景图片；
-                  // 参考独有 字体设置/自定义颜色/compose 引擎/预见性返回手势
+                  // 参考独有 自定义颜色/compose 引擎/预见性返回手势
                   // 仅登记不实现） ===
                   // [队列⑦c A3] 通用组排序：纯黑深色模式（自主题引擎移入，
                   // 对齐参考 纯黑 首位）→ 切换图标 → 字体大小 → 主题管理
@@ -542,6 +546,16 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                           context,
                           themeState,
                           themeNotifier,
+                        ),
+                      ),
+                      SettingTile(
+                        title: context.l10n.themeFontSettings,
+                        value: appearance.fontFamily.isEmpty
+                            ? context.l10n.readerDefaultFont
+                            : appearance.fontFamily.replaceFirst('Custom_', ''),
+                        onTap: () => AppBottomSheet.showContent<void>(
+                          context: context,
+                          builder: (_) => const AppFontSheet(),
                         ),
                       ),
                       // 主题管理（参考 theme_pack=主题管理；原"主题列表"改名，
