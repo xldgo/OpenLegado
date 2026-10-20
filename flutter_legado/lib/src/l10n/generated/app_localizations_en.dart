@@ -619,6 +619,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webServiceAutoStart => 'Start Web service when the app launches';
 
   @override
+  String get readerShowIconLabels => 'Show icon labels';
+
+  @override
   String get webServiceAutoStartDescription =>
       'Applies on the next app launch; does not change the current service';
 

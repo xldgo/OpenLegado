@@ -512,7 +512,7 @@ void main() {
       // 面板仍完整渲染（退出/更多/快捷钮保留，非整体隐藏）
       expect(find.byTooltip('退出阅读'), findsOneWidget);
       expect(find.byTooltip('更多'), findsOneWidget);
-      expect(find.text('全文搜索'), findsOneWidget);
+      expect(find.byTooltip('全文搜索'), findsOneWidget);
       await tester.pumpAndSettle();
     });
   });

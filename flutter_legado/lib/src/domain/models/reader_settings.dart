@@ -20,6 +20,7 @@ final class ReaderSettings {
     this.chapterInSystemBrowser = false,
     this.autoChangeSource = true,
     this.showTitleAddition = true,
+    this.showMenuLabels = false,
     this.textLayout = const ReaderTextLayoutSettings(),
     this.pageLayout = const ReaderPageLayoutSettings(),
     this.screen = const ReaderScreenSettings(),
@@ -41,6 +42,7 @@ final class ReaderSettings {
 
   /// 顶栏标题附加区尚未启用，仅保留设置定义。
   final bool showTitleAddition;
+  final bool showMenuLabels;
   final ReaderTextLayoutSettings textLayout;
   final ReaderPageLayoutSettings pageLayout;
   final ReaderScreenSettings screen;
@@ -62,6 +64,7 @@ final class ReaderSettings {
       chapterInSystemBrowser == other.chapterInSystemBrowser &&
       autoChangeSource == other.autoChangeSource &&
       showTitleAddition == other.showTitleAddition &&
+      showMenuLabels == other.showMenuLabels &&
       textLayout == other.textLayout &&
       pageLayout == other.pageLayout &&
       screen == other.screen &&
@@ -82,6 +85,7 @@ final class ReaderSettings {
     chapterInSystemBrowser,
     autoChangeSource,
     showTitleAddition,
+    showMenuLabels,
     textLayout,
     pageLayout,
     screen,

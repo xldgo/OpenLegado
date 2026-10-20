@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_controls_overlay.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
@@ -149,12 +150,25 @@ void main() {
         defaultTargetPlatform == TargetPlatform.android ? 54 : 20,
       );
       for (final label in ['目录', '全文搜索', '自动翻页', '朗读']) {
-        await tester.tap(find.text(label));
+        expect(find.text(label), findsNothing);
+        expect(find.bySemanticsLabel(label), findsOneWidget);
+        await tester.tap(find.byTooltip(label));
       }
       expect(actions.catalogs, 1);
       expect(actions.searches, 1);
       expect(actions.autoTurns, 1);
       expect(actions.alouds, 1);
+      final iconOnlyHeight = tester.getSize(bottomBar).height;
+      final settings = container.read(readerSettingsRepositoryProvider);
+      await settings.update(showMenuLabels: true);
+      await tester.pumpAndSettle();
+      for (final label in ['目录', '全文搜索', '自动翻页', '朗读', '设置']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(tester.getSize(bottomBar).height, iconOnlyHeight + 16);
+      await settings.update(showMenuLabels: false);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(bottomBar).height, iconOnlyHeight);
       container
           .read(readerNotifierProvider.notifier)
           .updateChapterPageCount(0, 4);
@@ -180,7 +194,7 @@ void main() {
     });
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     await _pump(tester);
-    await tester.tap(find.text('设置'));
+    await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
     expect(find.byType(ReaderSettingsSheet), findsOneWidget);
     expect(tester.takeException(), isNull);

@@ -607,6 +607,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webServiceAutoStart => '启动应用时开启 Web 服务';
 
   @override
+  String get readerShowIconLabels => '显示图标文字';
+
+  @override
   String get webServiceAutoStartDescription => '下次启动应用时生效，不改变当前运行状态';
 
   @override

@@ -742,6 +742,7 @@
     "description": "主界面文案：同步与服务"
   },
   "webServiceAutoStart": "启动应用时开启 Web 服务",
+  "readerShowIconLabels": "显示图标文字",
   "webServiceAutoStartDescription": "下次启动应用时生效，不改变当前运行状态",
   "webServiceSettingsSaveFailed": "Web 服务设置保存失败：{error}",
   "@webServiceSettingsSaveFailed": {

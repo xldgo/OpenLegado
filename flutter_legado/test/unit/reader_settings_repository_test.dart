@@ -96,6 +96,7 @@ void main() {
       'reader_progress_bar_behavior',
       'reader_auto_change_source',
       'reader_show_title_addition',
+      'reader_menu_show_labels',
       'reader_keep_screen_on_seconds',
       'reader_menu_theme_mode',
       'reader_menu_palette_style',

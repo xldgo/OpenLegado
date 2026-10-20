@@ -27,6 +27,28 @@ void main() {
   });
   tearDown(() => service.dispose());
 
+  test('底栏图标文字默认关闭，真实Preferences保存并在新仓储中恢复', () async {
+    AppReaderSettingsRepository create() {
+      final actual = AppSettingsService(
+        storages: {
+          SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+        },
+      );
+      addTearDown(actual.dispose);
+      return AppReaderSettingsRepository(actual);
+    }
+
+    final original = create();
+    expect((await original.load()).showMenuLabels, isFalse);
+    await original.update(showMenuLabels: true);
+    expect((await create().load()).showMenuLabels, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('reader_menu_show_labels'), isTrue);
+    await original.update(showMenuLabels: false);
+    expect((await create().load()).showMenuLabels, isFalse);
+    expect(prefs.getBool('reader_menu_show_labels'), isFalse);
+  });
+
   test('默认值不读取旧菜单和亮度键，也不转换或补写默认', () async {
     storage.values.addAll({
       'readBarStyleFollowPage': true,

@@ -21,6 +21,7 @@ abstract interface class ReaderSettingsRepository {
     bool? chapterInSystemBrowser,
     bool? autoChangeSource,
     bool? showTitleAddition,
+    bool? showMenuLabels,
   });
 
   /// 只修改传入的正文排版字段，不保存其他页面的旧快照。

@@ -1694,6 +1694,11 @@ txtSearch/txtSearchRegex/txtSearchInChapter/txtSearchCount及无选项bookExport
 
 ### 1.6.1 进程注入型 FFI（void，不经 BookApi，MD3 对齐 2026-09-04）
 
+阅读器底栏文字偏好（2026-10-21）：ReaderSettings.showMenuLabels默认false，
+ReaderSettingsRepository.update新增同名可选字段，经既有SharedPreferences通道
+保存为reader_menu_show_labels布尔值，归入阅读偏好备份；仅控制底栏五个按钮的可见文字，
+图标、提示及无障碍名称保留。不改变Rust/FRB或数据库，不增加旧键兼容。— Codex + UI
+
 > **第二十步设置试点冻结（2026-10-14）**：仅新增 Dart 内部设置快照/读写协调与搜索设置窄接口，
 > 复用既有 configGet/configSet 及 SharedPreferences，不改变 FRB 签名、JSON 或数据库。
 > BookApi 配置四项本批保留供未迁移域与兼容存储适配器共享；方法总数不变。

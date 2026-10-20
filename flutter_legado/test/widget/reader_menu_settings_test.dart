@@ -79,6 +79,26 @@ void main() {
     await tap(tester, find.text(option).hitTestable().last);
   }
 
+  testWidgets('图标文字开关默认关闭，保存失败回退，重试后重新打开保持', (tester) async {
+    await initialize(tester, section: ReaderConfigSection.toolbar);
+    final row = find.widgetWithText(SettingSwitchRow, '显示图标文字');
+    final repo = container.read(readerSettingsRepositoryProvider);
+    expect(tester.widget<SettingSwitchRow>(row).value, isFalse);
+    storage.writeFailure = true;
+    await tap(tester, row);
+    expect(repo.current.showMenuLabels, isFalse);
+    expect(tester.widget<SettingSwitchRow>(row).value, isFalse);
+    expect(find.text('菜单设置保存失败，请重试'), findsOneWidget);
+    storage.writeFailure = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tap(tester, row);
+    expect(repo.current.showMenuLabels, isTrue);
+    expect(storage.values['reader_menu_show_labels'], isTrue);
+    await mount(tester, section: ReaderConfigSection.toolbar);
+    expect(tester.widget<SettingSwitchRow>(row).value, isTrue);
+  });
+
   Future<void> color(
     WidgetTester tester,
     String title,

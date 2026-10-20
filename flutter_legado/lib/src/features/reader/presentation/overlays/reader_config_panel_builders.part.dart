@@ -804,6 +804,18 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (showTitle) _sectionTitle('菜单工具栏', Icons.view_quilt_outlined),
+      SettingSwitchRow(
+        title: context.l10n.readerShowIconLabels,
+        value: ref
+            .read(readerSettingsRepositoryProvider)
+            .current
+            .showMenuLabels,
+        onChanged: (value) => _saveMenuSetting(
+          () => ref
+              .read(readerSettingsRepositoryProvider)
+              .update(showMenuLabels: value),
+        ),
+      ),
       // 进度条行为（原版第 8 项 progressBarBehavior：调章内页/调章节）
       SettingMenuRow<String>(
         title: context.l10n.readerProgressBarBehavior,

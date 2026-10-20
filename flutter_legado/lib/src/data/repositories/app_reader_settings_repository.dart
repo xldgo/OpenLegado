@@ -122,6 +122,10 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_show_title_addition',
   );
+  static const _showMenuLabels = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_menu_show_labels',
+  );
   static const _keepScreenOnSeconds = (
     storage: SettingsStorageKind.preferences,
     key: 'reader_keep_screen_on_seconds',
@@ -133,6 +137,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   static const _addresses = {
     _autoChangeSource,
     _showTitleAddition,
+    _showMenuLabels,
     _keepScreenOnSeconds,
     _orientation,
     _hideStatusBar,
@@ -199,6 +204,9 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     showTitleAddition: snapshot[_showTitleAddition] is bool
         ? snapshot[_showTitleAddition] as bool
         : true,
+    showMenuLabels: snapshot[_showMenuLabels] is bool
+        ? snapshot[_showMenuLabels] as bool
+        : false,
     pageLayout: _pageLayout.decode(snapshot),
     autoPageTurn: _interaction.decodeAutoPageTurn(snapshot),
     interaction: _interaction.decodeInteraction(snapshot),
@@ -316,6 +324,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? chapterInSystemBrowser,
     bool? autoChangeSource,
     bool? showTitleAddition,
+    bool? showMenuLabels,
   }) => _service.update({
     _mode: ?pageTurnMode?.name,
     _fontSize: ?fontSize,
@@ -326,6 +335,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _chapterInSystemBrowser: ?chapterInSystemBrowser,
     _autoChangeSource: ?autoChangeSource,
     _showTitleAddition: ?showTitleAddition,
+    _showMenuLabels: ?showMenuLabels,
   });
 
   @override

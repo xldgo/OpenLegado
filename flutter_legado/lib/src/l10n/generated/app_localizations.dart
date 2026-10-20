@@ -1292,6 +1292,12 @@ abstract class AppLocalizations {
   /// **'启动应用时开启 Web 服务'**
   String get webServiceAutoStart;
 
+  /// No description provided for @readerShowIconLabels.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示图标文字'**
+  String get readerShowIconLabels;
+
   /// No description provided for @webServiceAutoStartDescription.
   ///
   /// In zh, this message translates to:

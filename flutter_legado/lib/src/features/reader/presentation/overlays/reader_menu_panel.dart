@@ -697,6 +697,10 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
     bool autoPageActive,
   ) {
     final cs = Theme.of(context).colorScheme;
+    final showLabels = ref
+        .read(readerSettingsRepositoryProvider)
+        .current
+        .showMenuLabels;
     Widget item(
       IconData icon,
       String label,
@@ -710,7 +714,7 @@ class _ReaderMenuPanelState extends ConsumerState<ReaderMenuPanel>
           label: label,
           onPressed: onTap,
           color: color,
-          showLabel: true,
+          showLabel: showLabels,
         ),
       );
     }

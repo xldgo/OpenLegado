@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.417] - 2026-10-20
 
+### Added
+- 阅读器底栏默认仅显示图标，菜单工具栏新增“显示图标文字”开关。贡献者：Codex + UI。
+
 ### Fixed
 - 阅读器底部菜单对齐主导航玻璃底栏，iOS固定20逻辑像素留白。贡献者：Codex + UI。
 - 修复阅读器离线缓存弹窗输入框紧贴，分离章节标签与总章数说明。贡献者：Codex + UI。

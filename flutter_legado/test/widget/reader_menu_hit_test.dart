@@ -433,7 +433,7 @@ void main() {
         find.byKey(const ValueKey('reader-progress-surface')),
       );
       expect(rect.top - progress.bottom, 10);
-      await tester.tap(find.text('目录'));
+      await tester.tap(find.byTooltip('目录'));
       await tester.drag(
         find.byType(ReaderMenuProgressSlider),
         const Offset(180, 0),
@@ -794,14 +794,14 @@ void main() {
     final container = await _pumpReader(tester, settingsService: service);
     final repository = container.read(readerSettingsRepositoryProvider);
     storage.writeFailure = true;
-    await tester.tap(find.text('自动翻页').hitTestable());
+    await tester.tap(find.byTooltip('自动翻页').hitTestable());
     await settleNativeReaderLayout(tester);
     expect(find.text('自动翻页设置保存失败，请重试'), findsOneWidget);
     expect(repository.current.autoPageTurn.enabled, isFalse);
     storage.writeFailure = false;
     await tester.pump(const Duration(seconds: 5));
     await settleNativeReaderLayout(tester);
-    await tester.tap(find.text('自动翻页').hitTestable());
+    await tester.tap(find.byTooltip('自动翻页').hitTestable());
     await settleNativeReaderLayout(tester);
     expect(repository.current.autoPageTurn.enabled, isTrue);
     final reader =
@@ -1315,7 +1315,7 @@ void main() {
 
   testWidgets('菜单按钮和进度滑条仍能操作，拖动不传给正文翻页', (tester) async {
     final (reader, hits) = await _pumpMenu(tester);
-    await tester.tap(find.text('目录'));
+    await tester.tap(find.byTooltip('目录'));
     await tester.drag(
       find.byType(ReaderMenuProgressSlider),
       const Offset(180, 0),

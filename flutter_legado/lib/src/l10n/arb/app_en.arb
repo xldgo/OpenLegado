@@ -199,6 +199,7 @@
   "readingInterfaceSummary": "Font, colors, page turning and screen display",
   "syncAndServices": "Sync and Services",
   "webServiceAutoStart": "Start Web service when the app launches",
+  "readerShowIconLabels": "Show icon labels",
   "webServiceAutoStartDescription": "Applies on the next app launch; does not change the current service",
   "webServiceSettingsSaveFailed": "Failed to save Web service settings: {error}",
   "webServiceChecking": "Checking service status",

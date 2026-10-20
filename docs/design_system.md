@@ -167,6 +167,11 @@ unlabeled保持纯图标；标准底栏仍按原三档处理，不改偏好数�
 左右12dp、间隔10dp、四角28dp。底部定位与主导航玻璃胶囊一致：固定20dp留白，
 仅Android额外避让系统导航安全区，iOS不叠加底部安全区。正文与排版布局不变。
 
+阅读器底栏默认仅显示五个操作图标；“全部阅读设置→屏幕与工具栏→菜单工具栏”
+提供“显示图标文字”，默认关闭，修改后即时更新并保存为独立阅读偏好。
+隐藏文字仍保留长按提示、无障碍名称及原点击动作；按钮高48dp，显示文字时为64dp，
+菜单底部20dp留白和面板间距保持。顶栏、经典朗读条及主导航文字不受此开关影响。
+
 ReaderMenuControlTheme集中向SDK Cupertino和GlassTheme传递局部阅读主题的亮度与
 强调色；应用仍使用material_ui主题。ReaderMenuControlButton/ProgressSlider只接受
 图标、文案、数值及回调；实际使用GlassButton/GlassSlider，不在页面复制手势或物理
