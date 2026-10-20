@@ -15,7 +15,10 @@ fn consume(
     let mut total = 0u64;
     let mut buffer = [0; 16 * 1024];
     loop {
-        let n = reader.read(&mut buffer)?;
+        let n = match reader.read(&mut buffer) {
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            result => result?,
+        };
         if n == 0 {
             return Ok(total);
         }
@@ -50,6 +53,24 @@ pub(crate) fn copy_bounded(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn interrupted_read_retries_without_losing_data_or_budget() {
+        struct InterruptedOnce<'a>(bool, &'a [u8]);
+        impl Read for InterruptedOnce<'_> {
+            fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+                if !self.0 {
+                    self.0 = true;
+                    return Err(std::io::ErrorKind::Interrupted.into());
+                }
+                self.1.read(buffer)
+            }
+        }
+        assert_eq!(
+            read_bounded(&mut InterruptedOnce(false, b"1234"), 4).unwrap(),
+            b"1234"
+        );
+        assert!(read_bounded(&mut InterruptedOnce(false, b"12345"), 4).is_err());
+    }
     #[test]
     fn actual_output_is_bounded_without_trusting_metadata() {
         assert!(read_bounded(&mut &b"12345"[..], 4).is_err());

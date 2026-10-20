@@ -749,8 +749,8 @@ impl HuffcdicDecompressor {
 
             // 与 Kotlin 一致：按 Int 语义截取字典索引
             let index = ((maxcode - code) >> (32 - codelen)) as u32 as usize;
-            // 第一阶段：短借字典读取条目状态（递归前必须结束借用，
-            // 避免跨递归持有 &mut 造成别名 UB）
+            // 第一阶段：短借字典读取条目状态，递归前释放借用，
+            // 使嵌套解码可以独占借用字典并更新缓存。
             enum Action {
                 Direct(Vec<u8>),
                 Nested(Vec<u8>),

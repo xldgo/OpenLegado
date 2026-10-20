@@ -14,7 +14,7 @@ static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 /// 任务 #60 ②：原 `Runtime::new()` 无 thread_name 且 worker 栈为默认约 2MB，
 /// 是搜索崩溃（regex-syntax 深递归击穿 worker 栈）的主要宿主。
 /// 改为 Builder 显式配置：worker 栈扩到 8MB（对齐原版 JVM 线程栈水位）
-/// + thread_name 便于崩溃诊断；当前Tokio也将thread_stack_size用于按需创建的blocking线程。
+/// 并设置thread_name便于崩溃诊断；当前Tokio也将thread_stack_size用于按需创建的blocking线程。
 /// 正则仍须经过regex_safe预检，扩栈不替代输入防护。
 pub fn get_runtime() -> &'static Runtime {
     RUNTIME.get_or_init(|| {
@@ -32,7 +32,9 @@ pub fn get_runtime() -> &'static Runtime {
 pub struct UnsupportedRuntime;
 impl std::fmt::Display for UnsupportedRuntime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("同步JS网络桥不能在Tokio单线程运行时执行，请使用宿主阻塞任务或专用线程")
+        f.write_str(
+            "同步JS网络桥不能在Tokio单线程运行时执行，请使用多线程宿主或运行时之外的专用线程",
+        )
     }
 }
 impl std::error::Error for UnsupportedRuntime {}
@@ -165,6 +167,11 @@ mod environment_tests {
         )
         .unwrap();
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
-        rt.block_on(async {assert_eq!(vm.eval("try { java.get('http://127.0.0.1:1/never',{}); false } catch(e) { String(e).includes('单线程') }").unwrap(),"true");assert_eq!(vm.eval("1+1").unwrap(),"2");});
+        rt.block_on(async {
+            let script = "try { java.get('http://127.0.0.1:1/never',{}); false } \
+                          catch(e) { String(e).includes('单线程') }";
+            assert_eq!(vm.eval(script).unwrap(), "true");
+            assert_eq!(vm.eval("1+1").unwrap(), "2");
+        });
     }
 }

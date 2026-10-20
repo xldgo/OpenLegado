@@ -32,7 +32,17 @@ fn http_url(raw: &str) -> LegadoResult<reqwest::Url> {
 }
 pub(super) fn append_query(raw: &str, key: &str, value: &str) -> LegadoResult<String> {
     let mut url = http_url(raw)?;
-    url.query_pairs_mut().append_pair(key, value);
+    // 保持直连接口原有的百分号编码，URL解析只负责查询串与片段的位置。
+    let encoded = format!(
+        "{}={}",
+        urlencoding::encode(key),
+        urlencoding::encode(value)
+    );
+    let query = match url.query() {
+        Some(query) if !query.is_empty() => format!("{query}&{encoded}"),
+        _ => encoded,
+    };
+    url.set_query(Some(&query));
     Ok(url.into())
 }
 pub(super) async fn synthesize(
@@ -228,7 +238,7 @@ mod tests {
         let request = worker.await.unwrap().to_lowercase();
         assert!(request.contains("user-agent: tts-audit-agent"));
         assert!(request.contains("cookie: session=owned"));
-        assert!(request.contains("voice=a+b"));
+        assert!(request.contains("voice=a%20b"));
         assert!(!request.contains("fragment"));
         assert_eq!(state.engine.network().client().unwrap().client_id(), id);
         let (url, worker) = fixture(reply(

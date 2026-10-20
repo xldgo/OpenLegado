@@ -4,7 +4,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use std::{
-    io::{Read, Write},
+    io::{BufRead, BufReader, Write},
     sync::Arc,
 };
 use tower::ServiceExt;
@@ -44,8 +44,20 @@ async fn low_fractional_and_default_speeds_complete_without_panicking() {
     let worker = std::thread::spawn(move || {
         for _ in 0..4 {
             let (mut s, _) = listener.accept().unwrap();
-            let mut b = [0; 4096];
-            s.read(&mut b).unwrap();
+            s.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut request = BufReader::new(&mut s);
+            let mut total = 0;
+            loop {
+                let mut line = String::new();
+                let count = request.read_line(&mut line).unwrap();
+                assert!(count > 0, "请求头未完整发送");
+                total += count;
+                assert!(total <= 16 * 1024, "请求头超出测试预算");
+                if line == "\r\n" {
+                    break;
+                }
+            }
             s.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc").unwrap();
         }
     });
