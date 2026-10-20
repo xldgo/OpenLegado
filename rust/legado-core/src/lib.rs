@@ -37,6 +37,7 @@ pub mod cloud_tts_mimo;
 pub mod cloud_tts_openai;
 pub mod cloud_tts_polly;
 pub mod cloud_tts_volcengine;
+pub mod cloud_tts_volcengine_v3;
 pub mod content_help;
 pub mod content_processor;
 pub mod cron;

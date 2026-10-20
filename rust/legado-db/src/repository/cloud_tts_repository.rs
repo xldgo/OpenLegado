@@ -90,6 +90,7 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::AwsPolly => "Zhiyu",
                     CloudTtsProviderType::Volcengine => "BV001_streaming",
                     CloudTtsProviderType::GeminiTts => "Kore",
+                    CloudTtsProviderType::VolcengineV3 => "zh_female_vv_uranus_bigtts",
                 }
                 .into()
             }),
@@ -105,7 +106,8 @@ impl CloudTtsMetadata {
                     CloudTtsProviderType::OpenAiSpeech => "mp3",
                     CloudTtsProviderType::AzureSpeech
                     | CloudTtsProviderType::AwsPolly
-                    | CloudTtsProviderType::Volcengine => "mp3",
+                    | CloudTtsProviderType::Volcengine
+                    | CloudTtsProviderType::VolcengineV3 => "mp3",
                     CloudTtsProviderType::Mimo
                     | CloudTtsProviderType::AlibabaCloud
                     | CloudTtsProviderType::GeminiTts => "wav",
@@ -340,6 +342,41 @@ mod tests {
             updated_at: 0,
             credential_key: "cloud-tts:cloud-test:fixture".into(),
         }
+    }
+
+    #[test]
+    fn volcengine_v3_is_independent_from_v1_and_keeps_resource_and_defaults() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::CREATE_CLOUD_TTS_ENGINES)
+            .unwrap();
+        let repo = CloudTtsRepository::new(&conn);
+        let mut meta = metadata();
+        meta.provider = CloudTtsProviderType::VolcengineV3;
+        meta.model = "seed-tts-2.0".into();
+        meta.options_json = "{}".into();
+        meta.app_id.clear();
+        repo.save(&meta).unwrap();
+        let current = repo.get(&meta.id).unwrap();
+        assert_eq!(
+            current.request("原文".into()).unwrap().voice_id,
+            "zh_female_vv_uranus_bigtts"
+        );
+        assert_eq!(current.request("原文".into()).unwrap().format, "mp3");
+        let mut old = meta.clone();
+        old.id = "v1".into();
+        old.provider = CloudTtsProviderType::Volcengine;
+        old.model = "volcano_tts".into();
+        old.app_id = "app".into();
+        repo.save(&old).unwrap();
+        assert_eq!(repo.list().unwrap().len(), 2);
+        meta.provider = CloudTtsProviderType::Volcengine;
+        meta.app_id = "app".into();
+        meta.model = "volcano_tts".into();
+        assert!(repo.save(&meta).is_err());
+        assert_eq!(
+            repo.get(&meta.id).unwrap().provider,
+            CloudTtsProviderType::VolcengineV3
+        );
     }
     #[test]
     fn metadata_crud_preserves_identity_and_rejects_credentials() {

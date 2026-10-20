@@ -12478,6 +12478,7 @@ impl SseDecode for crate::media_dto::CloudTtsProviderDto {
             4 => crate::media_dto::CloudTtsProviderDto::AwsPolly,
             5 => crate::media_dto::CloudTtsProviderDto::Volcengine,
             6 => crate::media_dto::CloudTtsProviderDto::GeminiTts,
+            7 => crate::media_dto::CloudTtsProviderDto::VolcengineV3,
             _ => unreachable!("Invalid variant for CloudTtsProviderDto: {}", inner),
         };
     }
@@ -17725,6 +17726,7 @@ impl flutter_rust_bridge::IntoDart for crate::media_dto::CloudTtsProviderDto {
             Self::AwsPolly => 4.into_dart(),
             Self::Volcengine => 5.into_dart(),
             Self::GeminiTts => 6.into_dart(),
+            Self::VolcengineV3 => 7.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -21225,6 +21227,7 @@ impl SseEncode for crate::media_dto::CloudTtsProviderDto {
                 crate::media_dto::CloudTtsProviderDto::AwsPolly => 4,
                 crate::media_dto::CloudTtsProviderDto::Volcengine => 5,
                 crate::media_dto::CloudTtsProviderDto::GeminiTts => 6,
+                crate::media_dto::CloudTtsProviderDto::VolcengineV3 => 7,
                 _ => {
                     unimplemented!("");
                 }

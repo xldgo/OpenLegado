@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### TTS-VOLCENGINE-V3-20261020：豆包 2.0 独立引擎（P1，待复验：真实账号/设备）
+
+- 授权/基线：用户要求继续 V3；询问后确认官方仍保留 V1 文档，尚未授权删除，按原计划保留两套独立入口；feature/ui-tts-engine / b6f2433bb，工作树干净，单代理。
+- 范围：Core V3 SSE 协议、API Key/资源 ID、四个 2.0 候选、音色参数、DB/FFI 分派及 Sheet；不删除 V1、不自动回退，不改播放队列或 schema，不引入克隆/字幕/SSML。
+- 验收：协议/完成与错误帧、UUID 不影响缓存、音色与参数一致、定向表单/真实 FRB 本机 HTTP、取消与旧 Provider 回归；每批本地提交，不推送/安装/全量 CI。真实账号、音频解码及后台听感待设备验收。
+- 实现：Core 新增独立 V3 SSE Provider，API Key/资源 ID 鉴权与发送时 UUID 头；稳定缓存包含实际资源与请求参数，不受请求编号影响。正文原样、风格/指令放 context_texts，语速/音量转百分比、音高转半音；音频按片解码并要求明确完成，坏/部分响应不落盘。V1 源文件与原调用保留，没有迁移或失败降级。
+- Flutter/数据：引擎 Sheet 新增 V3，复用现有 model 字段存 seed-tts-2.0；四个官方候选通过类型化静态目录显示中文名与真实 ID，仅手动保存。支持 0.5～2 倍率及 MP3/Ogg/PCM/本地 WAV；没有 App ID、角色或语言等未消费控件。DB 与 FFI 枚举/默认值贯通；版本 2.0.414+415，无 schema/依赖升级或播放队列改动。
+- 验证：Core 33、DB 10、Fetcher 17 共 60 项 Rust 定向回归通过；普通 Flutter 54 项、真实 FFI 7 项通过，复跑不重复累计。V3 本机 SSE 核对 API Key/资源/唯一请求编号、原文与参数、目录/保存音色、四种格式、草稿共用缓存、截断/错误/MIME 失败重试与取消；同步复验 V1、Gemini、Polly、Azure、百炼与原云入口。6 份手写 Dart 分析/格式、Core 严格 Clippy、架构与差异检查、隔离生成复核通过。
+- 命令：cargo test --locked --offline -p legado-core -p legado-db -p legado-fetcher cloud_tts；cargo clippy --locked --offline -p legado-core --lib -- -D warnings；cargo build --locked --offline -p legado-ffi --features quickjs。Flutter 定向 media_dto_mapping/cloud_tts_settings、V3/V1/Gemini 编辑器、参数/配置/管理页；native 显式加载本 worktree 新 DLL，执行 volcengine_v3/volcengine/gemini/polly/azure/alibaba/cloud 七份 runtime。python scripts/dev.py generate bridge 及 --check。
+- 过程/边界：首次生成 Widget 测试的辅助脚本因模板断言失败而未生成文件，修正模板后正常生成；静态分析的一条测试花括号提示修正后复核无问题，未禁用规则。单代理实现与自查，无独立审查。只本地提交，不推送/合并/应用构建安装/远程 CI；真实账号、解码及后台/蓝牙听感待用户复验。本机合成数据不替代上述证据，提交见本条 Git 记录。
+
+编写者：Codex + Bridge｜2026-10-20
+
 ### REMOVE-COMMITIZEN-20261020：清理无构建用途的根Node配置（本地完成）
 
 - 授权：用户同意删除根package.json及专用配置，沿用dev，保留Conventional Commits和通用node_modules忽略规则；不提升版本、不推送。

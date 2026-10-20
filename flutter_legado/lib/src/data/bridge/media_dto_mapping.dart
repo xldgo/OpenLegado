@@ -28,6 +28,7 @@ dto.CloudTtsProviderDto cloudProviderToDto(String v) => switch (v) {
   'aws_polly' => dto.CloudTtsProviderDto.awsPolly,
   'volcengine' => dto.CloudTtsProviderDto.volcengine,
   'gemini_tts' => dto.CloudTtsProviderDto.geminiTts,
+  'volcengine_v3' => dto.CloudTtsProviderDto.volcengineV3,
   _ => throw FormatException('不支持的云端供应商：$v'),
 };
 String cloudProviderFromDto(dto.CloudTtsProviderDto v) => switch (v) {
@@ -38,6 +39,7 @@ String cloudProviderFromDto(dto.CloudTtsProviderDto v) => switch (v) {
   dto.CloudTtsProviderDto.awsPolly => 'aws_polly',
   dto.CloudTtsProviderDto.volcengine => 'volcengine',
   dto.CloudTtsProviderDto.geminiTts => 'gemini_tts',
+  dto.CloudTtsProviderDto.volcengineV3 => 'volcengine_v3',
 };
 HttpTts httpTtsFromDto(dto.HttpTtsConfigDto v) => HttpTts(
   id: v.id,

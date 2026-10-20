@@ -61,6 +61,14 @@ final class MockCloudTtsRepository implements CloudTtsRepository {
   @override
   Future<List<String>> voices(String provider) async {
     if (cloudTtsProfile(provider).remoteCatalog) return const [];
+    if (provider == 'volcengine_v3') {
+      return const [
+        'zh_female_vv_uranus_bigtts',
+        'zh_female_xiaohe_uranus_bigtts',
+        'zh_male_m191_uranus_bigtts',
+        'zh_male_taocheng_uranus_bigtts',
+      ];
+    }
     if (provider == 'gemini_tts') {
       return const [
         'Kore',

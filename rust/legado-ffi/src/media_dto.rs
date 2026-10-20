@@ -16,6 +16,8 @@ pub enum CloudTtsProviderDto {
     Volcengine,
     #[serde(rename = "gemini_tts")]
     GeminiTts,
+    #[serde(rename = "volcengine_v3")]
+    VolcengineV3,
 }
 impl From<legado_core::cloud_tts::CloudTtsProviderType> for CloudTtsProviderDto {
     fn from(v: legado_core::cloud_tts::CloudTtsProviderType) -> Self {
@@ -27,6 +29,7 @@ impl From<legado_core::cloud_tts::CloudTtsProviderType> for CloudTtsProviderDto 
             legado_core::cloud_tts::CloudTtsProviderType::AwsPolly => Self::AwsPolly,
             legado_core::cloud_tts::CloudTtsProviderType::Volcengine => Self::Volcengine,
             legado_core::cloud_tts::CloudTtsProviderType::GeminiTts => Self::GeminiTts,
+            legado_core::cloud_tts::CloudTtsProviderType::VolcengineV3 => Self::VolcengineV3,
         }
     }
 }
@@ -40,6 +43,7 @@ impl From<CloudTtsProviderDto> for legado_core::cloud_tts::CloudTtsProviderType 
             CloudTtsProviderDto::AwsPolly => Self::AwsPolly,
             CloudTtsProviderDto::Volcengine => Self::Volcengine,
             CloudTtsProviderDto::GeminiTts => Self::GeminiTts,
+            CloudTtsProviderDto::VolcengineV3 => Self::VolcengineV3,
         }
     }
 }

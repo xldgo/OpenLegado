@@ -2,6 +2,30 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 火山 V3／豆包 2.0 的独立协议（2026-10-20）
+
+参考版当前 VolcengineCloudTtsProvider 仍走 V1；用户授权继续 V3 接入。
+V1 官方标为不推荐，文档仍保留，不把它解释为已下线，亦不因开发阶段就删除仍有用途的接口。
+本增量按 [官方 V3 HTTP/SSE](https://docs.volcengine.com/docs/DoubaoVoice/HTTPChunkedSSEUnidirectionalStreaming-V3?lang=zh)
+和 [2.0 请求参数](https://docs.volcengine.com/docs/DoubaoVoice/unidirectional-streaming-text-to-speech-http?lang=zh)实现。
+
+- provider=volcengine_v3 单独选择；V1 配置、BV 音色和调用保留，没有猜测协议、自动迁移或失败回退。
+  本批使用新控制台 X-Api-Key 与 seed-tts-2.0 资源，资源写入现有 model 字段；不新增 App ID 或凭据格式。
+- 请求编号使用发送时 UUID 头，稳定资源头、实际参数和正文参与缓存，随机编号不影响去重。
+  请求正文不增删，风格/指令放入 additions 内的 context_texts，不当小说正文朗读。
+- speed/volume 的 UI 倍率映射为官方百分比整数，pitch 映射为半音整数；界面和 Core 同为 0.5～2，
+  数值按协议四舍五入。默认 MP3/PCM 24 kHz、Ogg 48 kHz；本地 WAV 用上游 PCM 包装，避免流式 WAV 头问题。
+- SSE 完整读取后按事件解析，逐片解码 Base64，再拼音频字节；要求明确完成，拒绝取消/失败/截断及坏数据，
+  不能把连接正常关闭视为音频完成。仍是文件合成后播放，不声称边合成边播或改变首包时延。
+- 候选取自[官方 2.0 音色表](https://docs.volcengine.com/docs/DoubaoVoice/Tonelist-1?lang=zh)：
+  Vivi、小何、云舟、小天；只在用户保存时添加音色，可手填账号已授权的 2.0 ID。
+  不声明候选等于账号授权，不支持克隆、SSML、字幕、实时 PCM 播放或任意附加 JSON。
+- 1024 UTF-8 字节是本地保守分片限制，复用已有 Unicode 安全分片与原文偏移，不称为 V3 官方上限。
+  Core 做纯协议，Fetcher/Engine 沿用网络、取消、缓存与租约；新增 FFI 枚举，无 schema 或依赖更新。
+
+真实云账号、设备解码、后台/蓝牙听感另验；本机 HTTP 与合成数据只证明协议和桥接行为。
+编写者：Codex + UI/Bridge｜2026-10-20。
+
 ## Gemini 3.8 协议差异与音频边界（2026-10-20）
 
 参考 [c4182eb9 的 GeminiCloudTtsProvider](https://github.com/HapeLee/legado-with-MD3/blob/c4182eb9bcdd2e52eb6bb44d14c37856e592a99a/app/src/main/java/io/legado/app/help/readaloud/playback/GeminiCloudTtsProvider.kt)
@@ -231,7 +255,7 @@ iOS编译和实际锁屏需要macOS/Apple设备，Windows及Android结果不能�
 | 缓存 | 结构化缓存键、同输入去重、原子音频/索引；书章关联、大小、过期清理和活动租约 | 移动设备实际播放与清理联动验收 |
 | HTTP 播放 | 本地原生队列、实时倍速、原位续播、前台优先的有界预合成 | 移动设备后台/中断验证 |
 | 系统语音 | 独立平台接口、进度、停止屏障和暂停恢复；统一音色目录与选择界面 | 移动设备后台/中断回归 |
-| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1/Gemini3.8 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 火山V3；真实账号/平台验收 |
+| 云端引擎 | OpenAI/MiMo/百炼/Azure/Polly/火山V1与V3/Gemini3.8 Provider、独立元数据/设备凭据、配置试听和共用预合成；Azure/Polly 动态目录 | 真实账号/平台验收 |
 
 T2a 曾缺少完整源上下文；T2b 将其补入独立 `tts_source` 模块，宿主注入数据库源变量/登录存储，`tts_transport` 统一首发与登录刷新请求策略，`tts_response` 处理二进制响应。支持面以 API_CONTRACT §2.42 的方法和 fixture 为准，不宣称覆盖所有第三方 JS 宿主接口。
 

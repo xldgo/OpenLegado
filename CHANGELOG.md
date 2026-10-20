@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.414] - 2026-10-20
+
+### Added
+- 新增火山 V3／豆包 2.0 云朗读，支持 API Key、资源 ID、内置音色及风格指令。
+- 支持合成语速、音调与音量调节，保留独立 V1 引擎。
+- 贡献者：Codex；构建号415。
+
 ## [2.0.413] - 2026-10-20
 
 ### Maintenance
