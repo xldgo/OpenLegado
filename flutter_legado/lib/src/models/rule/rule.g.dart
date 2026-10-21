@@ -105,6 +105,8 @@ _ContentRule _$ContentRuleFromJson(Map<String, dynamic> json) => _ContentRule(
   imageDecode: json['imageDecode'] as String?,
   payAction: json['payAction'] as String?,
   callBackJs: json['callBackJs'] as String?,
+  contentBatch: json['contentBatch'] as String?,
+  maxBatchSize: (json['maxBatchSize'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$ContentRuleToJson(_ContentRule instance) =>
@@ -120,6 +122,8 @@ Map<String, dynamic> _$ContentRuleToJson(_ContentRule instance) =>
       'imageDecode': instance.imageDecode,
       'payAction': instance.payAction,
       'callBackJs': instance.callBackJs,
+      'contentBatch': instance.contentBatch,
+      'maxBatchSize': instance.maxBatchSize,
     };
 
 _ExploreRule _$ExploreRuleFromJson(Map<String, dynamic> json) => _ExploreRule(

@@ -130,6 +130,7 @@ extension _SourceEditActions on _SourceEditScreenState {
     final oSr = orig?.ruleSearch;
     final oEr = orig?.ruleExplore;
     final oIr = orig?.ruleBookInfo;
+    final oCr = orig?.ruleContent;
     final oRr = orig?.ruleReview;
 
     return BookSource(
@@ -226,6 +227,9 @@ extension _SourceEditActions on _SourceEditScreenState {
         webJs: n('c_webJs'),
         payAction: n('c_payAction'),
         callBackJs: n('c_callBackJs'),
+        // 表单未展示的批量配置保留原值，编辑其他规则时不清空。
+        contentBatch: oCr?.contentBatch,
+        maxBatchSize: oCr?.maxBatchSize,
       ),
       // 段评规则（对齐原版：仅编辑 reviewEntities 展示字段，其余透传）
       ruleReview: ReviewRule(

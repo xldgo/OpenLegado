@@ -89,6 +89,9 @@ abstract class ContentRule with _$ContentRule {
     @JsonKey(name: 'imageDecode') String? imageDecode,
     @JsonKey(name: 'payAction') String? payAction,
     @JsonKey(name: 'callBackJs') String? callBackJs,
+    // 仅保留批量规则配置，执行能力另行接入。— Codex + UI
+    @JsonKey(name: 'contentBatch') String? contentBatch,
+    @JsonKey(name: 'maxBatchSize') int? maxBatchSize,
   }) = _ContentRule;
 
   factory ContentRule.fromJson(Map<String, dynamic> json) =>

@@ -12649,6 +12649,8 @@ impl SseDecode for crate::transfer_dto::ContentRuleDto {
         let mut var_imageDecode = <Option<String>>::sse_decode(deserializer);
         let mut var_payAction = <Option<String>>::sse_decode(deserializer);
         let mut var_callBackJs = <Option<String>>::sse_decode(deserializer);
+        let mut var_contentBatch = <Option<String>>::sse_decode(deserializer);
+        let mut var_maxBatchSize = <Option<i32>>::sse_decode(deserializer);
         return crate::transfer_dto::ContentRuleDto {
             content: var_content,
             sub_content: var_subContent,
@@ -12661,6 +12663,8 @@ impl SseDecode for crate::transfer_dto::ContentRuleDto {
             image_decode: var_imageDecode,
             pay_action: var_payAction,
             call_back_js: var_callBackJs,
+            content_batch: var_contentBatch,
+            max_batch_size: var_maxBatchSize,
         };
     }
 }
@@ -17928,6 +17932,8 @@ impl flutter_rust_bridge::IntoDart for crate::transfer_dto::ContentRuleDto {
             self.image_decode.into_into_dart().into_dart(),
             self.pay_action.into_into_dart().into_dart(),
             self.call_back_js.into_into_dart().into_dart(),
+            self.content_batch.into_into_dart().into_dart(),
+            self.max_batch_size.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -21396,6 +21402,8 @@ impl SseEncode for crate::transfer_dto::ContentRuleDto {
         <Option<String>>::sse_encode(self.image_decode, serializer);
         <Option<String>>::sse_encode(self.pay_action, serializer);
         <Option<String>>::sse_encode(self.call_back_js, serializer);
+        <Option<String>>::sse_encode(self.content_batch, serializer);
+        <Option<i32>>::sse_encode(self.max_batch_size, serializer);
     }
 }
 

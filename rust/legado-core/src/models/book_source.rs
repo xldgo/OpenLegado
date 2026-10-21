@@ -6,8 +6,8 @@ pub mod parse;
 
 pub use parse::{
     lenient_book_info_rule, lenient_bool, lenient_content_rule, lenient_explore_rule, lenient_i32,
-    lenient_i64, lenient_opt_bool, lenient_opt_string, lenient_review_rule, lenient_search_rule,
-    lenient_string, lenient_toc_rule, parse_source_array, parse_source_json,
+    lenient_i64, lenient_opt_bool, lenient_opt_i32, lenient_opt_string, lenient_review_rule,
+    lenient_search_rule, lenient_string, lenient_toc_rule, parse_source_array, parse_source_json,
 };
 
 /// 书源类型常量

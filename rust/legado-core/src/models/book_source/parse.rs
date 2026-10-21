@@ -88,6 +88,15 @@ pub fn lenient_i32<'de, D: Deserializer<'de>>(d: D) -> Result<i32, D::Error> {
     i32::try_from(v).map_err(|_| D::Error::custom(format!("整数超出 i32 范围: {v}")))
 }
 
+/// 可空整数：缺省由字段默认处理，显式null保留None，其余复用i32转换。
+pub fn lenient_opt_i32<'de, D: Deserializer<'de>>(d: D) -> Result<Option<i32>, D::Error> {
+    let value = Value::deserialize(d)?;
+    if value.is_null() {
+        return Ok(None);
+    }
+    lenient_i32(value).map(Some).map_err(D::Error::custom)
+}
+
 /// 布尔：兼容 `true/false`、`0/1`、`"true"/"false"/"1"/"0"/""`。
 pub fn lenient_bool<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     let value = Value::deserialize(d)?;

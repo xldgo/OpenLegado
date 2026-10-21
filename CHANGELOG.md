@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.437] - 2026-10-22
 
 ### Fixed
+- 保留书源批量正文规则contentBatch及maxBatchSize，导入、编辑和导出不再丢失配置；本轮未接入批量执行。
 - 段评规则启用状态支持字符串、整数与空值输入，避免合法书源被解析拒绝。
 - 补齐书源解析边界：数组粘贴取首项、坏规则准确报错、预览保留有效候选，确认导入使用归一化字段。
 - Room 更新保留显式空 CookieJar 的关闭语义，Mock 预览不再依赖原生库。

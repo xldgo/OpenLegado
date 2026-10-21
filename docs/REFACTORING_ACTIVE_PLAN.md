@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-PARSE-CONTENT-BATCH-20261022：补齐批量正文规则解析（P2，代码与定向验证完成，待主应用验收）
+
+- 授权/基线：用户要求补充解析；dev / b00d9bffe，单代理执行。原版build/upstream/legado / 363540972的ContentRule已有contentBatch与maxBatchSize，本项目缺失并静默丢弃。
+- 范围：先补契约，再贯通Rust解析/模型、FFI DTO、Dart模型与映射；统一生成FRB及Freezed/JSON绑定，编辑页透传未展示字段，导入和导出保留值。maxBatchSize缺省/null为None，非空按既定i32策略；不接入批量正文执行、不新增UI、不改数据库schema或应用版本。
+- 实现：新增可空字符串contentBatch与可空i32 maxBatchSize，后者委托现有整数转换，缺省/null保留None；规则JSON列自然存储，DTO和Dart双向映射贯通，编辑页保存透传未展示字段。FRB 2.13.0与Freezed/JSON均由生成器更新，不手改生成文件，不升级依赖。
+- 测试收敛（用户要求）：参照原版BookSourceImportTest的场景组织，将原有27项逐项语义用例收为4个场景（完整书源、缺省/空值、编辑首项、错误定位）；保留已确认缺陷及本项目整数兼容约定。新增批量正常往返只在现有native书源用例中复用ContentRuleCompatibilityTest的batchSettings验证，撤掉本轮重复的Rust DTO保存用例、Dart映射/导出断言和DB字段扩展；UI保留编辑保存不丢隐藏字段的独立回归。开发规范已记录避免逐字段机械测试及跨层重复断言。
+- 验证：最终core语义4项通过；现有native书源1项通过，实际RustBookSourceEditService→sourceParse→DTO→Dart→sourceImport→保存→导出往返覆盖上游6组数据及缺省组合、整数字符串扩展，对象/规则字符串两态均通过。3个Flutter受影响/调用方文件13项通过（含编辑页保存5项）；早先db书源对照5项通过，收敛后未修改其生产路径，不重复运行。改动Dart文件分析无问题，rustfmt及diff检查通过。
+- 证据：build/source-content-batch-{before,core-final,db,dart-generate,bridge-generate,native-build,native-build-final}.log，flutter_legado/build/source-content-batch-{dart,native-test,analysis,analysis-final}.log。3个批量解析回归在修复前失败，后按用户要求收敛；最终结果以4个场景及native往返为准，不叠加重复计数。
+- 交付边界：单代理复核，不宣称独立审查；仅本地提交，应用版本保持2.0.437+438。不运行全量测试，不编译安装APK或iOS，不推送/触发CI；未实现批量正文下载，主应用设备验收仍待进行。原有SOURCE-PARSE-REVIEW-BOOL的27项验证是当时证据，当前用例组织以本批为准。
+
+编写者：Codex + Rust / Bridge / UI｜2026-10-22
+
 ### SOURCE-PARSE-REVIEW-BOOL-20261022：段评启用字段解析修复（P2，代码修复与定向验证完成，待主应用验收）
 
 - 授权/基线：用户要求修复复审发现的布尔契约遗漏；dev / e37f3531a，单代理执行。

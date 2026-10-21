@@ -390,6 +390,8 @@ ContentRule contentRuleFromDto(dto.ContentRuleDto value) => ContentRule(
   imageDecode: value.imageDecode,
   payAction: value.payAction,
   callBackJs: value.callBackJs,
+  contentBatch: value.contentBatch,
+  maxBatchSize: value.maxBatchSize,
 );
 
 dto.ContentRuleDto contentRuleToDto(ContentRule value) => dto.ContentRuleDto(
@@ -404,6 +406,8 @@ dto.ContentRuleDto contentRuleToDto(ContentRule value) => dto.ContentRuleDto(
   imageDecode: value.imageDecode,
   payAction: value.payAction,
   callBackJs: value.callBackJs,
+  contentBatch: value.contentBatch,
+  maxBatchSize: value.maxBatchSize,
 );
 
 ReviewRule reviewRuleFromDto(dto.ReviewRuleDto value) => ReviewRule(

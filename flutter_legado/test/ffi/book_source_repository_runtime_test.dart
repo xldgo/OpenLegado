@@ -13,6 +13,7 @@ import '../fixtures/native_test_api.dart';
 import 'package:flutter_legado/src/app/bootstrap/rust_bootstrap.dart';
 import 'package:flutter_legado/src/app/bootstrap/settings_runtime_configuration.dart';
 import 'package:flutter_legado/src/data/repositories/rust_book_source_repository.dart';
+import 'package:flutter_legado/src/data/services/rust_book_source_edit_service.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/platform/app_environment.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,60 @@ void main() {
     final repository = RustBookSourceRepository(
       onSourcesChanged: () => notifications++,
     );
+    // 复用原版ContentRuleCompatibilityTest的batchSettings，集中验证一次完整往返。
+    // 最后一项是本项目既定的整数字符串扩展。
+    const batchSettings = <(String?, Object?, int?)>[
+      (null, null, null),
+      ('', null, null),
+      (null, 0, 0),
+      ('@js:batch()', null, null),
+      (null, 4, 4),
+      ('@js:batch()', 4, 4),
+      ('@js:batch()', '10', 10),
+    ];
+    for (final (batch, size, expectedSize) in batchSettings) {
+      final rule = {
+        'content': 'body@text',
+        'contentBatch': batch,
+        'maxBatchSize': size,
+      };
+      for (final input in [rule, jsonEncode(rule)]) {
+        final parsed = await const RustBookSourceEditService().parseSource(
+          jsonEncode({
+            'bookSourceUrl': 'fixture://parsed-batch',
+            'bookSourceName': '批量规则',
+            'ruleContent': input,
+          }),
+        );
+        expect(parsed.ruleContent?.contentBatch, batch);
+        expect(parsed.ruleContent?.maxBatchSize, expectedSize);
+        expect(
+          (await shared.getBookSources()).any(
+            (s) => s.bookSourceUrl == parsed.bookSourceUrl,
+          ),
+          isFalse,
+        );
+        await shared.importBookSources(
+          jsonEncode([
+            {
+              'bookSourceUrl': parsed.bookSourceUrl,
+              'bookSourceName': parsed.bookSourceName,
+              'ruleContent': input,
+            },
+          ]),
+        );
+        await shared.updateBookSource(parsed.copyWith(bookSourceName: '改名'));
+        final rows = (jsonDecode(await shared.exportBookSources()) as List)
+            .cast<Map<String, dynamic>>();
+        final saved = BookSource.fromJson(
+          rows.firstWhere(
+            (row) => row['bookSourceUrl'] == parsed.bookSourceUrl,
+          ),
+        );
+        expect(saved.ruleContent, parsed.ruleContent);
+        await shared.deleteBookSource(parsed.bookSourceUrl);
+      }
+    }
     const source = BookSource(
       bookSourceUrl: 'fixture://source-a',
       bookSourceName: '真实源',

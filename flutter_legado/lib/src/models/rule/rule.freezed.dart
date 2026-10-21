@@ -1917,6 +1917,10 @@ mixin _$ContentRule {
   String? get payAction;
   @JsonKey(name: 'callBackJs')
   String? get callBackJs;
+  @JsonKey(name: 'contentBatch')
+  String? get contentBatch;
+  @JsonKey(name: 'maxBatchSize')
+  int? get maxBatchSize;
 
   /// Create a copy of ContentRule
   /// with the given fields replaced by the non-null parameter values.
@@ -1955,7 +1959,11 @@ mixin _$ContentRule {
             (identical(other.payAction, _this.payAction) ||
                 other.payAction == _this.payAction) &&
             (identical(other.callBackJs, _this.callBackJs) ||
-                other.callBackJs == _this.callBackJs));
+                other.callBackJs == _this.callBackJs) &&
+            (identical(other.contentBatch, _this.contentBatch) ||
+                other.contentBatch == _this.contentBatch) &&
+            (identical(other.maxBatchSize, _this.maxBatchSize) ||
+                other.maxBatchSize == _this.maxBatchSize));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1975,13 +1983,15 @@ mixin _$ContentRule {
       _this.imageDecode,
       _this.payAction,
       _this.callBackJs,
+      _this.contentBatch,
+      _this.maxBatchSize,
     );
   }
 
   @override
   String toString() {
     final _this = this as ContentRule;
-    return 'ContentRule(content: ${_this.content}, subContent: ${_this.subContent}, title: ${_this.title}, nextContentUrl: ${_this.nextContentUrl}, webJs: ${_this.webJs}, sourceRegex: ${_this.sourceRegex}, replaceRegex: ${_this.replaceRegex}, imageStyle: ${_this.imageStyle}, imageDecode: ${_this.imageDecode}, payAction: ${_this.payAction}, callBackJs: ${_this.callBackJs})';
+    return 'ContentRule(content: ${_this.content}, subContent: ${_this.subContent}, title: ${_this.title}, nextContentUrl: ${_this.nextContentUrl}, webJs: ${_this.webJs}, sourceRegex: ${_this.sourceRegex}, replaceRegex: ${_this.replaceRegex}, imageStyle: ${_this.imageStyle}, imageDecode: ${_this.imageDecode}, payAction: ${_this.payAction}, callBackJs: ${_this.callBackJs}, contentBatch: ${_this.contentBatch}, maxBatchSize: ${_this.maxBatchSize})';
   }
 }
 
@@ -2004,6 +2014,8 @@ abstract mixin class $ContentRuleCopyWith<$Res> {
     @JsonKey(name: 'imageDecode') String? imageDecode,
     @JsonKey(name: 'payAction') String? payAction,
     @JsonKey(name: 'callBackJs') String? callBackJs,
+    @JsonKey(name: 'contentBatch') String? contentBatch,
+    @JsonKey(name: 'maxBatchSize') int? maxBatchSize,
   });
 }
 
@@ -2030,6 +2042,8 @@ class _$ContentRuleCopyWithImpl<$Res> implements $ContentRuleCopyWith<$Res> {
     Object? imageDecode = freezed,
     Object? payAction = freezed,
     Object? callBackJs = freezed,
+    Object? contentBatch = freezed,
+    Object? maxBatchSize = freezed,
   }) {
     return _then(
       ContentRule(
@@ -2077,6 +2091,14 @@ class _$ContentRuleCopyWithImpl<$Res> implements $ContentRuleCopyWith<$Res> {
             ? _self.callBackJs
             : callBackJs // ignore: cast_nullable_to_non_nullable
                   as String?,
+        contentBatch: freezed == contentBatch
+            ? _self.contentBatch
+            : contentBatch // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        maxBatchSize: freezed == maxBatchSize
+            ? _self.maxBatchSize
+            : maxBatchSize // ignore: cast_nullable_to_non_nullable
+                  as int?,
       ),
     );
   }
@@ -2187,6 +2209,8 @@ extension ContentRulePatterns on ContentRule {
       @JsonKey(name: 'imageDecode') String? imageDecode,
       @JsonKey(name: 'payAction') String? payAction,
       @JsonKey(name: 'callBackJs') String? callBackJs,
+      @JsonKey(name: 'contentBatch') String? contentBatch,
+      @JsonKey(name: 'maxBatchSize') int? maxBatchSize,
     )?
     $default, {
     required TResult orElse(),
@@ -2206,6 +2230,8 @@ extension ContentRulePatterns on ContentRule {
           _that.imageDecode,
           _that.payAction,
           _that.callBackJs,
+          _that.contentBatch,
+          _that.maxBatchSize,
         );
       case _:
         return orElse();
@@ -2239,6 +2265,8 @@ extension ContentRulePatterns on ContentRule {
       @JsonKey(name: 'imageDecode') String? imageDecode,
       @JsonKey(name: 'payAction') String? payAction,
       @JsonKey(name: 'callBackJs') String? callBackJs,
+      @JsonKey(name: 'contentBatch') String? contentBatch,
+      @JsonKey(name: 'maxBatchSize') int? maxBatchSize,
     )
     $default,
   ) {
@@ -2257,6 +2285,8 @@ extension ContentRulePatterns on ContentRule {
           _that.imageDecode,
           _that.payAction,
           _that.callBackJs,
+          _that.contentBatch,
+          _that.maxBatchSize,
         );
       case _:
         throw StateError('Unexpected subclass');
@@ -2289,6 +2319,8 @@ extension ContentRulePatterns on ContentRule {
       @JsonKey(name: 'imageDecode') String? imageDecode,
       @JsonKey(name: 'payAction') String? payAction,
       @JsonKey(name: 'callBackJs') String? callBackJs,
+      @JsonKey(name: 'contentBatch') String? contentBatch,
+      @JsonKey(name: 'maxBatchSize') int? maxBatchSize,
     )?
     $default,
   ) {
@@ -2307,6 +2339,8 @@ extension ContentRulePatterns on ContentRule {
           _that.imageDecode,
           _that.payAction,
           _that.callBackJs,
+          _that.contentBatch,
+          _that.maxBatchSize,
         );
       case _:
         return null;
@@ -2329,6 +2363,8 @@ class _ContentRule implements ContentRule {
     @JsonKey(name: 'imageDecode') this.imageDecode,
     @JsonKey(name: 'payAction') this.payAction,
     @JsonKey(name: 'callBackJs') this.callBackJs,
+    @JsonKey(name: 'contentBatch') this.contentBatch,
+    @JsonKey(name: 'maxBatchSize') this.maxBatchSize,
   });
   factory _ContentRule.fromJson(Map<String, dynamic> json) =>
       _$ContentRuleFromJson(json);
@@ -2364,6 +2400,12 @@ class _ContentRule implements ContentRule {
   @override
   @JsonKey(name: 'callBackJs')
   final String? callBackJs;
+  @override
+  @JsonKey(name: 'contentBatch')
+  final String? contentBatch;
+  @override
+  @JsonKey(name: 'maxBatchSize')
+  final int? maxBatchSize;
 
   /// Create a copy of ContentRule
   /// with the given fields replaced by the non-null parameter values.
@@ -2401,7 +2443,11 @@ class _ContentRule implements ContentRule {
             (identical(other.payAction, payAction) ||
                 other.payAction == payAction) &&
             (identical(other.callBackJs, callBackJs) ||
-                other.callBackJs == callBackJs));
+                other.callBackJs == callBackJs) &&
+            (identical(other.contentBatch, contentBatch) ||
+                other.contentBatch == contentBatch) &&
+            (identical(other.maxBatchSize, maxBatchSize) ||
+                other.maxBatchSize == maxBatchSize));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2420,12 +2466,14 @@ class _ContentRule implements ContentRule {
       imageDecode,
       payAction,
       callBackJs,
+      contentBatch,
+      maxBatchSize,
     );
   }
 
   @override
   String toString() {
-    return 'ContentRule(content: $content, subContent: $subContent, title: $title, nextContentUrl: $nextContentUrl, webJs: $webJs, sourceRegex: $sourceRegex, replaceRegex: $replaceRegex, imageStyle: $imageStyle, imageDecode: $imageDecode, payAction: $payAction, callBackJs: $callBackJs)';
+    return 'ContentRule(content: $content, subContent: $subContent, title: $title, nextContentUrl: $nextContentUrl, webJs: $webJs, sourceRegex: $sourceRegex, replaceRegex: $replaceRegex, imageStyle: $imageStyle, imageDecode: $imageDecode, payAction: $payAction, callBackJs: $callBackJs, contentBatch: $contentBatch, maxBatchSize: $maxBatchSize)';
   }
 }
 
@@ -2450,6 +2498,8 @@ abstract mixin class _$ContentRuleCopyWith<$Res>
     @JsonKey(name: 'imageDecode') String? imageDecode,
     @JsonKey(name: 'payAction') String? payAction,
     @JsonKey(name: 'callBackJs') String? callBackJs,
+    @JsonKey(name: 'contentBatch') String? contentBatch,
+    @JsonKey(name: 'maxBatchSize') int? maxBatchSize,
   });
 }
 
@@ -2476,6 +2526,8 @@ class __$ContentRuleCopyWithImpl<$Res> implements _$ContentRuleCopyWith<$Res> {
     Object? imageDecode = freezed,
     Object? payAction = freezed,
     Object? callBackJs = freezed,
+    Object? contentBatch = freezed,
+    Object? maxBatchSize = freezed,
   }) {
     return _then(
       _ContentRule(
@@ -2523,6 +2575,14 @@ class __$ContentRuleCopyWithImpl<$Res> implements _$ContentRuleCopyWith<$Res> {
             ? _self.callBackJs
             : callBackJs // ignore: cast_nullable_to_non_nullable
                   as String?,
+        contentBatch: freezed == contentBatch
+            ? _self.contentBatch
+            : contentBatch // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        maxBatchSize: freezed == maxBatchSize
+            ? _self.maxBatchSize
+            : maxBatchSize // ignore: cast_nullable_to_non_nullable
+                  as int?,
       ),
     );
   }

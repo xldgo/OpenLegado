@@ -906,6 +906,8 @@ class ContentRuleDto {
   final String? imageDecode;
   final String? payAction;
   final String? callBackJs;
+  final String? contentBatch;
+  final int? maxBatchSize;
 
   const ContentRuleDto({
     this.content,
@@ -919,6 +921,8 @@ class ContentRuleDto {
     this.imageDecode,
     this.payAction,
     this.callBackJs,
+    this.contentBatch,
+    this.maxBatchSize,
   });
 
   @override
@@ -933,7 +937,9 @@ class ContentRuleDto {
       imageStyle.hashCode ^
       imageDecode.hashCode ^
       payAction.hashCode ^
-      callBackJs.hashCode;
+      callBackJs.hashCode ^
+      contentBatch.hashCode ^
+      maxBatchSize.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -950,7 +956,9 @@ class ContentRuleDto {
           imageStyle == other.imageStyle &&
           imageDecode == other.imageDecode &&
           payAction == other.payAction &&
-          callBackJs == other.callBackJs;
+          callBackJs == other.callBackJs &&
+          contentBatch == other.contentBatch &&
+          maxBatchSize == other.maxBatchSize;
 }
 
 /// ExploreRule 的桥接快照；不承担领域校验。

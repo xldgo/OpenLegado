@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::book_source::lenient_opt_string;
+use crate::models::book_source::{lenient_opt_i32, lenient_opt_string};
 
 /// 正文处理规则
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -87,4 +87,20 @@ pub struct ContentRule {
         deserialize_with = "lenient_opt_string"
     )]
     pub call_back_js: Option<String>,
+    /// 批量正文规则；当前仅解析和保留，不执行批量获取。— Codex + Rust
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "contentBatch",
+        deserialize_with = "lenient_opt_string"
+    )]
+    pub content_batch: Option<String>,
+    /// 最大批量数量；缺省/null表示未声明，不在解析层施加执行限制。
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "maxBatchSize",
+        deserialize_with = "lenient_opt_i32"
+    )]
+    pub max_batch_size: Option<i32>,
 }

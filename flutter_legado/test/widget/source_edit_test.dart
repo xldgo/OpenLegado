@@ -170,6 +170,11 @@ void main() {
         exploreUrl: '分类::https://edit.com/sort',
         ruleExplore: ExploreRule(bookList: '.explore-list', name: '.e-name'),
         ruleBookInfo: BookInfoRule(init: '.init', tocUrl: '.toc'),
+        ruleContent: ContentRule(
+          content: '.body',
+          contentBatch: '@js: batch()',
+          maxBatchSize: 10,
+        ),
         ruleReview: ReviewRule(
           enabled: true,
           reviewSummaryUrl: '.review-summary',
@@ -177,6 +182,8 @@ void main() {
       );
       when(() => mockApi.bookSourceRepository.getBookSources())
           .thenAnswer((_) async => [source]);
+      when(() => mockApi.bookSourceRepository.updateBookSource(any()))
+          .thenAnswer((_) async {});
       // 预加载书源到 notifier 状态
       await container.read(sourceNotifierProvider.notifier).loadSources();
 
@@ -204,6 +211,21 @@ void main() {
         find.widgetWithText(CheckboxListTile, '段评'),
       );
       expect(reviewCheck.value, isTrue);
+      await tester.enterText(
+        find.byKey(const ValueKey('sf_bookSourceName')),
+        '修改源名称',
+      );
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+      final saved =
+          verify(
+                () =>
+                    mockApi.bookSourceRepository.updateBookSource(captureAny()),
+              ).captured.single
+              as BookSource;
+      expect(saved.ruleContent?.contentBatch, '@js: batch()');
+      expect(saved.ruleContent?.maxBatchSize, 10);
+      expect(saved.bookSourceName, '修改源名称');
     });
   });
 }

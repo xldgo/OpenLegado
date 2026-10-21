@@ -1158,6 +1158,8 @@ pub struct ContentRuleDto {
     pub image_decode: Option<String>,
     pub pay_action: Option<String>,
     pub call_back_js: Option<String>,
+    pub content_batch: Option<String>,
+    pub max_batch_size: Option<i32>,
 }
 
 impl From<legado_core::models::ContentRule> for ContentRuleDto {
@@ -1174,6 +1176,8 @@ impl From<legado_core::models::ContentRule> for ContentRuleDto {
             image_decode: value.image_decode,
             pay_action: value.pay_action,
             call_back_js: value.call_back_js,
+            content_batch: value.content_batch,
+            max_batch_size: value.max_batch_size,
         }
     }
 }
@@ -1192,6 +1196,8 @@ impl From<ContentRuleDto> for legado_core::models::ContentRule {
             image_decode: value.image_decode,
             pay_action: value.pay_action,
             call_back_js: value.call_back_js,
+            content_batch: value.content_batch,
+            max_batch_size: value.max_batch_size,
         }
     }
 }
