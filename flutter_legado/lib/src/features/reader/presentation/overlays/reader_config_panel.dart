@@ -260,11 +260,6 @@ class _ReaderConfigPanelState extends ConsumerState<ReaderConfigPanel> {
             children: [_buildSystemBarOptions(showTitle: false)],
           ),
           const SizedBox(height: 12),
-          const ReaderTipConfigSheet(
-            section: ReaderTipSection.statusBar,
-            embedded: true,
-          ),
-          const SizedBox(height: 12),
           SettingsGroup(
             showDividers: false,
             title: '菜单工具栏',

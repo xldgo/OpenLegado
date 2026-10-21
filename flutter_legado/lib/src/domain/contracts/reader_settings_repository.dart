@@ -69,12 +69,6 @@ abstract interface class ReaderSettingsRepository {
     bool? extendIntoCutout,
     bool? avoidDisplayCutouts,
   });
-  Future<void> updateStatusStrip({
-    bool? showBattery,
-    bool? showTime,
-    bool? showProgress,
-    bool? showChapterName,
-  });
   Future<void> updateAutoPageTurn({
     bool? enabled,
     double? intervalSeconds,

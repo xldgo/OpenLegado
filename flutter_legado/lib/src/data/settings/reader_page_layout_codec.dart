@@ -153,6 +153,7 @@ final class ReaderPageLayoutCodec {
   };
   Map<SettingsAddress, Object?> edgePatch(
     ReaderPageEdge edge, {
+    required ReaderPageLayoutSettings current,
     double? top,
     double? bottom,
     double? left,
@@ -162,23 +163,58 @@ final class ReaderPageLayoutCodec {
     int? leftTip,
     int? middleTip,
     int? rightTip,
-  }) => {
-    ..._paddingPatch(
-      '${edge.name}_padding',
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-    ),
-    _address('${edge.name}_mode'): ?mode?.clamp(
-      0,
-      edge == ReaderPageEdge.header ? 2 : 1,
-    ),
-    _address('${edge.name}_show_line'): ?showLine,
-    _address('${edge.name}_tip_left'): ?leftTip,
-    _address('${edge.name}_tip_middle'): ?middleTip,
-    _address('${edge.name}_tip_right'): ?rightTip,
-  };
+  }) {
+    final patch = <SettingsAddress, Object?>{
+      ..._paddingPatch(
+        '${edge.name}_padding',
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+      ),
+      _address('${edge.name}_mode'): ?mode?.clamp(
+        0,
+        edge == ReaderPageEdge.header ? 2 : 1,
+      ),
+      _address('${edge.name}_show_line'): ?showLine,
+      _address('${edge.name}_tip_left'): ?leftTip,
+      _address('${edge.name}_tip_middle'): ?middleTip,
+      _address('${edge.name}_tip_right'): ?rightTip,
+    };
+    final slots = <SettingsAddress, int>{
+      for (final (region, settings) in [
+        (ReaderPageEdge.header, current.header),
+        (ReaderPageEdge.footer, current.footer),
+      ])
+        for (final (position, tip) in [
+          ('left', settings.leftTip),
+          ('middle', settings.middleTip),
+          ('right', settings.rightTip),
+        ])
+          _address('${region.name}_tip_$position'): tip,
+    };
+    // 只处理本次明确选择的提示；同类型移到新槽位，0允许出现在多处。— Codex + UI
+    for (final (position, selected) in [
+      ('left', leftTip),
+      ('middle', middleTip),
+      ('right', rightTip),
+    ]) {
+      if (selected == null) continue;
+      final target = _address('${edge.name}_tip_$position');
+      if (selected != 0) {
+        for (final slot in slots.keys) {
+          if (slot != target && slots[slot] == selected) {
+            slots[slot] = 0;
+            patch[slot] = 0;
+          }
+        }
+      }
+      slots[target] = selected;
+      patch[target] = selected;
+    }
+    return patch;
+  }
+
   Map<SettingsAddress, Object?> titlePatch({
     int? mode,
     int? size,

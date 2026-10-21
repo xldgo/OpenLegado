@@ -1,5 +1,4 @@
 import '../../application/reader_settings_provider.dart';
-import '../../../../domain/models/reader_status_strip_settings.dart';
 import '../../../../domain/models/reader_page_layout_settings.dart';
 
 import 'dart:async';
@@ -18,21 +17,19 @@ class ReadTipOption {
   const ReadTipOption(this.value, this.label);
 }
 
-/// 完整页面按布局分组展示；阅读状态条在屏幕与工具栏页单独展示。
-enum ReaderTipSection { all, title, header, footer, statusBar }
+/// 章节标题及页眉页脚统一配置正文之外的信息。— Codex + UI
+enum ReaderTipSection { all, title, header, footer }
 
 /// 阅读提示信息配置（对标原版 TipConfigDialog + dialog_tip_config.xml）
 class ReaderTipConfigSheet extends ConsumerStatefulWidget {
   final bool embedded;
   final ReaderTipSection section;
-  final bool showStatusBar;
   final Widget? titleFont;
 
   const ReaderTipConfigSheet({
     super.key,
     this.embedded = false,
     this.section = ReaderTipSection.all,
-    this.showStatusBar = true,
     this.titleFont,
   });
 
@@ -63,9 +60,6 @@ class ReaderTipConfigSheet extends ConsumerStatefulWidget {
 class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
   ReaderPageLayoutSettings get _layout =>
       ref.read(readerSettingsRepositoryProvider).current.pageLayout;
-  ReaderStatusStripSettings get _status =>
-      ref.read(readerSettingsRepositoryProvider).current.statusStrip;
-
   @override
   void initState() {
     super.initState();
@@ -117,28 +111,11 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     }
   }
 
-  Future<void> _saveStatus(Future<void> Function() update) async {
-    try {
-      await update();
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('阅读状态条保存失败，请重试')));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.watch(
       readerSettingsProvider.select((value) => value.value?.pageLayout),
     );
-    if (widget.section == ReaderTipSection.statusBar ||
-        (widget.section == ReaderTipSection.all && widget.showStatusBar)) {
-      ref.watch(
-        readerSettingsProvider.select((value) => value.value?.statusStrip),
-      );
-    }
     final groups = <Widget>[
       if (widget.section == ReaderTipSection.all ||
           widget.section == ReaderTipSection.title)
@@ -149,9 +126,6 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
       if (widget.section == ReaderTipSection.all ||
           widget.section == ReaderTipSection.footer)
         _edgeGroup(header: false),
-      if (widget.section == ReaderTipSection.statusBar ||
-          (widget.section == ReaderTipSection.all && widget.showStatusBar))
-        _statusGroup(),
     ];
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -273,58 +247,6 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
       ],
     );
   }
-
-  Widget _statusGroup() => SettingsGroup(
-    title: '阅读状态条',
-    titleSuffix: '阅读菜单隐藏时显示',
-    showDividers: false,
-    children: [
-      SettingSwitchRow(
-        title: '显示电量',
-        value: _status.showBattery,
-        onChanged: (value) {
-          _saveStatus(
-            () => ref
-                .read(readerSettingsRepositoryProvider)
-                .updateStatusStrip(showBattery: value),
-          );
-        },
-      ),
-      SettingSwitchRow(
-        title: '显示时间',
-        value: _status.showTime,
-        onChanged: (value) {
-          _saveStatus(
-            () => ref
-                .read(readerSettingsRepositoryProvider)
-                .updateStatusStrip(showTime: value),
-          );
-        },
-      ),
-      SettingSwitchRow(
-        title: '显示进度',
-        value: _status.showProgress,
-        onChanged: (value) {
-          _saveStatus(
-            () => ref
-                .read(readerSettingsRepositoryProvider)
-                .updateStatusStrip(showProgress: value),
-          );
-        },
-      ),
-      SettingSwitchRow(
-        title: '显示章节名',
-        value: _status.showChapterName,
-        onChanged: (value) {
-          _saveStatus(
-            () => ref
-                .read(readerSettingsRepositoryProvider)
-                .updateStatusStrip(showChapterName: value),
-          );
-        },
-      ),
-    ],
-  );
 
   Widget _tipRow(String label, int current, ValueChanged<int> onPick) =>
       SettingMenuRow<int>(

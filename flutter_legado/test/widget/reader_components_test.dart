@@ -4,7 +4,6 @@ import 'package:flutter_legado/src/widgets/app_surface_backdrop.dart';
 import '../fixtures/app_test_api.dart';
 
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
-import 'package:flutter_legado/src/domain/models/reader_status_strip_settings.dart';
 import 'package:flutter_legado/src/domain/models/source_action_result.dart';
 import 'package:flutter/services.dart';
 
@@ -22,14 +21,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
 
 import '../mocks/mocks.dart';
 
 /// 阅读器子组件 Widget 测试
 ///
-/// 验证 Phase 2.2 拆分出的真实组件（ReaderMenuPanel /
-/// ReaderStatusStrip）在 Riverpod 架构下忠实渲染，
+/// 验证阅读菜单及其操作在 Riverpod 架构下忠实渲染，
 /// 对齐重构前的界面样式（Phase 2.5 工具栏 + Phase 2.6 书签/进度跳转）。
 /// [UI-fix v2.0.4 | 2026-08-08] 对齐原版 ReadMenu：目录抽屉已删除
 /// （改独立目录页 TocScreen，测试组同步移除）；搜索/夜间按钮自顶栏
@@ -500,30 +497,5 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
-  });
-
-  group('ReaderStatusStrip（Phase 2.4/2.6 状态栏）', () {
-    // [PARITY C2 R4] 状态行四开关默认关闭（参考无顶状态行）：默认配置不渲染内容，
-    // 电量/进度等改为「开启开关才渲染」。
-    testWidgets('默认配置（全关）不渲染内容', (tester) async {
-      await tester.pumpWidget(
-        wrapStack(ReaderStatusStrip(settings: ReaderStatusStripSettings())),
-      );
-      await tester.pump();
-
-      expect(find.byIcon(Icons.battery_std), findsNothing);
-    });
-
-    testWidgets('开启电量+进度开关时渲染电量图标与进度', (tester) async {
-      const config = ReaderStatusStripSettings(
-        showBattery: true,
-        showProgress: true,
-      );
-      await tester.pumpWidget(wrapStack(ReaderStatusStrip(settings: config)));
-      await tester.pump();
-
-      expect(find.byIcon(Icons.battery_std), findsOneWidget);
-      expect(find.text('0.0%'), findsOneWidget);
-    });
   });
 }

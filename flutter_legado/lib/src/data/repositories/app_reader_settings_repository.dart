@@ -3,7 +3,6 @@ import '../../domain/models/reader_settings.dart';
 import '../../domain/models/reader_text_layout_settings.dart';
 import '../../domain/models/reader_page_layout_settings.dart';
 import '../../domain/models/reader_screen_settings.dart';
-import '../../domain/models/reader_status_strip_settings.dart';
 import '../settings/reader_page_layout_codec.dart';
 import '../settings/reader_interaction_codec.dart';
 import '../settings/reader_menu_settings_codec.dart';
@@ -102,22 +101,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_avoid_display_cutouts',
   );
-  static const _showBattery = (
-    storage: SettingsStorageKind.preferences,
-    key: 'reader_status_show_battery',
-  );
-  static const _showTime = (
-    storage: SettingsStorageKind.preferences,
-    key: 'reader_status_show_time',
-  );
-  static const _showProgress = (
-    storage: SettingsStorageKind.preferences,
-    key: 'reader_status_show_progress',
-  );
-  static const _showChapterName = (
-    storage: SettingsStorageKind.preferences,
-    key: 'reader_status_show_chapter_name',
-  );
   static const _autoChangeSource = (
     storage: SettingsStorageKind.preferences,
     key: 'reader_auto_change_source',
@@ -148,10 +131,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _hideNavigationBar,
     _extendIntoCutout,
     _avoidDisplayCutouts,
-    _showBattery,
-    _showTime,
-    _showProgress,
-    _showChapterName,
 
     _mode,
     _legacyIndex,
@@ -237,20 +216,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
           : false,
       avoidDisplayCutouts: snapshot[_avoidDisplayCutouts] is bool
           ? snapshot[_avoidDisplayCutouts] as bool
-          : false,
-    ),
-    statusStrip: ReaderStatusStripSettings(
-      showBattery: snapshot[_showBattery] is bool
-          ? snapshot[_showBattery] as bool
-          : false,
-      showTime: snapshot[_showTime] is bool
-          ? snapshot[_showTime] as bool
-          : false,
-      showProgress: snapshot[_showProgress] is bool
-          ? snapshot[_showProgress] as bool
-          : false,
-      showChapterName: snapshot[_showChapterName] is bool
-          ? snapshot[_showChapterName] as bool
           : false,
     ),
     textLayout: ReaderTextLayoutSettings(
@@ -398,20 +363,26 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     int? leftTip,
     int? middleTip,
     int? rightTip,
-  }) => _service.update(
-    _pageLayout.edgePatch(
-      edge,
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      mode: mode,
-      showLine: showLine,
-      leftTip: leftTip,
-      middleTip: middleTip,
-      rightTip: rightTip,
-    ),
-  );
+  }) async {
+    if (leftTip != null || middleTip != null || rightTip != null) {
+      await load();
+    }
+    await _service.update(
+      _pageLayout.edgePatch(
+        edge,
+        current: current.pageLayout,
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+        mode: mode,
+        showLine: showLine,
+        leftTip: leftTip,
+        middleTip: middleTip,
+        rightTip: rightTip,
+      ),
+    );
+  }
 
   @override
   Future<void> updateTitle({
@@ -444,19 +415,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _hideNavigationBar: ?hideNavigationBar,
     _extendIntoCutout: ?extendIntoCutout,
     _avoidDisplayCutouts: ?avoidDisplayCutouts,
-  });
-
-  @override
-  Future<void> updateStatusStrip({
-    bool? showBattery,
-    bool? showTime,
-    bool? showProgress,
-    bool? showChapterName,
-  }) => _service.update({
-    _showBattery: ?showBattery,
-    _showTime: ?showTime,
-    _showProgress: ?showProgress,
-    _showChapterName: ?showChapterName,
   });
 
   @override

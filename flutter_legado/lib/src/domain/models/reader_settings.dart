@@ -2,7 +2,6 @@ import 'page_turn_mode.dart';
 import 'reader_text_layout_settings.dart';
 import 'reader_page_layout_settings.dart';
 import 'reader_screen_settings.dart';
-import 'reader_status_strip_settings.dart';
 import 'reader_auto_page_turn_settings.dart';
 import 'reader_interaction_settings.dart';
 import 'reader_menu_theme_settings.dart';
@@ -24,7 +23,6 @@ final class ReaderSettings {
     this.textLayout = const ReaderTextLayoutSettings(),
     this.pageLayout = const ReaderPageLayoutSettings(),
     this.screen = const ReaderScreenSettings(),
-    this.statusStrip = const ReaderStatusStripSettings(),
     this.autoPageTurn = const ReaderAutoPageTurnSettings(),
     this.interaction = const ReaderInteractionSettings.defaults(),
     this.menuTheme = const ReaderMenuThemeSettings(),
@@ -46,7 +44,6 @@ final class ReaderSettings {
   final ReaderTextLayoutSettings textLayout;
   final ReaderPageLayoutSettings pageLayout;
   final ReaderScreenSettings screen;
-  final ReaderStatusStripSettings statusStrip;
   final ReaderAutoPageTurnSettings autoPageTurn;
   final ReaderInteractionSettings interaction;
   final ReaderMenuThemeSettings menuTheme;
@@ -68,7 +65,6 @@ final class ReaderSettings {
       textLayout == other.textLayout &&
       pageLayout == other.pageLayout &&
       screen == other.screen &&
-      statusStrip == other.statusStrip &&
       autoPageTurn == other.autoPageTurn &&
       interaction == other.interaction &&
       menuTheme == other.menuTheme &&
@@ -89,7 +85,6 @@ final class ReaderSettings {
     textLayout,
     pageLayout,
     screen,
-    statusStrip,
     autoPageTurn,
     interaction,
     menuTheme,

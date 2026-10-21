@@ -33,7 +33,7 @@ enum ReaderSettingsCategory {
   layout('页面布局', '正文边距、章节标题、页眉与页脚', Icons.crop_free),
   interaction('翻页与操作', '翻页动画、点击区域与自动翻页', Icons.auto_stories_outlined),
   content('内容处理', '简繁转换与自动换源', Icons.article_outlined),
-  screen('屏幕与工具栏', '亮度、系统栏、状态条与菜单工具栏', Icons.phone_android);
+  screen('屏幕与工具栏', '亮度、系统栏与菜单工具栏', Icons.phone_android);
 
   const ReaderSettingsCategory(this.title, this.summary, this.icon);
   final String title;
@@ -270,7 +270,6 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
         _configPanel(ReaderConfigSection.pageLayout),
         ReaderTipConfigSheet(
           embedded: true,
-          showStatusBar: false,
           titleFont: ReaderFontPanel(titleOnly: true, embedded: true),
         ),
       ],

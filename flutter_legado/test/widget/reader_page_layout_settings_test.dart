@@ -81,17 +81,6 @@ void main() {
         ),
       );
 
-  bool switchValue(WidgetTester tester, String title) => tester
-      .widget<Switch>(
-        find.descendant(
-          of: find.byWidgetPredicate(
-            (w) => w is SettingSwitchRow && w.title == title,
-          ),
-          matching: find.byType(Switch),
-        ),
-      )
-      .value;
-
   testWidgets('正文边距左右联动、分开修改和恢复默认不覆盖其他区域', (tester) async {
     await initialize(
       tester,
@@ -341,118 +330,74 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
-
-  testWidgets('静态提示弹层连续切换状态条，控件与共享存储保留前次修改', (tester) async {
-    await initialize(
-      tester,
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () => unawaited(ReaderTipConfigSheet.show(context)),
-          child: const Text('打开提示设置'),
-        ),
-      ),
-    );
-    final repository = container.read(readerSettingsRepositoryProvider);
-    await repository.updateStatusStrip(showProgress: true);
-    await tap(tester, find.text('打开提示设置'));
-    await tap(tester, find.text('显示时间'));
-    await tap(tester, find.text('显示电量'));
-    expect(repository.current.statusStrip.showTime, isTrue);
-    expect(repository.current.statusStrip.showBattery, isTrue);
-    expect(repository.current.statusStrip.showProgress, isTrue);
-    expect(switchValue(tester, '显示时间'), isTrue);
-    expect(switchValue(tester, '显示电量'), isTrue);
-    expect(storage.values['reader_status_show_time'], isTrue);
-    expect(storage.values['reader_status_show_battery'], isTrue);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('状态条外部恢复后继续操作保留新配置', (tester) async {
+  testWidgets('页眉选择书名后清空页脚原槽，两个配置页立即同源刷新', (tester) async {
     await initialize(
       tester,
       const ReaderTipConfigSheet(
         embedded: true,
-        section: ReaderTipSection.statusBar,
+        section: ReaderTipSection.header,
       ),
     );
-    await tap(tester, find.text('显示时间'));
+    await tap(tester, find.text('左侧提示'));
+    await tap(tester, find.text('书名').hitTestable());
     final repository = container.read(readerSettingsRepositoryProvider);
-    storage.values.addAll({
-      'reader_status_show_time': false,
-      'reader_status_show_chapter_name': true,
-    });
-    await repository.reload();
-    await tester.pumpAndSettle();
-    expect(switchValue(tester, '显示时间'), isFalse);
-    expect(switchValue(tester, '显示章节名'), isTrue);
-    await tap(tester, find.text('显示电量'));
-    expect(repository.current.statusStrip.showTime, isFalse);
-    expect(repository.current.statusStrip.showBattery, isTrue);
-    expect(repository.current.statusStrip.showChapterName, isTrue);
+    expect(repository.current.pageLayout.header.leftTip, 7);
+    expect(repository.current.pageLayout.footer.leftTip, 0);
+    await show(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.footer,
+      ),
+    );
+    final row = tester.widget<SettingMenuRow<int>>(
+      find.byWidgetPredicate(
+        (w) => w is SettingMenuRow<int> && w.title == '左侧提示',
+      ),
+    );
+    expect(row.value, 0);
+    await tap(tester, find.text('左侧提示'));
+    await tap(tester, find.text('书名').hitTestable());
+    expect(repository.current.pageLayout.header.leftTip, 0);
+    expect(repository.current.pageLayout.footer.leftTip, 7);
+    await show(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.header,
+      ),
+    );
+    final moved = tester.widget<SettingMenuRow<int>>(
+      find.byWidgetPredicate(
+        (w) => w is SettingMenuRow<int> && w.title == '左侧提示',
+      ),
+    );
+    expect(moved.value, 0);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('完整页面双页与状态条连续修改分开保存，不覆盖已有页面选择', (tester) async {
+  testWidgets('提示移动保存失败保留原配置，重试才清空原槽', (tester) async {
     await initialize(
       tester,
-      const ReaderSettingsSheet(
-        fullPage: true,
-        category: ReaderSettingsCategory.layout,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.header,
       ),
     );
-    await tap(tester, find.text('平板/横屏双页'));
-    await tap(tester, find.text('横屏双页').hitTestable());
-    expect(storage.values['reader_double_horizontal_page'], 2);
-    final before = container
-        .read(readerSettingsRepositoryProvider)
-        .current
-        .pageLayout;
-    await show(
-      tester,
-      ReaderTipConfigSheet(embedded: true, section: ReaderTipSection.statusBar),
-    );
-    await tap(tester, find.text('显示时间'));
-    expect(
-      container
-          .read(readerSettingsRepositoryProvider)
-          .current
-          .statusStrip
-          .showTime,
-      isTrue,
-    );
-    final timeAfterFirstChange = switchValue(tester, '显示时间');
-    await tap(tester, find.text('显示电量'));
-    expect(
-      container
-          .read(readerSettingsRepositoryProvider)
-          .current
-          .statusStrip
-          .showTime,
-      isTrue,
-    );
-    expect(
-      container
-          .read(readerSettingsRepositoryProvider)
-          .current
-          .statusStrip
-          .showBattery,
-      isTrue,
-    );
-    expect(timeAfterFirstChange, isTrue);
-    expect(switchValue(tester, '显示时间'), isTrue);
-    expect(switchValue(tester, '显示电量'), isTrue);
-    expect(
-      container.read(readerSettingsRepositoryProvider).current.pageLayout,
-      before,
-    );
-    expect(
-      storage.writes.map((e) => e.$1).where((key) => key.startsWith('reader_')),
-      [
-        'reader_double_horizontal_page',
-        'reader_status_show_time',
-        'reader_status_show_battery',
-      ],
-    );
+    storage.writeFailure = true;
+    await tap(tester, find.text('右侧提示'));
+    await tap(tester, find.text('书名').hitTestable());
+    final repository = container.read(readerSettingsRepositoryProvider);
+    expect(find.text('页面布局保存失败，请重试'), findsOneWidget);
+    expect(repository.current.pageLayout.header.rightTip, 3);
+    expect(repository.current.pageLayout.footer.leftTip, 7);
+    storage.writeFailure = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tap(tester, find.text('右侧提示'));
+    await tap(tester, find.text('书名').hitTestable());
+    expect(repository.current.pageLayout.header.rightTip, 7);
+    expect(repository.current.pageLayout.footer.leftTip, 0);
     expect(tester.takeException(), isNull);
   });
 }

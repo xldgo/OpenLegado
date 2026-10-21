@@ -1,5 +1,15 @@
 # API 契约文档
 
+### READER-TIP-UNIFY-20261021：统一阅读状态信息
+
+- 移除ReaderSettings.statusStrip、ReaderStatusStripSettings及ReaderSettingsRepository.updateStatusStrip，删除四个reader_status_show_*普通偏好的读写与备份分类。开发阶段直接按旧键不存在处理，不读取、迁移、双写或清理旧值，也不增加专用备份过滤。
+- 信息统一使用ReaderSettings.pageLayout的header/footer左中右六个提示槽位。updatePageEdge选择非零提示类型时，在同一次局部更新中清除其他槽位的相同类型；多个显式槽位按左、中、右依次应用，后者优先。传0只清空目标；非提示字段不整理存量配置。
+- 槽位选择前加载共享设置，按当前快照（含排队中的乐观更新）计算改动；失败继续遵守AppSettingsService逐字段持久化/失败回退语义，不宣称跨键事务。同行渲染相同类型仅显示首项，对齐上游绘制规则。
+- 系统状态栏由screen.hideStatusBar独立控制。header.mode为0时系统状态栏隐藏则显示页眉，1恒显示、2恒隐藏；footer.mode为0显示、1隐藏；布局占位与可见内容沿用既有规则。
+- 不修改Rust/FRB、数据库、原文位置、翻页或朗读接口。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-PAGE-HEIGHT-20261021：正文行盒与底部对齐接线
 
 - Flutter正文lineHeight表示自然字体行盒的推进倍率；自然行盒与基线由同一Flutter字体环境测量，文字渲染不再把倍率写入TextStyle.height。倍率分别传入既有LayoutConfigDto和InlineParagraphDto.lineSpacingMultiplier。
@@ -1833,9 +1843,9 @@ ReaderSettingsRepository 的字号并按原规则四舍五入为整数。字号�
 高级配置不再读写这些字段，不迁移旧键或旧日夜分桶；控件与ReaderPageChrome共用快照。
 既有首次缺省、恢复默认入口、提示编号及显示规则保持；Rust/FRB、JS快照与数据库不变。
 
-屏幕与状态条分组（READER-SCREEN-STATUS-SETTINGS-20261015）：ReaderSettings.screen与
-statusStrip管理九项普通偏好，使用reader_规范键和同一仓储逐字段更新，不迁移旧值。
-系统栏、方向、安全区及提示控件读取同一快照；高级配置不再包含对应字段或默认转换。
+屏幕设置（READER-SCREEN-STATUS-SETTINGS-20261015，20261021按READER-TIP-UNIFY更新）：
+ReaderSettings.screen管理系统栏、方向与安全区普通偏好，使用reader_规范键和同一仓储逐字段更新，
+不迁移旧值。状态信息统一配置在pageLayout页眉/页脚，不再有独立状态条。
 系统栏临时覆盖、原方向编码、Rust/FRB、JS快照与数据库保持，保持亮屏仍待实现。
 
 剩余阅读设置（READER-SETTINGS-CLEANUP-20261015）：ReaderSettings.autoChangeSource默认true、

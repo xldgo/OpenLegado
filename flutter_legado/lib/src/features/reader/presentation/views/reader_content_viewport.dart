@@ -8,7 +8,6 @@ import '../../application/reader_state.dart';
 import '../../../../widgets/reader/reader_page_view.dart';
 import '../../../../widgets/reader/reader_page_chrome.dart';
 import '../../../../widgets/reader/reader_image_dominant_body.dart';
-import '../../../../widgets/reader/reader_status_strip.dart';
 import '../../../../platform/display/display_corners.dart';
 import '../../../../widgets/reader/reader_footer_geometry.dart';
 
@@ -156,12 +155,6 @@ class ReaderContentViewport extends StatelessWidget {
                           hasPrevChapter: state.hasPreviousChapter,
                           onNextChapter: onNextChapter,
                           onPrevChapter: onPreviousChapter,
-                        ),
-                      if (!state.showControls)
-                        ReaderStatusStrip(
-                          settings: readingSettings.statusStrip,
-                          hideStatusBar: screen.hideStatusBar,
-                          readBodyToLh: screen.extendIntoCutout,
                         ),
                       ?autoTurnPanel,
                     ],

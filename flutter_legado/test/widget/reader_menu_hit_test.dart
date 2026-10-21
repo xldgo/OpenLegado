@@ -28,7 +28,8 @@ import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_status_strip.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/domain/models/reader_interaction_settings.dart';
 import 'package:flutter_legado/src/widgets/reader/auto_turn_panel.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
@@ -916,7 +917,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('屏幕状态条同源更新，菜单临时显示系统栏，返回阅读恢复当前设置', (tester) async {
+  testWidgets('系统栏与页眉同源更新，菜单临时显示系统栏，返回阅读恢复当前设置', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final storage = HomeSettingsStorage();
     final service = AppSettingsService(
@@ -995,12 +996,6 @@ void main() {
       hideNavigationBar: true,
       extendIntoCutout: true,
     );
-    await repository.updateStatusStrip(
-      showBattery: true,
-      showTime: true,
-      showProgress: true,
-      showChapterName: true,
-    );
     await settleNativeReaderLayout(tester);
     ReaderPageView view() =>
         tester.widget<ReaderPageView>(find.byType(ReaderPageView));
@@ -1015,18 +1010,24 @@ void main() {
     expect(view().pageChrome.hideStatusBar, isTrue);
     expect(view().readBodyToLh, isTrue);
     expect(view().contentInsets, EdgeInsets.zero);
-    final strip = tester.widget<ReaderStatusStrip>(
-      find.byType(ReaderStatusStrip),
-    );
-    expect(strip.settings, repository.current.statusStrip);
-    expect(strip.hideStatusBar, isTrue);
-    expect(
-      find.descendant(
-        of: find.byType(ReaderStatusStrip),
-        matching: find.byIcon(Icons.battery_std),
-      ),
-      findsOneWidget,
-    );
+    expect(view().pageChrome.showPageHeader, isTrue);
+    final pages = find.byType(ReaderTypographicPage).evaluate().toList();
+    expect(pages, isNotEmpty);
+    // 翻页器同时保留相邻页；逐页检查，而不是把预览页误算成重复状态层。
+    for (final page in pages) {
+      final host = find.byWidgetPredicate(
+        (widget) => identical(widget, page.widget),
+      );
+      expect(
+        find.descendant(of: host, matching: find.byType(ReaderPageTipBar)),
+        findsNWidgets(2),
+      );
+      expect(
+        find.descendant(of: host, matching: find.byIcon(Icons.battery_std)),
+        findsOneWidget,
+      );
+    }
+    expect(find.byIcon(Icons.battery_std), findsNWidgets(pages.length));
     await repository.updateScreen(avoidDisplayCutouts: true);
     await settleNativeReaderLayout(tester);
     expect(view().contentInsets, const EdgeInsets.fromLTRB(7, 24, 8, 0));
@@ -1036,7 +1037,7 @@ void main() {
       statusBarVisible: true,
       navigationBarVisible: true,
     ));
-    expect(find.byType(ReaderStatusStrip), findsNothing);
+    expect(view().pageChrome.showPageHeader, isTrue);
     reader.hideControls();
     await settleNativeReaderLayout(tester);
     expect(barEvents.last, (

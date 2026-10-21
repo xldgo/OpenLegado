@@ -141,28 +141,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('状态条连续保存及失败回退不覆盖已有开关', (tester) async {
+  testWidgets('屏幕设置不再提供独立阅读状态条，系统栏选项保留', (tester) async {
     await initialize(tester);
-    final repository = container.read(readerSettingsRepositoryProvider);
-    await tap(tester, '显示时间');
-    storage.writeFailure = true;
-    await tap(tester, '显示电量');
-    expect(find.text('阅读状态条保存失败，请重试'), findsOneWidget);
-    expect(switchValue(tester, '显示时间'), isTrue);
-    expect(switchValue(tester, '显示电量'), isFalse);
-    storage.writeFailure = false;
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
-    await tap(tester, '显示电量');
-    await tap(tester, '显示进度');
-    await tap(tester, '显示章节名');
-    expect(repository.current.statusStrip.showTime, isTrue);
-    expect(repository.current.statusStrip.showBattery, isTrue);
-    expect(repository.current.statusStrip.showProgress, isTrue);
-    expect(repository.current.statusStrip.showChapterName, isTrue);
-    expect(storage.values['reader_status_show_time'], isTrue);
-    expect(storage.values['reader_status_show_chapter_name'], isTrue);
-    expect(tester.takeException(), isNull);
+    expect(find.text('阅读状态条'), findsNothing);
+    for (final title in ['显示电量', '显示时间', '显示进度', '显示章节名']) {
+      expect(find.text(title), findsNothing);
+    }
+    expect(find.text('隐藏状态栏'), findsOneWidget);
+    expect(find.text('隐藏导航栏'), findsOneWidget);
+    expect(find.text('菜单工具栏'), findsOneWidget);
   });
 
   testWidgets('保持亮屏保留原选项与存量选择，追加待实现并禁用', (tester) async {

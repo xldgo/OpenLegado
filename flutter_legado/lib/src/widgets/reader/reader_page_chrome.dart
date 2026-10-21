@@ -39,7 +39,7 @@ double readerContentStatusBarInset(
   return readerSystemStatusBarInset(context);
 }
 
-/// 顶栏/状态条 overlay inset：正文延伸至状态栏时须显式避让系统栏。
+/// 顶栏 overlay inset：正文延伸至状态栏时须显式避让系统栏。
 double readerOverlayStatusBarInset(
   BuildContext context, {
   required bool readBodyToLh,
@@ -284,6 +284,12 @@ class ReaderPageTipBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 同行重复提示只渲染首项，布局仍保留三个对齐槽位。— Codex + UI
+    final seen = <int>{};
+    final tips = [
+      for (final tip in [leftTip, middleTip, rightTip])
+        tip == 0 || seen.add(tip) ? tip : 0,
+    ];
     final color = textColor.withValues(alpha: 0.55);
     final lineHeight = ReaderPageLayoutMetrics.measureTipBarHeight(
       context: context,
@@ -322,16 +328,16 @@ class ReaderPageTipBar extends StatelessWidget {
                         padding: EdgeInsets.only(
                           left: math.min(extra.left, limit),
                         ),
-                        child: _slot(leftTip, color, Alignment.centerLeft),
+                        child: _slot(tips[0], color, Alignment.centerLeft),
                       ),
                     ),
-                    Expanded(child: _slot(middleTip, color, Alignment.center)),
+                    Expanded(child: _slot(tips[1], color, Alignment.center)),
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.only(
                           right: math.min(extra.right, limit),
                         ),
-                        child: _slot(rightTip, color, Alignment.centerRight),
+                        child: _slot(tips[2], color, Alignment.centerRight),
                       ),
                     ),
                   ],
