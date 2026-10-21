@@ -133,7 +133,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   /// 标题防截断保护：Text 标题单行 + FittedBox 自适应缩放，
   /// 窄屏/系统字体放大时完整显示标题（不出现半个字/省略号）；
-  /// 空间充足时字号不变（20sp 与原版一致）
+  /// 空间充足时沿用主题标题字号，展开/折叠由组件选择不同字阶。
   Widget? _safeTitle(Widget? title) {
     if (title is Text) {
       return FittedBox(
@@ -298,9 +298,6 @@ class LegadoTabRootHeaderSliver extends StatefulWidget {
   /// 顶栏 bottomContent（对齐参考仓 DynamicTopAppBar 搜索行；pinned 常驻）
   final PreferredSizeWidget? bottom;
 
-  /// 可选标题字号；未指定时沿用页面标题和主题样式。
-  final double? largeTitleFontSize;
-
   /// 可选展开高度，不含状态栏、包含bottom；默认工具行+56dp标题带+bottom。
   final double? expandedHeight;
 
@@ -320,7 +317,6 @@ class LegadoTabRootHeaderSliver extends StatefulWidget {
     required this.large,
     this.titleSpacing,
     this.bottom,
-    this.largeTitleFontSize,
     this.expandedHeight,
     this.actionsStyle,
     this.leading,
@@ -343,10 +339,6 @@ class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver> {
       actions: widget.actions,
       bottom: widget.bottom,
       titleSpacing: widget.titleSpacing,
-      titleTextStyle: widget.largeTitleFontSize == null
-          ? null
-          : Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontSize: widget.largeTitleFontSize),
       actionsStyle: widget.actionsStyle,
     ).buildSliver(
       context,

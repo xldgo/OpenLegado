@@ -278,7 +278,7 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 3,
         centerTitle: false,
-        titleTextStyle: textTheme.titleLarge?.copyWith(color: appBarForeground),
+        // 标题字体由组件按展开/折叠角色选择，颜色沿用foregroundColor。— Codex + UI
         toolbarTextStyle: textTheme.bodyLarge?.copyWith(
           color: appBarForeground,
         ),

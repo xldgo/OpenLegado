@@ -187,11 +187,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     return LegadoAppBar(
       // [骨架对齐 2.0.260 | 台账 1-3] 分组 tab 行常驻于 sliver 头部
       // （含空态）；标准栏（加载/错误态）仅显示「书架」大标题
-      title: Text(
-        context.l10n.bookshelf,
-        style: Theme.of(context).textTheme.headlineMedium
-            ?.copyWith(fontSize: 28),
-      ),
+      title: Text(context.l10n.bookshelf),
       // [UI-fix 2.0.258] 选择模式下加载态/错误态顶栏同样切换为批量动作集
       actions: _animatedActions(context, state),
     );
@@ -542,11 +538,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   ) {
     return LegadoTabRootHeaderSliver(
       large: true,
-      title: Text(
-        context.l10n.bookshelf,
-        style: Theme.of(context).textTheme.headlineMedium
-            ?.copyWith(fontSize: 28),
-      ),
+      title: Text(context.l10n.bookshelf),
       // [UI-fix 2.0.258] 选择模式顶栏切换为批量动作集（全选/反选/删除/取消）
       actions: _animatedActions(context, state),
       // 分组 tab 行（TabBar 默认高 kToolbarHeight，Tab 高度 40dp）

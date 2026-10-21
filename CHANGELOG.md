@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.430] - 2026-10-21
+
+### Fixed
+- 顶栏展开与折叠分别跟随主题大标题和普通标题样式，移除页面固定28字号及全局统一标题样式覆盖。
+- 贡献者：Codex + UI；构建号431。
+
 ## [2.0.429] - 2026-10-21
 
 ### Fixed

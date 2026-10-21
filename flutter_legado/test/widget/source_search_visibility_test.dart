@@ -60,6 +60,17 @@ void main() {
       await tester.pumpAndSettle();
       final titles = find.text('书源管理');
       expect(titles, findsWidgets);
+      final typography = Theme.of(tester.element(find.byType(SourceScreen)))
+          .textTheme;
+      expect(
+        titles.evaluate().map(
+          (element) => DefaultTextStyle.of(element).style.fontSize,
+        ),
+        containsAll([
+          typography.headlineMedium!.fontSize,
+          typography.titleLarge!.fontSize,
+        ]),
+      );
       for (final element in titles.evaluate()) {
         final paragraph = element.renderObject! as RenderParagraph;
         expect(paragraph.didExceedMaxLines, isFalse);

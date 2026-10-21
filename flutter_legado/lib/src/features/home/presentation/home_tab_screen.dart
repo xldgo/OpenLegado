@@ -151,11 +151,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     return AppScaffold(
       topBar: LegadoAppBar(
         showBack: false,
-        title: Text(
-          context.l10n.home,
-          style: Theme.of(context).textTheme.headlineMedium
-              ?.copyWith(fontSize: 28),
-        ),
+        title: Text(context.l10n.home),
         actions: [
           IconButton(
             tooltip: context.l10n.settings,

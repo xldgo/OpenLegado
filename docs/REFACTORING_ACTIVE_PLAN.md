@@ -12,6 +12,8 @@
 - 设备证据：独立Android诊断包复用正式SourceScreen和共用组件，离线Gradle构建通过，MuMu360dp下验证展开完整标题、折叠标题与按钮同排；截图build/source-title-20261021/{before-expanded,before-collapsed,fixed-expanded,fixed-collapsed}.png。未覆盖安装主应用；系统返回曾退出诊断应用，后续手势误入原阅读页，之后增加前台包名核验并停止跨应用操作。五根页设备验证未完成，不能把原应用画面当作本次结果；诊断包收尾卸载。
 - 未纳入：额外探测read_aloud_voice_screen_test的情感试听断言失败，其夹具直接挂载Scaffold和音色面板，不经过本次顶栏；未证明基线归属，也未修改其业务代码，不计入本批通过证据。不宣称全量Flutter测试、iOS真机或Windows设备验收通过。
 - 交付：版本2.0.429+430，设计规范与双更新日志同步；单代理自查，仅本地提交，未推送或触发CI。提交号见Git。
+- 字号后续修正（用户授权，基线223cd1c99）：移除首页、书架、我的及动态搜索标题固定28字号，删除未使用的largeTitleFontSize覆写参数；移除全局AppBarTheme.titleTextStyle统一覆盖，让原生组件展开使用headlineMedium（当前主题24）、折叠使用titleLarge（18）。不改112/56dp高度、搜索、页签、配色或滚动逻辑；设计规范同步。
+- 字号验证：复用现有顶栏用例，项目实际主题下新增字阶断言在修改前两项失败、修改后通过；56项定向回归与8个相关文件静态分析通过。动态书源另核对主题字阶随320/360/480dp与文字缩放变化，不固定具体字号。日志flutter_legado/build/top-bar-typography-{before,tests,analysis,source}.log。不新增测试文件或生产测试分支；未安装设备或触发CI。版本2.0.430+431及双日志同步，本地提交号见Git。
 
 编写者：Codex + UI｜2026-10-21
 

@@ -162,15 +162,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 主页面标题与操作按钮同排，列表从工具栏下方开始。
+    // 展开和折叠标题分别继承主题字阶，布局由共用页壳协调。— Codex + UI
     return AppScaffold(
       topBar: LegadoAppBar(
         showBack: false,
-        title: Text(
-          context.l10n.my,
-          style: Theme.of(context).textTheme.headlineMedium
-              ?.copyWith(fontSize: 28),
-        ),
+        title: Text(context.l10n.my),
         actions: [
           IconButton(
             icon: const Icon(Symbols.help_rounded),

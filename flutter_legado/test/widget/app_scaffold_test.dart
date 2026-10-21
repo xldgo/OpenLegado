@@ -23,6 +23,7 @@ import 'package:flutter_legado/src/widgets/app_scaffold.dart';
 import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
+import 'package:flutter_legado/src/theme/app_theme.dart';
 
 import '../mocks/mocks.dart';
 
@@ -35,6 +36,7 @@ void main() {
       addTearDown(scroll.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          theme: AppTheme.light,
           home: Scaffold(
             body: CustomScrollView(
               controller: scroll,
@@ -72,6 +74,12 @@ void main() {
         tester.getSize(find.byType(AppBar)).height,
         112 + (withTabs ? 56 : 0),
       );
+      // 用项目实际主题验证原生两种标题角色，避免只验证默认Material主题。
+      final titleSizes = find
+          .text('书架')
+          .evaluate()
+          .map((element) => DefaultTextStyle.of(element).style.fontSize);
+      expect(titleSizes, containsAll([24.0, 18.0]));
       scroll.jumpTo(56);
       await tester.pumpAndSettle();
       final opacity = tester.widget<AnimatedOpacity>(
@@ -90,6 +98,10 @@ void main() {
       final toolbarTitle = find.descendant(
         of: find.byType(AnimatedOpacity),
         matching: find.text('书架'),
+      );
+      expect(
+        DefaultTextStyle.of(tester.element(toolbarTitle)).style.fontSize,
+        18,
       );
       final icon = find.byIcon(Icons.search);
       expect(

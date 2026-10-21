@@ -91,13 +91,7 @@ class DynamicSearchAppBar extends StatelessWidget
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineMedium
-                    ?.copyWith(fontSize: 28),
-              ),
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
               if (subtitle != null)
                 Text(
                   subtitle!,
