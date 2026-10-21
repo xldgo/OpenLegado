@@ -59,7 +59,11 @@ void main() {
         .thenAnswer((_) => focusController.stream);
     when(() => mockAudio.mediaButtonStream)
         .thenAnswer((_) => buttonController.stream);
-    when(() => mockAudio.requestAudioFocus()).thenAnswer((_) async => true);
+    when(
+      () => mockAudio.requestAudioFocus(
+        userInitiated: any(named: 'userInitiated'),
+      ),
+    ).thenAnswer((_) async => true);
     when(
       () => mockAudio.updateMetadata(
         title: any(named: 'title'),
@@ -163,8 +167,22 @@ void main() {
   }
 
   group('流模式焦点事件（外部抢占暂停语义保留）', () {
+    testPlayback('手动起播的授权不传给自然换章', (tester) async {
+      await startStreamPlayback();
+      verify(() => mockAudio.requestAudioFocus(userInitiated: true)).called(1);
+      fakePlayer.completePlayback();
+      await tester.pump();
+      await tester.pump();
+      expect(readState().currentIndex, 1);
+      verify(() => mockAudio.requestAudioFocus(userInitiated: false)).called(1);
+    });
+
     testPlayback('焦点拒绝时不开始播放，也不发布播放中', (tester) async {
-      when(() => mockAudio.requestAudioFocus()).thenAnswer((_) async => false);
+      when(
+        () => mockAudio.requestAudioFocus(
+          userInitiated: any(named: 'userInitiated'),
+        ),
+      ).thenAnswer((_) async => false);
       await startStreamPlayback();
       expect(fakePlayer.playedUrls, isEmpty);
       expect(readState().state, PlayerState.error);
@@ -173,7 +191,11 @@ void main() {
 
     testPlayback('申请期间用户暂停，迟到的许可不能启动旧章节', (tester) async {
       final grant = Completer<bool>();
-      when(() => mockAudio.requestAudioFocus()).thenAnswer((_) => grant.future);
+      when(
+        () => mockAudio.requestAudioFocus(
+          userInitiated: any(named: 'userInitiated'),
+        ),
+      ).thenAnswer((_) => grant.future);
       final starting = startStreamPlayback();
       await tester.pump();
       readNotifier().pause();
@@ -187,7 +209,11 @@ void main() {
       await startStreamPlayback();
       readNotifier().pause();
       await tester.pump();
-      when(() => mockAudio.requestAudioFocus()).thenAnswer((_) async => false);
+      when(
+        () => mockAudio.requestAudioFocus(
+          userInitiated: any(named: 'userInitiated'),
+        ),
+      ).thenAnswer((_) async => false);
       await readNotifier().resumeOrPlay();
       expect(fakePlayer.resumeCount, 0);
       expect(readState().state, PlayerState.error);
@@ -228,7 +254,11 @@ void main() {
 
       expect(readState().state, PlayerState.playing);
       expect(fakePlayer.resumeCount, greaterThan(0));
-      verify(() => mockAudio.requestAudioFocus()).called(greaterThan(0));
+      verify(
+        () => mockAudio.requestAudioFocus(
+          userInitiated: any(named: 'userInitiated'),
+        ),
+      ).called(greaterThan(0));
     });
 
     testPlayback('lossTransientCanDuck → 保持播放（可 duck，不暂停）', (tester) async {
@@ -244,7 +274,11 @@ void main() {
 
   group('TTS 焦点事件（与流模式同链路）', () {
     testPlayback('焦点拒绝时不朗读或合成', (tester) async {
-      when(() => mockAudio.requestAudioFocus()).thenAnswer((_) async => false);
+      when(
+        () => mockAudio.requestAudioFocus(
+          userInitiated: any(named: 'userInitiated'),
+        ),
+      ).thenAnswer((_) async => false);
       await startTtsPlayback();
       expect(fakePlayer.playedLocalFiles, isEmpty);
       expect(readState().state, PlayerState.error);
@@ -264,7 +298,11 @@ void main() {
       await startTtsPlayback();
       readNotifier().pause();
       await tester.pump();
-      when(() => mockAudio.requestAudioFocus()).thenAnswer((_) async => false);
+      when(
+        () => mockAudio.requestAudioFocus(
+          userInitiated: any(named: 'userInitiated'),
+        ),
+      ).thenAnswer((_) async => false);
       await readNotifier().resumeOrPlay();
       expect(fakePlayer.resumeCount, 0);
       expect(readState().isPlaying, isFalse);

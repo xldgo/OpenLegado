@@ -96,7 +96,9 @@ void main() {
     when(() => audio.isInitialized).thenReturn(true);
     when(() => audio.audioFocusStream).thenAnswer((_) => focus.stream);
     when(() => audio.mediaButtonStream).thenAnswer((_) => buttons.stream);
-    when(() => audio.requestAudioFocus()).thenAnswer((_) async => true);
+    when(
+      () => audio.requestAudioFocus(userInitiated: any(named: 'userInitiated')),
+    ).thenAnswer((_) async => true);
     when(
       () => audio.updateMetadata(
         title: any(named: 'title'),

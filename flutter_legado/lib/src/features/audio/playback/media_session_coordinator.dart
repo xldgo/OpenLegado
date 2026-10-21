@@ -146,13 +146,15 @@ final class MediaSessionCoordinator {
 
     _audioFocusSub = _audioService.audioFocusStream.listen((event) {
       switch (event) {
+        case AudioFocusEvent.interruptionEnded:
+          prepareResume();
         case AudioFocusEvent.gain:
           final resume =
               _resumeAfterInterruption &&
               _interruptionTarget == (_playToken, _state.bookUrl);
           prepareResume();
           if (resume && _state.state == PlayerState.paused) {
-            unawaited(_host.resumeOrPlay());
+            unawaited(_host.resumeOrPlay(userInitiated: false));
           }
         case AudioFocusEvent.loss:
           prepareResume();
@@ -180,12 +182,14 @@ final class MediaSessionCoordinator {
     if (!_disposed) _state = _state.copyWith(isMediaSessionReady: false);
   }
 
-  Future<void> activate() async {
+  Future<void> activate({bool userInitiated = false}) async {
     if (_disposed) return;
     final token = _playToken;
     if (!_state.isMediaSessionReady) await init();
     if (_disposed || token != _playToken) return;
-    final granted = await _audioService.requestAudioFocus();
+    final granted = await _audioService.requestAudioFocus(
+      userInitiated: userInitiated,
+    );
     if (_disposed || token != _playToken || !_state.isPlaying) return;
     if (!granted) throw StateError('无法取得音频会话，请稍后重试');
     if (!_state.isMediaSessionReady) return;

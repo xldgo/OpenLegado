@@ -25,6 +25,7 @@ class TestMediaAudioService extends Fake implements AudioService {
   int initCount = 0, releaseCount = 0;
   int playingCount = 0, pausedCount = 0, stoppedCount = 0;
   int focusRequests = 0, focusAbandons = 0;
+  final focusIntents = <bool>[];
   bool? wakeLock;
   Future<void>? initBarrier;
   @override
@@ -53,7 +54,8 @@ class TestMediaAudioService extends Fake implements AudioService {
   }
 
   @override
-  Future<bool> requestAudioFocus() async {
+  Future<bool> requestAudioFocus({bool userInitiated = false}) async {
+    focusIntents.add(userInitiated);
     focusRequests++;
     return true;
   }

@@ -5,7 +5,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 
 /// 语音中断与路由事件；恢复只是许可，是否续播由各播放会话判断。— Codex + UI
-enum AppAudioEvent { pause, resume, stop, loss }
+enum AppAudioEvent { pause, resume, interruptionEnded, stop, loss }
 
 /// iOS 开始中断统一报告 unknown，是否允许恢复只在结束时给出；
 /// Android unknown 则对应永久失焦，不能据后续 gain 自动续播。— Codex + UI
@@ -15,7 +15,7 @@ AppAudioEvent mapAudioInterruption(
 }) {
   if (!event.begin) {
     return event.type == AudioInterruptionType.unknown
-        ? AppAudioEvent.stop
+        ? AppAudioEvent.interruptionEnded
         : AppAudioEvent.resume;
   }
   return isAndroid && event.type == AudioInterruptionType.unknown
@@ -114,9 +114,15 @@ final class AppAudioSession {
   void _listen() {
     _subscription ??= _backend.events.listen(
       (event) {
+        if (event == AppAudioEvent.resume ||
+            event == AppAudioEvent.interruptionEnded) {
+          // 显式恢复已消费旧中断；其迟到结束不能再控制新播放。
+          if (!_temporary) return;
+        } else {
+          _interruptionRevision++;
+        }
         _temporary = event == AppAudioEvent.pause;
         _interrupted = _temporary || event == AppAudioEvent.loss;
-        if (event != AppAudioEvent.resume) _interruptionRevision++;
         _publishBusy();
         _events.add(event);
       },
@@ -146,23 +152,43 @@ final class AppAudioSession {
     return next;
   }
 
-  Future<AppAudioLease?> acquire({bool audible = true}) {
+  Future<AppAudioLease?> acquire({
+    bool audible = true,
+    bool userInitiated = false,
+  }) {
     _listen();
+    // 请求排队期间若又发生中断，旧请求也不能取得新会话。
+    final revision = _interruptionRevision;
     return _serial(() async {
-      if (_temporary || (!audible && blocksKeepAlive)) return null;
-      final revision = _interruptionRevision;
-      // TTS/视频插件可能改写共享配置，每次新使用前重申应用的语音策略。
-      await _backend.configure();
+      final explicitPlayback = audible && userInitiated;
       if (revision != _interruptionRevision ||
-          !await _backend.setActive(true)) {
+          (_interrupted && !explicitPlayback) ||
+          (!audible && blocksKeepAlive)) {
+        debugPrint(
+          '音频会话申请被应用阻止：手动=$explicitPlayback，中断=$_interrupted，过期=${revision != _interruptionRevision}',
+        );
         return null;
       }
+      // TTS/视频插件可能改写共享配置，每次新使用前重申应用的语音策略。
+      try {
+        await _backend.configure();
+        if (revision != _interruptionRevision) return null;
+        if (!await _backend.setActive(true)) {
+          debugPrint('音频会话申请被平台拒绝：手动=$explicitPlayback');
+          return null;
+        }
+      } catch (error) {
+        debugPrint('音频会话配置或激活异常：手动=$explicitPlayback，$error');
+        rethrow;
+      }
       if (revision != _interruptionRevision) {
+        debugPrint('音频会话激活期间发生新中断，拒绝旧申请');
         if (_leases.isEmpty) await _backend.setActive(false);
         return null;
       }
       final lease = AppAudioLease._(this, audible);
       _leases.add(lease);
+      _temporary = false;
       _interrupted = false;
       _publishBusy();
       return lease;

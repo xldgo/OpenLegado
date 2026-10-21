@@ -26,7 +26,7 @@ final class AudioBookHost {
   final bool Function() isDisposed;
   final Book? Function() boundBook;
   final Future<void> Function() stopSystemTts;
-  final Future<void> Function() activateMedia;
+  final Future<void> Function({bool userInitiated}) activateMedia;
   final bool Function() consumeChapterStop;
   final Future<void> Function() nextChapter;
   final Future<void> Function() replay;

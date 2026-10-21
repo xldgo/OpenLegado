@@ -12,6 +12,9 @@ import '../platform/audio/media_artwork_files.dart';
 
 /// 音频焦点事件类型
 enum AudioFocusEvent {
+  /// 中断结束但未许可自动恢复；不能当作新的停止命令。
+  interruptionEnded,
+
   /// 获得焦点
   gain,
 
@@ -108,6 +111,7 @@ class AudioService {
       _audioFocusController.add(switch (event) {
         AppAudioEvent.pause => AudioFocusEvent.lossTransient,
         AppAudioEvent.resume => AudioFocusEvent.gain,
+        AppAudioEvent.interruptionEnded => AudioFocusEvent.interruptionEnded,
         AppAudioEvent.stop || AppAudioEvent.loss => AudioFocusEvent.loss,
       });
     });
@@ -188,9 +192,9 @@ class AudioService {
   ///
   /// 复刻原版 requestFocus()，在播放前调用。
   /// 返回 true 表示成功获取焦点。
-  Future<bool> requestAudioFocus() async {
+  Future<bool> requestAudioFocus({bool userInitiated = false}) async {
     final generation = ++_focusGeneration;
-    final lease = await _session.acquire();
+    final lease = await _session.acquire(userInitiated: userInitiated);
     if (generation != _focusGeneration) {
       await lease?.release();
       return false;

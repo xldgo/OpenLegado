@@ -30,7 +30,7 @@ final class ReadAloudHost {
   final String Function() resolveEngineUrl;
   final Future<int?> Function() resolveEngineId;
   final void Function() changed;
-  final Future<void> Function() activateMedia;
+  final Future<void> Function({bool userInitiated}) activateMedia;
   final Future<void> Function({bool force}) publishProgress;
   final void Function() reviseTimeline;
   final bool Function() consumeChapterStop;

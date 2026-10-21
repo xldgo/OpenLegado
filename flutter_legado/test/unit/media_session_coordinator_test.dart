@@ -157,6 +157,27 @@ void main() {
     expect(fixture.state.state, PlayerState.paused);
   });
 
+  testSession('自动恢复与手动媒体播放传递不同申请来源，结束不自动恢复不再暂停', (tester) async {
+    await fixture.start();
+    fixture.audio.focus.add(AudioFocusEvent.lossTransient);
+    await tester.pump();
+    fixture.audio.focus.add(AudioFocusEvent.interruptionEnded);
+    await tester.pump();
+    expect(fixture.actions, ['暂停']);
+    fixture.audio.buttons.add(MediaButtonEvent.play);
+    await tester.pump();
+    expect(fixture.audio.focusIntents.last, isTrue);
+    fixture.audio.focus.add(AudioFocusEvent.interruptionEnded);
+    await tester.pump();
+    expect(fixture.state.state, PlayerState.playing);
+    fixture.audio.focus.add(AudioFocusEvent.lossTransient);
+    await tester.pump();
+    fixture.audio.focus.add(AudioFocusEvent.gain);
+    await tester.pump();
+    expect(fixture.audio.focusIntents.last, isFalse);
+    expect(fixture.state.state, PlayerState.playing);
+  });
+
   testSession('标题章节与定时独立去重，同书切章复用封面', (tester) async {
     await fixture.start();
     final initialCount = fixture.audio.metadata.length;

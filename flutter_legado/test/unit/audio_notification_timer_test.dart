@@ -86,7 +86,11 @@ void main() {
         .thenAnswer((_) => focusController.stream);
     when(() => mockAudio.mediaButtonStream)
         .thenAnswer((_) => buttonController.stream);
-    when(() => mockAudio.requestAudioFocus()).thenAnswer((_) async => true);
+    when(
+      () => mockAudio.requestAudioFocus(
+        userInitiated: any(named: 'userInitiated'),
+      ),
+    ).thenAnswer((_) async => true);
     when(
       () => mockAudio.updateMetadata(
         title: any(named: 'title'),

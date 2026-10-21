@@ -71,7 +71,8 @@ class AudioBookControllerFixture {
         isDisposed: () => hostDisposed,
         boundBook: () => book,
         stopSystemTts: () async => systemStops++,
-        activateMedia: () async => mediaActivations++,
+        activateMedia: ({bool userInitiated = false}) async =>
+            mediaActivations++,
         consumeChapterStop: () {
           boundaries++;
           return stopAtBoundary;

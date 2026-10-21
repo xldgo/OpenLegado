@@ -32,7 +32,7 @@ void main() {
         AudioInterruptionEvent(false, AudioInterruptionType.unknown),
         isAndroid: false,
       ),
-      AppAudioEvent.stop,
+      AppAudioEvent.interruptionEnded,
     );
   });
 
@@ -79,12 +79,109 @@ void main() {
     expect(backend.activations, [true, true, false]);
   });
 
+  test('iOS缺中断结束事件时，手动继续实际重新激活并消费旧中断', () async {
+    final audio = AudioService.forTesting(session);
+    final events = <AppAudioEvent>[];
+    final sub = session.events.listen(events.add);
+    expect(await audio.requestAudioFocus(), isTrue);
+    backend.source.add(
+      mapAudioInterruption(
+        AudioInterruptionEvent(true, AudioInterruptionType.unknown),
+        isAndroid: false,
+      ),
+    );
+    expect(await audio.requestAudioFocus(), isFalse);
+    expect(await audio.requestAudioFocus(userInitiated: true), isTrue);
+    expect(backend.activations, [true, true]);
+    backend.source.add(AppAudioEvent.interruptionEnded);
+    backend.source.add(AppAudioEvent.resume);
+    expect(events, [AppAudioEvent.pause]);
+    expect(await session.acquire(audible: false), isNull);
+    await audio.dispose();
+    expect(session.blocksKeepAlive, isFalse);
+    await sub.cancel();
+  });
+
+  test('手动申请被平台拒绝或抛错后，不解锁自动恢复和保活，可再次手动申请', () async {
+    final old = (await session.acquire())!;
+    backend.source.add(AppAudioEvent.pause);
+    await old.release();
+    backend.granted = false;
+    expect(await session.acquire(userInitiated: true), isNull);
+    expect(backend.activations, [true, true]);
+    expect(await session.acquire(), isNull);
+    expect(await session.acquire(audible: false, userInitiated: true), isNull);
+    expect(session.blocksKeepAlive, isTrue);
+    backend.configurationError = StateError('配置失败');
+    await expectLater(session.acquire(userInitiated: true), throwsStateError);
+    backend.configurationError = null;
+    backend.activationError = StateError('系统激活失败');
+    await expectLater(session.acquire(userInitiated: true), throwsStateError);
+    backend.activationError = null;
+    backend.granted = true;
+    final retry = (await session.acquire(userInitiated: true))!;
+    await retry.release();
+    expect(session.blocksKeepAlive, isFalse);
+  });
+
+  test('手动激活期间发生新中断使申请失效，迟到结束不被误认为旧中断', () async {
+    final old = (await session.acquire())!;
+    backend.source.add(AppAudioEvent.pause);
+    await old.release();
+    backend.activationBarrier = Completer<void>();
+    final request = session.acquire(userInitiated: true);
+    await pumpEventQueue();
+    expect(backend.activations, [true, true]);
+    backend.source.add(AppAudioEvent.pause);
+    backend.activationBarrier!.complete();
+    expect(await request, isNull);
+    expect(await session.acquire(), isNull);
+    backend.source.add(AppAudioEvent.interruptionEnded);
+    final retry = (await session.acquire(userInitiated: true))!;
+    await retry.release();
+  });
+
+  test('结束但不建议自动恢复与耳机拔出分开传递，旧结束不会再停止新播放', () async {
+    final events = <AppAudioEvent>[];
+    final sub = session.events.listen(events.add);
+    final old = (await session.acquire())!;
+    backend.source.add(AppAudioEvent.pause);
+    backend.source.add(AppAudioEvent.interruptionEnded);
+    await old.release();
+    final current = (await session.acquire(userInitiated: true))!;
+    backend.source.add(AppAudioEvent.interruptionEnded);
+    backend.source.add(AppAudioEvent.resume);
+    backend.source.add(AppAudioEvent.stop);
+    expect(events, [
+      AppAudioEvent.pause,
+      AppAudioEvent.interruptionEnded,
+      AppAudioEvent.stop,
+    ]);
+    await current.release();
+    await sub.cancel();
+  });
+
+  test('串行排队的手动请求也受新中断代次隔离，不在出队时误用旧意图', () async {
+    backend.activationBarrier = Completer<void>();
+    final first = session.acquire(userInitiated: true);
+    await pumpEventQueue();
+    final queued = session.acquire(userInitiated: true);
+    backend.source.add(AppAudioEvent.pause);
+    backend.activationBarrier!.complete();
+    expect(await first, isNull);
+    expect(await queued, isNull);
+    expect(backend.activations, [true, false]);
+    final current = (await session.acquire(userInitiated: true))!;
+    await current.release();
+  });
+
   test('永久失焦不让保活抢占，但允许用户明确重新播放', () async {
     final lease = (await session.acquire())!;
     backend.source.add(AppAudioEvent.loss);
     await lease.release();
     expect(await session.acquire(audible: false), isNull);
-    await (await session.acquire())!.release();
+    expect(await session.acquire(), isNull);
+    await (await session.acquire(userInitiated: true))!.release();
     expect(session.blocksKeepAlive, isFalse);
   });
 
@@ -113,7 +210,7 @@ void main() {
   test('停止期间迟到的主播放申请被释放，不保留伪激活', () async {
     final audio = AudioService.forTesting(session);
     backend.activationBarrier = Completer<void>();
-    final requesting = audio.requestAudioFocus();
+    final requesting = audio.requestAudioFocus(userInitiated: true);
     await pumpEventQueue();
     await audio.abandonAudioFocus();
     backend.activationBarrier!.complete();

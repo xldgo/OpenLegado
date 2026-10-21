@@ -29,7 +29,11 @@ final class ReadAloudVoicePreview {
   }) : _audioSession = audioSession ?? AppAudioSession.instance {
     _audioEvents = _audioSession.events.listen((event) {
       // 试听不自动恢复；耳机断开/中断使本次试听彻底失效。
-      if (event != AppAudioEvent.resume) unawaited(stop());
+      if (event == AppAudioEvent.pause ||
+          event == AppAudioEvent.stop ||
+          event == AppAudioEvent.loss) {
+        unawaited(stop());
+      }
     });
     _cloud = CloudReadAloudEngine(
       synthesizer: cloud,
@@ -105,7 +109,7 @@ final class ReadAloudVoicePreview {
     _session = session;
     onChanged(voice.id);
     try {
-      final lease = await _audioSession.acquire();
+      final lease = await _audioSession.acquire(userInitiated: true);
       if (!session.isCurrent) {
         await lease?.release();
         return;

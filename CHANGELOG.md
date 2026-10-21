@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.418] - 2026-10-21
+
+### Fixed
+- 修复朗读被其他应用打断后，缺少中断结束通知时手动继续无法重新申请音频会话的问题。
+- 防止旧中断结束通知影响已恢复的播放，保留原位续播和系统拒绝后的手动重试。
+- 贡献者：Codex；构建号419。
+
 ## [2.0.417] - 2026-10-20
 
 ### Added

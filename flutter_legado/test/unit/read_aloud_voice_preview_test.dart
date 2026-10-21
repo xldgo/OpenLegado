@@ -176,6 +176,25 @@ void main() {
     await pumpEventQueue();
     expect(player.playedLocalFiles, hasLength(played));
   });
+
+  test('中断后重新点击试听可申请会话，结束通知不会取消新试听', () async {
+    await preview.speak(voice('a'), '第一段试听', draft: true);
+    audioBackend.source.add(AppAudioEvent.pause);
+    await pumpEventQueue();
+    expect(player.isPlaying, isFalse);
+    audioBackend.activationBarrier = Completer<void>();
+    final retry = preview.speak(voice('b'), '重新试听', draft: true);
+    await pumpEventQueue();
+    expect(audioBackend.activations, [true, true]);
+    audioBackend.source.add(AppAudioEvent.interruptionEnded);
+    audioBackend.activationBarrier!.complete();
+    await retry;
+    expect(changes.last, voice('b').id);
+    expect(player.isPlaying, isTrue);
+    audioBackend.source.add(AppAudioEvent.interruptionEnded);
+    await pumpEventQueue();
+    expect(player.isPlaying, isTrue);
+  });
   test('HTTP 试听与正文同样解析预设、显式情感、默认覆盖和失效回落', () async {
     final v = ReadAloudVoice(
       id: readAloudVoiceId('http', '7', 'zh'),

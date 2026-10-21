@@ -9,6 +9,7 @@ final class TestAudioSessionBackend implements AppAudioSessionBackend {
   int configurations = 0;
   bool granted = true;
   Object? configurationError;
+  Object? activationError;
   Completer<void>? activationBarrier;
 
   @override
@@ -23,6 +24,7 @@ final class TestAudioSessionBackend implements AppAudioSessionBackend {
   Future<bool> setActive(bool active) async {
     activations.add(active);
     if (active) await activationBarrier?.future;
+    if (active && activationError != null) throw activationError!;
     return !active || granted;
   }
 }

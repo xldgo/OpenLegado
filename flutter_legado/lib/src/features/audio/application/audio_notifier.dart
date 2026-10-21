@@ -241,10 +241,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         isDisposed: () => _disposed,
         boundBook: () => _book,
         stopSystemTts: () => _readAloud.stopSystem(),
-        activateMedia: () => _media.activate(),
+        activateMedia: ({bool userInitiated = false}) =>
+            _media.activate(userInitiated: userInitiated),
         consumeChapterStop: _consumeChapterStopAtBoundary,
-        nextChapter: next,
-        replay: play,
+        nextChapter: () => next(userInitiated: false),
+        replay: () => play(userInitiated: false),
         pause: pause,
         stop: stop,
       ),
@@ -305,7 +306,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
         publishProgress: _media.publishProgress,
         reviseTimeline: _media.reviseTimeline,
         consumeChapterStop: _consumeChapterStopAtBoundary,
-        nextChapter: next,
+        nextChapter: () => next(userInitiated: false),
         previousChapter: previous,
         pause: pause,
         stop: stop,
@@ -513,10 +514,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
   Future<String> loadEffectiveTtsEngineUrl() =>
       _engineSelection.loadEffectiveTtsEngineUrl();
 
-  Future<void> play({int? paragraphIndex}) async {
+  Future<void> play({int? paragraphIndex, bool userInitiated = true}) async {
     if (state.chapters.isEmpty) return;
     if (state.isStreamMode) {
-      await _audioBookController.play();
+      await _audioBookController.play(userInitiated: userInitiated);
       return;
     }
     // [引擎双持久化 | 2026-10-04] 听书页 TTS 入口（非 startReadAloud 路径）
@@ -527,7 +528,10 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
       await _engineSelection.restoreGlobalEngine();
     }
     if (_disposed || token != _playToken) return;
-    await _readAloud.play(paragraphIndex: paragraphIndex);
+    await _readAloud.play(
+      paragraphIndex: paragraphIndex,
+      userInitiated: userInitiated,
+    );
   }
 
   Future<void> setCloudTtsVoice(String engineId, ReadAloudVoice? voice) =>
@@ -791,19 +795,19 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     }
   }
 
-  Future<void> resumeOrPlay() async {
+  Future<void> resumeOrPlay({bool userInitiated = true}) async {
     _media.prepareResume();
     if (state.state == PlayerState.paused &&
         !state.isStreamMode &&
-        await _readAloud.resume()) {
+        await _readAloud.resume(userInitiated: userInitiated)) {
       return;
     }
     if (state.state == PlayerState.paused &&
         state.isStreamMode &&
-        await _audioBookController.resume()) {
+        await _audioBookController.resume(userInitiated: userInitiated)) {
       return;
     }
-    await play();
+    await play(userInitiated: userInitiated);
   }
 
   void stop() {
@@ -824,7 +828,7 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     _media.notifyStopped(after: stopped);
   }
 
-  Future<void> next() async {
+  Future<void> next({bool userInitiated = true}) async {
     _readAloud.cancelBackground();
     if (!state.hasNext && state.mode != AudioPlayMode.singleLoop) return;
     if (!state.isStreamMode) {
@@ -835,11 +839,11 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     await _audioBookController.persistPosition(force: true);
     _readAloud.resetParagraphForChapter();
     if (state.mode == AudioPlayMode.singleLoop) {
-      await play(paragraphIndex: 0);
+      await play(paragraphIndex: 0, userInitiated: userInitiated);
       return;
     }
     state = state.copyWith(currentIndex: state.currentIndex + 1);
-    await play(paragraphIndex: 0);
+    await play(paragraphIndex: 0, userInitiated: userInitiated);
   }
 
   Future<void> previous() async {

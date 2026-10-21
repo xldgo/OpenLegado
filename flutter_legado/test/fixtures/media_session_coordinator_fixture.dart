@@ -117,11 +117,11 @@ class MediaSessionFixture {
     unawaited(coordinator.notifyPaused());
   }
 
-  Future<void> resume() async {
+  Future<void> resume({bool userInitiated = true}) async {
     actions.add('恢复');
     coordinator.prepareResume();
     state = state.copyWith(state: PlayerState.playing);
-    await coordinator.activate();
+    await coordinator.activate(userInitiated: userInitiated);
   }
 
   void stop() {

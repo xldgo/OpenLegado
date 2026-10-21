@@ -171,7 +171,7 @@ class ReadAloudControllerFixture {
         resolveEngineUrl: () => engineUrl,
         resolveEngineId: () async => 1,
         changed: () => changes++,
-        activateMedia: () async {
+        activateMedia: ({bool userInitiated = false}) async {
           mediaStarts++;
         },
         publishProgress: ({bool force = false}) async {

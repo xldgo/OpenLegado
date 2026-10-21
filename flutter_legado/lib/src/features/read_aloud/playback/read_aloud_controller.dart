@@ -190,7 +190,11 @@ class ReadAloudController {
       ? _cloudEngine
       : _httpEngine;
 
-  Future<void> play({int? paragraphIndex, bool startPlaying = true}) async {
+  Future<void> play({
+    int? paragraphIndex,
+    bool startPlaying = true,
+    bool userInitiated = false,
+  }) async {
     _state = _state.copyWith(state: PlayerState.loading);
     final token = _host.advanceToken();
     _synthesisQueue.cancelAll();
@@ -248,7 +252,7 @@ class ReadAloudController {
       );
       _publishReadAloudPosition();
       if (startPlaying) {
-        await _host.activateMedia();
+        await _host.activateMedia(userInitiated: userInitiated);
         if (token != _playToken || _disposed) return;
         await _speakCurrentParagraph(token);
       }
@@ -1156,7 +1160,7 @@ class ReadAloudController {
   }
 
   /// true表示本次暂停续播已处理，false交由上层重新起播。
-  Future<bool> resume() async {
+  Future<bool> resume({bool userInitiated = false}) async {
     final pausedToken = _playToken;
     final pausedGeneration = _speakGeneration;
     try {
@@ -1176,7 +1180,7 @@ class ReadAloudController {
     _state = _state.copyWith(state: PlayerState.playing, errorMessage: null);
     final session = _createReadAloudSession(token, gen, engineUrl);
     try {
-      await _host.activateMedia();
+      await _host.activateMedia(userInitiated: userInitiated);
       if (isStale(token, gen)) return true;
       await engine.resume(session);
       if (!isStale(token, gen) && engineUrl != systemTtsEngineUrl) {

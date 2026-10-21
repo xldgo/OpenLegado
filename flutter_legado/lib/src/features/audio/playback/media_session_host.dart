@@ -42,7 +42,7 @@ final class MediaSessionHost {
   final int Function() paragraphCount;
   final Future<void> Function() loadPreferences;
   final bool Function() mediaButtonPerChapter;
-  final Future<void> Function() resumeOrPlay;
+  final Future<void> Function({bool userInitiated}) resumeOrPlay;
   final void Function({bool dueToInterruption}) pause;
   final void Function() stop;
   final Future<void> Function() nextChapter;

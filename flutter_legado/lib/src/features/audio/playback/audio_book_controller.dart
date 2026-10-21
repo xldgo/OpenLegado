@@ -88,7 +88,7 @@ final class AudioBookController {
     return paused;
   }
 
-  Future<bool> resume() async {
+  Future<bool> resume({bool userInitiated = false}) async {
     if (_disposed ||
         !_state.isStreamMode ||
         _state.state != PlayerState.paused ||
@@ -98,7 +98,7 @@ final class AudioBookController {
     final token = _playToken;
     try {
       _state = _state.copyWith(state: PlayerState.playing);
-      await _host.activateMedia();
+      await _host.activateMedia(userInitiated: userInitiated);
       if (_stale(token)) return true;
       await _player.resume();
     } catch (error) {
@@ -113,7 +113,7 @@ final class AudioBookController {
     return true;
   }
 
-  Future<void> play() async {
+  Future<void> play({bool userInitiated = false}) async {
     if (_disposed || !_state.isStreamMode || _state.chapters.isEmpty) return;
     _state = _state.copyWith(state: PlayerState.loading, errorMessage: null);
     final token = _host.advanceToken();
@@ -154,7 +154,7 @@ final class AudioBookController {
         );
         // [P1] 绑定本章归属：播放器在进度/完成回调中原样回传，切章后旧播放器
         // 迟到的回调据此被丢弃，不会写进新章进度键
-        await _host.activateMedia();
+        await _host.activateMedia(userInitiated: userInitiated);
         if (_stale(token)) return;
         await _player.playUrl(
           mediaUrl,

@@ -2,6 +2,25 @@
 
 任务状态只维护于 [Active 计划](REFACTORING_ACTIVE_PLAN.md)，本文保存实现边界、上游依据与验收方法。
 
+## 中断后的显式恢复（2026-10-21）
+
+依据 [Apple 中断处理说明](https://developer.apple.com/library/archive/documentation/Audio/Conceptual/AudioSessionProgrammingGuide/HandlingAudioInterruptions/HandlingAudioInterruptions.html)，
+开始中断不保证有对应的结束事件，用户按播放时应重新判断能否激活会话。
+
+- 手动播放/继续及媒体播放按钮明确传递 userInitiated，试听同样显式申请；
+  自动恢复、自然换章和单曲循环使用非手动请求，保活不可借该参数抢占。
+- AppAudioSession 允许显式音频请求重新调用 configure/setActive；成功且中断代次一致才清除旧标志。
+  平台拒绝/异常不解除保护、不强制播放，也不循环申请；日志区分本地门禁、平台拒绝、异常与过期。
+- 结束但不建议自动恢复独立为 interruptionEnded，不能等同于耳机拔出/新的停止。
+  显式恢复消费旧中断后忽略迟到结束；自动恢复继续核对原书籍、播放代次和用户意图。
+- 排队前记录中断代次，配置/激活后再次检查；排队或平台等待期间的新中断使旧申请失效。
+  控制器仍等待原生暂停屏障，原位恢复已加载音频，不更换队列或重合成当前段。
+
+使用可控会话后端结合真实 Dart 控制器复现，不代表 iOS 原生或真实来电/媒体场景已验收。
+用户设备上的具体中断事件顺序仍需实测；不以 Windows 行为替身证明真机问题全部消除。
+
+编写者：Codex + UI｜2026-10-21
+
 ## 系统媒体服务迁移（2026-10-20）
 
 用户批准引入 [audio_service 0.18.19](https://pub.dev/packages/audio_service/versions/0.18.19)，
