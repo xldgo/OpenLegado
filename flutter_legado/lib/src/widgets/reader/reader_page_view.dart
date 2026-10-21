@@ -23,6 +23,7 @@ import '../../widgets/error_view.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import 'reader_page_chrome.dart';
+import 'reader_title_layout.dart';
 import 'turn/page_direction.dart';
 import 'turn/reader_turn_view.dart';
 import 'reader_text_content.dart';
@@ -1471,36 +1472,16 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   ) {
     var firstPageHeight = availableHeight;
     if (chapterTitle == null) return firstPageHeight;
-    final chrome = widget.pageChrome;
-    final showTitle = chrome.titleMode.clamp(0, 2) != 2;
-    if (showTitle) {
-      final textScaler = MediaQuery.textScalerOf(context);
-      final baseStyle = DefaultTextStyle.of(context).style;
-      // [C3 标题字体] 标题 fontFamily 与渲染侧同参（effectiveTitleFontFamily
-      // 单源，空=跟随正文），不同参会首页标题行分页错位 — full-stack-engineer
-      final titlePainter = TextPainter(
-        text: TextSpan(
-          text: chapterTitle,
-          style: baseStyle.merge(
-            TextStyle(
-              fontSize: state.fontSize + chrome.titleSize,
-              fontWeight: FontWeight.bold,
-              fontFamily: effectiveTitleFontFamily(chrome, _fontFamily),
-            ),
-          ),
-        ),
-        textDirection: Directionality.of(context),
-        locale: Localizations.maybeLocaleOf(context),
-        textHeightBehavior: TextLayoutEnvironment.of(context).heightBehavior,
-        textScaler: textScaler,
-      )..layout(maxWidth: availableWidth);
-      firstPageHeight =
-          availableHeight -
-          titlePainter.height -
-          chrome.titleTopSpacing -
-          chrome.titleBottomSpacing;
-      titlePainter.dispose();
-    }
+    final title = ReaderTitleLayout(
+      chrome: widget.pageChrome,
+      environment: TextLayoutEnvironment.of(context),
+      bodySize: state.fontSize,
+      bodyFont: _fontFamily,
+      color: _resolveTextColor(state),
+      letterSpacingEm: widget.letterSpacing,
+      fontStyle: _fontStyleFor(widget.italic),
+    );
+    firstPageHeight -= title.measure(chapterTitle, availableWidth);
     // 极端小窗口兼底：首页至少容纳一行正文
     final minHeight = state.fontSize * state.lineHeight;
     if (firstPageHeight < minHeight) firstPageHeight = minHeight;
@@ -1775,27 +1756,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (state.currentChapter != null)
-                SelectionContainer.disabled(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Text(
-                      state.currentChapter!.title,
-                      style: TextStyle(
-                        fontSize: state.fontSize + 4,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                        // [A4 滚动模式标题字体 | full-stack-engineer] 标题
-                        // fontFamily 接 effectiveTitleFontFamily 单源（与
-                        // 分页模式渲染侧同参；空=跟随正文字体）。滚动模式
-                        // 不分页、无测量侧，故仅渲染侧取值。
-                        fontFamily: effectiveTitleFontFamily(
-                          widget.pageChrome,
-                          _fontFamily,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                ReaderTitleLayout(
+                  chrome: widget.pageChrome,
+                  environment: TextLayoutEnvironment.of(context),
+                  bodySize: state.fontSize,
+                  bodyFont: _fontFamily,
+                  color: textColor,
+                  letterSpacingEm: widget.letterSpacing,
+                  fontStyle: _fontStyleFor(widget.italic),
+                ).build(state.currentChapter!.title),
               // 滚动模式：渲染所有分页内容（使用排版引擎的分行结果）
               if (_paginatedPages.isNotEmpty && _scrollLayout != null)
                 ReaderTextContent(

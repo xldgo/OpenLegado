@@ -4,6 +4,8 @@ import '../../l10n/app_strings.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import 'review_column.dart';
 import 'reader_page_chrome.dart';
+import 'reader_title_layout.dart';
+import 'text_layout_environment.dart';
 import 'reader_selection_toolbar.dart';
 import 'reader_selection_region.dart';
 import 'reader_selectable_text.dart';
@@ -120,10 +122,6 @@ class ReaderTypographicPage extends StatelessWidget {
         pageIndex == 0 &&
         chapterTitle != null &&
         chrome.titleMode.clamp(0, 2) != 2;
-    final titleAlign = switch (chrome.titleMode.clamp(0, 2)) {
-      1 => TextAlign.center,
-      _ => TextAlign.start,
-    };
 
     return Container(
       color: backgroundColor,
@@ -155,35 +153,15 @@ class ReaderTypographicPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (showTitle)
-                    SelectionContainer.disabled(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          top: chrome.titleTopSpacing.toDouble(),
-                          bottom: chrome.titleBottomSpacing.toDouble(),
-                        ),
-                        child: Align(
-                          alignment: titleAlign == TextAlign.center
-                              ? Alignment.center
-                              : Alignment.centerLeft,
-                          child: Text(
-                            chapterTitle!,
-                            textAlign: titleAlign,
-                            style: TextStyle(
-                              fontSize: fontSize + chrome.titleSize,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                              // [C3 标题字体] 与测量侧同参（effectiveTitleFontFamily
-                              // 单源）；同时修复既有偏差：空=跟随正文字体，标题
-                              // 随自定义正文自定义字体生效 — full-stack-engineer
-                              fontFamily: effectiveTitleFontFamily(
-                                chrome,
-                                fontFamily,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    ReaderTitleLayout(
+                      chrome: chrome,
+                      environment: TextLayoutEnvironment.of(context),
+                      bodySize: fontSize,
+                      bodyFont: fontFamily,
+                      color: textColor,
+                      letterSpacingEm: letterSpacing / fontSize,
+                      fontStyle: fontStyle,
+                    ).build(chapterTitle!),
                   Expanded(
                     child: ReaderTextContent(
                       pageInfo: info,

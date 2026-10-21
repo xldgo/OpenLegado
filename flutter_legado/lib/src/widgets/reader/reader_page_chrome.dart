@@ -87,6 +87,9 @@ class ReaderPageChromeConfig {
 
   final int titleMode;
   final int titleSize;
+  final bool titleSizeRelative;
+  final int titleFontWeight;
+  final double titleLineHeight;
   final int titleTopSpacing;
   final int titleBottomSpacing;
 
@@ -115,7 +118,10 @@ class ReaderPageChromeConfig {
     this.tipFooterMiddle = 0,
     this.tipFooterRight = 6,
     this.titleMode = 0,
-    this.titleSize = 0,
+    this.titleSize = 4,
+    this.titleSizeRelative = true,
+    this.titleFontWeight = 500,
+    this.titleLineHeight = 1.2,
     this.titleTopSpacing = 0,
     this.titleBottomSpacing = 0,
     this.titleFontFamily = '',
@@ -148,6 +154,9 @@ class ReaderPageChromeConfig {
       tipFooterRight: c.footer.rightTip,
       titleMode: c.title.mode,
       titleSize: c.title.size,
+      titleSizeRelative: c.title.sizeRelative,
+      titleFontWeight: c.title.fontWeight,
+      titleLineHeight: c.title.lineHeight,
       titleTopSpacing: c.title.topSpacing,
       titleBottomSpacing: c.title.bottomSpacing,
       titleFontFamily: titleFontFamily,
@@ -161,7 +170,7 @@ class ReaderPageChromeConfig {
       '${showHeaderLine}_${showFooterLine}_'
       '${tipHeaderLeft}_${tipHeaderMiddle}_${tipHeaderRight}_'
       '${tipFooterLeft}_${tipFooterMiddle}_${tipFooterRight}_'
-      '${titleMode}_${titleSize}_${titleTopSpacing}_$titleBottomSpacing'
+      '${titleMode}_${titleSize}_${titleSizeRelative}_${titleFontWeight}_${titleLineHeight}_${titleTopSpacing}_$titleBottomSpacing'
       '_$titleFontFamily';
 
   bool get showPageHeader {

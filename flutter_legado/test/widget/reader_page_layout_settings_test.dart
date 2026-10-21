@@ -154,11 +154,11 @@ void main() {
     storage.writeFailure = true;
     await tap(tester, find.byTooltip('增大标题字号增量'));
     expect(find.text('页面布局保存失败，请重试'), findsOneWidget);
-    expect(row(tester, '标题字号增量').value, 0);
+    expect(row(tester, '标题字号增量').value, 4);
     storage.writeFailure = false;
     await tap(tester, find.byTooltip('增大标题字号增量'));
     await tap(tester, find.byTooltip('增大标题上间距'));
-    expect(storage.values['reader_title_size'], 1);
+    expect(storage.values['reader_title_size'], 5);
     expect(storage.values['reader_title_top_spacing'], 1);
     storage.values.addAll({
       'reader_title_size': 3,
@@ -168,6 +168,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(row(tester, '标题字号增量').value, 3);
     expect(row(tester, '标题下间距').value, 9);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('标题独立字重、行距与绝对字号通过设置控件保存', (tester) async {
+    await initialize(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.title,
+      ),
+    );
+    expect(row(tester, '标题字重').value, 500);
+    await tap(tester, find.byTooltip('增大标题字重'));
+    expect(storage.values['reader_title_font_weight'], 600);
+    await tap(tester, find.text('标题字号相对正文'));
+    expect(row(tester, '标题字号').value, 4);
+    expect(storage.values['reader_title_size_relative'], false);
+    await tap(tester, find.byTooltip('增大标题字号'));
+    expect(storage.values['reader_title_size'], 5);
+    final slider = find.byWidgetPredicate(
+      (w) => w is Slider && w.min == .1 && w.max == 2,
+    );
+    await tester.ensureVisible(slider);
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(slider));
+    await tester.pumpAndSettle();
+    expect(storage.values['reader_title_line_height'], isA<double>());
+    expect(storage.values['reader_title_line_height'], isNot(1.2));
     expect(tester.takeException(), isNull);
   });
 

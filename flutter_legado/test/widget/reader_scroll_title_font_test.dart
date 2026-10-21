@@ -73,6 +73,39 @@ void main() {
     );
   }
 
+  testWidgets('滚动标题遵守字号、字重、居中、上下间距和隐藏', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    const chrome = ReaderPageChromeConfig(
+      titleSize: 17,
+      titleSizeRelative: false,
+      titleFontWeight: 600,
+      titleLineHeight: 1.4,
+      titleMode: 1,
+      titleTopSpacing: 7,
+      titleBottomSpacing: 9,
+    );
+    await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
+    await settleNativeReaderLayout(tester);
+    final title = tester.widget<Text>(find.text(chapterTitle));
+    expect(title.style!.fontSize, 17);
+    expect(title.style!.fontWeight, FontWeight.w600);
+    expect(title.style!.height, 1.4);
+    expect(title.textAlign, TextAlign.center);
+    final padding = tester.widget<Padding>(
+      find
+          .ancestor(of: find.text(chapterTitle), matching: find.byType(Padding))
+          .first,
+    );
+    expect(padding.padding, const EdgeInsets.only(top: 7, bottom: 9));
+    await pumpNativeReaderLayout(
+      tester,
+      wrap(scrollState(), const ReaderPageChromeConfig(titleMode: 2)),
+    );
+    await settleNativeReaderLayout(tester);
+    expect(find.text(chapterTitle), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   group('A4 滚动模式标题字体（_buildScrollContent 标题块）', () {
     testWidgets('titleFontFamily 非空 → 滚动标题 fontFamily 与单源取值一致', (tester) async {
       SharedPreferences.setMockInitialValues({});

@@ -169,13 +169,68 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
       ),
       if (_layout.title.mode != 2) ...[
         if (widget.titleFont != null) widget.titleFont!,
-        _stepRow('标题字号增量', _layout.title.size, 0, 20, (value) {
-          _save(
+        SettingSwitchRow(
+          title: '标题字号相对正文',
+          value: _layout.title.sizeRelative,
+          onChanged: (value) => _save(
             () => ref
                 .read(readerSettingsRepositoryProvider)
-                .updateTitle(size: value),
-          );
-        }, showPlus: true),
+                .updateTitle(sizeRelative: value),
+          ),
+        ),
+        _stepRow(
+          _layout.title.sizeRelative ? '标题字号增量' : '标题字号',
+          _layout.title.size,
+          _layout.title.sizeRelative ? 0 : 1,
+          60,
+          (value) {
+            _save(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateTitle(size: value),
+            );
+          },
+          showPlus: _layout.title.sizeRelative,
+          unit: 'sp',
+        ),
+        _stepRow(
+          '标题字重',
+          _layout.title.fontWeight,
+          100,
+          900,
+          (value) {
+            _save(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateTitle(fontWeight: value),
+            );
+          },
+          step: 100,
+          unit: '',
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Text('标题行距'),
+              Expanded(
+                child: Slider(
+                  value: _layout.title.lineHeight,
+                  min: .1,
+                  max: 2,
+                  divisions: 19,
+                  label: '${_layout.title.lineHeight.toStringAsFixed(1)}倍',
+                  onChanged: (value) => _save(
+                    () => ref
+                        .read(readerSettingsRepositoryProvider)
+                        .updateTitle(lineHeight: value),
+                  ),
+                ),
+              ),
+              Text('${_layout.title.lineHeight.toStringAsFixed(1)}倍'),
+            ],
+          ),
+        ),
         const Divider(height: 16, indent: 16, endIndent: 16),
         _stepRow('标题上间距', _layout.title.topSpacing, 0, 100, (value) {
           _save(
@@ -263,12 +318,15 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     int max,
     ValueChanged<int> onChanged, {
     bool showPlus = false,
+    double step = 1,
+    String unit = 'dp',
   }) => SettingStepperRow(
     title: label,
     value: value.toDouble(),
     min: min.toDouble(),
     max: max.toDouble(),
-    unit: showPlus ? null : 'dp',
+    unit: unit,
+    step: step,
     showPlus: showPlus,
     onChanged: (value) => onChanged(value.round()),
   );

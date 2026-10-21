@@ -13,6 +13,9 @@ final class ReaderPageLayoutCodec {
     'double_horizontal_page',
     'title_mode',
     'title_size',
+    'title_size_relative',
+    'title_font_weight',
+    'title_line_height',
     'title_top_spacing',
     'title_bottom_spacing',
     'header_padding_top',
@@ -94,34 +97,38 @@ final class ReaderPageLayoutCodec {
     );
   }
 
-  ReaderPageLayoutSettings decode(AppSettingsSnapshot snapshot) =>
-      ReaderPageLayoutSettings(
-        bodyPadding: _padding(snapshot, 'page_margin', _defaults.bodyPadding),
-        doubleHorizontalPage: _int(
-          snapshot,
-          'double_horizontal_page',
-          0,
-          max: 3,
-        ),
-        title: ReaderTitleSettings(
-          mode: _int(snapshot, 'title_mode', _defaults.title.mode, max: 2),
-          size: _int(snapshot, 'title_size', _defaults.title.size, max: 20),
-          topSpacing: _int(
-            snapshot,
-            'title_top_spacing',
-            _defaults.title.topSpacing,
-            max: 100,
-          ),
-          bottomSpacing: _int(
-            snapshot,
-            'title_bottom_spacing',
-            _defaults.title.bottomSpacing,
-            max: 100,
-          ),
-        ),
-        header: _edge(snapshot, ReaderPageEdge.header),
-        footer: _edge(snapshot, ReaderPageEdge.footer),
-      );
+  ReaderPageLayoutSettings decode(
+    AppSettingsSnapshot snapshot,
+  ) => ReaderPageLayoutSettings(
+    bodyPadding: _padding(snapshot, 'page_margin', _defaults.bodyPadding),
+    doubleHorizontalPage: _int(snapshot, 'double_horizontal_page', 0, max: 3),
+    title: ReaderTitleSettings(
+      mode: _int(snapshot, 'title_mode', _defaults.title.mode, max: 2),
+      size: _int(snapshot, 'title_size', _defaults.title.size, max: 60),
+      sizeRelative: _bool(snapshot, 'title_size_relative', true),
+      fontWeight: _int(
+        snapshot,
+        'title_font_weight',
+        500,
+        max: 900,
+      ).clamp(100, 900),
+      lineHeight: _double(snapshot, 'title_line_height', 1.2, 2).clamp(.1, 2),
+      topSpacing: _int(
+        snapshot,
+        'title_top_spacing',
+        _defaults.title.topSpacing,
+        max: 100,
+      ),
+      bottomSpacing: _int(
+        snapshot,
+        'title_bottom_spacing',
+        _defaults.title.bottomSpacing,
+        max: 100,
+      ),
+    ),
+    header: _edge(snapshot, ReaderPageEdge.header),
+    footer: _edge(snapshot, ReaderPageEdge.footer),
+  );
 
   Map<SettingsAddress, Object?> _paddingPatch(
     String prefix, {
@@ -218,11 +225,17 @@ final class ReaderPageLayoutCodec {
   Map<SettingsAddress, Object?> titlePatch({
     int? mode,
     int? size,
+    bool? sizeRelative,
+    int? fontWeight,
+    double? lineHeight,
     int? topSpacing,
     int? bottomSpacing,
   }) => {
     _address('title_mode'): ?mode?.clamp(0, 2),
-    _address('title_size'): ?size?.clamp(0, 20),
+    _address('title_size'): ?size?.clamp(0, 60),
+    _address('title_size_relative'): ?sizeRelative,
+    _address('title_font_weight'): ?fontWeight?.clamp(100, 900),
+    _address('title_line_height'): ?lineHeight?.clamp(.1, 2),
     _address('title_top_spacing'): ?topSpacing?.clamp(0, 100),
     _address('title_bottom_spacing'): ?bottomSpacing?.clamp(0, 100),
   };

@@ -58,14 +58,22 @@ final class ReaderPageEdgeSettings {
 final class ReaderTitleSettings {
   const ReaderTitleSettings({
     this.mode = 0,
-    this.size = 0,
+    this.size = 4,
+    this.sizeRelative = true,
+    this.fontWeight = 500,
+    this.lineHeight = 1.2,
     this.topSpacing = 0,
     this.bottomSpacing = 0,
   });
   final int mode;
 
-  /// 字号相对正文的增量，间距沿用原数值单位。
+  /// 相对模式为正文增量，绝对模式为字号；间距为逻辑像素。— Codex + UI
   final int size;
+  final bool sizeRelative;
+  final int fontWeight;
+  final double lineHeight;
+  double resolvedSize(double bodySize) =>
+      (sizeRelative ? bodySize + size : size.toDouble()).clamp(1, 1000);
   final int topSpacing;
   final int bottomSpacing;
   @override
@@ -73,10 +81,21 @@ final class ReaderTitleSettings {
       other is ReaderTitleSettings &&
       mode == other.mode &&
       size == other.size &&
+      sizeRelative == other.sizeRelative &&
+      fontWeight == other.fontWeight &&
+      lineHeight == other.lineHeight &&
       topSpacing == other.topSpacing &&
       bottomSpacing == other.bottomSpacing;
   @override
-  int get hashCode => Object.hash(mode, size, topSpacing, bottomSpacing);
+  int get hashCode => Object.hash(
+    mode,
+    size,
+    sizeRelative,
+    fontWeight,
+    lineHeight,
+    topSpacing,
+    bottomSpacing,
+  );
 }
 
 final class ReaderPageLayoutSettings {

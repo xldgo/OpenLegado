@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.423] - 2026-10-21
+
+### Changed
+- 章节标题统一相对／绝对字号、独立字重与行距；默认正文+4、字重500、行距1.2倍。
+- 滚动标题遵守隐藏、居中及上下间距设置，与分页和预览共用最终样式。
+- 贡献者：Codex；构建号424。
+
 ## [2.0.422] - 2026-10-21
 
 ### Changed

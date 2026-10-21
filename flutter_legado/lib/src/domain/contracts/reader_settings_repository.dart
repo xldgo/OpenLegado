@@ -58,6 +58,9 @@ abstract interface class ReaderSettingsRepository {
   Future<void> updateTitle({
     int? mode,
     int? size,
+    bool? sizeRelative,
+    int? fontWeight,
+    double? lineHeight,
     int? topSpacing,
     int? bottomSpacing,
   });

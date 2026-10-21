@@ -388,12 +388,18 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   Future<void> updateTitle({
     int? mode,
     int? size,
+    bool? sizeRelative,
+    int? fontWeight,
+    double? lineHeight,
     int? topSpacing,
     int? bottomSpacing,
   }) => _service.update(
     _pageLayout.titlePatch(
       mode: mode,
       size: size,
+      sizeRelative: sizeRelative,
+      fontWeight: fontWeight,
+      lineHeight: lineHeight,
       topSpacing: topSpacing,
       bottomSpacing: bottomSpacing,
     ),

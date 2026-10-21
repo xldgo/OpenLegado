@@ -160,6 +160,33 @@ void main() {
     expect(prefs.getBool('reader_footer_show_line'), isFalse);
   });
 
+  test('标题相对与绝对字号、独立字重和行距在新仓储恢复', () async {
+    final initial = (await repository.load()).pageLayout.title;
+    expect(initial.resolvedSize(20), 24);
+    expect(initial.fontWeight, 500);
+    expect(initial.lineHeight, 1.2);
+    await repository.updateTitle(
+      size: 18,
+      sizeRelative: false,
+      fontWeight: 600,
+      lineHeight: 1.5,
+    );
+    await repository.updateTitle(topSpacing: 7);
+    final restored = AppReaderSettingsRepository(service);
+    final value = (await restored.load()).pageLayout.title;
+    expect(value.resolvedSize(30), 18);
+    expect(value.sizeRelative, isFalse);
+    expect(value.fontWeight, 600);
+    expect(value.lineHeight, 1.5);
+    expect(value.topSpacing, 7);
+    storage.writeFailure = true;
+    await expectLater(restored.updateTitle(fontWeight: 800), throwsStateError);
+    expect(restored.current.pageLayout.title.fontWeight, 600);
+    storage.writeFailure = false;
+    await restored.updateTitle(fontWeight: 800);
+    expect(restored.current.pageLayout.title.fontWeight, 800);
+  });
+
   test('页眉页脚模式从真实Preferences读取时按区域夹取上下界', () async {
     for (final (input, header, footer) in [
       (-5, 0, 0),
@@ -269,7 +296,7 @@ void main() {
       repository.current.pageLayout.title,
       const ReaderTitleSettings(
         mode: 2,
-        size: 20,
+        size: 60,
         topSpacing: 0,
         bottomSpacing: 100,
       ),

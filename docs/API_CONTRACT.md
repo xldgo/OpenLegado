@@ -1,5 +1,15 @@
 # API 契约文档
 
+### READER-TITLE-PARITY-20261021：章节标题样式与内容块（实施前冻结）
+
+- 第一批：ReaderTitleSettings新增sizeRelative（缺省true）、fontWeight（500）与lineHeight（1.2），字号缺省4；相对模式取正文+size，绝对模式取size，最终字号至少1。没有旧模式推断或迁移。
+- ReaderSettingsRepository.updateTitle按字段更新；新增普通偏好reader_title_size_relative、reader_title_font_weight、reader_title_line_height，既有字号与上下间距键含义保持。备份沿通用分类登记，不清洗旧值。
+- 分页、滚动、预览共享标题最终样式与测量环境；字体空值跟随正文，字距按标题字号换算em，斜体跟随正文，颜色保持现有正文色。标题默认居左，上下附加距0。
+- 第二批：标题测量为现有Rust布局Paragraph/InlineParagraph的isTitle内容块，采用已有标题间距和行推进参数；移除手工扣首页高度及独立标题绘制。标题不写入正文sourceText，不改变正文UTF-16坐标、复制和朗读文本。
+- 标题分段复用上游关闭/按位置/标记/正则规则及副标题缩放；卷章、空章与分页规则按可用数据接线，不扩展完整HTML或单图书源路径。FRB签名与生成物不变；如既有载荷需要扩展，先修订本条再实现。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-SPACING-RATIO-20261021：正文段距改为自然行高比例
 
 - ReaderTextLayoutSettings.paragraphSpacing、ReaderPageView.paragraphSpacing和ParagraphConfig.paragraphSpacing统一表示自然行高的十分之一刻度，基础值2=0.2H；有效范围0..20，UI显示0..2倍并以0.1倍步进。
