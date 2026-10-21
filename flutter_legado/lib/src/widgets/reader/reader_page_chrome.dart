@@ -385,7 +385,6 @@ class ReaderPageTipBar extends StatelessWidget {
 
 class ReaderPageLayoutMetrics {
   static const _tipStyle = TextStyle(fontSize: 12);
-  static const _legacyIndicatorStyle = TextStyle(fontSize: 11);
 
   static double measureTipBarHeight({
     required EdgeInsets padding,
@@ -411,23 +410,6 @@ class ReaderPageLayoutMetrics {
     final line = math.max(14.0, painter.height);
     painter.dispose();
     return padding.top + padding.bottom + line;
-  }
-
-  static double measureLegacyPageIndicatorHeight(BuildContext context) {
-    final baseStyle = DefaultTextStyle.of(context).style;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: '0/0',
-        style: baseStyle.merge(_legacyIndicatorStyle),
-      ),
-      textDirection: Directionality.of(context),
-      locale: Localizations.maybeLocaleOf(context),
-      textHeightBehavior: TextLayoutEnvironment.of(context).heightBehavior,
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    final h = 8 + painter.height;
-    painter.dispose();
-    return h;
   }
 
   static double headerBlockHeight(
@@ -463,6 +445,6 @@ class ReaderPageLayoutMetrics {
           ) +
           (chrome.showFooterLine ? 1 : 0);
     }
-    return measureLegacyPageIndicatorHeight(context);
+    return 0;
   }
 }

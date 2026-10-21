@@ -30,6 +30,7 @@ abstract interface class ReaderSettingsRepository {
     double? letterSpacing,
     int? paragraphIndent,
     bool? textFullJustify,
+    bool? textBottomJustify,
     int? textBold,
     bool? italic,
     bool? useZhLayout,

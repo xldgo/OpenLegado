@@ -62,6 +62,10 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_text_full_justify',
   );
+  static const _textBottomJustify = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_text_bottom_justify',
+  );
   static const _textBold = (
     storage: SettingsStorageKind.preferences,
     key: 'reader_text_bold',
@@ -161,6 +165,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _letterSpacing,
     _paragraphIndent,
     _textFullJustify,
+    _textBottomJustify,
     _textBold,
     _italic,
     _useZhLayout,
@@ -185,7 +190,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
         : 20.0,
     lineHeight: snapshot[_lineHeight] is double
         ? snapshot[_lineHeight] as double
-        : 1.7,
+        : 1.2,
     fontFamily: snapshot[_fontFamily] is String
         ? snapshot[_fontFamily] as String
         : null,
@@ -269,6 +274,9 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
       textFullJustify: (snapshot[_textFullJustify] is bool
           ? snapshot[_textFullJustify] as bool
           : true),
+      textBottomJustify: snapshot[_textBottomJustify] is bool
+          ? snapshot[_textBottomJustify] as bool
+          : true,
       textBold: (snapshot[_textBold] is int ? snapshot[_textBold] as int : 0)
           .clamp(0, 2),
       italic: (snapshot[_italic] is bool ? snapshot[_italic] as bool : false),
@@ -344,6 +352,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     double? letterSpacing,
     int? paragraphIndent,
     bool? textFullJustify,
+    bool? textBottomJustify,
     int? textBold,
     bool? italic,
     bool? useZhLayout,
@@ -353,6 +362,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _letterSpacing: ?letterSpacing?.clamp(-0.5, 1.0),
     _paragraphIndent: ?paragraphIndent?.clamp(0, 3),
     _textFullJustify: ?textFullJustify,
+    _textBottomJustify: ?textBottomJustify,
     _textBold: ?textBold?.clamp(0, 2),
     _italic: ?italic,
     _useZhLayout: ?useZhLayout,

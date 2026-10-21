@@ -95,7 +95,7 @@ class _Audio extends AudioNotifier {
   }
 
   @override
-  Future<void> resumeOrPlay() async {
+  Future<void> resumeOrPlay({bool userInitiated = true}) async {
     resumes++;
     state = state.copyWith(state: PlayerState.playing);
   }

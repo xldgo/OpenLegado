@@ -5,6 +5,7 @@ final class ReaderTextLayoutSettings {
     this.letterSpacing = 0,
     this.paragraphIndent = 2,
     this.textFullJustify = true,
+    this.textBottomJustify = true,
     this.textBold = 0,
     this.italic = false,
     this.useZhLayout = false,
@@ -16,6 +17,7 @@ final class ReaderTextLayoutSettings {
   final double letterSpacing;
   final int paragraphIndent;
   final bool textFullJustify;
+  final bool textBottomJustify;
 
   /// 0常规、1粗体、2细体，沿用现有控件与渲染语义。
   final int textBold;
@@ -30,6 +32,7 @@ final class ReaderTextLayoutSettings {
       letterSpacing == other.letterSpacing &&
       paragraphIndent == other.paragraphIndent &&
       textFullJustify == other.textFullJustify &&
+      textBottomJustify == other.textBottomJustify &&
       textBold == other.textBold &&
       italic == other.italic &&
       useZhLayout == other.useZhLayout &&
@@ -41,6 +44,7 @@ final class ReaderTextLayoutSettings {
     letterSpacing,
     paragraphIndent,
     textFullJustify,
+    textBottomJustify,
     textBold,
     italic,
     useZhLayout,

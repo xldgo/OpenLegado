@@ -13,7 +13,7 @@ final class ReaderSettings {
   const ReaderSettings({
     this.pageTurnMode = PageTurnMode.cover,
     this.fontSize = 20.0,
-    this.lineHeight = 1.7,
+    this.lineHeight = 1.2,
     this.fontFamily,
     this.titleFontFamily = '',
     this.tocLoadWordCount = true,

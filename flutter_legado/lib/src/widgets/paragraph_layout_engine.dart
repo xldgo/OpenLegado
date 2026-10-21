@@ -81,6 +81,8 @@ class ParagraphLayoutEngine {
           'paddingRightPx': 0,
           'paddingBottomPx': 0,
           'lineHeightPx': shaper.height,
+          'lineSpacingMultiplier': config.lineHeight,
+          'textBottomJustify': config.textBottomJustify && !scroll,
           'baselineOffsetPx': shaper.baseline,
           'paragraphSpacingPx': config.paragraphSpacing,
           'letterSpacingPx': shaper.spacing,

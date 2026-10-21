@@ -54,6 +54,7 @@ abstract final class ReaderPaginationPolicy {
     config.fontWeight,
     config.fontStyle,
     config.justify,
+    config.textBottomJustify,
     config.useZhLayout,
     config.hangingPunctuation,
     config.textEnvironment?.geometryKey,

@@ -82,10 +82,10 @@ final class ReaderTitleSettings {
 final class ReaderPageLayoutSettings {
   const ReaderPageLayoutSettings({
     this.bodyPadding = const ReaderPagePadding(
-      top: 24,
-      bottom: 24,
-      left: 20,
-      right: 20,
+      top: 6,
+      bottom: 6,
+      left: 16,
+      right: 16,
     ),
     this.header = const ReaderPageEdgeSettings(
       padding: ReaderPagePadding(left: 16, right: 16),
@@ -113,7 +113,7 @@ final class ReaderPageLayoutSettings {
     PaddingRegion.footer => footer.padding,
   };
 
-  /// 保留当前恢复入口的值，与首次正文缺省分别定义。
+  /// 恢复入口与首次缺省使用同一组参考版边距。
   static ReaderPagePadding resetPaddingFor(PaddingRegion region) =>
       switch (region) {
         PaddingRegion.header => const ReaderPagePadding(left: 16, right: 16),

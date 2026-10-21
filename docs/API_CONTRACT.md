@@ -1,5 +1,16 @@
 # API 契约文档
 
+### READER-PAGE-HEIGHT-20261021：正文行盒与底部对齐接线
+
+- Flutter正文lineHeight表示自然字体行盒的推进倍率；自然行盒与基线由同一Flutter字体环境测量，文字渲染不再把倍率写入TextStyle.height。倍率分别传入既有LayoutConfigDto和InlineParagraphDto.lineSpacingMultiplier。
+- ReaderTextLayoutSettings/ReaderSettingsRepository.updateTextLayout新增textBottomJustify；普通Preferences键reader_text_bottom_justify，缺省true，存取/订阅/备份沿现有共享设置路径。该字段进入布局缓存身份，切换后按原文锚点重排；关闭时保留自然行距。
+- ParagraphConfig.textBottomJustify传入既有LayoutConfigDto.textBottomJustify；Rust分页规则不变，底部对齐只分配剩余间隙，不增加可容纳行数；连续滚动不做底部对齐。
+- 缺省行距倍率1.2，正文上下6、左右16，与参考版缺省及恢复入口一致；显式保存值保持。隐藏页脚及空提示页脚高度为零，不回退显示另一套页码。
+- 不修改FFI签名、数据库、原文UTF-16坐标、段评占位或阅读进度格式。
+
+编写者：Codex + UI｜2026-10-21
+
+
 ## 阅读页脚圆角避让（READER-FOOTER-CORNERS-20261021，实施前冻结）
 
 Rust/FRB及设置键不变。Android legado/system_bar 新增只读 getDisplayCorners，

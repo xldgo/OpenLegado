@@ -453,6 +453,18 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           );
         },
       ),
+      SettingSwitchRow(
+        title: '底部对齐',
+        subtitle: '均分页尾剩余空间，关闭后保持自然行距',
+        value: _textLayout.textBottomJustify,
+        onChanged: (v) {
+          _saveTextLayout(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTextLayout(textBottomJustify: v),
+          );
+        },
+      ),
       // 中文优化分行（原版 useZhLayout；关闭后走朴素按宽断行）
       SettingSwitchRow(
         title: '中文优化分行',

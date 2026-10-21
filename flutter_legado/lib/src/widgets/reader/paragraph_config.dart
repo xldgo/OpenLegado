@@ -10,6 +10,7 @@ class ParagraphConfig {
   final double paragraphSpacing;
   final double indent;
   final bool justify;
+  final bool textBottomJustify;
   final Color backgroundColor;
   final Color textColor;
 
@@ -45,10 +46,11 @@ class ParagraphConfig {
 
   const ParagraphConfig({
     this.fontSize = 16.0,
-    this.lineHeight = 1.6,
+    this.lineHeight = 1.2,
     this.paragraphSpacing = 8.0,
     this.indent = 0.0,
     this.justify = true,
+    this.textBottomJustify = true,
     // [A-4 | 2026-09-20 用户裁决] 原死默认 Colors.white/Colors.black（调用方
     // 恒以 state 派生色覆写，默认值从未被生产路径依赖）改为必填：漏传颜色
     // 直接编译错误，杜绝隐性主题回退（DARK_THEME 台账 C3 项闭环）。
@@ -72,6 +74,7 @@ class ParagraphConfig {
     double? paragraphSpacing,
     double? indent,
     bool? justify,
+    bool? textBottomJustify,
     Color? backgroundColor,
     Color? textColor,
     double? letterSpacing,
@@ -91,6 +94,7 @@ class ParagraphConfig {
       paragraphSpacing: paragraphSpacing ?? this.paragraphSpacing,
       indent: indent ?? this.indent,
       justify: justify ?? this.justify,
+      textBottomJustify: textBottomJustify ?? this.textBottomJustify,
       backgroundColor: backgroundColor ?? this.backgroundColor,
       textColor: textColor ?? this.textColor,
       letterSpacing: letterSpacing ?? this.letterSpacing,

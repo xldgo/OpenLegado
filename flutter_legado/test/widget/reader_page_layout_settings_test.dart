@@ -100,15 +100,15 @@ void main() {
         region: PaddingRegion.body,
       ),
     );
-    expect(row(tester, '上边距').value, 24);
-    expect(row(tester, '左边距').value, 20);
+    expect(row(tester, '上边距').value, 6);
+    expect(row(tester, '左边距').value, 16);
     await tap(tester, find.byTooltip('增大左边距'));
-    expect(row(tester, '左边距').value, 21);
-    expect(row(tester, '右边距').value, 21);
+    expect(row(tester, '左边距').value, 17);
+    expect(row(tester, '右边距').value, 17);
     await tap(tester, find.text('左右边距联动'));
     await tap(tester, find.byTooltip('增大左边距'));
-    expect(row(tester, '左边距').value, 22);
-    expect(row(tester, '右边距').value, 21);
+    expect(row(tester, '左边距').value, 18);
+    expect(row(tester, '右边距').value, 17);
     await tap(tester, find.text('恢复默认边距'));
     expect(row(tester, '上边距').value, 6);
     expect(row(tester, '下边距').value, 6);
@@ -142,11 +142,11 @@ void main() {
     storage.writeFailure = true;
     await tap(tester, find.byTooltip('增大上边距'));
     expect(find.text('页面布局保存失败，请重试'), findsOneWidget);
-    expect(row(tester, '上边距').value, 24);
+    expect(row(tester, '上边距').value, 6);
     expect(storage.values.containsKey('reader_page_margin_top'), isFalse);
     storage.writeFailure = false;
     await tap(tester, find.byTooltip('增大上边距'));
-    expect(storage.values['reader_page_margin_top'], 25.0);
+    expect(storage.values['reader_page_margin_top'], 7.0);
     storage.values['reader_page_margin_top'] = 31.0;
     await container.read(readerSettingsRepositoryProvider).reload();
     await tester.pumpAndSettle();

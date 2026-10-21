@@ -101,8 +101,8 @@ abstract class ReaderState with _$ReaderState {
     @Default(20.0) double fontSize,
 
     /// 行高倍数
-    /// [C2 R2] 默认行距对齐参考（参考 ~1.7，原版 lineSpacingExtra=12）：1.6 → 1.7
-    @Default(1.7) double lineHeight,
+    /// 参考版lineSpacingExtra=12：自然字体行盒的1.2倍推进。
+    @Default(1.2) double lineHeight,
 
     /// 背景色
     @Default(ReaderBackground.white) Color backgroundColor,

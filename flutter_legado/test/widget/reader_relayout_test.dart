@@ -32,6 +32,7 @@ void main() {
       double width,
       double scale, {
       int count = 0,
+      bool bottomJustify = true,
       EdgeInsets insets = EdgeInsets.zero,
       bool outerInsets = false,
     }) async {
@@ -62,6 +63,7 @@ void main() {
                         key: key,
                         paragraphSpacing: 8,
                         selectText: false,
+                        textBottomJustify: bottomJustify,
                         reviewCounts: {1: count},
                         contentInsets: outerInsets ? null : insets,
                       ),
@@ -109,6 +111,11 @@ void main() {
     expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
     await pump(320, 2);
     expect(key.currentState!.pageCount, greaterThan(narrow));
+    expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
+    expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
+    final beforeToggle = key.currentState!.layoutMeasurements;
+    await pump(320, 2, bottomJustify: false);
+    expect(key.currentState!.layoutMeasurements, greaterThan(beforeToggle));
     expect(key.currentState!.currentSourceRange.$1, lessThanOrEqualTo(anchor));
     expect(key.currentState!.currentSourceRange.$2, greaterThan(anchor));
     // 同样的内容容量下，内部避让应保持分页和位置，但扩大翻页画布。

@@ -25,7 +25,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('页面缺省及恢复入口分别保持，不读取旧键或日夜分桶', () async {
+  test('页面缺省及恢复入口一致，不读取旧键或日夜分桶', () async {
     storage.values.addAll({
       'reader_adv_margin_top': 99.0,
       'reader_layout_night_margin_left': 99.0,
@@ -48,6 +48,10 @@ void main() {
     expect(
       ReaderPageLayoutSettings.resetPaddingFor(PaddingRegion.header),
       const ReaderPagePadding(left: 16, right: 16),
+    );
+    expect(
+      repository.current.pageLayout.bodyPadding,
+      ReaderPageLayoutSettings.resetPaddingFor(PaddingRegion.body),
     );
     await repository.updatePageLayout();
     await repository.updateTitle();
@@ -228,7 +232,7 @@ void main() {
     expect(repository.current.pageLayout.header.padding.top, 12);
     expect(repository.current.pageLayout.title.size, 5);
     expect(repository.current.pageLayout.bodyPadding.left, 0);
-    expect(repository.current.pageLayout.bodyPadding.right, 20);
+    expect(repository.current.pageLayout.bodyPadding.right, 16);
     expect(storage.writes.map((entry) => entry.$1).toSet(), {
       'reader_header_padding_top',
       'reader_header_tip_left',

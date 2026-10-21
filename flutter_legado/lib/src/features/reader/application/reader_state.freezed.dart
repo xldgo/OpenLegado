@@ -44,7 +44,7 @@ mixin _$ReaderState {
   double get fontSize;
 
   /// 行高倍数
-  /// [C2 R2] 默认行距对齐参考（参考 ~1.7，原版 lineSpacingExtra=12）：1.6 → 1.7
+  /// 参考版lineSpacingExtra=12：自然字体行盒的1.2倍推进。
   double get lineHeight;
 
   /// 背景色
@@ -563,7 +563,7 @@ class _ReaderState implements ReaderState {
     this.error,
     this.showControls = false,
     this.fontSize = 20.0,
-    this.lineHeight = 1.7,
+    this.lineHeight = 1.2,
     this.backgroundColor = ReaderBackground.white,
     this.foregroundColor,
     this.readingBrightness,
@@ -625,7 +625,7 @@ class _ReaderState implements ReaderState {
   final double fontSize;
 
   /// 行高倍数
-  /// [C2 R2] 默认行距对齐参考（参考 ~1.7，原版 lineSpacingExtra=12）：1.6 → 1.7
+  /// 参考版lineSpacingExtra=12：自然字体行盒的1.2倍推进。
   @override
   @JsonKey()
   final double lineHeight;

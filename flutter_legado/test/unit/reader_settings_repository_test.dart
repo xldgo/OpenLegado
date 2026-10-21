@@ -42,6 +42,7 @@ void main() {
       'reader_letter_spacing',
       'reader_paragraph_indent',
       'reader_text_full_justify',
+      'reader_text_bottom_justify',
       'reader_text_bold',
       'reader_italic',
       'reader_use_zh_layout',

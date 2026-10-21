@@ -58,6 +58,7 @@ class ReaderPageView extends ConsumerStatefulWidget {
 
   /// 两端对齐开关（对标 MoreConfig textFullJustify）
   final bool textFullJustify;
+  final bool textBottomJustify;
 
   // [UI-fix v2.0.3 | 2026-08-06] 页面边距四向可调（对标原版
   // ReadBookConfig paddingTop/Bottom/Left/Right） — Qoder
@@ -124,10 +125,11 @@ class ReaderPageView extends ConsumerStatefulWidget {
     this.letterSpacing = 0.1,
     this.paragraphIndent = 2,
     this.textFullJustify = true,
-    this.marginTop = 24,
-    this.marginBottom = 24,
-    this.marginLeft = 20,
-    this.marginRight = 20,
+    this.textBottomJustify = true,
+    this.marginTop = 6,
+    this.marginBottom = 6,
+    this.marginLeft = 16,
+    this.marginRight = 16,
     this.pageChrome = const ReaderPageChromeConfig(),
     this.readBodyToLh = true,
     this.contentInsets,
@@ -738,6 +740,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       fontWeight: boldText ? FontWeight.bold : _fontWeightFor(textBold),
       fontStyle: _fontStyleFor(italic),
       justify: justify,
+      textBottomJustify: widget.textBottomJustify,
       textColor: _resolveTextColor(state),
       backgroundColor: state.backgroundColor,
       letterSpacing: letterSpacing,

@@ -78,6 +78,10 @@ void main() {
       expect(transport.config!['breakMode'], chinese ? 'chinese' : 'plain');
       expect(transport.config!['viewportWidthPx'], 120);
       expect(transport.config!['viewportHeightPx'], 200);
+      expect(transport.config!['lineSpacingMultiplier'], 1.5);
+      expect(transport.config!['textBottomJustify'], isTrue);
+      final block = transport.blocks.single['value']! as Map;
+      expect(block['lineSpacingMultiplier'], 1.5);
       expect(transport.blocks.single['type'], 'paragraph');
     });
   }
@@ -112,5 +116,10 @@ void main() {
         paragraph.text,
       );
     }
+  });
+  test('连续滚动不进行底部对齐', () async {
+    final transport = _RecordingTransport();
+    await engine(transport).paginateChapter('正文', 300, double.infinity);
+    expect(transport.config!['textBottomJustify'], isFalse);
   });
 }

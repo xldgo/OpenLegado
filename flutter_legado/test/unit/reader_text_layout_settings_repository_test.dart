@@ -24,7 +24,7 @@ void main() {
   });
   tearDown(() => service.dispose());
 
-  test('八项实际默认、单位保持，旧排版键不读取也不补写', () async {
+  test('九项实际默认、单位保持，旧排版键不读取也不补写', () async {
     storage.values.addAll({
       'reader_adv_paragraph_spacing': 20.0,
       'reader_adv_letter_spacing': 4.0,
@@ -48,7 +48,7 @@ void main() {
     expect(storage.writes, isEmpty);
   });
 
-  test('真实Preferences保存八项，新服务恢复，基础偏好不变', () async {
+  test('真实Preferences保存九项，新服务恢复，基础偏好不变', () async {
     SharedPreferences.setMockInitialValues({'reader_font_size': 23.0});
     final actualService = AppSettingsService(
       storages: {
@@ -63,6 +63,7 @@ void main() {
       letterSpacing: 0.24,
       paragraphIndent: 3,
       textFullJustify: false,
+      textBottomJustify: false,
       textBold: 2,
       italic: true,
       useZhLayout: true,
@@ -83,6 +84,7 @@ void main() {
         letterSpacing: 0.24,
         paragraphIndent: 3,
         textFullJustify: false,
+        textBottomJustify: false,
         textBold: 2,
         italic: true,
         useZhLayout: true,
@@ -210,13 +212,14 @@ void main() {
     expect(prefs.containsKey('keep_light'), isFalse);
   });
 
-  test('恢复重读八项，读取失败保留当前快照', () async {
+  test('恢复重读九项，读取失败保留当前快照', () async {
     await repository.load();
     storage.values.addAll({
       'reader_paragraph_spacing': 15.0,
       'reader_letter_spacing': -0.2,
       'reader_paragraph_indent': 1,
       'reader_text_full_justify': false,
+      'reader_text_bottom_justify': false,
       'reader_text_bold': 1,
       'reader_italic': true,
       'reader_use_zh_layout': true,
@@ -234,6 +237,7 @@ void main() {
         letterSpacing: -0.2,
         paragraphIndent: 1,
         textFullJustify: false,
+        textBottomJustify: false,
         textBold: 1,
         italic: true,
         useZhLayout: true,

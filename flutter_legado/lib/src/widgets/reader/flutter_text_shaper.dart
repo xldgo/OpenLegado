@@ -16,7 +16,8 @@ class FlutterTextShaper {
   late final TextStyle style = environment.baseStyle.merge(
     TextStyle(
       fontSize: config.fontSize,
-      height: config.lineHeight,
+      // 行距由分页器推进，文字仅测量自然字体行盒。
+      height: kTextHeightNone,
       letterSpacing: 0,
       fontFamily: config.fontFamily,
       fontWeight: config.fontWeight,
@@ -123,6 +124,7 @@ class FlutterTextShaper {
       'indentWidthPx': indent,
       'alignment': config.justify ? 'justify' : 'start',
       'lineHeightPx': height,
+      'lineSpacingMultiplier': config.lineHeight,
       'baselineOffsetPx': baseline,
       'letterSpacingPx': spacing,
     };

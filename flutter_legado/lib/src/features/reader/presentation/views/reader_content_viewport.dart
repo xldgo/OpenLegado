@@ -106,6 +106,7 @@ class ReaderContentViewport extends StatelessWidget {
                       letterSpacing: textLayout.letterSpacing,
                       paragraphIndent: textLayout.paragraphIndent,
                       textFullJustify: textLayout.textFullJustify,
+                      textBottomJustify: textLayout.textBottomJustify,
                       // [UI-fix v2.0.3 | 2026-08-06] 页面边距接入分页渲染 — Qoder
                       marginTop: pageLayout.bodyPadding.top,
                       marginBottom: pageLayout.bodyPadding.bottom,

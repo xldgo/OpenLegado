@@ -73,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('字体与中文排版控件保存八项，并保持彼此值', (tester) async {
+  testWidgets('字体与中文排版控件保存九项，并保持彼此值', (tester) async {
     await initialize(tester);
     expect(tester.widget<Slider>(slider(-0.5, 1)).value, 0);
     tester.widget<Slider>(slider(-0.5, 1)).onChanged!(0.24);
@@ -85,6 +85,15 @@ void main() {
     await tap(tester, '首行缩进');
     await tap(tester, '三字符');
     await tap(tester, '两端对齐');
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .textLayout
+          .textBottomJustify,
+      isTrue,
+    );
+    await tap(tester, '底部对齐');
     await tap(tester, '中文优化分行');
     expect(find.text('段首标点悬挂'), findsOneWidget);
     await tap(tester, '段首标点悬挂');
@@ -98,6 +107,7 @@ void main() {
     expect(layout.textBold, 1);
     expect(layout.italic, isTrue);
     expect(layout.textFullJustify, isFalse);
+    expect(layout.textBottomJustify, isFalse);
     expect(layout.useZhLayout, isTrue);
     expect(layout.hangingPunctuation, isTrue);
     expect(storage.writes.map((entry) => entry.$1).toSet(), {
@@ -107,6 +117,7 @@ void main() {
       'reader_text_bold',
       'reader_italic',
       'reader_text_full_justify',
+      'reader_text_bottom_justify',
       'reader_use_zh_layout',
       'reader_hanging_punctuation',
     });
@@ -158,6 +169,34 @@ void main() {
         .updateScreen(keepScreenOnSeconds: 60);
     expect(storage.values['reader_use_zh_layout'], isTrue);
     expect(storage.values['reader_hanging_punctuation'], isTrue);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('底部对齐保存失败保持原值，重试和重开使用持久设置', (tester) async {
+    await initialize(tester, fullPage: false);
+    storage.writeFailure = true;
+    await tap(tester, '底部对齐');
+    expect(find.text('阅读排版保存失败，请重试'), findsOneWidget);
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .textLayout
+          .textBottomJustify,
+      isTrue,
+    );
+    storage.writeFailure = false;
+    await tap(tester, '底部对齐');
+    expect(storage.values['reader_text_bottom_justify'], isFalse);
+    await container.read(readerSettingsRepositoryProvider).reload();
+    await tester.pumpAndSettle();
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .textLayout
+          .textBottomJustify,
+      isFalse,
+    );
     expect(tester.takeException(), isNull);
   });
 }

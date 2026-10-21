@@ -73,7 +73,11 @@ class _Reader extends ReaderNotifier {
 
 class _ReaderWithPageRequest extends _Reader {
   @override
-  ReaderState build() => super.build().copyWith(currentChapterPos: 35);
+  // 保证第35页需要多批排版，不让该场景依赖默认行距与边距。
+  ReaderState build() => super.build().copyWith(
+    currentChapterPos: 35,
+    chapterContent: '${sources[0]}\n${sources[0]}',
+  );
 }
 
 class _Content extends Fake implements ChapterContentService {
@@ -327,6 +331,7 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderPageView)),
     );
+    expect(key.currentState!.pageCount, greaterThan(35));
     expect(container.read(readerNotifierProvider).currentChapterPos, 35);
     expect(
       container.read(readerNotifierProvider.notifier).currentSourceOffset,

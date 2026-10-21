@@ -38,8 +38,7 @@ class ReaderTypographicPage extends StatelessWidget {
   /// 全局总页数（可选）
   final int? globalTotalPages;
 
-  // [UI-fix v2.0.3 | 2026-08-06] 页面内容边距接阅读配置（对标原版
-  // ReadBookConfig 四向 padding），默认保持历史硬编码值 — Qoder
+  // 默认边距与阅读设置、恢复入口同源，对齐参考版。— Codex + UI
   final EdgeInsets contentPadding;
 
   // [UI-fix v2.0.3 | 2026-08-08] 长按选择文本开关（对标原版 selectText，
@@ -81,8 +80,8 @@ class ReaderTypographicPage extends StatelessWidget {
     this.globalPageIndex,
     this.globalTotalPages,
     this.contentPadding = const EdgeInsets.symmetric(
-      horizontal: 20,
-      vertical: 24,
+      horizontal: 16,
+      vertical: 6,
     ),
     this.pageChrome = const ReaderPageChromeConfig(),
     this.tipContext = const ReaderTipContext(pageIndex: 0, totalPages: 1),
@@ -204,21 +203,6 @@ class ReaderTypographicPage extends StatelessWidget {
                       onReviewTap: onReviewTap,
                     ),
                   ),
-                  if (!showFooter)
-                    SelectionContainer.disabled(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Center(
-                          child: Text(
-                            _buildPageIndicator(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: textColor.withValues(alpha: 0.4),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -247,19 +231,6 @@ class ReaderTypographicPage extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  /// 构建页码指示文本
-  ///
-  /// 格式："章内页/章总页" 或 "章内页/章总页 · 全局页/全局总页"
-  String _buildPageIndicator() {
-    final localIndicator = '${pageIndex + 1}/$totalPages';
-    final gIndex = globalPageIndex;
-    final gTotal = globalTotalPages;
-    if (gIndex != null && gTotal != null && gTotal > 0) {
-      return '$localIndicator · ${gIndex + 1}/$gTotal';
-    }
-    return localIndicator;
   }
 }
 
@@ -338,7 +309,7 @@ class ReaderTextContent extends StatelessWidget {
                     .join(),
                 TextStyle(
                   fontSize: fontSize,
-                  height: lineHeight,
+                  height: kTextHeightNone,
                   fontFamily: fontFamily,
                   fontWeight: fontWeight,
                   fontStyle: fontStyle,
@@ -366,7 +337,7 @@ class ReaderTextContent extends StatelessWidget {
                 .merge(
                   TextStyle(
                     fontSize: fontSize,
-                    height: lineHeight,
+                    height: kTextHeightNone,
                     color:
                         readAloudRange != null &&
                             para.startIndex < readAloudRange!.$2 &&

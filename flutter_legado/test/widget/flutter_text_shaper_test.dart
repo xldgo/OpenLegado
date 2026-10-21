@@ -70,7 +70,11 @@ void main() {
         text: TextSpan(
           text: text,
           style: environment.baseStyle.merge(
-            const TextStyle(fontSize: 16, height: 1.6, letterSpacing: 0),
+            const TextStyle(
+              fontSize: 16,
+              height: kTextHeightNone,
+              letterSpacing: 0,
+            ),
           ),
         ),
         textDirection: direction,
@@ -147,5 +151,41 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('行距倍率不进入自然行盒，显式清除主题文字高度', (tester) async {
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: DefaultTextStyle(
+          style: const TextStyle(fontFamily: 'Ahem', height: 3),
+          child: Builder(
+            builder: (context) {
+              final environment = TextLayoutEnvironment.of(context);
+              const config = ParagraphConfig(
+                fontSize: 20,
+                lineHeight: 1.2,
+                backgroundColor: Color(0xffffffff),
+                textColor: Color(0xff000000),
+              );
+              final first = FlutterTextShaper(config, environment, null);
+              final second = FlutterTextShaper(
+                config.copyWith(lineHeight: 2),
+                environment,
+                null,
+              );
+              expect(first.height, closeTo(20, .01));
+              expect(second.height, first.height);
+              expect(second.baseline, first.baseline);
+              const text = SourceParagraph('正文', 0, 2);
+              final a = first.measure(text, 0, null, 200)['value']! as Map;
+              final b = second.measure(text, 0, null, 200)['value']! as Map;
+              expect(a['lineSpacingMultiplier'], 1.2);
+              expect(b['lineSpacingMultiplier'], 2);
+              return const SizedBox();
+            },
+          ),
+        ),
+      ),
+    );
   });
 }

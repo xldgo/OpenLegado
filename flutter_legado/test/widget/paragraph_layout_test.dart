@@ -23,10 +23,15 @@ void main() {
 
     test('ParagraphConfig - 默认值验证', () {
       expect(defaultConfig.fontSize, equals(16.0));
-      expect(defaultConfig.lineHeight, equals(1.6));
+      expect(defaultConfig.lineHeight, equals(1.2));
       expect(defaultConfig.paragraphSpacing, equals(8.0));
       expect(defaultConfig.indent, equals(0.0));
       expect(defaultConfig.justify, isTrue);
+      expect(defaultConfig.textBottomJustify, isTrue);
+      expect(
+        defaultConfig.copyWith(textBottomJustify: false).textBottomJustify,
+        isFalse,
+      );
       expect(defaultConfig.backgroundColor, equals(Colors.white));
       expect(defaultConfig.textColor, equals(Colors.black));
     });
@@ -55,7 +60,7 @@ void main() {
       final modified = defaultConfig.copyWith(fontSize: 18.0);
 
       expect(modified.fontSize, equals(18.0));
-      expect(modified.lineHeight, equals(1.6));
+      expect(modified.lineHeight, equals(1.2));
       expect(modified.paragraphSpacing, equals(8.0));
     });
 
