@@ -285,22 +285,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_marshal_search_valid() {
-        let json =
-            r#"[{"name":"书A","bookUrl":"http://a.com"},{"name":"书B","bookUrl":"http://b.com"}]"#;
-        let results = JsSourceMarshaller::marshal_search(json).unwrap();
-        assert_eq!(results.len(), 2);
-    }
-
-    #[test]
-    fn test_marshal_search_filters_invalid_entries() {
-        let json = r#"[{"name":"","bookUrl":"http://a.com"},{"name":"有效","bookUrl":"http://b.com"},{"name":"无URL","bookUrl":""}]"#;
-        let results = JsSourceMarshaller::marshal_search(json).unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0]["name"], "有效");
-    }
-
-    #[test]
     fn test_marshal_search_not_array() {
         let json = r#"{"name":"不是数组"}"#;
         let result = JsSourceMarshaller::marshal_search(json);
@@ -343,33 +327,6 @@ mod tests {
         assert_eq!(urls[0], "https://example.com/down/1.zip");
         // 已是绝对 URL 保持不变
         assert_eq!(urls[1], "https://cdn.com/2.zip");
-    }
-
-    #[test]
-    fn test_marshal_chapters_valid() {
-        let json = r#"[{"title":"第一章","url":"http://a.com/1"},{"title":"第二章","url":"http://a.com/2"}]"#;
-        let chapters = JsSourceMarshaller::marshal_chapters(json, "http://a.com/toc").unwrap();
-        assert_eq!(chapters.len(), 2);
-    }
-
-    #[test]
-    fn test_marshal_chapters_filters_invalid() {
-        let json = r#"[{"title":"","url":"http://a.com"},{"title":"有效","url":"http://b.com"}]"#;
-        let chapters = JsSourceMarshaller::marshal_chapters(json, "http://a.com/toc").unwrap();
-        assert_eq!(chapters.len(), 1);
-    }
-
-    #[test]
-    fn test_marshal_chapters_url_normalization() {
-        let json = r#"[{"title":"第一章","url":"/chapter/1.html"},{"title":"卷","url":"/vol/2","isVolume":true}]"#;
-        let chapters =
-            JsSourceMarshaller::marshal_chapters(json, "https://example.com/book/toc.html")
-                .unwrap();
-        assert_eq!(chapters.len(), 2);
-        // 非卷章 url 被绝对化
-        assert_eq!(chapters[0]["url"], "https://example.com/chapter/1.html");
-        // 卷章 url 不做绝对化
-        assert_eq!(chapters[1]["url"], "/vol/2");
     }
 
     #[test]
@@ -430,18 +387,6 @@ mod tests {
         assert_eq!(info.toc_url.as_deref(), Some("http://a.com/toc"));
         assert_eq!(info.can_re_name, Some(true));
         assert_eq!(info.download_urls.as_ref().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn test_js_chapter_camel_case_deserialize() {
-        use super::JsChapter;
-        let json = r#"{"title":"第一章","url":"http://a.com/1","isVolume":false,"isVip":true,"tag":"2024-01-01"}"#;
-        let ch: JsChapter = serde_json::from_str(json).unwrap();
-        assert_eq!(ch.title, "第一章");
-        assert_eq!(ch.url, "http://a.com/1");
-        assert_eq!(ch.is_volume, Some(false));
-        assert_eq!(ch.is_vip, Some(true));
-        assert_eq!(ch.tag.as_deref(), Some("2024-01-01"));
     }
 
     #[test]

@@ -580,21 +580,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_normalize_result() {
-        assert_eq!(JsSourceEngine::normalize_result("null"), None);
-        assert_eq!(JsSourceEngine::normalize_result("undefined"), None);
-        assert_eq!(JsSourceEngine::normalize_result("  "), None);
-        assert_eq!(
-            JsSourceEngine::normalize_result("hello"),
-            Some("hello".to_string())
-        );
-        assert_eq!(
-            JsSourceEngine::normalize_result(" 42 "),
-            Some("42".to_string())
-        );
-    }
-
     /// P2-19 后续 #10（2026-09-23 上游同步改写）：`new_quickjs` 构造期 mainJs
     /// 顶层 `java.ajax` 必须携带**请求 URL 属域**的 cookie（上游语义：cookie
     /// 属于域名而非书源，读侧按请求 URL 属域取；P2-19「未归属不携带」收紧已

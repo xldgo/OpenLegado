@@ -189,6 +189,12 @@
 
 修复方向：单独定义执行契约与授权范围，不以添加函数名检查冒充功能完成。两个上游快照能力不同，应先明确追齐哪个版本的产品范围。
 
+### JS-11 / P2：卷标题占位正文返回 tag，与原版空正文不符
+
+**后续复用上游用例时运行确认。** 原版 `JsSourceBookTest` 的 `volume placeholder skips js content and ignores its tag` 使用 `isVolume=true`、`url="Volume 1#0"`、`title="Volume 1"`、非空 tag，并让 `getContent` 主动抛错来验证不会执行脚本；预期正文为空。
+
+相同场景在当前 `JsSourceBookOrchestrator::get_content` 返回 tag `"2026-08-10"`。虽然同样跳过脚本，但可能把占位章节的附带数据当正文显示。依据是 [js_source_book.rs](../rust/legado-js/src/js_source/js_source_book.rs) 的卷章早退与原版 `JsSourceBook.kt::getContentAwait`。本轮不修改业务逻辑，保留上游预期为明确标记的待修用例。
+
 ## 6. 已有基础与平台边界
 
 以下内容应保留，不能因上述问题推导出“全部宿主 API 都是假实现”或需要更换 JS 引擎：
@@ -248,5 +254,26 @@ cargo test --locked -p legado-js --features quickjs --test network_parity batch_
 合计 **9 项既有定向回归通过，4 个诊断场景确认差异**。临时入口已移除，最终探针源码留在忽略目录 `build/source-js-parity-audit-probe.rs`；如需重跑须临时放回对应 tests 目录。证据文件只在本机保存，不作为提交中的永久测试套件。
 
 本轮没有运行全量 Rust/Flutter 测试、上游 Gradle、真实 FFI 集成、模拟器、iOS、真实站点书源集合或性能测试；没有推送或触发 CI。未统计“兼容率”，没有证明未检查的宿主重载、Java 类、验证码和登录站点均可用。上述优先级基于可达生产调用链与行为证据，不能据此断定所有现有阅读故障都由同一原因造成。
+
+## 9. 上游用例复用与本地去重对应
+
+用户授权复用上游行为测试后，新增 [upstream_js_source.rs](../rust/legado-js/tests/upstream_js_source.rs)，记录上游固定提交、测试类及原用例名。JUnit/Rhino 接线改为实际 Rust QuickJS 与公开转换接口，不依赖本机上游目录，不读取生产源码进行断言。
+
+| 上游行为 | Rust 适配 | 删除/保留边界 |
+| --- | --- | --- |
+| 完整引擎调用、const/for-in、自定义 toJSON/getter、正文与 undefined | `execution` 场景 | 移除旧的纯字符串归一化用例，特别是不再把 trim 当成对齐预期；取消和资源作用域回归仍保留 |
+| 配置元信息与完整脚本、旧 source 配置、发现/登录配置、配对约束、时间戳写回 | `configuration` 场景 | 移除13个本地重叠用例；嵌套对象、字符串/注释、多声明和 compile-only 等独立词法回归保留 |
+| 缺必填字段的搜索过滤、卷章与相对目录 URL | `marshalling` 场景 | 移除6个重叠的正常/过滤/URL及章节 camelCase 用例；在同一条行为链中消费实际类型化模型 |
+| source/sourceApi、缺失可选函数、卷占位 tag | 3个明确关联JS-01、JS-04、JS-11的待修场景 | 保留原预期并标记ignore，单独执行确认失败；不反转断言让已知缺陷通过 |
+
+最终按diff核对共删除 **20** 项本地测试（config 13、marshaller 6、engine 1），移植后组织为 **15** 个场景（12通过、3待修），并非删除整个JS测试套件。本项目特有的Cookie、资源/流程隔离、初始化失败恢复、类型化详情与网络专项覆盖继续保留。上游完整章节身份注入、详情增量合并等当前接口尚不能完整表达的场景没有冒充已迁移；原版测试还需随对应功能修复继续补齐，不将本批称为上游测试全量移植。
+
+验证记录：
+
+- `cargo test --locked -p legado-js --features quickjs --test upstream_js_source -- --nocapture`：12通过、3明确忽略；日志 `build/source-js-upstream-adapt.log`。
+- 最终补齐空脚本与覆盖旧mainJs的场景输入后，仅复验`configuration::`的6项通过，日志`build/source-js-upstream-config-final.log`；与前次取并集，不重复计数。
+- 同命令改为 `-- --ignored --nocapture`：3项均复现预期的实现缺口，退出101；日志 `build/source-js-upstream-known-gaps.log`，不记作通过。
+- `--lib js_source::js_source_config::tests`、`--lib js_source::js_source_marshaller::tests`、`--lib source_engine::tests`：保留的9、11、7项分别通过；日志 `build/source-js-upstream-{config,marshaller,engine}.log`。
+- 合计39项通过，3项已知未对齐场景单独复现失败。这里是测试重组后的结果，不与上一节历史审计的9项重复累加；没有更改业务实现、契约、依赖或应用版本，没有执行全量测试、设备验证或CI。
 
 编写者：Codex + Rust / Bridge｜2026-10-22

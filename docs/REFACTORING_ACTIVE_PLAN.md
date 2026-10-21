@@ -11,6 +11,18 @@
 
 编写者：Codex + UI｜2026-10-22
 
+### SOURCE-JS-UPSTREAM-TESTS-20261022：复用上游 JS 行为用例并去重（P2，本批测试整理已关闭，已知业务差异继续待修）
+
+- 授权/基线：用户要求复用上游单测并删除本地重叠单测；dev / 4a8d13ca8，单代理。只整理legado-js测试和证据，不改业务逻辑、契约、依赖或应用版本，保留其他任务的Flutter工作区修改。
+- 范围：以原版363540972的JsSourceEngineTest、JsSourceConfigTest、JsSourceMarshallerTest、JsSourceBookTest为样例，在真实QuickJS/公开转换接口验证；配置、时间戳与结果转换覆盖重合时只保留一处。本项目独有的资源隔离、Cookie、取消与词法边界回归保留。
+- 已知差异：上游场景触发审计确认缺陷时保留原预期，以明确原因的ignore登记待修；单独执行这些用例记录实际失败，不降低预期，不宣称全部对齐。本轮不借测试整理修改生产实现。
+- 验收：只运行新上游场景及删除重叠后受影响的模块定向测试，核对来源、替代关系和剩余缺口；不运行全量测试、构建或设备验证，不推送CI。
+- 实现：新增legado-js/tests/upstream_js_source.rs，固定原版提交与原用例名，使用真实QuickJS和公开转换接口。按最终diff删除20项本地用例（config13、marshaller6、engine1），收为15个上游场景；source作用域、可选函数与卷章tag共3项保留原预期并明确ignore。类型化搜索/章节在同一行为链验证；独有的Cookie、流程隔离、取消、词法与详情模型覆盖保留，不把未迁移的完整身份注入/详情合并称为已覆盖。
+- 验证：新场景12通过，保留的config9、marshaller11、engine7通过，合计39通过；最终补齐空脚本与覆盖旧mainJs输入后，仅复验新配置6项通过，不重复计数，日志build/source-js-upstream-config-final.log。3个ignore场景单独运行全部按已知原因失败，退出101，分别证明JS-01、JS-04以及新增JS-11卷占位返回tag差异。其他日志build/source-js-upstream-{adapt,known-gaps,config,marshaller,engine}.log；rustfmt和diff检查通过，不把已知失败统计为通过。
+- 交付：复用及去重对应表、限制和JS-11证据补入[SOURCE_JS_PARITY_AUDIT_20261022.md](SOURCE_JS_PARITY_AUDIT_20261022.md)；仅测试与记录，本地提交，不推送或触发CI，无业务代码、版本或契约变更；无子代理，不宣称独立审查。后续修复按原审计项推进，并将相关ignore恢复为常规门禁。
+
+编写者：Codex + Rust｜2026-10-22
+
 ### SOURCE-JS-PARITY-AUDIT-20261022：书源 JS 对齐审计（报告已交付，差异修复待授权与裁决）
 
 - 授权/基线：用户要求检查书源JS等行为与上游的对齐情况并形成报告；主目录dev / 57d9c4fa2，单代理，只审计，不修改业务实现。
