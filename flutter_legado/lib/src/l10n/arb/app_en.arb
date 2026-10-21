@@ -190,7 +190,7 @@
   "dictionaryLookup": "Dictionary Lookup",
   "dictionaryLookupSummary": "Look up text using dictionary rules",
   "dictionaryRules": "Dictionary Rules",
-  "dictionaryRulesSummary": "Add, edit, enable, sort or import dictionary rules",
+  "dictionaryRulesSummary": "Configure dictionary rules",
   "highlightRules": "Highlight Rules",
   "highlightRulesSummary": "Automatic highlighting rules",
   "appearance": "Appearance",

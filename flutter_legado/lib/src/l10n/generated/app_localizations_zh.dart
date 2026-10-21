@@ -580,7 +580,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dictionaryRules => '字典规则';
 
   @override
-  String get dictionaryRulesSummary => '管理字典规则（增删改、启停、排序、导入）';
+  String get dictionaryRulesSummary => '配置字典规则';
 
   @override
   String get highlightRules => '高亮标注';

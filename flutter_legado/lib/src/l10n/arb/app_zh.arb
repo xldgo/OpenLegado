@@ -709,9 +709,9 @@
   "@dictionaryRules": {
     "description": "主界面文案：字典规则"
   },
-  "dictionaryRulesSummary": "管理字典规则（增删改、启停、排序、导入）",
+  "dictionaryRulesSummary": "配置字典规则",
   "@dictionaryRulesSummary": {
-    "description": "主界面文案：管理字典规则（增删改、启停、排序、导入）"
+    "description": "主界面文案：配置字典规则"
   },
   "highlightRules": "高亮标注",
   "@highlightRules": {

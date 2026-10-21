@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.435] - 2026-10-21
+
+### Changed
+- 字典规则说明简化为“配置字典规则”，移除括号中的操作枚举。
+- 贡献者：Codex + UI；构建号436。
+
 ## [2.0.434] - 2026-10-21
 
 ### Fixed

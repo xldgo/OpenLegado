@@ -1238,10 +1238,10 @@ abstract class AppLocalizations {
   /// **'字典规则'**
   String get dictionaryRules;
 
-  /// 主界面文案：管理字典规则（增删改、启停、排序、导入）
+  /// 主界面文案：配置字典规则
   ///
   /// In zh, this message translates to:
-  /// **'管理字典规则（增删改、启停、排序、导入）'**
+  /// **'配置字典规则'**
   String get dictionaryRulesSummary;
 
   /// 主界面文案：高亮标注

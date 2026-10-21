@@ -590,8 +590,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dictionaryRules => 'Dictionary Rules';
 
   @override
-  String get dictionaryRulesSummary =>
-      'Add, edit, enable, sort or import dictionary rules';
+  String get dictionaryRulesSummary => 'Configure dictionary rules';
 
   @override
   String get highlightRules => 'Highlight Rules';
