@@ -634,7 +634,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
                       ),
                       SettingSwitchRow(
                         title: '大顶栏形态',
-                        subtitle: '书架/我的等根页使用可折叠大标题',
+                        subtitle: '普通列表和设置页使用可折叠大标题',
                         value: ui.useFlexibleTopAppBar,
                         onChanged: (v) => _saveAppearance(
                           () => ref

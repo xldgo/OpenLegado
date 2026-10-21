@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.429] - 2026-10-21
+
+### Fixed
+- 普通管理页、设置页与五个主页面共用可折叠顶栏，接通大顶栏形态设置。
+- 修正书源管理标题不可见、折叠标题消失及顶栏留白过多，保留搜索、页签与列表操作。
+- 贡献者：Codex + UI；构建号430。
+
 ## [2.0.428] - 2026-10-21
 
 ### Fixed

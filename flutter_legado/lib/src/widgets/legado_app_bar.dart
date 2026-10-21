@@ -152,6 +152,73 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final (bar, material) = _toolbar(context);
+    return AppSurfaceBackdrop(material: material, child: bar);
+  }
+
+  /// 普通页壳与可折叠页壳共用按钮、配色和系统栏配置。— Codex + UI
+  Widget buildSliver(
+    BuildContext context, {
+    required bool large,
+    bool scrolledUnder = false,
+    double? expandedHeight,
+  }) {
+    final (bar, material) = _toolbar(context);
+    final create = large ? SliverAppBar.large : SliverAppBar.new;
+    final toolbar = bar.toolbarHeight ?? kToolbarHeight;
+    final bottomHeight = bar.bottom?.preferredSize.height ?? 0;
+    final expanded = expandedHeight ?? toolbar + 56 + bottomHeight;
+    return SliverLayoutBuilder(
+      builder: (context, constraints) => AppSliverSurfaceBackdrop(
+        material: material,
+        child: create(
+          pinned: true,
+          // NestedScrollView将后续位移交给内层，外层不再产生overlapsContent。
+          // 使用协调器的真实滚动状态，保证折叠标题显现，而非依赖外层继续滚动。
+          // 刚好折叠到边界（包括空列表）也必须显示标题，不能等下一次超出位移。
+          forceElevated:
+              scrolledUnder ||
+              (large &&
+                  constraints.scrollOffset >=
+                      expanded - toolbar - bottomHeight),
+          // 工具行与标题行各占56dp；不沿用large默认152dp的额外空白。
+          expandedHeight: large ? expanded : null,
+          collapsedHeight: large
+              ? toolbar +
+                    bottomHeight +
+                    (bar.primary ? MediaQuery.paddingOf(context).top : 0)
+              : null,
+          automaticallyImplyLeading: false,
+          leading: bar.leading,
+          title: bar.title,
+          actions: bar.actions,
+          flexibleSpace: bar.flexibleSpace,
+          bottom: bar.bottom,
+          elevation: bar.elevation,
+          scrolledUnderElevation: bar.scrolledUnderElevation,
+          shadowColor: bar.shadowColor,
+          surfaceTintColor: bar.surfaceTintColor,
+          shape: bar.shape,
+          backgroundColor: bar.backgroundColor,
+          foregroundColor: bar.foregroundColor,
+          iconTheme: bar.iconTheme,
+          actionsIconTheme: bar.actionsIconTheme,
+          primary: bar.primary,
+          centerTitle: bar.centerTitle,
+          excludeHeaderSemantics: bar.excludeHeaderSemantics,
+          titleSpacing: bar.titleSpacing,
+          toolbarHeight: toolbar,
+          leadingWidth: bar.leadingWidth,
+          toolbarTextStyle: bar.toolbarTextStyle,
+          titleTextStyle: bar.titleTextStyle,
+          systemOverlayStyle: bar.systemOverlayStyle,
+          forceMaterialTransparency: bar.forceMaterialTransparency,
+        ),
+      ),
+    );
+  }
+
+  (AppBar, AppSurfaceMaterial) _toolbar(BuildContext context) {
     final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
     final style = actionsStyle ?? ui.topBarButtonStyle;
     final merge = mergeActions ?? ui.mergeTopBarActions;
@@ -207,7 +274,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
       systemOverlayStyle: effectiveOverlay,
       forceMaterialTransparency: forceMaterialTransparency ?? false,
     );
-    return AppSurfaceBackdrop(material: material, child: bar);
+    return (bar, material);
   }
 
   @override
@@ -220,60 +287,8 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// 系统栏样式：按 AppBar 背景明暗计算（浅底深图标 / 深底浅图标）
-SystemUiOverlayStyle _legadoSystemOverlay(BuildContext context) {
-  final bg =
-      Theme.of(context).appBarTheme.backgroundColor ??
-      Theme.of(context).colorScheme.surface;
-  final isLight = ThemeData.estimateBrightnessForColor(bg) == Brightness.light;
-  return SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
-    statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
-  );
-}
-
-/// LargeTitle 子树字阶覆写（P1：对齐参考风格 24dp）
-///
-/// Flutter 的 SliverAppBar.large 展开态硬编码取 textTheme.headlineMedium，
-/// 本项目 miuix 压缩字阶（B1）中 headlineMedium=24dp，参考仓库 Compose M3
-/// LargeTopAppBar 为 headlineSmall（压缩字阶 20dp）。
-/// 此处以子树级 Theme 把 headlineMedium 映射为 headlineSmall——仅影响
-/// 头部 sliver 内部（工具栏走 titleLarge 不受影响），展开/折叠动画完整。
-/// [fontSize] 指定时改以 headlineMedium 为底放大到该字号（首页大标题 28sp
-/// 先例；书架 2.0.260 骨架对齐参考截图量测 28sp）。
-Widget _largeTitleThemeOverride(
-  BuildContext context,
-  Widget child, {
-  double? fontSize,
-}) {
-  final theme = Theme.of(context);
-  final base = fontSize == null
-      ? theme.textTheme.headlineSmall
-      : theme.textTheme.headlineMedium?.copyWith(fontSize: fontSize);
-  return Theme(
-    data: theme.copyWith(
-      textTheme: theme.textTheme.copyWith(
-        headlineMedium: base?.apply(color: theme.colorScheme.onSurface),
-      ),
-    ),
-    child: child,
-  );
-}
-
-/// 主 Tab 根页可折叠 LargeTitle 头部 sliver（UI_MD3_PLAN.md Batch 1 顶栏决策）
-///
-/// - [large] 为 true（页面有文字标题，如「书架」无分组、「我的」）时使用
-///   SliverAppBar.large：展开 152dp 大标题，滚动折叠为标准 M3 AppBar（tonal
-///   抬升），跳顶/复位时随滚动位置自然展开；
-/// - 为 false（title 槽为分组 TabBar 等功能控件，保持原版嵌入结构）时使用
-///   pinned SliverAppBar，工具栏高度与交互不变。
-///
-/// 发现/订阅两根页的顶栏为原版 view_search 嵌入式搜索框（无标题文字），
-/// 不适用 LargeTitle，继续使用 [LegadoAppBar]；子页同样用 [LegadoAppBar]。
-/// [UI_SYNC_REFACTOR B2] useFlexibleTopAppBar=false 时 large 回退 pinned
-/// 标准栏；滚动色插值经 surfaceTint→surfaceContainer 等效（对齐参考仓
-/// scrolledContainerColor）。
+/// 根页直接使用CustomScrollView时的顶栏入口，与AppScaffold共用同一实现。
+/// 展开增加56dp标题带，折叠后只保留工具行及页签；开关关闭时使用紧凑栏。
 class LegadoTabRootHeaderSliver extends StatefulWidget {
   final Widget title;
   final List<Widget>? actions;
@@ -283,24 +298,10 @@ class LegadoTabRootHeaderSliver extends StatefulWidget {
   /// 顶栏 bottomContent（对齐参考仓 DynamicTopAppBar 搜索行；pinned 常驻）
   final PreferredSizeWidget? bottom;
 
-  /// 展开大标题字号（可选）。指定时以 headlineMedium 为底放大到该字号，
-  /// 并显式传入 SliverAppBar.titleTextStyle（SDK 解析序 titleTextStyle →
-  /// appBarTheme.titleTextStyle → config.headlineMedium，全局 AppBarTheme
-  /// 的 titleLarge 18sp 会短路后两者，不显式传则字号不生效）；不指定
-  /// 保持原行为（headlineMedium→headlineSmall 子树覆写）。
-  /// [骨架对齐 2.0.260 | 台账 1-3] 书架参考截图大标题 28sp（与首页先例一致）。
+  /// 可选标题字号；未指定时沿用页面标题和主题样式。
   final double? largeTitleFontSize;
 
-  /// 展开态头部总高（可选）。SDK large 变体语义：显式传入值被**原样使用**
-  ///（delegate maxExtent = topPadding + 该值，不额外加 bottom 高；bottom 高
-  /// 仅默认分支 null 时经 112 + bottomHeight 计入），即「状态栏
-  /// （topPadding）之外的头部总高」，**须包含 bottom（TabBar）高**；
-  /// 若 topPadding + 该值 < minExtent（topPadding + 64 + bottom 高），
-  /// delegate 钳制 maxExtent = minExtent，标题带归零、大标题不渲染。
-  /// [骨架对齐 2.0.260 | 台账 1-3] 参考 03b 量测：状态栏 24 + 顶行 64 +
-  /// 标题区 44 + TabBar 56 = 188dp（tab 下划线底 551px@3x）；Scaffold
-  /// 无 AppBar 的 body 内 topPadding = 24dp，故传 164（64 + 44 + 56）
-  /// 收敛默认节距差。
+  /// 可选展开高度，不含状态栏、包含bottom；默认工具行+56dp标题带+bottom。
   final double? expandedHeight;
 
   /// 覆盖全局顶栏按钮样式（null = 跟随主题设置 topBarButtonStyle）。
@@ -334,85 +335,23 @@ class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver> {
   @override
   Widget build(BuildContext context) {
     final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
-    final overlay = _legadoSystemOverlay(context);
-    final cs = Theme.of(context).colorScheme;
-    final material = AppSurfaceMaterial.topBar(
-      color: Theme.of(context).appBarTheme.backgroundColor ?? cs.surface,
-      settings: ui,
-    );
-    final styledActions = TopBarActionStyler.styleActions(
-      context,
-      widget.actions,
-      // [parity C3 B5] 页面可锁定按钮样式（书架=plain 裸图标，对齐参考
-      // 03/03b/05 顶栏）；未指定时跟随全局 topBarButtonStyle 设置
-      style: widget.actionsStyle ?? ui.topBarButtonStyle,
-      merge: ui.mergeTopBarActions,
-    );
-    // [台账 4-1 ① | 2.0.274] leading 与 [LegadoAppBar] 一致：不经 merge
-    // 胶囊，单独注入按钮样式档位
-    final Widget? styledLeading = widget.leading == null
-        ? null
-        : TopBarActionStyler.styleActions(
-            context,
-            [widget.leading!],
-            style: widget.actionsStyle ?? ui.topBarButtonStyle,
-            merge: false,
-          ).first;
-    if (widget.large && ui.useFlexibleTopAppBar) {
-      // [P1] headlineMedium→headlineSmall 子树覆写；largeTitleFontSize
-      // 指定时改以 headlineMedium 为底放大（书架 28sp 先例）
-      final theme = Theme.of(context);
-      // [骨架对齐 2.0.260 | 台账 1-3] 展开态大标题字号：SDK 解析序
-      // titleTextStyle ?? appBarTheme.titleTextStyle ?? config.headlineMedium——
-      // 全局 AppBarTheme.titleTextStyle（titleLarge 18sp）会短路 config 的
-      // headlineMedium，故需经 SliverAppBar.titleTextStyle 显式传入才能生效
-      // （折叠态工具栏标题同步采用该字号，28sp 在 56dp 工具栏内可容纳）
-      final TextStyle? largeTitleStyle = widget.largeTitleFontSize == null
+    // 书架与普通页使用同一套展开高度、固定工具栏和按钮布局。— Codex + UI
+    return LegadoAppBar(
+      showBack: false,
+      leading: widget.leading,
+      title: widget.title,
+      actions: widget.actions,
+      bottom: widget.bottom,
+      titleSpacing: widget.titleSpacing,
+      titleTextStyle: widget.largeTitleFontSize == null
           ? null
-          : theme.textTheme.headlineMedium?.copyWith(
-              fontSize: widget.largeTitleFontSize,
-              color: theme.colorScheme.onSurface,
-            );
-      return _largeTitleThemeOverride(
-        context,
-        AppSliverSurfaceBackdrop(
-          material: material,
-          child: SliverAppBar.large(
-            automaticallyImplyLeading: false,
-            leading: styledLeading,
-            title: widget.title,
-            actions: styledActions,
-            titleSpacing: widget.titleSpacing,
-            bottom: widget.bottom,
-            backgroundColor: material.color,
-            surfaceTintColor: material.color.a < 1
-                ? Colors.transparent
-                : cs.surfaceContainer,
-            systemOverlayStyle: overlay,
-            // [骨架对齐 2.0.260 | 台账 1-3] 可选收敛展开态高度（默认 152dp）
-            expandedHeight: widget.expandedHeight,
-            titleTextStyle: largeTitleStyle,
-          ),
-        ),
-        fontSize: widget.largeTitleFontSize,
-      );
-    }
-    return AppSliverSurfaceBackdrop(
-      material: material,
-      child: SliverAppBar(
-        pinned: true,
-        automaticallyImplyLeading: false,
-        leading: styledLeading,
-        title: widget.title,
-        actions: styledActions,
-        titleSpacing: widget.titleSpacing,
-        bottom: widget.bottom,
-        backgroundColor: material.color,
-        surfaceTintColor: material.color.a < 1
-            ? Colors.transparent
-            : cs.surfaceContainer,
-        systemOverlayStyle: overlay,
-      ),
+          : Theme.of(context).textTheme.headlineMedium
+                ?.copyWith(fontSize: widget.largeTitleFontSize),
+      actionsStyle: widget.actionsStyle,
+    ).buildSliver(
+      context,
+      large: widget.large && ui.useFlexibleTopAppBar,
+      expandedHeight: widget.expandedHeight,
     );
   }
 }

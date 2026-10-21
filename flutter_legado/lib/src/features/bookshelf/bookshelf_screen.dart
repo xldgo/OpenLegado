@@ -534,14 +534,14 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     );
   }
 
-  /// 书架标题与操作按钮同排，分组页签常驻工具栏下方。
+  /// 书架大标题沿用共用开关，折叠后保留工具栏与分组页签。— Codex + UI
   Widget _buildHeaderSliver(
     BuildContext context,
     WidgetRef ref,
     BookshelfState state,
   ) {
     return LegadoTabRootHeaderSliver(
-      large: false,
+      large: true,
       title: Text(
         context.l10n.bookshelf,
         style: Theme.of(context).textTheme.headlineMedium

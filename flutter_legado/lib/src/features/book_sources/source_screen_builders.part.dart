@@ -403,63 +403,72 @@ extension _SourceBuilders on _SourceScreenState {
         rows.add(_SourceListRow.item(source));
       }
       // [快速滚动条] 千级书源列表右侧拖拽定位（对齐原版 FastScroller）
-      return Md3FastScroller(
+      return AppScrollBody(
         controller: _listController,
-        child: ListView.builder(
-          controller: _listController,
-          itemCount: rows.length,
-          itemBuilder: (context, index) {
-            final row = rows[index];
-            if (row.isHeader) {
-              return _buildDomainHeader(context, row.header!);
-            }
-            final source = row.source!;
-            return _buildSourceItem(context, source, state);
-          },
+        builder: (context, scrollController) => Md3FastScroller(
+          controller: scrollController,
+          child: ListView.builder(
+            controller: scrollController,
+            itemCount: rows.length,
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              if (row.isHeader) {
+                return _buildDomainHeader(context, row.header!);
+              }
+              final source = row.source!;
+              return _buildSourceItem(context, source, state);
+            },
+          ),
         ),
       );
     }
 
     if (state.sort == SourceSort.manual) {
-      return Md3FastScroller(
+      return AppScrollBody(
         controller: _listController,
-        child: ReorderableListView.builder(
-          scrollController: _listController,
-          buildDefaultDragHandles: false,
-          itemCount: sources.length,
-          onReorderItem: (oldIndex, newIndex) async {
-            final saved = await ref
-                .read(sourceNotifierProvider.notifier)
-                .reorderSources(oldIndex, newIndex);
-            if (!mounted || saved) return;
-            final error = ref.read(sourceNotifierProvider).error;
-            if (error != null && context.mounted) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text('保存排序失败：$error')));
-            }
-          },
-          itemBuilder: (context, index) => KeyedSubtree(
-            key: ValueKey(sources[index].bookSourceUrl),
-            child: _buildSourceItem(
-              context,
-              sources[index],
-              state,
-              dragIndex: index,
+        builder: (context, scrollController) => Md3FastScroller(
+          controller: scrollController,
+          child: ReorderableListView.builder(
+            scrollController: scrollController,
+            buildDefaultDragHandles: false,
+            itemCount: sources.length,
+            onReorderItem: (oldIndex, newIndex) async {
+              final saved = await ref
+                  .read(sourceNotifierProvider.notifier)
+                  .reorderSources(oldIndex, newIndex);
+              if (!mounted || saved) return;
+              final error = ref.read(sourceNotifierProvider).error;
+              if (error != null && context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text('保存排序失败：$error')));
+              }
+            },
+            itemBuilder: (context, index) => KeyedSubtree(
+              key: ValueKey(sources[index].bookSourceUrl),
+              child: _buildSourceItem(
+                context,
+                sources[index],
+                state,
+                dragIndex: index,
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Md3FastScroller(
+    return AppScrollBody(
       controller: _listController,
-      child: ListView.builder(
-        controller: _listController,
-        itemCount: sources.length,
-        itemBuilder: (context, index) {
-          final source = sources[index];
-          return _buildSourceItem(context, source, state);
-        },
+      builder: (context, scrollController) => Md3FastScroller(
+        controller: scrollController,
+        child: ListView.builder(
+          controller: scrollController,
+          itemCount: sources.length,
+          itemBuilder: (context, index) {
+            final source = sources[index];
+            return _buildSourceItem(context, source, state);
+          },
+        ),
       ),
     );
   }

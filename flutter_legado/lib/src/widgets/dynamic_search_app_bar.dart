@@ -69,32 +69,46 @@ class DynamicSearchAppBar extends StatelessWidget
         64 * _progress,
   );
   @override
-  Widget build(BuildContext context) => LegadoAppBar(
+  Widget build(BuildContext context) => _toolbar(context);
+
+  Widget buildSliver(
+    BuildContext context, {
+    required bool large,
+    bool scrolledUnder = false,
+  }) =>
+      _toolbar(context)
+          .buildSliver(context, large: large, scrolledUnder: scrolledUnder);
+
+  LegadoAppBar _toolbar(BuildContext context) => LegadoAppBar(
     leading: leading,
     showBack: showBack,
     title:
         titleWidget ??
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.headlineMedium
-                  ?.copyWith(fontSize: 28),
-            ),
-            if (subtitle != null)
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                subtitle!,
+                title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                style: Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontSize: 28),
               ),
-          ],
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
         ),
     actions: [
       if (showSearchAction)

@@ -69,6 +69,11 @@ void main() {
 
   /// 分组整体构建后，定位行并等待滚动布局完成。
   Future<void> dragTo(WidgetTester tester, String text) async {
+    await tester.dragUntilVisible(
+      find.text(text),
+      find.byType(ListView).last,
+      const Offset(0, -160),
+    );
     await tester.ensureVisible(find.text(text));
     await tester.pumpAndSettle();
   }
@@ -113,7 +118,7 @@ void main() {
       expect(find.text('字典规则'), findsOneWidget);
       expect(find.text('主题模式'), findsNothing);
 
-      expect(find.text('我的'), findsOneWidget);
+      expect(find.text('我的'), findsWidgets);
       // 外观组包含外观和阅读界面，高级与备份分别归入其他和同步与服务。
       await dragTo(tester, '备份与恢复');
       expect(find.text('设置', skipOffstage: false), findsNothing);
@@ -446,7 +451,16 @@ void main() {
       // 全页（非底部弹窗）：AppBar + 配置项
       expect(find.text('备份与恢复'), findsWidgets);
       expect(find.text('WebDAV 服务器地址'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('备份'), 80);
+      await tester.scrollUntilVisible(
+        find.text('备份'),
+        80,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView).last,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       expect(find.text('备份'), findsOneWidget);
       expect(find.text('恢复'), findsOneWidget);

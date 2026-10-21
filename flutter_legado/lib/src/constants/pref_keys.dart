@@ -61,7 +61,7 @@ class PrefKeys {
   /// 顶栏按钮合并进胶囊容器（参考仓 mergeTopBarActions，默认 false）
   static const mergeTopBarActions = 'mergeTopBarActions';
 
-  /// 使用 MediumFlexible 大顶栏形态（参考仓 useFlexibleTopAppBar，默认 true）
+  /// 普通标题页使用可折叠大顶栏（沿用原键，默认true）。
   static const useFlexibleTopAppBar = 'useFlexibleTopAppBar';
 
   /// 顶栏普通背景不透明度 0–1 double，默认 1

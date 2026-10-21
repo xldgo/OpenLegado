@@ -207,6 +207,7 @@ class _QrcodeScreenState extends State<QrcodeScreen> {
     // [PARITY A1] 标题对齐参考版「扫描二维码」
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
+      collapsibleTopBar: false,
       topBar: LegadoAppBar(
         title: const Text('扫描二维码'),
         actions: [

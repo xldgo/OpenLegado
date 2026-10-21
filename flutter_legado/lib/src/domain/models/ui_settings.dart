@@ -77,7 +77,7 @@ final class UiSettings {
   /// 顶栏 actions 合并进胶囊容器
   final bool mergeTopBarActions;
 
-  /// MediumFlexible 大顶栏形态（true=LargeTitle 系保持展开大标题）
+  /// 普通页壳与书架使用可折叠大标题，关闭时保留紧凑顶栏。
   final bool useFlexibleTopAppBar;
 
   /// 顶栏普通背景不透明度 0–1

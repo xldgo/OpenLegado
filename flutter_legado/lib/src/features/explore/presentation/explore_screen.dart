@@ -261,48 +261,51 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         final horizontalPadding = isTablet ? 12.0 : 16.0;
         final sources = state.filteredBookSources;
         // [UI_SYNC_REFACTOR R3] 订阅源列表快速滚动条
-        return Md3FastScroller(
+        return AppScrollBody(
           controller: _listController,
-          child: ListView.builder(
-            controller: _listController,
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              8,
-              horizontalPadding,
-              16 + AppBottomBarInset.of(context),
+          builder: (context, scrollController) => Md3FastScroller(
+            controller: scrollController,
+            child: ListView.builder(
+              controller: scrollController,
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                8,
+                horizontalPadding,
+                16 + AppBottomBarInset.of(context),
+              ),
+              itemCount: sources.length,
+              itemBuilder: (context, index) {
+                final source = sources[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _SourceItem(
+                    source: source,
+                    isTablet: isTablet,
+                    collapseSignal: widget.collapseSignal,
+                    expandDuration: _kExpandDuration,
+                    onEdit: () {
+                      GoRouter.of(context)
+                          .pushAppRoute(AppRoutes.sourceEdit, extra: source);
+                    },
+                    onUninstall: () => _onUninstall(source.bookSourceUrl),
+                    onTop: () => _onTopSource(source),
+                    onLogin: () => _onLoginSource(source),
+                    onSearch: () => _onSearchSource(source),
+                    onRefresh: () => ref
+                        .read(exploreNotifierProvider.notifier)
+                        .reloadCategories(source),
+                    onCategoryTap: (categoryName, categoryUrl) {
+                      _openExploreShow(
+                        source,
+                        categoryName,
+                        categoryUrl,
+                        isTablet,
+                      );
+                    },
+                  ),
+                );
+              },
             ),
-            itemCount: sources.length,
-            itemBuilder: (context, index) {
-              final source = sources[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _SourceItem(
-                  source: source,
-                  isTablet: isTablet,
-                  collapseSignal: widget.collapseSignal,
-                  expandDuration: _kExpandDuration,
-                  onEdit: () {
-                    GoRouter.of(context)
-                        .pushAppRoute(AppRoutes.sourceEdit, extra: source);
-                  },
-                  onUninstall: () => _onUninstall(source.bookSourceUrl),
-                  onTop: () => _onTopSource(source),
-                  onLogin: () => _onLoginSource(source),
-                  onSearch: () => _onSearchSource(source),
-                  onRefresh: () => ref
-                      .read(exploreNotifierProvider.notifier)
-                      .reloadCategories(source),
-                  onCategoryTap: (categoryName, categoryUrl) {
-                    _openExploreShow(
-                      source,
-                      categoryName,
-                      categoryUrl,
-                      isTablet,
-                    );
-                  },
-                ),
-              );
-            },
           ),
         );
       },

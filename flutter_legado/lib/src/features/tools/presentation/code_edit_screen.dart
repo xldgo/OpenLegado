@@ -205,6 +205,7 @@ class _CodeEditScreenState extends State<CodeEditScreen> {
         if (!didPop) _handlePop();
       },
       child: AppScaffold(
+        collapsibleTopBar: false,
         // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
         // 背景色 cs.surface 与主题默认一致：冗余参数按裁决原样保留（色值不变）
         backgroundColor: cs.surface,

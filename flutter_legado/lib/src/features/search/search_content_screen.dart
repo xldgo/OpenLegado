@@ -423,12 +423,15 @@ class _SearchContentScreenState extends ConsumerState<SearchContentScreen> {
         ),
         Expanded(
           // [UI_SYNC_REFACTOR R3] 结果列表快速滚动条
-          child: Md3FastScroller(
+          child: AppScrollBody(
             controller: _fsController,
-            child: ListView.builder(
-              controller: _fsController,
-              itemCount: _results.length,
-              itemBuilder: (context, i) => _buildResultTile(_results[i]),
+            builder: (context, scrollController) => Md3FastScroller(
+              controller: scrollController,
+              child: ListView.builder(
+                controller: scrollController,
+                itemCount: _results.length,
+                itemBuilder: (context, i) => _buildResultTile(_results[i]),
+              ),
             ),
           ),
         ),

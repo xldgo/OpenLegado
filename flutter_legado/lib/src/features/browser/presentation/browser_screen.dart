@@ -278,6 +278,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     final embedded = _webViewController;
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
+      collapsibleTopBar: false,
       topBar: LegadoAppBar(
         title: Text(widget.title?.isNotEmpty == true ? widget.title! : '内置浏览器'),
         actions: [

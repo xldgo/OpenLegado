@@ -115,20 +115,23 @@ class _BookmarkScreenState extends ConsumerState<BookmarkScreen> {
 
   Widget _buildBookmarkList(BuildContext context, BookmarkState state) {
     // [UI_SYNC_REFACTOR R3] 书签列表快速滚动条
-    return Md3FastScroller(
+    return AppScrollBody(
       controller: _fsController,
-      child: ListView.builder(
-        controller: _fsController,
-        itemCount: state.bookmarks.length,
-        itemBuilder: (context, index) {
-          final bookmark = state.bookmarks[index];
-          return _BookmarkTile(
-            bookmark: bookmark,
-            onTap: () => _navigateToChapter(context, bookmark),
-            onDelete: () => _confirmDelete(context, bookmark),
-            onEdit: () => _editNote(bookmark),
-          );
-        },
+      builder: (context, scrollController) => Md3FastScroller(
+        controller: scrollController,
+        child: ListView.builder(
+          controller: scrollController,
+          itemCount: state.bookmarks.length,
+          itemBuilder: (context, index) {
+            final bookmark = state.bookmarks[index];
+            return _BookmarkTile(
+              bookmark: bookmark,
+              onTap: () => _navigateToChapter(context, bookmark),
+              onDelete: () => _confirmDelete(context, bookmark),
+              onEdit: () => _editNote(bookmark),
+            );
+          },
+        ),
       ),
     );
   }

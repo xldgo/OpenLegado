@@ -57,47 +57,50 @@ It was a dark and stormy night.''';
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
       topBar: _buildAppBar(),
-      body: Md3FastScroller(
+      body: AppScrollBody(
         controller: _fsController,
-        child: CustomScrollView(
-          controller: _fsController,
-          slivers: [
-            if (state.isLoading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (state.rules.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: EmptyState(
-                  icon: Symbols.format_list_numbered_rounded,
-                  title: '暂无目录规则',
-                  // [台账 4-1 ② | 2.0.274] 新建入口移至右下角 FAB
-                  subtitle: '点击右下角 + 添加识别章节标题的正则规则',
+        builder: (context, scrollController) => Md3FastScroller(
+          controller: scrollController,
+          child: CustomScrollView(
+            controller: scrollController,
+            slivers: [
+              if (state.isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (state.rules.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: EmptyState(
+                    icon: Symbols.format_list_numbered_rounded,
+                    title: '暂无目录规则',
+                    // [台账 4-1 ② | 2.0.274] 新建入口移至右下角 FAB
+                    subtitle: '点击右下角 + 添加识别章节标题的正则规则',
+                  ),
+                )
+              else
+                // [UI_SYNC_REFACTOR R3] 规则列表（快速滚动条仍由 Md3FastScroller
+                // 经 scrollController 驱动；上下留白 8dp 与原 ListView padding 一致）
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final rule = state.rules[index];
+                      return _RuleTile(
+                        rule: rule,
+                        onToggle: (v) => ref
+                            .read(txtTocRulesNotifierProvider.notifier)
+                            .setEnabled(rule.id, v),
+                        onEdit: () => _showRuleForm(context, rule: rule),
+                        onDelete: () => _confirmDelete(rule),
+                        onTest: () => _showTestDialog(rule),
+                      );
+                    }, childCount: state.rules.length),
+                  ),
                 ),
-              )
-            else
-              // [UI_SYNC_REFACTOR R3] 规则列表（快速滚动条仍由 Md3FastScroller
-              // 经 _fsController 驱动；上下留白 8dp 与原 ListView padding 一致）
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final rule = state.rules[index];
-                    return _RuleTile(
-                      rule: rule,
-                      onToggle: (v) => ref
-                          .read(txtTocRulesNotifierProvider.notifier)
-                          .setEnabled(rule.id, v),
-                      onEdit: () => _showRuleForm(context, rule: rule),
-                      onDelete: () => _confirmDelete(rule),
-                      onTest: () => _showTestDialog(rule),
-                    );
-                  }, childCount: state.rules.length),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
       // [台账 4-1 ② | 2.0.274] 新建入口：右下角 + FAB。着色走主题槽位

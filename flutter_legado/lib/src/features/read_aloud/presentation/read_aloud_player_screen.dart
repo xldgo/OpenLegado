@@ -98,6 +98,7 @@ class _ReadAloudPlayerScreenState extends ConsumerState<ReadAloudPlayerScreen> {
         }
         final enabled = !_busy && !audio.isLoading && !audio.isStreamMode;
         return AppScaffold(
+          collapsibleTopBar: false,
           topBar: LegadoAppBar(
             toolbarHeight: _toolbarHeight(audio.currentChapter != null),
             title: GestureDetector(

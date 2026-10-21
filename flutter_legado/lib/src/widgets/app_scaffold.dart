@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import 'dynamic_search_app_bar.dart';
 import 'app_search_transition.dart';
+import 'legado_app_bar.dart';
+import 'ui_settings_scope.dart';
 
 /// Legado 统一页壳（对齐参考版 `AppScaffold` 语义的轻量子集）
 ///
@@ -28,12 +30,12 @@ import 'app_search_transition.dart';
 ///
 /// **永久排除域（裁决 2026-10-01）**：reader_screen/reader_comic_screen
 /// （阅读器承重域）、video_screen（播放器条件全屏域）、book_info_screen
-/// （折叠 SliverAppBar+FAB 定位承重）、home_tab_screen（PageView 内嵌页）、
+/// （折叠 SliverAppBar+FAB 定位承重）、
 /// classic_login_dialog（对话框内嵌壳）——上述文件维持原生 Scaffold，
 /// 不迁移。
 ///
-/// 普通顶栏直通Scaffold；动态搜索顶栏由稳定动画宿主同步其占位高度。
-/// （widget 测试 test/widget/app_scaffold_test.dart 有同构等价用例）。
+/// 普通文字标题和动态搜索标题由NestedScrollView协调原生可折叠顶栏；
+/// 无标题、输入框式标题和专用页面保留标准顶栏。搜索动画共用同一占位进度。
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
     super.key,
@@ -44,9 +46,10 @@ class AppScaffold extends StatelessWidget {
     this.floatingActionButtonLocation,
     this.backgroundColor,
     this.extendBody = false,
+    this.collapsibleTopBar = true,
   });
 
-  /// 顶栏（映射 `Scaffold.appBar`）；null = 无顶栏（首页容器/我的等根页）。
+  /// 普通文字顶栏接入协调滚动；专用顶栏直通Scaffold.appBar，null表示页面自行布局头部。
   /// 典型值：LegadoAppBar、DynamicSearchAppBar（均为 PreferredSizeWidget）。
   final PreferredSizeWidget? topBar;
 
@@ -69,6 +72,9 @@ class AppScaffold extends StatelessWidget {
   /// 正文是否延伸到底栏后方；调用方应为滚动内容保留尾部留白。
   final bool extendBody;
 
+  /// 普通标题页共用大顶栏；编辑器、播放器等专用布局可明确保留紧凑形态。
+  final bool collapsibleTopBar;
+
   @override
   Widget build(BuildContext context) {
     final bar = topBar;
@@ -76,20 +82,98 @@ class AppScaffold extends StatelessWidget {
     return AppSearchTransition(
       expanded: bar is DynamicSearchAppBar && bar.expanded,
       builder: (context, progress) => _scaffold(
+        context,
         bar is DynamicSearchAppBar ? bar.atProgress(progress) : bar,
       ),
     );
   }
 
-  Widget _scaffold(PreferredSizeWidget? bar) {
+  Widget _scaffold(BuildContext context, PreferredSizeWidget? bar) {
+    final coordinated =
+        collapsibleTopBar &&
+        switch (bar) {
+          DynamicSearchAppBar() => true,
+          LegadoAppBar(title: Text(:final data)) => data?.isNotEmpty ?? false,
+          _ => false,
+        };
+    final large = UiSettingsScope.of(
+      context,
+      UiSettingsAspect.topBar,
+    ).useFlexibleTopAppBar;
+    final pinnedHeight = coordinated
+        ? bar!.preferredSize.height +
+              (bar is LegadoAppBar && !bar.primary
+                  ? 0
+                  : MediaQuery.paddingOf(context).top)
+        : 0.0;
     return Scaffold(
-      appBar: bar,
+      appBar: coordinated ? null : bar,
       bottomNavigationBar: bottomBar,
-      body: body,
+      body: coordinated
+          ? NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverOverlapAbsorber(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                    context,
+                  ),
+                  sliver: switch (bar) {
+                    DynamicSearchAppBar() => bar.buildSliver(
+                      context,
+                      large: large,
+                      scrolledUnder: innerBoxIsScrolled,
+                    ),
+                    LegadoAppBar() => bar.buildSliver(
+                      context,
+                      large: large,
+                      scrolledUnder: innerBoxIsScrolled,
+                    ),
+                    _ => throw StateError('可折叠顶栏类型不匹配'),
+                  },
+                ),
+              ],
+              // 吸收固定顶栏的重叠后统一预留等高空间，既有ListView无需再包一层滚动。
+              // 搜索栏/TabBar高度也计入，避免ensureVisible或菜单点击落到顶栏下面。
+              body: Padding(
+                padding: EdgeInsets.only(top: pinnedHeight),
+                child: _AppNestedScrollBody(child: body),
+              ),
+            )
+          : body,
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
       backgroundColor: backgroundColor,
       extendBody: extendBody,
+    );
+  }
+}
+
+class _AppNestedScrollBody extends InheritedWidget {
+  const _AppNestedScrollBody({required super.child});
+
+  @override
+  bool updateShouldNotify(_AppNestedScrollBody oldWidget) => false;
+}
+
+/// 显式控制器列表接入页壳的内层控制器，快速滚动条与正文始终使用同一个位置。
+/// 无共用页壳时沿用页面自己的控制器，不复制滚动位置或手工转发滚动事件。— Codex + UI
+class AppScrollBody extends StatelessWidget {
+  const AppScrollBody({
+    super.key,
+    required this.controller,
+    required this.builder,
+  });
+
+  final ScrollController controller;
+  final Widget Function(BuildContext, ScrollController) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final coordinated =
+        context.dependOnInheritedWidgetOfExactType<_AppNestedScrollBody>() !=
+        null;
+    return builder(
+      context,
+      coordinated ? PrimaryScrollController.of(context) : controller,
     );
   }
 }

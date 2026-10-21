@@ -355,7 +355,12 @@ void main() {
         _ => RssScreen,
       });
       final scrollable = find.descendant(
-        of: page,
+        of: find
+            .descendant(
+              of: page,
+              matching: find.byType(tab == 3 ? CustomScrollView : ListView),
+            )
+            .last,
         matching: find.byWidgetPredicate(
           (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
         ),

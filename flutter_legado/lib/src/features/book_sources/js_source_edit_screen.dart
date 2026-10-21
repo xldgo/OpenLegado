@@ -263,6 +263,7 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
     final cs = Theme.of(context).colorScheme;
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
+      collapsibleTopBar: false,
       // [UI_MD3_ALIGNMENT_PLAN.md Batch B B4] 分组背景走 tonal
       // [GLOBALCOMP B4] 代码编辑域差异化背景（有意与主题默认区分，保留）
       backgroundColor: cs.surfaceContainerLow,

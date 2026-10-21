@@ -165,6 +165,7 @@ class _SourceDebugScreenState extends ConsumerState<SourceDebugScreen> {
 
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
+      collapsibleTopBar: false,
       topBar: LegadoAppBar(
         title: Text(context.l10n.bookSourceDebugTitle),
         actions: [

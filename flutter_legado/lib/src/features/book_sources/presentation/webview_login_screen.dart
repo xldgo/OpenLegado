@@ -289,6 +289,7 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
   Widget build(BuildContext context) {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
     return AppScaffold(
+      collapsibleTopBar: false,
       topBar: LegadoAppBar(
         title: Text(
           widget.title ?? context.l10n.loginToSource(widget.sourceName),

@@ -146,6 +146,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
     return ListenableBuilder(
       listenable: notifier,
       builder: (context, _) => AppScaffold(
+        collapsibleTopBar: false,
         // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
         topBar: LegadoAppBar(
           title: Text(

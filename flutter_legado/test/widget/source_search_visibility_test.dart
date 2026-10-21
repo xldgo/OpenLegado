@@ -8,12 +8,82 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/book_sources/book_sources.dart';
 import 'package:flutter_legado/src/features/rss/presentation/rss_source_manage_screen.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 
 import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final width in [320.0, 360.0, 480.0]) {
+    testWidgets('书源大标题在合并按钮和窄屏$width下可读且随列表折叠', (tester) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final api = MockRustApi();
+      when(() => api.bookSourceRepository.getBookSources()).thenAnswer(
+        (_) async => List.generate(
+          60,
+          (index) => BookSource(
+            bookSourceUrl: 'source-$index',
+            bookSourceName: '书源$index',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: mergeTestOverrides([...api.overrides]),
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UiSettingsScope(
+                        settings: UiSettings(mergeTopBarActions: true),
+                        child: SourceScreen(),
+                      ),
+                    ),
+                  ),
+                  child: const Text('管理书源'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('管理书源'));
+      await tester.pumpAndSettle();
+      final titles = find.text('书源管理');
+      expect(titles, findsWidgets);
+      for (final element in titles.evaluate()) {
+        final paragraph = element.renderObject! as RenderParagraph;
+        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(
+          paragraph.getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 4),
+          ),
+          isNotEmpty,
+        );
+      }
+      final nested = tester.state<NestedScrollViewState>(
+        find.byType(NestedScrollView),
+      );
+      expect(nested.outerController.offset, 0);
+      await tester.drag(
+        find.byType(ReorderableListView),
+        const Offset(0, -350),
+      );
+      await tester.pumpAndSettle();
+      expect(nested.outerController.offset, greaterThan(0));
+      expect(nested.innerController.offset, greaterThan(0));
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final rss in [false, true]) {
     testWidgets('${rss ? '订阅源管理' : '书源管理'}默认隐藏、搜索筛选及清除恢复', (tester) async {
       tester.view.physicalSize = const Size(360, 800);

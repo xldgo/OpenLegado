@@ -20,11 +20,229 @@ import 'package:flutter_legado/src/data/repositories/mock_read_record_repository
 
 import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scaffold.dart';
+import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
+import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
+import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 
 import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
+
+  for (final withTabs in [false, true]) {
+    testWidgets('根页顶栏在折叠边界显示标题且不残留标题带：页签$withTabs', (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(
+              controller: scroll,
+              slivers: [
+                LegadoTabRootHeaderSliver(
+                  title: const Text('书架'),
+                  large: true,
+                  actions: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.search),
+                    ),
+                  ],
+                  bottom: withTabs
+                      ? const PreferredSize(
+                          preferredSize: Size.fromHeight(56),
+                          child: SizedBox(height: 56, child: Text('全部')),
+                        )
+                      : null,
+                ),
+                SliverFixedExtentList(
+                  itemExtent: 56,
+                  delegate: SliverChildBuilderDelegate(
+                    (_, index) => Text('书籍$index'),
+                    childCount: 60,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(AppBar)).height,
+        112 + (withTabs ? 56 : 0),
+      );
+      scroll.jumpTo(56);
+      await tester.pumpAndSettle();
+      final opacity = tester.widget<AnimatedOpacity>(
+        find
+            .ancestor(
+              of: find.text('书架'),
+              matching: find.byType(AnimatedOpacity),
+            )
+            .first,
+      );
+      expect(opacity.opacity, 1);
+      expect(
+        tester.getSize(find.byType(AppBar)).height,
+        56 + (withTabs ? 56 : 0),
+      );
+      final toolbarTitle = find.descendant(
+        of: find.byType(AnimatedOpacity),
+        matching: find.text('书架'),
+      );
+      final icon = find.byIcon(Icons.search);
+      expect(
+        tester.getCenter(toolbarTitle).dy,
+        closeTo(tester.getCenter(icon).dy, 1),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    '页签列表切换后仍与共用顶栏协调滚动',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DefaultTabController(
+            length: 2,
+            child: AppScaffold(
+              topBar: const LegadoAppBar(
+                title: Text('引擎管理'),
+                bottom: TabBar(
+                  tabs: [
+                    Tab(text: '音色'),
+                    Tab(text: '引擎'),
+                  ],
+                ),
+              ),
+              body: TabBarView(
+                children: [
+                  for (var tab = 0; tab < 2; tab++)
+                    ListView.builder(
+                      key: PageStorageKey('list-$tab'),
+                      itemCount: 50,
+                      itemExtent: 56,
+                      itemBuilder: (_, index) => Text('项目$tab/$index'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(Tab, '引擎'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).last, const Offset(0, -250));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.windows,
+    }),
+  );
+
+  testWidgets('专用页明确保留标准顶栏与自身控制器', (tester) async {
+    final fallback = ScrollController();
+    addTearDown(fallback.dispose);
+    ScrollController? connected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppScaffold(
+          collapsibleTopBar: false,
+          topBar: const LegadoAppBar(title: Text('专用编辑器')),
+          body: AppScrollBody(
+            controller: fallback,
+            builder: (context, controller) {
+              connected = controller;
+              return ListView(
+                controller: controller,
+                children: const [Text('编辑内容')],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(NestedScrollView), findsNothing);
+    expect(connected, same(fallback));
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).appBar,
+      isA<LegadoAppBar>(),
+    );
+  });
+
+  testWidgets('共用大标题随正文折叠，开关保留正文和滚动控制器', (tester) async {
+    final setting = ValueNotifier<bool>(true);
+    final fallback = ScrollController();
+    addTearDown(setting.dispose);
+    addTearDown(fallback.dispose);
+    ScrollController? connected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<bool>(
+          valueListenable: setting,
+          builder: (context, large, _) => UiSettingsScope(
+            settings: UiSettings(useFlexibleTopAppBar: large),
+            child: AppScaffold(
+              topBar: const LegadoAppBar(title: Text('通用设置')),
+              body: AppScrollBody(
+                controller: fallback,
+                builder: (context, controller) {
+                  connected = controller;
+                  return ListView.builder(
+                    controller: controller,
+                    itemExtent: 56,
+                    itemCount: 100,
+                    itemBuilder: (_, index) => Text('设置项目$index'),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final nested = tester.state<NestedScrollViewState>(
+      find.byType(NestedScrollView),
+    );
+    final expandedExtent = nested.outerController.position.maxScrollExtent;
+    expect(connected, same(nested.innerController));
+    expect(nested.outerController.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(nested.outerController.offset, greaterThan(0));
+    expect(connected!.offset, greaterThan(0));
+    final collapsedTitle = find.text('通用设置');
+    final titleOpacity = tester.widget<AnimatedOpacity>(
+      find
+          .ancestor(of: collapsedTitle, matching: find.byType(AnimatedOpacity))
+          .first,
+    );
+    expect(titleOpacity.opacity, 1, reason: '正文已滚动时固定工具栏必须显示标题');
+    expect(tester.getSize(find.byType(AppBar)).height, kToolbarHeight);
+    final inner = connected;
+    setting.value = false;
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(NestedScrollView)), same(nested));
+    expect(connected, same(inner));
+    expect(
+      nested.outerController.position.maxScrollExtent,
+      lessThan(expandedExtent),
+    );
+    expect(connected!.offset, greaterThan(0));
+    setting.value = true;
+    await tester.pumpAndSettle();
+    expect(nested.outerController.position.maxScrollExtent, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('正文延伸只改变底栏后的可绘制范围，默认保留原占位', (tester) async {
     for (final extend in [false, true]) {

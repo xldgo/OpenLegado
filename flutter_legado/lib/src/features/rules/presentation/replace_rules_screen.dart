@@ -241,30 +241,33 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     // [UI-fix v2.0.2 | 2026-08-06] 批量模式下禁用拖拽排序，行点击切换选中 — Qoder
     if (_batchMode) {
       // [UI_SYNC_REFACTOR R3] 快速滚动条（批量模式长列表）
-      return Md3FastScroller(
+      return AppScrollBody(
         controller: _ruleListController,
-        child: ListView.builder(
-          controller: _ruleListController,
-          // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: rules.length,
-          itemBuilder: (context, index) {
-            final rule = rules[index];
-            return _ReplaceRuleTile(
-              key: ValueKey(rule.id),
-              rule: rule,
-              index: index,
-              total: rules.length,
-              batchMode: true,
-              selected: _selected.contains(rule.id),
-              onSelect: () => _toggleSelect(rule.id),
-              onToggle: (enabled) => provider.setEnabled(rule.id, enabled),
-              onEdit: () => _toggleSelect(rule.id),
-              onDelete: () => _confirmDelete(context, provider, rule),
-              onMoveUp: () => provider.moveUp(index),
-              onMoveDown: () => provider.moveDown(index),
-            );
-          },
+        builder: (context, scrollController) => Md3FastScroller(
+          controller: scrollController,
+          child: ListView.builder(
+            controller: scrollController,
+            // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: rules.length,
+            itemBuilder: (context, index) {
+              final rule = rules[index];
+              return _ReplaceRuleTile(
+                key: ValueKey(rule.id),
+                rule: rule,
+                index: index,
+                total: rules.length,
+                batchMode: true,
+                selected: _selected.contains(rule.id),
+                onSelect: () => _toggleSelect(rule.id),
+                onToggle: (enabled) => provider.setEnabled(rule.id, enabled),
+                onEdit: () => _toggleSelect(rule.id),
+                onDelete: () => _confirmDelete(context, provider, rule),
+                onMoveUp: () => provider.moveUp(index),
+                onMoveDown: () => provider.moveDown(index),
+              );
+            },
+          ),
         ),
       );
     }

@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### APP-LARGE-TOP-BAR-20261021：共用可折叠大标题（P1，代码与定向验证完成，待主应用观感验收）
+
+- 授权/基线：用户确认启用可折叠大标题并要求通过共用组件接入，不局限书源页；主目录dev / f4c595c6d，单代理，不推送或触发CI。
+- 初始问题：360dp书源页四个合并按钮占223dp，返回与间距扣除后标题仅49dp，28字号标题没有原文字符绘出；模拟器2.0.426复现，受控布局核验一致。证据build/source-title-20261021/source-list.png及flutter_legado/build/source-title-probe.log。
+- 实现：AppScaffold/LegadoAppBar/DynamicSearchAppBar共用原生SliverAppBar.large及NestedScrollView，沿用useFlexibleTopAppBar设置；显式控制器经AppScrollBody将正文和快速滚动条接入同一内层控制器。首页改用共用页壳，书架直接sliver复用相同构建逻辑；发现、订阅、我的及普通管理/设置页自动接入。播放器、浏览器、代码编辑、交互式输入标题等专用页保留紧凑布局；不修改Rust/FFI。
+- 修正反馈：此前只验证可滚动，遗漏了折叠标题实际透明度；新增行为断言复现正文已滚动而固定标题opacity=0。顶栏现使用内层滚动状态及sliver实际折叠边界决定显现，覆盖刚好折叠与带页签情况。默认展开高度由152dp收紧到112dp，折叠工具行统一56dp，状态栏、搜索、页签高度另计；不留下原生large默认64dp与既有56dp工具行之间的高度差。
+- 避让：SliverOverlapAbsorber配合固定区域等高占位，搜索栏/页签一起计算，避免ensureVisible将设置行定位在固定顶栏之下；底栏只在列表尾部保留原有遮挡空间。
+- 验证：最终相关165项Widget回归通过（根页/页壳/书源63项，管理/设置/列表等102项），含320/360/480dp、文字放大、合并按钮、Android/iOS/Windows页签切换宿主测试、折叠临界点、开关切换、首页卡片、五页签导航及底栏末项避让。完整Dart分析无问题，架构与diff检查通过。证据flutter_legado/build/large-top-bar-{final-root-tests,regression-final,analysis-final,architecture-final}.log；失败到通过的标题断言证据large-top-bar-collapsed-{before,after}.log。
+- 既有夹具调整：区分内外层Scrollable，设置行按实际ListView滚动；原生large同时构建展开/折叠标题，计数改为允许两份，仍核对交互和几何。书源编辑原8000dp画布补设DPR1，避免诊断位图超过设备尺寸限制。不增加生产测试分支、延迟释放补丁或源码字符串守卫。
+- 设备证据：独立Android诊断包复用正式SourceScreen和共用组件，离线Gradle构建通过，MuMu360dp下验证展开完整标题、折叠标题与按钮同排；截图build/source-title-20261021/{before-expanded,before-collapsed,fixed-expanded,fixed-collapsed}.png。未覆盖安装主应用；系统返回曾退出诊断应用，后续手势误入原阅读页，之后增加前台包名核验并停止跨应用操作。五根页设备验证未完成，不能把原应用画面当作本次结果；诊断包收尾卸载。
+- 未纳入：额外探测read_aloud_voice_screen_test的情感试听断言失败，其夹具直接挂载Scaffold和音色面板，不经过本次顶栏；未证明基线归属，也未修改其业务代码，不计入本批通过证据。不宣称全量Flutter测试、iOS真机或Windows设备验收通过。
+- 交付：版本2.0.429+430，设计规范与双更新日志同步；单代理自查，仅本地提交，未推送或触发CI。提交号见Git。
+
+编写者：Codex + UI｜2026-10-21
+
 ### TEST-PRODUCTION-BOUNDARY-20261021：最小必要处理规范与专项核查（P2，已关闭约定的核查范围）
 
 - 授权/基线：用户要求将正常延迟释放不作特殊处理写入spec，并检查其他同类实现；dev / 637758636，单代理，不修改生产代码，不推送或触发CI。

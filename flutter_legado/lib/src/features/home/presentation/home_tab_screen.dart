@@ -17,6 +17,7 @@ import '../../read_records/read_record_overview_calculator.dart';
 import '../../../utils/book_open_utils.dart';
 import '../../../widgets/book_cover.dart';
 import '../../../widgets/legado_app_bar.dart';
+import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/app_bottom_bar_inset.dart';
 
 /// 首页页签（对齐参考版首页布局）
@@ -147,8 +148,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         : (todaySeconds / goalSeconds).clamp(0.0, 1.0);
     final todayMinutes = (todaySeconds / 60).round();
 
-    return Scaffold(
-      appBar: LegadoAppBar(
+    return AppScaffold(
+      topBar: LegadoAppBar(
         showBack: false,
         title: Text(
           context.l10n.home,

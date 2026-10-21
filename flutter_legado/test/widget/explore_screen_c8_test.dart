@@ -178,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 菜单关闭后顶栏副标题回显选中分组（分组筛选生效）
-    expect(find.text('默认分组'), findsOneWidget);
+    expect(find.text('默认分组'), findsWidgets);
   });
 
   // [B2-C1 2-1 | full-stack-engineer + UI] 回归断言同步：行形态由卡片底
@@ -244,7 +244,7 @@ void main() {
     expect(find.text('书1'), findsOneWidget);
 
     // 分类参数正确回显（标题 = 分类名 - 书源名，对标原版 exploreName）
-    expect(find.text('巅峰榜 - 发现源C8'), findsOneWidget);
+    expect(find.text('巅峰榜 - 发现源C8'), findsWidgets);
 
     // 抓取 URL 即 chip 的分类 URL（点击链路参数不变；captureAny 捕获实参）
     final captured = verify(

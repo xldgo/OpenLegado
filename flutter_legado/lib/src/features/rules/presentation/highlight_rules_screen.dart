@@ -132,19 +132,22 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
           }
           // 规则分组沿用设置卡片与分隔线样式。
           // [UI_SYNC_REFACTOR R3] 规则列表快速滚动条
-          return Md3FastScroller(
+          return AppScrollBody(
             controller: _fsController,
-            child: ListView(
-              controller: _fsController,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-              children: [
-                SettingsGroup(
-                  children: [
-                    for (final rule in state.rules)
-                      _buildRuleTile(context, rule, cs),
-                  ],
-                ),
-              ],
+            builder: (context, scrollController) => Md3FastScroller(
+              controller: scrollController,
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                children: [
+                  SettingsGroup(
+                    children: [
+                      for (final rule in state.rules)
+                        _buildRuleTile(context, rule, cs),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         },

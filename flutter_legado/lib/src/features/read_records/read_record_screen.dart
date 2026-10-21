@@ -337,47 +337,50 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                 ),
                 data: (entries) => CustomRefreshIndicator(
                   onRefresh: _refresh,
-                  child: Md3FastScroller(
+                  child: AppScrollBody(
                     controller: _listController,
-                    child: CustomScrollView(
-                      controller: _listController,
-                      slivers: [
-                        if (summary != null && summary.books.isNotEmpty)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: _summaryCard(
-                                summary.books,
-                                summary.durationMs,
+                    builder: (context, scrollController) => Md3FastScroller(
+                      controller: scrollController,
+                      child: CustomScrollView(
+                        controller: scrollController,
+                        slivers: [
+                          if (summary != null && summary.books.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: _summaryCard(
+                                  summary.books,
+                                  summary.durationMs,
+                                ),
                               ),
                             ),
-                          ),
-                        if (entries.isEmpty)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(
-                              child: Text(context.l10n.noReadingRecords),
-                            ),
-                          ),
-                        if (controls.displayMode ==
-                            ReadRecordDisplayMode.latest)
-                          // 留白归于行内，点击水波纹和选中底色覆盖整行。— Codex + UI
-                          SliverList.builder(
-                            itemCount: entries.length,
-                            itemBuilder: (_, index) => Consumer(
-                              key: ValueKey(entries[index].key),
-                              builder: (tileContext, tileRef, _) => _tile(
-                                tileContext,
-                                entries[index],
-                                controls.displayMode,
-                                tileRef,
+                          if (entries.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: Text(context.l10n.noReadingRecords),
                               ),
                             ),
-                          )
-                        else
-                          _groupedSliver(entries, controls.displayMode),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                      ],
+                          if (controls.displayMode ==
+                              ReadRecordDisplayMode.latest)
+                            // 留白归于行内，点击水波纹和选中底色覆盖整行。— Codex + UI
+                            SliverList.builder(
+                              itemCount: entries.length,
+                              itemBuilder: (_, index) => Consumer(
+                                key: ValueKey(entries[index].key),
+                                builder: (tileContext, tileRef, _) => _tile(
+                                  tileContext,
+                                  entries[index],
+                                  controls.displayMode,
+                                  tileRef,
+                                ),
+                              ),
+                            )
+                          else
+                            _groupedSliver(entries, controls.displayMode),
+                          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        ],
+                      ),
                     ),
                   ),
                 ),

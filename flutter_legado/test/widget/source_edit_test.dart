@@ -37,6 +37,9 @@ void main() {
 
   /// 在底层页面上 push 书源编辑页，便于验证保存后的返回行为
   Future<void> pumpEdit(WidgetTester tester, {String? sourceUrl}) async {
+    // 超长表单夹具使用明确DPR，避免8000逻辑高被默认3倍缩放为超限位图。
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -76,7 +79,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await pumpEdit(tester);
 
-      expect(find.text('新建书源'), findsOneWidget);
+      expect(find.text('新建书源'), findsWidgets);
       for (final title in const ['基本', '搜索', '发现', '详情', '目录', '正文']) {
         expect(
           find.widgetWithText(Tab, title),
@@ -180,7 +183,7 @@ void main() {
       await pumpEdit(tester, sourceUrl: 'https://edit.com');
 
       // 标题为编辑模式
-      expect(find.text('编辑书源'), findsOneWidget);
+      expect(find.text('编辑书源'), findsWidgets);
       // 基本信息回填
       expect(find.text('可编辑源'), findsOneWidget);
 

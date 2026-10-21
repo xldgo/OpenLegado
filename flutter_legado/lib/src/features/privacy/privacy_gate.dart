@@ -66,6 +66,7 @@ class _PrivacyBookGateState extends ConsumerState<PrivacyBookGate> {
       return widget.builder(context);
     }
     return AppScaffold(
+      collapsibleTopBar: false,
       topBar: const LegadoAppBar(title: Text('私密书籍'), showBack: true),
       body: Center(
         child: FilledButton.icon(
@@ -207,6 +208,7 @@ class _PrivacyVerificationGateState
       return widget.builder(context);
     }
     return AppScaffold(
+      collapsibleTopBar: false,
       topBar: const LegadoAppBar(title: Text('隐私验证'), showBack: true),
       body: Center(
         child: FilledButton(

@@ -419,17 +419,20 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
         subtitle: _sources.isEmpty ? context.l10n.addRssSourceHint : null,
       );
     }
-    return Md3FastScroller(
+    return AppScrollBody(
       controller: _fsController,
-      child: ReorderableListView.builder(
-        scrollController: _fsController,
-        buildDefaultDragHandles: false,
-        itemCount: list.length,
-        itemBuilder: (context, index) => KeyedSubtree(
-          key: ValueKey(list[index].sourceUrl),
-          child: _buildSourceItem(context, list[index], dragIndex: index),
+      builder: (context, scrollController) => Md3FastScroller(
+        controller: scrollController,
+        child: ReorderableListView.builder(
+          scrollController: scrollController,
+          buildDefaultDragHandles: false,
+          itemCount: list.length,
+          itemBuilder: (context, index) => KeyedSubtree(
+            key: ValueKey(list[index].sourceUrl),
+            child: _buildSourceItem(context, list[index], dragIndex: index),
+          ),
+          onReorderItem: _reorderVisible,
         ),
-        onReorderItem: _reorderVisible,
       ),
     );
   }

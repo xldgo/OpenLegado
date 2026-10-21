@@ -65,7 +65,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 整页渲染（非弹窗）：标题 + 关键字段
-      expect(find.text('添加替换规则'), findsOneWidget);
+      expect(find.text('添加替换规则'), findsWidgets);
       for (final label in const ['规则名称', '匹配规则', '替换为', '预览输入']) {
         expect(find.text(label), findsOneWidget, reason: '缺少字段：$label');
       }
@@ -87,7 +87,7 @@ void main() {
       await tester.tap(find.byTooltip('编辑'));
       await tester.pumpAndSettle();
 
-      expect(find.text('编辑替换规则'), findsOneWidget);
+      expect(find.text('编辑替换规则'), findsWidgets);
       // 字段回填
       final nameField = tester.widget<TextField>(byLabel('规则名称'));
       expect(nameField.controller?.text, '去广告');
@@ -134,7 +134,7 @@ void main() {
       // 首帧后 postFrame 回调打开编辑器
       await tester.pumpAndSettle();
 
-      expect(find.text('添加替换规则'), findsOneWidget);
+      expect(find.text('添加替换规则'), findsWidgets);
       final patternField = tester.widget<TextField>(byLabel('匹配规则'));
       expect(patternField.controller?.text, '选中词');
     });

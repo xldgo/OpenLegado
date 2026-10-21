@@ -68,6 +68,37 @@ void main() {
     );
   }
 
+  testWidgets('首页使用共用大标题，折叠后标题进入操作栏', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    final api = MockRustApi();
+    when(() => api.bookshelfRepository.getBooks())
+        .thenAnswer((_) async => <Book>[]);
+    when(() => api.readRecordRepository).thenReturn(MockReadRecordRepository());
+    await tester.pumpWidget(createTestWidget(mockApi: api));
+    await tester.pumpAndSettle();
+    expect(find.byType(NestedScrollView), findsOneWidget);
+    expect(tester.getSize(find.byType(AppBar)).height, 112);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -250));
+    await tester.pumpAndSettle();
+    final title = find.descendant(
+      of: find.byType(AnimatedOpacity),
+      matching: find.text('首页'),
+    );
+    final opacity = tester.widget<AnimatedOpacity>(
+      find.ancestor(of: title, matching: find.byType(AnimatedOpacity)).first,
+    );
+    expect(opacity.opacity, 1);
+    expect(tester.getSize(find.byType(AppBar)).height, 56);
+    expect(
+      tester.getCenter(title).dy,
+      closeTo(tester.getCenter(find.byIcon(Icons.settings_rounded)).dy, 1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('阅读时长榜左右边缘均属于对应书籍的整行点击区域', (tester) async {
     final tapped = <ReadBookRanking>[];
     await tester.pumpWidget(
@@ -145,7 +176,12 @@ void main() {
     await tester.pumpWidget(createTestWidget(mockApi: mockApi));
     await tester.pumpAndSettle();
 
-    final scrollableFinder = find.byType(Scrollable).first;
+    final scrollableFinder = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
     expect(find.byType(ReadingHeatmapCard), findsOneWidget);
 
     await tester.scrollUntilVisible(
@@ -189,7 +225,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final scrollableFinder = find.byType(Scrollable).first;
+    final scrollableFinder = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
     expect(find.byType(ReadingHeatmapCard), findsOneWidget);
 
     await tester.scrollUntilVisible(
