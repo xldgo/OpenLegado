@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.424] - 2026-10-21
 
 ### Changed
+- MuMu一键安装自动发现已启动实例并连接ADB，无需手动连接端口。贡献者：Codex + Tool。
 - 章节标题作为内容块与正文共同分页，长标题可跨页，滚动和预览复用布局结果。
 - 支持按位置、标记或正则分段标题，独立设置副标题缩放及正负分段间距。
 - 卷章和空章保留标题展示规则；标题不进入正文选区、复制或朗读坐标。

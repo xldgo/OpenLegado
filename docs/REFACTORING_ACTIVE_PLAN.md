@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### MUMU-ADB-AUTO-CONNECT-20261021：一键安装自动连接（P2，已关闭）
+
+- 授权/基线：用户确认加入MuMu自动连接ADB；dev / 838d6b912，单代理，不提升版本，保留其他任务及生成文件改动。
+- 实现：PATH优先、Windows卸载信息次之定位MuMuManager；查询已启动实例的实际本机端点，单实例自动连接，多实例要求--device。指定且在线的目标直接复用；无管理工具时仍可识别已连接MuMu。查询/连接限时10秒，使用安装流程同一ADB；连接后检查在线状态、MuMu标识与x86_64，连接信息写入本次安装日志。
+- 边界：不写死端口，不自动启动实例、扫描端口或重启共享ADB；错误保留目标及原因。Rust复用、APK编译、覆盖安装和默认启动链不变，无新增依赖。
+- 验证：MuMu模块20项通过，覆盖动态端点、已连接复用、多实例及指定未连接目标、连接假成功/超时、JSON和端点异常、管理工具发现与构建委托；完整工具组209项中206通过、3项宿主能力跳过。证据build/mumu-auto-connect-tooling.log。
+- 实测：通过本机安装信息发现管理工具并实时查询唯一运行端点；只断开该目标，直接调用生产选择入口自动重连成功，再次指定在线目标成功复用，最后仍在线。证据build/mumu-auto-connect-live.log。不重复编译或安装APK，不宣称进行了应用UI验收；README、AGENTS及双更新日志同步，仅本地提交带[skip ci]，未推送。
+
+编写者：Codex + Tool｜2026-10-21
+
 ### READER-TITLE-PARITY-20261021：章节标题对齐（P1，代码验证通过，待设备观感验收）
 
 - 授权/基线：用户确认标题对齐方案；主目录dev / 8052572e3，单代理，不另建分支。参考本地上游c4182eb9b的ReadBookConfig、LegacyReaderPaginationStyleFactory、ReaderTitleSegmentation与ReaderPaginator。
