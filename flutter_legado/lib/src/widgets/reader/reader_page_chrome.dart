@@ -50,9 +50,7 @@ double readerOverlayStatusBarInset(
 
 /// 标题字体生效家族（空=跟随正文字体，对齐原版 ReadBookConfig.titleFont）。
 ///
-/// 测量/渲染同参的单源：测量侧（ReaderPageView._computeFirstPageHeight）
-/// 与渲染侧（ReaderTypographicPage 首屏标题块）必须都经此取标题 fontFamily，
-/// 不同参会导致首页标题行分页错位。
+/// 标题内容块测量使用此函数；最终样式随布局结果传给渲染，不再独立扣首页高度。
 ///
 /// [bodyFontFamily] 为正文字体家族（可为 null=默认字体）。
 String? effectiveTitleFontFamily(
@@ -90,6 +88,11 @@ class ReaderPageChromeConfig {
   final bool titleSizeRelative;
   final int titleFontWeight;
   final double titleLineHeight;
+  final int titleSegmentType;
+  final int titleSegmentPosition;
+  final String titleSegmentDelimiter;
+  final double titleSubtitleScale;
+  final double titleSegmentSpacing;
   final int titleTopSpacing;
   final int titleBottomSpacing;
 
@@ -122,6 +125,11 @@ class ReaderPageChromeConfig {
     this.titleSizeRelative = true,
     this.titleFontWeight = 500,
     this.titleLineHeight = 1.2,
+    this.titleSegmentType = 0,
+    this.titleSegmentPosition = 4,
+    this.titleSegmentDelimiter = '',
+    this.titleSubtitleScale = 1,
+    this.titleSegmentSpacing = 1.2,
     this.titleTopSpacing = 0,
     this.titleBottomSpacing = 0,
     this.titleFontFamily = '',
@@ -157,6 +165,11 @@ class ReaderPageChromeConfig {
       titleSizeRelative: c.title.sizeRelative,
       titleFontWeight: c.title.fontWeight,
       titleLineHeight: c.title.lineHeight,
+      titleSegmentType: c.title.segmentType,
+      titleSegmentPosition: c.title.segmentPosition,
+      titleSegmentDelimiter: c.title.segmentDelimiter,
+      titleSubtitleScale: c.title.subtitleScale,
+      titleSegmentSpacing: c.title.segmentSpacing,
       titleTopSpacing: c.title.topSpacing,
       titleBottomSpacing: c.title.bottomSpacing,
       titleFontFamily: titleFontFamily,
@@ -171,7 +184,7 @@ class ReaderPageChromeConfig {
       '${tipHeaderLeft}_${tipHeaderMiddle}_${tipHeaderRight}_'
       '${tipFooterLeft}_${tipFooterMiddle}_${tipFooterRight}_'
       '${titleMode}_${titleSize}_${titleSizeRelative}_${titleFontWeight}_${titleLineHeight}_${titleTopSpacing}_$titleBottomSpacing'
-      '_$titleFontFamily';
+      '_${titleSegmentType}_${titleSegmentPosition}_${titleSegmentDelimiter}_${titleSubtitleScale}_${titleSegmentSpacing}_$titleFontFamily';
 
   bool get showPageHeader {
     switch (headerMode.clamp(0, 2)) {

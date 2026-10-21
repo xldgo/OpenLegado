@@ -768,6 +768,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       bookUrl: state.currentBook?.bookUrl,
       chapter: chapterIndex,
       content: content,
+      chapterTitle: state.currentChapter?.title,
+      isVolume: state.currentChapter?.isVolume ?? false,
       config: config,
       fontRevision: _fontRevision,
       boldText: boldText,
@@ -780,7 +782,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       reviews: reviewKey,
     );
     final needRepaginate =
-        content.isNotEmpty &&
+        (content.isNotEmpty ||
+            (state.currentChapter?.title.isNotEmpty ?? false)) &&
         (signature != _paginationSignature ||
             screenSize != _paginatedScreenSize);
 
@@ -812,15 +815,10 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       return;
     }
 
-    // 首页标题块高度（与渲染侧 pageIndex==0 分支同参）
-    // [UI_SYNC_REFACTOR S6 修] 抽为 _computeFirstPageHeight：相邻章预载需按
-    // 「目标章标题」计算首页容量（与落地实际分页一致，防切换重排闪动）— Qoder
-    final chapterTitle = state.currentChapter?.title;
-    final firstPageHeight = _computeFirstPageHeight(
-      state,
-      availableHeight,
-      availableWidth,
-      chapterTitle,
+    final title = ReaderTitleLayout(
+      text: state.currentChapter?.title ?? '',
+      chrome: chrome,
+      isVolume: state.currentChapter?.isVolume ?? false,
     );
 
     // [UI_SYNC_REFACTOR S6 修 | 2026-09-08] 记录分页参数（相邻章预载复用
@@ -869,7 +867,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       config: config,
       width: availableWidth,
       height: availableHeight,
-      firstHeight: firstPageHeight,
+      titleKey: title.geometryKey,
       fontRevision: _fontRevision,
       reviews: reviewKey,
     );
@@ -882,7 +880,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           content,
           availableWidth,
           availableHeight,
-          firstPageHeight: firstPageHeight,
+          title: title,
           paragraphReviews: reviews,
         );
       } catch (error) {
@@ -1035,8 +1033,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final paragraphs = <ParagraphInfo>[];
     final positions = <(double, int, int)>[];
     var y = 0.0;
-    var previous = 0;
-    double? previousLineHeight;
+    var contentBottom = 0.0;
+    ParagraphInfo? previous;
     for (var page = 0; page < _paginatedPages.length; page++) {
       for (final paragraph in _paginatedPages[page].paragraphs) {
         // 页内直接保留Rust最终间隔；拼页时补回未绘制的行后空白。
@@ -1044,24 +1042,20 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           paragraph,
           _paginatedPages[page].paragraphs.first,
         );
-        final gap = page > 0 && atPageStart && previousLineHeight != null
-            ? previousLineHeight * ((_pagedConfig?.lineHeight ?? 1) - 1) +
-                  (previous != paragraph.chapterParagraphIndex
-                      ? _pagedParagraphSpacingPx
-                      : 0)
-            : paragraph.spacingBefore ??
-                  (previous != 0 && previous != paragraph.chapterParagraphIndex
-                      ? _pagedParagraphSpacingPx
-                      : 0.0);
+        final gap = page > 0 && atPageStart && previous != null
+            ? previous.continuationSpacingAfter ?? 0
+            : paragraph.spacingBefore ?? 0;
         y += gap;
         for (final line in paragraph.lines) {
-          positions.add((y, line.startIndex, page));
+          if (!paragraph.isTitle) positions.add((y, line.startIndex, page));
           y += line.height;
-          previousLineHeight = line.height;
+          contentBottom = math.max(contentBottom, y);
         }
         paragraphs.add(
           ParagraphInfo(
             lines: paragraph.lines,
+            isTitle: paragraph.isTitle,
+            continuationSpacingAfter: paragraph.continuationSpacingAfter,
             totalHeight: paragraph.totalHeight,
             startIndex: paragraph.startIndex,
             endIndex: paragraph.endIndex,
@@ -1070,13 +1064,13 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
             spacingBefore: gap,
           ),
         );
-        previous = paragraph.chapterParagraphIndex;
+        previous = paragraph;
       }
     }
     _scrollLinePositions = positions;
     _scrollLayout = PageInfo(
       paragraphs: paragraphs,
-      totalHeight: y,
+      totalHeight: contentBottom,
       sourceText: _paginatedContent,
       textEnvironment: _paginatedTextEnvironment,
     );
@@ -1124,6 +1118,12 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           generation != _layoutGeneration ||
           !_scrollController.hasClients ||
           _scrollLinePositions.isEmpty) {
+        return;
+      }
+      if (source <= 0) {
+        _restoringScroll = true;
+        _scrollController.jumpTo(0);
+        _restoringScroll = false;
         return;
       }
       final body = _scrollBodyKey.currentContext?.findRenderObject();
@@ -1234,7 +1234,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         !state.isLoading &&
         state.currentBook != null &&
         state.chapters.isNotEmpty &&
-        state.chapterContent.isEmpty) {
+        state.chapterContent.isEmpty &&
+        (state.currentChapter?.title.isEmpty ?? true)) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -1463,31 +1464,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     },
   );
 
-  /// 首页可用高度（扣标题块；与渲染侧 pageIndex==0 同参）
-  double _computeFirstPageHeight(
-    ReaderState state,
-    double availableHeight,
-    double availableWidth,
-    String? chapterTitle,
-  ) {
-    var firstPageHeight = availableHeight;
-    if (chapterTitle == null) return firstPageHeight;
-    final title = ReaderTitleLayout(
-      chrome: widget.pageChrome,
-      environment: TextLayoutEnvironment.of(context),
-      bodySize: state.fontSize,
-      bodyFont: _fontFamily,
-      color: _resolveTextColor(state),
-      letterSpacingEm: widget.letterSpacing,
-      fontStyle: _fontStyleFor(widget.italic),
-    );
-    firstPageHeight -= title.measure(chapterTitle, availableWidth);
-    // 极端小窗口兼底：首页至少容纳一行正文
-    final minHeight = state.fontSize * state.lineHeight;
-    if (firstPageHeight < minHeight) firstPageHeight = minHeight;
-    return firstPageHeight;
-  }
-
   /// 章边界预载触发：末屏预载下一章首屏、首屏预载上一章末屏
   void _maybePreloadAdjacent(ReaderState state, {bool eager = false}) {
     final delta = ReaderPaginationPolicy.adjacentChapter(
@@ -1538,16 +1514,15 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           .read(chapterContentServiceProvider)
           .read(book.bookUrl, target);
       if (!mounted || !_isCurrentPaginationTask(task)) return;
-      if (content.trim().isEmpty) {
+      if (content.trim().isEmpty &&
+          state.chapters[target].title.trim().isEmpty) {
         return;
       }
       final engine = ParagraphLayoutEngine(config: config, context: context);
-      // 按「目标章标题」计算首页容量，与落地实际分页严格同参
-      final previewFirstPageHeight = _computeFirstPageHeight(
-        state,
-        availableHeight,
-        availableWidth,
-        state.chapters[target].title,
+      final titleLayout = ReaderTitleLayout(
+        text: state.chapters[target].title,
+        chrome: widget.pageChrome,
+        isVolume: state.chapters[target].isVolume,
       );
       final cacheKey = ReaderPaginationPolicy.chapterCacheKey(
         bookUrl: state.currentBook?.bookUrl,
@@ -1556,7 +1531,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         config: config,
         width: availableWidth,
         height: availableHeight,
-        firstHeight: previewFirstPageHeight,
+        titleKey: titleLayout.geometryKey,
         fontRevision: _fontRevision,
         reviews: '',
       );
@@ -1566,7 +1541,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           content,
           availableWidth,
           availableHeight,
-          firstPageHeight: previewFirstPageHeight,
+          title: titleLayout,
         );
         _preloadSessions.add(session);
         try {
@@ -1645,9 +1620,14 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       pageInfo: info,
       pageIndex: pageIndex,
       totalPages: totalPages,
-      chapterTitle: title,
       pageChrome: widget.pageChrome,
-      tipContext: _buildTipContext(state, pageIndex, totalPages, null),
+      tipContext: _buildTipContext(
+        state,
+        pageIndex,
+        totalPages,
+        null,
+        chapterTitle: title,
+      ),
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
       paragraphSpacing: _pagedParagraphSpacingPx,
@@ -1755,16 +1735,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (state.currentChapter != null)
-                ReaderTitleLayout(
-                  chrome: widget.pageChrome,
-                  environment: TextLayoutEnvironment.of(context),
-                  bodySize: state.fontSize,
-                  bodyFont: _fontFamily,
-                  color: textColor,
-                  letterSpacingEm: widget.letterSpacing,
-                  fontStyle: _fontStyleFor(widget.italic),
-                ).build(state.currentChapter!.title),
               // 滚动模式：渲染所有分页内容（使用排版引擎的分行结果）
               if (_paginatedPages.isNotEmpty && _scrollLayout != null)
                 ReaderTextContent(
@@ -1836,7 +1806,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       pageInfo: pageInfo,
       pageIndex: safeIndex,
       totalPages: _paginatedPages.length,
-      chapterTitle: _paginatedChapterTitle ?? state.currentChapter?.title,
       footerColumn: doublePageSide == 'right' ? 1 : 0,
       footerColumns: doublePageSide == null ? 1 : 2,
       pageChrome: widget.pageChrome,
@@ -1887,12 +1856,17 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     ReaderState state,
     int pageIndex,
     int totalPages,
-    int? globalIndex,
-  ) {
+    int? globalIndex, {
+    String? chapterTitle,
+  }) {
     return ReaderTipContext(
       bookName: state.currentBook?.name ?? '',
       // [UI_SYNC_REFACTOR S4 修] 章题取分页同源快照（加载冻结帧不串章）— Qoder
-      chapterTitle: _paginatedChapterTitle ?? state.currentChapter?.title ?? '',
+      chapterTitle:
+          chapterTitle ??
+          _paginatedChapterTitle ??
+          state.currentChapter?.title ??
+          '',
       pageIndex: pageIndex,
       totalPages: totalPages,
       globalPageIndex: globalIndex,

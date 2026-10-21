@@ -16,6 +16,11 @@ final class ReaderPageLayoutCodec {
     'title_size_relative',
     'title_font_weight',
     'title_line_height',
+    'title_segment_type',
+    'title_segment_position',
+    'title_segment_delimiter',
+    'title_subtitle_scale',
+    'title_segment_spacing',
     'title_top_spacing',
     'title_bottom_spacing',
     'header_padding_top',
@@ -112,18 +117,39 @@ final class ReaderPageLayoutCodec {
         500,
         max: 900,
       ).clamp(100, 900),
+      segmentType: _int(snapshot, 'title_segment_type', 0, max: 3),
+      segmentPosition: _int(
+        snapshot,
+        'title_segment_position',
+        4,
+        max: 20,
+      ).clamp(1, 20),
+      segmentDelimiter: snapshot[_address('title_segment_delimiter')] is String
+          ? snapshot[_address('title_segment_delimiter')] as String
+          : '',
+      subtitleScale: _double(
+        snapshot,
+        'title_subtitle_scale',
+        1,
+        2,
+      ).clamp(.1, 2),
+      segmentSpacing:
+          (snapshot[_address('title_segment_spacing')] is double
+                  ? snapshot[_address('title_segment_spacing')] as double
+                  : 1.2)
+              .clamp(-3, 3),
       lineHeight: _double(snapshot, 'title_line_height', 1.2, 2).clamp(.1, 2),
       topSpacing: _int(
         snapshot,
         'title_top_spacing',
         _defaults.title.topSpacing,
-        max: 100,
+        max: 200,
       ),
       bottomSpacing: _int(
         snapshot,
         'title_bottom_spacing',
         _defaults.title.bottomSpacing,
-        max: 100,
+        max: 200,
       ),
     ),
     header: _edge(snapshot, ReaderPageEdge.header),
@@ -228,6 +254,11 @@ final class ReaderPageLayoutCodec {
     bool? sizeRelative,
     int? fontWeight,
     double? lineHeight,
+    int? segmentType,
+    int? segmentPosition,
+    String? segmentDelimiter,
+    double? subtitleScale,
+    double? segmentSpacing,
     int? topSpacing,
     int? bottomSpacing,
   }) => {
@@ -236,7 +267,12 @@ final class ReaderPageLayoutCodec {
     _address('title_size_relative'): ?sizeRelative,
     _address('title_font_weight'): ?fontWeight?.clamp(100, 900),
     _address('title_line_height'): ?lineHeight?.clamp(.1, 2),
-    _address('title_top_spacing'): ?topSpacing?.clamp(0, 100),
-    _address('title_bottom_spacing'): ?bottomSpacing?.clamp(0, 100),
+    _address('title_segment_type'): ?segmentType?.clamp(0, 3),
+    _address('title_segment_position'): ?segmentPosition?.clamp(1, 20),
+    _address('title_segment_delimiter'): ?segmentDelimiter,
+    _address('title_subtitle_scale'): ?subtitleScale?.clamp(.1, 2),
+    _address('title_segment_spacing'): ?segmentSpacing?.clamp(-3, 3),
+    _address('title_top_spacing'): ?topSpacing?.clamp(0, 200),
+    _address('title_bottom_spacing'): ?bottomSpacing?.clamp(0, 200),
   };
 }

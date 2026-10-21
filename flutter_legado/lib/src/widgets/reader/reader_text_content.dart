@@ -1,11 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_strings.dart';
 import '../../widgets/paragraph_layout_engine.dart';
 import 'review_column.dart';
 import 'reader_page_chrome.dart';
-import 'reader_title_layout.dart';
-import 'text_layout_environment.dart';
 import 'reader_selection_toolbar.dart';
 import 'reader_selection_region.dart';
 import 'reader_selectable_text.dart';
@@ -24,7 +24,6 @@ class ReaderTypographicPage extends StatelessWidget {
   final PageInfo? pageInfo;
   final int pageIndex;
   final int totalPages;
-  final String? chapterTitle;
 
   final double fontSize;
   final double lineHeight;
@@ -71,7 +70,6 @@ class ReaderTypographicPage extends StatelessWidget {
     required this.pageInfo,
     required this.pageIndex,
     required this.totalPages,
-    required this.chapterTitle,
     required this.fontSize,
     required this.lineHeight,
     required this.paragraphSpacing,
@@ -118,11 +116,6 @@ class ReaderTypographicPage extends StatelessWidget {
     final chrome = pageChrome;
     final showHeader = chrome.showPageHeader && chrome.hasHeaderTips;
     final showFooter = chrome.showPageFooter && chrome.hasFooterTips;
-    final showTitle =
-        pageIndex == 0 &&
-        chapterTitle != null &&
-        chrome.titleMode.clamp(0, 2) != 2;
-
     return Container(
       color: backgroundColor,
       child: Column(
@@ -152,16 +145,6 @@ class ReaderTypographicPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (showTitle)
-                    ReaderTitleLayout(
-                      chrome: chrome,
-                      environment: TextLayoutEnvironment.of(context),
-                      bodySize: fontSize,
-                      bodyFont: fontFamily,
-                      color: textColor,
-                      letterSpacingEm: letterSpacing / fontSize,
-                      fontStyle: fontStyle,
-                    ).build(chapterTitle!),
                   Expanded(
                     child: ReaderTextContent(
                       pageInfo: info,
@@ -276,12 +259,15 @@ class ReaderTextContent extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final widgets = <Widget>[];
+        var paragraphTop = 0.0;
+        var contentBottom = 0.0;
         final availableWidth = constraints.maxWidth;
         // 当前页的实际文字共同测量字体回退，避免每行按不同字体单独取高亮高度。
         final selectionGeometry = selectText && pageInfo.sourceText != null
             ? ReaderSelectionGeometry.forText(
                 context,
                 pageInfo.paragraphs
+                    .where((p) => !p.isTitle)
                     .expand((p) => p.lines)
                     .map((line) => line.selectableText)
                     .join(),
@@ -301,9 +287,7 @@ class ReaderTextContent extends StatelessWidget {
           // 段落间距（非第一段时添加）
           final gap =
               para.spacingBefore ?? (paraIdx > 0 ? paragraphSpacing : 0);
-          if (gap > 0) {
-            widgets.add(SizedBox(height: gap));
-          }
+          paragraphTop += gap;
 
           // 逐行渲染
           final lineWidgets = <Widget>[];
@@ -311,23 +295,25 @@ class ReaderTextContent extends StatelessWidget {
             final line = para.lines[lineIdx];
             final text = line.selectableText;
             final environment = pageInfo.textEnvironment;
-            final textStyle = (environment?.baseStyle ?? const TextStyle())
-                .merge(
-                  TextStyle(
-                    fontSize: fontSize,
-                    height: kTextHeightNone,
-                    color:
-                        readAloudRange != null &&
-                            para.startIndex < readAloudRange!.$2 &&
-                            para.endIndex > readAloudRange!.$1
-                        ? readAloudColor ?? textColor
-                        : textColor,
-                    fontFamily: fontFamily,
-                    fontWeight: fontWeight,
-                    fontStyle: fontStyle,
-                    letterSpacing: line.letterSpacing ?? letterSpacing,
-                  ),
-                );
+            final textStyle =
+                (line.textStyle ?? environment?.baseStyle ?? const TextStyle())
+                    .merge(
+                      TextStyle(
+                        fontSize: line.textStyle?.fontSize ?? fontSize,
+                        height: kTextHeightNone,
+                        color:
+                            !para.isTitle &&
+                                readAloudRange != null &&
+                                para.startIndex < readAloudRange!.$2 &&
+                                para.endIndex > readAloudRange!.$1
+                            ? readAloudColor ?? textColor
+                            : textColor,
+                        fontFamily: line.textStyle?.fontFamily ?? fontFamily,
+                        fontWeight: line.textStyle?.fontWeight ?? fontWeight,
+                        fontStyle: line.textStyle?.fontStyle ?? fontStyle,
+                        letterSpacing: line.letterSpacing ?? letterSpacing,
+                      ),
+                    );
             // 缩进用布局留白绘制，原生选区只能接触章节中的实际文字。
             final lineText = Padding(
               padding: EdgeInsets.only(
@@ -335,7 +321,7 @@ class ReaderTextContent extends StatelessWidget {
               ),
               child: text.isEmpty
                   ? const SizedBox.shrink()
-                  : selectText && pageInfo.sourceText != null
+                  : !para.isTitle && selectText && pageInfo.sourceText != null
                   ? ReaderLineText(
                       text,
                       style: textStyle,
@@ -413,7 +399,7 @@ class ReaderTextContent extends StatelessWidget {
           // （对齐原版 ReadView.onLongPress → showTextActionMenu；P0-1 审计修复）
           // [UI-fix v2.0.3 | 2026-08-08] selectText 关闭时移除长按入口 — Qoder
           final source = pageInfo.sourceText;
-          final paraText = source != null
+          final paraText = source != null && !para.isTitle
               ? source.substring(para.startIndex, para.endIndex)
               : para.lines.map((l) => l.selectableText).join();
           final paragraphBody = Column(
@@ -422,7 +408,8 @@ class ReaderTextContent extends StatelessWidget {
           );
           // 原生选区覆盖正文；段评角标与翻页快照不参与显示偏移计算。
           Widget paragraphContent = paragraphBody;
-          if (selectText &&
+          if (!para.isTitle &&
+              selectText &&
               source == null &&
               ReaderSelectionScope.maybeOf(context) == null &&
               paraText.trim().isNotEmpty) {
@@ -438,12 +425,27 @@ class ReaderTextContent extends StatelessWidget {
               child: paragraphContent,
             );
           }
-          widgets.add(paragraphContent);
+          if (para.isTitle) {
+            paragraphContent = SelectionContainer.disabled(
+              child: paragraphContent,
+            );
+          }
+          widgets.add(
+            Positioned(
+              left: 0,
+              right: 0,
+              top: paragraphTop,
+              child: paragraphContent,
+            ),
+          );
+          paragraphTop += para.totalHeight;
+          contentBottom = math.max(contentBottom, paragraphTop);
         }
 
-        final body = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: widgets,
+        // 直接消费最终坐标；负间距不能被Column的非负尺寸约束吞掉。
+        final body = SizedBox(
+          height: math.max(contentBottom, pageInfo.totalHeight),
+          child: Stack(clipBehavior: Clip.none, children: widgets),
         );
         final selectableBody = selectText && pageInfo.sourceText != null
             ? ReaderSelectionTextGroup(child: body)

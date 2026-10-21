@@ -16,7 +16,7 @@ class ChapterPaginationSession {
   final List<PageInfo> _pages = [];
   late final List<PageInfo> _pageView = UnmodifiableListView(_pages);
   int _index = 0;
-  bool _prefixSent = false;
+  int _prefixIndex = 0;
   bool _advancing = false;
   bool complete = false;
   bool cancelled = false;
@@ -50,13 +50,13 @@ class ChapterPaginationSession {
     try {
       final watch = Stopwatch()..start();
       final blocks = <Map<String, Object?>>[];
-      if (!_prefixSent) {
-        blocks.addAll(prefixBlocks);
-        _prefixSent = true;
+      while (_prefixIndex < prefixBlocks.length && blocks.length < 32) {
+        blocks.add(prefixBlocks[_prefixIndex++]);
       }
       var count = 0;
       while (!cancelled &&
           _index < paragraphs.length &&
+          blocks.length < 32 &&
           count < maxParagraphs) {
         blocks.add(measure(paragraphs[_index], _index + 1));
         _index++;
@@ -69,7 +69,7 @@ class ChapterPaginationSession {
         if (cancelled) return;
         _pages.addAll(reply.pages.map(adapter.convert));
       }
-      if (_index == paragraphs.length) {
+      if (_index == paragraphs.length && _prefixIndex == prefixBlocks.length) {
         final reply = await bridge.finish();
         if (cancelled) return;
         _pages.addAll(reply.pages.map(adapter.convert));
@@ -151,6 +151,8 @@ class ChapterLayoutCache {
         result += paragraph.lines.length * 192;
         for (final line in paragraph.lines) {
           result += line.glyphs.length * 4;
+          final style = line.textStyle;
+          if (style != null && shared.add(style)) result += 256;
         }
       }
     }

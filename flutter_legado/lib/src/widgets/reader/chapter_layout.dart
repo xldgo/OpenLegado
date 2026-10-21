@@ -61,6 +61,9 @@ class LineInfo {
   final InlineReviewLayout? trailingReview;
   final List<ReaderGlyph> glyphs;
 
+  /// 标题使用独立样式，颜色仍由页面即时提供。— Codex + UI
+  final TextStyle? textStyle;
+
   /// 首行缩进的独立几何宽度，不改变正文和原文偏移。
   final double indentWidth;
 
@@ -84,6 +87,7 @@ class LineInfo {
     this.textTop = 0,
     this.trailingReview,
     this.glyphs = const [],
+    this.textStyle,
     this.hangingWidth = 0,
     this.indentWidth = 0,
     this.letterSpacing,
@@ -103,6 +107,10 @@ class LineInfo {
 /// 段落信息
 @immutable
 class ParagraphInfo {
+  final bool isTitle;
+
+  /// 跨有限页拼接滚动布局时恢复行后的自然间隔。— Codex + UI
+  final double? continuationSpacingAfter;
   final List<LineInfo> lines;
   final double totalHeight;
   final int startIndex;
@@ -119,6 +127,8 @@ class ParagraphInfo {
 
   const ParagraphInfo({
     required this.lines,
+    this.isTitle = false,
+    this.continuationSpacingAfter,
     required this.totalHeight,
     required this.startIndex,
     required this.endIndex,
@@ -147,13 +157,15 @@ class PageInfo {
     this.elements = const [],
   });
 
-  int get sourceStart => paragraphs.isEmpty ? 0 : paragraphs.first.startIndex;
-  int get sourceEnd => paragraphs.isEmpty ? 0 : paragraphs.last.endIndex;
+  int get sourceStart =>
+      paragraphs.where((p) => !p.isTitle).firstOrNull?.startIndex ?? 0;
+  int get sourceEnd =>
+      paragraphs.where((p) => !p.isTitle).lastOrNull?.endIndex ?? 0;
 }
 
 /// 原文空白间隙归到其后的正文页，超出末尾的锚点归到末页。
 int pageIndexForSourceOffset(List<PageInfo> pages, int sourceOffset) {
-  if (pages.isEmpty) return 0;
+  if (pages.isEmpty || sourceOffset <= 0) return 0;
   var low = 0;
   var high = pages.length - 1;
   while (low < high) {

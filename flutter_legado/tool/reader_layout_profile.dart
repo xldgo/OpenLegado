@@ -12,6 +12,8 @@ import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/layout_diagnostics.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_title_layout.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 
 const _label = String.fromEnvironment(
@@ -21,7 +23,10 @@ const _label = String.fromEnvironment(
 const _revision = String.fromEnvironment('LAYOUT_PROFILE_REVISION');
 const _width = 320.0;
 const _height = 580.0;
-const _firstHeight = 530.0;
+const _profileTitle = ReaderTitleLayout(
+  text: '性能采样章节标题',
+  chrome: ReaderPageChromeConfig(),
+);
 const _warmups = 2;
 const _rounds = 7;
 
@@ -140,7 +145,8 @@ class _ProfileScreenState extends State<_ProfileScreen>
         'displayRefreshRate': View.of(context).display.refreshRate,
         'width': _width,
         'height': _height,
-        'firstHeight': _firstHeight,
+        'chapterTitle': _profileTitle.text,
+        'titleLayout': 'contentBlock',
         'fontSize': 18,
         'lineHeight': 1.6,
         'paragraphSpacing': 8,
@@ -235,7 +241,7 @@ class _ProfileScreenState extends State<_ProfileScreen>
       sample.source,
       _width,
       _height,
-      firstPageHeight: _firstHeight,
+      title: _profileTitle,
       paragraphReviews: reviews,
     );
     active.stop();
@@ -265,6 +271,7 @@ class _ProfileScreenState extends State<_ProfileScreen>
     final pages = session.pages;
     final shown = pages
         .expand((page) => page.paragraphs)
+        .where((paragraph) => !paragraph.isTitle)
         .expand((paragraph) => paragraph.lines)
         .map((line) => line.selectableText)
         .join();

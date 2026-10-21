@@ -61,6 +61,11 @@ abstract interface class ReaderSettingsRepository {
     bool? sizeRelative,
     int? fontWeight,
     double? lineHeight,
+    int? segmentType,
+    int? segmentPosition,
+    String? segmentDelimiter,
+    double? subtitleScale,
+    double? segmentSpacing,
     int? topSpacing,
     int? bottomSpacing,
   });

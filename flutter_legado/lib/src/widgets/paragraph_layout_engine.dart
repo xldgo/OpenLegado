@@ -11,6 +11,7 @@ import 'reader/chapter_pagination_session.dart';
 import 'reader/flutter_text_shaper.dart';
 import 'reader/layout_diagnostics.dart';
 import 'reader/paragraph_config.dart';
+import 'reader/reader_title_layout.dart';
 import 'reader/text_layout_environment.dart';
 export 'reader/chapter_layout.dart';
 export 'reader/chapter_document.dart';
@@ -41,13 +42,14 @@ class ParagraphLayoutEngine {
         );
     shaper = FlutterTextShaper(config, environment, diagnostics);
   }
-  int get measurementCount => shaper.measurementCount;
+  int _titleMeasurementCount = 0;
+  int get measurementCount => shaper.measurementCount + _titleMeasurementCount;
 
   ChapterPaginationSession startChapter(
     String content,
     double width,
     double height, {
-    double? firstPageHeight,
+    ReaderTitleLayout? title,
     Map<int, InlineReview> paragraphReviews = const {},
   }) {
     final scroll = height == double.infinity;
@@ -56,14 +58,27 @@ class ParagraphLayoutEngine {
         (!scroll && (!height.isFinite || height < 1))) {
       throw const ReaderLayoutBoundsException('阅读区域太小，请扩大窗口或减小页边距');
     }
-    if (!scroll && shaper.height > height) {
+    final paragraphs = splitChapterParagraphs(content);
+    if (!scroll && paragraphs.isNotEmpty && shaper.height > height) {
       throw const ReaderLayoutBoundsException('阅读区域太矮，请扩大窗口或减小字号');
     }
-    final inset = firstPageHeight == null ? 0.0 : height - firstPageHeight;
-    if (!scroll && (inset < 0 || shaper.height + inset > height)) {
-      throw const ReaderLayoutBoundsException('章节标题后空间不足，请扩大窗口或减小字号');
+    final measuredTitle =
+        title?.measure(
+          config,
+          environment,
+          width,
+          emptyBody: paragraphs.isEmpty,
+          diagnostics: diagnostics,
+        ) ??
+        MeasuredReaderTitle.empty;
+    _titleMeasurementCount = measuredTitle.measurementCount;
+    if (!scroll &&
+        measuredTitle.blocks.isNotEmpty &&
+        (measuredTitle.blocks.first['lineHeightPx']! as num).toDouble() +
+                (measuredTitle.config['titleTopSpacingPx']! as num).toDouble() >
+            height) {
+      throw const ReaderLayoutBoundsException('阅读区域无法容纳标题首行，请扩大窗口或减小标题字号和上间距');
     }
-    final paragraphs = splitChapterParagraphs(content);
     return ChapterPaginationSession(
       paragraphs: paragraphs,
       measure: (paragraph, index) =>
@@ -88,6 +103,7 @@ class ParagraphLayoutEngine {
           'letterSpacingPx': shaper.spacing,
           'breakMode': config.useZhLayout ? 'chinese' : 'plain',
           'continuousScroll': scroll,
+          ...measuredTitle.config,
         },
       ),
       adapter: ChapterLayoutAdapter(
@@ -95,18 +111,11 @@ class ParagraphLayoutEngine {
         paragraphs: paragraphs,
         environment: environment,
         reviews: paragraphReviews,
-        firstPageInset: inset,
+        title: measuredTitle,
+        lineHeightMultiplier: config.lineHeight,
+        paragraphSpacingPx: shaper.paragraphSpacingPx,
       ),
-      prefixBlocks: inset > 0
-          ? [
-              {
-                'type': 'rule',
-                'colorArgb': 0,
-                'widthPx': 0,
-                'verticalPaddingPx': inset / 2,
-              },
-            ]
-          : const [],
+      prefixBlocks: measuredTitle.blocks,
     );
   }
 
@@ -114,14 +123,14 @@ class ParagraphLayoutEngine {
     String content,
     double width,
     double height, {
-    double? firstPageHeight,
+    ReaderTitleLayout? title,
     Map<int, InlineReview> paragraphReviews = const {},
   }) async {
     final session = startChapter(
       content,
       width,
       height,
-      firstPageHeight: firstPageHeight,
+      title: title,
       paragraphReviews: paragraphReviews,
     );
     try {

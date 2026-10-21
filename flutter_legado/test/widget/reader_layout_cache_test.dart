@@ -67,6 +67,12 @@ class _Reader extends ReaderNotifier {
 
   void mode(PageTurnMode value) => state = state.copyWith(pageTurnMode: value);
   void color() => state = state.copyWith(backgroundColor: Colors.black);
+  void renameTitle(String title) => state = state.copyWith(
+    chapters: [
+      state.chapters.first.copyWith(title: title),
+      ...state.chapters.skip(1),
+    ],
+  );
   void replaceBook() => state = state.copyWith(
     currentBook: const Book(bookUrl: 'replacement-book'),
   );
@@ -500,6 +506,61 @@ void main() {
       previous = paragraph.chapterParagraphIndex;
     }
     expect(body.pageInfo.totalHeight, closeTo(y, .03));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('标题样式和同章标题变化使完整布局缓存失效', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ..._Api().overrides,
+        readerNotifierProvider.overrideWith(_Reader.new),
+      ]),
+    );
+    addTearDown(container.dispose);
+    final key = GlobalKey<ReaderPageViewState>();
+    late StateSetter rebuild;
+    var weight = 500;
+    await pumpNativeReaderLayout(
+      tester,
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          builder: nativeReaderLayoutBuilder,
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return ReaderPageView(
+                  key: key,
+                  paragraphSpacing: 2,
+                  pageChrome: ReaderPageChromeConfig(titleFontWeight: weight),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await settleNativeReaderLayout(tester);
+    final measured = key.currentState!.layoutMeasurements;
+    rebuild(() => weight = 600);
+    await settleNativeReaderLayout(tester);
+    expect(key.currentState!.layoutMeasurements, greaterThan(measured));
+    final measuredAgain = key.currentState!.layoutMeasurements;
+    (container.read(readerNotifierProvider.notifier) as _Reader).renameTitle(
+      '更新后的章节标题',
+    );
+    await settleNativeReaderLayout(tester);
+    expect(key.currentState!.layoutMeasurements, greaterThan(measuredAgain));
+    final titleText = tester
+        .widgetList<ReaderTextContent>(find.byType(ReaderTextContent))
+        .expand((w) => w.pageInfo.paragraphs)
+        .where((p) => p.isTitle)
+        .expand((p) => p.lines)
+        .map((l) => l.displayText)
+        .join();
+    expect(titleText, contains('更新后的章节标题'));
     expect(tester.takeException(), isNull);
   });
 }

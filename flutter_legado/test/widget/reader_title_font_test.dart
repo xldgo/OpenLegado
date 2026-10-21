@@ -4,15 +4,7 @@ import '../fixtures/routing_test_app.dart';
 
 import '../fixtures/app_test_api.dart';
 
-/// 标题字体贯通测试（差异清单 C3 收尾：对齐原版 #1072 ReadBookConfig.titleFont）
-///
-/// 覆盖：① 共享阅读仓储中的标题字体选择，规范存储键reader_title_font_family；② effectiveTitleFontFamily 单源取值（空=跟随正文）；
-/// ③ 渲染侧 ReaderTypographicPage 首屏标题块 TextStyle.fontFamily 与测量
-/// 传入值一致（同参断言，仿 reader_italic_style_test.dart 方式）；
-/// ④ PageChrome.titleFont 并入 layoutKey（触发重分页的可测替代：
-/// 断言 chrome.titleFont 传参与 layoutKey 变化）；⑤ Tt 面板标题字体行
-/// 显示「跟随正文」/字体名，点按跳转 FontScreen(target: 'title')。
-/// — full-stack-engineer + UI
+/// 共享标题字体选择、字体回退和设置导航；实际排版与绘制见标题分页测试。— Codex + UI
 
 import 'package:flutter_legado/src/data/repositories/app_reader_settings_repository.dart';
 import 'package:flutter_legado/src/domain/models/reader_page_layout_settings.dart';
@@ -24,9 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 import '../fixtures/reader_settings_repository.dart';
@@ -77,52 +67,6 @@ void main() {
       const chrome = ReaderPageChromeConfig();
       expect(effectiveTitleFontFamily(chrome, 'SimSun'), 'SimSun');
       expect(effectiveTitleFontFamily(chrome, null), isNull);
-    });
-  });
-
-  group('首屏标题块测量/渲染同参', () {
-    const pageInfo = PageInfo(paragraphs: [], totalHeight: 0);
-
-    Widget page({required ReaderPageChromeConfig chrome, String? bodyFont}) {
-      return RoutingTestApp(
-        home: Scaffold(
-          body: ReaderTypographicPage(
-            pageInfo: pageInfo,
-            pageIndex: 0,
-            totalPages: 1,
-            chapterTitle: '第一章 标题',
-            fontSize: 18,
-            lineHeight: 1.6,
-            paragraphSpacing: 8,
-            backgroundColor: Colors.white,
-            textColor: Colors.black,
-            fontFamily: bodyFont,
-            pageChrome: chrome,
-          ),
-        ),
-      );
-    }
-
-    testWidgets('标题 TextStyle.fontFamily == 测量传入值（同参断言）', (tester) async {
-      const chrome = ReaderPageChromeConfig(titleFontFamily: 'KaiTi');
-      const bodyFont = 'SimSun';
-      // 测量侧（_computeFirstPageHeight）经同一单源计算的值
-      const expected = 'KaiTi';
-      expect(effectiveTitleFontFamily(chrome, bodyFont), expected);
-
-      await tester.pumpWidget(page(chrome: chrome, bodyFont: bodyFont));
-      final title = tester.widget<Text>(find.text('第一章 标题')).style!.fontFamily;
-      expect(title, expected, reason: '标题渲染 fontFamily 须与测量传入值一致');
-    });
-
-    testWidgets('标题字体空值=跟随正文字体（修复既有偏差）', (tester) async {
-      const chrome = ReaderPageChromeConfig();
-      const bodyFont = 'SimSun';
-      expect(effectiveTitleFontFamily(chrome, bodyFont), bodyFont);
-
-      await tester.pumpWidget(page(chrome: chrome, bodyFont: bodyFont));
-      final title = tester.widget<Text>(find.text('第一章 标题')).style!.fontFamily;
-      expect(title, bodyFont, reason: '空 titleFontFamily 时标题应跟随正文字体（既有偏差修复）');
     });
   });
 

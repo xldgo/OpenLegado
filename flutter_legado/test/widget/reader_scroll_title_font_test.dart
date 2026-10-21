@@ -3,19 +3,7 @@ library;
 
 import '../fixtures/app_test_api.dart';
 
-/// [A4 滚动模式标题字体 | full-stack-engineer + UI] 滚动模式标题块
-/// 接 C3 标题字体（effectiveTitleFontFamily 单源）
-///
-/// 背景：C3 标题字体（2.0.242）只在翻页/排版模式生效（测量侧
-/// _computeFirstPageHeight + 渲染侧 ReaderTypographicPage 首屏标题块）；
-/// 滚动模式标题块（ReaderPageView._buildScrollContent）此前 fontSize+4
-/// 硬编码、未接 titleFont。
-///
-/// 覆盖：① titleFont 非空 → 滚动标题 TextStyle.fontFamily == titleFont
-/// （与 effectiveTitleFontFamily 单源同参断言，仿 reader_title_font_test.dart）；
-/// ② titleFont 空 = 跟随正文字体（_fontFamily 经 SharedPreferences
-/// reader_font_family 注入）。
-/// 滚动模式不分页 → 仅渲染侧取值（无测量侧同步需求）。
+/// 实际滚动布局的标题样式、显隐及原文锚点；标题与正文共用内容块分页。— Codex + UI
 
 import '../helpers/native_reader_layout.dart';
 
@@ -29,6 +17,7 @@ import 'package:flutter_legado/src/features/reader/application/reader_notifier.d
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 /// 测试专用 ReaderNotifier：build() 直接返回指定状态，不调用父类
 /// build（其 Future.microtask(_loadSettings) 会把 pageTurnMode 覆写为
@@ -73,7 +62,7 @@ void main() {
     );
   }
 
-  testWidgets('滚动标题遵守字号、字重、居中、上下间距和隐藏', (tester) async {
+  testWidgets('滚动标题遵守独立样式、居中和隐藏', (tester) async {
     SharedPreferences.setMockInitialValues({});
     const chrome = ReaderPageChromeConfig(
       titleSize: 17,
@@ -86,23 +75,54 @@ void main() {
     );
     await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
     await settleNativeReaderLayout(tester);
-    final title = tester.widget<Text>(find.text(chapterTitle));
-    expect(title.style!.fontSize, 17);
-    expect(title.style!.fontWeight, FontWeight.w600);
-    expect(title.style!.height, 1.4);
-    expect(title.textAlign, TextAlign.center);
-    final padding = tester.widget<Padding>(
-      find
-          .ancestor(of: find.text(chapterTitle), matching: find.byType(Padding))
-          .first,
-    );
-    expect(padding.padding, const EdgeInsets.only(top: 7, bottom: 9));
+    final title = tester
+        .widget<ReaderTextContent>(find.byType(ReaderTextContent))
+        .pageInfo
+        .paragraphs
+        .firstWhere((p) => p.isTitle);
+    expect(title.lines.first.textStyle!.fontSize, 17);
+    expect(title.lines.first.textStyle!.fontWeight, FontWeight.w600);
+    expect(title.spacingBefore, closeTo(7, .02));
+    expect(title.lines.first.indentWidth, greaterThan(0));
     await pumpNativeReaderLayout(
       tester,
       wrap(scrollState(), const ReaderPageChromeConfig(titleMode: 2)),
     );
     await settleNativeReaderLayout(tester);
-    expect(find.text(chapterTitle), findsNothing);
+    expect(
+      tester
+          .widget<ReaderTextContent>(find.byType(ReaderTextContent))
+          .pageInfo
+          .paragraphs
+          .where((p) => p.isTitle),
+      isEmpty,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  TextStyle currentTitleStyle(WidgetTester tester) => tester
+      .widget<ReaderTextContent>(find.byType(ReaderTextContent))
+      .pageInfo
+      .paragraphs
+      .firstWhere((p) => p.isTitle)
+      .lines
+      .first
+      .textStyle!;
+
+  testWidgets('滚动开章锚点0保留长标题，不自动跳过标题', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final state = scrollState().copyWith(
+      chapters: [BookChapter(title: 'TITLE' * 120, index: 0)],
+    );
+    await pumpNativeReaderLayout(
+      tester,
+      wrap(state, const ReaderPageChromeConfig()),
+    );
+    await settleNativeReaderLayout(tester);
+    await tester.pump(const Duration(seconds: 1));
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+    expect(scroll.position.maxScrollExtent, greaterThan(0));
+    expect(scroll.position.pixels, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -117,7 +137,7 @@ void main() {
       await pumpNativeReaderLayout(tester, wrap(scrollState(), chrome));
       await settleNativeReaderLayout(tester);
 
-      final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
+      final titleStyle = currentTitleStyle(tester);
       expect(
         titleStyle.fontFamily,
         expected,
@@ -146,7 +166,7 @@ void main() {
       // 追加一次 pump 触发 elapse 使其触发，消除 "Timer still pending" 断言。
       await tester.pump(const Duration(seconds: 1));
 
-      final titleStyle = tester.widget<Text>(find.text(chapterTitle)).style!;
+      final titleStyle = currentTitleStyle(tester);
       expect(
         titleStyle.fontFamily,
         expected,
@@ -166,20 +186,14 @@ void main() {
         tester.element(find.byType(ReaderPageView)),
       );
       final view = tester.state(find.byType(ReaderPageView));
-      expect(
-        tester.widget<Text>(find.text(chapterTitle)).style!.fontFamily,
-        bodyFont,
-      );
+      expect(currentTitleStyle(tester).fontFamily, bodyFont);
       await container
           .read(readerSettingsRepositoryProvider)
           .update(fontFamily: 'Georgia');
       await settleNativeReaderLayout(tester);
       await tester.pump(const Duration(seconds: 1));
       expect(tester.state(find.byType(ReaderPageView)), same(view));
-      expect(
-        tester.widget<Text>(find.text(chapterTitle)).style!.fontFamily,
-        'Georgia',
-      );
+      expect(currentTitleStyle(tester).fontFamily, 'Georgia');
       expect(tester.takeException(), isNull);
     });
   });

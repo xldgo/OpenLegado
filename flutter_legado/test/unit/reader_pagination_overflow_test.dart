@@ -8,14 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_title_layout.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
-/// [UI-fix v2.0.4 | 2026-08-08] 分页高度回归测试 — Qoder
-///
-/// 复现并防回归「阅读正文页底部 RenderFlex 溢出」：分页测量的可用高度
-/// 必须与渲染容器（ReaderTypographicPage：首页标题块 + Expanded 正文 +
-/// 页码指示页脚）严格一致。按 reader_page_view._paginateIfNeeded 的同一
-/// 套算法计算首页/后续页容量，满页正文渲染不得出现溢出异常。
+/// 标题和正文共用Rust分页结果，真实渲染与页面容量不能溢出。— Codex + UI
 const _defaultChrome = ReaderPageChromeConfig();
 
 void main() {
@@ -34,27 +30,6 @@ void main() {
 
   double measureFooterBlock(BuildContext context) =>
       ReaderPageLayoutMetrics.footerBlockHeight(context, _defaultChrome);
-
-  /// 与 reader_page_view._paginateIfNeeded 同参：实测首页标题块高度
-  double measureTitleBlockHeight(BuildContext context, double maxWidth) {
-    final baseStyle = DefaultTextStyle.of(context).style;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: chapterTitle,
-        style: baseStyle.merge(
-          TextStyle(
-            fontSize: fontSize + _defaultChrome.titleSize, // titleSize 默认 0
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout(maxWidth: maxWidth);
-    final h = painter.height + 20;
-    painter.dispose();
-    return h;
-  }
 
   /// 生成足以铺满多页的正文
   String buildLongContent() => List.generate(
@@ -83,10 +58,6 @@ void main() {
                   footerBlock -
                   marginTop -
                   marginBottom;
-              final firstPageHeight =
-                  availableHeight -
-                  measureTitleBlockHeight(context, availableWidth);
-
               final engine = ParagraphLayoutEngine(
                 transport: nativeReaderLayout,
                 config: const ParagraphConfig(
@@ -103,14 +74,17 @@ void main() {
                 buildLongContent(),
                 availableWidth,
                 availableHeight,
-                firstPageHeight: firstPageHeight,
+                title: const ReaderTitleLayout(
+                  text: chapterTitle,
+                  chrome: _defaultChrome,
+                ),
               ));
               final safeIndex = pageIndex.clamp(0, pages.length - 1);
               return ReaderTypographicPage(
                 pageInfo: pages[safeIndex],
                 pageIndex: safeIndex,
                 totalPages: pages.length,
-                chapterTitle: chapterTitle,
+
                 fontSize: fontSize,
                 lineHeight: lineHeight,
                 paragraphSpacing: paragraphSpacing,
@@ -143,10 +117,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('每页排版高度不超过对应页容量（首页扣标题块）', (tester) async {
+  testWidgets('标题与正文共同分页，每页不超过内容区高度', (tester) async {
     late List<PageInfo> pages;
     late double availableHeight;
-    late double firstPageHeight;
     await pumpNativeReaderLayout(
       tester,
       MaterialApp(
@@ -162,9 +135,6 @@ void main() {
                 footerBlock -
                 marginTop -
                 marginBottom;
-            firstPageHeight =
-                availableHeight -
-                measureTitleBlockHeight(context, availableWidth);
             final engine = ParagraphLayoutEngine(
               transport: nativeReaderLayout,
               config: const ParagraphConfig(
@@ -181,7 +151,10 @@ void main() {
               buildLongContent(),
               availableWidth,
               availableHeight,
-              firstPageHeight: firstPageHeight,
+              title: const ReaderTitleLayout(
+                text: chapterTitle,
+                chrome: _defaultChrome,
+              ),
             ));
             return const SizedBox.shrink();
           },
@@ -190,13 +163,13 @@ void main() {
     );
     expect(pages, isNotEmpty);
     for (var i = 0; i < pages.length; i++) {
-      final capacity = i == 0 ? firstPageHeight : availableHeight;
+      final capacity = availableHeight;
       expect(
         pages[i].totalHeight,
         lessThanOrEqualTo(capacity),
         reason:
             '第 ${i + 1} 页排版高度 ${pages[i].totalHeight} '
-            '超过页容量 $capacity（首页应扣除标题块高度）',
+            '超过页容量 $capacity（标题已计入分页结果）',
       );
     }
   });

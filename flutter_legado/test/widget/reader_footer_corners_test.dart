@@ -19,7 +19,7 @@ void main() {
     pageInfo: const PageInfo(paragraphs: [], totalHeight: 0),
     pageIndex: 0,
     totalPages: 10,
-    chapterTitle: null,
+
     fontSize: 18,
     lineHeight: 1.6,
     paragraphSpacing: 8,

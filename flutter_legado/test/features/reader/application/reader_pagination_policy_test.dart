@@ -55,7 +55,7 @@ Object _cacheKey({
   ParagraphConfig config = _config,
   double width = 300,
   double height = 500,
-  double firstHeight = 450,
+  Object titleKey = 450,
   int revision = 0,
   String reviews = '',
 }) => ReaderPaginationPolicy.chapterCacheKey(
@@ -65,7 +65,7 @@ Object _cacheKey({
   config: config,
   width: width,
   height: height,
-  firstHeight: firstHeight,
+  titleKey: titleKey,
   fontRevision: revision,
   reviews: reviews,
 );
@@ -254,7 +254,7 @@ void main() {
         _cacheKey(content: '新内容'),
         _cacheKey(width: 301),
         _cacheKey(height: 501),
-        _cacheKey(firstHeight: 449),
+        _cacheKey(titleKey: 449),
         _cacheKey(revision: 1),
         _cacheKey(reviews: '1:geometry'),
       ]) {

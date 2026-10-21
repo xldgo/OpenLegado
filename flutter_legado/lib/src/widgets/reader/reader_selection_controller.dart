@@ -30,6 +30,7 @@ class ReaderSelectionController extends ChangeNotifier
     _source = source;
     _lines = pages
         .expand((page) => page.paragraphs)
+        .where((paragraph) => !paragraph.isTitle)
         .expand((paragraph) => paragraph.lines)
         .toList();
     _setSelection(null);

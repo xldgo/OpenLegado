@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../../l10n/app_localization.dart';
 import '../../../../widgets/settings_widgets.dart';
+import '../../../../widgets/bottom_sheet_widget.dart';
 import 'reader_padding_config_sheet.dart';
 
 /// 页眉/页脚提示项（对标原版 ReadTipConfig.tipValues）
@@ -231,15 +232,70 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
             ],
           ),
         ),
+        SettingMenuRow<int>(
+          title: '标题分段',
+          value: _layout.title.segmentType,
+          options: const {0: '关闭', 1: '按位置', 2: '按标记', 3: '按正则'},
+          onChanged: (value) => _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(segmentType: value),
+          ),
+        ),
+        if (_layout.title.segmentType == 1)
+          _stepRow(
+            '分段位置',
+            _layout.title.segmentPosition,
+            1,
+            20,
+            (value) => _save(
+              () => ref
+                  .read(readerSettingsRepositoryProvider)
+                  .updateTitle(segmentPosition: value),
+            ),
+            unit: '',
+          ),
+        if (_layout.title.segmentType == 2 || _layout.title.segmentType == 3)
+          SettingTile(
+            title: '分段规则',
+            subtitle: _layout.title.segmentDelimiter.isEmpty
+                ? '设置标记或正则表达式'
+                : _layout.title.segmentDelimiter,
+            onTap: _editTitleRule,
+          ),
+        _titleSlider(
+          '副标题缩放',
+          _layout.title.subtitleScale,
+          .1,
+          2,
+          19,
+          (value) => _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(subtitleScale: value),
+          ),
+        ),
+        _titleSlider(
+          '标题分段间距',
+          _layout.title.segmentSpacing,
+          -3,
+          3,
+          60,
+          (value) => _save(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateTitle(segmentSpacing: value),
+          ),
+        ),
         const Divider(height: 16, indent: 16, endIndent: 16),
-        _stepRow('标题上间距', _layout.title.topSpacing, 0, 100, (value) {
+        _stepRow('标题上间距', _layout.title.topSpacing, 0, 200, (value) {
           _save(
             () => ref
                 .read(readerSettingsRepositoryProvider)
                 .updateTitle(topSpacing: value),
           );
         }),
-        _stepRow('标题下间距', _layout.title.bottomSpacing, 0, 100, (value) {
+        _stepRow('标题下间距', _layout.title.bottomSpacing, 0, 200, (value) {
           _save(
             () => ref
                 .read(readerSettingsRepositoryProvider)
@@ -250,6 +306,47 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
       ],
     ],
   );
+
+  Widget _titleSlider(
+    String title,
+    double value,
+    double min,
+    double max,
+    int divisions,
+    ValueChanged<double> onChanged,
+  ) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        Text(title),
+        Expanded(
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: '${value.toStringAsFixed(1)}倍',
+            onChanged: (v) => onChanged((v * 10).round() / 10),
+          ),
+        ),
+        Text('${value.toStringAsFixed(1)}倍'),
+      ],
+    ),
+  );
+
+  Future<void> _editTitleRule() async {
+    final result = await AppBottomSheet.showContent<String>(
+      context: context,
+      builder: (_) =>
+          _TitleRuleEditor(initialText: _layout.title.segmentDelimiter),
+    );
+    if (!mounted || result == null) return;
+    await _save(
+      () => ref
+          .read(readerSettingsRepositoryProvider)
+          .updateTitle(segmentDelimiter: result),
+    );
+  }
 
   Widget _edgeGroup({required bool header}) {
     final edge = header ? ReaderPageEdge.header : ReaderPageEdge.footer;
@@ -329,5 +426,38 @@ class _ReaderTipConfigSheetState extends ConsumerState<ReaderTipConfigSheet> {
     step: step,
     showPlus: showPlus,
     onChanged: (value) => onChanged(value.round()),
+  );
+}
+
+/// 输入控制器随弹层销毁，关闭动画期间仍可正常读取。— Codex + UI
+class _TitleRuleEditor extends StatefulWidget {
+  final String initialText;
+  const _TitleRuleEditor({required this.initialText});
+  @override
+  State<_TitleRuleEditor> createState() => _TitleRuleEditorState();
+}
+
+class _TitleRuleEditorState extends State<_TitleRuleEditor> {
+  late final _controller = TextEditingController(text: widget.initialText);
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AppBottomSheet.content(
+    title: '标题分段规则',
+    contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+    trailing: TextButton(
+      onPressed: () => Navigator.of(context).pop(_controller.text),
+      child: const Text('保存'),
+    ),
+    child: TextField(
+      controller: _controller,
+      autofocus: true,
+      maxLines: 3,
+      decoration: const InputDecoration(hintText: '标记用逗号分隔；正则在匹配结束处断开'),
+    ),
   );
 }

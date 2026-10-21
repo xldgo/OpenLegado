@@ -62,6 +62,11 @@ final class ReaderTitleSettings {
     this.sizeRelative = true,
     this.fontWeight = 500,
     this.lineHeight = 1.2,
+    this.segmentType = 0,
+    this.segmentPosition = 4,
+    this.segmentDelimiter = '',
+    this.subtitleScale = 1,
+    this.segmentSpacing = 1.2,
     this.topSpacing = 0,
     this.bottomSpacing = 0,
   });
@@ -72,6 +77,11 @@ final class ReaderTitleSettings {
   final bool sizeRelative;
   final int fontWeight;
   final double lineHeight;
+  final int segmentType;
+  final int segmentPosition;
+  final String segmentDelimiter;
+  final double subtitleScale;
+  final double segmentSpacing;
   double resolvedSize(double bodySize) =>
       (sizeRelative ? bodySize + size : size.toDouble()).clamp(1, 1000);
   final int topSpacing;
@@ -84,6 +94,11 @@ final class ReaderTitleSettings {
       sizeRelative == other.sizeRelative &&
       fontWeight == other.fontWeight &&
       lineHeight == other.lineHeight &&
+      segmentType == other.segmentType &&
+      segmentPosition == other.segmentPosition &&
+      segmentDelimiter == other.segmentDelimiter &&
+      subtitleScale == other.subtitleScale &&
+      segmentSpacing == other.segmentSpacing &&
       topSpacing == other.topSpacing &&
       bottomSpacing == other.bottomSpacing;
   @override
@@ -93,6 +108,11 @@ final class ReaderTitleSettings {
     sizeRelative,
     fontWeight,
     lineHeight,
+    segmentType,
+    segmentPosition,
+    segmentDelimiter,
+    subtitleScale,
+    segmentSpacing,
     topSpacing,
     bottomSpacing,
   );

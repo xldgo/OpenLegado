@@ -187,8 +187,11 @@ void main() {
     expect(storage.values['reader_title_size_relative'], false);
     await tap(tester, find.byTooltip('增大标题字号'));
     expect(storage.values['reader_title_size'], 5);
-    final slider = find.byWidgetPredicate(
-      (w) => w is Slider && w.min == .1 && w.max == 2,
+    final slider = find.descendant(
+      of: find
+          .ancestor(of: find.text('标题行距'), matching: find.byType(Row))
+          .first,
+      matching: find.byType(Slider),
     );
     await tester.ensureVisible(slider);
     await tester.pumpAndSettle();
@@ -196,6 +199,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(storage.values['reader_title_line_height'], isA<double>());
     expect(storage.values['reader_title_line_height'], isNot(1.2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('标题标记分段通过公共sheet保存，重新进入仍可编辑', (tester) async {
+    await initialize(
+      tester,
+      const ReaderTipConfigSheet(
+        embedded: true,
+        section: ReaderTipSection.title,
+      ),
+    );
+    await tap(tester, find.text('标题分段'));
+    await tap(tester, find.text('按标记').hitTestable());
+    expect(storage.values['reader_title_segment_type'], 2);
+    await tap(tester, find.text('分段规则'));
+    await tester.enterText(find.byType(TextField), '章,节');
+    await tap(tester, find.text('保存'));
+    expect(storage.values['reader_title_segment_delimiter'], '章,节');
+    await tap(tester, find.text('分段规则'));
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '章,节',
+    );
+    Navigator.of(tester.element(find.byType(TextField))).pop();
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 

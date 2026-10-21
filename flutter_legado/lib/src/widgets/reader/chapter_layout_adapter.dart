@@ -7,6 +7,7 @@ import '../../services/reader_layout_data.dart';
 import 'chapter_layout.dart';
 import 'reader_layout_element.dart';
 import 'text_layout_environment.dart';
+import 'reader_title_layout.dart';
 
 /// 只转换已定稿的页面几何，禁止在适配器中再次断行或拉伸文字。
 class ChapterLayoutAdapter {
@@ -14,18 +15,20 @@ class ChapterLayoutAdapter {
   final List<SourceParagraph> paragraphs;
   final TextLayoutEnvironment environment;
   final Map<int, InlineReview> reviews;
-  final double firstPageInset;
+  final MeasuredReaderTitle title;
+  final double lineHeightMultiplier;
+  final double paragraphSpacingPx;
   const ChapterLayoutAdapter({
     required this.source,
     required this.paragraphs,
     required this.environment,
     required this.reviews,
-    this.firstPageInset = 0,
+    this.title = MeasuredReaderTitle.empty,
+    this.lineHeightMultiplier = 1,
+    this.paragraphSpacingPx = 0,
   });
 
   PageInfo convert(Map<String, dynamic> json) {
-    final pageIndex = (json['id'] as Map<String, dynamic>)['pageIndex'] as int;
-    final inset = pageIndex == 0 ? firstPageInset : 0.0;
     final payload = json['elements'];
     if (payload is! ReaderElementDataList) {
       throw const FormatException('布局适配器需要已校验的共享元素数据');
@@ -49,30 +52,33 @@ class ChapterLayoutAdapter {
     }
     final result = <ParagraphInfo>[];
     var previousBottom = 0.0;
+    var contentBottom = 0.0;
     for (final indices in rows) {
       final row = ReaderLineElements(elements, indices);
       final first = row.first;
+      final titleIndex = first.paragraphIndex;
+      final isTitle = titleIndex < title.paragraphs.length;
       final sourceParagraphIndex =
-          first.paragraphIndex - (firstPageInset > 0 ? 1 : 0);
-      if (sourceParagraphIndex < 0 ||
-          sourceParagraphIndex >= paragraphs.length) {
+          first.paragraphIndex - title.paragraphs.length;
+      if (!isTitle &&
+          (sourceParagraphIndex < 0 ||
+              sourceParagraphIndex >= paragraphs.length)) {
         throw const FormatException('布局段落编号越界');
       }
-      final paragraph = paragraphs[sourceParagraphIndex];
-      final logicalIndex = sourceParagraphIndex + 1;
+      final paragraph = isTitle
+          ? title.paragraphs[titleIndex]
+          : paragraphs[sourceParagraphIndex];
+      final logicalIndex = isTitle ? 0 : sourceParagraphIndex + 1;
       final start = first.sourceOffset;
       final end = row.last.sourceOffset + row.last.text.length;
-      final top = first.top - inset;
-      final bottom =
-          row.fold(first.bottom, (v, e) => math.max(v, e.bottom)) - inset;
-      final review = reviewByAnchor[(logicalIndex, end)];
+      final top = first.top;
+      final bottom = row.fold(first.bottom, (v, e) => math.max(v, e.bottom));
+      final review = isTitle ? null : reviewByAnchor[(logicalIndex, end)];
       final height =
-          math.max(
-            bottom,
-            review == null ? bottom : review.bounds.bottom - inset,
-          ) -
+          math.max(bottom, review == null ? bottom : review.bounds.bottom) -
           top;
       final line = LineInfo(
+        textStyle: isTitle ? title.styles[titleIndex] : null,
         words: ReaderLineWords(row),
         width: row.fold(0.0, (v, e) => math.max(v, e.right)),
         height: height,
@@ -80,16 +86,13 @@ class ChapterLayoutAdapter {
         endIndex: end,
         indentWidth: first.left,
         letterSpacing: 0,
-        baseline: first.baseline - inset - top,
+        baseline: first.baseline - top,
         glyphs: ReaderLineGlyphs(row, start, Offset(first.left, first.top)),
         trailingReview: review == null
             ? null
             : InlineReviewLayout(
                 element: reviews[logicalIndex]!,
-                offset: Offset(
-                  review.bounds.left,
-                  review.bounds.top - inset - top,
-                ),
+                offset: Offset(review.bounds.left, review.bounds.top - top),
                 size: review.bounds.size,
                 compact:
                     review.bounds.width <
@@ -97,13 +100,38 @@ class ChapterLayoutAdapter {
               ),
         isParagraphLastLine: end == paragraph.endIndex,
       );
-      final gap = math.max(0.0, top - previousBottom);
+      final gap = top - previousBottom;
+      final atEnd = end == paragraph.endIndex;
+      final multiplier = isTitle
+          ? (title.blocks[titleIndex]['lineSpacingMultiplier']! as num)
+                .toDouble()
+          : lineHeightMultiplier;
+      var after = height * (multiplier - 1);
+      if (atEnd) {
+        if (isTitle) {
+          final scale = (title.blocks[titleIndex]['titleSpacingScale']! as num)
+              .toDouble();
+          after +=
+              (title.config['titleParagraphSpacingPx']! as num).toDouble() *
+              scale;
+          after += titleIndex + 1 < title.paragraphs.length
+              ? (title.config['titleSegmentSpacingPx']! as num).toDouble() *
+                    scale
+              : (title.config['titleBottomSpacingPx']! as num).toDouble();
+        } else {
+          after += paragraphSpacingPx;
+        }
+      }
       if (result.isNotEmpty &&
+          !isTitle &&
+          !result.last.isTitle &&
           result.last.chapterParagraphIndex == logicalIndex &&
-          gap < .001) {
+          gap.abs() < .001) {
         final old = result.removeLast();
         result.add(
           ParagraphInfo(
+            isTitle: isTitle,
+            continuationSpacingAfter: after,
             lines: List.unmodifiable([...old.lines, line]),
             totalHeight: old.totalHeight + height,
             startIndex: old.startIndex,
@@ -116,6 +144,8 @@ class ChapterLayoutAdapter {
       } else {
         result.add(
           ParagraphInfo(
+            isTitle: isTitle,
+            continuationSpacingAfter: after,
             lines: [line],
             totalHeight: height,
             startIndex: start,
@@ -127,10 +157,11 @@ class ChapterLayoutAdapter {
         );
       }
       previousBottom = top + height;
+      contentBottom = math.max(contentBottom, previousBottom);
     }
     return PageInfo(
       paragraphs: List.unmodifiable(result),
-      totalHeight: previousBottom,
+      totalHeight: contentBottom,
       sourceText: source,
       textEnvironment: environment,
       elements: elements,

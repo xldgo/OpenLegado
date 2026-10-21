@@ -171,7 +171,14 @@ void main() {
       fontWeight: 600,
       lineHeight: 1.5,
     );
-    await repository.updateTitle(topSpacing: 7);
+    await repository.updateTitle(
+      topSpacing: 7,
+      segmentType: 2,
+      segmentPosition: 6,
+      segmentDelimiter: '章',
+      subtitleScale: .8,
+      segmentSpacing: -.5,
+    );
     final restored = AppReaderSettingsRepository(service);
     final value = (await restored.load()).pageLayout.title;
     expect(value.resolvedSize(30), 18);
@@ -179,6 +186,11 @@ void main() {
     expect(value.fontWeight, 600);
     expect(value.lineHeight, 1.5);
     expect(value.topSpacing, 7);
+    expect(value.segmentType, 2);
+    expect(value.segmentPosition, 6);
+    expect(value.segmentDelimiter, '章');
+    expect(value.subtitleScale, .8);
+    expect(value.segmentSpacing, -.5);
     storage.writeFailure = true;
     await expectLater(restored.updateTitle(fontWeight: 800), throwsStateError);
     expect(restored.current.pageLayout.title.fontWeight, 600);
@@ -298,7 +310,7 @@ void main() {
         mode: 2,
         size: 60,
         topSpacing: 0,
-        bottomSpacing: 100,
+        bottomSpacing: 200,
       ),
     );
     expect(repository.current.pageLayout.header.padding.top, 400);

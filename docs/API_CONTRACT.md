@@ -6,6 +6,9 @@
 - ReaderSettingsRepository.updateTitle按字段更新；新增普通偏好reader_title_size_relative、reader_title_font_weight、reader_title_line_height，既有字号与上下间距键含义保持。备份沿通用分类登记，不清洗旧值。
 - 分页、滚动、预览共享标题最终样式与测量环境；字体空值跟随正文，字距按标题字号换算em，斜体跟随正文，颜色保持现有正文色。标题默认居左，上下附加距0。
 - 第二批：标题测量为现有Rust布局Paragraph/InlineParagraph的isTitle内容块，采用已有标题间距和行推进参数；移除手工扣首页高度及独立标题绘制。标题不写入正文sourceText，不改变正文UTF-16坐标、复制和朗读文本。
+- 第二批载荷细化：标题使用前置emphasized InlineParagraph，每段有独立自然行高、基线、字号缩放与titleSpacingScale；Dart按前置块数映射正文段号，标题标为ParagraphInfo.isTitle，不注册选区，不写正文锚点。既有firstPageHeight/rule占位入口删除，不留并行实现。
+- 新普通偏好reader_title_segment_type/position/delimiter/subtitle_scale/segment_spacing，缺省0/4/空串/1/1.2；分段间距按基础标题自然H计算，副标题缩放只作用于该段，不改变原文。缓存身份包含标题文本、卷章、全部几何设置及字体版本；配色更新只重绘。
+- 渲染按最终段落坐标定位，负分段距可使后段向上重叠，不以非负高度截断其推进量；容器占用取所有行的最大下沿，原文选择仍只注册正文。
 - 标题分段复用上游关闭/按位置/标记/正则规则及副标题缩放；卷章、空章与分页规则按可用数据接线，不扩展完整HTML或单图书源路径。FRB签名与生成物不变；如既有载荷需要扩展，先修订本条再实现。
 
 编写者：Codex + UI｜2026-10-21
