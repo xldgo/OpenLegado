@@ -1,5 +1,3 @@
-import '../fixtures/reader_page_fixture.dart';
-
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
@@ -9,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_layout_element.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
   for (final scale in [1.0, 2.0]) {
     testWidgets('跨行高亮保留统一行间留白与独立段距，文字缩放 $scale', (tester) async {
-      final source = '${List.filled(8, '正文 (English)! ').join()}\n第二段正文';
+      const source = '正文(English)!😀e\u0301第二行正文第三行正文\n第二段正文';
       late PageInfo page;
       await tester.pumpWidget(
         ProviderScope(
@@ -27,20 +26,15 @@ void main() {
             home: Scaffold(
               body: Builder(
                 builder: (context) {
-                  page = readerPageFixture(
-                    context,
-                    source: source,
-                    paragraphs: [
-                      List.filled(8, '正文 (English)! '),
-                      ['第二段正文'],
-                    ],
-                  );
+                  // 固定已定稿的主字体行盒，模拟回退文字大于主字体的情况。
+                  // 不依赖宿主字体，也不在夹具内重新实现断行。— Codex + UI
+                  page = _compactPage(scale, source);
                   return SizedBox(
                     width: 500,
                     child: ReaderTextContent(
                       pageInfo: page,
-                      fontSize: 16,
-                      lineHeight: 1.6,
+                      fontSize: 24,
+                      lineHeight: 1.2,
                       paragraphSpacing: 8,
                       textColor: Colors.black,
                       justify: false,
@@ -73,26 +67,11 @@ void main() {
         final boxes = render.getBoxesForSelection(render.selections.single);
         final box = boxes.first;
         final currentHeight = box.bottom - box.top;
-        final painter = TextPainter(
-          text: render.text,
-          textDirection: TextDirection.ltr,
-          textScaler: TextScaler.linear(scale),
-          maxLines: 1,
-        )..layout();
-        final tight = painter.getBoxesForSelection(
-          TextSelection(
-            baseOffset: 0,
-            extentOffset: render.text.toPlainText().length,
-          ),
-        );
-        final tightTop = tight
-            .map((b) => b.top)
-            .reduce((a, b) => a < b ? a : b);
-        final tightBottom = tight
-            .map((b) => b.bottom)
-            .reduce((a, b) => a > b ? a : b);
-        expect(currentHeight, closeTo(tightBottom - tightTop, 0.01));
-        painter.dispose();
+        expect(currentHeight, closeTo(16 * scale, 0.01));
+        expect(box.top, closeTo(rows[i].glyphs.first.bounds.top, 0.01));
+        expect(box.bottom, closeTo(rows[i].glyphs.first.bounds.bottom, 0.01));
+        expect(box.left, closeTo(rows[i].glyphs.first.bounds.left, 0.01));
+        expect(box.right, closeTo(rows[i].glyphs.last.bounds.right, 0.01));
         height ??= currentHeight;
         expect(currentHeight, closeTo(height, 0.01));
         final origin = render.localToGlobal(Offset.zero).dy;
@@ -105,7 +84,7 @@ void main() {
           normalGaps.add(gap - paragraphGap);
         }
         lastBottom = origin + box.bottom;
-        expect(currentHeight, lessThan(rows[i].height));
+        expect(currentHeight, lessThanOrEqualTo(rows[i].height));
       }
       for (final gap in normalGaps) {
         expect(gap, closeTo(normalGaps.first, 0.01));
@@ -206,4 +185,75 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+// 只给定最终行盒、基线和原文范围；较大的实际文字用于暴露选区二次测量。
+PageInfo _compactPage(double scale, String source) {
+  final texts = [
+    ['正文(English)!😀e\u0301', '第二行正文', '第三行正文'],
+    ['第二段正文'],
+  ];
+  var offset = 0;
+  final paragraphs = <ParagraphInfo>[];
+  for (var p = 0; p < texts.length; p++) {
+    final lines = <LineInfo>[];
+    for (final text in texts[p]) {
+      final start = source.indexOf(text, offset);
+      final glyphs = <ReaderGlyph>[];
+      var local = 0;
+      var x = 0.0;
+      for (final cluster in text.characters) {
+        glyphs.add(
+          ReaderGlyph(
+            ReaderLayoutElement(
+              ReaderElementKind.text,
+              Rect.fromLTWH(x, 0, 16 * scale, 16 * scale),
+              {
+                'value': cluster,
+                'chapterPosition': start + local,
+                'paragraphIndex': p,
+                'baselinePx': 12 * scale,
+              },
+            ),
+            start,
+            Offset.zero,
+          ),
+        );
+        local += cluster.length;
+        x += 16 * scale;
+      }
+      lines.add(
+        LineInfo(
+          words: text.characters.toList(),
+          width: x,
+          height: 19.2 * scale,
+          baseline: 12 * scale,
+          glyphs: glyphs,
+          startIndex: start,
+          endIndex: start + text.length,
+          indentWidth: lines.isEmpty ? 16 * scale : 0,
+          isParagraphLastLine: text == texts[p].last,
+        ),
+      );
+      offset = start + text.length;
+    }
+    paragraphs.add(
+      ParagraphInfo(
+        lines: lines,
+        totalHeight: lines.fold(0.0, (height, line) => height + line.height),
+        startIndex: lines.first.startIndex,
+        endIndex: lines.last.endIndex,
+        chapterParagraphIndex: p + 1,
+        spacingBefore: p == 0 ? 0 : 8,
+      ),
+    );
+  }
+  return PageInfo(
+    paragraphs: paragraphs,
+    totalHeight: paragraphs.fold(
+      0.0,
+      (h, p) => h + p.totalHeight + p.spacingBefore!,
+    ),
+    sourceText: source,
+  );
 }

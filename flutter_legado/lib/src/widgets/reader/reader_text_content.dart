@@ -262,25 +262,6 @@ class ReaderTextContent extends StatelessWidget {
         var paragraphTop = 0.0;
         var contentBottom = 0.0;
         final availableWidth = constraints.maxWidth;
-        // 当前页的实际文字共同测量字体回退，避免每行按不同字体单独取高亮高度。
-        final selectionGeometry = selectText && pageInfo.sourceText != null
-            ? ReaderSelectionGeometry.forText(
-                context,
-                pageInfo.paragraphs
-                    .where((p) => !p.isTitle)
-                    .expand((p) => p.lines)
-                    .map((line) => line.selectableText)
-                    .join(),
-                TextStyle(
-                  fontSize: fontSize,
-                  height: kTextHeightNone,
-                  fontFamily: fontFamily,
-                  fontWeight: fontWeight,
-                  fontStyle: fontStyle,
-                ),
-              )
-            : null;
-
         for (var paraIdx = 0; paraIdx < pageInfo.paragraphs.length; paraIdx++) {
           final para = pageInfo.paragraphs[paraIdx];
 
@@ -325,7 +306,6 @@ class ReaderTextContent extends StatelessWidget {
                   ? ReaderLineText(
                       text,
                       style: textStyle,
-                      selectionGeometry: selectionGeometry,
                       environment: environment,
                       spaceExpansion: line.spaceExpansion,
                       glyphs: line.glyphs,

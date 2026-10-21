@@ -17,29 +17,15 @@ TextStyle _effectiveReaderStyle(BuildContext context, TextStyle style) {
   return effective;
 }
 
-/// 当前页共用字形边界；行距由排版决定，不计入选中背景。
+/// 无布局字形的原生文本统一字体回退高度；正式正文直接使用布局边界。
 @immutable
-class ReaderSelectionGeometry {
-  const ReaderSelectionGeometry({required this.ascent, required this.descent});
+class _ReaderSelectionGeometry {
+  const _ReaderSelectionGeometry({required this.ascent, required this.descent});
 
   final double ascent;
   final double descent;
 
-  static ReaderSelectionGeometry? forText(
-    BuildContext context,
-    String text,
-    TextStyle style,
-  ) => _measure(
-    TextSpan(text: text, style: _effectiveReaderStyle(context, style)),
-    textScaler: MediaQuery.textScalerOf(context),
-    textDirection: Directionality.of(context),
-    locale: Localizations.maybeLocaleOf(context),
-    textHeightBehavior:
-        DefaultTextStyle.of(context).textHeightBehavior ??
-        DefaultTextHeightBehavior.maybeOf(context),
-  );
-
-  static ReaderSelectionGeometry? _measure(
+  static _ReaderSelectionGeometry? _measure(
     InlineSpan text, {
     required TextScaler textScaler,
     required TextDirection textDirection,
@@ -70,7 +56,7 @@ class ReaderSelectionGeometry {
       final baseline = painter.computeDistanceToActualBaseline(
         TextBaseline.alphabetic,
       );
-      return ReaderSelectionGeometry(
+      return _ReaderSelectionGeometry(
         ascent: baseline - top,
         descent: bottom - baseline,
       );
@@ -84,7 +70,6 @@ class ReaderSelectionGeometry {
 class ReaderLineText extends StatelessWidget {
   final String data;
   final TextStyle style;
-  final ReaderSelectionGeometry? selectionGeometry;
   final TextLayoutEnvironment? environment;
   final double spaceExpansion;
   final List<ReaderGlyph> glyphs;
@@ -93,7 +78,6 @@ class ReaderLineText extends StatelessWidget {
     this.data, {
     super.key,
     required this.style,
-    this.selectionGeometry,
     this.environment,
     this.spaceExpansion = 0,
     this.glyphs = const [],
@@ -108,7 +92,6 @@ class ReaderLineText extends StatelessWidget {
         _effectiveReaderStyle(context, style),
         spaceExpansion,
       ),
-      selectionGeometry: selectionGeometry,
       glyphs: glyphs,
       glyphStyle: _effectiveReaderStyle(context, style),
       textAlign: defaults.textAlign ?? TextAlign.start,
@@ -133,7 +116,6 @@ class ReaderLineText extends StatelessWidget {
 
 /// 阅读正文沿用原生选区，跨行共用字形高度并保留排版留白。
 class ReaderSelectableText extends RichText {
-  final ReaderSelectionGeometry? selectionGeometry;
   final List<ReaderGlyph> glyphs;
   final TextStyle? glyphStyle;
 
@@ -152,7 +134,6 @@ class ReaderSelectableText extends RichText {
     super.textHeightBehavior,
     super.selectionRegistrar,
     super.selectionColor,
-    this.selectionGeometry,
     this.glyphs = const [],
     this.glyphStyle,
   }) : super(
@@ -164,15 +145,15 @@ class ReaderSelectableText extends RichText {
                ),
        );
 
-  ReaderSelectionGeometry? _geometry(BuildContext context) =>
-      selectionGeometry ??
-      ReaderSelectionGeometry._measure(
-        text,
-        textScaler: textScaler,
-        textDirection: textDirection ?? Directionality.of(context),
-        locale: locale ?? Localizations.maybeLocaleOf(context),
-        textHeightBehavior: textHeightBehavior,
-      );
+  _ReaderSelectionGeometry? _geometry(BuildContext context) => glyphs.isNotEmpty
+      ? null
+      : _ReaderSelectionGeometry._measure(
+          text,
+          textScaler: textScaler,
+          textDirection: textDirection ?? Directionality.of(context),
+          locale: locale ?? Localizations.maybeLocaleOf(context),
+          textHeightBehavior: textHeightBehavior,
+        );
 
   @override
   RenderParagraph createRenderObject(BuildContext context) =>
@@ -229,7 +210,7 @@ class _ReaderRenderParagraph extends RenderParagraph {
     super.devicePixelRatio,
   });
 
-  ReaderSelectionGeometry? _selectionGeometry;
+  _ReaderSelectionGeometry? _selectionGeometry;
   List<ReaderGlyph> glyphs;
   TextStyle? glyphStyle;
   final List<(TextPainter, Offset)> _runs = [];
@@ -341,7 +322,7 @@ class _ReaderRenderParagraph extends RenderParagraph {
     super.dispose();
   }
 
-  set selectionGeometry(ReaderSelectionGeometry? value) {
+  set selectionGeometry(_ReaderSelectionGeometry? value) {
     if (identical(value, _selectionGeometry)) return;
     _selectionGeometry = value;
     // 同步原生手柄与选区几何缓存，而不仅是重画选中背景。
@@ -355,7 +336,6 @@ class _ReaderRenderParagraph extends RenderParagraph {
     ui.BoxWidthStyle boxWidthStyle = ui.BoxWidthStyle.tight,
   }) {
     if (glyphs.isNotEmpty) {
-      final geometry = _selectionGeometry;
       final boxes = <ui.TextBox>[];
       for (var i = 0; i < glyphs.length; i++) {
         final glyph = glyphs[i];
@@ -365,12 +345,10 @@ class _ReaderRenderParagraph extends RenderParagraph {
         final right = i + 1 < glyphs.length
             ? glyphs[i + 1].bounds.left
             : glyph.bounds.right;
-        final top = geometry == null
-            ? glyph.bounds.top
-            : glyph.baseline - geometry.ascent;
-        final bottom = geometry == null
-            ? glyph.bounds.bottom
-            : glyph.baseline + geometry.descent;
+        // 字形盒已包含主字体度量、基线和行内布局，不再按回退文字扩大选区。
+        // 与命中、手柄和分页共用边界，行距与段距留白不参与高亮。— Codex + UI
+        final top = glyph.bounds.top;
+        final bottom = glyph.bounds.bottom;
         if (boxes.isNotEmpty &&
             (boxes.last.right - glyph.bounds.left).abs() < .001 &&
             (boxes.last.top - top).abs() < .001 &&
