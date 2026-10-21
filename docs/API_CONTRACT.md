@@ -1,5 +1,24 @@
 # API 契约文档
 
+### SOURCE-PARSE-UNIFY-20261022：书源 JSON 解析职责收敛（第一批，FFI 签名不变）
+
+本批**只收敛 Rust 内部解析与写入**，FFI 方法签名与方法计数全部不变；因 Room 导入可见行为变化，故为**契约变更**（非零契约）。
+
+- **统一解析入口**：`legado-core` 新增唯一书源 JSON 解析实现（`parse_source_json` / `parse_source_array`），`legado-ffi::source_import`、`legado-db::RoomImporter`、`legado-engine::RoomSourceImport`、`legado-server::source_update` 全部改为调用同一实现，禁止再保留第二套字段解释。
+- **转换规则按目标字段类型确定，不按字段名推断**：
+  - 整数（`i32`/`i64`）：接受整数与合法整数字符串（**有意保留的兼容超集**，对齐既有 `lenient_i32/i64`，不因收敛而缩小接受范围）；超出目标范围明确报错；非法字符串、布尔、数组、对象**不静默转 0**，报错；缺省取字段默认值，显式 `null` 亦取默认值（两者对整数语义一致，但解析实现须分别分支记录）。
+  - 布尔：接受 `true/false`、`0/1`、`"true"/"false"/"1"/"0"/""`；其他报错。
+  - **可空字符串 `Option<String>`**：显式 `null` → `None`；标量（数字/布尔）→ 其字符串形式；数组/对象 → JSON 紧凑字符串（对齐上游 `StringJsonDeserializer`）。
+  - **非空字符串 `String`（`bookSourceUrl`、`bookSourceName`）**：显式 `null` → 空串（与既有 `variable` 口径一致）；标量 → 字符串形式；数组/对象 → JSON 字符串。空值是否可保存由既有必填校验负责，解析层不拦截。
+  - **规则对象字段**（`ruleExplore`/`ruleSearch`/`ruleBookInfo`/`ruleToc`/`ruleContent`/`ruleReview`）：同时接受 JSON 对象与「内容为 JSON 对象的字符串」两态，对齐上游六个规则类各自的 `jsonDeserializer`。
+- **Room 导入可见行为变更（均为修复）**：`enabled: false` 与 `enabled: "0"` 正确落为禁用（原实现恒写启用）；规则对象正确保留（原实现落空值）；`variable` 正确入库（原 SQL 未含该列）；缺省 `respondTime` 落 180000（原落 0）。
+- **限速数据来源**：`RoomSourceImport` 的 `(url, concurrentRate)` 改由归一化后的 `BookSource` 生成，保留「事务成功提交后才发布」边界。
+- **写入实现统一**：`RoomImporter` 解析成 `BookSource` 后复用 `BookSourceRepository`（全列含 `variable`），删除重复逐字段提取与书源 INSERT；书籍导入部分不动。
+- **错误语义**：语法错误、结构错误、字段类型错误分别返回可定位错误，不再一律降级为空串或 0。
+- **不在本批范围**：未知字段无损往返（`BookSourceDto`、Dart 模型、DB 列均为固定字段）、单引号 `exploreUrl` 嵌套规则解析（独立处理）、`sourceParse` 只读 FFI（第二批）。
+
+编写者：Codex + Rust｜2026-10-22
+
 ### READER-BATTERY-20261021：阅读电量平台契约（实施前冻结）
 
 - 使用battery_plus 7.1.2读取系统电量，不新增项目原生通道或手写平台实现。百分比仅接受0..100；插件不支持、读取失败或非法值返回未知，不伪装满电。

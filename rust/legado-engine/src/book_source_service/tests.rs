@@ -221,7 +221,9 @@ async fn typed_and_room_imports_keep_formats_and_rollback_before_rate_publicatio
                         saved.rule_search.unwrap().book_list.as_deref(),
                         Some(".room")
                     );
-                    assert_eq!(saved.variable, "");
+                    // [SOURCE-PARSE-UNIFY-20261022] Room 路径改走统一解析 +
+                    // 全列写入：`variable` 不再被丢弃（旧 SQL 未含该列）。
+                    assert_eq!(saved.variable, "Room不消费此字段");
                 } else {
                     assert_eq!(saved.variable, old.variable);
                     assert_eq!(

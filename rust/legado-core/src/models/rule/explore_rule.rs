@@ -1,26 +1,74 @@
 use serde::{Deserialize, Serialize};
 
+use crate::models::book_source::lenient_opt_string;
+
 /// 发现结果规则
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ExploreRule {
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bookList")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "bookList",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub book_list: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub author: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub intro: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub kind: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "lastChapter")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "lastChapter",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub last_chapter: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "updateTime")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "updateTime",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub update_time: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bookUrl")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "bookUrl",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub book_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "coverUrl")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "coverUrl",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub cover_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "wordCount")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "wordCount",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub word_count: Option<String>,
 }

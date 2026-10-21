@@ -1,78 +1,14 @@
-use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use super::rule::{BookInfoRule, ContentRule, ExploreRule, ReviewRule, SearchRule, TocRule};
 
-/// 宽松反序列化：兼容 JSON 数字与数字字符串
-///
-/// 原版 Legado 使用 Gson，会自动把字符串数字（如 "1785432524399"）
-/// 转换为数字；第三方书源 JSON 中 lastUpdateTime 等字段经常以字符串
-/// 形式出现，serde 默认严格模式会直接报错，这里做兼容。
-fn lenient_i64<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
-    let v = serde_json::Value::deserialize(d)?;
-    match &v {
-        serde_json::Value::Number(n) => n
-            .as_i64()
-            .ok_or_else(|| D::Error::custom("数字超出 i64 范围")),
-        serde_json::Value::String(s) => s
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| D::Error::custom(format!("无法解析数字: {s}"))),
-        _ => Err(D::Error::custom("期望数字或数字字符串")),
-    }
-}
+pub mod parse;
 
-/// 宽松反序列化：兼容 JSON 数字与数字字符串（i32）
-fn lenient_i32<'de, D: Deserializer<'de>>(d: D) -> Result<i32, D::Error> {
-    let v = lenient_i64(d)?;
-    i32::try_from(v).map_err(|_| D::Error::custom("数字超出 i32 范围"))
-}
-
-/// 宽松反序列化：兼容 bool、0/1 数字与 "true"/"false" 字符串
-fn lenient_bool<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
-    let v = serde_json::Value::deserialize(d)?;
-    match &v {
-        serde_json::Value::Bool(b) => Ok(*b),
-        serde_json::Value::Number(n) => Ok(n.as_i64() != Some(0)),
-        serde_json::Value::String(s) => match s.trim() {
-            "true" | "1" => Ok(true),
-            "false" | "0" | "" => Ok(false),
-            other => Err(D::Error::custom(format!("无法解析布尔值: {other}"))),
-        },
-        _ => Err(D::Error::custom("期望布尔值")),
-    }
-}
-
-/// 宽松反序列化：字符串字段容忍显式 null 与其他标量类型
-///
-/// Dart 侧 String? 字段的 toJson 会恒输出键（值可为 null），第三方书源
-/// JSON 也可能带显式 `"variable": null`；serde 严格模式对 null 直接报错，
-/// 会击穿 add_source/update_source/source_import 全链路（台账评审 C1）。
-/// 规则：Null→空串、String 原样、其他类型 to_string（Gson 式宽松）。
-fn lenient_string<'de, D: Deserializer<'de>>(d: D) -> Result<String, D::Error> {
-    let v = serde_json::Value::deserialize(d)?;
-    match &v {
-        serde_json::Value::Null => Ok(String::new()),
-        serde_json::Value::String(s) => Ok(s.clone()),
-        other => Ok(other.to_string()),
-    }
-}
-
-/// 宽松反序列化：Option<bool> 版本（字段缺省时为 None）
-fn lenient_opt_bool<'de, D: Deserializer<'de>>(d: D) -> Result<Option<bool>, D::Error> {
-    let v = serde_json::Value::deserialize(d)?;
-    match &v {
-        serde_json::Value::Null => Ok(None),
-        serde_json::Value::Bool(b) => Ok(Some(*b)),
-        serde_json::Value::Number(n) => Ok(Some(n.as_i64() != Some(0))),
-        serde_json::Value::String(s) => match s.trim() {
-            "true" | "1" => Ok(Some(true)),
-            "false" | "0" | "" => Ok(Some(false)),
-            other => Err(D::Error::custom(format!("无法解析布尔值: {other}"))),
-        },
-        _ => Err(D::Error::custom("期望布尔值")),
-    }
-}
+pub use parse::{
+    lenient_book_info_rule, lenient_bool, lenient_content_rule, lenient_explore_rule, lenient_i32,
+    lenient_i64, lenient_opt_bool, lenient_opt_string, lenient_review_rule, lenient_search_rule,
+    lenient_string, lenient_toc_rule, parse_source_array, parse_source_json,
+};
 
 /// 书源类型常量
 pub mod book_source_type {
@@ -87,19 +23,33 @@ pub mod book_source_type {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BookSource {
     /// 地址，包括 http/https
-    #[serde(default, rename = "bookSourceUrl")]
+    #[serde(default, rename = "bookSourceUrl", deserialize_with = "lenient_string")]
     pub book_source_url: String,
     /// 名称
-    #[serde(default, rename = "bookSourceName")]
+    #[serde(
+        default,
+        rename = "bookSourceName",
+        deserialize_with = "lenient_string"
+    )]
     pub book_source_name: String,
     /// 分组
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bookSourceGroup")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "bookSourceGroup",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub book_source_group: Option<String>,
     /// 类型，0 文本，1 音频, 2 图片, 3 文件, 4 视频
     #[serde(default, rename = "bookSourceType", deserialize_with = "lenient_i32")]
     pub book_source_type: i32,
     /// 详情页url正则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bookUrlPattern")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "bookUrlPattern",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub book_url_pattern: Option<String>,
     /// 手动排序编号
     #[serde(default, rename = "customOrder", deserialize_with = "lenient_i32")]
@@ -115,7 +65,12 @@ pub struct BookSource {
     )]
     pub enabled_explore: bool,
     /// js库
-    #[serde(skip_serializing_if = "Option::is_none", rename = "jsLib")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "jsLib",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub js_lib: Option<String>,
     /// 启用okhttp CookieJar 自动保存每次请求的cookie
     ///
@@ -133,28 +88,67 @@ pub struct BookSource {
     )]
     pub enabled_cookie_jar: Option<bool>,
     /// 并发率
-    #[serde(skip_serializing_if = "Option::is_none", rename = "concurrentRate")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "concurrentRate",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub concurrent_rate: Option<String>,
     /// 请求头
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub header: Option<String>,
     /// 登录地址
-    #[serde(skip_serializing_if = "Option::is_none", rename = "loginUrl")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "loginUrl",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub login_url: Option<String>,
     /// 登录UI
-    #[serde(skip_serializing_if = "Option::is_none", rename = "loginUi")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "loginUi",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub login_ui: Option<String>,
     /// 登录检测js
-    #[serde(skip_serializing_if = "Option::is_none", rename = "loginCheckJs")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "loginCheckJs",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub login_check_js: Option<String>,
     /// 封面解密js
-    #[serde(skip_serializing_if = "Option::is_none", rename = "coverDecodeJs")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "coverDecodeJs",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub cover_decode_js: Option<String>,
     /// 注释
-    #[serde(skip_serializing_if = "Option::is_none", rename = "bookSourceComment")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "bookSourceComment",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub book_source_comment: Option<String>,
     /// 自定义变量说明
-    #[serde(skip_serializing_if = "Option::is_none", rename = "variableComment")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "variableComment",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub variable_comment: Option<String>,
     /// 自定义变量内容（对齐 Kotlin `BookSource.variable`，由 `setSourceVariable` 写入，
     /// 空串表示未设置/已清除；台账 §5.11-3，SCHEMA_VERSION 102→103 迁移补列）
@@ -182,34 +176,84 @@ pub struct BookSource {
     #[serde(default, deserialize_with = "lenient_i32")]
     pub weight: i32,
     /// 发现url
-    #[serde(skip_serializing_if = "Option::is_none", rename = "exploreUrl")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "exploreUrl",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub explore_url: Option<String>,
     /// 发现筛选规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "exploreScreen")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "exploreScreen",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub explore_screen: Option<String>,
     /// 发现规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "ruleExplore")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ruleExplore",
+        deserialize_with = "lenient_explore_rule"
+    )]
     pub rule_explore: Option<ExploreRule>,
     /// 搜索url
-    #[serde(skip_serializing_if = "Option::is_none", rename = "searchUrl")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "searchUrl",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub search_url: Option<String>,
     /// 搜索规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "ruleSearch")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ruleSearch",
+        deserialize_with = "lenient_search_rule"
+    )]
     pub rule_search: Option<SearchRule>,
     /// 书籍信息页规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "ruleBookInfo")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ruleBookInfo",
+        deserialize_with = "lenient_book_info_rule"
+    )]
     pub rule_book_info: Option<BookInfoRule>,
     /// 目录页规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "ruleToc")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ruleToc",
+        deserialize_with = "lenient_toc_rule"
+    )]
     pub rule_toc: Option<TocRule>,
     /// 正文页规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "ruleContent")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ruleContent",
+        deserialize_with = "lenient_content_rule"
+    )]
     pub rule_content: Option<ContentRule>,
     /// 段评规则
-    #[serde(skip_serializing_if = "Option::is_none", rename = "ruleReview")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ruleReview",
+        deserialize_with = "lenient_review_rule"
+    )]
     pub rule_review: Option<ReviewRule>,
     /// 纯 JavaScript 单文件书源主脚本
-    #[serde(skip_serializing_if = "Option::is_none", rename = "mainJs")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "mainJs",
+        deserialize_with = "lenient_opt_string"
+    )]
     pub main_js: Option<String>,
     /// 是否监听事件来执行回调规则
     #[serde(default, rename = "eventListener", deserialize_with = "lenient_bool")]

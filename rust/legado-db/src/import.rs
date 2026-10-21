@@ -38,141 +38,24 @@ impl RoomImporter {
         })
     }
 
-    /// 逐条校验并写入书源（**不自开事务**：事务边界由
+    /// 逐条解析并写入书源（**不自开事务**：事务边界由
     /// [`crate::connection::in_transaction`] 提供，与 FFI 批量导入共享同一实现）
     ///
-    /// 与 [`Self::import_book_sources`] 共用同一循环体；调用方保证任一条
-    /// 失败时整体回滚、全部成功时统一提交。
+    /// [SOURCE-PARSE-UNIFY-20261022] 本方法不再自行解释字段：整源交给
+    /// `legado_core::models::book_source::parse_source_array`（与 FFI
+    /// `source_import` 同一实现），再由 [`BookSourceRepository`] 全列写入
+    /// （含 `variable` 等旧 SQL 遗漏列）。此前逐字段 `as_str()/as_i64()`
+    /// 提取会把 `enabled:false` 写成启用、规则对象写成空值、丢掉 `variable`。
     fn insert_source_values(conn: &Connection, values: &[Value]) -> LegadoResult<usize> {
-        let mut count = 0;
-        for item in values {
-            let obj = item
-                .as_object()
-                .ok_or_else(|| LegadoError::Database("书源条目不是 JSON 对象".into()))?;
-
-            let book_source_url = obj
-                .get("bookSourceUrl")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let book_source_name = obj
-                .get("bookSourceName")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let book_source_group = obj.get("bookSourceGroup").and_then(|v| v.as_str());
-            let book_source_type = obj
-                .get("bookSourceType")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0) as i32;
-            let book_url_pattern = obj.get("bookUrlPattern").and_then(|v| v.as_str());
-            let custom_order = obj.get("customOrder").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-            let enabled = obj.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1) as i32;
-            let enabled_explore = obj
-                .get("enabledExplore")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(1) as i32;
-            let js_lib = obj.get("jsLib").and_then(|v| v.as_str());
-            let enabled_cookie_jar = obj
-                .get("enabledCookieJar")
-                .map(|v| {
-                    // 批 2 收尾：缺键 → true（对齐 Kotlin 构造默认 true，与
-                    // FFI serde `default_true_opt` 统一口径）；兼容布尔与
-                    // 0/1 数字两种形态（旧实现只认 as_i64，显式布尔 true
-                    // 被丢成 0 的子缺陷一并修复）。
-                    v.as_bool()
-                        .or_else(|| v.as_i64().map(|n| n != 0))
-                        .unwrap_or(true)
-                })
-                .unwrap_or(true) as i32;
-            let concurrent_rate = obj.get("concurrentRate").and_then(|v| v.as_str());
-            let header = obj.get("header").and_then(|v| v.as_str());
-            let login_url = obj.get("loginUrl").and_then(|v| v.as_str());
-            let login_ui = obj.get("loginUi").and_then(|v| v.as_str());
-            let login_check_js = obj.get("loginCheckJs").and_then(|v| v.as_str());
-            let cover_decode_js = obj.get("coverDecodeJs").and_then(|v| v.as_str());
-            let book_source_comment = obj.get("bookSourceComment").and_then(|v| v.as_str());
-            let variable_comment = obj.get("variableComment").and_then(|v| v.as_str());
-            let last_update_time = obj
-                .get("lastUpdateTime")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let respond_time = obj.get("respondTime").and_then(|v| v.as_i64()).unwrap_or(0);
-            let weight = obj.get("weight").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-            let explore_url = obj.get("exploreUrl").and_then(|v| v.as_str());
-            let explore_screen = obj.get("exploreScreen").and_then(|v| v.as_str());
-            let rule_explore = obj.get("ruleExplore").and_then(|v| v.as_str());
-            let search_url = obj.get("searchUrl").and_then(|v| v.as_str());
-            let rule_search = obj.get("ruleSearch").and_then(|v| v.as_str());
-            let rule_book_info = obj.get("ruleBookInfo").and_then(|v| v.as_str());
-            let rule_toc = obj.get("ruleToc").and_then(|v| v.as_str());
-            let rule_content = obj.get("ruleContent").and_then(|v| v.as_str());
-            let rule_review = obj.get("ruleReview").and_then(|v| v.as_str());
-            let main_js = obj.get("mainJs").and_then(|v| v.as_str());
-            let event_listener = obj
-                .get("eventListener")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0) as i32;
-            let custom_button = obj
-                .get("customButton")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0) as i32;
-
-            conn.execute(
-                "INSERT OR REPLACE INTO book_sources (
-                    bookSourceUrl, bookSourceName, bookSourceGroup, bookSourceType,
-                    bookUrlPattern, customOrder, enabled, enabledExplore,
-                    jsLib, enabledCookieJar, concurrentRate, header,
-                    loginUrl, loginUi, loginCheckJs, coverDecodeJs,
-                    bookSourceComment, variableComment, lastUpdateTime, respondTime,
-                    weight, exploreUrl, exploreScreen, ruleExplore,
-                    searchUrl, ruleSearch, ruleBookInfo, ruleToc,
-                    ruleContent, ruleReview, mainJs, eventListener, customButton
-                ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
-                    ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
-                    ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
-                    ?31, ?32, ?33
-                )",
-                rusqlite::params![
-                    book_source_url,
-                    book_source_name,
-                    book_source_group,
-                    book_source_type,
-                    book_url_pattern,
-                    custom_order,
-                    enabled,
-                    enabled_explore,
-                    js_lib,
-                    enabled_cookie_jar,
-                    concurrent_rate,
-                    header,
-                    login_url,
-                    login_ui,
-                    login_check_js,
-                    cover_decode_js,
-                    book_source_comment,
-                    variable_comment,
-                    last_update_time,
-                    respond_time,
-                    weight,
-                    explore_url,
-                    explore_screen,
-                    rule_explore,
-                    search_url,
-                    rule_search,
-                    rule_book_info,
-                    rule_toc,
-                    rule_content,
-                    rule_review,
-                    main_js,
-                    event_listener,
-                    custom_button,
-                ],
-            )
-            .map_err(|e| LegadoError::Database(format!("插入书源失败: {e}")))?;
-            count += 1;
+        let document = serde_json::to_string(values)
+            .map_err(|e| LegadoError::Database(format!("序列化书源失败: {e}")))?;
+        let sources = legado_core::models::book_source::parse_source_array(&document)
+            .map_err(|e| LegadoError::Database(format!("解析书源失败: {e}")))?;
+        let repo = crate::BookSourceRepository::new(conn);
+        for source in &sources {
+            repo.insert(source)?;
         }
-
-        Ok(count)
+        Ok(sources.len())
     }
 
     /// 导入书籍数据（JSON 数组格式）

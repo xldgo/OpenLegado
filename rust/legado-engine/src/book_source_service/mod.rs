@@ -31,6 +31,10 @@ pub struct SourceEditFields {
 }
 
 /// Room文档与对应限速变更由同一输入生成，不与类型化导入混用。
+///
+/// [SOURCE-PARSE-UNIFY-20261022] 限速信息不再从原始 `Value` 独立提取，而是
+/// 与解析同一份归一化实体（`parse_source_array`）生成，避免「入库用一套解释、
+/// 发布限速用另一套解释」的分叉。事务成功提交后才由 `publish` 发布。
 pub struct RoomSourceImport {
     document: String,
     rates: Vec<(String, String)>,
@@ -39,21 +43,19 @@ impl RoomSourceImport {
     pub fn new(sources: &[&Value]) -> LegadoResult<Self> {
         let document = serde_json::to_string(sources)
             .map_err(|e| LegadoError::Internal(format!("序列化书源失败: {e}")))?;
-        let rates = sources
-            .iter()
-            .map(|item| {
-                (
-                    item.get("bookSourceUrl")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                    item.get("concurrentRate")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                )
-            })
-            .collect();
+        // 与导入同一实现：先归一化，再由同一实体产出限速键值。
+        let parsed = legado_core::models::book_source::parse_source_array(&document)?;
+        Self::from_entities(&parsed)
+    }
+
+    /// 直接以已解析实体构造：调用方已完成归一化时复用，避免重复解析。
+    ///
+    /// [SOURCE-PARSE-UNIFY-20261022] 限速键值与入库实体必须同源，禁止再
+    /// 从原始 JSON 独立提取 `bookSourceUrl` / `concurrentRate`。
+    pub fn from_entities(sources: &[BookSource]) -> LegadoResult<Self> {
+        let document = serde_json::to_string(sources)
+            .map_err(|e| LegadoError::Internal(format!("序列化书源失败: {e}")))?;
+        let rates = sources.iter().map(source_rate).collect();
         Ok(Self { document, rates })
     }
 }

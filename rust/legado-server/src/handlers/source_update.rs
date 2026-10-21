@@ -229,9 +229,9 @@ pub async fn execute_update(
         .await
         .map_err(|e| legado_core::LegadoError::Network(format!("读取响应失败: {e}")))?;
 
-    // 解析远程书源 JSON
-    let remote_sources: Vec<Value> = serde_json::from_str(&body)
-        .map_err(|e| legado_core::LegadoError::Internal(format!("解析书源 JSON 失败: {e}")))?;
+    // [SOURCE-PARSE-UNIFY-20261022] 远程书源统一由 `parse_source_array` 解析，
+    // 不再另行 `serde_json::from_str::<Vec<Value>>` 后用 `as_str()/as_i64()`
+    // 二次解释字段（两条解释路径会分叉）。`parse_source_check` 只在预览接口使用。
 
     // 获取本地书源 URL 集合
     let local_urls: std::collections::HashSet<String> = state
@@ -250,19 +250,21 @@ pub async fn execute_update(
     let mut errors: Vec<String> = Vec::new();
 
     // 筛选需要导入的书源
-    let sources_to_import: Vec<&Value> = remote_sources
-        .iter()
-        .filter(|item| {
-            let url = item
-                .get("bookSourceUrl")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if url.is_empty() {
+    //
+    // [SOURCE-PARSE-UNIFY-20261022] URL 取用规则与解析实现统一：此前用
+    // `as_str()` 取 URL，与解析层（`lenient_opt_string` 会把数字等标量转字符串）
+    // 口径不一致，可能出现「筛选时判为空跳过、解析后其实有 URL」。这里改走
+    // 同一 `parse_source_array`，只用其结果做筛选与计数；本批不扩展 Web 服务功能。
+    let parsed_remote = legado_core::models::book_source::parse_source_array(&body)
+        .map_err(|e| legado_core::LegadoError::Internal(format!("解析书源 JSON 失败: {e}")))?;
+    let sources_to_import: Vec<legado_core::models::BookSource> = parsed_remote
+        .into_iter()
+        .filter(|source| {
+            if source.book_source_url.is_empty() {
                 skipped += 1;
                 return false;
             }
-            let exists = local_urls.contains(url);
-            if exists {
+            if local_urls.contains(&source.book_source_url) {
                 true // 更新已有
             } else if req.only_update_existing {
                 skipped += 1;
@@ -274,7 +276,7 @@ pub async fn execute_update(
         .collect();
 
     if !sources_to_import.is_empty() {
-        let prepared = RoomSourceImport::new(&sources_to_import)?;
+        let prepared = RoomSourceImport::from_entities(&sources_to_import)?;
 
         let imported = state
             .with_database(move |db| BookSourceService::new(db).import_room_sources(prepared))
@@ -283,13 +285,9 @@ pub async fn execute_update(
         match imported {
             Ok(saved) => {
                 let count = saved.publish(&state.engine.rate_limiter());
-                // 区分新增和更新
-                for item in &sources_to_import {
-                    let url = item
-                        .get("bookSourceUrl")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    if local_urls.contains(url) {
+                // 区分新增和更新（同样取归一化实体的 URL）
+                for source in &sources_to_import {
+                    if local_urls.contains(&source.book_source_url) {
                         updated += 1;
                     } else {
                         added += 1;
