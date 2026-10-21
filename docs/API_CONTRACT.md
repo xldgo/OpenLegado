@@ -1,5 +1,14 @@
 # API 契约文档
 
+### READER-BATTERY-20261021：阅读电量平台契约（实施前冻结）
+
+- 使用battery_plus 7.1.2读取系统电量，不新增项目原生通道或手写平台实现。百分比仅接受0..100；插件不支持、读取失败或非法值返回未知，不伪装满电。
+- Dart平台监视器由当前ReaderPageView持有并在页眉、页脚及预览间共享；首次和恢复前台读取，充放电状态事件触发补读。插件没有百分比变化流，因此仅阅读器前台每分钟补读；后台取消定时器，阅读器组件销毁时取消订阅与定时器。在途读取合并，释放后不回写。
+- ReaderTipContext使用共享ValueListenable<int?>电量源，移除固定100默认；百分比未知显示“—”，图标未知显示外框与短横。固定28×12图形、比例填充及独立语义，配色跟随提示文字。时间+电池、纯图标与百分比共用来源。
+- ReaderPageTipBar自行监听电量，只刷新提示子树；正文分页签名、缓存身份与业务状态不依赖电量，预览沿用同一监听源。不改变Rust/FRB、数据库、阅读位置或页眉页脚高度。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-FONT-METRICS-20261021：基础行盒按主字体度量（实施前冻结）
 
 - FlutterTextShaper以相同字体、字重、斜体、Locale、文字缩放及kTextHeightNone测量空格模板。lineHeightPx取首行LineMetrics.ascent+descent，baselineOffsetPx取ascent，不使用取整后的TextPainter.height或preferredLineHeight，不以中文回退模板决定整章基础行盒。

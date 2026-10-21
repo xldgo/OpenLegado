@@ -1,6 +1,7 @@
 import '../../app/routing/app_navigation.dart';
 import '../../features/reader/application/reader_pagination_policy.dart';
 import '../../providers/chapter_content_provider.dart';
+import '../../platform/display/battery_level_monitor.dart';
 import '../../domain/models/read_aloud_content.dart';
 
 import '../../features/reader/application/reader_settings_provider.dart';
@@ -148,6 +149,7 @@ class ReaderPageView extends ConsumerStatefulWidget {
 }
 
 class ReaderPageViewState extends ConsumerState<ReaderPageView> {
+  late final BatteryLevelMonitor _battery;
   final ReaderSelectionController _selectionController =
       ReaderSelectionController();
 
@@ -579,6 +581,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   @override
   void initState() {
     super.initState();
+    // 当前页与所有预览共享同一电量源，生命周期跟随阅读器组件。— Codex + UI
+    _battery = BatteryLevelMonitor();
     _audio = ref.read(audioNotifierProvider.notifier);
     _audio.readAloudPosition.addListener(_scheduleAloudFollow);
     _audio.followReadAloud.addListener(_scheduleAloudFollow);
@@ -626,6 +630,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   @override
   void dispose() {
+    _battery.dispose();
     _layoutSession?.cancel();
     for (final session in _preloadSessions) {
       session.cancel();
@@ -1869,6 +1874,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       readProgress: state.readingProgress,
       chapterIndex: state.currentChapterIndex,
       chapterCount: state.chapters.length,
+      battery: _battery,
     );
   }
 

@@ -1,9 +1,11 @@
 import '../../domain/models/reader_page_layout_settings.dart';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 
 import 'text_layout_environment.dart';
 import 'reader_footer_geometry.dart';
+import 'reader_battery_icon.dart';
 
 import 'dart:math' as math;
 
@@ -207,7 +209,7 @@ class ReaderTipContext {
   final double readProgress;
   final int chapterIndex;
   final int chapterCount;
-  final int batteryLevel;
+  final ValueListenable<int?>? battery;
 
   const ReaderTipContext({
     this.bookName = '',
@@ -219,8 +221,15 @@ class ReaderTipContext {
     this.readProgress = 0,
     this.chapterIndex = 0,
     this.chapterCount = 0,
-    this.batteryLevel = 100,
+    this.battery,
   });
+
+  int? get batteryLevel {
+    final level = battery?.value;
+    return level != null && level >= 0 && level <= 100 ? level : null;
+  }
+
+  String get batteryText => batteryLevel == null ? '—' : '$batteryLevel%';
 
   String get time {
     final now = DateTime.now();
@@ -245,7 +254,7 @@ String readerLegacyTipText(int tip, ReaderTipContext ctx) {
     case 3:
       return '';
     case 10:
-      return '${ctx.batteryLevel}%';
+      return ctx.batteryText;
     case 4:
       return '${ctx.pageText}/${ctx.totalPagesText}';
     case 5:
@@ -258,7 +267,7 @@ String readerLegacyTipText(int tip, ReaderTipContext ctx) {
     case 8:
       return ctx.time;
     case 9:
-      return '${ctx.time} ${ctx.batteryLevel}%';
+      return '${ctx.time} ${ctx.batteryText}';
     default:
       return '';
   }
@@ -297,6 +306,19 @@ class ReaderPageTipBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final battery = tipContext.battery;
+    if (battery == null ||
+        ![leftTip, middleTip, rightTip].any(const {3, 8, 9, 10}.contains)) {
+      return _buildContents(context);
+    }
+    // 只监听提示子树；正文和相邻章预览无需重建或重新分页。— Codex + UI
+    return ValueListenableBuilder<int?>(
+      valueListenable: battery,
+      builder: (context, _, _) => _buildContents(context),
+    );
+  }
+
+  Widget _buildContents(BuildContext context) {
     // 同行重复提示只渲染首项，布局仍保留三个对齐槽位。— Codex + UI
     final seen = <int>{};
     final tips = [
@@ -376,7 +398,7 @@ class ReaderPageTipBar extends StatelessWidget {
             children: [
               Text(tipContext.time, style: _tipStyle.copyWith(color: color)),
               const SizedBox(width: 6),
-              Icon(Icons.battery_std, size: 14, color: color),
+              ReaderBatteryIcon(level: tipContext.batteryLevel, color: color),
             ],
           ),
         ),
@@ -385,7 +407,13 @@ class ReaderPageTipBar extends StatelessWidget {
     if (readerTipShowsBatteryIcon(tip)) {
       return Align(
         alignment: alignment,
-        child: Icon(Icons.battery_std, size: 14, color: color),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: ReaderBatteryIcon(
+            level: tipContext.batteryLevel,
+            color: color,
+          ),
+        ),
       );
     }
     final text = readerLegacyTipText(tip, tipContext);

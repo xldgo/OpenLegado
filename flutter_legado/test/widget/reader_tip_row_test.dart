@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_battery_icon.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 
 void main() {
@@ -37,7 +38,7 @@ void main() {
           visible ? findsOneWidget : findsNothing,
         );
         expect(
-          find.byIcon(Icons.battery_std),
+          find.byType(ReaderBatteryIcon),
           visible ? findsOneWidget : findsNothing,
         );
         expect(tester.takeException(), isNull);
@@ -46,10 +47,13 @@ void main() {
   }
   for (final kind in [1, 3]) {
     testWidgets('同行类型$kind重复只显示首槽，保留行高和槽位对齐', (tester) async {
-      const context = ReaderTipContext(
+      final battery = ValueNotifier<int?>(25);
+      addTearDown(battery.dispose);
+      final context = ReaderTipContext(
         pageIndex: 0,
         totalPages: 1,
         chapterTitle: '章节提示',
+        battery: battery,
       );
       await tester.pumpWidget(
         MaterialApp(
@@ -75,7 +79,7 @@ void main() {
       );
       final tip = kind == 1
           ? find.text('章节提示')
-          : find.byIcon(Icons.battery_std);
+          : find.byType(ReaderBatteryIcon);
       expect(tip, findsOneWidget);
       expect(tester.getTopLeft(tip).dx, closeTo(16, .01));
       expect(
@@ -83,6 +87,14 @@ void main() {
         greaterThanOrEqualTo(14),
       );
       expect(tester.takeException(), isNull);
+      if (kind == 3) {
+        for (final level in <int?>[75, 0, null]) {
+          battery.value = level;
+          await tester.pump();
+          expect(tester.widget<ReaderBatteryIcon>(tip).level, level);
+          expect(context.batteryText, level == null ? '—' : '$level%');
+        }
+      }
     });
   }
 }

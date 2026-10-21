@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.427] - 2026-10-21
+
+### Fixed
+- 阅读页眉与页脚接通系统真实电量，横向电池图标按百分比填充，无法读取时显示未知。
+- 使用battery_plus共享电量来源，前台定时及充放电状态变化只刷新提示，不重新分页。
+- 贡献者：Codex；构建号428。
+
 ## [2.0.426] - 2026-10-21
 
 ### Fixed

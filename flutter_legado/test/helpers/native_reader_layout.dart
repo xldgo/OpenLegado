@@ -3,6 +3,7 @@ import 'native_ffi.dart';
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
@@ -10,6 +11,22 @@ import 'package:flutter_legado/src/services/reader_layout_service.dart';
 
 /// 每个测试进程加载一次正式绑定；排版不需要数据库或应用启动。— Codex + Bridge
 void setUpNativeReaderLayout() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const batteryMethods = MethodChannel('dev.fluttercommunity.plus/battery');
+  const batteryEvents = MethodChannel('dev.fluttercommunity.plus/charging');
+  setUp(() {
+    // 宿主测试没有原生插件；默认电量夹具仅补齐通道，专项用例可覆盖。
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(batteryMethods, (_) async => 50);
+    messenger.setMockMethodCallHandler(batteryEvents, (_) async => null);
+  });
+  tearDown(() {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(batteryMethods, null);
+    messenger.setMockMethodCallHandler(batteryEvents, null);
+  });
   setUpAll(() async {
     await RustLib.init(externalLibrary: nativeTestLibrary());
   });

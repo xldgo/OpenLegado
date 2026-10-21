@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-BATTERY-20261021：真实电量与比例图标（P1，代码验证通过，待设备观感验收）
+
+- 授权/基线：用户确认接通系统电量并按上游绘制，dev / 17b08e0ef，单代理；不推送或触发CI，不覆盖安装阅读应用；插件注册文件由pub get更新。
+- 根因：ReaderTipContext默认电量100且生产入口未传真实值，图标固定为battery_std；百分比和时间组合也没有实时来源。
+- 范围：battery_plus跨平台电量读取、阅读器共享监听、未知态、横向电池轮廓及比例填充。更新只重绘提示，正文与预览复用同一状态，不触发分页；按用户确认引入battery_plus，不增加充电特效或Rust接口。
+- 依据：本地上游ReaderCanvasSurface.drawBatteryGlyph的28×12尺寸、横向外框和17×电量比例填充。只完善当前已有电池/百分比/时间组合，不新增提示类型。
+- 验收：复用现有提示布局、菜单与分页验证；平台编译和受控电量事件验证数据链路及不重排，iOS编译/真机边界如实记录。按用户偏好不新增测试文件，关键逻辑写明注释。
+- 实现：采用battery_plus 7.1.2，移除本轮自写Android/iOS通道及多余Provider；ReaderPageView直接持有一个监视器，当前页与预览共享。进入/返回前台/充放电变化读取，前台每分钟补读；后台停表，组件销毁取消订阅及定时器，在途读取合并、销毁后不回写。未知显示短横，固定槽宽按真实百分比填充。
+- 依赖：新增battery_plus_platform_interface 2.0.1及Linux upower 0.7.0；upower要求dbus 0.7系列，解析器联动将dbus 0.8.0降至0.7.15、file_picker_linux 2.0.2降至2.0.0，未使用override。Linux文件选择与电量的实机行为未验。
+- 回归：54项阅读菜单/真实宿主分页回归通过，含75/0/未知、共享单订阅、不重排、每分钟前台补读、后台停表、前台恢复与退出释放；既有提示/页脚13项与纯FFI3项通过，合计70项。首次接入因宿主无插件通道和外部测试容器清理导致失败，补齐现有测试夹具，电量生命周期归属阅读器组件；未新增测试文件或额外生产暂停/恢复控制。
+- 设备证据：独立诊断应用使用正式Dart电量监视器、提示组件和battery_plus，Android插件编译及APK构建通过，MuMu实读73%，图标与两个百分比同源。该设备的dumpsys battery覆盖不改变插件读取的BatteryManager容量，不能声称验证了其他真实百分比；其他比例由控件夹具验证。诊断应用已卸载、系统电量覆盖已重置，没有覆盖阅读应用。
+- 静态/证据：完整Dart分析无问题，架构检查与diff检查通过；flutter_legado/build/reader-battery-{pub,tests,native,analysis,architecture}.log，build/reader-battery-20261021/{validation.json,battery-events.jsonl,battery-plugin-real.png}及build/reader-font-metrics-20261021/battery-probe-build.log。早先自写平台通道的编译结果不作为本次插件验收依据。
+- 交付边界：版本2.0.427+428，契约、设计规范与双更新日志同步；仅本地提交，未推送或触发CI。没有iOS/macOS/Windows/Linux构建、阅读应用设备观感或iOS真机验收结论；单代理自查，不宣称独立审查。提交号见Git。
+
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-FONT-METRICS-20261021：主字体行盒与基线对齐（P1，代码验证通过，待设备观感验收）
 
 - 授权/基线：用户确认修正基础字体度量，dev / b63c77dc5，单代理；本轮不新增测试，用代码注释说明度量选择，复用已有对照探针和现有回归。保留macOS生成文件改动，不自动推送、触发CI或覆盖安装阅读应用。

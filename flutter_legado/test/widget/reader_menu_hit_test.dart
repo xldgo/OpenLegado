@@ -29,6 +29,7 @@ import 'package:flutter_legado/src/features/reader/application/reader_settings_p
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_battery_icon.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/domain/models/reader_interaction_settings.dart';
 import 'package:flutter_legado/src/widgets/reader/auto_turn_panel.dart';
@@ -919,6 +920,38 @@ void main() {
 
   testWidgets('系统栏与页眉同源更新，菜单临时显示系统栏，返回阅读恢复当前设置', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    const batteryMethods = MethodChannel('dev.fluttercommunity.plus/battery');
+    const batteryEvents = MethodChannel('dev.fluttercommunity.plus/charging');
+    var batteryListeners = 0;
+    int? batteryLevel = 25;
+    var batteryReads = 0;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      batteryMethods,
+      (_) async {
+        batteryReads++;
+        if (batteryLevel == null) {
+          throw PlatformException(code: 'UNAVAILABLE');
+        }
+        return batteryLevel;
+      },
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      batteryEvents,
+      (call) async {
+        batteryListeners += call.method == 'listen' ? 1 : -1;
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        batteryMethods,
+        null,
+      );
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        batteryEvents,
+        null,
+      );
+    });
     const cutoutChannel = MethodChannel('legado/system_bar');
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       cutoutChannel,
@@ -1045,11 +1078,11 @@ void main() {
         findsNWidgets(2),
       );
       expect(
-        find.descendant(of: host, matching: find.byIcon(Icons.battery_std)),
+        find.descendant(of: host, matching: find.byType(ReaderBatteryIcon)),
         findsOneWidget,
       );
     }
-    expect(find.byIcon(Icons.battery_std), findsNWidgets(pages.length));
+    expect(find.byType(ReaderBatteryIcon), findsNWidgets(pages.length));
     final header = find.byType(ReaderPageTipBar).first;
     expect(
       tester.getTopLeft(header).dy -
@@ -1067,6 +1100,51 @@ void main() {
     final measured = tester
         .state<ReaderPageViewState>(find.byType(ReaderPageView))
         .layoutMeasurements;
+    expect(batteryListeners, 1);
+    for (final level in <int?>[75, 0, null]) {
+      batteryLevel = level;
+      tester.binding.channelBuffers.push(
+        'dev.fluttercommunity.plus/charging',
+        const StandardMethodCodec().encodeSuccessEnvelope('discharging'),
+        (_) {},
+      );
+      await settleNativeReaderLayout(tester);
+      expect(
+        tester
+            .widgetList<ReaderBatteryIcon>(find.byType(ReaderBatteryIcon))
+            .map((icon) => icon.level),
+        everyElement(level),
+      );
+      expect(
+        tester
+            .state<ReaderPageViewState>(find.byType(ReaderPageView))
+            .layoutMeasurements,
+        measured,
+      );
+    }
+    final battery = tester
+        .widget<ReaderPageTipBar>(find.byType(ReaderPageTipBar).first)
+        .tipContext
+        .battery!;
+    batteryLevel = 40;
+    await tester.pump(const Duration(minutes: 1));
+    await settleNativeReaderLayout(tester);
+    expect(battery.value, 40);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    final readsBeforeBackground = batteryReads;
+    batteryLevel = 60;
+    await tester.pump(const Duration(minutes: 1));
+    expect(batteryReads, readsBeforeBackground);
+    expect(battery.value, 40);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await settleNativeReaderLayout(tester);
+    expect(battery.value, 60);
+    expect(
+      tester
+          .state<ReaderPageViewState>(find.byType(ReaderPageView))
+          .layoutMeasurements,
+      measured,
+    );
     reader.toggleControls();
     await settleNativeReaderLayout(tester);
     expect(barEvents.last, (
@@ -1109,8 +1187,12 @@ void main() {
       navigationBarVisible: false,
     ));
     expect(tester.takeException(), isNull);
-    await pumpNativeReaderLayout(tester, const SizedBox());
+    await pumpNativeReaderLayout(
+      tester,
+      UncontrolledProviderScope(container: container, child: const SizedBox()),
+    );
     await tester.pump(const Duration(milliseconds: 1));
+    expect(batteryListeners, 0);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('旋转和DPR变化后只接收当前窗口缺口，丢弃迟到的旧采样', (tester) async {
