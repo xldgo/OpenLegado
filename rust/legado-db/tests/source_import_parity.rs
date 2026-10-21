@@ -152,3 +152,32 @@ fn 坏规则字符串不得覆盖已有记录() {
     assert!(error.to_string().contains("ruleSearch"));
     assert_eq!(snapshot(&db), before);
 }
+
+#[test]
+fn 段评_enabled_归一化后写库读回不变() {
+    let db = Database::open_in_memory().unwrap();
+    for (value, expected) in [
+        (serde_json::Value::Null, false),
+        (serde_json::json!("false"), false),
+        (serde_json::json!(0), false),
+        (serde_json::json!("true"), true),
+    ] {
+        let rule = serde_json::json!({"enabled": value, "reviewUrl": "https://review.test"});
+        for input in [rule.clone(), serde_json::Value::String(rule.to_string())] {
+            let json = serde_json::json!([{
+                "bookSourceUrl": "https://review-source.test",
+                "bookSourceName": "段评源",
+                "ruleReview": input,
+            }])
+            .to_string();
+            RoomImporter::import_book_sources(db.connection(), &json).unwrap();
+            let saved = BookSourceRepository::new(db.connection())
+                .find_by_url("https://review-source.test")
+                .unwrap()
+                .unwrap();
+            let review = saved.rule_review.unwrap();
+            assert_eq!(review.enabled, expected, "{json}");
+            assert_eq!(review.review_url.as_deref(), Some("https://review.test"));
+        }
+    }
+}

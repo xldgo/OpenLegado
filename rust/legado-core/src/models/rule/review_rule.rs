@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::book_source::lenient_opt_string;
+use crate::models::book_source::{lenient_opt_string, parse::lenient_bool_default_false};
 
 /// 段评规则
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -85,7 +85,8 @@ pub struct ReviewRule {
         deserialize_with = "lenient_opt_string"
     )]
     pub delete_url: Option<String>,
-    #[serde(default)]
+    /// 缺省和显式null均关闭，其他值复用书源布尔转换。— Codex + Rust
+    #[serde(default, deserialize_with = "lenient_bool_default_false")]
     pub enabled: bool,
     #[serde(
         default,

@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-PARSE-REVIEW-BOOL-20261022：段评启用字段解析修复（P2，代码修复与定向验证完成，待主应用验收）
+
+- 授权/基线：用户要求修复复审发现的布尔契约遗漏；dev / e37f3531a，单代理执行。
+- 根因/范围：ruleReview.enabled仍使用严格bool，拒绝契约已接受的字符串、整数和显式null；复用统一布尔转换，null与缺省保持false，验证对象和规则JSON字符串两种输入以及非法值字段路径，不改FFI签名、数据库或应用版本。
+- 实现：ruleReview.enabled通过lenient_bool_default_false委托既有lenient_opt_bool，显式null落false，缺省仍由字段默认值处理；不复制布尔转换算法，不改变顶层布尔或CookieJar语义。契约补充该字段的默认值与两种规则输入要求，双日志同步，版本保持2.0.437+438。
+- 验证：新增3项解析用例在修复前2失败/1通过；修复后core的source_parse_semantics 27项与db的source_import_parity 5项均通过，覆盖对象/规则JSON字符串、布尔/整数/字符串/null/缺省、非法值字段路径及实际写库读回。日志build/source-review-bool-{before,core,db}.log；相关Rust文件rustfmt与git diff --check通过。
+- 交付：单代理复核，仅本地提交（提交号见Git）；未运行全量测试、未编译安装应用、未推送或触发CI，主应用验收仍待进行。
+
+编写者：Codex + Rust｜2026-10-22
+
 ### SOURCE-PARSE-REVIEW-20261022：两批书源解析代码审查（P1，七项代码修复与定向验证完成，待主应用验收）
 
 - 授权/范围：用户要求先将只运行受影响定向测试写入AGENTS.md，再审查417f0c4d8与7fe91d15d；基线dev / 62231beda，单代理自查，不修改业务代码、不推送或触发CI。

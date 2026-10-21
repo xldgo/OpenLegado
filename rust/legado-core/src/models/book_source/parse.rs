@@ -105,6 +105,11 @@ pub fn lenient_opt_bool<'de, D: Deserializer<'de>>(d: D) -> Result<Option<bool>,
         .map_err(D::Error::custom)
 }
 
+/// 默认关闭的非可空布尔：显式null取false，其余复用统一布尔转换。
+pub fn lenient_bool_default_false<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    Ok(lenient_opt_bool(d)?.unwrap_or_default())
+}
+
 fn lenient_bool_from_value(value: &Value) -> Result<bool, String> {
     match value {
         Value::Bool(b) => Ok(*b),

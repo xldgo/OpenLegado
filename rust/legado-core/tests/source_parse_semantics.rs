@@ -274,3 +274,57 @@ fn 审查回归_字段错误带名称与数组序号() {
         "{error}"
     );
 }
+
+#[test]
+fn 段评_enabled_对象与字符串复用布尔转换() {
+    for (value, expected) in [
+        (serde_json::json!(false), false),
+        (serde_json::json!(true), true),
+        (serde_json::json!(0), false),
+        (serde_json::json!(1), true),
+        (serde_json::json!(-2), true),
+        (serde_json::json!("false"), false),
+        (serde_json::json!("true"), true),
+        (serde_json::json!("0"), false),
+        (serde_json::json!("1"), true),
+        (serde_json::json!(""), false),
+    ] {
+        let rule = serde_json::json!({"enabled": value});
+        for input in [rule.clone(), serde_json::Value::String(rule.to_string())] {
+            let json = serde_json::json!({"ruleReview": input}).to_string();
+            let source = parse_source_json(&json).unwrap_or_else(|error| panic!("{json}: {error}"));
+            assert_eq!(source.rule_review.unwrap().enabled, expected, "{json}");
+        }
+    }
+}
+
+#[test]
+fn 段评_enabled_缺省与显式_null_均关闭() {
+    for rule in [serde_json::json!({}), serde_json::json!({"enabled": null})] {
+        for input in [rule.clone(), serde_json::Value::String(rule.to_string())] {
+            let json = serde_json::json!({"ruleReview": input}).to_string();
+            let source = parse_source_json(&json).unwrap_or_else(|error| panic!("{json}: {error}"));
+            assert!(!source.rule_review.unwrap().enabled, "{json}");
+        }
+    }
+}
+
+#[test]
+fn 段评_enabled_非法值保留内外字段路径() {
+    for value in [
+        serde_json::json!("maybe"),
+        serde_json::json!(1.5),
+        serde_json::json!([]),
+        serde_json::json!({}),
+    ] {
+        let rule = serde_json::json!({"enabled": value});
+        for input in [rule.clone(), serde_json::Value::String(rule.to_string())] {
+            let json = serde_json::json!({"ruleReview": input}).to_string();
+            let error = parse_source_json(&json).unwrap_err().to_string();
+            assert!(
+                error.contains("ruleReview") && error.contains("enabled"),
+                "{error}"
+            );
+        }
+    }
+}
