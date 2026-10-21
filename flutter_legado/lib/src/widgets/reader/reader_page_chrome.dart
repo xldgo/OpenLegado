@@ -3,6 +3,7 @@ import '../../domain/models/reader_page_layout_settings.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'text_layout_environment.dart';
+import 'reader_footer_geometry.dart';
 
 import 'dart:math' as math;
 
@@ -253,6 +254,8 @@ String readerLegacyTipText(int tip, ReaderTipContext ctx) {
 bool readerTipShowsBatteryIcon(int tip) => tip == 3;
 
 class ReaderPageTipBar extends StatelessWidget {
+  final bool avoidDisplayCorners;
+  final int footerColumn, footerColumns;
   final EdgeInsets padding;
   final int leftTip;
   final int middleTip;
@@ -272,6 +275,9 @@ class ReaderPageTipBar extends StatelessWidget {
     required this.textColor,
     this.showDivider = false,
     this.dividerOnTop = false,
+    this.avoidDisplayCorners = false,
+    this.footerColumn = 0,
+    this.footerColumns = 1,
   });
 
   static const _tipStyle = TextStyle(fontSize: 12);
@@ -279,6 +285,19 @@ class ReaderPageTipBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = textColor.withValues(alpha: 0.55);
+    final lineHeight = ReaderPageLayoutMetrics.measureTipBarHeight(
+      context: context,
+      padding: EdgeInsets.zero,
+    );
+    final extra = avoidDisplayCorners
+        ? ReaderFooterGeometry.maybeOf(context)?.extraInsets(
+                padding: padding,
+                lineHeight: lineHeight,
+                column: footerColumn,
+                columns: footerColumns,
+              ) ??
+              EdgeInsets.zero
+        : EdgeInsets.zero;
     final divider = Divider(
       height: 1,
       thickness: 1,
@@ -292,16 +311,32 @@ class ReaderPageTipBar extends StatelessWidget {
         children: [
           if (showDivider && dividerOnTop) divider,
           SizedBox(
-            height: ReaderPageLayoutMetrics.measureTipBarHeight(
-              context: context,
-              padding: EdgeInsets.zero,
-            ),
-            child: Row(
-              children: [
-                Expanded(child: _slot(leftTip, color, Alignment.centerLeft)),
-                Expanded(child: _slot(middleTip, color, Alignment.center)),
-                Expanded(child: _slot(rightTip, color, Alignment.centerRight)),
-              ],
+            height: lineHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final limit = math.max(0.0, constraints.maxWidth / 3 - 1);
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: math.min(extra.left, limit),
+                        ),
+                        child: _slot(leftTip, color, Alignment.centerLeft),
+                      ),
+                    ),
+                    Expanded(child: _slot(middleTip, color, Alignment.center)),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          right: math.min(extra.right, limit),
+                        ),
+                        child: _slot(rightTip, color, Alignment.centerRight),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           if (showDivider && !dividerOnTop) divider,
@@ -315,13 +350,16 @@ class ReaderPageTipBar extends StatelessWidget {
     if (tip == 8) {
       return Align(
         alignment: alignment,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(tipContext.time, style: _tipStyle.copyWith(color: color)),
-            const SizedBox(width: 6),
-            Icon(Icons.battery_std, size: 14, color: color),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(tipContext.time, style: _tipStyle.copyWith(color: color)),
+              const SizedBox(width: 6),
+              Icon(Icons.battery_std, size: 14, color: color),
+            ],
+          ),
         ),
       );
     }

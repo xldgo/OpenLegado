@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-FOOTER-CORNERS-20261021：页脚自动避让屏幕圆角（P2，代码验证通过，待设备观感验收）
+
+- 授权/基线：用户确认只让页脚左右信息向内避开物理圆角，正文/中间信息/页脚高度保持；沿用tts-engine / d666cd078，单代理。
+- 范围：Android公开圆角读取与DPR转换，iOS公开安全区近似；在页脚左右槽内补偿，不改变设置、分隔线、正文分页或翻页动画。双页按屏幕边缘计算。
+- 验收：几何算法、真实Widget位置/居中/高度、双页/横屏/已有安全区/用户大边距/窄窗口；目标分析、架构检查与Android Kotlin编译。设备视觉另验，不自动安装、推送或触发CI。
+- 实现：Android 12以上读取当前窗口底部圆角中心/半径，按DPR转逻辑尺寸；窗口未知时移动端回落公开安全区近似，已知无圆角保持原边距。页脚信息带按圆弧计算额外左右槽内收，中间、分隔线及纵向高度不动；双页中间不补偿。按窗口尺寸/方向重新采样，相同圆角值不使缓存失效。
+- 结果：普通组31项与真实FFI排版缓存组7项均通过，共38项；新增10项覆盖DPR、圆弧、非对称、双页、旋转、原边距/安全区、窄窗口与实际Widget位置。首轮组件夹具误打开页眉导致定位到两个TipBar，修正夹具后通过。证据flutter_legado/build/footer-corners/{tests,regression,native-cache}.log；原生组显式复用主目录已有宿主DLL，未重编Rust，不以此宣称NDK/iOS实际产物验收。
+- 几何与缓存：真实Widget断言左右内收而中间页码、分隔线、正文矩形及页脚高度不变；真实ReaderPageView更新圆角后paintRevision改变，layoutMeasurements和原文范围保持，相同几何再发布不重复刷新。没有改变分页缓存键或排版算法。
+- 编译：11份Dart文件分析无问题，架构和diff检查通过；Android compileDebugKotlin通过，证据build/footer-corners-kotlin.log。仅编译Kotlin，显式排除Flutter编译及缺库的Rust FFI门禁任务，生产门禁未改，没有生成/安装APK。
+- 交付：版本2.0.419+420，契约、设计规范及双更新日志同步；没有新增设置/依赖、数据库或Rust/FRB变更。单代理自查、仅本地提交，未推送/合并/触发CI；iOS为公开安全区近似，不保证真实硬件半径，Android真机圆角与两平台视觉仍待验收。
+
+编写者：Codex + UI｜2026-10-21
+
 ### TTS-INTERRUPTION-20261021：修正中断后手动恢复会话（P1，代码验证通过，待iOS实测）
 
 - 授权/基线：用户要求修正iOS被其他音视频打断后不能继续；tts-engine已快进dev / 38ed3ecf3，沿用feature/ui-tts-engine，单代理。

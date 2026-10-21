@@ -31,6 +31,8 @@ import 'reader_selection_region.dart';
 import 'text_layout_environment.dart';
 import 'review_column.dart';
 import 'chapter_pagination_session.dart';
+import 'reader_footer_geometry.dart';
+import '../../platform/display/display_corners.dart';
 
 import 'package:flutter/scheduler.dart';
 
@@ -164,6 +166,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
   Object? _reviewMeasureKey;
   Map<int, InlineReview> _measuredReviews = {};
   int _paintRevision = 0;
+  DisplayCorners? _footerCorners;
   final ChapterLayoutCache _layoutCache = ChapterLayoutCache();
   ChapterPaginationSession? _layoutSession;
   final Set<ChapterPaginationSession> _preloadSessions = {};
@@ -1128,6 +1131,12 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   @override
   Widget build(BuildContext context) {
+    final corners = ReaderFooterGeometry.maybeOf(context)?.corners;
+    if (corners != _footerCorners) {
+      _footerCorners = corners;
+      // 圆角只影响页脚绘制，刷新翻页快照而不改变分页缓存键。
+      _paintRevision++;
+    }
     ref.listen(
       readerSettingsProvider.select(
         (value) => (value.value?.fontFamily, value.value?.titleFontFamily),
@@ -1415,8 +1424,24 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       );
 
   /// 放在页面快照内部，使背景、阴影与卷页覆盖完整视口。
-  Widget _insetContent(Widget child) =>
-      Padding(padding: _contentInsets(context), child: child);
+  Widget _insetContent(Widget child) => LayoutBuilder(
+    builder: (context, constraints) {
+      final insets = _contentInsets(context);
+      final geometry = ReaderFooterGeometry.maybeOf(context);
+      final page = Padding(padding: insets, child: child);
+      if (geometry == null) return page;
+      return ReaderFooterGeometry(
+        corners: geometry.corners,
+        bounds: Rect.fromLTRB(
+          insets.left,
+          insets.top,
+          constraints.maxWidth - insets.right,
+          constraints.maxHeight - insets.bottom,
+        ),
+        child: page,
+      );
+    },
+  );
 
   /// 首页可用高度（扣标题块；与渲染侧 pageIndex==0 同参）
   double _computeFirstPageHeight(
@@ -1634,6 +1659,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       fontWeight: _fontWeightFor(widget.textBold),
       fontStyle: _fontStyleFor(widget.italic),
       selectText: false,
+      footerColumns: _isDoublePage ? 2 : 1,
       contentPadding: EdgeInsets.only(
         left: widget.marginLeft,
         right: widget.marginRight,
@@ -1823,6 +1849,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       pageIndex: safeIndex,
       totalPages: _paginatedPages.length,
       chapterTitle: _paginatedChapterTitle ?? state.currentChapter?.title,
+      footerColumn: doublePageSide == 'right' ? 1 : 0,
+      footerColumns: doublePageSide == null ? 1 : 2,
       pageChrome: widget.pageChrome,
       tipContext: _buildTipContext(
         state,

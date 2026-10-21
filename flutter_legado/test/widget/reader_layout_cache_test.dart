@@ -17,6 +17,8 @@ import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
+import 'package:flutter_legado/src/platform/display/display_corners.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_footer_geometry.dart';
 import 'package:flutter_legado/src/providers/chapter_content_provider.dart';
 
 final sources = List.generate(
@@ -99,6 +101,78 @@ class _DeferredContent extends _Content {
 
 void main() {
   setUpNativeReaderLayout();
+  testWidgets('圆角更新只使翻页快照失效，不重新分页或改变原文范围', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final key = GlobalKey<ReaderPageViewState>();
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ..._Api().overrides,
+        readerNotifierProvider.overrideWith(_Reader.new),
+      ]),
+    );
+    addTearDown(container.dispose);
+    Future<void> show(DisplayCorners corners) async {
+      await pumpNativeReaderLayout(
+        tester,
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            builder: nativeReaderLayoutBuilder,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 320,
+                  height: 500,
+                  child: ReaderFooterGeometry(
+                    corners: corners,
+                    child: ReaderPageView(
+                      key: key,
+                      paragraphSpacing: 8,
+                      selectText: false,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await settleNativeReaderLayout(tester);
+    }
+
+    await show(const DisplayCorners(size: Size(320, 500)));
+    final measurements = key.currentState!.layoutMeasurements;
+    final range = key.currentState!.currentSourceRange;
+    final before = tester
+        .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+        .paintRevision;
+    const rounded = DisplayCorners(
+      size: Size(320, 500),
+      bottomLeft: DisplayCorner(center: Offset(50, 450), radius: 50),
+      bottomRight: DisplayCorner(center: Offset(270, 450), radius: 50),
+    );
+    await show(rounded);
+    final after = tester
+        .widget<ReaderTurnView>(find.byType(ReaderTurnView))
+        .paintRevision;
+    expect(after, greaterThan(before));
+    expect(key.currentState!.layoutMeasurements, measurements);
+    expect(key.currentState!.currentSourceRange, range);
+    await show(
+      DisplayCorners(
+        size: rounded.size,
+        bottomLeft: rounded.bottomLeft,
+        bottomRight: rounded.bottomRight,
+      ),
+    );
+    expect(
+      tester.widget<ReaderTurnView>(find.byType(ReaderTurnView)).paintRevision,
+      after,
+    );
+    expect(key.currentState!.layoutMeasurements, measurements);
+    expect(tester.takeException(), isNull);
+  });
   for (final replaceBook in [true, false]) {
     testWidgets('${replaceBook ? '同章换书' : '视口重排'}后丢弃迟到预载，不覆盖新预览或增加测量', (
       tester,

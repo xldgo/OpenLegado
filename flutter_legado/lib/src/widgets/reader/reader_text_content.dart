@@ -60,6 +60,7 @@ class ReaderTypographicPage extends StatelessWidget {
   // [UI-fix v2.0.59 | 2026-08-14] 页眉/页脚提示与标题样式 — Cursor UI
   final ReaderPageChromeConfig pageChrome;
   final ReaderTipContext tipContext;
+  final int footerColumn, footerColumns;
 
   final Map<int, int>? reviewCounts;
   final ReviewTapCallback? onReviewTap;
@@ -85,6 +86,8 @@ class ReaderTypographicPage extends StatelessWidget {
     ),
     this.pageChrome = const ReaderPageChromeConfig(),
     this.tipContext = const ReaderTipContext(pageIndex: 0, totalPages: 1),
+    this.footerColumn = 0,
+    this.footerColumns = 1,
     this.selectText = true,
     this.letterSpacing = 0.0,
     this.fontFamily,
@@ -230,6 +233,9 @@ class ReaderTypographicPage extends StatelessWidget {
                   chrome.footerPaddingBottom,
                 ),
                 leftTip: chrome.tipFooterLeft,
+                avoidDisplayCorners: true,
+                footerColumn: footerColumn,
+                footerColumns: footerColumns,
                 middleTip: chrome.tipFooterMiddle,
                 rightTip: chrome.tipFooterRight,
                 tipContext: tipContext,

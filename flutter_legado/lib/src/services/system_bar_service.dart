@@ -3,12 +3,25 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/display/display_corners.dart';
+
 /// 普通页面统一边到边与透明系统栏，图标明暗跟随当前主题。
 /// 阅读器显隐和退出恢复由SystemBarController独立协调。— Codex + UI
 class SystemBarService {
   SystemBarService._();
 
   static const MethodChannel _channel = MethodChannel('legado/system_bar');
+
+  static Future<DisplayCorners?> displayCorners(double pixelRatio) async {
+    if (!Platform.isAndroid) return null;
+    try {
+      final data = await _channel.invokeMethod<Object?>('getDisplayCorners');
+      return DisplayCorners.fromPhysical(data, pixelRatio);
+    } catch (error) {
+      debugPrint('读取屏幕圆角失败：$error');
+      return null;
+    }
+  }
 
   /// Android 返回物理像素的底部屏幕缺口高度，不包含导航栏占位。
   static Future<double> displayCutoutBottomInset() async {

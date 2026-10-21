@@ -33,6 +33,7 @@ import '../../../providers/theme/system_bar_controller.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../services/system_brightness.dart';
 import '../../../services/system_bar_service.dart';
+import '../../../platform/display/display_corners.dart';
 import '../../../utils/app_route_observer.dart';
 import '../../audio/application/read_aloud_capsule.dart';
 import '../../../widgets/reader/auto_turn_panel.dart';
@@ -69,6 +70,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   EdgeInsets _bodySystemInsets = EdgeInsets.zero;
   double? _cutoutPixelRatio;
   double _cutoutBottomInset = 0;
+  DisplayCorners? _displayCorners;
   int _cutoutGeneration = 0;
 
   /// 系统栏开关不改变正文分页；方向或窗口尺寸变化后重新采样。
@@ -80,6 +82,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _cutoutPixelRatio = media.devicePixelRatio;
       _bodySystemInsets = media.viewPadding;
       _cutoutBottomInset = 0;
+      _displayCorners = null;
       unawaited(
         _loadCutoutBottomInset(++_cutoutGeneration, media.devicePixelRatio),
       );
@@ -96,11 +99,26 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Future<void> _loadCutoutBottomInset(int generation, double pixelRatio) async {
-    final physical = await SystemBarService.displayCutoutBottomInset();
+    final values = await Future.wait<Object?>([
+      SystemBarService.displayCutoutBottomInset(),
+      SystemBarService.displayCorners(pixelRatio),
+    ]);
     if (!mounted || generation != _cutoutGeneration) return;
+    final physical = values[0] as double;
+    final corners = values[1] as DisplayCorners?;
     final logical = physical / pixelRatio;
-    if (logical != _cutoutBottomInset) {
-      setState(() => _cutoutBottomInset = logical);
+    final viewport = _insetViewportSize!;
+    final currentCorners =
+        corners != null &&
+            (corners.size.width - viewport.width).abs() <= 1 &&
+            (corners.size.height - viewport.height).abs() <= 1
+        ? corners
+        : null;
+    if (logical != _cutoutBottomInset || currentCorners != _displayCorners) {
+      setState(() {
+        _cutoutBottomInset = logical;
+        _displayCorners = currentCorners;
+      });
     }
   }
 
@@ -484,6 +502,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   readingSettings: readingSettings,
                   bodyInsets: _stableBodyInsets(context),
                   cutoutBottomInset: _cutoutBottomInset,
+                  displayCorners: _displayCorners,
                   pageViewKey: _pageViewKey,
                   imageDominant: imageDominant,
                   reviewCounts: _chapters.value.counts,

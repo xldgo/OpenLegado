@@ -1,5 +1,17 @@
 # API 契约文档
 
+## 阅读页脚圆角避让（READER-FOOTER-CORNERS-20261021，实施前冻结）
+
+Rust/FRB及设置键不变。Android legado/system_bar 新增只读 getDisplayCorners，
+返回当前窗口物理像素的 width/height，以及 bottomLeft/bottomRight：null或{radius,x,y}。
+Android 12以上读取WindowInsets.getRoundedCorner，缺少窗口信息返回null；
+窗口已知但无圆角时保留null角，不虚构半径。Dart按当前DPR转逻辑尺寸，方向/尺寸变化重新读取。
+iOS及不可用平台使用公开安全区与保守移动端近似，不使用私有API或机型表，桌面默认不补偿。
+只对页脚信息行左右槽位取自动安全距离与用户边距的较大值；中间槽、分隔线、纵向高度、
+正文分页和设置存储不变。双页中间不按屏幕边缘处理，旋转时按新窗口重新计算。
+
+编写者：Codex + UI｜2026-10-21
+
 ## 音频中断后显式恢复（TTS-INTERRUPTION-20261021，实施前冻结）
 
 本批仅调整 Dart 平台会话与播放端口，不修改 Rust/FRB、数据库或播放器队列。

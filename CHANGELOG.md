@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.419] - 2026-10-21
+
+### Changed
+- 阅读页脚左右信息自动向内避开屏幕圆角，保持中间页码、正文排版与页脚高度。
+- 支持横屏和双页边缘判断，保留用户较大的页脚边距。贡献者：Codex；构建号420。
+
 ## [2.0.418] - 2026-10-21
 
 ### Fixed

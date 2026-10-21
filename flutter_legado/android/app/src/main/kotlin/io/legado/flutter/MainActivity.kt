@@ -9,6 +9,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.view.RoundedCorner
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -220,6 +221,25 @@ open class MainActivity : AudioServiceFragmentActivity() {
 
     private fun handleSystemBarCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "getDisplayCorners" -> {
+                val view = window.decorView
+                val insets = view.rootWindowInsets
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                    insets == null || view.width <= 0 || view.height <= 0) {
+                    result.success(null)
+                } else {
+                    fun corner(position: Int): Map<String, Int>? {
+                        val value = insets.getRoundedCorner(position) ?: return null
+                        return mapOf("radius" to value.radius, "x" to value.center.x, "y" to value.center.y)
+                    }
+                    result.success(mapOf(
+                        "width" to view.width,
+                        "height" to view.height,
+                        "bottomLeft" to corner(RoundedCorner.POSITION_BOTTOM_LEFT),
+                        "bottomRight" to corner(RoundedCorner.POSITION_BOTTOM_RIGHT)
+                    ))
+                }
+            }
             "getDisplayCutoutBottomInset" -> {
                 // 只读取真实屏幕缺口；导航栏和键盘不属于这里的避让尺寸。
                 val bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
