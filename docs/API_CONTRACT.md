@@ -1,5 +1,14 @@
 # API 契约文档
 
+### READER-FONT-METRICS-20261021：基础行盒按主字体度量（实施前冻结）
+
+- FlutterTextShaper以相同字体、字重、斜体、Locale、文字缩放及kTextHeightNone测量空格模板。lineHeightPx取首行LineMetrics.ascent+descent，baselineOffsetPx取ascent，不使用取整后的TextPainter.height或preferredLineHeight，不以中文回退模板决定整章基础行盒。
+- 行推进仍为基础H乘行距倍率，段落附加距仍为H乘段距刻度/10；正文、章节标题及其缩放分段共享度量入口，绘制使用布局提供的基线。不新增设置、持久化格式或布局版本标识。
+- 保持原始字形簇塑形/宽度测量及选区原文映射；测量策略改变后新布局按现有原文锚点恢复。Rust配置载荷字段含义与FRB签名不变，不增加原生字体桥接。
+- 当前Android样本leading均为0；本次不宣称完整复现任意异常字体leading过滤，iOS与非零leading字体需按平台测量，不硬编码Android数值。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-CUTOUT-AVOIDANCE-20261021：独立系统栏占位与刘海避让（实施前冻结）
 
 - 删除ReaderScreenSettings.extendIntoCutout、ReaderSettingsRepository.updateScreen对应参数、reader_extend_into_cutout键/备份分类及UI入口；不迁移、清洗或兼容读取旧值。

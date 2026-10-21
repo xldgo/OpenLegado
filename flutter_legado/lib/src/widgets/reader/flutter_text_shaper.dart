@@ -42,11 +42,13 @@ class FlutterTextShaper {
   late final Map<String, Object?> metrics = _metrics();
   Map<String, Object?> _metrics() {
     final timer = diagnostics?.beginMeasurement();
-    final painter = _measure('一Mg');
-    final baseline = painter.computeDistanceToActualBaseline(
-      TextBaseline.alphabetic,
-    );
-    final height = painter.height;
+    // 基础行盒跟随主字体；主字体不含中文时，“一Mg”会引入回退字体并抬高全章行距。
+    // 行度量保留小数，不能改用已取整的height或preferredLineHeight，否则页尾可能差一行。
+    // 行距由Rust单独推进，绘制按同一ascent基线落位。— Codex + UI
+    final painter = _measure(' ');
+    final line = painter.computeLineMetrics().single;
+    final baseline = line.ascent;
+    final height = line.ascent + line.descent;
     painter.dispose();
     final indentPainter = _measure('\u3000' * math.max(1, config.indentCount));
     final indent = config.indent > 0 && config.indentCount > 0

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.426] - 2026-10-21
+
+### Fixed
+- 阅读正文和章节标题改用主字体自然行盒与精确基线，修正默认字体行距偏大、每页文字偏少。
+- 保留字体度量的小数精度，减少分页边界因取整造成的行数差异。
+- 贡献者：Codex；构建号427。
+
 ## [2.0.425] - 2026-10-21
 
 ### Fixed
