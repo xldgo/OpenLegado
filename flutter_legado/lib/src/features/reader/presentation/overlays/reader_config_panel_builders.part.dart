@@ -636,10 +636,9 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           );
         },
       ),
-      // 保持亮屏尚未接入平台能力，保留原选项并禁用。— Codex + UI
       SettingMenuRow<int>(
         title: context.l10n.readerKeepAwake,
-        subtitle: '设置阅读时保持屏幕点亮的时长（待实现）',
+        subtitle: '触摸后重新计时，到期恢复系统自动熄屏',
         value: _screen.keepScreenOnSeconds,
         options: {
           0: context.l10n.readerDefault,
@@ -648,7 +647,13 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
           600: context.l10n.readerAwakeTenMinutes,
           -1: context.l10n.readerAwakeAlways,
         },
-        onChanged: null,
+        onChanged: (value) {
+          _saveScreen(
+            () => ref
+                .read(readerSettingsRepositoryProvider)
+                .updateScreen(keepScreenOnSeconds: value),
+          );
+        },
       ),
     ],
   );

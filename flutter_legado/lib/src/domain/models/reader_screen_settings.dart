@@ -11,7 +11,7 @@ final class ReaderScreenSettings {
   /// 0跟随系统、1竖屏、2横屏、3传感器、4反向竖屏、5反向横屏。
   final int orientation;
 
-  /// 保持亮屏时长尚未接入；-1常亮、0系统、60/300/600秒。
+  /// -1常亮、0系统、60/300/600秒；到期解除防休眠，由系统决定熄屏时间。
   final int keepScreenOnSeconds;
   final bool hideStatusBar;
   final bool hideNavigationBar;

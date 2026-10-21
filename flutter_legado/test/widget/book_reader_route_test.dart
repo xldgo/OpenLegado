@@ -13,6 +13,7 @@ import 'package:flutter_legado/src/features/privacy/privacy_gate.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_settings.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:flutter_legado/src/providers/book_open_motion_provider.dart';
 import 'package:flutter_legado/src/widgets/book_cover.dart';
 import 'package:flutter_legado/src/widgets/reader/book_reader_route.dart';
 
@@ -47,6 +48,8 @@ class _Reader extends ReaderNotifier {
 
   void loaded() => state = state.copyWith(isLoading: false);
   void showBook(Book? book) => state = state.copyWith(currentBook: book);
+  void setBackground(Color color) =>
+      state = state.copyWith(backgroundColor: color);
 }
 
 class _Privacy extends PrivacyController {
@@ -380,6 +383,148 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('轻拟物转场上拱放大、同步翻盖，深色正文后半程显现', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    h.container.read(readerNotifierProvider);
+    h.reader.setBackground(const Color(0xFF121212));
+    final route = await h.open(tester);
+    expect(route.transitionDuration, const Duration(milliseconds: 420));
+    expect(route.reverseTransitionDuration, const Duration(milliseconds: 350));
+    ColoredBox veil() => tester.widget<ColoredBox>(
+      find.byKey(const ValueKey('book-reader-content-veil')),
+    );
+    expect(veil().color, const Color(0xFF121212));
+    await tester.pump(const Duration(milliseconds: 180));
+    final rect = _reveal(tester);
+    final travel = (rect.width - 80) / (400 - 80);
+    final expectedY =
+        136 * (1 - travel) * (1 - travel) +
+        2 * 80 * (1 - travel) * travel +
+        400 * travel * travel;
+    expect(rect.center.dy, closeTo(expectedY, 0.001));
+    expect(rect.center.dy, lessThan(136 + (400 - 136) * travel));
+    expect(
+      rect.center.dx,
+      closeTo(
+        72 * (1 - travel) * (1 - travel) +
+            400 * (1 - travel) * travel +
+            200 * travel * travel,
+        0.001,
+      ),
+    );
+    expect(veil().color.a, inExclusiveRange(0, 1));
+    expect(veil().color.withValues(alpha: 1), const Color(0xFF121212));
+    expect(h.probe.sizes, everyElement(const Size(400, 800)));
+    final body = tester.element(find.byType(_ReaderProbe));
+    final alpha = veil().color.a;
+    h.key.currentState!.pop();
+    await tester.pump();
+    expect(_reveal(tester), rect, reason: '中途返回保留几何');
+    expect(veil().color.a, alpha, reason: '中途返回保留显现进度');
+    await tester.pumpAndSettle();
+    expect(body.mounted, isFalse);
+    expect(h.probe.initialized, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('A轨迹顶边单调上移，下次开书才使用新选择', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    h.container
+        .read(bookOpenMotionProvider.notifier)
+        .select(BookOpenMotion.top);
+    await h.open(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    var previous = _reveal(tester);
+    h.container
+        .read(bookOpenMotionProvider.notifier)
+        .select(BookOpenMotion.arc);
+    for (var frame = 0; frame < 16; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      final current = _reveal(tester);
+      final travel = (current.width - 80) / 320;
+      expect(current.top, closeTo(80 * (1 - travel), 0.001));
+      expect(current.top, lessThanOrEqualTo(previous.top + 0.001));
+      previous = current;
+    }
+    await tester.pumpAndSettle();
+    h.key.currentState!.pop();
+    await tester.pumpAndSettle();
+    await h.open(tester);
+    await tester.pump(const Duration(milliseconds: 180));
+    final curve = _reveal(tester);
+    final travel = (curve.width - 80) / 320;
+    expect(curve.top, isNot(closeTo(80 * (1 - travel), 0.1)));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('中心上拱轨迹连续放大，最终精确落到全屏', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    await h.open(tester);
+    var previous = _reveal(tester);
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 21));
+      final current = _reveal(tester);
+      expect(current.isFinite, isTrue);
+      expect(current.width, greaterThanOrEqualTo(previous.width - 0.001));
+      previous = current;
+    }
+    expect(previous, const Rect.fromLTWH(0, 0, 400, 800));
+    expect(h.probe.initialized, 1);
+    expect(h.probe.sizes, everyElement(const Size(400, 800)));
+  });
+
+  testWidgets('阅读背景变化只更新配色和光影，深浅及护眼色共用几何轨迹', (tester) async {
+    final h = _Harness(image);
+    await h.pump(tester);
+    await h.open(tester);
+    await tester.pump(const Duration(milliseconds: 280));
+    final bounds = _reveal(tester);
+    final hinge = tester
+        .widget<Transform>(
+          find.byKey(const ValueKey('book-reader-cover-hinge')),
+        )
+        .transform
+        .clone();
+    for (final background in [
+      const Color(0xFF121212),
+      Colors.white,
+      const Color(0xFFDCE8CF),
+    ]) {
+      h.reader.setBackground(background);
+      await tester.pump();
+      final veil = tester.widget<ColoredBox>(
+        find.byKey(const ValueKey('book-reader-content-veil')),
+      );
+      expect(veil.color.withValues(alpha: 1), background);
+      final back =
+          tester
+                  .widget<DecoratedBox>(
+                    find.byKey(const ValueKey('book-reader-cover-back')),
+                  )
+                  .decoration
+              as BoxDecoration;
+      final lining = (back.gradient! as LinearGradient).colors.last;
+      expect((lining.r - background.r).abs(), lessThan(0.06));
+      expect((lining.g - background.g).abs(), lessThan(0.06));
+      expect((lining.b - background.b).abs(), lessThan(0.06));
+      expect(_reveal(tester), bounds);
+      expect(
+        tester
+            .widget<Transform>(
+              find.byKey(const ValueKey('book-reader-cover-hinge')),
+            )
+            .transform,
+        hinge,
+      );
+    }
+    await tester.pumpAndSettle();
+    expect(h.probe.initialized, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('封面以左侧书脊翻开，正文始终全屏布局且完成时不重新初始化', (tester) async {
     final h = _Harness(image);
     await h.pump(tester);
@@ -556,7 +701,7 @@ void main() {
       expect(tester.widget<Transform>(hingeFinder).transform, angle);
       expect(tester.getSize(hingeFinder), cover);
       await tester.pump(
-        Duration(milliseconds: (elapsed / 480 * 400).ceil() - 1),
+        Duration(milliseconds: (elapsed / 420 * 350).ceil() - 1),
       );
       final nearEnd = _reveal(tester);
       expect(nearEnd.left, closeTo(160, 1));
@@ -606,7 +751,7 @@ void main() {
     await tester.pump();
     h.key.currentState!.pop();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 390));
+    await tester.pump(const Duration(milliseconds: 340));
     final nearEnd = _reveal(tester);
     expect(nearEnd.left, closeTo(160, 2));
     expect(nearEnd.top, closeTo(220, 2));

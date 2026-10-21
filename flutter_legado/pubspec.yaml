@@ -88,6 +88,8 @@ dependencies:
   device_info_plus: ^13.3.0
   package_info_plus: ^10.2.2
   screen_brightness: ^2.0.0
+  # 与 battery_plus 共用 dbus 0.7；1.8.1 仅调整了该传递依赖。
+  wakelock_plus: ^1.8.0
   flutter_local_notifications: ^22.3.1
   app_links: ^7.2.2
   share_plus: ^13.3.1

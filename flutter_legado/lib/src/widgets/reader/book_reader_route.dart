@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../features/privacy/privacy_controller.dart';
 import '../../features/reader/application/reader_notifier.dart';
+import '../../providers/book_open_motion_provider.dart';
 import '../book_cover.dart';
 
 typedef _BookTransitionFrame = ({
@@ -13,6 +14,7 @@ typedef _BookTransitionFrame = ({
   BorderRadius radius,
   double coverAspect,
   double opening,
+  double reveal,
 });
 
 /// 纸面与封面整体缩放位移，封面沿书脊翻开；正文始终按最终视口排版。
@@ -36,6 +38,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   _BookTransitionFrame? _returnFrame;
   double _returnProgress = 1;
   final _contentKey = GlobalKey();
+  BookOpenMotion? _motion;
 
   bool get _hasCover => _start != null && _image != null;
 
@@ -46,14 +49,14 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   Duration get transitionDuration => _reduced
       ? Duration.zero
       : _hasCover
-      ? const Duration(milliseconds: 480)
+      ? const Duration(milliseconds: 420)
       : super.transitionDuration;
 
   @override
   Duration get reverseTransitionDuration => _reduced
       ? Duration.zero
       : _hasCover
-      ? const Duration(milliseconds: 400)
+      ? const Duration(milliseconds: 350)
       : super.reverseTransitionDuration;
 
   // 来源页面不再叠加默认导航的横移、缩放或封面 Hero 飞行。
@@ -124,6 +127,8 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
     Widget content,
   ) => Consumer(
     builder: (context, ref, _) {
+      // 每次开书固定一种轨迹，设置变化不改动正在返回的同一路由。
+      final motionStyle = _motion ??= ref.read(bookOpenMotionProvider);
       final privacy = ref.watch(privacyControllerProvider);
       final visual = ref.watch(
         readerNotifierProvider.select(
@@ -158,7 +163,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
             final morph =
                 !reduced && !protected && _image != null && source != null;
             final progress = reduced || protected ? 1.0 : animation.value;
-            // 翻盖与放大共用完整进度，避免先展开再翻开；返回也同步合上缩回。
+            // 三条轨道重叠推进，均直接读取时间进度，避免叠加缓动造成末段拖滞。
             final retreat = _returnProgress > 0
                 ? Curves.easeInOutCubic.transform(
                     (1 - progress / _returnProgress).clamp(0.0, 1.0),
@@ -167,7 +172,19 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
             final returning = _returning ? _returnFrame : null;
             final motion = returning != null
                 ? returning.opening * (1 - retreat)
-                : Curves.easeInOutCubic.transform(progress);
+                : const Interval(
+                    0.08,
+                    0.96,
+                    curve: Curves.easeInOutCubic,
+                  ).transform(progress);
+            final travel = Curves.easeInOutCubic.transform(progress);
+            final reveal = returning != null
+                ? returning.reveal * (1 - retreat)
+                : const Interval(
+                    0.32,
+                    0.88,
+                    curve: Curves.easeOutCubic,
+                  ).transform(progress);
             final coverAspect = morph
                 ? returning != null
                       ? ui.lerpDouble(
@@ -191,22 +208,45 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                     coverAspect,
                     size.height / size.width,
                     const Interval(
-                      0.5,
+                      0.52,
                       1,
                       curve: Curves.easeInOutCubic,
                     ).transform(progress),
                   )!;
-            final placement = morph
-                ? returning != null
-                      ? Rect.lerp(returning.bounds, source, retreat)!
-                      : Rect.lerp(source, full, motion)!
-                : full;
-            final bounds = Rect.fromLTWH(
-              placement.left,
-              placement.top,
-              placement.width,
-              morph ? placement.width * pageAspect : size.height,
-            );
+            final Rect bounds;
+            if (!morph) {
+              bounds = full;
+            } else if (returning != null) {
+              final placement = Rect.lerp(returning.bounds, source, retreat)!;
+              bounds = Rect.fromLTWH(
+                placement.left,
+                placement.top,
+                placement.width,
+                placement.width * pageAspect,
+              );
+            } else if (motionStyle == BookOpenMotion.top) {
+              final width = ui.lerpDouble(source.width, size.width, travel)!;
+              bounds = Rect.fromLTWH(
+                ui.lerpDouble(source.left, (size.width - width) / 2, travel)!,
+                ui.lerpDouble(source.top, 0, travel)!,
+                width,
+                width * pageAspect,
+              );
+            } else {
+              // 上移贝塞尔控制点，增强向上拱起感；控制点不是轨迹最高点。
+              final peakY = math.min(source.top, size.height * 0.20);
+              final control = Offset(full.center.dx, peakY);
+              final center =
+                  source.center * ((1 - travel) * (1 - travel)) +
+                  control * (2 * (1 - travel) * travel) +
+                  full.center * (travel * travel);
+              final width = ui.lerpDouble(source.width, size.width, travel)!;
+              bounds = Rect.fromCenter(
+                center: center,
+                width: width,
+                height: width * pageAspect,
+              );
+            }
             // 文字按最终尺寸布局，再与封面共用绘制变换，不靠扩大裁剪窗口模拟缩放。
             final scale = bounds.width / size.width;
             final paperBounds = Rect.fromLTWH(
@@ -232,7 +272,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                       : BorderRadius.lerp(
                           origin!.borderRadius,
                           BorderRadius.zero,
-                          motion,
+                          travel,
                         )!
                 : BorderRadius.zero;
             final radius = screenRadius / scale;
@@ -242,116 +282,189 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                 radius: screenRadius,
                 coverAspect: coverAspect,
                 opening: motion,
+                reveal: reveal,
               );
             }
             final coverOpacity = morph
-                ? 1 - const Interval(0.88, 1).transform(progress)
+                ? 1 - const Interval(0.72, 1).transform(motion)
                 : 0.0;
             final complete = animation.status == AnimationStatus.completed;
             final paper = protected
                 ? Theme.of(context).scaffoldBackgroundColor
                 : visual.background;
+            // 阅读配色独立于应用主题；按纸面亮度连续调节，不分两套深浅动画。
+            final darkness = 1 - paper.computeLuminance();
+            final crease = Color.lerp(Colors.black, Colors.white, darkness)!;
+            final lining = Color.lerp(paper, crease, 0.045)!;
+            final shadowAlpha = ui.lerpDouble(0.12, 0.24, darkness)!;
             // 固定正文布局与元素身份；裁剪只处理纸面比例/圆角，整体缩放由矩阵完成。
-            return Transform(
-              key: const ValueKey('book-reader-surface-transform'),
-              transform: Matrix4.identity()
-                ..setEntry(0, 0, scale)
-                ..setEntry(1, 1, scale)
-                ..setTranslationRaw(bounds.left, bounds.top, 0),
-              child: Stack(
-                key: const ValueKey('book-reader-transition'),
-                fit: StackFit.expand,
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fromRect(
-                    rect: paperBounds,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: paper,
-                        borderRadius: radius,
-                        boxShadow: [
-                          if (morph && !complete)
-                            BoxShadow(
-                              color: Colors.black.withValues(
-                                alpha: 0.18 * (1 - motion),
-                              ),
-                              blurRadius: 20,
-                            ),
-                        ],
-                      ),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                IgnorePointer(
+                  // 同色背景压暗来源列表，避免逐项修改书架或为其截图。
+                  child: ColoredBox(
+                    key: const ValueKey('book-reader-backdrop'),
+                    color: paper.withValues(
+                      alpha: morph
+                          ? 0.9 *
+                                const Interval(
+                                  0,
+                                  0.3,
+                                  curve: Curves.easeOut,
+                                ).transform(progress)
+                          : 0,
                     ),
                   ),
-                  ClipRRect(
-                    key: const ValueKey('book-reader-reveal'),
-                    clipBehavior: complete || !morph
-                        ? Clip.none
-                        : Clip.antiAlias,
-                    clipper: _BookRevealClipper(paperBounds, radius),
-                    child: IgnorePointer(
-                      ignoring: !complete,
-                      // 只切换可见性，不对整屏正文做渐变透明合成；门禁内容仍及时显示。
-                      child: Opacity(
-                        opacity: protected || matchesTarget || complete ? 1 : 0,
-                        child: child,
-                      ),
-                    ),
-                  ),
-                  if (morph && motion > 0 && motion < 1)
-                    Positioned.fromRect(
-                      rect: paperBounds,
-                      child: IgnorePointer(
-                        child: ClipRRect(
-                          borderRadius: radius,
-                          child: DecoratedBox(
-                            key: const ValueKey('book-reader-page-shadow'),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.black.withValues(
-                                    alpha: 0.16 * math.sin(math.pi * motion),
+                ),
+                Transform(
+                  key: const ValueKey('book-reader-surface-transform'),
+                  transform: Matrix4.identity()
+                    ..setEntry(0, 0, scale)
+                    ..setEntry(1, 1, scale)
+                    ..setTranslationRaw(bounds.left, bounds.top, 0),
+                  child: Stack(
+                    key: const ValueKey('book-reader-transition'),
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fromRect(
+                        rect: paperBounds,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: paper,
+                            borderRadius: radius,
+                            boxShadow: [
+                              if (morph && !complete)
+                                BoxShadow(
+                                  color: Colors.black.withValues(
+                                    alpha: shadowAlpha * (1 - motion),
                                   ),
-                                  Colors.transparent,
-                                ],
-                                stops: const [0, 0.65],
-                              ),
-                            ),
+                                  blurRadius: 20,
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  if (coverOpacity > 0 && _image != null)
-                    Positioned.fromRect(
-                      rect: coverBounds,
-                      child: IgnorePointer(
-                        child: ExcludeSemantics(
+                      ClipRRect(
+                        key: const ValueKey('book-reader-reveal'),
+                        clipBehavior: complete || !morph
+                            ? Clip.none
+                            : Clip.antiAlias,
+                        clipper: _BookRevealClipper(paperBounds, radius),
+                        child: IgnorePointer(
+                          ignoring: !complete,
+                          // 只切换可见性，不对整屏正文做渐变透明合成；门禁内容仍及时显示。
                           child: Opacity(
-                            opacity: coverOpacity,
-                            child: Transform(
-                              key: const ValueKey('book-reader-cover-hinge'),
-                              alignment: Alignment.centerLeft,
-                              transform: Matrix4.identity()
-                                ..setEntry(3, 2, -0.6 / size.longestSide)
-                                ..rotateY(-math.pi * motion),
-                              // 共用纸面外阴影和书脊渐变，不再叠加旋转封面的模糊阴影。
-                              child: ClipRRect(
-                                borderRadius: radius,
-                                child: motion <= 0.5
-                                    ? RawImage(image: _image, fit: BoxFit.cover)
-                                    // 翻过侧面后展示纸张背面，不反向绘制封面文字。
-                                    : ColoredBox(
-                                        key: const ValueKey(
-                                          'book-reader-cover-back',
-                                        ),
-                                        color: paper,
-                                      ),
-                              ),
+                            opacity: protected || matchesTarget || complete
+                                ? 1
+                                : 0,
+                            child: Transform.translate(
+                              offset: Offset(0, morph ? 4 * (1 - reveal) : 0),
+                              child: child,
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
+                      if (morph && !complete && reveal < 1)
+                        Positioned.fromRect(
+                          rect: paperBounds,
+                          child: IgnorePointer(
+                            child: ClipRRect(
+                              borderRadius: radius,
+                              // 淡出同色遮罩显示正文，不为全屏文字创建渐变透明合成层。
+                              child: ColoredBox(
+                                key: const ValueKey('book-reader-content-veil'),
+                                color: paper.withValues(alpha: 1 - reveal),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (morph && motion > 0 && motion < 1)
+                        Positioned.fromRect(
+                          rect: paperBounds,
+                          child: IgnorePointer(
+                            child: ClipRRect(
+                              borderRadius: radius,
+                              child: DecoratedBox(
+                                key: const ValueKey('book-reader-page-shadow'),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      crease.withValues(
+                                        alpha:
+                                            0.12 * math.sin(math.pi * motion),
+                                      ),
+                                      Colors.black.withValues(
+                                        alpha:
+                                            ui.lerpDouble(
+                                              0.16,
+                                              0.08,
+                                              darkness,
+                                            )! *
+                                            math.sin(math.pi * motion),
+                                      ),
+                                      Colors.transparent,
+                                    ],
+                                    stops: const [0, 0.015, 0.65],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (coverOpacity > 0 && _image != null)
+                        Positioned.fromRect(
+                          rect: coverBounds,
+                          child: IgnorePointer(
+                            child: ExcludeSemantics(
+                              child: Opacity(
+                                opacity: coverOpacity,
+                                child: Transform(
+                                  key: const ValueKey(
+                                    'book-reader-cover-hinge',
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  transform: Matrix4.identity()
+                                    ..setEntry(3, 2, -0.6 / size.longestSide)
+                                    ..rotateY(-math.pi * motion),
+                                  // 共用纸面外阴影和书脊渐变，不再叠加旋转封面的模糊阴影。
+                                  child: ClipRRect(
+                                    borderRadius: radius,
+                                    child: motion <= 0.5
+                                        ? RawImage(
+                                            image: _image,
+                                            fit: BoxFit.cover,
+                                          )
+                                        // 翻过侧面后展示纸张背面，不反向绘制封面文字。
+                                        : DecoratedBox(
+                                            key: const ValueKey(
+                                              'book-reader-cover-back',
+                                            ),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Color.lerp(
+                                                    lining,
+                                                    crease,
+                                                    0.04,
+                                                  )!,
+                                                  lining,
+                                                ],
+                                                stops: const [0, 0.3],
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             );
           },
         ),
