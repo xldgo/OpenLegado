@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../platform/display/display_corners.dart';
+import '../platform/display/display_cutout_insets.dart';
 
 /// 普通页面统一边到边与透明系统栏，图标明暗跟随当前主题。
 /// 阅读器显隐和退出恢复由SystemBarController独立协调。— Codex + UI
@@ -23,17 +25,22 @@ class SystemBarService {
     }
   }
 
-  /// Android 返回物理像素的底部屏幕缺口高度，不包含导航栏占位。
-  static Future<double> displayCutoutBottomInset() async {
-    if (!Platform.isAndroid) return 0;
+  /// Android读取真实缺口，iOS读取公开安全区近似；返回窗口逻辑像素。
+  static Future<DisplayCutoutInsets?> displayCutoutInsets(
+    double pixelRatio,
+  ) async {
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return null;
+    }
     try {
-      final bottom = await _channel.invokeMethod<num>(
-        'getDisplayCutoutBottomInset',
+      final data = await _channel.invokeMethod<Object?>(
+        'getDisplayCutoutInsets',
       );
-      return (bottom ?? 0).toDouble().clamp(0, double.infinity);
+      return DisplayCutoutInsets.fromPhysical(data, pixelRatio);
     } catch (error) {
-      debugPrint('读取底部屏幕缺口失败: $error');
-      return 0;
+      debugPrint('读取屏幕缺口失败：$error');
+      return null;
     }
   }
 

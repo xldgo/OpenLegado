@@ -2854,10 +2854,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get readerHideNavigationBar => '隐藏导航栏';
 
   @override
-  String get readerExtendCutout => '扩展到刘海';
-
-  @override
-  String get readerFillCutout => '填充刘海区域';
+  String get readerAvoidDisplayCutouts => '刘海避让';
 
   @override
   String get readerDualPageMode => '平板/横屏双页';

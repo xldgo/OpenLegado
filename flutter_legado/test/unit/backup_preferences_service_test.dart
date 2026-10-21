@@ -142,7 +142,6 @@ void main() {
         'reader_screen_orientation',
         'reader_hide_status_bar',
         'reader_hide_navigation_bar',
-        'reader_extend_into_cutout',
         'reader_avoid_display_cutouts',
         'reader_auto_page_turn_enabled',
         'reader_auto_page_turn_interval_seconds',

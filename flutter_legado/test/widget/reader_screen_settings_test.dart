@@ -87,7 +87,7 @@ void main() {
       )
       .value;
 
-  testWidgets('屏幕方向和四项系统栏安全区逐字段保存', (tester) async {
+  testWidgets('屏幕方向、系统栏和刘海避让逐字段保存', (tester) async {
     await initialize(tester);
     final repository = container.read(readerSettingsRepositoryProvider);
     final before = repository.current.pageLayout;
@@ -95,12 +95,10 @@ void main() {
     await tap(tester, '横屏');
     await tap(tester, '隐藏状态栏');
     await tap(tester, '隐藏导航栏');
-    await tap(tester, '扩展到刘海');
-    await tap(tester, '填充刘海区域');
+    await tap(tester, '刘海避让');
     expect(repository.current.screen.orientation, 2);
     expect(repository.current.screen.hideStatusBar, isTrue);
     expect(repository.current.screen.hideNavigationBar, isTrue);
-    expect(repository.current.screen.extendIntoCutout, isTrue);
     expect(repository.current.screen.avoidDisplayCutouts, isTrue);
     expect(repository.current.pageLayout, before);
     expect(storage.values['reader_screen_orientation'], 2);
@@ -108,7 +106,6 @@ void main() {
       'reader_screen_orientation',
       'reader_hide_status_bar',
       'reader_hide_navigation_bar',
-      'reader_extend_into_cutout',
       'reader_avoid_display_cutouts',
     });
     expect(tester.takeException(), isNull);
@@ -149,6 +146,9 @@ void main() {
     }
     expect(find.text('隐藏状态栏'), findsOneWidget);
     expect(find.text('隐藏导航栏'), findsOneWidget);
+    expect(find.text('刘海避让'), findsOneWidget);
+    expect(find.text('扩展到刘海'), findsNothing);
+    expect(find.text('填充刘海区域'), findsNothing);
     expect(find.text('菜单工具栏'), findsOneWidget);
   });
 

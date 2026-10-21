@@ -74,7 +74,6 @@ abstract interface class ReaderSettingsRepository {
     int? keepScreenOnSeconds,
     bool? hideStatusBar,
     bool? hideNavigationBar,
-    bool? extendIntoCutout,
     bool? avoidDisplayCutouts,
   });
   Future<void> updateAutoPageTurn({

@@ -93,10 +93,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_hide_navigation_bar',
   );
-  static const _extendIntoCutout = (
-    storage: SettingsStorageKind.preferences,
-    key: 'reader_extend_into_cutout',
-  );
   static const _avoidDisplayCutouts = (
     storage: SettingsStorageKind.preferences,
     key: 'reader_avoid_display_cutouts',
@@ -129,7 +125,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _orientation,
     _hideStatusBar,
     _hideNavigationBar,
-    _extendIntoCutout,
     _avoidDisplayCutouts,
 
     _mode,
@@ -210,9 +205,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
           : false,
       hideNavigationBar: snapshot[_hideNavigationBar] is bool
           ? snapshot[_hideNavigationBar] as bool
-          : false,
-      extendIntoCutout: snapshot[_extendIntoCutout] is bool
-          ? snapshot[_extendIntoCutout] as bool
           : false,
       avoidDisplayCutouts: snapshot[_avoidDisplayCutouts] is bool
           ? snapshot[_avoidDisplayCutouts] as bool
@@ -421,7 +413,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     int? keepScreenOnSeconds,
     bool? hideStatusBar,
     bool? hideNavigationBar,
-    bool? extendIntoCutout,
     bool? avoidDisplayCutouts,
   }) => _service.update({
     _orientation: ?orientation?.clamp(0, 5),
@@ -429,7 +420,6 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
       _keepScreenOnSeconds: _keepScreenOn(keepScreenOnSeconds),
     _hideStatusBar: ?hideStatusBar,
     _hideNavigationBar: ?hideNavigationBar,
-    _extendIntoCutout: ?extendIntoCutout,
     _avoidDisplayCutouts: ?avoidDisplayCutouts,
   });
 

@@ -5,7 +5,6 @@ final class ReaderScreenSettings {
     this.keepScreenOnSeconds = 0,
     this.hideStatusBar = false,
     this.hideNavigationBar = false,
-    this.extendIntoCutout = false,
     this.avoidDisplayCutouts = false,
   });
 
@@ -16,7 +15,6 @@ final class ReaderScreenSettings {
   final int keepScreenOnSeconds;
   final bool hideStatusBar;
   final bool hideNavigationBar;
-  final bool extendIntoCutout;
   final bool avoidDisplayCutouts;
 
   @override
@@ -26,7 +24,6 @@ final class ReaderScreenSettings {
       keepScreenOnSeconds == other.keepScreenOnSeconds &&
       hideStatusBar == other.hideStatusBar &&
       hideNavigationBar == other.hideNavigationBar &&
-      extendIntoCutout == other.extendIntoCutout &&
       avoidDisplayCutouts == other.avoidDisplayCutouts;
 
   @override
@@ -35,7 +32,6 @@ final class ReaderScreenSettings {
     keepScreenOnSeconds,
     hideStatusBar,
     hideNavigationBar,
-    extendIntoCutout,
     avoidDisplayCutouts,
   );
 }

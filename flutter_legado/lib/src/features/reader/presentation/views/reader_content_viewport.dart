@@ -9,6 +9,7 @@ import '../../../../widgets/reader/reader_page_view.dart';
 import '../../../../widgets/reader/reader_page_chrome.dart';
 import '../../../../widgets/reader/reader_image_dominant_body.dart';
 import '../../../../platform/display/display_corners.dart';
+import '../../../../platform/display/display_cutout_insets.dart';
 import '../../../../widgets/reader/reader_footer_geometry.dart';
 
 /// 正文视口统一消费设置和实际系统边距，不负责加载或导航。— Codex + UI
@@ -18,7 +19,7 @@ class ReaderContentViewport extends StatelessWidget {
     required this.state,
     required this.readingSettings,
     required this.bodyInsets,
-    required this.cutoutBottomInset,
+    this.cutoutInsets,
     required this.pageViewKey,
     required this.imageDominant,
     required this.reviewCounts,
@@ -34,7 +35,7 @@ class ReaderContentViewport extends StatelessWidget {
   final ReaderState state;
   final ReaderSettings readingSettings;
   final EdgeInsets bodyInsets;
-  final double cutoutBottomInset;
+  final DisplayCutoutInsets? cutoutInsets;
   final DisplayCorners? displayCorners;
   final GlobalKey<ReaderPageViewState> pageViewKey;
   final bool imageDominant;
@@ -53,31 +54,33 @@ class ReaderContentViewport extends StatelessWidget {
     final pageLayout = readingSettings.pageLayout;
     final screen = readingSettings.screen;
     final interaction = readingSettings.interaction;
-    final avoidTop = !screen.extendIntoCutout || screen.avoidDisplayCutouts;
-    final avoidSides = !screen.extendIntoCutout || screen.avoidDisplayCutouts;
-    final avoidBottom = !screen.hideNavigationBar || screen.avoidDisplayCutouts;
-    final bottomInset = readerContentBottomInset(
-      systemBottomInset: bodyInsets.bottom,
-      cutoutBottomInset: cutoutBottomInset,
+    // 原生采样未就绪时保守使用安全区；明确返回零缺口后不再沿用此回退。
+    final fallbackCutout = switch (defaultTargetPlatform) {
+      TargetPlatform.iOS => EdgeInsets.fromLTRB(
+        bodyInsets.left,
+        bodyInsets.bottom > 0 || bodyInsets.left > 0 || bodyInsets.right > 0
+            ? bodyInsets.top
+            : 0,
+        bodyInsets.right,
+        bodyInsets.bottom,
+      ),
+      TargetPlatform.android => bodyInsets,
+      _ => EdgeInsets.zero,
+    };
+    final pageInsets = readerContentInsets(
+      systemInsets: bodyInsets,
+      cutoutInsets: cutoutInsets?.padding ?? fallbackCutout,
+      hideStatusBar: screen.hideStatusBar,
       hideNavigationBar: screen.hideNavigationBar,
-      paddingDisplayCutouts: screen.avoidDisplayCutouts,
-    );
-    final bodyPadding = EdgeInsets.only(
-      top: avoidTop ? bodyInsets.top : 0,
-      left: avoidSides ? bodyInsets.left : 0,
-      right: avoidSides ? bodyInsets.right : 0,
-      bottom: bottomInset,
-    );
-    final pageInsets = bodyPadding.copyWith(
-      top: avoidTop || !screen.hideStatusBar ? bodyInsets.top : 0,
+      avoidDisplayCutouts: screen.avoidDisplayCutouts,
     );
     return Positioned.fill(
       child: MediaQuery.removeViewPadding(
         context: context,
-        removeTop: avoidTop,
-        removeLeft: avoidSides,
-        removeRight: avoidSides,
-        removeBottom: avoidBottom,
+        removeTop: true,
+        removeLeft: true,
+        removeRight: true,
+        removeBottom: true,
         child: ReaderFooterGeometry(
           corners:
               displayCorners ??
@@ -116,7 +119,6 @@ class ReaderContentViewport extends StatelessWidget {
                         hideStatusBar: screen.hideStatusBar,
                         titleFontFamily: readingSettings.titleFontFamily,
                       ),
-                      readBodyToLh: screen.extendIntoCutout,
                       // [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批：长按选择
                       // 文本开关与滚动翻页无动画接入内容区 — Qoder
                       selectText: interaction.selectText,
@@ -141,7 +143,7 @@ class ReaderContentViewport extends StatelessWidget {
                     ),
                   ),
                 Padding(
-                  padding: bodyPadding,
+                  padding: pageInsets,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [

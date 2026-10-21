@@ -686,23 +686,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
       // [UI-fix v2.0.4 | 2026-08-08] MoreConfig 第②批：按原版
       // pref_config_read.xml 项序与文案补齐，平台受限项以副标题
       // 灰字诚实标注（不引入新依赖）— Qoder
-      // 扩展到刘海（原版 readBodyToLh）
+      // 系统栏占位独立控制，开关只处理屏幕缺口。— Codex + UI
       SettingSwitchRow(
-        title: context.l10n.readerExtendCutout,
-        subtitle: '正文延伸到刘海区域',
-        value: _screen.extendIntoCutout,
-        onChanged: (v) {
-          _saveScreen(
-            () => ref
-                .read(readerSettingsRepositoryProvider)
-                .updateScreen(extendIntoCutout: v),
-          );
-        },
-      ),
-      // 填充刘海区域（原版 paddingDisplayCutouts）
-      SettingSwitchRow(
-        title: context.l10n.readerFillCutout,
-        subtitle: '页面边距避开刘海区域',
+        title: context.l10n.readerAvoidDisplayCutouts,
+        subtitle: '页眉、正文和页脚避开刘海或挖孔区域',
         value: _screen.avoidDisplayCutouts,
         onChanged: (v) {
           _saveScreen(

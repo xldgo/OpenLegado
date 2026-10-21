@@ -16,37 +16,28 @@ import 'dart:math' as math;
 double readerSystemStatusBarInset(BuildContext context) =>
     MediaQuery.viewPaddingOf(context).top;
 
-/// 隐藏导航栏时只保留真实缺口；系统安全边距已包含缺口时不重复叠加。
-double readerContentBottomInset({
-  required double systemBottomInset,
-  required double cutoutBottomInset,
+/// 系统栏占位与缺口独立；重叠边距取最大值，菜单临时显隐不参与。— Codex + UI
+EdgeInsets readerContentInsets({
+  required EdgeInsets systemInsets,
+  required EdgeInsets cutoutInsets,
+  required bool hideStatusBar,
   required bool hideNavigationBar,
-  required bool paddingDisplayCutouts,
+  required bool avoidDisplayCutouts,
 }) {
-  final navigation = hideNavigationBar ? 0.0 : systemBottomInset;
-  final cutout = paddingDisplayCutouts ? cutoutBottomInset : 0.0;
-  return math.max(navigation, cutout);
+  final cutout = avoidDisplayCutouts ? cutoutInsets : EdgeInsets.zero;
+  return EdgeInsets.fromLTRB(
+    cutout.left,
+    math.max(hideStatusBar ? 0 : systemInsets.top, cutout.top),
+    cutout.right,
+    math.max(hideNavigationBar ? 0 : systemInsets.bottom, cutout.bottom),
+  );
 }
 
-/// 正文区稳定顶 inset：readBodyToLh 且未隐藏状态栏时预留（不随工具栏显隐
-/// 变化，避免切换 ReadMenu 时正文上跳；外层 SafeArea 已避让时不再重复）。
+/// 独立使用阅读页时按配置处理状态栏；宿主已计算尺寸时直接使用宿主结果。
 double readerContentStatusBarInset(
   BuildContext context, {
   required bool hideStatusBar,
-  required bool readBodyToLh,
-}) {
-  if (hideStatusBar || !readBodyToLh) return 0;
-  return readerSystemStatusBarInset(context);
-}
-
-/// 顶栏 overlay inset：正文延伸至状态栏时须显式避让系统栏。
-double readerOverlayStatusBarInset(
-  BuildContext context, {
-  required bool readBodyToLh,
-}) {
-  if (!readBodyToLh) return 0;
-  return readerSystemStatusBarInset(context);
-}
+}) => hideStatusBar ? 0 : readerSystemStatusBarInset(context);
 
 /// 标题字体生效家族（空=跟随正文字体，对齐原版 ReadBookConfig.titleFont）。
 ///

@@ -1,53 +1,56 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 
 void main() {
-  test('隐藏导航栏并填充刘海，无底部缺口时不保留导航栏占位', () {
+  for (final hideStatus in [false, true]) {
+    for (final hideNavigation in [false, true]) {
+      for (final avoid in [false, true]) {
+        test('状态栏隐藏$hideStatus、导航栏隐藏$hideNavigation、缺口避让$avoid分开计算', () {
+          final actual = readerContentInsets(
+            systemInsets: const EdgeInsets.only(top: 24, bottom: 34),
+            cutoutInsets: const EdgeInsets.fromLTRB(7, 40, 8, 12),
+            hideStatusBar: hideStatus,
+            hideNavigationBar: hideNavigation,
+            avoidDisplayCutouts: avoid,
+          );
+          expect(
+            actual.top,
+            avoid
+                ? 40
+                : hideStatus
+                ? 0
+                : 24,
+          );
+          expect(actual.bottom, hideNavigation ? (avoid ? 12 : 0) : 34);
+          expect(actual.left, avoid ? 7 : 0);
+          expect(actual.right, avoid ? 8 : 0);
+        });
+      }
+    }
+  }
+  test('无真实缺口时，隐藏状态栏完全释放顶部区域', () {
     expect(
-      readerContentBottomInset(
-        systemBottomInset: 24,
-        cutoutBottomInset: 0,
+      readerContentInsets(
+        systemInsets: const EdgeInsets.only(top: 24, bottom: 34),
+        cutoutInsets: EdgeInsets.zero,
+        hideStatusBar: true,
         hideNavigationBar: true,
-        paddingDisplayCutouts: true,
+        avoidDisplayCutouts: true,
       ),
-      0,
+      EdgeInsets.zero,
     );
   });
-
-  test('隐藏导航栏但有真实底部缺口时只保留缺口高度', () {
+  test('横屏只避开实际侧边缺口，不把顶部状态栏高度当侧边缺口', () {
     expect(
-      readerContentBottomInset(
-        systemBottomInset: 34,
-        cutoutBottomInset: 12,
+      readerContentInsets(
+        systemInsets: const EdgeInsets.only(top: 24, bottom: 20),
+        cutoutInsets: const EdgeInsets.only(left: 44),
+        hideStatusBar: true,
         hideNavigationBar: true,
-        paddingDisplayCutouts: true,
+        avoidDisplayCutouts: true,
       ),
-      12,
-    );
-  });
-
-  test('关闭填充刘海后不额外预留真实缺口', () {
-    expect(
-      readerContentBottomInset(
-        systemBottomInset: 34,
-        cutoutBottomInset: 12,
-        hideNavigationBar: true,
-        paddingDisplayCutouts: false,
-      ),
-      0,
-    );
-  });
-
-  test('显示导航栏时保留安全边距，不重复叠加已经包含的缺口', () {
-    expect(
-      readerContentBottomInset(
-        systemBottomInset: 34,
-        cutoutBottomInset: 12,
-        hideNavigationBar: false,
-        paddingDisplayCutouts: true,
-      ),
-      34,
+      const EdgeInsets.only(left: 44),
     );
   });
 }

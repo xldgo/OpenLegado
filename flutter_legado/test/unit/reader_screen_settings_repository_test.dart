@@ -46,7 +46,6 @@ void main() {
       orientation: 5,
       hideStatusBar: true,
       hideNavigationBar: true,
-      extendIntoCutout: true,
       avoidDisplayCutouts: true,
     );
     final fresh = AppSettingsService(
@@ -62,12 +61,11 @@ void main() {
         orientation: 5,
         hideStatusBar: true,
         hideNavigationBar: true,
-        extendIntoCutout: true,
         avoidDisplayCutouts: true,
       ),
     );
     expect(restored.fontSize, 23);
-    expect((await SharedPreferences.getInstance()).getKeys(), hasLength(6));
+    expect((await SharedPreferences.getInstance()).getKeys(), hasLength(5));
   });
 
   test('逐字段保存与方向夹取，系统状态栏不改页面布局', () async {
@@ -109,7 +107,7 @@ void main() {
     storage.values.addAll({
       'reader_screen_orientation': 2,
       'reader_hide_status_bar': true,
-      'reader_extend_into_cutout': true,
+      'reader_avoid_display_cutouts': true,
     });
     storage.readFailure = true;
     await expectLater(repository.reload(), throwsStateError);
@@ -118,16 +116,19 @@ void main() {
     await repository.reload();
     expect(repository.current.screen.orientation, 2);
     expect(repository.current.screen.hideStatusBar, isTrue);
-    expect(repository.current.screen.extendIntoCutout, isTrue);
+    expect(repository.current.screen.avoidDisplayCutouts, isTrue);
     expect(storage.writes, isEmpty);
   });
 
   test('其他设置更新不覆盖系统栏或页眉选择', () async {
-    await repository.updateScreen(hideStatusBar: true, extendIntoCutout: true);
+    await repository.updateScreen(
+      hideStatusBar: true,
+      avoidDisplayCutouts: true,
+    );
     await repository.updatePageEdge(ReaderPageEdge.header, leftTip: 1);
     await repository.updateScreen(keepScreenOnSeconds: 60);
     expect(repository.current.screen.hideStatusBar, isTrue);
-    expect(repository.current.screen.extendIntoCutout, isTrue);
+    expect(repository.current.screen.avoidDisplayCutouts, isTrue);
     expect(repository.current.pageLayout.header.leftTip, 1);
     expect(storage.values['reader_keep_screen_on_seconds'], 60);
   });

@@ -1,5 +1,15 @@
 # API 契约文档
 
+### READER-CUTOUT-AVOIDANCE-20261021：独立系统栏占位与刘海避让（实施前冻结）
+
+- 删除ReaderScreenSettings.extendIntoCutout、ReaderSettingsRepository.updateScreen对应参数、reader_extend_into_cutout键/备份分类及UI入口；不迁移、清洗或兼容读取旧值。
+- 保留avoidDisplayCutouts与reader_avoid_display_cutouts（缺省false），显示名称统一为“刘海避让”；不新增重复开关。显示状态栏保留系统顶部占位，隐藏则取消；导航栏同理。缺口开关仅选择四方向缺口边距，与系统占位重叠时取max，不相加。
+- legado/system_bar新增getDisplayCutoutInsets，只读返回当前窗口物理像素{width,height,left,top,right,bottom}，不可读取时null；Android按DisplayCutout采样，iOS按公开UIWindow安全区作保守近似，不承诺识别真实硬件轮廓。Dart按DPR转换并核对窗口大小，迟到的旋转结果不回写。
+- ReaderScreen稳定保存系统栏原始尺寸；缺口单独采样。内容区、页眉、页脚、滚动及翻页预览共用最终insets；菜单临时显示系统栏不改变阅读配置或分页几何。独立ReaderPageView无宿主参数时仍按隐藏设置处理顶部。
+- 移除仅服务旧设置的readBodyToLh与未使用overlay辅助函数，保留菜单自身SafeArea。不改Rust/FRB、数据库、朗读或页脚圆角规则。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-TITLE-PARITY-20261021：章节标题样式与内容块（实施前冻结）
 
 - 第一批：ReaderTitleSettings新增sizeRelative（缺省true）、fontWeight（500）与lineHeight（1.2），字号缺省4；相对模式取正文+size，绝对模式取size，最终字号至少1。没有旧模式推断或迁移。

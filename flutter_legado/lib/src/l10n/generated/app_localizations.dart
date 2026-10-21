@@ -5343,17 +5343,11 @@ abstract class AppLocalizations {
   /// **'隐藏导航栏'**
   String get readerHideNavigationBar;
 
-  /// 阅读设置文案；对应 HapeLee read_body_to_lh
+  /// No description provided for @readerAvoidDisplayCutouts.
   ///
   /// In zh, this message translates to:
-  /// **'扩展到刘海'**
-  String get readerExtendCutout;
-
-  /// 阅读设置文案；对应 HapeLee padding_display_cutouts
-  ///
-  /// In zh, this message translates to:
-  /// **'填充刘海区域'**
-  String get readerFillCutout;
+  /// **'刘海避让'**
+  String get readerAvoidDisplayCutouts;
 
   /// 阅读设置文案；对应 HapeLee double_page_horizontal
   ///

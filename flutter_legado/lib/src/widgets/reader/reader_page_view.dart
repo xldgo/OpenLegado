@@ -71,9 +71,6 @@ class ReaderPageView extends ConsumerStatefulWidget {
   /// 页眉/页脚提示与标题样式（对标 ReadView PageView）
   final ReaderPageChromeConfig pageChrome;
 
-  /// 正文延伸至状态栏（readBodyToLh；对标原版 readBodyToLh）
-  final bool readBodyToLh;
-
   /// 页面内部的系统栏/屏幕缺口避让；翻页画布保持完整视口。
   final EdgeInsets? contentInsets;
 
@@ -132,7 +129,6 @@ class ReaderPageView extends ConsumerStatefulWidget {
     this.marginLeft = 16,
     this.marginRight = 16,
     this.pageChrome = const ReaderPageChromeConfig(),
-    this.readBodyToLh = true,
     this.contentInsets,
     this.selectText = true,
     this.onTapUp,
@@ -1440,7 +1436,6 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
         top: readerContentStatusBarInset(
           context,
           hideStatusBar: widget.pageChrome.hideStatusBar,
-          readBodyToLh: widget.readBodyToLh,
         ),
       );
 

@@ -3340,14 +3340,7 @@
   "@readerHideNavigationBar": {
     "description": "阅读设置文案；对应 HapeLee pt_hide_navigation_bar"
   },
-  "readerExtendCutout": "扩展到刘海",
-  "@readerExtendCutout": {
-    "description": "阅读设置文案；对应 HapeLee read_body_to_lh"
-  },
-  "readerFillCutout": "填充刘海区域",
-  "@readerFillCutout": {
-    "description": "阅读设置文案；对应 HapeLee padding_display_cutouts"
-  },
+  "readerAvoidDisplayCutouts": "刘海避让",
   "readerDualPageMode": "平板/横屏双页",
   "@readerDualPageMode": {
     "description": "阅读设置文案；对应 HapeLee double_page_horizontal"

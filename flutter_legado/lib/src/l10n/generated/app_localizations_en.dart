@@ -3037,10 +3037,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readerHideNavigationBar => 'Hide navigation bar';
 
   @override
-  String get readerExtendCutout => 'Extend to display cutout';
-
-  @override
-  String get readerFillCutout => 'Fill display cutout';
+  String get readerAvoidDisplayCutouts => 'Avoid display cutouts';
 
   @override
   String get readerDualPageMode => 'Dual pages on tablet or in landscape';

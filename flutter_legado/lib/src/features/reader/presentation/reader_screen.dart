@@ -34,6 +34,7 @@ import '../../../app/routing/route_names.dart';
 import '../../../services/system_brightness.dart';
 import '../../../services/system_bar_service.dart';
 import '../../../platform/display/display_corners.dart';
+import '../../../platform/display/display_cutout_insets.dart';
 import '../../../utils/app_route_observer.dart';
 import '../../audio/application/read_aloud_capsule.dart';
 import '../../../widgets/reader/auto_turn_panel.dart';
@@ -69,11 +70,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Size? _insetViewportSize;
   EdgeInsets _bodySystemInsets = EdgeInsets.zero;
   double? _cutoutPixelRatio;
-  double _cutoutBottomInset = 0;
+  DisplayCutoutInsets? _cutoutInsets;
   DisplayCorners? _displayCorners;
   int _cutoutGeneration = 0;
 
-  /// 系统栏开关不改变正文分页；方向或窗口尺寸变化后重新采样。
+  /// 保存系统栏原始尺寸；配置变化重算占位，菜单临时显隐不改变布局。
   EdgeInsets _stableBodyInsets(BuildContext context) {
     final media = MediaQuery.of(context);
     if (_insetViewportSize != media.size ||
@@ -81,10 +82,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _insetViewportSize = media.size;
       _cutoutPixelRatio = media.devicePixelRatio;
       _bodySystemInsets = media.viewPadding;
-      _cutoutBottomInset = 0;
+      _cutoutInsets = null;
       _displayCorners = null;
       unawaited(
-        _loadCutoutBottomInset(++_cutoutGeneration, media.devicePixelRatio),
+        _loadDisplayGeometry(++_cutoutGeneration, media.devicePixelRatio),
       );
     } else {
       final current = media.viewPadding;
@@ -98,15 +99,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     return _bodySystemInsets;
   }
 
-  Future<void> _loadCutoutBottomInset(int generation, double pixelRatio) async {
+  Future<void> _loadDisplayGeometry(int generation, double pixelRatio) async {
     final values = await Future.wait<Object?>([
-      SystemBarService.displayCutoutBottomInset(),
+      SystemBarService.displayCutoutInsets(pixelRatio),
       SystemBarService.displayCorners(pixelRatio),
     ]);
     if (!mounted || generation != _cutoutGeneration) return;
-    final physical = values[0] as double;
+    final cutout = values[0] as DisplayCutoutInsets?;
     final corners = values[1] as DisplayCorners?;
-    final logical = physical / pixelRatio;
     final viewport = _insetViewportSize!;
     final currentCorners =
         corners != null &&
@@ -114,9 +114,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             (corners.size.height - viewport.height).abs() <= 1
         ? corners
         : null;
-    if (logical != _cutoutBottomInset || currentCorners != _displayCorners) {
+    final currentCutout = cutout != null && cutout.matches(viewport)
+        ? cutout
+        : null;
+    if (currentCutout != _cutoutInsets || currentCorners != _displayCorners) {
       setState(() {
-        _cutoutBottomInset = logical;
+        _cutoutInsets = currentCutout;
         _displayCorners = currentCorners;
       });
     }
@@ -483,7 +486,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         backgroundColor: state.backgroundColor,
         // 输入面板自行避让键盘，正文保持原视口，避免键盘开关触发重分页。
         resizeToAvoidBottomInset: false,
-        // F6：刘海/挖孔边距（paddingDisplayCutouts / readBodyToLh）
+        // 系统栏占位与四向缺口分别采样，再统一交给内容视口。
         body: ReaderMenuThemeHost(
           config:
               ref.watch(readerSettingsProvider).value?.menuTheme ??
@@ -501,7 +504,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   state: state,
                   readingSettings: readingSettings,
                   bodyInsets: _stableBodyInsets(context),
-                  cutoutBottomInset: _cutoutBottomInset,
+                  cutoutInsets: _cutoutInsets,
                   displayCorners: _displayCorners,
                   pageViewKey: _pageViewKey,
                   imageDominant: imageDominant,

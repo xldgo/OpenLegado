@@ -1,5 +1,21 @@
 # Legado 后续重构执行计划（Active）
 
+### READER-CUTOUT-AVOIDANCE-20261021：隐藏状态栏释放页眉区域（P1，代码验证通过，待设备观感验收）
+
+- 授权/基线：用户确认删除“扩展到刘海”、统一“刘海避让”；主目录dev / 074f649db，单代理。保留既有macOS生成文件改动，不修改MuMu工具批次。
+- 根因：ReaderContentViewport以!extendIntoCutout强制保留缓存viewPadding.top，hideStatusBar不能释放页眉区域；把系统栏高度当成缺口边距，缺口仅有底部独立采样。
+- 范围：移除旧设置和入口，不做迁移；保留既有避让开关/键，统一名称与四边计算；Android四向真实缺口、iOS公开安全区近似；窗口/DPR校验、迟到结果隔离、菜单显隐稳定、设置与平台载荷行为测试。
+- 依据：本地上游c4182eb9b的ReaderContentAvoidancePolicy，隐藏系统栏取消其占位、缺口独立计算；本项目按用户规则避免重叠边距相加。不扩展字体、排版规则或媒体链路。
+- 验收：隐藏前后页眉真实位置、无缺口/顶部缺口/横屏侧缺口/底部缺口、开关/显隐组合、旋转/DPR、菜单稳定、失败重试与偏好持久化；相关Flutter/平台编译。设备观感另验，不自动安装、推送或触发CI。
+- 实现：删除旧模型、参数、偏好和备份分类引用，无迁移；既有reader_avoid_display_cutouts键与false缺省保留。平台接口改为四边尺寸和窗口大小，Android真实缺口、iOS公开安全区近似；窗口/DPR更新使旧代次结果失效，已知零缺口不使用安全区回退。
+- 行为验证：设置/备份/平台载荷/八种开关组合等62项通过；真实宿主Rust排版参与的ReaderScreen两项通过，验证隐藏状态栏后页眉顶部为0、开启避让后为40、菜单打开不增加排版次数，以及DPR/窗口变化后拒绝迟到旧采样。补齐已有标题批次遗漏的仓储读取键测试清单，未修改标题生产逻辑。日志flutter_legado/build/reader-cutout-{tests,native}.log。
+- 平台验证：Android compileDebugKotlin通过，日志build/reader-cutout-kotlin.log；本次只编译Kotlin，排除Flutter构建及无关陈旧Rust产物门禁，不代表APK打包验收。iOS需macOS/Xcode，未编译或进行设备观感验证；单代理自查，无独立审查结论。
+- 静态验证：完整Dart分析无问题，架构依赖门禁与git diff --check通过；证据flutter_legado/build/reader-cutout-{analysis,architecture}.log。没有重复运行全量Flutter/Rust测试。
+- 验证环境：测试使用当前工作区依赖解析结果；并行的依赖版本调整保持未暂存，本批只暂存pubspec版本号及设计规范的刘海章节。
+- 交付：版本2.0.425+426，契约、设计规范及双更新日志同步；保留工作区独立依赖升级及生成物改动，不纳入本批。仅本地提交，不安装、推送或触发CI；提交号见Git。
+
+编写者：Codex + UI｜2026-10-21
+
 ### MUMU-ADB-AUTO-CONNECT-20261021：一键安装自动连接（P2，已关闭）
 
 - 授权/基线：用户确认加入MuMu自动连接ADB；dev / 838d6b912，单代理，不提升版本，保留其他任务及生成文件改动。

@@ -52,12 +52,7 @@ void main() {
       ]),
       child: MaterialApp(
         builder: nativeReaderLayoutBuilder,
-        home: ReaderPageView(
-          paragraphSpacing: 8,
-          pageChrome: chrome,
-          // 关闭正文延伸状态栏：测试内 inset 恒 0，断言路径确定
-          readBodyToLh: false,
-        ),
+        home: ReaderPageView(paragraphSpacing: 8, pageChrome: chrome),
       ),
     );
   }

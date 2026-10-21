@@ -919,6 +919,30 @@ void main() {
 
   testWidgets('系统栏与页眉同源更新，菜单临时显示系统栏，返回阅读恢复当前设置', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    const cutoutChannel = MethodChannel('legado/system_bar');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      cutoutChannel,
+      (call) async {
+        if (call.method == 'getDisplayCutoutInsets') {
+          return {
+            'width': 800,
+            'height': 600,
+            'left': 7,
+            'top': 40,
+            'right': 8,
+            'bottom': 12,
+          };
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        cutoutChannel,
+        null,
+      );
+    });
+
     final storage = HomeSettingsStorage();
     final service = AppSettingsService(
       storages: {SettingsStorageKind.preferences: storage},
@@ -994,7 +1018,6 @@ void main() {
       orientation: 2,
       hideStatusBar: true,
       hideNavigationBar: true,
-      extendIntoCutout: true,
     );
     await settleNativeReaderLayout(tester);
     ReaderPageView view() =>
@@ -1008,7 +1031,6 @@ void main() {
       'DeviceOrientation.landscapeRight',
     ]);
     expect(view().pageChrome.hideStatusBar, isTrue);
-    expect(view().readBodyToLh, isTrue);
     expect(view().contentInsets, EdgeInsets.zero);
     expect(view().pageChrome.showPageHeader, isTrue);
     final pages = find.byType(ReaderTypographicPage).evaluate().toList();
@@ -1028,9 +1050,23 @@ void main() {
       );
     }
     expect(find.byIcon(Icons.battery_std), findsNWidgets(pages.length));
+    final header = find.byType(ReaderPageTipBar).first;
+    expect(
+      tester.getTopLeft(header).dy -
+          tester.getTopLeft(find.byType(ReaderPageView)).dy,
+      closeTo(0, .01),
+    );
     await repository.updateScreen(avoidDisplayCutouts: true);
     await settleNativeReaderLayout(tester);
-    expect(view().contentInsets, const EdgeInsets.fromLTRB(7, 24, 8, 0));
+    expect(view().contentInsets, const EdgeInsets.fromLTRB(7, 40, 8, 12));
+    expect(
+      tester.getTopLeft(find.byType(ReaderPageTipBar).first).dy -
+          tester.getTopLeft(find.byType(ReaderPageView)).dy,
+      closeTo(40, .01),
+    );
+    final measured = tester
+        .state<ReaderPageViewState>(find.byType(ReaderPageView))
+        .layoutMeasurements;
     reader.toggleControls();
     await settleNativeReaderLayout(tester);
     expect(barEvents.last, (
@@ -1038,6 +1074,13 @@ void main() {
       navigationBarVisible: true,
     ));
     expect(view().pageChrome.showPageHeader, isTrue);
+    expect(view().contentInsets, const EdgeInsets.fromLTRB(7, 40, 8, 12));
+    expect(
+      tester
+          .state<ReaderPageViewState>(find.byType(ReaderPageView))
+          .layoutMeasurements,
+      measured,
+    );
     reader.hideControls();
     await settleNativeReaderLayout(tester);
     expect(barEvents.last, (
@@ -1068,7 +1111,102 @@ void main() {
     expect(tester.takeException(), isNull);
     await pumpNativeReaderLayout(tester, const SizedBox());
     await tester.pump(const Duration(milliseconds: 1));
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('旋转和DPR变化后只接收当前窗口缺口，丢弃迟到的旧采样', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const channel = MethodChannel('legado/system_bar');
+    final first = Completer<Object?>();
+    var calls = 0;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      if (call.method != 'getDisplayCutoutInsets') return null;
+      calls++;
+      if (calls == 1) return first.future;
+      return {
+        'width': 1200,
+        'height': 1600,
+        'left': 0,
+        'top': 80,
+        'right': 0,
+        'bottom': 24,
+      };
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final media = ValueNotifier(const MediaQueryData(size: Size(800, 600)));
+    final storage = HomeSettingsStorage();
+    storage.values.addAll({
+      'reader_hide_status_bar': true,
+      'reader_hide_navigation_bar': true,
+      'reader_avoid_display_cutouts': true,
+    });
+    final service = AppSettingsService(
+      storages: {SettingsStorageKind.preferences: storage},
+    );
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ...MockBookApi().overrides,
+        appSettingsServiceProvider.overrideWithValue(service),
+        readerNotifierProvider.overrideWith(_ScreenReader.new),
+      ]),
+    );
+    addTearDown(() {
+      container.dispose();
+      media.dispose();
+      unawaited(service.dispose());
+    });
+    await pumpNativeReaderLayout(
+      tester,
+      UncontrolledProviderScope(
+        container: container,
+        child: RoutingTestApp(
+          builder: (context, child) => nativeReaderLayoutBuilder(
+            context,
+            ValueListenableBuilder<MediaQueryData>(
+              valueListenable: media,
+              builder: (_, data, _) => MediaQuery(data: data, child: child!),
+            ),
+          ),
+          home: const ReaderScreen(),
+        ),
+      ),
+    );
+    await settleNativeReaderLayout(tester);
+    expect(calls, 1);
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(1200, 1600);
+    media.value = const MediaQueryData(
+      size: Size(600, 800),
+      devicePixelRatio: 2,
+    );
+    await settleNativeReaderLayout(tester);
+    EdgeInsets? insets() => tester
+        .widget<ReaderPageView>(find.byType(ReaderPageView))
+        .contentInsets;
+    expect(calls, 2);
+    expect(insets(), const EdgeInsets.only(top: 40, bottom: 12));
+    first.complete({
+      'width': 800,
+      'height': 600,
+      'left': 90,
+      'top': 0,
+      'right': 0,
+      'bottom': 0,
+    });
+    await settleNativeReaderLayout(tester);
+    expect(insets(), const EdgeInsets.only(top: 40, bottom: 12));
+    expect(tester.takeException(), isNull);
+    await pumpNativeReaderLayout(tester, const SizedBox());
+    await tester.pump(const Duration(milliseconds: 1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('正文按同源八项排版设置接参，恢复重读刷新且高级保存不覆盖', (tester) async {
     final storage = HomeSettingsStorage();

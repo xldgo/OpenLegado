@@ -240,14 +240,22 @@ open class MainActivity : AudioServiceFragmentActivity() {
                     ))
                 }
             }
-            "getDisplayCutoutBottomInset" -> {
-                // 只读取真实屏幕缺口；导航栏和键盘不属于这里的避让尺寸。
-                val bottom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    window.decorView.rootWindowInsets?.displayCutout?.safeInsetBottom ?: 0
+            "getDisplayCutoutInsets" -> {
+                // 缺口独立于状态栏、导航栏和键盘，窗口旋转后重新读取。— Codex + UI
+                val view = window.decorView
+                val insets = view.rootWindowInsets
+                if (insets == null || view.width <= 0 || view.height <= 0) {
+                    result.success(null)
                 } else {
-                    0
+                    val cutout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) insets.displayCutout else null
+                    result.success(mapOf(
+                        "width" to view.width, "height" to view.height,
+                        "left" to (cutout?.safeInsetLeft ?: 0),
+                        "top" to (cutout?.safeInsetTop ?: 0),
+                        "right" to (cutout?.safeInsetRight ?: 0),
+                        "bottom" to (cutout?.safeInsetBottom ?: 0)
+                    ))
                 }
-                result.success(bottom)
             }
             "reader" -> {
                 // 阅读器接管显隐；不让全局 decorFits 设置约束正文布局。
