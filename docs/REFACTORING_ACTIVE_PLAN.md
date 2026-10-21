@@ -1,6 +1,6 @@
 # Legado 后续重构执行计划（Active）
 
-### SOURCE-PARSE-UNIFY-20261022：书源解析职责收敛到 Rust 单一实现（P1，两批同一任务，第一批已提交，第二批实施中）
+### SOURCE-PARSE-UNIFY-20261022：书源解析职责收敛到 Rust 单一实现（P1，两批已完成，待主应用验收）
 
 - 触发：用户报告「粘贴源提示剪贴板不是有效的书源 JSON」，而同一份 JSON 经导入通道可以成功。核查确认根因不是用户内容，而是**同一模型存在多套字段解释**。
 - 根因（已核实）：① 编辑页粘贴/扫码用 Dart 严格 `BookSource.fromJson`，字符串时间戳等第三方脏类型直接抛 `TypeError`；② Rust 内部另有 RoomImporter 逐字段 `as_str()/as_i64()` 手写提取，与 serde 路径分叉——`enabled:false`/`enabled:"0"` 被写成启用、`ruleSearch` 等规则对象落空、旧 INSERT 未含 `variable` 列、缺省 `respondTime` 落 0（类型化路径为 180000）；③ server 前置筛选再按 `as_str()` 取 URL，与解析层口径不一。
