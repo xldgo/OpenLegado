@@ -194,89 +194,84 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppSliverSurfaceBackdrop(
       material: material,
       child: SliverResizingHeader(
-        minExtentPrototype: SizedBox(
-          height: pinnedHeight + AppHeaderSpacing.content,
-        ),
+        minExtentPrototype: SizedBox(height: pinnedHeight),
         maxExtentPrototype: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(height: safeTop + toolbar),
             if (large) expandedTitle,
-            SizedBox(height: bottomHeight + AppHeaderSpacing.content),
+            SizedBox(height: bottomHeight),
           ],
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final height = constraints.maxHeight - AppHeaderSpacing.content;
+            final height = constraints.maxHeight;
             final titleHeight = (height - pinnedHeight).clamp(
               0.0,
               double.infinity,
             );
             final collapsed = !large || titleHeight < 0.01;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppHeaderSpacing.content),
-              child: FlexibleSpaceBar.createSettings(
-                minExtent: pinnedHeight,
-                maxExtent: height,
-                currentExtent: height,
-                isScrolledUnder: scrolledUnder || (large && collapsed),
-                child: AppBar(
-                  automaticallyImplyLeading: false,
-                  leading: bar.leading,
-                  title: AnimatedOpacity(
-                    opacity: collapsed ? 1 : 0,
-                    duration: const Duration(milliseconds: 500),
-                    child: bar.title,
-                  ),
-                  actions: bar.actions,
-                  flexibleSpace: large
-                      ? Column(
-                          children: [
-                            SizedBox(height: safeTop + toolbar),
-                            Expanded(
-                              child: ClipRect(
-                                child: OverflowBox(
-                                  alignment: Alignment.bottomLeft,
-                                  minHeight: 0,
-                                  maxHeight: double.infinity,
-                                  child: expandedTitle,
-                                ),
+            return FlexibleSpaceBar.createSettings(
+              minExtent: pinnedHeight,
+              maxExtent: height,
+              currentExtent: height,
+              isScrolledUnder: scrolledUnder || (large && collapsed),
+              child: AppBar(
+                automaticallyImplyLeading: false,
+                leading: bar.leading,
+                title: AnimatedOpacity(
+                  opacity: collapsed ? 1 : 0,
+                  duration: const Duration(milliseconds: 500),
+                  child: bar.title,
+                ),
+                actions: bar.actions,
+                flexibleSpace: large
+                    ? Column(
+                        children: [
+                          SizedBox(height: safeTop + toolbar),
+                          Expanded(
+                            child: ClipRect(
+                              child: OverflowBox(
+                                alignment: Alignment.bottomLeft,
+                                minHeight: 0,
+                                maxHeight: double.infinity,
+                                child: expandedTitle,
                               ),
                             ),
-                            SizedBox(height: bottomHeight),
-                          ],
-                        )
-                      : bar.flexibleSpace,
-                  bottom: bar.bottom == null
-                      ? null
-                      : PreferredSize(
-                          preferredSize: bar.bottom!.preferredSize,
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: bar.bottom,
                           ),
+                          SizedBox(height: bottomHeight),
+                        ],
+                      )
+                    : bar.flexibleSpace,
+                bottom: bar.bottom == null
+                    ? null
+                    : PreferredSize(
+                        preferredSize: bar.bottom!.preferredSize,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: bar.bottom,
                         ),
-                  elevation: bar.elevation,
-                  scrolledUnderElevation: bar.scrolledUnderElevation,
-                  shadowColor: bar.shadowColor,
-                  surfaceTintColor: bar.surfaceTintColor,
-                  shape: bar.shape,
-                  backgroundColor: bar.backgroundColor,
-                  foregroundColor: bar.foregroundColor,
-                  iconTheme: bar.iconTheme,
-                  actionsIconTheme: bar.actionsIconTheme,
-                  primary: bar.primary,
-                  centerTitle: bar.centerTitle,
-                  excludeHeaderSemantics: bar.excludeHeaderSemantics,
-                  titleSpacing: bar.titleSpacing,
-                  toolbarHeight: toolbar,
-                  leadingWidth: bar.leadingWidth,
-                  toolbarTextStyle: bar.toolbarTextStyle,
-                  titleTextStyle: bar.titleTextStyle,
-                  systemOverlayStyle: bar.systemOverlayStyle,
-                  forceMaterialTransparency: bar.forceMaterialTransparency,
-                ),
+                      ),
+                elevation: bar.elevation,
+                scrolledUnderElevation: bar.scrolledUnderElevation,
+                shadowColor: bar.shadowColor,
+                surfaceTintColor: bar.surfaceTintColor,
+                shape: bar.shape,
+                backgroundColor: bar.backgroundColor,
+                foregroundColor: bar.foregroundColor,
+                iconTheme: bar.iconTheme,
+                actionsIconTheme: bar.actionsIconTheme,
+                primary: bar.primary,
+                centerTitle: bar.centerTitle,
+                excludeHeaderSemantics: bar.excludeHeaderSemantics,
+                titleSpacing: bar.titleSpacing,
+                toolbarHeight: toolbar,
+                leadingWidth: bar.leadingWidth,
+                toolbarTextStyle: bar.toolbarTextStyle,
+                titleTextStyle: bar.titleTextStyle,
+                systemOverlayStyle: bar.systemOverlayStyle,
+                forceMaterialTransparency: bar.forceMaterialTransparency,
               ),
             );
           },

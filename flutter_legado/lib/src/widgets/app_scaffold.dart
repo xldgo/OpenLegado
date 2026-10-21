@@ -100,9 +100,9 @@ class AppScaffold extends StatelessWidget {
       context,
       UiSettingsAspect.topBar,
     ).useFlexibleTopAppBar;
-    final pinnedHeight = coordinated
-        ? AppHeaderSpacing.content +
-              bar!.preferredSize.height +
+    // 固定避让只包括顶栏；正文间距单独参与滚动，不固定截断正文视口。— Codex + UI
+    final bodyTopInset = coordinated
+        ? bar!.preferredSize.height +
               (bar is LegadoAppBar && !bar.primary
                   ? 0
                   : MediaQuery.paddingOf(context).top)
@@ -131,11 +131,15 @@ class AppScaffold extends StatelessWidget {
                     _ => throw StateError('可折叠顶栏类型不匹配'),
                   },
                 ),
+                // 正文前置留白在顶栏材质之外，向上滚动后可完全离开视口。
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppHeaderSpacing.content),
+                ),
               ],
               // 吸收固定顶栏的重叠后统一预留等高空间，既有ListView无需再包一层滚动。
-              // 搜索栏、页签及公共正文间隔也计入，避免定位或菜单落到顶栏下面。
+              // 搜索栏与页签也计入；正文前置留白独立滚走，不参与固定避让。
               body: Padding(
-                padding: EdgeInsets.only(top: pinnedHeight),
+                padding: EdgeInsets.only(top: bodyTopInset),
                 child: MediaQuery.removePadding(
                   context: context,
                   removeTop: true,

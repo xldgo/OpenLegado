@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### TOPBAR-PAINT-BOUNDARY-20261021：顶栏边界与色块不一致（P1，代码与独立诊断包复验通过，待主应用验收）
+
+- 授权/基线：用户反馈顶栏下边界不在颜色交界，要求检查；主目录dev / 9e876f7d9，单代理，不推送CI、不覆盖安装主应用。
+- 证据：MuMu当前首页折叠画面build/topbar-boundary-20261021/current.png；4组大标题开关×有无页签实际布局回归均复现，Sliver头部绘制范围比AppBar色块多8dp，日志flutter_legado/build/topbar-boundary-before.log。
+- 根因：正文间距AppHeaderSpacing.content同时计入SliverResizingHeader尺寸原型，AppBar本身又以底部Padding排除8dp；使布局、命中及模糊裁剪边界与色块错开。
+- 范围：顶栏只使用自身真实高度；正文侧保留既有8dp间距，首项起点与标题自身折叠范围保持。验证展开/折叠、页签、搜索与正文几何，不修改配色、字号或业务内容。
+- 复验补充：仅移除顶栏Padding仍使正文视口固定低8dp，4组滚动后边界断言继续失败，日志topbar-boundary-viewport-before.log。最终将8dp作为顶栏材质之外的独立内容前置Sliver，随正文滚走；固定避让只保留真实顶栏高度，展开首项位置保持，协调滚动范围多出这段可滚走的8dp。
+- 验证：31项页壳/书架/订阅回归及55项搜索/导航/WebDAV回归通过；4组新增边界用例同时核对初始8dp、Sliver绘制与AppBar色块等高、滚动后正文视口贴合顶栏。日志flutter_legado/build/topbar-boundary-{fixed,consumers,final-geometry}.log；改动文件静态分析与架构检查通过，日志topbar-boundary-{analysis,architecture}.log。
+- 设备：独立诊断包复用生产首页与共用组件，开启模糊和90%顶栏不透明度，MuMu实时探测127.0.0.1:16384 / 360dp验证展开与折叠；折叠后正文从颜色交界继续绘制，不再固定空出16物理像素。截图fixed-{expanded,collapsed}.png、fixed-logcat.log与validation.json在build/topbar-boundary-20261021/；构建日志build/reader-font-metrics-20261021/topbar-boundary-build.log。诊断包已卸载，不覆盖用户主应用。
+- 交付：版本2.0.434+435、设计规范和双日志同步；单代理自查，仅本地提交，无推送/CI，未做iOS真机或主应用覆盖安装验收；提交号见Git。
+
+编写者：Codex + UI｜2026-10-21
+
 ### EXPLORE-SCROLL-POSITION-20261021：发现页偶发多滚动位置异常（P1，代码与独立诊断包复验通过，待主应用验收）
 
 - 授权/基线：用户要求检查MuMu发现页偶发红屏，可读取画面与日志；主目录dev / ca0a4e6e9，单代理，不推送CI、不覆盖安装主应用。

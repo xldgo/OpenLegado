@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.434] - 2026-10-21
+
+### Fixed
+- 修正共用顶栏的下边界与背景色交界错开，正文间距保持8dp，不再纳入顶栏模糊范围。
+- 正文前置留白随页面滚动，不再固定挡在顶栏下方裁剪内容。
+- 贡献者：Codex + UI；构建号435。
+
 ## [2.0.433] - 2026-10-21
 
 ### Fixed

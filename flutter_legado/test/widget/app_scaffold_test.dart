@@ -12,6 +12,7 @@ import '../fixtures/app_test_api.dart';
 //    （appBar==null / bottomNavigationBar!=null / backgroundColor==null /
 //    无 FAB），且结构（PageView + 五页签底栏）与迁移前一致。
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/rendering.dart' show RenderSliver;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -32,6 +33,61 @@ import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
+
+  for (final large in [false, true]) {
+    for (final tabs in [false, true]) {
+      testWidgets('顶栏绘制边界与AppBar色块一致：大标题$large/页签$tabs', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: UiSettingsScope(
+              settings: UiSettings(useFlexibleTopAppBar: large),
+              child: AppScaffold(
+                topBar: LegadoAppBar(
+                  title: const Text('边界核验'),
+                  backgroundColor: Colors.red,
+                  bottom: tabs
+                      ? const PreferredSize(
+                          preferredSize: Size.fromHeight(48),
+                          child: SizedBox(height: 48),
+                        )
+                      : null,
+                ),
+                body: ListView.builder(
+                  itemExtent: 50,
+                  itemCount: 60,
+                  itemBuilder: (_, i) => Text('内容$i'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        void expectSameBoundary() {
+          final header = tester.renderObject<RenderSliver>(
+            find.byType(SliverResizingHeader),
+          );
+          final bar = tester.getRect(find.byType(AppBar));
+          expect(header.paintBounds.height, closeTo(bar.height, 0.01));
+        }
+
+        expectSameBoundary();
+        expect(
+          tester.getRect(find.byType(ListView)).top,
+          closeTo(tester.getRect(find.byType(AppBar)).bottom + 8, 0.01),
+          reason: '初始正文仍保留8dp留白',
+        );
+        await tester.drag(find.byType(ListView), const Offset(0, -400));
+        await tester.pumpAndSettle();
+        expectSameBoundary();
+        expect(
+          tester.getRect(find.byType(ListView)).top,
+          closeTo(tester.getRect(find.byType(AppBar)).bottom, 0.01),
+          reason: '滚动后正文裁剪边界必须贴合顶栏，不固定留下8dp空带',
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 
   testWidgets('快速滚动条共享控制器时只绘制和拖动自己的列表位置', (tester) async {
     final controller = ScrollController();
