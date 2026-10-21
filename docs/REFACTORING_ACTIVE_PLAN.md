@@ -1,16 +1,23 @@
 # Legado 后续重构执行计划（Active）
 
-### SOURCE-PARSE-REVIEW-20261022：两批书源解析代码审查（P1，发现问题待修）
+### SOURCE-PARSE-REVIEW-20261022：两批书源解析代码审查（P1，七项代码修复与定向验证完成，待主应用验收）
 
 - 授权/范围：用户要求先将只运行受影响定向测试写入AGENTS.md，再审查417f0c4d8与7fe91d15d；基线dev / 62231beda，单代理自查，不修改业务代码、不推送或触发CI。
 - P1：确认导入仍将原始名称/URL强转String；归一化预览接受bookSourceName:12，确认却失败且未写库。RoomSourceImport把实体序列化再解析，enabledCookieJar:null先为None，省略序列化后重解析落Some(true)，服务器导入因此改变关闭语义。规则字符串解析失败被吞成None，坏规则可能在导入成功时清空既有规则。
 - P2：正式sourceParse拒绝数组，与契约及原编辑页取首项行为不符；Mock装配仍直连真实sourcePreviewFields，USE_MOCK无Rust初始化时预览报错；预览对整批调用严格parse_source_array，单个非对象使所有有效候选无法展示，原逐项跳过行为丢失。另确认字段错误不携带字段名，例如customOrder:"bad"只有无法解析整数，未达到契约的字段定位要求。
 - 验证：仅执行7个行为探针（core4、engine1、Dart2），均确认上述行为；探针退出0表示成功复现当前缺陷，不代表业务验收通过。日志build/source-review-{core,engine}.log、flutter_legado/build/source-review-dart.log；探针源码留在忽略目录build/source-review-{core-probe.rs,engine-probe.rs,dart-probe.dart}，临时测试入口已移除。未运行全量测试、编译应用或模拟器验证。
 - 规则：AGENTS.md明确本地只跑受影响的定向测试与必要调用方回归，扩大范围须有失败证据或用户要求，全量门禁沿用CI；不额外提升应用版本。仅提交规则与审查记录，后续修复另按用户指令实施。
+- 修复授权/基线：用户确认修复七项问题，主目录dev / 34145c5fb；先冻结SOURCE-PARSE-REPAIR-20261022，不使用子代理，不提升2.0.437+438，不推送或触发CI。
+- Rust修复：RoomSourceImport直接持有实体并交统一Repository写入，移除实体→JSON→实体的有损往返；坏规则字符串上抛错误。对象/数组解码、单项解析、严格批量分别复用同一转换原语；编辑数组仅取首项，空数组报错。使用锁文件已有serde_path_to_error 0.1.20保留字段和嵌套路径，只增加core直接依赖边，不升级任何依赖版本。
+- 预览/确认修复：既有sourcePreviewFields返回与原文同序的成功字段或error项；预览保留有效候选，写入仍严格校验并维持事务。确认导入先取Rust归一化元信息用于必填与替换匹配，原始JSON继续用于替换和写入。Mock在装配层选择无FFI实现，只支持常规类型化夹具，不复制宽容算法；测试通过独立Provider注入固定结果。粘贴失败只显示一次具体错误，退出后的迟到错误不再提示。
+- 回归证据：Rust定向43项通过（core语义24、db书源对照4、engine书源服务4、ffi书源API11）；Dart五个受影响文件合计70项通过，覆盖归一化元信息、原文保留、逐条失败继续、Mock无FFI及扫码进入确认页。core三条新增回归与Dart两条新增回归在修复前失败；旧用例曾断言数字名称必须导入失败，本次按授权改为成功。恢复扫码路由用例后，旧标题唯一计数因可折叠顶栏三份标题失败，改核对实际SourceImportConfirmScreen后通过，没有更改生产顶栏。
+- 日志：build/source-repair-{core-before,core,db,engine-final,ffi}.log，flutter_legado/build/source-repair-{dart-before,dart,dart-final,qr-final,analysis,analysis-final,architecture}.log；改动Dart文件分析及架构依赖门禁通过，diff检查通过。Dart分轮验证取最终通过结果的并集，不重复计数；没有运行全量Flutter/Rust测试或无关平台构建。
+- 交付边界：FRB方法签名未改，不需要重生成绑定；JSON返回语义已在实施前更新契约。单代理复核，不宣称独立审查；未编译安装APK、未进行iOS构建或设备观感复验。双日志同步，应用版本保持，提交号见Git。
+
 
 编写者：Codex｜2026-10-22
 
-### SOURCE-PARSE-UNIFY-20261022：书源解析职责收敛到 Rust 单一实现（P1，两批已提交，审查发现缺陷待修）
+### SOURCE-PARSE-UNIFY-20261022：书源解析职责收敛到 Rust 单一实现（P1，两批及审查修复已交付，待主应用验收）
 
 - 触发：用户报告「粘贴源提示剪贴板不是有效的书源 JSON」，而同一份 JSON 经导入通道可以成功。核查确认根因不是用户内容，而是**同一模型存在多套字段解释**。
 - 根因（已核实）：① 编辑页粘贴/扫码用 Dart 严格 `BookSource.fromJson`，字符串时间戳等第三方脏类型直接抛 `TypeError`；② Rust 内部另有 RoomImporter 逐字段 `as_str()/as_i64()` 手写提取，与 serde 路径分叉——`enabled:false`/`enabled:"0"` 被写成启用、`ruleSearch` 等规则对象落空、旧 INSERT 未含 `variable` 列、缺省 `respondTime` 落 0（类型化路径为 180000）；③ server 前置筛选再按 `as_str()` 取 URL，与解析层口径不一。
@@ -22,7 +29,7 @@
   - `RoomSourceImport` 限速键值改由归一化实体生成，保留「提交后才发布」边界；server 前置筛选与计数改用同一解析结果。
   - 证据：`legado-core/tests/source_parse_semantics.rs` 21 例；`legado-db/tests/source_import_parity.rs` 3 例（Room 与 FFI 逐字段一致、可见行为回归、整批回滚）；engine 既有 `variable` 断言按授权反转（`""` → 保留原值），回滚与「失败不发布限速」断言保留；core 839 / db 381 / engine 142 全绿，四 crate clippy `-D warnings` 通过。
 - 第二批（已提交 `7fe91d15d`，审查问题见下）：契约 `SOURCE-PARSE-FFI-20261022` 新增只读 `sourceParse`（返回 `BookSourceDto`、不落库、不写限速、不加 warnings）与 `sourcePreviewFields`（预览归一化字段，与解析同源）；`legado-ffi` 实现并重生成 FRB 绑定；`BookSourceEditService.parseSource` 接入正式与 Mock；编辑页粘贴/扫码合并为同一回填流程并删除 Dart 语法预检；预览展示字段改由 Rust 归一化产出，`SourceImportParser` 不再自带归一化规则。
-- 验证约定：归一化语义只在 Rust 测（`source_parse_semantics.rs`），不在 Flutter widget 层重复测，也不为 Dart 测试引入 FFI；扫码走单一回填流程后原 widget 用例已移除。
+- 验证约定：归一化语义只在 Rust 测（`source_parse_semantics.rs`），不在 Flutter widget 层重复测，也不为 Dart 测试引入 FFI；扫码路由Widget用例已在审查修复中恢复，以注入预览能力隔离FFI，只验证路由和交互，不复制归一化算法。
 - 已知边界（登记，不在本任务）：`BookSourceDto`、Dart 模型与 DB 列均为固定字段，未知字段仍会丢弃；单引号 `exploreUrl` 属嵌套规则解析，独立处理。
 
 编写者：Codex + Rust / UI｜2026-10-22

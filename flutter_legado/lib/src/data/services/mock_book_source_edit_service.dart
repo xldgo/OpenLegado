@@ -74,6 +74,31 @@ class MockBookSourceEditService implements BookSourceEditService {
         message: content.trim().isNotEmpty ? 'Mock 语法检查通过' : 'JS源内容为空',
       );
 
+  /// Mock预览只消费常规类型化夹具，不调用FFI或复制Rust宽容转换算法。
+  Future<List<Map<String, dynamic>>> previewFields(String json) async {
+    final decoded = jsonDecode(json);
+    final values = switch (decoded) {
+      List<dynamic>() => decoded,
+      Map<String, dynamic>() => [decoded],
+      _ => throw const FormatException('书源 JSON 期望数组或对象'),
+    };
+    final fields = <Map<String, dynamic>>[];
+    for (var i = 0; i < values.length; i++) {
+      try {
+        final source = await parseSource(jsonEncode(values[i]));
+        fields.add({
+          'bookSourceUrl': source.bookSourceUrl,
+          'bookSourceName': source.bookSourceName,
+          'bookSourceComment': source.bookSourceComment,
+          'lastUpdateTime': source.lastUpdateTime,
+        });
+      } catch (error) {
+        fields.add({'error': '第 ${i + 1} 项: $error'});
+      }
+    }
+    return fields;
+  }
+
   /// 只读解析（契约 SOURCE-PARSE-FFI-20261022）的 Mock 实现。
   ///
   /// Mock 无法调用 Rust 统一解析，这里仅做最小类型化：语法错误抛

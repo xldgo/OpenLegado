@@ -236,3 +236,24 @@ async fn typed_and_room_imports_keep_formats_and_rollback_before_rate_publicatio
             .unwrap();
     }
 }
+
+#[test]
+fn review_room_import_preserves_null_cookie_and_entities() {
+    let db = Database::open_in_memory().unwrap();
+    let service = BookSourceService::new(&db);
+    let value = serde_json::json!({"bookSourceUrl":"https://null-cookie.test", "bookSourceName":"源", "enabledCookieJar": null});
+    let parsed = legado_core::models::book_source::parse_source_json(&value.to_string()).unwrap();
+    for prepared in [
+        RoomSourceImport::new(&[&value]).unwrap(),
+        RoomSourceImport::from_entities(std::slice::from_ref(&parsed)).unwrap(),
+    ] {
+        let write = service.import_room_sources(prepared).unwrap();
+        let saved = service.list_sources().unwrap().remove(0);
+        assert_eq!(saved.enabled_cookie_jar, None);
+        assert_eq!(
+            serde_json::to_value(saved).unwrap(),
+            serde_json::to_value(&parsed).unwrap()
+        );
+        drop(write);
+    }
+}

@@ -530,12 +530,7 @@ extension _SourceEditActions on _SourceEditScreenState {
     }
     final source = await _parseSourceJson(text);
     if (!mounted) return;
-    if (source == null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.clipboardInvalidBookSource)),
-      );
-      return;
-    }
+    if (source == null) return; // 具体错误已由解析入口提示，不再排队显示泛化错误。
     _populateFields(source);
     messenger.showSnackBar(
       SnackBar(content: Text(l10n.pastedBookSource(source.bookSourceName))),
@@ -551,6 +546,7 @@ extension _SourceEditActions on _SourceEditScreenState {
     try {
       return await ref.read(bookSourceEditServiceProvider).parseSource(json);
     } catch (e) {
+      if (!mounted) return null;
       // 错误信息由 Rust 给出（语法 / 结构 / 字段类型可定位），不吞成「不是有效 JSON」
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.bookSourceParseFailed(e.toString()))),

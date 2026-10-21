@@ -153,25 +153,33 @@ where
     T: for<'de2> Deserialize<'de2>,
 {
     match value {
-        Value::Null => Ok(None),
-        Value::Object(_) => serde_json::from_value::<T>(value)
-            .map(Some)
-            .map_err(|e| format!("规则对象解析失败: {e}")),
-        // 上游：字符串内容再解析一次；空串等非法内容按上游语义降级为 None
+        Value::Null | Value::Array(_) => Ok(None),
+        Value::Object(_) => deserialize_value(value).map(Some),
         Value::String(text) => {
-            let trimmed = text.trim();
-            if trimmed.is_empty() {
+            if text.trim().is_empty() {
                 return Ok(None);
             }
-            match serde_json::from_str::<T>(trimmed) {
-                Ok(parsed) => Ok(Some(parsed)),
-                // 上游 `runCatching` 包裹，解析失败保留为无规则而非中断整源导入
-                Err(_) => Ok(None),
+            let value: Value = serde_json::from_str(&text)
+                .map_err(|error| format!("规则 JSON 语法错误: {error}"))?;
+            if value.is_null() {
+                return Ok(None);
             }
+            deserialize_value(value).map(Some)
         }
-        // 上游：既非对象也非标量 → null
-        _ => Ok(None),
+        other => Err(format!(
+            "规则必须是对象或JSON对象字符串，实际为{}",
+            json_type_name(&other)
+        )),
     }
+}
+
+/// 内层规则和外层书源均保留目标字段路径；不依赖错误文本反推字段。
+fn deserialize_value<T>(value: Value) -> Result<T, String>
+where
+    T: for<'de2> Deserialize<'de2>,
+{
+    serde_path_to_error::deserialize(value)
+        .map_err(|error| format!("字段 {}: {}", error.path(), error.inner()))
 }
 
 // 规则结构体的反序列化入口包装（供 `#[serde(deserialize_with)]` 直接引用）
@@ -225,13 +233,22 @@ fn normalize_null_scalars(value: &mut Value) {
     }
 }
 
-/// 解析单个书源 JSON 对象。
-///
-/// 语法错误由 `serde_json` 原样上抛（可定位行列），字段类型错误由本模块
-/// 的自定义反序列化给出字段级原因。
-pub fn parse_source_json(json: &str) -> crate::LegadoResult<super::BookSource> {
-    let mut value: Value = serde_json::from_str(json)
+/// 解码原始文档；批量预览和严格导入共用顶层结构规则。
+pub fn decode_source_values(json: &str) -> crate::LegadoResult<Vec<Value>> {
+    let value: Value = serde_json::from_str(json)
         .map_err(|e| crate::LegadoError::Parser(format!("书源 JSON 语法错误: {e}")))?;
+    match value {
+        Value::Array(items) => Ok(items),
+        Value::Object(_) => Ok(vec![value]),
+        other => Err(crate::LegadoError::Parser(format!(
+            "书源 JSON 期望数组或对象，实际为{}",
+            json_type_name(&other)
+        ))),
+    }
+}
+
+/// 一次解释一个条目；预览可记录失败并继续，写入由批量入口整体拒绝。
+pub fn parse_source_value(mut value: Value) -> crate::LegadoResult<super::BookSource> {
     if !value.is_object() {
         return Err(crate::LegadoError::Parser(format!(
             "书源条目必须是 JSON 对象，实际为{}",
@@ -239,38 +256,28 @@ pub fn parse_source_json(json: &str) -> crate::LegadoResult<super::BookSource> {
         )));
     }
     normalize_null_scalars(&mut value);
-    serde_json::from_value::<super::BookSource>(value)
-        .map_err(|e| crate::LegadoError::Parser(format!("书源字段解析失败: {e}")))
+    deserialize_value(value)
+        .map_err(|error| crate::LegadoError::Parser(format!("书源字段解析失败: {error}")))
 }
 
-/// 解析书源 JSON 数组（也接受单个对象，按 1 条处理以兼容粘贴单源）。
+/// 编辑回填接受单对象或数组首项，不因其他条目失败改变首项结果。
+pub fn parse_source_json(json: &str) -> crate::LegadoResult<super::BookSource> {
+    let value = decode_source_values(json)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| crate::LegadoError::Parser("书源 JSON 数组为空".into()))?;
+    parse_source_value(value)
+}
+
+/// 严格批量解析：任一条目失败时拒绝整批，写入前即可完整校验。
 pub fn parse_source_array(json: &str) -> crate::LegadoResult<Vec<super::BookSource>> {
-    let value: Value = serde_json::from_str(json)
-        .map_err(|e| crate::LegadoError::Parser(format!("书源 JSON 语法错误: {e}")))?;
-    let items = match value {
-        Value::Array(items) => items,
-        Value::Object(_) => vec![value],
-        other => {
-            return Err(crate::LegadoError::Parser(format!(
-                "书源 JSON 期望数组或对象，实际为{}",
-                json_type_name(&other)
-            )));
-        }
-    };
-    let mut sources = Vec::with_capacity(items.len());
-    for (index, mut item) in items.into_iter().enumerate() {
-        if !item.is_object() {
-            return Err(crate::LegadoError::Parser(format!(
-                "第 {} 项不是 JSON 对象，实际为{}",
-                index + 1,
-                json_type_name(&item)
-            )));
-        }
-        normalize_null_scalars(&mut item);
-        let source = serde_json::from_value::<super::BookSource>(item).map_err(|e| {
-            crate::LegadoError::Parser(format!("第 {} 项字段解析失败: {e}", index + 1))
-        })?;
-        sources.push(source);
-    }
-    Ok(sources)
+    decode_source_values(json)?
+        .into_iter()
+        .enumerate()
+        .map(|(index, value)| {
+            parse_source_value(value).map_err(|error| {
+                crate::LegadoError::Parser(format!("第 {} 项解析失败: {error}", index + 1))
+            })
+        })
+        .collect()
 }

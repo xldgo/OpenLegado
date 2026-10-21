@@ -1,15 +1,27 @@
 # API 契约文档
 
-### SOURCE-PARSE-FFI-20261022：只读书源解析 FFI（第二批，加法式 +1 方法）
+### SOURCE-PARSE-REPAIR-20261022：书源解析审查修复（实施前冻结）
+
+- 既有FRB方法签名不变；`source_parse`接受对象或非空数组首项，空数组和首项非法均报结构错误，后续项不参与编辑回填。
+- 规则字符串的非法JSON和字段错误必须上抛，不再转为无规则；字段错误包含目标字段路径，嵌套规则包含外层规则名及内部路径。
+- `source_preview_fields`返回与输入同序的JSON数组：成功项保留四个展示字段，失败项为`{"error":"可读原因"}`；语法/顶层结构错误仍整体报错。预览逐项保留有效候选，正式批量写入维持严格原子性，不因预览容错改变事务。
+- 预览和确认导入的必填校验、替换规则匹配使用同一Rust归一化字段，传给替换/写入的正文仍是原始JSON，不在Dart新增宽容转换。
+- Room导入直接持有归一化实体并写库，不再序列化后重新解析；显式空CookieJar保持None/关闭，限速只在成功提交后发布。
+- Mock装配仅使用无FFI的Mock解析器生成预览，覆盖常规类型化夹具；不声称复刻Rust宽容算法。Rust语义由Rust测试验证，Dart测试只验证编排、错误和路由。
+- 本批不改数据库、DTO或方法计数，不扩大单引号语法/未知字段范围；应用版本保持。
+
+编写者：Codex + Rust / UI｜2026-10-22
+
+### SOURCE-PARSE-FFI-20261022：只读书源解析 FFI（第二批，加法式 +2 方法）
 
 - **新增 FFI**：`source_parse(source_json: String) → Result<BookSourceDto, BridgeError>`（Rust `legado-ffi::ffi::source_parse`，实现 `legado-ffi/src/api/source.rs::parse_source`）。
 - **只读语义**：仅解析并归一化，**不写数据库、不写限速注册表、不修改任何既有记录**；可安全用于编辑页回填。
 - **与导入同一实现**：必须调用 `legado_core::models::book_source::parse_source_json`，与 `source_import` / `RoomImporter` 共用同一套字段解释，禁止另立解析分支。
 - **入参**：原始书源 JSON 文本，接受单个对象（也接受数组并按首项处理，兼容粘贴多条）。语法、结构、字段类型错误分别返回可定位错误；不做「全部失败降级为警告」。
 - **出参**：`BookSourceDto`，本批**不附 warnings**。允许返回尚未完整的书源（缺名称/地址由后续保存校验阶段拦截，不在解析层拒绝）。
-- **Dart 接线**：`BookSourceEditService` 新增 `Future<BookSource> parseSource(String json)`；正式实现 `RustBookSourceEditService` 直连 `sourceParse`，Mock 同名方法复用同一解析语义。编辑页「粘贴源」与「二维码导入」共用同一回填流程，**Dart 侧不再做 `jsonDecode` 语法预检**（避免两套语法接受范围），错误提示按语法/结构/字段分类。
+- **Dart 接线**：`BookSourceEditService` 新增 `Future<BookSource> parseSource(String json)`；正式实现 `RustBookSourceEditService` 直连 `sourceParse`，Mock 使用常规类型化夹具，不调用FFI或另写宽容算法。编辑页「粘贴源」与「二维码导入」共用同一回填流程，**Dart 侧不再做 `jsonDecode` 语法预检**（避免两套语法接受范围），错误提示按语法/结构/字段分类。
 - **预览**：`SourceImportParser` 的展示字段取自 Rust 归一化结果，原始 Map 仅保留用于展示原文与应用导入选项，不再自带归一化规则。
-- **方法计数**：FFI 方法 +1；FRB 重新生成绑定（生成物由生成器产出，不手改）。
+- **方法计数**：FFI 方法 +2（source_parse / source_preview_fields）；FRB 重新生成绑定（生成物由生成器产出，不手改）。
 - **不在本批范围**：未知字段无损往返、单引号 `exploreUrl` 嵌套规则解析。
 
 编写者：Codex + Rust｜2026-10-22

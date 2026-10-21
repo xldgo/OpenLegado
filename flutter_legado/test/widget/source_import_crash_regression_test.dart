@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter_legado/src/app/routing/route_names.dart';
+
 import '../fixtures/routing_test_app.dart';
 import '../fixtures/app_test_api.dart';
 
@@ -71,6 +75,55 @@ void main() {
     expect(find.textContaining('获取书源失败'), findsOneWidget);
   });
 
+  testWidgets('扫码导入 JSON：解析成功进入确认页不崩溃', (tester) async {
+    // 二维码路由返回书源 JSON，走无网络的解析分流，
+    // 覆盖 加载对话框关闭 → 确认页 push 的完整路由时序
+    final qrJson = jsonEncode([
+      {'bookSourceUrl': 'https://b.com', 'bookSourceName': '书源B'},
+    ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: RoutingTestApp(
+          home: const SourceScreen(),
+          onGenerateRoute: (settings) {
+            if (settings.name == AppRoutes.qrcode) {
+              return MaterialPageRoute<String>(
+                builder: (qrContext) => Scaffold(
+                  body: Center(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(qrContext, qrJson),
+                      child: const Text('返回JSON'),
+                    ),
+                  ),
+                ),
+              );
+            }
+            return null;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byTooltip('更多选项'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('二维码导入'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('返回JSON'));
+    await tester.pumpAndSettle();
+
+    // 成功进入导入确认页
+    expect(find.byType(SourceImportConfirmScreen), findsOneWidget);
+    expect(find.text('书源B'), findsOneWidget);
+    expect(find.text('新增'), findsOneWidget);
+  });
 
   testWidgets('确认导入：字符串数字书源直传原始 JSON 给 importBookSources', (tester) async {
     // 第三方书源字符串数字字段（yckceo_7631 形态）：预览解析不再全灭，

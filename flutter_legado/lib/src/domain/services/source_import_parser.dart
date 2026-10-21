@@ -5,10 +5,12 @@ import '../models/source_preview.dart';
 /// 预览展示字段由 Rust 归一化产出（契约 SOURCE-PARSE-FFI-20261022）。
 ///
 /// 入参为原始 JSON 文本，出参为与输入同序的展示字段数组，每项包含
-/// `bookSourceUrl` / `bookSourceName` / `bookSourceComment` / `lastUpdateTime`。
+/// `bookSourceUrl` / `bookSourceName` / `bookSourceComment` / `lastUpdateTime`；
+/// 单项失败返回同位置的error字段，顶层语法或结构错误直接抛出。
 /// 生产实现直连 Rust `sourcePreviewFields`；此处以 typedef 注入，便于测试替换。
-typedef SourcePreviewNormalizer =
-    Future<List<Map<String, dynamic>>> Function(String json);
+typedef SourcePreviewNormalizer = Future<List<Map<String, dynamic>>> Function(
+  String json,
+);
 
 /// 书源预览解析：原始 Map 保留原文，展示字段取自 Rust 归一化结果。
 /// 不再自带任何归一化规则（此前 `?.toString()` / 本地整数解析会与导入分叉）。
@@ -55,6 +57,12 @@ class SourceImportParser {
         firstError ??= '第 ${i + 1} 项不是有效的 JSON 对象';
         continue;
       }
+      final error = normalized[i]['error'] as String?;
+      if (error != null) {
+        failed++;
+        firstError ??= error;
+        continue;
+      }
       // 必填校验基于 Rust 归一化字段，保证与确认导入阶段的跳过规则一致
       final validationErrors = validateSource(normalized[i]);
       if (validationErrors.isNotEmpty) {
@@ -72,17 +80,30 @@ class SourceImportParser {
     return sources;
   }
 
+  /// 确认导入逐项复用同一归一化服务，原始内容留给替换规则和写入。
+  Future<Map<String, dynamic>> normalizeSource(
+    Map<String, dynamic> source,
+  ) async {
+    final normalizer = normalize;
+    if (normalizer == null) throw const FormatException('未注入书源归一化入口');
+    final fields = await normalizer(jsonEncode([source]));
+    if (fields.length != 1) throw const FormatException('预览归一化条目数不一致');
+    final error = fields.single['error'] as String?;
+    if (error != null) throw FormatException(error);
+    return fields.single;
+  }
+
   /// 校验书源 JSON 格式
   ///
   /// 返回校验错误列表，空列表表示校验通过。
   List<String> validateSource(Map<String, dynamic> source) {
     final errors = <String>[];
-    // 用 toString 宽容判空，避免第三方书源非字符串类型触发 cast 异常
-    final url = source['bookSourceUrl']?.toString();
+    // 这里只读取归一化结果，不重新解释原始JSON类型。
+    final url = source['bookSourceUrl'] as String?;
     if (url == null || url.isEmpty) {
       errors.add('缺少 bookSourceUrl');
     }
-    final name = source['bookSourceName']?.toString();
+    final name = source['bookSourceName'] as String?;
     if (name == null || name.isEmpty) {
       errors.add('缺少 bookSourceName');
     }

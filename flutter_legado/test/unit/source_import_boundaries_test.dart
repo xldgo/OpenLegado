@@ -10,6 +10,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../fixtures/preview_normalize_stub.dart';
+
+import 'package:flutter_legado/src/app/bootstrap/application_dependencies.dart'
+    show mockModeProvider;
+import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
@@ -66,6 +70,89 @@ void main() {
       },
       normalize: stubPreviewNormalize,
     );
+  });
+
+  test('审查回归：预览和确认导入共用归一化名称URL并保留原文', () async {
+    final service = SourceImportService(
+      repository: repository,
+      fetchText: (_, {required timeout}) async => response,
+      readFile: (_) async => null,
+      applyReplaceRules: (json, name, url) async {
+        expect(name, '12');
+        expect(url, '34');
+        expect(jsonDecode(json)['bookSourceName'], 12);
+        return json;
+      },
+      normalize: (_) async => [
+        {'bookSourceName': '12', 'bookSourceUrl': '34', 'lastUpdateTime': 0},
+      ],
+    );
+    const input = '{"bookSourceName":12,"bookSourceUrl":34}';
+    expect(
+      (await service.fetchSourcesFromText(input)).single.bookSourceName,
+      '12',
+    );
+    final result = await service.importFromJson(input);
+    expect(result.success, 1);
+    expect(result.failed, 0);
+    expect((jsonDecode(imported.single) as List).single['bookSourceUrl'], 34);
+  });
+
+  test('审查回归：预览保留有效候选及其原始序号', () async {
+    final parser = SourceImportParser(
+      normalize: (_) async => [
+        {
+          'bookSourceUrl': 'https://first.test',
+          'bookSourceName': '甲',
+          'lastUpdateTime': 0,
+        },
+        {'error': '第2项结构错误'},
+        {'error': 'ruleSearch语法错误'},
+        {
+          'bookSourceUrl': 'https://last.test',
+          'bookSourceName': '乙',
+          'lastUpdateTime': 0,
+        },
+      ],
+    );
+    final items = await parser.parseSourcesText(
+      '[{"bookSourceUrl":"https://first.test","bookSourceName":"甲"},42,{"ruleSearch":"{broken"},{"bookSourceUrl":"https://last.test","bookSourceName":"乙"}]',
+    );
+    expect(items.map((s) => s.bookSourceName), ['甲', '乙']);
+    expect(items.last.raw['bookSourceUrl'], 'https://last.test');
+  });
+
+  test('审查回归：全部候选失败时保留Rust字段错误', () async {
+    final parser = SourceImportParser(
+      normalize: (_) async => [
+        {'error': '第 1 项 ruleSearch: 规则JSON语法错误'},
+      ],
+    );
+    await expectLater(
+      parser.parseSourcesText('[{"ruleSearch":"{broken"}]'),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          '字段原因',
+          contains('ruleSearch'),
+        ),
+      ),
+    );
+  });
+
+  test('审查回归：Mock装配预览无需原生FFI且能确认导入', () async {
+    final container = ProviderContainer(
+      overrides: [mockModeProvider.overrideWithValue(true)],
+    );
+    addTearDown(container.dispose);
+    final service = container.read(sourceImportServiceProvider);
+    const input =
+        '{"bookSourceUrl":"https://mock-preview.test","bookSourceName":"Mock源"}';
+    expect(
+      (await service.fetchSourcesFromText(input)).single.bookSourceName,
+      'Mock源',
+    );
+    expect((await service.importFromJson(input)).success, 1);
   });
 
   group('预览只读取输入', () {
@@ -196,7 +283,7 @@ void main() {
         fetchText: (_, {required timeout}) async => response,
         readFile: (_) async => fileText,
         applyReplaceRules: (_, _, _) async => throw StateError('替换未就绪'),
-      normalize: stubPreviewNormalize,
+        normalize: stubPreviewNormalize,
       );
       final result = await service.importFromJson(_source);
       expect(result.success, 1);
@@ -229,15 +316,16 @@ void main() {
       expect(replaced, hasLength(1));
     });
 
-    test('非字符串必填字段预览宽松，确认写入保留原单条失败边界', () async {
+    test('非字符串必填字段确认导入使用归一化结果', () async {
       final result = await service.importFromJson(
         '{"bookSourceName":123,"bookSourceUrl":"https://source.test"}',
       );
       expect(result.total, 1);
-      expect(result.failed, 1);
+      expect(result.failed, 0);
+      expect(result.success, 1);
       expect(result.skipped, 0);
-      expect(imported, isEmpty);
-      expect(replaced, isEmpty);
+      expect(imported, hasLength(1));
+      expect(replaced.single.name, '123');
     });
   });
 
@@ -261,7 +349,7 @@ void main() {
         fetchText: (_, {required timeout}) async => throw failure,
         readFile: (_) async => fileText,
         applyReplaceRules: (json, _, _) async => json,
-      normalize: stubPreviewNormalize,
+        normalize: stubPreviewNormalize,
       );
       final result = await service.importFromUrl('https://import.test');
       expect(result.errors, ['从 URL 导入失败：$failure']);
@@ -283,7 +371,7 @@ void main() {
         fetchText: (_, {required timeout}) async => response,
         readFile: (_) async => throw failure,
         applyReplaceRules: (json, _, _) async => json,
-      normalize: stubPreviewNormalize,
+        normalize: stubPreviewNormalize,
       );
       final failed = await service.importFromFile('locked.json');
       expect(failed.errors, ['读取文件失败：$failure']);
@@ -310,7 +398,13 @@ void main() {
       expect(items.single.bookSourceName, '123');
       expect(items.single.bookSourceUrl, ' ');
       expect(items.single.raw['自定义'], {'enabled': 'false'});
-      expect(parser.validateSource(items.single.raw), isEmpty);
+      expect(
+        parser.validateSource({
+          'bookSourceUrl': items.single.bookSourceUrl,
+          'bookSourceName': items.single.bookSourceName,
+        }),
+        isEmpty,
+      );
     });
   });
 
@@ -330,6 +424,7 @@ void main() {
     final second = MockRustApi();
     final container = ProviderContainer(
       overrides: [
+        sourcePreviewNormalizerProvider.overrideWithValue(stubPreviewNormalize),
         bookSourceRepositoryProvider.overrideWithValue(
           first.bookSourceRepository,
         ),
@@ -363,6 +458,7 @@ void main() {
     final association = container.read(associationNotifierProvider.notifier);
     await source.importService.importFromUrl('https://first.test');
     container.updateOverrides([
+      sourcePreviewNormalizerProvider.overrideWithValue(stubPreviewNormalize),
       bookSourceRepositoryProvider.overrideWithValue(
         second.bookSourceRepository,
       ),

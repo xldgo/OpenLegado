@@ -140,3 +140,15 @@ fn 批量失败整批回滚() {
     let after = snapshot(&db);
     assert_eq!(before, after, "任一条失败必须整批回滚，存量行不得被改");
 }
+
+#[test]
+fn 坏规则字符串不得覆盖已有记录() {
+    let db = Database::open_in_memory().unwrap();
+    RoomImporter::import_book_sources(db.connection(), DOCUMENT).unwrap();
+    let before = snapshot(&db);
+    let error = RoomImporter::import_book_sources(db.connection(),
+        r#"[{"bookSourceUrl":"https://parity-a.example","bookSourceName":"覆盖","ruleSearch":"{broken"}]"#
+    ).unwrap_err();
+    assert!(error.to_string().contains("ruleSearch"));
+    assert_eq!(snapshot(&db), before);
+}

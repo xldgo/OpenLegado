@@ -24,8 +24,9 @@ typedef SourceImportReplaceRules = Future<String> Function(
 );
 
 /// 预览展示字段归一化由宿主注入（Rust 统一实现）。— Codex + Bridge
-typedef SourceImportNormalizer =
-    Future<List<Map<String, dynamic>>> Function(String jsonArray);
+typedef SourceImportNormalizer = Future<List<Map<String, dynamic>>> Function(
+  String jsonArray,
+);
 
 /// 编排预览与逐条导入，只依赖明确注入的数据能力。— Codex + Bridge
 class SourceImportService {
@@ -111,22 +112,22 @@ class SourceImportService {
           continue;
         }
 
-        final validationErrors = _parser.validateSource(item);
-        if (validationErrors.isNotEmpty) {
-          skipped++;
-          errors.add('第 ${i + 1} 项校验失败：${validationErrors.join('；')}');
-          continue;
-        }
-
         try {
+          final normalized = await _parser.normalizeSource(item);
+          final validationErrors = _parser.validateSource(normalized);
+          if (validationErrors.isNotEmpty) {
+            skipped++;
+            errors.add('第 ${i + 1} 项校验失败：${validationErrors.join('；')}');
+            continue;
+          }
           final json = jsonEncode(item);
           // [书源作用域 | 2026-09-13] 导入时先应用「书源作用域」替换规则：
           // 按源名称/源 URL 匹配 scope 后对整源 JSON 应用替换；
           // 应用失败保持原文，绝不中断导入（对齐原版语义）
           final applied = await _applySourceReplaceRules(
             json,
-            (item['bookSourceName'] as String?) ?? '',
-            (item['bookSourceUrl'] as String?) ?? '',
+            normalized['bookSourceName'] as String,
+            normalized['bookSourceUrl'] as String,
           );
           await _repository.importBookSources('[$applied]');
           success++;

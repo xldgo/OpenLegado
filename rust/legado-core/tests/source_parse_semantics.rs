@@ -232,3 +232,45 @@ fn 语法错误可定位() {
     let err = parse_source_json(r#"{"bookSourceUrl":"#).expect_err("语法错应报错");
     assert!(format!("{err}").contains("语法"), "实际: {err}");
 }
+
+#[test]
+fn 审查回归_编辑数组取首项_空数组报错() {
+    let source = parse_source_json(r#"[{"bookSourceName":"首项"},42]"#).unwrap();
+    assert_eq!(source.book_source_name, "首项");
+    assert!(
+        parse_source_json("[]")
+            .unwrap_err()
+            .to_string()
+            .contains("为空")
+    );
+    assert!(parse_source_json("[42]").is_err());
+}
+
+#[test]
+fn 审查回归_坏规则字符串必须报错并定位() {
+    let error = parse_source_json(r#"{"ruleSearch":"{broken"}"#)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("ruleSearch"), "{error}");
+    assert!(error.contains("规则"), "{error}");
+    let error = parse_source_json(r#"{"ruleReview":"{\"enabled\":\"bad\"}"}"#)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("ruleReview"), "{error}");
+    assert!(error.contains("enabled"), "{error}");
+}
+
+#[test]
+fn 审查回归_字段错误带名称与数组序号() {
+    let error = parse_source_json(r#"{"customOrder":"bad"}"#)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("customOrder"), "{error}");
+    let error = parse_source_array(r#"[{}, {"weight":"bad"}]"#)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("第 2 项") && error.contains("weight"),
+        "{error}"
+    );
+}

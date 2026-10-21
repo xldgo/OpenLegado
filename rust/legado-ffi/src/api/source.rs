@@ -59,23 +59,24 @@ pub fn parse_source(json: &str) -> LegadoResult<BookSource> {
 /// 返回 JSON 数组，每项 `{bookSourceUrl, bookSourceName, bookSourceComment,
 /// lastUpdateTime}`，**顺序与输入一致**。供导入预览页展示与状态判定，
 /// 使预览与最终入库使用同一套字段解释，避免「预览说可导入、确认时失败」。
-/// 解析失败返回错误（由调用方按「全部失败」提示）。
+/// 单项失败返回同位置的error对象；文档语法/顶层结构错误才整体报错。
 pub fn preview_fields(json_array: &str) -> LegadoResult<String> {
-    let sources = legado_core::models::book_source::parse_source_array(json_array)
-        .map_err(|e| LegadoError::Ffi(format!("书源预览解析失败: {e}")))?;
-    let fields: Vec<serde_json::Value> = sources
-        .iter()
-        .map(|s| {
-            serde_json::json!({
-                "bookSourceUrl": s.book_source_url,
-                "bookSourceName": s.book_source_name,
-                "bookSourceComment": s.book_source_comment,
-                "lastUpdateTime": s.last_update_time,
-            })
+    use legado_core::models::book_source::parse::{decode_source_values, parse_source_value};
+    let values = decode_source_values(json_array)?;
+    let fields: Vec<serde_json::Value> = values
+        .into_iter()
+        .enumerate()
+        .map(|(index, value)| match parse_source_value(value) {
+            Ok(source) => serde_json::json!({
+                "bookSourceUrl": source.book_source_url,
+                "bookSourceName": source.book_source_name,
+                "bookSourceComment": source.book_source_comment,
+                "lastUpdateTime": source.last_update_time,
+            }),
+            Err(error) => serde_json::json!({"error": format!("第 {} 项: {error}", index + 1)}),
         })
         .collect();
-    serde_json::to_string(&fields)
-        .map_err(|e| LegadoError::Ffi(format!("预览字段序列化失败: {e}")))
+    serde_json::to_string(&fields).map_err(|e| LegadoError::Ffi(format!("预览字段序列化失败: {e}")))
 }
 pub fn export_sources() -> LegadoResult<Vec<BookSource>> {
     list_sources()
@@ -144,6 +145,39 @@ mod tests {
         assert_eq!(parsed[1]["bookSourceName"], "乙");
         // 缺省 lastUpdateTime 归一化为 0
         assert_eq!(parsed[1]["lastUpdateTime"], 0);
+    }
+
+    #[test]
+    fn test_preview_fields_retains_valid_items_and_error_positions() {
+        let fields: serde_json::Value = serde_json::from_str(&preview_fields(
+            r#"[{"bookSourceUrl":"https://valid.test","bookSourceName":12},42,{"bookSourceUrl":"https://bad.test","ruleSearch":"{broken"},{"bookSourceUrl":"https://tail.test","bookSourceName":"末项"}]"#
+        ).unwrap()).unwrap();
+        assert_eq!(fields.as_array().unwrap().len(), 4);
+        assert_eq!(fields[0]["bookSourceName"], "12");
+        assert!(fields[1]["error"].as_str().unwrap().contains("对象"));
+        assert!(fields[2]["error"].as_str().unwrap().contains("ruleSearch"));
+        assert_eq!(fields[3]["bookSourceName"], "末项");
+    }
+
+    #[test]
+    fn test_parse_source_keeps_existing_record() {
+        let _guard = setup_test_db();
+        let json = r#"{"bookSourceUrl":"https://parse-existing.test","bookSourceName":"存量","enabledCookieJar":false,"variable":"原变量","ruleSearch":{"bookList":".old"}}"#;
+        let before = add_source(json).unwrap();
+        let parsed = parse_source(
+            r#"[{"bookSourceUrl":"https://parse-existing.test","bookSourceName":"新名称"}]"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.book_source_name, "新名称");
+        let saved = list_sources()
+            .unwrap()
+            .into_iter()
+            .find(|s| s.book_source_url == before.book_source_url)
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(saved).unwrap(),
+            serde_json::to_value(before).unwrap()
+        );
     }
 
     /// 契约 §2.3：设置后可经查询接口自然带出；空串清除；书源不存在报 Internal

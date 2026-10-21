@@ -1,6 +1,6 @@
 //! 书源管理与提交后的限速发布，不依赖宿主全局或传输DTO。
 use legado_core::{LegadoError, LegadoResult, models::BookSource};
-use legado_db::{BookSourceRepository, Database, RoomImporter, repository::Repository};
+use legado_db::{BookSourceRepository, Database, repository::Repository};
 use legado_fetcher::rate_limit::RateLimiterRegistry;
 use serde_json::Value;
 
@@ -30,13 +30,13 @@ pub struct SourceEditFields {
     pub search_url: Option<String>,
 }
 
-/// Room文档与对应限速变更由同一输入生成，不与类型化导入混用。
+/// Room入口保留解析后的实体，写入与限速变更共用同一输入。
 ///
 /// [SOURCE-PARSE-UNIFY-20261022] 限速信息不再从原始 `Value` 独立提取，而是
 /// 与解析同一份归一化实体（`parse_source_array`）生成，避免「入库用一套解释、
 /// 发布限速用另一套解释」的分叉。事务成功提交后才由 `publish` 发布。
 pub struct RoomSourceImport {
-    document: String,
+    sources: Vec<BookSource>,
     rates: Vec<(String, String)>,
 }
 impl RoomSourceImport {
@@ -53,10 +53,12 @@ impl RoomSourceImport {
     /// [SOURCE-PARSE-UNIFY-20261022] 限速键值与入库实体必须同源，禁止再
     /// 从原始 JSON 独立提取 `bookSourceUrl` / `concurrentRate`。
     pub fn from_entities(sources: &[BookSource]) -> LegadoResult<Self> {
-        let document = serde_json::to_string(sources)
-            .map_err(|e| LegadoError::Internal(format!("序列化书源失败: {e}")))?;
+        // 实体不能经JSON往返：None字段被省略后会重新落到缺省值。
         let rates = sources.iter().map(source_rate).collect();
-        Ok(Self { document, rates })
+        Ok(Self {
+            sources: sources.to_vec(),
+            rates,
+        })
     }
 }
 
@@ -122,9 +124,9 @@ impl<'a> BookSourceService<'a> {
         &self,
         import: RoomSourceImport,
     ) -> LegadoResult<SourceWrite<usize>> {
-        let count = RoomImporter::import_book_sources(self.db.connection(), &import.document)?;
+        self.repository().insert_batch(&import.sources)?;
         Ok(SourceWrite {
-            value: count,
+            value: import.sources.len(),
             rates: import.rates,
         })
     }

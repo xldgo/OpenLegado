@@ -30,9 +30,9 @@ class SourcePreview {
     final time = normalized['lastUpdateTime'];
     return SourcePreview(
       raw: raw,
-      bookSourceUrl: normalized['bookSourceUrl']?.toString() ?? '',
-      bookSourceName: normalized['bookSourceName']?.toString() ?? '',
-      bookSourceComment: normalized['bookSourceComment']?.toString(),
+      bookSourceUrl: normalized['bookSourceUrl'] as String? ?? '',
+      bookSourceName: normalized['bookSourceName'] as String? ?? '',
+      bookSourceComment: normalized['bookSourceComment'] as String?,
       lastUpdateTime: time is int ? time : 0,
     );
   }

@@ -1,3 +1,7 @@
+import 'preview_normalize_stub.dart';
+
+import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
+
 import 'dart:async';
 
 import 'media_audio_service.dart';
@@ -180,6 +184,7 @@ abstract class TestApi {
 /// 仅用于测试的组合装配，生产代码不依赖此集合。— Codex + UI
 extension TestApiOverrides on TestApi {
   List<Override> get overrides => [
+    sourcePreviewNormalizerProvider.overrideWithValue(stubPreviewNormalize),
     appLogRepositoryProvider.overrideWith((ref) => appLogRepository),
     webDavServiceProvider.overrideWith((ref) => webDavService),
     backupRepositoryProvider.overrideWith((ref) => backupRepository),
