@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### EXPLORE-SCROLL-POSITION-20261021：发现页偶发多滚动位置异常（P1，代码与独立诊断包复验通过，待主应用验收）
+
+- 授权/基线：用户要求检查MuMu发现页偶发红屏，可读取画面与日志；主目录dev / ca0a4e6e9，单代理，不推送CI、不覆盖安装主应用。
+- 设备证据：实时探测MuMu 127.0.0.1:16384，主应用2.0.432红屏提示ScrollController attached to multiple scroll views；logcat在22:14与23:03各记录一次。画面和原始日志build/explore-error-20261021/{current.png,device-logcat.log}。
+- 根因：共用嵌套控制器在骨架列表与正文列表交接时短暂持有两个ScrollPosition，Md3FastScroller直接读取controller.position要求唯一连接。延迟仓储返回、先挂载骨架的实际页面回归稳定复现，调用栈定位md3_fast_scroller.dart；证据flutter_legado/build/explore-scroll-repro{,-stack}.log。
+- 范围：共用快速滚动条按自身正文的度量/滚动通知绑定实际位置，拖动使用该位置；不猜首/末连接，不延时切页，不吞异常，不修改书源或Rust/FFI。验证实际滑块仍可拖动、加载切换及其他消费者回归。
+- 实现：监听本层纵向ScrollMetricsNotification与ScrollNotification取得实际Scrollable位置，确认属于传入控制器后用于绘制和拖动；子级滚动不接管滑块，通知继续冒泡。保留加载骨架、共用顶栏和原滑块外观，清除controller.position的唯一连接假设。
+- 验证：55项发现、双栏、展开、书源、书签、阅读记录、规则与页壳回归通过；新增共享控制器双列表行为用例单独通过，证明两个滑块只操作各自列表，而不是多连接时直接隐藏。真实页面延迟加载回归同时验证实际滑块有拖拽回调且拖动改变正文位置。日志flutter_legado/build/explore-scroll-{regression,ownership,fixed}.log；完整Dart分析与架构检查通过，日志explore-scroll-{analysis-final,architecture}.log。
+- 设备复验：独立诊断包离线构建通过，MuMu同尺寸使用生产发现页与450ms延迟仓储连续重载8次，无本次断言、未捕获异常或布局溢出；截图fixed-before-reload.png、fixed-after-reload-{1,8}.png及fixed-logcat.log存于build/explore-error-20261021/。构建日志build/reader-font-metrics-20261021/explore-scroll-build.log；诊断包已卸载，不将Mock诊断结果等同主应用数据验收。
+- 交付：版本2.0.433+434，设计规范和双日志同步；单代理自查，仅本地提交，不推送或触发CI，未覆盖安装MuMu主应用、未测试iOS真机。原主应用尚需安装本次修复版后验收，提交号见Git。
+
+编写者：Codex + UI｜2026-10-21
+
 ### APP-SCROLL-VIEW-20261021：统一书架与订阅正文滚动（P1，代码与独立诊断包验证通过，待主应用验收）
 
 - 授权/基线：用户确认新增共用AppScrollView并先迁移书架、订阅；主目录dev / cf38444de，单代理，不推送CI或覆盖安装用户应用。

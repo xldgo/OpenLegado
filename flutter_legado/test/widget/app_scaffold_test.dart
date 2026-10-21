@@ -21,6 +21,7 @@ import 'package:flutter_legado/src/data/repositories/mock_read_record_repository
 import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scaffold.dart';
 import 'package:flutter_legado/src/widgets/app_scroll_view.dart';
+import 'package:flutter_legado/src/widgets/md3_fast_scroller.dart';
 import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
@@ -31,6 +32,54 @@ import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
+
+  testWidgets('快速滚动条共享控制器时只绘制和拖动自己的列表位置', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              for (var column = 0; column < 2; column++)
+                Expanded(
+                  child: Md3FastScroller(
+                    controller: controller,
+                    child: ListView.builder(
+                      controller: controller,
+                      itemCount: 100,
+                      itemExtent: 50,
+                      itemBuilder: (_, i) => Text('$column/$i'),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.positions, hasLength(2));
+    final first = find.byType(Md3FastScroller).first;
+    final second = find.byType(Md3FastScroller).last;
+    ScrollPosition position(Finder view) => tester
+        .state<ScrollableState>(
+          find.descendant(of: view, matching: find.byType(Scrollable)),
+        )
+        .position;
+    final thumb = find.descendant(
+      of: first,
+      matching: find.byType(GestureDetector),
+    );
+    expect(thumb, findsOneWidget);
+    await tester.drag(thumb, const Offset(0, 150));
+    await tester.pumpAndSettle();
+    expect(position(first).pixels, greaterThan(0));
+    expect(position(second).pixels, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 
   testWidgets('独立正文沿用外部控制器，回顶信号更换后解除旧订阅', (tester) async {
     final controller = ScrollController();

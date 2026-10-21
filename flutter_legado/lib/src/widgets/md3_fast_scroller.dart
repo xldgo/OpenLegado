@@ -24,12 +24,33 @@ class Md3FastScroller extends StatefulWidget {
 }
 
 class _Md3FastScrollerState extends State<Md3FastScroller> {
+  ScrollPosition? _position;
   bool _dragging = false;
   // [UI_SYNC_REFACTOR R2] 激活保持 3s + 渐隐 250ms（对齐参考仓常量）
   static const _activeHold = Duration(seconds: 3);
   static const _fade = Duration(milliseconds: 250);
   Timer? _holdTimer;
   bool _active = false;
+
+  @override
+  void didUpdateWidget(covariant Md3FastScroller oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) _position = null;
+  }
+
+  // 嵌套滚动的控制器可短暂连接新旧列表；只认本组件正文发出的度量，不猜测控制器的首项。
+  // 度量通知在布局后发出，滚动通知补充控制器切换后的首次交互。— Codex + UI
+  void _bindPosition(BuildContext? context, {bool metricsChanged = false}) {
+    final position = context == null
+        ? null
+        : Scrollable.maybeOf(context)?.position;
+    if (position == null ||
+        !widget.controller.positions.contains(position) ||
+        (position == _position && !metricsChanged)) {
+      return;
+    }
+    setState(() => _position = position);
+  }
 
   @override
   void dispose() {
@@ -45,25 +66,42 @@ class _Md3FastScrollerState extends State<Md3FastScroller> {
     });
   }
 
-  bool get _scrollable =>
-      widget.controller.hasClients &&
-      // 布局完成前维度未就绪，直接访问 maxScrollExtent 会触发空断言
-      widget.controller.position.hasContentDimensions &&
-      widget.controller.position.hasViewportDimension &&
-      widget.controller.position.maxScrollExtent > 0;
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Stack(
       children: [
-        widget.child,
+        NotificationListener<ScrollMetricsNotification>(
+          onNotification: (notification) {
+            if (notification.depth == 0 &&
+                notification.metrics.axis == Axis.vertical) {
+              _bindPosition(notification.context, metricsChanged: true);
+            }
+            return false;
+          },
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification.depth == 0 &&
+                  notification.metrics.axis == Axis.vertical) {
+                _bindPosition(notification.context);
+              }
+              return false;
+            },
+            child: widget.child,
+          ),
+        ),
         // 滑块层：仅在可滚动时叠加
         AnimatedBuilder(
           animation: widget.controller,
           builder: (context, _) {
-            if (!_scrollable) return const SizedBox.shrink();
-            final position = widget.controller.position;
+            final position = _position;
+            if (position == null ||
+                !widget.controller.positions.contains(position) ||
+                !position.hasContentDimensions ||
+                !position.hasViewportDimension ||
+                position.maxScrollExtent <= 0) {
+              return const SizedBox.shrink();
+            }
             final viewport = position.viewportDimension;
             final trackHeight = viewport - 16;
             final thumbHeight =
@@ -92,7 +130,7 @@ class _Md3FastScrollerState extends State<Md3FastScroller> {
                   final track = box.size.height - 16 - thumbHeight;
                   final y = (details.localPosition.dy - 8 - thumbHeight / 2)
                       .clamp(0.0, track);
-                  widget.controller.jumpTo(
+                  position.jumpTo(
                     position.maxScrollExtent * (y / (track == 0 ? 1 : track)),
                   );
                   _markActive();

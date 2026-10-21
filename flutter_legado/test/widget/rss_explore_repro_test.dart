@@ -1,5 +1,7 @@
 import '../fixtures/app_test_api.dart';
 
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +12,7 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scroll_view.dart';
+import 'package:flutter_legado/src/widgets/md3_fast_scroller.dart';
 
 import '../mocks/mocks.dart';
 
@@ -26,6 +29,46 @@ void main() {
       child: MaterialApp(home: child),
     );
   }
+
+  testWidgets('发现加载骨架显示后切换真实列表不产生控制器异常', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = MockRustApi();
+    final loaded = Completer<List<BookSource>>();
+    when(() => api.bookSourceRepository.getBookSources())
+        .thenAnswer((_) => loaded.future);
+    await tester.pumpWidget(wrap(const ExploreScreen(), api));
+    await tester.pump(const Duration(milliseconds: 100));
+    loaded.complete([
+      for (var i = 0; i < 30; i++)
+        BookSource(
+          bookSourceUrl: 'demo://$i',
+          bookSourceName: '发现源$i',
+          enabledExplore: true,
+          exploreUrl: 'https://example.test/$i',
+        ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('发现源0'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    final scroller = find.byType(Md3FastScroller);
+    final thumb = find
+        .descendant(of: scroller, matching: find.byType(GestureDetector))
+        .last;
+    expect(
+      tester.widget<GestureDetector>(thumb).onVerticalDragUpdate,
+      isNotNull,
+    );
+    final shell = tester.state<NestedScrollViewState>(
+      find.byType(NestedScrollView),
+    );
+    final before = shell.innerController.offset;
+    await tester.drag(thumb, const Offset(0, 160));
+    await tester.pumpAndSettle();
+    expect(shell.innerController.offset, greaterThan(before));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 
   testWidgets('订阅页有数据渲染无异常', (tester) async {
     SharedPreferences.setMockInitialValues({});

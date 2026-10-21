@@ -620,6 +620,8 @@ error/onError 颜色、18dp 高度及 11sp 文字，不再手动绘制书架数�
 当前主题默认分别为24和18，继承字体和文字缩放；不再用28字号覆盖两种状态。
 发现和订阅保留分组副标题，搜索收起后不保留额外高度。按钮继续使用共用样式和48dp热区。
 普通列表使用协调滚动；显式ScrollController的列表通过AppScrollBody将正文和快速滚动条接入同一内层控制器。
+快速滚动条通过其正文发出的本层纵向度量/滚动通知绑定实际ScrollPosition，绘制与拖动使用同一位置；
+共享控制器可能在加载视图交接时连接多个位置，不以controller.position或任意首末项推断正文归属。
 书架与订阅的sliver正文统一使用AppScrollView；顶栏和唯一NestedScrollView由AppScaffold提供，
 正文不再插入顶栏sliver，内容为空或不足一屏也保留独立的标题折叠范围。
 AppScrollView统一接入内层控制器、可选下拉刷新、回顶信号和尾部底栏避让，不额外增加顶部间距。

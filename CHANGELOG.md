@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.433] - 2026-10-21
+
+### Fixed
+- 修复发现页加载完成时偶发的滚动控制器红屏，共用快速滚动条按自身列表位置绘制与拖动。
+- 贡献者：Codex + UI；构建号434。
+
 ## [2.0.432] - 2026-10-21
 
 ### Fixed
