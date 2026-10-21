@@ -1,5 +1,7 @@
 import 'dart:typed_data';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_legado/src/domain/models/book_content_result.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
 import 'package:material_ui/material_ui.dart';
@@ -11,6 +13,22 @@ import '../fixtures/native_test_api.dart';
 
 import 'package:flutter_legado/src/widgets/export_dialog.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
+
+/// 只替换系统目录选择，不改变导出前置校验和真实文件写入。— Codex + UI
+class _DirectoryPicker extends FilePickerPlatform {
+  _DirectoryPicker(this.directory);
+  final String? directory;
+
+  @override
+  Future<String?> getDirectoryPath({
+    String? dialogTitle,
+    String? initialDirectory,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => directory;
+}
 
 /// 伪造的导出服务，用于测试
 class FakeExportService extends ExportService {
@@ -129,6 +147,56 @@ void main() {
         webDavConfig: webDavConfig,
       ),
     );
+  }
+
+  Future<Directory> selectExportDirectory(WidgetTester tester) async {
+    final directory = Directory.systemTemp.createTempSync('legado_export_');
+    final original = FilePickerPlatform.instance;
+    FilePickerPlatform.instance = _DirectoryPicker(directory.path);
+    addTearDown(() {
+      FilePickerPlatform.instance = original;
+      directory.deleteSync(recursive: true);
+    });
+    final path = find.text('点击选择导出目录');
+    await tester.ensureVisible(path);
+    await tester.tap(path);
+    await tester.pumpAndSettle();
+    expect(find.text(directory.path), findsOneWidget);
+    return directory;
+  }
+
+  Future<void> waitForSavedFile(
+    WidgetTester tester,
+    Directory directory,
+  ) async {
+    // 文件写入走真实I/O；按实际文件内容收敛，再推进原有的自动关闭计时。
+    final file = File('${directory.path}${Platform.pathSeparator}测试书籍.txt');
+    List<int>? bytes;
+    for (var attempt = 0; attempt < 100; attempt++) {
+      bytes = await tester.runAsync<List<int>?>(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        return await file.exists() ? await file.readAsBytes() : null;
+      });
+      await tester.pump();
+      if (bytes != null && bytes.length == 4) break;
+    }
+    expect(bytes, [116, 101, 115, 116]);
+  }
+
+  Future<void> waitForExportClose(WidgetTester tester) async {
+    // 交替处理真实I/O与测试计时器，直到现有的延迟关闭实际完成。
+    final dialog = find.byType(ExportDialog);
+    for (
+      var attempt = 0;
+      attempt < 100 && dialog.evaluate().isNotEmpty;
+      attempt++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(dialog, findsNothing);
   }
 
   group('导出对话框 UI 渲染', () {
@@ -268,6 +336,7 @@ void main() {
 
     testWidgets('点击确认触发导出', (tester) async {
       await pumpTestWidget(tester);
+      final directory = await selectExportDirectory(tester);
 
       expect(find.widgetWithText(FilledButton, '确认'), findsOneWidget);
       await tester.tap(find.text('确认'));
@@ -275,26 +344,36 @@ void main() {
 
       // 验证导出被调用
       expect(fakeExportService.exportCalled, isTrue);
+      await waitForSavedFile(tester, directory);
 
-      // 等待导出完成后的延迟（1.5s）
-      await tester.pump(const Duration(seconds: 2));
+      await waitForExportClose(tester);
     });
 
     testWidgets('导出成功后对话框自动关闭', (tester) async {
       await pumpTestWidget(tester);
+      final directory = await selectExportDirectory(tester);
 
       // 确认对话框存在
       expect(find.text('导出测试书籍'), findsOneWidget);
 
       await tester.tap(find.text('确认'));
       await tester.pump();
+      await waitForSavedFile(tester, directory);
 
-      // 等待导出完成 + 1.5s 延迟
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
+      await waitForExportClose(tester);
 
       // 对话框应已关闭
       expect(find.text('导出测试书籍'), findsNothing);
+    });
+
+    testWidgets('未选择导出目录时提示错误且不调用导出', (tester) async {
+      await pumpTestWidget(tester);
+      await tester.tap(find.text('确认'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('请先选择导出目录'), findsWidgets);
+      expect(fakeExportService.exportCalled, isFalse);
+      expect(find.text('导出测试书籍'), findsOneWidget);
     });
   });
 

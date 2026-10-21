@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.428] - 2026-10-21
+
+### Fixed
+- 移除书籍导出目录校验的测试环境例外，测试与实际运行采用相同前置规则。
+- 导出回归通过真实临时目录验证文件字节、自动关闭及缺目录提示。
+- 贡献者：Codex；构建号429。
+
 ## [2.0.427] - 2026-10-21
 
 ### Fixed

@@ -499,9 +499,8 @@ class _ExportDialogState extends State<ExportDialog> {
       return;
     }
 
-    // 非 WebDAV 模式下必须选择导出目录（测试环境跳过校验）
-    final isTestMode = Platform.environment.containsKey('FLUTTER_TEST');
-    if (!isTestMode && _exportPath == null && !_enableWebDav) {
+    // 非WebDAV模式必须先选择目录，所有运行环境遵守同一规则。— Codex + UI
+    if (_exportPath == null && !_enableWebDav) {
       _showError('请先选择导出目录');
       return;
     }
