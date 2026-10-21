@@ -10,6 +10,10 @@
 > 「为什么这样规定」见 [TWO_TRACK_DEV_RATIONALE.md](TWO_TRACK_DEV_RATIONALE.md)（章节号与本文对应）；
 > Rust 服务边界的逐批变更记录见 [RUST_SERVICE_BOUNDARY_LOG.md](RUST_SERVICE_BOUNDARY_LOG.md)。
 
+测试清理、正常框架时序与特殊处理的判定，遵循
+[通用开发规范](DEVELOPMENT_CONVENTIONS.md)「测试与生产职责分离与最小必要处理」；
+双轨实现均不得仅为满足测试结束检查而改变生产业务规则或资源释放语义。
+
 ---
 
 ## 1. 适用范围
