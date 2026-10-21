@@ -152,7 +152,7 @@ Sheet复用AppSettingsSheet，仅保留数字输入框，1～256限制在非法�
 
 ## 液态玻璃资源与主题边界（2026-10-18）
 
-liquid_glass_widgets 固定 1.13.0，仅通过项目材质适配接入。AppGlassRuntime
+liquid_glass_widgets 固定 1.14.0，仅通过项目材质适配接入。AppGlassRuntime
 在启动时与设置/FFI并行预热，每次进程只初始化一次；预热失败保留普通材质，
 不作为FFI错误阻止启动。库的帧预算告警监视器关闭，性能结论使用独立profile取证。
 AppGlassHost在应用主题内提供明确亮度与固定standard质量，尊重系统减少动态效果
@@ -330,7 +330,7 @@ AppBottomSheet（含show/content）和AppSettingsSheet正文默认EdgeInsets.zer
 
 应用和测试使用 `package:material_ui/material_ui.dart` 与
 `package:cupertino_ui/cupertino_ui.dart`，不再使用 SDK 内的 Material/Cupertino 类型。
-当前直接依赖版本为 Material 1.6.0、Cupertino 1.0.2。
+当前直接依赖版本为 Material 1.8.0、Cupertino 1.1.4。
 
 本次用户授权设计库迁移引起的合理外观、间距及动画变化，不要求像素级一致；
 保留功能、主题、背景图与数据行为，不为复刻旧组件外观增加兼容样式。

@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### FLUTTER-DEPS-20261021：依赖联动升级与MuMu安装（P2，已完成授权范围）
+
+- 授权/基线：用户确认UI／路由与普通依赖、原生存储及生成链一并更新并安装模拟器；起点dev / 074f649db，单代理。保存既有未提交修改快照，保留并行刘海避让任务；本批不主动提升应用版本、不推送或触发CI。实施期间该并行任务已独立提交265d200c1，本批沿用其最新基线。
+- 实现：Material 1.8.0、Cupertino 1.1.4、Glass 1.14.0、go_router 18.1.1；analyzer 14.6.0、build_runner 2.17.1、Freezed 4.0.3、json_serializable 6.15.2及build 5配套；锁文件合计更新25包，含文件选择、SharedPreferences原生实现及WebView。SDK固定包及cross_file/qr保持可解析版本，FRB与两个音频Git补丁提交不变，无override。
+- 生成/验证：统一Python入口执行Dart生成成功；生成文件与HEAD实质内容一致，--only-check通过并写入0产物。UI、菜单、路由、设置持久化、模型与架构共166项定向回归通过；完整静态分析无问题，架构门禁通过。初次静态分析看到并行修改中的两项大括号提示，原任务更新后复验清零；本批未修改其业务代码。
+- 安装：MuMu 127.0.0.1:16384，Rust校验通过自动复用，x86_64 Debug构建及APK原生库校验通过，覆盖安装保留应用数据。并行任务提交265d200c1后按最新工作区再次增量构建安装并启动PID 8516，近期启动日志未发现未处理异常；沿用该任务的应用版本2.0.425+426，本批无额外递增。
+- 证据：build/dependency-upgrade-20261021/{generate,mumu-install,mumu-install-final}.log、flutter_legado/build/dependency-upgrade-{pub,tests,analysis,architecture,codegen-check}.log。没有全量native测试、iOS/macOS构建或真机验证；新Apple存储实现待对应平台验证，不将Mock及Android启动结果当作Apple验收。仅本地提交带[skip ci]，既有macOS生成文件改动保留；双更新日志已随并行集成提交收录。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-CUTOUT-AVOIDANCE-20261021：隐藏状态栏释放页眉区域（P1，代码验证通过，待设备观感验收）
 
 - 授权/基线：用户确认删除“扩展到刘海”、统一“刘海避让”；主目录dev / 074f649db，单代理。保留既有macOS生成文件改动，不修改MuMu工具批次。
