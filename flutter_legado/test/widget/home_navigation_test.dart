@@ -28,6 +28,7 @@ import 'package:flutter_legado/src/features/settings/presentation/settings_scree
 import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
 import 'package:flutter_legado/src/providers/ui_settings/ui_settings_notifier.dart';
 import 'package:flutter_legado/src/widgets/app_bottom_bar_inset.dart';
+import 'package:flutter_legado/src/widgets/app_scroll_view.dart';
 import 'package:flutter_legado/src/widgets/navigation/app_navigation_bars.dart';
 
 import '../mocks/mocks.dart';
@@ -128,7 +129,10 @@ void main() {
           .read(uiSettingsProvider.notifier);
 
   Finder shelfScrollable() => find.descendant(
-    of: find.byType(BookshelfScreen),
+    of: find.descendant(
+      of: find.byType(BookshelfScreen),
+      matching: find.byType(AppScrollView),
+    ),
     matching: find.byWidgetPredicate(
       (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
     ),
@@ -787,13 +791,12 @@ void main() {
     await tester.tap(find.byType(NavigationDestination).at(1));
     await tester.pumpAndSettle();
 
-    // [骨架对齐 2.0.260 | 台账 1-3] 书架头部 sliver 新增可滚动分组 TabBar，
-    // CustomScrollView 下出现第二个（横向）Scrollable；此处只取纵向书列表
-    // 滚动项（AxisDirection.down），横向 Tab 滚动项不参与回顶断言。
-    final scrollable = find.descendant(
-      of: find.byType(CustomScrollView),
-      matching: find.byWidgetPredicate(
-        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+    // 正文与外层标题分别核验，回顶必须同时展开顶栏。— Codex + UI
+    final scrollable = shelfScrollable();
+    final shell = tester.state<NestedScrollViewState>(
+      find.descendant(
+        of: find.byType(BookshelfScreen),
+        matching: find.byType(NestedScrollView),
       ),
     );
 
@@ -804,6 +807,7 @@ void main() {
       tester.state<ScrollableState>(scrollable).position.pixels,
       greaterThan(0),
     );
+    expect(shell.outerController.offset, greaterThan(0));
 
     // 300ms 内双击底栏书架项
     await tester.tap(find.byType(NavigationDestination).at(1));
@@ -812,6 +816,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.state<ScrollableState>(scrollable).position.pixels, 0);
+    expect(shell.outerController.offset, 0);
   });
 }
 

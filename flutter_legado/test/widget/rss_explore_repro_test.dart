@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/explore/presentation/explore_screen.dart';
 import 'package:flutter_legado/src/features/rss/presentation/rss_screen.dart';
+import 'package:flutter_legado/src/widgets/app_scroll_view.dart';
 
 import '../mocks/mocks.dart';
 
@@ -44,6 +45,18 @@ void main() {
     expect(find.text('源一'), findsOneWidget);
     expect(find.text('源二'), findsOneWidget);
     expect(find.text('规则订阅'), findsOneWidget);
+    final shell = tester.state<NestedScrollViewState>(
+      find.byType(NestedScrollView),
+    );
+    expect(shell.innerController.position.maxScrollExtent, 0);
+    expect(shell.outerController.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(find.byType(AppScrollView), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(
+      shell.outerController.offset,
+      shell.outerController.position.maxScrollExtent,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('发现页有数据渲染无异常', (tester) async {
@@ -72,7 +85,10 @@ void main() {
     expect(find.byType(ErrorWidget), findsNothing);
     expect(find.text('书源一'), findsOneWidget);
     expect(find.text('书源二'), findsOneWidget);
-    // L3 新增 FilterChip 横滑条
-    expect(find.text('全部'), findsOneWidget);
+    // 当前分组显示在共用顶栏副标题，展开与折叠原型会同时构建。
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('全部')),
+      findsWidgets,
+    );
   });
 }

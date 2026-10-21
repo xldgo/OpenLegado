@@ -16,7 +16,7 @@ import '../application/rss_notifier.dart';
 import '../application/history/rss_history_notifier.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../widgets/app_scaffold.dart';
-import '../../../widgets/app_bottom_bar_inset.dart';
+import '../../../widgets/app_scroll_view.dart';
 import '../../../widgets/confirm_dialog.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
@@ -209,7 +209,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
 
           // [UI_SYNC_REFACTOR T1] 一比一对齐参考 RssScreen：头部双卡
           //（规则订阅|收藏，span 全宽）+ Adaptive 72dp 小瓦片网格
-          return CustomScrollView(
+          return AppScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
@@ -260,7 +260,6 @@ class _RssScreenState extends ConsumerState<RssScreen> {
                     ),
                   ),
                 ),
-              const AppBottomBarSliverSpace(),
             ],
           );
         },

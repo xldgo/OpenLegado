@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.432] - 2026-10-21
+
+### Fixed
+- 统一书架与订阅的正文滚动接线，空书架和少量书籍也能滑动折叠标题。
+- 书架双击回顶同时展开标题，空态和短列表支持下拉刷新，保留底栏避让与批量操作。
+- 贡献者：Codex + UI；构建号433。
+
 ## [2.0.431] - 2026-10-21
 
 ### Fixed

@@ -20,6 +20,7 @@ import 'package:flutter_legado/src/data/repositories/mock_read_record_repository
 
 import 'package:flutter_legado/src/features/home/presentation/home_screen.dart';
 import 'package:flutter_legado/src/widgets/app_scaffold.dart';
+import 'package:flutter_legado/src/widgets/app_scroll_view.dart';
 import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
@@ -30,6 +31,53 @@ import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
+
+  testWidgets('独立正文沿用外部控制器，回顶信号更换后解除旧订阅', (tester) async {
+    final controller = ScrollController();
+    final first = ValueNotifier(0);
+    final second = ValueNotifier(0);
+    addTearDown(controller.dispose);
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    Future<void> mount(ValueNotifier<int> signal) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppScrollView(
+              controller: controller,
+              scrollTopSignal: signal,
+              slivers: [
+                SliverFixedExtentList.builder(
+                  itemExtent: 50,
+                  itemCount: 100,
+                  itemBuilder: (_, i) => Text('项目$i'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await mount(first);
+    controller.jumpTo(400);
+    await tester.pump();
+    await mount(second);
+    expect(controller.offset, 400);
+    first.value++;
+    await tester.pumpAndSettle();
+    expect(controller.offset, 400);
+    second.value++;
+    await tester.pumpAndSettle();
+    expect(controller.offset, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(controller.hasClients, isFalse);
+    controller.addListener(() {});
+    first.value++;
+    second.value++;
+    expect(tester.takeException(), isNull);
+  });
 
   for (final large in [false, true]) {
     testWidgets('带副标题的搜索栏保持标题坐标并按文字高度占位：大标题$large', (tester) async {

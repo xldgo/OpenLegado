@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### APP-SCROLL-VIEW-20261021：统一书架与订阅正文滚动（P1，代码与独立诊断包验证通过，待主应用验收）
+
+- 授权/基线：用户确认新增共用AppScrollView并先迁移书架、订阅；主目录dev / cf38444de，单代理，不推送CI或覆盖安装用户应用。
+- 根因：书架在正文CustomScrollView中直接放顶栏，总内容不足视口时maxScrollExtent=0；订阅由AppScaffold/NestedScrollView单独提供标题折叠范围。短内容同条件探针分别得到0与48dp，日志flutter_legado/build/short-header-probe.log。
+- 范围：AppScaffold唯一管理折叠顶栏；AppScrollView只提供正文slivers、协调器接入、刷新、回顶信号与尾部底栏避让，不新增NestedScrollView或正文顶栏。移除书架旧顶栏sliver与专用滚动控制器，保留列表/网格/分组、批量及隐私边界；订阅接入相同正文入口。
+- 验收：少量书籍及空态仍能折叠，长列表回顶同时展开标题，短内容刷新、页签与排序、底栏避让、搜索和订阅导航。先跑现有组件/页面行为回归，设备仅用独立诊断包，不改Rust/FFI。
+- 实现：新增AppScrollView统一接入内层控制器、可选刷新与回顶信号、尾部底栏避让；书架移除正文顶栏sliver和私有控制器，订阅移除重复尾部占位。PrivacyGroupGate在页壳外继续决定锁定视图，锁定时沿用普通操作集，不暴露批量动作；没有新增隐私策略。
+- 回顶修正：新增短内容行为回归发现，内层animateTo(0)仅回正文零点，标题仍折叠52dp；改用外层协调器整体零点，长列表正文与标题同时归零。4组空态/单本×列表/网格用例覆盖折叠、回顶、实际刷新调用；另核对独立控制器、信号更换与释放。首次误用SDK未提供的maybeOf静态方法，编译检查已纠正为公开State查找，不计首次失败为通过。
+- 回归：最终87项相关Widget回归通过，覆盖书架、根导航、订阅、共用页壳与隐私；完整Dart分析、最终改动文件分析及架构检查通过。日志flutter_legado/build/app-scroll-{final-tests,analysis-final,analysis-changes,privacy-analysis,architecture}.log。新增测试只断言实际滚动位置、刷新调用与界面行为，不读生产源码。
+- 夹具收口：导航旧定位同时找到内外Scrollable，改定位AppScrollView内正文；发现旧用例仍将“全部”视为单份FilterChip文案，改核对实际顶栏副标题。隐私设置旧用例未指定内层列表、未在定位后推进布局，导致点击落在600dp视口之外；仅修测试定位和等待，未添加生产特殊处理。
+- 设备：独立诊断包复用生产组件与Mock数据，离线构建通过，实时探测MuMu 127.0.0.1:16384 / 360dp验证单本/空书架折叠、回顶展开及短订阅折叠。截图、validation.json与device-logcat.log位于build/app-scroll-view-20261021/；构建日志build/reader-font-metrics-20261021/app-scroll-build-final.log。uiautomator dump退出139，未作为语义证据；手势前核验前台包名，诊断包已卸载。
+- 交付：版本2.0.432+433、设计规范和双日志同步；单代理自查，仅本地提交，不推送CI、不覆盖安装主应用，未进行iOS真机验收。页签间距零值的样式问题已向用户说明，本批保持现状，不混入额外页签改版；提交号见Git。
+
+编写者：Codex + UI｜2026-10-21
+
 ### APP-HEADER-SPACING-20261021：统一标题、页签与正文起始间距（P1，代码与独立诊断包验证通过，待主应用验收）
 
 - 授权/基线：用户要求把间距收归共用组件，并修复书源等页面展开搜索时标题下移；主目录dev / ce8086986，单代理，不推送或触发CI，不覆盖安装用户应用。

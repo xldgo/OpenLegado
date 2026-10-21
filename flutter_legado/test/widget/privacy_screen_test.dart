@@ -17,6 +17,10 @@ import '../unit/privacy_platform_test.dart' show TestPrivacyPlatform;
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  Finder settingsScrollable() => find.descendant(
+    of: find.byType(ListView),
+    matching: find.byType(Scrollable),
+  );
   testWidgets('私密分组锁定时保留切组操作，逐次授权离组后撤销', (tester) async {
     final c = privacyContainer();
     addTearDown(c.dispose);
@@ -87,11 +91,21 @@ void main() {
     expect(find.text('修改隐私密码'), findsOneWidget);
     expect(find.textContaining('Firebase'), findsNothing);
     expect(find.text('离开后重新验证'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('验证有效期'),
+      120,
+      scrollable: settingsScrollable(),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('验证有效期'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('离开应用前有效'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('离开后重新验证'), 120);
+    await tester.scrollUntilVisible(
+      find.text('离开后重新验证'),
+      120,
+      scrollable: settingsScrollable(),
+    );
     expect(find.text('离开后重新验证'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -129,7 +143,11 @@ void main() {
       isFalse,
     );
     expect(find.text('生物识别设置未完成'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('通知权限'), 180);
+    await tester.scrollUntilVisible(
+      find.text('通知权限'),
+      180,
+      scrollable: settingsScrollable(),
+    );
     expect(find.text('已允许'), findsOneWidget);
     expect(find.text('后台运行权限'), findsNothing);
     expect(tester.takeException(), isNull);

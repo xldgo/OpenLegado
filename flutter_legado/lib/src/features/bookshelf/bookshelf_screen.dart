@@ -36,7 +36,7 @@ import '../../widgets/app_progress_indicator.dart';
 import 'widgets/book_grid_item.dart';
 import 'widgets/book_list_item.dart';
 import 'widgets/bookshelf_group_label.dart';
-import '../../widgets/custom_refresh_indicator.dart';
+import '../../widgets/app_scroll_view.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
@@ -68,31 +68,12 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   bool _openingBook = false;
   TabController? _tabController;
   int _tabControllerLen = 0;
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    widget.scrollTopSignal?.addListener(_onScrollTopSignal);
-  }
 
   @override
   void dispose() {
-    widget.scrollTopSignal?.removeListener(_onScrollTopSignal);
-    _scrollController.dispose();
     _tabController?.removeListener(_onTabControllerChanged);
     _tabController?.dispose();
     super.dispose();
-  }
-
-  /// 双击底栏书架项 → 列表回滚顶部（对标 BaseBookshelfFragment.gotoTop）
-  void _onScrollTopSignal() {
-    if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
   }
 
   /// 按分组数量维护 TabController（分组数变化时重建）。
@@ -150,46 +131,31 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bookshelfNotifierProvider);
-    // [骨架对齐 2.0.260 | 台账 1-3] 主内容/空态：大标题 + 分组 tab 行以
-    // sliver 形式并入下方 CustomScrollView（对齐参考 03/03b 截图：空态
-    // 同样保留「书架」大标题 + 分组 tab 行）；加载/错误态保留标准
-    // LegadoAppBar。
-    final plainAppBar =
-        (state.isLoading && state.books.isEmpty) ||
-        (state.error != null && state.books.isEmpty);
-    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-    return AppScaffold(
-      topBar: plainAppBar ? _buildAppBar(context, ref) : null,
-      body: PrivacyGroupGate(
-        group: ref.watch(bookshelfNotifierProvider).selectedGroup,
-        lockedBuilder: (context, locked) => CustomScrollView(
-          slivers: [
-            _buildHeaderSliver(
-              context,
-              ref,
-              state.copyWith(isBatchMode: false),
-            ),
-            SliverFillRemaining(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: AppBottomBarInset.of(context)),
-                child: locked,
-              ),
-            ),
-          ],
+    // 标题与页签只由页壳提供，正文短于一屏也拥有独立折叠范围。— Codex + UI
+    return PrivacyGroupGate(
+      group: state.selectedGroup,
+      lockedBuilder: (context, locked) => AppScaffold(
+        topBar: _buildAppBar(context, state.copyWith(isBatchMode: false)),
+        body: AppScrollView(
+          scrollTopSignal: widget.scrollTopSignal,
+          slivers: [SliverFillRemaining(child: locked)],
         ),
-        child: _buildBody(context, ref),
+      ),
+      child: AppScaffold(
+        topBar: _buildAppBar(context, state),
+        body: _buildBody(context, ref),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(bookshelfNotifierProvider);
+  PreferredSizeWidget _buildAppBar(BuildContext context, BookshelfState state) {
     return LegadoAppBar(
-      // [骨架对齐 2.0.260 | 台账 1-3] 分组 tab 行常驻于 sliver 头部
-      // （含空态）；标准栏（加载/错误态）仅显示「书架」大标题
       title: Text(context.l10n.bookshelf),
       // [UI-fix 2.0.258] 选择模式下加载态/错误态顶栏同样切换为批量动作集
       actions: _animatedActions(context, state),
+      bottom: (state.isLoading || state.error != null) && state.books.isEmpty
+          ? null
+          : _buildGroupTabBar(context, state),
     );
   }
 
@@ -432,9 +398,10 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       // [骨架对齐 2.0.260 | 台账 1-3] 空态对齐参考 03 截图：大标题「书架」
       // + 分组 tab 行常驻，正文区居中颜文字彩蛋（kaomoji 模式为 2026-08-29
       // 用户授权彩蛋，点击换颜文字）
-      return CustomScrollView(
+      return AppScrollView(
+        scrollTopSignal: widget.scrollTopSignal,
+        onRefresh: () => ref.read(bookshelfNotifierProvider.notifier).refresh(),
         slivers: [
-          _buildHeaderSliver(context, ref, state),
           SliverFillRemaining(
             hasScrollBody: false,
             child: state.isBatchMode
@@ -452,12 +419,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
                       ),
                     ],
                   )
-                // [骨架对齐 2.0.260 | 台账 1-3] 溢出防护：剩余区高度不足
-                // （展开 LargeTitle≈152 + tab 行 56 后，矮视口仅剩 ~90px）时
-                // 颜文字列（自然高 ~106px）会 RenderFlex overflow。经
-                // FittedBox(scaleDown) 包裹 UnconstrainedBox(仅宽度受限)：
-                // 内容按自然高度布局后整体等比缩放居中，正常视口比例 1.0
-                // （像素不变），矮视口优雅降级不溢出
+                // 颜文字按自然高度布局，矮视口剩余空间不足时等比缩小，避免溢出。
                 : FittedBox(
                     fit: BoxFit.scaleDown,
                     child: UnconstrainedBox(
@@ -474,67 +436,42 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       );
     }
 
-    return CustomRefreshIndicator(
-      onRefresh: () => ref.read(bookshelfNotifierProvider.notifier).refresh(),
-      // [parity fix 2.0.264 补修 | 台账 1-3] LayoutBuilder 取视口实际宽度
-      // 传给网格 sliver（SDK 无 SliverPadding.builder，box 层取宽后按
-      // cellW×7/5+40 动态计算 cell aspect，封面恢复精确 5:7）
-      child: LayoutBuilder(
-        builder: (layoutContext, layoutConstraints) {
-          final viewportWidth = layoutConstraints.maxWidth;
-          return CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              // [骨架对齐 2.0.260 | 台账 1-3] 头部 = 可折叠大标题「书架」 +
-              // 常驻分组 tab 行（bottom，对齐参考 03b 截图）；搜索入口收敛为
-              // 顶栏 🔍 图标（_buildAppBarActions），页内全宽搜索条移除
-              _buildHeaderSliver(context, ref, state),
-              // [UI-fix 2.0.258] 批量模式摘要卡位于头部之后（对齐参考版：
-              // 标题/Tab →「已选N本 · 共M本」胶囊 → 书列表）
-              // 保留摘要所在的 sliver，避免选择态插入节点时重挂后面的书卡。
+    return LayoutBuilder(
+      builder: (layoutContext, layoutConstraints) {
+        final viewportWidth = layoutConstraints.maxWidth;
+        return AppScrollView(
+          scrollTopSignal: widget.scrollTopSignal,
+          onRefresh: () =>
+              ref.read(bookshelfNotifierProvider.notifier).refresh(),
+          slivers: [
+            // [UI-fix 2.0.258] 批量模式摘要卡位于头部之后（对齐参考版：
+            // 标题/Tab →「已选N本 · 共M本」胶囊 → 书列表）
+            // 保留摘要所在的 sliver，避免选择态插入节点时重挂后面的书卡。
+            SliverToBoxAdapter(
+              child: state.isBatchMode
+                  ? _buildBatchSummaryCard(context, ref, state)
+                  : const SizedBox.shrink(),
+            ),
+            // 分组模式：渲染分组头 + 分组内容
+            if (state.groupMode != GroupMode.none)
+              ..._buildGroupedSlivers(context, ref, state, viewportWidth)
+            else if (state.isGridView)
+              _buildGridSliver(
+                context,
+                ref,
+                state.currentGroupBooks,
+                viewportWidth,
+              )
+            else
+              _buildReorderableSliver(context, ref, state),
+            // [UI_SYNC_REFACTOR T3] 底部批量工具条（batch 模式且选中时显示）
+            if (state.isBatchMode && state.selectedUrls.isNotEmpty)
               SliverToBoxAdapter(
-                child: state.isBatchMode
-                    ? _buildBatchSummaryCard(context, ref, state)
-                    : const SizedBox.shrink(),
+                child: _buildBatchBottomBar(context, ref, state),
               ),
-              // 分组模式：渲染分组头 + 分组内容
-              if (state.groupMode != GroupMode.none)
-                ..._buildGroupedSlivers(context, ref, state, viewportWidth)
-              else if (state.isGridView)
-                _buildGridSliver(
-                  context,
-                  ref,
-                  state.currentGroupBooks,
-                  viewportWidth,
-                )
-              else
-                _buildReorderableSliver(context, ref, state),
-              // [UI_SYNC_REFACTOR T3] 底部批量工具条（batch 模式且选中时显示）
-              if (state.isBatchMode && state.selectedUrls.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: _buildBatchBottomBar(context, ref, state),
-                ),
-              const AppBottomBarSliverSpace(),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  /// 书架大标题沿用共用开关，折叠后保留工具栏与分组页签。— Codex + UI
-  Widget _buildHeaderSliver(
-    BuildContext context,
-    WidgetRef ref,
-    BookshelfState state,
-  ) {
-    return LegadoTabRootHeaderSliver(
-      large: true,
-      title: Text(context.l10n.bookshelf),
-      // [UI-fix 2.0.258] 选择模式顶栏切换为批量动作集（全选/反选/删除/取消）
-      actions: _animatedActions(context, state),
-      // 页签按自身preferredSize占位，不另设56dp容器。— Codex + UI
-      bottom: _buildGroupTabBar(context, state),
+          ],
+        );
+      },
     );
   }
 
