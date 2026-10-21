@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.437] - 2026-10-22
+
+### Fixed
+- 修复粘贴源/二维码导入对第三方书源报「剪贴板内容不是有效的书源 JSON」：解析收敛到 Rust 单一实现，字符串时间戳、字符串布尔、数组规则等不再被 Dart 严格模型拦截。
+- 修复书源导入路径的字段丢失与错值：`enabled:false` 曾被写成启用、规则对象被写成空值、自定义变量 `variable` 未入库、缺省 `respondTime` 被写成 0（应为 180000）。
+- 导入预览与确认导入改用同一套字段解释，避免「预览显示可导入、确认时因类型规则不同失败」。
+
+### Changed
+- 书源 JSON 解析统一到 Rust：导入、Room 导入、服务器更新与编辑页粘贴/扫码共用同一实现，Dart 不再自带归一化规则。
+- 贡献者：Codex + Rust / UI；构建号438。
+
 ## [2.0.436] - 2026-10-22
 
 ### Changed

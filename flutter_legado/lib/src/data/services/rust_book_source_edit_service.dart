@@ -45,4 +45,15 @@ class RustBookSourceEditService implements BookSourceEditService {
       line: result.line,
     );
   }
+
+  /// 契约 SOURCE-PARSE-FFI-20261022：只读解析，直连 Rust 统一实现。
+  @override
+  Future<BookSource> parseSource(String json) async {
+    return bookSourceFromDto(
+      await rustFuture(
+        () => bridge.sourceParse(sourceJson: json),
+        operation: 'sourceParse',
+      ),
+    );
+  }
 }

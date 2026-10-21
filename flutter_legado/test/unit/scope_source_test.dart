@@ -19,6 +19,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import 'package:flutter_test/flutter_test.dart';
+
+import '../fixtures/preview_normalize_stub.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
@@ -158,6 +160,7 @@ void main() {
         fetchText: mockApi.networkService.httpGet,
         readFile: readSourceImportFile,
         applyReplaceRules: mockApi.replaceRuleService.applyReplaceRulesToSource,
+        normalize: stubPreviewNormalize,
       );
     });
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../domain/contracts/book_source_edit_service.dart';
 import '../../domain/models/source_syntax_result.dart';
 import '../../models/book_source.dart';
@@ -71,4 +73,33 @@ class MockBookSourceEditService implements BookSourceEditService {
         valid: content.trim().isNotEmpty,
         message: content.trim().isNotEmpty ? 'Mock 语法检查通过' : 'JS源内容为空',
       );
+
+  /// 只读解析（契约 SOURCE-PARSE-FFI-20261022）的 Mock 实现。
+  ///
+  /// Mock 无法调用 Rust 统一解析，这里仅做最小类型化：语法错误抛
+  /// [FormatException]，非对象抛 [FormatException]，字段缺失保持默认值。
+  /// 生产路径必须走 `RustBookSourceEditService.parseSource`。
+  @override
+  Future<BookSource> parseSource(String json) async {
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(json);
+    } on FormatException catch (e) {
+      throw FormatException('书源 JSON 语法错误：${e.message}');
+    }
+    final Map<String, dynamic> map;
+    if (decoded is List) {
+      if (decoded.isEmpty) throw const FormatException('书源 JSON 数组为空');
+      final first = decoded.first;
+      if (first is! Map<String, dynamic>) {
+        throw const FormatException('书源条目必须是 JSON 对象');
+      }
+      map = first;
+    } else if (decoded is Map<String, dynamic>) {
+      map = decoded;
+    } else {
+      throw const FormatException('书源 JSON 期望数组或对象');
+    }
+    return BookSource.fromJson(map);
+  }
 }

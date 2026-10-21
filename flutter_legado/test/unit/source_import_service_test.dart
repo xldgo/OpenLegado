@@ -7,6 +7,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import '../fixtures/preview_normalize_stub.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/data/services/source_import_service.dart';
@@ -19,7 +21,7 @@ class _RepositoryMock extends Mock implements BookSourceRepository {}
 void main() {
   late SourceImportService service;
   late _RepositoryMock repository;
-  const parser = SourceImportParser();
+  final parser = SourceImportParser(normalize: stubPreviewNormalize);
 
   setUp(() {
     repository = _RepositoryMock();
@@ -28,6 +30,7 @@ void main() {
       fetchText: (_, {required timeout}) async => throw StateError('本组测试不请求网络'),
       readFile: readSourceImportFile,
       applyReplaceRules: (json, _, _) async => json,
+        normalize: stubPreviewNormalize,
     );
   });
 
@@ -221,12 +224,12 @@ void main() {
   });
 
   group('SourceImportParser parseSourcesText（轻量预览解析）', () {
-    test('干净 JSON 数组正常解析（不回归）', () {
+    test('干净 JSON 数组正常解析（不回归）', () async {
       final jsonStr = jsonEncode([
         {'bookSourceUrl': 'http://s1.com', 'bookSourceName': '源1'},
         {'bookSourceUrl': 'http://s2.com', 'bookSourceName': '源2'},
       ]);
-      final previews = parser.parseSourcesText(jsonStr);
+      final previews = await parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(2));
       expect(previews[0].bookSourceName, equals('源1'));
       expect(previews[0].bookSourceUrl, equals('http://s1.com'));
@@ -234,14 +237,14 @@ void main() {
       expect(previews[0].raw['bookSourceUrl'], equals('http://s1.com'));
     });
 
-    test('单个书源对象解析为一条预览', () {
+    test('单个书源对象解析为一条预览', () async {
       final jsonStr =
           '{"bookSourceUrl": "http://s1.com", "bookSourceName": "源1"}';
-      final previews = parser.parseSourcesText(jsonStr);
+      final previews = await parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(1));
     });
 
-    test('字符串数字 lastUpdateTime 不再被严格解析拦截（不再全灭）', () {
+    test('字符串数字 lastUpdateTime 不再被严格解析拦截（不再全灭）', () async {
       // 对标夹具 yckceo_7631.json：lastUpdateTime 为字符串数字，
       // ruleToc.isVolume 为字符串布尔，旧 freezed 解析会抛 TypeError
       final jsonStr = jsonEncode([
@@ -253,7 +256,7 @@ void main() {
           'ruleToc': {'isVolume': 'false', 'chapterList': '#list dd a'},
         },
       ]);
-      final previews = parser.parseSourcesText(jsonStr);
+      final previews = await parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(1));
       expect(previews[0].bookSourceName, equals('新御书屋(千夜)'));
       // 轻量提取 lastUpdateTime 转 int 供状态判定
@@ -262,21 +265,21 @@ void main() {
       expect(previews[0].raw['lastUpdateTime'], equals('1785432524399'));
     });
 
-    test('夹具文件 yckceo_string_number_source.json 能解析出条目', () {
+    test('夹具文件 yckceo_string_number_source.json 能解析出条目', () async {
       final file = File('test/fixtures/yckceo_string_number_source.json');
       final content = file.readAsStringSync();
-      final previews = parser.parseSourcesText(content);
+      final previews = await parser.parseSourcesText(content);
       expect(previews.length, equals(1));
       expect(previews[0].bookSourceName, equals('新御书屋(千夜)'));
       expect(previews[0].lastUpdateTime, equals(1785432524399));
     });
 
-    test('无效项（缺必填字段）被跳过但不影响有效项', () {
+    test('无效项（缺必填字段）被跳过但不影响有效项', () async {
       final jsonStr = jsonEncode([
         {'bookSourceUrl': 'http://ok.com', 'bookSourceName': '有效源'},
         {'bookSourceName': '缺 url 的源'},
       ]);
-      final previews = parser.parseSourcesText(jsonStr);
+      final previews = await parser.parseSourcesText(jsonStr);
       expect(previews.length, equals(1));
       expect(previews[0].bookSourceUrl, equals('http://ok.com'));
     });

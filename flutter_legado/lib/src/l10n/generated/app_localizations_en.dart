@@ -2449,6 +2449,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Clipboard does not contain valid book source JSON';
 
   @override
+  String bookSourceParseFailed(String error) {
+    return 'Failed to parse book source: $error';
+  }
+
+  @override
   String get bookSourceShareSubject => 'Book source';
 
   @override

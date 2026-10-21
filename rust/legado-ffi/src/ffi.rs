@@ -377,6 +377,23 @@ pub mod ffi {
         Ok(crate::api::source::import_sources(&json_array)?)
     }
 
+    /// 只读解析单个书源 JSON（契约 SOURCE-PARSE-FFI-20261022）
+    ///
+    /// 供编辑页「粘贴源 / 二维码导入」回填使用：与 `source_import` 共用同一
+    /// 解析实现，**不写数据库、不写限速表、不修改任何既有记录**。
+    /// 语法 / 结构 / 字段类型错误分别返回可定位错误。
+    pub fn source_parse(source_json: String) -> Result<BookSourceDto, BridgeError> {
+        Ok(crate::api::source::parse_source(&source_json)?.into())
+    }
+
+    /// 只读提取导入预览所需的归一化字段（契约 SOURCE-PARSE-FFI-20261022）
+    ///
+    /// 返回 JSON 数组：`{bookSourceUrl, bookSourceName, bookSourceComment,
+    /// lastUpdateTime}`，顺序与输入一致。仅解析，不落库、不写限速表。
+    pub fn source_preview_fields(json_array: String) -> Result<String, BridgeError> {
+        Ok(crate::api::source::preview_fields(&json_array)?)
+    }
+
     /// 导出所有书源为 JSON 数组
     pub fn source_export() -> Result<String, BridgeError> {
         let sources = crate::api::source::export_sources()?;

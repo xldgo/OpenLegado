@@ -157,6 +157,21 @@ Future<void> sourceDisable({required String sourceUrl}) =>
 Future<int> sourceImport({required String jsonArray}) =>
     RustLib.instance.api.crateFfiFfiSourceImport(jsonArray: jsonArray);
 
+/// 只读解析单个书源 JSON（契约 SOURCE-PARSE-FFI-20261022）
+///
+/// 供编辑页「粘贴源 / 二维码导入」回填使用：与 `source_import` 共用同一
+/// 解析实现，**不写数据库、不写限速表、不修改任何既有记录**。
+/// 语法 / 结构 / 字段类型错误分别返回可定位错误。
+Future<BookSourceDto> sourceParse({required String sourceJson}) =>
+    RustLib.instance.api.crateFfiFfiSourceParse(sourceJson: sourceJson);
+
+/// 只读提取导入预览所需的归一化字段（契约 SOURCE-PARSE-FFI-20261022）
+///
+/// 返回 JSON 数组：`{bookSourceUrl, bookSourceName, bookSourceComment,
+/// lastUpdateTime}`，顺序与输入一致。仅解析，不落库、不写限速表。
+Future<String> sourcePreviewFields({required String jsonArray}) =>
+    RustLib.instance.api.crateFfiFfiSourcePreviewFields(jsonArray: jsonArray);
+
 /// 导出所有书源为 JSON 数组
 Future<String> sourceExport() => RustLib.instance.api.crateFfiFfiSourceExport();
 

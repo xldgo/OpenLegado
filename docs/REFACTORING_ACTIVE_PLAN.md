@@ -1,5 +1,22 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-PARSE-UNIFY-20261022：书源解析职责收敛到 Rust 单一实现（P1，两批同一任务，第一批已提交，第二批实施中）
+
+- 触发：用户报告「粘贴源提示剪贴板不是有效的书源 JSON」，而同一份 JSON 经导入通道可以成功。核查确认根因不是用户内容，而是**同一模型存在多套字段解释**。
+- 根因（已核实）：① 编辑页粘贴/扫码用 Dart 严格 `BookSource.fromJson`，字符串时间戳等第三方脏类型直接抛 `TypeError`；② Rust 内部另有 RoomImporter 逐字段 `as_str()/as_i64()` 手写提取，与 serde 路径分叉——`enabled:false`/`enabled:"0"` 被写成启用、`ruleSearch` 等规则对象落空、旧 INSERT 未含 `variable` 列、缺省 `respondTime` 落 0（类型化路径为 180000）；③ server 前置筛选再按 `as_str()` 取 URL，与解析层口径不一。
+- 上游依据（`build/upstream/legado-with-MD3`，已实读）：`GsonExtensions.kt` 的 `StringJsonDeserializer`（标量→字符串、null→null、数组/对象→JSON 字符串）、六个规则类各自 `jsonDeserializer`（对象 / JSON 对象字符串两态）、`IntJsonDeserializer`；`BookSource.respondTime` 默认 180000。
+- 决策（用户裁决）：统一收敛到 Rust，不做临时 Dart 归一化；整数保留「整数及合法整数字符串」兼容超集（明确记录），超范围报错，非法类型不静默转 0，缺省与显式 null 分开；字符串按可空/非空分流；未知字段无损往返与单引号 `exploreUrl` 不在本任务。
+- 第一批（已提交 `417f0c4d8`，FFI 签名不变，因 Room 导入可见行为变化记为契约变更）：
+  - `legado-core/src/models/book_source/parse.rs` 新增唯一解析入口 `parse_source_json`/`parse_source_array`，按目标字段类型转换；六个规则结构体加自定义反序列化；非可空字符串（URL/名称）显式 null 落空串，可空字符串保留 `None`。
+  - `RoomImporter` 删除逐字段提取与独立 INSERT，改调同一解析 + `BookSourceRepository` 全列写入（含 `variable`）；书籍导入未动。
+  - `RoomSourceImport` 限速键值改由归一化实体生成，保留「提交后才发布」边界；server 前置筛选与计数改用同一解析结果。
+  - 证据：`legado-core/tests/source_parse_semantics.rs` 21 例；`legado-db/tests/source_import_parity.rs` 3 例（Room 与 FFI 逐字段一致、可见行为回归、整批回滚）；engine 既有 `variable` 断言按授权反转（`""` → 保留原值），回滚与「失败不发布限速」断言保留；core 839 / db 381 / engine 142 全绿，四 crate clippy `-D warnings` 通过。
+- 第二批（实施中）：契约 `SOURCE-PARSE-FFI-20261022` 新增只读 `sourceParse`（返回 `BookSourceDto`、不落库、不写限速、不加 warnings）与 `sourcePreviewFields`（预览归一化字段，与解析同源）；`legado-ffi` 实现并重生成 FRB 绑定；`BookSourceEditService.parseSource` 接入正式与 Mock；编辑页粘贴/扫码合并为同一回填流程并删除 Dart 语法预检；预览展示字段改由 Rust 归一化产出，`SourceImportParser` 不再自带归一化规则。
+- 验证约定：归一化语义只在 Rust 测（`source_parse_semantics.rs`），不在 Flutter widget 层重复测，也不为 Dart 测试引入 FFI；扫码走单一回填流程后原 widget 用例已移除。
+- 已知边界（登记，不在本任务）：`BookSourceDto`、Dart 模型与 DB 列均为固定字段，未知字段仍会丢弃；单引号 `exploreUrl` 属嵌套规则解析，独立处理。
+
+编写者：Codex + Rust / UI｜2026-10-22
+
 ### REPLACE-RULE-ACTIONS-20261021：整理替换净化规则管理页操作（P2，代码与独立诊断包验证通过，待主应用验收）
 
 - 授权/基线：用户要求添加规则改用FAB并移除顶栏添加，导入、分组管理、帮助收入下拉菜单；主目录dev / c6f0ca18d，单代理，不推送CI、不覆盖安装主应用。

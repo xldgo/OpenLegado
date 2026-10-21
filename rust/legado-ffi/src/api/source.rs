@@ -39,10 +39,43 @@ fn set_source_enabled(source_url: &str, enabled: bool) -> LegadoResult<()> {
     with_database(|db| BookSourceService::new(db).set_source_enabled(source_url, enabled))
 }
 pub fn import_sources(json_array: &str) -> LegadoResult<i32> {
-    let sources: Vec<BookSource> = serde_json::from_str(json_array)
+    // [SOURCE-PARSE-UNIFY-20261022] 与 Room 导入共用同一解析实现
+    let sources = legado_core::models::book_source::parse_source_array(json_array)
         .map_err(|e| LegadoError::Ffi(format!("书源 JSON 数组解析失败: {e}")))?;
     let saved = with_database(|db| BookSourceService::new(db).import_sources(&sources))?;
     Ok(saved.publish(&crate::api::source_rate_limit::registry()))
+}
+/// 只读解析单个书源 JSON，供编辑页粘贴/扫码回填使用。
+///
+/// [SOURCE-PARSE-FFI-20261022] 仅解析归一化，不写数据库、不写限速表、
+/// 不修改任何既有记录；与 `import_sources` 共用同一 `parse_source_json`。
+pub fn parse_source(json: &str) -> LegadoResult<BookSource> {
+    legado_core::models::book_source::parse_source_json(json)
+        .map_err(|e| LegadoError::Ffi(format!("书源解析失败: {e}")))
+}
+
+/// 只读提取预览所需归一化字段（契约 SOURCE-PARSE-FFI-20261022）。
+///
+/// 返回 JSON 数组，每项 `{bookSourceUrl, bookSourceName, bookSourceComment,
+/// lastUpdateTime}`，**顺序与输入一致**。供导入预览页展示与状态判定，
+/// 使预览与最终入库使用同一套字段解释，避免「预览说可导入、确认时失败」。
+/// 解析失败返回错误（由调用方按「全部失败」提示）。
+pub fn preview_fields(json_array: &str) -> LegadoResult<String> {
+    let sources = legado_core::models::book_source::parse_source_array(json_array)
+        .map_err(|e| LegadoError::Ffi(format!("书源预览解析失败: {e}")))?;
+    let fields: Vec<serde_json::Value> = sources
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "bookSourceUrl": s.book_source_url,
+                "bookSourceName": s.book_source_name,
+                "bookSourceComment": s.book_source_comment,
+                "lastUpdateTime": s.last_update_time,
+            })
+        })
+        .collect();
+    serde_json::to_string(&fields)
+        .map_err(|e| LegadoError::Ffi(format!("预览字段序列化失败: {e}")))
 }
 pub fn export_sources() -> LegadoResult<Vec<BookSource>> {
     list_sources()
@@ -61,6 +94,56 @@ mod tests {
     /// 辅助：初始化内存数据库并设置全局状态（返回串行锁守卫，测试必须绑定到变量）
     fn setup_test_db() -> std::sync::MutexGuard<'static, ()> {
         crate::db_state::ensure_test_db()
+    }
+
+    /// [SOURCE-PARSE-FFI-20261022] 只读解析：不依赖数据库即可成功，
+    /// 证明解析路径未触碰 DB；且与导入共用同一实现（字符串时间戳、
+    /// 禁用布尔、规则对象均正确归一化）。
+    #[test]
+    fn test_parse_source_is_readonly_and_normalizes() {
+        // 注意：故意不调用 setup_test_db()。若 parse_source 触碰数据库会失败。
+        let parsed = parse_source(
+            r#"{
+                "bookSourceUrl": "https://readonly-parse.example",
+                "bookSourceName": "只读解析源",
+                "bookSourceType": "1",
+                "enabled": "false",
+                "lastUpdateTime": "1792486038190",
+                "ruleToc": "{\"chapterList\":[1,2],\"isVolume\":false}"
+            }"#,
+        )
+        .expect("只读解析应成功且无需数据库");
+
+        assert_eq!(parsed.book_source_type, 1);
+        assert!(!parsed.enabled, "enabled:\"false\" 应归一化为禁用");
+        assert_eq!(parsed.last_update_time, 1_792_486_038_190);
+        let toc = parsed.rule_toc.expect("字符串规则应解析为对象");
+        assert_eq!(toc.chapter_list.as_deref(), Some("[1,2]"));
+        assert_eq!(toc.is_volume.as_deref(), Some("false"));
+    }
+
+    /// [SOURCE-PARSE-FFI-20261022] 语法错误返回可定位错误，不静默降级。
+    #[test]
+    fn test_parse_source_reports_syntax_error() {
+        let err = parse_source(r#"{"bookSourceUrl":"#).unwrap_err();
+        assert!(format!("{err}").contains("语法"), "实际: {err}");
+    }
+
+    /// [SOURCE-PARSE-FFI-20261022] 预览字段与解析同源、顺序一致。
+    #[test]
+    fn test_preview_fields_matches_parse_order() {
+        let json = r#"[
+            {"bookSourceUrl":"https://p1.example","bookSourceName":"甲","lastUpdateTime":"100"},
+            {"bookSourceUrl":"https://p2.example","bookSourceName":"乙"}
+        ]"#;
+        let fields = preview_fields(json).expect("预览字段提取应成功");
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(&fields).unwrap();
+        assert_eq!(parsed.len(), 2, "顺序与条数应与输入一致");
+        assert_eq!(parsed[0]["bookSourceUrl"], "https://p1.example");
+        assert_eq!(parsed[0]["lastUpdateTime"], 100);
+        assert_eq!(parsed[1]["bookSourceName"], "乙");
+        // 缺省 lastUpdateTime 归一化为 0
+        assert_eq!(parsed[1]["lastUpdateTime"], 0);
     }
 
     /// 契约 §2.3：设置后可经查询接口自然带出；空串清除；书源不存在报 Internal

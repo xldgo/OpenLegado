@@ -703,6 +703,14 @@
   "clipboardEmpty": "Clipboard is empty",
   "pastedBookSource": "Pasted book source: {name}",
   "clipboardInvalidBookSource": "Clipboard does not contain valid book source JSON",
+  "bookSourceParseFailed": "Failed to parse book source: {error}",
+  "@bookSourceParseFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "bookSourceShareSubject": "Book source",
   "importedBookSource": "Imported book source: {name}",
   "qrInvalidBookSource": "QR code does not contain valid book source JSON",

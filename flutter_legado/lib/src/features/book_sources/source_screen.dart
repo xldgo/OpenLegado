@@ -25,7 +25,6 @@ import 'source_notifier.dart';
 import 'application/source_check/check_source_notifier.dart';
 
 import '../../domain/models/source_preview.dart';
-import '../../domain/services/source_import_parser.dart';
 import '../../utils/legado_deep_link.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';

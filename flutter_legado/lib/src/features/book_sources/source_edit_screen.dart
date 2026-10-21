@@ -2,6 +2,7 @@ import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_names.dart';
 import 'book_source_repository_provider.dart';
 import '../../providers/network_provider.dart';
+import '../../providers/source_interaction_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
 

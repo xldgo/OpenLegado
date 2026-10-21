@@ -1,5 +1,19 @@
 # API 契约文档
 
+### SOURCE-PARSE-FFI-20261022：只读书源解析 FFI（第二批，加法式 +1 方法）
+
+- **新增 FFI**：`source_parse(source_json: String) → Result<BookSourceDto, BridgeError>`（Rust `legado-ffi::ffi::source_parse`，实现 `legado-ffi/src/api/source.rs::parse_source`）。
+- **只读语义**：仅解析并归一化，**不写数据库、不写限速注册表、不修改任何既有记录**；可安全用于编辑页回填。
+- **与导入同一实现**：必须调用 `legado_core::models::book_source::parse_source_json`，与 `source_import` / `RoomImporter` 共用同一套字段解释，禁止另立解析分支。
+- **入参**：原始书源 JSON 文本，接受单个对象（也接受数组并按首项处理，兼容粘贴多条）。语法、结构、字段类型错误分别返回可定位错误；不做「全部失败降级为警告」。
+- **出参**：`BookSourceDto`，本批**不附 warnings**。允许返回尚未完整的书源（缺名称/地址由后续保存校验阶段拦截，不在解析层拒绝）。
+- **Dart 接线**：`BookSourceEditService` 新增 `Future<BookSource> parseSource(String json)`；正式实现 `RustBookSourceEditService` 直连 `sourceParse`，Mock 同名方法复用同一解析语义。编辑页「粘贴源」与「二维码导入」共用同一回填流程，**Dart 侧不再做 `jsonDecode` 语法预检**（避免两套语法接受范围），错误提示按语法/结构/字段分类。
+- **预览**：`SourceImportParser` 的展示字段取自 Rust 归一化结果，原始 Map 仅保留用于展示原文与应用导入选项，不再自带归一化规则。
+- **方法计数**：FFI 方法 +1；FRB 重新生成绑定（生成物由生成器产出，不手改）。
+- **不在本批范围**：未知字段无损往返、单引号 `exploreUrl` 嵌套规则解析。
+
+编写者：Codex + Rust｜2026-10-22
+
 ### SOURCE-PARSE-UNIFY-20261022：书源 JSON 解析职责收敛（第一批，FFI 签名不变）
 
 本批**只收敛 Rust 内部解析与写入**，FFI 方法签名与方法计数全部不变；因 Room 导入可见行为变化，故为**契约变更**（非零契约）。

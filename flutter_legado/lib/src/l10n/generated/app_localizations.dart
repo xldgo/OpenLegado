@@ -4317,6 +4317,12 @@ abstract class AppLocalizations {
   /// **'剪贴板内容不是有效的书源 JSON'**
   String get clipboardInvalidBookSource;
 
+  /// No description provided for @bookSourceParseFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'书源解析失败：{error}'**
+  String bookSourceParseFailed(String error);
+
   /// No description provided for @bookSourceShareSubject.
   ///
   /// In zh, this message translates to:

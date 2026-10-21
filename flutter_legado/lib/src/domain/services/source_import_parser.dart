@@ -2,9 +2,21 @@ import 'dart:convert';
 
 import '../models/source_preview.dart';
 
-/// 书源预览解析及轻量校验，不访问网络、文件或数据库。— Codex + UI
+/// 预览展示字段由 Rust 归一化产出（契约 SOURCE-PARSE-FFI-20261022）。
+///
+/// 入参为原始 JSON 文本，出参为与输入同序的展示字段数组，每项包含
+/// `bookSourceUrl` / `bookSourceName` / `bookSourceComment` / `lastUpdateTime`。
+/// 生产实现直连 Rust `sourcePreviewFields`；此处以 typedef 注入，便于测试替换。
+typedef SourcePreviewNormalizer =
+    Future<List<Map<String, dynamic>>> Function(String json);
+
+/// 书源预览解析：原始 Map 保留原文，展示字段取自 Rust 归一化结果。
+/// 不再自带任何归一化规则（此前 `?.toString()` / 本地整数解析会与导入分叉）。
 class SourceImportParser {
-  const SourceImportParser();
+  const SourceImportParser({this.normalize});
+
+  /// Rust 归一化入口；为空时视为不支持（调用方须注入）
+  final SourcePreviewNormalizer? normalize;
 
   /// 保留原始条目类型；非法 JSON 抛异常，非对象/数组返回 null。
   List<dynamic>? decodeSources(String text) {
@@ -16,14 +28,21 @@ class SourceImportParser {
 
   /// 解析书源 JSON 文本为预览条目列表（仅预览，不写入数据库）
   ///
-  /// 支持单个书源对象或书源数组。不做严格 freezed 类型化解析（第三方书源
-  /// 的字符串数字/字符串布尔字段会抛 TypeError），仅轻量提取展示字段；
-  /// 原始 JSON 保留到 [SourcePreview.raw]，确认导入时直传 Rust 兜底。
-  /// 失败项累计计数，全部失败时抛出携带首个错误信息的 FormatException。
-  List<SourcePreview> parseSourcesText(String jsonStr) {
-    final sourceList = decodeSources(jsonStr.trim());
-    if (sourceList == null) {
-      throw const FormatException('无效的 JSON 格式：期望数组或对象');
+  /// 支持单个书源对象或书源数组。[raw] 保留原文供确认导入直传；
+  /// 展示字段由 [normalize]（Rust）产出，与最终入库同一套字段解释。
+  Future<List<SourcePreview>> parseSourcesText(String jsonStr) async {
+    final trimmed = jsonStr.trim();
+    final normalizer = normalize;
+    if (normalizer == null) {
+      throw const FormatException('未注入书源归一化入口');
+    }
+    // 原件（数组/单对象）用于取 raw；归一化由 Rust 完成并按同序返回
+    final sourceList = decodeSources(trimmed) ?? <dynamic>[];
+    final normalized = await normalizer(trimmed);
+    if (normalized.length != sourceList.length) {
+      throw FormatException(
+        '预览归一化条目数不一致：原文 ${sourceList.length} 条、归一化 ${normalized.length} 条',
+      );
     }
 
     final sources = <SourcePreview>[];
@@ -36,16 +55,16 @@ class SourceImportParser {
         firstError ??= '第 ${i + 1} 项不是有效的 JSON 对象';
         continue;
       }
-      final validationErrors = validateSource(item);
+      // 必填校验基于 Rust 归一化字段，保证与确认导入阶段的跳过规则一致
+      final validationErrors = validateSource(normalized[i]);
       if (validationErrors.isNotEmpty) {
         failed++;
         firstError ??= '第 ${i + 1} 项校验失败：${validationErrors.join('；')}';
         continue;
       }
-      sources.add(SourcePreview.fromRaw(item));
+      sources.add(SourcePreview.fromNormalized(item, normalized[i]));
     }
     if (sources.isEmpty) {
-      // 不再静默吞掉失败：全部失败时抛出明确错误，由调用方提示用户
       throw FormatException(
         '未解析到有效书源（失败 $failed 项）${firstError == null ? '' : '：$firstError'}',
       );

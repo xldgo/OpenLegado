@@ -453,8 +453,13 @@ extension _SourceActions on _SourceScreenState {
     }
 
     if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      // [SOURCE-PARSE-FFI-20261022] 预览字段由 Rust 归一化产出，
+      // 复用已装配的导入服务（内含 normalize），不再 new 无归一化的解析器。
       await _fetchAndConfirm(
-        () async => const SourceImportParser().parseSourcesText(trimmed),
+        () => ref
+            .read(sourceNotifierProvider.notifier)
+            .importService
+            .fetchSourcesFromText(trimmed),
       );
       return;
     }

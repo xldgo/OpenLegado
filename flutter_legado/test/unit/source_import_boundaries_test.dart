@@ -8,6 +8,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../fixtures/preview_normalize_stub.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
@@ -62,6 +64,7 @@ void main() {
         replaced.add((json: json, name: name, url: url));
         return json.replaceAll('中文源', '替换源');
       },
+      normalize: stubPreviewNormalize,
     );
   });
 
@@ -193,6 +196,7 @@ void main() {
         fetchText: (_, {required timeout}) async => response,
         readFile: (_) async => fileText,
         applyReplaceRules: (_, _, _) async => throw StateError('替换未就绪'),
+      normalize: stubPreviewNormalize,
       );
       final result = await service.importFromJson(_source);
       expect(result.success, 1);
@@ -257,6 +261,7 @@ void main() {
         fetchText: (_, {required timeout}) async => throw failure,
         readFile: (_) async => fileText,
         applyReplaceRules: (json, _, _) async => json,
+      normalize: stubPreviewNormalize,
       );
       final result = await service.importFromUrl('https://import.test');
       expect(result.errors, ['从 URL 导入失败：$failure']);
@@ -278,6 +283,7 @@ void main() {
         fetchText: (_, {required timeout}) async => response,
         readFile: (_) async => throw failure,
         applyReplaceRules: (json, _, _) async => json,
+      normalize: stubPreviewNormalize,
       );
       final failed = await service.importFromFile('locked.json');
       expect(failed.errors, ['读取文件失败：$failure']);
@@ -296,9 +302,9 @@ void main() {
       expect(imported, isEmpty);
     });
 
-    test('纯解析器保留非字符串、空白字段与未知字段', () {
-      const parser = SourceImportParser();
-      final items = parser.parseSourcesText(
+    test('纯解析器保留非字符串、空白字段与未知字段', () async {
+      final parser = SourceImportParser(normalize: stubPreviewNormalize);
+      final items = await parser.parseSourcesText(
         '{"bookSourceName":123,"bookSourceUrl":" ","自定义":{"enabled":"false"}}',
       );
       expect(items.single.bookSourceName, '123');
@@ -351,6 +357,7 @@ void main() {
       fetchText: first.networkService.httpGet,
       readFile: readSourceImportFile,
       applyReplaceRules: first.replaceRuleService.applyReplaceRulesToSource,
+      normalize: stubPreviewNormalize,
     );
     final source = container.read(sourceNotifierProvider.notifier);
     final association = container.read(associationNotifierProvider.notifier);

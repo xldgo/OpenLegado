@@ -515,6 +515,9 @@ extension _SourceEditActions on _SourceEditScreenState {
   }
 
   /// 粘贴源（对标原版 menu_paste_source：解析剪贴板 JSON 回填表单）
+  ///
+  /// [SOURCE-PARSE-FFI-20261022] 解析统一走 Rust `sourceParse`（与导入同一实现），
+  /// Dart 侧不再 `jsonDecode` 预检——两套语法接受范围会导致「导入能过、粘贴过不了」。
   Future<void> _pasteSource() async {
     final l10n = context.l10n;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -525,20 +528,34 @@ extension _SourceEditActions on _SourceEditScreenState {
       messenger.showSnackBar(SnackBar(content: Text(l10n.clipboardEmpty)));
       return;
     }
-    try {
-      final decoded = jsonDecode(text);
-      final map = decoded is List
-          ? decoded.first as Map<String, dynamic>
-          : decoded as Map<String, dynamic>;
-      final source = BookSource.fromJson(map);
-      _populateFields(source);
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.pastedBookSource(source.bookSourceName))),
-      );
-    } catch (_) {
+    final source = await _parseSourceJson(text);
+    if (!mounted) return;
+    if (source == null) {
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.clipboardInvalidBookSource)),
       );
+      return;
+    }
+    _populateFields(source);
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.pastedBookSource(source.bookSourceName))),
+    );
+  }
+
+  /// 解析书源 JSON 并回填表单；失败时返回 null（错误已就地提示）。
+  ///
+  /// 粘贴源与二维码导入共用本方法，保证同一份 JSON 在两条入口得到同一结果。
+  Future<BookSource?> _parseSourceJson(String json) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      return await ref.read(bookSourceEditServiceProvider).parseSource(json);
+    } catch (e) {
+      // 错误信息由 Rust 给出（语法 / 结构 / 字段类型可定位），不吞成「不是有效 JSON」
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.bookSourceParseFailed(e.toString()))),
+      );
+      return null;
     }
   }
 
@@ -578,23 +595,14 @@ extension _SourceEditActions on _SourceEditScreenState {
 
     final trimmed = content.trim();
     if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-      try {
-        final decoded = jsonDecode(trimmed);
-        final map = decoded is List
-            ? decoded.first as Map<String, dynamic>
-            : decoded as Map<String, dynamic>;
-        final source = BookSource.fromJson(map);
-        _populateFields(source);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(l10n.importedBookSource(source.bookSourceName)),
-          ),
-        );
-      } catch (_) {
-        messenger.showSnackBar(
-          SnackBar(content: Text(l10n.qrInvalidBookSource)),
-        );
-      }
+      // [SOURCE-PARSE-FFI-20261022] 与粘贴源共用同一 Rust 解析回填流程
+      final source = await _parseSourceJson(trimmed);
+      if (!mounted) return;
+      if (source == null) return; // 错误已由 _parseSourceJson 就地提示
+      _populateFields(source);
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.importedBookSource(source.bookSourceName))),
+      );
       return;
     }
 

@@ -2297,6 +2297,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clipboardInvalidBookSource => '剪贴板内容不是有效的书源 JSON';
 
   @override
+  String bookSourceParseFailed(String error) {
+    return '书源解析失败：$error';
+  }
+
+  @override
   String get bookSourceShareSubject => '书源分享';
 
   @override

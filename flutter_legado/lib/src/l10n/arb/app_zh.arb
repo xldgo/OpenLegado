@@ -2592,6 +2592,14 @@
     }
   },
   "clipboardInvalidBookSource": "剪贴板内容不是有效的书源 JSON",
+  "bookSourceParseFailed": "书源解析失败：{error}",
+  "@bookSourceParseFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "bookSourceShareSubject": "书源分享",
   "importedBookSource": "已导入书源：{name}",
   "@importedBookSource": {

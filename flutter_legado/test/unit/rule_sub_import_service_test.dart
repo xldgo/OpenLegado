@@ -25,7 +25,7 @@ void main() {
       rss: rss,
       replaceRules: rules,
       fetchBookSources: (_) async => [
-        SourcePreview.fromRaw({'bookSourceUrl': url}),
+        SourcePreview.fromNormalized({'bookSourceUrl': url}, {'bookSourceUrl': url}),
       ],
     );
     when(() => rss.getRssSources()).thenAnswer((_) async => []);
@@ -75,7 +75,7 @@ void main() {
     );
     local.clear();
     fetch.complete([
-      SourcePreview.fromRaw({'bookSourceUrl': url}),
+      SourcePreview.fromNormalized({'bookSourceUrl': url}, {'bookSourceUrl': url}),
     ]);
     final result = await task as RuleSubBookSources;
     expect(result.local.single.bookSourceUrl, 'a');

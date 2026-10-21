@@ -23,6 +23,10 @@ typedef SourceImportReplaceRules = Future<String> Function(
   String url,
 );
 
+/// 预览展示字段归一化由宿主注入（Rust 统一实现）。— Codex + Bridge
+typedef SourceImportNormalizer =
+    Future<List<Map<String, dynamic>>> Function(String jsonArray);
+
 /// 编排预览与逐条导入，只依赖明确注入的数据能力。— Codex + Bridge
 class SourceImportService {
   SourceImportService({
@@ -30,8 +34,9 @@ class SourceImportService {
     required this._fetchText,
     required this._readFile,
     required this._applyReplaceRules,
-    this._parser = const SourceImportParser(),
-  });
+    required SourceImportNormalizer normalize,
+    SourceImportParser? parser,
+  }) : _parser = parser ?? SourceImportParser(normalize: normalize);
 
   final BookSourceRepository _repository;
   final SourceImportTextFetcher _fetchText;
@@ -51,7 +56,7 @@ class SourceImportService {
     if (!response.isSuccess) {
       throw FormatException('HTTP 请求失败：状态码 ${response.statusCode}');
     }
-    return _parser.parseSourcesText(response.body);
+    return await _parser.parseSourcesText(response.body);
   }
 
   /// 从本地文件拉取并解析书源列表（仅预览，不写入数据库）
@@ -60,7 +65,14 @@ class SourceImportService {
     if (content == null) {
       throw FormatException('文件不存在：$filePath');
     }
-    return _parser.parseSourcesText(content);
+    return await _parser.parseSourcesText(content);
+  }
+
+  /// 直接从 JSON 文本解析出候选书源（仅预览，不写入数据库）
+  ///
+  /// 供扫码/粘贴等无网络入口复用同一归一化（Rust）路径。
+  Future<List<SourcePreview>> fetchSourcesFromText(String json) async {
+    return await _parser.parseSourcesText(json);
   }
 
   /// 从 JSON 字符串导入书源
