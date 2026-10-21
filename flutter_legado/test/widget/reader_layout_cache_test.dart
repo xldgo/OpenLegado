@@ -15,6 +15,7 @@ import 'package:flutter_legado/src/features/reader/application/reader_notifier.d
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
 import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
 import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
 import 'package:flutter_legado/src/data/services/chapter_content_service.dart';
 import 'package:flutter_legado/src/platform/display/display_corners.dart';
@@ -430,6 +431,75 @@ void main() {
     await pump(420);
     expect(find.text('阅读区域太小，请扩大窗口或减小页边距'), findsNothing);
     expect(notifier.currentSourceOffset, anchor);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('滚动拼页保留行间空白、比例段距且不拉伸到页底', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer(
+      overrides: mergeTestOverrides([
+        ..._Api().overrides,
+        readerNotifierProvider.overrideWith(_Reader.new),
+      ]),
+    );
+    addTearDown(container.dispose);
+    (container.read(readerNotifierProvider.notifier) as _Reader).mode(
+      PageTurnMode.scroll,
+    );
+    final key = GlobalKey<ReaderPageViewState>();
+    await pumpNativeReaderLayout(
+      tester,
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          builder: nativeReaderLayoutBuilder,
+          home: Scaffold(
+            body: SizedBox(
+              width: 320,
+              height: 180,
+              child: ReaderPageView(
+                key: key,
+                paragraphSpacing: 2,
+                selectText: false,
+                textBottomJustify: true,
+                contentInsets: EdgeInsets.zero,
+                pageChrome: const ReaderPageChromeConfig(
+                  headerMode: 2,
+                  footerMode: 1,
+                  titleMode: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await settleNativeReaderLayout(tester);
+    expect(key.currentState!.pageCount, greaterThan(1));
+    final body = tester.widget<ReaderTextContent>(
+      find.byType(ReaderTextContent),
+    );
+    final paragraphs = body.pageInfo.paragraphs;
+    final h = paragraphs.first.lines.first.height;
+    final multiplier = container.read(readerNotifierProvider).lineHeight;
+    expect(body.paragraphSpacing, closeTo(h * .2, .01));
+    var previous = 0;
+    var y = 0.0;
+    double? previousHeight;
+    for (final paragraph in paragraphs) {
+      if (previousHeight != null) {
+        final expected =
+            previousHeight * (multiplier - 1) +
+            (previous == paragraph.chapterParagraphIndex ? 0 : h * .2);
+        expect(paragraph.spacingBefore, closeTo(expected, .03));
+      }
+      y += paragraph.spacingBefore ?? 0;
+      for (final line in paragraph.lines) {
+        y += line.height;
+        previousHeight = line.height;
+      }
+      previous = paragraph.chapterParagraphIndex;
+    }
+    expect(body.pageInfo.totalHeight, closeTo(y, .03));
     expect(tester.takeException(), isNull);
   });
 }

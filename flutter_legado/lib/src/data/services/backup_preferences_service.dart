@@ -64,7 +64,7 @@ class BackupPreferencesService {
     'reader_toc_load_word_count',
     'reader_chapter_in_system_browser',
     'reader_menu_show_labels',
-    'reader_paragraph_spacing',
+    'reader_paragraph_spacing_tenths',
     'reader_letter_spacing',
     'reader_paragraph_indent',
     'reader_text_full_justify',

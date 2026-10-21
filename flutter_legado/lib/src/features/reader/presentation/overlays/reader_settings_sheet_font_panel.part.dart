@@ -216,11 +216,11 @@ class _ReaderFontPanelState extends ConsumerState<ReaderFontPanel> {
                 _ReaderSliderSetting(
                   title: context.l10n.readerParagraphSpacing,
                   displayValue:
-                      '${_textLayout.paragraphSpacing.toStringAsFixed(0)} dp',
+                      '${(_textLayout.paragraphSpacing / 10).toStringAsFixed(1)}倍',
                   value: _textLayout.paragraphSpacing,
                   min: 0,
-                  max: 48,
-                  divisions: 16,
+                  max: 20,
+                  divisions: 20,
                   onChanged: (value) {
                     _saveTextLayout(
                       () => ref

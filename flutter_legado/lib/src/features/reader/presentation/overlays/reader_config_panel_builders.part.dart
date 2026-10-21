@@ -295,9 +295,10 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
                 child: Slider(
                   value: _textLayout.paragraphSpacing,
                   min: 0,
-                  max: 48,
-                  divisions: 16,
-                  label: _textLayout.paragraphSpacing.toStringAsFixed(0),
+                  max: 20,
+                  divisions: 20,
+                  label:
+                      '${(_textLayout.paragraphSpacing / 10).toStringAsFixed(1)}倍',
                   onChanged: (v) {
                     _saveTextLayout(
                       () => ref
@@ -314,7 +315,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
               SizedBox(
                 width: 48,
                 child: Text(
-                  '${_textLayout.paragraphSpacing.toStringAsFixed(0)}px',
+                  '${(_textLayout.paragraphSpacing / 10).toStringAsFixed(1)}倍',
                   textAlign: TextAlign.end,
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
@@ -479,7 +480,7 @@ extension _ReaderConfigBuilders on _ReaderConfigPanelState {
         },
       ),
       if (_textLayout.useZhLayout)
-        // 段首标点悬挂（原版 hangingPunctuation；已接入排版引擎）
+        // 项目保留的独立段首引号悬挂，区别于断行器的行尾悬挂。— Codex + UI
         SettingSwitchRow(
           title: '段首标点悬挂',
           subtitle: '段首引号等标点悬挂于缩进内，使正文首字与其他段落对齐',

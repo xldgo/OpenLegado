@@ -47,7 +47,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   );
   static const _paragraphSpacing = (
     storage: SettingsStorageKind.preferences,
-    key: 'reader_paragraph_spacing',
+    key: 'reader_paragraph_spacing_tenths',
   );
   static const _letterSpacing = (
     storage: SettingsStorageKind.preferences,
@@ -223,7 +223,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
           (snapshot[_paragraphSpacing] is double
                   ? snapshot[_paragraphSpacing] as double
                   : 2)
-              .clamp(0, 48)
+              .clamp(0, 20)
               .toDouble(),
       letterSpacing:
           (snapshot[_letterSpacing] is double
@@ -247,7 +247,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
       italic: (snapshot[_italic] is bool ? snapshot[_italic] as bool : false),
       useZhLayout: (snapshot[_useZhLayout] is bool
           ? snapshot[_useZhLayout] as bool
-          : false),
+          : true),
       hangingPunctuation: (snapshot[_hangingPunctuation] is bool
           ? snapshot[_hangingPunctuation] as bool
           : false),
@@ -323,7 +323,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? useZhLayout,
     bool? hangingPunctuation,
   }) => _service.update({
-    _paragraphSpacing: ?paragraphSpacing?.clamp(0.0, 48.0),
+    _paragraphSpacing: ?paragraphSpacing?.clamp(0.0, 20.0),
     _letterSpacing: ?letterSpacing?.clamp(-0.5, 1.0),
     _paragraphIndent: ?paragraphIndent?.clamp(0, 3),
     _textFullJustify: ?textFullJustify,

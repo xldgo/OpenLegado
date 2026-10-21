@@ -84,7 +84,7 @@ class ParagraphLayoutEngine {
           'lineSpacingMultiplier': config.lineHeight,
           'textBottomJustify': config.textBottomJustify && !scroll,
           'baselineOffsetPx': shaper.baseline,
-          'paragraphSpacingPx': config.paragraphSpacing,
+          'paragraphSpacingPx': shaper.paragraphSpacingPx,
           'letterSpacingPx': shaper.spacing,
           'breakMode': config.useZhLayout ? 'chinese' : 'plain',
           'continuousScroll': scroll,

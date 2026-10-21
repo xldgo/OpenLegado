@@ -64,6 +64,9 @@ class FlutterTextShaper {
   }
 
   double get height => (metrics['lineHeightPx'] as num).toDouble();
+
+  /// 在布局入口统一换算，避免段评或滚动再次解释设置单位。— Codex + UI
+  double get paragraphSpacingPx => height * config.paragraphSpacing / 10;
   double get baseline => (metrics['baselineOffsetPx'] as num).toDouble();
   double get spacing =>
       config.letterSpacing *

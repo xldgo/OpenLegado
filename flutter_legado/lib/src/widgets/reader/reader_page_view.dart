@@ -187,6 +187,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
 
   /// 最近一次分页参数（相邻章预载复用同参；翻页回调触发预载时也需读取）
   ParagraphConfig? _pagedConfig;
+  double _pagedParagraphSpacingPx = 0;
   // ignore: prefer_final_fields
   double _pagedWidth = 0;
   // ignore: prefer_final_fields
@@ -740,7 +741,8 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       fontWeight: boldText ? FontWeight.bold : _fontWeightFor(textBold),
       fontStyle: _fontStyleFor(italic),
       justify: justify,
-      textBottomJustify: widget.textBottomJustify,
+      textBottomJustify:
+          widget.textBottomJustify && state.pageTurnMode != PageTurnMode.scroll,
       textColor: _resolveTextColor(state),
       backgroundColor: state.backgroundColor,
       letterSpacing: letterSpacing,
@@ -857,6 +859,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                   .sourceStart
             : null);
     final engine = ParagraphLayoutEngine(config: config, context: context);
+    _pagedParagraphSpacingPx = engine.shaper.paragraphSpacingPx;
     // [UI-fix v2.0.4 | 2026-08-08] 首页容量单独下发（扣标题块）— Qoder
     final cacheKey = ReaderPaginationPolicy.chapterCacheKey(
       bookUrl: state.currentBook?.bookUrl,
@@ -1032,15 +1035,28 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
     final positions = <(double, int, int)>[];
     var y = 0.0;
     var previous = 0;
+    double? previousLineHeight;
     for (var page = 0; page < _paginatedPages.length; page++) {
       for (final paragraph in _paginatedPages[page].paragraphs) {
-        final gap = previous != 0 && previous != paragraph.chapterParagraphIndex
-            ? widget.paragraphSpacing
-            : 0.0;
+        // 页内直接保留Rust最终间隔；拼页时补回未绘制的行后空白。
+        final atPageStart = identical(
+          paragraph,
+          _paginatedPages[page].paragraphs.first,
+        );
+        final gap = page > 0 && atPageStart && previousLineHeight != null
+            ? previousLineHeight * ((_pagedConfig?.lineHeight ?? 1) - 1) +
+                  (previous != paragraph.chapterParagraphIndex
+                      ? _pagedParagraphSpacingPx
+                      : 0)
+            : paragraph.spacingBefore ??
+                  (previous != 0 && previous != paragraph.chapterParagraphIndex
+                      ? _pagedParagraphSpacingPx
+                      : 0.0);
         y += gap;
         for (final line in paragraph.lines) {
           positions.add((y, line.startIndex, page));
           y += line.height;
+          previousLineHeight = line.height;
         }
         paragraphs.add(
           ParagraphInfo(
@@ -1653,7 +1669,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       tipContext: _buildTipContext(state, pageIndex, totalPages, null),
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
-      paragraphSpacing: widget.paragraphSpacing,
+      paragraphSpacing: _pagedParagraphSpacingPx,
       backgroundColor: state.backgroundColor,
       textColor: _resolveTextColor(state),
       letterSpacing: widget.letterSpacing * state.fontSize,
@@ -1787,7 +1803,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
                   pageInfo: _scrollLayout!,
                   fontSize: state.fontSize,
                   lineHeight: state.lineHeight,
-                  paragraphSpacing: widget.paragraphSpacing,
+                  paragraphSpacing: _pagedParagraphSpacingPx,
                   textColor: textColor,
                   readAloudRange: _aloudRange,
                   readAloudColor: Theme.of(context).colorScheme.primary,
@@ -1863,7 +1879,7 @@ class ReaderPageViewState extends ConsumerState<ReaderPageView> {
       ),
       fontSize: state.fontSize,
       lineHeight: state.lineHeight,
-      paragraphSpacing: widget.paragraphSpacing,
+      paragraphSpacing: _pagedParagraphSpacingPx,
       backgroundColor: state.backgroundColor,
       // [UI-fix v2.0.4 | 2026-08-08] 文字色经自定义配色解析；字距/字体/
       // 对齐/字重透传到分页页渲染（与测量同参）— Qoder

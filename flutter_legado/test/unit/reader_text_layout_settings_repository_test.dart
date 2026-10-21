@@ -116,14 +116,14 @@ void main() {
       ('reader_letter_spacing', 0.24),
       ('reader_paragraph_indent', 3),
       ('reader_italic', true),
-      ('reader_paragraph_spacing', 0.0),
+      ('reader_paragraph_spacing_tenths', 0.0),
       ('reader_letter_spacing', 0.0),
     ]);
   });
 
   test('读写均按原有效范围处理，不把0em误当未设置', () async {
     storage.values.addAll({
-      'reader_paragraph_spacing': 100.0,
+      'reader_paragraph_spacing_tenths': 100.0,
       'reader_letter_spacing': -2.0,
       'reader_paragraph_indent': 8,
       'reader_text_bold': 7,
@@ -131,7 +131,7 @@ void main() {
     expect(
       (await repository.load()).textLayout,
       const ReaderTextLayoutSettings(
-        paragraphSpacing: 48,
+        paragraphSpacing: 20,
         letterSpacing: -0.5,
         paragraphIndent: 3,
         textBold: 2,
@@ -151,7 +151,7 @@ void main() {
         paragraphIndent: 0,
       ),
     );
-    expect(storage.values['reader_paragraph_spacing'], 0.0);
+    expect(storage.values['reader_paragraph_spacing_tenths'], 0.0);
     expect(storage.values['reader_letter_spacing'], 1.0);
   });
 
@@ -215,7 +215,7 @@ void main() {
   test('恢复重读九项，读取失败保留当前快照', () async {
     await repository.load();
     storage.values.addAll({
-      'reader_paragraph_spacing': 15.0,
+      'reader_paragraph_spacing_tenths': 15.0,
       'reader_letter_spacing': -0.2,
       'reader_paragraph_indent': 1,
       'reader_text_full_justify': false,
@@ -245,5 +245,33 @@ void main() {
       ),
     );
     expect(storage.writes, isEmpty);
+  });
+  test('中文分行默认开启，显式关闭与比例段距在重建后恢复', () async {
+    final actualService = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
+    );
+    addTearDown(actualService.dispose);
+    final actual = AppReaderSettingsRepository(actualService);
+    final initial = await actual.load();
+    expect(initial.textLayout.useZhLayout, isTrue);
+    expect(initial.textLayout.paragraphSpacing, 2);
+    await actual.updateTextLayout(useZhLayout: false, paragraphSpacing: 6);
+    final freshService = AppSettingsService(
+      storages: {
+        SettingsStorageKind.preferences: SharedPreferencesSettingsStorage(),
+      },
+    );
+    addTearDown(freshService.dispose);
+    final restored = await AppReaderSettingsRepository(freshService).load();
+    expect(restored.textLayout.useZhLayout, isFalse);
+    expect(restored.textLayout.paragraphSpacing, 6);
+    expect(
+      (await SharedPreferences.getInstance()).getDouble(
+        'reader_paragraph_spacing_tenths',
+      ),
+      6,
+    );
   });
 }

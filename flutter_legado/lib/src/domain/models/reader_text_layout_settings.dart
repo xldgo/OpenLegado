@@ -8,11 +8,11 @@ final class ReaderTextLayoutSettings {
     this.textBottomJustify = true,
     this.textBold = 0,
     this.italic = false,
-    this.useZhLayout = false,
+    this.useZhLayout = true,
     this.hangingPunctuation = false,
   });
 
-  /// 段距单位为dp，字距单位为em，缩进为字符数。
+  /// 段距为自然行高的十分之一刻度（2=0.2倍）；字距为em，缩进为字符数。
   final double paragraphSpacing;
   final double letterSpacing;
   final int paragraphIndent;

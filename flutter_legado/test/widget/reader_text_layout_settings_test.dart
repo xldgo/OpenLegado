@@ -75,10 +75,12 @@ void main() {
 
   testWidgets('字体与中文排版控件保存九项，并保持彼此值', (tester) async {
     await initialize(tester);
+    expect(find.text('0.2倍'), findsOneWidget);
+    expect(tester.widget<Slider>(slider(0, 20)).divisions, 20);
     expect(tester.widget<Slider>(slider(-0.5, 1)).value, 0);
     tester.widget<Slider>(slider(-0.5, 1)).onChanged!(0.24);
     await tester.pumpAndSettle();
-    tester.widget<Slider>(slider(0, 48)).onChanged!(12);
+    tester.widget<Slider>(slider(0, 20)).onChanged!(12);
     await tester.pumpAndSettle();
     await tap(tester, '粗体');
     await tap(tester, '斜体');
@@ -94,6 +96,8 @@ void main() {
       isTrue,
     );
     await tap(tester, '底部对齐');
+    await tap(tester, '中文优化分行');
+    expect(find.text('段首标点悬挂'), findsNothing);
     await tap(tester, '中文优化分行');
     expect(find.text('段首标点悬挂'), findsOneWidget);
     await tap(tester, '段首标点悬挂');
@@ -112,7 +116,7 @@ void main() {
     expect(layout.hangingPunctuation, isTrue);
     expect(storage.writes.map((entry) => entry.$1).toSet(), {
       'reader_letter_spacing',
-      'reader_paragraph_spacing',
+      'reader_paragraph_spacing_tenths',
       'reader_paragraph_indent',
       'reader_text_bold',
       'reader_italic',
@@ -138,12 +142,12 @@ void main() {
     expect(storage.values['reader_letter_spacing'], 0.4);
     storage.values.addAll({
       'reader_letter_spacing': -0.2,
-      'reader_paragraph_spacing': 15.0,
+      'reader_paragraph_spacing_tenths': 15.0,
     });
     await container.read(readerSettingsRepositoryProvider).reload();
     await tester.pumpAndSettle();
     expect(tester.widget<Slider>(slider(-0.5, 1)).value, -0.2);
-    expect(tester.widget<Slider>(slider(0, 48)).value, 15);
+    expect(tester.widget<Slider>(slider(0, 20)).value, 15);
     expect(tester.takeException(), isNull);
   });
 
@@ -152,16 +156,18 @@ void main() {
     storage.writeFailure = true;
     await tap(tester, '中文优化分行');
     expect(find.text('阅读排版保存失败，请重试'), findsOneWidget);
-    expect(find.text('段首标点悬挂'), findsNothing);
+    expect(find.text('段首标点悬挂'), findsOneWidget);
     expect(
       container
           .read(readerSettingsRepositoryProvider)
           .current
           .textLayout
           .useZhLayout,
-      isFalse,
+      isTrue,
     );
     storage.writeFailure = false;
+    await tap(tester, '中文优化分行');
+    expect(find.text('段首标点悬挂'), findsNothing);
     await tap(tester, '中文优化分行');
     await tap(tester, '段首标点悬挂');
     await container

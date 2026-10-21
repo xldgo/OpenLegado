@@ -1,5 +1,16 @@
 # API 契约文档
 
+### READER-SPACING-RATIO-20261021：正文段距改为自然行高比例
+
+- ReaderTextLayoutSettings.paragraphSpacing、ReaderPageView.paragraphSpacing和ParagraphConfig.paragraphSpacing统一表示自然行高的十分之一刻度，基础值2=0.2H；有效范围0..20，UI显示0..2倍并以0.1倍步进。
+- 普通偏好改名reader_paragraph_spacing_tenths。旧固定像素键及其读写、备份分类直接移除，不增加迁移、兼容或专用过滤；新键不存在时取2。
+- FlutterTextShaper统一提供paragraphSpacingPx=自然行盒高度×刻度/10，普通段落/行内段评共享LayoutConfigDto.paragraphSpacingPx；FRB/Rust已有参数仍表示最终坐标距离，签名不变。
+- ReaderTextLayoutSettings与仓储useZhLayout缺省改为true，显式保存的false仍可关闭；ParagraphConfig及ReaderPageView缺省保持true，实际入口同源。段首标点悬挂保持独立、默认false。
+- 滚动模式不做页底对齐；拼接分页结果保留页内最终spacingBefore，页间补足自然行推进后的空白和真实段末附加距。绘制层只消费布局间隔，旧手工PageInfo的fallback参数仍为最终像素距离。
+- 不修改业务数据、原文UTF-16位置、Rust/FRB签名、标题或预设语义。
+
+编写者：Codex + UI｜2026-10-21
+
 ### READER-TIP-UNIFY-20261021：统一阅读状态信息
 
 - 移除ReaderSettings.statusStrip、ReaderStatusStripSettings及ReaderSettingsRepository.updateStatusStrip，删除四个reader_status_show_*普通偏好的读写与备份分类。开发阶段直接按旧键不存在处理，不读取、迁移、双写或清理旧值，也不增加专用备份过滤。

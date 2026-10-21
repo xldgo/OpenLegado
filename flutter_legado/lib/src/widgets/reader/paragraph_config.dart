@@ -7,6 +7,8 @@ import 'text_layout_environment.dart';
 class ParagraphConfig {
   final double fontSize;
   final double lineHeight;
+
+  /// 自然行高的十分之一刻度，2表示0.2倍。— Codex + UI
   final double paragraphSpacing;
   final double indent;
   final bool justify;
@@ -47,7 +49,7 @@ class ParagraphConfig {
   const ParagraphConfig({
     this.fontSize = 16.0,
     this.lineHeight = 1.2,
-    this.paragraphSpacing = 8.0,
+    this.paragraphSpacing = 2.0,
     this.indent = 0.0,
     this.justify = true,
     this.textBottomJustify = true,

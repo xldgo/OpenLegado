@@ -1073,7 +1073,7 @@ void main() {
   testWidgets('正文按同源八项排版设置接参，恢复重读刷新且高级保存不覆盖', (tester) async {
     final storage = HomeSettingsStorage();
     storage.values.addAll({
-      'reader_paragraph_spacing': 9.0,
+      'reader_paragraph_spacing_tenths': 9.0,
       'reader_letter_spacing': 0.2,
       'reader_paragraph_indent': 3,
       'reader_text_full_justify': false,

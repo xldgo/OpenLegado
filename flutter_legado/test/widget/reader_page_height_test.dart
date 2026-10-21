@@ -133,4 +133,61 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+  for (final scale in [1.0, 2.0]) {
+    for (final withReview in [false, true]) {
+      test('自然行高比例段距随缩放变化，段评$withReview，缩放$scale', () async {
+        const text = 'AB\nCD';
+        final config = const ParagraphConfig(
+          fontFamily: 'Ahem',
+          fontSize: 20,
+          lineHeight: 1.2,
+          paragraphSpacing: 2,
+          textBottomJustify: false,
+          backgroundColor: Colors.white,
+          textColor: Colors.black,
+        ).copyWith(textScaler: TextScaler.linear(scale));
+        final layout = ParagraphLayoutEngine(
+          context: _Context(),
+          transport: nativeReaderLayout,
+          config: config,
+        );
+        final result = await layout.paginateChapter(
+          text,
+          300,
+          200,
+          paragraphReviews: withReview
+              ? const {
+                  1: InlineReview(
+                    paragraphId: 1,
+                    reviewKey: 1,
+                    sourceAnchor: 2,
+                    count: 1,
+                    size: Size(24, 14),
+                    compactSize: Size(14, 14),
+                    baseline: 12,
+                  ),
+                }
+              : const {},
+        );
+        final page = result.single;
+        final h = layout.shaper.height;
+        expect(h, closeTo(20 * scale, .01));
+        expect(layout.shaper.paragraphSpacingPx, closeTo(h * .2, .01));
+        final second = page.elements.firstWhere(
+          (element) =>
+              element.kind == ReaderElementKind.text &&
+              element.sourceOffset == 3,
+        );
+        expect(second.top, closeTo(h * 1.4, .01));
+        expect(page.paragraphs.last.spacingBefore, closeTo(h * .4, .01));
+        expect(
+          page.paragraphs
+              .expand((p) => p.lines)
+              .map((line) => line.selectableText)
+              .join(),
+          'ABCD',
+        );
+      });
+    }
+  }
 }

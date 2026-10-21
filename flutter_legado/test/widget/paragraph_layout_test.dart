@@ -24,7 +24,7 @@ void main() {
     test('ParagraphConfig - 默认值验证', () {
       expect(defaultConfig.fontSize, equals(16.0));
       expect(defaultConfig.lineHeight, equals(1.2));
-      expect(defaultConfig.paragraphSpacing, equals(8.0));
+      expect(defaultConfig.paragraphSpacing, equals(2.0));
       expect(defaultConfig.indent, equals(0.0));
       expect(defaultConfig.justify, isTrue);
       expect(defaultConfig.textBottomJustify, isTrue);
@@ -61,7 +61,7 @@ void main() {
 
       expect(modified.fontSize, equals(18.0));
       expect(modified.lineHeight, equals(1.2));
-      expect(modified.paragraphSpacing, equals(8.0));
+      expect(modified.paragraphSpacing, equals(2.0));
     });
 
     test('ParagraphConfig - copyWith 全修改', () {

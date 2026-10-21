@@ -79,6 +79,10 @@ void main() {
       expect(transport.config!['viewportWidthPx'], 120);
       expect(transport.config!['viewportHeightPx'], 200);
       expect(transport.config!['lineSpacingMultiplier'], 1.5);
+      expect(
+        transport.config!['paragraphSpacingPx'],
+        closeTo((transport.config!['lineHeightPx']! as double) * .8, .001),
+      );
       expect(transport.config!['textBottomJustify'], isTrue);
       final block = transport.blocks.single['value']! as Map;
       expect(block['lineSpacingMultiplier'], 1.5);
