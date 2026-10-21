@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-JS-PARITY-AUDIT-20261022：书源 JS 对齐审计（报告已交付，差异修复待授权与裁决）
+
+- 授权/基线：用户要求检查书源JS等行为与上游的对齐情况并形成报告；主目录dev / 57d9c4fa2，单代理，只审计，不修改业务实现。
+- 固定对照：原版build/upstream/legado / 363540972与参考版build/upstream/legado-with-MD3 / c4182eb9b。当前参考版快照没有mainJs，主脚本语义以原版交叉核对，不混用两个版本的能力范围。
+- 报告：[SOURCE_JS_PARITY_AUDIT_20261022.md](SOURCE_JS_PARITY_AUDIT_20261022.md)。确认mainJs对象参数实际为字符串、缺少source等上下文、VM复用改变普通调用状态、返回类型/序列化错误被压成空值、可选函数识别和部分详情合并异常；另确认并发回调协议不符、同资源跨源tick共用键、jsLib路径分叉及依赖顺序错误。配置解析、主题模式协议与批量正文/回复能力另列差异，不宣称全面兼容或所有书源失效。
+- 证据：9项既有定向回归通过（jsLib7、请求响应与绑定恢复各1）；4个实际QuickJS诊断场景复现差异，后续补充输出不重复计数，不把探针退出0写成对齐通过。日志build/source-js-parity-{audit-probe,audit-host,audit-result,jslib-regression,network-response,network-batch}.log；最终探针源码留在忽略目录build/source-js-parity-audit-probe.rs，临时测试入口已移除。
+- 后续建议：先修mainJs执行契约与详情合并，再收敛公共宿主/jsLib/config；既有下载失败降级与主题模式协议差异先裁决，批量正文和独立段评回复另定授权范围。资源隔离与取消机制保留，不先更换JS引擎或扩大FFI重构。
+- 交付边界：仅新增审计报告与索引/本记录，应用版本保持2.0.438+439；未运行全量测试、上游Gradle、真实FFI、设备或真实站点/性能验证，不推送或触发CI。本地提交号见Git，不宣称独立审查。
+
+编写者：Codex + Rust / Bridge｜2026-10-22
+
 ### SEARCH-RECORD-TOPBAR-20261022：搜索与阅读记录顶栏修复（P1，代码与定向验证完成，待用户手动验收）
 
 - 授权/基线：用户指出搜索页按钮与折叠样式异常，并要求修复阅读记录顶栏；dev / 34d1cabd7，单代理。用户自行手动检查，不构建安装或进行设备操作。

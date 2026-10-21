@@ -38,6 +38,7 @@
 | 文档 | 说明 |
 | --- | --- |
 | [API_CONTRACT.md](API_CONTRACT.md) | BookApi 接口契约文档（UI 轨与 Rust 轨唯一接口基准） |
+| [SOURCE_JS_PARITY_AUDIT_20261022.md](SOURCE_JS_PARITY_AUDIT_20261022.md) | 固定原版/参考版快照下的书源JS行为审计、已复现差异及修复建议 |
 | [TWO_TRACK_DEV_SPEC.md](TWO_TRACK_DEV_SPEC.md) | 双轨协作开发规范（UI 轨与 Rust 轨分离开发及边界），只写做法 |
 | [TWO_TRACK_DEV_RATIONALE.md](TWO_TRACK_DEV_RATIONALE.md) | 双轨规范背景与原理说明（为什么这样规定），章节号与规范对应 |
 | [RUST_SERVICE_BOUNDARY_LOG.md](RUST_SERVICE_BOUNDARY_LOG.md) | Rust 服务边界逐批变更记录（记录性文档，不构成新约束） |
