@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.426] - 2026-10-21
 
 ### Added
+- 开书转场支持同步翻盖、正文渐显与阅读配色光影，增加临时A/B轨迹对比。贡献者：Codex + UI。
 - 阅读器支持定时及持续保持亮屏，触摸重新计时，到期恢复系统自动熄屏；离开阅读或切后台时解除。贡献者：Codex + UI。
 
 ### Fixed

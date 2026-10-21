@@ -14,6 +14,7 @@ import '../../../../l10n/app_localization.dart';
 import '../../application/reader_notifier.dart';
 import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../../../providers/ui_settings/eye_protection_notifier.dart';
+import '../../../../providers/book_open_motion_provider.dart';
 
 import 'reader_config_panel.dart';
 import '../../../../widgets/app_scaffold.dart';
@@ -301,6 +302,16 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             value: state.pageTurnMode,
             options: _flipLabels,
             onChanged: _savePageTurnMode,
+          ),
+          SettingMenuRow<BookOpenMotion>(
+            title: '开书动画 A/B（临时）',
+            subtitle: '下次开书生效，仅本次运行有效',
+            icon: Icons.open_in_new,
+            value: ref.watch(bookOpenMotionProvider),
+            options: {
+              for (final motion in BookOpenMotion.values) motion: motion.label,
+            },
+            onChanged: ref.read(bookOpenMotionProvider.notifier).select,
           ),
         ],
       );

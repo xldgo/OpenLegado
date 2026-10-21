@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
+import 'package:flutter_legado/src/providers/book_open_motion_provider.dart';
 
 void main() {
   testWidgets('阅读快捷面板进入完整设置，再进入翻页与操作', (tester) async {
@@ -50,6 +51,17 @@ void main() {
     expect(find.text('字号'), findsOneWidget);
     expect(find.text('背景'), findsOneWidget);
     expect(find.text('翻页动画'), findsOneWidget);
+    await tester.ensureVisible(find.text('开书动画 A/B（临时）'));
+    await tester.tap(find.text('开书动画 A/B（临时）'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(CheckboxMenuButton, BookOpenMotion.top.label),
+    );
+    await tester.pumpAndSettle();
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderSettingsSheet)),
+    );
+    expect(scope.read(bookOpenMotionProvider), BookOpenMotion.top);
 
     await tester.ensureVisible(find.text('全部阅读设置'));
     await tester.tap(find.text('全部阅读设置'));
@@ -64,5 +76,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('自动翻页'), findsWidgets);
     expect(find.text('点击区域'), findsOneWidget);
+    expect(scope.read(bookOpenMotionProvider), BookOpenMotion.top);
   });
 }
