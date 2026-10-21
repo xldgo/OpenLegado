@@ -1752,6 +1752,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchBookSources => 'Search book sources';
 
   @override
+  String get noMatchingGroups => 'No matching groups';
+
+  @override
   String get noMatchingBookSources => 'No matching book sources';
 
   @override

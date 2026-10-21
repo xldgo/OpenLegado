@@ -12,6 +12,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
+import '../../widgets/app_search_field.dart';
+import '../../widgets/bottom_sheet_widget.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -118,16 +120,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       // 预选分组（路由 searchScope / groups 参数）
       final groups = widget.initialGroups;
       if (groups != null && groups.isNotEmpty) {
-        for (final group in groups) {
-          ref.read(searchNotifierProvider.notifier).toggleGroup(group);
-        }
+        ref.read(searchNotifierProvider.notifier).setGroups(groups);
       }
-      // 预选书源（发现页「搜索」入口指定书源，单选取首个）
+      // 路由传入的多个书源作为同一范围一次应用。— Codex + UI
       final sourceUrls = widget.initialSourceUrls;
       if (sourceUrls != null && sourceUrls.isNotEmpty) {
-        ref
-            .read(searchNotifierProvider.notifier)
-            .toggleSource(sourceUrls.first);
+        ref.read(searchNotifierProvider.notifier).setSources(sourceUrls);
       }
       final q = widget.initialQuery?.trim();
       if (q != null && q.isNotEmpty) {

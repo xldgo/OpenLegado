@@ -1,5 +1,16 @@
 # Legado 后续重构执行计划（Active）
 
+### SEARCH-SCOPE-MULTI-20261022：搜索范围Sheet整理与书源多选（P1，代码与定向验证完成，待用户手动验收）
+
+- 授权/基线：用户同意搜索范围弹层优化方案并要求书源也支持多选；dev / 57d9c4fa2，单代理，不安装、不推送。并行出现的书源JS审计提交不属于本批。
+- 参考：本地build/upstream/legado-with-MD3 / c4182eb9b的ScopeSelectSheet.kt；保留分组/书源互斥、两类多选、草稿确认、统一筛选与最高480dp列表的语义，使用Flutter共用组件实现。
+- 实现：移除重复快捷区、自绘分段和底部三按钮；复用AppBottomSheet居中标题、取消/确定，AppSearchField与标准TabBar/CheckboxListTile。共用正文新增可选scrollable:false，供固定筛选区与独立列表使用，其他调用默认不变。确认结果返回页面后一次调用setSources或setGroups；取消、遮罩、下滑关闭不写入，切换页签不清选择，筛选隐藏项仍保留勾选。路由传入多个书源不再只取首项，已有关键词仅在范围变化时重搜一次。
+- 边界：不改Rust、FFI或数据库；不新增跨冷启动书源范围持久化格式，沿用现有恢复策略。书源管理等既有快捷单源入口仍保留原语义，不扩展本批范围。
+- 验证：8个相关文件99项通过（含5个新增弹层行为场景），覆盖多选请求完整传递、再次打开保留勾选、取消/遮罩无副作用、页签与范围互斥、名称/URL/分组筛选、全部书源、深色长列表和240dp键盘避让，以及原有共用Sheet/搜索生命周期回归。日志flutter_legado/build/search-scope-{widget,final}.log；改动文件静态分析无问题，日志search-scope-analysis-final.log；架构与diff检查通过，日志search-scope-architecture.log。
+- 交付：版本2.0.439+440，设计规范与双日志同步；单代理自查，不宣称独立审查。仅本地提交，未构建安装应用或触发CI，真实设备视觉、键盘与手势由用户手动验收；提交号见Git。
+
+编写者：Codex + UI｜2026-10-22
+
 ### SOURCE-JS-PARITY-AUDIT-20261022：书源 JS 对齐审计（报告已交付，差异修复待授权与裁决）
 
 - 授权/基线：用户要求检查书源JS等行为与上游的对齐情况并形成报告；主目录dev / 57d9c4fa2，单代理，只审计，不修改业务实现。

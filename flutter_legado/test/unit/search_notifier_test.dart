@@ -852,17 +852,23 @@ void main() {
       expect(readState().searchHistory, contains('遮天'));
     });
 
-    test('有选中书源时传递 sourceUrls 参数', () async {
+    test('确认多个书源后完整传递 sourceUrls 参数', () async {
       container.read(searchNotifierProvider);
       await pumpInit();
-      readNotifier().toggleSource('https://a.com');
+      readNotifier().setGroups(['旧分组']);
+      readNotifier().setSources(['https://a.com', 'https://b.com']);
+      expect(readState().selectedGroups, isEmpty);
+      expect(readState().selectedSourceUrls, {
+        'https://a.com',
+        'https://b.com',
+      });
       await readNotifier().search('测试');
       await pumpStream();
 
       verify(
         () => mockApi.searchService.searchMultiStream(
           '测试',
-          sourceUrls: ['https://a.com'],
+          sourceUrls: ['https://a.com', 'https://b.com'],
           page: any(named: 'page'),
         ),
       ).called(1);

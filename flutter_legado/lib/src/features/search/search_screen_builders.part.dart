@@ -879,9 +879,7 @@ extension _SearchBuilders on _SearchScreenState {
     // 既有结果（对齐原版 adapter.setItems 对现有结果重过滤，非重新搜索）
   }
 
-  /// 搜索范围底部对话框（对齐原版 SearchScopeDialog：分组多选 / 书源单选，
-  /// 全部书源 / 取消 / 确定；rb_group → CheckBox、rb_source → RadioButton +
-  /// 名称过滤字段）— Cursor UI
+  /// 弹层只返回确认后的草稿；取消或关闭不写入搜索范围。— Codex + UI
   Future<void> _showSearchScopeDialog() async {
     List<BookSource> sources;
     try {
@@ -900,29 +898,29 @@ extension _SearchBuilders on _SearchScreenState {
     }
     if (!mounted) return;
     final before = ref.read(searchNotifierProvider);
-    await showModalBottomSheet<void>(
+    final selection = await AppBottomSheet.showContent<_SearchScopeSelection>(
       context: context,
       showDragHandle: true,
-      useSafeArea: true,
-      builder: (ctx) => SizedBox(
-        height: MediaQuery.of(ctx).size.height * 0.75,
-        child: _SearchScopeSheet(
-          sources: sources,
-          initialGroups: {...before.selectedGroups},
-          initialSourceUrl: before.selectedSourceUrls.isNotEmpty
-              ? before.selectedSourceUrls.first
-              : null,
-        ),
+      builder: (_) => _SearchScopeSheet(
+        sources: sources,
+        initialGroups: before.selectedGroups,
+        initialSourceUrls: before.selectedSourceUrls,
       ),
     );
-    if (!mounted) return;
-    final after = ref.read(searchNotifierProvider);
+    if (!mounted || selection == null) return;
     final changed =
-        !_setEquals(before.selectedGroups, after.selectedGroups) ||
-        !_setEquals(before.selectedSourceUrls, after.selectedSourceUrls);
-    // 筛选变更且有关键词时自动重搜（对齐原版 scope 变更观察者重搜）
-    if (changed && after.keyword.isNotEmpty) {
-      ref.read(searchNotifierProvider.notifier).search(after.keyword);
+        !_setEquals(before.selectedGroups, selection.groups) ||
+        !_setEquals(before.selectedSourceUrls, selection.sourceUrls);
+    if (!changed) return;
+    final notifier = ref.read(searchNotifierProvider.notifier);
+    if (selection.sourceUrls.isNotEmpty) {
+      notifier.setSources(selection.sourceUrls);
+    } else {
+      notifier.setGroups(selection.groups.toList());
+    }
+    final keyword = ref.read(searchNotifierProvider).keyword;
+    if (keyword.isNotEmpty) {
+      notifier.search(keyword);
     }
   }
 

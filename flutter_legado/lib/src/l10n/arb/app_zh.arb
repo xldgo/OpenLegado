@@ -2226,6 +2226,10 @@
   "currentBookSource": "当前书源",
   "allBookSources": "全部书源",
   "searchBookSources": "搜索书源",
+  "noMatchingGroups": "无匹配分组",
+  "@noMatchingGroups": {
+    "description": "搜索范围弹层的分组筛选空态"
+  },
   "noMatchingBookSources": "无匹配书源",
   "noGroupedBookSources": "无分组书源",
   "searchBlockedWords": "搜索结果屏蔽词",

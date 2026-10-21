@@ -1,41 +1,53 @@
-// search_screen.dart 的 part 文件（体检 §三.16 超长文件拆分）：
-// 搜索范围底部弹层（顶层私有类原样搬移）。
 part of 'search_screen.dart';
 
-/// 搜索范围底部对话框视图（对齐原版 dialog_search_scope.xml）
-///
-/// 顶部 [分组 | 书源] 分段切换：分组模式 = CheckBox 多选；书源模式 =
-/// RadioButton 单选 + 名称过滤字段。底栏：全部书源（清空为全量）|
-/// 取消 | 确定（按 rb 语义应用）。iOS 风格：底部弹层、系统列表节奏、
-/// 中性灰分段控件、克制的强调色 — Cursor UI
-class _SearchScopeSheet extends ConsumerStatefulWidget {
-  final List<BookSource> sources;
-  final Set<String> initialGroups;
-  final String? initialSourceUrl;
+/// 搜索范围确认结果；分组与书源互斥，空集合表示全部书源。— Codex + UI
+final class _SearchScopeSelection {
+  _SearchScopeSelection({
+    required Set<String> groups,
+    required Set<String> sourceUrls,
+  }) : groups = Set.unmodifiable(groups),
+       sourceUrls = Set.unmodifiable(sourceUrls);
 
+  final Set<String> groups;
+  final Set<String> sourceUrls;
+}
+
+/// 对照上游ScopeSelectSheet：本地草稿、统一筛选、两类范围多选。— Codex + UI
+class _SearchScopeSheet extends StatefulWidget {
   const _SearchScopeSheet({
     required this.sources,
     required this.initialGroups,
-    this.initialSourceUrl,
+    required this.initialSourceUrls,
   });
 
+  final List<BookSource> sources;
+  final Set<String> initialGroups;
+  final Set<String> initialSourceUrls;
+
   @override
-  ConsumerState<_SearchScopeSheet> createState() => _SearchScopeSheetState();
+  State<_SearchScopeSheet> createState() => _SearchScopeSheetState();
 }
 
-class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
-  bool _sourceMode = false;
+class _SearchScopeSheetState extends State<_SearchScopeSheet> {
+  late bool _sourceMode;
   late Set<String> _checkedGroups;
-  String? _selectedUrl;
+  late Set<String> _selectedUrls;
+  late final List<String> _groups;
   final _queryController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // 原版默认 rb_source；若当前已是书源范围则保持书源模式（对齐 tvOk 语义）
-    _sourceMode = widget.initialSourceUrl != null;
-    _checkedGroups = {...widget.initialGroups};
-    _selectedUrl = widget.initialSourceUrl;
+    _sourceMode = widget.initialSourceUrls.isNotEmpty;
+    _checkedGroups = _sourceMode ? {} : {...widget.initialGroups};
+    _selectedUrls = {...widget.initialSourceUrls};
+    _groups = {
+      for (final source in widget.sources)
+        for (final group in (source.bookSourceGroup ?? '').split(
+          _splitGroupRegex,
+        ))
+          if (group.trim().isNotEmpty) group.trim(),
+    }.toList();
   }
 
   @override
@@ -44,157 +56,84 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
     super.dispose();
   }
 
-  /// 全部不重复分组名（对标原版 BookSourceDao.dealGroups：
-  /// splitGroupRegex 拆分 + 首现序去重）
-  List<String> get _groups {
-    final set = <String>{};
-    for (final s in widget.sources) {
-      final group = s.bookSourceGroup;
-      if (group != null && group.isNotEmpty) {
-        for (final part in group.split(_splitGroupRegex).map((p) => p.trim())) {
-          if (part.isNotEmpty) set.add(part);
-        }
-      }
-    }
-    return set.toList();
-  }
+  void _selectAll() => setState(() {
+    _checkedGroups.clear();
+    _selectedUrls.clear();
+  });
 
-  /// 书源模式：按名称过滤（原版 toolbar SearchView 同名行为）
-  List<BookSource> get _filteredSources {
-    final q = _queryController.text.trim().toLowerCase();
-    if (q.isEmpty) return widget.sources;
-    return widget.sources
-        .where((s) => s.bookSourceName.toLowerCase().contains(q))
+  void _toggleGroup(String group) => setState(() {
+    _selectedUrls.clear();
+    if (!_checkedGroups.remove(group)) _checkedGroups.add(group);
+  });
+
+  void _toggleSource(String url) => setState(() {
+    _checkedGroups.clear();
+    if (!_selectedUrls.remove(url)) _selectedUrls.add(url);
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _queryController.text.trim().toLowerCase();
+    final groups = _groups
+        .where((group) => group.toLowerCase().contains(query))
         .toList();
-  }
-
-  void _onOk() {
-    final notifier = ref.read(searchNotifierProvider.notifier);
-    if (_sourceMode) {
-      if (_selectedUrl != null) {
-        // 单选替换（原版 selectSource → SearchScope(url)）；未变更则不动作
-        final current = ref.read(searchNotifierProvider).selectedSourceUrls;
-        if (!current.contains(_selectedUrl)) {
-          notifier.toggleSource(_selectedUrl!);
-        }
-      } else {
-        // 原版：selectSource == null → SearchScope(空串) 全量
-        notifier.clearAllFilter();
-      }
-    } else {
-      // 分组多选整体替换（原版 CheckBox 组 → SearchScope(selectGroups)）
-      notifier.setGroups(_checkedGroups.toList());
-    }
-    Navigator.of(context).pop();
-  }
-
-  void _onAllSources() {
-    ref.read(searchNotifierProvider.notifier).clearAllFilter();
-    Navigator.of(context).pop();
-  }
-
-  /// [1-6 ①] 范围快捷：分组点按（点已选=取消、点未选=单选替换，
-  /// 与原 ⋮ 'group:X' 语义一致）；同步分组多选节状态防止两节漂移
-  void _onQuickGroupTapped(String group) {
-    final notifier = ref.read(searchNotifierProvider.notifier);
-    final st = ref.read(searchNotifierProvider);
-    if (st.selectedGroups.contains(group)) {
-      notifier.toggleGroup(group);
-    } else {
-      notifier.selectGroupExclusive(group);
-    }
-    _checkedGroups = {...ref.read(searchNotifierProvider).selectedGroups};
-    setState(() {});
-  }
-
-  /// [1-6 ①] 当前书源快捷：点按清除书源范围（对齐原 ⋮ '__current_source__'）
-  void _onQuickCurrentSourceTapped() {
-    ref.read(searchNotifierProvider.notifier).clearSourceFilter();
-    _selectedUrl = null;
-    setState(() {});
-  }
-
-  /// [1-6 ①] 全部书源快捷：清空全部范围（对齐原 ⋮ '__all_sources__'；
-  /// 与底栏「全部书源」同语义但不关闭弹层，由 changed 检测统一重搜）
-  void _onQuickAllSourcesTapped() {
-    ref.read(searchNotifierProvider.notifier).clearAllFilter();
-    _checkedGroups = {};
-    _selectedUrl = null;
-    setState(() {});
-  }
-
-  /// 当前选中书源名（快捷节展示用；多源取首名）
-  String _quickCurrentSourceName(Set<String> urls) {
-    for (final s in widget.sources) {
-      if (urls.contains(s.bookSourceUrl)) return s.bookSourceName;
-    }
-    return context.l10n.currentBookSource;
-  }
-
-  /// [1-6 ①] 范围快捷节（原 ⋮ 动态范围项并入 ◯ 弹层）：
-  /// 当前书源（有书源范围时显示，勾选=点按清除）/ 全部书源 / 各分组
-  ///（勾选=已选）；重搜由 _showSearchScopeDialog 的 changed 检测统一触发
-  Widget _buildScopeQuickSection(ColorScheme scheme) {
-    final st = ref.read(searchNotifierProvider);
-    final rows = <Widget>[
-      if (st.selectedSourceUrls.isNotEmpty)
-        _quickRow(
-          scheme,
-          label: _quickCurrentSourceName(st.selectedSourceUrls),
-          checked: true,
-          onTap: _onQuickCurrentSourceTapped,
+    final sources = widget.sources
+        .where(
+          (source) =>
+              source.bookSourceName.toLowerCase().contains(query) ||
+              (source.bookSourceGroup ?? '').toLowerCase().contains(query) ||
+              source.bookSourceUrl.toLowerCase().contains(query),
+        )
+        .toList();
+    return DefaultTabController(
+      length: 2,
+      initialIndex: widget.initialSourceUrls.isNotEmpty ? 1 : 0,
+      child: AppBottomSheet.content(
+        title: context.l10n.searchScope,
+        scrollable: false,
+        leading: TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.cancel),
         ),
-      _quickRow(
-        scheme,
-        label: context.l10n.allBookSources,
-        checked: st.selectedGroups.isEmpty && st.selectedSourceUrls.isEmpty,
-        onTap: _onQuickAllSourcesTapped,
-      ),
-      for (final g in _groups)
-        _quickRow(
-          scheme,
-          label: g,
-          checked: st.selectedGroups.contains(g),
-          onTap: () => _onQuickGroupTapped(g),
-        ),
-    ];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(children: rows),
-      ),
-    );
-  }
-
-  /// 快捷节行：左勾选圈 + 名称（点按触发对应范围动作）
-  Widget _quickRow(
-    ColorScheme scheme, {
-    required String label,
-    required bool checked,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Icon(
-              checked ? Symbols.check_rounded : Symbols.circle_rounded,
-              size: 18,
-              color: checked ? scheme.primary : scheme.onSurfaceVariant,
+        trailing: FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _SearchScopeSelection(
+              groups: _checkedGroups,
+              sourceUrls: _selectedUrls,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, color: scheme.onSurface),
+          ),
+          child: Text(context.l10n.confirm),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppSearchRow(
+              field: AppSearchField(
+                controller: _queryController,
+                hintText: context.l10n.filter,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            CheckboxListTile(
+              title: Text(context.l10n.allBookSources),
+              value: _checkedGroups.isEmpty && _selectedUrls.isEmpty,
+              onChanged: (_) => _selectAll(),
+            ),
+            TabBar(
+              tabAlignment: TabAlignment.fill,
+              onTap: (index) => setState(() => _sourceMode = index == 1),
+              tabs: [
+                Tab(text: context.l10n.group),
+                Tab(text: context.l10n.sources),
+              ],
+            ),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 480),
+                child: _sourceMode
+                    ? _sourceList(sources)
+                    : _groupList(groups, filtered: query.isNotEmpty),
               ),
             ),
           ],
@@ -203,218 +142,59 @@ class _SearchScopeSheetState extends ConsumerState<_SearchScopeSheet> {
     );
   }
 
-  /// 分段按钮（MD3 SegmentedButton 视觉：选中 secondaryContainer 底 +
-  /// onSecondaryContainer 前景，未选中透明底）
-  Widget _segmentButton(String label, bool selected, VoidCallback onTap) {
-    final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Material(
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(7),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected
-                    ? scheme.onSecondaryContainer
-                    : scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ),
-      ),
+  Widget _sourceList(List<BookSource> sources) {
+    if (sources.isEmpty) return _empty(context.l10n.noMatchingBookSources);
+    return ListView.builder(
+      key: const ValueKey('scope-sources'),
+      primary: false,
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(bottom: 16),
+      itemCount: sources.length,
+      itemBuilder: (_, index) {
+        final source = sources[index];
+        final group = source.bookSourceGroup?.trim();
+        return CheckboxListTile(
+          key: ValueKey(source.bookSourceUrl),
+          value: _selectedUrls.contains(source.bookSourceUrl),
+          title: Text(source.bookSourceName),
+          subtitle: group == null || group.isEmpty ? null : Text(group),
+          onChanged: (_) => _toggleSource(source.bookSourceUrl),
+        );
+      },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Text(
-            context.l10n.searchScope,
-            // [P1b] 17/w600 硬编码收敛至字阶 titleMedium（M3 区块标题）
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(color: scheme.onSurface),
-          ),
-        ),
-        // [1-6 ①] 范围快捷节（原 ⋮ 动态范围项：当前书源/全部书源/各分组并入 ◯ 弹层）
-        _buildScopeQuickSection(scheme),
-        const SizedBox(height: 12),
-        // 分段切换（原版 rg_scope：rb_group / rb_source）
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Row(
-              children: [
-                _segmentButton(
-                  context.l10n.group,
-                  !_sourceMode,
-                  () => setState(() {
-                    _sourceMode = false;
-                  }),
-                ),
-                const SizedBox(width: 3),
-                _segmentButton(
-                  context.l10n.sources,
-                  _sourceMode,
-                  () => setState(() {
-                    _sourceMode = true;
-                  }),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_sourceMode)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-            child: TextField(
-              controller: _queryController,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: context.l10n.searchBookSources,
-                hintStyle: TextStyle(
-                  fontSize: 14,
-                  color: scheme.onSurface.withValues(alpha: 0.5),
-                ),
-                prefixIcon: Icon(
-                  Symbols.search_rounded,
-                  size: 20,
-                  color: scheme.onSurface.withValues(alpha: 0.5),
-                ),
-                // [B3] 弹层内筛选框：三态显式无边框，防主题底线式渗入
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                filled: true,
-                fillColor: scheme.surfaceContainerHighest.withValues(
-                  alpha: 0.4,
-                ),
-              ),
-            ),
-          ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: _sourceMode
-                ? RadioGroup<String>(
-                    groupValue: _selectedUrl,
-                    onChanged: (v) => setState(() {
-                      _selectedUrl = v;
-                    }),
-                    child: Column(
-                      children: [
-                        for (final s in _filteredSources)
-                          RadioListTile<String>(
-                            value: s.bookSourceUrl,
-                            title: Text(s.bookSourceName),
-                          ),
-                        if (_filteredSources.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Center(
-                              child: Text(
-                                context.l10n.noMatchingBookSources,
-                                style: TextStyle(
-                                  color: scheme.onSurface.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      for (final g in _groups)
-                        CheckboxListTile(
-                          title: Text(g),
-                          value: _checkedGroups.contains(g),
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _checkedGroups.add(g);
-                            } else {
-                              _checkedGroups.remove(g);
-                            }
-                          }),
-                        ),
-                      if (_groups.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Center(
-                            child: Text(
-                              context.l10n.noGroupedBookSources,
-                              style: TextStyle(
-                                color: scheme.onSurface.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-          ),
-        ),
-        // 底栏（原版 tv_all_source / tv_cancel / tv_ok）
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            children: [
-              TextButton(
-                onPressed: _onAllSources,
-                child: Text(
-                  context.l10n.allBookSources,
-                  style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  context.l10n.cancel,
-                  style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: _onOk,
-                child: Text(
-                  context.l10n.confirm,
-                  style: TextStyle(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+  Widget _groupList(List<String> groups, {required bool filtered}) {
+    if (groups.isEmpty) {
+      return _empty(
+        filtered
+            ? context.l10n.noMatchingGroups
+            : context.l10n.noGroupedBookSources,
+      );
+    }
+    return ListView.builder(
+      key: const ValueKey('scope-groups'),
+      primary: false,
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(bottom: 16),
+      itemCount: groups.length,
+      itemBuilder: (_, index) {
+        final group = groups[index];
+        return CheckboxListTile(
+          value: _checkedGroups.contains(group),
+          title: Text(group),
+          onChanged: (_) => _toggleGroup(group),
+        );
+      },
     );
   }
+
+  Widget _empty(String text) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.bodyMedium
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    ),
+  );
 }

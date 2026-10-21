@@ -3093,6 +3093,12 @@ abstract class AppLocalizations {
   /// **'搜索书源'**
   String get searchBookSources;
 
+  /// 搜索范围弹层的分组筛选空态
+  ///
+  /// In zh, this message translates to:
+  /// **'无匹配分组'**
+  String get noMatchingGroups;
+
   /// No description provided for @noMatchingBookSources.
   ///
   /// In zh, this message translates to:

@@ -15,6 +15,9 @@ class AppBottomSheet extends StatelessWidget {
   final Widget? titleSuffix;
   final bool avoidKeyboard;
 
+  /// 默认由外壳滚动；含固定筛选区和独立列表的正文自行管理滚动。— Codex + UI
+  final bool scrollable;
+
   /// 正文默认铺满，文字留白由设置行、表单等内容组件负责。— Codex + UI
   final EdgeInsets contentPadding;
 
@@ -28,7 +31,8 @@ class AppBottomSheet extends StatelessWidget {
        _content = null,
        centerTitle = null,
        titleSuffix = null,
-       avoidKeyboard = false;
+       avoidKeyboard = false,
+       scrollable = true;
 
   /// 共用固定标题、滚动正文与键盘避让，操作由调用方提供。— Codex + UI
   const AppBottomSheet.content({
@@ -40,6 +44,7 @@ class AppBottomSheet extends StatelessWidget {
     this.centerTitle,
     this.titleSuffix,
     this.avoidKeyboard = true,
+    this.scrollable = true,
     this.contentPadding = EdgeInsets.zero,
   }) : children = const [],
        _content = child;
@@ -103,16 +108,18 @@ class AppBottomSheet extends StatelessWidget {
             Flexible(
               child: ListTileTheme.merge(
                 shape: const RoundedRectangleBorder(),
-                child: SingleChildScrollView(
-                  padding: contentPadding,
-                  child:
-                      _content ??
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: children,
-                      ),
-                ),
+                child: scrollable
+                    ? SingleChildScrollView(
+                        padding: contentPadding,
+                        child:
+                            _content ??
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: children,
+                            ),
+                      )
+                    : Padding(padding: contentPadding, child: _content),
               ),
             ),
           ],

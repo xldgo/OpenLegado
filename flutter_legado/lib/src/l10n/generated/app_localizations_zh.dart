@@ -1642,6 +1642,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchBookSources => '搜索书源';
 
   @override
+  String get noMatchingGroups => '无匹配分组';
+
+  @override
   String get noMatchingBookSources => '无匹配书源';
 
   @override

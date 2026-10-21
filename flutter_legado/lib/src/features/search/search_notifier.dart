@@ -656,6 +656,15 @@ class SearchNotifier extends Notifier<SearchState> {
     unawaited(_persistSearchScope());
   }
 
+  /// 弹层确认或路由指定时一次应用书源集合，不发布部分选择的中间态。— Codex + UI
+  void setSources(Iterable<String> sourceUrls) {
+    state = state.copyWith(
+      selectedSourceUrls: {...sourceUrls},
+      selectedGroups: {},
+    );
+    unawaited(_persistSearchScope());
+  }
+
   /// 清除书源筛选
   void clearSourceFilter() {
     state = state.copyWith(selectedSourceUrls: {});

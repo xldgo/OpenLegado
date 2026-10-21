@@ -499,6 +499,10 @@
   "currentBookSource": "Current book source",
   "allBookSources": "All book sources",
   "searchBookSources": "Search book sources",
+  "noMatchingGroups": "No matching groups",
+  "@noMatchingGroups": {
+    "description": "搜索范围弹层的分组筛选空态"
+  },
   "noMatchingBookSources": "No matching book sources",
   "noGroupedBookSources": "No book source groups",
   "searchBlockedWords": "Blocked search terms",
