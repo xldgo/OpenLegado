@@ -162,7 +162,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       return ListView.builder(
         padding: AppBottomBarInset.padding(
           context,
-          const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          const EdgeInsets.fromLTRB(16, 0, 16, 16),
         ),
         itemCount: 8,
         itemBuilder: (_, _) => const ListSkeletonItem(),
@@ -269,7 +269,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               controller: scrollController,
               padding: EdgeInsets.fromLTRB(
                 horizontalPadding,
-                8,
+                0,
                 horizontalPadding,
                 16 + AppBottomBarInset.of(context),
               ),

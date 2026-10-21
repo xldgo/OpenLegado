@@ -15,6 +15,9 @@ import 'package:flutter_legado/src/widgets/settings_widgets.dart';
 import '../mocks/mocks.dart';
 
 void main() {
+  final bodyScrollable = find
+      .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+      .first;
   late MockRustApi mockApi;
   late ProviderContainer container;
 
@@ -50,12 +53,20 @@ void main() {
       '同步书籍进度',
       '同步书籍进度增强',
     ]) {
-      await tester.scrollUntilVisible(find.text(label), 80);
+      await tester.scrollUntilVisible(
+        find.text(label),
+        80,
+        scrollable: bodyScrollable,
+      );
       await tester.pumpAndSettle();
       expect(find.text(label), findsOneWidget);
     }
 
-    await tester.scrollUntilVisible(find.text('备份路径'), 80);
+    await tester.scrollUntilVisible(
+      find.text('备份路径'),
+      80,
+      scrollable: bodyScrollable,
+    );
     await tester.pumpAndSettle();
     expect(find.text('备份'), findsOneWidget);
     expect(find.text('恢复'), findsOneWidget);
@@ -92,7 +103,11 @@ void main() {
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('同步书籍进度'), 80);
+    await tester.scrollUntilVisible(
+      find.text('同步书籍进度'),
+      80,
+      scrollable: bodyScrollable,
+    );
     await tester.pumpAndSettle();
 
     final row = find.ancestor(
@@ -122,7 +137,11 @@ void main() {
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('恢复'), 100);
+    await tester.scrollUntilVisible(
+      find.text('恢复'),
+      100,
+      scrollable: bodyScrollable,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('恢复'));
     await tester.pumpAndSettle();

@@ -225,7 +225,7 @@ class _OtherSettingsScreenState extends ConsumerState<OtherSettingsScreen> {
       topBar: LegadoAppBar(title: Text(context.l10n.advanced)),
       body: SettingsBody(
         child: ListView(
-          padding: const EdgeInsets.only(top: 16, bottom: 32),
+          padding: const EdgeInsets.only(bottom: 32),
           children: [
             // ===== 语言（对齐原版 language，无独立 category）=====
             SettingsGroup(

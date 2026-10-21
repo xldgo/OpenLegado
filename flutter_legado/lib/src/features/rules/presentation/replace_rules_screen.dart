@@ -247,8 +247,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
           controller: scrollController,
           child: ListView.builder(
             controller: scrollController,
-            // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            // 顶部由页壳留白，列表只保留底部8dp与卡片横向间距。
+            padding: const EdgeInsets.only(bottom: 8),
             itemCount: rules.length,
             itemBuilder: (context, index) {
               final rule = rules[index];
@@ -272,8 +272,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       );
     }
     return ReorderableListView.builder(
-      // [LAYOUT_PLAN P2] 列表纵向留白 8dp，横向由卡片 margin 统一 16dp
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      // 顶部由页壳留白，列表只保留底部8dp与卡片横向间距。
+      padding: const EdgeInsets.only(bottom: 8),
       itemCount: rules.length,
       onReorderItem: (oldIndex, newIndex) {
         // 简单的排序处理

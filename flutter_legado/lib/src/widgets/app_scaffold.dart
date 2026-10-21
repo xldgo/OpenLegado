@@ -34,7 +34,7 @@ import 'ui_settings_scope.dart';
 /// classic_login_dialog（对话框内嵌壳）——上述文件维持原生 Scaffold，
 /// 不迁移。
 ///
-/// 普通文字标题和动态搜索标题由NestedScrollView协调原生可折叠顶栏；
+/// 普通文字标题和动态搜索标题由NestedScrollView协调自适应可折叠顶栏；
 /// 无标题、输入框式标题和专用页面保留标准顶栏。搜索动画共用同一占位进度。
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
@@ -101,7 +101,8 @@ class AppScaffold extends StatelessWidget {
       UiSettingsAspect.topBar,
     ).useFlexibleTopAppBar;
     final pinnedHeight = coordinated
-        ? bar!.preferredSize.height +
+        ? AppHeaderSpacing.content +
+              bar!.preferredSize.height +
               (bar is LegadoAppBar && !bar.primary
                   ? 0
                   : MediaQuery.paddingOf(context).top)
@@ -132,10 +133,14 @@ class AppScaffold extends StatelessWidget {
                 ),
               ],
               // 吸收固定顶栏的重叠后统一预留等高空间，既有ListView无需再包一层滚动。
-              // 搜索栏/TabBar高度也计入，避免ensureVisible或菜单点击落到顶栏下面。
+              // 搜索栏、页签及公共正文间隔也计入，避免定位或菜单落到顶栏下面。
               body: Padding(
                 padding: EdgeInsets.only(top: pinnedHeight),
-                child: _AppNestedScrollBody(child: body),
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: _AppNestedScrollBody(child: body),
+                ),
               ),
             )
           : body,

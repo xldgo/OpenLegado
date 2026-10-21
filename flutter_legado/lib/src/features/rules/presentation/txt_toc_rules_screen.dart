@@ -81,9 +81,9 @@ It was a dark and stormy night.''';
                 )
               else
                 // [UI_SYNC_REFACTOR R3] 规则列表（快速滚动条仍由 Md3FastScroller
-                // 经 scrollController 驱动；上下留白 8dp 与原 ListView padding 一致）
+                // 经scrollController驱动；顶部间距由共用页壳提供）
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.only(bottom: 8),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final rule = state.rules[index];

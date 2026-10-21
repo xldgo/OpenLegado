@@ -213,7 +213,7 @@ class _RssScreenState extends ConsumerState<RssScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                   child: Row(
                     children: [
                       _buildEntryCard(

@@ -485,7 +485,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
         // [LAYOUT_PLAN P3] 列表边距 16dp 走 SettingsBody（全局标尺）
         child: ListView(
           // [LAYOUT_PLAN P3] 底部 bottom32 保留
-          padding: const EdgeInsets.only(top: 16, bottom: 32),
+          padding: const EdgeInsets.only(bottom: 32),
           children: [
             SettingsGroup(
               title: context.l10n.webdavSettings,

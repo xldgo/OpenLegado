@@ -161,7 +161,7 @@ void main() {
       await show(
         const UiSettings(enableBlur: true, topBarBackgroundOpacity: 0),
       );
-      final bar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
+      final bar = tester.widget<AppBar>(find.byType(AppBar));
       expect(bar.backgroundColor!.a, closeTo(0.73, 1e-6));
       final render = tester.renderObject<RenderSliver>(
         find.byType(AppSliverSurfaceBackdrop),
@@ -188,10 +188,7 @@ void main() {
       await show(const UiSettings(topBarBackgroundOpacity: 0.5));
       expect(tester.layers.whereType<BackdropFilterLayer>(), isEmpty);
       expect(
-        tester
-            .widget<SliverAppBar>(find.byType(SliverAppBar))
-            .backgroundColor!
-            .a,
+        tester.widget<AppBar>(find.byType(AppBar)).backgroundColor!.a,
         0.5,
       );
       expect(render.geometry!.paintExtent, collapsed);
@@ -219,7 +216,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.layers.whereType<BackdropFilterLayer>(), hasLength(1));
     expect(
-      tester.widget<SliverAppBar>(find.byType(SliverAppBar)).backgroundColor!.a,
+      tester.widget<AppBar>(find.byType(AppBar)).backgroundColor!.a,
       closeTo(0.73, 1e-6),
     );
     await tester.pumpWidget(
@@ -233,10 +230,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.layers.whereType<BackdropFilterLayer>(), isEmpty);
-    expect(
-      tester.widget<SliverAppBar>(find.byType(SliverAppBar)).backgroundColor!.a,
-      0,
-    );
+    expect(tester.widget<AppBar>(find.byType(AppBar)).backgroundColor!.a, 0);
     expect(find.text('内容'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

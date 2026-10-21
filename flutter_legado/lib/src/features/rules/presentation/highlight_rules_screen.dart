@@ -138,7 +138,7 @@ class _HighlightRulesScreenState extends ConsumerState<HighlightRulesScreen> {
               controller: scrollController,
               child: ListView(
                 controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                 children: [
                   SettingsGroup(
                     children: [

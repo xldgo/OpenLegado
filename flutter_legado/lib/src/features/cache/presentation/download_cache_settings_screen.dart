@@ -237,7 +237,7 @@ class _DownloadCacheSettingsScreenState
       topBar: LegadoAppBar(title: Text(context.l10n.downloadAndCache)),
       body: SettingsBody(
         child: ListView(
-          padding: const EdgeInsets.only(top: 16, bottom: 32),
+          padding: const EdgeInsets.only(bottom: 32),
           children: [
             if (pending.hasError)
               SettingTile(

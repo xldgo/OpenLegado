@@ -278,7 +278,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
   /// 如加载失败）时回落单一「全部」tab（对标参考空态截图 03）；
   /// 选中态与切换经 [BookshelfNotifier.selectGroup] 持久化并真正过滤列表
   /// （[BookshelfStateGrouping.currentGroupBooks]）。
-  Widget _buildGroupTabBar(BuildContext context, BookshelfState state) {
+  TabBar _buildGroupTabBar(BuildContext context, BookshelfState state) {
     final groups = state.groups.isNotEmpty
         ? state.groups
         : [
@@ -295,44 +295,36 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     // [LAYOUT_MOTION_AUDIT L3] Tab 文案走 labelLargeEmphasized（M3 labelLarge + Medium 强调）
     final labelStyle = Theme.of(context).textTheme.labelLarge
         ?.copyWith(fontWeight: FontWeight.w500);
-    // [parity C3 B1] 分组 tab 单组左对齐：根因——SliverAppBar.large 的 bottom 槽
-    // 以「松约束」下发，M3 可滚动 TabBar 在松约束下收缩为内容宽度并被父级
-    // 居中（单组「全部」时整行偏右，多组时首 tab 同样不贴左）。包一层
-    // SizedBox(width: double.infinity) 把 TabBar 撑满 bottom 槽宽度后，
-    // isScrollable + TabAlignment.start 才能真正把首 tab 钉在左缘。
-    // 注意：不能用 SizedBox.expand（高度被放大到 bottom 槽全高，tab 行爆高）。
-    return SizedBox(
-      width: double.infinity,
-      child: TabBar(
-        controller: controller,
-        isScrollable: true, // 原版 tabMode = MODE_SCROLLABLE
-        tabAlignment: TabAlignment.start,
-        // [parity fix 2.0.264 补修 | 台账 1-3] tab 行左缘 20dp：参考 03b 首
-        // tab 墨迹 x≈59px@3x≈20dp（复审量测），此前 edgePadding 0 钉屏左缘
-        // （实测 x≈2px）贴死；可滚动 TabBar 下 padding 仅作用于首尾两 tab
-        // 边缘，故只加 left 不影响尾 tab
-        padding: const EdgeInsets.only(left: 20),
-        // [LAYOUT_MOTION_AUDIT L3] minTabWidth 0（Flutter 侧等价 labelPadding 置零）
-        labelPadding: EdgeInsets.zero,
-        // [LAYOUT_MOTION_AUDIT L3] 无分割线
-        dividerColor: Colors.transparent,
-        // [LAYOUT_MOTION_AUDIT L3] 无分割线
-        dividerHeight: 0,
-        // [LAYOUT_MOTION_AUDIT L3] 选中走 primary
-        labelColor: colorScheme.primary,
-        // [LAYOUT_MOTION_AUDIT L3] 未选中走 onSurfaceVariant
-        unselectedLabelColor: colorScheme.onSurfaceVariant,
-        // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
-        labelStyle: labelStyle,
-        // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
-        unselectedLabelStyle: labelStyle,
-        // [MD3 Batch 2] 前景走全局 tabBarTheme（onSurface/onSurfaceVariant +
-        // primary 指示器），与 M3 AppBar surface 背景配对，不再硬编码白色
-        // [骨架对齐 2.0.260] 选中 tab = primary 字色 + 短下划线（对齐参考 03b）
-        tabs: groups
-            .map((g) => Tab(text: bookshelfGroupLabel(context, g)))
-            .toList(),
-      ),
+    // 可滚动页签由AppBar提供全宽约束，首项保持20dp左边距。
+    return TabBar(
+      controller: controller,
+      isScrollable: true, // 原版 tabMode = MODE_SCROLLABLE
+      tabAlignment: TabAlignment.start,
+      // [parity fix 2.0.264 补修 | 台账 1-3] tab 行左缘 20dp：参考 03b 首
+      // tab 墨迹 x≈59px@3x≈20dp（复审量测），此前 edgePadding 0 钉屏左缘
+      // （实测 x≈2px）贴死；可滚动 TabBar 下 padding 仅作用于首尾两 tab
+      // 边缘，故只加 left 不影响尾 tab
+      padding: const EdgeInsets.only(left: 20),
+      // [LAYOUT_MOTION_AUDIT L3] minTabWidth 0（Flutter 侧等价 labelPadding 置零）
+      labelPadding: EdgeInsets.zero,
+      // [LAYOUT_MOTION_AUDIT L3] 无分割线
+      dividerColor: Colors.transparent,
+      // [LAYOUT_MOTION_AUDIT L3] 无分割线
+      dividerHeight: 0,
+      // [LAYOUT_MOTION_AUDIT L3] 选中走 primary
+      labelColor: colorScheme.primary,
+      // [LAYOUT_MOTION_AUDIT L3] 未选中走 onSurfaceVariant
+      unselectedLabelColor: colorScheme.onSurfaceVariant,
+      // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
+      labelStyle: labelStyle,
+      // [LAYOUT_MOTION_AUDIT L3] labelLargeEmphasized
+      unselectedLabelStyle: labelStyle,
+      // [MD3 Batch 2] 前景走全局 tabBarTheme（onSurface/onSurfaceVariant +
+      // primary 指示器），与 M3 AppBar surface 背景配对，不再硬编码白色
+      // [骨架对齐 2.0.260] 选中 tab = primary 字色 + 短下划线（对齐参考 03b）
+      tabs: groups
+          .map((g) => Tab(text: bookshelfGroupLabel(context, g)))
+          .toList(),
     );
   }
 
@@ -402,7 +394,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
             return GridView.builder(
               padding: AppBottomBarInset.padding(
                 context,
-                const EdgeInsets.fromLTRB(22, 8, 22, 8),
+                const EdgeInsets.fromLTRB(22, 0, 22, 8),
               ),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: state.gridColumns,
@@ -422,7 +414,7 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       return ListView.builder(
         padding: AppBottomBarInset.padding(
           context,
-          const EdgeInsets.symmetric(vertical: 8),
+          const EdgeInsets.only(bottom: 8),
         ),
         itemCount: 8,
         itemBuilder: (_, _) => const ListSkeletonItem(),
@@ -541,11 +533,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
       title: Text(context.l10n.bookshelf),
       // [UI-fix 2.0.258] 选择模式顶栏切换为批量动作集（全选/反选/删除/取消）
       actions: _animatedActions(context, state),
-      // 分组 tab 行（TabBar 默认高 kToolbarHeight，Tab 高度 40dp）
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: _buildGroupTabBar(context, state),
-      ),
+      // 页签按自身preferredSize占位，不另设56dp容器。— Codex + UI
+      bottom: _buildGroupTabBar(context, state),
     );
   }
 
@@ -561,8 +550,8 @@ class _BookshelfScreenState extends ConsumerState<BookshelfScreen>
     );
     final available = viewportWidth - 44; // 扣除左右 padding 22×2
     return SliverPadding(
-      // 内容边距：左右 22（参考边距 22px）+ 上下 8
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
+      // 顶部由共用顶栏提供；网格保留左右22和底部8。
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
       sliver: SliverGrid.builder(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,

@@ -74,13 +74,34 @@ void main() {
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final api = MockRustApi();
-    when(() => api.bookshelfRepository.getBooks())
-        .thenAnswer((_) async => <Book>[]);
-    when(() => api.readRecordRepository).thenReturn(MockReadRecordRepository());
+    when(() => api.bookshelfRepository.getBooks()).thenAnswer(
+      (_) async => const [
+        Book(bookUrl: 'gap-book', name: '间距样例', author: '作者'),
+      ],
+    );
+    final records = MockReadRecordRepository();
+    await records.putReadRecord(
+      ReadRecord(
+        bookName: '间距样例',
+        author: '作者',
+        readTime: 3600000,
+        lastRead: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    when(() => api.readRecordRepository).thenReturn(records);
     await tester.pumpWidget(createTestWidget(mockApi: api));
     await tester.pumpAndSettle();
     expect(find.byType(NestedScrollView), findsOneWidget);
-    expect(tester.getSize(find.byType(AppBar)).height, 112);
+    expect(find.text('最近阅读'), findsOneWidget);
+    final expandedTitle = find
+        .descendant(of: find.byType(AppBar), matching: find.text('首页'))
+        .first;
+    expect(tester.getRect(expandedTitle).top, 64);
+    expect(
+      tester.getRect(find.byType(Card).first).top -
+          tester.getRect(expandedTitle).bottom,
+      16,
+    );
     await tester.drag(find.byType(ListView).first, const Offset(0, -250));
     await tester.pumpAndSettle();
     final title = find.descendant(

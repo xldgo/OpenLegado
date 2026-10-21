@@ -24,11 +24,78 @@ import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
+import 'package:flutter_legado/src/widgets/dynamic_search_app_bar.dart';
 
 import '../mocks/mocks.dart';
 
 void main() {
   setUpAll(registerFallbacks);
+
+  for (final large in [false, true]) {
+    testWidgets('带副标题的搜索栏保持标题坐标并按文字高度占位：大标题$large', (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      var search = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: UiSettingsScope(
+            settings: UiSettings(useFlexibleTopAppBar: large),
+            child: StatefulBuilder(
+              builder: (context, setState) => AppScaffold(
+                topBar: DynamicSearchAppBar(
+                  title: '发现',
+                  subtitle: '当前分组',
+                  searchController: controller,
+                  searchHint: '筛选',
+                  onChanged: (_) {},
+                  expanded: search,
+                  onExpandedChanged: (value) => setState(() => search = value),
+                ),
+                body: ListView.builder(
+                  itemCount: 50,
+                  itemExtent: 48,
+                  itemBuilder: (_, i) => Text('内容$i'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final title = find
+          .descendant(of: find.byType(AppBar), matching: find.text('发现'))
+          .first;
+      final subtitle = find
+          .descendant(of: find.byType(AppBar), matching: find.text('当前分组'))
+          .first;
+      final titleRect = tester.getRect(title);
+      final subtitleRect = tester.getRect(subtitle);
+      if (large) {
+        expect(titleRect.top, 64);
+        expect(
+          tester.getRect(find.byType(AppBar)).bottom - subtitleRect.bottom,
+          8,
+        );
+      }
+      await tester.tap(find.byTooltip('展开搜索'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(tester.getRect(title), titleRect);
+      expect(tester.getRect(subtitle), subtitleRect);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(title), titleRect);
+      await tester.tap(find.byTooltip('收起搜索'));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(title), titleRect);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final withTabs in [false, true]) {
     testWidgets('根页顶栏在折叠边界显示标题且不残留标题带：页签$withTabs', (tester) async {
@@ -72,7 +139,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byType(AppBar)).height,
-        112 + (withTabs ? 56 : 0),
+        104 + (withTabs ? 56 : 0),
       );
       // 用项目实际主题验证原生两种标题角色，避免只验证默认Material主题。
       final titleSizes = find
@@ -80,7 +147,7 @@ void main() {
           .evaluate()
           .map((element) => DefaultTextStyle.of(element).style.fontSize);
       expect(titleSizes, containsAll([24.0, 18.0]));
-      scroll.jumpTo(56);
+      scroll.jumpTo(48);
       await tester.pumpAndSettle();
       final opacity = tester.widget<AnimatedOpacity>(
         find

@@ -23,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookshelf/bookshelf.dart';
+import 'package:flutter_legado/src/widgets/book_cover.dart';
 
 import '../mocks/mocks.dart';
 
@@ -50,6 +51,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final title = find
+        .descendant(of: find.byType(AppBar), matching: find.text('书架'))
+        .first;
+    final titleRect = tester.getRect(title);
+    final tabs = tester.getRect(find.byType(TabBar));
+    expect(titleRect.top, 64, reason: '工具行56dp后只留8dp标题上边距');
+    expect(tabs.top - titleRect.bottom, 8);
+    expect(tabs.height, 48, reason: '页签按真实高度占位');
+    expect(tester.getRect(find.byType(BookCover).first).top - tabs.bottom, 8);
   }
 
   testWidgets('单组（空态回落）：唯一 tab 左对齐（首 tab 左缘 ≈ 20dp）', (tester) async {

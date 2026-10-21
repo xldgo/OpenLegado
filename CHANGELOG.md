@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.431] - 2026-10-21
+
+### Fixed
+- 共用组件统一大标题、页签和正文间距，标题区域随实际文字高度布局，减少首页与书架多余留白。
+- 修正书源等管理页展开搜索时标题下移，保持搜索动画中的标题位置稳定。
+- 贡献者：Codex + UI；构建号432。
+
 ## [2.0.430] - 2026-10-21
 
 ### Fixed

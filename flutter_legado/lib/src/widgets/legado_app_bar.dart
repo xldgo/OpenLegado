@@ -156,63 +156,130 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppSurfaceBackdrop(material: material, child: bar);
   }
 
-  /// 普通页壳与可折叠页壳共用按钮、配色和系统栏配置。— Codex + UI
+  /// 展开高度由标题本身决定，标题、页签和正文距离只由共用组件计算。— Codex + UI
   Widget buildSliver(
     BuildContext context, {
     required bool large,
     bool scrolledUnder = false,
-    double? expandedHeight,
   }) {
     final (bar, material) = _toolbar(context);
-    final create = large ? SliverAppBar.large : SliverAppBar.new;
     final toolbar = bar.toolbarHeight ?? kToolbarHeight;
-    final bottomHeight = bar.bottom?.preferredSize.height ?? 0;
-    final expanded = expandedHeight ?? toolbar + 56 + bottomHeight;
-    return SliverLayoutBuilder(
-      builder: (context, constraints) => AppSliverSurfaceBackdrop(
-        material: material,
-        child: create(
-          pinned: true,
-          // NestedScrollView将后续位移交给内层，外层不再产生overlapsContent。
-          // 使用协调器的真实滚动状态，保证折叠标题显现，而非依赖外层继续滚动。
-          // 刚好折叠到边界（包括空列表）也必须显示标题，不能等下一次超出位移。
-          forceElevated:
-              scrolledUnder ||
-              (large &&
-                  constraints.scrollOffset >=
-                      expanded - toolbar - bottomHeight),
-          // 工具行与标题行各占56dp；不沿用large默认152dp的额外空白。
-          expandedHeight: large ? expanded : null,
-          collapsedHeight: large
-              ? toolbar +
-                    bottomHeight +
-                    (bar.primary ? MediaQuery.paddingOf(context).top : 0)
-              : null,
-          automaticallyImplyLeading: false,
-          leading: bar.leading,
-          title: bar.title,
-          actions: bar.actions,
-          flexibleSpace: bar.flexibleSpace,
-          bottom: bar.bottom,
-          elevation: bar.elevation,
-          scrolledUnderElevation: bar.scrolledUnderElevation,
-          shadowColor: bar.shadowColor,
-          surfaceTintColor: bar.surfaceTintColor,
-          shape: bar.shape,
-          backgroundColor: bar.backgroundColor,
-          foregroundColor: bar.foregroundColor,
-          iconTheme: bar.iconTheme,
-          actionsIconTheme: bar.actionsIconTheme,
-          primary: bar.primary,
-          centerTitle: bar.centerTitle,
-          excludeHeaderSemantics: bar.excludeHeaderSemantics,
-          titleSpacing: bar.titleSpacing,
-          toolbarHeight: toolbar,
-          leadingWidth: bar.leadingWidth,
-          toolbarTextStyle: bar.toolbarTextStyle,
-          titleTextStyle: bar.titleTextStyle,
-          systemOverlayStyle: bar.systemOverlayStyle,
-          forceMaterialTransparency: bar.forceMaterialTransparency,
+    final safeTop = bar.primary ? MediaQuery.paddingOf(context).top : 0.0;
+    final bottomHeight = bar.bottom?.preferredSize.height ?? 0.0;
+    final pinnedHeight = safeTop + toolbar + bottomHeight;
+    final expandedTitle = MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.34,
+      child: DefaultTextStyle(
+        style:
+            bar.titleTextStyle ??
+            Theme.of(context).textTheme.headlineMedium!.copyWith(
+              color:
+                  bar.foregroundColor ??
+                  Theme.of(context).appBarTheme.foregroundColor ??
+                  Theme.of(context).colorScheme.onSurface,
+            ),
+        // 两种尺寸原型由框架测量，不发布状态或等待下一帧回填高度。
+        child: Semantics(
+          header: !bar.excludeHeaderSemantics,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppHeaderSpacing.horizontal,
+              vertical: AppHeaderSpacing.titleVertical,
+            ),
+            child: bar.title,
+          ),
+        ),
+      ),
+    );
+    return AppSliverSurfaceBackdrop(
+      material: material,
+      child: SliverResizingHeader(
+        minExtentPrototype: SizedBox(
+          height: pinnedHeight + AppHeaderSpacing.content,
+        ),
+        maxExtentPrototype: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: safeTop + toolbar),
+            if (large) expandedTitle,
+            SizedBox(height: bottomHeight + AppHeaderSpacing.content),
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final height = constraints.maxHeight - AppHeaderSpacing.content;
+            final titleHeight = (height - pinnedHeight).clamp(
+              0.0,
+              double.infinity,
+            );
+            final collapsed = !large || titleHeight < 0.01;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppHeaderSpacing.content),
+              child: FlexibleSpaceBar.createSettings(
+                minExtent: pinnedHeight,
+                maxExtent: height,
+                currentExtent: height,
+                isScrolledUnder: scrolledUnder || (large && collapsed),
+                child: AppBar(
+                  automaticallyImplyLeading: false,
+                  leading: bar.leading,
+                  title: AnimatedOpacity(
+                    opacity: collapsed ? 1 : 0,
+                    duration: const Duration(milliseconds: 500),
+                    child: bar.title,
+                  ),
+                  actions: bar.actions,
+                  flexibleSpace: large
+                      ? Column(
+                          children: [
+                            SizedBox(height: safeTop + toolbar),
+                            Expanded(
+                              child: ClipRect(
+                                child: OverflowBox(
+                                  alignment: Alignment.bottomLeft,
+                                  minHeight: 0,
+                                  maxHeight: double.infinity,
+                                  child: expandedTitle,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: bottomHeight),
+                          ],
+                        )
+                      : bar.flexibleSpace,
+                  bottom: bar.bottom == null
+                      ? null
+                      : PreferredSize(
+                          preferredSize: bar.bottom!.preferredSize,
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: bar.bottom,
+                          ),
+                        ),
+                  elevation: bar.elevation,
+                  scrolledUnderElevation: bar.scrolledUnderElevation,
+                  shadowColor: bar.shadowColor,
+                  surfaceTintColor: bar.surfaceTintColor,
+                  shape: bar.shape,
+                  backgroundColor: bar.backgroundColor,
+                  foregroundColor: bar.foregroundColor,
+                  iconTheme: bar.iconTheme,
+                  actionsIconTheme: bar.actionsIconTheme,
+                  primary: bar.primary,
+                  centerTitle: bar.centerTitle,
+                  excludeHeaderSemantics: bar.excludeHeaderSemantics,
+                  titleSpacing: bar.titleSpacing,
+                  toolbarHeight: toolbar,
+                  leadingWidth: bar.leadingWidth,
+                  toolbarTextStyle: bar.toolbarTextStyle,
+                  titleTextStyle: bar.titleTextStyle,
+                  systemOverlayStyle: bar.systemOverlayStyle,
+                  forceMaterialTransparency: bar.forceMaterialTransparency,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -288,7 +355,7 @@ class LegadoAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 /// 根页直接使用CustomScrollView时的顶栏入口，与AppScaffold共用同一实现。
-/// 展开增加56dp标题带，折叠后只保留工具行及页签；开关关闭时使用紧凑栏。
+/// 展开范围由标题真实高度决定，折叠后只保留工具行及页签。
 class LegadoTabRootHeaderSliver extends StatefulWidget {
   final Widget title;
   final List<Widget>? actions;
@@ -298,11 +365,8 @@ class LegadoTabRootHeaderSliver extends StatefulWidget {
   /// 顶栏 bottomContent（对齐参考仓 DynamicTopAppBar 搜索行；pinned 常驻）
   final PreferredSizeWidget? bottom;
 
-  /// 可选展开高度，不含状态栏、包含bottom；默认工具行+56dp标题带+bottom。
-  final double? expandedHeight;
-
   /// 覆盖全局顶栏按钮样式（null = 跟随主题设置 topBarButtonStyle）。
-  /// [parity C3 B5] 书架头部按参考锁定裸图标（plain），不经全局档位。
+  /// 未指定时沿用共用按钮样式与合并设置。
   final TopBarButtonStyle? actionsStyle;
 
   /// 工具栏 leading（返回钮等）。null = 无 leading（Tab 根页默认）。
@@ -317,7 +381,6 @@ class LegadoTabRootHeaderSliver extends StatefulWidget {
     required this.large,
     this.titleSpacing,
     this.bottom,
-    this.expandedHeight,
     this.actionsStyle,
     this.leading,
   });
@@ -340,18 +403,14 @@ class _LegadoTabRootHeaderSliverState extends State<LegadoTabRootHeaderSliver> {
       bottom: widget.bottom,
       titleSpacing: widget.titleSpacing,
       actionsStyle: widget.actionsStyle,
-    ).buildSliver(
-      context,
-      large: widget.large && ui.useFlexibleTopAppBar,
-      expandedHeight: widget.expandedHeight,
-    );
+    ).buildSliver(context, large: widget.large && ui.useFlexibleTopAppBar);
   }
 }
 
 /// 静态标题根页的可折叠 LargeTitle 装配（NestedScrollView）
 ///
 /// body 保持原滚动结构不变（内层 ListView/CustomScrollView 均可），
-/// 头部为 SliverAppBar.large。用于「我的」等无复杂顶栏状态的根页。
+/// 头部复用自适应标题栏。用于无复杂顶栏状态的根页。
 class LegadoLargeTitleScroll extends StatefulWidget {
   final Widget title;
   final List<Widget>? actions;
@@ -380,4 +439,11 @@ class _LegadoLargeTitleScrollState extends State<LegadoLargeTitleScroll> {
     ],
     body: widget.body,
   );
+}
+
+/// 页眉附近的公共间距，页面不再单独叠加列表顶部留白。— Codex + UI
+abstract final class AppHeaderSpacing {
+  static const double horizontal = 16;
+  static const double titleVertical = 8;
+  static const double content = 8;
 }

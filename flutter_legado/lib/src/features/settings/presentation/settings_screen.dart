@@ -179,7 +179,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: AppBottomBarInset.padding(
             context,
-            const EdgeInsets.only(top: 16, bottom: 32),
+            const EdgeInsets.only(bottom: 32),
           ),
           children: [
             // 分组整体构建，确保首页快捷入口能定位尚未滚动到的其他区域。

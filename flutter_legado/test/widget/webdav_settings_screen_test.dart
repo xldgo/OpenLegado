@@ -65,6 +65,18 @@ class _MetadataRepository implements SyncMetadataRepository {
 class _BackupService extends Mock implements BackupService {}
 
 void main() {
+  Future<void> scrollTo(WidgetTester tester, Finder target, double delta) =>
+      tester.scrollUntilVisible(
+        target,
+        delta,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+
   late MockRustApi mockApi;
 
   setUpAll(registerFallbacks);
@@ -124,14 +136,14 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(WebDavSettingsScreen)),
     );
-    await tester.scrollUntilVisible(find.text('同步书籍进度增强'), 120);
+    await scrollTo(tester, find.text('同步书籍进度增强'), 120);
     final enhanced = tester
         .widgetList<SettingSwitchRow>(find.byType(SettingSwitchRow))
         .singleWhere((row) => row.title == '同步书籍进度增强');
     expect(enhanced.onChanged, isNull);
     expect(enhanced.value, isTrue);
     expect(find.text('自动同步'), findsNothing);
-    await tester.scrollUntilVisible(find.text('备份'), 120);
+    await scrollTo(tester, find.text('备份'), 120);
     await tester.tap(find.text('备份'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
@@ -139,7 +151,7 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     const warning = '云端同步已完成，但本地同步时间未保存';
-    await tester.scrollUntilVisible(find.text(warning), 150);
+    await scrollTo(tester, find.text(warning), 150);
     await tester.pumpAndSettle();
     expect(find.text(warning).hitTestable(), findsOneWidget);
     expect(container.read(syncNotifierProvider).status, SyncStatus.success);
@@ -150,7 +162,7 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     expect(find.text(warning).hitTestable(), findsOneWidget);
     metadata.failSave = false;
-    await tester.scrollUntilVisible(find.text('备份'), -120);
+    await scrollTo(tester, find.text('备份'), -120);
     await tester.tap(find.text('备份'));
     await tester.pumpAndSettle();
     expect(find.text(warning), findsNothing);
@@ -185,7 +197,7 @@ void main() {
         tester.element(find.byType(WebDavSettingsScreen)),
       );
 
-      await tester.scrollUntilVisible(find.text('恢复').hitTestable(), 120);
+      await scrollTo(tester, find.text('恢复').hitTestable(), 120);
       await tester.pumpAndSettle();
       await tester.tap(find.text('恢复'));
       await tester.pumpAndSettle();
@@ -225,7 +237,7 @@ void main() {
     when(() => mockApi.webDavService.webdavFullSync(any(), any(), any()))
         .thenThrow(StateError('模拟上传失败'));
     await pumpScreen(tester);
-    await tester.scrollUntilVisible(find.text('备份').hitTestable(), 120);
+    await scrollTo(tester, find.text('备份').hitTestable(), 120);
     await tester.pumpAndSettle();
     await tester.tap(find.text('备份'));
     await tester.pumpAndSettle();
@@ -253,7 +265,7 @@ void main() {
           (path: 'E:/备份/backup.json', preferencesError: StateError('模拟偏好失败')),
     );
     await pumpScreen(tester, backup: backup);
-    await tester.scrollUntilVisible(find.text('备份').hitTestable(), 120);
+    await scrollTo(tester, find.text('备份').hitTestable(), 120);
     await tester.pumpAndSettle();
     await tester.tap(find.text('备份'));
     await tester.pumpAndSettle();
@@ -287,7 +299,7 @@ void main() {
       ),
     ]);
     await pumpScreen(tester, refresher: refresher);
-    await tester.scrollUntilVisible(find.text('恢复').hitTestable(), 120);
+    await scrollTo(tester, find.text('恢复').hitTestable(), 120);
     await tester.pumpAndSettle();
     await tester.tap(find.text('恢复'));
     await tester.pumpAndSettle();

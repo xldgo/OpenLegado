@@ -141,7 +141,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       body: SettingsBody(
         child: ListView(
           // [LAYOUT_PLAN P3] 底部 bottom32 保留；列表水平边距走 SettingsBody 16dp
-          padding: const EdgeInsets.only(top: 16, bottom: 32),
+          padding: const EdgeInsets.only(bottom: 32),
           children: [
             SettingsGroup(
               children: [

@@ -85,6 +85,25 @@ void main() {
         find.byType(NestedScrollView),
       );
       expect(nested.outerController.offset, 0);
+      // 搜索行只改变自身高度，展开标题在动画前中后都不能位移。— Codex + UI
+      final expandedTitle = find
+          .descendant(of: find.byType(AppBar), matching: find.text('书源管理'))
+          .first;
+      final titleBeforeSearch = tester.getRect(expandedTitle);
+      final headerBeforeSearch = tester.getSize(find.byType(AppBar)).height;
+      await tester.tap(find.byTooltip('展开搜索'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(tester.getRect(expandedTitle), titleBeforeSearch);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(expandedTitle), titleBeforeSearch);
+      expect(
+        tester.getSize(find.byType(AppBar)).height,
+        closeTo(headerBeforeSearch + 64, 0.01),
+      );
+      await tester.tap(find.byTooltip('收起搜索'));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(expandedTitle), titleBeforeSearch);
       await tester.drag(
         find.byType(ReorderableListView),
         const Offset(0, -350),

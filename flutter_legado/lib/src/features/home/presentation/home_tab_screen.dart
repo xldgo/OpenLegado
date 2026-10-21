@@ -163,7 +163,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       body: ListView(
         padding: AppBottomBarInset.padding(
           context,
-          const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          const EdgeInsets.fromLTRB(20, 0, 20, 24),
         ),
         children: [
           // ===== 最近阅读卡 =====

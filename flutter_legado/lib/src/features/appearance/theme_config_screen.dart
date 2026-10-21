@@ -420,7 +420,7 @@ class _ThemeConfigScreenState extends ConsumerState<ThemeConfigScreen> {
           ? const Center(child: CircularProgressIndicator())
           : SettingsBody(
               child: ListView(
-                padding: const EdgeInsets.only(top: 16, bottom: 32),
+                padding: const EdgeInsets.only(bottom: 32),
                 children: [
                   // === [2.0.269 用户裁决] 外观预览卡已移除（C6 批 b03c2ba444 低优
                   // 增强建议产物，无独立用户授权记录；与配色轮同类，严格红线） ===
