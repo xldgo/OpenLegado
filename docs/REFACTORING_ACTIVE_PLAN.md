@@ -13,6 +13,7 @@
 - 回归证据：Rust定向43项通过（core语义24、db书源对照4、engine书源服务4、ffi书源API11）；Dart五个受影响文件合计70项通过，覆盖归一化元信息、原文保留、逐条失败继续、Mock无FFI及扫码进入确认页。core三条新增回归与Dart两条新增回归在修复前失败；旧用例曾断言数字名称必须导入失败，本次按授权改为成功。恢复扫码路由用例后，旧标题唯一计数因可折叠顶栏三份标题失败，改核对实际SourceImportConfirmScreen后通过，没有更改生产顶栏。
 - 日志：build/source-repair-{core-before,core,db,engine-final,ffi}.log，flutter_legado/build/source-repair-{dart-before,dart,dart-final,qr-final,analysis,analysis-final,architecture}.log；改动Dart文件分析及架构依赖门禁通过，diff检查通过。Dart分轮验证取最终通过结果的并集，不重复计数；没有运行全量Flutter/Rust测试或无关平台构建。
 - 交付边界：FRB方法签名未改，不需要重生成绑定；JSON返回语义已在实施前更新契约。单代理复核，不宣称独立审查；未编译安装APK、未进行iOS构建或设备观感复验。双日志同步，应用版本保持，提交号见Git。
+- 契约整理（用户授权，基线43ad4e15d）：将UNIFY、FFI、REPAIR三段合并为API_CONTRACT.md中的单一“书源JSON解析与导入契约”，保留三个入口、转换规则、逐项预览/严格批量写入及只读边界；批次过程继续由本计划和Git记录。仅改文档并检查diff，不运行测试或提升版本。
 
 
 编写者：Codex｜2026-10-22

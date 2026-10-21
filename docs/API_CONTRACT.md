@@ -1,49 +1,45 @@
 # API 契约文档
 
-### SOURCE-PARSE-REPAIR-20261022：书源解析审查修复（实施前冻结）
+### SOURCE-PARSE-UNIFY-20261022：书源 JSON 解析与导入契约
 
-- 既有FRB方法签名不变；`source_parse`接受对象或非空数组首项，空数组和首项非法均报结构错误，后续项不参与编辑回填。
-- 规则字符串的非法JSON和字段错误必须上抛，不再转为无规则；字段错误包含目标字段路径，嵌套规则包含外层规则名及内部路径。
-- `source_preview_fields`返回与输入同序的JSON数组：成功项保留四个展示字段，失败项为`{"error":"可读原因"}`；语法/顶层结构错误仍整体报错。预览逐项保留有效候选，正式批量写入维持严格原子性，不因预览容错改变事务。
-- 预览和确认导入的必填校验、替换规则匹配使用同一Rust归一化字段，传给替换/写入的正文仍是原始JSON，不在Dart新增宽容转换。
-- Room导入直接持有归一化实体并写库，不再序列化后重新解析；显式空CookieJar保持None/关闭，限速只在成功提交后发布。
-- Mock装配仅使用无FFI的Mock解析器生成预览，覆盖常规类型化夹具；不声称复刻Rust宽容算法。Rust语义由Rust测试验证，Dart测试只验证编排、错误和路由。
-- 本批不改数据库、DTO或方法计数，不扩大单引号语法/未知字段范围；应用版本保持。
+书源字段由`legado-core::models::book_source::parse`统一解释。编辑回填、导入预览、
+FFI导入、Room导入与服务器更新共用条目解析器，Dart不另写宽容转换规则。
+
+| FFI接口 | 输入与输出 | 行为 |
+|---|---|---|
+| `source_parse(source_json: String)` | 对象或非空数组 → `Result<BookSourceDto, BridgeError>` | 数组只取首项；空数组或首项非对象报结构错误，后续项不参与回填。允许名称/地址尚未填写，不附warnings |
+| `source_preview_fields(json_array: String)` | 对象或数组 → `Result<String, BridgeError>`，字符串内容为JSON数组 | 与输入同序；成功项包含`bookSourceUrl`、`bookSourceName`、`bookSourceComment`、`lastUpdateTime`，失败项为`{"error":"可读原因"}`。文档语法或顶层结构错误整体报错 |
+| `source_import(json_array: String)` | 对象或数组 → `Result<i32, BridgeError>` | 严格校验全部条目后批量写入，任一条失败整体拒绝或回滚，成功返回数量 |
+
+`source_parse`与`source_preview_fields`只读，不写数据库、不修改存量记录、不发布限速。
+预览逐项保留有效候选，不因个别条目失败改变正式批量写入的原子性。
+
+字段转换按目标类型确定：
+
+| 目标类型 | 接受与空值规则 |
+|---|---|
+| 整数`i32/i64` | 接受整数及合法整数字符串，数字字符串为明确保留的兼容超集；超范围、非法字符串、布尔、数组、对象报错。缺省及显式`null`取字段默认值，`respondTime`为180000 |
+| 布尔 | 接受JSON布尔、整数（0关，非0开）及字符串`"true"/"false"/"1"/"0"/""`，空串为false；其他报错。非可空字段缺省/显式`null`取默认值；`enabledCookieJar`缺省为`Some(true)`，显式`null`为`None`并按关闭处理 |
+| 可空字符串`Option<String>` | `null`为`None`，字符串保留原文，数字/布尔转字面量，数组/对象转紧凑JSON字符串 |
+| 非可空字符串`String` | 同上，但显式`null`为空串。名称/地址的必填校验由保存或导入阶段负责，解析层不拦截 |
+| 六类规则对象 | 接受对象或内容为JSON对象的字符串；直接`null`/数组、空字符串及内容为`null`的字符串表示无规则。非空规则字符串的语法/字段错误必须上抛；规则内字符串按目标类型转换，例如`isVolume:false`为`"false"`、`chapterList:[1,2]`为`"[1,2]"` |
+
+语法错误包含行列，结构错误说明期望形态，字段错误包含字段路径；批量条目错误包含序号，
+嵌套规则错误保留外层规则名与内部字段路径，不静默改成空值或0。
+
+Dart的`BookSourceEditService.parseSource`由`RustBookSourceEditService`直连`sourceParse`，
+粘贴与扫码共用回填流程，不进行Dart JSON语法预检。`SourceImportParser`的展示字段、
+必填校验及确认导入的替换规则匹配均使用Rust归一化结果；原始Map保留用于展示原文、
+应用导入选项，以及后续替换/写入。Dart确认导入仍按条目编排，单条失败继续后续条目。
+
+Room导入直接持有归一化实体，经`BookSourceRepository`全列写入（包含`variable`和规则），
+不再序列化后重新解析；URL、并发率与限速变更均来自同一实体，仅在事务成功提交后发布。
+Mock装配使用无FFI的解析器，只覆盖常规类型化夹具，不声称复刻Rust宽容算法。
+Rust测试负责转换语义，Dart测试负责编排、错误传递和路由。
+
+未知字段无损往返及单引号`exploreUrl`嵌套规则解析不在本契约覆盖范围。
 
 编写者：Codex + Rust / UI｜2026-10-22
-
-### SOURCE-PARSE-FFI-20261022：只读书源解析 FFI（第二批，加法式 +2 方法）
-
-- **新增 FFI**：`source_parse(source_json: String) → Result<BookSourceDto, BridgeError>`（Rust `legado-ffi::ffi::source_parse`，实现 `legado-ffi/src/api/source.rs::parse_source`）。
-- **只读语义**：仅解析并归一化，**不写数据库、不写限速注册表、不修改任何既有记录**；可安全用于编辑页回填。
-- **与导入同一实现**：必须调用 `legado_core::models::book_source::parse_source_json`，与 `source_import` / `RoomImporter` 共用同一套字段解释，禁止另立解析分支。
-- **入参**：原始书源 JSON 文本，接受单个对象（也接受数组并按首项处理，兼容粘贴多条）。语法、结构、字段类型错误分别返回可定位错误；不做「全部失败降级为警告」。
-- **出参**：`BookSourceDto`，本批**不附 warnings**。允许返回尚未完整的书源（缺名称/地址由后续保存校验阶段拦截，不在解析层拒绝）。
-- **Dart 接线**：`BookSourceEditService` 新增 `Future<BookSource> parseSource(String json)`；正式实现 `RustBookSourceEditService` 直连 `sourceParse`，Mock 使用常规类型化夹具，不调用FFI或另写宽容算法。编辑页「粘贴源」与「二维码导入」共用同一回填流程，**Dart 侧不再做 `jsonDecode` 语法预检**（避免两套语法接受范围），错误提示按语法/结构/字段分类。
-- **预览**：`SourceImportParser` 的展示字段取自 Rust 归一化结果，原始 Map 仅保留用于展示原文与应用导入选项，不再自带归一化规则。
-- **方法计数**：FFI 方法 +2（source_parse / source_preview_fields）；FRB 重新生成绑定（生成物由生成器产出，不手改）。
-- **不在本批范围**：未知字段无损往返、单引号 `exploreUrl` 嵌套规则解析。
-
-编写者：Codex + Rust｜2026-10-22
-
-### SOURCE-PARSE-UNIFY-20261022：书源 JSON 解析职责收敛（第一批，FFI 签名不变）
-
-本批**只收敛 Rust 内部解析与写入**，FFI 方法签名与方法计数全部不变；因 Room 导入可见行为变化，故为**契约变更**（非零契约）。
-
-- **统一解析入口**：`legado-core` 新增唯一书源 JSON 解析实现（`parse_source_json` / `parse_source_array`），`legado-ffi::source_import`、`legado-db::RoomImporter`、`legado-engine::RoomSourceImport`、`legado-server::source_update` 全部改为调用同一实现，禁止再保留第二套字段解释。
-- **转换规则按目标字段类型确定，不按字段名推断**：
-  - 整数（`i32`/`i64`）：接受整数与合法整数字符串（**有意保留的兼容超集**，对齐既有 `lenient_i32/i64`，不因收敛而缩小接受范围）；超出目标范围明确报错；非法字符串、布尔、数组、对象**不静默转 0**，报错；缺省取字段默认值，显式 `null` 亦取默认值（两者对整数语义一致，但解析实现须分别分支记录）。
-  - 布尔：接受 `true/false`、`0/1`、`"true"/"false"/"1"/"0"/""`；其他报错。
-  - **可空字符串 `Option<String>`**：显式 `null` → `None`；标量（数字/布尔）→ 其字符串形式；数组/对象 → JSON 紧凑字符串（对齐上游 `StringJsonDeserializer`）。
-  - **非空字符串 `String`（`bookSourceUrl`、`bookSourceName`）**：显式 `null` → 空串（与既有 `variable` 口径一致）；标量 → 字符串形式；数组/对象 → JSON 字符串。空值是否可保存由既有必填校验负责，解析层不拦截。
-  - **规则对象字段**（`ruleExplore`/`ruleSearch`/`ruleBookInfo`/`ruleToc`/`ruleContent`/`ruleReview`）：同时接受 JSON 对象与「内容为 JSON 对象的字符串」两态，对齐上游六个规则类各自的 `jsonDeserializer`。
-- **Room 导入可见行为变更（均为修复）**：`enabled: false` 与 `enabled: "0"` 正确落为禁用（原实现恒写启用）；规则对象正确保留（原实现落空值）；`variable` 正确入库（原 SQL 未含该列）；缺省 `respondTime` 落 180000（原落 0）。
-- **限速数据来源**：`RoomSourceImport` 的 `(url, concurrentRate)` 改由归一化后的 `BookSource` 生成，保留「事务成功提交后才发布」边界。
-- **写入实现统一**：`RoomImporter` 解析成 `BookSource` 后复用 `BookSourceRepository`（全列含 `variable`），删除重复逐字段提取与书源 INSERT；书籍导入部分不动。
-- **错误语义**：语法错误、结构错误、字段类型错误分别返回可定位错误，不再一律降级为空串或 0。
-- **不在本批范围**：未知字段无损往返（`BookSourceDto`、Dart 模型、DB 列均为固定字段）、单引号 `exploreUrl` 嵌套规则解析（独立处理）、`sourceParse` 只读 FFI（第二批）。
-
-编写者：Codex + Rust｜2026-10-22
 
 ### READER-BATTERY-20261021：阅读电量平台契约（实施前冻结）
 
