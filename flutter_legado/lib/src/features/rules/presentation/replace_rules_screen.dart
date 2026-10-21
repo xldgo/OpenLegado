@@ -126,18 +126,16 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
                       AppMenuItem<String?>(value: g, child: Text('分组：$g')),
                   ],
                 ),
-                // P2-12：分组管理（对标原版 menu_group_manage → GroupManageDialog）
+                // [UI-fix v2.0.2 | 2026-08-06] 批量模式入口 — Qoder
                 IconButton(
-                  icon: const Icon(Symbols.folder_rounded),
-                  tooltip: context.l10n.groupManagement,
-                  onPressed: () => _showGroupManage(context, state.rules),
+                  icon: const Icon(Symbols.checklist_rounded),
+                  tooltip: '批量操作',
+                  onPressed: () => setState(() => _batchMode = true),
                 ),
-                // [UI-fix v2.0.2 | 2026-08-06] 导入入口接 ReplaceRuleImportConfirmScreen
-                // （对标原版 ReplaceRuleActivity menu_import：本地/网络/二维码均已接通） — Qoder
+                // 次要操作统一收入更多菜单，保留三种导入方式。— Codex + UI
                 AppMenuButton<String>(
-                  tooltip: context.l10n.importAction,
-                  icon: const Icon(Symbols.file_download_rounded),
-                  onSelected: _handleImportMenu,
+                  tooltip: context.l10n.ruleMoreActions,
+                  onSelected: _handleMoreMenu,
                   itemBuilder: (_) => [
                     AppMenuItem(
                       value: 'local',
@@ -151,24 +149,13 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
                       value: 'qrcode',
                       child: Text(context.l10n.importQrCode),
                     ),
+                    const AppMenuDivider(),
+                    AppMenuItem(
+                      value: 'groups',
+                      child: Text(context.l10n.groupManagement),
+                    ),
+                    AppMenuItem(value: 'help', child: Text(context.l10n.help)),
                   ],
-                ),
-                // [UI-fix v2.0.2 | 2026-08-06] 批量模式入口 — Qoder
-                IconButton(
-                  icon: const Icon(Symbols.checklist_rounded),
-                  tooltip: '批量操作',
-                  onPressed: () => setState(() => _batchMode = true),
-                ),
-                IconButton(
-                  icon: const Icon(Symbols.help_rounded),
-                  tooltip: context.l10n.help,
-                  onPressed: () =>
-                      showHelp(context, HelpAssets.replaceRuleHelp),
-                ),
-                // [A3 形态对齐 | full-stack-engineer + UI] 新增入口跳整页编辑器
-                IconButton(
-                  icon: const Icon(Symbols.add_rounded),
-                  onPressed: () => ReplaceRuleEditScreen.open(context),
                 ),
               ],
             ),
@@ -212,7 +199,7 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
                   Text('暂无替换规则', style: Theme.of(context).textTheme.bodyLarge),
                   const SizedBox(height: 8),
                   Text(
-                    '点击右上角 + 添加规则',
+                    '点击右下角 + 添加规则',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -230,6 +217,13 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
           return _buildRuleList(context, notifier, filtered);
         },
       ),
+      floatingActionButton: _batchMode
+          ? null
+          : FloatingActionButton(
+              tooltip: context.l10n.ruleNewRule,
+              onPressed: () => ReplaceRuleEditScreen.open(context),
+              child: const Icon(Symbols.add_rounded),
+            ),
     );
   }
 
@@ -272,8 +266,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       );
     }
     return ReorderableListView.builder(
-      // 顶部由页壳留白，列表只保留底部8dp与卡片横向间距。
-      padding: const EdgeInsets.only(bottom: 8),
+      // 为56dp FAB、16dp页边距与16dp内容留白预留尾部空间，末项可滚到按钮上方。
+      padding: const EdgeInsets.only(bottom: 88),
       itemCount: rules.length,
       onReorderItem: (oldIndex, newIndex) {
         // 简单的排序处理
@@ -489,9 +483,8 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     }
   }
 
-  /// [UI-fix v2.0.1 | 2026-08-06] 导入菜单分发
-  /// [UI-fix v2.0.2 | 2026-08-06] 网络/二维码导入接通（复用导入确认页） — Qoder
-  void _handleImportMenu(String value) {
+  /// 更多菜单复用既有导入、分组管理及帮助入口。— Codex + UI
+  void _handleMoreMenu(String value) {
     switch (value) {
       case 'local':
         _importFromFile();
@@ -499,6 +492,10 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
         _showImportUrlDialog();
       case 'qrcode':
         _importFromQrCode();
+      case 'groups':
+        _showGroupManage(context, ref.read(replaceRuleNotifierProvider).rules);
+      case 'help':
+        showHelp(context, HelpAssets.replaceRuleHelp);
     }
   }
 

@@ -122,7 +122,11 @@ void main() {
       await pumpEdit(tester);
 
       // 顶栏与保存按钮
-      expect(find.text('添加替换规则'), findsOneWidget);
+      // 共用顶栏同时构建展开与折叠标题，验证实际AppBar中的标题。
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: find.text('添加替换规则')),
+        findsWidgets,
+      );
       expect(find.text('保存'), findsOneWidget);
       expect(find.byTooltip('更多'), findsOneWidget);
       // 字段（顺序对齐原版 layout：名称/分组/匹配规则/替换为/勾选/范围/排除/超时/预览）
@@ -314,7 +318,10 @@ void main() {
       await pumpEdit(tester, rule: rule);
 
       // 标题切换为编辑态
-      expect(find.text('编辑替换规则'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: find.text('编辑替换规则')),
+        findsWidgets,
+      );
       // 文本字段回填
       final nameField = tester.widget<TextField>(byLabel('规则名称'));
       expect(nameField.controller?.text, '去广告');

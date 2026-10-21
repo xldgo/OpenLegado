@@ -1,5 +1,17 @@
 # Legado 后续重构执行计划（Active）
 
+### REPLACE-RULE-ACTIONS-20261021：整理替换净化规则管理页操作（P2，代码与独立诊断包验证通过，待主应用验收）
+
+- 授权/基线：用户要求添加规则改用FAB并移除顶栏添加，导入、分组管理、帮助收入下拉菜单；主目录dev / c6f0ca18d，单代理，不推送CI、不覆盖安装主应用。
+- 范围：复用标准FloatingActionButton和AppMenuButton；更多菜单保留本地/网络/二维码导入、分组管理和帮助，搜索、筛选、批量入口保持。批量模式隐藏FAB，空态提示同步到右下角，普通列表尾部预留按钮避让。
+- 验收：FAB打开并保存编辑器、顶栏无重复添加、菜单各入口、批量切换和360dp长列表末项避让；只做相关回归及独立诊断包，不修改仓储、规则处理或导入协议。
+- 实现：普通态使用右下角标准FAB进入原整页编辑器，顶栏移除添加/导入/分组管理/帮助独立按钮；更多菜单直接列出三种导入方式及管理/帮助。批量模式无FAB，普通列表尾部88dp确保末卡能完整滚到按钮上方。
+- 验证：7项页面交互及14项编辑器/边界回归通过，涵盖保存、预览、剪贴板、菜单网络导入对话框、分组管理及帮助Sheet、批量显隐与长列表避让；改动文件分析与架构检查通过。日志flutter_legado/build/replace-rules-actions-{tests,regression,analysis,architecture}.log。编辑器两处旧标题计数夹具误将可折叠标题视为单份，已限定实际AppBar并保留字段断言，未修改编辑器业务。
+- 设备：独立诊断包复用生产页面及20条Mock规则，在实时探测MuMu 127.0.0.1:16384 / 360dp查看普通页、更多菜单、FAB编辑器、批量态及末项完整滚达；截图normal.png、more-menu.png、add-editor.png、batch.png、last-rule.png与device-logcat.log在build/replace-rules-actions-20261021/。离线构建日志build/reader-font-metrics-20261021/replace-rules-actions-build.log；未发现本次异常，诊断包已卸载。
+- 交付：版本2.0.436+437，设计规范和双日志同步；仅本地提交，未推送/触发CI，未覆盖安装用户主应用，未进行iOS真机验证；提交号见Git。
+
+编写者：Codex + UI｜2026-10-22
+
 ### DICTIONARY-SUMMARY-20261021：精简字典规则说明（P2，已关闭）
 
 - 用户要求将设置页字典规则说明改为“配置字典规则”并删除括号内容；基线dev / 0a555053c。

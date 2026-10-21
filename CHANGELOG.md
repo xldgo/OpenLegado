@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.436] - 2026-10-22
+
+### Changed
+- 替换净化规则使用右下角FAB添加，导入、分组管理与帮助收进更多菜单，保留批量和筛选操作。
+- 贡献者：Codex + UI；构建号437。
+
 ## [2.0.435] - 2026-10-21
 
 ### Changed
