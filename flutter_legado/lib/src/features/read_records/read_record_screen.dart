@@ -1,7 +1,6 @@
 import '../../app/routing/app_navigation.dart';
 import '../../app/routing/route_arguments.dart';
 import '../privacy/privacy_gate.dart';
-import '../../widgets/app_search_transition.dart';
 import '../../widgets/app_animated_text_line.dart';
 
 import 'package:material_ui/material_ui.dart';
@@ -13,8 +12,7 @@ import '../bookshelf/bookshelf.dart';
 import '../../app/routing/route_names.dart';
 import '../../utils/book_open_utils.dart';
 import '../../widgets/app_scaffold.dart';
-import '../../widgets/legado_app_bar.dart';
-import '../../widgets/app_search_field.dart';
+import '../../widgets/dynamic_search_app_bar.dart';
 import '../../widgets/app_menu.dart';
 import '../../widgets/book_cover.dart';
 import '../../widgets/md3_fast_scroller.dart';
@@ -199,7 +197,18 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         if (!popped && selection) setState(_selected.clear);
       },
       child: AppScaffold(
-        topBar: LegadoAppBar(
+        topBar: DynamicSearchAppBar(
+          title: context.l10n.readingRecords,
+          searchController: _searchController,
+          searchHint: context.l10n.searchBookOrAuthor,
+          expanded: _showSearch,
+          showSearchAction: false,
+          onExpandedChanged: (expanded) =>
+              setState(() => _showSearch = expanded),
+          onChanged: (query) {
+            setState(_selected.clear);
+            ref.read(readRecordNotifierProvider.notifier).setSearchQuery(query);
+          },
           showBack: true,
           leading: selection
               ? IconButton(
@@ -208,7 +217,8 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
                   onPressed: () => setState(_selected.clear),
                 )
               : null,
-          title: Column(
+          // 双行标题保留切换动画，折叠和搜索占位交由共用顶栏。— Codex + UI
+          titleWidget: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -297,29 +307,6 @@ class _ReadRecordScreenState extends ConsumerState<ReadRecordScreen> {
         ),
         body: Column(
           children: [
-            AppSearchTransition(
-              expanded: _showSearch,
-              builder: (context, progress) => AppSearchReveal(
-                progress: progress,
-                expanded: _showSearch,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: AppSearchField(
-                    controller: _searchController,
-                    hintText: context.l10n.searchBookOrAuthor,
-                    onChanged: (q) {
-                      setState(_selected.clear);
-                      ref
-                          .read(readRecordNotifierProvider.notifier)
-                          .setSearchQuery(q);
-                    },
-                  ),
-                ),
-              ),
-            ),
             Expanded(
               child: rows.when(
                 loading: () => const Center(child: CircularProgressIndicator()),

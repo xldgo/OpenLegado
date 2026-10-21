@@ -251,10 +251,10 @@ extension _SearchBuilders on _SearchScreenState {
   /// 原版语义：触底 && !isSearchLiveData && hasMore && !isManualStopSearch
   /// → viewModel.search("")（同 searchId → page++）。返回 false 不拦截滚动。
   bool _onResultsScroll(ScrollNotification notification) {
-    if (notification is! ScrollUpdateNotification) return false;
-    final controller = _resultsScrollController;
-    if (!controller.hasClients) return false;
-    final position = controller.position;
+    if (notification is! ScrollUpdateNotification || notification.depth != 0) {
+      return false;
+    }
+    final position = notification.metrics;
     // 触底判定（1px 容差，对齐原版 canScrollVertically(1)==false）
     if (position.pixels < position.maxScrollExtent - 1.0) return false;
     final state = ref.read(searchNotifierProvider);
@@ -268,40 +268,7 @@ extension _SearchBuilders on _SearchScreenState {
     return false;
   }
 
-  /// [搜索页对齐 | Qoder UI] 圆形 tonal 动作钮（对齐参考版顶栏圆形按钮形态）
-  ///
-  /// [2.0.275 视觉精修] 非激活态底色 surfaceContainerHighest → surfaceContainerHigh
-  /// + 前景 onSurface：与全局顶栏 tonal 中性槽位（TopBarActionStyler）同槽位，
-  /// 激活态（筛选开启）保持主题色 primary 区分；合并时由胶囊绘制背景。
-  Widget _circleAction(
-    BuildContext context, {
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onTap,
-    bool active = false,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    final ui = UiSettingsScope.of(context, UiSettingsAspect.topBar);
-    final merged =
-        ui.mergeTopBarActions &&
-        ui.topBarButtonStyle != TopBarButtonStyle.plain;
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onTap,
-      icon: Icon(icon),
-      style: IconButton.styleFrom(
-        backgroundColor: merged
-            ? Colors.transparent
-            : (active ? cs.primary : cs.surfaceContainerHigh),
-        foregroundColor: active
-            ? (merged ? cs.primary : cs.onPrimary)
-            : cs.onSurfaceVariant,
-      ),
-    );
-  }
-
-  /// [搜索页对齐 | Qoder UI] 输入条（原顶栏胶囊整体迁移至 body 顶部：
-  /// 对齐参考版「大标题 + 全宽输入条」形态；constraints.minWidth 0 防窄屏溢出）
+  /// 输入条由共用顶栏承载，折叠后仍保留输入入口。— Codex + UI
   ///
   /// [1-6 ②] 参考版量测：紧凑胶囊高 ≈56dp、hint ≈16sp、灰蓝底走主题槽
   /// surfaceContainerHigh（无阴影，SearchBar 默认即扁平）、两端全圆（Stadium）
@@ -361,47 +328,53 @@ extension _SearchBuilders on _SearchScreenState {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    // [1-6 ①] 参考版形态：顶栏仅 3 个圆形动作钮（⚙/◯/≡）。
+    // 三个动作入口沿用共用顶栏样式与合并设置。— Codex + UI
     // 原第 4 钮 ⋮（2.0.255 迁入）移除，其菜单项按语义并入三钮入口（映射见台账 1-6）：
     //   精准搜索/标识读过的书籍/日志/书源管理 → ⚙ 设置弹层
     //   分组或书源/当前书源/全部书源/分组:X → ◯ 搜索范围弹层
     //   搜索结果过滤 → ≡ 筛选弹层
     return LegadoAppBar(
-      title: const SizedBox.shrink(),
+      title: Text(context.l10n.search),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: _buildSearchField(context),
+        ),
+      ),
       actions: [
         // ① 设置⚙ → 设置弹层（书源管理/精准搜索/标识读过的书籍/日志，
         // 原 ⋮ 静态项并入；锚定 ⚙ 钮下方，替代原 _menuButtonKey 定位）
-        // 图标对齐参考版：齿轮（Settings，非默认 ⋮），实心深色（onSurface）
+        // 设置使用齿轮图标，颜色跟随共用按钮主题。
         AppMenuButton<String>(
           key: _menuButtonKey,
           tooltip: context.l10n.settings,
-          icon: Icon(
-            Symbols.settings_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          icon: const Icon(Symbols.settings_rounded),
           onSelected: _onSettingsMenuSelected,
           itemBuilder: (_) => _buildSettingsMenuItems(),
         ),
         // ② 定位（center_focus_weak：十字刻线空心圆，对齐参考版 ◯ 形态）
         // → 搜索范围弹层（原 ⋮ 范围项并入；
         // 弹层内分组/书源选择 + 当前书源/全部书源/分组 快捷切换）
-        _circleAction(
-          context,
-          icon: Symbols.center_focus_weak_rounded,
+        IconButton(
+          icon: const Icon(Symbols.center_focus_weak_rounded),
           tooltip: context.l10n.searchScope,
-          onTap: _showSearchScopeDialog,
+          onPressed: _showSearchScopeDialog,
         ),
         // ③ 筛选（filter_list：三段递减横线，对齐参考版 ≡ 形态；
-        // 已开启态主色底区分）→ 搜索结果过滤（原 ⋮「搜索结果过滤」项
+        // 已开启态用主题色图标区分）→ 搜索结果过滤（原 ⋮「搜索结果过滤」项
         // 即本钮直达，映射闭环）
-        _circleAction(
-          context,
-          icon: Symbols.filter_list_rounded,
+        IconButton(
+          icon: Icon(
+            Symbols.filter_list_rounded,
+            color: _resultFilterWords.isEmpty
+                ? null
+                : Theme.of(context).colorScheme.primary,
+          ),
           tooltip: _resultFilterWords.isEmpty
               ? context.l10n.searchResultFilter
               : context.l10n.searchResultFilterActive,
-          active: _resultFilterWords.isNotEmpty,
-          onTap: _showResultFilterDialog,
+          onPressed: _showResultFilterDialog,
         ),
       ],
     );
@@ -469,11 +442,15 @@ extension _SearchBuilders on _SearchScreenState {
   }
 
   // 只在场景类别变化时过渡；流式结果和续页更新保留同一列表及滚动位置。
-  Widget _buildSceneBody(BuildContext context, SearchState state) {
+  Widget _buildSceneBody(
+    BuildContext context,
+    SearchState state,
+    ScrollController scrollController,
+  ) {
     final results = _filterSearchResults(state.results);
     return AppSceneTransition(
       scene: _bodyScene(state, results),
-      child: _buildBody(context, state, results),
+      child: _buildBody(context, state, results, scrollController),
     );
   }
 
@@ -491,6 +468,7 @@ extension _SearchBuilders on _SearchScreenState {
     BuildContext context,
     SearchState state,
     List<SearchResult> results,
+    ScrollController scrollController,
   ) {
     // 分桶排序在 notifier 批次回调内一次性完成（对齐原版 mergeItems
     // 无条件执行：默认也按匹配度 equal→tags→contains→other 排序，
@@ -614,7 +592,7 @@ extension _SearchBuilders on _SearchScreenState {
             onNotification: _onResultsScroll,
             // 不 keepAlive：滚出可视区即 dispose，取消排队中的封面解密
             child: ListView.separated(
-              controller: _resultsScrollController,
+              controller: scrollController,
               itemCount: results.length,
               addAutomaticKeepAlives: false,
               separatorBuilder: (_, _) => const Divider(height: 1, indent: 88),

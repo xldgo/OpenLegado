@@ -1,5 +1,15 @@
 # Legado 后续重构执行计划（Active）
 
+### SEARCH-RECORD-TOPBAR-20261022：搜索与阅读记录顶栏修复（P1，代码与定向验证完成，待用户手动验收）
+
+- 授权/基线：用户指出搜索页按钮与折叠样式异常，并要求修复阅读记录顶栏；dev / 34d1cabd7，单代理。用户自行手动检查，不构建安装或进行设备操作。
+- 根因：搜索页用空标题绕过页壳识别，再在正文绘制加粗大标题，范围/筛选按钮自定义背景覆盖全局样式；阅读记录的双行Column标题同样未接入折叠识别，搜索展开另在正文维护。
+- 实现：搜索标题与输入行交给LegadoAppBar，结果列表通过AppScrollBody共用协调器，新搜索使用整体回顶，增量更新保留位置；触底使用当前列表通知的metrics。按钮复用统一材质，仅开启筛选时强调图标。阅读记录接入DynamicSearchAppBar，保留双行标题动画、三视图、选择与原有操作，搜索占位由共用组件管理。不改共用顶栏几何、Rust或FFI。
+- 验证：7个相关Widget文件30项通过；随后补充真实折叠高度与搜索开关几何检查，受影响2个文件17项通过，共31个独立用例。覆盖360dp输入、筛选菜单、失败横幅、流式增量保位、新搜索回顶、阅读记录选择动画/三视图与总览导航。日志flutter_legado/build/search-topbar-{regression,geometry}.log；改动文件静态分析无问题，架构与diff检查通过；日志search-topbar-analysis-final.log、search-topbar-architecture.log。
+- 交付：版本2.0.438+439，双日志同步；单代理自查，仅本地提交，未推送或触发CI。实际设备视觉、手势与键盘行为由用户手动验收，不宣称真机已验证；提交号见Git。
+
+编写者：Codex + UI｜2026-10-22
+
 ### SOURCE-PARSE-CONTENT-BATCH-20261022：补齐批量正文规则解析（P2，代码与定向验证完成，待主应用验收）
 
 - 授权/基线：用户要求补充解析；dev / b00d9bffe，单代理执行。原版build/upstream/legado / 363540972的ContentRule已有contentBatch与maxBatchSize，本项目缺失并静默丢弃。

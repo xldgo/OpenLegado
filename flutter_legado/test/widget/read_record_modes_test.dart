@@ -12,7 +12,6 @@ import 'package:flutter_legado/src/data/repositories/mock_read_record_repository
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
-import 'package:flutter_legado/src/widgets/legado_app_bar.dart';
 import 'package:flutter_legado/src/widgets/app_animated_text_line.dart';
 
 import '../mocks/mocks.dart';
@@ -78,8 +77,27 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder titleText(String text) =>
-      find.descendant(of: find.byType(LegadoAppBar), matching: find.text(text));
+  Finder titleText(String text) => find.descendant(
+    of: find.byType(NavigationToolbar),
+    matching: find.text(text),
+  );
+
+  testWidgets('记录列表折叠标题，搜索行使用同一顶栏且关闭后恢复高度', (tester) async {
+    await pump(tester);
+    expect(tester.getSize(find.byType(AppBar)).height, greaterThan(56));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(AppBar)).height, closeTo(56, 0.01));
+    expect(titleText('阅读记录'), findsOneWidget);
+    await tester.tap(find.byTooltip('搜索'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(AppBar)).height, closeTo(120, 0.01));
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.tap(find.byTooltip('搜索'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(AppBar)).height, closeTo(56, 0.01));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('选择态双行文案过渡、数量变化及系统返回先退出选择', (tester) async {
     final end = DateTime(2026, 10, 13, 12).millisecondsSinceEpoch;
@@ -94,7 +112,7 @@ void main() {
     await pump(tester);
     expect(titleText('阅读记录'), findsOneWidget);
     expect(titleText('汇总视图'), findsOneWidget);
-    final titleRect = tester.getRect(find.byType(LegadoAppBar));
+    final titleRect = tester.getRect(find.byType(NavigationToolbar));
     final cover = tester.element(find.byType(BookCover).first);
     await tester.longPress(find.text('测试小说'));
     await tester.pump();
@@ -123,7 +141,7 @@ void main() {
     );
     expect(incoming.translation.dy, inExclusiveRange(0.0, 1.0));
     expect(outgoing.translation.dy, inExclusiveRange(-1.0, 0.0));
-    expect(tester.getRect(find.byType(LegadoAppBar)), titleRect);
+    expect(tester.getRect(find.byType(NavigationToolbar)), titleRect);
     await tester.pumpAndSettle();
     expect(titleText('阅读记录'), findsNothing);
     expect(titleText('汇总视图'), findsNothing);
@@ -171,7 +189,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(titleText('已选 1 项'), findsOneWidget);
     final titleLines = find.descendant(
-      of: find.byType(LegadoAppBar),
+      of: find.byType(NavigationToolbar),
       matching: find.byType(AppAnimatedTextLine),
     );
     expect(titleLines, findsNWidgets(2));
@@ -437,7 +455,7 @@ void main() {
 
   testWidgets('三视图顶栏切换、显示真实章节、偏好持久化并保留总览入口', (tester) async {
     await pump(tester);
-    expect(find.text('汇总视图'), findsOneWidget);
+    expect(titleText('汇总视图'), findsOneWidget);
     expect(find.text('按书'), findsNothing);
     expect(find.text('按天'), findsNothing);
     expect(find.text('测试小说'), findsOneWidget);
@@ -449,11 +467,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('切换阅读记录视图'));
     await tester.pumpAndSettle();
-    expect(find.text('时间线视图'), findsOneWidget);
+    expect(titleText('时间线视图'), findsOneWidget);
     expect(find.textContaining('第三章'), findsOneWidget);
     await tester.tap(find.byTooltip('切换阅读记录视图'));
     await tester.pumpAndSettle();
-    expect(find.text('最后阅读视图'), findsOneWidget);
+    expect(titleText('最后阅读视图'), findsOneWidget);
     expect(
       (await SharedPreferences.getInstance()).getString(
         'readRecordDisplayMode',

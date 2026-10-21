@@ -12,8 +12,6 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../widgets/app_scaffold.dart';
 import '../../widgets/legado_app_bar.dart';
-import '../../widgets/ui_settings_scope.dart';
-import '../../domain/models/ui_settings.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
@@ -69,6 +67,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   final _resultsScrollController = ScrollController();
+  ScrollController? _scrollTopController;
   // [fix v2.0.102] 构造期捕获 notifier 实例：riverpod 在 state.dispose() 执行前
   // 已将 element 标记为 disposed，dispose 内任何 ref.read 都会抛
   // 「Cannot use ref after the widget was disposed」；state getter 为 protected，
@@ -83,7 +82,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       ref.read(searchSettingsRepositoryProvider).current.showReadRecord;
   // [A1 形态对齐 | full-stack-engineer + UI] 搜索结果过滤屏蔽词（对标原版
   // PreferKey.searchResultFilter：每行一个普通文本，匹配书名/作者/分类标签，
-  // 忽略英文大小写）。空串 = 过滤关闭；非空 = 过滤开启（顶栏实心绿）。
+  // 忽略英文大小写）。空串 = 过滤关闭；非空 = 过滤开启（顶栏主题色图标）。
   String get _resultFilter =>
       ref.read(searchSettingsRepositoryProvider).current.resultFilter;
   // 输入帮助层显隐（对标原版 ll_input_help / setOnQueryTextFocusChangeListener）
@@ -227,8 +226,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           (prev.keyword != next.keyword || next.results.isEmpty);
       if (isNewSearch) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_resultsScrollController.hasClients) {
-            _resultsScrollController.animateTo(
+          final controller = _scrollTopController;
+          if (mounted && controller != null && controller.hasClients) {
+            controller.animateTo(
               0,
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
@@ -294,74 +294,68 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         }
       },
       child: AppScaffold(
-        // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
         topBar: _buildAppBar(context),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // [搜索页对齐 | Qoder UI] 大标题「搜索」+ 全宽输入条
-            //（对齐参考版：输入条在 body 顶部，顶栏仅动作钮）
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.search,
-                    style: Theme.of(context).textTheme.headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+        body: AppScrollBody(
+          controller: _resultsScrollController,
+          builder: (context, scrollController) {
+            // 新搜索回到整体顶部，增量结果继续沿用内层滚动位置。— Codex + UI
+            _scrollTopController =
+                context
+                    .findAncestorStateOfType<NestedScrollViewState>()
+                    ?.outerController ??
+                scrollController;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 顶部进度条（对齐原版 refresh_progress_bar，2dp）
+                if (state.isLoading && state.totalCount > 0)
+                  LinearProgressIndicator(
+                    value: state.searchedCount / state.totalCount,
+                    minHeight: 2,
                   ),
-                  const SizedBox(height: 12),
-                  _buildSearchField(context),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            // 顶部进度条（对齐原版 refresh_progress_bar，2dp）
-            if (state.isLoading && state.totalCount > 0)
-              LinearProgressIndicator(
-                value: state.searchedCount / state.totalCount,
-                minHeight: 2,
-              ),
-            // [UI_SYNC_REFACTOR S5 修 | 2026-09-08] 结果/进度胶囊（对齐参考版
-            // 「结果 N · 进度 X/Y」）：多源搜索的实时反馈，搜索后常驻 — Qoder
-            if (state.totalCount > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      context.l10n.searchProgressSummary(
-                        state.results.length,
-                        state.searchedCount,
-                        state.totalCount,
+                // [UI_SYNC_REFACTOR S5 修 | 2026-09-08] 结果/进度胶囊（对齐参考版
+                // 「结果 N · 进度 X/Y」）：多源搜索的实时反馈，搜索后常驻 — Qoder
+                if (state.totalCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          context.l10n.searchProgressSummary(
+                            state.results.length,
+                            state.searchedCount,
+                            state.totalCount,
+                          ),
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
                       ),
-                      style: Theme.of(context).textTheme.labelMedium,
                     ),
                   ),
+                // [队列④ P1-B] 失败书源横幅（列表头位置，非阻断、可滚动）：
+                // 单源搜索失败原仅 AppLog 留痕，现按批次 error 文案呈现，
+                // 展开可见涉及源名；不改整体搜索交互（失败源不阻断搜索）
+                if (state.failedSources.isNotEmpty)
+                  _buildFailedSourcesBanner(
+                    context,
+                    state.failedSources,
+                    _failedBannerExpanded,
+                  ),
+                Expanded(
+                  child: _buildSceneBody(context, state, scrollController),
                 ),
-              ),
-            // [队列④ P1-B] 失败书源横幅（列表头位置，非阻断、可滚动）：
-            // 单源搜索失败原仅 AppLog 留痕，现按批次 error 文案呈现，
-            // 展开可见涉及源名；不改整体搜索交互（失败源不阻断搜索）
-            if (state.failedSources.isNotEmpty)
-              _buildFailedSourcesBanner(
-                context,
-                state.failedSources,
-                _failedBannerExpanded,
-              ),
-            Expanded(child: _buildSceneBody(context, state)),
-          ],
+              ],
+            );
+          },
         ),
         // 批次B G-B-02：搜索中=stop；空闲且 hasMore=play（原版 fb_start_stop + searchFinally）
         floatingActionButton: state.isLoading

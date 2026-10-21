@@ -94,7 +94,7 @@ void main() {
 
   group('搜索页顶栏三钮（A1 形态对齐）', () {
     for (final active in [false, true]) {
-      testWidgets('合并背景不叠加圆形底色，保留筛选强调色：$active', (tester) async {
+      testWidgets('合并按钮沿用共用材质，保留筛选强调色：$active', (tester) async {
         when(() => mockApi.configRepository.getConfig('searchResultFilter'))
             .thenAnswer((_) async => active ? '遮光' : null);
         await tester.pumpWidget(
@@ -114,15 +114,13 @@ void main() {
             (widget) => widget is IconButton && widget.tooltip == label,
           );
           final button = tester.widget<IconButton>(finder);
-          expect(
-            button.style!.backgroundColor!.resolve({}),
-            Colors.transparent,
-          );
+          expect(button.style?.backgroundColor, isNull);
           final cs = Theme.of(tester.element(finder)).colorScheme;
           expect(
-            button.style!.foregroundColor!.resolve({}),
-            active && label.contains('已开启') ? cs.primary : cs.onSurfaceVariant,
+            (button.icon as Icon).color,
+            active && label.contains('已开启') ? cs.primary : isNull,
           );
+          expect(tester.getSize(finder), const Size(48, 48));
         }
         expect(tester.takeException(), isNull);
       });

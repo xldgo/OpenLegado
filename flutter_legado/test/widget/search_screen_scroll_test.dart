@@ -141,11 +141,14 @@ void main() {
       expect(find.byType(ListView), findsOneWidget);
       // 稳定排序保证到达序：'书 1' 是 item 0，必在可见区
       expect(find.text('书 1'), findsOneWidget);
+      expect(tester.getSize(find.byType(AppBar)).height, greaterThan(120));
 
       // 下滑到列表中部（偏移 > 800px，远离顶部）
       await scrollDown(tester, 800);
       final before = readPixels(tester);
       expect(before, greaterThan(800));
+      expect(tester.getSize(find.byType(AppBar)).height, closeTo(120, 0.01));
+      expect(find.byType(SearchBar), findsOneWidget);
 
       // 第二批到达（模拟另一来源的结果）→ 触发又一次节流 flush
       events.add(makeBatch(makeBooks(40, prefix: '乙书')));
