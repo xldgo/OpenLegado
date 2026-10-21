@@ -1889,13 +1889,20 @@ ReaderSettingsRepository 的字号并按原规则四舍五入为整数。字号�
 屏幕设置（READER-SCREEN-STATUS-SETTINGS-20261015，20261021按READER-TIP-UNIFY更新）：
 ReaderSettings.screen管理系统栏、方向与安全区普通偏好，使用reader_规范键和同一仓储逐字段更新，
 不迁移旧值。状态信息统一配置在pageLayout页眉/页脚，不再有独立状态条。
-系统栏临时覆盖、原方向编码、Rust/FRB、JS快照与数据库保持，保持亮屏仍待实现。
+系统栏临时覆盖、原方向编码、Rust/FRB、JS快照与数据库保持。
 
 剩余阅读设置（READER-SETTINGS-CLEANUP-20261015）：ReaderSettings.autoChangeSource默认true、
 showTitleAddition默认true，update按字段保存；screen.keepScreenOnSeconds默认0，
 updateScreen接受-1/0/60/300/600秒，分别为常亮/系统/1分钟/5分钟/10分钟。
 三项仅使用reader_auto_change_source、reader_show_title_addition、reader_keep_screen_on_seconds。
-后两项保留读取与存储定义，界面继续禁用，不宣称平台功能已接入。
+showTitleAddition保留读取与存储定义，界面继续禁用。
+保持亮屏（READER-KEEP-AWAKE-20261021）：沿用现有键与枚举，使用wakelock_plus执行屏幕防休眠。
+0不阻止系统熄屏，-1在阅读器前台可见时常亮；正数从进入/返回阅读器或最近一次阅读触摸开始计时，
+到期仅解除防休眠，由系统决定实际熄屏时间，不调用强制关屏，也不减去系统自动锁屏时长。
+更改时长立即重新计时；其他设置变化、重建、朗读进度与自动翻页不重置计时。
+独立页面覆盖、应用非resumed或阅读器退出时解除；弹出阅读设置等浮层仍属于阅读会话。
+平台调用串行化并按页面所有者汇总，过期请求不能恢复已退出页面的亮屏；平台失败记录并可在后续交互重试。
+该能力不改变朗读的PARTIAL_WAKE_LOCK、媒体后台保活、Rust/FRB签名或数据库。
 ReaderAdvancedConfig、readerAdvConfigProvider、loadAdvanced/saveAdvanced及独立高级队列删除，
 设置界面不再接收或回传整份高级快照；自动换源读取共享当前值，原执行策略保持。
 备份忽略及reload覆盖三项，不迁移旧值。Rust/FRB、JS快照、数据库保持不变。

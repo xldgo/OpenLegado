@@ -2,6 +2,7 @@ import '../../../app/routing/app_navigation.dart';
 import '../../../app/routing/route_arguments.dart';
 import 'views/reader_content_viewport.dart';
 import '../application/reader_exit_controller.dart';
+import '../application/reader_keep_awake_controller.dart';
 import 'overlays/reader_add_to_shelf_dialog.dart';
 import '../application/reader_chapter_coordinator.dart';
 import '../application/reader_source_recovery_controller.dart';
@@ -28,6 +29,7 @@ import '../../audio/application/audio_notifier.dart';
 import '../../bookmarks/bookmarks.dart';
 import '../../bookshelf/bookshelf.dart';
 import '../../../providers/general_settings_provider.dart';
+import '../../../providers/screen_awake_provider.dart';
 import '../application/reader_notifier.dart';
 import '../../../providers/theme/system_bar_controller.dart';
 import '../../../app/routing/route_names.dart';
@@ -64,6 +66,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   late SystemBarController _systemBars;
   PageRoute<dynamic>? _systemBarRoute;
   bool _readerRouteActive = true;
+  late final ReaderKeepAwakeController _keepAwake;
+  bool _appResumed = true;
   final GlobalKey<ReaderPageViewState> _pageViewKey =
       GlobalKey<ReaderPageViewState>();
 
@@ -139,6 +143,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void initState() {
     super.initState();
+    _appResumed =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    _keepAwake = ReaderKeepAwakeController(ref.read(screenAwakeProvider));
+    _syncKeepAwake();
     _themeSession = ref.read(readerThemeSessionProvider)..reset();
     _systemBars = ref.read(systemBarControllerProvider);
     _chapters = ReaderChapterCoordinator(
@@ -227,6 +236,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   void dispose() {
+    _keepAwake.dispose();
     _chapters.removeListener(_onReviewChanged);
     _chapters.dispose();
     _sourceRecovery.dispose();
@@ -253,24 +263,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   @override
   void didPush() {
     _readerRouteActive = true;
+    _syncKeepAwake();
     _applySystemChrome();
   }
 
   @override
   void didPopNext() {
     _readerRouteActive = true;
+    _syncKeepAwake();
     _applySystemChrome();
   }
 
   @override
   void didPushNext() {
     _readerRouteActive = false;
+    _syncKeepAwake();
     _systemBars.releaseReader(_systemBarOwner);
   }
 
   @override
   void didPop() {
     _readerRouteActive = false;
+    _syncKeepAwake();
     _systemBars.releaseReader(_systemBarOwner);
   }
 
@@ -291,6 +305,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   // 逐页写库属超范围行为变更；C3 缺陷（后台/被杀丢位置）由本钩子完整修复。
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _syncKeepAwake();
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
@@ -301,6 +317,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       case AppLifecycleState.hidden:
         break;
     }
+  }
+
+  void _syncKeepAwake() {
+    _keepAwake.configure(
+      ref
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .screen
+          .keepScreenOnSeconds,
+    );
+    _keepAwake.setVisible(_readerRouteActive && _appResumed);
   }
 
   // ===== [UI-fix v2.0.3 | 2026-08-08] MoreConfig 第①批系统级生效 =====
@@ -347,7 +374,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _loadReaderSettings() async {
     try {
       await ref.read(readerSettingsRepositoryProvider).load();
-      if (mounted) _applySystemChrome();
+      if (mounted) {
+        _applySystemChrome();
+        _syncKeepAwake();
+      }
     } catch (error) {
       debugPrint('阅读设置读取失败：$error');
     }
@@ -365,6 +395,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final allow = cfg.volumeKeyPage && (!aloud || cfg.volumeKeyPageOnPlay);
     if (!allow) return false;
 
+    _keepAwake.onInteraction();
     final pageView = _pageViewKey.currentState;
     if (pageView == null) return false;
     if (isVolDown) {
@@ -457,7 +488,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       previous,
       next,
     ) {
-      if (next != null && previous != next) _applySystemChrome();
+      if (next != null && previous != next) {
+        _applySystemChrome();
+        _keepAwake.configure(next.keepScreenOnSeconds);
+      }
     });
 
     ref.listen(
@@ -482,81 +516,87 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           unawaited(_exit.requestExit());
         }
       },
-      child: Scaffold(
-        backgroundColor: state.backgroundColor,
-        // 输入面板自行避让键盘，正文保持原视口，避免键盘开关触发重分页。
-        resizeToAvoidBottomInset: false,
-        // 系统栏占位与四向缺口分别采样，再统一交给内容视口。
-        body: ReaderMenuThemeHost(
-          config:
-              ref.watch(readerSettingsProvider).value?.menuTheme ??
-              ref.read(readerSettingsRepositoryProvider).current.menuTheme,
-          readingBackground: state.backgroundColor,
-          readingBrightness: state.readingBrightness,
-          builder: (context) {
-            ref.watch(readerSettingsProvider);
-            final readingSettings = ref
-                .read(readerSettingsRepositoryProvider)
-                .current;
-            return Stack(
-              children: [
-                ReaderContentViewport(
-                  state: state,
-                  readingSettings: readingSettings,
-                  bodyInsets: _stableBodyInsets(context),
-                  cutoutInsets: _cutoutInsets,
-                  displayCorners: _displayCorners,
-                  pageViewKey: _pageViewKey,
-                  imageDominant: imageDominant,
-                  reviewCounts: _chapters.value.counts,
-                  onTapUp: (details) => _handleTap(context, details),
-                  onReviewTap: _onReviewTap,
-                  onToggleControls: notifier.toggleControls,
-                  onNextChapter: notifier.nextChapter,
-                  onPreviousChapter: notifier.prevChapter,
-                  autoTurnPanel:
-                      readingSettings.autoPageTurn.enabled &&
-                          !state.showControls &&
-                          !aloudActive
-                      ? Positioned(
-                          bottom: 24,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: GestureDetector(
-                              onTap: () {},
-                              child: AutoTurnPanel(
-                                intervalSeconds: readingSettings
-                                    .autoPageTurn
-                                    .intervalSeconds,
-                                onIntervalChanged: _setAutoPageInterval,
-                                onStop: _toggleAutoPage,
-                                onOpenCatalog: () => unawaited(_openToc()),
-                                onOpenSettings: () =>
-                                    ReaderSettingsSheet.show(context),
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _keepAwake.onInteraction(),
+        onPointerUp: (_) => _keepAwake.onInteraction(),
+        onPointerSignal: (_) => _keepAwake.onInteraction(),
+        child: Scaffold(
+          backgroundColor: state.backgroundColor,
+          // 输入面板自行避让键盘，正文保持原视口，避免键盘开关触发重分页。
+          resizeToAvoidBottomInset: false,
+          // 系统栏占位与四向缺口分别采样，再统一交给内容视口。
+          body: ReaderMenuThemeHost(
+            config:
+                ref.watch(readerSettingsProvider).value?.menuTheme ??
+                ref.read(readerSettingsRepositoryProvider).current.menuTheme,
+            readingBackground: state.backgroundColor,
+            readingBrightness: state.readingBrightness,
+            builder: (context) {
+              ref.watch(readerSettingsProvider);
+              final readingSettings = ref
+                  .read(readerSettingsRepositoryProvider)
+                  .current;
+              return Stack(
+                children: [
+                  ReaderContentViewport(
+                    state: state,
+                    readingSettings: readingSettings,
+                    bodyInsets: _stableBodyInsets(context),
+                    cutoutInsets: _cutoutInsets,
+                    displayCorners: _displayCorners,
+                    pageViewKey: _pageViewKey,
+                    imageDominant: imageDominant,
+                    reviewCounts: _chapters.value.counts,
+                    onTapUp: (details) => _handleTap(context, details),
+                    onReviewTap: _onReviewTap,
+                    onToggleControls: notifier.toggleControls,
+                    onNextChapter: notifier.nextChapter,
+                    onPreviousChapter: notifier.prevChapter,
+                    autoTurnPanel:
+                        readingSettings.autoPageTurn.enabled &&
+                            !state.showControls &&
+                            !aloudActive
+                        ? Positioned(
+                            bottom: 24,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: () {},
+                                child: AutoTurnPanel(
+                                  intervalSeconds: readingSettings
+                                      .autoPageTurn
+                                      .intervalSeconds,
+                                  onIntervalChanged: _setAutoPageInterval,
+                                  onStop: _toggleAutoPage,
+                                  onOpenCatalog: () => unawaited(_openToc()),
+                                  onOpenSettings: () =>
+                                      ReaderSettingsSheet.show(context),
+                                ),
                               ),
                             ),
-                          ),
-                        )
-                      : null,
-                ),
-                ReaderControlsOverlay(
-                  state: state,
-                  imageDominant: imageDominant,
-                  progressBehavior:
-                      readingSettings.interaction.progressBarBehavior,
-                  onAddBookmark: () => _addBookmark(state),
-                  onOpenCatalog: () => unawaited(_openToc()),
-                  onOpenContentSearch: () => _openContentSearch(state),
-                  onReadAloud: _onReadAloudTap,
-                  onToggleAutoPage: _toggleAutoPage,
-                  onReadFromVisiblePage: _readFromVisiblePage,
-                  onSeekPage: (page) =>
-                      _pageViewKey.currentState?.goToPage(page),
-                ),
-              ],
-            );
-          },
+                          )
+                        : null,
+                  ),
+                  ReaderControlsOverlay(
+                    state: state,
+                    imageDominant: imageDominant,
+                    progressBehavior:
+                        readingSettings.interaction.progressBarBehavior,
+                    onAddBookmark: () => _addBookmark(state),
+                    onOpenCatalog: () => unawaited(_openToc()),
+                    onOpenContentSearch: () => _openContentSearch(state),
+                    onReadAloud: _onReadAloudTap,
+                    onToggleAutoPage: _toggleAutoPage,
+                    onReadFromVisiblePage: _readFromVisiblePage,
+                    onSeekPage: (page) =>
+                        _pageViewKey.currentState?.goToPage(page),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

@@ -152,7 +152,7 @@ void main() {
     expect(find.text('菜单工具栏'), findsOneWidget);
   });
 
-  testWidgets('保持亮屏保留原选项与存量选择，追加待实现并禁用', (tester) async {
+  testWidgets('保持亮屏选择原地保存，默认选项解除防休眠', (tester) async {
     await initialize(tester);
     final row = tester.widget<SettingMenuRow<int>>(
       find.byWidgetPredicate(
@@ -161,10 +161,29 @@ void main() {
     );
     expect(row.value, 300);
     expect(row.options.keys, [0, 60, 300, 600, -1]);
-    expect(row.onChanged, isNull);
-    expect(row.subtitle, '设置阅读时保持屏幕点亮的时长（待实现）');
+    expect(row.onChanged, isNotNull);
     await tap(tester, '保持亮屏');
-    expect(storage.writes, isEmpty);
+    await tap(tester, '常亮');
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .screen
+          .keepScreenOnSeconds,
+      -1,
+    );
+    expect(storage.values['reader_keep_screen_on_seconds'], -1);
+    await tap(tester, '保持亮屏');
+    await tap(tester, '默认');
+    expect(
+      container
+          .read(readerSettingsRepositoryProvider)
+          .current
+          .screen
+          .keepScreenOnSeconds,
+      0,
+    );
+    expect(storage.values['reader_keep_screen_on_seconds'], 0);
     expect((await SharedPreferences.getInstance()).getInt('keep_light'), 300);
     expect(tester.takeException(), isNull);
   });
