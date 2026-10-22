@@ -6,6 +6,7 @@
 - 顺序：B1复用WebDAV流式上传；B2云TTS共用地址校验；B3共用SSE分帧。后续URL组合与Flutter下沉按专题报告独立批次推进，FFI先冻结契约；不介入音频跳过、书籍状态、导出与清洗。
 - B1范围：Engine文件上传委托Net现有put_file；保留本地缺失文件的IO类别和路径上下文，流式请求携带已知Content-Length。复用现有真实本地HTTP字节/鉴权/路径回归，不新增机械实现测试。
 - B1结果：两项既有WebDAV服务回归通过，覆盖文件字节、Unicode/NUL、鉴权、路径及同步委托，并在原场景补齐缺文件IO错误。日志build/boundary-b1-tests.log；diff及单代理复核通过，正式上传不再先读取整个文件。本地提交，未测量峰值内存、不宣称平台验收。
+- B2结果：八个云TTS Provider复用crate内部parse_service_url，端点拼接、鉴权、输入检查顺序和原有错误文案保持；百炼签名下载URL保留独立查询参数规则。33项现有云TTS定向用例通过，日志build/boundary-b2-tests.log；未添加重复校验测试，无FFI/依赖变更，diff与单代理复核通过。
 - 验证：仅运行各批直接受影响的用例，证据和提交在本条逐批回填；无独立代理审查或设备验证不宣称已通过。
 
 编写者：Codex + Rust｜2026-10-23

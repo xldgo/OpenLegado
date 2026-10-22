@@ -94,16 +94,11 @@ impl CloudTtsProvider for GeminiCloudTtsProvider {
         } else {
             engine.base_url.trim()
         };
-        let mut url = url::Url::parse(base).map_err(|_| invalid("Gemini 服务基址无效"))?;
-        if !matches!(url.scheme(), "http" | "https")
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(invalid("Gemini 基址须为无凭据、查询或片段的 HTTP(S) 地址"));
-        }
+        let mut url = parse_service_url(
+            base,
+            "Gemini 服务基址无效",
+            "Gemini 基址须为无凭据、查询或片段的 HTTP(S) 地址",
+        )?;
         let path = url.path().trim_end_matches('/');
         let path = path.strip_suffix("/openai").unwrap_or(path);
         url.set_path(&format!("{path}/models/{model}:generateContent"));

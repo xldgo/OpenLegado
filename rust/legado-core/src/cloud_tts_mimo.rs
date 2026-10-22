@@ -87,18 +87,11 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
         } else {
             format!("{base}/chat/completions")
         };
-        let url = url::Url::parse(&endpoint).map_err(|_| invalid("MiMo TTS 服务地址无效"))?;
-        if !["http", "https"].contains(&url.scheme())
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(invalid(
-                "MiMo TTS 服务地址必须是无凭据、查询或片段的 HTTP(S) 地址",
-            ));
-        }
+        let url = parse_service_url(
+            &endpoint,
+            "MiMo TTS 服务地址无效",
+            "MiMo TTS 服务地址必须是无凭据、查询或片段的 HTTP(S) 地址",
+        )?;
         Ok(PreparedCloudSpeech {
             authentication_headers: Vec::new(),
             endpoint: url.to_string(),

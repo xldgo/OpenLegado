@@ -236,6 +236,26 @@ pub fn cloud_tts_provider(kind: CloudTtsProviderType) -> &'static dyn CloudTtsPr
 pub(crate) fn invalid(message: &str) -> LegadoError {
     LegadoError::Ffi(message.into())
 }
+
+/// 合成及目录端点共用校验；签名音频下载地址允许查询参数，不走此入口。
+pub(crate) fn parse_service_url(
+    value: &str,
+    parse_error: &str,
+    policy_error: &str,
+) -> LegadoResult<url::Url> {
+    let url = url::Url::parse(value).map_err(|_| invalid(parse_error))?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(invalid(policy_error));
+    }
+    Ok(url)
+}
+
 /// 原始 PCM 到现有文件播放器的适配，单声道 16-bit LE；不重采样。
 pub fn pcm16_mono_to_wav(pcm: &[u8], sample_rate: u32) -> LegadoResult<Vec<u8>> {
     if pcm.is_empty() || !pcm.len().is_multiple_of(2) || sample_rate == 0 {

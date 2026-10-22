@@ -75,18 +75,11 @@ impl CloudTtsProvider for VolcengineV3CloudTtsProvider {
         } else {
             engine.base_url.trim()
         };
-        let url = url::Url::parse(endpoint).map_err(|_| invalid("火山 V3 服务端点无效"))?;
-        if !matches!(url.scheme(), "http" | "https")
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(invalid(
-                "火山 V3 须使用无凭据、查询或片段的 HTTP(S) SSE 完整端点",
-            ));
-        }
+        let url = parse_service_url(
+            endpoint,
+            "火山 V3 服务端点无效",
+            "火山 V3 须使用无凭据、查询或片段的 HTTP(S) SSE 完整端点",
+        )?;
         let mut additions =
             json!({"post_process":{"pitch":(12.0 * request.pitch.log2()).round() as i32}});
         let directions = [&request.style, &request.instructions]
