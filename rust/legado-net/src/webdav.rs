@@ -101,15 +101,21 @@ impl WebDavClient {
         use tokio_util::io::ReaderStream;
 
         let url = self.full_url(path);
-        let file = tokio::fs::File::open(local_file_path)
-            .await
-            .map_err(LegadoError::Io)?;
+        let file = tokio::fs::File::open(local_file_path).await.map_err(|e| {
+            LegadoError::Io(std::io::Error::new(
+                e.kind(),
+                format!("读取本地文件失败: {local_file_path}: {e}"),
+            ))
+        })?;
+        // 文件长度已知，保留原文件上传的 Content-Length，正文仍按流读取。
+        let length = file.metadata().await?.len();
         let stream = ReaderStream::new(file);
         let body = reqwest::Body::wrap_stream(stream);
         let response = self
             .client
             .put(&url)
             .header("Authorization", self.auth_header())
+            .header(reqwest::header::CONTENT_LENGTH, length)
             .body(body)
             .send()
             .await
@@ -135,7 +141,7 @@ impl WebDavClient {
     /// Task #55 F3）
     ///
     /// 请求完成后校验 HTTP 状态码，非 2xx 返回 Network 错误（Task #55 F1），
-    /// 使既有 `webdav_upload` / `webdav_upload_file` 一并受益。
+    /// 文本与内存数据上传复用本方法，本地文件由 `put_file` 流式读取。
     ///
     /// 大文件上限风险：数据仍以整块 `Vec` 驻留内存后提交；大文件请改用
     /// [`put_file`] 流式读盘上传（`webdav_upload_file` 已走该路径）。

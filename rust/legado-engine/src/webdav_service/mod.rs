@@ -40,18 +40,9 @@ impl WebDavService {
         path: &str,
         local_file_path: &str,
     ) -> LegadoResult<()> {
-        // 本地文件读取（不存在/无权限/读失败 → Io 错误）
-        let bytes = std::fs::read(local_file_path).map_err(|e| {
-            legado_core::LegadoError::Io(std::io::Error::new(
-                e.kind(),
-                format!("读取本地文件失败: {local_file_path}: {e}"),
-            ))
-        })?;
-
         let client = self.client(config);
         let rt = &self.runtime;
-        // 所有权直传，避免 put(&bytes) 内部的 to_vec 二次拷贝（Task #55 F3）
-        rt.block_on(client.put_owned(path, bytes))
+        rt.block_on(client.put_file(path, local_file_path))
     }
 
     pub fn webdav_download(&self, config: WebDavConfig, path: &str) -> LegadoResult<String> {

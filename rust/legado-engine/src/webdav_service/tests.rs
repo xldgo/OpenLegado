@@ -45,6 +45,19 @@ fn file_operations_keep_bytes_authentication_paths_and_captured_resources() {
     );
     let input = dir.join("上传😀.bin");
     let output = dir.join("新目录/下载😀.bin");
+    let missing = dir.join("不存在.bin");
+    let error = service
+        .webdav_upload_file(
+            config(&fixture.url),
+            "missing.bin",
+            missing.to_str().unwrap(),
+        )
+        .unwrap_err();
+    let legado_core::LegadoError::Io(error) = error else {
+        panic!("本地缺失文件应返回 IO 错误");
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    assert!(error.to_string().contains(missing.to_str().unwrap()));
     std::fs::write(&input, content).unwrap();
     service
         .webdav_upload_file(config(&fixture.url), "book.bin", input.to_str().unwrap())

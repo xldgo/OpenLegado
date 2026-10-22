@@ -1,5 +1,24 @@
 # Legado 后续重构执行计划（Active）
 
+### RUST-BOUNDARY-IMPLEMENT-20261023：重复功能收敛与业务边界下沉（P2，分批实施）
+
+- 授权：用户同意按审计建议分批开始，每批一个本地commit；feature/rust-boundary-audit / 60ab08857。保持版本2.0.439+440，不推送、不触发CI、不使用子代理，主目录其他任务保持。
+- 顺序：B1复用WebDAV流式上传；B2云TTS共用地址校验；B3共用SSE分帧。后续URL组合与Flutter下沉按专题报告独立批次推进，FFI先冻结契约；不介入音频跳过、书籍状态、导出与清洗。
+- B1范围：Engine文件上传委托Net现有put_file；保留本地缺失文件的IO类别和路径上下文，流式请求携带已知Content-Length。复用现有真实本地HTTP字节/鉴权/路径回归，不新增机械实现测试。
+- B1结果：两项既有WebDAV服务回归通过，覆盖文件字节、Unicode/NUL、鉴权、路径及同步委托，并在原场景补齐缺文件IO错误。日志build/boundary-b1-tests.log；diff及单代理复核通过，正式上传不再先读取整个文件。本地提交，未测量峰值内存、不宣称平台验收。
+- 验证：仅运行各批直接受影响的用例，证据和提交在本条逐批回填；无独立代理审查或设备验证不宣称已通过。
+
+编写者：Codex + Rust｜2026-10-23
+
+### RUST-BOUNDARY-AUDIT-20261023：Rust重复功能与Flutter下沉边界审计（P2，静态审计已交付）
+
+- 授权：用户要求核对并移除无分叉的dep-audit工作树，另建worktree检查Rust重复功能和Flutter可下沉逻辑；排除音频跳过规则、书籍状态修改、导出格式与解析清洗。
+- 基线：dev / 60ab08857，新建feature/rust-boundary-audit及build/worktrees/rust-boundary-audit；旧工作树干净，dev...chore/dep-audit为106/0，无独有提交，普通移除且保留分支引用。主目录未提交内容保持。
+- 证据：[专题审计](RUST_DEDUP_FLUTTER_BOUNDARY_AUDIT_20261023.md)记录Rust四组复用机会、两组旧实现候选及Flutter六项边界建议，区分真实重复、现有委托和不同职责。搜索聚合当前仅有Rust算法/夹具入口，未误报已接入正式Flutter链路。
+- 边界：单代理静态阅读与生产调用追踪，不修改生产代码、契约、DB、依赖或版本；未跑测试、构建、性能或设备验证，不宣称运行时缺陷复现或性能收益。这里只关闭审计交付，实施与删除候选尚未授权。
+
+编写者：Codex + Rust / UI｜2026-10-23
+
 ### FEATURE-OWNERSHIP-20261022：功能私有组件归位与阅读服务分层（P2，五步代码及定向验证完成）
 
 - 授权/基线：用户要求生成迁移规划并顺序执行，每步提交；dev / f25eff188。方案见FEATURE_OWNERSHIP_MIGRATION_20261022.md。单代理，不创建分支、不推送CI或安装，保护未跟踪的其他审计文档，版本不变。
