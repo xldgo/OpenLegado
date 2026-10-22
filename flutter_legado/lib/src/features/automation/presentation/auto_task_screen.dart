@@ -19,7 +19,7 @@ import 'package:share_plus/share_plus.dart';
 import '../application/auto_task_notifier.dart';
 import '../../../providers/network_provider.dart';
 import '../../../services/auto_task_scheduler.dart';
-import '../../../widgets/auto_task_debug_dialog.dart';
+import '../widgets/auto_task_debug_dialog.dart';
 import '../../../widgets/custom_refresh_indicator.dart';
 import '../../../widgets/help/help_assets.dart';
 import '../../../widgets/help/show_help.dart';

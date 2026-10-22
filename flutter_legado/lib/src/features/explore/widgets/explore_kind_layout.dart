@@ -5,7 +5,7 @@
 /// java.refreshExplore 触发分类重载。
 library;
 
-import '../l10n/app_localization.dart';
+import '../../../l10n/app_localization.dart';
 
 import 'dart:async';
 
@@ -13,10 +13,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../models/models.dart';
-import '../providers/explore/explore_dependencies.dart';
+import '../../../models/models.dart';
+import '../../../providers/explore/explore_dependencies.dart';
 import 'explore_kind_action.dart';
-import 'md3_picker_sheet.dart';
+import '../../../widgets/md3_picker_sheet.dart';
 
 /// 读取 infoMap 已存值（B① 回显：toggle/select/text 初始显示与 Rust 请求
 /// 实际使用的 infoMap 值一致；读不到返回 null）— DeepSeek Harness + UI

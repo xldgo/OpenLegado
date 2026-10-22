@@ -42,10 +42,10 @@ import '../../../utils/responsive.dart';
 import '../../../utils/source_login_entry.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/empty_state.dart';
-import '../../../widgets/explore_book_list.dart';
+import '../widgets/explore_book_list.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
-import '../../../widgets/explore_kind_layout.dart';
-import '../../../widgets/explore_page_control.dart';
+import '../widgets/explore_kind_layout.dart';
+import '../widgets/explore_page_control.dart';
 import '../../../widgets/error_view.dart';
 import '../../../widgets/skeleton.dart'; // [LAYOUT_PLAN P4] 首屏 Skeleton 接线
 

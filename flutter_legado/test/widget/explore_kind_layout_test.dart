@@ -9,7 +9,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/domain/models/explore_action_result.dart';
-import 'package:flutter_legado/src/widgets/explore_kind_layout.dart';
+import 'package:flutter_legado/src/features/explore/widgets/explore_kind_layout.dart';
 
 import '../mocks/mocks.dart';
 

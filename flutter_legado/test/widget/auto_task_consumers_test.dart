@@ -15,7 +15,7 @@ import 'package:flutter_legado/src/domain/models/auto_task.dart';
 import 'package:flutter_legado/src/domain/models/auto_task_execution_result.dart';
 import 'package:flutter_legado/src/providers/auto_task/auto_task_dependencies.dart';
 import 'package:flutter_legado/src/features/automation/presentation/auto_task_screen.dart';
-import 'package:flutter_legado/src/widgets/auto_task_debug_dialog.dart';
+import 'package:flutter_legado/src/features/automation/widgets/auto_task_debug_dialog.dart';
 
 import '../mocks/mocks.dart';
 

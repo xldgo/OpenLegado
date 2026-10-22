@@ -4,13 +4,13 @@
 /// + showMd3WheelPickerSheet（ListWheelScrollView 轮式选择，M3 底部弹层外壳）。
 library;
 
-import '../l10n/app_localization.dart';
+import '../../../l10n/app_localization.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../features/explore/application/explore_show_notifier.dart';
-import 'md3_picker_sheet.dart';
+import '../application/explore_show_notifier.dart';
+import '../../../widgets/md3_picker_sheet.dart';
 
 /// 发现分类页码按钮（AppBar actions 或双栏右栏顶栏）
 class ExplorePageControl extends ConsumerWidget {

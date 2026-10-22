@@ -1,12 +1,12 @@
-import '../providers/rss_repository_provider.dart';
+import '../../../providers/rss_repository_provider.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../l10n/app_localization.dart';
+import '../../../l10n/app_localization.dart';
 
-import '../models/models.dart';
-import 'group_manage_dialog.dart';
+import '../../../models/models.dart';
+import '../../../widgets/group_manage_dialog.dart';
 
 /// 订阅源分组管理弹窗（对标原版 GroupManageDialog）
 ///

@@ -27,7 +27,7 @@ import '../application/replace_rules/replace_rule_notifier.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../widgets/help/help_assets.dart';
 import '../../../widgets/help/show_help.dart';
-import '../../../widgets/replace_rule_group_manage_dialog.dart';
+import '../widgets/replace_rule_group_manage_dialog.dart';
 import 'replace_rule_edit_screen.dart';
 import 'replace_rule_import_confirm_screen.dart';
 

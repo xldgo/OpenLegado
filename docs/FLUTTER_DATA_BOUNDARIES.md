@@ -4,6 +4,10 @@
 `feature/ui-reader-selection` 的 `74dda3c7b`。任务状态和验证结果只维护在
 [活动计划](REFACTORING_ACTIVE_PLAN.md)，本文件记录设计与验收边界。
 
+功能专属组件的归属迁移按[迁移方案](FEATURE_OWNERSHIP_MIGRATION_20261022.md)执行；
+发现分类/书单/分页、任务调试、替换/RSS分组及系统TTS设置已归所属feature/widgets，
+公共分组壳、登录基础组件及跨功能数据装配保持共享，不以目录迁移改变业务边界。
+
 后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
 [设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，
 不另外维护设置分类任务状态。

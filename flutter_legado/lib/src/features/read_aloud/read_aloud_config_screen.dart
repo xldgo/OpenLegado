@@ -28,7 +28,7 @@ import '../audio/application/audio_notifier.dart';
 import 'http_tts_seed.dart';
 import 'http_tts_repository_provider.dart';
 import '../../widgets/app_progress_indicator.dart';
-import '../../widgets/system_tts_settings_dialog.dart';
+import 'widgets/system_tts_settings_dialog.dart';
 
 import 'package:flutter_legado/src/platform/tts/system_tts.dart';
 

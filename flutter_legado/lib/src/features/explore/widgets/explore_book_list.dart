@@ -1,29 +1,29 @@
 library;
 
-import '../app/routing/app_navigation.dart';
+import '../../../app/routing/app_navigation.dart';
 
 /// 发现分类书籍列表组件（ExploreBookList）
 ///
 /// iOS inset 列表：系统灰阶、hairline 分隔、中性交互色。
 
-import '../l10n/app_localization.dart';
+import '../../../l10n/app_localization.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../models/models.dart';
-import '../features/bookshelf/bookshelf.dart';
-import '../features/explore/application/explore_show_notifier.dart';
-import '../app/routing/route_names.dart';
-import '../utils/source_login_entry.dart';
-import '../widgets/book_cover.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/error_view.dart';
-import '../widgets/list_footer.dart';
-import '../widgets/custom_refresh_indicator.dart';
-import '../widgets/skeleton.dart';
+import '../../../models/models.dart';
+import '../../bookshelf/bookshelf.dart';
+import '../application/explore_show_notifier.dart';
+import '../../../app/routing/route_names.dart';
+import '../../../utils/source_login_entry.dart';
+import '../../../widgets/book_cover.dart';
+import '../../../widgets/empty_state.dart';
+import '../../../widgets/error_view.dart';
+import '../../../widgets/list_footer.dart';
+import '../../../widgets/custom_refresh_indicator.dart';
+import '../../../widgets/skeleton.dart';
 
 /// 登录引导错误视图（书源需登录时展示，提供「去登录」主按钮与重试）
 ///

@@ -4,9 +4,9 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../models/book_source.dart';
-import '../providers/explore/explore_dependencies.dart';
-import '../services/platform_bridge_service.dart';
+import '../../../models/book_source.dart';
+import '../../../providers/explore/explore_dependencies.dart';
+import '../../../services/platform_bridge_service.dart';
 
 /// 发现页控件 JS action 与中途 UI 回放
 class ExploreKindActionRunner {

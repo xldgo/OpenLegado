@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
-import '../features/automation/application/auto_task_notifier.dart';
-import '../models/misc.dart';
-import '../providers/auto_task/auto_task_dependencies.dart';
-import '../domain/models/auto_task_protocol.dart';
-import '../services/auto_task_scheduler.dart';
+import '../application/auto_task_notifier.dart';
+import '../../../models/misc.dart';
+import '../../../providers/auto_task/auto_task_dependencies.dart';
+import '../../../domain/models/auto_task_protocol.dart';
+import '../../../services/auto_task_scheduler.dart';
 
 /// 定时任务调试 Dialog（对标原版 `AutoTaskDebugActivity` + `Debug.Callback`）
 ///

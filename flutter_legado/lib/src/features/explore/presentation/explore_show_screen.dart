@@ -25,8 +25,8 @@ import '../../../models/models.dart';
 import '../application/explore_show_notifier.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/empty_state.dart';
-import '../../../widgets/explore_book_list.dart';
-import '../../../widgets/explore_page_control.dart';
+import '../widgets/explore_book_list.dart';
+import '../widgets/explore_page_control.dart';
 import '../../../widgets/legado_app_bar.dart';
 
 /// 路由参数类型转发（AppRouter / explore_screen.dart 依赖）— 保留原导出
