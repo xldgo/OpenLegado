@@ -1,6 +1,8 @@
 import '../application/subscriptions/rule_sub_import_provider.dart';
 import '../application/subscriptions/rule_sub_import_service.dart';
 import '../../../domain/models/rule_sub_update_result.dart';
+import '../../../domain/models/import_result.dart';
+import '../../book_sources/widgets/source_import_result.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -396,8 +398,19 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
         ),
     };
     final result = await pending;
-    if (!mounted || generation != _importGeneration) return;
-    if (result == true) {
+    if (!mounted || !context.mounted || generation != _importGeneration) return;
+    if (result is ImportResult) {
+      await showSourceImportResult(
+        context,
+        result,
+        onRefresh: () async {
+          if (!mounted) return null;
+          await ref.read(sourceNotifierProvider.notifier).loadSources();
+          if (!mounted) return null;
+          return ref.read(sourceNotifierProvider).error;
+        },
+      );
+    } else if (result == true) {
       messenger.showSnackBar(const SnackBar(content: Text('导入完成')));
     } else if (result is int && result > 0) {
       messenger.showSnackBar(SnackBar(content: Text('已导入 $result 条替换规则')));

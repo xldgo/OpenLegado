@@ -4578,6 +4578,13 @@
   "deleteReplaceRuleTitle": "删除规则",
   "confirmDeleteNamedRule": "确定删除「{name}」吗？",
   "@confirmDeleteNamedRule": {"placeholders": {"name": {"type": "String"}}},
+  "sourceImportResultTitle": "书源导入结果",
+  "sourceImportSuccessCount": "已导入 {count} 个书源",
+  "@sourceImportSuccessCount": {"placeholders": {"count": {"type": "int"}}},
+  "sourceImportSummary": "共 {total} 个书源：成功 {success}，失败 {failed}，跳过 {skipped}",
+  "@sourceImportSummary": {"placeholders": {"total": {"type": "int"}, "success": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}},
+  "sourceImportRefreshFailed": "书源列表刷新失败：{error}。导入计数已保留，可重新加载列表。",
+  "@sourceImportRefreshFailed": {"placeholders": {"error": {"type": "String"}}},
   "ruleDeleted": "规则已删除",
   "ruleDeleteFailed": "删除规则失败：{error}",
   "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}

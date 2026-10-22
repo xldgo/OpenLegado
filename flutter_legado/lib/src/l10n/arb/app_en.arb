@@ -1354,6 +1354,13 @@
   "deleteReplaceRuleTitle": "Delete rule",
   "confirmDeleteNamedRule": "Delete “{name}”?",
   "@confirmDeleteNamedRule": {"placeholders": {"name": {"type": "String"}}},
+  "sourceImportResultTitle": "Book source import results",
+  "sourceImportSuccessCount": "Imported {count} book sources",
+  "@sourceImportSuccessCount": {"placeholders": {"count": {"type": "int"}}},
+  "sourceImportSummary": "{total} book sources: {success} imported, {failed} failed, {skipped} skipped",
+  "@sourceImportSummary": {"placeholders": {"total": {"type": "int"}, "success": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}},
+  "sourceImportRefreshFailed": "Could not refresh the source list: {error}. Import counts are preserved; reload the list to try again.",
+  "@sourceImportRefreshFailed": {"placeholders": {"error": {"type": "String"}}},
   "ruleDeleted": "Rule deleted",
   "ruleDeleteFailed": "Failed to delete rule: {error}",
   "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}

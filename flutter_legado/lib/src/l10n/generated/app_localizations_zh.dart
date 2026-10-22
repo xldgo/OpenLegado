@@ -4087,6 +4087,24 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get sourceImportResultTitle => '书源导入结果';
+
+  @override
+  String sourceImportSuccessCount(int count) {
+    return '已导入 $count 个书源';
+  }
+
+  @override
+  String sourceImportSummary(int total, int success, int failed, int skipped) {
+    return '共 $total 个书源：成功 $success，失败 $failed，跳过 $skipped';
+  }
+
+  @override
+  String sourceImportRefreshFailed(String error) {
+    return '书源列表刷新失败：$error。导入计数已保留，可重新加载列表。';
+  }
+
+  @override
   String get ruleDeleted => '规则已删除';
 
   @override

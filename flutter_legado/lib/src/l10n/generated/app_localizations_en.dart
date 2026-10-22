@@ -4317,6 +4317,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get sourceImportResultTitle => 'Book source import results';
+
+  @override
+  String sourceImportSuccessCount(int count) {
+    return 'Imported $count book sources';
+  }
+
+  @override
+  String sourceImportSummary(int total, int success, int failed, int skipped) {
+    return '$total book sources: $success imported, $failed failed, $skipped skipped';
+  }
+
+  @override
+  String sourceImportRefreshFailed(String error) {
+    return 'Could not refresh the source list: $error. Import counts are preserved; reload the list to try again.';
+  }
+
+  @override
   String get ruleDeleted => 'Rule deleted';
 
   @override

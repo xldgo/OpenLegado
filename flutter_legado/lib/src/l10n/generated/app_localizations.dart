@@ -7701,6 +7701,30 @@ abstract class AppLocalizations {
   /// **'确定删除「{name}」吗？'**
   String confirmDeleteNamedRule(String name);
 
+  /// No description provided for @sourceImportResultTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'书源导入结果'**
+  String get sourceImportResultTitle;
+
+  /// No description provided for @sourceImportSuccessCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入 {count} 个书源'**
+  String sourceImportSuccessCount(int count);
+
+  /// No description provided for @sourceImportSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {total} 个书源：成功 {success}，失败 {failed}，跳过 {skipped}'**
+  String sourceImportSummary(int total, int success, int failed, int skipped);
+
+  /// No description provided for @sourceImportRefreshFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'书源列表刷新失败：{error}。导入计数已保留，可重新加载列表。'**
+  String sourceImportRefreshFailed(String error);
+
   /// No description provided for @ruleDeleted.
   ///
   /// In zh, this message translates to:

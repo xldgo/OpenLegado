@@ -12,6 +12,17 @@ import 'package:flutter_legado/src/features/rules/presentation/rule_sub_screen.d
 import 'package:flutter_legado/src/data/repositories/mock_rule_sub_repository.dart';
 import 'package:flutter_legado/src/providers/rule_sub_repository_provider.dart';
 import 'package:flutter_legado/src/models/models.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:flutter_legado/src/app/bootstrap/source_import_factory.dart';
+import 'package:flutter_legado/src/data/services/source_import_service.dart';
+import 'package:flutter_legado/src/domain/models/import_result.dart';
+import 'package:flutter_legado/src/domain/models/source_preview.dart';
+import 'package:flutter_legado/src/features/book_sources/source_import_confirm_screen.dart';
+
+import '../fixtures/app_test_api.dart';
+import '../mocks/mocks.dart';
+
+class _SourceImport extends Mock implements SourceImportService {}
 
 class _Import extends Fake implements RuleSubImportService {
   final completer = Completer<RuleSubImportPreview>();
@@ -27,6 +38,67 @@ class _Import extends Fake implements RuleSubImportService {
 }
 
 void main() {
+  testWidgets('书源订阅部分导入展示实际计数和原因，不泛化提示完成', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = MockRustApi();
+    when(() => api.bookSourceRepository.getBookSources())
+        .thenAnswer((_) async => []);
+    final importer = _SourceImport();
+    when(() => importer.importFromJson(any())).thenAnswer(
+      (_) async => const ImportResult(
+        total: 3,
+        success: 1,
+        failed: 1,
+        skipped: 1,
+        errors: ['失败源：规则无效', '跳过源：缺少地址'],
+      ),
+    );
+    final repo = MockRuleSubRepository();
+    await repo.ruleSubSave(
+      const RuleSub(
+        name: '书源订阅',
+        url: 'https://sub',
+        subType: RuleSub.bookSource,
+      ),
+    );
+    final service = _Import();
+    service.completer.complete(
+      RuleSubBookSources([
+        for (var i = 0; i < 3; i++)
+          SourcePreview(
+            raw: {
+              'bookSourceUrl': 'https://source/$i',
+              'bookSourceName': '候选$i',
+            },
+            bookSourceUrl: 'https://source/$i',
+            bookSourceName: '候选$i',
+          ),
+      ], []),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: mergeTestOverrides([
+          ...api.overrides,
+          sourceImportServiceProvider.overrideWithValue(importer),
+          ruleSubRepositoryProvider.overrideWithValue(repo),
+          ruleSubImportServiceProvider.overrideWithValue(service),
+        ]),
+        child: const MaterialApp(home: RuleSubScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('书源订阅'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SourceImportConfirmScreen), findsNothing);
+    expect(find.text('共 3 个书源：成功 1，失败 1，跳过 1'), findsOneWidget);
+    expect(find.textContaining('失败源：规则无效'), findsOneWidget);
+    expect(find.textContaining('跳过源：缺少地址'), findsOneWidget);
+    expect(find.text('导入完成'), findsNothing);
+    verify(() => importer.importFromJson(any())).called(1);
+  });
+
   for (final fail in [false, true]) {
     testWidgets('订阅准备${fail ? '失败保留页面并提示' : '成功打开真实确认页'}', (tester) async {
       SharedPreferences.setMockInitialValues({});

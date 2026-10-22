@@ -195,8 +195,27 @@ class SourceNotifier extends Notifier<SourceState> {
   /// 使用导入服务导入 JSON
   Future<ImportResult> importFromJson(String jsonStr) async {
     state = state.copyWith(loading: true, error: null);
+    ImportResult result;
     try {
-      final result = await importService.importFromJson(jsonStr);
+      result = await importService.importFromJson(jsonStr);
+    } catch (e) {
+      final message = errorMessage(e);
+      result = ImportResult(
+        total: 0,
+        success: 0,
+        failed: 0,
+        skipped: 0,
+        errors: [message],
+      );
+      state = state.copyWith(
+        error: message,
+        lastImportResult: result,
+        loading: false,
+      );
+      return result;
+    }
+    // 列表刷新失败不能抹掉已经完成的写入计数。— Codex + UI
+    try {
       final api = ref.read(bookSourceRepositoryProvider);
       // 重新加载书源列表
       final sources = await api.getBookSources();
@@ -205,17 +224,16 @@ class SourceNotifier extends Notifier<SourceState> {
         lastImportResult: result,
         loading: false,
       );
-      return result;
     } catch (e) {
-      state = state.copyWith(error: errorMessage(e), loading: false);
-      return ImportResult(
-        total: 0,
-        success: 0,
-        failed: 0,
-        skipped: 0,
-        errors: [e.toString()],
+      final message = errorMessage(e);
+      result = result.withRefreshError(message);
+      state = state.copyWith(
+        error: message,
+        lastImportResult: result,
+        loading: false,
       );
     }
+    return result;
   }
 
   /// 从 URL 导入书源

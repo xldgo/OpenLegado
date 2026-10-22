@@ -13,7 +13,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 import '../../models/models.dart';
 import 'source_notifier.dart';
 import '../../domain/models/source_preview.dart';
+import '../../domain/models/import_result.dart';
 import '../../widgets/custom_group_dialog.dart';
+import 'widgets/source_import_result.dart';
 
 /// 书源导入确认页（对标原版 ImportBookSourceDialog）
 ///
@@ -29,13 +31,13 @@ class SourceImportConfirmScreen extends ConsumerStatefulWidget {
   /// 本地现有书源（用于新增/更新状态判定与保留选项合并）
   final List<BookSource> localSources;
 
-  /// 共用打开方式，保留本页参数和返回值语义。— Codex + UI
-  static Future<bool?> open(
+  /// 返回真实导入结果；取消或直接返回不报告成功。— Codex + UI
+  static Future<ImportResult?> open(
     BuildContext context, {
     required List<SourcePreview> sources,
     required List<BookSource> localSources,
-  }) => Navigator.of(context).push<bool>(
-    MaterialPageRoute<bool>(
+  }) => Navigator.of(context).push<ImportResult>(
+    MaterialPageRoute<ImportResult>(
       builder: (_) => SourceImportConfirmScreen(
         sources: sources,
         localSources: localSources,
@@ -124,7 +126,7 @@ class _SourceImportConfirmScreenState
   /// 不经 freezed 类型化往返，由 Rust 侧宽松反序列化兜底
   /// （字符串数字/字符串布尔等第三方书源字段）。
   Future<void> _confirmImport() async {
-    if (_selectCount == 0) return;
+    if (_importing || _selectCount == 0) return;
     setState(() => _importing = true);
     try {
       final group = _groupName?.trim();
@@ -168,14 +170,30 @@ class _SourceImportConfirmScreenState
 
       final json = jsonEncode(toImport);
       final notifier = ref.read(sourceNotifierProvider.notifier);
-      await notifier.importFromJson(json);
-      if (mounted) Navigator.of(context).pop(true);
+      final result = await notifier.importFromJson(json);
+      if (!mounted) return;
+      // 写入已结束，查看失败明细时不继续运行后台加载动画。— Codex + UI
+      setState(() => _importing = false);
+      if (result.success > 0) {
+        Navigator.of(context).pop(result);
+      } else {
+        await showSourceImportResult(
+          context,
+          result,
+          onRefresh: () async {
+            if (!mounted) return null;
+            await notifier.loadSources();
+            if (!mounted) return null;
+            return ref.read(sourceNotifierProvider).error;
+          },
+        );
+      }
     } catch (e) {
       if (mounted) {
         showAppSnackBar(context, context.l10n.importFailed(e.toString()));
       }
     } finally {
-      if (mounted) setState(() => _importing = false);
+      if (mounted && _importing) setState(() => _importing = false);
     }
   }
 
@@ -209,75 +227,78 @@ class _SourceImportConfirmScreenState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ImportConfirmScaffold(
-      confirmText: context.l10n.confirmImportAction,
-      title: Text(context.l10n.importSources),
-      actions: [
-        // 自定义源分组（对标 menu_new_group，always 显示）
-        TextButton(
-          style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
-          onPressed: _showCustomGroupDialog,
-          child: Text(
-            _groupName == null
-                ? context.l10n.customSourceGroup
-                : '${_isAddGroup ? '+' : ''}$_groupName',
+    return PopScope(
+      canPop: !_importing,
+      child: ImportConfirmScaffold(
+        confirmText: context.l10n.confirmImportAction,
+        title: Text(context.l10n.importSources),
+        actions: [
+          // 自定义源分组（对标 menu_new_group，always 显示）
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
+            onPressed: _showCustomGroupDialog,
+            child: Text(
+              _groupName == null
+                  ? context.l10n.customSourceGroup
+                  : '${_isAddGroup ? '+' : ''}$_groupName',
+            ),
           ),
-        ),
-        AppMenuButton<String>(
-          tooltip: context.l10n.moreOptions,
-          // 菜单在顶栏下方展开，不覆盖顶栏
-          onSelected: _handleMenu,
-          itemBuilder: (_) => [
-            AppMenuItem(
-              value: 'select_new',
-              child: Text(context.l10n.selectNewSources),
-            ),
-            AppMenuItem(
-              value: 'select_update',
-              child: Text(context.l10n.selectUpdatedSources),
-            ),
-            const AppMenuDivider(),
-            AppMenuItem(
-              value: 'keep_name',
-              checked: _keepName,
-              child: Text(context.l10n.keepSourceName),
-            ),
-            AppMenuItem(
-              value: 'keep_group',
-              checked: _keepGroup,
-              child: Text(context.l10n.keepSourceGroup),
-            ),
-            AppMenuItem(
-              value: 'keep_enable',
-              checked: _keepEnable,
-              child: Text(context.l10n.keepSourceEnabled),
-            ),
-            AppMenuItem(
-              value: 'show_comment',
-              checked: _showComment,
-              child: Text(context.l10n.showSourceComment),
-            ),
-          ],
-        ),
-      ],
-      emptyMessage: context.l10n.invalidBookSources,
-      itemCount: widget.sources.length,
-      selectedCount: _selectCount,
-      allSelected: _isSelectAll,
-      importing: _importing,
-      itemBuilder: (_, index) => _buildItem(index),
-      listPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      separatorIndent: 8,
-      onToggleAll: () {
-        final selectAll = _isSelectAll;
-        setState(() {
-          for (var i = 0; i < _selected.length; i++) {
-            _selected[i] = !selectAll;
-          }
-        });
-      },
-      onCancel: () => Navigator.of(context).pop(false),
-      onConfirm: _confirmImport,
+          AppMenuButton<String>(
+            tooltip: context.l10n.moreOptions,
+            // 菜单在顶栏下方展开，不覆盖顶栏
+            onSelected: _handleMenu,
+            itemBuilder: (_) => [
+              AppMenuItem(
+                value: 'select_new',
+                child: Text(context.l10n.selectNewSources),
+              ),
+              AppMenuItem(
+                value: 'select_update',
+                child: Text(context.l10n.selectUpdatedSources),
+              ),
+              const AppMenuDivider(),
+              AppMenuItem(
+                value: 'keep_name',
+                checked: _keepName,
+                child: Text(context.l10n.keepSourceName),
+              ),
+              AppMenuItem(
+                value: 'keep_group',
+                checked: _keepGroup,
+                child: Text(context.l10n.keepSourceGroup),
+              ),
+              AppMenuItem(
+                value: 'keep_enable',
+                checked: _keepEnable,
+                child: Text(context.l10n.keepSourceEnabled),
+              ),
+              AppMenuItem(
+                value: 'show_comment',
+                checked: _showComment,
+                child: Text(context.l10n.showSourceComment),
+              ),
+            ],
+          ),
+        ],
+        emptyMessage: context.l10n.invalidBookSources,
+        itemCount: widget.sources.length,
+        selectedCount: _selectCount,
+        allSelected: _isSelectAll,
+        importing: _importing,
+        itemBuilder: (_, index) => _buildItem(index),
+        listPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        separatorIndent: 8,
+        onToggleAll: () {
+          final selectAll = _isSelectAll;
+          setState(() {
+            for (var i = 0; i < _selected.length; i++) {
+              _selected[i] = !selectAll;
+            }
+          });
+        },
+        onCancel: () => Navigator.of(context).pop(),
+        onConfirm: _confirmImport,
+      ),
     );
   }
 

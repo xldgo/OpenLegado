@@ -75,7 +75,9 @@ void main() {
     expect(find.textContaining('获取书源失败'), findsOneWidget);
   });
 
-  testWidgets('扫码导入 JSON：解析成功进入确认页不崩溃', (tester) async {
+  testWidgets('扫码书源确认导入成功后按实际数量提示', (tester) async {
+    when(() => mockApi.bookSourceRepository.importBookSources(any()))
+        .thenAnswer((_) async => 1);
     // 二维码路由返回书源 JSON，走无网络的解析分流，
     // 覆盖 加载对话框关闭 → 确认页 push 的完整路由时序
     final qrJson = jsonEncode([
@@ -123,6 +125,10 @@ void main() {
     expect(find.byType(SourceImportConfirmScreen), findsOneWidget);
     expect(find.text('书源B'), findsOneWidget);
     expect(find.text('新增'), findsOneWidget);
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SourceImportConfirmScreen), findsNothing);
+    expect(find.text('已导入 1 个书源'), findsOneWidget);
   });
 
   testWidgets('确认导入：字符串数字书源直传原始 JSON 给 importBookSources', (tester) async {

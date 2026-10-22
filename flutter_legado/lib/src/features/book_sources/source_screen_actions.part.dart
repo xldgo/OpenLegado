@@ -507,14 +507,21 @@ extension _SourceActions on _SourceScreenState {
     }
 
     final localSources = ref.read(sourceNotifierProvider).sources;
-    final ok = await SourceImportConfirmScreen.open(
+    final result = await SourceImportConfirmScreen.open(
       context,
       sources: sources,
       localSources: localSources,
     );
-    if (ok == true && mounted) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(context.l10n.importFinished)),
+    if (result != null && mounted) {
+      await showSourceImportResult(
+        context,
+        result,
+        onRefresh: () async {
+          if (!mounted) return null;
+          await ref.read(sourceNotifierProvider.notifier).loadSources();
+          if (!mounted) return null;
+          return ref.read(sourceNotifierProvider).error;
+        },
       );
     }
   }
