@@ -291,20 +291,15 @@ extension _SourceEditActions on _SourceEditScreenState {
       _afterSaveRefresh();
       if (mounted) {
         _markSaved();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isNew ? l10n.bookSourceCreated : l10n.bookSourceSaved,
-            ),
-          ),
+        showAppSnackBar(
+          context,
+          isNew ? l10n.bookSourceCreated : l10n.bookSourceSaved,
         );
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.sourceSaveFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.sourceSaveFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -356,14 +351,9 @@ extension _SourceEditActions on _SourceEditScreenState {
         await _clearCookie();
       case 'auto_complete':
         setState(() => _autoComplete = !_autoComplete);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _autoComplete
-                  ? l10n.autoCompleteEnabled
-                  : l10n.autoCompleteDisabled,
-            ),
-          ),
+        showAppSnackBar(
+          context,
+          _autoComplete ? l10n.autoCompleteEnabled : l10n.autoCompleteDisabled,
         );
       case 'copy_source':
         await _copySource();
@@ -403,9 +393,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       await GoRouter.of(context).pushAppRoute(AppRoutes.search);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.sourceSearchOpenFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.sourceSearchOpenFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -417,20 +405,16 @@ extension _SourceEditActions on _SourceEditScreenState {
     final l10n = context.l10n;
     final url = _ctrl('bookSourceUrl').text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.enterBookSourceUrlFirst)));
+      showAppSnackBar(context, l10n.enterBookSourceUrlFirst);
       return;
     }
     try {
       await ref.read(networkServiceProvider).clearCookie(url);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.cookiesCleared)));
+      showAppSnackBar(context, l10n.cookiesCleared);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.clearCookiesFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.clearCookiesFailed(e.toString()));
       }
     }
   }
@@ -462,20 +446,13 @@ extension _SourceEditActions on _SourceEditScreenState {
           .setSourceVariable(source.bookSourceUrl, input);
       if (!mounted) return;
       setState(() => _preservedVariable = input);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            input.isEmpty
-                ? l10n.sourceVariableCleared
-                : l10n.sourceVariableSaved,
-          ),
-        ),
+      showAppSnackBar(
+        context,
+        input.isEmpty ? l10n.sourceVariableCleared : l10n.sourceVariableSaved,
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.sourceVariableSaveFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.sourceVariableSaveFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -488,8 +465,7 @@ extension _SourceEditActions on _SourceEditScreenState {
     final json = jsonEncode(_buildSource().toJson());
     if (json.length > 2000) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.qrTooLong)));
+      showAppSnackBar(context, l10n.qrTooLong);
       return;
     }
     await showDialog<void>(
@@ -516,8 +492,7 @@ extension _SourceEditActions on _SourceEditScreenState {
         .convert(_buildSource().toJson());
     await Clipboard.setData(ClipboardData(text: json));
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.copiedToClipboard)));
+    showAppSnackBar(context, l10n.copiedToClipboard);
   }
 
   /// 粘贴源（对标原版 menu_paste_source：解析剪贴板 JSON 回填表单）
@@ -529,18 +504,15 @@ extension _SourceEditActions on _SourceEditScreenState {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim();
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     if (text == null || text.isEmpty) {
-      messenger.showSnackBar(SnackBar(content: Text(l10n.clipboardEmpty)));
+      showAppSnackBar(context, l10n.clipboardEmpty);
       return;
     }
     final source = await _parseSourceJson(text);
     if (!mounted) return;
     if (source == null) return; // 具体错误已由解析入口提示，不再排队显示泛化错误。
     _populateFields(source);
-    messenger.showSnackBar(
-      SnackBar(content: Text(l10n.pastedBookSource(source.bookSourceName))),
-    );
+    showAppSnackBar(context, l10n.pastedBookSource(source.bookSourceName));
   }
 
   /// 解析书源 JSON 并回填表单；失败时返回 null（错误已就地提示）。
@@ -548,15 +520,12 @@ extension _SourceEditActions on _SourceEditScreenState {
   /// 粘贴源与二维码导入共用本方法，保证同一份 JSON 在两条入口得到同一结果。
   Future<BookSource?> _parseSourceJson(String json) async {
     final l10n = context.l10n;
-    final messenger = ScaffoldMessenger.of(context);
     try {
       return await ref.read(bookSourceEditServiceProvider).parseSource(json);
     } catch (e) {
       if (!mounted) return null;
       // 错误信息由 Rust 给出（语法 / 结构 / 字段类型可定位），不吞成「不是有效 JSON」
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.bookSourceParseFailed(e.toString()))),
-      );
+      showAppSnackBar(context, l10n.bookSourceParseFailed(e.toString()));
       return null;
     }
   }
@@ -578,9 +547,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.shareFailed(e.toString()))));
+      showAppSnackBar(context, l10n.shareFailed(e.toString()));
     }
   }
 
@@ -592,7 +559,6 @@ extension _SourceEditActions on _SourceEditScreenState {
     final raw = await GoRouter.of(context).pushAppRoute(AppRoutes.qrcode);
     final content = raw is String ? raw : null;
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     if (content == null || content.trim().isEmpty) return;
 
     final trimmed = content.trim();
@@ -602,20 +568,16 @@ extension _SourceEditActions on _SourceEditScreenState {
       if (!mounted) return;
       if (source == null) return; // 错误已由 _parseSourceJson 就地提示
       _populateFields(source);
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.importedBookSource(source.bookSourceName))),
-      );
+      showAppSnackBar(context, l10n.importedBookSource(source.bookSourceName));
       return;
     }
 
     if (trimmed.startsWith('legado://')) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.sourceProtocolImportHint)),
-      );
+      showAppSnackBar(context, l10n.sourceProtocolImportHint);
       return;
     }
 
-    messenger.showSnackBar(SnackBar(content: Text(l10n.sourceUrlImportHint)));
+    showAppSnackBar(context, l10n.sourceUrlImportHint);
   }
 
   /// 显示规则帮助（对标原版 showHelp("ruleHelp")）
@@ -638,9 +600,7 @@ extension _SourceEditActions on _SourceEditScreenState {
           .pushAppRoute(AppRoutes.sourceDebug, extra: source.bookSourceUrl);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.sourceDebugFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.sourceDebugFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -654,8 +614,7 @@ extension _SourceEditActions on _SourceEditScreenState {
     final l10n = context.l10n;
     final key = _focusedFieldKey;
     if (key == null || !_ctrls.containsKey(key)) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.focusSourceFieldFirst)));
+      showAppSnackBar(context, l10n.focusSourceFieldFirst);
       return;
     }
     await _openCodeEditForField(key, title: _fieldLabels[key] ?? key);

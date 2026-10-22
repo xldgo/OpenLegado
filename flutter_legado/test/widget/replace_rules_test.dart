@@ -61,6 +61,32 @@ void main() {
   }
 
   group('ReplaceRulesScreen 整页编辑器入口（A3）', () {
+    testWidgets('删除取消不写入，删除失败保留规则且不提示成功', (tester) async {
+      const rule = ReplaceRule(id: 7, name: '待删除规则', pattern: '广告');
+      when(() => mockApi.replaceRuleRepository.deleteReplaceRule(7))
+          .thenThrow(StateError('删除失败夹具'));
+      await pumpScreen(tester, rules: [rule]);
+      Future<void> openDelete() async {
+        await tester.tap(find.byTooltip('更多').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('删除'));
+        await tester.pumpAndSettle();
+      }
+
+      await openDelete();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      verifyNever(() => mockApi.replaceRuleRepository.deleteReplaceRule(any()));
+      await openDelete();
+      await tester.tap(find.widgetWithText(TextButton, '删除'));
+      await tester.pumpAndSettle();
+      verify(() => mockApi.replaceRuleRepository.deleteReplaceRule(7))
+          .called(1);
+      expect(find.text('待删除规则'), findsOneWidget);
+      expect(find.text('规则已删除'), findsNothing);
+      expect(find.textContaining('删除规则失败'), findsOneWidget);
+    });
+
     testWidgets('新增入口仅使用FAB并打开整页编辑器', (tester) async {
       await pumpScreen(tester);
 

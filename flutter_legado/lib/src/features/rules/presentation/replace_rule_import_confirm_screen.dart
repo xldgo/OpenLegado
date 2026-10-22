@@ -1,5 +1,7 @@
+import '../../../widgets/app_snack_bar.dart';
 import '../../../providers/replace_rule_repository_provider.dart';
 import '../../../widgets/app_menu.dart';
+import '../../../l10n/app_localization.dart';
 
 import 'dart:convert';
 
@@ -166,8 +168,7 @@ class _ReplaceRuleImportConfirmScreenState
       if (mounted) Navigator.of(context).pop(success);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('导入失败：$e')));
+        showAppSnackBar(context, context.l10n.importFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _importing = false);
@@ -204,8 +205,8 @@ class _ReplaceRuleImportConfirmScreenState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return ImportConfirmScaffold(
-      confirmText: '确认',
-      title: const Text('导入替换规则'),
+      confirmText: context.l10n.confirmImportAction,
+      title: Text(context.l10n.importReplaceRulesTitle),
       actions: [
         // 自定义源分组（对标 menu_new_group，always 显示）
         TextButton(
@@ -213,24 +214,24 @@ class _ReplaceRuleImportConfirmScreenState
           onPressed: _showCustomGroupDialog,
           child: Text(
             _groupName == null
-                ? '自定义源分组'
+                ? context.l10n.customSourceGroup
                 : '${_isAddGroup ? '+' : ''}$_groupName',
           ),
         ),
         AppMenuButton<String>(
-          tooltip: '更多选项',
+          tooltip: context.l10n.moreOptions,
           // 菜单在顶栏下方展开，不覆盖顶栏
           onSelected: _handleMenu,
           itemBuilder: (_) => [
             AppMenuItem(
               value: 'keep_name',
               checked: _keepName,
-              child: const Text('保留原名'),
+              child: Text(context.l10n.keepSourceName),
             ),
           ],
         ),
       ],
-      emptyMessage: '格式错误，未解析到替换规则',
+      emptyMessage: context.l10n.invalidReplaceRules,
       itemCount: widget.raws.length,
       selectedCount: _selectCount,
       allSelected: _isSelectAll,

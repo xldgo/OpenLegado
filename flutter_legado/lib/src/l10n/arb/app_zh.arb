@@ -4566,5 +4566,19 @@
   "readAloudCurrentChapter": "当前章",
   "readAloudMediaButtons": "通知和耳机前后按钮",
   "readAloudMediaByChapter": "切换章节",
-  "readAloudMediaByParagraph": "切换朗读段落"
+  "readAloudMediaByParagraph": "切换朗读段落",
+  "confirmImportAction": "确认",
+  "importReplaceRulesTitle": "导入替换规则",
+  "invalidBookSources": "格式错误，未解析到书源",
+  "invalidReplaceRules": "格式错误，未解析到替换规则",
+  "selectNewSources": "选中新增源",
+  "selectUpdatedSources": "选中更新源",
+  "importFailed": "导入失败：{error}",
+  "@importFailed": {"placeholders": {"error": {"type": "String"}}},
+  "deleteReplaceRuleTitle": "删除规则",
+  "confirmDeleteNamedRule": "确定删除「{name}」吗？",
+  "@confirmDeleteNamedRule": {"placeholders": {"name": {"type": "String"}}},
+  "ruleDeleted": "规则已删除",
+  "ruleDeleteFailed": "删除规则失败：{error}",
+  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
 }

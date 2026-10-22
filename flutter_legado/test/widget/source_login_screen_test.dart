@@ -11,6 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:flutter_legado/src/features/book_sources/presentation/source_login_screen.dart';
+import 'package:flutter_legado/src/models/book_source.dart';
+import 'package:flutter_legado/src/utils/source_login_prompt.dart';
 
 import '../mocks/mocks.dart';
 
@@ -65,5 +67,45 @@ void main() {
     Navigator.of(tester.element(find.byType(SourceLoginScreen))).pop(true);
     await tester.pumpAndSettle();
     expect(await result, isTrue);
+  });
+
+  testWidgets('登录提示取消不导航，确认后进入当前书源的登录页', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: mergeTestOverrides([...mockApi.overrides]),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => promptSourceLoginIfNeeded(
+                  context,
+                  error: StateError('LoginRequired'),
+                  source: const BookSource(
+                    bookSourceUrl: 'https://a.com',
+                    bookSourceName: '需登录源',
+                  ),
+                ),
+                child: const Text('请求登录'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('请求登录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SourceLoginScreen), findsNothing);
+    await tester.tap(find.text('请求登录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('去登录'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SourceLoginScreen>(find.byType(SourceLoginScreen))
+          .sourceUrl,
+      'https://a.com',
+    );
   });
 }

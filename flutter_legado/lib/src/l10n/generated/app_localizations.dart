@@ -7646,6 +7646,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'切换朗读段落'**
   String get readAloudMediaByParagraph;
+
+  /// No description provided for @confirmImportAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认'**
+  String get confirmImportAction;
+
+  /// No description provided for @importReplaceRulesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入替换规则'**
+  String get importReplaceRulesTitle;
+
+  /// No description provided for @invalidBookSources.
+  ///
+  /// In zh, this message translates to:
+  /// **'格式错误，未解析到书源'**
+  String get invalidBookSources;
+
+  /// No description provided for @invalidReplaceRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'格式错误，未解析到替换规则'**
+  String get invalidReplaceRules;
+
+  /// No description provided for @selectNewSources.
+  ///
+  /// In zh, this message translates to:
+  /// **'选中新增源'**
+  String get selectNewSources;
+
+  /// No description provided for @selectUpdatedSources.
+  ///
+  /// In zh, this message translates to:
+  /// **'选中更新源'**
+  String get selectUpdatedSources;
+
+  /// No description provided for @importFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败：{error}'**
+  String importFailed(String error);
+
+  /// No description provided for @deleteReplaceRuleTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除规则'**
+  String get deleteReplaceRuleTitle;
+
+  /// No description provided for @confirmDeleteNamedRule.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除「{name}」吗？'**
+  String confirmDeleteNamedRule(String name);
+
+  /// No description provided for @ruleDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'规则已删除'**
+  String get ruleDeleted;
+
+  /// No description provided for @ruleDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除规则失败：{error}'**
+  String ruleDeleteFailed(String error);
 }
 
 class _AppLocalizationsDelegate

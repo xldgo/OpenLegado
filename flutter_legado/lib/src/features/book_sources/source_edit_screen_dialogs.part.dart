@@ -98,8 +98,7 @@ class _QrShareDialog extends StatelessWidget {
       );
       if (imageData == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(l10n.qrGenerateFailed)));
+          showAppSnackBar(context, l10n.qrGenerateFailed);
         }
         return;
       }
@@ -114,9 +113,7 @@ class _QrShareDialog extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.shareFailed(e.toString()))));
+        showAppSnackBar(context, l10n.shareFailed(e.toString()));
       }
     }
   }

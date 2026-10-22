@@ -1,3 +1,4 @@
+import '../../../widgets/app_snack_bar.dart';
 import '../../../app/routing/app_navigation.dart';
 import '../../../providers/network_provider.dart';
 import '../../../providers/rss_repository_provider.dart';
@@ -321,8 +322,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final l10n = context.l10n;
     final key = _focusedFieldKey;
     if (key == null || !_ctrls.containsKey(key)) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.focusSourceFieldFirst)));
+      showAppSnackBar(context, l10n.focusSourceFieldFirst);
       return;
     }
     final label = _allFieldSpecs(context.l10n)
@@ -425,13 +425,11 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final name = _ctrls['sourceName']!.text.trim();
     final url = _ctrls['sourceUrl']!.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.enterSourceName)));
+      showAppSnackBar(context, l10n.enterSourceName);
       return;
     }
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.enterSourceUrl)));
+      showAppSnackBar(context, l10n.enterSourceUrl);
       return;
     }
 
@@ -446,17 +444,14 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
       if (!mounted) return;
       // 保存成功后更新快照，退出不再提示未保存
       _initialSnapshotMark = _snapshot();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isEdit ? l10n.rssSourceUpdated : l10n.rssSourceAdded),
-        ),
+      showAppSnackBar(
+        context,
+        _isEdit ? l10n.rssSourceUpdated : l10n.rssSourceAdded,
       );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.sourceSaveFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.sourceSaveFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -546,8 +541,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
             .convert(_buildSource().toJson());
         await Clipboard.setData(ClipboardData(text: json));
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(l10n.copiedRssSource)));
+          showAppSnackBar(context, l10n.copiedRssSource);
         }
       case 'paste':
         await _pasteSource();
@@ -574,21 +568,17 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final url = _ctrls['sourceUrl']!.text.trim();
     if (url.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.enterSourceUrlFirst)));
+        showAppSnackBar(context, l10n.enterSourceUrlFirst);
       }
       return;
     }
     try {
       await ref.read(networkServiceProvider).clearCookie(url);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.cookiesCleared)));
+      showAppSnackBar(context, l10n.cookiesCleared);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.clearCookiesFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.clearCookiesFailed(e.toString()));
       }
     }
   }
@@ -601,8 +591,7 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
     final text = data?.text?.trim();
     if (text == null || text.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.clipboardEmpty)));
+        showAppSnackBar(context, l10n.clipboardEmpty);
       }
       return;
     }
@@ -631,14 +620,11 @@ class _RssSourceEditScreenState extends ConsumerState<RssSourceEditScreen> {
         _articleStyle = style is int ? style.clamp(0, _styleCount - 1) : 0;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.pastedRssSource)));
+        showAppSnackBar(context, l10n.pastedRssSource);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.pasteRssSourceFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.pasteRssSourceFailed(e.toString()));
       }
     }
   }

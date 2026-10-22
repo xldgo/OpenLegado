@@ -1342,5 +1342,19 @@
   "readAloudCurrentChapter": "Current chapter",
   "readAloudMediaButtons": "Notification and headset previous/next",
   "readAloudMediaByChapter": "Change chapter",
-  "readAloudMediaByParagraph": "Change spoken segment"
+  "readAloudMediaByParagraph": "Change spoken segment",
+  "confirmImportAction": "Confirm",
+  "importReplaceRulesTitle": "Import replacement rules",
+  "invalidBookSources": "Invalid format: no book sources found",
+  "invalidReplaceRules": "Invalid format: no replacement rules found",
+  "selectNewSources": "Select new sources",
+  "selectUpdatedSources": "Select updated sources",
+  "importFailed": "Import failed: {error}",
+  "@importFailed": {"placeholders": {"error": {"type": "String"}}},
+  "deleteReplaceRuleTitle": "Delete rule",
+  "confirmDeleteNamedRule": "Delete “{name}”?",
+  "@confirmDeleteNamedRule": {"placeholders": {"name": {"type": "String"}}},
+  "ruleDeleted": "Rule deleted",
+  "ruleDeleteFailed": "Failed to delete rule: {error}",
+  "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
 }

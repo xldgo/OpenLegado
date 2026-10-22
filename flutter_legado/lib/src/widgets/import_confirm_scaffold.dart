@@ -1,3 +1,5 @@
+import 'app_snack_bar.dart';
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -229,9 +231,7 @@ Future<void> showImportJson(
         onPressed: () async {
           await Clipboard.setData(ClipboardData(text: json));
           if (ctx.mounted) {
-            ScaffoldMessenger.of(
-              ctx,
-            ).showSnackBar(SnackBar(content: Text(ctx.l10n.copiedToClipboard)));
+            showAppSnackBar(ctx, ctx.l10n.copiedToClipboard);
           }
         },
         child: Text(ctx.l10n.copy),

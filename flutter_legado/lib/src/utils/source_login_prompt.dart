@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../domain/errors/app_exception.dart';
 import '../models/book_source.dart';
 import '../features/book_sources/presentation/source_login_screen.dart';
+import '../widgets/confirm_dialog.dart';
 
 /// 是否为 loginCheckJs 判定的「书源需要登录」错误（错误码 1012 / 文案对齐）。
 bool isSourceLoginRequiredError(Object? error) {
@@ -34,27 +35,14 @@ Future<void> promptSourceLoginIfNeeded(
   if (!isSourceLoginRequiredError(error) || source == null) return;
   if (!context.mounted) return;
 
-  final go = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(ctx.l10n.loginRequiredTitle),
-      content: Text(
-        sourceLoginRequiredMessage(
-          error,
-          fallback: ctx.l10n.sourceLoginRetryHint,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: Text(ctx.l10n.cancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(ctx.l10n.goToLogin),
-        ),
-      ],
+  final go = await showConfirmDialog(
+    context,
+    title: context.l10n.loginRequiredTitle,
+    content: sourceLoginRequiredMessage(
+      error,
+      fallback: context.l10n.sourceLoginRetryHint,
     ),
+    confirmText: context.l10n.goToLogin,
   );
   if (go != true || !context.mounted) return;
 

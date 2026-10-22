@@ -4283,4 +4283,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get readAloudMediaByParagraph => 'Change spoken segment';
+
+  @override
+  String get confirmImportAction => 'Confirm';
+
+  @override
+  String get importReplaceRulesTitle => 'Import replacement rules';
+
+  @override
+  String get invalidBookSources => 'Invalid format: no book sources found';
+
+  @override
+  String get invalidReplaceRules =>
+      'Invalid format: no replacement rules found';
+
+  @override
+  String get selectNewSources => 'Select new sources';
+
+  @override
+  String get selectUpdatedSources => 'Select updated sources';
+
+  @override
+  String importFailed(String error) {
+    return 'Import failed: $error';
+  }
+
+  @override
+  String get deleteReplaceRuleTitle => 'Delete rule';
+
+  @override
+  String confirmDeleteNamedRule(String name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get ruleDeleted => 'Rule deleted';
+
+  @override
+  String ruleDeleteFailed(String error) {
+    return 'Failed to delete rule: $error';
+  }
 }

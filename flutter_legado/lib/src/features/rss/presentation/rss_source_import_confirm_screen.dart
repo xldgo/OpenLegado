@@ -1,3 +1,4 @@
+import '../../../widgets/app_snack_bar.dart';
 import '../../../providers/rss_repository_provider.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
@@ -165,9 +166,7 @@ class _RssSourceImportConfirmScreenState
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.rssSourceImportFailed(e.toString()))),
-        );
+        showAppSnackBar(context, l10n.importFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _importing = false);

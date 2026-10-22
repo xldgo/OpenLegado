@@ -1,4 +1,6 @@
+import '../../widgets/app_snack_bar.dart';
 import '../../widgets/app_menu.dart';
+import '../../l10n/app_localization.dart';
 
 import 'dart:convert';
 
@@ -170,8 +172,7 @@ class _SourceImportConfirmScreenState
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('导入失败：$e')));
+        showAppSnackBar(context, context.l10n.importFailed(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _importing = false);
@@ -209,8 +210,8 @@ class _SourceImportConfirmScreenState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return ImportConfirmScaffold(
-      confirmText: '确认',
-      title: const Text('导入书源'),
+      confirmText: context.l10n.confirmImportAction,
+      title: Text(context.l10n.importSources),
       actions: [
         // 自定义源分组（对标 menu_new_group，always 显示）
         TextButton(
@@ -218,42 +219,48 @@ class _SourceImportConfirmScreenState
           onPressed: _showCustomGroupDialog,
           child: Text(
             _groupName == null
-                ? '自定义源分组'
+                ? context.l10n.customSourceGroup
                 : '${_isAddGroup ? '+' : ''}$_groupName',
           ),
         ),
         AppMenuButton<String>(
-          tooltip: '更多选项',
+          tooltip: context.l10n.moreOptions,
           // 菜单在顶栏下方展开，不覆盖顶栏
           onSelected: _handleMenu,
           itemBuilder: (_) => [
-            const AppMenuItem(value: 'select_new', child: Text('选中新增源')),
-            const AppMenuItem(value: 'select_update', child: Text('选中更新源')),
+            AppMenuItem(
+              value: 'select_new',
+              child: Text(context.l10n.selectNewSources),
+            ),
+            AppMenuItem(
+              value: 'select_update',
+              child: Text(context.l10n.selectUpdatedSources),
+            ),
             const AppMenuDivider(),
             AppMenuItem(
               value: 'keep_name',
               checked: _keepName,
-              child: const Text('保留原名'),
+              child: Text(context.l10n.keepSourceName),
             ),
             AppMenuItem(
               value: 'keep_group',
               checked: _keepGroup,
-              child: const Text('保留分组'),
+              child: Text(context.l10n.keepSourceGroup),
             ),
             AppMenuItem(
               value: 'keep_enable',
               checked: _keepEnable,
-              child: const Text('保留启用状态'),
+              child: Text(context.l10n.keepSourceEnabled),
             ),
             AppMenuItem(
               value: 'show_comment',
               checked: _showComment,
-              child: const Text('显示源注释'),
+              child: Text(context.l10n.showSourceComment),
             ),
           ],
         ),
       ],
-      emptyMessage: '格式错误，未解析到书源',
+      emptyMessage: context.l10n.invalidBookSources,
       itemCount: widget.sources.length,
       selectedCount: _selectCount,
       allSelected: _isSelectAll,

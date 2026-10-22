@@ -2,6 +2,8 @@ import '../../../app/routing/app_navigation.dart';
 import '../../../widgets/dynamic_search_app_bar.dart';
 import '../../../l10n/app_localization.dart';
 import '../../../widgets/app_menu.dart';
+import '../../../widgets/app_snack_bar.dart';
+import '../../../widgets/confirm_dialog.dart';
 
 import 'dart:convert';
 import 'dart:io';
@@ -658,33 +660,28 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     }
   }
 
-  void _confirmDelete(
+  Future<void> _confirmDelete(
     BuildContext context,
     ReplaceRuleNotifier provider,
     ReplaceRule rule,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除规则'),
-        content: Text('确定删除「${rule.name}」吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(ctx.l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              provider.deleteRule(rule.id);
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('规则已删除')));
-            },
-            child: Text(ctx.l10n.delete),
-          ),
-        ],
-      ),
+  ) async {
+    final l10n = context.l10n;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l10n.deleteReplaceRuleTitle,
+      content: l10n.confirmDeleteNamedRule(rule.name),
+      confirmText: l10n.delete,
+      isDestructive: true,
     );
+    if (!confirmed || !context.mounted) return;
+    try {
+      await provider.deleteRule(rule.id);
+      if (context.mounted) showAppSnackBar(context, l10n.ruleDeleted);
+    } catch (error) {
+      if (context.mounted) {
+        showAppSnackBar(context, l10n.ruleDeleteFailed(error.toString()));
+      }
+    }
   }
 }
 

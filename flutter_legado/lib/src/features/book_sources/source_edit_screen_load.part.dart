@@ -51,9 +51,7 @@ extension _SourceEditLoad on _SourceEditScreenState {
         _populateFields(source);
         _markSaved();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.bookSourceNotFound)),
-        );
+        showAppSnackBar(context, context.l10n.bookSourceNotFound);
       }
     });
   }

@@ -4054,4 +4054,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get readAloudMediaByParagraph => '切换朗读段落';
+
+  @override
+  String get confirmImportAction => '确认';
+
+  @override
+  String get importReplaceRulesTitle => '导入替换规则';
+
+  @override
+  String get invalidBookSources => '格式错误，未解析到书源';
+
+  @override
+  String get invalidReplaceRules => '格式错误，未解析到替换规则';
+
+  @override
+  String get selectNewSources => '选中新增源';
+
+  @override
+  String get selectUpdatedSources => '选中更新源';
+
+  @override
+  String importFailed(String error) {
+    return '导入失败：$error';
+  }
+
+  @override
+  String get deleteReplaceRuleTitle => '删除规则';
+
+  @override
+  String confirmDeleteNamedRule(String name) {
+    return '确定删除「$name」吗？';
+  }
+
+  @override
+  String get ruleDeleted => '规则已删除';
+
+  @override
+  String ruleDeleteFailed(String error) {
+    return '删除规则失败：$error';
+  }
 }
