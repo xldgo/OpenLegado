@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.439] - 2026-10-22
 
+### Fixed
+- 修复单文件JS书源的书籍/章节传参与书源上下文，可选函数缺失可正常回退，脚本内部错误不再误判为空摘要。
+- 卷标题不再把附带数据当作正文，普通章节的空正文错误保持；贡献者：Codex + Rust。
+
 ### Added
 - 搜索范围支持同时选择多个书源，确认后一次应用完整集合。
 

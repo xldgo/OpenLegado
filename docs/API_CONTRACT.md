@@ -1,5 +1,17 @@
 # API 契约文档
 
+### SOURCE-JS-CALL-20261022：主脚本调用边界修复（第一批，实施前冻结）
+
+- FFI签名、DTO、方法计数及数据库不变。本批修正Rust内部mainJs执行协议，参考原版363540972的JsSourceEngine/JsSourceBook。
+- 主脚本首次求值前装配完整书源的source/sourceApi、baseUrl、cookie/cache与已有书源方法；声明式规则和mainJs复用同一份上下文脚本，不复制宿主方法实现。缓存身份必须包含影响上下文的配置，后续配置变更不能继续使用旧source快照。
+- source表示可被主脚本声明覆盖的变量，sourceApi保留宿主书源身份及方法；不把主脚本自定义source反写数据库。Cookie、变量、登录及取消继续使用当前JsResources/流程能力。
+- book/chapter等结构参数按递归JS对象传入，数字/布尔/null/数组保持类型，属性名沿用序列化模型的camelCase；nextChapterUrl缺省为JS null，不用JSON字符串冒充对象。
+- 可选调用先检查目标是否可调用，缺失或非函数返回exists=false；存在时调用一次，函数内部ReferenceError等错误原样传播，禁止依赖异常文案猜测函数缺失。段评摘要同样走可选调用，不能把任意脚本错误降级为空摘要。上下文装配错误拒绝初始化，不在不完整环境中继续执行主脚本。
+- isVolume且url以title开头的卷占位不调用脚本，返回空正文并忽略tag；其他卷章节可返回空正文，普通章节空正文仍报ContentEmpty。
+- 本批保留现有VM缓存、主脚本求值次数与返回归一化策略，作用域/类型化返回和详情合并后续独立修复。不借机调整jsLib失败策略、并发API、批量正文或回复能力，不改应用版本。
+
+编写者：Codex + Rust / Bridge｜2026-10-22
+
 ### SOURCE-PARSE-UNIFY-20261022：书源 JSON 解析与导入契约
 
 书源字段由`legado-core::models::book_source::parse`统一解释。编辑回填、导入预览、

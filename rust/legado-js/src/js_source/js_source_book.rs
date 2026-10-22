@@ -187,10 +187,10 @@ impl JsSourceBookOrchestrator {
         book: &Book,
         can_re_name: bool,
     ) -> LegadoResult<MarshalledBookInfo> {
-        let book_json = serde_json::to_string(book)?;
+        let book_value = JsValue::from_json(serde_json::to_value(book)?)?;
         let call_result = self
             .engine
-            .call_function_if_exists("getBookInfo", &[("book", JsValue::String(book_json))])?;
+            .call_function_if_exists("getBookInfo", &[("book", book_value)])?;
 
         if call_result.exists
             && let Some(json_str) = call_result.value
@@ -226,10 +226,10 @@ impl JsSourceBookOrchestrator {
         source: &BookSource,
         book: &Book,
     ) -> LegadoResult<Vec<serde_json::Value>> {
-        let book_json = serde_json::to_string(book)?;
+        let book_value = JsValue::from_json(serde_json::to_value(book)?)?;
         let result = self
             .engine
-            .call_function("getChapters", &[("book", JsValue::String(book_json))])?;
+            .call_function("getChapters", &[("book", book_value)])?;
         let json_str = result.unwrap_or_default();
         let toc_url = if book.toc_url.is_empty() {
             &book.book_url
@@ -261,27 +261,27 @@ impl JsSourceBookOrchestrator {
         book: &Book,
         next_chapter_url: Option<&str>,
     ) -> LegadoResult<String> {
-        // 卷章直通：isVolume && url.startsWith(title) → 返回 chapter.tag
+        // 卷占位不执行脚本，也不把附带tag当成正文。
         if chapter.is_volume && chapter.url.starts_with(&chapter.title) {
-            return Ok(chapter.tag.clone().unwrap_or_default());
+            return Ok(String::new());
         }
 
-        let chapter_json = serde_json::to_string(chapter)?;
-        let book_json = serde_json::to_string(book)?;
-        let next_url = next_chapter_url.unwrap_or("");
+        let chapter_value = JsValue::from_json(serde_json::to_value(chapter)?)?;
+        let book_value = JsValue::from_json(serde_json::to_value(book)?)?;
+        let next_url = next_chapter_url.map(JsValue::from).unwrap_or(JsValue::Null);
 
         let result = self.engine.call_function(
             "getContent",
             &[
-                ("chapter", JsValue::String(chapter_json)),
-                ("book", JsValue::String(book_json)),
-                ("nextChapterUrl", JsValue::String(next_url.to_string())),
+                ("chapter", chapter_value),
+                ("book", book_value),
+                ("nextChapterUrl", next_url),
             ],
         )?;
         let content = result.unwrap_or_default();
 
         // 空正文抛 ContentEmpty 异常（非卷章）
-        if content.trim().is_empty() {
+        if !chapter.is_volume && content.trim().is_empty() {
             return Err(LegadoError::ContentEmpty(format!(
                 "章节 {} 正文为空",
                 chapter.title
@@ -302,22 +302,15 @@ impl JsSourceBookOrchestrator {
         book: &Book,
         chapter: &BookChapter,
     ) -> LegadoResult<ReviewSummary> {
-        let chapter_json = serde_json::to_string(chapter)?;
-        let book_json = serde_json::to_string(book)?;
-        let result = self.engine.call_function(
+        let chapter_value = JsValue::from_json(serde_json::to_value(chapter)?)?;
+        let book_value = JsValue::from_json(serde_json::to_value(book)?)?;
+        let result = self.engine.call_function_if_exists(
             "getReviewSummary",
-            &[
-                ("chapter", JsValue::String(chapter_json)),
-                ("book", JsValue::String(book_json)),
-            ],
-        );
-        let json = match result {
-            Ok(Some(j)) => j,
-            Ok(None) => return Ok(ReviewSummary::default()),
-            Err(_) => {
-                // 函数缺失/引擎错误 → 空摘要（可选能力）
-                return Ok(ReviewSummary::default());
-            }
+            &[("chapter", chapter_value), ("book", book_value)],
+        )?;
+        let json = match result.value {
+            Some(json) => json,
+            None => return Ok(ReviewSummary::default()),
         };
         JsSourceReview::parse_review_summary(&json).map_err(LegadoError::Parser)
     }
@@ -339,13 +332,13 @@ impl JsSourceBookOrchestrator {
         para_data: &str,
         page: i32,
     ) -> LegadoResult<ReviewDetailPage> {
-        let chapter_json = serde_json::to_string(chapter)?;
-        let book_json = serde_json::to_string(book)?;
+        let chapter_value = JsValue::from_json(serde_json::to_value(chapter)?)?;
+        let book_value = JsValue::from_json(serde_json::to_value(book)?)?;
         let result = self.engine.call_function(
             "getReviewDetail",
             &[
-                ("chapter", JsValue::String(chapter_json)),
-                ("book", JsValue::String(book_json)),
+                ("chapter", chapter_value),
+                ("book", book_value),
                 ("paraIndex", JsValue::Int(para_index as i64)),
                 ("paraData", JsValue::String(para_data.to_string())),
                 ("page", JsValue::Int(page as i64)),

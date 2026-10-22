@@ -197,11 +197,9 @@ fn js_summary_detail_and_replies_share_only_their_own_resources() {
         book_source_url:"https://same-review.test".into(),
         main_js:Some(r#"
             function getReviewSummary(chapter,book) {
-                chapter=JSON.parse(chapter); book=JSON.parse(book);
                 return JSON.stringify([{paraIndex:2,count:3,paraData:java.getCookie('https://same-review.test')+':'+book.name+':'+chapter.url}]);
             }
             function getReviewDetail(chapter,book,index,data,page) {
-                chapter=JSON.parse(chapter); book=JSON.parse(book);
                 return JSON.stringify({items:[{id:'c1',name:book.name,content:java.getCookie('https://same-review.test')+':'+chapter.url+':'+index+':'+data,
                     badge:'作者',replies:[{id:'r1',content:'回复'}]}],nextPageUrl:page<2?'more':null});
             }

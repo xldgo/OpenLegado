@@ -6,7 +6,7 @@
 //! app/src/test/java/io/legado/app/model/jsSource/ 下的 JsSourceEngineTest、
 //! JsSourceConfigTest、JsSourceMarshallerTest 和 JsSourceBookTest。
 //! 保留上游脚本/输入与行为预期，替换 JUnit/Rhino 接线；不读取 Kotlin 源码作为断言。
-//! 已确认不对齐的场景用 ignore 关联审计项，可用 --ignored 单独复现。
+//! 仅覆盖已迁移的上游场景；修复后的场景作为常规门禁运行。
 //! — Codex + Rust
 
 #![cfg(feature = "quickjs")]
@@ -84,10 +84,10 @@ function normalize(params) {
                 "normalize",
                 &[(
                     "params",
-                    JsValue::Object(vec![
-                        ("page".into(), JsValue::Int(3)),
-                        ("mode".into(), JsValue::from("free")),
-                    ]),
+                    JsValue::from_json(json!({
+                        "page":3,"mode":"free","nested":[true,null,{"score":1.5}]
+                    }))
+                    .unwrap(),
                 )],
             )
             .unwrap()
@@ -95,6 +95,8 @@ function normalize(params) {
         let result: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(result["page"], "3");
         assert_eq!(result["result"], "free");
+        // 沿用上游String转换，验证新增绑定路径中的递归数组/对象/null。
+        assert_eq!(result["nested"], "true,,[object Object]");
     }
 
     /// 上游：normalizes custom toJSON and getters in the source scope。
@@ -133,7 +135,6 @@ function search() {
 
     /// 上游：keeps runtime source available when config object is declared。
     #[test]
-    #[ignore = "JS-01：mainJs 尚未绑定 source/sourceApi，保持上游预期等待修复"]
     fn keeps_runtime_source_available_when_config_is_declared() {
         let mut engine = engine(
             r#"var config = { bookSourceUrl: 'https://config.example' };
@@ -158,7 +159,6 @@ function identity() {
 
     /// 上游：optional function returns null when missing / executes when present。
     #[test]
-    #[ignore = "JS-04：缺失函数仍抛 ReferenceError，保持上游可选调用预期"]
     fn optional_function_distinguishes_missing_from_present() {
         let mut absent = engine("var source = {};");
         assert_eq!(
@@ -176,6 +176,27 @@ function identity() {
         assert_eq!(
             serde_json::from_str::<Value>(&result.value.unwrap()).unwrap(),
             json!({"intro":"optional result"})
+        );
+        let mut present = engine(
+            "var calls=0; function getBookInfo(){calls++; return missingInsideFunction;} function count(){return calls;}",
+        );
+        assert!(
+            present
+                .call_function_if_exists("getBookInfo", &[])
+                .unwrap_err()
+                .to_string()
+                .contains("missingInsideFunction")
+        );
+        assert_eq!(
+            present.call_function("count", &[]).unwrap().as_deref(),
+            Some("1")
+        );
+        let mut non_function = engine("var getBookInfo = 42;");
+        assert!(
+            !non_function
+                .call_function_if_exists("getBookInfo", &[])
+                .unwrap()
+                .exists
         );
     }
 }
@@ -387,7 +408,6 @@ mod book {
 
     /// 上游：volume placeholder skips js content and ignores its tag。
     #[test]
-    #[ignore = "JS-11：当前卷章返回 tag，上游要求空正文；不修改预期掩盖差异"]
     fn volume_placeholder_skips_js_content_and_ignores_tag() {
         let mut book_engine = JsSourceBookOrchestrator::new(engine(
             "function getContent() { throw 'must not run'; }",
@@ -410,5 +430,28 @@ mod book {
                 .unwrap(),
             ""
         );
+    }
+
+    /// 上游：blank content is allowed only for volume chapters。
+    #[test]
+    fn blank_content_is_allowed_only_for_volume_chapters() {
+        let mut engine = JsSourceBookOrchestrator::new(engine("function getContent(){return '';}"));
+        let mut chapter = BookChapter {
+            url: "https://source.example/volume/1".into(),
+            title: "Volume 1".into(),
+            is_volume: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            engine
+                .get_content(&BookSource::default(), &chapter, &Book::default(), None)
+                .unwrap(),
+            ""
+        );
+        chapter.is_volume = false;
+        assert!(matches!(
+            engine.get_content(&BookSource::default(), &chapter, &Book::default(), None),
+            Err(legado_core::LegadoError::ContentEmpty(_))
+        ));
     }
 }

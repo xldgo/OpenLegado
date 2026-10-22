@@ -4087,15 +4087,14 @@ pub fn build_js_orchestrator(
     js_resources: &Arc<legado_js::JsResources>,
     source: &BookSource,
 ) -> LegadoResult<Option<JsSourceBookOrchestrator>> {
-    let main_js = match source.main_js.as_deref() {
-        Some(js) if !js.trim().is_empty() => js.to_string(),
-        _ => return Ok(None),
-    };
-
-    let mut config = JsSourceConfig::new(source.book_source_url.clone(), main_js);
-    if let Some(lib) = &source.js_lib {
-        config = config.with_js_lib(lib.clone());
+    if source
+        .main_js
+        .as_deref()
+        .is_none_or(|js| js.trim().is_empty())
+    {
+        return Ok(None);
     }
+    let config = JsSourceConfig::from_source(source);
 
     #[cfg(feature = "quickjs")]
     let engine = legado_js::JsSourceEngine::new_quickjs_with_resources(config, js_resources)?;

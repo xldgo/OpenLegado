@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-JS-CALL-20261022：主脚本对象与上下文修复（P1，代码及定向验证完成，待实际书源验收）
+
+- 授权/基线：用户同意按下一步计划开始第一批；dev / c63284f35，单代理。先冻结API_CONTRACT同名内部协议，不修改FFI签名、数据库、依赖和版本，不推送/触发CI。
+- 范围：mainJs首次执行前复用公共source上下文；完整书源及缓存失效接线；book/chapter递归对象参数、nextChapterUrl空值；真正的可选函数检测与异常传播；卷占位忽略tag、卷章空正文语义。
+- 非目标：VM求值/作用域策略、返回值类型和序列化错误、详情增量合并、jsLib加载策略、并发API、批量正文或回复。保留既有Cookie、变量流程、登录、取消及资源隔离。
+- 验收：恢复3个上游ignore，必要的实际对象与配置变化场景，受影响source_engine/source_setup及调用方定向回归；只跑相关测试，不运行全量或设备/应用构建。不使用子代理，单代理自查，不宣称独立审查。
+- 实现：将公共source上下文及host提取下沉到legado-js，fetcher旧路径转发，生成函数生产体保持一致。完整实体在mainJs前注入，setup参与缓存失效；装配错误不发布半初始化VM。Book/Chapter递归对象绑定，保留camelCase与标量类型，nextChapterUrl缺省null；可选调用先查询函数，不按错误文案猜测，内部错误上抛，段评摘要去掉任意错误转空的分支。卷占位忽略tag，普通卷章可空，非卷空正文保持报错。
+- 测试：恢复3个ignore并增加上游卷章空正文场景，当前上游16项全部常规通过；主脚本7、旧Book编排14、迁移setup2、fetcher对象/上下文2、缓存5、jsLib7、登录6、段评调用方1，合计60通过。缓存失败追加断言与递归绑定只复验受影响用例，不重复计数。段评旧夹具去除JSON.parse补偿，保留资源隔离验证；新夹具初次Value/Vec断言类型错误已修正，最终通过。
+- 证据：build/source-js-call-{upstream,encoding,engine,book,setup,context-final,cache,cache-final,jslib,login,review}.log。相关两crate带QuickJS的Clippy -D warnings、无QuickJS的默认库编译及rustfmt/diff检查通过，日志source-js-call-{clippy,default-check}.log。详见审计报告第10节，不将历史审计失败继续当当前现状。
+- 交付：应用版本保持2.0.439+440，更新双日志；Rust内部协议修正，无FRB生成或库/应用打包，无全量、真实站点和设备验证；只本地提交，不推送CI。VM作用域/返回类型、详情合并及宿主API后续批次仍待实施，未宣称全JS对齐。
+
+编写者：Codex + Rust / Bridge｜2026-10-22
+
 ### SEARCH-SCOPE-MULTI-20261022：搜索范围Sheet整理与书源多选（P1，代码与定向验证完成，待用户手动验收）
 
 - 授权/基线：用户同意搜索范围弹层优化方案并要求书源也支持多选；dev / 57d9c4fa2，单代理，不安装、不推送。并行出现的书源JS审计提交不属于本批。

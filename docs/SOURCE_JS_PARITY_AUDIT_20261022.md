@@ -6,6 +6,8 @@
 
 本轮是代码审计和定向行为取证，不修改业务实现。任务状态只维护在 [Active 计划](REFACTORING_ACTIVE_PLAN.md)；本文保存固定基线下的证据与建议，不另作进度台账。
 
+第1–8节对应下表审计基线；后续测试复用与第一批修复证据分别追加在第9、10节，不能把历史复现结果当作修复后现状。
+
 | 对象 | 本地路径 | 固定提交 |
 | --- | --- | --- |
 | OpenLegado | 仓库根目录，`dev` | `57d9c4fa2104cab998e36d33d4b7ed3c5fd989a4` |
@@ -275,5 +277,33 @@ cargo test --locked -p legado-js --features quickjs --test network_parity batch_
 - 同命令改为 `-- --ignored --nocapture`：3项均复现预期的实现缺口，退出101；日志 `build/source-js-upstream-known-gaps.log`，不记作通过。
 - `--lib js_source::js_source_config::tests`、`--lib js_source::js_source_marshaller::tests`、`--lib source_engine::tests`：保留的9、11、7项分别通过；日志 `build/source-js-upstream-{config,marshaller,engine}.log`。
 - 合计39项通过，3项已知未对齐场景单独复现失败。这里是测试重组后的结果，不与上一节历史审计的9项重复累加；没有更改业务实现、契约、依赖或应用版本，没有执行全量测试、设备验证或CI。
+
+## 10. 第一批主脚本调用修复证据
+
+实施前按`SOURCE-JS-CALL-20261022`冻结Rust内部协议，FFI签名、DTO、方法计数和数据库不变。本批对应JS-01的对象/上下文接线、JS-04的可选调用和JS-11的卷占位语义，不包含作用域、返回归一化、详情合并和公共宿主后续批次。
+
+- 原fetcher的书源上下文生成函数及host提取函数迁至`legado-js::source_setup`；旧公开路径转发到同一实现。生产函数体与迁移前一致，没有复制另一份宿主API。已有声明式调用不改参数或生成内容。
+- `JsSourceConfig::from_source`接收完整实体；初始化在mainJs前加载source/sourceApi、Cookie/cache及既有方法。完整setup参与既有缓存比较，书源配置变化重建条目；装配失败拒绝发布半初始化VM。
+- Book/BookChapter先按既有camelCase模型序列化，再递归转为JsValue对象；不再把JSON文本传给脚本。nextChapterUrl缺省为null，嵌套对象/数组及标量类型在真实QuickJS场景验证。
+- 可选函数在持有当前VM锁和流程绑定时检查是否可调用，缺失/非函数返回not_found；目标调用一次，内部错误上抛。段评摘要使用同一入口，不再吞掉任意引擎错误；详情/目录/正文与段评均验证真实对象参数。
+- 卷占位跳过脚本并忽略tag；其他卷章允许空正文，普通章节空正文继续报错。恢复原3个ignore，并移植上游“blank content is allowed only for volume chapters”，当前上游文件16项常规测试通过。
+
+| 定向范围 | 最终结果 | 日志（build/下） |
+| --- | --- | --- |
+| upstream_js_source | 16通过，无ignore | source-js-call-upstream.log；递归数组绑定补充后仅复验受影响1项，source-js-call-encoding.log，不叠加计数 |
+| source_engine::tests | 7通过，含Cookie、流程变量和初始化重试 | source-js-call-engine.log |
+| js_source_book::tests | 14通过 | source-js-call-book.log |
+| source_setup::tests | 迁移的2项通过 | source-js-call-setup.log |
+| main_js_context（fetcher真实编排） | 2通过；含配置失效、资源隔离、对象属性、可选摘要错误 | source-js-call-context-final.log |
+| engine_cache::tests | 5通过；后补装配失败不替换有效VM，受影响1项复验通过 | source-js-call-cache.log、source-js-call-cache-final.log，不叠加计数 |
+| jslib_failure_visible | 7通过，既有加载策略不变 | source-js-call-jslib.log |
+| engine source_login_js | 6通过 | source-js-call-login.log |
+| engine review_service单一JS资源隔离场景 | 1通过 | source-js-call-review.log |
+
+合计60项定向用例通过。调用方段评夹具原来主动JSON.parse来适配错误的字符串参数，本批删除该补偿，原资源隔离断言保留。生产编排新夹具初次编译将Value和Vec误当类型化对象/Map，已修正测试断言并通过；不把夹具编译失败解释成业务缺陷。
+
+`cargo clippy --locked -p legado-js -p legado-fetcher --features quickjs --lib -- -D warnings`通过，日志`source-js-call-clippy.log`；同两crate的`cargo check --no-default-features --lib`检查默认编译路径，日志`source-js-call-default-check.log`。改动文件rustfmt和diff检查通过。
+
+当前版本保持2.0.439+440，只补用户可见更新日志；没有运行全量测试、应用/native产物重建、真实站点、设备或CI。未使用子代理，只做单代理复核，不宣称独立审查。mainJs完整VM缓存/调用作用域、字符串返回与序列化错误、详情字段合并、jsLib URL映射及并发API仍按前文后续建议处理，不以本批通过宣称完整对齐。
 
 编写者：Codex + Rust / Bridge｜2026-10-22

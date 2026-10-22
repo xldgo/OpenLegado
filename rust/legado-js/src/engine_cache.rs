@@ -117,6 +117,11 @@ fn init_engine(
                         main_js_ok = Some(true);
                     }
                 } else {
+                    if name == "setup" {
+                        return Err(legado_core::LegadoError::JsEngine(format!(
+                            "书源上下文装配失败: {first_err}"
+                        )));
+                    }
                     eprintln!(
                         "[legado-js] 缓存引擎 {} {} 加载失败（降级继续）: {}",
                         key, name, first_err
@@ -368,6 +373,19 @@ mod tests {
             )
             .unwrap()
             .engine;
+        assert_eq!(second.lock().unwrap().eval("marker()").unwrap(), "2");
+        // 上下文装配失败不得发布半初始化VM，也不得替换已有有效条目。
+        let failed = cache.get_or_create(
+            "invalidate",
+            Some("function marker(){ return 2; }"),
+            Some("throw new Error('context setup failed');"),
+            None,
+        );
+        let error = match failed {
+            Ok(_) => panic!("错误的上下文不能被缓存"),
+            Err(error) => error.to_string(),
+        };
+        assert!(error.contains("context setup failed"));
         assert_eq!(second.lock().unwrap().eval("marker()").unwrap(), "2");
     }
 

@@ -23,6 +23,33 @@ pub enum JsValue {
 }
 
 impl JsValue {
+    /// 模型的JSON值递归转为JS绑定，保留对象/数组及标量类型。
+    pub fn from_json(value: serde_json::Value) -> LegadoResult<Self> {
+        Ok(match value {
+            serde_json::Value::Null => Self::Null,
+            serde_json::Value::Bool(value) => Self::Bool(value),
+            serde_json::Value::Number(value) => match value.as_i64() {
+                Some(value) => Self::Int(value),
+                None => Self::Number(value.as_f64().ok_or_else(|| {
+                    legado_core::LegadoError::JsEngine("JSON数字无法转换为JS数值".into())
+                })?),
+            },
+            serde_json::Value::String(value) => Self::String(value),
+            serde_json::Value::Array(values) => Self::Array(
+                values
+                    .into_iter()
+                    .map(Self::from_json)
+                    .collect::<LegadoResult<_>>()?,
+            ),
+            serde_json::Value::Object(values) => Self::Object(
+                values
+                    .into_iter()
+                    .map(|(key, value)| Self::from_json(value).map(|value| (key, value)))
+                    .collect::<LegadoResult<_>>()?,
+            ),
+        })
+    }
+
     /// 将 JS 值转换为字符串表示
     pub fn to_js_string(&self) -> String {
         match self {

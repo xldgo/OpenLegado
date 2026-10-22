@@ -41,6 +41,8 @@ pub mod sandbox;
 pub mod scope;
 pub mod source_engine;
 pub mod source_login;
+/// 声明式规则与主脚本共享的书源上下文。
+pub mod source_setup;
 
 // 核心类型重导出
 #[cfg(feature = "quickjs")]

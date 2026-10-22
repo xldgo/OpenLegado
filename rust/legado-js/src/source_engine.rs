@@ -2,7 +2,8 @@
 //!
 //! 参考 Kotlin 端 `JsSourceEngine.kt`：
 //! - 纯 JS 单文件源执行器
-//! - 每次调用新建作用域（并发隔离）：绑定 → 挂共享原型 → eval 主脚本 → eval 调用表达式
+//! - 装配书源上下文、绑定对象参数并调用主脚本函数
+//! - 当前仍缓存完整VM与主脚本求值状态，单次调用作用域另批对齐
 //! - args 以绑定进 scope，既是函数参数也是环境绑定
 //!
 //! 未启用 quickjs feature 时仅提供占位结构。
@@ -25,6 +26,8 @@ use std::sync::{Arc, Mutex};
 /// JS 源执行器配置
 #[derive(Debug, Clone)]
 pub struct JsSourceConfig {
+    /// 用于装配宿主上下文的完整书源，不作为脚本变量反写。
+    source: legado_core::models::BookSource,
     /// JS 源的 URL（书源标识）
     pub source_url: String,
     /// 主 JS 脚本内容
@@ -38,6 +41,11 @@ pub struct JsSourceConfig {
 impl JsSourceConfig {
     pub fn new(source_url: String, main_js: String) -> Self {
         Self {
+            source: legado_core::models::BookSource {
+                book_source_url: source_url.clone(),
+                main_js: Some(main_js.clone()),
+                ..Default::default()
+            },
             source_url,
             main_js,
             js_lib: None,
@@ -46,6 +54,7 @@ impl JsSourceConfig {
     }
 
     pub fn with_js_lib(mut self, js_lib: String) -> Self {
+        self.source.js_lib = Some(js_lib.clone());
         self.js_lib = Some(js_lib);
         self
     }
@@ -53,6 +62,25 @@ impl JsSourceConfig {
     pub fn with_crypto(mut self, inject: bool) -> Self {
         self.inject_crypto = inject;
         self
+    }
+
+    /// 正式业务入口保留完整书源身份与设置，不从主脚本配置反推。
+    pub fn from_source(source: &legado_core::models::BookSource) -> Self {
+        Self {
+            source: source.clone(),
+            source_url: source.book_source_url.clone(),
+            main_js: source.main_js.clone().unwrap_or_default(),
+            js_lib: source.js_lib.clone(),
+            inject_crypto: false,
+        }
+    }
+
+    fn setup_script(&self) -> LegadoResult<String> {
+        let mut source = self.source.clone();
+        source.book_source_url = self.source_url.clone();
+        source.main_js = Some(self.main_js.clone());
+        source.js_lib = self.js_lib.clone();
+        crate::source_setup::book_source_js_setup_script(&source, &HashMap::new(), None, None)
     }
 }
 
@@ -154,6 +182,7 @@ impl JsSourceEngine {
     ) -> Result<Self, legado_core::LegadoError> {
         let source_tag = Some(config.source_url.clone());
         let cache_key = format!("mainjs:{}:{}", config.source_url, config.main_js);
+        let setup_script = config.setup_script()?;
         // P2-19 后续 #10：构造期绑定本源 tag（与 `call_function` 同款 save/restore
         // 包裹，不改签名）：`init_engine` 构造期 eval jsLib/setup/mainJs 时，顶层
         // 副作用（如 mainJs 顶层 `java.ajax`）须携带本源 JS 宿主 cookie；不绑定
@@ -164,7 +193,7 @@ impl JsSourceEngine {
                 resources.engine_cache().get_or_create_with_resources(
                     &cache_key,
                     config.js_lib.as_deref(),
-                    None,
+                    Some(&setup_script),
                     Some(&config.main_js),
                     resources,
                 )
@@ -290,6 +319,15 @@ impl JsSourceEngine {
         name: &str,
         args: &[(&str, JsValue)],
     ) -> LegadoResult<Option<String>> {
+        self.call(name, args, false).map(|result| result.value)
+    }
+
+    fn call(
+        &mut self,
+        name: &str,
+        args: &[(&str, JsValue)],
+        optional: bool,
+    ) -> LegadoResult<CallResult> {
         #[cfg(feature = "quickjs")]
         let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
         crate::cancellation::check()?;
@@ -297,7 +335,7 @@ impl JsSourceEngine {
         // 对齐 Kotlin JsExtensions.getSource()），结束后恢复原值
         let tag = self.config.source_url.clone();
         crate::host_api::current_source::with_current_source_tag(&tag, || {
-            self.call_function_inner(name, args)
+            self.call_function_inner(name, args, optional)
         })
     }
 
@@ -305,7 +343,8 @@ impl JsSourceEngine {
         &mut self,
         name: &str,
         args: &[(&str, JsValue)],
-    ) -> LegadoResult<Option<String>> {
+        optional: bool,
+    ) -> LegadoResult<CallResult> {
         if self.config.main_js.is_empty() {
             return Err(LegadoError::JsEngine("mainJs 为空，非 JS 源".to_string()));
         }
@@ -329,6 +368,11 @@ impl JsSourceEngine {
 
                 // 首次调用时 eval 主脚本，后续跳过（mainJs 求值缓存）
                 if !self.main_js_loaded {
+                    let setup = self.config.setup_script()?;
+                    match &self.variables {
+                        Some(scope) => engine_guard.eval_with_variables(&setup, &[], scope),
+                        None => engine_guard.eval(&setup),
+                    }?;
                     let _ = match &self.variables {
                         Some(scope) => {
                             engine_guard.eval_with_variables(&self.config.main_js, &bindings, scope)
@@ -336,6 +380,17 @@ impl JsSourceEngine {
                         None => engine_guard.eval_with_bindings(&self.config.main_js, &bindings),
                     }?;
                     self.main_js_loaded = true;
+                }
+
+                if optional {
+                    let check = format!("typeof {name} === 'function'");
+                    let exists = match &self.variables {
+                        Some(scope) => engine_guard.eval_with_variables(&check, &bindings, scope),
+                        None => engine_guard.eval_with_bindings(&check, &bindings),
+                    }?;
+                    if exists != "true" {
+                        return Ok(CallResult::not_found());
+                    }
                 }
 
                 // 编译并执行调用表达式（内联缓存逻辑避免借用冲突）
@@ -353,7 +408,7 @@ impl JsSourceEngine {
                     None => engine_guard.execute_compiled_with_bindings(&compiled, &bindings),
                 }?;
 
-                return Ok(Self::normalize_result(&result));
+                return Ok(CallResult::success(Self::normalize_result(&result)));
             }
         }
 
@@ -364,8 +419,21 @@ impl JsSourceEngine {
                 .engine
                 .as_ref()
                 .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".to_string()))?;
+            engine.eval(&self.config.setup_script()?)?;
             let _ = engine.eval_with_bindings(&self.config.main_js, &bindings)?;
             self.main_js_loaded = true;
+        }
+
+        if optional {
+            let engine = self
+                .engine
+                .as_ref()
+                .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".to_string()))?;
+            if engine.eval_with_bindings(&format!("typeof {name} === 'function'"), &bindings)?
+                != "true"
+            {
+                return Ok(CallResult::not_found());
+            }
         }
 
         // 编译并执行调用表达式
@@ -379,7 +447,7 @@ impl JsSourceEngine {
         };
 
         // 归一化结果
-        Ok(Self::normalize_result(&result))
+        Ok(CallResult::success(Self::normalize_result(&result)))
     }
 
     /// 调用可选函数：函数缺失时返回 CallResult::not_found() 而非报错
@@ -390,13 +458,7 @@ impl JsSourceEngine {
         name: &str,
         args: &[(&str, JsValue)],
     ) -> LegadoResult<CallResult> {
-        match self.call_function(name, args) {
-            Ok(value) => Ok(CallResult::success(value)),
-            Err(LegadoError::JsEngine(msg)) if msg.contains("缺少函数") => {
-                Ok(CallResult::not_found())
-            }
-            Err(e) => Err(e),
-        }
+        self.call(name, args, true)
     }
 
     /// 构造 JS 函数调用表达式
@@ -542,12 +604,12 @@ mod tests {
         let _ = se.call_function("hello", &[("name", JsValue::String("world".to_string()))]);
         assert!(se.is_main_js_loaded());
         let count_after_first = counter.load(Ordering::SeqCst);
-        assert_eq!(count_after_first, 1); // mainJs eval 只发生一次
+        assert_eq!(count_after_first, 2); // setup与mainJs各一次
 
         // 第二次调用：不再 eval mainJs
         let _ = se.call_function("hello", &[("name", JsValue::String("again".to_string()))]);
         let count_after_second = counter.load(Ordering::SeqCst);
-        assert_eq!(count_after_second, 1); // 未增加，证明 mainJs 未重新 eval
+        assert_eq!(count_after_second, 2); // 不重复setup或mainJs
     }
 
     #[test]
@@ -569,7 +631,7 @@ mod tests {
 
         let _ = se.call_function("hello", &[("name", JsValue::String("b".to_string()))]);
         assert!(se.is_main_js_loaded());
-        assert_eq!(counter.load(Ordering::SeqCst), 2); // eval 发生了两次
+        assert_eq!(counter.load(Ordering::SeqCst), 4); // 重置后setup与mainJs均重新装配
     }
 
     #[test]
@@ -670,11 +732,10 @@ function search(q) {{ return q; }}"#
     #[cfg(feature = "quickjs")]
     #[test]
     fn construction_main_js_failure_retries_with_bindings_on_first_call() {
-        // 顶层引用 baseUrl：构造期无 bindings 必失败；调用期 bindings 注入
-        // baseUrl=source_url，重评可恢复（旧行为会跳过重评 → search 未定义）
+        // baseUrl已在构造期可用；业务book只在调用期传入，首次重评须恢复。
         let config = JsSourceConfig::new(
             "w2-mainjs-retry".to_string(),
-            "var __top = baseUrl;\nfunction search(){ return __top; }".to_string(),
+            "var __top = book.name;\nfunction search(){ return __top; }".to_string(),
         );
         let mut engine = JsSourceEngine::new_quickjs(config).expect("jsLib 为空，不受 W2 上抛影响");
         assert!(
@@ -682,7 +743,13 @@ function search(q) {{ return q; }}"#
             "构造期 mainJs 求值失败必须不标记 loaded（带 bindings 重评路径）"
         );
         let out = engine
-            .call_function("search", &[])
+            .call_function(
+                "search",
+                &[(
+                    "book",
+                    JsValue::Object(vec![("name".into(), JsValue::from("w2-mainjs-retry"))]),
+                )],
+            )
             .expect("首次调用应带 bindings 重评 mainJs");
         assert_eq!(out.as_deref(), Some("w2-mainjs-retry"));
     }
