@@ -1,4 +1,5 @@
 import 'page_turn_mode.dart';
+import 'book_open_speed.dart';
 import 'reader_text_layout_settings.dart';
 import 'reader_page_layout_settings.dart';
 import 'reader_screen_settings.dart';
@@ -11,6 +12,7 @@ import 'reader_brightness_control_settings.dart';
 final class ReaderSettings {
   const ReaderSettings({
     this.pageTurnMode = PageTurnMode.cover,
+    this.bookOpenSpeed = BookOpenSpeed.standard,
     this.fontSize = 20.0,
     this.lineHeight = 1.2,
     this.fontFamily,
@@ -30,6 +32,7 @@ final class ReaderSettings {
   });
 
   final PageTurnMode pageTurnMode;
+  final BookOpenSpeed bookOpenSpeed;
   final double fontSize;
   final double lineHeight;
   final String? fontFamily;
@@ -53,6 +56,7 @@ final class ReaderSettings {
   bool operator ==(Object other) =>
       other is ReaderSettings &&
       pageTurnMode == other.pageTurnMode &&
+      bookOpenSpeed == other.bookOpenSpeed &&
       fontSize == other.fontSize &&
       lineHeight == other.lineHeight &&
       fontFamily == other.fontFamily &&
@@ -73,6 +77,7 @@ final class ReaderSettings {
   @override
   int get hashCode => Object.hash(
     pageTurnMode,
+    bookOpenSpeed,
     fontSize,
     lineHeight,
     fontFamily,

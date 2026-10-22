@@ -4335,6 +4335,22 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get readerBookOpenSpeed => 'Book opening speed';
+
+  @override
+  String get readerBookOpenFast => 'Fast';
+
+  @override
+  String get readerBookOpenStandard => 'Standard';
+
+  @override
+  String get readerBookOpenRelaxed => 'Relaxed';
+
+  @override
+  String get readerBookOpenSpeedSaveFailed =>
+      'Could not save the book opening speed. Please try again.';
+
+  @override
   String get ruleDeleted => 'Rule deleted';
 
   @override

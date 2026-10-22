@@ -1,5 +1,6 @@
 import '../models/reader_settings.dart';
 import '../models/page_turn_mode.dart';
+import '../models/book_open_speed.dart';
 import '../models/reader_page_layout_settings.dart';
 import '../models/reader_interaction_settings.dart';
 
@@ -13,6 +14,7 @@ abstract interface class ReaderSettingsRepository {
   /// 未传字段不变；正文字体空串删除选择，标题空串跟随正文。
   Future<void> update({
     PageTurnMode? pageTurnMode,
+    BookOpenSpeed? bookOpenSpeed,
     double? fontSize,
     double? lineHeight,
     String? fontFamily,

@@ -57,6 +57,7 @@ class BackupPreferencesService {
     'reader_styles',
     'reader_flip_mode',
     'reader_flip_mode_name',
+    'reader_book_open_speed',
     'reader_brightness',
     'reader_font_family',
     'reader_title_font_family',

@@ -13,7 +13,11 @@ import 'package:flutter_legado/src/features/privacy/privacy_gate.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_settings.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/providers/book_open_motion_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
+import 'package:flutter_legado/src/domain/models/book_open_speed.dart';
+import 'package:flutter_legado/src/domain/contracts/reader_settings_repository.dart';
+import 'package:flutter_legado/src/domain/models/reader_settings.dart';
+
 import 'package:flutter_legado/src/widgets/book_cover.dart';
 import 'package:flutter_legado/src/widgets/reader/book_reader_route.dart';
 
@@ -103,7 +107,15 @@ class _ReaderProbeState extends ConsumerState<_ReaderProbe> {
   );
 }
 
+class _Settings extends Fake implements ReaderSettingsRepository {
+  BookOpenSpeed speed = BookOpenSpeed.standard;
+
+  @override
+  ReaderSettings get current => ReaderSettings(bookOpenSpeed: speed);
+}
+
 class _Harness {
+  final settings = _Settings();
   final key = GlobalKey<NavigatorState>();
   final offset = ValueNotifier(const Offset(32, 80));
   final visible = ValueNotifier(true);
@@ -115,6 +127,7 @@ class _Harness {
     overrides: [
       readerNotifierProvider.overrideWith(() => reader),
       privacyControllerProvider.overrideWith(() => privacy),
+      readerSettingsRepositoryProvider.overrideWithValue(settings),
     ],
   );
   late final router = AppRouter(
@@ -383,7 +396,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('轻拟物转场上拱放大、同步翻盖，深色正文后半程显现', (tester) async {
+  testWidgets('无全屏颜色遮罩，深色纸面仍渐显正文且中途返回连续', (tester) async {
     final h = _Harness(image);
     await h.pump(tester);
     h.container.read(readerNotifierProvider);
@@ -395,24 +408,10 @@ void main() {
       find.byKey(const ValueKey('book-reader-content-veil')),
     );
     expect(veil().color, const Color(0xFF121212));
+    expect(find.byKey(const ValueKey('book-reader-backdrop')), findsNothing);
     await tester.pump(const Duration(milliseconds: 180));
     final rect = _reveal(tester);
-    final travel = (rect.width - 80) / (400 - 80);
-    final expectedY =
-        136 * (1 - travel) * (1 - travel) +
-        2 * 80 * (1 - travel) * travel +
-        400 * travel * travel;
-    expect(rect.center.dy, closeTo(expectedY, 0.001));
-    expect(rect.center.dy, lessThan(136 + (400 - 136) * travel));
-    expect(
-      rect.center.dx,
-      closeTo(
-        72 * (1 - travel) * (1 - travel) +
-            400 * (1 - travel) * travel +
-            200 * travel * travel,
-        0.001,
-      ),
-    );
+    expect(find.byKey(const ValueKey('book-reader-backdrop')), findsNothing);
     expect(veil().color.a, inExclusiveRange(0, 1));
     expect(veil().color.withValues(alpha: 1), const Color(0xFF121212));
     expect(h.probe.sizes, everyElement(const Size(400, 800)));
@@ -428,44 +427,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('A轨迹顶边单调上移，下次开书才使用新选择', (tester) async {
+  testWidgets('A轨迹顶边单调上移，纸面末段位移逐步减小并准确铺满', (tester) async {
     final h = _Harness(image);
     await h.pump(tester);
-    h.container
-        .read(bookOpenMotionProvider.notifier)
-        .select(BookOpenMotion.top);
     await h.open(tester);
     await tester.pump(const Duration(milliseconds: 100));
     var previous = _reveal(tester);
-    h.container
-        .read(bookOpenMotionProvider.notifier)
-        .select(BookOpenMotion.arc);
+    final bottomSteps = <double>[];
     for (var frame = 0; frame < 16; frame++) {
       await tester.pump(const Duration(milliseconds: 20));
       final current = _reveal(tester);
       final travel = (current.width - 80) / 320;
       expect(current.top, closeTo(80 * (1 - travel), 0.001));
       expect(current.top, lessThanOrEqualTo(previous.top + 0.001));
+      bottomSteps.add(current.bottom - previous.bottom);
       previous = current;
     }
-    await tester.pumpAndSettle();
-    h.key.currentState!.pop();
-    await tester.pumpAndSettle();
-    await h.open(tester);
-    await tester.pump(const Duration(milliseconds: 180));
-    final curve = _reveal(tester);
-    final travel = (curve.width - 80) / 320;
-    expect(curve.top, isNot(closeTo(80 * (1 - travel), 0.1)));
+    expect(bottomSteps.last, lessThan(bottomSteps[bottomSteps.length - 2]));
+    expect(
+      bottomSteps[bottomSteps.length - 2],
+      lessThan(bottomSteps[bottomSteps.length - 3]),
+    );
+    expect(previous, const Rect.fromLTWH(0, 0, 400, 800));
     await tester.pumpAndSettle();
   });
 
-  testWidgets('中心上拱轨迹连续放大，最终精确落到全屏', (tester) async {
+  testWidgets('舒缓档使用配置时长，正文始终固定布局且正常完成', (tester) async {
     final h = _Harness(image);
     await h.pump(tester);
-    await h.open(tester);
+    h.settings.speed = BookOpenSpeed.relaxed;
+    final route = await h.open(tester);
+    expect(route.transitionDuration, const Duration(milliseconds: 560));
+    expect(route.reverseTransitionDuration, const Duration(milliseconds: 470));
     var previous = _reveal(tester);
     for (var frame = 0; frame < 20; frame++) {
-      await tester.pump(const Duration(milliseconds: 21));
+      await tester.pump(const Duration(milliseconds: 28));
       final current = _reveal(tester);
       expect(current.isFinite, isTrue);
       expect(current.width, greaterThanOrEqualTo(previous.width - 0.001));

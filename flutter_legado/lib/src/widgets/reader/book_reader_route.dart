@@ -6,7 +6,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../features/privacy/privacy_controller.dart';
 import '../../features/reader/application/reader_notifier.dart';
-import '../../providers/book_open_motion_provider.dart';
+import '../../features/reader/application/reader_settings_provider.dart';
+import '../../domain/models/book_open_speed.dart';
 import '../book_cover.dart';
 
 typedef _BookTransitionFrame = ({
@@ -38,7 +39,13 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   _BookTransitionFrame? _returnFrame;
   double _returnProgress = 1;
   final _contentKey = GlobalKey();
-  BookOpenMotion? _motion;
+
+  BookOpenSpeed get _speed => navigator == null
+      ? BookOpenSpeed.standard
+      : ProviderScope.containerOf(
+          navigator!.context,
+          listen: false,
+        ).read(readerSettingsRepositoryProvider).current.bookOpenSpeed;
 
   bool get _hasCover => _start != null && _image != null;
 
@@ -49,14 +56,14 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
   Duration get transitionDuration => _reduced
       ? Duration.zero
       : _hasCover
-      ? const Duration(milliseconds: 420)
+      ? _speed.openDuration
       : super.transitionDuration;
 
   @override
   Duration get reverseTransitionDuration => _reduced
       ? Duration.zero
       : _hasCover
-      ? const Duration(milliseconds: 350)
+      ? _speed.closeDuration
       : super.reverseTransitionDuration;
 
   // 来源页面不再叠加默认导航的横移、缩放或封面 Hero 飞行。
@@ -127,8 +134,6 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
     Widget content,
   ) => Consumer(
     builder: (context, ref, _) {
-      // 每次开书固定一种轨迹，设置变化不改动正在返回的同一路由。
-      final motionStyle = _motion ??= ref.read(bookOpenMotionProvider);
       final privacy = ref.watch(privacyControllerProvider);
       final visual = ref.watch(
         readerNotifierProvider.select(
@@ -210,7 +215,7 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                     const Interval(
                       0.52,
                       1,
-                      curve: Curves.easeInOutCubic,
+                      curve: Cubic(0.22, 0, 0.18, 1),
                     ).transform(progress),
                   )!;
             final Rect bounds;
@@ -224,27 +229,13 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
                 placement.width,
                 placement.width * pageAspect,
               );
-            } else if (motionStyle == BookOpenMotion.top) {
+            } else {
               final width = ui.lerpDouble(source.width, size.width, travel)!;
               bounds = Rect.fromLTWH(
                 ui.lerpDouble(source.left, (size.width - width) / 2, travel)!,
                 ui.lerpDouble(source.top, 0, travel)!,
                 width,
                 width * pageAspect,
-              );
-            } else {
-              // 上移贝塞尔控制点，增强向上拱起感；控制点不是轨迹最高点。
-              final peakY = math.min(source.top, size.height * 0.20);
-              final control = Offset(full.center.dx, peakY);
-              final center =
-                  source.center * ((1 - travel) * (1 - travel)) +
-                  control * (2 * (1 - travel) * travel) +
-                  full.center * (travel * travel);
-              final width = ui.lerpDouble(source.width, size.width, travel)!;
-              bounds = Rect.fromCenter(
-                center: center,
-                width: width,
-                height: width * pageAspect,
               );
             }
             // 文字按最终尺寸布局，再与封面共用绘制变换，不靠扩大裁剪窗口模拟缩放。
@@ -301,22 +292,6 @@ class BookReaderRoute<T> extends MaterialPageRoute<T> {
             return Stack(
               fit: StackFit.expand,
               children: [
-                IgnorePointer(
-                  // 同色背景压暗来源列表，避免逐项修改书架或为其截图。
-                  child: ColoredBox(
-                    key: const ValueKey('book-reader-backdrop'),
-                    color: paper.withValues(
-                      alpha: morph
-                          ? 0.9 *
-                                const Interval(
-                                  0,
-                                  0.3,
-                                  curve: Curves.easeOut,
-                                ).transform(progress)
-                          : 0,
-                    ),
-                  ),
-                ),
                 Transform(
                   key: const ValueKey('book-reader-surface-transform'),
                   transform: Matrix4.identity()

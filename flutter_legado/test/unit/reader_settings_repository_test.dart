@@ -31,6 +31,7 @@ void main() {
     expect(await repository.load(), const ReaderSettings());
     expect(storage.reads.toSet(), {
       'reader_flip_mode_name',
+      'reader_book_open_speed',
       'reader_flip_mode',
       'reader_font_size',
       'reader_line_height',

@@ -8,6 +8,7 @@ import '../settings/reader_interaction_codec.dart';
 import '../settings/reader_menu_settings_codec.dart';
 import '../../domain/models/reader_interaction_settings.dart';
 import '../../domain/models/page_turn_mode.dart';
+import '../../domain/models/book_open_speed.dart';
 import '../../domain/models/app_settings_snapshot.dart';
 import '../services/app_settings_service.dart';
 
@@ -109,6 +110,10 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     storage: SettingsStorageKind.preferences,
     key: 'reader_menu_show_labels',
   );
+  static const _bookOpenSpeed = (
+    storage: SettingsStorageKind.preferences,
+    key: 'reader_book_open_speed',
+  );
   static const _keepScreenOnSeconds = (
     storage: SettingsStorageKind.preferences,
     key: 'reader_keep_screen_on_seconds',
@@ -121,6 +126,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     _autoChangeSource,
     _showTitleAddition,
     _showMenuLabels,
+    _bookOpenSpeed,
     _keepScreenOnSeconds,
     _orientation,
     _hideStatusBar,
@@ -155,6 +161,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   );
 
   ReaderSettings _decode(AppSettingsSnapshot snapshot) => ReaderSettings(
+    bookOpenSpeed: BookOpenSpeed.fromStorage(snapshot[_bookOpenSpeed]),
     pageTurnMode: PageTurnMode.fromStorage(
       snapshot[_mode] is String ? snapshot[_mode] as String : null,
       snapshot[_legacyIndex] is int ? snapshot[_legacyIndex] as int : null,
@@ -281,6 +288,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
   @override
   Future<void> update({
     PageTurnMode? pageTurnMode,
+    BookOpenSpeed? bookOpenSpeed,
     double? fontSize,
     double? lineHeight,
     String? fontFamily,
@@ -292,6 +300,7 @@ class AppReaderSettingsRepository implements ReaderSettingsRepository {
     bool? showMenuLabels,
   }) => _service.update({
     _mode: ?pageTurnMode?.name,
+    _bookOpenSpeed: ?bookOpenSpeed?.name,
     _fontSize: ?fontSize,
     _lineHeight: ?lineHeight,
     if (fontFamily != null) _fontFamily: fontFamily.isEmpty ? null : fontFamily,

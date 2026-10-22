@@ -14,7 +14,8 @@ import '../../../../l10n/app_localization.dart';
 import '../../application/reader_notifier.dart';
 import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 import '../../../../providers/ui_settings/eye_protection_notifier.dart';
-import '../../../../providers/book_open_motion_provider.dart';
+import '../../../../domain/models/book_open_speed.dart';
+import '../../../../widgets/app_snack_bar.dart';
 
 import 'reader_config_panel.dart';
 import '../../../../widgets/app_scaffold.dart';
@@ -136,6 +137,18 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('翻页模式保存失败，请重试')));
+      }
+    }
+  }
+
+  Future<void> _saveBookOpenSpeed(BookOpenSpeed speed) async {
+    try {
+      await ref
+          .read(readerSettingsRepositoryProvider)
+          .update(bookOpenSpeed: speed);
+    } catch (_) {
+      if (mounted) {
+        showAppSnackBar(context, context.l10n.readerBookOpenSpeedSaveFailed);
       }
     }
   }
@@ -303,15 +316,19 @@ class _ReaderSettingsSheetState extends ConsumerState<ReaderSettingsSheet> {
             options: _flipLabels,
             onChanged: _savePageTurnMode,
           ),
-          SettingMenuRow<BookOpenMotion>(
-            title: '开书动画 A/B（临时）',
-            subtitle: '下次开书生效，仅本次运行有效',
+          SettingMenuRow<BookOpenSpeed>(
+            title: context.l10n.readerBookOpenSpeed,
             icon: Icons.open_in_new,
-            value: ref.watch(bookOpenMotionProvider),
+            value: ref
+                .read(readerSettingsRepositoryProvider)
+                .current
+                .bookOpenSpeed,
             options: {
-              for (final motion in BookOpenMotion.values) motion: motion.label,
+              BookOpenSpeed.fast: context.l10n.readerBookOpenFast,
+              BookOpenSpeed.standard: context.l10n.readerBookOpenStandard,
+              BookOpenSpeed.relaxed: context.l10n.readerBookOpenRelaxed,
             },
-            onChanged: ref.read(bookOpenMotionProvider.notifier).select,
+            onChanged: _saveBookOpenSpeed,
           ),
         ],
       );

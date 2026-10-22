@@ -11,7 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
-import 'package:flutter_legado/src/providers/book_open_motion_provider.dart';
+import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
+import 'package:flutter_legado/src/domain/models/book_open_speed.dart';
 
 void main() {
   testWidgets('阅读快捷面板进入完整设置，再进入翻页与操作', (tester) async {
@@ -51,23 +52,31 @@ void main() {
     expect(find.text('字号'), findsOneWidget);
     expect(find.text('背景'), findsOneWidget);
     expect(find.text('翻页动画'), findsOneWidget);
-    await tester.ensureVisible(find.text('开书动画 A/B（临时）'));
-    await tester.tap(find.text('开书动画 A/B（临时）'));
+    await tester.ensureVisible(find.text('开书动画速度'));
+    await tester.tap(find.text('开书动画速度'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(CheckboxMenuButton, BookOpenMotion.top.label),
-    );
+    await tester.tap(find.widgetWithText(CheckboxMenuButton, '舒缓'));
     await tester.pumpAndSettle();
     final scope = ProviderScope.containerOf(
       tester.element(find.byType(ReaderSettingsSheet)),
     );
-    expect(scope.read(bookOpenMotionProvider), BookOpenMotion.top);
+    expect(
+      scope.read(readerSettingsRepositoryProvider).current.bookOpenSpeed,
+      BookOpenSpeed.relaxed,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).getString(
+        'reader_book_open_speed',
+      ),
+      'relaxed',
+    );
 
     await tester.ensureVisible(find.text('全部阅读设置'));
     await tester.tap(find.text('全部阅读设置'));
     await tester.pumpAndSettle();
 
-    expect(find.text('阅读界面'), findsOneWidget);
+    // 折叠顶栏同时保留展开与收起标题。
+    expect(find.text('阅读界面'), findsWidgets);
     for (final title in ['字体与排版', '背景与配色', '翻页与操作', '页面布局', '屏幕与工具栏', '内容处理']) {
       expect(find.text(title), findsOneWidget);
     }
@@ -76,6 +85,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('自动翻页'), findsWidgets);
     expect(find.text('点击区域'), findsOneWidget);
-    expect(scope.read(bookOpenMotionProvider), BookOpenMotion.top);
+    expect(
+      scope.read(readerSettingsRepositoryProvider).current.bookOpenSpeed,
+      BookOpenSpeed.relaxed,
+    );
   });
 }

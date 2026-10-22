@@ -7725,6 +7725,36 @@ abstract class AppLocalizations {
   /// **'书源列表刷新失败：{error}。导入计数已保留，可重新加载列表。'**
   String sourceImportRefreshFailed(String error);
 
+  /// No description provided for @readerBookOpenSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'开书动画速度'**
+  String get readerBookOpenSpeed;
+
+  /// No description provided for @readerBookOpenFast.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速'**
+  String get readerBookOpenFast;
+
+  /// No description provided for @readerBookOpenStandard.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get readerBookOpenStandard;
+
+  /// No description provided for @readerBookOpenRelaxed.
+  ///
+  /// In zh, this message translates to:
+  /// **'舒缓'**
+  String get readerBookOpenRelaxed;
+
+  /// No description provided for @readerBookOpenSpeedSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'开书动画速度保存失败，请重试'**
+  String get readerBookOpenSpeedSaveFailed;
+
   /// No description provided for @ruleDeleted.
   ///
   /// In zh, this message translates to:

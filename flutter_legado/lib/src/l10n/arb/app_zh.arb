@@ -4585,6 +4585,11 @@
   "@sourceImportSummary": {"placeholders": {"total": {"type": "int"}, "success": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}},
   "sourceImportRefreshFailed": "书源列表刷新失败：{error}。导入计数已保留，可重新加载列表。",
   "@sourceImportRefreshFailed": {"placeholders": {"error": {"type": "String"}}},
+  "readerBookOpenSpeed": "开书动画速度",
+  "readerBookOpenFast": "快速",
+  "readerBookOpenStandard": "标准",
+  "readerBookOpenRelaxed": "舒缓",
+  "readerBookOpenSpeedSaveFailed": "开书动画速度保存失败，请重试",
   "ruleDeleted": "规则已删除",
   "ruleDeleteFailed": "删除规则失败：{error}",
   "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}

@@ -4105,6 +4105,21 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get readerBookOpenSpeed => '开书动画速度';
+
+  @override
+  String get readerBookOpenFast => '快速';
+
+  @override
+  String get readerBookOpenStandard => '标准';
+
+  @override
+  String get readerBookOpenRelaxed => '舒缓';
+
+  @override
+  String get readerBookOpenSpeedSaveFailed => '开书动画速度保存失败，请重试';
+
+  @override
   String get ruleDeleted => '规则已删除';
 
   @override

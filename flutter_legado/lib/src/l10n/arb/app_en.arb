@@ -1361,6 +1361,11 @@
   "@sourceImportSummary": {"placeholders": {"total": {"type": "int"}, "success": {"type": "int"}, "failed": {"type": "int"}, "skipped": {"type": "int"}}},
   "sourceImportRefreshFailed": "Could not refresh the source list: {error}. Import counts are preserved; reload the list to try again.",
   "@sourceImportRefreshFailed": {"placeholders": {"error": {"type": "String"}}},
+  "readerBookOpenSpeed": "Book opening speed",
+  "readerBookOpenFast": "Fast",
+  "readerBookOpenStandard": "Standard",
+  "readerBookOpenRelaxed": "Relaxed",
+  "readerBookOpenSpeedSaveFailed": "Could not save the book opening speed. Please try again.",
   "ruleDeleted": "Rule deleted",
   "ruleDeleteFailed": "Failed to delete rule: {error}",
   "@ruleDeleteFailed": {"placeholders": {"error": {"type": "String"}}}
