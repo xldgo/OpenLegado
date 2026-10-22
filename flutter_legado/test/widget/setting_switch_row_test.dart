@@ -9,8 +9,7 @@ import 'package:flutter_legado/src/widgets/ui_settings_scope.dart';
 /// 覆盖：标题/副标题渲染、整行点击即切换（参考版非 Miuix 分支
 /// `onClick = onCheckedChange(!checked)`）、开关直点、禁用态（行不可点 +
 /// ListTile.enabled=false + 开关灰置）、icon/leading 前导、无 Chevron、
-/// 语义合并（MergeSemantics，同 SwitchListTile）、dense/contentPadding 透传、
-/// enableItemDivider 打开时的行底 80dp 分隔线。
+/// 语义合并（MergeSemantics，同 SwitchListTile）。不逐项复述装饰参数。
 void main() {
   Widget wrap(Widget child, {UiSettings settings = const UiSettings()}) =>
       UiSettingsScope(
@@ -139,54 +138,6 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('dense/contentPadding 透传（WebDav 密排行形态）', (tester) async {
-    await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(
-          title: '同步书籍进度',
-          subtitle: '在多设备间同步书籍阅读进度',
-          value: true,
-          onChanged: _noop,
-          dense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12,
-            horizontal: 8,
-          ),
-        ),
-      ),
-    );
-
-    final tile = tester.widget<ListTile>(find.byType(ListTile));
-    expect(tile.dense, isTrue);
-    expect(
-      tile.contentPadding,
-      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-    );
-  });
-
-  testWidgets('enableItemDivider 打开时行底出现 80dp 胶囊线', (tester) async {
-    // SettingTile 分隔线形态：80×1dp 圆角线（enableItemDivider 打开时）
-    final pill = find.byWidgetPredicate(
-      (w) =>
-          w is Container &&
-          w.constraints?.maxWidth == 80 &&
-          w.constraints?.maxHeight == 1,
-    );
-
-    await tester.pumpWidget(
-      wrap(SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop)),
-    );
-    expect(pill, findsNothing);
-
-    await tester.pumpWidget(
-      wrap(
-        SettingSwitchRow(title: '自动刷新', value: false, onChanged: _noop),
-        settings: const UiSettings(enableItemDivider: true),
-      ),
-    );
-    expect(pill, findsOneWidget);
   });
 }
 

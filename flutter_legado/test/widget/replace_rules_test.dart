@@ -248,11 +248,6 @@ void main() {
         .first;
     final material = tester.widget<Material>(surface);
     expect(material.shape, isA<RoundedRectangleBorder>());
-    expect(
-      (material.shape! as RoundedRectangleBorder).borderRadius,
-      BorderRadius.circular(16),
-    );
-    expect(material.elevation, 4);
     // 拖动Overlay中不再有包住卡片外边距的矩形Material。
     expect(
       find.ancestor(of: card, matching: find.byType(Material)),

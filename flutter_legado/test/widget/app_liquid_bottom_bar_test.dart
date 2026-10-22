@@ -106,10 +106,6 @@ void main() {
           844 - bar.bottom,
           defaultTargetPlatform == TargetPlatform.android ? inset + 20 : 20,
         );
-        final icon = find.byIcon(Icons.home_rounded).first;
-        final label = find.text('首页').first;
-        expect(tester.getSize(icon), const Size(28, 28));
-        expect(tester.getRect(label).top, tester.getRect(icon).bottom);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant({

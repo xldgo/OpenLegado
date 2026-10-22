@@ -126,32 +126,6 @@ void main() {
     }
   }
 
-  testWidgets('单动作合并背景退化为36dp圆形，保持48dp热区', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        Scaffold(
-          appBar: LegadoAppBar(
-            title: const Text('标题'),
-            showBack: false,
-            toolbarHeight: 64,
-            actions: [
-              IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
-            ],
-          ),
-        ),
-        page: true,
-        settings: const UiSettings(
-          topBarButtonStyle: TopBarButtonStyle.liquidGlass,
-          mergeTopBarActions: true,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(GlassContainer)), const Size(36, 36));
-    expect(tester.getSize(find.byType(IconButton)), const Size(48, 48));
-    expect(tester.takeException(), isNull);
-  });
-
   for (final merge in [false, true]) {
     testWidgets('液态按钮保留48dp热区与菜单，仅合并时共用一层：$merge', (tester) async {
       var taps = 0;

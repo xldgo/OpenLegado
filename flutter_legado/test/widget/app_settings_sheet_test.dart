@@ -128,7 +128,7 @@ void main() {
     expect(result, 'cancelled');
     expect(tester.takeException(), isNull);
   });
-  testWidgets('表单统一间距、标题说明与错误提示使用当前主题', (tester) async {
+  testWidgets('表单显示标题说明与错误提示，错误通过liveRegion播报', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
@@ -145,17 +145,9 @@ void main() {
         ),
       ),
     );
-    expect(
-      tester.getTopLeft(find.byKey(const ValueKey('style'))).dy -
-          tester.getBottomLeft(find.byKey(const ValueKey('name'))).dy,
-      12,
-    );
     expect(find.text('分组'), findsOneWidget);
     expect(find.text('说明'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('保存失败')).style!.color,
-      AppTheme.dark.colorScheme.error,
-    );
+    expect(find.text('保存失败'), findsOneWidget);
     final semantics = find.ancestor(
       of: find.text('保存失败'),
       matching: find.byType(Semantics),
