@@ -31,6 +31,28 @@ class AppLogDto {
           message == other.message;
 }
 
+/// 音频跳过窗口；单位为毫秒，未知或过短音频不生成窗口。
+class AudioSkipWindowDto {
+  final PlatformInt64 introEndMs;
+  final PlatformInt64 outroStartMs;
+
+  const AudioSkipWindowDto({
+    required this.introEndMs,
+    required this.outroStartMs,
+  });
+
+  @override
+  int get hashCode => introEndMs.hashCode ^ outroStartMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AudioSkipWindowDto &&
+          runtimeType == other.runtimeType &&
+          introEndMs == other.introEndMs &&
+          outroStartMs == other.outroStartMs;
+}
+
 class BackupFileDto {
   final String name;
   final String path;

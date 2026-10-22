@@ -1,6 +1,7 @@
 import '../../domain/contracts/audio_book_service.dart';
 import '../../domain/contracts/reading_repository.dart';
 import '../../domain/models/audio_media.dart';
+import '../../domain/models/audio_skip_window.dart';
 import '../../models/book.dart';
 
 /// 音频Mock复用原目录，进度仍保留原0/空写示例。— Codex + Bridge
@@ -40,6 +41,14 @@ final class MockAudioBookService implements AudioBookService {
     int chapterIndex,
     int positionMs,
   ) async {}
+  @override
+  Future<AudioSkipWindow?> resolveSkipWindow({
+    required ReadConfig? readConfig,
+    required int durationMs,
+    required int globalOpenCredits,
+    required int globalCloseCredits,
+  }) async => null;
+
   @override
   Future<ReadConfig> audioWithPlayMode({
     ReadConfig? readConfig,

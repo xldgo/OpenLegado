@@ -56,6 +56,42 @@ void main() {
     expect(fixture.restarts, 0);
   });
 
+  testServices('跳过设置保存明确作用域，零值可为本书配置且立即更新绑定', (tester) async {
+    fixture.bind(
+      const Book(
+        bookUrl: 'book',
+        readConfig: ReadConfig(
+          ttsEngine: 'system://default',
+          playSpeed: 1.5,
+          openCredits: 20,
+          closeCredits: 30,
+        ),
+      ),
+    );
+    await fixture.preferences.persistSkipCredits(
+      'book',
+      useGlobal: true,
+      openCredits: 10,
+      closeCredits: 15,
+    );
+    expect(fixture.book!.readConfig!.useGlobalAudioSkip, isTrue);
+    expect(fixture.book!.readConfig!.openCredits, 20);
+    await fixture.preferences.persistSkipCredits(
+      'book',
+      useGlobal: false,
+      openCredits: 0,
+      closeCredits: 0,
+    );
+    final stored = fixture.bookshelf.books['book']!.readConfig!;
+    expect(stored.useGlobalAudioSkip, isFalse);
+    expect((stored.openCredits, stored.closeCredits), (0, 0));
+    expect((stored.ttsEngine, stored.playSpeed), ('system://default', 1.5));
+    expect(fixture.book!.readConfig, stored);
+    fixture.bind(const Book(bookUrl: 'new-audio-book'));
+    await fixture.preferences.persistMode(AudioPlayMode.singleLoop);
+    expect(fixture.book!.readConfig!.useGlobalAudioSkip, isTrue);
+  });
+
   testServices('书级HTTP选择保存稳定负数ID，同URL引擎不互换', (tester) async {
     fixture.bind(const Book(bookUrl: 'book'));
     fixture.http.engines = const [

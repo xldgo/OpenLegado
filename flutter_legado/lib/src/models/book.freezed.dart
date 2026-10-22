@@ -42,6 +42,8 @@ mixin _$ReadConfig {
   int get openCredits;
   @JsonKey(name: 'closeCredits')
   int get closeCredits;
+  @JsonKey(name: 'useGlobalAudioSkip')
+  bool get useGlobalAudioSkip;
   @JsonKey(name: 'playMode')
   int get playMode;
   @JsonKey(name: 'playSpeed')
@@ -106,6 +108,8 @@ mixin _$ReadConfig {
                 other.openCredits == _this.openCredits) &&
             (identical(other.closeCredits, _this.closeCredits) ||
                 other.closeCredits == _this.closeCredits) &&
+            (identical(other.useGlobalAudioSkip, _this.useGlobalAudioSkip) ||
+                other.useGlobalAudioSkip == _this.useGlobalAudioSkip) &&
             (identical(other.playMode, _this.playMode) ||
                 other.playMode == _this.playMode) &&
             (identical(other.playSpeed, _this.playSpeed) ||
@@ -123,7 +127,7 @@ mixin _$ReadConfig {
   @override
   int get hashCode {
     final _this = this as ReadConfig;
-    return Object.hash(
+    return Object.hashAll([
       runtimeType,
       _this.reverseToc,
       _this.pageAnim,
@@ -139,17 +143,18 @@ mixin _$ReadConfig {
       _this.dailyChapters,
       _this.openCredits,
       _this.closeCredits,
+      _this.useGlobalAudioSkip,
       _this.playMode,
       _this.playSpeed,
       _this.mangaScrollMode,
       _this.webtoonSidePaddingDp,
-    );
+    ]);
   }
 
   @override
   String toString() {
     final _this = this as ReadConfig;
-    return 'ReadConfig(reverseToc: ${_this.reverseToc}, pageAnim: ${_this.pageAnim}, reSegment: ${_this.reSegment}, imageStyle: ${_this.imageStyle}, useReplaceRule: ${_this.useReplaceRule}, delTag: ${_this.delTag}, ttsEngine: ${_this.ttsEngine}, splitLongChapter: ${_this.splitLongChapter}, readSimulating: ${_this.readSimulating}, startDate: ${_this.startDate}, startChapter: ${_this.startChapter}, dailyChapters: ${_this.dailyChapters}, openCredits: ${_this.openCredits}, closeCredits: ${_this.closeCredits}, playMode: ${_this.playMode}, playSpeed: ${_this.playSpeed}, mangaScrollMode: ${_this.mangaScrollMode}, webtoonSidePaddingDp: ${_this.webtoonSidePaddingDp})';
+    return 'ReadConfig(reverseToc: ${_this.reverseToc}, pageAnim: ${_this.pageAnim}, reSegment: ${_this.reSegment}, imageStyle: ${_this.imageStyle}, useReplaceRule: ${_this.useReplaceRule}, delTag: ${_this.delTag}, ttsEngine: ${_this.ttsEngine}, splitLongChapter: ${_this.splitLongChapter}, readSimulating: ${_this.readSimulating}, startDate: ${_this.startDate}, startChapter: ${_this.startChapter}, dailyChapters: ${_this.dailyChapters}, openCredits: ${_this.openCredits}, closeCredits: ${_this.closeCredits}, useGlobalAudioSkip: ${_this.useGlobalAudioSkip}, playMode: ${_this.playMode}, playSpeed: ${_this.playSpeed}, mangaScrollMode: ${_this.mangaScrollMode}, webtoonSidePaddingDp: ${_this.webtoonSidePaddingDp})';
   }
 }
 
@@ -175,6 +180,7 @@ abstract mixin class $ReadConfigCopyWith<$Res> {
     @JsonKey(name: 'dailyChapters') int dailyChapters,
     @JsonKey(name: 'openCredits') int openCredits,
     @JsonKey(name: 'closeCredits') int closeCredits,
+    @JsonKey(name: 'useGlobalAudioSkip') bool useGlobalAudioSkip,
     @JsonKey(name: 'playMode') int playMode,
     @JsonKey(name: 'playSpeed') double playSpeed,
     @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
@@ -208,6 +214,7 @@ class _$ReadConfigCopyWithImpl<$Res> implements $ReadConfigCopyWith<$Res> {
     Object? dailyChapters = null,
     Object? openCredits = null,
     Object? closeCredits = null,
+    Object? useGlobalAudioSkip = null,
     Object? playMode = null,
     Object? playSpeed = null,
     Object? mangaScrollMode = freezed,
@@ -271,6 +278,10 @@ class _$ReadConfigCopyWithImpl<$Res> implements $ReadConfigCopyWith<$Res> {
             ? _self.closeCredits
             : closeCredits // ignore: cast_nullable_to_non_nullable
                   as int,
+        useGlobalAudioSkip: null == useGlobalAudioSkip
+            ? _self.useGlobalAudioSkip
+            : useGlobalAudioSkip // ignore: cast_nullable_to_non_nullable
+                  as bool,
         playMode: null == playMode
             ? _self.playMode
             : playMode // ignore: cast_nullable_to_non_nullable
@@ -400,6 +411,7 @@ extension ReadConfigPatterns on ReadConfig {
       @JsonKey(name: 'dailyChapters') int dailyChapters,
       @JsonKey(name: 'openCredits') int openCredits,
       @JsonKey(name: 'closeCredits') int closeCredits,
+      @JsonKey(name: 'useGlobalAudioSkip') bool useGlobalAudioSkip,
       @JsonKey(name: 'playMode') int playMode,
       @JsonKey(name: 'playSpeed') double playSpeed,
       @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
@@ -426,6 +438,7 @@ extension ReadConfigPatterns on ReadConfig {
           _that.dailyChapters,
           _that.openCredits,
           _that.closeCredits,
+          _that.useGlobalAudioSkip,
           _that.playMode,
           _that.playSpeed,
           _that.mangaScrollMode,
@@ -466,6 +479,7 @@ extension ReadConfigPatterns on ReadConfig {
       @JsonKey(name: 'dailyChapters') int dailyChapters,
       @JsonKey(name: 'openCredits') int openCredits,
       @JsonKey(name: 'closeCredits') int closeCredits,
+      @JsonKey(name: 'useGlobalAudioSkip') bool useGlobalAudioSkip,
       @JsonKey(name: 'playMode') int playMode,
       @JsonKey(name: 'playSpeed') double playSpeed,
       @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
@@ -491,6 +505,7 @@ extension ReadConfigPatterns on ReadConfig {
           _that.dailyChapters,
           _that.openCredits,
           _that.closeCredits,
+          _that.useGlobalAudioSkip,
           _that.playMode,
           _that.playSpeed,
           _that.mangaScrollMode,
@@ -530,6 +545,7 @@ extension ReadConfigPatterns on ReadConfig {
       @JsonKey(name: 'dailyChapters') int dailyChapters,
       @JsonKey(name: 'openCredits') int openCredits,
       @JsonKey(name: 'closeCredits') int closeCredits,
+      @JsonKey(name: 'useGlobalAudioSkip') bool useGlobalAudioSkip,
       @JsonKey(name: 'playMode') int playMode,
       @JsonKey(name: 'playSpeed') double playSpeed,
       @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
@@ -555,6 +571,7 @@ extension ReadConfigPatterns on ReadConfig {
           _that.dailyChapters,
           _that.openCredits,
           _that.closeCredits,
+          _that.useGlobalAudioSkip,
           _that.playMode,
           _that.playSpeed,
           _that.mangaScrollMode,
@@ -584,6 +601,7 @@ class _ReadConfig implements ReadConfig {
     @JsonKey(name: 'dailyChapters') this.dailyChapters = 3,
     @JsonKey(name: 'openCredits') this.openCredits = 0,
     @JsonKey(name: 'closeCredits') this.closeCredits = 0,
+    @JsonKey(name: 'useGlobalAudioSkip') this.useGlobalAudioSkip = false,
     @JsonKey(name: 'playMode') this.playMode = 0,
     @JsonKey(name: 'playSpeed') this.playSpeed = 1.0,
     @JsonKey(name: 'mangaScrollMode') this.mangaScrollMode,
@@ -634,6 +652,9 @@ class _ReadConfig implements ReadConfig {
   @override
   @JsonKey(name: 'closeCredits')
   final int closeCredits;
+  @override
+  @JsonKey(name: 'useGlobalAudioSkip')
+  final bool useGlobalAudioSkip;
   @override
   @JsonKey(name: 'playMode')
   final int playMode;
@@ -703,6 +724,8 @@ class _ReadConfig implements ReadConfig {
                 other.openCredits == openCredits) &&
             (identical(other.closeCredits, closeCredits) ||
                 other.closeCredits == closeCredits) &&
+            (identical(other.useGlobalAudioSkip, useGlobalAudioSkip) ||
+                other.useGlobalAudioSkip == useGlobalAudioSkip) &&
             (identical(other.playMode, playMode) ||
                 other.playMode == playMode) &&
             (identical(other.playSpeed, playSpeed) ||
@@ -716,7 +739,7 @@ class _ReadConfig implements ReadConfig {
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode {
-    return Object.hash(
+    return Object.hashAll([
       runtimeType,
       reverseToc,
       pageAnim,
@@ -732,16 +755,17 @@ class _ReadConfig implements ReadConfig {
       dailyChapters,
       openCredits,
       closeCredits,
+      useGlobalAudioSkip,
       playMode,
       playSpeed,
       mangaScrollMode,
       webtoonSidePaddingDp,
-    );
+    ]);
   }
 
   @override
   String toString() {
-    return 'ReadConfig(reverseToc: $reverseToc, pageAnim: $pageAnim, reSegment: $reSegment, imageStyle: $imageStyle, useReplaceRule: $useReplaceRule, delTag: $delTag, ttsEngine: $ttsEngine, splitLongChapter: $splitLongChapter, readSimulating: $readSimulating, startDate: $startDate, startChapter: $startChapter, dailyChapters: $dailyChapters, openCredits: $openCredits, closeCredits: $closeCredits, playMode: $playMode, playSpeed: $playSpeed, mangaScrollMode: $mangaScrollMode, webtoonSidePaddingDp: $webtoonSidePaddingDp)';
+    return 'ReadConfig(reverseToc: $reverseToc, pageAnim: $pageAnim, reSegment: $reSegment, imageStyle: $imageStyle, useReplaceRule: $useReplaceRule, delTag: $delTag, ttsEngine: $ttsEngine, splitLongChapter: $splitLongChapter, readSimulating: $readSimulating, startDate: $startDate, startChapter: $startChapter, dailyChapters: $dailyChapters, openCredits: $openCredits, closeCredits: $closeCredits, useGlobalAudioSkip: $useGlobalAudioSkip, playMode: $playMode, playSpeed: $playSpeed, mangaScrollMode: $mangaScrollMode, webtoonSidePaddingDp: $webtoonSidePaddingDp)';
   }
 }
 
@@ -769,6 +793,7 @@ abstract mixin class _$ReadConfigCopyWith<$Res>
     @JsonKey(name: 'dailyChapters') int dailyChapters,
     @JsonKey(name: 'openCredits') int openCredits,
     @JsonKey(name: 'closeCredits') int closeCredits,
+    @JsonKey(name: 'useGlobalAudioSkip') bool useGlobalAudioSkip,
     @JsonKey(name: 'playMode') int playMode,
     @JsonKey(name: 'playSpeed') double playSpeed,
     @JsonKey(name: 'mangaScrollMode') int? mangaScrollMode,
@@ -802,6 +827,7 @@ class __$ReadConfigCopyWithImpl<$Res> implements _$ReadConfigCopyWith<$Res> {
     Object? dailyChapters = null,
     Object? openCredits = null,
     Object? closeCredits = null,
+    Object? useGlobalAudioSkip = null,
     Object? playMode = null,
     Object? playSpeed = null,
     Object? mangaScrollMode = freezed,
@@ -865,6 +891,10 @@ class __$ReadConfigCopyWithImpl<$Res> implements _$ReadConfigCopyWith<$Res> {
             ? _self.closeCredits
             : closeCredits // ignore: cast_nullable_to_non_nullable
                   as int,
+        useGlobalAudioSkip: null == useGlobalAudioSkip
+            ? _self.useGlobalAudioSkip
+            : useGlobalAudioSkip // ignore: cast_nullable_to_non_nullable
+                  as bool,
         playMode: null == playMode
             ? _self.playMode
             : playMode // ignore: cast_nullable_to_non_nullable

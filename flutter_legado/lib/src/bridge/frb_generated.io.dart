@@ -174,6 +174,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AudioChapterMediaDto dco_decode_audio_chapter_media_dto(dynamic raw);
 
   @protected
+  AudioSkipWindowDto dco_decode_audio_skip_window_dto(dynamic raw);
+
+  @protected
   AutoTaskRuleDto dco_decode_auto_task_rule_dto(dynamic raw);
 
   @protected
@@ -211,6 +214,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  AudioSkipWindowDto dco_decode_box_autoadd_audio_skip_window_dto(dynamic raw);
 
   @protected
   AutoTaskRuleDto dco_decode_box_autoadd_auto_task_rule_dto(dynamic raw);
@@ -776,6 +782,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  AudioSkipWindowDto? dco_decode_opt_box_autoadd_audio_skip_window_dto(
+    dynamic raw,
+  );
+
+  @protected
   AutoTaskRuleDto? dco_decode_opt_box_autoadd_auto_task_rule_dto(dynamic raw);
 
   @protected
@@ -1215,6 +1226,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  AudioSkipWindowDto sse_decode_audio_skip_window_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   AutoTaskRuleDto sse_decode_auto_task_rule_dto(SseDeserializer deserializer);
 
   @protected
@@ -1252,6 +1268,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  AudioSkipWindowDto sse_decode_box_autoadd_audio_skip_window_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   AutoTaskRuleDto sse_decode_box_autoadd_auto_task_rule_dto(
@@ -2027,6 +2048,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  AudioSkipWindowDto? sse_decode_opt_box_autoadd_audio_skip_window_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   AutoTaskRuleDto? sse_decode_opt_box_autoadd_auto_task_rule_dto(
     SseDeserializer deserializer,
   );
@@ -2581,6 +2607,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_audio_skip_window_dto(
+    AudioSkipWindowDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_auto_task_rule_dto(
     AutoTaskRuleDto self,
     SseSerializer serializer,
@@ -2630,6 +2662,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_audio_skip_window_dto(
+    AudioSkipWindowDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_auto_task_rule_dto(
@@ -3617,6 +3655,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_audio_skip_window_dto(
+    AudioSkipWindowDto? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_auto_task_rule_dto(

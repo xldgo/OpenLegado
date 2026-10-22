@@ -60,6 +60,29 @@ impl BookshelfService {
         })
     }
 
+    /// 事务内读取最新书籍，关闭更新时清除上游updateError位（16）。
+    pub fn set_can_update(&self, book_url: &str, can_update: bool) -> LegadoResult<Book> {
+        self.with_database(|db| {
+            let tx = rusqlite::Transaction::new_unchecked(
+                db.connection(),
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|e| legado_db::error::database_error("开启自动更新策略事务失败", e))?;
+            let repo = BookRepository::new(db.connection());
+            let mut book = repo
+                .find_by_url(book_url)?
+                .ok_or_else(|| LegadoError::Database("书籍不存在".into()))?;
+            book.can_update = can_update;
+            if !can_update {
+                book.book_type &= !legado_core::models::book::book_type::UPDATE_ERROR_BIT;
+            }
+            repo.update_can_update(book_url, book.can_update, book.book_type)?;
+            tx.commit()
+                .map_err(|e| legado_db::error::database_error("提交自动更新策略事务失败", e))?;
+            Ok(book)
+        })
+    }
+
     pub fn delete_book(&self, book_url: &str) -> LegadoResult<()> {
         self.with_database(|db| {
             let repo = BookRepository::new(db.connection());

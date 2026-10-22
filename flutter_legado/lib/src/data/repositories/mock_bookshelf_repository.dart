@@ -43,6 +43,22 @@ final class MockBookshelfRepository implements BookshelfRepository {
   }
 
   @override
+  Future<Book> setCanUpdate(String bookUrl, bool canUpdate) async {
+    await _store.ensureLoaded();
+    final index = _store.books.indexWhere((book) => book.bookUrl == bookUrl);
+    if (index < 0) throw StateError('书籍不存在');
+    final book = _store.books[index];
+    final updated = book.copyWith(
+      canUpdate: canUpdate,
+      bookType: canUpdate
+          ? book.bookType
+          : book.bookType & ~BookType.updateError,
+    );
+    _store.books[index] = updated;
+    return updated;
+  }
+
+  @override
   Future<void> deleteBook(String bookUrl) async {
     await _store.ensureLoaded();
     _store.books.removeWhere((b) => b.bookUrl == bookUrl);

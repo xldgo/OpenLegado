@@ -98,6 +98,15 @@ Future<BookDto> bookshelfAdd({required BookDto book}) =>
 Future<void> bookshelfUpdate({required BookDto book}) =>
     RustLib.instance.api.crateFfiFfiBookshelfUpdate(book: book);
 
+/// 以最新持久化记录修改自动更新策略，不回写页面快照。
+Future<BookDto> bookshelfSetCanUpdate({
+  required String bookUrl,
+  required bool canUpdate,
+}) => RustLib.instance.api.crateFfiFfiBookshelfSetCanUpdate(
+  bookUrl: bookUrl,
+  canUpdate: canUpdate,
+);
+
 /// 按 bookUrl 删除书籍
 Future<void> bookshelfDelete({required String bookUrl}) =>
     RustLib.instance.api.crateFfiFfiBookshelfDelete(bookUrl: bookUrl);
@@ -1877,6 +1886,19 @@ Future<PlatformInt64> audioGetProgress({
 }) => RustLib.instance.api.crateFfiFfiAudioGetProgress(
   bookUrl: bookUrl,
   chapterIndex: chapterIndex,
+);
+
+/// 复用Rust跳过规则，不访问存储或操作播放器。
+Future<AudioSkipWindowDto?> audioResolveSkipWindow({
+  ReadConfigDto? readConfig,
+  required PlatformInt64 durationMs,
+  required int globalOpenCredits,
+  required int globalCloseCredits,
+}) => RustLib.instance.api.crateFfiFfiAudioResolveSkipWindow(
+  readConfig: readConfig,
+  durationMs: durationMs,
+  globalOpenCredits: globalOpenCredits,
+  globalCloseCredits: globalCloseCredits,
 );
 
 /// 保存音频播放进度

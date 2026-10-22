@@ -5,6 +5,8 @@ import 'dart:convert';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/audio_book_service.dart';
 import '../../domain/models/audio_media.dart';
+import '../../domain/models/audio_skip_window.dart';
+import '../bridge/entity_dto_mapping.dart';
 import '../../models/book.dart';
 import '../bridge/rust_json_decode.dart';
 import '../bridge/media_dto_mapping.dart';
@@ -51,6 +53,30 @@ final class RustAudioBookService implements AudioBookService {
       ),
       operation: 'audioSaveProgress',
     );
+  }
+
+  @override
+  Future<AudioSkipWindow?> resolveSkipWindow({
+    required ReadConfig? readConfig,
+    required int durationMs,
+    required int globalOpenCredits,
+    required int globalCloseCredits,
+  }) async {
+    final window = await rustFuture(
+      () => bridge.audioResolveSkipWindow(
+        readConfig: readConfig == null ? null : readConfigToDto(readConfig),
+        durationMs: durationMs,
+        globalOpenCredits: globalOpenCredits,
+        globalCloseCredits: globalCloseCredits,
+      ),
+      operation: 'audioResolveSkipWindow',
+    );
+    return window == null
+        ? null
+        : AudioSkipWindow(
+            introEndMs: window.introEndMs,
+            outroStartMs: window.outroStartMs,
+          );
   }
 
   @override

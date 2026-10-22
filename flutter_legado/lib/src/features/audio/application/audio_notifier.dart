@@ -640,6 +640,22 @@ class AudioNotifier extends Notifier<AudioState> with ChangeNotifier {
     unawaited(_media.updateMetadata());
   }
 
+  Future<void> saveSkipCredits(
+    String bookUrl, {
+    required bool useGlobal,
+    required int openCredits,
+    required int closeCredits,
+    Book? fallback,
+  }) async {
+    await _bookPreferences.persistSkipCredits(
+      bookUrl,
+      useGlobal: useGlobal,
+      openCredits: openCredits,
+      closeCredits: closeCredits,
+      fallback: fallback,
+    );
+  }
+
   /// 听书唤醒锁（对齐 audioPlayWakeLock）
   Future<void> setWakeLockEnabled(bool enabled) async {
     await _media.setWakeLock(enabled);

@@ -135,18 +135,11 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         break;
       case 'canUpdate':
         if (book == null) return;
-        // 对齐原版 menu_can_update：内存切换，在架时 saveBook；关闭时清除 updateError
-        // — Cursor UI
-        final toggledCanUpdate = applyBookInfoCanUpdateToggle(
-          book,
-          inBookshelf: _inBookshelf,
-        );
-        _detailNotifier.updateBook(toggledCanUpdate);
-        if (_inBookshelf) {
-          await ref
-              .read(bookshelfRepositoryProvider)
-              .updateBook(toggledCanUpdate);
-          if (mounted) _reload();
+        try {
+          await _detailNotifier.setCanUpdate(!book.canUpdate);
+          if (mounted && _inBookshelf) _reload();
+        } catch (error) {
+          if (mounted) _snack('保存自动更新设置失败：${errorMessage(error)}');
         }
         break;
       case 'splitLongChapter':

@@ -1,5 +1,20 @@
 # Legado 后续重构执行计划（Active）
 
+### AUDIO-BOOK-POLICY-20261023：音频跳过规则与书籍状态下沉（P2，代码及定向验证完成，已授权本地提交）
+
+- 授权/基线：用户同意按职责下沉，dev / 60ab08857；单代理，保持工作树和未跟踪审计报告，不创建分支、不推送CI或安装，版本2.0.439+440不变。
+- 第一批：复用Rust音频跳过策略，补齐useGlobalAudioSkip透传，删除Dart生产重复算法；自动更新开关由Rust读取最新书籍并修改保存，Flutter保留播放操作和未入架临时展示。先冻结API_CONTRACT同名条目。
+- 验收：仅运行受影响Rust策略/书架事务及Flutter播放器/详情/映射的定向测试；生成绑定与模型，不手改生成物。只复核行为与调用次数，不添加机械样式测试；未获独立审查前不宣称独立审查通过。
+- 实现：新增audio_resolve_skip_window/bookshelf_set_can_update两项FFI与AudioSkipWindowDto；窗口复用Rust既有策略，同输入复用在途与空结果，播放回调仍走既有token归属。ReadConfig.useGlobalAudioSkip经JSON及DTO完整往返，删除Dart独立策略及详情位运算工具；Rust事务只写canUpdate/type，返回最新记录。
+- 调用方补齐：跳过设置不再用零值猜作用域，保存经现有配置队列合并，成功更新绑定，不再bind旧路由Book；无配置首次物化明确跟随全局，保留既有配置作用域。详情关闭更新失败保留原状态并提示，未入架只改临时对象。无新控件、数据库、依赖或版本变化。
+- 验证：Rust audio_skip_policy 18项及bookshelf_service 5项通过；Flutter播放器19、详情8、映射1、书架10、偏好20，共5文件58项通过（同义重复执行不重复计数）。覆盖空/在途窗口复用、时长与作用域变化、迟到结果停播、计算失败、最新持久化记录、未入架和保存失败。旧Dart工具3项测试由Rust事务及详情行为承接，未额外复制策略算法。
+- 检查：FRB 2.13隔离生成、book定向Freezed/JSON生成、Rust FFI QuickJS cargo check、受影响Dart分析及架构门禁通过。首次分析缺花括号、接通sheet后未用导入均已修正并定向复验；期间一次脚本工作目录传错，未产生文件修改。FRB contentHash=1247135455，原生库尚未重编，不宣称native往返、设备或性能验收。
+- 证据：build/audio-book-policy-{bridge,rust-skip,rust-shelf,rust-check}.log；flutter_legado/build/audio-book-policy-{model-generation,flutter,controller-final,preferences,analysis,analysis-final,settings-analysis,screen-analysis-final,architecture-final}.log；最终diff检查通过。单代理自查，未使用子代理、未取得独立code-reviewer结论；用户于2026-10-23明确免除本批独立审查并同意本地提交，不将该授权扩大为后续任务的通用豁免。无推送CI或安装，未跟踪审计报告不纳入本任务；提交号以Git记录为准。
+- 后续：书签导出格式及解析清洗另批核对，不在本批扩大；TTS分片和漫画处理先评估收益。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+
 ### FEATURE-OWNERSHIP-20261022：功能私有组件归位与阅读服务分层（P2，五步代码及定向验证完成）
 
 - 授权/基线：用户要求生成迁移规划并顺序执行，每步提交；dev / f25eff188。方案见FEATURE_OWNERSHIP_MIGRATION_20261022.md。单代理，不创建分支、不推送CI或安装，保护未跟踪的其他审计文档，版本不变。

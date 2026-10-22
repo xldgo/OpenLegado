@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/features/book_detail/book_detail_notifier.dart';
+import 'package:flutter_legado/src/features/bookshelf/bookshelf_repositories.dart';
 import 'package:flutter_legado/src/models/models.dart';
 
 import '../fixtures/book_detail_fixture.dart';
@@ -20,7 +21,10 @@ void main() {
   setUp(() {
     fixture = BookDetailFixture();
     container = ProviderContainer(
-      overrides: [bookDetailServiceProvider.overrideWithValue(fixture.service)],
+      overrides: [
+        bookDetailServiceProvider.overrideWithValue(fixture.service),
+        bookshelfRepositoryProvider.overrideWithValue(fixture.bookshelf),
+      ],
     );
     final subscription = container.listen(provider, (_, _) {});
     addTearDown(subscription.close);
@@ -147,6 +151,46 @@ void main() {
     container.invalidate(provider);
     info.complete(BookDetailFixture.fresh);
     await pending;
+    verifyNever(() => fixture.bookshelf.updateBook(any()));
+  });
+  test('自动更新保存完成后接收最新快照，保存失败保留原状态', () async {
+    final notifier = container.read(provider.notifier);
+    notifier.updateShelfMembership(true);
+    final pending = Completer<Book>();
+    when(
+      () =>
+          fixture.bookshelf.setCanUpdate(BookDetailFixture.book.bookUrl, false),
+    ).thenAnswer((_) => pending.future);
+    final save = notifier.setCanUpdate(false);
+    expect(container.read(provider).data.book!.canUpdate, isTrue);
+    final latest = BookDetailFixture.book.copyWith(
+      canUpdate: false,
+      name: '存储中的最新书名',
+    );
+    pending.complete(latest);
+    await save;
+    expect(container.read(provider).data.book, latest);
+    when(() => fixture.bookshelf.setCanUpdate(latest.bookUrl, true))
+        .thenThrow(StateError('写入失败'));
+    await expectLater(notifier.setCanUpdate(true), throwsStateError);
+    expect(container.read(provider).data.book, latest);
+    verifyNever(() => fixture.bookshelf.updateBook(any()));
+  });
+
+  test('未入架切换仅影响临时状态，不保存或清除更新错误', () async {
+    final notifier = container.read(provider.notifier);
+    notifier.updateBook(
+      BookDetailFixture.book.copyWith(
+        bookType: BookType.text | BookType.updateError,
+      ),
+    );
+    await notifier.setCanUpdate(false);
+    expect(container.read(provider).data.book!.canUpdate, isFalse);
+    expect(
+      container.read(provider).data.book!.bookType & BookType.updateError,
+      isNot(0),
+    );
+    verifyNever(() => fixture.bookshelf.setCanUpdate(any(), any()));
     verifyNever(() => fixture.bookshelf.updateBook(any()));
   });
 }

@@ -111,6 +111,17 @@ class BookDetailNotifier extends Notifier<BookDetailState> {
     }
   }
 
+  Future<void> setCanUpdate(bool canUpdate) async {
+    final book = state.data.book;
+    if (book == null) return;
+    final updated = state.data.inBookshelf
+        ? await ref
+              .read(bookshelfRepositoryProvider)
+              .setCanUpdate(book.bookUrl, canUpdate)
+        : book.copyWith(canUpdate: canUpdate);
+    if (ref.mounted) updateBook(updated);
+  }
+
   void updateBook(Book book) =>
       state = state.copyWith(data: state.data.copyWith(book: book));
   void updateSource(BookSource source) =>

@@ -22,6 +22,8 @@ pub mod book_type {
     /// 语义域不同，禁止互相替代或混用（两者数值恰好都含「图片」语义，
     /// 是本项目易踩坑点）。
     pub const IMAGE_BIT: i32 = 64;
+    /// 更新失败标记，属于Book.bookType位域。
+    pub const UPDATE_ERROR_BIT: i32 = 16;
     /// 未入书架的临时书（对齐 Kotlin `BookType.notShelf = 0b100_0000_0000`）
     /// 用于「搜索/发现打开在线书阅读但未加入书架」的临时记录：落库以支撑阅读器
     /// 按 bookUrl/origin 取正文，但书架列表须按此位过滤，避免污染书架。

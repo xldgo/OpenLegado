@@ -5,6 +5,7 @@ abstract interface class BookshelfRepository {
   Future<List<Book>> getBooks();
   Future<Book> addBook(Book book);
   Future<void> updateBook(Book book);
+  Future<Book> setCanUpdate(String bookUrl, bool canUpdate);
   Future<void> deleteBook(String bookUrl);
   Future<Book?> getBook(String bookUrl);
   Future<void> topBook(String bookUrl);

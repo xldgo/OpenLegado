@@ -22,6 +22,10 @@ pub fn update_book_entity(book: Book) -> LegadoResult<()> {
     service().update_book_entity(book)
 }
 
+pub fn set_can_update(book_url: &str, can_update: bool) -> LegadoResult<Book> {
+    service().set_can_update(book_url, can_update)
+}
+
 pub fn delete_book(book_url: &str) -> LegadoResult<()> {
     service().delete_book(book_url)
 }

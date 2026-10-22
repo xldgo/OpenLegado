@@ -21,6 +21,7 @@ ReadConfig readConfigFromDto(dto.ReadConfigDto value) => ReadConfig(
   dailyChapters: value.dailyChapters,
   openCredits: value.openCredits,
   closeCredits: value.closeCredits,
+  useGlobalAudioSkip: value.useGlobalAudioSkip,
   playMode: value.playMode,
   playSpeed: value.playSpeed,
   mangaScrollMode: value.mangaScrollMode,
@@ -44,7 +45,7 @@ dto.ReadConfigDto readConfigToDto(ReadConfig value) => dto.ReadConfigDto(
   closeCredits: value.closeCredits,
   playMode: value.playMode,
   playSpeed: value.playSpeed,
-  useGlobalAudioSkip: false,
+  useGlobalAudioSkip: value.useGlobalAudioSkip,
   mangaScrollMode: value.mangaScrollMode,
   webtoonSidePaddingDp: value.webtoonSidePaddingDp,
 );

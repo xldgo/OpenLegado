@@ -40,6 +40,18 @@ final class RustBookshelfRepository implements BookshelfRepository {
     operation: 'bookshelfUpdate',
   );
 
+  @override
+  Future<Book> setCanUpdate(String bookUrl, bool canUpdate) async =>
+      bookFromDto(
+        await rustFuture(
+          () => bridge.bookshelfSetCanUpdate(
+            bookUrl: bookUrl,
+            canUpdate: canUpdate,
+          ),
+          operation: 'bookshelfSetCanUpdate',
+        ),
+      );
+
   /// 从书架删除书籍
   @override
   Future<void> deleteBook(String bookUrl) => rustFuture(

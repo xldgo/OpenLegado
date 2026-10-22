@@ -59,7 +59,9 @@ final class AudioBookPreferencesService {
           ? current
           : await _bookshelf.getBook(url) ?? fallback;
       if (_disposed || book == null) return null;
-      final config = await transform(book.readConfig ?? const ReadConfig());
+      final config = await transform(
+        book.readConfig ?? const ReadConfig(useGlobalAudioSkip: true),
+      );
       if (_disposed) return null;
       final updated = book.copyWith(readConfig: config);
       await _bookshelf.updateBook(updated);
@@ -123,6 +125,23 @@ final class AudioBookPreferencesService {
       debugPrint('保存书级播放模式失败: $error');
     }
   }
+
+  /// 只保存表单的明确作用域和值，不以零值推断全局，也不覆盖其他阅读配置。
+  Future<Book?> persistSkipCredits(
+    String bookUrl, {
+    required bool useGlobal,
+    required int openCredits,
+    required int closeCredits,
+    Book? fallback,
+  }) => updateReadConfig(
+    bookUrl,
+    (config) => config.copyWith(
+      useGlobalAudioSkip: useGlobal,
+      openCredits: useGlobal ? config.openCredits : openCredits,
+      closeCredits: useGlobal ? config.closeCredits : closeCredits,
+    ),
+    fallback: fallback,
+  );
 
   void scheduleSpeed(double speed) {
     if (_disposed) return;
