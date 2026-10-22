@@ -2710,6 +2710,11 @@ pub mod ffi {
 
     // ─── WebDAV 云同步 ─────────────────────────────────────
 
+    /// 只读连接测试，协议及超时判定由网络层统一处理。
+    pub fn webdav_probe(config_json: String) -> Result<WebDavProbeResultDto, BridgeError> {
+        Ok(crate::api::webdav_api::webdav_probe(&config_json)?.into())
+    }
+
     /// 列出 WebDAV 远程目录元数据。
     pub fn webdav_list_dir(
         config_json: String,

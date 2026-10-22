@@ -65,18 +65,11 @@ impl CloudTtsProvider for AlibabaCloudTtsProvider {
         } else {
             format!("{base}/services/aigc/multimodal-generation/generation")
         };
-        let url = url::Url::parse(&endpoint).map_err(|_| invalid("百炼服务地址无效"))?;
-        if !["http", "https"].contains(&url.scheme())
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(invalid(
-                "百炼服务地址必须是无凭据、查询或片段的 HTTP(S) 地址",
-            ));
-        }
+        let url = parse_service_url(
+            &endpoint,
+            "百炼服务地址无效",
+            "百炼服务地址必须是无凭据、查询或片段的 HTTP(S) 地址",
+        )?;
         Ok(PreparedCloudSpeech {
             authentication_headers: Vec::new(),
             endpoint: url.to_string(),
@@ -113,28 +106,17 @@ impl CloudTtsProvider for AlibabaCloudTtsProvider {
         let text = std::str::from_utf8(&bytes).map_err(|_| invalid("百炼 SSE 编码无效"))?;
         let mut pcm = Vec::new();
         let mut audio_url = String::new();
-        let mut data = Vec::new();
-        let mut error_event = false;
         let mut complete = false;
-        for line in text.lines().chain(std::iter::once("")) {
-            if line.is_empty() {
-                if error_event {
-                    return Err(invalid("百炼返回错误事件"));
+        for frame in sse::frames(text) {
+            if frame.event.trim() == "error" {
+                return Err(invalid("百炼返回错误事件"));
+            }
+            if let Some(payload) = frame.data {
+                if payload.trim() == "[DONE]" {
+                    complete = true;
+                    break;
                 }
-                if !data.is_empty() {
-                    let payload = data.join("\n");
-                    data.clear();
-                    if payload.trim() == "[DONE]" {
-                        complete = true;
-                        break;
-                    }
-                    complete |= decode_event(&payload, &mut pcm, &mut audio_url)?;
-                }
-                error_event = false;
-            } else if let Some(value) = line.strip_prefix("data:") {
-                data.push(value.strip_prefix(' ').unwrap_or(value));
-            } else if let Some(value) = line.strip_prefix("event:") {
-                error_event = value.trim() == "error";
+                complete |= decode_event(&payload, &mut pcm, &mut audio_url)?;
             }
         }
         if !complete {
@@ -295,6 +277,7 @@ mod tests {
     fn reject_errors_truncation_bad_audio_and_inputs_without_secrets() {
         for stream in [
             "data: bad\n\n",
+            "data: {\"output\":{\"finish_reason\":\"stop\",\"audio\":{\"data\":\"AQI=\"}}}\n",
             "event: error\ndata: {}\n\n",
             "data: {\"code\":\"secret-error\"}\n\n",
             "data: {\"output\":{\"audio\":{\"data\":\"AQI=\"}}}\n\n",

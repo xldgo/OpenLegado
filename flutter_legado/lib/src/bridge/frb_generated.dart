@@ -79,7 +79,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1660512782;
+  int get rustContentHash => -1582729950;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -1290,6 +1290,10 @@ abstract class RustLibApi extends BaseApi {
   Future<List<WebDavFileDto>> crateFfiFfiWebdavListDir({
     required String configJson,
     required String path,
+  });
+
+  Future<WebDavProbeResultDto> crateFfiFfiWebdavProbe({
+    required String configJson,
   });
 
   Future<void> crateFfiFfiWebdavUpload({
@@ -11627,6 +11631,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<WebDavProbeResultDto> crateFfiFfiWebdavProbe({
+    required String configJson,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(configJson, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 315,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_web_dav_probe_result_dto,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateFfiFfiWebdavProbeConstMeta,
+        argValues: [configJson],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateFfiFfiWebdavProbeConstMeta =>
+      const TaskConstMeta(debugName: "webdav_probe", argNames: ["configJson"]);
+
+  @override
   Future<void> crateFfiFfiWebdavUpload({
     required String configJson,
     required String path,
@@ -11642,7 +11676,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 315,
+            funcId: 316,
             port: port_,
           );
         },
@@ -11678,7 +11712,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 316,
+            funcId: 317,
             port: port_,
           );
         },
@@ -11709,7 +11743,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 317,
+            funcId: 318,
             port: port_,
           );
         },
@@ -11741,7 +11775,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 318,
+            funcId: 319,
             port: port_,
           );
         },
@@ -11775,7 +11809,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 319,
+            funcId: 320,
             port: port_,
           );
         },
@@ -11804,7 +11838,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 320,
+            funcId: 321,
             port: port_,
           );
         },
@@ -11840,7 +11874,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 321,
+              funcId: 322,
               port: port_,
             );
           },
@@ -11877,7 +11911,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 322,
+            funcId: 323,
             port: port_,
           );
         },
@@ -11913,7 +11947,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 323,
+            funcId: 324,
             port: port_,
           );
         },
@@ -11948,7 +11982,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 324,
+            funcId: 325,
             port: port_,
           );
         },
@@ -12837,6 +12871,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TtsCacheContextDto dco_decode_box_autoadd_tts_cache_context_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_tts_cache_context_dto(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -14535,6 +14575,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_16(raw);
+  }
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
@@ -15519,6 +15565,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       etag: dco_decode_opt_String(arr[4]),
       isDir: dco_decode_bool(arr[5]),
     );
+  }
+
+  @protected
+  WebDavProbeResultDto dco_decode_web_dav_probe_result_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return WebDavProbeResultDto(
+      status: dco_decode_web_dav_probe_status_dto(arr[0]),
+      statusCode: dco_decode_opt_box_autoadd_u_16(arr[1]),
+    );
+  }
+
+  @protected
+  WebDavProbeStatusDto dco_decode_web_dav_probe_status_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return WebDavProbeStatusDto.values[raw as int];
   }
 
   @protected
@@ -16692,6 +16756,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_tts_cache_context_dto(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_16(deserializer));
   }
 
   @protected
@@ -19280,6 +19350,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_16(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -20582,6 +20663,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  WebDavProbeResultDto sse_decode_web_dav_probe_result_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_status = sse_decode_web_dav_probe_status_dto(deserializer);
+    var var_statusCode = sse_decode_opt_box_autoadd_u_16(deserializer);
+    return WebDavProbeResultDto(status: var_status, statusCode: var_statusCode);
+  }
+
+  @protected
+  WebDavProbeStatusDto sse_decode_web_dav_probe_status_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return WebDavProbeStatusDto.values[inner];
+  }
+
+  @protected
   WebDavSyncResultDto sse_decode_web_dav_sync_result_dto(
     SseDeserializer deserializer,
   ) {
@@ -21712,6 +21812,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_tts_cache_context_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_16(self, serializer);
   }
 
   @protected
@@ -23855,6 +23961,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_16(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -24763,6 +24879,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.lastModified, serializer);
     sse_encode_opt_String(self.etag, serializer);
     sse_encode_bool(self.isDir, serializer);
+  }
+
+  @protected
+  void sse_encode_web_dav_probe_result_dto(
+    WebDavProbeResultDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_web_dav_probe_status_dto(self.status, serializer);
+    sse_encode_opt_box_autoadd_u_16(self.statusCode, serializer);
+  }
+
+  @protected
+  void sse_encode_web_dav_probe_status_dto(
+    WebDavProbeStatusDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected

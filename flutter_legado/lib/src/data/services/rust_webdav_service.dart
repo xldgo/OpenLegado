@@ -8,6 +8,8 @@ import '../bridge/file_dto_mapping.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
 import '../../domain/contracts/webdav_service.dart';
 import '../../domain/models/webdav_connection.dart';
+import '../../domain/models/webdav_probe_result.dart';
+import '../../bridge/file_dto.dart' as dto;
 
 /// 配置字段保持Rust原协议，空目录用于自定义服务器根目录。— Codex + Bridge
 String encodeWebDavConfig(WebDavConnection connection) => jsonEncode({
@@ -19,6 +21,23 @@ String encodeWebDavConfig(WebDavConnection connection) => jsonEncode({
 
 final class RustWebDavService implements WebDavService {
   const RustWebDavService();
+  @override
+  Future<WebDavProbeResult> webdavProbe(WebDavConnection connection) async {
+    final result = await rustFuture(
+      () => bridge.webdavProbe(configJson: encodeWebDavConfig(connection)),
+      operation: 'webdavProbe',
+    );
+    return WebDavProbeResult(switch (result.status) {
+      dto.WebDavProbeStatusDto.success => WebDavProbeStatus.success,
+      dto.WebDavProbeStatusDto.authenticationFailed =>
+        WebDavProbeStatus.authenticationFailed,
+      dto.WebDavProbeStatusDto.httpFailed => WebDavProbeStatus.httpFailed,
+      dto.WebDavProbeStatusDto.timedOut => WebDavProbeStatus.timedOut,
+      dto.WebDavProbeStatusDto.networkFailed => WebDavProbeStatus.networkFailed,
+      dto.WebDavProbeStatusDto.invalidUrl => WebDavProbeStatus.invalidUrl,
+    }, statusCode: result.statusCode);
+  }
+
   @override
   Future<List<Map<String, dynamic>>> webdavListDir(
     WebDavConnection connection,

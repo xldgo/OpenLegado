@@ -14,6 +14,7 @@ import 'package:flutter_legado/src/data/repositories/rust_backup_repository.dart
 import 'package:flutter_legado/src/data/services/mock_webdav_service.dart';
 import 'package:flutter_legado/src/data/services/rust_webdav_service.dart';
 import 'package:flutter_legado/src/domain/models/webdav_connection.dart';
+import 'package:flutter_legado/src/domain/models/webdav_probe_result.dart';
 import 'package:flutter_legado/src/providers/backup_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +22,38 @@ import 'package:flutter_test/flutter_test.dart';
 class _Bridge extends Mock implements RustLibApi {}
 
 void main() {
+  test('连接测试直连桥接并保留认证状态和无响应超时分类', () async {
+    final bridge = _Bridge();
+    RustLib.initMock(api: bridge);
+    addTearDown(RustLib.dispose);
+    const connection = WebDavConnection(
+      url: 'https://dav.test',
+      password: ' p ',
+    );
+    final config = encodeWebDavConfig(connection);
+    when(() => bridge.crateFfiFfiWebdavProbe(configJson: config)).thenAnswer(
+      (_) async => const WebDavProbeResultDto(
+        status: WebDavProbeStatusDto.authenticationFailed,
+        statusCode: 403,
+      ),
+    );
+    final service = const RustWebDavService();
+    final authentication = await service.webdavProbe(connection);
+    expect(authentication.status, WebDavProbeStatus.authenticationFailed);
+    expect(authentication.statusCode, 403);
+    when(() => bridge.crateFfiFfiWebdavProbe(configJson: config)).thenAnswer(
+      (_) async =>
+          const WebDavProbeResultDto(status: WebDavProbeStatusDto.timedOut),
+    );
+    final timeout = await service.webdavProbe(connection);
+    expect(timeout.status, WebDavProbeStatus.timedOut);
+    expect(timeout.statusCode, isNull);
+    verify(() => bridge.crateFfiFfiWebdavProbe(configJson: config)).called(2);
+    expect(
+      (await const MockWebDavService().webdavProbe(connection)).status,
+      WebDavProbeStatus.success,
+    );
+  });
   test('同步固定外层直接映射，文档内容和异常不被重解释', () async {
     final bridge = _Bridge();
     RustLib.initMock(api: bridge);

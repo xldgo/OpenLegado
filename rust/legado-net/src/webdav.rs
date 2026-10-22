@@ -17,6 +17,23 @@ pub struct WebDavConfig {
     pub remote_dir: String,
 }
 
+/// 连接测试只返回分类，不携带服务器正文或含凭据的错误地址。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebDavProbeStatus {
+    Success,
+    AuthenticationFailed,
+    HttpFailed,
+    TimedOut,
+    NetworkFailed,
+    InvalidUrl,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebDavProbeResult {
+    pub status: WebDavProbeStatus,
+    pub status_code: Option<u16>,
+}
+
 /// WebDAV 文件信息
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WebDavFileInfo {
@@ -61,6 +78,56 @@ impl WebDavClient {
         format!("{}{}{}", self.config.url, self.config.remote_dir, path)
     }
 
+    /// 只探测配置的服务器地址，不建同步目录，也不读取响应正文。
+    pub async fn probe(&self) -> WebDavProbeResult {
+        use WebDavProbeStatus::*;
+        let Ok(url) = url::Url::parse(self.config.url.trim()) else {
+            return WebDavProbeResult {
+                status: InvalidUrl,
+                status_code: None,
+            };
+        };
+        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+            return WebDavProbeResult {
+                status: InvalidUrl,
+                status_code: None,
+            };
+        }
+        let mut request = self
+            .client
+            .request(
+                reqwest::Method::from_bytes(b"PROPFIND").expect("固定方法名有效"),
+                url,
+            )
+            .header("Depth", "0")
+            .timeout(Duration::from_secs(5));
+        if !self.config.username.is_empty() || !self.config.password.is_empty() {
+            request = request.header("Authorization", self.auth_header());
+        }
+        match request.send().await {
+            Ok(response) => {
+                let code = response.status().as_u16();
+                let status = match code {
+                    200 | 207 => Success,
+                    401 | 403 => AuthenticationFailed,
+                    _ => HttpFailed,
+                };
+                WebDavProbeResult {
+                    status,
+                    status_code: Some(code),
+                }
+            }
+            Err(error) => WebDavProbeResult {
+                status: if error.is_timeout() {
+                    TimedOut
+                } else {
+                    NetworkFailed
+                },
+                status_code: None,
+            },
+        }
+    }
+
     /// PROPFIND — 列出目录内容
     pub async fn list_dir(&self, path: &str) -> LegadoResult<Vec<WebDavFileInfo>> {
         let url = self.full_url(path);
@@ -101,15 +168,21 @@ impl WebDavClient {
         use tokio_util::io::ReaderStream;
 
         let url = self.full_url(path);
-        let file = tokio::fs::File::open(local_file_path)
-            .await
-            .map_err(LegadoError::Io)?;
+        let file = tokio::fs::File::open(local_file_path).await.map_err(|e| {
+            LegadoError::Io(std::io::Error::new(
+                e.kind(),
+                format!("读取本地文件失败: {local_file_path}: {e}"),
+            ))
+        })?;
+        // 文件长度已知，保留原文件上传的 Content-Length，正文仍按流读取。
+        let length = file.metadata().await?.len();
         let stream = ReaderStream::new(file);
         let body = reqwest::Body::wrap_stream(stream);
         let response = self
             .client
             .put(&url)
             .header("Authorization", self.auth_header())
+            .header(reqwest::header::CONTENT_LENGTH, length)
             .body(body)
             .send()
             .await
@@ -135,7 +208,7 @@ impl WebDavClient {
     /// Task #55 F3）
     ///
     /// 请求完成后校验 HTTP 状态码，非 2xx 返回 Network 错误（Task #55 F1），
-    /// 使既有 `webdav_upload` / `webdav_upload_file` 一并受益。
+    /// 文本与内存数据上传复用本方法，本地文件由 `put_file` 流式读取。
     ///
     /// 大文件上限风险：数据仍以整块 `Vec` 驻留内存后提交；大文件请改用
     /// [`put_file`] 流式读盘上传（`webdav_upload_file` 已走该路径）。
@@ -878,6 +951,9 @@ impl BookSyncManager {
         unreachable!()
     }
 }
+
+#[cfg(test)]
+mod probe_tests;
 
 #[cfg(test)]
 mod tests {

@@ -123,16 +123,11 @@ fn endpoint(engine: &CloudTtsEngine) -> LegadoResult<String> {
     } else {
         engine.base_url.trim().trim_end_matches('/').to_owned()
     };
-    let url = url::Url::parse(&base).map_err(|_| invalid("AWS 服务地址无效"))?;
-    if !matches!(url.scheme(), "http" | "https")
-        || url.host_str().is_none()
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.query().is_some()
-        || url.fragment().is_some()
-    {
-        return Err(invalid("AWS 地址须为无凭据、查询或片段的 HTTP(S) 地址"));
-    }
+    parse_service_url(
+        &base,
+        "AWS 服务地址无效",
+        "AWS 地址须为无凭据、查询或片段的 HTTP(S) 地址",
+    )?;
     Ok(base)
 }
 fn model(engine: &CloudTtsEngine) -> LegadoResult<&str> {

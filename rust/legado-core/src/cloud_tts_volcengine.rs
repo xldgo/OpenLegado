@@ -73,16 +73,11 @@ impl CloudTtsProvider for VolcengineCloudTtsProvider {
         } else {
             engine.base_url.trim()
         };
-        let url = url::Url::parse(endpoint).map_err(|_| invalid("火山服务地址无效"))?;
-        if !matches!(url.scheme(), "http" | "https")
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(invalid("火山地址须为无凭据、查询或片段的 HTTP(S) 完整端点"));
-        }
+        let url = parse_service_url(
+            endpoint,
+            "火山服务地址无效",
+            "火山地址须为无凭据、查询或片段的 HTTP(S) 完整端点",
+        )?;
         let cluster = if engine.model.trim().is_empty() {
             "volcano_tts"
         } else {

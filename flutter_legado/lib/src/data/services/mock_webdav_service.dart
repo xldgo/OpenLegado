@@ -1,10 +1,14 @@
 import '../../domain/models/webdav_sync_result.dart';
 import '../../domain/contracts/webdav_service.dart';
 import '../../domain/models/webdav_connection.dart';
+import '../../domain/models/webdav_probe_result.dart';
 
 /// 保留原Mock远程能力，不执行真实网络请求。— Codex + Bridge
 final class MockWebDavService implements WebDavService {
   const MockWebDavService();
+  @override
+  Future<WebDavProbeResult> webdavProbe(WebDavConnection connection) async =>
+      const WebDavProbeResult(WebDavProbeStatus.success, statusCode: 207);
   @override
   Future<List<Map<String, dynamic>>> webdavListDir(
     WebDavConnection connection,

@@ -12,6 +12,32 @@
 编写者：Codex + Rust / UI｜2026-10-23
 
 
+### RUST-BOUNDARY-IMPLEMENT-20261023：重复功能收敛与业务边界下沉（P2，分批实施）
+
+- 授权：用户同意按审计建议分批开始，每批一个本地commit；feature/rust-boundary-audit / 60ab08857。保持版本2.0.439+440，不推送、不触发CI、不使用子代理，主目录其他任务保持。
+- 顺序：B1复用WebDAV流式上传；B2云TTS共用地址校验；B3共用SSE分帧。后续URL组合与Flutter下沉按专题报告独立批次推进，FFI先冻结契约；不介入音频跳过、书籍状态、导出与清洗。
+- B1范围：Engine文件上传委托Net现有put_file；保留本地缺失文件的IO类别和路径上下文，流式请求携带已知Content-Length。复用现有真实本地HTTP字节/鉴权/路径回归，不新增机械实现测试。
+- B1结果：两项既有WebDAV服务回归通过，覆盖文件字节、Unicode/NUL、鉴权、路径及同步委托，并在原场景补齐缺文件IO错误。日志build/boundary-b1-tests.log；diff及单代理复核通过，正式上传不再先读取整个文件。本地提交，未测量峰值内存、不宣称平台验收。
+- B2结果：八个云TTS Provider复用crate内部parse_service_url，端点拼接、鉴权、输入检查顺序和原有错误文案保持；百炼签名下载URL保留独立查询参数规则。33项现有云TTS定向用例通过，日志build/boundary-b2-tests.log；未添加重复校验测试，无FFI/依赖变更，diff与单代理复核通过。
+- B3范围：MiMo/百炼/火山V3共用SSE分帧，保留完整响应读取和各自业务解码、错误与完成条件；按标准识别LF/CRLF/CR及首BOM，只提交空行结束的帧，未结束尾帧不能作为成功完成。原始分帧仍保留无data的命名错误帧供Provider拒绝，不实现浏览器EventSource重连等无消费者能力。
+- B3结果：先在三家原有失败场景各加入截断完成帧，旧实现三项均误接受（build/boundary-b3-before.log）；接入共用分帧后17项定向回归通过（build/boundary-b3-tests.log），含三项共用协议行为用例，无逐字段或源码文本测试。原有音频顺序、签名下载、错误脱敏及各自终止判定保持；不再响应结束自动补交尾帧。diff及单代理复核通过，无新依赖或FFI变更。
+- B4范围：收敛书源规则、正文图片、搜索结果与JS段评头像的原文URL拼接；保留中文、百分号编码和复合请求头，不统一改成Url::join。AnalyzeUrl继续拥有规则base选项及#tag预处理，搜索空地址仍为空；模板模块的规范化与java.toURL结构化输出另有契约，本批不改。不动清洗、导出或FFI，本批提交不加skip ci，旧提交不改写。
+- B4结果：core/url_resolution复用从AnalyzeUrl提取的原文拼接算法，删除HTML、搜索和JS段评的重复算法。先复现搜索纯主机base被截为https://cover.jpg、段评相对头像未补全（build/boundary-b4-before.log及boundary-b4-js-before.log）；接线后四个crate共19项定向回归通过（build/boundary-b4-tests.log）。保留现有原文转义与路径组合口径，不宣称所有URL语义已对齐Java/RFC；新用例仅覆盖缺陷及原文复合请求头边界。无依赖/FFI/版本变更，diff与单代理复核通过，未做真源或设备验证。
+- B5范围：同步dev已提交基线（4840dc35e合并934e20965及d3a266775）后，按API_CONTRACT §2.28冻结新增只读webdav_probe。Rust复用WebDavClient/CustomHosts进行Depth0探测与5秒超时分类；Flutter移除独立HTTP实现，只触发和展示结果。草稿配置不落库、不拼接同步目录、不创建远端文件，不动备份/同步算法、界面样式、依赖或版本。
+- B5结果：Net协议3项、Engine服务3项及FFI既有3项定向回归全部通过；Flutter边界与两份设置页共20项通过，目标文件分析、架构门禁及diff检查通过。证据build/boundary-b5-{net,engine,ffi,flutter-tests,analyze,architecture,codegen}.log；Hosts夹具dav.test仅在测试子进程追加NO_PROXY以隔离本机代理。FRB 2.13.0隔离生成成功且锁文件未变；首次生成与编辑重叠被输入快照检查拒绝，无输出覆盖，固定输入重试后成功。
+- B5复核/限制：单代理核对契约、Net→Engine→FFI→Dart正式/Mock及UI链路；连接测试只看响应头，不下载正文，网络错误只展示分类，非法URL改由Rust判断并显示失败状态。无独立子代理审查，未做真实WebDAV账号、设备或Dart加载新原生库验证；不宣称远端写权限/平台验收。代码与定向验证完成，本批本地提交，不推送、不触发CI、不安装应用。
+- 验证：仅运行各批直接受影响的用例，证据和提交在本条逐批回填；无独立代理审查或设备验证不宣称已通过。
+
+编写者：Codex + Rust｜2026-10-23
+
+### RUST-BOUNDARY-AUDIT-20261023：Rust重复功能与Flutter下沉边界审计（P2，静态审计已交付）
+
+- 授权：用户要求核对并移除无分叉的dep-audit工作树，另建worktree检查Rust重复功能和Flutter可下沉逻辑；排除音频跳过规则、书籍状态修改、导出格式与解析清洗。
+- 基线：dev / 60ab08857，新建feature/rust-boundary-audit及build/worktrees/rust-boundary-audit；旧工作树干净，dev...chore/dep-audit为106/0，无独有提交，普通移除且保留分支引用。主目录未提交内容保持。
+- 证据：[专题审计](RUST_DEDUP_FLUTTER_BOUNDARY_AUDIT_20261023.md)记录Rust四组复用机会、两组旧实现候选及Flutter六项边界建议，区分真实重复、现有委托和不同职责。搜索聚合当前仅有Rust算法/夹具入口，未误报已接入正式Flutter链路。
+- 边界：单代理静态阅读与生产调用追踪，不修改生产代码、契约、DB、依赖或版本；未跑测试、构建、性能或设备验证，不宣称运行时缺陷复现或性能收益。这里只关闭审计交付，实施与删除候选尚未授权。
+
+编写者：Codex + Rust / UI｜2026-10-23
 ### BOOKMARK-EXPORT-20261023：书签导出职责收敛（P2，代码及定向验证完成）
 
 - 授权/基线：用户同意开始下一批书签导出，dev / d3a266775；按用户明确不必子代理独立审查的要求单代理复核，定向验证后本地提交，不创建分支、不推送CI或安装，版本保持2.0.439+440。保护未跟踪审计报告。

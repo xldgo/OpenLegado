@@ -272,3 +272,30 @@ class WebDavFileDto {
           etag == other.etag &&
           isDir == other.isDir;
 }
+
+class WebDavProbeResultDto {
+  final WebDavProbeStatusDto status;
+  final int? statusCode;
+
+  const WebDavProbeResultDto({required this.status, this.statusCode});
+
+  @override
+  int get hashCode => status.hashCode ^ statusCode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavProbeResultDto &&
+          runtimeType == other.runtimeType &&
+          status == other.status &&
+          statusCode == other.statusCode;
+}
+
+enum WebDavProbeStatusDto {
+  success,
+  authenticationFailed,
+  httpFailed,
+  timedOut,
+  networkFailed,
+  invalidUrl,
+}

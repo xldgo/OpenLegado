@@ -1,7 +1,5 @@
 import '../../../app/routing/app_navigation.dart';
 
-import 'dart:convert';
-
 import '../../../providers/backup_provider.dart';
 import '../../../providers/restored_settings_provider.dart';
 import '../../../l10n/app_localization.dart';
@@ -11,7 +9,6 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:http/http.dart' as http;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../widgets/app_scaffold.dart';
@@ -21,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../constants/pref_keys.dart';
 import '../../../domain/models/restore_ignore_config.dart';
+import '../../../domain/models/webdav_probe_result.dart';
 import '../../../l10n/app_strings.dart';
 import '../../../providers/providers.dart';
 import '../../../providers/sync/sync_notifier.dart';
@@ -354,75 +352,41 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
 
   // ===== 测试配置（差异清单 C7：参考版有「测试配置」行，我方新增） =====
 
-  /// 对当前已填写的 WebDAV 配置发起一次连通性探测（纯客户端行为，不落库）
-  ///
-  /// 判定：PROPFIND（Depth: 0）+ 已填账号密码 Basic Auth，5 秒超时；
-  /// 200/207 → 成功；401/403 → 认证失败；其他非 2xx/异常/超时 → 失败。
-  /// 测试期间该行禁用防重入；结果以 SnackBar 呈现并更新行尾状态。
-  /// — full-stack-engineer + UI ｜ 2026-09-10
+  /// 使用当前连接快照进行只读测试，不触发配置保存。— Codex + UI
   Future<void> _testWebDavConnection() async {
     if (_testStatus == _WebDavTestStatus.testing) return;
     final messenger = ScaffoldMessenger.of(context);
-    final url = _url.trim();
-    if (url.isEmpty) {
+    final connection = ref.read(syncNotifierProvider.notifier).connection;
+    if (connection.url.trim().isEmpty) {
       messenger.showSnackBar(const SnackBar(content: Text('请先填写服务器地址')));
-      return;
-    }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('服务器地址需要以 http(s):// 开头')),
-      );
       return;
     }
 
     setState(() => _testStatus = _WebDavTestStatus.testing);
-    final client = http.Client();
     try {
-      final request = http.Request('PROPFIND', Uri.parse(url));
-      // Basic Auth 使用已填账号/密码（均为空时不带 Authorization 头，避免误触发 401）
-      if (_user.isNotEmpty || _pass.isNotEmpty) {
-        request.headers['Authorization'] =
-            'Basic '
-            '${base64Encode(utf8.encode('$_user:$_pass'))}';
-      }
-      request.headers['Depth'] = '0';
-      final streamed = await client
-          .send(request)
-          .timeout(const Duration(seconds: 5));
-      final response = await http.Response.fromStream(streamed);
-      // 探测期间已离开页面则不再更新 UI（client 由 finally 关闭）
+      final result = await ref
+          .read(webDavServiceProvider)
+          .webdavProbe(connection);
       if (!mounted) return;
-      final code = response.statusCode;
-      final ok = code == 200 || code == 207;
       setState(() {
-        _testStatus = ok ? _WebDavTestStatus.success : _WebDavTestStatus.failed;
+        _testStatus = result.status == WebDavProbeStatus.success
+            ? _WebDavTestStatus.success
+            : _WebDavTestStatus.failed;
       });
-      if (ok) {
-        messenger.showSnackBar(const SnackBar(content: Text('连接成功')));
-      } else if (code == 401 || code == 403) {
-        messenger.showSnackBar(const SnackBar(content: Text('认证失败，请检查账号/密码')));
-      } else {
-        messenger.showSnackBar(SnackBar(content: Text('连接失败（HTTP $code）')));
-      }
-    } on TimeoutException {
+      final message = switch (result.status) {
+        WebDavProbeStatus.success => '连接成功',
+        WebDavProbeStatus.authenticationFailed => '认证失败，请检查账号/密码',
+        WebDavProbeStatus.httpFailed => '连接失败（HTTP ${result.statusCode}）',
+        WebDavProbeStatus.timedOut => '连接超时（5 秒内未响应）',
+        WebDavProbeStatus.networkFailed => '连接失败，请检查网络、服务器地址或证书',
+        WebDavProbeStatus.invalidUrl => '服务器地址无效，请填写完整的 http(s):// 地址',
+      };
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
       if (!mounted) return;
       setState(() => _testStatus = _WebDavTestStatus.failed);
-      messenger.showSnackBar(const SnackBar(content: Text('连接超时（5 秒内未响应）')));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _testStatus = _WebDavTestStatus.failed);
-      messenger.showSnackBar(
-        SnackBar(content: Text('连接失败：${_summarizeProbeError(e)}')),
-      );
-    } finally {
-      client.close();
+      messenger.showSnackBar(const SnackBar(content: Text('连接测试失败，请重试')));
     }
-  }
-
-  /// 探测失败原因摘要（限 40 字符，防 SnackBar 溢出）
-  String _summarizeProbeError(Object e) {
-    final raw = e.toString().split('\n').first;
-    return raw.length > 40 ? '${raw.substring(0, 40)}…' : raw;
   }
 
   /// 「测试配置」行尾状态标签
@@ -551,7 +515,7 @@ class _WebDavSettingsScreenState extends ConsumerState<WebDavSettingsScreen> {
                   onTap: null,
                   enabled: false,
                 ),
-                // 差异清单 C7：参考版有「测试配置」行 → 连通性+认证探测（纯客户端）
+                // 差异清单 C7：参考版有「测试配置」行 → 连通性+认证探测（只读服务）
                 SettingTile(
                   title: context.l10n.webdavTestConfig,
                   subtitle: '连接测试服务器地址与账号',

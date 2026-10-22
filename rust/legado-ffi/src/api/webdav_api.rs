@@ -47,6 +47,12 @@ pub struct SyncOptions {
     pub max_retry_delay_ms: u64,
 }
 
+pub fn webdav_probe(config_json: &str) -> LegadoResult<legado_net::webdav::WebDavProbeResult> {
+    let config: WebDavConfig = serde_json::from_str(config_json)
+        .map_err(|e| legado_core::LegadoError::Internal(format!("WebDAV 配置解析失败: {e}")))?;
+    Ok(host_service()?.webdav_probe(config))
+}
+
 pub fn webdav_list_dir(
     config_json: &str,
     path: &str,
