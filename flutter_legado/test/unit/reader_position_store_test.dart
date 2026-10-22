@@ -1,8 +1,9 @@
+import 'package:flutter_legado/src/domain/models/reader_source_anchor.dart';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/services/reader_position_store.dart';
+import 'package:flutter_legado/src/data/repositories/reader_position_store.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));

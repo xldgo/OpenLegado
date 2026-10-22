@@ -12,6 +12,8 @@
 正文测量/编排、选区与翻页分别归features/reader/layout、selection、turn，
 阅读私有控件及开书转场归widgets/navigation；朗读速度/定时/悬浮条及其转场归read_aloud/widgets。
 旧widgets/reader不留转发壳；具体文件映射以Git重命名记录为准，不在文档维护第二份清单。
+ReaderSourceAnchor属于domain/models，ReaderPositionStore的偏好读写属于data/repositories；
+阅读会话消费两者，存储键与UTF-16锚点编码不因目录拆分改变。
 
 后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
 [设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，

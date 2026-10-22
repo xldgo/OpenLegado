@@ -1,3 +1,4 @@
+import 'package:flutter_legado/src/domain/models/reader_source_anchor.dart';
 import '../../../utils/error_message.dart';
 import '../../../data/services/chapter_content_service.dart';
 import '../../../domain/contracts/bookshelf_repository.dart';
@@ -6,7 +7,7 @@ import '../../../domain/contracts/read_record_repository.dart';
 import '../../../domain/contracts/read_record_settings_repository.dart';
 import '../../../models/models.dart';
 import 'reader_state.dart';
-import '../../../services/reader_position_store.dart';
+import '../../../data/repositories/reader_position_store.dart';
 import 'reader_session_host.dart';
 
 /// 阅读会话编排；状态只由宿主持有，仓储与服务显式注入。— Codex + UI

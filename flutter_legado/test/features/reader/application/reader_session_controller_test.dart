@@ -11,7 +11,7 @@ import 'package:flutter_legado/src/features/reader/application/reader_session_co
 import 'package:flutter_legado/src/features/reader/application/reader_session_host.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_state.dart';
-import 'package:flutter_legado/src/services/reader_position_store.dart';
+import 'package:flutter_legado/src/data/repositories/reader_position_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';

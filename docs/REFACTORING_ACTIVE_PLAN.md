@@ -8,6 +8,7 @@
 - F1：8个组件迁入所属feature/widgets，11处调用/测试引用同步；其余相对路径差异已撤回。六文件40项既有行为回归通过，定向分析无问题，diff复核通过；证据flutter_legado/build/feature-f1-{analysis,tests}.log。受限环境Flutter启动未进入Dart，结束后使用现有本机SDK完成验证；未修改SDK、依赖或全局配置。规划与文档索引随本步提交。
 - F2：4个视频控件迁入features/video/widgets，视频页、其他设置页及7份测试引用同步；52项既有回归通过，受影响范围分析无问题，diff检查通过，证据flutter_legado/build/feature-f2-{analysis,tests}.log。视频设置仍可从其他设置打开，浮窗、弹幕与倍速语义不变。
 - F3：48个阅读/朗读专属文件归位，旧widgets/reader与paragraph_layout_engine入口移除；逐文件比对确认非Dart指令内容不变，生产、测试、profile工具及CI路径夹具同步。7份非原生用例58项、CI改动分类33项通过，定向分析无问题；证据flutter_legado/build/feature-f3-{analysis,tests}.log及build/feature-f3-ci-paths.log。未运行native组或重编原生库，不将路径迁移回归解释为真实FFI验收。
+- F4：契约先记录Dart内部归属调整且FRB/存储格式不变；ReaderSourceAnchor归domain/models，ReaderPositionStore归data/repositories，生产及测试分别引用模型/存储。18项既有存储和阅读会话回归通过，六文件分析无问题，diff检查通过；证据flutter_legado/build/feature-f4-{analysis,tests}.log。原存储键、UTF-16坐标及异常处理不变，无兼容读取、数据清洗或新接口。
 
 编写者：Codex + UI / Bridge｜2026-10-22
 

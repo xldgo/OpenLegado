@@ -1,5 +1,13 @@
 # API 契约文档
 
+### FEATURE-OWNERSHIP-20261022：阅读内部数据职责归位（实施前冻结）
+
+- 仅调整Dart内部目录与依赖：ReaderSourceAnchor模型归domain，ReaderPositionStore偏好读写归data；原键reader_source_anchor_v2、version=2、coordinate=utf16、字段名及恢复/拒绝规则不变，不增加迁移或清洗。
+- 后续布局传输接口、只读返回数据与串行会话归domain，原生句柄及FRB映射归data，InheritedWidget注入归reader，原生实现从应用装配提供。会话取消、顺序、失败释放、诊断及既有默认原生路径不变，不新增Dart算法回退。
+- readerLayoutBegin及opaque句柄push/finish/cancel的FRB签名、载荷与错误、数据库、生成绑定和方法计数全部不变；不运行codegen。只读数据仍使用同一缓冲和字形簇/UTF-16索引规则，不新增复制或序列化。
+
+编写者：Codex + UI / Bridge｜2026-10-22
+
 ### SOURCE-JS-DETAIL-20261022：详情结果增量合并（第三批，实施前冻结）
 
 - 对照原版363540972的JsSourceMarshaller.mergeBookInfo：返回对象仅覆盖允许的非null字段；缺省/null保留既有值。name仅在允许重命名时更新；author在允许重命名或原作者为空时更新。书籍身份、进度、自定义字段不从脚本返回对象覆盖。
