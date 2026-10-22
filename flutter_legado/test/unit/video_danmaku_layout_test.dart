@@ -13,7 +13,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/widgets/video_danmaku_layer.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_danmaku_layer.dart';
 
 VideoDanmakuItem _item(
   int type, {

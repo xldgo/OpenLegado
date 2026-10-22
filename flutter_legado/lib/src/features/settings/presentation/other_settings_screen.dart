@@ -30,7 +30,7 @@ import '../../book_sources/application/source_check/check_source_notifier.dart';
 import '../../../services/crash_log_service.dart';
 import '../../../services/settings_service.dart';
 import '../../../widgets/settings_widgets.dart';
-import '../../../widgets/video_settings_dialog.dart';
+import '../../video/widgets/video_settings_dialog.dart';
 
 /// 其他设置页面（对齐原版 OtherConfigFragment）
 ///

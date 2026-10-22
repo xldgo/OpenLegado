@@ -18,10 +18,10 @@ import 'package:video_player/video_player.dart';
 import '../../../models/models.dart';
 import '../../../services/video_float_window.dart';
 import '../../../widgets/app_progress_indicator.dart';
-import '../../../widgets/video_danmaku_layer.dart';
-import '../../../widgets/video_float_window_button.dart';
-import '../../../widgets/video_long_press_speed.dart';
-import '../../../widgets/video_settings_dialog.dart';
+import '../widgets/video_danmaku_layer.dart';
+import '../widgets/video_float_window_button.dart';
+import '../widgets/video_long_press_speed.dart';
+import '../widgets/video_settings_dialog.dart';
 
 class VideoScreen extends ConsumerStatefulWidget {
   /// 视频播放地址

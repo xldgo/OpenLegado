@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/video_float_window_button.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_float_window_button.dart';
 
 /// [V-B3] 悬浮窗入口按钮 widget 测试
 /// （对齐原版 menu_float_window「悬浮窗」视频页动作；解析出地址前禁用）。

@@ -16,7 +16,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/widgets/video_settings_dialog.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_settings_dialog.dart';
 
 List<VideoEpisodeItem> _defaultEpisodes() => List.generate(
   5,

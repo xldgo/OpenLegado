@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 
-import '../models/models.dart';
+import '../../../models/models.dart';
 
 /// 弹幕类型常量（B 站协议 / DanmakuFlameMaster 0.9.25 映射）
 ///

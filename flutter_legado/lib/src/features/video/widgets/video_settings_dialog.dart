@@ -1,8 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../features/video/application/video_play_settings.dart';
+import '../application/video_play_settings.dart';
 
-import 'app_progress_indicator.dart';
+import '../../../widgets/app_progress_indicator.dart';
 
 /// 视频设置 Dialog（对标原版 SettingsDialog）
 Future<VideoPlaySettings?> showVideoSettingsDialog(BuildContext context) {

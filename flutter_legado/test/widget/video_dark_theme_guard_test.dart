@@ -19,7 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/theme/app_theme.dart';
-import 'package:flutter_legado/src/widgets/video_settings_dialog.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_settings_dialog.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

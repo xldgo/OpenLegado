@@ -14,9 +14,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/models/video_danmaku_item.dart';
 import 'package:flutter_legado/src/utils/video_play_utils.dart';
-import 'package:flutter_legado/src/widgets/video_danmaku_layer.dart';
-import 'package:flutter_legado/src/widgets/video_long_press_speed.dart';
-import 'package:flutter_legado/src/widgets/video_settings_dialog.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_danmaku_layer.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_long_press_speed.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_settings_dialog.dart';
 
 const Key _areaKey = Key('long-press-area');
 

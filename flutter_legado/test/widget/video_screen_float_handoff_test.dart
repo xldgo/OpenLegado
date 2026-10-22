@@ -26,7 +26,7 @@ import '../fixtures/app_test_api.dart';
 import 'package:flutter_legado/src/data/services/mock_video_danmaku_service.dart';
 import 'package:flutter_legado/src/services/video_float_window.dart';
 import 'package:flutter_legado/src/data/repositories/config_video_progress_repository.dart';
-import 'package:flutter_legado/src/widgets/video_float_window_button.dart';
+import 'package:flutter_legado/src/features/video/widgets/video_float_window_button.dart';
 
 /// 假悬浮窗桥：记录 show / requestOverlayPermission 调用，可注入失败错误码。
 class _FakeFloatBridge extends VideoFloatWindowBridge {
