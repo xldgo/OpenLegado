@@ -109,28 +109,17 @@ impl CloudTtsProvider for MimoCloudTtsProvider {
         }
         let text = std::str::from_utf8(&bytes).map_err(|_| invalid("MiMo SSE 响应编码无效"))?;
         let mut pcm = Vec::new();
-        let mut data = Vec::new();
-        let mut event_error = false;
         let mut complete = false;
-        for line in text.lines().chain(std::iter::once("")) {
-            if line.is_empty() {
-                if event_error {
-                    return Err(invalid("MiMo 返回错误事件，未生成音频"));
+        for frame in sse::frames(text) {
+            if frame.event.trim() == "error" {
+                return Err(invalid("MiMo 返回错误事件，未生成音频"));
+            }
+            if let Some(payload) = frame.data {
+                if payload.trim() == "[DONE]" {
+                    complete = true;
+                    break;
                 }
-                if !data.is_empty() {
-                    let payload = data.join("\n");
-                    data.clear();
-                    if payload.trim() == "[DONE]" {
-                        complete = true;
-                        break;
-                    }
-                    complete |= decode_event(&payload, &mut pcm)?;
-                }
-                event_error = false;
-            } else if let Some(value) = line.strip_prefix("data:") {
-                data.push(value.strip_prefix(' ').unwrap_or(value));
-            } else if let Some(value) = line.strip_prefix("event:") {
-                event_error = value.trim() == "error";
+                complete |= decode_event(&payload, &mut pcm)?;
             }
         }
         if !complete {
@@ -322,6 +311,7 @@ mod tests {
     fn invalid_or_partial_events_cannot_create_audio() {
         for body in [
             stream(""),
+            stream("data: [DONE]\n"),
             stream("data: {\"error\":{\"message\":\"fixture-private\"}}\n\n"),
             stream("data: broken\n\n"),
             stream("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\n"),

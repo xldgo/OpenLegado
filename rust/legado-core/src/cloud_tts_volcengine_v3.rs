@@ -125,21 +125,12 @@ impl CloudTtsProvider for VolcengineV3CloudTtsProvider {
     }
     fn decode_response(&self, format: &str, bytes: Vec<u8>) -> LegadoResult<DecodedCloudSpeech> {
         let stream = std::str::from_utf8(&bytes).map_err(|_| invalid("火山 V3 SSE 编码无效"))?;
-        let (mut event, mut data) = (String::new(), Vec::new());
         let (mut audio, mut complete) = (Vec::new(), false);
-        for line in stream.lines().chain(std::iter::once("")) {
-            if line.is_empty() {
-                if !data.is_empty() {
-                    decode_event(&event, &data.join("\n"), &mut audio, &mut complete)?;
-                } else if matches!(event.as_str(), "151" | "153" | "error") {
-                    return Err(invalid("火山 V3 返回取消或错误事件"));
-                }
-                event.clear();
-                data.clear();
-            } else if let Some(value) = line.strip_prefix("data:") {
-                data.push(value.strip_prefix(' ').unwrap_or(value));
-            } else if let Some(value) = line.strip_prefix("event:") {
-                event = value.trim().into();
+        for frame in sse::frames(stream) {
+            if let Some(payload) = frame.data {
+                decode_event(frame.event.trim(), &payload, &mut audio, &mut complete)?;
+            } else if matches!(frame.event.trim(), "151" | "153" | "error") {
+                return Err(invalid("火山 V3 返回取消或错误事件"));
             }
         }
         if !complete {
@@ -317,6 +308,7 @@ mod tests {
         let data = frame("352", 0, b"ID3fixture");
         for value in [
             data.clone(),
+            data.clone() + frame("152", 0, &[]).trim_end(),
             data.clone() + "data: [DONE]\n\n",
             data.clone() + &frame("153", 0, &[]),
             data.clone() + &frame("151", 0, &[]),
