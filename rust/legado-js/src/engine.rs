@@ -4,6 +4,19 @@
 
 use legado_core::LegadoResult;
 
+#[cfg(feature = "quickjs")]
+mod source_call;
+use crate::source_engine::CallResult;
+
+/// 一次主脚本调用的不可变输入，不捕获拥有VM缓存的根资源。
+pub struct SourceCall<'a> {
+    pub setup: &'a str,
+    pub main_js: &'a str,
+    pub name: &'a str,
+    pub args: &'a [(&'a str, JsValue)],
+    pub optional: bool,
+}
+
 /// 接收字符串并返回字符串或错误的宿主回调。
 #[cfg(feature = "quickjs")]
 pub type StringCallback = std::sync::Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>;
@@ -161,6 +174,16 @@ impl CompiledScript {
 ///
 /// 所有 JS 引擎实现（QuickJS / 占位引擎）必须实现此 trait。
 pub trait JsEngine: Send + Sync {
+    /// 完整主脚本调用必须保留结果类型与调用作用域，不能经通用字符串eval降级。
+    fn call_source(
+        &self,
+        _call: &SourceCall<'_>,
+        _variables: Option<&crate::variables::VariableScope>,
+    ) -> LegadoResult<CallResult> {
+        Err(legado_core::LegadoError::JsEngine(
+            "该引擎不支持独立主脚本调用".into(),
+        ))
+    }
     /// 执行 JS 代码，返回结果字符串
     fn eval(&self, code: &str) -> LegadoResult<String>;
 
@@ -322,7 +345,7 @@ mod quickjs_engine {
             JsValue::Null => Ok(rquickjs::Value::new_null(ctx.clone())),
             JsValue::Undefined => Ok(rquickjs::Value::new_undefined(ctx.clone())),
             JsValue::Bool(b) => Ok(rquickjs::Value::new_bool(ctx.clone(), *b)),
-            JsValue::Int(i) => Ok(rquickjs::Value::new_int(ctx.clone(), *i as i32)),
+            JsValue::Int(i) => Ok(rquickjs::Value::new_number(ctx.clone(), *i as f64)),
             JsValue::Number(f) => Ok(rquickjs::Value::new_float(ctx.clone(), *f)),
             JsValue::String(s) => {
                 let js_str = rquickjs::String::from_str(ctx.clone(), s.as_str())
@@ -382,6 +405,7 @@ mod quickjs_engine {
         variables: crate::host_api::variable_bindings::BoundVariables,
         http: Arc<crate::http_resources::HttpResources>,
         cancellation: Option<Arc<dyn crate::cancellation::JsCancellation>>,
+        source_call_lock: std::sync::Mutex<()>,
     }
 
     // rquickjs 的 parallel 特性已让字段支持跨线程，Send/Sync 由编译器自动推导。
@@ -478,6 +502,7 @@ mod quickjs_engine {
             })?;
 
             Ok(Self {
+                source_call_lock: std::sync::Mutex::new(()),
                 cancellation: None,
                 http,
                 runtime,
@@ -590,11 +615,18 @@ mod quickjs_engine {
         }
 
         /// 向全局对象注入绑定变量
-        fn inject_bindings<'js>(
+        pub(crate) fn inject_bindings<'js>(
             ctx: &rquickjs::Ctx<'js>,
             bindings: &[(&str, JsValue)],
         ) -> Result<(), LegadoError> {
-            let globals = ctx.globals();
+            Self::inject_object_bindings(ctx, &ctx.globals(), bindings)
+        }
+
+        pub(crate) fn inject_object_bindings<'js>(
+            ctx: &rquickjs::Ctx<'js>,
+            globals: &rquickjs::Object<'js>,
+            bindings: &[(&str, JsValue)],
+        ) -> Result<(), LegadoError> {
             for (name, value) in bindings {
                 let v = rquickjs_value_from_js(ctx, value)?;
                 globals
@@ -602,6 +634,84 @@ mod quickjs_engine {
                     .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
             }
             Ok(())
+        }
+
+        /// 主脚本结果在仍有JS类型时归一化，字符串字面量不承担空值标记。
+        pub(crate) fn source_result<'js>(
+            ctx: &rquickjs::Ctx<'js>,
+            value: &rquickjs::Value<'js>,
+        ) -> LegadoResult<Option<String>> {
+            if value.is_null() || value.is_undefined() {
+                return Ok(None);
+            }
+            if let Some(text) = value.as_string() {
+                return text
+                    .to_string()
+                    .map(Some)
+                    .map_err(|e| LegadoError::JsEngine(format!("读取JS字符串失败: {e}")));
+            }
+            if let Some(value) = value.as_bool() {
+                return Ok(Some(value.to_string()));
+            }
+            if let Some(value) = value.as_int() {
+                return Ok(Some(value.to_string()));
+            }
+            if let Some(value) = value.as_float() {
+                return Ok(Some(value.to_string()));
+            }
+            let serialized = ctx
+                .json_stringify(value.clone())
+                .map_err(|_| LegadoError::JsEngine(Self::take_exception_message(ctx)))?;
+            let value = serialized
+                .map(|value| value.to_string())
+                .transpose()
+                .map_err(|e| LegadoError::JsEngine(format!("读取JS序列化结果失败: {e}")))?;
+            crate::cancellation::check()?;
+            Ok(value)
+        }
+
+        pub fn call_source_scoped(
+            &self,
+            call: &super::SourceCall<'_>,
+            variables: Option<&crate::variables::VariableScope>,
+        ) -> LegadoResult<super::CallResult> {
+            let _execution = crate::cancellation::Scope::enter(self.cancellation.clone());
+            crate::cancellation::check()?;
+            let _serial = crate::cancellation::lock(&self.source_call_lock)?;
+            let result = self.context.with(|ctx| -> LegadoResult<_> {
+                self.reset_deadline();
+                let _binding = variables.map(|scope| self.variables.bind(scope));
+                const STATE: &str = "__legadoMainJsSharedState";
+                let shared = ctx.globals();
+                let record: rquickjs::Object = if shared
+                    .contains_key(STATE)
+                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?
+                {
+                    shared
+                        .get(STATE)
+                        .map_err(|e| LegadoError::JsEngine(e.to_string()))?
+                } else {
+                    let factory: rquickjs::Function =
+                        ctx.eval(super::source_call::STATE_FACTORY)
+                            .map_err(|_| LegadoError::JsEngine(self.exception_message(&ctx)))?;
+                    let record: rquickjs::Object = factory
+                        .call((shared.clone(),))
+                        .map_err(|_| LegadoError::JsEngine(self.exception_message(&ctx)))?;
+                    shared
+                        .prop(STATE, rquickjs::object::Property::from(record.clone()))
+                        .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+                    record
+                };
+                let state: rquickjs::Object = record
+                    .get("state")
+                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+                let originals: rquickjs::Object = record
+                    .get("originals")
+                    .map_err(|e| LegadoError::JsEngine(e.to_string()))?;
+                super::source_call::run(&ctx, shared, state, originals, call)
+            });
+            crate::cancellation::check()?;
+            result
         }
 
         /// 将 eval 结果转换为字符串
@@ -776,7 +886,50 @@ mod quickjs_engine {
         }
     }
 
+    #[cfg(test)]
+    mod source_call_lifetime_tests {
+        use super::*;
+
+        /// 临时作用域必须可回收，不能随每次书源调用常驻。
+        #[test]
+        fn repeated_source_calls_release_temporary_scopes() {
+            let engine = QuickJsEngine::new(SandboxConfig::permissive()).unwrap();
+            engine
+                .eval("function libraryRead(){return this.book.name;}")
+                .unwrap();
+            let args = [(
+                "book",
+                JsValue::from_json(serde_json::json!({"name":"书籍"})).unwrap(),
+            )];
+            let call = super::super::SourceCall {
+                setup: "",
+                main_js: "const state={value:libraryRead()}; function read(){return state.value;}",
+                name: "read",
+                args: &args,
+                optional: false,
+            };
+            engine.call_source_scoped(&call, None).unwrap();
+            engine.runtime.run_gc();
+            let baseline = engine.runtime.memory_usage();
+            for _ in 0..32 {
+                let result = engine.call_source_scoped(&call, None).unwrap();
+                assert_eq!(result.value.as_deref(), Some("书籍"));
+            }
+            engine.runtime.run_gc();
+            let after = engine.runtime.memory_usage();
+            assert_eq!(after.obj_count, baseline.obj_count);
+            assert_eq!(after.js_func_count, baseline.js_func_count);
+        }
+    }
+
     impl JsEngine for QuickJsEngine {
+        fn call_source(
+            &self,
+            call: &super::SourceCall<'_>,
+            variables: Option<&crate::variables::VariableScope>,
+        ) -> LegadoResult<super::CallResult> {
+            self.call_source_scoped(call, variables)
+        }
         fn eval(&self, code: &str) -> LegadoResult<String> {
             self.eval_internal(code, &[], None)
         }

@@ -307,3 +307,42 @@ cargo test --locked -p legado-js --features quickjs --test network_parity batch_
 当前版本保持2.0.439+440，只补用户可见更新日志；没有运行全量测试、应用/native产物重建、真实站点、设备或CI。未使用子代理，只做单代理复核，不宣称独立审查。mainJs完整VM缓存/调用作用域、字符串返回与序列化错误、详情字段合并、jsLib URL映射及并发API仍按前文后续建议处理，不以本批通过宣称完整对齐。
 
 编写者：Codex + Rust / Bridge｜2026-10-22
+
+## 11. 第二批调用作用域与类型化返回证据
+
+基线`dev / f2e22f071`，先冻结`SOURCE-JS-SCOPE-20261022`内部契约。本批修复选定mainJs路径的JS-02/JS-03，不修改FFI、DTO、数据库、依赖或应用版本。对照原版`JsSourceEngine.buildScope`、`modules/rhino/ScriptBindings`及`JsEngineCapabilitiesTest.sharedLibraryFunctionUsesCallerBindingsAsDefaultThis`，不把重复求值次数当作行为验收。
+
+### 最终实现
+
+- mainJs每次在独立函数词法作用域执行，构造阶段只装配宿主与共享库。保留同一QuickJS Context/Runtime和jsLib词法环境，不重建整个VM，不清空Cookie/变量来制造隔离。普通var/let/const与函数声明按次初始化，显式globalThis/global及库状态保留在来源缓存层，普通变量与共享变量即使同名也不混用。
+- 每次装配source/sourceApi、java、cache等及对象参数；预置属性作为调用参数，避免函数var提升破坏“先读取宿主source、再声明脚本source”。库函数调用期间借用当前绑定，正常返回、异常和取消都恢复父层属性描述，不把旧流程和任务能力留在库缓存。共享库const导出、函数身份和显式`.call(customThis)`一并验证。
+- 真正null/undefined返回None；空串、空白以及字符串`"null"`/`"undefined"`原样保留。对象在有效调用环境内序列化，循环引用、getter/toJSON异常原样上抛，执行及序列化共用一次超时/取消预算。业务层原有正文空值校验保持，声明式通用字符串接口不借机改写。
+- 递归对象绑定复验发现既有i64先转i32使时间戳1792486038190变为1484675758，已修为JS Number；不承诺超过JS安全整数范围的精度，不增加BigInt协议。
+- 移除mainJs_loaded、只存源码的旧脚本缓存及3项机械计数测试，以真实重复调用、来源共享状态、当前Cookie和当前参数验证替代。现有泛用编译接口仍只是源码容器，不能声称有字节码缓存收益。
+
+### 实现边界复核
+
+初版独立Context方案暴露共享库const不可见，已由同一上下文内的独立词法环境替代；函数代理缓存方案在32次调用后仍累积对象，最终实现删除该缓存。共享状态视图使用普通对象访问器，不在全局原型链放置Proxy，避免未定义标识符变成undefined、吞掉ReferenceError。以上为实施过程中已纠正的问题，不作为最终实现仍需回避的限制。
+
+保留一个实际回收用例：预热后记录QuickJS对象/函数数，重复32次带库函数和对象参数的调用，GC后两项计数与基线一致。它验证选定路径的临时对象回收，不代表测过进程RSS、耗时或所有逃逸对象。取消用例另外验证任务弱引用可释放，并确认下一次调用既不读旧参数，也不误清显式共享状态。
+
+### 定向验证
+
+在`rust/`运行现有Cargo入口，`--lib`按模块过滤，集成测试按测试文件或单一用例过滤：
+
+| 范围 | 结果 | 日志（build/下） |
+| --- | --- | --- |
+| upstream_js_source | 20通过，无ignore；字符串类型、同名共享变量、库上下文、序列化错误/超时与原上游流程 | source-js-scope-upstream.log |
+| 临时作用域回收 | 1通过，32次调用后对象/函数数恢复 | source-js-scope-lifetime.log |
+| source_engine::tests | 4通过，当前Cookie/参数及流程能力 | source-js-scope-engine.log |
+| js_source_book::tests | 14通过，Mock显式返回类型化结果，只验证业务编排 | source-js-scope-book.log |
+| jslib_failure_visible | 7通过，不改变现有加载失败策略 | source-js-scope-jslib.log |
+| fetcher main_js_context | 2通过，包含source覆盖与配置变化、正式对象调用 | source-js-scope-context.log |
+| engine source_login_js / review_service | 6 / 4通过，登录与段评调用方 | source-js-scope-login.log、source-js-scope-review.log |
+| 序列化取消 / 实际搜索取消 | 各1通过，覆盖取消后的任务释放及下一次调用 | source-js-scope-cancel.log、source-js-scope-cancel-search.log |
+
+合计60个独立定向用例通过，不把实施中复跑次数重复计入。带QuickJS的`cargo clippy --locked -p legado-js -p legado-fetcher --features quickjs --lib -- -D warnings`及两crate无QuickJS的默认库编译通过，日志`source-js-scope-clippy.log`、`source-js-scope-default-check.log`；改动文件rustfmt/diff检查通过。
+
+版本保持2.0.439+440，仅更新双日志；没有运行全量测试、真实站点、FFI/native打包、模拟器、iOS、性能测试或CI，也未推送。单代理复核，不宣称独立审查。旧MCP文本归一化入口按用户暂缓范围保留；详情字段增量合并、宿主并发与库加载策略仍待后续批次，本批不承诺完整复刻Rhino的动态eval/默认this语言扩展或所有书源兼容。
+
+编写者：Codex + Rust / Bridge｜2026-10-22

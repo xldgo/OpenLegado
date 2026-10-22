@@ -1,5 +1,18 @@
 # API 契约文档
 
+### SOURCE-JS-SCOPE-20261022：主脚本调用作用域与结果（第二批，实施前冻结）
+
+- FFI/DTO/方法计数/数据库不变，内部调用返回明确的exists与Option<String>，不再按字符串内容判空。
+- 对照原版JsSourceEngine.buildScope及modules/rhino/ScriptBindings：普通顶层var/let/const、声明函数和注入参数属于本次调用；每次建立独立词法作用域并执行mainJs。复用QuickJS Context、Runtime、宿主资源与jsLib共享层，使库的const/let导出仍可访问；不在构造阶段执行mainJs，不通过清空Cookie/变量来实现隔离。
+- 显式globalThis/global与jsLib对象属于同书源缓存层，保留其跨调用状态；不把普通声明混入该层。调用期间将当前绑定借给共享库，返回、错误或取消后解除，不长期保留调用作用域。独立JsResources继续隔离，同资源的流程能力每次绑定。
+- 真正的JS null/undefined返回None；字符串（包括空串、空白、"null"、"undefined"）原样Some，数字/布尔沿既有文本表示；对象/数组用当前调用环境执行JSON序列化。循环引用、自定义getter/toJSON错误及超时/取消必须上抛，不伪造"null"。不在本批改变声明式规则通用字符串接口或正文业务层已有trim策略。
+- 可选判断、主脚本执行、函数调用与结果序列化使用同一调用作用域及一次执行预算；库缓存不保留首个流程。取消/异常后下一次调用使用新作用域，缓存资源和外部显式状态不被误清空。
+- 移除只用于旧主脚本求值标记的内部API/测试，不增加兼容分支；现有公共Rust消费者同步调整。主脚本编译缓存如仍只保存源码，不能宣称已有字节码缓存或性能收益。
+- 不扩展详情合并、并发API、jsLib下载策略或新平台能力，版本保持。
+- 对象绑定复验确认既有JsValue::Int注入会先强转i32，时间戳等大整数截断；本批修正为JS Number，沿用JS安全整数精度范围，不新增BigInt协议。
+
+编写者：Codex + Rust / Bridge｜2026-10-22
+
 ### SOURCE-JS-CALL-20261022：主脚本调用边界修复（第一批，实施前冻结）
 
 - FFI签名、DTO、方法计数及数据库不变。本批修正Rust内部mainJs执行协议，参考原版363540972的JsSourceEngine/JsSourceBook。

@@ -1,5 +1,18 @@
 # Legado 后续重构执行计划（Active）
 
+### SOURCE-JS-SCOPE-20261022：调用作用域与返回值（P1，代码及定向验证完成，待实际书源验收）
+
+- 授权/基线：用户要求继续第2批；dev / f2e22f071，单代理。先冻结同名内部契约，保留资源和jsLib缓存，普通声明隔离，显式globalThis状态按原版ScriptBindings保留。
+- 范围：mainJs每次在独立词法作用域执行，复用共享库所在Context以保留库的const/let导出；取消与变量能力覆盖执行和序列化；真实空值与字符串分开，序列化失败上抛。删除旧mainJs求值标记和机械计数测试，以实际调用场景替代。
+- 非目标：FFI、数据库、依赖、版本、详情合并、并发和jsLib加载策略；只跑定向JS及必要调用方回归，不推送/CI/设备构建，不使用子代理。
+- 实现：mainJs从构造期移至每次独立词法作用域，复用原Context及共享库，保留库的const/let和原型扩展。普通声明不跨调用，显式globalThis/global独立保留；临时宿主绑定退出后恢复。预置上下文作为参数，保留“先读宿主source、再声明自有source”的行为。删除旧loaded/源码缓存标记及3个计数测试，不保留函数代理缓存或新Context仿真。
+- 返回值：真实null/undefined与字符串分开，字符串空白及字面量null/undefined原样保留，序列化异常上抛。执行与序列化共用预算/取消能力；修正既有i64先转i32导致时间戳截断，使用JS Number及其安全整数精度边界。
+- 验证：上游场景20、作用域回收1、source_engine4、Book编排14、jsLib7、fetcher正式编排2、登录6、段评4、序列化取消1、真实搜索取消1，共60项通过；仅运行受影响定向测试。32次调用后GC的对象/函数数回到基线，这是回收验证，不是RSS或性能测量。相关两crate的QuickJS Clippy -D warnings、无QuickJS默认库编译、rustfmt/diff检查通过。
+- 证据：build/source-js-scope-{upstream,lifetime,engine,book,jslib,context,login,review,cancel,cancel-search,clippy,default-check}.log；过程发现与边界见审计报告第11节。单代理复核，不宣称独立审查；未运行全量、真实站点、应用构建、设备、性能测试或CI。
+- 交付：版本2.0.439+440，双日志同步，只本地提交。旧MCP文本归一化按用户暂缓Web/MCP的要求保留；详情合并与公共宿主后续批次未实施，不宣称完整Rhino语言扩展或所有书源已对齐。
+
+编写者：Codex + Rust / Bridge｜2026-10-22
+
 ### SOURCE-JS-CALL-20261022：主脚本对象与上下文修复（P1，代码及定向验证完成，待实际书源验收）
 
 - 授权/基线：用户同意按下一步计划开始第一批；dev / c63284f35，单代理。先冻结API_CONTRACT同名内部协议，不修改FFI签名、数据库、依赖和版本，不推送/触发CI。

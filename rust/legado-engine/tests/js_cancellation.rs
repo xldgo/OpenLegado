@@ -29,6 +29,57 @@ fn wait_started(engine: &EngineContext) {
 }
 
 #[test]
+fn main_js_serialization_cancel_releases_task_and_borrowed_bindings() {
+    let engine = EngineContext::in_memory().unwrap();
+    let config = legado_js::JsSourceConfig::new(
+        "serialize-cancel".into(),
+        r#"
+function value(mode) {
+    if(mode==='wait') { return {toJSON(){
+        globalThis.retained='kept';
+        java.setCookie('https://cancel.test','started=yes');
+        while(true){}
+    }}; }
+    return [typeof book,globalThis.retained];
+}"#
+        .into(),
+    );
+    let task = Arc::new(engine.tasks().begin().unwrap());
+    let weak = Arc::downgrade(&task);
+    let resources = engine.js_resources().with_cancellation(task.clone());
+    let mut source =
+        legado_js::JsSourceEngine::new_quickjs_with_resources(config.clone(), &resources).unwrap();
+    drop(resources);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        tx.send(source.call_function(
+            "value",
+            &[
+                ("mode", legado_js::JsValue::from("wait")),
+                ("book", legado_js::JsValue::from("old")),
+            ],
+        ))
+        .unwrap();
+    });
+    wait_started(&engine);
+    task.cancel();
+    let result = rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    worker.join().unwrap();
+    assert!(result.unwrap_err().to_string().contains(CANCELLED));
+    drop(task);
+    assert!(weak.upgrade().is_none(), "调用作用域不能延长取消任务寿命");
+    let mut next =
+        legado_js::JsSourceEngine::new_quickjs_with_resources(config, engine.js_resources())
+            .unwrap();
+    assert_eq!(
+        next.call_function("value", &[("mode", legado_js::JsValue::from("read"))])
+            .unwrap()
+            .as_deref(),
+        Some("[\"undefined\",\"kept\"]")
+    );
+}
+
+#[test]
 fn cached_and_fresh_executors_release_cancelled_tasks_and_keep_cache_reusable() {
     for lib in [
         None,

@@ -137,7 +137,10 @@ fn js_source_engine_valid_jslib_still_constructs() {
         "function search() { return libMarker(); }".to_string(),
     )
     .with_js_lib("function libMarker(){ return 'ok'; }".to_string());
-    let engine =
+    let mut engine =
         legado_js::JsSourceEngine::new_quickjs(config).expect("正常 jsLib 的 JS 源构造不得受影响");
-    assert!(engine.is_main_js_loaded(), "构造期 mainJs 应已 eval 成功");
+    assert_eq!(
+        engine.call_function("search", &[]).unwrap().as_deref(),
+        Some("ok")
+    );
 }

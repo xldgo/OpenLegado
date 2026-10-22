@@ -499,6 +499,17 @@ mod tests {
     }
 
     impl TestJsEngine for FixedJsonEngine {
+        fn call_source(
+            &self,
+            _: &crate::engine::SourceCall<'_>,
+            _: Option<&crate::variables::VariableScope>,
+        ) -> LegadoResult<crate::CallResult> {
+            Ok(crate::CallResult::success(if self.response == "null" {
+                None
+            } else {
+                Some(self.response.clone())
+            }))
+        }
         fn eval(&self, _code: &str) -> LegadoResult<String> {
             Ok(String::new())
         }

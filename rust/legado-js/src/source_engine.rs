@@ -3,7 +3,7 @@
 //! 参考 Kotlin 端 `JsSourceEngine.kt`：
 //! - 纯 JS 单文件源执行器
 //! - 装配书源上下文、绑定对象参数并调用主脚本函数
-//! - 当前仍缓存完整VM与主脚本求值状态，单次调用作用域另批对齐
+//! - 共享库保留在缓存层，普通声明与参数在每次独立词法作用域内执行
 //! - args 以绑定进 scope，既是函数参数也是环境绑定
 //!
 //! 未启用 quickjs feature 时仅提供占位结构。
@@ -14,7 +14,7 @@ use legado_core::{LegadoError, LegadoResult};
 
 #[cfg(feature = "quickjs")]
 use crate::engine::QuickJsEngine;
-use crate::engine::{CompiledScript, JsEngine, JsValue, StubJsEngine};
+use crate::engine::{JsEngine, JsValue, SourceCall, StubJsEngine};
 #[cfg(feature = "quickjs")]
 use crate::engine_pool::EnginePool;
 #[cfg(feature = "quickjs")]
@@ -112,8 +112,8 @@ impl CallResult {
 /// JS 源执行引擎
 ///
 /// 管理一个 JS 源的完整执行生命周期：
-/// 1. 编译并缓存主脚本
-/// 2. 构建作用域（注入绑定 + 共享原型）
+/// 1. 复用共享库与宿主资源
+/// 2. 建立单次调用作用域（注入绑定 + 共享原型）
 /// 3. 执行函数调用
 /// 4. 归一化返回值
 ///
@@ -140,10 +140,6 @@ pub struct JsSourceEngine {
     source_tag: Option<String>,
     /// 共享作用域管理器（外部注入，多源共享）
     scope_manager: Option<SharedScopeManager>,
-    /// 脚本编译缓存（函数名 → 编译结果）
-    script_cache: HashMap<String, CompiledScript>,
-    /// mainJs 是否已经 eval 过（求值缓存标记）
-    main_js_loaded: bool,
 }
 
 impl JsSourceEngine {
@@ -161,10 +157,8 @@ impl JsSourceEngine {
             config,
             source_tag,
             scope_manager: None,
-            script_cache: HashMap::new(),
             #[cfg(feature = "quickjs")]
             cancellation: None,
-            main_js_loaded: false,
         }
     }
 
@@ -183,18 +177,15 @@ impl JsSourceEngine {
         let source_tag = Some(config.source_url.clone());
         let cache_key = format!("mainjs:{}:{}", config.source_url, config.main_js);
         let setup_script = config.setup_script()?;
-        // P2-19 后续 #10：构造期绑定本源 tag（与 `call_function` 同款 save/restore
-        // 包裹，不改签名）：`init_engine` 构造期 eval jsLib/setup/mainJs 时，顶层
-        // 副作用（如 mainJs 顶层 `java.ajax`）须携带本源 JS 宿主 cookie；不绑定
-        // 则落入「未归属上下文」，连本源自己的 cookie 也不携带（回归面）。
-        // 缓存键含 source_url：命中时 get_or_create 为 no-op，包裹恒正确。
+        // 库初始化仍绑定本源身份；mainJs留到带本次参数的调用作用域执行。
+        // 缓存身份包含完整setup，配置变更时沿用既有失效检查。
         let cached =
             crate::host_api::current_source::with_current_source_tag(&config.source_url, || {
                 resources.engine_cache().get_or_create_with_resources(
                     &cache_key,
                     config.js_lib.as_deref(),
                     Some(&setup_script),
-                    Some(&config.main_js),
+                    None,
                     resources,
                 )
             })?;
@@ -202,8 +193,6 @@ impl JsSourceEngine {
         if let Some(reason) = cached.js_lib_error {
             return Err(LegadoError::JsEngine(format!("jsLib 求值失败: {reason}")));
         }
-        // mainJs 构造期失败时，首次调用仍带 bindings 重评。
-        let main_js_loaded = !matches!(cached.main_js_ok, Some(false));
         Ok(Self {
             variables: resources.variable_scope().cloned(),
             engine: None,
@@ -212,9 +201,7 @@ impl JsSourceEngine {
             config,
             source_tag,
             scope_manager: None,
-            script_cache: HashMap::new(),
             cancellation: resources.cancellation().cloned(),
-            main_js_loaded,
         })
     }
 
@@ -235,10 +222,8 @@ impl JsSourceEngine {
             config,
             source_tag,
             scope_manager: None,
-            script_cache: HashMap::new(),
             #[cfg(feature = "quickjs")]
             cancellation: None,
-            main_js_loaded: false,
         })
     }
 
@@ -262,10 +247,8 @@ impl JsSourceEngine {
             source_tag: Some(source_tag),
             config,
             scope_manager: None,
-            script_cache: HashMap::new(),
             #[cfg(feature = "quickjs")]
             cancellation: None,
-            main_js_loaded: false,
         })
     }
 
@@ -283,10 +266,8 @@ impl JsSourceEngine {
             config,
             source_tag,
             scope_manager: None,
-            script_cache: HashMap::new(),
             #[cfg(feature = "quickjs")]
             cancellation: None,
-            main_js_loaded: false,
         }
     }
 
@@ -349,105 +330,27 @@ impl JsSourceEngine {
             return Err(LegadoError::JsEngine("mainJs 为空，非 JS 源".to_string()));
         }
 
-        // 构建绑定列表：包含标准绑定 + 用户参数
-        let mut bindings: Vec<(&str, JsValue)> =
-            vec![("baseUrl", JsValue::String(self.config.source_url.clone()))];
-        bindings.extend_from_slice(args);
-
-        // 构造调用表达式
-        let call_expr = self.build_call_expression(name, args);
-
-        // 根据引擎持有方式分发执行
-        #[cfg(feature = "quickjs")]
-        {
-            // 克隆 Arc 以释放对 self 的借用
-            let pooled_opt = self.pooled_engine.clone();
-            if let Some(pooled) = pooled_opt {
-                // 池化模式：通过 Arc<Mutex<QuickJsEngine>> 执行
-                let engine_guard = crate::cancellation::lock(&pooled)?;
-
-                // 首次调用时 eval 主脚本，后续跳过（mainJs 求值缓存）
-                if !self.main_js_loaded {
-                    let setup = self.config.setup_script()?;
-                    match &self.variables {
-                        Some(scope) => engine_guard.eval_with_variables(&setup, &[], scope),
-                        None => engine_guard.eval(&setup),
-                    }?;
-                    let _ = match &self.variables {
-                        Some(scope) => {
-                            engine_guard.eval_with_variables(&self.config.main_js, &bindings, scope)
-                        }
-                        None => engine_guard.eval_with_bindings(&self.config.main_js, &bindings),
-                    }?;
-                    self.main_js_loaded = true;
-                }
-
-                if optional {
-                    let check = format!("typeof {name} === 'function'");
-                    let exists = match &self.variables {
-                        Some(scope) => engine_guard.eval_with_variables(&check, &bindings, scope),
-                        None => engine_guard.eval_with_bindings(&check, &bindings),
-                    }?;
-                    if exists != "true" {
-                        return Ok(CallResult::not_found());
-                    }
-                }
-
-                // 编译并执行调用表达式（内联缓存逻辑避免借用冲突）
-                let compiled = if let Some(cached) = self.script_cache.get(&call_expr) {
-                    cached.clone()
-                } else {
-                    let c = engine_guard.compile(&call_expr)?;
-                    self.script_cache.insert(call_expr.clone(), c.clone());
-                    c
-                };
-                let result = match &self.variables {
-                    Some(scope) => {
-                        engine_guard.execute_compiled_with_variables(&compiled, &bindings, scope)
-                    }
-                    None => engine_guard.execute_compiled_with_bindings(&compiled, &bindings),
-                }?;
-
-                return Ok(CallResult::success(Self::normalize_result(&result)));
-            }
-        }
-
-        // 非池化模式：通过 Box<dyn JsEngine> 执行
-        // 首次调用时 eval 主脚本，后续跳过（mainJs 求值缓存）
-        if !self.main_js_loaded {
-            let engine = self
-                .engine
-                .as_ref()
-                .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".to_string()))?;
-            engine.eval(&self.config.setup_script()?)?;
-            let _ = engine.eval_with_bindings(&self.config.main_js, &bindings)?;
-            self.main_js_loaded = true;
-        }
-
-        if optional {
-            let engine = self
-                .engine
-                .as_ref()
-                .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".to_string()))?;
-            if engine.eval_with_bindings(&format!("typeof {name} === 'function'"), &bindings)?
-                != "true"
-            {
-                return Ok(CallResult::not_found());
-            }
-        }
-
-        // 编译并执行调用表达式
-        let compiled = self.get_or_compile(&call_expr)?;
-        let result = {
-            let engine = self
-                .engine
-                .as_ref()
-                .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".to_string()))?;
-            engine.execute_compiled_with_bindings(&compiled, &bindings)?
+        let setup = self.config.setup_script()?;
+        let call = SourceCall {
+            setup: &setup,
+            main_js: &self.config.main_js,
+            name,
+            args,
+            optional,
         };
-
-        // 归一化结果
-        Ok(CallResult::success(Self::normalize_result(&result)))
+        #[cfg(feature = "quickjs")]
+        if let Some(pooled) = &self.pooled_engine {
+            return crate::cancellation::lock(pooled)?.call_source(&call, self.variables.as_ref());
+        }
+        let engine = self
+            .engine
+            .as_ref()
+            .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".into()))?;
+        #[cfg(feature = "quickjs")]
+        let variables = self.variables.as_ref();
+        #[cfg(not(feature = "quickjs"))]
+        let variables = None;
+        engine.call_source(&call, variables)
     }
 
     /// 调用可选函数：函数缺失时返回 CallResult::not_found() 而非报错
@@ -461,27 +364,7 @@ impl JsSourceEngine {
         self.call(name, args, true)
     }
 
-    /// 构造 JS 函数调用表达式
-    fn build_call_expression(&self, name: &str, args: &[(&str, JsValue)]) -> String {
-        let arg_names: Vec<&str> = args.iter().map(|(k, _)| *k).collect();
-        format!("{}({})", name, arg_names.join(", "))
-    }
-
-    /// 获取或编译脚本（带缓存，非池化模式）
-    fn get_or_compile(&mut self, code: &str) -> LegadoResult<CompiledScript> {
-        if let Some(cached) = self.script_cache.get(code) {
-            return Ok(cached.clone());
-        }
-        let engine = self
-            .engine
-            .as_ref()
-            .ok_or_else(|| LegadoError::JsEngine("引擎未初始化".to_string()))?;
-        let compiled = engine.compile(code)?;
-        self.script_cache.insert(code.to_string(), compiled.clone());
-        Ok(compiled)
-    }
-
-    /// 归一化 JS 返回值
+    /// 旧MCP文本入口的归一化；主脚本类型化结果不得调用此方法。
     ///
     /// 参考 `JsSourceEngine.normalizeJsResult()`：
     /// - "null" / "undefined" → None
@@ -494,25 +377,13 @@ impl JsSourceEngine {
             Some(trimmed.to_string())
         }
     }
-
-    /// 查询 mainJs 是否已经被 eval 过（求值缓存状态）
-    pub fn is_main_js_loaded(&self) -> bool {
-        self.main_js_loaded
-    }
-
-    /// 重置 mainJs 求值缓存状态（强制下次调用重新 eval mainJs）
-    pub fn reset_main_js_state(&mut self) {
-        self.main_js_loaded = false;
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::{CompiledScript, JsEngine, JsValue};
-    use legado_core::LegadoResult;
+    #[cfg(feature = "quickjs")]
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[cfg(feature = "quickjs")]
     #[test]
@@ -537,103 +408,6 @@ mod tests {
         assert_eq!(a.call_function("step", &[]).unwrap().as_deref(), Some("a!"));
     }
 
-    /// 测试用引擎：记录 eval 调用次数。
-    struct CountingEngine {
-        eval_count: Arc<AtomicUsize>,
-    }
-
-    impl CountingEngine {
-        fn new() -> (Self, Arc<AtomicUsize>) {
-            let counter = Arc::new(AtomicUsize::new(0));
-            (
-                Self {
-                    eval_count: counter.clone(),
-                },
-                counter,
-            )
-        }
-    }
-
-    impl JsEngine for CountingEngine {
-        fn eval(&self, _code: &str) -> LegadoResult<String> {
-            self.eval_count.fetch_add(1, Ordering::SeqCst);
-            Ok("ok".to_string())
-        }
-
-        fn eval_with_bindings(
-            &self,
-            _code: &str,
-            _bindings: &[(&str, JsValue)],
-        ) -> LegadoResult<String> {
-            self.eval_count.fetch_add(1, Ordering::SeqCst);
-            Ok("ok".to_string())
-        }
-
-        fn compile(&self, code: &str) -> LegadoResult<CompiledScript> {
-            Ok(CompiledScript::new(code.to_string()))
-        }
-
-        fn execute_compiled(&self, _script: &CompiledScript) -> LegadoResult<String> {
-            Ok("result".to_string())
-        }
-
-        fn execute_compiled_with_bindings(
-            &self,
-            _script: &CompiledScript,
-            _bindings: &[(&str, JsValue)],
-        ) -> LegadoResult<String> {
-            Ok("result".to_string())
-        }
-    }
-
-    fn make_test_engine() -> (JsSourceEngine, Arc<AtomicUsize>) {
-        let config = JsSourceConfig::new(
-            "http://test.com".to_string(),
-            "function hello(name) { return 'hi ' + name; }".to_string(),
-        );
-        let (engine, counter) = CountingEngine::new();
-        let source_engine = JsSourceEngine::with_engine(config, Box::new(engine));
-        (source_engine, counter)
-    }
-
-    #[test]
-    fn test_main_js_eval_only_once() {
-        let (mut se, counter) = make_test_engine();
-
-        // 第一次调用：eval mainJs + execute call_expr
-        let _ = se.call_function("hello", &[("name", JsValue::String("world".to_string()))]);
-        assert!(se.is_main_js_loaded());
-        let count_after_first = counter.load(Ordering::SeqCst);
-        assert_eq!(count_after_first, 2); // setup与mainJs各一次
-
-        // 第二次调用：不再 eval mainJs
-        let _ = se.call_function("hello", &[("name", JsValue::String("again".to_string()))]);
-        let count_after_second = counter.load(Ordering::SeqCst);
-        assert_eq!(count_after_second, 2); // 不重复setup或mainJs
-    }
-
-    #[test]
-    fn test_main_js_not_loaded_initially() {
-        let (se, _) = make_test_engine();
-        assert!(!se.is_main_js_loaded());
-    }
-
-    #[test]
-    fn test_reset_main_js_state() {
-        let (mut se, counter) = make_test_engine();
-
-        let _ = se.call_function("hello", &[("name", JsValue::String("a".to_string()))]);
-        assert!(se.is_main_js_loaded());
-
-        // 重置后再次调用应重新 eval mainJs
-        se.reset_main_js_state();
-        assert!(!se.is_main_js_loaded());
-
-        let _ = se.call_function("hello", &[("name", JsValue::String("b".to_string()))]);
-        assert!(se.is_main_js_loaded());
-        assert_eq!(counter.load(Ordering::SeqCst), 4); // 重置后setup与mainJs均重新装配
-    }
-
     #[test]
     fn test_call_function_empty_main_js_error() {
         let config = JsSourceConfig::new("http://test.com".to_string(), "".to_string());
@@ -642,22 +416,14 @@ mod tests {
         assert!(result.is_err());
     }
 
-    /// P2-19 后续 #10（2026-09-23 上游同步改写）：`new_quickjs` 构造期 mainJs
-    /// 顶层 `java.ajax` 必须携带**请求 URL 属域**的 cookie（上游语义：cookie
-    /// 属于域名而非书源，读侧按请求 URL 属域取；P2-19「未归属不携带」收紧已
-    /// 随用户裁决取消——书源 tag 绑定不再承载 cookie scope，保留供引擎分桶）。
-    ///
-    /// 机制：`new_quickjs` → `engine_cache::get_or_create("mainjs:{url}:{mainJs}")`
-    /// → `init_engine` 在构造期 eval mainJs（顶层 `java.ajax` 即发起真实请求）。
-    /// 请求目标为回环 cookie 记录服务器（P2-17 同款 std TcpListener 模式）；
-    /// 使用独立资源和回环端口，不与其他用例共享 Cookie 罐或缓存。
+    /// 主脚本每次求值才发起顶层请求，使用当前资源中请求域的Cookie。
     #[cfg(feature = "quickjs")]
     #[test]
-    fn test_p219_new_quickjs_construction_carries_request_domain_cookie() {
+    fn main_js_top_level_request_uses_current_cookie_on_each_call() {
         use std::io::{Read, Write};
         use std::sync::Mutex;
 
-        // 构造期 mainJs 与本次注入的 Cookie 能力保持一致。
+        // 主脚本的每次执行都读取当前Cookie，不捕获构造时快照。
         let resources = crate::JsResources::default();
 
         // 回环 cookie 记录服务器：记录收到的 Cookie 请求头（忽略请求 body）
@@ -714,34 +480,45 @@ mod tests {
 function search(q) {{ return q; }}"#
         );
         let config = JsSourceConfig::new(TAG.to_string(), main_js);
-        let _engine = JsSourceEngine::new_quickjs_with_resources(config, &resources)
+        let mut engine = JsSourceEngine::new_quickjs_with_resources(config, &resources)
             .expect("new_quickjs 构造");
+        assert!(seen.lock().unwrap().is_none(), "构造不应执行主脚本请求");
+        engine
+            .call_function("search", &[("q", JsValue::from("first"))])
+            .unwrap();
 
         let got = seen.lock().unwrap().clone();
         assert!(
             got.as_deref()
                 .unwrap_or_default()
                 .contains("p219_mainjs_token=mainjs-val-4a7b"),
-            "构造期 mainJs 顶层 ajax 必须携带请求 URL 属域（127.0.0.1）cookie，实际 Cookie 头: {got:?}"
+            "mainJs 顶层ajax必须携带请求域Cookie，实际Cookie头: {got:?}"
+        );
+        resources
+            .http_resources()
+            .set_cookie(&echo_url, "p219_mainjs_token=second");
+        engine
+            .call_function("search", &[("q", JsValue::from("second"))])
+            .unwrap();
+        assert!(
+            seen.lock()
+                .unwrap()
+                .as_deref()
+                .unwrap()
+                .contains("p219_mainjs_token=second")
         );
         resources.http_resources().cookies().clear(&echo_url);
     }
 
-    /// mainJs 构造期失败不标记 loaded，首次 call_function 仍带 bindings 重评。
-    /// 状态通过 CachedEngine 具名字段返回，不与 jsLib 失败原因混用。
+    /// 顶层代码必须读取本次参数，不能复用首次求值结果。
     #[cfg(feature = "quickjs")]
     #[test]
-    fn construction_main_js_failure_retries_with_bindings_on_first_call() {
-        // baseUrl已在构造期可用；业务book只在调用期传入，首次重评须恢复。
+    fn main_js_top_level_can_read_current_call_arguments() {
         let config = JsSourceConfig::new(
             "w2-mainjs-retry".to_string(),
             "var __top = book.name;\nfunction search(){ return __top; }".to_string(),
         );
         let mut engine = JsSourceEngine::new_quickjs(config).expect("jsLib 为空，不受 W2 上抛影响");
-        assert!(
-            !engine.is_main_js_loaded(),
-            "构造期 mainJs 求值失败必须不标记 loaded（带 bindings 重评路径）"
-        );
         let out = engine
             .call_function(
                 "search",
@@ -752,5 +529,18 @@ function search(q) {{ return q; }}"#
             )
             .expect("首次调用应带 bindings 重评 mainJs");
         assert_eq!(out.as_deref(), Some("w2-mainjs-retry"));
+        assert_eq!(
+            engine
+                .call_function(
+                    "search",
+                    &[(
+                        "book",
+                        JsValue::Object(vec![("name".into(), JsValue::from("next-book"))])
+                    )]
+                )
+                .unwrap()
+                .as_deref(),
+            Some("next-book")
+        );
     }
 }

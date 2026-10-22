@@ -85,7 +85,7 @@ function normalize(params) {
                 &[(
                     "params",
                     JsValue::from_json(json!({
-                        "page":3,"mode":"free","nested":[true,null,{"score":1.5}]
+                        "page":3,"mode":"free","nested":[true,null,{"score":1.5}],"timestamp":1792486038190_i64
                     }))
                     .unwrap(),
                 )],
@@ -97,6 +97,7 @@ function normalize(params) {
         assert_eq!(result["result"], "free");
         // 沿用上游String转换，验证新增绑定路径中的递归数组/对象/null。
         assert_eq!(result["nested"], "true,,[object Object]");
+        assert_eq!(result["timestamp"], "1792486038190");
     }
 
     /// 上游：normalizes custom toJSON and getters in the source scope。
@@ -124,13 +125,164 @@ function search() {
     /// 上游：passes content string through unchanged / maps undefined to null。
     #[test]
     fn preserves_content_and_maps_undefined_to_none() {
-        let mut engine =
-            engine("function content() { return '第一段\\n第二段'; } function noop() {}");
+        let mut engine = engine(
+            "function content() { return '第一段\\n第二段'; } function noop() {} function text(value){return value;}",
+        );
         assert_eq!(
             engine.call_function("content", &[]).unwrap().as_deref(),
             Some("第一段\n第二段")
         );
         assert_eq!(engine.call_function("noop", &[]).unwrap(), None);
+        for text in ["", "  ", "null", "undefined", "  保留空白  "] {
+            assert_eq!(
+                engine
+                    .call_function("text", &[("value", JsValue::from(text))])
+                    .unwrap()
+                    .as_deref(),
+                Some(text)
+            );
+        }
+    }
+
+    /// 对照原版ScriptBindings：普通声明隔离，显式globalThis和库状态保留。
+    #[test]
+    fn per_call_declarations_are_separate_from_shared_library_and_explicit_globals() {
+        let resources = legado_js::JsResources::default();
+        let config = JsSourceConfig::new(
+            "scope-source".into(),
+            r#"
+const constant = 7;
+let lexical = 0;
+var calls = 0;
+function next(){
+    globalThis.calls = (globalThis.calls || 0) + 1;
+    return [++calls,++lexical,constant,sharedLibrary(),globalThis.calls];
+}"#
+            .into(),
+        )
+        .with_js_lib("var libraryCalls=0; function sharedLibrary(){return ++libraryCalls;}".into());
+        let mut engine =
+            JsSourceEngine::new_quickjs_with_resources(config.clone(), &resources).unwrap();
+        for count in 1..=2 {
+            let value = engine.call_function("next", &[]).unwrap().unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&value).unwrap(),
+                json!([1, 1, 7, count, count])
+            );
+        }
+        let mut new_wrapper =
+            JsSourceEngine::new_quickjs_with_resources(config, &resources).unwrap();
+        assert_eq!(
+            new_wrapper.call_function("next", &[]).unwrap().as_deref(),
+            Some("[1,1,7,3,3]")
+        );
+    }
+
+    /// 上游序列化在当前作用域执行，自定义toJSON/getter的错误不能变成空值。
+    #[test]
+    fn serialization_errors_surface_and_do_not_poison_following_calls() {
+        let mut engine = engine(
+            r#"
+function value(mode){
+    if(mode==='cycle'){var a={};a.self=a;return a;}
+    if(mode==='getter'){return {get value(){throw new Error('getter-failed');}};}
+    if(mode==='toJSON'){return {toJSON(){throw new Error('json-failed');}};}
+    return {value:mode};
+}"#,
+        );
+        for (mode, message) in [
+            ("cycle", "circular"),
+            ("getter", "getter-failed"),
+            ("toJSON", "json-failed"),
+        ] {
+            let error = engine
+                .call_function("value", &[("mode", JsValue::from(mode))])
+                .unwrap_err();
+            assert!(error.to_string().contains(message), "{error}");
+            let value = engine
+                .call_function("value", &[("mode", JsValue::from("healthy"))])
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&value).unwrap(),
+                json!({"value":"healthy"})
+            );
+        }
+    }
+
+    /// 上游JsEngineCapabilitiesTest.sharedLibraryFunctionUsesCallerBindingsAsDefaultThis。
+    #[test]
+    fn shared_library_uses_current_bindings_and_releases_them_after_error() {
+        let config = JsSourceConfig::new("library-bindings".into(), r#"
+function read(){
+    cache.put('scope','runtime');
+    if(fail){throw new Error('caller-failed');}
+    if(libraryName!=='shared'){throw new Error('library-lexical');}
+    if(readCurrent!==readCurrent){throw new Error('library-identity');}
+    if(readCurrent.call({cache:{get(){return 'custom';}}})[1]!=='custom'){throw new Error('explicit-this');}
+    return readCurrent();
+}"#.into()).with_js_lib("const libraryName='shared'; function readCurrent(){return [typeof book==='undefined'?null:book.name,this.cache.get('scope')];}".into());
+        let mut engine = JsSourceEngine::new_quickjs(config).unwrap();
+        let book = JsValue::from_json(json!({"name":"本次书籍"})).unwrap();
+        let error = engine
+            .call_function(
+                "read",
+                &[("book", book.clone()), ("fail", JsValue::Bool(true))],
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("caller-failed"), "{error}");
+        let value = engine
+            .call_function("read", &[("fail", JsValue::Bool(false))])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&value).unwrap(),
+            json!([null, "runtime"])
+        );
+        let value = engine
+            .call_function("read", &[("book", book), ("fail", JsValue::Bool(false))])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&value).unwrap(),
+            json!(["本次书籍", "runtime"])
+        );
+    }
+
+    /// 序列化共用执行预算，超时后解除本次绑定，后续调用仍可运行。
+    #[test]
+    fn serialization_timeout_releases_call_scope() {
+        let config = JsSourceConfig::new(
+            "json-timeout".into(),
+            r#"
+function value(loop){if(loop){return {toJSON(){while(true){}}};} return typeof book;}
+"#
+            .into(),
+        );
+        let mut engine = JsSourceEngine::new_quickjs_with_sandbox(
+            config,
+            legado_js::SandboxConfig::permissive()
+                .with_timeout(std::time::Duration::from_millis(50)),
+        )
+        .unwrap();
+        assert!(
+            engine
+                .call_function(
+                    "value",
+                    &[
+                        ("book", JsValue::from("old")),
+                        ("loop", JsValue::Bool(true))
+                    ]
+                )
+                .is_err()
+        );
+        assert_eq!(
+            engine
+                .call_function("value", &[("loop", JsValue::Bool(false))])
+                .unwrap()
+                .as_deref(),
+            Some("undefined")
+        );
     }
 
     /// 上游：keeps runtime source available when config object is declared。
@@ -178,7 +330,7 @@ function identity() {
             json!({"intro":"optional result"})
         );
         let mut present = engine(
-            "var calls=0; function getBookInfo(){calls++; return missingInsideFunction;} function count(){return calls;}",
+            "function getBookInfo(){globalThis.optionalCalls=(globalThis.optionalCalls||0)+1; return missingInsideFunction;} function count(){return globalThis.optionalCalls;}",
         );
         assert!(
             present
