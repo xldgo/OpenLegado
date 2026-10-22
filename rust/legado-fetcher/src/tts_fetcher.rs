@@ -26,7 +26,7 @@ use std::time::Duration;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use legado_core::tts_speak::{SpeakCache, ext_from_content_type, is_error_content_type};
+use legado_core::speak_cache::{SpeakCache, ext_from_content_type, is_error_content_type};
 use legado_core::{LegadoError, LegadoResult};
 use legado_net::LegadoClient;
 #[cfg(all(test, feature = "quickjs"))]
@@ -286,7 +286,7 @@ async fn fetch_tts_audio_inner(
         return Ok(TtsFetchResult {
             audio_path: path,
             from_cache: true,
-            content_type: legado_core::tts_speak::content_type_from_ext(&ext).to_string(),
+            content_type: legado_core::speak_cache::content_type_from_ext(&ext).to_string(),
         });
     }
 

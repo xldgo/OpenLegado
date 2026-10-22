@@ -102,24 +102,29 @@ Net 的注释称 FFI 已走流式路径，与当前调用链不符。
 
 ### C1：旧音频预加载模块未找到仓库内生产消费者
 
-[audio_preload.rs](../rust/legado-core/src/audio_preload.rs) 定义了
+初次审计的`rust/legado-core/src/audio_preload.rs`（可由
+`git show 837fdf86a:rust/legado-core/src/audio_preload.rs`追溯）定义了
 `AudioPreloadStore`、`AudioDiskCache`、`PlaylistManager`。
-对这些类型逐个查找，使用点局限于该文件自身与测试；`lib.rs` 仍公开模块。
+对这些类型逐个查找，使用点局限于该文件自身与测试；当时`lib.rs`仍公开模块。
 当前正式音频缓存由 [audio_cache_service.rs](../rust/legado-engine/src/audio_cache_service.rs) 管理。
 
-后续可以作为旧代码删除候选核对，不应为了复用而强行接入正式缓存。
-仓库内无调用不等于证明不存在外部 Rust API 消费者；本轮没有删除。
+这些实现不应为了复用而强行接入正式缓存。B6再次核对引用并按用户授权清理，
+删除边界及验证见Active计划；仓库引用调查不等于对外部Rust调用方的证明。
+Server中的同名`AudioChapterInfo`是独立响应模型，不在删除范围。
 
 ### C2：旧的模板式合成入口与仍在用的缓存工具在同一文件
 
-[tts_speak.rs](../rust/legado-core/src/tts_speak.rs) 中，
+初次审计的`rust/legado-core/src/tts_speak.rs`（同一基线可追溯）中，
 `speak_text`（第 256 行）、`build_speak_url` 及其旧响应/结果类型未找到仓库内生产调用，
 相关调用局限于本文件测试；正式 HTTP TTS 已经过 Engine 和 Fetcher 的规则合成链。
 
-但同文件的 `SpeakCache`、MIME 工具仍被
+同文件的 `SpeakCache`、MIME 工具仍被
 [HTTP Fetcher](../rust/legado-fetcher/src/tts_fetcher.rs) 和
 [Cloud Fetcher](../rust/legado-fetcher/src/cloud_tts.rs) 使用。
-只能在确认后拆分和删除旧管线，不能整文件移除，也不能再造一套正式缓存。
+B6将保留部分归位到[speak_cache.rs](../rust/legado-core/src/speak_cache.rs)，
+只改模块归属，不改缓存/MIME算法、文件名或租约机制；旧管线和专属测试不保留转发。
+缓存覆盖保留原四项，旧模板键测试混入的自动任务ID断言移入其已有用例，
+没有因清理模板管线而丢掉其他功能覆盖。
 
 ## 5. Flutter 值得下沉的逻辑
 

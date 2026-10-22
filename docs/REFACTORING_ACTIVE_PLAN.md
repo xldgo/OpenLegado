@@ -26,6 +26,9 @@
 - B5范围：同步dev已提交基线（4840dc35e合并934e20965及d3a266775）后，按API_CONTRACT §2.28冻结新增只读webdav_probe。Rust复用WebDavClient/CustomHosts进行Depth0探测与5秒超时分类；Flutter移除独立HTTP实现，只触发和展示结果。草稿配置不落库、不拼接同步目录、不创建远端文件，不动备份/同步算法、界面样式、依赖或版本。
 - B5结果：Net协议3项、Engine服务3项及FFI既有3项定向回归全部通过；Flutter边界与两份设置页共20项通过，目标文件分析、架构门禁及diff检查通过。证据build/boundary-b5-{net,engine,ffi,flutter-tests,analyze,architecture,codegen}.log；Hosts夹具dav.test仅在测试子进程追加NO_PROXY以隔离本机代理。FRB 2.13.0隔离生成成功且锁文件未变；首次生成与编辑重叠被输入快照检查拒绝，无输出覆盖，固定输入重试后成功。
 - B5复核/限制：单代理核对契约、Net→Engine→FFI→Dart正式/Mock及UI链路；连接测试只看响应头，不下载正文，网络错误只展示分类，非法URL改由Rust判断并显示失败状态。无独立子代理审查，未做真实WebDAV账号、设备或Dart加载新原生库验证；不宣称远端写权限/平台验收。代码与定向验证完成，本批本地提交，不推送、不触发CI、不安装应用。
+- B6范围：用户同意继续清理；基线837fdf86a，当前分支feature/rust-boundary-audit。删除无仓库生产消费者的core/audio_preload及专属测试；旧模板式合成的响应/结果、URL替换、缓存键、URL编码和speak_text连同专属测试移除。正式SpeakCache/MIME工具归位speak_cache，不保留转发模块，更新HTTP/云TTS两处消费者；混入旧测试的自动任务ID向量移回已有auto_task测试。FRB/REST及DB契约、缓存目录/文件名/租约/清理策略均不变，应用版本保持。
+- B6结果：保留的缓存/MIME生产实现与原文件对应片段核对相同；原四项缓存/MIME及自动任务ID一项共5项通过，正式Fetcher HTTP/云TTS QuickJS两模块33项通过，覆盖真实本地请求、缓存命中、格式、原子发布、并发、取消与租约保护。移除旧预加载15项和模板管线11项测试，没有新增测试或复制业务断言。legado-ffi QuickJS cargo check及diff检查通过，证据build/boundary-b6-{core,fetcher,check}.log。
+- B6复核/边界：全仓生产引用与crate出口核对，旧类型仅限其原模块，Server同名AudioChapterInfo独立保留；本批删除Rust crate旧出口、迁移缓存模块路径，不宣称外部Rust消费者兼容。正式tts_speak FFI/API同名入口保留，生成绑定与方法数未变；未重编原生库或运行Flutter/设备/全量验证，不作运行时性能收益声明。单代理复核，代码与定向验证完成，本地提交，不推送或触发CI、不安装。
 - 验证：仅运行各批直接受影响的用例，证据和提交在本条逐批回填；无独立代理审查或设备验证不宣称已通过。
 
 编写者：Codex + Rust｜2026-10-23

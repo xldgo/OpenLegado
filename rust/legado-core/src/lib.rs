@@ -23,7 +23,6 @@
 
 pub mod app_log;
 pub mod audio;
-pub mod audio_preload;
 pub mod audio_skip_policy;
 pub mod auto_task;
 pub mod book_help;
@@ -68,12 +67,12 @@ pub mod search_engine;
 pub mod shelf_search;
 pub mod source_login;
 pub mod source_matcher;
+/// HTTP及云TTS共用音频缓存与MIME工具。
+pub mod speak_cache;
 pub mod toc_updater;
 pub mod tts_cache;
 pub mod tts_catalog;
 pub mod tts_emotion;
-/// HTTP TTS 语音合成管线（url 模板替换 + 音频缓存，网络层注入）
-pub mod tts_speak;
 pub mod types;
 pub mod url_resolution;
 pub mod verification_channel;
