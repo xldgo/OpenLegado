@@ -30,6 +30,11 @@ ReadConfig.useGlobalAudioSkip完整透传，不能依据片头片尾是否为零
 platform/files/bookmark_document_saver保留SAF、目录选择及文件写入；旧services/bookmark_export入口移除，
 不在Dart重建JSON字段、Markdown模板或文件名规则。Mock明确不提供真实格式生成，不调用FFI。
 
+通用AnalyzeRule保留规则返回的合法字符串及数组元素，不按NaN/null/undefined或模板符号猜测内容是否有效。
+真正JS空值在Function-eval返回点按类型归空；此处理不重复执行脚本、不扩展到URL求值接口。
+搜索与详情共用utils/book_metadata_visibility.dart作既有元信息显隐，不改原始数据；
+这些显示判断不得复用为正文、目录或词典的通用清洗算法。
+
 后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
 [设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，
 不另外维护设置分类任务状态。

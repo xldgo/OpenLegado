@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../models/models.dart';
-import '../../../../utils/meaningful_text_guard.dart';
+import '../../../../utils/book_metadata_visibility.dart';
 
 /// 详情独立表现组件，只消费输入和事件。— Codex + UI
 class BookReadingStatus extends StatelessWidget {
@@ -42,10 +42,10 @@ class BookReadingStatus extends StatelessWidget {
     // chapters.getOrNull(currentIndex)）
     final durIdx = book.durChapterIndex;
     final storedTitle = (book.durChapterTitle ?? '').trim();
-    String? readTitle = isMeaningfulText(storedTitle) ? storedTitle : null;
+    String? readTitle = isVisibleBookMetadata(storedTitle) ? storedTitle : null;
     if (readTitle == null && durIdx >= 0 && durIdx < chapters.length) {
       final tocTitle = chapters[durIdx].title.trim();
-      if (isMeaningfulText(tocTitle)) {
+      if (isVisibleBookMetadata(tocTitle)) {
         readTitle = tocTitle;
       }
     }
@@ -74,12 +74,12 @@ class BookReadingStatus extends StatelessWidget {
       final tocIdx = tocTotal > 0 ? tocTotal - 1 : chapters.length - 1;
       if (tocIdx >= 0 && tocIdx < chapters.length) {
         final tocTitle = chapters[tocIdx].title.trim();
-        if (isMeaningfulText(tocTitle)) {
+        if (isVisibleBookMetadata(tocTitle)) {
           latestTitle = tocTitle;
         }
       }
     }
-    if (isMeaningfulText(latestTitle)) {
+    if (isVisibleBookMetadata(latestTitle)) {
       // [H3 | 台账 0917 反馈批七] 最新行 13sp 常规字重（ref 墨高 40px）
       lines.add(line('最新 · $latestTitle', fontSize: 13));
     }

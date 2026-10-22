@@ -1673,11 +1673,16 @@ impl AnalyzeRule {
                 let code_json =
                     serde_json::to_string(js_code).unwrap_or_else(|_| "\"\"".to_string());
                 format!(
-                    "{prologue}\nnew Function('__legadoCode', 'return eval(__legadoCode);')({code_json})"
+                    "{prologue}\nnew Function('__legadoCode', \"return (function(value){{ return value == null ? '' : value; }})(eval(__legadoCode));\")({code_json})"
                 )
             };
             match executor.execute_js(&wrapped) {
-                Ok(result) => Ok(normalize_js_rule_result(result)),
+                // 缺失值已在JS仍有类型的返回点归空，不能再按文本猜测。
+                Ok(result) => Ok(if result.is_empty() {
+                    vec![]
+                } else {
+                    vec![result]
+                }),
                 Err(e) => Err(legado_core::LegadoError::JsEngine(format!(
                     "JS 执行失败: {}",
                     e
@@ -2101,49 +2106,6 @@ enum JsChainStep<'a> {
     Js(&'a str),
 }
 
-/// [U4 模板串 | 台账 0917] 判定字符串是否含未渲染的书源模板变量残留
-/// （`{{$.xxx}}` / `{$xxx}`：书源 JS 规则字符串拼接时模板变量未被替换，
-/// 原样进入字段，如 kind = "9.9分|{{$.categoryInfoV4}}"，2.0.276 详情页
-/// 标签行实锤渲染出 `{{$.categoryInfoV4}}`）。
-///
-/// 判据与 Dart 渲染层守卫 `hasUnrenderedTemplate`（`\{\{|\{\$`）对齐：
-/// 出现 `{{` 或 `{$` 即未渲染模板残留（**成对与未闭合均算**——书源 JS
-/// 规则截断可产出未闭合形 `{{$.categoryInfoV4`，2.0.277 瀚海书阁 kind
-/// 实锤）。单 `{`、JSON 对象嵌套（`{"a":{"b":1}}` 无 `{{`/`{$` 序列）
-/// 均不误判。`str::contains` 线性 O(n)、无逐调用正则编译（搜索解析热路径）。
-fn contains_unrendered_template(s: &str) -> bool {
-    s.contains("{{") || s.contains("{$")
-}
-
-/// 规范化 JS 执行器原始返回值（尚未展开数组）
-///
-/// - 空串 / `null` / `undefined` / `NaN` / 未渲染模板残留 → 空列表
-/// - 其余 → 单元素列表（对象/数组已在引擎层 JSON.stringify）
-fn normalize_js_rule_result(result: String) -> Vec<String> {
-    let trimmed = result.trim();
-    // [R-NaN 数据源清洗 | 2026-09-17] JS 求值结果为 NaN 数值时（书源规则
-    // parseInt/算术对缺失字段产出 NaN，引擎字符串化为 "NaN"），与 null/undefined
-    // 同为「无数据」：原样写进 author/kind/wordCount/intro 等字段 → 搜索结果
-    // 渲染「NaN」/拼接出「NaN : NaN」（2.0.272 核图实锤，C1 UI 守卫只拦整串
-    // 精确 "NaN"，拼接形漏判）。JS NaN 数值对任何书籍字段均无意义，归一为空。
-    // 注意：JS 字符串字面量 "NaN"（源规则显式输出）与 NaN 数值在引擎出口
-    // 不可区分，一并视为无数据（作者/分类/字数/简介字段不存在合法 "NaN" 值）。
-    // [U4 模板串 | 台账 0917] 未渲染模板残留（{{$.xxx}} / {$xxx}）同为脏数据
-    // 归一为空。JSON 数组字面量（首字符 '['）不在此拒收，改由
-    // expand_js_json_array_result 逐元素过滤（单元素残留不致整数组丢有效项）。
-    let template_residue = !trimmed.starts_with('[') && contains_unrendered_template(trimmed);
-    if trimmed.is_empty()
-        || trimmed == "null"
-        || trimmed == "undefined"
-        || trimmed == "NaN"
-        || template_residue
-    {
-        Vec::new()
-    } else {
-        vec![result]
-    }
-}
-
 /// 将单元素 JSON 数组展开为多元素（对齐原版 Mode.Js → NativeArray）
 ///
 /// - `["书名"]` → `["书名"]`（getString 得「书名」，不再是 `Array(0x…)`）
@@ -2159,20 +2121,11 @@ fn expand_js_json_array_result(results: Vec<String>) -> Vec<String> {
             if arr.is_empty() {
                 return Vec::new();
             }
-            // [U4 模板串 | 台账 0917] 字符串元素含未渲染模板残留（如
-            // kind 数组混入 "{{$.categoryInfoV4}}"）按无数据剔除；
-            // 序列化 JSON 对象/数字等非字符串元素不受影响
             let expanded: Vec<String> = arr
                 .into_iter()
-                .filter_map(|v| match v {
-                    serde_json::Value::String(s) => {
-                        if contains_unrendered_template(&s) {
-                            None
-                        } else {
-                            Some(s)
-                        }
-                    }
-                    other => Some(other.to_string()),
+                .map(|value| match value {
+                    serde_json::Value::String(text) => text,
+                    other => other.to_string(),
                 })
                 .collect();
             if expanded.is_empty() {
@@ -3175,70 +3128,6 @@ mod tests {
             .get_string("@js:['唯一书名']")
             .unwrap(),
             "唯一书名"
-        );
-    }
-
-    /// [U4 模板串 | 台账 0917] 未渲染模板残留判定（{{…}} / {$…}
-    /// 成对与未闭合均判——书源 JS 截断可产出未闭合形）
-    #[test]
-    fn test_contains_unrendered_template() {
-        // 未渲染模板变量残留 → 命中（成对形）
-        assert!(contains_unrendered_template("{{$.categoryInfoV4}}"));
-        assert!(contains_unrendered_template("9.9分|{{$.categoryInfoV4}}"));
-        assert!(contains_unrendered_template("{$xxx}"));
-        assert!(contains_unrendered_template("a {{$.b}} c {$d}"));
-        // 未闭合形（JS 规则截断产物，2.0.277 瀚海书阁 kind 实锤）→ 命中
-        assert!(contains_unrendered_template("{{$.unclosed"));
-        assert!(contains_unrendered_template("{$unclosed"));
-        // 合法数据不误判（单 {、嵌套 JSON 对象、空串均不命中）
-        assert!(!contains_unrendered_template("9.9分"));
-        assert!(!contains_unrendered_template("轻小说"));
-        assert!(!contains_unrendered_template("{\"a\":{\"b\":1}}"));
-        assert!(!contains_unrendered_template("{}"));
-        assert!(!contains_unrendered_template("{abc"));
-        assert!(!contains_unrendered_template(""));
-    }
-
-    /// [U4 模板串 | 台账 0917] normalize_js_rule_result 拒收模板残留
-    /// （JSON 数组字面量除外——交由 expand 逐元素过滤）
-    #[test]
-    fn test_normalize_rejects_unrendered_template() {
-        assert!(normalize_js_rule_result("{{$.x}}".into()).is_empty());
-        assert!(normalize_js_rule_result("9.9分|{{$.x}}".into()).is_empty());
-        assert!(normalize_js_rule_result("{$x}".into()).is_empty());
-        // 既有 R-NaN 清洗判据保持
-        assert!(normalize_js_rule_result("".into()).is_empty());
-        assert!(normalize_js_rule_result("null".into()).is_empty());
-        assert!(normalize_js_rule_result("undefined".into()).is_empty());
-        assert!(normalize_js_rule_result("NaN".into()).is_empty());
-        // 合法值 / JSON 数组字面量（元素级过滤归 expand）原样通过
-        assert_eq!(
-            normalize_js_rule_result("9.9分".into()),
-            vec!["9.9分".to_string()]
-        );
-        assert_eq!(
-            normalize_js_rule_result(r#"["ok","{{$.x}}"]"#.to_string()),
-            vec![r#"["ok","{{$.x}}"]"#.to_string()]
-        );
-    }
-
-    /// [U4 模板串 | 台账 0917] 数组展开逐元素剔除模板残留（混合数组
-    /// 不整条丢弃；全残留归空；非字符串元素不受影响）
-    #[test]
-    fn test_expand_filters_template_residue_elements() {
-        assert_eq!(
-            expand_js_json_array_result(vec![r#"["ok","{{$.x}}"]"#.to_string()]),
-            vec!["ok".to_string()]
-        );
-        assert!(expand_js_json_array_result(vec![r#"["{{$.x}}"]"#.to_string()]).is_empty());
-        assert_eq!(
-            expand_js_json_array_result(vec![r#"["a","b"]"#.to_string()]),
-            vec!["a".to_string(), "b".to_string()]
-        );
-        // JSON 对象元素序列化原样保留
-        assert_eq!(
-            expand_js_json_array_result(vec![r#"[{"t":"1"}]"#.to_string()]),
-            vec![r#"{"t":"1"}"#.to_string()]
         );
     }
 

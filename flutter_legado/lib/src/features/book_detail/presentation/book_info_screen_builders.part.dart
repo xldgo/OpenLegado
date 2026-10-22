@@ -757,7 +757,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
   ///   功能迁自移除的标签行，功能不丢；参考 chip 无手势，此为保留既有
   ///   入口的等价实现）
   /// - 字数 chip：Rust 预格式化 wordCount（「142.20万字」形态，参考
-  ///   upKind 将 wordCount 并入 kind 列表成 chip），isMeaningfulText 守卫
+  ///   upKind 将 wordCount 并入 kind 列表成 chip），isVisibleBookMetadata 守卫
   /// - 章数 chip：去除（参考章数只出现在「共 N 章」行，由 ③ 三行块承载，
   ///   chips 不再重复）
   /// chip 形态（参考 TextCard 默认量值）：surfaceContainer 底 +
@@ -781,7 +781,7 @@ extension _BookInfoBuilders on _BookInfoScreenState {
           ),
           onLongPress: () => _sourceCallBackLabel('longClickBookLabel', kind),
         ),
-      if (isMeaningfulText(book.wordCount))
+      if (isVisibleBookMetadata(book.wordCount))
         _MetaChipSpec(text: book.wordCount!.trim()),
     ];
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -893,10 +893,8 @@ extension _BookInfoBuilders on _BookInfoScreenState {
         .split(',')
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
-        // [U4 | 台账 0917] 未渲染模板残留（{{$.xxx}}）/ NaN 脏数据视为
-        // 无数据不渲染（Rust 解析层 normalize_js_rule_result 已同源拒收，
-        // 此处为渲染层兜底：第三方书源 JS 字符串拼接产物可绕过清洗到达 UI）
-        .where(isMeaningfulText)
+        // 仅作元信息显示过滤，不改变书籍原始值。
+        .where(isVisibleBookMetadata)
         .toList();
     if (!_isOnlineBook(book)) {
       final stat = ref

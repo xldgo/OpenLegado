@@ -1,5 +1,15 @@
 # API 契约文档
 
+### RULE-TEXT-BOUNDARY-20261023：通用规则文本与元信息显示分离（实施前冻结）
+
+- 内部行为契约修复，不修改FRB签名/DTO/方法数或数据库。通用AnalyzeRule不得按文本内容删除NaN/null/undefined字面量、模板符号或数组中的相应字符串；真正JS null/undefined在既有Function-eval返回点按类型转空串，字符串保持，其他值沿用原字符串化/数组展开行为。脚本副作用及异常仍各执行/传播一次，不通过再次eval判断返回类型。
+- 对照本地原版363540972及参考版c4182eb9：RhinoScriptEngine.unwrapReturnValue将Undefined转null，AnalyzeRule.getString只将真正null转空串，未按NaN或模板符号清洗字符串。数值NaN不在通用层额外丢弃；不扩大数组/对象类型化或URL规则改造。
+- 搜索/详情已有元信息显示规则保持：空字段、NaN拼接形、第三方占位文案及未展开模板不显示，仅作用于既有元信息位置；合并Dart重复判断，不移入通用解析器，不更改存量书籍或正文。这里是既有展示策略，不声称上游通用语义要求隐藏这些字符串。
+- 取消此前泛用Rust字符串清洗帮助函数及其逐参数重复测试，以真实QuickJS→AnalyzeRule行为覆盖缺失值与合法文本；Dart只验证共享显示判断和既有调用方，不为同一规则维护多份算法。
+- 本批不新增元信息全局清洗器、FFI查询或历史数据迁移；若以后需要持久化清洗，须先建立字段及来源语义，不能依据字符串内容推断运行类型。应用版本及依赖不变。
+
+编写者：Codex + Rust / UI｜2026-10-23
+
 ### BOOKMARK-EXPORT-20261023：书签导出格式与平台保存分离（实施前冻结）
 
 - 新增只读FFI `bookmark_export(book_name: String, book_author: String, bookmarks: Vec<BookmarkDto>, format: BookmarkExportFormatDto) → Result<BookmarkExportDocumentDto, BridgeError>`；format仅Json/Markdown。文档包含file_name、mime_type、content三个String字段，不访问数据库、不写文件、不改变书签顺序。

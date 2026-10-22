@@ -268,6 +268,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rule_js_preserves_literal_text_and_separates_missing_values() {
+        use legado_parser::AnalyzeRule;
+        let executor = std::sync::Arc::new(QuickJsExecutor::new("rule-text-boundary"));
+        let analyzer =
+            AnalyzeRule::with_js_executor("正文".into(), "https://source.test/".into(), executor);
+        // 上游按返回值类型处理缺失，不按字符串内容猜类型。
+        for (code, expected) in [
+            ("'NaN'", "NaN"),
+            ("'null'", "null"),
+            ("'undefined'", "undefined"),
+            ("'正文 {{模板}} 与 {$表达式}'", "正文 {{模板}} 与 {$表达式}"),
+            ("NaN", "NaN"),
+            ("false", "false"),
+            ("0", "0"),
+            ("null", ""),
+            ("undefined", ""),
+        ] {
+            assert_eq!(
+                analyzer.get_string(&format!("@js:{code}")).unwrap(),
+                expected,
+                "{code}"
+            );
+        }
+        assert_eq!(
+            analyzer
+                .get_string(
+                    "@js:globalThis.boundaryCount = (globalThis.boundaryCount || 0) + 1; null"
+                )
+                .unwrap(),
+            ""
+        );
+        assert_eq!(analyzer.get_string("@js:boundaryCount").unwrap(), "1");
+        assert_eq!(
+            analyzer
+                .get_strings("@js:['正常','{{保留}}',{'title':'{$正文}'}]")
+                .unwrap(),
+            vec![
+                "正常".to_string(),
+                "{{保留}}".to_string(),
+                r#"{"title":"{$正文}"}"#.to_string()
+            ]
+        );
+    }
+
+    #[test]
     fn scoped_views_share_vm_but_keep_flow_and_variable_owner_separate() {
         let resources = crate::JsResources::default();
         let one = resources.for_flow("book-one");

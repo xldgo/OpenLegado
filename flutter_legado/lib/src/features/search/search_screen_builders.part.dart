@@ -8,61 +8,6 @@ part of 'search_screen.dart';
 // 本文件所有方法均运行于 State 自身（this），受保护访问语义安全。
 // ignore_for_file: invalid_use_of_protected_member
 
-/// [C2 N1 / U4 | 台账 0917] 是否残留未渲染的书源模板变量（`{{...}}` 或
-/// `{$...}` 占位，如 ngmlc 源 kind 规则 `{{$.categoryInfoV4##...}}`
-/// 未命中时残留的 `{{$categoryInfoV4}}`；**未闭合形亦算**——书源 JS
-/// 截断可产出 `{{$.categoryInfoV4`（无闭合 `}}`），2.0.277 瀚海书阁
-/// kind 实锤）。合法正文/标签不含 `{{`/`{$` 序列，命中即脏数据。
-/// 判据与 Rust 解析层 `contains_unrendered_template` 同源。
-bool _hasUnrenderedTemplate(String v) => RegExp(r'\{\{|\{\$').hasMatch(v);
-
-/// [R-NaN | 2026-09-17] 第三方书源占位串（来源不可控：书源 JS 规则
-/// `x || '暂无简介'` 式回退文案 / 搜索结果页页面文案；全仓 grep（Rust+Dart）
-/// 证实我方代码无生成处——「暂无专辑」在仓库任何代码/数据文件均无来源，
-/// 「暂无简介」仅见于第三方书源 JSON 的 JS 规则文本与原版 strings.xml
-/// 详情页专用键）。按任务裁决：来源不可控 → 渲染层过滤并注释，
-/// 不做 UI 隐藏兜底（不渲染整行/标签，与空数据同语义）。
-const Set<String> _placeholderTexts = {'暂无专辑', '暂无简介'};
-
-/// [R-NaN] NaN 拼接形判定（如 "NaN : NaN"、"NaN,NaN"）：
-/// 按常见分隔符切分后，非空片段**全部**为 NaN（忽略大小写）即纯脏数据——
-/// 书源 JS 规则把缺失数值（引擎字符串化为 "NaN"）以分隔符拼接进
-/// kind 字段的产物（C1 守卫只拦整串精确 "NaN"，拼接形漏判 → 2.0.272 核图
-/// 「NaN : NaN」实锤）。片段含任何非 NaN 内容则放行（保守，不误杀）。
-bool _isNanJoined(String v) {
-  final parts = v
-      .split(RegExp(r'[\s:：,，;；、/|+&·~\-_]+'))
-      .map((p) => p.trim())
-      .where((p) => p.isNotEmpty)
-      .toList();
-  if (parts.isEmpty) return false;
-  // 注意：toUpperCase 产物为全大写 'NAN'（非 'NaN'），判据必须与 'NAN' 比
-  return parts.every((p) => p.toUpperCase() == 'NAN');
-}
-
-/// [PARITY C1 S2 / C2 N1 / R-NaN] 空数据判定：空串、"NaN"（书源规则未返回
-/// 数值时 JS 侧字符串化）或其拼接形（"NaN : NaN"）、第三方占位串
-/// （暂无专辑/暂无简介）、未渲染书源模板串（`{{...}}`/`{$...}` 占位）
-/// 均视为无数据，副标题行/标签/简介不渲染。
-///
-/// 数据源头已同步清洗（Rust `normalize_js_rule_result` 拒收 JS NaN、
-/// `word_count_format` 拒收 "NaN"）；本守卫为渲染层兜底——
-/// 第三方书源 JS **字符串**拼接产物（如规则显式产出 "NaN : NaN"）与
-/// 占位文案不经 Rust 清洗，仍可能到达 UI。
-bool _isMeaningfulText(String? value) {
-  final v = value?.trim() ?? '';
-  if (v.isEmpty) return false;
-  // [R-NaN 2.0.273 核图复修] 原判据 `v.toUpperCase() == 'NaN'` 恒为 false
-  //（'NaN'.toUpperCase()=='NAN' 混合大小写永不相等）——精确 "NaN" 与拼接形
-  // 双双漏判，2.0.273 真机 dump 实锤仍渲染。改与全大写 'NAN' 比。
-  if (v.toUpperCase() == 'NAN') return false;
-  if (_isNanJoined(v)) return false;
-  // [R-NaN] 第三方书源占位串（见 _placeholderTexts 注释），不渲染
-  if (_placeholderTexts.contains(v)) return false;
-  // [C2 N1] 未渲染书源模板变量残留视为脏数据，不渲染
-  return !_hasUnrenderedTemplate(v);
-}
-
 extension _SearchBuilders on _SearchScreenState {
   /// 搜索中停止 FAB + 浮动 x/y（对齐原版 fb_start_stop + tv_search_progress）
   Widget _buildStopFab(BuildContext context, SearchState state) {
@@ -627,11 +572,11 @@ extension _SearchBuilders on _SearchScreenState {
     // 分类/字数标签（对标原版 ll_kind LabelsBar：wordCount 置顶 + kind 逗号/换行拆分）
     // [PARITY C1 S2] 空数据防 NaN：规则返回 "NaN" 视为无数据，不渲染标签
     final kindLabels = <String>[
-      if (_isMeaningfulText(book.wordCount)) book.wordCount!,
+      if (isVisibleBookMetadata(book.wordCount)) book.wordCount!,
       ...?book.kind
           ?.split(RegExp('[,，\n]'))
           .map((s) => s.trim())
-          .where((s) => _isMeaningfulText(s)),
+          .where((s) => isVisibleBookMetadata(s)),
     ];
     // 稳定 ValueKey（来源+书址）避免结果列表整表重建；RepaintBoundary 隔离重绘区域
     final tile = InkWell(
@@ -736,7 +681,7 @@ extension _SearchBuilders on _SearchScreenState {
                     ],
                   ),
                   // 作者行（对标 tv_author 12sp；[PARITY C1 S2] NaN 视为无数据）
-                  if (_isMeaningfulText(book.author))
+                  if (isVisibleBookMetadata(book.author))
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
                       child: Text(
@@ -776,7 +721,7 @@ extension _SearchBuilders on _SearchScreenState {
                       ),
                     ),
                   // 最新章节行（对标 tv_lasted 12sp；[PARITY C1 S2] NaN 视为无数据）
-                  if (_isMeaningfulText(book.latestChapterTitle))
+                  if (isVisibleBookMetadata(book.latestChapterTitle))
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
@@ -790,7 +735,7 @@ extension _SearchBuilders on _SearchScreenState {
                     ),
                   // 简介（对标 tv_introduce 12sp 最多 3 行）
                   // [C2 N1] 未渲染书源模板串（如 `{{$categoryInfoV4}}`）不渲染
-                  if (_isMeaningfulText(book.intro))
+                  if (isVisibleBookMetadata(book.intro))
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
