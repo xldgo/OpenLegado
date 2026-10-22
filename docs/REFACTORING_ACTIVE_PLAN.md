@@ -9,6 +9,8 @@
 - B2结果：八个云TTS Provider复用crate内部parse_service_url，端点拼接、鉴权、输入检查顺序和原有错误文案保持；百炼签名下载URL保留独立查询参数规则。33项现有云TTS定向用例通过，日志build/boundary-b2-tests.log；未添加重复校验测试，无FFI/依赖变更，diff与单代理复核通过。
 - B3范围：MiMo/百炼/火山V3共用SSE分帧，保留完整响应读取和各自业务解码、错误与完成条件；按标准识别LF/CRLF/CR及首BOM，只提交空行结束的帧，未结束尾帧不能作为成功完成。原始分帧仍保留无data的命名错误帧供Provider拒绝，不实现浏览器EventSource重连等无消费者能力。
 - B3结果：先在三家原有失败场景各加入截断完成帧，旧实现三项均误接受（build/boundary-b3-before.log）；接入共用分帧后17项定向回归通过（build/boundary-b3-tests.log），含三项共用协议行为用例，无逐字段或源码文本测试。原有音频顺序、签名下载、错误脱敏及各自终止判定保持；不再响应结束自动补交尾帧。diff及单代理复核通过，无新依赖或FFI变更。
+- B4范围：收敛书源规则、正文图片、搜索结果与JS段评头像的原文URL拼接；保留中文、百分号编码和复合请求头，不统一改成Url::join。AnalyzeUrl继续拥有规则base选项及#tag预处理，搜索空地址仍为空；模板模块的规范化与java.toURL结构化输出另有契约，本批不改。不动清洗、导出或FFI，本批提交不加skip ci，旧提交不改写。
+- B4结果：core/url_resolution复用从AnalyzeUrl提取的原文拼接算法，删除HTML、搜索和JS段评的重复算法。先复现搜索纯主机base被截为https://cover.jpg、段评相对头像未补全（build/boundary-b4-before.log及boundary-b4-js-before.log）；接线后四个crate共19项定向回归通过（build/boundary-b4-tests.log）。保留现有原文转义与路径组合口径，不宣称所有URL语义已对齐Java/RFC；新用例仅覆盖缺陷及原文复合请求头边界。无依赖/FFI/版本变更，diff与单代理复核通过，未做真源或设备验证。
 - 验证：仅运行各批直接受影响的用例，证据和提交在本条逐批回填；无独立代理审查或设备验证不宣称已通过。
 
 编写者：Codex + Rust｜2026-10-23

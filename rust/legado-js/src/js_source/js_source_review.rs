@@ -158,7 +158,7 @@ impl JsSourceReview {
         let avatar = value
             .get("avatar")
             .and_then(|v| v.as_str())
-            .map(|s| Self::resolve_url(base_url, s));
+            .map(|s| legado_parser::AnalyzeUrl::get_absolute_url(base_url, s));
         let badges = value
             .get("badge")
             .and_then(|v| v.as_str())
@@ -199,27 +199,6 @@ impl JsSourceReview {
             }
         }
         result
-    }
-
-    /// 简单 URL 解析（相对路径 → 绝对路径）
-    fn resolve_url(base_url: &str, url: &str) -> String {
-        if url.starts_with("http://") || url.starts_with("https://") {
-            url.to_string()
-        } else if url.starts_with('/') {
-            // 提取 base 的 scheme + host
-            if let Some(pos) = base_url.find("://") {
-                let after_scheme = &base_url[pos + 3..];
-                if let Some(slash_pos) = after_scheme.find('/') {
-                    format!("{}{}", &base_url[..pos + 3 + slash_pos], url)
-                } else {
-                    format!("{base_url}{url}")
-                }
-            } else {
-                url.to_string()
-            }
-        } else {
-            url.to_string()
-        }
     }
 }
 
@@ -280,7 +259,7 @@ mod tests {
     fn test_parse_detail_page() {
         let json = r#"{
             "items": [
-                {"id":"1","name":"用户A","content":"好看","avatar":"/avatar/1.jpg","badge":"大佬","replies":[
+                {"id":"1","name":"用户A","content":"好看","avatar":"avatar/1.jpg","badge":"大佬","replies":[
                     {"id":"2","name":"用户B","content":"同意","avatar":"http://img.com/2.jpg"}
                 ]},
                 {"id":"3","name":"用户C","content":""}

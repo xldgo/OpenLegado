@@ -589,36 +589,11 @@ pub fn dedup_search_results_keep_first(items: Vec<SearchResult>) -> Vec<SearchRe
 }
 
 pub fn resolve_url(url: &str, base_url: &str) -> String {
+    // 搜索空字段有独立语义：不把缺少封面解释为base目录。
     if url.is_empty() {
         return String::new();
     }
-    // 已是绝对 URL
-    if url.starts_with("http://") || url.starts_with("https://") {
-        return url.to_string();
-    }
-    // 协议相对
-    if url.starts_with("//") {
-        if let Some(pos) = base_url.find("://") {
-            return format!("{}:{}", &base_url[..pos], url);
-        }
-        return format!("https:{}", url);
-    }
-    // 绝对路径
-    if url.starts_with('/') {
-        if let Some(pos) = base_url.find("://")
-            && let Some(slash_pos) = base_url[pos + 3..].find('/')
-        {
-            let domain = &base_url[..pos + 3 + slash_pos];
-            return format!("{}{}", domain, url);
-        }
-        return format!("{}{}", base_url.trim_end_matches('/'), url);
-    }
-    // 相对路径
-    if let Some(pos) = base_url.rfind('/') {
-        format!("{}/{}", &base_url[..pos], url)
-    } else {
-        format!("{}/{}", base_url, url)
-    }
+    legado_core::url_resolution::resolve_rule_url(base_url, url)
 }
 
 fn parse_header_option(header_str: Option<&str>) -> Option<HashMap<String, String>> {

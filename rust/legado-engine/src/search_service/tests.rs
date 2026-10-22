@@ -7,6 +7,19 @@ use std::{
     net::TcpListener,
 };
 
+#[test]
+fn relative_search_urls_keep_the_host_and_inline_cover_data() {
+    assert_eq!(
+        resolve_url("cover.jpg", "https://example.com"),
+        "https://example.com/cover.jpg"
+    );
+    assert_eq!(
+        resolve_url("data:image/png;base64,AQI=", "https://example.com/search/"),
+        "data:image/png;base64,AQI="
+    );
+    assert_eq!(resolve_url("", "https://example.com/search/"), "");
+}
+
 fn service(
     engine: &EngineContext,
     runtime: &tokio::runtime::Runtime,

@@ -1159,63 +1159,12 @@ impl AnalyzeUrl {
     ///
     /// 参考 Kotlin `NetworkUtils.getAbsoluteURL`
     pub fn get_absolute_url(base: &str, relative: &str) -> String {
-        let relative = relative.trim();
-
-        if relative.starts_with("http://") || relative.starts_with("https://") {
-            return relative.to_string();
-        }
-
-        if relative.starts_with("data:") {
-            return relative.to_string();
-        }
-
         // 对齐原版 NetworkUtils.getAbsoluteURL(baseURL.substringBefore(","))：
         // 1) 去掉 JSON 选项尾巴；2) 去掉 #fragment（书源 URL 常用 #🎃/#pb1101
         // 作唯一后缀，Java URL 解析会忽略 fragment，Rust 若原样拼接会得到
         // `https://host#tag/path` 假 URL → 整批相对 searchUrl 失败）。— Reasonix
         let base = Self::normalize_base_url_for_join(base.trim());
-        if base.is_empty() {
-            return relative.to_string();
-        }
-
-        // 协议相对路径
-        if relative.starts_with("//") {
-            if let Some(pos) = base.find("://") {
-                return format!("{}:{}", &base[..pos], relative);
-            }
-            return format!("https:{}", relative);
-        }
-
-        // 绝对路径
-        if relative.starts_with('/') {
-            if let Some(pos) = base.find("://") {
-                if let Some(slash_pos) = base[pos + 3..].find('/') {
-                    let domain = &base[..pos + 3 + slash_pos];
-                    return format!("{}{}", domain, relative);
-                } else {
-                    return format!("{}{}", base, relative);
-                }
-            }
-            return format!("{}/{}", base.trim_end_matches('/'), relative);
-        }
-
-        // 相对路径（无前导 /）：对齐 NetworkUtils.getAbsoluteURL
-        // 注意：base 若仅为 `https://host.com`（无 path），`rfind('/')` 会命中
-        // `://` 里的斜杠，拼出 `https://statics/...` 这种假域名（拷贝漫画
-        // searchUrl=`statics/search.aspx?...` 实测）。须跳过 scheme 段。— Reasonix
-        if let Some(scheme_end) = base.find("://") {
-            let after_scheme = &base[scheme_end + 3..];
-            if !after_scheme.contains('/') {
-                return format!("{}/{}", base.trim_end_matches('/'), relative);
-            }
-        }
-        if base.ends_with('/') {
-            format!("{}{}", base, relative)
-        } else if let Some(pos) = base.rfind('/') {
-            format!("{}/{}", &base[..pos], relative)
-        } else {
-            format!("{}/{}", base, relative)
-        }
+        legado_core::url_resolution::resolve_rule_url(base, relative)
     }
 
     /// 拼接用 base：去掉 `,JSON` 选项与 `#fragment`

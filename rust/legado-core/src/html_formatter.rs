@@ -7,6 +7,7 @@
 //! - [`format_keep_img`] — 清理 HTML 标签但保留 `<img>`，处理懒加载属性，URL 绝对化
 //! - [`unescape_html4`] — 完整 HTML4 实体反转义（命名实体 + 数字实体）
 
+use crate::url_resolution::resolve_rule_url as get_absolute_url;
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -284,64 +285,6 @@ fn extract_img_url(tag: &str) -> Option<String> {
         }
     }
     src_val
-}
-
-/// 将相对 URL 转为绝对 URL
-///
-/// 逻辑复制自 `legado-parser::AnalyzeUrl::get_absolute_url`，
-/// 因为 legado-core 不能反向依赖 legado-parser（会形成循环依赖）。
-fn get_absolute_url(base: &str, relative: &str) -> String {
-    let relative = relative.trim();
-
-    // 已经是绝对 URL
-    if relative.starts_with("http://") || relative.starts_with("https://") {
-        return relative.to_string();
-    }
-
-    // data URI 保持原样
-    if relative.starts_with("data:") {
-        return relative.to_string();
-    }
-
-    let base = base.trim();
-    if base.is_empty() {
-        return relative.to_string();
-    }
-
-    // 协议相对路径 //cdn.example.com/...
-    if relative.starts_with("//") {
-        if let Some(pos) = base.find("://") {
-            return format!("{}:{}", &base[..pos], relative);
-        }
-        return format!("https:{}", relative);
-    }
-
-    // 绝对路径 /path/to/file
-    if relative.starts_with('/') {
-        if let Some(pos) = base.find("://") {
-            if let Some(slash_pos) = base[pos + 3..].find('/') {
-                let domain = &base[..pos + 3 + slash_pos];
-                return format!("{}{}", domain, relative);
-            } else {
-                return format!("{}{}", base, relative);
-            }
-        }
-        return format!("{}/{}", base.trim_end_matches('/'), relative);
-    }
-
-    // 相对路径
-    if base.ends_with('/') {
-        format!("{}{}", base, relative)
-    } else if let Some(pos) = base.rfind('/') {
-        // 确保不截断协议部分
-        if pos > base.find("://").map(|p| p + 2).unwrap_or(0) {
-            format!("{}/{}", &base[..pos], relative)
-        } else {
-            format!("{}/{}", base, relative)
-        }
-    } else {
-        format!("{}/{}", base, relative)
-    }
 }
 
 /// 查找命名实体对应的字符

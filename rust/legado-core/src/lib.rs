@@ -74,6 +74,7 @@ pub mod tts_emotion;
 /// HTTP TTS 语音合成管线（url 模板替换 + 音频缓存，网络层注入）
 pub mod tts_speak;
 pub mod types;
+pub mod url_resolution;
 pub mod verification_channel;
 pub mod video_state;
 pub mod web_book;
