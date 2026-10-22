@@ -67,16 +67,13 @@ Future<bool> showSourceLogin(
   //    WebView 打开 loginUrl，系统 CookieManager 经 CookieBridge 通道自动
   //    落库 loginHeader；手动 Cookie/Header/Token 页降级为其菜单次级入口，
   //    能力保留）
-  final saved = await Navigator.of(context).push<bool>(
-    MaterialPageRoute(
-      builder: (_) => WebViewLoginScreen(
-        repository: ref.read(sourceLoginRepositoryProvider),
-        sourceUrl: source.bookSourceUrl,
-        sourceName: source.bookSourceName,
-        loginUrl: source.loginUrl ?? '',
-        header: source.header,
-      ),
-    ),
+  final saved = await WebViewLoginScreen.open(
+    context,
+    repository: ref.read(sourceLoginRepositoryProvider),
+    sourceUrl: source.bookSourceUrl,
+    sourceName: source.bookSourceName,
+    loginUrl: source.loginUrl ?? '',
+    header: source.header,
   );
   return saved == true;
 }

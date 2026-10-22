@@ -43,6 +43,20 @@ class RssSourceImportConfirmScreen extends ConsumerStatefulWidget {
   /// 本地现有订阅源（用于状态判定与保留选项合并）
   final List<RssSource> localSources;
 
+  /// 共用打开方式，保留本页参数和返回值语义。— Codex + UI
+  static Future<bool?> open(
+    BuildContext context, {
+    required List<Map<String, dynamic>> sources,
+    required List<RssSource> localSources,
+  }) => Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => RssSourceImportConfirmScreen(
+        sources: sources,
+        localSources: localSources,
+      ),
+    ),
+  );
+
   const RssSourceImportConfirmScreen({
     super.key,
     required this.sources,

@@ -20,7 +20,8 @@ import '../../../widgets/empty_state.dart';
 import '../../../widgets/error_view.dart';
 import '../../../widgets/loading_indicator.dart';
 import 'rss_article_detail_screen.dart';
-import 'rss_source_edit_screen.dart';
+import '../../../app/routing/app_navigation.dart';
+import '../../../app/routing/route_names.dart';
 import '../../book_sources/presentation/source_login_screen.dart';
 
 /// RSS 文章列表页面
@@ -422,15 +423,11 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
     switch (value) {
       case 'login':
         // 对标原版 menu_login → SourceLoginActivity(type=rssSource)
-        Navigator.push(
+        SourceLoginScreen.open(
           context,
-          MaterialPageRoute(
-            builder: (_) => SourceLoginScreen(
-              sourceUrl: widget.source.sourceUrl,
-              sourceName: widget.source.sourceName,
-              loginUrl: widget.source.loginUrl,
-            ),
-          ),
+          sourceUrl: widget.source.sourceUrl,
+          sourceName: widget.source.sourceName,
+          loginUrl: widget.source.loginUrl,
         );
       case 'refreshSort':
         // 对标原版 menu_refresh_sort（清排序缓存后重建）；Flutter 端
@@ -440,12 +437,8 @@ class _RssArticlesScreenState extends ConsumerState<RssArticlesScreen> {
         _showSetVariableDialog();
       case 'editSource':
         // 对标原版 menu_edit_source → RssSourceEditActivity
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => RssSourceEditScreen(source: widget.source),
-          ),
-        );
+        GoRouter.of(context)
+            .pushAppRoute(AppRoutes.rssSourceEdit, extra: widget.source);
       case 'switchLayout':
         _switchLayout();
       case 'readRecord':

@@ -48,6 +48,32 @@ class WebViewLoginScreen extends StatefulWidget {
   final String? title;
   final bool showLoginActions;
 
+  /// 共用打开方式，保留本页参数和返回值语义。— Codex + UI
+  static Future<bool?> open(
+    BuildContext context, {
+    required String sourceUrl,
+    required String sourceName,
+    required String loginUrl,
+    required SourceLoginRepository repository,
+    String? header,
+    SourceLoginSession? loginSession,
+    String? title,
+    bool showLoginActions = true,
+  }) => Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => WebViewLoginScreen(
+        sourceUrl: sourceUrl,
+        sourceName: sourceName,
+        loginUrl: loginUrl,
+        repository: repository,
+        header: header,
+        loginSession: loginSession,
+        title: title,
+        showLoginActions: showLoginActions,
+      ),
+    ),
+  );
+
   const WebViewLoginScreen({
     super.key,
     required this.sourceUrl,
@@ -271,14 +297,11 @@ class _WebViewLoginScreenState extends State<WebViewLoginScreen> {
       if (value != null) await widget.loginSession!.putHeader(value);
       return;
     }
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => SourceLoginScreen(
-          sourceUrl: widget.sourceUrl,
-          sourceName: widget.sourceName,
-          loginUrl: widget.loginUrl,
-        ),
-      ),
+    final saved = await SourceLoginScreen.open(
+      context,
+      sourceUrl: widget.sourceUrl,
+      sourceName: widget.sourceName,
+      loginUrl: widget.loginUrl,
     );
     if (saved == true && mounted) {
       Navigator.of(context).pop(true);

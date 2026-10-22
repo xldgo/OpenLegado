@@ -572,9 +572,8 @@ extension _SourceBuilders on _SourceScreenState {
                 .toggleSelection(source.bookSourceUrl);
             return;
           }
-          Navigator.of(context).push(
-            sourceEditRoute(sourceUrl: source.bookSourceUrl),
-          );
+          Navigator.of(context)
+              .push(sourceEditRoute(sourceUrl: source.bookSourceUrl));
         },
         child: Padding(
           padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
@@ -606,9 +605,8 @@ extension _SourceBuilders on _SourceScreenState {
                 tooltip: context.l10n.edit,
                 visualDensity: VisualDensity.compact,
                 onPressed: () {
-                  Navigator.of(context).push(
-                    sourceEditRoute(sourceUrl: source.bookSourceUrl),
-                  );
+                  Navigator.of(context)
+                      .push(sourceEditRoute(sourceUrl: source.bookSourceUrl));
                 },
               ),
               // 更多图标（对标 iv_menu_more）+ 发现角标（iv_explore：
@@ -733,14 +731,11 @@ extension _SourceBuilders on _SourceScreenState {
       case 'bottom':
         await notifier.moveSource(source.bookSourceUrl, toTop: false);
       case 'login':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SourceLoginScreen(
-              sourceUrl: source.bookSourceUrl,
-              sourceName: source.bookSourceName,
-              loginUrl: source.loginUrl,
-            ),
-          ),
+        SourceLoginScreen.open(
+          context,
+          sourceUrl: source.bookSourceUrl,
+          sourceName: source.bookSourceName,
+          loginUrl: source.loginUrl,
         );
       case 'search':
         // 对标原版 BookSourceActivity → SearchActivity.start(this, bookSource)

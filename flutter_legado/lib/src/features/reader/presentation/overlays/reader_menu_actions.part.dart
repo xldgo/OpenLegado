@@ -628,18 +628,15 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
       switch (result.kind) {
         case ChapterPurchaseKind.url:
           // 购买网页保留书源身份、请求头与 Cookie 接线，不使用无来源的浏览器。
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => WebViewLoginScreen(
-                repository: ref.read(sourceLoginRepositoryProvider),
-                sourceUrl: source.bookSourceUrl,
-                sourceName: source.bookSourceName,
-                loginUrl: result.value,
-                header: source.header,
-                title: '章节购买',
-                showLoginActions: false,
-              ),
-            ),
+          await WebViewLoginScreen.open(
+            context,
+            repository: ref.read(sourceLoginRepositoryProvider),
+            sourceUrl: source.bookSourceUrl,
+            sourceName: source.bookSourceName,
+            loginUrl: result.value,
+            header: source.header,
+            title: '章节购买',
+            showLoginActions: false,
           );
         case ChapterPurchaseKind.success:
           // Bridge 已失效本章缓存；重新读取后显示已购买的正文。

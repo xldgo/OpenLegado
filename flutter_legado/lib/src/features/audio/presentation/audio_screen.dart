@@ -777,15 +777,11 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       _snack('未找到当前书源');
       return;
     }
-    Navigator.push(
+    SourceLoginScreen.open(
       context,
-      MaterialPageRoute(
-        builder: (_) => SourceLoginScreen(
-          sourceUrl: source!.bookSourceUrl,
-          sourceName: source.bookSourceName,
-          loginUrl: source.loginUrl,
-        ),
-      ),
+      sourceUrl: source.bookSourceUrl,
+      sourceName: source.bookSourceName,
+      loginUrl: source.loginUrl,
     );
   }
 

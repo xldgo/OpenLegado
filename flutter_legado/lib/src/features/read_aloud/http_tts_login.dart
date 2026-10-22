@@ -43,17 +43,14 @@ Future<void> showHttpTtsLogin(
     // 验证返回的是请求头对象，WebView 与合成走相同源规则。
     if (jsonDecode(headers) is! Map) throw const FormatException('登录请求头格式错误');
     if (!context.mounted) return;
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => WebViewLoginScreen(
-          repository: ref.read(sourceLoginRepositoryProvider),
-          sourceUrl: url,
-          sourceName: engine.name,
-          loginUrl: url,
-          header: headers,
-          loginSession: session,
-        ),
-      ),
+    await WebViewLoginScreen.open(
+      context,
+      repository: ref.read(sourceLoginRepositoryProvider),
+      sourceUrl: url,
+      sourceName: engine.name,
+      loginUrl: url,
+      header: headers,
+      loginSession: session,
     );
   }
 }

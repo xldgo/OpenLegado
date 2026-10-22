@@ -19,6 +19,9 @@ import 'package:flutter_legado/src/features/reader_comic/presentation/reader_com
 import 'package:flutter_legado/src/features/search/search_screen.dart';
 import 'package:flutter_legado/src/features/video/presentation/video_screen.dart';
 import 'package:flutter_legado/src/models/book.dart';
+import 'package:flutter_legado/src/models/rss_source.dart';
+import 'package:flutter_legado/src/features/rss/presentation/rss_source_edit_screen.dart';
+import 'package:flutter_legado/src/features/book_sources/presentation/source_debug_screen.dart';
 
 /// 路由测试只替换隐私状态，不启动原生库、播放或业务加载。— Codex + UI
 class _Privacy extends PrivacyController {
@@ -324,6 +327,18 @@ void main() {
     expect(video.initialPlaying, isFalse);
     final (gate, _) = await resolve(tester, AppRoutes.video, book);
     expect((gate as PrivacyBookGate).book, same(book));
+  });
+
+  testWidgets('RSS编辑与书源调试的命名入口保留源参数', (tester) async {
+    const source = RssSource(sourceUrl: 'rss://route', sourceName: '订阅源');
+    final (_, edit) = await resolve(tester, AppRoutes.rssSourceEdit, source);
+    expect((edit as RssSourceEditScreen).source, same(source));
+    final (_, debug) = await resolve(
+      tester,
+      AppRoutes.sourceDebug,
+      'source://route',
+    );
+    expect((debug as SourceDebugScreen).sourceUrl, 'source://route');
   });
 
   testWidgets('目录与编辑缺少书籍参数时仍回首页', (tester) async {

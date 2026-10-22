@@ -58,13 +58,10 @@ Future<void> promptSourceLoginIfNeeded(
   );
   if (go != true || !context.mounted) return;
 
-  await Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => SourceLoginScreen(
-        sourceUrl: source.bookSourceUrl,
-        sourceName: source.bookSourceName,
-        loginUrl: source.loginUrl,
-      ),
-    ),
+  await SourceLoginScreen.open(
+    context,
+    sourceUrl: source.bookSourceUrl,
+    sourceName: source.bookSourceName,
+    loginUrl: source.loginUrl,
   );
 }

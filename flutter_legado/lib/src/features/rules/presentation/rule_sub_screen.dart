@@ -375,31 +375,27 @@ class _RuleSubScreenState extends ConsumerState<RuleSubScreen> {
       messenger.showSnackBar(SnackBar(content: Text('格式错误，未解析到$label')));
       return;
     }
-    final Object? result = switch (preview) {
+    final pending = switch (preview) {
       RuleSubBookSources(:final items, :final local) =>
-        await navigator.push<bool>(
-          MaterialPageRoute(
-            builder: (_) =>
-                SourceImportConfirmScreen(sources: items, localSources: local),
-          ),
+        SourceImportConfirmScreen.open(
+          context,
+          sources: items,
+          localSources: local,
         ),
       RuleSubRssSources(:final items, :final local) =>
-        await navigator.push<bool>(
-          MaterialPageRoute(
-            builder: (_) => RssSourceImportConfirmScreen(
-              sources: items,
-              localSources: local,
-            ),
-          ),
+        RssSourceImportConfirmScreen.open(
+          context,
+          sources: items,
+          localSources: local,
         ),
       RuleSubReplaceRules(:final items, :final local) =>
-        await navigator.push<int>(
-          MaterialPageRoute(
-            builder: (_) =>
-                ReplaceRuleImportConfirmScreen(raws: items, localRules: local),
-          ),
+        ReplaceRuleImportConfirmScreen.open(
+          context,
+          raws: items,
+          localRules: local,
         ),
     };
+    final result = await pending;
     if (!mounted || generation != _importGeneration) return;
     if (result == true) {
       messenger.showSnackBar(const SnackBar(content: Text('导入完成')));

@@ -29,6 +29,22 @@ class SourceLoginScreen extends ConsumerStatefulWidget {
   /// 登录链接（可由书源 loginUrl 字段提供）
   final String? loginUrl;
 
+  /// 共用打开方式，保留本页参数和返回值语义。— Codex + UI
+  static Future<bool?> open(
+    BuildContext context, {
+    required String sourceUrl,
+    required String sourceName,
+    String? loginUrl,
+  }) => Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => SourceLoginScreen(
+        sourceUrl: sourceUrl,
+        sourceName: sourceName,
+        loginUrl: loginUrl,
+      ),
+    ),
+  );
+
   const SourceLoginScreen({
     super.key,
     required this.sourceUrl,

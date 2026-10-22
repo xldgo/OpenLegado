@@ -645,13 +645,10 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
     }
     if (!mounted) return;
     final localRules = ref.read(replaceRuleNotifierProvider).rules;
-    final imported = await Navigator.of(context).push<int>(
-      MaterialPageRoute(
-        builder: (_) => ReplaceRuleImportConfirmScreen(
-          raws: candidates,
-          localRules: localRules,
-        ),
-      ),
+    final imported = await ReplaceRuleImportConfirmScreen.open(
+      context,
+      raws: candidates,
+      localRules: localRules,
     );
     if (!mounted) return;
     // 确认页返回导入成功条数；取消返回 null/0

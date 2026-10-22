@@ -507,13 +507,10 @@ extension _SourceActions on _SourceScreenState {
     }
 
     final localSources = ref.read(sourceNotifierProvider).sources;
-    final ok = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => SourceImportConfirmScreen(
-          sources: sources,
-          localSources: localSources,
-        ),
-      ),
+    final ok = await SourceImportConfirmScreen.open(
+      context,
+      sources: sources,
+      localSources: localSources,
     );
     if (ok == true && mounted) {
       messenger.showSnackBar(

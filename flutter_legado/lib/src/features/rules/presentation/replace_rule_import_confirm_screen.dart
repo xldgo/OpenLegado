@@ -44,6 +44,18 @@ class ReplaceRuleImportConfirmScreen extends ConsumerStatefulWidget {
   /// compareImportedReplaceRules 的 findByIds）
   final List<ReplaceRule> localRules;
 
+  /// 共用打开方式，保留本页参数和返回值语义。— Codex + UI
+  static Future<int?> open(
+    BuildContext context, {
+    required List<Map<String, dynamic>> raws,
+    required List<ReplaceRule> localRules,
+  }) => Navigator.of(context).push<int>(
+    MaterialPageRoute<int>(
+      builder: (_) =>
+          ReplaceRuleImportConfirmScreen(raws: raws, localRules: localRules),
+    ),
+  );
+
   const ReplaceRuleImportConfirmScreen({
     super.key,
     required this.raws,

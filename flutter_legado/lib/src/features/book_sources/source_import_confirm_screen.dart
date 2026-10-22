@@ -42,6 +42,20 @@ class SourceImportConfirmScreen extends ConsumerStatefulWidget {
   /// 本地现有书源（用于新增/更新状态判定与保留选项合并）
   final List<BookSource> localSources;
 
+  /// 共用打开方式，保留本页参数和返回值语义。— Codex + UI
+  static Future<bool?> open(
+    BuildContext context, {
+    required List<SourcePreview> sources,
+    required List<BookSource> localSources,
+  }) => Navigator.of(context).push<bool>(
+    MaterialPageRoute<bool>(
+      builder: (_) => SourceImportConfirmScreen(
+        sources: sources,
+        localSources: localSources,
+      ),
+    ),
+  );
+
   const SourceImportConfirmScreen({
     super.key,
     required this.sources,

@@ -14,7 +14,8 @@ import 'source_notifier.dart';
 import 'widgets/source_rule_help_sheet.dart';
 import '../tools/presentation/code_edit_screen.dart';
 import '../tools/presentation/curl_analyze_url_sheet.dart';
-import 'presentation/source_debug_screen.dart';
+import '../../app/routing/app_navigation.dart';
+import '../../app/routing/route_names.dart';
 
 /// JS 单文件书源编辑（对标原版 JsSourceEditActivity 最小可用）
 ///
@@ -140,11 +141,8 @@ class _JsSourceEditScreenState extends ConsumerState<JsSourceEditScreen> {
 
       if (!mounted) return;
       if (openDebug) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SourceDebugScreen(sourceUrl: source.bookSourceUrl),
-          ),
-        );
+        await GoRouter.of(context)
+            .pushAppRoute(AppRoutes.sourceDebug, extra: source.bookSourceUrl);
       } else {
         _toast('已保存：${source.bookSourceName}');
         Navigator.of(context).pop(true);

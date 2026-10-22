@@ -35,7 +35,6 @@ import '../../../widgets/settings_widgets.dart';
 import '../../../widgets/loading_indicator.dart';
 import '../../../widgets/rss_group_manage_dialog.dart';
 import '../../../utils/error_message.dart';
-import 'rss_source_edit_screen.dart';
 import 'rss_source_import_confirm_screen.dart';
 
 /// 安卓端 AppPattern.splitGroupRegex：[,;，；]
@@ -540,9 +539,8 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   // ===== 单源操作 =====
 
   Future<void> _openEdit(RssSource source) async {
-    await Navigator.of(context).push<RssSource>(
-      MaterialPageRoute(builder: (_) => RssSourceEditScreen(source: source)),
-    );
+    await GoRouter.of(context)
+        .pushAppRoute(AppRoutes.rssSourceEdit, extra: source);
     await _load();
   }
 
@@ -724,9 +722,7 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
   Future<void> _handleAction(String action) async {
     switch (action) {
       case 'new':
-        await Navigator.of(context).push<RssSource>(
-          MaterialPageRoute(builder: (_) => const RssSourceEditScreen()),
-        );
+        await GoRouter.of(context).pushAppRoute(AppRoutes.rssSourceEdit);
         await _load();
       case 'import_file':
         await _importFromFile();
@@ -1015,13 +1011,10 @@ class _RssSourceManageScreenState extends ConsumerState<RssSourceManageScreen> {
       return;
     }
     if (!mounted) return;
-    final ok = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => RssSourceImportConfirmScreen(
-          sources: candidates,
-          localSources: _sources,
-        ),
-      ),
+    final ok = await RssSourceImportConfirmScreen.open(
+      context,
+      sources: candidates,
+      localSources: _sources,
     );
     if (ok == true && mounted) {
       await _load();
