@@ -10,12 +10,12 @@ import '../providers/ui_settings/ui_settings_notifier.dart';
 
 /// [UI_SYNC_REFACTOR B2] 顶栏按钮体系（对齐参考仓 TopBarButton/GlassDefaults）
 ///
-/// - 5 档样式：plain 40dp/图标24；tonal/outlined/glass/liquidGlass 36dp/图标20；
+/// - plain 沿用组件与主题默认尺寸；tonal/outlined/glass/liquidGlass 36dp/图标20；
 ///   outlined 加 1dp outlineVariant 描边；glass 使用半透明实色，liquidGlass
 ///   在资源就绪时绘制光学背景，未就绪保留相同底色；
 /// - tonal 在浅色与深色模式均使用透明常态底色、onSurfaceVariant 前景，
 ///   圆形点击反馈由 IconButton 绘制。激活/选中态由调用方用主题色区分。
-/// - 外层点击区域为 48dp，内层保持各档位的视觉尺寸。
+/// - 外层点击区域为 48dp，平面档内部沿用组件默认尺寸，其他档位保持36dp视觉尺寸。
 /// - [TopBarActionStyler] 可包装任意既有 action（IconButton/AppMenuButton），
 ///   使全站顶栏按钮零逐页改动获得新样式；
 /// - merge 模式：actions 并入 Stadium 胶囊容器 + 1dp 分隔线
@@ -174,21 +174,8 @@ class _ActionSlot extends StatelessWidget {
       return child;
     }
     if (style == TopBarButtonStyle.plain) {
-      // 保持 40dp 的视觉尺寸，点击区域由按钮扩展至 48dp。
-      return SizedBox(
-        width: 48,
-        height: 48,
-        child: IconButtonTheme(
-          data: IconButtonThemeData(
-            style: IconButton.styleFrom(
-              fixedSize: const Size(40, 40),
-              tapTargetSize: MaterialTapTargetSize.padded,
-              visualDensity: VisualDensity.standard,
-            ),
-          ),
-          child: child,
-        ),
-      );
+      // 保留48dp点击区域，内部尺寸和密度沿用原按钮与主题。— Codex + UI
+      return SizedBox.square(dimension: 48, child: child);
     }
     final cs = Theme.of(context).colorScheme;
     final liquid = !merge && _usesLiquidGlass(context, style);
@@ -273,9 +260,20 @@ class TopBarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = style == TopBarButtonStyle.plain ? 40.0 : 36.0;
-    final iconSize = style == TopBarButtonStyle.plain ? 24.0 : 20.0;
     final cs = Theme.of(context).colorScheme;
+    if (style == TopBarButtonStyle.plain) {
+      return SizedBox.square(
+        dimension: 48,
+        child: IconButton(
+          tooltip: tooltip,
+          icon: Icon(icon),
+          color: cs.onSurface,
+          onPressed: onPressed,
+        ),
+      );
+    }
+    const size = 36.0;
+    const iconSize = 20.0;
     final liquid = _usesLiquidGlass(context, style);
     // 普通图标按钮常态透明，点击反馈由 IconButton 保留。
     final bg = switch (style) {

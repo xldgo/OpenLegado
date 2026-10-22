@@ -2,7 +2,7 @@ import 'ui_settings_values.dart';
 
 /// 顶栏按钮样式档位（对齐参考仓 TopBarButtonStyle）
 enum TopBarButtonStyle {
-  /// 平面：40dp 容器 / 图标 24dp，无底色（参考仓 "plain"）
+  /// 平面：无底色，保留48dp点击区域，内部尺寸与反馈沿用组件和主题默认值。
   plain,
 
   /// tonal：36dp 容器 / 图标 20dp，secondaryContainer 底（参考仓默认 "tonal"）
