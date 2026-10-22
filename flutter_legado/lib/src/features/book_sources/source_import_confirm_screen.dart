@@ -1,32 +1,17 @@
-import '../../theme/import_status_colors.dart';
 import '../../widgets/app_menu.dart';
 
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../widgets/app_scaffold.dart';
-import '../../widgets/legado_app_bar.dart';
+import '../../widgets/import_confirm_scaffold.dart';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../models/models.dart';
 import 'source_notifier.dart';
 import '../../domain/models/source_preview.dart';
 import '../../widgets/custom_group_dialog.dart';
-
-/// 书源导入状态（对标原版 ImportBookSourceStatus）
-enum _ImportStatus {
-  /// 新增（本地不存在）
-  isNew,
-
-  /// 更新（本地 lastUpdateTime 较旧）
-  isUpdate,
-
-  /// 已有（本地已是最新）
-  exists,
-}
 
 /// 书源导入确认页（对标原版 ImportBookSourceDialog）
 ///
@@ -75,7 +60,8 @@ class _SourceImportConfirmScreenState
 
   late final List<bool> _selected = [
     // 原版默认选中策略：新增与更新默认选中，已有不选
-    for (final s in widget.sources) _statusOf(s) != _ImportStatus.exists,
+    for (final s in widget.sources)
+      _statusOf(s) != ImportCandidateStatus.exists,
   ];
 
   // 菜单选项（对标 import_source.xml）
@@ -90,13 +76,13 @@ class _SourceImportConfirmScreenState
 
   bool _importing = false;
 
-  _ImportStatus _statusOf(SourcePreview source) {
+  ImportCandidateStatus _statusOf(SourcePreview source) {
     final local = _localByUrl[source.bookSourceUrl];
-    if (local == null) return _ImportStatus.isNew;
+    if (local == null) return ImportCandidateStatus.isNew;
     if (local.lastUpdateTime < source.lastUpdateTime) {
-      return _ImportStatus.isUpdate;
+      return ImportCandidateStatus.isUpdate;
     }
-    return _ImportStatus.exists;
+    return ImportCandidateStatus.exists;
   }
 
   int get _selectCount {
@@ -111,7 +97,7 @@ class _SourceImportConfirmScreenState
 
   bool get _isSelectAllNew {
     for (var i = 0; i < widget.sources.length; i++) {
-      if (_statusOf(widget.sources[i]) == _ImportStatus.isNew &&
+      if (_statusOf(widget.sources[i]) == ImportCandidateStatus.isNew &&
           !_selected[i]) {
         return false;
       }
@@ -121,7 +107,7 @@ class _SourceImportConfirmScreenState
 
   bool get _isSelectAllUpdate {
     for (var i = 0; i < widget.sources.length; i++) {
-      if (_statusOf(widget.sources[i]) == _ImportStatus.isUpdate &&
+      if (_statusOf(widget.sources[i]) == ImportCandidateStatus.isUpdate &&
           !_selected[i]) {
         return false;
       }
@@ -213,160 +199,78 @@ class _SourceImportConfirmScreenState
   }
 
   /// 查看书源 JSON（对标原版 tvOpen → CodeDialog）：直接展示原始 JSON
-  Future<void> _showSourceJson(SourcePreview source) async {
-    final json = const JsonEncoder.withIndent('  ').convert(source.raw);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(source.bookSourceName),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              json,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: json));
-              if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx)
-                    .showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
-              }
-            },
-            child: const Text('复制'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _showSourceJson(SourcePreview source) => showImportJson(
+    context,
+    title: source.bookSourceName,
+    json: const JsonEncoder.withIndent('  ').convert(source.raw),
+  );
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-    return AppScaffold(
-      topBar: LegadoAppBar(
-        title: const Text('导入书源'),
-        actions: [
-          // 自定义源分组（对标 menu_new_group，always 显示）
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
-            onPressed: _showCustomGroupDialog,
-            child: Text(
-              _groupName == null
-                  ? '自定义源分组'
-                  : '${_isAddGroup ? '+' : ''}$_groupName',
-            ),
-          ),
-          AppMenuButton<String>(
-            tooltip: '更多选项',
-            // 菜单在顶栏下方展开，不覆盖顶栏
-            onSelected: _handleMenu,
-            itemBuilder: (_) => [
-              const AppMenuItem(value: 'select_new', child: Text('选中新增源')),
-              const AppMenuItem(value: 'select_update', child: Text('选中更新源')),
-              const AppMenuDivider(),
-              AppMenuItem(
-                value: 'keep_name',
-                checked: _keepName,
-                child: const Text('保留原名'),
-              ),
-              AppMenuItem(
-                value: 'keep_group',
-                checked: _keepGroup,
-                child: const Text('保留分组'),
-              ),
-              AppMenuItem(
-                value: 'keep_enable',
-                checked: _keepEnable,
-                child: const Text('保留启用状态'),
-              ),
-              AppMenuItem(
-                value: 'show_comment',
-                checked: _showComment,
-                child: const Text('显示源注释'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: widget.sources.isEmpty
-          ? const Center(child: Text('格式错误，未解析到书源'))
-          : ListView.separated(
-              // [LAYOUT_PLAN P2] 页面水平边距统一 16dp（全局标尺）
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: widget.sources.length,
-              separatorBuilder: (_, _) => const Divider(height: 1, indent: 8),
-              itemBuilder: (context, index) => _buildItem(index),
-            ),
-      // 底部操作区（对标 dialog_recycler_view：footerLeft / cancel / ok）
-      bottomBar: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-              width: 0.5,
-            ),
+    return ImportConfirmScaffold(
+      confirmText: '确认',
+      title: const Text('导入书源'),
+      actions: [
+        // 自定义源分组（对标 menu_new_group，always 显示）
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
+          onPressed: _showCustomGroupDialog,
+          child: Text(
+            _groupName == null
+                ? '自定义源分组'
+                : '${_isAddGroup ? '+' : ''}$_groupName',
           ),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextButton(
-                    onPressed: () {
-                      final selectAll = _isSelectAll;
-                      setState(() {
-                        for (var i = 0; i < _selected.length; i++) {
-                          _selected[i] = !selectAll;
-                        }
-                      });
-                    },
-                    child: Text(
-                      _isSelectAll
-                          ? '取消全选（$_selectCount/${widget.sources.length}）'
-                          : '全选（$_selectCount/${widget.sources.length}）',
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _importing
-                      ? null
-                      : () => Navigator.of(context).pop(false),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _importing || _selectCount == 0
-                      ? null
-                      : _confirmImport,
-                  child: _importing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('确认'),
-                ),
-              ],
+        AppMenuButton<String>(
+          tooltip: '更多选项',
+          // 菜单在顶栏下方展开，不覆盖顶栏
+          onSelected: _handleMenu,
+          itemBuilder: (_) => [
+            const AppMenuItem(value: 'select_new', child: Text('选中新增源')),
+            const AppMenuItem(value: 'select_update', child: Text('选中更新源')),
+            const AppMenuDivider(),
+            AppMenuItem(
+              value: 'keep_name',
+              checked: _keepName,
+              child: const Text('保留原名'),
             ),
-          ),
+            AppMenuItem(
+              value: 'keep_group',
+              checked: _keepGroup,
+              child: const Text('保留分组'),
+            ),
+            AppMenuItem(
+              value: 'keep_enable',
+              checked: _keepEnable,
+              child: const Text('保留启用状态'),
+            ),
+            AppMenuItem(
+              value: 'show_comment',
+              checked: _showComment,
+              child: const Text('显示源注释'),
+            ),
+          ],
         ),
-      ),
+      ],
+      emptyMessage: '格式错误，未解析到书源',
+      itemCount: widget.sources.length,
+      selectedCount: _selectCount,
+      allSelected: _isSelectAll,
+      importing: _importing,
+      itemBuilder: (_, index) => _buildItem(index),
+      listPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      separatorIndent: 8,
+      onToggleAll: () {
+        final selectAll = _isSelectAll;
+        setState(() {
+          for (var i = 0; i < _selected.length; i++) {
+            _selected[i] = !selectAll;
+          }
+        });
+      },
+      onCancel: () => Navigator.of(context).pop(false),
+      onConfirm: _confirmImport,
     );
   }
 
@@ -376,14 +280,15 @@ class _SourceImportConfirmScreenState
         case 'select_new':
           final selectAllNew = _isSelectAllNew;
           for (var i = 0; i < widget.sources.length; i++) {
-            if (_statusOf(widget.sources[i]) == _ImportStatus.isNew) {
+            if (_statusOf(widget.sources[i]) == ImportCandidateStatus.isNew) {
               _selected[i] = !selectAllNew;
             }
           }
         case 'select_update':
           final selectAllUpdate = _isSelectAllUpdate;
           for (var i = 0; i < widget.sources.length; i++) {
-            if (_statusOf(widget.sources[i]) == _ImportStatus.isUpdate) {
+            if (_statusOf(widget.sources[i]) ==
+                ImportCandidateStatus.isUpdate) {
               _selected[i] = !selectAllUpdate;
             }
           }
@@ -403,64 +308,15 @@ class _SourceImportConfirmScreenState
   /// 勾选框 + 源名 + 状态标签 + 打开按钮）
   Widget _buildItem(int index) {
     final source = widget.sources[index];
-    final status = _statusOf(source);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final (label, color) = switch (status) {
-      _ImportStatus.isNew => ('新增', AppColorsExt.importNew(colorScheme)),
-      _ImportStatus.isUpdate => ('更新', AppColorsExt.importUpdate(colorScheme)),
-      _ImportStatus.exists => ('已有', colorScheme.onSurfaceVariant),
-    };
-
-    return InkWell(
-      onTap: () => setState(() => _selected[index] = !_selected[index]),
-      child: Padding(
-        // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8（全局行规范）
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Row(
-          children: [
-            Checkbox(
-              value: _selected[index],
-              onChanged: (v) => setState(() => _selected[index] = v ?? false),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    source.bookSourceName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  if (_showComment &&
-                      (source.bookSourceComment ?? '').trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        source.bookSourceComment!.trim(),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(label, style: TextStyle(fontSize: 13, color: color)),
-            ),
-            TextButton(
-              onPressed: () => _showSourceJson(source),
-              child: const Text('打开'),
-            ),
-          ],
-        ),
-      ),
+    return ImportCandidateTile(
+      title: source.bookSourceName,
+      status: _statusOf(source),
+      selected: _selected[index],
+      onChanged: (value) => setState(() => _selected[index] = value),
+      onOpen: () => _showSourceJson(source),
+      comment: _showComment ? source.bookSourceComment : null,
+      titleStyle: const TextStyle(fontSize: 16),
+      statusStyle: const TextStyle(fontSize: 13),
     );
   }
 }

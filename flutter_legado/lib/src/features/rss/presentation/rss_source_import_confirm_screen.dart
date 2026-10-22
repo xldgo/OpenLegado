@@ -6,28 +6,13 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../../widgets/app_scaffold.dart';
-import '../../../widgets/legado_app_bar.dart';
+import '../../../widgets/import_confirm_scaffold.dart';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../application/rss_notifier.dart';
 import '../../../widgets/custom_group_dialog.dart';
-import '../../../theme/import_status_colors.dart' show AppColorsExt;
-
-/// 订阅源导入状态（对标原版 ImportRssSourceDialog 状态展示）
-enum _ImportStatus {
-  /// 新增（本地不存在该 sourceUrl）
-  isNew,
-
-  /// 更新（本地 lastUpdateTime 较旧）
-  isUpdate,
-
-  /// 已有（本地已是最新）
-  exists,
-}
 
 /// 订阅源导入确认页（对标原版 ImportRssSourceDialog）
 ///
@@ -77,7 +62,8 @@ class _RssSourceImportConfirmScreenState
   late final List<bool> _selected = [
     // 原版默认选中策略（compareImportedRssSources）：
     // 新增与更新默认选中，已有不选
-    for (final s in widget.sources) _statusOf(s) != _ImportStatus.exists,
+    for (final s in widget.sources)
+      _statusOf(s) != ImportCandidateStatus.exists,
   ];
 
   // 菜单选项（对标 import_source.xml：RSS 版含保留启用/源注释）
@@ -104,13 +90,13 @@ class _RssSourceImportConfirmScreenState
   int _lastUpdateTimeOf(Map<String, dynamic> raw) =>
       int.tryParse((raw['lastUpdateTime'] ?? '0').toString()) ?? 0;
 
-  _ImportStatus _statusOf(Map<String, dynamic> raw) {
+  ImportCandidateStatus _statusOf(Map<String, dynamic> raw) {
     final local = _localByUrl[_urlOf(raw)];
-    if (local == null) return _ImportStatus.isNew;
+    if (local == null) return ImportCandidateStatus.isNew;
     if (local.lastUpdateTime < _lastUpdateTimeOf(raw)) {
-      return _ImportStatus.isUpdate;
+      return ImportCandidateStatus.isUpdate;
     }
-    return _ImportStatus.exists;
+    return ImportCandidateStatus.exists;
   }
 
   int get _selectCount {
@@ -207,165 +193,72 @@ class _RssSourceImportConfirmScreenState
   }
 
   /// 查看订阅源 JSON（对标原版 tvOpen → CodeDialog）：直接展示原始 JSON
-  Future<void> _showSourceJson(Map<String, dynamic> raw) async {
-    final l10n = context.l10n;
-    final json = const JsonEncoder.withIndent('  ').convert(raw);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(_nameOf(raw)),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              json,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: json));
-              if (ctx.mounted) {
-                ScaffoldMessenger.of(
-                  ctx,
-                ).showSnackBar(SnackBar(content: Text(l10n.copiedToClipboard)));
-              }
-            },
-            child: Text(l10n.copy),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.close),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _showSourceJson(Map<String, dynamic> raw) => showImportJson(
+    context,
+    title: _nameOf(raw),
+    json: const JsonEncoder.withIndent('  ').convert(raw),
+  );
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-    return AppScaffold(
-      topBar: LegadoAppBar(
-        title: Text(context.l10n.importRssSources),
-        actions: [
-          // 自定义源分组（对标 menu_new_group，always 显示）
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
-            onPressed: _showCustomGroupDialog,
-            child: Text(
-              _groupName == null
-                  ? context.l10n.customSourceGroup
-                  : '${_isAddGroup ? '+' : ''}$_groupName',
-            ),
-          ),
-          AppMenuButton<String>(
-            tooltip: context.l10n.more,
-            // 菜单在顶栏下方展开，不覆盖顶栏
-            onSelected: _handleMenu,
-            itemBuilder: (_) => [
-              AppMenuItem(
-                value: 'keep_name',
-                checked: _keepName,
-                child: Text(context.l10n.keepSourceName),
-              ),
-              AppMenuItem(
-                value: 'keep_group',
-                checked: _keepGroup,
-                child: Text(context.l10n.keepSourceGroup),
-              ),
-              AppMenuItem(
-                value: 'keep_enable',
-                checked: _keepEnable,
-                child: Text(context.l10n.keepSourceEnabled),
-              ),
-              AppMenuItem(
-                value: 'show_comment',
-                checked: _showComment,
-                child: Text(context.l10n.showSourceComment),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: widget.sources.isEmpty
-          ? Center(child: Text(context.l10n.invalidRssSources))
-          : ListView.separated(
-              // [LAYOUT_PLAN P2] 列表纵向留白 8dp；行 vertical12/horizontal8（见 _buildItem）
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: widget.sources.length,
-              separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
-              itemBuilder: (context, index) => _buildItem(index),
-            ),
-      // 底部操作区（对标 dialog_recycler_view：footerLeft / cancel / ok）
-      bottomBar: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-              width: 0.5,
-            ),
+    return ImportConfirmScaffold(
+      title: Text(context.l10n.importRssSources),
+      actions: [
+        // 自定义源分组（对标 menu_new_group，always 显示）
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
+          onPressed: _showCustomGroupDialog,
+          child: Text(
+            _groupName == null
+                ? context.l10n.customSourceGroup
+                : '${_isAddGroup ? '+' : ''}$_groupName',
           ),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextButton(
-                    onPressed: () {
-                      final selectAll = _isSelectAll;
-                      setState(() {
-                        for (var i = 0; i < _selected.length; i++) {
-                          _selected[i] = !selectAll;
-                        }
-                      });
-                    },
-                    child: Text(
-                      _isSelectAll
-                          ? context.l10n.deselectAllCount(
-                              _selectCount,
-                              widget.sources.length,
-                            )
-                          : context.l10n.selectAllCount(
-                              _selectCount,
-                              widget.sources.length,
-                            ),
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _importing
-                      ? null
-                      : () => Navigator.of(context).pop(false),
-                  child: Text(context.l10n.cancel),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _importing || _selectCount == 0
-                      ? null
-                      : _confirmImport,
-                  child: _importing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(context.l10n.confirm),
-                ),
-              ],
+        AppMenuButton<String>(
+          tooltip: context.l10n.more,
+          // 菜单在顶栏下方展开，不覆盖顶栏
+          onSelected: _handleMenu,
+          itemBuilder: (_) => [
+            AppMenuItem(
+              value: 'keep_name',
+              checked: _keepName,
+              child: Text(context.l10n.keepSourceName),
             ),
-          ),
+            AppMenuItem(
+              value: 'keep_group',
+              checked: _keepGroup,
+              child: Text(context.l10n.keepSourceGroup),
+            ),
+            AppMenuItem(
+              value: 'keep_enable',
+              checked: _keepEnable,
+              child: Text(context.l10n.keepSourceEnabled),
+            ),
+            AppMenuItem(
+              value: 'show_comment',
+              checked: _showComment,
+              child: Text(context.l10n.showSourceComment),
+            ),
+          ],
         ),
-      ),
+      ],
+      emptyMessage: context.l10n.invalidRssSources,
+      itemCount: widget.sources.length,
+      selectedCount: _selectCount,
+      allSelected: _isSelectAll,
+      importing: _importing,
+      itemBuilder: (_, index) => _buildItem(index),
+      onToggleAll: () {
+        final selectAll = _isSelectAll;
+        setState(() {
+          for (var i = 0; i < _selected.length; i++) {
+            _selected[i] = !selectAll;
+          }
+        });
+      },
+      onCancel: () => Navigator.of(context).pop(false),
+      onConfirm: _confirmImport,
     );
   }
 
@@ -388,80 +281,13 @@ class _RssSourceImportConfirmScreenState
   /// 勾选框 + 源名 + 状态标签 + 打开按钮 + 可选源注释）
   Widget _buildItem(int index) {
     final raw = widget.sources[index];
-    final status = _statusOf(raw);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final (label, color) = switch (status) {
-      // [LAYOUT_PLAN P2] 状态色走 tonal：新增 primary、更新 tertiary、已有 onSurfaceVariant
-      _ImportStatus.isNew => (
-        context.l10n.importStatusNew,
-        AppColorsExt.importNew(colorScheme),
-      ),
-      _ImportStatus.isUpdate => (
-        context.l10n.importStatusUpdated,
-        AppColorsExt.importUpdate(colorScheme),
-      ),
-      _ImportStatus.exists => (
-        context.l10n.importStatusExisting,
-        colorScheme.onSurfaceVariant,
-      ),
-    };
-
-    return InkWell(
-      onTap: () => setState(() => _selected[index] = !_selected[index]),
-      child: Padding(
-        // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8（页面水平边距 16dp 由此保证）
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Row(
-          children: [
-            Checkbox(
-              value: _selected[index],
-              onChanged: (v) => setState(() => _selected[index] = v ?? false),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _nameOf(raw),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    // [LAYOUT_PLAN P2] 列表行标题走 titleSmall
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  if (_showComment && (_commentOf(raw) ?? '').trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        _commentOf(raw)!.trim(),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          // [LAYOUT_PLAN P2] 次要文字走 onSurfaceVariant
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                label,
-                // [LAYOUT_PLAN P2] 状态标签走 labelSmall
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: color),
-              ),
-            ),
-            TextButton(
-              onPressed: () => _showSourceJson(raw),
-              child: Text(context.l10n.open),
-            ),
-          ],
-        ),
-      ),
+    return ImportCandidateTile(
+      title: _nameOf(raw),
+      status: _statusOf(raw),
+      selected: _selected[index],
+      onChanged: (value) => setState(() => _selected[index] = value),
+      onOpen: () => _showSourceJson(raw),
+      comment: _showComment ? _commentOf(raw) : null,
     );
   }
 }

@@ -5,28 +5,13 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../../widgets/app_scaffold.dart';
-import '../../../widgets/legado_app_bar.dart';
+import '../../../widgets/import_confirm_scaffold.dart';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Provider;
 
 import '../../../models/models.dart';
 import '../application/replace_rules/replace_rule_notifier.dart';
 import '../../../widgets/custom_group_dialog.dart';
-import '../../../theme/import_status_colors.dart' show AppColorsExt;
-
-/// 替换规则导入状态（对标原版 ImportReplaceRuleDialog 状态展示）
-enum _ImportStatus {
-  /// 新增（本地不存在同 id 规则）
-  isNew,
-
-  /// 更新（pattern/replacement/isRegex/scope 任一不同）
-  isUpdate,
-
-  /// 已有（内容一致）
-  exists,
-}
 
 /// 替换规则导入确认页（对标原版 ImportReplaceRuleDialog）
 ///
@@ -102,18 +87,18 @@ class _ReplaceRuleImportConfirmScreenState
     }
   }
 
-  _ImportStatus _statusOf(int index) {
+  ImportCandidateStatus _statusOf(int index) {
     final rule = _parsed[index];
-    if (rule == null) return _ImportStatus.isNew;
+    if (rule == null) return ImportCandidateStatus.isNew;
     final local = _localById[rule.id];
-    if (local == null) return _ImportStatus.isNew;
+    if (local == null) return ImportCandidateStatus.isNew;
     if (rule.pattern != local.pattern ||
         rule.replacement != local.replacement ||
         rule.isRegex != local.isRegex ||
         rule.scope != local.scope) {
-      return _ImportStatus.isUpdate;
+      return ImportCandidateStatus.isUpdate;
     }
-    return _ImportStatus.exists;
+    return ImportCandidateStatus.exists;
   }
 
   /// 列表项名称（对标原版：group 非空时显示「名称(分组)」）
@@ -208,144 +193,59 @@ class _ReplaceRuleImportConfirmScreenState
 
   /// 查看规则 JSON（对标原版 tvOpen → CodeDialog：
   /// 展示类型化规则；解析失败时展示原始 JSON）
-  Future<void> _showRuleJson(int index) async {
-    final rule = _parsed[index];
-    final json = const JsonEncoder.withIndent('  ')
-        .convert(rule?.toJson() ?? widget.raws[index]);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(_displayName(index)),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              json,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: json));
-              if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx)
-                    .showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
-              }
-            },
-            child: const Text('复制'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _showRuleJson(int index) => showImportJson(
+    context,
+    title: _displayName(index),
+    json: const JsonEncoder.withIndent('  ')
+        .convert(_parsed[index]?.toJson() ?? widget.raws[index]),
+  );
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-    return AppScaffold(
-      topBar: LegadoAppBar(
-        title: const Text('导入替换规则'),
-        actions: [
-          // 自定义源分组（对标 menu_new_group，always 显示）
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
-            onPressed: _showCustomGroupDialog,
-            child: Text(
-              _groupName == null
-                  ? '自定义源分组'
-                  : '${_isAddGroup ? '+' : ''}$_groupName',
-            ),
-          ),
-          AppMenuButton<String>(
-            tooltip: '更多选项',
-            // 菜单在顶栏下方展开，不覆盖顶栏
-            onSelected: _handleMenu,
-            itemBuilder: (_) => [
-              AppMenuItem(
-                value: 'keep_name',
-                checked: _keepName,
-                child: const Text('保留原名'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: widget.raws.isEmpty
-          ? const Center(child: Text('格式错误，未解析到替换规则'))
-          : ListView.separated(
-              // [LAYOUT_PLAN P2] 列表纵向留白 8dp；行 vertical12/horizontal8（见 _buildItem）
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: widget.raws.length,
-              separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
-              itemBuilder: (context, index) => _buildItem(index),
-            ),
-      // 底部操作区（对标 dialog_recycler_view：footerLeft / cancel / ok）
-      bottomBar: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-              width: 0.5,
-            ),
+    return ImportConfirmScaffold(
+      confirmText: '确认',
+      title: const Text('导入替换规则'),
+      actions: [
+        // 自定义源分组（对标 menu_new_group，always 显示）
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: colorScheme.onPrimary),
+          onPressed: _showCustomGroupDialog,
+          child: Text(
+            _groupName == null
+                ? '自定义源分组'
+                : '${_isAddGroup ? '+' : ''}$_groupName',
           ),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextButton(
-                    onPressed: () {
-                      final selectAll = _isSelectAll;
-                      setState(() {
-                        for (var i = 0; i < _selected.length; i++) {
-                          _selected[i] = !selectAll;
-                        }
-                      });
-                    },
-                    child: Text(
-                      _isSelectAll
-                          ? '取消全选（$_selectCount/${widget.raws.length}）'
-                          : '全选（$_selectCount/${widget.raws.length}）',
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _importing
-                      ? null
-                      : () => Navigator.of(context).pop(0),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _importing || _selectCount == 0
-                      ? null
-                      : _confirmImport,
-                  child: _importing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('确认'),
-                ),
-              ],
+        AppMenuButton<String>(
+          tooltip: '更多选项',
+          // 菜单在顶栏下方展开，不覆盖顶栏
+          onSelected: _handleMenu,
+          itemBuilder: (_) => [
+            AppMenuItem(
+              value: 'keep_name',
+              checked: _keepName,
+              child: const Text('保留原名'),
             ),
-          ),
+          ],
         ),
-      ),
+      ],
+      emptyMessage: '格式错误，未解析到替换规则',
+      itemCount: widget.raws.length,
+      selectedCount: _selectCount,
+      allSelected: _isSelectAll,
+      importing: _importing,
+      itemBuilder: (_, index) => _buildItem(index),
+      onToggleAll: () {
+        final selectAll = _isSelectAll;
+        setState(() {
+          for (var i = 0; i < _selected.length; i++) {
+            _selected[i] = !selectAll;
+          }
+        });
+      },
+      onCancel: () => Navigator.of(context).pop(0),
+      onConfirm: _confirmImport,
     );
   }
 
@@ -363,52 +263,12 @@ class _ReplaceRuleImportConfirmScreenState
   /// 单个候选规则项（对标 item_source_import.xml：
   /// 勾选框 + 名称(分组) + 状态标签 + 打开按钮）
   Widget _buildItem(int index) {
-    final status = _statusOf(index);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final (label, color) = switch (status) {
-      // [LAYOUT_PLAN P2] 状态色走 tonal：新增 primary、更新 tertiary、已有 onSurfaceVariant
-      _ImportStatus.isNew => ('新增', AppColorsExt.importNew(colorScheme)),
-      _ImportStatus.isUpdate => ('更新', AppColorsExt.importUpdate(colorScheme)),
-      _ImportStatus.exists => ('已有', colorScheme.onSurfaceVariant),
-    };
-
-    return InkWell(
-      onTap: () => setState(() => _selected[index] = !_selected[index]),
-      child: Padding(
-        // [LAYOUT_PLAN P2] 组内行 vertical12/horizontal8（页面水平边距 16dp 由此保证）
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Row(
-          children: [
-            Checkbox(
-              value: _selected[index],
-              onChanged: (v) => setState(() => _selected[index] = v ?? false),
-            ),
-            Expanded(
-              child: Text(
-                _displayName(index),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                // [LAYOUT_PLAN P2] 列表行标题走 titleSmall
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                label,
-                // [LAYOUT_PLAN P2] 状态标签走 labelSmall
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.copyWith(color: color),
-              ),
-            ),
-            TextButton(
-              onPressed: () => _showRuleJson(index),
-              child: const Text('打开'),
-            ),
-          ],
-        ),
-      ),
+    return ImportCandidateTile(
+      title: _displayName(index),
+      status: _statusOf(index),
+      selected: _selected[index],
+      onChanged: (value) => setState(() => _selected[index] = value),
+      onOpen: () => _showRuleJson(index),
     );
   }
 }

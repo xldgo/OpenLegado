@@ -8,7 +8,10 @@
 - 第一批验证：受影响编辑/转场/调用方3文件共14项，首次13通过，新增系统返回用例需在输入后等待界面帧，修正夹具后单项通过；5文件静态分析无问题。日志flutter_legado/build/unify-exit-{tests,retry,analysis}.log，diff检查通过；不新增机械逐字段测试，不运行全量或设备构建。单代理复核，不宣称独立审查。
 - 第二批：RSS编辑3处、JS书源调试1处复用已有命名路由；手动凭据/网页登录与3类导入页各自提供open入口，调用方不再重复拼MaterialPageRoute。网页登录仍透传购买页标题、按钮显隐和TTS独立登录会话；导入返回bool/int各自保持。不新增全局路由或强制关闭其他页面快照。
 - 第二批验证：路由/登录/订阅导入/HTTP登录会话/RSS调用方5文件共22项；21项首次通过，登录夹具改为实际push后大顶栏存在展开/折叠多标题，修正标题数量假设后单项通过。19文件静态分析无问题，日志flutter_legado/build/unify-routes-{tests,login-final,analysis-final}.log；diff检查通过，无设备或全量测试。
-- 后续：第三批导入界面组件；第四批相关页面提示/文案/确认框。前两批已本地交付，后续验证与边界继续回写本条。
+- 第三批：新增ImportConfirmScaffold/ImportCandidateTile及JSON预览，3页复用列表、状态配色与底部操作。各域解析、默认选择、保留选项、原始JSON和写入方法保持；列表留白、字号及确认/确定文案差异显式传入，不借机统一视觉。复用已有书源原文往返回归，不另写同义用例。
+- 第三批验证：导入界面/书源导入调用方/订阅导航3文件共8项通过，覆盖RSS新增+更新默认勾选与忙碌、替换规则仅新增默认勾选与单条失败继续、bool/int返回和书源原始JSON传递。初次3项因确认文案变化失败，恢复原差异；RSS夹具补固定偏好后通过。仅重跑失败用例，相关5文件分析无问题，日志flutter_legado/build/unify-imports-{tests,domains-final,source-final,rss-final,analysis-final}.log；diff检查通过。
+- 核查补充：书源确认当前经SourceImportService逐项调用Rust导入，不能将单次Rust批量事务解释为整个UI操作原子性。本批保留该真实路径；另见确认页未消费ImportResult的失败提示问题，后续单独处理，不在界面提取中改变事务。
+- 后续：第四批相关页面提示/文案/确认框。前三批已本地交付，后续验证与边界继续回写本条。
 
 编写者：Codex + UI｜2026-10-22
 
