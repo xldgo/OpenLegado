@@ -1,4 +1,3 @@
-
 import 'package:flutter_legado/src/bridge/task_dto.dart';
 import 'package:flutter_legado/src/bridge/ffi.dart' as controls;
 
@@ -159,6 +158,8 @@ void main() {
       () => bridge.crateFfiFfiWebbookInfo(
         source: any(named: 'source'),
         bookUrl: 'page',
+        canReName: true,
+        existingBook: any(named: 'existingBook'),
       ),
     ).thenAnswer(
       (_) async => const WebBookInfoDto(
@@ -176,7 +177,29 @@ void main() {
         bookType: 64,
       ),
     );
-    final book = await query.getBookInfo(source, 'page');
+    final existing = const Book(
+      bookUrl: 'stable',
+      name: '已有书名',
+      durChapterIndex: 5,
+    );
+    final book = await query.getBookInfo(
+      source,
+      'page',
+      existingBook: existing,
+    );
+    final call =
+        verify(
+              () => bridge.crateFfiFfiWebbookInfo(
+                source: any(named: 'source'),
+                bookUrl: 'page',
+                canReName: true,
+                existingBook: captureAny(named: 'existingBook'),
+              ),
+            ).captured.single
+            as BookDto;
+    expect(call.bookUrl, existing.bookUrl);
+    expect(call.name, existing.name);
+    expect(call.durChapterIndex, 5);
     expect(book.bookUrl, 'resolved');
     expect(book.origin, source.bookSourceUrl);
     expect(book.originName, source.bookSourceName);
@@ -274,6 +297,7 @@ void main() {
       () => bridge.crateFfiFfiWebbookInfo(
         source: any(named: 'source'),
         bookUrl: 'b',
+        canReName: true,
       ),
     ).thenThrow(error);
     await expectLater(query.getBookInfo(source, 'b'), throwsA(same(error)));

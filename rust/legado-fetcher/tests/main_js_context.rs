@@ -7,6 +7,72 @@ use legado_js::JsResources;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
+/// 正式抓取链只在Rust合并一次；详情的新变量经目录流到正文，稳定主键不被取址点覆盖。
+#[tokio::test]
+async fn partial_detail_snapshot_flows_into_toc_and_content() {
+    use legado_fetcher::{
+        deps::FetcherDeps,
+        web_book::{
+            webbook_chapters_entity, webbook_content_entity, webbook_info_entity_with_existing,
+        },
+    };
+    let deps = FetcherDeps::new(legado_net::LegadoClient::new(Default::default()).unwrap())
+        .with_book_variable(Arc::new(|_| Some(r#"{"old":"db"}"#.into())));
+    let source = BookSource { book_source_url: "https://source.example".into(), main_js: Some(r#"
+function getBookInfo(book){
+    if(book.bookUrl!=='https://stable.example/book'||book.originBookUrl!=='https://source.example/detail'||book.readConfig.reverseToc!==true){throw new Error('lost-existing-book');}
+    return {intro:'',variable:{token:'next'},type:64};
+}
+function getChapters(book){return [{title:book.name+':'+JSON.parse(book.variable).token,url:'https://source.example/read/1'}];}
+function getContent(chapter,book){return book.bookUrl+':'+JSON.parse(book.variable).token;}
+"#.into()), ..Default::default() };
+    let book = Book {
+        book_url: "https://stable.example/book".into(),
+        origin_book_url: "https://source.example/detail".into(),
+        name: "搜索书名".into(),
+        author: "搜索作者".into(),
+        cover_url: Some("cover".into()),
+        intro: Some("旧简介".into()),
+        toc_url: "https://source.example/toc".into(),
+        variable: Some(r#"{"old":"caller"}"#.into()),
+        read_config: Some(legado_core::models::book::ReadConfig {
+            reverse_toc: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let info = webbook_info_entity_with_existing(
+        deps.clone(),
+        source.clone(),
+        book.book_page_fetch_url(),
+        Some(book.clone()),
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (&info.book_url, &info.name, &info.author),
+        (&book.book_url, &book.name, &book.author)
+    );
+    assert_eq!(info.cover_url, book.cover_url);
+    assert_eq!(info.intro.as_deref(), Some(""));
+    assert_eq!(info.book_type, 64);
+    let chapters = webbook_chapters_entity(
+        deps.clone(),
+        source.clone(),
+        book.book_page_fetch_url(),
+        &info.toc_url,
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(chapters[0].title, "搜索书名:next");
+    let content = webbook_content_entity(deps, source, chapters[0].clone())
+        .await
+        .unwrap();
+    assert_eq!(content, "https://stable.example/book:next");
+}
+
 #[test]
 fn source_context_is_ready_before_main_js_and_refreshes_with_configuration() {
     let resources = Arc::new(JsResources::default());

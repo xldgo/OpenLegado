@@ -16,6 +16,53 @@ void main() {
   const source = BookDetailFixture.source;
   const chapter = BookDetailFixture.chapter;
 
+  test('mainJs先取得已合并快照再读目录，空字符串不被二次补全吞掉', () async {
+    final jsSource = source.copyWith(mainJs: 'function getBookInfo(book) {}');
+    final info = Completer<Book>();
+    when(
+      () => fixture.query.getBookInfo(
+        jsSource,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((invocation) {
+      expect(invocation.namedArguments[#existingBook], book);
+      expect(invocation.namedArguments[#canReName], isFalse);
+      return info.future;
+    });
+    final pending = fixture.service
+        .complete(
+          BookDetailData(book: book, source: jsSource),
+          isCurrent: () => true,
+        )
+        .toList();
+    await Future<void>.delayed(Duration.zero);
+    verifyNever(
+      () => fixture.query.getChapters(
+        any(),
+        any(),
+        bookUrl: any(named: 'bookUrl'),
+        tocUrl: any(named: 'tocUrl'),
+        bookName: any(named: 'bookName'),
+      ),
+    );
+    info.complete(book.copyWith(intro: '', variable: '{"token":"next"}'));
+    final results = await pending;
+    expect(results.last.book!.intro, '');
+    expect(results.last.book!.variable, '{"token":"next"}');
+    expect(results.last.book!.bookUrl, book.bookUrl);
+    verify(
+      () => fixture.query.getChapters(
+        jsSource,
+        book.originBookUrl,
+        bookUrl: book.bookUrl,
+        tocUrl: book.tocUrl,
+        bookName: book.name,
+      ),
+    ).called(1);
+  });
+
   test('开读准备保留临时书标记、章节选择及媒体目录', () async {
     fixture.availableSources = [
       source.copyWith(bookSourceType: BookSourceType.audio),
@@ -105,8 +152,14 @@ void main() {
   test('已有目录地址时并行请求详情和目录，不等待详情才能发起目录', () async {
     final info = Completer<Book>();
     final toc = Completer<List<BookChapter>>();
-    when(() => fixture.query.getBookInfo(any(), any()))
-        .thenAnswer((_) => info.future);
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) => info.future);
     when(
       () => fixture.query.getChapters(
         any(),
@@ -124,8 +177,14 @@ void main() {
         .complete(data, isCurrent: () => true)
         .toList();
     await Future<void>.delayed(Duration.zero);
-    verify(() => fixture.query.getBookInfo(source, book.originBookUrl))
-        .called(1);
+    verify(
+      () => fixture.query.getBookInfo(
+        source,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).called(1);
     verify(
       () => fixture.query.getChapters(
         source,
@@ -147,8 +206,14 @@ void main() {
   });
 
   test('详情失败仍保留并行成功目录', () async {
-    when(() => fixture.query.getBookInfo(any(), any()))
-        .thenThrow(const FormatException('坏详情'));
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenThrow(const FormatException('坏详情'));
     final result =
         (await fixture.service
                 .complete(
@@ -197,7 +262,14 @@ void main() {
         (await fixture.service.complete(data, isCurrent: () => true).toList())
             .last;
     expect(result.chapters, [chapter]);
-    verifyNever(() => fixture.query.getBookInfo(any(), any()));
+    verifyNever(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    );
     verifyNever(() => fixture.reading.refreshToc(any(), any()));
     verify(() => fixture.bookshelf.updateBook(result.book!)).called(1);
   });
@@ -205,8 +277,14 @@ void main() {
   for (final inShelf in [false, true]) {
     test('无目录地址先补详情，再按在架状态选择查询，inShelf=$inShelf', () async {
       final info = Completer<Book>();
-      when(() => fixture.query.getBookInfo(any(), any()))
-          .thenAnswer((_) => info.future);
+      when(
+        () => fixture.query.getBookInfo(
+          any(),
+          any(),
+          existingBook: any(named: 'existingBook'),
+          canReName: any(named: 'canReName'),
+        ),
+      ).thenAnswer((_) => info.future);
       final updates = <BookDetailData>[];
       final done = fixture.service
           .complete(
@@ -286,8 +364,14 @@ void main() {
   });
 
   test('后台详情失败保留缓存，不发起无效写回', () async {
-    when(() => fixture.query.getBookInfo(any(), any()))
-        .thenThrow(StateError('网络不可用'));
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenThrow(StateError('网络不可用'));
     final result =
         (await fixture.service
                 .complete(
@@ -329,8 +413,14 @@ void main() {
   test('请求失效后不写回也不发布迟到结果', () async {
     final info = Completer<Book>();
     var current = true;
-    when(() => fixture.query.getBookInfo(any(), any()))
-        .thenAnswer((_) => info.future);
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) => info.future);
     final pending = fixture.service
         .complete(
           BookDetailData(

@@ -110,7 +110,7 @@ class BookDetailService {
       BookMetadataPolicy.isOnlineBook(data.book!) &&
       data.source != null;
 
-  /// 已有地址时并行，缺少地址时先补详情；普通失败保留已获得的数据。
+  /// 规则源已有地址时并行；mainJs先合并详情，再让目录消费其变量。
   Stream<BookDetailData> complete(
     BookDetailData data, {
     required bool Function() isCurrent,
@@ -118,12 +118,13 @@ class BookDetailService {
     if (!needsCompletion(data) || !isCurrent()) return;
     var book = data.book!;
     final source = data.source!;
+    final resolved = source.mainJs?.trim().isNotEmpty ?? false;
     var chapters = data.chapters;
     var shouldPersist = chapters.isEmpty;
     if (chapters.isEmpty) {
       final hasToc = book.tocUrl.isNotEmpty;
       final needInfo = BookMetadataPolicy.needsCompletion(book);
-      if (hasToc && needInfo) {
+      if (hasToc && needInfo && !resolved) {
         final infoFuture = _readInfo(book, source);
         final chaptersFuture = _readChapters(
           () => _queryChapters(book, source),
@@ -132,13 +133,17 @@ class BookDetailService {
         chapters = await chaptersFuture;
         if (!isCurrent()) return;
         if (info != null) book = BookMetadataPolicy.mergeWebInfo(book, info);
-      } else if (hasToc) {
+      } else if (hasToc && !resolved) {
         chapters = await _readChapters(() => _queryChapters(book, source));
       } else {
         final info = await _readInfo(book, source);
         if (!isCurrent()) return;
         if (info != null) {
-          book = BookMetadataPolicy.mergeWebInfo(book, info);
+          book = BookMetadataPolicy.mergeWebInfo(
+            book,
+            info,
+            resolved: resolved,
+          );
           yield data.copyWith(book: book);
         }
         if (!isCurrent()) return;
@@ -152,9 +157,14 @@ class BookDetailService {
         book = book.copyWith(totalChapterNum: chapters.length);
       }
     } else {
-      final info = await _readInfo(book, source);
+      final info = await _readInfo(book, source, canReName: true);
       if (info != null) {
-        book = BookMetadataPolicy.mergeWebInfo(book, info, refresh: true);
+        book = BookMetadataPolicy.mergeWebInfo(
+          book,
+          info,
+          refresh: true,
+          resolved: resolved,
+        );
         shouldPersist = true;
       }
     }
@@ -169,11 +179,17 @@ class BookDetailService {
     if (isCurrent()) yield data.copyWith(book: book, chapters: chapters);
   }
 
-  Future<Book?> _readInfo(Book book, BookSource source) async {
+  Future<Book?> _readInfo(
+    Book book,
+    BookSource source, {
+    bool canReName = false,
+  }) async {
     try {
       return await _query.getBookInfo(
         source,
         BookMetadataPolicy.bookFetchUrl(book),
+        existingBook: book,
+        canReName: canReName,
       );
     } catch (error) {
       _log('详情补全失败，保留现有字段: $error');

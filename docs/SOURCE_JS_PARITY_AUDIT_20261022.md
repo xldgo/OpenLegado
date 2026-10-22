@@ -346,3 +346,37 @@ cargo test --locked -p legado-js --features quickjs --test network_parity batch_
 版本保持2.0.439+440，仅更新双日志；没有运行全量测试、真实站点、FFI/native打包、模拟器、iOS、性能测试或CI，也未推送。单代理复核，不宣称独立审查。旧MCP文本归一化入口按用户暂缓范围保留；详情字段增量合并、宿主并发与库加载策略仍待后续批次，本批不承诺完整复刻Rhino的动态eval/默认this语言扩展或所有书源兼容。
 
 编写者：Codex + Rust / Bridge｜2026-10-22
+
+## 12. 第三批详情合并及端到端参数接线证据
+
+基线`dev / bb2be4b7a`，按`SOURCE-JS-DETAIL-20261022`先冻结契约。本批对应JS-05：原版`JsSourceMarshaller.mergeBookInfo`允许只返回部分字段，本项目原先要求完整name，正式入口又只构造URL空壳，不能保留搜索或已存书籍上下文。
+
+### 结果与边界
+
+- Rust从已有Book生成详情快照，再按白名单处理非null返回字段；缺省/null保留旧值，name受canReName门控，author在可重命名或原作者为空时更新。身份、阅读进度和自定义设置不从任意脚本键覆盖。
+- variable接受对象与JSON对象字符串，合法时整表替换并按上游字符串映射值；非法变量、类型及下载地址字段保留旧值。type改用真实媒体掩码4/8/32/64/128，删除旧0x0F预期；来源类型换算由JS层与fetcher共用。下载地址只接受完整字符串数组，trim、去空、过滤javascript（忽略大小写）、绝对化并去重；本批不扩展文件下载界面或返回DTO。
+- 既有`webbook_info`增加可选existing_book及can_re_name，FFI方法数和返回DTO不变。详情服务传完整已有书籍；首屏补全传false，已有目录后的详情刷新传true。实际抓取地址仍按originBookUrl选择，稳定主键用于书籍身份和流程作用域；不通过临时入库或缓存伪造已有对象。
+- JS详情快照先于目录发布，缓存记录稳定主键与页面别名；目录/正文消费本次已接受变量，不能被旧DB快照回填。原缓存写入算法提成共用内部函数，规则源原DB优先策略不变。Flutter对mainJs仅映射已合并结果，保留显式空字符串，不再运行第二轮补空；普通规则源原并行、非空覆盖和失败保留路径继续验证。
+
+### 测试复用与验证
+
+把原版`JsSourceMarshallerTest`的允许字段/重命名、变量两态、非法类型和下载地址场景组织为2个完整行为用例；不是按字段机械建例。删除3个旧的重叠详情/错误类型掩码用例，保留非对象错误和必要序列化验证。新增一个真实fetcher的详情→目录→正文链，使用稳定主键、不同取址点、readConfig、旧DB变量与新详情变量；Dart只验证完整对象/权限传递及异步编排，不再复刻Rust字段转换测试。
+
+| 定向范围 | 结果 | 本地证据（build/下） |
+| --- | --- | --- |
+| upstream_js_source的book组 | 4通过，含新增2个合并场景 | source-js-detail-upstream.log |
+| marshaller保留用例 | 8通过 | source-js-detail-marshaller.log |
+| 正式main_js_context编排 | 3通过，含新完整数据流 | source-js-detail-context.log |
+| 元信息缓存/稳定取址回归 | 3+1通过 | source-js-detail-meta.log、source-js-detail-anchor.log |
+| Flutter详情服务、Notifier、实体边界、消费者及取址/类型策略 | 6文件共97通过 | source-js-detail-flutter.log、source-js-detail-flutter-final.log |
+| 改动Dart文件分析 | 10个文件最终无问题 | source-js-detail-analysis.log、source-js-detail-analysis-final.log |
+| QuickJS Clippy -D warnings / 默认无QuickJS编译 | 通过 | source-js-detail-clippy.log、source-js-detail-default.log |
+| FRB 2.13隔离生成 / 宿主FFI库重编 | 通过 | source-js-detail-codegen.log、source-js-detail-native.log |
+
+共19项Rust和97项Flutter定向用例通过。Flutter首次执行有70项通过、2个入口因夹具误加目录参数而编译失败；修正后只复验这两个文件的27项，取并集计数，没有重跑已通过的其他文件。静态分析的3项同源夹具错误也已清除。首轮绑定生成期间输入仍有修改，工具按预期拒绝发布；稳定输入后重新生成成功，没有手改绑定或修改依赖。宿主库编译不等于真实FFI运行时往返已验证。
+
+`dart run tool/check_architecture.dart`通过（source-js-detail-architecture.log）；生成绑定契约和改动文件rustfmt/diff检查通过。改动期间dev另有书源编辑UI提交，本批在当前HEAD之后提交，不重写历史，也不收录其他任务的未跟踪文档。
+
+版本保持2.0.439+440、双日志同步，不改DB、界面或搜索协议；单代理复核，不宣称独立审查。未执行全量测试、真实网站、模拟器/设备、应用打包、性能测试或CI，未推送。搜索结果原有协议尚未传输的variable不会因本批自动恢复；downloadUrls暂未扩展FFI返回，完整文件下载行为不在本批。公共宿主并发、jsLib加载和config解释继续按后续批次处理，不能据选定链通过宣称所有书源对齐。
+
+编写者：Codex + Rust / Bridge｜2026-10-22

@@ -10915,12 +10915,20 @@ fn wire__crate__ffi__ffi__webbook_info_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_source = <crate::transfer_dto::BookSourceDto>::sse_decode(&mut deserializer);
             let api_book_url = <String>::sse_decode(&mut deserializer);
+            let api_existing_book =
+                <Option<crate::transfer_dto::BookDto>>::sse_decode(&mut deserializer);
+            let api_can_re_name = <Option<bool>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, crate::ffi::BridgeError>(
                     (move || async move {
-                        let output_ok =
-                            crate::ffi::ffi::webbook_info(api_source, api_book_url).await?;
+                        let output_ok = crate::ffi::ffi::webbook_info(
+                            api_source,
+                            api_book_url,
+                            api_existing_book,
+                            api_can_re_name,
+                        )
+                        .await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,

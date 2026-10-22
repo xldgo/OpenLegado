@@ -97,7 +97,27 @@ class BookMetadataPolicy {
   ///   走 [bookFetchUrl]，即当前书源详情页），守卫降级为纵深防御：正常书籍页
   ///   解析必得书名（ruleBookInfo.name）；name 缺失即视为「未解析到书籍页」，
   ///   本次刷新整体跳过——宁可保留旧值，也不用错页结果覆盖。
-  static Book mergeWebInfo(Book book, Book info, {bool refresh = false}) {
+  static Book mergeWebInfo(
+    Book book,
+    Book info, {
+    bool refresh = false,
+    bool resolved = false,
+  }) {
+    // mainJs结果已由Rust按字段存在性合并，这里仅映射快照，不能再吞掉显式空字符串。
+    if (resolved) {
+      return book.copyWith(
+        name: info.name,
+        author: info.author,
+        coverUrl: info.coverUrl,
+        intro: info.intro,
+        tocUrl: info.tocUrl,
+        wordCount: info.wordCount,
+        latestChapterTitle: info.latestChapterTitle,
+        kind: info.kind,
+        variable: info.variable,
+        bookType: BookTypePolicy.mergeBookType(book.bookType, info.bookType),
+      );
+    }
     String? nonEmpty(String? value) =>
         value != null && value.isNotEmpty ? value : null;
 

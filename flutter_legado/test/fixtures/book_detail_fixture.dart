@@ -58,7 +58,14 @@ class BookDetailFixture {
     when(() => reading.refreshToc(any(), any()))
         .thenAnswer((_) async => [chapter]);
     when(sources.getBookSources).thenAnswer((_) async => availableSources);
-    when(() => query.getBookInfo(any(), any())).thenAnswer((_) async => fresh);
+    when(
+      () => query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) async => fresh);
     when(
       () => query.getChapters(
         any(),

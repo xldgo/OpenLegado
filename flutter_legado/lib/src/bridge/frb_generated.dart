@@ -1236,6 +1236,8 @@ abstract class RustLibApi extends BaseApi {
   Future<WebBookInfoDto> crateFfiFfiWebbookInfo({
     required BookSourceDto source,
     required String bookUrl,
+    BookDto? existingBook,
+    bool? canReName,
   });
 
   Future<List<WebSearchResultDto>> crateFfiFfiWebbookSearch({
@@ -11238,6 +11240,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<WebBookInfoDto> crateFfiFfiWebbookInfo({
     required BookSourceDto source,
     required String bookUrl,
+    BookDto? existingBook,
+    bool? canReName,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -11245,6 +11249,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_box_autoadd_book_source_dto(source, serializer);
           sse_encode_String(bookUrl, serializer);
+          sse_encode_opt_box_autoadd_book_dto(existingBook, serializer);
+          sse_encode_opt_box_autoadd_bool(canReName, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -11257,7 +11263,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateFfiFfiWebbookInfoConstMeta,
-        argValues: [source, bookUrl],
+        argValues: [source, bookUrl, existingBook, canReName],
         apiImpl: this,
       ),
     );
@@ -11265,7 +11271,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateFfiFfiWebbookInfoConstMeta => const TaskConstMeta(
     debugName: "webbook_info",
-    argNames: ["source", "bookUrl"],
+    argNames: ["source", "bookUrl", "existingBook", "canReName"],
   );
 
   @override

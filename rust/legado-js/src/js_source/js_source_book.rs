@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use crate::engine::JsValue;
 use crate::source_engine::JsSourceEngine;
 
-use super::js_source_marshaller::{JsBookInfo as MarshalledBookInfo, JsSourceMarshaller};
+use super::js_source_marshaller::{
+    BOOK_MEDIA_MASK, JsBookInfo as MarshalledBookInfo, JsSourceMarshaller, source_book_type,
+};
 use super::js_source_review::{JsSourceReview, ReviewDetailPage, ReviewSummary};
 
 /// JS 源搜索请求
@@ -183,38 +185,28 @@ impl JsSourceBookOrchestrator {
     /// 参考 Kotlin JsSourceBook.kt:55-82
     pub fn get_book_info(
         &mut self,
-        _source: &BookSource,
+        source: &BookSource,
         book: &Book,
         can_re_name: bool,
     ) -> LegadoResult<MarshalledBookInfo> {
-        let book_value = JsValue::from_json(serde_json::to_value(book)?)?;
+        let mut book = book.clone();
+        book.book_type =
+            (book.book_type & !BOOK_MEDIA_MASK) | source_book_type(source.book_source_type);
+        let book_value = JsValue::from_json(serde_json::to_value(&book)?)?;
         let call_result = self
             .engine
             .call_function_if_exists("getBookInfo", &[("book", book_value)])?;
 
-        if call_result.exists
-            && let Some(json_str) = call_result.value
-        {
-            // 经 Marshaller 解析（downloadUrls 绝对化 + javascript: 过滤）
-            let info_value = JsSourceMarshaller::marshal_book_info(&json_str, &book.book_url)
+        let mut info =
+            JsSourceMarshaller::merge_book_info(&book, call_result.value.as_deref(), can_re_name)
                 .map_err(LegadoError::Parser)?;
-            let mut info: MarshalledBookInfo = serde_json::from_value(info_value)?;
-
-            // canReName 门控：仅当 can_re_name 为 true 时才允许覆盖 name
-            if !can_re_name {
-                info.name = book.name.clone();
-            }
-
-            // tocUrl 空回退 bookUrl
-            if info.toc_url.as_ref().is_none_or(|u| u.trim().is_empty()) {
-                info.toc_url = Some(book.book_url.clone());
-            }
-
-            return Ok(info);
+        if source.book_source_type == legado_core::models::book_source_type::FILE {
+            info.book_type |= source_book_type(source.book_source_type);
         }
-
-        // getBookInfo 函数不存在或无返回值，沿用搜索字段构造 BookInfo
-        Ok(MarshalledBookInfo::from_book(book))
+        if info.book_type & 128 == 0 && info.toc_url.as_ref().is_none_or(|u| u.trim().is_empty()) {
+            info.toc_url = Some(book.book_page_fetch_url().to_string());
+        }
+        Ok(info)
     }
 
     /// 目录：JS 书源 getChapterListAwait

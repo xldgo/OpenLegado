@@ -31,8 +31,14 @@ void main() {
     final info = Completer<Book>();
     fixture.stored = BookDetailFixture.book;
     fixture.cachedChapters = [BookDetailFixture.chapter];
-    when(() => fixture.query.getBookInfo(any(), any()))
-        .thenAnswer((_) => info.future);
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) => info.future);
     expect(container.read(provider).data.book, BookDetailFixture.book);
     final pending = container.read(provider.notifier).load();
     await Future<void>.delayed(Duration.zero);
@@ -64,7 +70,14 @@ void main() {
     final old = Completer<Book>();
     var calls = 0;
     fixture.cachedChapters = [BookDetailFixture.chapter];
-    when(() => fixture.query.getBookInfo(any(), any())).thenAnswer((_) async {
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) async {
       if (++calls == 1) return old.future;
       return BookDetailFixture.fresh.copyWith(name: '第二次详情');
     });
@@ -121,8 +134,14 @@ void main() {
     final info = Completer<Book>();
     fixture.stored = BookDetailFixture.book;
     fixture.cachedChapters = [BookDetailFixture.chapter];
-    when(() => fixture.query.getBookInfo(any(), any()))
-        .thenAnswer((_) => info.future);
+    when(
+      () => fixture.query.getBookInfo(
+        any(),
+        any(),
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) => info.future);
     final pending = container.read(provider.notifier).load();
     await Future<void>.delayed(Duration.zero);
     container.invalidate(provider);

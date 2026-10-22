@@ -1,5 +1,16 @@
 # API 契约文档
 
+### SOURCE-JS-DETAIL-20261022：详情结果增量合并（第三批，实施前冻结）
+
+- 对照原版363540972的JsSourceMarshaller.mergeBookInfo：返回对象仅覆盖允许的非null字段；缺省/null保留既有值。name仅在允许重命名时更新；author在允许重命名或原作者为空时更新。书籍身份、进度、自定义字段不从脚本返回对象覆盖。
+- 复用已有Book建立详情结果，不要求脚本回传name等完整模型。variable接受对象或JSON对象字符串，合法时整表替换；非法variable/type/downloadUrls忽略该字段。下载地址仅接受全字符串数组，去空、拒绝javascript（不区分大小写）、绝对化并去重。有效type使用实际媒体位4/8/32/64/128，不接受旧错误掩码0x0F。
+- 既有FFI webbook_info加可选existing_book: Option<BookDto>及can_re_name: Option<bool>（缺省true），方法数、返回DTO不变；不传时维持URL入口。Dart BookSourceQueryService.getBookInfo加可选existingBook/canReName，详情服务传完整对象，首屏补全不重命名、已有目录后的详情刷新允许更新，门控由Rust执行。页面取址点与稳定主键分开，返回与缓存不得把取址点写成稳定主键。
+- mainJs详情使用本次对象与既有变量，合并后variable/type经既有WebBookInfo字段回传；不另设Dart宽容转换或重复合并。普通规则书源保留原抓取/格式化路径。
+- mainJs先完成详情再取目录；目录/正文消费已接受的快照变量，不被旧DB读数覆盖。Flutter仅映射已合并的mainJs快照，保留显式空字符串，不再执行第二轮补空逻辑；普通规则书源的并行补全及非空覆盖策略保持。
+- Rust及Dart绑定同次生成，测试只覆盖上游完整合并场景和必要边界编排，不在每层逐字段重复；不改数据库、应用版本、Web/MCP功能、搜索结果传输格式或新增文件下载流程。downloadUrls继续停留在既有JS详情模型，本批不扩其FFI返回字段。
+
+编写者：Codex + Rust / Bridge｜2026-10-22
+
 ### SOURCE-JS-SCOPE-20261022：主脚本调用作用域与结果（第二批，实施前冻结）
 
 - FFI/DTO/方法计数/数据库不变，内部调用返回明确的exists与Option<String>，不再按字符串内容判空。

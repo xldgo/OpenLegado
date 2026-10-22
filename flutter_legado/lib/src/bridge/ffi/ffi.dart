@@ -988,9 +988,13 @@ Future<List<WebSearchResultDto>> webbookSearch({
 Future<WebBookInfoDto> webbookInfo({
   required BookSourceDto source,
   required String bookUrl,
+  BookDto? existingBook,
+  bool? canReName,
 }) => RustLib.instance.api.crateFfiFfiWebbookInfo(
   source: source,
   bookUrl: bookUrl,
+  existingBook: existingBook,
+  canReName: canReName,
 );
 
 /// 获取章节列表（返回类型化数组）

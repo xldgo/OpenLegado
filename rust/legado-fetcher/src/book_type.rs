@@ -15,12 +15,5 @@ pub const WEB_FILE: i32 = 0b1000_0000;
 /// 书源类型 → BookType（对齐原版 `BookSource.getBookType()`：
 /// file→text|webFile、image→image、audio→audio、video→video、其余→text）
 pub fn book_type_of_source(source_type: i32) -> i32 {
-    use legado_core::models::book_source_type as st;
-    match source_type {
-        st::FILE => TEXT | WEB_FILE,
-        st::IMAGE => IMAGE,
-        st::AUDIO => AUDIO,
-        st::VIDEO => VIDEO,
-        _ => TEXT,
-    }
+    legado_js::js_source::js_source_marshaller::source_book_type(source_type)
 }

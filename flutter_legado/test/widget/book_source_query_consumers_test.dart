@@ -85,7 +85,14 @@ void main() {
   }
 
   testWidgets('未入架详情使用当前源取址，补全目录仅展示、不写库', (tester) async {
-    when(() => query.getBookInfo(source, book.originBookUrl)).thenAnswer(
+    when(
+      () => query.getBookInfo(
+        source,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer(
       (_) async => const Book(
         name: '详情书',
         author: '详情作者',
@@ -105,7 +112,14 @@ void main() {
     await pump(tester, const BookInfoScreen(book: book));
     expect(find.text('详情作者'), findsOneWidget);
     expect(find.text('网络简介'), findsWidgets);
-    verify(() => query.getBookInfo(source, book.originBookUrl)).called(1);
+    verify(
+      () => query.getBookInfo(
+        source,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).called(1);
     verify(
       () => query.getChapters(
         source,
@@ -129,7 +143,14 @@ void main() {
         .thenAnswer((_) async => [chapter]);
     when(() => api.bookshelfRepository.updateBook(any()))
         .thenAnswer((_) async {});
-    when(() => query.getBookInfo(source, book.originBookUrl)).thenAnswer(
+    when(
+      () => query.getBookInfo(
+        source,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer(
       (_) async => const Book(
         bookUrl: 'other-url',
         name: '刷新书',
@@ -156,8 +177,14 @@ void main() {
 
   testWidgets('详情补全失败不丢弃并行查询成功的目录', (tester) async {
     final withToc = book.copyWith(tocUrl: 'known-toc');
-    when(() => query.getBookInfo(source, book.originBookUrl))
-        .thenAnswer((_) async => throw const FormatException('详情格式错误'));
+    when(
+      () => query.getBookInfo(
+        source,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) async => throw const FormatException('详情格式错误'));
     when(
       () => query.getChapters(
         source,
@@ -176,8 +203,14 @@ void main() {
 
   testWidgets('等待网络时路由信息保持可读，补全完成后由同一状态更新', (tester) async {
     final pending = Completer<Book>();
-    when(() => query.getBookInfo(source, book.originBookUrl))
-        .thenAnswer((_) => pending.future);
+    when(
+      () => query.getBookInfo(
+        source,
+        book.originBookUrl,
+        existingBook: any(named: 'existingBook'),
+        canReName: any(named: 'canReName'),
+      ),
+    ).thenAnswer((_) => pending.future);
     when(
       () => query.getChapters(
         source,

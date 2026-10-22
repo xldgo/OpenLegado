@@ -5,7 +5,12 @@ import '../../models/models.dart';
 final class MockBookSourceQueryService implements BookSourceQueryService {
   const MockBookSourceQueryService();
   @override
-  Future<Book> getBookInfo(BookSource source, String pageUrl) async => Book(
+  Future<Book> getBookInfo(
+    BookSource source,
+    String pageUrl, {
+    Book? existingBook,
+    bool canReName = true,
+  }) async => Book(
     bookUrl: pageUrl,
     origin: source.bookSourceUrl,
     originName: source.bookSourceName,

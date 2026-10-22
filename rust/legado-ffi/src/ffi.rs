@@ -1394,9 +1394,16 @@ pub mod ffi {
     pub async fn webbook_info(
         source: BookSourceDto,
         book_url: String,
+        existing_book: Option<BookDto>,
+        can_re_name: Option<bool>,
     ) -> Result<WebBookInfoDto, BridgeError> {
         let value = super::run_webbook_blocking("webbook_info", move || {
-            crate::api::web_book::webbook_info_entity(source.into(), &book_url)
+            crate::api::web_book::webbook_info_entity(
+                source.into(),
+                &book_url,
+                existing_book.map(Into::into),
+                can_re_name.unwrap_or(true),
+            )
         })
         .await?;
         Ok(value.into())

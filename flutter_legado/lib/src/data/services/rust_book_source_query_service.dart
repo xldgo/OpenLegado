@@ -9,17 +9,23 @@ import '../bridge/content_dto_mapping.dart';
 final class RustBookSourceQueryService implements BookSourceQueryService {
   const RustBookSourceQueryService();
   @override
-  Future<Book> getBookInfo(BookSource source, String pageUrl) async =>
-      webBookInfoFromDto(
-        await rustFuture(
-          () => bridge.webbookInfo(
-            source: bookSourceToDto(source),
-            bookUrl: pageUrl,
-          ),
-          operation: 'webbookInfo',
-        ),
-        source,
-      );
+  Future<Book> getBookInfo(
+    BookSource source,
+    String pageUrl, {
+    Book? existingBook,
+    bool canReName = true,
+  }) async => webBookInfoFromDto(
+    await rustFuture(
+      () => bridge.webbookInfo(
+        source: bookSourceToDto(source),
+        bookUrl: pageUrl,
+        existingBook: existingBook == null ? null : bookToDto(existingBook),
+        canReName: canReName,
+      ),
+      operation: 'webbookInfo',
+    ),
+    source,
+  );
   @override
   Future<List<BookChapter>> getChapters(
     BookSource source,

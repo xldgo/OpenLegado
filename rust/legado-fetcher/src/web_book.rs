@@ -196,10 +196,20 @@ pub fn record_book_meta_from_info(
     book_url: &str,
     info: &WebBookInfo,
 ) {
+    let variable = db_book_variable(deps, book_url).or_else(|| info.variable.clone());
+    record_book_meta(deps, source_url, book_url, info, variable);
+}
+
+fn record_book_meta(
+    deps: &FetcherDeps,
+    source_url: &str,
+    book_url: &str,
+    info: &WebBookInfo,
+    variable: Option<String>,
+) {
     if book_url.trim().is_empty() {
         return;
     }
-    let variable = db_book_variable(deps, book_url).or_else(|| info.variable.clone());
     let meta = BookMeta {
         name: info.name.trim().to_string(),
         author: info.author.trim().to_string(),
@@ -241,32 +251,38 @@ pub fn record_chapter_list_cache(
     if book_url.trim().is_empty() {
         return;
     }
-    let last = chapters
-        .iter()
-        .rev()
-        .find(|c| !c.is_volume)
-        .map(|c| c.title.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_default();
     let meta = BookMeta {
         name: name.trim().to_string(),
         author: author.trim().to_string(),
         book_url: book_url.to_string(),
         toc_url: toc_url.trim().to_string(),
-        last_chapter: last,
+        last_chapter: String::new(),
         // P1-1：目录阶段也按 bookUrl 补 DB 用户变量；DB 无值 → None，
         // merge 语义保留详情阶段已记录的 @put 导出值（不冲掉）
         variable: db_book_variable(deps, book_url),
     };
+    record_chapter_cache(deps, source_url, meta, chapters);
+}
+
+/// 统一写入元信息和章节索引；变量优先级由具体详情/规则调用方确定。
+fn record_chapter_cache(
+    deps: &FetcherDeps,
+    source_url: &str,
+    mut meta: BookMeta,
+    chapters: &[WebChapter],
+) {
+    let book_url = meta.book_url.clone();
+    meta.last_chapter = chapters
+        .iter()
+        .rev()
+        .find(|ch| !ch.is_volume)
+        .map(|ch| ch.title.trim().to_string())
+        .unwrap_or_default();
     if let Ok(mut map) = book_meta_cache(&deps.web_book).lock() {
-        book_meta_merge_insert(
-            &mut map,
-            (source_url.to_string(), book_url.to_string()),
-            meta,
-        );
+        book_meta_merge_insert(&mut map, (source_url.to_string(), book_url.clone()), meta);
     }
     if let Ok(mut map) = chapter_book_cache(&deps.web_book).lock() {
-        chapter_book_insert_batch(&mut map, source_url, book_url, chapters);
+        chapter_book_insert_batch(&mut map, source_url, &book_url, chapters);
     }
     // [B-6] 同步登记 (书源, 章节) → 下一章 URL（正文分页「命中下一章即
     // 截断」的精确通道；未命中时正文阶段回退 URL 形态启发式）
@@ -4209,22 +4225,46 @@ pub async fn webbook_info_entity(
     source: BookSource,
     book_url: &str,
 ) -> LegadoResult<WebBookInfo> {
+    webbook_info_entity_with_existing(deps, source, book_url, None, true).await
+}
+
+/// 详情页传入已有书籍，实际取址点与稳定身份独立；URL入口仍可省略上下文。
+pub async fn webbook_info_entity_with_existing(
+    deps: FetcherDeps,
+    source: BookSource,
+    book_url: &str,
+    existing_book: Option<Book>,
+    can_re_name: bool,
+) -> LegadoResult<WebBookInfo> {
     // P2-9 ③：详情流程入口（键 = bookUrl 原样；换书清全局变量表）
-    let deps = deps.for_book(&source.book_source_url, book_url);
+    let book_key = existing_book
+        .as_ref()
+        .map(|book| book.book_url.as_str())
+        .filter(|url| !url.trim().is_empty())
+        .unwrap_or(book_url)
+        .to_string();
+    let deps = deps.for_book(&source.book_source_url, &book_key);
 
     // JS 书源分派
     if let Some(mut orchestrator) = build_js_orchestrator(&deps.js, &source)? {
         let source_clone = source.clone();
         let url = book_url.to_string();
+        let saved_variable = db_book_variable(&deps, book_url);
         let lease = deps.execution_lease.clone();
         let js_info = tokio::task::spawn_blocking(move || {
             let _lease = lease;
-            let book = Book {
+            let mut book = existing_book.unwrap_or_else(|| Book {
                 book_url: url.clone(),
                 origin: source_clone.book_source_url.clone(),
                 ..Book::default()
-            };
-            orchestrator.get_book_info(&source_clone, &book, true)
+            });
+            if book.book_page_fetch_url() != url {
+                book.origin_book_url = url;
+            }
+            if book.variable.is_none() {
+                book.variable = saved_variable;
+            }
+            orchestrator.get_book_info(&source_clone, &book, can_re_name)
         })
         .await
         .map_err(|e| LegadoError::Internal(format!("JS 详情任务异常: {e}")))??;
@@ -4244,36 +4284,61 @@ pub async fn webbook_info_entity(
             intro: js_info.intro,
             categories,
             last_chapter: js_info.latest_chapter_title,
-            book_url: book_url.to_string(),
+            book_url: book_key.clone(),
             toc_url: js_info.toc_url.unwrap_or_else(|| book_url.to_string()),
             word_count: js_info
                 .word_count
                 .as_deref()
                 .and_then(legado_core::book_help::format_book_word_count),
             kind,
-            // JS 源 marshalled 详情暂不携带 variable（marshaller 未透出），
-            // 换源变量以搜索候选与规则源详情导出为准
-            variable: None,
-            // [P2-15 ②] JS 源路径：marshaller（legado-js JsBookInfo）不透出
-            // type 字段（禁改区，未扩展），JS 用户脚本对 book 对象的
-            // `type` 写入经 getBookInfo 返回值 JSON 携带、反序列化时被丢弃。
-            // 此处按书源 `bookSourceType` 换算兜底（与规则源无 overlay 时
-            // 同一取值），不劣于改造前（恒 0）；JS 源的 bookType 主来源
-            // 仍是入架时搜索候选/书源声明值。
-            book_type: book_type_of_source(source.book_source_type),
+            variable: js_info.variable,
+            book_type: js_info.book_type,
         };
         // P2-9 ②：记录 book 元信息（目录/正文阶段 `book` 绑定扩面反查用）
-        record_book_meta_from_info(&deps, &source.book_source_url, book_url, &info);
+        // mainJs返回的是已合并的书级变量，不是声明式规则的默认导出；不能被旧DB快照覆盖。
+        record_book_meta(
+            &deps,
+            &source.book_source_url,
+            &book_key,
+            &info,
+            info.variable.clone(),
+        );
+        if book_key != book_url {
+            record_book_meta(
+                &deps,
+                &source.book_source_url,
+                book_url,
+                &info,
+                info.variable.clone(),
+            );
+        }
         return Ok(info);
     }
 
-    // 规则书源路径（P2-12 变量链见 webbook_info_with_fetcher；
-    // 注：JS 书源路径（上方早退分支）marshaller 不透出 variable，维持现状）
+    // 规则源沿用既有变量与解析路径，已有名称通过原有门控传递。
     let fetcher = RealBookSourceFetcher::with_deps(deps);
-    let info: WebBookInfo =
-        webbook_info_with_fetcher(fetcher.deps(), &source, book_url, &fetcher).await?;
+    let mut info = if let Some(book) = existing_book {
+        let variables =
+            chapter_url_variables(db_book_variable(fetcher.deps(), book_url).as_deref());
+        fetcher
+            .get_book_info_with_existing_and_vars(
+                &source,
+                book_url,
+                can_re_name,
+                &book.name,
+                &book.author,
+                &variables,
+            )
+            .await?
+    } else {
+        webbook_info_with_fetcher(fetcher.deps(), &source, book_url, &fetcher).await?
+    };
     // P2-9 ②：记录 book 元信息（目录/正文阶段 `book` 绑定扩面反查用）
-    record_book_meta_from_info(fetcher.deps(), &source.book_source_url, book_url, &info);
+    info.book_url = book_key.clone();
+    record_book_meta_from_info(fetcher.deps(), &source.book_source_url, &book_key, &info);
+    if book_key != book_url {
+        record_book_meta_from_info(fetcher.deps(), &source.book_source_url, book_url, &info);
+    }
     Ok(info)
 }
 
@@ -4335,37 +4400,36 @@ pub async fn webbook_chapters_entity(
             .map(|s| s.to_string())
             .unwrap_or_else(|| url.clone());
         let book_name_owned = name_hint.to_string();
-        // P2-9 ②：缓存记录用副本（url / toc / 书名随后被 move 进闭包）
-        let url_for_cache = url.clone();
-        let toc_for_cache = toc.clone();
-        let name_for_cache = book_name_owned.clone();
+        let mut meta =
+            lookup_book_meta_by_book_url(&deps.web_book, &source.book_source_url, book_url)
+                .unwrap_or_else(|| BookMeta {
+                    book_url: url.clone(),
+                    variable: db_book_variable(&deps, book_url),
+                    ..Default::default()
+                });
+        if !book_name_owned.is_empty() {
+            meta.name = book_name_owned;
+        }
+        meta.toc_url = toc;
+        let book = Book {
+            book_url: meta.book_url.clone(),
+            toc_url: meta.toc_url.clone(),
+            name: meta.name.clone(),
+            author: meta.author.clone(),
+            variable: meta.variable.clone(),
+            origin: source_clone.book_source_url.clone(),
+            ..Book::default()
+        };
         let lease = deps.execution_lease.clone();
         let values = tokio::task::spawn_blocking(move || {
             let _lease = lease;
-            let book = Book {
-                book_url: url.clone(),
-                toc_url: toc,
-                name: book_name_owned,
-                origin: source_clone.book_source_url.clone(),
-                ..Book::default()
-            };
             orchestrator.get_chapter_list(&source_clone, &book)
         })
         .await
         .map_err(|e| LegadoError::Internal(format!("JS 目录任务异常: {e}")))??;
         let chapters = convert_js_chapters(values);
-        // P2-9 ②：记录章节 → book 映射 + 元信息（正文阶段反查用）；
-        // JS 详情路径不导出 author（传 ""，规则源详情阶段 merge 写入可补）
-        // [P2-11 §193] 复合键 (书源 URL, 章节 URL)，同章节 URL 不同书源不串键
-        record_chapter_list_cache(
-            &deps,
-            &url_for_cache,
-            &source.book_source_url,
-            &toc_for_cache,
-            &name_for_cache,
-            "",
-            &chapters,
-        );
+        // 连续消费已合并的详情，不以页面取址点或旧DB变量覆盖本次书籍身份。
+        record_chapter_cache(&deps, &source.book_source_url, meta, &chapters);
         return Ok(chapters);
     }
 

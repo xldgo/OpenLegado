@@ -6,6 +6,20 @@ use legado_parser::AnalyzeUrl;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// 对齐原版BookType.allBookType，其他位（进度状态/本地/未入架）不属于媒体类型。
+pub const BOOK_MEDIA_MASK: i32 = 4 | 8 | 32 | 64 | 128;
+
+pub fn source_book_type(source_type: i32) -> i32 {
+    use legado_core::models::book_source_type as st;
+    match source_type {
+        st::FILE => 8 | 128,
+        st::IMAGE => 64,
+        st::AUDIO => 32,
+        st::VIDEO => 4,
+        _ => 8,
+    }
+}
+
 // ─── 类型化结构体（camelCase 对齐 JS 书源返回 JSON）───────────────────────
 
 /// JS 搜索结果项
@@ -77,6 +91,11 @@ pub struct JsBookInfo {
     /// 下载 URL 列表
     #[serde(default)]
     pub download_urls: Option<Vec<String>>,
+    /// 已合并的书级变量JSON；与type一起经现有详情传输字段回流。
+    #[serde(default)]
+    pub variable: Option<String>,
+    #[serde(default, rename = "type")]
+    pub book_type: i32,
 }
 
 impl JsBookInfo {
@@ -102,7 +121,12 @@ impl JsBookInfo {
                 Some(book.toc_url.clone())
             },
             can_re_name: None,
-            download_urls: None,
+            download_urls: book
+                .download_urls
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok()),
+            variable: book.variable.clone(),
+            book_type: book.book_type,
         }
     }
 }
@@ -167,33 +191,77 @@ impl JsSourceMarshaller {
         Ok(results)
     }
 
-    /// 解析书籍详情
-    ///
-    /// 参考 Kotlin `mergeBookInfo`：输入必须是 JSON 对象
-    /// - `book_url`: 书籍详情页 URL，用于绝对化 downloadUrls
-    pub fn marshal_book_info(raw_json: &str, book_url: &str) -> Result<Value, String> {
-        let trimmed = raw_json.trim();
-        if trimmed.is_empty() {
-            return Err("getBookInfo 返回值为空".to_string());
+    /// 按上游mergeBookInfo白名单增量合并，不把脚本的部分对象反序列化成整本书。
+    pub fn merge_book_info(
+        book: &Book,
+        raw_json: Option<&str>,
+        can_re_name: bool,
+    ) -> Result<JsBookInfo, String> {
+        let mut info = JsBookInfo::from_book(book);
+        let Some(raw_json) = raw_json.filter(|text| !text.trim().is_empty()) else {
+            return Ok(info);
+        };
+        let parsed: Value = serde_json::from_str(raw_json)
+            .map_err(|e| format!("getBookInfo 返回值不是对象: {e}"))?;
+        let object = parsed.as_object().ok_or("getBookInfo 返回值不是对象")?;
+        for (key, value) in object {
+            if value.is_null() {
+                continue;
+            }
+            match key.as_str() {
+                "name" if can_re_name => info.name = detail_string(value, key)?,
+                "author" if can_re_name || book.author.is_empty() => {
+                    info.author = Some(detail_string(value, key)?)
+                }
+                "intro" => info.intro = Some(detail_string(value, key)?),
+                "coverUrl" => info.cover_url = Some(detail_string(value, key)?),
+                "kind" => info.kind = Some(detail_string(value, key)?),
+                "wordCount" => info.word_count = Some(detail_string(value, key)?),
+                "latestChapterTitle" => {
+                    info.latest_chapter_title = Some(detail_string(value, key)?)
+                }
+                "tocUrl" => info.toc_url = Some(detail_string(value, key)?),
+                "variable" => {
+                    if let Some(variables) = detail_variables(value) {
+                        info.variable = Some(variables);
+                    }
+                }
+                "type" => {
+                    let raw = match value {
+                        Value::Number(number) => {
+                            number.as_i64().and_then(|n| i32::try_from(n).ok())
+                        }
+                        Value::String(text) => text.parse::<i32>().ok(),
+                        _ => None,
+                    };
+                    if let Some(kind) = raw.and_then(Self::validate_book_type) {
+                        info.book_type = kind;
+                    }
+                }
+                "downloadUrls" => {
+                    // 任意非字符串元素使该字段整组无效，不能悄悄接受部分地址。
+                    if let Some(urls) = value.as_array().and_then(|items| {
+                        items.iter().map(Value::as_str).collect::<Option<Vec<_>>>()
+                    }) {
+                        let mut normalized = Vec::new();
+                        for url in urls {
+                            let url = url.trim();
+                            if url.is_empty() || url.to_ascii_lowercase().starts_with("javascript")
+                            {
+                                continue;
+                            }
+                            let url = AnalyzeUrl::get_absolute_url(book.book_page_fetch_url(), url);
+                            if !url.is_empty() && !normalized.contains(&url) {
+                                normalized.push(url);
+                            }
+                        }
+                        info.download_urls = Some(normalized);
+                    }
+                }
+                _ => {}
+            }
         }
-        let mut parsed: Value = serde_json::from_str(trimmed).map_err(|e| e.to_string())?;
-        if !parsed.is_object() {
-            return Err("getBookInfo 返回值不是对象".to_string());
-        }
-        // downloadUrls 绝对化 + javascript: 过滤
-        if let Some(obj) = parsed.as_object_mut()
-            && let Some(urls_val) = obj.get_mut("downloadUrls")
-            && let Some(arr) = urls_val.as_array_mut()
-        {
-            let new_urls: Vec<Value> = arr
-                .iter()
-                .filter_map(|u| u.as_str().map(|s| s.to_string()))
-                .filter(|u| !u.trim().starts_with("javascript:"))
-                .map(|u| Value::String(AnalyzeUrl::get_absolute_url(book_url, &u)))
-                .collect();
-            *urls_val = Value::Array(new_urls);
-        }
-        Ok(parsed)
+        Ok(info)
     }
 
     /// 解析章节列表
@@ -270,13 +338,38 @@ impl JsSourceMarshaller {
     ///
     /// type == 0 或含非法位时返回 None
     pub fn validate_book_type(raw: i32) -> Option<i32> {
-        // BookType.allBookType 掩码（text=1, audio=2, image=4, file=8）
-        const ALL_BOOK_TYPE: i32 = 0x0F;
-        if raw == 0 || (raw & !ALL_BOOK_TYPE) != 0 {
+        if raw == 0 || (raw & !BOOK_MEDIA_MASK) != 0 {
             return None;
         }
         Some(raw)
     }
+}
+
+fn detail_string(value: &Value, field: &str) -> Result<String, String> {
+    match value {
+        Value::String(text) => Ok(text.clone()),
+        Value::Number(_) | Value::Bool(_) => Ok(value.to_string()),
+        _ => Err(format!("getBookInfo.{field} 不是标量字符串")),
+    }
+}
+
+fn detail_variables(value: &Value) -> Option<String> {
+    let value = match value {
+        Value::String(text) => serde_json::from_str(text).ok()?,
+        value => value.clone(),
+    };
+    let object = value.as_object()?;
+    let converted: serde_json::Map<String, Value> = object
+        .iter()
+        .map(|(key, value)| {
+            let value = match value {
+                Value::Null | Value::String(_) => value.clone(),
+                value => Value::String(value.to_string()),
+            };
+            (key.clone(), value)
+        })
+        .collect();
+    serde_json::to_string(&converted).ok()
 }
 
 #[cfg(test)]
@@ -299,34 +392,11 @@ mod tests {
     }
 
     #[test]
-    fn test_marshal_book_info_valid() {
-        let json = r#"{"name":"测试","author":"作者","intro":"简介"}"#;
-        let info =
-            JsSourceMarshaller::marshal_book_info(json, "https://example.com/book/1").unwrap();
-        assert_eq!(info["name"], "测试");
-        assert_eq!(info["author"], "作者");
-    }
-
-    #[test]
     fn test_marshal_book_info_not_object() {
         let json = r#"[1,2,3]"#;
-        let result = JsSourceMarshaller::marshal_book_info(json, "https://example.com");
+        let result = JsSourceMarshaller::merge_book_info(&Book::default(), Some(json), true);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("不是对象"));
-    }
-
-    #[test]
-    fn test_marshal_book_info_download_urls_absolute_and_filter() {
-        let json = r#"{"name":"测试","downloadUrls":["/down/1.zip","javascript:alert(1)","https://cdn.com/2.zip"]}"#;
-        let info =
-            JsSourceMarshaller::marshal_book_info(json, "https://example.com/book/1").unwrap();
-        let urls = info["downloadUrls"].as_array().unwrap();
-        // javascript: 被过滤，剩余 2 个
-        assert_eq!(urls.len(), 2);
-        // 相对路径被绝对化
-        assert_eq!(urls[0], "https://example.com/down/1.zip");
-        // 已是绝对 URL 保持不变
-        assert_eq!(urls[1], "https://cdn.com/2.zip");
     }
 
     #[test]
@@ -352,15 +422,6 @@ mod tests {
         );
         assert_eq!(JsSourceMarshaller::extract_field(&obj, "null_field"), None);
         assert_eq!(JsSourceMarshaller::extract_field(&obj, "missing"), None);
-    }
-
-    #[test]
-    fn test_validate_book_type() {
-        assert_eq!(JsSourceMarshaller::validate_book_type(0), None);
-        assert_eq!(JsSourceMarshaller::validate_book_type(1), Some(1));
-        assert_eq!(JsSourceMarshaller::validate_book_type(3), Some(3));
-        assert_eq!(JsSourceMarshaller::validate_book_type(16), None);
-        assert_eq!(JsSourceMarshaller::validate_book_type(17), None);
     }
 
     // ─── 类型化结构体 camelCase 测试 ───────────────────────────────────────

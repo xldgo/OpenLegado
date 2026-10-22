@@ -252,11 +252,15 @@ pub fn webbook_search_entity(
 pub fn webbook_info_entity(
     source: BookSource,
     book_url: &str,
+    existing_book: Option<legado_core::models::Book>,
+    can_re_name: bool,
 ) -> LegadoResult<legado_core::web_book::WebBookInfo> {
-    runtime::block_on(legado_fetcher::web_book::webbook_info_entity(
+    runtime::block_on(legado_fetcher::web_book::webbook_info_entity_with_existing(
         ffi_deps()?,
         source,
         book_url,
+        existing_book,
+        can_re_name,
     ))
 }
 pub fn webbook_chapters_entity(

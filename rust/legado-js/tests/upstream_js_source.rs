@@ -558,6 +558,104 @@ mod marshalling {
 mod book {
     use super::*;
 
+    /// 上游merges only allowed detail fields / fills a missing author when renaming is disabled。
+    #[test]
+    fn partial_details_preserve_existing_metadata_and_obey_rename_gate() {
+        let source = BookSource::default();
+        let mut book = Book {
+            book_url: "https://source.example/book".into(),
+            name: "原名".into(),
+            author: "原作者".into(),
+            cover_url: Some("cover".into()),
+            dur_chapter_index: 5,
+            custom_tag: Some("自定义".into()),
+            ..Default::default()
+        };
+        let mut reader = JsSourceBookOrchestrator::new(engine(
+            r#"function getBookInfo(book){return {name:'新名',author:'新作者',intro:'简介',coverUrl:null,bookUrl:'ignored',durChapterIndex:0,customTag:'ignored'};}"#,
+        ));
+        let info = reader.get_book_info(&source, &book, false).unwrap();
+        assert_eq!(
+            (
+                info.name.as_str(),
+                info.author.as_deref(),
+                info.intro.as_deref(),
+                info.cover_url.as_deref()
+            ),
+            ("原名", Some("原作者"), Some("简介"), Some("cover"))
+        );
+        assert_eq!(info.toc_url.as_deref(), Some(book.book_url.as_str()));
+        assert_eq!(book.dur_chapter_index, 5);
+        assert_eq!(book.custom_tag.as_deref(), Some("自定义"));
+        book.author.clear();
+        let info = reader.get_book_info(&source, &book, false).unwrap();
+        assert_eq!(info.author.as_deref(), Some("新作者"));
+        let info = reader.get_book_info(&source, &book, true).unwrap();
+        assert_eq!(info.name, "新名");
+        let mut reader = JsSourceBookOrchestrator::new(engine(
+            "function getBookInfo(){return {intro:'只补简介'};}",
+        ));
+        let info = reader.get_book_info(&source, &book, true).unwrap();
+        assert_eq!(info.name, "原名");
+        assert_eq!(info.intro.as_deref(), Some("只补简介"));
+    }
+
+    /// 上游variable两态、非法type与downloadUrls场景，合并为完整详情行为验证。
+    #[test]
+    fn detail_variables_types_and_download_urls_follow_upstream() {
+        let mut book = Book {
+            book_url: "https://source.example/book/1".into(),
+            variable: Some(r#"{"old":"value"}"#.into()),
+            download_urls: Some(r#"["https://keep.example/book"]"#.into()),
+            book_type: 32,
+            ..Default::default()
+        };
+        let source = BookSource {
+            book_source_type: 1,
+            ..Default::default()
+        };
+        let raw = r#"{"variable":{"token":"abc","count":2},"type":64,"downloadUrls":[" /download/1.txt ","https://cdn.example/2.epub","/download/1.txt","JaVaScRiPt:bad",""]}"#;
+        let info = JsSourceMarshaller::merge_book_info(&book, Some(raw), true).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(info.variable.as_deref().unwrap()).unwrap(),
+            json!({"token":"abc","count":"2"})
+        );
+        assert_eq!(info.book_type, 64);
+        assert_eq!(
+            info.download_urls,
+            Some(vec![
+                "https://source.example/download/1.txt".into(),
+                "https://cdn.example/2.epub".into()
+            ])
+        );
+        book.variable = info.variable;
+        let info = JsSourceMarshaller::merge_book_info(
+            &book,
+            Some(r#"{"variable":"{\"session\":\"xyz\"}"}"#),
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(info.variable.as_deref().unwrap()).unwrap(),
+            json!({"session":"xyz"})
+        );
+        for raw in [
+            r#"{"variable":"bad","type":"audio","downloadUrls":"bad"}"#,
+            r#"{"variable":[],"type":16,"downloadUrls":[{"bad":true}]}"#,
+        ] {
+            let mut reader = JsSourceBookOrchestrator::new(engine(&format!(
+                "function getBookInfo(){{return {raw};}}"
+            )));
+            let info = reader.get_book_info(&source, &book, true).unwrap();
+            assert_eq!(info.variable, book.variable);
+            assert_eq!(info.book_type, 32);
+            assert_eq!(
+                info.download_urls,
+                Some(vec!["https://keep.example/book".into()])
+            );
+        }
+    }
+
     /// 上游：volume placeholder skips js content and ignores its tag。
     #[test]
     fn volume_placeholder_skips_js_content_and_ignores_tag() {
