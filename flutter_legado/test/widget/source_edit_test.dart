@@ -117,6 +117,77 @@ void main() {
   });
 
   group('SourceEditScreen 校验与保存', () {
+    testWidgets('未保存修改拦截系统返回，取消保留输入，放弃才退出', (tester) async {
+      await pumpEdit(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('sf_bookSourceName')),
+        '未保存书源',
+      );
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(find.text('未保存书源'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('放弃'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SourceEditScreen), findsNothing);
+      verifyNever(() => mockApi.bookSourceRepository.addBookSource(any()));
+    });
+
+    testWidgets('初始回填和切换页签不算修改，恢复原文后可直接返回', (tester) async {
+      const source = BookSource(
+        bookSourceUrl: 'https://unchanged.test',
+        bookSourceName: '原名称',
+      );
+      when(() => mockApi.bookSourceRepository.getBookSources())
+          .thenAnswer((_) async => [source]);
+      await pumpEdit(tester, sourceUrl: source.bookSourceUrl);
+      await selectTab(tester, '搜索');
+      await selectTab(tester, '基本');
+      final name = find.byKey(const ValueKey('sf_bookSourceName'));
+      await tester.enterText(name, '临时修改');
+      await tester.enterText(name, '原名称');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SourceEditScreen), findsNothing);
+    });
+
+    testWidgets('保存失败仍保留未保存保护，设置开关变化也需要确认', (tester) async {
+      when(() => mockApi.bookSourceRepository.addBookSource(any()))
+          .thenThrow(Exception('保存失败夹具'));
+      await pumpEdit(tester);
+      await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'CookieJar'));
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('sf_bookSourceName')),
+        '保存失败源',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('sf_bookSourceUrl')),
+        'https://failed.test',
+      );
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(SourceEditScreen), findsOneWidget);
+    });
+
     testWidgets('其他页签保存仍校验必填字段并返回基本', (tester) async {
       await pumpEdit(tester);
       await selectTab(tester, '正文');

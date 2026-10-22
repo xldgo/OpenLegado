@@ -27,7 +27,10 @@ extension _SourceEditBuilders on _SourceEditScreenState {
           contentPadding: EdgeInsets.zero,
           title: Text(label, style: const TextStyle(fontSize: 14)),
           value: value,
-          onChanged: (v) => setState(() => onChanged(v ?? false)),
+          onChanged: (v) {
+            setState(() => onChanged(v ?? false));
+            _refreshChanges();
+          },
         ),
       );
     }
@@ -146,8 +149,10 @@ extension _SourceEditBuilders on _SourceEditScreenState {
                       selectOnly: true,
                       expandedInsets: EdgeInsets.zero,
                       label: Text(context.l10n.editorType),
-                      onSelected: (v) =>
-                          setState(() => _bookSourceType = v ?? 0),
+                      onSelected: (v) {
+                        setState(() => _bookSourceType = v ?? 0);
+                        _refreshChanges();
+                      },
                       dropdownMenuEntries: [
                         for (
                           var i = 0;

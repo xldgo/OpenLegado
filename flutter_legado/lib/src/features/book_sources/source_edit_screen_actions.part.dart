@@ -290,6 +290,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       await notifier.saveSource(source);
       _afterSaveRefresh();
       if (mounted) {
+        _markSaved();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -395,6 +396,7 @@ extension _SourceEditActions on _SourceEditScreenState {
       await ref.read(sourceNotifierProvider.notifier).saveSource(source);
       _afterSaveRefresh();
       if (!mounted) return;
+      _markSaved();
       final search = ref.read(searchNotifierProvider.notifier);
       search.clearAllFilter();
       search.toggleSource(source.bookSourceUrl);

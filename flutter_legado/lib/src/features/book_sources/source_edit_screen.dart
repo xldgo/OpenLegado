@@ -5,6 +5,7 @@ import '../../providers/network_provider.dart';
 import '../../providers/source_interaction_provider.dart';
 import '../../l10n/app_localization.dart';
 import '../../widgets/app_menu.dart';
+import '../../widgets/confirm_dialog.dart';
 
 import 'dart:convert';
 import 'dart:io';
@@ -64,6 +65,9 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
+  String? _savedSnapshot;
+  bool _hasChanges = false;
+  bool _confirmingExit = false;
   late final TabController _tabController;
 
   // 字段 GlobalKey 保留供焦点定位和校验使用。
@@ -102,8 +106,59 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
   bool get isNew => widget.sourceUrl == null && widget.source == null;
 
   /// 按 key 惰性获取控制器
-  TextEditingController _ctrl(String key) =>
-      _ctrls.putIfAbsent(key, () => TextEditingController());
+  TextEditingController _ctrl(String key) => _ctrls.putIfAbsent(
+    key,
+    () => TextEditingController()..addListener(_refreshChanges),
+  );
+
+  /// 忽略惰性创建的空字段及光标变化，只比较可保存内容。— Codex + UI
+  String _snapshot() => jsonEncode([
+    Map.fromEntries(
+      (_ctrls.entries.where((entry) => entry.value.text.isNotEmpty).toList()
+            ..sort((a, b) => a.key.compareTo(b.key)))
+          .map((entry) => MapEntry(entry.key, entry.value.text)),
+    ),
+    _enabled,
+    _enabledExplore,
+    _reviewEnabled,
+    _cookieJar,
+    _eventListener,
+    _customButton,
+    _bookSourceType,
+    _preservedVariable,
+    _originalSource?.toJson(),
+  ]);
+
+  void _refreshChanges() {
+    final changed = _savedSnapshot != null && _snapshot() != _savedSnapshot;
+    if (changed != _hasChanges) setState(() => _hasChanges = changed);
+  }
+
+  void _markSaved() {
+    _savedSnapshot = _snapshot();
+    _refreshChanges();
+  }
+
+  Future<void> _tryExit() async {
+    if (_saving || _confirmingExit) return;
+    if (!_hasChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _confirmingExit = true;
+    try {
+      final discard = await showConfirmDialog(
+        context,
+        title: context.l10n.unsavedChanges,
+        content: context.l10n.discardSourceChanges,
+        confirmText: context.l10n.discard,
+        isDestructive: true,
+      );
+      if (discard && mounted) Navigator.of(context).pop();
+    } finally {
+      _confirmingExit = false;
+    }
+  }
 
   FocusNode _focus(String key) => _focusNodes.putIfAbsent(
     key,
@@ -543,6 +598,7 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
     } else if (!isNew) {
       _loadSource();
     }
+    _markSaved();
     // 对标原版 BookSourceEditActivity.onPostCreate：
     // if (!LocalConfig.ruleHelpVersionIsLast) showHelp("ruleHelp")
     _maybeShowFirstHelp();
@@ -563,86 +619,95 @@ class _SourceEditScreenState extends ConsumerState<SourceEditScreen>
   @override
   Widget build(BuildContext context) {
     // [GLOBALCOMP B4] 页壳统一：AppScaffold（行为等价直通 Scaffold）
-    return AppScaffold(
-      topBar: LegadoAppBar(
-        // 标题字号 20sp 与原版 ToolbarTitle 一致；防极端设备字号缩放截断
-        title: Text(
-          isNew ? context.l10n.newBookSource : context.l10n.editBookSource,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          onTap: (_) => FocusScope.of(context).unfocus(),
-          tabs: [
-            Tab(text: context.l10n.editorBasic),
-            Tab(text: context.l10n.search),
-            Tab(text: context.l10n.discover),
-            Tab(text: context.l10n.editorDetails),
-            Tab(text: context.l10n.editorChapters),
-            Tab(text: context.l10n.editorBookContent),
+    return PopScope(
+      canPop: !_hasChanges && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _tryExit();
+      },
+      child: AppScaffold(
+        topBar: LegadoAppBar(
+          leading: BackButton(onPressed: _tryExit),
+          // 标题字号 20sp 与原版 ToolbarTitle 一致；防极端设备字号缩放截断
+          title: Text(
+            isNew ? context.l10n.newBookSource : context.l10n.editBookSource,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          bottom: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            onTap: (_) => FocusScope.of(context).unfocus(),
+            tabs: [
+              Tab(text: context.l10n.editorBasic),
+              Tab(text: context.l10n.search),
+              Tab(text: context.l10n.discover),
+              Tab(text: context.l10n.editorDetails),
+              Tab(text: context.l10n.editorChapters),
+              Tab(text: context.l10n.editorBookContent),
+            ],
+          ),
+          actions: [
+            // 全屏代码编辑（对齐原版 menu_fullscreen_edit → 编辑内容，图标位）
+            IconButton(
+              icon: const Icon(Symbols.code_rounded),
+              tooltip: context.l10n.editSourceContent,
+              // 压缩触控区 48→40dp：给标题留出更多空间（字体放大时标题
+              // 保持原版字号完整显示，避免截断/缩放）
+              visualDensity: VisualDensity.compact,
+              onPressed: _showFullscreenEdit,
+            ),
+            // 保存（对齐原版 menu_save：仅图标，无文字）
+            IconButton(
+              icon: const Icon(Symbols.save_rounded),
+              tooltip: context.l10n.save,
+              visualDensity: VisualDensity.compact,
+              onPressed: _saving ? null : _save,
+            ),
+            // 调试源（对齐原版 menu_debug_source，图标位）
+            IconButton(
+              icon: const Icon(Symbols.bug_report_rounded),
+              tooltip: context.l10n.debugSource,
+              visualDensity: VisualDensity.compact,
+              onPressed: _saving ? null : _debugSource,
+            ),
+            AppMenuButton<String>(
+              tooltip: context.l10n.moreOptions,
+              itemBuilder: (_) => _buildMenuItems(),
+              onSelected: _handleMenu,
+            ),
           ],
         ),
-        actions: [
-          // 全屏代码编辑（对齐原版 menu_fullscreen_edit → 编辑内容，图标位）
-          IconButton(
-            icon: const Icon(Symbols.code_rounded),
-            tooltip: context.l10n.editSourceContent,
-            // 压缩触控区 48→40dp：给标题留出更多空间（字体放大时标题
-            // 保持原版字号完整显示，避免截断/缩放）
-            visualDensity: VisualDensity.compact,
-            onPressed: _showFullscreenEdit,
+        body: Form(
+          key: _formKey,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildEditTab('basic', [
+                _buildSettingsSection(),
+                _buildFormSection(_basicFields(context.l10n)),
+              ]),
+              _buildEditTab('search', [
+                _buildFormSection(_searchFields(context.l10n)),
+              ]),
+              _buildEditTab('explore', [
+                _buildFormSection(_exploreFields(context.l10n)),
+              ]),
+              _buildEditTab('info', [
+                _buildFormSection(_infoFields(context.l10n)),
+              ]),
+              _buildEditTab('toc', [
+                _buildFormSection(_tocFields(context.l10n)),
+              ]),
+              _buildEditTab('content', [
+                _buildFormSection(_contentFields(context.l10n)),
+                _buildFormSection(
+                  _reviewFields(context.l10n),
+                  title: context.l10n.editorReviewRules,
+                ),
+              ]),
+            ],
           ),
-          // 保存（对齐原版 menu_save：仅图标，无文字）
-          IconButton(
-            icon: const Icon(Symbols.save_rounded),
-            tooltip: context.l10n.save,
-            visualDensity: VisualDensity.compact,
-            onPressed: _saving ? null : _save,
-          ),
-          // 调试源（对齐原版 menu_debug_source，图标位）
-          IconButton(
-            icon: const Icon(Symbols.bug_report_rounded),
-            tooltip: context.l10n.debugSource,
-            visualDensity: VisualDensity.compact,
-            onPressed: _saving ? null : _debugSource,
-          ),
-          AppMenuButton<String>(
-            tooltip: context.l10n.moreOptions,
-            itemBuilder: (_) => _buildMenuItems(),
-            onSelected: _handleMenu,
-          ),
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildEditTab('basic', [
-              _buildSettingsSection(),
-              _buildFormSection(_basicFields(context.l10n)),
-            ]),
-            _buildEditTab('search', [
-              _buildFormSection(_searchFields(context.l10n)),
-            ]),
-            _buildEditTab('explore', [
-              _buildFormSection(_exploreFields(context.l10n)),
-            ]),
-            _buildEditTab('info', [
-              _buildFormSection(_infoFields(context.l10n)),
-            ]),
-            _buildEditTab('toc', [_buildFormSection(_tocFields(context.l10n))]),
-            _buildEditTab('content', [
-              _buildFormSection(_contentFields(context.l10n)),
-              _buildFormSection(
-                _reviewFields(context.l10n),
-                title: context.l10n.editorReviewRules,
-              ),
-            ]),
-          ],
         ),
       ),
     );

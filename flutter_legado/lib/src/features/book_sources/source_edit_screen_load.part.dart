@@ -49,6 +49,7 @@ extension _SourceEditLoad on _SourceEditScreenState {
       if (!mounted) return;
       if (source != null) {
         _populateFields(source);
+        _markSaved();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.bookSourceNotFound)),
@@ -76,5 +77,6 @@ extension _SourceEditLoad on _SourceEditScreenState {
       _SourceEditScreenState._typeCount - 1,
     );
     setState(() {});
+    _refreshChanges();
   }
 }
