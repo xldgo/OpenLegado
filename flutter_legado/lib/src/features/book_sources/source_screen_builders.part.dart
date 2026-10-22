@@ -573,9 +573,7 @@ extension _SourceBuilders on _SourceScreenState {
             return;
           }
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => SourceEditScreen(sourceUrl: source.bookSourceUrl),
-            ),
+            sourceEditRoute(sourceUrl: source.bookSourceUrl),
           );
         },
         child: Padding(
@@ -609,10 +607,7 @@ extension _SourceBuilders on _SourceScreenState {
                 visualDensity: VisualDensity.compact,
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SourceEditScreen(sourceUrl: source.bookSourceUrl),
-                    ),
+                    sourceEditRoute(sourceUrl: source.bookSourceUrl),
                   );
                 },
               ),

@@ -34,7 +34,7 @@ import '../../widgets/help/help_assets.dart';
 import '../../widgets/help/show_help.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../imports/presentation/association_import_dialog.dart';
-import 'source_edit_screen.dart';
+import 'source_edit_route.dart';
 import 'js_source_edit_screen.dart';
 import 'source_import_confirm_screen.dart';
 import 'presentation/source_login_screen.dart';

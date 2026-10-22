@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../features/book_sources/source_edit_route.dart';
 import '../../features/privacy/privacy_gate.dart';
 import '../../widgets/reader/book_reader_route.dart';
 import '../../widgets/reader/read_aloud_player_transition.dart';
@@ -30,6 +31,10 @@ class AppRoutePage extends Page<dynamic> {
     );
     if (name == AppRoutes.reader) {
       return BookReaderRoute<dynamic>(settings: this, builder: guarded);
+    }
+    // 书源编辑页统一关闭转场快照，保证首帧回填时浮动标签动画可见。
+    if (name == AppRoutes.sourceEdit) {
+      return sourceEditRoute<dynamic>(settings: this, builder: guarded);
     }
     return MaterialPageRoute<dynamic>(settings: this, builder: guarded);
   }

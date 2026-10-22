@@ -43,8 +43,7 @@ extension _SourceActions on _SourceScreenState {
   void _handleAction(BuildContext context, String action) {
     switch (action) {
       case 'new':
-        Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const SourceEditScreen()));
+        Navigator.of(context).push(sourceEditRoute());
         break;
       case 'new_js':
         // P0-1：最小可用 JS 书源编辑器（extractJsSource + 保存）

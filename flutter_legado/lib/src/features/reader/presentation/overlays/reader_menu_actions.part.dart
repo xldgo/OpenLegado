@@ -567,11 +567,7 @@ mixin _ReaderMenuActions on ConsumerState<ReaderMenuPanel> {
         // [UI-fix v2.0.3 | 2026-08-08] 章节购买接线（契约 §2.43.2） — Qoder
         await _chapterPay(context, book);
       case 'editSource':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SourceEditScreen(sourceUrl: sourceUrl),
-          ),
-        );
+        Navigator.of(context).push(sourceEditRoute(sourceUrl: sourceUrl));
       case 'disableSource':
         try {
           await ref

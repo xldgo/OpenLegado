@@ -828,10 +828,7 @@ class _AudioScreenState extends ConsumerState<AudioScreen> {
       _snack('本书无关联书源');
       return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => SourceEditScreen(sourceUrl: _origin)),
-    );
+    Navigator.push(context, sourceEditRoute(sourceUrl: _origin));
   }
 
   // ===== 音频章节预下载（契约 §2.48，对齐原版 AudioCacheService 批量循环）=====
