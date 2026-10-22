@@ -35,7 +35,8 @@ import '../../../providers/general_settings_provider.dart';
 import '../../reader/application/reader_settings_provider.dart';
 import '../../../app/routing/route_names.dart';
 import '../../../services/audio_cache_events.dart';
-import '../../../services/bookmark_export.dart';
+import '../../bookmarks/bookmark_export.dart';
+import '../../../domain/models/bookmark_export_document.dart';
 import '../../../utils/app_route_observer.dart';
 
 /// 目录页组合章节、书签和标注；数据及下载保持现有仓储来源。— Codex + UI
@@ -449,17 +450,17 @@ class _TocScreenState extends ConsumerState<TocScreen>
           (await ref.read(generalSettingsRepositoryProvider).load())
               .defaultBookTreeUri;
       if (!mounted) return;
-      final savedPath = asMarkdown
-          ? await BookmarkExport.exportMarkdown(
-              book: _book,
-              bookmarks: bookmarks,
-              initialDirectory: initialDir,
-            )
-          : await BookmarkExport.exportJson(
-              book: _book,
-              bookmarks: bookmarks,
-              initialDirectory: initialDir,
-            );
+      final savedPath = await ref
+          .read(bookmarkExportProvider)
+          .export(
+            bookName: _book.name,
+            bookAuthor: _book.author,
+            bookmarks: bookmarks,
+            format: asMarkdown
+                ? BookmarkExportFormat.markdown
+                : BookmarkExportFormat.json,
+            initialDirectory: initialDir,
+          );
       if (!mounted) return;
       // 用户取消目录选择时静默返回（对齐原版 SAF 取消语义）
       if (savedPath == null) return;

@@ -103,6 +103,33 @@ class BookMetadataDto {
           format == other.format;
 }
 
+class BookmarkExportDocumentDto {
+  final String fileName;
+  final String mimeType;
+  final String content;
+
+  const BookmarkExportDocumentDto({
+    required this.fileName,
+    required this.mimeType,
+    required this.content,
+  });
+
+  @override
+  int get hashCode => fileName.hashCode ^ mimeType.hashCode ^ content.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BookmarkExportDocumentDto &&
+          runtimeType == other.runtimeType &&
+          fileName == other.fileName &&
+          mimeType == other.mimeType &&
+          content == other.content;
+}
+
+/// 书签导出仅支持既有JSON与Markdown两种格式。
+enum BookmarkExportFormatDto { json, markdown }
+
 class DetectFormatDto {
   final String format;
   final String path;

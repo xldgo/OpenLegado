@@ -1127,6 +1127,19 @@ Future<RuleParseResultDto> parseRule({
 Future<String> jsEval({required String script}) =>
     RustLib.instance.api.crateFfiFfiJsEval(script: script);
 
+/// 生成书签交换文档；路径选择和文件写入由Flutter处理。
+Future<BookmarkExportDocumentDto> bookmarkExport({
+  required String bookName,
+  required String bookAuthor,
+  required List<BookmarkDto> bookmarks,
+  required BookmarkExportFormatDto format,
+}) => RustLib.instance.api.crateFfiFfiBookmarkExport(
+  bookName: bookName,
+  bookAuthor: bookAuthor,
+  bookmarks: bookmarks,
+  format: format,
+);
+
 /// 获取书籍的所有书签（强类型列表）
 Future<List<BookmarkDto>> bookmarkGetAll({required String bookName}) =>
     RustLib.instance.api.crateFfiFfiBookmarkGetAll(bookName: bookName);

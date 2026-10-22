@@ -1604,6 +1604,23 @@ pub mod ffi {
 
     // ─── 书签管理 ─────────────────────────────────────────────
 
+    /// 生成书签交换文档；路径选择和文件写入由Flutter处理。
+    pub fn bookmark_export(
+        book_name: String,
+        book_author: String,
+        bookmarks: Vec<BookmarkDto>,
+        format: BookmarkExportFormatDto,
+    ) -> Result<BookmarkExportDocumentDto, BridgeError> {
+        let bookmarks: Vec<_> = bookmarks.into_iter().map(Into::into).collect();
+        Ok(crate::api::bookmark_api::export_bookmarks(
+            &book_name,
+            &book_author,
+            &bookmarks,
+            format.into(),
+        )?
+        .into())
+    }
+
     /// 获取书籍的所有书签（强类型列表）
     pub fn bookmark_get_all(book_name: String) -> Result<Vec<BookmarkDto>, BridgeError> {
         let bookmarks = crate::api::bookmark_api::get_bookmarks(&book_name)?;

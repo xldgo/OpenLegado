@@ -215,6 +215,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BookmarkDto dco_decode_bookmark_dto(dynamic raw);
 
   @protected
+  BookmarkExportDocumentDto dco_decode_bookmark_export_document_dto(
+    dynamic raw,
+  );
+
+  @protected
+  BookmarkExportFormatDto dco_decode_bookmark_export_format_dto(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -1267,6 +1275,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BookmarkDto sse_decode_bookmark_dto(SseDeserializer deserializer);
+
+  @protected
+  BookmarkExportDocumentDto sse_decode_bookmark_export_document_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BookmarkExportFormatDto sse_decode_bookmark_export_format_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -2661,6 +2679,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bookmark_dto(BookmarkDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_bookmark_export_document_dto(
+    BookmarkExportDocumentDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_bookmark_export_format_dto(
+    BookmarkExportFormatDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);

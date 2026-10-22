@@ -1,6 +1,6 @@
 import '../bridge/rust_errors.dart';
 import '../../bridge/ffi/ffi.dart' as bridge;
-import '../../bridge/transfer_dto.dart' as dto;
+import '../bridge/bookmark_dto_mapping.dart';
 import '../../domain/contracts/bookmark_repository.dart';
 import '../../models/misc.dart';
 
@@ -8,35 +8,11 @@ import '../../models/misc.dart';
 final class RustBookmarkRepository implements BookmarkRepository {
   const RustBookmarkRepository();
 
-  Bookmark _fromDto(dto.BookmarkDto value) => Bookmark(
-    id: value.id,
-    time: value.time,
-    bookName: value.bookName,
-    bookAuthor: value.bookAuthor,
-    chapterIndex: value.chapterIndex,
-    chapterPos: value.chapterPos,
-    chapterName: value.chapterName,
-    bookText: value.bookText,
-    content: value.content,
-  );
-
-  dto.BookmarkDto _toDto(Bookmark value) => dto.BookmarkDto(
-    id: value.id,
-    time: value.time,
-    bookName: value.bookName,
-    bookAuthor: value.bookAuthor,
-    chapterIndex: value.chapterIndex,
-    chapterPos: value.chapterPos,
-    chapterName: value.chapterName,
-    bookText: value.bookText,
-    content: value.content,
-  );
-
   @override
   Future<List<Bookmark>> getAllBookmarks() async => (await rustFuture(
     () => bridge.bookmarkList(),
     operation: 'bookmarkList',
-  )).map(_fromDto).toList();
+  )).map(bookmarkFromDto).toList();
 
   @override
   Future<List<Bookmark>> getBookmarksByBook(
@@ -45,7 +21,7 @@ final class RustBookmarkRepository implements BookmarkRepository {
   ) async => (await rustFuture(
     () => bridge.getBookmarksByBook(bookName: bookName, bookAuthor: bookAuthor),
     operation: 'getBookmarksByBook',
-  )).map(_fromDto).toList();
+  )).map(bookmarkFromDto).toList();
 
   @override
   Future<Bookmark> addBookmark(Bookmark bookmark) async {
@@ -66,7 +42,7 @@ final class RustBookmarkRepository implements BookmarkRepository {
 
   @override
   Future<void> updateBookmark(Bookmark bookmark) => rustFuture(
-    () => bridge.bookmarkUpdate(bookmark: _toDto(bookmark)),
+    () => bridge.bookmarkUpdate(bookmark: bookmarkToDto(bookmark)),
     operation: 'bookmarkUpdate',
   );
 
@@ -81,5 +57,5 @@ final class RustBookmarkRepository implements BookmarkRepository {
       (await rustFuture(
         () => bridge.bookmarkSearch(keyword: keyword),
         operation: 'bookmarkSearch',
-      )).map(_fromDto).toList();
+      )).map(bookmarkFromDto).toList();
 }

@@ -1,5 +1,19 @@
 # Legado 后续重构执行计划（Active）
 
+### BOOKMARK-EXPORT-20261023：书签导出职责收敛（P2，代码及定向验证完成）
+
+- 授权/基线：用户同意开始下一批书签导出，dev / d3a266775；按用户明确不必子代理独立审查的要求单代理复核，定向验证后本地提交，不创建分支、不推送CI或安装，版本保持2.0.439+440。保护未跟踪审计报告。
+- 范围：Rust统一JSON/Markdown/文件名及MIME，Flutter窄接口适配、导出编排与平台保存分离；保留书名+作者查询、空列表提示、选择器取消、Android SAF回退及已有文件保存方式。契约先冻结，生成FRB，不动数据库或其他导出功能。
+- 验收：Rust用同一组真实书签场景核对两种格式及特殊字符文件名；Flutter只验证编排、取消、保存成功/失败和原目录页入口，不复制格式规则、不加样式测试。只运行受影响定向用例与必要分析/FFI编译，不进行全量或设备构建。
+- 实现：legado-core/bookmark_export统一八字段JSON、原Markdown模板、文件名与MIME；新增bookmark_export只读FFI及格式枚举/文档DTO。BookmarkExportService为正式薄适配，feature编排只传快照和保存结果；platform/files保存逻辑从旧入口迁入，原SAF/回退/取消和其他平台UTF-8写入不变。查询/编辑/导出复用同一DTO映射，旧services/bookmark_export删除，无转发壳。
+- 测试：Rust两项组合场景通过，核对JSON整份交换文档（不含id且顺序保持）、Markdown原文/摘要空行、文件名清理及空列表；Flutter四文件17项通过，覆盖生成与保存编排、取消、生成/写入失败、UTF-8真实临时文件、目录页反馈和既有书签DTO调用方。格式期望只在Rust维护，不逐字段重复生成测试，不新增样式断言。
+- 检查：14个受影响Dart目标分析无问题，Rust FFI QuickJS cargo check、架构静态依赖与diff检查通过；FRB 2.13隔离生成成功，contentHash=-1660512782。证据build/bookmark-export-{rust,rust-check,bridge}.log与flutter_legado/build/bookmark-export-{flutter,analysis,architecture}.log。
+- 边界：Mock明确报不支持，不调用FFI或另立格式算法；不声称Mock能够实际导出。Android SAF/原生往返未实机测试，原生库未重编；无设备、全量、性能、推送或CI验证。单代理复核，不宣称独立审查；版本不变，仅本地提交，提交号以Git记录为准，未跟踪审计报告保持不纳入。
+
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
+
+
 ### AUDIO-BOOK-POLICY-20261023：音频跳过规则与书籍状态下沉（P2，代码及定向验证完成，已授权本地提交）
 
 - 授权/基线：用户同意按职责下沉，dev / 60ab08857；单代理，保持工作树和未跟踪审计报告，不创建分支、不推送CI或安装，版本2.0.439+440不变。
