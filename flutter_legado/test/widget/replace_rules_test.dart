@@ -4,7 +4,7 @@ import '../fixtures/app_test_api.dart';
 //
 // [A3 形态对齐 | full-stack-engineer + UI] 编辑器由弹窗表单升级为整页
 // ReplaceRuleEditScreen 后，本页只保留入口级断言：
-// - 新增入口（FAB）与列表行编辑图标都打开整页编辑器
+// - 新增入口（FAB）与整卡点击都打开整页编辑器
 // - 路由预填 pattern 时首帧后直接打开整页编辑器（pattern 已预填）
 // - 整页保存新规则后返回列表且规则出现在列表
 // 整页编辑器字段/保存/剪贴板等用例见 replace_rule_edit_test.dart
@@ -109,7 +109,7 @@ void main() {
       }
     });
 
-    testWidgets('列表行编辑图标打开整页编辑器并回填', (tester) async {
+    testWidgets('点击卡片打开整页编辑器并回填，不保留重复编辑按钮', (tester) async {
       const rule = ReplaceRule(
         id: 1,
         name: '去广告',
@@ -121,8 +121,8 @@ void main() {
           .thenAnswer((_) async {});
       await pumpScreen(tester, rules: [rule]);
 
-      // 点行内编辑图标（对标 iv_edit）
-      await tester.tap(find.byTooltip('编辑'));
+      expect(find.byTooltip('编辑'), findsNothing);
+      await tester.tap(find.text('去广告'));
       await tester.pumpAndSettle();
 
       expect(find.text('编辑替换规则'), findsWidgets);
@@ -220,6 +220,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('手柄拖动保持圆角卡片，落位后顺序改变且整卡长按进入批量选择', (tester) async {
+    await pumpScreen(
+      tester,
+      rules: [
+        for (var i = 0; i < 3; i++)
+          ReplaceRule(id: i + 1, name: '规则$i', pattern: '文本$i', order: i),
+      ],
+    );
+    final handle = find.byType(ReorderableDragStartListener).first;
+    final start = tester.getCenter(handle);
+    final step =
+        tester.getTopLeft(find.text('规则1')).dy -
+        tester.getTopLeft(find.text('规则0')).dy;
+    final gesture = await tester.startGesture(start);
+    await gesture.moveBy(const Offset(0, 24));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final card = find
+        .ancestor(of: find.text('规则0'), matching: find.byType(Card))
+        .last;
+    final surface = find
+        .descendant(of: card, matching: find.byType(Material))
+        .first;
+    final material = tester.widget<Material>(surface);
+    expect(material.shape, isA<RoundedRectangleBorder>());
+    expect(
+      (material.shape! as RoundedRectangleBorder).borderRadius,
+      BorderRadius.circular(16),
+    );
+    expect(material.elevation, 4);
+    // 拖动Overlay中不再有包住卡片外边距的矩形Material。
+    expect(
+      find.ancestor(of: card, matching: find.byType(Material)),
+      findsNothing,
+    );
+
+    await gesture.moveTo(start + Offset(0, step * 2.2));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('规则1')).dy,
+      lessThan(tester.getTopLeft(find.text('规则0')).dy),
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.longPress(find.text('规则0'));
+    await tester.pumpAndSettle();
+    expect(find.text('已选择 1 项'), findsWidgets);
+    expect(find.byType(Checkbox), findsNWidgets(3));
+    expect(find.byType(ReorderableListView), findsNothing);
   });
 
   testWidgets('窄屏长列表末项能完整滚到添加FAB上方', (tester) async {

@@ -268,6 +268,23 @@ class _ReplaceRulesScreenState extends ConsumerState<ReplaceRulesScreen> {
       );
     }
     return ReorderableListView.builder(
+      // 只从显式手柄拖动，整卡长按仍用于批量选择。— Codex + UI
+      buildDefaultDragHandles: false,
+      proxyDecorator: (child, _, animation) => AnimatedBuilder(
+        animation: animation,
+        child: child,
+        builder: (context, child) {
+          final lift = Curves.easeInOut.transform(animation.value);
+          // 抬高卡片自身，不在包含外边距的整行外再绘制矩形Material。
+          return Transform.scale(
+            scale: 1 + 0.02 * lift,
+            child: CardTheme(
+              data: CardTheme.of(context).copyWith(elevation: 4 * lift),
+              child: child!,
+            ),
+          );
+        },
+      ),
       // 为56dp FAB、16dp页边距与16dp内容留白预留尾部空间，末项可滚到按钮上方。
       padding: const EdgeInsets.only(bottom: 88),
       itemCount: rules.length,
@@ -778,17 +795,6 @@ class _ReplaceRuleTile extends StatelessWidget {
               // [LAYOUT_PLAN P2] 开关行无 Chevron；标题/副标题走 M3 Type Scale
               Switch(value: rule.isEnabled, onChanged: onToggle),
               if (!batchMode) ...[
-                // 编辑（对标 iv_edit）
-                IconButton(
-                  icon: Icon(
-                    Symbols.edit_rounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: context.l10n.edit,
-                  onPressed: onEdit,
-                ),
                 // 更多菜单（对标 iv_menu_more）
                 AppMenuButton<String>(
                   icon: Icon(
