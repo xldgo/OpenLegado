@@ -18,7 +18,7 @@ import '../../../models/models.dart';
 import '../../read_records/read_record_repository_provider.dart';
 import '../../../providers/read_record_settings_provider.dart';
 import '../../../services/reader_position_store.dart';
-import '../../../widgets/paragraph_layout_engine.dart';
+import '../layout/paragraph_layout_engine.dart';
 import '../../../providers/providers.dart';
 import '../../../providers/reading_provider.dart';
 import '../../../providers/theme/theme_notifier.dart';

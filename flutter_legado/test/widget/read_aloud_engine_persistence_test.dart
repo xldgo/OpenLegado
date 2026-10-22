@@ -19,7 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 import 'package:flutter_legado/src/features/read_aloud/read_aloud.dart';
-import 'package:flutter_legado/src/widgets/reader/read_aloud_bar.dart';
+import 'package:flutter_legado/src/features/reader/widgets/read_aloud_bar.dart';
 
 import '../mocks/mocks.dart';
 

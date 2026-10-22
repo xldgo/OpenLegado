@@ -10,9 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/turn/reader_turn_view.dart';
 
 class _Reader extends ReaderNotifier {
   @override

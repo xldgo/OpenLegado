@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/auto_turn_panel.dart';
+import 'package:flutter_legado/src/features/reader/widgets/auto_turn_panel.dart';
 
 /// 自动翻页运行时浮条测试（差异清单 C10）
 ///

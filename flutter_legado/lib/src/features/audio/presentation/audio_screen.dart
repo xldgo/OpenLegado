@@ -3,7 +3,7 @@ import '../../bookshelf/bookshelf_repositories.dart';
 import '../../../providers/reading_provider.dart';
 import '../../../providers/config_settings_provider.dart';
 import '../../../providers/media_provider.dart';
-import '../../../widgets/reader/read_aloud_timer_sheet.dart';
+import '../../read_aloud/widgets/read_aloud_timer_sheet.dart';
 import '../../../widgets/app_menu.dart';
 
 import 'dart:async';

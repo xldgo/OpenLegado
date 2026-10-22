@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_title_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/paragraph_config.dart';
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_title_layout.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_config.dart';
+import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

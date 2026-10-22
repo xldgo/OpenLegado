@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_pagination_session.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_pagination_session.dart';
 
 void main() {
   test('完整章节缓存按实际访问淘汰，不存可变页面列表', () {

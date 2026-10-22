@@ -4,12 +4,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/features/reader/application/reader_state.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/page_direction.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/page_turn_controller.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/painters/cover_page_painter.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/painters/slide_page_painter.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/painters/simulation_curl_painter.dart';
+import 'package:flutter_legado/src/features/reader/turn/page_direction.dart';
+import 'package:flutter_legado/src/features/reader/turn/page_turn_controller.dart';
+import 'package:flutter_legado/src/features/reader/turn/reader_turn_view.dart';
+import 'package:flutter_legado/src/features/reader/turn/painters/cover_page_painter.dart';
+import 'package:flutter_legado/src/features/reader/turn/painters/slide_page_painter.dart';
+import 'package:flutter_legado/src/features/reader/turn/painters/simulation_curl_painter.dart';
 
 Future<void> _releaseTurn(
   PageTurnController controller,

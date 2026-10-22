@@ -5,10 +5,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_layout_element.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selectable_text.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_layout_element.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 void main() {
   for (final scale in [1.0, 2.0]) {

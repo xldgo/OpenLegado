@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
 
 void main() {
   for (final hideStatus in [false, true]) {

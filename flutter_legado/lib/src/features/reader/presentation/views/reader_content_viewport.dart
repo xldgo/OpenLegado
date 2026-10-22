@@ -5,12 +5,12 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../domain/models/reader_settings.dart';
 import '../../application/reader_state.dart';
-import '../../../../widgets/reader/reader_page_view.dart';
-import '../../../../widgets/reader/reader_page_chrome.dart';
-import '../../../../widgets/reader/reader_image_dominant_body.dart';
+import '../../widgets/reader_page_view.dart';
+import '../../widgets/reader_page_chrome.dart';
+import '../../widgets/reader_image_dominant_body.dart';
 import '../../../../platform/display/display_corners.dart';
 import '../../../../platform/display/display_cutout_insets.dart';
-import '../../../../widgets/reader/reader_footer_geometry.dart';
+import '../../layout/reader_footer_geometry.dart';
 
 /// 正文视口统一消费设置和实际系统边距，不负责加载或导航。— Codex + UI
 class ReaderContentViewport extends StatelessWidget {

@@ -54,7 +54,7 @@ import 'package:flutter_legado/src/app/routing/route_names.dart';
 
 import '../test/fixtures/native_test_api.dart';
 
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
 
 /// 固定书名字面量（与假站点 HTML 一一对应，硬断言基准）
 const _bookName1 = 'E2E测试书1';

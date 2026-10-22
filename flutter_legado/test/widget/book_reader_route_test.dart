@@ -19,7 +19,7 @@ import 'package:flutter_legado/src/domain/contracts/reader_settings_repository.d
 import 'package:flutter_legado/src/domain/models/reader_settings.dart';
 
 import 'package:flutter_legado/src/widgets/book_cover.dart';
-import 'package:flutter_legado/src/widgets/reader/book_reader_route.dart';
+import 'package:flutter_legado/src/features/reader/navigation/book_reader_route.dart';
 
 const _book = Book(bookUrl: 'book://transition', name: '封面展开');
 

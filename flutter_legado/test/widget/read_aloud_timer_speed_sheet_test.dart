@@ -8,8 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/audio/application/audio_notifier.dart';
 import 'package:flutter_legado/src/features/audio/application/read_aloud_preferences.dart';
-import 'package:flutter_legado/src/widgets/reader/read_aloud_timer_sheet.dart';
-import 'package:flutter_legado/src/widgets/reader/read_aloud_speed_sheet.dart';
+import 'package:flutter_legado/src/features/read_aloud/widgets/read_aloud_timer_sheet.dart';
+import 'package:flutter_legado/src/features/read_aloud/widgets/read_aloud_speed_sheet.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
 import 'package:flutter_legado/src/widgets/bottom_sheet_widget.dart';
 

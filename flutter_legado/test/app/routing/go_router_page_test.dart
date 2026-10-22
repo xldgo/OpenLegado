@@ -6,7 +6,7 @@ import 'package:flutter_legado/src/app/routing/app_router.dart';
 import 'package:flutter_legado/src/app/routing/app_route_page.dart';
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/privacy/privacy_controller.dart';
-import 'package:flutter_legado/src/widgets/reader/read_aloud_player_transition.dart';
+import 'package:flutter_legado/src/features/read_aloud/widgets/read_aloud_player_transition.dart';
 
 class _Privacy extends PrivacyController {
   @override

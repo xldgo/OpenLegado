@@ -1,8 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 /// 斜体贯通测试（差异清单 C3 双基准补齐项）
 ///

@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/models/page_turn_mode.dart';
-import '../../../widgets/reader/chapter_layout.dart';
-import '../../../widgets/reader/paragraph_config.dart';
+import '../layout/chapter_layout.dart';
+import '../layout/paragraph_config.dart';
 
 /// Widget注入测量值；策略只计算几何、缓存身份和调度，不持context/Ref。— Codex + UI
 abstract final class ReaderPaginationPolicy {

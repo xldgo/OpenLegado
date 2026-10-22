@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/services/reader_layout_service.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 
 /// 只记录送出的测量参数，不提供断行或分页算法。— Codex + Bridge
 class _RecordingTransport implements ReaderLayoutTransport {

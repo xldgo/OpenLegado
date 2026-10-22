@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_layout_element.dart';
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_layout_element.dart';
+import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 
 /// 行和分页由用例明确给定，只测量已给定行的字体几何，不实现断行或分页。
 /// 供正文渲染与选区测试使用，不作为排版算法的预期生成器。— Codex + UI

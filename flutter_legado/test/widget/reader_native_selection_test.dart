@@ -13,14 +13,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/features/reader/application/reader_state.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_controller.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/reader_turn_view.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_controller.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_region.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selectable_text.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_toolbar.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_menu_theme.dart';
+import 'package:flutter_legado/src/features/reader/turn/reader_turn_view.dart';
 
 Future<void> _pumpReader(
   WidgetTester tester,

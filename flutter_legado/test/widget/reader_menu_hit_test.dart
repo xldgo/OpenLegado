@@ -28,12 +28,12 @@ import 'package:flutter_legado/src/providers/app_settings_provider.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
 import 'package:flutter_legado/src/providers/theme/system_bar_controller.dart';
 import 'package:flutter_legado/src/utils/app_route_observer.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_battery_icon.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_battery_icon.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 import 'package:flutter_legado/src/domain/models/reader_interaction_settings.dart';
-import 'package:flutter_legado/src/widgets/reader/auto_turn_panel.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
+import 'package:flutter_legado/src/features/reader/widgets/auto_turn_panel.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_region.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -47,8 +47,8 @@ import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_panel.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_menu_controls.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_menu_theme.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_content_edit_dialog.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_brightness_control.dart';
 

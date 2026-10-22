@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/turn/page_snapshot_cache.dart';
+import 'package:flutter_legado/src/features/reader/turn/page_snapshot_cache.dart';
 
 void main() {
   for (final invalidate in [false, true]) {

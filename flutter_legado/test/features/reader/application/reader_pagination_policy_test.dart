@@ -2,10 +2,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/domain/models/page_turn_mode.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_pagination_policy.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_pagination_session.dart';
-import 'package:flutter_legado/src/widgets/reader/paragraph_config.dart';
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_pagination_session.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_config.dart';
+import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 
 const _config = ParagraphConfig(
   backgroundColor: Color(0xffffffff),

@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/platform/display/display_corners.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_footer_geometry.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_footer_geometry.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 void main() {
   const leftPage = ValueKey('左页'), rightPage = ValueKey('右页');

@@ -15,9 +15,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/models/book_chapter.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_settings_provider.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 /// 测试专用 ReaderNotifier：build() 直接返回指定状态，不调用父类
 /// build（其 Future.microtask(_loadSettings) 会把 pageTurnMode 覆写为

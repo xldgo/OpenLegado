@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_battery_icon.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_battery_icon.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 void main() {
   for (final mode in [0, 1, 2]) {

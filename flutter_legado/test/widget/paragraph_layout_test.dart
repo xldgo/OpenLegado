@@ -6,7 +6,7 @@ library;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
 
 void main() {
   group('ParagraphConfig - 样式配置测试', () {

@@ -4,7 +4,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/widgets/help/help_markdown_builders.dart';
 import 'package:flutter_legado/src/widgets/help/help_markdown_styles.dart';
-import 'package:flutter_legado/src/widgets/reader/review_column.dart';
+import 'package:flutter_legado/src/features/reader/widgets/review_column.dart';
 
 Widget _helpMarkdownHarness(String data) {
   return MaterialApp(

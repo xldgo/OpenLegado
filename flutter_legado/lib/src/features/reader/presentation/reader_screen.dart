@@ -14,7 +14,7 @@ import '../../../providers/change_source/source_switch_dependencies.dart';
 import '../../../providers/book_content_provider.dart';
 import '../application/reader_settings_provider.dart';
 import '../../../domain/models/reader_interaction_settings.dart';
-import '../../../widgets/reader/reader_tap_hit_test.dart';
+import '../widgets/reader_tap_hit_test.dart';
 import '../../../app/session/reader_theme_session.dart';
 
 import 'dart:async';
@@ -39,12 +39,12 @@ import '../../../platform/display/display_corners.dart';
 import '../../../platform/display/display_cutout_insets.dart';
 import '../../../utils/app_route_observer.dart';
 import '../../audio/application/read_aloud_capsule.dart';
-import '../../../widgets/reader/auto_turn_panel.dart';
-import '../../../widgets/reader/reader_page_view.dart';
+import '../widgets/auto_turn_panel.dart';
+import '../widgets/reader_page_view.dart';
 import 'overlays/reader_settings_sheet.dart';
 import 'overlays/reader_controls_overlay.dart';
-import '../../../widgets/reader/reader_menu_theme.dart';
-import '../../../widgets/reader/review_detail_sheet.dart';
+import '../widgets/reader_menu_theme.dart';
+import '../widgets/review_detail_sheet.dart';
 import '../application/reader_presentation_provider.dart';
 import '../../../utils/source_login_prompt.dart';
 

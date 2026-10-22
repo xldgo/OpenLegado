@@ -7,12 +7,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/reader/review_column.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_controller.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_region.dart';
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/widgets/review_column.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_controller.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_region.dart';
+import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 void main() {

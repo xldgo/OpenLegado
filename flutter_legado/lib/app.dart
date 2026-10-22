@@ -45,7 +45,7 @@ import 'src/widgets/eye_protection_filter.dart';
 import 'src/widgets/crash_log_dialog.dart';
 import 'src/widgets/verification_code_listener.dart';
 import 'src/widgets/webview_bridge_listener.dart';
-import 'src/widgets/reader/read_aloud_capsule_host.dart';
+import 'src/features/read_aloud/widgets/read_aloud_capsule_host.dart';
 
 /// Legado App 入口 Widget
 class LegadoApp extends ConsumerStatefulWidget {

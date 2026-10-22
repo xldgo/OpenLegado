@@ -11,9 +11,9 @@ import '../../../audio/application/audio_notifier.dart';
 import '../../../audio/application/read_aloud_capsule.dart';
 import '../../application/reader_state.dart';
 import '../../../../app/routing/route_names.dart';
-import '../../../../widgets/reader/read_aloud_bar.dart';
+import '../../widgets/read_aloud_bar.dart';
 import 'reader_menu_panel.dart';
-import '../../../../widgets/reader/reader_menu_theme.dart';
+import '../../widgets/reader_menu_theme.dart';
 import 'reader_settings_sheet.dart';
 
 /// 组合阅读菜单与朗读控制，位置计算及阅读动作由页面回调提供。— Codex + UI

@@ -6,7 +6,7 @@ import 'package:flutter_legado/src/data/services/app_settings_service.dart';
 import 'package:flutter_legado/src/data/settings/shared_preferences_settings_storage.dart';
 import 'package:flutter_legado/src/domain/models/app_settings_snapshot.dart';
 import 'package:flutter_legado/src/domain/models/reader_page_layout_settings.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
 
 import '../fixtures/home_settings_storage.dart';
 

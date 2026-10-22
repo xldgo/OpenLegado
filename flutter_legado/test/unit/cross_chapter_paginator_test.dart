@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
 
 /// 跨章节连续分页器单元测试
 ///

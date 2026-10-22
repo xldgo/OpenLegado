@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_legado/src/services/reader_layout_service.dart';
 import 'package:flutter_legado/src/services/reader_layout_data.dart';
-import 'package:flutter_legado/src/widgets/reader/layout_diagnostics.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_layout_element.dart';
+import 'package:flutter_legado/src/features/reader/layout/layout_diagnostics.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_layout_element.dart';
 
 class _Transport implements ReaderLayoutTransport {
   final calls = <String>[];

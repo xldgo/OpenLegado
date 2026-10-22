@@ -9,7 +9,7 @@ import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
 
 import '../../../fixtures/app_test_api.dart';
 

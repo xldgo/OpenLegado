@@ -16,7 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_legado/src/app/routing/route_names.dart';
 import 'package:flutter_legado/src/features/reader/presentation/font_screen.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
 import 'package:flutter_legado/src/features/reader/presentation/overlays/reader_settings_sheet.dart';
 
 import '../fixtures/reader_settings_repository.dart';

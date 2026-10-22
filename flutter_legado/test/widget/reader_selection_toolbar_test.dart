@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_toolbar.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
 
 /// 正文长按浮窗（用户裁决 A：对齐参考版浮窗）行为验证：
 /// SelectionArea 包裹段落 → 长按出词选 → 自定义浮窗工具条出现

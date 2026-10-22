@@ -12,10 +12,10 @@ import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/features/bookmarks/bookmarks.dart';
 import 'package:flutter_legado/src/domain/contracts/bookmark_repository.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_toolbar.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_actions.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_toolbar.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_actions.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_menu_config.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_menu_theme.dart';
 
 class _Reader extends ReaderNotifier {
   @override

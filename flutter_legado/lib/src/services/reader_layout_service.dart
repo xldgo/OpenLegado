@@ -10,7 +10,7 @@ import '../bridge/layout_bridge.dart' as native;
 import '../bridge/layout_dto.dart' as dto;
 import '../data/bridge/layout_dto_mapping.dart';
 import 'reader_layout_data.dart';
-import '../widgets/reader/layout_diagnostics.dart';
+import '../features/reader/layout/layout_diagnostics.dart';
 
 /// 传输适配器只处理批量协议；断行和分页只有 Rust 一个实现。
 abstract interface class ReaderLayoutTransport {

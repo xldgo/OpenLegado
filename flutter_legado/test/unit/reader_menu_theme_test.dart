@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_legado/src/domain/models/ui_settings.dart';
 import 'package:flutter_legado/src/theme/app_theme.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_menu_theme.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_menu_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

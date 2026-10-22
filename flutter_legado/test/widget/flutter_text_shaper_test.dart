@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/widgets/reader/chapter_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/flutter_text_shaper.dart';
-import 'package:flutter_legado/src/widgets/reader/layout_diagnostics.dart';
-import 'package:flutter_legado/src/widgets/reader/paragraph_config.dart';
-import 'package:flutter_legado/src/widgets/reader/text_layout_environment.dart';
+import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
+import 'package:flutter_legado/src/features/reader/layout/flutter_text_shaper.dart';
+import 'package:flutter_legado/src/features/reader/layout/layout_diagnostics.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_config.dart';
+import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 
 void main() {
   for (final direction in TextDirection.values) {

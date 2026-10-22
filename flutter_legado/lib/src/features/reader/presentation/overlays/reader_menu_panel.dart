@@ -28,14 +28,14 @@ import '../../../../utils/source_login_entry.dart';
 import '../../../book_sources/presentation/webview_login_screen.dart';
 import '../../../../widgets/help/help_assets.dart';
 import '../../../../widgets/help/show_help.dart';
-import '../../../../widgets/reader/change_chapter_source_sheet.dart';
+import '../../widgets/change_chapter_source_sheet.dart';
 import 'reader_brightness_control.dart';
 import 'reader_menu_controls.dart';
 import '../../application/reader_notifier.dart';
 import '../../../../providers/ui_settings/ui_settings_notifier.dart';
 
-import '../../../../widgets/reader/change_source_flow.dart';
-import '../../../../widgets/reader/reader_chapter_link.dart';
+import '../../widgets/change_source_flow.dart';
+import '../../widgets/reader_chapter_link.dart';
 import 'reader_download_dialog.dart';
 import 'reader_content_edit_dialog.dart';
 

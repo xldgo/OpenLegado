@@ -9,6 +9,9 @@
 公共分组壳、登录基础组件及跨功能数据装配保持共享，不以目录迁移改变业务边界。
 视频弹幕、浮窗按钮、长按倍速与设置弹窗集中在features/video/widgets，
 其他设置页通过功能路径打开视频设置；平台浮窗服务仍保留平台/应用生命周期归属。
+正文测量/编排、选区与翻页分别归features/reader/layout、selection、turn，
+阅读私有控件及开书转场归widgets/navigation；朗读速度/定时/悬浮条及其转场归read_aloud/widgets。
+旧widgets/reader不留转发壳；具体文件映射以Git重命名记录为准，不在文档维护第二份清单。
 
 后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
 [设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，

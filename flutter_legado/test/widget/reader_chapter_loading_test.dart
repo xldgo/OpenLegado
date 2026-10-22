@@ -10,8 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/widgets/md3_loading_indicator.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 import '../fixtures/app_test_api.dart';
 import '../helpers/native_reader_layout.dart';

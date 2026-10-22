@@ -6,10 +6,10 @@ import '../helpers/native_reader_layout.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_chrome.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_title_layout.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_chrome.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_title_layout.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 /// 标题和正文共用Rust分页结果，真实渲染与页面容量不能溢出。— Codex + UI
 const _defaultChrome = ReaderPageChromeConfig();

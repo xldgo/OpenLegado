@@ -11,9 +11,9 @@ import 'package:flutter_legado/src/domain/models/review.dart';
 import 'package:flutter_legado/src/features/reader/application/reader_notifier.dart';
 import 'package:flutter_legado/src/features/reader/presentation/reader_screen.dart';
 import 'package:flutter_legado/src/models/models.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_page_view.dart';
-import 'package:flutter_legado/src/widgets/reader/review_column.dart';
-import 'package:flutter_legado/src/widgets/reader/review_detail_sheet.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_page_view.dart';
+import 'package:flutter_legado/src/features/reader/widgets/review_column.dart';
+import 'package:flutter_legado/src/features/reader/widgets/review_detail_sheet.dart';
 
 import '../../../fixtures/app_test_api.dart';
 import '../../../helpers/native_reader_layout.dart';

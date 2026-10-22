@@ -2,8 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../features/book_sources/source_edit_route.dart';
 import '../../features/privacy/privacy_gate.dart';
-import '../../widgets/reader/book_reader_route.dart';
-import '../../widgets/reader/read_aloud_player_transition.dart';
+import '../../features/reader/navigation/book_reader_route.dart';
+import '../../features/read_aloud/widgets/read_aloud_player_transition.dart';
 import 'route_names.dart';
 
 /// Page只适配Navigator归属，继续使用已有转场及资源生命周期。— Codex + UI

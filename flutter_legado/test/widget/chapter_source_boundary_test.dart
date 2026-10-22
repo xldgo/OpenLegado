@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_legado/src/models/models.dart';
 import 'package:flutter_legado/src/providers/change_source/source_switch_dependencies.dart';
-import 'package:flutter_legado/src/widgets/reader/change_chapter_source_sheet.dart';
+import 'package:flutter_legado/src/features/reader/widgets/change_chapter_source_sheet.dart';
 
 import '../mocks/mocks.dart';
 

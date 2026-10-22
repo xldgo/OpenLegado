@@ -1,7 +1,7 @@
 @Tags(['native'])
 library;
 
-import 'package:flutter_legado/src/widgets/reader/reader_selectable_text.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selectable_text.dart';
 
 import '../helpers/native_reader_layout.dart';
 
@@ -9,8 +9,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_legado/src/widgets/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_text_content.dart';
+import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 
 /// Text.rich 会在文本跨度外包主题跨度，探针沿继承链读取首字的生效样式。
 TextStyle _firstTextStyle(

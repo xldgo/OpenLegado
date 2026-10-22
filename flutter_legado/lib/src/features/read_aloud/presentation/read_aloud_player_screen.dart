@@ -18,9 +18,9 @@ import '../../../widgets/app_menu.dart';
 import '../../../widgets/app_scaffold.dart';
 import '../../../widgets/book_cover.dart';
 import '../../../widgets/legado_app_bar.dart';
-import '../../../widgets/reader/read_aloud_timer_sheet.dart';
-import '../../../widgets/reader/read_aloud_speed_sheet.dart';
-import '../../../widgets/reader/read_aloud_player_transition.dart';
+import '../widgets/read_aloud_timer_sheet.dart';
+import '../widgets/read_aloud_speed_sheet.dart';
+import '../widgets/read_aloud_player_transition.dart';
 
 /// 独立播放器只观察和控制已有朗读会话，进入与退出均不重新加载书籍。
 class ReadAloudPlayerScreen extends ConsumerStatefulWidget {

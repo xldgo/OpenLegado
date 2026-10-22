@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_selection_menu_config.dart';
+import 'package:flutter_legado/src/features/reader/selection/reader_selection_menu_config.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

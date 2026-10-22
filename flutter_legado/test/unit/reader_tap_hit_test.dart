@@ -1,5 +1,5 @@
 import 'package:flutter_legado/src/domain/models/reader_interaction_settings.dart';
-import 'package:flutter_legado/src/widgets/reader/reader_tap_hit_test.dart';
+import 'package:flutter_legado/src/features/reader/widgets/reader_tap_hit_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 

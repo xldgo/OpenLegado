@@ -33,7 +33,6 @@
           - 'flutter_legado/test/features/reader/**'
           - 'flutter_legado/lib/src/features/toc/**'
           - 'flutter_legado/test/features/toc/**'
-          - 'flutter_legado/lib/src/widgets/reader/**'
           - 'flutter_legado/lib/src/bridge/api/reader.dart'
           - 'rust/legado-core/src/reader*'
 'area: manga':
