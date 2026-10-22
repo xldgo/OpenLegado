@@ -3,7 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/features/reader/layout/chapter_layout.dart';
 import 'package:flutter_legado/src/features/reader/layout/flutter_text_shaper.dart';
-import 'package:flutter_legado/src/features/reader/layout/layout_diagnostics.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_diagnostics.dart';
 import 'package:flutter_legado/src/features/reader/layout/paragraph_config.dart';
 import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 

@@ -1,6 +1,6 @@
 # Legado 后续重构执行计划（Active）
 
-### FEATURE-OWNERSHIP-20261022：功能私有组件归位与阅读服务分层（P2，实施中）
+### FEATURE-OWNERSHIP-20261022：功能私有组件归位与阅读服务分层（P2，五步代码及定向验证完成）
 
 - 授权/基线：用户要求生成迁移规划并顺序执行，每步提交；dev / f25eff188。方案见FEATURE_OWNERSHIP_MIGRATION_20261022.md。单代理，不创建分支、不推送CI或安装，保护未跟踪的其他审计文档，版本不变。
 - 顺序：F1小型专属组件；F2视频组件；F3阅读器与朗读私有组件；F4阅读锚点和存储分离；F5布局传输、会话、原生实现及UI注入分离。
@@ -9,8 +9,12 @@
 - F2：4个视频控件迁入features/video/widgets，视频页、其他设置页及7份测试引用同步；52项既有回归通过，受影响范围分析无问题，diff检查通过，证据flutter_legado/build/feature-f2-{analysis,tests}.log。视频设置仍可从其他设置打开，浮窗、弹幕与倍速语义不变。
 - F3：48个阅读/朗读专属文件归位，旧widgets/reader与paragraph_layout_engine入口移除；逐文件比对确认非Dart指令内容不变，生产、测试、profile工具及CI路径夹具同步。7份非原生用例58项、CI改动分类33项通过，定向分析无问题；证据flutter_legado/build/feature-f3-{analysis,tests}.log及build/feature-f3-ci-paths.log。未运行native组或重编原生库，不将路径迁移回归解释为真实FFI验收。
 - F4：契约先记录Dart内部归属调整且FRB/存储格式不变；ReaderSourceAnchor归domain/models，ReaderPositionStore归data/repositories，生产及测试分别引用模型/存储。18项既有存储和阅读会话回归通过，六文件分析无问题，diff检查通过；证据flutter_legado/build/feature-f4-{analysis,tests}.log。原存储键、UTF-16坐标及异常处理不变，无兼容读取、数据清洗或新接口。
+- F5：布局传输接口、结果/字形数据/诊断和串行会话归domain，句柄及DTO映射归data/services/native_reader_layout_transport.dart，InheritedWidget归reader/layout，原生默认从应用装配工厂提供。会话显式注入transport，空begin结果仍无页面和耗时；取消、释放、映射算法及共享缓冲实现保持，旧services排版文件移除，无兼容壳。
+- F5验证：四文件23项既有协议解码/串行取消/迟到响应/测量编排回归通过；14个分析目标及既有架构门禁通过，CI路径夹具更新后33项通过。直接比对确认会话实现只变构造注入，字形只读数据实现未变。证据flutter_legado/build/feature-f5-{analysis,tests,architecture}.log与build/feature-f5-ci-paths.log。
+- 总体收尾（2026-10-23）：五步所有受影响的156个存续Dart文件分批分析无问题，日志flutter_legado/build/feature-migration-affected-analysis.log；一次性传参超过Windows命令行限制，未启动分析，改为每批20文件后完成。实际生产/测试/工具与CI已无旧widgets/reader及services排版入口引用，历史证据不批量改写；diff复核通过。每步本地独立提交，Git记录为准；应用版本保持2.0.439+440，没有新增测试、独立代理审查、全量、native运行、原生重编、设备、推送或CI触发。
+- 本轮边界：归属明确的组件及两项阅读服务拆分已交付，公共widgets/providers/services、共享模型和平台能力继续存在；不宣称全仓feature迁移结束。audio/read_aloud职责重组、其他专用工具/Provider迁移及大页面拆解均未纳入本轮。
 
-编写者：Codex + UI / Bridge｜2026-10-22
+编写者：Codex + UI / Bridge｜2026-10-23
 
 ### REPLACE-RULE-INSET-20261022：收紧替换净化卡片内边距（P2，代码及定向验证完成，待视觉验收）
 

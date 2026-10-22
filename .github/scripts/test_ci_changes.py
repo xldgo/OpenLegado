@@ -155,7 +155,7 @@ class NativeRoutingTests(unittest.TestCase):
             "flutter_legado/lib/src/domain/models/book_content_result.dart",
             "flutter_legado/lib/src/models/book.dart",
             "flutter_legado/lib/src/app/bootstrap/rust_bootstrap.dart",
-            "flutter_legado/lib/src/services/reader_layout_service.dart",
+            "flutter_legado/lib/src/data/services/native_reader_layout_transport.dart",
             "flutter_legado/lib/src/new_shared_module/service.dart",
             "flutter_legado/pubspec.lock", "flutter_legado/dart_test.yaml",
             "flutter_legado/test/ffi/privacy_runtime_test.dart",

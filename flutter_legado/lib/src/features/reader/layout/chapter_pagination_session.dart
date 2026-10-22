@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
-import '../../../services/reader_layout_service.dart';
+import '../../../domain/errors/reader_layout_cancelled.dart';
+import '../../../domain/services/reader_layout_session.dart';
 import 'chapter_layout.dart';
 import 'chapter_layout_adapter.dart';
 import 'reader_layout_element.dart';

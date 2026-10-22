@@ -50,6 +50,11 @@
 
 #### (2) 轨道权限
 
+2026-10-23阅读内部职责归位后，布局传输接口/结果/串行会话位于domain，
+正式Rust实现位于data/services/native_reader_layout_transport.dart；原services下的布局桥接入口
+已移除，不再由UI服务目录持有FRB依赖。目录规模表为v1.4基线快照，当前具体职责见
+[功能归属迁移方案](FEATURE_OWNERSHIP_MIGRATION_20261022.md)和[数据边界](FLUTTER_DATA_BOUNDARIES.md)。
+
 | 轨道 | 允许修改 | 禁止修改 |
 |------|----------|----------|
 | **UI 轨** | `flutter_legado/lib/src/{app,features,widgets,providers,theme,utils,l10n,models,platform,constants}`、`routes.dart`（改前知会）、`flutter_legado/test/` | `rust/`、`bridge/`、`domain/`、`data/`（未经 §4 契约流程确认的变更）、`frb_generated*`、`pubspec.yaml` 原生依赖段 |

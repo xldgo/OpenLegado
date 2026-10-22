@@ -6,7 +6,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/services/reader_layout_service.dart';
+import 'package:flutter_legado/src/domain/errors/reader_layout_cancelled.dart';
+import 'package:flutter_legado/src/domain/services/reader_layout_session.dart';
+import 'package:flutter_legado/src/data/services/native_reader_layout_transport.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
 
 import '../helpers/native_reader_layout.dart';
@@ -103,6 +105,7 @@ void main() {
     for (final c in (fixture['cases'] as List).take(2)) {
       final input = c['input'] as Map;
       final session = ReaderLayoutSession(
+        transport: const NativeReaderLayoutTransport(),
         config: Map<String, Object?>.from(input['config'] as Map),
       );
       try {
@@ -139,7 +142,10 @@ void main() {
       'baselineOffsetPx': 18,
     };
     for (var i = 0; i < 2; i++) {
-      final session = ReaderLayoutSession(config: config);
+      final session = ReaderLayoutSession(
+        config: config,
+        transport: const NativeReaderLayoutTransport(),
+      );
       if (i.isEven) {
         await session.cancel();
         await expectLater(

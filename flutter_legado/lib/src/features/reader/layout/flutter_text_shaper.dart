@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import 'chapter_layout.dart';
-import 'layout_diagnostics.dart';
+import '../../../domain/models/reader_layout_diagnostics.dart';
 import 'paragraph_config.dart';
 import 'text_layout_environment.dart';
 

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_legado/src/services/reader_layout_service.dart';
+import 'package:flutter_legado/src/domain/contracts/reader_layout_transport.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_reply.dart';
 import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
 import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 

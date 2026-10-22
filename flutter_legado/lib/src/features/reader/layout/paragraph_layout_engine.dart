@@ -3,13 +3,16 @@ library;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../services/reader_layout_service.dart';
+import '../../../domain/contracts/reader_layout_transport.dart';
+import '../../../domain/services/reader_layout_session.dart';
+import '../../../app/bootstrap/reader_layout_factory.dart';
+import 'reader_layout_transport_scope.dart';
 import 'chapter_layout.dart';
 import 'chapter_document.dart';
 import 'chapter_layout_adapter.dart';
 import 'chapter_pagination_session.dart';
 import 'flutter_text_shaper.dart';
-import 'layout_diagnostics.dart';
+import '../../../domain/models/reader_layout_diagnostics.dart';
 import 'paragraph_config.dart';
 import 'reader_title_layout.dart';
 import 'text_layout_environment.dart';
@@ -32,7 +35,7 @@ class ParagraphLayoutEngine {
   }) : transport =
            transport ??
            ReaderLayoutTransportScope.maybeOf(context) ??
-           const NativeReaderLayoutTransport() {
+           createReaderLayoutTransport() {
     environment =
         config.textEnvironment ??
         TextLayoutEnvironment(

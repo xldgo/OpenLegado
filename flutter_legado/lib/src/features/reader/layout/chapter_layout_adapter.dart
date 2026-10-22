@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../services/reader_layout_data.dart';
+import '../../../domain/models/reader_layout_data.dart';
 
 import 'chapter_layout.dart';
 import 'reader_layout_element.dart';

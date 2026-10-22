@@ -14,6 +14,11 @@
 旧widgets/reader不留转发壳；具体文件映射以Git重命名记录为准，不在文档维护第二份清单。
 ReaderSourceAnchor属于domain/models，ReaderPositionStore的偏好读写属于data/repositories；
 阅读会话消费两者，存储键与UTF-16锚点编码不因目录拆分改变。
+布局传输契约在domain/contracts/reader_layout_transport.dart，结果、共享字形数据及诊断在
+domain/models，串行会话在domain/services/reader_layout_session.dart；领域代码不依赖Flutter或FRB。
+data/services/native_reader_layout_transport.dart独占原生句柄及DTO映射，应用装配通过
+app/bootstrap/reader_layout_factory.dart提供默认实现，reader/layout的InheritedWidget只注入接口。
+默认仍使用正式Rust传输；取消/释放边界与只读缓冲共享保持，不保留旧services排版转发入口。
 
 后续设置领域的分类、键所有权、数据性质及迁移顺序统一见
 [设置分类与访问架构方案](SETTINGS_ARCHITECTURE.md)。本文件保留已实施的数据边界，

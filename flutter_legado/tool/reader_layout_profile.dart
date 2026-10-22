@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_legado/src/features/reader/layout/paragraph_layout_engine.dart';
-import 'package:flutter_legado/src/features/reader/layout/layout_diagnostics.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_diagnostics.dart';
 import 'package:flutter_legado/src/features/reader/widgets/reader_text_content.dart';
 import 'package:flutter_legado/src/features/reader/layout/text_layout_environment.dart';
 import 'package:flutter_legado/src/features/reader/layout/reader_title_layout.dart';

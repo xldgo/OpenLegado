@@ -4,9 +4,12 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_legado/src/services/reader_layout_service.dart';
-import 'package:flutter_legado/src/services/reader_layout_data.dart';
-import 'package:flutter_legado/src/features/reader/layout/layout_diagnostics.dart';
+import 'package:flutter_legado/src/domain/contracts/reader_layout_transport.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_reply.dart';
+import 'package:flutter_legado/src/domain/errors/reader_layout_cancelled.dart';
+import 'package:flutter_legado/src/domain/services/reader_layout_session.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_data.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_diagnostics.dart';
 import 'package:flutter_legado/src/features/reader/layout/reader_layout_element.dart';
 
 class _Transport implements ReaderLayoutTransport {

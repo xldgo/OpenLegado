@@ -4,6 +4,7 @@
 
 - 仅调整Dart内部目录与依赖：ReaderSourceAnchor模型归domain，ReaderPositionStore偏好读写归data；原键reader_source_anchor_v2、version=2、coordinate=utf16、字段名及恢复/拒绝规则不变，不增加迁移或清洗。
 - 后续布局传输接口、只读返回数据与串行会话归domain，原生句柄及FRB映射归data，InheritedWidget注入归reader，原生实现从应用装配提供。会话取消、顺序、失败释放、诊断及既有默认原生路径不变，不新增Dart算法回退。
+- Dart内部ReaderLayoutSession构造器显式接收transport，不再由领域会话构造原生实现；ParagraphLayoutEngine维持“显式参数→InheritedWidget→应用默认工厂”的选择顺序。ReaderLayoutReply的原生DTO转换移入data，空begin结果由empty构造，解码及数据内容不变；正式调用方和既有测试同步，不留旧路径导出。
 - readerLayoutBegin及opaque句柄push/finish/cancel的FRB签名、载荷与错误、数据库、生成绑定和方法计数全部不变；不运行codegen。只读数据仍使用同一缓冲和字形簇/UTF-16索引规则，不新增复制或序列化。
 
 编写者：Codex + UI / Bridge｜2026-10-22

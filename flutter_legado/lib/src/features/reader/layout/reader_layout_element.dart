@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
-import '../../../services/reader_layout_data.dart';
+import '../../../domain/models/reader_layout_data.dart';
 
 /// 上游通用页面元素；资源和样式载荷保持原样，几何只读取 Rust 的结果。
 enum ReaderElementKind {

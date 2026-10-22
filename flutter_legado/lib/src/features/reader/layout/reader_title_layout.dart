@@ -5,7 +5,7 @@ import 'flutter_text_shaper.dart';
 import 'paragraph_config.dart';
 import '../widgets/reader_page_chrome.dart';
 import 'text_layout_environment.dart';
-import 'layout_diagnostics.dart';
+import '../../../domain/models/reader_layout_diagnostics.dart';
 
 /// 标题文字与正文原文分开，样式、分段及几何在排版入口一次冻结。— Codex + UI
 final class ReaderTitleLayout {

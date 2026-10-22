@@ -7,8 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_legado/src/bridge/frb_generated.dart';
 import 'package:flutter_legado/src/domain/errors/app_exception.dart';
-import 'package:flutter_legado/src/services/reader_layout_service.dart';
-
+import 'package:flutter_legado/src/domain/contracts/reader_layout_transport.dart';
+import 'package:flutter_legado/src/domain/models/reader_layout_reply.dart';
+import 'package:flutter_legado/src/data/services/native_reader_layout_transport.dart';
+import 'package:flutter_legado/src/features/reader/layout/reader_layout_transport_scope.dart';
 /// 每个测试进程加载一次正式绑定；排版不需要数据库或应用启动。— Codex + Bridge
 void setUpNativeReaderLayout() {
   TestWidgetsFlutterBinding.ensureInitialized();
