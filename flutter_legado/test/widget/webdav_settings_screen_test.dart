@@ -1,5 +1,9 @@
 library;
 
+import 'dart:async';
+
+import 'package:flutter_legado/src/domain/models/webdav_probe_result.dart';
+
 import 'package:flutter_legado/src/domain/models/webdav_sync_result.dart';
 
 import '../fixtures/app_test_api.dart';
@@ -36,6 +40,7 @@ class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
   WebDavConnection saved = const WebDavConnection(url: 'https://saved.example');
   bool failSave = true;
   bool failLoad = false;
+  int saveCalls = 0;
 
   @override
   Future<WebDavConnection> load() async {
@@ -45,6 +50,7 @@ class _ConnectionRepository extends Fake implements WebDavConnectionRepository {
 
   @override
   Future<WebDavConnection> save(WebDavConnection connection) async {
+    saveCalls++;
     if (failSave) throw StateError('模拟保存失败');
     return saved = connection.normalized;
   }
@@ -365,9 +371,47 @@ void main() {
     // 未发起探测，状态保持「未测试」
     expect(find.text('未测试'), findsOneWidget);
     expect(find.text('✗ 失败'), findsNothing);
+    verifyNever(() => mockApi.webDavService.webdavProbe(any()));
+  });
+
+  testWidgets('连接测试展示异步结果，失败后可重试且不保存或同步', (tester) async {
+    final repository = _ConnectionRepository();
+    final pending = Completer<WebDavProbeResult>();
+    when(() => mockApi.webDavService.webdavProbe(any()))
+        .thenAnswer((_) => pending.future);
+    await pumpScreen(tester, repository: repository);
+    await tester.tap(find.text('测试配置'));
+    await tester.pump();
+    await tester.tap(find.text('测试配置'));
+    verify(() => mockApi.webDavService.webdavProbe(repository.saved)).called(1);
+    pending.complete(
+      const WebDavProbeResult(
+        WebDavProbeStatus.authenticationFailed,
+        statusCode: 401,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('认证失败，请检查账号/密码'), findsOneWidget);
+    expect(find.text('✗ 失败'), findsOneWidget);
+
+    when(() => mockApi.webDavService.webdavProbe(any())).thenAnswer(
+      (_) async =>
+          const WebDavProbeResult(WebDavProbeStatus.success, statusCode: 207),
+    );
+    await tester.tap(find.text('测试配置'));
+    await tester.pumpAndSettle();
+    expect(find.text('✓ 连接成功'), findsOneWidget);
+    expect(repository.saveCalls, 0);
+    verify(() => mockApi.webDavService.webdavProbe(repository.saved)).called(1);
+    verifyNever(
+      () => mockApi.webDavService.webdavFullSync(any(), any(), any()),
+    );
   });
 
   testWidgets('地址非 http(s)：点击「测试配置」提示地址格式错误', (tester) async {
+    when(() => mockApi.webDavService.webdavProbe(any())).thenAnswer(
+      (_) async => const WebDavProbeResult(WebDavProbeStatus.invalidUrl),
+    );
     await pumpScreen(tester);
 
     // 通过「WebDAV 服务器地址」行填入非法地址（弹框前该文案仅行标题一处）
@@ -384,8 +428,13 @@ void main() {
     await tester.tap(find.text('测试配置'));
     await tester.pumpAndSettle();
 
-    expect(find.text('服务器地址需要以 http(s):// 开头'), findsOneWidget);
-    // 未发起探测，状态保持「未测试」
-    expect(find.text('未测试'), findsOneWidget);
+    expect(find.text('服务器地址无效，请填写完整的 http(s):// 地址'), findsOneWidget);
+    expect(find.text('✗ 失败'), findsOneWidget);
+    final tested =
+        verify(() => mockApi.webDavService.webdavProbe(captureAny()))
+                .captured
+                .single
+            as WebDavConnection;
+    expect(tested.url, 'dav.example.com');
   });
 }

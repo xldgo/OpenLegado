@@ -125,6 +125,39 @@ impl From<crate::api::archive_import_api::ConvertResult> for EncodingConversionD
         }
     }
 }
+#[derive(Debug, Clone, Copy)]
+pub enum WebDavProbeStatusDto {
+    Success,
+    AuthenticationFailed,
+    HttpFailed,
+    TimedOut,
+    NetworkFailed,
+    InvalidUrl,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebDavProbeResultDto {
+    pub status: WebDavProbeStatusDto,
+    pub status_code: Option<u16>,
+}
+
+impl From<legado_net::webdav::WebDavProbeResult> for WebDavProbeResultDto {
+    fn from(value: legado_net::webdav::WebDavProbeResult) -> Self {
+        use legado_net::webdav::WebDavProbeStatus as Status;
+        Self {
+            status: match value.status {
+                Status::Success => WebDavProbeStatusDto::Success,
+                Status::AuthenticationFailed => WebDavProbeStatusDto::AuthenticationFailed,
+                Status::HttpFailed => WebDavProbeStatusDto::HttpFailed,
+                Status::TimedOut => WebDavProbeStatusDto::TimedOut,
+                Status::NetworkFailed => WebDavProbeStatusDto::NetworkFailed,
+                Status::InvalidUrl => WebDavProbeStatusDto::InvalidUrl,
+            },
+            status_code: value.status_code,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WebDavFileDto {
     pub name: String,

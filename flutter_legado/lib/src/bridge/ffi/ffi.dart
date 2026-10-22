@@ -1998,6 +1998,10 @@ Future<bool> saveCoverRule({required CoverRuleDto rule}) =>
 Future<bool> deleteCoverRule() =>
     RustLib.instance.api.crateFfiFfiDeleteCoverRule();
 
+/// 只读连接测试，协议及超时判定由网络层统一处理。
+Future<WebDavProbeResultDto> webdavProbe({required String configJson}) =>
+    RustLib.instance.api.crateFfiFfiWebdavProbe(configJson: configJson);
+
 /// 列出 WebDAV 远程目录元数据。
 Future<List<WebDavFileDto>> webdavListDir({
   required String configJson,

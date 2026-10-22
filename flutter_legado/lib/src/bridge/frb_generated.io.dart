@@ -363,6 +363,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TtsCacheContextDto dco_decode_box_autoadd_tts_cache_context_dto(dynamic raw);
 
   @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw);
+
+  @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -876,6 +879,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TocRuleDto? dco_decode_opt_box_autoadd_toc_rule_dto(dynamic raw);
 
   @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw);
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -1066,6 +1072,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebDavFileDto dco_decode_web_dav_file_dto(dynamic raw);
+
+  @protected
+  WebDavProbeResultDto dco_decode_web_dav_probe_result_dto(dynamic raw);
+
+  @protected
+  WebDavProbeStatusDto dco_decode_web_dav_probe_status_dto(dynamic raw);
 
   @protected
   WebDavSyncResultDto dco_decode_web_dav_sync_result_dto(dynamic raw);
@@ -1473,6 +1485,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TtsCacheContextDto sse_decode_box_autoadd_tts_cache_context_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
@@ -2180,6 +2195,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer);
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -2416,6 +2434,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   WebDavFileDto sse_decode_web_dav_file_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavProbeResultDto sse_decode_web_dav_probe_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebDavProbeStatusDto sse_decode_web_dav_probe_status_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   WebDavSyncResultDto sse_decode_web_dav_sync_result_dto(
@@ -2923,6 +2951,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     TtsCacheContextDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
@@ -3825,6 +3856,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
@@ -4133,6 +4167,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_web_dav_file_dto(
     WebDavFileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_probe_result_dto(
+    WebDavProbeResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_probe_status_dto(
+    WebDavProbeStatusDto self,
     SseSerializer serializer,
   );
 

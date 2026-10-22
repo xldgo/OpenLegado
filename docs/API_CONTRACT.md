@@ -2618,7 +2618,22 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | `getAudioProgress(String bookUrl, int chapterIndex)` | bookUrl, chapterIndex | `Future<Map<String, dynamic>?>` | 获取音频播放进度 |
 | `saveAudioProgress(String bookUrl, int chapterIndex, int positionMs)` | bookUrl, chapterIndex, positionMs | `Future<void>` | 保存音频播放进度 |
 
-### 2.28 WebDAV 云同步（7 个方法）
+### 2.28 WebDAV 云同步（8 个方法）
+
+**连接测试下沉（RUST-BOUNDARY B5，2026-10-23，实施前冻结）**：新增只读FRB
+`webdav_probe(config_json: String) -> Result<WebDavProbeResultDto, BridgeError>`，
+Dart窄接口为`webdavProbe(WebDavConnection) -> Future<WebDavProbeResult>`。
+复用Rust WebDavClient及应用CustomHosts，对草稿服务器地址本身发起一次PROPFIND，
+Depth为0，不拼接remote_dir；账号或密码非空才携带Basic Auth。5秒预算覆盖请求至
+响应头，不读取响应体，不解析目录XML，不重试、不建目录、不写配置或同步数据。
+结果包含status（success/authenticationFailed/httpFailed/timedOut/networkFailed/invalidUrl）
+和可空statusCode：200/207成功，401/403认证失败，其余HTTP状态为httpFailed；
+无HTTP响应的结果无statusCode，地址须为含主机的HTTP(S) URL。
+网络/超时以分类结果返回，不向UI暴露含凭据的请求地址或响应正文；配置编码错误等
+调用错误仍使用BridgeError。Flutter仅处理必填提示、加载状态与结果展示，Mock不联网。
+本批只新增1个FRB方法，不修改配置持久化、备份/同步流程或其余方法签名。
+
+编写者：Codex + Rust / UI / Bridge｜2026-10-23
 
 **Dart数据边界拆分（2026-10-15，实施前冻结）**：七项远程操作由`WebDavService`
 及其直接FRB/Mock实现承担，配置参数改为`WebDavConnection`，JSON仅在FRB适配层编码。
@@ -2643,6 +2658,7 @@ Mock保留旧固定50MB/3书/30章、清理空操作和压缩固定10MB的展示
 | 方法 | 入参 | 返回 | 说明 |
 |------|------|------|------|
 | `webdavListDir(WebDavConnection connection, String path)` | connection, path | `Future<List<Map<String, dynamic>>>` | WebDAV 列出远程目录；FRB返回JSON，数据层解码为对象列表，字段：`name` / `path` / `size` / `last_modified` / `etag` / `is_dir` |
+| `webdavProbe(WebDavConnection connection)` | 草稿连接配置 | `Future<WebDavProbeResult>` | 只读连接测试，分类及HTTP状态由Rust返回，不落库 |
 | `webdavUpload(WebDavConnection connection, String path, String data)` | connection, path, data | `Future<void>` | WebDAV 上传文件 |
 | `webdavDownload(WebDavConnection connection, String path)` | connection, path | `Future<String>` | WebDAV 下载文件（**仅 UTF-8 文本**；二进制请用 `webdavDownloadFile`） |
 | `webdavDelete(WebDavConnection connection, String path)` | connection, path | `Future<void>` | WebDAV 删除远程文件 |

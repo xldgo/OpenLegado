@@ -2,7 +2,9 @@
 use legado_core::LegadoResult;
 use legado_net::{
     custom_hosts::CustomHosts,
-    webdav::{BookSyncManager, SyncResult, WebDavClient, WebDavConfig, WebDavFileInfo},
+    webdav::{
+        BookSyncManager, SyncResult, WebDavClient, WebDavConfig, WebDavFileInfo, WebDavProbeResult,
+    },
 };
 use std::sync::Arc;
 pub struct WebDavService {
@@ -15,6 +17,9 @@ impl WebDavService {
     }
     fn client(&self, config: WebDavConfig) -> WebDavClient {
         WebDavClient::with_custom_hosts(config, self.hosts.clone())
+    }
+    pub fn webdav_probe(&self, config: WebDavConfig) -> WebDavProbeResult {
+        self.runtime.block_on(self.client(config).probe())
     }
     pub fn webdav_list_dir(
         &self,

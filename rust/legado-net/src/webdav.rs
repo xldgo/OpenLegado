@@ -17,6 +17,23 @@ pub struct WebDavConfig {
     pub remote_dir: String,
 }
 
+/// 连接测试只返回分类，不携带服务器正文或含凭据的错误地址。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebDavProbeStatus {
+    Success,
+    AuthenticationFailed,
+    HttpFailed,
+    TimedOut,
+    NetworkFailed,
+    InvalidUrl,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebDavProbeResult {
+    pub status: WebDavProbeStatus,
+    pub status_code: Option<u16>,
+}
+
 /// WebDAV 文件信息
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WebDavFileInfo {
@@ -59,6 +76,56 @@ impl WebDavClient {
 
     fn full_url(&self, path: &str) -> String {
         format!("{}{}{}", self.config.url, self.config.remote_dir, path)
+    }
+
+    /// 只探测配置的服务器地址，不建同步目录，也不读取响应正文。
+    pub async fn probe(&self) -> WebDavProbeResult {
+        use WebDavProbeStatus::*;
+        let Ok(url) = url::Url::parse(self.config.url.trim()) else {
+            return WebDavProbeResult {
+                status: InvalidUrl,
+                status_code: None,
+            };
+        };
+        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+            return WebDavProbeResult {
+                status: InvalidUrl,
+                status_code: None,
+            };
+        }
+        let mut request = self
+            .client
+            .request(
+                reqwest::Method::from_bytes(b"PROPFIND").expect("固定方法名有效"),
+                url,
+            )
+            .header("Depth", "0")
+            .timeout(Duration::from_secs(5));
+        if !self.config.username.is_empty() || !self.config.password.is_empty() {
+            request = request.header("Authorization", self.auth_header());
+        }
+        match request.send().await {
+            Ok(response) => {
+                let code = response.status().as_u16();
+                let status = match code {
+                    200 | 207 => Success,
+                    401 | 403 => AuthenticationFailed,
+                    _ => HttpFailed,
+                };
+                WebDavProbeResult {
+                    status,
+                    status_code: Some(code),
+                }
+            }
+            Err(error) => WebDavProbeResult {
+                status: if error.is_timeout() {
+                    TimedOut
+                } else {
+                    NetworkFailed
+                },
+                status_code: None,
+            },
+        }
     }
 
     /// PROPFIND — 列出目录内容
@@ -884,6 +951,9 @@ impl BookSyncManager {
         unreachable!()
     }
 }
+
+#[cfg(test)]
+mod probe_tests;
 
 #[cfg(test)]
 mod tests {
